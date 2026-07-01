@@ -7,6 +7,33 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive types mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows,
+  mutation-tested `crates/wildside-core/src/types.rs` via
+  `OUTPUT=.cache/mutants/types-current FILE=crates/wildside-core/src/types.rs mise run mutants-file`.
+- Initial evidence: full types shard reported `227 mutants tested in 25m:
+  51 missed, 166 caught, 7 unviable, 3 timeouts`.
+- This pass adds type-level regressions for `BlockInteractionState`
+  evanescent/shooter reset and recycle helpers, Island shore DMA default
+  deserialisation, full helmet-id mapping, controller bit layout, GEMS command
+  names, serde skip predicates, authoritative CRC scope, ROM RNG ring offset
+  and long-word byte order, level timer expiry boundaries, and the `loc_EC76`
+  shooter-block projectile constructor.
+- Follow-up evidence: targeted rerun `/tmp/mutants-types-target-1` reports
+  `137 mutants tested in 7m: 3 missed, 133 caught, 1 unviable`; after adding
+  the missing `seconds > 0 && sub_frames == 0` timer case, follow-up
+  `/tmp/mutants-types-followup-1` reports `86 mutants tested in 5m: 2 missed,
+  84 caught`.
+  The two remaining misses are equivalent `FrameInput` bit-zero mutants:
+  replacing `1 << 0` with `1 >> 0` still evaluates to the same mask bit.
+- Verification: `cargo fmt --check` and
+  `cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas
+  --skip snapshot` passed.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-01 handoff (proactive physics mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows,

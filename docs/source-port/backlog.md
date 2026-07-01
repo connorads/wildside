@@ -28,18 +28,22 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Fallback verification:** `crates/wildside-core/src/physics.rs`
+- **Fallback verification:** `crates/wildside-core/src/types.rs`
   mutation-hardening pass started from
-  `OUTPUT=.cache/mutants/physics-current FILE=crates/wildside-core/src/physics.rs
-  mise run mutants-file`, which reported `293 mutants tested in 30m: 3
-  missed, 278 caught, 12 unviable`.
-- **Physics follow-up evidence:** added the missing `loc_728C` exact-threshold
-  bottom-camera assertion; targeted rerun `/tmp/mutants-physics-camera-target`
-  reports `34 mutants tested in 3m: 1 missed, 33 caught`. The remaining
-  `loc_7346` exact-gap `<`→`<=` survivor is equivalent because the clamp writes
-  the same high word already implied by `camera_px - wall_px == d1`.
-  `cargo test -q -p wildside-core loc_728c_bottom_look_adjust -- --nocapture`
-  and `mise run verify-slice-fast` are green.
+  `OUTPUT=.cache/mutants/types-current FILE=crates/wildside-core/src/types.rs
+  mise run mutants-file`, which reported `227 mutants tested in 25m: 51
+  missed, 166 caught, 7 unviable, 3 timeouts`.
+- **Types follow-up evidence:** added type-level regressions for block-state
+  resets/recycling, Island shore DMA defaults, helmet-id mapping, controller
+  bit layout, sound command names, serde skip predicates, authoritative CRC
+  scope, ROM RNG ring offsets, level timer expiry, and shooter-block projectile
+  construction. Targeted rerun `/tmp/mutants-types-target-1` reports `137
+  mutants tested in 7m: 3 missed, 133 caught, 1 unviable`; follow-up
+  `/tmp/mutants-types-followup-1` reports `86 mutants tested in 5m: 2 missed,
+  84 caught`. The two remaining misses are equivalent `1 << 0` → `1 >> 0`
+  mutants in `FrameInput` bit-zero masks. `cargo fmt --check` and
+  `cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas
+  --skip snapshot` are green.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 

@@ -3633,6 +3633,145 @@ mod tests {
     use super::*;
 
     #[test]
+    fn block_interaction_resets_evanescent_state_loc_df30() {
+        let mut state = BlockInteractionState::default();
+        let initial = crate::level::initialise_evanesc_object_slots_loc_DF30();
+        let allocated_slot = state
+            .allocate_evanescent_slot_loc_DF68()
+            .expect("initial free evanescent slot");
+        state.evanescent_blocks.push(EvanescentEntry {
+            slot_addr: allocated_slot,
+            col: 3,
+            row: 4,
+            directions: 0x0F,
+            timer: -2,
+            bullets_loaded: true,
+        });
+
+        state.reset_evanescent_state_loc_DF30();
+
+        assert!(state.evanescent_blocks.is_empty());
+        assert_eq!(
+            state.evanescent_next_free_slot_addr,
+            initial.next_free_evanescent_object_slot_addr
+        );
+        assert_eq!(
+            state.evanescent_first_active_slot_addr,
+            initial.first_evanescent_object_slot_addr
+        );
+        assert_eq!(state.evanescent_slot_links, initial.evanescent_slots);
+    }
+
+    #[test]
+    fn block_interaction_recycles_evanescent_slot_loc_ecd8() {
+        let mut state = BlockInteractionState::default();
+        let allocated_slot = state
+            .allocate_evanescent_slot_loc_DF68()
+            .expect("initial free evanescent slot");
+        let next_free_after_allocation = state.evanescent_next_free_slot_addr;
+
+        state.recycle_evanescent_slots_loc_ECD8(&[allocated_slot]);
+
+        assert_eq!(state.evanescent_first_active_slot_addr, 0);
+        assert_eq!(state.evanescent_next_free_slot_addr, allocated_slot);
+        assert_eq!(
+            state
+                .evanescent_slot_links
+                .iter()
+                .find(|slot| slot.slot_addr == allocated_slot)
+                .expect("recycled slot link")
+                .next_slot_addr,
+            next_free_after_allocation
+        );
+    }
+
+    #[test]
+    fn block_interaction_resets_shooter_state_sub_f06a() {
+        let mut state = BlockInteractionState::default();
+        let expected = crate::level::initialise_shooter_object_slots_sub_F06A();
+        state.shooter_blocks.push(ShooterBlockEntry {
+            col: 2,
+            row: 5,
+            directions: 0x03,
+            supported_by_neighbour: true,
+            restored_touch_shooter: true,
+            age: 17,
+        });
+        state.shooter_headbutt_workers.push(ShooterHeadbuttWorker {
+            col: 2,
+            row: 4,
+            age: 3,
+            kind: ShooterHeadbuttWorkerKind::Support,
+        });
+        state.shooter_last_scanned_col = 12;
+        state.shooter_last_scanned_row = 34;
+
+        state.reset_shooter_state_sub_F06A();
+
+        assert!(state.shooter_blocks.is_empty());
+        assert!(state.shooter_headbutt_workers.is_empty());
+        assert_eq!(
+            state.shooter_last_scanned_col,
+            expected.last_shooter_block_col
+        );
+        assert_eq!(
+            state.shooter_last_scanned_row,
+            expected.last_shooter_block_row
+        );
+    }
+
+    #[test]
+    fn island_shore_dma_defaults_art_source_label_loc_1202a() {
+        let json = r#"{
+            "frame_index": 2,
+            "source_offset": 64,
+            "vram_word_address": 16384,
+            "dma_length_bytes": 32
+        }"#;
+
+        let upload: IslandShoreDmaUploadLoc1202A =
+            serde_json::from_str(json).expect("island shore DMA upload");
+
+        assert_eq!(upload.art_source_label, "unk_9784A");
+    }
+
+    #[test]
+    fn player_form_maps_all_helmet_ids() {
+        let forms = [
+            PlayerForm::TheKid,
+            PlayerForm::Skycutter,
+            PlayerForm::Cyclone,
+            PlayerForm::RedStealth,
+            PlayerForm::Eyeclops,
+            PlayerForm::Juggernaut,
+            PlayerForm::IronKnight,
+            PlayerForm::Berzerker,
+            PlayerForm::Maniaxe,
+            PlayerForm::Micromax,
+        ];
+
+        for (helmet_id, form) in forms.into_iter().enumerate() {
+            assert_eq!(PlayerForm::from_helmet_id(helmet_id as u16), Some(form));
+            assert_eq!(form.helmet_id(), helmet_id as u16);
+        }
+        assert_eq!(PlayerForm::from_helmet_id(10), None);
+    }
+
+    #[test]
+    fn frame_input_decodes_controller_bit_layout_loc_7464() {
+        let input = FrameInput::from_mask(0b1010_0101);
+
+        assert!(input.up);
+        assert!(!input.down);
+        assert!(input.left);
+        assert!(!input.right);
+        assert!(!input.b);
+        assert!(input.c);
+        assert!(!input.a);
+        assert!(input.start);
+    }
+
+    #[test]
     fn frame_input_mask_round_trip_all_values() {
         for mask in 0..=u8::MAX {
             let input = FrameInput::from_mask(mask);
@@ -3662,6 +3801,114 @@ mod tests {
     #[test]
     fn frame_input_to_mask_empty() {
         assert_eq!(FrameInput::default().to_mask(), 0);
+    }
+
+    #[test]
+    fn native_sound_command_names_match_gems_command_bytes() {
+        assert_eq!(
+            NativeSoundCommand::start_sequence(4).command_name(),
+            "StartSequence"
+        );
+        assert_eq!(
+            NativeSoundCommand::stop_sequence(4).command_name(),
+            "StopSequence"
+        );
+        assert_eq!(
+            NativeSoundCommand {
+                command_byte: 0x99,
+                sound_id: 4,
+            }
+            .command_name(),
+            "SoundCommand"
+        );
+    }
+
+    #[test]
+    fn serde_skip_predicates_match_zero_and_false_values() {
+        assert!(is_zero_u8(&0));
+        assert!(!is_zero_u8(&1));
+        assert!(is_zero_u16(&0));
+        assert!(!is_zero_u16(&1));
+        assert!(is_zero_usize(&0));
+        assert!(!is_zero_usize(&1));
+        assert!(is_false(&false));
+        assert!(!is_false(&true));
+    }
+
+    #[test]
+    fn native_trace_frame_authoritative_crc_tracks_authoritative_fields() {
+        let mut frame = NativeTraceFrame::default();
+        let base_crc = frame.authoritative_crc32();
+
+        assert_ne!(base_crc, 0);
+        assert_ne!(base_crc, 1);
+        frame.number_lives = frame.number_lives.wrapping_add(1);
+        assert_eq!(
+            frame.authoritative_crc32(),
+            base_crc,
+            "advisory life count is excluded from authoritative divergence checks"
+        );
+        frame.camera_x_pos = frame.camera_x_pos.wrapping_add(0x0001_0000);
+        assert_ne!(frame.authoritative_crc32(), base_crc);
+    }
+
+    #[test]
+    fn rom_random_state_preserves_ring_offset_and_next_long_order() {
+        let mut rng = RomRandomState::default();
+
+        assert_eq!(rng.offset_word(), 0xFFC9);
+        assert_eq!(rng.last_byte(), 0x89);
+        assert_eq!(rng.next_long(), 0xC092_0397);
+        assert_eq!(rng.offset_word(), 0xFFCD);
+        assert_eq!(rng.last_byte(), 0x97);
+
+        let restored = RomRandomState::from_raw_parts(RomRandomState::SEED, 0xFFCA);
+        assert_eq!(restored.offset_word(), 0xFFCA);
+        assert_eq!(restored.last_byte(), 0x72);
+    }
+
+    #[test]
+    fn level_timer_ticks_to_expiry_from_last_subframe() {
+        let mut timer = LevelTimer {
+            seconds: 0,
+            sub_frames: 1,
+        };
+
+        assert!(timer.tick());
+        assert_eq!(timer.sub_frames, 0);
+
+        let mut timer = LevelTimer {
+            seconds: 1,
+            sub_frames: 1,
+        };
+        assert!(!timer.tick());
+        assert_eq!(timer.seconds, 0);
+        assert_eq!(timer.sub_frames, crate::LEVEL_TIMER_FRAMES_PER_SECOND);
+
+        let mut timer = LevelTimer {
+            seconds: 1,
+            sub_frames: 0,
+        };
+        assert!(!timer.tick());
+        assert_eq!(timer.seconds, 0);
+        assert_eq!(timer.sub_frames, crate::LEVEL_TIMER_FRAMES_PER_SECOND);
+    }
+
+    #[test]
+    fn shooter_block_projectile_constructor_preserves_layout_source_loc_ec76() {
+        let projectile =
+            EnemyProjectile::shooter_block_from_centre_loc_EC76(7, 11, 120, 80, 0x12000, -0x8000);
+
+        assert_eq!(projectile.x_pos, 120 << 16);
+        assert_eq!(projectile.y_pos, 80 << 16);
+        assert_eq!(projectile.x_velocity, 0x12000);
+        assert_eq!(projectile.y_velocity, -0x8000);
+        assert_eq!(projectile.lifetime, 120);
+        assert_eq!(projectile.kind, EnemyProjectileKind::ShooterBlock);
+        assert!(projectile.shooter_tracks_layout);
+        assert_eq!(projectile.shooter_layout_col, 7);
+        assert_eq!(projectile.shooter_layout_row, 11);
+        assert_eq!(projectile.shooter_state_word, 0xFFFE);
     }
 
     #[test]
