@@ -45,9 +45,12 @@ and stop — never commit churn.
   are not the live failure:
   `issue271-route-current-20260702` is a miss, and
   `issue271-sharp-current-20260702` is side/edge damage in both native and
-  oracle; a small jump sweep can produce native `result=stomp`, so the next
-  useful artefact is a live targeted `play-native --record` route for the
-  reported failing jump. Then run the generated `verify-recording` /
+  oracle. `issue271-sharp-sweep-jump184-20260702`, materialised from a
+  `jump=184-206:4:1:right+b+c` batch, is a same-frame Tank stomp at frame 223
+  and focused `tas-diff` frames 220..227 are MATCH, so nearby synthetic
+  first-overlap stomps are also not the live failure. The next useful artefact
+  is a live targeted `play-native --record` route for the reported failing
+  jump. Then run the generated `verify-recording` /
   `tas_frontier_command` before changing combat. Do not retry generic left
   extra-step/left boundary patches from the older sharp-route phase note:
   current `tas-diff` reports frames 0..5 MATCH, frames 216..221 transiently

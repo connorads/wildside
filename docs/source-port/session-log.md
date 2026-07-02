@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — RockTank synthetic stomp sweep rejected
+
+- #271 remains open/in progress. Ran a bounded native batch over the current
+  sharp route (`jump=184-206:4:1:right+b+c`) and materialised
+  `issue271-sharp-sweep-jump184-20260702`.
+- The saved candidate scores as a same-frame Tank stomp at frame 223, but
+  focused `tas-diff` frames 220..227 are MATCH and both sides drop Tank HP to 1
+  at frame 224. This proves nearby synthetic first-overlap stomps are
+  oracle-parity, not the live Red Stealth/Level-2 failure.
+- Verification: batch scorer, saved route scorer,
+  `verify-tas --bisect` (known frame-99 transient), and focused contact-window
+  `tas-diff`.
+
 ## 2026-07-02 — RockTank sharp route parity rejected
 
 - #271 remains open/in progress. Re-ran current sharp route

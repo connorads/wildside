@@ -13,6 +13,19 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #271
 
+Investigation note 2026-07-02: bounded synthetic stomp route search found no
+native-only Tank-stomp failure. A batch over the current sharp base route
+(`jump=184-206:4:1:right+b+c`) produced many native same-frame stomp
+candidates; the materialised `issue271-sharp-sweep-jump184-20260702` route
+scores `enemy contact 0x0A: result stomp ... @223 same_frame_stomp=true`.
+Focused `tas-diff` over frames 220..227 reports MATCH throughout: the ROM and
+native both register the stomp at frame 223, bounce Kid, and leave the Tank at
+HP 1 by frame 224. `verify-tas --bisect` still reports the known frame-99
+Tank phase/facing checkpoint divergence on this overlay, but the contact window
+itself resynchronises and is oracle-parity, so do not use this synthetic family
+to justify combat or shared-walker changes. The live failure still needs an
+exact targeted `play-native --record` route from the human path.
+
 Investigation note 2026-07-02: current `tas-diff` rejects the sharp-route
 damage contact as a native-only RockTank stomp bug. For
 `.cache/recordings/issue271-sharp-current-20260702/scenario.json`, opening
