@@ -3514,6 +3514,46 @@ mod chunk_04 {
     }
 
     #[test]
+    fn goat_tracking_turns_without_taking_walk_step_loc_3cc36_3cc46() {
+        let grid = grid_with_floor_at_row(14);
+        let cases = [
+            (Direction::Left, 100, 133, Direction::Right),
+            (Direction::Right, 133, 100, Direction::Left),
+        ];
+
+        for (start_facing, goat_x, kid_x, expected_facing) in cases {
+            let mut goat = make_pacer(EnemyFamily::Goat, 3, goat_x, 0xE0);
+            goat.facing = start_facing;
+            let start_x = goat.x_pos;
+            let mut active = vec![goat];
+            let mut drilled_blocks = Vec::new();
+
+            step_active_enemies(
+                &mut active,
+                Some(&grid),
+                Some(kid_x << 16),
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+                &mut drilled_blocks,
+            );
+
+            assert_eq!(
+                active[0].facing, expected_facing,
+                "ASM Goat.asm loc_3CC36/loc_3CC46 should reface when Kid is more than 32px away"
+            );
+            assert_eq!(
+                active[0].x_pos, start_x,
+                "ASM Goat.asm loc_3CC36/loc_3CC46 branches to loc_3E392/loc_3E546, which hibernates the turn without a walk step"
+            );
+            assert_eq!(active[0].x_velocity, 0);
+            assert_eq!(active[0].y_velocity, 0);
+        }
+    }
+
+    #[test]
     fn goat_tracking_positive_shared_state_resumes_by_direction_loc_3cc52() {
         assert_eq!(
             goat_tracking_route_loc_3cc18(1, 100, 133, Direction::Left),

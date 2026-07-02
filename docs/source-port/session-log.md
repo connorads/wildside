@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 - proactive Goat tracking audit
+
+- Project-status still showed no ready/open risks after the Armadillo cadence
+  fix, so the next fallback was an ASM audit of another enemy family.
+- Audited Goat.asm `loc_3CC18`: the shared-walker callback is reached from
+  `loc_3E3AC`/`loc_3E560` before movement. Far-Kid turn routes
+  `loc_3CC36`/`loc_3CC46` branch to `loc_3E392`/`loc_3E546`, clear velocity,
+  set/clear `x_direction`, and hibernate instead of taking a walk step.
+- Added regression
+  `goat_tracking_turns_without_taking_walk_step_loc_3cc36_3cc46`. Red run
+  reproduced the native half-pixel drift (`0x0063_8000` vs `0x0064_0000`) when
+  a left-facing Goat turned right after `step_pacer`.
+- Moved live Goat tracking turn handling before `step_pacer` for grounded
+  shared-walker entries only. Resume/already-facing routes still walk normally;
+  airborne Goat falling remains on the existing pacer path.
+- Verification: focused red/green test, `cargo test -q -p wildside-core goat`,
+  `cargo fmt --all --check`, `git diff --check`, and `mise run
+  verify-slice-fast` pass. `mise run verify-tas-full` exits 0 with CRC all
+  37759 frames matching; the current long route still reports the known
+  `1p-accurate` state gap, now 212 authoritative diffs plus 2 oracle
+  limitations, first at `transition_15_to_00_post` on
+  DragonWalking/object-count.
+
 ## 2026-07-02 — proactive Armadillo cadence audit
 
 - Project-status showed no ready/open risks, only human validation/repro

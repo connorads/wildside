@@ -680,6 +680,44 @@ pub(crate) fn goat_tracking_route_loc_3cc18(
     GoatTrackingRouteLoc3CC18::Resume(goat_tracking_resume_route_loc_3cc52(facing))
 }
 
+fn step_goat_tracking_turn_loc_3cc18(enemy: &mut ActiveEnemy, player_x_pos: Option<u32>) -> bool {
+    if !matches!(enemy.family, EnemyFamily::Goat) || !enemy.on_ground {
+        return false;
+    }
+    let Some(px) = player_x_pos else {
+        return false;
+    };
+
+    match goat_tracking_route_loc_3cc18(
+        enemy.shared_walker_state,
+        (enemy.x_pos >> 16) as i16,
+        (px >> 16) as i16,
+        enemy.facing,
+    ) {
+        GoatTrackingRouteLoc3CC18::Right(GoatTrackingRightRouteLoc3CC36::TurnRight) => {
+            // ASM Goat.asm loc_3CC36 -> loc_3E392: set x_direction, clear
+            // velocity, and hibernate before the rightward shared-walker step.
+            enemy.facing = Direction::Right;
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            true
+        }
+        GoatTrackingRouteLoc3CC18::Left(GoatTrackingLeftRouteLoc3CC46::TurnLeft) => {
+            // ASM Goat.asm loc_3CC46 -> loc_3E546: clear x_direction, clear
+            // velocity, and hibernate before the leftward shared-walker step.
+            enemy.facing = Direction::Left;
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            true
+        }
+        GoatTrackingRouteLoc3CC18::Resume(_)
+        | GoatTrackingRouteLoc3CC18::Right(GoatTrackingRightRouteLoc3CC36::AlreadyFacingRight)
+        | GoatTrackingRouteLoc3CC18::Left(GoatTrackingLeftRouteLoc3CC46::AlreadyFacingLeft) => {
+            false
+        }
+    }
+}
+
 pub(crate) const DIAMOND_HIGH_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AEB2: u16 = 0xAEB2;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -4538,34 +4576,10 @@ pub(crate) fn step_active_enemies_with_rng(
                             sound_effects.push(mouth_sound.queued_sound_effect());
                         }
                     }
-                    step_pacer(enemy, block_grid);
-                    // Goat: player-tracking callback (Goat.asm loc_3CC18).
-                    // Positive `$42(a3)` resumes through loc_3CC52; otherwise
-                    // if player is >32px away, turn to face them.
-                    if matches!(enemy.family, EnemyFamily::Goat)
-                        && let Some(px) = player_x_pos
-                    {
-                        match goat_tracking_route_loc_3cc18(
-                            enemy.shared_walker_state,
-                            (enemy.x_pos >> 16) as i16,
-                            (px >> 16) as i16,
-                            enemy.facing,
-                        ) {
-                            GoatTrackingRouteLoc3CC18::Right(
-                                GoatTrackingRightRouteLoc3CC36::TurnRight,
-                            ) => enemy.facing = Direction::Right,
-                            GoatTrackingRouteLoc3CC18::Left(
-                                GoatTrackingLeftRouteLoc3CC46::TurnLeft,
-                            ) => enemy.facing = Direction::Left,
-                            GoatTrackingRouteLoc3CC18::Resume(_)
-                            | GoatTrackingRouteLoc3CC18::Right(
-                                GoatTrackingRightRouteLoc3CC36::AlreadyFacingRight,
-                            )
-                            | GoatTrackingRouteLoc3CC18::Left(
-                                GoatTrackingLeftRouteLoc3CC46::AlreadyFacingLeft,
-                            ) => {}
-                        }
+                    if step_goat_tracking_turn_loc_3cc18(enemy, player_x_pos) {
+                        continue;
                     }
+                    step_pacer(enemy, block_grid);
                     // Scorpion: tracking callback (Scorpion.asm loc_3DD7E).
                     // Within 170px: face toward player (unless tracking-locked),
                     // boost speed to $38000 if enemy_level > 1 (HP > 3).

@@ -59,16 +59,19 @@ and stop — never commit churn.
 - **Proactive verification 2026-07-02:** with no ready/open queue rows,
   mutation fallback found no actionable source gaps (`armadillo.rs`: 34 caught,
   12 unviable; `spinning_twins.rs`: 105 caught, 21 unviable;
-  `big_hopping_skull.rs`: 56 caught, 15 unviable). ASM audit then found a live
-  Armadillo cadence gap: Armadillo.asm `loc_3C766`/`loc_3C7F8` seeds the shared
-  Scorpion.asm `loc_3DEA0` `$6E/$54` timer, so native now stores it in
-  `shared_walker_patrol_timer` and hibernates/reverses on expiry. Scorpion was
-  a false lead for that timer path: Scorpion itself installs `loc_3DD7E`, not
-  `loc_3DEA0`. `verify-slice-fast` passes; `verify-tas-full` still reports the
-  current `1p-accurate` state gap (first authoritative diff:
-  `transition_15_to_00_post` DragonWalking/object-count). ASM coverage remains
-  `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not cite
-  those wrappers just to move the metric.
+  `big_hopping_skull.rs`: 56 caught, 15 unviable). ASM audits found two live
+  shared-walker gaps. Armadillo.asm `loc_3C766`/`loc_3C7F8` now seeds the
+  shared Scorpion.asm `loc_3DEA0` `$6E/$54` timer through
+  `shared_walker_patrol_timer`, hibernating/reversing on expiry. Goat.asm
+  `loc_3CC18` now runs before the live pacer step; turn routes through
+  `loc_3CC36`/`loc_3CC46` clear velocity and hibernate through
+  `loc_3E392`/`loc_3E546` instead of walking half a pixel in the old
+  direction. `verify-slice-fast` passes; `verify-tas-full` exits 0 with CRC all
+  37759 frames matching but still reports the current `1p-accurate` state gap
+  (first authoritative diff: `transition_15_to_00_post`
+  DragonWalking/object-count). ASM coverage remains `0` ordinary uncovered
+  labels plus 21 emulated GEMS wrappers; do not cite those wrappers just to move
+  the metric.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
