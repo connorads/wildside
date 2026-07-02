@@ -26,17 +26,15 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-02 loop handoff:** open queue remains empty. `mise run
-  project-status` reports no ready items and no open playability/visual risks;
-  only human validation/repro blockers remain.
-- **Proactive verification:** `wildside-frame/src/sprites.rs` full mutation run
-  found render-selector gaps (969 tested: 154 missed, 756 caught, 59 unviable).
-  Added focused RockTank/palette tests; filtered subset
-  `--re 'rock_tank|TankTurret|select_enemy_palette'` is now clean (66 tested:
-  61 caught, 5 unviable).
-- **Next output:** run `mise run project-status`; if it still has no ready/open
-  rows, continue `sprites.rs` mutation follow-up outside the RockTank/palette
-  subset, or choose another fresh proactive-verification target.
+- **2026-07-02 #210/#254 fixed candidate:** exact old route
+  `2400:start,2700:start` stayed green, but adding a rapid menu-select Start at
+  `2720:start` reproduced native gameplay/black art while oracle stayed in the
+  title/menu -> Blue Lake Woods title-card path. Native now honours
+  `Obj_TitleMenu loc_1BB52` cursor-build and one `Title_InputLoop` hibernate
+  before `loc_1BBD6`; row-select Start no longer carries into title-card
+  `loc_1AE2E` on recorded cold-boot routes. #210/#254 are back in awaiting-human.
+- **Current focus:** classify the prize-block and tank/helmet reports with fresh
+  captures so #324/#252 do not absorb unrelated helmet-prize or route-only symptoms.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -58,3 +56,5 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 324 | [ ] | P1 | render/block | 2026-07-02 human reconfirm: prize/P blocks can still show a weird sprite or wrong art behind the wobble. Prior Highwater row-97 route is fixed, so this may be a different block/theme/route. | Capture exact current forest/Highwater prize-block hit and compare with oracle scene frames; do not patch blindly from the closed Highwater row-97 route. |
+| 252 | [ ] | P1 | render/enemy | 2026-07-02 human reconfirm: tank/helmet-looking sprite can still appear garbled. Treat as RockTank body/turret render unless a fresh capture proves it is a helmet-prize sprite. | Get exact current capture/route/frame; classify enemy RockTank vs prize helmet first, then compare selected sprite frames/palette against ASM. |

@@ -19497,16 +19497,18 @@ impl NativeRuntime {
             && !self.recorded_title_card_handoff_delay
             && level_has_title_card
             && !uses_load_ingame_bootstrap)
-            || (!uses_load_ingame_bootstrap
+            || (!carry_title_start
+                && !uses_load_ingame_bootstrap
                 && !level_has_title_card
                 && !matches!(self.boot_state, BootState::TitleScreen { .. }));
         self.boot_state = BootState::StartingLevel {
             // ASM loc_1AE2E: Load_TitleCard hibernates, clears the current
             // Ctrl_Pressed Start bit, and waits for a Start edge before
-            // writing Game_Mode=$000C. The title menu checks Ctrl_1_Pressed at
-            // Title_InputLoop/loc_1BBDE, so live/direct play can still carry
-            // that same menu edge into the later Ctrl_Pressed poll; recorded
-            // replay keeps the historical delay for deterministic TAS timing.
+            // writing Game_Mode=$000C. The title menu consumes the row-select
+            // Start at Title_InputLoop/loc_1BBD6 before jumping through loc_6E2,
+            // so recorded cold-boot routes must not carry that edge into the
+            // title card. Direct gameplay captures keep the historical bypass
+            // so pause/death probes can start from live Mode_Level windows.
             start_latched,
             // ASM Obj_TitleMenu `Title_InputLoop` writes `Game_Mode=$0008`
             // before it jumps to `loc_6E2`, so the cold-boot title-card

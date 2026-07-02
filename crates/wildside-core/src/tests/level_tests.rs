@@ -6937,6 +6937,49 @@ mod chunk_02 {
         assert_eq!(trace_3299.options_cursor, Some(0));
     }
 
+    #[test]
+    fn cold_boot_intro_sequence_6_menu_start_waits_for_loc_1bb52_cursor_build() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let mut trace_2721 = None;
+        let mut trace_3299 = None;
+
+        for frame_index in 0..=3_299 {
+            let input = if matches!(frame_index, 2_400 | 2_700 | 2_720) {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            let trace = runtime.step_frame(input);
+            if frame_index == 2_721 {
+                trace_2721 = Some(trace);
+            } else if frame_index == 3_299 {
+                trace_3299 = Some(trace);
+            }
+        }
+
+        let trace_2721 =
+            trace_2721.expect("title menu should still be active after boundary Start");
+        assert_eq!(
+            trace_2721.game_mode,
+            GameMode::TitleScreen,
+            "ASM Obj_TitleMenu loc_1BB52 builds the cursor before Title_InputLoop can accept loc_1BBD6 row selection"
+        );
+        assert_eq!(trace_2721.options_cursor, Some(0));
+
+        let trace_3299 =
+            trace_3299.expect("level title card should remain visible after row selection");
+        assert_eq!(
+            trace_3299.game_mode,
+            GameMode::LevelTransition,
+            "ASM Obj_TitleMenu loc_1BBD6 enters Load_TitleCard; the selected Start must not carry through loc_1AE2E into gameplay"
+        );
+    }
+
     fn cold_boot_vdp_after_optional_start(
         start_frame: Option<usize>,
         target_frame: usize,

@@ -87,7 +87,7 @@ pub(crate) const TITLE_SCREEN_MENU_ARM_GLOBAL_FRAME: usize = 178;
 /// ASM Obj_TitleMenu `Title_InputLoop` writes the next `Game_Mode` on the
 /// frame after Start is latched; native queues the selection on the press
 /// frame, then consumes it on the next outer frame.
-pub(crate) const TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES: usize = 0;
+pub(crate) const TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES: usize = 1;
 /// ASM Obj_TitleMenu `loc_1BB52` builds the interactive menu cursor before
 /// entering `Title_InputLoop`; oracle TAS traces keep the attract countdown
 /// inactive for this short setup window after the first Start press arms the

@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (#210/#254 menu-select fixed candidate)
+
+- **#210/#254 moved `[~]/[ ]` -> `[?]`.** Old route
+  `2400:start,2700:start` stayed clean; rapid menu-select route
+  `2400:start,2700:start,2720:start` reproduced the failed validation by
+  sending native into gameplay/black art while oracle stayed on title/menu then
+  the Blue Lake Woods title card.
+- Fix: gate title row selection while `Obj_TitleMenu loc_1BB52` cursor-build is
+  pending, model the one-frame `Title_InputLoop` hibernate before `loc_1BBD6`,
+  and prevent recorded cold-boot row-select Start from also releasing title-card
+  `loc_1AE2E`. Direct gameplay-capture harnesses keep their explicit bypass.
+- Verification: focused cache-backed #210 regression, direct-capture CLI
+  regression, native/oracle frame captures for the three-Start route, and
+  `mise run verify-slice-fast` green.
+- NEXT: run `mise run project-status`; current open visual reports are #324
+  prize/P block wobble art and #252 tank/helmet garble.
+
 ## 2026-07-02 handoff (proactive frame sprite mutation shard)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open

@@ -11872,21 +11872,29 @@ remains exact, with the known state-report divergences still first authoritative
 ### 2026-07-02 fixed candidate after failed-validation reopen
 
 - **#210 / #254 (intro/menu Red Stealth/title corruption, `[~]/[ ]` -> `[?]`).** Reproduced the
-  human-facing class with a fresh DynamicScenario route using `.cache/debug/issue210-current-intro-skip-probe/scenario.json`
-  plus `--input 2400:start --input 2700:start`: before the fix, native frame 3299 had already timed
-  out into demo/gameplay art while oracle still showed the Red Stealth title menu (`AE=71009`).
-  Re-read ASM `loc_1BAB0`, `Obj_TitleMenu loc_1BAEA/loc_1BAEE`, `loc_1BB52`, `Title_InputLoop`,
-  and `loc_1BB02`: the first Start opens the menu through `loc_1BB52`, which reloads `d0=$280`
-  before `Title_InputLoop`; it must not carry the pre-menu `loc_1BAEA` countdown into the active
-  menu. Native now scopes a reset-counted active-menu timeout to the early IntroSequence6
-  Start-skip/slot-2 carry lineage while preserving the elapsed-countdown model used by TAS cursor
-  routes. Evidence after the fix: `capture-scenario-frames` / `capture-oracle-scenario-frames` on
-  the same route match at frames `2700=0`, `2720=0`, `3000=0`, and `3299=0`, with only the known
-  8-pixel title-detail residue at `2800`. Regression coverage:
-  `cold_boot_intro_sequence_6_early_start_menu_keeps_loc_1bb52_timeout`, plus the existing
-  `cold_boot_intro_sequence_6_start_keeps_loc_1b37c_shell_until_loc_1b5ce`,
-  `title_menu_activation_restarts_loc_1bb52_timeout_counter`, and
-  `tas_title_cursor_moves_do_not_delay_attract_demo_handoff` checks.
+  failed-validation class with a fresh DynamicScenario route using
+  `.cache/debug/issue210-current-intro-skip-probe/scenario.json`. Control route
+  `--input 2400:start --input 2700:start` stayed clean, but the human-like rapid menu-select route
+  `--input 2400:start --input 2700:start --input 2720:start` diverged immediately after the third
+  Start: native frame 2721 jumped into gameplay/load-art state while oracle still showed the
+  Red Stealth title/menu, and by frame 3299 native showed gameplay while oracle was still on the
+  Blue Lake Woods title card. Re-read ASM `loc_1BAB0`, `Obj_TitleMenu loc_1BB52`,
+  `Title_InputLoop`, `loc_1BBD6`, and title-card gate `loc_1AE2E`: `loc_1BB52` builds the cursor
+  before `Title_InputLoop` can accept row selection, `Title_InputLoop` hibernates one frame before
+  polling Start, and `loc_1BBD6` consumes the row-select Start before jumping through `loc_6E2`.
+  Native now ignores row-select Start while the cursor-build window is pending, delays the
+  selection hand-off by one frame, and prevents recorded cold-boot row-select Start from also
+  releasing `loc_1AE2E`; direct gameplay-capture harnesses keep their existing bypass through
+  `!recorded_title_card_handoff_delay`. Evidence after the fix: the failing three-Start route is
+  exact at frames `2700`, `2720`, and `2721`; frame 3299 is the Blue Lake Woods title card instead
+  of gameplay/black art. The remaining 3299 pixel delta is title-card text/worker placement debt,
+  not the menu/title corruption class. Regression coverage:
+  `cold_boot_intro_sequence_6_menu_start_waits_for_loc_1bb52_cursor_build`, existing
+  `cold_boot_intro_sequence_6_early_start_menu_keeps_loc_1bb52_timeout`, and the direct-capture
+  guard `gameplay_regression_pause_resume_native_capture_carries_title_start_loc_1bbde_1ae2e`.
+  Verification: focused cache-backed core tests, focused CLI direct-capture test, visual
+  native/oracle captures for `2400:start,2700:start,2720:start`, and `mise run verify-slice-fast`
+  green.
 
 ### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro logged)
 

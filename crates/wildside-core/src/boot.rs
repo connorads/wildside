@@ -7153,7 +7153,7 @@ impl NativeRuntime {
                             self.begin_demo_play(use_demo_2);
                         }
                     }
-                } else if start_pressed {
+                } else if start_pressed && !self.title_menu_cursor_pending {
                     self.title_idle_frames = 0;
                     // ASM Obj_TitleMenu loc_1BBD6: after Start selects the
                     // current row, the object marks the hand-off latch and
@@ -7315,7 +7315,7 @@ impl NativeRuntime {
                     self.title_menu_arm_frame = self
                         .frame_index
                         .saturating_add(TITLE_MENU_ACTIVATION_DELAY_FRAMES);
-                } else if start_pressed {
+                } else if start_pressed && !self.title_menu_cursor_pending {
                     self.title_idle_frames = 0;
                     self.title_menu_hidden_prearm_pending = false;
                     // ASM Obj_TitleMenu loc_1BBD6: after Start selects the
