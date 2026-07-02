@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive scene prize-block mutation shard)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation or visual rows; only human validation/repro blockers remain.
+- **Mutation fallback advanced:** focused `wildside-frame/src/scene.rs`
+  prize-block wobble/flash and block-bounce routing. Added exact wobble/flash
+  frame thresholds, shifted-copy guard coverage, typed/legacy bounce routing
+  edges, and source-rewrite `$6F02` low-byte coverage for the ASM sub_1007A
+  renderer path.
+- Verification: `cargo test -q -p wildside-frame scene::tests -- --nocapture`
+  and focused mutation rerun
+  `/tmp/mutants-frame-scene-prize-block-20260702-final2` (`69 mutants tested
+  in 86s: 57 caught, 9 missed, 3 unviable`). Remaining misses are unrelated
+  shared helpers plus the equivalent zero-offset wobble y expression.
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  proactive verification on another focused frame/core shard.
+
 ## 2026-07-02 handoff (proactive frame death-selector mutation shard)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open

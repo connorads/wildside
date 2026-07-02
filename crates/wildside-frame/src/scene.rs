@@ -8150,3 +8150,521 @@ fn helmet_placeholder_colour(_object_meta: u16) -> [u8; 3] {
     // claim per-helmet hues that the ROM does not specify.
     [220, 220, 255]
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::*;
+    use wildside_core::BlockBounceTrace;
+    use wildside_render::{
+        AnimatedSpriteVisual, BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals,
+        EnemyVisuals, FlagVisuals, FloatingPrizeVisuals, ForegroundLayout, HudVisuals,
+        LevelVisuals, PaletteSet, PlatformVisuals, PlayerFormVisuals, PlayerVisuals, SpriteFrame,
+        Tile, TileQuad,
+    };
+
+    #[test]
+    fn prize_block_wobble_frame_alternates_every_three_elapsed_frames_sub_1007a() {
+        let visuals = sample_level_visuals(0x300);
+
+        let cases = [
+            (31, 0x000),
+            (30, 0x000),
+            (29, 0x000),
+            (28, 0x009),
+            (26, 0x009),
+            (25, 0x000),
+        ];
+
+        for (remaining, expected_tile_base_index) in cases {
+            let frame = prize_block_wobble_frame_sub_1007a(&visuals, remaining);
+            assert_eq!(frame.origin_x, 0x00);
+            assert_eq!(frame.origin_y, 0x10);
+            assert_eq!(frame.width_px, 0x10);
+            assert_eq!(frame.height_px, 0x10);
+            assert_eq!(
+                frame.tile_base_index, expected_tile_base_index,
+                "ASM stru_101B6/stru_10296 remaining={remaining}"
+            );
+        }
+    }
+
+    #[test]
+    fn prize_wobble_second_frame_uses_shifted_vram_copy_only_when_tiles_match_sub_1007a() {
+        let mut visuals = sample_level_visuals(0x300);
+        let quad = sample_quad(BLOCK_TILE_VRAM_BASE + 1);
+        for tile in 0..4 {
+            visuals.block_tiles.tiles[1 + tile].pixels = [0x11 + tile as u8; 64];
+            visuals.block_tiles.tiles[0x009 + 1 + tile].pixels = [0x11 + tile as u8; 64];
+        }
+
+        assert!(prize_wobble_shifted_copy_matches_base_sub_1007a(
+            &visuals, &quad, 0x009
+        ));
+
+        visuals.block_tiles.tiles[0x009 + 2].pixels = [0xEE; 64];
+
+        assert!(!prize_wobble_shifted_copy_matches_base_sub_1007a(
+            &visuals, &quad, 0x009
+        ));
+    }
+
+    #[test]
+    fn prize_block_wobble_draw_clears_priority_and_preserves_local_tile_offsets_sub_1007a() {
+        let mut visuals = sample_level_visuals(0x300);
+        let quad = sample_quad(BLOCK_TILE_VRAM_BASE + 4);
+        for tile in 0..4 {
+            visuals.block_tiles.tiles[4 + tile].pixels = [0x20 + tile as u8; 64];
+            visuals.block_tiles.tiles[0x009 + 4 + tile].pixels = [0x20 + tile as u8; 64];
+        }
+        let mut commands = Vec::new();
+
+        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, &quad, 32, 48, 28);
+
+        let DrawCommand::Sprite { x, y, tiles, .. } = commands.single() else {
+            panic!("ASM sub_1007A should emit one wobble sprite");
+        };
+        assert_eq!((*x, *y), (32, 48));
+        assert_eq!(tiles.len(), 4);
+        assert_eq!(
+            tiles
+                .iter()
+                .map(|tile| tile.tile.tile_index)
+                .collect::<Vec<_>>(),
+            vec![0x00D, 0x00E, 0x00F, 0x010]
+        );
+        assert_eq!(
+            tiles
+                .iter()
+                .map(|tile| (tile.offset_x, tile.offset_y))
+                .collect::<Vec<_>>(),
+            vec![(0, 0), (8, 0), (0, 8), (8, 8)]
+        );
+        assert!(
+            tiles.iter().all(|tile| !tile.tile.priority),
+            "ASM sub_1007A/loc_10200 low-priority block copy stays behind Scroll A"
+        );
+    }
+
+    #[test]
+    fn prize_block_wobble_draw_keeps_base_tiles_when_shifted_copy_does_not_match_sub_1007a() {
+        let mut visuals = sample_level_visuals(0x300);
+        let quad = sample_quad(BLOCK_TILE_VRAM_BASE + 4);
+        for tile in 0..4 {
+            visuals.block_tiles.tiles[4 + tile].pixels = [0x20 + tile as u8; 64];
+            visuals.block_tiles.tiles[0x009 + 4 + tile].pixels = [0x70 + tile as u8; 64];
+        }
+        let mut commands = Vec::new();
+
+        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, &quad, 32, 48, 28);
+
+        let DrawCommand::Sprite { tiles, .. } = commands.single() else {
+            panic!("ASM sub_1007A should emit one wobble sprite");
+        };
+        assert_eq!(
+            tiles
+                .iter()
+                .map(|tile| tile.tile.tile_index)
+                .collect::<Vec<_>>(),
+            vec![0x004, 0x005, 0x006, 0x007]
+        );
+    }
+
+    #[test]
+    fn prize_block_spawn_flash_frame_pins_script_thresholds_and_sheet_guard_loc_102b8() {
+        let visuals = sample_level_visuals(0x300);
+        let cases = [
+            (25, 0x02CF),
+            (22, 0x02CF),
+            (21, 0x02D8),
+            (16, 0x02D8),
+            (15, 0x02E1),
+            (6, 0x02E1),
+            (5, 0x02EA),
+            (1, 0x02EA),
+        ];
+
+        for (remaining, expected_vram_tile) in cases {
+            let frame = prize_block_spawn_flash_frame_loc_102b8(&visuals, remaining)
+                .expect("flash frame available");
+            assert_eq!(
+                frame.tile_base_index,
+                expected_vram_tile - BLOCK_TILE_VRAM_BASE,
+                "ASM stru_102DE remaining={remaining}"
+            );
+            assert_eq!((frame.origin_x, frame.origin_y), (0x0C, 0x0C));
+            assert_eq!((frame.width_px, frame.height_px), (0x18, 0x18));
+        }
+
+        let short_sheet = sample_level_visuals(usize::from(0x02EA - BLOCK_TILE_VRAM_BASE + 8));
+        assert!(
+            prize_block_spawn_flash_frame_loc_102b8(&short_sheet, 5).is_none(),
+            "24x24 frame needs all nine tiles from the final `$2EA` base"
+        );
+    }
+
+    #[test]
+    fn push_prize_block_spawn_flash_reports_whether_rom_frame_was_available_loc_102b8() {
+        let visuals = sample_level_visuals(0x300);
+        let mut commands = Vec::new();
+
+        assert!(push_prize_block_spawn_flash_loc_102b8(
+            &mut commands,
+            &visuals,
+            64,
+            72,
+            25
+        ));
+        let DrawCommand::Sprite { x, y, tiles, .. } = commands.single() else {
+            panic!("ASM loc_102B8 should emit one flash sprite");
+        };
+        assert_eq!((*x, *y), (64 - 0x0C, 72 - 0x0C));
+        assert_eq!(tiles.len(), 9);
+
+        let short_sheet = sample_level_visuals(usize::from(0x02CF - BLOCK_TILE_VRAM_BASE + 8));
+        commands.clear();
+        assert!(!push_prize_block_spawn_flash_loc_102b8(
+            &mut commands,
+            &short_sheet,
+            64,
+            72,
+            25
+        ));
+        assert!(commands.is_empty());
+    }
+
+    #[test]
+    fn block_bounce_kind_prefers_typed_trace_and_legacy_defaults_to_prize() {
+        let mut trace = NativeTraceFrame {
+            block_bounces: vec![(3, 4, 12, 0)],
+            ..NativeTraceFrame::default()
+        };
+
+        assert_eq!(
+            block_bounce_kind_for_trace(&trace, 3, 4),
+            Some(BlockBounceTraceKind::Prize)
+        );
+
+        trace.block_bounce_details = vec![BlockBounceTrace {
+            cell_x: 3,
+            cell_y: 4,
+            x_offset_px: 0,
+            remaining: 12,
+            y_offset_px: 0,
+            kind: BlockBounceTraceKind::HiddenReveal,
+        }];
+
+        assert_eq!(
+            block_bounce_kind_for_trace(&trace, 3, 4),
+            Some(BlockBounceTraceKind::HiddenReveal)
+        );
+        assert_eq!(
+            block_bounce_kind_for_trace(&trace, 2, 4),
+            None,
+            "typed traces must not fall back to unrelated legacy tuples"
+        );
+
+        trace.block_bounce_details[0].remaining = 0;
+        assert_eq!(
+            block_bounce_kind_for_trace(&trace, 3, 4),
+            None,
+            "typed traces keep expired bounce workers out of the render path"
+        );
+    }
+
+    #[test]
+    fn block_bounce_kind_legacy_requires_exact_live_cell_match() {
+        let trace = NativeTraceFrame {
+            block_bounces: vec![(3, 4, 12, 0), (3, 5, 0, 0)],
+            ..NativeTraceFrame::default()
+        };
+
+        assert_eq!(
+            block_bounce_kind_for_trace(&trace, 3, 4),
+            Some(BlockBounceTraceKind::Prize)
+        );
+        assert_eq!(block_bounce_kind_for_trace(&trace, 4, 4), None);
+        assert_eq!(block_bounce_kind_for_trace(&trace, 3, 5), None);
+        assert_eq!(block_bounce_kind_for_trace(&trace, 3, 6), None);
+    }
+
+    #[test]
+    fn prize_block_wobble_overrides_apply_camera_position_and_skip_non_prize_workers_sub_1007a() {
+        let visuals = sample_level_visuals(0x300);
+        let grid = wildside_core::terrain::BlockGrid::from_level_layout(
+            &[
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //
+                0x00, 0x00, 0xE1, 0x02, 0x00, 0x00,
+            ],
+            3,
+            2,
+        );
+        let trace = NativeTraceFrame {
+            camera_x_pos: 8 << 16,
+            camera_y_pos: 4 << 16,
+            block_bounces: vec![(1, 1, 28, 0)],
+            block_bounce_details: vec![BlockBounceTrace {
+                cell_x: 1,
+                cell_y: 1,
+                x_offset_px: 0,
+                remaining: 28,
+                y_offset_px: 0,
+                kind: BlockBounceTraceKind::Prize,
+            }],
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_prize_block_wobble_overrides_sub_1007a(&mut commands, &trace, &visuals, Some(&grid));
+
+        let DrawCommand::Sprite { x, y, .. } = commands.single() else {
+            panic!("ASM sub_1007A should emit one source-position wobble sprite");
+        };
+        assert_eq!((*x, *y), (8, 12));
+
+        let DrawCommand::Sprite { tiles, .. } = commands.single() else {
+            panic!("ASM sub_1007A should emit one source-position wobble sprite");
+        };
+        assert_eq!(
+            tiles
+                .iter()
+                .map(|tile| tile.tile.tile_index)
+                .collect::<Vec<_>>(),
+            vec![0x011, 0x012, 0x013, 0x014],
+            "ASM sub_1007A preserves the copied `$E102` low skin byte"
+        );
+
+        let rewritten_grid = wildside_core::terrain::BlockGrid::from_level_layout(
+            &[
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //
+                0x00, 0x00, 0x6F, 0x02, 0x00, 0x00,
+            ],
+            3,
+            2,
+        );
+        let mut commands = Vec::new();
+        push_prize_block_wobble_overrides_sub_1007a(
+            &mut commands,
+            &trace,
+            &visuals,
+            Some(&rewritten_grid),
+        );
+        let DrawCommand::Sprite { tiles, .. } = commands.single() else {
+            panic!("ASM sub_1007A should recover copied skin from rewritten `$6F02` cells");
+        };
+        assert_eq!(
+            tiles
+                .iter()
+                .map(|tile| tile.tile.tile_index)
+                .collect::<Vec<_>>(),
+            vec![0x011, 0x012, 0x013, 0x014],
+            "ASM sub_1007A uses the low byte after the `$6Fxx` source rewrite"
+        );
+
+        for bounce in [
+            (1, 0, 0, 0, BlockBounceTraceKind::Prize),
+            (1, 0, 28, 1, BlockBounceTraceKind::Prize),
+            (1, 0, 28, 0, BlockBounceTraceKind::HiddenReveal),
+        ] {
+            let trace = NativeTraceFrame {
+                block_bounces: vec![(bounce.0, bounce.1, bounce.2, bounce.3)],
+                block_bounce_details: vec![BlockBounceTrace {
+                    cell_x: bounce.0,
+                    cell_y: bounce.1,
+                    x_offset_px: 0,
+                    remaining: bounce.2,
+                    y_offset_px: bounce.3,
+                    kind: bounce.4,
+                }],
+                ..NativeTraceFrame::default()
+            };
+            let mut commands = Vec::new();
+            push_prize_block_wobble_overrides_sub_1007a(
+                &mut commands,
+                &trace,
+                &visuals,
+                Some(&grid),
+            );
+            assert!(commands.is_empty(), "skipped bounce case: {bounce:?}");
+        }
+    }
+
+    trait SingleCommand {
+        fn single(&self) -> &DrawCommand;
+    }
+
+    impl SingleCommand for Vec<DrawCommand> {
+        fn single(&self) -> &DrawCommand {
+            assert_eq!(self.len(), 1);
+            &self[0]
+        }
+    }
+
+    fn sample_level_visuals(block_tile_count: usize) -> NativeLevelVisuals {
+        let foreground_layout_bytes = vec![0; 20 * 14];
+        let foreground_layout =
+            ForegroundLayout::parse(&foreground_layout_bytes, 1, 1).expect("foreground layout");
+        let empty_quad = sample_quad(0);
+        let empty_frame = sample_sprite_frame(0);
+        let empty_prize = sample_animated_visual(empty_frame.clone());
+
+        NativeLevelVisuals {
+            foreground_tiles: sample_tile_sheet(1),
+            background_tiles: sample_tile_sheet(1),
+            island_shore_tiles_loc_1202a: None,
+            block_tiles: sample_tile_sheet(block_tile_count),
+            palettes: PaletteSet {
+                foreground: sample_palette(),
+                background: sample_palette(),
+            },
+            background: BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+                placements: Vec::new(),
+                chunks: Vec::new(),
+            }),
+            level: LevelVisuals {
+                level_id: 0,
+                foreground_theme_id: 0,
+                background_theme_id: 0,
+                murder_wall_flags: 0,
+                background_scroll: None,
+                foreground_layout,
+                foreground_layout_bytes,
+                block_layout_bytes: Vec::new(),
+                background_layout_bytes: Vec::new(),
+                background_layout_alias: None,
+                block_mapping: BlockVisualMapping::new(
+                    vec![empty_quad],
+                    (0..81)
+                        .map(|skin| sample_quad(BLOCK_TILE_VRAM_BASE + skin * 4))
+                        .collect(),
+                )
+                .expect("block mapping"),
+            },
+            hud: HudVisuals {
+                digits: sample_tile_sheet(1),
+                digit_base_tile_index: 0,
+                diamond_tiles: sample_tile_sheet(1),
+                diamond_base_tile_index: 0,
+                hitpoint_sheet: sample_tile_sheet(1),
+                icons: Vec::new(),
+                hitpoint_tiles: [sample_tile_ref(0), sample_tile_ref(1), sample_tile_ref(2)],
+            },
+            player: PlayerVisuals {
+                forms: HashMap::from([(0, sample_player_form_visuals(empty_frame.clone()))]),
+            },
+            juggernaut_skull: None,
+            enemies: EnemyVisuals {
+                families: HashMap::new(),
+            },
+            floating_prizes: FloatingPrizeVisuals {
+                diamond: empty_prize,
+                helmets: HashMap::new(),
+                icons: HashMap::new(),
+            },
+            flag: FlagVisuals {
+                palette: sample_palette(),
+                pole_bottom: empty_frame.clone(),
+                waving: Vec::new(),
+                frame_duration: 1,
+            },
+            murder_wall: None,
+            lava: None,
+            weather: None,
+            special_effect_unknown: None,
+            platforms: PlatformVisuals {
+                palette: sample_palette(),
+                horizontal: empty_frame.clone(),
+                vertical: empty_frame,
+            },
+            eol_score: None,
+            eol_hologram: None,
+            pause_menu: None,
+            title_card_letters: None,
+        }
+    }
+
+    fn sample_player_form_visuals(frame: SpriteFrame) -> PlayerFormVisuals {
+        PlayerFormVisuals {
+            palette: sample_palette(),
+            idle: frame.clone(),
+            walk: Vec::new(),
+            flight_spin: Vec::new(),
+            charge: Vec::new(),
+            climb: Vec::new(),
+            axe: Vec::new(),
+            slope_walk: Vec::new(),
+            slope_walk_left: Vec::new(),
+            jump_rise: frame.clone(),
+            jump_fall: frame,
+            death: None,
+            pull_up: Vec::new(),
+            slash_ground: Vec::new(),
+            slash_air: Vec::new(),
+            transform_palette: None,
+            transform_steps: Vec::new(),
+        }
+    }
+
+    fn sample_animated_visual(frame: SpriteFrame) -> AnimatedSpriteVisual {
+        AnimatedSpriteVisual {
+            palette: sample_palette(),
+            extra_palettes: Vec::new(),
+            frames: vec![frame],
+            frame_duration: 1,
+        }
+    }
+
+    fn sample_sprite_frame(pixel: u8) -> SpriteFrame {
+        SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px: 8,
+            height_px: 8,
+            tile_base_index: 0,
+            tile_sheet: sample_tile_sheet_with_pixel(1, pixel),
+        }
+    }
+
+    fn sample_quad(tile_index: u16) -> TileQuad {
+        TileQuad {
+            tiles: [
+                sample_tile_ref(tile_index),
+                sample_tile_ref(tile_index + 1),
+                sample_tile_ref(tile_index + 2),
+                sample_tile_ref(tile_index + 3),
+            ],
+        }
+    }
+
+    fn sample_tile_ref(tile_index: u16) -> TileRef {
+        TileRef {
+            tile_index,
+            palette_line: 0,
+            priority: true,
+            flip_x: false,
+            flip_y: false,
+        }
+    }
+
+    fn sample_tile_sheet(tile_count: usize) -> TileSheet {
+        sample_tile_sheet_with_pixel(tile_count, 0)
+    }
+
+    fn sample_tile_sheet_with_pixel(tile_count: usize, pixel: u8) -> TileSheet {
+        TileSheet {
+            tiles: vec![
+                Tile {
+                    pixels: [pixel; 64]
+                };
+                tile_count
+            ],
+        }
+    }
+
+    fn sample_palette() -> Palette {
+        Palette {
+            colours: (0..16).map(MdColour::from_word).collect(),
+        }
+    }
+}
