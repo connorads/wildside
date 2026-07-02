@@ -38,9 +38,11 @@ and stop — never commit churn.
   consumes that probe and reports the linked child contact while preserving the
   parent/body context. For file-backed scenarios it also prints exact
   contact-frame native/oracle visual dump commands (native VDP, native scene,
-  native enemies, oracle VDP). Next pass should capture the exact live failing
-  frame and run those emitted commands so #271 and #259 cannot keep deflecting
-  into each other.
+  native enemies, oracle VDP). Live auto-stop recordings now also save a
+  `target_enemy_contact_XX_result` checkpoint at the detected frame, so
+  `verify-recording` layer artefacts centre the same frame. Next pass should
+  capture the exact live failing frame and run those emitted commands so #271
+  and #259 cannot keep deflecting into each other.
 - **#271 reopened 2026-07-02:** jumping on RockTank heads still hurts Kid and
   is game-breaking. Existing route set is rejected as insufficient, not as
   proof the report is invalid.

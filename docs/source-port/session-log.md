@@ -25,16 +25,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   file-backed scenarios: native VDP, native scene, native enemies, and oracle
   VDP for the one-frame-before/contact/one-frame-after window. Smoke-generated
   native scene + enemy-only frames for the cached frame-226 route.
+- Live `--record-stop-on-target-enemy-contact` bundles now append a
+  `target_enemy_contact_XX_result` scenario checkpoint at the first detected
+  target contact, so `verify-recording` and checkpoint-layer artefacts include
+  the exact stop frame without manual editing.
 - Verification: focused
   `rock_tank_contact_probe_reports_parent_child_split_loc_3b464`,
   `target_enemy_contact_uses_rock_tank_child_probe_loc_3b464_loc_3b6c0`,
   `target_enemy_contact_visual_follow_up_commands_*`, the cached scorer smoke,
+  `target_enemy_contact_auto_stop_records_configured_tail_loc_3b464`,
+  `save_native_recording_bundle_adds_target_enemy_contact_checkpoint_loc_3b464`,
   generated native contact-frame captures, `mise run audit-debug-fields`,
   `mise run backlog-lint`, and `mise run verify-slice-fast` all pass.
 - NEXT: take #271 first with an exact live failing frame. Capture
-  `rock_tank_contact_probe`, then run the emitted contact-frame native/oracle
-  visual commands and oracle frontier; do not retune Tank Y, child collision,
-  or foreground priority from stale synthetic routes.
+  `rock_tank_contact_probe`, inspect the saved contact checkpoint, then run the
+  emitted contact-frame native/oracle visual commands and oracle frontier; do
+  not retune Tank Y, child collision, or foreground priority from stale
+  synthetic routes.
 
 ## 2026-07-02 — proactive movement title-card mutation gap
 

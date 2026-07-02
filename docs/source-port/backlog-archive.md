@@ -64,6 +64,16 @@ This still does not close #271: it makes the next exact live recording produce
 the visual/oracle checklist needed to separate a true contact bug from #259
 foreground/floor perception.
 
+Follow-up 2026-07-02: `play-native --record-stop-on-target-enemy-contact` now
+persists the first detected target contact as a scenario checkpoint labelled
+`target_enemy_contact_XX_result` before saving the bundle. Regression:
+`save_native_recording_bundle_adds_target_enemy_contact_checkpoint_loc_3b464`;
+`target_enemy_contact_auto_stop_records_configured_tail_loc_3b464` also now
+asserts the captured frame/enemy/result metadata. This means the next live
+Level-2/Red-Stealth RockTank bundle will carry the stop frame into
+`verify-recording` checkpoint and layer outputs automatically, instead of
+relying only on a separately copied scorer frame number.
+
 Blocked note 2026-07-02: moved #271 from `[~]` open to `[b]` awaiting exact
 human/live route. Current route evidence is exhausted without reproducing a
 native-only Tank stomp fault: `issue271-route-current-20260702` is a miss,

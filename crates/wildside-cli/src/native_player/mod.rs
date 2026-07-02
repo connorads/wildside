@@ -362,6 +362,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     let mut recorded_script = Vec::new();
     let mut recorded_trace = Vec::new();
     let mut target_contact_stop_tail_remaining: Option<usize> = None;
+    let mut target_contact_stop: Option<TargetEnemyContactStop> = None;
     let mut recorded_audio = Vec::new();
     let mut recorded_audio_events = Vec::new();
     let mut audio_diagnostics = NativeAudioDiagnostics::new(
@@ -598,7 +599,9 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                     if update_target_contact_auto_stop(
                         options,
                         &trace,
+                        recorded_trace.len().saturating_sub(1),
                         &mut target_contact_stop_tail_remaining,
+                        &mut target_contact_stop,
                     ) {
                         dump_recording_and_exit = true;
                     }
@@ -861,6 +864,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         audio_diagnostics.into_lines(),
         final_frame_rgb,
         trace,
+        target_contact_stop.as_ref(),
         audio_channels,
         audio_recording_sample_rate,
     )?;
@@ -905,10 +909,21 @@ fn recording_frame_limit_reached(options: &NativePlayOptions, recorded_frames: u
         .is_some_and(|limit| recorded_frames >= limit)
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TargetEnemyContactStop {
+    frame_index: usize,
+    object_type: u8,
+    result: String,
+    gate: String,
+    score_px: i64,
+}
+
 fn update_target_contact_auto_stop(
     options: &NativePlayOptions,
     trace: &NativeTraceFrame,
+    replay_frame_index: usize,
     tail_remaining: &mut Option<usize>,
+    detected_contact: &mut Option<TargetEnemyContactStop>,
 ) -> bool {
     if let Some(remaining) = tail_remaining {
         if *remaining == 0 {
@@ -927,14 +942,25 @@ fn update_target_contact_auto_stop(
     let Some(contact) = target
         .enemies
         .iter()
-        .filter_map(|enemy| target_enemy_contact_from_frame(std::slice::from_ref(trace), *enemy, 0))
-        .find(|contact| contact.result != "none")
+        .filter_map(|enemy| {
+            target_enemy_contact_from_frame(std::slice::from_ref(trace), *enemy, 0)
+                .map(|contact| (*enemy, contact))
+        })
+        .find(|(_, contact)| contact.result != "none")
     else {
         return false;
     };
+    let (object_type, contact) = contact;
+    detected_contact.get_or_insert_with(|| TargetEnemyContactStop {
+        frame_index: replay_frame_index,
+        object_type,
+        result: contact.result.clone(),
+        gate: contact.gate.clone(),
+        score_px: contact.score_px,
+    });
     let tail = options.record_contact_tail_frames;
     eprintln!(
-        "recording target enemy contact detected: result={} gate={} score_px={} tail_frames={}",
+        "recording target enemy contact detected: enemy=0x{object_type:02X} frame={replay_frame_index} result={} gate={} score_px={} tail_frames={}",
         contact.result, contact.gate, contact.score_px, tail
     );
     if tail == 0 {
@@ -943,6 +969,31 @@ fn update_target_contact_auto_stop(
         *tail_remaining = Some(tail - 1);
         false
     }
+}
+
+fn append_target_enemy_contact_checkpoint(
+    scenario: &mut DynamicScenario,
+    contact: &TargetEnemyContactStop,
+) {
+    if contact.frame_index >= scenario.frame_count {
+        return;
+    }
+    let label = format!(
+        "target_enemy_contact_{:02X}_{}",
+        contact.object_type, contact.result
+    );
+    if scenario.checkpoints.iter().any(|checkpoint| {
+        checkpoint.label == label && checkpoint.frame_index == contact.frame_index
+    }) {
+        return;
+    }
+    scenario.checkpoints.push(DynamicCheckpoint {
+        label,
+        frame_index: contact.frame_index,
+    });
+    scenario
+        .checkpoints
+        .sort_by_key(|checkpoint| checkpoint.frame_index);
 }
 
 fn native_frame_buttons(
@@ -1147,6 +1198,7 @@ fn save_native_recording_bundle(
     audio_diagnostics: Vec<String>,
     final_frame_rgb: Option<Vec<u8>>,
     current_trace: NativeTraceFrame,
+    target_contact_stop: Option<&TargetEnemyContactStop>,
     audio_channels: u8,
     audio_sample_rate: u32,
 ) -> Result<()> {
@@ -1197,6 +1249,9 @@ fn save_native_recording_bundle(
         .manifest
         .route_target
         .clone_from(&options.record_route_target);
+    if let Some(contact) = target_contact_stop {
+        append_target_enemy_contact_checkpoint(&mut recording.manifest.scenario, contact);
+    }
     if let Some(route) = &options.scripted_route {
         recording.manifest.scenario.start_position = route.start_position;
         recording.manifest.scenario.start_velocity = route.start_velocity;
@@ -16283,6 +16338,7 @@ mod tests {
             Vec::new(),
             Some(final_frame),
             trace.clone(),
+            None,
             1,
             AUDIO_SAMPLE_RATE,
         )
@@ -16330,6 +16386,66 @@ mod tests {
                 "verify-tas --scenario .cache/recordings/freeze-repro/scenario.json --bisect --frontier-kind gameplay"
             )
         );
+    }
+
+    #[test]
+    fn save_native_recording_bundle_adds_target_enemy_contact_checkpoint_loc_3b464() {
+        let fixture = ManifestFixture::new().expect("manifest fixture");
+        let record_dir = fixture
+            ._root
+            .path()
+            .join("recordings")
+            .join("issue271-live-rocktank");
+        let trace = sample_trace(GameMode::InGame);
+        let contact_stop = TargetEnemyContactStop {
+            frame_index: 1,
+            object_type: 0x0A,
+            result: String::from("damage"),
+            gate: String::from("classify"),
+            score_px: 17,
+        };
+
+        save_native_recording_bundle(
+            &fixture.manifest,
+            &NativePlayOptions {
+                fullscreen: false,
+                scale: None,
+                debug_overlay: false,
+                warp_level: Some(0x01),
+                settled: true,
+                record_to: Some(record_dir.clone()),
+                record_frames: None,
+                record_stop_on_target_enemy_contact: true,
+                record_contact_tail_frames: 30,
+                record_notes: None,
+                record_route_target: Some(RecordingRouteTarget {
+                    label: Some(String::from("issue271-live-rocktank")),
+                    level: Some(0x01),
+                    points: Vec::new(),
+                    cells: Vec::new(),
+                    cell_hitboxes: Vec::new(),
+                    enemies: vec![0x0A],
+                }),
+                record_frontier_kind: Some(String::from("gameplay")),
+                scripted_route: None,
+            },
+            vec![0, 0, 0],
+            vec![trace.clone(), trace.clone(), trace.clone()],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            None,
+            trace,
+            Some(&contact_stop),
+            1,
+            AUDIO_SAMPLE_RATE,
+        )
+        .expect("save contact repro");
+
+        let scenario_text =
+            fs::read_to_string(record_dir.join("scenario.json")).expect("scenario text");
+        assert!(scenario_text.contains("\"label\": \"target_enemy_contact_0A_damage\""));
+        assert!(scenario_text.contains("\"frame_index\": 1"));
     }
 
     #[test]
@@ -16409,38 +16525,65 @@ mod tests {
             ),
         );
         let mut tail_remaining = None;
+        let mut detected_contact = None;
 
         assert!(!update_target_contact_auto_stop(
             &options,
             &no_contact,
+            0,
             &mut tail_remaining,
+            &mut detected_contact,
         ));
         assert_eq!(tail_remaining, None);
+        assert_eq!(detected_contact, None);
         assert!(!update_target_contact_auto_stop(
             &options,
             &contact,
+            1,
             &mut tail_remaining,
+            &mut detected_contact,
         ));
         assert_eq!(tail_remaining, Some(1));
+        assert_eq!(
+            detected_contact,
+            Some(TargetEnemyContactStop {
+                frame_index: 1,
+                object_type: 0x0A,
+                result: String::from("damage"),
+                gate: String::from("classify"),
+                score_px: 17,
+            })
+        );
         assert!(!update_target_contact_auto_stop(
             &options,
             &no_contact,
+            2,
             &mut tail_remaining,
+            &mut detected_contact,
         ));
         assert_eq!(tail_remaining, Some(0));
         assert!(update_target_contact_auto_stop(
             &options,
             &no_contact,
+            3,
             &mut tail_remaining,
+            &mut detected_contact,
         ));
 
         options.record_contact_tail_frames = 0;
         let mut no_tail = None;
+        let mut no_tail_contact = None;
         assert!(update_target_contact_auto_stop(
             &options,
             &contact,
+            4,
             &mut no_tail,
+            &mut no_tail_contact,
         ));
+        assert_eq!(
+            no_tail_contact.as_ref().map(|contact| contact.frame_index),
+            Some(4)
+        );
     }
 
     #[test]
