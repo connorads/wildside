@@ -6977,6 +6977,51 @@ mod chunk_09 {
     }
 
     #[test]
+    fn probe_camera_primes_highwater_shooting_rock_tank_loc_31f8e_368a8() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level(LevelId(2));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(2));
+        runtime.set_player_probe_position(0x02F8, 0x008F);
+        runtime.set_camera_probe_position(0x0260, 0x0000);
+
+        let frame = runtime.trace_frame();
+        let spawned_tank_pair = frame
+            .active_objects
+            .iter()
+            .filter(|object| {
+                object.kind == (NativeObjectKind::Enemy { object_type: 0x0B })
+                    && object.layout_index == Some(2)
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            spawned_tank_pair.len(),
+            2,
+            "ASM loc_31F8E/Manage_EnemyLoading loc_368A8 must reseek the Level 02 enemy layout for a direct probe camera before #271 contact scoring"
+        );
+        assert!(
+            spawned_tank_pair.iter().any(|object| {
+                object.x_pos == 0x0328_0000
+                    && object.y_pos == 0x009F_0000
+                    && object.hit_points == Some(2)
+            }),
+            "ASM Tank_Shooting.asm loc_3B5A6 body should be exposed at Highwater layout object 02"
+        );
+        assert!(
+            spawned_tank_pair.iter().any(|object| {
+                object.x_pos == 0x0328_0000
+                    && object.y_pos == 0x0097_0000
+                    && object.hit_points == Some(0)
+            }),
+            "ASM Tank_Shooting.asm loc_3B5FA child gfx slot should be exposed 8px above the body"
+        );
+    }
+
+    #[test]
     fn level01_layout0_rock_tank_scan_enters_loc_3c266_fall() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

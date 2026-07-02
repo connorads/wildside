@@ -29,19 +29,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   `target_enemy_contact_XX_result` scenario checkpoint at the first detected
   target contact, so `verify-recording` and checkpoint-layer artefacts include
   the exact stop frame without manual editing.
+- Fixed a direct-probe blind spot: `set_camera_probe_position` now reseeds
+  native enemy loading for the probed camera via ASM `loc_31F8E` /
+  `Manage_EnemyLoading loc_368A8`. The Highwater Level-2 direct seed now
+  exposes the `0x0B` RockTank body/turret pair and scores contact instead of
+  reporting no Tank roster.
 - Verification: focused
   `rock_tank_contact_probe_reports_parent_child_split_loc_3b464`,
   `target_enemy_contact_uses_rock_tank_child_probe_loc_3b464_loc_3b6c0`,
   `target_enemy_contact_visual_follow_up_commands_*`, the cached scorer smoke,
   `target_enemy_contact_auto_stop_records_configured_tail_loc_3b464`,
   `save_native_recording_bundle_adds_target_enemy_contact_checkpoint_loc_3b464`,
+  `probe_camera_primes_highwater_shooting_rock_tank_loc_31f8e_368a8`,
+  direct Highwater scorer/batch sweeps,
   generated native contact-frame captures, `mise run audit-debug-fields`,
   `mise run backlog-lint`, and `mise run verify-slice-fast` all pass.
 - NEXT: take #271 first with an exact live failing frame. Capture
   `rock_tank_contact_probe`, inspect the saved contact checkpoint, then run the
-  emitted contact-frame native/oracle visual commands and oracle frontier; do
-  not retune Tank Y, child collision, or foreground priority from stale
-  synthetic routes.
+  emitted contact-frame native/oracle visual commands and oracle frontier. If
+  using the new Highwater direct seed, treat it as native diagnostic evidence
+  until a natural/live route makes the contact oracle-authoritative.
 
 ## 2026-07-02 — proactive movement title-card mutation gap
 

@@ -74,6 +74,23 @@ Level-2/Red-Stealth RockTank bundle will carry the stop frame into
 `verify-recording` checkpoint and layer outputs automatically, instead of
 relying only on a separately copied scorer frame number.
 
+Follow-up 2026-07-02: direct probe-camera starts now reseed native enemy
+loading for the probed camera before the first traced frame. Root cause:
+`set_camera_probe_position` moved the camera after the settled-warp enemy-load
+window, so direct Highwater probes could stand beside the reported Level-2
+`0x0B` RockTank while the native trace had no Tank roster to score. Added
+`prime_probe_camera_enemy_loading_loc_31f8e_368a8`, citing the ROM's
+`loc_31F8E` enemy-layout seek and `Manage_EnemyLoading loc_368A8`, and pinned
+the first Highwater shooting Tank with
+`probe_camera_primes_highwater_shooting_rock_tank_loc_31f8e_368a8`. Native
+scratch seed `.cache/debug/issue271-highwater-tank-direct.json` now exposes the
+body/turret pair and scores `result damage ... @41`; a bounded jump sweep still
+finds only damage/separated contacts, not a same-frame stomp. This is a
+diagnostic fix, not a #271 gameplay close: the oracle helper still cannot
+authoritatively replay the synthetic probe-camera enemy reseed, so the next
+gameplay verdict needs either a live recording or a natural oracle-valid
+Level-2 route.
+
 Blocked note 2026-07-02: moved #271 from `[~]` open to `[b]` awaiting exact
 human/live route. Current route evidence is exhausted without reproducing a
 native-only Tank stomp fault: `issue271-route-current-20260702` is a miss,

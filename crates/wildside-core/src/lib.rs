@@ -1505,6 +1505,7 @@ impl NativeRuntime {
             slice.camera.x_pos = u32::from(x_px) << 16;
             slice.camera.y_pos = u32::from(y_px) << 16;
         }
+        self.prime_probe_camera_enemy_loading_loc_31f8e_368a8();
     }
 
     pub fn set_playtest_form(&mut self, form: PlayerForm) {

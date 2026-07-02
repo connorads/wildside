@@ -12032,6 +12032,42 @@ impl NativeRuntime {
         self.rebuild_active_enemy_roster();
     }
 
+    pub(crate) fn prime_probe_camera_enemy_loading_loc_31f8e_368a8(&mut self) {
+        if !self.enemy_loading_enabled() {
+            return;
+        }
+        let Some(slice) = self.opening_slice else {
+            return;
+        };
+        let Some(enemy_layout) = self.enemy_layout(self.current_level).cloned() else {
+            return;
+        };
+        let level_bounds = self.level_bounds(self.current_level);
+        let blank_top_rows = self.level_header(self.current_level).map_or(0, |header| {
+            terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits)
+        });
+
+        // ASM loc_31F8E/Manage_EnemyLoading loc_368A8: a direct probe camera
+        // represents a fresh layout seek at that camera, not the spawn-camera
+        // cursor left over from the settled warp helper.
+        activate_enemies_with_rng(
+            &mut self.active_enemies,
+            &enemy_layout,
+            ActivationWindow::from_camera(slice.camera),
+            slice.camera.x_pos >> 16,
+            slice.camera.y_pos >> 16,
+            level_bounds,
+            slice.player.x_pos,
+            slice.player.y_pos,
+            blank_top_rows,
+            false,
+            &self.killed_enemies,
+            &mut self.rom_random,
+        );
+        self.enemy_loading_initial_pass_complete = true;
+        self.rebuild_active_enemy_roster();
+    }
+
     fn enemy_loading_enabled(&self) -> bool {
         !matches!(self.boot_state, BootState::DemoPlay { .. })
             || (self.current_level == LevelId(demo::DEMO_1_LEVEL)
