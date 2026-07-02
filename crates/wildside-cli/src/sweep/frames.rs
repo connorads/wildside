@@ -91,6 +91,7 @@ pub(crate) fn capture_scenario_frames(
     frame_indices: &[usize],
     output_dir: &Path,
     filter: native_player::LayerFilter,
+    force_scene: bool,
 ) -> Result<()> {
     use native_player::{
         NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene_filtered, load_session_assets,
@@ -104,7 +105,8 @@ pub(crate) fn capture_scenario_frames(
     // to level 0 (the boot level) when the scenario does not warp.
     let mut current_visual_level = scenario.warp_to_level.unwrap_or(0);
 
-    let full_frame_filter = filter.background
+    let vdp_full_frame = !force_scene
+        && filter.background
         && filter.terrain
         && filter.block_overrides
         && filter.platforms
@@ -113,7 +115,7 @@ pub(crate) fn capture_scenario_frames(
         && filter.effects
         && filter.eol_score
         && filter.hud;
-    let native_trace = if full_frame_filter {
+    let native_trace = if vdp_full_frame {
         None
     } else {
         Some(run_native_dynamic_scenario(
@@ -186,7 +188,7 @@ pub(crate) fn capture_scenario_frames(
         }
 
         let mut rgb = vec![0u8; w * h * 3];
-        if full_frame_filter {
+        if vdp_full_frame {
             if let Some(vdp) = runtime.vdp_state() {
                 let snapshot = wildside_md::VdpSnapshot {
                     registers: vdp.registers,

@@ -27,16 +27,17 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-02 loop handoff:** #210/#254 have a fixed candidate for the
-  early IntroSequence6 Start-skip menu timeout and moved back to human
-  validation. #252 did not reproduce in fresh tank render probes and is back
-  in the route-needed lane; #324 remains open from the same human reconfirm.
-- **Current verification:** #210/#254 route `2400:start,2700:start` now keeps
-  the Red Stealth title menu through frame 3299; native/oracle AE is `0` at
-  2700/2720/3000/3299 and the known 8-pixel title-detail residue at 2800.
-  Focused intro/menu tests, `verify-slice-fast`, and `verify-tas-full` passed
-  before commit `5e849711b`.
-- **Next output:** run `mise run project-status`; take the next listed open
-  visual risk (#324 prize/P block unless a fresher tank route appears).
+  early IntroSequence6 Start-skip menu timeout. #252 did not reproduce in
+  fresh tank render probes and is back in the route-needed lane.
+- **Current #324 evidence:** canonical BLW1 row-1 route
+  `.cache/recordings/issue324-blw1-row1-left560-current/scenario.json`
+  is clean when captured through the scene compositor with
+  `capture-scenario-frames --scene`; default scenario full capture was raw
+  VDP/terrain-only on that route and is no longer valid evidence for this
+  render path. Highwater remains unproven without an exact hit route/screenshot.
+- **Next output:** continue #324 by recording a Highwater prize-block hit or
+  getting a human screenshot/route; do not patch from the failed synthetic
+  spawn probe.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -58,4 +59,4 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 324 | [ ] | P1 | render/block | 2026-07-02 human reconfirm: prize/P blocks can still show a weird sprite or terrain behind the wobble. | Re-test BLW1/Highwater prize wobble crop against oracle; inspect `sub_1007A` priority/art path. |
+| 324 | [~] | P1 | render/block | 2026-07-02 human reconfirm: prize/P blocks can still show a weird sprite or terrain behind the wobble. | BLW1 scene-full route clean; record/compare Highwater prize hit. |

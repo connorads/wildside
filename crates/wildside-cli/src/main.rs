@@ -967,6 +967,9 @@ enum Commands {
         /// block_overrides, platforms, enemies, player, effects, hud)
         #[arg(long)]
         layer: Option<String>,
+        /// Render through the native scene compositor instead of raw VDP capture.
+        #[arg(long)]
+        scene: bool,
     },
     /// Render ORACLE ROM frames while replaying a DynamicScenario.
     ///
@@ -2184,6 +2187,7 @@ fn main() -> Result<()> {
             frames,
             output,
             layer,
+            scene,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -2204,7 +2208,14 @@ fn main() -> Result<()> {
             if let Some(level) = dynamic.warp_to_level {
                 ensure_level_layouts(&rom_path, &manifest, &[level])?;
             }
-            sweep::capture_scenario_frames(&manifest, &dynamic, &frame_indices, &output, filter)?;
+            sweep::capture_scenario_frames(
+                &manifest,
+                &dynamic,
+                &frame_indices,
+                &output,
+                filter,
+                scene,
+            )?;
         }
         Commands::CaptureOracleScenarioFrames {
             rom,

@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (#324 prize/P block diagnostic)
+
+- **#324 remains `[~]`.** Re-read `sub_1007A`/`loc_10200` and current scene
+  code; the BLW1 row-1 route is clean when captured through the native scene
+  compositor.
+- Added `capture-scenario-frames --scene` because default full scenario
+  capture can use raw VDP output; on the BLW1 probe that produced a
+  terrain-only PNG and was not valid evidence for the app renderer.
+- Evidence: `.cache/recordings/issue324-blw1-row1-left560-current/scenario.json`
+  captured at frames 568/574/580/586 under
+  `.cache/debug/issue324-20260702/native-scene-full/` shows no tree/wood leak.
+  Focused `prize_block_wobble` tests are green.
+- NEXT: continue #324 by recording a real Highwater prize-block hit or using a
+  human screenshot/route; the synthetic spawn probe did not hit the block and
+  should not drive a patch.
+
 ## 2026-07-02 handoff (#210/#254 intro/menu fixed candidate)
 
 - **#210/#254 fixed candidate.** Reopened from the human reconfirm and reproduced
