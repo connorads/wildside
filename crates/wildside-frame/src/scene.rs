@@ -6434,6 +6434,8 @@ fn build_game_scene_filtered(
             // GfxObjects at the same anchor: `LnkTo_unk_E0FDE` (pole_bottom,
             // `sprite_frame_vram $696,$08,$10,$10,$10`) and `LnkTo_unk_E0FFE`
             // (waving flag, `sprite_frame_vram $69A,$06,$00,$28,$20`).
+            // Both allocations set `priority(a3)=1`, so the sprites draw over
+            // high-priority foreground cells at the hand-off.
             // The ROM ships no third "pole shaft" sprite asset — the only
             // flag-related extracted art is `End_of_level_Flag_(6_frames).bin`
             // and `Flag_bottom.bin`. CharacterCollision_TouchFlagpole loc_C070
@@ -6447,20 +6449,22 @@ fn build_game_scene_filtered(
             let frame_index = (trace.frame_index / level_visuals.flag.frame_duration)
                 % level_visuals.flag.waving.len().max(1);
             if let Some(frame) = level_visuals.flag.waving.get(frame_index) {
-                push_sprite_frame(
+                push_sprite_frame_with_priority(
                     &mut commands,
                     frame,
                     &level_visuals.flag.palette,
                     sx,
                     pole_base_y,
+                    Some(true),
                 );
             }
-            push_sprite_frame(
+            push_sprite_frame_with_priority(
                 &mut commands,
                 &level_visuals.flag.pole_bottom,
                 &level_visuals.flag.palette,
                 sx,
                 pole_base_y,
+                Some(true),
             );
         }
 

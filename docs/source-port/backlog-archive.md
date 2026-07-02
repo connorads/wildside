@@ -84,6 +84,20 @@ and `cargo test -q -p wildside-core stomp_bounce_bit14_object_meta_also_applies_
 
 ### #369
 
+Fixed-candidate note 2026-07-02 (priority root cause): the post-reopen pass
+found a second failure mode beyond cleanup timing. ASM `Flagpole_Boss` sets
+`priority(a3)=1` on both allocated flag gfx objects (`LnkTo_unk_E0FDE`
+pole-bottom and `LnkTo_unk_E0FFE` waving flag). Native scene commands emitted
+both sprites but did not preserve that priority, so a high-priority foreground
+cell could mask `Flag_bottom.bin` even though the command-list test said the
+base existed. Renderer now pushes both flag sprites with priority override.
+Regression `flagpole_sprites_keep_rom_priority_over_foreground_loc_bfd6`
+samples an actual pole-bottom pixel over a priority foreground cell and proves
+the sprite write is accepted as high priority. Focused verification:
+`cargo test -q -p wildside-cli flagpole -- --nocapture` passes. Keep #369 in
+`[?]` for human natural-EOL validation because this explains the live-visible
+missing-base symptom without changing `loc_C070`/`loc_C0B6` timing again.
+
 Failed-validation note 2026-07-02: human playtest still reports the flagpole
 base missing at end-of-level after the `loc_C070`/`loc_C0B6` fixed candidate.
 Move #369 back to `[ ]`. The next route must identify whether the base is

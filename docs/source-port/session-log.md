@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — Flagpole base priority candidate
+
+- #369 moves back to `[?]`. Re-read ASM `Flagpole_Boss` and found both flag
+  gfx objects set `priority(a3)=1`; native kept the base/waving flag in the
+  scene but emitted them as ordinary low-priority sprites, so foreground
+  priority could still hide `Flag_bottom.bin` on natural EOL routes.
+- Renderer now pushes both flag sprites with the ROM priority override. Added
+  a raster provenance regression that samples a pole-bottom pixel over a
+  high-priority foreground cell, not just command-list presence.
+- Verification: focused `cargo test -q -p wildside-cli flagpole -- --nocapture`
+  and `mise run verify-slice-fast` pass.
+
 ## 2026-07-02 — RockTank live recordings get scorer commands
 
 - #271 remains open/in progress. Added generated

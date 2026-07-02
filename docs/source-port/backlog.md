@@ -26,10 +26,15 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-02 failed human validation:** #271, #369, #324, #259, #252, #210,
-  and #254 are reopened from the awaiting-human lane. The repeated failure
+- **2026-07-02 failed human validation:** #271, #324, #259, #252, #210, and
+  #254 are reopened from the awaiting-human lane. The repeated failure
   pattern is now the bug: fixed-candidate probes and synthetic routes are not
   exercising the live play paths the human keeps seeing.
+- **#369 flagpole base candidate 2026-07-02:** second root-cause pass found the
+  base was present in scene commands but could still be masked because native
+  dropped `Flagpole_Boss`'s `priority(a3)=1` on both flag sprites. Candidate is
+  in `[?]`; human should retest natural EOL and verify the base survives over
+  foreground.
 - **Immediate work order:** take #271 first. Use the new
   `probe-record-scenario-file --target-enemy-contact 0A/0B` scorer on any
   candidate route. Recording bundles with `--record-target-enemy 0A/0B` now
@@ -43,10 +48,10 @@ and stop — never commit churn.
   produce native `result=stomp`, so the next useful artefact is a live targeted
   `play-native --record` route for the reported failing jump. Then run the
   generated `verify-recording` / `tas_frontier_command` before changing combat.
-- **Visual route work:** #324/#259/#252/#369/#210 need current live recording or
+- **Visual route work:** #324/#259/#252/#210 need current live recording or
   raw-VDP/scene paired captures before another renderer patch. Do not retune
-  Tank Y/priority, flag cleanup timing, block wobble sprites, or title/menu VDP
-  from stale direct-camera or clean synthetic routes.
+  Tank Y/priority, block wobble sprites, or title/menu VDP from stale
+  direct-camera or clean synthetic routes.
 - **Proactive verification 2026-07-02:** Mini Hopping Skull air-damage /
   charging-Berzerker mutation shard has zero missed mutants
   (`/tmp/mutants-core-mini-hopping-skull-air-damage-20260702`: 12 tested, 7
@@ -75,7 +80,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 271 | [~] | P0 | player/enemy | FAILED human validation 2026-07-02: RockTank head jumps still hurt Kid/Red Stealth; previous `$2C` delayed-damage fix did not settle the live route. | Record live route with `--record-target-enemy 0A/0B --record-stop-on-target-enemy-contact`; run generated verify/frontier/scorer commands before changing combat. |
 | 210 | [ ] | P0 | gameflow/render | FAILED human validation 2026-07-02: rapid menu/intro skip can still produce black squares where Red Stealth/title/menu art should be. | Capture exact live Start timings or `play-native --record` bundle; compare raw VDP and scene frames around the first bad frame; do not rely on the covered `2400,2700,2720/2721` synthetic routes. |
 | 254 | [ ] | P1 | intro/render | FAILED human validation 2026-07-02: Red Stealth/title-skip corruption persists as part of the #210 black-square route. | Pair with #210 route capture; isolate whether the bad pixels are carried VDP/title-menu state or a distinct transform/render path before changing form art. |
-| 369 | [ ] | P1 | render/eol | FAILED human validation 2026-07-02: flagpole base is still missing at level end on the live route. | Record/capture natural EOL route; compare native vs oracle through `loc_C070` touch and `loc_C0B6` cleanup; identify whether base is missing before touch, during hold, or after cleanup. |
 | 324 | [ ] | P1 | render/block | FAILED human validation 2026-07-02: prize/P block still shows wrong sprite/art behind the hit wobble, now visibly on top of the shake. | Capture current live screenshot/recording/frame; replay with `capture-scenario-frames --scene` and raw VDP; inspect block/effects/terrain layers before another `sub_1007A` renderer change. |
 | 259 | [ ] | P1 | enemy/render | FAILED human validation 2026-07-02: RockTanks still appear halfway in the floor on levels 2 and 3. | Record natural route to named BLW2/Highwater tanks; tas-diff body/turret Y plus foreground occlusion depth; only close as faithful if oracle side-by-side shows the same composite. |
 | 252 | [ ] | P1 | render/enemy | FAILED human validation 2026-07-02: tank/helmet-looking RockTank garble still appears in live play despite clean sheet/capture probes. | Capture exact live frame/recording; compare assembled body/turret/muzzle/bullet sprites and raw VDP tiles at that frame; route floor perception through #259 if geometry matches. |

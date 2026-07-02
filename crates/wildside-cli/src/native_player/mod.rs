@@ -12776,6 +12776,49 @@ mod tests {
     }
 
     #[test]
+    fn flagpole_sprites_keep_rom_priority_over_foreground_loc_bfd6() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0x0748_0000;
+        trace.camera_y_pos = 0x02C0_0000;
+        trace.level_complete = true;
+        trace.level_complete_elapsed_frames = 1;
+
+        let mut visuals = sample_level_visuals();
+        visuals.foreground_tiles.tiles[0].pixels = [1; 64];
+        visuals.palettes.foreground = Palette {
+            colours: vec![colour(20, 30, 40), colour(180, 190, 200)],
+        };
+        for tile in &mut visuals.flag.pole_bottom.tile_sheet.tiles {
+            tile.pixels = [1; 64];
+        }
+        visuals.flag.palette = Palette {
+            colours: vec![colour(230, 40, 20)],
+        };
+
+        let mut priority_layout = [0; 5 * 2];
+        priority_layout[4 * 2] = 0x01;
+        let priority_grid = BlockGrid::from_level_layout(&priority_layout, 1, 5);
+        let scene = build_scene(&trace, false, Some(&visuals), Some(&priority_grid));
+        let sample =
+            sample_scene_pixel_provenance(&scene, &[(0usize, 64usize)].into_iter().collect())
+                .into_iter()
+                .next()
+                .expect("flag base sample");
+
+        assert!(
+            sample.final_high_priority,
+            "ASM Flagpole_Boss loc_BFD6 sets `priority(a3)=1` on both flag gfx objects"
+        );
+        assert!(
+            sample.writes.iter().any(|write| write.kind == "sprite_tile"
+                && write.rgb == Some([230, 40, 20])
+                && write.priority == Some(true)
+                && write.accepted),
+            "ASM Flagpole_Boss loc_BFD6/loc_C00A priority keeps Flag_bottom.bin visible over high-priority foreground cells"
+        );
+    }
+
+    #[test]
     fn level_complete_handoff_keeps_kid_above_priority_terrain_for_first_frame_loc_c070() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
