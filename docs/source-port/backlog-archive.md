@@ -9206,6 +9206,32 @@ Column of origin shown in brackets; text is verbatim.
 
 - [Verify] Reconfirms #145 (RockTank turret vertical offset) and adds: the tank looks like "two of them" (doubled body/turret sprite rows) and is "half in the floor" (vertical placement low), and "each dies and I can't see it" (death animation missing/clipped). Cross-ref #145 (turret baseline offset) and #167 (enemy death animation). NEEDS: dump-enemy-sheet + capture-scenario-frames on the Level-2 tank, compare body+turret row assembly and death frames vs oracle. Min gate: single correctly-grounded tank with visible death. REPRODUCED 2026-06-04 (`capture-scenario-frames` on `codex-issue-213-tank-hit-current`, warps to Level 1/Highwater Pass 1 RockTank_shooting kind 0x0B): at frame 400 the tank renders next to Kid with its BASE LOW at/below the floor line (the #145 turret/vertical-offset family — visually "half in the floor"); by frame 600 the tank is GONE with the diamond count incremented (1x prize) and NO visible death animation in between — confirming "each dies and I can't see it" = the #167 invisible-enemy-death gap (disappear + prize, no death frames). The "two of them" (doubled body/turret) was NOT clearly isolated in these wide frames — needs a `dump-enemy-sheet --enemy 0B` body+turret assembly check to confirm whether the turret sub-sprite renders as a second stacked body. SCOPE: #252 splits into (a) RockTank vertical placement / turret baseline = #145, and (b) missing death animation = #167; the body/turret "doubling" needs the sheet dump. Largely a manifestation of #145 + #167 on the RockTank rather than a wholly new bug. SHEET DUMP 2026-06-04 (`dump-enemy-sheet --level 02 --enemy 0B`): the RockTank tile sheet (148 tiles) contains BOTH tank-body/tread tiles (rows 2-3: horizontal mechanical shapes with wheels) AND blue HUMANOID FIGURE tiles (middle rows). This explains the earlier playtest's "two people stacked" / "double tanks": the body+turret sprite assembly is selecting the wrong tiles (picking up the humanoid-figure tiles, or stacking body+turret with wrong offsets) so the tank reads as two figures. So the "doubling" is a sprite tile-SELECTION/assembly bug in the RockTank body/turret descriptor (the #145 turret-assembly family), not a duplicate object. NEXT: read the ASM RockTank sprite descriptor (`Spr_*`/sub-sprite table for enemy 0A/0B) to get the correct body+turret tile_base + offsets, compare to the native assembly in `push_enemy_sprite`/the turret draw, and fix tile selection + the vertical baseline (#145) together; death animation is #167. ORACLE-CONFIRMED 2026-06-04 (this corrects the "oracle repro is fully blocked" worry — it is NOT): ran `verify-tas --scenario codex-issue-213-tank-hit-current --bisect --frontier-kind enemy` over frames 0..400 — PASS, ZERO authoritative enemy divergences. `tas-diff --frontier-kind enemy` at frame 0 also MATCHES. So the RockTank STATE is oracle-faithful: BOTH native and oracle carry TWO `0x0A` objects (so the player's "two of them" is the CORRECT linked body+turret object pair, not a native duplicate), with matching positions/hp/lifecycle through the tank-hit window. (The earlier "native tank moving vs oracle stationary" reading was a `--frontier-kind gameplay` classification artifact — an enemy-roster diff that is within tolerance under the correct enemy frontier.) CONCLUSION: #252 is PURELY render-side — the two oracle-correct objects are ASSEMBLED/placed wrong by the sprite path ("half in floor" = vertical baseline #145; "two people stacked" = body/turret tile-selection #145; invisible death = #167). No gameplay-state fix is needed. NOTE FOR THE PHASE: the camera mismatch (#238) does NOT block enemy-frontier oracle reproduction on this recording — so #250 should likewise be retried with `--frontier-kind enemy`/`block` before assuming it is camera-blocked.
 
+- [Blocked] 2026-07-02 route-needed after fresh current recheck. Human reconfirmed a
+  garbled tank/helmet-looking sprite, but current probes did not reproduce an
+  actionable tank renderer fault. Evidence: `capture-frames --level 01 --frames
+  260,300,340` saved `.cache/debug/issue252-20260702-capture/` and frame 300 shows
+  a coherent grey RockTank body/turret. Highwater spawn captures do not reach the
+  first `$0B` tank at x=808, so they are not evidence for or against the live report.
+  ASM descriptor re-read: `Tank.asm loc_3B372` and `Tank_Shooting.asm loc_3B5FA`
+  allocate the linked child at `body_y-8`; `kid.asm` sprite descriptors
+  `unk_C7ED0/ED8/EE0` are body `$02C/$030/$034`, `unk_C7EC8` is idle turret `$020`,
+  `unk_C7F00/F08/F10` are shooting turret frames `$048/$054/$060`, and
+  `unk_C7EE8/EF0` are bullet `$038/$03A`. Fresh assembled dumps
+  `.cache/debug/issue252-20260702-tank-body-34.png`,
+  `issue252-20260702-tank-turret-20.png`,
+  `issue252-20260702-tank-turret-open-60.png`, and
+  `issue252-20260702-tank-bullet-38.png` are coherent; raw full sheet dumps look
+  fragmentary as expected because they are an 8x8 tile grid, not assembled sprites.
+  Focused verification passed:
+  `KID_ENABLE_CACHE_BACKED_TESTS=1 cargo test -q -p wildside-cli rock_tank_renderer_ -- --nocapture`,
+  `tank_bullet_uses_rom_child_sprite_frame_loc_3b730_stru_3b526`, and ignored
+  live-bullet regression
+  `blue_lake_woods_2_live_tank_bullet_renders_rom_child_sprite_loc_3b730`.
+  Moved back to `[b]`: needs exact live recording/screenshot if still present. Do not
+  patch enemy state, Tank Y, or tank renderer selection from the stale raw-sheet
+  hypothesis; route floor perception through #259 and death visibility through
+  #167/#286.
+
 ### #253
 
 - [Summary] Highwater Pass 2 (level 03): native score runs +40 ahead of the oracle (real authoritative divergence, found via oracle comparison 2026-06-04)
