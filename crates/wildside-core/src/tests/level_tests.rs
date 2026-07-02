@@ -7022,6 +7022,63 @@ mod chunk_02 {
         );
     }
 
+    #[test]
+    fn cold_boot_intro_sequence_6_row_select_carries_title_menu_vdp_through_load_title_card_loc_1bbd6_1ae2e()
+     {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        runtime.set_recorded_title_card_handoff_delay(true);
+        let menu_cursor_slot = (0x00A8, 0x00, 0, 0x454B, 0x00A8);
+        let mut trace_2722 = None;
+        let mut vdp_2722 = None;
+        let mut trace_2760 = None;
+        let mut vdp_2760 = None;
+
+        for frame_index in 0..=2_760 {
+            let input = if matches!(frame_index, 2_400 | 2_700 | 2_720) {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            let trace = runtime.step_frame(input);
+            if frame_index == 2_722 {
+                trace_2722 = Some(trace);
+                vdp_2722 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_760 {
+                trace_2760 = Some(trace);
+                vdp_2760 = runtime.vdp_state().cloned();
+            }
+        }
+
+        let trace_2722 = trace_2722.expect("row-select Start should enter title-card mode");
+        assert_eq!(
+            trace_2722.game_mode,
+            GameMode::LevelTransition,
+            "ASM Obj_TitleMenu loc_1BBD6 should enter Load_TitleCard after the row-select Start"
+        );
+        assert!(
+            vdp_sprite_table_contains(
+                &vdp_2722.expect("Load_TitleCard warm-up should keep a VDP shell"),
+                menu_cursor_slot
+            ),
+            "ASM Obj_TitleMenu loc_1BBD6 jumps through loc_6E2 while the resident title/menu VDP remains visible before Load_TitleCard's loc_1AE2E gate exposes the title-card shell"
+        );
+
+        let trace_2760 = trace_2760.expect("title-card shell should become visible");
+        assert_eq!(trace_2760.game_mode, GameMode::LevelTransition);
+        assert!(
+            !vdp_sprite_table_contains(
+                &vdp_2760.expect("title-card mode should still have a VDP shell"),
+                menu_cursor_slot
+            ),
+            "oracle frame 2760 has left the Obj_TitleMenu resident VDP and exposes the Load_TitleCard shell"
+        );
+    }
+
     fn cold_boot_vdp_after_optional_start(
         start_frame: Option<usize>,
         target_frame: usize,

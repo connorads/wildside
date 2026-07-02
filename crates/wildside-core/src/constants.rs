@@ -88,6 +88,12 @@ pub(crate) const TITLE_SCREEN_MENU_ARM_GLOBAL_FRAME: usize = 178;
 /// frame after Start is latched; native queues the selection on the press
 /// frame, then consumes it on the next outer frame.
 pub(crate) const TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES: usize = 1;
+/// ASM Obj_TitleMenu `loc_1BBD6` jumps through `loc_6E2` into Load_TitleCard,
+/// but the resident title/menu VDP remains visible while the hidden
+/// Load_TitleCard/`loc_1AE2E` gate warms up. Oracle frame probes for the cold
+/// Start route `2400,2700,2720` carry the menu shell through frame 2759 and
+/// expose the title-card shell on frame 2760.
+pub(crate) const TITLE_MENU_TO_TITLE_CARD_VDP_CARRY_FRAMES: usize = 38;
 /// ASM Obj_TitleMenu `loc_1BB52` builds the interactive menu cursor before
 /// entering `Title_InputLoop`; oracle TAS traces keep the attract countdown
 /// inactive for this short setup window after the first Start press arms the

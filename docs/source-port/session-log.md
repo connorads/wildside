@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — #210/#254 title-menu VDP carry fixed candidate
+
+- #210/#254 moved from open to `[?]`. Fresh raw VDP captures found the missed
+  window on rapid row-select routes: `2400,2700,2720` was exact at 2720/2721
+  but diverged at 2722..2727, with native showing the BLW title-card/tree while
+  oracle still showed the Red Stealth title menu.
+- Fix snapshots the active Obj_TitleMenu VDP at `loc_1BBD6` row-select and
+  carries it through the hidden `loc_6E2 -> loc_1AE2E` title-card warm-up.
+  After-fix raw VDP is AE 0 at the formerly bad frames for both
+  `2400,2700,2720` and adjacent `2400,2698,2718`.
+- Verification: new cache-backed regression
+  `cold_boot_intro_sequence_6_row_select_carries_title_menu_vdp_through_load_title_card_loc_1bbd6_1ae2e`,
+  neighbouring title-menu timing tests, native/oracle raw frame compares,
+  `backlog-lint`, and `verify-slice-fast`.
+- Next open work should come from `mise run project-status`; with #210/#254
+  awaiting human validation again, the remaining reopened visual risks are
+  #324/#259/#252.
+
 ## 2026-07-02 — RockTank moved to route-needed
 
 - #271 moved from `[~]` to `[b]`. Current routes are exhausted without a

@@ -26,10 +26,16 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-02 failed human validation:** #271, #324, #259, #252, #210, and
-  #254 are reopened from the awaiting-human lane. The repeated failure
+- **2026-07-02 failed human validation:** #271, #324, #259, and #252 remain
+  reopened from the awaiting-human lane. The repeated failure
   pattern is now the bug: fixed-candidate probes and synthetic routes are not
   exercising the live play paths the human keeps seeing.
+- **#210/#254 fixed candidate 2026-07-02:** rapid title/menu row-select now
+  carries the resident Red Stealth/title-menu VDP during the hidden
+  `loc_1BBD6 -> loc_6E2 -> loc_1AE2E` title-card warm-up. Raw VDP
+  native/oracle captures are exact for the formerly black-square scene-swap
+  windows on `2400:start,2700:start,2720:start` and
+  `2400:start,2698:start,2718:start`; rows moved to `[?]` for human replay.
 - **#369 flagpole base candidate 2026-07-02:** second root-cause pass found the
   base was present in scene commands but could still be masked because native
   dropped `Flagpole_Boss`'s `priority(a3)=1` on both flag sprites. Candidate is
@@ -59,11 +65,10 @@ and stop — never commit churn.
   224/227. Also do not chase the old full-frame idle frame-300 RockTank
   assertion: current `idle_level_full_frames_01` oracle matches native at body/turret
   `$00C48000/$00C40000`; that cache-backed test expectation was stale.
-- **Immediate work order:** take #210/#254 next. They share the rapid
-  menu/title-skip black-square and Red Stealth/title corruption report; capture
-  or synthesise exact Start timings, then compare raw VDP/scene frames before
-  changing menu or form rendering.
-- **Visual route work:** #324/#259/#252/#210 need current live recording or
+- **Immediate work order:** take the next `project-status` item; with
+  #210/#254 back in human validation, the remaining reopened visual risks are
+  #324, #259, and #252.
+- **Visual route work:** #324/#259/#252 need current live recording or
   raw-VDP/scene paired captures before another renderer patch. Do not retune
   Tank Y/priority, block wobble sprites, or title/menu VDP from stale
   direct-camera or clean synthetic routes.
@@ -92,8 +97,6 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 210 | [ ] | P0 | gameflow/render | FAILED human validation 2026-07-02: rapid menu/intro skip can still produce black squares where Red Stealth/title/menu art should be. | Capture exact live Start timings or `play-native --record` bundle; compare raw VDP and scene frames around the first bad frame; do not rely on the covered `2400,2700,2720/2721` synthetic routes. |
-| 254 | [ ] | P1 | intro/render | FAILED human validation 2026-07-02: Red Stealth/title-skip corruption persists as part of the #210 black-square route. | Pair with #210 route capture; isolate whether the bad pixels are carried VDP/title-menu state or a distinct transform/render path before changing form art. |
 | 324 | [ ] | P1 | render/block | FAILED human validation 2026-07-02: prize/P block still shows wrong sprite/art behind the hit wobble, now visibly on top of the shake. | Capture current live screenshot/recording/frame; replay with `capture-scenario-frames --scene` and raw VDP; inspect block/effects/terrain layers before another `sub_1007A` renderer change. |
 | 259 | [ ] | P1 | enemy/render | FAILED human validation 2026-07-02: RockTanks still appear halfway in the floor on levels 2 and 3. | Record natural route to named BLW2/Highwater tanks; tas-diff body/turret Y plus foreground occlusion depth; only close as faithful if oracle side-by-side shows the same composite. |
 | 252 | [ ] | P1 | render/enemy | FAILED human validation 2026-07-02: tank/helmet-looking RockTank garble still appears in live play despite clean sheet/capture probes. | Capture exact live frame/recording; compare assembled body/turret/muzzle/bullet sprites and raw VDP tiles at that frame; route floor perception through #259 if geometry matches. |

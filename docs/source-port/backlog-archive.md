@@ -12186,6 +12186,25 @@ remains exact, with the known state-report divergences still first authoritative
   uses the raw VDP frame plus overlay path, so this is not evidence for the reported live black
   squares. Keep the rows awaiting exact timing or a `play-native --record` bundle; do not patch the
   already-clean 2400/2700/2720/2721 route again.
+- **#210 / #254 fixed candidate 2026-07-02 after raw-VDP frame-window recheck.** The earlier
+  recheck sampled the covered routes too early: fresh raw captures for
+  `2400:start,2700:start,2720:start` show native/oracle exact at frames 2720 and 2721, then a full
+  scene swap at frames 2722..2727 (`AE=65440`) where native exposed the Blue Lake Woods
+  title-card/tree VDP while oracle still displayed the Red Stealth title/menu. The adjacent route
+  `2400:start,2698:start,2718:start` had the same class at frames 2720/2721. Re-read
+  `Obj_TitleMenu loc_1BBD6`, `loc_6E2`, and title-card gate `loc_1AE2E`: row-select Start has
+  entered Load_TitleCard, but the resident title/menu VDP remains visible during the hidden gate
+  warm-up. Native now snapshots the active title-menu VDP at the row-select hand-off and carries it
+  through the 38-frame oracle-backed warm-up window before exposing the title-card shell. New
+  regression `cold_boot_intro_sequence_6_row_select_carries_title_menu_vdp_through_load_title_card_loc_1bbd6_1ae2e`
+  failed before the fix and passes after it. Raw VDP after-fix evidence under
+  `.cache/debug/issue210-after-fix/`: `2400,2700,2720` is exact at frames 2720, 2721, 2722, 2723,
+  and 2760 (`AE=0` for each; frame 2800 remains the pre-existing title-card residual `AE=3130`);
+  `2400,2698,2718` is exact at frames 2718, 2719, 2720, 2721, and 2760 (`AE=0`; frame 2800
+  residual `AE=3364`). Verification: focused cache-backed title-menu tests, visual raw VDP
+  native/oracle captures, `cargo fmt --all`, `mise run backlog-lint`, and `mise run
+  verify-slice-fast` all pass. Move #210/#254 back to `[?]` for human validation of the rapid
+  menu/title-skip black-square report.
 
 ### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro logged)
 

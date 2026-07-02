@@ -687,6 +687,9 @@ pub struct NativeRuntime {
     /// edge flips into `Game_Mode=$0008`, so visible level entry lands one
     /// traced frame after the pending selection wakes.
     title_menu_selection_delay_frames: usize,
+    /// ASM Obj_TitleMenu `loc_1BBD6` jumps into `loc_6E2`, but Load_TitleCard
+    /// does not immediately replace the resident title/menu VDP image.
+    title_menu_level_entry_vdp_carry: Option<(vdp::VdpState, usize)>,
     /// Demo playback reads inputs after game logic (ASM ReadJoypad path), so
     /// the byte fetched this frame becomes the controller state for the next
     /// frame.
@@ -1377,6 +1380,7 @@ impl NativeRuntime {
             title_menu_hidden_prearm_pending: false,
             title_menu_selection_pending: None,
             title_menu_selection_delay_frames: 0,
+            title_menu_level_entry_vdp_carry: None,
             demo_buffered_input: None,
             pending_demo_title_return: 0,
             demo_title_return_after_frame: false,
@@ -2073,10 +2077,16 @@ impl NativeRuntime {
                 })
             }
             BootState::StartingLevel { .. } => {
-                let theme_index = self.current_level_title_card_theme_index();
-                self.title_card_data
-                    .as_ref()
-                    .and_then(|data| vdp::build_title_card_vdp(data, theme_index))
+                if let Some((vdp, carry_until_frame)) = &self.title_menu_level_entry_vdp_carry
+                    && self.frame_index < *carry_until_frame
+                {
+                    Some(vdp.clone())
+                } else {
+                    let theme_index = self.current_level_title_card_theme_index();
+                    self.title_card_data
+                        .as_ref()
+                        .and_then(|data| vdp::build_title_card_vdp(data, theme_index))
+                }
             }
             BootState::DemoPlay {
                 frame_counter,

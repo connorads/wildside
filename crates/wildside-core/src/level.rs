@@ -19493,6 +19493,14 @@ impl NativeRuntime {
             BootState::TitleScreen { .. } | BootState::IntroSequence6 { .. }
         ) && self.title_screen_ready()
             && !uses_load_ingame_bootstrap;
+        let title_menu_vdp_carry = carry_title_start
+            && level_has_title_card
+            && matches!(
+                self.boot_state,
+                BootState::TitleScreen { .. } | BootState::IntroSequence6 { .. }
+            )
+            && self.title_menu_active
+            && !self.title_menu_cursor_pending;
         let start_latched = (carry_title_start
             && !self.recorded_title_card_handoff_delay
             && level_has_title_card
@@ -19517,6 +19525,17 @@ impl NativeRuntime {
             elapsed_frames: usize::from(starts_on_first_mode_8_frame),
             uses_load_ingame_bootstrap,
             load_ingame_bootstrap_started: false,
+        };
+        self.title_menu_level_entry_vdp_carry = if title_menu_vdp_carry {
+            self.vdp_state.clone().map(|vdp| {
+                (
+                    vdp,
+                    self.frame_index
+                        .saturating_add(TITLE_MENU_TO_TITLE_CARD_VDP_CARRY_FRAMES),
+                )
+            })
+        } else {
+            None
         };
         self.load_level_entry_common(level_id, entered_from_live_gameplay);
         // ASM Load_TitleCard allocates both the visible loc_1AC70 workers and
