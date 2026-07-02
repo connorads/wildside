@@ -36,6 +36,19 @@ collision. Regression:
 focused test, `mise run audit-debug-fields`, `mise run backlog-lint`, and
 `mise run verify-slice-fast` all pass.
 
+Follow-up 2026-07-02: made `probe-record-scenario-file
+--target-enemy-contact` consume `rock_tank_contact_probe` directly. The scorer
+now ranks the linked mouth/turret child summary from Tank.asm `loc_3B464` /
+Tank_Shooting.asm `loc_3B6C0`, while keeping the parent body summary in the
+printed result for #259 cross-checks. Regression:
+`target_enemy_contact_uses_rock_tank_child_probe_loc_3b464_loc_3b6c0`. Smoke
+on `.cache/recordings/issue271-stomp-candidate-jump189-20260702/scenario.json`
+reports `result stomp gate classify score_px 6 @226` with
+`rock_tank_contact_probe`: parent body separated, child mouth/turret classified
+as stomp, same-frame stomp true. This is tooling/search evidence only and
+explicitly does not close #271; the stale synthetic route is clean, so the next
+valid artefact remains the exact live failing frame.
+
 Blocked note 2026-07-02: moved #271 from `[~]` open to `[b]` awaiting exact
 human/live route. Current route evidence is exhausted without reproducing a
 native-only Tank stomp fault: `issue271-route-current-20260702` is a miss,

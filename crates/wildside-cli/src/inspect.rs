@@ -2497,26 +2497,40 @@ pub(crate) fn target_enemy_contact_from_frame(
                 summary.contains("candidate=1/") && summary.contains(&same_frame_label)
             });
 
+        if let Some(field) = frame.gameplay_debug_fields.get("rock_tank_contact_probe") {
+            for summary in field.split("; ").filter(|part| part.contains(&label)) {
+                let Some(child_summary) = extract_rock_tank_child_contact_summary(summary) else {
+                    continue;
+                };
+                if !child_summary.contains(&label) {
+                    continue;
+                }
+                let display_summary = format!("rock_tank_contact_probe/{summary}");
+                let candidate = target_enemy_contact_candidate(
+                    replay_frame,
+                    child_summary,
+                    display_summary,
+                    same_frame_stomp,
+                );
+                match &best {
+                    Some(existing)
+                        if enemy_contact_rank(existing) <= enemy_contact_rank(&candidate) => {}
+                    _ => best = Some(candidate),
+                }
+            }
+        }
+
         for key in ["kid_stomp_contact_candidates", "kid_collision_order_probe"] {
             let Some(field) = frame.gameplay_debug_fields.get(key) else {
                 continue;
             };
             for summary in field.split("; ").filter(|part| part.contains(&label)) {
-                let score_px = enemy_contact_summary_score_px(summary).unwrap_or(i64::MAX / 2);
-                let result = extract_contact_summary_value(summary, "result=")
-                    .unwrap_or("unknown")
-                    .to_string();
-                let gate = extract_contact_summary_value(summary, "gate=")
-                    .unwrap_or("unknown")
-                    .to_string();
-                let candidate = TargetEnemyContactApproach {
+                let candidate = target_enemy_contact_candidate(
                     replay_frame,
-                    score_px,
-                    result,
-                    gate,
-                    summary: summary.to_string(),
+                    summary,
+                    summary.to_string(),
                     same_frame_stomp,
-                };
+                );
                 match &best {
                     Some(existing)
                         if enemy_contact_rank(existing) <= enemy_contact_rank(&candidate) => {}
@@ -2527,6 +2541,29 @@ pub(crate) fn target_enemy_contact_from_frame(
     }
 
     best
+}
+
+fn target_enemy_contact_candidate(
+    replay_frame: usize,
+    rank_summary: &str,
+    display_summary: String,
+    same_frame_stomp: bool,
+) -> TargetEnemyContactApproach {
+    let score_px = enemy_contact_summary_score_px(rank_summary).unwrap_or(i64::MAX / 2);
+    let result = extract_contact_summary_value(rank_summary, "result=")
+        .unwrap_or("unknown")
+        .to_string();
+    let gate = extract_contact_summary_value(rank_summary, "gate=")
+        .unwrap_or("unknown")
+        .to_string();
+    TargetEnemyContactApproach {
+        replay_frame,
+        score_px,
+        result,
+        gate,
+        summary: display_summary,
+        same_frame_stomp,
+    }
 }
 
 pub(crate) fn describe_target_enemy_contact_from_frame(
@@ -2564,6 +2601,13 @@ fn extract_contact_summary_value<'a>(summary: &'a str, prefix: &str) -> Option<&
     let start = summary.find(prefix)? + prefix.len();
     let tail = &summary[start..];
     let end = tail.find('/').unwrap_or(tail.len());
+    Some(&tail[..end])
+}
+
+fn extract_rock_tank_child_contact_summary(summary: &str) -> Option<&str> {
+    let start = summary.find("/child{")? + "/child{".len();
+    let tail = &summary[start..];
+    let end = tail.find('}')?;
     Some(&tail[..end])
 }
 
@@ -3841,6 +3885,32 @@ mod tests {
                 gate: "classify".to_string(),
                 summary: "order=0/target=active_enemy[0]/enemy_0A#01 gate=classify/result=stomp/kid=[198,208,185,216]/obj=[190,215,200,216]/overlap=18,16/delta=0x00000000,0x00000000".to_string(),
                 same_frame_stomp: true,
+            })
+        );
+    }
+
+    #[test]
+    fn target_enemy_contact_uses_rock_tank_child_probe_loc_3b464_loc_3b6c0() {
+        let mut trace = vec![player_frame(
+            10,
+            GameMode::InGame,
+            Some(0x00C0_0000),
+            Some(0x00D0_0000),
+        )];
+        trace[0].gameplay_debug_fields = std::collections::BTreeMap::from([(
+            "rock_tank_contact_probe".to_string(),
+            "active_enemy[0]/family=Tank/segment=Parent/hp=2/fa74=0/fa75=1/cm=3/blocked=0/pending_stomp=1/pending_contact=none/delayed_contact=none/child_latch=1/parent{enemy_0A#01 gate=separated/result=none/kid=[148,158,170,201]/obj=[146,171,208,224]/overlap=10,-7/delta=0x00000000,0x00000000}/child{enemy_0A#01 gate=classify/result=stomp/kid=[148,158,170,201]/obj=[146,171,200,216]/overlap=10,1/delta=0x00000000,0x00000000}".to_string(),
+        )]);
+
+        assert_eq!(
+            target_enemy_contact_from_frame(&trace, 0x0A, 0),
+            Some(TargetEnemyContactApproach {
+                replay_frame: 0,
+                score_px: 6,
+                result: "stomp".to_string(),
+                gate: "classify".to_string(),
+                summary: "rock_tank_contact_probe/active_enemy[0]/family=Tank/segment=Parent/hp=2/fa74=0/fa75=1/cm=3/blocked=0/pending_stomp=1/pending_contact=none/delayed_contact=none/child_latch=1/parent{enemy_0A#01 gate=separated/result=none/kid=[148,158,170,201]/obj=[146,171,208,224]/overlap=10,-7/delta=0x00000000,0x00000000}/child{enemy_0A#01 gate=classify/result=stomp/kid=[148,158,170,201]/obj=[146,171,200,216]/overlap=10,1/delta=0x00000000,0x00000000}".to_string(),
+                same_frame_stomp: false,
             })
         );
     }

@@ -34,9 +34,11 @@ and stop — never commit churn.
   has landed: native traces now emit `rock_tank_contact_probe` near Tank child
   contact windows, including parent/child positions, collision summaries,
   `Character_Movement`, `$FA74/$FA75`-style latches, stomp block gate, child
-  latch, and pending contact queues. Next pass should capture the exact live
-  failing frame and pair this field with enemy-only/final-composite pixels and
-  oracle state so #271 and #259 cannot keep deflecting into each other.
+  latch, and pending contact queues. The `--target-enemy-contact` scorer now
+  consumes that probe and reports the linked child contact while preserving the
+  parent/body context. Next pass should capture the exact live failing frame
+  and pair this field with enemy-only/final-composite pixels and oracle state
+  so #271 and #259 cannot keep deflecting into each other.
 - **#271 reopened 2026-07-02:** jumping on RockTank heads still hurts Kid and
   is game-breaking. Existing route set is rejected as insufficient, not as
   proof the report is invalid.
@@ -88,7 +90,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 271 | [~] | P0 | player/enemy | Reopened 2026-07-02: jumping on RockTank heads still hurts Kid/Red Stealth in live play. Previous route-needed classification is rejected as insufficient because the live report is recurrent and game-breaking. | Instrument live contact: child box, `Character_Movement`, `$FA74/$FA75`, contact result, Tank child colid, HP/damage, enemy-only and composite frame. Then run oracle frontier on the captured route if available. |
+| 271 | [~] | P0 | player/enemy | Reopened 2026-07-02: jumping on RockTank heads still hurts Kid/Red Stealth in live play. Previous route-needed classification is rejected as insufficient because the live report is recurrent and game-breaking. | Capture live contact with `rock_tank_contact_probe` + scorer: child box, `Character_Movement`, latches, colid, HP/damage, enemy-only/composite frame. Then run oracle frontier. |
 | 259 | [ ] | P1 | enemy/render | Reopened 2026-07-02: RockTanks still appear halfway in the floor on levels 2/3, likely interacting with #271 targeting. | Capture same frame as #271 where possible: body/turret Y, child collision box, enemy-only layer, composite foreground mask, oracle side-by-side. |
 | 324 | [ ] | P1 | render/block | Reopened 2026-07-02: prize/P block still shows wrong sprite/art on top of the hit wobble. Known clean routes do not close the live-visible defect. | Capture live wobble frame with both scene compositor and raw VDP layers; compare against oracle before changing `sub_1007A` rendering again. |
 | 369 | [ ] | P1 | render/eol | Reopened 2026-07-02: flagpole base is still missing at end of level after the priority fixed-candidate. | Natural EOL capture: inspect scene commands, priority mask, raw VDP sprite list, and oracle frame for the base/bottom flag sprite. |

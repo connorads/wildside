@@ -16,10 +16,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   contact windows and separates Tank body placement from linked mouth/turret
   collision, with `Character_Movement`, FA74/FA75-style latches, stomp-block
   gate, child latch, and pending contact queues.
+- Taught the `--target-enemy-contact` scorer to consume the RockTank probe's
+  child contact while keeping parent/body context in the one-line result. The
+  cached `issue271-stomp-candidate-jump189-20260702` route now reports a clean
+  synthetic child stomp at frame 226; this rejects the stale route as live-bug
+  evidence, not the human report.
 - Verification: focused
   `rock_tank_contact_probe_reports_parent_child_split_loc_3b464`,
-  `mise run audit-debug-fields`, `mise run backlog-lint`, and
-  `mise run verify-slice-fast` all pass.
+  `target_enemy_contact_uses_rock_tank_child_probe_loc_3b464_loc_3b6c0`,
+  the cached scorer smoke, `mise run audit-debug-fields`,
+  `mise run backlog-lint`, and `mise run verify-slice-fast` all pass.
 - NEXT: take #271 first with an exact live failing frame. Capture
   `rock_tank_contact_probe`, enemy-only/final-composite pixels, and oracle
   state together; do not retune Tank Y, child collision, or foreground priority
