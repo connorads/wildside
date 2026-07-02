@@ -11909,6 +11909,20 @@ remains exact, with the known state-report divergences still first authoritative
   Verification: focused cache-backed core tests, focused CLI direct-capture test, visual
   native/oracle captures for `2400:start,2700:start,2720:start`, and `mise run verify-slice-fast`
   green.
+- **#210 / #254 follow-up 2026-07-02.** The latest human reconfirm exposed the adjacent rapid
+  row-select edge `2400:start,2700:start,2721:start`: native frame 3000 showed live BLW gameplay
+  while oracle stayed on the Blue Lake Woods title card (`AE=67705`). Re-read `Obj_TitleMenu
+  loc_1BB52`, `Title_InputLoop`, `loc_1BBD6`, and `loc_1AE2E`; the row-select Start is consumed by
+  the title menu and must not be latched into the title-card gate. `capture-scenario-frames` now
+  opts into recorded title-card handoff timing instead of the direct gameplay-capture bypass, so
+  visual replay keeps the consumed-Start behaviour while pause/death gameplay captures keep their
+  explicit direct path. Focused regression
+  `cold_boot_intro_sequence_6_next_frame_menu_start_does_not_carry_into_loc_1ae2e` covers the 2721
+  edge alongside the existing 2720 regression. Visual evidence for
+  `.cache/debug/issue210-20260702/probe-oracle-2400-2700-2721/oracle-frame-scenario.json`: native
+  frame 3000 now shows the title card and AE improves to `2866` (same title-card residual class as
+  2720). `verify-tas` on this narrow route still reports hidden title-card trace-position drift, so
+  keep #210/#254 `[?]` for human visual validation rather than closing them from trace parity.
 
 ### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro logged)
 

@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (#210/#254 adjacent menu Start fix)
+
+- **#210/#254 remain `[?]`.** Human reconfirm led to adjacent route
+  `2400:start,2700:start,2721:start`, which still showed native gameplay/black
+  art at frame 3000 while oracle stayed on the Blue Lake Woods title card.
+- **Fix:** scripted visual capture now uses recorded title-card handoff timing:
+  `Obj_TitleMenu loc_1BBD6` consumes the row-select Start before title-card
+  `loc_1AE2E`; the recorded cold-boot title/menu route no longer latches that
+  same Start into the title-card gate.
+- Verification: focused 2720 and 2721 cache-backed regressions pass; native
+  2721 frame 3000 now shows the title card and AE improves `67705 -> 2866`.
+  `verify-tas` still reports hidden title-card trace-position drift, so the
+  close gate remains human visual validation.
+- NEXT: run `mise run project-status`; #252 tank/helmet and #324 prize/P block
+  reports still need exact live screenshot/recording/frame evidence.
+
 ## 2026-07-02 handoff (proactive HUD mutation audit)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open

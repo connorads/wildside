@@ -130,6 +130,7 @@ pub(crate) fn capture_scenario_frames(
     let h = NATIVE_FRAME_HEIGHT as usize;
 
     let mut runtime = NativeRuntime::with_generated_level_layout(manifest.clone());
+    runtime.set_recorded_title_card_handoff_delay(true);
     if let Some(level) = scenario.warp_to_level {
         let target_level = LevelId(level);
         runtime.boot_to_level(target_level);

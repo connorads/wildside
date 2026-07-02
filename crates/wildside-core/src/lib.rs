@@ -1796,7 +1796,8 @@ impl NativeRuntime {
         self.trace_physics = enabled;
     }
 
-    pub(crate) fn set_recorded_title_card_handoff_delay(&mut self, enabled: bool) {
+    /// Select oracle-recorded title-card hand-off timing for scripted replay tools.
+    pub fn set_recorded_title_card_handoff_delay(&mut self, enabled: bool) {
         self.recorded_title_card_handoff_delay = enabled;
     }
 

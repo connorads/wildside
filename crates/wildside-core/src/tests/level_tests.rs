@@ -6942,6 +6942,7 @@ mod chunk_02 {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
         };
+        runtime.set_recorded_title_card_handoff_delay(true);
         let mut trace_2721 = None;
         let mut trace_3299 = None;
 
@@ -6977,6 +6978,47 @@ mod chunk_02 {
             trace_3299.game_mode,
             GameMode::LevelTransition,
             "ASM Obj_TitleMenu loc_1BBD6 enters Load_TitleCard; the selected Start must not carry through loc_1AE2E into gameplay"
+        );
+    }
+
+    #[test]
+    fn cold_boot_intro_sequence_6_next_frame_menu_start_does_not_carry_into_loc_1ae2e() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        runtime.set_recorded_title_card_handoff_delay(true);
+        let mut trace_2723 = None;
+        let mut trace_3000 = None;
+
+        for frame_index in 0..=3_000 {
+            let input = if matches!(frame_index, 2_400 | 2_700 | 2_721) {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            let trace = runtime.step_frame(input);
+            if frame_index == 2_723 {
+                trace_2723 = Some(trace);
+            } else if frame_index == 3_000 {
+                trace_3000 = Some(trace);
+            }
+        }
+
+        let trace_2723 = trace_2723.expect("title-card shell should survive the row-select Start");
+        assert_eq!(
+            trace_2723.game_mode,
+            GameMode::LevelTransition,
+            "ASM Obj_TitleMenu loc_1BBD6 consumes the row-select Start before loc_1AE2E begins polling"
+        );
+
+        let trace_3000 = trace_3000.expect("title-card shell should still be visible");
+        assert_eq!(
+            trace_3000.game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_1AE2E must wait for a later Start edge instead of reusing the title-menu row-select edge"
         );
     }
 

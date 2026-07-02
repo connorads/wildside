@@ -26,13 +26,15 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-02 #210/#254 fixed candidate:** exact old route
-  `2400:start,2700:start` stayed green, but adding a rapid menu-select Start at
-  `2720:start` reproduced native gameplay/black art while oracle stayed in the
-  title/menu -> Blue Lake Woods title-card path. Native now honours
-  `Obj_TitleMenu loc_1BB52` cursor-build and one `Title_InputLoop` hibernate
-  before `loc_1BBD6`; row-select Start no longer carries into title-card
-  `loc_1AE2E` on recorded cold-boot routes. #210/#254 are back in awaiting-human.
+- **2026-07-02 #210/#254 fixed-candidate follow-up:** after the human
+  reconfirm, adjacent route `2400:start,2700:start,2721:start` still reproduced
+  native live gameplay/black art at frame 3000 while oracle stayed on the Blue
+  Lake Woods title card (`AE=67705`). Native scripted visual capture now uses
+  recorded title-card handoff timing, so `Obj_TitleMenu loc_1BBD6` row-select
+  Start is consumed before title-card `loc_1AE2E`; both 2720 and 2721 rapid
+  routes stay in the title-card shell. Native frame 3000 on the 2721 route now
+  shows the BLW title card (`AE=2866`, title-card residual only). #210/#254
+  remain awaiting human validation.
 - **#252 route-needed after fresh recheck:** current Level 01 RockTank capture and
   assembled tank/bullet sprites remain coherent; no current tank/helmet garble was
   reproduced without an exact human frame/route. #252 is back in awaiting-human.
