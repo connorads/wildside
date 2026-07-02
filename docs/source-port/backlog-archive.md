@@ -11046,6 +11046,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 |-----|--------|-----|--------|---------|--------|
 | 319 | [x] | P3 | audio | Umbrella: `audio-triggers-fidelity-audit.md` has no standalone backlog candidates left after recheck; concrete trigger gaps are resolved, blocked under human/audio-device rows, or owned by broader #160/GEMS-driver architecture. | Rechecked audit backlog-candidate table, archive #319, and `backlog-validation-2026-06-14`; no code patch warranted. See archive #319. |
 | 320 | [x] | P3 | camera | Umbrella: `camera-fidelity-audit.md` has no standalone backlog candidates left after recheck; all six candidate camera rows are already `[x]` and the audit reports 0 confirmed gaps. | Rechecked audit backlog-candidate table, archive #320, and `backlog-validation-2026-06-14`; no code patch warranted. See archive #320. |
+| 324 | [x] | P1 | render/block | Fixed 2026-07-02: prize/P block wobble no longer shows the diagonal forest/wood tile under the lifted P block. | Human-confirmed fixed after commit `00e7a6cb1`; exact bundle replay frame 840 and focused before/after crops show lifted P art with no triangle leak. See archive #324. |
 | 316 | [x] | P2 | form | Umbrella: `helmets-fidelity-audit.md` has no standalone Diamond Power shared-object/storage rows left after raw slot payload RAM, active/free/last list, and sprite compiler wiring. | Raw DP payload regressions, `verify-slice-fast`, and `verify-tas-full` completed; see archive #316. |
 | 359 | [x] | P2 | enemy/level | Cyclone-form sky level Sphere 0x06 spawn now keeps the ROM live collision rows, delayed terrain collision response, and level 0x1B settled-recording age. | ASM `Enemy06_Sphere_Init` / `loc_35F70` / `GfxObjects_Collision loc_171C`; focused Sphere regressions, cache-backed level 0x1B regression, `verify-slice-fast`, and `verify-tas-full` exit 0. See archive #359. |
 | 362 | [x] | P2 | audio | RockTank drive SFX `$1F` no longer starts while the tank body is clipped out of the sprite visibility window. | ASM `Tank.asm` loc_3B40A / `Tank_Shooting.asm` loc_3B690 / `Make_SpriteFromGfxObject` loc_11EE / `sub_3C352`; Tank regression, #339 stop/count regressions, `verify-slice-fast`, and `verify-tas-full` exit 0. See archive #362. |
@@ -11591,6 +11592,9 @@ Focused core/frame/native-player prize-wobble tests pass, plus the focused
 `mise run verify-tas-full` exit 0 with the existing published-route baseline
 divergences after frame 7850. Keep #324 `[?]` per tracker rules; human can
 promote after retesting the same row.
+
+Human fixed confirmation 2026-07-02: user requested "please log as fixed" after
+commit `00e7a6cb1 Fix prize wobble copied art`. Move #324 from `[?]` to `[x]`.
 
 ### #339
 

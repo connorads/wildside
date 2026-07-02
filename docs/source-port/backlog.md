@@ -38,12 +38,10 @@ and stop — never commit churn.
   levels 2/3. Next pass must pair enemy-only and final-composite views with
   `rock_tank_contact_probe`, because perceived floor sink may be causing
   players to aim at a damaging side box.
-- **#324 fixed-candidate 2026-07-02:** human route
-  `playtest-2026-07-02-prize-wobble` now has a direct current-code replay
-  check: verifier frame 840 shows the lifted P block with no diagonal wood
-  leak underneath. Oracle RAM on the focused hit shows the live cell is `$6F00`,
-  while the copied wobble sprite still draws `$E102` source art. Keep awaiting
-  human validation per tracker rules.
+- **#324 resolved 2026-07-02:** human confirmed the prize/P block wobble is
+  fixed after commit `00e7a6cb1`. The direct replay check remains verifier
+  frame 840 from `playtest-2026-07-02-prize-wobble`: lifted P block, no
+  diagonal wood leak underneath.
 - **#369 reopened 2026-07-02:** flagpole base is still missing at natural EOL
   despite the priority candidate. Next pass should verify scene command
   presence, priority mask, and raw VDP/EOL sprite list on the exact natural

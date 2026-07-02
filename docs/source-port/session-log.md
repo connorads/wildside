@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — #324 human-validated fixed
+
+- Human confirmed the prize/P block wobble fix and asked to log it fixed.
+- Moved #324 from awaiting-human `[?]` to resolved `[x]`. The implementation
+  commit remains `00e7a6cb1 Fix prize wobble copied art`.
+- #259 and #369 remain the current open visual follow-ups.
+
 ## 2026-07-02 — #324 prize/P wobble replay-validated
 
 - Corrected the remaining `$6F02` premise: focused oracle RAM shows the live
