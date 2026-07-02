@@ -8490,6 +8490,83 @@ mod tests {
         }
     }
 
+    #[test]
+    fn resolve_ingame_vram_tile_maps_absolute_vdp_ranges_to_local_sheets() {
+        let mut visuals = sample_level_visuals(0x20);
+        visuals.foreground_tiles = sample_tile_sheet_with_pixel(3, 0x11);
+        visuals.block_tiles = sample_tile_sheet_with_pixel(5, 0x22);
+        visuals.hud.digits = sample_tile_sheet_with_pixel(7, 0x33);
+        visuals.hud.diamond_tiles = sample_tile_sheet_with_pixel(11, 0x44);
+
+        let public_resolved =
+            resolve_ingame_vram_tile(&visuals, sample_tile_ref(FOREGROUND_TILE_VRAM_BASE + 1))
+                .expect("public wrapper should use the scene foreground palette");
+        assert_eq!(public_resolved.tile.tile_index, 1);
+        assert_eq!(
+            public_resolved.palette.colours,
+            visuals.palettes.foreground.colours
+        );
+
+        let cases = [
+            (FOREGROUND_TILE_VRAM_BASE + 2, 2, 0x11),
+            (BLOCK_TILE_VRAM_BASE + 4, 4, 0x22),
+            (HUD_TILE_VRAM_BASE + 6, 6, 0x33),
+            (HUD_DIAMOND_TILE_VRAM_BASE + 10, 10, 0x44),
+        ];
+
+        for (absolute_tile_index, expected_local_index, expected_pixel) in cases {
+            let resolved = resolve_ingame_vram_tile_with_foreground_palette(
+                &visuals,
+                &sample_palette_with_first_word(0x0EEE),
+                TileRef {
+                    tile_index: absolute_tile_index,
+                    palette_line: 3,
+                    priority: true,
+                    flip_x: true,
+                    flip_y: true,
+                },
+            )
+            .expect("absolute VDP tile should resolve inside native ingame ranges");
+
+            assert_eq!(resolved.tile.tile_index, expected_local_index);
+            assert_eq!(resolved.tile.palette_line, 3);
+            assert!(resolved.tile.priority);
+            assert!(resolved.tile.flip_x);
+            assert!(resolved.tile.flip_y);
+            assert_eq!(
+                resolved.tile_sheet.tiles[usize::from(expected_local_index)].pixels[0],
+                expected_pixel
+            );
+            assert_eq!(resolved.palette.colours[0], MdColour::from_word(0x0EEE));
+        }
+    }
+
+    #[test]
+    fn resolve_ingame_vram_tile_rejects_range_end_and_unknown_tiles() {
+        let mut visuals = sample_level_visuals(0x20);
+        visuals.foreground_tiles = sample_tile_sheet(1);
+        visuals.block_tiles = sample_tile_sheet(1);
+        visuals.hud.digits = sample_tile_sheet(1);
+        visuals.hud.diamond_tiles = sample_tile_sheet(2);
+
+        for tile_index in [
+            FOREGROUND_TILE_VRAM_BASE - 1,
+            FOREGROUND_TILE_VRAM_BASE + 1,
+            BLOCK_TILE_VRAM_BASE - 1,
+            BLOCK_TILE_VRAM_BASE + 1,
+            HUD_TILE_VRAM_BASE - 1,
+            HUD_TILE_VRAM_BASE + 1,
+            HUD_DIAMOND_TILE_VRAM_BASE - 1,
+            HUD_DIAMOND_TILE_VRAM_BASE + 2,
+            HUD_DIAMOND_TILE_VRAM_BASE * 2 - 1,
+        ] {
+            assert!(
+                resolve_ingame_vram_tile(&visuals, sample_tile_ref(tile_index)).is_none(),
+                "tile {tile_index:#06X} must stay outside the one-tile test ranges"
+            );
+        }
+    }
+
     trait SingleCommand {
         fn single(&self) -> &DrawCommand;
     }
@@ -8666,5 +8743,11 @@ mod tests {
         Palette {
             colours: (0..16).map(MdColour::from_word).collect(),
         }
+    }
+
+    fn sample_palette_with_first_word(word: u16) -> Palette {
+        let mut palette = sample_palette();
+        palette.colours[0] = MdColour::from_word(word);
+        palette
     }
 }

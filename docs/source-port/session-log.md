@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive scene tile-resolution mutation shard)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation or visual rows; only human validation/repro blockers remain.
+- **Mutation fallback advanced:** focused `wildside-frame/src/scene.rs`
+  ingame VDP tile-resolution helper. Added foreground/block/HUD/HUD-diamond
+  range assertions for absolute-to-local tile indices, attribute preservation,
+  public wrapper palette routing, and range-end/unknown-tile rejection.
+- Verification: `cargo test -q -p wildside-frame scene::tests -- --nocapture`
+  and focused mutation rerun
+  `/tmp/mutants-frame-scene-tile-resolve-20260702-after` (`28 mutants tested
+  in 47s: 22 caught, 4 missed, 2 unviable`). Remaining misses are unrelated
+  scene helpers matched by the file-level shard.
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  proactive verification on another focused frame/core shard.
+
 ## 2026-07-02 handoff (proactive scene prize-block mutation shard)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open
