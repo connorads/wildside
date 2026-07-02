@@ -57,9 +57,12 @@ and stop — never commit churn.
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
 - **Proactive verification 2026-07-02:** with no ready/open queue rows,
-  mutation fallback found no actionable source gaps (`armadillo.rs`: 34 caught,
-  12 unviable; `spinning_twins.rs`: 105 caught, 21 unviable;
-  `big_hopping_skull.rs`: 56 caught, 15 unviable). ASM audits found four live
+  mutation fallback covered `armadillo.rs` (34 caught, 12 unviable),
+  `spinning_twins.rs` (105 caught, 21 unviable), and
+  `big_hopping_skull.rs` (56 caught, 15 unviable). The `diamond.rs` mutation
+  pass initially found one actionable zero-velocity ceiling boundary survivor;
+  a regression now pins `kid.asm loc_3C2D0`/Diamond.asm `loc_3ADA4` and the
+  rerun reports 62 caught, 10 unviable, 0 missed. ASM audits found four live
   gameplay gaps. Armadillo.asm `loc_3C766`/`loc_3C7F8` now seeds the
   shared Scorpion.asm `loc_3DEA0` `$6E/$54` timer through
   `shared_walker_patrol_timer`, hibernating/reversing on expiry. Goat.asm

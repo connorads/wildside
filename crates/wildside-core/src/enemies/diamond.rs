@@ -698,6 +698,14 @@ mod tests {
             DIAMOND_COLID_CEILING,
             "ASM Diamond.asm loc_3ADA4 dispatches colid_ceiling to loc_3AE3E after the vertical collision pass"
         );
+        assert_eq!(
+            diamond_high_hp_collision_type(
+                &diamond_test_enemy(32, 48, 0x0001_8000, 0),
+                Some(&ceiling_grid),
+            ),
+            0,
+            "ASM kid.asm loc_3C2D0 branches zero vertical movement through the non-negative path, so loc_3ADA4 should not see colid_ceiling",
+        );
 
         let slope_up_grid =
             diamond_grid_with_cells(&[(2, 3, terrain::Cell::from_be_bytes(0x40, 0x00))]);

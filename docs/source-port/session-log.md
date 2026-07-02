@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 - proactive Diamond mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback moved from
+  ASM audit to one-file mutation testing of the freshly changed Diamond module.
+- `TMPDIR=/tmp FILE=crates/wildside-core/src/enemies/diamond.rs mise run
+  mutants-file` initially reported one missed mutant:
+  `diamond_high_hp_collision_type` accepted `y_velocity <= 0` for the ceiling
+  path.
+- Re-read Diamond.asm `loc_3ADA4` and shared movement around `kid.asm
+  loc_3C2D0`. The zero vertical delta branches through the non-negative
+  movement path, so a stationary high-HP Diamond should not produce
+  `colid_ceiling`.
+- Added a focused regression to
+  `diamond_high_hp_collision_type_maps_ceiling_and_slopes_loc_3ada4`.
+  Verification: `cargo test -q -p wildside-core diamond_high_hp` passes, and
+  the Diamond mutation rerun reports 72 mutants tested: 62 caught, 10 unviable,
+  0 missed.
+
 ## 2026-07-02 - proactive Diamond terrain-table audit
 
 - Project-status still showed no ready/open risks, so the fallback audit moved
