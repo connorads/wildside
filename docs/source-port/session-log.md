@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive compact enemy mutation audit)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation or visual rows; only human validation/repro blockers remain.
+- **Mutation fallback audit:** ran compact enemy modules whose local helpers
+  already cite ASM and have focused tests. No source change was needed: all
+  surviving outcomes were caught or unviable.
+- Verification: `/tmp/mutants-core-goat-20260702` (`23 mutants tested: 15
+  caught, 8 unviable`), `/tmp/mutants-core-driller-20260702` (`24 mutants
+  tested: 19 caught, 5 unviable`), `/tmp/mutants-core-fire-demon-20260702` (`48
+  mutants tested: 30 caught, 18 unviable`), and
+  `/tmp/mutants-core-tornado-20260702` (`70 mutants tested: 62 caught, 8
+  unviable`). Each shard had zero missed mutants.
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  proactive verification on a different focused frame/core shard, not these
+  exact enemy module shards unless their code changes.
+
 ## 2026-07-02 handoff (proactive scene Plane-B row-debug mutation shard)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open

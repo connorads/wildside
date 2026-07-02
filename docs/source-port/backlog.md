@@ -48,14 +48,12 @@ and stop — never commit churn.
   or fixed-candidate; next actionable step is an exact current screenshot,
   recording, route timing, or frame.
 - **Proactive verification 2026-07-02:** no ready/open rows remain, so the latest
-  loop hardened `wildside-frame/src/scene.rs`
-  `ChunkedPlaneBRowsLoc307D8::row_debug_for_trace_loc_30744` coverage. Added a
-  frame-local #289 alias-row diagnostic regression for ASM
-  `loc_30452/sub_30744/sub_307D8`, including the negative `changed_src=direct`
-  case when an alias exists without level-skip settle. Focused mutation
-  `/tmp/mutants-frame-scene-row-debug-20260702-rerun` ended at 28 mutants
-  tested: 28 caught. Continue with `mise run project-status`; if still empty,
-  use another proactive-verification fallback slice.
+  loop mutation-audited compact enemy modules with no source changes needed:
+  `goat.rs` 23 tested / 15 caught / 8 unviable, `driller.rs` 24 / 19 / 5,
+  `fire_demon.rs` 48 / 30 / 18, and `tornado.rs` 70 / 62 / 8. All four shards
+  had zero missed mutants. Continue with `mise run project-status`; if still
+  empty, use another proactive-verification fallback slice and avoid re-running
+  those exact module shards unless their code changes.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
