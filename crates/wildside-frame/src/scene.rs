@@ -8154,11 +8154,13 @@ mod tests {
 
     use super::*;
     use wildside_core::BlockBounceTrace;
+    use wildside_data::BackgroundLayoutAlias;
     use wildside_render::{
-        AnimatedSpriteVisual, BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals,
-        EnemyVisuals, FlagVisuals, FloatingPrizeVisuals, ForegroundLayout, HudVisuals,
-        LevelVisuals, PaletteSet, PlatformVisuals, PlayerFormVisuals, PlayerVisuals,
-        SpecialEffectUnknownVisuals, SpriteFrame, Tile, TileQuad, WeatherVisuals,
+        AnimatedSpriteVisual, BackgroundChunk, BackgroundPlacement, BackgroundTile,
+        BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals, EnemyVisuals, FlagVisuals,
+        FloatingPrizeVisuals, ForegroundLayout, HudVisuals, LevelVisuals, PaletteSet,
+        PlatformVisuals, PlayerFormVisuals, PlayerVisuals, SpecialEffectUnknownVisuals,
+        SpriteFrame, Tile, TileQuad, WeatherVisuals,
     };
 
     #[test]
@@ -8189,6 +8191,84 @@ mod tests {
             "ASM Fire_Demon loc_3A63C reuses the loaded Fire Demon art sheet for `stru_3A622` trail descriptors"
         );
         assert_eq!(tiles[0].tile.tile_index, 0x0B0);
+    }
+
+    #[test]
+    fn chunked_plane_b_row_debug_reports_loc_30744_provenance() {
+        let trace = NativeTraceFrame {
+            frame_index: 60,
+            time_frames_loc_3038a: 174,
+            level_skip_cheat_enabled: 1,
+            camera_x_pos: 292 << 16,
+            camera_y_pos: 0,
+            ..NativeTraceFrame::default()
+        };
+
+        let mut visuals = sample_level_visuals(1);
+        visuals.level.background_theme_id = 8;
+        visuals.level.foreground_layout_bytes = vec![0; 80 * 14];
+        visuals.level.foreground_layout =
+            ForegroundLayout::parse(&visuals.level.foreground_layout_bytes, 4, 1)
+                .expect("wide foreground layout");
+        visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
+            layer_speeds: vec![0x08; 32],
+            has_terminator: true,
+        });
+        visuals.level.background_layout_alias = Some(BackgroundLayoutAlias {
+            alias_label: "BackgroundLayout_0E".to_string(),
+            source_label: "BackgroundLayout_0C".to_string(),
+            source_background_path: Some("background/0C.bin".to_string()),
+            x_offset_tiles: 0x13,
+            y_offset_tiles: 0,
+        });
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: vec![BackgroundPlacement {
+                chunk_id: 0,
+                x_tiles: 0x13 + 49,
+                y_tiles: 18,
+            }],
+            chunks: vec![BackgroundChunk {
+                width_tiles: 8,
+                height_tiles: 1,
+                tiles: (1..=8)
+                    .map(|tile_index| BackgroundTile {
+                        tile_index,
+                        flip_x: false,
+                    })
+                    .collect(),
+            }],
+        });
+
+        let debug = chunked_plane_b_row_debug_for_trace_loc_30744(&trace, &visuals, 292, 18)
+            .expect("settled chunked Plane-B row debug");
+
+        for expected in [
+            "B18 sel=08 t=174 preload=114 first=0",
+            "upload_px=28",
+            "upload=d03<-s04",
+            "upload_data=d11<-s12w005D",
+            "changed_src=alias",
+            "t88:c0009->000A:d50<-s50:2782",
+            "words=",
+            "2781,2782,2783,2784,2785,2786,2787",
+        ] {
+            assert!(
+                debug.contains(expected),
+                "ASM loc_30452/sub_30744/sub_307D8 diagnostics should expose `{expected}` for the #289 alias-row provenance: {debug}"
+            );
+        }
+
+        let direct_trace = NativeTraceFrame {
+            level_skip_cheat_enabled: 0,
+            ..trace
+        };
+        let direct_debug =
+            chunked_plane_b_row_debug_for_trace_loc_30744(&direct_trace, &visuals, 292, 18)
+                .expect("direct chunked Plane-B row debug");
+        assert!(
+            direct_debug.contains("changed_src=direct"),
+            "ASM loc_30744 only reads the loc_12824 alias source during level-skip settle; normal live row diagnostics keep the direct source even when an alias definition exists: {direct_debug}"
+        );
     }
 
     #[test]

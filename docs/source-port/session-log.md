@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive scene Plane-B row-debug mutation shard)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation or visual rows; only human validation/repro blockers remain.
+- **Mutation fallback advanced:** focused `wildside-frame/src/scene.rs`
+  `ChunkedPlaneBRowsLoc307D8::row_debug_for_trace_loc_30744`. Added a
+  frame-local #289 alias-row diagnostic regression for ASM
+  `loc_30452/sub_30744/sub_307D8`, covering row/time/preload tokens,
+  loc_3050A display-derived upload data, loc_30452 packed upload data, alias
+  changed-column writes, row words, and the negative `changed_src=direct` case
+  when an alias definition exists without level-skip settle.
+- Verification: `cargo test -q -p wildside-frame
+  chunked_plane_b_row_debug_reports_loc_30744_provenance -- --nocapture` and
+  focused mutation rerun
+  `/tmp/mutants-frame-scene-row-debug-20260702-rerun` (`28 mutants tested: 28
+  caught`).
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  proactive verification on another focused frame/core shard.
+
 ## 2026-07-02 handoff (proactive scene Fire Demon/EOL mutation shard)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open

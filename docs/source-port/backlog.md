@@ -48,13 +48,14 @@ and stop — never commit churn.
   or fixed-candidate; next actionable step is an exact current screenshot,
   recording, route timing, or frame.
 - **Proactive verification 2026-07-02:** no ready/open rows remain, so the latest
-  loop hardened `wildside-frame/src/scene.rs` Fire Demon trail and EOL foreground
-  reveal coverage. The EOL reveal renderer now preserves ASM
-  `loc_C21E/sub_C254` VDP attribute palette bits instead of forcing palette line
-  0. Focused mutation ended at 46 mutants tested: 43 caught, 3 missed; misses are
-  unrelated `ChunkedPlaneBRowsLoc307D8::row_debug_for_trace_loc_30744` debug
-  string mutants. Continue with `mise run project-status`; if still empty, use
-  another proactive-verification fallback slice.
+  loop hardened `wildside-frame/src/scene.rs`
+  `ChunkedPlaneBRowsLoc307D8::row_debug_for_trace_loc_30744` coverage. Added a
+  frame-local #289 alias-row diagnostic regression for ASM
+  `loc_30452/sub_30744/sub_307D8`, including the negative `changed_src=direct`
+  case when an alias exists without level-skip settle. Focused mutation
+  `/tmp/mutants-frame-scene-row-debug-20260702-rerun` ended at 28 mutants
+  tested: 28 caught. Continue with `mise run project-status`; if still empty,
+  use another proactive-verification fallback slice.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
