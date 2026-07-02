@@ -8660,6 +8660,20 @@ mod tests {
     }
 
     #[test]
+    fn level_entry_title_number_activates_one_frame_after_letters_loc_1ab26_1ad48() {
+        assert_eq!(
+            super::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME,
+            43,
+            "ASM loc_1AB26 title-letter workers become trace-visible on local title frame `$2B` after the hidden bootstrap shell",
+        );
+        assert_eq!(
+            super::LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME,
+            super::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME + 1,
+            "ASM loc_1AD48 allocates level-number workers after the loc_1AB26 letter shell, so their activation frame must stay exactly one frame later",
+        );
+    }
+
+    #[test]
     fn level_entry_title_two_player_waiter_stays_off_in_single_player_loc_1ac10() {
         assert!(
             !level_entry_title_spawns_two_player_waiter_loc_1AC10(false),

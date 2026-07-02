@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — proactive movement title-card mutation gap
+
+- Open queue still empty. The proactive fallback started a broad
+  `movement.rs` mutation run and stopped after the first actionable survivor
+  cluster: both line-95 mutants changed the deferred level-number activation
+  frame from `first + 1` to `first - 1` / `first * 1`, and existing tests
+  compared against the same mutated constant.
+- Added an ASM-cited regression for `loc_1AB26`/`loc_1AD48` that pins title
+  letters at local trace frame 43 and the deferred level-number worker exactly
+  one frame later.
+- Verification: focused test passes; targeted mutation rerun
+  `/tmp/mutants-movement-title-frame-20260702` reports `2 mutants tested in
+  53s: 2 caught`; `mise run verify-slice-fast` passes.
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  proactive verification on a fresh shard rather than repeating this constant.
+
+---
+
 ## 2026-07-02 — #324 prize/P-block route-needed again
 
 - #324 moved from open to `[b]`. Current BLW1 row-1 and Highwater row-97

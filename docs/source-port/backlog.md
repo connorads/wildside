@@ -69,10 +69,13 @@ and stop — never commit churn.
   #252, #259, and #324 are back out of the open queue.
 - **Visual route work:** do not retune Tank Y/priority, block wobble sprites,
   or title/menu VDP from stale direct-camera or clean synthetic routes.
-- **Proactive verification 2026-07-02:** Mini Hopping Skull air-damage /
-  charging-Berzerker mutation shard has zero missed mutants
-  (`/tmp/mutants-core-mini-hopping-skull-air-damage-20260702`: 12 tested, 7
-  caught, 5 unviable).
+- **Proactive verification 2026-07-02:** movement title-card activation
+  constants now have an ASM-cited regression. The movement shard exposed two
+  surviving mutants on `LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME`
+  (`+1 -> -1/*1`); the new loc_1AB26/loc_1AD48 test pins letters at frame 43
+  and the deferred level-number worker exactly one frame later. Targeted
+  mutation rerun `/tmp/mutants-movement-title-frame-20260702`: 2 tested, 2
+  caught.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
