@@ -62,7 +62,7 @@ and stop — never commit churn.
   `big_hopping_skull.rs` (56 caught, 15 unviable). The `diamond.rs` mutation
   pass initially found one actionable zero-velocity ceiling boundary survivor;
   a regression now pins `kid.asm loc_3C2D0`/Diamond.asm `loc_3ADA4` and the
-  rerun reports 62 caught, 10 unviable, 0 missed. ASM audits found five live
+  rerun reports 62 caught, 10 unviable, 0 missed. ASM audits found six live
   gameplay gaps. Armadillo.asm `loc_3C766`/`loc_3C7F8` now seeds the
   shared Scorpion.asm `loc_3DEA0` `$6E/$54` timer through
   `shared_walker_patrol_timer`, hibernating/reversing on expiry. Goat.asm
@@ -77,12 +77,13 @@ and stop — never commit churn.
   `loc_3AE4A`, and `loc_3AE68` can run instead of collapsing to no-collision or
   generic floor. Driller.asm `loc_3BF4E` now hibernates the native Driller
   during the nonterminal stomp hurt animation before `loc_3BF66` can resume the
-  shared walker. `verify-slice-fast` passes; `verify-tas-full` exits 0 with CRC
-  all 37759 frames matching but still reports the current `1p-accurate` state
-  gap (first authoritative diff: `transition_15_to_00_post`
-  DragonWalking/object-count). ASM coverage remains `0` ordinary uncovered
-  labels plus 21 emulated GEMS wrappers; do not cite those wrappers just to move
-  the metric.
+  shared walker. Fire_Demon.asm `loc_3A5BE` now uses the full 24-tick
+  `stru_3A34E` hurt hibernate before `loc_3A5D4` can resume the shared walker.
+  `verify-slice-fast` passes; `verify-tas-full` exits 0 with CRC all 37759
+  frames matching but still reports the current `1p-accurate` state gap (first
+  authoritative diff: `transition_15_to_00_post` DragonWalking/object-count).
+  ASM coverage remains `0` ordinary uncovered labels plus 21 emulated GEMS
+  wrappers; do not cite those wrappers just to move the metric.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

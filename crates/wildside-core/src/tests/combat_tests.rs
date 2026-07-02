@@ -15667,8 +15667,8 @@ mod chunk_03 {
             "ASM Fire_Demon.asm loc_3A586 decrements `$44(a3)` once before the nonfatal loc_3A5BE route"
         );
         assert_eq!(
-            demon.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES,
-            "native damage flash represents the loc_3A5BE `stru_3A34E` hibernate window"
+            demon.damage_flash_frames, FIRE_DEMON_HURT_ANIMATION_FRAMES_LOC_3A5BE,
+            "ASM Fire_Demon.asm loc_3A5BE hibernates for the full `stru_3A34E` duration, not the generic damage-flash window"
         );
         assert_eq!(demon.x_velocity, 0);
         assert_eq!(demon.y_velocity, 0);

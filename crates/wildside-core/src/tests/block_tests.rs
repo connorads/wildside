@@ -4658,6 +4658,44 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_hurt_hibernate_outlasts_generic_flash_loc_3a5be() {
+        let grid = grid_with_floor_at_row(14);
+        let mut demon = make_pacer(EnemyFamily::FireDemon, 4, 0x80, 0xE0);
+        demon.x_velocity = -0x0001_8000;
+        // ASM Fire_Demon.asm loc_3A5BE plays `stru_3A34E`, whose frame
+        // durations in ingame/anim/enemy/Fire_Demon.asm sum to 24 ticks.
+        demon.damage_flash_frames = FIRE_DEMON_HURT_ANIMATION_FRAMES_LOC_3A5BE;
+        let mut active = vec![demon];
+        let mut drilled_blocks = Vec::new();
+        let mut projectiles = Vec::new();
+
+        for _ in 0..ENEMY_DAMAGE_FLASH_FRAMES {
+            step_active_enemies(
+                &mut active,
+                Some(&grid),
+                Some(0x0040_0000),
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                Some(&mut projectiles),
+                &mut drilled_blocks,
+            );
+        }
+
+        assert_eq!(
+            active[0].x_pos, 0x0080_0000,
+            "ASM Fire_Demon.asm loc_3A5BE should still hibernate after the old generic damage-flash window"
+        );
+        assert_eq!(
+            active[0].damage_flash_frames,
+            FIRE_DEMON_HURT_ANIMATION_FRAMES_LOC_3A5BE - ENEMY_DAMAGE_FLASH_FRAMES
+        );
+        assert_eq!(active[0].x_velocity, 0);
+        assert_eq!(active[0].y_velocity, 0);
+    }
+
+    #[test]
     fn fire_demon_resume_shared_walker_loc_3a5d4_clears_collision_and_branches_by_direction() {
         assert_eq!(
             fire_demon_resume_shared_walker_loc_3a5d4(Direction::Left),

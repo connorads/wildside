@@ -1584,6 +1584,11 @@ pub(crate) const ORCA_DEATH_ANIMATION_FRAMES: u16 =
 /// ASM Fire_Demon.asm loc_3A5A6 plays `stru_3A378`: three $03-tick frames
 /// followed by three $04-tick frames before the loc_3C46E delete tail.
 pub(crate) const FIRE_DEMON_DEATH_ANIMATION_FRAMES: u16 = 0x03 + 0x03 + 0x03 + 0x04 + 0x04 + 0x04;
+/// ASM Fire_Demon.asm loc_3A5BE plays `stru_3A34E`: four $02-tick walking
+/// frames, one $04 hurt frame, then the same five-frame sequence again before
+/// restoring the saved walking animation.
+pub(crate) const FIRE_DEMON_HURT_ANIMATION_FRAMES_LOC_3A5BE: u8 =
+    0x02 + 0x02 + 0x02 + 0x02 + 0x04 + 0x02 + 0x02 + 0x02 + 0x02 + 0x04;
 /// ASM Crab.asm loc_3B094 plays `stru_3AF82`: $14, $0A, then $1E ticks
 /// before the shared delete tail at loc_3C46E.
 pub(crate) const CRAB_DEATH_ANIMATION_FRAMES: u16 = 0x14 + 0x0A + 0x1E;

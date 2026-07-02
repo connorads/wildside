@@ -9451,7 +9451,7 @@ impl NativeRuntime {
                         // decrement `$44(a3)`, play `stru_3A34E`, then
                         // restore the saved walk animation after hibernate.
                         enemy.hit_points = remaining_hp as u8;
-                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                        enemy.damage_flash_frames = FIRE_DEMON_HURT_ANIMATION_FRAMES_LOC_3A5BE;
                         enemy.x_velocity = 0;
                         enemy.y_velocity = 0;
                         changed_enemy_state = true;

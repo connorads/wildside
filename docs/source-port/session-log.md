@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 - proactive Fire Demon hurt-hibernate audit
+
+- Project-status still showed no ready/open risks, so the fallback moved to a
+  compact Fire Demon ASM audit.
+- Audited Fire_Demon.asm `loc_3A586`-`loc_3A5D4` and
+  ingame/anim/enemy/Fire_Demon.asm `stru_3A34E`. Native correctly entered the
+  nonterminal hurt route, but it reused the generic 8-frame damage flash while
+  the ROM hibernates through a 24-tick animation before restoring `$62(a5)`.
+- Updated the pending-collision route to seed
+  `FIRE_DEMON_HURT_ANIMATION_FRAMES_LOC_3A5BE` and added regressions for both
+  the route and the scheduler holding Fire Demon past the old generic flash
+  window.
+- Verification: focused red/green tests, `cargo test -q -p wildside-core
+  fire_demon`, `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, `mise run verify-slice-fast`, and `mise run verify-tas-full`
+  pass. Full TAS exits 0 with CRC all 37759 frames matching; the current
+  long-route state gap remains first at `transition_15_to_00_post` on
+  DragonWalking/object-count.
+
 ## 2026-07-02 - proactive Driller hurt-hibernate audit
 
 - Project-status still showed no ready/open risks, so the fallback moved to a
