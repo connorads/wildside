@@ -9542,6 +9542,23 @@ same, close as faithful with the image evidence, otherwise fix the real delta.
   these partial routes; the next useful step is a route-planner/tooling slice
   that can score exact enemy layout ids or import a short live recording around
   the named tanks.
+- [Evidence] 2026-07-02 current-route rejection: moved #259 from `[ ]` back to
+  `[b]` after serial verifier/scorer checks showed the cached BLW2/Highwater
+  target recheck bundles still cannot answer the floor-sink verdict. BLW2
+  `.cache/recordings/issue259-blw2-target-recheck-20260702/scenario.json`
+  first diverges under enemy frontier at frame 99 on the first RockTank roster:
+  native has the 0x0A pair facing Right with the body still at x=`$00D50000`,
+  while oracle has both facing Left and the live body advanced to x=`$00D58000`.
+  The scorer reaches only 0x0A damage contact (`score_px 16 @156`) and reports
+  no 0x0B contact. Highwater
+  `.cache/recordings/issue259-highwater-target-recheck-20260702/scenario.json`
+  first diverges at frame 140 on an oracle-only hidden worker (`64:00780000,
+  06200000`) and never activates a 0x0B tank; the target scorer reports no 0x0B
+  contact and no active enemies at the tail. This leaves no oracle-valid
+  side-by-side for body/turret Y or foreground occlusion depth. Do not patch
+  Tank Y, priority, or renderer occlusion from these routes; the next useful
+  artefact is an exact live screenshot/recording/frame at the named BLW2 or
+  Highwater tank.
 
 ### #260
 

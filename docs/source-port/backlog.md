@@ -26,7 +26,7 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-02 failed human validation:** #271, #324, and #259 remain
+- **2026-07-02 failed human validation:** #324 remains
   reopened from the awaiting-human lane. The repeated failure
   pattern is now the bug: fixed-candidate probes and synthetic routes are not
   exercising the live play paths the human keeps seeing.
@@ -42,39 +42,29 @@ and stop — never commit churn.
   in `[?]`; human should retest natural EOL and verify the base survives over
   foreground.
 - **#271 route-needed 2026-07-02:** moved to `[b]` after the current route set
-  failed to reproduce a native-only Tank stomp bug. Use the new
-  `probe-record-scenario-file --target-enemy-contact 0A/0B` scorer on the next
-  live candidate route. Recording bundles with `--record-target-enemy 0A/0B`
-  now write ready-made `route_target_score_commands` in
-  `manifest.json`/`README.txt` and print the frontier/scorer commands on save;
-  add `--record-stop-on-target-enemy-contact` for the next live capture so the
-  bundle auto-saves just after the first target contact. Known current routes
-  are not the live failure:
-  `issue271-route-current-20260702` is a miss, and
-  `issue271-sharp-current-20260702` is side/edge damage in both native and
-  oracle. `issue271-sharp-sweep-jump184-20260702`, materialised from a
-  `jump=184-206:4:1:right+b+c` batch, is a same-frame Tank stomp at frame 223
-  and focused `tas-diff` frames 220..227 are MATCH, so nearby synthetic
-  first-overlap stomps are also not the live failure. The next useful artefact
-  is a live targeted `play-native --record` route for the reported failing
-  jump. Then run the generated `verify-recording` /
-  `tas_frontier_command` before changing combat. Do not retry generic left
-  extra-step/left boundary patches from the older sharp-route phase note:
-  current `tas-diff` reports frames 0..5 MATCH, frames 216..221 transiently
-  divergent, then frames 222..228 MATCH including the damage contact at
-  224/227. Also do not chase the old full-frame idle frame-300 RockTank
-  assertion: current `idle_level_full_frames_01` oracle matches native at body/turret
-  `$00C48000/$00C40000`; that cache-backed test expectation was stale.
+  failed to reproduce a native-only Tank stomp bug. Known current routes are not
+  the live failure: `issue271-route-current-20260702` is a miss,
+  `issue271-sharp-current-20260702` is oracle-parity side/edge damage, and
+  `issue271-sharp-sweep-jump184-20260702` is oracle-parity same-frame stomp.
+  Next useful artefact: live targeted `play-native --record` route with
+  `--record-target-enemy 0A/0B --record-stop-on-target-enemy-contact`, then run
+  the generated verifier/frontier/scorer commands before changing combat.
 - **#252 route-needed 2026-07-02:** repeated current capture/test evidence
   after the #210/#254 fix still shows coherent RockTank body/turret/bullet art;
   move the tank/helmet garble report to `[b]` until an exact live frame or
   recording identifies the bad sprite.
+- **#259 route-needed 2026-07-02:** repeated current target-route scoring still
+  does not produce an oracle-valid side-by-side for the reported BLW2/Highwater
+  floor-sink. Current BLW2 route reaches only divergent 0x0A contact; Highwater
+  never activates a 0x0B tank. Move #259 to `[b]`; do not retune Tank
+  Y/priority/foreground occlusion without an exact live screenshot/recording/frame
+  and native/oracle side-by-side.
 - **Immediate work order:** take the next `project-status` item; with
-  #210/#254 and #252 back out of the open queue, the remaining reopened visual
-  risks are #324 and #259.
-- **Visual route work:** #324/#259 need current live recording or
-  raw-VDP/scene paired captures before another renderer patch. Do not retune
-  Tank Y/priority, block wobble sprites, or title/menu VDP from stale
+  #210/#254, #252, and #259 back out of the open queue, the remaining reopened
+  visual risk is #324.
+- **Visual route work:** #324 needs a current live screenshot/recording/frame
+  and raw-VDP/scene paired captures before another renderer patch. Do not
+  retune Tank Y/priority, block wobble sprites, or title/menu VDP from stale
   direct-camera or clean synthetic routes.
 - **Proactive verification 2026-07-02:** Mini Hopping Skull air-damage /
   charging-Berzerker mutation shard has zero missed mutants
@@ -102,4 +92,3 @@ For newly opened items, capture these facts in the investigation notes:
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 324 | [ ] | P1 | render/block | FAILED human validation 2026-07-02: prize/P block still shows wrong sprite/art behind the hit wobble, now visibly on top of the shake. | Capture current live screenshot/recording/frame; replay with `capture-scenario-frames --scene` and raw VDP; inspect block/effects/terrain layers before another `sub_1007A` renderer change. |
-| 259 | [ ] | P1 | enemy/render | FAILED human validation 2026-07-02: RockTanks still appear halfway in the floor on levels 2 and 3. | Record natural route to named BLW2/Highwater tanks; tas-diff body/turret Y plus foreground occlusion depth; only close as faithful if oracle side-by-side shows the same composite. |

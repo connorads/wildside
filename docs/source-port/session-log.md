@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — #259 RockTank floor-sink route-needed again
+
+- #259 moved from open to `[b]`. Current BLW2/Highwater target routes still do
+  not produce an oracle-valid side-by-side for the reported half-in-floor
+  RockTank.
+- Evidence: BLW2 `issue259-blw2-target-recheck-20260702` reaches 0x0A contact
+  but enemy-frontier diverges at frame 99 and never reaches 0x0B. Highwater
+  `issue259-highwater-target-recheck-20260702` never activates a 0x0B tank and
+  diverges at frame 140 on an oracle-only hidden worker.
+- Next #259 work needs an exact live screenshot/recording/frame at the named
+  BLW2/Highwater tank; do not tune Tank Y/priority/foreground occlusion without
+  native/oracle side-by-side evidence.
+- Next open work should come from `project-status`; #324 is the remaining open
+  reopened visual row.
+
 ## 2026-07-02 — #252 tank/helmet route-needed again
 
 - #252 moved from open to `[b]`. Repeated the current RockTank render recheck
