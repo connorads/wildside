@@ -734,7 +734,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "shared-walker-frontier",
-      "first_added_commit": "1922a7c66",
+      "first_added_commit": "e9b8c0aea",
       "intended_meaning": "Native grounded shared-walker scan tuple from ASM loc_3C04E/loc_3C0FA dispatch: direction, current/predicted X, tile remainder, boundary-crossing flag, d7/d6/d3 scan outputs, and selected native turn plan.",
       "promotion_trigger": "Promote if RockTank or other shared-walker parity starts asserting these scan components as typed trace state."
     },
