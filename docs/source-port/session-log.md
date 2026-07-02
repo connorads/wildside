@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (#252 tank/helmet route-needed)
+
+- **#252 moved `[~]` -> `[b]`.** Fresh current recheck did not reproduce the
+  tank/helmet garble: Level 01 frame 300 shows a coherent grey RockTank, and
+  assembled body/turret/muzzle/bullet dumps remain coherent.
+- Verification: `rock_tank_renderer_`,
+  `tank_bullet_uses_rom_child_sprite_frame_loc_3b730_stru_3b526`, ignored
+  `blue_lake_woods_2_live_tank_bullet_renders_rom_child_sprite_loc_3b730`, and
+  capture `.cache/debug/issue252-20260702-current-capture/`.
+- NEXT: run `mise run project-status`; #324 prize/P block wobble art should be
+  the remaining open visual item.
+
 ## 2026-07-02 handoff (#210/#254 menu-select fixed candidate)
 
 - **#210/#254 moved `[~]/[ ]` -> `[?]`.** Old route

@@ -9231,6 +9231,18 @@ Column of origin shown in brackets; text is verbatim.
   patch enemy state, Tank Y, or tank renderer selection from the stale raw-sheet
   hypothesis; route floor perception through #259 and death visibility through
   #167/#286.
+- [Blocked] 2026-07-02 follow-up after #210/#254: repeated the current #252
+  recheck before taking another visual patch. `capture-frames --level 01 --frames
+  260,300,340 --output .cache/debug/issue252-20260702-current-capture` still shows
+  a coherent grey RockTank body/turret at frame 300, and visual spot-checks of the
+  assembled body `$034`, turret `$020`, muzzle `$060`, and bullet `$038` dumps are
+  coherent. Focused verification passed again:
+  `KID_ENABLE_CACHE_BACKED_TESTS=1 cargo test -q -p wildside-cli rock_tank_renderer_ -- --nocapture`,
+  `KID_ENABLE_CACHE_BACKED_TESTS=1 cargo test -q -p wildside-cli tank_bullet_uses_rom_child_sprite_frame_loc_3b730_stru_3b526 -- --nocapture`,
+  and ignored live-bullet regression
+  `blue_lake_woods_2_live_tank_bullet_renders_rom_child_sprite_loc_3b730`. Keep
+  #252 `[b]`; the next actionable step requires an exact human recording/screenshot
+  or frame identifying the garbled tank/helmet sprite.
 
 ### #253
 
