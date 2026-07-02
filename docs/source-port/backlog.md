@@ -30,9 +30,9 @@ and stop — never commit churn.
   RockTank jumps still hurt Kid/Red Stealth, native no longer turns nonfatal
   `$2C` Tank mouth/turret stomps into delayed Kid damage. Await human playtest
   on BLW2/Highwater RockTanks; #259 floor-sink remains separate.
-- **#369 newly opened:** latest playtest reports the flagpole base is missing at
-  the end of the level. Old #175 is archived, so #369 tracks a current visual
-  repro against the end-of-level flagpole/base composition.
+- **2026-07-02 #369 fixed candidate:** flag/base sprites now remain visible
+  through the oracle pre-frame `loc_C0B6` cleanup boundary instead of
+  disappearing one frame after `loc_C070` touch. Await human validation.
 - **Still route-needed:** prize/P block weird sprite (#324), tank/helmet garble
   (#252), RockTank floor-sink (#259), and menu-skip black squares (#210/#254)
   still need exact live screenshot/recording/frame if they reproduce after the
@@ -58,4 +58,3 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 369 | [ ] | P1 | render/eol | 2026-07-02 playtest: flagpole is missing its base at the end of the level. | Reproduce with a current natural end-of-level flag route and compare native/oracle frame layers around `CharacterCollision_TouchFlagpole loc_C070`; cross-check archived #175 before patching. |

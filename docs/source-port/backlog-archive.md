@@ -40,6 +40,23 @@ visual symptom. Minimum next gate: capture a current natural end-of-level flag
 route, save layers, and compare native/oracle around `CharacterCollision_TouchFlagpole loc_C070`
 before patching stale flagpole/background composition.
 
+Fixed-candidate note 2026-07-02: current Highwater flag-transition capture
+`.cache/recordings/issue-369-highwater-flag-current-20260702/scenario.json`
+showed native scene/effects rendering dropped the waving flag and `Flag_bottom.bin`
+base after elapsed frame 0, while oracle kept both through the pre-frame sprite
+cleanup window. ASM `Flagpole_Boss` allocates exactly two flag gfx objects
+(`LnkTo_unk_E0FDE` pole bottom and `LnkTo_unk_E0FFE` waving flag), and
+`CharacterCollision_TouchFlagpole loc_C070` hibernates before `loc_C0B6` removes
+non-Kid gfx slots. Native now renders both flag sprites until the oracle
+pre-frame `loc_C0B6` boundary: current captures show frame 58 still has
+flag/base and frame 59 clears it, matching oracle. Full-frame AE remains high on
+this route because the Highwater transition has unrelated state/background drift,
+so #369 moves to `[?]` for human visual validation rather than `[x]`. Focused
+verification: `cargo test -q -p wildside-cli level_complete_handoff -- --nocapture`,
+`cargo test -q -p wildside-cli level_complete_handoff_keeps_flag_sprites_until_cleanup_loc_c070_c0b6 -- --nocapture`,
+`cargo test -q -p wildside-core flag_touch -- --nocapture`, `cargo test -q -p wildside-frame -- --nocapture`,
+plus native/oracle captures under `.cache/debug/issue369-highwater-*`.
+
 Live playtest note 2026-06-01: latest human playthrough contradicts several
 previous `[x]` rows. Treat those as reopened until a deterministic native
 recording or live `play-native` verification proves the human path is stable.

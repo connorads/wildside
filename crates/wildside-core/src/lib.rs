@@ -75,6 +75,7 @@ pub use level::{
     EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE, EolScoreCounterSnapshotLocD770,
     FlagpoleScoreboardRevealTileLocC21E, ForegroundArtPermutationLoc11E48,
     JuggernautSkullArtDmaLoc129DC, SharedVramArtSourceLoc11EFA,
+    TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE,
     TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070, TransferScrollDataStormLoc30110,
     background_art_decompress_loc_11E8A_11EA2, background_chunk_row_loop_loc_12884,
     background_desert_tileset_loc_12988, background_dimensions_loc_11B40,

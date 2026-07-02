@@ -505,7 +505,7 @@ pub(crate) const TOUCH_FLAGPOLE_GFX_CLEANUP_ENTRY_LOC_C0B6: u32 = 0xC0B6;
 /// taken effect. ASM reaches cleanup after the loc_C070 hibernate and the
 /// main-loop object execution/render sample boundary makes the WRAM count drop
 /// visible at native level-complete elapsed frame 60.
-pub(crate) const TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE: usize = 60;
+pub const TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE: usize = 60;
 
 /// ASM loc_C186 (kid.asm:15734): hologram tilemap upload — outer row loop.
 /// After `EniDec` decodes `MapEni_CC0E` into `Decompression_Buffer`, the ROM

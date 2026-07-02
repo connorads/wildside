@@ -12652,26 +12652,50 @@ mod tests {
     }
 
     #[test]
-    fn level_complete_handoff_keeps_flag_sprite_for_first_frame_loc_c070() {
+    fn level_complete_handoff_keeps_flag_sprites_until_cleanup_loc_c070_c0b6() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0x0730_0000;
         trace.camera_y_pos = 0x02D0_0000;
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames = 0;
 
+        for elapsed in [0, 1, 35, 58] {
+            trace.level_complete_elapsed_frames = elapsed;
+            let scene = build_ingame_scene(&trace, false, None);
+
+            assert!(
+                scene.commands.iter().any(|command| {
+                    matches!(
+                        command,
+                        DrawCommand::Sprite { x: 26, y: 16, tile_sheet, .. }
+                            if tile_sheet.tiles.len() == 120
+                    )
+                }),
+                "ASM loc_C070/loc_C0B6 keeps stale flag gfx visible until the oracle pre-frame sprite cleanup boundary; waving flag missing at elapsed={elapsed}"
+            );
+            assert!(
+                scene.commands.iter().any(|command| {
+                    matches!(
+                        command,
+                        DrawCommand::Sprite { x: 24, y: 48, tile_sheet, .. }
+                            if tile_sheet.tiles.len() == 4
+                    )
+                }),
+                "ASM Flagpole_Boss pole-bottom sprite remains visible until the loc_C0B6 oracle pre-frame sprite cleanup boundary; elapsed={elapsed}"
+            );
+        }
+
+        trace.level_complete_elapsed_frames =
+            wildside_core::TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE - 1;
         let scene = build_ingame_scene(&trace, false, None);
-
         assert!(
-            scene.commands.iter().any(|command| {
-                matches!(command, DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 120)
+            !scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { x: 24, y: 48, tile_sheet, .. }
+                        if tile_sheet.tiles.len() == 4
+                )
             }),
-            "ASM loc_C070 has just entered the flagpole hand-off, so the oracle still shows the waving flag sprite on elapsed=0"
-        );
-        assert!(
-            scene.commands.iter().any(|command| {
-                matches!(command, DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 4)
-            }),
-            "ASM Flagpole_Boss pole-bottom sprite remains visible on the elapsed=0 flag-touch frame"
+            "ASM loc_C0B6 deletes non-Kid gfx slots from the pre-frame rendered sprite table before the trace count drops"
         );
     }
 

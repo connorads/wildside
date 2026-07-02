@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 use wildside_core::{
     ActiveProjectileKind, ActiveProjectileSnapshot, BlockBounceTraceKind,
     DiamondPowerSpriteSnapshot, DragonFlyingDescentFireState, GameMode, NativeObjectKind,
-    NativeObjectSnapshot, NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
+    NativeObjectSnapshot, NativeTraceFrame, PlayerForm,
+    TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE, physics::Direction,
+    terrain::BlockGrid,
 };
 use wildside_render::{MdColour, NativeLevelVisuals, Palette, TileRef, TileSheet};
 
@@ -88,6 +90,11 @@ pub const EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE: usize = 8;
 // the visible frame through `eol_pre_frame_vdp_pixel_samples_loc_c070`, which
 // is 15 worker ticks ahead of the trace's post-frame row counter.
 const EOL_SCORE_ROWS_RENDER_LATCH_LEAD_FRAMES_LOC_C070_ORACLE: usize = 15;
+// ASM loc_C0B6 cleanup is visible in trace object counts at elapsed 60, but
+// pixels are composed from the pre-frame sprite table, so the flag sprites have
+// already vanished from the rendered frame at elapsed 59.
+const FLAGPOLE_SPRITES_RENDER_CLEANUP_FRAME_LOC_C0B6_ORACLE: usize =
+    TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE - 1;
 const CONTINUE_SCREEN_INITIAL_HOLD_FRAMES_LOC_D31E: usize = 0x1C;
 const EOL_TEXT_WORKER_SLIDE_FRAMES_LOC_C5A2: usize = 0x1C;
 const PAUSE_MENU_TEXT_X_LOC_69D2: i32 = 0x78;
@@ -6418,7 +6425,9 @@ fn build_game_scene_filtered(
     }
 
     if !eol_hologram_visible && filter.effects {
-        if (!trace.level_complete || trace.level_complete_elapsed_frames == 0)
+        if (!trace.level_complete
+            || trace.level_complete_elapsed_frames
+                < FLAGPOLE_SPRITES_RENDER_CLEANUP_FRAME_LOC_C0B6_ORACLE)
             && let (Some(flag_x), Some(flag_y)) = (trace.flag_x, trace.flag_y)
         {
             // ASM Flagpole_Boss (kid.asm:15592) allocates exactly two
@@ -6427,8 +6436,12 @@ fn build_game_scene_filtered(
             // (waving flag, `sprite_frame_vram $69A,$06,$00,$28,$20`).
             // The ROM ships no third "pole shaft" sprite asset — the only
             // flag-related extracted art is `End_of_level_Flag_(6_frames).bin`
-            // and `Flag_bottom.bin`. The previous 2×32 grey rect above the
-            // anchor invented a tall pole extension that the ROM never draws.
+            // and `Flag_bottom.bin`. CharacterCollision_TouchFlagpole loc_C070
+            // hibernates `$24` frames before loc_C0B6 deletes non-Kid gfx
+            // slots; the renderer uses the oracle-visible pre-frame sprite
+            // table boundary, one frame before the trace count drops.
+            // The previous 2×32 grey rect above the anchor invented a tall pole
+            // extension that the ROM never draws.
             let sx = i32::from(flag_x) - (trace.camera_x_pos >> 16) as i32;
             let pole_base_y = i32::from(flag_y) - (trace.camera_y_pos >> 16) as i32;
             let frame_index = (trace.frame_index / level_visuals.flag.frame_duration)

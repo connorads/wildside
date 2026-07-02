@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — Flagpole base render window fixed candidate
+
+- #369 fixed candidate: native scene/effects rendering now keeps the ROM
+  `Flag_bottom.bin` base and waving flag visible through the oracle pre-frame
+  `loc_C0B6` cleanup boundary instead of hiding them after only the first
+  `CharacterCollision_TouchFlagpole loc_C070` frame. Highwater capture evidence
+  shows native/oracle both keep flag/base at frame 58 and clear it at frame 59;
+  the route still has unrelated Highwater state/background drift, so human
+  validation remains the close gate.
+- Focused checks green: `cargo test -q -p wildside-cli level_complete_handoff -- --nocapture`,
+  exact `level_complete_handoff_keeps_flag_sprites_until_cleanup_loc_c070_c0b6`,
+  `cargo test -q -p wildside-core flag_touch -- --nocapture`, and
+  `cargo test -q -p wildside-frame -- --nocapture`.
+
 ## 2026-07-02 — RockTank stomp damage fixed candidate
 
 - Human reconfirmed missing flagpole base, prize-block wobble leak, RockTank
