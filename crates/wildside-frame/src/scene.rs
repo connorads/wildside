@@ -6226,10 +6226,7 @@ fn push_eol_foreground_reveal_tiles(
                 x: x + i32::try_from(index % 2).expect("tile column fits") * 8,
                 y: y + i32::try_from(index / 2).expect("tile row fits") * 8,
                 tile_sheet: Arc::clone(&tile_sheet),
-                tile: TileRef {
-                    palette_line: 0,
-                    ..TileRef::from_attr_word(word)
-                },
+                tile: TileRef::from_attr_word(word),
                 palette: Arc::clone(&palette),
             });
         }
@@ -8165,6 +8162,36 @@ mod tests {
     };
 
     #[test]
+    fn fire_demon_trail_sprite_uses_loaded_family_tile_sheet_loc_3a63c() {
+        let mut visuals = sample_level_visuals(1);
+        visuals.enemies.families.insert(
+            FIRE_DEMON_OBJECT_TYPE,
+            sample_animated_visual(sample_sprite_frame(0x77)),
+        );
+        let mut commands = Vec::new();
+
+        assert!(push_fire_demon_trail_sprite(
+            &mut commands,
+            &visuals,
+            32,
+            40,
+            FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME
+        ));
+
+        let DrawCommand::Sprite {
+            tile_sheet, tiles, ..
+        } = commands.single()
+        else {
+            panic!("ASM Fire_Demon loc_3A63C should emit a sprite trail frame");
+        };
+        assert_eq!(
+            tile_sheet.tiles[0].pixels[0], 0x77,
+            "ASM Fire_Demon loc_3A63C reuses the loaded Fire Demon art sheet for `stru_3A622` trail descriptors"
+        );
+        assert_eq!(tiles[0].tile.tile_index, 0x0B0);
+    }
+
+    #[test]
     fn prize_block_wobble_frame_alternates_every_three_elapsed_frames_sub_1007a() {
         let visuals = sample_level_visuals(0x300);
 
@@ -8671,6 +8698,57 @@ mod tests {
         );
     }
 
+    #[test]
+    fn eol_foreground_reveal_preserves_rom_attr_palette_line_loc_c21e_sub_c254() {
+        let mut visuals = sample_level_visuals(1);
+        visuals.eol_hologram = Some(sample_eol_hologram_visuals());
+        let mut layout = vec![0; 3 * 4 * 2];
+        layout[(3 * 3 + 2) * 2] = 0x80;
+        let grid = wildside_core::terrain::BlockGrid::from_level_layout(&layout, 3, 4);
+        let trace = NativeTraceFrame {
+            level_complete: true,
+            camera_x_pos: 32 << 16,
+            camera_y_pos: 48 << 16,
+            level_complete_elapsed_frames: wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
+                + wildside_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
+                + 1,
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_eol_foreground_reveal_tiles(&mut commands, &trace, &visuals, Some(&grid));
+
+        let DrawCommand::Rect { x, y, .. } = commands[0] else {
+            panic!("ASM loc_C21E/sub_C254 first pass should clear the foreground cell");
+        };
+        assert_eq!((x, y), (0, 0));
+
+        let indexed_tiles = commands.indexed_tiles();
+        assert_eq!(
+            indexed_tiles.len(),
+            20,
+            "ASM loc_C21E/sub_C254 consumes exactly one reveal-frame budget from the camera-derived cursor"
+        );
+        let DrawCommand::IndexedTile { x, y, tile, .. } = indexed_tiles[0] else {
+            panic!("ASM loc_C21E/sub_C254 should emit Scroll A replacement tiles");
+        };
+        assert_eq!((*x, *y), (0, 0));
+        assert_eq!(tile.tile_index, 0x0417);
+        assert_eq!(
+            tile.palette_line, 2,
+            "ASM loc_C21E/sub_C254 emits `$4417` for block cells; native must preserve its VDP palette bits"
+        );
+        let positions = indexed_tiles
+            .iter()
+            .take(4)
+            .map(|command| match command {
+                DrawCommand::IndexedTile { x, y, .. } => (*x, *y),
+                _ => unreachable!("filtered indexed tiles"),
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(positions, vec![(0, 0), (8, 0), (0, 8), (8, 8)]);
+    }
+
     trait SingleCommand {
         fn single(&self) -> &DrawCommand;
     }
@@ -8691,6 +8769,18 @@ mod tests {
             self.iter()
                 .find(|command| matches!(command, DrawCommand::IndexedTile { .. }))
                 .expect("indexed tile command")
+        }
+    }
+
+    trait IndexedTiles {
+        fn indexed_tiles(&self) -> Vec<&DrawCommand>;
+    }
+
+    impl IndexedTiles for Vec<DrawCommand> {
+        fn indexed_tiles(&self) -> Vec<&DrawCommand> {
+            self.iter()
+                .filter(|command| matches!(command, DrawCommand::IndexedTile { .. }))
+                .collect()
         }
     }
 
@@ -8852,6 +8942,14 @@ mod tests {
                 };
                 tile_count
             ],
+        }
+    }
+
+    fn sample_eol_hologram_visuals() -> wildside_render::EolHologramVisuals {
+        wildside_render::EolHologramVisuals {
+            palette: sample_palette(),
+            tile_sheet: sample_tile_sheet(1),
+            rows: vec![vec![sample_tile_ref(0); 40]; 28],
         }
     }
 

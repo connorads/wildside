@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive scene Fire Demon/EOL mutation shard)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation or visual rows; only human validation/repro blockers remain.
+- **Mutation fallback advanced:** focused `wildside-frame/src/scene.rs` Fire
+  Demon trail and EOL foreground reveal paths. Added an ASM `Fire_Demon
+  loc_3A63C` regression proving the trail descriptors borrow the loaded Fire
+  Demon art sheet, and an ASM `loc_C21E/sub_C254` EOL regression covering
+  camera-derived reveal position, one-frame command count, 2x2 tile placement,
+  and ROM VDP palette bits.
+- **Production fix:** `push_eol_foreground_reveal_tiles` now preserves
+  `TileRef::from_attr_word(word)` exactly for the replacement Scroll A cells
+  instead of forcing palette line 0 over `$4417..$441A` block-cell words.
+- Verification: `cargo test -q -p wildside-frame scene::tests -- --nocapture`
+  and focused mutation rerun
+  `/tmp/mutants-frame-scene-fire-eol-20260702-after3` (`46 mutants tested: 43
+  caught, 3 missed`). The remaining misses are unrelated
+  `ChunkedPlaneBRowsLoc307D8::row_debug_for_trace_loc_30744` debug-string
+  mutants.
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  proactive verification on another focused frame/core shard.
+
 ## 2026-07-02 handoff (proactive scene effect-plane mutation shard)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open
