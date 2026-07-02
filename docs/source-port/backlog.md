@@ -40,10 +40,19 @@ and stop — never commit churn.
   row-97 prize/P block routes are clean in current scene captures, and the other
   cached Highwater variants do not reproduce the weird-sprite wobble. #324 is
   back in awaiting-human pending an exact screenshot/recording/frame.
+- **Human reconfirm 2026-07-02:** latest playtest still reports the same three
+  longstanding visible symptoms: weird sprite behind prize/P blocks (#324),
+  tank/helmet-looking garble (#252), and black squares where Red Stealth/title
+  menu art should be after skipping the menu (#210/#254). These remain in the
+  human-validation/blocker lane because current known routes were rechecked clean
+  or fixed-candidate; next actionable step is an exact current screenshot,
+  recording, route timing, or frame.
 - **Proactive verification 2026-07-02:** no ready/open rows remain, so the latest
-  loop hardened `wildside-frame/src/scene.rs` ingame VDP tile-resolution
-  mutation coverage after the prize-block shard. Focused mutation ended at 28
-  mutants tested: 22 caught, 2 unviable, 4 missed (remaining misses are unrelated
+  loop hardened `wildside-frame/src/scene.rs` storm/weather special-effect plane
+  tile-index coverage after the ingame tile-resolution shard. Focused mutation
+  caught the targeted `push_storm_pattern_plane_loc_14d32` and
+  `push_special_effect_unknown_foreground_plane_loc_14e42` `tile_index` deletion
+  mutants (`8 mutants tested: 6 caught, 2 missed`; misses are unrelated existing
   scene helpers). Continue with `mise run project-status`; if still empty, use
   another proactive-verification fallback slice.
 

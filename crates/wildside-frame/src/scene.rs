@@ -8160,8 +8160,8 @@ mod tests {
     use wildside_render::{
         AnimatedSpriteVisual, BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals,
         EnemyVisuals, FlagVisuals, FloatingPrizeVisuals, ForegroundLayout, HudVisuals,
-        LevelVisuals, PaletteSet, PlatformVisuals, PlayerFormVisuals, PlayerVisuals, SpriteFrame,
-        Tile, TileQuad,
+        LevelVisuals, PaletteSet, PlatformVisuals, PlayerFormVisuals, PlayerVisuals,
+        SpecialEffectUnknownVisuals, SpriteFrame, Tile, TileQuad, WeatherVisuals,
     };
 
     #[test]
@@ -8567,6 +8567,110 @@ mod tests {
         }
     }
 
+    #[test]
+    fn storm_pattern_plane_converts_absolute_vdp_words_to_local_tile_indices_loc_14d32() {
+        let mut visuals = sample_level_visuals(0x20);
+        visuals.weather = Some(WeatherVisuals {
+            palette: sample_palette(),
+            tile_sheet: sample_tile_sheet_with_pixel(0x30, 0x55),
+            vram_base_tile_index: 0x0380,
+            shared_art: None,
+        });
+        let trace = NativeTraceFrame {
+            storm_pattern_upload_loc_14d32: Some(
+                wildside_core::StormPatternRuntimeUploadLoc14D32 {
+                    source_asset_label: "unk_9B65C".to_owned(),
+                    vram_tile_addend: 0x0380_0380,
+                    skipped_header_longwords: 1,
+                    vdp_command: 0x4000_0003,
+                    written_longword_count: 4 * 8 * 8 * 4,
+                },
+            ),
+            storm_scroll_transfer_loc_30110: Some(wildside_core::TransferScrollDataStormLoc30110 {
+                plane_address_word: 0x8403,
+                h_scroll_word_pairs: 0x00E0,
+                first_h_scroll_word: 0,
+                second_h_scroll_word: 0,
+                first_vsram_word: 0,
+                second_vsram_word: 0,
+                weather_mode_byte: 0,
+                next_storm_scroll_offset: 0,
+            }),
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        assert!(push_storm_pattern_plane_loc_14d32(
+            &mut commands,
+            &trace,
+            &visuals
+        ));
+
+        let DrawCommand::IndexedTile {
+            x,
+            y,
+            tile,
+            tile_sheet,
+            ..
+        } = commands.first_indexed_tile()
+        else {
+            panic!("ASM loc_14D32 storm plane should emit indexed tiles");
+        };
+        assert_eq!((*x, *y), (0, 0));
+        assert_eq!(tile.tile_index, 0);
+        assert_eq!(
+            tile_sheet.tiles[usize::from(tile.tile_index)].pixels[0],
+            0x55
+        );
+    }
+
+    #[test]
+    fn special_effect_unknown_plane_converts_absolute_vdp_words_to_local_tile_indices_loc_14e42() {
+        let mut visuals = sample_level_visuals(0x20);
+        visuals.special_effect_unknown = Some(SpecialEffectUnknownVisuals {
+            tile_sheet: sample_tile_sheet_with_pixel(0x20, 0x66),
+            vram_base_tile_index: 0x0380,
+        });
+        let trace = NativeTraceFrame {
+            camera_x_pos: 3 << 16,
+            camera_y_pos: 5 << 16,
+            special_effect_unknown_plane_fill_loc_14e42: Some(
+                wildside_core::SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
+                    vdp_command: 0x4000_0003,
+                    outer_pass_count: 8,
+                    group_count_per_pass: 4,
+                    inner_repeat_count: 16,
+                    written_longword_count: 8 * 4 * 16 * 2,
+                    foreground_plane_register:
+                        SPECIAL_EFFECT_UNKNOWN_FOREGROUND_PLANE_REGISTER_LOC_14E42,
+                    background_plane_register: 0x8400,
+                },
+            ),
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_special_effect_unknown_foreground_plane_loc_14e42(&mut commands, &trace, &visuals);
+
+        let DrawCommand::IndexedTile {
+            x,
+            y,
+            tile,
+            tile_sheet,
+            ..
+        } = commands.first_indexed_tile()
+        else {
+            panic!("ASM loc_14E42 unknown foreground plane should emit indexed tiles");
+        };
+        assert_eq!((*x, *y), (-3, -5));
+        assert_eq!(tile.tile_index, 0);
+        assert!(tile.priority);
+        assert_eq!(
+            tile_sheet.tiles[usize::from(tile.tile_index)].pixels[0],
+            0x66
+        );
+    }
+
     trait SingleCommand {
         fn single(&self) -> &DrawCommand;
     }
@@ -8575,6 +8679,18 @@ mod tests {
         fn single(&self) -> &DrawCommand {
             assert_eq!(self.len(), 1);
             &self[0]
+        }
+    }
+
+    trait FirstIndexedTile {
+        fn first_indexed_tile(&self) -> &DrawCommand;
+    }
+
+    impl FirstIndexedTile for Vec<DrawCommand> {
+        fn first_indexed_tile(&self) -> &DrawCommand {
+            self.iter()
+                .find(|command| matches!(command, DrawCommand::IndexedTile { .. }))
+                .expect("indexed tile command")
         }
     }
 

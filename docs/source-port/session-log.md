@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive scene effect-plane mutation shard)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation or visual rows; only human validation/repro blockers remain.
+- **Human reconfirm captured:** latest playtest still reports weird sprite behind
+  prize/P blocks (#324), tank/helmet-looking garble (#252), and menu-skip black
+  squares where Red Stealth/title art should be (#210/#254). These stay in the
+  blocker/validation lane until an exact current screenshot, recording, route
+  timing, or frame identifies a live repro route.
+- **Mutation fallback advanced:** focused `wildside-frame/src/scene.rs`
+  storm/weather special-effect planes. Added assertions that ASM `loc_14D32` and
+  `loc_14E42` plane renderers convert absolute VDP tile words to local generated
+  sheet indices while preserving visible tile pixels/priority.
+- Verification: `cargo test -q -p wildside-frame scene::tests -- --nocapture`
+  and focused mutation rerun
+  `/tmp/mutants-frame-scene-effect-planes-20260702` (`8 mutants tested: 6 caught,
+  2 missed`). The targeted `push_storm_pattern_plane_loc_14d32` and
+  `push_special_effect_unknown_foreground_plane_loc_14e42` `tile_index` deletion
+  mutants are caught; the misses are unrelated existing scene helpers
+  (`push_fire_demon_trail_sprite` tile sheet and EOL reveal palette line).
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  proactive verification on another focused frame/core shard or obtain an exact
+  route/frame for #324/#252/#210/#254.
+
 ## 2026-07-02 handoff (proactive scene tile-resolution mutation shard)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open
