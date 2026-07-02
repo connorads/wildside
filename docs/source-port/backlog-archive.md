@@ -19,8 +19,10 @@ Investigation/tooling note 2026-07-02: added
 `--record-target-enemy 0A/0B`, live recording now stops automatically after the
 first scored stomp/damage contact plus the tail, so the Level-2/Highwater
 RockTank repro route should land as a compact bundle without guessing the save
-frame. Still not a gameplay verdict; use the generated verify/frontier/scorer
-commands before changing combat.
+frame. Follow-up: saved `record_command` now preserves these auto-stop flags,
+including non-default tail counts, so the capture setup is replayable from
+`manifest.json`. Still not a gameplay verdict; use the generated
+verify/frontier/scorer commands before changing combat.
 
 Investigation/tooling note 2026-07-02: `play-native --record` now prints the
 generated `verify-tas` frontier command and any `--target-enemy-contact`

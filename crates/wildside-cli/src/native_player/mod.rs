@@ -1251,6 +1251,16 @@ fn native_recording_command(slug: &str, options: &NativePlayOptions) -> String {
     if let Some(frame_limit) = options.record_frames {
         let _ = write!(command, " --record-frames {frame_limit}");
     }
+    if options.record_stop_on_target_enemy_contact {
+        command.push_str(" --record-stop-on-target-enemy-contact");
+        if options.record_contact_tail_frames != 30 {
+            let _ = write!(
+                command,
+                " --record-contact-tail-frames {}",
+                options.record_contact_tail_frames
+            );
+        }
+    }
     if let Some(target) = &options.record_route_target {
         append_record_route_target_args(&mut command, target);
     }
@@ -16200,8 +16210,8 @@ mod tests {
                 settled: false,
                 record_to: Some(record_dir.clone()),
                 record_frames: Some(900),
-                record_stop_on_target_enemy_contact: false,
-                record_contact_tail_frames: 0,
+                record_stop_on_target_enemy_contact: true,
+                record_contact_tail_frames: 12,
                 record_notes: Some(String::from("stuck on level card")),
                 record_route_target: Some(RecordingRouteTarget {
                     label: Some(String::from("usm3-slope")),
@@ -16261,7 +16271,7 @@ mod tests {
         assert!(manifest_text.contains("\"record_frames\": 900"));
         assert!(
             manifest_text.contains(
-                "--record freeze-repro --record-frames 900 --record-target-label usm3-slope --record-target-level 06 --record-target-cell 28,32 --record-target-enemy 0A --record-frontier-kind gameplay"
+                "--record freeze-repro --record-frames 900 --record-stop-on-target-enemy-contact --record-contact-tail-frames 12 --record-target-label usm3-slope --record-target-level 06 --record-target-cell 28,32 --record-target-enemy 0A --record-frontier-kind gameplay"
             )
         );
         assert!(manifest_text.contains("\"route_target\""));
