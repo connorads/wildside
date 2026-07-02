@@ -30,21 +30,10 @@ and stop — never commit churn.
   been reconfirmed again by live play. Treat the prior route-needed parking as
   the process failure: fixed-candidate probes and synthetic routes are not
   exercising the live paths the human keeps seeing.
-- **Immediate work order:** #271 is active P0. Outside-the-loop contact
-  tooling has landed: `rock_tank_contact_probe`, child-aware
-  `--target-enemy-contact` scoring, emitted contact-frame native/oracle visual
-  commands, live auto-stop `target_enemy_contact_XX_result` checkpoints, and
-  direct probe-camera enemy-load reseeding. A real native-only Tank timing
-  divergence is also fixed: `issue271-sharp-current-20260702` frame 224 no
-  longer spends HP one frame before oracle while the Tank child only carries
-  `$24` kid-left. Native now delays ordinary Tank/TankShooting side-contact
-  damage until the following `Check_for_recent_damge` handoff. Next pass should
-  capture the exact live failing Level-2/Red-Stealth head-stomp frame and rerun
-  the scorer plus emitted contact-frame commands, so the remaining live report
-  can be separated from #259 floor/foreground perception.
-- **#271 reopened 2026-07-02:** jumping on RockTank heads still hurts Kid and
-  is game-breaking. Existing route set is rejected as insufficient, not as
-  proof the report is invalid.
+- **#271 resolved 2026-07-02:** human retest reports RockTank head contact no
+  longer hurts Kid/Red Stealth ("no hurty") after the delayed Tank/TankShooting
+  side-contact timing fix. Keep #259 separate for the still-open floor/visual
+  placement report.
 - **#259 reopened 2026-07-02:** RockTanks still look halfway in the floor on
   levels 2/3. Next pass must pair enemy-only and final-composite views with
   `rock_tank_contact_probe`, because perceived floor sink may be causing
@@ -92,6 +81,5 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 271 | [~] | P0 | player/enemy | Reopened 2026-07-02: jumping on RockTank heads still hurts Kid/Red Stealth in live play. Previous route-needed classification is rejected as insufficient because the live report is recurrent and game-breaking. | Capture live contact with `rock_tank_contact_probe` + scorer: child box, `Character_Movement`, latches, colid, HP/damage, enemy-only/composite frame. Then run oracle frontier. |
 | 259 | [ ] | P1 | enemy/render | Reopened 2026-07-02: RockTanks still appear halfway in the floor on levels 2/3, likely interacting with #271 targeting. | Capture same frame as #271 where possible: body/turret Y, child collision box, enemy-only layer, composite foreground mask, oracle side-by-side. |
 | 369 | [ ] | P1 | render/eol | Reopened 2026-07-02: flagpole base is still missing at end of level after the priority fixed-candidate. | Natural EOL capture: inspect scene commands, priority mask, raw VDP sprite list, and oracle frame for the base/bottom flag sprite. |

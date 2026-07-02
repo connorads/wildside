@@ -114,6 +114,12 @@ This is still not a full #271 close: it fixes the current native-only damage
 timing fault, but a live targeted Level-2/Red-Stealth head-stomp recording is
 still needed to confirm the recurrent report.
 
+Human-validated fixed 2026-07-02: after the delayed Tank/TankShooting
+side-contact timing fix and #324 follow-up build, human retest reports RockTank
+head contact is fixed: "no hurty". Move #271 `[~]` -> `[x]`. Keep #259 open as
+the separate RockTank floor/foreground placement report; do not reopen #271
+unless a future route shows a clean head stomp still spending HP.
+
 Blocked note 2026-07-02: moved #271 from `[~]` open to `[b]` awaiting exact
 human/live route. Current route evidence is exhausted without reproducing a
 native-only Tank stomp fault: `issue271-route-current-20260702` is a miss,

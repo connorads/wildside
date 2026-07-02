@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — #271 human-validated RockTank damage fixed
+
+- Human retest reports the RockTank head-contact damage symptom is fixed:
+  "no hurty".
+- Moved #271 from open to resolved. The code fix remains the delayed
+  Tank/TankShooting side-contact handoff from the prior session; this update is
+  tracker-only human validation.
+- #259 remains open for the separate RockTank floor/foreground visual report.
+- NEXT: project-status should now lead with #259, then #369.
+
 ## 2026-07-02 — #324 live prize/P wobble fixed candidate
 
 - Human route `playtest-2026-07-02-prize-wobble` reproduced the live wobble
