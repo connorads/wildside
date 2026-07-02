@@ -362,9 +362,10 @@ pub(crate) fn pacer_probe_half_width(family: EnemyFamily) -> i32 {
         // ASM Crab.asm loc_3B00A and Driller.asm loc_3BD74 seed `$48(a5)=$C`
         // before entering the shared walker loops.
         EnemyFamily::Crab | EnemyFamily::Driller => 12,
-        // ASM Tank.asm loc_3B31E and Tank_Shooting.asm loc_3B5A6 seed
-        // `$48(a5)=$B` before entering the same shared walker loops.
-        EnemyFamily::Tank | EnemyFamily::TankShooting => 11,
+        // ASM Robot.asm loc_3A7AC, Tank.asm loc_3B31E, and
+        // Tank_Shooting.asm loc_3B5A6 seed `$48(a5)=$B` before entering the
+        // same shared walker loops.
+        EnemyFamily::Robot | EnemyFamily::Tank | EnemyFamily::TankShooting => 11,
         // ASM Armadillo.asm loc_3C766, Goat.asm loc_3CA7E, and Scorpion.asm
         // loc_3DBD8 seed `$48(a5)=9`.
         EnemyFamily::Armadillo | EnemyFamily::Goat | EnemyFamily::Scorpion => 9,
@@ -374,9 +375,10 @@ pub(crate) fn pacer_probe_half_width(family: EnemyFamily) -> i32 {
 
 pub(crate) fn pacer_probe_height(family: EnemyFamily) -> i32 {
     match family {
-        // ASM Tank.asm loc_3B31E and Tank_Shooting.asm loc_3B5A6 seed
-        // `$4A(a5)=$20` before entering the shared walker loops.
-        EnemyFamily::Tank | EnemyFamily::TankShooting => 32,
+        // ASM Robot.asm loc_3A7AC, Tank.asm loc_3B31E, and
+        // Tank_Shooting.asm loc_3B5A6 seed `$4A(a5)=$20` before entering the
+        // shared walker loops.
+        EnemyFamily::Robot | EnemyFamily::Tank | EnemyFamily::TankShooting => 32,
         _ => ENEMY_PROBE_HEIGHT,
     }
 }

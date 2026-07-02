@@ -56,34 +56,18 @@ and stop — never commit churn.
 - **Visual route work:** do not retune Tank Y/priority, flagpole priority, or
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
-- **Proactive verification 2026-07-02:** with no ready/open queue rows,
-  mutation fallback covered `armadillo.rs` (34 caught, 12 unviable),
-  `spinning_twins.rs` (105 caught, 21 unviable), and
-  `big_hopping_skull.rs` (56 caught, 15 unviable). The `diamond.rs` mutation
-  pass initially found one actionable zero-velocity ceiling boundary survivor;
-  a regression now pins `kid.asm loc_3C2D0`/Diamond.asm `loc_3ADA4` and the
-  rerun reports 62 caught, 10 unviable, 0 missed. ASM audits found nine live
-  gameplay gaps. Armadillo.asm `loc_3C766`/`loc_3C7F8` now seeds the
-  shared Scorpion.asm `loc_3DEA0` `$6E/$54` timer through
-  `shared_walker_patrol_timer`, hibernating/reversing on expiry. Goat.asm
-  `loc_3CC18` now runs before the live pacer step; turn routes through
-  `loc_3CC36`/`loc_3CC46` clear velocity and hibernate through
-  `loc_3E392`/`loc_3E546` instead of walking half a pixel in the old
-  direction. Sphere.asm `loc_35F9E` now routes stored signed-negative,
-  `colid_hurt`, and `colid_kidabove` collision words into
-  Enemy06_Sphere_Kill `loc_36052` instead of ignoring them in the bouncer AI
-  table. Diamond.asm `loc_3ADA4` now preserves high-HP `colid_ceiling`,
-  `colid_slopeup`, and `colid_slopedown` terrain words so `loc_3AE3E`,
-  `loc_3AE4A`, and `loc_3AE68` can run instead of collapsing to no-collision or
-  generic floor. Driller.asm `loc_3BF4E` and Fire_Demon.asm `loc_3A5BE` hold
-  hurt animations. Cloud.asm `loc_35DAE` waits before `loc_35DB8` lightning;
-  Tornado.asm `loc_35908` reloads on post-decrement zero; Emo_Rock.asm
-  `loc_3621A` waits 67 ticks of `stru_3647E` before `loc_3625E` gravity.
-  `verify-slice-fast` passes; `verify-tas-full` exits 0 with CRC all 37759
-  frames matching but still reports the current `1p-accurate` state gap (first
-  authoritative diff: `transition_15_to_00_post` DragonWalking/object-count).
-  ASM coverage remains `0` ordinary uncovered labels plus 21 emulated GEMS
-  wrappers; do not cite those wrappers just to move the metric.
+- **Proactive verification 2026-07-02:** no ready/open rows remain. Recent
+  fallback passes fixed compact ASM gaps for Armadillo, Goat, Sphere, Diamond,
+  Driller, Fire Demon, Cloud, Tornado, Emo Rock, and Robot; session-log has the
+  per-pass details. Latest change: Robot.asm `loc_3A7AC` `$48=$B`/`$4A=$20`
+  now drives 11px/32px live Robot walking/charging probes. Crab.asm audit plus
+  `crab.rs` mutation fallback found no live gap (71 caught, 16 unviable).
+- **Current gates 2026-07-02:** `verify-slice-fast` passes; `verify-tas-full`
+  exits 0 with CRC all 37759 frames matching but still reports the current
+  `1p-accurate` state gap (first authoritative diff:
+  `transition_15_to_00_post` DragonWalking/object-count). ASM coverage remains
+  `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not cite
+  those wrappers just to move the metric.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

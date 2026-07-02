@@ -3617,8 +3617,8 @@ mod chunk_04 {
         }
         assert_eq!(
             pacer_probe_half_width(EnemyFamily::Robot),
-            ENEMY_PROBE_HALF_WIDTH,
-            "families without an audited `$48(a5)` override keep the generic 8px probe",
+            11,
+            "ASM Robot.asm loc_3A7AC seeds `$48(a5)=$B` before the shared walker loop",
         );
     }
 
@@ -3633,6 +3633,11 @@ mod chunk_04 {
             pacer_probe_height(EnemyFamily::TankShooting),
             32,
             "ASM Tank_Shooting.asm loc_3B5A6 seeds `$4A(a5)=$20` before the shared walker loop",
+        );
+        assert_eq!(
+            pacer_probe_height(EnemyFamily::Robot),
+            32,
+            "ASM Robot.asm loc_3A7AC seeds `$4A(a5)=$20` before the shared walker loop",
         );
         assert_eq!(
             pacer_probe_height(EnemyFamily::Driller),

@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 - proactive Robot probe audit
+
+- Project-status still showed no ready/open risks. Crab ASM audit plus
+  `crab.rs` mutation fallback found no live gap (71 caught, 16 unviable).
+- Audited Robot.asm `loc_3A7AC`, `loc_3A884`, and `loc_3A96C`. Native shared
+  probe metadata still treated Robot as generic 8x16 even though the ROM seeds
+  `$48(a5)=$B` and `$4A(a5)=$20`.
+- Moved Robot to 11px/32px shared-walker probes, wired live Robot walking and
+  charging terrain probes through the family metadata, and retargeted three
+  generic shared-walker boundary fixtures away from Robot.
+- Verification: focused Robot/probe/shared-walker tests, `cargo test -q -p
+  wildside-core robot`, `cargo fmt --all --check`, `git diff --check`, `mise
+  run verify-slice-fast`, and `mise run verify-tas-full` pass. Full TAS exits 0
+  with CRC all 37759 frames matching; the current long-route state gap remains
+  first at `transition_15_to_00_post` on DragonWalking/object-count.
+
 ## 2026-07-02 - proactive Emo Rock drop-windup audit
 
 - Project-status still showed no ready/open risks, so the fallback moved to a

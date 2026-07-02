@@ -24644,7 +24644,7 @@ mod chunk_10 {
                 (7, 13, 0x50, 0x00),
             ],
         );
-        let mut enemy = make_pacer(EnemyFamily::Robot, 3, 103, 208);
+        let mut enemy = make_pacer(EnemyFamily::FireDemon, 4, 103, 208);
         enemy.facing = Direction::Right;
 
         step_pacer(&mut enemy, Some(&grid));
@@ -24681,7 +24681,7 @@ mod chunk_10 {
                 (8, 13, 0x60, 0x00),
             ],
         );
-        let mut enemy = make_pacer(EnemyFamily::Robot, 5, 119, 208);
+        let mut enemy = make_pacer(EnemyFamily::FireDemon, 4, 119, 208);
         enemy.facing = Direction::Right;
 
         step_pacer(&mut enemy, Some(&grid));
@@ -24712,7 +24712,7 @@ mod chunk_10 {
                 (8, 13, 0x60, 0x00),
             ],
         );
-        let mut enemy = make_pacer(EnemyFamily::Robot, 5, 121, 208);
+        let mut enemy = make_pacer(EnemyFamily::FireDemon, 4, 121, 208);
         enemy.facing = Direction::Left;
 
         step_pacer(&mut enemy, Some(&grid));

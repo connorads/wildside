@@ -624,6 +624,8 @@ pub(crate) fn step_robot_with_rng(
             // ASM Robot.asm loc_3A884 enters the shared walker left/right branch
             // from x_direction; native `facing` is that decoded branch choice.
             if let Some(grid) = block_grid {
+                let probe_half_width = pacer_probe_half_width(enemy.family);
+                let probe_height = pacer_probe_height(enemy.family);
                 enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
                 enemy.y_velocity = 0;
                 enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
@@ -632,17 +634,11 @@ pub(crate) fn step_robot_with_rng(
                 let cy = (enemy.y_pos >> 16) as i32;
                 let moving_right = enemy.x_velocity >= 0;
 
-                let wall = terrain::probe_wall(
-                    grid,
-                    cx,
-                    cy,
-                    ENEMY_PROBE_HALF_WIDTH,
-                    ENEMY_PROBE_HEIGHT,
-                    moving_right,
-                );
+                let wall =
+                    terrain::probe_wall(grid, cx, cy, probe_half_width, probe_height, moving_right);
                 if wall.hit {
                     let wall_fp = (wall.wall_x_px as u32) << 16;
-                    let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+                    let edge_fp = (probe_half_width as u32) << 16;
                     if moving_right {
                         enemy.x_pos = enemy.x_pos.min(wall_fp.saturating_sub(edge_fp));
                     } else {
@@ -653,9 +649,9 @@ pub(crate) fn step_robot_with_rng(
                 }
 
                 let look_ahead_x = if moving_right {
-                    cx + ENEMY_PROBE_HALF_WIDTH
+                    cx + probe_half_width
                 } else {
-                    cx - ENEMY_PROBE_HALF_WIDTH
+                    cx - probe_half_width
                 };
                 if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
                     reverse_enemy_direction(enemy);
@@ -721,17 +717,13 @@ pub(crate) fn step_robot_with_rng(
             enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
 
             if let Some(grid) = block_grid {
+                let probe_half_width = pacer_probe_half_width(enemy.family);
+                let probe_height = pacer_probe_height(enemy.family);
                 let cx = (enemy.x_pos >> 16) as i32;
                 let cy = (enemy.y_pos >> 16) as i32;
                 let moving_right = enemy.x_velocity >= 0;
-                let wall = terrain::probe_wall(
-                    grid,
-                    cx,
-                    cy,
-                    ENEMY_PROBE_HALF_WIDTH,
-                    ENEMY_PROBE_HEIGHT,
-                    moving_right,
-                );
+                let wall =
+                    terrain::probe_wall(grid, cx, cy, probe_half_width, probe_height, moving_right);
                 if wall.hit {
                     // Wall hit ends charge → return to walking
                     reverse_enemy_direction(enemy);
@@ -740,9 +732,9 @@ pub(crate) fn step_robot_with_rng(
                     return;
                 }
                 let look_ahead_x = if moving_right {
-                    cx + ENEMY_PROBE_HALF_WIDTH
+                    cx + probe_half_width
                 } else {
-                    cx - ENEMY_PROBE_HALF_WIDTH
+                    cx - probe_half_width
                 };
                 if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
                     // Edge → also exit charge
@@ -920,7 +912,7 @@ mod tests {
                 Direction::Right,
                 56,
                 &[(4, 1)][..],
-                56 << 16,
+                53 << 16,
                 Direction::Left,
                 "right wall",
             ),
@@ -928,7 +920,7 @@ mod tests {
                 Direction::Left,
                 72,
                 &[(3, 1)][..],
-                72 << 16,
+                75 << 16,
                 Direction::Right,
                 "left wall",
             ),
@@ -942,13 +934,28 @@ mod tests {
 
             assert_eq!(
                 robot.x_pos, expected_x,
-                "ASM Robot.asm loc_3A884 shared walker should clamp Robot at the {label} leading edge",
+                "ASM Robot.asm loc_3A7AC seeds `$48(a5)=$B`; loc_3A884 should clamp Robot at the {label} leading edge",
             );
             assert_eq!(
                 robot.facing, expected_facing,
                 "ASM Robot.asm loc_3A884 shared walker should reverse at the {label}",
             );
         }
+    }
+
+    #[test]
+    fn robot_walk_wall_probe_uses_loc_3a7ac_probe_height() {
+        let grid = grid_with_solid_cells(&[(4, 1), (4, 3)]);
+        let mut robot = robot_test_enemy(RobotState::Walking, Direction::Right, 56, 48, 10);
+
+        step_robot(&mut robot, Some(&grid), None, &mut None);
+
+        assert_eq!(
+            robot.x_pos,
+            53 << 16,
+            "ASM Robot.asm loc_3A7AC seeds `$4A(a5)=$20`; loc_3A884 should let the upper wall probe clamp Robot before floor lookahead",
+        );
+        assert_eq!(robot.facing, Direction::Left);
     }
 
     #[test]
