@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive Diamond mutation audit)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation or visual rows; only human validation/repro blockers remain.
+- **Mutation fallback audit:** ran `wildside-core/src/enemies/diamond.rs`, which
+  covers ASM-cited high-HP Diamond init, collision dispatch, slope/bounce
+  velocities, Berzerker launch, and damage routes. No source change was needed.
+- Verification: `.cache/mutants/diamond-current` (`67 mutants tested: 57
+  caught, 10 unviable`). Zero missed mutants.
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  proactive verification on a different focused frame/core shard, not Diamond,
+  HUD, or the compact enemy module shards unless their code changes.
+
 ## 2026-07-02 handoff (#210/#254 adjacent menu Start fix)
 
 - **#210/#254 remain `[?]`.** Human reconfirm led to adjacent route
