@@ -3968,6 +3968,148 @@ mod tests {
     }
 
     #[test]
+    fn diamond_death_script_pins_all_cumulative_threshold_edges() {
+        let trace = NativeTraceFrame::default();
+        let visuals = labelled_enemy_visuals(10, 3);
+
+        for (remaining, frame_index) in [
+            (17, 5),
+            (15, 5),
+            (14, 6),
+            (11, 6),
+            (9, 6),
+            (8, 7),
+            (6, 7),
+            (5, 8),
+            (3, 8),
+            (2, 9),
+        ] {
+            let object = dead_enemy_object(0x01, remaining);
+            assert_eq!(
+                selected_enemy_tile_base(&trace, &visuals, &object),
+                0x0100 + frame_index,
+                "ASM Diamond.asm loc_3AE28/loc_3AEE6 cumulative death threshold for wait_timer={remaining}"
+            );
+        }
+    }
+
+    #[test]
+    fn crab_death_script_uses_strict_first_threshold() {
+        let trace = NativeTraceFrame::default();
+        let visuals = labelled_enemy_visuals(9, 3);
+
+        for (remaining, frame_index) in [(41, 6), (40, 7), (31, 7), (30, 8)] {
+            let object = dead_enemy_object(0x09, remaining);
+            assert_eq!(
+                selected_enemy_tile_base(&trace, &visuals, &object),
+                0x0100 + frame_index,
+                "ASM Crab.asm loc_3B094 strict death threshold for wait_timer={remaining}"
+            );
+        }
+    }
+
+    #[test]
+    fn enemy_death_scripts_fall_back_when_sheet_is_too_short() {
+        let trace = NativeTraceFrame::default();
+
+        for (object_type, required_frames, death_frame, asm_label) in [
+            (0x00, 12, 6, "ASM Fire_Demon.asm loc_3A5A6 `stru_3A378`"),
+            (
+                0x01,
+                10,
+                5,
+                "ASM Diamond.asm loc_3AE28/loc_3AEE6 `stru_3ACC4`",
+            ),
+            (0x03, 8, 6, "ASM Robot.asm loc_3A9D2 `stru_3A74A`"),
+            (
+                0x06,
+                6,
+                3,
+                "ASM Sphere.asm Enemy06_Sphere_Kill `stru_36182`",
+            ),
+            (0x07, 10, 6, "ASM Archer.asm loc_3414A `stru_33FC2`"),
+            (0x04, 9, 6, "ASM Armadillo.asm loc_3C886 `stru_3C69A`"),
+            (0x05, 7, 2, "ASM Tar_Monster.asm loc_323E6 `stru_32700`"),
+            (0x08, 11, 6, "ASM Orca.asm loc_3D268/loc_3D4BC `stru_3D11E`"),
+            (0x09, 9, 6, "ASM Crab.asm loc_3B094 `stru_3AF82`"),
+            (0x0A, 6, 3, "ASM Tank.asm loc_3B480 `stru_3B29A`"),
+            (0x0B, 6, 3, "ASM Tank_Shooting.asm loc_3B6E6 `stru_3B518`"),
+            (0x0D, 10, 6, "ASM Dragon.asm loc_3CEFC `stru_3CCEC`"),
+            (0x0E, 9, 6, "ASM Cloud.asm loc_35C0E `stru_35EBA`"),
+            (0x10, 9, 6, "ASM Goat.asm loc_3CB64 `stru_3C9EA`"),
+            (0x11, 9, 6, "ASM Ninja.asm loc_3DB4E `stru_3D50A`"),
+            (0x12, 9, 6, "ASM Lion.asm loc_3E378 `stru_3DF48`"),
+            (0x13, 9, 6, "ASM Scorpion.asm loc_3DDEE `stru_3DB80`"),
+            (0x0F, 3, 0, "ASM UFO.asm loc_35174/loc_35180 `stru_34CA0`"),
+            (0x0C, 4, 0, "ASM Dragon_Flying.asm loc_3492C `stru_345E4`"),
+            (
+                0x19,
+                4,
+                0,
+                "ASM Fireball.asm Enemy19_Fireball_Kill `stru_345E4`",
+            ),
+            (0x18, 5, 3, "ASM Tornado.asm loc_359B2 `stru_35B1E`"),
+            (0x1B, 8, 3, "ASM Emo_Rock.asm loc_36346 `stru_36468`"),
+            (0x1A, 5, 2, "ASM Driller.asm loc_3BF1C `stru_3BCD4`"),
+            (
+                0x1D,
+                5,
+                1,
+                "ASM Big_Hopping_Skull.asm loc_3664E `stru_367FA`",
+            ),
+            (0x22, 5, 4, "ASM loc_39EBE/loc_39F7A boss-head death spin"),
+            (0x14, 7, 4, "ASM Spinning_Twins.asm loc_3BC56 `stru_3B83C`"),
+            (0x16, 6, 3, "ASM Drips.asm loc_3392C `stru_33F06`"),
+            (0x17, 8, 1, "ASM Hand.asm loc_32AA2 `stru_32B78`"),
+        ] {
+            let visuals = labelled_enemy_visuals(required_frames - 1, 3);
+            let object = dead_enemy_object(object_type, u16::MAX);
+            assert_eq!(
+                selected_enemy_tile_base(&trace, &visuals, &object),
+                0x0100,
+                "{asm_label} should not read death frame {death_frame} without {required_frames} extracted frames"
+            );
+        }
+    }
+
+    #[test]
+    fn zero_based_enemy_death_guards_prevent_late_frame_overreads() {
+        let trace = NativeTraceFrame::default();
+
+        for (object_type, frame_count, wait_timer, asm_label) in [
+            (0x0F, 2, 1, "ASM UFO.asm loc_35174/loc_35180 `stru_34CA0`"),
+            (0x0C, 3, 1, "ASM Dragon_Flying.asm loc_3492C `stru_345E4`"),
+            (
+                0x19,
+                3,
+                1,
+                "ASM Fireball.asm Enemy19_Fireball_Kill `stru_345E4`",
+            ),
+        ] {
+            let visuals = labelled_enemy_visuals(frame_count, 3);
+            let object = dead_enemy_object(object_type, wait_timer);
+            assert_eq!(
+                selected_enemy_tile_base(&trace, &visuals, &object),
+                0x0100,
+                "{asm_label} should fall back instead of reading a late death frame from a short sheet"
+            );
+        }
+    }
+
+    #[test]
+    fn boss_head_death_selector_uses_loc_39ebe_when_sheet_is_available() {
+        let trace = NativeTraceFrame::default();
+        let visuals = labelled_enemy_visuals(5, 3);
+        let object = dead_enemy_object(0x22, BOSS_HEAD_DEATH_ANIMATION_FRAMES_LOC_39EBE);
+
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &visuals, &object),
+            0x0104,
+            "ASM loc_39EBE starts boss-head death on the first C8620 sweep frame"
+        );
+    }
+
+    #[test]
     fn generic_enemy_fallback_animation_uses_layout_offset_and_stationary_hold() {
         let visuals = labelled_enemy_visuals(7, 4);
         let trace = NativeTraceFrame {

@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive frame death-selector mutation shard)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation or visual rows; only human validation/repro blockers remain.
+- **Mutation fallback advanced:** focused `wildside-frame/src/sprites.rs`
+  enemy death selectors. Added sheet-length fallback checks, zero-based
+  overread guards, boss-head selector integration, and Diamond/Crab threshold
+  edge assertions for the ASM death scripts.
+- Verification: full `sprites::tests`, focused mutation rerun
+  `/tmp/mutants-frame-sprites-death-selectors-20260702-after4` (`395 mutants
+  tested in 7m: 374 caught, 21 unviable`), and `mise run verify-slice-fast`
+  green.
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  proactive verification on another focused frame/core shard.
+
 ## 2026-07-02 handoff (proactive frame live-selector mutation shard)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open

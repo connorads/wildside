@@ -41,9 +41,9 @@ and stop — never commit churn.
   cached Highwater variants do not reproduce the weird-sprite wobble. #324 is
   back in awaiting-human pending an exact screenshot/recording/frame.
 - **Proactive verification 2026-07-02:** no ready/open rows remain, so the latest
-  loop hardened `wildside-frame/src/sprites.rs` live enemy selector mutation
-  coverage. Continue with `mise run project-status`; if still empty, use another
-  proactive-verification fallback slice.
+  loops hardened `wildside-frame/src/sprites.rs` live enemy and death selector
+  mutation coverage. Continue with `mise run project-status`; if still empty,
+  use another proactive-verification fallback slice.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
