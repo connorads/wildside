@@ -20,6 +20,10 @@ pub(crate) const EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4: u16 = 0x0088;
 /// Frames in `stru_36456`, the disappear animation hibernated by `loc_36320`.
 pub(crate) const EMO_ROCK_DISAPPEAR_ANIMATION_FRAMES_LOC_36320: u8 = 0x10;
 
+/// Frames in `stru_3647E`, hibernated after `loc_3621A` finds clear drop space.
+pub(crate) const EMO_ROCK_DROP_WINDUP_ANIMATION_FRAMES_LOC_3621A: u8 =
+    0x04 + 0x04 + 0x04 + 0x04 + 0x03 + 0x04 + 0x04 + 0x28;
+
 pub(crate) const EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A: u16 = 0x3630;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -392,6 +396,8 @@ pub(crate) fn step_emo_rock_with_rng(
     rng: &mut RomRandomState,
     played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
+    let mut played_sound_effects = played_sound_effects;
+
     if enemy.wait_timer == EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A {
         step_emo_rock_berzerker_airborne(enemy);
         return;
@@ -427,7 +433,7 @@ pub(crate) fn step_emo_rock_with_rng(
         let settled = emo_rock_settled_wait_loc_362b6(true, 0, false);
         if matches!(settled.route, EmoRockSettledWaitRouteLoc362B6::Disappear) {
             let disappear = emo_rock_disappear_loc_36320();
-            if let Some(sound_effects) = played_sound_effects {
+            if let Some(sound_effects) = played_sound_effects.as_mut() {
                 // ASM Emo_Rock.asm loc_36320: play `sfx_Emo_Rock_disappears`
                 // before `stru_36456` hibernates and branches to loc_361F4.
                 sound_effects.push(QueuedSoundEffect::EmoRockDisappears);
@@ -462,7 +468,14 @@ pub(crate) fn step_emo_rock_with_rng(
         return;
     }
 
-    if let (Some(grid), Some(px), Some(py)) = (block_grid, player_x_pos, player_y_pos) {
+    if enemy.dragon_descent_frames > 0 {
+        // ASM Emo_Rock.asm loc_3621A: after a clear overhead probe, `stru_3647E`
+        // hibernates until `$18(a3)` before loc_3625E enables the drop.
+        enemy.dragon_descent_frames = enemy.dragon_descent_frames.saturating_sub(1);
+        if enemy.dragon_descent_frames > 0 {
+            return;
+        }
+    } else if let (Some(grid), Some(px), Some(py)) = (block_grid, player_x_pos, player_y_pos) {
         let level_index = enemy.hit_points.saturating_sub(1).min(2) as usize;
         let target = emo_rock_hover_target_loc_3621a(px, py, EMO_ROCK_HOVER_HEIGHT[level_index]);
         enemy.x_pos = target.x_pos;
@@ -479,6 +492,14 @@ pub(crate) fn step_emo_rock_with_rng(
         ) {
             return;
         }
+
+        if let Some(sound_effects) = played_sound_effects.as_mut() {
+            // ASM Emo_Rock.asm loc_3621A: play `sfx_Voice_die`, start
+            // `stru_3647E`, then hibernate until the animation completes.
+            sound_effects.push(QueuedSoundEffect::VoiceDie);
+        }
+        enemy.dragon_descent_frames = EMO_ROCK_DROP_WINDUP_ANIMATION_FRAMES_LOC_3621A;
+        return;
     }
 
     // Dropping phase: apply gravity, check floor.
@@ -630,6 +651,11 @@ mod tests {
         let offset = (usize::from(solid_row) * usize::from(width) + usize::from(solid_col)) * 2;
         data[offset] = 0x60;
         data[offset + 1] = 0x01;
+        terrain::BlockGrid::from_level_layout(&data, width, height)
+    }
+
+    fn empty_grid(width: u16, height: u16) -> terrain::BlockGrid {
+        let data = vec![0u8; usize::from(width) * usize::from(height) * 2];
         terrain::BlockGrid::from_level_layout(&data, width, height)
     }
 
@@ -965,6 +991,100 @@ mod tests {
             "ASM Emo_Rock.asm loc_3621A stores Kid Y minus the level-1 `$3C` hover height as FP16.16"
         );
         assert_eq!(enemy.wait_timer, 1);
+    }
+
+    #[test]
+    fn step_emo_rock_clearance_success_waits_for_drop_windup_loc_3621a() {
+        let grid = empty_grid(20, 20);
+        let mut enemy = emo_rock_test_enemy(0x0020_0000, 0x0010_0000, 1);
+        let player_x = 0x0040_0000;
+        let player_y = 0x0090_0000;
+        let expected_hover_y = player_y - (0x50 << 16);
+        let mut sound_effects = Vec::new();
+        let mut rng = RomRandomState::default();
+
+        step_emo_rock_with_rng(
+            &mut enemy,
+            Some(&grid),
+            Some(player_x),
+            Some(player_y),
+            &mut rng,
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            enemy.x_pos, player_x,
+            "ASM Emo_Rock.asm loc_3621A copies Kid X before the clearance probe"
+        );
+        assert_eq!(
+            enemy.y_pos, expected_hover_y,
+            "ASM Emo_Rock.asm loc_3621A keeps the hover pose while `stru_3647E` runs"
+        );
+        assert_eq!(
+            enemy.dragon_descent_frames, EMO_ROCK_DROP_WINDUP_ANIMATION_FRAMES_LOC_3621A,
+            "ASM Emo_Rock.asm loc_3621A hibernates until `stru_3647E` finishes before loc_3625E gravity"
+        );
+        assert_eq!(
+            enemy.y_velocity, 0,
+            "ASM Emo_Rock.asm loc_3621A should not fall on the same frame that starts `stru_3647E`"
+        );
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::VoiceDie],
+            "ASM Emo_Rock.asm loc_3621A plays `sfx_Voice_die` before starting `stru_3647E`"
+        );
+
+        sound_effects.clear();
+        step_emo_rock_with_rng(
+            &mut enemy,
+            Some(&grid),
+            Some(player_x),
+            Some(player_y),
+            &mut rng,
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            enemy.dragon_descent_frames,
+            EMO_ROCK_DROP_WINDUP_ANIMATION_FRAMES_LOC_3621A - 1
+        );
+        assert_eq!(
+            enemy.y_velocity, 0,
+            "ASM Emo_Rock.asm loc_3621A should keep hibernating while `stru_3647E` is unfinished"
+        );
+        assert!(sound_effects.is_empty());
+
+        for _ in 0..usize::from(EMO_ROCK_DROP_WINDUP_ANIMATION_FRAMES_LOC_3621A - 2) {
+            step_emo_rock_with_rng(
+                &mut enemy,
+                Some(&grid),
+                Some(player_x),
+                Some(player_y),
+                &mut rng,
+                Some(&mut sound_effects),
+            );
+        }
+
+        assert_eq!(enemy.dragon_descent_frames, 1);
+        assert_eq!(enemy.y_velocity, 0);
+
+        step_emo_rock_with_rng(
+            &mut enemy,
+            Some(&grid),
+            Some(player_x),
+            Some(player_y),
+            &mut rng,
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            enemy.dragon_descent_frames, 0,
+            "ASM Emo_Rock.asm loc_3621A resumes into loc_3625E after `stru_3647E` finishes"
+        );
+        assert_eq!(
+            enemy.y_velocity, EMO_ROCK_GRAVITY[0],
+            "ASM Emo_Rock.asm loc_3625E applies level-0 gravity on the resume frame"
+        );
     }
 
     #[test]

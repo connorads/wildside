@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 - proactive Emo Rock drop-windup audit
+
+- Project-status still showed no ready/open risks, so the fallback moved to a
+  compact Emo Rock ASM audit.
+- Audited Emo_Rock.asm `loc_3621A`-`loc_3625E` and `stru_3647E`. Native
+  applied drop gravity immediately after a clear probe; the ROM plays
+  `sfx_Voice_die` and hibernates through the 67-tick animation first.
+- Reused `dragon_descent_frames` for the pre-drop hibernate, queued the voice
+  sound on the clear-probe frame, and added a regression for the wait and
+  resume edge.
+- Verification: focused red/green test, `cargo test -q -p wildside-core
+  emo_rock`, `cargo fmt --all --check`, `git diff --check`, `mise run
+  verify-slice-fast`, and `mise run verify-tas-full` pass. Full TAS exits 0
+  with CRC all 37759 frames matching; the current long-route state gap remains
+  first at `transition_15_to_00_post` on DragonWalking/object-count.
+
 ## 2026-07-02 - proactive Tornado timer-edge audit
 
 - Project-status still showed no ready/open risks, so the fallback moved to a

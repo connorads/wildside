@@ -1268,7 +1268,8 @@ pub(crate) struct ActiveEnemy {
     pub(crate) dragon_descent_index: u8,
     /// Dragon Flying: frames remaining in current descent entry.
     /// Cloud reuses this for `stru_35EC8` ticks between Cloud.asm loc_35D9E
-    /// and loc_35DB8 lightning allocation.
+    /// and loc_35DB8 lightning allocation. Emo Rock reuses it for the
+    /// Emo_Rock.asm loc_3621A `stru_3647E` pre-drop animation hibernate.
     pub(crate) dragon_descent_frames: u8,
     pub(crate) ninja_state: NinjaState,
     pub(crate) hand_state: HandState,

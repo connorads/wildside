@@ -7931,10 +7931,19 @@ mod chunk_04 {
         step_emo_rock(&mut enemy, Some(&grid), Some(player_x), Some(player_y));
         assert_eq!(enemy.wait_timer, 0);
 
-        // Now drops: gravity applied
+        // ASM Emo_Rock.asm loc_3621A starts `stru_3647E` before loc_3625E gravity.
         step_emo_rock(&mut enemy, Some(&grid), Some(player_x), Some(player_y));
-        assert!(enemy.y_velocity > 0, "should fall with positive y velocity");
+        assert_eq!(
+            enemy.dragon_descent_frames, EMO_ROCK_DROP_WINDUP_ANIMATION_FRAMES_LOC_3621A,
+            "should wait for the pre-drop animation before falling"
+        );
+        assert_eq!(enemy.y_velocity, 0);
         assert!(!enemy.on_ground, "should not be on ground while falling");
+
+        for _ in 0..usize::from(EMO_ROCK_DROP_WINDUP_ANIMATION_FRAMES_LOC_3621A) {
+            step_emo_rock(&mut enemy, Some(&grid), Some(player_x), Some(player_y));
+        }
+        assert!(enemy.y_velocity > 0, "should fall with positive y velocity");
     }
 
     #[test]
