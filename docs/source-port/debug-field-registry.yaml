@@ -523,6 +523,15 @@
       "promotion_trigger": "Promote if repeated parity work depends on typed native collision-list order or the field starts driving regression assertions."
     },
     {
+      "key": "rock_tank_contact_probe",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "issue-271-rocktank-contact",
+      "first_added_commit": "49f52a69e",
+      "intended_meaning": "Nearest native RockTank/RockTankShooting parent and linked mouth/turret child contact state: Tank identity, parent/child positions and bounds, stomp classification, child collision latch, FA74/FA75-style overlap latches, Character_Movement, stomp-block gate, and pending contact queues. Added because repeated live reports require diagnosing the exact contact frame before another gameplay patch.",
+      "promotion_trigger": "Promote if issue #271 or #259 fixes start asserting typed RockTank parent/child collision state, or if repeated parity work depends on this frame-level Tank contact attribution."
+    },
+    {
       "key": "kid_projectile_damage_probe",
       "scope": "frame",
       "status": "exploratory",

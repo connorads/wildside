@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — #271/#259 RockTank live-frame probe
+
+- Human validation reconfirmed #271, #259, #324, and #369. Moved those rows
+  back from awaiting-human/blocked to open and rewrote NOW: the prior
+  route-needed parking is not enough evidence for repeated live bugs.
+- Added `rock_tank_contact_probe` for #271/#259. It emits near RockTank child
+  contact windows and separates Tank body placement from linked mouth/turret
+  collision, with `Character_Movement`, FA74/FA75-style latches, stomp-block
+  gate, child latch, and pending contact queues.
+- Verification: focused
+  `rock_tank_contact_probe_reports_parent_child_split_loc_3b464`,
+  `mise run audit-debug-fields`, `mise run backlog-lint`, and
+  `mise run verify-slice-fast` all pass.
+- NEXT: take #271 first with an exact live failing frame. Capture
+  `rock_tank_contact_probe`, enemy-only/final-composite pixels, and oracle
+  state together; do not retune Tank Y, child collision, or foreground priority
+  from stale synthetic routes.
+
 ## 2026-07-02 — proactive movement title-card mutation gap
 
 - Open queue still empty. The proactive fallback started a broad

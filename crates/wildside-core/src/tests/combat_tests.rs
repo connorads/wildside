@@ -16862,6 +16862,55 @@ mod chunk_03 {
     }
 
     #[test]
+    fn rock_tank_contact_probe_reports_parent_child_split_loc_3b464() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut tank = test_enemy(EnemyFamily::Tank, 0x026D_0000, 0x0250_0000, 2);
+        tank.layout_index = 9;
+        tank.facing = Direction::Left;
+        runtime.active_enemies = vec![tank];
+        runtime.rebuild_active_enemy_roster();
+
+        let mouth = runtime.active_enemies[0]
+            .child_attachment_snapshot()
+            .expect("ASM Tank.asm loc_3B372 allocates the linked mouth child");
+        let mut slice = runtime.opening_slice.unwrap();
+        slice.player.x_pos = mouth.x_pos;
+        slice.player.y_pos = mouth.y_pos;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0x0003_0000;
+        slice.player.on_ground = false;
+        runtime.opening_slice = Some(slice);
+
+        let trace = runtime.trace_frame();
+        let probe = trace
+            .gameplay_debug_fields
+            .get("rock_tank_contact_probe")
+            .expect("RockTank contact probe should describe the live child overlap");
+
+        assert!(
+            probe.contains("family=Tank"),
+            "ASM Tank.asm loc_3B464 routes linked mouth hits by Tank family"
+        );
+        assert!(
+            probe.contains("parent_pos=0x026d0000,0x02500000"),
+            "probe must keep the body position visible for #259 floor/foreground diagnosis"
+        );
+        assert!(
+            probe.contains("child_pos="),
+            "ASM Tank.asm loc_3B372 mouth child position must be visible separately from the body"
+        );
+        assert!(
+            probe.contains("child_latch=1"),
+            "ASM GfxObjects_CollisionKid loc_1CF2 should see a child collision latch candidate"
+        );
+        assert!(
+            probe.contains("parent{") && probe.contains("child{"),
+            "probe should include both parent and child collision summaries for the recurrent #271/#259 reports"
+        );
+    }
+
+    #[test]
     fn tank_shooting_stomp_candidate_is_turret_child_loc_3b6c0() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);

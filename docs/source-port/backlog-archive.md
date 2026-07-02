@@ -13,6 +13,29 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #271
 
+Reopened 2026-07-02 after renewed human validation failure: jumping on RockTank
+heads still hurts Kid/Red Stealth in live play. The prior route-needed blocker
+is no longer an acceptable stopping point for this recurrent P0 report. Next
+work should instrument the live frame itself rather than only scoring old route
+families: log the RockTank child candidate box, `Character_Movement`,
+`$FA74/$FA75` latch state, contact result, Tank child collision word, HP/damage
+outcome, and enemy-only/composite render evidence. Cross-reference #259 in the
+same capture because the floor-sink perception may be making the player aim at
+a damaging side box while the apparent head is foreground-masked.
+
+Follow-up 2026-07-02: added native `rock_tank_contact_probe` instrumentation
+rather than another synthetic gameplay tweak. The probe emits only near Tank or
+TankShooting child contact windows and records Tank identity, parent/child
+positions, parent/child collision summaries, `Character_Movement`,
+`$FA74/$FA75`-style overlap latches, stomp block gate, child loc_1CF2 latch,
+and pending stomp/contact queues. ASM basis: Tank.asm `loc_3B464` and
+Tank_Shooting.asm `loc_3B6C0` consume the linked mouth/turret `$38(a2)` word,
+so the diagnostic keeps body placement separate from Kid-facing child
+collision. Regression:
+`rock_tank_contact_probe_reports_parent_child_split_loc_3b464`. Verification:
+focused test, `mise run audit-debug-fields`, `mise run backlog-lint`, and
+`mise run verify-slice-fast` all pass.
+
 Blocked note 2026-07-02: moved #271 from `[~]` open to `[b]` awaiting exact
 human/live route. Current route evidence is exhausted without reproducing a
 native-only Tank stomp fault: `issue271-route-current-20260702` is a miss,
@@ -164,6 +187,13 @@ and `cargo test -q -p wildside-core stomp_bounce_bit14_object_meta_also_applies_
 #259 remains separate for visual floor/foreground placement.
 
 ### #369
+
+Reopened 2026-07-02 after renewed human validation failure: the flagpole base
+is still missing at natural end-of-level after the priority fixed candidate.
+The next pass must capture the exact natural finish frame and inspect scene
+commands, priority-mask rejection, raw VDP sprite output, and oracle pixels
+before changing either `Flagpole_Boss` priority or `loc_C070`/`loc_C0B6`
+cleanup timing again.
 
 Fixed-candidate note 2026-07-02 (priority root cause): the post-reopen pass
 found a second failure mode beyond cleanup timing. ASM `Flagpole_Boss` sets
@@ -9514,6 +9544,13 @@ do not add another probe-frame constant.
 
 ### #259
 
+Reopened 2026-07-02 after renewed human validation failure: RockTanks still
+appear halfway in the floor on levels 2/3, and the visual mismatch may be
+coupled to #271 because players are aiming at the apparent head while the real
+child collision box is offset/occluded. Next pass should capture body/turret Y,
+child collision box, enemy-only layer, composite foreground mask, and oracle
+side-by-side in the same route/frame used for the stomp investigation.
+
 Failed-validation note 2026-07-02: human playtest again reports RockTanks half
 in the floor on levels 2 and 3 after the latest route-needed blocker. Move #259
 back to `[ ]`. The stalemate should now be resolved with one live targeted
@@ -11368,6 +11405,12 @@ Partial 2026-06-13: Level 0x06 / Under Skull Mountain 3 remains clean, and Level
 Human validation: throw the axe in Maniaxe/Iron Knight form and confirm axe art spins, not a green dot/static frame. Covered by `maniaxe_axe_projectile_projects_to_trace_stru_8b86`, `maniaxe_axe_projectile_uses_stru_8b86_player_form_sprite`, `maniaxe_axe_projectile_spins_through_stru_8b86_frames`, `loc_8a52_axe_advances_stru_8b86_animation_clock`, focused Maniaxe axe tests, and `mise run verify-slice-fast`. See #323 archive.
 
 ### #324
+
+Reopened 2026-07-02 after renewed human validation failure: prize/P blocks
+still show wrong sprite/art on top of the hit wobble. The known BLW1 row-1 and
+Highwater row-97 captures remain useful regressions, but they do not close the
+live report. Next pass should capture the live-visible frame in both scene and
+raw VDP layers and compare oracle before changing `sub_1007A` rendering again.
 
 Failed-validation note 2026-07-02: human playtest still reports wrong sprite/art
 behind or over the prize/P-block hit wobble, now described as showing on top of

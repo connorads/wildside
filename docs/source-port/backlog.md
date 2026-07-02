@@ -27,48 +27,39 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-02 failed human validation:** the recently reconfirmed rows have
-  been split into fixed candidates or route-needed blockers. The repeated
-  failure pattern is now the bug: fixed-candidate probes and synthetic routes
-  are not exercising the live play paths the human keeps seeing.
-- **#210/#254 fixed candidate 2026-07-02:** rapid title/menu row-select now
-  carries the resident Red Stealth/title-menu VDP during the hidden
-  `loc_1BBD6 -> loc_6E2 -> loc_1AE2E` title-card warm-up. Raw VDP
-  native/oracle captures are exact for the formerly black-square scene-swap
-  windows on `2400:start,2700:start,2720:start` and
-  `2400:start,2698:start,2718:start`; rows moved to `[?]` for human replay.
-- **#369 flagpole base candidate 2026-07-02:** second root-cause pass found the
-  base was present in scene commands but could still be masked because native
-  dropped `Flagpole_Boss`'s `priority(a3)=1` on both flag sprites. Candidate is
-  in `[?]`; human should retest natural EOL and verify the base survives over
-  foreground.
-- **#271 route-needed 2026-07-02:** moved to `[b]` after the current route set
-  failed to reproduce a native-only Tank stomp bug. Known current routes are not
-  the live failure: `issue271-route-current-20260702` is a miss,
-  `issue271-sharp-current-20260702` is oracle-parity side/edge damage, and
-  `issue271-sharp-sweep-jump184-20260702` is oracle-parity same-frame stomp.
-  Next useful artefact: live targeted `play-native --record` route with
-  `--record-target-enemy 0A/0B --record-stop-on-target-enemy-contact`, then run
-  the generated verifier/frontier/scorer commands before changing combat.
-- **#252 route-needed 2026-07-02:** repeated current capture/test evidence
-  after the #210/#254 fix still shows coherent RockTank body/turret/bullet art;
-  move the tank/helmet garble report to `[b]` until an exact live frame or
-  recording identifies the bad sprite.
-- **#259 route-needed 2026-07-02:** repeated current target-route scoring still
-  does not produce an oracle-valid side-by-side for the reported BLW2/Highwater
-  floor-sink. Current BLW2 route reaches only divergent 0x0A contact; Highwater
-  never activates a 0x0B tank. Move #259 to `[b]`; do not retune Tank
-  Y/priority/foreground occlusion without an exact live screenshot/recording/frame
-  and native/oracle side-by-side.
-- **#324 route-needed 2026-07-02:** current BLW1 row-1 and Highwater row-97
-  raw/scene/oracle captures still do not reproduce a native-only wrong
-  prize/P-block sprite. Highwater frame 48's static source-cell P during a
-  shifted bounce is also present in oracle, so do not patch that as a bug.
-  Move #324 to `[b]`; next useful artefact is the exact live screenshot,
-  recording, or frame where the wrong sprite is visible.
-- **Immediate work order:** take the next `project-status` item; #210/#254,
-  #252, #259, and #324 are back out of the open queue.
+  been reconfirmed again by live play. Treat the prior route-needed parking as
+  the process failure: fixed-candidate probes and synthetic routes are not
+  exercising the live paths the human keeps seeing.
+- **Immediate work order:** #271 is active P0. The first outside-the-loop step
+  has landed: native traces now emit `rock_tank_contact_probe` near Tank child
+  contact windows, including parent/child positions, collision summaries,
+  `Character_Movement`, `$FA74/$FA75`-style latches, stomp block gate, child
+  latch, and pending contact queues. Next pass should capture the exact live
+  failing frame and pair this field with enemy-only/final-composite pixels and
+  oracle state so #271 and #259 cannot keep deflecting into each other.
+- **#271 reopened 2026-07-02:** jumping on RockTank heads still hurts Kid and
+  is game-breaking. Existing route set is rejected as insufficient, not as
+  proof the report is invalid.
+- **#259 reopened 2026-07-02:** RockTanks still look halfway in the floor on
+  levels 2/3. Next pass must pair enemy-only and final-composite views with
+  `rock_tank_contact_probe`, because perceived floor sink may be causing
+  players to aim at a damaging side box.
+- **#324 reopened 2026-07-02:** prize/P block still shows wrong sprite/art on
+  top of the wobble after hit. Known BLW1/Highwater green routes stay as
+  regressions only; live-visible wobble must be captured in scene and raw VDP
+  layers before another `sub_1007A` patch.
+- **#369 reopened 2026-07-02:** flagpole base is still missing at natural EOL
+  despite the priority candidate. Next pass should verify scene command
+  presence, priority mask, and raw VDP/EOL sprite list on the exact natural
+  finish frame.
+- **#210/#254 remain suspect 2026-07-02:** menu-skip black squares/Red Stealth
+  corruption was recently fixed-candidate, but recurrent live validation has
+  failed enough times that the next playtest failure should reopen it
+  immediately instead of asking for another proof route.
 - **Visual route work:** do not retune Tank Y/priority, block wobble sprites,
-  or title/menu VDP from stale direct-camera or clean synthetic routes.
+  flagpole priority, or title/menu VDP from stale direct-camera or clean
+  synthetic routes. If the route machinery cannot see the bug, improve the
+  capture/probe surface first.
 - **Proactive verification 2026-07-02:** movement title-card activation
   constants now have an ASM-cited regression. The movement shard exposed two
   surviving mutants on `LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME`
@@ -97,3 +88,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 271 | [~] | P0 | player/enemy | Reopened 2026-07-02: jumping on RockTank heads still hurts Kid/Red Stealth in live play. Previous route-needed classification is rejected as insufficient because the live report is recurrent and game-breaking. | Instrument live contact: child box, `Character_Movement`, `$FA74/$FA75`, contact result, Tank child colid, HP/damage, enemy-only and composite frame. Then run oracle frontier on the captured route if available. |
+| 259 | [ ] | P1 | enemy/render | Reopened 2026-07-02: RockTanks still appear halfway in the floor on levels 2/3, likely interacting with #271 targeting. | Capture same frame as #271 where possible: body/turret Y, child collision box, enemy-only layer, composite foreground mask, oracle side-by-side. |
+| 324 | [ ] | P1 | render/block | Reopened 2026-07-02: prize/P block still shows wrong sprite/art on top of the hit wobble. Known clean routes do not close the live-visible defect. | Capture live wobble frame with both scene compositor and raw VDP layers; compare against oracle before changing `sub_1007A` rendering again. |
+| 369 | [ ] | P1 | render/eol | Reopened 2026-07-02: flagpole base is still missing at end of level after the priority fixed-candidate. | Natural EOL capture: inspect scene commands, priority mask, raw VDP sprite list, and oracle frame for the base/bottom flag sprite. |

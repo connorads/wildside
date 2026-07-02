@@ -11494,6 +11494,96 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) fn rock_tank_contact_probe_debug(
+        &self,
+        slice: &OpeningSliceState,
+        pre_physics_y_velocity: i32,
+    ) -> Option<String> {
+        let player = slice.player;
+        let half_width = self.progression.current_form.half_width() as i64;
+        let mut summaries = Vec::new();
+        for (active_index, enemy) in self.active_enemies.iter().enumerate() {
+            if !matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
+                continue;
+            }
+            let Some(child) = enemy.child_attachment_snapshot() else {
+                continue;
+            };
+
+            let child_summary = stomp_contact_candidate_debug_summary(
+                active_index,
+                player,
+                &child,
+                pre_physics_y_velocity,
+                half_width,
+            );
+            if child_summary.distance_score > 192 {
+                continue;
+            }
+
+            let parent = enemy.snapshot();
+            let parent_summary = stomp_contact_candidate_debug_summary(
+                active_index,
+                player,
+                &parent,
+                pre_physics_y_velocity,
+                half_width,
+            );
+            let child_latches_contact =
+                player_latches_enemy_collision_with_half_width_loc_1cf2(player, &child, half_width);
+            let pending_contact_family = self.pending_player_contact_damage.map_or("none", |p| {
+                if matches!(
+                    p.enemy_family,
+                    EnemyFamily::Tank | EnemyFamily::TankShooting
+                ) {
+                    "tank"
+                } else {
+                    "other"
+                }
+            });
+            let delayed_contact_family = self.delayed_player_contact_damage.map_or("none", |p| {
+                if matches!(
+                    p.enemy_family,
+                    EnemyFamily::Tank | EnemyFamily::TankShooting
+                ) {
+                    "tank"
+                } else {
+                    "other"
+                }
+            });
+
+            // ASM Tank.asm loc_3B464 / Tank_Shooting.asm loc_3B6C0 consume the
+            // linked mouth/turret `$38(a2)` collision word; the body is only
+            // context here so live reports can separate visual placement from
+            // the actual Kid-facing child hitbox.
+            summaries.push(format!(
+                "active_enemy[{active_index}]/family={:?}/seg={}/layout={}/hp={}/fa74={}/fa75={}/cm={}/blocked={}/pending_stomp={}/pending_contact={pending_contact_family}/delayed_contact={delayed_contact_family}/child_latch={}/parent_pos={:#010x},{:#010x}/child_pos={:#010x},{:#010x}/parent{{{}}}/child{{{}}}",
+                enemy.family,
+                enemy.segment_index,
+                enemy.layout_index,
+                enemy.hit_points,
+                u8::from(self.kid_touched_enemy_last_frame_loc_fa74),
+                u8::from(self.kid_touched_enemy_this_frame_loc_fa75),
+                self.current_character_movement(player),
+                u8::from(self.stomp_registration_blocked_loc_1ce4(player)),
+                u8::from(self.pending_stomp_bounce.is_some()),
+                u8::from(child_latches_contact),
+                enemy.x_pos,
+                enemy.y_pos,
+                child.x_pos,
+                child.y_pos,
+                parent_summary.summary,
+                child_summary.summary,
+            ));
+        }
+
+        if summaries.is_empty() {
+            None
+        } else {
+            Some(summaries.join("; "))
+        }
+    }
+
     /// ASM GfxObjects_CollisionKid_Collide (kid.asm:3383): any Kid/gfx-object
     /// hitbox overlap sets `$FFFFFA75` ("touched this frame") before
     /// classification, including the enemy-projectile object lists.
