@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — #271 RockTank contact timing fix
+
+- Found a real native-only timing fault on
+  `.cache/recordings/issue271-sharp-current-20260702/scenario.json`: frame 224
+  native spent HP while oracle still only had the Tank child `$24` kid-left
+  writeback and no damage.
+- Fixed ordinary Tank/TankShooting side-contact damage to enter the delayed
+  player-contact handoff, matching the ASM `Mode_Level loc_3A6` /
+  `GfxObjects_CollisionKid loc_1CF2` ordering before
+  `Check_for_recent_damge loc_B700` consumes HP.
+- Updated the RockTank edge-contact regression to expect the delayed queue,
+  while keeping the already-pending damage-consume test unchanged.
+- Verification: focused `rock_tank` tests, contact timing tests, current #271
+  `tas-diff` frames 223..228 with 0 divergences, `verify-tas` frames 220..230,
+  `target_enemy_contact`, `cargo fmt --check`, and `mise run verify-slice-fast`
+  all pass.
+- NEXT: #271 remains open. Capture a fresh live Level-2/Red-Stealth head-stomp
+  with `--record-stop-on-target-enemy-contact`, then run the scorer and emitted
+  native/oracle contact-frame visual commands. Do not treat this timing fix as
+  a full closure of the recurrent head-stomp report.
+
 ## 2026-07-02 — #271/#259 RockTank live-frame probe
 
 - Human validation reconfirmed #271, #259, #324, and #369. Moved those rows

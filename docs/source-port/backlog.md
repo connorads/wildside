@@ -30,23 +30,18 @@ and stop — never commit churn.
   been reconfirmed again by live play. Treat the prior route-needed parking as
   the process failure: fixed-candidate probes and synthetic routes are not
   exercising the live paths the human keeps seeing.
-- **Immediate work order:** #271 is active P0. The first outside-the-loop step
-  has landed: native traces now emit `rock_tank_contact_probe` near Tank child
-  contact windows, including parent/child positions, collision summaries,
-  `Character_Movement`, `$FA74/$FA75`-style latches, stomp block gate, child
-  latch, and pending contact queues. The `--target-enemy-contact` scorer now
-  consumes that probe and reports the linked child contact while preserving the
-  parent/body context. For file-backed scenarios it also prints exact
-  contact-frame native/oracle visual dump commands (native VDP, native scene,
-  native enemies, oracle VDP). Live auto-stop recordings now also save a
-  `target_enemy_contact_XX_result` checkpoint at the detected frame, so
-  `verify-recording` layer artefacts centre the same frame. Direct
-  probe-camera starts now also reseed native enemy loading for the probed
-  camera; the new Highwater Level-2 seed exposes the reported `0x0B` Tank
-  body/turret pair before scoring. Next pass should capture either the exact
-  live failing frame or a natural oracle-authoritative Level-2 route, then run
-  the emitted contact-frame commands so #271 and #259 cannot keep deflecting
-  into each other.
+- **Immediate work order:** #271 is active P0. Outside-the-loop contact
+  tooling has landed: `rock_tank_contact_probe`, child-aware
+  `--target-enemy-contact` scoring, emitted contact-frame native/oracle visual
+  commands, live auto-stop `target_enemy_contact_XX_result` checkpoints, and
+  direct probe-camera enemy-load reseeding. A real native-only Tank timing
+  divergence is also fixed: `issue271-sharp-current-20260702` frame 224 no
+  longer spends HP one frame before oracle while the Tank child only carries
+  `$24` kid-left. Native now delays ordinary Tank/TankShooting side-contact
+  damage until the following `Check_for_recent_damge` handoff. Next pass should
+  capture the exact live failing Level-2/Red-Stealth head-stomp frame and rerun
+  the scorer plus emitted contact-frame commands, so the remaining live report
+  can be separated from #259 floor/foreground perception.
 - **#271 reopened 2026-07-02:** jumping on RockTank heads still hurts Kid and
   is game-breaking. Existing route set is rejected as insufficient, not as
   proof the report is invalid.

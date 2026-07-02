@@ -91,6 +91,29 @@ authoritatively replay the synthetic probe-camera enemy reseed, so the next
 gameplay verdict needs either a live recording or a natural oracle-valid
 Level-2 route.
 
+Follow-up 2026-07-02: fixed a concrete native-only RockTank contact timing
+divergence on `.cache/recordings/issue271-sharp-current-20260702/scenario.json`.
+Before the fix, `tas-diff --frame-start 223 --frame-end 228
+--include-advisory --frontier-kind enemy` showed frame 224 native HP already
+spent (`number_hitpoints=1`, `just_received_damage=true`) while oracle still
+had only the Tank child `$24` kid-left writeback and HP unchanged
+(`number_hitpoints=2`). Native now routes ordinary Tank/TankShooting side
+contacts through the existing delayed player-contact handoff, matching ASM
+Mode_Level `loc_3A6` / GfxObjects_CollisionKid `loc_1CF2`: the mouth/turret
+child writeback is visible before `Check_for_recent_damge loc_B700` consumes
+HP on the following frame. Updated
+`flipped_rock_tank_edge_contact_latches_next_frame_damage_loc_1cf2` to assert
+the delayed queue, while `pending_contact_damage_spends_before_motion_loc_b700`
+continues to cover already-pending damage consumption. Verification: focused
+`rock_tank` tests, the two contact timing tests,
+`tas-diff --scenario .cache/recordings/issue271-sharp-current-20260702/scenario.json
+--frame-start 223 --frame-end 228 --include-advisory --frontier-kind enemy
+--only-divergent` (0 divergences), `verify-tas` over frames 220..230,
+`target_enemy_contact`, `cargo fmt --check`, and `mise run verify-slice-fast`.
+This is still not a full #271 close: it fixes the current native-only damage
+timing fault, but a live targeted Level-2/Red-Stealth head-stomp recording is
+still needed to confirm the recurrent report.
+
 Blocked note 2026-07-02: moved #271 from `[~]` open to `[b]` awaiting exact
 human/live route. Current route evidence is exhausted without reproducing a
 native-only Tank stomp fault: `issue271-route-current-20260702` is a miss,

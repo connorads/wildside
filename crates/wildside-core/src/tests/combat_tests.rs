@@ -1946,13 +1946,14 @@ fn flipped_rock_tank_edge_contact_latches_next_frame_damage_loc_1cf2() {
             frame_start_x,
             frame_start_y,
         ),
-        "ASM loc_1CF2 only latches the edge collision; Character_CheckCollision loc_B700 consumes it on the next frame"
+        "ASM loc_1CF2 only latches the edge collision; issue-271 frame 224 keeps the Tank child `$24` writeback visible before Check_for_recent_damge spends HP"
     );
     let pending = runtime
-        .pending_player_contact_damage
-        .expect("exact-edge Tank collision should be queued for next frame damage");
+        .delayed_player_contact_damage
+        .expect("exact-edge Tank collision should wait one handoff before pending damage");
     assert_eq!(pending.enemy_x, 164 << 16);
     assert_eq!(pending.enemy_family, EnemyFamily::Tank);
+    assert!(runtime.pending_player_contact_damage.is_none());
     assert_eq!(runtime.progression.number_hitpoints, 1);
 }
 
