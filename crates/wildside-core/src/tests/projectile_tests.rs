@@ -9617,8 +9617,50 @@ mod chunk_06 {
         assert!(!rt.helmet.berzerker_charging);
     }
 
+    fn dragon_walking_left_edge_touch_x_loc_b678(player_x_px: i32, player_half_width: i32) -> u32 {
+        let bounds = crate::combat::enemy_contact_bounds(
+            &test_enemy(EnemyFamily::DragonWalking, 0, 0, 2).snapshot(),
+        );
+        (player_x_px + player_half_width - bounds.left_px as i32) as u32
+    }
+
+    fn dragon_walking_right_edge_touch_x_loc_b678(player_x_px: i32, player_half_width: i32) -> u32 {
+        let bounds = crate::combat::enemy_contact_bounds(
+            &test_enemy(EnemyFamily::DragonWalking, 0, 0, 2).snapshot(),
+        );
+        (player_x_px - player_half_width - bounds.right_px as i32) as u32
+    }
+
     #[test]
     fn berzerker_charge_kills_enemy_on_contact() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::DragonWalking,
+            0x0040_0000,
+            0x0040_0000,
+            1,
+        ));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        assert_eq!(rt.active_enemies.len(), 1);
+        assert_eq!(rt.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            rt.active_enemies[0].wait_timer,
+            DRAGON_WALKING_DEATH_ANIMATION_FRAMES
+        );
+    }
+
+    /// ASM GfxObjects_CollisionKid loc_1BCE: Archer's body frames use the zero
+    /// row `unk_314CE`, so Berzerker charge must not manufacture body damage.
+    #[test]
+    fn berzerker_charge_empty_archer_body_row_misses_loc_1bce() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Berzerker;
         rt.helmet.berzerker_charging = true;
@@ -9631,11 +9673,9 @@ mod chunk_06 {
 
         rt.process_berzerker_charge_hits(&mut slice);
 
-        assert_eq!(rt.active_enemies.len(), 1);
-        assert_eq!(rt.active_enemies[0].hit_points, 0);
         assert_eq!(
-            rt.active_enemies[0].wait_timer,
-            ARCHER_DEATH_ANIMATION_FRAMES
+            rt.active_enemies[0].hit_points, 1,
+            "ASM loc_1BCE zero CollisionSize row should leave Archer body untouched"
         );
     }
 
@@ -10301,8 +10341,8 @@ mod chunk_06 {
     }
 
     /// ASM Check_for_recent_damge Berzerker gate treats active charging contact
-    /// as enemy damage. Native's contact approximation keeps horizontal overlap
-    /// inclusive at PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH.
+    /// as enemy damage. The enemy side comes from GfxObjects_CollisionKid's
+    /// per-frame CollisionSize row; DragonWalking uses `unk_31630`.
     #[test]
     fn berzerker_charge_hits_at_horizontal_extent() {
         let mut rt = NativeRuntime::new(manifest());
@@ -10311,11 +10351,12 @@ mod chunk_06 {
         let mut slice = combat_slice();
         slice.player.x_pos = 0x0040_0000;
         slice.player.y_pos = 0x0040_0000;
-        let limit = PLAYER_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32;
+        let target_x =
+            dragon_walking_left_edge_touch_x_loc_b678(0x0040, PlayerForm::Berzerker.half_width());
 
         rt.active_enemies.push(test_enemy(
-            EnemyFamily::Archer,
-            (0x0040 + limit as u32) << 16,
+            EnemyFamily::DragonWalking,
+            target_x << 16,
             0x0040_0000,
             2,
         ));
@@ -10341,11 +10382,12 @@ mod chunk_06 {
         slice.player.y_pos = 0x0040_0000;
         slice.player.facing = Direction::Right;
         slice.player.x_velocity = 0x0002_0000;
-        let berzerker_limit = PlayerForm::Berzerker.half_width() + ENEMY_CONTACT_HALF_WIDTH as i32;
+        let target_x =
+            dragon_walking_left_edge_touch_x_loc_b678(0x0040, PlayerForm::Berzerker.half_width());
 
         rt.active_enemies.push(test_enemy(
-            EnemyFamily::Archer,
-            (0x0040 + berzerker_limit as u32) << 16,
+            EnemyFamily::DragonWalking,
+            target_x << 16,
             0x0040_0000,
             2,
         ));
@@ -10355,6 +10397,147 @@ mod chunk_06 {
         assert_eq!(
             rt.active_enemies[0].hit_points, 1,
             "ASM sub_B41C/GfxObjects_Collision should let Berzerker charge hit at the 7px form edge"
+        );
+    }
+
+    /// ASM GfxObjects_CollisionKid loc_1BCE/Character_CheckCollision loc_B678:
+    /// charging Berzerker side contact is reached through the enemy's
+    /// CollisionSize row, so the walking dragon's `unk_31630` body
+    /// (-16..+16, -32..0) must be hittable outside the old fixed ±4×±8 box.
+    #[test]
+    fn berzerker_charge_hits_walking_dragon_collision_size_unk_31630_loc_b678() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 200 << 16;
+        slice.player.y_pos = 200 << 16;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::DragonWalking,
+            dragon_walking_left_edge_touch_x_loc_b678(200, PlayerForm::Berzerker.half_width())
+                << 16,
+            200 << 16,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM loc_B678 via unk_31630 should damage the walking dragon when Berzerker overlaps the real body edge"
+        );
+    }
+
+    /// ASM loc_1BCE/loc_B678 is inclusive on the opposite horizontal edge too:
+    /// a walking dragon whose right edge exactly touches Berzerker's left edge
+    /// must still take charge damage.
+    #[test]
+    fn berzerker_charge_hits_walking_dragon_left_edge_loc_b678() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 200 << 16;
+        slice.player.y_pos = 200 << 16;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::DragonWalking,
+            dragon_walking_right_edge_touch_x_loc_b678(200, PlayerForm::Berzerker.half_width())
+                << 16,
+            200 << 16,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM loc_B678 should count equality when the enemy right edge touches Berzerker's left edge"
+        );
+    }
+
+    #[test]
+    fn berzerker_charge_misses_walking_dragon_left_gap_loc_b678() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 200 << 16;
+        slice.player.y_pos = 200 << 16;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::DragonWalking,
+            (dragon_walking_right_edge_touch_x_loc_b678(200, PlayerForm::Berzerker.half_width())
+                - 1)
+                << 16,
+            200 << 16,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 2,
+            "ASM loc_B678 should reject a one-pixel gap before Berzerker's left edge"
+        );
+    }
+
+    /// Sphere's live row `unk_31AB0` extends below its anchor, so it catches
+    /// bottom-edge arithmetic in the Berzerker contact helper.
+    #[test]
+    fn berzerker_charge_hits_sphere_bottom_edge_at_player_top_loc_b678() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 200 << 16;
+        slice.player.y_pos = 200 << 16;
+        let sphere_bounds = crate::combat::enemy_contact_bounds(
+            &test_enemy(EnemyFamily::Sphere, 0, 0, 2).snapshot(),
+        );
+        let sphere_y = 200 - ENEMY_CONTACT_HALF_HEIGHT as i32 - sphere_bounds.bottom_px as i32;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Sphere,
+            200 << 16,
+            (sphere_y as u32) << 16,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM loc_B678 should count equality when Sphere bottom touches Berzerker's top edge"
+        );
+    }
+
+    #[test]
+    fn berzerker_charge_hits_sphere_top_edge_at_player_bottom_loc_b678() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 200 << 16;
+        slice.player.y_pos = 200 << 16;
+        let sphere_bounds = crate::combat::enemy_contact_bounds(
+            &test_enemy(EnemyFamily::Sphere, 0, 0, 2).snapshot(),
+        );
+        let sphere_y = 200 + ENEMY_CONTACT_HALF_HEIGHT as i32 - sphere_bounds.top_px as i32;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Sphere,
+            200 << 16,
+            (sphere_y as u32) << 16,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM loc_B678 should count equality when Sphere top touches Berzerker's bottom edge"
         );
     }
 
@@ -10516,7 +10699,9 @@ mod chunk_06 {
         slice.terrain.floor_terrain_type = TerrainType::Normal;
         rt.opening_slice = Some(slice);
 
-        let hit_dx = PlayerForm::Berzerker.half_width() + ENEMY_CONTACT_HALF_WIDTH as i32;
+        let goat_bounds =
+            crate::combat::enemy_contact_bounds(&test_enemy(EnemyFamily::Goat, 0, 0, 1).snapshot());
+        let hit_dx = PlayerForm::Berzerker.half_width() - goat_bounds.left_px as i32;
         rt.active_enemies.push(test_enemy(
             EnemyFamily::Goat,
             (0x0040 + hit_dx as u32) << 16,
@@ -10563,10 +10748,10 @@ mod chunk_06 {
         slice.player.on_ground = false;
         slice.terrain.floor_terrain_type = TerrainType::Normal;
 
-        let hit_dx = PlayerForm::Berzerker.half_width() + ENEMY_CONTACT_HALF_WIDTH as i32;
         rt.active_enemies.push(test_enemy(
-            EnemyFamily::Archer,
-            (0x0040 + hit_dx as u32) << 16,
+            EnemyFamily::DragonWalking,
+            dragon_walking_left_edge_touch_x_loc_b678(0x0040, PlayerForm::Berzerker.half_width())
+                << 16,
             0x0040_0000,
             1,
         ));
@@ -10581,7 +10766,7 @@ mod chunk_06 {
         assert_eq!(rt.active_enemies.len(), 1);
         assert_eq!(rt.active_enemies[0].hit_points, 0);
         assert_eq!(
-            rt.active_enemies[0].wait_timer, ARCHER_DEATH_ANIMATION_FRAMES,
+            rt.active_enemies[0].wait_timer, DRAGON_WALKING_DEATH_ANIMATION_FRAMES,
             "ASM loc_B678 should let airborne charging Berzerker damage the front-edge enemy, then hibernate during death animation"
         );
     }
@@ -10599,8 +10784,12 @@ mod chunk_06 {
         slice.player.y_pos = 0x0040_0000;
         slice.player.x_velocity = 0x0002_0000;
 
-        rt.active_enemies
-            .push(test_enemy(EnemyFamily::Archer, 0x0040_0000, 0x0040_0000, 2));
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::DragonWalking,
+            0x0040_0000,
+            0x0040_0000,
+            2,
+        ));
         rt.active_enemies.push(test_enemy(
             EnemyFamily::BigHoppingSkull,
             0x0041_0000,
@@ -10688,11 +10877,13 @@ mod chunk_06 {
         let mut slice = combat_slice();
         slice.player.x_pos = 0x0040_0000;
         slice.player.y_pos = 0x0040_0000;
-        let miss_dx = PlayerForm::Berzerker.half_width() + ENEMY_CONTACT_HALF_WIDTH as i32 + 1;
+        let miss_x =
+            dragon_walking_left_edge_touch_x_loc_b678(0x0040, PlayerForm::Berzerker.half_width())
+                + 1;
 
         rt.active_enemies.push(test_enemy(
-            EnemyFamily::Goat,
-            (0x0040 + miss_dx as u32) << 16,
+            EnemyFamily::DragonWalking,
+            miss_x << 16,
             0x0040_0000,
             2,
         ));
@@ -10715,12 +10906,15 @@ mod chunk_06 {
         let mut slice = combat_slice();
         slice.player.x_pos = 0x0040_0000;
         slice.player.y_pos = 0x0040_0000;
-        let miss_dy = ENEMY_CONTACT_HALF_HEIGHT as i32 + 1;
+        let dragon_bounds = crate::combat::enemy_contact_bounds(
+            &test_enemy(EnemyFamily::DragonWalking, 0, 0, 2).snapshot(),
+        );
+        let miss_y = 0x0040 + ENEMY_CONTACT_HALF_HEIGHT as i32 + 1 - dragon_bounds.top_px as i32;
 
         rt.active_enemies.push(test_enemy(
-            EnemyFamily::Goat,
+            EnemyFamily::DragonWalking,
             0x0040_0000,
-            (0x0040 + miss_dy as u32) << 16,
+            (miss_y as u32) << 16,
             2,
         ));
 
@@ -10743,8 +10937,12 @@ mod chunk_06 {
         slice.player.x_pos = 0x0040_0000;
         slice.player.y_pos = 0x0040_0000;
 
-        rt.active_enemies
-            .push(test_enemy(EnemyFamily::Archer, 0x0040_0000, 0x0040_0000, 1));
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::DragonWalking,
+            0x0040_0000,
+            0x0040_0000,
+            1,
+        ));
         rt.active_enemy_roster = rt
             .active_enemies
             .iter()
@@ -10757,7 +10955,7 @@ mod chunk_06 {
         assert_eq!(rt.active_enemy_roster.len(), 1);
         assert_eq!(
             rt.active_enemy_roster[0].wait_timer,
-            Some(ARCHER_DEATH_ANIMATION_FRAMES),
+            Some(DRAGON_WALKING_DEATH_ANIMATION_FRAMES),
             "trace roster should keep killed enemy until its death animation finishes"
         );
     }

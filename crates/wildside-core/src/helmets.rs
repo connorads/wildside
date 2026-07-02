@@ -5396,6 +5396,39 @@ fn friendly_collision_size_overlaps_enemy_loc_1d84(
         || enemy_bottom < projectile_top)
 }
 
+fn berzerker_charge_overlaps_enemy_loc_b678(
+    player_x_px: i32,
+    player_y_px: i32,
+    player_half_width: i32,
+    target: &NativeObjectSnapshot,
+) -> bool {
+    let bounds = crate::combat::enemy_contact_bounds(target);
+    if bounds.left_px > bounds.right_px || bounds.top_px > bounds.bottom_px {
+        return false;
+    }
+
+    let enemy_x = (target.x_pos >> 16) as i32;
+    let enemy_y = (target.y_pos >> 16) as i32;
+    let enemy_left = enemy_x + bounds.left_px as i32;
+    let enemy_right = enemy_x + bounds.right_px as i32;
+    let enemy_top = enemy_y + bounds.top_px as i32;
+    let enemy_bottom = enemy_y + bounds.bottom_px as i32;
+
+    let player_left = player_x_px - player_half_width;
+    let player_right = player_x_px + player_half_width;
+    let player_top = player_y_px - ENEMY_CONTACT_HALF_HEIGHT as i32;
+    let player_bottom = player_y_px + ENEMY_CONTACT_HALF_HEIGHT as i32;
+
+    // ASM GfxObjects_CollisionKid loc_1BCE/loc_1BD4 performs inclusive
+    // bgt/blt checks before Character_CheckCollision loc_B678 sees the
+    // Berzerker side-contact gate. Native still approximates the player box,
+    // but the enemy side must use the per-frame CollisionSize row.
+    !(enemy_left > player_right
+        || enemy_right < player_left
+        || enemy_top > player_bottom
+        || enemy_bottom < player_top)
+}
+
 fn helmet_enemy_damage_target_snapshot(enemy: &ActiveEnemy) -> Option<NativeObjectSnapshot> {
     if enemy.hit_points == 0 {
         return None;
@@ -7295,12 +7328,7 @@ impl NativeRuntime {
             else {
                 continue;
             };
-            let ex = (target.x_pos >> 16) as i32;
-            let ey = (target.y_pos >> 16) as i32;
-            let dx = (px - ex).abs();
-            let dy = (py - ey).abs();
-            if dx <= player_contact_half_width + ENEMY_CONTACT_HALF_WIDTH as i32
-                && dy <= ENEMY_CONTACT_HALF_HEIGHT as i32
+            if berzerker_charge_overlaps_enemy_loc_b678(px, py, player_contact_half_width, &target)
             {
                 if !reflected_player_velocity
                     && berzerker_charge_reflects_player_velocity_loc_b678(&self.active_enemies[i])

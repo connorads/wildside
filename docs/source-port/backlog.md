@@ -58,16 +58,21 @@ and stop — never commit churn.
   route machinery cannot see the bug, improve the capture/probe surface first.
 - **Proactive verification 2026-07-02:** no ready/open rows remain. Recent
   fallback passes fixed compact ASM gaps for Armadillo, Goat, Sphere, Diamond,
-  Driller, Fire Demon, Cloud, Tornado, Emo Rock, and Robot; session-log has the
-  per-pass details. Latest change: Robot.asm `loc_3A7AC` `$48=$B`/`$4A=$20`
-  now drives 11px/32px live Robot walking/charging probes. Crab.asm audit plus
-  `crab.rs` mutation fallback found no live gap (71 caught, 16 unviable).
+  Driller, Fire Demon, Cloud, Tornado, Emo Rock, Robot, and Berzerker charge
+  contact; session-log has the per-pass details. Latest change:
+  `Character_CheckCollision loc_B678` Berzerker charge now uses
+  `enemy_contact_bounds` for the enemy side instead of the old fixed target
+  box; DragonWalking `unk_31630` charge contact, Sphere vertical edges, and
+  Archer zero-row misses are pinned.
 - **Current gates 2026-07-02:** `verify-slice-fast` passes; `verify-tas-full`
   exits 0 with CRC all 37759 frames matching but still reports the current
   `1p-accurate` state gap (first authoritative diff:
-  `transition_15_to_00_post` DragonWalking/object-count). ASM coverage remains
-  `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not cite
-  those wrappers just to move the metric.
+  `transition_15_to_00_post` DragonWalking/object-count). Focused Berzerker,
+  friendly-projectile, and Red Stealth contact tests pass. Diff-scoped mutation
+  on the Berzerker helper caught 39/44 mutants; the 5 survivors are equivalent
+  empty-row sentinel variants. ASM coverage remains `0` ordinary uncovered
+  labels plus 21 emulated GEMS wrappers; do not cite those wrappers just to move
+  the metric.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 - proactive Berzerker contact-box audit
+
+- Project-status still showed no ready/open risks, so the fallback followed the
+  #343/#308 combat contact follow-up.
+- Re-read `GfxObjects_CollisionKid loc_1BCE/loc_1BD4` and
+  `Character_CheckCollision loc_B678`: charging Berzerker side contact reaches
+  the damage gate through the enemy's `CollisionSize_Index` row, not a fixed
+  8x16 target box.
+- Rewired `process_berzerker_charge_hits` to use `enemy_contact_bounds` on the
+  target side while keeping the existing Berzerker/player approximation. This
+  lets Berzerker charge hit DragonWalking's `unk_31630` body and still rejects
+  Archer's zero body row.
+- Added DragonWalking/Sphere/Archer boundary regressions for right edge, left
+  edge, one-pixel gaps, vertical top/bottom equality, zero rows, and updated old
+  Archer/fixed-width Berzerker fixtures.
+- Verification: focused Berzerker, friendly-projectile, and Red Stealth contact
+  tests pass; `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, `mise run verify-slice-fast`, and `mise run verify-tas-full`
+  pass. Diff-scoped mutation `/tmp/mutants-berzerker-contact-diff-20260702`
+  reports 44 mutants tested: 39 caught, 5 missed; the misses are equivalent
+  empty-row sentinel guard variants because current empty `enemy_contact_bounds`
+  rows set both horizontal and vertical invalid bounds. Full TAS exits 0 with
+  CRC all 37759 frames matching; the current long-route state gap remains first
+  at `transition_15_to_00_post` on DragonWalking/object-count.
+
 ## 2026-07-02 - proactive Robot probe audit
 
 - Project-status still showed no ready/open risks. Crab ASM audit plus
