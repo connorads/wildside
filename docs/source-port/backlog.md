@@ -36,8 +36,10 @@ and stop — never commit churn.
 - **#252 route-needed after fresh recheck:** current Level 01 RockTank capture and
   assembled tank/bullet sprites remain coherent; no current tank/helmet garble was
   reproduced without an exact human frame/route. #252 is back in awaiting-human.
-- **Current focus:** #324 prize/P block wobble art is the remaining open visual
-  report; capture exact forest/Highwater hits before patching.
+- **#324 route-needed after fresh recheck:** known BLW1 row-1 and Highwater
+  row-97 prize/P block routes are clean in current scene captures, and the other
+  cached Highwater variants do not reproduce the weird-sprite wobble. #324 is
+  back in awaiting-human pending an exact screenshot/recording/frame.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -59,4 +61,3 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 324 | [ ] | P1 | render/block | 2026-07-02 human reconfirm: prize/P blocks can still show a weird sprite or wrong art behind the wobble. Prior Highwater row-97 route is fixed, so this may be a different block/theme/route. | Capture exact current forest/Highwater prize-block hit and compare with oracle scene frames; do not patch blindly from the closed Highwater row-97 route. |

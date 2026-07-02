@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (#324 prize/P block route-needed)
+
+- **#324 moved `[~]` -> `[b]`.** Fresh current recheck did not reproduce the
+  prize/P block weird-sprite wobble on the known BLW1 row-1 or Highwater row-97
+  routes, and the remaining cached Highwater variants also render cleanly.
+- Verification: BLW1 scene frames 568/574/580/586, Highwater row-97 scene frames
+  47/48/50/52, Highwater `bjump`/`delayed-bjump`/`right-bjump` scene frames
+  40/47/54/61/68, focused `prize_block_wobble`, and exact live-scene
+  prize-block regression all pass.
+- NEXT: run `mise run project-status`; the open queue should be empty. Continue
+  with human-validation blockers only if a new exact repro arrives; otherwise
+  use the proactive-verification fallback from `loop.md`.
+
 ## 2026-07-02 handoff (#252 tank/helmet route-needed)
 
 - **#252 moved `[~]` -> `[b]`.** Fresh current recheck did not reproduce the
