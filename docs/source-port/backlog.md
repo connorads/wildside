@@ -34,8 +34,10 @@ and stop — never commit churn.
   `probe-record-scenario-file --target-enemy-contact 0A/0B` scorer on any
   candidate route. Recording bundles with `--record-target-enemy 0A/0B` now
   write ready-made `route_target_score_commands` in `manifest.json`/`README.txt`
-  and print the frontier/scorer commands on save. Use those on the next live
-  capture. Known current routes are not the live failure:
+  and print the frontier/scorer commands on save; add
+  `--record-stop-on-target-enemy-contact` for the next live capture so the
+  bundle auto-saves just after the first target contact. Known current routes
+  are not the live failure:
   `issue271-route-current-20260702` is a miss, and
   `issue271-sharp-current-20260702` is side/edge damage; a small jump sweep can
   produce native `result=stomp`, so the next useful artefact is a live targeted
@@ -70,7 +72,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 271 | [~] | P0 | player/enemy | FAILED human validation 2026-07-02: RockTank head jumps still hurt Kid/Red Stealth; previous `$2C` delayed-damage fix did not settle the live route. | Record live route with `play-native --record --record-target-enemy 0A/0B`; run generated verify/frontier/scorer commands; compare clean first-overlap `$2C` vs sustained/side contact before changing combat. |
+| 271 | [~] | P0 | player/enemy | FAILED human validation 2026-07-02: RockTank head jumps still hurt Kid/Red Stealth; previous `$2C` delayed-damage fix did not settle the live route. | Record live route with `--record-target-enemy 0A/0B --record-stop-on-target-enemy-contact`; run generated verify/frontier/scorer commands before changing combat. |
 | 210 | [ ] | P0 | gameflow/render | FAILED human validation 2026-07-02: rapid menu/intro skip can still produce black squares where Red Stealth/title/menu art should be. | Capture exact live Start timings or `play-native --record` bundle; compare raw VDP and scene frames around the first bad frame; do not rely on the covered `2400,2700,2720/2721` synthetic routes. |
 | 254 | [ ] | P1 | intro/render | FAILED human validation 2026-07-02: Red Stealth/title-skip corruption persists as part of the #210 black-square route. | Pair with #210 route capture; isolate whether the bad pixels are carried VDP/title-menu state or a distinct transform/render path before changing form art. |
 | 369 | [ ] | P1 | render/eol | FAILED human validation 2026-07-02: flagpole base is still missing at level end on the live route. | Record/capture natural EOL route; compare native vs oracle through `loc_C070` touch and `loc_C0B6` cleanup; identify whether base is missing before touch, during hold, or after cleanup. |

@@ -13,7 +13,9 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   `route_target_score_commands` to recording bundles when
   `--record-target-enemy 0A/0B` is used, so the next live route can be scored
   directly with `probe-record-scenario-file --target-enemy-contact`. The live
-  recorder now also prints the frontier and scorer commands after saving.
+  recorder now also prints the frontier and scorer commands after saving, and
+  can auto-save after the first target contact via
+  `--record-stop-on-target-enemy-contact`.
 - This is diagnostic tooling, not a combat fix. The next useful evidence is
   still a live `play-native --record` capture of the failing head jump followed
   by generated `verify-recording`, `tas_frontier_command`, and scorer command.

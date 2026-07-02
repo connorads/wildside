@@ -1,3 +1,4 @@
+use crate::inspect::target_enemy_contact_from_frame;
 use crate::recording::{
     RecordingBundleArtifacts, RecordingRouteTarget, build_recording,
     recording_route_target_score_commands, recording_start_from_options,
@@ -68,6 +69,8 @@ pub struct NativePlayOptions {
     pub settled: bool,
     pub record_to: Option<PathBuf>,
     pub record_frames: Option<usize>,
+    pub record_stop_on_target_enemy_contact: bool,
+    pub record_contact_tail_frames: usize,
     pub record_notes: Option<String>,
     pub record_route_target: Option<RecordingRouteTarget>,
     pub record_frontier_kind: Option<String>,
@@ -358,6 +361,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     let mut wait_for_live_input_release = false;
     let mut recorded_script = Vec::new();
     let mut recorded_trace = Vec::new();
+    let mut target_contact_stop_tail_remaining: Option<usize> = None;
     let mut recorded_audio = Vec::new();
     let mut recorded_audio_events = Vec::new();
     let mut audio_diagnostics = NativeAudioDiagnostics::new(
@@ -591,6 +595,13 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 if options.record_to.is_some() {
                     recorded_script.push(buttons);
                     recorded_trace.push(trace.clone());
+                    if update_target_contact_auto_stop(
+                        options,
+                        &trace,
+                        &mut target_contact_stop_tail_remaining,
+                    ) {
+                        dump_recording_and_exit = true;
+                    }
                     if recording_frame_limit_reached(options, recorded_trace.len()) {
                         dump_recording_and_exit = true;
                     }
@@ -892,6 +903,46 @@ fn recording_frame_limit_reached(options: &NativePlayOptions, recorded_frames: u
     options
         .record_frames
         .is_some_and(|limit| recorded_frames >= limit)
+}
+
+fn update_target_contact_auto_stop(
+    options: &NativePlayOptions,
+    trace: &NativeTraceFrame,
+    tail_remaining: &mut Option<usize>,
+) -> bool {
+    if let Some(remaining) = tail_remaining {
+        if *remaining == 0 {
+            return true;
+        }
+        *remaining -= 1;
+        return false;
+    }
+
+    let Some(target) = &options.record_route_target else {
+        return false;
+    };
+    if !options.record_stop_on_target_enemy_contact {
+        return false;
+    }
+    let Some(contact) = target
+        .enemies
+        .iter()
+        .filter_map(|enemy| target_enemy_contact_from_frame(std::slice::from_ref(trace), *enemy, 0))
+        .find(|contact| contact.result != "none")
+    else {
+        return false;
+    };
+    let tail = options.record_contact_tail_frames;
+    eprintln!(
+        "recording target enemy contact detected: result={} gate={} score_px={} tail_frames={}",
+        contact.result, contact.gate, contact.score_px, tail
+    );
+    if tail == 0 {
+        true
+    } else {
+        *tail_remaining = Some(tail - 1);
+        false
+    }
 }
 
 fn native_frame_buttons(
@@ -14466,6 +14517,8 @@ mod tests {
                 settled: false,
                 record_to: None,
                 record_frames: None,
+                record_stop_on_target_enemy_contact: false,
+                record_contact_tail_frames: 0,
                 record_notes: None,
                 record_route_target: None,
                 record_frontier_kind: None,
@@ -14505,6 +14558,8 @@ mod tests {
                 settled: true,
                 record_to: None,
                 record_frames: None,
+                record_stop_on_target_enemy_contact: false,
+                record_contact_tail_frames: 0,
                 record_notes: None,
                 record_route_target: None,
                 record_frontier_kind: None,
@@ -16145,6 +16200,8 @@ mod tests {
                 settled: false,
                 record_to: Some(record_dir.clone()),
                 record_frames: Some(900),
+                record_stop_on_target_enemy_contact: false,
+                record_contact_tail_frames: 0,
                 record_notes: Some(String::from("stuck on level card")),
                 record_route_target: Some(RecordingRouteTarget {
                     label: Some(String::from("usm3-slope")),
@@ -16234,6 +16291,8 @@ mod tests {
                 settled: true,
                 record_to: Some(PathBuf::from(".cache/recordings/issue271-live-rocktank")),
                 record_frames: Some(1800),
+                record_stop_on_target_enemy_contact: false,
+                record_contact_tail_frames: 30,
                 record_notes: None,
                 record_route_target: Some(RecordingRouteTarget {
                     label: Some(String::from("issue271-live-rocktank")),
@@ -16259,6 +16318,79 @@ mod tests {
     }
 
     #[test]
+    fn target_enemy_contact_auto_stop_records_configured_tail_loc_3b464() {
+        let mut options = NativePlayOptions {
+            fullscreen: false,
+            scale: None,
+            debug_overlay: false,
+            warp_level: Some(0x01),
+            settled: true,
+            record_to: Some(PathBuf::from(".cache/recordings/issue271-live-rocktank")),
+            record_frames: None,
+            record_stop_on_target_enemy_contact: true,
+            record_contact_tail_frames: 2,
+            record_notes: None,
+            record_route_target: Some(RecordingRouteTarget {
+                label: Some(String::from("issue271-live-rocktank")),
+                level: Some(0x01),
+                points: Vec::new(),
+                cells: Vec::new(),
+                cell_hitboxes: Vec::new(),
+                enemies: vec![0x0B, 0x0A],
+            }),
+            record_frontier_kind: Some(String::from("gameplay")),
+            scripted_route: None,
+        };
+        let mut no_contact = sample_trace(GameMode::InGame);
+        no_contact.gameplay_debug_fields.insert(
+            String::from("kid_collision_order_probe"),
+            String::from(
+                "enemy_0A#01 gate=separated/result=none/kid=[0,0,0,0]/obj=[0,0,0,0]/overlap=-1,-1/delta=0x00000000,0x00000000",
+            ),
+        );
+        let mut contact = sample_trace(GameMode::InGame);
+        contact.gameplay_debug_fields.insert(
+            String::from("kid_collision_order_probe"),
+            String::from(
+                "enemy_0A#01 gate=classify/result=damage/kid=[198,208,185,216]/obj=[190,215,200,216]/overlap=18,16/delta=0x00000000,0x00000000",
+            ),
+        );
+        let mut tail_remaining = None;
+
+        assert!(!update_target_contact_auto_stop(
+            &options,
+            &no_contact,
+            &mut tail_remaining,
+        ));
+        assert_eq!(tail_remaining, None);
+        assert!(!update_target_contact_auto_stop(
+            &options,
+            &contact,
+            &mut tail_remaining,
+        ));
+        assert_eq!(tail_remaining, Some(1));
+        assert!(!update_target_contact_auto_stop(
+            &options,
+            &no_contact,
+            &mut tail_remaining,
+        ));
+        assert_eq!(tail_remaining, Some(0));
+        assert!(update_target_contact_auto_stop(
+            &options,
+            &no_contact,
+            &mut tail_remaining,
+        ));
+
+        options.record_contact_tail_frames = 0;
+        let mut no_tail = None;
+        assert!(update_target_contact_auto_stop(
+            &options,
+            &contact,
+            &mut no_tail,
+        ));
+    }
+
+    #[test]
     fn recording_frame_limit_reached_only_when_recorded_count_hits_limit() {
         let options = NativePlayOptions {
             fullscreen: false,
@@ -16268,6 +16400,8 @@ mod tests {
             settled: true,
             record_to: Some(PathBuf::from("recordings/level2-death")),
             record_frames: Some(3),
+            record_stop_on_target_enemy_contact: false,
+            record_contact_tail_frames: 0,
             record_notes: None,
             record_route_target: None,
             record_frontier_kind: None,

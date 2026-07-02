@@ -513,6 +513,12 @@ enum Commands {
         /// Stop, save, and exit after this many recorded native frames.
         #[arg(long)]
         record_frames: Option<usize>,
+        /// Stop, save, and exit after first stomp/damage contact with a record-target enemy.
+        #[arg(long, default_value_t = false)]
+        record_stop_on_target_enemy_contact: bool,
+        /// Frames to keep after --record-stop-on-target-enemy-contact triggers.
+        #[arg(long, default_value_t = 30)]
+        record_contact_tail_frames: usize,
         #[arg(long)]
         record_notes: Option<PathBuf>,
         /// Stable label for the route target in the saved recording bundle.
@@ -1536,6 +1542,8 @@ fn main() -> Result<()> {
             settled,
             record,
             record_frames,
+            record_stop_on_target_enemy_contact,
+            record_contact_tail_frames,
             record_notes,
             record_target_label,
             record_target_level,
@@ -1597,6 +1605,19 @@ fn main() -> Result<()> {
             if record_to.is_none() && record_route_target.is_some() {
                 bail!("--record-target-* options require --record <slug>");
             }
+            if record_stop_on_target_enemy_contact {
+                if record_to.is_none() {
+                    bail!("--record-stop-on-target-enemy-contact requires --record <slug>");
+                }
+                if record_route_target
+                    .as_ref()
+                    .is_none_or(|target| target.enemies.is_empty())
+                {
+                    bail!(
+                        "--record-stop-on-target-enemy-contact requires at least one --record-target-enemy"
+                    );
+                }
+            }
             run_native_player(
                 &manifest,
                 &NativePlayOptions {
@@ -1607,6 +1628,8 @@ fn main() -> Result<()> {
                     settled: effective_settled,
                     record_to,
                     record_frames,
+                    record_stop_on_target_enemy_contact,
+                    record_contact_tail_frames,
                     record_notes,
                     record_route_target,
                     record_frontier_kind: Some(frontier_kind_arg(record_frontier_kind).to_owned()),

@@ -13,6 +13,15 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #271
 
+Investigation/tooling note 2026-07-02: added
+`play-native --record-stop-on-target-enemy-contact` with configurable
+`--record-contact-tail-frames` (default 30). When used with
+`--record-target-enemy 0A/0B`, live recording now stops automatically after the
+first scored stomp/damage contact plus the tail, so the Level-2/Highwater
+RockTank repro route should land as a compact bundle without guessing the save
+frame. Still not a gameplay verdict; use the generated verify/frontier/scorer
+commands before changing combat.
+
 Investigation/tooling note 2026-07-02: `play-native --record` now prints the
 generated `verify-tas` frontier command and any `--target-enemy-contact`
 scorer commands immediately after saving a bundle. The next live RockTank repro
