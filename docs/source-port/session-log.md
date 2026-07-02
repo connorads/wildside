@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive HUD mutation audit)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation or visual rows; only human validation/repro blockers remain.
+- **Mutation fallback audit:** ran `wildside-frame/src/hud.rs`, covering HUD
+  hitpoints, counters, timer layout, icons, diamond/life animation pages, and
+  palette rotation paths through the existing focused HUD tests. No source
+  change was needed.
+- Verification: `/tmp/mutants-frame-hud-20260702` (`168 mutants tested: 159
+  caught, 9 unviable`). Zero missed mutants.
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  proactive verification on a different focused frame/core shard, not HUD or
+  the compact enemy module shards unless their code changes.
+
 ## 2026-07-02 handoff (proactive compact enemy mutation audit)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open

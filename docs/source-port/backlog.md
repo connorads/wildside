@@ -48,12 +48,12 @@ and stop — never commit churn.
   or fixed-candidate; next actionable step is an exact current screenshot,
   recording, route timing, or frame.
 - **Proactive verification 2026-07-02:** no ready/open rows remain, so the latest
-  loop mutation-audited compact enemy modules with no source changes needed:
-  `goat.rs` 23 tested / 15 caught / 8 unviable, `driller.rs` 24 / 19 / 5,
-  `fire_demon.rs` 48 / 30 / 18, and `tornado.rs` 70 / 62 / 8. All four shards
-  had zero missed mutants. Continue with `mise run project-status`; if still
-  empty, use another proactive-verification fallback slice and avoid re-running
-  those exact module shards unless their code changes.
+  loop mutation-audited `wildside-frame/src/hud.rs`. The HUD shard ended at 168
+  mutants tested: 159 caught, 9 unviable, zero missed
+  (`/tmp/mutants-frame-hud-20260702`). Continue with
+  `mise run project-status`; if still empty, use another proactive-verification
+  fallback slice and avoid re-running the HUD or compact enemy module shards
+  unless their code changes.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
