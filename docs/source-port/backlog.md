@@ -56,13 +56,13 @@ and stop — never commit churn.
 - **Visual route work:** do not retune Tank Y/priority, flagpole priority, or
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
-- **Proactive verification 2026-07-02:** movement title-card activation
-  constants now have an ASM-cited regression. The movement shard exposed two
-  surviving mutants on `LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME`
-  (`+1 -> -1/*1`); the new loc_1AB26/loc_1AD48 test pins letters at frame 43
-  and the deferred level-number worker exactly one frame later. Targeted
-  mutation rerun `/tmp/mutants-movement-title-frame-20260702`: 2 tested, 2
-  caught.
+- **Proactive verification 2026-07-02:** with no ready/open queue rows,
+  mutation fallback found no actionable source gaps (`fire_demon.rs` clean;
+  `sphere.rs` mutants unviable). ASM coverage fallback now reports `0`
+  ordinary uncovered labels and keeps the 21 uncited GEMS wrappers in an
+  explicit out-of-scope bucket; do not cite those wrappers just to move the
+  metric. The test-only baseline burned down `loc_31F8E` after production
+  citations in `level.rs`/`enemies.rs`.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

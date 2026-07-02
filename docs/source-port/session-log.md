@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — proactive asm-coverage GEMS split
+
+- Project-status showed no ready/open risks, only human validation/repro
+  blockers. Mutation fallback produced no actionable source change
+  (`fire_demon.rs` clean; `sphere.rs` mutants unviable).
+- ASM coverage fallback had only emulated GEMS labels left. `asm-coverage` now
+  reports `3855 reachable / 241 test-only debt / 0 ordinary uncovered / 21
+  emulated GEMS`; `--uncovered` still lists the uncited `sub_` wrappers and
+  tags them `[emulated GEMS out-of-scope]`.
+- Updated `loop.md` so future proactive coverage work does not cite GEMS
+  wrappers just to move the metric, and refreshed the audit status note.
+- Burned down the test-only ratchet baseline by removing `loc_31F8E`, which now
+  has production citations in `level.rs`/`enemies.rs`.
+- Verification: focused `asm_coverage` tests, `cargo fmt --all --check`,
+  `asm-coverage --check-required`, `asm-coverage --check-no-new-test-only`,
+  `asm-coverage --update`, `backlog-lint`, `git diff --check`, and
+  `mise run verify-slice-fast` all pass.
+
 ## 2026-07-02 — #369 flagpole floor-contact evidence
 
 - Project-status selected #369 after #259. Re-read `Flagpole_Boss`,

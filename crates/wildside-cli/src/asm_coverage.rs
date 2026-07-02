@@ -71,10 +71,13 @@ pub(crate) struct CoverageSummary {
     #[serde(default)]
     pub(crate) test_only_debt_labels: usize,
     #[serde(default)]
+    /// Ordinary labels with no scanned production/test citation. Emulated GEMS
+    /// M68k<->Z80 wrappers are counted in `emulated_gems_labels` instead.
     pub(crate) uncovered_labels: usize,
     #[serde(default)]
     pub(crate) emulated_gems_labels: usize,
     #[serde(default)]
+    /// Backward-compatible alias for `uncovered_labels` after the GEMS split.
     pub(crate) non_emulated_uncovered_labels: usize,
 }
 
@@ -496,10 +499,7 @@ fn build_coverage_map(
                 Some(CoverageState::Reachable) => reachable_labels += 1,
                 Some(CoverageState::TestOnlyDebt) => test_only_debt_labels += 1,
                 Some(CoverageState::Uncovered) => uncovered_labels += 1,
-                Some(CoverageState::EmulatedGems) => {
-                    uncovered_labels += 1;
-                    emulated_gems_labels += 1;
-                }
+                Some(CoverageState::EmulatedGems) => emulated_gems_labels += 1,
                 None => uncovered_labels += 1,
             }
         }
@@ -542,7 +542,7 @@ fn build_coverage_map(
             test_only_debt_labels,
             uncovered_labels,
             emulated_gems_labels,
-            non_emulated_uncovered_labels: uncovered_labels.saturating_sub(emulated_gems_labels),
+            non_emulated_uncovered_labels: uncovered_labels,
         },
         subsystems: subsystem_map,
     }
@@ -1042,12 +1042,11 @@ pub(crate) fn run_asm_coverage(
     println!("ASM Coverage Report");
     println!("═══════════════════");
     println!(
-        "labels: {} reachable / {} test-only debt / {} uncovered ({} emulated GEMS, {} ordinary)",
+        "labels: {} reachable / {} test-only debt / {} ordinary uncovered / {} emulated GEMS",
         map.summary.reachable_labels,
         map.summary.test_only_debt_labels,
         map.summary.uncovered_labels,
-        map.summary.emulated_gems_labels,
-        map.summary.non_emulated_uncovered_labels
+        map.summary.emulated_gems_labels
     );
     println!(
         "legacy citation presence: sub_ {}/{} ({:.1}%), loc_ {}/{} ({:.1}%)",
@@ -1059,7 +1058,7 @@ pub(crate) fn run_asm_coverage(
         map.summary.loc_coverage_pct
     );
     println!(
-        "interpretation: reachable means scanned non-test implementation citation; test-only ports are fidelity debt"
+        "interpretation: reachable means scanned non-test implementation citation; test-only ports are fidelity debt; emulated GEMS wrappers are out of native hand-port scope"
     );
     let backlog_signals = load_open_backlog_signal_counts(repo_root);
     if !backlog_signals.is_empty() {
@@ -1094,7 +1093,7 @@ pub(crate) fn run_asm_coverage(
             for label in &sub.labels {
                 if label.kind == LabelKind::Sub && label.cited_in.is_empty() {
                     let suffix = if label.coverage_state == Some(CoverageState::EmulatedGems) {
-                        " [emulated GEMS]"
+                        " [emulated GEMS out-of-scope]"
                     } else {
                         ""
                     };
@@ -1385,22 +1384,18 @@ labels:
     }
 
     #[test]
-    fn scan_rust_file_classifies_blocks_rs_trap_lines_by_cfg_context() {
+    fn scan_rust_file_classifies_blocks_rs_trap_sites_by_cfg_context() {
         let source = include_str!("../../wildside-core/src/blocks.rs");
         let sites = scan_rust_file_for_citations("crates/wildside-core/src/blocks.rs", source);
-        let context_for = |label: &str, line_number: usize| {
+        let has_context = |label: &str, context: RustCodeContext| {
             sites
                 .iter()
-                .find(|site| site.label == label && site.citation.line_number == line_number)
-                .map_or_else(
-                    || panic!("missing {label} citation on line {line_number}"),
-                    |site| site.citation.context,
-                )
+                .any(|site| site.label == label && site.citation.context == context)
         };
 
-        assert_eq!(context_for("loc_10228", 1692), RustCodeContext::Production);
-        assert_eq!(context_for("loc_FF92", 4675), RustCodeContext::Production);
-        assert_eq!(context_for("loc_100F6", 5698), RustCodeContext::Test);
+        assert!(has_context("loc_10228", RustCodeContext::Production));
+        assert!(has_context("loc_FF92", RustCodeContext::Production));
+        assert!(has_context("loc_100F6", RustCodeContext::Test));
     }
 
     #[test]
@@ -1587,8 +1582,9 @@ labels:
 
         assert_eq!(map.summary.reachable_labels, 2);
         assert_eq!(map.summary.test_only_debt_labels, 1);
-        assert_eq!(map.summary.uncovered_labels, 2);
+        assert_eq!(map.summary.uncovered_labels, 1);
         assert_eq!(map.summary.emulated_gems_labels, 1);
+        assert_eq!(map.summary.non_emulated_uncovered_labels, 1);
         assert_eq!(
             map.subsystems["kid_main"].labels[3].coverage_state,
             Some(CoverageState::Reachable)

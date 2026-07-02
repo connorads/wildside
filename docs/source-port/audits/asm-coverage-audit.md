@@ -17,9 +17,12 @@ plain grep silently treats it as binary — see Reproducibility).
 This audit is still useful as historical context, but several findings below
 were fixed after it was written.
 
-- Current `asm-coverage` reports **3854 reachable / 242 test-only debt / 21
-  uncovered**, with all 21 uncovered labels classified as **emulated GEMS** and
-  **0 ordinary uncovered** labels.
+- 2026-07-02: `asm-coverage` now reports the remaining emulated GEMS wrappers
+  as their own out-of-scope bucket instead of counting them as ordinary
+  uncovered labels. `--uncovered` still lists the uncited `sub_` labels and
+  tags the GEMS wrappers explicitly so they stay visible.
+- Current `asm-coverage` reports **3855 reachable / 241 test-only debt / 0
+  ordinary uncovered / 21 emulated GEMS**.
 - Legacy citation presence is now **sub_ 291/293 (99.3%)** and **loc_
   3805/3824 (99.5%)**.
 - The scanner now reads `crates/wildside-core/src`, `crates/wildside-data/src`,

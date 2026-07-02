@@ -55,5 +55,7 @@ queue is empty)? Discover bugs before the next playtest does:
   each branch against the native implementation, write probe scenarios for any
   behaviour the sweep doesn't already exercise.
 - **Extend ASM coverage**: `cargo run -p wildside-cli -- asm-coverage --uncovered`, pick
-  an uncovered `sub_` label, trace and cite it. Coverage is a discovery aid, not
-  the lead selector; backlog truth always beats raw coverage.
+  an ordinary uncovered `sub_` label, trace and cite it. If only
+  `[emulated GEMS out-of-scope]` labels remain, do not cite them just to move the
+  metric; use another fallback. Coverage is a discovery aid, not the lead
+  selector; backlog truth always beats raw coverage.
