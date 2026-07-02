@@ -7067,6 +7067,28 @@ mod chunk_04 {
     }
 
     #[test]
+    fn sphere_pending_hurt_and_kidabove_collision_start_death_loc_35f9e() {
+        for collision_type in [colid::HURT, colid::KIDABOVE, 0xFFFF] {
+            let mut enemy = test_enemy(EnemyFamily::Sphere, 0x0080_0000, 0x0040_0000, 1);
+            enemy.dragon_phase_frames = collision_type;
+
+            step_bouncer(&mut enemy, None);
+
+            assert_eq!(
+                enemy.hit_points, 0,
+                "ASM Sphere.asm loc_35F9E routes collision_type {collision_type:#06X} to Enemy06_Sphere_Kill"
+            );
+            assert!(
+                enemy.death_animation_active,
+                "ASM Sphere.asm Enemy06_Sphere_Kill should start `stru_36182` before loc_36096 deletes the object"
+            );
+            assert_eq!(enemy.x_velocity, 0);
+            assert_eq!(enemy.y_velocity, 0);
+            assert_eq!(enemy.wait_timer, SPHERE_DEATH_ANIMATION_FRAMES);
+        }
+    }
+
+    #[test]
     fn sphere_applies_gravity() {
         let mut enemy = ActiveEnemy {
             segment_index: 0,

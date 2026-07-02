@@ -5515,6 +5515,17 @@ fn set_sphere_pending_collision_type_loc_171c(enemy: &mut ActiveEnemy, collision
     enemy.dragon_phase_frames = collision_type;
 }
 
+fn start_sphere_death_animation_loc_36052(enemy: &mut ActiveEnemy) {
+    // ASM Sphere.asm Enemy06_Sphere_Kill loc_36052: clear both velocities,
+    // initialise `stru_36182`, hibernate until it finishes, then enter
+    // loc_36088/loc_36096's status/delete tail.
+    enemy.hit_points = 0;
+    enemy.death_animation_active = true;
+    enemy.x_velocity = 0;
+    enemy.y_velocity = 0;
+    enemy.wait_timer = SPHERE_DEATH_ANIMATION_FRAMES;
+}
+
 fn sphere_apply_pending_collision_loc_35f9e(
     enemy: &mut ActiveEnemy,
     collision_type: u16,
@@ -5526,6 +5537,14 @@ fn sphere_apply_pending_collision_loc_35f9e(
     }
 
     queue_fireball_bounce_sound_loc_32c60(enemy.family, played_sound_effects, bounce_sound_queued);
+    if collision_type & 0x8000 != 0 || matches!(collision_type, colid::HURT | colid::KIDABOVE) {
+        // ASM Sphere.asm loc_35F9E branches signed-negative collision words
+        // directly to Enemy06_Sphere_Kill; `off_35F72` also maps
+        // colid_hurt `$1C` and colid_kidabove `$2C` to the same kill routine.
+        start_sphere_death_animation_loc_36052(enemy);
+        return;
+    }
+
     match collision_type {
         colid::RIGHTWALL | colid::LEFTWALL => {
             // ASM Sphere.asm loc_36148: wall entries only negate `x_vel(a3)`;
@@ -5865,6 +5884,9 @@ fn step_sphere_bouncer_loc_35f70(
         &mut played_sound_effects,
         &mut bounce_sound_queued,
     );
+    if enemy.death_animation_active {
+        return;
+    }
 
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;

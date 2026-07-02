@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 - proactive Sphere collision-table audit
+
+- Project-status still showed no ready/open risks, so the fallback audit moved
+  from shared walkers to the compact Sphere bouncer.
+- Audited Sphere.asm `Enemy06_Sphere_Loop` / `loc_35F9E`: stored
+  `collision_type(a3)` is consumed after gravity. Signed-negative words branch
+  straight to Enemy06_Sphere_Kill, and `off_35F72` maps `colid_hurt` `$1C` and
+  `colid_kidabove` `$2C` to the same `loc_36052` death routine.
+- Added regression
+  `sphere_pending_hurt_and_kidabove_collision_start_death_loc_35f9e`. Red run
+  showed native kept HP 1 for pending `$1C`; now the bouncer AI enters the
+  existing `stru_36182` death-animation state, clears velocities, and leaves
+  `loc_36088`/`loc_36096` status/delete finalisation to the normal roster path.
+- Verification: focused red/green test, `cargo test -q -p wildside-core
+  sphere`, `cargo test -q -p wildside-core
+  sphere_death_waits_for_stru_36182_animation_before_delete`, `cargo fmt --all
+  --check`, `git diff --check`, `mise run verify-slice-fast`, and `mise run
+  verify-tas-full` pass. Full TAS exits 0 with CRC all 37759 frames matching;
+  the current long route still reports the known `1p-accurate` state gap: 212
+  authoritative diffs plus 2 oracle limitations, first at
+  `transition_15_to_00_post` on DragonWalking/object-count.
+
 ## 2026-07-02 - proactive Goat tracking audit
 
 - Project-status still showed no ready/open risks after the Armadillo cadence
