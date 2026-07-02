@@ -105,6 +105,7 @@ const PAUSE_MENU_CURSOR_TILE_LOC_6B0E: u16 = 0x0006;
 const PAUSE_MENU_BLANK_TILE_LOC_6B0E: u16 = 0x0002;
 const PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE: [(u8, u16); 4] =
     [(4, 0x02CF), (6, 0x02D8), (10, 0x02E1), (4, 0x02EA)];
+const PRIZE_BLOCK_VISIBLE_SKIN_LOC_12408: u8 = 0x02;
 const SHIFTING_BLOCK_RISE_TILE_LOC_113F4: u16 = 0x0276;
 const BACKGROUND_TILE_VRAM_BASE_LOC_128BA: u16 = 0x0780;
 const ISLAND_SHORE_PRIMARY_VRAM_TILE_LOC_12098: u16 = 0xF600 / 32;
@@ -5384,24 +5385,19 @@ fn prize_block_wobble_frame_sub_1007a(
 fn push_prize_block_wobble_sub_1007a(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
-    quad: &wildside_render::TileQuad,
     x: i32,
     y: i32,
     remaining: u8,
 ) {
-    let frame = prize_block_wobble_frame_sub_1007a(level_visuals, remaining);
-    let use_second_frame = frame.tile_base_index == 0x009;
-    let tile_offset = if use_second_frame
-        && prize_wobble_shifted_copy_matches_base_sub_1007a(
-            level_visuals,
-            quad,
-            frame.tile_base_index,
-        ) {
-        frame.tile_base_index
-    } else {
-        0
+    let _oracle_frame = prize_block_wobble_frame_sub_1007a(level_visuals, remaining);
+    let Some(resolved) = level_visuals.level.block_mapping.resolve(
+        PRIZE_BLOCK_VISIBLE_SKIN_LOC_12408,
+        Some(wildside_core::terrain::BlockType::Prize as u8),
+    ) else {
+        return;
     };
-    let tiles = quad
+    let tiles = resolved
+        .quad
         .tiles
         .iter()
         .copied()
@@ -5411,7 +5407,7 @@ fn push_prize_block_wobble_sub_1007a(
                 .tile_index
                 .checked_sub(BLOCK_TILE_VRAM_BASE)
                 .unwrap_or(tile.tile_index);
-            tile.tile_index = local_tile_index.saturating_add(tile_offset);
+            tile.tile_index = local_tile_index;
             tile.priority = false;
             SpriteTile {
                 offset_x: if index % 2 == 0 { 0 } else { 8 },
@@ -5420,9 +5416,10 @@ fn push_prize_block_wobble_sub_1007a(
             }
         })
         .collect();
-    // ASM sub_1007A/loc_10200 draws the copied block through low-priority
-    // `unk_E0E4E`/`unk_E0E5E` mappings. High-priority Scroll A terrain keeps
-    // masking it while the wobble overlaps foreground art.
+    // ASM sub_1007A/loc_10200 draws low-priority `unk_E0E4E`/`unk_E0E5E`
+    // mappings from live VRAM copy slots `$220`/`$229` while the Level_Layout
+    // cell is `$6F00`. Native does not model those scratch copies, so it draws
+    // the `$E102` prize source quad that the scratch slot contains.
     commands.push(DrawCommand::Sprite {
         x,
         y,
@@ -5471,38 +5468,6 @@ fn push_shifting_block_rise_loc_113f4(
         tiles,
     });
     true
-}
-
-fn prize_wobble_shifted_copy_matches_base_sub_1007a(
-    level_visuals: &NativeLevelVisuals,
-    quad: &wildside_render::TileQuad,
-    tile_offset: u16,
-) -> bool {
-    // ASM sub_1007A/stru_101B6 alternates temporary VRAM slots `$220/$229`.
-    // The generated block sheet is not live VRAM; `+9` can point at unrelated
-    // neighbouring block art unless it is a real duplicate of the copied quad.
-    quad.tiles.iter().all(|tile| {
-        let local_tile_index = tile
-            .tile_index
-            .checked_sub(BLOCK_TILE_VRAM_BASE)
-            .unwrap_or(tile.tile_index);
-        let shifted_tile_index = local_tile_index.saturating_add(tile_offset);
-        let Some(base_tile) = level_visuals
-            .block_tiles
-            .tiles
-            .get(usize::from(local_tile_index))
-        else {
-            return false;
-        };
-        let Some(shifted_tile) = level_visuals
-            .block_tiles
-            .tiles
-            .get(usize::from(shifted_tile_index))
-        else {
-            return false;
-        };
-        base_tile.pixels == shifted_tile.pixels
-    })
 }
 
 fn prize_block_spawn_flash_frame_loc_102b8(
@@ -5771,11 +5736,10 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
-    block_grid: Option<&BlockGrid>,
+    _block_grid: Option<&BlockGrid>,
 ) {
     let camera_x_px = (trace.camera_x_pos >> 16) as i32;
     let camera_y_px = (trace.camera_y_pos >> 16) as i32;
-
     for &(col, row, remaining, y_offset) in &trace.block_bounces {
         if remaining == 0 {
             continue;
@@ -5783,38 +5747,15 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
         if block_bounce_kind_for_trace(trace, col, row) != Some(BlockBounceTraceKind::Prize) {
             continue;
         }
-        let skin = block_grid.map_or_else(
-            || level_visuals.level.foreground_layout.skin_at(col, row),
-            |grid| {
-                let word = grid.raw_word_at(col, row);
-                let cell = grid.cell_at(col, row);
-                if cell.has_block {
-                    // ASM sub_1007A (`move.b (a1,d0.w),d4` then
-                    // `move.b #$6F,(a0)`) preserves the source low byte. The
-                    // `$E101` and `$E102` prize cells therefore resolve as
-                    // distinct copied block-art skins; normalising the byte
-                    // makes visible prize blocks lose their `P` glyph.
-                    cell.skin
-                } else {
-                    // ASM sub_1007A copies the source block low byte before
-                    // the Scroll A rewrite. If the trace already exposes the
-                    // rewritten word on the source frame, the low byte remains
-                    // the copied block-art selector consumed by Block_Mappings.
-                    (word & 0x00FF) as u8
-                }
-            },
-        );
-        let Some(resolved) = level_visuals
-            .level
-            .block_mapping
-            .resolve(skin, Some(wildside_core::terrain::BlockType::Prize as u8))
-        else {
+        if remaining == 1 && y_offset == 0 {
+            // ASM sub_1007A loc_10120/loc_1026E has reached the spawn/commit
+            // hand-off here; oracle frames no longer paint the copied wobble
+            // sprite over the settled row cell.
             continue;
-        };
+        }
         push_prize_block_wobble_sub_1007a(
             commands,
             level_visuals,
-            resolved.quad,
             i32::from(col) * 16 - camera_x_px,
             i32::from(row) * 16 - camera_y_px + i32::from(y_offset),
             remaining,
@@ -8300,36 +8241,11 @@ mod tests {
     }
 
     #[test]
-    fn prize_wobble_second_frame_uses_shifted_vram_copy_only_when_tiles_match_sub_1007a() {
-        let mut visuals = sample_level_visuals(0x300);
-        let quad = sample_quad(BLOCK_TILE_VRAM_BASE + 1);
-        for tile in 0..4 {
-            visuals.block_tiles.tiles[1 + tile].pixels = [0x11 + tile as u8; 64];
-            visuals.block_tiles.tiles[0x009 + 1 + tile].pixels = [0x11 + tile as u8; 64];
-        }
-
-        assert!(prize_wobble_shifted_copy_matches_base_sub_1007a(
-            &visuals, &quad, 0x009
-        ));
-
-        visuals.block_tiles.tiles[0x009 + 2].pixels = [0xEE; 64];
-
-        assert!(!prize_wobble_shifted_copy_matches_base_sub_1007a(
-            &visuals, &quad, 0x009
-        ));
-    }
-
-    #[test]
-    fn prize_block_wobble_draw_clears_priority_and_preserves_local_tile_offsets_sub_1007a() {
-        let mut visuals = sample_level_visuals(0x300);
-        let quad = sample_quad(BLOCK_TILE_VRAM_BASE + 4);
-        for tile in 0..4 {
-            visuals.block_tiles.tiles[4 + tile].pixels = [0x20 + tile as u8; 64];
-            visuals.block_tiles.tiles[0x009 + 4 + tile].pixels = [0x20 + tile as u8; 64];
-        }
+    fn prize_block_wobble_draw_clears_priority_and_uses_fixed_vram_frames_sub_1007a() {
+        let visuals = sample_level_visuals(0x300);
         let mut commands = Vec::new();
 
-        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, &quad, 32, 48, 28);
+        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 28);
 
         let DrawCommand::Sprite { x, y, tiles, .. } = commands.single() else {
             panic!("ASM sub_1007A should emit one wobble sprite");
@@ -8341,7 +8257,8 @@ mod tests {
                 .iter()
                 .map(|tile| tile.tile.tile_index)
                 .collect::<Vec<_>>(),
-            vec![0x00D, 0x00E, 0x00F, 0x010]
+            vec![0x008, 0x009, 0x00A, 0x00B],
+            "ASM stru_101B6 remaining=28 selects live VRAM copy slot `$229`; native renders the `$E102` source quad"
         );
         assert_eq!(
             tiles
@@ -8354,19 +8271,9 @@ mod tests {
             tiles.iter().all(|tile| !tile.tile.priority),
             "ASM sub_1007A/loc_10200 low-priority block copy stays behind Scroll A"
         );
-    }
 
-    #[test]
-    fn prize_block_wobble_draw_keeps_base_tiles_when_shifted_copy_does_not_match_sub_1007a() {
-        let mut visuals = sample_level_visuals(0x300);
-        let quad = sample_quad(BLOCK_TILE_VRAM_BASE + 4);
-        for tile in 0..4 {
-            visuals.block_tiles.tiles[4 + tile].pixels = [0x20 + tile as u8; 64];
-            visuals.block_tiles.tiles[0x009 + 4 + tile].pixels = [0x70 + tile as u8; 64];
-        }
         let mut commands = Vec::new();
-
-        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, &quad, 32, 48, 28);
+        push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 31);
 
         let DrawCommand::Sprite { tiles, .. } = commands.single() else {
             panic!("ASM sub_1007A should emit one wobble sprite");
@@ -8376,7 +8283,8 @@ mod tests {
                 .iter()
                 .map(|tile| tile.tile.tile_index)
                 .collect::<Vec<_>>(),
-            vec![0x004, 0x005, 0x006, 0x007]
+            vec![0x008, 0x009, 0x00A, 0x00B],
+            "ASM stru_101B6 remaining=31 selects live VRAM copy slot `$220`; native renders the `$E102` source quad"
         );
     }
 
@@ -8540,14 +8448,14 @@ mod tests {
                 .iter()
                 .map(|tile| tile.tile.tile_index)
                 .collect::<Vec<_>>(),
-            vec![0x011, 0x012, 0x013, 0x014],
-            "ASM sub_1007A preserves the copied `$E102` low skin byte"
+            vec![0x008, 0x009, 0x00A, 0x00B],
+            "ASM sub_1007A/stru_101B6 uses copied `$220/$229` VRAM slots; native draws the copied `$E102` source quad"
         );
 
         let rewritten_grid = wildside_core::terrain::BlockGrid::from_level_layout(
             &[
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //
-                0x00, 0x00, 0x6F, 0x02, 0x00, 0x00,
+                0x00, 0x00, 0x6F, 0x00, 0x00, 0x00,
             ],
             3,
             2,
@@ -8560,15 +8468,15 @@ mod tests {
             Some(&rewritten_grid),
         );
         let DrawCommand::Sprite { tiles, .. } = commands.single() else {
-            panic!("ASM sub_1007A should recover copied skin from rewritten `$6F02` cells");
+            panic!("ASM sub_1007A should still draw the fixed sprite over rewritten `$6F00` cells");
         };
         assert_eq!(
             tiles
                 .iter()
                 .map(|tile| tile.tile.tile_index)
                 .collect::<Vec<_>>(),
-            vec![0x011, 0x012, 0x013, 0x014],
-            "ASM sub_1007A uses the low byte after the `$6Fxx` source rewrite"
+            vec![0x008, 0x009, 0x00A, 0x00B],
+            "ASM sub_1007A/stru_101B6 ignores the `$6F00` low byte for wobble sprite art"
         );
 
         let shifted_trace = NativeTraceFrame {
@@ -8646,7 +8554,7 @@ mod tests {
         .expect("block mapping");
 
         let grid = wildside_core::terrain::BlockGrid::from_level_layout(
-            &[0x00, 0x00, 0x6F, 0x02, 0x00, 0x00],
+            &[0x00, 0x00, 0x6F, 0x00, 0x00, 0x00],
             3,
             1,
         );

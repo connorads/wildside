@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — #324 prize/P wobble replay-validated
+
+- Corrected the remaining `$6F02` premise: focused oracle RAM shows the live
+  prize cell becomes `$6F00` while the copied wobble sprite still uses the
+  `$E102` source art through `$220/$229` scratch VRAM slots.
+- Current-code replay of the exact human bundle passes native verification.
+  Verifier frame 840 shows the lifted P block with no diagonal wood/forest tile
+  under it; focused frame-39 before/after crop shows the old triangle removed.
+- Native now loads generated level layout through the runtime block-grid path,
+  writes `$6F00` in core prize-wobble paths, draws the copied `$E102` source
+  quad for active prize wobble, and suppresses foreground under active `$6Fxx`
+  cells.
+- Verification: focused prize-wobble tests, exact human bundle native replay,
+  focused frame capture/visual crop, `mise run verify-slice-fast`, and
+  `mise run verify-tas-full` exit 0.
+- NEXT: keep #324 in `[?]` awaiting human validation per tracker rules. Use the
+  exact replay/crop evidence before reopening this again.
+
 ## 2026-07-02 — #271 human-validated RockTank damage fixed
 
 - Human retest reports the RockTank head-contact damage symptom is fixed:

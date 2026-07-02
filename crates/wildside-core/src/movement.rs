@@ -6565,19 +6565,21 @@ impl OpeningSliceState {
                         let block_x_px = probe.cell_x * 16;
                         let block_y_px = probe.cell_y * 16;
                         self.prize_block_hit = Some((content, block_x_px, block_y_px));
-                        // ASM sub_1007A/loc_101D8: keep cell Solid, clear
-                        // has_block. The reveal-only loc_101D8 path derives
-                        // the same `$6Fxx` deleted-solid cell before the
-                        // hidden prize later becomes visible `$E102`.
+                        // ASM sub_1007A/loc_101D8 (kid.asm:21356-21366):
+                        // copy the byte from `Level_terrain_layout`, not the
+                        // prize block's original low byte.
+                        let copied_skin = grid
+                            .erase_cell_at_loc_11542(probe.cell_x, probe.cell_y)
+                            .skin;
                         let deleted_cell = if reveal_only {
                             NativeRuntime::prize_block_deleted_tile_loc_101D8(
                                 probe.cell_x,
                                 probe.cell_y,
-                                probe.cell.skin,
+                                copied_skin,
                             )
                             .written_cell
                         } else {
-                            terrain::Cell::from_be_bytes(0x6F, probe.cell.skin)
+                            terrain::Cell::from_be_bytes(0x6F, copied_skin)
                         };
                         grid.set_cell_at(probe.cell_x, probe.cell_y, deleted_cell);
                         self.ceiling_prize_clear = Some(PrizeCeilingClear {
@@ -6657,23 +6659,24 @@ impl OpeningSliceState {
                             let block_x_px = block_dispatch_probe.cell_x * 16;
                             let block_y_px = block_dispatch_probe.cell_y * 16;
                             self.prize_block_hit = Some((content, block_x_px, block_y_px));
-                            // ASM sub_1007A/loc_101D8 writes $6F to the cell:
-                            // Solid collision, has_block=false,
-                            // block_type=Deleted. The tile stays solid as
-                            // structural ceiling for ~32 frames (bounce
-                            // animation), then clears. Without this, Cyclone
-                            // flight near a Prize ceiling clears the tile to
-                            // Empty immediately, letting the player fly
-                            // through.
+                            // ASM sub_1007A/loc_101D8 (kid.asm:21356-21366):
+                            // copy the byte from `Level_terrain_layout`, not
+                            // the prize block's original low byte.
+                            let copied_skin = grid
+                                .erase_cell_at_loc_11542(
+                                    block_dispatch_probe.cell_x,
+                                    block_dispatch_probe.cell_y,
+                                )
+                                .skin;
                             let deleted_cell = if reveal_only {
                                 NativeRuntime::prize_block_deleted_tile_loc_101D8(
                                     block_dispatch_probe.cell_x,
                                     block_dispatch_probe.cell_y,
-                                    block_dispatch_probe.cell.skin,
+                                    copied_skin,
                                 )
                                 .written_cell
                             } else {
-                                terrain::Cell::from_be_bytes(0x6F, block_dispatch_probe.cell.skin)
+                                terrain::Cell::from_be_bytes(0x6F, copied_skin)
                             };
                             grid.set_cell_at(
                                 block_dispatch_probe.cell_x,

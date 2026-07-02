@@ -39,9 +39,11 @@ and stop — never commit churn.
   `rock_tank_contact_probe`, because perceived floor sink may be causing
   players to aim at a damaging side box.
 - **#324 fixed-candidate 2026-07-02:** human route
-  `playtest-2026-07-02-prize-wobble` reproduced the live-visible prize/P block
-  wobble. The shifted `sub_1007A` copied block child now renders through
-  non-zero y offsets; move the row to awaiting human validation.
+  `playtest-2026-07-02-prize-wobble` now has a direct current-code replay
+  check: verifier frame 840 shows the lifted P block with no diagonal wood
+  leak underneath. Oracle RAM on the focused hit shows the live cell is `$6F00`,
+  while the copied wobble sprite still draws `$E102` source art. Keep awaiting
+  human validation per tracker rules.
 - **#369 reopened 2026-07-02:** flagpole base is still missing at natural EOL
   despite the priority candidate. Next pass should verify scene command
   presence, priority mask, and raw VDP/EOL sprite list on the exact natural

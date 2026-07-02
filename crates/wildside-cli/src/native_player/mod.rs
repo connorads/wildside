@@ -16,7 +16,6 @@ use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
 use sdl2::video::FullscreenType;
-use serde::Deserialize;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::thread;
@@ -108,13 +107,6 @@ impl From<DynamicScenario> for NativeScriptedRoute {
 struct NativeSessionAssets {
     level_visuals: NativeLevelVisuals,
     block_grid: BlockGrid,
-}
-
-#[derive(Debug, Clone, Copy, Deserialize)]
-struct GeneratedLevelLayoutMetadata {
-    data_bytes: usize,
-    width_blocks: u16,
-    height_blocks: u16,
 }
 
 // The SDL-free rasteriser (scene/render/sprites/hud + its DTOs, diagnostics,
@@ -3238,32 +3230,17 @@ fn try_load_generated_level_layout(
         );
     }
 
-    let mut data = std::fs::read(&layout_path).map_err(|error| {
-        anyhow!(
-            "failed to read generated Level_Layout from {}: {error}",
-            layout_path.display()
-        )
-    })?;
-    let metadata = serde_json::from_slice::<GeneratedLevelLayoutMetadata>(
-        &std::fs::read(&metadata_path).map_err(|error| {
-            anyhow!(
-                "failed to read Level_Layout metadata from {}: {error}",
+    let runtime = NativeRuntime::new(manifest.clone());
+    runtime.block_grid_for_level(LevelId(level_id)).map_or_else(
+        || {
+            bail!(
+                "failed to load generated Level_Layout through native runtime for logical level 0x{level_id:02X}; checked {} and {}",
+                layout_path.display(),
                 metadata_path.display()
             )
-        })?,
+        },
+        |grid| Ok(Some(grid)),
     )
-    .map_err(|error| {
-        anyhow!(
-            "failed to parse Level_Layout metadata from {}: {error}",
-            metadata_path.display()
-        )
-    })?;
-    data.truncate(metadata.data_bytes.min(data.len()));
-    Ok(Some(BlockGrid::from_level_layout(
-        &data,
-        metadata.width_blocks,
-        metadata.height_blocks,
-    )))
 }
 
 #[cfg(test)]
@@ -8944,7 +8921,7 @@ mod tests {
         let visuals = sample_level_visuals();
         let mut data = vec![0u8; 20 * 14 * 2];
         data[2] = 0x6F;
-        data[3] = 0x02;
+        data[3] = 0x00;
         let grid = BlockGrid::from_level_layout(&data, 20, 14);
 
         let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
@@ -8966,7 +8943,7 @@ mod tests {
         assert_eq!(
             copied_wobble_tiles.first().map(|tile| tile.tile.tile_index),
             Some(0x008),
-            "source-frame sub_1007A block_bounces entry should preserve the `$6F02` low byte copied from `$E102`, not decrement to the hidden `$01` prize skin",
+            "source-frame sub_1007A block_bounces entry should draw the copied `$E102` prize source quad even though the live cell is `$6F00`",
         );
         assert!(
             !scene.commands.iter().any(|command| matches!(
@@ -8980,7 +8957,7 @@ mod tests {
                 } if tile_sheet.tiles.len() == 0x200
                     && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x00D)
             )),
-            "ASM sub_1007A preserves `$6F02`; native must not decrement it to the `$6F01` copied-art skin"
+            "ASM sub_1007A draws the copied `$E102` art; native must not reinterpret `$6F00` as hidden `$E101` art"
         );
         assert!(
             !scene.commands.iter().any(|command| matches!(
@@ -9180,7 +9157,7 @@ mod tests {
         }
         let mut data = vec![0u8; 20 * 14 * 2];
         data[2] = 0x6F;
-        data[3] = 0x02;
+        data[3] = 0x00;
         let grid = BlockGrid::from_level_layout(&data, 20, 14);
 
         let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
@@ -9253,7 +9230,7 @@ mod tests {
             let raw_word = block_grid.raw_word_at(col, row);
             let cell = block_grid.cell_at(col, row);
             let expected_skin = if raw_word & 0xFF00 == 0x6F00 {
-                raw_word as u8
+                0x02
             } else if cell.has_block {
                 cell.skin
             } else {
@@ -9278,7 +9255,7 @@ mod tests {
                         && *y == draw_y
                         && tile_sheet.tiles.len() == visuals.block_tiles.tiles.len()
                 )),
-                "ASM sub_1007A should draw the live prize-block wobble sprite at cell ({col},{row}) on frame {frame_index}, not terrain or a stale block fallback; expected ({draw_x},{draw_y}); raw={raw_word:#06X} cell={cell:?} skin={expected_skin:#04X} resolves={expected_resolves}"
+                "ASM sub_1007A should draw the live prize-block wobble sprite at cell ({col},{row}) on frame {frame_index}, not terrain or a stale block fallback; expected ({draw_x},{draw_y}); raw={raw_word:#06X} cell={cell:?} copied_source_skin={expected_skin:#04X} resolves={expected_resolves}"
             );
             assert!(
                 indexed_tile_at_with_sheet_len(&scene, draw_x, draw_y - i32::from(y_offset), 0x80)

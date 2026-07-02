@@ -1516,13 +1516,16 @@ impl NativeRuntime {
                 grid.width_cells,
             )),
         );
-        // ASM loc_1002E/sub_1007A (kid.asm:21317,21345): prize block impacts
-        // write only the high byte `$6F`, preserving the original skin byte,
-        // then the worker restores the prize cell before writing `$E001`.
+        // ASM sub_1007A (kid.asm:21356-21366): copy the byte from the
+        // `Level_terrain_layout` row pointer, store it through the Level_Layout
+        // pointer, then overwrite only the high byte with `$6F`.
+        let copied_skin = grid
+            .erase_cell_at_loc_11542(headbutt_worker.block_col, headbutt_worker.block_row)
+            .skin;
         grid.set_raw_word_at(
             headbutt_worker.block_col,
             headbutt_worker.block_row,
-            0x6F00 | u16::from(restore_cell.skin),
+            0x6F00 | u16::from(copied_skin),
         );
         deferred_ceiling_clears.push(DeferredCeilingClear {
             col: headbutt_worker.block_col,
@@ -6410,13 +6413,13 @@ mod tests {
         );
         assert_eq!(
             grid.cell_at(1, 0),
-            terrain::Cell::from_be_bytes(0x6F, 0x02),
+            terrain::Cell::from_be_bytes(0x6F, 0x00),
             "ASM loc_1002E/sub_1007A should leave floor prize blocks collision-solid instead of erasing support under Kid"
         );
         assert_eq!(
             grid.raw_word_at(1, 0),
-            0x6F02,
-            "ASM loc_1002E/sub_1007A writes raw `$6Fxx`; renderers must not see the normalised `$60xx` terrain word"
+            0x6F00,
+            "ASM sub_1007A copies Level_terrain_layout skin byte 0 before writing raw `$6Fxx`"
         );
         assert_eq!(deferred_ceiling_clears.len(), 1);
         assert_eq!(

@@ -11571,6 +11571,27 @@ under its active source cell; focused `wildside-frame` and `wildside-cli`
 `prize_block_wobble` tests pass; `mise run verify-slice-fast` green. Keep #324
 `[?]` pending human validation on the same GIF route.
 
+Second follow-up fixed candidate 2026-07-02 (direct replay validation): the
+remaining bad assumption was that the temporary live cell preserved the prize
+low byte as `$6F02`. Oracle RAM on focused route
+`.cache/recordings/issue324-focused-prize-hit/scenario.json` proves
+`Level_Layout` row 12 col 14 is `$6F00` from frames 31..62, then `$E001`;
+VDP sprite dumps still show the copied wobble object using the ROM scratch
+slots `$220/$229`. Native core now copies the `Level_terrain_layout` byte before
+writing `$6F`, and the scene renderer treats `$6F00` as collision state while
+drawing the copied `$E102` prize/P source quad. Direct check requested by the
+human: `verify-recording --bundle /Users/connorads/git/kc/.cache/recordings/playtest-2026-07-02-prize-wobble --native-only`
+passes on current code, and
+`/Users/connorads/git/kc/.cache/recordings/playtest-2026-07-02-prize-wobble/verify/native/000840_frame_000840.png`
+shows the lifted P block with no diagonal wood/forest tile underneath. Focused
+before/after crop `.cache/debug/issue324-final-native/frame39-before-after-crop.png`
+shows the old red/brown diagonal under the P removed while the moving P remains.
+Focused core/frame/native-player prize-wobble tests pass, plus the focused
+`verify-tas` window for frames 31..70, `mise run verify-slice-fast`, and
+`mise run verify-tas-full` exit 0 with the existing published-route baseline
+divergences after frame 7850. Keep #324 `[?]` per tracker rules; human can
+promote after retesting the same row.
+
 ### #339
 
 Fixed 2026-06-19: `refresh_active_roster` emits `StopSequence(sfx_Tank_driving)` ($12 cmdstopseq stop) when the pooled drive refcount drops to 0 as the last Rock Tank exits (scroll-off loc_3C436 + death Tank.asm loc_3B480, both → loc_3C46E→loc_3C4A8). Regression `loc_3c46e_last_rock_tank_exit_emits_stopsequence_tank_driving_stop` (+3). slice/sweep/TAS green. Awaiting human audio validation (#264 headless caveat: can't verify perceived halt). See archive #339

@@ -21766,7 +21766,11 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             terrain::Cell::from_be_bytes(0, 0),
             "ASM sub_914A sees the left-edge Smash block during the same full-width scan, so j_Block_LoadSmashBits clears it even though sub_BBE2 dispatches the right Prize",
         );
-        assert_eq!(grid.cell_at(3, 2), terrain::Cell::from_be_bytes(0x6F, 0x01));
+        assert_eq!(
+            grid.cell_at(3, 2),
+            terrain::Cell::from_be_bytes(0x6F, 0x00),
+            "ASM sub_1007A copies the Level_terrain_layout byte before writing `$6F`, so this fixture's empty foreground becomes `$6F00`",
+        );
     }
 
     #[test]
@@ -21804,7 +21808,11 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             "ASM sub_BB54/sub_BBE2 should dispatch the right-hand Prize block, matching the published TAS frame-1365 0x17000e worker before 0x16000e",
         );
         assert_eq!(grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0xE1, 0x01));
-        assert_eq!(grid.cell_at(3, 2), terrain::Cell::from_be_bytes(0x6F, 0x01));
+        assert_eq!(
+            grid.cell_at(3, 2),
+            terrain::Cell::from_be_bytes(0x6F, 0x00),
+            "ASM sub_1007A copies the Level_terrain_layout byte before writing `$6F`, so this fixture's empty foreground becomes `$6F00`",
+        );
     }
 
     #[test]
