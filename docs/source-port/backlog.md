@@ -44,18 +44,16 @@ and stop — never commit churn.
   bundle auto-saves just after the first target contact. Known current routes
   are not the live failure:
   `issue271-route-current-20260702` is a miss, and
-  `issue271-sharp-current-20260702` is side/edge damage; a small jump sweep can
-  produce native `result=stomp`, so the next useful artefact is a live targeted
-  `play-native --record` route for the reported failing jump. Then run the
-  generated `verify-recording` / `tas_frontier_command` before changing combat.
-  The current sharp-route audit also exposes a one-pixel RockTank post-turn
-  phase debt via `shared_walker_grounded_scan_loc_3c04e`: native is still
-  left-facing at frame 217 (`x=156 -> 155`, `d7=0b011`, `plan=None`) while the
-  oracle is already right-facing at `x=155`, then native remains one pixel left
-  at the frame-224 damage. Do not retry generic left extra-step/left boundary
-  patches without explaining that against ASM `loc_3C04E/loc_3C0FA`. Also do
-  not chase the old full-frame idle frame-300 RockTank assertion: current
-  `idle_level_full_frames_01` oracle matches native at body/turret
+  `issue271-sharp-current-20260702` is side/edge damage in both native and
+  oracle; a small jump sweep can produce native `result=stomp`, so the next
+  useful artefact is a live targeted `play-native --record` route for the
+  reported failing jump. Then run the generated `verify-recording` /
+  `tas_frontier_command` before changing combat. Do not retry generic left
+  extra-step/left boundary patches from the older sharp-route phase note:
+  current `tas-diff` reports frames 0..5 MATCH, frames 216..221 transiently
+  divergent, then frames 222..228 MATCH including the damage contact at
+  224/227. Also do not chase the old full-frame idle frame-300 RockTank
+  assertion: current `idle_level_full_frames_01` oracle matches native at body/turret
   `$00C48000/$00C40000`; that cache-backed test expectation was stale.
 - **Visual route work:** #324/#259/#252/#210 need current live recording or
   raw-VDP/scene paired captures before another renderer patch. Do not retune

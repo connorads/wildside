@@ -13,6 +13,20 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #271
 
+Investigation note 2026-07-02: current `tas-diff` rejects the sharp-route
+damage contact as a native-only RockTank stomp bug. For
+`.cache/recordings/issue271-sharp-current-20260702/scenario.json`, opening
+frames 0..5 are MATCH and the contact window now reports frames 222..228 MATCH;
+the native scorer still classifies `enemy contact 0x0A: result damage ...
+@227`, but that is oracle-parity side/edge damage, not proof of the human
+reported head-jump failure. Frames 216..221 still show a transient
+shared-walker phase/facing divergence and then resynchronise before contact, so
+do not patch `loc_3C04E/loc_3C0FA` from this route alone. #271 remains `[~]`:
+the next useful artefact is an exact live targeted recording made with
+`play-native --record --record-target-enemy 0A/0B
+--record-stop-on-target-enemy-contact`, followed by the generated verify,
+frontier, and scorer commands.
+
 Investigation note 2026-07-02: rejected the full-frame idle RockTank frame-300
 test as a stale lead for the live stomp bug. Cache-backed
 `settled_level_one_first_rock_tank_reaches_oracle_patrol_x_by_frame_300`

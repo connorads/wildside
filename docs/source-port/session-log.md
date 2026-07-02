@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — RockTank sharp route parity rejected
+
+- #271 remains open/in progress. Re-ran current sharp route
+  `.cache/recordings/issue271-sharp-current-20260702/scenario.json`: frames
+  0..5 MATCH, frames 216..221 transiently diverge, then frames 222..228 MATCH.
+- The route scorer still reports RockTank `result damage @227`, but the
+  contact is oracle-parity side/edge damage, not a native-only head-stomp bug.
+  Do not patch shared-walker turn phase from this route alone.
+- Verification: focused `tas-diff` opening/contact windows and
+  `probe-record-scenario-file --target-enemy-contact 0A --summary-only`.
+
 ## 2026-07-02 — RockTank full-frame stale assertion rejected
 
 - #271 remains open/in progress. The cache-backed full-frame idle regression
