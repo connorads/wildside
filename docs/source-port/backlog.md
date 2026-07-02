@@ -44,10 +44,11 @@ and stop — never commit churn.
   fixed after commit `00e7a6cb1`. The direct replay check remains verifier
   frame 840 from `playtest-2026-07-02-prize-wobble`: lifted P block, no
   diagonal wood leak underneath.
-- **#369 reopened 2026-07-02:** flagpole base is still missing at natural EOL
-  despite the priority candidate. Next pass should verify scene command
-  presence, priority mask, and raw VDP/EOL sprite list on the exact natural
-  finish frame.
+- **#369 blocked 2026-07-02:** current Highwater floor-contact evidence keeps
+  `Flag_bottom.bin` and the waving flag visible through the ASM `loc_C0B6`
+  cleanup window, with high-priority scene commands. The remaining live report
+  needs the exact screenshot/recording/frame where the base is missing before
+  retuning flag priority or cleanup timing.
 - **#210/#254 remain suspect 2026-07-02:** menu-skip black squares/Red Stealth
   corruption was recently fixed-candidate, but recurrent live validation has
   failed enough times that the next playtest failure should reopen it
@@ -83,4 +84,3 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 369 | [ ] | P1 | render/eol | Reopened 2026-07-02: flagpole base is still missing at end of level after the priority fixed-candidate. | Natural EOL capture: inspect scene commands, priority mask, raw VDP sprite list, and oracle frame for the base/bottom flag sprite. |

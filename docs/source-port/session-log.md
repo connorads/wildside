@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — #369 flagpole floor-contact evidence
+
+- Project-status selected #369 after #259. Re-read `Flagpole_Boss`,
+  `CharacterCollision_TouchFlagpole loc_C070`, and `loc_C0B6`: the ROM has two
+  flag gfx objects, both high priority, and cleanup happens after the `$24`
+  hibernate.
+- Recorded `.cache/recordings/issue-369-highwater-flag-floor-contact-20260702/scenario.json`
+  using the floor-contact Highwater route. Native touches the flag at route
+  frame 15; scene/effects captures under `.cache/debug/issue369-floor-contact/`
+  keep the waving flag and `Flag_bottom.bin` visible through frame 73
+  (`elapsed=58`) and remove them at frame 74 (`elapsed=59`).
+- The floor-contact oracle route is not parity evidence: `verify-tas` diverges
+  at frame 0 on camera/enemy roster and oracle starts with flag collision
+  already active. The older direct-touch captures under `.cache/debug/issue369-current/`
+  remain the cleanup oracle evidence: native and oracle both show flag/base at
+  frame 58 and remove it at frame 59.
+- Added regression
+  `highwater_floor_contact_keeps_flag_base_until_cleanup_loc_c070_c0b6`; focused
+  `cargo test -q -p wildside-cli highwater_floor_contact_keeps_flag_base_until_cleanup_loc_c070_c0b6 -- --nocapture`
+  and `cargo test -q -p wildside-cli flagpole -- --nocapture` pass.
+- Moved #369 to `[b]` exact-frame-needed. Do not retune flag priority, extend
+  cleanup timing, or reintroduce the old invented tall pole without an exact
+  current live screenshot/recording/frame showing the base missing before the
+  verified cleanup boundary.
+
 ## 2026-07-02 — #259 RockTank contact-window evidence
 
 - Project-status selected #259. Rechecked `Tank.asm loc_3B31E` /

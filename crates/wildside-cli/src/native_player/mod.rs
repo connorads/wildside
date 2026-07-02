@@ -12787,6 +12787,82 @@ mod tests {
     }
 
     #[test]
+    fn highwater_floor_contact_keeps_flag_base_until_cleanup_loc_c070_c0b6() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let (visuals, block_grid) =
+            load_session_assets(&manifest, 0x02).expect("Highwater Pass visuals");
+        let mut scenario = crate::scenarios::highwater_flag_floor_contact_audit_scenario();
+        scenario.frame_count = 80;
+
+        let trace = crate::scenarios::run_native_dynamic_scenario(
+            manifest,
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("native Highwater flag floor-contact route");
+
+        let touch_index = trace
+            .iter()
+            .position(|frame| frame.level_complete)
+            .expect("floor-contact route should touch the flag");
+        assert_eq!(
+            touch_index, 15,
+            "ASM flag floor-contact route should enter CharacterCollision_TouchFlagpole loc_C070 after walking into the real Highwater flag"
+        );
+
+        for route_frame_index in [15, 16, 73] {
+            let frame = trace.get(route_frame_index).expect("route frame");
+            assert_eq!(
+                frame.level_complete_elapsed_frames,
+                route_frame_index - touch_index,
+                "loc_C070 elapsed clock should stay tied to the floor-contact flag touch"
+            );
+            let scene = build_scene(frame, false, Some(&visuals), Some(&block_grid));
+            assert!(
+                scene.commands.iter().any(|command| {
+                    matches!(
+                        command,
+                        DrawCommand::Sprite { tile_sheet, tiles, .. }
+                            if tile_sheet.tiles.len() == 120
+                                && tiles.iter().all(|tile| tile.tile.priority)
+                    )
+                }),
+                "ASM Flagpole_Boss LnkTo_unk_E0FFE keeps the high-priority waving flag visible until loc_C0B6 cleanup; route_frame={route_frame_index}"
+            );
+            assert!(
+                scene.commands.iter().any(|command| {
+                    matches!(
+                        command,
+                        DrawCommand::Sprite { tile_sheet, tiles, .. }
+                            if tile_sheet.tiles.len() == 4
+                                && tiles.iter().all(|tile| tile.tile.priority)
+                    )
+                }),
+                "ASM Flagpole_Boss LnkTo_unk_E0FDE keeps high-priority Flag_bottom.bin visible until loc_C0B6 cleanup; route_frame={route_frame_index}"
+            );
+        }
+
+        let cleanup_frame = trace.get(74).expect("cleanup frame");
+        assert_eq!(
+            cleanup_frame.level_complete_elapsed_frames,
+            wildside_core::TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE - 1,
+            "render cleanup happens on the pre-frame sprite-table boundary before the WRAM gfx count drops"
+        );
+        let scene = build_scene(cleanup_frame, false, Some(&visuals), Some(&block_grid));
+        assert!(
+            !scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 4
+                )
+            }),
+            "ASM loc_C0B6 deletes non-Kid flag gfx slots at the oracle-rendered cleanup boundary"
+        );
+    }
+
+    #[test]
     fn flagpole_sprites_keep_rom_priority_over_foreground_loc_bfd6() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0x0748_0000;

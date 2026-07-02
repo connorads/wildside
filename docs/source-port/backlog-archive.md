@@ -272,6 +272,30 @@ and `cargo test -q -p wildside-core stomp_bounce_bit14_object_meta_also_applies_
 
 ### #369
 
+Blocked 2026-07-02 (exact frame needed): the stronger Highwater floor-contact
+route does not reproduce a native-only missing flag base. Native recording
+`.cache/recordings/issue-369-highwater-flag-floor-contact-20260702/scenario.json`
+walks into the real Highwater flag and enters
+`CharacterCollision_TouchFlagpole loc_C070` at route frame 15. Captures under
+`.cache/debug/issue369-floor-contact/` show the native scene/effects path keeps
+the waving flag and `Flag_bottom.bin` visible through route frame 73
+(`level_complete_elapsed_frames=58`), with both sprites emitted as
+high-priority scene commands from `Flagpole_Boss` (`LnkTo_unk_E0FFE` and
+`LnkTo_unk_E0FDE`). Route frame 74 (`elapsed=59`) removes the flag/base at the
+same pre-frame `loc_C0B6` cleanup boundary already shown by the direct-touch
+native/oracle captures in `.cache/debug/issue369-current/` (`frame 58` visible,
+`frame 59` removed on both sides). The floor-contact oracle run is not usable
+as parity evidence: `verify-tas --scenario ... --frame-start 0 --frame-end 90
+--bisect --frontier-kind enemy` diverges at frame 0 on camera/enemy roster, and
+oracle starts with the flag collision already active. Added regression
+`highwater_floor_contact_keeps_flag_base_until_cleanup_loc_c070_c0b6`; focused
+verification `cargo test -q -p wildside-cli
+highwater_floor_contact_keeps_flag_base_until_cleanup_loc_c070_c0b6 --
+--nocapture` and `cargo test -q -p wildside-cli flagpole -- --nocapture` pass.
+Do not reintroduce the old invented tall pole sprite or extend cleanup timing
+without an exact current live frame showing a base missing before the verified
+cleanup boundary.
+
 Reopened 2026-07-02 after renewed human validation failure: the flagpole base
 is still missing at natural end-of-level after the priority fixed candidate.
 The next pass must capture the exact natural finish frame and inspect scene
