@@ -11526,6 +11526,27 @@ Fixed 2026-07-02: recorded the exact Highwater route `.cache/recordings/issue324
 
 Route-needed 2026-07-02: after another human reconfirm, current known routes still do not reproduce an actionable prize/P block wobble artefact. Fresh native/oracle scene captures for BLW1 row-1 route `.cache/recordings/issue324-blw1-row1-left560-current/scenario.json` at frames 568/574/580/586 show the wobble as P-block art with no tree/wood leak, and Highwater row-97 route `.cache/recordings/issue324-highwater-prize-row97/scenario.json` at frames 47/48/50/52 remains clean. The other cached Highwater variants (`issue324-highwater-bjump`, `issue324-highwater-delayed-bjump`, `issue324-highwater-right-bjump`) were refreshed at frames 40/47/54/61/68; visual contact sheet `.cache/debug/issue324-20260702/highwater-variant-contact.png` shows no stray terrain or shifted block sprite behind the wobble. Focused `KID_ENABLE_CACHE_BACKED_TESTS=1 cargo test -q -p wildside-cli prize_block_wobble -- --nocapture` and exact `cargo test -q -p wildside-cli native_player::tests::live_prize_block_scenario_renders_sub_1007a_wobble_sprite_not_terrain -- --exact --nocapture` pass. Move #324 `[~]` -> `[b]`: needs an exact current screenshot/recording/frame if the symptom is still visible; do not patch from raw-VDP captures or stale row-97 evidence.
 
+Fixed candidate 2026-07-02: human recording bundle
+`/Users/connorads/git/kc/.cache/recordings/playtest-2026-07-02-prize-wobble`
+captured the live route that the known BLW1/Highwater probes missed. Full
+oracle comparison is blocked by an earlier shell timing divergence at frame
+140, so investigation used native trace plus checkpoint visuals. The relevant
+windows are frame 682 for the first hit `(8,12)`, frames 714/715 for the first
+spawn, frame 832 for the second hit `(10,12)`, and frame 840 for the visible
+shifted wobble. Re-reading ASM `sub_1007A` / `loc_100DA` showed the copied
+GfxObject remains visible while `y_pos(a3)` moves through the bob script; the
+`$6Fxx` cell write is collision state, not a reason to hide the copied child.
+Native had skipped active prize wobble rendering when `y_offset != 0`, causing
+the renderer to show cracked/static terrain during the lifted frame. Native now
+renders active prize/P `block_bounces` through non-zero y offsets. This rejects
+the earlier same-day shifted-hide interpretation for ordinary visible prize
+blocks; that conclusion only matched the stale known route, not the live
+recording. Evidence: native-only replay passed; visual contact sheet
+`/Users/connorads/git/kc/.cache/recordings/playtest-2026-07-02-prize-wobble/verify/native/contact-720-975-after.png`
+shows frame 840 as a lifted copied P block; focused `prize_block_wobble` tests
+and `mise run verify-slice-fast` are green. Move #324 `[ ]` -> `[?]` for human
+validation on the same live route.
+
 ### #339
 
 Fixed 2026-06-19: `refresh_active_roster` emits `StopSequence(sfx_Tank_driving)` ($12 cmdstopseq stop) when the pooled drive refcount drops to 0 as the last Rock Tank exits (scroll-off loc_3C436 + death Tank.asm loc_3B480, both → loc_3C46E→loc_3C4A8). Regression `loc_3c46e_last_rock_tank_exit_emits_stopsequence_tank_driving_stop` (+3). slice/sweep/TAS green. Awaiting human audio validation (#264 headless caveat: can't verify perceived halt). See archive #339

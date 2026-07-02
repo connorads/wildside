@@ -5792,7 +5792,7 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
     let camera_y_px = (trace.camera_y_pos >> 16) as i32;
 
     for &(col, row, remaining, y_offset) in &trace.block_bounces {
-        if remaining == 0 || y_offset != 0 {
+        if remaining == 0 {
             continue;
         }
         if block_bounce_kind_for_trace(trace, col, row) != Some(BlockBounceTraceKind::Prize) {
@@ -8586,9 +8586,38 @@ mod tests {
             "ASM sub_1007A uses the low byte after the `$6Fxx` source rewrite"
         );
 
+        let shifted_trace = NativeTraceFrame {
+            camera_x_pos: 8 << 16,
+            camera_y_pos: 4 << 16,
+            block_bounces: vec![(1, 1, 28, 1)],
+            block_bounce_details: vec![BlockBounceTrace {
+                cell_x: 1,
+                cell_y: 1,
+                x_offset_px: 0,
+                remaining: 28,
+                y_offset_px: 1,
+                kind: BlockBounceTraceKind::Prize,
+            }],
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+        push_prize_block_wobble_overrides_sub_1007a(
+            &mut commands,
+            &shifted_trace,
+            &visuals,
+            Some(&grid),
+        );
+        let DrawCommand::Sprite { x, y, .. } = commands.single() else {
+            panic!("ASM sub_1007A should emit shifted wobble sprites");
+        };
+        assert_eq!(
+            (*x, *y),
+            (8, 13),
+            "ASM sub_1007A applies y_pos movement to the copied block GfxObject"
+        );
+
         for bounce in [
             (1, 0, 0, 0, BlockBounceTraceKind::Prize),
-            (1, 0, 28, 1, BlockBounceTraceKind::Prize),
             (1, 0, 28, 0, BlockBounceTraceKind::HiddenReveal),
         ] {
             let trace = NativeTraceFrame {

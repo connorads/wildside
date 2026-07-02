@@ -9035,11 +9035,10 @@ mod tests {
     }
 
     #[test]
-    fn prize_block_wobble_hides_shifted_deleted_tile_sub_1007a_issue324() {
-        // ASM loc_101D8/loc_10200 clears the child display byte before the
-        // hibernated deleted-tile wobble. Highwater should therefore redraw
-        // terrain/background at the source cell instead of exposing a shifted
-        // copied prize-block tile.
+    fn prize_block_wobble_draws_shifted_copied_tile_sub_1007a_issue324() {
+        // ASM sub_1007A keeps the copied GfxObject visible while loc_100DA
+        // moves y_pos during the hibernated wobble. The temporary `$6Fxx` cell
+        // is collision state only; shifted frames still draw the copied block.
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
@@ -9085,44 +9084,24 @@ mod tests {
                 hud: false,
             },
         );
-        assert!(
-            !scene.commands.iter().any(|command| matches!(
-                command,
-                DrawCommand::ClearPriorityRect {
-                    x: 16,
-                    y: -6,
-                    width: 16,
-                    height: 16
-                }
-            )),
-            "ASM sub_1007A keeps the copied prize wobble low priority; native must not clear foreground priority over its shifted footprint"
-        );
-        assert!(
-            scene.commands.iter().all(|command| !matches!(
-                command,
-                DrawCommand::Sprite {
-                    x: 16,
-                    y: -6,
-                    tile_sheet,
-                    ..
-                } if tile_sheet.tiles.len() == 0x200
-            )),
-            "ASM loc_101D8/loc_10200 hides the shifted ordinary prize deleted-tile wobble"
+        let Some(copied_wobble_tiles) = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite {
+                x: 16,
+                y: -6,
+                tile_sheet,
+                tiles,
+                ..
+            } if tile_sheet.tiles.len() == 0x200 => Some(tiles),
+            _ => None,
+        }) else {
+            panic!("ASM sub_1007A shifted wobble should draw the copied prize-block art");
+        };
+        assert_eq!(
+            copied_wobble_tiles.first().map(|tile| tile.tile.tile_index),
+            Some(0x008),
+            "ASM sub_1007A shifted wobble should preserve the copied `$E102` prize skin"
         );
         assert_eq!(grid.cell_at(1, 0), priority_cell);
-
-        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
-        render_scene(&scene, &mut rgb);
-
-        assert_eq!(
-            pixel_at(&rgb, 16, 0),
-            [
-                terrain_colour.red,
-                terrain_colour.green,
-                terrain_colour.blue
-            ],
-            "Highwater-style shifted ordinary prize wobble should leave terrain/background visible, not a stray prize block"
-        );
     }
 
     #[test]

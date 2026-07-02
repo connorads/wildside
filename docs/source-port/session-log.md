@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — #324 live prize/P wobble fixed candidate
+
+- Human route `playtest-2026-07-02-prize-wobble` reproduced the live wobble
+  artefact after the prize/P block hit. The first useful window is just after
+  frame 832; frame 840 showed cracked/static art where the copied P block should
+  be lifted.
+- Re-read ASM `sub_1007A` / `loc_100DA`: the copied GfxObject remains visible
+  while the bob script moves `y_pos(a3)`. The previous shifted-hide conclusion
+  was wrong for ordinary visible prize blocks.
+- Native now renders active prize/P block bounce workers even when their
+  y-offset is non-zero. Updated scene/native-player regressions pin the shifted
+  copied block.
+- Verification: focused `prize_block_wobble` tests, native-only replay of the
+  human bundle, visual contact sheet `contact-720-975-after.png`, and
+  `mise run verify-slice-fast` all pass.
+- NEXT: human retest #324 on the same row. #271 remains the active P0 open row;
+  #259 and #369 remain open visual follow-ups.
+
 ## 2026-07-02 — #271 RockTank contact timing fix
 
 - Found a real native-only timing fault on
