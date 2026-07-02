@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — Mini Hopping Skull air-damage mutation shard
+
+- Open queue still empty. Ran the proactive mutation fallback on
+  `crates/wildside-core/src/enemies/mini_hopping_skull.rs`, focused on the
+  air-damage / airborne side-contact / charging-Berzerker cluster rather than
+  the full 146-mutant file. The earlier full-file run was stopped as too slow,
+  and a cull/delete regex shard produced only unviable mutants.
+- Verification: focused tests `mini_hopping_skull_air_damage`,
+  `mini_hopping_skull_charging_berzerker`, `mini_hopping_skull_cull_reject`,
+  `mini_hopping_skull_medium_load_gate`, and `mini_hopping_skull_delete_tail`
+  passed. Mutation shard
+  `/tmp/mutants-core-mini-hopping-skull-air-damage-20260702` reports
+  `12 mutants tested in 2m: 7 caught, 5 unviable`, with zero missed mutants.
+
 ## 2026-07-02 — RockTank target route blocker narrowed
 
 - Open queue stayed empty after #369. Followed the proactive verification

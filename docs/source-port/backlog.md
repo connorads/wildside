@@ -40,6 +40,10 @@ and stop — never commit churn.
   built-in routes still do not reach the named BLW2/Highwater tanks; the next
   useful work is route-planner/live-recording tooling, not Tank Y/priority
   retuning from partial routes.
+- **Proactive verification 2026-07-02:** Mini Hopping Skull air-damage /
+  charging-Berzerker mutation shard has zero missed mutants
+  (`/tmp/mutants-core-mini-hopping-skull-air-damage-20260702`: 12 tested, 7
+  caught, 5 unviable).
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
