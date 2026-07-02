@@ -48,6 +48,12 @@ and stop — never commit churn.
   produce native `result=stomp`, so the next useful artefact is a live targeted
   `play-native --record` route for the reported failing jump. Then run the
   generated `verify-recording` / `tas_frontier_command` before changing combat.
+  The current sharp-route audit also exposes a one-pixel RockTank post-turn
+  phase debt via `shared_walker_grounded_scan_loc_3c04e`: native is still
+  left-facing at frame 217 (`x=156 -> 155`, `d7=0b011`, `plan=None`) while the
+  oracle is already right-facing at `x=155`, then native remains one pixel left
+  at the frame-224 damage. Do not retry generic left extra-step/left boundary
+  patches without explaining that against ASM `loc_3C04E/loc_3C0FA`.
 - **Visual route work:** #324/#259/#252/#210 need current live recording or
   raw-VDP/scene paired captures before another renderer patch. Do not retune
   Tank Y/priority, block wobble sprites, or title/menu VDP from stale

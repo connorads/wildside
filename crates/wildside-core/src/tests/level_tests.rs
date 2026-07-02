@@ -26702,6 +26702,7 @@ mod chunk_10 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         runtime.active_enemies = vec![boss];
         runtime.projectiles.clear();
@@ -26860,6 +26861,7 @@ mod chunk_10 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         let live_enemy = ActiveEnemy {
             segment_index: 0,
@@ -26929,6 +26931,7 @@ mod chunk_10 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         runtime.active_enemies = vec![dead_enemy, live_enemy];
         let mut slice = runtime.opening_slice.unwrap();

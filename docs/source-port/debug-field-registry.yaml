@@ -730,6 +730,15 @@
       "promotion_trigger": "Promote if repeated frontier work depends on typed side-contact attribution."
     },
     {
+      "key": "shared_walker_grounded_scan_loc_3c04e",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "shared-walker-frontier",
+      "first_added_commit": "1922a7c66",
+      "intended_meaning": "Native grounded shared-walker scan tuple from ASM loc_3C04E/loc_3C0FA dispatch: direction, current/predicted X, tile remainder, boundary-crossing flag, d7/d6/d3 scan outputs, and selected native turn plan.",
+      "promotion_trigger": "Promote if RockTank or other shared-walker parity starts asserting these scan components as typed trace state."
+    },
+    {
       "key": "lion_state",
       "scope": "object",
       "status": "exploratory",

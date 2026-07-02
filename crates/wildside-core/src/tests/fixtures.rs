@@ -393,6 +393,7 @@ pub(super) fn make_pacer(family: EnemyFamily, hp: u8, x_px: u32, y_px: u32) -> A
         shared_walker_debug_branch: None,
         shared_walker_dx_to_kid_px: None,
         shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+        shared_walker_grounded_scan_trace: None,
     }
 }
 
@@ -680,6 +681,7 @@ pub(super) fn test_enemy(family: EnemyFamily, x: u32, y: u32, hp: u8) -> ActiveE
         shared_walker_debug_branch: None,
         shared_walker_dx_to_kid_px: None,
         shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+        shared_walker_grounded_scan_trace: None,
     }
 }
 

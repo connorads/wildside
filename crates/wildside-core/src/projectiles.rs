@@ -940,6 +940,7 @@ mod drips_surface_crawler_tests {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         }
     }
 

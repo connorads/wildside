@@ -13,6 +13,21 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #271
 
+Investigation note 2026-07-02: current sharp-route audit rejected another
+patrol-timing guess and added durable native scan tracing. The narrow mirrored
+left-boundary turn experiment (`loc_3C0FA -> loc_3C152 -> loc_3C026`) did NOT
+change the failing outcome: `issue271-sharp-current-20260702` still takes
+native Tank damage at frame 224/227 while oracle does not. New
+`shared_walker_grounded_scan_loc_3c04e` trace shows the actual phase gap: at
+frame 217 native body is still left-facing at `x=156 -> 155`, `d7=0b011`,
+`d6=0`, `span=1`, `plan=None`, while oracle is already hibernating right-facing
+at `x=155`; at frame 224 native is right-facing but still one pixel left
+(`body x=0x009d8000`) while oracle body is `0x009e8000`, so Kid overlaps native
+body damage, whereas oracle writes `$0024(kidleft)` to the turret child and HP
+stays 2. Do NOT retry generic left extra-step / left boundary turn patches.
+Next code fix should first explain this one-pixel post-turn phase debt against
+ASM `loc_3C04E/loc_3C0FA` and oracle object slot `code=0x03C048`.
+
 Investigation/tooling note 2026-07-02: added
 `play-native --record-stop-on-target-enemy-contact` with configurable
 `--record-contact-tail-frames` (default 30). When used with

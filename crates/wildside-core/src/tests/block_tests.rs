@@ -392,6 +392,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
 
         let mut grounded_skull = None;
@@ -489,6 +490,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
 
         let mut grounded_skull = None;
@@ -647,6 +649,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         step_active_enemies(
             std::slice::from_mut(&mut enemy),
@@ -754,6 +757,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -937,6 +941,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
 
         for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
@@ -5362,6 +5367,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         let x_before = enemy.x_pos;
         step_cloud(&mut enemy, None);
@@ -5446,6 +5452,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         // Run until it hits the wall and reverses
         let mut reversed = false;
@@ -5535,6 +5542,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
 
         for _ in 0..500 {
@@ -5628,6 +5636,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         }
     }
 
@@ -5817,6 +5826,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         // Fireball.asm `Enemy19_Fireball_Init`: raw `hit_points_plus_one` indexes
         // `unk_32BA6`, so live HP 1/2/3 uses gravity $2000/$3000/$3000.
@@ -5895,6 +5905,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         let solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 10)).collect();
         let grid = grid_with_solid_cells(20, 15, &solid);
@@ -5984,6 +5995,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
 
         let expected = {
@@ -6195,6 +6207,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
 
         let expected = {
@@ -7053,6 +7066,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         step_bouncer(&mut enemy, None);
         assert_eq!(
@@ -7136,6 +7150,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         // Run until it bounces (y_velocity becomes negative)
         let mut bounced = false;
@@ -7225,6 +7240,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         let mut bounced = false;
         for _ in 0..50 {
@@ -7319,6 +7335,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         // After gravity: y_velocity = 0x20000 + 0x800 = 0x20800
         // After position: y = 85 + ~2 = ~87px (on slope floor_y=87)
@@ -7433,6 +7450,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         // After gravity: y_velocity = 0x10000 + 0x800 = 0x10800
         // Position advance: y = 89 + ~1 = ~90
@@ -7541,6 +7559,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         // Fireball HP=1 gravity is $2000
         let expected_y_vel_after_gravity = 0x20000 + 0x2000;
@@ -7641,6 +7660,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         // Fireball HP=1 gravity is $2000
         let expected_y_vel_after_gravity = 0x10000 + 0x2000;
@@ -7743,6 +7763,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
 
         // During hover: tracks player x, hovers above player y
@@ -7839,6 +7860,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
 
         // Step until it lands
@@ -8129,6 +8151,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -8207,6 +8230,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         let mut projs = Vec::new();
         let player_x = Some(200u32 << 16);
@@ -8811,6 +8835,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         let mut projs = Vec::new();
         step_archer(
@@ -8957,6 +8982,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         let mut projs = Vec::new();
         // Player to the right → archer re-faces Right, horizontal shooting path.
@@ -9049,6 +9075,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         let mut projs = Vec::new();
         enemy.family = EnemyFamily::TankShooting;
@@ -9136,6 +9163,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         let mut projs = Vec::new();
         step_tank_shooting_fire(&mut enemy, &mut projs, None);
@@ -9232,6 +9260,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         let px = Some(200u32 << 16);
         let py = Some(100u32 << 16);
@@ -9313,6 +9342,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         let px = Some(100u32 << 16);
         let py = Some(100u32 << 16);
@@ -9397,6 +9427,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         runtime.active_enemies = vec![boss];
         runtime.projectiles.clear();
@@ -9520,6 +9551,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         runtime.active_enemies = vec![boss];
         runtime.projectiles.clear();
@@ -9830,6 +9862,7 @@ mod chunk_04 {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         };
         let mut projectiles = Vec::new();
 

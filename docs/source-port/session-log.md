@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — RockTank sharp route phase trace
+
+- #271 remains open/in progress. Rejected a narrow mirrored left-boundary
+  turnaround experiment: the sharp route still damages Kid at frame 224/227.
+- Added durable native `shared_walker_grounded_scan_loc_3c04e` object trace for
+  shared-walker grounded dispatch. It shows native is still left-facing at
+  frame 217 (`x=156 -> 155`, `d7=0b011`, `plan=None`) while oracle is already
+  right-facing at `x=155`; at frame 224 native is still one pixel left, causing
+  body damage where oracle writes `$0024(kidleft)` to the turret child.
+- Verification: focused Rust test passed; `mise run audit-debug-fields` passed;
+  focused `tas-diff` on `issue271-sharp-current-20260702` captured the new
+  trace. Broader gate still pending for the diagnostic commit.
+
 ## 2026-07-02 — Flagpole base priority candidate
 
 - #369 moves back to `[?]`. Re-read ASM `Flagpole_Boss` and found both flag

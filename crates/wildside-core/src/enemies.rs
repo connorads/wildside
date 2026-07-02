@@ -1159,6 +1159,20 @@ pub(crate) struct SharedWalkerTerrainTrace {
     pub(crate) right_floor: Option<terrain::FloorProbe>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SharedWalkerGroundedScanTrace {
+    pub(crate) moving_right: bool,
+    pub(crate) current_x_px: i32,
+    pub(crate) next_x_px: i32,
+    pub(crate) pixel_delta: i32,
+    pub(crate) tile_remainder: i32,
+    pub(crate) crossed_boundary: bool,
+    pub(crate) flags_d7: u8,
+    pub(crate) floor_class_d6: i16,
+    pub(crate) column_span_d3: u16,
+    pub(crate) turn_plan: Option<SharedWalkerGroundedTurn>,
+}
+
 /// Persistent per-enemy state that survives across frames.
 /// Enemies are activated when they enter the camera window and
 /// deactivated when they leave.
@@ -1318,6 +1332,8 @@ pub(crate) struct ActiveEnemy {
     pub(crate) shared_walker_dx_to_kid_px: Option<i16>,
     /// Frontier-only trace of the last terrain probes used by the shared walker.
     pub(crate) shared_walker_terrain_trace: SharedWalkerTerrainTrace,
+    /// Frontier-only trace of the last grounded scan dispatch used by shared walkers.
+    pub(crate) shared_walker_grounded_scan_trace: Option<SharedWalkerGroundedScanTrace>,
 }
 
 pub(crate) const DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG: u8 = 0x80;
@@ -2485,6 +2501,12 @@ impl ActiveEnemy {
         };
         let mut debug_fields = std::collections::BTreeMap::new();
         debug_fields.insert("segment_index".into(), self.segment_index.to_string());
+        if let Some(trace) = self.shared_walker_grounded_scan_trace {
+            debug_fields.insert(
+                "shared_walker_grounded_scan_loc_3c04e".into(),
+                format_shared_walker_grounded_scan_trace(trace),
+            );
+        }
         if matches!(self.family, EnemyFamily::DragonWalking) {
             debug_fields.insert("grounded_frames".into(), self.grounded_frames.to_string());
             if let Some(branch) = self.shared_walker_debug_branch {
@@ -2914,6 +2936,22 @@ fn format_shared_walker_wall_probe(probe: terrain::WallProbe) -> String {
         probe.wall_x_px,
         probe.cell_x,
         probe.cell_y
+    )
+}
+
+fn format_shared_walker_grounded_scan_trace(trace: SharedWalkerGroundedScanTrace) -> String {
+    format!(
+        "dir={}/x={}/next={}/delta={}/rem={}/cross={}/d7={:#05b}/d6={}/span={}/plan={:?}",
+        if trace.moving_right { "R" } else { "L" },
+        trace.current_x_px,
+        trace.next_x_px,
+        trace.pixel_delta,
+        trace.tile_remainder,
+        u8::from(trace.crossed_boundary),
+        trace.flags_d7,
+        trace.floor_class_d6,
+        trace.column_span_d3,
+        trace.turn_plan
     )
 }
 
@@ -3802,6 +3840,7 @@ fn activate_enemies_with_rng_inner(
                 shared_walker_debug_branch: None,
                 shared_walker_dx_to_kid_px: None,
                 shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+                shared_walker_grounded_scan_trace: None,
             };
             if matches!(family, EnemyFamily::Diamond) && hit_points > 3 {
                 // ASM Diamond.asm loc_3AD7C: HP above 3 bypasses the low-HP
@@ -7310,6 +7349,7 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         return;
     };
 
+    enemy.shared_walker_grounded_scan_trace = None;
     let walk_speed = shared_walker_walk_speed(enemy);
     let probe_half_width = pacer_probe_half_width(enemy.family);
     let probe_height = pacer_probe_height(enemy.family);
@@ -7342,6 +7382,31 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
             probe_height,
         )
     };
+    let next_x = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    let next_x_px = (next_x >> 16) as i32;
+    let pixel_delta = if moving_right {
+        next_x_px - current_x_px
+    } else {
+        current_x_px - next_x_px
+    };
+    let tile_remainder = if moving_right {
+        (-(current_x_px + probe_half_width)) & 0xF
+    } else {
+        (current_x_px - probe_half_width) & 0xF
+    };
+    let scan_trace = SharedWalkerGroundedScanTrace {
+        moving_right,
+        current_x_px,
+        next_x_px,
+        pixel_delta,
+        tile_remainder,
+        crossed_boundary: pixel_delta > 0 && tile_remainder < pixel_delta,
+        flags_d7: scan.flags_d7,
+        floor_class_d6: scan.floor_class_d6,
+        column_span_d3: scan.column_span_d3,
+        turn_plan: None,
+    };
+    enemy.shared_walker_grounded_scan_trace = Some(scan_trace);
 
     if scan.flags_d7 & 0b100 != 0 {
         // ASM loc_3C04E/loc_3C0FA: after sub_36972/sub_36A58, `btst #2,d7`
@@ -7370,6 +7435,10 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         probe_half_width,
         probe_height,
     );
+    enemy.shared_walker_grounded_scan_trace = Some(SharedWalkerGroundedScanTrace {
+        turn_plan: grounded_turn_plan,
+        ..scan_trace
+    });
 
     if matches!(
         grounded_turn_plan,
@@ -9853,6 +9922,7 @@ pub(crate) mod test_fixtures {
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+            shared_walker_grounded_scan_trace: None,
         }
     }
 
