@@ -26,10 +26,10 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-02 failed human validation:** #324 remains
-  reopened from the awaiting-human lane. The repeated failure
-  pattern is now the bug: fixed-candidate probes and synthetic routes are not
-  exercising the live play paths the human keeps seeing.
+- **2026-07-02 failed human validation:** the recently reconfirmed rows have
+  been split into fixed candidates or route-needed blockers. The repeated
+  failure pattern is now the bug: fixed-candidate probes and synthetic routes
+  are not exercising the live play paths the human keeps seeing.
 - **#210/#254 fixed candidate 2026-07-02:** rapid title/menu row-select now
   carries the resident Red Stealth/title-menu VDP during the hidden
   `loc_1BBD6 -> loc_6E2 -> loc_1AE2E` title-card warm-up. Raw VDP
@@ -59,13 +59,16 @@ and stop — never commit churn.
   never activates a 0x0B tank. Move #259 to `[b]`; do not retune Tank
   Y/priority/foreground occlusion without an exact live screenshot/recording/frame
   and native/oracle side-by-side.
-- **Immediate work order:** take the next `project-status` item; with
-  #210/#254, #252, and #259 back out of the open queue, the remaining reopened
-  visual risk is #324.
-- **Visual route work:** #324 needs a current live screenshot/recording/frame
-  and raw-VDP/scene paired captures before another renderer patch. Do not
-  retune Tank Y/priority, block wobble sprites, or title/menu VDP from stale
-  direct-camera or clean synthetic routes.
+- **#324 route-needed 2026-07-02:** current BLW1 row-1 and Highwater row-97
+  raw/scene/oracle captures still do not reproduce a native-only wrong
+  prize/P-block sprite. Highwater frame 48's static source-cell P during a
+  shifted bounce is also present in oracle, so do not patch that as a bug.
+  Move #324 to `[b]`; next useful artefact is the exact live screenshot,
+  recording, or frame where the wrong sprite is visible.
+- **Immediate work order:** take the next `project-status` item; #210/#254,
+  #252, #259, and #324 are back out of the open queue.
+- **Visual route work:** do not retune Tank Y/priority, block wobble sprites,
+  or title/menu VDP from stale direct-camera or clean synthetic routes.
 - **Proactive verification 2026-07-02:** Mini Hopping Skull air-damage /
   charging-Berzerker mutation shard has zero missed mutants
   (`/tmp/mutants-core-mini-hopping-skull-air-damage-20260702`: 12 tested, 7
@@ -91,4 +94,3 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 324 | [ ] | P1 | render/block | FAILED human validation 2026-07-02: prize/P block still shows wrong sprite/art behind the hit wobble, now visibly on top of the shake. | Capture current live screenshot/recording/frame; replay with `capture-scenario-frames --scene` and raw VDP; inspect block/effects/terrain layers before another `sub_1007A` renderer change. |

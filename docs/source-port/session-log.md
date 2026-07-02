@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — #324 prize/P-block route-needed again
+
+- #324 moved from open to `[b]`. Current BLW1 row-1 and Highwater row-97
+  captures do not reproduce a native-only wrong sprite behind/on top of the
+  prize-block wobble.
+- Evidence: recaptured BLW1 frames 568/574/580/586 and Highwater frames
+  47/48/50/52 as scene, raw VDP, and oracle under
+  `.cache/debug/issue324-current/`. Highwater frame 48's static source-cell P
+  during the shifted bounce is also present in oracle.
+- Focused `prize_block_wobble` tests and the exact live-scene regression pass.
+  Next #324 work needs the exact live screenshot/recording/frame that shows the
+  wrong sprite.
+
 ## 2026-07-02 — #259 RockTank floor-sink route-needed again
 
 - #259 moved from open to `[b]`. Current BLW2/Highwater target routes still do

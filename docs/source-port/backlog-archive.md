@@ -11374,6 +11374,23 @@ behind or over the prize/P-block hit wobble, now described as showing on top of
 the shake. Move #324 back to `[ ]`. The clean BLW1 row-1 and Highwater row-97
 scene captures remain regressions, but they do not close the live report. Next
 pass must capture the current live frame and replay both scene and raw VDP
+captures before another `sub_1007A` renderer change.
+
+Route-needed 2026-07-02: moved #324 from `[ ]` to `[b]` after a current
+recapture still failed to reproduce a native-only prize/P-block wrong sprite on
+the known routes. Fresh captures under `.cache/debug/issue324-current/` cover
+BLW1 row-1 route `.cache/recordings/issue324-blw1-row1-left560-current/scenario.json`
+at frames 568/574/580/586 and Highwater row-97 route
+`.cache/recordings/issue324-highwater-prize-row97/scenario.json` at frames
+47/48/50/52, each with native scene, native raw VDP, and oracle PNGs. The
+suspect Highwater shifted-bounce frame 48 has `block_bounces=[(4,97,30,-2)]`,
+but the static source-cell P in the adjacent P-block cluster is also visible in
+oracle, so that frame is not a native-only wrong sprite. Focused regressions
+`KID_ENABLE_CACHE_BACKED_TESTS=1 cargo test -q -p wildside-cli prize_block_wobble -- --nocapture`
+and `cargo test -q -p wildside-cli native_player::tests::live_prize_block_scenario_renders_sub_1007a_wobble_sprite_not_terrain -- --exact --nocapture`
+pass. Next useful artefact is the exact live screenshot/recording/frame that
+shows the wrong sprite; do not patch `sub_1007A` from the known BLW1 row-1 or
+Highwater row-97 routes.
 layers before changing `sub_1007A` rendering again.
 
 Human validation: on a forest level and Highwater, hit a prize block over decoration/terrain; the wobbling block should not show tree/wood pixels or stray P/block art through it. Covered by `build_scene_draws_prize_block_wobble_sprite_on_source_frame`, `prize_block_wobble_hides_shifted_deleted_tile_sub_1007a_issue324`, `build_scene_draws_live_prize_block_wobble_from_block_skin_not_terrain`, `foreground_layout_terrain_skips_static_live_block_cells_loc_302f6`, `under_skull_mountain3_scroll_a_keeps_issue289_edge_sliver_blank_sub_30194`, and `mise run verify-slice-fast`. See #324 archive.
