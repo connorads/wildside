@@ -36,9 +36,11 @@ and stop — never commit churn.
   `Character_Movement`, `$FA74/$FA75`-style latches, stomp block gate, child
   latch, and pending contact queues. The `--target-enemy-contact` scorer now
   consumes that probe and reports the linked child contact while preserving the
-  parent/body context. Next pass should capture the exact live failing frame
-  and pair this field with enemy-only/final-composite pixels and oracle state
-  so #271 and #259 cannot keep deflecting into each other.
+  parent/body context. For file-backed scenarios it also prints exact
+  contact-frame native/oracle visual dump commands (native VDP, native scene,
+  native enemies, oracle VDP). Next pass should capture the exact live failing
+  frame and run those emitted commands so #271 and #259 cannot keep deflecting
+  into each other.
 - **#271 reopened 2026-07-02:** jumping on RockTank heads still hurts Kid and
   is game-breaking. Existing route set is rejected as insufficient, not as
   proof the report is invalid.

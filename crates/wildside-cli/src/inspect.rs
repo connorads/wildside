@@ -1058,6 +1058,7 @@ pub(crate) fn probe_native_gameplay_scenario(
 pub(crate) fn probe_dynamic_record_scenario(
     manifest: &AssetManifest,
     scenario: &DynamicScenario,
+    scenario_path: Option<&Path>,
     trace_physics: bool,
     debug_fields: bool,
     target_enemy: Option<u8>,
@@ -1208,10 +1209,19 @@ pub(crate) fn probe_dynamic_record_scenario(
         }
     }
     if let Some(object_type) = target_enemy_contact {
-        println!(
-            "{}",
-            describe_target_enemy_contact_from_frame(&trace, object_type, target_frame_start)
-        );
+        if let Some(contact) =
+            target_enemy_contact_from_frame(&trace, object_type, target_frame_start)
+        {
+            println!("{}", describe_target_enemy_contact(object_type, &contact));
+            if let Some(path) = scenario_path {
+                println!("contact visual follow-up:");
+                for command in target_enemy_contact_visual_follow_up_commands(path, &contact) {
+                    println!("{command}");
+                }
+            }
+        } else {
+            println!("enemy contact 0x{object_type:02X}: <none>");
+        }
     }
 
     for checkpoint in &scenario.checkpoints {
@@ -2566,25 +2576,62 @@ fn target_enemy_contact_candidate(
     }
 }
 
-pub(crate) fn describe_target_enemy_contact_from_frame(
+#[cfg(test)]
+fn describe_target_enemy_contact_from_frame(
     trace: &[NativeTraceFrame],
     object_type: u8,
     frame_start: usize,
 ) -> String {
     target_enemy_contact_from_frame(trace, object_type, frame_start).map_or_else(
         || format!("enemy contact 0x{object_type:02X}: <none>"),
-        |contact| {
-            format!(
-                "enemy contact 0x{object_type:02X}: result {} gate {} score_px {} @{} same_frame_stomp={} {}",
-                contact.result,
-                contact.gate,
-                contact.score_px,
-                contact.replay_frame,
-                contact.same_frame_stomp,
-                contact.summary,
-            )
-        },
+        |contact| describe_target_enemy_contact(object_type, &contact),
     )
+}
+
+fn describe_target_enemy_contact(object_type: u8, contact: &TargetEnemyContactApproach) -> String {
+    format!(
+        "enemy contact 0x{object_type:02X}: result {} gate {} score_px {} @{} same_frame_stomp={} {}",
+        contact.result,
+        contact.gate,
+        contact.score_px,
+        contact.replay_frame,
+        contact.same_frame_stomp,
+        contact.summary,
+    )
+}
+
+fn target_enemy_contact_visual_follow_up_commands(
+    scenario_path: &Path,
+    contact: &TargetEnemyContactApproach,
+) -> Vec<String> {
+    let start = contact.replay_frame.saturating_sub(1);
+    let mut frames = vec![start, contact.replay_frame, contact.replay_frame + 1];
+    frames.dedup();
+    let frames = frames
+        .into_iter()
+        .map(|frame| frame.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+    let output_root = scenario_path.parent().map_or_else(
+        || PathBuf::from(".cache/debug/contact-frame-evidence"),
+        |parent| parent.join("contact-frame-evidence"),
+    );
+    let scenario = scenario_path.display();
+    let output = output_root.display();
+    vec![
+        format!(
+            "cargo run -p wildside-cli -- capture-scenario-frames --scenario {scenario} --frames {frames} --output {output}/native-vdp"
+        ),
+        format!(
+            "cargo run -p wildside-cli -- capture-scenario-frames --scenario {scenario} --frames {frames} --scene --output {output}/native-scene"
+        ),
+        format!(
+            "cargo run -p wildside-cli -- capture-scenario-frames --scenario {scenario} --frames {frames} --scene --layer enemies --output {output}/native-enemies"
+        ),
+        format!(
+            "cargo run -p wildside-cli -- capture-oracle-scenario-frames --scenario {scenario} --frames {frames} --output {output}/oracle-vdp"
+        ),
+    ]
 }
 
 fn enemy_contact_rank(contact: &TargetEnemyContactApproach) -> (u8, i64, usize) {
@@ -3912,6 +3959,51 @@ mod tests {
                 summary: "rock_tank_contact_probe/active_enemy[0]/family=Tank/segment=Parent/hp=2/fa74=0/fa75=1/cm=3/blocked=0/pending_stomp=1/pending_contact=none/delayed_contact=none/child_latch=1/parent{enemy_0A#01 gate=separated/result=none/kid=[148,158,170,201]/obj=[146,171,208,224]/overlap=10,-7/delta=0x00000000,0x00000000}/child{enemy_0A#01 gate=classify/result=stomp/kid=[148,158,170,201]/obj=[146,171,200,216]/overlap=10,1/delta=0x00000000,0x00000000}".to_string(),
                 same_frame_stomp: false,
             })
+        );
+    }
+
+    #[test]
+    fn target_enemy_contact_visual_follow_up_commands_dump_contact_window_loc_3b464() {
+        let contact = TargetEnemyContactApproach {
+            replay_frame: 226,
+            score_px: 6,
+            result: "stomp".to_string(),
+            gate: "classify".to_string(),
+            summary: "rock_tank_contact_probe/...".to_string(),
+            same_frame_stomp: true,
+        };
+
+        assert_eq!(
+            target_enemy_contact_visual_follow_up_commands(
+                Path::new(".cache/recordings/issue271-live-rocktank/scenario.json"),
+                &contact,
+            ),
+            vec![
+                "cargo run -p wildside-cli -- capture-scenario-frames --scenario .cache/recordings/issue271-live-rocktank/scenario.json --frames 225,226,227 --output .cache/recordings/issue271-live-rocktank/contact-frame-evidence/native-vdp".to_string(),
+                "cargo run -p wildside-cli -- capture-scenario-frames --scenario .cache/recordings/issue271-live-rocktank/scenario.json --frames 225,226,227 --scene --output .cache/recordings/issue271-live-rocktank/contact-frame-evidence/native-scene".to_string(),
+                "cargo run -p wildside-cli -- capture-scenario-frames --scenario .cache/recordings/issue271-live-rocktank/scenario.json --frames 225,226,227 --scene --layer enemies --output .cache/recordings/issue271-live-rocktank/contact-frame-evidence/native-enemies".to_string(),
+                "cargo run -p wildside-cli -- capture-oracle-scenario-frames --scenario .cache/recordings/issue271-live-rocktank/scenario.json --frames 225,226,227 --output .cache/recordings/issue271-live-rocktank/contact-frame-evidence/oracle-vdp".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn target_enemy_contact_visual_follow_up_commands_handle_frame_zero_loc_3b464() {
+        let contact = TargetEnemyContactApproach {
+            replay_frame: 0,
+            score_px: 6,
+            result: "damage".to_string(),
+            gate: "classify".to_string(),
+            summary: "enemy_0A#01 ...".to_string(),
+            same_frame_stomp: false,
+        };
+
+        assert!(
+            target_enemy_contact_visual_follow_up_commands(Path::new("scenario.json"), &contact)
+                .first()
+                .expect("first command")
+                .contains("--frames 0,1"),
+            "frame-zero contacts should not duplicate frame 0"
         );
     }
 

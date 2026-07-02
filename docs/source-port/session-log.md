@@ -21,15 +21,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   cached `issue271-stomp-candidate-jump189-20260702` route now reports a clean
   synthetic child stomp at frame 226; this rejects the stale route as live-bug
   evidence, not the human report.
+- The same scorer now prints contact-frame visual follow-up commands for
+  file-backed scenarios: native VDP, native scene, native enemies, and oracle
+  VDP for the one-frame-before/contact/one-frame-after window. Smoke-generated
+  native scene + enemy-only frames for the cached frame-226 route.
 - Verification: focused
   `rock_tank_contact_probe_reports_parent_child_split_loc_3b464`,
   `target_enemy_contact_uses_rock_tank_child_probe_loc_3b464_loc_3b6c0`,
-  the cached scorer smoke, `mise run audit-debug-fields`,
+  `target_enemy_contact_visual_follow_up_commands_*`, the cached scorer smoke,
+  generated native contact-frame captures, `mise run audit-debug-fields`,
   `mise run backlog-lint`, and `mise run verify-slice-fast` all pass.
 - NEXT: take #271 first with an exact live failing frame. Capture
-  `rock_tank_contact_probe`, enemy-only/final-composite pixels, and oracle
-  state together; do not retune Tank Y, child collision, or foreground priority
-  from stale synthetic routes.
+  `rock_tank_contact_probe`, then run the emitted contact-frame native/oracle
+  visual commands and oracle frontier; do not retune Tank Y, child collision,
+  or foreground priority from stale synthetic routes.
 
 ## 2026-07-02 — proactive movement title-card mutation gap
 

@@ -49,6 +49,21 @@ as stomp, same-frame stomp true. This is tooling/search evidence only and
 explicitly does not close #271; the stale synthetic route is clean, so the next
 valid artefact remains the exact live failing frame.
 
+Follow-up 2026-07-02: extended the same file-backed
+`probe-record-scenario-file --target-enemy-contact` scorer to print executable
+contact-frame visual follow-up commands once it finds the best frame: native
+VDP, native scene, native enemies, and oracle VDP for `frame-1,frame,frame+1`.
+Regressions:
+`target_enemy_contact_visual_follow_up_commands_dump_contact_window_loc_3b464`
+and `target_enemy_contact_visual_follow_up_commands_handle_frame_zero_loc_3b464`.
+Smoke on the cached `issue271-stomp-candidate-jump189-20260702` route emits the
+frame-225/226/227 commands; running the native enemy-only and native scene
+commands writes non-empty PNGs under
+`.cache/recordings/issue271-stomp-candidate-jump189-20260702/contact-frame-evidence/`.
+This still does not close #271: it makes the next exact live recording produce
+the visual/oracle checklist needed to separate a true contact bug from #259
+foreground/floor perception.
+
 Blocked note 2026-07-02: moved #271 from `[~]` open to `[b]` awaiting exact
 human/live route. Current route evidence is exhausted without reproducing a
 native-only Tank stomp fault: `issue271-route-current-20260702` is a miss,

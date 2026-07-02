@@ -1396,6 +1396,7 @@ fn main() -> Result<()> {
             probe_dynamic_record_scenario(
                 &manifest,
                 &dynamic,
+                None,
                 trace_physics,
                 debug_fields,
                 target_enemy,
@@ -1450,6 +1451,7 @@ fn main() -> Result<()> {
             probe_dynamic_record_scenario(
                 &manifest,
                 &dynamic,
+                Some(&scenario),
                 trace_physics,
                 debug_fields,
                 target_enemy,
