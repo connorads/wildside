@@ -13,6 +13,13 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #271
 
+Investigation/tooling note 2026-07-02: `play-native --record` now prints the
+generated `verify-tas` frontier command and any `--target-enemy-contact`
+scorer commands immediately after saving a bundle. The next live RockTank repro
+no longer requires opening `README.txt` to find the route classifier command.
+Still not a gameplay verdict; #271 remains `[~]` pending the exact live failing
+jump route.
+
 Investigation/tooling note 2026-07-02: recording bundles with route-target
 enemies now generate `route_target_score_commands` in `manifest.json` and
 `README.txt`, e.g. `probe-record-scenario-file --scenario

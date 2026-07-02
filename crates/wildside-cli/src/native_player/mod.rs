@@ -1,5 +1,6 @@
 use crate::recording::{
-    RecordingBundleArtifacts, RecordingRouteTarget, build_recording, recording_start_from_options,
+    RecordingBundleArtifacts, RecordingRouteTarget, build_recording,
+    recording_route_target_score_commands, recording_start_from_options,
     recording_tas_frontier_command, save_recording_with_artifacts,
 };
 use crate::scenarios::{
@@ -1168,7 +1169,21 @@ fn save_native_recording_bundle(
         record_to.display(),
         slug
     );
+    for command in native_recording_follow_up_commands(slug, options) {
+        println!("{command}");
+    }
     Ok(())
+}
+
+fn native_recording_follow_up_commands(slug: &str, options: &NativePlayOptions) -> Vec<String> {
+    let mut commands = vec![recording_tas_frontier_command(
+        slug,
+        options.record_frontier_kind.as_deref().unwrap_or("enemy"),
+    )];
+    if let Some(target) = &options.record_route_target {
+        commands.extend(recording_route_target_score_commands(slug, target));
+    }
+    commands
 }
 
 fn native_recording_command(slug: &str, options: &NativePlayOptions) -> String {
@@ -16204,6 +16219,42 @@ mod tests {
             manifest_text.contains(
                 "verify-tas --scenario .cache/recordings/freeze-repro/scenario.json --bisect --frontier-kind gameplay"
             )
+        );
+    }
+
+    #[test]
+    fn native_recording_follow_up_commands_include_route_target_scorers() {
+        let commands = native_recording_follow_up_commands(
+            "issue271-live-rocktank",
+            &NativePlayOptions {
+                fullscreen: false,
+                scale: None,
+                debug_overlay: false,
+                warp_level: Some(0x01),
+                settled: true,
+                record_to: Some(PathBuf::from(".cache/recordings/issue271-live-rocktank")),
+                record_frames: Some(1800),
+                record_notes: None,
+                record_route_target: Some(RecordingRouteTarget {
+                    label: Some(String::from("issue271-live-rocktank")),
+                    level: Some(0x01),
+                    points: Vec::new(),
+                    cells: Vec::new(),
+                    cell_hitboxes: Vec::new(),
+                    enemies: vec![0x0A, 0x0B],
+                }),
+                record_frontier_kind: Some(String::from("gameplay")),
+                scripted_route: None,
+            },
+        );
+
+        assert_eq!(
+            commands,
+            vec![
+                "cargo run -p wildside-cli -- verify-tas --scenario .cache/recordings/issue271-live-rocktank/scenario.json --bisect --frontier-kind gameplay",
+                "cargo run -p wildside-cli -- probe-record-scenario-file --scenario .cache/recordings/issue271-live-rocktank/scenario.json --target-enemy-contact 0A --summary-only",
+                "cargo run -p wildside-cli -- probe-record-scenario-file --scenario .cache/recordings/issue271-live-rocktank/scenario.json --target-enemy-contact 0B --summary-only",
+            ]
         );
     }
 

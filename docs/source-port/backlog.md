@@ -33,8 +33,9 @@ and stop — never commit churn.
 - **Immediate work order:** take #271 first. Use the new
   `probe-record-scenario-file --target-enemy-contact 0A/0B` scorer on any
   candidate route. Recording bundles with `--record-target-enemy 0A/0B` now
-  write ready-made `route_target_score_commands` in `manifest.json`/`README.txt`;
-  use those on the next live capture. Known current routes are not the live failure:
+  write ready-made `route_target_score_commands` in `manifest.json`/`README.txt`
+  and print the frontier/scorer commands on save. Use those on the next live
+  capture. Known current routes are not the live failure:
   `issue271-route-current-20260702` is a miss, and
   `issue271-sharp-current-20260702` is side/edge damage; a small jump sweep can
   produce native `result=stomp`, so the next useful artefact is a live targeted
