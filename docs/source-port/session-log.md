@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive Fireball mutation audit)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation or visual rows; only human validation/repro blockers remain.
+- **Mutation fallback audit:** ran `wildside-core/src/enemies/fireball.rs`,
+  covering ASM-cited Fireball movement, animation setup, hit/death dispatch,
+  movement-route selection, and live state/debug export. No source change was
+  needed.
+- Verification: `.cache/mutants/fireball-current` (`60 mutants tested: 47
+  caught, 13 unviable`). Zero missed mutants.
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  proactive verification on a different focused frame/core shard, not Fireball,
+  Cloud, Diamond, HUD, or the compact enemy module shards unless their code
+  changes.
+
 ## 2026-07-02 handoff (proactive Cloud mutation audit)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open
