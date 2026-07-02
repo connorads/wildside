@@ -57,12 +57,18 @@ and stop — never commit churn.
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
 - **Proactive verification 2026-07-02:** with no ready/open queue rows,
-  mutation fallback found no actionable source gaps (`fire_demon.rs` clean;
-  `sphere.rs` mutants unviable). ASM coverage fallback now reports `0`
-  ordinary uncovered labels and keeps the 21 uncited GEMS wrappers in an
-  explicit out-of-scope bucket; do not cite those wrappers just to move the
-  metric. The test-only baseline burned down `loc_31F8E` after production
-  citations in `level.rs`/`enemies.rs`.
+  mutation fallback found no actionable source gaps (`armadillo.rs`: 34 caught,
+  12 unviable; `spinning_twins.rs`: 105 caught, 21 unviable;
+  `big_hopping_skull.rs`: 56 caught, 15 unviable). ASM audit then found a live
+  Armadillo cadence gap: Armadillo.asm `loc_3C766`/`loc_3C7F8` seeds the shared
+  Scorpion.asm `loc_3DEA0` `$6E/$54` timer, so native now stores it in
+  `shared_walker_patrol_timer` and hibernates/reverses on expiry. Scorpion was
+  a false lead for that timer path: Scorpion itself installs `loc_3DD7E`, not
+  `loc_3DEA0`. `verify-slice-fast` passes; `verify-tas-full` still reports the
+  current `1p-accurate` state gap (first authoritative diff:
+  `transition_15_to_00_post` DragonWalking/object-count). ASM coverage remains
+  `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not cite
+  those wrappers just to move the metric.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

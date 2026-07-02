@@ -3664,6 +3664,36 @@ mod chunk_04 {
     }
 
     #[test]
+    fn armadillo_patrol_timer_turns_around_without_taking_a_walk_step() {
+        let grid = grid_with_floor_at_row(14);
+        let mut enemy = make_pacer(EnemyFamily::Armadillo, 3, 100, 224);
+        enemy.facing = Direction::Right;
+        enemy.shared_walker_patrol_timer = 1;
+        enemy.shared_walker_patrol_short_next = true;
+
+        step_pacer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_pos,
+            100 << 16,
+            "ASM Scorpion.asm loc_3DEA0 reaches Armadillo.asm loc_3E546/loc_3E392 on the `$54(a5)` expiry frame, so the turnaround frame hibernates instead of walking",
+        );
+        assert_eq!(
+            enemy.facing,
+            Direction::Left,
+            "ASM Scorpion.asm loc_3DEA0 reverses the Armadillo by branching from set x_direction to loc_3E546",
+        );
+        assert_eq!(
+            enemy.shared_walker_patrol_timer, 0x0032,
+            "ASM Armadillo.asm loc_3C766 seeds `$6E(a5)=$0032_012C`; loc_3DEA0 swaps it and reloads `$54(a5)` with `$0032`",
+        );
+        assert!(
+            !enemy.shared_walker_patrol_short_next,
+            "ASM Scorpion.asm loc_3DEA0 swaps the packed `$6E(a5)` timer pair after the first Armadillo patrol expiry",
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_scorpion_is_fixed() {
         // Scorpion: fixed $18000 regardless of HP.
         assert_eq!(pacer_walk_speed(EnemyFamily::Scorpion, 3), 0x0001_8000);

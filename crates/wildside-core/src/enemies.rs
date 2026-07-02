@@ -7359,6 +7359,16 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         return;
     }
 
+    if matches!(enemy.family, EnemyFamily::Armadillo) && shared_walker_tick_patrol(enemy) {
+        // ASM Armadillo.asm loc_3C766 installs Scorpion.asm loc_3DEA0 as the
+        // shared-walker callback. On `$54(a5)` expiry the branch enters
+        // loc_3E546/loc_3E392, reversing direction without taking a walk step.
+        reverse_enemy_direction(enemy);
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0;
+        return;
+    }
+
     enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
     enemy.y_velocity = 0;
 
@@ -7942,6 +7952,9 @@ pub(crate) fn spawn_shared_walker_state(family: EnemyFamily) -> i16 {
 
 pub(crate) fn spawn_shared_walker_patrol_timer(family: EnemyFamily) -> u16 {
     match family {
+        // ASM Armadillo.asm loc_3C7F8 overwrites `$54(a5)` with `$012C`
+        // after seeding the shared loc_3DEA0 alternating timer pair.
+        EnemyFamily::Armadillo => DRAGON_WALKING_PATROL_LONG_FRAMES,
         EnemyFamily::DragonWalking => {
             dragon_walking_common_init_loc_3ce5a(false, Direction::Left).patrol_timer
         }
@@ -7952,7 +7965,10 @@ pub(crate) fn spawn_shared_walker_patrol_timer(family: EnemyFamily) -> u16 {
 }
 
 pub(crate) fn spawn_shared_walker_patrol_short_next(family: EnemyFamily) -> bool {
-    matches!(family, EnemyFamily::DragonWalking | EnemyFamily::Ninja)
+    matches!(
+        family,
+        EnemyFamily::Armadillo | EnemyFamily::DragonWalking | EnemyFamily::Ninja
+    )
 }
 
 pub(crate) fn spawn_tank_mouth_animation_phase(family: EnemyFamily) -> u8 {
@@ -7994,10 +8010,10 @@ fn shared_walker_should_tick_patrol(enemy: &ActiveEnemy) -> bool {
     enemy.shared_walker_state <= 0 || enemy.shared_walker_state == SHARED_WALKER_STATE_PATROL
 }
 
-fn dragon_walking_patrol_timer_pair_loc_3dea0(short_next: bool) -> u32 {
-    // ASM Dragon.asm loc_3CDFC seeds `$6E(a5)=$0032_012C`; Scorpion.asm
-    // loc_3DEA0 later rotates that packed short/long pair before reloading
-    // `$54(a5)`.
+fn shared_walker_patrol_timer_pair_loc_3dea0(short_next: bool) -> u32 {
+    // ASM Armadillo.asm loc_3C766 and Dragon.asm loc_3CDFC seed
+    // `$6E(a5)=$0032_012C`; Scorpion.asm loc_3DEA0 later rotates that
+    // packed short/long pair before reloading `$54(a5)`.
     let (high, low) = if short_next {
         (
             DRAGON_WALKING_PATROL_SHORT_FRAMES,
@@ -8012,8 +8028,8 @@ fn dragon_walking_patrol_timer_pair_loc_3dea0(short_next: bool) -> u32 {
     u32::from(high) << 16 | u32::from(low)
 }
 
-fn dragon_walking_patrol_short_next_loc_3dea0(timer_pair_6e: u32) -> bool {
-    timer_pair_6e == dragon_walking_patrol_timer_pair_loc_3dea0(true)
+fn shared_walker_patrol_short_next_loc_3dea0(timer_pair_6e: u32) -> bool {
+    timer_pair_6e == shared_walker_patrol_timer_pair_loc_3dea0(true)
 }
 
 fn shared_walker_tick_patrol(enemy: &mut ActiveEnemy) -> bool {
@@ -8021,11 +8037,14 @@ fn shared_walker_tick_patrol(enemy: &mut ActiveEnemy) -> bool {
         return false;
     }
 
-    if matches!(enemy.family, EnemyFamily::DragonWalking) {
+    if matches!(
+        enemy.family,
+        EnemyFamily::Armadillo | EnemyFamily::DragonWalking
+    ) {
         let gate = scorpion_timer_gate_loc_3dea0(
             enemy.shared_walker_state,
             enemy.shared_walker_patrol_timer,
-            dragon_walking_patrol_timer_pair_loc_3dea0(enemy.shared_walker_patrol_short_next),
+            shared_walker_patrol_timer_pair_loc_3dea0(enemy.shared_walker_patrol_short_next),
             enemy.facing,
         );
         enemy.shared_walker_patrol_timer = gate.timer_54;
@@ -8045,7 +8064,7 @@ fn shared_walker_tick_patrol(enemy: &mut ActiveEnemy) -> bool {
                 };
                 debug_assert_eq!(restart_facing, enemy.facing);
                 enemy.shared_walker_patrol_short_next =
-                    dragon_walking_patrol_short_next_loc_3dea0(gate.alternating_timer_pair_6e);
+                    shared_walker_patrol_short_next_loc_3dea0(gate.alternating_timer_pair_6e);
                 true
             }
         };
@@ -11050,9 +11069,9 @@ pub(crate) fn spawn_wait_timer(
         // Orca.asm loc_3D194 overwrites `$54(a5)` with `$12C` before the
         // first proximity check can trigger `loc_3D2DE`.
         EnemyFamily::Orca => ORCA_LUNGE_COOLDOWN,
-        // Armadillo.asm loc_3C7F8 seeds `$54(a5)` with `$12C` before entering
-        // the shared grounded walker loop.
-        EnemyFamily::Armadillo => 0x012C,
+        // Armadillo.asm loc_3C7F8 seeds the shared-walker `$54(a5)` cadence;
+        // native stores that in shared_walker_patrol_timer.
+        EnemyFamily::Armadillo => 0,
         // ASM UFO.asm `unk_3588C`: 60/40/30 by raw layout level.
         EnemyFamily::Tornado => TORNADO_PATTERN_FRAMES[usize::from(enemy_level).min(2)],
         // SpinningTwins: orbit-to-walk is collision-triggered, no timer needed.

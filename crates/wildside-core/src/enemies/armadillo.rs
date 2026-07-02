@@ -817,12 +817,17 @@ mod tests {
     fn armadillo_initial_patrol_timer_matches_loc_3c7f8() {
         let mut rng = RomRandomState::default();
         assert_eq!(
-            spawn_wait_timer(EnemyFamily::Armadillo, 0, 0, &mut rng),
-            0x012C
+            spawn_shared_walker_patrol_timer(EnemyFamily::Armadillo),
+            0x012C,
+            "ASM Armadillo.asm loc_3C7F8 seeds `$54(a5)` with `$012C` for the shared loc_3DEA0 cadence"
         );
+        assert!(spawn_shared_walker_patrol_short_next(
+            EnemyFamily::Armadillo
+        ));
         assert_eq!(
-            spawn_wait_timer(EnemyFamily::Armadillo, 2, 0, &mut rng),
-            0x012C
+            spawn_wait_timer(EnemyFamily::Armadillo, 0, 0, &mut rng),
+            0,
+            "native keeps Armadillo's live `$54(a5)` cadence out of the generic wait_timer field"
         );
     }
 }

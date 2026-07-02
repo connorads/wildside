@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — proactive Armadillo cadence audit
+
+- Project-status showed no ready/open risks, only human validation/repro
+  blockers. Mutation fallback found no actionable source gaps:
+  `armadillo.rs` 34 caught / 12 unviable, `spinning_twins.rs` 105 caught /
+  21 unviable, and `big_hopping_skull.rs` 56 caught / 15 unviable.
+- Scorpion audit corrected the initial hypothesis: Scorpion.asm defines
+  `loc_3DEA0`, but Scorpion installs `loc_3DD7E`; DragonWalking and Armadillo
+  install `loc_3DEA0` as the shared cadence callback.
+- Wired Armadillo.asm `loc_3C766`/`loc_3C7F8` into native: `$54(a5)=$012C`
+  now lives in `shared_walker_patrol_timer`, the `$0032_012C` pair participates
+  in `scorpion_timer_gate_loc_3dea0`, and `step_pacer` hibernates/reverses on
+  the expiry frame instead of taking one more walk step.
+- Added regression
+  `armadillo_patrol_timer_turns_around_without_taking_a_walk_step`.
+- Verification: focused Armadillo cadence/init tests, `cargo test -q -p
+  wildside-core scorpion_timer`, `cargo test -q -p wildside-core armadillo`,
+  `cargo fmt --all --check`, `git diff --check`, and `mise run
+  verify-slice-fast` pass. `mise run verify-tas-full` completed with CRC all
+  37759 frames matching, but the current long route still reports the
+  `1p-accurate` state gap: 212 authoritative diffs plus 2 oracle limitations,
+  first at `transition_15_to_00_post` on DragonWalking/object-count.
+
 ## 2026-07-02 — proactive asm-coverage GEMS split
 
 - Project-status showed no ready/open risks, only human validation/repro
