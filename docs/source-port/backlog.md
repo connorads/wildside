@@ -26,20 +26,20 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-02 #271 fixed candidate:** after the human reconfirm that clean
-  RockTank jumps still hurt Kid/Red Stealth, native no longer turns nonfatal
-  `$2C` Tank mouth/turret stomps into delayed Kid damage. Await human playtest
-  on BLW2/Highwater RockTanks; #259 floor-sink remains separate.
-- **2026-07-02 #369 fixed candidate:** flag/base sprites now remain visible
-  through the oracle pre-frame `loc_C0B6` cleanup boundary instead of
-  disappearing one frame after `loc_C070` touch. Await human validation.
-- **Still route-needed:** prize/P block weird sprite (#324), tank/helmet garble
-  (#252), RockTank floor-sink (#259), and menu-skip black squares (#210/#254)
-  still need exact live screenshot/recording/frame if they reproduce after the
-  current fixes. Fresh #259 target scoring on 2026-07-02 confirmed current
-  built-in routes still do not reach the named BLW2/Highwater tanks; the next
-  useful work is route-planner/live-recording tooling, not Tank Y/priority
-  retuning from partial routes.
+- **2026-07-02 failed human validation:** #271, #369, #324, #259, #252, #210,
+  and #254 are reopened from the awaiting-human lane. The repeated failure
+  pattern is now the bug: fixed-candidate probes and synthetic routes are not
+  exercising the live play paths the human keeps seeing.
+- **Immediate work order:** take #271 first. Record a live targeted
+  `play-native --record` route to the Level-2/Highwater RockTank, then run the
+  generated `verify-recording` / `tas_frontier_command` before changing combat.
+  A real fix must distinguish clean first-overlap `$2C` stomps from faithful
+  sustained/side `$1C/$28` contact and must show the exact frame where native
+  diverges from oracle.
+- **Visual route work:** #324/#259/#252/#369/#210 need current live recording or
+  raw-VDP/scene paired captures before another renderer patch. Do not retune
+  Tank Y/priority, flag cleanup timing, block wobble sprites, or title/menu VDP
+  from stale direct-camera or clean synthetic routes.
 - **Proactive verification 2026-07-02:** Mini Hopping Skull air-damage /
   charging-Berzerker mutation shard has zero missed mutants
   (`/tmp/mutants-core-mini-hopping-skull-air-damage-20260702`: 12 tested, 7
@@ -65,3 +65,10 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 271 | [ ] | P0 | player/enemy | FAILED human validation 2026-07-02: RockTank head jumps still hurt Kid/Red Stealth; previous `$2C` delayed-damage fix did not settle the live route. | Record live route with `play-native --record --record-target-enemy 0A/0B`; run generated `verify-recording` and `tas_frontier_command`; compare clean first-overlap `$2C` vs sustained/side contact before changing combat. |
+| 210 | [ ] | P0 | gameflow/render | FAILED human validation 2026-07-02: rapid menu/intro skip can still produce black squares where Red Stealth/title/menu art should be. | Capture exact live Start timings or `play-native --record` bundle; compare raw VDP and scene frames around the first bad frame; do not rely on the covered `2400,2700,2720/2721` synthetic routes. |
+| 254 | [ ] | P1 | intro/render | FAILED human validation 2026-07-02: Red Stealth/title-skip corruption persists as part of the #210 black-square route. | Pair with #210 route capture; isolate whether the bad pixels are carried VDP/title-menu state or a distinct transform/render path before changing form art. |
+| 369 | [ ] | P1 | render/eol | FAILED human validation 2026-07-02: flagpole base is still missing at level end on the live route. | Record/capture natural EOL route; compare native vs oracle through `loc_C070` touch and `loc_C0B6` cleanup; identify whether base is missing before touch, during hold, or after cleanup. |
+| 324 | [ ] | P1 | render/block | FAILED human validation 2026-07-02: prize/P block still shows wrong sprite/art behind the hit wobble, now visibly on top of the shake. | Capture current live screenshot/recording/frame; replay with `capture-scenario-frames --scene` and raw VDP; inspect block/effects/terrain layers before another `sub_1007A` renderer change. |
+| 259 | [ ] | P1 | enemy/render | FAILED human validation 2026-07-02: RockTanks still appear halfway in the floor on levels 2 and 3. | Record natural route to named BLW2/Highwater tanks; tas-diff body/turret Y plus foreground occlusion depth; only close as faithful if oracle side-by-side shows the same composite. |
+| 252 | [ ] | P1 | render/enemy | FAILED human validation 2026-07-02: tank/helmet-looking RockTank garble still appears in live play despite clean sheet/capture probes. | Capture exact live frame/recording; compare assembled body/turret/muzzle/bullet sprites and raw VDP tiles at that frame; route floor perception through #259 if geometry matches. |

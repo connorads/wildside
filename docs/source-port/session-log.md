@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — Reopened recurrent live play failures
+
+- Human validation failed the latest fixed/blocked classifications for #271
+  RockTank stomps, #369 flagpole base, #324 prize/P-block wobble art, #259
+  RockTank floor-sink, #252 tank/helmet garble, and #210/#254 menu/title-skip
+  black-square/Red-Stealth corruption. Moved those rows out of
+  `backlog-awaiting-human.md` into the open queue.
+- New work order: #271 is the first target. Use `play-native --record` with
+  target metadata for the live Level-2/Highwater RockTank route, then run the
+  generated `verify-recording` and `tas_frontier_command` before changing
+  combat. For the visual rows, require paired live raw-VDP/scene/native-oracle
+  evidence before another renderer or Tank priority/Y patch.
+- Verification: `mise run project-status` now lists #271/#210 as open P0 risks;
+  `mise run backlog-lint` passed after the lane move.
+
 ## 2026-07-02 — Mini Hopping Skull air-damage mutation shard
 
 - Open queue still empty. Ran the proactive mutation fallback on
