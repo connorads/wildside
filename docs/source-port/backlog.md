@@ -26,18 +26,13 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-02 loop handoff:** #210/#254 have a fixed candidate for the
-  early IntroSequence6 Start-skip menu timeout. #252 did not reproduce in
-  fresh tank render probes and is back in the route-needed lane.
-- **Current #324 evidence:** canonical BLW1 row-1 route
-  `.cache/recordings/issue324-blw1-row1-left560-current/scenario.json`
-  is clean when captured through the scene compositor with
-  `capture-scenario-frames --scene`; default scenario full capture was raw
-  VDP/terrain-only on that route and is no longer valid evidence for this
-  render path. Highwater remains unproven without an exact hit route/screenshot.
-- **Next output:** continue #324 by recording a Highwater prize-block hit or
-  getting a human screenshot/route; do not patch from the failed synthetic
-  spawn probe.
+- **2026-07-02 loop handoff:** #324 has a fixed candidate and moved to the
+  archive. The exact Highwater route
+  `.cache/recordings/issue324-highwater-prize-row97/scenario.json` hits prize
+  cell `(4,97)` at frame 47; native scene frames 48/50 now hide the shifted
+  deleted-tile child instead of drawing the stray P/block sprite.
+- **Verification:** focused prize-block scene tests and the Highwater scene
+  captures are green; run `mise run project-status` for the next priority item.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -59,4 +54,3 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 324 | [~] | P1 | render/block | 2026-07-02 human reconfirm: prize/P blocks can still show a weird sprite or terrain behind the wobble. | BLW1 scene-full route clean; record/compare Highwater prize hit. |

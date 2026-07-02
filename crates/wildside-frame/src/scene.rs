@@ -5405,6 +5405,7 @@ fn push_prize_block_wobble_sub_1007a(
                 .checked_sub(BLOCK_TILE_VRAM_BASE)
                 .unwrap_or(tile.tile_index);
             tile.tile_index = local_tile_index.saturating_add(tile_offset);
+            tile.priority = false;
             SpriteTile {
                 offset_x: if index % 2 == 0 { 0 } else { 8 },
                 offset_y: if index < 2 { 0 } else { 8 },
@@ -5412,15 +5413,9 @@ fn push_prize_block_wobble_sub_1007a(
             }
         })
         .collect();
-    // ASM sub_1007A/loc_10200 queues a Scroll A cell rewrite, then draws the
-    // low-priority `unk_E0E4E`/`unk_E0E5E` wobble object. Clear stale foreground
-    // priority from the active footprint so prior terrain cells do not mask it.
-    commands.push(DrawCommand::ClearPriorityRect {
-        x,
-        y,
-        width: 16,
-        height: 16,
-    });
+    // ASM sub_1007A/loc_10200 draws the copied block through low-priority
+    // `unk_E0E4E`/`unk_E0E5E` mappings. High-priority Scroll A terrain keeps
+    // masking it while the wobble overlaps foreground art.
     commands.push(DrawCommand::Sprite {
         x,
         y,
@@ -5624,6 +5619,14 @@ pub fn push_level_layout_terrain(
             let raw_word = block_grid.map(|grid| grid.raw_word_at(col, row));
             let active_prize_bounce =
                 block_bounce_kind_for_trace(trace, col, row) == Some(BlockBounceTraceKind::Prize);
+            let active_prize_bounce_at_source =
+                trace
+                    .block_bounces
+                    .iter()
+                    .any(|(cx, cy, remaining, y_offset)| {
+                        *cx == col && *cy == row && *remaining > 0 && *y_offset == 0
+                    })
+                    && active_prize_bounce;
             let priority_override = raw_word
                 .filter(|word| word & 0x8100 == 0x0100)
                 .map(|_| true);
@@ -5639,9 +5642,16 @@ pub fn push_level_layout_terrain(
                 Some(cell) if cell.has_block => continue,
                 Some(_cell)
                     if active_prize_bounce
+                        && active_prize_bounce_at_source
                         && raw_word.is_some_and(|word| word & 0xFF00 == 0x6F00) =>
                 {
                     continue;
+                }
+                Some(_cell)
+                    if active_prize_bounce
+                        && raw_word.is_some_and(|word| word & 0xFF00 == 0x6F00) =>
+                {
+                    layout.skin_at(col, row)
                 }
                 Some(cell)
                     if cell.collision != wildside_core::terrain::CollisionKind::Empty
@@ -5763,6 +5773,61 @@ fn block_bounce_kind_for_trace(
                 .any(|(cx, cy, remaining, _)| *cx == col && *cy == row && *remaining > 0)
                 .then_some(BlockBounceTraceKind::Prize)
         })
+}
+
+pub fn push_prize_block_wobble_overrides_sub_1007a(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    block_grid: Option<&BlockGrid>,
+) {
+    let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+    let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+
+    for &(col, row, remaining, y_offset) in &trace.block_bounces {
+        if remaining == 0 || y_offset != 0 {
+            continue;
+        }
+        if block_bounce_kind_for_trace(trace, col, row) != Some(BlockBounceTraceKind::Prize) {
+            continue;
+        }
+        let skin = block_grid.map_or_else(
+            || level_visuals.level.foreground_layout.skin_at(col, row),
+            |grid| {
+                let word = grid.raw_word_at(col, row);
+                let cell = grid.cell_at(col, row);
+                if cell.has_block {
+                    // ASM sub_1007A (`move.b (a1,d0.w),d4` then
+                    // `move.b #$6F,(a0)`) preserves the source low byte. The
+                    // `$E101` and `$E102` prize cells therefore resolve as
+                    // distinct copied block-art skins; normalising the byte
+                    // makes visible prize blocks lose their `P` glyph.
+                    cell.skin
+                } else {
+                    // ASM sub_1007A copies the source block low byte before
+                    // the Scroll A rewrite. If the trace already exposes the
+                    // rewritten word on the source frame, the low byte remains
+                    // the copied block-art selector consumed by Block_Mappings.
+                    (word & 0x00FF) as u8
+                }
+            },
+        );
+        let Some(resolved) = level_visuals
+            .level
+            .block_mapping
+            .resolve(skin, Some(wildside_core::terrain::BlockType::Prize as u8))
+        else {
+            continue;
+        };
+        push_prize_block_wobble_sub_1007a(
+            commands,
+            level_visuals,
+            resolved.quad,
+            i32::from(col) * 16 - camera_x_px,
+            i32::from(row) * 16 - camera_y_px + i32::from(y_offset),
+            remaining,
+        );
+    }
 }
 
 pub fn push_block_grid_overrides(
@@ -5889,52 +5954,6 @@ pub fn push_block_grid_overrides(
                 resolved.quad,
             );
         }
-    }
-
-    for &(col, row, remaining, y_offset) in &trace.block_bounces {
-        if remaining == 0 {
-            continue;
-        }
-        if block_bounce_kind_for_trace(trace, col, row) != Some(BlockBounceTraceKind::Prize) {
-            continue;
-        }
-        let skin = block_grid.map_or_else(
-            || level_visuals.level.foreground_layout.skin_at(col, row),
-            |grid| {
-                let word = grid.raw_word_at(col, row);
-                let cell = grid.cell_at(col, row);
-                if cell.has_block {
-                    // ASM sub_1007A (`move.b (a1,d0.w),d4` then
-                    // `move.b #$6F,(a0)`) preserves the source low byte. The
-                    // `$E101` and `$E102` prize cells therefore resolve as
-                    // distinct copied block-art skins; normalising the byte
-                    // makes visible prize blocks lose their `P` glyph.
-                    cell.skin
-                } else {
-                    // ASM sub_1007A continues drawing the copied prize-block
-                    // gfx object after the live Level_Layout word has moved
-                    // through no-block solid/restored phases (`$60xx` as well
-                    // as `$6Fxx`). The low byte is still the copied block-art
-                    // selector consumed by Block_Mappings.
-                    (word & 0x00FF) as u8
-                }
-            },
-        );
-        let Some(resolved) = level_visuals
-            .level
-            .block_mapping
-            .resolve(skin, Some(wildside_core::terrain::BlockType::Prize as u8))
-        else {
-            continue;
-        };
-        push_prize_block_wobble_sub_1007a(
-            commands,
-            level_visuals,
-            resolved.quad,
-            i32::from(col) * 16 - camera_x_px,
-            i32::from(row) * 16 - camera_y_px + i32::from(y_offset),
-            remaining,
-        );
     }
 }
 
@@ -6268,6 +6287,14 @@ fn build_game_scene_filtered(
         if !push_storm_pattern_plane_loc_14d32(&mut commands, trace, level_visuals) {
             push_background_tiles(&mut commands, trace, level_visuals);
         }
+    }
+    if filter.block_overrides {
+        push_prize_block_wobble_overrides_sub_1007a(
+            &mut commands,
+            trace,
+            level_visuals,
+            block_grid,
+        );
     }
     if filter.terrain {
         push_level_layout_terrain(&mut commands, trace, level_visuals, block_grid);

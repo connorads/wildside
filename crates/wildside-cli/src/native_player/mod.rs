@@ -8794,22 +8794,20 @@ mod tests {
     }
 
     #[test]
-    fn build_scene_draws_prize_block_wobble_sprite_even_after_deleted_cell_write() {
+    fn build_scene_draws_prize_block_wobble_sprite_on_source_frame() {
         // ASM sub_1007A/loc_10200 writes `$6Fxx` to Level_Layout while the
-        // wobble worker remains live and draws `unk_E0E4E`/`unk_E0E5E` at the
-        // hibernated y offset. Rendering must therefore key off `block_bounces`
-        // as well as the cell's block flag, or the prize block vanishes before
-        // the post-prize `$E001` smash cell appears.
+        // first source-position frame still displays the copied block art
+        // before the later hidden deleted-tile wobble frames.
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
-        trace.block_bounces = vec![(1, 0, 8, -2)];
+        trace.block_bounces = vec![(1, 0, 31, 0)];
         trace.block_bounce_details = vec![BlockBounceTrace {
             cell_x: 1,
             cell_y: 0,
             x_offset_px: 0,
-            remaining: 8,
-            y_offset_px: -2,
+            remaining: 31,
+            y_offset_px: 0,
             kind: BlockBounceTraceKind::Prize,
         }];
         let visuals = sample_level_visuals();
@@ -8823,7 +8821,7 @@ mod tests {
         let Some(copied_wobble_tiles) = scene.commands.iter().find_map(|command| match command {
             DrawCommand::Sprite {
                 x: 16,
-                y: -2,
+                y: 0,
                 tile_sheet,
                 tiles,
                 ..
@@ -8831,20 +8829,20 @@ mod tests {
             _ => None,
         }) else {
             panic!(
-                "late sub_1007A block_bounces entry should draw the copied prize-block art from `$220/$229`, not vanish after the temporary `$6Fxx` cell write"
+                "source-frame sub_1007A block_bounces entry should draw the copied prize-block art from `$220/$229`, not vanish after the temporary `$6Fxx` cell write"
             );
         };
         assert_eq!(
             copied_wobble_tiles.first().map(|tile| tile.tile.tile_index),
-            Some(0x011),
-            "late sub_1007A block_bounces entry should preserve the `$6F02` low byte copied from `$E102`, not decrement to the hidden `$01` prize skin",
+            Some(0x008),
+            "source-frame sub_1007A block_bounces entry should preserve the `$6F02` low byte copied from `$E102`, not decrement to the hidden `$01` prize skin",
         );
         assert!(
             !scene.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite {
                     x: 16,
-                    y: -2,
+                    y: 0,
                     tile_sheet,
                     tiles,
                     ..
@@ -8858,7 +8856,7 @@ mod tests {
                 command,
                 DrawCommand::Sprite {
                     x: 16,
-                    y: -2,
+                    y: 0,
                     tile_sheet,
                     tiles,
                     ..
@@ -8872,7 +8870,7 @@ mod tests {
                 command,
                 DrawCommand::Sprite {
                     x: 16,
-                    y: -2,
+                    y: 0,
                     tile_sheet,
                     tiles,
                     ..
@@ -8886,7 +8884,7 @@ mod tests {
                 command,
                 DrawCommand::Sprite {
                     x: 16,
-                    y: -2,
+                    y: 0,
                     tile_sheet,
                     tiles,
                     ..
@@ -8896,31 +8894,31 @@ mod tests {
             "ASM `$220/$229` are temporary VRAM slots for copied block art; native must not render them as absolute skin-zero sheet indices"
         );
         assert!(
-            indexed_tile_at_with_sheet_len(&scene, 16, -2, 0x200).is_none(),
+            indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x200).is_none(),
             "the deleted `$6Fxx` phase must not resolve through Block_Mappings as a stray block tile",
         );
         assert!(
             indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80).is_none(),
-            "ASM sub_1007A draws the live wobble object from `unk_E0E4E`/`unk_E0E5E` while Level_Layout is `$6Fxx`; the active wobble cell must not also draw immutable foreground skin through transparent block-art pixels"
+            "the source frame keeps Scroll A terrain suppressed so the copied prize block remains visible"
         );
     }
 
     #[test]
-    fn prize_block_wobble_clears_stale_priority_mask_sub_1007a_issue324() {
-        // ASM sub_1007A/loc_10200 queues a Scroll A cell rewrite before drawing
-        // `unk_E0E4E`/`unk_E0E5E`. Native's command renderer must likewise
-        // clear stale terrain priority from the active wobble footprint before
-        // it draws the low-priority copied block sprite.
+    fn prize_block_wobble_hides_shifted_deleted_tile_sub_1007a_issue324() {
+        // ASM loc_101D8/loc_10200 clears the child display byte before the
+        // hibernated deleted-tile wobble. Highwater should therefore redraw
+        // terrain/background at the source cell instead of exposing a shifted
+        // copied prize-block tile.
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
-        trace.block_bounces = vec![(1, 0, 31, 0)];
+        trace.block_bounces = vec![(1, 0, 28, -6)];
         trace.block_bounce_details = vec![BlockBounceTrace {
             cell_x: 1,
             cell_y: 0,
             x_offset_px: 0,
-            remaining: 31,
-            y_offset_px: 0,
+            remaining: 28,
+            y_offset_px: -6,
             kind: BlockBounceTraceKind::Prize,
         }];
         let mut visuals = sample_level_visuals();
@@ -8930,12 +8928,14 @@ mod tests {
         for tile in &mut visuals.foreground_tiles.tiles[8..12] {
             tile.pixels = [1; 64];
         }
-        for tile in &mut visuals.block_tiles.tiles[8..12] {
+        for tile in &mut visuals.block_tiles.tiles[0x011..=0x014] {
             tile.pixels = [2; 64];
         }
         let data = vec![0u8; 20 * 14 * 2];
         let mut grid = BlockGrid::from_level_layout(&data, 20, 14);
         grid.set_cell_at(1, 0, Cell::from_be_bytes(0x01, 0x02));
+        let priority_cell = Cell::from_be_bytes(0x01, 0x02);
+        grid.set_raw_word_at(1, 0, 0x0102);
 
         let scene = build_scene_filtered(
             &trace,
@@ -8954,48 +8954,43 @@ mod tests {
                 hud: false,
             },
         );
-        let clear_index = scene
-            .commands
-            .iter()
-            .position(|command| {
-                matches!(
-                    command,
-                    DrawCommand::ClearPriorityRect {
-                        x: 16,
-                        y: 0,
-                        width: 16,
-                        height: 16
-                    }
-                )
-            })
-            .expect("sub_1007A prize wobble priority clear");
-        let sprite_index = scene
-            .commands
-            .iter()
-            .position(|command| {
-                matches!(
-                    command,
-                    DrawCommand::Sprite {
-                        x: 16,
-                        y: 0,
-                        tile_sheet,
-                        ..
-                    } if tile_sheet.tiles.len() == 0x200
-                )
-            })
-            .expect("sub_1007A prize wobble sprite");
         assert!(
-            clear_index < sprite_index,
-            "the sub_1007A priority clear must run immediately before the low-priority copied block sprite"
+            !scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::ClearPriorityRect {
+                    x: 16,
+                    y: -6,
+                    width: 16,
+                    height: 16
+                }
+            )),
+            "ASM sub_1007A keeps the copied prize wobble low priority; native must not clear foreground priority over its shifted footprint"
         );
+        assert!(
+            scene.commands.iter().all(|command| !matches!(
+                command,
+                DrawCommand::Sprite {
+                    x: 16,
+                    y: -6,
+                    tile_sheet,
+                    ..
+                } if tile_sheet.tiles.len() == 0x200
+            )),
+            "ASM loc_101D8/loc_10200 hides the shifted ordinary prize deleted-tile wobble"
+        );
+        assert_eq!(grid.cell_at(1, 0), priority_cell);
 
         let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
         render_scene(&scene, &mut rgb);
 
         assert_eq!(
             pixel_at(&rgb, 16, 0),
-            [block_colour.red, block_colour.green, block_colour.blue],
-            "active sub_1007A prize wobble pixels should survive stale foreground priority from the previous terrain command"
+            [
+                terrain_colour.red,
+                terrain_colour.green,
+                terrain_colour.blue
+            ],
+            "Highwater-style shifted ordinary prize wobble should leave terrain/background visible, not a stray prize block"
         );
     }
 
@@ -9008,13 +9003,13 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
-        trace.block_bounces = vec![(1, 0, 8, -2)];
+        trace.block_bounces = vec![(1, 0, 31, 0)];
         trace.block_bounce_details = vec![BlockBounceTrace {
             cell_x: 1,
             cell_y: 0,
             x_offset_px: 0,
-            remaining: 8,
-            y_offset_px: -2,
+            remaining: 31,
+            y_offset_px: 0,
             kind: BlockBounceTraceKind::Prize,
         }];
         let visuals = sample_level_visuals();
@@ -9028,7 +9023,7 @@ mod tests {
         let Some(copied_wobble_tiles) = scene.commands.iter().find_map(|command| match command {
             DrawCommand::Sprite {
                 x: 16,
-                y: -2,
+                y: 0,
                 tile_sheet,
                 tiles,
                 ..
@@ -9039,7 +9034,7 @@ mod tests {
         };
         assert_eq!(
             copied_wobble_tiles.first().map(|tile| tile.tile.tile_index),
-            Some(0x011),
+            Some(0x008),
             "ASM sub_1007A should copy the `$E102` prize block skin byte unchanged, not decrement it to the hidden `$E101` art"
         );
         assert!(
@@ -9057,13 +9052,13 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
-        trace.block_bounces = vec![(1, 0, 8, -2)];
+        trace.block_bounces = vec![(1, 0, 31, 0)];
         trace.block_bounce_details = vec![BlockBounceTrace {
             cell_x: 1,
             cell_y: 0,
             x_offset_px: 0,
-            remaining: 8,
-            y_offset_px: -2,
+            remaining: 31,
+            y_offset_px: 0,
             kind: BlockBounceTraceKind::Prize,
         }];
         let mut visuals = sample_level_visuals();
@@ -9083,7 +9078,7 @@ mod tests {
         let Some(copied_wobble_tiles) = scene.commands.iter().find_map(|command| match command {
             DrawCommand::Sprite {
                 x: 16,
-                y: -2,
+                y: 0,
                 tile_sheet,
                 tiles,
                 ..

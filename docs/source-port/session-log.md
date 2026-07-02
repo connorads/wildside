@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (#324 Highwater prize/P block fixed)
+
+- **#324 moved `[~]` -> `[x]`.** Exact route
+  `.cache/recordings/issue324-highwater-prize-row97/scenario.json` hits
+  Highwater prize cell `(4,97)` at frame 47; native scene frames 48/50 no
+  longer draw the stray shifted P/block sprite behind the wobble.
+- Fix: ordinary prize-block copied art is emitted only on the `sub_1007A`
+  source frame (`y_offset=0`), stays low priority, and shifted `$6Fxx` frames
+  restore terrain/background instead of drawing a deleted-tile child.
+- Verification: focused `cargo test -p wildside-cli prize_block_wobble -- --nocapture`,
+  focused native-player live prize-block smoke test, Highwater scene captures
+  under `.cache/debug/issue324-20260702/highwater-row97/native-scene-after7/`,
+  and `mise run verify-slice-fast`.
+- NEXT: run `mise run project-status` and take the next priority item.
+
 ## 2026-07-02 handoff (#324 prize/P block diagnostic)
 
 - **#324 remains `[~]`.** Re-read `sub_1007A`/`loc_10200` and current scene
