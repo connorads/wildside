@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive Scorpion mutation audit)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation or visual rows; only human validation/repro blockers remain.
+- **Mutation fallback audit:** ran `wildside-core/src/enemies/scorpion.rs`,
+  covering ASM-cited Scorpion movement, side selection, action-state transitions,
+  collision routing, and live state/debug export. No source change was needed.
+- Verification: `.cache/mutants/scorpion-current` (`57 mutants tested: 46
+  caught, 11 unviable`). Zero missed mutants.
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  proactive verification on a different focused frame/core shard, not Scorpion,
+  Fireball, Cloud, Diamond, HUD, or the compact enemy module shards unless their
+  code changes.
+
 ## 2026-07-02 handoff (#210/#254 live raw menu-skip recheck)
 
 - **#210/#254 stay awaiting human validation.** Human reconfirmed black squares

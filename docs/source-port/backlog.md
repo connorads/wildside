@@ -57,12 +57,12 @@ and stop — never commit churn.
   background; do not treat that scene-only gap as the live black-square repro.
   The live report still needs exact timing or a `play-native --record` bundle.
 - **Proactive verification 2026-07-02:** no ready/open rows remain, so the latest
-  loop mutation-audited `wildside-core/src/enemies/fireball.rs`. The Fireball
-  shard ended at 60 mutants tested: 47 caught, 13 unviable, zero missed
-  (`.cache/mutants/fireball-current`). Continue with `mise run project-status`;
+  loop mutation-audited `wildside-core/src/enemies/scorpion.rs`. The Scorpion
+  shard ended at 57 mutants tested: 46 caught, 11 unviable, zero missed
+  (`.cache/mutants/scorpion-current`). Continue with `mise run project-status`;
   if still empty, use another proactive-verification fallback slice and avoid
-  re-running Fireball, Cloud, Diamond, HUD, or the compact enemy module shards
-  unless their code changes.
+  re-running Scorpion, Fireball, Cloud, Diamond, HUD, or the compact enemy
+  module shards unless their code changes.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
