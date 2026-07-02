@@ -28,12 +28,13 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-02 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive CLI project-status mutation shard. Direct
-  `cargo mutants` against `crates/wildside-cli/src/project_status.rs` reported
-  `68 mutants tested in 4m: 62 caught, 6 unviable`. This strengthened selector
-  tests for row filtering, priority ordering, ready/root-cause detection,
-  visual classification, human-blocker gating, and rendered status text. No
-  native gameplay behaviour changes.
+- **Current verification:** proactive CLI rust-source-context mutation shard.
+  Direct `cargo mutants` against
+  `crates/wildside-cli/src/rust_source_context.rs` reported `188 mutants tested
+  in 25m: 138 caught, 3 unviable, 47 timeouts`, with zero missed mutants. This
+  strengthened ASM-citation source-context tests for comment/literal masking,
+  tokenisation, cfg-test item ranges, nested attrs, cfg expression parsing, and
+  test-only range boundaries. No native gameplay behaviour changes.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 

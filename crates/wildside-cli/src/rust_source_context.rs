@@ -113,14 +113,12 @@ fn consume_block_comment(chars: &[char], mut i: usize, out: &mut String) -> usiz
     let mut depth = 0usize;
     while i < chars.len() {
         if starts_with(chars, i, &['/', '*']) {
-            push_masked(out, chars[i]);
-            push_masked(out, chars[i + 1]);
-            i += 2;
+            out.push_str("  ");
+            i = i.saturating_add(2);
             depth += 1;
         } else if starts_with(chars, i, &['*', '/']) {
-            push_masked(out, chars[i]);
-            push_masked(out, chars[i + 1]);
-            i += 2;
+            out.push_str("  ");
+            i = i.saturating_add(2);
             depth = depth.saturating_sub(1);
             if depth == 0 {
                 break;
@@ -227,7 +225,7 @@ fn is_char_literal_at(chars: &[char], quote_index: usize) -> bool {
         return false;
     }
     if content == '\\' {
-        return closes_before_newline(chars, content_index + 1, '\'');
+        return closes_before_newline(chars, content_index.saturating_add(1), '\'');
     }
     if is_ident_start(content) {
         return chars.get(content_index + 1) == Some(&'\'');
@@ -268,7 +266,6 @@ fn lex_structure_tokens(source: &str) -> Vec<Token> {
             i += 1;
         } else if is_ident_start(ch) {
             let start = i;
-            i += 1;
             while i < chars.len() && is_ident_continue(chars[i]) {
                 i += 1;
             }
@@ -307,19 +304,19 @@ fn test_item_ranges(tokens: &[Token]) -> Vec<(usize, usize)> {
     let mut ranges = Vec::new();
     let mut pending_test_attr_start = None;
     let mut i = 0usize;
-    while i < tokens.len() {
+    while tokens.get(i).is_some() {
         if let Some(attr_end) = attr_end(tokens, i) {
             if attr_is_cfg_test(&tokens[i..=attr_end]) {
                 pending_test_attr_start = Some(pending_test_attr_start.unwrap_or(tokens[i].line));
             }
-            i = attr_end + 1;
+            i = attr_end.saturating_add(1);
             continue;
         }
 
         if let Some(start_line) = pending_test_attr_start.take() {
             let end = item_end(tokens, i);
             ranges.push((start_line, tokens[end].line));
-            i = end + 1;
+            i = end.saturating_add(1);
             continue;
         }
 
@@ -332,18 +329,18 @@ fn attr_end(tokens: &[Token], start: usize) -> Option<usize> {
     if !matches!(tokens.get(start)?.kind, TokenKind::Hash) {
         return None;
     }
-    let mut i = start + 1;
+    let mut i = start.saturating_add(1);
     if matches!(tokens.get(i).map(|t| &t.kind), Some(TokenKind::Other)) {
-        i += 1;
+        i = i.saturating_add(1);
     }
     if !matches!(tokens.get(i).map(|t| &t.kind), Some(TokenKind::OpenBracket)) {
         return None;
     }
 
     let mut depth = 0usize;
-    while i < tokens.len() {
-        match tokens[i].kind {
-            TokenKind::OpenBracket => depth += 1,
+    while let Some(token) = tokens.get(i) {
+        match token.kind {
+            TokenKind::OpenBracket => depth = depth.saturating_add(1),
             TokenKind::CloseBracket => {
                 depth = depth.saturating_sub(1);
                 if depth == 0 {
@@ -364,22 +361,23 @@ fn attr_is_cfg_test(tokens: &[Token]) -> bool {
     else {
         return false;
     };
-    let Some(open_index) = tokens[cfg_index + 1..]
+    let search_start = cfg_index.saturating_add(1);
+    let Some(open_index) = tokens[search_start..]
         .iter()
         .position(|t| matches!(t.kind, TokenKind::OpenParen))
-        .map(|offset| cfg_index + 1 + offset)
+        .map(|offset| search_start.saturating_add(offset))
     else {
         return false;
     };
-    let close_index = matching_paren(tokens, open_index).unwrap_or(tokens.len() - 1);
-    cfg_expr_contains_positive_test(&tokens[open_index + 1..close_index])
+    let close_index = matching_paren(tokens, open_index).unwrap_or(tokens.len().saturating_sub(1));
+    cfg_expr_contains_positive_test(&tokens[open_index.saturating_add(1)..close_index])
 }
 
 fn matching_paren(tokens: &[Token], open_index: usize) -> Option<usize> {
     let mut depth = 0usize;
     for (index, token) in tokens.iter().enumerate().skip(open_index) {
         match token.kind {
-            TokenKind::OpenParen => depth += 1,
+            TokenKind::OpenParen => depth = depth.saturating_add(1),
             TokenKind::CloseParen => {
                 depth = depth.saturating_sub(1);
                 if depth == 0 {
@@ -425,8 +423,8 @@ fn item_end(tokens: &[Token], start: usize) -> usize {
     let mut i = start;
     let mut brace_depth = 0usize;
     let mut saw_open_brace = false;
-    while i < tokens.len() {
-        match tokens[i].kind {
+    while let Some(token) = tokens.get(i) {
+        match token.kind {
             TokenKind::OpenBrace => {
                 brace_depth += 1;
                 saw_open_brace = true;
@@ -459,6 +457,17 @@ mod tests {
                 || panic!("missing line containing {needle:?}"),
                 |index| index + 1,
             )
+    }
+
+    fn token_kinds(source: &str) -> Vec<TokenKind> {
+        lex_structure_tokens(source)
+            .into_iter()
+            .map(|token| token.kind)
+            .collect()
+    }
+
+    fn lex(source: &str) -> Vec<Token> {
+        lex_structure_tokens(source)
     }
 
     #[test]
@@ -550,6 +559,11 @@ fn after() {}
             sanitise_rust_structure("/*{}*/fn after() {}"),
             "      fn after() {}"
         );
+        assert_eq!(sanitise_rust_structure("/*"), "  ");
+        assert_eq!(
+            sanitise_rust_structure("/*\n*/fn after() {}"),
+            "  \n  fn after() {}"
+        );
         let nested_comment = "/* outer /* nested } */ done */";
         assert_eq!(
             sanitise_rust_structure(&format!("{nested_comment}fn after() {{}}")),
@@ -559,8 +573,19 @@ fn after() {}
 
     #[test]
     fn sanitiser_masks_raw_strings_exactly() {
-        assert_eq!(sanitise_rust_structure(r##"r#"{ }"#"##), "        ");
-        assert_eq!(sanitise_rust_structure(r##"br#"{ }"#"##), "         ");
+        let raw = "r\"{}\"";
+        assert_eq!(
+            raw_string_start(&raw.chars().collect::<Vec<_>>(), 0),
+            Some((2, 0))
+        );
+        let byte_raw = "br##\"{}\"##";
+        assert_eq!(
+            raw_string_start(&byte_raw.chars().collect::<Vec<_>>(), 0),
+            Some((5, 2))
+        );
+        assert_eq!(sanitise_rust_structure("r#\"{ }\"#"), "        ");
+        assert_eq!(sanitise_rust_structure("br#\"{ }\"#"), "         ");
+        assert_eq!(sanitise_rust_structure("r#\""), "   ");
 
         let source = r####"fn production() {
     let raw = r###"{ #[cfg(test)] fn fake() {} }"###;
@@ -584,10 +609,19 @@ fn after() {}
     fn sanitiser_masks_byte_and_plain_char_literals_but_keeps_lifetimes() {
         assert_eq!(sanitise_rust_structure("b'{'"), "    ");
         assert_eq!(sanitise_rust_structure("x b'{'"), "x     ");
+        assert_eq!(sanitise_rust_structure("x b'\n'"), "x b'\n'");
         assert_eq!(sanitise_rust_structure("'{'"), "   ");
+        assert_eq!(sanitise_rust_structure("'{"), "'{");
+        assert_eq!(sanitise_rust_structure("\""), " ");
         assert_eq!(sanitise_rust_structure("'a'"), "   ");
         assert_eq!(sanitise_rust_structure("'\\n'"), "    ");
+        assert_eq!(sanitise_rust_structure("'\\''"), "    ");
         assert_eq!(sanitise_rust_structure("'a"), "'a");
+        assert!(is_char_literal_at(&"'\\''".chars().collect::<Vec<_>>(), 0));
+        assert!(!is_char_literal_at(
+            &"'\\\n'".chars().collect::<Vec<_>>(),
+            0
+        ));
 
         let source = "fn f<'a>() { let byte = b'{'; let plain = '{'; }\n";
         let clean = sanitise_rust_structure(source);
@@ -597,6 +631,23 @@ fn after() {}
         assert!(clean.contains("let plain =    ;"));
         assert_eq!(clean.matches('{').count(), 1);
         assert_eq!(clean.matches('}').count(), 1);
+    }
+
+    #[test]
+    fn lexer_preserves_identifier_extent_and_parentheses() {
+        assert_eq!(
+            token_kinds("abc12()"),
+            vec![
+                TokenKind::Ident("abc12".to_owned()),
+                TokenKind::OpenParen,
+                TokenKind::CloseParen
+            ]
+        );
+        assert_eq!(token_kinds("a"), vec![TokenKind::Ident("a".to_owned())]);
+        assert_eq!(
+            token_kinds("  abc12"),
+            vec![TokenKind::Ident("abc12".to_owned())]
+        );
     }
 
     #[test]
@@ -622,6 +673,41 @@ fn production() {
             contexts.context_for_line(line_of(source, "fn production")),
             RustCodeContext::Production
         );
+    }
+
+    #[test]
+    fn cfg_test_range_handles_adjacent_attributes_and_items() {
+        let source = "\
+#[cfg(test)]
+#[allow(dead_code)]
+fn first() {
+}
+#[cfg(test)]
+const SECOND: u8 = 2;
+fn production() {
+}
+";
+        let contexts = RustSourceContexts::analyse(source);
+
+        assert_eq!(
+            contexts.context_for_line(line_of(source, "#[allow(dead_code)]")),
+            RustCodeContext::Test
+        );
+        assert_eq!(
+            contexts.context_for_line(line_of(source, "fn first")),
+            RustCodeContext::Test
+        );
+        assert_eq!(
+            contexts.context_for_line(line_of(source, "SECOND")),
+            RustCodeContext::Test
+        );
+        assert_eq!(
+            contexts.context_for_line(line_of(source, "fn production")),
+            RustCodeContext::Production
+        );
+
+        assert_eq!(test_item_ranges(&lex(source)), vec![(1, 4), (5, 6)]);
+        assert!(test_item_ranges(&[]).is_empty());
     }
 
     #[test]
@@ -657,11 +743,77 @@ const ALL_TEST_ONLY: u8 = 4;
     }
 
     #[test]
+    fn cfg_test_supports_inner_attrs_nested_brackets_and_parentheses() {
+        let source = r#"
+#![cfg(test)]
+mod inner {
+}
+#[cfg(all(any(feature = "probe", test), not(feature = "disabled")))]
+fn nested_cfg() {
+}
+#[cfg_attr(test, allow(dead_code, unused_variables))]
+fn production() {
+}
+"#;
+        let contexts = RustSourceContexts::analyse(source);
+
+        assert_eq!(
+            contexts.context_for_line(line_of(source, "mod inner")),
+            RustCodeContext::Test
+        );
+        assert_eq!(
+            contexts.context_for_line(line_of(source, "fn nested_cfg")),
+            RustCodeContext::Test
+        );
+        assert_eq!(
+            contexts.context_for_line(line_of(source, "fn production")),
+            RustCodeContext::Production
+        );
+
+        let tokens = lex("#![cfg(all(test, feature = \"probe\"))]\nmod inner {}");
+        let end = attr_end(&tokens, 0).expect("inner attr end");
+        assert!(matches!(tokens[end].kind, TokenKind::CloseBracket));
+        assert_eq!(tokens[end].line, 1);
+        assert!(attr_is_cfg_test(&tokens[..=end]));
+        assert!(attr_end(&lex("#[cfg(test)"), 0).is_none());
+
+        let nested_bracket_attr = lex("#[probe([inner])]\nfn production() {}");
+        let nested_end = attr_end(&nested_bracket_attr, 0).expect("nested attr end");
+        assert_eq!(
+            nested_end,
+            nested_bracket_attr
+                .iter()
+                .rposition(|token| matches!(token.kind, TokenKind::CloseBracket))
+                .expect("last close bracket")
+        );
+
+        let attr = lex("#[cfg(all(any(feature = \"probe\", test), not(feature = \"disabled\")))]");
+        let attr_end_index = attr_end(&attr, 0).expect("attr end");
+        assert!(attr_is_cfg_test(&attr[..=attr_end_index]));
+        let open_index = attr
+            .iter()
+            .position(|token| matches!(token.kind, TokenKind::OpenParen))
+            .expect("open paren");
+        let close_index = matching_paren(&attr, open_index).expect("matching paren");
+        assert!(matches!(attr[close_index].kind, TokenKind::CloseParen));
+        assert_eq!(
+            close_index,
+            attr.iter()
+                .rposition(|token| matches!(token.kind, TokenKind::CloseParen))
+                .expect("last close paren")
+        );
+    }
+
+    #[test]
     fn does_not_treat_cfg_not_test_as_test_only() {
         let source = r#"
 #[cfg(not(test))]
 fn production_only() {
     let label = "loc_1234";
+}
+#[cfg(any(not(test), feature = "probe"))]
+fn also_production() {
+    let label = "loc_5678";
 }
 "#;
         let contexts = RustSourceContexts::analyse(source);
@@ -670,5 +822,27 @@ fn production_only() {
             contexts.context_for_line(line_of(source, "label")),
             RustCodeContext::Production
         );
+        assert_eq!(
+            contexts.context_for_line(line_of(source, "also_production")),
+            RustCodeContext::Production
+        );
+
+        let cfg_attr = lex("#[cfg_attr(test, allow(dead_code))]");
+        let cfg_attr_end = attr_end(&cfg_attr, 0).expect("cfg_attr end");
+        assert!(!attr_is_cfg_test(&cfg_attr[..=cfg_attr_end]));
+
+        let not_test = lex("#[cfg(any(not(test), feature = \"probe\"))]");
+        let not_test_end = attr_end(&not_test, 0).expect("not(test) attr end");
+        assert!(!attr_is_cfg_test(&not_test[..=not_test_end]));
+
+        assert_eq!(item_end(&[], 0), 0);
+        let tokens = lex("fn outer() { if true { } }\nfn next() {}");
+        let first_ident = tokens
+            .iter()
+            .position(|token| matches!(&token.kind, TokenKind::Ident(ident) if ident == "fn"))
+            .expect("fn token");
+        let end = item_end(&tokens, first_ident);
+        assert_eq!(tokens[end].line, 1);
+        assert!(matches!(tokens[end].kind, TokenKind::CloseBrace));
     }
 }

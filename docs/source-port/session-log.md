@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive CLI rust-source-context mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, ran a focused
+  mutation shard on `crates/wildside-cli/src/rust_source_context.rs`.
+- Evidence: initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/rust_source_context.rs -j 1
+  --gitignore=true --output /tmp/mutants-cli-rust-source-context --
+  rust_source_context::tests::` reported `231 mutants tested in 26m: 44 missed,
+  142 caught, 3 unviable, 42 timeouts`; final
+  `/tmp/mutants-cli-rust-source-context-6` run reports `188 mutants tested in
+  25m: 138 caught, 3 unviable, 47 timeouts`, with zero missed mutants.
+- Strengthened ASM-citation source-context tests for comment/literal masking,
+  tokenisation, cfg-test item ranges, nested attrs, cfg expression parsing, and
+  test-only range boundaries. Refactored equivalent scanner/index arithmetic
+  into explicit saturating advances and delimiter masking.
+- No native gameplay behaviour changes.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused shard.
+
 ## 2026-07-02 handoff (proactive CLI project-status mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, ran a focused
