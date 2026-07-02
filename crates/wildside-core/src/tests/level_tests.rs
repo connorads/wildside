@@ -6885,6 +6885,58 @@ mod chunk_02 {
         );
     }
 
+    #[test]
+    fn cold_boot_intro_sequence_6_early_start_menu_keeps_loc_1bb52_timeout() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let mut trace_2700 = None;
+        let mut trace_2720 = None;
+        let mut trace_3299 = None;
+
+        for frame_index in 0..=3_299 {
+            let input = if matches!(frame_index, 2_400 | 2_700) {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            let trace = runtime.step_frame(input);
+            if frame_index == 2_700 {
+                trace_2700 = Some(trace);
+            } else if frame_index == 2_720 {
+                trace_2720 = Some(trace);
+            } else if frame_index == 3_299 {
+                trace_3299 = Some(trace);
+            }
+        }
+
+        let trace_2700 = trace_2700.expect("second Start should still be in title mode");
+        assert_eq!(trace_2700.game_mode, GameMode::TitleScreen);
+        assert!(
+            trace_2700.title_screen_ready,
+            "ASM loc_1BAB0 -> sub_1C246 has already restored the visible title shell before the second Start edge"
+        );
+
+        let trace_2720 = trace_2720.expect("menu build delay should have elapsed");
+        assert_eq!(trace_2720.game_mode, GameMode::TitleScreen);
+        assert_eq!(
+            trace_2720.options_cursor,
+            Some(0),
+            "ASM Obj_TitleMenu loc_1BB52 should expose row 0 after the second Start edge"
+        );
+
+        let trace_3299 = trace_3299.expect("title menu tail should have a frame-3299 trace");
+        assert_eq!(
+            trace_3299.game_mode,
+            GameMode::TitleScreen,
+            "ASM Obj_TitleMenu loc_1BB52 reloads d0=$280 for Title_InputLoop, so an early loc_1BAB0 Start-skip followed by menu Start must not reach loc_1BB02/demo by frame 3299"
+        );
+        assert_eq!(trace_3299.options_cursor, Some(0));
+    }
+
     fn cold_boot_vdp_after_optional_start(
         start_frame: Option<usize>,
         target_frame: usize,

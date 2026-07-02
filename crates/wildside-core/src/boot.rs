@@ -7290,11 +7290,13 @@ impl NativeRuntime {
                             >= title_elapsed_timeout
                         {
                             // ASM Obj_TitleMenu loc_1BB52 reloads d0=$280 for
-                            // Title_InputLoop after Start opens the menu. Native's
-                            // TitleScreen lineage uses `title_screen_elapsed_frames`
-                            // to model the loc_1BAEA/Title_InputLoop countdown, so
-                            // reseed it only when the pre-menu attract counter would
-                            // expire during the cursor-build window.
+                            // Title_InputLoop after Start opens the menu. The
+                            // generic TitleScreen elapsed model only needs a
+                            // reseed when the old attract countdown would
+                            // expire during cursor setup; early loc_1BAB0
+                            // Start-skip uses the explicit active-menu branch
+                            // below because its visible title shell can be much
+                            // earlier than the pre-menu countdown.
                             self.title_screen_elapsed_frames = TITLE_ATTRACT_LOCK_FRAMES;
                         }
                         just_activated_title_menu = true;
@@ -7339,14 +7341,25 @@ impl NativeRuntime {
                     play_navigate_jingle = true;
                 } else if !self.title_menu_cursor_pending {
                     self.title_idle_frames += 1;
+                    let intro_sequence_6_start_skip_menu_timeout = self
+                        .title_screen_uses_intro_return_hidden_shell
+                        && self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry;
                     let title_elapsed_timeout = TITLE_ATTRACT_LOCK_FRAMES
                         .saturating_add(usize::from(demo::TITLE_IDLE_FRAMES));
-                    if self.title_screen_elapsed_frames + 1 >= title_elapsed_timeout {
-                        // ASM Obj_TitleMenu loc_1BAEA/Title_InputLoop reaches
-                        // loc_1BB02 on the title object's local elapsed frame
-                        // 58 + $280; `title_idle_frames` can be one short on
-                        // imported TAS cursor-edge traces because Ctrl_1_Pressed
-                        // is consumed inside the ROM object loop.
+                    let timeout_elapsed = if intro_sequence_6_start_skip_menu_timeout {
+                        // ASM Obj_TitleMenu loc_1BB52 (kid.asm:30417)
+                        // reloads `d0=$280` before Title_InputLoop after this
+                        // early loc_1BAB0 Start-skip opens the menu, so this
+                        // lineage counts from menu activation instead of
+                        // carrying the pre-menu loc_1BAEA elapsed frames.
+                        self.title_idle_frames > demo::TITLE_IDLE_FRAMES.saturating_add(1)
+                    } else {
+                        // Non-start-skip title routes keep the long-running
+                        // Obj_TitleMenu elapsed model used by TAS cursor-edge
+                        // probes; cursor moves do not restart that countdown.
+                        self.title_screen_elapsed_frames + 1 >= title_elapsed_timeout
+                    };
+                    if timeout_elapsed {
                         self.title_idle_frames = 0;
                         self.demo_toggle = !self.demo_toggle;
                         self.begin_demo_play(self.demo_toggle);

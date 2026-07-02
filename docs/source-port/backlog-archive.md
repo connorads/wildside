@@ -11822,6 +11822,42 @@ remains exact, with the known state-report divergences still first authoritative
   `backlog-lint`, and `verify-slice-fast`. `verify-tas-full` was not required for docs/tooling
   cleanup with no gameplay changes.
 
+### 2026-07-02 human failed-validation reopen
+
+- **#210 / #254 (intro/menu Red Stealth/title corruption, P0/P1).** Human reconfirmed on current
+  HEAD that skipping the intro/menu can still leave black squares or garbled art where the Red
+  Stealth/title pose should be. This fails the 2026-06-29 fixed candidates and moves #210/#254
+  back from `[?]` to the open queue. Start with #210 because it is P0 and likely owns the shared
+  VDP/title-return handoff. Re-check `sub_1C246`, `loc_1BA60`, `loc_1BA90`, and the native
+  last-composited VDP carry path; avoid another frame-constant fix.
+- **#324 (prize/P block wobble leak, P1).** Human reconfirmed that prize blocks can still show a
+  weird sprite or wrong background/terrain behind the wobble. This fails the row's human
+  validation request and moves it back from `[?]` to the open queue. Re-test the BLW1/Highwater
+  wobble crop against oracle before changing the `sub_1007A` priority/art path again.
+- **#252 (RockTank/tank sprite garble, P1).** Human reconfirmed a garbled tank/helmet-looking
+  sprite issue. Treat this as the RockTank body/turret render row unless a sharper capture proves
+  it is a distinct helmet-prize sprite. Move #252 back from `[?]` to the open queue; keep enemy
+  state/placement untouched unless an oracle route proves state divergence.
+
+### 2026-07-02 fixed candidate after failed-validation reopen
+
+- **#210 / #254 (intro/menu Red Stealth/title corruption, `[~]/[ ]` -> `[?]`).** Reproduced the
+  human-facing class with a fresh DynamicScenario route using `.cache/debug/issue210-current-intro-skip-probe/scenario.json`
+  plus `--input 2400:start --input 2700:start`: before the fix, native frame 3299 had already timed
+  out into demo/gameplay art while oracle still showed the Red Stealth title menu (`AE=71009`).
+  Re-read ASM `loc_1BAB0`, `Obj_TitleMenu loc_1BAEA/loc_1BAEE`, `loc_1BB52`, `Title_InputLoop`,
+  and `loc_1BB02`: the first Start opens the menu through `loc_1BB52`, which reloads `d0=$280`
+  before `Title_InputLoop`; it must not carry the pre-menu `loc_1BAEA` countdown into the active
+  menu. Native now scopes a reset-counted active-menu timeout to the early IntroSequence6
+  Start-skip/slot-2 carry lineage while preserving the elapsed-countdown model used by TAS cursor
+  routes. Evidence after the fix: `capture-scenario-frames` / `capture-oracle-scenario-frames` on
+  the same route match at frames `2700=0`, `2720=0`, `3000=0`, and `3299=0`, with only the known
+  8-pixel title-detail residue at `2800`. Regression coverage:
+  `cold_boot_intro_sequence_6_early_start_menu_keeps_loc_1bb52_timeout`, plus the existing
+  `cold_boot_intro_sequence_6_start_keeps_loc_1b37c_shell_until_loc_1b5ce`,
+  `title_menu_activation_restarts_loc_1bb52_timeout_counter`, and
+  `tas_title_cursor_moves_do_not_delay_attract_demo_handoff` checks.
+
 ### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro logged)
 
 - **#249 / #270 (slope-into-wall upward float, P1).** WIDENED: the human now reports the

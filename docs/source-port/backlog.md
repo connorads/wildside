@@ -26,17 +26,17 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-02 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
-  human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive CLI rust-source-context mutation shard.
-  Direct `cargo mutants` against
-  `crates/wildside-cli/src/rust_source_context.rs` reported `188 mutants tested
-  in 25m: 138 caught, 3 unviable, 47 timeouts`, with zero missed mutants. This
-  strengthened ASM-citation source-context tests for comment/literal masking,
-  tokenisation, cfg-test item ranges, nested attrs, cfg expression parsing, and
-  test-only range boundaries. No native gameplay behaviour changes.
-- **Next output:** run `mise run project-status` after commit; if no ready/open
-  risks remain, use the proactive-verification fallback in `loop.md`.
+- **2026-07-02 loop handoff:** #210/#254 have a fixed candidate for the
+  early IntroSequence6 Start-skip menu timeout and moved back to human
+  validation. #252 and #324 remain open from the same human reconfirm.
+- **Current verification:** #210/#254 route `2400:start,2700:start` now keeps
+  the Red Stealth title menu through frame 3299; native/oracle AE is `0` at
+  2700/2720/3000/3299 and the known 8-pixel title-detail residue at 2800.
+  Focused intro/menu tests are green; finish with `verify-slice-fast` and
+  `verify-tas-full` before commit.
+- **Next output:** run `mise run project-status` after commit; take the next
+  listed open visual risk (#252 tank/helmet or #324 prize/P block, whichever
+  the selector reports first).
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -58,3 +58,5 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 324 | [ ] | P1 | render/block | 2026-07-02 human reconfirm: prize/P blocks can still show a weird sprite or terrain behind the wobble. | Re-test BLW1/Highwater prize wobble crop against oracle; inspect `sub_1007A` priority/art path. |
+| 252 | [ ] | P1 | render/enemy | 2026-07-02 human reconfirm: RockTank/tank sprite can still look garbled/doubled; user described this as the tank/helmet sprite issue. | Re-test BLW2/Highwater tank body/turret render; keep state untouched unless oracle diverges. |

@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (#210/#254 intro/menu fixed candidate)
+
+- **#210/#254 fixed candidate.** Reopened from the human reconfirm and reproduced
+  the visible class with `.cache/debug/issue210-current-intro-skip-probe/scenario.json`
+  plus `--input 2400:start --input 2700:start`: native frame 3299 was in demo/gameplay
+  art while oracle still showed the Red Stealth title menu (`AE=71009`).
+- Fix: scoped the active-menu timeout for the early IntroSequence6 Start-skip /
+  slot-2 carry lineage so `Obj_TitleMenu loc_1BB52` gets a fresh `$280` countdown
+  after the first Start opens the menu, while preserving the elapsed-countdown model
+  for TAS cursor routes.
+- Evidence: post-fix native/oracle captures are AE `0` at frames 2700, 2720, 3000,
+  and 3299 on the same route, with only the known 8-pixel title-detail residue at
+  2800. Focused `cold_boot_intro_sequence_6_`, `title_menu_`, and TAS cursor tests
+  are green.
+- NEXT: run `mise run project-status`; continue with the next open human-reconfirmed
+  row, currently #252 tank/helmet or #324 prize/P block depending on selector order.
+
 ## 2026-07-02 handoff (proactive CLI rust-source-context mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, ran a focused
