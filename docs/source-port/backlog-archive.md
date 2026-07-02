@@ -55,6 +55,24 @@ route. Keep #271 open: next useful artefact is a `play-native --record` live
 route from the reported failing jump, then score it with `--target-enemy-contact`
 before changing combat.
 
+Rejected patch note 2026-07-02: the current sharp route gives a better failure
+shape but still is not a shippable fix. `verify-tas --scenario
+.cache/recordings/issue271-sharp-current-20260702/scenario.json --frame-start 0
+--frame-end 110 --frontier-kind enemy --include-advisory --only-divergent`
+shows only a transient Tank body/turret export mismatch at frames 99-100, then
+resync. The later contact window is causal:
+`tas-diff --frame-start 216 --frame-end 235 ...` shows native turns the first
+Tank back right later than oracle around frames 217-218, leaving the body about
+1px left at frame 224; native classifies side damage while oracle writes
+`$0024(kidleft)` to the turret child and keeps HP. A mirrored left-edge
+extra-step experiment for `loc_3C0FA/loc_3C152` was rejected: with d7=`011`,
+d6=0, span=1, it prevented the frame-224 hit but shifted the whole patrol cycle
+too far right and Kid still took damage later (~frame 225/227). Do not retry a
+generic "left edge extra half-step" patch. Next useful step is narrower: decode
+the exact left-turn hibernate phase from oracle object slots around 216-218 and
+separately compare the Kid/enemy collision write at frame 224 before changing
+shared walker or stomp rules.
+
 Failed-validation note 2026-07-02: human playtest again reports RockTank head
 jumps hurting Kid/Red Stealth after the `$2C` delayed-damage candidate landed.
 Move #271 back to `[ ]`: the next pass must use a live targeted
