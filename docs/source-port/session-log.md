@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — #259 RockTank contact-window evidence
+
+- Project-status selected #259. Rechecked `Tank.asm loc_3B31E` /
+  `loc_3B372`: body Y is layout-seeded, priority is low, and the linked
+  mouth/turret child sits at body_y-8.
+- Scored `.cache/recordings/issue271-sharp-sweep-jump184-20260702/scenario.json`
+  with `--target-enemy-contact 0A`; frame 223 is the current BLW2 contact frame
+  with parent box `[145,170,208,224]`, child box `[145,170,200,216]`, and
+  `result stomp gate classify`. `tas-diff` frames 222..224 reports 2 match / 0
+  diverge; wider `verify-tas` first diverges later at frame 229, so the visual
+  evidence is scoped to 222..224 only.
+- Captured native VDP, native scene, native enemies, terrain/block layers, and
+  oracle VDP under `.cache/debug/issue259-rocktank-contact-window/`; crops and
+  the review grid are in `crops/`. Enemy-only shows the full coherent Tank;
+  native and oracle composites both show the same foreground/grass occlusion.
+- Moved #259 to `[b]` exact-frame-needed. The current first-BLW2/#271 contact
+  suspicion is not a native-only Tank placement fault; the remaining useful
+  evidence is an exact current live screenshot/recording/frame at the later
+  BLW2 or Highwater RockTank the human still reports. Next project-status item
+  should be #369.
+
 ## 2026-07-02 — #324 human-validated fixed
 
 - Human confirmed the prize/P block wobble fix and asked to log it fixed.

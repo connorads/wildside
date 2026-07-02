@@ -9680,6 +9680,34 @@ same, close as faithful with the image evidence, otherwise fix the real delta.
   Tank Y, priority, or renderer occlusion from these routes; the next useful
   artefact is an exact live screenshot/recording/frame at the named BLW2 or
   Highwater tank.
+- [Evidence] 2026-07-02 BLW2 contact-window visual recheck after #271 was
+  human-validated fixed: used the current sharp #271 route,
+  `.cache/recordings/issue271-sharp-sweep-jump184-20260702/scenario.json`, to
+  pair the same RockTank contact frame with `rock_tank_contact_probe` and
+  native/oracle visual layers. ASM basis remains `Tank.asm loc_3B31E`
+  (`priority(a3)=#0`, body `y_pos` from layout) and `Tank.asm loc_3B372`
+  (linked child/turret at body_y-8). Scorer:
+  `probe-record-scenario-file --scenario .cache/recordings/issue271-sharp-sweep-jump184-20260702/scenario.json --target-enemy-contact 0A --summary-only`
+  selected frame 223 with parent body at `0x009d0000,0x00e00000`, child at
+  `0x009d0000,0x00d80000`, parent box `[145,170,208,224]`, child box
+  `[145,170,200,216]`, and `result stomp gate classify`; `0x0B` had no contact
+  on this route. `tas-diff --frame-start 222 --frame-end 224 --frontier-kind
+  enemy --include-advisory --show-object-roster-on-match --only-divergent`
+  reports 2 match / 0 diverge. A wider `verify-tas` 220..230 first diverges at
+  frame 229, so the visual verdict is scoped only to frames 222..224.
+  Captures:
+  `.cache/debug/issue259-rocktank-contact-window/native-vdp/`,
+  `native-scene/`, `native-enemies/`, `native-terrain/`,
+  `native-block-overrides/`, and `oracle-vdp/`; review crops live under
+  `.cache/debug/issue259-rocktank-contact-window/crops/`, especially
+  `frame223-grid.png` and `native-scene-frame223-boxes-crop.png`. Result: the
+  enemy-only crop shows a coherent full RockTank above ground, while both the
+  native composite and oracle composite show the same foreground/grass occlusion
+  that makes the low-priority Tank look sunk. This closes the #271/first-BLW2
+  contact-frame suspicion as a native-only #259 placement fault, but it still
+  does not prove the later named BLW2/Highwater human frame. Move #259 to `[b]`
+  exact-frame-needed; do not retune Tank Y/priority without a divergent current
+  live screenshot/recording/frame.
 
 ### #260
 

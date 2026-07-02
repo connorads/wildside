@@ -34,10 +34,12 @@ and stop — never commit churn.
   longer hurts Kid/Red Stealth ("no hurty") after the delayed Tank/TankShooting
   side-contact timing fix. Keep #259 separate for the still-open floor/visual
   placement report.
-- **#259 reopened 2026-07-02:** RockTanks still look halfway in the floor on
-  levels 2/3. Next pass must pair enemy-only and final-composite views with
-  `rock_tank_contact_probe`, because perceived floor sink may be causing
-  players to aim at a damaging side box.
+- **#259 blocked 2026-07-02:** the current BLW2 #271 contact frame now has
+  `rock_tank_contact_probe`, enemy-only, terrain-mask, native composite, and
+  oracle composite evidence. It shows oracle-matched foreground occlusion, not
+  a native-only Tank Y/priority fault. The unresolved part is the exact later
+  BLW2/Highwater live frame the human still sees; do not retune Tank placement
+  without that frame.
 - **#324 resolved 2026-07-02:** human confirmed the prize/P block wobble is
   fixed after commit `00e7a6cb1`. The direct replay check remains verifier
   frame 840 from `playtest-2026-07-02-prize-wobble`: lifted P block, no
@@ -81,5 +83,4 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 259 | [ ] | P1 | enemy/render | Reopened 2026-07-02: RockTanks still appear halfway in the floor on levels 2/3, likely interacting with #271 targeting. | Capture same frame as #271 where possible: body/turret Y, child collision box, enemy-only layer, composite foreground mask, oracle side-by-side. |
 | 369 | [ ] | P1 | render/eol | Reopened 2026-07-02: flagpole base is still missing at end of level after the priority fixed-candidate. | Natural EOL capture: inspect scene commands, priority mask, raw VDP sprite list, and oracle frame for the base/bottom flag sprite. |
