@@ -16194,6 +16194,12 @@ mod tests {
         );
         assert!(manifest_text.contains("\"route_target\""));
         assert!(manifest_text.contains("\"label\": \"usm3-slope\""));
+        assert!(manifest_text.contains("\"route_target_score_commands\""));
+        assert!(
+            manifest_text.contains(
+                "probe-record-scenario-file --scenario .cache/recordings/freeze-repro/scenario.json --target-enemy-contact 0A --summary-only"
+            )
+        );
         assert!(
             manifest_text.contains(
                 "verify-tas --scenario .cache/recordings/freeze-repro/scenario.json --bisect --frontier-kind gameplay"

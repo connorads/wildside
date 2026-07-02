@@ -3018,6 +3018,7 @@ mod tests {
                 record_command: String::new(),
                 verify_command: String::new(),
                 tas_frontier_command: String::new(),
+                route_target_score_commands: Vec::new(),
                 route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
@@ -3075,6 +3076,7 @@ mod tests {
                 record_command: String::new(),
                 verify_command: String::new(),
                 tas_frontier_command: String::new(),
+                route_target_score_commands: Vec::new(),
                 route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
@@ -3132,6 +3134,7 @@ mod tests {
                 record_command: String::new(),
                 verify_command: String::new(),
                 tas_frontier_command: String::new(),
+                route_target_score_commands: Vec::new(),
                 route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
@@ -3196,6 +3199,7 @@ mod tests {
                 record_command: String::new(),
                 verify_command: String::new(),
                 tas_frontier_command: String::new(),
+                route_target_score_commands: Vec::new(),
                 route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
@@ -3255,6 +3259,7 @@ mod tests {
                 record_command: String::new(),
                 verify_command: String::new(),
                 tas_frontier_command: String::new(),
+                route_target_score_commands: Vec::new(),
                 route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
@@ -3320,6 +3325,7 @@ mod tests {
                 record_command: String::new(),
                 verify_command: String::new(),
                 tas_frontier_command: String::new(),
+                route_target_score_commands: Vec::new(),
                 route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
@@ -3378,6 +3384,7 @@ mod tests {
                 record_command: String::new(),
                 verify_command: String::new(),
                 tas_frontier_command: String::new(),
+                route_target_score_commands: Vec::new(),
                 route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
@@ -3437,6 +3444,7 @@ mod tests {
                 record_command: String::new(),
                 verify_command: String::new(),
                 tas_frontier_command: String::new(),
+                route_target_score_commands: Vec::new(),
                 route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
@@ -3501,6 +3509,7 @@ mod tests {
                 record_command: String::new(),
                 verify_command: String::new(),
                 tas_frontier_command: String::new(),
+                route_target_score_commands: Vec::new(),
                 route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
@@ -3572,6 +3581,7 @@ mod tests {
                 record_command: String::new(),
                 verify_command: String::new(),
                 tas_frontier_command: String::new(),
+                route_target_score_commands: Vec::new(),
                 route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {

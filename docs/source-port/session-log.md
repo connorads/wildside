@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — RockTank live recordings get scorer commands
+
+- #271 remains open/in progress. Added generated
+  `route_target_score_commands` to recording bundles when
+  `--record-target-enemy 0A/0B` is used, so the next live route can be scored
+  directly with `probe-record-scenario-file --target-enemy-contact`.
+- This is diagnostic tooling, not a combat fix. The next useful evidence is
+  still a live `play-native --record` capture of the failing head jump followed
+  by generated `verify-recording`, `tas_frontier_command`, and scorer command.
+- Verification: focused recording/native-player tests pass; `mise run
+  verify-slice-fast` passes.
+
 ## 2026-07-02 — RockTank contact route scorer added
 
 - Added `--target-enemy-contact 0A/0B` to single and batch record-scenario

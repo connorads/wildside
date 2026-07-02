@@ -13,6 +13,15 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #271
 
+Investigation/tooling note 2026-07-02: recording bundles with route-target
+enemies now generate `route_target_score_commands` in `manifest.json` and
+`README.txt`, e.g. `probe-record-scenario-file --scenario
+.cache/recordings/<slug>/scenario.json --target-enemy-contact 0A --summary-only`.
+This turns the next live `play-native --record --record-target-enemy 0A/0B`
+capture into a one-command stomp/damage/miss classification. This is tooling
+only, not a gameplay verdict: keep #271 `[~]` until the exact human failing jump
+is captured and compared against oracle.
+
 Investigation/tooling note 2026-07-02: added native route scorer
 `--target-enemy-contact 0A/0B` to `probe-record-scenario-file` and
 `probe-record-scenario-file-batch` so RockTank routes can be ranked by actual

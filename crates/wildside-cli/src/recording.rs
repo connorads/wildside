@@ -150,6 +150,8 @@ pub(crate) struct NativeRecordingManifest {
     pub(crate) verify_command: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub(crate) tas_frontier_command: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) route_target_score_commands: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) route_target: Option<RecordingRouteTarget>,
     #[serde(default)]
@@ -403,6 +405,7 @@ pub(crate) fn build_recording(
             record_command,
             verify_command,
             tas_frontier_command: recording_tas_frontier_command(slug, "enemy"),
+            route_target_score_commands: Vec::new(),
             route_target: None,
             artifacts: Vec::new(),
             scenario: DynamicScenario {
@@ -439,6 +442,12 @@ pub(crate) fn save_recording_with_artifacts(
         .with_context(|| format!("failed to create {}", record_to.display()))?;
     let mut manifest = recording.manifest.clone();
     manifest.artifacts = write_recording_artifacts(record_to, recording, artifacts)?;
+    if manifest.route_target_score_commands.is_empty()
+        && let Some(target) = &manifest.route_target
+    {
+        manifest.route_target_score_commands =
+            recording_route_target_score_commands(&manifest.slug, target);
+    }
 
     fs::write(
         record_to.join("manifest.json"),
@@ -2446,6 +2455,12 @@ fn normalise_loaded_recording(recording: &mut NativeRecording) -> Result<()> {
         recording.manifest.tas_frontier_command =
             recording_tas_frontier_command(&recording.manifest.slug, "enemy");
     }
+    if recording.manifest.route_target_score_commands.is_empty()
+        && let Some(target) = &recording.manifest.route_target
+    {
+        recording.manifest.route_target_score_commands =
+            recording_route_target_score_commands(&recording.manifest.slug, target);
+    }
     rebase_settled_trace_frame_indices(recording);
     Ok(())
 }
@@ -2741,6 +2756,21 @@ pub(crate) fn recording_tas_frontier_command(slug: &str, frontier_kind: &str) ->
     )
 }
 
+pub(crate) fn recording_route_target_score_commands(
+    slug: &str,
+    target: &RecordingRouteTarget,
+) -> Vec<String> {
+    target
+        .enemies
+        .iter()
+        .map(|enemy| {
+            format!(
+                "cargo run -p wildside-cli -- probe-record-scenario-file --scenario .cache/recordings/{slug}/scenario.json --target-enemy-contact {enemy:02X} --summary-only"
+            )
+        })
+        .collect()
+}
+
 fn recording_bundle_summary(manifest: &NativeRecordingManifest, trace_len: usize) -> String {
     let mut lines = vec![
         format!(
@@ -2774,6 +2804,11 @@ fn recording_bundle_summary(manifest: &NativeRecordingManifest, trace_len: usize
     lines.push(String::from("tas_frontier_command:"));
     lines.push(manifest.tas_frontier_command.clone());
     lines.push(String::new());
+    if !manifest.route_target_score_commands.is_empty() {
+        lines.push(String::from("route_target_score_commands:"));
+        lines.extend(manifest.route_target_score_commands.iter().cloned());
+        lines.push(String::new());
+    }
     if let Some(target) = &manifest.route_target
         && !target.is_empty()
     {
@@ -4219,7 +4254,19 @@ mod tests {
             fs::read_to_string(temp.path().join("manifest.json")).expect("manifest text");
         assert!(manifest.contains("\"route_target\""));
         assert!(manifest.contains("\"label\": \"usm3-0x06-slope\""));
+        assert!(manifest.contains("\"route_target_score_commands\""));
+        assert!(
+            manifest.contains(
+                "probe-record-scenario-file --scenario .cache/recordings/usm3-slope-route/scenario.json --target-enemy-contact 0A --summary-only"
+            )
+        );
         let readme = fs::read_to_string(temp.path().join("README.txt")).expect("recording readme");
+        assert!(readme.contains("route_target_score_commands:"));
+        assert!(
+            readme.contains(
+                "cargo run -p wildside-cli -- probe-record-scenario-file --scenario .cache/recordings/usm3-slope-route/scenario.json --target-enemy-contact 0A --summary-only"
+            )
+        );
         assert!(readme.contains("route_target:"));
         assert!(readme.contains("- label: usm3-0x06-slope"));
         assert!(readme.contains("- level: 0x06"));
