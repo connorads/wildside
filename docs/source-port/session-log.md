@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 - proactive Diamond terrain-table audit
+
+- Project-status still showed no ready/open risks, so the fallback audit moved
+  from Sphere to the compact Diamond high-HP terrain loop.
+- Audited Diamond.asm `loc_3ADA4`: the high-HP loop clears and polls
+  `collision_type(a3)`, sends `colid_ceiling` to `loc_3AE3E`, and keeps
+  `colid_slopeup` / `colid_slopedown` distinct for `loc_3AE4A` /
+  `loc_3AE68`. Native only emitted walls, floor, or zero, so ceiling fell into
+  `loc_3AE78` and slopes collapsed to the generic floor loop.
+- Added regressions
+  `diamond_high_hp_collision_type_maps_ceiling_and_slopes_loc_3ada4` and
+  `diamond_high_hp_live_step_applies_ceiling_and_slope_dispatch_loc_3ada4`.
+  Red run showed the classifier returned `0` for a ceiling hit and the live
+  step used the no-collision fall velocity instead of the `loc_3AE3E` bounce.
+  Native now probes ceilings while rising and preserves slope collision kinds
+  from the floor probe.
+- Verification: focused red/green test, `cargo test -q -p wildside-core
+  diamond_high_hp`, `cargo test -q -p wildside-core diamond`, `cargo fmt --all
+  --check`, `git diff --check`, `mise run backlog-lint`, `mise run
+  verify-slice-fast`, and `mise run verify-tas-full` pass. Full TAS exits 0
+  with CRC all 37759 frames matching; the current long route still reports the
+  known `1p-accurate` state gap, first at `transition_15_to_00_post` on
+  DragonWalking/object-count.
+
 ## 2026-07-02 - proactive Sphere collision-table audit
 
 - Project-status still showed no ready/open risks, so the fallback audit moved

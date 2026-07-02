@@ -59,8 +59,8 @@ and stop — never commit churn.
 - **Proactive verification 2026-07-02:** with no ready/open queue rows,
   mutation fallback found no actionable source gaps (`armadillo.rs`: 34 caught,
   12 unviable; `spinning_twins.rs`: 105 caught, 21 unviable;
-  `big_hopping_skull.rs`: 56 caught, 15 unviable). ASM audits found three live
-  shared-walker gaps. Armadillo.asm `loc_3C766`/`loc_3C7F8` now seeds the
+  `big_hopping_skull.rs`: 56 caught, 15 unviable). ASM audits found four live
+  gameplay gaps. Armadillo.asm `loc_3C766`/`loc_3C7F8` now seeds the
   shared Scorpion.asm `loc_3DEA0` `$6E/$54` timer through
   `shared_walker_patrol_timer`, hibernating/reversing on expiry. Goat.asm
   `loc_3CC18` now runs before the live pacer step; turn routes through
@@ -69,9 +69,12 @@ and stop — never commit churn.
   direction. Sphere.asm `loc_35F9E` now routes stored signed-negative,
   `colid_hurt`, and `colid_kidabove` collision words into
   Enemy06_Sphere_Kill `loc_36052` instead of ignoring them in the bouncer AI
-  table. `verify-slice-fast` passes; `verify-tas-full` exits 0 with CRC all
-  37759 frames matching but still reports the current `1p-accurate` state gap
-  (first authoritative diff: `transition_15_to_00_post`
+  table. Diamond.asm `loc_3ADA4` now preserves high-HP `colid_ceiling`,
+  `colid_slopeup`, and `colid_slopedown` terrain words so `loc_3AE3E`,
+  `loc_3AE4A`, and `loc_3AE68` can run instead of collapsing to no-collision or
+  generic floor. `verify-slice-fast` passes; `verify-tas-full` exits 0 with CRC
+  all 37759 frames matching but still reports the current `1p-accurate` state
+  gap (first authoritative diff: `transition_15_to_00_post`
   DragonWalking/object-count). ASM coverage remains `0` ordinary uncovered
   labels plus 21 emulated GEMS wrappers; do not cite those wrappers just to move
   the metric.

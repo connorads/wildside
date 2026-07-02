@@ -443,9 +443,23 @@ fn diamond_high_hp_collision_type(
         };
     }
 
+    if enemy.y_velocity < 0 {
+        let ceiling =
+            terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
+        if ceiling.hit {
+            return DIAMOND_COLID_CEILING;
+        }
+    }
+
     let floor = terrain::probe_floor(grid, cx, cy);
     if floor.on_ground && enemy.y_velocity >= 0 {
-        return DIAMOND_COLID_FLOOR;
+        return match floor.cell.collision {
+            // ASM Diamond.asm loc_3ADA4 keeps slope collision words distinct:
+            // loc_3AE4A/loc_3AE68 select the next y_vel from x_vel's sign.
+            terrain::CollisionKind::SlopeUp => DIAMOND_COLID_SLOPEUP,
+            terrain::CollisionKind::SlopeDown => DIAMOND_COLID_SLOPEDOWN,
+            _ => DIAMOND_COLID_FLOOR,
+        };
     }
 
     0
@@ -472,6 +486,14 @@ mod tests {
         let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 8 * 2], 8, 8);
         for &(col, row) in cells {
             grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0x60, 0x00));
+        }
+        grid
+    }
+
+    fn diamond_grid_with_cells(cells: &[(u16, u16, terrain::Cell)]) -> terrain::BlockGrid {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 8 * 2], 8, 8);
+        for &(col, row, cell) in cells {
+            grid.set_cell_at(col, row, cell);
         }
         grid
     }
@@ -662,6 +684,65 @@ mod tests {
             ),
             0,
             "ASM Diamond.asm loc_3ADA4 should not report floor contact while the high-HP Diamond is rising"
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_collision_type_maps_ceiling_and_slopes_loc_3ada4() {
+        let ceiling_grid = diamond_grid_with_solid_cells(&[(1, 2)]);
+        assert_eq!(
+            diamond_high_hp_collision_type(
+                &diamond_test_enemy(32, 48, 0x0001_8000, -0x0001_0000),
+                Some(&ceiling_grid),
+            ),
+            DIAMOND_COLID_CEILING,
+            "ASM Diamond.asm loc_3ADA4 dispatches colid_ceiling to loc_3AE3E after the vertical collision pass"
+        );
+
+        let slope_up_grid =
+            diamond_grid_with_cells(&[(2, 3, terrain::Cell::from_be_bytes(0x40, 0x00))]);
+        assert_eq!(
+            diamond_high_hp_collision_type(
+                &diamond_test_enemy(40, 55, 0x0001_8000, 0),
+                Some(&slope_up_grid),
+            ),
+            DIAMOND_COLID_SLOPEUP,
+            "ASM Diamond.asm loc_3ADA4 must preserve colid_slopeup for loc_3AE4A's x-velocity sign branch"
+        );
+
+        let slope_down_grid =
+            diamond_grid_with_cells(&[(2, 3, terrain::Cell::from_be_bytes(0x50, 0x00))]);
+        assert_eq!(
+            diamond_high_hp_collision_type(
+                &diamond_test_enemy(40, 56, 0x0001_8000, 0),
+                Some(&slope_down_grid),
+            ),
+            DIAMOND_COLID_SLOPEDOWN,
+            "ASM Diamond.asm loc_3ADA4 must preserve colid_slopedown for loc_3AE68's x-velocity sign branch"
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_live_step_applies_ceiling_and_slope_dispatch_loc_3ada4() {
+        let ceiling_grid = diamond_grid_with_solid_cells(&[(1, 1)]);
+        let mut ceiling_diamond = diamond_test_enemy(32, 48, 0, -0x0000_8000);
+
+        step_diamond_high_hp(&mut ceiling_diamond, Some(&ceiling_grid));
+
+        assert_eq!(
+            ceiling_diamond.y_velocity, 0x0000_8000,
+            "ASM Diamond.asm loc_3AE3E should negate y_vel after loc_3ADA4 sees colid_ceiling"
+        );
+
+        let slope_up_grid =
+            diamond_grid_with_cells(&[(2, 3, terrain::Cell::from_be_bytes(0x40, 0x00))]);
+        let mut slope_diamond = diamond_test_enemy(40, 55, 0, 0);
+
+        step_diamond_high_hp(&mut slope_diamond, Some(&slope_up_grid));
+
+        assert_eq!(
+            slope_diamond.y_velocity, -0x0001_8000,
+            "ASM Diamond.asm loc_3AE4A should set -$18000 y_vel for colid_slopeup with non-negative x_vel"
         );
     }
 
