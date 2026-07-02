@@ -850,6 +850,18 @@ mod drips_surface_crawler_tests {
         );
     }
 
+    #[test]
+    fn boss_burst_finish_animation_duration_matches_stru_37bfc() {
+        assert_eq!(
+            BOSS_DEATH_BURST_FINISH_ANIMATION_FRAMES_STRU_37BFC, 0x50,
+            "ASM kid.asm stru_37BFC has frame durations $32, $A, $A, and $A before sub_3728C deletes"
+        );
+        assert_eq!(
+            BOSS_EYE_POP_EFFECT_FINISH_ANIMATION_FRAMES_STRU_37BFC, 0x50,
+            "ASM kid.asm stru_37BFC has frame durations $32, $A, $A, and $A before loc_3731C decrements $FFFFFB4F"
+        );
+    }
+
     fn minimal_manifest() -> wildside_data::AssetManifest {
         wildside_data::AssetManifest {
             generated_bundle_version: wildside_data::GENERATED_BUNDLE_VERSION,

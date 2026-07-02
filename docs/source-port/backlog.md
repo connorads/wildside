@@ -56,23 +56,25 @@ and stop — never commit churn.
 - **Visual route work:** do not retune Tank Y/priority, flagpole priority, or
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
-- **Proactive verification 2026-07-02:** no ready/open rows remain. Recent
+- **Proactive verification 2026-07-03:** no ready/open rows remain. Recent
   fallback passes fixed compact ASM gaps for Armadillo, Goat, Sphere, Diamond,
-  Driller, Fire Demon, Cloud, Tornado, Emo Rock, Robot, and Berzerker charge
-  contact; session-log has the per-pass details. Latest change:
-  `Character_CheckCollision loc_B678` Berzerker charge now uses
-  `enemy_contact_bounds` for the enemy side instead of the old fixed target
-  box; DragonWalking `unk_31630` charge contact, Sphere vertical edges, and
-  Archer zero-row misses are pinned.
-- **Current gates 2026-07-02:** `verify-slice-fast` passes; `verify-tas-full`
-  exits 0 with CRC all 37759 frames matching but still reports the current
-  `1p-accurate` state gap (first authoritative diff:
-  `transition_15_to_00_post` DragonWalking/object-count). Focused Berzerker,
-  friendly-projectile, and Red Stealth contact tests pass. Diff-scoped mutation
-  on the Berzerker helper caught 39/44 mutants; the 5 survivors are equivalent
-  empty-row sentinel variants. ASM coverage remains `0` ordinary uncovered
-  labels plus 21 emulated GEMS wrappers; do not cite those wrappers just to move
-  the metric.
+  Driller, Fire Demon, Cloud, Tornado, Emo Rock, Robot, Berzerker charge
+  contact, and projectiles `stru_37BFC` timing. Latest change: the projectile
+  mutation shard now pins `stru_37BFC` finish duration to `$50` for both
+  sub_3728C and sub_3729E/loc_3731C, and asserts the sub_37002 death-burst
+  helper keeps `LnkTo_unk_C8460-Data_Index`.
+- **Current gates 2026-07-03:** focused `stru_37BFC` and sub_37002 helper tests
+  pass; `mise run verify-slice-fast` passes. Filtered projectiles mutation
+  rerun `/tmp/mutants-projectiles-stru37bfc-20260703-rerun` reports 54 mutants:
+  42 caught, 12 missed; the remaining misses are equivalent Drips shell
+  default-field deletions where explicit `0`/`false` assignments fall back to
+  the same `EnemyProjectile::default()` values. No gameplay code changed this
+  session, so `verify-tas-full` was not rerun; latest full TAS remains the
+  2026-07-02 pass with CRC all 37759 frames matching and the known
+  `1p-accurate` state gap at `transition_15_to_00_post`
+  DragonWalking/object-count. ASM coverage remains `0` ordinary uncovered labels
+  plus 21 emulated GEMS wrappers; do not cite those wrappers just to move the
+  metric.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

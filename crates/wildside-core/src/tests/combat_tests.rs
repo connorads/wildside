@@ -3239,6 +3239,10 @@ fn live_boss_death_burst_timeout_spawns_sub_37002_helper_loc_3724a() {
         helper.homing_accel, 0x0000_0FA0,
         "ASM sub_37002 homes with `$FA0`, not the slower sub_370D2 `$7D0`"
     );
+    assert_eq!(
+        helper.boss_eye_sprite_mapping_label, "LnkTo_unk_C8460-Data_Index",
+        "ASM sub_37002 seeds the helper with the shared death-burst sprite mapping"
+    );
 
     runtime
         .projectiles

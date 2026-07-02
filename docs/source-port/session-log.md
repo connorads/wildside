@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive projectile mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback resumed the
+  earlier `projectiles.rs` mutation audit rather than taking a human-blocked
+  row.
+- Re-read `sub_3728C`, `sub_3729E/loc_3731C`, and `stru_37BFC`. The ROM finish
+  animation is `$32 + $A + $A + $A = $50`; the existing live eye-pop test
+  compared runtime state to the same native constant, so arithmetic mutations
+  in that constant survived.
+- Added exact `$50` assertions for both `BOSS_DEATH_BURST_FINISH...` and
+  `BOSS_EYE_POP_EFFECT_FINISH...`, and asserted the sub_37002 timeout helper
+  keeps the shared `LnkTo_unk_C8460-Data_Index` sprite mapping.
+- Verification: focused `stru_37BFC` and sub_37002 helper tests pass;
+  `mise run verify-slice-fast` passes. Filtered mutation rerun
+  `/tmp/mutants-projectiles-stru37bfc-20260703-rerun` reports 54 mutants: 42
+  caught, 12 missed. The misses are equivalent Drips shell default-field
+  deletions (`0`/`false` fields falling back to the same
+  `EnemyProjectile::default()` values). `verify-tas-full` was not rerun because
+  this was test-only; latest full TAS remains the 2026-07-02 pass with CRC all
+  37759 frames matching and the known `transition_15_to_00_post`
+  DragonWalking/object-count state gap.
+
 ## 2026-07-02 - proactive Berzerker contact-box audit
 
 - Project-status still showed no ready/open risks, so the fallback followed the
