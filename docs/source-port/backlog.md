@@ -26,13 +26,18 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-02 loop handoff:** #324 has a fixed candidate and moved to the
-  archive. The exact Highwater route
-  `.cache/recordings/issue324-highwater-prize-row97/scenario.json` hits prize
-  cell `(4,97)` at frame 47; native scene frames 48/50 now hide the shifted
-  deleted-tile child instead of drawing the stray P/block sprite.
-- **Verification:** focused prize-block scene tests and the Highwater scene
-  captures are green; run `mise run project-status` for the next priority item.
+- **2026-07-02 loop handoff:** open queue remains empty after the #324
+  Highwater prize/P-block close-out. `mise run project-status` reports no ready
+  items and no open playability/visual risks; only human validation/repro
+  blockers remain.
+- **Proactive verification:** ASM coverage has no ordinary uncovered labels
+  left (`sub_E133C`/`sub_E155A` are emulated GEMS only). Mutation shards are
+  clean for `crates/wildside-core/src/enemies/tank.rs` (28 tested: 21 caught,
+  7 unviable) and `crates/wildside-core/src/enemies/robot.rs` (105 tested: 93
+  caught, 12 unviable).
+- **Next output:** run `mise run project-status`; if it still has no ready/open
+  rows, continue the proactive-verification fallback with a fresh file or enemy
+  family.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive tank/robot mutation shards)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation rows after #324; only human validation/repro blockers remain.
+- **ASM coverage fallback checked:** no ordinary uncovered labels remain;
+  `sub_E133C` and `sub_E155A` are the remaining emulated GEMS labels.
+- **Mutation fallback checked:** `tank.rs` passed with 28 mutants tested
+  (21 caught, 7 unviable, 0 survived), and `robot.rs` passed with 105 mutants
+  tested (93 caught, 12 unviable, 0 survived). Both required
+  `TMPDIR=/tmp FILE=... mise run mutants-file` because cargo-mutants otherwise
+  drops `TMPDIR` in the isolated baseline.
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, choose a
+  fresh proactive-verification target rather than repeating tank/robot.
+
 ## 2026-07-02 handoff (#324 Highwater prize/P block fixed)
 
 - **#324 moved `[~]` -> `[x]`.** Exact route
