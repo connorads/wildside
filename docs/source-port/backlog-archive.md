@@ -11553,6 +11553,24 @@ shows frame 840 as a lifted copied P block; focused `prize_block_wobble` tests
 and `mise run verify-slice-fast` are green. Move #324 `[ ]` -> `[?]` for human
 validation on the same live route.
 
+Follow-up fixed candidate 2026-07-02 (triangle/wood leak): human GIF
+`prize-block-wobble.gif` showed the remaining wrong sprite as the diagonal
+forest/wood tile visible under/around an active lifted P block, not merely a
+missing copied wobble sprite. Current replay frame 840 still had a shifted
+`block_bounces=[(10,12,23,-8)]` P-block sprite, but `push_level_layout_terrain`
+fell back to `foreground_layout.skin_at(10,12)` for active `$6F02` prize cells
+when `y_offset != 0`; on this row that immutable skin is the triangular forest
+tile. ASM `sub_1007A` owns the active `$6Fxx` cell for the whole bob via the
+copied GfxObject, so native now suppresses immutable foreground terrain for
+all active `$6Fxx` prize-bounce frames, not only source-position frames.
+Regression
+`prize_block_wobble_suppresses_foreground_skin_while_shifted_sub_1007a_issue324`
+pins the exact leak. Evidence: native-only replay of the human bundle passes;
+frame 840 crop after the patch has the lifted P block with no diagonal tile
+under its active source cell; focused `wildside-frame` and `wildside-cli`
+`prize_block_wobble` tests pass; `mise run verify-slice-fast` green. Keep #324
+`[?]` pending human validation on the same GIF route.
+
 ### #339
 
 Fixed 2026-06-19: `refresh_active_roster` emits `StopSequence(sfx_Tank_driving)` ($12 cmdstopseq stop) when the pooled drive refcount drops to 0 as the last Rock Tank exits (scroll-off loc_3C436 + death Tank.asm loc_3B480, both → loc_3C46E→loc_3C4A8). Regression `loc_3c46e_last_rock_tank_exit_emits_stopsequence_tank_driving_stop` (+3). slice/sweep/TAS green. Awaiting human audio validation (#264 headless caveat: can't verify perceived halt). See archive #339

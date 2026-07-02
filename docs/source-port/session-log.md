@@ -27,8 +27,9 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   while the bob script moves `y_pos(a3)`. The previous shifted-hide conclusion
   was wrong for ordinary visible prize blocks.
 - Native now renders active prize/P block bounce workers even when their
-  y-offset is non-zero. Updated scene/native-player regressions pin the shifted
-  copied block.
+  y-offset is non-zero. Follow-up from the human GIF also suppresses the
+  immutable diagonal forest/wood foreground skin under active `$6Fxx` prize
+  cells while the copied block is lifted.
 - Verification: focused `prize_block_wobble` tests, native-only replay of the
   human bundle, visual contact sheet `contact-720-975-after.png`, and
   `mise run verify-slice-fast` all pass.

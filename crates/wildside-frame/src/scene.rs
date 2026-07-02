@@ -5626,14 +5626,6 @@ pub fn push_level_layout_terrain(
             let raw_word = block_grid.map(|grid| grid.raw_word_at(col, row));
             let active_prize_bounce =
                 block_bounce_kind_for_trace(trace, col, row) == Some(BlockBounceTraceKind::Prize);
-            let active_prize_bounce_at_source =
-                trace
-                    .block_bounces
-                    .iter()
-                    .any(|(cx, cy, remaining, y_offset)| {
-                        *cx == col && *cy == row && *remaining > 0 && *y_offset == 0
-                    })
-                    && active_prize_bounce;
             let priority_override = raw_word
                 .filter(|word| word & 0x8100 == 0x0100)
                 .map(|_| true);
@@ -5649,16 +5641,9 @@ pub fn push_level_layout_terrain(
                 Some(cell) if cell.has_block => continue,
                 Some(_cell)
                     if active_prize_bounce
-                        && active_prize_bounce_at_source
                         && raw_word.is_some_and(|word| word & 0xFF00 == 0x6F00) =>
                 {
                     continue;
-                }
-                Some(_cell)
-                    if active_prize_bounce
-                        && raw_word.is_some_and(|word| word & 0xFF00 == 0x6F00) =>
-                {
-                    layout.skin_at(col, row)
                 }
                 Some(cell)
                     if cell.collision != wildside_core::terrain::CollisionKind::Empty
@@ -8641,6 +8626,75 @@ mod tests {
             );
             assert!(commands.is_empty(), "skipped bounce case: {bounce:?}");
         }
+    }
+
+    #[test]
+    fn prize_block_wobble_suppresses_foreground_skin_while_shifted_sub_1007a_issue324() {
+        let mut visuals = sample_level_visuals(0x300);
+        let mut foreground_layout_bytes = vec![0; 20 * 14];
+        foreground_layout_bytes[1] = 7;
+        visuals.level.foreground_layout =
+            wildside_render::ForegroundLayout::parse(&foreground_layout_bytes, 1, 1)
+                .expect("foreground layout");
+        visuals.level.foreground_layout_bytes = foreground_layout_bytes;
+        visuals.level.block_mapping = wildside_render::BlockVisualMapping::new(
+            (0..8).map(|skin| sample_quad(0x040 + skin * 4)).collect(),
+            (0..81)
+                .map(|skin| sample_quad(BLOCK_TILE_VRAM_BASE + skin * 4))
+                .collect(),
+        )
+        .expect("block mapping");
+
+        let grid = wildside_core::terrain::BlockGrid::from_level_layout(
+            &[0x00, 0x00, 0x6F, 0x02, 0x00, 0x00],
+            3,
+            1,
+        );
+        let trace = NativeTraceFrame {
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            block_bounces: vec![(1, 0, 28, -6)],
+            block_bounce_details: vec![BlockBounceTrace {
+                cell_x: 1,
+                cell_y: 0,
+                x_offset_px: 0,
+                remaining: 28,
+                y_offset_px: -6,
+                kind: BlockBounceTraceKind::Prize,
+            }],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            Some(&grid),
+            LayerFilter {
+                background: false,
+                terrain: true,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: false,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        assert!(
+            !scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::IndexedTile {
+                    x: 16,
+                    y: 0,
+                    tile,
+                    ..
+                } if (0x05C..=0x05F).contains(&tile.tile_index)
+            )),
+            "ASM sub_1007A owns active `$6Fxx` prize cells for the whole bob; native must not leak the immutable foreground skin, such as the row-12 diagonal forest tile, under a shifted copied P block"
+        );
     }
 
     #[test]
