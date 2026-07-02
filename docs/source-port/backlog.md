@@ -26,18 +26,17 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-02 loop handoff:** open queue remains empty after the #324
-  Highwater prize/P-block close-out. `mise run project-status` reports no ready
-  items and no open playability/visual risks; only human validation/repro
-  blockers remain.
-- **Proactive verification:** ASM coverage has no ordinary uncovered labels
-  left (`sub_E133C`/`sub_E155A` are emulated GEMS only). Mutation shards are
-  clean for `crates/wildside-core/src/enemies/tank.rs` (28 tested: 21 caught,
-  7 unviable) and `crates/wildside-core/src/enemies/robot.rs` (105 tested: 93
-  caught, 12 unviable).
+- **2026-07-02 loop handoff:** open queue remains empty. `mise run
+  project-status` reports no ready items and no open playability/visual risks;
+  only human validation/repro blockers remain.
+- **Proactive verification:** `wildside-frame/src/sprites.rs` full mutation run
+  found render-selector gaps (969 tested: 154 missed, 756 caught, 59 unviable).
+  Added focused RockTank/palette tests; filtered subset
+  `--re 'rock_tank|TankTurret|select_enemy_palette'` is now clean (66 tested:
+  61 caught, 5 unviable).
 - **Next output:** run `mise run project-status`; if it still has no ready/open
-  rows, continue the proactive-verification fallback with a fresh file or enemy
-  family.
+  rows, continue `sprites.rs` mutation follow-up outside the RockTank/palette
+  subset, or choose another fresh proactive-verification target.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

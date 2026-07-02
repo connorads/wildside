@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive frame sprite mutation shard)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation rows; only human validation/repro blockers remain.
+- **Mutation fallback advanced:** full `wildside-frame/src/sprites.rs` run found
+  `969 mutants tested in 24m: 154 missed, 756 caught, 59 unviable`. The first
+  landed slice targets the recent RockTank/turret render risk class plus enemy
+  palette variants.
+- **Tests added:** `rock_tank_child_helpers_classify_loc_3b372_snapshots_and_flash`,
+  `rock_tank_turret_scripts_follow_stru_3b27e_and_3b4d8_boundaries`,
+  `rock_tank_body_selector_uses_three_frame_stru_3b270_cycle`, and
+  `enemy_palette_variant_indexes_extra_palettes_after_base_line`.
+- **Verification:** focused `cargo test -p wildside-frame rock_tank -- --nocapture`,
+  focused palette-variant test, and filtered mutation subset
+  `TMPDIR=/tmp KID_REPO_ROOT="$PWD" cargo mutants -p wildside-frame -f crates/wildside-frame/src/sprites.rs --re 'rock_tank|TankTurret|select_enemy_palette' -j 1 --gitignore=true --output .cache/mutants/frame-sprites-rocktank-after2 -- --lib`
+  now passes with `66 mutants tested in 79s: 61 caught, 5 unviable`.
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  `sprites.rs` mutation follow-up outside the RockTank/palette subset or choose
+  another fresh proactive-verification target.
+
 ## 2026-07-02 handoff (proactive tank/robot mutation shards)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open

@@ -3379,6 +3379,285 @@ mod tests {
     }
 
     #[test]
+    fn rock_tank_child_helpers_classify_loc_3b372_snapshots_and_flash() {
+        let mut parent = live_enemy_object(0x0B);
+        parent.layout_index = Some(7);
+        parent.hit_points = Some(4);
+        parent.damage_flash = true;
+        let child = NativeObjectSnapshot {
+            hit_points: None,
+            damage_flash: false,
+            on_ground: None,
+            ..parent.clone()
+        };
+        let zero_hp_child = NativeObjectSnapshot {
+            hit_points: Some(0),
+            ..child.clone()
+        };
+        let trace = NativeTraceFrame {
+            active_objects: vec![parent.clone(), child.clone()],
+            ..NativeTraceFrame::default()
+        };
+
+        // ASM Tank.asm loc_3B372 / Tank_Shooting.asm loc_3B5FA allocate only
+        // object types $0A/$0B as linked turret children.
+        assert!(is_rock_tank_type(0x0A));
+        assert!(is_rock_tank_type(0x0B));
+        assert!(!is_rock_tank_type(0x09));
+        assert!(is_rock_tank_child_snapshot(0x0B, &child, &trace));
+        assert!(is_rock_tank_child_snapshot(0x0B, &zero_hp_child, &trace));
+
+        let live_not_child = NativeObjectSnapshot {
+            hit_points: Some(1),
+            ..child.clone()
+        };
+        assert!(!is_rock_tank_child_snapshot(0x0B, &live_not_child, &trace));
+        assert!(!is_rock_tank_child_snapshot(0x09, &child, &trace));
+        let wrong_layout_child = NativeObjectSnapshot {
+            layout_index: Some(8),
+            ..child.clone()
+        };
+        assert!(!is_rock_tank_child_snapshot(
+            0x0B,
+            &wrong_layout_child,
+            &trace
+        ));
+        let no_parent_trace = NativeTraceFrame {
+            active_objects: vec![child.clone()],
+            ..NativeTraceFrame::default()
+        };
+        assert!(!is_rock_tank_child_snapshot(0x0B, &child, &no_parent_trace));
+        let dead_parent_trace = NativeTraceFrame {
+            active_objects: vec![NativeObjectSnapshot {
+                hit_points: Some(0),
+                ..parent.clone()
+            }],
+            ..NativeTraceFrame::default()
+        };
+        assert!(
+            !is_rock_tank_child_snapshot(0x0B, &child, &dead_parent_trace),
+            "a zero-HP Tank body is the ASM loc_3B480 death parent, not a live turret owner"
+        );
+
+        assert!(
+            rock_tank_damage_flash(&child, &trace, 0x0B),
+            "ASM Tank_Shooting.asm loc_3B700 flashes the linked turret with the parent hurt state"
+        );
+        let calm_parent_trace = NativeTraceFrame {
+            active_objects: vec![NativeObjectSnapshot {
+                damage_flash: false,
+                ..parent.clone()
+            }],
+            ..NativeTraceFrame::default()
+        };
+        assert!(!rock_tank_damage_flash(&child, &calm_parent_trace, 0x0B));
+        assert!(!rock_tank_damage_flash(
+            &NativeObjectSnapshot {
+                damage_flash: false,
+                ..parent.clone()
+            },
+            &trace,
+            0x0B
+        ));
+
+        assert!(
+            !is_rock_tank_parent_without_child_snapshot(0x0B, &parent, &trace),
+            "when the trace already has the ASM loc_3B5FA child, the parent must not synthesise another turret"
+        );
+        assert!(is_rock_tank_parent_without_child_snapshot(
+            0x0B,
+            &parent,
+            &calm_parent_trace
+        ));
+        assert!(!is_rock_tank_parent_without_child_snapshot(
+            0x09,
+            &parent,
+            &calm_parent_trace
+        ));
+        assert!(!is_rock_tank_parent_without_child_snapshot(
+            0x0B,
+            &child,
+            &calm_parent_trace
+        ));
+        assert!(!is_rock_tank_parent_without_child_snapshot(
+            0x0B,
+            &child,
+            &no_parent_trace
+        ));
+
+        assert_eq!(rock_tank_turret_screen_y(0x0A, 12), 12);
+        assert_eq!(
+            rock_tank_turret_screen_y(0x0B, 12),
+            20,
+            "ASM Tank_Shooting.asm loc_3B5FA stores the child at parent_y-8; native compensates the top-anchored shooting turret art"
+        );
+    }
+
+    #[test]
+    fn rock_tank_turret_scripts_follow_stru_3b27e_and_3b4d8_boundaries() {
+        let visuals = labelled_enemy_visuals(1, 1);
+        let mut trace = NativeTraceFrame::default();
+        let plain = live_enemy_object(0x0A);
+        let mut shooting_fast = live_enemy_object(0x0B);
+        shooting_fast.hit_points = Some(4);
+        let mut shooting_slow = shooting_fast.clone();
+        shooting_slow.hit_points = Some(3);
+
+        for (frame, tile) in [
+            (0, 0x020),
+            (0x37, 0x078),
+            (0x37 + 0x0A, 0x084),
+            (0x37 + 0x0A + 0x06, 0x078),
+            (0x37 + 0x0A + 0x06 + 0x04, 0x020),
+            (0x37 + 0x0A + 0x06 + 0x04 + 0x05, 0x020),
+        ] {
+            trace.frame_index = frame;
+            assert_eq!(
+                rock_tank_turret_frame(&plain, &trace, &visuals, 0x0A)
+                    .expect("plain turret frame")
+                    .tile_base_index,
+                tile,
+                "ASM Tank.asm stru_3B27E frame boundary {frame}"
+            );
+        }
+
+        for (frame, tile) in [
+            (0, 0x020),
+            (0x37, 0x048),
+            (0x37 + 0x0C, 0x054),
+            (0x37 + 0x0C + 0x06, 0x060),
+            (0x37 + 0x0C + 0x06 + 0x06, 0x054),
+            (0x37 + 0x0C + 0x06 + 0x06 + 0x14, 0x048),
+            (0x37 + 0x0C + 0x06 + 0x06 + 0x14 + 0x0C, 0x020),
+        ] {
+            trace.frame_index = frame;
+            assert_eq!(
+                rock_tank_turret_frame(&shooting_fast, &trace, &visuals, 0x0B)
+                    .expect("shooting fast turret frame")
+                    .tile_base_index,
+                tile,
+                "ASM Tank_Shooting.asm stru_3B4D8 frame boundary {frame}"
+            );
+        }
+
+        trace.frame_index = 0x80 + 0x37;
+        assert_eq!(
+            rock_tank_turret_frame(&shooting_fast, &trace, &visuals, 0x0B)
+                .expect("fast cycle wraps after $80 frames")
+                .tile_base_index,
+            0x054
+        );
+        assert_eq!(
+            rock_tank_turret_frame(&shooting_slow, &trace, &visuals, 0x0B)
+                .expect("slow cycle keeps the long idle tail")
+                .tile_base_index,
+            0x020
+        );
+        assert!(rock_tank_turret_frame(&plain, &trace, &visuals, 0x09).is_none());
+
+        let mut child = NativeObjectSnapshot {
+            hit_points: None,
+            ..shooting_fast.clone()
+        };
+        child.layout_index = Some(3);
+        let correct_parent = NativeObjectSnapshot {
+            layout_index: Some(3),
+            hit_points: Some(4),
+            ..shooting_fast.clone()
+        };
+        trace.active_objects = vec![correct_parent];
+        assert_eq!(
+            rock_tank_turret_frame(&child, &trace, &visuals, 0x0B)
+                .expect("child should inherit same-layout parent HP")
+                .tile_base_index,
+            0x054,
+            "ASM Tank_Shooting.asm loc_3B5FA child must sample the live same-layout parent to choose stru_3B4D8"
+        );
+        for candidate in [
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x0A },
+                layout_index: Some(3),
+                hit_points: Some(4),
+                ..shooting_fast.clone()
+            },
+            NativeObjectSnapshot {
+                layout_index: Some(4),
+                hit_points: Some(4),
+                ..shooting_fast.clone()
+            },
+            NativeObjectSnapshot {
+                layout_index: Some(3),
+                hit_points: None,
+                ..shooting_fast.clone()
+            },
+        ] {
+            trace.active_objects = vec![candidate];
+            assert_eq!(
+                rock_tank_turret_frame(&child, &trace, &visuals, 0x0B)
+                    .expect("child without matching live HP parent uses slow fallback")
+                    .tile_base_index,
+                0x020
+            );
+        }
+    }
+
+    #[test]
+    fn rock_tank_body_selector_uses_three_frame_stru_3b270_cycle() {
+        let mut trace = NativeTraceFrame {
+            frame_index: 8,
+            ..NativeTraceFrame::default()
+        };
+        let three_frames = labelled_enemy_visuals(3, 4);
+        let object = live_enemy_object(0x0A);
+
+        assert_eq!(
+            selected_live_tile_base(select_live_rock_tank_body_frame(
+                &trace,
+                &three_frames,
+                &object
+            )),
+            0x0102,
+            "ASM Tank.asm stru_3B270 advances by frame_duration division before modulo over the three live body frames"
+        );
+        trace.frame_index = 9;
+        assert_eq!(
+            selected_live_tile_base(select_live_rock_tank_body_frame(
+                &trace,
+                &three_frames,
+                &object
+            )),
+            0x0102
+        );
+    }
+
+    #[test]
+    fn enemy_palette_variant_indexes_extra_palettes_after_base_line() {
+        let mut visuals = labelled_enemy_visuals(1, 1);
+        visuals.palette = marked_palette(0x0100);
+        visuals.extra_palettes = vec![marked_palette(0x0200), marked_palette(0x0300)];
+
+        assert_eq!(
+            select_enemy_palette(&visuals, 0).colours[0].raw_word,
+            0x0100
+        );
+        assert_eq!(
+            select_enemy_palette(&visuals, 1).colours[0].raw_word,
+            0x0200,
+            "ASM enemy palette variant 1 selects the first extra palette after the base line"
+        );
+        assert_eq!(
+            select_enemy_palette(&visuals, 2).colours[0].raw_word,
+            0x0300,
+            "variant indexing is one-based over the extra palette list"
+        );
+        assert_eq!(
+            select_enemy_palette(&visuals, 3).colours[0].raw_word,
+            0x0100,
+            "out-of-range variants fall back to the base palette"
+        );
+    }
+
+    #[test]
     fn enemy_death_threshold_scripts_select_asm_frames() {
         let trace = NativeTraceFrame::default();
 
