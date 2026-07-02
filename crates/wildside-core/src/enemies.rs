@@ -4360,6 +4360,14 @@ pub(crate) fn step_active_enemies_with_rng(
                         step_dragon_walking(enemy, block_grid, &mut Vec::new(), player_x_pos);
                     }
                 } else if matches!(enemy.family, EnemyFamily::Driller) {
+                    if enemy.damage_flash_frames > 0 {
+                        // ASM Driller.asm loc_3BF4E plays `stru_3BCCE` and
+                        // hibernates until it finishes before restoring
+                        // `stru_3BCB2` and resuming loc_3BF66's walker branch.
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        continue;
+                    }
                     // Driller.asm loc_3BE78: drills through Smash/Ice blocks while pacing.
                     let cells = step_driller(enemy, block_grid);
                     drilled_blocks.extend(cells);

@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 - proactive Driller hurt-hibernate audit
+
+- Project-status still showed no ready/open risks, so the fallback moved to a
+  compact Driller ASM audit.
+- Re-read Driller.asm `loc_3BE78` and `loc_3BF02`-`loc_3BF66`. Existing native
+  helpers covered child-space drilling and collision dispatch, but the live
+  Driller branch skipped the nonterminal stomp hurt hibernate at `loc_3BF4E`.
+- Added `driller_hurt_animation_hibernates_shared_walker_loc_3bf4e`. Red run
+  showed native advanced `x_pos` by `$8000` during the `stru_3BCCE` window.
+  Native now zeros velocity and skips the Driller walker while
+  `damage_flash_frames` represents that hibernated hurt animation.
+- Verification: focused red/green test, `cargo test -q -p wildside-core
+  driller`, `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, `mise run verify-slice-fast`, and `mise run verify-tas-full`
+  pass. Full TAS exits 0 with CRC all 37759 frames matching; the current
+  long-route state gap remains first at `transition_15_to_00_post` on
+  DragonWalking/object-count.
+
 ## 2026-07-02 - proactive Diamond mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback moved from

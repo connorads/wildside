@@ -343,4 +343,46 @@ mod tests {
         );
         assert_eq!(enemy.shared_walker_turnaround_counter, 0);
     }
+
+    #[test]
+    fn driller_hurt_animation_hibernates_shared_walker_loc_3bf4e() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Driller;
+        enemy.facing = Direction::Right;
+        enemy.hit_points = 2;
+        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+        enemy.shared_walker_patrol_short_next = true;
+        let start_x = enemy.x_pos;
+        let mut enemies = [enemy];
+        let grid = mini_hopping_skull_test_grid();
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            Some(&grid),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            None,
+        );
+
+        assert_eq!(
+            enemies[0].x_pos, start_x,
+            "ASM Driller.asm loc_3BF4E hibernates through `stru_3BCCE` before loc_3BF66 can resume the shared walker"
+        );
+        assert_eq!(enemies[0].x_velocity, 0);
+        assert_eq!(enemies[0].y_velocity, 0);
+        assert!(drilled_blocks.is_empty());
+    }
 }
