@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive Cloud mutation audit)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation or visual rows; only human validation/repro blockers remain.
+- **Mutation fallback audit:** ran `wildside-core/src/enemies/cloud.rs`, covering
+  ASM-cited Cloud movement, movement route selection, hit/death routing, live
+  state updates, renderer state selection, and debug-field export. No source
+  change was needed.
+- Verification: `.cache/mutants/cloud-current` (`134 mutants tested: 118
+  caught, 16 unviable`). Zero missed mutants.
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  proactive verification on a different focused frame/core shard, not Cloud,
+  Diamond, HUD, or the compact enemy module shards unless their code changes.
+
 ## 2026-07-02 handoff (proactive Diamond mutation audit)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open

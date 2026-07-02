@@ -50,12 +50,12 @@ and stop — never commit churn.
   or fixed-candidate; next actionable step is an exact current screenshot,
   recording, route timing, or frame.
 - **Proactive verification 2026-07-02:** no ready/open rows remain, so the latest
-  loop mutation-audited `wildside-core/src/enemies/diamond.rs`. The Diamond
-  shard ended at 67 mutants tested: 57 caught, 10 unviable, zero missed
-  (`.cache/mutants/diamond-current`). Continue with `mise run project-status`;
-  if still empty, use another proactive-verification fallback slice and avoid
-  re-running Diamond, HUD, or the compact enemy module shards unless their code
-  changes.
+  loop mutation-audited `wildside-core/src/enemies/cloud.rs`. The Cloud shard
+  ended at 134 mutants tested: 118 caught, 16 unviable, zero missed
+  (`.cache/mutants/cloud-current`). Continue with `mise run project-status`; if
+  still empty, use another proactive-verification fallback slice and avoid
+  re-running Cloud, Diamond, HUD, or the compact enemy module shards unless
+  their code changes.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
