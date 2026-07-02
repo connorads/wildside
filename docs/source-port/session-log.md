@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — RockTank moved to route-needed
+
+- #271 moved from `[~]` to `[b]`. Current routes are exhausted without a
+  native-only Tank stomp fault: one miss, one oracle-parity side/edge damage
+  route, and one oracle-parity same-frame stomp route.
+- The next valid #271 artefact is an exact live `play-native --record` bundle
+  with `--record-target-enemy 0A/0B --record-stop-on-target-enemy-contact`,
+  followed by generated verify/frontier/scorer commands.
+- The open loop should advance to #210/#254 menu/title-skip visual corruption.
+
 ## 2026-07-02 — RockTank synthetic stomp sweep rejected
 
 - #271 remains open/in progress. Ran a bounded native batch over the current

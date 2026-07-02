@@ -13,6 +13,16 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #271
 
+Blocked note 2026-07-02: moved #271 from `[~]` open to `[b]` awaiting exact
+human/live route. Current route evidence is exhausted without reproducing a
+native-only Tank stomp fault: `issue271-route-current-20260702` is a miss,
+`issue271-sharp-current-20260702` is oracle-parity side/edge damage, and
+`issue271-sharp-sweep-jump184-20260702` is oracle-parity first-overlap stomp.
+The next valid reopening artefact is a live `play-native --record
+--record-target-enemy 0A/0B --record-stop-on-target-enemy-contact` bundle from
+the reported Level-2/Red-Stealth path plus generated verify/frontier/scorer
+output.
+
 Investigation note 2026-07-02: bounded synthetic stomp route search found no
 native-only Tank-stomp failure. A batch over the current sharp base route
 (`jump=184-206:4:1:right+b+c`) produced many native same-frame stomp

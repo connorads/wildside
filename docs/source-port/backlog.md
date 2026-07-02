@@ -35,12 +35,13 @@ and stop — never commit churn.
   dropped `Flagpole_Boss`'s `priority(a3)=1` on both flag sprites. Candidate is
   in `[?]`; human should retest natural EOL and verify the base survives over
   foreground.
-- **Immediate work order:** take #271 first. Use the new
-  `probe-record-scenario-file --target-enemy-contact 0A/0B` scorer on any
-  candidate route. Recording bundles with `--record-target-enemy 0A/0B` now
-  write ready-made `route_target_score_commands` in `manifest.json`/`README.txt`
-  and print the frontier/scorer commands on save; add
-  `--record-stop-on-target-enemy-contact` for the next live capture so the
+- **#271 route-needed 2026-07-02:** moved to `[b]` after the current route set
+  failed to reproduce a native-only Tank stomp bug. Use the new
+  `probe-record-scenario-file --target-enemy-contact 0A/0B` scorer on the next
+  live candidate route. Recording bundles with `--record-target-enemy 0A/0B`
+  now write ready-made `route_target_score_commands` in
+  `manifest.json`/`README.txt` and print the frontier/scorer commands on save;
+  add `--record-stop-on-target-enemy-contact` for the next live capture so the
   bundle auto-saves just after the first target contact. Known current routes
   are not the live failure:
   `issue271-route-current-20260702` is a miss, and
@@ -58,6 +59,10 @@ and stop — never commit churn.
   224/227. Also do not chase the old full-frame idle frame-300 RockTank
   assertion: current `idle_level_full_frames_01` oracle matches native at body/turret
   `$00C48000/$00C40000`; that cache-backed test expectation was stale.
+- **Immediate work order:** take #210/#254 next. They share the rapid
+  menu/title-skip black-square and Red Stealth/title corruption report; capture
+  or synthesise exact Start timings, then compare raw VDP/scene frames before
+  changing menu or form rendering.
 - **Visual route work:** #324/#259/#252/#210 need current live recording or
   raw-VDP/scene paired captures before another renderer patch. Do not retune
   Tank Y/priority, block wobble sprites, or title/menu VDP from stale
@@ -87,7 +92,6 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 271 | [~] | P0 | player/enemy | FAILED human validation 2026-07-02: RockTank head jumps still hurt Kid/Red Stealth; previous `$2C` delayed-damage fix did not settle the live route. | Record live route with `--record-target-enemy 0A/0B --record-stop-on-target-enemy-contact`; run generated verify/frontier/scorer commands before changing combat. |
 | 210 | [ ] | P0 | gameflow/render | FAILED human validation 2026-07-02: rapid menu/intro skip can still produce black squares where Red Stealth/title/menu art should be. | Capture exact live Start timings or `play-native --record` bundle; compare raw VDP and scene frames around the first bad frame; do not rely on the covered `2400,2700,2720/2721` synthetic routes. |
 | 254 | [ ] | P1 | intro/render | FAILED human validation 2026-07-02: Red Stealth/title-skip corruption persists as part of the #210 black-square route. | Pair with #210 route capture; isolate whether the bad pixels are carried VDP/title-menu state or a distinct transform/render path before changing form art. |
 | 324 | [ ] | P1 | render/block | FAILED human validation 2026-07-02: prize/P block still shows wrong sprite/art behind the hit wobble, now visibly on top of the shake. | Capture current live screenshot/recording/frame; replay with `capture-scenario-frames --scene` and raw VDP; inspect block/effects/terrain layers before another `sub_1007A` renderer change. |
