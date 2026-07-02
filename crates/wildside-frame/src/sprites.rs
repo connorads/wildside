@@ -4907,6 +4907,148 @@ mod tests {
     }
 
     #[test]
+    fn heady_metal_renderer_marks_traced_sub_37abc_body_piece_positions() {
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x20 },
+            x_pos: 0x0200_0000,
+            y_pos: 0x0200_0000,
+            ..live_enemy_object(0x20)
+        };
+        let trace = NativeTraceFrame {
+            camera_x_pos: 0x0100_0000,
+            camera_y_pos: 0x0080_0000,
+            heady_metal_body_pieces_sub_37abc: vec![
+                wildside_core::HeadyMetalBodyPieceTraceSub37ABC {
+                    slot_offset: 0x000C,
+                    x_pos: 0x0120,
+                    y_pos: 0x0090,
+                    sprite_mapping_index: 7,
+                },
+                wildside_core::HeadyMetalBodyPieceTraceSub37ABC {
+                    slot_offset: 0x0010,
+                    x_pos: 0x00F0,
+                    y_pos: 0x00C0,
+                    sprite_mapping_index: 3,
+                },
+            ],
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_heady_metal_sub_37abc_body_piece_markers(&mut commands, &object, &trace);
+
+        assert_eq!(
+            commands,
+            vec![
+                DrawCommand::Rect {
+                    x: 24,
+                    y: 8,
+                    width: 16,
+                    height: 16,
+                    colour: [120, 200, 255],
+                },
+                DrawCommand::Rect {
+                    x: 34,
+                    y: 18,
+                    width: 4,
+                    height: 4,
+                    colour: [255, 255, 255],
+                },
+                DrawCommand::Rect {
+                    x: -24,
+                    y: 56,
+                    width: 16,
+                    height: 16,
+                    colour: [120, 200, 255],
+                },
+                DrawCommand::Rect {
+                    x: -23,
+                    y: 62,
+                    width: 4,
+                    height: 4,
+                    colour: [255, 255, 255],
+                },
+            ],
+            "ASM sub_37ABC loc_37AC6 refreshes only live body-piece workers and renders them at camera-relative word coordinates"
+        );
+    }
+
+    #[test]
+    fn heady_metal_renderer_projects_init_body_offsets_when_trace_slots_absent() {
+        let mut level_visuals = minimal_level_visuals_for_platforms();
+        level_visuals
+            .enemies
+            .families
+            .insert(0x20, labelled_enemy_visuals(1, 1));
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x20 },
+            x_pos: 0x0064_0000,
+            y_pos: 0x00A0_0000,
+            ..live_enemy_object(0x20)
+        };
+        let trace = NativeTraceFrame {
+            camera_x_pos: 0x0014_0000,
+            camera_y_pos: 0x0030_0000,
+            kid_x_pos: Some(0x0064_0000),
+            kid_y_pos: Some(0x00A0_0000),
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_enemy_sprite(&mut commands, &object, &trace, &level_visuals, 0x20);
+
+        assert_eq!(
+            commands.len(),
+            25,
+            "ASM Enemy20_HeadyMetal_Init loc_39266 seeds twelve sub_37ABC body workers in addition to the parent sprite"
+        );
+        assert_eq!(
+            commands[1],
+            DrawCommand::Rect {
+                x: 60,
+                y: 18,
+                width: 16,
+                height: 16,
+                colour: [120, 200, 255],
+            },
+            "ASM loc_39266 first body worker is anchor+(-$C,-$56), then sub_37ABC renders camera-relative"
+        );
+        assert_eq!(
+            commands[2],
+            DrawCommand::Rect {
+                x: 62,
+                y: 28,
+                width: 4,
+                height: 4,
+                colour: [255, 255, 255],
+            },
+            "ASM sub_37A22 selects the below-right mapping for Kid below/right of the first body worker"
+        );
+        assert_eq!(
+            commands[23],
+            DrawCommand::Rect {
+                x: 84,
+                y: 98,
+                width: 16,
+                height: 16,
+                colour: [120, 200, 255],
+            },
+            "ASM loc_39266 twelfth body worker is anchor+(+$C,-6)"
+        );
+        assert_eq!(
+            commands[24],
+            DrawCommand::Rect {
+                x: 85,
+                y: 104,
+                width: 4,
+                height: 4,
+                colour: [255, 255, 255],
+            },
+            "ASM sub_37A22 selects the below-left mapping for Kid below/left of the twelfth body worker"
+        );
+    }
+
+    #[test]
     fn player_sprite_priority_stays_low_except_flagpole_override_loc_c070() {
         let frame = synthetic_player_frame();
 

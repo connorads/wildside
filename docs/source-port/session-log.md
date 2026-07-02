@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive HeadyMetal render-marker mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback continued
+  the documented `wildside-frame/src/sprites.rs` mutation debt outside the
+  recent RockTank/live/death selector subsets.
+- The Heady/boss shard immediately exposed missing coverage for
+  `push_heady_metal_sub_37abc_body_piece_markers`: deleting the function,
+  shifting fixed-point coordinates the wrong way, flipping camera subtraction,
+  or bypassing traced `$FFFFFB7E..$FFFFFBAA` slots all survived.
+- Re-read `Enemy20_HeadyMetal_Init loc_39266`, `sub_37ABC loc_37AC6`, and
+  `sub_37A22`. Added renderer regressions for traced live body-piece markers
+  and the fallback twelve-piece projection from `loc_39266`, including camera
+  subtraction and Kid-relative mapping highlights.
+- Verification: focused HeadyMetal renderer tests, full `sprites::tests`,
+  `cargo fmt --all --check`, `git diff --check`, and `mise run
+  verify-slice-fast` pass. Filtered mutation rerun
+  `.cache/mutants/frame-sprites-heady-boss-20260703-after` reports 79 mutants:
+  77 caught, 2 unviable, 0 missed. `verify-tas-full` was not rerun because this
+  was test-only; latest full TAS remains the 2026-07-02 pass with CRC all 37759
+  frames matching and the known `transition_15_to_00_post`
+  DragonWalking/object-count state gap.
+
 ## 2026-07-03 - proactive projectile mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback resumed the
