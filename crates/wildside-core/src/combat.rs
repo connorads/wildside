@@ -8495,7 +8495,7 @@ impl NativeRuntime {
                                 if matches!(
                                     collision.target,
                                     PendingEnemyCollisionTarget::ChildAttachment
-                                ) && matches!(collision.collision_type, 0x001C | 0x002C)
+                                ) && collision.collision_type == 0x001C
                                     && let Some(slice) = self.opening_slice
                                     && let Some(child) = enemy.child_attachment_snapshot()
                                     && player_latches_enemy_collision_with_half_width_loc_1cf2(
@@ -8507,9 +8507,12 @@ impl NativeRuntime {
                                     // ASM Tank_Shooting.asm loc_3B700
                                     // hibernates for five frames before
                                     // loc_3B720 clears the turret child
-                                    // `$38(a2)` collision word. Preserve that
-                                    // latched child hit for Kid's next
-                                    // Check_for_recent_damge pass.
+                                    // `$38(a2)` collision word. Preserve real
+                                    // hurt-side hits for Kid's next
+                                    // Check_for_recent_damge pass; `$2C`
+                                    // kidabove has already gone through
+                                    // Jump_On_Enemy loc_B6DA, and Tank object_meta
+                                    // bit 14 is clear.
                                     self.delayed_player_contact_damage =
                                         Some(PendingPlayerContactDamage {
                                             enemy_x: child.x_pos,
@@ -8572,7 +8575,7 @@ impl NativeRuntime {
                         if matches!(
                             collision.target,
                             PendingEnemyCollisionTarget::ChildAttachment
-                        ) && matches!(collision.collision_type, 0x001C | 0x002C)
+                        ) && collision.collision_type == 0x001C
                             && let Some(slice) = self.opening_slice
                             && let Some(child) = enemy.child_attachment_snapshot()
                             && player_latches_enemy_collision_with_half_width_loc_1cf2(
@@ -8583,9 +8586,12 @@ impl NativeRuntime {
                         {
                             // ASM Tank.asm loc_3B49A hibernates for five
                             // frames before loc_3B4BA clears the mouth child
-                            // `$38(a2)` collision word. Preserve that latched
-                            // child hit for Kid's next Check_for_recent_damge
-                            // pass; issue-260 frame 666 spends HP this way.
+                            // `$38(a2)` collision word. Preserve real
+                            // hurt-side hits for Kid's next
+                            // Check_for_recent_damge pass; `$2C` kidabove
+                            // goes through Jump_On_Enemy loc_B6DA and Tank
+                            // object_meta bit 14 is clear, so it must not
+                            // become delayed contact damage.
                             self.delayed_player_contact_damage = Some(PendingPlayerContactDamage {
                                 enemy_x: child.x_pos,
                                 enemy_family: enemy.family,

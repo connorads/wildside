@@ -26,43 +26,17 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-02 #210/#254 fixed-candidate follow-up:** after the human
-  reconfirm, adjacent route `2400:start,2700:start,2721:start` still reproduced
-  native live gameplay/black art at frame 3000 while oracle stayed on the Blue
-  Lake Woods title card (`AE=67705`). Native scripted visual capture now uses
-  recorded title-card handoff timing, so `Obj_TitleMenu loc_1BBD6` row-select
-  Start is consumed before title-card `loc_1AE2E`; both 2720 and 2721 rapid
-  routes stay in the title-card shell. Native frame 3000 on the 2721 route now
-  shows the BLW title card (`AE=2866`, title-card residual only). #210/#254
-  remain awaiting human validation.
-- **#252 route-needed after fresh recheck:** current Level 01 RockTank capture and
-  assembled tank/bullet sprites remain coherent; no current tank/helmet garble was
-  reproduced without an exact human frame/route. #252 is back in awaiting-human.
-- **#324 route-needed after fresh recheck:** known BLW1 row-1 and Highwater
-  row-97 prize/P block routes are clean in current scene captures, and the other
-  cached Highwater variants do not reproduce the weird-sprite wobble. #324 is
-  back in awaiting-human pending an exact screenshot/recording/frame.
-- **Human reconfirm 2026-07-02:** latest playtest still reports the same three
-  longstanding visible symptoms: weird sprite behind prize/P blocks (#324),
-  tank/helmet-looking garble (#252), and black squares where Red Stealth/title
-  menu art should be after skipping the menu (#210/#254). These remain in the
-  human-validation/blocker lane because current known routes were rechecked clean
-  or fixed-candidate; next actionable step is an exact current screenshot,
-  recording, route timing, or frame.
-- **#210/#254 follow-up 2026-07-02:** fresh raw-VDP captures for the reported
-  skip/menu timings (`2400:start,2700:start,2720/2721:start`) and nearby held /
-  adjacent Start variants show correct Red Stealth/title/menu art and a correct
-  BLW title card in the live-render path. `capture-scenario-frames --scene`
-  still uses a simplified fallback title/menu shell and drops the title-card
-  background; do not treat that scene-only gap as the live black-square repro.
-  The live report still needs exact timing or a `play-native --record` bundle.
-- **Proactive verification 2026-07-02:** no ready/open rows remain, so the latest
-  loop mutation-audited `wildside-core/src/enemies/scorpion.rs`. The Scorpion
-  shard ended at 57 mutants tested: 46 caught, 11 unviable, zero missed
-  (`.cache/mutants/scorpion-current`). Continue with `mise run project-status`;
-  if still empty, use another proactive-verification fallback slice and avoid
-  re-running Scorpion, Fireball, Cloud, Diamond, HUD, or the compact enemy
-  module shards unless their code changes.
+- **2026-07-02 #271 fixed candidate:** after the human reconfirm that clean
+  RockTank jumps still hurt Kid/Red Stealth, native no longer turns nonfatal
+  `$2C` Tank mouth/turret stomps into delayed Kid damage. Await human playtest
+  on BLW2/Highwater RockTanks; #259 floor-sink remains separate.
+- **#369 newly opened:** latest playtest reports the flagpole base is missing at
+  the end of the level. Old #175 is archived, so #369 tracks a current visual
+  repro against the end-of-level flagpole/base composition.
+- **Still route-needed:** prize/P block weird sprite (#324), tank/helmet garble
+  (#252), RockTank floor-sink (#259), and menu-skip black squares (#210/#254)
+  still need exact live screenshot/recording/frame if they reproduce after the
+  current fixes.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -84,3 +58,4 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 369 | [ ] | P1 | render/eol | 2026-07-02 playtest: flagpole is missing its base at the end of the level. | Reproduce with a current natural end-of-level flag route and compare native/oracle frame layers around `CharacterCollision_TouchFlagpole loc_C070`; cross-check archived #175 before patching. |

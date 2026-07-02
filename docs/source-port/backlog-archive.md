@@ -11,6 +11,35 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #271
+
+Fixed-candidate note 2026-07-02: after another human reconfirm that jumping on
+RockTanks still hurts Kid/Red Stealth, re-read `Tank.asm loc_3B464/loc_3B49A`,
+`Tank_Shooting.asm loc_3B6C0/loc_3B700`, `GfxObjects_CollisionKid loc_1CF2`,
+and `Jump_On_Enemy loc_B6DA`. The prior native model correctly routed Tank
+stomps through the linked mouth/turret child, but incorrectly preserved nonfatal
+`$2C` kidabove hits as delayed player contact damage during the Tank hurt
+hibernate. ASM `loc_B6DA` only converts a stomp bounce into damage when copied
+object_meta bit 14 is set; Tank mouth/turret object_meta is the plain enemy id,
+so bit 14 is clear. Native now only preserves delayed Tank child damage for
+`$1C` hurt-side hits, not `$2C` stomps. Regression
+`tank_child_stomp_hit_does_not_latch_contact_damage_loc_3b49a_b6da` replaces
+the stale inverse assertion, while `stomp_bounce_bit14_object_meta_also_applies_damage_loc_b6da`
+keeps the Scorpion bit-14 retaliation path covered. Focused verification:
+`cargo test -q -p wildside-core rock_tank -- --nocapture`,
+`cargo test -q -p wildside-core tank_child_stomp_hit_does_not_latch_contact_damage_loc_3b49a_b6da -- --nocapture`,
+and `cargo test -q -p wildside-core stomp_bounce_bit14_object_meta_also_applies_damage_loc_b6da -- --nocapture`.
+#259 remains separate for visual floor/foreground placement.
+
+### #369
+
+Opened 2026-07-02 from human playtest: flagpole is missing its base at the end
+of the level. Old #175 covered the broader level-complete/flagpole visual
+sequence and is archived, so this new row tracks the current base-specific
+visual symptom. Minimum next gate: capture a current natural end-of-level flag
+route, save layers, and compare native/oracle around `CharacterCollision_TouchFlagpole loc_C070`
+before patching stale flagpole/background composition.
+
 Live playtest note 2026-06-01: latest human playthrough contradicts several
 previous `[x]` rows. Treat those as reopened until a deterministic native
 recording or live `play-native` verification proves the human path is stable.

@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — RockTank stomp damage fixed candidate
+
+- Human reconfirmed missing flagpole base, prize-block wobble leak, RockTank
+  stomp hurt, and RockTank floor-sink. Re-read Tank / Tank_Shooting child
+  collision ASM and found native was requeuing nonfatal `$2C` RockTank
+  mouth/turret stomps as delayed Kid contact damage. Fixed delayed Tank child
+  damage to preserve `$1C` hurt-side hits only; `$2C` kidabove stays on
+  `Jump_On_Enemy loc_B6DA` and Tank object_meta bit 14 is clear.
+- Focused checks green: `cargo test -q -p wildside-core rock_tank -- --nocapture`,
+  exact `tank_child_stomp_hit_does_not_latch_contact_damage_loc_3b49a_b6da`,
+  and exact `stomp_bounce_bit14_object_meta_also_applies_damage_loc_b6da`.
+  #271 moved to `[?]`; #259 floor-sink remains route-needed; new #369 tracks
+  current missing flagpole base.
+
 ## 2026-07-02 handoff (proactive Scorpion mutation audit)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open

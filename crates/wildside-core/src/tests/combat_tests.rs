@@ -16806,7 +16806,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn tank_child_stomp_hit_latches_contact_damage_through_loc_3b49a_hibernate() {
+    fn tank_child_stomp_hit_does_not_latch_contact_damage_loc_3b49a_b6da() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         let mut tank = test_enemy(EnemyFamily::Tank, 0x026D_0000, 0x0250_0000, 2);
@@ -16850,12 +16850,12 @@ mod chunk_03 {
             "ASM Tank.asm loc_3B464 consumes the mouth-child `$38=$2C` hit on the parent pass",
         );
         assert!(
-            runtime.delayed_player_contact_damage.is_some(),
-            "ASM Tank.asm loc_3B49A hibernates before loc_3B4BA clears mouth-child `$38`; issue-260 frame 665 must still hand `$2C` to Kid's next Check_for_recent_damge pass",
+            runtime.delayed_player_contact_damage.is_none(),
+            "ASM Jump_On_Enemy loc_B6DA only turns a `$2C` stomp into damage when copied object_meta bit 14 is set; Tank mouth object_meta is the plain enemy id, so loc_3B49A must not requeue the stomp as delayed contact damage",
         );
         assert!(
             runtime.pending_player_contact_damage.is_none(),
-            "the loc_3B49A hand-off is after this frame's Character_CheckCollision consume point",
+            "a nonfatal RockTank stomp must bounce and damage the tank without also hurting Kid",
         );
     }
 
