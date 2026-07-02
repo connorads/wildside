@@ -1070,6 +1070,7 @@ pub(crate) fn probe_dynamic_record_scenario(
     target_projectile_cells: &[(ActiveProjectileKind, TargetCell)],
     target_projectile_cell_conjunctions: &[(ActiveProjectileKind, TargetCell)],
     target_block_events: &[BatchTargetBlockEvent],
+    target_enemy_contact: Option<u8>,
     summary_only: bool,
     frame_start: Option<usize>,
     frame_end: Option<usize>,
@@ -1205,6 +1206,12 @@ pub(crate) fn probe_dynamic_record_scenario(
                 target_block_event.kind, target_block_event.cell.col, target_block_event.cell.row,
             ),
         }
+    }
+    if let Some(object_type) = target_enemy_contact {
+        println!(
+            "{}",
+            describe_target_enemy_contact_from_frame(&trace, object_type, target_frame_start)
+        );
     }
 
     for checkpoint in &scenario.checkpoints {
@@ -2157,6 +2164,16 @@ pub(crate) struct TargetCellApproach {
     pub(crate) manhattan_px: i64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TargetEnemyContactApproach {
+    pub(crate) replay_frame: usize,
+    pub(crate) score_px: i64,
+    pub(crate) result: String,
+    pub(crate) gate: String,
+    pub(crate) summary: String,
+    pub(crate) same_frame_stomp: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TargetCellProbe {
     Origin,
@@ -2454,6 +2471,124 @@ pub(crate) fn describe_target_point_approach_from_frame(
         approach.kid_y,
         healthy,
     )
+}
+
+pub(crate) fn target_enemy_contact_from_frame(
+    trace: &[NativeTraceFrame],
+    object_type: u8,
+    frame_start: usize,
+) -> Option<TargetEnemyContactApproach> {
+    let label = format!("enemy_{object_type:02X}");
+    let same_frame_label = format!("enemy=0x{object_type:02x}@");
+    let mut best: Option<TargetEnemyContactApproach> = None;
+
+    for (replay_frame, frame) in trace.iter().enumerate() {
+        if replay_frame < frame_start {
+            continue;
+        }
+        if !matches!(frame.game_mode, wildside_core::GameMode::InGame) {
+            continue;
+        }
+
+        let same_frame_stomp = frame
+            .gameplay_debug_fields
+            .get("kid_same_frame_stomp_probe")
+            .is_some_and(|summary| {
+                summary.contains("candidate=1/") && summary.contains(&same_frame_label)
+            });
+
+        for key in ["kid_stomp_contact_candidates", "kid_collision_order_probe"] {
+            let Some(field) = frame.gameplay_debug_fields.get(key) else {
+                continue;
+            };
+            for summary in field.split("; ").filter(|part| part.contains(&label)) {
+                let score_px = enemy_contact_summary_score_px(summary).unwrap_or(i64::MAX / 2);
+                let result = extract_contact_summary_value(summary, "result=")
+                    .unwrap_or("unknown")
+                    .to_string();
+                let gate = extract_contact_summary_value(summary, "gate=")
+                    .unwrap_or("unknown")
+                    .to_string();
+                let candidate = TargetEnemyContactApproach {
+                    replay_frame,
+                    score_px,
+                    result,
+                    gate,
+                    summary: summary.to_string(),
+                    same_frame_stomp,
+                };
+                match &best {
+                    Some(existing)
+                        if enemy_contact_rank(existing) <= enemy_contact_rank(&candidate) => {}
+                    _ => best = Some(candidate),
+                }
+            }
+        }
+    }
+
+    best
+}
+
+pub(crate) fn describe_target_enemy_contact_from_frame(
+    trace: &[NativeTraceFrame],
+    object_type: u8,
+    frame_start: usize,
+) -> String {
+    target_enemy_contact_from_frame(trace, object_type, frame_start).map_or_else(
+        || format!("enemy contact 0x{object_type:02X}: <none>"),
+        |contact| {
+            format!(
+                "enemy contact 0x{object_type:02X}: result {} gate {} score_px {} @{} same_frame_stomp={} {}",
+                contact.result,
+                contact.gate,
+                contact.score_px,
+                contact.replay_frame,
+                contact.same_frame_stomp,
+                contact.summary,
+            )
+        },
+    )
+}
+
+fn enemy_contact_rank(contact: &TargetEnemyContactApproach) -> (u8, i64, usize) {
+    let result_rank = match contact.result.as_str() {
+        "stomp" => 0,
+        "damage" => 1,
+        "none" => 2,
+        _ => 3,
+    };
+    (result_rank, contact.score_px, contact.replay_frame)
+}
+
+fn extract_contact_summary_value<'a>(summary: &'a str, prefix: &str) -> Option<&'a str> {
+    let start = summary.find(prefix)? + prefix.len();
+    let tail = &summary[start..];
+    let end = tail.find('/').unwrap_or(tail.len());
+    Some(&tail[..end])
+}
+
+fn enemy_contact_summary_score_px(summary: &str) -> Option<i64> {
+    let kid = extract_bracketed_i64s(summary, "kid=[")?;
+    let object = extract_bracketed_i64s(summary, "obj=[")?;
+    if kid.len() != 4 || object.len() != 4 {
+        return None;
+    }
+    let kid_centre_x = i64::midpoint(kid[0], kid[1]);
+    let object_centre_x = i64::midpoint(object[0], object[1]);
+    let kid_bottom = kid[3];
+    let object_top = object[2];
+    Some((kid_centre_x - object_centre_x).abs() + (kid_bottom - object_top).abs())
+}
+
+fn extract_bracketed_i64s(summary: &str, prefix: &str) -> Option<Vec<i64>> {
+    let start = summary.find(prefix)? + prefix.len();
+    let tail = &summary[start..];
+    let end = tail.find(']')?;
+    tail[..end]
+        .split(',')
+        .map(str::parse::<i64>)
+        .collect::<Result<Vec<_>, _>>()
+        .ok()
 }
 
 pub(crate) fn print_oracle_environment(env: &OracleEnvironment) {
@@ -3673,6 +3808,61 @@ mod tests {
                 0
             ),
             "target point 32,64: absent"
+        );
+    }
+
+    #[test]
+    fn target_enemy_contact_prefers_stomp_over_closer_miss_loc_3b6c0() {
+        let mut trace = vec![
+            player_frame(10, GameMode::InGame, Some(0x00C0_0000), Some(0x00D0_0000)),
+            player_frame(11, GameMode::InGame, Some(0x00C8_0000), Some(0x00D8_0000)),
+        ];
+        trace[0].gameplay_debug_fields = std::collections::BTreeMap::from([(
+            "kid_stomp_contact_candidates".to_string(),
+            "enemy_0A#01 gate=separated/result=none/kid=[190,200,145,176]/obj=[170,195,200,216]/overlap=-1,-24/delta=0x00000000,0x00000000".to_string(),
+        )]);
+        trace[1].gameplay_debug_fields = std::collections::BTreeMap::from([
+            (
+                "kid_same_frame_stomp_probe".to_string(),
+                "candidate=1/enemy=0x0a@0x00c80000,0x00d80000/pre_y_vel=0x0003fc00/post_y_vel=0xfffa0000/anchor=0x00c80000,0x00d80000".to_string(),
+            ),
+            (
+                "kid_collision_order_probe".to_string(),
+                "order=0/target=active_enemy[0]/enemy_0A#01 gate=classify/result=stomp/kid=[198,208,185,216]/obj=[190,215,200,216]/overlap=18,16/delta=0x00000000,0x00000000".to_string(),
+            ),
+        ]);
+
+        assert_eq!(
+            target_enemy_contact_from_frame(&trace, 0x0A, 0),
+            Some(TargetEnemyContactApproach {
+                replay_frame: 1,
+                score_px: 17,
+                result: "stomp".to_string(),
+                gate: "classify".to_string(),
+                summary: "order=0/target=active_enemy[0]/enemy_0A#01 gate=classify/result=stomp/kid=[198,208,185,216]/obj=[190,215,200,216]/overlap=18,16/delta=0x00000000,0x00000000".to_string(),
+                same_frame_stomp: true,
+            })
+        );
+    }
+
+    #[test]
+    fn target_enemy_contact_from_frame_filters_early_contacts_loc_3b464() {
+        let mut trace = vec![
+            player_frame(10, GameMode::InGame, Some(0x00C0_0000), Some(0x00D0_0000)),
+            player_frame(11, GameMode::InGame, Some(0x00C8_0000), Some(0x00D8_0000)),
+        ];
+        for (frame, result) in [(0, "damage"), (1, "none")] {
+            trace[frame].gameplay_debug_fields = std::collections::BTreeMap::from([(
+                "kid_stomp_contact_candidates".to_string(),
+                format!(
+                    "enemy_0A#01 gate=classify/result={result}/kid=[198,208,185,216]/obj=[190,215,200,216]/overlap=18,16/delta=0x00000000,0x00000000"
+                ),
+            )]);
+        }
+
+        assert_eq!(
+            describe_target_enemy_contact_from_frame(&trace, 0x0A, 1),
+            "enemy contact 0x0A: result none gate classify score_px 17 @1 same_frame_stomp=false enemy_0A#01 gate=classify/result=none/kid=[198,208,185,216]/obj=[190,215,200,216]/overlap=18,16/delta=0x00000000,0x00000000"
         );
     }
 }

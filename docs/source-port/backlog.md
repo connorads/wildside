@@ -30,12 +30,14 @@ and stop — never commit churn.
   and #254 are reopened from the awaiting-human lane. The repeated failure
   pattern is now the bug: fixed-candidate probes and synthetic routes are not
   exercising the live play paths the human keeps seeing.
-- **Immediate work order:** take #271 first. Record a live targeted
-  `play-native --record` route to the Level-2/Highwater RockTank, then run the
+- **Immediate work order:** take #271 first. Use the new
+  `probe-record-scenario-file --target-enemy-contact 0A/0B` scorer on any
+  candidate route. Known current routes are not the live failure:
+  `issue271-route-current-20260702` is a miss, and
+  `issue271-sharp-current-20260702` is side/edge damage; a small jump sweep can
+  produce native `result=stomp`, so the next useful artefact is a live targeted
+  `play-native --record` route for the reported failing jump. Then run the
   generated `verify-recording` / `tas_frontier_command` before changing combat.
-  A real fix must distinguish clean first-overlap `$2C` stomps from faithful
-  sustained/side `$1C/$28` contact and must show the exact frame where native
-  diverges from oracle.
 - **Visual route work:** #324/#259/#252/#369/#210 need current live recording or
   raw-VDP/scene paired captures before another renderer patch. Do not retune
   Tank Y/priority, flag cleanup timing, block wobble sprites, or title/menu VDP

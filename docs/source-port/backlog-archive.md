@@ -13,6 +13,21 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #271
 
+Investigation/tooling note 2026-07-02: added native route scorer
+`--target-enemy-contact 0A/0B` to `probe-record-scenario-file` and
+`probe-record-scenario-file-batch` so RockTank routes can be ranked by actual
+Kid/contact classification instead of by distance to a map point. Current
+regenerated route `.cache/recordings/issue271-route-current-20260702` is only a
+miss (`result=none gate=separated @180`), and
+`.cache/recordings/issue271-sharp-current-20260702` is side/edge damage
+(`result=damage gate=classify @227`). A small sweep around the sharp contact
+window found clean native stomp candidates, e.g. `--input 189-193:right+b+c`
+reports `result=stomp ... same_frame_stomp=true @226` and preserves HP, but
+`verify-tas` still diverges later at frame 258 and this is not the live human
+route. Keep #271 open: next useful artefact is a `play-native --record` live
+route from the reported failing jump, then score it with `--target-enemy-contact`
+before changing combat.
+
 Failed-validation note 2026-07-02: human playtest again reports RockTank head
 jumps hurting Kid/Red Stealth after the `$2C` delayed-damage candidate landed.
 Move #271 back to `[ ]`: the next pass must use a live targeted

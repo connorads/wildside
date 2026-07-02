@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — RockTank contact route scorer added
+
+- Added `--target-enemy-contact 0A/0B` to single and batch record-scenario
+  probes. It reads the existing Tank/Tank_Shooting child contact debug fields
+  and ranks routes as stomp, damage, miss, plus same-frame stomp status.
+- #271 remains open. Regenerated current route is only a miss; sharp route is
+  side/edge damage. A small sweep around sharp contact found native true-stomp
+  candidates (`--input 189-193:right+b+c`), so the engine can classify at least
+  that synthetic jump as a stomp. Still need the exact live failing route before
+  another combat patch.
+- Verification: focused `target_enemy_contact` CLI tests passed; pending
+  broader checks in this loop.
+
 ## 2026-07-02 — Reopened recurrent live play failures
 
 - Human validation failed the latest fixed/blocked classifications for #271

@@ -361,6 +361,9 @@ enum Commands {
         /// Summarise exact block bounce/destroy events at a 16x16 level cell, formatted kind:col,row.
         #[arg(long, value_parser = parse_batch_target_block_event)]
         target_block_event: Vec<BatchTargetBlockEvent>,
+        /// Summarise best native Kid contact classification against one enemy object type.
+        #[arg(long, value_parser = parse_level_id)]
+        target_enemy_contact: Option<u8>,
         /// Print scenario/checkpoint/target summaries without per-frame trace rows.
         #[arg(long, default_value_t = false)]
         summary_only: bool,
@@ -418,6 +421,9 @@ enum Commands {
         /// Summarise exact block bounce/destroy events at a 16x16 level cell, formatted kind:col,row.
         #[arg(long, value_parser = parse_batch_target_block_event)]
         target_block_event: Vec<BatchTargetBlockEvent>,
+        /// Summarise best native Kid contact classification against one enemy object type.
+        #[arg(long, value_parser = parse_level_id)]
+        target_enemy_contact: Option<u8>,
         /// Print scenario/checkpoint/target summaries without per-frame trace rows.
         #[arg(long, default_value_t = false)]
         summary_only: bool,
@@ -470,6 +476,9 @@ enum Commands {
         /// Score candidates by exact block event at a 16x16 level cell, formatted kind:col,row.
         #[arg(long, value_parser = parse_batch_target_block_event)]
         target_block_event: Vec<BatchTargetBlockEvent>,
+        /// Score candidates by best native Kid contact classification against enemy object types.
+        #[arg(long, value_parser = parse_level_id)]
+        target_enemy_contact: Vec<u8>,
         /// Ignore earlier frames when scoring closest target approach.
         #[arg(long, default_value_t = 0)]
         score_frame_start: usize,
@@ -1360,6 +1369,7 @@ fn main() -> Result<()> {
             target_projectile_cell,
             target_projectile_cell_conjunction,
             target_block_event,
+            target_enemy_contact,
             summary_only,
             frame_start,
             frame_end,
@@ -1392,6 +1402,7 @@ fn main() -> Result<()> {
                 &projectile_cell_targets(&target_projectile_cell),
                 &projectile_cell_targets(&target_projectile_cell_conjunction),
                 &target_block_event,
+                target_enemy_contact,
                 summary_only,
                 frame_start,
                 frame_end,
@@ -1412,6 +1423,7 @@ fn main() -> Result<()> {
             target_projectile_cell,
             target_projectile_cell_conjunction,
             target_block_event,
+            target_enemy_contact,
             summary_only,
             frame_start,
             frame_end,
@@ -1444,6 +1456,7 @@ fn main() -> Result<()> {
                 &projectile_cell_targets(&target_projectile_cell),
                 &projectile_cell_targets(&target_projectile_cell_conjunction),
                 &target_block_event,
+                target_enemy_contact,
                 summary_only,
                 frame_start,
                 frame_end,
@@ -1462,6 +1475,7 @@ fn main() -> Result<()> {
             target_projectile_cell,
             target_projectile_cell_conjunction,
             target_block_event,
+            target_enemy_contact,
             score_frame_start,
             limit,
             rom,
@@ -1480,9 +1494,10 @@ fn main() -> Result<()> {
                 && target_projectile_cell.is_empty()
                 && target_projectile_cell_conjunction.is_empty()
                 && target_block_event.is_empty()
+                && target_enemy_contact.is_empty()
             {
                 bail!(
-                    "at least one --target-point, --target-cell, --target-cell-hitbox, --target-projectile, --target-projectile-cell, --target-projectile-cell-conjunction, or --target-block-event is required for batch scoring"
+                    "at least one --target-point, --target-cell, --target-cell-hitbox, --target-projectile, --target-projectile-cell, --target-projectile-cell-conjunction, --target-block-event, or --target-enemy-contact is required for batch scoring"
                 );
             }
             if let Some(level) = base.warp_to_level {
@@ -1506,6 +1521,7 @@ fn main() -> Result<()> {
                 &target_projectile_cell,
                 &target_projectile_cell_conjunction,
                 &target_block_event,
+                &target_enemy_contact,
                 score_frame_start,
                 limit,
             )?;
@@ -3326,6 +3342,7 @@ fn probe_dynamic_record_scenario_batch(
     target_projectile_cells: &[BatchTargetProjectileCell],
     target_projectile_cell_conjunctions: &[BatchTargetProjectileCell],
     target_block_events: &[BatchTargetBlockEvent],
+    target_enemy_contacts: &[u8],
     score_frame_start: usize,
     limit: usize,
 ) -> Result<()> {
@@ -3369,7 +3386,8 @@ fn probe_dynamic_record_scenario_batch(
                 + target_projectile_directions.len()
                 + target_projectile_cells.len()
                 + target_projectile_cell_conjunctions.len()
-                + target_block_events.len(),
+                + target_block_events.len()
+                + target_enemy_contacts.len(),
         );
         for (index, target_point) in target_points.iter().copied().enumerate() {
             let summary = target_point_approach_from_frame(
@@ -3643,6 +3661,35 @@ fn probe_dynamic_record_scenario_batch(
                     )
                 },
             );
+            target_summaries.push(summary);
+        }
+        for (index, object_type) in target_enemy_contacts.iter().copied().enumerate() {
+            let summary = target_enemy_contact_from_frame(&trace, object_type, score_frame_start)
+                .map_or_else(
+                    || format!("enemy contact 0x{object_type:02X} <none>"),
+                    |contact| {
+                        if target_points.is_empty()
+                            && target_cells.is_empty()
+                            && target_cell_hitboxes.is_empty()
+                            && target_projectiles.is_empty()
+                            && target_projectile_directions.is_empty()
+                            && target_projectile_cells.is_empty()
+                            && target_projectile_cell_conjunctions.is_empty()
+                            && target_block_events.is_empty()
+                            && index == 0
+                        {
+                            first_target_score = Some(contact.score_px);
+                        }
+                        format!(
+                            "enemy contact 0x{object_type:02X} result {} gate {} score_px {} @{} same_frame_stomp={}",
+                            contact.result,
+                            contact.gate,
+                            contact.score_px,
+                            contact.replay_frame,
+                            contact.same_frame_stomp,
+                        )
+                    },
+                );
             target_summaries.push(summary);
         }
         results.push(BatchProbeResult {
