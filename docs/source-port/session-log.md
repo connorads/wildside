@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — RockTank target route blocker narrowed
+
+- Open queue stayed empty after #369. Followed the proactive verification
+  fallback against the human-reconfirmed #259 route blocker instead of changing
+  gameplay blindly. Fresh BLW2/Highwater target scoring records the exact Tank
+  coordinates and rejects the current built-in routes for the named floor-sink
+  tanks: Highwater never activates a Tank, and BLW2 does not reach the later
+  teleporter/flag candidates.
+- A bounded BLW2 overlay sweep improved the closest healthy approach to the
+  `(1848,239)` tank only to `dx=+348, dy=-348` at frame 812, with top candidates
+  already in `LevelTransition`. No code patch; archive #259 now points the next
+  pass at route-planner/live-recording tooling rather than Tank Y/priority
+  retuning from partial evidence.
+
 ## 2026-07-02 — Flagpole base render window fixed candidate
 
 - #369 fixed candidate: native scene/effects rendering now keeps the ROM

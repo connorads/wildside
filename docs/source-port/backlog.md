@@ -36,7 +36,10 @@ and stop — never commit churn.
 - **Still route-needed:** prize/P block weird sprite (#324), tank/helmet garble
   (#252), RockTank floor-sink (#259), and menu-skip black squares (#210/#254)
   still need exact live screenshot/recording/frame if they reproduce after the
-  current fixes.
+  current fixes. Fresh #259 target scoring on 2026-07-02 confirmed current
+  built-in routes still do not reach the named BLW2/Highwater tanks; the next
+  useful work is route-planner/live-recording tooling, not Tank Y/priority
+  retuning from partial routes.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
