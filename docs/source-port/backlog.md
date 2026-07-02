@@ -26,7 +26,7 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-02 failed human validation:** #271, #324, #259, and #252 remain
+- **2026-07-02 failed human validation:** #271, #324, and #259 remain
   reopened from the awaiting-human lane. The repeated failure
   pattern is now the bug: fixed-candidate probes and synthetic routes are not
   exercising the live play paths the human keeps seeing.
@@ -65,10 +65,14 @@ and stop — never commit churn.
   224/227. Also do not chase the old full-frame idle frame-300 RockTank
   assertion: current `idle_level_full_frames_01` oracle matches native at body/turret
   `$00C48000/$00C40000`; that cache-backed test expectation was stale.
+- **#252 route-needed 2026-07-02:** repeated current capture/test evidence
+  after the #210/#254 fix still shows coherent RockTank body/turret/bullet art;
+  move the tank/helmet garble report to `[b]` until an exact live frame or
+  recording identifies the bad sprite.
 - **Immediate work order:** take the next `project-status` item; with
-  #210/#254 back in human validation, the remaining reopened visual risks are
-  #324, #259, and #252.
-- **Visual route work:** #324/#259/#252 need current live recording or
+  #210/#254 and #252 back out of the open queue, the remaining reopened visual
+  risks are #324 and #259.
+- **Visual route work:** #324/#259 need current live recording or
   raw-VDP/scene paired captures before another renderer patch. Do not retune
   Tank Y/priority, block wobble sprites, or title/menu VDP from stale
   direct-camera or clean synthetic routes.
@@ -99,4 +103,3 @@ For newly opened items, capture these facts in the investigation notes:
 |-----|--------|-----|--------|---------|--------|
 | 324 | [ ] | P1 | render/block | FAILED human validation 2026-07-02: prize/P block still shows wrong sprite/art behind the hit wobble, now visibly on top of the shake. | Capture current live screenshot/recording/frame; replay with `capture-scenario-frames --scene` and raw VDP; inspect block/effects/terrain layers before another `sub_1007A` renderer change. |
 | 259 | [ ] | P1 | enemy/render | FAILED human validation 2026-07-02: RockTanks still appear halfway in the floor on levels 2 and 3. | Record natural route to named BLW2/Highwater tanks; tas-diff body/turret Y plus foreground occlusion depth; only close as faithful if oracle side-by-side shows the same composite. |
-| 252 | [ ] | P1 | render/enemy | FAILED human validation 2026-07-02: tank/helmet-looking RockTank garble still appears in live play despite clean sheet/capture probes. | Capture exact live frame/recording; compare assembled body/turret/muzzle/bullet sprites and raw VDP tiles at that frame; route floor perception through #259 if geometry matches. |

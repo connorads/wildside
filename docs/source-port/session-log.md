@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — #252 tank/helmet route-needed again
+
+- #252 moved from open to `[b]`. Repeated the current RockTank render recheck
+  after the #210/#254 commit: Level 01 frame 300 still shows a coherent grey
+  RockTank, and the assembled body/turret/bullet regressions remain green.
+- Evidence: `.cache/debug/issue252-after-8cea-recheck/`, focused
+  `rock_tank_renderer_`, `tank_bullet_uses_rom_child_sprite_frame_loc_3b730_stru_3b526`,
+  and ignored live-bullet regression.
+- Next #252 work needs an exact live screenshot/recording/frame that identifies
+  the garbled tank/helmet sprite. If the captured symptom is foreground
+  occlusion or perceived floor-sink, route it through #259.
+- Next open work should come from `project-status`; the remaining open rows are
+  #259 and #324.
+
 ## 2026-07-02 — #210/#254 title-menu VDP carry fixed candidate
 
 - #210/#254 moved from open to `[?]`. Fresh raw VDP captures found the missed

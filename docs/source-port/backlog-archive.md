@@ -9454,6 +9454,20 @@ Column of origin shown in brackets; text is verbatim.
   `blue_lake_woods_2_live_tank_bullet_renders_rom_child_sprite_loc_3b730`. Keep
   #252 `[b]`; the next actionable step requires an exact human recording/screenshot
   or frame identifying the garbled tank/helmet sprite.
+- [Blocked] 2026-07-02 post-#210/#254 fix status correction: reran the current
+  small evidence set on commit `8cea0c62c` before changing status. Fresh
+  `capture-frames --level 01 --frames 260,300,340 --output
+  .cache/debug/issue252-after-8cea-recheck` again shows a coherent grey
+  RockTank at frame 300, not the reported helmet/garbled sprite. Focused
+  renderer checks pass:
+  `KID_ENABLE_CACHE_BACKED_TESTS=1 cargo test -q -p wildside-cli rock_tank_renderer_ -- --nocapture`,
+  `KID_ENABLE_CACHE_BACKED_TESTS=1 cargo test -q -p wildside-cli tank_bullet_uses_rom_child_sprite_frame_loc_3b730_stru_3b526 -- --nocapture`,
+  and ignored live-bullet regression
+  `blue_lake_woods_2_live_tank_bullet_renders_rom_child_sprite_loc_3b730`.
+  Move #252 from open to `[b]` again. Do not patch Tank art, child offsets, or
+  bullet selection without an exact live frame/recording that reproduces the
+  garble; if the bad frame is actually foreground occlusion/floor perception,
+  route it through #259.
 
 ### #253
 
