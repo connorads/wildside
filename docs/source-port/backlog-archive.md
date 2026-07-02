@@ -13,6 +13,17 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #271
 
+Investigation note 2026-07-02: rejected the full-frame idle RockTank frame-300
+test as a stale lead for the live stomp bug. Cache-backed
+`settled_level_one_first_rock_tank_reaches_oracle_patrol_x_by_frame_300`
+expected body/turret `$00C58000/$00C50000`, but a current full-frame oracle
+comparison with slug `idle_level_full_frames_01_scratch` over frames 292..302
+reports MATCH throughout; frame 300 has native/oracle body/turret
+`$00C48000/$00C40000` with grounded scan `dir=R/x=196/next=196/delta=0/rem=1`.
+Updated the regression to the current oracle value and kept the #331 wall-turn
+guard green. This does not fix #271; it removes a false RockTank patrol phase
+signal so the next pass stays focused on the live targeted contact route.
+
 Investigation note 2026-07-02: current sharp-route audit rejected another
 patrol-timing guess and added durable native scan tracing. The narrow mirrored
 left-boundary turn experiment (`loc_3C0FA -> loc_3C152 -> loc_3C026`) did NOT

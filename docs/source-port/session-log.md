@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 — RockTank full-frame stale assertion rejected
+
+- #271 remains open/in progress. The cache-backed full-frame idle regression
+  for Level 1 frame 300 was stale: current `idle_level_full_frames_01` oracle
+  matches native body/turret at `$00C48000/$00C40000`, not the old
+  `$00C58000/$00C50000` expectation.
+- Updated the regression and recorded the full-frame route as a rejected lead.
+  The live stomp problem still needs a targeted `play-native --record` route;
+  do not use this full-frame idle assertion to justify shared-walker changes.
+- Verification: cache-backed frame-300 regression now passes; #331 wall-turn
+  guard still passes; focused `tas-diff` over frames 292..302 reports MATCH.
+
 ## 2026-07-02 — RockTank sharp route phase trace
 
 - #271 remains open/in progress. Rejected a narrow mirrored left-boundary

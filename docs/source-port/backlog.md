@@ -53,7 +53,10 @@ and stop — never commit churn.
   left-facing at frame 217 (`x=156 -> 155`, `d7=0b011`, `plan=None`) while the
   oracle is already right-facing at `x=155`, then native remains one pixel left
   at the frame-224 damage. Do not retry generic left extra-step/left boundary
-  patches without explaining that against ASM `loc_3C04E/loc_3C0FA`.
+  patches without explaining that against ASM `loc_3C04E/loc_3C0FA`. Also do
+  not chase the old full-frame idle frame-300 RockTank assertion: current
+  `idle_level_full_frames_01` oracle matches native at body/turret
+  `$00C48000/$00C40000`; that cache-backed test expectation was stale.
 - **Visual route work:** #324/#259/#252/#210 need current live recording or
   raw-VDP/scene paired captures before another renderer patch. Do not retune
   Tank Y/priority, block wobble sprites, or title/menu VDP from stale

@@ -7107,8 +7107,8 @@ mod chunk_09 {
 
         assert_eq!(
             (first_tank_body.x_pos, first_tank_turret.x_pos),
-            (0x00C5_8000, 0x00C5_0000),
-            "ASM Tank.asm loc_3B40A dispatches into shared walker loc_3C026/loc_3C04E; oracle frame 300 has the first RockTank body one half-pixel ahead of its turret child after the loc_3C0A6 boundary-turn frame",
+            (0x00C4_8000, 0x00C4_0000),
+            "ASM Tank.asm loc_3B40A dispatches into shared walker loc_3C026/loc_3C04E; current full-frame oracle frame 300 matches the first RockTank body one half-pixel ahead of its turret child before the next tile-boundary turn",
         );
     }
 
