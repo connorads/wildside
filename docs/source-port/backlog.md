@@ -62,7 +62,7 @@ and stop — never commit churn.
   `big_hopping_skull.rs` (56 caught, 15 unviable). The `diamond.rs` mutation
   pass initially found one actionable zero-velocity ceiling boundary survivor;
   a regression now pins `kid.asm loc_3C2D0`/Diamond.asm `loc_3ADA4` and the
-  rerun reports 62 caught, 10 unviable, 0 missed. ASM audits found six live
+  rerun reports 62 caught, 10 unviable, 0 missed. ASM audits found seven live
   gameplay gaps. Armadillo.asm `loc_3C766`/`loc_3C7F8` now seeds the
   shared Scorpion.asm `loc_3DEA0` `$6E/$54` timer through
   `shared_walker_patrol_timer`, hibernating/reversing on expiry. Goat.asm
@@ -75,10 +75,10 @@ and stop — never commit churn.
   table. Diamond.asm `loc_3ADA4` now preserves high-HP `colid_ceiling`,
   `colid_slopeup`, and `colid_slopedown` terrain words so `loc_3AE3E`,
   `loc_3AE4A`, and `loc_3AE68` can run instead of collapsing to no-collision or
-  generic floor. Driller.asm `loc_3BF4E` now hibernates the native Driller
-  during the nonterminal stomp hurt animation before `loc_3BF66` can resume the
-  shared walker. Fire_Demon.asm `loc_3A5BE` now uses the full 24-tick
-  `stru_3A34E` hurt hibernate before `loc_3A5D4` can resume the shared walker.
+  generic floor. Driller.asm `loc_3BF4E` and Fire_Demon.asm `loc_3A5BE` now
+  hold their hurt animations before shared-walker resume. Cloud.asm
+  `loc_35DAE` now waits 25 ticks for `stru_35EC8` before `loc_35DB8`
+  allocates lightning.
   `verify-slice-fast` passes; `verify-tas-full` exits 0 with CRC all 37759
   frames matching but still reports the current `1p-accurate` state gap (first
   authoritative diff: `transition_15_to_00_post` DragonWalking/object-count).

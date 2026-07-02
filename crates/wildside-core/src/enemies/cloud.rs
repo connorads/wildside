@@ -203,6 +203,9 @@ const CLOUD_IDLE_SPRITES_LOC_35CA2: [&str; 6] = [
     "LnkTo_unk_C7886-Data_Index",
 ];
 
+pub(crate) const CLOUD_ATTACK_ANIMATION_FRAMES_LOC_35D9E: u8 =
+    0x03 + 0x03 + 0x02 + 0x01 + 0x01 + 0x02 + 0x02 + 0x01 + 0x02 + 0x08;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CloudIdleSpriteGateLoc35CA2 {
     pub(crate) d2_after_subq: u16,
@@ -668,6 +671,14 @@ pub(crate) fn step_cloud_attack(
     // ASM `$45(a5)` plus the latched `$44/$46(a0)` projectile vector.
     let x_direction = cloud_x_direction_byte(enemy.facing);
     if enemy.ufo_beam_segments != 0 {
+        if enemy.dragon_descent_frames > 0 {
+            // ASM Cloud.asm loc_35DAE waits for the `stru_35EC8` animation
+            // started at loc_35D9E to set `$18(a3)` before allocating loc_35DF0.
+            enemy.dragon_descent_frames = enemy.dragon_descent_frames.saturating_sub(1);
+            if enemy.dragon_descent_frames > 0 {
+                return;
+            }
+        }
         let setup = cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
             object_45: 0xFF,
             animation_done_flag_18: true,
@@ -697,6 +708,7 @@ pub(crate) fn step_cloud_attack(
                 ));
             }
             enemy.ufo_beam_segments = 0;
+            enemy.dragon_descent_frames = 0;
             enemy.target_x_velocity = 0;
             enemy.target_y_velocity = 0;
         }
@@ -726,6 +738,7 @@ pub(crate) fn step_cloud_attack(
     });
     if let CloudDiagonalAttackRouteLoc35CD8::StartAttack { x_word, y_word } = setup.route {
         enemy.ufo_beam_segments = 1;
+        enemy.dragon_descent_frames = CLOUD_ATTACK_ANIMATION_FRAMES_LOC_35D9E;
         enemy.target_x_velocity = i32::from(x_word) << 16;
         enemy.target_y_velocity = i32::from(y_word) << 16;
     }

@@ -5749,7 +5749,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn cloud_runtime_loc_35cd8_latches_then_spawns_diagonal_lightning() {
+    fn cloud_runtime_loc_35dae_waits_for_attack_animation_before_lightning() {
         let mut active = vec![cloud_enemy_for_attack()];
         let mut projectiles = Vec::new();
         let mut drilled_blocks = Vec::new();
@@ -5788,8 +5788,29 @@ mod chunk_04 {
 
         assert_eq!(
             projectiles.len(),
+            0,
+            "ASM Cloud.asm loc_35DAE should wait for `stru_35EC8` to finish before loc_35DB8 allocates lightning"
+        );
+        assert_eq!(active[0].ufo_beam_segments, 1);
+
+        for _ in 0..24 {
+            step_active_enemies(
+                &mut active,
+                None,
+                Some(60 << 16),
+                Some(89 << 16),
+                None,
+                None,
+                PlayerForm::TheKid,
+                Some(&mut projectiles),
+                &mut drilled_blocks,
+            );
+        }
+
+        assert_eq!(
+            projectiles.len(),
             1,
-            "ASM loc_35DB8 should allocate one loc_35DF0 lightning worker after the attack animation latch",
+            "ASM Cloud.asm loc_35DB8 should allocate one loc_35DF0 lightning worker only after the 25-tick `stru_35EC8` animation"
         );
         assert_eq!(active[0].ufo_beam_segments, 0);
         let projectile = projectiles[0];

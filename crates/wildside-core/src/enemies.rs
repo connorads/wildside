@@ -1267,6 +1267,8 @@ pub(crate) struct ActiveEnemy {
     /// Dragon Flying: descent sub-script entry index.
     pub(crate) dragon_descent_index: u8,
     /// Dragon Flying: frames remaining in current descent entry.
+    /// Cloud reuses this for `stru_35EC8` ticks between Cloud.asm loc_35D9E
+    /// and loc_35DB8 lightning allocation.
     pub(crate) dragon_descent_frames: u8,
     pub(crate) ninja_state: NinjaState,
     pub(crate) hand_state: HandState,

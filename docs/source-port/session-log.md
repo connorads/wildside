@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 - proactive Cloud lightning timing audit
+
+- Project-status still showed no ready/open risks, so the fallback moved to a
+  compact Cloud ASM audit.
+- Audited Cloud.asm `loc_35CD8`-`loc_35DB8` and `stru_35EC8`. Native latched
+  `$45(a5)` correctly but spawned lightning on the next scheduler visit instead
+  of waiting for the 25-tick attack animation to set `$18(a3)`.
+- Added `CLOUD_ATTACK_ANIMATION_FRAMES_LOC_35D9E`, reused
+  `dragon_descent_frames` for the Cloud attack-animation counter, and added a
+  runtime regression pinning the no-spawn second frame plus the eventual
+  `loc_35DB8` allocation.
+- Verification: focused red/green test, `cargo test -q -p wildside-core
+  cloud`, `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, `mise run verify-slice-fast`, and `mise run verify-tas-full`
+  pass. Full TAS exits 0 with CRC all 37759 frames matching; the current
+  long-route state gap remains first at `transition_15_to_00_post` on
+  DragonWalking/object-count.
+
 ## 2026-07-02 - proactive Fire Demon hurt-hibernate audit
 
 - Project-status still showed no ready/open risks, so the fallback moved to a
