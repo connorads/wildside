@@ -977,14 +977,14 @@ fn select_live_walking_dragon_frame<'a>(
     // sheet appends `loc_3CEFC` death/smoke frames after the live frames, so
     // live animation must follow the ROM sequence rather than cycling every
     // frame in the sheet.
-    if object.damage_flash && enemy_visuals.frames.len() > 6 {
+    if object.damage_flash {
         // ASM Dragon.asm loc_3CEBE installs `stru_3CCE6` after a nonlethal
         // `colid_hurt`/`colid_kidabove` hit and hibernates until that one-frame
         // sequence finishes before restoring the saved walking script.
         return Some(&enemy_visuals.frames[6]);
     }
 
-    if object.walk_phase == Some(1) && enemy_visuals.frames.len() > 10 {
+    if object.walk_phase == Some(1) && enemy_visuals.frames.len() >= 11 {
         // ASM Dragon.asm loc_3CF90 starts `stru_3CCC2` on the parent while
         // the child breath object (`stru_3CCC8`) is active.
         return Some(&enemy_visuals.frames[10]);
@@ -3205,6 +3205,18 @@ mod tests {
             select_live_flying_dragon_frame(&trace, &short, &live_enemy_object(0x0C)).is_none()
         );
 
+        let mut rejected = live_enemy_object(0x05);
+        rejected.kind = NativeObjectKind::Enemy { object_type: 0x06 };
+        assert!(select_live_tar_monster_frame(&trace, &full, &rejected).is_none());
+        rejected = live_enemy_object(0x05);
+        rejected.hit_points = Some(0);
+        assert!(select_live_tar_monster_frame(&trace, &full, &rejected).is_none());
+        let too_short_tar = labelled_enemy_visuals(1, 3);
+        assert!(
+            select_live_tar_monster_frame(&trace, &too_short_tar, &live_enemy_object(0x05))
+                .is_none()
+        );
+
         let mut rejected = live_enemy_object(0x06);
         rejected.kind = NativeObjectKind::Enemy { object_type: 0x05 };
         assert!(select_live_sphere_frame(&trace, &full, &rejected).is_none());
@@ -3228,6 +3240,103 @@ mod tests {
         rejected.hit_points = Some(0);
         assert!(select_live_lion_frame(&trace, &full, &rejected).is_none());
         assert!(select_live_lion_frame(&trace, &short, &live_enemy_object(0x12)).is_none());
+    }
+
+    #[test]
+    fn live_enemy_selectors_accept_exact_asm_minimum_sheet_lengths() {
+        let trace = NativeTraceFrame::default();
+
+        // ASM Dragon.asm loc_3CE48 live walk uses frames 0..7; loc_3CF90 breath
+        // may only read frame 10 when the extracted sheet actually has it.
+        let dragon_min = labelled_enemy_visuals(8, 3);
+        let dragon = live_enemy_object(0x0D);
+        assert_eq!(
+            selected_live_tile_base(select_live_walking_dragon_frame(
+                &trace,
+                &dragon_min,
+                &dragon
+            )),
+            0x0100
+        );
+        let mut breathing_dragon = dragon;
+        breathing_dragon.walk_phase = Some(1);
+        let dragon_without_breath = labelled_enemy_visuals(10, 3);
+        assert_ne!(
+            selected_live_tile_base(select_live_walking_dragon_frame(
+                &trace,
+                &dragon_without_breath,
+                &breathing_dragon
+            )),
+            0x010A,
+            "ASM Dragon.asm loc_3CF90 breath frame 10 is unavailable on a ten-frame synthetic sheet"
+        );
+        let dragon_with_breath = labelled_enemy_visuals(11, 3);
+        assert_eq!(
+            selected_live_tile_base(select_live_walking_dragon_frame(
+                &trace,
+                &dragon_with_breath,
+                &breathing_dragon
+            )),
+            0x010A
+        );
+
+        // These selectors deliberately accept the exact live-frame window and
+        // reject only shorter sheets; appended frames are hurt/death tails.
+        assert_eq!(
+            selected_live_tile_base(select_live_diamond_frame(
+                &trace,
+                &labelled_enemy_visuals(5, 3),
+                &live_enemy_object(0x01)
+            )),
+            0x0100
+        );
+        assert_eq!(
+            selected_live_tile_base(select_live_flying_dragon_frame(
+                &trace,
+                &labelled_enemy_visuals(5, 3),
+                &live_enemy_object(0x0C)
+            )),
+            0x0100
+        );
+        assert_eq!(
+            selected_live_tile_base(select_live_tar_monster_frame(
+                &trace,
+                &labelled_enemy_visuals(2, 3),
+                &live_enemy_object(0x05)
+            )),
+            0x0101
+        );
+        assert_eq!(
+            selected_live_tile_base(select_live_sphere_frame(
+                &trace,
+                &labelled_enemy_visuals(3, 3),
+                &live_enemy_object(0x06)
+            )),
+            0x0100
+        );
+        assert_eq!(
+            selected_live_tile_base(select_live_emo_rock_frame(
+                &trace,
+                &labelled_enemy_visuals(3, 3),
+                &live_enemy_object(0x1B)
+            )),
+            0x0100
+        );
+        assert_eq!(
+            selected_live_tile_base(select_live_hand_frame(
+                &labelled_enemy_visuals(4, 3),
+                &live_enemy_object(0x17)
+            )),
+            0x0100
+        );
+        assert_eq!(
+            selected_live_tile_base(select_live_lion_frame(
+                &trace,
+                &labelled_enemy_visuals(6, 3),
+                &live_enemy_object(0x12)
+            )),
+            0x0100
+        );
     }
 
     #[test]
@@ -3375,6 +3484,25 @@ mod tests {
         assert_eq!(
             selected_live_tile_base(select_live_lion_frame(&trace, &visuals, &lion)),
             0x0101
+        );
+
+        let lion_visuals = labelled_enemy_visuals(6, 3);
+        let mut lion = live_enemy_object(0x12);
+        lion.layout_index = Some(2);
+        let trace = NativeTraceFrame {
+            frame_index: 1,
+            ..NativeTraceFrame::default()
+        };
+        assert_eq!(
+            selected_live_tile_base(select_live_lion_frame(&trace, &lion_visuals, &lion)),
+            0x0101,
+            "ASM Lion.asm loc_3DFD8 layout offset is layout_index*3 before duration dispatch"
+        );
+        lion.walk_phase = Some(45);
+        assert_eq!(
+            selected_live_tile_base(select_live_lion_frame(&trace, &lion_visuals, &lion)),
+            0x0101,
+            "ASM Lion.asm loc_3E0F4 walk phase wraps by the live duration cycle"
         );
     }
 

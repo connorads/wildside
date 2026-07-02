@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive frame live-selector mutation shard)
+
+- **Open queue still empty.** `mise run project-status` reports no ready/open
+  implementation or visual rows; only human validation/repro blockers remain.
+- **Mutation fallback advanced:** focused `wildside-frame/src/sprites.rs` live
+  enemy selectors for Walking Dragon, Flying Dragon, Diamond, Tar Monster,
+  Sphere, Emo Rock, Hand, and Lion. Added exact minimum-sheet and Lion phase
+  arithmetic coverage, and simplified the redundant Walking Dragon hurt guard.
+- Verification: `cargo fmt --check`, focused live-selector tests, full
+  `sprites::tests`, focused mutation rerun
+  `/tmp/mutants-frame-sprites-live-selectors-20260702-after2` (`113 mutants
+  tested in 2m: 105 caught, 8 unviable`), and `mise run verify-slice-fast`
+  green.
+- NEXT: run `mise run project-status`; if ready/open rows remain empty, continue
+  proactive verification on another focused frame/core shard.
+
 ## 2026-07-02 handoff (#324 prize/P block route-needed)
 
 - **#324 moved `[~]` -> `[b]`.** Fresh current recheck did not reproduce the
