@@ -11923,6 +11923,18 @@ remains exact, with the known state-report divergences still first authoritative
   frame 3000 now shows the title card and AE improves to `2866` (same title-card residual class as
   2720). `verify-tas` on this narrow route still reports hidden title-card trace-position drift, so
   keep #210/#254 `[?]` for human visual validation rather than closing them from trace parity.
+- **#210 / #254 raw-VDP recheck 2026-07-02.** After another human reminder of black squares where
+  Red Stealth/title-menu art should be, regenerated current raw and scene captures under
+  `.cache/debug/recheck-20260702-user-menu/`. The live/raw VDP path is clean on the covered timings:
+  `2400:start,2700:start,2720:start`, `2400:start,2700:start,2721:start`, adjacent
+  `2688/2709` and `2700/2710` Start variants, and a held `2700..2725:start` variant all show the
+  expected title/menu/Red Stealth art or the BLW title-card transition. In particular, raw frame
+  2700 shows the Red Stealth title shell, frame 2721/2726 shows the menu, frame 2800 shows the BLW
+  title-card transition, and frames 3000/3299 show the BLW title card. `--scene` captures still
+  draw the simplified fallback menu and can omit the title-card background, but live `play-native`
+  uses the raw VDP frame plus overlay path, so this is not evidence for the reported live black
+  squares. Keep the rows awaiting exact timing or a `play-native --record` bundle; do not patch the
+  already-clean 2400/2700/2720/2721 route again.
 
 ### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro logged)
 

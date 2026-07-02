@@ -49,6 +49,13 @@ and stop — never commit churn.
   human-validation/blocker lane because current known routes were rechecked clean
   or fixed-candidate; next actionable step is an exact current screenshot,
   recording, route timing, or frame.
+- **#210/#254 follow-up 2026-07-02:** fresh raw-VDP captures for the reported
+  skip/menu timings (`2400:start,2700:start,2720/2721:start`) and nearby held /
+  adjacent Start variants show correct Red Stealth/title/menu art and a correct
+  BLW title card in the live-render path. `capture-scenario-frames --scene`
+  still uses a simplified fallback title/menu shell and drops the title-card
+  background; do not treat that scene-only gap as the live black-square repro.
+  The live report still needs exact timing or a `play-native --record` bundle.
 - **Proactive verification 2026-07-02:** no ready/open rows remain, so the latest
   loop mutation-audited `wildside-core/src/enemies/fireball.rs`. The Fireball
   shard ended at 60 mutants tested: 47 caught, 13 unviable, zero missed

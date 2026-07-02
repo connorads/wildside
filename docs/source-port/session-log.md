@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (#210/#254 live raw menu-skip recheck)
+
+- **#210/#254 stay awaiting human validation.** Human reconfirmed black squares
+  where Red Stealth/title-menu art should be after skipping the menu, but fresh
+  raw-VDP captures for the covered route and nearby timing variants are clean.
+- Evidence: regenerated
+  `.cache/debug/issue210-20260702/probe-oracle-2400-2700-2721/oracle-frame-scenario.json`
+  through `capture-scenario-frames`. Raw outputs under
+  `.cache/debug/recheck-20260702-user-menu/` show Red Stealth/title art at frame
+  2700, the menu at 2721/2726, the title-card transition at 2800, and the BLW
+  title card at 3000/3299 for `2400:start,2700:start,2720/2721:start`,
+  `2688/2709`, `2700/2710`, and held `2700..2725` variants.
+- Important distinction: `capture-scenario-frames --scene` still uses the
+  simplified title/menu fallback and can omit the title-card background. That
+  scene-only compositor gap is not the live raw VDP path used by `play-native`.
+- NEXT: for the live black-square report, capture exact timing or a
+  `play-native --record` bundle before patching; do not reopen the already-clean
+  2400/2700/2720/2721 routes as if they were still failing.
+
 ## 2026-07-02 handoff (proactive Fireball mutation audit)
 
 - **Open queue still empty.** `mise run project-status` reports no ready/open
