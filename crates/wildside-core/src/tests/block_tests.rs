@@ -10758,9 +10758,10 @@ mod chunk_04 {
     #[test]
     fn tornado_loads_rom_pattern_on_timer_expiry() {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 1);
-        enemy.wait_timer = 0;
+        enemy.wait_timer = 1;
         step_tornado(&mut enemy, None);
-        // ASM Tornado.asm loc_359F2 / unk_35A0C: timer expiry loads script entry 0.
+        // ASM Tornado.asm loc_35908 reaches loc_359F2 when the post-decrement
+        // `$44(a5)` value is zero, then loads script entry 0 from unk_35A0C.
         assert_eq!(enemy.target_x_velocity, 0x0001_8000);
         assert_eq!(enemy.target_y_velocity, -0x0001_8000);
         assert_eq!(enemy.x_acceleration, 0x0000_1800);
@@ -10793,7 +10794,7 @@ mod chunk_04 {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 0, 0, 2);
         enemy.enemy_level = 1;
         enemy.flight_double_acceleration = true;
-        enemy.wait_timer = 0;
+        enemy.wait_timer = 1;
         step_tornado(&mut enemy, None);
         // ASM Tornado.asm loc_3592E: `$46(a5)` doubles d0 and d2 only.
         assert_eq!(enemy.target_x_velocity, 0x0003_0000);
@@ -10811,7 +10812,7 @@ mod chunk_04 {
         enemy.enemy_level = 2;
         enemy.flight_double_acceleration = true;
         enemy.flight_double_terminal_speed = true;
-        enemy.wait_timer = 0;
+        enemy.wait_timer = 1;
         step_tornado(&mut enemy, None);
         // ASM Tornado.asm loc_3593A: `$47(a5)` doubles d1 and d3.
         assert_eq!(enemy.target_x_velocity, 0x0003_0000);
@@ -10851,6 +10852,26 @@ mod chunk_04 {
         assert_eq!(enemy.dragon_script_cmd, 7);
         assert_eq!(enemy.x_velocity, 0x0000_0800);
         assert_eq!(enemy.y_velocity, -0x0000_0800);
+    }
+
+    #[test]
+    fn tornado_loc_35908_reloads_pattern_when_subq_reaches_zero() {
+        let mut enemy = test_enemy(EnemyFamily::Tornado, 100 << 16, 100 << 16, 1);
+        enemy.target_x_velocity = 0x0001_0000;
+        enemy.target_y_velocity = -0x0001_0000;
+        enemy.x_acceleration = 0x0000_0800;
+        enemy.y_acceleration = -0x0000_0800;
+        enemy.wait_timer = 1;
+        enemy.dragon_script_cmd = 7;
+
+        step_tornado(&mut enemy, None);
+
+        // ASM Tornado.asm loc_35908: `subq.w #1,$44(a5)` falls through to
+        // loc_359F2 on the same frame when the post-decrement value is zero.
+        assert_eq!(enemy.wait_timer, TORNADO_PATTERN_FRAMES[0]);
+        assert_eq!(enemy.dragon_script_cmd, 8);
+        assert_eq!(enemy.target_x_velocity, 0x0001_8000);
+        assert_eq!(enemy.target_y_velocity, 0x0001_8000);
     }
 
     #[test]

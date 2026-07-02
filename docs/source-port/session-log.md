@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 - proactive Tornado timer-edge audit
+
+- Project-status still showed no ready/open risks, so the fallback moved to a
+  compact Tornado ASM audit.
+- Audited Tornado.asm `loc_35908` and `loc_359F2`. Native treated `$44(a5)==0`
+  as the expiry frame; the ROM decrements first and only reloads the
+  `unk_35A0C` script when the post-decrement value is zero.
+- Changed the Tornado loop to use the ASM post-decrement edge and added a
+  regression for `$44(a5)=1` reloading on the same scheduler visit.
+- Verification: focused red/green test, `cargo test -q -p wildside-core
+  tornado`, `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, `mise run verify-slice-fast`, and `mise run verify-tas-full`
+  pass. Full TAS exits 0 with CRC all 37759 frames matching; the current
+  long-route state gap remains first at `transition_15_to_00_post` on
+  DragonWalking/object-count.
+
 ## 2026-07-02 - proactive Cloud lightning timing audit
 
 - Project-status still showed no ready/open risks, so the fallback moved to a

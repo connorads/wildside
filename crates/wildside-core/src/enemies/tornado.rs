@@ -234,13 +234,13 @@ pub(crate) fn step_tornado_with_rng(
     }
 
     // ASM Tornado.asm loc_35908: the main flight loop decrements `$44(a5)`;
-    // only the zero result falls through to loc_359F2 and resets from `unk_3588C`.
+    // only the post-decrement zero result falls through to loc_359F2 and
+    // resets from `unk_3588C`.
+    enemy.wait_timer = enemy.wait_timer.wrapping_sub(1);
     if enemy.wait_timer == 0 {
         let level = usize::from(enemy.enemy_level).min(2);
         enemy.wait_timer = TORNADO_PATTERN_FRAMES[level];
         reload_tornado_pattern_script(enemy);
-    } else {
-        enemy.wait_timer -= 1;
     }
 
     // ASM Tornado.asm loc_35948 uses Tornado's `off_35950` table, then shares
