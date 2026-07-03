@@ -2019,7 +2019,7 @@ fn lava_fireball_script_words_at_segment_loc_149E4(segment_index: u8) -> Option<
 }
 
 #[allow(non_snake_case)]
-fn lava_fireball_sprite_kind_for_script_word_loc_149E4(
+pub(crate) fn lava_fireball_sprite_kind_for_script_word_loc_149E4(
     sprite_script_word: u16,
 ) -> Option<LavaFireballSpriteKind> {
     // ASM loc_149E4 loads the `unk_146CC` sprite-script word through

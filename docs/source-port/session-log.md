@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather lava-fireball sprite-kind mutation boundary
+
+- Project-status still showed no ready/open risks. The next remaining
+  lava/fireball resample exposed `lava_fireball_sprite_kind_for_script_word_loc_149E4`:
+  deleting mid-rise, mid-body, mid-fall, and tall-fall match arms was missed by
+  the weather chunk.
+- Re-read `kid.asm` `unk_146CC` and the `loc_149E4` `LoadGameModeData` sprite
+  script loads. Made the mapping helper crate-visible like the other tested ASM
+  weather helpers and added an ASM-cited table test for every known fireball
+  sprite-script offset, including the alternate mid-body entry.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-lava-fireball-sprite-kind-20260703-after` reports 12
+  mutants: 11 caught, 1 unviable, 0 missed. `cargo fmt --all --check`,
+  `git diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`
+  pass. `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather lava-fireball script-stride mutation boundary
 
 - Project-status still showed no ready/open risks. The next remaining

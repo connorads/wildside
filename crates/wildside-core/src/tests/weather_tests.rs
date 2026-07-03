@@ -6432,6 +6432,33 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn lava_fireball_sprite_kind_for_script_word_loc_149e4_maps_unk_146cc_entries() {
+        use crate::weather::LavaFireballSpriteKind::{
+            MidBody, MidFall, MidRise, TallFall, TallRise,
+        };
+
+        for (script_word, expected_kind) in [
+            (0x4664, TallRise),
+            (0x466E, MidRise),
+            (0x4678, MidBody),
+            (0x4682, MidBody),
+            (0x468C, MidFall),
+            (0x4696, TallFall),
+        ] {
+            assert_eq!(
+                crate::weather::lava_fireball_sprite_kind_for_script_word_loc_149E4(script_word),
+                Some(expected_kind),
+                "ASM loc_149E4 loads unk_146CC sprite scripts through LoadGameModeData before sub_14AB0 chooses the fireball hitbox bucket",
+            );
+        }
+        assert_eq!(
+            crate::weather::lava_fireball_sprite_kind_for_script_word_loc_149E4(0xFFFF),
+            None,
+            "ASM loc_149E4 should only classify the known unk_14664..unk_14696 fireball sprite script offsets",
+        );
+    }
+
+    #[test]
     fn lava_fireball_vertical_window_loc_14afc_maps_all_sprite_kind_buckets() {
         use crate::weather::LavaFireballSpriteKind::{
             MidBody, MidFall, MidRise, TallFall, TallRise,
