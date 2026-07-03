@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive scenario direct title-card mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback regenerated
+  stale mutation reports instead of taking a human-validation blocker. Fresh
+  targeted checks confirmed cached demo, movement title-entry, Spinning Twins,
+  physics, VDP, Cloud, UFO, and constants reports were clean or superseded.
+- Full current `.cache/mutants/scenario-20260703-current` found six live
+  survivors in `scenario.rs`: the direct-title-card wrappers could be replaced
+  with empty/default traces, and the direct-initial handoff restore branch could
+  restore before the first live gameplay frame.
+- Factored the restore predicate into a small truth-table-tested helper and
+  added two-frame wrapper smoke tests. The tests cite ASM `loc_1BBD6` and
+  `loc_1AE2E`; runtime behaviour is unchanged.
+- Verification: `cargo test -p wildside-core scenario::tests:: -- --nocapture`
+  passes. Final focused mutation rerun
+  `.cache/mutants/scenario-direct-title-20260703-after` reports 9 mutants: 9
+  caught, 0 missed. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass. `verify-tas-full` was
+  not rerun because this was behaviour-neutral test/mutation hardening; latest
+  full TAS remains the 2026-07-02 pass with CRC all 37759 frames matching and
+  the known `transition_15_to_00_post` DragonWalking/object-count state gap.
+
 ## 2026-07-03 - proactive physics camera/murder-wall mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback sampled the

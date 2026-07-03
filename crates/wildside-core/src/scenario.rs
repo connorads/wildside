@@ -92,6 +92,13 @@ fn recording_oracle_warp_resets_level_one_rng(level_id: LevelId) -> bool {
     level_id == LevelId(1)
 }
 
+fn should_restore_recorded_title_card_after_first_live(
+    restore_after_first_live: bool,
+    game_mode: GameMode,
+) -> bool {
+    restore_after_first_live && game_mode == GameMode::InGame
+}
+
 impl NativeRuntime {
     /// Boot through menus to level 0, then advance to `target` using the
     /// level skip mechanism. Used by sweep infrastructure to reach any level
@@ -520,9 +527,10 @@ impl ScriptRunner {
                 .map(FrameInput::from_mask)
                 .unwrap_or_default();
             let snapshot = runtime.step_frame(input);
-            if restore_recorded_title_card_after_first_live
-                && snapshot.game_mode == GameMode::InGame
-            {
+            if should_restore_recorded_title_card_after_first_live(
+                restore_recorded_title_card_after_first_live,
+                snapshot.game_mode,
+            ) {
                 runtime.set_recorded_title_card_handoff_delay(true);
                 restore_recorded_title_card_after_first_live = false;
             }
@@ -749,6 +757,26 @@ mod tests {
     }
 
     #[test]
+    fn direct_initial_title_card_restore_waits_for_first_live_frame_loc_1ae2e() {
+        assert!(
+            !should_restore_recorded_title_card_after_first_live(false, GameMode::InGame),
+            "ASM loc_1AE2E direct initial handoff only restores recorded delay when the one-shot restore flag is armed"
+        );
+        assert!(
+            !should_restore_recorded_title_card_after_first_live(true, GameMode::LevelTransition),
+            "ASM loc_1AE2E title-card warm-up must not restore recorded delay before gameplay starts"
+        );
+        assert!(
+            !should_restore_recorded_title_card_after_first_live(true, GameMode::TitleScreen),
+            "ASM Obj_TitleMenu loc_1BBD6 frames are still before the first live gameplay frame"
+        );
+        assert!(
+            should_restore_recorded_title_card_after_first_live(true, GameMode::InGame),
+            "ASM loc_1AE2E direct initial handoff restores recorded title-card delay after the first live frame"
+        );
+    }
+
+    #[test]
     fn settle_recording_oracle_warp_resets_timer_without_cache() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.level_timer.seconds = 1;
@@ -913,6 +941,30 @@ mod tests {
                 .iter()
                 .any(|frame| frame.game_mode == GameMode::InGame),
             "boot_to_level should put the wrapped runner in gameplay for a level warp"
+        );
+    }
+
+    #[test]
+    fn direct_title_card_handoff_wrapper_returns_requested_frames_without_cache() {
+        let manifest = minimal_manifest();
+        let trace = run_script_with_direct_title_card_handoff(manifest, &[0, 0], 2);
+
+        assert_eq!(
+            trace.len(),
+            2,
+            "ASM Obj_TitleMenu loc_1BBD6 direct title-card wrapper must delegate to ScriptRunner::run for the requested frame count"
+        );
+    }
+
+    #[test]
+    fn direct_initial_title_card_handoff_wrapper_returns_requested_frames_without_cache() {
+        let manifest = minimal_manifest();
+        let trace = run_script_with_direct_initial_title_card_handoff(manifest, &[0, 0], 2);
+
+        assert_eq!(
+            trace.len(),
+            2,
+            "ASM loc_1AE2E direct initial title-card wrapper must delegate to ScriptRunner::run for the requested frame count"
         );
     }
 

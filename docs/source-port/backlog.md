@@ -57,14 +57,11 @@ and stop — never commit churn.
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
 - **Proactive verification 2026-07-03:** no ready/open rows remain. Recent
-  fallback passes fixed compact ASM gaps for Armadillo, Goat, Sphere, Diamond,
-  Driller, Fire Demon, Cloud, Tornado, Emo Rock, Robot, Berzerker charge
-  contact, projectiles `stru_37BFC` timing, HeadyMetal `sub_37ABC` body-piece
-  render markers, frame-scene Fire Demon/EOL/Plane-B row history, Cloud
-  `loc_35D9E` attack-animation timing, VDP decompression wrapper invariants
-  around `loc_14300/loc_14314`, and now VDP intro text cleanup stream-progress
-  invariants around `loc_1C7B6/loc_1C7D2`, plus physics camera/murder-wall
-  branch hardening around `loc_728C/loc_7346`.
+  fallback passes covered compact ASM gaps across enemy contact/animation,
+  projectiles, HeadyMetal render markers, frame-scene history, VDP decompression
+  and intro-text invariants, physics camera/murder-wall branch hardening, and
+  now scenario direct-title-card wrapper / first-live restore guards around
+  `loc_1BBD6/loc_1AE2E`.
 - **Current gates 2026-07-03:** focused `decompress_to_vram` tests pass, and
   final VDP focused mutation rerun `.cache/mutants/vdp-decompress-20260703-after2`
   reports 32 mutants: 31 caught, 1 unviable, 0 missed, 0 timeouts. Focused
@@ -73,14 +70,18 @@ and stop — never commit churn.
   1 unviable, 0 missed, 0 timeouts. Focused `loc_734` and `loc_728c` tests pass,
   and final physics camera/wall mutation rerun
   `.cache/mutants/physics-camera-wall-20260703-after2` reports 31 mutants: 31
-  caught, 0 missed. The latest change is behaviour-neutral test/mutation
-  hardening; `cargo fmt --all --check`, `git diff --check`, `mise run
-  backlog-lint`, and `mise run verify-slice-fast` pass. `verify-tas-full` was
-  not rerun. Latest full TAS remains the 2026-07-02 pass with CRC all 37759
-  frames matching and the known `1p-accurate` state gap at
-  `transition_15_to_00_post` DragonWalking/object-count. ASM coverage remains
-  `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not cite
-  those wrappers just to move the metric.
+  caught, 0 missed. Fresh stale-report checks for demo/constants/movement/
+  Spinning Twins/UFO/VDP/Cloud/physics were clean or superseded. Full current
+  `.cache/mutants/scenario-20260703-current` found six live scenario survivors;
+  final focused rerun `.cache/mutants/scenario-direct-title-20260703-after`
+  reports 9 mutants: 9 caught, 0 missed. Latest change is behaviour-neutral
+  test/mutation hardening; `cargo fmt --all --check`, `git diff --check`, `mise
+  run backlog-lint`, and `mise run verify-slice-fast` pass. `verify-tas-full`
+  was not rerun. Latest full TAS remains the 2026-07-02 pass with CRC all 37759
+  frames matching and the known `transition_15_to_00_post`
+  DragonWalking/object-count state gap. ASM coverage remains `0` ordinary
+  uncovered labels plus 21 emulated GEMS wrappers; do not cite those wrappers
+  just to move the metric.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
