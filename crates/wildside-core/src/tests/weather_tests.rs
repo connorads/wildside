@@ -6694,6 +6694,52 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn step_lava_fireball_script_loc_149e4_advances_by_three_word_segments() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_fireballs.push(LavaFireball {
+            x_px: 100,
+            base_y_px: 200,
+            current_y_px: 200,
+            segment_index: 0,
+            segment_frame: 0,
+            cooldown_timer: 0,
+        });
+
+        for _ in 0..11 {
+            runtime.step_lava_geysers(&airborne_slice());
+        }
+
+        let fireball = &runtime.weather.lava_fireballs[0];
+        assert_eq!(
+            (
+                fireball.segment_index,
+                fireball.segment_frame,
+                fireball.current_y_px,
+            ),
+            (1, 0, 156),
+            "ASM loc_149E4 reads the first three-word unk_146CC entry for eleven -4px frames before falling through to the next script entry",
+        );
+        assert_eq!(
+            fireball.cooldown_timer, 0,
+            "ASM loc_149E4 should continue into the second entry, not restart at loc_14A4C after the first segment",
+        );
+
+        runtime.step_lava_geysers(&airborne_slice());
+
+        let fireball = &runtime.weather.lava_fireballs[0];
+        assert_eq!(
+            (
+                fireball.segment_index,
+                fireball.segment_frame,
+                fireball.current_y_px,
+            ),
+            (1, 1, 153),
+            "ASM loc_149E4 advances a0 by three words per segment; segment 1 must apply the second entry's -3px delta",
+        );
+    }
+
+    #[test]
     fn hail_projectiles_from_falling_slots_sub_61ca_exports_active_slot_fields() {
         let projectiles = crate::weather::hail_projectiles_from_falling_slots_sub_61ca(&[
             FallingWeatherSlotSub61CA {

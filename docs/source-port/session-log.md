@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather lava-fireball script-stride mutation boundary
+
+- Project-status still showed no ready/open risks. The next remaining
+  lava/fireball resample exposed `lava_fireball_script_words_at_segment_loc_149E4`:
+  replacing the three-word table stride with addition or division was missed by
+  the weather chunk.
+- Re-read `kid.asm` `unk_146CC` and the `loc_149E4` fall-through loop. Added an
+  ASM-cited live fireball test proving the first eleven `-4px` frames advance to
+  the second three-word table entry, then the next frame applies that entry's
+  `-3px` delta rather than restarting or replaying segment 0.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-lava-fireball-script-stride-20260703-after` reports
+  11 mutants: 11 caught, 0 missed. `cargo fmt --all --check`,
+  `git diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`
+  pass. `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather lava-fireball script-decode mutation boundary
 
 - Project-status still showed no ready/open risks. The next remaining
