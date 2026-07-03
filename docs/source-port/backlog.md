@@ -57,7 +57,7 @@ and stop — never commit churn.
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
 - **Proactive verification 2026-07-03:** no ready/open rows remain; fallback is
-  mutation/citation hardening. Latest addition: clean Lion full-module rerun.
+  mutation/citation hardening. Latest addition: clean Drips full-module rerun.
 - **Current gates 2026-07-03:** clean mutation reruns now cover through storm
   `sub_6048` cadence, live `step_weather` free-slot routing, murder-wall
   warning dispatch, weather label/path helpers, and the enemy module reruns
@@ -77,7 +77,7 @@ and stop — never commit churn.
   Orca 91 (74/17), Robot 105 (93/12), Spinning Twins 126 (105/21), Cloud
   135 (119/16), Crab 87 (71/16), Emo Rock 92 (80/12), Mini Hopping Skull
   146 (90/56), Tar Monster 141 (107/34), Ninja 189 (156/33), UFO 232
-  (194/38), Lion 251 (206/45).
+  (194/38), Lion 251 (206/45), Drips 299 (234/65).
   Latest full TAS (2026-07-03) exits 0 with CRC all 37759 frames matching and
   the known first state divergence at `transition_15_to_00_post`. ASM coverage
   remains `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not

@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Drips mutation slice
+
+- Project-status still showed no ready/open risks after the Lion mutation
+  record, so continued the proactive verification fallback with the live Drips
+  enemy module. This refreshes current clean evidence for the ASM-cited
+  placement/type selection, live drop/spawn timing, slope/floor contact, death,
+  collision dispatch, projectile, and cleanup helper surface without changing
+  behaviour.
+- Verification: `env FILE=crates/wildside-core/src/enemies/drips.rs
+  OUTPUT=/tmp/mutants-drips-20260703-refresh TMPDIR=/tmp mise run mutants-file`
+  reports 299 mutants tested: 234 caught, 65 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Lion mutation slice
 
 - Project-status still showed no ready/open risks after the UFO mutation
