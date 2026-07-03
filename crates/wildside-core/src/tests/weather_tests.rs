@@ -6551,6 +6551,21 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn lava_fireball_hitbox_x_window_loc_14ab0_applies_unbiased_left_and_right_edges() {
+        for (fireball_x_px, expected) in [
+            (0x0000, (0x0001, 0x0007)),
+            (0x0200, (0x0201, 0x0207)),
+            (0x1234, (0x1235, 0x123B)),
+        ] {
+            assert_eq!(
+                crate::weather::lava_fireball_hitbox_x_window_loc_14AB0(fireball_x_px),
+                expected,
+                "ASM sub_14AB0 shapes fireball X as $44(a5)-$80+1, then +6 for the inclusive right edge",
+            );
+        }
+    }
+
+    #[test]
     fn hail_projectiles_from_falling_slots_sub_61ca_exports_active_slot_fields() {
         let projectiles = crate::weather::hail_projectiles_from_falling_slots_sub_61ca(&[
             FallingWeatherSlotSub61CA {

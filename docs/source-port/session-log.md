@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather lava-fireball X-window mutation boundary
+
+- Project-status still showed no ready/open risks. The next lava/fireball
+  resample exposed `lava_fireball_hitbox_x_window_loc_14AB0`: replacing the
+  helper with `(0, 0)` was missed by the weather chunk.
+- Re-read `kid.asm` `sub_14AB0` horizontal setup. Added an ASM-cited direct
+  helper test for the native-unbiased X window: left edge is `x + 1`, inclusive
+  right edge is `left + 6`.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-lava-fireball-hitbox-x-window-20260703-after` reports
+  18 mutants: 18 caught, 0 missed. `cargo fmt --all --check`, `git diff --check`,
+  `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+  `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather lava-fireball overlap-gate mutation boundary
 
 - Project-status still showed no ready/open risks. The next lava/fireball
