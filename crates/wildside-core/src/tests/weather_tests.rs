@@ -6240,6 +6240,62 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn step_lava_geysers_sub_14a58_damages_on_inclusive_edges_and_rejects_each_side() {
+        let step_geyser = |slice| {
+            let mut runtime = NativeRuntime::new(manifest());
+            runtime.weather.weather_type = 1;
+            runtime.progression.current_form = PlayerForm::TheKid;
+            runtime.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+            runtime.progression.invulnerable_frames = 0;
+            runtime.weather.lava_geysers.push(LavaGeyser {
+                x_px: 100,
+                y_px: 200,
+                height_px: 4 * LAVA_GEYSER_ROW_HEIGHT_PX,
+                first_eruption_pending: false,
+                sound_suppressed: true,
+                phase: LAVA_GEYSER_PHASE_HOLDING_LOC_1496C,
+                timer: 3,
+                current_height: 4 * LAVA_GEYSER_ROW_HEIGHT_PX,
+            });
+
+            runtime.step_lava_geysers(&slice);
+            runtime
+        };
+
+        let hit = step_geyser(make_airborne_slice(98, 152));
+        assert_eq!(
+            hit.progression.number_hitpoints, 1,
+            "ASM sub_14A58 treats equality as overlap when Kid_hitbox_right reaches x+3 and Kid_hitbox_bottom reaches top sprite Y+$10",
+        );
+
+        for (slice, branch) in [
+            (
+                make_airborne_slice(97, 180),
+                "Kid_hitbox_right < x+3 branches to loc_14AAA",
+            ),
+            (
+                make_airborne_slice(135, 180),
+                "Kid_hitbox_left > x+3+$1A branches to loc_14AAA",
+            ),
+            (
+                make_airborne_slice(110, 151),
+                "Kid_hitbox_bottom < top sprite Y+$10 branches to loc_14AAA",
+            ),
+            (
+                make_airborne_slice(110, 232),
+                "Kid_hitbox_top > geyser base branches to loc_14AAA",
+            ),
+        ] {
+            let missed = step_geyser(slice);
+            assert_eq!(
+                missed.progression.number_hitpoints,
+                PlayerForm::TheKid.max_hitpoints(),
+                "ASM sub_14A58 reject path should not damage Kid: {branch}",
+            );
+        }
+    }
+
+    #[test]
     fn hail_projectiles_from_falling_slots_sub_61ca_exports_active_slot_fields() {
         let projectiles = crate::weather::hail_projectiles_from_falling_slots_sub_61ca(&[
             FallingWeatherSlotSub61CA {
