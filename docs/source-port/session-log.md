@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Mini Hopping Skull mutation slice
+
+- Project-status still showed no ready/open risks after the Emo Rock mutation
+  hardening, so continued the proactive verification fallback with the full live
+  Mini Hopping Skull enemy module. This refreshes current clean evidence after
+  the 2026-07-03 citation promotions for the ASM-cited air sprite, collision
+  dispatch, grounded wait, windup, damage/death, landing-tail, and relaunch
+  helper surface without changing behaviour.
+- Verification: `env FILE=crates/wildside-core/src/enemies/mini_hopping_skull.rs
+  OUTPUT=/tmp/mutants-mini-hopping-skull-20260703-refresh TMPDIR=/tmp mise run mutants-file`
+  reports 146 mutants tested: 90 caught, 56 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Emo Rock mutation hardening
 
 - Project-status still showed no ready/open risks after the Crab mutation
