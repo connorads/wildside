@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive VDP intro text mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback continued
+  through current VDP mutation debt. Fresh `intro_sequence_3_sprite_frame_vram`
+  mutation confirmed the cached selector misses were stale: 16 mutants, 15
+  caught, 1 unviable.
+- Re-read `IntroText1..5`, `SegaText`, `loc_1C7A0`, `loc_1C7B6`,
+  `loc_1C7D2`, and `sub_1C7F6`. The live intro-text cleanup debt was two
+  timeout mutants in `clear_intro_text_script_cells_loc_1c7a0`, where corrupted
+  byte-index arithmetic could stall the native-only cleanup pass before the
+  replay worker restored the visible prefix.
+- Added debug-only stream-progress invariants at the two ASM stream-advance
+  points: `loc_1C7B6` dispatch byte consumption and `loc_1C7D2` `$FE` delay
+  byte consumption. Release behaviour is unchanged; bad cleanup control flow
+  now fails fast under tests instead of hanging mutation workers.
+- Verification: focused `intro_text_` tests pass. Final focused mutation rerun
+  `.cache/mutants/vdp-intro-text-20260703-after` reports 15 mutants: 14 caught,
+  1 unviable, 0 missed, 0 timeouts. `cargo fmt --all --check`, `git diff
+  --check`, `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+  `verify-tas-full` was not rerun because this was debug/test hardening; latest
+  full TAS remains the 2026-07-02 pass with CRC all 37759 frames matching and
+  the known
+  `transition_15_to_00_post` DragonWalking/object-count state gap.
+
 ## 2026-07-03 - proactive VDP decompression mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback filtered

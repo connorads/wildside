@@ -1633,7 +1633,12 @@ fn clear_intro_text_script_cells_loc_1c7a0(vdp: &mut VdpState, script: &IntroTex
     let mut x_pos = script.x_pos;
     let mut y_pos = script.y_pos;
     while let Some(&raw_byte) = script.text_bytes.get(byte_index) {
+        let stream_byte_index = byte_index;
         byte_index += 1;
+        debug_assert!(
+            byte_index > stream_byte_index,
+            "ASM loc_1C7B6 advances the intro text stream before dispatching a byte",
+        );
         match raw_byte {
             0xFF => return,
             0xFD => {
@@ -1641,7 +1646,12 @@ fn clear_intro_text_script_cells_loc_1c7a0(vdp: &mut VdpState, script: &IntroTex
                 y_pos = y_pos.wrapping_add(2);
             }
             0xFE => {
+                let delay_byte_index = byte_index;
                 byte_index += 1;
+                debug_assert!(
+                    byte_index > delay_byte_index,
+                    "ASM loc_1C7D2 consumes the delay byte after `$FE`",
+                );
             }
             _ => {
                 let write = wildside_data::title_intro_glyph_write_sub_1C7F6(
