@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather storm/hail mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback sampled the
+  remaining weather mutation debt. The first pure slice covered
+  `storm_pending_palette_0_mask_sub_6048` and the legacy hail projectile bridge
+  from `hail_projectiles_from_falling_slots_sub_61ca`.
+- Re-read `kid.asm` `sub_6048`, `loc_605E`/`loc_60C0`, and `sub_61CA`
+  `loc_61E2`/`loc_6462`. Added a weather chunk test for projected hail fields
+  and rewrote the non-overlapping storm pending-mask merge as explicit
+  wrapping addition with an overlap assertion, removing the equivalent `|`/`^`
+  mutant without changing runtime behaviour.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-storm-hail-20260703-after` reports 16 mutants: 16
+  caught, 0 missed. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass. `verify-tas-full` was
+  not rerun because this was behaviour-neutral test/mutation hardening; latest
+  full TAS remains the 2026-07-02 pass.
+
 ## 2026-07-03 - proactive movement credits mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback took the

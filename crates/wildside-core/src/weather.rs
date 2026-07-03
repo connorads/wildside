@@ -1577,7 +1577,9 @@ pub(crate) fn storm_pending_palette_0_mask_sub_6048(
         // `$FFFFF88B`, whose low bits are also visible to sub_14C0's `btst`.
         u32::from(pending_palette_mask_0 as u8) << 24
     };
-    high_mask | u32::from(palette_speed)
+    let speed_mask = u32::from(palette_speed);
+    debug_assert_eq!(high_mask & speed_mask, 0);
+    high_mask.wrapping_add(speed_mask)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

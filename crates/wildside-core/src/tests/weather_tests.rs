@@ -6086,6 +6086,39 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn hail_projectiles_from_falling_slots_sub_61ca_exports_active_slot_fields() {
+        let projectiles = crate::weather::hail_projectiles_from_falling_slots_sub_61ca(&[
+            FallingWeatherSlotSub61CA {
+                y_px: 0x0040,
+                x_px: 0x0120,
+                animation_cooldown: 6,
+                animation_frame: 0,
+            },
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+            FallingWeatherSlotSub61CA::inactive(6, 0),
+        ]);
+
+        assert_eq!(projectiles.len(), 1);
+        assert_eq!(
+            projectiles[0].kind,
+            EnemyProjectileKind::Hail,
+            "ASM sub_61CA loc_61E2/loc_6462 should export active falling-weather slots as hail particles"
+        );
+        assert_eq!(
+            (projectiles[0].x_pos, projectiles[0].y_pos),
+            (0x0120_0000, 0x0040_0000),
+            "ASM loc_6462 should project the live falling-weather X/Y words into fixed-point projectile positions"
+        );
+        assert_eq!(
+            (projectiles[0].x_velocity, projectiles[0].y_velocity),
+            (-0x0001_0000, 0x0004_0000),
+            "ASM loc_61E2 should keep falling weather drifting left 1px/frame and down 4px/frame in the legacy projectile bridge"
+        );
+    }
+
+    #[test]
     fn lava_geyser_script_template_label_loc_147ba_rejects_out_of_range_timer() {
         assert_eq!(
             crate::weather::lava_geyser_script_template_label_loc_147BA(
