@@ -680,6 +680,14 @@ mod tests {
     }
 
     #[test]
+    fn emo_rock_drop_windup_frame_sum_matches_stru_3647e_loc_3621a() {
+        assert_eq!(
+            EMO_ROCK_DROP_WINDUP_ANIMATION_FRAMES_LOC_3621A, 0x43,
+            "ASM Emo_Rock.asm loc_3621A hibernates for the `stru_3647E` animation: 4+4+4+4+3+4+4+$28 frames"
+        );
+    }
+
+    #[test]
     fn emo_rock_hover_target_loc_3621a_tracks_kid_and_seeds_clearance_probe() {
         assert_eq!(
             emo_rock_hover_target_loc_3621a(0x0123_0000, 0x00C8_0000, 0x50),

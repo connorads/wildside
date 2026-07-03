@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Emo Rock mutation hardening
+
+- Project-status still showed no ready/open risks after the Crab mutation
+  record, so continued the proactive verification fallback with the live Emo
+  Rock enemy module. The first rerun
+  `env FILE=crates/wildside-core/src/enemies/emo_rock.rs OUTPUT=/tmp/mutants-emo-rock-20260703-refresh TMPDIR=/tmp mise run mutants-file`
+  reported 92 mutants tested: 13 missed, 67 caught, 12 unviable.
+- All misses were arithmetic mutations in
+  `EMO_ROCK_DROP_WINDUP_ANIMATION_FRAMES_LOC_3621A`. Added
+  `emo_rock_drop_windup_frame_sum_matches_stru_3647e_loc_3621a`, pinning ASM
+  `Emo_Rock.asm loc_3621A` / `stru_3647E` to `$43` frames
+  (`4+4+4+4+3+4+4+$28`).
+- Verification: `cargo test -q -p wildside-core emo_rock -- --nocapture`
+  passes 37 focused tests, and final
+  `env FILE=crates/wildside-core/src/enemies/emo_rock.rs OUTPUT=/tmp/mutants-emo-rock-20260703-after TMPDIR=/tmp mise run mutants-file`
+  reports 92 mutants tested: 80 caught, 12 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Crab mutation slice
 
 - Project-status still showed no ready/open risks after the Cloud mutation
