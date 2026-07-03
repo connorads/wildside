@@ -1155,6 +1155,9 @@ impl BlockList {
         // `d3`. Type 1 reuses the matching 8-byte prize entry from
         // `$FFFFF8D4`; the other reveal types come from `unk_E412/unk_E414`.
         if entry.block_type == 1 {
+            // ASM loc_E3E4 (kid.asm:17883): copy the hidden-block layout word
+            // into `d3` before scanning prize records. Native starts the
+            // vector scan with that target address directly.
             let prize_match =
                 self.hidden_block_prize_reveal_metadata_scan_loc_E3EE(0, entry.layout_addr)?;
             return Some(Self::hidden_block_prize_reveal_cell_loc_E40A(

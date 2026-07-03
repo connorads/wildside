@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive hidden-prize reveal ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback and promoted the live hidden-block type-1 prize reveal
+  path by citing `loc_E3E4`, where the ROM copies the hidden-block layout word
+  before the prize-record scan. No behaviour changed.
+- Verification: `asm-coverage --json` reports `loc_E3E4` reachable, with
+  test-only debt reduced from 219 to 218 and reachable labels increased to
+  3878. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive camera clamp ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued proactive ASM
