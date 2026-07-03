@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive blank-top terrain-byte ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback and promoted the live `BlockGrid::with_blank_top_rows_sub_140F6`
+  terrain-skin half by citing `loc_141AA`, `loc_141AC`, `loc_141C8`, and
+  `loc_141CA`. The comment now records that native stores the ROM's
+  byte-per-cell `Level_terrain_layout` skin data alongside collision cells, so
+  the same blank-row prepend models both buffers. No behaviour changed.
+- Verification: `asm-coverage --json` reports all four labels reachable, with
+  test-only debt reduced from 203 to 199 and reachable labels increased to
+  3897. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive animated-solid coarse-cull ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued proactive ASM

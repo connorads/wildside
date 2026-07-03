@@ -408,6 +408,11 @@ impl BlockGrid {
         // Number_blank_top_rows, then loc_14156/loc_14158 clear the inserted
         // top rows. Generated layout fixtures are captured before this runtime
         // shift, so normalise them when loading.
+        // ASM loc_141AA/loc_141AC then repeats the same tail-first row shift for
+        // the byte-per-cell Level_terrain_layout buffer, and loc_141C8/loc_141CA
+        // clear the inserted top skin rows. Native stores those terrain skin
+        // bytes alongside the collision cells, so the same prepend models both
+        // ROM buffers.
         if blank_top_rows == 0 || self.width_cells == 0 {
             return self.clone();
         }
