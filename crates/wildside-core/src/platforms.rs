@@ -1550,11 +1550,11 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
             return PlatformCollisionResultLoc257E::no_contact(PlatformCollisionOutcome::None);
         }
 
-        // ASM loc_78A8 (kid.asm:7943): when sub_902A returns negative
-        // (ceiling collision while being carried by a platform), the ROM
-        // checks the platform's y_vel ($E(a4)). If y_vel < 0 (platform
-        // moving upward), Kid is crushed; otherwise it clears
-        // Addr_PlatformStandingOn and enters walking.
+        // ASM loc_78A8/loc_78C0 (kid.asm:7943/7952): when sub_902A returns
+        // negative (ceiling collision while being carried by a platform), the
+        // ROM checks the platform's y_vel ($E(a4)). If y_vel < 0 (platform
+        // moving upward), loc_78C0 clears d7 and branches to Death; otherwise
+        // it clears Addr_PlatformStandingOn and enters walking.
         //
         // ASM loc_8DA0 (kid.asm:10164) / loc_8306 (kid.asm:9077): walking
         // and crawling on a stored platform copy `$E(a4)` into Kid y_vel,

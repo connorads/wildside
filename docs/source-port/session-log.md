@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive standing-platform crush ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback and promoted the live stored-platform ceiling-crush path
+  by citing `loc_78C0` beside the existing `loc_78A8` branch. The comment now
+  records the ROM's generic d7=0 death handoff for an upward platform crush. No
+  behaviour changed.
+- Verification: `asm-coverage --json` reports `loc_78C0` reachable, with
+  test-only debt reduced from 206 to 205 and reachable labels increased to
+  3891. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive platform walking-carry ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued proactive ASM
