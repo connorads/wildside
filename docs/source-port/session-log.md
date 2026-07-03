@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Cloud animation mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback checked
+  current mutation artefacts instead of taking a human-blocked row. Fresh
+  Spinning Twins and Ninja reruns were clean, confirming their cached misses
+  were stale.
+- The fresh Cloud shard exposed 16 missed mutants: 15 arithmetic mutations in
+  `CLOUD_ATTACK_ANIMATION_FRAMES_LOC_35D9E` and one unsigned countdown
+  threshold in `step_cloud_attack`. Re-read `Cloud.asm loc_35D9E/loc_35DAE` and
+  `ingame/anim/enemy/Cloud.asm stru_35EC8`.
+- Added a ROM-cited exact duration regression for `stru_35EC8` (3+3+2+1+1+2+2+1+2+8
+  = 25 frames), changed the duration constant to the literal 25, and rewrote
+  the active-attack countdown branch with `checked_sub` so the zero/non-zero
+  state is mutation-observable without changing runtime timing.
+- Verification: focused Cloud duration/runtime tests and `mise run
+  verify-slice-fast` pass. Final mutation rerun
+  `.cache/mutants/cloud-20260703-after2` reports 135 mutants: 119 caught, 16
+  unviable, 0 missed. Clean current reruns also confirmed Spinning Twins
+  `.cache/mutants/spinning-twins-20260703-current2` (126: 105 caught, 21
+  unviable, 0 missed) and Ninja `.cache/mutants/ninja-20260703-current` (189:
+  156 caught, 33 unviable, 0 missed). `verify-tas-full` was not rerun because
+  this was behaviour-neutral hardening; latest full TAS remains the 2026-07-02
+  pass with CRC all 37759 frames matching and the known
+  `transition_15_to_00_post` DragonWalking/object-count state gap.
+
 ## 2026-07-03 - proactive scene Plane-B mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback probed the

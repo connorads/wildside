@@ -59,22 +59,25 @@ and stop — never commit churn.
 - **Proactive verification 2026-07-03:** no ready/open rows remain. Recent
   fallback passes fixed compact ASM gaps for Armadillo, Goat, Sphere, Diamond,
   Driller, Fire Demon, Cloud, Tornado, Emo Rock, Robot, Berzerker charge
-  contact, projectiles `stru_37BFC` timing, and HeadyMetal `sub_37ABC` body-piece
-  render markers. Latest change: the `wildside-frame/src/scene.rs` scene shard
-  now pins Fire Demon `loc_3A63C` trail-frame wrapping plus `loc_2FFE8` /
-  `sub_30744` / `sub_307D8` Plane-B row-history preload arithmetic in the frame
-  crate, matching the stronger native-player regressions.
-- **Current gates 2026-07-03:** focused HeadyMetal renderer tests and full
-  `sprites::tests` pass; focused frame scene tests and full `wildside-frame`
-  lib tests pass; `cargo fmt --all --check`, `git diff --check`, and `mise run
-  verify-slice-fast` pass. Filtered mutation rerun
-  `.cache/mutants/frame-scene-fire-eol-rowdebug-20260703-after2` reports 100
-  mutants: 95 caught, 5 unviable, 0 missed. No gameplay code changed this
-  session, so `verify-tas-full` was not rerun; latest full TAS remains the
-  2026-07-02 pass with CRC all 37759 frames matching and the known `1p-accurate`
-  state gap at `transition_15_to_00_post` DragonWalking/object-count. ASM
-  coverage remains `0` ordinary uncovered labels plus 21 emulated GEMS wrappers;
-  do not cite those wrappers just to move the metric.
+  contact, projectiles `stru_37BFC` timing, HeadyMetal `sub_37ABC` body-piece
+  render markers, frame-scene Fire Demon/EOL/Plane-B row history, and now
+  Cloud `loc_35D9E` attack-animation timing. Latest change: Cloud lightning
+  setup pins the ROM `stru_35EC8` 25-frame animation duration and keeps the
+  active-attack countdown branch mutation-observable without changing runtime
+  timing.
+- **Current gates 2026-07-03:** focused Cloud duration/runtime tests pass;
+  `cargo fmt`, final Cloud mutation rerun
+  `.cache/mutants/cloud-20260703-after2` reports 135 mutants: 119 caught, 16
+  unviable, 0 missed; clean current reruns also confirmed Spinning Twins
+  `.cache/mutants/spinning-twins-20260703-current2` (126: 105 caught, 21
+  unviable, 0 missed) and Ninja `.cache/mutants/ninja-20260703-current` (189:
+  156 caught, 33 unviable, 0 missed). `mise run verify-slice-fast` passes. This
+  was a behaviour-neutral countdown/test hardening slice, so `verify-tas-full`
+  was not rerun; latest full TAS remains the 2026-07-02 pass with CRC all 37759
+  frames matching and the known `1p-accurate` state gap at
+  `transition_15_to_00_post` DragonWalking/object-count. ASM coverage remains
+  `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not cite
+  those wrappers just to move the metric.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

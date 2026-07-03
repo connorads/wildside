@@ -203,8 +203,7 @@ const CLOUD_IDLE_SPRITES_LOC_35CA2: [&str; 6] = [
     "LnkTo_unk_C7886-Data_Index",
 ];
 
-pub(crate) const CLOUD_ATTACK_ANIMATION_FRAMES_LOC_35D9E: u8 =
-    0x03 + 0x03 + 0x02 + 0x01 + 0x01 + 0x02 + 0x02 + 0x01 + 0x02 + 0x08;
+pub(crate) const CLOUD_ATTACK_ANIMATION_FRAMES_LOC_35D9E: u8 = 25;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CloudIdleSpriteGateLoc35CA2 {
@@ -671,11 +670,11 @@ pub(crate) fn step_cloud_attack(
     // ASM `$45(a5)` plus the latched `$44/$46(a0)` projectile vector.
     let x_direction = cloud_x_direction_byte(enemy.facing);
     if enemy.ufo_beam_segments != 0 {
-        if enemy.dragon_descent_frames > 0 {
+        if let Some(next_frames) = enemy.dragon_descent_frames.checked_sub(1) {
             // ASM Cloud.asm loc_35DAE waits for the `stru_35EC8` animation
             // started at loc_35D9E to set `$18(a3)` before allocating loc_35DF0.
-            enemy.dragon_descent_frames = enemy.dragon_descent_frames.saturating_sub(1);
-            if enemy.dragon_descent_frames > 0 {
+            enemy.dragon_descent_frames = next_frames;
+            if next_frames != 0 {
                 return;
             }
         }
@@ -906,6 +905,14 @@ mod tests {
                 next_wait_frames: 0x1D,
             },
             "ASM Cloud.asm loc_35C56 hibernates one frame and DBFs the active wait counter before loc_35BB2 can fetch the next command"
+        );
+    }
+
+    #[test]
+    fn cloud_attack_animation_frames_match_stru_35ec8_loc_35d9e() {
+        assert_eq!(
+            CLOUD_ATTACK_ANIMATION_FRAMES_LOC_35D9E, 25,
+            "ASM Cloud.asm loc_35D9E starts stru_35EC8, whose frame durations are 3+3+2+1+1+2+2+1+2+8"
         );
     }
 
