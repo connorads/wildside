@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive gfx animation ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback and promoted the shipped `GfxObject_Animate` return path
+  by citing `loc_1172` in the live `loc_1166` stop-probe helper. No behaviour
+  changed.
+- Verification: `asm-coverage --json` reports `loc_1172` reachable, with
+  test-only debt reduced from 227 to 226 and reachable labels increased to
+  3870. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive title-text VDP ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued proactive ASM

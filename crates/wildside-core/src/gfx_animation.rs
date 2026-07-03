@@ -39,9 +39,9 @@ pub(crate) fn should_stop_gfx_animation_loc_1166(
 ) -> Option<bool> {
     let next_opcode = *script.get(script_offset)?;
 
-    // ASM loc_1166 (kid.asm:2133) only reaches loc_1182 when the decremented
-    // timer equals 1 and the next script byte is 0. Any other state restores
-    // a2 and returns with animation still running.
+    // ASM loc_1166 -> loc_1172 (kid.asm:2133-2140) only reaches loc_1182 when
+    // the decremented timer equals 1 and the next script byte is 0. Any other
+    // state restores a2 at loc_1172 and returns with animation still running.
     Some(timer == 1 && next_opcode == 0)
 }
 
