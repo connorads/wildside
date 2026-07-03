@@ -5005,6 +5005,9 @@ mod chunk_06 {
     /// reaches `projectile_half + box_extent` on the near edge of each axis.
     const DRAGON_FLYING_CONTACT_HALF_WIDTH: i32 = 14;
     const DRAGON_FLYING_CONTACT_TOP_EXTENT: i32 = 28;
+    /// EnemyFamily::Sphere (0x06) live CollisionSize row `unk_31AB0` is
+    /// (-7, 7, -7, 7), so it exercises the left and bottom AABB edges.
+    const SPHERE_CONTACT_HALF_EXTENT: i32 = 7;
 
     /// ASM ManiaxeAxe_Init reinitialises `stru_8B86`; its active frames use
     /// `LnkTo_unk_A5924`/`A59AA`, whose `CollisionSize_Index` entry
@@ -5135,6 +5138,72 @@ mod chunk_06 {
         );
     }
 
+    /// ASM sub_1D84 keeps the left-side AABB edge inclusive. Sphere's live row
+    /// `unk_31AB0` reaches 7px right of its anchor, so a sphere whose right edge
+    /// equals the projectile's left edge must still receive `colid_hurt`.
+    #[test]
+    fn friendly_projectile_hits_sphere_left_edge_loc_1d84() {
+        let mut rt = NativeRuntime::new(manifest());
+        let sphere_x = 100 - PROJECTILE_HITBOX_HALF - SPHERE_CONTACT_HALF_EXTENT;
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Sphere,
+            (sphere_x as u32) << 16,
+            100 << 16,
+            2,
+        ));
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM sub_1D84/unk_31AB0: equality at the projectile left edge should hit"
+        );
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM kid.asm:3656: a connecting friendly projectile is consumed"
+        );
+    }
+
+    /// ASM sub_1D84 rejects a one-pixel gap before the projectile's left edge.
+    /// This guards both the enemy-right arithmetic and the projectile-left edge.
+    #[test]
+    fn friendly_projectile_misses_sphere_left_gap_loc_1d84() {
+        let mut rt = NativeRuntime::new(manifest());
+        let sphere_x = 100 - PROJECTILE_HITBOX_HALF - SPHERE_CONTACT_HALF_EXTENT - 1;
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Sphere,
+            (sphere_x as u32) << 16,
+            100 << 16,
+            2,
+        ));
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 2,
+            "ASM sub_1D84/unk_31AB0: a one-pixel left-side gap should miss"
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM sub_1D84: a missing friendly projectile should remain active"
+        );
+    }
+
     /// ASM sub_1D84 (kid.asm:3595-3611) tests an inclusive AABB; native keeps
     /// vertical overlap inclusive at `projectile_half + enemy_top_extent`. The
     /// flying-dragon box sits 28px above its anchor (`unk_31DD6` top -28), so an
@@ -5190,6 +5259,39 @@ mod chunk_06 {
         assert_eq!(
             rt.active_enemies[0].hit_points, 2,
             "ASM loc_8ABC: enemy one pixel beyond projectile vertical extent should miss"
+        );
+    }
+
+    /// ASM sub_1D84 keeps the enemy-bottom/projectile-top edge inclusive.
+    /// Sphere's live `unk_31AB0` row extends 7px below its anchor, unlike most
+    /// grounded enemy boxes that end at the anchor.
+    #[test]
+    fn friendly_projectile_hits_sphere_bottom_edge_at_projectile_top_loc_1d84() {
+        let mut rt = NativeRuntime::new(manifest());
+        let sphere_y = 100 - PROJECTILE_HITBOX_HALF - SPHERE_CONTACT_HALF_EXTENT;
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: true,
+            ..Default::default()
+        });
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Sphere,
+            100 << 16,
+            (sphere_y as u32) << 16,
+            2,
+        ));
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM sub_1D84/unk_31AB0: equality at the sphere bottom edge should hit"
+        );
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM kid.asm:3656: a connecting friendly projectile is consumed"
         );
     }
 

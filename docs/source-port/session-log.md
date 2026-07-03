@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive friendly projectile overlap mutation hardening
+
+- Project-status still showed no ready/open risks after the Kid projectile
+  overlap citation promotion, so continued the proactive verification fallback
+  with a focused `helmets.rs` mutation slice around
+  `friendly_projectile_overlaps_enemy_loc_1d84`,
+  `process_friendly_projectile_hits`, and friendly projectile hit extents.
+  Added Sphere `unk_31AB0` left-edge, left-gap, and bottom-edge public
+  behaviour tests so `sub_1D84` arithmetic and inclusive edges are observable.
+- Verification: `cargo test -q -p wildside-core friendly_projectile_ --
+  --nocapture` passes. `TMPDIR=/tmp cargo mutants -p wildside-core -f
+  crates/wildside-core/src/helmets.rs --re
+  'friendly_projectile_overlaps_enemy_loc_1d84|process_friendly_projectile_hits|friendly_projectile_enemy_hit_extents'
+  -j 4 --output /tmp/mutants-friendly-projectiles-20260703-rerun -- --lib
+  -- --skip demo_ --skip published_tas --skip snapshot` reports 85 mutants:
+  79 caught, 6 missed. The six misses are equivalent for current ROM-derived
+  native state: all empty contact rows invalidate both axes, so the guard
+  variants are masked by the other invalid axis, and deleting Maniaxe axe
+  `lifetime: 0` equals `EnemyProjectile::default()`.
+
 ## 2026-07-03 - proactive Kid projectile overlap ASM citation promotion
 
 - Project-status still showed no ready/open risks after the Tank mutation

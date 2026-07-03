@@ -56,19 +56,9 @@ and stop — never commit churn.
 - **Visual route work:** do not retune Tank Y/priority, flagpole priority, or
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
-- **Proactive verification 2026-07-03:** no ready/open rows remain. Recent
-  fallback passes covered compact ASM gaps across enemy contact/animation,
-  projectiles, HeadyMetal render markers, frame-scene history, VDP decompression
-  and intro-text invariants, physics camera/murder-wall branch hardening, and
-  now scenario direct-title-card guards, `types.rs` ROM-facing contracts, and
-  Hand, movement Intro Sequence 3/credits, plus weather storm/hail,
-  lava-geyser render/script, hail worker `sub_61CA`, and weather runtime/init
-  plus storm-init, Kid-hitbox, and lava-geyser hitbox-window/predicate/sprite
-  helper boundaries, lava-geyser initial-delay/CRAM-rotation helpers, plus
-  lava-fireball init/script/sprite-kind, vertical-window, reject/overlap/hitbox/live-hit edges,
-  and storm `sub_6048` thunder/hail cadence plus live `$FFFFFB3D` free-slot
-  shell routing, murder-wall/weather accessor cleanups, and compact ASM
-  coverage promotions in Fireball/Drips/Mini Hopping Skull.
+- **Proactive verification 2026-07-03:** no ready/open rows remain; fallback is
+  mutation/citation hardening. Latest addition: friendly projectile `sub_1D84`
+  Sphere left-edge, left-gap, and bottom-edge tests.
 - **Current gates 2026-07-03:** clean mutation reruns now cover through storm
   `sub_6048` cadence, live `step_weather` free-slot routing, murder-wall
   warning dispatch, weather label/path helpers, and live Driller/Armadillo/Tornado/Tank modules.
@@ -79,6 +69,10 @@ and stop — never commit churn.
   + 11/11/0 + 12/11/1 + 73/71/2 + 35/34/1 + 20/20/0 + 47/45/2
   + 20/20/0, Driller 24/19/5, Armadillo 46/34/12, Tornado 68/60/8, Tank 28/21/7 (mutants
   caught/unviable; all 0 missed). Latest compact ASM promotions now cover hidden-block, title-entry/VDP/KID-shell, gfx-animation, Lion-projectile slope, camera clamp, hidden-prize reveal-start, blank-top grid-shift, blank-top terrain-byte shift, leftward lead-cell collision, intro centre-particle, platform walking-carry, standing-platform crush, animated-solid coarse-cull layout-restore, shooter-projectile recycle, and Kid-projectile overlap-branch labels; test-only debt is 197; fast gate green.
+  Friendly projectile overlap rerun is 85/79/6 equivalent after adding
+  Sphere left-edge, left-gap, and bottom-edge tests; remaining misses are the
+  both-axis empty-row guard variants and Maniaxe axe's explicit default
+  lifetime field.
   Latest full TAS (2026-07-03) exits 0 with CRC all 37759 frames matching and
   the known first state divergence at `transition_15_to_00_post`. ASM coverage
   remains `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not
