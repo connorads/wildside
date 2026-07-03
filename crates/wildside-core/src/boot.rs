@@ -2638,8 +2638,8 @@ pub(crate) fn title_menu_prompt_sprite_sub_1C54A() -> TitleMenuPromptSpriteSub1C
 pub(crate) fn title_menu_sliding_sprites_sub_1C572() -> [TitleMenuSlidingSpriteSub1C572; 2] {
     // ASM sub_1C572 (kid.asm:31303) seeds the left title sprite, then
     // loc_1C58C seeds the mirrored right sprite. Both hibernate for `$3C`
-    // frames, slide 1 px/frame for `#$41+1` hibernated iterations, then loop
-    // forever on `Hibernate_Object_1Frame`.
+    // frames, slide 1 px/frame through loc_1C5BE for `#$41+1` hibernated
+    // iterations, then enter the loc_1C5CA terminal one-frame hibernate loop.
     [
         TitleMenuSlidingSpriteSub1C572 {
             gfx_slot_base: 0x0200_0004,
@@ -3580,6 +3580,9 @@ pub(crate) fn title_text_kid_setup_loc_1B5E4() -> TitleTextKidSetupLoc1B5E4 {
     // a `$1E`-frame wait, a 43-frame `is_moved` drift, a `$14`-frame pause,
     // then two `sub_1B652` popups around the fixed poses `($2E,$8C)` and
     // `($5A,$98)` before the worker hibernates forever.
+    // ASM loc_1B610 (kid.asm:29858-29861) is the inclusive `dbf` drift loop;
+    // ASM loc_1B64C (kid.asm:29873-29875) is the terminal one-frame
+    // hibernate loop after the second popup position is written.
     TitleTextKidSetupLoc1B5E4 {
         palette_line: 2,
         x_pos: 0x002E,
@@ -3822,6 +3825,8 @@ pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
         // ASM loc_1B758: `move.w d5,d0; lsl.w #7,d0; add.w d4,d0; add.w d4,d0`
         // builds the row-`$12` VRAM byte address, then `addi.w #$4000,d0;
         // swap d0; clr.w d0` turns that into the VDP write command.
+        // ASM loc_1B79E adds `#$800000` to that VDP command between rows,
+        // equivalent to advancing one `$80`-byte nametable row.
         let row_base = 0x0900_u16
             .checked_add(horizontal_offset_words.saturating_mul(2))?
             .checked_add(u16::try_from(row_index).ok()?.saturating_mul(128))?;

@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive title-shell ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback and promoted shipped `Obj_TitleTextKid` citations for the
+  `loc_1B610` drift loop and `loc_1B64C` terminal hibernate loop, plus
+  `loc_1B79E` title-text row stride and `loc_1C5CA` title-menu idle loop. No
+  behaviour changed.
+- Verification: `asm-coverage --json` reports all four labels reachable, with
+  test-only debt reduced from 226 to 222 and reachable labels increased to
+  3874. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive gfx animation ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued proactive ASM
