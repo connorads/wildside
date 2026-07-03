@@ -1119,6 +1119,8 @@ impl BlockList {
         // first entry, `a1` is one past `count*8`, and `a4` starts at `a0`.
         // ASM loc_E3A0 (kid.asm:17839): compare the target word from `a2`
         // with the current entry word and return only on an exact match.
+        // ASM loc_E3C0 (kid.asm:17861): the exact-match return preserves the
+        // matched metadata entry in `a4` for the reveal path.
         // ASM loc_E3B2 (kid.asm:17851): when the target is greater than the
         // current entry, advance by the current stride and clamp to `a1-8`.
         self.hidden_blocks

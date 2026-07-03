@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive hidden-block ASM citation promotion
+
+- Project-status still showed no ready/open risks. A focused Sphere mutation
+  run needed `TMPDIR=/tmp`; after that the baseline passed, but all 3 mutants
+  were unviable `Default::default()` replacements on non-`Default` return
+  structs, so it gave no coverage signal.
+- Continued ASM coverage fallback. Robot, Sphere, UFO hurt-driver, and early
+  `kid.asm` gfx/projectile helpers were left as test-only/TODO debt after
+  inspection. Promoted the live hidden-block binary-search exact-match return
+  by citing `loc_E3C0` in `hidden_block_by_layout_addr_sub_E37A`; no behaviour
+  changed.
+- Verification: `asm-coverage --json` reports `loc_E3C0` reachable, with
+  test-only debt reduced from 230 to 229 and reachable labels increased to
+  3867. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive Ninja ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued the proactive ASM
