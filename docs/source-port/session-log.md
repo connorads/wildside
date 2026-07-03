@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather Kid-hitbox helper mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback stayed on
+  weather mutation hardening. A broader lava/fireball sample exposed a repeated
+  survivor family in `kid_hitbox_bounds_px_at_screen`; the broad run was stopped
+  after that target was clear.
+- Re-read `kid.asm` `sub_14A58` and `sub_14AB0`, which compare weather
+  collision boxes against `Kid_hitbox_right`, `Kid_hitbox_left`,
+  `Kid_hitbox_top`, and `Kid_hitbox_bottom`. Added an ASM-cited focused weather
+  chunk test for the native reconstruction: `x +/- 5`, `foot_y - 31`, and
+  `foot_y`.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-kid-hitbox-bounds-20260703-after` reports 92 mutants:
+  92 caught, 0 missed. `cargo fmt --all --check` and `git diff --check` pass;
+  `mise run backlog-lint` and `mise run verify-slice-fast` pass.
+  `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather storm-init helper mutation boundary
 
 - After the runtime/init commit, a broader weather-runtime refresh over

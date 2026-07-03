@@ -6211,6 +6211,15 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn kid_hitbox_bounds_px_at_screen_anchors_at_foot_pixel_for_sub_14a58_14ab0() {
+        assert_eq!(
+            crate::weather::kid_hitbox_bounds_px_at_screen(100, 200),
+            (95, 105, 169, 200),
+            "ASM sub_14A58/sub_14AB0 read Kid_hitbox_left/right/top/bottom; native rebuilds them as x +/- 5 and foot_y - 31/foot_y",
+        );
+    }
+
+    #[test]
     fn hail_projectiles_from_falling_slots_sub_61ca_exports_active_slot_fields() {
         let projectiles = crate::weather::hail_projectiles_from_falling_slots_sub_61ca(&[
             FallingWeatherSlotSub61CA {
