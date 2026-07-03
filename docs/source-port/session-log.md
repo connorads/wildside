@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive animated-solid coarse-cull ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback and promoted the live animated-solid horizontal coarse-cull
+  branch by citing `loc_F93C` and `loc_F93E` in the production
+  `animated_solid_block_horizontal_rows_loc_F8CA` path. The comment now records
+  the ROM's layout-restore-only branch for spans rejected before foreground
+  queue emission. No behaviour changed.
+- Verification: `asm-coverage --json` reports both labels reachable, with
+  test-only debt reduced from 205 to 203 and reachable labels increased to
+  3893. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive standing-platform crush ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued proactive ASM

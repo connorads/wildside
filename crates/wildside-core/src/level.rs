@@ -10890,6 +10890,9 @@ pub(crate) fn animated_solid_block_horizontal_rows_loc_F8CA(
     let span_can_queue = row_in_view
         && start_col <= camera_right_col
         && (start_col.wrapping_sub(camera_left_col) as i16) > -8;
+    // ASM loc_F93C/loc_F93E (kid.asm:20643-20649): if the coarse visibility
+    // gate rejects the span, restore each source byte into layout and skip all
+    // custom foreground queue entries.
     let packed_row_bits = span_can_queue.then_some((row << 8) & 0x0F00);
     let mut source_index = source_cells_start.saturating_add(usize::from(start_col));
     let mut layout_addr = layout_queue_base_addr;
