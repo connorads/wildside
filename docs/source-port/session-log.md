@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Armadillo mutation slice
+
+- Project-status still showed no ready/open risks after the Driller mutation
+  record, so continued the proactive verification fallback with the live
+  Armadillo enemy module.
+- Verification: `TMPDIR=/tmp cargo mutants -p wildside-core -f
+  crates/wildside-core/src/enemies/armadillo.rs -j 4 --output
+  /tmp/mutants-armadillo-20260703 -- --lib -- --skip demo_ --skip
+  published_tas --skip snapshot` reports 46 mutants tested: 34 caught, 12
+  unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Driller mutation slice
 
 - Project-status still showed no ready/open risks after the shooter projectile
