@@ -1815,6 +1815,11 @@ fn write_decompress_to_vram_art_loc_14300_14314(
             .chunks_exact(2)
             .map(|bytes| u16::from_be_bytes([bytes[0], bytes[1]]))
             .collect::<Vec<_>>();
+        debug_assert_eq!(
+            usize::from(setup.word_dbf_counter) + 1,
+            buffered_words.len(),
+            "ASM loc_14300/loc_14314 d3+1 word count must match the decompressed chunk span",
+        );
         for (word_index, word) in crate::level::decompress_to_vram_word_transfer_loc_14314(
             &buffered_words,
             setup.word_dbf_counter,
@@ -1849,12 +1854,20 @@ struct DecompressChunkSpan {
 
 fn decompress_chunk_spans(byte_len: usize) -> Vec<DecompressChunkSpan> {
     let even_byte_len = byte_len & !1;
+    debug_assert!(
+        even_byte_len <= byte_len,
+        "ASM loc_14300 streams only the even byte prefix before preserving an odd tail",
+    );
     let mut source_start = 0usize;
     let mut chunk_capacity = DECOMPRESS_FIRST_CHUNK_BYTES;
     let mut spans = Vec::new();
     while source_start < even_byte_len {
         let byte_len = (even_byte_len - source_start).min(chunk_capacity);
         let source_end = source_start + byte_len;
+        debug_assert!(
+            source_end > source_start,
+            "ASM loc_14300 chunk iteration must make forward progress",
+        );
         let more_chunks_follow = source_end < even_byte_len;
         spans.push(DecompressChunkSpan {
             source_start,

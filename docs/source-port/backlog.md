@@ -60,22 +60,17 @@ and stop — never commit churn.
   fallback passes fixed compact ASM gaps for Armadillo, Goat, Sphere, Diamond,
   Driller, Fire Demon, Cloud, Tornado, Emo Rock, Robot, Berzerker charge
   contact, projectiles `stru_37BFC` timing, HeadyMetal `sub_37ABC` body-piece
-  render markers, frame-scene Fire Demon/EOL/Plane-B row history, and now
-  Cloud `loc_35D9E` attack-animation timing. Latest change: Cloud lightning
-  setup pins the ROM `stru_35EC8` 25-frame animation duration and keeps the
-  active-attack countdown branch mutation-observable without changing runtime
-  timing.
-- **Current gates 2026-07-03:** focused Cloud duration/runtime tests pass;
-  `cargo fmt`, final Cloud mutation rerun
-  `.cache/mutants/cloud-20260703-after2` reports 135 mutants: 119 caught, 16
-  unviable, 0 missed; clean current reruns also confirmed Spinning Twins
-  `.cache/mutants/spinning-twins-20260703-current2` (126: 105 caught, 21
-  unviable, 0 missed) and Ninja `.cache/mutants/ninja-20260703-current` (189:
-  156 caught, 33 unviable, 0 missed). `mise run verify-slice-fast` passes. This
-  was a behaviour-neutral countdown/test hardening slice, so `verify-tas-full`
-  was not rerun; latest full TAS remains the 2026-07-02 pass with CRC all 37759
-  frames matching and the known `1p-accurate` state gap at
-  `transition_15_to_00_post` DragonWalking/object-count. ASM coverage remains
+  render markers, frame-scene Fire Demon/EOL/Plane-B row history, Cloud
+  `loc_35D9E` attack-animation timing, and now VDP decompression wrapper
+  invariants around `loc_14300/loc_14314`.
+- **Current gates 2026-07-03:** focused `decompress_to_vram` tests pass, and
+  final VDP focused mutation rerun `.cache/mutants/vdp-decompress-20260703-after2`
+  reports 32 mutants: 31 caught, 1 unviable, 0 missed, 0 timeouts. The change is
+  behaviour-neutral debug/test hardening; `cargo fmt --all --check`,
+  `git diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`
+  pass. `verify-tas-full` was not rerun; latest full TAS remains the 2026-07-02
+  pass with CRC all 37759 frames matching and the known `1p-accurate` state gap
+  at `transition_15_to_00_post` DragonWalking/object-count. ASM coverage remains
   `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not cite
   those wrappers just to move the metric.
 

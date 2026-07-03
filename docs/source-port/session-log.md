@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive VDP decompression mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback filtered
+  stale mutation artefacts. Fresh checks confirmed several cached reports were
+  already superseded, then the VDP decompression subset exposed a live survivor
+  in `write_decompress_to_vram_art_loc_14300_14314`.
+- Re-read `DecompressToVRAM loc_14300/loc_14314` and the native wrapper. The
+  direct VRAM output hid a bad `buffer_start_addr + byte_len` setup count
+  because the safe slice transfer truncated oversized `d3` counts to the
+  available buffered words.
+- Added debug-only invariants that assert `loc_14300`'s `d3+1` count matches
+  the emitted chunk words, that the even-byte prefix never exceeds the decoded
+  art length, and that resumed chunk iteration makes forward progress. This is
+  behaviour-neutral in release builds and makes corrupted decompressor control
+  arithmetic fail fast under tests.
+- Verification: focused `decompress_to_vram` tests pass. Final focused
+  mutation rerun `.cache/mutants/vdp-decompress-20260703-after2` reports 32
+  mutants: 31 caught, 1 unviable, 0 missed, 0 timeouts. `cargo fmt --all
+  --check`, `git diff --check`, `mise run backlog-lint`, and `mise run
+  verify-slice-fast` pass. `verify-tas-full` was not rerun because this was
+  debug/test hardening; latest full TAS remains the 2026-07-02 pass with CRC
+  all 37759 frames matching and the known
+  `transition_15_to_00_post` DragonWalking/object-count state gap.
+
 ## 2026-07-03 - proactive Cloud animation mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback checked
