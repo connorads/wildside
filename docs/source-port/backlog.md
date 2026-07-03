@@ -63,14 +63,15 @@ and stop — never commit churn.
   now scenario direct-title-card guards, `types.rs` ROM-facing contracts, and
   Hand, movement Intro Sequence 3/credits, plus weather storm/hail,
   lava-geyser render/script, hail worker `sub_61CA`, and weather runtime/init
-  boundaries.
+  plus storm-init helper boundaries.
 - **Current gates 2026-07-03:** final clean mutation reruns now include the VDP,
   physics, scenario, types, Hand, movement Intro Sequence 3/credits, weather
   storm/hail, lava-geyser render/script, hail worker `sub_61CA`, and
-  runtime/init slices.
+  runtime/init plus storm-init helper slices.
   Latest focused clean reruns: types 211/204/7, Hand 50/45/5, movement 22/20/2
-  + 21/20/1, weather 16/16/0 + 52/49/3 + 64/63/1 + 25/25/0 (mutants
-  caught/unviable; all 0 missed). Latest change is behaviour-neutral
+  + 21/20/1, weather 16/16/0 + 52/49/3 + 64/63/1 + 25/25/0 + 103/102/1 +
+  65/51/14 (mutants caught/unviable; all 0 missed). Latest change is
+  behaviour-neutral
   test/mutation hardening; `cargo fmt --all --check`, `git diff --check`, `mise
   run backlog-lint`, and `mise run verify-slice-fast` pass. `verify-tas-full`
   was not rerun. Latest full TAS remains the 2026-07-02 pass with CRC all 37759

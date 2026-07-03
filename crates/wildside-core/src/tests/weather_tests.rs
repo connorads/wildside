@@ -6074,8 +6074,11 @@ mod chunk_09_weather_mutation_coverage {
         STORM_PALETTE_HAIL_PATH_LOC_14CEC, STORM_PATTERN_HAIL_TABLE_LABEL_LOC_14D1E,
         STORM_PATTERN_VDP_COMMAND_LOC_14D32, SpecialEffectUnknownRuntimeArtUploadLoc14DF6,
         StormArtAssetLoc14CCE, StormArtUploadLoc14CD8, StormPaletteAssetLoc14CEC,
-        StormPaletteCopyLoc14CF2, record_special_effect_unknown_art_upload_loc_14DF6,
-        upload_storm_art_loc_14CD8,
+        StormPaletteCopyLoc14CF2, copy_storm_palette_loc_14CF2,
+        record_special_effect_unknown_art_upload_loc_14DF6, special_effect_unknown_group_loc_14E44,
+        special_effect_unknown_inner_repeat_count_loc_14E44,
+        special_effect_unknown_pair_write_loc_14E46, storm_pattern_emit_group_loc_14D40,
+        upload_special_effect_unknown_art_loc_14DF6, upload_storm_art_loc_14CD8,
     };
 
     use super::*;
@@ -6120,6 +6123,90 @@ mod chunk_09_weather_mutation_coverage {
             crate::weather::storm_pending_palette_0_mask_sub_6048(0, 0x03),
             0x0000_0003,
             "ASM loc_605E treats a zero pending mask as non-negative and leaves the high word clear",
+        );
+    }
+
+    #[test]
+    fn copy_storm_palette_loc_14cf2_replaces_only_the_eight_storm_words() {
+        let source_palette = [
+            0x1001, 0x1002, 0x1003, 0x1004, 0x1005, 0x1006, 0x1007, 0x1008,
+        ];
+        let mut palette_buffer = [0xDEAD; 0x40];
+
+        copy_storm_palette_loc_14CF2(&source_palette, &mut palette_buffer);
+
+        assert_eq!(
+            &palette_buffer[0x10..0x18],
+            &source_palette,
+            "ASM loc_14CF2 copies four longwords from the selected storm palette into Palette_Buffer+$20",
+        );
+        assert!(
+            palette_buffer[..0x10].iter().all(|&word| word == 0xDEAD)
+                && palette_buffer[0x18..].iter().all(|&word| word == 0xDEAD),
+            "ASM loc_14CF2 leaves palette entries outside the eight-word `$20..$2E` destination span untouched",
+        );
+    }
+
+    #[test]
+    fn storm_pattern_emit_group_loc_14d40_adds_the_tile_offset_to_each_longword() {
+        let source_group = [0x1000_0000, 0x1000_0001, 0x1000_0002, 0x1000_0003];
+
+        assert_eq!(
+            storm_pattern_emit_group_loc_14D40(&source_group, 0x0380_0380),
+            [0x1380_0380, 0x1380_0381, 0x1380_0382, 0x1380_0383],
+            "ASM loc_14D40 loads `(a0)`, `4(a0)`, `8(a0)`, and `$C(a0)`, adds `$0380_0380`, and emits the adjusted longwords in order",
+        );
+    }
+
+    #[test]
+    fn upload_special_effect_unknown_art_loc_14df6_streams_inclusive_eight_longword_bursts() {
+        let source_longwords: Vec<u32> = (0..24).map(|index| 0x9000_0000u32 + index).collect();
+
+        assert_eq!(
+            upload_special_effect_unknown_art_loc_14DF6(&source_longwords, 0).written_longwords,
+            source_longwords[..8],
+            "ASM loc_14DF6 streams one eight-longword burst when `d0` starts at zero because the stores run before `dbf` reaches -1",
+        );
+        assert_eq!(
+            upload_special_effect_unknown_art_loc_14DF6(&source_longwords, 2).written_longwords,
+            source_longwords[..24],
+            "ASM loc_14DF6 streams `(d0+1)*8` longwords because each inclusive DBF iteration copies eight source longwords",
+        );
+    }
+
+    #[test]
+    fn special_effect_unknown_pair_write_loc_14e46_writes_d6_then_d7() {
+        assert_eq!(
+            special_effect_unknown_pair_write_loc_14E46(),
+            [0x8380_8381, 0x8382_8383],
+            "ASM loc_14E46 writes the current `d6` longword before the current `d7` longword",
+        );
+    }
+
+    #[test]
+    fn special_effect_unknown_group_loc_14e44_repeats_the_seed_pair_sixteen_times() {
+        assert_eq!(
+            special_effect_unknown_inner_repeat_count_loc_14E44(),
+            16,
+            "ASM loc_14E44 loads `d0=#$F`, so `dbf d0,loc_14E46` runs sixteen pair writes",
+        );
+
+        let group = special_effect_unknown_group_loc_14E44();
+
+        assert_eq!(
+            group.len(),
+            16 * 2,
+            "ASM loc_14E44 emits sixteen `d6,d7` pairs before the later `$00040004` group advance",
+        );
+        assert_eq!(
+            &group[..4],
+            &[0x8380_8381, 0x8382_8383, 0x8380_8381, 0x8382_8383],
+            "ASM loc_14E44 starts with the seed pair derived between loc_14DF6 and loc_14E42",
+        );
+        assert_eq!(
+            &group[28..32],
+            &[0x8380_8381, 0x8382_8383, 0x8380_8381, 0x8382_8383],
+            "ASM loc_14E44 still writes the same pair on the final two iterations; the group bump happens after the inner loop",
         );
     }
 

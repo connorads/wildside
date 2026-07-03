@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather storm-init helper mutation boundary
+
+- After the runtime/init commit, a broader weather-runtime refresh over
+  `transfer_scroll_data_storm_loc_30110` / `step_weather` / `init_weather` /
+  `ingame_palette_words` was clean: 103 mutants, 102 caught, 1 unviable, 0
+  missed. The next focused helper run over the storm/unknown special-effect
+  helpers found 18 survivors in direct helper outputs.
+- Re-read `kid.asm` `loc_14CF2`, `loc_14D40`, `loc_14DF6`, `loc_14E44`, and
+  `loc_14E46`. Added ASM-cited focused tests for the eight-word storm palette
+  copy span, storm pattern longword addend, unknown-art inclusive DBF burst
+  length, and the unknown-plane `d6,d7` pair/group writes.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-storm-init-helpers-20260703-after` reports 65
+  mutants: 51 caught, 14 unviable, 0 missed. `cargo fmt --all --check`, `git
+  diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`
+  pass. `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather runtime/init mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback stayed on
