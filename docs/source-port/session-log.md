@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive camera clamp ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback and promoted the live `update_camera_axis` velocity clamp
+  by citing the Y-axis `loc_72D2`/`loc_72DA` high/low clamp labels. No
+  behaviour changed.
+- Verification: `asm-coverage --json` reports both labels reachable, with
+  test-only debt reduced from 221 to 219 and reachable labels increased to
+  3877. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive Lion projectile slope ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued proactive ASM

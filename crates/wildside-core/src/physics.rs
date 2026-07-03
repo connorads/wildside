@@ -913,6 +913,8 @@ pub(crate) fn update_camera_axis(camera: i32, player: i32, max_pos: i32) -> i32 
     } else {
         // ASM loc_7234 / loc_72C8 (kid.asm:7347 / 7421): normal smooth scroll.
         // `sub.w Camera_X/Y_pos,d0; addq.w #4,d0; asr.w #3,d0; move.w d0,d2/d3`
+        // ASM loc_72D2 / loc_72DA (kid.asm:7427 / 7432): the Y-axis path then
+        // clamps that velocity to +8/-8 before applying it at `loc_72E2`.
         let delta = (target - camera + 4) >> 3;
         delta.clamp(-CAMERA_MAX_STEP, CAMERA_MAX_STEP)
     };
