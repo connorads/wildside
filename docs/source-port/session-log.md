@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather storm-cadence mutation boundary
+
+- Project-status still showed no ready/open risks. A clean hail-worker resample
+  covered `sub_61CA` and bridge helpers (73 mutants: 71 caught, 2 unviable, 0
+  missed), then the storm cadence slice exposed seven `sub_6048` survivors:
+  Mountain full-mask sign, thunder guard conjunction/thresholds, hail
+  weather/frame gate, hail latch toggle, and inactive-slot branch.
+- Re-read `kid.asm` `sub_6048` at `loc_60C0`, `loc_60EE`, `loc_6172`,
+  `loc_619C`, and `loc_61A8`. Added ASM-cited weather-chunk tests for those
+  gates and corrected live `step_weather` to pass the ROM `$FFFFFB3D` free-slot
+  count into the pure `sub_6048` shell instead of the inverse active-slot
+  count. The inactive all-free hail shell now skips `sub_61CA` like the ROM.
+- Verification: `cargo test -p wildside-core
+  chunk_09_weather_mutation_coverage -- --nocapture` passes. Focused mutation
+  reruns report `.cache/mutants/weather-sub6048-20260703-after` at 35 mutants:
+  34 caught, 1 unviable, 0 missed, and
+  `.cache/mutants/weather-step-weather-20260703` at 20 mutants: 20 caught, 0
+  missed. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass. `mise run
+  verify-tas-full` exits 0 with CRC all 37759 frames matching; the known first
+  state divergence remains `transition_15_to_00_post`.
+
 ## 2026-07-03 - proactive weather lava-fireball sprite-kind mutation boundary
 
 - Project-status still showed no ready/open risks. The next remaining

@@ -65,21 +65,24 @@ and stop — never commit churn.
   lava-geyser render/script, hail worker `sub_61CA`, and weather runtime/init
   plus storm-init, Kid-hitbox, and lava-geyser hitbox-window/predicate/sprite
   helper boundaries, lava-geyser initial-delay/CRAM-rotation helpers, plus
-  lava-fireball init/script/sprite-kind, vertical-window, reject/overlap/hitbox/live-hit edges.
-- **Current gates 2026-07-03:** final clean mutation reruns now cover the same
-  proactive slices through lava-geyser palette rotation and lava-fireball sprite-kind mapping.
+  lava-fireball init/script/sprite-kind, vertical-window, reject/overlap/hitbox/live-hit edges,
+  and storm `sub_6048` thunder/hail cadence plus live `$FFFFFB3D` free-slot
+  shell routing.
+- **Current gates 2026-07-03:** clean mutation reruns now cover through storm
+  `sub_6048` cadence and live `step_weather` free-slot routing.
   Latest focused clean reruns: types 211/204/7, Hand 50/45/5, movement 22/20/2
   + 21/20/1, weather 16/16/0 + 52/49/3 + 64/63/1 + 25/25/0 + 103/102/1 +
   65/51/14 + 92/92/0 + 16/15/1 + 14/14/0 + 7/6/1 + 26/25/1 + 22/22/0
   + 8/8/0 + 18/18/0 + 7/7/0 + 11/11/0 + 18/17/1 + 9/8/1 + 10/9/1
-  + 11/11/0 + 12/11/1 (mutants caught/unviable; all 0 missed).
-  Latest change is behaviour-neutral test/mutation hardening; fmt, diff check,
-  `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
-  `verify-tas-full` was not rerun. Latest full TAS remains the 2026-07-02 pass
-  with CRC all 37759 frames matching and the known `transition_15_to_00_post`
-  DragonWalking/object-count state gap. ASM coverage remains `0` ordinary
-  uncovered labels plus 21 emulated GEMS wrappers; do not cite those wrappers
-  just to move the metric.
+  + 11/11/0 + 12/11/1 + 73/71/2 + 35/34/1 + 20/20/0
+  (mutants caught/unviable; all 0 missed). Latest change fixes live storm+hail
+  inactive-period shell routing to pass the ASM `$FFFFFB3D` free-slot count into
+  `sub_6048`, plus focused test/mutation hardening. fmt, diff check, backlog
+  lint, `verify-slice-fast`, and `verify-tas-full` pass for this slice.
+  Latest full TAS (2026-07-03) exits 0 with CRC all 37759 frames matching and
+  the known first state divergence at `transition_15_to_00_post`. ASM coverage
+  remains `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not
+  cite those wrappers just to move the metric.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

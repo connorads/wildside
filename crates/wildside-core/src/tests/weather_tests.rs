@@ -6107,6 +6107,34 @@ mod chunk_09_weather_mutation_coverage {
         std::fs::write(path, bytes).expect("write palette fixture");
     }
 
+    fn weather_step_state_sub_6048() -> WeatherSpecialEffectsStepSub6048 {
+        WeatherSpecialEffectsStepSub6048 {
+            frame_counter: 0x0874,
+            level_special_effects: 3,
+            foreground_theme_is_mountain: false,
+            background_theme_is_mountain: false,
+            fade_countdown: 0,
+            fade_progress_latch: 0,
+            palette_animation_speed: 0,
+            pending_palette_mask_0: 0,
+            weather_mode_byte: 0,
+            thunder_timer: 1,
+            hail_period_timer: 7,
+            hail_active: false,
+            snow_spawn_cooldown: 9,
+            snow_slot_count: 5,
+            play_thunder_sound: false,
+            call_snow_worker: false,
+            palette_ops: Vec::new(),
+        }
+    }
+
+    fn step_weather_state_sub_6048(
+        state: WeatherSpecialEffectsStepSub6048,
+    ) -> WeatherSpecialEffectsStepSub6048 {
+        step_level_special_effects_sub_6048(state, [0; 8], [0; 15], [0x0AAA; 7], [0x0BBB; 7], 0)
+    }
+
     #[test]
     fn storm_pending_palette_0_mask_sub_6048_preserves_negative_high_word_and_speed() {
         assert_eq!(
@@ -6124,6 +6152,169 @@ mod chunk_09_weather_mutation_coverage {
             0x0000_0003,
             "ASM loc_605E treats a zero pending mask as non-negative and leaves the high word clear",
         );
+    }
+
+    #[test]
+    fn step_level_special_effects_sub_6048_mountain_fade_sets_full_pending_mask_loc_60c0() {
+        let mut state = weather_step_state_sub_6048();
+        state.frame_counter = 0x04B1;
+        state.level_special_effects = 2;
+        state.foreground_theme_is_mountain = true;
+        state.fade_countdown = 4;
+
+        let stepped = step_weather_state_sub_6048(state);
+
+        assert_eq!(
+            stepped.pending_palette_mask_0, -1,
+            "ASM loc_60C0 writes `#$FFFF` to `$FFFFF888` before the Mountain foreground overlay",
+        );
+    }
+
+    #[test]
+    fn sub_6048_thunder_guard_requires_weather_mountain_and_frame_loc_60ee() {
+        let cases = [
+            (
+                4,
+                true,
+                0x05DD,
+                4,
+                "ASM loc_60EE should branch to loc_6172 when Level_Special_Effects is above Storm_and_Hail",
+            ),
+            (
+                2,
+                false,
+                0x05DD,
+                4,
+                "ASM loc_60EE should branch to loc_6172 when Background_theme is not Mountain",
+            ),
+            (
+                2,
+                true,
+                0x05DC,
+                4,
+                "ASM loc_60EE should take `bls.w loc_61C2` while Frame_Counter <= `$5DC`",
+            ),
+        ];
+
+        for (
+            level_special_effects,
+            background_theme_is_mountain,
+            frame_counter,
+            weather_mode_byte,
+            message,
+        ) in cases
+        {
+            let mut state = weather_step_state_sub_6048();
+            state.frame_counter = frame_counter;
+            state.level_special_effects = level_special_effects;
+            state.background_theme_is_mountain = background_theme_is_mountain;
+            state.hail_period_timer = 100;
+            state.snow_slot_count = 5;
+
+            let stepped = step_weather_state_sub_6048(state);
+
+            assert_eq!(stepped.thunder_timer, 1, "{message}");
+            assert!(!stepped.play_thunder_sound, "{message}");
+            assert!(
+                stepped.palette_ops.is_empty(),
+                "ASM loc_60EE skipped thunder branches must not load flash/calm palettes",
+            );
+            assert_eq!(stepped.weather_mode_byte, weather_mode_byte, "{message}");
+        }
+    }
+
+    #[test]
+    fn step_level_special_effects_sub_6048_hail_gate_requires_hail_weather_and_frame_loc_6172() {
+        let cases = [
+            (
+                2,
+                0x0874,
+                "ASM loc_6172 should return when Level_Special_Effects is not Storm_and_Hail",
+            ),
+            (
+                3,
+                0x0873,
+                "ASM loc_6172 should return while Frame_Counter <= `$873`",
+            ),
+        ];
+
+        for (level_special_effects, frame_counter, message) in cases {
+            let mut state = weather_step_state_sub_6048();
+            state.level_special_effects = level_special_effects;
+            state.frame_counter = frame_counter;
+            state.hail_period_timer = 1;
+            state.hail_active = false;
+            state.snow_slot_count = 4;
+
+            let stepped = step_weather_state_sub_6048(state);
+
+            assert_eq!(stepped.hail_period_timer, 1, "{message}");
+            assert!(!stepped.hail_active, "{message}");
+            assert!(!stepped.call_snow_worker, "{message}");
+        }
+    }
+
+    #[test]
+    fn step_level_special_effects_sub_6048_hail_latch_toggles_both_edges_loc_619c() {
+        let mut inactive = weather_step_state_sub_6048();
+        inactive.hail_period_timer = 1;
+        inactive.hail_active = false;
+        inactive.snow_slot_count = 5;
+        let inactive_to_active = step_weather_state_sub_6048(inactive);
+
+        assert!(inactive_to_active.hail_active);
+        assert_eq!(
+            inactive_to_active.hail_period_timer, 0x04B0,
+            "ASM loc_619C adds `$258` to the inactive-period preset and toggles `$FFFFFB54` active",
+        );
+        assert!(
+            inactive_to_active.call_snow_worker,
+            "ASM loc_61A8 should fall through to loc_61BC immediately after hail toggles active",
+        );
+
+        let mut active = weather_step_state_sub_6048();
+        active.hail_period_timer = 1;
+        active.hail_active = true;
+        active.snow_slot_count = 4;
+        let active_to_inactive = step_weather_state_sub_6048(active);
+
+        assert!(!active_to_inactive.hail_active);
+        assert_eq!(
+            active_to_inactive.hail_period_timer, 0x0258,
+            "ASM loc_619C leaves only the `$258` addend when hail toggles from active to inactive",
+        );
+        assert_eq!(
+            active_to_inactive.snow_spawn_cooldown, 2,
+            "ASM loc_61A8 writes `2` to `$FFFFFB3C` when inactive hail still has live falling slots",
+        );
+        assert!(active_to_inactive.call_snow_worker);
+    }
+
+    #[test]
+    fn sub_6048_inactive_hail_calls_worker_until_all_slots_free_loc_61a8() {
+        let mut draining = weather_step_state_sub_6048();
+        draining.hail_active = false;
+        draining.hail_period_timer = 5;
+        draining.snow_slot_count = 4;
+        let draining = step_weather_state_sub_6048(draining);
+
+        assert!(
+            draining.call_snow_worker,
+            "ASM loc_61A8 should call sub_61CA while `$FFFFFB3D` is not yet five free slots",
+        );
+        assert_eq!(draining.snow_spawn_cooldown, 2);
+
+        let mut all_free = weather_step_state_sub_6048();
+        all_free.hail_active = false;
+        all_free.hail_period_timer = 5;
+        all_free.snow_slot_count = 5;
+        let all_free = step_weather_state_sub_6048(all_free);
+
+        assert!(
+            !all_free.call_snow_worker,
+            "ASM loc_61A8 should return once `$FFFFFB3D` says all five falling-weather slots are free",
+        );
+        assert_eq!(all_free.snow_spawn_cooldown, 9);
     }
 
     #[test]
@@ -7681,7 +7872,7 @@ mod chunk_09_weather_mutation_coverage {
         runtime.weather.hail_active = false;
         runtime.weather.hail_period_timer = 100;
         runtime.weather.storm_spawn_cooldown = 1;
-        runtime.weather.storm_free_falling_slots = 0;
+        runtime.weather.storm_free_falling_slots = 5;
         runtime.weather.storm_falling_slots_sub_61ca =
             [FallingWeatherSlotSub61CA::inactive(6, 0); 5];
 

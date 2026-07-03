@@ -1384,6 +1384,7 @@ pub(crate) struct WeatherSpecialEffectsStepSub6048 {
     pub(crate) hail_period_timer: u16,
     pub(crate) hail_active: bool,
     pub(crate) snow_spawn_cooldown: u8,
+    /// ASM `$FFFFFB3D`: inactive/free falling-weather slot count.
     pub(crate) snow_slot_count: u8,
     pub(crate) play_thunder_sound: bool,
     pub(crate) call_snow_worker: bool,
@@ -3109,7 +3110,7 @@ impl NativeRuntime {
                 hail_period_timer: self.weather.hail_period_timer,
                 hail_active: self.weather.hail_active,
                 snow_spawn_cooldown: self.weather.storm_spawn_cooldown,
-                snow_slot_count: 5u8.saturating_sub(self.weather.storm_free_falling_slots),
+                snow_slot_count: self.weather.storm_free_falling_slots,
                 play_thunder_sound: false,
                 call_snow_worker: false,
                 palette_ops: Vec::new(),
