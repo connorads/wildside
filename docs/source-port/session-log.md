@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather lava-fireball overlap-gate mutation boundary
+
+- Project-status still showed no ready/open risks. The next lava/fireball
+  resample exposed `lava_fireball_overlap_gate_loc_14B06`: replacing the gate
+  wrapper with `true` was missed even though the underlying reject predicate was
+  covered.
+- Re-read `kid.asm` `sub_14AB0` `loc_14B06` and `loc_14B22`. Added an
+  ASM-cited overlap-gate test that accepts the inclusive left-edge hit and
+  rejects one pixel past each horizontal/vertical edge.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-lava-fireball-overlap-gate-20260703-after` reports 8
+  mutants: 8 caught, 0 missed. `cargo fmt --all --check`, `git diff --check`,
+  `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+  `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather lava-fireball reject mutation boundary
 
 - Project-status still showed no ready/open risks. The next remaining

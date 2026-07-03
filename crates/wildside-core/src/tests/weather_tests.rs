@@ -6486,6 +6486,71 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn lava_fireball_overlap_gate_loc_14b06_accepts_only_inclusive_edges() {
+        let vertical_window = crate::weather::LavaFireballVerticalWindowLoc14AFC {
+            top_px: 0x0100,
+            bottom_px: 0x0110,
+        };
+
+        assert!(
+            crate::weather::lava_fireball_overlap_gate_loc_14B06(
+                0x01F0,
+                0x0200,
+                0x0108,
+                0x0108,
+                0x0200,
+                0x0206,
+                vertical_window,
+            ),
+            "ASM sub_14AB0 loc_14B06 treats equality with the fireball left edge as overlap",
+        );
+
+        for (kid_left_px, kid_right_px, kid_top_px, kid_bottom_px, branch) in [
+            (
+                0x01F0,
+                0x01FF,
+                0x0108,
+                0x0108,
+                "Kid_hitbox_right < fireball_left branches to loc_14B22",
+            ),
+            (
+                0x0207,
+                0x0210,
+                0x0108,
+                0x0108,
+                "Kid_hitbox_left > fireball_right branches to loc_14B22",
+            ),
+            (
+                0x0203,
+                0x0203,
+                0x0111,
+                0x0120,
+                "Kid_hitbox_top > fireball_bottom branches to loc_14B22",
+            ),
+            (
+                0x0203,
+                0x0203,
+                0x00F0,
+                0x00FF,
+                "Kid_hitbox_bottom < fireball_top branches to loc_14B22",
+            ),
+        ] {
+            assert!(
+                !crate::weather::lava_fireball_overlap_gate_loc_14B06(
+                    kid_left_px,
+                    kid_right_px,
+                    kid_top_px,
+                    kid_bottom_px,
+                    0x0200,
+                    0x0206,
+                    vertical_window,
+                ),
+                "ASM sub_14AB0 loc_14B06 should deny damage on the loc_14B22 reject path: {branch}",
+            );
+        }
+    }
+
+    #[test]
     fn hail_projectiles_from_falling_slots_sub_61ca_exports_active_slot_fields() {
         let projectiles = crate::weather::hail_projectiles_from_falling_slots_sub_61ca(&[
             FallingWeatherSlotSub61CA {
