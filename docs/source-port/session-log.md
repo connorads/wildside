@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive UFO mutation slice
+
+- Project-status still showed no ready/open risks after the Tar Monster
+  mutation record, so continued the proactive verification fallback with the
+  live UFO enemy module. This refreshes current clean evidence for the
+  ASM-cited motion tables, on-screen gates, tracking, beam, collision, terrain,
+  hurt-driver, debris, and beam-child helper surface without changing
+  behaviour.
+- Verification: `env FILE=crates/wildside-core/src/enemies/ufo.rs
+  OUTPUT=/tmp/mutants-ufo-20260703-refresh TMPDIR=/tmp mise run mutants-file`
+  reports 232 mutants tested: 194 caught, 38 unviable, 0 missed, 0 timeouts.
+  The NOW gate summary also folds in the already-recorded same-day Ninja clean
+  rerun, `.cache/mutants/ninja-20260703-current` (189 tested: 156 caught, 33
+  unviable, 0 missed).
+
 ## 2026-07-03 - proactive Tar Monster mutation slice
 
 - Project-status still showed no ready/open risks after the Mini Hopping Skull
