@@ -720,9 +720,9 @@ pub(crate) fn ninja_airborne_collision_dispatch_loc_3d878(
     kid_sprite_allows_berzerker_knockdown: bool,
 ) -> NinjaAirborneCollisionStateLoc3D878 {
     // ASM Ninja.asm loc_3D878: capture and clear `collision_type(a3)`. Side
-    // contact only enters loc_3D8BC when Current_Helmet is Berzerker and Kid's
-    // `addroffset_sprite` is not after `LnkTo_unk_ADFC8`; otherwise loc_3D89C
-    // resumes by x_direction.
+    // contact routes through loc_3D8A8 and only enters loc_3D8BC when
+    // Current_Helmet is Berzerker and Kid's `addroffset_sprite` is not after
+    // `LnkTo_unk_ADFC8`; otherwise loc_3D89C resumes by x_direction.
     let resume = NinjaAirborneCollisionRouteLoc3D878::Resume {
         next: ninja_collision_resume_loc_3d638(false, x_direction_right),
     };

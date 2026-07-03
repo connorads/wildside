@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Ninja ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued the proactive ASM
+  coverage fallback and promoted the shipped Ninja airborne side-contact gate:
+  `ninja_airborne_collision_dispatch_loc_3d878` now cites `loc_3D8A8` for the
+  Berzerker side-contact threshold before `loc_3D8BC`. No behaviour changed.
+- Checked the next Robot and Sphere debt labels and left them as test-only debt:
+  Robot's detailed shoot/collision helpers are `#[cfg(test)]`, and Sphere's
+  remaining labels are test-only child-loop/trap helpers. `asm-coverage --json`
+  reports `loc_3D8A8` reachable, with test-only debt reduced from 231 to 230
+  and reachable labels increased to 3866.
+- Verification: `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive Mini Hopping Skull ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued the proactive ASM
