@@ -5517,7 +5517,7 @@ fn queue_fireball_bounce_sound_loc_32c60(
 
     if let Some(sound_effects) = played_sound_effects.as_deref_mut() {
         // ASM Fireball.asm loc_32C60: after a non-zero collision type and
-        // before the behaviour jump table, play `sfx_Fireball_bouncing`.
+        // before loc_32C86's behaviour jump table, play `sfx_Fireball_bouncing`.
         sound_effects.push(QueuedSoundEffect::FireballBouncing);
     }
     *already_queued = true;

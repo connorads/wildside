@@ -347,7 +347,8 @@ pub(crate) fn mini_hopping_skull_terrain_contact_loc_3ead8(
 
     // ASM Mini_Hopping_Skull.asm loc_3EAD8: terrain contact clears
     // `is_moved(a3)`, `is_animated(a3)`, and `has_level_collision(a3)`
-    // before the slope-up-specific velocity gate.
+    // before the slope-up-specific velocity gate; non-positive X branches to
+    // loc_3EC32 after `sub_3F366`.
     MiniHoppingSkullTerrainContact {
         is_moved: false,
         is_animated: false,

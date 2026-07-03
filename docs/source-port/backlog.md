@@ -67,18 +67,19 @@ and stop — never commit churn.
   helper boundaries, lava-geyser initial-delay/CRAM-rotation helpers, plus
   lava-fireball init/script/sprite-kind, vertical-window, reject/overlap/hitbox/live-hit edges,
   and storm `sub_6048` thunder/hail cadence plus live `$FFFFFB3D` free-slot
-  shell routing.
+  shell routing, murder-wall/weather accessor cleanups, and compact ASM
+  coverage promotions in Fireball/Drips/Mini Hopping Skull.
 - **Current gates 2026-07-03:** clean mutation reruns now cover through storm
-  `sub_6048` cadence and live `step_weather` free-slot routing.
+  `sub_6048` cadence, live `step_weather` free-slot routing, murder-wall
+  warning dispatch, and weather ROM-facing label/path helpers.
   Latest focused clean reruns: types 211/204/7, Hand 50/45/5, movement 22/20/2
   + 21/20/1, weather 16/16/0 + 52/49/3 + 64/63/1 + 25/25/0 + 103/102/1 +
   65/51/14 + 92/92/0 + 16/15/1 + 14/14/0 + 7/6/1 + 26/25/1 + 22/22/0
   + 8/8/0 + 18/18/0 + 7/7/0 + 11/11/0 + 18/17/1 + 9/8/1 + 10/9/1
-  + 11/11/0 + 12/11/1 + 73/71/2 + 35/34/1 + 20/20/0
-  (mutants caught/unviable; all 0 missed). Latest change fixes live storm+hail
-  inactive-period shell routing to pass the ASM `$FFFFFB3D` free-slot count into
-  `sub_6048`, plus focused test/mutation hardening. fmt, diff check, backlog
-  lint, `verify-slice-fast`, and `verify-tas-full` pass for this slice.
+  + 11/11/0 + 12/11/1 + 73/71/2 + 35/34/1 + 20/20/0 + 47/45/2
+  + 20/20/0 (mutants caught/unviable; all 0 missed). Latest change promotes
+  shipped ASM citations for Fireball `loc_32C86`, Drips `loc_335CA`, and Mini
+  Hopping Skull `loc_3EC32`/`sub_3F366`; test-only ASM debt is 237; fast gate green.
   Latest full TAS (2026-07-03) exits 0 with CRC all 37759 frames matching and
   the known first state divergence at `transition_15_to_00_post`. ASM coverage
   remains `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not

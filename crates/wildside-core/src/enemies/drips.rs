@@ -355,8 +355,9 @@ pub(crate) fn drips_vertical_bounds_contact_flag_loc_335b0(
     level_height_pixels: i16,
 ) -> u16 {
     // ASM Drips.asm loc_335B0: non-negative `y_vel(a3)` probes `y_pos(a3)+8`
-    // against `Level_height_pixels`; negative Y velocity probes `y_pos(a3)-8`
-    // and treats a signed-negative word as d5=1.
+    // against `Level_height_pixels`; negative Y velocity branches through
+    // loc_335CA, probes `y_pos(a3)-8`, and treats a signed-negative word as
+    // d5=1.
     let out_of_bounds = if y_velocity < 0 {
         y_pos_word.wrapping_sub(8) < 0
     } else {

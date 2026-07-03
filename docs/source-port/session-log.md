@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather cleanup and ASM citation promotion
+
+- Project-status still showed no ready/open risks. Followed the proactive
+  fallback with two clean weather mutation reruns: murder-wall warning and
+  `sub_6034` dispatch (47 mutants: 45 caught, 2 unviable, 0 missed), plus
+  weather label/path and lava-palette helpers (20 mutants: 20 caught, 0 missed).
+- Switched to ASM coverage debt and promoted shipped implementation citations
+  for Fireball `loc_32C86`, Drips `loc_335CA`, and Mini Hopping Skull
+  `loc_3EC32`; the same comment also makes `sub_3F366` reachable. No behaviour
+  changed.
+- Verification: `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass. `asm-coverage --json`
+  reports those four labels reachable, with test-only debt reduced from 241 to
+  237.
+
 ## 2026-07-03 - proactive weather storm-cadence mutation boundary
 
 - Project-status still showed no ready/open risks. A clean hail-worker resample
