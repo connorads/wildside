@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Driller mutation slice
+
+- Project-status still showed no ready/open risks after the shooter projectile
+  citation commit, and the remaining sampled ASM debt was genuine test-only or
+  unwired reference code. Switched fallback mode to mutation testing and ran the
+  live Driller enemy module.
+- Verification: `TMPDIR=/tmp cargo mutants -p wildside-core -f
+  crates/wildside-core/src/enemies/driller.rs -j 4 --output
+  /tmp/mutants-driller-20260703-tmpdir -- --lib -- --skip demo_ --skip
+  published_tas --skip snapshot` reports 24 mutants tested: 19 caught, 5
+  unviable, 0 missed, 0 timeouts. The first attempt without explicit `TMPDIR`
+  failed only in the unmutated baseline because dependency build scripts saw no
+  `TMPDIR`.
+
 ## 2026-07-03 - proactive shooter projectile recycle ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued proactive ASM
