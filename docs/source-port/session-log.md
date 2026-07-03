@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive platform walking-carry ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback and promoted the live stored-platform walking carry path by
+  citing `loc_8DD4`, `loc_8DEA`, and `loc_8DF6` beside the existing standing
+  and crawling labels. The comments now record the shared sub_8ED0 support
+  branch, supported carry continuation, and d7==2 generic crush death. No
+  behaviour changed.
+- Verification: `asm-coverage --json` reports all three labels reachable, with
+  test-only debt reduced from 209 to 206 and reachable labels increased to
+  3890. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive intro centre-particle ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued proactive ASM

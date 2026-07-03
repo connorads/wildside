@@ -1518,11 +1518,11 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
     standing_platform_addr: Option<u16>,
     character_movement_is_jump: bool,
 ) -> PlatformCollisionResultLoc257E {
-    // ASM loc_7886 (kid.asm:7929): after sub_902A finds floor while Kid
-    // stands on a platform, the ROM calls sub_8ED0 to check whether Kid's
-    // hitbox still overlaps the platform span.  If unsupported (NE), the ROM
-    // sets MoveID_Jump / sub_B270 / loc_A6F8 — Kid becomes airborne.  If
-    // supported (EQ), the ROM continues to loc_789C (stay standing).
+    // ASM loc_7886/loc_8DD4 (kid.asm:7929/10179): after sub_902A finds floor
+    // while Kid stands or walks on a platform, the ROM calls sub_8ED0 to check
+    // whether Kid's hitbox still overlaps the platform span. If unsupported
+    // (NE), the ROM sets MoveID_Jump / sub_B270 / loc_A6F8, so Kid becomes
+    // airborne. If supported (EQ), the ROM continues to loc_789C/loc_8DEA.
     // Native mirrors this via the `platform_support_check_sub_8ED0` call
     // below: unsupported platforms are skipped (Kid gets no carry velocity,
     // eventually falls off via normal gravity/floor logic).
@@ -1590,14 +1590,16 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
                 .hit
             })
         {
-            // ASM loc_837C (kid.asm:9117): a d7==2 ceiling-crush result from
-            // the stored-platform carry path branches to Death with d7 cleared.
+            // ASM loc_837C/loc_8DF6 (kid.asm:9117/10193): a d7==2
+            // ceiling-crush result from the stored-platform carry path branches
+            // to Death with d7 cleared.
             return PlatformCollisionResultLoc257E::no_contact(
                 PlatformCollisionOutcome::CrushDeath,
             );
         }
-        // ASM loc_8370 (kid.asm:9111): supported stored-platform carry
-        // continues with the preserved `$FFFFFA98` horizontal velocity.
+        // ASM loc_8370/loc_8DEA (kid.asm:9111/10187): supported
+        // stored-platform carry continues with the preserved `$FFFFFA98`
+        // horizontal velocity.
         return PlatformCollisionResultLoc257E::no_contact(PlatformCollisionOutcome::StandingOn(
             platform_addr,
         ));
