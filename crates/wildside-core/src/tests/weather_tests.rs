@@ -6064,6 +6064,20 @@ mod chunk_08_inactive_slot_constructors {
 }
 
 mod chunk_09_weather_mutation_coverage {
+    use crate::weather::{
+        FALLING_WEATHER_SLOT_COUNT_SUB_61CA, LAVA_GEYSER_ART_SOURCE_LABEL_LOC_14C6A,
+        LAVA_GEYSER_ART_VRAM_DESTINATION_LOC_14C6A, SPECIAL_EFFECT_UNKNOWN_ART_LABEL_LOC_14DE4,
+        SPECIAL_EFFECT_UNKNOWN_BACKGROUND_PLANE_REGISTER_LOC_14E42,
+        SPECIAL_EFFECT_UNKNOWN_FOREGROUND_PLANE_REGISTER_LOC_14E42,
+        SPECIAL_EFFECT_UNKNOWN_PLANE_VDP_COMMAND_LOC_14E42, STORM_ART_HAIL_SOURCE_LABEL_LOC_14CCE,
+        STORM_PALETTE_BUFFER_START_LOC_14CF2, STORM_PALETTE_HAIL_LABEL_LOC_14CEC,
+        STORM_PALETTE_HAIL_PATH_LOC_14CEC, STORM_PATTERN_HAIL_TABLE_LABEL_LOC_14D1E,
+        STORM_PATTERN_VDP_COMMAND_LOC_14D32, SpecialEffectUnknownRuntimeArtUploadLoc14DF6,
+        StormArtAssetLoc14CCE, StormArtUploadLoc14CD8, StormPaletteAssetLoc14CEC,
+        StormPaletteCopyLoc14CF2, record_special_effect_unknown_art_upload_loc_14DF6,
+        upload_storm_art_loc_14CD8,
+    };
+
     use super::*;
 
     fn weather_worker_input_sub_61ca() -> WeatherWorkerInputSub61CA {
@@ -6083,6 +6097,11 @@ mod chunk_09_weather_mutation_coverage {
             collision_rows: WeatherCollisionRowsSub61CA { rows: vec![] },
             starting_number_sprites: 0,
         }
+    }
+
+    fn write_be_words(path: &std::path::Path, words: &[u16]) {
+        let bytes: Vec<u8> = words.iter().flat_map(|word| word.to_be_bytes()).collect();
+        std::fs::write(path, bytes).expect("write palette fixture");
     }
 
     #[test]
@@ -7165,6 +7184,279 @@ mod chunk_09_weather_mutation_coverage {
             runtime.weather.storm_thunder_timer,
             0x00F7 - 0x00A5,
             "ASM loc_613E subtracts the low frame byte masked by `$F5` when reseeding thunder",
+        );
+    }
+
+    #[test]
+    fn step_weather_foreground_mountain_fade_uses_overlay_palette_loc_60c0_60e0() {
+        let output_root = unique_temp_path("weather-mountain-fade");
+        let palette_bg_dir = output_root.join("theme/palette_bg");
+        let palette_fg_dir = output_root.join("theme/palette_fg");
+        std::fs::create_dir_all(&palette_bg_dir).expect("create storm bg palette fixture dir");
+        std::fs::create_dir_all(&palette_fg_dir).expect("create storm fg palette fixture dir");
+        let saved_storm_words = [
+            0x0111, 0x0222, 0x0333, 0x0444, 0x0555, 0x0666, 0x0777, 0x0888,
+        ];
+        let mountain_overlay_words = [
+            0x1001, 0x1002, 0x1003, 0x1004, 0x1005, 0x1006, 0x1007, 0x1008, 0x1009, 0x100A, 0x100B,
+            0x100C, 0x100D, 0x100E, 0x100F,
+        ];
+        write_be_words(
+            &palette_bg_dir.join("mountain_storm.bin"),
+            &saved_storm_words,
+        );
+        write_be_words(
+            &palette_fg_dir.join("mountain_storm.bin"),
+            &mountain_overlay_words,
+        );
+
+        let mut assets = manifest_with_levels(1);
+        assets.output_root = output_root;
+        assets.theme_assets = vec![
+            wildside_data::AssetFile {
+                relative_path: String::from("palette_bg/mountain_storm.bin"),
+                size_bytes: saved_storm_words.len() as u64 * 2,
+                sha1: String::from("fixture-weather-storm-bg"),
+            },
+            wildside_data::AssetFile {
+                relative_path: String::from("palette_fg/mountain_storm.bin"),
+                size_bytes: mountain_overlay_words.len() as u64 * 2,
+                sha1: String::from("fixture-weather-storm-fg"),
+            },
+        ];
+        let header = assets.levels[0].header_metadata.as_mut().unwrap();
+        header.weather_flags = 2;
+        header.level_theme = 7; // ASM constant `Mountain`.
+        header.background_theme = 0;
+        let mut runtime = NativeRuntime::new(assets);
+        runtime.current_level = LevelId(0);
+        runtime.weather.weather_type = 2;
+        runtime.weather.storm_fade_countdown = 0x0100;
+        runtime.frame_index = 0x04B1;
+        runtime.palette_buffer = core::array::from_fn(|index| 0x2000 + index as u16);
+
+        runtime.step_weather(&airborne_slice());
+
+        assert_eq!(
+            runtime.palette_buffer_3[0], saved_storm_words[0],
+            "ASM loc_60C0 writes the first saved storm palette word to Palette_Buffer_3[0] only when Foreground_theme is Mountain",
+        );
+        assert_eq!(
+            &runtime.palette_buffer_3[0x19..0x20],
+            &saved_storm_words[1..],
+            "ASM loc_60C6 copies the remaining seven saved storm words to Palette_Buffer_3+$32 on the Mountain foreground path",
+        );
+        assert_eq!(
+            &runtime.palette_buffer_3[1..0x10],
+            &mountain_overlay_words,
+            "ASM loc_60E0 overlays all fifteen Pal_7B774 foreground words at Palette_Buffer_3+2",
+        );
+        assert_eq!(
+            runtime.weather.storm_fade_countdown, 0x00FC,
+            "ASM loc_60E0 tail subtracts four from `$FFFFFADA` after staging the Mountain storm fade",
+        );
+    }
+
+    #[test]
+    fn init_weather_resets_previous_weather_state_when_level_has_no_effect_loc_14dac() {
+        let mut assets = manifest_with_levels(1);
+        assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .weather_flags = 0;
+        let mut runtime = NativeRuntime::new(assets);
+        runtime.weather.weather_type = 3;
+        runtime.weather.storm_spawn_cooldown = 7;
+        runtime.weather.storm_free_falling_slots = 4;
+        runtime.weather.storm_falling_slots_sub_61ca[0] = FallingWeatherSlotSub61CA {
+            y_px: 0x20,
+            x_px: 0x40,
+            animation_cooldown: 3,
+            animation_frame: 2,
+        };
+        runtime.weather.storm_art_upload_loc_14cd8 =
+            Some(upload_storm_art_loc_14CD8(StormArtAssetLoc14CCE::Rain));
+        runtime.weather.unknown_art_upload_loc_14df6 =
+            Some(record_special_effect_unknown_art_upload_loc_14DF6());
+        runtime.weather.hail_active = true;
+        runtime.weather.hail_period_timer = 99;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 0,
+            y_px: 0,
+            height_px: 0,
+            first_eruption_pending: true,
+            sound_suppressed: false,
+            phase: 0,
+            timer: 0,
+            current_height: 0,
+        });
+
+        runtime.init_weather(LevelId(0));
+
+        assert_eq!(runtime.weather.weather_type, 0);
+        assert_eq!(runtime.weather.storm_spawn_cooldown, 0);
+        assert_eq!(
+            runtime.weather.storm_falling_slots_sub_61ca,
+            [FallingWeatherSlotSub61CA::default(); FALLING_WEATHER_SLOT_COUNT_SUB_61CA],
+            "ASM Init_SpecialEffects skips loc_14DAC for weather 0, so native clears stale storm slot RAM before leaving weather disabled",
+        );
+        assert_eq!(
+            runtime.weather.storm_art_upload_loc_14cd8, None,
+            "ASM Init_SpecialEffects weather 0 performs no storm loc_14CD8 upload",
+        );
+        assert_eq!(
+            runtime.weather.unknown_art_upload_loc_14df6, None,
+            "ASM Init_SpecialEffects weather 0 performs no loc_14DF6 unknown upload",
+        );
+        assert!(
+            !runtime.weather.hail_active,
+            "ASM weather 0 has no `$FFFFFB54` hail-active latch to carry from the previous level",
+        );
+        assert!(
+            runtime.weather.lava_geysers.is_empty(),
+            "ASM Init_SpecialEffects weather 0 performs no Init_SpecialEffect_Lava loc_14C6A object allocation",
+        );
+    }
+
+    #[test]
+    fn init_weather_ice_storm_selects_hail_art_palette_and_pattern_loc_14cce_14d1e() {
+        let mut assets = manifest_with_levels(1);
+        let header = assets.levels[0].header_metadata.as_mut().unwrap();
+        header.weather_flags = 2;
+        header.background_theme = 2; // ASM constant `Ice`.
+        let mut runtime = NativeRuntime::new(assets);
+
+        runtime.init_weather(LevelId(0));
+
+        assert_eq!(
+            runtime.weather.storm_art_upload_loc_14cd8,
+            Some(StormArtUploadLoc14CD8 {
+                asset: StormArtAssetLoc14CCE::Hail,
+                asset_label: STORM_ART_HAIL_SOURCE_LABEL_LOC_14CCE,
+                vram_word: 0x7000,
+            }),
+            "ASM loc_14CCE selects the hail art pointer before the shared loc_14CD8 upload when Background_theme is Ice",
+        );
+        assert_eq!(
+            runtime.weather.storm_palette_copy_loc_14cf2,
+            Some(StormPaletteCopyLoc14CF2 {
+                asset: StormPaletteAssetLoc14CEC::Hail,
+                asset_label: STORM_PALETTE_HAIL_LABEL_LOC_14CEC,
+                relative_path: STORM_PALETTE_HAIL_PATH_LOC_14CEC,
+                palette_buffer_start: STORM_PALETTE_BUFFER_START_LOC_14CF2,
+                copied_words: 8,
+            }),
+            "ASM loc_14CEC selects Pal_7B8CC for Ice storm palettes before loc_14CF2 copies eight words",
+        );
+        assert_eq!(
+            runtime.weather.storm_pattern_upload_loc_14d32,
+            Some(StormPatternRuntimeUploadLoc14D32 {
+                source_asset_label: STORM_PATTERN_HAIL_TABLE_LABEL_LOC_14D1E.to_owned(),
+                vram_tile_addend: 0x0380_0380,
+                skipped_header_longwords: 1,
+                vdp_command: STORM_PATTERN_VDP_COMMAND_LOC_14D32,
+                written_longword_count: 4 * 8 * 8 * 4,
+            }),
+            "ASM loc_14D1E selects the hail pattern table for Ice backgrounds even when weather is plain storm",
+        );
+    }
+
+    #[test]
+    fn init_weather_type1_runs_lava_initialiser_loc_14c6a() {
+        let mut assets = manifest_with_levels(1);
+        assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .weather_flags = 1;
+        let mut runtime = NativeRuntime::new(assets);
+
+        runtime.init_weather(LevelId(0));
+
+        assert_eq!(runtime.weather.weather_type, 1);
+        assert!(
+            !runtime.weather.lava_geysers.is_empty(),
+            "ASM Init_SpecialEffect_Lava loc_14C6A allocates lava geyser objects for lava weather",
+        );
+        assert_eq!(
+            runtime.trace_frame().lava_geyser_art_uploads_loc_14c6a,
+            vec![LavaGeyserArtUploadLoc14C6A {
+                art_source_label: LAVA_GEYSER_ART_SOURCE_LABEL_LOC_14C6A.to_owned(),
+                vram_destination: LAVA_GEYSER_ART_VRAM_DESTINATION_LOC_14C6A,
+            }],
+            "ASM loc_14C6A uploads ArtComp_983D2_Lava to VRAM `$5F60` during lava init",
+        );
+        assert_eq!(
+            runtime.weather.storm_art_upload_loc_14cd8, None,
+            "ASM lava init must not fall through to storm loc_14CD8 uploads",
+        );
+    }
+
+    #[test]
+    fn init_weather_storm_hail_starts_with_inactive_hail_latch_loc_14dac() {
+        let mut assets = manifest_with_levels(1);
+        assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .weather_flags = 3;
+        let mut runtime = NativeRuntime::new(assets);
+        runtime.weather.hail_active = true;
+
+        runtime.init_weather(LevelId(0));
+
+        assert_eq!(
+            runtime.weather.hail_period_timer, 1,
+            "ASM loc_14DAC writes `$FFFFFB52=1` before the later sub_6048 hail cadence starts",
+        );
+        assert!(
+            !runtime.weather.hail_active,
+            "ASM loc_14DAC uses `sf ($FFFFFB54).w`, so storm+hail init starts with the hail-active latch clear",
+        );
+    }
+
+    #[test]
+    fn init_weather_type4_records_unknown_uploads_and_mode_byte_loc_14df6_14e42() {
+        let mut assets = manifest_with_levels(1);
+        assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .weather_flags = 4;
+        let mut runtime = NativeRuntime::new(assets);
+
+        runtime.init_weather(LevelId(0));
+
+        assert_eq!(runtime.weather.weather_type, 4);
+        assert_eq!(
+            runtime.weather.unknown_art_upload_loc_14df6,
+            Some(SpecialEffectUnknownRuntimeArtUploadLoc14DF6 {
+                source_asset_label: SPECIAL_EFFECT_UNKNOWN_ART_LABEL_LOC_14DE4.to_owned(),
+                vram_word: 0x7000,
+                burst_count: 16,
+                written_longword_count: 16 * 8,
+            }),
+            "ASM Init_SpecialEffect_Unknown loc_14DF6 streams unk_9AA50 art to VRAM `$7000`",
+        );
+        assert_eq!(
+            runtime.weather.unknown_plane_fill_loc_14e42,
+            Some(SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
+                vdp_command: SPECIAL_EFFECT_UNKNOWN_PLANE_VDP_COMMAND_LOC_14E42,
+                outer_pass_count: 8,
+                group_count_per_pass: 4,
+                inner_repeat_count: 16,
+                written_longword_count: 8 * 4 * 16 * 2,
+                foreground_plane_register:
+                    SPECIAL_EFFECT_UNKNOWN_FOREGROUND_PLANE_REGISTER_LOC_14E42,
+                background_plane_register:
+                    SPECIAL_EFFECT_UNKNOWN_BACKGROUND_PLANE_REGISTER_LOC_14E42,
+            }),
+            "ASM loc_14E42 fills the foreground plane and restores plane registers for weather type 4",
+        );
+        assert_eq!(
+            runtime.weather.storm_weather_mode_byte, 1,
+            "ASM loc_14DF6 writes `$FFFFFAD6=1`, distinct from storm loc_14DAC's mode byte 4",
         );
     }
 

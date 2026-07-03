@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather runtime/init mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback stayed on
+  the weather file after the hail worker slice. A focused current run over
+  `NativeRuntime::step_weather` / `init_weather` reported six survivors: the
+  foreground-Mountain fade branch plus the weather init reset, Ice storm,
+  lava, hail-latch, and type-4 branches.
+- Re-read `kid.asm` `sub_6048`, `loc_60C0`, `loc_60E0`, `loc_14CCE`,
+  `loc_14D1E`, `loc_14DAC`, `loc_14DF6`, and `loc_14E42`. Added focused
+  ASM-cited runtime tests for Mountain foreground fade palette staging, disabled
+  weather state reset, Ice storm hail art/palette/pattern selection, lava init,
+  storm+hail's initial inactive hail latch, and type-4 unknown upload/plane-fill
+  setup.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-runtime-init-20260703-after` reports 25 mutants: 25
+  caught, 0 missed. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass. `verify-tas-full` was
+  not rerun because this was behaviour-neutral test/mutation hardening.
+
 ## 2026-07-03 - proactive weather worker mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback continued
