@@ -8557,7 +8557,7 @@ mod tests {
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
         level_entry_title_target_y, level_entry_title_top_edge_y_loc_1ace6,
         level_entry_title_two_player_waiter_workers_loc_1AD80, level_entry_title_worker_axis_pos,
-        prefer_iron_knight_solid_edge_floor_loc_914a,
+        load_end_sequence_credits_glyphs_sub_1D7A8, prefer_iron_knight_solid_edge_floor_loc_914a,
     };
     use crate::physics::{Direction, LevelBounds};
     use crate::terrain;
@@ -8620,6 +8620,81 @@ mod tests {
         assert_eq!(
             slice.player.y_velocity, 0,
             "ASM loc_90F6/loc_9114: $FA6A/custom gravity only means mounted top-boundary bounce for Skycutter; other helmets take the normal ceiling stop",
+        );
+    }
+
+    #[test]
+    fn load_end_sequence_credits_glyphs_sub_1d7a8_maps_triples_and_preserves_sentinel_tail() {
+        let preserved_tail = Some(super::EndSequenceCreditsGlyphPlacementSub1D7A8 {
+            x_pos: 0x9999,
+            y_pos: 0x8888,
+            addroffset_sprite: 0x7777,
+            display_enabled: false,
+        });
+        let mut initial = [None; 6];
+        initial[2] = preserved_tail;
+
+        let glyphs = load_end_sequence_credits_glyphs_sub_1D7A8(
+            &[0x10, 0xA8, 0x04, 0x20, 0xA4, 0x08, 0x00, 0xFF, 0xFF],
+            initial,
+        );
+
+        assert_eq!(
+            glyphs[0],
+            Some(super::EndSequenceCreditsGlyphPlacementSub1D7A8 {
+                x_pos: 0x0042,
+                y_pos: 0x0008,
+                addroffset_sprite: 0x110A,
+                display_enabled: true,
+            }),
+            "ASM sub_1D7A8/loc_1D7B0 should add `$32` to x, subtract `$A0` from y, offset the sprite from `$1106`, and set display"
+        );
+        assert_eq!(
+            glyphs[1],
+            Some(super::EndSequenceCreditsGlyphPlacementSub1D7A8 {
+                x_pos: 0x0052,
+                y_pos: 0x0004,
+                addroffset_sprite: 0x110E,
+                display_enabled: true,
+            }),
+            "ASM loc_1D7B0 should advance to the next cached credits glyph worker for the next triple"
+        );
+        assert_eq!(
+            glyphs[2], preserved_tail,
+            "ASM loc_1D7B0 should stop on a zero x byte without touching later cached glyph workers"
+        );
+
+        let empty = load_end_sequence_credits_glyphs_sub_1D7A8(&[], initial);
+        assert_eq!(
+            empty, initial,
+            "ASM loc_1D7B0 should not read from an empty bounded native script buffer"
+        );
+    }
+
+    #[test]
+    fn load_end_sequence_credits_glyphs_sub_1d7a8_respects_bounded_native_buffers() {
+        let incomplete = load_end_sequence_credits_glyphs_sub_1D7A8(&[0x10, 0xA0], [None; 6]);
+        assert_eq!(
+            incomplete, [None; 6],
+            "ASM loc_1D7B0 consumes full `(x,y,sprite)` triples; native should not materialise a truncated bounded script tail"
+        );
+
+        let capped = load_end_sequence_credits_glyphs_sub_1D7A8(
+            &[
+                0x10, 0xA0, 0x00, 0x11, 0xA1, 0x01, 0x12, 0xA2, 0x02, 0x13, 0xA3, 0x03, 0x14, 0xA4,
+                0x04, 0x15, 0xA5, 0x05, 0x16, 0xA6, 0x06, 0x00,
+            ],
+            [None; 6],
+        );
+        assert_eq!(
+            capped[5],
+            Some(super::EndSequenceCreditsGlyphPlacementSub1D7A8 {
+                x_pos: 0x0047,
+                y_pos: 0x0005,
+                addroffset_sprite: 0x110B,
+                display_enabled: true,
+            }),
+            "ASM loc_1D3D0 caches six credits glyph workers; native should ignore a seventh triple instead of stepping past the cache"
         );
     }
 

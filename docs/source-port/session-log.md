@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive movement credits mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback took the
+  credits survivor left out of the prior movement Intro Sequence 3 slice.
+- Re-read `kid.asm` `sub_1D7A8` / `loc_1D7B0`. Added file-local movement tests
+  for `(x,y,sprite)` triple mapping, zero-X sentinel termination, preserving
+  later cached glyph workers, empty/incomplete bounded native buffers, and the
+  six-worker cache cap.
+- Verification: `cargo test -p wildside-core movement::tests -- --nocapture`
+  passes. Final focused mutation rerun
+  `.cache/mutants/movement-credits-20260703-after2` reports 21 mutants: 20
+  caught, 1 unviable, 0 missed. `cargo fmt --all --check`, `git diff --check`,
+  `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+  `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening; latest full TAS remains the 2026-07-02 pass.
+
 ## 2026-07-03 - proactive movement Intro Sequence 3 mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback refreshed a
