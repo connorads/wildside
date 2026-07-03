@@ -1281,6 +1281,15 @@ pub struct FrameInput {
 }
 
 impl FrameInput {
+    const UP_MASK: u8 = 0x01;
+    const DOWN_MASK: u8 = 0x02;
+    const LEFT_MASK: u8 = 0x04;
+    const RIGHT_MASK: u8 = 0x08;
+    const B_MASK: u8 = 0x10;
+    const C_MASK: u8 = 0x20;
+    const A_MASK: u8 = 0x40;
+    const START_MASK: u8 = 0x80;
+
     /// Decode a raw controller byte into individual button flags.
     ///
     /// ASM loc_7464 (kid.asm:7593–7609): the ROM unpacks `Ctrl_Held` into
@@ -1295,14 +1304,14 @@ impl FrameInput {
     /// producing the same boolean result per button.
     pub fn from_mask(mask: u8) -> Self {
         Self {
-            up: mask & (1 << 0) != 0,
-            down: mask & (1 << 1) != 0,
-            left: mask & (1 << 2) != 0,
-            right: mask & (1 << 3) != 0,
-            b: mask & (1 << 4) != 0,
-            c: mask & (1 << 5) != 0,
-            a: mask & (1 << 6) != 0,
-            start: mask & (1 << 7) != 0,
+            up: mask & Self::UP_MASK != 0,
+            down: mask & Self::DOWN_MASK != 0,
+            left: mask & Self::LEFT_MASK != 0,
+            right: mask & Self::RIGHT_MASK != 0,
+            b: mask & Self::B_MASK != 0,
+            c: mask & Self::C_MASK != 0,
+            a: mask & Self::A_MASK != 0,
+            start: mask & Self::START_MASK != 0,
         }
     }
 
@@ -1325,28 +1334,28 @@ impl FrameInput {
     pub fn to_mask(&self) -> u8 {
         let mut mask = 0u8;
         if self.up {
-            mask |= 1 << 0;
+            mask |= Self::UP_MASK;
         }
         if self.down {
-            mask |= 1 << 1;
+            mask |= Self::DOWN_MASK;
         }
         if self.left {
-            mask |= 1 << 2;
+            mask |= Self::LEFT_MASK;
         }
         if self.right {
-            mask |= 1 << 3;
+            mask |= Self::RIGHT_MASK;
         }
         if self.b {
-            mask |= 1 << 4;
+            mask |= Self::B_MASK;
         }
         if self.c {
-            mask |= 1 << 5;
+            mask |= Self::C_MASK;
         }
         if self.a {
-            mask |= 1 << 6;
+            mask |= Self::A_MASK;
         }
         if self.start {
-            mask |= 1 << 7;
+            mask |= Self::START_MASK;
         }
         mask
     }
@@ -3632,10 +3641,299 @@ pub(crate) struct OpeningSliceState {
 mod tests {
     use super::*;
 
+    fn platform_placement_for_types_test(
+        kind: u8,
+        script_raw: &str,
+        relative_offset: Option<u16>,
+    ) -> wildside_data::PlatformPlacement {
+        wildside_data::PlatformPlacement {
+            x: 2,
+            y: 3,
+            buffer_left: 0,
+            buffer_right: 0,
+            buffer_top: 0,
+            buffer_bottom: 0,
+            kind,
+            subtype: 0,
+            h_variant: 0,
+            v_variant: 0,
+            script: wildside_data::PlatformScriptRef {
+                raw: script_raw.to_owned(),
+                relative_offset,
+            },
+        }
+    }
+
+    #[test]
+    fn kid_frame_trace_debug_labels_are_stable() {
+        let motion = [
+            (KidFrameMotionBranch::None, "none"),
+            (
+                KidFrameMotionBranch::DemoAutoTimeoutFrozen,
+                "demo_auto_timeout_frozen",
+            ),
+            (
+                KidFrameMotionBranch::DemoBootstrapPoseHold,
+                "demo_bootstrap_pose_hold",
+            ),
+            (
+                KidFrameMotionBranch::DemoBootstrapCameraHandoff,
+                "demo_bootstrap_camera_handoff",
+            ),
+            (
+                KidFrameMotionBranch::DemoBootstrapInitialSettle,
+                "demo_bootstrap_initial_settle",
+            ),
+            (
+                KidFrameMotionBranch::DemoBootstrapFreefall,
+                "demo_bootstrap_freefall",
+            ),
+            (
+                KidFrameMotionBranch::DemoBootstrapGroundedHold,
+                "demo_bootstrap_grounded_hold",
+            ),
+            (
+                KidFrameMotionBranch::DemoBootstrapGroundedRun,
+                "demo_bootstrap_grounded_run",
+            ),
+            (
+                KidFrameMotionBranch::IronKnightAttachHibernate,
+                "iron_knight_attach_hibernate",
+            ),
+            (
+                KidFrameMotionBranch::IronKnightClimbExitHibernate,
+                "iron_knight_climb_exit_hibernate",
+            ),
+            (
+                KidFrameMotionBranch::IronKnightClimbResume,
+                "iron_knight_climb_resume",
+            ),
+            (
+                KidFrameMotionBranch::PrizeHelmetCollisionHibernate,
+                "prize_helmet_collision_hibernate",
+            ),
+            (
+                KidFrameMotionBranch::TransformHibernating,
+                "transform_hibernating",
+            ),
+            (KidFrameMotionBranch::NormalPhysics, "normal_physics"),
+        ];
+        for (branch, label) in motion {
+            assert_eq!(branch.as_debug_label(), label);
+        }
+
+        let pre_physics = [
+            (KidFramePrePhysicsMutator::None, "none"),
+            (
+                KidFramePrePhysicsMutator::FormWidthOverlapFixup,
+                "form_width_overlap_fixup",
+            ),
+            (
+                KidFramePrePhysicsMutator::PendingStompBounce,
+                "pending_stomp_bounce",
+            ),
+            (
+                KidFramePrePhysicsMutator::SkycutterFlipboard,
+                "skycutter_flipboard",
+            ),
+            (KidFramePrePhysicsMutator::CycloneFlight, "cyclone_flight"),
+            (
+                KidFramePrePhysicsMutator::IronKnightClimb,
+                "iron_knight_climb",
+            ),
+            (KidFramePrePhysicsMutator::MicromaxStick, "micromax_stick"),
+        ];
+        for (mutator, label) in pre_physics {
+            assert_eq!(mutator.as_debug_label(), label);
+        }
+
+        let post_motion = [
+            (KidFramePostMotionMutator::None, "none"),
+            (
+                KidFramePostMotionMutator::PlatformCollision,
+                "platform_collision",
+            ),
+            (KidFramePostMotionMutator::LiftPlatform, "lift_platform"),
+            (
+                KidFramePostMotionMutator::LevelTimerDeath,
+                "level_timer_death",
+            ),
+            (KidFramePostMotionMutator::PitDeath, "pit_death"),
+            (KidFramePostMotionMutator::SpikeDamage, "spike_damage"),
+            (
+                KidFramePostMotionMutator::ProjectileDamage,
+                "projectile_damage",
+            ),
+            (
+                KidFramePostMotionMutator::MurderWallDamage,
+                "murder_wall_damage",
+            ),
+            (KidFramePostMotionMutator::Teleporter, "teleporter"),
+            (KidFramePostMotionMutator::FlagTouch, "flag_touch"),
+            (
+                KidFramePostMotionMutator::WarpCheatFlagTouch,
+                "warp_cheat_flag_touch",
+            ),
+            (KidFramePostMotionMutator::StompBounce, "stomp_bounce"),
+            (KidFramePostMotionMutator::ContactDamage, "contact_damage"),
+            (
+                KidFramePostMotionMutator::CycloneTornadoBounce,
+                "cyclone_tornado_bounce",
+            ),
+        ];
+        for (mutator, label) in post_motion {
+            assert_eq!(mutator.as_debug_label(), label);
+        }
+    }
+
+    #[test]
+    fn kid_wall_and_flip_trace_debug_labels_are_stable() {
+        let direction_sources = [
+            (KidWallClingProbeDirectionSource::WallCling, "wall_cling"),
+            (KidWallClingProbeDirectionSource::Held, "held"),
+            (KidWallClingProbeDirectionSource::Facing, "facing"),
+            (KidWallClingProbeDirectionSource::None, "none"),
+        ];
+        for (source, label) in direction_sources {
+            assert_eq!(source.as_debug_label(), label);
+        }
+
+        let release_branches = [
+            (KidWallClingReleaseBranch::SubAdb8, "sub_ADB8"),
+            (KidWallClingReleaseBranch::SubAe6e, "sub_AE6E"),
+            (KidWallClingReleaseBranch::PressAwayExit, "press_away_exit"),
+            (
+                KidWallClingReleaseBranch::NoWallClingState,
+                "no_wall_cling_state",
+            ),
+        ];
+        for (branch, label) in release_branches {
+            assert_eq!(branch.as_debug_label(), label);
+        }
+
+        let release_gates = [
+            (KidWallClingReleaseGate::Ready, "ready"),
+            (
+                KidWallClingReleaseGate::WallClingMissing,
+                "wall_cling_missing",
+            ),
+            (KidWallClingReleaseGate::StickyInactive, "sticky_inactive"),
+            (KidWallClingReleaseGate::OnGround, "on_ground"),
+            (KidWallClingReleaseGate::Rising, "rising"),
+            (KidWallClingReleaseGate::NotAscending, "not_ascending"),
+            (
+                KidWallClingReleaseGate::HeldDirectionMismatch,
+                "held_direction_mismatch",
+            ),
+            (
+                KidWallClingReleaseGate::NeedsTileCrossing,
+                "needs_tile_crossing",
+            ),
+            (
+                KidWallClingReleaseGate::ForwardWallBlocked,
+                "forward_wall_blocked",
+            ),
+            (KidWallClingReleaseGate::TopEdgeBlocked, "top_edge_blocked"),
+            (
+                KidWallClingReleaseGate::ColumnShapeBlocked,
+                "column_shape_blocked",
+            ),
+        ];
+        for (gate, label) in release_gates {
+            assert_eq!(gate.as_debug_label(), label);
+        }
+
+        let flip_branches = [
+            (KidFlipBranchSelection::NoWallPath, "no_wall_path"),
+            (KidFlipBranchSelection::NoButtonBranch, "no_button_branch"),
+            (KidFlipBranchSelection::BPressedTheKid, "b_pressed_the_kid"),
+            (
+                KidFlipBranchSelection::BPressedMicromax,
+                "b_pressed_micromax",
+            ),
+            (
+                KidFlipBranchSelection::BPressedGroundedLaunch,
+                "b_pressed_grounded_launch",
+            ),
+            (
+                KidFlipBranchSelection::BPressedFallthrough,
+                "b_pressed_fallthrough",
+            ),
+            (KidFlipBranchSelection::CPressedCyclone, "c_pressed_cyclone"),
+            (KidFlipBranchSelection::CPressedManiaxe, "c_pressed_maniaxe"),
+            (
+                KidFlipBranchSelection::CPressedSkycutter,
+                "c_pressed_skycutter",
+            ),
+            (
+                KidFlipBranchSelection::CPressedFallthrough,
+                "c_pressed_fallthrough",
+            ),
+        ];
+        for (branch, label) in flip_branches {
+            assert_eq!(branch.as_debug_label(), label);
+        }
+
+        let jump_branches = [
+            (KidJumpGravityBranch::JumpPressed, "jump_pressed"),
+            (KidJumpGravityBranch::JumpBuffered, "jump_buffered"),
+            (
+                KidJumpGravityBranch::AirborneJustJumpedHold,
+                "airborne_just_jumped_hold",
+            ),
+            (
+                KidJumpGravityBranch::AirborneCustomGravity,
+                "airborne_custom_gravity",
+            ),
+            (
+                KidJumpGravityBranch::AirborneHeldJumpGravity,
+                "airborne_held_jump_gravity",
+            ),
+            (
+                KidJumpGravityBranch::AirborneDefaultGravity,
+                "airborne_default_gravity",
+            ),
+            (KidJumpGravityBranch::GroundedHold, "grounded_hold"),
+        ];
+        for (branch, label) in jump_branches {
+            assert_eq!(branch.as_debug_label(), label);
+        }
+
+        let grounded_release = [
+            (
+                KidGroundedReleaseVelocityBranch::JumpPressed,
+                "jump_pressed",
+            ),
+            (
+                KidGroundedReleaseVelocityBranch::JumpBuffered,
+                "jump_buffered",
+            ),
+            (
+                KidGroundedReleaseVelocityBranch::AirborneCustomGravity,
+                "airborne_custom_gravity",
+            ),
+            (
+                KidGroundedReleaseVelocityBranch::AirborneGravity,
+                "airborne_gravity",
+            ),
+            (
+                KidGroundedReleaseVelocityBranch::GroundedHold,
+                "grounded_hold",
+            ),
+        ];
+        for (branch, label) in grounded_release {
+            assert_eq!(branch.as_debug_label(), label);
+        }
+    }
+
     #[test]
     fn block_interaction_resets_evanescent_state_loc_df30() {
         let mut state = BlockInteractionState::default();
         let initial = crate::level::initialise_evanesc_object_slots_loc_DF30();
+        assert!(
+            state.has_free_evanescent_slot(),
+            "ASM loc_DF30 seeds a non-zero first free evanescent slot"
+        );
         let allocated_slot = state
             .allocate_evanescent_slot_loc_DF68()
             .expect("initial free evanescent slot");
@@ -3660,6 +3958,12 @@ mod tests {
             initial.first_evanescent_object_slot_addr
         );
         assert_eq!(state.evanescent_slot_links, initial.evanescent_slots);
+
+        state.evanescent_next_free_slot_addr = 0;
+        assert!(
+            !state.has_free_evanescent_slot(),
+            "zero Addr_NextFreeEvanescObjectSlot means no free slot"
+        );
     }
 
     #[test]
@@ -3721,6 +4025,38 @@ mod tests {
     }
 
     #[test]
+    fn helmet_state_reset_clears_form_local_state() {
+        let mut state = HelmetState {
+            skycutter_flipboard: 17,
+            cyclone_flying: true,
+            red_stealth_airborne_slash_counter: 0x7F,
+            red_stealth_jump_threshold_y_velocity: Some(-0x70000),
+            eyeclops_beam_active: true,
+            maniaxe_axe_active: true,
+            maniaxe_throw_latch_frames: 9,
+            juggernaut_skull_pending_delay_frames: vec![3, 2, 1],
+            iron_knight_climbing: true,
+            berzerker_charging: true,
+            micromax_stuck: true,
+            ..HelmetState::default()
+        };
+
+        state.reset();
+
+        assert_eq!(state.skycutter_flipboard, 0);
+        assert!(!state.cyclone_flying);
+        assert_eq!(state.red_stealth_airborne_slash_counter, 0);
+        assert_eq!(state.red_stealth_jump_threshold_y_velocity, None);
+        assert!(!state.eyeclops_beam_active);
+        assert!(!state.maniaxe_axe_active);
+        assert_eq!(state.maniaxe_throw_latch_frames, 0);
+        assert!(state.juggernaut_skull_pending_delay_frames.is_empty());
+        assert!(!state.iron_knight_climbing);
+        assert!(!state.berzerker_charging);
+        assert!(!state.micromax_stuck);
+    }
+
+    #[test]
     fn island_shore_dma_defaults_art_source_label_loc_1202a() {
         let json = r#"{
             "frame_index": 2,
@@ -3758,6 +4094,59 @@ mod tests {
     }
 
     #[test]
+    fn game_mode_words_match_rom_dispatch_values() {
+        let modes = [
+            (GameMode::SegaScreen, 0x0000),
+            (GameMode::IntroSequence1, 0x0004),
+            (GameMode::IntroSequence2, 0x0018),
+            (GameMode::IntroSequence3, 0x001C),
+            (GameMode::IntroSequence4, 0x0020),
+            (GameMode::IntroSequence5, 0x0024),
+            (GameMode::IntroSequence6, 0x0028),
+            (GameMode::TitleScreen, 0x002C),
+            (GameMode::OptionsMenu, 0x0014),
+            (GameMode::LevelTransition, 0x0008),
+            (GameMode::InGame, 0x000C),
+            (GameMode::DemoPlay, 0x0010),
+            (GameMode::EndingSequence, 0x0030),
+        ];
+
+        for (mode, value) in modes {
+            assert_eq!(mode.as_disassembly_value(), value);
+        }
+    }
+
+    #[test]
+    fn player_form_rom_dimensions_and_hitpoints_match_tables() {
+        let forms = [
+            (PlayerForm::TheKid, 5, 31, 2),
+            (PlayerForm::Skycutter, 10, 31, 3),
+            (PlayerForm::Cyclone, 7, 31, 3),
+            (PlayerForm::RedStealth, 7, 31, 3),
+            (PlayerForm::Eyeclops, 7, 31, 3),
+            (PlayerForm::Juggernaut, 23, 15, 3),
+            (PlayerForm::IronKnight, 7, 31, 5),
+            (PlayerForm::Berzerker, 7, 31, 3),
+            (PlayerForm::Maniaxe, 7, 31, 3),
+            (PlayerForm::Micromax, 4, 15, 3),
+        ];
+
+        for (form, half_width, ceiling_probe_height, max_hitpoints) in forms {
+            assert_eq!(form.half_width(), half_width, "{form:?} half-width");
+            assert_eq!(
+                form.ceiling_probe_height(),
+                ceiling_probe_height,
+                "{form:?} ceiling probe height"
+            );
+            assert_eq!(
+                form.max_hitpoints(),
+                max_hitpoints,
+                "{form:?} max hitpoints"
+            );
+        }
+    }
+
+    #[test]
     fn frame_input_decodes_controller_bit_layout_loc_7464() {
         let input = FrameInput::from_mask(0b1010_0101);
 
@@ -3769,6 +4158,73 @@ mod tests {
         assert!(input.c);
         assert!(!input.a);
         assert!(input.start);
+    }
+
+    #[test]
+    fn frame_input_decodes_each_single_controller_bit_loc_7464() {
+        let cases = [
+            (
+                0x01,
+                FrameInput {
+                    up: true,
+                    ..FrameInput::default()
+                },
+            ),
+            (
+                0x02,
+                FrameInput {
+                    down: true,
+                    ..FrameInput::default()
+                },
+            ),
+            (
+                0x04,
+                FrameInput {
+                    left: true,
+                    ..FrameInput::default()
+                },
+            ),
+            (
+                0x08,
+                FrameInput {
+                    right: true,
+                    ..FrameInput::default()
+                },
+            ),
+            (
+                0x10,
+                FrameInput {
+                    b: true,
+                    ..FrameInput::default()
+                },
+            ),
+            (
+                0x20,
+                FrameInput {
+                    c: true,
+                    ..FrameInput::default()
+                },
+            ),
+            (
+                0x40,
+                FrameInput {
+                    a: true,
+                    ..FrameInput::default()
+                },
+            ),
+            (
+                0x80,
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                },
+            ),
+        ];
+
+        for (mask, expected) in cases {
+            assert_eq!(FrameInput::from_mask(mask), expected);
+            assert_eq!(expected.to_mask(), mask);
+        }
     }
 
     #[test]
@@ -3801,6 +4257,81 @@ mod tests {
     #[test]
     fn frame_input_to_mask_empty() {
         assert_eq!(FrameInput::default().to_mask(), 0);
+    }
+
+    #[test]
+    fn frame_input_left_right_conflict_resolution_loc_7464_prefers_left() {
+        let resolved = FrameInput {
+            left: true,
+            right: true,
+            a: true,
+            ..FrameInput::default()
+        }
+        .with_left_right_conflict_resolved();
+
+        assert!(resolved.left);
+        assert!(!resolved.right);
+        assert!(resolved.a);
+
+        let right_only = FrameInput {
+            right: true,
+            b: true,
+            ..FrameInput::default()
+        }
+        .with_left_right_conflict_resolved();
+        assert!(right_only.right);
+        assert!(right_only.b);
+    }
+
+    #[test]
+    fn frame_input_speed_option_inverts_only_a_loc_749c() {
+        let inverted = FrameInput {
+            b: true,
+            start: true,
+            ..FrameInput::default()
+        }
+        .with_speed_option_a_inverted();
+
+        assert!(inverted.a);
+        assert!(inverted.b);
+        assert!(inverted.start);
+        assert!(!inverted.c);
+
+        assert!(!inverted.with_speed_option_a_inverted().a);
+    }
+
+    #[test]
+    fn frame_input_abc_button_permutations_follow_sub_cce() {
+        let cases = [
+            (0, 0x40, 0x40),
+            (0, 0x10, 0x10),
+            (0, 0x20, 0x20),
+            (1, 0x40, 0x40),
+            (1, 0x10, 0x20),
+            (1, 0x20, 0x10),
+            (2, 0x40, 0x10),
+            (2, 0x10, 0x40),
+            (2, 0x20, 0x20),
+            (3, 0x40, 0x10),
+            (3, 0x10, 0x20),
+            (3, 0x20, 0x40),
+            (4, 0x40, 0x20),
+            (4, 0x10, 0x40),
+            (4, 0x20, 0x10),
+            (5, 0x40, 0x20),
+            (5, 0x10, 0x10),
+            (5, 0x20, 0x40),
+            (6, 0x70, 0x70),
+        ];
+
+        for (scheme, input_mask, expected_mask) in cases {
+            let permuted = FrameInput::from_mask(input_mask).with_abc_buttons_permuted(scheme);
+            assert_eq!(
+                permuted.to_mask(),
+                expected_mask,
+                "scheme {scheme} input mask {input_mask:#04X}"
+            );
+        }
     }
 
     #[test]
@@ -3868,6 +4399,135 @@ mod tests {
     }
 
     #[test]
+    fn terrain_type_from_block_type_preserves_ice_and_rubber_semantics() {
+        assert_eq!(
+            TerrainType::from_block_type(terrain::BlockType::Ice),
+            TerrainType::Ice
+        );
+        assert_eq!(
+            TerrainType::from_block_type(terrain::BlockType::Rubber),
+            TerrainType::Rubber
+        );
+        assert_eq!(
+            TerrainType::from_block_type(terrain::BlockType::Prize),
+            TerrainType::Normal
+        );
+        assert_eq!(
+            TerrainType::from_block_type(terrain::BlockType::None),
+            TerrainType::Normal
+        );
+    }
+
+    #[test]
+    fn active_platform_special_placements_follow_loc_2836_selectors() {
+        let soft =
+            ActivePlatform::from_placement(&platform_placement_for_types_test(8, "0", None), None);
+        assert_eq!(
+            soft.special,
+            Some(PlatformSpecialState::Soft(SoftPlatformState {
+                original_y_pos: crate::platforms::platform_layout_coord_fixed_loc_2762(3),
+                phase: SoftPlatformPhase::Wait,
+            }))
+        );
+
+        let trap_down =
+            ActivePlatform::from_placement(&platform_placement_for_types_test(8, "4", None), None);
+        assert_eq!(
+            trap_down.special,
+            Some(PlatformSpecialState::TrapDown(TrapPlatformDownState {
+                phase: TrapPlatformDownPhase::Wait,
+            }))
+        );
+
+        let trap_up =
+            ActivePlatform::from_placement(&platform_placement_for_types_test(8, "8", None), None);
+        assert_eq!(
+            trap_up.special,
+            Some(PlatformSpecialState::TrapUp(TrapPlatformUpState {
+                phase: TrapPlatformUpPhase::Wait,
+            }))
+        );
+
+        let chain =
+            ActivePlatform::from_placement(&platform_placement_for_types_test(8, "12", None), None);
+        assert_eq!(
+            chain.special,
+            Some(PlatformSpecialState::Chain(PlatformChainState {
+                source_layout_index: None,
+                segment_index: 0,
+                phase: PlatformChainPhase::Down,
+                frames_remaining: crate::platforms::PLATFORM_CHAIN_INITIAL_DOWN_FRAMES_LOC_428C,
+            }))
+        );
+        assert_eq!(
+            chain.y_velocity,
+            crate::platforms::platform_chain_y_velocity_loc_436e(0, PlatformChainPhase::Down)
+        );
+
+        let scripted_kind_eight =
+            ActivePlatform::from_placement(&platform_placement_for_types_test(8, "16", None), None);
+        assert_eq!(scripted_kind_eight.special, None);
+    }
+
+    #[test]
+    fn active_platform_step_script_loc_23f2_moves_then_reloads_next_command() {
+        let mut scripts = std::collections::BTreeMap::new();
+        scripts.insert(
+            0x0020,
+            wildside_data::PlatformScript {
+                commands: vec![
+                    wildside_data::PlatformMoveCommand {
+                        duration: 1,
+                        x_velocity: 0x0002_0000,
+                        y_velocity: -0x0001_0000,
+                    },
+                    wildside_data::PlatformMoveCommand {
+                        duration: 7,
+                        x_velocity: -0x0003_0000,
+                        y_velocity: 0x0004_0000,
+                    },
+                ],
+                loop_target_offset: 0x0020,
+            },
+        );
+        let table = wildside_data::PlatformScriptTable { scripts };
+        let mut platform = ActivePlatform {
+            slot_addr: None,
+            layout_index: None,
+            kind: 0,
+            subtype: 0,
+            x_pos: 0x0010_0000,
+            y_pos: 0x0005_0000,
+            width_px: 15,
+            height_px: 15,
+            x_velocity: 0,
+            y_velocity: 0,
+            deactivated_flag: 0,
+            script: Some(PlatformScriptState {
+                script_offset: 0x0020,
+                command_index: 0,
+                remaining_duration: 1,
+            }),
+            special: None,
+        };
+
+        platform.step_script(&table);
+
+        assert_eq!(platform.x_pos, 0x0012_0000);
+        assert_eq!(platform.y_pos, 0x0004_0000);
+        assert_eq!(
+            platform.script,
+            Some(PlatformScriptState {
+                script_offset: 0x0020,
+                command_index: 1,
+                remaining_duration: 7,
+            })
+        );
+        assert_eq!(platform.x_velocity, -0x0003_0000);
+        assert_eq!(platform.y_velocity, 0x0004_0000);
+    }
+
+    #[test]
     fn level_timer_ticks_to_expiry_from_last_subframe() {
         let mut timer = LevelTimer {
             seconds: 0,
@@ -3892,6 +4552,32 @@ mod tests {
         assert!(!timer.tick());
         assert_eq!(timer.seconds, 0);
         assert_eq!(timer.sub_frames, crate::LEVEL_TIMER_FRAMES_PER_SECOND);
+    }
+
+    #[test]
+    fn level_timer_clock_bonus_loc_ff92_adds_time_and_caps_at_ten_minutes() {
+        let mut timer = LevelTimer {
+            seconds: 120,
+            sub_frames: 37,
+        };
+
+        timer.add_clock_bonus();
+
+        assert_eq!(
+            timer.seconds,
+            120 + crate::LEVEL_TIMER_CLOCK_COLLECT_SECONDS
+        );
+        assert_eq!(timer.sub_frames, 1);
+
+        let mut timer = LevelTimer {
+            seconds: 500,
+            sub_frames: 60,
+        };
+
+        timer.add_clock_bonus();
+
+        assert_eq!(timer.seconds, crate::LEVEL_TIMER_MAX_SECONDS);
+        assert_eq!(timer.sub_frames, 1);
     }
 
     #[test]

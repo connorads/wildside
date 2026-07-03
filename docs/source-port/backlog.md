@@ -60,28 +60,19 @@ and stop — never commit churn.
   fallback passes covered compact ASM gaps across enemy contact/animation,
   projectiles, HeadyMetal render markers, frame-scene history, VDP decompression
   and intro-text invariants, physics camera/murder-wall branch hardening, and
-  now scenario direct-title-card wrapper / first-live restore guards around
-  `loc_1BBD6/loc_1AE2E`.
-- **Current gates 2026-07-03:** focused `decompress_to_vram` tests pass, and
-  final VDP focused mutation rerun `.cache/mutants/vdp-decompress-20260703-after2`
-  reports 32 mutants: 31 caught, 1 unviable, 0 missed, 0 timeouts. Focused
-  `intro_text_` tests also pass, and final intro-text mutation rerun
-  `.cache/mutants/vdp-intro-text-20260703-after` reports 15 mutants: 14 caught,
-  1 unviable, 0 missed, 0 timeouts. Focused `loc_734` and `loc_728c` tests pass,
-  and final physics camera/wall mutation rerun
-  `.cache/mutants/physics-camera-wall-20260703-after2` reports 31 mutants: 31
-  caught, 0 missed. Fresh stale-report checks for demo/constants/movement/
-  Spinning Twins/UFO/VDP/Cloud/physics were clean or superseded. Full current
-  `.cache/mutants/scenario-20260703-current` found six live scenario survivors;
-  final focused rerun `.cache/mutants/scenario-direct-title-20260703-after`
-  reports 9 mutants: 9 caught, 0 missed. Latest change is behaviour-neutral
-  test/mutation hardening; `cargo fmt --all --check`, `git diff --check`, `mise
-  run backlog-lint`, and `mise run verify-slice-fast` pass. `verify-tas-full`
-  was not rerun. Latest full TAS remains the 2026-07-02 pass with CRC all 37759
-  frames matching and the known `transition_15_to_00_post`
-  DragonWalking/object-count state gap. ASM coverage remains `0` ordinary
-  uncovered labels plus 21 emulated GEMS wrappers; do not cite those wrappers
-  just to move the metric.
+  now scenario direct-title-card guards plus `types.rs` ROM-facing contract
+  mutation hardening.
+- **Current gates 2026-07-03:** final clean mutation reruns now include VDP
+  decompression, intro text, physics camera/wall, scenario direct title-card,
+  `rust_source_context.rs`, and `types.rs`
+  (`.cache/mutants/types-20260703-after`: 211 mutants, 204 caught, 7 unviable,
+  0 missed). Latest change is behaviour-neutral test/mutation hardening;
+  `cargo fmt --all --check`, `git diff --check`, `mise run backlog-lint`, and
+  `mise run verify-slice-fast` pass. `verify-tas-full` was not rerun. Latest
+  full TAS remains the 2026-07-02 pass with CRC all 37759 frames matching and
+  the known `transition_15_to_00_post` DragonWalking/object-count state gap. ASM
+  coverage remains `0` ordinary uncovered labels plus 21 emulated GEMS wrappers;
+  do not cite those wrappers just to move the metric.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

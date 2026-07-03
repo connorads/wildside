@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive types contract mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback continued
+  with mutation verification. A fresh module-only `rust_source_context.rs` run
+  had no missed mutants: 188 tested, 138 caught, 3 unviable, 47 timeouts.
+- Fresh `types.rs` mutation under the `types::tests` filter found 75 live
+  survivors across trace debug labels, evanescent free-slot state, helmet reset,
+  game-mode words, form dimensions/HP, controller bit helpers, terrain type,
+  platform special/script contracts, and clock bonus boundaries.
+- Added file-local table tests for those ROM-facing contracts, and replaced
+  repeated controller `1 << n` masks with named byte constants to remove
+  shift-by-zero equivalent mutation noise. Gameplay behaviour is unchanged.
+- Verification: `cargo test -p wildside-core types::tests -- --nocapture`
+  passes. Final mutation rerun `.cache/mutants/types-20260703-after` reports
+  211 mutants: 204 caught, 7 unviable, 0 missed. `cargo fmt --all --check`,
+  `git diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`
+  pass. `verify-tas-full` was not rerun because this was behaviour-neutral
+  hardening; latest full TAS remains the 2026-07-02 pass.
+
 ## 2026-07-03 - proactive scenario direct title-card mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback regenerated
