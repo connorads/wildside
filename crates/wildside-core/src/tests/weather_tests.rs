@@ -6220,6 +6220,26 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn lava_geyser_hitbox_window_loc_14aaa_matches_sub_14a58_edges() {
+        assert_eq!(
+            crate::weather::lava_geyser_hitbox_window_loc_14AAA(0x0100, 0x0120, 0x0040),
+            Some(crate::weather::LavaGeyserHitboxWindowLoc14AAA {
+                left_px: 0x0103,
+                right_px: 0x011D,
+                top_px: 0x00F0,
+                bottom_px: 0x0120,
+            }),
+            "ASM sub_14A58 compares Kid against X [$44-$80+3, +$1A] and Y [top sprite Y+$10, geyser base]",
+        );
+
+        assert_eq!(
+            crate::weather::lava_geyser_hitbox_window_loc_14AAA(0x0100, 0x0120, 0),
+            None,
+            "ASM loc_1484E starts at zero visible height; native exposes no sub_14A58 window until a geyser row is active",
+        );
+    }
+
+    #[test]
     fn hail_projectiles_from_falling_slots_sub_61ca_exports_active_slot_fields() {
         let projectiles = crate::weather::hail_projectiles_from_falling_slots_sub_61ca(&[
             FallingWeatherSlotSub61CA {

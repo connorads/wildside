@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather lava-geyser hitbox mutation boundary
+
+- Project-status still showed no ready/open risks. A narrowed lava/fireball
+  resample, excluding the just-hardened Kid-hitbox helper, exposed
+  `lava_geyser_hitbox_window_loc_14AAA`: replacing it with `None` was missed by
+  the weather chunk.
+- Re-read `kid.asm` `sub_14A58` and the surrounding lava-geyser loop around
+  `loc_1484E`/`loc_14940`. Added an ASM-cited focused test for the active
+  geyser collision window: left `x+$3`, right `+ $1A`, top sprite Y `+ $10`,
+  bottom at the geyser base, plus the zero-height inactive window.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-lava-geyser-hitbox-window-20260703-after` reports 16
+  mutants: 15 caught, 1 unviable, 0 missed. `cargo fmt --all --check` and `git
+  diff --check` pass; `mise run backlog-lint` and `mise run verify-slice-fast`
+  pass. `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather Kid-hitbox helper mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback stayed on
