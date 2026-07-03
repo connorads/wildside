@@ -8546,6 +8546,8 @@ mod tests {
         OpeningSliceState, airborne_slope_landing_handoff_x_velocity_loc_a99e,
         cached_slope_walk_exit_gate_loc_a13a, cached_slope_walk_exit_velocity_loc_a13a,
         descending_floor_scan_crossed_sub_902a_boundary,
+        intro_sequence_3_allocation_spec_loc_1AEE2, intro_sequence_3_descriptor_loc_1AEBA,
+        intro_sequence_3_gfx_object_loc_1AEEC, intro_sequence_3_x_direction_loc_1AF12,
         iron_knight_equal_boundary_slopeup_scan_skips_loc_a75a,
         iron_knight_solid_edge_slopeup_followup_loc_914a, level_entry_title_advance_x,
         level_entry_title_axis_step, level_entry_title_deferred_number_indices_loc_1ABF4,
@@ -8618,6 +8620,104 @@ mod tests {
         assert_eq!(
             slice.player.y_velocity, 0,
             "ASM loc_90F6/loc_9114: $FA6A/custom gravity only means mounted top-boundary bounce for Skycutter; other helmets take the normal ceiling stop",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_3_descriptor_loc_1aeba_wraps_roster_and_stops_on_sentinel() {
+        assert_eq!(
+            intro_sequence_3_descriptor_loc_1AEBA(7, 0),
+            Some(super::IntroSequence3Descriptor {
+                x_pos: 0x00E3,
+                y_pos: 0x00CC,
+                raw_flags: 0x1229,
+            }),
+            "ASM loc_1AEBA should mask the sequence-3 roster selector to one of the four 8-byte rows before reading unk_1AF78"
+        );
+        assert_eq!(
+            intro_sequence_3_descriptor_loc_1AEBA(1, 6),
+            None,
+            "ASM loc_1AEBA should stop immediately when the roster byte from unk_1AF78 is `$FF`"
+        );
+    }
+
+    #[test]
+    fn intro_sequence_3_allocation_spec_loc_1aee2_uses_descriptor_bit_0() {
+        assert_eq!(
+            intro_sequence_3_allocation_spec_loc_1AEE2(super::IntroSequence3Descriptor {
+                x_pos: 0,
+                y_pos: 0,
+                raw_flags: 0x121C,
+            }),
+            0x01FF_0000,
+            "ASM loc_1AEBA should allocate `$01FF0000` when descriptor flag bit 0 is clear"
+        );
+        assert_eq!(
+            intro_sequence_3_allocation_spec_loc_1AEE2(super::IntroSequence3Descriptor {
+                x_pos: 0,
+                y_pos: 0,
+                raw_flags: 0x1209,
+            }),
+            0x0201_0000,
+            "ASM loc_1AEE2 should allocate `$02010000` when descriptor flag bit 0 is set"
+        );
+    }
+
+    #[test]
+    fn intro_sequence_3_x_direction_loc_1af12_uses_descriptor_bit_1() {
+        assert_eq!(
+            intro_sequence_3_x_direction_loc_1AF12(0b0000),
+            0,
+            "ASM loc_1AF12 should leave x_direction clear when `bclr #1,d0` sees bit 1 clear"
+        );
+        assert_eq!(
+            intro_sequence_3_x_direction_loc_1AF12(0b0010),
+            u8::MAX,
+            "ASM loc_1AF12 should store `$FF` when `bclr #1,d0` clears a previously-set bit 1"
+        );
+    }
+
+    #[test]
+    fn intro_sequence_3_gfx_object_loc_1aeec_packs_flags_and_sprite_offset() {
+        let flipped_priority =
+            intro_sequence_3_gfx_object_loc_1AEEC(super::IntroSequence3Descriptor {
+                x_pos: 0x0040,
+                y_pos: 0x00CC,
+                raw_flags: 0x123F,
+            });
+        assert_eq!(
+            flipped_priority,
+            super::IntroSequence3GfxObjectLoc1AEEC {
+                x_pos: 0x0040,
+                y_pos: 0x00CC,
+                display_enabled: true,
+                palette_line: 1,
+                vram_tile: 0x01D6,
+                priority: 1,
+                x_direction: u8::MAX,
+                addroffset_sprite: 0x123C,
+            },
+            "ASM loc_1AEEC/loc_1AF12 should route descriptor bits 0-1 into priority/x_direction and clear them from addroffset_sprite"
+        );
+
+        let flipped_no_priority =
+            intro_sequence_3_gfx_object_loc_1AEEC(super::IntroSequence3Descriptor {
+                x_pos: 0x0060,
+                y_pos: 0x00D0,
+                raw_flags: 0x123E,
+            });
+        assert_eq!(
+            flipped_no_priority.priority, 0,
+            "ASM loc_1AEEC should keep priority clear when descriptor bit 0 is clear"
+        );
+        assert_eq!(
+            flipped_no_priority.x_direction,
+            u8::MAX,
+            "ASM loc_1AF12 should still set x_direction from descriptor bit 1 independently of priority"
+        );
+        assert_eq!(
+            flipped_no_priority.addroffset_sprite, 0x123C,
+            "ASM loc_1AF12 should clear descriptor bits 0-1 before storing addroffset_sprite"
         );
     }
 

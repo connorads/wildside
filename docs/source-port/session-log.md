@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive movement Intro Sequence 3 mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback refreshed a
+  recent movement mutation report. The broad run was stopped after it identified
+  a compact Intro Sequence 3 helper cluster; an unrelated credits survivor was
+  left for future focused work, so this is not a full movement clean bill.
+- Re-read `kid.asm` `loc_1AEBA`, `loc_1AEE2`, `loc_1AEEC`, and `loc_1AF12`.
+  Added file-local tests for roster wrapping, `$FF` sentinel termination,
+  descriptor bit-0 allocation choice, descriptor bit-1 x-direction, and
+  priority/addroffset packing.
+- Verification: `cargo test -p wildside-core movement::tests -- --nocapture`
+  passes. Final focused mutation rerun
+  `.cache/mutants/movement-intro3-20260703-after` reports 22 mutants: 20
+  caught, 2 unviable, 0 missed. `cargo fmt --all --check`, `git diff --check`,
+  `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+  `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening; latest full TAS remains the 2026-07-02 pass.
+
 ## 2026-07-03 - proactive Hand helper mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback sampled
