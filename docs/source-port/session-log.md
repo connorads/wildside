@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Robot mutation slice
+
+- Project-status still showed no ready/open risks after the Orca mutation
+  record, so continued the proactive verification fallback with the live Robot
+  enemy module. This gives current clean evidence for the ASM-cited parent/head
+  init, charge, collision, projectile, and waited-death helper surface without
+  changing behaviour.
+- Verification: `env FILE=crates/wildside-core/src/enemies/robot.rs
+  OUTPUT=/tmp/mutants-robot-20260703 TMPDIR=/tmp mise run mutants-file`
+  reports 105 mutants tested: 93 caught, 12 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Orca mutation slice
 
 - Project-status still showed no ready/open risks after the Big Hopping Skull
