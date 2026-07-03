@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Lion mutation slice
+
+- Project-status still showed no ready/open risks after the UFO mutation
+  record, so continued the proactive verification fallback with the live Lion
+  enemy module. This refreshes current clean evidence after the same-day
+  Lion-projectile slope ASM promotion, covering the ASM-cited walk/roar/leap
+  phases, kid-distance gates, floor/ledge contact, damage, death, collision
+  dispatch, projectile, and cleanup helper surface without changing behaviour.
+- Verification: `env FILE=crates/wildside-core/src/enemies/lion.rs
+  OUTPUT=/tmp/mutants-lion-20260703-refresh TMPDIR=/tmp mise run mutants-file`
+  reports 251 mutants tested: 206 caught, 45 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive UFO mutation slice
 
 - Project-status still showed no ready/open risks after the Tar Monster
