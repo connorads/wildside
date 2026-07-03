@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Goat mutation slice
+
+- Project-status still showed no ready/open risks after the friendly
+  projectile overlap hardening, so continued the proactive verification
+  fallback with the compact live Goat enemy module. This covers the ASM-cited
+  Goat init, collision dispatch, Berzerker side-contact, shove, and tracking
+  helper surface without changing behaviour.
+- Verification: `env FILE=crates/wildside-core/src/enemies/goat.rs
+  OUTPUT=/tmp/mutants-goat-20260703 TMPDIR=/tmp mise run mutants-file`
+  reports 23 mutants tested: 15 caught, 8 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive friendly projectile overlap mutation hardening
 
 - Project-status still showed no ready/open risks after the Kid projectile
