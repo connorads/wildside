@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive shooter projectile recycle ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback and promoted the live ShooterBlock-vs-Kid-projectile
+  collision branch by citing `loc_22FE` where native consumes both the friendly
+  projectile and ShooterBlock projectile after `sub_226A` overlap detection.
+  The comment records the ROM collision-id writeback plus shooter-slot recycle
+  as Vec-slot removal in native. No behaviour changed.
+- Verification: `asm-coverage --json` reports `loc_22FE` reachable, with
+  test-only debt reduced from 199 to 198 and reachable labels increased to
+  3898. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive blank-top terrain-byte ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued proactive ASM

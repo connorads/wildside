@@ -7203,6 +7203,10 @@ impl NativeRuntime {
                 &[projectile_candidate],
             ) {
                 let shooter_projectile_index = available_shooter_points[overlap.shooter_index].0;
+                // ASM loc_22FE (kid.asm:4149-4155): a Kid projectile hit by a
+                // ShooterBlock bullet is marked `colid_hurt`, then the shooter
+                // slot is spliced out of the active list and recycled. Native's
+                // Vec storage maps that to consuming both projectile entries.
                 projectile_consumed.push(pi);
                 projectile_consumed.push(shooter_projectile_index);
                 hit_sparks.push((proj.x_pos, proj.y_pos));
