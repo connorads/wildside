@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather lava-fireball init-mask mutation boundary
+
+- Project-status still showed no ready/open risks. The next remaining
+  lava/fireball resample exposed `initialise_lava_fireball_state_loc_1499C`:
+  replacing the `$8000` tag clear with a bitwise OR was missed by the weather
+  chunk.
+- Re-read `kid.asm` `Obj_Lava_Geyser` at `loc_1499C`. Added an ASM-cited direct
+  helper test proving the fireball tag is masked off before the `word_14710`
+  startup-delay lookup and before shifting the height into `$4A(a5)`.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-lava-fireball-init-20260703-after` reports 9 mutants:
+  8 caught, 1 unviable, 0 missed. `cargo fmt --all --check`,
+  `git diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`
+  pass. `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather lava-geyser palette-rotation mutation boundary
 
 - Project-status still showed no ready/open risks. The next lava/fireball

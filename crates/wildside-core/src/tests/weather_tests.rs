@@ -6394,6 +6394,23 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn initialise_lava_fireball_state_loc_1499c_clears_height_tag_before_decoding() {
+        let state =
+            crate::weather::initialise_lava_fireball_state_loc_1499C(0x0040, 0x0100, 0x8123);
+
+        assert_eq!(
+            state,
+            crate::weather::LavaFireballInitStateLoc1499C {
+                startup_delay_frames: 0x001E,
+                rise_height_steps: 0x0012,
+                biased_x_px: 0x00C0,
+                biased_y_px: 0x0180,
+            },
+            "ASM loc_1499C masks `$1A(a5)` with #$7FFF before indexing word_14710 and shifting d2 into `$4A(a5)`",
+        );
+    }
+
+    #[test]
     fn lava_fireball_vertical_window_loc_14afc_maps_all_sprite_kind_buckets() {
         use crate::weather::LavaFireballSpriteKind::{
             MidBody, MidFall, MidRise, TallFall, TallRise,
