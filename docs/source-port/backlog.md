@@ -57,13 +57,13 @@ and stop — never commit churn.
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
 - **Proactive verification 2026-07-03:** no ready/open rows remain; fallback is
-  mutation/citation hardening. Latest addition: clean Dragon Walking module
-  slice after Archer and earlier enemy/projectile slices.
+  mutation/citation hardening. Latest addition: clean Big Hopping Skull module
+  slice after Dragon Walking and earlier enemy/projectile slices.
 - **Current gates 2026-07-03:** clean mutation reruns now cover through storm
   `sub_6048` cadence, live `step_weather` free-slot routing, murder-wall
   warning dispatch, weather label/path helpers, and live Driller, Armadillo,
-  Tornado, Tank, Goat, Fire Demon, Scorpion, Dragon, Archer, and Dragon Walking
-  modules.
+  Tornado, Tank, Goat, Fire Demon, Scorpion, Dragon, Archer, Dragon Walking,
+  and Big Hopping Skull modules.
   Latest focused clean reruns: types 211/204/7, Hand 50/45/5, movement 22/20/2
   + 21/20/1, weather 16/16/0 + 52/49/3 + 64/63/1 + 25/25/0 + 103/102/1 +
   65/51/14 + 92/92/0 + 16/15/1 + 14/14/0 + 7/6/1 + 26/25/1 + 22/22/0
@@ -73,12 +73,9 @@ and stop — never commit churn.
   caught/unviable; all 0 missed). Latest compact ASM promotions now cover hidden-block, title-entry/VDP/KID-shell, gfx-animation, Lion-projectile slope, camera clamp, hidden-prize reveal-start, blank-top grid-shift, blank-top terrain-byte shift, leftward lead-cell collision, intro centre-particle, platform walking-carry, standing-platform crush, animated-solid coarse-cull layout-restore, shooter-projectile recycle, and Kid-projectile overlap-branch labels; test-only debt is 197; fast gate green.
   Friendly projectile overlap rerun is 85/79/6 equivalent after Sphere edge
   tests; remaining misses are empty-row guards and Maniaxe's default lifetime.
-  Goat module rerun is 23 total: 15 caught, 8 unviable, 0 missed.
-  Fire Demon module rerun is 48 total: 30 caught, 18 unviable, 0 missed.
-  Scorpion module rerun is 57 total: 46 caught, 11 unviable, 0 missed.
-  Dragon module rerun is 264 total: 222 caught, 42 unviable, 0 missed.
-  Archer module rerun is 135 total: 124 caught, 11 unviable, 0 missed.
-  Dragon Walking module rerun is 136 total: 112 caught, 24 unviable, 0 missed.
+  Enemy module reruns are all 0 missed: Goat 23 total (15 caught, 8 unviable),
+  Fire Demon 48 (30/18), Scorpion 57 (46/11), Dragon 264 (222/42), Archer
+  135 (124/11), Dragon Walking 136 (112/24), Big Hopping Skull 71 (56/15).
   Latest full TAS (2026-07-03) exits 0 with CRC all 37759 frames matching and
   the known first state divergence at `transition_15_to_00_post`. ASM coverage
   remains `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not

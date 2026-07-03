@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Big Hopping Skull mutation slice
+
+- Project-status still showed no ready/open risks after the Dragon Walking
+  mutation record, so continued the proactive verification fallback with the
+  live Big Hopping Skull enemy module. This gives current clean evidence for
+  the ASM-cited startup, relaunch, bounds, collision, damage, and death helper
+  surface without changing behaviour.
+- Verification: `env FILE=crates/wildside-core/src/enemies/big_hopping_skull.rs
+  OUTPUT=/tmp/mutants-big-hopping-skull-20260703 TMPDIR=/tmp mise run mutants-file`
+  reports 71 mutants tested: 56 caught, 15 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Dragon Walking mutation slice
 
 - Project-status still showed no ready/open risks after the Archer mutation
