@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Orca mutation slice
+
+- Project-status still showed no ready/open risks after the Big Hopping Skull
+  mutation record, so continued the proactive verification fallback with the
+  live Orca enemy module. This gives current clean evidence for the ASM-cited
+  init, collision dispatch, lunge, landing, fatal-fall, and Berzerker-side
+  helper surface without changing behaviour.
+- Verification: `env FILE=crates/wildside-core/src/enemies/orca.rs
+  OUTPUT=/tmp/mutants-orca-20260703 TMPDIR=/tmp mise run mutants-file`
+  reports 91 mutants tested: 74 caught, 17 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Big Hopping Skull mutation slice
 
 - Project-status still showed no ready/open risks after the Dragon Walking
