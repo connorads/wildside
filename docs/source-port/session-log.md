@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Cloud mutation slice
+
+- Project-status still showed no ready/open risks after the Spinning Twins
+  mutation record, so continued the proactive verification fallback with the
+  live Cloud enemy module. This gives current clean evidence for the ASM-cited
+  parent/child lifecycle, despawn gates, wait states, animation, collision, and
+  waited-death helper surface without changing behaviour.
+- Verification: `env FILE=crates/wildside-core/src/enemies/cloud.rs
+  OUTPUT=/tmp/mutants-cloud-20260703 TMPDIR=/tmp mise run mutants-file`
+  reports 135 mutants tested: 119 caught, 16 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Spinning Twins mutation slice
 
 - Project-status still showed no ready/open risks after the Robot mutation
