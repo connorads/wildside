@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Fire Demon mutation slice
+
+- Project-status still showed no ready/open risks after the Goat mutation
+  record, so continued the proactive verification fallback with the live Fire
+  Demon enemy module. This covers the ASM-cited fire trail, airborne recovery,
+  collision, palette, and parent-state helper surface without changing
+  behaviour.
+- Verification: `env FILE=crates/wildside-core/src/enemies/fire_demon.rs
+  OUTPUT=/tmp/mutants-fire-demon-20260703 TMPDIR=/tmp mise run mutants-file`
+  reports 48 mutants tested: 30 caught, 18 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Goat mutation slice
 
 - Project-status still showed no ready/open risks after the friendly
