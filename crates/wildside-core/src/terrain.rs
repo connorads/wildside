@@ -403,8 +403,9 @@ impl BlockGrid {
 
     #[allow(non_snake_case)]
     pub(crate) fn with_blank_top_rows_sub_140F6(&self, blank_top_rows: u16) -> Self {
-        // ASM sub_140F6 / loc_14138 copies the populated Level_Layout rows
-        // downward by Number_blank_top_rows, then loc_14156 clears the inserted
+        // ASM sub_140F6 / loc_140FE seeds the tail-first Level_Layout shift.
+        // loc_14138/loc_1413A copy each populated row downward by
+        // Number_blank_top_rows, then loc_14156/loc_14158 clear the inserted
         // top rows. Generated layout fixtures are captured before this runtime
         // shift, so normalise them when loading.
         if blank_top_rows == 0 || self.width_cells == 0 {

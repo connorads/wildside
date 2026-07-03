@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive blank-top grid-shift ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback and promoted the live `BlockGrid::with_blank_top_rows_sub_140F6`
+  path by citing the word-layout `loc_140FE`, `loc_1413A`, and `loc_14158`
+  shift/clear labels. The separate terrain-byte labels remain test-only
+  reference debt. No behaviour changed.
+- Verification: `asm-coverage --json` reports all three labels reachable, with
+  test-only debt reduced from 218 to 215 and reachable labels increased to
+  3881. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive hidden-prize reveal ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued proactive ASM
