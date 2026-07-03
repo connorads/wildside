@@ -6411,6 +6411,27 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn decode_lava_fireball_script_step_loc_149e4_uses_signed_negative_restart_only() {
+        assert_eq!(
+            crate::weather::decode_lava_fireball_script_step_loc_149E4(&[0xFFFF]),
+            Some(crate::weather::LavaFireballScriptStepLoc149E4::CooldownAndRestart),
+            "ASM loc_149E4 uses `bmi.s loc_14A4C`, so any negative d2 script word restarts the fireball script",
+        );
+        assert_eq!(
+            crate::weather::decode_lava_fireball_script_step_loc_149E4(&[0x0000, 0xFFFE, 0x1234,]),
+            Some(crate::weather::LavaFireballScriptStepLoc149E4::EmitSegment(
+                crate::weather::LavaFireballSegmentLoc149E4 {
+                    dbf_counter: 0,
+                    frames: 1,
+                    delta_y: -2,
+                    sprite_script_word: 0x1234,
+                },
+            )),
+            "ASM loc_149E4 treats d2=0 as a valid one-frame segment before `dbf d2,loc_149FC` falls through",
+        );
+    }
+
+    #[test]
     fn lava_fireball_vertical_window_loc_14afc_maps_all_sprite_kind_buckets() {
         use crate::weather::LavaFireballSpriteKind::{
             MidBody, MidFall, MidRise, TallFall, TallRise,

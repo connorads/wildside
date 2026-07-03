@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather lava-fireball script-decode mutation boundary
+
+- Project-status still showed no ready/open risks. The next remaining
+  lava/fireball resample exposed `decode_lava_fireball_script_step_loc_149E4`:
+  replacing the signed-negative restart test with equality/inclusive checks was
+  missed by the weather chunk.
+- Re-read `kid.asm` `loc_149E4` through `loc_14A4C`. Added an ASM-cited decoder
+  test proving negative `d2` script words restart via `bmi.s`, while `d2=0`
+  remains a valid one-frame segment before `dbf d2,loc_149FC` falls through.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-lava-fireball-script-decode-20260703-after` reports
+  10 mutants: 9 caught, 1 unviable, 0 missed. `cargo fmt --all --check`,
+  `git diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`
+  pass. `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather lava-fireball init-mask mutation boundary
 
 - Project-status still showed no ready/open risks. The next remaining
