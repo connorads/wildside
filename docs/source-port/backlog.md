@@ -77,9 +77,7 @@ and stop — never commit churn.
   65/51/14 + 92/92/0 + 16/15/1 + 14/14/0 + 7/6/1 + 26/25/1 + 22/22/0
   + 8/8/0 + 18/18/0 + 7/7/0 + 11/11/0 + 18/17/1 + 9/8/1 + 10/9/1
   + 11/11/0 + 12/11/1 + 73/71/2 + 35/34/1 + 20/20/0 + 47/45/2
-  + 20/20/0 (mutants caught/unviable; all 0 missed). Latest compact ASM
-  promotions now include hidden-block `loc_E3C0` and title-entry `loc_1ACC8`;
-  test-only debt is 228; fast gate green.
+  + 20/20/0 (mutants caught/unviable; all 0 missed). Latest compact ASM promotions now include hidden-block `loc_E3C0`, title-entry `loc_1ACC8`, and title-text `loc_1B566`; test-only debt is 227; fast gate green.
   Latest full TAS (2026-07-03) exits 0 with CRC all 37759 frames matching and
   the known first state divergence at `transition_15_to_00_post`. ASM coverage
   remains `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not

@@ -2811,6 +2811,9 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
     for word_index in 0..usize::from(8u16 * 2) {
         vdp.write_vram_word(0x1780 + word_index * 2, 0);
     }
+    // ASM loc_1B566 / loc_1B568 (kid.asm:29798-29803): each of the 28 decoded
+    // row words is repeated for `d1=$3F` plus one writes before `a4` advances.
+    // `title_text_chameleon_rows` stores that ROM row-repeat output pre-expanded.
     write_full_plane_rows(&mut vdp, 0xE000, &data.title_text_chameleon_rows);
     let mut sprite_entries = Vec::new();
     if title_ready {

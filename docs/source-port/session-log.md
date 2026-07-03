@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive title-text VDP ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback and promoted the shipped title-screen plane-B rebuild by
+  citing `loc_1B566`/`loc_1B568` at the live `sub_1B532` VDP call site. The
+  comment records that native stores the ROM row-repeat output pre-expanded
+  before writing the same 28 full rows to VRAM `$E000`. No behaviour changed.
+- Verification: `asm-coverage --json` reports `loc_1B566` reachable, with
+  test-only debt reduced from 228 to 227 and reachable labels increased to
+  3869. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive title-entry ASM citation correction
 
 - Project-status still showed no ready/open risks. Continued proactive ASM
