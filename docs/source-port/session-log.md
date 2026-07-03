@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Lion projectile slope ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback and promoted the live Lion projectile up-slope terrain
+  acceptance path by citing `GfxObjects_Collision` `loc_1814`. No behaviour
+  changed.
+- Verification: `asm-coverage --json` reports `loc_1814` reachable, with
+  test-only debt reduced from 222 to 221 and reachable labels increased to
+  3875. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive title-shell ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued proactive ASM

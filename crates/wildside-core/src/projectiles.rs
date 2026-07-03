@@ -4681,6 +4681,10 @@ fn lion_projectile_first_blocking_cell_in_span_loc_1792(
                 continue;
             }
 
+            // ASM loc_1814 (kid.asm:2973): once the up-slope test accepts the
+            // sampled tile, the ROM rewinds the post-incremented layout
+            // pointer into `$FFFFFB6C`; native carries the accepted cell
+            // coordinates instead.
             return Some((col, row, cell));
         }
     }
