@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Hand helper mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback sampled
+  current Hand enemy mutation debt rather than taking human-validation blockers.
+  A broad fresh `hand.rs` run found many behavioural survivors; this session
+  deliberately limited scope to pure helpers and dispatch/route boundaries.
+- Re-read `Hand.asm` labels `loc_328A6`, `loc_328E0`, `loc_328F0`,
+  `loc_3299C`, `off_329B6`, `loc_329F8`, `off_32A12`, `loc_32A86`,
+  `loc_32AA2`, and `loc_32AFE`. Added file-local tests for jump HP seeds,
+  signed velocity/gravity storage, ground/jump collision tables, Kid grab gates,
+  death status routing, and terrain collision-bit scanning. Gameplay behaviour
+  is unchanged.
+- Verification: `cargo test -p wildside-core hand::tests -- --nocapture`
+  passes. Final focused mutation rerun
+  `.cache/mutants/hand-pure-20260703-after` reports 50 mutants: 45 caught, 5
+  unviable, 0 missed. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass. `verify-tas-full` was
+  not rerun because this was behaviour-neutral test/mutation hardening; latest
+  full TAS remains the 2026-07-02 pass.
+
 ## 2026-07-03 - proactive types contract mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback continued

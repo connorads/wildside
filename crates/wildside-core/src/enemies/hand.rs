@@ -1080,6 +1080,216 @@ mod tests {
     }
 
     #[test]
+    fn hand_jump_seed_loc_328a6_clamps_hp_tiers() {
+        let cases = [(0, 1), (1, 1), (2, 2), (3, 3), (4, 3)];
+
+        for (hit_points, expected_seed) in cases {
+            assert_eq!(
+                hand_jump_seed_loc_328a6(hit_points),
+                expected_seed,
+                "ASM Hand.asm loc_328A6 loads the HP-tier speed seed from `$46(a5)`"
+            );
+        }
+    }
+
+    #[test]
+    fn hand_jump_store_and_gravity_match_loc_328e0_loc_328f0() {
+        assert_eq!(
+            hand_x_velocity_loc_328e0(-2),
+            -0x0002_0000,
+            "ASM Hand.asm loc_328E0 swaps the signed X word into the high velocity word"
+        );
+        assert_eq!(
+            hand_x_velocity_loc_328e0(3),
+            0x0003_0000,
+            "ASM Hand.asm loc_328E0 keeps positive X words positive after `swap`"
+        );
+        assert_eq!(
+            hand_jump_loop_gravity_loc_328f0(-0x0002_0000),
+            -0x0001_C000,
+            "ASM Hand.asm loc_328F0 adds `$4000` gravity to the longword Y velocity"
+        );
+    }
+
+    #[test]
+    fn hand_ground_collision_dispatch_loc_3299c_matches_off_329b6() {
+        let cases = [
+            (
+                -1,
+                0xFFFF,
+                Some(HandGroundCollisionBehaviorLoc3299C::Destroy),
+            ),
+            (0, 0, None),
+            (
+                0x0004,
+                0,
+                Some(HandGroundCollisionBehaviorLoc3299C::Reverse),
+            ),
+            (
+                0x0008,
+                0,
+                Some(HandGroundCollisionBehaviorLoc3299C::Reverse),
+            ),
+            (
+                0x000C,
+                0,
+                Some(HandGroundCollisionBehaviorLoc3299C::Destroy),
+            ),
+            (
+                0x0010,
+                0,
+                Some(HandGroundCollisionBehaviorLoc3299C::Destroy),
+            ),
+            (
+                0x0014,
+                0,
+                Some(HandGroundCollisionBehaviorLoc3299C::Reverse),
+            ),
+            (
+                0x0018,
+                0,
+                Some(HandGroundCollisionBehaviorLoc3299C::Reverse),
+            ),
+            (
+                0x001C,
+                0,
+                Some(HandGroundCollisionBehaviorLoc3299C::Destroy),
+            ),
+            (
+                0x0020,
+                0,
+                Some(HandGroundCollisionBehaviorLoc3299C::KidBelowContact),
+            ),
+            (
+                0x0024,
+                0,
+                Some(HandGroundCollisionBehaviorLoc3299C::KidBelowContact),
+            ),
+            (
+                0x0028,
+                0,
+                Some(HandGroundCollisionBehaviorLoc3299C::KidBelowContact),
+            ),
+            (
+                0x002C,
+                0,
+                Some(HandGroundCollisionBehaviorLoc3299C::Destroy),
+            ),
+            (0x0030, 0, None),
+        ];
+
+        for (collision_type, stored_collision_type, expected_behavior) in cases {
+            assert_eq!(
+                hand_ground_collision_dispatch_loc_3299c(collision_type),
+                HandGroundCollisionDispatchLoc3299C {
+                    collision_type: stored_collision_type,
+                    behavior: expected_behavior,
+                },
+                "ASM Hand.asm loc_3299C clears positive collision IDs before dispatching through off_329B6"
+            );
+        }
+    }
+
+    #[test]
+    fn hand_jump_collision_dispatch_loc_329f8_matches_off_32a12() {
+        let cases = [
+            (-1, 0xFFFF, Some(HandJumpCollisionBehaviorLoc329F8::Destroy)),
+            (0, 0, None),
+            (
+                0x0004,
+                0,
+                Some(HandJumpCollisionBehaviorLoc329F8::ClearXVelocity),
+            ),
+            (
+                0x0008,
+                0,
+                Some(HandJumpCollisionBehaviorLoc329F8::ClearXVelocity),
+            ),
+            (
+                0x000C,
+                0,
+                Some(HandJumpCollisionBehaviorLoc329F8::ResetToPatrol),
+            ),
+            (
+                0x0010,
+                0,
+                Some(HandJumpCollisionBehaviorLoc329F8::ClearYVelocity),
+            ),
+            (
+                0x0014,
+                0,
+                Some(HandJumpCollisionBehaviorLoc329F8::BounceUpLeft),
+            ),
+            (
+                0x0018,
+                0,
+                Some(HandJumpCollisionBehaviorLoc329F8::BounceUpRight),
+            ),
+            (
+                0x001C,
+                0,
+                Some(HandJumpCollisionBehaviorLoc329F8::ReturnOnly),
+            ),
+            (
+                0x0020,
+                0,
+                Some(HandJumpCollisionBehaviorLoc329F8::TryGrabKid),
+            ),
+            (
+                0x0024,
+                0,
+                Some(HandJumpCollisionBehaviorLoc329F8::TryGrabKid),
+            ),
+            (
+                0x0028,
+                0,
+                Some(HandJumpCollisionBehaviorLoc329F8::TryGrabKid),
+            ),
+            (
+                0x002C,
+                0,
+                Some(HandJumpCollisionBehaviorLoc329F8::ReturnOnly),
+            ),
+            (0x0030, 0, None),
+        ];
+
+        for (collision_type, stored_collision_type, expected_behavior) in cases {
+            assert_eq!(
+                hand_jump_collision_dispatch_loc_329f8(collision_type),
+                HandJumpCollisionDispatchLoc329F8 {
+                    collision_type: stored_collision_type,
+                    behavior: expected_behavior,
+                },
+                "ASM Hand.asm loc_329F8 clears positive collision IDs before dispatching through off_32A12"
+            );
+        }
+    }
+
+    #[test]
+    fn hand_kid_contact_gate_loc_32a86_requires_all_grab_gates_clear() {
+        assert_eq!(
+            hand_kid_contact_gate_loc_32a86(false, false, false),
+            HandKidContactRouteLoc32A86::StartGrab,
+            "ASM Hand.asm loc_32A86 branches to loc_32906 only when all rejection gates are clear"
+        );
+        assert_eq!(
+            hand_kid_contact_gate_loc_32a86(true, false, false),
+            HandKidContactRouteLoc32A86::ReturnOnly,
+            "ASM Hand.asm loc_32A86 returns while Character_Movement is crawling"
+        );
+        assert_eq!(
+            hand_kid_contact_gate_loc_32a86(false, true, false),
+            HandKidContactRouteLoc32A86::ReturnOnly,
+            "ASM Hand.asm loc_32A86 returns while Current_Helmet is Juggernaut"
+        );
+        assert_eq!(
+            hand_kid_contact_gate_loc_32a86(false, false, true),
+            HandKidContactRouteLoc32A86::ReturnOnly,
+            "ASM Hand.asm loc_32A86 returns while KidGrabbedByHand is already set"
+        );
+    }
+
+    #[test]
     fn hand_initial_motion_matches_loc_327f2_store_and_collision_clear() {
         assert_eq!(
             hand_initial_motion_loc_327f2(1, false),
@@ -1193,6 +1403,40 @@ mod tests {
     }
 
     #[test]
+    fn hand_death_sequence_loc_32aa2_routes_status_byte() {
+        assert_eq!(
+            hand_death_sequence_loc_32aa2(0x02),
+            HandDeathSequenceLoc32AA2 {
+                has_kid_collision: true,
+                is_moved: false,
+                animation_label: "stru_32B78",
+                hibernate_until_animation_finished: true,
+                status_route: HandDeathStatusRouteLoc32AA2::WriteRespawnMarker(
+                    HandRespawnMarkerLoc32AD8 {
+                        index: 2,
+                        word_value: 0x2168,
+                    },
+                ),
+                deletes_current_object: true,
+            },
+            "ASM Hand.asm loc_32AA2 routes positive `$42(a5)` through loc_32AD8"
+        );
+        assert_eq!(
+            hand_death_sequence_loc_32aa2(0xC5).status_route,
+            HandDeathStatusRouteLoc32AA2::SubtractSpawnCounter {
+                index: 5,
+                decrement: 0x0400,
+            },
+            "ASM Hand.asm loc_32AA2 masks bit-7/bit-6 status bytes with `$3F` before subtracting from EnemyStatus_Table"
+        );
+        assert_eq!(
+            hand_death_sequence_loc_32aa2(0x80).status_route,
+            HandDeathStatusRouteLoc32AA2::DeleteOnly,
+            "ASM Hand.asm loc_32AA2 jumps straight to loc_32AE6 when bit 7 is set and bit 6 is clear"
+        );
+    }
+
+    #[test]
     fn hand_init_y_snap_loc_32aea_aligns_spawn_word_after_blank_rows() {
         assert_eq!(
             hand_init_y_snap_loc_32aea(0x0048),
@@ -1244,6 +1488,25 @@ mod tests {
         assert!(
             !scan.any_collision_4000,
             "ASM Hand.asm loc_32AFE leaves d4 zero when no sampled word has `$4000`, so the following `beq.w loc_32AA2` death path is taken"
+        );
+    }
+
+    #[test]
+    fn hand_terrain_scan_loc_32afe_masks_only_collision_bit_14() {
+        let scan = hand_terrain_scan_loc_32afe(0x0048, 0x004F, &[0xC000, 0x8000, 0x4001]);
+
+        assert_eq!(scan.sample_count, 3);
+        assert_eq!(
+            scan.first_collision_4000, 0x4000,
+            "ASM Hand.asm loc_32AFE applies `andi.w #$4000` to the first sampled terrain word"
+        );
+        assert_eq!(
+            scan.last_collision_4000, 0x4000,
+            "ASM Hand.asm loc_32B3E applies `andi.w #$4000` to the last sampled terrain word"
+        );
+        assert!(
+            scan.any_collision_4000,
+            "ASM Hand.asm loc_32B32 treats any scanned `$4000` word as support"
         );
     }
 

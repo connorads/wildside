@@ -60,19 +60,21 @@ and stop — never commit churn.
   fallback passes covered compact ASM gaps across enemy contact/animation,
   projectiles, HeadyMetal render markers, frame-scene history, VDP decompression
   and intro-text invariants, physics camera/murder-wall branch hardening, and
-  now scenario direct-title-card guards plus `types.rs` ROM-facing contract
-  mutation hardening.
+  now scenario direct-title-card guards, `types.rs` ROM-facing contracts, and
+  Hand pure helper/dispatch boundaries.
 - **Current gates 2026-07-03:** final clean mutation reruns now include VDP
   decompression, intro text, physics camera/wall, scenario direct title-card,
-  `rust_source_context.rs`, and `types.rs`
+  `rust_source_context.rs`, `types.rs`, and Hand pure helper/dispatch functions
   (`.cache/mutants/types-20260703-after`: 211 mutants, 204 caught, 7 unviable,
-  0 missed). Latest change is behaviour-neutral test/mutation hardening;
-  `cargo fmt --all --check`, `git diff --check`, `mise run backlog-lint`, and
-  `mise run verify-slice-fast` pass. `verify-tas-full` was not rerun. Latest
-  full TAS remains the 2026-07-02 pass with CRC all 37759 frames matching and
-  the known `transition_15_to_00_post` DragonWalking/object-count state gap. ASM
-  coverage remains `0` ordinary uncovered labels plus 21 emulated GEMS wrappers;
-  do not cite those wrappers just to move the metric.
+  0 missed; `.cache/mutants/hand-pure-20260703-after`: 50 mutants, 45 caught, 5
+  unviable, 0 missed). Latest change is behaviour-neutral test/mutation
+  hardening; `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass. `verify-tas-full` was
+  not rerun. Latest full TAS remains the 2026-07-02 pass with CRC all 37759
+  frames matching and the known `transition_15_to_00_post`
+  DragonWalking/object-count state gap. ASM coverage remains `0` ordinary
+  uncovered labels plus 21 emulated GEMS wrappers; do not cite those wrappers
+  just to move the metric.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
