@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Spinning Twins mutation slice
+
+- Project-status still showed no ready/open risks after the Robot mutation
+  record, so continued the proactive verification fallback with the live
+  Spinning Twins enemy module. This gives current clean evidence for the
+  ASM-cited split, child movement, collision, settled contact, partner signal,
+  and waited-death helper surface without changing behaviour.
+- Verification: `env FILE=crates/wildside-core/src/enemies/spinning_twins.rs
+  OUTPUT=/tmp/mutants-spinning-twins-20260703 TMPDIR=/tmp mise run mutants-file`
+  reports 126 mutants tested: 105 caught, 21 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Robot mutation slice
 
 - Project-status still showed no ready/open risks after the Orca mutation
