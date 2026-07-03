@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather lava-geyser initial-delay mutation boundary
+
+- Project-status still showed no ready/open risks. The next lava/fireball
+  script-helper resample exposed `lava_geyser_initial_delay_frames_loc_14772`:
+  replacing the delay helper with `0` was missed by the weather chunk.
+- Re-read `kid.asm` `Obj_Lava_Geyser`, `word_14710`, and `loc_14772`. Added an
+  ASM-cited table test pinning representative low-nibble delay entries and
+  proving upper height bits do not affect the table index.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-lava-geyser-initial-delay-20260703-after` reports 11
+  mutants: 11 caught, 0 missed. `cargo fmt --all --check`, `git diff --check`,
+  `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+  `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather lava-fireball live-hit mutation boundary
 
 - Project-status still showed no ready/open risks. The next lava/fireball

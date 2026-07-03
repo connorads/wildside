@@ -6240,6 +6240,23 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn lava_geyser_initial_delay_frames_loc_14772_uses_low_nibble_table() {
+        for (encoded_height_word, expected_delay) in [
+            (0x0000, 0),
+            (0x0001, 0x000A),
+            (0x0008, 0x0050),
+            (0x000F, 0x0096),
+            (0x123F, 0x0096),
+        ] {
+            assert_eq!(
+                crate::weather::lava_geyser_initial_delay_frames_loc_14772(encoded_height_word),
+                expected_delay,
+                "ASM Obj_Lava_Geyser indexes word_14710 with only the low nibble before loc_14772 hibernates",
+            );
+        }
+    }
+
+    #[test]
     fn step_lava_geysers_sub_14a58_damages_on_inclusive_edges_and_rejects_each_side() {
         let step_geyser = |slice| {
             let mut runtime = NativeRuntime::new(manifest());
