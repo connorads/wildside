@@ -6339,6 +6339,57 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn lava_fireball_vertical_window_loc_14afc_maps_all_sprite_kind_buckets() {
+        use crate::weather::LavaFireballSpriteKind::{
+            MidBody, MidFall, MidRise, TallFall, TallRise,
+        };
+
+        for (sprite_kind, expected) in [
+            (
+                TallRise,
+                crate::weather::LavaFireballVerticalWindowLoc14AFC {
+                    top_px: 0x01E9,
+                    bottom_px: 0x01F8,
+                },
+            ),
+            (
+                MidRise,
+                crate::weather::LavaFireballVerticalWindowLoc14AFC {
+                    top_px: 0x01EE,
+                    bottom_px: 0x01FF,
+                },
+            ),
+            (
+                MidBody,
+                crate::weather::LavaFireballVerticalWindowLoc14AFC {
+                    top_px: 0x01F9,
+                    bottom_px: 0x01FF,
+                },
+            ),
+            (
+                MidFall,
+                crate::weather::LavaFireballVerticalWindowLoc14AFC {
+                    top_px: 0x01F4,
+                    bottom_px: 0x01FF,
+                },
+            ),
+            (
+                TallFall,
+                crate::weather::LavaFireballVerticalWindowLoc14AFC {
+                    top_px: 0x01E9,
+                    bottom_px: 0x0206,
+                },
+            ),
+        ] {
+            assert_eq!(
+                crate::weather::lava_fireball_vertical_window_loc_14AFC(0x0200, sprite_kind),
+                expected,
+                "ASM sub_14AB0 loc_14AFC/loc_14B00/loc_14B04 should map each fireball sprite bucket to its signed vertical overlap window",
+            );
+        }
+    }
+
+    #[test]
     fn hail_projectiles_from_falling_slots_sub_61ca_exports_active_slot_fields() {
         let projectiles = crate::weather::hail_projectiles_from_falling_slots_sub_61ca(&[
             FallingWeatherSlotSub61CA {

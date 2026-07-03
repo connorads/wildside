@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather lava-fireball vertical mutation boundary
+
+- Project-status still showed no ready/open risks. A remaining lava/fireball
+  resample exposed `lava_fireball_vertical_window_loc_14AFC`: a sign mutation in
+  the fireball vertical-window deltas survived the weather chunk.
+- Re-read `kid.asm` `sub_14AB0`, including `loc_14AFC`, `loc_14B00`,
+  `loc_14B04`, and the `loc_14B06` overlap gate. Added an ASM-cited table test
+  for all five fireball sprite buckets: tall rise, mid rise, mid body, mid fall,
+  and tall fall.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-lava-fireball-vertical-window-20260703-after` reports
+  26 mutants: 25 caught, 1 unviable, 0 missed. `cargo fmt --all --check` and
+  `git diff --check` pass; `mise run backlog-lint` and `mise run
+  verify-slice-fast` pass. `verify-tas-full` was not rerun because this was
+  behaviour-neutral test/mutation hardening.
+
 ## 2026-07-03 - proactive weather lava-geyser sprite mutation boundary
 
 - Project-status still showed no ready/open risks. A remaining lava/fireball
