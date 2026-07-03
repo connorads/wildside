@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Dragon Walking mutation slice
+
+- Project-status still showed no ready/open risks after the Archer mutation
+  record, so continued the proactive verification fallback with the live Dragon
+  Walking enemy module. This gives current clean evidence for the ASM-cited
+  walk, hop, fall, stomp/hurt, and live shot helper surface without changing
+  behaviour.
+- Verification: `env FILE=crates/wildside-core/src/enemies/dragon_walking.rs
+  OUTPUT=/tmp/mutants-dragon-walking-20260703 TMPDIR=/tmp mise run mutants-file`
+  reports 136 mutants tested: 112 caught, 24 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Archer mutation slice
 
 - Project-status still showed no ready/open risks after the Dragon mutation
