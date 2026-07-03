@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive title-entry ASM citation correction
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback, inspected the `level.rs` BP0 cluster and left it as
+  deliberate `#[cfg(test)]` probe debt, then corrected the live title-entry
+  top-edge citation from `loc_1ACE6` to `loc_1ACC8`. The shipped comment now
+  keeps `loc_1ACE6` on selector-0 left-edge X and cites `loc_1ACC8` for
+  selector-1 top-edge Y. No behaviour changed.
+- Verification: `asm-coverage --json` reports `loc_1ACC8` reachable, with
+  test-only debt reduced from 229 to 228 and reachable labels increased to
+  3868. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive hidden-block ASM citation promotion
 
 - Project-status still showed no ready/open risks. A focused Sphere mutation

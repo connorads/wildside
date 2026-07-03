@@ -78,8 +78,8 @@ and stop — never commit churn.
   + 8/8/0 + 18/18/0 + 7/7/0 + 11/11/0 + 18/17/1 + 9/8/1 + 10/9/1
   + 11/11/0 + 12/11/1 + 73/71/2 + 35/34/1 + 20/20/0 + 47/45/2
   + 20/20/0 (mutants caught/unviable; all 0 missed). Latest compact ASM
-  promotions cover Fireball, Drips, Mini Hopping Skull, Ninja `loc_3D8A8`, and
-  hidden-block `loc_E3C0`; test-only debt is 229; fast gate green.
+  promotions now include hidden-block `loc_E3C0` and title-entry `loc_1ACC8`;
+  test-only debt is 228; fast gate green.
   Latest full TAS (2026-07-03) exits 0 with CRC all 37759 frames matching and
   the known first state divergence at `transition_15_to_00_post`. ASM coverage
   remains `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not

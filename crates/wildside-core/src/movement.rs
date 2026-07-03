@@ -2492,11 +2492,13 @@ fn level_entry_title_start_pose(rng: &mut RomRandomState, selector: u8) -> (u32,
     // bits, then dispatches four entry poses: selectors 0/2 pin X to the left
     // and right edges while sharing the random-Y branch, selector 1 seeds the
     // top edge, and selector 3 seeds the bottom edge.
+    // ASM loc_1ACE6 (kid.asm:28942-28944) fixes selector 0 X to the left
+    // title-entry edge before the shared loc_1ACEA random-Y tail runs.
     let (x, y) = match selector {
         0 => (-0x20, level_entry_title_random_y(rng)),
         1 => (
             level_entry_title_random_x(rng),
-            level_entry_title_top_edge_y_loc_1ace6(),
+            level_entry_title_top_edge_y_loc_1acc8(),
         ),
         2 => (
             level_entry_title_right_edge_x_loc_1ace0(),
@@ -2514,10 +2516,10 @@ fn level_entry_title_right_edge_x_loc_1ace0() -> i32 {
     0x160
 }
 
-fn level_entry_title_top_edge_y_loc_1ace6() -> i32 {
-    // ASM loc_1ACE6 (kid.asm:28942-28944) is the selector-1 branch tail:
-    // `move.w #$FFE0,d5` fixes Y to the top title-entry edge before the shared
-    // loc_1ACEA random-Y branch resumes.
+fn level_entry_title_top_edge_y_loc_1acc8() -> i32 {
+    // ASM loc_1ACC8 (kid.asm:28925-28927) is the selector-1 branch:
+    // `move.w #$FFE0,d6` fixes Y to the top title-entry edge before the
+    // shared loc_1ACCC random-X tail runs.
     -0x20
 }
 
@@ -8555,7 +8557,7 @@ mod tests {
         level_entry_title_random_y, level_entry_title_random_y_snap_loc_1acf8,
         level_entry_title_right_edge_x_loc_1ace0, level_entry_title_space_token_x_loc_1ABEA,
         level_entry_title_spawns_two_player_waiter_loc_1AC10, level_entry_title_start_pose,
-        level_entry_title_target_y, level_entry_title_top_edge_y_loc_1ace6,
+        level_entry_title_target_y, level_entry_title_top_edge_y_loc_1acc8,
         level_entry_title_two_player_waiter_workers_loc_1AD80, level_entry_title_worker_axis_pos,
         load_end_sequence_credits_glyphs_sub_1D7A8, prefer_iron_knight_solid_edge_floor_loc_914a,
     };
@@ -8990,11 +8992,11 @@ mod tests {
     }
 
     #[test]
-    fn level_entry_title_top_edge_y_loc_1ace6_returns_top_spawn_edge() {
+    fn level_entry_title_top_edge_y_loc_1acc8_returns_top_spawn_edge() {
         assert_eq!(
-            level_entry_title_top_edge_y_loc_1ace6(),
+            level_entry_title_top_edge_y_loc_1acc8(),
             -0x20,
-            "ASM loc_1ACE6 should seed `d5=$FFE0` before the shared loc_1ACEA random-Y branch resumes",
+            "ASM loc_1ACC8 should seed `d6=$FFE0` before the shared loc_1ACCC random-X branch resumes",
         );
     }
 
