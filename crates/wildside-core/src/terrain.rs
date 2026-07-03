@@ -2448,6 +2448,8 @@ pub fn grounded_walker_scan_left_sub_36A58(
             .cell_at(lead_col as u16, following_row as u16)
             .to_word()
             & 0x7000;
+        // ASM loc_36ABE/loc_36ACE: the leftward scan treats an exact `$4000`
+        // following lead cell as bit 1, while `$5000`/`$6000` cells add bit 2.
         if following_lead == 0x4000 {
             flags_d7 = flags_d7.wrapping_add(1);
         } else if following_lead & 0x4000 != 0 {

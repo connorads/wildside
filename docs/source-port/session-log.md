@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive leftward lead-cell ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback and promoted the live grounded-walker leftward lead-cell
+  classifier by citing `loc_36ABE`/`loc_36ACE`, where the ROM splits an exact
+  `$4000` following lead cell from `$5000`/`$6000` blockers. No behaviour
+  changed.
+- Verification: `asm-coverage --json` reports both labels reachable, with
+  test-only debt reduced from 215 to 213 and reachable labels increased to
+  3883. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive blank-top grid-shift ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued proactive ASM
