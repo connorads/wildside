@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Dragon mutation slice
+
+- Project-status still showed no ready/open risks after the Scorpion mutation
+  record, so continued the proactive verification fallback with the live Dragon
+  enemy module. This is a larger module than the compact recent slices, but it
+  is not in the current mutation gate summary and produced clean evidence.
+- Verification: `env FILE=crates/wildside-core/src/enemies/dragon.rs
+  OUTPUT=/tmp/mutants-dragon-20260703 TMPDIR=/tmp mise run mutants-file`
+  reports 264 mutants tested: 222 caught, 42 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Scorpion mutation slice
 
 - Project-status still showed no ready/open risks after the Fire Demon mutation
