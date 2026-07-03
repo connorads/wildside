@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive intro centre-particle ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued proactive ASM
+  coverage fallback and promoted the live intro-sequence-5 centre particle
+  renderer by citing `loc_1BEBE`, `loc_1BECE`, `loc_1BF02`, and `loc_1BF1E`
+  for FC82 positioning, shared velocity/tile seed, sprite selection/DBF seed,
+  and the terminal stationary hibernate loop. No behaviour changed.
+- Verification: `asm-coverage --json` reports all four labels reachable, with
+  test-only debt reduced from 213 to 209 and reachable labels increased to
+  3887. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive leftward lead-cell ASM citation promotion
 
 - Project-status still showed no ready/open risks. Continued proactive ASM

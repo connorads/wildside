@@ -1289,9 +1289,10 @@ fn append_intro_sequence_5_center_particle_loc_1BE88(
     title_variant: u8,
     particle_elapsed: usize,
 ) {
-    // ASM loc_1BE88/loc_1BF0A (kid.asm:30689): the centre helmet particle uses
-    // palette line 3, priority 1, a FC82-selected frame on VRAM tile `$5EB`,
-    // and keeps hibernating forever after the 28-frame velocity loop.
+    // ASM loc_1BE88/loc_1BEBE/loc_1BECE/loc_1BF02/loc_1BF0A/loc_1BF1E
+    // (kid.asm:30689): the centre helmet particle uses palette line 3,
+    // priority 1, a FC82-selected position/frame on VRAM tile `$5EB`, then
+    // keeps hibernating forever after the velocity loop.
     let (x_seed, y_seed, frame) = match title_variant {
         0 => (
             0x002A_0000,
@@ -1309,8 +1310,9 @@ fn append_intro_sequence_5_center_particle_loc_1BE88(
             intro_sprite_frame_vram(0, 0x34, 0x4C),
         ),
     };
-    // ASM loc_1BF0A: DBF `#$1C` displays 29 moved frames, then adds `$9000`
-    // to y_vel after each hibernate, so the visible gravity sum lags by one.
+    // ASM loc_1BF02/loc_1BF0A: DBF `#$1C` displays 29 moved frames, then adds
+    // `$9000` to y_vel after each hibernate, so the visible gravity sum lags
+    // by one before loc_1BF1E's stationary hibernate loop takes over.
     let moving_frames = particle_elapsed.min(0x1D) as i32;
     let y_gravity = 0x0000_9000 * moving_frames.saturating_mul(moving_frames.saturating_sub(1)) / 2;
     append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
