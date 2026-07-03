@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Tar Monster mutation slice
+
+- Project-status still showed no ready/open risks after the Mini Hopping Skull
+  mutation record, so continued the proactive verification fallback with the
+  live Tar Monster enemy module. This refreshes current clean evidence for the
+  ASM-cited tar body, split, projectile, collision, and waited-death helper
+  surface without changing behaviour.
+- Verification: `env FILE=crates/wildside-core/src/enemies/tar_monster.rs
+  OUTPUT=/tmp/mutants-tar-monster-20260703-refresh TMPDIR=/tmp mise run mutants-file`
+  reports 141 mutants tested: 107 caught, 34 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Mini Hopping Skull mutation slice
 
 - Project-status still showed no ready/open risks after the Emo Rock mutation
