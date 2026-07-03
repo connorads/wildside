@@ -6296,6 +6296,49 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn lava_geyser_sprite_chunks_loc_14be8_emit_rows_with_sprite_count_tile_bias() {
+        let chunks = crate::weather::lava_geyser_sprite_chunks_loc_14BE8(
+            0x0180,
+            0x0100,
+            0x0180,
+            4,
+            &[
+                crate::weather::LavaGeyserSpriteTemplateLoc14BE8 {
+                    x_offset_px: 0x0010,
+                    y_step_px: 0x0008,
+                    size_word: 0x0500,
+                    tile_base_word: 0xA300,
+                },
+                crate::weather::LavaGeyserSpriteTemplateLoc14BE8 {
+                    x_offset_px: 0xFFFC,
+                    y_step_px: 0x0010,
+                    size_word: 0x0600,
+                    tile_base_word: 0xA400,
+                },
+            ],
+        );
+
+        assert_eq!(
+            chunks,
+            vec![
+                crate::weather::LavaGeyserSpriteChunkLoc14BE8 {
+                    screen_y_with_bias: 0x0178,
+                    tile_word: 0xA305,
+                    size_word: 0x0500,
+                    screen_x_px: 0x0090,
+                },
+                crate::weather::LavaGeyserSpriteChunkLoc14BE8 {
+                    screen_y_with_bias: 0x0168,
+                    tile_word: 0xA406,
+                    size_word: 0x0600,
+                    screen_x_px: 0x007C,
+                },
+            ],
+            "ASM loc_14BE8 subtracts the template Y step, pre-increments Number_Sprites for the tile word, and stores x_pos-Camera_X_pos+template_x",
+        );
+    }
+
+    #[test]
     fn hail_projectiles_from_falling_slots_sub_61ca_exports_active_slot_fields() {
         let projectiles = crate::weather::hail_projectiles_from_falling_slots_sub_61ca(&[
             FallingWeatherSlotSub61CA {

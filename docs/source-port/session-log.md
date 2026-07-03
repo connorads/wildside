@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather lava-geyser sprite mutation boundary
+
+- Project-status still showed no ready/open risks. A remaining lava/fireball
+  resample, excluding the collision helpers already hardened, exposed
+  `lava_geyser_sprite_chunks_loc_14BE8`: replacing the row emitter with an empty
+  vector was missed by the weather chunk.
+- Re-read `kid.asm` `sub_14BD8` / `loc_14BE8`. Added an ASM-cited direct helper
+  test for the row emitter: subtracting each template Y step, pre-incrementing
+  `Number_Sprites` before adding it to the tile word, copying the size word, and
+  storing `x_pos - Camera_X_pos + template_x`.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-lava-geyser-sprite-chunks-20260703-after` reports 7
+  mutants: 6 caught, 1 unviable, 0 missed. `cargo fmt --all --check` and `git
+  diff --check` pass; `mise run backlog-lint` and `mise run verify-slice-fast`
+  pass. `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather lava-geyser predicate mutation boundary
 
 - Project-status still showed no ready/open risks. A remaining lava/fireball
