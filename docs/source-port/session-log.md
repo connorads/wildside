@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather lava-fireball reject mutation boundary
+
+- Project-status still showed no ready/open risks. The next remaining
+  lava/fireball resample exposed `lava_fireball_rejects_kid_loc_14B22`:
+  replacing the predicate with `true` was missed by the weather chunk, and the
+  first focused pass also exposed equality-boundary comparison survivors.
+- Re-read `kid.asm` `sub_14AB0`, especially the horizontal pre-bucket rejects,
+  `loc_14B06`, and the shared `loc_14B22` return. Added an ASM-cited predicate
+  table that keeps all four inclusive equality edges as hits and rejects one
+  pixel past each edge.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-lava-fireball-rejects-20260703-after2` reports 22
+  mutants: 22 caught, 0 missed. `cargo fmt --all --check`, `git diff --check`,
+  `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+  `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather lava-fireball vertical mutation boundary
 
 - Project-status still showed no ready/open risks. A remaining lava/fireball
