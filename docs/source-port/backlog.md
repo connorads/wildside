@@ -57,11 +57,11 @@ and stop — never commit churn.
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
 - **Proactive verification 2026-07-03:** no ready/open rows remain; fallback is
-  mutation/citation hardening. Latest addition: clean Fire Demon module
-  mutation slice after Goat and friendly projectile hardening.
+  mutation/citation hardening. Latest addition: clean Scorpion module mutation
+  slice after Fire Demon, Goat, and friendly projectile hardening.
 - **Current gates 2026-07-03:** clean mutation reruns now cover through storm
   `sub_6048` cadence, live `step_weather` free-slot routing, murder-wall
-  warning dispatch, weather label/path helpers, and live Driller/Armadillo/Tornado/Tank/Goat/Fire Demon modules.
+  warning dispatch, weather label/path helpers, and live Driller/Armadillo/Tornado/Tank/Goat/Fire Demon/Scorpion modules.
   Latest focused clean reruns: types 211/204/7, Hand 50/45/5, movement 22/20/2
   + 21/20/1, weather 16/16/0 + 52/49/3 + 64/63/1 + 25/25/0 + 103/102/1 +
   65/51/14 + 92/92/0 + 16/15/1 + 14/14/0 + 7/6/1 + 26/25/1 + 22/22/0
@@ -75,6 +75,7 @@ and stop — never commit churn.
   lifetime field.
   Goat module rerun is 23 total: 15 caught, 8 unviable, 0 missed.
   Fire Demon module rerun is 48 total: 30 caught, 18 unviable, 0 missed.
+  Scorpion module rerun is 57 total: 46 caught, 11 unviable, 0 missed.
   Latest full TAS (2026-07-03) exits 0 with CRC all 37759 frames matching and
   the known first state divergence at `transition_15_to_00_post`. ASM coverage
   remains `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not

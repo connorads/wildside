@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Scorpion mutation slice
+
+- Project-status still showed no ready/open risks after the Fire Demon mutation
+  record, so continued the proactive verification fallback. A tiny Sphere run
+  produced only 3 unviable mutants and was not treated as a behavioural slice;
+  the useful run was the live Scorpion enemy module.
+- Verification: `env FILE=crates/wildside-core/src/enemies/scorpion.rs
+  OUTPUT=/tmp/mutants-scorpion-20260703 TMPDIR=/tmp mise run mutants-file`
+  reports 57 mutants tested: 46 caught, 11 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Fire Demon mutation slice
 
 - Project-status still showed no ready/open risks after the Goat mutation
