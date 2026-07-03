@@ -6066,6 +6066,25 @@ mod chunk_08_inactive_slot_constructors {
 mod chunk_09_weather_mutation_coverage {
     use super::*;
 
+    fn weather_worker_input_sub_61ca() -> WeatherWorkerInputSub61CA {
+        WeatherWorkerInputSub61CA {
+            camera_x_px: 0,
+            camera_y_px: 0,
+            spawn_cooldown: 3,
+            free_falling_slots: 0,
+            falling_slots: [FallingWeatherSlotSub61CA::inactive(6, 0); 5],
+            impact_slots: [WeatherImpactSlotSub61CA::inactive(1, 0); 10],
+            kid_hitbox_top_px: 0x0200,
+            kid_hitbox_bottom_px: 0x0220,
+            kid_hitbox_left_px: 0x0200,
+            kid_hitbox_right_px: 0x0220,
+            random_byte: 0,
+            spawn_random_byte: 0,
+            collision_rows: WeatherCollisionRowsSub61CA { rows: vec![] },
+            starting_number_sprites: 0,
+        }
+    }
+
     #[test]
     fn storm_pending_palette_0_mask_sub_6048_preserves_negative_high_word_and_speed() {
         assert_eq!(
@@ -6115,6 +6134,314 @@ mod chunk_09_weather_mutation_coverage {
             (projectiles[0].x_velocity, projectiles[0].y_velocity),
             (-0x0001_0000, 0x0004_0000),
             "ASM loc_61E2 should keep falling weather drifting left 1px/frame and down 4px/frame in the legacy projectile bridge"
+        );
+    }
+
+    #[test]
+    fn step_weather_worker_sub_61ca_advances_falling_slots_and_deletes_only_past_edges() {
+        let mut input = weather_worker_input_sub_61ca();
+        input.falling_slots[0] = FallingWeatherSlotSub61CA {
+            y_px: 0x00DC,
+            x_px: 0x0040,
+            animation_cooldown: 1,
+            animation_frame: 5,
+        };
+        input.falling_slots[1] = FallingWeatherSlotSub61CA {
+            y_px: 0x0020,
+            x_px: -0x000F,
+            animation_cooldown: 2,
+            animation_frame: 2,
+        };
+        input.falling_slots[2] = FallingWeatherSlotSub61CA {
+            y_px: 0x00DD,
+            x_px: 0x0050,
+            animation_cooldown: 2,
+            animation_frame: 0,
+        };
+        input.falling_slots[3] = FallingWeatherSlotSub61CA {
+            y_px: 0x0020,
+            x_px: -0x0010,
+            animation_cooldown: 2,
+            animation_frame: 0,
+        };
+
+        let result = step_weather_worker_sub_61CA(input);
+
+        assert_eq!(
+            (
+                result.falling_slots[0].y_px,
+                result.falling_slots[0].x_px,
+                result.falling_slots[0].animation_cooldown,
+                result.falling_slots[0].animation_frame,
+            ),
+            (0x00E0, 0x003F, 6, 0),
+            "ASM loc_61E2/loc_620C should move an active slot, reload cooldown 6, and wrap frame 5 back to 0",
+        );
+        assert_eq!(
+            (result.falling_slots[1].y_px, result.falling_slots[1].x_px),
+            (0x0024, -0x0010),
+            "ASM loc_6212 should keep slots exactly on the left delete boundary active",
+        );
+        assert_eq!(
+            (result.falling_slots[2].y_px, result.falling_slots[2].x_px),
+            (-1, -1),
+            "ASM loc_6212/loc_6226 should clear slots below Camera_Y_pos+$E0",
+        );
+        assert_eq!(
+            (result.falling_slots[3].y_px, result.falling_slots[3].x_px),
+            (-1, -1),
+            "ASM loc_6212/loc_6226 should clear slots left of Camera_X_pos-$10",
+        );
+        assert_eq!(
+            result.free_falling_slots, 2,
+            "ASM loc_6226 should increment `$FFFFFB3D` once per cleared falling slot",
+        );
+        assert_eq!(
+            result.sprites.len(),
+            2,
+            "ASM loc_6462 should render the two falling slots that remain active after the off-screen pass",
+        );
+        assert_eq!(
+            result.sprites[0],
+            WeatherSpriteSub61CA {
+                y: 0x0160,
+                link: 0x0501,
+                tile_word: 0xA3B5,
+                x: 0x00BF,
+            },
+            "ASM loc_6462 should render frame 0 with screen-space `$80` bias after the movement step",
+        );
+    }
+
+    #[test]
+    fn step_weather_worker_sub_61ca_spawn_uses_low_nibble_and_second_tile_only_when_crossing() {
+        let mut input = weather_worker_input_sub_61ca();
+        input.camera_x_px = -0x0018;
+        input.spawn_cooldown = 1;
+        input.free_falling_slots = 1;
+        input.collision_rows = WeatherCollisionRowsSub61CA {
+            rows: vec![vec![0, 0, 0x00FF]],
+        };
+
+        let same_column = step_weather_worker_sub_61CA(input.clone());
+
+        assert_eq!(
+            (
+                same_column.falling_slots[0].y_px,
+                same_column.falling_slots[0].x_px
+            ),
+            (0, 0x0010),
+            "ASM loc_62AA should not read the second tile when `(spawn_x+$F)>>4 == spawn_x>>4`",
+        );
+        assert_eq!(same_column.free_falling_slots, 0);
+
+        input.camera_x_px = -0x0017;
+        let crossing_blocked = step_weather_worker_sub_61CA(input.clone());
+
+        assert_eq!(
+            crossing_blocked.free_falling_slots, 1,
+            "ASM loc_62AA should block spawn footprints that cross into a second tile whose low byte is nonzero",
+        );
+        assert!(
+            crossing_blocked.falling_slots[0].y_px < 0,
+            "ASM loc_62CE should leave the inactive slot untouched when the second tile blocks the spawn",
+        );
+
+        input.camera_x_px = -0x0018;
+        input.collision_rows.rows[0][1] = 0x000F;
+        let first_tile_blocked = step_weather_worker_sub_61CA(input);
+
+        assert_eq!(
+            first_tile_blocked.free_falling_slots, 1,
+            "ASM loc_62AA should block spawn footprints when the first tile's low nibble is nonzero",
+        );
+        assert!(
+            first_tile_blocked.falling_slots[0].y_px < 0,
+            "ASM loc_62CE should skip loc_62C2 storage when the first tile blocks the spawn",
+        );
+    }
+
+    #[test]
+    fn step_weather_worker_sub_61ca_kid_hitbox_edges_are_inclusive() {
+        let mut input = weather_worker_input_sub_61ca();
+        input.camera_y_px = 0x0040;
+        input.falling_slots[0] = FallingWeatherSlotSub61CA {
+            y_px: 0x00FA,
+            x_px: 0x011F,
+            animation_cooldown: 2,
+            animation_frame: 0,
+        };
+        input.kid_hitbox_top_px = 0x0100;
+        input.kid_hitbox_bottom_px = 0x010C;
+        input.kid_hitbox_right_px = 0x0120;
+        input.kid_hitbox_left_px = 0x012C;
+
+        let result = step_weather_worker_sub_61CA(input);
+
+        assert_eq!(
+            result.kid_collision_timer,
+            Some(0x0028),
+            "ASM loc_62D6 should count top/bottom/right/left equality as hail overlap before writing Kid collision `$28`",
+        );
+    }
+
+    #[test]
+    fn step_weather_worker_sub_61ca_kid_hitbox_rejects_each_non_overlap_side() {
+        let mut input = weather_worker_input_sub_61ca();
+        input.camera_y_px = 0x0040;
+        input.kid_hitbox_top_px = 0x0100;
+        input.kid_hitbox_bottom_px = 0x0110;
+        input.kid_hitbox_left_px = 0x0100;
+        input.kid_hitbox_right_px = 0x0110;
+        input.falling_slots[0] = FallingWeatherSlotSub61CA {
+            // After loc_61E2 movement: y=$00FD, x=$0100. Top edge y+2 is just
+            // above Kid_hitbox_top.
+            y_px: 0x00F9,
+            x_px: 0x0101,
+            animation_cooldown: 2,
+            animation_frame: 0,
+        };
+        input.falling_slots[1] = FallingWeatherSlotSub61CA {
+            // After movement: y=$0105. Bottom edge y+$E is below Kid_hitbox_bottom.
+            y_px: 0x0101,
+            x_px: 0x0101,
+            animation_cooldown: 2,
+            animation_frame: 0,
+        };
+        input.falling_slots[2] = FallingWeatherSlotSub61CA {
+            // After movement: x=$010F. Left edge x+2 is right of Kid_hitbox_right.
+            y_px: 0x00FE,
+            x_px: 0x0110,
+            animation_cooldown: 2,
+            animation_frame: 0,
+        };
+        input.falling_slots[3] = FallingWeatherSlotSub61CA {
+            // After movement: x=$00F1. Right edge x+$E is left of Kid_hitbox_left.
+            y_px: 0x00FE,
+            x_px: 0x00F2,
+            animation_cooldown: 2,
+            animation_frame: 0,
+        };
+
+        let result = step_weather_worker_sub_61CA(input);
+
+        assert_eq!(
+            result.kid_collision_timer, None,
+            "ASM loc_62D6 should reject hail particles above, below, right, or left of Kid before writing collision `$28`",
+        );
+    }
+
+    fn step_weather_worker_terrain_hit_sub_61ca(
+        terrain_word: u16,
+    ) -> crate::weather::WeatherWorkerOutputSub61CA {
+        let mut input = weather_worker_input_sub_61ca();
+        input.falling_slots[0] = FallingWeatherSlotSub61CA {
+            y_px: 0x001C,
+            x_px: 0x0031,
+            animation_cooldown: 2,
+            animation_frame: 0,
+        };
+        input.collision_rows = WeatherCollisionRowsSub61CA {
+            rows: vec![vec![0; 4], vec![0; 4], vec![0, 0, 0, terrain_word]],
+        };
+
+        step_weather_worker_sub_61CA(input)
+    }
+
+    #[test]
+    fn step_weather_worker_sub_61ca_terrain_splash_offsets_only_slope_kinds() {
+        let normal = step_weather_worker_terrain_hit_sub_61ca(0x7000);
+        let slope = step_weather_worker_terrain_hit_sub_61ca(0x4000);
+
+        assert_eq!(
+            (normal.falling_slots[0].y_px, normal.falling_slots[0].x_px),
+            (-1, -1),
+            "ASM loc_636A should clear the falling slot after a nonzero terrain collision",
+        );
+        assert_eq!(
+            (
+                normal.impact_slots[0].y_px,
+                normal.impact_slots[0].x_px,
+                normal.impact_slots[0].animation_cooldown,
+                normal.impact_slots[0].animation_frame,
+            ),
+            (0x0020, 0x0030, 5, 0),
+            "ASM loc_636A should copy normal terrain splash Y/X directly before the same-frame loc_63C4 cooldown tick",
+        );
+        assert_eq!(
+            (
+                slope.impact_slots[0].y_px,
+                slope.impact_slots[0].x_px,
+                slope.impact_slots[0].animation_cooldown,
+                slope.impact_slots[0].animation_frame,
+            ),
+            (0x002C, 0x0030, 5, 0),
+            "ASM loc_638E/loc_6398 should add `$C` to splash Y only for `$4000/$5000` slope terrain",
+        );
+        assert_eq!(
+            normal.free_falling_slots, 1,
+            "ASM loc_636A should increment `$FFFFFB3D` after moving a falling slot into an impact slot",
+        );
+        assert_eq!(
+            normal.sprites[0],
+            WeatherSpriteSub61CA {
+                y: 0x00A0,
+                link: 0x0501,
+                tile_word: 0xA3CD,
+                x: 0x00B0,
+            },
+            "ASM loc_6402 should render the newly created frame-0 impact splash with `$500+Number_Sprites` link",
+        );
+    }
+
+    #[test]
+    fn step_weather_worker_sub_61ca_impact_slots_move_then_deactivate_after_frame_one() {
+        let mut input = weather_worker_input_sub_61ca();
+        input.starting_number_sprites = 2;
+        input.impact_slots[0] = WeatherImpactSlotSub61CA {
+            y_px: 0x0040,
+            x_px: 0x0050,
+            animation_cooldown: 1,
+            animation_frame: 0,
+        };
+        input.impact_slots[1] = WeatherImpactSlotSub61CA {
+            y_px: 0x0060,
+            x_px: 0x0070,
+            animation_cooldown: 1,
+            animation_frame: 1,
+        };
+
+        let result = step_weather_worker_sub_61CA(input);
+
+        assert_eq!(
+            (
+                result.impact_slots[0].y_px,
+                result.impact_slots[0].x_px,
+                result.impact_slots[0].animation_cooldown,
+                result.impact_slots[0].animation_frame,
+            ),
+            (0x003C, 0x004C, 6, 1),
+            "ASM loc_63C4 should move an impact splash up-left by four pixels and advance frame 0 to frame 1",
+        );
+        assert_eq!(
+            (
+                result.impact_slots[1].y_px,
+                result.impact_slots[1].x_px,
+                result.impact_slots[1].animation_cooldown,
+                result.impact_slots[1].animation_frame,
+            ),
+            (-1, -1, 1, 0),
+            "ASM loc_63C4 should clear both position words and park cooldown `$100` after frame 1 expires",
+        );
+        assert_eq!(
+            result.sprites,
+            vec![WeatherSpriteSub61CA {
+                y: 0x00BC,
+                link: 0x0A03,
+                tile_word: 0xA3D1,
+                x: 0x00CC,
+            }],
+            "ASM loc_6432 should render only the still-live frame-1 impact splash with `$A00+Number_Sprites` link",
         );
     }
 

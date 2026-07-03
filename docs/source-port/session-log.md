@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather worker mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback continued
+  weather-file mutation hardening. A focused current run showed the dominant
+  gap was `step_weather_worker_sub_61CA`, not the higher-level wrapper.
+- Re-read `kid.asm` `sub_61CA`, especially `loc_61E2`, `loc_6212`,
+  `loc_62AA`, `loc_62D6`, `loc_6318`, `loc_636A`, `loc_638E`, `loc_63C4`,
+  `loc_6402`, and `loc_6462`. Added ASM-cited coverage for falling-slot
+  animation/deletion boundaries, spawn tile checks, Kid hitbox inclusive and
+  rejection edges, terrain splash offsets, impact-slot deactivation, and emitted
+  sprite words/links.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-worker-sub61ca-20260703-after2` reports 64 mutants:
+  63 caught, 1 unviable, 0 missed. `cargo fmt --all --check`, `git diff
+  --check`, `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+  `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather lava-geyser render mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback continued
