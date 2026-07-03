@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather lava-fireball live-hit mutation boundary
+
+- Project-status still showed no ready/open risks. The next lava/fireball
+  resample exposed `lava_fireball_hits_kid_sub_14AB0`: replacing the composed
+  hit wrapper with `true` was missed by the weather chunk.
+- Re-read `kid.asm` `sub_14AB0` from the horizontal pre-check through
+  `loc_14B06` and `loc_14B22`. Added an ASM-cited live `step_lava_geysers`
+  test that damages on a tall-rise fireball overlap and preserves HP when
+  `Kid_hitbox_left` is one pixel past the fireball right edge.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-lava-fireball-hits-kid-20260703-after` reports 7
+  mutants: 7 caught, 0 missed. `cargo fmt --all --check`, `git diff --check`,
+  `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+  `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather lava-fireball X-window mutation boundary
 
 - Project-status still showed no ready/open risks. The next lava/fireball

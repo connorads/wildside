@@ -6566,6 +6566,41 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn step_lava_geysers_sub_14ab0_damages_only_when_fireball_window_overlaps_kid() {
+        let step_fireball = |slice| {
+            let mut runtime = NativeRuntime::new(manifest());
+            runtime.weather.weather_type = 1;
+            runtime.progression.current_form = PlayerForm::TheKid;
+            runtime.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+            runtime.progression.invulnerable_frames = 0;
+            runtime.weather.lava_fireballs.push(LavaFireball {
+                x_px: 100,
+                base_y_px: 200,
+                current_y_px: 200,
+                segment_index: 0,
+                segment_frame: 0,
+                cooldown_timer: 0,
+            });
+
+            runtime.step_lava_geysers(&slice);
+            runtime
+        };
+
+        let hit = step_fireball(make_airborne_slice(111, 190));
+        assert_eq!(
+            hit.progression.number_hitpoints, 1,
+            "ASM sub_14AB0 loc_14B06 should damage when Kid overlaps the tall-rise fireball X/Y window",
+        );
+
+        let missed = step_fireball(make_airborne_slice(113, 190));
+        assert_eq!(
+            missed.progression.number_hitpoints,
+            PlayerForm::TheKid.max_hitpoints(),
+            "ASM sub_14AB0 should branch to loc_14B22 when Kid_hitbox_left is one pixel past the fireball right edge",
+        );
+    }
+
+    #[test]
     fn hail_projectiles_from_falling_slots_sub_61ca_exports_active_slot_fields() {
         let projectiles = crate::weather::hail_projectiles_from_falling_slots_sub_61ca(&[
             FallingWeatherSlotSub61CA {
