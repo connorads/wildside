@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather lava-geyser palette-rotation mutation boundary
+
+- Project-status still showed no ready/open risks. The next lava/fireball
+  resample exposed `rotate_lava_geyser_palette_loc_14B2A`: offset arithmetic
+  mutants around the four-word CRAM rotation were missed by the weather chunk.
+- Re-read `kid.asm` `Animation_Geyser` at `loc_14B2A`. Added an ASM-cited
+  direct helper test proving `$2E` wraps to `$28`, the intermediate words shift
+  upward, and neighbouring palette-buffer sentinel words remain untouched.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-lava-geyser-palette-rotate-20260703-after` reports 18
+  mutants: 17 caught, 1 unviable, 0 missed. `cargo fmt --all --check`,
+  `git diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`
+  pass. `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening.
+
 ## 2026-07-03 - proactive weather lava-geyser initial-delay mutation boundary
 
 - Project-status still showed no ready/open risks. The next lava/fireball

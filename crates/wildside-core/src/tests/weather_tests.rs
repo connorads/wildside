@@ -6257,6 +6257,44 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn rotate_lava_geyser_palette_loc_14b2a_wraps_only_the_four_geyser_cram_words() {
+        let mut palette_buffer = [0u16; 0x40];
+        for (index, word) in palette_buffer.iter_mut().enumerate() {
+            *word = 0x8000 | index as u16;
+        }
+        palette_buffer[0x14..0x18].copy_from_slice(&[0x1111, 0x2222, 0x3333, 0x4444]);
+        let sentinel_words = [
+            palette_buffer[0x11],
+            palette_buffer[0x13],
+            palette_buffer[0x18],
+            palette_buffer[0x3C],
+        ];
+
+        let step = crate::weather::rotate_lava_geyser_palette_loc_14B2A(&mut palette_buffer);
+
+        assert_eq!(
+            &palette_buffer[0x14..0x18],
+            &[0x4444, 0x1111, 0x2222, 0x3333],
+            "ASM loc_14B2A rotates Palette_Buffer words $28/$2A/$2C/$2E with $2E wrapping back to $28",
+        );
+        assert_eq!(
+            [
+                palette_buffer[0x11],
+                palette_buffer[0x13],
+                palette_buffer[0x18],
+                palette_buffer[0x3C],
+            ],
+            sentinel_words,
+            "ASM loc_14B2A should touch only the four lava-geyser CRAM words",
+        );
+        assert_eq!(
+            (step.hibernation_frames, step.reloaded_delay_counter),
+            (5, 5),
+            "ASM Animation_Geyser reloads d0 with five frames after each loc_14B2A rotation",
+        );
+    }
+
+    #[test]
     fn step_lava_geysers_sub_14a58_damages_on_inclusive_edges_and_rejects_each_side() {
         let step_geyser = |slice| {
             let mut runtime = NativeRuntime::new(manifest());
