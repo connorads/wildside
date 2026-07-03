@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Mini Hopping Skull ASM citation promotion
+
+- Project-status still showed no ready/open risks. Continued the proactive ASM
+  coverage fallback and promoted shipped implementation citations for Mini
+  Hopping Skull `loc_3EC9A`, `loc_3EE44`, `loc_3EF7E`, `loc_3EF94`,
+  `loc_3EF9E`, and `loc_3EFE0` in the grounded wait and landing tail helpers.
+  No behaviour changed.
+- Verification: `asm-coverage --json` reports those six labels reachable, with
+  test-only debt reduced from 237 to 231 and reachable labels increased to
+  3865. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive weather cleanup and ASM citation promotion
 
 - Project-status still showed no ready/open risks. Followed the proactive

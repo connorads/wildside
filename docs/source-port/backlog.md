@@ -77,9 +77,9 @@ and stop — never commit churn.
   65/51/14 + 92/92/0 + 16/15/1 + 14/14/0 + 7/6/1 + 26/25/1 + 22/22/0
   + 8/8/0 + 18/18/0 + 7/7/0 + 11/11/0 + 18/17/1 + 9/8/1 + 10/9/1
   + 11/11/0 + 12/11/1 + 73/71/2 + 35/34/1 + 20/20/0 + 47/45/2
-  + 20/20/0 (mutants caught/unviable; all 0 missed). Latest change promotes
-  shipped ASM citations for Fireball `loc_32C86`, Drips `loc_335CA`, and Mini
-  Hopping Skull `loc_3EC32`/`sub_3F366`; test-only ASM debt is 237; fast gate green.
+  + 20/20/0 (mutants caught/unviable; all 0 missed). Latest compact ASM
+  promotions cover Fireball, Drips, and Mini Hopping Skull landing/tail labels;
+  test-only ASM debt is 231; fast gate green.
   Latest full TAS (2026-07-03) exits 0 with CRC all 37759 frames matching and
   the known first state divergence at `transition_15_to_00_post`. ASM coverage
   remains `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not

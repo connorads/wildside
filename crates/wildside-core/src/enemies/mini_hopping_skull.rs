@@ -480,7 +480,8 @@ pub(crate) fn mini_hopping_skull_landing_collision_route_loc_3ee12(
     // ASM Mini_Hopping_Skull.asm loc_3EE12: clear `collision_type(a3)`, hibernate
     // one frame, call `sub_3F29A`, then dispatch by collision order:
     // kid-above and `colid_hurt` go through the same damage branch as `loc_3EE64`,
-    // side contact routes via `loc_3EE5A`, below contact queues the scream worker.
+    // side contact routes via `loc_3EE5A`, below contact queues the loc_3EE44
+    // scream worker.
     match collision_type {
         MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
@@ -761,6 +762,8 @@ pub(crate) fn mini_hopping_skull_landing_tail_collision_loc_3ef4c(
 
     match mini_hopping_skull_landing_collision_route_loc_3eec8(collision_type, berzerker_charging) {
         MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull => {
+            // ASM loc_3EF9E: HP decrement, zero branches to death, non-zero
+            // replays `stru_3E9C2` before falling through to the relaunch tail.
             match mini_hopping_skull_landing_collision_damage_loc_3ef1a(hit_counter) {
                 MiniHoppingSkullDamageSequence::SkullDestroyed => {
                     MiniHoppingSkullLandingTailCollisionOutcome::DamageSkullAndDestroy
@@ -773,9 +776,13 @@ pub(crate) fn mini_hopping_skull_landing_tail_collision_loc_3ef4c(
             }
         }
         MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull => {
+            // ASM loc_3EF94: side contact kills the skull only while
+            // `Berzerker_charging` is set.
             MiniHoppingSkullLandingTailCollisionOutcome::BerzerkerChargeKillsSkull
         }
         MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker => {
+            // ASM loc_3EF7E: allocate the delayed `sub_3F3F0` scream worker,
+            // then continue into loc_3EFB6's relaunch tail.
             let allocation = mini_hopping_skull_landing_scream_worker_allocation_loc_3eefa(
                 MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
             )
@@ -786,6 +793,8 @@ pub(crate) fn mini_hopping_skull_landing_tail_collision_loc_3ef4c(
             MiniHoppingSkullLandingTailCollisionOutcome::SpawnScreamWorkerAndRelaunch
         }
         MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait => {
+            // ASM loc_3EFB6/loc_3EFE0: seed base or boosted relaunch velocity,
+            // then set movement/collision flags and resume loc_3EA88.
             let mut y_velocity = 0xFFFC8000u32 as i32;
             let mut x_velocity = 0x0001_8000u32 as i32;
             if is_boosted {
@@ -899,7 +908,8 @@ pub(crate) fn mini_hopping_skull_left_ground_wait_collision_loc_3ec48(
 ) -> MiniHoppingSkullGroundWaitCollisionRoute {
     // ASM Mini_Hopping_Skull.asm loc_3EC48: the left-facing grounded wait loop
     // clears `collision_type(a3)`, hibernates one frame, polls `sub_3F29A`,
-    // then dispatches by ordered Kid/hurt collision comparisons.
+    // then dispatches by ordered Kid/hurt collision comparisons; Kid-above and
+    // hurt route through loc_3EC9A's HP-decrement branch.
     match collision_type {
         MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
