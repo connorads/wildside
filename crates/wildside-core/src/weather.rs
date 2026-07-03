@@ -2915,8 +2915,7 @@ fn start_lava_geyser_script_loc_147BA(geyser: &mut LavaGeyser, script_name: &str
     let (phase, timer) = match script_name {
         "unk_146B6" => (
             LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788,
-            LAVA_GEYSER_STARTUP_SCRIPT_TEMPLATES_LOC_146B6.len() as u16
-                * (lava_geyser_inter_row_hibernations_loc_14804(0) + 1),
+            LAVA_GEYSER_STARTUP_SCRIPT_VISIBLE_STEPS_LOC_146B6,
         ),
         "unk_146A0" => (
             LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
@@ -2937,7 +2936,8 @@ fn start_lava_geyser_rise_loc_1484E(geyser: &mut LavaGeyser) {
     let reset = lava_geyser_rise_reset_loc_1484E();
     geyser.phase = LAVA_GEYSER_PHASE_RISING_LOC_1484E;
     geyser.timer = reset.frames_per_sprite_row;
-    geyser.current_height = reset.sprite_row_index * LAVA_GEYSER_ROW_HEIGHT_PX;
+    debug_assert_eq!(reset.sprite_row_index, 0);
+    geyser.current_height = 0;
 }
 
 impl NativeRuntime {

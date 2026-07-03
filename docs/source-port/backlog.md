@@ -61,19 +61,22 @@ and stop — never commit churn.
   projectiles, HeadyMetal render markers, frame-scene history, VDP decompression
   and intro-text invariants, physics camera/murder-wall branch hardening, and
   now scenario direct-title-card guards, `types.rs` ROM-facing contracts, and
-  Hand, movement Intro Sequence 3/credits, plus weather storm/hail helper
-  boundaries.
+  Hand, movement Intro Sequence 3/credits, plus weather storm/hail and
+  lava-geyser render/script helper boundaries.
 - **Current gates 2026-07-03:** final clean mutation reruns now include VDP
   decompression, intro text, physics camera/wall, scenario direct title-card,
   `rust_source_context.rs`, `types.rs`, Hand pure helper/dispatch functions, and
-  movement Intro Sequence 3/credits plus weather storm/hail helpers
+  movement Intro Sequence 3/credits plus weather storm/hail and lava-geyser
+  render/script helpers
   (`.cache/mutants/types-20260703-after`: 211 mutants, 204 caught, 7 unviable,
   0 missed; `.cache/mutants/hand-pure-20260703-after`: 50 mutants, 45 caught, 5
   unviable, 0 missed; `.cache/mutants/movement-intro3-20260703-after`: 22
   mutants, 20 caught, 2 unviable, 0 missed;
   `.cache/mutants/movement-credits-20260703-after2`: 21 mutants, 20 caught, 1
   unviable, 0 missed; `.cache/mutants/weather-storm-hail-20260703-after`: 16
-  mutants, 16 caught, 0 missed). Latest change is behaviour-neutral
+  mutants, 16 caught, 0 missed;
+  `.cache/mutants/weather-lava-geyser-render-20260703-after2`: 52 mutants, 49
+  caught, 3 unviable, 0 missed). Latest change is behaviour-neutral
   test/mutation hardening; `cargo fmt --all --check`, `git diff --check`, `mise
   run backlog-lint`, and `mise run verify-slice-fast` pass. `verify-tas-full`
   was not rerun. Latest full TAS remains the 2026-07-02 pass with CRC all 37759

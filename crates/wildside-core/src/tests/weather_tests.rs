@@ -6131,8 +6131,66 @@ mod chunk_09_weather_mutation_coverage {
     }
 
     #[test]
+    fn lava_geyser_script_template_label_loc_147ba_maps_startup_and_repeat_cadence() {
+        assert_eq!(
+            crate::weather::lava_geyser_script_template_label_loc_147BA(
+                LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788,
+                LAVA_GEYSER_STARTUP_SCRIPT_VISIBLE_STEPS_LOC_146B6,
+            ),
+            Some("unk_14602"),
+            "ASM loc_147BA over unk_146B6 should start with the first startup template",
+        );
+        assert_eq!(
+            crate::weather::lava_geyser_script_template_label_loc_147BA(
+                LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788,
+                1,
+            ),
+            Some("unk_145CA"),
+            "ASM loc_147BA over unk_146B6 should end on the fifth startup template before `$FFFE`",
+        );
+        assert_eq!(
+            crate::weather::lava_geyser_script_template_label_loc_147BA(
+                LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
+                LAVA_GEYSER_REPEAT_SCRIPT_VISIBLE_STEPS_LOC_146A0,
+            ),
+            Some("unk_145CA"),
+            "ASM loc_147BA over unk_146A0 should hold the first repeat template for the first three-frame group",
+        );
+        assert_eq!(
+            crate::weather::lava_geyser_script_template_label_loc_147BA(
+                LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
+                LAVA_GEYSER_REPEAT_SCRIPT_VISIBLE_STEPS_LOC_146A0
+                    - LAVA_GEYSER_REPEAT_SCRIPT_FRAMES_PER_TEMPLATE_LOC_146A0,
+            ),
+            Some("unk_145D4"),
+            "ASM loc_14804 should advance to the second repeat template only after the three-frame group completes",
+        );
+        assert_eq!(
+            crate::weather::lava_geyser_script_template_label_loc_147BA(
+                LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
+                1,
+            ),
+            Some("unk_14602"),
+            "ASM loc_147BA over unk_146A0 should finish on the fifth repeat template before `$FFFF`",
+        );
+    }
+
+    #[test]
     fn lava_geyser_full_height_render_state_loc_14940_distinguishes_hold_and_collapse_rows() {
         let peak_rows = 5;
+        assert_eq!(
+            crate::weather::lava_geyser_full_height_render_state_loc_14940(
+                LAVA_GEYSER_PHASE_RISING_LOC_1484E,
+                0,
+                3 * LAVA_GEYSER_ROW_HEIGHT_PX,
+                peak_rows * LAVA_GEYSER_ROW_HEIGHT_PX,
+            ),
+            Some(crate::weather::LavaGeyserFullHeightRenderStateLoc14940 {
+                sprite_row_index: 2,
+                top_sprite_frame_within_row: 0,
+            }),
+            "ASM loc_1484E/loc_14940 should render rising geysers from the current visible row minus one",
+        );
         assert_eq!(
             crate::weather::lava_geyser_full_height_render_state_loc_14940(
                 LAVA_GEYSER_PHASE_HOLDING_LOC_1496C,
@@ -6235,6 +6293,35 @@ mod chunk_09_weather_mutation_coverage {
         assert_eq!(
             geyser.current_height, 0,
             "ASM loc_1484E clears the row cursor before the first shared loop iteration",
+        );
+    }
+
+    #[test]
+    fn step_lava_geysers_first_eruption_enters_startup_script_loc_14788() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: 3 * LAVA_GEYSER_ROW_HEIGHT_PX,
+            first_eruption_pending: true,
+            sound_suppressed: true,
+            phase: LAVA_GEYSER_PHASE_DORMANT_LOC_14772,
+            timer: 0,
+            current_height: 0,
+        });
+
+        runtime.step_lava_geysers(&airborne_slice());
+
+        let geyser = &runtime.weather.lava_geysers[0];
+        assert_eq!(geyser.phase, LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788);
+        assert_eq!(
+            geyser.timer, LAVA_GEYSER_STARTUP_SCRIPT_VISIBLE_STEPS_LOC_146B6,
+            "ASM loc_147BA over unk_146B6 should seed one frame for each startup template",
+        );
+        assert_eq!(
+            geyser.current_height, LAVA_GEYSER_ROW_HEIGHT_PX,
+            "ASM loc_147BA should expose one visible sprite row while the startup script walks its templates",
         );
     }
 

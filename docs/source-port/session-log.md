@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive weather lava-geyser render mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback continued
+  narrowing the weather mutation debt. This slice covered lava-geyser script
+  template labels, full-height render-state rows, and the startup/rise runtime
+  transitions.
+- Re-read `kid.asm` `loc_147BA`, `loc_14874`, `loc_14940`, `loc_14966`,
+  `loc_1496C`, and `loc_1498C`. Added ASM-cited tests for valid startup/repeat
+  label cadence, rising row selection, and first-eruption startup entry. Rewrote
+  two equivalent arithmetic expressions (`5 * 1`, `0 * row_height`) as explicit
+  constants/zero without changing behaviour.
+- Verification: `cargo test -p wildside-core chunk_09_weather_mutation_coverage
+  -- --nocapture` passes. Final focused mutation rerun
+  `.cache/mutants/weather-lava-geyser-render-20260703-after2` reports 52
+  mutants: 49 caught, 3 unviable, 0 missed. `cargo fmt --all --check`, `git
+  diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+  `verify-tas-full` was not rerun because this was behaviour-neutral
+  test/mutation hardening; latest full TAS remains the 2026-07-02 pass.
+
 ## 2026-07-03 - proactive weather storm/hail mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback sampled the
