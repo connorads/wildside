@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Archer mutation slice
+
+- Project-status still showed no ready/open risks after the Dragon mutation
+  record, so continued the proactive verification fallback with the compact
+  live Archer enemy module. This gives current clean evidence for the
+  ASM-cited arrow angle, opening pose, aiming, death/status, and live shot
+  helper surface without changing behaviour.
+- Verification: `env FILE=crates/wildside-core/src/enemies/archer.rs
+  OUTPUT=/tmp/mutants-archer-20260703 TMPDIR=/tmp mise run mutants-file`
+  reports 135 mutants tested: 124 caught, 11 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Dragon mutation slice
 
 - Project-status still showed no ready/open risks after the Scorpion mutation
