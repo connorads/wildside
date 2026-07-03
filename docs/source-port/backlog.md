@@ -63,14 +63,18 @@ and stop — never commit churn.
   render markers, frame-scene Fire Demon/EOL/Plane-B row history, Cloud
   `loc_35D9E` attack-animation timing, VDP decompression wrapper invariants
   around `loc_14300/loc_14314`, and now VDP intro text cleanup stream-progress
-  invariants around `loc_1C7B6/loc_1C7D2`.
+  invariants around `loc_1C7B6/loc_1C7D2`, plus physics camera/murder-wall
+  branch hardening around `loc_728C/loc_7346`.
 - **Current gates 2026-07-03:** focused `decompress_to_vram` tests pass, and
   final VDP focused mutation rerun `.cache/mutants/vdp-decompress-20260703-after2`
   reports 32 mutants: 31 caught, 1 unviable, 0 missed, 0 timeouts. Focused
   `intro_text_` tests also pass, and final intro-text mutation rerun
   `.cache/mutants/vdp-intro-text-20260703-after` reports 15 mutants: 14 caught,
-  1 unviable, 0 missed, 0 timeouts. The latest change is behaviour-neutral
-  debug/test hardening; `cargo fmt --all --check`, `git diff --check`, `mise run
+  1 unviable, 0 missed, 0 timeouts. Focused `loc_734` and `loc_728c` tests pass,
+  and final physics camera/wall mutation rerun
+  `.cache/mutants/physics-camera-wall-20260703-after2` reports 31 mutants: 31
+  caught, 0 missed. The latest change is behaviour-neutral test/mutation
+  hardening; `cargo fmt --all --check`, `git diff --check`, `mise run
   backlog-lint`, and `mise run verify-slice-fast` pass. `verify-tas-full` was
   not rerun. Latest full TAS remains the 2026-07-02 pass with CRC all 37759
   frames matching and the known `1p-accurate` state gap at

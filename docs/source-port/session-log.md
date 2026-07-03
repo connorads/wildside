@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive physics camera/murder-wall mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback sampled the
+  small stale `physics.rs` mutation report before broader platform/weather
+  shards. Fresh `camera_y_bottom_look_adjust_loc_728c` /
+  `forward_murder_wall_camera_push_loc_7346` mutation first reported 34 mutants:
+  33 caught and one live survivor.
+- Re-read `kid.asm loc_728C` and `loc_7346`. The survivor changed the forward
+  wall's strict `blt.w loc_73C2` gap check to inclusive. At `d0 == d1`, the ROM
+  reaches `loc_7358`, but `MurderWall_X_pos.w = Camera_X_pos.w - d1` writes the
+  same high word the wall already has; the pure helper's output is equivalent.
+- Rewrote `loc_7346`'s forward gap branch as an explicit `Ordering` match so
+  the code names all three ASM cases: `<` no-adjust, `==` strict-branch
+  clamp-but-same-output, and `>` clamp. This removes the equivalent comparison
+  mutant without changing runtime behaviour.
+- Verification: focused `loc_734` and `loc_728c` tests pass. Final focused
+  mutation rerun `.cache/mutants/physics-camera-wall-20260703-after2` reports
+  31 mutants: 31 caught, 0 missed. `cargo fmt --all --check`, `git diff
+  --check`, `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+  `verify-tas-full` was not rerun because this was behaviour-neutral hardening;
+  latest full TAS remains the 2026-07-02 pass with CRC all 37759 frames matching
+  and the known
+  `transition_15_to_00_post` DragonWalking/object-count state gap.
+
 ## 2026-07-03 - proactive VDP intro text mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback continued

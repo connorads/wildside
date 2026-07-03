@@ -1114,14 +1114,21 @@ pub(crate) fn forward_murder_wall_camera_push_loc_7346(
         // loc_7364: wall caught or passed camera; snap camera to wall.
         let new_camera_x = (camera_x & 0xFFFF) + ((wall_px as u16 as u32) << 16);
         (new_camera_x, wall_x)
-    } else if d0 < gap_threshold_px {
-        // loc_734E -> loc_73C2: wall is within the permitted gap.
-        (camera_x, wall_x)
     } else {
-        // loc_7358: camera too far ahead; clamp wall to camera - d1.
-        let new_wall_high = camera_px.wrapping_sub(gap_threshold_px) as u16;
-        let new_wall_x = (wall_x & 0xFFFF) + (i64::from(new_wall_high) << 16);
-        (camera_x, new_wall_x)
+        match d0.cmp(&gap_threshold_px) {
+            std::cmp::Ordering::Less => {
+                // loc_734E -> loc_73C2: wall is within the permitted gap.
+                (camera_x, wall_x)
+            }
+            std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {
+                // loc_7358: camera too far ahead; clamp wall to camera - d1.
+                // At equality the high word is already camera - d1, but the
+                // ROM still reaches this write because `blt.w` is strict.
+                let new_wall_high = camera_px.wrapping_sub(gap_threshold_px) as u16;
+                let new_wall_x = (wall_x & 0xFFFF) + (i64::from(new_wall_high) << 16);
+                (camera_x, new_wall_x)
+            }
+        }
     }
 }
 
