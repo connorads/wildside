@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Tank mutation slice
+
+- Project-status still showed no ready/open risks after the Tornado mutation
+  record, so continued the proactive verification fallback with the live Tank
+  enemy module on current HEAD.
+- Verification: `env FILE=crates/wildside-core/src/enemies/tank.rs
+  OUTPUT=/tmp/mutants-tank-20260703 TMPDIR=/tmp mise run mutants-file`
+  reports 28 mutants tested: 21 caught, 7 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Tornado mutation slice
 
 - Project-status still showed no ready/open risks after the Armadillo mutation
