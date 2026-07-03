@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive scene Plane-B mutation boundary
+
+- Project-status still showed no ready/open risks, so the fallback probed the
+  earlier `wildside-frame/src/scene.rs` Fire Demon/EOL/Plane-B row-history
+  mutation slice instead of taking a human-blocked row.
+- The first shard reported 111 mutants with 31 missed. The live misses were
+  Fire Demon `loc_3A63C` trail-frame wrap coverage and in-frame gaps around
+  `ChunkedPlaneBRowsLoc307D8::row_for_trace`, `loc_2FFE8` preload replay, and
+  `sub_30744`/`sub_307D8` row-window arithmetic.
+- Added frame-crate regressions for `stru_3A622` modulo indexing, direct
+  `sub_307D8` source-column bias, `Load_InGame loc_11F48` camera-grid rounding,
+  `$FF` bgscroll terminator filtering, and the Level 0x07-shaped settled
+  preload rows already covered in the native-player crate.
+- Verification: focused scene tests, full `wildside-frame` lib tests, `cargo
+  fmt --all --check`, `git diff --check`, and `mise run verify-slice-fast` pass.
+  Filtered mutation rerun
+  `.cache/mutants/frame-scene-fire-eol-rowdebug-20260703-after2` reports 100
+  mutants: 95 caught, 5 unviable, 0 missed. `verify-tas-full` was not rerun
+  because this was test-only; latest full TAS remains the 2026-07-02 pass with
+  CRC all 37759 frames matching and the known `transition_15_to_00_post`
+  DragonWalking/object-count state gap.
+
 ## 2026-07-03 - proactive HeadyMetal render-marker mutation boundary
 
 - Project-status still showed no ready/open risks, so the fallback continued

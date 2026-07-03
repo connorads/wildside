@@ -3034,12 +3034,9 @@ impl ChunkedPlaneBRowsLoc307D8 {
         // later load-stage camera adjustment. In the #289 oracle preload rows,
         // Time_Frames-driven `$00/$08` slots retain that grid phase, while
         // camera-parallax slots match the settled trace Camera_X.
-        let load_grid_camera_x_px = trace
-            .player_start_x
-            .map_or(camera_x_px, |start_x| i32::from(start_x / 0x0140) * 0x0140);
-        let load_grid_camera_y_px = trace
-            .player_start_y
-            .map(|start_y| i32::from(start_y / 0x00E0) * 0x00E0);
+        let load_grid_camera_x_px =
+            load_ingame_camera_grid_x_px_loc_11f48(trace.player_start_x, camera_x_px);
+        let load_grid_camera_y_px = load_ingame_camera_grid_y_px_loc_11f48(trace.player_start_y);
         let preload_camera_y_px = i32::try_from(trace.camera_y_pos >> 16).unwrap_or(0);
         let level_height_pixels =
             i32::from(level_visuals.level.foreground_layout.height_cells).saturating_mul(16);
@@ -3134,13 +3131,7 @@ impl ChunkedPlaneBRowsLoc307D8 {
         let Ok(camera_y_px) = i16::try_from(camera_y_px) else {
             return false;
         };
-        let max_scroll_slot = bgscroll_profile
-            .iter()
-            .copied()
-            .filter(|speed| *speed != 0xFF)
-            .map(|speed| usize::from(speed / 8))
-            .max()
-            .unwrap_or(0);
+        let max_scroll_slot = max_horiz_scroll_slot_loc_2ffe8(bgscroll_profile);
         let mut horiz_scroll_entries = Vec::with_capacity(max_scroll_slot + 1);
         for slot in 0..=max_scroll_slot {
             let layer_speed = u8::try_from(slot.saturating_mul(8)).unwrap_or(0x88);
@@ -3218,6 +3209,32 @@ impl ChunkedPlaneBRowsLoc307D8 {
             previous_scroll = current_scroll;
         }
     }
+}
+
+fn load_ingame_camera_grid_x_px_loc_11f48(player_start_x: Option<u16>, camera_x_px: i32) -> i32 {
+    // ASM Load_InGame loc_11F48 rounds PlayerStart_X to the 320px screen grid
+    // before the first loc_2FFE8 Plane-B preload. If no player start was
+    // captured, keep the trace camera used by ordinary live rendering.
+    player_start_x.map_or(camera_x_px, |start_x| i32::from(start_x / 0x0140) * 0x0140)
+}
+
+fn load_ingame_camera_grid_y_px_loc_11f48(player_start_y: Option<u16>) -> Option<i32> {
+    // ASM Load_InGame loc_11F48 uses the 224px vertical screen grid for the
+    // same preload seed.
+    player_start_y.map(|start_y| i32::from(start_y / 0x00E0) * 0x00E0)
+}
+
+fn max_horiz_scroll_slot_loc_2ffe8(bgscroll_profile: &[u8]) -> usize {
+    // ASM sub_307D8 treats `$FF` bgscroll bytes as row terminators/no-op rows;
+    // only real Horiz_Scroll_Data entry offsets determine how many preload
+    // slots loc_2FFE8 must build.
+    bgscroll_profile
+        .iter()
+        .copied()
+        .filter(|speed| *speed != 0xFF)
+        .map(|speed| usize::from(speed / 8))
+        .max()
+        .unwrap_or(0)
 }
 
 fn source_row_for_plane_b_changed_column_loc_30744(
@@ -8134,6 +8151,23 @@ mod tests {
             "ASM Fire_Demon loc_3A63C reuses the loaded Fire Demon art sheet for `stru_3A622` trail descriptors"
         );
         assert_eq!(tiles[0].tile.tile_index, 0x0B0);
+
+        let mut wrapped_commands = Vec::new();
+        assert!(push_fire_demon_trail_sprite(
+            &mut wrapped_commands,
+            &visuals,
+            32,
+            40,
+            FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME - 11
+        ));
+
+        let DrawCommand::Sprite { tiles, .. } = wrapped_commands.single() else {
+            panic!("ASM Fire_Demon loc_3A63C should wrap the six `stru_3A622` trail frames");
+        };
+        assert_eq!(
+            tiles[0].tile.tile_index, 0x0BA,
+            "ASM Fire_Demon loc_3A63C indexes `stru_3A622` modulo its six sprite frames"
+        );
     }
 
     #[test]
@@ -8211,6 +8245,294 @@ mod tests {
         assert!(
             direct_debug.contains("changed_src=direct"),
             "ASM loc_30744 only reads the loc_12824 alias source during level-skip settle; normal live row diagnostics keep the direct source even when an alias definition exists: {direct_debug}"
+        );
+    }
+
+    #[test]
+    fn load_ingame_camera_grid_rounds_player_start_loc_11f48() {
+        assert_eq!(
+            load_ingame_camera_grid_x_px_loc_11f48(Some(0x013F), 0x0280),
+            0,
+            "ASM Load_InGame loc_11F48 rounds PlayerStart_X down to a 320px screen grid before loc_2FFE8"
+        );
+        assert_eq!(
+            load_ingame_camera_grid_x_px_loc_11f48(Some(0x0140), 0),
+            0x0140,
+            "ASM Load_InGame loc_11F48 keeps exact 320px X grid boundaries"
+        );
+        assert_eq!(
+            load_ingame_camera_grid_x_px_loc_11f48(None, 0x03C0),
+            0x03C0,
+            "without a traced PlayerStart_X, native keeps the current camera X for the loc_2FFE8 preload"
+        );
+        assert_eq!(
+            load_ingame_camera_grid_y_px_loc_11f48(Some(0x00DF)),
+            Some(0),
+            "ASM Load_InGame loc_11F48 rounds PlayerStart_Y down to a 224px screen grid before loc_2FFE8"
+        );
+        assert_eq!(
+            load_ingame_camera_grid_y_px_loc_11f48(Some(0x02BF)),
+            Some(0x02A0),
+            "ASM Load_InGame loc_11F48 preserves the Y screen-grid quotient, not the raw player-start pixel"
+        );
+    }
+
+    #[test]
+    fn preload_scroll_slot_filter_ignores_ff_rows_loc_2ffe8() {
+        assert_eq!(
+            max_horiz_scroll_slot_loc_2ffe8(&[0x00, 0x08, 0x20]),
+            4,
+            "ASM loc_2FFE8 must build Horiz_Scroll_Data slots up to the largest real sub_307D8 bgscroll entry even when no `$FF` terminator row is present"
+        );
+        assert_eq!(
+            max_horiz_scroll_slot_loc_2ffe8(&[0xFF, 0x08, 0xFF, 0x18]),
+            3,
+            "ASM sub_307D8 skips `$FF` bgscroll rows instead of treating them as Horiz_Scroll_Data slot `$1F`"
+        );
+        assert_eq!(
+            max_horiz_scroll_slot_loc_2ffe8(&[0xFF, 0xFF]),
+            0,
+            "all-terminator preload profiles fall back to the base scroll slot"
+        );
+    }
+
+    #[test]
+    fn chunked_plane_b_direct_row_upload_uses_source_bias_loc_307d8() {
+        let trace = NativeTraceFrame {
+            frame_index: 0,
+            time_frames_loc_3038a: 0,
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            ..NativeTraceFrame::default()
+        };
+
+        let mut visuals = sample_level_visuals(1);
+        visuals.level.background_theme_id = 8;
+        visuals.level.foreground_layout_bytes = vec![0; 80 * 14];
+        visuals.level.foreground_layout =
+            ForegroundLayout::parse(&visuals.level.foreground_layout_bytes, 4, 1)
+                .expect("wide foreground layout");
+        visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
+            layer_speeds: vec![0x10; 32],
+            has_terminator: true,
+        });
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: vec![BackgroundPlacement {
+                chunk_id: 0,
+                x_tiles: 0,
+                y_tiles: 0,
+            }],
+            chunks: vec![BackgroundChunk {
+                width_tiles: 4,
+                height_tiles: 1,
+                tiles: [0x20, 0x21, 0x22, 0x23]
+                    .into_iter()
+                    .map(|tile_index| BackgroundTile {
+                        tile_index,
+                        flip_x: false,
+                    })
+                    .collect(),
+            }],
+        });
+
+        let row = chunked_plane_b_row_words_for_trace_loc_30744(&trace, &visuals, 0, 0)
+            .expect("direct chunked Plane-B row upload");
+        assert_eq!(
+            &row[0..4],
+            &[
+                Some((0x21, 1)),
+                Some((0x22, 1)),
+                Some((0x23, 1)),
+                Some((0, 1)),
+            ],
+            "ASM sub_307D8 consumes the scroll-column source with the native +1 chunked background bias before streaming the Plane-B row"
+        );
+    }
+
+    #[test]
+    fn chunked_plane_b_settled_preload_replays_loc_2ffe8_rows() {
+        let trace = NativeTraceFrame {
+            frame_index: 174,
+            time_frames_loc_3038a: 174,
+            level_skip_cheat_enabled: 1,
+            camera_x_pos: 292 << 16,
+            camera_y_pos: 547 << 16,
+            player_start_x: Some(448),
+            player_start_y: Some(703),
+            ..NativeTraceFrame::default()
+        };
+
+        let mut visuals = sample_level_visuals(1);
+        visuals.level.background_theme_id = 8;
+        visuals.level.foreground_layout_bytes = vec![0; 80 * 56];
+        visuals.level.foreground_layout =
+            ForegroundLayout::parse(&visuals.level.foreground_layout_bytes, 4, 4)
+                .expect("issue #289-shaped foreground layout");
+        let mut layer_speeds = vec![0xFF; 64];
+        layer_speeds[8] = 0x08;
+        layer_speeds[18] = 0x08;
+        layer_speeds[23] = 0x00;
+        layer_speeds[29] = 0x20;
+        layer_speeds[40] = 0x08;
+        visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
+            layer_speeds,
+            has_terminator: true,
+        });
+        visuals.level.background_layout_alias = Some(BackgroundLayoutAlias {
+            alias_label: "BackgroundLayout_0E".to_string(),
+            source_label: "BackgroundLayout_0C".to_string(),
+            source_background_path: Some("background/0C.bin".to_string()),
+            x_offset_tiles: 0x13,
+            y_offset_tiles: 0,
+        });
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: vec![
+                BackgroundPlacement {
+                    chunk_id: 0,
+                    x_tiles: 0x13 + 49,
+                    y_tiles: 18,
+                },
+                BackgroundPlacement {
+                    chunk_id: 1,
+                    x_tiles: 0x13 + 4,
+                    y_tiles: 29,
+                },
+                BackgroundPlacement {
+                    chunk_id: 1,
+                    x_tiles: 0x13 + 40,
+                    y_tiles: 29,
+                },
+                BackgroundPlacement {
+                    chunk_id: 2,
+                    x_tiles: 0x13 + 62,
+                    y_tiles: 23,
+                },
+                BackgroundPlacement {
+                    chunk_id: 3,
+                    x_tiles: 0x13 + 45,
+                    y_tiles: 40,
+                },
+                BackgroundPlacement {
+                    chunk_id: 3,
+                    x_tiles: 0x13 + 51,
+                    y_tiles: 40,
+                },
+            ],
+            chunks: vec![
+                BackgroundChunk {
+                    width_tiles: 8,
+                    height_tiles: 1,
+                    tiles: (1..=8)
+                        .map(|tile_index| BackgroundTile {
+                            tile_index,
+                            flip_x: false,
+                        })
+                        .collect(),
+                },
+                BackgroundChunk {
+                    width_tiles: 6,
+                    height_tiles: 1,
+                    tiles: [0x19, 0x15, 0x16, 0x17, 0x18, 0x39]
+                        .into_iter()
+                        .map(|tile_index| BackgroundTile {
+                            tile_index,
+                            flip_x: false,
+                        })
+                        .collect(),
+                },
+                BackgroundChunk {
+                    width_tiles: 2,
+                    height_tiles: 1,
+                    tiles: [0x12, 0x11]
+                        .into_iter()
+                        .map(|tile_index| BackgroundTile {
+                            tile_index,
+                            flip_x: true,
+                        })
+                        .collect(),
+                },
+                BackgroundChunk {
+                    width_tiles: 6,
+                    height_tiles: 1,
+                    tiles: [0x45, 0x46, 0x41, 0x42, 0x43, 0x44]
+                        .into_iter()
+                        .map(|tile_index| BackgroundTile {
+                            tile_index,
+                            flip_x: false,
+                        })
+                        .collect(),
+                },
+            ],
+        });
+
+        let row = chunked_plane_b_row_words_for_trace_loc_30744(&trace, &visuals, 292, 18)
+            .expect("settled chunked Plane-B row history");
+        assert!(
+            row[0..5].iter().all(|cell| *cell == Some((0, 0))),
+            "ASM loc_2FFE8/sub_307D8 leaves B18 columns 0..4 as the old Plane-B `$0780` fill"
+        );
+        assert_eq!(
+            row[5..49],
+            [Some((0, 1)); 44],
+            "ASM loc_2FFE8/sub_307D8 seeds B18 columns 5..48 with `$2780` chunk-zero cells"
+        );
+        let cloud_tail: Vec<u16> = (49..=55)
+            .map(|column| row[column].expect("cloud tail should be populated").0)
+            .collect();
+        assert_eq!(
+            cloud_tail,
+            vec![1, 2, 3, 4, 5, 6, 7],
+            "ASM sub_30744 then accumulates the loc_12824 alias-source cloud tail after the persisted loc_2FFE8 row seed"
+        );
+
+        let ocean_row = chunked_plane_b_row_words_for_trace_loc_30744(&trace, &visuals, 292, 29)
+            .expect("settled chunked Plane-B ocean row history");
+        assert_eq!(
+            &ocean_row[4..10],
+            &[
+                Some((0x19, 1)),
+                Some((0x15, 1)),
+                Some((0x16, 1)),
+                Some((0x17, 1)),
+                Some((0x18, 1)),
+                Some((0x39, 1)),
+            ],
+            "ASM loc_2FFE8/sub_307D8 seeds B29 from the settled Camera_X column, not the pre-adjusted player-start grid column"
+        );
+        assert_eq!(
+            ocean_row[45],
+            Some((0x39, 1)),
+            "ASM Load_InGame loc_11F48 first preloads Plane B at the player-start camera grid; the later settled B29 upload leaves the old far-edge cell from that grid pass intact"
+        );
+
+        let flipped_row =
+            chunked_plane_b_row_vdp_words_for_trace_loc_30744(&trace, &visuals, 292, 23)
+                .expect("settled chunked Plane-B flipped row history");
+        assert_eq!(
+            &flipped_row[62..64],
+            &[Some(0x2F92), Some(0x2F91)],
+            "ASM unk_309B8 maps high-bit chunk bytes from loc_12848 into the VDP H-flip bit for B23"
+        );
+
+        let wrapped_row =
+            chunked_plane_b_row_vdp_words_for_trace_loc_30744(&trace, &visuals, 292, 8)
+                .expect("settled chunked Plane-B wrapped row history");
+        assert_eq!(
+            &wrapped_row[45..56],
+            &[
+                Some(0x27C5),
+                Some(0x27C6),
+                Some(0x27C1),
+                Some(0x27C2),
+                Some(0x27C3),
+                Some(0x27C4),
+                Some(0x27C5),
+                Some(0x27C6),
+                Some(0x27C1),
+                Some(0x27C2),
+                Some(0x27C3),
+            ],
+            "ASM sub_30744 starts live column writes at Camera_Y_pos>>5; with camera chunk 17, Plane-B row 8 is fed by source row 40, not source row 8"
         );
     }
 
