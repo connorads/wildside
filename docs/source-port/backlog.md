@@ -78,7 +78,7 @@ and stop — never commit churn.
   + 8/8/0 + 18/18/0 + 7/7/0 + 11/11/0 + 18/17/1 + 9/8/1 + 10/9/1
   + 11/11/0 + 12/11/1 + 73/71/2 + 35/34/1 + 20/20/0 + 47/45/2
   + 20/20/0, Driller 24/19/5, Armadillo 46/34/12, Tornado 68/60/8, Tank 28/21/7 (mutants
-  caught/unviable; all 0 missed). Latest compact ASM promotions now cover hidden-block, title-entry/VDP/KID-shell, gfx-animation, Lion-projectile slope, camera clamp, hidden-prize reveal-start, blank-top grid-shift, blank-top terrain-byte shift, leftward lead-cell collision, intro centre-particle, platform walking-carry, standing-platform crush, animated-solid coarse-cull layout-restore, and shooter-projectile recycle labels; test-only debt is 198; fast gate green.
+  caught/unviable; all 0 missed). Latest compact ASM promotions now cover hidden-block, title-entry/VDP/KID-shell, gfx-animation, Lion-projectile slope, camera clamp, hidden-prize reveal-start, blank-top grid-shift, blank-top terrain-byte shift, leftward lead-cell collision, intro centre-particle, platform walking-carry, standing-platform crush, animated-solid coarse-cull layout-restore, shooter-projectile recycle, and Kid-projectile overlap-branch labels; test-only debt is 197; fast gate green.
   Latest full TAS (2026-07-03) exits 0 with CRC all 37759 frames matching and
   the known first state divergence at `transition_15_to_00_post`. ASM coverage
   remains `0` ordinary uncovered labels plus 21 emulated GEMS wrappers; do not

@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Kid projectile overlap ASM citation promotion
+
+- Project-status still showed no ready/open risks after the Tank mutation
+  record. Continued proactive ASM coverage fallback and promoted the live
+  pass-0 friendly projectile overlap branch by citing `sub_1D84 loc_1E4A`
+  where native consumes the projectile and applies enemy damage through the
+  Vec iterator instead of the ROM object-list cursor. No behaviour changed.
+- Verification: `asm-coverage --json` reports `loc_1E4A` reachable, with
+  test-only debt reduced from 198 to 197 and reachable labels increased to
+  3899. `cargo fmt --all --check`, `git diff --check`, `mise run
+  backlog-lint`, coverage gates, and `mise run verify-slice-fast` pass.
+
 ## 2026-07-03 - proactive Tank mutation slice
 
 - Project-status still showed no ready/open risks after the Tornado mutation

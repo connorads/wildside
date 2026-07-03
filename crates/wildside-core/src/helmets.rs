@@ -7159,6 +7159,11 @@ impl NativeRuntime {
     ///   collision_type is non-zero the axe hit an enemy. Play sfx_Maniaxe_hitting_enemy,
     ///   then `jmp Delete_CurrentObject`. Native: consumed projectile is removed from
     ///   `self.projectiles` via `projectile_consumed` indices.
+    /// ASM sub_1D84 loc_1E4A (kid.asm:3634): after an overlap, the d7=0
+    ///   non-wall friendly-attack branch falls through to loc_1E5E to write
+    ///   `colid_hurt` and spawn the hit spark helper; native performs that
+    ///   same enemy-damage/consume path with a Vec iterator instead of the ROM
+    ///   object-list cursor.
     pub(crate) fn process_friendly_projectile_hits(&mut self) {
         let mut kill_indices = Vec::new();
         let mut projectile_consumed = Vec::new();
