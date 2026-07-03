@@ -47,7 +47,7 @@ each `#NNN` in exactly one lane, rows in the lane their status implies); it runs
 `project-status` shows no `ready` and no open risks (every open row is gone or the
 queue is empty)? Discover bugs before the next playtest does:
 
-- **Mutation-test one file**: `mise run mutants-file FILE=<module.rs>`; every
+- **Mutation-test one file**: `FILE=<module.rs> mise run mutants-file`; every
   surviving mutant is a test blind spot. Pair loose proptests with exact-value
   unit tests; left-facing paths are systematically undertested. Keep runs to one
   module (big files like `enemies.rs` enumerate thousands of mutants).

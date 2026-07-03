@@ -280,14 +280,14 @@ description = "Check that emitted debug fields are registered and stale candidat
 [tasks.mutants-file]
 run = """
 sh -ec '
-FILE=${FILE:?usage: mise run mutants-file FILE=<module.rs>}
+FILE=${FILE:?usage: FILE=<module.rs> mise run mutants-file}
 STEM=${FILE%.rs}
 OUTPUT=${OUTPUT:-.cache/mutants/${STEM}}
 rm -rf "$OUTPUT/mutants.out" "$OUTPUT/mutants.out.old"
 KID_REPO_ROOT="$PWD" cargo mutants -p wildside-core -f "$FILE" -j 1 --gitignore=true --output "$OUTPUT" -- --lib -- --skip demo_ --skip published_tas --skip snapshot
 '
 """
-description = "Run cargo-mutants against a single wildside-core source file (FILE=<module.rs>), matching the rotation strategy's invocation"
+description = "Run cargo-mutants against a single wildside-core source file (FILE=<module.rs> mise run mutants-file), matching the rotation strategy's invocation"
 
 [tasks.clean-build]
 run = "cargo clean"

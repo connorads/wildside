@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-03 - proactive Tornado mutation slice
+
+- Project-status still showed no ready/open risks after the Armadillo mutation
+  record, so continued the proactive verification fallback with the live
+  Tornado enemy module. Corrected the loop/task usage text from the rejected
+  `mise run mutants-file FILE=...` form to the working environment-variable
+  form.
+- Verification: `env FILE=crates/wildside-core/src/enemies/tornado.rs
+  OUTPUT=/tmp/mutants-tornado-20260703 TMPDIR=/tmp mise run mutants-file`
+  reports 68 mutants tested: 60 caught, 8 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-03 - proactive Armadillo mutation slice
 
 - Project-status still showed no ready/open risks after the Driller mutation
