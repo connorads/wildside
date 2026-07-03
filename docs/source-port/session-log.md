@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive 1p-accurate release-gate refresh
+
+- Project-status still showed no ready/open risks after the Drips mutation
+  record, but its supporting `1p-accurate` gate artefact was missing. Ran the
+  canonical release gate with the repo's required build-script environment:
+  `env TMPDIR=/tmp mise run release-gate`.
+- Verification: `.cache/release-gate/1p-accurate/latest.json` now points at
+  timestamp `1783122304`, with report
+  `.cache/release-gate/1p-accurate/1783122304/report.json`; native bootstrap,
+  gameplay compare/verify, frame oracle, audio oracle, and `state_sweep:0-104`
+  all passed. The embedded sweep report
+  `.cache/sweep-runs/1783122357/report.json` is 69/69 passed with 0
+  authoritative/advisory/accumulation/rng diffs, 1037 oracle limitations, and
+  `unverified=69` because every state-sweep checkpoint is masked by oracle
+  limitations. `mise run project-status` now reports `1p-accurate: passed`.
+
 ## 2026-07-03 - proactive Drips mutation slice
 
 - Project-status still showed no ready/open risks after the Lion mutation

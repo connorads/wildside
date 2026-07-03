@@ -140,6 +140,14 @@ Once the active TAS frontier is closed, keep the verification lanes separate:
 - `sweep --tier state` answers "do the 69 BCD levels still avoid blocking authoritative diffs under the idle oracle harness?"
 - `release-gate --target 1p-accurate` answers "do boot/title, gameplay compare, frame-oracle, audio-oracle, and state-sweep all stay green together?"
 
+2026-07-04 refresh: `env TMPDIR=/tmp mise run release-gate` passes the full
+`1p-accurate` lane. `.cache/release-gate/1p-accurate/latest.json` points at
+timestamp `1783122304`, with report
+`.cache/release-gate/1p-accurate/1783122304/report.json`; the embedded state
+sweep report is `.cache/sweep-runs/1783122357/report.json` (69/69 passed,
+0 authoritative/advisory/accumulation/rng, 1037 oracle limitations,
+`unverified=69`).
+
 On 2026-04-22 those lanes were green but still intentionally separate (dated record; bullets below reference the orchestrator retired in the 2026-06-10 autonomy demolition, tag `pre-autonomy-demolition`):
 
 - The delegated sweep-parity lane completed (`cycle=127` locally, via the since-retired orchestrator). The previous repeated-fingerprint recovery step `refresh_evidence` remains complete; the regenerated source-port package is cycle `600` with fingerprint `gate-1776819385:sweep-1776819420`.

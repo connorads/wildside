@@ -16,6 +16,14 @@ The live TAS frontier is closed:
 
 That is not whole-game completion. As of the 2026-05-18 completion audit, the 1P source-port phase has no open phase blockers: `project-status` reports `1p-playable` and `1p-accurate` green, the published TAS frontier is replay-matched through frame 37759, the canonical backlog has no open phase rows, and the human-validation checklist is empty. Future work should come from fresh reports, post-phase fidelity debt, or broader verification lanes, not from reopening stale TAS/frontier prose. Loop sessions follow `docs/source-port/loop.md`: `backlog.md` is the open queue, the NOW block is the handoff, `mise run project-status` selects the next item in priority order (`[?]`/`[b]` rows live in `backlog-awaiting-human.md`), and the proactive-verification fallback (mutation testing, enemy audit, ASM coverage) covers the no-actionable-item case. `wildside-cli project-status` remains the top-level status surface, with 1P-playable and visual risks ahead of TAS completion prose.
 
+2026-07-04 refresh: `env TMPDIR=/tmp mise run release-gate` passes the full
+`1p-accurate` lane. `.cache/release-gate/1p-accurate/latest.json` points at
+timestamp `1783122304`, with report
+`.cache/release-gate/1p-accurate/1783122304/report.json`; the embedded state
+sweep report is `.cache/sweep-runs/1783122357/report.json` (69/69 passed,
+0 authoritative/advisory/accumulation/rng, 1037 oracle limitations,
+`unverified=69`).
+
 Historical post-TAS verification split as of 2026-04-22. Commands referencing the retired orchestrator are kept as a dated record; the orchestrator was removed in the 2026-06-10 autonomy demolition, tag `pre-autonomy-demolition`:
 
 - `cargo run -p wildside-cli -- autonomous-loop --goal sweep-parity` completed the delegated lane again (`cycle=127` locally). The old `stalled_fingerprint` / `refresh_evidence` package remains superseded by fresh gate/sweep evidence; the regenerated source-port package is now cycle `600` with fingerprint `gate-1776819385:sweep-1776819420`.
