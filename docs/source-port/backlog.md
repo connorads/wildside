@@ -56,7 +56,7 @@ and stop — never commit churn.
 - **Visual route work:** do not retune Tank Y/priority, flagpole priority, or
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
-- **Proactive verification 2026-07-04:** no ready/open rows remain; latest addition is a clean Fireball enemy mutation rerun. The previous native-player route/contact, audio artefact, and core demo follow-ups are now closed separately with focused clean reruns.
+- **Proactive verification 2026-07-04:** no ready/open rows remain; latest addition is a clean Diamond enemy mutation rerun. The previous native-player route/contact, audio artefact, core demo, and Fireball follow-ups are now closed separately with focused clean reruns.
 - **Current gates 2026-07-04:** clean mutation reruns now cover through storm
   `sub_6048` cadence, live `step_weather` free-slot routing, murder-wall
   warning dispatch, weather label/path helpers, and the enemy module reruns
@@ -70,8 +70,8 @@ and stop — never commit churn.
   + 20/20/0, Driller 24/19/5, Armadillo 46/34/12, Tornado 68/60/8, Tank 28/21/7 (mutants
   caught/unviable; all 0 missed). Latest compact ASM promotions now cover hidden-block, title-entry/VDP/KID-shell, gfx-animation, Lion-projectile slope, camera clamp, hidden-prize reveal-start, blank-top grid-shift, blank-top terrain-byte shift, leftward lead-cell collision, intro centre-particle, platform walking-carry, standing-platform crush, animated-solid coarse-cull layout-restore, shooter-projectile recycle, and Kid-projectile overlap-branch labels; test-only debt is 197; fast gate green.
   Friendly projectile overlap rerun is 85/79/6 equivalent after Sphere edge tests; remaining misses are empty-row guards and Maniaxe's default lifetime.
-  Enemy module reruns are all 0 missed: Fireball 60 total (47 caught, 13 unviable),
-  Goat 23 total (15 caught, 8 unviable), Fire Demon 48 (30/18), Scorpion 57 (46/11), Dragon 264 (222/42), Archer
+  Enemy module reruns are all 0 missed: Diamond 72 total (62/10), Fireball 60
+  (47/13), Goat 23 (15/8), Fire Demon 48 (30/18), Scorpion 57 (46/11), Dragon 264 (222/42), Archer
   135 (124/11), Dragon Walking 136 (112/24), Big Hopping Skull 71 (56/15),
   Orca 91 (74/17), Robot 105 (93/12), Spinning Twins 126 (105/21), Cloud
   135 (119/16), Crab 87 (71/16), Emo Rock 92 (80/12), Mini Hopping Skull

@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive Diamond mutation rerun
+
+- Project-status still showed no ready/open risks after the Fireball rerun, so
+  refreshed the compact Diamond enemy mutation evidence against current HEAD.
+  The existing ASM-labelled tests still cover high-HP Diamond init/collision,
+  terrain dispatch, damage/death, Berzerker launch, and low-HP shared-walker
+  routes without source changes.
+- Verification: focused `cargo test -p wildside-core diamond` passes.
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-core -f
+  crates/wildside-core/src/enemies/diamond.rs -j 4 --gitignore=true --output
+  /tmp/mutants-core-diamond-20260704-rerun -- diamond` reports 72 mutants
+  tested: 62 caught, 10 unviable, 0 missed.
+
 ## 2026-07-04 - proactive Fireball mutation rerun
 
 - Project-status still showed no ready/open risks after the core demo sweep, so
