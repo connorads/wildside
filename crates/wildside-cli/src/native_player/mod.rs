@@ -16481,6 +16481,60 @@ mod tests {
     }
 
     #[test]
+    fn target_enemy_contact_checkpoint_only_dedupes_exact_label_and_frame_loc_3b464() {
+        let mut scenario = DynamicScenario {
+            slug: String::from("issue271-live-rocktank"),
+            script: vec![0; 4],
+            frame_count: 4,
+            checkpoints: vec![
+                DynamicCheckpoint {
+                    label: String::from("target_enemy_contact_0A_damage"),
+                    frame_index: 1,
+                },
+                DynamicCheckpoint {
+                    label: String::from("target_enemy_contact_0B_damage"),
+                    frame_index: 2,
+                },
+            ],
+            start_position: None,
+            start_velocity: None,
+            camera_position: None,
+            playtest_form: None,
+            initial_diamond_count: None,
+            initial_lives: None,
+            warp_to_level: Some(0x01),
+            settle_oracle_warp: true,
+        };
+        let contact = TargetEnemyContactStop {
+            frame_index: 2,
+            object_type: 0x0A,
+            result: String::from("damage"),
+            gate: String::from("classify"),
+            score_px: 17,
+        };
+
+        append_target_enemy_contact_checkpoint(&mut scenario, &contact);
+        append_target_enemy_contact_checkpoint(&mut scenario, &contact);
+
+        let matching: Vec<_> = scenario
+            .checkpoints
+            .iter()
+            .filter(|checkpoint| checkpoint.label == "target_enemy_contact_0A_damage")
+            .map(|checkpoint| checkpoint.frame_index)
+            .collect();
+        assert_eq!(
+            matching,
+            vec![1, 2],
+            "same label at a different frame is a distinct contact checkpoint, but the exact duplicate is ignored"
+        );
+        assert_eq!(
+            scenario.checkpoints.len(),
+            3,
+            "different enemy label at the same frame must not block the requested contact checkpoint"
+        );
+    }
+
+    #[test]
     fn native_recording_follow_up_commands_include_route_target_scorers() {
         let commands = native_recording_follow_up_commands(
             "issue271-live-rocktank",

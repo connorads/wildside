@@ -56,7 +56,7 @@ and stop — never commit churn.
 - **Visual route work:** do not retune Tank Y/priority, flagpole priority, or
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
-- **Proactive verification 2026-07-04:** no ready/open rows remain; latest addition is the clean CLI case bootstrap/probe mutation rerun.
+- **Proactive verification 2026-07-04:** no ready/open rows remain; latest addition is native-player target-contact checkpoint dedupe hardening. The route/contact mutants are covered, but this large-file cargo-mutants regex also selects unrelated `native_audio_artifacts_for_trace_with_initial_bgm` field mutants; do not list it as a clean whole-slice rerun until that audio artifact slice is handled separately.
 - **Current gates 2026-07-04:** clean mutation reruns now cover through storm
   `sub_6048` cadence, live `step_weather` free-slot routing, murder-wall
   warning dispatch, weather label/path helpers, and the enemy module reruns

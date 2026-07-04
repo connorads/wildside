@@ -7,6 +7,34 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive native-player target checkpoint mutation slice
+
+- Project-status still showed no ready/open risks after the CLI case bootstrap
+  mutation rerun, so continued the proactive verification fallback with the
+  native-player recording route/contact helpers. A broad `native_player::tests::`
+  mutation baseline was rejected because unrelated cache-sensitive visual tests
+  fail in cargo-mutants' temp tree. Narrow runs showed the existing
+  `native_recording`, `recording_frame_limit`, and `target_enemy_contact`
+  filters cover the command, frame-limit, auto-stop, and append paths except
+  for the exact duplicate-checkpoint predicate.
+- Added `target_enemy_contact_checkpoint_only_dedupes_exact_label_and_frame_loc_3b464`
+  so same-label/different-frame and different-label/same-frame contacts remain
+  distinct while exact duplicates are ignored. Verification: initial
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-cli -f
+  crates/wildside-cli/src/native_player/mod.rs --re
+  'native_recording_follow_up_commands|native_recording_command|append_record_route_target_args|update_target_contact_auto_stop|append_target_enemy_contact_checkpoint|recording_frame_limit_reached'
+  -j 1 --gitignore=true --output
+  /tmp/mutants-cli-native-player-recording-route-20260704-initial --
+  native_recording` reported 29 mutants tested: 9 caught, 20 missed. Of the
+  missed mutants, 13 were covered by the correct `recording_frame_limit` or
+  `target_enemy_contact` filters, 3 were the duplicate-checkpoint predicate now
+  covered by the new test, and 4 were unrelated audio-artifact field mutants
+  selected by cargo-mutants' large-file regex. Final target/contact rerun at
+  `/tmp/mutants-cli-native-player-target-contact-20260704-final` reports 19
+  mutants selected: 15 target/contact mutants caught, with the same 4 unrelated
+  audio-artifact mutants still selected and missed. The audio-artifact branch is
+  a separate follow-up, not part of this route-target checkpoint change.
+
 ## 2026-07-04 - proactive CLI case bootstrap mutation slice
 
 - Project-status still showed no ready/open risks after the CLI inspect
