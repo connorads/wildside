@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive constants mutation slice
+
+- Project-status still showed no ready/open risks after the gfx-animation
+  mutation rerun, so continued the proactive verification fallback with
+  `constants.rs`, which changed in the title-menu VDP carry/selection work
+  after its previous clean shard. Native behaviour is unchanged.
+- Verification: `env FILE=crates/wildside-core/src/constants.rs
+  OUTPUT=/tmp/mutants-constants-20260704-refresh TMPDIR=/tmp mise run
+  mutants-file` reports 59 mutants tested: 50 caught, 9 unviable, 0 missed,
+  0 timeouts.
+
 ## 2026-07-04 - proactive gfx-animation mutation slice
 
 - Project-status still showed no ready/open risks after the scenario mutation
