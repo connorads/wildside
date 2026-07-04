@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive trace death-respawn object-count mutation hardening
+
+- Project-status still showed no ready/open risks after the opening object-count
+  slice, so mutation-tested `trace.rs` `death_respawn_bootstrap_object_counts`.
+  The helper is backed by `lose_life -> Teleport -> loc_B8DE`, which jumps back
+  through `loc_6E2` after setting mode 8, plus oracle respawn-bootstrap count
+  probes.
+- Initial focused tests passed, but mutation at
+  `/tmp/mutants-core-trace-death-respawn-counts-20260704-initial` reported 8
+  mutants tested: 5 caught, 3 missed. The missed mutants all changed the
+  `LevelId(0) && elapsed == 0` gate, because the first test filter only ran the
+  Level 2 bootstrap tests and did not exercise Level 1's first respawn frame.
+- Fix: added Level 1 initial/hold object and gfx count assertions to
+  `death_respawn_level_one_bootstrap_holds_after_sixty_five_frame_slide`, then
+  used the broader `death_respawn` filter for the final mutation run.
+- Verification: focused `cargo test -p wildside-core death_respawn` passes.
+  Final mutation at
+  `/tmp/mutants-core-trace-death-respawn-counts-20260704-final` reports 8
+  mutants tested: 8 caught, 0 missed.
+
 ## 2026-07-04 - proactive trace opening object-count mutation hardening
 
 - Project-status still showed no ready/open risks after the collision classifier

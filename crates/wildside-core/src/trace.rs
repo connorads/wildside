@@ -4353,18 +4353,27 @@ mod tests {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
         runtime.current_level = LevelId(0);
-        runtime.player_lifecycle = PlayerLifecycle::Respawning {
-            remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES
-                - PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES,
-        };
         runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
             width_pixels: 320,
             height_pixels: 224,
         }));
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES,
+        };
 
         // ASM `lose_life -> Teleport -> loc_6E2`: oracle-backed traces finish
         // the 65-frame hidden Level 1 slide at elapsed frame 64, then hold the
-        // same pose instead of applying one more `$-4.8,+0.9` step.
+        // same pose instead of applying one more `$-4.8,+0.9` step. The first
+        // bootstrap frame reports the pre-extra-gfx worker count; the hold
+        // frames keep the same object count but add the gfx worker.
+        let initial = runtime.trace_frame();
+        assert_eq!(initial.number_objects, 15);
+        assert_eq!(initial.number_gfx_objects, 13);
+
+        runtime.player_lifecycle = PlayerLifecycle::Respawning {
+            remaining_frames: PLAYER_DEATH_RESPAWN_SETTLE_FRAMES
+                - PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_ANIMATION_FRAMES,
+        };
         let frame = runtime.trace_frame();
         assert_eq!(
             frame.kid_x_pos,
@@ -4374,6 +4383,8 @@ mod tests {
             frame.kid_y_pos,
             Some(PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_HOLD_Y_FP)
         );
+        assert_eq!(frame.number_objects, 15);
+        assert_eq!(frame.number_gfx_objects, 14);
     }
 
     #[test]
