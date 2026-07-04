@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive core boot end-sequence text/page mutation hardening
+
+- Project-status still showed no ready/open risks after the options-menu text
+  slice, so mutation-tested `boot.rs` end-sequence palette, page/text, glyph
+  cache/hide, fade, and panel setup/scroll helpers backed by `loc_1C82C`,
+  `loc_1C84E`, `loc_1C856`, `loc_1D270`, `loc_1D306`, `loc_1D3A0`,
+  `loc_1D3D0`, `loc_1D3F0`, `loc_1D40E`, `loc_1D418`, `loc_1D450`,
+  `loc_1D7F0`, `loc_1D80C`, and `loc_1D814`.
+- Initial rerun exposed 10 missed mutants, all in the three palette helper
+  return values: first-bank word count, second-bank byte offset, and
+  second-bank word count. The existing tests documented the ASM constants but
+  did not call the `boot.rs` helpers.
+- Fix: asserted `end_sequence_palette_first_bank_words_loc_1C82C`,
+  `end_sequence_palette_second_bank_byte_offset_loc_1C84E`, and
+  `end_sequence_palette_second_bank_words_loc_1C856` directly in the existing
+  ASM-cited palette tests.
+- Verification: focused `cargo test -p wildside-core loc_1c82c`,
+  `cargo test -p wildside-core loc_1c84e`, and `cargo test -p wildside-core
+  end_sequence_` pass. Initial mutation at
+  `/tmp/mutants-core-boot-end-text-page-20260704-initial` reported 21 mutants
+  tested: 10 missed, 11 unviable. Final rerun at
+  `/tmp/mutants-core-boot-end-text-page-20260704-final` reports 21 mutants
+  tested: 10 caught, 11 unviable, 0 missed. `cargo fmt --all --check`, `git
+  diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`
+  pass.
+
 ## 2026-07-04 - proactive core boot options-menu text mutation hardening
 
 - Project-status still showed no ready/open risks after the end-sequence

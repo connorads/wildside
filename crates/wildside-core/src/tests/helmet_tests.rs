@@ -6523,6 +6523,11 @@ mod chunk_08 {
             PALETTE_WORDS_FIRST_BANK,
             "DBF loop runs $F+1=16 iterations for 16 palette words"
         );
+        assert_eq!(
+            crate::boot::end_sequence_palette_first_bank_words_loc_1C82C(),
+            PALETTE_WORDS_FIRST_BANK,
+            "ASM loc_1C82C should expose the first palette bank's 16-word DBF copy count"
+        );
     }
 
     #[test]
@@ -6546,9 +6551,19 @@ mod chunk_08 {
             "$20 is byte offset for second palette bank"
         );
         assert_eq!(
+            crate::boot::end_sequence_palette_second_bank_byte_offset_loc_1C84E(),
+            PALETTE_OFFSET,
+            "ASM loc_1C84E should expose the Palette_Buffer+$20 byte offset"
+        );
+        assert_eq!(
             DBF_COUNTER.wrapping_add(1),
             PALETTE_WORDS_SECOND_BANK,
             "DBF loop runs $2F+1=48 iterations for 48 palette words"
+        );
+        assert_eq!(
+            crate::boot::end_sequence_palette_second_bank_words_loc_1C856(),
+            PALETTE_WORDS_SECOND_BANK,
+            "ASM loc_1C856 should expose the second palette bank's 48-word DBF copy count"
         );
         assert_eq!(
             16 + 48,
