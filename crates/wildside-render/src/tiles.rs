@@ -140,6 +140,17 @@ mod tests {
     }
 
     #[test]
+    fn tile_sheet_reports_fixed_mega_drive_tile_size() {
+        let sheet = TileSheet::from_4bpp_bytes(&[0; 32]).expect("tile sheet");
+
+        assert_eq!(
+            sheet.tile_size(),
+            (8, 8),
+            "Mega Drive pattern art is exposed as fixed 8x8 tiles"
+        );
+    }
+
+    #[test]
     fn decodes_vdp_tile_attribute_word_fields() {
         let tile = TileRef::from_attr_word(0xFABC);
 

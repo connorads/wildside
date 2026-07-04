@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive render tile mutation hardening
+
+- Project-status still showed no ready/open risks after the Diamond rerun, so
+  refreshed `wildside-render/src/tiles.rs` visual-path mutation evidence. The
+  first rerun exposed four surviving mutants that changed
+  `TileSheet::tile_size` to `(0, 1)`, `(1, 0)`, `(1, 1)`, and `(0, 0)`.
+  Added a focused regression for the fixed Mega Drive 8x8 tile contract.
+- Verification: focused `cargo test -p wildside-render tiles` passes. Initial
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-render -f
+  crates/wildside-render/src/tiles.rs -j 4 --gitignore=true --output
+  /tmp/mutants-render-tiles-20260704-rerun -- tiles` reported 38 mutants
+  tested: 30 caught, 4 missed, 4 unviable. Final rerun at
+  `/tmp/mutants-render-tiles-20260704-final` reports 38 mutants tested:
+  34 caught, 4 unviable, 0 missed.
+
 ## 2026-07-04 - proactive Diamond mutation rerun
 
 - Project-status still showed no ready/open risks after the Fireball rerun, so
