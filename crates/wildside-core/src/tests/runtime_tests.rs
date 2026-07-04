@@ -10600,6 +10600,93 @@ mod chunk_09 {
     }
 
     #[test]
+    fn highwater_shooter_barrier_probe_formats_cell_words_loc_eae4_f02a() {
+        // ASM loc_9564 -> loc_EAE4 -> loc_EC76 -> loc_F02A is the #214 live
+        // playtest route. Keep this probe cache-independent so mutation tests
+        // pin the cell-word encoding and level/game-mode gate directly.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.boot_state = BootState::InGame;
+        rt.current_level = LevelId(0x02);
+        rt.set_block_grid(grid_with_cells(
+            16,
+            104,
+            &[
+                (11, 97, 0xE8, 0x1E),
+                (11, 99, 0xEA, 0x1F),
+                (11, 103, 0xE9, 0x19),
+                (15, 97, 0xE2, 0x21),
+                (15, 100, 0xEF, 0x1A),
+                (15, 103, 0xE0, 0x44),
+            ],
+        ));
+        rt.block_state.shooter_last_scanned_col = 10;
+        rt.block_state.shooter_last_scanned_row = 96;
+        rt.block_state.shooter_blocks = vec![ShooterBlockEntry {
+            col: 11,
+            row: 97,
+            directions: 0x05,
+            supported_by_neighbour: true,
+            restored_touch_shooter: false,
+            age: 7,
+        }];
+        rt.block_state.shooter_headbutt_workers = vec![ShooterHeadbuttWorker {
+            col: 15,
+            row: 98,
+            age: 3,
+            kind: ShooterHeadbuttWorkerKind::Center,
+        }];
+        rt.projectiles
+            .push(EnemyProjectile::shooter_block_from_centre_loc_EC76(
+                11,
+                97,
+                184,
+                1560,
+                4 << 16,
+                -2 << 16,
+            ));
+
+        let probe = rt
+            .trace_frame()
+            .gameplay_debug_fields
+            .get("highwater_shooter_barrier_probe")
+            .cloned()
+            .expect("level 02 in-game trace should expose the #214 probe");
+
+        assert_eq!(
+            probe,
+            concat!(
+                "scan=10,96 ",
+                "slots=[11:97 dirs=0x05 age=7 supported=1] ",
+                "headbutt=[15:98 Center age=3] ",
+                "projectiles=[kind=ShooterBlock x=0x00b80000 y=0x06180000 ",
+                "vel=0x00040000,0xfffe0000 life=120] ",
+                "shooters=[11:97=E81E,11:98=0000,11:99=EA1F,11:100=0000,",
+                "11:101=0000,11:102=0000,11:103=E919] ",
+                "barrier=[15:97=E221,15:98=0000,15:99=0000,15:100=EF1A,",
+                "15:101=0000,15:102=0000,15:103=E044]"
+            ),
+            "ASM loc_EAE4/loc_F02A trace probe should expose exact shooter/barrier layout words"
+        );
+
+        rt.current_level = LevelId(0x01);
+        assert!(
+            !rt.trace_frame()
+                .gameplay_debug_fields
+                .contains_key("highwater_shooter_barrier_probe"),
+            "ASM loc_EAE4/loc_F02A probe should stay scoped to Highwater level 02"
+        );
+
+        rt.current_level = LevelId(0x02);
+        rt.boot_state = BootState::TitleScreen { cursor: 0 };
+        assert!(
+            !rt.trace_frame()
+                .gameplay_debug_fields
+                .contains_key("highwater_shooter_barrier_probe"),
+            "ASM loc_EAE4/loc_F02A probe should stay scoped to live gameplay"
+        );
+    }
+
+    #[test]
     fn highwater_pass_1_trace_exposes_shooter_barrier_probe_loc_eae4_f02a() {
         // ASM loc_9564 -> loc_EAE4 -> loc_EC76 -> loc_F02A is the #214 live
         // playtest route. Trace needs the shooter slots, projectile, and

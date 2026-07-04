@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive trace Highwater probe mutation hardening
+
+- Project-status still showed no ready/open risks after the collected-helmet
+  visibility slice, so mutation-tested `trace.rs` `trace_cell_word` and
+  `highwater_shooter_barrier_probe_debug`.
+- ASM context: the #214 Highwater route runs through Kid collision
+  `loc_9564`, evanescent shooter scan `loc_EAE4`, shooter allocation
+  `loc_EC76`, and projectile/source-cell handling around `loc_F02A`.
+- Initial mutation at
+  `/tmp/mutants-core-trace-highwater-probe-20260705-initial` reported 18
+  mutants tested, 18 missed. The cache-backed live probe test returned early in
+  the mutation sandbox and only asserted that probe sections existed.
+- Fix: added a cache-independent runtime test with exact shooter/barrier cell
+  words, projectile/slot/headbutt text, and negative level/game-mode gate
+  assertions. Rewrote the disjoint `trace_cell_word` bit fields as addition to
+  remove equivalent `|` -> `^` mutants without changing the encoded word.
+- Verification: focused `cargo test -p wildside-core
+  highwater_shooter_barrier_probe_formats_cell_words_loc_eae4_f02a` passes.
+  Final mutation at `/tmp/mutants-core-trace-highwater-probe-20260705-final2`
+  reports 18 mutants tested: 18 caught, 0 missed.
+
 ## 2026-07-04 - proactive trace collected-helmet mutation rerun
 
 - Project-status still showed no ready/open risks after the death-respawn

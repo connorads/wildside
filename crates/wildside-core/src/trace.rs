@@ -317,7 +317,7 @@ fn trace_cell_word(cell: terrain::Cell) -> u16 {
     } else {
         0
     };
-    let hi = u8::from(cell.has_block) << 7 | ((cell.collision as u8 & 0x07) << 4) | block_type;
+    let hi = (u8::from(cell.has_block) << 7) + ((cell.collision as u8 & 0x07) << 4) + block_type;
     u16::from_be_bytes([hi, cell.skin])
 }
 
