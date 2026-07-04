@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive trace opening object-count mutation hardening
+
+- Project-status still showed no ready/open risks after the collision classifier
+  rerun, so mutation-tested `trace.rs` `opening_level_one_object_counts`.
+  The helper is backed by the `loc_74E0` level-skip resume path, `Load_InGame`,
+  and oracle object-count evidence for the opening settled trace.
+- Initial focused tests passed, but the mutation run at
+  `/tmp/mutants-core-trace-opening-level-one-counts-20260704-initial` reported
+  one missed equivalent mutant: changing the final `camera_x_pos == 0` branch to
+  `!=` survived because both the zero-camera ordinary path and the scrolled
+  opening path returned the same `(roster + 2, roster + 3)` split.
+- Fix: removed the redundant branch and kept the ASM/oracle rationale on the
+  shared return.
+- Verification: focused `cargo test -p wildside-core
+  opening_level_one_object_counts` passes. Initial mutation reported 37 mutants
+  tested: 35 caught, 1 missed, 1 unviable. Final mutation at
+  `/tmp/mutants-core-trace-opening-level-one-counts-20260704-final` reports 32
+  mutants tested: 31 caught, 1 unviable, 0 missed.
+
 ## 2026-07-04 - proactive trace collision classifier mutation rerun
 
 - Project-status still showed no ready/open risks after the end-sequence burst

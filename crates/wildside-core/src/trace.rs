@@ -11422,12 +11422,10 @@ pub(crate) fn opening_level_one_object_counts(
     if camera_x_pos == 0 && camera_y_pos > OPENING_GROUNDED_CAMERA_Y_FP + 0x0004_0000 {
         return Some((roster_count + 2, roster_count + 2));
     }
-    if camera_x_pos == 0 {
-        // ASM Load_InGame allocates the player, DragonWalker, fixed manager
-        // object, and the extra gameplay gfx slot before the settled-recording
-        // helper starts frame 0. Oracle RAM for issue-211's level-00 settled
-        // path reports Number_Objects=4 / Number_GfxObjects=5 here.
-        return Some((roster_count + 2, roster_count + 3));
-    }
+    // ASM Load_InGame allocates the player, DragonWalker, fixed manager object,
+    // and the extra gameplay gfx slot before the settled-recording helper starts
+    // frame 0. Oracle RAM for issue-211's level-00 settled path reports
+    // Number_Objects=4 / Number_GfxObjects=5 here, and the scrolled opening
+    // window preserves the same split.
     Some((roster_count + 2, roster_count + 3))
 }
