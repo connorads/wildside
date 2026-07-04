@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI TAS-diff helper mutation hardening
+
+- Project-status still showed no ready/open risks after the sweep frame-helper
+  slice, so mutation-tested pure TAS-diff helper contracts: category tags,
+  checkpoint lookup, optional/rng formatting, object-roster relevance and
+  summaries, native/oracle gameplay debug fields, collision-source decoding,
+  and entry truncation.
+- Initial focused rerun exposed 87 missed mutants across small formatters,
+  native/oracle debug helper gates, collision-source label table coverage, and
+  long-list summarisation.
+- Fix: added focused tests for exact formatter outputs, exact checkpoint labels,
+  every divergence tag, native/oracle object and gameplay debug summaries,
+  field-only vs rng-only debug cases, low-byte collision-source labels, raw
+  unknown collision values, and summarisation at/over the display limit.
+- Verification: focused `cargo test -p wildside-cli tas_diff::tests` passes.
+  Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-cli -f
+  crates/wildside-cli/src/tas_diff.rs -j 4 --gitignore=true --re
+  'diff_category_tag|checkpoint_state|format_rng_delta|format_opt_(u32|i32|u16|u16_hex|bool)|should_print_object_roster|native_object_debug_relevant|native_object_debug|native_gameplay_debug|native_gameplay_field|oracle_object_debug|oracle_gameplay_debug|oracle_gameplay_field|format_native_enemy_debug|format_oracle_enemy_debug|oracle_object_role_label|format_oracle_debug_fields|format_collision_source_value|parse_hex_u16|collision_source_label|summarize_entries'
+  --output /tmp/mutants-cli-tas-diff-20260704-initial -- tas_diff::tests`
+  reported 127 mutants tested: 39 caught, 87 missed, 1 unviable. Final rerun
+  at `/tmp/mutants-cli-tas-diff-20260704-final2` reports 127 mutants tested:
+  126 caught, 1 unviable, 0 missed.
+
 ## 2026-07-04 - proactive CLI sweep frame-helper mutation hardening
 
 - Project-status still showed no ready/open risks after the release-gate focus

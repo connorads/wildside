@@ -812,15 +812,431 @@ fn summarize_entries(entries: Vec<String>) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        collision_source_label, diff_category_tag, format_collision_source_value,
-        format_native_enemy_debug, format_oracle_enemy_debug, oracle_gameplay_debug,
-        should_print_object_roster,
+        checkpoint_state, collision_source_label, diff_category_tag, format_collision_source_value,
+        format_native_enemy_debug, format_opt_bool, format_opt_i32, format_opt_u16,
+        format_opt_u16_hex, format_opt_u32, format_oracle_enemy_debug, format_rng_delta,
+        native_gameplay_debug, native_gameplay_field, native_object_debug,
+        native_object_debug_relevant, oracle_gameplay_debug, oracle_gameplay_field,
+        oracle_object_debug, should_print_object_roster, summarize_entries,
     };
     use crate::sweep::{DivergenceCategory, StateDiff};
     use wildside_core::{
         GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame,
         physics::Direction,
     };
+
+    fn oracle_enemy(object_type: u8) -> crate::oracle::OracleEnemyState {
+        crate::oracle::OracleEnemyState {
+            object_type,
+            x_pos: 0x0367_0000,
+            y_pos: 0x01C0_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: crate::oracle::EnemyFacing::Right,
+            collision_type: None,
+            collision_source: None,
+            layout_index: None,
+            layout_ptr: None,
+            parent_object_ptr: None,
+            gfx_slot_index: None,
+            on_ground: None,
+            current_hp: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        }
+    }
+
+    fn oracle_state(label: &str) -> crate::oracle::OracleState {
+        crate::oracle::OracleState {
+            label: label.into(),
+            frame_index: 3400,
+            game_mode: 0x0010,
+            boot_phase: Some("demo_play".into()),
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 5,
+            current_helmet_id: 6,
+            current_level_id: 0x15,
+            player_1_level_id: 0x15,
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            kid_x_pos: 0,
+            kid_y_pos: 0,
+            number_objects: 0,
+            number_gfx_objects: 0,
+            game_paused: false,
+            active_enemies: Vec::new(),
+            score: 0,
+            number_lives: 0,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            kid_collision_type: None,
+            kid_collision_source: None,
+            kid_x_direction: None,
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            rng_last_byte: None,
+            level_special_effects: None,
+            gameplay_debug_fields: std::collections::BTreeMap::new(),
+            cpu_registers: None,
+        }
+    }
+
+    fn native_enemy() -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0D },
+            x_pos: 0x0367_0000,
+            y_pos: 0x01C0_0000,
+            layout_index: Some(4),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(2),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: Some(0x000a),
+            shared_walker_patrol_timer: Some(0x0029),
+            shared_walker_patrol_short_next: Some(false),
+            walk_phase: Some(0),
+            wait_timer: Some(0x01df),
+            debug_fields: std::collections::BTreeMap::new(),
+        }
+    }
+
+    #[test]
+    fn tas_diff_small_formatters_have_explicit_missing_and_value_output() {
+        assert_eq!(format_rng_delta(Some(0x0000), Some(0x0041)), "+0x01");
+        assert_eq!(format_rng_delta(Some(0x003f), Some(0x0000)), "+0x01");
+        assert_eq!(format_rng_delta(None, Some(0x0001)), "-");
+        assert_eq!(format_rng_delta(Some(0x0001), None), "-");
+
+        assert_eq!(format_opt_u32(Some(123_456)), "123456");
+        assert_eq!(format_opt_u32(None), "-");
+        assert_eq!(format_opt_i32(Some(-42)), "-42");
+        assert_eq!(format_opt_i32(None), "-");
+        assert_eq!(format_opt_u16(Some(513)), "513");
+        assert_eq!(format_opt_u16(None), "-");
+        assert_eq!(format_opt_u16_hex(Some(0x00ab)), "0x00ab");
+        assert_eq!(format_opt_u16_hex(None), "-");
+        assert_eq!(format_opt_bool(Some(true)), "true");
+        assert_eq!(format_opt_bool(Some(false)), "false");
+        assert_eq!(format_opt_bool(None), "-");
+    }
+
+    #[test]
+    fn checkpoint_state_matches_exact_labels() {
+        let states = vec![oracle_state("frame_10"), oracle_state("frame_11")];
+
+        assert_eq!(
+            checkpoint_state(&states, "frame_11").map(|state| state.frame_index),
+            Some(3400)
+        );
+        assert!(checkpoint_state(&states, "frame_1").is_none());
+    }
+
+    #[test]
+    fn diff_category_tags_cover_every_category() {
+        let cases = [
+            (DivergenceCategory::Authoritative, ""),
+            (DivergenceCategory::Advisory, " (advisory)"),
+            (DivergenceCategory::Accumulation, " (accumulation)"),
+            (DivergenceCategory::Rng, " (rng)"),
+            (DivergenceCategory::OracleLimitation, " (oracle limitation)"),
+        ];
+
+        for (category, expected) in cases {
+            let diff = StateDiff {
+                checkpoint: "frame_956".into(),
+                field: "number_objects".into(),
+                native_value: "10".into(),
+                oracle_value: "8".into(),
+                category,
+            };
+            assert_eq!(diff_category_tag(&diff), expected);
+        }
+    }
+
+    #[test]
+    fn object_roster_relevance_tracks_native_and_oracle_debug_payloads() {
+        let empty_native = NativeTraceFrame::default();
+        let empty_oracle = oracle_state("frame_0");
+        assert!(!native_object_debug_relevant(
+            Some(&empty_native),
+            Some(&empty_oracle)
+        ));
+        assert!(!should_print_object_roster(
+            false,
+            true,
+            Some(&empty_native),
+            Some(&empty_oracle)
+        ));
+        assert!(should_print_object_roster(
+            true,
+            false,
+            Some(&empty_native),
+            Some(&empty_oracle)
+        ));
+
+        let native_with_enemy = NativeTraceFrame {
+            active_objects: vec![native_enemy()],
+            ..NativeTraceFrame::default()
+        };
+        assert!(native_object_debug_relevant(
+            Some(&native_with_enemy),
+            Some(&empty_oracle)
+        ));
+        assert!(should_print_object_roster(
+            false,
+            true,
+            Some(&native_with_enemy),
+            Some(&empty_oracle)
+        ));
+
+        let native_with_block_bounce = NativeTraceFrame {
+            block_bounces: vec![(0x0A, 0x0B, 3, -2)],
+            ..NativeTraceFrame::default()
+        };
+        assert!(native_object_debug_relevant(
+            Some(&native_with_block_bounce),
+            None
+        ));
+
+        let native_with_floating_item = NativeTraceFrame {
+            floating_items: vec![(12, 34, 5, 0x64)],
+            ..NativeTraceFrame::default()
+        };
+        assert!(native_object_debug_relevant(
+            Some(&native_with_floating_item),
+            None
+        ));
+
+        let native_with_block_fx = NativeTraceFrame {
+            block_destroy_effects: vec![(6, 7, 8, 1)],
+            ..NativeTraceFrame::default()
+        };
+        assert!(native_object_debug_relevant(
+            Some(&native_with_block_fx),
+            None
+        ));
+
+        let mut oracle_with_enemy = oracle_state("frame_0");
+        oracle_with_enemy.active_enemies.push(oracle_enemy(0x0D));
+        assert!(native_object_debug_relevant(None, Some(&oracle_with_enemy)));
+    }
+
+    #[test]
+    fn native_and_oracle_object_debug_summarise_entries() {
+        assert_eq!(native_object_debug(None), "-");
+        assert_eq!(native_object_debug(Some(&NativeTraceFrame::default())), "-");
+        let native_frame = NativeTraceFrame {
+            active_objects: vec![
+                native_enemy(),
+                NativeObjectSnapshot {
+                    kind: NativeObjectKind::Platform {
+                        kind: 0x12,
+                        subtype: 0x34,
+                    },
+                    x_pos: 0x0012_0000,
+                    y_pos: 0x0034_0000,
+                    ..native_enemy()
+                },
+            ],
+            block_bounces: vec![(0x0A, 0x0B, 3, -2)],
+            floating_items: vec![(12, 34, 5, 0x64)],
+            block_destroy_effects: vec![(6, 7, 8, 1)],
+            ..NativeTraceFrame::default()
+        };
+        let native_debug = native_object_debug(Some(&native_frame));
+        assert!(native_debug.contains("enemy_0D#04@0x03670000,0x01c00000"));
+        assert!(native_debug.contains("platform_12:34@0x00120000,0x00340000"));
+        assert!(native_debug.contains("block_bounce@0A,0B rem=3 y_off=-2"));
+        assert!(native_debug.contains("floating_item#64@012,034 rem=5"));
+        assert!(native_debug.contains("block_fx@006,007 rem=8 dir=1"));
+
+        assert_eq!(oracle_object_debug(None), "-");
+        assert_eq!(oracle_object_debug(Some(&oracle_state("frame_0"))), "-");
+        let mut oracle = oracle_state("frame_0");
+        oracle.active_enemies.push(oracle_enemy(0x0D));
+        assert_eq!(
+            oracle_object_debug(Some(&oracle)),
+            "0x0D@0x03670000,0x01c00000 vel=0x00000000,0x00000000 face=Right",
+        );
+    }
+
+    #[test]
+    fn gameplay_debug_helpers_report_rng_and_named_fields() {
+        assert_eq!(native_gameplay_debug(None), None);
+        assert_eq!(
+            native_gameplay_debug(Some(&NativeTraceFrame::default())),
+            None
+        );
+        let native_rng_only = NativeTraceFrame {
+            rng_offset: Some(0x0034),
+            ..NativeTraceFrame::default()
+        };
+        assert_eq!(
+            native_gameplay_debug(Some(&native_rng_only)),
+            Some("{\"rng_offset\": \"0x0034\"}".into())
+        );
+        let mut native_field_only_fields = std::collections::BTreeMap::new();
+        native_field_only_fields.insert("kid_collision_type".into(), "0x0028(kidbelow)".into());
+        let native_field_only = NativeTraceFrame {
+            gameplay_debug_fields: native_field_only_fields,
+            ..NativeTraceFrame::default()
+        };
+        assert_eq!(
+            native_gameplay_debug(Some(&native_field_only)),
+            Some("{\"kid_collision_type\": \"0x0028(kidbelow)\"}".into())
+        );
+        let mut native_fields = std::collections::BTreeMap::new();
+        native_fields.insert("kid_collision_type".into(), "0x0028(kidbelow)".into());
+        let native_frame = NativeTraceFrame {
+            gameplay_debug_fields: native_fields,
+            rng_offset: Some(0x0034),
+            ..NativeTraceFrame::default()
+        };
+        let native_debug =
+            native_gameplay_debug(Some(&native_frame)).expect("native debug should print");
+        assert!(native_debug.contains("kid_collision_type"));
+        assert!(native_debug.contains("0x0028(kidbelow)"));
+        assert!(native_debug.contains("rng_offset"));
+        assert!(native_debug.contains("0x0034"));
+        assert_eq!(
+            native_gameplay_field(Some(&native_frame), "kid_collision_type"),
+            "0x0028(kidbelow)"
+        );
+        assert_eq!(native_gameplay_field(Some(&native_frame), "missing"), "-");
+        assert_eq!(native_gameplay_field(None, "kid_collision_type"), "-");
+
+        assert_eq!(oracle_gameplay_debug(None), None);
+        assert_eq!(oracle_gameplay_debug(Some(&oracle_state("frame_0"))), None);
+        let mut oracle = oracle_state("frame_0");
+        oracle.rng_offset = Some(0x0012);
+        oracle
+            .gameplay_debug_fields
+            .insert("kid_collision_source".into(), "0x000d".into());
+        let oracle_debug = oracle_gameplay_debug(Some(&oracle)).expect("oracle debug should print");
+        assert!(oracle_debug.contains("\"kid_collision_source\": \"0x000d(dragon)\""));
+        assert!(oracle_debug.contains("\"rng_offset\": \"0x0012\""));
+        assert_eq!(
+            oracle_gameplay_field(Some(&oracle), "kid_collision_source"),
+            "0x000d"
+        );
+        assert_eq!(oracle_gameplay_field(Some(&oracle), "missing"), "-");
+        assert_eq!(oracle_gameplay_field(None, "kid_collision_source"), "-");
+    }
+
+    #[test]
+    fn collision_source_labels_cover_enemy_form_prize_and_flagpole_ids() {
+        let cases = [
+            (0x00, "fire_demon"),
+            (0x01, "diamond"),
+            (0x03, "robot"),
+            (0x04, "armadillo"),
+            (0x05, "tar_monster"),
+            (0x06, "sphere"),
+            (0x07, "archer"),
+            (0x08, "orca"),
+            (0x09, "crab"),
+            (0x0A, "rock_tank"),
+            (0x0B, "rock_tank_shooting"),
+            (0x0C, "dragon_flying"),
+            (0x0D, "dragon"),
+            (0x0E, "cloud"),
+            (0x0F, "ufo"),
+            (0x10, "goat"),
+            (0x11, "ninja"),
+            (0x12, "lion"),
+            (0x13, "scorpion"),
+            (0x14, "spinning_twins"),
+            (0x16, "drip"),
+            (0x17, "hand"),
+            (0x18, "tornado"),
+            (0x19, "fireball"),
+            (0x1A, "driller"),
+            (0x1B, "emo_rock"),
+            (0x1C, "mini_hopping_skull"),
+            (0x1D, "big_hopping_skull"),
+            (0x1F, "invalid_1f"),
+            (0x20, "heady_metal"),
+            (0x22, "shiskaboss"),
+            (0x23, "boomerang_bosses"),
+            (0x24, "bagel_brothers"),
+            (0x64, "prizediamond"),
+            (0x6C, "skycutter"),
+            (0x70, "cyclone"),
+            (0x74, "redstealth"),
+            (0x78, "eyeclops"),
+            (0x7C, "juggernaut"),
+            (0x80, "ironknight"),
+            (0x84, "berzerker"),
+            (0x88, "maniaxe"),
+            (0x8C, "micromax"),
+            (0x90, "ankh"),
+            (0x94, "clock"),
+            (0x98, "continue"),
+            (0x9C, "unknown_prize"),
+            (0xA0, "flagpole"),
+        ];
+
+        for (source, label) in cases {
+            assert_eq!(collision_source_label(source), Some(label));
+            assert_eq!(
+                collision_source_label(source | 0x1200),
+                Some(label),
+                "collision source labels are keyed by the low byte"
+            );
+        }
+        assert_eq!(collision_source_label(0x02), None);
+        assert_eq!(collision_source_label(0xFF), None);
+    }
+
+    #[test]
+    fn collision_source_value_formats_known_hex_and_leaves_raw_unknowns() {
+        assert_eq!(format_collision_source_value("0X000D"), "0X000D(dragon)");
+        assert_eq!(format_collision_source_value("0x12a0"), "0x12a0(flagpole)");
+        assert_eq!(format_collision_source_value("13"), "13");
+        assert_eq!(format_collision_source_value("0xzzzz"), "0xzzzz");
+    }
+
+    #[test]
+    fn summarize_entries_limits_long_lists() {
+        assert_eq!(summarize_entries(Vec::new()), "-");
+        assert_eq!(
+            summarize_entries(vec![
+                "a".into(),
+                "b".into(),
+                "c".into(),
+                "d".into(),
+                "e".into(),
+                "f".into(),
+            ]),
+            "a; b; c; d; e; f"
+        );
+        assert_eq!(
+            summarize_entries(vec![
+                "a".into(),
+                "b".into(),
+                "c".into(),
+                "d".into(),
+                "e".into(),
+                "f".into(),
+                "g".into(),
+                "h".into(),
+            ]),
+            "a; b; c; d; e; f; +2 more"
+        );
+    }
 
     #[test]
     fn native_enemy_debug_includes_layout_motion_and_ground_state() {
