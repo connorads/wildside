@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive gfx-animation mutation slice
+
+- Project-status still showed no ready/open risks after the scenario mutation
+  rerun, so continued the proactive verification fallback with the small
+  gfx-animation helper module changed by the later citation/return-path update.
+  Native behaviour is unchanged.
+- Verification: `env FILE=crates/wildside-core/src/gfx_animation.rs
+  OUTPUT=/tmp/mutants-gfx-animation-20260704-refresh TMPDIR=/tmp mise run
+  mutants-file` reports 18 mutants tested: 16 caught, 2 unviable, 0 missed,
+  0 timeouts.
+
 ## 2026-07-04 - proactive scenario mutation slice
 
 - Project-status still showed no ready/open risks after the `1p-playable`

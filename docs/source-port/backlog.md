@@ -56,20 +56,20 @@ and stop — never commit churn.
 - **Visual route work:** do not retune Tank Y/priority, flagpole priority, or
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
-- **Proactive verification 2026-07-04:** no ready/open rows remain; latest addition is the clean `scenario.rs` mutation rerun.
+- **Proactive verification 2026-07-04:** no ready/open rows remain; latest addition is the clean `gfx_animation.rs` mutation rerun.
 - **Current gates 2026-07-04:** clean mutation reruns now cover through storm
   `sub_6048` cadence, live `step_weather` free-slot routing, murder-wall
   warning dispatch, weather label/path helpers, and the enemy module reruns
   listed below.
-  Latest focused clean reruns: scenario 98/80/18, types 211/204/7, Hand 50/45/5, movement 22/20/2
-  + 21/20/1, weather 16/16/0 + 52/49/3 + 64/63/1 + 25/25/0 + 103/102/1 +
+  Latest focused clean reruns: gfx-animation 18/16/2, scenario 98/80/18,
+  types 211/204/7, Hand 50/45/5, movement 22/20/2 + 21/20/1,
+  weather 16/16/0 + 52/49/3 + 64/63/1 + 25/25/0 + 103/102/1 +
   65/51/14 + 92/92/0 + 16/15/1 + 14/14/0 + 7/6/1 + 26/25/1 + 22/22/0
   + 8/8/0 + 18/18/0 + 7/7/0 + 11/11/0 + 18/17/1 + 9/8/1 + 10/9/1
   + 11/11/0 + 12/11/1 + 73/71/2 + 35/34/1 + 20/20/0 + 47/45/2
   + 20/20/0, Driller 24/19/5, Armadillo 46/34/12, Tornado 68/60/8, Tank 28/21/7 (mutants
   caught/unviable; all 0 missed). Latest compact ASM promotions now cover hidden-block, title-entry/VDP/KID-shell, gfx-animation, Lion-projectile slope, camera clamp, hidden-prize reveal-start, blank-top grid-shift, blank-top terrain-byte shift, leftward lead-cell collision, intro centre-particle, platform walking-carry, standing-platform crush, animated-solid coarse-cull layout-restore, shooter-projectile recycle, and Kid-projectile overlap-branch labels; test-only debt is 197; fast gate green.
-  Friendly projectile overlap rerun is 85/79/6 equivalent after Sphere edge
-  tests; remaining misses are empty-row guards and Maniaxe's default lifetime.
+  Friendly projectile overlap rerun is 85/79/6 equivalent after Sphere edge tests; remaining misses are empty-row guards and Maniaxe's default lifetime.
   Enemy module reruns are all 0 missed: Goat 23 total (15 caught, 8 unviable),
   Fire Demon 48 (30/18), Scorpion 57 (46/11), Dragon 264 (222/42), Archer
   135 (124/11), Dragon Walking 136 (112/24), Big Hopping Skull 71 (56/15),
