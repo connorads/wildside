@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI diff helper mutation rerun
+
+- Project-status still showed no ready/open risks after the verify audio/window
+  helper slice, so mutation-tested `diff.rs` as a compact pure helper module
+  covering frame MAE, pixel mismatch counts, RGB diff-composite generation,
+  glyph text drawing, and diff annotation placement.
+- Result: no code changes needed. Existing tests already catch every generated
+  mutant for this file.
+- Verification: focused `cargo test -p wildside-cli diff::tests` passes.
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-cli -f
+  crates/wildside-cli/src/diff.rs -j 4 --gitignore=true --output
+  /tmp/mutants-cli-diff-20260704-initial -- diff::tests` reports 91 mutants
+  tested: 91 caught, 0 missed.
+
 ## 2026-07-04 - proactive CLI verify audio/window helper mutation hardening
 
 - Project-status still showed no ready/open risks after the TAS-diff helper
