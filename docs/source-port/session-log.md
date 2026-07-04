@@ -7,6 +7,36 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive core boot continue-timeout mutation hardening
+
+- Project-status still showed no ready/open risks after the Sega-screen helper
+  slice, so mutation-tested the `boot.rs` continue-screen/title-return helper
+  cluster around `loc_D372` through `loc_D44C`.
+- The continue-screen fade-object sub-pass selected only two generated
+  `Default::default()` replacement mutants and both were unviable because the
+  returned helper structs do not implement `Default`; no missed-test signal
+  came from `loc_D372`/`loc_D386`.
+- Initial title-return rerun exposed 1 missed mutant: `loc_D428` survived a
+  signed branch change from `< 0` to `<= 0`. ASM `bmi.s loc_D44C` means a zero
+  post-subtract fade word must still loop through `loc_D440` and reseed both
+  pending palette masks.
+- Fix: added an ASM-cited `loc_D428` zero-boundary assertion to the
+  continue-timeout title fade test.
+- Verification: focused `cargo test -p wildside-core loc_d3`,
+  `cargo test -p wildside-core loc_D4`, and `cargo test -p wildside-core
+  loc_D428` pass. D3 probe:
+  `/tmp/mutants-core-boot-continue-d3-20260704-initial` reported 2 mutants
+  tested: 2 unviable. Initial D4 rerun:
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-core -f
+  crates/wildside-core/src/boot.rs -j 4 --gitignore=true --re
+  'continue_timeout_title_palette_backup_loc_D40A|continue_timeout_title_palette_clear_loc_D418|continue_timeout_title_fade_step_loc_D428|continue_timeout_title_return_loc_D44C'
+  --output /tmp/mutants-core-boot-continue-d4-20260704-initial -- loc_D4`
+  reported 7 mutants tested: 2 caught, 1 missed, 4 unviable. Final rerun at
+  `/tmp/mutants-core-boot-continue-d4-20260704-final` reports 7 mutants
+  tested: 3 caught, 4 unviable, 0 missed. `cargo fmt --all --check`,
+  `git diff --check`, `mise run backlog-lint`, and `mise run
+  verify-slice-fast` pass.
+
 ## 2026-07-04 - proactive core boot Sega-screen mutation hardening
 
 - Project-status still showed no ready/open risks after the reset/startup

@@ -27307,6 +27307,26 @@ mod chunk_12 {
             "ASM loc_D428 should keep fading while the post-subtract word is non-negative"
         );
 
+        let zero_boundary = crate::boot::continue_timeout_title_fade_step_loc_D428(0x0010, 0, 0);
+        assert_eq!(
+            zero_boundary.fade_progress, 0x0000,
+            "ASM loc_D428 reaches zero on the last non-final fade frame"
+        );
+        assert_eq!(
+            zero_boundary.pending_palette_0_mask,
+            u32::MAX,
+            "ASM loc_D440 still refreshes the first shadow-palette longword when loc_D428 leaves `$FFFFF876` at zero"
+        );
+        assert_eq!(
+            zero_boundary.pending_palette_1_mask,
+            u32::MAX,
+            "ASM loc_D440 still refreshes the second shadow-palette longword when loc_D428 leaves `$FFFFF876` at zero"
+        );
+        assert!(
+            !zero_boundary.return_to_title,
+            "ASM loc_D428 uses `bmi.s loc_D44C`, so zero must loop for one more fade frame"
+        );
+
         let final_step = crate::boot::continue_timeout_title_fade_step_loc_D428(
             0x0000,
             0x1234_5678,
