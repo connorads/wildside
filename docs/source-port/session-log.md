@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive data title/menu mutation hardening
+
+- Project-status still showed no ready/open risks after the render palette
+  rerun, so ran a regex-limited mutation slice over the `wildside-data`
+  title/menu source-port helpers in `src/lib.rs`. Initial rerun reported two
+  survivors in `title_intro_glyph_write_sub_1C7F6`: OR-to-XOR mutations in
+  disjoint VDP control-word packing.
+- Fix: changed the two disjoint-bit packs to addition. Behaviour is unchanged
+  because bit 14 is masked clear before adding the VDP write bit, and the
+  shifted high word cannot overlap the low two rotated address bits.
+- Verification: `cargo test -p wildside-data --lib` passes. Initial
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-data -f
+  crates/wildside-data/src/lib.rs -j 4 --gitignore=true --re
+  'advance_title_screen_region|title_(screen|intro|character)|option_menu'
+  --output /tmp/mutants-data-title-menu-20260704-rerun -- --lib` reported
+  48 mutants tested: 37 caught, 2 missed, 9 unviable. Final rerun at
+  `/tmp/mutants-data-title-menu-20260704-final` reports 48 mutants tested:
+  39 caught, 9 unviable, 0 missed.
+
 ## 2026-07-04 - proactive render palette mutation rerun
 
 - Project-status still showed no ready/open risks after render tile hardening,

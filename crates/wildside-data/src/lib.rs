@@ -2112,12 +2112,12 @@ pub fn title_intro_glyph_write_sub_1C7F6(
         .wrapping_add(row << 7)
         .wrapping_add(column)
         .wrapping_add(column);
-    let high_word = (vram_word_address & 0x3FFF) | 0x4000;
+    let high_word = (vram_word_address & 0x3FFF) + 0x4000;
     let low_word = vram_word_address.rotate_left(2) & 0x0003;
 
     TitleIntroGlyphWriteSub1C7F6 {
         vram_word_address,
-        vdp_control_longword: (u32::from(high_word) << 16) | u32::from(low_word),
+        vdp_control_longword: (u32::from(high_word) << 16) + u32::from(low_word),
         tile_word: base_tile_word.wrapping_add(glyph_index),
     }
 }
