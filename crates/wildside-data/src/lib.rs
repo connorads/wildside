@@ -2,6 +2,7 @@ use anyhow::{Context, Result, anyhow, bail, ensure};
 use image::{GrayImage, Luma};
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -3678,19 +3679,16 @@ pub fn background_row_upload_sub_303BA(
     // another 16 from `+$700`, while selectors `>=#$1C` stream both halves from
     // `$FFFF8EB2+row*64`.
     let current_camera_chunk = camera_y_pos >> 5;
-    if current_camera_chunk == previous_camera_chunk {
-        return Ok(None);
-    }
 
     ensure!(
         current_camera_chunk >= 0,
         "sub_303BA expects a non-negative camera row chunk"
     );
 
-    let streamed_chunk = if current_camera_chunk > previous_camera_chunk {
-        current_camera_chunk.wrapping_add(0x001C)
-    } else {
-        current_camera_chunk
+    let streamed_chunk = match current_camera_chunk.cmp(&previous_camera_chunk) {
+        Ordering::Equal => return Ok(None),
+        Ordering::Greater => current_camera_chunk.wrapping_add(0x001C),
+        Ordering::Less => current_camera_chunk,
     };
     ensure!(
         streamed_chunk >= 0,
@@ -3722,7 +3720,7 @@ pub fn background_row_upload_sub_303BA(
     };
 
     Ok(Some(BackgroundRowUploadSub303BA {
-        vram_word_address: (((streamed_chunk as u16) & 0x001F) << 7) | 0x6000,
+        vram_word_address: (((streamed_chunk as u16) & 0x001F) << 7) + 0x6000,
         upper_longwords: longwords_from_bytes_sub_303BA(source_upper, row_byte_offset, 16)?,
         lower_longwords: longwords_from_bytes_sub_303BA(source_lower, row_byte_offset, 16)?,
     }))
@@ -3834,8 +3832,8 @@ pub fn background_tile_uploads_sub_30744(
                 .context("sub_30744 background chunk buffer is missing the selected source byte")?;
             uploads.push(BackgroundTileUploadSub30744 {
                 vram_word_address: 0x6000
-                    | (((camera_chunk as u16).wrapping_add(row_index) & 0x001F) << 7)
-                    | entry.vram_word_offset,
+                    + (((camera_chunk as u16).wrapping_add(row_index) & 0x001F) << 7)
+                    + entry.vram_word_offset,
                 tile_word: background_tile_word_sub_30744(background_chunk_id),
                 background_chunk_id,
             });
@@ -3871,14 +3869,11 @@ pub fn background_row_uploads_sub_307D8(
         "sub_307D8 needs a non-zero Background_width"
     );
     let current_camera_row_chunk = camera_y_pos >> 5;
-    if current_camera_row_chunk == previous_camera_row_chunk {
-        return Ok(Vec::new());
-    }
 
-    let streamed_row_chunk = if previous_camera_row_chunk > current_camera_row_chunk {
-        current_camera_row_chunk
-    } else {
-        current_camera_row_chunk.wrapping_add(0x001C)
+    let streamed_row_chunk = match current_camera_row_chunk.cmp(&previous_camera_row_chunk) {
+        Ordering::Equal => return Ok(Vec::new()),
+        Ordering::Less => current_camera_row_chunk,
+        Ordering::Greater => current_camera_row_chunk.wrapping_add(0x001C),
     };
     ensure!(
         streamed_row_chunk >= 0,
@@ -3914,8 +3909,8 @@ pub fn background_row_uploads_sub_307D8(
         .checked_add(usize::from(background_buffer_column))
         .context("sub_307D8 background source row start overflowed")?;
     let row_base_vram_word_address =
-        0x6000 | (((u16::try_from(streamed_row_chunk).unwrap_or_default()) & 0x001F) << 7);
-    let mut current_vram_word_address = row_base_vram_word_address | entry.vram_word_offset;
+        0x6000 + (((u16::try_from(streamed_row_chunk).unwrap_or_default()) & 0x001F) << 7);
+    let mut current_vram_word_address = row_base_vram_word_address + entry.vram_word_offset;
     let mut current_source_index = source_row_start;
     let mut source_remaining_until_wrap = background_width
         .checked_sub(usize::from(background_buffer_column))
@@ -3952,7 +3947,9 @@ pub fn background_row_uploads_sub_307D8(
             background_chunk_ids,
         });
 
-        remaining_cells -= segment_len;
+        remaining_cells = remaining_cells
+            .checked_sub(segment_len)
+            .context("sub_307D8 remaining cell count underflowed")?;
         current_source_index += segment_len;
         source_remaining_until_wrap -= segment_len;
         vram_remaining_until_wrap -= segment_len;
@@ -9586,6 +9583,37 @@ PlatformScript_3F7E:   ; relative offset: 097C
     }
 
     #[test]
+    fn background_tile_uploads_sub_30744_uses_camera_row_chunk_for_source_and_vram() {
+        let mut background_chunk_buffer = vec![0u8; 120];
+        background_chunk_buffer[85] = 0x11;
+        let mut bgscroll_profile = vec![0xFF; 4];
+        bgscroll_profile[2] = 0;
+
+        let uploads = background_tile_uploads_sub_30744(
+            64,
+            40,
+            &[0, 40, 80],
+            &bgscroll_profile,
+            &[BackgroundScrollStateSub30744 {
+                background_buffer_column: Some(5),
+                vram_word_offset: 0x0012,
+            }],
+            &background_chunk_buffer,
+        )
+        .expect("ASM sub_30744 should derive the starting row from Camera_Y_pos>>5");
+
+        assert_eq!(
+            uploads,
+            vec![BackgroundTileUploadSub30744 {
+                vram_word_address: 0x6112,
+                tile_word: 0x2791,
+                background_chunk_id: 0x11,
+            }],
+            "ASM sub_30744 should use Camera_Y_pos>>5 for both the source row and wrapped VDP row address",
+        );
+    }
+
+    #[test]
     fn background_row_uploads_sub_307d8_uses_the_newly_exposed_downward_row_chunk() {
         let mut background_chunk_buffer = vec![0u8; 32 * 40];
         for (index, byte) in background_chunk_buffer[31 * 40..32 * 40]
@@ -9718,6 +9746,81 @@ PlatformScript_3F7E:   ; relative offset: 097C
                     && upload.background_chunk_ids == (1u8..=41).collect::<Vec<_>>()
             }),
             "ASM loc_2FFE8 should reach the negative Camera_Y_pos=-317 pass and stream row 18 through sub_307D8 before restoring the real camera",
+        );
+    }
+
+    #[test]
+    fn background_preload_row_uploads_loc_2ffe8_drops_bottom_boundary_pass() {
+        let background_width = 70;
+        let mut background_chunk_buffer = vec![0u8; 29 * background_width];
+        for (index, byte) in background_chunk_buffer[28 * background_width..]
+            .iter_mut()
+            .take(41)
+            .enumerate()
+        {
+            *byte = u8::try_from(index + 1).expect("row payload should fit into u8");
+        }
+        let mut bgscroll_profile = vec![0xFF; 29];
+        bgscroll_profile[28] = 0;
+
+        let uploads = background_preload_row_uploads_loc_2FFE8(
+            0,
+            0x00E0,
+            background_width as u16,
+            &(0..29)
+                .map(|row| u16::try_from(row * background_width).unwrap_or(0))
+                .collect::<Vec<_>>(),
+            &bgscroll_profile,
+            &[BackgroundScrollStateSub30744 {
+                background_buffer_column: Some(0),
+                vram_word_offset: 0,
+            }],
+            &background_chunk_buffer,
+        )
+        .expect("ASM loc_2FFE8 should not bias the exact -$380 preload start");
+
+        assert!(
+            uploads.is_empty(),
+            "ASM loc_2FFE8 should subtract one pass when Camera_Y_pos+$E0 reaches the level height, so row 28 is not preloaded at the bottom boundary",
+        );
+    }
+
+    #[test]
+    fn background_preload_row_uploads_loc_2ffe8_updates_previous_latch_as_shifted_chunk() {
+        let background_width = 70;
+        let mut background_chunk_buffer = vec![0u8; 59 * background_width];
+        for (index, byte) in background_chunk_buffer[58 * background_width..]
+            .iter_mut()
+            .take(41)
+            .enumerate()
+        {
+            *byte = u8::try_from(index + 1).expect("row payload should fit into u8");
+        }
+        let mut bgscroll_profile = vec![0xFF; 59];
+        bgscroll_profile[58] = 0;
+
+        let uploads = background_preload_row_uploads_loc_2FFE8(
+            960,
+            2000,
+            background_width as u16,
+            &(0..59)
+                .map(|row| u16::try_from(row * background_width).unwrap_or(0))
+                .collect::<Vec<_>>(),
+            &bgscroll_profile,
+            &[BackgroundScrollStateSub30744 {
+                background_buffer_column: Some(0),
+                vram_word_offset: 0,
+            }],
+            &background_chunk_buffer,
+        )
+        .expect("ASM loc_2FFE8 should update the previous row latch with Camera_Y_pos>>5");
+
+        assert!(
+            uploads.iter().any(|upload| {
+                upload.vram_word_address == 0x6D00
+                    && upload.background_chunk_ids == (1u8..=41).collect::<Vec<_>>()
+            }),
+            "ASM loc_2FFE8 should keep streaming downward rows after each shifted previous-latch update and reach row 58 on the last preload pass",
         );
     }
 

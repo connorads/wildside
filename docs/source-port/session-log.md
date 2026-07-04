@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive data background mutation hardening
+
+- Project-status still showed no ready/open risks after the data title/menu
+  slice, so mutation-tested the `wildside-data` background row/scroll upload
+  helpers in `src/lib.rs`. Initial rerun exposed 11 missed mutants and 2 loop
+  timeouts across row-direction selection, disjoint VDP address packing,
+  non-zero `Camera_Y_pos>>5`, preload bottom-boundary pass count, and preload
+  previous-row latch updates.
+- Fix: rewrote the equivalent direction checks as `cmp` matches, changed
+  disjoint VDP address packs to addition, made `remaining_cells` progress use
+  `checked_sub`, and added exact tests for non-zero camera row selection,
+  bottom-boundary preload trimming, and shifted preload latch updates.
+- Verification: focused `cargo test -p wildside-data background_` passes.
+  Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-data
+  -f crates/wildside-data/src/lib.rs -j 4 --gitignore=true --re
+  'background_(row_upload|scroll_update|tile_upload|preload)' --output
+  /tmp/mutants-data-background-20260704-rerun -- --lib` reported 78 mutants
+  tested: 60 caught, 11 missed, 5 unviable, 2 timeouts. Final rerun at
+  `/tmp/mutants-data-background-20260704-final2` reports 68 mutants tested:
+  63 caught, 5 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-04 - proactive data title/menu mutation hardening
 
 - Project-status still showed no ready/open risks after the render palette
