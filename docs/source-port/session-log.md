@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive core demo mutation sweep
+
+- Project-status still showed no ready/open risks after the native-player audio
+  artefact slice, so continued the proactive verification fallback with
+  `crates/wildside-core/src/demo.rs`. The existing ASM-labelled demo playback
+  tests cover the frame boundary constants, hidden camera wrap quirk, and demo
+  byte decoding paths without further code changes.
+- Verification: focused `cargo test -p wildside-core demo::tests` passes.
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-core -f
+  crates/wildside-core/src/demo.rs -j 4 --gitignore=true --output
+  /tmp/mutants-core-demo-20260704-initial -- demo::tests` reports 79 mutants
+  tested: 61 caught, 18 unviable, 0 missed.
+
 ## 2026-07-04 - proactive native-player audio artefact mutation slice
 
 - Project-status still showed no ready/open risks after the native-player
