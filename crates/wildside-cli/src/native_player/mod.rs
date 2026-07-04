@@ -2375,14 +2375,34 @@ fn native_audio_artifacts_for_trace_with_initial_bgm(
         };
     };
 
+    let audio_samples = render_native_audio_samples_for_trace(
+        manifest,
+        trace_frames,
+        initial_active_bgm_cue,
+        &mut gems,
+    );
+
+    RecordingBundleArtifacts {
+        audio_samples: Some(audio_samples),
+        audio_channels: 2,
+        audio_events,
+        ..RecordingBundleArtifacts::default()
+    }
+}
+
+fn render_native_audio_samples_for_trace(
+    manifest: &AssetManifest,
+    trace_frames: &[NativeTraceFrame],
+    initial_active_bgm_cue: Option<NativeBgmCue>,
+    audio: &mut impl NativeAudioSink,
+) -> Vec<f32> {
     if let Some(bgm) = settled_audio_initial_bgm_id(manifest, initial_active_bgm_cue) {
         // Settled dynamic audio probes start after the ROM has already loaded
         // level music. Suppress duplicate event-log commands, but prime the
         // standalone GEMS renderer so block/pickup SFX are mixed over the same
         // active BGM instead of silence until the first SFX.
-        gems.start_sequence(bgm);
+        audio.start_sequence(bgm);
     }
-
     let mut active_bgm_cue = initial_active_bgm_cue;
     let mut pending_bgm_start: Option<u8> = None;
     let mut prev_trace: Option<&NativeTraceFrame> = None;
@@ -2393,7 +2413,7 @@ fn native_audio_artifacts_for_trace_with_initial_bgm(
         let mut queued_bgm_start_this_frame = false;
         let mut suppress_sfx_this_frame = false;
         if let Some(command) = bgm_command {
-            pending_bgm_start = apply_native_bgm_command(&mut gems, command);
+            pending_bgm_start = apply_native_bgm_command(audio, command);
             queued_bgm_start_this_frame = pending_bgm_start.is_some();
             suppress_sfx_this_frame =
                 native_bgm_command_suppresses_same_frame_sfx(command, trace, active_bgm_cue);
@@ -2401,31 +2421,26 @@ fn native_audio_artifacts_for_trace_with_initial_bgm(
         active_bgm_cue = next_bgm_cue;
 
         if !queued_bgm_start_this_frame && let Some(bgm) = pending_bgm_start.take() {
-            gems.start_sequence(bgm);
+            audio.start_sequence(bgm);
         }
         if !suppress_sfx_this_frame && let Some(prev) = prev_trace {
             for command in gems_event_audio_commands(prev, trace) {
                 match command {
                     NativeAudioTraceCommand::Sound(command) => {
-                        apply_native_sound_command(&mut gems, command);
+                        apply_native_sound_command(audio, command);
                     }
                     NativeAudioTraceCommand::MusicSpeed(speed) => {
-                        gems.set_music_speed(speed);
+                        audio.set_music_speed(speed);
                     }
                 }
             }
         }
-        gems.step_frame();
-        audio_samples.extend(gems.generate_samples(AUDIO_SAMPLES_PER_FRAME));
+        audio.step_frame();
+        audio_samples.extend(audio.generate_samples(AUDIO_SAMPLES_PER_FRAME));
         prev_trace = Some(trace);
     }
 
-    RecordingBundleArtifacts {
-        audio_samples: Some(audio_samples),
-        audio_channels: 2,
-        audio_events,
-        ..RecordingBundleArtifacts::default()
-    }
+    audio_samples
 }
 
 fn settled_audio_initial_bgm_id(
@@ -2435,17 +2450,52 @@ fn settled_audio_initial_bgm_id(
     initial_active_bgm_cue.and_then(|cue| bgm_for_native_cue(manifest, cue))
 }
 
+trait NativeAudioSink {
+    fn start_sequence(&mut self, sound_id: u8);
+    fn stop_sequence(&mut self, sound_id: u8);
+    fn stop_music(&mut self);
+    fn set_music_speed(&mut self, speed: u8);
+    fn step_frame(&mut self);
+    fn generate_samples(&mut self, sample_count: usize) -> Vec<f32>;
+}
+
+impl NativeAudioSink for GemsAudioEngine {
+    fn start_sequence(&mut self, sound_id: u8) {
+        GemsAudioEngine::start_sequence(self, sound_id);
+    }
+
+    fn stop_sequence(&mut self, sound_id: u8) {
+        GemsAudioEngine::stop_sequence(self, sound_id);
+    }
+
+    fn stop_music(&mut self) {
+        GemsAudioEngine::stop_music(self);
+    }
+
+    fn set_music_speed(&mut self, speed: u8) {
+        GemsAudioEngine::set_music_speed(self, speed);
+    }
+
+    fn step_frame(&mut self) {
+        GemsAudioEngine::step_frame(self);
+    }
+
+    fn generate_samples(&mut self, sample_count: usize) -> Vec<f32> {
+        GemsAudioEngine::generate_samples(self, sample_count)
+    }
+}
+
 fn apply_native_bgm_command(
-    gems: &mut GemsAudioEngine,
+    audio: &mut impl NativeAudioSink,
     command: NativeBgmPlaybackCommand,
 ) -> Option<u8> {
     match command {
         NativeBgmPlaybackCommand::Start(bgm) => {
-            gems.start_sequence(bgm);
+            audio.start_sequence(bgm);
             None
         }
         NativeBgmPlaybackCommand::StopMusic => {
-            gems.stop_music();
+            audio.stop_music();
             None
         }
         NativeBgmPlaybackCommand::StopMusicThenStart(bgm) => {
@@ -2454,7 +2504,7 @@ fn apply_native_bgm_command(
             // playback must use that ROM path before changing music contexts;
             // `$16` stop-all leaves the standalone driver with stale title
             // sequence state and can starve gameplay SFX channels.
-            gems.stop_music();
+            audio.stop_music();
             Some(bgm)
         }
     }
@@ -2494,11 +2544,10 @@ fn native_bgm_command_suppresses_same_frame_sfx(
         && matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
 }
 
-fn apply_native_sound_command(gems: &mut GemsAudioEngine, command: NativeSoundCommand) {
+fn apply_native_sound_command(audio: &mut impl NativeAudioSink, command: NativeSoundCommand) {
     match command.command_byte {
-        NativeSoundCommand::START_SEQUENCE_COMMAND_BYTE => gems.start_sequence(command.sound_id),
-        NativeSoundCommand::STOP_SEQUENCE_COMMAND_BYTE => gems.stop_sequence(command.sound_id),
-        _ => gems.start_sequence(command.sound_id),
+        NativeSoundCommand::STOP_SEQUENCE_COMMAND_BYTE => audio.stop_sequence(command.sound_id),
+        _ => audio.start_sequence(command.sound_id),
     }
 }
 
@@ -8524,6 +8573,19 @@ mod tests {
                 },
                 _root: root,
             })
+        }
+
+        fn write_dummy_gems_assets(&self) -> anyhow::Result<()> {
+            for (relative_path, len) in [
+                ("sound/GEMS_Sounddriver.bin", 64usize),
+                ("sound/instruments.bin", 16usize),
+                ("sound/envelopes.bin", 16usize),
+                ("sound/sequences.bin", 16usize),
+                ("sound/samples.bin", 16usize),
+            ] {
+                write_file(&self.manifest.output_root, relative_path, &vec![0; len])?;
+            }
+            Ok(())
         }
     }
 
@@ -21412,6 +21474,157 @@ mod tests {
         );
     }
 
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum RecordingAudioAction {
+        StartSequence(u8),
+        StopSequence(u8),
+        StopMusic,
+        SetMusicSpeed(u8),
+        StepFrame,
+        GenerateSamples(usize),
+    }
+
+    #[derive(Default)]
+    struct RecordingAudioSink {
+        actions: Vec<RecordingAudioAction>,
+    }
+
+    impl NativeAudioSink for RecordingAudioSink {
+        fn start_sequence(&mut self, sound_id: u8) {
+            self.actions
+                .push(RecordingAudioAction::StartSequence(sound_id));
+        }
+
+        fn stop_sequence(&mut self, sound_id: u8) {
+            self.actions
+                .push(RecordingAudioAction::StopSequence(sound_id));
+        }
+
+        fn stop_music(&mut self) {
+            self.actions.push(RecordingAudioAction::StopMusic);
+        }
+
+        fn set_music_speed(&mut self, speed: u8) {
+            self.actions
+                .push(RecordingAudioAction::SetMusicSpeed(speed));
+        }
+
+        fn step_frame(&mut self) {
+            self.actions.push(RecordingAudioAction::StepFrame);
+        }
+
+        fn generate_samples(&mut self, sample_count: usize) -> Vec<f32> {
+            self.actions
+                .push(RecordingAudioAction::GenerateSamples(sample_count));
+            vec![0.0; sample_count * 2]
+        }
+    }
+
+    #[test]
+    fn scripted_recording_audio_render_delays_stopmusic_then_start_until_next_frame()
+    -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let intro = sample_trace(GameMode::IntroSequence1);
+        let title = sample_trace(GameMode::TitleScreen);
+        let mut sink = RecordingAudioSink::default();
+
+        let samples = render_native_audio_samples_for_trace(
+            &fixture.manifest,
+            &[intro, title],
+            None,
+            &mut sink,
+        );
+
+        assert_eq!(samples.len(), 2 * AUDIO_SAMPLES_PER_FRAME * 2);
+        assert_eq!(
+            sink.actions,
+            vec![
+                RecordingAudioAction::StopMusic,
+                RecordingAudioAction::StepFrame,
+                RecordingAudioAction::GenerateSamples(AUDIO_SAMPLES_PER_FRAME),
+                RecordingAudioAction::StartSequence(gems_bgm::ICE),
+                RecordingAudioAction::StepFrame,
+                RecordingAudioAction::GenerateSamples(AUDIO_SAMPLES_PER_FRAME),
+            ],
+            "ASM Load_IntroSequence1 (kid.asm:29068-29070) runs StopMusic before bgm_Ice; native audio must defer the new GEMS start until the frame after the reset"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn scripted_recording_audio_render_suppresses_same_frame_sfx_after_stopmusic()
+    -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let mut draining = sample_trace(GameMode::InGame);
+        draining.level_complete = true;
+        draining.level_complete_score_counter_elapsed_frames = 1;
+        let mut transition = sample_trace(GameMode::LevelTransition);
+        transition.level_complete = true;
+        transition.level_complete_elapsed_frames = 1;
+        transition.level_complete_score_counter_elapsed_frames = 1;
+        transition.level_complete_score_counter_drained = true;
+        transition.played_sound_effect_ids = vec![gems_sfx::SCORE_COUNTER];
+        let mut sink = RecordingAudioSink::default();
+
+        render_native_audio_samples_for_trace(
+            &fixture.manifest,
+            &[draining, transition],
+            Some(NativeBgmCue::ScoreBoard),
+            &mut sink,
+        );
+
+        assert!(
+            !sink.actions.contains(&RecordingAudioAction::StartSequence(
+                gems_sfx::SCORE_COUNTER
+            )),
+            "ASM loc_D7F4 (kid.asm:16906) score-counter replay is pre-reset state when the same condensed LevelTransition frame runs StopMusic"
+        );
+        assert!(
+            sink.actions
+                .contains(&RecordingAudioAction::StartSequence(gems_bgm::SCORE_BOARD)),
+            "settled EOL audio starts from the already-active score-board BGM cue before rendering frame samples"
+        );
+        assert!(
+            sink.actions.contains(&RecordingAudioAction::StopMusic),
+            "ASM Load_InGame (kid.asm:23623-23629) hard-resets GEMS during the transition shell"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn scripted_recording_audio_render_applies_start_and_stop_sequence_commands()
+    -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_sound_commands = vec![
+            NativeSoundCommand::start_sequence(gems_sfx::NAVIGATE_JINGLE),
+            NativeSoundCommand::stop_sequence(gems_sfx::SCORE_COUNTER),
+        ];
+        curr.played_sound_effect_ids = vec![gems_sfx::NAVIGATE_JINGLE, gems_sfx::SCORE_COUNTER];
+        let mut sink = RecordingAudioSink::default();
+
+        render_native_audio_samples_for_trace(
+            &fixture.manifest,
+            &[prev, curr],
+            Some(NativeBgmCue::Level(LevelId(0))),
+            &mut sink,
+        );
+
+        assert!(
+            sink.actions.contains(&RecordingAudioAction::StartSequence(
+                gems_sfx::NAVIGATE_JINGLE
+            )),
+            "ASM sub_E151C queues command $10 for ordinary SFX; recording audio must replay it as a GEMS start-sequence command"
+        );
+        assert!(
+            sink.actions
+                .contains(&RecordingAudioAction::StopSequence(gems_sfx::SCORE_COUNTER)),
+            "ASM sub_E153E / PlaySound2 queues command $12 for stop-sequence SFX such as loc_D7F4's score-counter cleanup"
+        );
+        Ok(())
+    }
+
     #[test]
     fn scripted_recording_audio_events_follow_trace_mode_and_sfx_transitions() -> anyhow::Result<()>
     {
@@ -21488,6 +21701,40 @@ mod tests {
                 .iter()
                 .any(|event| event.contains("command=StartSequence(35)")),
             "settled dynamic probes must still preserve ASM sub_868E Red Stealth sword SFX events"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn scripted_recording_audio_artifacts_render_samples_when_gems_assets_present()
+    -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        fixture.write_dummy_gems_assets()?;
+        let intro = sample_trace(GameMode::IntroSequence1);
+        let mut title = sample_trace(GameMode::TitleScreen);
+        title.played_sound_effect_ids = vec![gems_sfx::NAVIGATE_JINGLE];
+        let trace = [intro, title];
+
+        let artifacts = native_audio_artifacts_for_trace(&fixture.manifest, &trace);
+
+        let samples = artifacts
+            .audio_samples
+            .as_ref()
+            .expect("dummy committed-test GEMS assets should enter the rendered-audio path");
+        assert_eq!(samples.len(), trace.len() * AUDIO_SAMPLES_PER_FRAME * 2);
+        assert_eq!(artifacts.audio_channels, 2);
+        assert_eq!(
+            artifacts.audio_events,
+            vec![
+                String::from(
+                    "frame=0 mode=IntroSequence1 level=00 active_before=None active_after=Some(TitleShell) command=StopMusicThenStart(3)"
+                ),
+                format!(
+                    "frame=1 mode=TitleScreen level=00 command=StartSequence({})",
+                    gems_sfx::NAVIGATE_JINGLE
+                ),
+            ],
+            "recording bundles must retain ASM-derived event evidence when waveform artefacts are also rendered"
         );
         Ok(())
     }

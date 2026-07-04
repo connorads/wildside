@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive native-player audio artefact mutation slice
+
+- Project-status still showed no ready/open risks after the native-player
+  target checkpoint slice, so handled the follow-up audio artefact mutants
+  selected by the earlier large-file cargo-mutants regex. Extracted the
+  recorded-audio render loop behind a small private sink seam, leaving
+  `GemsAudioEngine` as the production sink, so tests can assert StopMusic/start
+  ordering, same-frame SFX suppression, command-byte dispatch, and rendered
+  artefact fields without relying on `.cache` sound assets.
+- Verification: focused `cargo test -p wildside-cli scripted_recording_audio`
+  passes. Final `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/native_player/mod.rs --re
+  'native_audio_artifacts_for_trace_with_initial_bgm|render_native_audio_samples_for_trace|apply_native_bgm_command|apply_native_sound_command'
+  -j 1 --gitignore=true --output
+  /tmp/mutants-cli-native-player-audio-artifacts-20260704-final --
+  scripted_recording_audio` reports 18 mutants tested: 16 caught, 2 unviable,
+  0 missed.
+
 ## 2026-07-04 - proactive native-player target checkpoint mutation slice
 
 - Project-status still showed no ready/open risks after the CLI case bootstrap
