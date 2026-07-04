@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI capture helper mutation hardening
+
+- Project-status still showed no ready/open risks after the CLI bootstrap layout
+  slice, so mutation-tested `capture.rs` helper contracts around checkpoint
+  capture, stereo peak analysis, first non-silent audio detection, and SHA-1
+  hex formatting.
+- Initial focused rerun exposed 23 missed mutants across uncaptured stereo/audio
+  edge cases, hash formatting, and duplicated checkpoint-label copy logic.
+  Extracted `capture_due_checkpoint_states` so oracle/native checkpoint labelling
+  is covered without booting either runtime, and added focused tests for
+  multiple same-frame checkpoints, consumed-checkpoint no-ops, independent
+  channel peaks, strict audio epsilon checks, and full lowercase SHA-1 output.
+- Verification: focused `cargo test -p wildside-cli capture::tests` passes.
+  Final `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-cli -f
+  crates/wildside-cli/src/capture.rs -j 4 --gitignore=true --re
+  'capture_due_checkpoint_states|stereo_peak|first_non_silent_sample|sha1_hex'
+  --output /tmp/mutants-cli-capture-helpers-20260704-final --
+  capture::tests` reports 25 mutants tested: 25 caught, 0 missed.
+
 ## 2026-07-04 - proactive CLI bootstrap layout mutation hardening
 
 - Project-status still showed no ready/open risks after the CLI hypothesis

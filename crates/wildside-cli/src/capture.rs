@@ -1,5 +1,5 @@
 use super::*;
-use crate::scenarios::DynamicScenario;
+use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
 use wildside_core::run_script_with_trace;
 
 pub(crate) const AUDIO_SAMPLE_RATE: u32 = 44_100;
@@ -341,16 +341,13 @@ pub(crate) fn capture_dynamic_gameplay_scenario(
         }
         let snapshot = runtime.snapshot();
         let state = gameplay_state_from_probe(frame_index, &snapshot);
-        while checkpoint_index < checkpoints.len()
-            && checkpoints[checkpoint_index].frame_index == frame_index
-        {
-            let checkpoint = &checkpoints[checkpoint_index];
-            captured_checkpoints.push(GameplayState {
-                label: checkpoint.label.clone(),
-                ..state.clone()
-            });
-            checkpoint_index += 1;
-        }
+        capture_due_checkpoint_states(
+            checkpoints,
+            &mut checkpoint_index,
+            frame_index,
+            &state,
+            &mut captured_checkpoints,
+        );
         states.push(state);
     }
 
@@ -470,16 +467,13 @@ fn capture_native_dynamic_gameplay_scenario_with_handoff(
 
     for snapshot in trace {
         let state = gameplay_state_from_native_trace(&snapshot);
-        while checkpoint_index < checkpoints.len()
-            && checkpoints[checkpoint_index].frame_index == snapshot.frame_index
-        {
-            let checkpoint = &checkpoints[checkpoint_index];
-            captured_checkpoints.push(GameplayState {
-                label: checkpoint.label.clone(),
-                ..state.clone()
-            });
-            checkpoint_index += 1;
-        }
+        capture_due_checkpoint_states(
+            checkpoints,
+            &mut checkpoint_index,
+            snapshot.frame_index,
+            &state,
+            &mut captured_checkpoints,
+        );
         states.push(state);
     }
 
@@ -490,6 +484,26 @@ fn capture_native_dynamic_gameplay_scenario_with_handoff(
         states,
         checkpoints: captured_checkpoints,
     }
+}
+
+fn capture_due_checkpoint_states(
+    checkpoints: &[DynamicCheckpoint],
+    checkpoint_index: &mut usize,
+    frame_index: usize,
+    state: &GameplayState,
+    captured_checkpoints: &mut Vec<GameplayState>,
+) {
+    let due_count = checkpoints[*checkpoint_index..]
+        .iter()
+        .take_while(|checkpoint| checkpoint.frame_index == frame_index)
+        .count();
+    let due_end = *checkpoint_index + due_count;
+    for checkpoint in &checkpoints[*checkpoint_index..due_end] {
+        let mut checkpoint_state = state.clone();
+        checkpoint_state.label.clone_from(&checkpoint.label);
+        captured_checkpoints.push(checkpoint_state);
+    }
+    *checkpoint_index = due_end;
 }
 
 pub(crate) fn gameplay_state_from_native_trace(snapshot: &NativeTraceFrame) -> GameplayState {
@@ -820,8 +834,12 @@ pub(crate) fn run_native_script_dynamic_with_trace(
 
 #[cfg(test)]
 mod tests {
-    use super::{capture_buttons_for_frame, gameplay_state_from_native_trace};
-    use crate::scenarios::Scenario;
+    use super::{
+        AUDIO_ANALYSIS_EPSILON, GameplayState, capture_buttons_for_frame,
+        capture_due_checkpoint_states, first_non_silent_sample, gameplay_state_from_native_trace,
+        sha1_hex, stereo_peak,
+    };
+    use crate::scenarios::{DynamicCheckpoint, Scenario};
     use wildside_core::NativeTraceFrame;
 
     #[test]
@@ -868,5 +886,156 @@ mod tests {
         assert_eq!(state.pause_menu_option, 1);
         assert_eq!(state.options_controls_scheme, 4);
         assert!(state.options_speed_button_fast);
+    }
+
+    #[test]
+    fn stereo_peak_tracks_absolute_left_and_right_channels_independently() {
+        let samples = [0.25, -0.50, -0.90, 0.10, 0.05, 0.75];
+
+        assert_eq!(stereo_peak(&samples), (0.90, 0.75));
+    }
+
+    #[test]
+    fn first_non_silent_sample_checks_both_channels_after_epsilon() {
+        let below = AUDIO_ANALYSIS_EPSILON * 0.5;
+        let above = AUDIO_ANALYSIS_EPSILON * 2.0;
+
+        assert_eq!(
+            first_non_silent_sample(&[0.0, 0.0, below, 0.0, 0.0, -above]),
+            Some(2),
+            "right channel above epsilon at frame 2 should count as the first non-silent sample",
+        );
+        assert_eq!(first_non_silent_sample(&[0.0, 0.0, -above, 0.0]), Some(1));
+        assert_eq!(
+            first_non_silent_sample(&[AUDIO_ANALYSIS_EPSILON, -AUDIO_ANALYSIS_EPSILON]),
+            None,
+            "the silence threshold is strict; equality is still silent",
+        );
+        assert_eq!(first_non_silent_sample(&[below, -below, 0.0, 0.0]), None);
+    }
+
+    #[test]
+    fn sha1_hex_uses_lowercase_full_length_digest() {
+        assert_eq!(sha1_hex(b""), "da39a3ee5e6b4b0d3255bfef95601890afd80709");
+        assert_eq!(
+            sha1_hex(b"Kid Chameleon"),
+            "5a53944b6ab2d705cefba2bfd017b9ec1fb0ed8c"
+        );
+    }
+
+    #[test]
+    fn capture_due_checkpoint_states_uses_checkpoint_labels_for_matching_frames() {
+        let checkpoints = vec![
+            DynamicCheckpoint {
+                label: "first".to_owned(),
+                frame_index: 5,
+            },
+            DynamicCheckpoint {
+                label: "second".to_owned(),
+                frame_index: 5,
+            },
+            DynamicCheckpoint {
+                label: "later".to_owned(),
+                frame_index: 6,
+            },
+        ];
+        let state = gameplay_state_for_test("frame_00005", 5);
+        let mut checkpoint_index = 0;
+        let mut captured = Vec::new();
+
+        capture_due_checkpoint_states(
+            &checkpoints,
+            &mut checkpoint_index,
+            4,
+            &state,
+            &mut captured,
+        );
+
+        assert!(captured.is_empty());
+        assert_eq!(checkpoint_index, 0);
+
+        capture_due_checkpoint_states(
+            &checkpoints,
+            &mut checkpoint_index,
+            5,
+            &state,
+            &mut captured,
+        );
+
+        assert_eq!(checkpoint_index, 2);
+        assert_eq!(
+            captured
+                .iter()
+                .map(|checkpoint| checkpoint.label.as_str())
+                .collect::<Vec<_>>(),
+            ["first", "second"]
+        );
+        assert!(
+            captured
+                .iter()
+                .all(|checkpoint| checkpoint.frame_index == 5)
+        );
+        assert!(
+            captured
+                .iter()
+                .all(|checkpoint| checkpoint.kid_x_pos == 0x0020_0000)
+        );
+
+        capture_due_checkpoint_states(
+            &checkpoints,
+            &mut checkpoint_index,
+            6,
+            &state,
+            &mut captured,
+        );
+        capture_due_checkpoint_states(
+            &checkpoints,
+            &mut checkpoint_index,
+            7,
+            &state,
+            &mut captured,
+        );
+
+        assert_eq!(checkpoint_index, checkpoints.len());
+        assert_eq!(
+            captured
+                .iter()
+                .map(|checkpoint| checkpoint.label.as_str())
+                .collect::<Vec<_>>(),
+            ["first", "second", "later"]
+        );
+    }
+
+    fn gameplay_state_for_test(label: &str, frame_index: usize) -> GameplayState {
+        GameplayState {
+            label: label.to_owned(),
+            frame_index,
+            game_mode: 0x000c,
+            current_player: 0,
+            number_lives: 2,
+            number_hitpoints: 2,
+            current_level_id: 0,
+            player_1_level_id: 0,
+            current_helmet_id: 0,
+            camera_x_pos: 0x0010_0000,
+            camera_y_pos: 0,
+            kid_x_pos: 0x0020_0000,
+            kid_y_pos: 0x0030_0000,
+            kid_x_vel: Some(0x4000),
+            kid_y_vel: Some(0),
+            character_movement: Some(0x0002),
+            kid_collision_type: Some(0x0001),
+            game_paused: false,
+            pause_menu_option: 0,
+            options_controls_scheme: 0,
+            options_speed_button_fast: false,
+            invulnerable_frames: Some(0),
+            just_received_damage: Some(false),
+            kid_ground_probe: None,
+            kid_grounded_release_probe: None,
+            kid_jump_gravity_probe: None,
+            number_objects: 1,
+            number_gfx_objects: 1,
+        }
     }
 }
