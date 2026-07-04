@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI view-tas mutation hardening
+
+- Project-status still showed no ready/open risks after the data plane/mask
+  slice, so mutation-tested the pure `view_tas` contracts: range resolution,
+  checkpoint diff indexing, divergent-frame collection/navigation, frame status,
+  footer formatting, cache pruning, and diff-line labels.
+- Initial focused rerun exposed 40 missed mutants across boundary-only ranges,
+  empty diff buckets, CRC fallback, next/previous divergent frame selection,
+  footer detail toggling, three-line diff truncation/padding, and display-cache
+  retention. Added lightweight synthetic comparison fixtures and unit tests;
+  replaced the footer padding loop with a fixed three-slot fill to remove an
+  equivalent extra-empty-line mutant.
+- Verification: focused `cargo test -p wildside-cli view_tas::tests` passes.
+  Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-cli -f
+  crates/wildside-cli/src/view_tas.rs -j 4 --gitignore=true --re
+  'resolve_view_tas_range|frame_index_from_checkpoint_label|index_state_diffs_by_frame|collect_divergent_frames|next_divergent_frame|previous_divergent_frame|frame_status|footer_lines|prune_display_cache|format_diff_line|FrameStatus::label'
+  --output /tmp/mutants-cli-view-tas-pure-20260704-initial --
+  view_tas::tests` reported 57 mutants tested: 12 caught, 40 missed,
+  5 unviable. Final rerun at `/tmp/mutants-cli-view-tas-pure-20260704-final`
+  reports 54 mutants tested: 49 caught, 5 unviable, 0 missed.
+
 ## 2026-07-04 - proactive data plane/mask mutation hardening
 
 - Project-status still showed no ready/open risks after the data background

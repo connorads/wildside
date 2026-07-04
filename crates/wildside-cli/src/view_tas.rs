@@ -671,26 +671,26 @@ impl ViewTasApp {
             ];
         }
 
-        let mut diff_lines = self
-            .comparison
-            .diff_by_frame
-            .get(&frame_index)
-            .into_iter()
-            .flatten()
-            .take(3)
-            .map(format_diff_line)
-            .collect::<Vec<_>>();
-        while diff_lines.len() < 3 {
-            diff_lines.push(String::new());
+        let mut diff_lines = [String::new(), String::new(), String::new()];
+        for (slot, line) in diff_lines.iter_mut().zip(
+            self.comparison
+                .diff_by_frame
+                .get(&frame_index)
+                .into_iter()
+                .flatten()
+                .take(3)
+                .map(format_diff_line),
+        ) {
+            *slot = line;
         }
 
         [
             header,
             state,
             crc_line,
-            diff_lines.remove(0),
-            diff_lines.remove(0),
-            diff_lines.remove(0),
+            diff_lines[0].clone(),
+            diff_lines[1].clone(),
+            diff_lines[2].clone(),
         ]
     }
 
@@ -837,6 +837,120 @@ fn format_diff_line(diff: &StateDiff) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sweep::DivergenceCategory;
+    use wildside_core::LevelId;
+
+    fn empty_manifest() -> AssetManifest {
+        AssetManifest {
+            generated_bundle_version: 0,
+            rom_sha1: String::new(),
+            upstream_commit: String::new(),
+            source_root: PathBuf::new(),
+            output_root: PathBuf::new(),
+            map_order: Vec::new(),
+            levels: Vec::new(),
+            constants: Vec::new(),
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
+        }
+    }
+
+    fn dynamic_scenario(frame_count: usize) -> DynamicScenario {
+        DynamicScenario {
+            slug: "view-tas-test".to_string(),
+            script: vec![0; frame_count],
+            frame_count,
+            checkpoints: Vec::new(),
+            start_position: None,
+            start_velocity: None,
+            camera_position: None,
+            playtest_form: None,
+            initial_diamond_count: None,
+            initial_lives: None,
+            warp_to_level: None,
+            settle_oracle_warp: false,
+        }
+    }
+
+    fn oracle_with_crcs(frame_crcs: Vec<u32>) -> OracleManifest {
+        OracleManifest {
+            sample_rate: 0,
+            audio_path: PathBuf::new(),
+            frames: Vec::new(),
+            states: Vec::new(),
+            frame_crcs,
+            memory_watches: Vec::new(),
+            vdp_pixel_samples: Vec::new(),
+            settle_trace: Vec::new(),
+        }
+    }
+
+    fn trace_frames(frame_count: usize) -> Vec<NativeTraceFrame> {
+        (0..frame_count)
+            .map(|frame_index| NativeTraceFrame {
+                frame_index,
+                current_level: LevelId(0x0A),
+                camera_x_pos: 0x0100_0000 + u32::try_from(frame_index).unwrap(),
+                camera_y_pos: 0x0200_0000,
+                kid_x_pos: Some(0x0300_0000 + u32::try_from(frame_index).unwrap()),
+                kid_y_pos: Some(0x0400_0000),
+                ..NativeTraceFrame::default()
+            })
+            .collect()
+    }
+
+    fn matching_oracle_crcs(trace: &[NativeTraceFrame]) -> Vec<u32> {
+        trace
+            .iter()
+            .map(NativeTraceFrame::authoritative_crc32)
+            .collect()
+    }
+
+    fn state_diff(frame_index: usize, field: &str) -> StateDiff {
+        StateDiff {
+            checkpoint: format!("{VIEW_TAS_LABEL_PREFIX}{frame_index}"),
+            field: field.to_string(),
+            native_value: "native".to_string(),
+            oracle_value: "oracle".to_string(),
+            category: DivergenceCategory::Authoritative,
+        }
+    }
+
+    fn view_app(
+        current_frame: usize,
+        native_trace: Vec<NativeTraceFrame>,
+        oracle_crcs: Vec<u32>,
+        diff_by_frame: BTreeMap<usize, Vec<StateDiff>>,
+        divergent_frames: Vec<usize>,
+    ) -> ViewTasApp {
+        let frame_count = native_trace.len();
+        ViewTasApp {
+            manifest: empty_manifest(),
+            comparison: TasComparisonRun {
+                scenario: dynamic_scenario(frame_count),
+                start: 0,
+                end: frame_count,
+                native_trace,
+                vdp_snapshots: (0..frame_count).map(|_| None).collect(),
+                oracle: oracle_with_crcs(oracle_crcs),
+                diff_by_frame,
+                divergent_frames,
+                first_divergence: None,
+                run_dir: PathBuf::new(),
+            },
+            asset_cache: HashMap::new(),
+            display_cache: HashMap::new(),
+            current_frame,
+            show_details: true,
+            autoplay: false,
+        }
+    }
 
     #[test]
     fn resolve_view_range_uses_whole_run_for_short_scenarios() {
@@ -865,6 +979,34 @@ mod tests {
     }
 
     #[test]
+    fn resolve_view_range_treats_start_equal_to_length_as_empty_not_out_of_bounds() {
+        let error = resolve_view_tas_range(10, Some(10), None, false).unwrap_err();
+        assert!(error.to_string().contains("resolved frame range is empty"));
+    }
+
+    #[test]
+    fn resolve_view_range_rejects_start_beyond_length_as_out_of_bounds() {
+        let error = resolve_view_tas_range(10, Some(11), None, false).unwrap_err();
+        assert!(error.to_string().contains("exceeds scenario length"));
+    }
+
+    #[test]
+    fn resolve_view_range_accepts_start_only_slice_for_long_scenarios() {
+        assert_eq!(
+            resolve_view_tas_range(3_000, Some(2_800), None, false).unwrap(),
+            (2_800, 3_000)
+        );
+    }
+
+    #[test]
+    fn resolve_view_range_accepts_end_only_slice_for_long_scenarios() {
+        assert_eq!(
+            resolve_view_tas_range(3_000, None, Some(120), false).unwrap(),
+            (0, 120)
+        );
+    }
+
+    #[test]
     fn resolve_view_range_rejects_whole_run_and_slice_together() {
         let error = resolve_view_tas_range(3_000, Some(120), None, true).unwrap_err();
         assert!(error.to_string().contains("--whole-run"));
@@ -879,5 +1021,238 @@ mod tests {
     fn frame_index_parser_rejects_unknown_labels() {
         let error = frame_index_from_checkpoint_label("level_settle").unwrap_err();
         assert!(error.to_string().contains("unsupported checkpoint label"));
+    }
+
+    #[test]
+    fn frame_status_labels_are_stable_for_viewer_footer_and_title() {
+        assert_eq!(FrameStatus::Match.label(), "MATCH");
+        assert_eq!(FrameStatus::Advisory.label(), "ADVISORY");
+        assert_eq!(FrameStatus::Diverge.label(), "DIVERGE");
+    }
+
+    #[test]
+    fn index_state_diffs_groups_multiple_diffs_by_checkpoint_frame() {
+        let indexed = index_state_diffs_by_frame(&[
+            state_diff(7, "camera_x_pos"),
+            state_diff(7, "kid_x_pos"),
+            state_diff(9, "score"),
+        ])
+        .unwrap();
+
+        assert_eq!(indexed.keys().copied().collect::<Vec<_>>(), vec![7, 9]);
+        assert_eq!(indexed[&7].len(), 2);
+        assert_eq!(indexed[&7][0].field, "camera_x_pos");
+        assert_eq!(indexed[&7][1].field, "kid_x_pos");
+        assert_eq!(indexed[&9][0].field, "score");
+    }
+
+    #[test]
+    fn index_state_diffs_rejects_unknown_checkpoint_labels() {
+        let error = index_state_diffs_by_frame(&[StateDiff {
+            checkpoint: "level_settle".to_string(),
+            field: "camera_x_pos".to_string(),
+            native_value: "1".to_string(),
+            oracle_value: "2".to_string(),
+            category: DivergenceCategory::Authoritative,
+        }])
+        .unwrap_err();
+
+        assert!(error.to_string().contains("unsupported checkpoint label"));
+    }
+
+    #[test]
+    fn collect_divergent_frames_reports_window_relative_mismatches_as_absolute_frames() {
+        assert_eq!(
+            collect_divergent_frames(&[10, 20, 30, 40], &[10, 99, 30, 88], 1, 4),
+            vec![1, 3]
+        );
+    }
+
+    #[test]
+    fn divergent_frame_navigation_skips_current_frame() {
+        let trace = trace_frames(24);
+        let oracle_crcs = matching_oracle_crcs(&trace);
+        let mut app = view_app(10, trace, oracle_crcs, BTreeMap::new(), vec![4, 10, 12, 20]);
+
+        assert_eq!(app.next_divergent_frame(), Some(12));
+        assert_eq!(app.previous_divergent_frame(), Some(4));
+
+        app.current_frame = 20;
+        assert_eq!(app.next_divergent_frame(), None);
+
+        app.current_frame = 4;
+        assert_eq!(app.previous_divergent_frame(), None);
+    }
+
+    #[test]
+    fn frame_status_prefers_authoritative_state_diffs_over_matching_crc() {
+        let trace = trace_frames(3);
+        let oracle_crcs = matching_oracle_crcs(&trace);
+        let app = view_app(
+            1,
+            trace,
+            oracle_crcs,
+            BTreeMap::from([(1, vec![state_diff(1, "camera_x_pos")])]),
+            vec![1],
+        );
+
+        assert_eq!(app.frame_status(1), FrameStatus::Diverge);
+    }
+
+    #[test]
+    fn frame_status_treats_empty_diff_bucket_as_crc_match() {
+        let trace = trace_frames(3);
+        let oracle_crcs = matching_oracle_crcs(&trace);
+        let app = view_app(
+            1,
+            trace,
+            oracle_crcs,
+            BTreeMap::from([(1, Vec::new())]),
+            Vec::new(),
+        );
+
+        assert_eq!(app.frame_status(1), FrameStatus::Match);
+    }
+
+    #[test]
+    fn frame_status_uses_crc_when_no_state_diff_exists() {
+        let trace = trace_frames(3);
+        let mut oracle_crcs = matching_oracle_crcs(&trace);
+        oracle_crcs[2] ^= 0xFFFF_0000;
+        let app = view_app(1, trace, oracle_crcs, BTreeMap::new(), vec![2]);
+
+        assert_eq!(app.frame_status(1), FrameStatus::Match);
+        assert_eq!(app.frame_status(2), FrameStatus::Diverge);
+    }
+
+    #[test]
+    fn footer_lines_hide_details_when_toggled_off() {
+        let trace = trace_frames(2);
+        let oracle_crcs = matching_oracle_crcs(&trace);
+        let mut app = view_app(1, trace.clone(), oracle_crcs, BTreeMap::new(), Vec::new());
+        app.show_details = false;
+
+        let lines = app.footer_lines(
+            1,
+            FrameStatus::Match,
+            "none",
+            0x1122_3344,
+            0x1122_3344,
+            FrameDiff {
+                mean_absolute_error: 0.0,
+                max_channel_delta: 0,
+            },
+            &trace[1],
+        );
+
+        assert!(lines[0].contains("view-tas-test | frame 1 [0..2) | MATCH"));
+        assert_eq!(lines[3], "details hidden");
+        assert_eq!(lines[4], "");
+        assert_eq!(lines[5], "");
+    }
+
+    #[test]
+    fn footer_lines_show_first_three_state_diffs() {
+        let trace = trace_frames(2);
+        let oracle_crcs = matching_oracle_crcs(&trace);
+        let app = view_app(
+            1,
+            trace.clone(),
+            oracle_crcs,
+            BTreeMap::from([(
+                1,
+                vec![
+                    state_diff(1, "camera_x_pos"),
+                    state_diff(1, "kid_x_pos"),
+                    state_diff(1, "score"),
+                    state_diff(1, "diamond_count"),
+                ],
+            )]),
+            vec![1],
+        );
+
+        let lines = app.footer_lines(
+            1,
+            FrameStatus::Diverge,
+            "A",
+            0x1122_3344,
+            0x5566_7788,
+            FrameDiff {
+                mean_absolute_error: 1.25,
+                max_channel_delta: 9,
+            },
+            &trace[1],
+        );
+
+        assert_eq!(lines[3], "camera_x_pos native=native oracle=oracle");
+        assert_eq!(lines[4], "kid_x_pos native=native oracle=oracle");
+        assert_eq!(lines[5], "score native=native oracle=oracle");
+        assert!(!lines.iter().any(|line| line.contains("diamond_count")));
+    }
+
+    #[test]
+    fn footer_lines_pad_missing_state_diffs() {
+        let trace = trace_frames(2);
+        let oracle_crcs = matching_oracle_crcs(&trace);
+        let app = view_app(
+            1,
+            trace.clone(),
+            oracle_crcs,
+            BTreeMap::from([(1, vec![state_diff(1, "camera_x_pos")])]),
+            vec![1],
+        );
+
+        let lines = app.footer_lines(
+            1,
+            FrameStatus::Diverge,
+            "A",
+            0,
+            1,
+            FrameDiff {
+                mean_absolute_error: 1.0,
+                max_channel_delta: 2,
+            },
+            &trace[1],
+        );
+
+        assert_eq!(lines[3], "camera_x_pos native=native oracle=oracle");
+        assert_eq!(lines[4], "");
+        assert_eq!(lines[5], "");
+    }
+
+    #[test]
+    fn prune_display_cache_keeps_window_around_centre_frame() {
+        let trace = trace_frames(1);
+        let oracle_crcs = matching_oracle_crcs(&trace);
+        let mut app = view_app(0, trace, oracle_crcs, BTreeMap::new(), Vec::new());
+        for frame_index in 0..=200 {
+            app.display_cache.insert(
+                frame_index,
+                CachedDisplayFrame {
+                    composite_rgb: Vec::new(),
+                    frame_diff: FrameDiff {
+                        mean_absolute_error: 0.0,
+                        max_channel_delta: 0,
+                    },
+                },
+            );
+        }
+
+        app.prune_display_cache(100);
+
+        assert_eq!(app.display_cache.len(), 121);
+        assert!(app.display_cache.contains_key(&40));
+        assert!(app.display_cache.contains_key(&100));
+        assert!(app.display_cache.contains_key(&160));
+        assert!(!app.display_cache.contains_key(&39));
+        assert!(!app.display_cache.contains_key(&161));
+    }
+
+    #[test]
+    fn format_diff_line_includes_field_values_and_advisory_suffix_policy() {
+        assert_eq!(
+            format_diff_line(&state_diff(12, "camera_x_pos")),
+            "camera_x_pos native=native oracle=oracle"
+        );
     }
 }
