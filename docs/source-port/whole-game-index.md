@@ -17,7 +17,7 @@ Presence is not full verification.
 
 ## Systems with strong current evidence
 
-- Native 1P playable gate: the project-health headline for real-player coverage
+- Native 1P playable gate: the project-health headline for real-player coverage, refreshed 2026-07-04 at report `1783122908`
 - TAS parity: both imported recordings are clean to their recorded endpoints
 - Oracle-backed 1P accurate gate: supporting parity evidence, not the primary health headline
 - State sweep: the current `1p-accurate` artefact reports the 69 requested levels passing

@@ -138,7 +138,15 @@ When reimplementing a game formula (physics, damage, spawn rates), use the OpenM
 Once the active TAS frontier is closed, keep the verification lanes separate:
 
 - `sweep --tier state` answers "do the 69 BCD levels still avoid blocking authoritative diffs under the idle oracle harness?"
+- `release-gate --target 1p-playable` answers "do native gameplay smoke, focused gameplay regressions, and the 69-level native gameplay sweep stay green together?"
 - `release-gate --target 1p-accurate` answers "do boot/title, gameplay compare, frame-oracle, audio-oracle, and state-sweep all stay green together?"
+
+2026-07-04 refresh: `env TMPDIR=/tmp mise run verify-1p-playable` passes the
+full `1p-playable` lane. `.cache/release-gate/1p-playable/latest.json` points
+at timestamp `1783122908`, with report
+`.cache/release-gate/1p-playable/1783122908/report.json`; native gameplay
+smoke, gameplay compare/verify, focused regressions, and `gameplay_sweep:0-104`
+passed, with gameplay sweep totals of 69 passed, 0 failed, and 0 errors.
 
 2026-07-04 refresh: `env TMPDIR=/tmp mise run release-gate` passes the full
 `1p-accurate` lane. `.cache/release-gate/1p-accurate/latest.json` points at

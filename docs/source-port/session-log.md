@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive 1p-playable release-gate refresh
+
+- Project-status still showed no ready/open risks after the `1p-accurate`
+  refresh, but the headline `1p-playable` artefact still pointed at the older
+  cached run. Refreshed the native-playability gate with the same build-script
+  environment: `env TMPDIR=/tmp mise run verify-1p-playable`.
+- Verification: `.cache/release-gate/1p-playable/latest.json` now points at
+  timestamp `1783122908`, with report
+  `.cache/release-gate/1p-playable/1783122908/report.json`; native gameplay
+  smoke, gameplay compare/verify, focused slope/block/enemy/render
+  regressions, and `gameplay_sweep:0-104` all passed. The sweep finished with
+  69 passed, 0 failed, and 0 errors. `mise run project-status` still reports
+  `1p-playable (passed)` with no ready/open risks.
+
 ## 2026-07-04 - proactive 1p-accurate release-gate refresh
 
 - Project-status still showed no ready/open risks after the Drips mutation

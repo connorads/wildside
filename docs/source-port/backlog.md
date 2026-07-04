@@ -56,8 +56,7 @@ and stop — never commit churn.
 - **Visual route work:** do not retune Tank Y/priority, flagpole priority, or
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
-- **Proactive verification 2026-07-04:** no ready/open rows remain; latest
-  addition is the refreshed `1p-accurate` gate after the Drips mutation rerun.
+- **Proactive verification 2026-07-04:** no ready/open rows remain; latest addition is the refreshed `1p-playable` gate.
 - **Current gates 2026-07-04:** clean mutation reruns now cover through storm
   `sub_6048` cadence, live `step_weather` free-slot routing, murder-wall
   warning dispatch, weather label/path helpers, and the enemy module reruns
@@ -78,6 +77,7 @@ and stop — never commit churn.
   135 (119/16), Crab 87 (71/16), Emo Rock 92 (80/12), Mini Hopping Skull
   146 (90/56), Tar Monster 141 (107/34), Ninja 189 (156/33), UFO 232
   (194/38), Lion 251 (206/45), Drips 299 (234/65).
+  Latest `1p-playable` gate passes: report 1783122908; gameplay sweep is 69 passed, 0 failed, 0 errors.
   Latest `1p-accurate` gate (2026-07-04) passes: report 1783122304; embedded
   sweep 1783122357 is 69/69 passed, 1037 oracle limitations, `unverified=69`.
   Latest full TAS (2026-07-03) exits 0 with CRC all 37759 frames matching and the
