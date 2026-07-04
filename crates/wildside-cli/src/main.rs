@@ -7974,6 +7974,84 @@ AddrTbl_LevelNames:
     }
 
     #[test]
+    fn play_native_record_route_target_omits_empty_metadata() {
+        let target = play_native_record_route_target(None, None, &[], &[], &[], &[])
+            .expect("empty target metadata");
+
+        assert_eq!(target, None);
+    }
+
+    #[test]
+    fn play_native_record_route_target_accepts_each_single_field_metadata() {
+        let label = play_native_record_route_target(
+            Some(String::from("slope-route")),
+            None,
+            &[],
+            &[],
+            &[],
+            &[],
+        )
+        .expect("label target")
+        .expect("label metadata");
+        assert_eq!(label.label.as_deref(), Some("slope-route"));
+
+        let level = play_native_record_route_target(None, Some(0x06), &[], &[], &[], &[])
+            .expect("level target")
+            .expect("level metadata");
+        assert_eq!(level.level, Some(0x06));
+
+        let point = play_native_record_route_target(
+            None,
+            None,
+            &[TargetPoint {
+                x_px: 2848,
+                y_px: 512,
+            }],
+            &[],
+            &[],
+            &[],
+        )
+        .expect("point target")
+        .expect("point metadata");
+        assert_eq!(point.points.len(), 1);
+        assert_eq!(point.points[0].x_px, 2848);
+        assert_eq!(point.points[0].y_px, 512);
+
+        let cell = play_native_record_route_target(
+            None,
+            None,
+            &[],
+            &[TargetCell { col: 178, row: 32 }],
+            &[],
+            &[],
+        )
+        .expect("cell target")
+        .expect("cell metadata");
+        assert_eq!(cell.cells.len(), 1);
+        assert_eq!(cell.cells[0].col, 178);
+        assert_eq!(cell.cells[0].row, 32);
+
+        let hitbox = play_native_record_route_target(
+            None,
+            None,
+            &[],
+            &[],
+            &[TargetCell { col: 179, row: 32 }],
+            &[],
+        )
+        .expect("cell-hitbox target")
+        .expect("cell-hitbox metadata");
+        assert_eq!(hitbox.cell_hitboxes.len(), 1);
+        assert_eq!(hitbox.cell_hitboxes[0].col, 179);
+        assert_eq!(hitbox.cell_hitboxes[0].row, 32);
+
+        let enemy = play_native_record_route_target(None, None, &[], &[], &[], &[0x0A])
+            .expect("enemy target")
+            .expect("enemy metadata");
+        assert_eq!(enemy.enemies, vec![0x0A]);
+    }
+
+    #[test]
     fn play_native_record_route_target_rejects_shell_awkward_labels() {
         let error = play_native_record_route_target(
             Some(String::from("USM3 slope")),

@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI main route-target mutation slice
+
+- Project-status still showed no ready/open risks after the recording
+  route-target mutation rerun, so continued the proactive verification fallback
+  with the `play-native --record-target-*` metadata constructor in
+  `crates/wildside-cli/src/main.rs`. The first shard exposed eight missed
+  guard mutants in `play_native_record_route_target`; added focused tests for
+  empty metadata and each single-field target. Native gameplay behaviour is
+  unchanged.
+- Verification: initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/main.rs --re
+  'play_native_record_route_target|record_route_target|record_target|record_stop_on_target_enemy_contact'
+  -j 1 --gitignore=true --output
+  /tmp/mutants-cli-main-route-target-20260704-initial -- route_target` reported
+  12 mutants tested: 4 caught, 8 missed. Final rerun at
+  `/tmp/mutants-cli-main-route-target-20260704-final` reports 12 mutants
+  tested: 12 caught, 0 missed, 0 unviable, 0 timeouts.
+
 ## 2026-07-04 - proactive CLI recording route-target mutation slice
 
 - Project-status still showed no ready/open risks after the constants mutation
