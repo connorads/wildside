@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive render palette mutation rerun
+
+- Project-status still showed no ready/open risks after render tile hardening,
+  so refreshed `wildside-render/src/palette.rs` visual-path mutation evidence
+  against current HEAD. Existing palette tests cover MD CRAM channel expansion,
+  unused-bit masking, visible-only foreground palette permutation, slot-fifteen
+  handling, and direct slot-zero permutations without source changes.
+- Verification: focused `cargo test -p wildside-render palette` passes.
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-render -f
+  crates/wildside-render/src/palette.rs -j 4 --gitignore=true --output
+  /tmp/mutants-render-palette-20260704-rerun -- palette` reports 35 mutants
+  tested: 33 caught, 2 unviable, 0 missed.
+
 ## 2026-07-04 - proactive render tile mutation hardening
 
 - Project-status still showed no ready/open risks after the Diamond rerun, so
