@@ -277,18 +277,21 @@ pub fn bk2_to_scenario(import: &Bk2Import, checkpoint_interval: usize) -> Dynami
     });
 
     // Periodic checkpoints
-    let mut next = checkpoint_interval;
-    while next < frame_count {
-        checkpoints.push(DynamicCheckpoint {
-            label: format!("frame_{next}"),
-            frame_index: next,
-        });
-        next += checkpoint_interval;
+    if checkpoint_interval > 0 {
+        for next in (checkpoint_interval..frame_count).step_by(checkpoint_interval) {
+            checkpoints.push(DynamicCheckpoint {
+                label: format!("frame_{next}"),
+                frame_index: next,
+            });
+        }
     }
 
     // Final frame (if not already covered)
     let last = frame_count.saturating_sub(1);
-    if last > 0 && checkpoints.last().is_none_or(|cp| cp.frame_index != last) {
+    if checkpoints
+        .last()
+        .is_some_and(|checkpoint| checkpoint.frame_index < last)
+    {
         checkpoints.push(DynamicCheckpoint {
             label: format!("frame_{last}"),
             frame_index: last,
@@ -967,14 +970,7 @@ pub fn bisect_tas(
 
         // Run oracle for full CRC arrays
         println!("  running oracle for CRC comparison ({end} frames)...");
-        let crc_checkpoints = vec![DynamicCheckpoint {
-            label: format!("frame_{}", end.saturating_sub(1)),
-            frame_index: end.saturating_sub(1),
-        }];
-        let crc_scenario = DynamicScenario {
-            checkpoints: crc_checkpoints,
-            ..crc_scenario
-        };
+        let crc_scenario = crc_oracle_scenario(crc_scenario, end);
         let run_dir = repo_root
             .join(".cache/tas-verify")
             .join(&scenario.slug)
@@ -1148,22 +1144,35 @@ fn generate_checkpoints(start: usize, end: usize, interval: usize) -> Vec<Dynami
         label: format!("frame_{start}"),
         frame_index: start,
     });
-    let mut next = start + interval;
-    while next < end {
-        checkpoints.push(DynamicCheckpoint {
-            label: format!("frame_{next}"),
-            frame_index: next,
-        });
-        next += interval;
+    if interval > 0 {
+        let first = start.saturating_add(interval);
+        for next in (first..end).step_by(interval) {
+            checkpoints.push(DynamicCheckpoint {
+                label: format!("frame_{next}"),
+                frame_index: next,
+            });
+        }
     }
     let last = end.saturating_sub(1);
-    if last > start && checkpoints.last().is_none_or(|cp| cp.frame_index != last) {
+    if checkpoints
+        .last()
+        .is_some_and(|checkpoint| checkpoint.frame_index < last)
+    {
         checkpoints.push(DynamicCheckpoint {
             label: format!("frame_{last}"),
             frame_index: last,
         });
     }
     checkpoints
+}
+
+fn crc_oracle_scenario(mut scenario: DynamicScenario, end: usize) -> DynamicScenario {
+    let tail_frame = end.saturating_sub(1);
+    scenario.checkpoints = vec![DynamicCheckpoint {
+        label: format!("frame_{tail_frame}"),
+        frame_index: tail_frame,
+    }];
+    scenario
 }
 
 #[cfg(test)]
@@ -1209,6 +1218,26 @@ mod tests {
         }
         log.push_str("[/Input]\n");
         log
+    }
+
+    fn dynamic_scenario(
+        frame_count: usize,
+        checkpoints: Vec<DynamicCheckpoint>,
+    ) -> DynamicScenario {
+        DynamicScenario {
+            slug: "test".into(),
+            script: vec![0; frame_count],
+            frame_count,
+            checkpoints,
+            start_position: None,
+            start_velocity: None,
+            camera_position: None,
+            playtest_form: None,
+            initial_diamond_count: None,
+            initial_lives: None,
+            warp_to_level: None,
+            settle_oracle_warp: false,
+        }
     }
 
     #[test]
@@ -1413,6 +1442,57 @@ mod tests {
     }
 
     #[test]
+    fn bk2_to_scenario_does_not_duplicate_exact_interval_tail() {
+        let import = Bk2Import {
+            slug: "exact".into(),
+            total_frames: 301,
+            script: vec![0; 301],
+        };
+        let scenario = bk2_to_scenario(&import, 300);
+        let indices: Vec<usize> = scenario
+            .checkpoints
+            .iter()
+            .map(|checkpoint| checkpoint.frame_index)
+            .collect();
+
+        assert_eq!(indices, vec![0, 300]);
+    }
+
+    #[test]
+    fn bk2_to_scenario_keeps_checkpoints_inside_frame_count() {
+        let import = Bk2Import {
+            slug: "bounded".into(),
+            total_frames: 600,
+            script: vec![0; 600],
+        };
+        let scenario = bk2_to_scenario(&import, 300);
+        let indices: Vec<usize> = scenario
+            .checkpoints
+            .iter()
+            .map(|checkpoint| checkpoint.frame_index)
+            .collect();
+
+        assert_eq!(indices, vec![0, 300, 599]);
+    }
+
+    #[test]
+    fn bk2_to_scenario_zero_interval_keeps_start_and_tail_only() {
+        let import = Bk2Import {
+            slug: "zero_interval".into(),
+            total_frames: 600,
+            script: vec![0; 600],
+        };
+        let scenario = bk2_to_scenario(&import, 0);
+        let indices: Vec<usize> = scenario
+            .checkpoints
+            .iter()
+            .map(|checkpoint| checkpoint.frame_index)
+            .collect();
+
+        assert_eq!(indices, vec![0, 599]);
+    }
+
+    #[test]
     fn merge_transition_checkpoints_inserts_pre_and_post() {
         let mut scenario = DynamicScenario {
             slug: "test".into(),
@@ -1510,23 +1590,13 @@ mod tests {
 
     #[test]
     fn merge_transition_checkpoints_ignores_transitions_outside_slice() {
-        let mut scenario = DynamicScenario {
-            slug: "test".into(),
-            script: vec![0; 1000],
-            frame_count: 1000,
-            checkpoints: vec![DynamicCheckpoint {
+        let mut scenario = dynamic_scenario(
+            1000,
+            vec![DynamicCheckpoint {
                 label: "frame_780".into(),
                 frame_index: 780,
             }],
-            start_position: None,
-            start_velocity: None,
-            camera_position: None,
-            playtest_form: None,
-            initial_diamond_count: None,
-            initial_lives: None,
-            warp_to_level: None,
-            settle_oracle_warp: false,
-        };
+        );
         let transitions = vec![
             (
                 500,
@@ -1555,10 +1625,114 @@ mod tests {
     }
 
     #[test]
+    fn merge_transition_checkpoints_includes_start_and_excludes_end() {
+        let mut scenario = dynamic_scenario(100, Vec::new());
+        let transitions = vec![
+            (
+                10,
+                wildside_core::LevelId(0x00),
+                wildside_core::LevelId(0x01),
+            ),
+            (
+                20,
+                wildside_core::LevelId(0x01),
+                wildside_core::LevelId(0x02),
+            ),
+        ];
+
+        super::merge_transition_checkpoints(&mut scenario, &transitions, 10, 20);
+
+        let indices: Vec<usize> = scenario
+            .checkpoints
+            .iter()
+            .map(|checkpoint| checkpoint.frame_index)
+            .collect();
+        assert_eq!(indices, vec![10, 11]);
+    }
+
+    #[test]
+    fn merge_transition_checkpoints_rejects_scenario_frame_count_boundary() {
+        let mut scenario = dynamic_scenario(50, Vec::new());
+        let transitions = vec![
+            (
+                49,
+                wildside_core::LevelId(0x00),
+                wildside_core::LevelId(0x01),
+            ),
+            (
+                50,
+                wildside_core::LevelId(0x01),
+                wildside_core::LevelId(0x02),
+            ),
+        ];
+
+        super::merge_transition_checkpoints(&mut scenario, &transitions, 0, 60);
+
+        let indices: Vec<usize> = scenario
+            .checkpoints
+            .iter()
+            .map(|checkpoint| checkpoint.frame_index)
+            .collect();
+        assert_eq!(indices, vec![49]);
+    }
+
+    #[test]
     fn generate_checkpoints_covers_range() {
         let cps = super::generate_checkpoints(100, 500, 150);
         let indices: Vec<usize> = cps.iter().map(|cp| cp.frame_index).collect();
         assert_eq!(indices, vec![100, 250, 400, 499]);
+    }
+
+    #[test]
+    fn generate_checkpoints_does_not_duplicate_exact_interval_tail() {
+        let cps = super::generate_checkpoints(100, 401, 300);
+        let indices: Vec<usize> = cps
+            .iter()
+            .map(|checkpoint| checkpoint.frame_index)
+            .collect();
+
+        assert_eq!(indices, vec![100, 400]);
+    }
+
+    #[test]
+    fn generate_checkpoints_keeps_end_exclusive() {
+        let cps = super::generate_checkpoints(100, 700, 300);
+        let indices: Vec<usize> = cps
+            .iter()
+            .map(|checkpoint| checkpoint.frame_index)
+            .collect();
+
+        assert_eq!(indices, vec![100, 400, 699]);
+    }
+
+    #[test]
+    fn generate_checkpoints_zero_interval_keeps_start_and_tail_only() {
+        let cps = super::generate_checkpoints(100, 700, 0);
+        let indices: Vec<usize> = cps
+            .iter()
+            .map(|checkpoint| checkpoint.frame_index)
+            .collect();
+
+        assert_eq!(indices, vec![100, 699]);
+    }
+
+    #[test]
+    fn crc_oracle_scenario_replaces_checkpoints_with_tail_frame() {
+        let scenario = dynamic_scenario(
+            900,
+            vec![DynamicCheckpoint {
+                label: "old".into(),
+                frame_index: 123,
+            }],
+        );
+
+        let crc_scenario = super::crc_oracle_scenario(scenario, 450);
+
+        assert_eq!(crc_scenario.frame_count, 900);
+        assert_eq!(crc_scenario.script.len(), 900);
+        assert_eq!(crc_scenario.checkpoints.len(), 1);
+        assert_eq!(crc_scenario.checkpoints[0].label, "frame_449");
+        assert_eq!(crc_scenario.checkpoints[0].frame_index, 449);
     }
 
     #[test]

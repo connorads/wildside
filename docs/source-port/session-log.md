@@ -7,6 +7,33 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI TAS import/checkpoint mutation hardening
+
+- Project-status still showed no ready/open risks after the CLI capture helper
+  slice. Before finding this gap, no-change mutation probes were already clean
+  for `cache.rs` 9/7/2, `release_gate.rs` 22/22/0, `diff.rs` 91/91/0,
+  `ram_diff.rs` 12/12/0, `backlog.rs` 36/35/1, `project_status.rs` 68/62/6,
+  and the rust-source sanitiser subset 102/78/24 timeouts.
+- Mutation-tested the TAS import/checkpoint path:
+  `parse_bk2*`, `parse_input_log`, `bk2_to_scenario`,
+  `merge_transition_checkpoints`, `generate_checkpoints`,
+  `first_crc_mismatch_from_frame`, `cold_boot_advisory`, and the new
+  `crc_oracle_scenario` helper. Initial rerun exposed 12 missed mutants around
+  exclusive end-frame boundaries, duplicate tail checkpoints, transition
+  start/end inclusion, scenario-frame-count rejection, and the bisect CRC oracle
+  checkpoint field.
+- Fix: converted periodic checkpoint loops to finite `step_by` ranges with
+  zero-interval handling, expressed tail insertion as "last checkpoint is before
+  the tail frame", extracted the CRC oracle scenario builder, and added focused
+  boundary tests for BK2 imports, generated checkpoint windows, transition
+  checkpoints, and CRC bisect oracle checkpoints.
+- Verification: focused `cargo test -p wildside-cli tas::tests` passes. Final
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-cli -f
+  crates/wildside-cli/src/tas.rs -j 4 --gitignore=true --re
+  'parse_bk2|parse_input_log|bk2_to_scenario|cold_boot_advisory|merge_transition_checkpoints|generate_checkpoints|first_crc_mismatch_from_frame|crc_oracle_scenario'
+  --output /tmp/mutants-cli-tas-import-20260704-final -- tas::tests` reports
+  55 mutants tested: 50 caught, 5 unviable, 0 missed.
+
 ## 2026-07-04 - proactive CLI capture helper mutation hardening
 
 - Project-status still showed no ready/open risks after the CLI bootstrap layout
