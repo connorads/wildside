@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI inspect target-contact mutation slice
+
+- Project-status still showed no ready/open risks after the CLI main
+  route-target mutation rerun, so continued the proactive verification fallback
+  with `inspect.rs` target-enemy contact report helpers. The first shard exposed
+  six missed mutants around requested-enemy same-frame stomp matching, RockTank
+  child contact ranking, generic contact ranking, and malformed score fallback.
+  Added focused tests for those repro-selection behaviours. Native gameplay
+  behaviour is unchanged.
+- Verification: initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/inspect.rs --re
+  'target_enemy_contact_visual_follow_up_commands|target_enemy_contact_from_frame|target_enemy_contact_candidate|describe_target_enemy_contact'
+  -j 1 --gitignore=true --output
+  /tmp/mutants-cli-inspect-target-contact-20260704-initial --
+  target_enemy_contact` reported 22 mutants tested: 13 caught, 3 unviable, 6
+  missed. Final rerun at `/tmp/mutants-cli-inspect-target-contact-20260704-final`
+  reports 22 mutants tested: 19 caught, 3 unviable, 0 missed, 0 timeouts.
+
 ## 2026-07-04 - proactive CLI main route-target mutation slice
 
 - Project-status still showed no ready/open risks after the recording

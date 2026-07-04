@@ -3963,6 +3963,105 @@ mod tests {
     }
 
     #[test]
+    fn target_enemy_contact_same_frame_stomp_matches_requested_enemy_loc_3b464() {
+        let mut trace = vec![player_frame(
+            10,
+            GameMode::InGame,
+            Some(0x00C0_0000),
+            Some(0x00D0_0000),
+        )];
+        trace[0].gameplay_debug_fields = std::collections::BTreeMap::from([
+            (
+                "kid_same_frame_stomp_probe".to_string(),
+                "candidate=1/enemy=0x0b@0x00c00000,0x00d00000/pre_y_vel=0x0003fc00/post_y_vel=0xfffa0000".to_string(),
+            ),
+            (
+                "kid_collision_order_probe".to_string(),
+                "order=0/target=active_enemy[0]/enemy_0A#01 gate=classify/result=stomp/kid=[198,208,185,216]/obj=[190,215,200,216]/overlap=18,16/delta=0x00000000,0x00000000".to_string(),
+            ),
+        ]);
+
+        assert!(
+            !target_enemy_contact_from_frame(&trace, 0x0A, 0)
+                .expect("target enemy contact")
+                .same_frame_stomp,
+            "same-frame stomp evidence must name the requested enemy, not only any candidate"
+        );
+    }
+
+    #[test]
+    fn target_enemy_contact_ranks_rock_tank_child_candidates_loc_3b464() {
+        let mut trace = vec![player_frame(
+            10,
+            GameMode::InGame,
+            Some(0x00C0_0000),
+            Some(0x00D0_0000),
+        )];
+        trace[0].gameplay_debug_fields = std::collections::BTreeMap::from([(
+            "rock_tank_contact_probe".to_string(),
+            [
+                "active_enemy[0]/family=Tank/child{enemy_0A#01 gate=separated/result=none/kid=[148,158,170,201]/obj=[146,171,208,224]/overlap=10,-7/delta=0x00000000,0x00000000}",
+                "active_enemy[0]/family=Tank/child{enemy_0A#01 gate=classify/result=stomp/kid=[148,158,170,201]/obj=[146,171,200,216]/overlap=10,1/delta=0x00000000,0x00000000}",
+                "active_enemy[0]/family=Tank/child{enemy_0A#01 gate=classify/result=damage/kid=[148,158,170,201]/obj=[146,171,200,216]/overlap=10,1/delta=0x00000000,0x00000000}",
+            ]
+            .join("; "),
+        )]);
+
+        let contact =
+            target_enemy_contact_from_frame(&trace, 0x0A, 0).expect("target enemy contact");
+
+        assert_eq!(contact.result, "stomp");
+        assert!(
+            contact.summary.contains("result=stomp"),
+            "the best RockTank child contact should survive earlier and later worse entries"
+        );
+    }
+
+    #[test]
+    fn target_enemy_contact_keeps_better_generic_candidate_loc_3b6c0() {
+        let mut trace = vec![
+            player_frame(10, GameMode::InGame, Some(0x00C0_0000), Some(0x00D0_0000)),
+            player_frame(11, GameMode::InGame, Some(0x00C8_0000), Some(0x00D8_0000)),
+        ];
+        trace[0].gameplay_debug_fields = std::collections::BTreeMap::from([(
+            "kid_collision_order_probe".to_string(),
+            "order=0/target=active_enemy[0]/enemy_0A#01 gate=classify/result=stomp/kid=[198,208,185,216]/obj=[190,215,200,216]/overlap=18,16/delta=0x00000000,0x00000000".to_string(),
+        )]);
+        trace[1].gameplay_debug_fields = std::collections::BTreeMap::from([(
+            "kid_collision_order_probe".to_string(),
+            "order=0/target=active_enemy[0]/enemy_0A#01 gate=classify/result=none/kid=[198,208,185,216]/obj=[198,208,216,224]/overlap=10,0/delta=0x00000000,0x00000000".to_string(),
+        )]);
+
+        let contact =
+            target_enemy_contact_from_frame(&trace, 0x0A, 0).expect("target enemy contact");
+
+        assert_eq!(contact.result, "stomp");
+        assert_eq!(contact.replay_frame, 0);
+    }
+
+    #[test]
+    fn target_enemy_contact_ranks_malformed_scores_after_measured_loc_3b6c0() {
+        let mut trace = vec![
+            player_frame(10, GameMode::InGame, Some(0x00C0_0000), Some(0x00D0_0000)),
+            player_frame(11, GameMode::InGame, Some(0x00C8_0000), Some(0x00D8_0000)),
+        ];
+        trace[0].gameplay_debug_fields = std::collections::BTreeMap::from([(
+            "kid_collision_order_probe".to_string(),
+            "order=0/target=active_enemy[0]/enemy_0A#01 gate=classify/result=none/overlap=10,0/delta=0x00000000,0x00000000".to_string(),
+        )]);
+        trace[1].gameplay_debug_fields = std::collections::BTreeMap::from([(
+            "kid_collision_order_probe".to_string(),
+            "order=0/target=active_enemy[0]/enemy_0A#01 gate=classify/result=none/kid=[198,208,185,216]/obj=[190,215,200,216]/overlap=18,16/delta=0x00000000,0x00000000".to_string(),
+        )]);
+
+        let contact =
+            target_enemy_contact_from_frame(&trace, 0x0A, 0).expect("target enemy contact");
+
+        assert_eq!(contact.replay_frame, 1);
+        assert_eq!(contact.score_px, 17);
+    }
+
+    #[test]
     fn target_enemy_contact_visual_follow_up_commands_dump_contact_window_loc_3b464() {
         let contact = TargetEnemyContactApproach {
             replay_frame: 226,
