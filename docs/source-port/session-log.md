@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI bootstrap layout mutation hardening
+
+- Project-status still showed no ready/open risks after the CLI hypothesis
+  parser slice, so mutation-tested the pure bootstrap layout/reference helpers:
+  `selected_reference_repos`, `ensure_*_level_layouts_with`,
+  `level_layout_dump_complete`, and `oracle_warp_broken_level`.
+- Initial focused rerun exposed 12 missed mutants across empty reference
+  selection, skipped explicit/gameplay/play-native layout dumps, complete-layout
+  triplet detection, and the jgenesis warp-broken skip list. Added tempfile
+  tests that pin reference ordering, require `.bin`/`.json`/`.blocklist.bin`,
+  dump only missing layouts, skip known oracle-broken levels, and include the
+  optional `play-native` warp level.
+- Verification: focused `cargo test -p wildside-cli bootstrap::tests` passes.
+  Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-cli -f
+  crates/wildside-cli/src/bootstrap.rs -j 4 --gitignore=true --re
+  'selected_reference_repos|ensure_(gameplay_level_layouts_with|level_layouts_with|play_native_level_layouts_with)|level_layout_dump_complete|oracle_warp_broken_level'
+  --output /tmp/mutants-cli-bootstrap-layout-20260704-initial --
+  bootstrap::tests` reported 13 mutants tested: 12 missed, 1 unviable. Final
+  rerun at `/tmp/mutants-cli-bootstrap-layout-20260704-final` reports 13
+  mutants tested: 12 caught, 1 unviable, 0 missed.
+
 ## 2026-07-04 - proactive CLI hypothesis parser mutation hardening
 
 - Project-status still showed no ready/open risks after the CLI view-tas slice,

@@ -568,3 +568,164 @@ fn render_command(command: &Command, cwd: &Path) -> String {
         .join(" ");
     format!("(cd {} && {} {})", cwd.display(), program, args)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::RefCell;
+    use tempfile::TempDir;
+
+    fn manifest_with_output_root(output_root: PathBuf) -> AssetManifest {
+        AssetManifest {
+            generated_bundle_version: 0,
+            rom_sha1: String::new(),
+            upstream_commit: String::new(),
+            source_root: PathBuf::new(),
+            output_root,
+            map_order: Vec::new(),
+            levels: Vec::new(),
+            constants: Vec::new(),
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
+        }
+    }
+
+    fn write_complete_layout(layout_dir: &Path, level_id: u8) {
+        fs::create_dir_all(layout_dir).expect("layout dir");
+        fs::write(layout_dir.join(format!("{level_id:02X}.bin")), b"layout").expect("bin");
+        fs::write(layout_dir.join(format!("{level_id:02X}.json")), b"{}").expect("json");
+        fs::write(
+            layout_dir.join(format!("{level_id:02X}.blocklist.bin")),
+            b"blocks",
+        )
+        .expect("blocklist");
+    }
+
+    #[test]
+    fn selected_reference_repos_preserves_full_and_single_reference_sets() {
+        let all = selected_reference_repos(None);
+        assert_eq!(
+            all.iter().map(|repo| repo.name).collect::<Vec<_>>(),
+            vec!["m68k", "gems", "gemsplay"]
+        );
+
+        assert_eq!(
+            selected_reference_repos(Some(ReferenceName::M68k))[0].name,
+            "m68k"
+        );
+        assert_eq!(
+            selected_reference_repos(Some(ReferenceName::Gems))[0].name,
+            "gems"
+        );
+        assert_eq!(
+            selected_reference_repos(Some(ReferenceName::Gemsplay))[0].name,
+            "gemsplay"
+        );
+    }
+
+    #[test]
+    fn level_layout_dump_complete_requires_data_metadata_and_blocklist() {
+        let temp = TempDir::new().expect("tempdir");
+        let layout_dir = temp.path();
+
+        assert!(!level_layout_dump_complete(layout_dir, 0x02));
+
+        fs::write(layout_dir.join("02.bin"), b"layout").expect("bin");
+        assert!(!level_layout_dump_complete(layout_dir, 0x02));
+
+        fs::write(layout_dir.join("02.json"), b"{}").expect("json");
+        assert!(!level_layout_dump_complete(layout_dir, 0x02));
+
+        fs::write(layout_dir.join("02.blocklist.bin"), b"blocks").expect("blocklist");
+        assert!(level_layout_dump_complete(layout_dir, 0x02));
+    }
+
+    #[test]
+    fn oracle_warp_broken_level_matches_known_jgenesis_skip_list() {
+        for level_id in [0x09, 0x32, 0x33, 0x50, 0x57, 0x5A, 0x5D, 0x5E, 0x63] {
+            assert!(oracle_warp_broken_level(level_id), "{level_id:02X}");
+        }
+
+        for level_id in [0x00, 0x01, 0x1F, 0x64] {
+            assert!(!oracle_warp_broken_level(level_id), "{level_id:02X}");
+        }
+    }
+
+    #[test]
+    fn ensure_level_layouts_with_dumps_only_missing_requested_levels() {
+        let temp = TempDir::new().expect("tempdir");
+        let manifest = manifest_with_output_root(temp.path().to_path_buf());
+        let layout_dir = temp.path().join("level-layout");
+        write_complete_layout(&layout_dir, 0x01);
+
+        let calls = RefCell::new(Vec::new());
+        ensure_level_layouts_with(
+            b"rom",
+            &manifest,
+            &[0x01, 0x02, 0x03],
+            |rom, level_id, dir| {
+                assert_eq!(rom, b"rom");
+                assert_eq!(dir, layout_dir.as_path());
+                calls.borrow_mut().push(level_id);
+                Ok(())
+            },
+        )
+        .expect("missing explicit layouts should be dumped");
+
+        assert_eq!(calls.into_inner(), vec![0x02, 0x03]);
+    }
+
+    #[test]
+    fn ensure_gameplay_level_layouts_with_dumps_scenario_range_and_skips_oracle_broken_levels() {
+        let temp = TempDir::new().expect("tempdir");
+        let manifest = manifest_with_output_root(temp.path().to_path_buf());
+        let layout_dir = temp.path().join("level-layout");
+        write_complete_layout(&layout_dir, 0x00);
+
+        let calls = RefCell::new(Vec::new());
+        ensure_gameplay_level_layouts_with(
+            b"rom",
+            &manifest,
+            GameplayScenario::SoakLevel10m,
+            |rom, level_id, dir| {
+                assert_eq!(rom, b"rom");
+                assert_eq!(dir, layout_dir.as_path());
+                calls.borrow_mut().push(level_id);
+                Ok(())
+            },
+        )
+        .expect("missing gameplay layouts should be dumped");
+
+        let calls = calls.into_inner();
+        assert_eq!(calls.len(), 30);
+        assert!(!calls.contains(&0x00));
+        assert!(!calls.contains(&0x09));
+        assert!(calls.contains(&0x01));
+        assert!(calls.contains(&0x1F));
+    }
+
+    #[test]
+    fn ensure_play_native_level_layouts_with_includes_optional_warp_level() {
+        let temp = TempDir::new().expect("tempdir");
+        let manifest = manifest_with_output_root(temp.path().to_path_buf());
+
+        let calls = RefCell::new(Vec::new());
+        ensure_play_native_level_layouts_with(b"rom", &manifest, Some(0x35), |_, level_id, _| {
+            calls.borrow_mut().push(level_id);
+            Ok(())
+        })
+        .expect("play-native layouts should include soak range and explicit warp level");
+
+        let calls = calls.into_inner();
+        assert!(calls.contains(&0x00));
+        assert!(calls.contains(&0x1F));
+        assert!(calls.contains(&0x35));
+        assert!(!calls.contains(&0x09));
+    }
+}
