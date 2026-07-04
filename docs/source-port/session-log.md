@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive scenario mutation slice
+
+- Project-status still showed no ready/open risks after the `1p-playable`
+  refresh, so continued the proactive verification fallback with the recently
+  changed scenario runner. This refreshes current clean evidence after the
+  direct title-card scenario hardening without changing behaviour.
+- Verification: `env FILE=crates/wildside-core/src/scenario.rs
+  OUTPUT=/tmp/mutants-scenario-20260704-refresh TMPDIR=/tmp mise run
+  mutants-file` reports 98 mutants tested: 80 caught, 18 unviable, 0 missed,
+  0 timeouts.
+
 ## 2026-07-04 - proactive 1p-playable release-gate refresh
 
 - Project-status still showed no ready/open risks after the `1p-accurate`
