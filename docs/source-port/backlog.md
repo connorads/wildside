@@ -56,12 +56,12 @@ and stop — never commit churn.
 - **Visual route work:** do not retune Tank Y/priority, flagpole priority, or
   title/menu VDP from stale direct-camera or clean synthetic routes. If the
   route machinery cannot see the bug, improve the capture/probe surface first.
-- **Proactive verification 2026-07-04:** no ready/open rows remain; latest addition is the clean `constants.rs` mutation rerun.
+- **Proactive verification 2026-07-04:** no ready/open rows remain; latest addition is the clean CLI recording route-target mutation rerun.
 - **Current gates 2026-07-04:** clean mutation reruns now cover through storm
   `sub_6048` cadence, live `step_weather` free-slot routing, murder-wall
   warning dispatch, weather label/path helpers, and the enemy module reruns
   listed below.
-  Latest focused clean reruns: constants 59/50/9, gfx-animation 18/16/2,
+  Latest focused clean reruns: CLI recording route-target 13/13/0, constants 59/50/9, gfx-animation 18/16/2,
   scenario 98/80/18, types 211/204/7, Hand 50/45/5, movement 22/20/2 + 21/20/1,
   weather 16/16/0 + 52/49/3 + 64/63/1 + 25/25/0 + 103/102/1 +
   65/51/14 + 92/92/0 + 16/15/1 + 14/14/0 + 7/6/1 + 26/25/1 + 22/22/0

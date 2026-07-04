@@ -3061,6 +3061,28 @@ mod tests {
         }
     }
 
+    fn recording_summary_with_route_target(target: RecordingRouteTarget) -> String {
+        let mut recording = build_recording(
+            &fixture_manifest(),
+            "route-target-summary",
+            RecordingStart {
+                warp_level: Some(0x06),
+                settled: true,
+                record_frames: Some(1200),
+            },
+            vec![8; 3],
+            vec![
+                sample_trace_frame(0),
+                sample_trace_frame(1),
+                sample_trace_frame(2),
+            ],
+        )
+        .expect("recording");
+        recording.manifest.route_target = Some(target);
+
+        recording_bundle_summary(&recording.manifest, recording.trace.len())
+    }
+
     fn sample_oracle_state(frame_index: usize, label: &str) -> OracleState {
         OracleState {
             label: label.to_owned(),
@@ -4275,6 +4297,77 @@ mod tests {
         assert!(readme.contains("- cell_hitbox: 179,32"));
         assert!(readme.contains("- enemy: 0x0A"));
         assert!(readme.contains("--frontier-kind gameplay"));
+    }
+
+    #[test]
+    fn route_target_summary_omits_empty_target() {
+        let summary = recording_summary_with_route_target(RecordingRouteTarget::default());
+
+        assert!(
+            !summary.contains("route_target:"),
+            "empty route targets should not create a misleading README section"
+        );
+    }
+
+    #[test]
+    fn route_target_summary_accepts_each_single_field_target() {
+        let cases = vec![
+            (
+                RecordingRouteTarget {
+                    label: Some(String::from("slope-route")),
+                    ..RecordingRouteTarget::default()
+                },
+                "- label: slope-route",
+            ),
+            (
+                RecordingRouteTarget {
+                    level: Some(0x06),
+                    ..RecordingRouteTarget::default()
+                },
+                "- level: 0x06",
+            ),
+            (
+                RecordingRouteTarget {
+                    points: vec![RecordingTargetPoint {
+                        x_px: 2848,
+                        y_px: 512,
+                    }],
+                    ..RecordingRouteTarget::default()
+                },
+                "- point: 2848,512 px",
+            ),
+            (
+                RecordingRouteTarget {
+                    cells: vec![RecordingTargetCell { col: 178, row: 32 }],
+                    ..RecordingRouteTarget::default()
+                },
+                "- cell: 178,32",
+            ),
+            (
+                RecordingRouteTarget {
+                    cell_hitboxes: vec![RecordingTargetCell { col: 179, row: 32 }],
+                    ..RecordingRouteTarget::default()
+                },
+                "- cell_hitbox: 179,32",
+            ),
+            (
+                RecordingRouteTarget {
+                    enemies: vec![0x0A],
+                    ..RecordingRouteTarget::default()
+                },
+                "- enemy: 0x0A",
+            ),
+        ];
+
+        for (target, expected_line) in cases {
+            let summary = recording_summary_with_route_target(target);
+
+            assert!(summary.contains("route_target:"));
+            assert!(
+                summary.contains(expected_line),
+                "single-field route targets should be enough to document the requested target"
+            );
+        }
     }
 
     #[test]

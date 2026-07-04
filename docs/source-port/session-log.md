@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI recording route-target mutation slice
+
+- Project-status still showed no ready/open risks after the constants mutation
+  rerun, so continued the proactive verification fallback with the recently
+  added native-recording route-target bundle metadata. Strengthened README
+  summary tests so empty targets stay omitted and each single-field target is
+  documented. Native gameplay behaviour is unchanged.
+- Verification: `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/recording.rs --re
+  'RecordingRouteTarget|route_target|target_|score_recording|recording_target|target'
+  -j 1 --gitignore=true --output
+  /tmp/mutants-cli-recording-route-target-20260704-final -- route_target`
+  reports 13 mutants tested: 13 caught, 0 missed, 0 unviable, 0 timeouts.
+  A broader `recording::tests::` filter was rejected because the unrelated
+  cache-backed Red Stealth visual accumulator test fails in the cargo-mutants
+  temp tree.
+
 ## 2026-07-04 - proactive constants mutation slice
 
 - Project-status still showed no ready/open risks after the gfx-animation
