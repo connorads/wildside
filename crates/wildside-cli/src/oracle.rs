@@ -613,7 +613,74 @@ fn quote_argument(value: &OsStr) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{HELPER_TEMPLATE, OracleManifest};
+    use super::{
+        HELPER_TEMPLATE, JgenesisBackend, OracleBackend, OracleEnvironment, OracleManifest,
+        jgenesis_helper_cache_version, quote_argument, render_command, write_if_changed,
+    };
+    use crate::capture::sha1_hex;
+    use std::ffi::OsStr;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::process::Command;
+    use tempfile::TempDir;
+
+    #[test]
+    fn jgenesis_backend_reports_stable_name_and_helper_cache_version() {
+        let backend = JgenesisBackend {
+            env: OracleEnvironment {
+                jgenesis_helper_bin: PathBuf::from("helper-bin"),
+                jgenesis_dir: PathBuf::from("jgenesis"),
+                blastem_dir: PathBuf::from("blastem"),
+                blastem_binary: None,
+            },
+        };
+        let cache_version = jgenesis_helper_cache_version();
+
+        assert_eq!(backend.name(), "jgenesis");
+        assert_eq!(backend.cache_version(), cache_version);
+        assert_eq!(cache_version, sha1_hex(HELPER_TEMPLATE.as_bytes()));
+        assert_eq!(cache_version.len(), 40);
+        assert!(
+            cache_version
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        );
+    }
+
+    #[test]
+    fn write_if_changed_writes_missing_or_changed_files_only() {
+        let dir = TempDir::new().expect("temp dir");
+        let path = dir.path().join("generated.txt");
+
+        write_if_changed(&path, b"first").expect("initial write");
+        assert_eq!(fs::read(&path).expect("initial contents"), b"first");
+
+        write_if_changed(&path, b"second").expect("changed write");
+        assert_eq!(fs::read(&path).expect("changed contents"), b"second");
+
+        write_if_changed(&path, b"second").expect("same contents");
+        assert_eq!(fs::read(&path).expect("unchanged contents"), b"second");
+    }
+
+    #[test]
+    fn render_command_quotes_only_arguments_that_need_shell_escaping() {
+        let mut command = Command::new("git");
+        command
+            .arg("checkout")
+            .arg("--detach")
+            .arg("abc-123_./:=+")
+            .arg("branch with space");
+
+        assert_eq!(quote_argument(OsStr::new("abc-123_./:=+")), "abc-123_./:=+");
+        assert_eq!(
+            quote_argument(OsStr::new("branch with space")),
+            "\"branch with space\""
+        );
+        assert_eq!(
+            render_command(&command, Path::new("/repo root")),
+            "(cd /repo root && git checkout --detach abc-123_./:=+ \"branch with space\")"
+        );
+    }
 
     #[test]
     fn helper_settles_level_zero_recording_oracles() {

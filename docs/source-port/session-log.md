@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI oracle helper mutation hardening
+
+- Project-status still showed no ready/open risks after the clean diff helper
+  rerun, so mutation-tested deterministic `oracle.rs` helpers: jgenesis cache
+  version, backend name/cache-version delegation, `write_if_changed`, command
+  rendering, and argument quoting.
+- Initial focused rerun exposed 13 missed mutants across stable backend
+  identifiers, helper cache-version hashing, changed-file writes, and
+  command/argument rendering.
+- Fix: added focused tests for the SHA1-shaped helper cache version, backend
+  identifier/delegation contracts, missing/changed/same file writes, and shell
+  rendering that leaves safe arguments unquoted while quoting spaces.
+- Verification: focused `cargo test -p wildside-cli oracle::tests` passes.
+  Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-cli -f
+  crates/wildside-cli/src/oracle.rs -j 4 --gitignore=true --re
+  'jgenesis_helper_cache_version|name ->|cache_version ->|write_if_changed|render_command|quote_argument'
+  --output /tmp/mutants-cli-oracle-helpers-20260704-initial -- oracle::tests`
+  reported 14 mutants tested: 0 caught, 13 missed, 1 unviable. Final rerun at
+  `/tmp/mutants-cli-oracle-helpers-20260704-final` reports 14 mutants tested:
+  13 caught, 1 unviable, 0 missed.
+
 ## 2026-07-04 - proactive CLI diff helper mutation rerun
 
 - Project-status still showed no ready/open risks after the verify audio/window
