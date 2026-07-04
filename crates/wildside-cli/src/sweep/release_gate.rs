@@ -139,7 +139,7 @@ pub(super) fn decimal_level_index_to_bcd(level_index: usize) -> Option<u8> {
     }
     let tens = level_index / 10;
     let ones = level_index % 10;
-    Some(((tens as u8) << 4) | ones as u8)
+    Some((tens * 0x10 + ones) as u8)
 }
 
 pub(super) fn extract_release_gate_scenario_level_id(step_name: &str) -> Option<String> {
@@ -561,6 +561,374 @@ pub(super) fn summarise_release_gate_focuses(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn release_focus(
+        field: &str,
+        checkpoint: Option<&str>,
+        native_value: Option<&str>,
+        oracle_value: Option<&str>,
+        scenario_level_id: Option<&str>,
+    ) -> ReleaseGateFieldFocus {
+        ReleaseGateFieldFocus {
+            target: "1p-accurate".into(),
+            step_name: "gameplay_compare:pause_resume_level1".into(),
+            checkpoint: checkpoint.map(str::to_owned),
+            field: field.into(),
+            native_value: native_value.map(str::to_owned),
+            oracle_value: oracle_value.map(str::to_owned),
+            scenario_level_id: scenario_level_id.map(str::to_owned),
+        }
+    }
+
+    fn field_entry() -> SweepHistoryFieldEntry {
+        SweepHistoryFieldEntry {
+            field: "game_mode".into(),
+            total_diffs: 3,
+            levels: 2,
+            level_ids: vec!["0x00".into(), "0x10".into()],
+            checkpoints: vec![
+                "level_settle@719".into(),
+                "level_settle@720".into(),
+                "@empty_family".into(),
+            ],
+            checkpoint_counts: vec![
+                SweepHistoryCheckpointCount {
+                    checkpoint: "level_settle@719".into(),
+                    diffs: 2,
+                },
+                SweepHistoryCheckpointCount {
+                    checkpoint: "level_settle@720".into(),
+                    diffs: 1,
+                },
+            ],
+            divergence_summary: DivergenceSummary {
+                authoritative: 2,
+                oracle_limitation: 1,
+                ..DivergenceSummary::default()
+            },
+        }
+    }
+
+    fn state_diff(
+        checkpoint: &str,
+        field: &str,
+        native_value: &str,
+        oracle_value: &str,
+    ) -> StateDiff {
+        StateDiff {
+            checkpoint: checkpoint.into(),
+            field: field.into(),
+            native_value: native_value.into(),
+            oracle_value: oracle_value.into(),
+            category: DivergenceCategory::Authoritative,
+        }
+    }
+
+    fn level_result(level_id: u8, state_diffs: Vec<StateDiff>) -> LevelSweepResult {
+        LevelSweepResult {
+            level_id,
+            slug: format!("level_{level_id:02x}"),
+            tier: SweepTier::State,
+            passed: false,
+            state_diffs,
+            mae: None,
+            pixel_mismatches: None,
+            diff_images: Vec::new(),
+            error: None,
+            divergence_summary: DivergenceSummary::default(),
+            checksum_mismatch: None,
+            total_checkpoints: 0,
+            masked_checkpoints: 0,
+        }
+    }
+
+    #[test]
+    fn release_gate_value_normalisation_distinguishes_hex_like_values() {
+        assert_eq!(normalise_release_gate_value(" 0x00AB "), "0x00ab");
+        assert_eq!(normalise_release_gate_value("0008"), "0x0008");
+        assert_eq!(normalise_release_gate_value("0A"), "0x0a");
+        assert_eq!(normalise_release_gate_value("7"), "7");
+        assert_eq!(normalise_release_gate_value("70"), "70");
+        assert_eq!(normalise_release_gate_value("0"), "0");
+        assert_eq!(normalise_release_gate_value("0z"), "0z");
+        assert_eq!(normalise_release_gate_value("Game Mode"), "game mode");
+    }
+
+    #[test]
+    fn release_gate_scenario_level_id_uses_bcd_level_indices() {
+        assert_eq!(
+            extract_release_gate_scenario_level_id("gameplay_compare:level1_intro"),
+            Some("0x00".into())
+        );
+        assert_eq!(
+            extract_release_gate_scenario_level_id("gameplay_compare:level10_tail"),
+            Some("0x09".into())
+        );
+        assert_eq!(
+            extract_release_gate_scenario_level_id("gameplay_compare:level11_tail"),
+            Some("0x10".into())
+        );
+        assert_eq!(
+            extract_release_gate_scenario_level_id("gameplay_compare:level69_tail"),
+            Some("0x68".into())
+        );
+        assert_eq!(
+            extract_release_gate_scenario_level_id("gameplay_compare:level70_tail"),
+            None
+        );
+        assert_eq!(
+            extract_release_gate_scenario_level_id("gameplay_compare:level0_tail"),
+            None
+        );
+        assert_eq!(
+            extract_release_gate_scenario_level_id("gameplay_compare:stage1_tail"),
+            None
+        );
+    }
+
+    #[test]
+    fn release_gate_checkpoint_family_splits_only_the_frame_suffix() {
+        assert_eq!(checkpoint_family("level_settle@719"), "level_settle");
+        assert_eq!(checkpoint_family("level_settle"), "level_settle");
+        assert_eq!(checkpoint_family("@719"), "");
+    }
+
+    #[test]
+    fn release_gate_focus_summary_reports_field_checkpoint_and_family_matches() {
+        let summary = format_release_gate_focus_summary(
+            &[field_entry()],
+            &release_focus(
+                "game_mode",
+                Some("level_settle@719"),
+                None,
+                None,
+                Some("0x00"),
+            ),
+        );
+
+        assert!(summary.contains("1p-accurate failing field game_mode=3 diffs across 2 levels"));
+        assert!(summary.contains("for pause_resume_level1 @ level_settle@719"));
+        assert!(summary.contains("[authoritative=2, oracle_limitations=1]"));
+        assert!(summary.contains("[0x00, 0x10]"));
+        assert!(summary.contains("[includes scenario level 0x00]"));
+        assert!(summary.contains("[includes checkpoint level_settle@719]"));
+        assert!(summary.contains("[includes checkpoint family level_settle]"));
+        assert!(summary.contains("checkpoints=[level_settle@719=2, level_settle@720=1]"));
+    }
+
+    #[test]
+    fn release_gate_focus_summary_reports_exclusions_and_missing_fields() {
+        let field_summary = [field_entry()];
+        let excluded = format_release_gate_focus_summary(
+            &field_summary,
+            &release_focus("game_mode", Some("jump_start@10"), None, None, Some("0x20")),
+        );
+
+        assert!(excluded.contains("[excludes scenario level 0x20]"));
+        assert!(excluded.contains("[excludes checkpoint jump_start@10]"));
+        assert!(excluded.contains("[excludes checkpoint family jump_start]"));
+
+        let empty_family = format_release_gate_focus_summary(
+            &field_summary,
+            &release_focus("game_mode", Some("@719"), None, None, Some("0x00")),
+        );
+        assert!(
+            !empty_family.contains("checkpoint family"),
+            "empty checkpoint families should not produce family evidence: {empty_family}"
+        );
+
+        assert_eq!(
+            format_release_gate_focus_summary(
+                &field_summary,
+                &release_focus("camera_y_pos", Some("title@360"), None, None, Some("0x00")),
+            ),
+            "1p-accurate failing field camera_y_pos for pause_resume_level1 @ title@360 not present in latest state sweep field_summary"
+        );
+    }
+
+    #[test]
+    fn release_gate_focuses_match_exact_value_pairs_and_filter_noise() {
+        let results = vec![
+            level_result(
+                0x00,
+                vec![
+                    state_diff("level_settle@719", "game_mode", "0008", "000C"),
+                    state_diff("level_settle@719", "game_mode", "0x0008", "0x000c"),
+                ],
+            ),
+            level_result(
+                0x10,
+                vec![state_diff(
+                    "level_settle@720",
+                    "game_mode",
+                    "0x0008",
+                    "0x000c",
+                )],
+            ),
+            level_result(
+                0x20,
+                vec![
+                    state_diff("noise_native@1", "game_mode", "0x0008", "0x000d"),
+                    state_diff("noise_oracle@1", "game_mode", "0x0009", "0x000c"),
+                    state_diff("noise_field@1", "camera_y_pos", "0008", "000C"),
+                ],
+            ),
+        ];
+        let field_summary = [field_entry()];
+
+        let summaries = summarise_release_gate_focuses(
+            &results,
+            &field_summary,
+            &[release_focus(
+                "game_mode",
+                Some("level_settle@719"),
+                Some("0x0008"),
+                Some("0x000c"),
+                Some("0x00"),
+            )],
+        );
+
+        assert_eq!(summaries.len(), 1);
+        let summary = &summaries[0];
+        assert!(summary.matched_in_state_sweep);
+        assert_eq!(summary.scenario_level_matched_in_state_sweep, Some(true));
+        assert_eq!(summary.checkpoint_matched_in_state_sweep, Some(true));
+        assert_eq!(summary.checkpoint_family_matched_in_state_sweep, Some(true));
+        assert_eq!(summary.exact_value_pair_matched_in_state_sweep, Some(true));
+        assert_eq!(summary.exact_value_pair_levels, Some(2));
+        assert_eq!(summary.exact_value_pair_level_ids, vec!["0x00", "0x10"]);
+        assert_eq!(
+            summary.exact_value_pair_scenario_level_matched_in_state_sweep,
+            Some(true)
+        );
+        assert_eq!(
+            summary.exact_value_pair_checkpoint_matched_in_state_sweep,
+            Some(true)
+        );
+        assert_eq!(
+            summary.exact_value_pair_checkpoint_family_matched_in_state_sweep,
+            Some(true)
+        );
+        assert_eq!(
+            summary.exact_value_pair_checkpoints,
+            vec![
+                SweepHistoryCheckpointCount {
+                    checkpoint: "level_settle@719".into(),
+                    diffs: 2,
+                },
+                SweepHistoryCheckpointCount {
+                    checkpoint: "level_settle@720".into(),
+                    diffs: 1,
+                },
+            ]
+        );
+        assert!(summary.summary.contains(
+            "[exact pair 0x0008->0x000c seen on levels [0x00, 0x10] checkpoints=[level_settle@719=2, level_settle@720=1]; includes scenario level 0x00; includes checkpoint level_settle@719; includes checkpoint family level_settle]"
+        ));
+    }
+
+    #[test]
+    fn release_gate_focuses_report_absent_exact_pairs_separately() {
+        let results = vec![level_result(
+            0x00,
+            vec![state_diff("level_settle@719", "game_mode", "0008", "000C")],
+        )];
+        let field_summary = [field_entry()];
+
+        let summaries = summarise_release_gate_focuses(
+            &results,
+            &field_summary,
+            &[
+                release_focus(
+                    "game_mode",
+                    Some("level_settle@719"),
+                    Some("0x0009"),
+                    Some("0x000c"),
+                    Some("0x00"),
+                ),
+                release_focus(
+                    "game_mode",
+                    Some("bonus@1"),
+                    Some("0x0008"),
+                    Some("0x000c"),
+                    Some("0x20"),
+                ),
+                release_focus(
+                    "game_mode",
+                    Some("level_settle@719"),
+                    None,
+                    Some("0x000c"),
+                    Some("0x00"),
+                ),
+            ],
+        );
+
+        let absent_pair = &summaries[0];
+        assert_eq!(
+            absent_pair.exact_value_pair_matched_in_state_sweep,
+            Some(false)
+        );
+        assert_eq!(absent_pair.exact_value_pair_levels, Some(0));
+        assert!(absent_pair.exact_value_pair_level_ids.is_empty());
+        assert!(absent_pair.exact_value_pair_checkpoints.is_empty());
+        assert_eq!(
+            absent_pair.exact_value_pair_scenario_level_matched_in_state_sweep,
+            Some(false)
+        );
+        assert_eq!(
+            absent_pair.exact_value_pair_checkpoint_matched_in_state_sweep,
+            Some(false)
+        );
+        assert_eq!(
+            absent_pair.exact_value_pair_checkpoint_family_matched_in_state_sweep,
+            Some(false)
+        );
+        assert!(absent_pair.summary.contains(
+            "[exact pair 0x0009->0x000c absent from latest state sweep; same field class, different concrete miss]"
+        ));
+
+        let excluded_context = &summaries[1];
+        assert_eq!(
+            excluded_context.scenario_level_matched_in_state_sweep,
+            Some(false)
+        );
+        assert_eq!(
+            excluded_context.checkpoint_matched_in_state_sweep,
+            Some(false)
+        );
+        assert_eq!(
+            excluded_context.checkpoint_family_matched_in_state_sweep,
+            Some(false)
+        );
+        assert_eq!(
+            excluded_context.exact_value_pair_scenario_level_matched_in_state_sweep,
+            Some(false)
+        );
+        assert_eq!(
+            excluded_context.exact_value_pair_checkpoint_matched_in_state_sweep,
+            Some(false)
+        );
+        assert_eq!(
+            excluded_context.exact_value_pair_checkpoint_family_matched_in_state_sweep,
+            Some(false)
+        );
+        assert!(
+            excluded_context
+                .summary
+                .contains("[exact pair 0x0008->0x000c seen on levels [0x00] checkpoints=[level_settle@719=1]; excludes scenario level 0x20; excludes checkpoint bonus@1; excludes checkpoint family bonus]")
+        );
+
+        let incomplete_pair = &summaries[2];
+        assert_eq!(
+            incomplete_pair.exact_value_pair_matched_in_state_sweep,
+            None
+        );
+        assert_eq!(incomplete_pair.exact_value_pair_levels, None);
+        assert!(
+            !incomplete_pair.summary.contains("[exact pair"),
+            "exact-pair evidence requires both native and oracle values: {incomplete_pair:?}"
+        );
+    }
 
     #[test]
     fn latest_release_gate_failed_fields_keeps_all_failed_steps() {

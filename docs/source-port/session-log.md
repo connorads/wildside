@@ -7,6 +7,36 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI sweep release-gate focus mutation hardening
+
+- Project-status still showed no ready/open risks after the CLI sweep gameplay
+  assertion slice, so mutation-tested the release-gate focus helpers:
+  `compact_release_gate_step_name`, `checkpoint_family`,
+  `extract_release_gate_failed_*`, `normalise_release_gate_value`,
+  `decimal_level_index_to_bcd`, `extract_release_gate_scenario_level_id`,
+  `latest_release_gate_failed_fields`, `format_release_gate_focus_summary`, and
+  `summarise_release_gate_focuses`.
+- Initial focused rerun exposed 55 missed mutants across fixed-width hex
+  normalisation, checkpoint-family parsing, decimal-level to BCD conversion,
+  field/checkpoint/family coverage summaries, exact value-pair filtering, and
+  exact-pair matched/excluded metadata.
+- Fix: added focused synthetic tests for release-gate value normalisation, BCD
+  scenario-level extraction, checkpoint families, field-summary includes and
+  excludes, exact value-pair matches with same-field noise, absent exact pairs,
+  and incomplete native/oracle value pairs. Replaced the behaviour-equivalent
+  BCD nibble OR with explicit BCD arithmetic so the expression remains
+  mutation-testable.
+- Verification: focused `cargo test -p wildside-cli sweep::release_gate::tests`
+  passes. Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/sweep/release_gate.rs -j 4
+  --gitignore=true --re
+  'compact_release_gate_step_name|checkpoint_family|extract_release_gate_failed_field|extract_release_gate_failed_checkpoint|normalise_release_gate_value|looks_like_fixed_width_hex|extract_release_gate_failed_values|decimal_level_index_to_bcd|extract_release_gate_scenario_level_id|latest_release_gate_failed_fields|format_release_gate_focus_summary|summarise_release_gate_focuses'
+  --output /tmp/mutants-cli-sweep-release-gate-20260704-initial --
+  sweep::release_gate::tests` reported 93 mutants tested: 35 caught, 55
+  missed, 3 unviable. Final rerun at
+  `/tmp/mutants-cli-sweep-release-gate-20260704-final2` reports 94 mutants
+  tested: 91 caught, 3 unviable, 0 missed.
+
 ## 2026-07-04 - proactive CLI sweep gameplay assertion mutation hardening
 
 - Project-status still showed no ready/open risks after the CLI TAS
