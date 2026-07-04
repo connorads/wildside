@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI hypothesis parser mutation hardening
+
+- Project-status still showed no ready/open risks after the CLI view-tas slice,
+  so mutation-tested the pure `hypothesis.rs` assertion parser/evaluator:
+  `evaluate_assertion`, `parse_indexed_ref`, and `parse_int_value`.
+- Initial focused rerun found all 19 selected mutants missed because the module
+  had no tests. Added exact operator, missing-watch, malformed-expression,
+  indexed-reference, and decimal/hex literal tests; tightened `KEY[FRAME]`
+  parsing to require the closing bracket instead of silently accepting
+  `KEY[FRAME`.
+- Verification: focused `cargo test -p wildside-cli hypothesis::tests` passes.
+  Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-cli -f
+  crates/wildside-cli/src/hypothesis.rs -j 4 --gitignore=true --re
+  'evaluate_assertion|parse_indexed_ref|parse_int_value' --output
+  /tmp/mutants-cli-hypothesis-parser-20260704-initial -- hypothesis` reported
+  19 mutants tested: 19 missed. Final rerun at
+  `/tmp/mutants-cli-hypothesis-parser-20260704-final` reports 19 mutants
+  tested: 19 caught, 0 missed.
+
 ## 2026-07-04 - proactive CLI view-tas mutation hardening
 
 - Project-status still showed no ready/open risks after the data plane/mask

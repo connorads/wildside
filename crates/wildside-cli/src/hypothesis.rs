@@ -306,7 +306,9 @@ fn evaluate_assertion(
 /// Parse "KEY[FRAME]" → (key, frame_index)
 fn parse_indexed_ref(s: &str) -> Result<(String, usize)> {
     let (key, rest) = s.split_once('[').context("expected KEY[FRAME] format")?;
-    let frame_str = rest.trim_end_matches(']');
+    let frame_str = rest
+        .strip_suffix(']')
+        .context("expected KEY[FRAME] format")?;
     let frame: usize = frame_str.parse().context("invalid frame index")?;
     Ok((key.to_string(), frame))
 }
@@ -320,3 +322,96 @@ fn parse_int_value(s: &str) -> Result<i64> {
 }
 
 use std::io::Write;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn oracle_data(entries: &[(usize, &str, i64)]) -> HashMap<usize, HashMap<String, i64>> {
+        let mut oracle_data = HashMap::new();
+        for &(frame, key, value) in entries {
+            oracle_data
+                .entry(frame)
+                .or_insert_with(HashMap::new)
+                .insert(key.to_string(), value);
+        }
+        oracle_data
+    }
+
+    fn evaluate(expr: &str, oracle_data: &HashMap<usize, HashMap<String, i64>>) -> Result<bool> {
+        evaluate_assertion(expr, oracle_data, &[])
+    }
+
+    #[test]
+    fn assertion_evaluator_supports_each_comparison_operator() {
+        let data = oracle_data(&[(12, "0xFF2500_u16", 5)]);
+        let cases = [
+            ("oracle.0xFF2500_u16[12] != 0", true),
+            ("oracle.0xFF2500_u16[12] != 5", false),
+            ("oracle.0xFF2500_u16[12] >= 5", true),
+            ("oracle.0xFF2500_u16[12] >= 6", false),
+            ("oracle.0xFF2500_u16[12] <= 5", true),
+            ("oracle.0xFF2500_u16[12] <= 4", false),
+            ("oracle.0xFF2500_u16[12] = 5", true),
+            ("oracle.0xFF2500_u16[12] = 4", false),
+            ("oracle.0xFF2500_u16[12] > 4", true),
+            ("oracle.0xFF2500_u16[12] > 5", false),
+            ("oracle.0xFF2500_u16[12] < 6", true),
+            ("oracle.0xFF2500_u16[12] < 5", false),
+        ];
+
+        for (expr, expected) in cases {
+            assert_eq!(evaluate(expr, &data).unwrap(), expected, "{expr}");
+        }
+    }
+
+    #[test]
+    fn assertion_evaluator_accepts_unprefixed_keys_and_defaults_missing_watches_to_zero() {
+        let data = oracle_data(&[(3, "watch", 9)]);
+
+        assert!(evaluate("watch[3] = 9", &data).unwrap());
+        assert!(evaluate("missing[3] = 0", &data).unwrap());
+    }
+
+    #[test]
+    fn assertion_evaluator_reports_unparsable_expressions() {
+        let data = oracle_data(&[(3, "watch", 9)]);
+        let error = evaluate("watch[3] approximately 9", &data).unwrap_err();
+
+        assert!(error.to_string().contains("could not parse assertion"));
+    }
+
+    #[test]
+    fn parse_indexed_ref_returns_key_and_frame() {
+        assert_eq!(
+            parse_indexed_ref("0xFF2500_u16[955]").unwrap(),
+            ("0xFF2500_u16".to_string(), 955)
+        );
+    }
+
+    #[test]
+    fn parse_indexed_ref_rejects_missing_brackets_and_invalid_frames() {
+        let missing_open = parse_indexed_ref("0xFF2500_u16").unwrap_err();
+        assert!(missing_open.to_string().contains("expected KEY[FRAME]"));
+
+        let missing_close = parse_indexed_ref("0xFF2500_u16[955").unwrap_err();
+        assert!(missing_close.to_string().contains("expected KEY[FRAME]"));
+
+        let invalid_frame = parse_indexed_ref("0xFF2500_u16[later]").unwrap_err();
+        assert!(invalid_frame.to_string().contains("invalid frame index"));
+    }
+
+    #[test]
+    fn parse_int_value_accepts_decimal_and_hex_literals() {
+        assert_eq!(parse_int_value("42").unwrap(), 42);
+        assert_eq!(parse_int_value("-7").unwrap(), -7);
+        assert_eq!(parse_int_value("0x2A").unwrap(), 42);
+        assert_eq!(parse_int_value("0X2a").unwrap(), 42);
+    }
+
+    #[test]
+    fn parse_int_value_rejects_invalid_literals() {
+        assert!(parse_int_value("forty-two").is_err());
+        assert!(parse_int_value("0xnothex").is_err());
+    }
+}
