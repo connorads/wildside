@@ -52,7 +52,9 @@ pub(crate) fn vdp_game_init_register_commands_loc_5E6() -> [u16; 19] {
     let mut reg_base: u16 = 0x8000;
     for (i, &value) in VDP_GAME_INIT_VALUES.iter().enumerate() {
         // ASM loc_5E6: move.b (a0)+,d1 — overwrite low byte of d1
-        commands[i] = reg_base | u16::from(value);
+        // Register command bases have a zero low byte, so addition preserves
+        // the same command word as the ASM byte write.
+        commands[i] = reg_base + u16::from(value);
         // ASM: addi.w #$100,d1 — next register
         reg_base = reg_base.wrapping_add(0x100);
     }
@@ -8192,6 +8194,96 @@ impl NativeRuntime {
 #[allow(non_snake_case)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn loc_5e6_streams_the_19_vdp_game_init_register_commands() {
+        assert_eq!(
+            vdp_game_init_register_commands_loc_5E6(),
+            [
+                0x8014, 0x8174, 0x8200, 0x8300, 0x8407, 0x8508, 0x8600, 0x8700, 0x8800, 0x8900,
+                0x8A00, 0x8B03, 0x8C81, 0x8D05, 0x8E00, 0x8F02, 0x9001, 0x9100, 0x9200,
+            ],
+            "ASM loc_5E6 streams registers $80..=$92 from VDPGameInitValues"
+        );
+        assert_eq!(
+            VDP_GAME_INIT_VALUES.len(),
+            19,
+            "ASM loc_5E6 seeds d0=$12, so the inclusive DBF loop writes 19 VDP registers"
+        );
+    }
+
+    #[test]
+    fn loc_5fe_preserves_options_when_the_low_word_controls_value_is_valid() {
+        for controls in 0..=5_u32 {
+            let saved = 0xABCD_0000 | controls;
+            assert_eq!(
+                validate_options_after_ram_clear_loc_5FE(saved),
+                saved,
+                "ASM loc_5FE restores the full saved options longword when low-word controls={controls}"
+            );
+        }
+    }
+
+    #[test]
+    fn loc_5fe_resets_options_when_the_low_word_controls_value_is_invalid() {
+        for saved in [0x0000_0006, 0xABCD_0006, 0x0000_FFFF, 0xFFFF_FFFF] {
+            assert_eq!(
+                validate_options_after_ram_clear_loc_5FE(saved),
+                0,
+                "ASM loc_5FE compares only d7.w against 5 and resets invalid saved options"
+            );
+        }
+    }
+
+    #[test]
+    fn loc_5fe_61c_700_720_startup_clear_dimensions_match_the_dbf_seeds() {
+        assert_eq!(
+            RAM_CLEAR_START_ADDR_LOC_5FE, 0xFFFF_0000,
+            "ASM loc_5FE starts clearing RAM at Sprite_Table"
+        );
+        assert_eq!(
+            RAM_CLEAR_LONGWORD_COUNT_LOC_5FE, 0x4000,
+            "ASM loc_604 seeds d0=$3FFF, so RAM clear writes $4000 longwords"
+        );
+        assert_eq!(VRAM_CLEAR_VRAM_ADDR_LOC_61C, 0x0000);
+        assert_eq!(
+            VRAM_CLEAR_LONGWORD_COUNT_LOC_62A, 0x4000,
+            "ASM loc_62A seeds d0=$3FFF, so initial VRAM clear writes $4000 longwords"
+        );
+        assert_eq!(VRAM_CLEAR_VRAM_ADDR_LOC_700, 0x0000);
+        assert_eq!(
+            VRAM_CLEAR_LONGWORD_COUNT_LOC_70E, 0x4000,
+            "ASM loc_70E repeats the same full-VRAM DBF clear during loc_6E2"
+        );
+        assert_eq!(
+            SPRITE_TABLE_CLEAR_WORD_COUNT_LOC_720, 0x7DE1,
+            "ASM loc_720 seeds d0=$7DE0, so the restart sprite-table clear writes $7DE1 words"
+        );
+    }
+
+    #[test]
+    fn loc_a70_and_loc_b42_sprite_dma_constants_match_the_vblank_paths() {
+        assert_eq!(
+            SPRITE_TABLE_DMA_VRAM_DEST_LOC_A70, 0x1000,
+            "ASM loc_A70 DMAs Sprite_Table to VRAM $1000"
+        );
+        assert_eq!(
+            SPRITE_TABLE_DMA_LENGTH_BYTES_LOC_A70, 0x0280,
+            "ASM loc_A70 transfers $280 bytes of sprite table data"
+        );
+        assert_eq!(
+            KID_ART_DMA_VRAM_BASE_LOC_AD4, 0xC4A0,
+            "ASM loc_AD4 starts Kid art DMA at VRAM $C4A0"
+        );
+        assert_eq!(
+            SPRITE_TABLE_BASE_SENTINEL_LOC_B42, 0xFFFF_0000,
+            "ASM loc_B42 detects an empty sprite table when Addr_NextSpriteSlot equals Sprite_Table"
+        );
+        assert_eq!(
+            SPRITE_TABLE_EMPTY_CLEAR_BYTES_LOC_B42, 8,
+            "ASM loc_B42 clears two longwords so sprite slot 0 terminates the VDP list"
+        );
+    }
 
     #[test]
     fn sub_1b652_seeds_the_fixed_title_text_burst_sprite() {

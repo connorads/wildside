@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive core boot reset/startup mutation hardening
+
+- Project-status still showed no ready/open risks after the pause-menu helper
+  slice, so mutation-tested the `boot.rs` reset/startup helper cluster.
+- Initial focused rerun exposed 9 missed mutants across the VDP register init
+  command stream and the post-RAM-clear options validator.
+- Fix: added focused ASM-cited assertions for VDP init commands, options
+  low-word validation, RAM/VRAM/sprite clear DBF dimensions, and sprite/Kid DMA
+  constants. Rewrote the disjoint-byte VDP command merge as equivalent addition
+  so the XOR operator mutation is no longer semantically equivalent.
+- Verification: focused `cargo test -p wildside-core boot::tests` passes.
+  Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-core -f
+  crates/wildside-core/src/boot.rs -j 4 --gitignore=true --re
+  'vdp_game_init_register_commands|validate_options_after_ram_clear' --output
+  /tmp/mutants-core-boot-reset-startup-20260704-initial -- boot::tests`
+  reported 9 mutants tested: 9 missed. Final rerun at
+  `/tmp/mutants-core-boot-reset-startup-20260704-final` reports 9 mutants
+  tested: 9 caught, 0 missed.
+
 ## 2026-07-04 - proactive core boot pause-menu mutation hardening
 
 - Project-status still showed no ready/open risks after the title/intro helper
