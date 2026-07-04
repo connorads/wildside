@@ -1646,6 +1646,297 @@ mod tests {
     }
 
     #[test]
+    fn compare_delta_helpers_accept_exact_tolerance_and_reject_overflow() {
+        let run_dir = Path::new("/tmp/compare-delta-helpers");
+        let state = gameplay_state(42, "frame_00042", 0);
+
+        compare_u32_delta(run_dir, "kid X", &state, 100, 116, 16)
+            .expect("exact u32 tolerance is still accepted");
+        let error = compare_u32_delta(run_dir, "kid X", &state, 100, 117, 16)
+            .expect_err("u32 values beyond tolerance must fail");
+        assert!(error.to_string().contains("diverged in kid X"));
+
+        compare_u16_delta(run_dir, "object counts", &state, 10, 12, 2)
+            .expect("exact u16 tolerance is still accepted");
+        let error = compare_u16_delta(run_dir, "object counts", &state, 10, 13, 2)
+            .expect_err("u16 values beyond tolerance must fail");
+        assert!(error.to_string().contains("diverged in object counts"));
+    }
+
+    #[test]
+    fn find_gameplay_live_drifts_filters_to_live_frames_and_matching_indices() {
+        let mut native_states = vec![
+            gameplay_state(9, "frame_00009", 0x0009_0000),
+            gameplay_state(10, "frame_00010", 0x0010_0000),
+            gameplay_state(11, "frame_00011", 0x0011_0000),
+            gameplay_state(12, "frame_00012", 0x0012_0000),
+        ];
+        let mut oracle_states = native_states.clone();
+
+        native_states[0].game_mode = 0x0008;
+        oracle_states[0].game_mode = 0x0008;
+        oracle_states[0].kid_x_pos += CAMERA_POSITION_TOLERANCE + 1;
+
+        native_states[1].game_mode = 0x0008;
+        oracle_states[1].game_mode = GameMode::InGame.as_disassembly_value();
+        oracle_states[1].kid_x_pos += CAMERA_POSITION_TOLERANCE + 1;
+
+        oracle_states[2].frame_index = 99;
+        oracle_states[2].kid_x_pos += CAMERA_POSITION_TOLERANCE + 1;
+
+        oracle_states[3].kid_x_pos += CAMERA_POSITION_TOLERANCE + 1;
+
+        let native_capture = GameplayCapture {
+            scenario: "test".into(),
+            frame_count: 13,
+            missed_vblank_frames: 0,
+            checkpoints: Vec::new(),
+            states: native_states,
+        };
+        let oracle_capture = GameplayCapture {
+            scenario: "test".into(),
+            frame_count: 13,
+            missed_vblank_frames: 0,
+            checkpoints: Vec::new(),
+            states: oracle_states,
+        };
+
+        let reports = find_gameplay_live_drifts(
+            &native_capture,
+            &oracle_capture,
+            GameplayScenario::PauseResumeLevel1,
+            10,
+        );
+
+        assert_eq!(
+            reports
+                .iter()
+                .map(|report| report.frame_index)
+                .collect::<Vec<_>>(),
+            vec![10, 12]
+        );
+        assert_eq!(reports[0].differing_fields, vec!["game_mode", "kid_x_pos"]);
+        assert_eq!(reports[1].differing_fields, vec!["kid_x_pos"]);
+    }
+
+    #[test]
+    fn gameplay_differing_fields_reports_every_authoritative_field() {
+        let native = gameplay_state(720, "frame_00720", 0x0020_0000);
+        let mut oracle = native.clone();
+
+        oracle.game_mode = 0x0008;
+        oracle.current_player = 1;
+        oracle.number_lives = 4;
+        oracle.number_hitpoints = 1;
+        oracle.current_level_id = 0x0002;
+        oracle.player_1_level_id = 0x0003;
+        oracle.current_helmet_id = 0x0004;
+        oracle.camera_x_pos = native.camera_x_pos + CAMERA_POSITION_TOLERANCE + 1;
+        oracle.camera_y_pos = native.camera_y_pos + CAMERA_POSITION_TOLERANCE + 1;
+        oracle.kid_x_pos = native.kid_x_pos + CAMERA_POSITION_TOLERANCE + 1;
+        oracle.kid_y_pos = native.kid_y_pos + CAMERA_POSITION_TOLERANCE + 1;
+        oracle.character_movement = Some(0);
+
+        assert_eq!(
+            gameplay_differing_fields(&native, &oracle),
+            vec![
+                "game_mode",
+                "current_player",
+                "number_lives",
+                "number_hitpoints",
+                "current_level_id",
+                "player_1_level_id",
+                "current_helmet_id",
+                "camera_x_pos",
+                "camera_y_pos",
+                "kid_x_pos",
+                "kid_y_pos",
+                "character_movement",
+            ]
+        );
+    }
+
+    #[test]
+    fn gameplay_differing_fields_treats_exact_position_tolerance_as_match() {
+        let native = gameplay_state(720, "frame_00720", 0x0020_0000);
+        let mut oracle = native.clone();
+        oracle.camera_x_pos = native.camera_x_pos + CAMERA_POSITION_TOLERANCE;
+        oracle.camera_y_pos = native.camera_y_pos + CAMERA_POSITION_TOLERANCE;
+        oracle.kid_x_pos = native.kid_x_pos + CAMERA_POSITION_TOLERANCE;
+        oracle.kid_y_pos = native.kid_y_pos + CAMERA_POSITION_TOLERANCE;
+
+        assert!(gameplay_differing_fields(&native, &oracle).is_empty());
+    }
+
+    #[test]
+    fn gameplay_checkpoint_window_describes_before_between_exact_and_after() {
+        assert_eq!(
+            gameplay_checkpoint_window(GameplayScenario::PauseResumeLevel1, 700),
+            "before level_settle@719"
+        );
+        assert_eq!(
+            gameplay_checkpoint_window(GameplayScenario::PauseResumeLevel1, 719),
+            "level_settle@719"
+        );
+        assert_eq!(
+            gameplay_checkpoint_window(GameplayScenario::PauseResumeLevel1, 800),
+            "level_settle@719 -> pre_pause@839"
+        );
+        assert_eq!(
+            gameplay_checkpoint_window(GameplayScenario::PauseResumeLevel1, 1_200),
+            "after resumed_tail@1119"
+        );
+    }
+
+    #[test]
+    fn gameplay_field_value_formats_every_diagnostic_field() {
+        let mut state = gameplay_state(720, "frame_00720", 0x00AB_CDEF);
+        state.game_mode = 0x000C;
+        state.current_player = 2;
+        state.number_lives = 9;
+        state.number_hitpoints = 5;
+        state.current_level_id = 0x0012;
+        state.player_1_level_id = 0x0034;
+        state.current_helmet_id = 0x0056;
+        state.camera_x_pos = 0x0102_0304;
+        state.camera_y_pos = 0x1112_1314;
+        state.kid_y_pos = 0x0020_0000;
+        state.kid_x_vel = Some(0x0001_2345);
+        state.kid_y_vel = Some(0x0002_3456);
+        state.character_movement = Some(0x0007);
+        state.kid_collision_type = Some(0x0008);
+        state.game_paused = true;
+        state.options_controls_scheme = 3;
+        state.options_speed_button_fast = true;
+        state.invulnerable_frames = Some(17);
+        state.just_received_damage = Some(true);
+        state.number_objects = 21;
+        state.number_gfx_objects = 34;
+
+        let cases = [
+            ("game_mode", "000C"),
+            ("current_player", "2"),
+            ("number_lives", "9"),
+            ("number_hitpoints", "5"),
+            ("current_level_id", "0012"),
+            ("player_1_level_id", "0034"),
+            ("current_helmet_id", "0056"),
+            ("camera_x_pos", "01020304"),
+            ("camera_y_pos", "11121314"),
+            ("kid_x_pos", "00ABCDEF"),
+            ("kid_y_pos", "00200000"),
+            ("kid_x_vel", "00012345"),
+            ("kid_y_vel", "00023456"),
+            ("character_movement", "0007"),
+            ("kid_collision_type", "0008"),
+            ("game_paused", "true"),
+            ("options_controls_scheme", "3"),
+            ("options_speed_button_fast", "true"),
+            ("invulnerable_frames", "17"),
+            ("just_received_damage", "true"),
+            ("number_objects", "21"),
+            ("number_gfx_objects", "34"),
+            ("unknown_field", "<unknown>"),
+        ];
+
+        for (field, expected) in cases {
+            assert_eq!(gameplay_field_value(&state, field), expected, "{field}");
+        }
+
+        state.kid_x_vel = None;
+        state.kid_y_vel = None;
+        state.character_movement = None;
+        state.kid_collision_type = None;
+        state.invulnerable_frames = None;
+        state.just_received_damage = None;
+        assert_eq!(gameplay_field_value(&state, "kid_x_vel"), "none");
+        assert_eq!(gameplay_field_value(&state, "kid_y_vel"), "none");
+        assert_eq!(gameplay_field_value(&state, "character_movement"), "none");
+        assert_eq!(gameplay_field_value(&state, "kid_collision_type"), "none");
+        assert_eq!(gameplay_field_value(&state, "invulnerable_frames"), "none");
+        assert_eq!(gameplay_field_value(&state, "just_received_damage"), "none");
+    }
+
+    #[test]
+    fn gameplay_state_debug_summary_reports_only_present_context_fields() {
+        let mut state = gameplay_state(720, "frame_00720", 0);
+        state.kid_x_vel = Some(0x0001_0000);
+        state.kid_y_vel = Some(-0x0000_8000);
+        state.character_movement = Some(0x0003);
+        state.kid_collision_type = Some(0x0010);
+        state.game_paused = true;
+        state.options_controls_scheme = 2;
+        state.options_speed_button_fast = true;
+        state.invulnerable_frames = Some(5);
+        state.just_received_damage = Some(true);
+        state.kid_jump_gravity_probe = Some("jump".into());
+        state.kid_ground_probe = Some("ground".into());
+        state.kid_grounded_release_probe = Some("release".into());
+
+        assert_eq!(
+            gameplay_state_debug_summary(&state).as_deref(),
+            Some(
+                "kid_x_vel=0x00010000, kid_y_vel=0xffff8000, character_movement=0x0003, kid_collision_type=0x0010, game_paused=true, options_controls_scheme=2, options_speed_button_fast=true, invulnerable_frames=5, just_received_damage=1, kid_jump_gravity_probe=jump, kid_ground_probe=ground, kid_grounded_release_probe=release"
+            )
+        );
+
+        state.kid_x_vel = None;
+        state.kid_y_vel = None;
+        state.character_movement = None;
+        state.kid_collision_type = None;
+        state.game_paused = false;
+        state.options_controls_scheme = 0;
+        state.options_speed_button_fast = false;
+        state.invulnerable_frames = None;
+        state.just_received_damage = None;
+        state.kid_jump_gravity_probe = None;
+        state.kid_ground_probe = None;
+        state.kid_grounded_release_probe = None;
+        assert_eq!(gameplay_state_debug_summary(&state), None);
+    }
+
+    #[test]
+    fn gameplay_phase_helpers_require_three_strict_previous_frame_matches() {
+        let native_capture = GameplayCapture {
+            scenario: "test".into(),
+            frame_count: 5,
+            missed_vblank_frames: 0,
+            checkpoints: Vec::new(),
+            states: vec![
+                gameplay_state(0, "frame_00000", 0x0100_0000),
+                gameplay_state(1, "frame_00001", 0x0101_0000),
+                gameplay_state(2, "frame_00002", 0x0102_0000),
+                gameplay_state(3, "frame_00003", 0x0103_0000),
+            ],
+        };
+        let oracle_capture = GameplayCapture {
+            scenario: "test".into(),
+            frame_count: 5,
+            missed_vblank_frames: 0,
+            checkpoints: Vec::new(),
+            states: vec![
+                gameplay_state(0, "frame_00000", 0x0101_0000),
+                gameplay_state(1, "frame_00001", 0x0102_0000),
+                gameplay_state(2, "frame_00002", 0x0103_0000),
+                gameplay_state(3, "frame_00003", 0x0200_0000),
+            ],
+        };
+
+        let hint = gameplay_phase_shift_hint(&native_capture, &oracle_capture, 3)
+            .expect("exactly three strict previous-frame matches are enough");
+        assert!(hint.contains("native frames 1..3"));
+
+        let mut native = gameplay_state(0, "frame_00000", 0);
+        let mut oracle = native.clone();
+        native.character_movement = None;
+        oracle.character_movement = None;
+        assert!(!gameplay_phase_distance(&native, &oracle).character_movement_matches);
+
+        assert_eq!(optional_i32_abs_diff(Some(10), Some(-5)), 15);
+        assert_eq!(optional_i32_abs_diff(None, Some(0)), u32::MAX);
+    }
+
+    #[test]
     fn gameplay_drift_context_lines_marks_matching_and_drifting_frames() {
         let native_capture = GameplayCapture {
             scenario: "test".into(),

@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI compare gameplay-report mutation hardening
+
+- Project-status still showed no ready/open risks after the oracle helper slice,
+  so mutation-tested deterministic `compare.rs` gameplay-report helpers:
+  numeric tolerance gates, live-drift filtering, differing-field collection,
+  checkpoint-window labelling, field formatting, debug summaries, and phase
+  slip hints.
+- Initial focused rerun exposed 53 missed mutants across exact tolerance
+  boundaries, live/shell mode filtering, position-drift thresholds, checkpoint
+  labels, every diagnostic field formatter, debug-summary optional fields, and
+  phase-hint minimum-match handling.
+- Fix: added focused tests for exact-tolerance accept/reject boundaries, live
+  frame filtering, every authoritative drift field, all diagnostic formatter
+  arms including `none`/unknown cases, checkpoint-window text, exact debug
+  summary output, and strict three-match phase hints.
+- Verification: focused `cargo test -p wildside-cli compare::tests` passes.
+  Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-cli -f
+  crates/wildside-cli/src/compare.rs -j 4 --gitignore=true --re
+  'find_gameplay_live_drifts|gameplay_differing_fields|gameplay_checkpoint_window|gameplay_field_value|gameplay_drift_context_lines|gameplay_state_debug_summary|gameplay_phase_shift_hint|gameplay_phase_distance|optional_i32_abs_diff|compare_u32_delta|compare_u16_delta'
+  --output /tmp/mutants-cli-compare-gameplay-report-20260704-initial --
+  compare::tests` reported 104 mutants tested: 50 caught, 53 missed, 1
+  unviable. Final rerun at
+  `/tmp/mutants-cli-compare-gameplay-report-20260704-final` reports 104 mutants
+  tested: 103 caught, 1 unviable, 0 missed.
+
 ## 2026-07-04 - proactive CLI oracle helper mutation hardening
 
 - Project-status still showed no ready/open risks after the clean diff helper
