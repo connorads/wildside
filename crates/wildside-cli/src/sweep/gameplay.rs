@@ -296,8 +296,36 @@ pub(super) fn check_jump_assertions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scenarios::walk_right_scenario;
+    use crate::scenarios::{DynamicCheckpoint, DynamicScenario, walk_right_scenario};
     use wildside_core::physics::Direction;
+
+    fn gameplay_scenario(
+        frame_count: usize,
+        script: Vec<u8>,
+        checkpoints: Vec<DynamicCheckpoint>,
+    ) -> DynamicScenario {
+        DynamicScenario {
+            slug: "gameplay_assertion_test".into(),
+            script,
+            frame_count,
+            checkpoints,
+            start_position: None,
+            start_velocity: None,
+            camera_position: None,
+            playtest_form: None,
+            initial_diamond_count: None,
+            initial_lives: None,
+            warp_to_level: None,
+            settle_oracle_warp: false,
+        }
+    }
+
+    fn checkpoint(label: &str, frame_index: usize) -> DynamicCheckpoint {
+        DynamicCheckpoint {
+            label: label.to_owned(),
+            frame_index,
+        }
+    }
 
     fn moving_frame_facing(frame_index: usize, facing: Direction) -> NativeTraceFrame {
         NativeTraceFrame {
@@ -307,6 +335,23 @@ mod tests {
             character_movement: Some(2), // walking
             kid_facing: Some(facing),
             number_hitpoints: 3,
+            ..NativeTraceFrame::default()
+        }
+    }
+
+    fn jump_frame(
+        frame_index: usize,
+        on_ground: Option<bool>,
+        y_velocity: Option<i32>,
+        hitpoints: u16,
+    ) -> NativeTraceFrame {
+        NativeTraceFrame {
+            frame_index,
+            kid_x_pos: Some(0x0010_0000),
+            kid_y_pos: Some(0x0010_0000),
+            kid_y_velocity: y_velocity,
+            kid_on_ground: on_ground,
+            number_hitpoints: hitpoints,
             ..NativeTraceFrame::default()
         }
     }
@@ -345,6 +390,94 @@ mod tests {
         assert!(
             matches!(facing_diffs[0].category, DivergenceCategory::Authoritative),
             "facing diff must be authoritative"
+        );
+    }
+
+    #[test]
+    fn walk_right_assertions_skip_when_game_over_even_if_position_stalls() {
+        let scenario = walk_right_scenario(0x00, 300);
+        let mut trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| NativeTraceFrame {
+                frame_index: i,
+                kid_x_pos: Some(0x0010_0000),
+                kid_y_pos: Some(0x0010_0000),
+                character_movement: Some(2),
+                kid_facing: Some(Direction::Right),
+                number_hitpoints: 3,
+                ..NativeTraceFrame::default()
+            })
+            .collect();
+        trace[100].game_over = true;
+
+        let diffs = check_walk_right_assertions(&trace, &scenario);
+
+        assert!(
+            diffs.is_empty(),
+            "death/game-over windows reset position and must skip walk assertions: {diffs:?}"
+        );
+    }
+
+    #[test]
+    fn walk_right_facing_requires_clean_right_input() {
+        let scenario = gameplay_scenario(
+            8,
+            vec![0; 8],
+            vec![checkpoint("level_settle", 0), checkpoint("walk_end", 7)],
+        );
+        let trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| moving_frame_facing(i, Direction::Left))
+            .collect();
+
+        let diffs = check_walk_right_assertions(&trace, &scenario);
+
+        assert!(
+            diffs.iter().all(|d| d.field != "kid_facing_matches_input"),
+            "facing is only meaningful while Right is held: {diffs:?}"
+        );
+    }
+
+    #[test]
+    fn walk_right_facing_ignores_left_right_chord() {
+        let right = 1 << 3;
+        let left = 1 << 2;
+        let scenario = gameplay_scenario(
+            8,
+            vec![right | left; 8],
+            vec![checkpoint("level_settle", 0), checkpoint("walk_end", 7)],
+        );
+        let trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| moving_frame_facing(i, Direction::Left))
+            .collect();
+
+        let diffs = check_walk_right_assertions(&trace, &scenario);
+
+        assert!(
+            diffs.iter().all(|d| d.field != "kid_facing_matches_input"),
+            "Left+Right is not clean rightward input and must not count as moonwalk evidence: {diffs:?}"
+        );
+    }
+
+    #[test]
+    fn walk_right_facing_counts_every_inverted_frame() {
+        let right = 1 << 3;
+        let scenario = gameplay_scenario(
+            5,
+            vec![right; 5],
+            vec![checkpoint("level_settle", 0), checkpoint("walk_end", 4)],
+        );
+        let trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| moving_frame_facing(i, Direction::Left))
+            .collect();
+
+        let diffs = check_walk_right_assertions(&trace, &scenario);
+
+        let facing_diff = diffs
+            .iter()
+            .find(|d| d.field == "kid_facing_matches_input")
+            .expect("inverted facing should be reported");
+        assert!(
+            facing_diff.native_value.contains("(5 frames)"),
+            "diff should report every inverted frame: {facing_diff:?}"
         );
     }
 
@@ -433,6 +566,150 @@ mod tests {
         assert!(
             diffs.iter().any(|d| d.field == "kid_x_pos_monotonic"),
             "moving frames that fail to advance X should stay actionable"
+        );
+    }
+
+    #[test]
+    fn jump_assertions_flag_negative_velocity_without_airborne_transition() {
+        let jump = 20;
+        let mut script = vec![0; 40];
+        script[jump] = 1 << 4;
+        let scenario = gameplay_scenario(
+            40,
+            script,
+            vec![checkpoint("prelude", 0), checkpoint("level_settle", 10)],
+        );
+        let mut trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| jump_frame(i, Some(true), Some(0), 3))
+            .collect();
+        trace[jump + 10].kid_y_velocity = Some(-0x0004_0000);
+
+        let diffs = check_jump_assertions(&trace, &scenario);
+
+        assert_eq!(
+            diffs.len(),
+            1,
+            "expected one jump assertion diff: {diffs:?}"
+        );
+        assert_eq!(diffs[0].checkpoint, "frame_20");
+        assert_eq!(diffs[0].field, "kid_on_ground_false_after_jump");
+    }
+
+    #[test]
+    fn jump_assertions_skip_when_dead_at_jump_frame() {
+        let jump = 20;
+        let mut script = vec![0; 40];
+        script[jump] = 1 << 4;
+        let scenario = gameplay_scenario(40, script, vec![checkpoint("level_settle", 10)]);
+        let mut trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| jump_frame(i, Some(true), Some(0), 3))
+            .collect();
+        trace[jump] = jump_frame(jump, Some(true), Some(0), 0);
+        trace[jump + 1].kid_y_velocity = Some(-0x0004_0000);
+
+        let diffs = check_jump_assertions(&trace, &scenario);
+
+        assert!(
+            diffs.is_empty(),
+            "dead jump frames are not actionable generic gameplay assertions: {diffs:?}"
+        );
+    }
+
+    #[test]
+    fn jump_assertions_skip_when_ground_state_is_unknown_at_jump_frame() {
+        let jump = 20;
+        let mut script = vec![0; 40];
+        script[jump] = 1 << 4;
+        let scenario = gameplay_scenario(40, script, vec![checkpoint("level_settle", 10)]);
+        let mut trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| jump_frame(i, None, Some(0), 3))
+            .collect();
+        trace[jump + 1].kid_y_velocity = Some(-0x0004_0000);
+
+        let diffs = check_jump_assertions(&trace, &scenario);
+
+        assert!(
+            diffs.is_empty(),
+            "unknown grounded state at the input frame must not become a false jump failure: {diffs:?}"
+        );
+    }
+
+    #[test]
+    fn jump_assertions_skip_when_no_upward_velocity_or_airborne_response() {
+        let jump = 20;
+        let mut script = vec![0; 40];
+        script[jump] = 1 << 4;
+        let scenario = gameplay_scenario(40, script, vec![checkpoint("level_settle", 10)]);
+        let trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| jump_frame(i, Some(true), Some(0), 3))
+            .collect();
+
+        let diffs = check_jump_assertions(&trace, &scenario);
+
+        assert!(
+            diffs.is_empty(),
+            "blocked/no-op jumps without upward velocity are not gameplay assertion failures: {diffs:?}"
+        );
+    }
+
+    #[test]
+    fn jump_assertions_pass_when_negative_velocity_leaves_ground() {
+        let jump = 20;
+        let mut script = vec![0; 40];
+        script[jump] = 1 << 4;
+        let scenario = gameplay_scenario(40, script, vec![checkpoint("level_settle", 10)]);
+        let mut trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| jump_frame(i, Some(true), Some(0), 3))
+            .collect();
+        trace[jump + 1].kid_y_velocity = Some(-0x0004_0000);
+        trace[jump + 15].kid_on_ground = Some(false);
+
+        let diffs = check_jump_assertions(&trace, &scenario);
+
+        assert!(
+            diffs.is_empty(),
+            "upward velocity plus leaving ground is a valid jump response: {diffs:?}"
+        );
+    }
+
+    #[test]
+    fn jump_assertions_require_airborne_within_fifteen_frames() {
+        let jump = 20;
+        let mut script = vec![0; 45];
+        script[jump] = 1 << 4;
+        let scenario = gameplay_scenario(45, script, vec![checkpoint("level_settle", 10)]);
+        let mut trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| jump_frame(i, Some(true), Some(0), 3))
+            .collect();
+        trace[jump + 1].kid_y_velocity = Some(-0x0004_0000);
+        trace[jump + 16].kid_on_ground = Some(false);
+
+        let diffs = check_jump_assertions(&trace, &scenario);
+
+        assert!(
+            diffs
+                .iter()
+                .any(|d| d.field == "kid_on_ground_false_after_jump"),
+            "leaving ground after the 15-frame response window should stay actionable"
+        );
+    }
+
+    #[test]
+    fn jump_assertions_ignore_negative_velocity_after_response_window() {
+        let jump = 20;
+        let mut script = vec![0; 45];
+        script[jump] = 1 << 4;
+        let scenario = gameplay_scenario(45, script, vec![checkpoint("level_settle", 10)]);
+        let mut trace: Vec<NativeTraceFrame> = (0..scenario.frame_count)
+            .map(|i| jump_frame(i, Some(true), Some(0), 3))
+            .collect();
+        trace[jump + 11].kid_y_velocity = Some(-0x0004_0000);
+
+        let diffs = check_jump_assertions(&trace, &scenario);
+
+        assert!(
+            diffs.is_empty(),
+            "upward velocity after the 10-frame response window should not prove a jump response: {diffs:?}"
         );
     }
 }

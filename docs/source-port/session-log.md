@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI sweep gameplay assertion mutation hardening
+
+- Project-status still showed no ready/open risks after the CLI TAS
+  import/checkpoint slice, so mutation-tested the generic gameplay sweep
+  assertions: `check_walk_right_assertions`,
+  `check_walk_facing_consistency`, and `check_jump_assertions`.
+- Initial focused rerun exposed 26 missed mutants across death/game-over walk
+  skips, clean Right input filtering, Left+Right chord handling, inversion
+  counting, jump checkpoint settling, B-button detection, alive/grounded gates,
+  and the 10-frame upward-velocity / 15-frame airborne response windows.
+- Fix: added focused synthetic trace tests for stalled game-over walks, clean
+  rightward-facing evidence, every-frame moonwalk counts, dead or unknown-ground
+  jump skips, no-op jumps, valid jump responses, and late velocity/airborne
+  response boundaries.
+- Verification: focused `cargo test -p wildside-cli sweep::gameplay::tests`
+  passes. Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/sweep/gameplay.rs -j 4
+  --gitignore=true --re
+  'check_walk_right_assertions|check_walk_facing_consistency|check_jump_assertions'
+  --output /tmp/mutants-cli-sweep-gameplay-20260704-initial --
+  sweep::gameplay::tests` reported 46 mutants tested: 15 caught, 26 missed, 5
+  unviable. Final rerun at `/tmp/mutants-cli-sweep-gameplay-20260704-final`
+  reports 46 mutants tested: 41 caught, 5 unviable, 0 missed.
+
 ## 2026-07-04 - proactive CLI TAS import/checkpoint mutation hardening
 
 - Project-status still showed no ready/open risks after the CLI capture helper
