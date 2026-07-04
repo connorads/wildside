@@ -13718,6 +13718,11 @@ mod chunk_06 {
             (camera_x_pos, camera_y_pos),
             "ASM sub_1D846's `bclr #7,d5` means the top bit of `V_Int_counter` must not affect either camera offset",
         );
+        assert_eq!(
+            end_sequence_camera_shake_sub_1D846(0x7F, 0x7F, 0x40),
+            (1, 1),
+            "ASM sub_1D846 uses `eor.b d5,d7`, so overlapping RNG/V-int bits must cancel before the signed `asr.w #5` camera offsets",
+        );
     }
 
     #[test]
@@ -13744,6 +13749,11 @@ mod chunk_06 {
             end_sequence_burst_sprite_init_sub_1D86C(0x81, 0x44, 0x05, 0x01),
             init,
             "ASM sub_1D86C's `bclr #7,d5` means bit 7 of `V_Int_counter` must not affect the spawned offsets",
+        );
+        let overlap = end_sequence_burst_sprite_init_sub_1D86C(0x7F, 0x00, 0x40, 0x00);
+        assert_eq!(
+            overlap.x_pos, 0x00BF,
+            "ASM sub_1D86C uses `eor.b d5,d7`, so overlapping X RNG/V-int bits cancel before the signed `asr.w #1` spawn offset",
         );
     }
 
@@ -13877,6 +13887,12 @@ mod chunk_06 {
                 .initial_hibernate_frames,
             init.initial_hibernate_frames,
             "ASM sub_1D8B4 uses the full `V_Int_counter` byte here, so bit 7 must affect the initial hibernate delay",
+        );
+        assert_eq!(
+            end_sequence_falling_sprite_init_sub_1D8B4(0x00AF, 0x0064, 0x1268, 0x7F, 0x40)
+                .initial_hibernate_frames,
+            0x001F,
+            "ASM sub_1D8B4 uses `eor.b d0,d7`, so overlapping random-delay/V-int bits cancel before the `lsr.w #1` delay",
         );
     }
 

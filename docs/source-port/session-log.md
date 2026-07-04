@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive core boot end-sequence burst mutation hardening
+
+- Project-status still showed no ready/open risks after the end-sequence
+  text/page slice, so mutation-tested `boot.rs` end-sequence camera shake,
+  burst prelude/wait/camera loops, burst sprite init, falling-sprite init,
+  falling-spawn loop, and low-priority burst helpers backed by `sub_1D846`,
+  `loc_1D1D6`, `loc_1D1DE`, `loc_1D1EC`, `sub_1D86C`, `sub_1D8B4`,
+  `loc_1D226`, `loc_1D24A`, and `loc_1D252`.
+- Initial rerun exposed 5 missed mutants: XOR changed to OR/AND in
+  `sub_1D846` camera offsets, XOR changed to OR in `sub_1D86C` burst X spawn,
+  and XOR changed to OR in `sub_1D8B4` falling-sprite initial delay.
+- Fix: added ASM-cited overlapping RNG/V-int examples where `eor.b` cancellation
+  is observable after the signed camera/spawn shifts and unsigned delay shift.
+- Verification: focused `cargo test -p wildside-core end_sequence_camera_shake`,
+  `cargo test -p wildside-core end_sequence_burst_sprite_init`, `cargo test -p
+  wildside-core end_sequence_falling_sprite_init`, and `cargo test -p
+  wildside-core end_sequence_` pass. Initial mutation at
+  `/tmp/mutants-core-boot-end-burst-falling-20260704-initial` reported 44
+  mutants tested: 31 caught, 5 missed, 8 unviable. Final rerun at
+  `/tmp/mutants-core-boot-end-burst-falling-20260704-final` reports 44 mutants
+  tested: 36 caught, 8 unviable, 0 missed. `cargo fmt --all --check`, `git
+  diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`
+  pass.
+
 ## 2026-07-04 - proactive core boot end-sequence text/page mutation hardening
 
 - Project-status still showed no ready/open risks after the options-menu text
