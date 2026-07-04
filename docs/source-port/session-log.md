@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive Fireball mutation rerun
+
+- Project-status still showed no ready/open risks after the core demo sweep, so
+  refreshed the older Fireball enemy mutation evidence against current HEAD.
+  The existing ASM-labelled tests still cover Fireball movement, bounce/trail
+  dispatch, death/delete tails, and sprite/quadrant selection without source
+  changes.
+- Verification: focused `cargo test -p wildside-core fireball` passes.
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-core -f
+  crates/wildside-core/src/enemies/fireball.rs -j 4 --gitignore=true --output
+  /tmp/mutants-core-fireball-20260704-rerun -- fireball` reports 60 mutants
+  tested: 47 caught, 13 unviable, 0 missed.
+
 ## 2026-07-04 - proactive core demo mutation sweep
 
 - Project-status still showed no ready/open risks after the native-player audio
