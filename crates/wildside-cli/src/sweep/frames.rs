@@ -827,16 +827,11 @@ pub(super) fn diff_golden_frames(
 
 /// Count pixels that differ from the background (first pixel's colour).
 fn count_non_background_pixels(rgb: &[u8], pixel_count: usize) -> usize {
-    if rgb.len() < 3 {
+    let mut pixels = rgb.chunks_exact(3).take(pixel_count);
+    let Some(bg) = pixels.next() else {
         return 0;
-    }
-    let bg = [rgb[0], rgb[1], rgb[2]];
-    (0..pixel_count)
-        .filter(|&i| {
-            let offset = i * 3;
-            rgb[offset] != bg[0] || rgb[offset + 1] != bg[1] || rgb[offset + 2] != bg[2]
-        })
-        .count()
+    };
+    pixels.filter(|pixel| *pixel != bg).count()
 }
 
 #[cfg(test)]
@@ -886,5 +881,128 @@ mod tests {
             Cell::from_be_bytes(0xE0, 0x01),
             "ASM sub_1007A writes `$E001` before Prize_Init; capture-scenario-frames must render the live runtime grid so struck prize blocks do not appear as stale `$E101` cells",
         );
+    }
+
+    #[test]
+    fn golden_scenarios_cover_standard_level_routes() {
+        let scenarios = golden_scenarios_for_level(0x2A);
+        let summary = scenarios
+            .iter()
+            .map(|scenario| {
+                (
+                    scenario.slug.as_str(),
+                    scenario.warp_to_level,
+                    scenario.frame_count,
+                    scenario.checkpoints.len(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            summary,
+            vec![
+                ("idle_level_2a", Some(0x2A), 360, 2),
+                ("walk_right_2a", Some(0x2A), 360, 4),
+                ("prize_block_2a", Some(0x2A), 360, 6),
+                ("stomp_enemy_2a", Some(0x2A), 420, 4),
+            ]
+        );
+    }
+
+    #[test]
+    fn diff_golden_frames_reports_labelled_field_changes() {
+        let old_frames = vec![
+            NativeTraceFrame {
+                number_lives: 3,
+                kid_x_pos: Some(0x0010_0000),
+                ..NativeTraceFrame::default()
+            },
+            NativeTraceFrame {
+                paused: false,
+                ..NativeTraceFrame::default()
+            },
+        ];
+        let new_frames = vec![
+            NativeTraceFrame {
+                number_lives: 4,
+                kid_x_pos: Some(0x0011_0000),
+                ..NativeTraceFrame::default()
+            },
+            NativeTraceFrame {
+                paused: true,
+                ..NativeTraceFrame::default()
+            },
+        ];
+        let checkpoints = vec![DynamicCheckpoint {
+            label: "level_settle".into(),
+            frame_index: 60,
+        }];
+
+        let diffs = diff_golden_frames("golden_route", &old_frames, &new_frames, &checkpoints);
+        let diff_summary = diffs
+            .iter()
+            .map(|diff| {
+                (
+                    diff.checkpoint.as_str(),
+                    diff.field.as_str(),
+                    diff.old_value.as_str(),
+                    diff.new_value.as_str(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            diff_summary,
+            vec![
+                ("golden_route/level_settle", "number_lives", "3", "4"),
+                (
+                    "golden_route/level_settle",
+                    "kid_x_pos",
+                    "Some(1048576)",
+                    "Some(1114112)",
+                ),
+                ("golden_route/checkpoint_1", "paused", "false", "true"),
+            ]
+        );
+    }
+
+    #[test]
+    fn diff_golden_frames_only_compares_paired_frames() {
+        let old_frames = vec![NativeTraceFrame {
+            score: 100,
+            ..NativeTraceFrame::default()
+        }];
+        let new_frames = vec![
+            NativeTraceFrame {
+                score: 100,
+                ..NativeTraceFrame::default()
+            },
+            NativeTraceFrame {
+                score: 999,
+                ..NativeTraceFrame::default()
+            },
+        ];
+
+        assert!(
+            diff_golden_frames("golden_route", &old_frames, &new_frames, &[]).is_empty(),
+            "extra frames without a paired old/new counterpart are outside the golden diff contract"
+        );
+    }
+
+    #[test]
+    fn count_non_background_pixels_counts_rgb_channel_changes() {
+        let rgb = [
+            10, 20, 30, // background
+            10, 20, 30, // same
+            11, 20, 30, // red differs
+            10, 21, 30, // green differs
+            10, 20, 31, // blue differs
+            99, 88, // incomplete trailing bytes are ignored
+        ];
+
+        assert_eq!(count_non_background_pixels(&rgb, 5), 3);
+        assert_eq!(count_non_background_pixels(&rgb, 3), 1);
+        assert_eq!(count_non_background_pixels(&rgb, 0), 0);
+        assert_eq!(count_non_background_pixels(&[10, 20], 1), 0);
     }
 }

@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI sweep frame-helper mutation hardening
+
+- Project-status still showed no ready/open risks after the release-gate focus
+  slice, so mutation-tested `sweep/frames.rs` pure helpers:
+  `capture_frame_block_grid`, `golden_scenarios_for_level`,
+  `diff_golden_frames`, and `count_non_background_pixels`.
+- Initial focused rerun exposed 18 missed mutants across untested golden
+  scenario selection, golden diff output, and byte-indexed RGB
+  non-background-pixel counting.
+- Fix: added focused tests for the standard golden scenario set, labelled
+  field-level golden diffs, paired-frame truncation, and RGB channel-specific
+  pixel counts. Reworked `count_non_background_pixels` to iterate exact RGB
+  chunks and ignore incomplete trailing bytes instead of hand-indexing offsets.
+- Verification: focused `cargo test -p wildside-cli sweep::frames::tests`
+  passes. Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/sweep/frames.rs -j 4
+  --gitignore=true --re
+  'capture_frame_block_grid|golden_scenarios_for_level|diff_golden_frames|count_non_background_pixels'
+  --output /tmp/mutants-cli-sweep-frames-20260704-initial --
+  sweep::frames::tests` reported 21 mutants tested: 18 missed, 3 unviable.
+  Final rerun at `/tmp/mutants-cli-sweep-frames-20260704-final` reports 8
+  mutants tested: 5 caught, 3 unviable, 0 missed.
+
 ## 2026-07-04 - proactive CLI sweep release-gate focus mutation hardening
 
 - Project-status still showed no ready/open risks after the CLI sweep gameplay
