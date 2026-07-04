@@ -7,6 +7,33 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI asm-coverage classification mutation hardening
+
+- Project-status still showed no ready/open risks after the scenarios-window
+  slice, so mutation-tested deterministic `asm_coverage.rs` classification
+  helpers: native citation bucket selection, test-path detection, subsystem
+  naming, label coverage state, GEMS address detection, and citation breakdown
+  fallback paths.
+- Initial focused rerun exposed three missed mutants in
+  `classify_native_citation_site`/`path_is_test_file`: `/tests/` paths,
+  `tests.rs` paths, and context-only test citations were not pinned directly at
+  the native-site classifier level.
+- Fix: added focused classifier tests for production source, context-only test
+  citations, `tests.rs`, and `/tests/` directory paths.
+- Verification: focused `cargo test -p wildside-cli asm_coverage::tests`
+  passes, including the real-repo required-label check. The cargo-mutants reruns
+  skip only `check_required_labels_are_covered_in_real_repo` because its temp
+  tree does not copy `.cache/upstream/kid-chameleon-disasm`. Initial `TMPDIR=/tmp
+  KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-cli -f
+  crates/wildside-cli/src/asm_coverage.rs -j 4 --gitignore=true --re
+  'classify_native_citation_site|path_is_test_file|push_unique_sorted|classify_subsystem|classify_label_coverage|is_emulated_gems_label|label_address|classify_citations|citation_breakdown_for_label|coverage_state_for_label'
+  --output /tmp/mutants-cli-asm-coverage-classification-20260704-initial2 --
+  asm_coverage::tests --
+  --skip asm_coverage::tests::check_required_labels_are_covered_in_real_repo`
+  reported 21 mutants tested: 16 caught, 3 missed, 2 unviable. Final rerun at
+  `/tmp/mutants-cli-asm-coverage-classification-20260704-final` reports 21
+  mutants tested: 19 caught, 2 unviable, 0 missed.
+
 ## 2026-07-04 - proactive CLI scenarios-window mutation hardening
 
 - Project-status still showed no ready/open risks after the player-shell slice,

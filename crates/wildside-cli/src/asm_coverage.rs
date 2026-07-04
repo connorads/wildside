@@ -1222,6 +1222,14 @@ mod tests {
         }
     }
 
+    fn native_site(path: &str, context: RustCodeContext) -> NativeCitationSite {
+        NativeCitationSite {
+            path: path.to_owned(),
+            line_number: 1,
+            context,
+        }
+    }
+
     #[test]
     fn check_required_labels_reports_covered_when_all_cited() {
         let labels = REQUIRED_LABELS
@@ -1381,6 +1389,38 @@ labels:
         );
         assert_eq!(breakdown.tests, vec!["crates/wildside-core/src/tests.rs"]);
         assert_eq!(breakdown.docs, vec!["docs/source-port/backlog.md"]);
+    }
+
+    #[test]
+    fn classify_native_citation_site_separates_path_and_context_test_cases() {
+        assert_eq!(
+            classify_native_citation_site(&native_site(
+                "crates/wildside-core/src/level.rs",
+                RustCodeContext::Production
+            )),
+            CitationBucket::Implementation
+        );
+        assert_eq!(
+            classify_native_citation_site(&native_site(
+                "crates/wildside-core/src/blocks.rs",
+                RustCodeContext::Test
+            )),
+            CitationBucket::Tests
+        );
+        assert_eq!(
+            classify_native_citation_site(&native_site(
+                "crates/wildside-core/src/tests.rs",
+                RustCodeContext::Production
+            )),
+            CitationBucket::Tests
+        );
+        assert_eq!(
+            classify_native_citation_site(&native_site(
+                "crates/wildside-core/tests/fixtures.rs",
+                RustCodeContext::Production
+            )),
+            CitationBucket::Tests
+        );
     }
 
     #[test]
