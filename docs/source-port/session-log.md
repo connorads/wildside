@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive trace collision classifier mutation rerun
+
+- Project-status still showed no ready/open risks after the end-sequence burst
+  slice, so first checked the `boot.rs` level-layout/VDP helper group backed by
+  `sub_1CCAE`, `sub_1CD44`, `sub_1CD88`, and `sub_1CDA8`.
+- That target was not a useful mutation surface: the focused tests passed, but
+  the mutation run at `/tmp/mutants-core-boot-level-vdp-20260704-initial`
+  reported 12 mutants tested, all 12 unviable, because the helper functions
+  return non-`Default` spec structs and `cargo-mutants` could only generate
+  non-compiling whole-function replacements.
+- Replacement target: mutation-tested `trace.rs` `classify_kid_object_relation`
+  backed by `loc_1CD2`, `loc_1CD8`, `loc_1CDE`, and `loc_1CE4` in
+  `GfxObjects_CollisionKid`.
+- Verification: focused `cargo test -p wildside-core
+  classify_kid_object_relation` passes. Mutation at
+  `/tmp/mutants-core-trace-classify-kid-object-relation-20260704-initial`
+  reports 20 mutants tested: 19 caught, 1 unviable, 0 missed.
+
 ## 2026-07-04 - proactive core boot end-sequence burst mutation hardening
 
 - Project-status still showed no ready/open risks after the end-sequence
