@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive trace collected-helmet mutation rerun
+
+- Project-status still showed no ready/open risks after the death-respawn
+  object-count slice, so mutation-tested `trace.rs` collected-helmet visibility
+  helpers: `collected_latched_helmet_prize`,
+  `collected_helmet_first_forward_transform_frame`, and `prize_helmet_form`.
+- ASM context: `PrizeHelmet*` init entries hibernate through
+  `loc_10464`..`loc_106B4` until collision/delete, while Kid transform starts
+  at `loc_7CD0` and advances through the `loc_7D22` wait loop. Existing tests
+  cover both the collision-latched cleanup frame and the first forward transform
+  frame for all nine helmet forms.
+- Verification: focused `cargo test -p wildside-core collected_helmet_visible`
+  passes. Mutation at
+  `/tmp/mutants-core-trace-collected-helmet-20260704-initial` reports 23
+  mutants tested: 22 caught, 1 unviable, 0 missed.
+
 ## 2026-07-04 - proactive trace death-respawn object-count mutation hardening
 
 - Project-status still showed no ready/open risks after the opening object-count
