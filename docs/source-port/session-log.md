@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive core boot IO/palette-fade mutation rerun
+
+- Project-status still showed no ready/open risks after the continue-timeout
+  helper slice, so mutation-tested the raw IO bit decoder and the level
+  fullscreen/palette fade helpers backed by `sub_6E24`, `loc_28A6`,
+  `loc_28C6`, and `sub_73D0`.
+- No code patch was needed. The existing ASM-cited tests already kill the IO
+  bit-mask/operator changes, `loc_28C6`'s zero/non-negative boundary, and
+  `sub_73D0`'s strict `>$0100` termination.
+- Verification: focused `cargo test -p wildside-core sub_6e24` and
+  `cargo test -p wildside-core fade` pass. IO rerun:
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-core -f
+  crates/wildside-core/src/boot.rs -j 4 --gitignore=true --re
+  'read_io_port_a10001_flags_sub_6E24' --output
+  /tmp/mutants-core-boot-io-20260704-initial -- sub_6e24` reported 7 mutants
+  tested: 6 caught, 1 unviable, 0 missed. Palette fade rerun:
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-core -f
+  crates/wildside-core/src/level.rs -j 4 --gitignore=true --re
+  'initialise_palette_fade_out_loc_28A6|step_palette_fade_out_loc_28C6|initialise_fullscreen_palette_fade_sub_73D0|step_fullscreen_palette_fade_sub_73D0'
+  --output /tmp/mutants-core-level-palette-fade-20260704-initial -- fade`
+  reported 11 mutants tested: 8 caught, 3 unviable, 0 missed. `cargo fmt
+  --all --check`, `git diff --check`, and `mise run backlog-lint` pass.
+
 ## 2026-07-04 - proactive core boot continue-timeout mutation hardening
 
 - Project-status still showed no ready/open risks after the Sega-screen helper
