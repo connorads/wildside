@@ -408,7 +408,7 @@ impl BindingAction {
 
     fn button_mask(self) -> Option<u8> {
         match self {
-            Self::Up => Some(1 << 0),
+            Self::Up => Some(0b0000_0001),
             Self::Down => Some(1 << 1),
             Self::Left => Some(1 << 2),
             Self::Right => Some(1 << 3),
@@ -1712,13 +1712,213 @@ fn gameplay_buttons_for_mode(buttons: u8, game_mode: u16) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::{
-        BindingAction, DisplayScale, ErrorView, KeyboardBindings, LaunchState, MainMenuAction,
-        PauseMenuAction, PlayerSettings, PlayerSettingsFile, ScreenState, adjust_volume,
-        gameplay_buttons_after_ui_release, gameplay_buttons_for_mode, initial_screen,
-        main_menu_action, pause_menu_action,
+        AudioSettingsFile, BindingAction, DisplayScale, DisplaySettingsFile, ErrorView,
+        KeyboardBindings, KeyboardBindingsFile, LaunchState, MainMenuAction, OptionsItem,
+        PauseMenuAction, PlayOptions, PlayerSettings, PlayerSettingsFile, ScreenState,
+        adjust_volume, default_hundred, format_cheat_value, gameplay_buttons_after_ui_release,
+        gameplay_buttons_for_mode, initial_screen, main_menu_action, option_label_value,
+        pause_menu_action, rom_identity_label,
     };
+    use sdl2::keyboard::Keycode;
+    use sdl2::rect::Rect;
     use std::path::PathBuf;
     use wildside_rom::{RomHeader, RomIdentity, VerifiedRom};
+
+    fn verified_rom(identity: RomIdentity) -> VerifiedRom {
+        VerifiedRom {
+            path: PathBuf::from("roms/kid.bin"),
+            size: 0x100000,
+            sha1: String::from("28b904000b2863b6760531807760b571f1a5fc1d"),
+            identity,
+            header: RomHeader {
+                console_name: String::from("SEGA MEGA DRIVE"),
+                domestic_title: String::from("KID CHAMELEON"),
+                overseas_title: String::from("KID CHAMELEON"),
+                serial: String::from("GM 00000000-00"),
+                regions: String::from("JUE"),
+            },
+        }
+    }
+
+    #[test]
+    fn display_scale_contracts_cover_factor_cycle_labels_and_cli_values() {
+        assert_eq!(DisplayScale::Auto.factor(Rect::new(0, 0, 640, 1000)), 2);
+        assert_eq!(DisplayScale::Auto.factor(Rect::new(0, 0, 2000, 448)), 2);
+        assert_eq!(DisplayScale::Auto.factor(Rect::new(0, 0, 1, 1)), 1);
+        assert_eq!(DisplayScale::One.factor(Rect::new(0, 0, 1, 1)), 1);
+        assert_eq!(DisplayScale::Two.factor(Rect::new(0, 0, 1, 1)), 2);
+        assert_eq!(DisplayScale::Three.factor(Rect::new(0, 0, 1, 1)), 3);
+        assert_eq!(DisplayScale::Four.factor(Rect::new(0, 0, 1, 1)), 4);
+
+        let cycle = [
+            DisplayScale::Auto,
+            DisplayScale::One,
+            DisplayScale::Two,
+            DisplayScale::Three,
+            DisplayScale::Four,
+        ];
+        assert_eq!(
+            cycle.map(DisplayScale::cycle_forward),
+            [
+                DisplayScale::One,
+                DisplayScale::Two,
+                DisplayScale::Three,
+                DisplayScale::Four,
+                DisplayScale::Auto,
+            ]
+        );
+        assert_eq!(
+            cycle.map(DisplayScale::cycle_backward),
+            [
+                DisplayScale::Four,
+                DisplayScale::Auto,
+                DisplayScale::One,
+                DisplayScale::Two,
+                DisplayScale::Three,
+            ]
+        );
+        assert_eq!(
+            cycle.map(DisplayScale::label),
+            ["Auto", "1x", "2x", "3x", "4x"]
+        );
+        assert_eq!(DisplayScale::from_cli(1), Some(DisplayScale::One));
+        assert_eq!(DisplayScale::from_cli(2), Some(DisplayScale::Two));
+        assert_eq!(DisplayScale::from_cli(3), Some(DisplayScale::Three));
+        assert_eq!(DisplayScale::from_cli(4), Some(DisplayScale::Four));
+        assert_eq!(DisplayScale::from_cli(0), None);
+        assert_eq!(DisplayScale::from_cli(5), None);
+    }
+
+    #[test]
+    fn player_settings_apply_cli_overrides_and_audio_levels() {
+        let mut settings = PlayerSettings::default();
+        settings.apply_cli_overrides(&PlayOptions {
+            rom: None,
+            fullscreen: true,
+            scale: Some(3),
+            mute: true,
+        });
+        assert_eq!(settings.display_scale, DisplayScale::Three);
+        assert!(settings.fullscreen);
+        assert!(settings.mute);
+
+        let mut settings = PlayerSettings {
+            display_scale: DisplayScale::Four,
+            fullscreen: true,
+            master_volume: 25,
+            music_volume: 50,
+            sfx_volume: 75,
+            mute: false,
+            bindings: KeyboardBindings::default(),
+        };
+        settings.apply_cli_overrides(&PlayOptions {
+            rom: None,
+            fullscreen: false,
+            scale: Some(9),
+            mute: false,
+        });
+        assert_eq!(settings.display_scale, DisplayScale::Four);
+        assert!(settings.fullscreen);
+        assert!(!settings.mute);
+
+        let levels = settings.audio_levels();
+        assert_eq!(levels.master, 0.25);
+        assert_eq!(levels.ym2612, 0.5);
+        assert_eq!(levels.psg, 0.75);
+
+        settings.mute = true;
+        let levels = settings.audio_levels();
+        assert_eq!(levels.master, 0.0);
+        assert_eq!(levels.ym2612, 0.5);
+        assert_eq!(levels.psg, 0.75);
+    }
+
+    #[test]
+    fn default_settings_file_values_and_key_round_trip_are_stable() {
+        assert_eq!(default_hundred(), 100);
+
+        let decoded = toml::from_str::<PlayerSettingsFile>("[display]\n[audio]\n[keyboard]\n")
+            .expect("empty sections should default");
+        assert_eq!(decoded.version, 1);
+        assert_eq!(decoded.display, DisplaySettingsFile::default());
+        assert_eq!(decoded.audio, AudioSettingsFile::default());
+        assert_eq!(decoded.keyboard, KeyboardBindingsFile::default());
+
+        let file = KeyboardBindingsFile {
+            up: Keycode::W.name(),
+            down: Keycode::S.name(),
+            left: Keycode::A.name(),
+            right: Keycode::D.name(),
+            a: Keycode::J.name(),
+            b: Keycode::K.name(),
+            c: Keycode::L.name(),
+            start: Keycode::Space.name(),
+            pause: String::from("not-a-key"),
+        };
+        let bindings = KeyboardBindings::from_file(&file);
+        assert_eq!(bindings.up, Keycode::W);
+        assert_eq!(bindings.down, Keycode::S);
+        assert_eq!(bindings.left, Keycode::A);
+        assert_eq!(bindings.right, Keycode::D);
+        assert_eq!(bindings.a, Keycode::J);
+        assert_eq!(bindings.b, Keycode::K);
+        assert_eq!(bindings.c, Keycode::L);
+        assert_eq!(bindings.start, Keycode::Space);
+        assert_eq!(bindings.pause, Keycode::Escape);
+
+        let encoded = bindings.to_file();
+        assert_eq!(encoded.up, Keycode::W.name());
+        assert_eq!(encoded.down, Keycode::S.name());
+        assert_eq!(encoded.left, Keycode::A.name());
+        assert_eq!(encoded.right, Keycode::D.name());
+        assert_eq!(encoded.a, Keycode::J.name());
+        assert_eq!(encoded.b, Keycode::K.name());
+        assert_eq!(encoded.c, Keycode::L.name());
+        assert_eq!(encoded.start, Keycode::Space.name());
+        assert_eq!(encoded.pause, Keycode::Escape.name());
+    }
+
+    #[test]
+    fn binding_actions_report_labels_masks_and_keys() {
+        let bindings = KeyboardBindings::default();
+        let cases = [
+            (BindingAction::Up, "Bind Up", Some(1 << 0), Keycode::Up),
+            (
+                BindingAction::Down,
+                "Bind Down",
+                Some(1 << 1),
+                Keycode::Down,
+            ),
+            (
+                BindingAction::Left,
+                "Bind Left",
+                Some(1 << 2),
+                Keycode::Left,
+            ),
+            (
+                BindingAction::Right,
+                "Bind Right",
+                Some(1 << 3),
+                Keycode::Right,
+            ),
+            (BindingAction::A, "Bind A", Some(1 << 6), Keycode::C),
+            (BindingAction::B, "Bind B", Some(1 << 4), Keycode::Z),
+            (BindingAction::C, "Bind C", Some(1 << 5), Keycode::X),
+            (
+                BindingAction::Start,
+                "Bind Start",
+                Some(1 << 7),
+                Keycode::Return,
+            ),
+            (BindingAction::Pause, "Bind Pause", None, Keycode::Escape),
+        ];
+
+        for (action, label, mask, key) in cases {
+            assert_eq!(action.label(), label);
+            assert_eq!(action.button_mask(), mask);
+            assert_eq!(bindings.key_for(action), key);
+        }
+    }
 
     #[test]
     fn keyboard_rebind_rejects_conflicts() {
@@ -1727,6 +1927,24 @@ mod tests {
             .set_key(BindingAction::A, bindings.b)
             .expect_err("conflicting key should be rejected");
         assert!(error.to_string().contains("already bound"));
+    }
+
+    #[test]
+    fn keyboard_rebind_allows_same_action_and_rejects_new_conflicts() {
+        let mut bindings = KeyboardBindings::default();
+        bindings
+            .set_key(BindingAction::A, bindings.a)
+            .expect("rebinding to the same key should be a no-op");
+
+        bindings
+            .set_key(BindingAction::A, Keycode::Space)
+            .expect("unused key should be accepted");
+        assert_eq!(bindings.a, Keycode::Space);
+
+        let error = bindings
+            .set_key(BindingAction::B, Keycode::Space)
+            .expect_err("fresh conflict should be rejected");
+        assert!(error.to_string().contains("Bind A"));
     }
 
     #[test]
@@ -1754,6 +1972,82 @@ mod tests {
     }
 
     #[test]
+    fn option_labels_cheat_values_and_rom_identity_labels_are_stable() {
+        let settings = PlayerSettings {
+            display_scale: DisplayScale::Two,
+            fullscreen: true,
+            master_volume: 80,
+            music_volume: 60,
+            sfx_volume: 40,
+            mute: true,
+            bindings: KeyboardBindings {
+                up: Keycode::W,
+                down: Keycode::S,
+                left: Keycode::A,
+                right: Keycode::D,
+                a: Keycode::J,
+                b: Keycode::K,
+                c: Keycode::L,
+                start: Keycode::Space,
+                pause: Keycode::Escape,
+            },
+        };
+
+        let cases = [
+            (OptionsItem::DisplayScale, ("Display Scale", "2x")),
+            (OptionsItem::Fullscreen, ("Fullscreen", "On")),
+            (OptionsItem::MasterVolume, ("Master Volume", "80%")),
+            (OptionsItem::MusicVolume, ("Music Volume", "60%")),
+            (OptionsItem::SfxVolume, ("SFX Volume", "40%")),
+            (OptionsItem::Mute, ("Mute", "On")),
+            (OptionsItem::Back, ("Back", "")),
+        ];
+        for (item, (label, value)) in cases {
+            assert_eq!(
+                option_label_value(item, &settings, None),
+                (label.to_string(), value.to_string())
+            );
+        }
+
+        assert_eq!(
+            option_label_value(OptionsItem::Bind(BindingAction::B), &settings, None),
+            (String::from("Bind B"), Keycode::K.name())
+        );
+        assert_eq!(
+            option_label_value(
+                OptionsItem::Bind(BindingAction::B),
+                &settings,
+                Some(BindingAction::B)
+            ),
+            (
+                String::from("Bind B"),
+                format!("{} <waiting>", Keycode::K.name())
+            )
+        );
+        assert_eq!(
+            option_label_value(
+                OptionsItem::Bind(BindingAction::B),
+                &settings,
+                Some(BindingAction::A)
+            ),
+            (String::from("Bind B"), Keycode::K.name())
+        );
+
+        assert_eq!(format_cheat_value("Level", 0x0A), "0x0A");
+        assert_eq!(format_cheat_value("Level", 0x123), "0x123");
+        assert_eq!(format_cheat_value("Lives", 7), "7");
+
+        assert_eq!(
+            rom_identity_label(&verified_rom(RomIdentity::KnownKidChameleon)),
+            "KID CHAMELEON  (known dump)"
+        );
+        assert_eq!(
+            rom_identity_label(&verified_rom(RomIdentity::HeaderMatchesKidChameleon)),
+            "KID CHAMELEON  (header-only match)"
+        );
+    }
+
+    #[test]
     fn volume_adjustment_clamps_to_valid_range() {
         let mut value = 100;
         assert!(!adjust_volume(&mut value, false, true));
@@ -1767,6 +2061,8 @@ mod tests {
         assert_eq!(pause_menu_action(0), PauseMenuAction::Resume);
         assert_eq!(pause_menu_action(1), PauseMenuAction::RestartRun);
         assert_eq!(pause_menu_action(2), PauseMenuAction::ReturnToTitle);
+        assert_eq!(pause_menu_action(3), PauseMenuAction::OpenOptions);
+        assert_eq!(pause_menu_action(99), PauseMenuAction::QuitToDesktop);
     }
 
     #[test]
@@ -1828,19 +2124,7 @@ mod tests {
     #[test]
     fn ready_launch_starts_inside_the_rom_not_the_shell_menu() {
         let launch = LaunchState::Ready {
-            verified: VerifiedRom {
-                path: PathBuf::from("roms/kid.bin"),
-                size: 0x100000,
-                sha1: String::from("28b904000b2863b6760531807760b571f1a5fc1d"),
-                identity: RomIdentity::KnownKidChameleon,
-                header: RomHeader {
-                    console_name: String::from("SEGA MEGA DRIVE"),
-                    domestic_title: String::from("KID CHAMELEON"),
-                    overseas_title: String::from("KID CHAMELEON"),
-                    serial: String::from("GM 00000000-00"),
-                    regions: String::from("JUE"),
-                },
-            },
+            verified: verified_rom(RomIdentity::KnownKidChameleon),
             rom_bytes: vec![0; 0x100000],
         };
 

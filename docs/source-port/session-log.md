@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI player-shell mutation hardening
+
+- Project-status still showed no ready/open risks after the compare
+  gameplay-report slice, so mutation-tested deterministic `player.rs` shell
+  helpers: display scale maths/cycling, CLI overrides, audio levels, keyboard
+  binding round trips, binding labels/masks, option labels, cheat/ROM labels,
+  menu actions, and gameplay input filtering.
+- Initial focused rerun exposed 54 missed mutants across scale maths and
+  parsing, CLI override and audio-level conversions, default settings, key
+  binding round trips/conflict checks, action labels/masks, option-label capture
+  suffixes, cheat/ROM labels, and the pause-menu options action.
+- Fix: added focused table-driven tests for those player-shell contracts and
+  replaced the equivalent `1 << 0` Up-button mask with explicit `0b0000_0001`.
+- Verification: focused `cargo test -p wildside-cli player::tests:: -- --skip
+  native_player::tests` passes. Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)"
+  cargo mutants -p wildside-cli -f crates/wildside-cli/src/player.rs -j 4
+  --gitignore=true --re
+  'DisplayScale|apply_cli_overrides|audio_levels|default_hundred|KeyboardBindings|BindingAction|option_label_value|format_cheat_value|rom_identity_label|adjust_volume|main_menu_action|initial_screen|pause_menu_action|gameplay_buttons_after_ui_release|gameplay_buttons_for_mode'
+  --output /tmp/mutants-cli-player-shell-20260704-initial -- player::tests:: --
+  --skip native_player::tests` reported 78 mutants tested: 20 caught, 54
+  missed, 4 unviable. Final rerun at
+  `/tmp/mutants-cli-player-shell-20260704-final2` reports 77 mutants tested: 73
+  caught, 4 unviable, 0 missed.
+
 ## 2026-07-04 - proactive CLI compare gameplay-report mutation hardening
 
 - Project-status still showed no ready/open risks after the oracle helper slice,
