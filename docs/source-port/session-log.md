@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive core boot Sega-screen mutation hardening
+
+- Project-status still showed no ready/open risks after the reset/startup
+  helper slice, so mutation-tested the `boot.rs` Sega-screen helper cluster.
+- Initial focused rerun exposed 3 missed mutants: two were from a too-narrow
+  `loc_12` test filter excluding `sub_12E3C`, and one was a real
+  `loc_12ED8` boundary gap where cursor zero must still emit the final palette
+  fade strip before becoming negative.
+- Fix: added an ASM-cited `loc_12ED8` zero-cursor assertion and reran the slice
+  with the widened `12` test filter so the existing `sub_12E3C` strip test is
+  included.
+- Verification: focused `cargo test -p wildside-core 12` passes. Initial
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-core -f
+  crates/wildside-core/src/boot.rs -j 4 --gitignore=true --re
+  'copy_sega_screen_palette_loc_12DFE|sega_screen_tile_strip_sub_12E3C|sega_screen_object_bootstrap_loc_12E48|sega_screen_start_poll_loc_12E6C|copy_sega_screen_palette_fade_strip_loc_12ED2|sega_screen_palette_fade_tick_loc_12ED8'
+  --output /tmp/mutants-core-boot-sega-screen-20260704-initial -- loc_12`
+  reported 26 mutants tested: 19 caught, 3 missed, 4 unviable. Final rerun at
+  `/tmp/mutants-core-boot-sega-screen-20260704-final` reports 26 mutants
+  tested: 22 caught, 4 unviable, 0 missed.
+
 ## 2026-07-04 - proactive core boot reset/startup mutation hardening
 
 - Project-status still showed no ready/open risks after the pause-menu helper

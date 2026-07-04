@@ -2407,6 +2407,25 @@ mod chunk_02 {
     }
 
     #[test]
+    fn loc_12ed8_zero_palette_cursor_still_emits_the_final_fade_strip() {
+        let final_strip = crate::boot::sega_screen_palette_fade_tick_loc_12ED8(0, 0);
+
+        assert_eq!(
+            final_strip.frame_delay_counter, 3,
+            "ASM loc_12ED8 resets `d1` to 3 before testing the fade cursor"
+        );
+        assert_eq!(
+            final_strip.source_byte_offset_for_copy,
+            Some(0),
+            "ASM loc_12ED8 uses `bmi.w loc_12ED8`; cursor zero is non-negative and still reaches loc_12ED2"
+        );
+        assert_eq!(
+            final_strip.palette_cursor, -2,
+            "ASM loc_12ED8 subtracts 2 from the final zero cursor, making the next tick exhausted"
+        );
+    }
+
+    #[test]
     fn loc_1538_blends_one_palette_word_by_walking_low_mid_and_high_nibbles() {
         let mut fade_curve = [0u8; 15];
         fade_curve[3] = 0x02;
