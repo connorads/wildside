@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI project-status mutation rerun
+
+- Project-status still showed no ready/open risks after the asm-coverage slice,
+  so mutation-tested `project_status.rs`, the selector/reporting CLI that keeps
+  the source-port loop from accidentally choosing awaiting-human rows.
+- Result: the existing tests already pin the current selector contract. No
+  survived mutants were found, so no code/test changes were needed.
+- Verification: focused `cargo test -p wildside-cli project_status::tests`
+  passes. `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-cli -f
+  crates/wildside-cli/src/project_status.rs -j 4 --gitignore=true --output
+  /tmp/mutants-cli-project-status-20260704-initial -- project_status::tests`
+  reports 68 mutants tested: 62 caught, 6 unviable, 0 missed.
+
 ## 2026-07-04 - proactive CLI asm-coverage classification mutation hardening
 
 - Project-status still showed no ready/open risks after the scenarios-window
