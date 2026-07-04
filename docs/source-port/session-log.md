@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive data plane/mask mutation hardening
+
+- Project-status still showed no ready/open risks after the data background
+  slice, so mutation-tested the `wildside-data` Scroll-A plane update and
+  level-layout mask helpers: `sub_30194`, `sub_3034A`, `sub_302F6`, and
+  `sub_1C1A2/sub_1C1D2`.
+- Initial rerun exposed 24 missed mutants across existing-priority tile words,
+  non-zero horizontal VDP column addressing, even-row half selection, horizontal
+  split thresholds, bottom/right edge skips, non-wrapping vertical uploads, and
+  low selector bit-offset mask additions. Added exact ASM-cited tests for those
+  edge cases and changed only the disjoint final longword pack in
+  `mapped_longword_sub_3034A` from OR to addition.
+- Verification: focused `cargo test -p wildside-data sub_30194` and
+  `cargo test -p wildside-data mask_level_layout` pass. Initial
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-data -f
+  crates/wildside-data/src/lib.rs -j 4 --gitignore=true --re
+  'level_plane_scroll_update|mask_level_layout|apply_level_layout_nibble|mapped_(longword|word_pair)|plane_(row|column)_word_address'
+  --output /tmp/mutants-data-plane-mask-20260704-rerun -- --lib` reported
+  137 mutants tested: 112 caught, 24 missed, 1 unviable. Final rerun at
+  `/tmp/mutants-data-plane-mask-20260704-final2` reports 137 mutants tested:
+  136 caught, 1 unviable, 0 missed.
+
 ## 2026-07-04 - proactive data background mutation hardening
 
 - Project-status still showed no ready/open risks after the data title/menu

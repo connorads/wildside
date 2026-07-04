@@ -3604,7 +3604,7 @@ fn mapped_longword_sub_3034A(
         .zip(mappings.get(base + 1))
         .context("sub_3034A needs two theme/block mapping words for the selected tile row")?;
     let priority_mask = if cell & 0x0100 != 0 { 0x8000 } else { 0 };
-    Ok((u32::from(word_0 | priority_mask) << 16) | u32::from(word_1 | priority_mask))
+    Ok((u32::from(word_0 | priority_mask) << 16) + u32::from(word_1 | priority_mask))
 }
 
 #[allow(non_snake_case)]
@@ -8812,6 +8812,30 @@ BackgroundLayout_0E:  dc.w    $8000
     }
 
     #[test]
+    fn mask_level_layout_column_sub_1c1a2_applies_low_selector_bit_offsets() {
+        let mut bit0_layout = vec![0xAB; 0x58 * 0x20];
+        let mut bit1_layout = vec![0xAB; 0x58 * 0x20];
+
+        mask_level_layout_column_sub_1C1A2(&mut bit0_layout, 0);
+        mask_level_layout_column_sub_1C1A2(&mut bit1_layout, 1);
+
+        for row in 0..0x58usize {
+            assert_eq!(
+                bit0_layout[16 + row * 0x20],
+                0x0B,
+                "ASM loc_1C1C6 should add `$20` when adjusted selector bit 0 is set",
+            );
+            assert_eq!(
+                bit1_layout[2 + row * 0x20],
+                0x0B,
+                "ASM loc_1C1CE should add `4` when adjusted selector bit 1 is set",
+            );
+        }
+        assert_eq!(bit0_layout[0], 0xAB);
+        assert_eq!(bit1_layout[0], 0xAB);
+    }
+
+    #[test]
     fn thunder_animation_frame_upload_sub_1b41c_reads_32_longwords_from_the_selected_frame() {
         let art = (0u16..256)
             .map(|value| u8::try_from(value).expect("fixture byte should fit in u8"))
@@ -9339,6 +9363,165 @@ PlatformScript_3F7E:   ; relative offset: 097C
     }
 
     #[test]
+    fn sub_30194_uses_even_streamed_row_half_for_horizontal_upload() {
+        let theme_mappings = synthetic_mappings_sub_30194(0x1000);
+        let block_mappings = synthetic_mappings_sub_30194(0x5000);
+        let row_offsets = synthetic_row_offsets_sub_30194(32, 40);
+        let mut level_layout_cells = vec![0u16; 32 * 40];
+        level_layout_cells[15 * 40] = 0x0007;
+
+        let plan = level_plane_scroll_update_plan_sub_30194(LevelPlaneScrollUpdateInputsSub30194 {
+            camera_x_pos: 0,
+            camera_y_pos: 16,
+            previous_camera_x_pos: 0,
+            previous_camera_y_pos: 8,
+            level_layout_row_offsets_cells: &row_offsets,
+            level_layout_cells: &level_layout_cells,
+            level_width_tiles: 80,
+            level_height_tiles: 64,
+            theme_mappings: &theme_mappings,
+            block_mappings: &block_mappings,
+        })
+        .expect("ASM sub_30194 should stream even bottom rows from the top tile half");
+
+        assert_eq!(plan.horizontal_uploads.len(), 1);
+        assert_eq!(plan.horizontal_uploads[0].vram_word_address, 0x0780);
+        assert_eq!(
+            plan.horizontal_uploads[0].longwords[0], 0x101C_101D,
+            "ASM sub_30194 should use row-half offset 0 for even streamed rows",
+        );
+    }
+
+    #[test]
+    fn sub_30194_horizontal_upload_preserves_priority_bits_and_column_address() {
+        let mut theme_mappings = synthetic_mappings_sub_30194(0x1000);
+        let block_mappings = synthetic_mappings_sub_30194(0x5000);
+        let tile_base = 7 * 4;
+        theme_mappings[tile_base + 2] = 0x9003;
+        theme_mappings[tile_base + 3] = 0x9004;
+        let row_offsets = synthetic_row_offsets_sub_30194(32, 40);
+        let mut level_layout_cells = vec![0u16; 32 * 40];
+        level_layout_cells[14 * 40 + 2] = 0x0107;
+
+        let plan = level_plane_scroll_update_plan_sub_30194(LevelPlaneScrollUpdateInputsSub30194 {
+            camera_x_pos: 4 * 8,
+            camera_y_pos: 8,
+            previous_camera_x_pos: 4 * 8,
+            previous_camera_y_pos: 0,
+            level_layout_row_offsets_cells: &row_offsets,
+            level_layout_cells: &level_layout_cells,
+            level_width_tiles: 80,
+            level_height_tiles: 64,
+            theme_mappings: &theme_mappings,
+            block_mappings: &block_mappings,
+        })
+        .expect("ASM sub_30194 should stream from a non-zero tile-pair column");
+
+        assert_eq!(plan.horizontal_uploads.len(), 1);
+        assert_eq!(
+            plan.horizontal_uploads[0].vram_word_address, 0x0744,
+            "ASM plane row address should include the non-zero tile-pair column",
+        );
+        assert_eq!(
+            plan.horizontal_uploads[0].longwords[0], 0x9003_9004,
+            "ASM sub_3034A ORs the priority mask, preserving mapping words whose priority bit is already set",
+        );
+    }
+
+    #[test]
+    fn sub_30194_splits_horizontal_strip_when_the_fg_plane_wraps() {
+        let theme_mappings = synthetic_mappings_sub_30194(0x1000);
+        let block_mappings = synthetic_mappings_sub_30194(0x5000);
+        let row_offsets = synthetic_row_offsets_sub_30194(32, 40);
+        let mut level_layout_cells = vec![0u16; 32 * 40];
+        let source_start = 14 * 40 + 15;
+        for offset in 0..21 {
+            level_layout_cells[source_start + offset] =
+                u16::try_from(offset + 1).expect("fixture tile id fits in u16");
+        }
+
+        let plan = level_plane_scroll_update_plan_sub_30194(LevelPlaneScrollUpdateInputsSub30194 {
+            camera_x_pos: 31 * 8,
+            camera_y_pos: 8,
+            previous_camera_x_pos: 31 * 8,
+            previous_camera_y_pos: 0,
+            level_layout_row_offsets_cells: &row_offsets,
+            level_layout_cells: &level_layout_cells,
+            level_width_tiles: 80,
+            level_height_tiles: 64,
+            theme_mappings: &theme_mappings,
+            block_mappings: &block_mappings,
+        })
+        .expect("ASM sub_30194 should split horizontal strips at the plane edge");
+
+        assert_eq!(plan.horizontal_uploads.len(), 2);
+        assert_eq!(plan.horizontal_uploads[0].vram_word_address, 0x075E);
+        assert_eq!(plan.horizontal_uploads[0].longwords, vec![0x1006_1007]);
+        assert_eq!(plan.horizontal_uploads[1].vram_word_address, 0x0740);
+        assert_eq!(plan.horizontal_uploads[1].longwords.len(), 20);
+        assert_eq!(plan.horizontal_uploads[1].longwords[0], 0x100A_100B);
+        assert_eq!(plan.horizontal_uploads[1].longwords[19], 0x1056_1057);
+    }
+
+    #[test]
+    fn sub_30194_splits_horizontal_strip_at_plane_column_twelve_boundary() {
+        let theme_mappings = synthetic_mappings_sub_30194(0x1000);
+        let block_mappings = synthetic_mappings_sub_30194(0x5000);
+        let row_offsets = synthetic_row_offsets_sub_30194(32, 40);
+        let mut level_layout_cells = vec![0u16; 32 * 40];
+        let source_start = 14 * 40 + 6;
+        for offset in 0..21 {
+            level_layout_cells[source_start + offset] =
+                u16::try_from(offset + 1).expect("fixture tile id fits in u16");
+        }
+
+        let plan = level_plane_scroll_update_plan_sub_30194(LevelPlaneScrollUpdateInputsSub30194 {
+            camera_x_pos: 12 * 8,
+            camera_y_pos: 8,
+            previous_camera_x_pos: 12 * 8,
+            previous_camera_y_pos: 0,
+            level_layout_row_offsets_cells: &row_offsets,
+            level_layout_cells: &level_layout_cells,
+            level_width_tiles: 80,
+            level_height_tiles: 64,
+            theme_mappings: &theme_mappings,
+            block_mappings: &block_mappings,
+        })
+        .expect("ASM sub_30194 should split horizontal strips starting at plane column 12");
+
+        assert_eq!(plan.horizontal_uploads.len(), 2);
+        assert_eq!(plan.horizontal_uploads[0].vram_word_address, 0x074C);
+        assert_eq!(plan.horizontal_uploads[0].longwords.len(), 20);
+        assert_eq!(plan.horizontal_uploads[0].longwords[0], 0x1006_1007);
+        assert_eq!(plan.horizontal_uploads[0].longwords[19], 0x1052_1053);
+        assert_eq!(plan.horizontal_uploads[1].vram_word_address, 0x0740);
+        assert_eq!(plan.horizontal_uploads[1].longwords, vec![0x1056_1057]);
+    }
+
+    #[test]
+    fn sub_30194_skips_horizontal_upload_when_bottom_edge_is_past_level_height() {
+        let theme_mappings = synthetic_mappings_sub_30194(0x1000);
+        let block_mappings = synthetic_mappings_sub_30194(0x5000);
+
+        let plan = level_plane_scroll_update_plan_sub_30194(LevelPlaneScrollUpdateInputsSub30194 {
+            camera_x_pos: 0,
+            camera_y_pos: 36 * 8,
+            previous_camera_x_pos: 0,
+            previous_camera_y_pos: 35 * 8,
+            level_layout_row_offsets_cells: &[],
+            level_layout_cells: &[],
+            level_width_tiles: 80,
+            level_height_tiles: 64,
+            theme_mappings: &theme_mappings,
+            block_mappings: &block_mappings,
+        })
+        .expect("ASM sub_30194 should skip bottom rows beyond level height");
+
+        assert!(plan.horizontal_uploads.is_empty());
+        assert!(plan.vertical_uploads.is_empty());
+    }
+
+    #[test]
     fn sub_30194_splits_vertical_strip_uploads_when_the_fg_plane_wraps() {
         let theme_mappings = synthetic_mappings_sub_30194(0x1000);
         let block_mappings = synthetic_mappings_sub_30194(0x5000);
@@ -9382,6 +9565,64 @@ PlatformScript_3F7E:   ; relative offset: 097C
             vec![0x5018, 0x501A],
             "ASM sub_30194 should wrap the fifteenth row write back to the top of the plane while continuing to read the next source row from Block_Mappings",
         );
+    }
+
+    #[test]
+    fn sub_30194_vertical_upload_preserves_priority_bits_without_plane_wrap() {
+        let mut theme_mappings = synthetic_mappings_sub_30194(0x1000);
+        let block_mappings = synthetic_mappings_sub_30194(0x5000);
+        let tile_base = 7 * 4;
+        theme_mappings[tile_base + 1] = 0x9001;
+        theme_mappings[tile_base + 3] = 0x9003;
+        let row_offsets = synthetic_row_offsets_sub_30194(20, 40);
+        let mut level_layout_cells = vec![0u16; 20 * 40];
+        level_layout_cells[2] = 0x0107;
+
+        let plan = level_plane_scroll_update_plan_sub_30194(LevelPlaneScrollUpdateInputsSub30194 {
+            camera_x_pos: 5 * 8,
+            camera_y_pos: 0,
+            previous_camera_x_pos: 6 * 8,
+            previous_camera_y_pos: 0,
+            level_layout_row_offsets_cells: &row_offsets,
+            level_layout_cells: &level_layout_cells,
+            level_width_tiles: 80,
+            level_height_tiles: 64,
+            theme_mappings: &theme_mappings,
+            block_mappings: &block_mappings,
+        })
+        .expect("ASM sub_30194 should stream a non-wrapping vertical strip");
+
+        assert_eq!(plan.vertical_uploads.len(), 1);
+        assert_eq!(plan.vertical_uploads[0].vram_word_address, 0x0005);
+        assert_eq!(plan.vertical_uploads[0].words.len(), 30);
+        assert_eq!(
+            &plan.vertical_uploads[0].words[..2],
+            &[0x9001, 0x9003],
+            "ASM sub_302F6 ORs the priority mask, preserving mapping words whose priority bit is already set",
+        );
+    }
+
+    #[test]
+    fn sub_30194_skips_vertical_upload_when_right_edge_is_past_level_width() {
+        let theme_mappings = synthetic_mappings_sub_30194(0x1000);
+        let block_mappings = synthetic_mappings_sub_30194(0x5000);
+
+        let plan = level_plane_scroll_update_plan_sub_30194(LevelPlaneScrollUpdateInputsSub30194 {
+            camera_x_pos: 40 * 8,
+            camera_y_pos: 0,
+            previous_camera_x_pos: 39 * 8,
+            previous_camera_y_pos: 0,
+            level_layout_row_offsets_cells: &[],
+            level_layout_cells: &[],
+            level_width_tiles: 80,
+            level_height_tiles: 64,
+            theme_mappings: &theme_mappings,
+            block_mappings: &block_mappings,
+        })
+        .expect("ASM sub_30194 should skip right-edge columns beyond level width");
+
+        assert!(plan.horizontal_uploads.is_empty());
+        assert!(plan.vertical_uploads.is_empty());
     }
 
     #[allow(non_snake_case)]
