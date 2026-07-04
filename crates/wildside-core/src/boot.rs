@@ -1417,7 +1417,10 @@ pub fn pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(
 ) -> u32 {
     // ASM loc_6A1E duplicates loc_695C's row/column address computation, then
     // sets the VDP write bit with `ori.w #$4000,d0` before `swap d0`.
-    pause_menu_tile_save_row_vdp_read_cmd_loc_695C(camera_y_pos, tile_col, row) | 0x4000_0000
+    let read_cmd = pause_menu_tile_save_row_vdp_read_cmd_loc_695C(camera_y_pos, tile_col, row);
+    // Plane-A row/column addresses stay below $1000, so adding $4000 to the
+    // command high word is equivalent to the ASM `ori.w #$4000`.
+    read_cmd + 0x4000_0000
 }
 
 /// Describes one row of the pause menu text write, including VDP addresses
@@ -1605,7 +1608,9 @@ pub(crate) fn pause_menu_arrow_cursor_cmds_loc_6A84(
         let plane_row = (camera_y_pos.wrapping_add(y_offset) >> 3) & 0x1F;
         let row_byte_offset = plane_row << 7;
         let vram_addr = row_byte_offset.wrapping_add(col_byte_offset);
-        u32::from(vram_addr | 0x4000) << 16
+        // The computed Plane-A address is below $1000; adding $4000 sets the
+        // same write-command bit as ASM `ori.w #$4000`.
+        (u32::from(vram_addr) << 16) + 0x4000_0000
     };
 
     PauseMenuArrowCursorCmdsLoc6A84 {
@@ -1878,7 +1883,9 @@ pub fn pause_darken_palette_loc_6C70(palette_buffer: &mut [u16; 0x40]) {
         let green = ((word & 0x00F0) >> 1) & 0x00F0;
         // ASM: andi.w #$F00,d5; lsr.w #1,d5; andi.w #$F00,d5
         let red = ((word & 0x0F00) >> 1) & 0x0F00;
-        red | green | blue
+        // The masks leave disjoint B/G/R nibbles, so addition preserves the
+        // ASM `or.w` result exactly.
+        red + green + blue
     }
 
     // First span: 15 colours (d7=$E → 15 iterations)
@@ -9345,6 +9352,204 @@ mod tests {
                 .count(),
             0,
             "ASM loc_1B7BA exits on `cmpi.w #$FFFF,d0; beq.s return_1B7DE`, so the sentinel must never become a write target"
+        );
+    }
+
+    #[test]
+    fn sub_6874_gate_distinguishes_not_paused_unpausing_and_active_pause() {
+        assert_eq!(
+            pause_menu_gate_loc_687C(0),
+            PauseMenuGateLoc687C::NotPaused,
+            "ASM sub_6874 returns immediately when Game_Paused is clear"
+        );
+        assert_eq!(
+            pause_menu_gate_loc_687C(3),
+            PauseMenuGateLoc687C::UnpausingReturn,
+            "ASM loc_687C returns after the darken/UI path when Game_Paused == 3"
+        );
+        for game_paused in [1u8, 2, 4, 0xFF] {
+            assert_eq!(
+                pause_menu_gate_loc_687C(game_paused),
+                PauseMenuGateLoc687C::PausedContinueToSpriteHide,
+                "ASM loc_687C falls through to loc_6894 for Game_Paused={game_paused}"
+            );
+        }
+    }
+
+    #[test]
+    fn loc_68ac_hides_pause_menu_tiles_after_masking_sprite_attribute_bits() {
+        let mut sprites = [
+            PauseMenuSpriteEntrySub6874 {
+                y_pos: 0x1111,
+                vram_tile_word: 0x0675,
+            },
+            PauseMenuSpriteEntrySub6874 {
+                y_pos: 0x2222,
+                vram_tile_word: 0x0676,
+            },
+            PauseMenuSpriteEntrySub6874 {
+                y_pos: 0x3333,
+                vram_tile_word: 0xE68E,
+            },
+            PauseMenuSpriteEntrySub6874 {
+                y_pos: 0x4444,
+                vram_tile_word: 0xE68F,
+            },
+        ];
+
+        hide_pause_menu_overwritten_sprites_sub_6874(&mut sprites);
+
+        assert_eq!(
+            sprites[0].y_pos, 0x1111,
+            "ASM loc_68AC: tile $675 is below the hidden pause-menu range"
+        );
+        assert_eq!(
+            sprites[1].y_pos, 0,
+            "ASM loc_68AC: tile $676 is the inclusive lower hidden bound"
+        );
+        assert_eq!(
+            sprites[2].y_pos, 0,
+            "ASM loc_68AC masks the sprite word with $07FF before accepting tile $68E"
+        );
+        assert_eq!(
+            sprites[3].y_pos, 0x4444,
+            "ASM loc_68AC: tile $68F is above the inclusive hidden range"
+        );
+    }
+
+    #[test]
+    fn loc_690c_pause_menu_art_header_copies_0x320_bytes() {
+        assert_eq!(
+            PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C, 32,
+            "ASM loc_690C emits eight longword writes per copy iteration"
+        );
+        assert_eq!(
+            PAUSE_MENU_ART_HEADER_WORD_LOC_690C, 0x19,
+            "ASM ArtUnc_PauseMenu starts with header word $19"
+        );
+        assert_eq!(
+            pause_menu_art_total_bytes_loc_690C(PAUSE_MENU_ART_HEADER_WORD_LOC_690C),
+            0x320,
+            "ASM loc_690C copies $19 * 32 bytes of uncompressed pause-menu art"
+        );
+        assert_eq!(
+            pause_menu_art_total_bytes_loc_690C(1),
+            32,
+            "ASM loc_690C with header 1 runs exactly one 32-byte DBF body"
+        );
+    }
+
+    #[test]
+    fn loc_693a_pause_menu_column_layout_handles_threshold_and_wrap() {
+        assert_eq!(
+            pause_menu_plane_column_layout_loc_693A(0),
+            PauseMenuPlaneColumnLayout {
+                tile_col: 0x0C,
+                wrap_split: None,
+            },
+            "ASM loc_6894: (Camera_X+$60)>>3 yields tile column $0C at camera origin"
+        );
+        assert_eq!(
+            pause_menu_plane_column_layout_loc_693A(0x120),
+            PauseMenuPlaneColumnLayout {
+                tile_col: 0x30,
+                wrap_split: None,
+            },
+            "ASM loc_6894: tile column $30 still uses the non-wrapped path"
+        );
+        assert_eq!(
+            pause_menu_plane_column_layout_loc_693A(0x128),
+            PauseMenuPlaneColumnLayout {
+                tile_col: 0x31,
+                wrap_split: Some((0x0F, 0x01)),
+            },
+            "ASM loc_693A: tile column $31 splits into 15 words before wrap and 1 after"
+        );
+        assert_eq!(
+            pause_menu_plane_column_layout_loc_693A(0x190),
+            PauseMenuPlaneColumnLayout {
+                tile_col: 0x3E,
+                wrap_split: Some((0x02, 0x0E)),
+            },
+            "ASM loc_693A masks to the 64-column plane before computing the wrap split"
+        );
+    }
+
+    #[test]
+    fn loc_695c_pause_menu_tile_save_read_cmd_uses_row_column_and_plane_wraps() {
+        assert_eq!(
+            pause_menu_tile_save_row_vdp_read_cmd_loc_695C(0, 0x0C, 0),
+            0x0418_0000,
+            "ASM loc_695C: row ((0+$40)>>3)<<7 plus column $0C*2"
+        );
+        assert_eq!(
+            pause_menu_tile_save_row_vdp_read_cmd_loc_695C(0xD8, 0x3F, 4),
+            0x03FE_0000,
+            "ASM loc_695C wraps the 32-row plane and keeps the doubled column byte offset"
+        );
+    }
+
+    #[test]
+    fn loc_69ae_wrap_column_reset_preserves_row_and_clears_column_bits() {
+        assert_eq!(
+            pause_menu_tile_save_wrap_column_reset_loc_69AE(0x047E_0000),
+            0x0400_0000,
+            "ASM loc_69AE clears the low seven column bits in the command high word"
+        );
+        assert_eq!(
+            pause_menu_tile_save_wrap_column_reset_loc_69AE(0x447E_0000),
+            0x4400_0000,
+            "ASM loc_6A64/loc_6BEA use the same column reset while preserving the VDP write bit"
+        );
+    }
+
+    #[test]
+    fn loc_695c_69d2_6b68_share_the_same_pause_menu_row_split_contract() {
+        let save = pause_menu_tile_save_plan_loc_695C(0x128, 0);
+        let text = pause_menu_text_write_plan_loc_69D2(0x128, 0);
+        let restore = pause_menu_tile_restore_plan_loc_6B68(0x128, 0);
+
+        assert_eq!(save.len(), PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C);
+        assert_eq!(text.len(), PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C);
+        assert_eq!(restore.len(), PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C);
+        assert_eq!(save[0].vdp_read_cmd, 0x0462_0000);
+        assert_eq!(save[0].wrap_segments, Some((0x0F, 0x0400_0000, 0x01)));
+        assert_eq!(text[0].vdp_write_cmd, 0x4462_0000);
+        assert_eq!(text[0].wrap_segments, Some((0x0F, 0x4400_0000, 0x01)));
+        assert_eq!(restore[0].vdp_write_cmd, 0x4462_0000);
+        assert_eq!(restore[0].wrap_segments, Some((0x0F, 0x4400_0000, 0x01)));
+    }
+
+    #[test]
+    fn restart_text_selects_give_up_at_one_life_and_restart_above_one() {
+        assert_eq!(
+            pause_menu_text_selection_restart_text(0),
+            PauseMenuTextSelectionRestartText::GiveUp,
+            "ASM restart_text: lives <= 1 uses MapUnc_PauseMenu_GiveUp"
+        );
+        assert_eq!(
+            pause_menu_text_selection_restart_text(1),
+            PauseMenuTextSelectionRestartText::GiveUp,
+            "ASM restart_text compares Number_Lives to 1 with bgt"
+        );
+        assert_eq!(
+            pause_menu_text_selection_restart_text(2),
+            PauseMenuTextSelectionRestartText::RestartRound,
+            "ASM restart_text: lives > 1 uses MapUnc_PauseMenu_Restart"
+        );
+    }
+
+    #[test]
+    fn loc_6a1e_pause_menu_text_write_cmd_sets_the_vdp_write_bit() {
+        assert_eq!(
+            pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(0, 0x0C, 0),
+            0x4418_0000,
+            "ASM loc_6A1E duplicates loc_695C row math and sets the $4000 write bit"
+        );
+        assert_eq!(
+            pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(0xD8, 0x3F, 4),
+            0x43FE_0000,
+            "ASM loc_6A1E preserves row wrapping while switching the command to VRAM write mode"
         );
     }
 

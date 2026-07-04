@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive core boot pause-menu mutation hardening
+
+- Project-status still showed no ready/open risks after the title/intro helper
+  slice, so mutation-tested the `boot.rs` pause-menu helper cluster.
+- Initial focused rerun exposed 34 missed mutants across pause gate branching,
+  sprite tile masking, pause-menu art byte counts, plane row/column command
+  maths, wrap column reset, restart/give-up text selection, write-bit commands,
+  and palette channel recombination.
+- Fix: added focused ASM-cited assertions for those helper contracts and
+  rewrote the disjoint-bitfield combinations as equivalent additions so the
+  mutation operators are no longer semantically equivalent.
+- Verification: focused `cargo test -p wildside-core boot::tests` passes.
+  Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-core -f
+  crates/wildside-core/src/boot.rs -j 4 --gitignore=true --re
+  'pause_menu_|pause_loop_|hide_pause|pause_darken_palette' --output
+  /tmp/mutants-core-boot-pause-menu-20260704-initial -- boot::tests` reported
+  86 mutants tested: 41 caught, 34 missed, 11 unviable. Final rerun at
+  `/tmp/mutants-core-boot-pause-menu-20260704-final` reports 86 mutants tested:
+  75 caught, 11 unviable, 0 missed.
+
 ## 2026-07-04 - proactive core boot title helper mutation hardening
 
 - Project-status still showed no ready/open risks after the project-status CLI
