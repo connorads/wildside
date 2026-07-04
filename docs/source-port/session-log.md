@@ -7,6 +7,33 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive core boot end-sequence display mutation rerun
+
+- Project-status still showed no ready/open risks after the IO/palette fade
+  helper slice, so mutation-tested the `boot.rs` end-sequence display refresh,
+  panel-step, and upload/fill primitives backed by `sub_1CC88`, `sub_1D830`,
+  `loc_1DA50`, `loc_1DA6A`, and `loc_1DA7E`.
+- No code patch was needed. The existing ASM-cited tests already kill the
+  panel toggle branch, worker offset direction, horizontal-scroll negation and
+  count, and the inclusive DBF fill counts. `sub_1D830` generated only a
+  `Default::default()` replacement mutant for a non-`Default` return struct.
+- Verification: focused `cargo test -p wildside-core panel_step`,
+  `cargo test -p wildside-core 1d830`, and `cargo test -p wildside-core 1da`
+  pass. Panel-step rerun:
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-core -f
+  crates/wildside-core/src/boot.rs -j 4 --gitignore=true --re
+  'step_option_menu_panels_sub_1CC88' --output
+  /tmp/mutants-core-boot-panel-step-20260704-initial -- panel_step` reported
+  20 mutants tested: 20 caught, 0 missed. Display wrapper rerun at
+  `/tmp/mutants-core-boot-end-display-20260704-initial` reported 1 mutant
+  tested: 1 unviable. Upload/fill rerun:
+  `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-core -f
+  crates/wildside-core/src/boot.rs -j 4 --gitignore=true --re
+  'end_sequence_h_scroll_upload_loc_1DA50|end_sequence_tile_fill_loc_1DA6A|end_sequence_vram_zero_fill_loc_1DA7E'
+  --output /tmp/mutants-core-boot-end-upload-20260704-initial -- 1da`
+  reported 11 mutants tested: 8 caught, 3 unviable, 0 missed. `cargo fmt
+  --all --check`, `git diff --check`, and `mise run backlog-lint` pass.
+
 ## 2026-07-04 - proactive core boot IO/palette-fade mutation rerun
 
 - Project-status still showed no ready/open risks after the continue-timeout
