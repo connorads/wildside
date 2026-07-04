@@ -3629,6 +3629,52 @@ mod tests {
     }
 
     #[test]
+    fn settled_recording_oracle_bootstrap_block_reason_requires_level_zero_pause() {
+        let recording = native_recording_fixture("wrong-paused-level-probe", 0x15);
+        let native = semantic_state_at_level(0x15, false);
+        let oracle = semantic_state_at_level(0x02, true);
+
+        let reason =
+            settled_recording_oracle_bootstrap_block_reason(&recording, &[native], &[oracle]);
+
+        assert_eq!(
+            reason, None,
+            "only the known Level 00 paused oracle bootstrap failure should block settled recording cases"
+        );
+    }
+
+    #[test]
+    fn settled_recording_oracle_bootstrap_block_reason_requires_starting_level_boot_phase() {
+        let recording = native_recording_fixture("level2-mode8-without-title-card", 0x01);
+        let native = semantic_state_at_level(0x01, false);
+        let mut oracle = semantic_state_at_level(0x01, false);
+        oracle.world.game_mode = 0x0008;
+
+        let reason =
+            settled_recording_oracle_bootstrap_block_reason(&recording, &[native], &[oracle]);
+
+        assert_eq!(
+            reason, None,
+            "mode 8 alone is not enough to classify the oracle as stuck on the title card"
+        );
+    }
+
+    #[test]
+    fn settled_recording_oracle_bootstrap_block_reason_summarises_event_mismatch() {
+        let recording = native_recording_fixture("level6-event-bootstrap-drift", 0x06);
+        let mut native = semantic_state_at_level(0x06, false);
+        native.events.push(String::from("landed"));
+        let oracle = semantic_state_at_level(0x06, false);
+
+        let reason =
+            settled_recording_oracle_bootstrap_block_reason(&recording, &[native], &[oracle])
+                .expect("event drift should block settled recording cases");
+
+        assert!(reason.contains("events native=1 oracle=0"));
+        assert!(reason.contains("level6-event-bootstrap-drift"));
+    }
+
+    #[test]
     fn semantic_oracle_entity_uses_collision_source_for_gfx_proxy_enemy() {
         let enemy = OracleEnemyState {
             object_type: 0,
@@ -3653,6 +3699,54 @@ mod tests {
         assert_eq!(semantic.object_type, Some(0x17));
         assert!(semantic.identity.starts_with("enemy:17:"));
         assert_eq!(semantic.hit_points, Some(1));
+    }
+
+    fn native_recording_fixture(slug: &str, warp_level: u8) -> NativeRecording {
+        NativeRecording {
+            manifest: crate::recording::NativeRecordingManifest {
+                bundle_version: 4,
+                slug: String::from(slug),
+                recorded_at: String::from("123"),
+                start: crate::recording::RecordingStart {
+                    warp_level: Some(warp_level),
+                    settled: true,
+                    record_frames: None,
+                },
+                rom_sha1: String::new(),
+                script_sha1: String::new(),
+                trace_sha1: String::new(),
+                host_os: String::new(),
+                host_arch: String::new(),
+                git_commit: None,
+                git_dirty: None,
+                record_command: String::new(),
+                verify_command: String::new(),
+                tas_frontier_command: String::new(),
+                route_target_score_commands: Vec::new(),
+                route_target: None,
+                artifacts: Vec::new(),
+                scenario: DynamicScenario {
+                    slug: String::from(slug),
+                    script: vec![0],
+                    frame_count: 1,
+                    checkpoints: vec![DynamicCheckpoint {
+                        label: String::from("start"),
+                        frame_index: 0,
+                    }],
+                    start_position: None,
+                    start_velocity: None,
+                    camera_position: None,
+                    playtest_form: None,
+                    initial_diamond_count: None,
+                    initial_lives: None,
+                    warp_to_level: Some(warp_level),
+                    settle_oracle_warp: true,
+                },
+            },
+            trace: vec![NativeTraceFrame::default()],
+            legacy_block_destroy_direction_frames: BTreeSet::default(),
+            legacy_missing_played_sound_effect_ids_frames: BTreeSet::default(),
+        }
     }
 
     fn semantic_state_at_level(level: u16, paused: bool) -> SemanticGameState {

@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI case bootstrap mutation slice
+
+- Project-status still showed no ready/open risks after the CLI inspect
+  target-contact mutation rerun, so continued the proactive verification
+  fallback with `case.rs` settled-recording bootstrap, replay-drift, and probe
+  metadata blockers. The first shard exposed three missed mutants around the
+  Level-00 paused guard, the `starting_level` title-card guard, and event-only
+  bootstrap mismatch summaries. Added focused negative/summary tests. Native
+  gameplay behaviour is unchanged.
+- Verification: initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/case.rs --re
+  'settled_recording_oracle_bootstrap_block_reason|settled_bootstrap_mismatch_summary|recording_probe_metadata_mismatch_reason|recording_replay_drift_reason'
+  -j 1 --gitignore=true --output
+  /tmp/mutants-cli-case-bootstrap-20260704-initial -- case::tests::` reported
+  46 mutants tested: 43 caught, 3 missed. Final rerun at
+  `/tmp/mutants-cli-case-bootstrap-20260704-final` reports 46 mutants tested:
+  46 caught, 0 missed, 0 unviable, 0 timeouts.
+
 ## 2026-07-04 - proactive CLI inspect target-contact mutation slice
 
 - Project-status still showed no ready/open risks after the CLI main
