@@ -3783,22 +3783,17 @@ pub(crate) fn title_text_chameleon_frame_upload_sub_1B71A(
 
     let tilemap_label = match d3 & 0x000C {
         0x0000 => "unk_2E706",
-        0x0004 => "unk_2E728",
+        0x0004 | 0x000C => "unk_2E728",
         0x0008 => "unk_2E77A",
-        _ => "unk_2E728",
+        _ => unreachable!("masking with 0x000C yields only 0, 4, 8, or 12"),
     };
 
     // ASM loc_1B734: `tst.w d2; bpl.s loc_1B734; moveq #0,d2`.
     let reveal = d2.max(0);
-    let mut horizontal_offset = 5_i16 - reveal;
-    let mut source_start_word = 0_usize;
-    let mut row_word_count = SOURCE_ROW_WORDS;
-    if horizontal_offset < 0 {
-        let clipped_words = usize::try_from(-horizontal_offset).ok()?;
-        source_start_word = clipped_words;
-        row_word_count = row_word_count.saturating_sub(clipped_words);
-        horizontal_offset = 0;
-    }
+    let blank_lead_words = 5_i16 - reveal;
+    let horizontal_offset = blank_lead_words.max(0);
+    let source_start_word = usize::try_from((-blank_lead_words).max(0)).ok()?;
+    let row_word_count = SOURCE_ROW_WORDS.saturating_sub(source_start_word);
     if row_word_count == 0 {
         return Some(TitleTextChameleonFrameUploadSub1B71A {
             tilemap_label,
@@ -8514,6 +8509,47 @@ mod tests {
     }
 
     #[test]
+    fn loc_1b170_streams_eight_title_stripe_longwords() {
+        let fill = intro_sequence_6_longword_fill_loc_1B170();
+
+        assert_eq!(fill.vram_word_addr, 0x1780);
+        assert_eq!(fill.fill_longword, 0x1111_1111);
+        assert_eq!(
+            fill.longword_write_count, 8,
+            "ASM loc_1B170 seeds `d0=7`, so the inclusive DBF loop writes eight longwords"
+        );
+    }
+
+    #[test]
+    fn loc_1b194_streams_fourteen_striped_tile_bands() {
+        let fill = intro_sequence_6_striped_tile_fill_loc_1B194();
+
+        assert_eq!(fill.vram_word_addr, 0xE000);
+        assert_eq!(
+            fill.word_writes.len(),
+            14 * 32 * 4,
+            "ASM loc_1B194 runs 14 outer DBF passes; each pass writes 32 BD/BE pairs and 32 BF/C0 pairs"
+        );
+        for (word, expected_count) in [
+            (0x00BD, 14 * 32),
+            (0x00BE, 14 * 32),
+            (0x00BF, 14 * 32),
+            (0x00C0, 14 * 32),
+        ] {
+            assert_eq!(
+                fill.word_writes
+                    .iter()
+                    .filter(|&&candidate| candidate == word)
+                    .count(),
+                expected_count,
+                "ASM loc_1B194 should emit each striped tile word once per half-band pair"
+            );
+        }
+        assert_eq!(&fill.word_writes[..4], &[0x00BD, 0x00BE, 0x00BD, 0x00BE]);
+        assert_eq!(&fill.word_writes[64..68], &[0x00BF, 0x00C0, 0x00BF, 0x00C0]);
+    }
+
+    #[test]
     fn loc_1b2d8_selects_the_title_art_variant_from_fc82() {
         assert_eq!(title_screen_art_source_loc_1B2D8(0), "byte_26E3D");
         assert_eq!(title_screen_art_source_loc_1B2D8(1), "byte_2927C");
@@ -8804,6 +8840,68 @@ mod tests {
     }
 
     #[test]
+    fn loc_1bf54_title_shell_upload_helpers_pin_dbf_counts() {
+        let decompress = title_shell_art_decompress_loc_1BF54();
+        let fill = title_shell_vram_fill_loc_1BF70();
+        let row_copy = title_shell_row_copy_loop_loc_1BF84();
+
+        assert_eq!(decompress.decompress_target, 0xFFFF7F82);
+        assert_eq!(decompress.vram_fill_addr, 0xFFFF7F82);
+        assert_eq!(decompress.vram_fill_pattern, 0x20BC);
+        assert_eq!(
+            decompress.vram_fill_iterations, 360,
+            "ASM loc_1BF54/loc_1BF70 seeds `d0=$167`, so the inclusive fill loop writes 360 words"
+        );
+        assert_eq!(fill.fill_pattern, 0x20BC);
+        assert_eq!(
+            fill.fill_iterations, 360,
+            "ASM loc_1BF70 is the same 360-word DBF fill exposed as a standalone helper"
+        );
+        assert_eq!(
+            row_copy.row_count, 20,
+            "ASM loc_1BF84 seeds `d1=$13`, so the outer row-copy loop runs 20 rows"
+        );
+        assert_eq!(row_copy.vram_row_stride_bytes, 0x0024);
+    }
+
+    #[test]
+    fn loc_1c060_intro_tile_upload_helpers_pin_dbf_counts() {
+        let clear = intro_tile_upload_clear_loop_loc_1C060();
+        let group_1 = intro_tile_upload_vram_dma_loop_loc_1C0A4();
+        let group_2 = intro_tile_upload_vram_dma_group_2_loc_1C0BE();
+        let group_3 = intro_tile_upload_vram_dma_group_3_loc_1C0D6();
+
+        assert_eq!(clear.vram_work_ram_addr, 0xFFFF7F82);
+        assert_eq!(clear.fill_value, 0x0000);
+        assert_eq!(
+            clear.clear_iterations, 400,
+            "ASM loc_1C060 seeds `d0=$18F`, so the inclusive clear loop writes 400 zero words"
+        );
+
+        assert_eq!(group_1.words_per_row, 15);
+        assert_eq!(group_1.vram_address_step, 0x0080_0000);
+        assert_eq!(
+            group_1.row_count, 8,
+            "ASM loc_1C0A4 streams eight rows from the initial `d7=7` DBF loop"
+        );
+
+        assert_eq!(group_2.words_per_row, 16);
+        assert_eq!(group_2.vram_address_step, 0x0080_0000);
+        assert_eq!(
+            group_2.row_count, 2,
+            "ASM loc_1C0BE streams two rows from the `d7=1` DBF loop"
+        );
+
+        assert_eq!(group_3.words_per_row, 15);
+        assert_eq!(group_3.vram_address_step, 0x0080_0000);
+        assert_eq!(
+            group_3.row_count, 15,
+            "ASM loc_1C0D6 streams fifteen rows from the `d7=$E` DBF loop"
+        );
+        assert_eq!(group_3.stride_padding_bytes, 0x0002);
+    }
+
+    #[test]
     fn loc_1b5e4_builds_the_shared_title_text_kid_shell_before_the_popup_spawns() {
         let setup = title_text_kid_setup_loc_1B5E4();
 
@@ -9003,6 +9101,21 @@ mod tests {
         assert_eq!(
             fourth.tilemap_label, "unk_2E728",
             "ASM off_1B70A points both the second and fourth entries at unk_2E728"
+        );
+    }
+
+    #[test]
+    fn sub_1b71a_requires_the_full_seven_by_twenty_nine_word_tilemap() {
+        let one_word_short = (0u16..((7 * 29) - 1) as u16).collect::<Vec<_>>();
+        let exact_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
+
+        assert!(
+            title_text_chameleon_frame_upload_sub_1B71A(&one_word_short, 0, 0).is_none(),
+            "ASM sub_1B71A reads seven 29-word source rows; a shortened decoded tilemap must fail closed"
+        );
+        assert!(
+            title_text_chameleon_frame_upload_sub_1B71A(&exact_words, 0, 0).is_some(),
+            "the exact seven-row source tilemap is sufficient for every row-copy pass"
         );
     }
 

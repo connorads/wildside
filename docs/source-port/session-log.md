@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive core boot title helper mutation hardening
+
+- Project-status still showed no ready/open risks after the project-status CLI
+  slice, so mutation-tested `boot.rs` title/intro presentation helpers.
+- Initial focused rerun exposed 31 missed mutants across exact ASM DBF counts
+  and the Chameleon title-text tilemap boundary. Removed equivalent match and
+  zero-clipping noise while keeping behaviour unchanged.
+- Fix: added focused ASM-count tests for the title stripe fills, title shell
+  upload helpers, intro tile upload helper groups, and Chameleon frame source
+  length handling.
+- Verification: focused `cargo test -p wildside-core boot::tests` passes.
+  Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-core -f
+  crates/wildside-core/src/boot.rs -j 4 --gitignore=true --re
+  'title_text_|title_menu_|title_screen_(art|tile|lightning|hidden|stripe)|intro_sequence_6_(longword|tilemap|scroll|hidden|striped)|title_shell_|intro_tile_upload_|vdp_pattern_fill_'
+  --output /tmp/mutants-core-boot-title-helpers-20260704-initial --
+  boot::tests` reported 130 mutants tested: 63 caught, 31 missed, 36 unviable.
+  Final rerun at `/tmp/mutants-core-boot-title-helpers-20260704-final` reports
+  127 mutants tested: 91 caught, 36 unviable, 0 missed.
+
 ## 2026-07-04 - proactive CLI project-status mutation rerun
 
 - Project-status still showed no ready/open risks after the asm-coverage slice,
