@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI verify audio/window helper mutation hardening
+
+- Project-status still showed no ready/open risks after the TAS-diff helper
+  slice, so mutation-tested `verify.rs` pure audio/window helpers:
+  event parsing, audio frame windows, frame-sample rounding, RMS/peak/window
+  metrics, zero-crossing frequency estimation, and `contains_u16_subsequence`.
+- Initial focused rerun exposed weak assertions for frame rounding, RMS
+  arithmetic, zero-crossing threshold/crossing-count behaviour, and subsequence
+  boundaries. The selector also pulled in one unrelated `capture_oracle_pair`
+  field-delete mutant at line 685.
+- Fix: added direct helper tests for malformed event lines, saturated stereo
+  frame windows, exact RMS/peak/frequency metrics, silent-threshold and
+  repeated-sign zero-crossing cases, contiguous-only subsequence matching, and
+  removed the redundant zero-crossing length guard whose observable result was
+  already covered by the crossing-count check.
+- Verification: focused `cargo test -p wildside-cli verify::tests` passes.
+  Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-cli -f
+  crates/wildside-cli/src/verify.rs -j 4 --gitignore=true --re
+  'parse_audio_event_line|audio_frame_window|samples_per_video_frame|audio_window_metrics|audio_rms|audio_peak|estimate_zero_crossing_frequency|contains_u16_subsequence'
+  --output /tmp/mutants-cli-verify-audio-20260704-initial -- verify::tests`
+  reported 63 mutants tested: 23 caught, 39 missed, 1 unviable. Final rerun at
+  `/tmp/mutants-cli-verify-audio-20260704-final2` reports 60 mutants tested:
+  58 caught, 1 unviable, 1 missed; the only miss is the unrelated line-685
+  `capture_oracle_pair` selector survivor, so the selected helper target is
+  59 mutants: 58 caught, 1 unviable, 0 missed.
+
 ## 2026-07-04 - proactive CLI TAS-diff helper mutation hardening
 
 - Project-status still showed no ready/open risks after the sweep frame-helper

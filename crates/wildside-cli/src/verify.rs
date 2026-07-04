@@ -1059,9 +1059,6 @@ fn audio_peak(samples: &[f32]) -> f32 {
 }
 
 fn estimate_zero_crossing_frequency(samples: &[f32], sample_rate: u32) -> Option<u32> {
-    if samples.len() < 4 {
-        return None;
-    }
     let mut previous = 0.0_f32;
     let mut crossings = 0usize;
     let mut mono_samples = 0usize;
@@ -1604,8 +1601,25 @@ pub(crate) fn contains_u16_subsequence(haystack: &[u16], needle: &[u16]) -> bool
 #[cfg(test)]
 mod tests {
     use super::{
-        AUDIO_FRAME_SAMPLES, audio_event_oracle_window_reports, oracle_scenario_window_samples,
+        AUDIO_FRAME_SAMPLES, audio_event_oracle_window_reports, audio_frame_window, audio_peak,
+        audio_rms, audio_window_metrics, contains_u16_subsequence,
+        estimate_zero_crossing_frequency, oracle_scenario_window_samples, parse_audio_event_line,
+        samples_per_video_frame,
     };
+
+    fn assert_f32_near(actual: f32, expected: f32) {
+        assert!(
+            (actual - expected).abs() < 0.000_001,
+            "expected {actual} to be within tolerance of {expected}"
+        );
+    }
+
+    fn stereo_samples(mono_samples: &[f32]) -> Vec<f32> {
+        mono_samples
+            .iter()
+            .flat_map(|sample| [*sample, *sample])
+            .collect()
+    }
 
     #[test]
     fn oracle_scenario_window_samples_keep_tail_matching_native_length() {
@@ -1657,5 +1671,93 @@ mod tests {
         assert_eq!(report.native_peak, 0.25);
         assert_eq!(report.oracle_peak, 0.5);
         assert_eq!(report.peak_ratio_oracle_over_native, Some(2.0));
+    }
+
+    #[test]
+    fn parse_audio_event_line_requires_frame_and_command_fields() {
+        assert_eq!(
+            parse_audio_event_line("mode=InGame command=PlaySound(13) frame=31"),
+            Some((31, "PlaySound(13)".to_owned()))
+        );
+        assert_eq!(
+            parse_audio_event_line("frame=31 command=StopSound mode=InGame"),
+            Some((31, "StopSound".to_owned()))
+        );
+        assert_eq!(
+            parse_audio_event_line("frame=bad command=PlaySound(13)"),
+            None
+        );
+        assert_eq!(parse_audio_event_line("frame=31 mode=InGame"), None);
+        assert_eq!(parse_audio_event_line("command=PlaySound(13)"), None);
+    }
+
+    #[test]
+    fn audio_frame_window_uses_rounded_stereo_video_frame_bounds() {
+        let samples: Vec<f32> = (0..30).map(|sample| sample as f32).collect();
+
+        assert_eq!(samples_per_video_frame(44_100), 735);
+        assert_eq!(samples_per_video_frame(60), 1);
+        assert_eq!(samples_per_video_frame(30), 1);
+        assert_eq!(samples_per_video_frame(0), 1);
+        assert_eq!(
+            audio_frame_window(&samples, 60, 2, 5),
+            &[4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+        );
+        assert_eq!(audio_frame_window(&samples, 60, 14, 20), &[28.0, 29.0]);
+        assert!(audio_frame_window(&samples, 60, 20, 24).is_empty());
+    }
+
+    #[test]
+    fn audio_window_metrics_report_exact_rms_peak_and_frequency() {
+        let samples = stereo_samples(&[0.2, -0.2, 0.2, -0.2]);
+        let metrics = audio_window_metrics(&samples, 8);
+
+        assert_f32_near(metrics.rms, 0.2);
+        assert_eq!(metrics.peak, 0.2);
+        assert_eq!(metrics.peak_freq_hz, Some(3));
+        assert_eq!(audio_rms(&[]), 0.0);
+        assert_f32_near(audio_rms(&[3.0, 4.0]), 3.535_534);
+        assert_eq!(audio_peak(&[-0.25, 0.5, -1.25]), 1.25);
+    }
+
+    #[test]
+    fn estimate_zero_crossing_frequency_handles_threshold_and_crossing_count() {
+        assert_eq!(
+            estimate_zero_crossing_frequency(&stereo_samples(&[0.2, -0.2, 0.2, -0.2]), 8),
+            Some(3)
+        );
+        assert_eq!(
+            estimate_zero_crossing_frequency(&stereo_samples(&[0.2, 0.2, -0.2, 0.2]), 8),
+            Some(2)
+        );
+        assert_eq!(
+            estimate_zero_crossing_frequency(&stereo_samples(&[0.2, -0.2, 0.2]), 6),
+            Some(2)
+        );
+        assert_eq!(
+            estimate_zero_crossing_frequency(&stereo_samples(&[0.2, 0.0, -0.2, 0.2]), 8),
+            Some(2)
+        );
+        assert_eq!(
+            estimate_zero_crossing_frequency(&stereo_samples(&[0.2, -0.2]), 4),
+            None
+        );
+        assert_eq!(
+            estimate_zero_crossing_frequency(&stereo_samples(&[0.001, -0.001, 0.001]), 6),
+            Some(2)
+        );
+        assert_eq!(
+            estimate_zero_crossing_frequency(&stereo_samples(&[0.000_5, -0.000_5, 0.000_5]), 6),
+            None
+        );
+        assert_eq!(estimate_zero_crossing_frequency(&[1.0, 1.0], 44_100), None);
+    }
+
+    #[test]
+    fn contains_u16_subsequence_matches_only_contiguous_windows() {
+        assert!(contains_u16_subsequence(&[1, 2, 3, 4], &[2, 3]));
+        assert!(contains_u16_subsequence(&[1, 2, 3, 4], &[]));
+        assert!(!contains_u16_subsequence(&[1, 2, 3, 4], &[2, 4]));
+        assert!(!contains_u16_subsequence(&[1, 2], &[1, 2, 3]));
     }
 }
