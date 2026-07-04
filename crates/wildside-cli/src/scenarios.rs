@@ -2338,13 +2338,7 @@ impl GameplayScenario {
             if frame == frame_end {
                 break;
             }
-            frame = frame.saturating_add(checkpoint_interval);
-            if frame > frame_end {
-                labels_by_frame
-                    .entry(frame_end)
-                    .or_insert_with(|| format!("frame_{frame_end:05}"));
-                break;
-            }
+            frame = frame.saturating_add(checkpoint_interval).min(frame_end);
         }
 
         let mut script = self.script();
@@ -3613,6 +3607,26 @@ mod tests {
             vec![
                 ("frame_01216", 1_216),
                 ("frame_01218", 1_218),
+                ("frame_01220", 1_220),
+            ]
+        );
+    }
+
+    #[test]
+    fn gameplay_scenario_window_clamps_checkpoint_overshoot_to_tail_frame() {
+        let dynamic = GameplayScenario::DeathRespawnLevel1
+            .to_dynamic_window(1_216, 1_220, 3)
+            .expect("dynamic gameplay window");
+
+        assert_eq!(
+            dynamic
+                .checkpoints
+                .iter()
+                .map(|checkpoint| (checkpoint.label.as_str(), checkpoint.frame_index))
+                .collect::<Vec<_>>(),
+            vec![
+                ("frame_01216", 1_216),
+                ("frame_01219", 1_219),
                 ("frame_01220", 1_220),
             ]
         );

@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive CLI scenarios-window mutation hardening
+
+- Project-status still showed no ready/open risks after the player-shell slice,
+  so mutation-tested the CLI `scenarios.rs` gameplay-window/script helper
+  boundary. Earlier compact candidates were already covered (`cache.rs`,
+  `ram_diff.rs`) or produced no mutants (`cheats.rs`).
+- Initial focused rerun exposed two missed mutants in
+  `GameplayScenario::to_dynamic_window`: checkpoint intervals that overshot the
+  requested window did not have a test requiring the tail frame to be labelled.
+  The companion exact-tail mutant was equivalent with the old branch shape.
+- Fix: added a tail-overshoot checkpoint contract and simplified the window loop
+  so the next generated checkpoint clamps to `frame_end` directly.
+- Verification: focused `cargo test -p wildside-cli scenarios::tests` passes.
+  Initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p wildside-cli -f
+  crates/wildside-cli/src/scenarios.rs -j 4 --gitignore=true --re
+  'GameplayScenario::to_dynamic_window|apply_boot_to_level_1|add_periodic_jump|apply_single_frames|apply_range'
+  --output /tmp/mutants-cli-scenarios-window-20260704-initial --
+  scenarios::tests` reported 15 mutants tested: 12 caught, 2 missed, 1
+  unviable. Final rerun at `/tmp/mutants-cli-scenarios-window-20260704-final`
+  reports 12 mutants tested: 11 caught, 1 unviable, 0 missed.
+
 ## 2026-07-04 - proactive CLI player-shell mutation hardening
 
 - Project-status still showed no ready/open risks after the compare
