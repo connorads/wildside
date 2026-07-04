@@ -4625,7 +4625,7 @@ pub(crate) fn options_menu_controls_bindings_loc_1CED6(
         binding_label_rows: [
             loop_shape.row_start,
             loop_shape.row_start + loop_shape.row_step,
-            loop_shape.row_start + (loop_shape.row_step * 2),
+            loop_shape.row_start + 0x0004,
         ],
         binding_text_labels: loop_shape.binding_text_labels,
         button_badge_rows: [15, 17, 19],

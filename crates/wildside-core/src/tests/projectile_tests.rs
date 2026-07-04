@@ -13506,6 +13506,23 @@ mod chunk_06 {
             ["OptText5.JUMP", "OptText5.SPECIAL", "OptText5.SPEED"],
             "ASM loc_1CEF8 should decode scheme 3's `unk_1CF28` stride as JUMP, SPECIAL, SPEED",
         );
+
+        let expected_labels = [
+            (0, ["OptText5.SPEED", "OptText5.JUMP", "OptText5.SPECIAL"]),
+            (1, ["OptText5.SPEED", "OptText5.SPECIAL", "OptText5.JUMP"]),
+            (2, ["OptText5.JUMP", "OptText5.SPEED", "OptText5.SPECIAL"]),
+            (3, ["OptText5.JUMP", "OptText5.SPECIAL", "OptText5.SPEED"]),
+            (4, ["OptText5.SPECIAL", "OptText5.SPEED", "OptText5.JUMP"]),
+            (5, ["OptText5.SPECIAL", "OptText5.JUMP", "OptText5.SPEED"]),
+        ];
+        for (scheme, labels) in expected_labels {
+            assert_eq!(
+                crate::boot::options_menu_controls_binding_loop_loc_1CEF8(scheme)
+                    .binding_text_labels,
+                labels,
+                "ASM unk_1CF28 (kid.asm:32178) should decode controls scheme {scheme} with its own four-byte stride",
+            );
+        }
     }
 
     #[test]

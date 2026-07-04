@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-04 - proactive core boot options-menu text mutation hardening
+
+- Project-status still showed no ready/open risks after the end-sequence
+  display slice, so mutation-tested `boot.rs` options-menu text, header,
+  bindings, speed, exit, and shared `DrawTextLine` helpers backed by
+  `loc_1CE3A`, `loc_1CEB2`, `loc_1CED6`, `loc_1CEF8`, `loc_1CF78`,
+  `loc_1CFFE`, `loc_1D050`, `loc_1D05E`, `loc_1D068`, and `loc_1D07A`.
+- Initial options-text rerun exposed 4 missed mutants: deleting controls scheme
+  match arms 0/1/2 and an equivalent third-row `row_step * 2` to
+  `row_step + 2` operator mutation.
+- Fix: pinned all six `unk_1CF28` controls-scheme permutations in the
+  ASM-cited binding-loop test, and rewrote the third binding row to explicit
+  `+ 0x0004` matching the two `addq.w #2` row advances.
+- Verification: focused `cargo test -p wildside-core options_menu_`,
+  `cargo test -p wildside-core controls_binding`, and `cargo test -p
+  wildside-core draw_text_line` pass. Initial options-text mutation at
+  `/tmp/mutants-core-boot-options-text-20260704-initial` reported 29 mutants
+  tested: 19 caught, 4 missed, 6 unviable. Final options-text rerun at
+  `/tmp/mutants-core-boot-options-text-20260704-final` reports 27 mutants
+  tested: 21 caught, 6 unviable, 0 missed. DrawTextLine rerun at
+  `/tmp/mutants-core-boot-draw-text-line-20260704-initial` reports 13 mutants
+  tested: 11 caught, 2 unviable, 0 missed. `cargo fmt --all --check`, `git
+  diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`
+  pass.
+
 ## 2026-07-04 - proactive core boot end-sequence display mutation rerun
 
 - Project-status still showed no ready/open risks after the IO/palette fade
