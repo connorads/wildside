@@ -39,11 +39,18 @@ For the longer story, why it exists and how the agent loop actually worked, see
 | Linux (x86-64 / arm64) | ✅ Supported |
 | macOS | ✅ Supported |
 | Windows | Untested |
-| Web (WASM) | 🚧 Planned |
+| Web (WASM) | 🎮 Playable (preview) |
 
 Desktop builds run on SDL2. Development and oracle setup (system SDL2 deps, asset
 extraction, disassembly, emulator) is wired through `mise run bootstrap-*` and
 `mise run oracle-setup`; skip it if you just want to play.
+
+The web build runs via `mise run web-serve` — it builds the wasm module, packs the
+bundle, and serves it on loopback (http://127.0.0.1:8321) with the COOP/COEP headers
+`web/serve.py` sets, so the page is cross-origin isolated (required for the
+SharedArrayBuffer audio ring). Audio starts on first key/click, since an
+`AudioContext` only runs after a user gesture. `?level=N` warps straight into a
+level; the console exposes `window.wildside` / `window.wildsideAudio` for probing.
 
 ## Quick start
 

@@ -19,3 +19,9 @@ The native runtime, asset extraction, and the emulator oracle are wired through 
 `mise run bootstrap-native` (assets + level grids), `mise run bootstrap-upstream` /
 `mise run bootstrap-references` (disassembly + research repos), and
 `mise run oracle-setup` (emulator). These matter only for development and the oracle.
+
+## Web build
+
+`mise run web-serve` builds the wasm module, packs the bundle, and serves it on
+http://127.0.0.1:8321 via `web/serve.py`, which sets the COOP/COEP headers the
+audio ring needs (cross-origin isolation).
