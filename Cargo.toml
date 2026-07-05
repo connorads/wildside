@@ -6,6 +6,7 @@ members = [
     "crates/wildside-core",
     "crates/wildside-render",
     "crates/wildside-frame",
+    "crates/wildside-web",
     "crates/wildside-cli",
     "crates/ymfm-sys",
 ]

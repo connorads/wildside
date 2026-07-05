@@ -33,3 +33,8 @@ toml = "0.8.23"
 zip = { version = "8.2", default-features = false, features = ["deflate"] }
 font8x8 = "0.3.1"
 ymfm-sys = { path = "../ymfm-sys" }
+
+[dev-dependencies]
+# Web/native pixel parity: the capture-frames gameplay regression drives the
+# web shell's session natively (wildside-web is also an rlib for this reason).
+wildside-web = { path = "../wildside-web" }

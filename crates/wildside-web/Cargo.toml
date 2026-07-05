@@ -1,0 +1,24 @@
+[package]
+name = "wildside-web"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[lib]
+# cdylib is the wasm module; rlib keeps the session logic natively testable
+# (the capture-frames parity test runs on the host).
+crate-type = ["cdylib", "rlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+sha1.workspace = true
+# Exact pin: the wasm-bindgen crate and the wasm-bindgen-cli tool in .mise.toml
+# must be the same version or `wasm-bindgen` refuses the module. Bump both together.
+wasm-bindgen = "=0.2.126"
+wildside-core = { path = "../wildside-core" }
+wildside-data = { path = "../wildside-data" }
+wildside-frame = { path = "../wildside-frame" }
+wildside-render = { path = "../wildside-render" }

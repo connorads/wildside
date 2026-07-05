@@ -841,6 +841,80 @@ mod tests {
     use wildside_core::terrain::{BlockGrid, Cell};
     use wildside_data::AssetManifest;
 
+    fn cached_generated_manifest() -> Option<AssetManifest> {
+        let repo_root = if let Ok(override_root) = std::env::var("KID_REPO_ROOT")
+            && !override_root.is_empty()
+        {
+            PathBuf::from(override_root)
+        } else {
+            let crate_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+            crate_dir
+                .parent()
+                .and_then(std::path::Path::parent)
+                .expect("wildside-cli crate should live under <repo>/crates/wildside-cli")
+                .to_path_buf()
+        };
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        if !manifest_path.is_file() {
+            eprintln!(
+                "skipping cache-backed web parity test: generated asset manifest missing at {}",
+                manifest_path.display()
+            );
+            return None;
+        }
+        Some(wildside_data::load_manifest(&manifest_path).expect("load cached generated manifest"))
+    }
+
+    /// Web shell parity (#19): stepping the web session over the packed bundle
+    /// blob it would fetch in the browser (#21) produces a framebuffer
+    /// pixel-identical to the native `capture-frames` pipeline for the same
+    /// scenario frame — the shell's canonical pixel oracle.
+    #[test]
+    fn gameplay_regression_web_session_matches_capture_frames_pixels() {
+        use native_player::{
+            LayerFilter, NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene_filtered,
+            load_session_assets, render_scene,
+        };
+
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        const FRAME_IDX: usize = 100;
+        let scenario = idle_level_scenario(0, Some(FRAME_IDX + 10));
+        let native_trace = wildside_core::run_script_with_warp(
+            manifest.clone(),
+            &scenario.script,
+            scenario.frame_count,
+            scenario.warp_to_level,
+        );
+        let frame = native_trace.get(FRAME_IDX).expect("frame in trace");
+        let (level_visuals, block_grid) =
+            load_session_assets(&manifest, 0).expect("session assets");
+        let scene = build_scene_filtered(
+            frame,
+            false,
+            Some(&level_visuals),
+            Some(&block_grid),
+            LayerFilter::default(),
+        );
+        let mut want = vec![0u8; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut want);
+
+        let blob =
+            wildside_data::pack_bundle_blob(&manifest.output_root).expect("pack bundle blob");
+        let mut session =
+            wildside_web::WebSession::from_bundle_blob(&blob, 0).expect("web session");
+        for frame_idx in 0..=FRAME_IDX {
+            session.step(scenario.script.get(frame_idx).copied().unwrap_or(0));
+        }
+        assert!(
+            session.rgb_frame() == want.as_slice(),
+            "web session frame {FRAME_IDX} diverged from the capture-frames pixel pipeline"
+        );
+    }
+
     fn fixture_manifest() -> AssetManifest {
         AssetManifest {
             generated_bundle_version: wildside_data::GENERATED_BUNDLE_VERSION,

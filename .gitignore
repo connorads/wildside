@@ -1,6 +1,11 @@
 /.cache/
 /target/
 /roms/
+# Generated web-build artefacts; the bundle ships derived ROM assets (private-only, #16)
+/web/bundle.wsbndl
+/web/pkg/
+# playwright-cli session artefacts (browser smoke-testing the web build)
+/.playwright-cli/
 /kid.bin
 /kid_built.bin
 /kid.h

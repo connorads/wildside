@@ -8,6 +8,9 @@ cmake = "3.30.9"
 typos = "1"
 "cargo:cargo-deny" = "0"
 "cargo:cargo-machete" = "0"
+# Exact pin: must match the wasm-bindgen crate version in crates/wildside-web/Cargo.toml
+# or the tool refuses the module. Bump both together.
+"cargo:wasm-bindgen-cli" = "0.2.126"
 
 [tasks.fmt]
 run = "cargo fmt --all"
@@ -288,6 +291,33 @@ KID_REPO_ROOT="$PWD" cargo mutants -p wildside-core -f "$FILE" -j 1 --gitignore=
 '
 """
 description = "Run cargo-mutants against a single wildside-core source file (FILE=<module.rs> mise run mutants-file), matching the rotation strategy's invocation"
+
+[tasks.web-bundle]
+run = "cargo run -p wildside-cli -- pack-web-bundle"
+description = "Pack the extracted generated bundle into web/bundle.wsbndl for the browser build (#21; private delivery per #16)"
+
+[tasks.web-build]
+run = """
+sh -ec '
+cargo build --release -p wildside-web --target wasm32-unknown-unknown
+wasm-bindgen --target web --no-typescript --out-dir web/pkg \
+  target/wasm32-unknown-unknown/release/wildside_web.wasm
+'
+"""
+description = "Build the wasm module + JS bindings into web/pkg (#19)"
+
+[tasks.web-serve]
+depends = ["web-build"]
+# Loopback only; expose via `tsp up` if Tailnet access is wanted. The bundle
+# ships derived assets, so never funnel this publicly (#16 decision).
+run = """
+sh -ec '
+[ -f web/bundle.wsbndl ] || cargo run -p wildside-cli -- pack-web-bundle
+echo "serving http://127.0.0.1:8321/"
+python3 -m http.server 8321 --bind 127.0.0.1 --directory web
+'
+"""
+description = "Serve the playable web build on http://127.0.0.1:8321 (builds wasm + packs bundle if missing)"
 
 [tasks.clean-build]
 run = "cargo clean"

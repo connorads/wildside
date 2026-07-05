@@ -1,0 +1,6 @@
+# The home-level cargo config routes every link through build-wrap-shim (build
+# script sandboxing), which delegates to the host cc — that cannot link wasm.
+# Restore the toolchain linker for the wasm target; build scripts still
+# compile for the host triple, so they keep the sandboxed shim.
+[target.wasm32-unknown-unknown]
+linker = "rust-lld"
