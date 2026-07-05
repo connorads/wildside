@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks drilled-dispatch mutation hardening
+
+- Project-status still showed no ready/open risks after the metal-push slice, so
+  mutation-tested the Driller drilled-block runtime dispatcher in `blocks.rs`.
+- ASM context: Driller `loc_3BEDE` dispatches smash/prize block hits to
+  `Block_LoadSmashBits`, Driller `loc_3BEF2` dispatches ice blocks to
+  `IceBlock_LoadBullets`, and ice-block `loc_11080` restores the original
+  direction after the temporary `eori.w #2,d6` remap.
+- Initial mutation at `/tmp/mutants-core-blocks-drilled-dispatch-20260705-initial`
+  reported 21 mutants tested: 10 missed, 11 caught. Misses were in tile-coordinate
+  conversion for smash/ice effect origins and the restored ice-effect direction.
+- Fix: added runtime dispatcher tests for smash source-cell erase/effect origin
+  and ice source-cell effect origin/original-direction restoration.
+- Final mutation at `/tmp/mutants-core-blocks-drilled-dispatch-20260705-final2`
+  reported 21 mutants tested: 21 caught, 0 missed.
+
 ## 2026-07-05 - proactive blocks metal push mutation verification
 
 - Project-status still showed no ready/open risks after the smash/ice slice, so

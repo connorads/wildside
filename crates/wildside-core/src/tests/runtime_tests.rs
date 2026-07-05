@@ -9711,6 +9711,60 @@ mod chunk_09 {
     }
 
     #[test]
+    fn loc_3bede_driller_smash_block_spawns_effect_at_tile_origin() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(grid_with_cells(8, 8, &[(5, 3, 0xE0, 0x01)]));
+
+        rt.apply_drilled_block_loc_3bede_3bef2(DrilledBlockLoc3BE78 {
+            col: 5,
+            row: 3,
+            action: DrillerBlockDrillActionLoc3BEDE::SmashBits,
+            direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
+        });
+
+        assert_eq!(
+            rt.block_grid().expect("block grid").cell_at(5, 3),
+            terrain::Cell::from_be_bytes(0, 0),
+            "ASM Driller.asm loc_3BEDE reaches Block_LoadSmashBits, which erases the source layout cell",
+        );
+        assert_eq!(rt.block_destroy_effects.len(), 1);
+        assert_eq!(
+            (
+                rt.block_destroy_effects[0].x_px,
+                rt.block_destroy_effects[0].y_px,
+                rt.block_destroy_effects[0].remaining,
+            ),
+            (80, 44, 2),
+            "ASM loc_3BEDE passes tile coordinates to sub_10EDA; direction 2 keeps x=5*16 and applies loc_10F1A's 4px upward nudge",
+        );
+    }
+
+    #[test]
+    fn loc_3bef2_driller_ice_block_restores_original_direction_for_effect() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(grid_with_cells(8, 8, &[(5, 3, 0xE2, 0x01)]));
+
+        rt.apply_drilled_block_loc_3bede_3bef2(DrilledBlockLoc3BE78 {
+            col: 5,
+            row: 3,
+            action: DrillerBlockDrillActionLoc3BEDE::IceBullets,
+            direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
+        });
+
+        assert_eq!(rt.block_destroy_effects.len(), 1);
+        assert_eq!(
+            (
+                rt.block_destroy_effects[0].x_px,
+                rt.block_destroy_effects[0].y_px,
+                rt.block_destroy_effects[0].direction,
+                rt.block_destroy_effects[0].remaining,
+            ),
+            (80, 48, NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE, 4),
+            "ASM loc_3BEF2 lets IceBlock_LoadBullets temporarily eor d6 with 2, then loc_11080 restores the original direction before sub_10F9C records the source-cell effect",
+        );
+    }
+
+    #[test]
     fn loc_3bef2_driller_ice_block_spawns_three_shooter_bullets_when_target_open() {
         let mut rt = NativeRuntime::new(manifest());
         rt.set_block_grid(grid_with_cells(8, 8, &[(5, 3, 0xE2, 0x01)]));
