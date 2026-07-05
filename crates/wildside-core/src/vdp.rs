@@ -5708,6 +5708,129 @@ mod tests {
     }
 
     #[test]
+    fn intro_sequence_5_sub_1c034_stages_row_major_tilemap_words_before_vram_rows() {
+        let frame_index = 5u16;
+        let plan = wildside_data::intro_sequence_5_frame_load_plan_sub_1C034(frame_index)
+            .expect("ASM sub_1C034 should accept frame 5");
+        let width = usize::from(plan.tilemap_load.width_words);
+        let height = usize::from(plan.tilemap_load.height_words);
+        let left_padding = usize::from(plan.tilemap_load.left_padding_words);
+        let copied_width = width.min(16usize.saturating_sub(left_padding));
+
+        let mut frame_words = vec![0u16; width * height];
+        for row in 0..height {
+            for col in 0..width {
+                frame_words[row * width + col] = 0x8000 | ((row as u16) << 5) | col as u16;
+            }
+        }
+        let mut frames = vec![vec![]; 8];
+        frames[usize::from(frame_index)] = frame_words;
+        let data = IntroSub1B850Data {
+            intro_sequence_5_frame_tilemaps: frames,
+            ..empty_intro_data()
+        };
+        let mut vdp = VdpState::new();
+
+        apply_intro_sequence_5_sub_1C034_frame(&mut vdp, &data, frame_index);
+
+        let target_addr_for_staged_offset = |staged_offset: usize| {
+            plan.vram_rows.iter().find_map(|row_write| {
+                let start = usize::from(row_write.source_word_offset);
+                let end = start + usize::from(row_write.word_count);
+                (start..end)
+                    .contains(&staged_offset)
+                    .then(|| usize::from(row_write.vram_word_address) + (staged_offset - start) * 2)
+            })
+        };
+
+        for &(row, col) in &[
+            (0usize, 0usize),
+            (1, 0),
+            (2, copied_width - 1),
+            (height.min(25) - 1, copied_width / 2),
+        ] {
+            let staged_offset = row * 16 + left_padding + col;
+            let addr = target_addr_for_staged_offset(staged_offset)
+                .expect("sampled staged word should be streamed to VRAM");
+            assert_eq!(
+                vram_word(&vdp, addr),
+                0x8000 | ((row as u16) << 5) | col as u16,
+                "ASM sub_1C034 stages row-major source row {row}, col {col} into the 16-word buffer before streaming VRAM rows",
+            );
+        }
+
+        if left_padding > 0 {
+            let padding_addr = target_addr_for_staged_offset(0)
+                .expect("left padding word should be part of the streamed first row");
+            assert_eq!(
+                vram_word(&vdp, padding_addr),
+                0,
+                "ASM sub_1C034 leaves the staged left-padding words blank before copying the source tilemap row",
+            );
+        }
+    }
+
+    #[test]
+    fn intro_sequence_5_sub_1c0ee_and_sub_1c112_write_exact_plane_rect_cells() {
+        let plane_cell_x = 3u16;
+        let plane_cell_y = 0x13u16;
+        let panel_plan =
+            wildside_data::intro_sequence_5_panel_load_plan_sub_1C0EE(plane_cell_x, plane_cell_y);
+        let width = usize::from(panel_plan.plane_upload.width_words);
+        let height = usize::from(panel_plan.plane_upload.height_words);
+        let cell_x = usize::from(panel_plan.plane_upload.plane_cell_x);
+        let cell_y = usize::from(panel_plan.plane_upload.plane_cell_y);
+
+        let mut panel_words = vec![0u16; width * height];
+        for row in 0..height {
+            for col in 0..width {
+                panel_words[row * width + col] = 0x9000 | ((row as u16) << 5) | col as u16;
+            }
+        }
+        let data = IntroSub1B850Data {
+            intro_sequence_5_panel_tilemap: panel_words,
+            ..empty_intro_data()
+        };
+        let mut vdp = VdpState::new();
+
+        apply_intro_sequence_5_panel_sub_1C0EE(&mut vdp, &data, plane_cell_x, plane_cell_y);
+
+        for &(row, col) in &[
+            (0usize, 0usize),
+            (0, width - 1),
+            (1, 0),
+            (height - 1, width / 2),
+            (height - 1, width - 1),
+        ] {
+            let addr = (cell_y + row) * NAMETABLE_ROW_STRIDE_BYTES + (cell_x + col) * 2;
+            assert_eq!(
+                vram_word(&vdp, addr),
+                0x9000 | ((row as u16) << 5) | col as u16,
+                "ASM sub_1C0EE writes panel row {row}, col {col} to its exact Scroll A plane cell",
+            );
+        }
+
+        let before_addr = cell_y * NAMETABLE_ROW_STRIDE_BYTES + (cell_x - 1) * 2;
+        vdp.write_vram_word(before_addr, 0xA55A);
+
+        apply_intro_sequence_5_blank_panel_sub_1C112(&mut vdp, plane_cell_x, plane_cell_y);
+
+        for &(row, col) in &[(0usize, 0usize), (height - 1, width - 1)] {
+            let addr = (cell_y + row) * NAMETABLE_ROW_STRIDE_BYTES + (cell_x + col) * 2;
+            assert_eq!(
+                vram_word(&vdp, addr),
+                0,
+                "ASM sub_1C112 blanks the same panel rectangle written by sub_1C0EE",
+            );
+        }
+        assert_eq!(
+            vram_word(&vdp, before_addr),
+            0xA55A,
+            "ASM sub_1C112 only clears the requested panel rectangle and leaves the neighbouring plane cell untouched",
+        );
+    }
+
+    #[test]
     fn title_screen_tilemap_at_cell_21_1() {
         // ASM sub_1C5D0 (kid.asm:31341-31363): driven by d4=$15, d5=1, d6=$12,
         // d7=$14 after sub_1B2A4 returns, the routine reads the source pointer

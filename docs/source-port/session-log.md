@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive VDP IntroSequence5 tile/panel mutation hardening
+
+- Project-status still showed no ready/open risks after the terrain
+  relative-collision slice, so mutation-tested the ASM-labelled IntroSequence5
+  VDP tile/panel helpers in `vdp.rs`.
+- ASM context: `sub_1C034` stages `off_1C126` frame tilemaps into 16-word rows,
+  `loc_1BC36` selects the delayed presentation windows, and `sub_1C0EE`/
+  `sub_1C112` write and blank the transient Scroll A panel rectangle.
+- Initial mutation at `/tmp/mutants-core-vdp-intro5-tile-panel-20260705-initial`
+  reported 38 mutants tested: 20 missed, 18 caught. Misses were row-major source
+  indexing, staged-row addressing, panel/blank dispatch, and Scroll A rectangle
+  address arithmetic.
+- Fix: added unique-cell VDP tests for `sub_1C034` staged frame streaming and
+  exact `sub_1C0EE`/`sub_1C112` panel rectangle writes.
+- Final mutation at `/tmp/mutants-core-vdp-intro5-tile-panel-20260705-final`
+  reported 38 mutants tested: 38 caught, 0 missed.
+
 ## 2026-07-05 - proactive terrain relative-collision mutation verification
 
 - Project-status still showed no ready/open risks after the hidden-reveal
