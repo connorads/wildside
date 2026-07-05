@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive physics Skycutter mutation verification
+
+- Project-status still showed no ready/open risks after the jump/gravity slice,
+  so mutation-tested the compact Skycutter flat-ground velocity helper in
+  `physics.rs`.
+- ASM context: `sub_9A20` keeps Skycutter's current facing as the primary
+  branch selector, uses fixed `$20000`/`$40000` walk/run caps, and applies
+  `$2000`/`$4000` step sizes on forward/reverse paths.
+- Mutation at `/tmp/mutants-core-physics-skycutter-20260705-initial`
+  reported 29 mutants tested: 26 caught, 3 unviable, 0 missed.
+- No code change was warranted; existing exact-value Skycutter tests already
+  kill every selected branch-order, cap, sign, and step mutation.
+
 ## 2026-07-05 - proactive physics jump/gravity mutation verification
 
 - Project-status still showed no ready/open risks after the camera helper slice,
