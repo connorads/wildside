@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive physics murder-wall camera mutation rerun
+
+- Project-status still showed no ready/open risks after the Dragon Walking
+  snapshot debug slice, so mutation-tested the pure physics murder-wall
+  camera-push helpers.
+- ASM context: `kid.asm loc_7346` handles the forward wall camera snap/clamp,
+  and `loc_7396`/`loc_73A0`/`loc_73B8` handles the reverse wall snap, no-op,
+  and clamp branches.
+- Existing tests already cover the branch surfaces through `physics.rs` and
+  combat chunk-05 regressions; no code/test gap was found.
+- Verification: focused `cargo test -p wildside-core loc_73 --lib` passes.
+  Mutation at `/tmp/mutants-core-physics-murder-wall-camera-20260705-initial`
+  reports 40 mutants tested: 40 caught, 0 missed.
+
 ## 2026-07-05 - proactive Dragon Walking snapshot debug hardening
 
 - Project-status still showed no ready/open risks after the Kid flip trace
