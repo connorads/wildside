@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks evanescent/Iron Knight mutation verification
+
+- Project-status still showed no ready/open risks after the prize-block wobble
+  hardening slice, so mutation-tested the evanescent reveal table helpers and
+  Iron Knight block-breaker dispatch in `blocks.rs`.
+- ASM context: `sub_AF7A` owns Iron Knight's break/prize/ice/metal dispatch,
+  while `loc_1117A`/`loc_11188`/`loc_11196`/`loc_11198` own the evanescent block
+  reveal bounce pass directions and counts.
+- Mutation at `/tmp/mutants-core-blocks-evanescent-iron-20260705-initial`
+  reported 33 mutants tested: 32 caught, 1 unviable, 0 missed.
+- No code change was warranted; existing exact-value tests already kill every
+  selected dispatch, branch-count, and reveal-delta mutation.
+
 ## 2026-07-05 - proactive blocks prize-block wobble mutation hardening
 
 - Project-status still showed no ready/open risks after the floating-prize
