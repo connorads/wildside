@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks one-time/ten-diamonds mutation verification
+
+- Project-status still showed no ready/open risks after the clock/continue prize
+  slice, so mutation-tested the one-time prize and ten-diamonds helper cluster
+  in `blocks.rs`.
+- ASM context: `loc_10856` clears the forty-entry one-time table on first use,
+  `loc_1086A`-`loc_1089A` scans/stores packed layout+level entries, and
+  `loc_108E8`-`loc_109C0` owns ten-diamonds burst spawning and worker motion.
+- Mutation at `/tmp/mutants-core-blocks-one-time-ten-diamonds-20260705-initial`
+  reported 76 mutants tested: 65 caught, 11 unviable, 0 missed.
+- No code change was warranted; existing exact-value helper and runtime tests
+  already kill every selected scan, packing, burst-table, countdown, and
+  worker-motion mutation.
+
 ## 2026-07-05 - proactive blocks clock/continue prize mutation verification
 
 - Project-status still showed no ready/open risks after the collected-prize arc
