@@ -18,7 +18,7 @@ hound.workspace = true
 image.workspace = true
 wildside-core = { path = "../wildside-core" }
 wildside-data = { path = "../wildside-data" }
-wildside-frame = { path = "../wildside-frame" }
+wildside-frame = { path = "../wildside-frame", features = ["audio"] }
 wildside-md = { path = "../wildside-md" }
 wildside-render = { path = "../wildside-render" }
 wildside-rom = { path = "../wildside-rom" }

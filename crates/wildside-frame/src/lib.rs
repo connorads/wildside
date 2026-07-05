@@ -23,6 +23,7 @@
     clippy::doc_lazy_continuation
 )]
 
+pub mod audio;
 mod dto;
 // The render modules are `pub` (not just glob-re-exported) so the native
 // player's qualified `scene::`/`sprites::` call sites keep resolving after the
@@ -32,6 +33,7 @@ pub mod render;
 pub mod scene;
 pub mod sprites;
 
+pub use audio::*;
 pub use dto::*;
 pub use hud::*;
 pub use render::*;
