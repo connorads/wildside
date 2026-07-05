@@ -21,4 +21,8 @@ wasm-bindgen = "=0.2.126"
 wildside-core = { path = "../wildside-core" }
 wildside-data = { path = "../wildside-data" }
 wildside-frame = { path = "../wildside-frame" }
+# default-features = false drops the C++ machine emulation (ymfm-sys cannot
+# build for bare wasm), leaving just the pure-Rust VDP renderer the shell
+# screens need. The web-audio phase (#20) revisits the audio feature.
+wildside-md = { path = "../wildside-md", default-features = false }
 wildside-render = { path = "../wildside-render" }

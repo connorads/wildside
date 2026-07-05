@@ -13,6 +13,7 @@ use wildside_core::{FrameInput, LevelId, NativeRuntime, NativeTraceFrame};
 use wildside_data::{AssetSource, BundleAssetSource, parse_manifest_with_source};
 use wildside_frame::{
     FRAME_HEIGHT, FRAME_WIDTH, build_scene, render_scene, render_trace_with_vdp_latched_state,
+    render_vdp_trace_overlay,
 };
 use wildside_render::{NativeLevelVisuals, load_level_visuals_with_source};
 
@@ -34,11 +35,10 @@ pub struct WebSession {
 }
 
 impl WebSession {
-    /// Boot a session from a packed bundle blob (`pack-web-bundle` output),
-    /// warped straight into `level`. The Phase-1 shell skips the VDP-rendered
-    /// attract screens entirely (see [`step`](Self::step)), so gameplay is the
-    /// entry point.
-    pub fn from_bundle_blob(blob: &[u8], level: u8) -> Result<Self> {
+    /// Boot a session from a packed bundle blob (`pack-web-bundle` output).
+    /// `None` boots the real attract flow (Sega logo → intro → title menu);
+    /// `Some(level)` warps straight into that level.
+    pub fn from_bundle_blob(blob: &[u8], level: Option<u8>) -> Result<Self> {
         let source = BundleAssetSource::from_blob(blob).context("failed to parse bundle blob")?;
         Self::from_source(Arc::new(source), level)
     }
@@ -46,7 +46,7 @@ impl WebSession {
     /// Boot from any [`AssetSource`] that holds a generated bundle (including
     /// `asset-manifest.json`). The parity test injects a native `FsAssetSource`
     /// here to prove blob-backed and fs-backed sessions render identically.
-    pub fn from_source(source: Arc<dyn AssetSource>, level: u8) -> Result<Self> {
+    pub fn from_source(source: Arc<dyn AssetSource>, level: Option<u8>) -> Result<Self> {
         let manifest_bytes = source
             .read(Path::new("asset-manifest.json"))
             .context("bundle has no asset-manifest.json")?;
@@ -54,22 +54,29 @@ impl WebSession {
 
         // Mirrors ScriptRunner::run_inner (wildside-core scenario.rs) exactly:
         // the web session must trace frame-for-frame with run_script_with_warp
-        // so native capture-frames output is the pixel oracle for this shell.
+        // (warped or not) so native capture-frames output is the pixel oracle
+        // for this shell.
         let mut runtime = NativeRuntime::with_generated_level_layout_with_source(
             manifest.clone(),
             source.clone(),
         );
         runtime.set_recorded_title_card_handoff_delay(true);
-        runtime.boot_to_level(LevelId(level));
+        if let Some(level) = level {
+            runtime.boot_to_level(LevelId(level));
+        }
 
-        let visuals = load_level_visuals_with_source(&manifest, level, &*source)?;
+        // Level 0 is the boot level when the attract flow runs; `step` reloads
+        // visuals when the traced level changes (same default as
+        // capture_scenario_frames in wildside-cli sweep/frames.rs).
+        let visuals_level = level.unwrap_or(0);
+        let visuals = load_level_visuals_with_source(&manifest, visuals_level, &*source)?;
         let trace = runtime.trace_frame();
         let mut session = Self {
             manifest,
             source,
             runtime,
             visuals,
-            visuals_level: level,
+            visuals_level,
             trace,
             rgb: vec![0; FRAME_RGB_LEN],
             rgba: vec![0; FRAME_RGBA_LEN],
@@ -104,21 +111,29 @@ impl WebSession {
         self.render_frame_after_step(None);
     }
 
-    /// Whether the runtime is on a VDP-rendered shell screen (Sega/title/level
-    /// card) rather than gameplay. Phase 1 renders these black (see
-    /// [`step`](Self::step)); shells can surface a "press any key" hint —
-    /// the ROM's title-card handoff waits for a button edge.
+    /// Whether the runtime is on a VDP-rendered shell screen (Sega/intro/
+    /// title/level card) rather than gameplay. Shells can use this for
+    /// context-sensitive hints — the ROM holds level cards until a button
+    /// edge, which reads as a hang without one.
     pub fn on_shell_screen(&self) -> bool {
         self.runtime.vdp_state().is_some()
     }
 
     fn render_frame_after_step(&mut self, previous_trace: Option<&NativeTraceFrame>) {
         self.rgb.fill(0);
-        if self.on_shell_screen() {
-            // TODO(fidelity): VDP-rendered shell screens (Sega/title/level
-            // card) need wildside-md's renderer, which drags in ymfm-sys (C++)
-            // and is deferred to the web-audio phase (#19 wrinkle, #20). Hold
-            // a black frame; gameplay frames never take this path.
+        if let Some(vdp) = self.runtime.vdp_state() {
+            // VDP shell screens (Sega/intro/title/level card) mirror the
+            // capture_scenario_frames pipeline (wildside-cli sweep/frames.rs):
+            // the pure renderer draws the frame, then the ROM-derived
+            // title-card letter workers composite over it.
+            let snapshot = wildside_md::VdpSnapshot {
+                registers: vdp.registers,
+                vram: vdp.vram.clone(),
+                cram: vdp.cram.clone(),
+                vsram: vdp.vsram.clone(),
+            };
+            wildside_md::render_vdp_into(&snapshot, &mut self.rgb);
+            render_vdp_trace_overlay(&self.trace, &self.visuals, &mut self.rgb);
         } else {
             let render_trace = render_trace_with_vdp_latched_state(&self.trace, previous_trace);
             let scene = build_scene(

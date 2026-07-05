@@ -47,9 +47,9 @@ fn blob_session_renders_identically_to_fs_session() {
         return;
     };
     let blob = pack_bundle_blob(&root).expect("pack bundle blob");
-    let mut blob_session = WebSession::from_bundle_blob(&blob, 0).expect("blob session");
+    let mut blob_session = WebSession::from_bundle_blob(&blob, Some(0)).expect("blob session");
     let mut fs_session =
-        WebSession::from_source(Arc::new(FsAssetSource::new(root)), 0).expect("fs session");
+        WebSession::from_source(Arc::new(FsAssetSource::new(root)), Some(0)).expect("fs session");
 
     assert_eq!(
         blob_session.rgb_frame(),
@@ -80,7 +80,7 @@ fn session_traces_match_script_runner() {
     let expected = wildside_core::run_script_with_warp(manifest, &script, script.len(), Some(0));
 
     let mut session =
-        WebSession::from_source(Arc::new(FsAssetSource::new(root)), 0).expect("session");
+        WebSession::from_source(Arc::new(FsAssetSource::new(root)), Some(0)).expect("session");
     for (frame, want) in expected.iter().enumerate() {
         session.step(script[frame]);
         assert!(
@@ -88,4 +88,51 @@ fn session_traces_match_script_runner() {
             "session trace diverged from ScriptRunner at frame {frame}"
         );
     }
+}
+
+/// An unwarped session boots the real attract flow (Sega logo → intro →
+/// title) and Start presses reach live level-1 gameplay, trace-for-trace with
+/// the unwarped ScriptRunner. The shell frames must actually render through
+/// the VDP path rather than the old Phase-1 black placeholder.
+#[test]
+fn attract_session_traces_match_script_runner_and_render() {
+    let Some(root) = cached_generated_root() else {
+        return;
+    };
+    let manifest = load_manifest(&manifest_path(&root)).expect("load manifest");
+    // The canonical boot-title-start-level1 route (wildside-core
+    // BOOT_TO_LEVEL_START_FRAMES) plus one extra Start edge at frame 600:
+    // with the recorded title-card handoff the level card holds for a button
+    // edge, exactly like a player pressing a key on the card in the browser.
+    let mut script = vec![0u8; 720];
+    for frame in [33usize, 77, 135, 137, 178, 360, 460, 600] {
+        script[frame] = 0x80;
+    }
+    let expected = wildside_core::run_script_with_warp(manifest, &script, script.len(), None);
+
+    let mut session =
+        WebSession::from_source(Arc::new(FsAssetSource::new(root)), None).expect("session");
+    let mut rendered_content = false;
+    for (frame, want) in expected.iter().enumerate() {
+        session.step(script[frame]);
+        assert!(
+            session.trace() == want,
+            "attract session trace diverged from ScriptRunner at frame {frame}"
+        );
+        rendered_content |= session.rgb_frame().iter().any(|byte| *byte != 0);
+    }
+    assert!(
+        rendered_content,
+        "attract flow rendered every frame black — VDP shell rendering regressed"
+    );
+    assert_eq!(
+        session.trace().game_mode,
+        wildside_core::GameMode::InGame,
+        "Start route should end in live gameplay"
+    );
+    assert_eq!(
+        session.trace().current_level.0,
+        0,
+        "Start route should land in level 1 (id 0)"
+    );
 }

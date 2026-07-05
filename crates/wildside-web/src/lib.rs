@@ -22,10 +22,11 @@ pub struct WildsideGame {
 
 #[wasm_bindgen]
 impl WildsideGame {
-    /// Boot from a packed bundle blob (`wildside pack-web-bundle` output),
-    /// warped straight into `level` (0 = first level).
+    /// Boot from a packed bundle blob (`wildside pack-web-bundle` output).
+    /// `undefined` boots the real attract flow (Sega logo → intro → title
+    /// menu); a number warps straight into that level (0 = first level).
     #[wasm_bindgen(constructor)]
-    pub fn new(bundle: &[u8], level: u8) -> Result<WildsideGame, JsError> {
+    pub fn new(bundle: &[u8], level: Option<u8>) -> Result<WildsideGame, JsError> {
         let session = WebSession::from_bundle_blob(bundle, level)
             .map_err(|error| JsError::new(&format!("{error:#}")))?;
         Ok(Self { session })
@@ -56,8 +57,8 @@ impl WildsideGame {
         format!("{:x}", hasher.finalize())
     }
 
-    /// Whether the engine is on a VDP shell screen (Sega/title/level card),
-    /// which Phase 1 renders black — the JS shell shows a hint instead.
+    /// Whether the engine is on a VDP shell screen (Sega/intro/title/level
+    /// card). Level cards hold until a button edge, so the JS shell can hint.
     pub fn on_shell_screen(&self) -> bool {
         self.session.on_shell_screen()
     }

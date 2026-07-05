@@ -905,13 +905,76 @@ mod tests {
         let blob =
             wildside_data::pack_bundle_blob(&manifest.output_root).expect("pack bundle blob");
         let mut session =
-            wildside_web::WebSession::from_bundle_blob(&blob, 0).expect("web session");
+            wildside_web::WebSession::from_bundle_blob(&blob, Some(0)).expect("web session");
         for frame_idx in 0..=FRAME_IDX {
             session.step(scenario.script.get(frame_idx).copied().unwrap_or(0));
         }
         assert!(
             session.rgb_frame() == want.as_slice(),
             "web session frame {FRAME_IDX} diverged from the capture-frames pixel pipeline"
+        );
+    }
+
+    /// Shell-screen parity (#19): an unwarped web session renders the VDP
+    /// attract screens (here: the Sega logo, ROM-visible from elapsed frame
+    /// 34 per Load_SegaScreen loc_12E64) pixel-identical to the native
+    /// `capture-frames` VDP pipeline — render_vdp_into + the title-card
+    /// worker overlay, straight off the runtime's VDP state.
+    #[test]
+    fn shell_regression_web_session_matches_capture_frames_vdp_pixels() {
+        use native_player::{LayerFilter, NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH};
+
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        const FRAME_IDX: usize = 90;
+        let scenario = DynamicScenario {
+            slug: String::from("attract_boot_probe"),
+            script: vec![0u8; FRAME_IDX + 2],
+            frame_count: FRAME_IDX + 1,
+            checkpoints: Vec::new(),
+            start_position: None,
+            start_velocity: None,
+            camera_position: None,
+            playtest_form: None,
+            initial_diamond_count: None,
+            initial_lives: None,
+            warp_to_level: None,
+            settle_oracle_warp: false,
+        };
+        let output_dir = tempfile::tempdir().expect("tempdir");
+        capture_scenario_frames(
+            &manifest,
+            &scenario,
+            &[FRAME_IDX],
+            output_dir.path(),
+            LayerFilter::default(),
+            false,
+        )
+        .expect("capture scenario frames");
+        let png_path = output_dir
+            .path()
+            .join(format!("{}_frame_{FRAME_IDX:05}.png", scenario.slug));
+        let want = image::open(&png_path).expect("read captured png").to_rgb8();
+
+        let blob =
+            wildside_data::pack_bundle_blob(&manifest.output_root).expect("pack bundle blob");
+        let mut session =
+            wildside_web::WebSession::from_bundle_blob(&blob, None).expect("web session");
+        for frame_idx in 0..=FRAME_IDX {
+            session.step(scenario.script.get(frame_idx).copied().unwrap_or(0));
+        }
+        assert!(
+            session.rgb_frame() == want.as_raw().as_slice(),
+            "web session VDP frame {FRAME_IDX} diverged from the capture-frames pixel pipeline"
+        );
+        assert!(
+            count_non_background_pixels(
+                session.rgb_frame(),
+                (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT) as usize
+            ) > 0,
+            "Sega logo frame {FRAME_IDX} rendered as a blank screen"
         );
     }
 

@@ -79,8 +79,13 @@ async function main() {
   const bundle = await fetchBytes("bundle.wsbndl", "bundle.wsbndl");
 
   STATUS.textContent = "booting…";
-  const level = Number(new URLSearchParams(location.search).get("level") ?? 0);
-  const game = new WildsideGame(bundle, level);
+  // No ?level= boots the real attract flow (Sega logo → intro → title menu);
+  // ?level=N warps straight into that level.
+  const levelParam = new URLSearchParams(location.search).get("level");
+  const game = new WildsideGame(
+    bundle,
+    levelParam === null ? undefined : Number(levelParam),
+  );
   const width = WildsideGame.width();
   const height = WildsideGame.height();
   const image = CTX.createImageData(width, height);
@@ -123,9 +128,8 @@ async function main() {
     }
     if (stepped) {
       blit();
-      // VDP shell screens (Sega/title/level card) render black until the
-      // web-audio phase brings the VDP renderer along (#20); the ROM holds
-      // the level card until a button edge, so say so.
+      // The ROM holds shell screens (title menu, level cards) on a button
+      // edge; without a hint an idle card reads as a hang.
       STATUS.textContent = game.on_shell_screen() ? "· press any key ·" : "";
     }
     requestAnimationFrame(tick);

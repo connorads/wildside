@@ -1569,6 +1569,7 @@ dependencies = [
  "wildside-core",
  "wildside-data",
  "wildside-frame",
+ "wildside-md",
  "wildside-render",
 ]
 
