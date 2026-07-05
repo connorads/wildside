@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive data bundle-blob mutation hardening
+
+- Project-status still showed no ready/open risks after the web wasm-boundary
+  slice, so mutation-tested the single-file generated-bundle pack/parser in
+  `bundle_blob.rs`.
+- Scope: this is the web asset delivery contract, not ASM gameplay logic. A
+  packed blob must remain deterministic, length-prefixed, UTF-8 keyed, and
+  byte-faithful when read through `BundleAssetSource`.
+- Initial mutation at `/tmp/mutants-data-bundle-blob-20260706-initial`
+  reported 40 mutants tested: 1 missed, 38 caught, 1 unviable. The missed
+  survivor was `BundleAssetSource::is_empty` returning constant false for a
+  parsed zero-entry blob.
+- Fix: added a zero-entry blob unit test for the parser's `len`/`is_empty`
+  contract and missing-read behaviour.
+- Final mutation at `/tmp/mutants-data-bundle-blob-20260706-final` reported
+  40 mutants tested: 39 caught, 1 unviable, 0 missed.
+
 ## 2026-07-06 - proactive web wasm-boundary mutation hardening
 
 - Project-status still showed no ready/open risks after the web-session audio

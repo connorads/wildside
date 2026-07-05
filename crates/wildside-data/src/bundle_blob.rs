@@ -255,4 +255,16 @@ mod tests {
         assert_eq!(source.len(), 1);
         assert_eq!(source.read(Path::new("a")).expect("read"), b"xy");
     }
+
+    #[test]
+    fn zero_entry_blob_preserves_len_empty_contract() {
+        let mut blob = Vec::new();
+        blob.extend_from_slice(b"WSBNDL01");
+        blob.extend_from_slice(&0u32.to_le_bytes());
+
+        let source = BundleAssetSource::from_blob(&blob).expect("parse empty bundle");
+        assert_eq!(source.len(), 0);
+        assert!(source.is_empty());
+        assert!(source.read(Path::new("asset-manifest.json")).is_err());
+    }
 }
