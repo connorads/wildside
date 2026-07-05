@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive movement slope-exit mutation verification
+
+- Project-status still showed no ready/open risks after the level-flow slice, so
+  mutation-tested the compact `movement.rs` slope-exit/handoff helper cluster
+  covering fresh airborne slope landing, cached slope-walk terminal continuation,
+  and the post-slope velocity clamp.
+- ASM context: `loc_A99E` enters the walking path after jump-loop landing,
+  `loc_A13A` owns the cached slope-walk continuation/animation path, and
+  `loc_9F32` clamps post-slope velocity to `+$40000/-$40000`.
+- Mutation at `/tmp/mutants-core-movement-slope-exit-20260705-initial`
+  reported 51 mutants tested: 48 caught, 3 unviable, 0 missed.
+- No code change was warranted; the existing exact-value and route regression
+  tests already kill every viable selected branch/comparison/arithmetic mutant.
+
 ## 2026-07-05 - proactive level-flow helper mutation hardening
 
 - Project-status still showed no ready/open risks after the helmets
