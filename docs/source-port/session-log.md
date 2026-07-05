@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive movement slope-input mutation verification
+
+- Project-status still showed no ready/open risks after the slope-solid cache
+  slice, so mutation-tested the compact `movement.rs` input/dispatch helpers
+  for slope walking.
+- ASM context: `loc_9DAA` canonicalises held horizontal/vertical slope input
+  before the velocity table, and `loc_8E98` dispatches negative current-row
+  slope hits through either slope walking or the non-`$2C5` tile snap.
+- Mutation at `/tmp/mutants-core-movement-slope-input-dispatch-20260705-initial`
+  reported 17 mutants tested: 15 caught, 2 unviable, 0 missed.
+- No code change was warranted; existing exact-value tests already pin the
+  selected input, bitmask, snap, and sign-boundary mutations.
+
 ## 2026-07-05 - proactive movement slope-solid cache mutation hardening
 
 - Project-status still showed no ready/open risks after the slope-exit
