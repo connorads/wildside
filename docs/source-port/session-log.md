@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks metal push mutation verification
+
+- Project-status still showed no ready/open risks after the smash/ice slice, so
+  mutation-tested the metal block push scan, deletion, live worker step, delete
+  gate, and sprite-coordinate helpers in `blocks.rs`.
+- ASM context: `loc_110D0` owns metal effect cell metadata, `loc_111F4` through
+  `loc_1125C` own push scan/selection/deleted marking, and `sub_1129C` owns the
+  moving worker, neighbour gates, and final `$E50B` restore.
+- Mutation at `/tmp/mutants-core-blocks-metal-push-20260705-initial` reported
+  75 mutants tested: 3 missed, 69 caught, 3 unviable. The three survivors are
+  equivalent: `loc_1125C` OR-to-XOR changes operate on disjoint high/collision/
+  type bit masks, and the right-edge `<` to `<=` samples an out-of-bounds empty
+  neighbour only after `loc_11334`/`loc_11358` has already chosen the restore
+  path.
+- No code change was warranted; existing metal push tests kill every actionable
+  selected mutation.
+
 ## 2026-07-05 - proactive blocks smash/ice mutation verification
 
 - Project-status still showed no ready/open risks after the rubber-block slice,
