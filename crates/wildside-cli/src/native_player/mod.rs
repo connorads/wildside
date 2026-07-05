@@ -1693,28 +1693,14 @@ struct SfxTone {
 
 /// Try to load a GEMS audio engine from extracted sound data in the disassembly.
 fn try_load_gems_engine(manifest: &AssetManifest) -> Option<GemsAudioEngine> {
-    let sound_dir = gems_sound_dir(manifest);
-    let driver = std::fs::read(sound_dir.join("GEMS_Sounddriver.bin"))
-        .map_err(|e| eprintln!("GEMS: failed to read driver: {e}"))
-        .ok()?;
-    let patches = std::fs::read(sound_dir.join("instruments.bin"))
-        .map_err(|e| eprintln!("GEMS: failed to read patches: {e}"))
-        .ok()?;
-    let envelopes = std::fs::read(sound_dir.join("envelopes.bin"))
-        .map_err(|e| eprintln!("GEMS: failed to read envelopes: {e}"))
-        .ok()?;
-    let sequences = std::fs::read(sound_dir.join("sequences.bin"))
-        .map_err(|e| eprintln!("GEMS: failed to read sequences: {e}"))
-        .ok()?;
-    let samples = std::fs::read(sound_dir.join("samples.bin"))
-        .map_err(|e| eprintln!("GEMS: failed to read samples: {e}"))
-        .ok()?;
-
-    let mut engine = GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
-    engine.init();
-    Some(engine)
+    load_gems_audio_engine(&FsAssetSource::new(manifest.output_root.clone()))
+        .map_err(|e| eprintln!("GEMS: {e:#}"))
+        .ok()
 }
 
+// Tests build fixture sound banks under the same relative dir the shared
+// loader (wildside-frame load_gems_audio_engine) resolves.
+#[cfg(test)]
 fn gems_sound_dir(manifest: &AssetManifest) -> PathBuf {
     manifest.output_root.join("sound")
 }

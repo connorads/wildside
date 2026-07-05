@@ -9,6 +9,8 @@
 //! real [`GemsAudioEngine`](wildside_md::GemsAudioEngine) implementation.
 
 use wildside_core::{GameMode, LevelId, NativeSoundCommand, NativeTraceFrame};
+#[cfg(feature = "audio")]
+use wildside_data::AssetSource;
 use wildside_data::{AssetManifest, LevelHeader, resource_level_record};
 #[cfg(feature = "audio")]
 use wildside_md::GemsAudioEngine;
@@ -312,34 +314,81 @@ pub fn render_native_audio_samples_for_trace(
     initial_active_bgm_cue: Option<NativeBgmCue>,
     audio: &mut impl NativeAudioSink,
 ) -> Vec<f32> {
-    if let Some(bgm) = settled_audio_initial_bgm_id(manifest, initial_active_bgm_cue) {
-        // Settled dynamic audio probes start after the ROM has already loaded
-        // level music. Suppress duplicate event-log commands, but prime the
-        // standalone GEMS renderer so block/pickup SFX are mixed over the same
-        // active BGM instead of silence until the first SFX.
-        audio.start_sequence(bgm);
-    }
-    let mut active_bgm_cue = initial_active_bgm_cue;
-    let mut pending_bgm_start: Option<u8> = None;
-    let mut prev_trace: Option<&NativeTraceFrame> = None;
+    let mut director =
+        NativeAudioDirector::with_initial_bgm(manifest, initial_active_bgm_cue, audio);
     let mut audio_samples = Vec::with_capacity(trace_frames.len() * AUDIO_SAMPLES_PER_FRAME * 2);
     for trace in trace_frames {
+        director.step(manifest, trace, audio);
+        audio_samples.extend(audio.generate_samples(AUDIO_SAMPLES_PER_FRAME));
+    }
+
+    audio_samples
+}
+
+/// Incremental per-frame driver of the trace→GEMS command logic: the loop body
+/// of [`render_native_audio_samples_for_trace`] held as reusable state
+/// (`active_bgm_cue`, the one-frame `pending_bgm_start` delay after a
+/// StopMusic reset, and the previous trace for command deltas). The batch
+/// renderer above and the browser session both drive this single body, so the
+/// web audio path cannot drift from the parity-verified native one (#20).
+#[derive(Debug, Clone, Default)]
+pub struct NativeAudioDirector {
+    active_bgm_cue: Option<NativeBgmCue>,
+    pending_bgm_start: Option<u8>,
+    prev_trace: Option<NativeTraceFrame>,
+}
+
+impl NativeAudioDirector {
+    /// Cold start: no active BGM, first `step` derives everything from its trace.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Start with `initial_active_bgm_cue` already active. Settled dynamic
+    /// audio probes start after the ROM has already loaded level music:
+    /// suppress duplicate event-log commands, but prime the sink so
+    /// block/pickup SFX are mixed over the same active BGM instead of silence
+    /// until the first SFX.
+    pub fn with_initial_bgm(
+        manifest: &AssetManifest,
+        initial_active_bgm_cue: Option<NativeBgmCue>,
+        audio: &mut impl NativeAudioSink,
+    ) -> Self {
+        if let Some(bgm) = settled_audio_initial_bgm_id(manifest, initial_active_bgm_cue) {
+            audio.start_sequence(bgm);
+        }
+        Self {
+            active_bgm_cue: initial_active_bgm_cue,
+            ..Self::default()
+        }
+    }
+
+    /// Apply one traced frame's BGM/SFX commands to `audio`, then advance the
+    /// GEMS driver one 60Hz tick (`step_frame`). The caller pulls however many
+    /// samples its output rate needs afterwards ([`AUDIO_SAMPLES_PER_FRAME`]
+    /// at 44.1kHz, or an [`AudioSampleClock`] share at the device rate).
+    pub fn step(
+        &mut self,
+        manifest: &AssetManifest,
+        trace: &NativeTraceFrame,
+        audio: &mut impl NativeAudioSink,
+    ) {
         let (next_bgm_cue, bgm_command) =
-            native_bgm_state_after_trace(manifest, trace, active_bgm_cue);
+            native_bgm_state_after_trace(manifest, trace, self.active_bgm_cue);
         let mut queued_bgm_start_this_frame = false;
         let mut suppress_sfx_this_frame = false;
         if let Some(command) = bgm_command {
-            pending_bgm_start = apply_native_bgm_command(audio, command);
-            queued_bgm_start_this_frame = pending_bgm_start.is_some();
+            self.pending_bgm_start = apply_native_bgm_command(audio, command);
+            queued_bgm_start_this_frame = self.pending_bgm_start.is_some();
             suppress_sfx_this_frame =
-                native_bgm_command_suppresses_same_frame_sfx(command, trace, active_bgm_cue);
+                native_bgm_command_suppresses_same_frame_sfx(command, trace, self.active_bgm_cue);
         }
-        active_bgm_cue = next_bgm_cue;
+        self.active_bgm_cue = next_bgm_cue;
 
-        if !queued_bgm_start_this_frame && let Some(bgm) = pending_bgm_start.take() {
+        if !queued_bgm_start_this_frame && let Some(bgm) = self.pending_bgm_start.take() {
             audio.start_sequence(bgm);
         }
-        if !suppress_sfx_this_frame && let Some(prev) = prev_trace {
+        if !suppress_sfx_this_frame && let Some(prev) = self.prev_trace.as_ref() {
             for command in gems_event_audio_commands(prev, trace) {
                 match command {
                     NativeAudioTraceCommand::Sound(command) => {
@@ -352,11 +401,8 @@ pub fn render_native_audio_samples_for_trace(
             }
         }
         audio.step_frame();
-        audio_samples.extend(audio.generate_samples(AUDIO_SAMPLES_PER_FRAME));
-        prev_trace = Some(trace);
+        self.prev_trace = Some(trace.clone());
     }
-
-    audio_samples
 }
 
 pub fn settled_audio_initial_bgm_id(
@@ -400,6 +446,24 @@ impl NativeAudioSink for GemsAudioEngine {
     fn generate_samples(&mut self, sample_count: usize) -> Vec<f32> {
         GemsAudioEngine::generate_samples(self, sample_count)
     }
+}
+
+/// Load and initialise a [`GemsAudioEngine`] from a generated bundle's
+/// `sound/` directory. `pack_bundle_blob` packs the whole bundle recursively,
+/// so both the native fs bundle and the fetched web blob resolve the same
+/// five extracted GEMS banks.
+#[cfg(feature = "audio")]
+pub fn load_gems_audio_engine(source: &dyn AssetSource) -> anyhow::Result<GemsAudioEngine> {
+    let read = |name: &str| source.read(&std::path::Path::new("sound").join(name));
+    let driver = read("GEMS_Sounddriver.bin")?;
+    let patches = read("instruments.bin")?;
+    let envelopes = read("envelopes.bin")?;
+    let sequences = read("sequences.bin")?;
+    let samples = read("samples.bin")?;
+
+    let mut engine = GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+    engine.init();
+    Ok(engine)
 }
 
 pub fn apply_native_bgm_command(

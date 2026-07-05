@@ -8,12 +8,13 @@ version.workspace = true
 # The trace→GEMS audio director logic is feature-free; `audio` only adds the
 # real GemsAudioEngine sink implementation (wildside-md's C++/ymfm machine
 # emulation), which wasm builds opt into once zig is available (#20).
-audio = ["dep:wildside-md", "wildside-md/audio"]
+audio = ["dep:anyhow", "dep:wildside-md", "wildside-md/audio"]
 
 [lints]
 workspace = true
 
 [dependencies]
+anyhow = { workspace = true, optional = true }
 font8x8 = "0.3.1"
 serde.workspace = true
 wildside-core = { path = "../wildside-core" }
