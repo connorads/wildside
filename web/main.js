@@ -73,6 +73,73 @@ async function fetchBytes(url, label) {
   return new Uint8Array(await response.arrayBuffer());
 }
 
+// --- Audio (#20): wasm GEMS samples → SAB ring → AudioWorklet. ---
+// The engine emits each stepped frame's interleaved-stereo f32 at the
+// AudioContext rate (fixed 60Hz remainder division on the Rust side); the
+// worklet drains the ring at the device rate. ~0.74s of headroom at 44.1kHz —
+// occupancy stays near zero because both sides run off the same audio clock.
+const AUDIO_RING_F32 = 1 << 16;
+let audio = null; // { ctx, ring, state } once running
+let audioUnavailable = false; // failed or impossible; stop retrying
+
+async function enableAudio(game) {
+  if (audio || audioUnavailable) return;
+  audioUnavailable = true; // latched off during async setup; cleared on success
+  if (!crossOriginIsolated) {
+    console.warn(
+      "audio disabled: page is not cross-origin isolated — serve with " +
+        "COOP/COEP headers (mise run web-serve / web/serve.py)",
+    );
+    return;
+  }
+  try {
+    const ctx = new AudioContext();
+    game.enable_audio(ctx.sampleRate);
+    await ctx.audioWorklet.addModule("./audio-worklet.js");
+    const ringBuffer = new SharedArrayBuffer(AUDIO_RING_F32 * 4);
+    const stateBuffer = new SharedArrayBuffer(8); // Int32 [read, write]
+    const node = new AudioWorkletNode(ctx, "wildside-audio", {
+      outputChannelCount: [2],
+      processorOptions: { ringBuffer, stateBuffer },
+    });
+    node.connect(ctx.destination);
+    await ctx.resume();
+    audio = {
+      ctx,
+      ring: new Float32Array(ringBuffer),
+      state: new Int32Array(stateBuffer),
+    };
+    audioUnavailable = false;
+    // Console probe for verification: ring indices + context state.
+    window.wildsideAudio = audio;
+  } catch (error) {
+    console.warn("audio unavailable:", error);
+  }
+}
+
+// Copy the last step's samples from wasm linear memory into the ring. Skips
+// the frame when the ring is full (drains at device rate, so only a stalled
+// context could fill it) rather than overwriting unread audio.
+function pushAudioFrame(wasm, game) {
+  if (!audio) return;
+  const samples = new Float32Array(
+    wasm.memory.buffer,
+    game.audio_ptr(),
+    game.audio_len(),
+  );
+  const capacity = audio.ring.length;
+  const read = Atomics.load(audio.state, 0);
+  const write = Atomics.load(audio.state, 1);
+  const free = capacity - ((write - read + capacity) % capacity) - 2;
+  if (samples.length > free) return;
+  const untilWrap = Math.min(samples.length, capacity - write);
+  audio.ring.set(samples.subarray(0, untilWrap), write);
+  if (untilWrap < samples.length) {
+    audio.ring.set(samples.subarray(untilWrap), 0);
+  }
+  Atomics.store(audio.state, 1, (write + samples.length) % capacity);
+}
+
 async function main() {
   const wasm = await init();
   STATUS.textContent = "fetching asset bundle…";
@@ -95,6 +162,14 @@ async function main() {
   // native capture-frames pixels for the same scenario frame (#19 verification).
   window.wildside = game;
 
+  // Autoplay policy: an AudioContext only runs after a user gesture, so hook
+  // audio start to the first input rather than boot.
+  const gestureAudio = () => {
+    enableAudio(game);
+  };
+  window.addEventListener("keydown", gestureAudio);
+  window.addEventListener("pointerdown", gestureAudio);
+
   const blit = () => {
     // Re-acquire the memory view every frame: linear memory may have grown,
     // which detaches previous views.
@@ -107,22 +182,34 @@ async function main() {
     CTX.putImageData(image, 0, 0);
   };
 
-  // Fixed 60Hz accumulator over rAF. AudioContext.currentTime becomes the
-  // clock once audio lands (#20); performance.now drift is fine without it.
+  // Fixed 60Hz accumulator over rAF. Once audio runs, the accumulator clocks
+  // off AudioContext.currentTime so sample production and playback share one
+  // clock and the ring occupancy cannot drift; performance.now otherwise.
   const FRAME_MS = 1000 / 60;
   const MAX_STEPS_PER_TICK = 4; // background-tab catch-up guard
   let previous = performance.now();
+  let previousClockWasAudio = false;
   let accumulator = 0;
 
   const tick = (now) => {
+    let clockNow = now;
+    if (audio) {
+      clockNow = audio.ctx.currentTime * 1000;
+      if (!previousClockWasAudio) {
+        // Clock source changed: restart the delta from the new timeline.
+        previous = clockNow;
+        previousClockWasAudio = true;
+      }
+    }
     accumulator = Math.min(
-      accumulator + (now - previous),
+      accumulator + (clockNow - previous),
       FRAME_MS * MAX_STEPS_PER_TICK,
     );
-    previous = now;
+    previous = clockNow;
     let stepped = false;
     while (accumulator >= FRAME_MS) {
       game.step(heldMask | gamepadMask());
+      pushAudioFrame(wasm, game);
       accumulator -= FRAME_MS;
       stepped = true;
     }

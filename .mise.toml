@@ -313,14 +313,14 @@ description = "Build the wasm module + JS bindings into web/pkg (#19)"
 depends = ["web-build"]
 # Loopback only; expose via `tsp up` if Tailnet access is wanted. The bundle
 # ships derived assets, so never funnel this publicly (#16 decision).
+# serve.py adds the COOP/COEP headers SharedArrayBuffer needs (audio, #20/#23).
 run = """
 sh -ec '
 [ -f web/bundle.wsbndl ] || cargo run -p wildside-cli -- pack-web-bundle
-echo "serving http://127.0.0.1:8321/"
-python3 -m http.server 8321 --bind 127.0.0.1 --directory web
+python3 web/serve.py 8321
 '
 """
-description = "Serve the playable web build on http://127.0.0.1:8321 (builds wasm + packs bundle if missing)"
+description = "Serve the playable web build on http://127.0.0.1:8321 with COOP/COEP (builds wasm + packs bundle if missing)"
 
 [tasks.clean-build]
 run = "cargo clean"
