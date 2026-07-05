@@ -19794,6 +19794,48 @@ mod chunk_04 {
     }
 
     #[test]
+    fn soft_platform_wait_loop_loc_40e2_moves_until_deactivated() {
+        let mut platform = ActivePlatform::from_placement(
+            &PlatformPlacement {
+                x: 64,
+                y: 128,
+                buffer_left: 25,
+                buffer_right: 75,
+                buffer_top: 0,
+                buffer_bottom: 14,
+                kind: 8,
+                subtype: 2,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("0"),
+                    relative_offset: None,
+                },
+            },
+            None,
+        );
+        let original_y = platform.y_pos;
+        platform.y_velocity = 0x0002_0000;
+
+        assert_eq!(
+            platform.step_special_platform_loc_40D2(false, 0, 0),
+            SpecialPlatformStepActionLoc40D2::Continue,
+        );
+        assert_eq!(
+            platform.y_pos,
+            original_y + 0x0002_0000,
+            "ASM SoftPlatform_WaitLoop loc_40E2 falls through to SoftPlatform_Move, which adds `$E(a3)` into `6(a3)`",
+        );
+
+        let mut deactivated = platform;
+        assert_eq!(
+            deactivated.step_special_platform_loc_40D2(false, 0, 0x01),
+            SpecialPlatformStepActionLoc40D2::Delete,
+            "ASM SoftPlatform_WaitLoop loc_40E2: tst.b $12(a3); bne SoftPlatform_Delete",
+        );
+    }
+
+    #[test]
     fn special_platform_dispatch_loc_2876_uses_off_40d2_indices() {
         let trap_down = ActivePlatform::from_placement(
             &PlatformPlacement {
@@ -20005,6 +20047,58 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_chain_step_loc_42c0_moves_without_early_phase_flip() {
+        let mut platform = ActivePlatform::from_placement_with_index(
+            7,
+            &PlatformPlacement {
+                x: 10,
+                y: 20,
+                buffer_left: 0,
+                buffer_right: 255,
+                buffer_top: 0,
+                buffer_bottom: 255,
+                kind: 8,
+                subtype: 2,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("12"),
+                    relative_offset: None,
+                },
+            },
+            None,
+        );
+        platform.special = Some(PlatformSpecialState::Chain(PlatformChainState {
+            source_layout_index: Some(7),
+            segment_index: 0,
+            phase: PlatformChainPhase::Down,
+            frames_remaining: 2,
+        }));
+        platform.y_velocity = platform_chain_y_velocity_loc_436e(0, PlatformChainPhase::Down);
+        let original_y = platform.y_pos;
+
+        assert_eq!(
+            platform.step_special_platform_loc_40D2(false, 0, 0),
+            SpecialPlatformStepActionLoc40D2::Continue,
+        );
+        assert_eq!(
+            platform.y_pos,
+            original_y + 0x0000_4000,
+            "ASM PlatformChain_MovePlatforms loc_42C0 moves before the DBF-style frame counter changes phase",
+        );
+        assert_eq!(
+            platform.special,
+            Some(PlatformSpecialState::Chain(PlatformChainState {
+                source_layout_index: Some(7),
+                segment_index: 0,
+                phase: PlatformChainPhase::Down,
+                frames_remaining: 1,
+            })),
+            "ASM loc_42C0 should keep moving down while one counted frame remains",
+        );
+    }
+
+    #[test]
     fn platform_chain_step_loc_42c0_switches_down_to_up_after_initial_span() {
         let mut platform = ActivePlatform::from_placement_with_index(
             7,
@@ -20044,6 +20138,40 @@ mod chunk_04 {
         assert_eq!(
             platform.y_velocity,
             platform_chain_y_velocity_loc_436e(0, PlatformChainPhase::Up),
+        );
+    }
+
+    #[test]
+    fn trap_platform_down_wait_loop_loc_4182_deletes_only_when_deactivated() {
+        let mut platform = ActivePlatform::from_placement(
+            &PlatformPlacement {
+                x: 64,
+                y: 128,
+                buffer_left: 25,
+                buffer_right: 75,
+                buffer_top: 0,
+                buffer_bottom: 14,
+                kind: 8,
+                subtype: 2,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("4"),
+                    relative_offset: None,
+                },
+            },
+            None,
+        );
+
+        assert_eq!(
+            platform.step_special_platform_loc_40D2(false, 128, 0),
+            SpecialPlatformStepActionLoc40D2::Continue,
+            "ASM TrapPlatformDown_WaitLoop loc_4182 keeps waiting while `$12(a3)` is zero",
+        );
+        assert_eq!(
+            platform.step_special_platform_loc_40D2(false, 128, 0x01),
+            SpecialPlatformStepActionLoc40D2::Delete,
+            "ASM TrapPlatformDown_WaitLoop loc_4182: tst.b $12(a3); bne TrapPlatformDown_Delete",
         );
     }
 
@@ -20094,6 +20222,49 @@ mod chunk_04 {
     }
 
     #[test]
+    fn trap_platform_down_move_step_loc_4182_exits_at_exact_e0_threshold() {
+        let just_before = trap_platform_down_move_step_loc_4182(0, 0x00DF, 0);
+        assert!(
+            just_before.continue_moving,
+            "ASM TrapPlatformDown_MoveLoop loc_4182: cmpi.w #$E0,d7; blt.s continues at $DF",
+        );
+
+        let exact = trap_platform_down_move_step_loc_4182(0, 0x00E0, 0);
+        assert!(
+            !exact.continue_moving,
+            "ASM TrapPlatformDown_MoveLoop loc_4182 exits at exactly $E0 because BLT is strict",
+        );
+    }
+
+    #[test]
+    fn trap_platform_down_live_step_loc_4182_enters_post_fall_at_exact_threshold() {
+        let mut platform = make_test_platform(64, 0, 1, 0);
+        platform.y_pos = 0x00DF_0000;
+        platform.y_velocity = 0x0001_0000;
+        platform.special = Some(PlatformSpecialState::TrapDown(TrapPlatformDownState {
+            phase: TrapPlatformDownPhase::Falling,
+        }));
+
+        assert_eq!(
+            platform.step_special_platform_loc_40D2(false, 0, 0),
+            SpecialPlatformStepActionLoc40D2::Continue,
+        );
+        assert_eq!(
+            platform.y_pos, 0x00E0_0000,
+            "ASM TrapPlatformDown_Move loc_4182 adds velocity before testing platform_y - Kid_y",
+        );
+        assert_eq!(platform.y_velocity, 0);
+        assert_eq!(platform.x_pos, 0x800);
+        assert_eq!(
+            platform.special,
+            Some(PlatformSpecialState::TrapDown(TrapPlatformDownState {
+                phase: TrapPlatformDownPhase::PostFall,
+            })),
+            "ASM loc_4182 exits the fall loop and enters loc_41EE when relative y is exactly $E0",
+        );
+    }
+
+    #[test]
     fn trap_platform_down_loc_4182_preserves_original_velocity_clamp_bug() {
         let result = trap_platform_down_move_step_loc_4182(0x0003_C000, 128, 0);
         assert_eq!(
@@ -20103,6 +20274,40 @@ mod chunk_04 {
         assert!(
             result.continue_moving,
             "platform_y - Kid_y = 128, still less than $E0",
+        );
+    }
+
+    #[test]
+    fn trap_platform_up_wait_loop_loc_420a_deletes_only_when_deactivated() {
+        let mut platform = ActivePlatform::from_placement(
+            &PlatformPlacement {
+                x: 64,
+                y: 128,
+                buffer_left: 25,
+                buffer_right: 75,
+                buffer_top: 0,
+                buffer_bottom: 14,
+                kind: 8,
+                subtype: 2,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("8"),
+                    relative_offset: None,
+                },
+            },
+            None,
+        );
+
+        assert_eq!(
+            platform.step_special_platform_loc_40D2(false, 128, 0),
+            SpecialPlatformStepActionLoc40D2::Continue,
+            "ASM TrapPlatformUp_Loop loc_420A keeps waiting while `$12(a3)` is zero",
+        );
+        assert_eq!(
+            platform.step_special_platform_loc_40D2(false, 128, 0x01),
+            SpecialPlatformStepActionLoc40D2::Delete,
+            "ASM TrapPlatformUp_Loop loc_420A: tst.b $12(a3); bne TrapPlatformUp_Delete",
         );
     }
 

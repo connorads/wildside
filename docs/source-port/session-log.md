@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive platform special coroutine mutation hardening
+
+- Project-status still showed no ready/open risks after the physics murder-wall
+  camera-push slice, so mutation-tested the special-platform coroutine helpers
+  in `platforms.rs`.
+- ASM context: `SoftPlatform_WaitLoop loc_40E2`, `TrapPlatformDown_WaitLoop`
+  and move loop `loc_4182`, `TrapPlatformUp_Loop loc_420A`, `PlatformChain`
+  movement `loc_42C0`, and the velocity table at `loc_436E`.
+- Initial mutation at
+  `/tmp/mutants-core-platform-special-20260705-initial` reported 84 mutants
+  tested: 10 missed, 68 caught, 6 unviable. Actionable misses were wait-loop
+  deactivation gates, soft-platform wait movement, the TrapDown exact `$E0`
+  fall boundary/live high-word path, and PlatformChain early phase flips.
+- Fix: added cache-independent regression tests covering those branch surfaces.
+- Final mutation at
+  `/tmp/mutants-core-platform-special-20260705-final` reports 84 mutants
+  tested: 76 caught, 6 unviable, 2 missed equivalents, 0 actionable missed.
+  The remaining survivors are the segment-0 table-arm deletion, which falls
+  through to the same default `$4000`, and TrapPlatformUp `>`→`>=` at the
+  clamp equality, which still stores `-$40000`.
+
 ## 2026-07-05 - proactive physics murder-wall camera mutation rerun
 
 - Project-status still showed no ready/open risks after the Dragon Walking
