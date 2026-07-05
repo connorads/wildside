@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive terrain relative-collision mutation verification
+
+- Project-status still showed no ready/open risks after the hidden-reveal
+  dispatch slice, so mutation-tested the ASM-labelled relative collision helpers
+  in `terrain.rs`.
+- ASM context: `loc_331D2`, `loc_331F6`, `loc_33248`, `loc_33264`,
+  `loc_33280`, `loc_33286`, `loc_332D0`, `loc_332EC`, `loc_33308`, and
+  `loc_3330E` own the relative tile lookup and collision-nibble masking helpers
+  used by Kid and enemy terrain probes.
+- Mutation at `/tmp/mutants-core-terrain-relative-collision-20260705-initial`
+  reported 46 mutants tested: 44 caught, 2 unviable, 0 missed. No code changes
+  were needed.
+
 ## 2026-07-05 - proactive blocks hidden-reveal dispatch mutation hardening
 
 - Project-status still showed no ready/open risks after the hidden-reveal glue
