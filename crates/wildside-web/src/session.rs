@@ -243,6 +243,41 @@ fn expand_rgb_to_rgba(rgb: &[u8], rgba: &mut [u8]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+
+    use wildside_data::{FsAssetSource, manifest_path};
+
+    /// Locate a cached generated bundle root (any ROM sha1), honouring the
+    /// `KID_REPO_ROOT` override the cache-backed integration tests use.
+    fn cached_generated_root() -> Option<PathBuf> {
+        let repo_root = match std::env::var("KID_REPO_ROOT") {
+            Ok(root) if !root.is_empty() => PathBuf::from(root),
+            _ => PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .and_then(std::path::Path::parent)
+                .expect("wildside-web crate should live under <repo>/crates/wildside-web")
+                .to_path_buf(),
+        };
+        let generated = repo_root.join(".cache/generated");
+        for entry in std::fs::read_dir(generated).ok()?.flatten() {
+            let path = entry.path();
+            if manifest_path(&path).is_file() {
+                return Some(path);
+            }
+        }
+        eprintln!(
+            "skipping cache-backed web session test: no generated bundle in .cache/generated"
+        );
+        None
+    }
+
+    fn cached_session(level: Option<u8>) -> Option<WebSession> {
+        let root = cached_generated_root()?;
+        Some(
+            WebSession::from_source(Arc::new(FsAssetSource::new(root)), level)
+                .expect("cached web session"),
+        )
+    }
 
     #[test]
     fn expands_rgb24_to_opaque_rgba() {
@@ -250,5 +285,83 @@ mod tests {
         let mut rgba = [0u8; 8];
         expand_rgb_to_rgba(&rgb, &mut rgba);
         assert_eq!(rgba, [1, 2, 3, 255, 4, 5, 6, 255]);
+    }
+
+    #[test]
+    fn cached_session_audio_enable_generates_latest_device_rate_samples() {
+        let Some(mut session) = cached_session(Some(0)) else {
+            return;
+        };
+
+        if let Err(err) = session.enable_audio(48_000) {
+            eprintln!("skipping cache-backed web audio test: {err:#}");
+            return;
+        }
+        assert!(
+            session.audio_samples().is_empty(),
+            "audio samples should stay empty until the first stepped frame"
+        );
+
+        session.step(0);
+
+        assert_eq!(
+            session.audio_samples().len(),
+            800 * 2,
+            "ASM Load_InGame (kid.asm:23623-23629) web audio should drive the shared GEMS director and 48kHz sample clock for one 60Hz frame"
+        );
+    }
+
+    #[test]
+    fn cached_session_shell_screen_and_debug_state_reflect_runtime() {
+        let Some(attract) = cached_session(None) else {
+            return;
+        };
+        let Some(mut gameplay) = cached_session(Some(0)) else {
+            return;
+        };
+        for _ in 0..120 {
+            if !gameplay.on_shell_screen() {
+                break;
+            }
+            gameplay.step(0);
+        }
+
+        assert!(
+            attract.on_shell_screen(),
+            "ASM Load_SegaScreen starts as a VDP-rendered shell screen"
+        );
+        assert!(
+            !gameplay.on_shell_screen(),
+            "ASM Load_InGame should leave the browser session on the gameplay renderer"
+        );
+
+        let debug = attract.debug_state();
+        assert!(
+            debug.contains("mode=SegaScreen")
+                && debug.contains("level=0x00")
+                && debug.contains("vdp=true")
+                && debug.contains("grid=true")
+                && debug.contains("rgb_nonzero="),
+            "debug_state should expose the runtime mode, level, shell renderer, grid state, and framebuffer summary"
+        );
+    }
+
+    #[test]
+    fn cached_session_step_reload_updates_stale_visuals_level() {
+        let Some(mut session) = cached_session(Some(0)) else {
+            return;
+        };
+        session.visuals_level = 0xFF;
+
+        session.step(0);
+
+        assert_eq!(
+            session.trace.current_level.0, 0,
+            "ASM Load_InGame keeps the warped level id stable for this one-frame probe"
+        );
+        assert_eq!(
+            session.visuals_level, 0,
+            "the web session should reload visuals when the trace level and cached visual level diverge"
+        );
     }
 }

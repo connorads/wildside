@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive web session audio mutation hardening
+
+- Project-status still showed no ready/open risks after the frame-audio
+  director slice, so mutation-tested the browser session's audio enable/sample
+  accessors, shell-state diagnostics, and visual-level reload branch in
+  `session.rs`.
+- ASM context: `Load_InGame` (kid.asm:23623-23629) drives the gameplay audio
+  start path and one-frame sample generation; `Load_SegaScreen` starts as a VDP
+  shell; the web session must switch between VDP shell rendering and gameplay
+  rendering without losing the cached level visuals.
+- Initial mutation at `/tmp/mutants-web-session-audio-20260705-initial`
+  reported 12 mutants tested: 10 missed, 2 caught. Misses were `enable_audio`
+  becoming a no-op, `audio_samples` returning dummy buffers, `on_shell_screen`
+  and `debug_state` constants, and the level-visual reload inequality.
+- Fix: added cache-backed host unit tests for browser audio enablement at
+  48kHz, latest-sample exposure, shell-vs-gameplay state, debug-state content,
+  and stale visual-level reload.
+- Final mutation at `/tmp/mutants-web-session-audio-20260705-final` reported
+  12 mutants tested: 12 caught, 0 missed.
+
 ## 2026-07-05 - proactive frame audio director mutation hardening
 
 - Project-status still showed no ready/open risks after the VDP IntroSequence5
