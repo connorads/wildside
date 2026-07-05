@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive Dragon Walking snapshot debug hardening
+
+- Project-status still showed no ready/open risks after the Kid flip trace
+  formatter slice, so checked more trace/debug formatting coverage.
+- Clean mutation checks first confirmed no gap in `trace.rs`
+  wall/terrain formatter helpers (12 caught, 0 missed) or collected-helmet
+  visibility helpers (22 caught, 1 unviable, 0 missed).
+- Gap found: `dragon_walking_snapshot_reports_shared_walker_debug_fields`
+  only asserted presence/prefixes for shared-walker floor/wall probe strings,
+  so formatter regressions could pass the focused test.
+- Fix: tightened the Dragon Walking snapshot test to assert exact
+  `ground=.../cell=...` floor probes and the `hit=0/x=0/cell=0,0` wall probe,
+  citing the ASM `Dragon.asm loc_3E566` shared support path.
+- Verification: focused `cargo test -p wildside-core
+  dragon_walking_snapshot_reports_shared_walker_debug_fields` passes. Tried to
+  scope cargo-mutants to `format_shared_walker_*`, but the selector also pulled
+  unrelated `enemies.rs` struct-field mutants; do not reuse that selector as a
+  formatter-only metric.
+
 ## 2026-07-05 - proactive trace Kid flip label mutation hardening
 
 - Project-status still showed no ready/open risks after the Highwater probe

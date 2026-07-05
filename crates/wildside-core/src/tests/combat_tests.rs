@@ -20378,30 +20378,37 @@ mod chunk_03 {
             Some("39"),
             "the snapshot should expose the terrain-probe X position used for the next shared-walker step",
         );
-        assert!(
+        assert_eq!(
             snapshot
                 .debug_fields
-                .contains_key("shared_walker_probe_center_floor"),
-            "the snapshot should expose the centre floor probe that drove the shared-walker support check",
+                .get("shared_walker_probe_center_floor")
+                .map(String::as_str),
+            Some("ground=1/y=272/cell=2,17"),
+            "ASM Dragon.asm loc_3E566 shared support tracing should report the centre floor probe that drove the shared-walker support check",
         );
-        assert!(
+        assert_eq!(
             snapshot
                 .debug_fields
-                .contains_key("shared_walker_probe_left_floor"),
-            "the snapshot should expose the left floor probe so ledge handoffs can be traced",
+                .get("shared_walker_probe_left_floor")
+                .map(String::as_str),
+            Some("ground=1/y=272/cell=1,17"),
+            "ASM Dragon.asm loc_3E566 shared support tracing should report the left floor probe so ledge handoffs can be traced",
         );
-        assert!(
+        assert_eq!(
             snapshot
                 .debug_fields
-                .contains_key("shared_walker_probe_right_floor"),
-            "the snapshot should expose the right floor probe so ledge handoffs can be traced",
+                .get("shared_walker_probe_right_floor")
+                .map(String::as_str),
+            Some("ground=1/y=272/cell=2,17"),
+            "ASM Dragon.asm loc_3E566 shared support tracing should report the right floor probe so ledge handoffs can be traced",
         );
-        assert!(
+        assert_eq!(
             snapshot
                 .debug_fields
                 .get("shared_walker_probe_wall")
-                .is_some_and(|probe| probe.starts_with("hit=0/")),
-            "the snapshot should expose the wall probe result even when no side wall was hit",
+                .map(String::as_str),
+            Some("hit=0/x=0/cell=0,0"),
+            "ASM Dragon.asm loc_3E566 shared support tracing should expose the wall probe result even when no side wall was hit",
         );
     }
 
