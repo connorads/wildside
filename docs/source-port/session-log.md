@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks shooter collision/support mutation hardening
+
+- Project-status still showed no ready/open risks after the lift/shooter-headbutt
+  slice, so mutation-tested the shooter direction, collision rectangle, and live
+  support-overlap helpers in `blocks.rs`.
+- ASM context: `loc_F106`/`loc_F1DE` own the visible shooter drill/type and skin
+  gate, while `sub_F568` and `sub_1F52` own the emitted shooter rectangles and
+  Kid overlap gates.
+- Initial mutation at `/tmp/mutants-core-blocks-shooter-collision-support-20260705-initial`
+  reported 202 mutants tested: 10 missed, 190 caught, 2 unviable. Misses were in
+  the minimum-skin direction gate and live Kid hitbox/overlap edge calculations.
+- Fix: added a direct `$EC2C` rejection test for `loc_F106`/`loc_F1DE` and live
+  `sub_F568`/`sub_1F52` strict-edge plus inclusive-edge combat coverage.
+- Final mutation at `/tmp/mutants-core-blocks-shooter-collision-support-20260705-final`
+  reported 202 mutants tested: 200 caught, 2 unviable, 0 missed.
+
 ## 2026-07-05 - proactive blocks lift/shooter-headbutt mutation verification
 
 - Project-status still showed no ready/open risks after the evanescent/Iron

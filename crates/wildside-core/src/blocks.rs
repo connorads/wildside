@@ -6858,6 +6858,38 @@ mod tests {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn shooter_direction_bits_loc_F106_requires_drill_type_and_minimum_skin() {
+        // ASM sub_F096 loc_F106/loc_F1DE: visible shooter slots require block
+        // type `$C` and a low byte at least `$2D`; `$EC2C` must not wrap into
+        // direction bits through loc_F1DE's `(word & $FF) - $2D` subtraction.
+        assert_eq!(
+            NativeRuntime::shooter_direction_bits_loc_F106(terrain::Cell::from_be_bytes(
+                0xEC, 0x2D
+            )),
+            Some(0)
+        );
+        assert_eq!(
+            NativeRuntime::shooter_direction_bits_loc_F106(terrain::Cell::from_be_bytes(
+                0xEC, 0x2F
+            )),
+            Some(2)
+        );
+        assert_eq!(
+            NativeRuntime::shooter_direction_bits_loc_F106(terrain::Cell::from_be_bytes(
+                0xEC, 0x2C
+            )),
+            None
+        );
+        assert_eq!(
+            NativeRuntime::shooter_direction_bits_loc_F106(terrain::Cell::from_be_bytes(
+                0xE9, 0x2F
+            )),
+            None
+        );
+    }
+
+    #[test]
     fn shooter_headbutt_helpers_match_asm_loc_11448_through_loc_11474() {
         // ASM loc_11448..loc_11474: the left support probe skips column zero,
         // the centre gate restores the original column and suppresses the

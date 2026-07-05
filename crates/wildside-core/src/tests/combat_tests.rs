@@ -23261,6 +23261,58 @@ mod chunk_05 {
     }
 
     #[test]
+    fn shooter_barrel_support_sub_f568_sub_1f52_rejects_strictly_separated_edges() {
+        let support_for = |x_px: u32, y_px: u32| {
+            let mut runtime = NativeRuntime::new(manifest());
+            start_level(&mut runtime);
+            runtime.block_state.shooter_blocks = vec![ShooterBlockEntry {
+                col: 5,
+                row: 5,
+                directions: 0x01,
+                supported_by_neighbour: false,
+                restored_touch_shooter: false,
+                age: 1,
+            }];
+
+            let mut slice = shooter_test_slice(0, 0);
+            slice.player.x_pos = x_px << 16;
+            slice.player.y_pos = y_px << 16;
+            runtime.apply_shooter_barrel_support_sub_1f52(&mut slice, PlayerForm::TheKid)
+        };
+
+        assert_eq!(
+            support_for(76, 79),
+            None,
+            "ASM sub_F568 emits the first upward nub at x=82..94; sub_1F52 keeps Kid's right edge 81 separated"
+        );
+        assert_eq!(
+            support_for(100, 79),
+            None,
+            "ASM sub_F568 first upward nub right edge 94 stays separated from Kid's left edge 95"
+        );
+        assert_eq!(
+            support_for(88, 66),
+            None,
+            "ASM sub_F568 first upward nub top edge 67 stays separated from Kid's bottom edge 66"
+        );
+        assert_eq!(
+            support_for(88, 111),
+            None,
+            "ASM sub_F568 first upward nub bottom edge 79 stays separated from Kid's top edge 80"
+        );
+        assert_eq!(
+            support_for(77, 79),
+            Some(0x004f_0000),
+            "ASM sub_1F52 treats Kid's right edge 82 touching the nub left edge 82 as overlap"
+        );
+        assert_eq!(
+            support_for(94, 79),
+            Some(0x004f_0000),
+            "ASM sub_1F52 treats the nub right edge 94 inside Kid's span as overlap"
+        );
+    }
+
+    #[test]
     fn loc_f254_continues_scan_without_allocating_when_shooter_free_list_empty() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
