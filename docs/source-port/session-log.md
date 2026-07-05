@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive physics jump/gravity mutation verification
+
+- Project-status still showed no ready/open risks after the camera helper slice,
+  so mutation-tested the compact jump/gravity helper cluster in `physics.rs`.
+- ASM context: `loc_A44A` computes jump launch from absolute x velocity,
+  `loc_A466` applies the grabbed-by-Hand weakening, `loc_A480` reduces x
+  velocity by arithmetic-shift 3/4, and `loc_B1E0`-`loc_B20E` applies gravity
+  plus rise/fall caps.
+- Mutation at `/tmp/mutants-core-physics-jump-gravity-20260705-initial`
+  reported 35 mutants tested: 35 caught, 0 missed.
+- No code change was warranted; existing exact-value jump/gravity tests already
+  kill every selected arithmetic, sign, wrapper, and cap mutation.
+
 ## 2026-07-05 - proactive physics camera mutation verification
 
 - Project-status still showed no ready/open risks after the slope-input slice,
