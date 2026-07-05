@@ -99,7 +99,8 @@ use wildside_core::{
     NativeTraceFrame, PlayerForm, run_script,
 };
 use wildside_data::{
-    AssetManifest, find_enemy_definition, load_level_asset_bundle, resource_level_id,
+    AssetManifest, find_enemy_definition, load_level_asset_bundle, pack_bundle_blob,
+    resource_level_id,
 };
 use wildside_md::{
     GemsAudioEngine, GemsAudioWrite, GemsAudioWriteKind, MdRuntime, probe_rom,
@@ -696,6 +697,17 @@ enum Commands {
         rom: Option<PathBuf>,
         #[arg(long)]
         dir: Option<PathBuf>,
+    },
+    /// Pack the extracted generated bundle into a single blob the web build
+    /// fetches at startup (#19/#21). Ships decoded assets only — private
+    /// (Tailscale/local) delivery per the decision on #16.
+    PackWebBundle {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        #[arg(long, default_value = "web/bundle.wsbndl")]
+        output: PathBuf,
     },
     ProbeNative {
         #[arg(long)]
@@ -1931,6 +1943,25 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             print_asset_manifest(&manifest);
+        }
+        Commands::PackWebBundle { rom, dir, output } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let blob = pack_bundle_blob(&manifest.output_root)?;
+            if let Some(parent) = output.parent() {
+                fs::create_dir_all(parent)
+                    .with_context(|| format!("failed to create {}", parent.display()))?;
+            }
+            fs::write(&output, &blob)
+                .with_context(|| format!("failed to write {}", output.display()))?;
+            println!(
+                "packed {} -> {} ({:.1} MiB)",
+                manifest.output_root.display(),
+                output.display(),
+                blob.len() as f64 / (1024.0 * 1024.0)
+            );
         }
         Commands::ProbeNative {
             rom,

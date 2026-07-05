@@ -9,9 +9,11 @@ use std::path::{Path, PathBuf};
 use std::process;
 
 mod asset_source;
+mod bundle_blob;
 mod level_layout;
 
 pub use asset_source::{AssetSource, FsAssetSource, InMemoryAssetSource};
+pub use bundle_blob::{BundleAssetSource, pack_bundle_blob};
 
 const COPIED_DIRECTORIES: &[&str] = &[
     "code/enemy",
