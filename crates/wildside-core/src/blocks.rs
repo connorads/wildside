@@ -5717,6 +5717,42 @@ mod tests {
             NativeRuntime::deleted_tile_wobble_y_deltas_loc_10200(),
             NativeRuntime::prize_block_wobble_y_deltas_sub_1007A()
         );
+
+        // ASM sub_1007A loc_100DA/loc_100E8/loc_100F6/loc_10104/loc_10112/loc_10120:
+        // `moveq #5/#5/#4/#4/#3/#4` with inclusive DBF gives exact pass
+        // lengths 6/6/5/5/4/5 and no hibernated wobble step after frame 30.
+        assert_eq!(
+            NativeRuntime::prize_block_wobble_pass_frame_count_sub_1007A(),
+            31
+        );
+        assert_eq!(
+            NativeRuntime::prize_block_wobble_passes_sub_1007A()
+                .iter()
+                .map(|pass| pass.len())
+                .collect::<Vec<_>>(),
+            vec![6, 6, 5, 5, 4, 5]
+        );
+        for (elapsed, expected_delta) in [
+            (0, Some(-2)),
+            (5, Some(-2)),
+            (6, Some(2)),
+            (11, Some(2)),
+            (12, Some(-2)),
+            (16, Some(-2)),
+            (17, Some(2)),
+            (21, Some(2)),
+            (22, Some(-2)),
+            (25, Some(-2)),
+            (26, Some(2)),
+            (30, Some(2)),
+            (31, None),
+        ] {
+            assert_eq!(
+                NativeRuntime::prize_block_wobble_delta_sub_1007A(elapsed),
+                expected_delta,
+                "ASM sub_1007A elapsed frame {elapsed} should map through the six DBF passes"
+            );
+        }
     }
 
     #[test]

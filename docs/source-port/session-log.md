@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks prize-block wobble mutation hardening
+
+- Project-status still showed no ready/open risks after the floating-prize
+  graphics slice, so mutation-tested the prize-block headbutt/deleted-tile/
+  wobble/spawn-flash helper cluster in `blocks.rs`.
+- ASM context: `sub_1007A` runs the prize-block wobble through
+  `loc_100DA`/`loc_100E8`/`loc_100F6`/`loc_10104`/`loc_10112`/`loc_10120`,
+  whose inclusive DBF loops produce exact pass lengths 6/6/5/5/4/5.
+- Initial mutation at `/tmp/mutants-core-blocks-prize-block-wobble-20260705-initial`
+  reported 50 mutants tested: 13 missed, 34 caught, 3 unviable. Misses were
+  concentrated in elapsed-frame delta lookup and pass slicing/counting.
+- Fix: extended the ASM-cited `sub_1007A` table test with pass-count, pass-length,
+  and every boundary/tail elapsed-frame delta assertion.
+- Final mutation at `/tmp/mutants-core-blocks-prize-block-wobble-20260705-final`
+  reported 50 mutants tested: 47 caught, 3 unviable, 0 missed.
+
 ## 2026-07-05 - proactive blocks floating-prize graphics mutation verification
 
 - Project-status still showed no ready/open risks after the floating-prize
