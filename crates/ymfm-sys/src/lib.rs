@@ -82,6 +82,9 @@ impl Drop for Ym2612 {
     }
 }
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+mod wasm_shims;
+
 #[cfg(test)]
 mod tests {
     use super::Ym2612;

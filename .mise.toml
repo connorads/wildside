@@ -11,6 +11,9 @@ typos = "1"
 # Exact pin: must match the wasm-bindgen crate version in crates/wildside-web/Cargo.toml
 # or the tool refuses the module. Bump both together.
 "cargo:wasm-bindgen-cli" = "0.2.126"
+# ymfm-sys needs zig's clang + bundled wasm32-wasi libc++ to compile the C++
+# for the web build (#20); see crates/ymfm-sys/build.rs.
+zig = "0.14"
 
 [tasks.fmt]
 run = "cargo fmt --all"
