@@ -1,0 +1,5330 @@
+//! Mega Drive machine emulation: 68k (r68k) + Z80 + YM2612 (ymfm) + PSG bus
+//! model, the probe/trace runtime, and the standalone GEMS audio engine.
+
+use anyhow::{Result, ensure};
+use r68k_emu::cpu::{ConfiguredCore, Cycles};
+use r68k_emu::interrupts::AutoInterruptController;
+use r68k_emu::ram::{AddressBus, AddressSpace};
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::num::NonZeroU32;
+use std::rc::Rc;
+use thiserror::Error;
+use ymfm_sys::Ym2612;
+use z80::{Z80, Z80_io};
+
+use crate::vdp::{FrameBuffer, VdpSnapshot, render_vdp_into};
+
+const ADDRESS_MASK: u32 = 0x00FF_FFFF;
+const WORK_RAM_BASE: u32 = 0x00E0_0000;
+const WORK_RAM_END: u32 = 0x00FF_FFFF;
+const WORK_RAM_LEN: usize = 0x1_0000;
+const Z80_RAM_BASE: u32 = 0x00A0_0000;
+const Z80_RAM_END: u32 = 0x00A0_FFFF;
+const Z80_RAM_LEN: usize = 0x2000;
+// NTSC Genesis frame timing: 3420 master clocks/scanline * 262 scanlines / 7 m68k clocks.
+const SYNTHETIC_VBLANK_CYCLES: i32 = 128_006;
+const CONTROLLER_FLIP_COUNTER_CYCLES: u32 = 12_150;
+const CONTROLLER_TH_HIGH_DELAY_CYCLES: u32 = 30;
+const CONTROLLER_TH_BIT: u8 = 6;
+const V_INT_COUNTER_ADDR: u32 = 0x00FF_F806;
+const V_INT_DONE_ADDR: u32 = 0x00FF_F80A;
+const CTRL_1_ADDR: u32 = 0x00FF_F80C;
+const CTRL_JOYPAD_LATCH_END_ADDR: u32 = 0x00FF_F81A;
+const CAMERA_X_POS_ADDR: u32 = 0x00FF_F81C;
+const CAMERA_Y_POS_ADDR: u32 = 0x00FF_F820;
+const NUMBER_OBJECTS_ADDR: u32 = 0x00FF_F84A;
+const NUMBER_GFX_OBJECTS_ADDR: u32 = 0x00FF_F85C;
+const GAME_PAUSED_ADDR: u32 = 0x00FF_FAD0;
+const PAUSE_OPTION_ADDR: u32 = 0x00FF_FAD1;
+const DEMO_MODE_FLAG_ADDR: u32 = 0x00FF_FBC9;
+const GAME_MODE_ADDR: u32 = 0x00FF_FBCA;
+const CURRENT_PLAYER_ADDR: u32 = 0x00FF_FC39;
+const NUMBER_LIVES_ADDR: u32 = 0x00FF_FC3E;
+const NUMBER_HITPOINTS_ADDR: u32 = 0x00FF_FC40;
+const LEVEL_SKIP_CHEAT_ADDR: u32 = 0x00FF_FC37;
+const CURRENT_LEVEL_ID_ADDR: u32 = 0x00FF_FC44;
+const CURRENT_HELMET_ID_ADDR: u32 = 0x00FF_FC46;
+const PLAYER_1_LEVEL_ID_ADDR: u32 = 0x00FF_FC5A;
+const OPTIONS_SUBOPTION_SPEED_ADDR: u32 = 0x00FF_FDC9;
+const OPTIONS_SUBOPTION_CONTROLS_ADDR: u32 = 0x00FF_FDCA;
+const KID_X_POS_ADDR: u32 = 0x00FF_24FA;
+const KID_Y_POS_ADDR: u32 = 0x00FF_24FE;
+const KID_X_VEL_ADDR: u32 = 0x00FF_2506;
+const KID_Y_VEL_ADDR: u32 = 0x00FF_250A;
+const KID_COLLISION_TYPE_ADDR: u32 = 0x00FF_2518;
+const CHARACTER_MOVEMENT_ADDR: u32 = 0x00FF_FA56;
+const INVULNERABLE_FRAMES_ADDR: u32 = 0x00FF_FA2B;
+const JUST_RECEIVED_DAMAGE_ADDR: u32 = 0x00FF_FA73;
+const VRAM_LEN: usize = 0x1_0000;
+const CRAM_LEN: usize = 0x80;
+const VSRAM_LEN: usize = 0x50;
+const TRACE_LIMIT: usize = 256;
+const PSG_CLOCK_HZ: f64 = 3_579_545.0;
+const Z80_CLOCK_HZ: f64 = 3_579_545.0;
+const YM2612_INPUT_CLOCK_HZ: f64 = 7_670_454.0;
+const Z80_VBLANK_IRQ_CYCLES: u32 = 228;
+const PSG_GAIN: f32 = 0.446_683_6;
+const AUDIO_DC_BLOCK_CUTOFF_HZ: f64 = 5.0;
+const GENESIS_LPF_CUTOFF_HZ: f64 = 3_390.0;
+const YM2612_SECOND_LPF_CUTOFF_HZ: f64 = 7_973.0;
+const DEFAULT_OUTPUT_SAMPLE_RATE_HZ: f64 = 44_100.0;
+const PSG_DIVIDER: f64 = 16.0;
+const PSG_DC_BLOCK_COEFFICIENT: f32 = 0.995;
+// jgenesis models mirrored YM2612 status reads decaying after roughly 12_000 output samples.
+// Convert that to input clocks so the Z80 sound driver does not see dead reads on $4001-$4003.
+const YM2612_STATUS_DECAY_CLOCKS: u32 = 1_728_000;
+const PSG_ATTENUATION_TO_VOLUME: [f32; 16] = [
+    1.0,
+    0.794_328_2,
+    0.630_957_37,
+    0.501_187_2,
+    0.398_107_17,
+    0.316_227_76,
+    0.251_188_64,
+    0.199_526_24,
+    0.158_489_32,
+    0.125_892_53,
+    0.1,
+    0.079_432_82,
+    0.063_095_73,
+    0.050_118_72,
+    0.039_810_72,
+    0.0,
+];
+const PSG_INITIAL_LFSR: u16 = 0x8000;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AudioLevels {
+    pub master: f32,
+    pub ym2612: f32,
+    pub psg: f32,
+}
+
+impl Default for AudioLevels {
+    fn default() -> Self {
+        Self {
+            master: 1.0,
+            ym2612: 1.0,
+            psg: 1.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GameState {
+    pub game_mode: u16,
+    pub current_level_id: u16,
+    pub current_helmet_id: u16,
+    pub number_lives: u16,
+    pub number_hitpoints: u16,
+    pub kid_x_pos: u32,
+    pub kid_y_pos: u32,
+    pub camera_x_pos: u32,
+    pub camera_y_pos: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CpuProbe {
+    pub reset_sp: u32,
+    pub reset_pc: u32,
+    pub final_pc: u32,
+    pub final_sp: u32,
+    pub synthetic_vblanks: u32,
+    pub v_int_counter: u32,
+    pub v_int_done: u8,
+    pub demo_mode_flag: u8,
+    pub game_mode: u16,
+    pub current_player: u8,
+    pub number_lives: u16,
+    pub number_hitpoints: u16,
+    pub current_level_id: u16,
+    pub player_1_level_id: u16,
+    pub current_helmet_id: u16,
+    pub camera_x_pos: u32,
+    pub camera_y_pos: u32,
+    pub kid_x_pos: u32,
+    pub kid_y_pos: u32,
+    pub kid_x_vel: i32,
+    pub kid_y_vel: i32,
+    pub character_movement: u16,
+    pub kid_collision_type: u16,
+    pub game_paused: bool,
+    pub pause_menu_option: u8,
+    pub options_controls_scheme: u16,
+    pub options_speed_button_fast: bool,
+    pub invulnerable_frames: u8,
+    pub just_received_damage: bool,
+    pub number_objects: u16,
+    pub number_gfx_objects: u16,
+    pub z80_interrupt_mode: u8,
+    pub vram_nonzero_bytes: usize,
+    pub cram_nonzero_bytes: usize,
+    pub vsram_nonzero_bytes: usize,
+    pub z80_reset_count: usize,
+    pub ym2612_write_count: usize,
+    pub ym2612_key_on_count: usize,
+    pub psg_write_count: usize,
+    pub ym2612_writes: Vec<(u16, u8)>,
+    pub psg_writes: Vec<u8>,
+    pub banked_68k_reads: Vec<(u32, u8)>,
+    pub banked_68k_writes: Vec<(u32, u8)>,
+    pub vdp: VdpSnapshot,
+    pub steps: Vec<CpuStep>,
+    pub accesses: Vec<BusAccess>,
+    pub vdp_control_writes: Vec<u16>,
+    pub vdp_data_writes: Vec<u16>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AudioEvent {
+    Ym2612Write {
+        z80_cycles: u64,
+        port: u8,
+        value: u8,
+    },
+    PsgWrite {
+        z80_cycles: u64,
+        value: u8,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GemsAudioWriteKind {
+    Ym2612,
+    Psg,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GemsAudioWrite {
+    pub z80_cycles: u64,
+    pub kind: GemsAudioWriteKind,
+    pub port: u8,
+    pub value: u8,
+}
+
+#[derive(Debug, Clone)]
+struct FirstOrderFilter {
+    b0: f32,
+    b1: f32,
+    a1: f32,
+    x1: f32,
+    y1: f32,
+}
+
+impl FirstOrderFilter {
+    fn low_pass(cutoff_hz: f64, sample_rate_hz: f64) -> Self {
+        let k = (std::f64::consts::PI * cutoff_hz / sample_rate_hz).tan();
+        let norm = 1.0 / (1.0 + k);
+        Self {
+            b0: (k * norm) as f32,
+            b1: (k * norm) as f32,
+            a1: ((k - 1.0) * norm) as f32,
+            x1: 0.0,
+            y1: 0.0,
+        }
+    }
+
+    fn high_pass(cutoff_hz: f64, sample_rate_hz: f64) -> Self {
+        let k = (std::f64::consts::PI * cutoff_hz / sample_rate_hz).tan();
+        let norm = 1.0 / (1.0 + k);
+        Self {
+            b0: norm as f32,
+            b1: (-norm) as f32,
+            a1: ((k - 1.0) * norm) as f32,
+            x1: 0.0,
+            y1: 0.0,
+        }
+    }
+
+    fn filter(&mut self, input: f32) -> f32 {
+        let output = self.b0 * input + self.b1 * self.x1 - self.a1 * self.y1;
+        self.x1 = input;
+        self.y1 = output;
+        output
+    }
+}
+
+#[derive(Debug, Clone)]
+struct SecondOrderFilter {
+    b0: f32,
+    b1: f32,
+    b2: f32,
+    a1: f32,
+    a2: f32,
+    x1: f32,
+    x2: f32,
+    y1: f32,
+    y2: f32,
+}
+
+impl SecondOrderFilter {
+    fn low_pass(cutoff_hz: f64, sample_rate_hz: f64) -> Self {
+        let k = (std::f64::consts::PI * cutoff_hz / sample_rate_hz).tan();
+        let norm = 1.0 / (1.0 + std::f64::consts::SQRT_2 * k + k * k);
+        let b0 = (k * k * norm) as f32;
+        Self {
+            b0,
+            b1: 2.0 * b0,
+            b2: b0,
+            a1: (2.0 * (k * k - 1.0) * norm) as f32,
+            a2: ((1.0 - std::f64::consts::SQRT_2 * k + k * k) * norm) as f32,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
+        }
+    }
+
+    fn filter(&mut self, input: f32) -> f32 {
+        let output = self.b0 * input + self.b1 * self.x1 + self.b2 * self.x2
+            - self.a1 * self.y1
+            - self.a2 * self.y2;
+        self.x2 = self.x1;
+        self.x1 = input;
+        self.y2 = self.y1;
+        self.y1 = output;
+        output
+    }
+}
+
+impl AudioEvent {
+    fn z80_cycles(self) -> u64 {
+        match self {
+            Self::Ym2612Write { z80_cycles, .. } | Self::PsgWrite { z80_cycles, .. } => z80_cycles,
+        }
+    }
+
+    fn as_gems_write(self) -> GemsAudioWrite {
+        match self {
+            Self::Ym2612Write {
+                z80_cycles,
+                port,
+                value,
+            } => GemsAudioWrite {
+                z80_cycles,
+                kind: GemsAudioWriteKind::Ym2612,
+                port,
+                value,
+            },
+            Self::PsgWrite { z80_cycles, value } => GemsAudioWrite {
+                z80_cycles,
+                kind: GemsAudioWriteKind::Psg,
+                port: 0,
+                value,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Z80Shared {
+    ram: Vec<u8>,
+    m68k_work_ram: Vec<u8>,
+    busreq: bool,
+    reset: bool,
+    bank_address: u32,
+    z80_cycles: u64,
+    z80_reset_count: usize,
+    ym2612_write_count: usize,
+    ym2612_key_on_count: usize,
+    psg_write_count: usize,
+    ym2612_port_latches: [Option<u16>; 2],
+    audio_events: VecDeque<AudioEvent>,
+    banked_68k_reads: Vec<(u32, u8)>,
+    banked_68k_writes: Vec<(u32, u8)>,
+    ym2612_writes: Vec<(u16, u8)>,
+    psg_writes: Vec<u8>,
+    psg_registers: PsgRegisters,
+}
+
+impl Default for Z80Shared {
+    fn default() -> Self {
+        Self {
+            ram: vec![0; Z80_RAM_LEN],
+            m68k_work_ram: vec![0; WORK_RAM_LEN],
+            busreq: false,
+            reset: true,
+            bank_address: 0,
+            z80_cycles: 0,
+            z80_reset_count: 0,
+            ym2612_write_count: 0,
+            ym2612_key_on_count: 0,
+            psg_write_count: 0,
+            ym2612_port_latches: [None, None],
+            audio_events: VecDeque::new(),
+            banked_68k_reads: Vec::new(),
+            banked_68k_writes: Vec::new(),
+            ym2612_writes: Vec::new(),
+            psg_writes: Vec::new(),
+            psg_registers: PsgRegisters::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PsgRegisters {
+    latched_register: u8,
+    tone_periods: [u16; 3],
+    volumes: [u8; 4],
+    noise_control: u8,
+}
+
+impl Default for PsgRegisters {
+    fn default() -> Self {
+        Self {
+            latched_register: 0,
+            tone_periods: [1; 3],
+            volumes: [0x0F; 4],
+            noise_control: 0,
+        }
+    }
+}
+
+impl PsgRegisters {
+    fn apply_write(&mut self, value: u8) -> bool {
+        if value & 0x80 != 0 {
+            self.latched_register = (value >> 4) & 0x07;
+            self.apply_latched_data(self.latched_register, value & 0x0F)
+        } else {
+            self.apply_data(self.latched_register, value & 0x3F)
+        }
+    }
+
+    fn apply_latched_data(&mut self, register: u8, data: u8) -> bool {
+        match register {
+            0 | 2 | 4 => {
+                let channel = usize::from(register / 2);
+                self.tone_periods[channel] = (self.tone_periods[channel] & !0x0F) + u16::from(data);
+                false
+            }
+            1 | 3 | 5 | 7 => {
+                self.volumes[usize::from(register / 2)] = data & 0x0F;
+                false
+            }
+            6 => {
+                self.noise_control = data & 0x07;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn apply_data(&mut self, register: u8, data: u8) -> bool {
+        match register {
+            0 | 2 | 4 => {
+                let channel = usize::from(register / 2);
+                self.tone_periods[channel] =
+                    (self.tone_periods[channel] & 0x0F) + (u16::from(data & 0x3F) << 4);
+                false
+            }
+            6 => {
+                self.noise_control = data & 0x07;
+                true
+            }
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct PsgSynth {
+    tone_counters: [u16; 3],
+    tone_outputs_high: [bool; 3],
+    noise_counter: u16,
+    noise_clock_high: bool,
+    noise_lfsr: u16,
+    noise_output_high: bool,
+    pending_psg_clocks: f64,
+    dc_previous_input: f32,
+    dc_previous_output: f32,
+}
+
+impl Default for PsgSynth {
+    fn default() -> Self {
+        Self {
+            tone_counters: [1; 3],
+            tone_outputs_high: [false; 3],
+            noise_counter: 0x10,
+            noise_clock_high: false,
+            noise_lfsr: PSG_INITIAL_LFSR,
+            noise_output_high: false,
+            pending_psg_clocks: 0.0,
+            dc_previous_input: 0.0,
+            dc_previous_output: 0.0,
+        }
+    }
+}
+
+impl PsgSynth {
+    fn reset_noise_lfsr(&mut self) {
+        self.noise_lfsr = PSG_INITIAL_LFSR;
+        self.noise_output_high = false;
+    }
+}
+
+struct Z80Bus {
+    shared: Rc<RefCell<Z80Shared>>,
+    ym2612_shadow: Rc<RefCell<Ym2612Shadow>>,
+    rom: Vec<u8>,
+}
+
+struct AudioMixer {
+    psg_synth: PsgSynth,
+    psg_registers: PsgRegisters,
+    ym2612: Ym2612,
+    levels: AudioLevels,
+    pending_events: VecDeque<AudioEvent>,
+    output_samples_emitted: u64,
+    ym_samples_emitted: u64,
+    last_ym_sample: [f32; 2],
+    ym_dc_filters: [FirstOrderFilter; 2],
+    ym_low_pass_filters: [FirstOrderFilter; 2],
+    ym_second_low_pass_filters: [SecondOrderFilter; 2],
+    psg_low_pass_filter: FirstOrderFilter,
+    psg_output_sample_rate: u32,
+}
+
+struct Ym2612Shadow {
+    chip: Ym2612,
+    last_status_read: u8,
+    status_decay_clocks_remaining: u32,
+}
+
+impl Ym2612Shadow {
+    fn new() -> Self {
+        Self {
+            chip: Ym2612::default(),
+            last_status_read: 0,
+            status_decay_clocks_remaining: 0,
+        }
+    }
+
+    fn reset(&mut self) {
+        self.chip.reset();
+        self.last_status_read = 0;
+        self.status_decay_clocks_remaining = 0;
+    }
+
+    fn read_port(&mut self, port: u8) -> u8 {
+        match port & 0x03 {
+            0 => {
+                let status = self.chip.read_port(0);
+                self.last_status_read = status;
+                self.status_decay_clocks_remaining = YM2612_STATUS_DECAY_CLOCKS;
+                status
+            }
+            1..=3 => {
+                if self.status_decay_clocks_remaining == 0 {
+                    0
+                } else {
+                    self.last_status_read
+                }
+            }
+            _ => unreachable!("port is masked to two bits"),
+        }
+    }
+
+    fn advance_clocks(&mut self, clocks: u32) {
+        self.chip.advance_clocks(clocks);
+        self.status_decay_clocks_remaining =
+            self.status_decay_clocks_remaining.saturating_sub(clocks);
+    }
+
+    fn write_port(&mut self, port: u8, value: u8) {
+        self.chip.write_port(port, value);
+    }
+}
+
+impl Default for AudioMixer {
+    fn default() -> Self {
+        let ym2612 = Ym2612::default();
+        let ym_sample_rate_hz = f64::from(ym2612.sample_rate_hz());
+        Self {
+            psg_synth: PsgSynth::default(),
+            psg_registers: PsgRegisters::default(),
+            ym2612,
+            levels: AudioLevels::default(),
+            pending_events: VecDeque::new(),
+            output_samples_emitted: 0,
+            ym_samples_emitted: 0,
+            last_ym_sample: [0.0, 0.0],
+            ym_dc_filters: std::array::from_fn(|_| {
+                FirstOrderFilter::high_pass(AUDIO_DC_BLOCK_CUTOFF_HZ, ym_sample_rate_hz)
+            }),
+            ym_low_pass_filters: std::array::from_fn(|_| {
+                FirstOrderFilter::low_pass(GENESIS_LPF_CUTOFF_HZ, ym_sample_rate_hz)
+            }),
+            ym_second_low_pass_filters: std::array::from_fn(|_| {
+                SecondOrderFilter::low_pass(YM2612_SECOND_LPF_CUTOFF_HZ, ym_sample_rate_hz)
+            }),
+            psg_low_pass_filter: FirstOrderFilter::low_pass(
+                GENESIS_LPF_CUTOFF_HZ,
+                DEFAULT_OUTPUT_SAMPLE_RATE_HZ,
+            ),
+            psg_output_sample_rate: DEFAULT_OUTPUT_SAMPLE_RATE_HZ as u32,
+        }
+    }
+}
+
+pub struct MdRuntime {
+    core: ConfiguredCore<AutoInterruptController, MdBus>,
+    z80: Z80<Z80Bus>,
+    z80_reset_asserted: bool,
+    z80_vblank_irq_cycles_remaining: u32,
+    audio_mixer: AudioMixer,
+    cycles_until_vblank: i32,
+    synthetic_vblanks: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CpuStep {
+    pub index: u32,
+    pub pc_before: u32,
+    pub pc_after: u32,
+    pub cycles: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BusAccess {
+    pub kind: BusAccessKind,
+    pub address: u32,
+    pub value: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BusAccessKind {
+    ReadByte,
+    ReadWord,
+    WriteByte,
+    WriteWord,
+}
+
+#[derive(Debug, Error)]
+pub enum ProbeError {
+    #[error("ROM is too small to contain a reset vector")]
+    RomTooSmall,
+}
+
+pub fn probe_rom(rom: &[u8], step_count: u32) -> Result<CpuProbe> {
+    probe_rom_with_script(rom, step_count, &[])
+}
+
+pub fn probe_rom_with_script(
+    rom: &[u8],
+    step_count: u32,
+    controller_1_script: &[u8],
+) -> Result<CpuProbe> {
+    let mut runtime = MdRuntime::new(rom)?;
+    let reset_sp = runtime.core.dar[15];
+    let reset_pc = runtime.core.pc;
+    let mut frame_index = 0usize;
+    runtime
+        .core
+        .mem
+        .set_controller_1(controller_1_script.first().copied().unwrap_or(0));
+
+    let mut steps = Vec::with_capacity(step_count as usize);
+    for index in 0..step_count {
+        let pc_before = runtime.core.pc;
+        let cycles = runtime.step();
+        let pc_after = runtime.core.pc;
+        let rendered_frame_count = runtime.synthetic_vblanks as usize;
+        if rendered_frame_count != frame_index {
+            frame_index = rendered_frame_count;
+            runtime
+                .core
+                .mem
+                .set_controller_1(controller_1_script.get(frame_index).copied().unwrap_or(0));
+        }
+        steps.push(CpuStep {
+            index,
+            pc_before,
+            pc_after,
+            cycles,
+        });
+    }
+
+    Ok(CpuProbe {
+        reset_sp,
+        reset_pc,
+        final_pc: runtime.core.pc,
+        final_sp: runtime.core.dar[15],
+        synthetic_vblanks: runtime.synthetic_vblanks,
+        v_int_counter: runtime.core.mem.read_work_ram_long(V_INT_COUNTER_ADDR),
+        v_int_done: runtime.core.mem.read_work_ram_byte(V_INT_DONE_ADDR),
+        demo_mode_flag: runtime.core.mem.read_work_ram_byte(DEMO_MODE_FLAG_ADDR),
+        game_mode: runtime.core.mem.read_work_ram_word(GAME_MODE_ADDR),
+        current_player: runtime.core.mem.read_work_ram_byte(CURRENT_PLAYER_ADDR),
+        number_lives: runtime.core.mem.read_work_ram_word(NUMBER_LIVES_ADDR),
+        number_hitpoints: runtime.core.mem.read_work_ram_word(NUMBER_HITPOINTS_ADDR),
+        current_level_id: runtime.core.mem.read_work_ram_word(CURRENT_LEVEL_ID_ADDR),
+        player_1_level_id: runtime.core.mem.read_work_ram_word(PLAYER_1_LEVEL_ID_ADDR),
+        current_helmet_id: runtime.core.mem.read_work_ram_word(CURRENT_HELMET_ID_ADDR),
+        camera_x_pos: runtime.core.mem.read_work_ram_long(CAMERA_X_POS_ADDR),
+        camera_y_pos: runtime.core.mem.read_work_ram_long(CAMERA_Y_POS_ADDR),
+        kid_x_pos: runtime.core.mem.read_work_ram_long(KID_X_POS_ADDR),
+        kid_y_pos: runtime.core.mem.read_work_ram_long(KID_Y_POS_ADDR),
+        kid_x_vel: runtime.core.mem.read_work_ram_long(KID_X_VEL_ADDR) as i32,
+        kid_y_vel: runtime.core.mem.read_work_ram_long(KID_Y_VEL_ADDR) as i32,
+        character_movement: runtime.core.mem.read_work_ram_word(CHARACTER_MOVEMENT_ADDR),
+        kid_collision_type: runtime.core.mem.read_work_ram_word(KID_COLLISION_TYPE_ADDR),
+        game_paused: runtime.core.mem.read_work_ram_byte(GAME_PAUSED_ADDR) != 0,
+        pause_menu_option: runtime.core.mem.read_work_ram_byte(PAUSE_OPTION_ADDR),
+        // ASM variables.asm: Options_Suboption_Controls = $FFFFFDCA and
+        // Options_Suboption_Speed = $FFFFFDC9.
+        options_controls_scheme: runtime
+            .core
+            .mem
+            .read_work_ram_word(OPTIONS_SUBOPTION_CONTROLS_ADDR),
+        options_speed_button_fast: runtime
+            .core
+            .mem
+            .read_work_ram_byte(OPTIONS_SUBOPTION_SPEED_ADDR)
+            != 0,
+        invulnerable_frames: runtime
+            .core
+            .mem
+            .read_work_ram_byte(INVULNERABLE_FRAMES_ADDR),
+        just_received_damage: runtime
+            .core
+            .mem
+            .read_work_ram_byte(JUST_RECEIVED_DAMAGE_ADDR)
+            != 0,
+        number_objects: runtime.core.mem.read_work_ram_word(NUMBER_OBJECTS_ADDR),
+        number_gfx_objects: runtime.core.mem.read_work_ram_word(NUMBER_GFX_OBJECTS_ADDR),
+        z80_interrupt_mode: runtime.z80.interrupt_mode,
+        vram_nonzero_bytes: runtime.core.mem.vram_nonzero_bytes(),
+        cram_nonzero_bytes: runtime.core.mem.cram_nonzero_bytes(),
+        vsram_nonzero_bytes: runtime.core.mem.vsram_nonzero_bytes(),
+        z80_reset_count: runtime.core.mem.z80_reset_count(),
+        ym2612_write_count: runtime.core.mem.ym2612_write_count(),
+        ym2612_key_on_count: runtime.core.mem.ym2612_key_on_count(),
+        psg_write_count: runtime.core.mem.psg_write_count(),
+        ym2612_writes: runtime.core.mem.ym2612_writes(),
+        psg_writes: runtime.core.mem.psg_writes(),
+        banked_68k_reads: runtime.core.mem.banked_68k_reads(),
+        banked_68k_writes: runtime.core.mem.banked_68k_writes(),
+        vdp: runtime.core.mem.vdp_snapshot(),
+        steps,
+        accesses: runtime.core.mem.accesses(),
+        vdp_control_writes: runtime.core.mem.vdp_control_writes(),
+        vdp_data_writes: runtime.core.mem.vdp_data_writes(),
+    })
+}
+
+impl MdRuntime {
+    pub fn new(rom: &[u8]) -> Result<Self> {
+        if rom.len() < 8 {
+            return Err(ProbeError::RomTooSmall.into());
+        }
+
+        let z80_shared = Rc::new(RefCell::new(Z80Shared::default()));
+        let ym2612_shadow = Rc::new(RefCell::new(Ym2612Shadow::new()));
+        let mut core = ConfiguredCore::new_with(
+            0,
+            AutoInterruptController::new(),
+            MdBus::new(rom, z80_shared.clone(), ym2612_shadow.clone()),
+        );
+        core.reset();
+        let mut z80 = Z80::new(Z80Bus {
+            shared: z80_shared,
+            ym2612_shadow,
+            rom: rom.to_vec(),
+        });
+        z80.reset();
+        Ok(Self {
+            core,
+            z80,
+            z80_reset_asserted: false,
+            z80_vblank_irq_cycles_remaining: 0,
+            audio_mixer: AudioMixer::default(),
+            cycles_until_vblank: SYNTHETIC_VBLANK_CYCLES,
+            synthetic_vblanks: 0,
+        })
+    }
+
+    pub fn set_controller_1(&mut self, buttons: u8) {
+        self.core.mem.set_controller_1(buttons);
+    }
+
+    pub fn set_level_skip_cheat_enabled(&mut self, enabled: bool) {
+        self.core
+            .mem
+            .write_work_ram_byte(LEVEL_SKIP_CHEAT_ADDR, if enabled { u8::MAX } else { 0 });
+    }
+
+    pub fn set_current_level(&mut self, level_id: u16) {
+        self.core
+            .mem
+            .write_work_ram_word(CURRENT_LEVEL_ID_ADDR, level_id);
+        self.core
+            .mem
+            .write_work_ram_word(PLAYER_1_LEVEL_ID_ADDR, level_id);
+        // Debug/menu level selection bypasses ROM ReadJoypad. Clear loc_C4E/
+        // loc_C9C input latches so a held confirm/jump cannot leak into the
+        // first gameplay frame as movement or sfx_Jump.
+        self.set_controller_1(0);
+        for addr in CTRL_1_ADDR..=CTRL_JOYPAD_LATCH_END_ADDR {
+            self.core.mem.write_work_ram_byte(addr, 0);
+        }
+    }
+
+    pub fn set_game_mode(&mut self, mode: u16) {
+        self.core.mem.write_work_ram_word(GAME_MODE_ADDR, mode);
+    }
+
+    pub fn set_current_helmet(&mut self, helmet_id: u16) {
+        self.core
+            .mem
+            .write_work_ram_word(CURRENT_HELMET_ID_ADDR, helmet_id);
+    }
+
+    pub fn set_lives(&mut self, lives: u16) {
+        self.core.mem.write_work_ram_word(NUMBER_LIVES_ADDR, lives);
+    }
+
+    pub fn set_hitpoints(&mut self, hitpoints: u16) {
+        self.core
+            .mem
+            .write_work_ram_word(NUMBER_HITPOINTS_ADDR, hitpoints);
+    }
+
+    /// Read a range of work RAM bytes (big-endian, as stored on 68k).
+    pub fn read_work_ram_range(&self, address: u32, len: usize) -> Vec<u8> {
+        (0..len)
+            .map(|i| {
+                self.core
+                    .mem
+                    .read_work_ram_byte(address.wrapping_add(i as u32))
+            })
+            .collect()
+    }
+
+    pub fn read_work_ram_word(&self, address: u32) -> u16 {
+        self.core.mem.read_work_ram_word(address)
+    }
+
+    pub fn game_state(&self) -> GameState {
+        GameState {
+            game_mode: self.core.mem.read_work_ram_word(GAME_MODE_ADDR),
+            current_level_id: self.core.mem.read_work_ram_word(CURRENT_LEVEL_ID_ADDR),
+            current_helmet_id: self.core.mem.read_work_ram_word(CURRENT_HELMET_ID_ADDR),
+            number_lives: self.core.mem.read_work_ram_word(NUMBER_LIVES_ADDR),
+            number_hitpoints: self.core.mem.read_work_ram_word(NUMBER_HITPOINTS_ADDR),
+            kid_x_pos: self.core.mem.read_work_ram_long(KID_X_POS_ADDR),
+            kid_y_pos: self.core.mem.read_work_ram_long(KID_Y_POS_ADDR),
+            camera_x_pos: self.core.mem.read_work_ram_long(CAMERA_X_POS_ADDR),
+            camera_y_pos: self.core.mem.read_work_ram_long(CAMERA_Y_POS_ADDR),
+        }
+    }
+
+    pub fn step(&mut self) -> i32 {
+        let Cycles(cycles) = self.core.execute1();
+        self.core.mem.advance_ym2612_shadow(cycles.max(0) as u32);
+        self.core.mem.tick_controller_ports(cycles.max(0) as u32);
+        self.step_z80(cycles);
+        self.cycles_until_vblank -= cycles;
+        while self.cycles_until_vblank <= 0 {
+            self.cycles_until_vblank += SYNTHETIC_VBLANK_CYCLES;
+            self.z80_vblank_irq_cycles_remaining = Z80_VBLANK_IRQ_CYCLES;
+            // Count every synthetic display frame even if the ROM masks VInt;
+            // capture/verification frame indices track rendered frames, not
+            // only interrupt-delivering frames.
+            self.synthetic_vblanks += 1;
+            if self.core.mem.vint_enabled() {
+                self.core.int_ctrl.request_interrupt(6);
+            }
+        }
+        cycles
+    }
+
+    pub fn run_until_vblank(&mut self, max_steps: u32) -> bool {
+        let starting_vint_counter = self.core.mem.read_work_ram_long(V_INT_COUNTER_ADDR);
+        for _ in 0..max_steps {
+            self.step();
+            if self.core.mem.read_work_ram_long(V_INT_COUNTER_ADDR) != starting_vint_counter {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn run_until_frame_rendered(&mut self, max_steps: u32) -> bool {
+        let starting_synthetic_vblanks = self.synthetic_vblanks;
+        for _ in 0..max_steps {
+            self.step();
+            if self.synthetic_vblanks != starting_synthetic_vblanks {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn snapshot(&self) -> CpuProbe {
+        CpuProbe {
+            reset_sp: 0,
+            reset_pc: 0,
+            final_pc: self.core.pc,
+            final_sp: self.core.dar[15],
+            synthetic_vblanks: self.synthetic_vblanks,
+            v_int_counter: self.core.mem.read_work_ram_long(V_INT_COUNTER_ADDR),
+            v_int_done: self.core.mem.read_work_ram_byte(V_INT_DONE_ADDR),
+            demo_mode_flag: self.core.mem.read_work_ram_byte(DEMO_MODE_FLAG_ADDR),
+            game_mode: self.core.mem.read_work_ram_word(GAME_MODE_ADDR),
+            current_player: self.core.mem.read_work_ram_byte(CURRENT_PLAYER_ADDR),
+            number_lives: self.core.mem.read_work_ram_word(NUMBER_LIVES_ADDR),
+            number_hitpoints: self.core.mem.read_work_ram_word(NUMBER_HITPOINTS_ADDR),
+            current_level_id: self.core.mem.read_work_ram_word(CURRENT_LEVEL_ID_ADDR),
+            player_1_level_id: self.core.mem.read_work_ram_word(PLAYER_1_LEVEL_ID_ADDR),
+            current_helmet_id: self.core.mem.read_work_ram_word(CURRENT_HELMET_ID_ADDR),
+            camera_x_pos: self.core.mem.read_work_ram_long(CAMERA_X_POS_ADDR),
+            camera_y_pos: self.core.mem.read_work_ram_long(CAMERA_Y_POS_ADDR),
+            kid_x_pos: self.core.mem.read_work_ram_long(KID_X_POS_ADDR),
+            kid_y_pos: self.core.mem.read_work_ram_long(KID_Y_POS_ADDR),
+            kid_x_vel: self.core.mem.read_work_ram_long(KID_X_VEL_ADDR) as i32,
+            kid_y_vel: self.core.mem.read_work_ram_long(KID_Y_VEL_ADDR) as i32,
+            character_movement: self.core.mem.read_work_ram_word(CHARACTER_MOVEMENT_ADDR),
+            kid_collision_type: self.core.mem.read_work_ram_word(KID_COLLISION_TYPE_ADDR),
+            game_paused: self.core.mem.read_work_ram_byte(GAME_PAUSED_ADDR) != 0,
+            pause_menu_option: self.core.mem.read_work_ram_byte(PAUSE_OPTION_ADDR),
+            // ASM variables.asm: Options_Suboption_Controls = $FFFFFDCA and
+            // Options_Suboption_Speed = $FFFFFDC9.
+            options_controls_scheme: self
+                .core
+                .mem
+                .read_work_ram_word(OPTIONS_SUBOPTION_CONTROLS_ADDR),
+            options_speed_button_fast: self
+                .core
+                .mem
+                .read_work_ram_byte(OPTIONS_SUBOPTION_SPEED_ADDR)
+                != 0,
+            invulnerable_frames: self.core.mem.read_work_ram_byte(INVULNERABLE_FRAMES_ADDR),
+            just_received_damage: self.core.mem.read_work_ram_byte(JUST_RECEIVED_DAMAGE_ADDR) != 0,
+            number_objects: self.core.mem.read_work_ram_word(NUMBER_OBJECTS_ADDR),
+            number_gfx_objects: self.core.mem.read_work_ram_word(NUMBER_GFX_OBJECTS_ADDR),
+            z80_interrupt_mode: self.z80.interrupt_mode,
+            vram_nonzero_bytes: self.core.mem.vram_nonzero_bytes(),
+            cram_nonzero_bytes: self.core.mem.cram_nonzero_bytes(),
+            vsram_nonzero_bytes: self.core.mem.vsram_nonzero_bytes(),
+            z80_reset_count: self.core.mem.z80_reset_count(),
+            ym2612_write_count: self.core.mem.ym2612_write_count(),
+            ym2612_key_on_count: self.core.mem.ym2612_key_on_count(),
+            psg_write_count: self.core.mem.psg_write_count(),
+            ym2612_writes: self.core.mem.ym2612_writes(),
+            psg_writes: self.core.mem.psg_writes(),
+            banked_68k_reads: self.core.mem.banked_68k_reads(),
+            banked_68k_writes: self.core.mem.banked_68k_writes(),
+            vdp: self.core.mem.vdp_snapshot(),
+            steps: Vec::new(),
+            accesses: self.core.mem.accesses(),
+            vdp_control_writes: self.core.mem.vdp_control_writes(),
+            vdp_data_writes: self.core.mem.vdp_data_writes(),
+        }
+    }
+
+    pub fn render_into(&self, rgb: &mut [u8]) {
+        render_vdp_into(&self.core.mem.vdp_snapshot(), rgb);
+    }
+
+    pub fn generate_audio_samples(&mut self, sample_rate: u32, sample_count: usize) -> Vec<f32> {
+        self.audio_mixer
+            .push_events(self.core.mem.drain_audio_events());
+        self.audio_mixer.generate(sample_rate, sample_count)
+    }
+
+    pub fn set_audio_levels(&mut self, levels: AudioLevels) {
+        self.audio_mixer.set_levels(levels);
+    }
+
+    fn step_z80(&mut self, m68k_cycles: i32) {
+        let (busreq, reset) = {
+            let shared = self.core.mem.z80_shared.borrow();
+            (shared.busreq, shared.reset)
+        };
+        let mut remaining_cycles = ((m68k_cycles.max(0) as u32) * 7) / 15;
+        if remaining_cycles == 0 {
+            remaining_cycles = 1;
+        }
+        let mut audio_cycle_cursor = self.core.mem.z80_shared.borrow().z80_cycles;
+        let audio_cycle_end = audio_cycle_cursor.saturating_add(u64::from(remaining_cycles));
+
+        if reset {
+            self.core.mem.z80_shared.borrow_mut().z80_cycles = audio_cycle_end;
+            if !self.z80_reset_asserted {
+                self.z80.reset();
+                self.z80_reset_asserted = true;
+            }
+            self.z80_vblank_irq_cycles_remaining = 0;
+            self.z80.clr_irq();
+            return;
+        }
+        self.z80_reset_asserted = false;
+
+        if busreq {
+            self.core.mem.z80_shared.borrow_mut().z80_cycles = audio_cycle_end;
+            self.z80.clr_irq();
+            return;
+        }
+        loop {
+            self.core.mem.z80_shared.borrow_mut().z80_cycles = audio_cycle_cursor;
+            if self.z80_vblank_irq_cycles_remaining != 0 {
+                self.z80.assert_irq(0xFF);
+            } else {
+                self.z80.clr_irq();
+            }
+            let elapsed = self.z80.step();
+            let elapsed_budget = elapsed.min(remaining_cycles);
+            audio_cycle_cursor = audio_cycle_cursor.saturating_add(u64::from(elapsed_budget));
+            self.z80_vblank_irq_cycles_remaining = self
+                .z80_vblank_irq_cycles_remaining
+                .saturating_sub(elapsed_budget);
+            if elapsed_budget >= remaining_cycles {
+                break;
+            }
+            remaining_cycles = remaining_cycles.saturating_sub(elapsed_budget);
+        }
+        self.core.mem.z80_shared.borrow_mut().z80_cycles = audio_cycle_end;
+        if self.z80_vblank_irq_cycles_remaining == 0 {
+            self.z80.clr_irq();
+        }
+    }
+}
+
+pub fn render_frame(probe: &CpuProbe) -> FrameBuffer {
+    let width = 320usize;
+    let height = 224usize;
+    let mut rgb = vec![0; width * height * 3];
+    render_vdp_into(&probe.vdp, &mut rgb);
+    FrameBuffer { width, height, rgb }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IoState {
+    version_register: u8,
+    p1_port: ControllerPortState,
+    p2_port: ControllerPortState,
+    z80_busreq: bool,
+    z80_reset: bool,
+}
+
+impl Default for IoState {
+    fn default() -> Self {
+        Self {
+            version_register: 0x20,
+            p1_port: ControllerPortState::new(ControllerType::SixButton),
+            p2_port: ControllerPortState::new(ControllerType::None),
+            z80_busreq: false,
+            z80_reset: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ControllerType {
+    None,
+    SixButton,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ControllerPortState {
+    controller_type: ControllerType,
+    buttons: u8,
+    last_data_write: u8,
+    last_ctrl_write: u8,
+    th_flip_count: u8,
+    flip_reset_counter: u32,
+    cycles_until_th_high: u32,
+    controller_th: bool,
+}
+
+impl ControllerPortState {
+    fn new(controller_type: ControllerType) -> Self {
+        Self {
+            controller_type,
+            buttons: 0,
+            last_data_write: 0,
+            last_ctrl_write: 0,
+            th_flip_count: 0,
+            flip_reset_counter: 0,
+            cycles_until_th_high: 0,
+            controller_th: true,
+        }
+    }
+
+    fn read_data(&self) -> u8 {
+        if matches!(self.controller_type, ControllerType::None) {
+            return 0xFF;
+        }
+
+        let mut controller_byte = match (self.th_flip_count, self.controller_th) {
+            (0..=2, true) => {
+                unpressed_button_bit(self.buttons, 5, 5)
+                    + unpressed_button_bit(self.buttons, 4, 4)
+                    + unpressed_button_bit(self.buttons, 3, 3)
+                    + unpressed_button_bit(self.buttons, 2, 2)
+                    + unpressed_button_bit(self.buttons, 1, 1)
+                    + unpressed_button_bit(self.buttons, 0, 0)
+            }
+            (0..=1, false) => {
+                unpressed_button_bit(self.buttons, 7, 5)
+                    + unpressed_button_bit(self.buttons, 6, 4)
+                    + unpressed_button_bit(self.buttons, 1, 1)
+                    + unpressed_button_bit(self.buttons, 0, 0)
+            }
+            (3, true) => {
+                unpressed_button_bit(self.buttons, 5, 5)
+                    + unpressed_button_bit(self.buttons, 4, 4)
+                    + 0b0000_1111
+            }
+            (2, false) => {
+                unpressed_button_bit(self.buttons, 7, 5) + unpressed_button_bit(self.buttons, 6, 4)
+            }
+            (3, false) => {
+                unpressed_button_bit(self.buttons, 7, 5)
+                    + unpressed_button_bit(self.buttons, 6, 4)
+                    + 0b0000_1111
+            }
+            _ => 0x3F,
+        };
+        controller_byte += u8::from(self.controller_th) << CONTROLLER_TH_BIT;
+        controller_byte &= !self.last_ctrl_write;
+        let outputs_byte = self.last_data_write & (self.last_ctrl_write | 0x80);
+        controller_byte + outputs_byte
+    }
+
+    fn read_ctrl(&self) -> u8 {
+        self.last_ctrl_write
+    }
+
+    fn write_data(&mut self, value: u8) {
+        self.last_data_write = value;
+        self.maybe_set_th();
+    }
+
+    fn write_ctrl(&mut self, value: u8) {
+        self.last_ctrl_write = value;
+        self.maybe_set_th();
+        self.cycles_until_th_high = if ctrl_bit_set(value, CONTROLLER_TH_BIT) {
+            0
+        } else {
+            CONTROLLER_TH_HIGH_DELAY_CYCLES
+        };
+    }
+
+    fn set_buttons(&mut self, buttons: u8) {
+        self.buttons = buttons;
+    }
+
+    fn tick(&mut self, m68k_cycles: u32) {
+        self.flip_reset_counter = self.flip_reset_counter.saturating_sub(m68k_cycles);
+        if self.flip_reset_counter == 0 {
+            self.th_flip_count = 0;
+        }
+
+        if self.cycles_until_th_high != 0 {
+            self.cycles_until_th_high = self.cycles_until_th_high.saturating_sub(m68k_cycles);
+            if self.cycles_until_th_high == 0 {
+                self.controller_th = true;
+            }
+        }
+    }
+
+    fn maybe_set_th(&mut self) {
+        if !ctrl_bit_set(self.last_ctrl_write, CONTROLLER_TH_BIT) {
+            return;
+        }
+
+        let th = ctrl_bit_set(self.last_data_write, CONTROLLER_TH_BIT);
+        if matches!(self.controller_type, ControllerType::SixButton) && !self.controller_th && th {
+            self.th_flip_count = (self.th_flip_count + 1) % 4;
+            self.flip_reset_counter = CONTROLLER_FLIP_COUNTER_CYCLES;
+        }
+        self.controller_th = th;
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct VdpState {
+    status: u16,
+    registers: [u8; 0x20],
+    vram: Vec<u8>,
+    cram: Vec<u8>,
+    vsram: Vec<u8>,
+    pending_control_word: Option<u16>,
+    data_port_address: u16,
+    data_port_code: u8,
+    control_writes: Vec<u16>,
+    data_writes: Vec<u16>,
+}
+
+impl Default for VdpState {
+    fn default() -> Self {
+        Self {
+            status: 0x3400,
+            registers: [0; 0x20],
+            vram: vec![0; VRAM_LEN],
+            cram: vec![0; CRAM_LEN],
+            vsram: vec![0; VSRAM_LEN],
+            pending_control_word: None,
+            data_port_address: 0,
+            data_port_code: 0x01,
+            control_writes: Vec::new(),
+            data_writes: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone)]
+struct MdBus {
+    rom: Vec<u8>,
+    work_ram: Vec<u8>,
+    z80_shared: Rc<RefCell<Z80Shared>>,
+    ym2612_shadow: Rc<RefCell<Ym2612Shadow>>,
+    io: IoState,
+    vdp: VdpState,
+    accesses: RefCell<Vec<BusAccess>>,
+}
+
+impl MdBus {
+    fn new(
+        rom: &[u8],
+        z80_shared: Rc<RefCell<Z80Shared>>,
+        ym2612_shadow: Rc<RefCell<Ym2612Shadow>>,
+    ) -> Self {
+        Self {
+            rom: rom.to_vec(),
+            work_ram: vec![0; WORK_RAM_LEN],
+            z80_shared,
+            ym2612_shadow,
+            io: IoState::default(),
+            vdp: VdpState::default(),
+            accesses: RefCell::new(Vec::new()),
+        }
+    }
+
+    #[cfg(test)]
+    fn with_fresh_z80(rom: &[u8]) -> Self {
+        Self::new(
+            rom,
+            Rc::new(RefCell::new(Z80Shared::default())),
+            Rc::new(RefCell::new(Ym2612Shadow::new())),
+        )
+    }
+
+    fn accesses(&self) -> Vec<BusAccess> {
+        self.accesses.borrow().clone()
+    }
+
+    fn vdp_control_writes(&self) -> Vec<u16> {
+        self.vdp.control_writes.clone()
+    }
+
+    fn vdp_data_writes(&self) -> Vec<u16> {
+        self.vdp.data_writes.clone()
+    }
+
+    fn vdp_snapshot(&self) -> VdpSnapshot {
+        VdpSnapshot {
+            registers: self.vdp.registers,
+            vram: self.vdp.vram.clone(),
+            cram: self.vdp.cram.clone(),
+            vsram: self.vdp.vsram.clone(),
+        }
+    }
+
+    fn ym2612_write_count(&self) -> usize {
+        self.z80_shared.borrow().ym2612_write_count
+    }
+
+    fn ym2612_key_on_count(&self) -> usize {
+        self.z80_shared.borrow().ym2612_key_on_count
+    }
+
+    fn psg_write_count(&self) -> usize {
+        self.z80_shared.borrow().psg_write_count
+    }
+
+    fn z80_reset_count(&self) -> usize {
+        self.z80_shared.borrow().z80_reset_count
+    }
+
+    fn ym2612_writes(&self) -> Vec<(u16, u8)> {
+        self.z80_shared.borrow().ym2612_writes.clone()
+    }
+
+    fn psg_writes(&self) -> Vec<u8> {
+        self.z80_shared.borrow().psg_writes.clone()
+    }
+
+    fn banked_68k_reads(&self) -> Vec<(u32, u8)> {
+        self.z80_shared.borrow().banked_68k_reads.clone()
+    }
+
+    fn banked_68k_writes(&self) -> Vec<(u32, u8)> {
+        self.z80_shared.borrow().banked_68k_writes.clone()
+    }
+
+    fn drain_audio_events(&self) -> VecDeque<AudioEvent> {
+        std::mem::take(&mut self.z80_shared.borrow_mut().audio_events)
+    }
+
+    fn vint_enabled(&self) -> bool {
+        self.vdp.registers[1] & 0x20 != 0
+    }
+
+    fn vram_nonzero_bytes(&self) -> usize {
+        self.vdp.vram.iter().filter(|byte| **byte != 0).count()
+    }
+
+    fn cram_nonzero_bytes(&self) -> usize {
+        self.vdp.cram.iter().filter(|byte| **byte != 0).count()
+    }
+
+    fn vsram_nonzero_bytes(&self) -> usize {
+        self.vdp.vsram.iter().filter(|byte| **byte != 0).count()
+    }
+
+    fn record_access(&self, kind: BusAccessKind, address: u32, value: u32) {
+        let mut accesses = self.accesses.borrow_mut();
+        if accesses.len() < TRACE_LIMIT {
+            accesses.push(BusAccess {
+                kind,
+                address: address & ADDRESS_MASK,
+                value,
+            });
+        }
+    }
+
+    fn read_rom_byte(&self, address: u32) -> u8 {
+        self.rom.get(address as usize).copied().unwrap_or(0xFF)
+    }
+
+    fn work_ram_index(address: u32) -> usize {
+        (address as usize) & (WORK_RAM_LEN - 1)
+    }
+
+    fn z80_ram_index(address: u32) -> usize {
+        (address as usize) & (Z80_RAM_LEN - 1)
+    }
+
+    fn read_work_ram_byte(&self, address: u32) -> u8 {
+        self.work_ram[Self::work_ram_index(address)]
+    }
+
+    fn read_work_ram_word(&self, address: u32) -> u16 {
+        u16::from_be_bytes([
+            self.read_work_ram_byte(address),
+            self.read_work_ram_byte(address.wrapping_add(1)),
+        ])
+    }
+
+    fn read_work_ram_long(&self, address: u32) -> u32 {
+        (u32::from(self.read_work_ram_word(address)) << 16)
+            + u32::from(self.read_work_ram_word(address.wrapping_add(2)))
+    }
+
+    fn write_work_ram_byte(&mut self, address: u32, value: u8) {
+        let index = Self::work_ram_index(address);
+        self.work_ram[index] = value;
+        self.z80_shared.borrow_mut().m68k_work_ram[index] = value;
+    }
+
+    fn write_work_ram_word(&mut self, address: u32, value: u16) {
+        self.write_work_ram_byte(address, (value >> 8) as u8);
+        self.write_work_ram_byte(address.wrapping_add(1), value as u8);
+    }
+
+    fn read_io_register(&self, address: u32) -> u8 {
+        match address {
+            0x00A1_0000 | 0x00A1_0001 => self.io.version_register,
+            0x00A1_0002 | 0x00A1_0003 => self.io.p1_port.read_data(),
+            0x00A1_0004 | 0x00A1_0005 => self.io.p2_port.read_data(),
+            0x00A1_0008 | 0x00A1_0009 => self.io.p1_port.read_ctrl(),
+            0x00A1_000A | 0x00A1_000B => self.io.p2_port.read_ctrl(),
+            0x00A1_000E | 0x00A1_000F | 0x00A1_0014 | 0x00A1_0015 | 0x00A1_001A | 0x00A1_001B => {
+                0xFF
+            }
+            _ => 0x00,
+        }
+    }
+
+    fn write_io_register(&mut self, address: u32, value: u8) {
+        match address {
+            0x00A1_0002 | 0x00A1_0003 => self.io.p1_port.write_data(value),
+            0x00A1_0004 | 0x00A1_0005 => self.io.p2_port.write_data(value),
+            0x00A1_0008 | 0x00A1_0009 => self.io.p1_port.write_ctrl(value),
+            0x00A1_000A | 0x00A1_000B => self.io.p2_port.write_ctrl(value),
+            _ => {}
+        }
+    }
+
+    fn set_controller_1(&mut self, buttons: u8) {
+        self.io.p1_port.set_buttons(buttons);
+    }
+
+    fn tick_controller_ports(&mut self, m68k_cycles: u32) {
+        self.io.p1_port.tick(m68k_cycles);
+        self.io.p2_port.tick(m68k_cycles);
+    }
+
+    fn advance_ym2612_shadow(&mut self, clocks: u32) {
+        self.ym2612_shadow.borrow_mut().advance_clocks(clocks);
+    }
+
+    fn set_z80_busreq(&mut self, requested: bool) {
+        self.io.z80_busreq = requested;
+        self.z80_shared.borrow_mut().busreq = requested;
+    }
+
+    fn set_z80_reset(&mut self, asserted: bool) {
+        let was_asserted = self.io.z80_reset;
+        self.io.z80_reset = asserted;
+        let mut shared = self.z80_shared.borrow_mut();
+        shared.reset = asserted;
+        if !was_asserted && asserted {
+            shared.z80_reset_count = shared.z80_reset_count.saturating_add(1);
+            shared.ym2612_port_latches = [None, None];
+        }
+    }
+
+    fn z80_busack(&self) -> bool {
+        self.io.z80_busreq && !self.io.z80_reset
+    }
+
+    fn read_vdp_byte(&self, address: u32) -> u8 {
+        match address & 0x1F {
+            0x04 | 0x06 => (self.vdp.status >> 8) as u8,
+            0x05 | 0x07 => self.vdp.status as u8,
+            0x0C..=0x1F => 0xFF,
+            _ => 0x00,
+        }
+    }
+
+    fn write_vdp_byte(&mut self, address: u32, value: u8) {
+        let duplicated = u16::from_be_bytes([value, value]);
+        match address & 0x1F {
+            0x00..=0x03 => self.write_vdp_data_word(duplicated),
+            0x04..=0x07 => self.apply_vdp_control_write(duplicated),
+            _ => {}
+        }
+    }
+
+    fn apply_vdp_control_write(&mut self, value: u16) {
+        self.vdp.control_writes.push(value);
+        if value & 0xC000 == 0x8000 {
+            let register = ((value >> 8) & 0x1F) as usize;
+            self.vdp.registers[register] = value as u8;
+            self.vdp.pending_control_word = None;
+            return;
+        }
+
+        if let Some(first_word) = self.vdp.pending_control_word.take() {
+            self.configure_vdp_command(first_word, value);
+        } else {
+            self.vdp.pending_control_word = Some(value);
+        }
+    }
+
+    fn configure_vdp_command(&mut self, first_word: u16, second_word: u16) {
+        let command = (u32::from(first_word) << 16) + u32::from(second_word);
+        let code = (((command >> 30) & 0x3) as u8) + (((command >> 2) & 0xFC) as u8);
+        let address = (((command >> 16) & 0x3FFF) as u16) + (((command & 0x3) as u16) << 14);
+        self.vdp.data_port_code = code;
+        self.vdp.data_port_address = address;
+
+        if Self::is_dma_command(code) {
+            self.execute_vdp_dma();
+        }
+    }
+
+    fn auto_increment(&self) -> u16 {
+        let increment = self.vdp.registers[0x0F];
+        if increment == 0 {
+            2
+        } else {
+            u16::from(increment)
+        }
+    }
+
+    fn dma_length_words(&self) -> u32 {
+        let length =
+            u16::from_be_bytes([self.vdp.registers[0x14], self.vdp.registers[0x13]]) as u32;
+        if length == 0 { 0x1_0000 } else { length }
+    }
+
+    fn dma_source_address(&self) -> u32 {
+        (((u32::from(self.vdp.registers[0x17] & 0x7F)) << 16)
+            + (u32::from(self.vdp.registers[0x16]) << 8)
+            + u32::from(self.vdp.registers[0x15]))
+            << 1
+    }
+
+    fn dma_mode(&self) -> u8 {
+        self.vdp.registers[0x17] >> 6
+    }
+
+    fn is_dma_command(code: u8) -> bool {
+        matches!(code, 0x21 | 0x23 | 0x25)
+    }
+
+    fn write_vdp_data_word(&mut self, value: u16) {
+        self.vdp.data_writes.push(value);
+        self.write_vdp_data_raw(value);
+        self.vdp.data_port_address = self
+            .vdp
+            .data_port_address
+            .wrapping_add(self.auto_increment());
+    }
+
+    fn write_vdp_data_raw(&mut self, value: u16) {
+        match self.vdp.data_port_code & 0x0F {
+            0x01 => {
+                Self::write_vdp_word_slice(&mut self.vdp.vram, self.vdp.data_port_address, value);
+            }
+            0x03 => {
+                Self::write_vdp_word_slice(&mut self.vdp.cram, self.vdp.data_port_address, value);
+            }
+            0x05 => {
+                Self::write_vdp_word_slice(&mut self.vdp.vsram, self.vdp.data_port_address, value);
+            }
+            _ => {}
+        }
+    }
+
+    fn write_vdp_word_slice(slice: &mut [u8], address: u16, value: u16) {
+        if slice.is_empty() {
+            return;
+        }
+
+        let index = usize::from(address) % slice.len();
+        let [hi, lo] = value.to_be_bytes();
+        slice[index] = hi;
+        slice[(index + 1) % slice.len()] = lo;
+    }
+
+    fn execute_vdp_dma(&mut self) {
+        match self.dma_mode() {
+            0 | 1 => {
+                let mut source = self.dma_source_address();
+                let length = self.dma_length_words();
+                for _ in 0..length {
+                    let value = u16::from_be_bytes([
+                        self.read_byte_internal(source),
+                        self.read_byte_internal(source.wrapping_add(1)),
+                    ]);
+                    self.write_vdp_data_raw(value);
+                    self.vdp.data_port_address = self
+                        .vdp
+                        .data_port_address
+                        .wrapping_add(self.auto_increment());
+                    source = source.wrapping_add(2);
+                }
+            }
+            2 => {
+                let length = self.dma_length_words();
+                let fill_value = self.vdp.data_writes.last().copied().unwrap_or(0);
+                for _ in 0..length {
+                    self.write_vdp_data_raw(fill_value);
+                    self.vdp.data_port_address = self
+                        .vdp
+                        .data_port_address
+                        .wrapping_add(self.auto_increment());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn read_byte_internal(&self, address: u32) -> u8 {
+        match address {
+            0x000000..=0x009F_FFFF => self.read_rom_byte(address),
+            Z80_RAM_BASE..=Z80_RAM_END => {
+                if self.z80_busack() {
+                    self.z80_shared.borrow().ram[Self::z80_ram_index(address)]
+                } else {
+                    0xFF
+                }
+            }
+            0x00A1_0000..=0x00A1_001F => self.read_io_register(address),
+            0x00A1_1100..=0x00A1_1101 => u8::from(!self.z80_busack()),
+            0x00A1_1200..=0x00A1_1201 => u8::from(!self.io.z80_reset),
+            0x00C0_0000..=0x00C0_001F => self.read_vdp_byte(address),
+            WORK_RAM_BASE..=WORK_RAM_END => self.work_ram[Self::work_ram_index(address)],
+            _ => 0xFF,
+        }
+    }
+
+    fn write_byte_internal(&mut self, address: u32, value: u8) {
+        match address {
+            Z80_RAM_BASE..=Z80_RAM_END => {
+                if self.z80_busack() {
+                    let index = Self::z80_ram_index(address);
+                    self.z80_shared.borrow_mut().ram[index] = value;
+                }
+            }
+            0x00A1_0000..=0x00A1_001F => self.write_io_register(address, value),
+            0x00A1_1100..=0x00A1_1101 => self.set_z80_busreq(value & 1 != 0),
+            0x00A1_1200..=0x00A1_1201 => self.set_z80_reset(value & 1 == 0),
+            0x00C0_0000..=0x00C0_001F => self.write_vdp_byte(address, value),
+            WORK_RAM_BASE..=WORK_RAM_END => {
+                self.write_work_ram_byte(address, value);
+            }
+            _ => {}
+        }
+    }
+
+    fn read_word_internal(&self, address: u32) -> u16 {
+        match address {
+            Z80_RAM_BASE..=Z80_RAM_END => {
+                if self.z80_busack() {
+                    let byte = self.z80_shared.borrow().ram[Self::z80_ram_index(address)];
+                    u16::from_be_bytes([byte, byte])
+                } else {
+                    0xFF00
+                }
+            }
+            0x00A1_0000..=0x00A1_001F => u16::from(self.read_io_register(address)),
+            _ => u16::from_be_bytes([
+                self.read_byte_internal(address),
+                self.read_byte_internal(address.wrapping_add(1)),
+            ]),
+        }
+    }
+
+    fn write_word_internal(&mut self, address: u32, value: u16) {
+        match address {
+            Z80_RAM_BASE..=Z80_RAM_END => self.write_byte_internal(address, (value >> 8) as u8),
+            0x00A1_0000..=0x00A1_001F => self.write_io_register(address, value as u8),
+            0x00A1_1100..=0x00A1_1101 => self.set_z80_busreq((value & 0x0100) != 0),
+            0x00A1_1200..=0x00A1_1201 => self.set_z80_reset((value & 0x0100) == 0),
+            0x00C0_0000..=0x00C0_0003 => self.write_vdp_data_word(value),
+            0x00C0_0004..=0x00C0_0007 => self.apply_vdp_control_write(value),
+            _ => {
+                let [hi, lo] = value.to_be_bytes();
+                self.write_byte_internal(address, hi);
+                self.write_byte_internal(address.wrapping_add(1), lo);
+            }
+        }
+    }
+}
+
+impl Z80Bus {
+    fn read_banked_68k_byte(&self, address: u16) -> u8 {
+        let mut shared = self.shared.borrow_mut();
+        let banked_address = shared
+            .bank_address
+            .wrapping_add(u32::from(address.wrapping_sub(0x8000)));
+        let value = if (WORK_RAM_BASE..=WORK_RAM_END).contains(&banked_address) {
+            shared.m68k_work_ram[MdBus::work_ram_index(banked_address)]
+        } else {
+            self.rom
+                .get(banked_address as usize)
+                .copied()
+                .unwrap_or(0xFF)
+        };
+        if shared.banked_68k_reads.len() < TRACE_LIMIT {
+            shared.banked_68k_reads.push((banked_address, value));
+        }
+        value
+    }
+
+    fn write_banked_68k_byte(&self, address: u16, value: u8) {
+        let mut shared = self.shared.borrow_mut();
+        let banked_address = shared
+            .bank_address
+            .wrapping_add(u32::from(address.wrapping_sub(0x8000)));
+        if (WORK_RAM_BASE..=WORK_RAM_END).contains(&banked_address) {
+            let index = MdBus::work_ram_index(banked_address);
+            shared.m68k_work_ram[index] = value;
+        }
+        if shared.banked_68k_writes.len() < TRACE_LIMIT {
+            shared.banked_68k_writes.push((banked_address, value));
+        }
+    }
+
+    fn record_ym2612_write(&self, port: u16, value: u8) {
+        debug_assert!(port <= 3);
+        self.ym2612_shadow
+            .borrow_mut()
+            .write_port(port as u8, value);
+        let mut shared = self.shared.borrow_mut();
+        let z80_cycles = shared.z80_cycles;
+        match port {
+            0 => shared.ym2612_port_latches[0] = Some(u16::from(value)),
+            1 => {
+                if shared.ym2612_port_latches[0] == Some(0x0028) {
+                    shared.ym2612_key_on_count = shared.ym2612_key_on_count.saturating_add(1);
+                }
+            }
+            2 => shared.ym2612_port_latches[1] = Some(0x0100 + u16::from(value)),
+            3 => {
+                if shared.ym2612_port_latches[1] == Some(0x0128) {
+                    shared.ym2612_key_on_count = shared.ym2612_key_on_count.saturating_add(1);
+                }
+            }
+            _ => {}
+        }
+        shared.ym2612_write_count = shared.ym2612_write_count.saturating_add(1);
+        if shared.ym2612_writes.len() < TRACE_LIMIT {
+            shared.ym2612_writes.push((port, value));
+        }
+        shared.audio_events.push_back(AudioEvent::Ym2612Write {
+            z80_cycles,
+            port: port as u8,
+            value,
+        });
+    }
+
+    fn record_psg_write(&self, value: u8) {
+        let mut shared = self.shared.borrow_mut();
+        let z80_cycles = shared.z80_cycles;
+        shared.psg_write_count = shared.psg_write_count.saturating_add(1);
+        if shared.psg_writes.len() < TRACE_LIMIT {
+            shared.psg_writes.push(value);
+        }
+        let _ = shared.psg_registers.apply_write(value);
+        shared
+            .audio_events
+            .push_back(AudioEvent::PsgWrite { z80_cycles, value });
+    }
+
+    fn write_bank_register(&self, value: u8) {
+        let mut shared = self.shared.borrow_mut();
+        let current_bank = shared.bank_address >> 15;
+        let next_bank = ((current_bank >> 1) + (u32::from(value & 1) << 8)) & 0x01FF;
+        shared.bank_address = next_bank << 15;
+    }
+}
+
+impl Z80_io for Z80Bus {
+    fn read_byte(&self, address: u16) -> u8 {
+        match address {
+            0x0000..=0x1FFF => self.shared.borrow().ram[usize::from(address) & (Z80_RAM_LEN - 1)],
+            0x4000..=0x5FFF => self
+                .ym2612_shadow
+                .borrow_mut()
+                .read_port((address & 0x0003) as u8),
+            0x8000..=0xFFFF => self.read_banked_68k_byte(address),
+            _ => 0xFF,
+        }
+    }
+
+    fn write_byte(&mut self, address: u16, value: u8) {
+        match address {
+            0x0000..=0x1FFF => {
+                self.shared.borrow_mut().ram[usize::from(address) & (Z80_RAM_LEN - 1)] = value;
+            }
+            0x4000..=0x5FFF => self.record_ym2612_write(address & 0x0003, value),
+            0x6000..=0x60FF => self.write_bank_register(value),
+            0x7F11 => self.record_psg_write(value),
+            0x8000..=0xFFFF => self.write_banked_68k_byte(address, value),
+            _ => {}
+        }
+    }
+
+    fn port_in(&self, _address: u16) -> u8 {
+        0xFF
+    }
+
+    fn port_out(&mut self, _address: u16, _value: u8) {}
+}
+
+impl PsgSynth {
+    fn render_sample(&mut self, registers: &PsgRegisters, sample_rate: u32) -> f32 {
+        let psg_clocks_per_sample = (PSG_CLOCK_HZ / PSG_DIVIDER) / f64::from(sample_rate);
+        self.pending_psg_clocks += psg_clocks_per_sample;
+        let psg_clocks_to_run = (self.pending_psg_clocks.floor() as u32)
+            .min(max_psg_clocks_per_output_sample(sample_rate));
+        self.pending_psg_clocks -= f64::from(psg_clocks_to_run);
+        for _ in 0..psg_clocks_to_run {
+            self.clock(registers);
+        }
+
+        let mixed = self.sample(registers);
+        self.apply_dc_block(mixed).clamp(-0.25, 0.25)
+    }
+
+    fn clock(&mut self, registers: &PsgRegisters) {
+        for channel in 0..3 {
+            self.tone_counters[channel] = self.tone_counters[channel].saturating_sub(1);
+            if self.tone_counters[channel] == 0 {
+                self.tone_counters[channel] = registers.tone_periods[channel].max(1);
+                self.tone_outputs_high[channel] = !self.tone_outputs_high[channel];
+            }
+        }
+
+        self.noise_counter = self.noise_counter.saturating_sub(1);
+        if self.noise_counter != 0 {
+            return;
+        }
+
+        self.noise_counter = noise_reload(registers);
+        self.noise_clock_high = !self.noise_clock_high;
+        if self.noise_clock_high {
+            self.shift_noise_lfsr(registers.noise_control);
+        }
+    }
+
+    fn shift_noise_lfsr(&mut self, noise_control: u8) {
+        self.noise_output_high = self.noise_lfsr & 1 != 0;
+        let feedback = if noise_control & 0x04 != 0 {
+            (self.noise_lfsr & 1) ^ ((self.noise_lfsr >> 3) & 1)
+        } else {
+            self.noise_lfsr & 1
+        };
+        self.noise_lfsr = (self.noise_lfsr >> 1) + (feedback << 15);
+    }
+
+    fn sample(&self, registers: &PsgRegisters) -> f32 {
+        let mut mixed = 0.0f32;
+        for channel in 0..3 {
+            let volume = psg_volume(registers.volumes[channel]);
+            if volume == 0.0 {
+                continue;
+            }
+            mixed += if self.tone_outputs_high[channel] {
+                volume
+            } else {
+                -volume
+            };
+        }
+        let noise_volume = psg_volume(registers.volumes[3]);
+        if noise_volume != 0.0 {
+            mixed += if self.noise_output_high {
+                noise_volume
+            } else {
+                -noise_volume
+            };
+        }
+
+        mixed / 4.0
+    }
+
+    fn apply_dc_block(&mut self, input: f32) -> f32 {
+        let output =
+            input - self.dc_previous_input + (PSG_DC_BLOCK_COEFFICIENT * self.dc_previous_output);
+        self.dc_previous_input = input;
+        self.dc_previous_output = output;
+        output
+    }
+}
+
+impl AudioMixer {
+    fn set_levels(&mut self, levels: AudioLevels) {
+        self.levels = AudioLevels {
+            master: levels.master.clamp(0.0, 1.0),
+            ym2612: levels.ym2612.clamp(0.0, 1.0),
+            psg: levels.psg.clamp(0.0, 1.0),
+        };
+    }
+
+    fn push_events(&mut self, events: VecDeque<AudioEvent>) {
+        self.pending_events.extend(events);
+    }
+
+    fn ensure_psg_filter(&mut self, sample_rate: u32) {
+        if self.psg_output_sample_rate == sample_rate {
+            return;
+        }
+        self.psg_low_pass_filter =
+            FirstOrderFilter::low_pass(GENESIS_LPF_CUTOFF_HZ, f64::from(sample_rate));
+        self.psg_output_sample_rate = sample_rate;
+    }
+
+    fn generate(&mut self, sample_rate: u32, sample_count: usize) -> Vec<f32> {
+        let Some(sample_rate) = NonZeroU32::new(sample_rate) else {
+            return Vec::new();
+        };
+        if sample_count == 0 {
+            return Vec::new();
+        }
+        let sample_rate = sample_rate.get();
+
+        self.ensure_psg_filter(sample_rate);
+        let ym_sample_rate = f64::from(self.ym2612.sample_rate_hz());
+        let z80_cycles_per_output = Z80_CLOCK_HZ / f64::from(sample_rate);
+        let z80_cycles_per_ym = Z80_CLOCK_HZ / ym_sample_rate;
+        let mut mixed = Vec::with_capacity(sample_count * 2);
+
+        for _ in 0..sample_count {
+            let output_cycle_end =
+                (((self.output_samples_emitted + 1) as f64) * z80_cycles_per_output).floor() as u64;
+
+            let target_ym_samples = (((output_cycle_end + 1) as f64 / z80_cycles_per_ym).ceil()
+                as u64)
+                .saturating_sub(1)
+                .saturating_sub(self.ym_samples_emitted)
+                .min(max_ym_samples_per_output_sample(
+                    sample_rate,
+                    ym_sample_rate,
+                ));
+            for _ in 0..target_ym_samples {
+                let ym_cycle_end = ym_sample_cycle_end(self.ym_samples_emitted, z80_cycles_per_ym);
+                self.apply_events_up_to(ym_cycle_end);
+                self.last_ym_sample = self.generate_ym_sample();
+                self.ym_samples_emitted += 1;
+            }
+
+            self.apply_events_up_to(output_cycle_end);
+            let ym_sample = self.last_ym_sample;
+            let psg_sample = self.psg_low_pass_filter.filter(
+                self.psg_synth
+                    .render_sample(&self.psg_registers, sample_rate),
+            );
+            let left = ((ym_sample[0] * self.levels.ym2612)
+                + (psg_sample * PSG_GAIN * self.levels.psg))
+                * self.levels.master;
+            let right = ((ym_sample[1] * self.levels.ym2612)
+                + (psg_sample * PSG_GAIN * self.levels.psg))
+                * self.levels.master;
+            let left = left.clamp(-1.0, 1.0);
+            let right = right.clamp(-1.0, 1.0);
+            mixed.push(left);
+            mixed.push(right);
+            self.output_samples_emitted += 1;
+        }
+
+        mixed
+    }
+
+    fn apply_events_up_to(&mut self, z80_cycles: u64) {
+        loop {
+            let Some(event) = self.pending_events.front().copied() else {
+                break;
+            };
+            if event.z80_cycles() > z80_cycles {
+                break;
+            }
+
+            match event {
+                AudioEvent::Ym2612Write { port, value, .. } => self.ym2612.write_port(port, value),
+                AudioEvent::PsgWrite { value, .. } => {
+                    let noise_reset = self.psg_registers.apply_write(value);
+                    if noise_reset {
+                        self.psg_synth.reset_noise_lfsr();
+                    }
+                }
+            }
+            self.pending_events.pop_front();
+        }
+    }
+
+    fn generate_ym_sample(&mut self) -> [f32; 2] {
+        let mut left = [0i32; 1];
+        let mut right = [0i32; 1];
+        self.ym2612.generate(&mut left, &mut right);
+        [
+            self.apply_ym_filters(0, left[0] as f32 / 32768.0),
+            self.apply_ym_filters(1, right[0] as f32 / 32768.0),
+        ]
+    }
+
+    fn apply_ym_filters(&mut self, channel: usize, input: f32) -> f32 {
+        let sample = self.ym_dc_filters[channel].filter(input);
+        let sample = self.ym_low_pass_filters[channel].filter(sample);
+        self.ym_second_low_pass_filters[channel].filter(sample)
+    }
+}
+
+fn psg_volume(volume: u8) -> f32 {
+    PSG_ATTENUATION_TO_VOLUME[usize::from(volume.min(0x0F))]
+}
+
+fn noise_reload(registers: &PsgRegisters) -> u16 {
+    match registers.noise_control & 0x03 {
+        0 => 0x10,
+        1 => 0x20,
+        2 => 0x40,
+        _ => registers.tone_periods[2].max(1),
+    }
+}
+
+fn max_psg_clocks_per_output_sample(sample_rate: u32) -> u32 {
+    (((PSG_CLOCK_HZ / PSG_DIVIDER) as u32) / sample_rate.max(1)).saturating_add(2)
+}
+
+fn max_ym_samples_per_output_sample(sample_rate: u32, ym_sample_rate: f64) -> u64 {
+    ((ym_sample_rate as u32) / sample_rate.max(1)).saturating_add(2) as u64
+}
+
+fn ym_sample_cycle_end(ym_samples_emitted: u64, z80_cycles_per_ym: f64) -> u64 {
+    (((ym_samples_emitted + 1) as f64) * z80_cycles_per_ym).floor() as u64
+}
+
+fn ym2612_input_clocks_for_z80_cycles(z80_cycles: u32, remainder: &mut f64) -> u32 {
+    let exact = *remainder + (f64::from(z80_cycles) * YM2612_INPUT_CLOCK_HZ / Z80_CLOCK_HZ);
+    let clocks = exact.floor();
+    *remainder = exact - clocks;
+    clocks as u32
+}
+
+fn button_pressed(buttons: u8, button_bit: u8) -> bool {
+    buttons & (1 << button_bit) != 0
+}
+
+fn unpressed_button_bit(buttons: u8, button_bit: u8, output_bit: u8) -> u8 {
+    u8::from(!button_pressed(buttons, button_bit)) << output_bit
+}
+
+fn ctrl_bit_set(value: u8, bit: u8) -> bool {
+    value & (1 << bit) != 0
+}
+
+impl AddressBus for MdBus {
+    fn copy_from(&mut self, other: &Self) {
+        self.rom.clone_from(&other.rom);
+        self.work_ram.clone_from(&other.work_ram);
+        self.z80_shared.replace(other.z80_shared.borrow().clone());
+        self.ym2612_shadow.borrow_mut().reset();
+        {
+            let writes = other.z80_shared.borrow().ym2612_writes.clone();
+            let mut shadow = self.ym2612_shadow.borrow_mut();
+            for (port, value) in writes {
+                shadow.write_port((port & 0x0003) as u8, value);
+            }
+        }
+        self.io = other.io.clone();
+        self.vdp = other.vdp.clone();
+        self.accesses.replace(other.accesses());
+    }
+
+    fn read_byte(&self, _address_space: AddressSpace, address: u32) -> u32 {
+        let address = address & ADDRESS_MASK;
+        let value = self.read_byte_internal(address);
+        self.record_access(BusAccessKind::ReadByte, address, u32::from(value));
+        u32::from(value)
+    }
+
+    fn read_word(&self, _address_space: AddressSpace, address: u32) -> u32 {
+        let address = address & ADDRESS_MASK;
+        let value = self.read_word_internal(address);
+        self.record_access(BusAccessKind::ReadWord, address, u32::from(value));
+        u32::from(value)
+    }
+
+    fn read_long(&self, _address_space: AddressSpace, address: u32) -> u32 {
+        let address = address & ADDRESS_MASK;
+        let msw = self.read_word_internal(address);
+        let lsw = self.read_word_internal(address.wrapping_add(2));
+        let value = (u32::from(msw) << 16) + u32::from(lsw);
+        self.record_access(BusAccessKind::ReadWord, address, u32::from(msw));
+        self.record_access(
+            BusAccessKind::ReadWord,
+            address.wrapping_add(2) & ADDRESS_MASK,
+            u32::from(lsw),
+        );
+        value
+    }
+
+    fn write_byte(&mut self, _address_space: AddressSpace, address: u32, value: u32) {
+        let address = address & ADDRESS_MASK;
+        let value = value as u8;
+        self.record_access(BusAccessKind::WriteByte, address, u32::from(value));
+        self.write_byte_internal(address, value);
+    }
+
+    fn write_word(&mut self, _address_space: AddressSpace, address: u32, value: u32) {
+        let address = address & ADDRESS_MASK;
+        let value = value as u16;
+        self.record_access(BusAccessKind::WriteWord, address, u32::from(value));
+        self.write_word_internal(address, value);
+    }
+
+    fn write_long(&mut self, _address_space: AddressSpace, address: u32, value: u32) {
+        let address = address & ADDRESS_MASK;
+        self.record_access(BusAccessKind::WriteWord, address, value >> 16);
+        self.record_access(
+            BusAccessKind::WriteWord,
+            address.wrapping_add(2) & ADDRESS_MASK,
+            value & 0xFFFF,
+        );
+        self.write_word_internal(address, (value >> 16) as u16);
+        self.write_word_internal(address.wrapping_add(2), value as u16);
+    }
+}
+
+// --- Standalone GEMS Audio Engine ---
+
+/// ROM addresses where Kid Chameleon's GEMS sound data lives.
+const GEMS_PATCH_ADDR: u32 = 0x0E_160E;
+const GEMS_ENVELOPE_ADDR: u32 = 0x0E_25EA;
+const GEMS_SEQUENCE_ADDR: u32 = 0x0E_2766;
+const GEMS_SAMPLE_ADDR: u32 = 0x0E_8716;
+const GEMS_DRIVER_ADDR: u32 = 0x0F_E976;
+const GEMS_DRIVER_END_ADDR: u32 = 0x0F_FFFA;
+/// GEMS command queue: 64-byte circular buffer in Z80 RAM.
+const GEMS_QUEUE_ADDR: u16 = 0x1A40;
+/// Queue write pointer location in Z80 RAM.
+const GEMS_QUEUE_PTR_ADDR: u16 = 0x0036;
+const GEMS_QUEUE_SIZE: u8 = 64;
+
+/// Z80 bus for the standalone GEMS audio engine.
+/// Provides: Z80 RAM (driver code), virtual ROM via bank switching, YM2612 + PSG I/O.
+struct GemsBus {
+    ram: Vec<u8>,
+    /// Virtual ROM built from extracted sound data files.
+    virtual_rom: Vec<u8>,
+    bank_address: u32,
+    ym2612_shadow: RefCell<Ym2612Shadow>,
+    z80_cycles: u64,
+    audio_events: VecDeque<AudioEvent>,
+}
+
+impl GemsBus {
+    fn new(driver: &[u8], virtual_rom: Vec<u8>) -> Self {
+        let mut ram = vec![0u8; Z80_RAM_LEN];
+        // Load GEMS driver into Z80 RAM at address 0
+        let copy_len = driver.len().min(Z80_RAM_LEN);
+        ram[..copy_len].copy_from_slice(&driver[..copy_len]);
+        Self {
+            ram,
+            virtual_rom,
+            bank_address: 0,
+            ym2612_shadow: RefCell::new(Ym2612Shadow::new()),
+            z80_cycles: 0,
+            audio_events: VecDeque::new(),
+        }
+    }
+
+    fn reload_driver(&mut self, driver: &[u8]) {
+        self.ram.fill(0);
+        let copy_len = driver.len().min(Z80_RAM_LEN);
+        self.ram[..copy_len].copy_from_slice(&driver[..copy_len]);
+        self.bank_address = 0;
+        self.z80_cycles = 0;
+        self.audio_events.clear();
+        self.ym2612_shadow.borrow_mut().reset();
+    }
+
+    fn record_ym2612_write(&mut self, port: u8, value: u8) {
+        self.ym2612_shadow.borrow_mut().write_port(port, value);
+        self.audio_events.push_back(AudioEvent::Ym2612Write {
+            z80_cycles: self.z80_cycles,
+            port,
+            value,
+        });
+    }
+
+    fn record_psg_write(&mut self, value: u8) {
+        self.audio_events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: self.z80_cycles,
+            value,
+        });
+    }
+}
+
+impl Z80_io for GemsBus {
+    fn read_byte(&self, address: u16) -> u8 {
+        match address {
+            0x0000..=0x1FFF => self.ram[usize::from(address) & (Z80_RAM_LEN - 1)],
+            0x4000..=0x5FFF => self
+                .ym2612_shadow
+                .borrow_mut()
+                .read_port((address & 0x03) as u8),
+            0x8000..=0xFFFF => {
+                let banked = self
+                    .bank_address
+                    .wrapping_add(u32::from(address.wrapping_sub(0x8000)));
+                self.virtual_rom
+                    .get(banked as usize)
+                    .copied()
+                    .unwrap_or(0xFF)
+            }
+            _ => 0xFF,
+        }
+    }
+
+    fn write_byte(&mut self, address: u16, value: u8) {
+        match address {
+            0x0000..=0x1FFF => {
+                self.ram[usize::from(address) & (Z80_RAM_LEN - 1)] = value;
+            }
+            0x4000..=0x5FFF => self.record_ym2612_write((address & 0x03) as u8, value),
+            0x6000..=0x60FF => {
+                // Bank register write
+                let current_bank = self.bank_address >> 15;
+                let next_bank = ((current_bank >> 1) + (u32::from(value & 1) << 8)) & 0x01FF;
+                self.bank_address = next_bank << 15;
+            }
+            0x7F11 => self.record_psg_write(value),
+            _ => {}
+        }
+    }
+
+    fn port_in(&self, _address: u16) -> u8 {
+        0xFF
+    }
+
+    fn port_out(&mut self, _address: u16, _value: u8) {}
+}
+
+/// Standalone GEMS audio engine — runs the real Z80 GEMS sound driver
+/// with YM2612 FM synthesis and PSG, independent of the full M68K emulator.
+///
+/// Usage:
+/// 1. `GemsAudioEngine::new(driver, patches, envelopes, sequences, samples)`
+/// 2. `engine.start_sequence(sfx_id)` or `engine.play_music(bgm_id)`
+/// 3. `engine.step_frame()` each game frame (advances Z80 by one VBlank period)
+/// 4. `engine.generate_samples(735)` to pull 735 stereo samples (1 frame @ 44.1kHz)
+pub struct GemsAudioEngine {
+    z80: Z80<GemsBus>,
+    mixer: AudioMixer,
+    vblank_irq_cycles_remaining: u32,
+    ym2612_shadow_clock_remainder: f64,
+    initialised: bool,
+    driver: Vec<u8>,
+}
+
+/// Z80 cycles per VBlank period (NTSC: ~59,659 Z80 cycles per frame).
+/// 3,579,545 Hz / 59.92 Hz ≈ 59,742 cycles.
+const GEMS_Z80_CYCLES_PER_FRAME: u32 = 59_659;
+
+impl GemsAudioEngine {
+    /// Create a new GEMS audio engine from extracted sound data.
+    ///
+    /// - `driver`: GEMS_Sounddriver.bin (loaded into Z80 RAM at address 0)
+    /// - `patches`: instruments.bin (patch/instrument definitions)
+    /// - `envelopes`: envelopes.bin
+    /// - `sequences`: sequences.bin (song/SFX sequence data)
+    /// - `samples`: samples.bin (PCM sample data)
+    pub fn new(
+        driver: &[u8],
+        patches: &[u8],
+        envelopes: &[u8],
+        sequences: &[u8],
+        samples: &[u8],
+    ) -> Self {
+        // Build virtual ROM: place data at original ROM addresses
+        let max_addr = GEMS_SAMPLE_ADDR as usize + samples.len();
+        let mut virtual_rom = vec![0u8; max_addr];
+        Self::place_data(&mut virtual_rom, GEMS_PATCH_ADDR, patches);
+        Self::place_data(&mut virtual_rom, GEMS_ENVELOPE_ADDR, envelopes);
+        Self::place_data(&mut virtual_rom, GEMS_SEQUENCE_ADDR, sequences);
+        Self::place_data(&mut virtual_rom, GEMS_SAMPLE_ADDR, samples);
+
+        let bus = GemsBus::new(driver, virtual_rom);
+        let mut z80 = Z80::new(bus);
+        z80.reset();
+
+        Self {
+            z80,
+            mixer: AudioMixer::default(),
+            vblank_irq_cycles_remaining: 0,
+            ym2612_shadow_clock_remainder: 0.0,
+            initialised: false,
+            driver: driver.to_vec(),
+        }
+    }
+
+    /// Create a GEMS engine backed directly by the Kid Chameleon ROM.
+    ///
+    /// This uses the ROM's `GEMS_Sounddriver` bytes and lets the Z80 driver's
+    /// banked reads resolve against the full ROM image. `start_sequence` still
+    /// queues ASM `PlaySound`/`sub_E151C` command bytes through the real GEMS
+    /// FIFO (`FF,10,<id>`).
+    pub fn from_kid_rom(rom: &[u8]) -> Result<Self> {
+        ensure!(
+            rom.len() >= GEMS_DRIVER_END_ADDR as usize,
+            "ROM is too small for Kid Chameleon GEMS driver"
+        );
+        let driver = &rom[GEMS_DRIVER_ADDR as usize..GEMS_DRIVER_END_ADDR as usize];
+        let bus = GemsBus::new(driver, rom.to_vec());
+        let mut z80 = Z80::new(bus);
+        z80.reset();
+
+        Ok(Self {
+            z80,
+            mixer: AudioMixer::default(),
+            vblank_irq_cycles_remaining: 0,
+            ym2612_shadow_clock_remainder: 0.0,
+            initialised: false,
+            driver: driver.to_vec(),
+        })
+    }
+
+    fn place_data(rom: &mut [u8], base_addr: u32, data: &[u8]) {
+        let start = base_addr as usize;
+        let end = start + data.len();
+        if end <= rom.len() {
+            rom[start..end].copy_from_slice(data);
+        }
+    }
+
+    /// Initialise GEMS: send command 0x0B with data pointers.
+    /// Must be called once before playing any sounds.
+    pub fn init(&mut self) {
+        if self.initialised {
+            return;
+        }
+        // Run a few frames to let the driver boot
+        for _ in 0..4 {
+            self.step_z80_frame();
+        }
+        // ASM StopMusic calls sub_E13DA to load the driver, then sub_E149C and
+        // sub_E14AC queue: FF 0B <patch_ptr> <env_ptr> <seq_ptr> <sample_ptr>.
+        self.queue_byte(0xFF);
+        self.queue_byte(0x0B);
+        self.queue_24bit_addr(GEMS_PATCH_ADDR);
+        self.queue_24bit_addr(GEMS_ENVELOPE_ADDR);
+        self.queue_24bit_addr(GEMS_SEQUENCE_ADDR);
+        self.queue_24bit_addr(GEMS_SAMPLE_ADDR);
+        // Run a few more frames for GEMS to process the init
+        for _ in 0..4 {
+            self.step_z80_frame();
+        }
+        self.reset_audio_event_epoch();
+        self.initialised = true;
+    }
+
+    fn reset_audio_event_epoch(&mut self) {
+        self.z80.io.audio_events.clear();
+        self.z80.io.z80_cycles = 0;
+        self.ym2612_shadow_clock_remainder = 0.0;
+        self.mixer.output_samples_emitted = 0;
+        self.mixer.ym_samples_emitted = 0;
+    }
+
+    /// Match ASM `StopMusic` (kid.asm:49727): reload the driver, run
+    /// sub_E1416's Z80 reset, then queue the `$0B` sound-data pointer command.
+    /// This is the ROM path used before changing music contexts; `$16`
+    /// stop-all is not what Kid's 68k wrapper emits.
+    pub fn stop_music(&mut self) {
+        let levels = self.mixer.levels;
+        self.z80.io.reload_driver(&self.driver);
+        self.z80.reset();
+        self.mixer = AudioMixer::default();
+        self.mixer.set_levels(levels);
+        self.vblank_irq_cycles_remaining = 0;
+        self.ym2612_shadow_clock_remainder = 0.0;
+        self.initialised = false;
+        self.init();
+    }
+
+    /// Queue a single byte to the GEMS command circular buffer.
+    fn queue_byte(&mut self, value: u8) {
+        // ASM sub_E143A opens the Z80 bus; sub_E1482 writes the `$FF` marker,
+        // and sub_E148E writes ordinary bytes while advancing the `$3F`-masked
+        // FIFO pointer.
+        let ptr = self.z80.io.ram[usize::from(GEMS_QUEUE_PTR_ADDR)];
+        self.z80.io.ram[usize::from(GEMS_QUEUE_ADDR) + usize::from(ptr)] = value;
+        let next = (ptr.wrapping_add(1)) & (GEMS_QUEUE_SIZE - 1);
+        self.z80.io.ram[usize::from(GEMS_QUEUE_PTR_ADDR)] = next;
+    }
+
+    /// Queue a 24-bit ROM address in the low-to-high order used by ASM sub_E14AC.
+    fn queue_24bit_addr(&mut self, addr: u32) {
+        self.queue_byte((addr & 0xFF) as u8);
+        self.queue_byte(((addr >> 8) & 0xFF) as u8);
+        self.queue_byte(((addr >> 16) & 0xFF) as u8);
+    }
+
+    /// Start sequence N (GEMS command $10 = cmdstartseq).
+    pub fn start_sequence(&mut self, sound_id: u8) {
+        if !self.initialised {
+            self.init();
+        }
+        self.queue_byte(0xFF);
+        self.queue_byte(0x10);
+        self.queue_byte(sound_id);
+    }
+
+    /// Stop sequence N (GEMS command $12 = cmdstopseq). This is the GEMS
+    /// driver's per-sequence stop (matches CCBSNUM in GemsPlay_2-0.c case 18),
+    /// not a second "play" -- ASM j_PlaySound2/sub_E153E queues this byte.
+    pub fn stop_sequence(&mut self, sound_id: u8) {
+        if !self.initialised {
+            self.init();
+        }
+        self.queue_byte(0xFF);
+        self.queue_byte(0x12);
+        self.queue_byte(sound_id);
+    }
+
+    /// Apply Kid_Transform's music-speed update: sub_E1330 followed by sub_E1338.
+    pub fn set_music_speed(&mut self, speed: u8) {
+        if !self.initialised {
+            self.init();
+        }
+        // ASM loc_7E26 (kid.asm:8564-8566): `jsr (sub_E1330).l; jsr
+        // (sub_E1338).l`. sub_E1330 -> sub_E1546 -> sub_E1552 queues
+        // `FF 05 <speed>`, then sub_E1338 -> sub_E1568 queues `FF 0D`.
+        self.queue_byte(0xFF);
+        self.queue_byte(0x05);
+        self.queue_byte(speed);
+        self.queue_byte(0xFF);
+        self.queue_byte(0x0D);
+    }
+
+    /// Stop all currently running sequences (GEMS command $16 with sequence $FF).
+    pub fn stop_all_sequences(&mut self) {
+        if !self.initialised {
+            self.init();
+        }
+        // The GEMS interpreter's `$16 <id>` command stops sequence `id`; `$FF`
+        // stops all sequences.
+        self.queue_byte(0xFF);
+        self.queue_byte(0x16);
+        self.queue_byte(0xFF);
+    }
+
+    /// Advance Z80 by one frame's worth of cycles.
+    /// Call once per game frame (60 Hz).
+    pub fn step_frame(&mut self) {
+        let _ = self.step_frame_with_audio_writes();
+    }
+
+    /// Advance one frame and return the sound-chip writes emitted by the real
+    /// GEMS Z80 driver during that frame.
+    pub fn step_frame_with_audio_writes(&mut self) -> Vec<GemsAudioWrite> {
+        self.step_z80_frame();
+        // Drain audio events from bus into mixer
+        let events = std::mem::take(&mut self.z80.io.audio_events);
+        let writes = events
+            .iter()
+            .copied()
+            .map(AudioEvent::as_gems_write)
+            .collect();
+        self.mixer.push_events(events);
+        writes
+    }
+
+    fn step_z80_frame(&mut self) {
+        let mut remaining = GEMS_Z80_CYCLES_PER_FRAME;
+        // Fire VBlank IRQ at start of frame
+        self.vblank_irq_cycles_remaining = Z80_VBLANK_IRQ_CYCLES;
+
+        while remaining != 0 {
+            if self.vblank_irq_cycles_remaining > 0 {
+                self.z80.assert_irq(0xFF);
+            } else {
+                self.z80.clr_irq();
+            }
+            let elapsed = self.z80.step();
+            let budget = elapsed.min(remaining);
+            self.z80.io.ym2612_shadow.borrow_mut().advance_clocks(
+                ym2612_input_clocks_for_z80_cycles(budget, &mut self.ym2612_shadow_clock_remainder),
+            );
+            self.z80.io.z80_cycles = self.z80.io.z80_cycles.wrapping_add(u64::from(budget));
+            self.vblank_irq_cycles_remaining =
+                self.vblank_irq_cycles_remaining.saturating_sub(budget);
+            remaining = remaining.saturating_sub(budget);
+        }
+    }
+
+    /// Generate audio samples. Returns interleaved stereo f32 (L, R, L, R, ...).
+    /// For 60fps at 44.1kHz, request 735 samples per frame.
+    pub fn generate_samples(&mut self, sample_count: usize) -> Vec<f32> {
+        self.generate_samples_at_rate(44_100, sample_count)
+    }
+
+    /// Generate audio samples at the host device rate.
+    pub fn generate_samples_at_rate(&mut self, sample_rate: u32, sample_count: usize) -> Vec<f32> {
+        self.mixer.generate(sample_rate, sample_count)
+    }
+
+    /// Set audio volume levels.
+    pub fn set_levels(&mut self, levels: AudioLevels) {
+        self.mixer.set_levels(levels);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        AudioEvent, AudioLevels, AudioMixer, BusAccess, BusAccessKind,
+        CONTROLLER_FLIP_COUNTER_CYCLES, CONTROLLER_TH_BIT, CONTROLLER_TH_HIGH_DELAY_CYCLES,
+        ControllerPortState, ControllerType, FirstOrderFilter, GEMS_QUEUE_ADDR, GemsBus, MdBus,
+        MdRuntime, PsgRegisters, PsgSynth, SecondOrderFilter, TRACE_LIMIT, WORK_RAM_BASE,
+        YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared,
+        max_psg_clocks_per_output_sample, max_ym_samples_per_output_sample, noise_reload,
+        probe_rom, ym_sample_cycle_end, ym2612_input_clocks_for_z80_cycles,
+    };
+    use crate::vdp::{
+        ScrollPlane, SpriteLineScan, VdpSnapshot, WindowPlane, WindowRegion, cram_rgb,
+        render_vdp_into, scale_channel,
+    };
+    use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
+    use std::cell::RefCell;
+    use std::collections::VecDeque;
+    use std::rc::Rc;
+    use z80::Z80_io;
+
+    fn nop_rom() -> Vec<u8> {
+        let mut rom = vec![0x4E; 0x20_0000];
+        rom[1] = 0x71;
+        rom[0..4].copy_from_slice(&0x0000_1000u32.to_be_bytes());
+        rom[4..8].copy_from_slice(&0x0000_0008u32.to_be_bytes());
+        for chunk in rom[8..].chunks_exact_mut(2) {
+            chunk.copy_from_slice(&[0x4E, 0x71]);
+        }
+        rom
+    }
+
+    fn rom_with_code_at_reset(code: &[u8]) -> Vec<u8> {
+        let mut rom = nop_rom();
+        rom[8..8 + code.len()].copy_from_slice(code);
+        rom
+    }
+
+    fn blank_vdp_snapshot() -> VdpSnapshot {
+        VdpSnapshot {
+            registers: [0; 0x20],
+            vram: vec![0; 0x1_0000],
+            cram: vec![0; 0x80],
+            vsram: vec![0; 0x50],
+        }
+    }
+
+    fn write_tile_entry(vram: &mut [u8], base: usize, cell: usize, entry: u16) {
+        let [hi, lo] = entry.to_be_bytes();
+        vram[base + cell * 2] = hi;
+        vram[base + cell * 2 + 1] = lo;
+    }
+
+    fn make_tile_opaque(vram: &mut [u8], tile_index: usize, colour_nibble: u8) {
+        vram[tile_index * 32..tile_index * 32 + 32].fill((colour_nibble << 4) | colour_nibble);
+    }
+
+    fn set_tile_pixel(vram: &mut [u8], tile_index: usize, x: usize, y: usize, colour_nibble: u8) {
+        let byte = &mut vram[tile_index * 32 + y * 4 + x / 2];
+        if x & 1 == 0 {
+            *byte = (*byte & 0x0F) | (colour_nibble << 4);
+        } else {
+            *byte = (*byte & 0xF0) | colour_nibble;
+        }
+    }
+
+    fn write_cram_colour(cram: &mut [u8], palette_index: usize, colour: u16) {
+        let [hi, lo] = colour.to_be_bytes();
+        cram[palette_index * 2] = hi;
+        cram[palette_index * 2 + 1] = lo;
+    }
+
+    fn write_sprite_entry(
+        vram: &mut [u8],
+        sprite_table_base: usize,
+        sprite_index: usize,
+        ypos: i32,
+        size_link: u16,
+        pattern: u16,
+        xpos: i32,
+    ) {
+        let base = sprite_table_base + sprite_index * 8;
+        vram[base..base + 2].copy_from_slice(&((ypos + 128) as u16).to_be_bytes());
+        vram[base + 2..base + 4].copy_from_slice(&size_link.to_be_bytes());
+        vram[base + 4..base + 6].copy_from_slice(&pattern.to_be_bytes());
+        vram[base + 6..base + 8].copy_from_slice(&((xpos + 128) as u16).to_be_bytes());
+    }
+
+    fn assert_close(actual: f32, expected: f32, epsilon: f32) {
+        assert!(
+            (actual - expected).abs() <= epsilon,
+            "expected {actual} to be within {epsilon} of {expected}",
+        );
+    }
+
+    fn write_ym_register(mixer: &mut AudioMixer, register: u8, value: u8) {
+        mixer.ym2612.write_port(0, register);
+        mixer.ym2612.write_port(1, value);
+    }
+
+    #[test]
+    fn probes_reset_vector_and_steps_nops() {
+        let rom = [
+            0x00, 0x00, 0x10, 0x00, // initial SP
+            0x00, 0x00, 0x00, 0x08, // initial PC
+            0x4E, 0x71, // NOP
+            0x4E, 0x71, // NOP
+        ];
+
+        let probe = probe_rom(&rom, 2).expect("probe should succeed");
+        assert_eq!(probe.reset_sp, 0x0000_1000);
+        assert_eq!(probe.reset_pc, 0x0000_0008);
+        assert_eq!(probe.final_pc, 0x0000_000C);
+        assert_eq!(probe.steps.len(), 2);
+        assert!(!probe.accesses.is_empty());
+    }
+
+    #[test]
+    fn probe_rom_reports_nonzero_just_received_damage_as_true() {
+        // Probe ROM: `move.b #1,($FFFFFA73).l; nop`. $FFFFFA73 is the
+        // `Just_received_damage` byte exported by CpuProbe.
+        let rom =
+            rom_with_code_at_reset(&[0x13, 0xFC, 0x00, 0x01, 0x00, 0xFF, 0xFA, 0x73, 0x4E, 0x71]);
+
+        let probe = probe_rom(&rom, 2).expect("probe should execute byte write");
+
+        assert!(probe.just_received_damage);
+    }
+
+    #[test]
+    fn probe_rom_controller_script_advances_once_per_rendered_frame() {
+        // Probe ROM:
+        //   move.b #$7E,($00A10009).l        ; controller ctrl masks every data bit except bit 0
+        // loop:
+        //   move.b ($00A10003).l,($FFFFFA73).l
+        //   bra.s loop
+        //
+        // With active-low controller input, script frame 0 (no buttons) writes 1
+        // and script frame 1 (button bit 0 held) writes 0. The run length is
+        // chosen to cross exactly one synthetic rendered frame, so advancing the
+        // script too early or more than once leaves the final byte non-zero.
+        let rom = rom_with_code_at_reset(&[
+            0x13, 0xFC, 0x00, 0x7E, 0x00, 0xA1, 0x00, 0x09, 0x13, 0xF9, 0x00, 0xA1, 0x00, 0x03,
+            0x00, 0xFF, 0xFA, 0x73, 0x60, 0xF4,
+        ]);
+
+        let probe = super::probe_rom_with_script(&rom, 12_500, &[0x00, 0x01])
+            .expect("probe should run through one rendered frame");
+
+        assert_eq!(probe.synthetic_vblanks, 1);
+        assert!(
+            !probe.just_received_damage,
+            "script frame 1 should hold button bit 0 after exactly one rendered frame"
+        );
+    }
+
+    #[test]
+    fn frame_render_boundary_is_not_gated_on_vint_enable() {
+        // ASM `Title_InputLoop` writes `Game_Mode=$0008`, and `loc_1AE2E`
+        // does not advance to `$000C` until later visible level-entry frames.
+        // Capture must therefore keep counting rendered frames even when the
+        // ROM temporarily masks VInt during that mode-8 window.
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+        runtime.core.mem.vdp.registers[1] &= !0x20;
+
+        assert!(
+            runtime.run_until_frame_rendered(200_000),
+            "frame counter should advance even while VInt is masked"
+        );
+    }
+
+    #[test]
+    fn run_until_vblank_reports_timeout_and_counter_change() {
+        // Probe ROM: `move.l #1,($FFFFF806).l; nop`. $FFFFF806 is the
+        // VInt counter observed by MdRuntime::run_until_vblank.
+        let rom = rom_with_code_at_reset(&[
+            0x23, 0xFC, 0x00, 0x00, 0x00, 0x01, 0x00, 0xFF, 0xF8, 0x06, 0x4E, 0x71,
+        ]);
+        let mut runtime = MdRuntime::new(&rom).expect("runtime should boot counter probe ROM");
+
+        assert!(!runtime.run_until_vblank(0));
+        assert!(runtime.run_until_vblank(1));
+    }
+
+    #[test]
+    fn run_until_frame_rendered_reports_timeout_and_synthetic_frame() {
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+
+        assert!(!runtime.run_until_frame_rendered(0));
+        assert!(!runtime.run_until_frame_rendered(1));
+        assert!(runtime.run_until_frame_rendered(200_000));
+    }
+
+    #[test]
+    fn cpu_probe_reports_nonzero_just_received_damage_as_true() {
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+        runtime
+            .core
+            .mem
+            .write_work_ram_byte(super::JUST_RECEIVED_DAMAGE_ADDR, 1);
+
+        assert!(runtime.snapshot().just_received_damage);
+    }
+
+    #[test]
+    fn render_into_uses_runtime_vdp_background_colour() {
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+        runtime.core.mem.vdp.cram[0..2].copy_from_slice(&[0x0E, 0xEE]);
+        let mut rgb = vec![0; 320 * 224 * 3];
+
+        runtime.render_into(&mut rgb);
+
+        assert_eq!(&rgb[0..3], &[0xFF, 0xFF, 0xFF]);
+    }
+
+    #[test]
+    fn render_vdp_decodes_plane_a_name_table_base_mask() {
+        // ASM VDP setup writes register 2 as the plane A name-table base; only
+        // bits 3..5 form the Mega Drive base address used by rendering.
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[2] = 0xC8;
+        vdp.cram[2..4].copy_from_slice(&[0x0E, 0xEE]);
+        make_tile_opaque(&mut vdp.vram, 1, 1);
+        write_tile_entry(&mut vdp.vram, 0x2000, 0, 0x0001);
+        let mut rgb = vec![0; 320 * 224 * 3];
+
+        render_vdp_into(&vdp, &mut rgb);
+
+        assert_eq!(&rgb[0..3], &[0xFF, 0xFF, 0xFF]);
+    }
+
+    #[test]
+    fn render_vdp_decodes_plane_b_name_table_base_mask() {
+        // ASM VDP setup writes register 4 as the plane B name-table base; only
+        // bits 0..2 form the Mega Drive base address used by rendering.
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[4] = 0x81;
+        vdp.cram[2..4].copy_from_slice(&[0x0E, 0xEE]);
+        make_tile_opaque(&mut vdp.vram, 1, 1);
+        write_tile_entry(&mut vdp.vram, 0x2000, 0, 0x0001);
+        let mut rgb = vec![0; 320 * 224 * 3];
+
+        render_vdp_into(&vdp, &mut rgb);
+
+        assert_eq!(&rgb[0..3], &[0xFF, 0xFF, 0xFF]);
+    }
+
+    #[test]
+    fn render_vdp_decodes_hscroll_table_base() {
+        // ASM VDP setup uses register $0D as the horizontal-scroll table base;
+        // shifting by 10 selects the correct VRAM table for per-plane scroll.
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[2] = 0x08;
+        vdp.registers[0x0D] = 1;
+        vdp.cram[2..4].copy_from_slice(&[0x0E, 0xEE]);
+        make_tile_opaque(&mut vdp.vram, 1, 1);
+        write_tile_entry(&mut vdp.vram, 0x2000, 0, 0x0001);
+        vdp.vram[0x0400..0x0402].copy_from_slice(&8u16.to_be_bytes());
+        let mut rgb = vec![0; 320 * 224 * 3];
+
+        render_vdp_into(&vdp, &mut rgb);
+
+        assert_eq!(&rgb[0..3], &[0x00, 0x00, 0x00]);
+        assert_eq!(&rgb[8 * 3..8 * 3 + 3], &[0xFF, 0xFF, 0xFF]);
+    }
+
+    #[test]
+    fn runtime_audio_generation_uses_levels_and_requested_sample_count() {
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+        runtime.set_audio_levels(AudioLevels {
+            master: 0.0,
+            ym2612: 1.0,
+            psg: 1.0,
+        });
+
+        let samples = runtime.generate_audio_samples(44_100, 64);
+
+        assert_eq!(samples.len(), 128);
+        assert!(samples.iter().all(|sample| sample.abs() <= f32::EPSILON));
+    }
+
+    #[test]
+    fn step_z80_reset_path_advances_audio_clock_and_latches_reset() {
+        // ASM $00025C/WaitForZ80 writes Z80_Reset while boot code polls Z80_Bus_Request.
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+
+        runtime.step_z80(0);
+        assert_eq!(runtime.core.mem.z80_shared.borrow().z80_cycles, 1);
+        assert!(runtime.z80_reset_asserted);
+        assert_eq!(runtime.z80_vblank_irq_cycles_remaining, 0);
+
+        runtime.step_z80(15);
+        assert_eq!(runtime.core.mem.z80_shared.borrow().z80_cycles, 8);
+    }
+
+    #[test]
+    fn step_z80_bus_request_advances_audio_clock_without_running_cpu() {
+        // ASM Stop_z80/Start_z80 use $A11100 bus request to pause and resume Z80 ownership.
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+        {
+            let mut shared = runtime.core.mem.z80_shared.borrow_mut();
+            shared.reset = false;
+            shared.busreq = true;
+            shared.z80_cycles = 10;
+        }
+        runtime.z80_reset_asserted = true;
+
+        runtime.step_z80(30);
+
+        assert_eq!(runtime.core.mem.z80_shared.borrow().z80_cycles, 24);
+        assert!(!runtime.z80_reset_asserted);
+    }
+
+    #[test]
+    fn step_z80_running_path_consumes_budget_and_counts_down_vblank_irq() {
+        // ASM VInt handling raises the Z80 IRQ line for the leading VBlank window;
+        // the line must remain asserted while the window still has cycles left.
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+        {
+            let mut shared = runtime.core.mem.z80_shared.borrow_mut();
+            shared.reset = false;
+            shared.busreq = false;
+            shared.z80_cycles = 0;
+        }
+        runtime.z80_vblank_irq_cycles_remaining = 30;
+
+        runtime.step_z80(30);
+
+        assert_eq!(runtime.core.mem.z80_shared.borrow().z80_cycles, 14);
+        assert_eq!(runtime.z80_vblank_irq_cycles_remaining, 16);
+        assert_ne!(runtime.z80.irq_pending, 0);
+        assert_eq!(runtime.z80.irq_data, 0xFF);
+    }
+
+    #[test]
+    fn work_ram_is_mirrored_across_upper_address_space() {
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.write_word(SUPERVISOR_DATA, WORK_RAM_BASE, 0x1234);
+        assert_eq!(bus.read_word(SUPERVISOR_DATA, WORK_RAM_BASE), 0x1234);
+        assert_eq!(bus.read_word(SUPERVISOR_DATA, 0x00FF_0000), 0x1234);
+    }
+
+    #[test]
+    fn z80_ram_window_indexes_wrap_within_8k() {
+        // ASM header vectors list Z80_RAM, and Z80StartupCodeBegin copies into
+        // the Mega Drive's 8 KiB Z80 RAM window mirrored across $A00000-$A0FFFF.
+        assert_eq!(MdBus::z80_ram_index(Z80_RAM_BASE + 0x1234), 0x1234);
+        assert_eq!(MdBus::z80_ram_index(Z80_RAM_BASE + 0x3234), 0x1234);
+        assert_eq!(MdBus::z80_ram_index(Z80_RAM_BASE + 0x1FFF), 0x1FFF);
+    }
+
+    #[test]
+    fn work_ram_long_reads_are_68k_big_endian() {
+        // ASM $02F2 uses `move.l (Options_Suboption_2PController).w,d7`;
+        // long reads from mirrored work RAM must preserve 68k big-endian order.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.write_word(SUPERVISOR_DATA, WORK_RAM_BASE + 0x0010, 0x1234);
+        bus.write_word(SUPERVISOR_DATA, WORK_RAM_BASE + 0x0012, 0x5678);
+
+        assert_eq!(bus.read_work_ram_long(WORK_RAM_BASE + 0x0010), 0x1234_5678);
+    }
+
+    #[test]
+    fn address_bus_long_accesses_split_into_big_endian_words_and_trace_both_halves() {
+        // 68k longword bus cycles are two big-endian word accesses; oracle bus
+        // probes compare those word-sized side effects, not a synthetic long access.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+
+        bus.write_long(SUPERVISOR_DATA, WORK_RAM_BASE + 0x0010, 0x1234_5678);
+        assert_eq!(
+            bus.read_long(SUPERVISOR_DATA, WORK_RAM_BASE + 0x0010),
+            0x1234_5678
+        );
+
+        assert_eq!(
+            bus.accesses(),
+            vec![
+                BusAccess {
+                    kind: BusAccessKind::WriteWord,
+                    address: WORK_RAM_BASE + 0x0010,
+                    value: 0x1234,
+                },
+                BusAccess {
+                    kind: BusAccessKind::WriteWord,
+                    address: WORK_RAM_BASE + 0x0012,
+                    value: 0x5678,
+                },
+                BusAccess {
+                    kind: BusAccessKind::ReadWord,
+                    address: WORK_RAM_BASE + 0x0010,
+                    value: 0x1234,
+                },
+                BusAccess {
+                    kind: BusAccessKind::ReadWord,
+                    address: WORK_RAM_BASE + 0x0012,
+                    value: 0x5678,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn address_bus_copy_from_clones_runtime_visible_state() {
+        let mut source = MdBus::with_fresh_z80(&[0x12, 0x34, 0x56, 0x78]);
+        let mut target = MdBus::with_fresh_z80(&[]);
+        source.write_word(SUPERVISOR_DATA, WORK_RAM_BASE + 0x0020, 0xCAFE);
+        source.write_word(SUPERVISOR_DATA, 0x00C0_0004, 0x8124);
+        source.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0100);
+        source.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0000);
+
+        target.copy_from(&source);
+
+        assert_eq!(target.accesses(), source.accesses());
+        assert_eq!(target.read_byte(SUPERVISOR_DATA, 0), 0x12);
+        assert_eq!(
+            target.read_word(SUPERVISOR_DATA, WORK_RAM_BASE + 0x0020),
+            0xCAFE
+        );
+        assert_eq!(target.vdp.registers[1], 0x24);
+        assert_eq!(target.z80_reset_count(), 1);
+    }
+
+    #[test]
+    fn address_bus_copy_from_masks_replayed_ym2612_ports_to_two_bits() {
+        let source = MdBus::with_fresh_z80(&[]);
+        let mut target = MdBus::with_fresh_z80(&[]);
+        source
+            .z80_shared
+            .borrow_mut()
+            .ym2612_writes
+            .extend([(0x0100, 0x30), (0x0101, 0xFF)]);
+
+        target.copy_from(&source);
+
+        let status = target.ym2612_shadow.borrow_mut().read_port(0);
+        assert_ne!(
+            status & 0x80,
+            0,
+            "cloned YM writes must replay through port & 3 so high-bit trace addresses still restore the busy status"
+        );
+    }
+
+    #[test]
+    fn controller_and_vdp_accesses_are_traced() {
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.write_word(SUPERVISOR_DATA, 0x00A1_0003, 0x0040);
+        bus.write_word(SUPERVISOR_DATA, 0x00C0_0004, 0x8134);
+        let accesses = bus.accesses();
+        assert!(accesses.iter().any(|access| {
+            access.kind == BusAccessKind::WriteWord && access.address == 0x00A1_0003
+        }));
+        assert!(accesses.iter().any(|access| {
+            access.kind == BusAccessKind::WriteWord && access.address == 0x00C0_0004
+        }));
+        assert_eq!(bus.vdp_control_writes(), vec![0x8134]);
+    }
+
+    #[test]
+    fn bus_trace_accessors_report_vdp_audio_and_z80_side_effects() {
+        // ASM init writes VDP ports, Z80_Reset, and GEMS/YM/PSG-backed sound
+        // hardware. These trace accessors are the native feedback surface for
+        // comparing those hardware side effects against oracle probes.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+
+        assert_eq!(bus.z80_reset_count(), 0);
+        assert_eq!(bus.ym2612_key_on_count(), 0);
+        assert_eq!(bus.psg_write_count(), 0);
+
+        bus.write_word(SUPERVISOR_DATA, 0x00C0_0000, 0xBEEF);
+        assert_eq!(bus.vdp_data_writes(), vec![0xBEEF]);
+
+        bus.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0100);
+        bus.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0000);
+        assert_eq!(bus.z80_reset_count(), 1);
+
+        bus.vdp.registers[1] = 0x20;
+        assert!(bus.vint_enabled());
+        bus.vdp.registers[1] = 0x00;
+        assert!(!bus.vint_enabled());
+
+        bus.write_byte(SUPERVISOR_DATA, WORK_RAM_BASE, 0x5A);
+        let mut z80_bus = Z80Bus {
+            shared: bus.z80_shared.clone(),
+            ym2612_shadow: bus.ym2612_shadow.clone(),
+            rom: vec![0; 0x20_0000],
+        };
+        {
+            let mut shared = bus.z80_shared.borrow_mut();
+            shared.bank_address = WORK_RAM_BASE;
+            shared.z80_cycles = 77;
+        }
+
+        assert_eq!(z80_bus.read_byte(0x8000), 0x5A);
+        z80_bus.write_byte(0x8001, 0x6B);
+        z80_bus.write_byte(0x4000, 0x28);
+        z80_bus.write_byte(0x4001, 0xF0);
+        z80_bus.write_byte(0x7F11, 0x90);
+
+        assert_eq!(bus.banked_68k_reads(), vec![(WORK_RAM_BASE, 0x5A)]);
+        assert_eq!(bus.banked_68k_writes(), vec![(WORK_RAM_BASE + 1, 0x6B)]);
+        assert_eq!(bus.ym2612_write_count(), 2);
+        assert_eq!(bus.ym2612_key_on_count(), 1);
+        assert_eq!(bus.ym2612_writes(), vec![(0, 0x28), (1, 0xF0)]);
+        assert_eq!(bus.psg_write_count(), 1);
+        assert_eq!(bus.psg_writes(), vec![0x90]);
+
+        let events: Vec<_> = bus.drain_audio_events().into_iter().collect();
+        assert_eq!(
+            events,
+            vec![
+                AudioEvent::Ym2612Write {
+                    z80_cycles: 77,
+                    port: 0,
+                    value: 0x28,
+                },
+                AudioEvent::Ym2612Write {
+                    z80_cycles: 77,
+                    port: 1,
+                    value: 0xF0,
+                },
+                AudioEvent::PsgWrite {
+                    z80_cycles: 77,
+                    value: 0x90,
+                },
+            ]
+        );
+        assert!(bus.drain_audio_events().is_empty());
+    }
+
+    #[test]
+    fn md_io_registers_decode_controller_ports_like_readjoypad() {
+        // ASM ReadJoypad loads $A10003 and $A10005, then Joypad_ReadFromHardware
+        // writes TH low/high through the same data ports before sampling bits.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+
+        assert_eq!(bus.read_io_register(0x00A1_0000), 0x20);
+        assert_eq!(bus.read_io_register(0x00A1_0001), 0x20);
+        assert_eq!(bus.read_io_register(0x00A1_0003), 0x7F);
+        assert_eq!(bus.read_io_register(0x00A1_0005), 0xFF);
+
+        bus.write_io_register(0x00A1_0008, 0x40);
+        bus.write_io_register(0x00A1_0003, 0x00);
+        assert_eq!(bus.read_io_register(0x00A1_0002), 0x33);
+        assert_eq!(bus.read_io_register(0x00A1_0008), 0x40);
+        bus.write_io_register(0x00A1_0003, 0x40);
+        assert_eq!(bus.read_io_register(0x00A1_0003), 0x7F);
+
+        bus.io.p2_port = ControllerPortState::new(ControllerType::SixButton);
+        bus.write_io_register(0x00A1_000A, 0x40);
+        bus.write_io_register(0x00A1_0005, 0x00);
+        assert_eq!(bus.read_io_register(0x00A1_0004), 0x33);
+        assert_eq!(bus.read_io_register(0x00A1_000A), 0x40);
+        bus.write_io_register(0x00A1_0005, 0x40);
+        assert_eq!(bus.read_io_register(0x00A1_0005), 0x7F);
+        assert_eq!(bus.read_io_register(0x00A1_000E), 0xFF);
+        assert_eq!(bus.read_io_register(0x00A1_0014), 0xFF);
+        assert_eq!(bus.read_io_register(0x00A1_001A), 0xFF);
+        assert_eq!(bus.read_io_register(0x00A1_0010), 0x00);
+    }
+
+    #[test]
+    fn md_bus_timing_step_ticks_controllers_and_ym_status_decay() {
+        // ASM Joypad_ReadFromHardware depends on TH phase timing, while the Z80
+        // GEMS driver polls the YM2612 busy flag through the MD bus.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.io.p2_port = ControllerPortState::new(ControllerType::SixButton);
+        bus.io.p1_port.th_flip_count = 2;
+        bus.io.p1_port.flip_reset_counter = 4;
+        bus.io.p2_port.th_flip_count = 3;
+        bus.io.p2_port.flip_reset_counter = 4;
+        {
+            let mut shadow = bus.ym2612_shadow.borrow_mut();
+            shadow.write_port(0, 0x30);
+            shadow.write_port(1, 0xFF);
+            let _ = shadow.read_port(0);
+        }
+
+        bus.tick_controller_ports(4);
+        bus.advance_ym2612_shadow(YM2612_STATUS_DECAY_CLOCKS);
+
+        assert_eq!(bus.io.p1_port.th_flip_count, 0);
+        assert_eq!(bus.io.p2_port.th_flip_count, 0);
+        assert_eq!(bus.ym2612_shadow.borrow().status_decay_clocks_remaining, 0);
+    }
+
+    #[test]
+    fn md_vdp_byte_ports_decode_status_data_and_control() {
+        // ASM init tests VDP_control_port, then uses a6=$C00000 so 4(a6) is
+        // VDP_control_port and the base address is VDP_data_port.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.vdp.status = 0xABCD;
+
+        assert_eq!(bus.read_vdp_byte(0x00C0_0004), 0xAB);
+        assert_eq!(bus.read_vdp_byte(0x00C0_0006), 0xAB);
+        assert_eq!(bus.read_vdp_byte(0x00C0_0005), 0xCD);
+        assert_eq!(bus.read_vdp_byte(0x00C0_0007), 0xCD);
+        assert_eq!(bus.read_vdp_byte(0x00C0_0008), 0x00);
+        assert_eq!(bus.read_vdp_byte(0x00C0_000B), 0x00);
+        assert_eq!(bus.read_vdp_byte(0x00C0_000C), 0xFF);
+        assert_eq!(bus.read_vdp_byte(0x00C0_001F), 0xFF);
+        assert_eq!(bus.read_vdp_byte(0x00C0_0000), 0x00);
+
+        bus.write_vdp_byte(0x00C0_0000, 0x12);
+        assert_eq!(bus.vdp_data_writes(), vec![0x1212]);
+        assert_eq!(&bus.vdp.vram[0..2], &[0x12, 0x12]);
+        assert_eq!(bus.vdp.data_port_address, 2);
+
+        bus.write_vdp_byte(0x00C0_0006, 0x8F);
+        assert_eq!(bus.vdp_control_writes(), vec![0x8F8F]);
+        assert_eq!(bus.vdp.registers[0x0F], 0x8F);
+    }
+
+    #[test]
+    fn md_vdp_command_words_decode_address_code_and_data_writes() {
+        // ASM VDPGameInitValues writes vdpComm(..., VRAM/CRAM/VSRAM, WRITE)
+        // longwords to VDP_control_port before sending data to VDP_data_port.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+
+        bus.configure_vdp_command(0x4123, 0x0002);
+        assert_eq!(bus.vdp.data_port_code, 0x01);
+        assert_eq!(bus.vdp.data_port_address, 0x8123);
+
+        bus.vdp.registers[0x0F] = 4;
+        bus.write_vdp_data_word(0xA1B2);
+        assert_eq!(bus.vdp_data_writes(), vec![0xA1B2]);
+        assert_eq!(bus.vdp.vram[0x8123], 0xA1);
+        assert_eq!(bus.vdp.vram[0x8124], 0xB2);
+        assert_eq!(bus.vdp.data_port_address, 0x8127);
+
+        bus.configure_vdp_command(0xC000, 0x0000);
+        bus.write_vdp_data_raw(0x0EEE);
+        assert_eq!(&bus.vdp.cram[0..2], &[0x0E, 0xEE]);
+
+        bus.configure_vdp_command(0x4000, 0x0010);
+        bus.write_vdp_data_raw(0x0014);
+        assert_eq!(&bus.vdp.vsram[0..2], &[0x00, 0x14]);
+
+        bus.configure_vdp_command(0x7FFF, 0x0003);
+        bus.write_vdp_data_word(0xCCDD);
+        assert_eq!(bus.vdp.vram[0xFFFF], 0xCC);
+        assert_eq!(bus.vdp.vram[0], 0xDD);
+    }
+
+    #[test]
+    fn md_vdp_dma_copies_68k_words_and_fill_values() {
+        // ASM dma68kToVDP emits register $13-$17 DMA setup followed by a
+        // vdpComm(..., VRAM, DMA) control longword.
+        let mut rom = vec![0; 0x200];
+        rom[0x100..0x104].copy_from_slice(&[0x12, 0x34, 0x56, 0x78]);
+        let mut bus = MdBus::with_fresh_z80(&rom);
+        bus.vdp.registers[0x0F] = 2;
+        bus.vdp.registers[0x13] = 2;
+        bus.vdp.registers[0x14] = 0;
+        bus.vdp.registers[0x15] = 0x80;
+        bus.vdp.registers[0x16] = 0;
+        bus.vdp.registers[0x17] = 0;
+        bus.vdp.data_port_code = 0x21;
+        bus.vdp.data_port_address = 0x0020;
+
+        assert_eq!(bus.dma_length_words(), 2);
+        assert_eq!(bus.dma_source_address(), 0x100);
+        assert_eq!(bus.dma_mode(), 0);
+        assert!(MdBus::is_dma_command(0x21));
+        assert!(MdBus::is_dma_command(0x23));
+        assert!(MdBus::is_dma_command(0x25));
+        assert!(!MdBus::is_dma_command(0x01));
+
+        bus.execute_vdp_dma();
+
+        assert_eq!(&bus.vdp.vram[0x20..0x24], &[0x12, 0x34, 0x56, 0x78]);
+        assert_eq!(bus.vdp.data_port_address, 0x0024);
+
+        bus.vdp.registers[0x15] = 0x03;
+        bus.vdp.registers[0x16] = 0x02;
+        bus.vdp.registers[0x17] = 0x01;
+        assert_eq!(bus.dma_source_address(), 0x020406);
+
+        bus.vdp.registers[0x13] = 2;
+        bus.vdp.registers[0x14] = 0;
+        bus.vdp.registers[0x17] = 0x80;
+        bus.vdp.data_port_code = 0x21;
+        bus.vdp.data_port_address = 0x0030;
+        bus.vdp.data_writes.push(0xBEEF);
+
+        assert_eq!(bus.dma_mode(), 2);
+        bus.execute_vdp_dma();
+
+        assert_eq!(&bus.vdp.vram[0x30..0x34], &[0xBE, 0xEF, 0xBE, 0xEF]);
+        assert_eq!(bus.vdp.data_port_address, 0x0034);
+    }
+
+    #[test]
+    fn vdp_nonzero_byte_counts_are_plane_specific() {
+        // ASM init/DMA writes VRAM, CRAM, and VSRAM through distinct VDP command
+        // modes; native probes keep separate non-zero counters for each plane.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+
+        assert_eq!(bus.vram_nonzero_bytes(), 0);
+        assert_eq!(bus.cram_nonzero_bytes(), 0);
+        assert_eq!(bus.vsram_nonzero_bytes(), 0);
+
+        bus.vdp.vram[0] = 0x12;
+        bus.vdp.vram[1] = 0x34;
+        bus.vdp.cram[2] = 0x56;
+        bus.vdp.vsram[4] = 0x78;
+
+        assert_eq!(bus.vram_nonzero_bytes(), 2);
+        assert_eq!(bus.cram_nonzero_bytes(), 1);
+        assert_eq!(bus.vsram_nonzero_bytes(), 1);
+    }
+
+    #[test]
+    fn bus_access_trace_stops_at_limit() {
+        // Hardware probes can generate huge bus traces; keeping TRACE_LIMIT
+        // entries makes oracle comparisons bounded and deterministic.
+        let bus = MdBus::with_fresh_z80(&[]);
+
+        for address in 0..=TRACE_LIMIT as u32 {
+            bus.record_access(BusAccessKind::ReadByte, address, address);
+        }
+
+        let accesses = bus.accesses();
+        assert_eq!(accesses.len(), TRACE_LIMIT);
+        assert_eq!(
+            accesses.last(),
+            Some(&BusAccess {
+                kind: BusAccessKind::ReadByte,
+                address: (TRACE_LIMIT - 1) as u32,
+                value: (TRACE_LIMIT - 1) as u32,
+            })
+        );
+    }
+
+    #[test]
+    fn controller_read_data_matches_th_phase_matrix() {
+        // ASM Joypad_ReadFromHardware reads $A10003 with TH low, then high, and
+        // inverts the active-low button bits into Kid's held-button byte.
+        let mut port = ControllerPortState::new(ControllerType::SixButton);
+        port.set_buttons(0b1010_1101);
+
+        port.th_flip_count = 0;
+        port.controller_th = true;
+        assert_eq!(port.read_data(), 0x52);
+        port.set_buttons(0);
+        assert_eq!(port.read_data(), 0x7F);
+        port.set_buttons(0b1010_1101);
+
+        port.controller_th = false;
+        assert_eq!(port.read_data(), 0x12);
+        port.set_buttons(0);
+        assert_eq!(port.read_data(), 0x33);
+        port.set_buttons(0b1010_1101);
+
+        port.th_flip_count = 2;
+        assert_eq!(port.read_data(), 0x10);
+        port.set_buttons(0);
+        assert_eq!(port.read_data(), 0x30);
+        port.set_buttons(0b1010_1101);
+
+        port.th_flip_count = 3;
+        assert_eq!(port.read_data(), 0x1F);
+        port.set_buttons(0);
+        assert_eq!(port.read_data(), 0x3F);
+        port.set_buttons(0b1010_1101);
+
+        port.controller_th = true;
+        assert_eq!(port.read_data(), 0x5F);
+        port.set_buttons(0);
+        assert_eq!(port.read_data(), 0x7F);
+
+        assert_eq!(
+            ControllerPortState::new(ControllerType::None).read_data(),
+            0xFF
+        );
+    }
+
+    #[test]
+    fn controller_data_and_ctrl_registers_mask_inputs_and_drive_outputs() {
+        // ASM Joypad_ReadFromHardware samples only input pins; configured output
+        // pins must come from the last data write instead of controller state.
+        let mut port = ControllerPortState::new(ControllerType::SixButton);
+        port.last_ctrl_write = 0x7E;
+        port.last_data_write = 0xC0;
+
+        assert_eq!(port.read_ctrl(), 0x7E);
+        assert_eq!(port.read_data(), 0xC1);
+
+        port.last_ctrl_write = 0x80;
+        port.last_data_write = 0x80;
+        assert_eq!(port.read_data(), 0xFF);
+    }
+
+    #[test]
+    fn controller_th_writes_and_ticks_advance_six_button_phase() {
+        // ASM Joypad_ReadFromHardware's TH low/high writes are enough for Kid's
+        // three-button path, but the runtime must still emulate six-button
+        // phase flips for probes and future games.
+        let mut port = ControllerPortState::new(ControllerType::SixButton);
+        port.write_ctrl(1 << CONTROLLER_TH_BIT);
+
+        port.write_data(0);
+        assert!(!port.controller_th);
+        assert_eq!(port.th_flip_count, 0);
+
+        port.write_data(1 << CONTROLLER_TH_BIT);
+        assert!(port.controller_th);
+        assert_eq!(port.th_flip_count, 1);
+        assert_eq!(port.flip_reset_counter, CONTROLLER_FLIP_COUNTER_CYCLES);
+
+        port.write_data(0);
+        port.write_data(1 << CONTROLLER_TH_BIT);
+        assert_eq!(port.th_flip_count, 2);
+
+        port.write_data(0);
+        port.write_ctrl(0);
+        assert!(!port.controller_th);
+        assert_eq!(port.cycles_until_th_high, CONTROLLER_TH_HIGH_DELAY_CYCLES);
+
+        port.tick(CONTROLLER_TH_HIGH_DELAY_CYCLES - 1);
+        assert!(!port.controller_th);
+        assert_eq!(port.th_flip_count, 2);
+
+        port.tick(1);
+        assert!(port.controller_th);
+
+        port.flip_reset_counter = 2;
+        port.tick(1);
+        assert_eq!(port.th_flip_count, 2);
+        port.tick(1);
+        assert_eq!(port.th_flip_count, 0);
+    }
+
+    #[test]
+    fn z80_ram_is_mirrored_when_busack_is_asserted() {
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0100);
+        bus.write_word(SUPERVISOR_DATA, 0x00A1_1100, 0x0100);
+        bus.write_byte(SUPERVISOR_DATA, Z80_RAM_BASE, 0x12);
+        assert_eq!(bus.read_byte(SUPERVISOR_DATA, Z80_RAM_BASE), 0x12);
+        assert_eq!(bus.read_byte(SUPERVISOR_DATA, Z80_RAM_BASE + 0x2000), 0x12);
+        assert_eq!(bus.read_word(SUPERVISOR_DATA, Z80_RAM_BASE), 0x1212);
+    }
+
+    #[test]
+    fn z80_ram_is_hidden_from_68k_without_busack() {
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.z80_shared.borrow_mut().ram[0] = 0x34;
+        assert_eq!(bus.read_byte(SUPERVISOR_DATA, Z80_RAM_BASE), 0xFF);
+        assert_eq!(bus.read_word(SUPERVISOR_DATA, Z80_RAM_BASE), 0xFF00);
+        bus.write_byte(SUPERVISOR_DATA, Z80_RAM_BASE, 0x12);
+        assert_eq!(bus.z80_shared.borrow().ram[0], 0x34);
+    }
+
+    #[test]
+    fn z80_reset_starts_asserted() {
+        let bus = MdBus::with_fresh_z80(&[]);
+        assert_eq!(bus.read_word(SUPERVISOR_DATA, 0x00A1_1200), 0x0000);
+    }
+
+    #[test]
+    fn z80_reset_count_edges_and_busack_truth_table_are_explicit() {
+        // ASM Stop_z80/Start_z80 use $A11100 bus request, while boot reset
+        // handling toggles $A11200; busack is visible only when request is set
+        // and reset is released.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+
+        bus.set_z80_reset(true);
+        assert_eq!(bus.z80_reset_count(), 0);
+        assert!(!bus.z80_busack());
+
+        bus.set_z80_reset(false);
+        assert_eq!(bus.z80_reset_count(), 0);
+        assert!(!bus.z80_busack());
+
+        bus.set_z80_reset(false);
+        assert_eq!(bus.z80_reset_count(), 0);
+
+        bus.set_z80_busreq(true);
+        assert!(bus.z80_busack());
+
+        bus.set_z80_reset(true);
+        assert_eq!(bus.z80_reset_count(), 1);
+        assert!(!bus.z80_busack());
+    }
+
+    #[test]
+    fn md_bus_dispatches_byte_and_word_hardware_windows() {
+        // ASM init touches $A11100/$A11200 for Z80 bus control and uses
+        // $C00000/$C00004 as VDP data/control ports; these address windows must
+        // dispatch before generic byte fallback.
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.vdp.status = 0x4567;
+
+        assert_eq!(bus.read_byte_internal(0x00A1_1100), 1);
+        assert_eq!(bus.read_byte_internal(0x00A1_1200), 0);
+        assert_eq!(bus.read_byte_internal(0x00C0_0004), 0x45);
+
+        bus.write_byte_internal(0x00A1_1200, 1);
+        assert_eq!(bus.read_byte_internal(0x00A1_1200), 1);
+        bus.write_byte_internal(0x00A1_1200, 0);
+        assert_eq!(bus.read_byte_internal(0x00A1_1200), 0);
+        bus.write_byte_internal(0x00A1_1200, 1);
+        bus.write_byte_internal(0x00A1_1100, 0);
+        assert_eq!(bus.read_byte_internal(0x00A1_1100), 1);
+        bus.write_byte_internal(0x00A1_1100, 1);
+        assert_eq!(bus.read_byte_internal(0x00A1_1100), 0);
+
+        bus.write_byte_internal(Z80_RAM_BASE, 0x5A);
+        assert_eq!(bus.read_byte_internal(Z80_RAM_BASE), 0x5A);
+        bus.write_byte_internal(0x00C0_0004, 0x8F);
+        assert_eq!(bus.vdp.registers[0x0F], 0x8F);
+
+        bus.write_word_internal(0x00A1_1100, 0x0000);
+        assert_eq!(bus.read_word_internal(0x00A1_1100), 0x0101);
+        bus.write_word_internal(0x00A1_1100, 0x0100);
+        assert_eq!(bus.read_word_internal(0x00A1_1100), 0x0000);
+        bus.write_word_internal(0x00A1_1200, 0x0100);
+        assert_eq!(bus.read_word_internal(0x00A1_1200), 0x0101);
+        bus.write_word_internal(0x00A1_1200, 0x0000);
+        assert_eq!(bus.read_word_internal(0x00A1_1200), 0x0000);
+
+        bus.io.p2_port = ControllerPortState::new(ControllerType::SixButton);
+        bus.write_word_internal(0x00A1_0003, 0x0040);
+        assert_eq!(bus.io.p1_port.last_data_write, 0x40);
+        assert_eq!(bus.io.p2_port.last_data_write, 0x00);
+        assert_eq!(bus.read_word_internal(0x00A1_0003), 0x007F);
+        bus.write_word_internal(0x00C0_0000, 0xCAFE);
+        assert_eq!(bus.vdp_data_writes().last(), Some(&0xCAFE));
+        assert_eq!(bus.read_word_internal(0x00C0_0000), 0);
+        assert_eq!(bus.read_word_internal(0x00C0_0004), 0x4567);
+        assert_eq!(bus.read_word_internal(0x00C0_0008), 0);
+
+        bus.write_word_internal(0x00A1_1200, 0x0100);
+        bus.write_word_internal(0x00A1_1100, 0x0100);
+        bus.z80_shared.borrow_mut().ram[1] = 0x3C;
+        bus.write_word_internal(Z80_RAM_BASE, 0xA55A);
+        assert_eq!(bus.z80_shared.borrow().ram[0], 0xA5);
+        assert_eq!(bus.z80_shared.borrow().ram[1], 0x3C);
+        bus.write_word_internal(WORK_RAM_BASE + 0x20, 0x1234);
+        assert_eq!(bus.read_word_internal(WORK_RAM_BASE + 0x20), 0x1234);
+    }
+
+    #[test]
+    fn z80_reset_does_not_reset_sound_chip_state() {
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        bus.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0100);
+
+        {
+            let mut shadow = bus.ym2612_shadow.borrow_mut();
+            shadow.write_port(0, 0x30);
+            shadow.write_port(1, 0xFF);
+        }
+        {
+            let mut shared = bus.z80_shared.borrow_mut();
+            let _ = shared.psg_registers.apply_write(0x80);
+            let _ = shared.psg_registers.apply_write(0x04);
+            let _ = shared.psg_registers.apply_write(0x90);
+        }
+
+        bus.write_word(SUPERVISOR_DATA, 0x00A1_1200, 0x0000);
+
+        let ym_status = bus.ym2612_shadow.borrow_mut().read_port(0);
+        assert_ne!(
+            ym_status & 0x80,
+            0,
+            "Z80 reset should not clear YM2612 state or its busy flag",
+        );
+        assert_ne!(
+            bus.z80_shared.borrow().psg_registers.tone_periods[0],
+            0,
+            "Z80 reset should not zero PSG registers",
+        );
+        assert!(
+            bus.z80_shared.borrow().audio_events.iter().next().is_none(),
+            "Z80 reset should not leave any synthetic sound-chip reset event queued",
+        );
+    }
+
+    #[test]
+    fn z80_bank_register_shifts_in_bits_msb_first() {
+        let shared = Rc::new(RefCell::new(Z80Shared::default()));
+        let mut bus = Z80Bus {
+            shared: shared.clone(),
+            ym2612_shadow: Rc::new(RefCell::new(Ym2612Shadow::new())),
+            rom: vec![0; 0x20_0000],
+        };
+
+        for bit in [1, 0, 1, 0, 0, 0, 0, 0, 0] {
+            bus.write_byte(0x6000, bit);
+        }
+
+        assert_eq!(shared.borrow().bank_address, 0x0002_8000);
+    }
+
+    #[test]
+    fn z80_banked_reads_can_see_68k_work_ram() {
+        let mut bus = MdBus::with_fresh_z80(&[]);
+        let z80_shared = bus.z80_shared.clone();
+        bus.write_byte(SUPERVISOR_DATA, WORK_RAM_BASE, 0x5A);
+
+        z80_shared.borrow_mut().bank_address = WORK_RAM_BASE;
+        let z80_bus = Z80Bus {
+            shared: z80_shared,
+            ym2612_shadow: Rc::new(RefCell::new(Ym2612Shadow::new())),
+            rom: vec![0; 0x20_0000],
+        };
+
+        assert_eq!(z80_bus.read_byte(0x8000), 0x5A);
+    }
+
+    #[test]
+    fn z80_banked_read_trace_stops_at_limit() {
+        // Z80 banked 68k probes feed oracle comparison traces; the trace cap
+        // must stop exactly at TRACE_LIMIT, not one read later.
+        let shared = Rc::new(RefCell::new(Z80Shared::default()));
+        {
+            let mut shared_mut = shared.borrow_mut();
+            shared_mut
+                .banked_68k_reads
+                .resize(TRACE_LIMIT - 1, (0x0000_0000, 0));
+        }
+        let z80_bus = Z80Bus {
+            shared: shared.clone(),
+            ym2612_shadow: Rc::new(RefCell::new(Ym2612Shadow::new())),
+            rom: vec![0xA5; 0x20_0000],
+        };
+
+        assert_eq!(z80_bus.read_byte(0x8000), 0xA5);
+        assert_eq!(shared.borrow().banked_68k_reads.len(), TRACE_LIMIT);
+        assert_eq!(z80_bus.read_byte(0x8001), 0xA5);
+        assert_eq!(shared.borrow().banked_68k_reads.len(), TRACE_LIMIT);
+    }
+
+    #[test]
+    fn z80_write_side_traces_and_ym_ports_are_bounded_and_decoded() {
+        // The Z80 GEMS driver writes banked 68k memory, YM2612 ports $4000-$4003,
+        // and PSG port $7F11; these are the native trace surfaces used for oracle
+        // feedback.
+        let shared = Rc::new(RefCell::new(Z80Shared::default()));
+        {
+            let mut shared_mut = shared.borrow_mut();
+            shared_mut.bank_address = WORK_RAM_BASE;
+            shared_mut
+                .banked_68k_writes
+                .resize(TRACE_LIMIT - 1, (0x0000_0000, 0));
+        }
+        let mut z80_bus = Z80Bus {
+            shared: shared.clone(),
+            ym2612_shadow: Rc::new(RefCell::new(Ym2612Shadow::new())),
+            rom: vec![0; 0x20_0000],
+        };
+
+        z80_bus.write_byte(0x8000, 0x11);
+        z80_bus.write_byte(0x8001, 0x22);
+        assert_eq!(shared.borrow().banked_68k_writes.len(), TRACE_LIMIT);
+        assert_eq!(shared.borrow().m68k_work_ram[0], 0x11);
+        assert_eq!(shared.borrow().m68k_work_ram[1], 0x22);
+
+        shared.borrow_mut().ym2612_writes.clear();
+        z80_bus.write_byte(0x4000, 0x28);
+        z80_bus.write_byte(0x4001, 0xF0);
+        z80_bus.write_byte(0x4002, 0x28);
+        z80_bus.write_byte(0x4003, 0xF0);
+        {
+            let shared_ref = shared.borrow();
+            assert_eq!(
+                shared_ref.ym2612_writes,
+                vec![(0, 0x28), (1, 0xF0), (2, 0x28), (3, 0xF0)]
+            );
+            assert_eq!(shared_ref.ym2612_port_latches, [Some(0x0028), Some(0x0128)]);
+            assert_eq!(shared_ref.ym2612_key_on_count, 2);
+        }
+
+        {
+            let mut shared_mut = shared.borrow_mut();
+            shared_mut
+                .ym2612_writes
+                .resize(TRACE_LIMIT - 1, (0x0000, 0));
+            shared_mut.psg_writes.resize(TRACE_LIMIT - 1, 0);
+        }
+        z80_bus.write_byte(0x4000, 0x30);
+        z80_bus.write_byte(0x4001, 0x7F);
+        z80_bus.write_byte(0x7F11, 0x90);
+        z80_bus.write_byte(0x7F11, 0x9F);
+
+        assert_eq!(shared.borrow().ym2612_writes.len(), TRACE_LIMIT);
+        assert_eq!(shared.borrow().psg_writes.len(), TRACE_LIMIT);
+    }
+
+    #[test]
+    fn z80_bus_dispatch_reads_writes_and_ports_are_explicit() {
+        // The Z80 sound driver lives in the $0000-$1FFF RAM window, reads YM2612
+        // status at $4000-$5FFF, and reaches the 68k bus through $8000-$FFFF.
+        let shared = Rc::new(RefCell::new(Z80Shared::default()));
+        shared.borrow_mut().ram[0] = 0x12;
+        shared.borrow_mut().ram[0x1FFF] = 0x34;
+        let mut z80_bus = Z80Bus {
+            shared: shared.clone(),
+            ym2612_shadow: Rc::new(RefCell::new(Ym2612Shadow::new())),
+            rom: vec![0xA5; 0x20_0000],
+        };
+
+        assert_eq!(z80_bus.read_byte(0x0000), 0x12);
+        assert_eq!(z80_bus.read_byte(0x1FFF), 0x34);
+        assert_eq!(z80_bus.read_byte(0x2000), 0xFF);
+
+        z80_bus.write_byte(0x0001, 0x56);
+        z80_bus.write_byte(0x1FFE, 0x78);
+        z80_bus.write_byte(0x2000, 0x9A);
+        assert_eq!(shared.borrow().ram[0x0001], 0x56);
+        assert_eq!(shared.borrow().ram[0x1FFE], 0x78);
+        assert_eq!(shared.borrow().ram[0x0000], 0x12);
+
+        z80_bus.write_byte(0x4000, 0x30);
+        z80_bus.write_byte(0x4001, 0xFF);
+        let status = z80_bus.read_byte(0x4000);
+        assert_ne!(status, 0xFF);
+        assert_ne!(status & 0x80, 0);
+        assert_eq!(z80_bus.read_byte(0x4001), status);
+
+        assert_eq!(z80_bus.read_byte(0x8000), 0xA5);
+        z80_bus.write_byte(0x7F11, 0x90);
+        assert_eq!(shared.borrow().psg_writes, vec![0x90]);
+        assert_eq!(z80_bus.port_in(0x1234), 0xFF);
+        z80_bus.port_out(0x1234, 0x56);
+        assert_eq!(shared.borrow().psg_writes, vec![0x90]);
+    }
+
+    #[test]
+    fn z80_io_ports_are_not_wired_to_the_psg() {
+        let shared = Rc::new(RefCell::new(Z80Shared::default()));
+        let mut bus = Z80Bus {
+            shared: shared.clone(),
+            ym2612_shadow: Rc::new(RefCell::new(Ym2612Shadow::new())),
+            rom: vec![0; 0x20_0000],
+        };
+
+        bus.port_out(0x007F, 0x90);
+
+        assert!(shared.borrow().psg_writes.is_empty());
+    }
+
+    #[test]
+    fn psg_reset_stays_effectively_silent() {
+        let mut mixer = AudioMixer::default();
+        let samples = mixer.generate(44_100, 2_048);
+        let peak = samples
+            .iter()
+            .copied()
+            .fold(0.0f32, |peak: f32, sample: f32| peak.max(sample.abs()));
+        assert!(
+            peak < 0.02,
+            "expected silent PSG reset output, got peak {peak}"
+        );
+    }
+
+    #[test]
+    fn first_order_low_pass_uses_bilinear_transform_coefficients() {
+        // The Genesis audio model depends on this low-pass keeping the one-pole
+        // bilinear transform stable; arithmetic slips here survive through the
+        // mixer as broad tone-colour drift rather than obvious silence.
+        let mut filter = FirstOrderFilter::low_pass(3_390.0, 44_100.0);
+
+        assert_close(filter.b0, 0.197_627_22, 0.000_000_02);
+        assert_close(filter.b1, 0.197_627_22, 0.000_000_02);
+        assert_close(filter.a1, -0.604_745_57, 0.000_000_06);
+        assert_close(filter.filter(1.0), 0.197_627_22, 0.000_000_02);
+        assert_close(filter.filter(1.0), 0.514_768_6, 0.000_000_1);
+    }
+
+    #[test]
+    fn first_order_high_pass_preserves_dc_blocker_coefficients() {
+        // Keep the DC blocker as a high-pass filter: both feed-forward
+        // coefficients must oppose each other, otherwise sustained YM output
+        // leaks or amplifies as a bias.
+        let mut filter = FirstOrderFilter::high_pass(5.0, 44_100.0);
+
+        assert_close(filter.b0, 0.999_643_9, 0.000_000_06);
+        assert_close(filter.b1, -0.999_643_9, 0.000_000_06);
+        assert_close(filter.a1, -0.999_287_9, 0.000_000_1);
+        assert_close(filter.filter(1.0), 0.999_643_9, 0.000_000_06);
+        assert_close(filter.filter(1.0), 0.998_932_06, 0.000_000_1);
+    }
+
+    #[test]
+    fn second_order_low_pass_uses_biquad_bilinear_coefficients() {
+        // The YM path uses this extra low-pass to approximate the console
+        // output chain. Coefficients are pinned here because tiny arithmetic
+        // mistakes only show up as subtle high-frequency colour drift.
+        let mut filter = SecondOrderFilter::low_pass(7_973.0, 44_100.0);
+
+        assert_close(filter.b0, 0.176_304_47, 0.000_000_02);
+        assert_close(filter.b1, 0.352_608_95, 0.000_000_03);
+        assert_close(filter.b2, 0.176_304_47, 0.000_000_02);
+        assert_close(filter.a1, -0.513_326_35, 0.000_000_06);
+        assert_close(filter.a2, 0.218_544_25, 0.000_000_03);
+        assert_close(filter.filter(1.0), 0.176_304_47, 0.000_000_02);
+        assert_close(filter.filter(1.0), 0.619_415_16, 0.000_000_1);
+        assert_close(filter.filter(1.0), 0.984_649_7, 0.000_000_1);
+    }
+
+    #[test]
+    fn audio_events_report_original_z80_cycle() {
+        assert_eq!(
+            AudioEvent::Ym2612Write {
+                z80_cycles: 123,
+                port: 0,
+                value: 0,
+            }
+            .z80_cycles(),
+            123
+        );
+        assert_eq!(
+            AudioEvent::PsgWrite {
+                z80_cycles: 456,
+                value: 0,
+            }
+            .z80_cycles(),
+            456
+        );
+    }
+
+    #[test]
+    fn psg_register_writes_decode_latched_tone_volume_and_noise_data() {
+        let mut registers = PsgRegisters::default();
+
+        assert!(!registers.apply_write(0xA3));
+        assert_eq!(registers.latched_register, 2);
+        assert_eq!(registers.tone_periods[1], 0x003);
+        assert!(!registers.apply_write(0x15));
+        assert_eq!(registers.tone_periods[1], 0x153);
+
+        assert!(!registers.apply_write(0xC7));
+        assert_eq!(registers.latched_register, 4);
+        assert_eq!(registers.tone_periods[2], 0x007);
+        assert!(!registers.apply_write(0x3F));
+        assert_eq!(registers.tone_periods[2], 0x3F7);
+        assert!(!registers.apply_write(0xC2));
+        assert_eq!(registers.tone_periods[2], 0x3F2);
+
+        assert!(!registers.apply_write(0x94));
+        assert_eq!(registers.latched_register, 1);
+        assert_eq!(registers.volumes[0], 0x04);
+        assert!(!registers.apply_write(0xF2));
+        assert_eq!(registers.latched_register, 7);
+        assert_eq!(registers.volumes[3], 0x02);
+
+        assert!(registers.apply_write(0xE6));
+        assert_eq!(registers.latched_register, 6);
+        assert_eq!(registers.noise_control, 0x06);
+        assert!(registers.apply_write(0x09));
+        assert_eq!(registers.noise_control, 0x01);
+    }
+
+    #[test]
+    fn psg_noise_reload_uses_control_period_or_tone_2_period() {
+        // ASM PSGInitLoop resets all PSG volumes through PSG_input; the native PSG
+        // model then follows the SN76489 noise-control period table.
+        let mut registers = PsgRegisters {
+            tone_periods: [3, 5, 7],
+            ..PsgRegisters::default()
+        };
+
+        registers.noise_control = 0x00;
+        assert_eq!(noise_reload(&registers), 0x10);
+        registers.noise_control = 0x01;
+        assert_eq!(noise_reload(&registers), 0x20);
+        registers.noise_control = 0x02;
+        assert_eq!(noise_reload(&registers), 0x40);
+        registers.noise_control = 0x03;
+        assert_eq!(noise_reload(&registers), 7);
+
+        registers.tone_periods[2] = 0;
+        assert_eq!(noise_reload(&registers), 1);
+    }
+
+    #[test]
+    fn psg_noise_reset_restores_initial_lfsr_and_output() {
+        let mut synth = PsgSynth {
+            noise_lfsr: 0x0000,
+            noise_output_high: true,
+            ..PsgSynth::default()
+        };
+
+        synth.reset_noise_lfsr();
+
+        assert_eq!(synth.noise_lfsr, super::PSG_INITIAL_LFSR);
+        assert!(!synth.noise_output_high);
+    }
+
+    #[test]
+    fn psg_clock_reloads_tone_and_noise_counters() {
+        let registers = PsgRegisters {
+            tone_periods: [4, 5, 6],
+            noise_control: 0,
+            ..PsgRegisters::default()
+        };
+        let mut synth = PsgSynth {
+            tone_counters: [1, 2, 3],
+            tone_outputs_high: [false, true, false],
+            noise_counter: 1,
+            noise_clock_high: false,
+            noise_lfsr: 0x0001,
+            ..PsgSynth::default()
+        };
+
+        synth.clock(&registers);
+
+        assert_eq!(synth.tone_counters, [4, 1, 2]);
+        assert_eq!(synth.tone_outputs_high, [true, true, false]);
+        assert_eq!(synth.noise_counter, 0x10);
+        assert!(synth.noise_clock_high);
+        assert!(synth.noise_output_high);
+        assert_eq!(synth.noise_lfsr, 0x8000);
+    }
+
+    #[test]
+    fn psg_noise_lfsr_uses_periodic_or_white_feedback() {
+        let mut periodic = PsgSynth {
+            noise_lfsr: 0x0001,
+            ..PsgSynth::default()
+        };
+        periodic.shift_noise_lfsr(0x00);
+        assert!(periodic.noise_output_high);
+        assert_eq!(periodic.noise_lfsr, 0x8000);
+
+        let mut periodic_with_clear_low_bit = PsgSynth {
+            noise_lfsr: 0x0002,
+            ..PsgSynth::default()
+        };
+        periodic_with_clear_low_bit.shift_noise_lfsr(0x00);
+        assert!(!periodic_with_clear_low_bit.noise_output_high);
+        assert_eq!(periodic_with_clear_low_bit.noise_lfsr, 0x0001);
+
+        let mut periodic_ignores_bit_three = PsgSynth {
+            noise_lfsr: 0x0009,
+            ..PsgSynth::default()
+        };
+        periodic_ignores_bit_three.shift_noise_lfsr(0x00);
+        assert!(periodic_ignores_bit_three.noise_output_high);
+        assert_eq!(periodic_ignores_bit_three.noise_lfsr, 0x8004);
+
+        let mut white_uses_low_bit = PsgSynth {
+            noise_lfsr: 0x0001,
+            ..PsgSynth::default()
+        };
+        white_uses_low_bit.shift_noise_lfsr(0x04);
+        assert!(white_uses_low_bit.noise_output_high);
+        assert_eq!(white_uses_low_bit.noise_lfsr, 0x8000);
+
+        let mut white_uses_bit_three = PsgSynth {
+            noise_lfsr: 0x0008,
+            ..PsgSynth::default()
+        };
+        white_uses_bit_three.shift_noise_lfsr(0x04);
+        assert!(!white_uses_bit_three.noise_output_high);
+        assert_eq!(white_uses_bit_three.noise_lfsr, 0x8004);
+
+        let mut white = PsgSynth {
+            noise_lfsr: 0x0009,
+            ..PsgSynth::default()
+        };
+        white.shift_noise_lfsr(0x04);
+        assert!(white.noise_output_high);
+        assert_eq!(white.noise_lfsr, 0x0004);
+    }
+
+    #[test]
+    fn psg_sample_mixes_signed_tone_and_noise_channels() {
+        let registers = PsgRegisters {
+            volumes: [0x00, 0x02, 0x0F, 0x01],
+            ..PsgRegisters::default()
+        };
+        let synth = PsgSynth {
+            tone_outputs_high: [true, false, true],
+            noise_output_high: false,
+            ..PsgSynth::default()
+        };
+
+        assert_close(synth.sample(&registers), -0.106_321_39, 0.000_000_02);
+    }
+
+    #[test]
+    fn psg_dc_blocker_uses_previous_input_and_output() {
+        let mut synth = PsgSynth::default();
+
+        assert_close(synth.apply_dc_block(0.5), 0.5, 0.000_000_01);
+        assert_close(synth.apply_dc_block(0.5), 0.497_5, 0.000_000_03);
+        assert_close(synth.apply_dc_block(0.0), -0.004_987_51, 0.000_000_02);
+    }
+
+    #[test]
+    fn psg_render_sample_advances_exact_psg_clock_window() {
+        // ASM PSGInitLoop writes the reset bytes to PSG_input; native rendering keeps
+        // the same latched PSG state advancing at the console PSG clock divider.
+        let registers = PsgRegisters {
+            volumes: [0x00, 0x0F, 0x0F, 0x0F],
+            ..PsgRegisters::default()
+        };
+        let mut synth = PsgSynth::default();
+
+        let sample = synth.render_sample(&registers, 223_721);
+
+        assert_close(sample, 0.25, 0.000_000_01);
+        assert!(synth.pending_psg_clocks < 0.000_01);
+        assert_eq!(synth.tone_counters[0], 1);
+        assert!(synth.tone_outputs_high[0]);
+    }
+
+    #[test]
+    fn psg_render_sample_bounds_clock_iterations_by_output_rate() {
+        assert_eq!(max_psg_clocks_per_output_sample(223_721), 3);
+        assert_eq!(max_psg_clocks_per_output_sample(44_100), 7);
+        assert_eq!(max_psg_clocks_per_output_sample(1), 223_723);
+        assert_eq!(max_psg_clocks_per_output_sample(0), 223_723);
+    }
+
+    #[test]
+    fn ym2612_shadow_reset_clears_status_latch_and_busy_state() {
+        let mut shadow = Ym2612Shadow::new();
+        shadow.write_port(0, 0x30);
+        shadow.write_port(1, 0xFF);
+        let status = shadow.read_port(0);
+        assert_ne!(status & 0x80, 0, "expected busy flag before reset");
+
+        shadow.reset();
+
+        assert_eq!(shadow.status_decay_clocks_remaining, 0);
+        assert_eq!(shadow.last_status_read, 0);
+        assert_eq!(shadow.read_port(1), 0);
+    }
+
+    #[test]
+    fn md_runtime_setters_write_observable_work_ram_and_controller_state() {
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+
+        runtime.set_controller_1(0b0010_0001);
+        for addr in super::CTRL_1_ADDR..=super::CTRL_JOYPAD_LATCH_END_ADDR {
+            runtime.core.mem.write_work_ram_byte(addr, 0xFF);
+        }
+        runtime.set_level_skip_cheat_enabled(true);
+        runtime.set_current_level(0x1234);
+        runtime.set_game_mode(0x0042);
+        runtime.set_current_helmet(0x0007);
+        runtime.set_lives(9);
+        runtime.set_hitpoints(6);
+
+        assert_eq!(runtime.core.mem.io.p1_port.buttons, 0);
+        assert_eq!(
+            runtime.read_work_ram_range(
+                super::CTRL_1_ADDR,
+                (super::CTRL_JOYPAD_LATCH_END_ADDR - super::CTRL_1_ADDR + 1) as usize
+            ),
+            vec![0; (super::CTRL_JOYPAD_LATCH_END_ADDR - super::CTRL_1_ADDR + 1) as usize],
+            "debug Level cheat must clear ReadJoypad loc_C4E/loc_C9C latches"
+        );
+        assert_eq!(
+            runtime
+                .core
+                .mem
+                .read_work_ram_byte(super::LEVEL_SKIP_CHEAT_ADDR),
+            u8::MAX
+        );
+        assert_eq!(
+            runtime.read_work_ram_word(super::CURRENT_LEVEL_ID_ADDR),
+            0x1234
+        );
+        assert_eq!(
+            runtime.read_work_ram_word(super::PLAYER_1_LEVEL_ID_ADDR),
+            0x1234
+        );
+        assert_eq!(runtime.read_work_ram_word(super::GAME_MODE_ADDR), 0x0042);
+        assert_eq!(
+            runtime.read_work_ram_word(super::CURRENT_HELMET_ID_ADDR),
+            0x0007
+        );
+        assert_eq!(runtime.read_work_ram_word(super::NUMBER_LIVES_ADDR), 9);
+        assert_eq!(runtime.read_work_ram_word(super::NUMBER_HITPOINTS_ADDR), 6);
+        assert_eq!(
+            runtime.read_work_ram_range(super::NUMBER_LIVES_ADDR, 4),
+            vec![0x00, 0x09, 0x00, 0x06]
+        );
+
+        runtime.set_level_skip_cheat_enabled(false);
+        assert_eq!(
+            runtime
+                .core
+                .mem
+                .read_work_ram_byte(super::LEVEL_SKIP_CHEAT_ADDR),
+            0
+        );
+    }
+
+    #[test]
+    fn scale_channel_matches_megadrive_rgb_rounding() {
+        let expanded: Vec<u8> = (0..=7).map(scale_channel).collect();
+
+        assert_eq!(
+            expanded,
+            vec![0x00, 0x24, 0x49, 0x6D, 0x92, 0xB6, 0xDB, 0xFF]
+        );
+    }
+
+    #[test]
+    fn cram_rgb_decodes_3bit_channels_from_cram_words() {
+        let cram = [0x0E, 0xEE];
+
+        assert_eq!(cram_rgb(&cram, 0), [0xFF, 0xFF, 0xFF]);
+    }
+
+    #[test]
+    fn psg_tone_writes_produce_varying_output() {
+        let mut mixer = AudioMixer::default();
+        let mut events = VecDeque::new();
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x80,
+        });
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x04,
+        });
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x90,
+        });
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x00,
+        });
+        mixer.push_events(events);
+
+        let samples = mixer.generate(44_100, 4_096);
+        let mut saw_change = false;
+        for pair in samples.windows(2) {
+            if (pair[0] - pair[1]).abs() > 1e-4 {
+                saw_change = true;
+                break;
+            }
+        }
+        assert!(
+            saw_change,
+            "expected PSG tone writes to vary generated audio"
+        );
+    }
+
+    #[test]
+    fn audio_mixer_queues_events_in_cycle_order() {
+        let mut mixer = AudioMixer::default();
+        let mut events = VecDeque::new();
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 3,
+            value: 0x90,
+        });
+        events.push_back(AudioEvent::Ym2612Write {
+            z80_cycles: 7,
+            port: 1,
+            value: 0x2A,
+        });
+
+        mixer.push_events(events);
+
+        assert_eq!(
+            mixer.pending_events.pop_front(),
+            Some(AudioEvent::PsgWrite {
+                z80_cycles: 3,
+                value: 0x90
+            })
+        );
+        assert_eq!(
+            mixer.pending_events.pop_front(),
+            Some(AudioEvent::Ym2612Write {
+                z80_cycles: 7,
+                port: 1,
+                value: 0x2A
+            })
+        );
+    }
+
+    #[test]
+    fn audio_mixer_refreshes_psg_filter_only_when_sample_rate_changes() {
+        let mut mixer = AudioMixer::default();
+        let original_b0 = mixer.psg_low_pass_filter.b0;
+
+        mixer.ensure_psg_filter(22_050);
+        assert_eq!(mixer.psg_output_sample_rate, 22_050);
+        assert_ne!(mixer.psg_low_pass_filter.b0, original_b0);
+
+        let refreshed_b0 = mixer.psg_low_pass_filter.b0;
+        mixer.psg_low_pass_filter.x1 = 0.25;
+        mixer.psg_low_pass_filter.y1 = -0.125;
+        mixer.ensure_psg_filter(22_050);
+
+        assert_eq!(mixer.psg_low_pass_filter.b0, refreshed_b0);
+        assert_close(mixer.psg_low_pass_filter.x1, 0.25, 0.000_000_01);
+        assert_close(mixer.psg_low_pass_filter.y1, -0.125, 0.000_000_01);
+    }
+
+    #[test]
+    fn audio_mixer_generate_empty_requests_do_not_advance_state() {
+        let mut mixer = AudioMixer::default();
+
+        assert!(mixer.generate(0, 8).is_empty());
+        assert!(mixer.generate(44_100, 0).is_empty());
+        assert_eq!(mixer.output_samples_emitted, 0);
+        assert_eq!(mixer.ym_samples_emitted, 0);
+    }
+
+    #[test]
+    fn audio_mixer_generate_applies_exact_first_output_cycle_boundary() {
+        let mut mixer = AudioMixer::default();
+        mixer.set_levels(AudioLevels {
+            master: 1.0,
+            ym2612: 0.0,
+            psg: 1.0,
+        });
+        mixer.psg_output_sample_rate = mixer.ym2612.sample_rate_hz();
+        mixer.psg_low_pass_filter = FirstOrderFilter {
+            b0: 1.0,
+            b1: 0.0,
+            a1: 0.0,
+            x1: 0.0,
+            y1: 0.0,
+        };
+        let sample_rate = mixer.ym2612.sample_rate_hz();
+        let first_output_cycle = (super::Z80_CLOCK_HZ / f64::from(sample_rate)).floor() as u64;
+        mixer.push_events(VecDeque::from([AudioEvent::PsgWrite {
+            z80_cycles: first_output_cycle + 1,
+            value: 0x90,
+        }]));
+
+        let samples = mixer.generate(sample_rate, 1);
+
+        assert_eq!(samples, vec![0.0, 0.0]);
+        assert_eq!(mixer.pending_events.len(), 1);
+        assert_eq!(mixer.output_samples_emitted, 1);
+        assert_eq!(mixer.ym_samples_emitted, 1);
+    }
+
+    #[test]
+    fn audio_mixer_generate_steps_ym_once_per_native_sample_at_ym_rate() {
+        let mut mixer = AudioMixer::default();
+        let sample_rate = mixer.ym2612.sample_rate_hz();
+
+        let samples = mixer.generate(sample_rate, 3);
+
+        assert_eq!(samples.len(), 6);
+        assert_eq!(mixer.output_samples_emitted, 3);
+        assert_eq!(mixer.ym_samples_emitted, 3);
+    }
+
+    #[test]
+    fn audio_mixer_bounds_ym_iterations_by_output_rate() {
+        let mixer = AudioMixer::default();
+        let ym_sample_rate = f64::from(mixer.ym2612.sample_rate_hz());
+
+        assert_eq!(
+            max_ym_samples_per_output_sample(mixer.ym2612.sample_rate_hz(), ym_sample_rate),
+            3
+        );
+        assert_eq!(max_ym_samples_per_output_sample(44_100, ym_sample_rate), 3);
+        assert_eq!(
+            max_ym_samples_per_output_sample(1_000_000, ym_sample_rate),
+            2
+        );
+        assert_eq!(max_ym_samples_per_output_sample(0, ym_sample_rate), 53_269);
+    }
+
+    #[test]
+    fn audio_mixer_ym_sample_cycle_end_uses_next_sample_index() {
+        assert_eq!(ym_sample_cycle_end(0, 10.25), 10);
+        assert_eq!(ym_sample_cycle_end(1, 10.25), 20);
+        assert_eq!(ym_sample_cycle_end(2, 10.25), 30);
+    }
+
+    #[test]
+    fn standalone_gems_converts_z80_cycles_to_ym2612_input_clocks() {
+        let mut remainder = 0.0;
+
+        let clocks = ym2612_input_clocks_for_z80_cycles(3_579_545, &mut remainder);
+
+        assert_eq!(clocks, 7_670_454);
+        assert!(
+            remainder < 0.000_001,
+            "full-second conversion should not leave meaningful fractional drift"
+        );
+    }
+
+    #[test]
+    fn audio_mixer_generate_scales_existing_stereo_ym_sample() {
+        let mut mixer = AudioMixer {
+            last_ym_sample: [0.4, -0.25],
+            ..AudioMixer::default()
+        };
+        mixer.set_levels(AudioLevels {
+            master: 0.5,
+            ym2612: 0.25,
+            psg: 0.0,
+        });
+
+        let samples = mixer.generate(1_000_000, 2);
+
+        assert_eq!(samples.len(), 4);
+        assert_close(samples[0], 0.05, 0.000_000_01);
+        assert_close(samples[1], -0.031_25, 0.000_000_01);
+        assert_close(samples[2], 0.05, 0.000_000_01);
+        assert_close(samples[3], -0.031_25, 0.000_000_01);
+        assert_eq!(mixer.output_samples_emitted, 2);
+        assert_eq!(mixer.ym_samples_emitted, 0);
+    }
+
+    #[test]
+    fn audio_mixer_applies_psg_event_at_output_cycle_boundary() {
+        let mut mixer = AudioMixer::default();
+        mixer.set_levels(AudioLevels {
+            master: 1.0,
+            ym2612: 0.0,
+            psg: 1.0,
+        });
+        mixer.psg_output_sample_rate = 223_721;
+        mixer.psg_low_pass_filter = FirstOrderFilter {
+            b0: 1.0,
+            b1: 0.0,
+            a1: 0.0,
+            x1: 0.0,
+            y1: 0.0,
+        };
+        mixer.push_events(VecDeque::from([AudioEvent::PsgWrite {
+            z80_cycles: 16,
+            value: 0x90,
+        }]));
+
+        let samples = mixer.generate(223_721, 1);
+
+        assert!(mixer.pending_events.is_empty());
+        assert_eq!(mixer.psg_registers.volumes[0], 0);
+        assert_close(samples[0], 0.111_670_9, 0.000_000_1);
+        assert_close(samples[1], 0.111_670_9, 0.000_000_1);
+    }
+
+    #[test]
+    fn audio_mixer_generate_ym_sample_returns_chip_output() {
+        let mut mixer = AudioMixer::default();
+
+        write_ym_register(&mut mixer, 0x22, 0x00);
+        write_ym_register(&mut mixer, 0x27, 0x00);
+        write_ym_register(&mut mixer, 0x2B, 0x00);
+        write_ym_register(&mut mixer, 0xB0, 0x07);
+        write_ym_register(&mut mixer, 0xB4, 0xC0);
+        for register in [0x30, 0x34, 0x38, 0x3C] {
+            write_ym_register(&mut mixer, register, 0x01);
+        }
+        for register in [0x40, 0x44, 0x48, 0x4C] {
+            write_ym_register(&mut mixer, register, 0x00);
+        }
+        for register in [0x50, 0x54, 0x58, 0x5C] {
+            write_ym_register(&mut mixer, register, 0x1F);
+        }
+        for register in [0x60, 0x64, 0x68, 0x6C] {
+            write_ym_register(&mut mixer, register, 0x00);
+        }
+        for register in [0x70, 0x74, 0x78, 0x7C] {
+            write_ym_register(&mut mixer, register, 0x00);
+        }
+        for register in [0x80, 0x84, 0x88, 0x8C] {
+            write_ym_register(&mut mixer, register, 0x0F);
+        }
+        for register in [0x90, 0x94, 0x98, 0x9C] {
+            write_ym_register(&mut mixer, register, 0x00);
+        }
+        write_ym_register(&mut mixer, 0xA4, 0x22);
+        write_ym_register(&mut mixer, 0xA0, 0x69);
+        write_ym_register(&mut mixer, 0x28, 0xF0);
+
+        let samples: Vec<[f32; 2]> = (0..256).map(|_| mixer.generate_ym_sample()).collect();
+
+        assert!(
+            samples
+                .iter()
+                .any(|sample| sample[0].abs() > 0.000_001 || sample[1].abs() > 0.000_001),
+            "expected keyed-on YM2612 channel to generate non-zero samples"
+        );
+    }
+
+    #[test]
+    fn audio_levels_can_mute_generated_output() {
+        let mut mixer = AudioMixer::default();
+        let mut events = VecDeque::new();
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x80,
+        });
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x04,
+        });
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x90,
+        });
+        events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 0,
+            value: 0x00,
+        });
+        mixer.push_events(events);
+        mixer.set_levels(AudioLevels {
+            master: 0.0,
+            ym2612: 1.0,
+            psg: 1.0,
+        });
+
+        let samples = mixer.generate(44_100, 512);
+        assert!(samples.iter().all(|sample| sample.abs() <= f32::EPSILON));
+    }
+
+    #[test]
+    fn ym2612_shadow_mirrors_status_reads_across_all_ports() {
+        let mut shadow = Ym2612Shadow::new();
+        shadow.write_port(0, 0x30);
+        shadow.write_port(1, 0xFF);
+
+        let status = shadow.read_port(0);
+        assert_ne!(status & 0x80, 0, "expected busy flag after YM write");
+        assert_eq!(shadow.read_port(1), status);
+        assert_eq!(shadow.read_port(2), status);
+        assert_eq!(shadow.read_port(3), status);
+
+        shadow.advance_clocks(YM2612_STATUS_DECAY_CLOCKS);
+        assert_eq!(shadow.read_port(1), 0);
+        assert_eq!(shadow.read_port(2), 0);
+        assert_eq!(shadow.read_port(3), 0);
+    }
+
+    #[test]
+    fn standalone_gems_bus_mirrors_ym2612_status_reads() {
+        let mut bus = GemsBus::new(&[], vec![0; 0x20_0000]);
+        bus.record_ym2612_write(0, 0x30);
+        bus.record_ym2612_write(1, 0xFF);
+
+        let status = bus.read_byte(0x4000);
+        assert_ne!(
+            status & 0x80,
+            0,
+            "standalone GEMS must expose the YM busy flag to the Z80 driver, matching MdRuntime's Z80Bus"
+        );
+        assert_eq!(bus.read_byte(0x4001), status);
+
+        bus.ym2612_shadow
+            .borrow_mut()
+            .advance_clocks(YM2612_STATUS_DECAY_CLOCKS);
+        assert_eq!(bus.read_byte(0x4001), 0);
+    }
+
+    #[test]
+    fn standalone_gems_bus_decodes_ram_sound_ports_bank_and_open_ports() {
+        // ASM sub_E13DA loads the GEMS driver into $A00000-$A01FFF, while
+        // sub_E143A/sub_E149C/sub_E14AC queue commands through that same Z80 RAM.
+        let mut virtual_rom = vec![0xFF; 0x10_000];
+        virtual_rom[0x8000] = 0x5A;
+        virtual_rom[0x8003] = 0x6D;
+        let mut bus = GemsBus::new(&[0x11, 0x22, 0x33], virtual_rom);
+        bus.z80_cycles = 123;
+
+        assert_eq!(bus.read_byte(0x0002), 0x33);
+        bus.write_byte(0x0002, 0x44);
+        assert_eq!(bus.read_byte(0x0002), 0x44);
+
+        bus.write_byte(0x4002, 0xA7);
+        assert_eq!(
+            bus.audio_events.back(),
+            Some(&AudioEvent::Ym2612Write {
+                z80_cycles: 123,
+                port: 2,
+                value: 0xA7,
+            })
+        );
+
+        for bit in [1, 0, 0, 0, 0, 0, 0, 0, 0] {
+            bus.write_byte(0x6000, bit);
+        }
+        assert_eq!(bus.read_byte(0x8000), 0x5A);
+        assert_eq!(bus.read_byte(0x8003), 0x6D);
+
+        bus.write_byte(0x7F11, 0x90);
+        assert_eq!(
+            bus.audio_events.back(),
+            Some(&AudioEvent::PsgWrite {
+                z80_cycles: 123,
+                value: 0x90,
+            })
+        );
+        assert_eq!(bus.port_in(0x00), 0xFF);
+        assert_eq!(bus.read_byte(0x7000), 0xFF);
+    }
+
+    #[test]
+    fn standalone_gems_frame_step_advances_ym2612_status_decay() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        {
+            let mut shadow = engine.z80.io.ym2612_shadow.borrow_mut();
+            shadow.write_port(0, 0x30);
+            shadow.write_port(1, 0xFF);
+            let _ = shadow.read_port(0);
+            assert_eq!(
+                shadow.status_decay_clocks_remaining,
+                YM2612_STATUS_DECAY_CLOCKS
+            );
+        }
+
+        engine.step_z80_frame();
+
+        assert!(
+            engine
+                .z80
+                .io
+                .ym2612_shadow
+                .borrow()
+                .status_decay_clocks_remaining
+                < YM2612_STATUS_DECAY_CLOCKS,
+            "standalone GEMS frame stepping must age YM status reads like MdRuntime::step"
+        );
+    }
+
+    #[test]
+    fn standalone_gems_step_frame_consumes_budget_and_drains_audio_events() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.z80.iff1 = true;
+        engine.z80.iff2 = true;
+        engine.z80.interrupt_mode = 1;
+        engine.z80.io.audio_events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 7,
+            value: 0x90,
+        });
+
+        engine.step_frame();
+
+        assert_eq!(
+            engine.z80.io.z80_cycles,
+            u64::from(super::GEMS_Z80_CYCLES_PER_FRAME),
+            "standalone GEMS step_frame must consume one NTSC frame of Z80 cycles"
+        );
+        assert_eq!(engine.vblank_irq_cycles_remaining, 0);
+        assert!(
+            !engine.z80.iff1,
+            "the leading VBlank IRQ window must be asserted so the Z80 consumes one interrupt"
+        );
+        assert_eq!(engine.z80.irq_pending, 0);
+        assert!(engine.z80.io.audio_events.is_empty());
+        assert_eq!(
+            engine.mixer.pending_events,
+            VecDeque::from([AudioEvent::PsgWrite {
+                z80_cycles: 7,
+                value: 0x90,
+            }])
+        );
+    }
+
+    #[test]
+    fn gems_engine_set_levels_clamps_and_applies_to_mixer() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+
+        engine.set_levels(AudioLevels {
+            master: 1.5,
+            ym2612: -0.25,
+            psg: 0.25,
+        });
+
+        assert_eq!(engine.mixer.levels.master, 1.0);
+        assert_eq!(engine.mixer.levels.ym2612, 0.0);
+        assert_eq!(engine.mixer.levels.psg, 0.25);
+    }
+
+    #[test]
+    fn write_rgb_indexes_rows_by_width_then_rgb_channels() {
+        let mut rgb = vec![0; 4 * 3 * 3];
+
+        crate::vdp::write_rgb(&mut rgb, 4, 2, 1, [0x12, 0x34, 0x56]);
+
+        assert_eq!(&rgb[18..21], &[0x12, 0x34, 0x56]);
+        assert!(rgb[..18].iter().all(|value| *value == 0));
+        assert!(rgb[21..].iter().all(|value| *value == 0));
+    }
+
+    #[test]
+    fn hscroll_modes_follow_vdp_layout() {
+        let mut vram = vec![0; 0x400];
+        vram[0x100..0x110].copy_from_slice(&[
+            0x00, 0x08, 0x00, 0x18, 0x00, 0x28, 0x00, 0x38, 0x00, 0x48, 0x00, 0x58, 0x00, 0x68,
+            0x00, 0x78,
+        ]);
+        vram[0x120..0x124].copy_from_slice(&[0x00, 0x48, 0x00, 0x58]);
+        vram[0x140..0x144].copy_from_slice(&[0x00, 0x68, 0x00, 0x78]);
+        vram[0x160..0x164].copy_from_slice(&[0x00, 0x88, 0x00, 0x98]);
+
+        assert_eq!(
+            crate::vdp::hscroll_for_line(&vram, 0x100, 3, 0, 0x00),
+            0x008
+        );
+        assert_eq!(
+            crate::vdp::hscroll_for_line(&vram, 0x100, 3, 2, 0x00),
+            0x018
+        );
+        assert_eq!(
+            crate::vdp::hscroll_for_line(&vram, 0x100, 10, 0, 0x01),
+            0x048
+        );
+        assert_eq!(
+            crate::vdp::hscroll_for_line(&vram, 0x100, 10, 2, 0x01),
+            0x058
+        );
+        assert_eq!(
+            crate::vdp::hscroll_for_line(&vram, 0x100, 9, 0, 0x02),
+            0x048
+        );
+        assert_eq!(
+            crate::vdp::hscroll_for_line(&vram, 0x100, 9, 2, 0x02),
+            0x058
+        );
+        assert_eq!(
+            crate::vdp::hscroll_for_line(&vram, 0x100, 24, 0, 0x02),
+            0x088
+        );
+        assert_eq!(
+            crate::vdp::hscroll_for_line(&vram, 0x100, 24, 2, 0x02),
+            0x098
+        );
+        assert_eq!(
+            crate::vdp::hscroll_for_line(&vram, 0x100, 16, 0, 0x03),
+            0x068
+        );
+        assert_eq!(
+            crate::vdp::hscroll_for_line(&vram, 0x100, 16, 2, 0x03),
+            0x078
+        );
+    }
+
+    #[test]
+    fn plane_pixel_rgb_uses_wrapped_scroll_cell_priority_and_palette() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 4, 1, 3, 3);
+        write_cram_colour(&mut vdp.cram, 0x10 + 3, 0x00E);
+        write_tile_entry(&mut vdp.vram, 0x2000, 15, 0x8000 | 0x2000 | 4);
+        let plane = ScrollPlane {
+            base: 0x2000,
+            width_cells: 4,
+            height_cells: 4,
+            hscroll: 9,
+            vscroll: 7,
+        };
+
+        assert_eq!(
+            crate::vdp::plane_pixel_rgb(&vdp, &plane, 2, 20, true),
+            Some([0xFF, 0x00, 0x00]),
+            "VDP plane sampling should wrap the scrolled world coordinate before selecting the tile cell and palette"
+        );
+        assert_eq!(
+            crate::vdp::plane_pixel_rgb(&vdp, &plane, 2, 20, false),
+            None,
+            "VDP priority bit must reject the opposite priority pass"
+        );
+    }
+
+    #[test]
+    fn plane_a_or_window_pixel_rgb_uses_window_region_offsets_and_exclusive_edges() {
+        let mut vdp = blank_vdp_snapshot();
+        make_tile_opaque(&mut vdp.vram, 2, 2);
+        set_tile_pixel(&mut vdp.vram, 5, 0, 0, 4);
+        write_cram_colour(&mut vdp.cram, 2, 0x0E0);
+        write_cram_colour(&mut vdp.cram, 4, 0xE00);
+        write_tile_entry(&mut vdp.vram, 0x2000, 4, 2);
+        write_tile_entry(&mut vdp.vram, 0x2000, 14, 2);
+        write_tile_entry(&mut vdp.vram, 0x3000, 33, 5);
+        let plane_a = ScrollPlane {
+            base: 0x2000,
+            width_cells: 4,
+            height_cells: 4,
+            hscroll: 0,
+            vscroll: 0,
+        };
+        let window = WindowPlane {
+            base: 0x3000,
+            region: Some(WindowRegion {
+                left: 16,
+                top: 8,
+                width: 16,
+                height: 16,
+            }),
+        };
+
+        assert_eq!(
+            crate::vdp::plane_a_or_window_pixel_rgb(&vdp, &plane_a, &window, 24, 16, false),
+            Some([0x00, 0x00, 0xFF]),
+            "VDP window pixels should use screen coordinates relative to the window origin"
+        );
+        assert_eq!(
+            crate::vdp::plane_a_or_window_pixel_rgb(&vdp, &plane_a, &window, 32, 8, false),
+            Some([0x00, 0xFF, 0x00]),
+            "VDP window right edge is exclusive, so the plane should show at x == left + width"
+        );
+        assert_eq!(
+            crate::vdp::plane_a_or_window_pixel_rgb(&vdp, &plane_a, &window, 16, 24, false),
+            Some([0x00, 0xFF, 0x00]),
+            "VDP window bottom edge is exclusive, so the plane should show at y == top + height"
+        );
+    }
+
+    #[test]
+    fn window_pixel_rgb_uses_h40_window_row_stride_and_priority() {
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[0x0C] = 0x81;
+        set_tile_pixel(&mut vdp.vram, 6, 0, 0, 5);
+        write_cram_colour(&mut vdp.cram, 0x20 + 5, 0xEEE);
+        write_tile_entry(&mut vdp.vram, 0x3400, 65, 0x8000 | 0x4000 | 6);
+
+        assert_eq!(
+            crate::vdp::window_pixel_rgb(&vdp, 0x3400, 8, 8, true),
+            Some([0xFF, 0xFF, 0xFF]),
+            "H40 VDP window rows are 64 cells wide, not the H32 32-cell layout"
+        );
+        assert_eq!(
+            crate::vdp::window_pixel_rgb(&vdp, 0x3400, 8, 8, false),
+            None,
+            "VDP window priority bit must reject the opposite priority pass"
+        );
+    }
+
+    #[test]
+    fn sample_vdp_pixel_reports_plane_source_tile_and_transparency() {
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[2] = 0x08;
+        set_tile_pixel(&mut vdp.vram, 4, 5, 3, 3);
+        write_cram_colour(&mut vdp.cram, 0x10 + 3, 0x00E);
+        write_tile_entry(&mut vdp.vram, 0x2000, 0, 0x2000 | 4);
+
+        let sample = crate::vdp::sample_vdp_pixel(&vdp, 5, 3);
+        let plane_a = sample
+            .layers
+            .iter()
+            .find(|layer| layer.layer == "plane_a")
+            .expect("plane A sample should be present");
+
+        assert!(!plane_a.priority);
+        assert_eq!(plane_a.map_base, 0x2000);
+        assert_eq!(plane_a.cell_x, 0);
+        assert_eq!(plane_a.cell_y, 0);
+        assert_eq!(plane_a.cell_index, 0);
+        assert_eq!(plane_a.entry, 0x2000 | 4);
+        assert_eq!(plane_a.tile_index, 4);
+        assert_eq!(plane_a.palette_line, 1);
+        assert_eq!(plane_a.colour_index, 3);
+        assert_eq!(plane_a.source_x, 5);
+        assert_eq!(plane_a.source_y, 3);
+        assert_eq!(plane_a.rgb, Some([0xFF, 0x00, 0x00]));
+
+        let transparent = crate::vdp::sample_vdp_pixel(&vdp, 4, 3);
+        let transparent_plane_a = transparent
+            .layers
+            .iter()
+            .find(|layer| layer.layer == "plane_a")
+            .expect("transparent plane A sample should still explain the tile source");
+        assert_eq!(transparent_plane_a.colour_index, 0);
+        assert_eq!(transparent_plane_a.rgb, None);
+    }
+
+    #[test]
+    fn sample_plane_pixel_reports_scrolled_wrapped_source() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 4, 1, 3, 3);
+        write_cram_colour(&mut vdp.cram, 0x10 + 3, 0x00E);
+        write_tile_entry(&mut vdp.vram, 0x2000, 15, 0x8000 | 0x2000 | 4);
+        let plane = ScrollPlane {
+            base: 0x2000,
+            width_cells: 4,
+            height_cells: 4,
+            hscroll: 9,
+            vscroll: 7,
+        };
+
+        let sample = crate::vdp::sample_plane_pixel(&vdp, "plane_b", &plane, 2, 20, true)
+            .expect("scrolled high-priority plane sample should be visible");
+
+        assert_eq!(sample.layer, "plane_b");
+        assert_eq!(sample.cell_x, 3);
+        assert_eq!(sample.cell_y, 3);
+        assert_eq!(sample.cell_index, 15);
+        assert_eq!(sample.entry, 0x8000 | 0x2000 | 4);
+        assert_eq!(sample.tile_index, 4);
+        assert_eq!(sample.palette_line, 1);
+        assert_eq!(sample.source_x, 1);
+        assert_eq!(sample.source_y, 3);
+        assert_eq!(sample.colour_index, 3);
+        assert_eq!(sample.rgb, Some([0xFF, 0x00, 0x00]));
+    }
+
+    #[test]
+    fn sample_vdp_pixel_reports_window_source_when_window_covers_pixel() {
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[0x0C] = 0x81;
+        set_tile_pixel(&mut vdp.vram, 6, 0, 0, 5);
+        write_cram_colour(&mut vdp.cram, 0x20 + 5, 0xEEE);
+        write_tile_entry(&mut vdp.vram, 0x3400, 65, 0x8000 | 0x4000 | 6);
+        let window = WindowPlane {
+            base: 0x3400,
+            region: Some(WindowRegion {
+                left: 16,
+                top: 8,
+                width: 16,
+                height: 16,
+            }),
+        };
+
+        let plane_a = ScrollPlane {
+            base: 0x2000,
+            width_cells: 4,
+            height_cells: 4,
+            hscroll: 0,
+            vscroll: 0,
+        };
+        let sample =
+            crate::vdp::sample_plane_a_or_window_pixel(&vdp, &plane_a, &window, 24, 16, true)
+                .expect("window sample should be present");
+
+        assert_eq!(sample.layer, "window");
+        assert!(sample.priority);
+        assert_eq!(sample.map_base, 0x3400);
+        assert_eq!(sample.cell_x, 1);
+        assert_eq!(sample.cell_y, 1);
+        assert_eq!(sample.cell_index, 65);
+        assert_eq!(sample.tile_index, 6);
+        assert_eq!(sample.palette_line, 2);
+        assert_eq!(sample.colour_index, 5);
+        assert_eq!(sample.rgb, Some([0xFF, 0xFF, 0xFF]));
+    }
+
+    #[test]
+    fn sample_plane_a_or_window_pixel_reports_plane_on_exclusive_window_edges() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 2, 0, 0, 2);
+        set_tile_pixel(&mut vdp.vram, 5, 0, 0, 4);
+        write_cram_colour(&mut vdp.cram, 2, 0x0E0);
+        write_cram_colour(&mut vdp.cram, 4, 0xE00);
+        write_tile_entry(&mut vdp.vram, 0x2000, 4, 2);
+        write_tile_entry(&mut vdp.vram, 0x2000, 14, 2);
+        write_tile_entry(&mut vdp.vram, 0x3000, 33, 5);
+        let plane_a = ScrollPlane {
+            base: 0x2000,
+            width_cells: 4,
+            height_cells: 4,
+            hscroll: 0,
+            vscroll: 0,
+        };
+        let window = WindowPlane {
+            base: 0x3000,
+            region: Some(WindowRegion {
+                left: 16,
+                top: 8,
+                width: 16,
+                height: 16,
+            }),
+        };
+
+        let right_edge =
+            crate::vdp::sample_plane_a_or_window_pixel(&vdp, &plane_a, &window, 32, 8, false)
+                .expect("right-edge sample should fall through to plane A");
+        let bottom_edge =
+            crate::vdp::sample_plane_a_or_window_pixel(&vdp, &plane_a, &window, 16, 24, false)
+                .expect("bottom-edge sample should fall through to plane A");
+
+        assert_eq!(right_edge.layer, "plane_a");
+        assert_eq!(right_edge.cell_index, 4);
+        assert_eq!(right_edge.rgb, Some([0x00, 0xFF, 0x00]));
+        assert_eq!(bottom_edge.layer, "plane_a");
+        assert_eq!(bottom_edge.cell_index, 14);
+        assert_eq!(bottom_edge.rgb, Some([0x00, 0xFF, 0x00]));
+    }
+
+    #[test]
+    fn sample_window_pixel_accepts_low_priority_entries() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 6, 0, 0, 5);
+        write_cram_colour(&mut vdp.cram, 0x20 + 5, 0xEEE);
+        write_tile_entry(&mut vdp.vram, 0x3400, 1, 0x4000 | 6);
+
+        let sample = crate::vdp::sample_window_pixel(&vdp, 0x3400, 8, 0, false)
+            .expect("low-priority window sample should be visible in the low-priority pass");
+
+        assert_eq!(sample.layer, "window");
+        assert!(!sample.priority);
+        assert_eq!(sample.cell_index, 1);
+        assert_eq!(sample.tile_index, 6);
+        assert_eq!(sample.palette_line, 2);
+        assert_eq!(sample.source_x, 0);
+        assert_eq!(sample.source_y, 0);
+        assert_eq!(sample.rgb, Some([0xFF, 0xFF, 0xFF]));
+    }
+
+    #[test]
+    fn sprite_line_scan_follows_vdp_link_size_position_and_visible_lines() {
+        let mut vram = vec![0; 0x400];
+        write_sprite_entry(&mut vram, 0x100, 0, 5, 0x0601, 0x0123, 7);
+        write_sprite_entry(&mut vram, 0x100, 1, -4, 0x0101, 0x0456, 11);
+
+        let scan = SpriteLineScan::build(&vram, 0x100, 24, 320);
+
+        assert_eq!(
+            scan.entries.len(),
+            2,
+            "VDP sprite scan should follow the link field and stop when it reaches an already visited sprite"
+        );
+        assert_eq!(scan.entries[0].xpos, 7);
+        assert_eq!(scan.entries[0].ypos, 5);
+        assert_eq!(scan.entries[0].width_tiles, 2);
+        assert_eq!(scan.entries[0].height_tiles, 3);
+        assert_eq!(scan.entries[0].width_pixels, 16);
+        assert_eq!(scan.entries[0].height_pixels, 24);
+        assert_eq!(scan.entries[0].pattern, 0x0123);
+        assert_eq!(scan.entries[1].xpos, 11);
+        assert_eq!(scan.entries[1].ypos, -4);
+        assert_eq!(scan.entries[1].width_tiles, 1);
+        assert_eq!(scan.entries[1].height_tiles, 2);
+        assert_eq!(scan.entries[1].width_pixels, 8);
+        assert_eq!(scan.entries[1].height_pixels, 16);
+        assert_eq!(scan.entries[1].pattern, 0x0456);
+        assert_eq!(scan.sprites_on_line(4), &[1]);
+        assert_eq!(scan.sprites_on_line(5), &[0, 1]);
+        assert_eq!(scan.sprites_on_line(12), &[0]);
+        assert_eq!(scan.sprites_on_line(23), &[0]);
+    }
+
+    #[test]
+    fn sprite_line_scan_caps_each_scanline_at_vdp_h40_limit() {
+        let mut vram = vec![0; 0x500];
+        for sprite_index in 0..=crate::vdp::MAX_SPRITES_PER_LINE {
+            let next_link = if sprite_index == crate::vdp::MAX_SPRITES_PER_LINE {
+                0
+            } else {
+                u16::try_from(sprite_index + 1).expect("test sprite index fits in VDP link field")
+            };
+            write_sprite_entry(
+                &mut vram,
+                0x100,
+                sprite_index,
+                0,
+                next_link,
+                u16::try_from(sprite_index).expect("test sprite index fits in pattern word"),
+                i32::try_from(sprite_index * 8).expect("test sprite x fits in i32"),
+            );
+        }
+
+        let scan = SpriteLineScan::build(&vram, 0x100, 8, 320);
+
+        assert_eq!(
+            scan.entries.len(),
+            crate::vdp::MAX_SPRITES_PER_LINE + 1,
+            "VDP sprite link traversal should still parse sprites after a scanline reaches its render cap"
+        );
+        assert_eq!(
+            scan.sprites_on_line(0).len(),
+            crate::vdp::MAX_SPRITES_PER_LINE,
+            "H40 VDP scanlines expose at most 20 sprites; the 21st linked sprite must be dropped from the line list"
+        );
+        assert_eq!(
+            scan.sprites_on_line(0).last(),
+            Some(&u8::try_from(crate::vdp::MAX_SPRITES_PER_LINE - 1).expect("cap fits in u8"))
+        );
+    }
+
+    #[test]
+    fn sprite_line_scan_caps_each_scanline_at_vdp_h40_sprite_pixel_budget() {
+        let mut vram = vec![0; 0x500];
+        for sprite_index in 0..11 {
+            let next_link = if sprite_index == 10 {
+                0
+            } else {
+                u16::try_from(sprite_index + 1).expect("test sprite index fits in VDP link field")
+            };
+            write_sprite_entry(
+                &mut vram,
+                0x100,
+                sprite_index,
+                0,
+                0x0F00 | next_link,
+                u16::try_from(sprite_index).expect("test sprite index fits in pattern word"),
+                i32::try_from(sprite_index * 32).expect("test sprite x fits in i32"),
+            );
+        }
+
+        let scan = SpriteLineScan::build(&vram, 0x100, 8, 320);
+
+        assert_eq!(
+            scan.entries.len(),
+            11,
+            "VDP sprite link traversal should still parse sprites after the scanline exceeds the H40 sprite-pixel budget"
+        );
+        assert_eq!(
+            scan.sprites_on_line(0),
+            &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            "Mega Drive H40 VDP exposes at most 320 sprite pixels per scanline, so the eleventh 32px sprite is dropped even before the 20-sprite count cap"
+        );
+    }
+
+    #[test]
+    fn scanline_sprite_pixel_rgb_applies_priority_bounds_and_local_offsets() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 0, 1, 1, 2);
+        set_tile_pixel(&mut vdp.vram, 40, 3, 2, 3);
+        set_tile_pixel(&mut vdp.vram, 41, 0, 2, 4);
+        set_tile_pixel(&mut vdp.vram, 41, 3, 0, 4);
+        write_cram_colour(&mut vdp.cram, 2, 0x0E0);
+        write_cram_colour(&mut vdp.cram, 4, 0xE00);
+        write_cram_colour(&mut vdp.cram, 0x10 + 3, 0x00E);
+        write_cram_colour(&mut vdp.cram, 0x10 + 4, 0xE00);
+        write_sprite_entry(
+            &mut vdp.vram,
+            0x100,
+            0,
+            4,
+            0x0001,
+            0x8000 | 0x2000 | 0x0028,
+            10,
+        );
+        write_sprite_entry(&mut vdp.vram, 0x100, 1, 12, 0x0002, 0x8000, 20);
+        write_sprite_entry(&mut vdp.vram, 0x100, 2, 14, 0x0000, 0x0000, 30);
+        let scan = SpriteLineScan::build(&vdp.vram, 0x100, 16, 320);
+        let line_sprites = scan.sprites_on_line(6);
+
+        assert_eq!(
+            crate::vdp::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 13, 6, true),
+            Some([0xFF, 0x00, 0x00]),
+            "VDP sprite pixels should use local x/y offsets after the screen-space hit test"
+        );
+        assert_eq!(
+            crate::vdp::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 13, 6, false),
+            None,
+            "VDP sprite priority bit must reject the opposite priority pass"
+        );
+        assert_eq!(
+            crate::vdp::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 9, 6, true),
+            None,
+            "VDP sprite left edge is inclusive but pixels before it must miss"
+        );
+        assert_eq!(
+            crate::vdp::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 18, 6, true),
+            None,
+            "VDP sprite right edge is exclusive"
+        );
+        assert_eq!(
+            crate::vdp::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 13, 3, true),
+            None,
+            "VDP sprite top edge is inclusive but pixels above it must miss"
+        );
+        assert_eq!(
+            crate::vdp::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 13, 12, true),
+            None,
+            "VDP sprite bottom edge is exclusive"
+        );
+        assert_eq!(
+            crate::vdp::scanline_sprite_pixel_rgb(
+                &vdp,
+                &scan,
+                scan.sprites_on_line(13),
+                21,
+                13,
+                true
+            ),
+            Some([0x00, 0xFF, 0x00]),
+            "A high-priority sprite with no other pattern bits still has its priority bit tested by mask"
+        );
+        assert_eq!(
+            crate::vdp::scanline_sprite_pixel_rgb(
+                &vdp,
+                &scan,
+                scan.sprites_on_line(15),
+                31,
+                15,
+                false
+            ),
+            Some([0x00, 0xFF, 0x00]),
+            "A low-priority sprite with no other pattern bits must remain visible in the low-priority pass"
+        );
+    }
+
+    #[test]
+    fn sprite_tile_pixel_rgb_decodes_palette_column_major_tiles_and_flip_bits() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 13, 1, 2, 5);
+        write_cram_colour(&mut vdp.cram, 0x20 + 5, 0xEEE);
+        let pattern = 0x4000 | 0x000A;
+
+        assert_eq!(
+            crate::vdp::sprite_tile_pixel_rgb(&vdp, pattern, 2, 2, 9, 10),
+            Some([0xFF, 0xFF, 0xFF]),
+            "VDP multi-tile sprites are indexed by column then row from the base pattern"
+        );
+        assert_eq!(
+            crate::vdp::sprite_tile_pixel_rgb(&vdp, pattern | 0x0800, 2, 2, 6, 10),
+            Some([0xFF, 0xFF, 0xFF]),
+            "VDP sprite hflip mirrors local x across the full sprite width"
+        );
+        assert_eq!(
+            crate::vdp::sprite_tile_pixel_rgb(&vdp, pattern | 0x1000, 2, 2, 9, 5),
+            Some([0xFF, 0xFF, 0xFF]),
+            "VDP sprite vflip mirrors local y across the full sprite height"
+        );
+    }
+
+    #[test]
+    fn tile_pixel_rgb_applies_entry_flip_bits() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 8, 6, 5, 4);
+        write_cram_colour(&mut vdp.cram, 0x20 + 4, 0xE00);
+        let entry = 0x4000 | 8;
+
+        assert_eq!(
+            crate::vdp::tile_pixel_rgb(&vdp, entry | 0x0800, 1, 5),
+            Some([0x00, 0x00, 0xFF]),
+            "VDP tile hflip mirrors x within the 8x8 tile"
+        );
+        assert_eq!(
+            crate::vdp::tile_pixel_rgb(&vdp, entry | 0x1000, 6, 2),
+            Some([0x00, 0x00, 0xFF]),
+            "VDP tile vflip mirrors y within the 8x8 tile"
+        );
+    }
+
+    #[test]
+    fn tile_pixel_sample_reports_flipped_source_coordinates() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 8, 6, 5, 4);
+        write_cram_colour(&mut vdp.cram, 0x20 + 4, 0xE00);
+
+        let sample = crate::vdp::tile_pixel_sample(
+            &vdp,
+            "plane_a",
+            false,
+            0x2000,
+            0,
+            0,
+            0,
+            0x4000 | 0x1800 | 8,
+            1,
+            2,
+        );
+
+        assert_eq!(sample.tile_index, 8);
+        assert_eq!(sample.palette_line, 2);
+        assert_eq!(sample.source_x, 6);
+        assert_eq!(sample.source_y, 5);
+        assert_eq!(sample.colour_index, 4);
+        assert_eq!(sample.rgb, Some([0x00, 0x00, 0xFF]));
+    }
+
+    #[test]
+    fn vdp_window_and_sprite_table_registers_decode_masks_and_shifts() {
+        let mut registers = [0; 0x20];
+        registers[0x0C] = 0x81;
+        registers[3] = 0xBF;
+        registers[5] = 0xFF;
+        assert_eq!(crate::vdp::window_plane_base(&registers), 0x3E << 10);
+        assert_eq!(crate::vdp::sprite_table_base(&registers), 0x7E << 9);
+
+        registers[0x0C] = 0x00;
+        registers[3] = 0xBF;
+        registers[5] = 0xFF;
+        assert_eq!(crate::vdp::window_plane_base(&registers), 0x3C << 10);
+        assert_eq!(crate::vdp::sprite_table_base(&registers), 0x7F << 9);
+    }
+
+    #[test]
+    fn window_region_decodes_left_right_top_bottom_and_empty_regions() {
+        let mut registers = [0; 0x20];
+        registers[0x11] = 0x82;
+        registers[0x12] = 0x83;
+        assert_eq!(
+            crate::vdp::window_region(&registers, 80, 64),
+            Some(WindowRegion {
+                left: 32,
+                top: 24,
+                width: 48,
+                height: 40,
+            }),
+            "VDP right/bottom window bits make the window start at the encoded cell position"
+        );
+
+        registers[0x11] = 0x02;
+        registers[0x12] = 0x03;
+        assert_eq!(
+            crate::vdp::window_region(&registers, 80, 64),
+            Some(WindowRegion {
+                left: 0,
+                top: 0,
+                width: 32,
+                height: 24,
+            }),
+            "VDP left/top window mode covers the leading screen region up to the encoded position"
+        );
+
+        registers[0x11] = 0x80 | 0x1F;
+        registers[0x12] = 0x01;
+        assert_eq!(crate::vdp::window_region(&registers, 80, 64), None);
+    }
+
+    #[test]
+    fn plane_dimensions_decode_vdp_size_register_axes_independently() {
+        assert_eq!(crate::vdp::plane_dimensions(0x00), (32, 32));
+        assert_eq!(crate::vdp::plane_dimensions(0x01), (64, 32));
+        assert_eq!(crate::vdp::plane_dimensions(0x03), (128, 32));
+        assert_eq!(crate::vdp::plane_dimensions(0x10), (32, 64));
+        assert_eq!(crate::vdp::plane_dimensions(0x30), (32, 128));
+        assert_eq!(crate::vdp::plane_dimensions(0x31), (64, 128));
+        assert_eq!(crate::vdp::plane_dimensions(0x33), (128, 128));
+        assert_eq!(crate::vdp::plane_dimensions(0x22), (32, 32));
+    }
+
+    #[test]
+    fn gems_engine_constructs_without_panic() {
+        // Minimal dummy data — just verifies no crash during construction
+        let driver = vec![0u8; 64]; // stub driver (won't produce real audio)
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.step_frame();
+        let samples = engine.generate_samples(735);
+        assert_eq!(
+            samples.len(),
+            735 * 2,
+            "should produce stereo interleaved samples"
+        );
+    }
+
+    #[test]
+    fn gems_engine_places_sound_data_at_rom_pointer_addresses() {
+        // ASM StopMusic queues these exact ROM pointers through sub_E14AC; the
+        // standalone virtual ROM must place each extracted GEMS blob there.
+        let engine = super::GemsAudioEngine::new(
+            &[0; 64],
+            &[0xA1, 0xA2, 0xA3],
+            &[0xB1, 0xB2],
+            &[0xC1, 0xC2, 0xC3, 0xC4],
+            &[0xD1, 0xD2, 0xD3],
+        );
+        let rom = &engine.z80.io.virtual_rom;
+
+        assert_eq!(
+            &rom[super::GEMS_PATCH_ADDR as usize..][..3],
+            &[0xA1, 0xA2, 0xA3]
+        );
+        assert_eq!(
+            &rom[super::GEMS_ENVELOPE_ADDR as usize..][..2],
+            &[0xB1, 0xB2]
+        );
+        assert_eq!(
+            &rom[super::GEMS_SEQUENCE_ADDR as usize..][..4],
+            &[0xC1, 0xC2, 0xC3, 0xC4]
+        );
+        assert_eq!(
+            &rom[super::GEMS_SAMPLE_ADDR as usize..][..3],
+            &[0xD1, 0xD2, 0xD3]
+        );
+    }
+
+    #[test]
+    fn gems_engine_init_queues_data_pointers_low_to_high_like_sub_e14ac() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.init();
+
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..14];
+        assert_eq!(
+            queue,
+            [
+                0xFF, 0x0B, 0x0E, 0x16, 0x0E, 0xEA, 0x25, 0x0E, 0x66, 0x27, 0x0E, 0x16, 0x87, 0x0E,
+            ],
+            "ASM sub_E14AC writes the low byte first, then shifts right before queueing the middle and high bytes",
+        );
+    }
+
+    #[test]
+    fn gems_engine_init_resets_hidden_boot_audio_event_epoch() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.z80.io.audio_events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 42,
+            value: 0x90,
+        });
+        engine.init();
+
+        assert_eq!(
+            engine.z80.io.z80_cycles, 0,
+            "hidden init frames are not rendered, so later audio event timestamps must start at the first generated frame"
+        );
+        assert!(
+            engine.z80.io.audio_events.is_empty(),
+            "hidden init writes must not be mixed into the first audible frame"
+        );
+        assert_eq!(engine.mixer.output_samples_emitted, 0);
+        assert_eq!(engine.mixer.ym_samples_emitted, 0);
+    }
+
+    #[test]
+    fn gems_engine_start_sequence_auto_inits_then_queues_command_10() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.start_sequence(0x17);
+
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..17];
+        assert_eq!(
+            &queue[14..17],
+            [0xFF, 0x10, 0x17],
+            "ASM PlaySound/sub_E151C writes command marker $FF, command $10, then the sound id after auto-init"
+        );
+    }
+
+    #[test]
+    fn gems_engine_from_kid_rom_uses_rom_driver_and_queues_command_10() {
+        let mut rom = vec![0u8; super::GEMS_DRIVER_END_ADDR as usize];
+        rom[super::GEMS_DRIVER_ADDR as usize] = 0xF3;
+        rom[super::GEMS_PATCH_ADDR as usize] = 0xA1;
+
+        let mut engine = super::GemsAudioEngine::from_kid_rom(&rom).unwrap();
+        assert_eq!(
+            engine.z80.io.ram[0], 0xF3,
+            "ASM StopMusic copies GEMS_Sounddriver from ROM to Z80 RAM"
+        );
+        assert_eq!(
+            engine.z80.io.virtual_rom[super::GEMS_PATCH_ADDR as usize],
+            0xA1,
+            "ROM-backed audit must expose exact Kid ROM bytes to banked Z80 reads"
+        );
+
+        engine.start_sequence(0x41);
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..17];
+        assert_eq!(
+            &queue[14..17],
+            [0xFF, 0x10, 0x41],
+            "ASM j_PlaySound/sub_E151C queues `FF 10 <sound-id>` after ROM pointer init"
+        );
+    }
+
+    #[test]
+    fn gems_engine_stop_sequence_auto_inits_then_queues_command_12() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.stop_sequence(0x23);
+
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..17];
+        assert_eq!(
+            &queue[14..17],
+            [0xFF, 0x12, 0x23],
+            "ASM j_PlaySound2/sub_E153E queues command $12 (cmdstopseq, stop sequence N) where j_PlaySound/sub_E151C queues $10 (cmdstartseq)"
+        );
+    }
+
+    #[test]
+    fn gems_engine_set_music_speed_queues_sub_e1330_then_sub_e1338() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.set_music_speed(0x7E);
+
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..19];
+        assert_eq!(
+            &queue[14..19],
+            [0xFF, 0x05, 0x7E, 0xFF, 0x0D],
+            "ASM loc_7E26/sub_E1330/sub_E1338 queues the transform tempo write before the reset command"
+        );
+    }
+
+    #[test]
+    fn gems_engine_stop_all_sequences_auto_inits_then_queues_command_16() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.stop_all_sequences();
+
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..17];
+        assert_eq!(
+            &queue[14..17],
+            [0xFF, 0x16, 0xFF],
+            "GEMS driver command $16 reads one more byte as the sequence id; $FF means stop all sequences"
+        );
+    }
+
+    #[test]
+    fn gems_engine_stop_all_then_start_sequence_keeps_start_command_intact() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.init();
+        engine.stop_all_sequences();
+        engine.start_sequence(0x07);
+
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..20];
+        assert_eq!(
+            &queue[14..20],
+            [0xFF, 0x16, 0xFF, 0xFF, 0x10, 0x07],
+            "ASM/GEMS command $16 consumes a sequence id byte; without the $FF id, the following PlaySound command marker is swallowed and level BGM never starts"
+        );
+    }
+
+    #[test]
+    fn gems_engine_stop_music_reloads_driver_and_requeues_pointer_init_like_rom() {
+        let mut driver = vec![0u8; 64];
+        driver[0] = 0xC3;
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.init();
+        engine.start_sequence(0x03);
+        engine.z80.io.ram[0] = 0x00;
+        engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR) + 30] = 0xAA;
+
+        engine.stop_music();
+
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..14];
+        assert_eq!(
+            engine.z80.io.ram[0], 0xC3,
+            "ASM StopMusic reloads the GEMS driver before queueing the pointer init"
+        );
+        assert_eq!(
+            queue,
+            [
+                0xFF, 0x0B, 0x0E, 0x16, 0x0E, 0xEA, 0x25, 0x0E, 0x66, 0x27, 0x0E, 0x16, 0x87, 0x0E,
+            ],
+            "ASM StopMusic queues the same `$0B` pointer command as initial GEMS setup, not command `$16`"
+        );
+        assert_eq!(
+            engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR) + 30],
+            0x00,
+            "ASM StopMusic clears Z80 RAM, so stale title commands cannot survive into gameplay"
+        );
+    }
+}
