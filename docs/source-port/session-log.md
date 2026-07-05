@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive level-flow helper mutation hardening
+
+- Project-status still showed no ready/open risks after the helmets
+  visual/support slice, so mutation-tested a compact `level.rs` flow-helper
+  cluster covering final-level, teleporter, Hundred-K Trip, and death-respawn
+  route-profile branches.
+- ASM context: `loc_B8DE` is the route-specific death/respawn teleport entry
+  whose direct Drips trace profile only applies to logical level 1 at
+  camera_x `$026F`; `loc_7452` is reached from the live InGame player loop and
+  decrements `$FFFFFB4C`; `loc_D7F4`, `loc_BCD6`, and `loc_DA4A` were already
+  covered in the same focused shard.
+- Initial mutation at `/tmp/mutants-core-level-flow-helpers-20260705-initial`
+  reported 18 mutants tested: 5 missed, 11 caught, 2 unviable. Actionable
+  misses were the `loc_B8DE` level/camera predicate and the non-InGame guard
+  around `loc_7452`.
+- Fix: added ASM-cited edge tests for the exact Level 2 direct-Drips camera
+  match plus both negative predicate branches, and for Hundred-K timer
+  inactivity outside `BootState::InGame`.
+- Final mutation at `/tmp/mutants-core-level-flow-helpers-20260705-final`
+  reports 18 mutants tested: 16 caught, 2 unviable, 0 missed.
+
 ## 2026-07-05 - proactive helmets visual support mutation hardening
 
 - Project-status still showed no ready/open risks after the Eyeclops beam

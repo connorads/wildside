@@ -10344,6 +10344,23 @@ mod chunk_03 {
     }
 
     #[test]
+    fn hundred_k_trip_timer_loc_7452_ignores_non_ingame_state() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(0x20));
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.hundred_k_trip_timer = 2;
+
+        assert!(
+            !runtime.step_hundred_k_trip_timer_loc_7452(),
+            "ASM loc_7452 is reached from the live player loop; native must not tick it outside InGame"
+        );
+        assert_eq!(
+            runtime.hundred_k_trip_timer, 2,
+            "ASM loc_7452 guard should leave `$FFFFFB4C` untouched outside the live loop"
+        );
+        assert!(matches!(runtime.boot_state, BootState::TitleScreen { .. }));
+    }
+
+    #[test]
     fn hundred_k_trip_transition_loc_d980_delays_terminal_loc_da4a_until_fade_ends() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(0x20));
         start_level(&mut runtime);
@@ -23967,6 +23984,41 @@ mod chunk_05 {
         assert!(
             !runtime.game_complete,
             "game_complete should not be set mid-game"
+        );
+    }
+
+    #[test]
+    fn death_respawn_trace_profile_for_route_requires_level_two_camera_loc_b8de() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(2));
+        runtime.current_level = LevelId(1);
+        let mut slice = OpeningSliceState::new(runtime.level_bounds(LevelId(1)));
+        slice.camera.x_pos = 0x026f_0000;
+        runtime.opening_slice = Some(slice);
+
+        assert_eq!(
+            runtime.death_respawn_trace_profile_for_route(),
+            Some(DeathRespawnTraceProfile::LevelTwoDirectDrips),
+            "ASM lose_life -> Teleport loc_B8DE direct Drips route profile is only preserved for level 1 camera_x=$026F"
+        );
+
+        runtime.current_level = LevelId(0);
+        assert_eq!(
+            runtime.death_respawn_trace_profile_for_route(),
+            None,
+            "ASM loc_B8DE direct Drips profile must not apply to other logical levels even if the camera matches"
+        );
+
+        runtime.current_level = LevelId(1);
+        runtime
+            .opening_slice
+            .as_mut()
+            .expect("test seeded an opening slice")
+            .camera
+            .x_pos = 0x0270_0000;
+        assert_eq!(
+            runtime.death_respawn_trace_profile_for_route(),
+            None,
+            "ASM loc_B8DE direct Drips profile must not apply to other level-2 camera routes"
         );
     }
 
