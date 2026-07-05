@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive frame audio director mutation hardening
+
+- Project-status still showed no ready/open risks after the VDP IntroSequence5
+  slice, so mutation-tested the shared frame audio clock/director and GEMS
+  command helpers in `audio.rs`.
+- ASM context: `StopMusic` (kid.asm:49727) resets the GEMS driver before a
+  delayed BGM start, Load_IntroSequence1 (kid.asm:29068-29070) queues
+  `bgm_Ice` after the reset, Load_InGame (kid.asm:23623-23629) suppresses stale
+  transition-frame SFX after the reset, and `loc_12004` maps level theme 8 to
+  the Cave BGM.
+- Initial mutation at `/tmp/mutants-frame-audio-director-20260705-initial`
+  reported 35 mutants tested: 33 missed, 2 unviable. Misses were sample-clock
+  remainder maths, render output/action sequencing, initial BGM priming,
+  StopMusic-then-start delay, same-frame SFX suppression, and raw GEMS
+  start/stop command dispatch.
+- Fix: added package-local audio tests with a recording sink for sample-rate
+  remainders, initial BGM cue resolution, BGM command return values,
+  StopMusic/SFX suppression boundaries, render sample/action ordering, trace
+  SFX/music-speed deltas, and transition-frame SFX suppression.
+- Final mutation at `/tmp/mutants-frame-audio-director-20260705-final`
+  reported 35 mutants tested: 33 caught, 2 unviable, 0 missed.
+
 ## 2026-07-05 - proactive VDP IntroSequence5 tile/panel mutation hardening
 
 - Project-status still showed no ready/open risks after the terrain

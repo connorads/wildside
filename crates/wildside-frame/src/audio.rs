@@ -901,3 +901,378 @@ pub fn resolved_level_header(manifest: &AssetManifest, level_id: u8) -> Option<&
                 .and_then(|level| level.header_metadata.as_ref())
         })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use wildside_data::{LevelRecord, LevelResources};
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum RecordingAudioAction {
+        StartSequence(u8),
+        StopSequence(u8),
+        StopMusic,
+        SetMusicSpeed(u8),
+        StepFrame,
+        GenerateSamples(usize),
+    }
+
+    #[derive(Default)]
+    struct RecordingAudioSink {
+        actions: Vec<RecordingAudioAction>,
+    }
+
+    impl NativeAudioSink for RecordingAudioSink {
+        fn start_sequence(&mut self, sound_id: u8) {
+            self.actions
+                .push(RecordingAudioAction::StartSequence(sound_id));
+        }
+
+        fn stop_sequence(&mut self, sound_id: u8) {
+            self.actions
+                .push(RecordingAudioAction::StopSequence(sound_id));
+        }
+
+        fn stop_music(&mut self) {
+            self.actions.push(RecordingAudioAction::StopMusic);
+        }
+
+        fn set_music_speed(&mut self, speed: u8) {
+            self.actions
+                .push(RecordingAudioAction::SetMusicSpeed(speed));
+        }
+
+        fn step_frame(&mut self) {
+            self.actions.push(RecordingAudioAction::StepFrame);
+        }
+
+        fn generate_samples(&mut self, sample_count: usize) -> Vec<f32> {
+            self.actions
+                .push(RecordingAudioAction::GenerateSamples(sample_count));
+            vec![sample_count as f32; sample_count * 2]
+        }
+    }
+
+    fn test_manifest() -> AssetManifest {
+        AssetManifest {
+            generated_bundle_version: 0,
+            rom_sha1: String::from("test"),
+            upstream_commit: String::from("test"),
+            source_root: PathBuf::new(),
+            output_root: PathBuf::new(),
+            map_order: Vec::new(),
+            levels: vec![LevelRecord {
+                level_id: 0x00,
+                title_text_id: None,
+                display_name: Some(String::from("Blue Lake Woods 1")),
+                title_card: None,
+                resource_paths: Vec::new(),
+                resources: LevelResources::default(),
+                header_metadata: Some(LevelHeader {
+                    width_screens: 1,
+                    height_screens: 1,
+                    height_flag_bits: 0,
+                    level_theme: 0x08,
+                    murder_wall_flags: 0,
+                    background_theme: 0x08,
+                    weather_flags: 0,
+                    player_start_x: 0x0750,
+                    player_start_y: 0x00E0,
+                    flag_x: 0x0750,
+                    flag_y: 0x0300,
+                }),
+                enemy_layout_metadata: None,
+                bgscroll_metadata: None,
+                platform_metadata: None,
+                background_layout_alias: None,
+            }],
+            constants: Vec::new(),
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
+        }
+    }
+
+    fn trace(mode: GameMode) -> NativeTraceFrame {
+        NativeTraceFrame {
+            game_mode: mode,
+            game_mode_value: mode.as_disassembly_value(),
+            current_level: LevelId(0),
+            player_1_level_id: LevelId(0),
+            ..NativeTraceFrame::default()
+        }
+    }
+
+    #[test]
+    fn audio_sample_clock_distributes_fractional_frame_remainder() {
+        let mut default_clock = AudioSampleClock::new(AUDIO_SAMPLE_RATE);
+        assert_eq!(default_clock.next_frame_samples(), AUDIO_SAMPLES_PER_FRAME);
+
+        let mut half_rate_clock = AudioSampleClock::new(22_050);
+        assert_eq!(
+            (0..6)
+                .map(|_| half_rate_clock.next_frame_samples())
+                .collect::<Vec<_>>(),
+            vec![367, 368, 367, 368, 367, 368],
+            "the 60Hz audio clock must carry the integer remainder between frames"
+        );
+
+        let mut fractional_clock = AudioSampleClock::new(44_117);
+        assert_eq!(
+            (0..60)
+                .map(|_| fractional_clock.next_frame_samples())
+                .sum::<usize>(),
+            44_117,
+            "fractional output rates must not drift over a one-second 60Hz window"
+        );
+    }
+
+    #[test]
+    fn settled_audio_initial_bgm_id_resolves_manifest_level_cue() {
+        let manifest = test_manifest();
+
+        assert_eq!(
+            settled_audio_initial_bgm_id(&manifest, Some(NativeBgmCue::Level(LevelId(0)))),
+            Some(gems_bgm::CAVE),
+            "ASM loc_12004 maps theme 8 through the foreground-theme BGM table"
+        );
+        assert_eq!(
+            settled_audio_initial_bgm_id(&manifest, Some(NativeBgmCue::TitleShell)),
+            Some(gems_bgm::ICE),
+            "ASM Load_TitleScreen queues the title-shell bgm_Ice cue"
+        );
+        assert_eq!(settled_audio_initial_bgm_id(&manifest, None), None);
+        assert_eq!(
+            settled_audio_initial_bgm_id(&manifest, Some(NativeBgmCue::StoppedForTransition)),
+            None
+        );
+    }
+
+    #[test]
+    fn apply_native_bgm_command_maps_stopmusic_delay() {
+        let mut sink = RecordingAudioSink::default();
+
+        assert_eq!(
+            apply_native_bgm_command(&mut sink, NativeBgmPlaybackCommand::Start(gems_bgm::ICE)),
+            None
+        );
+        assert_eq!(
+            apply_native_bgm_command(&mut sink, NativeBgmPlaybackCommand::StopMusic),
+            None
+        );
+        assert_eq!(
+            apply_native_bgm_command(
+                &mut sink,
+                NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE),
+            ),
+            Some(gems_bgm::CAVE),
+            "ASM StopMusic (kid.asm:49727) resets GEMS before the next BGM start"
+        );
+        assert_eq!(
+            sink.actions,
+            vec![
+                RecordingAudioAction::StartSequence(gems_bgm::ICE),
+                RecordingAudioAction::StopMusic,
+                RecordingAudioAction::StopMusic,
+            ]
+        );
+    }
+
+    #[test]
+    fn native_bgm_command_flush_and_sfx_suppression_rules_match_reset_boundaries() {
+        let in_game = trace(GameMode::InGame);
+        let transition = trace(GameMode::LevelTransition);
+        let title = trace(GameMode::TitleScreen);
+
+        assert!(!native_bgm_command_flushes_queued_audio(
+            NativeBgmPlaybackCommand::Start(gems_bgm::ICE),
+        ));
+        assert!(native_bgm_command_flushes_queued_audio(
+            NativeBgmPlaybackCommand::StopMusic,
+        ));
+        assert!(native_bgm_command_flushes_queued_audio(
+            NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE),
+        ));
+
+        assert!(!native_bgm_command_suppresses_same_frame_sfx(
+            NativeBgmPlaybackCommand::Start(gems_bgm::ICE),
+            &transition,
+            Some(NativeBgmCue::ScoreBoard),
+        ));
+        assert!(
+            native_bgm_command_suppresses_same_frame_sfx(
+                NativeBgmPlaybackCommand::StopMusic,
+                &transition,
+                Some(NativeBgmCue::ScoreBoard),
+            ),
+            "ASM Load_InGame (kid.asm:23623-23629) resets GEMS during the level-transition shell"
+        );
+        assert!(!native_bgm_command_suppresses_same_frame_sfx(
+            NativeBgmPlaybackCommand::StopMusic,
+            &in_game,
+            Some(NativeBgmCue::ScoreBoard),
+        ));
+        assert!(native_bgm_command_suppresses_same_frame_sfx(
+            NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE),
+            &in_game,
+            None,
+        ));
+        assert!(!native_bgm_command_suppresses_same_frame_sfx(
+            NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE),
+            &in_game,
+            Some(NativeBgmCue::Options),
+        ));
+        assert!(!native_bgm_command_suppresses_same_frame_sfx(
+            NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE),
+            &title,
+            None,
+        ));
+    }
+
+    #[test]
+    fn apply_native_sound_command_uses_raw_gems_command_byte() {
+        let mut sink = RecordingAudioSink::default();
+
+        apply_native_sound_command(
+            &mut sink,
+            NativeSoundCommand::start_sequence(gems_sfx::NAVIGATE_JINGLE),
+        );
+        apply_native_sound_command(
+            &mut sink,
+            NativeSoundCommand::stop_sequence(gems_sfx::SCORE_COUNTER),
+        );
+
+        assert_eq!(
+            sink.actions,
+            vec![
+                RecordingAudioAction::StartSequence(gems_sfx::NAVIGATE_JINGLE),
+                RecordingAudioAction::StopSequence(gems_sfx::SCORE_COUNTER),
+            ],
+            "ASM j_PlaySound uses GEMS $10 and j_PlaySound2 uses GEMS $12"
+        );
+    }
+
+    #[test]
+    fn native_audio_director_initial_bgm_primes_sink_without_duplicate_start() {
+        let manifest = test_manifest();
+        let mut sink = RecordingAudioSink::default();
+        let mut director = NativeAudioDirector::with_initial_bgm(
+            &manifest,
+            Some(NativeBgmCue::Level(LevelId(0))),
+            &mut sink,
+        );
+
+        director.step(&manifest, &trace(GameMode::InGame), &mut sink);
+
+        assert_eq!(
+            sink.actions,
+            vec![
+                RecordingAudioAction::StartSequence(gems_bgm::CAVE),
+                RecordingAudioAction::StepFrame,
+            ],
+            "settled audio starts with the already-active level BGM and must not re-run Load_InGame's StopMusic path"
+        );
+    }
+
+    #[test]
+    fn render_native_audio_samples_for_trace_delays_stopmusic_then_start_one_frame() {
+        let manifest = test_manifest();
+        let intro = trace(GameMode::IntroSequence1);
+        let title = trace(GameMode::TitleScreen);
+        let mut sink = RecordingAudioSink::default();
+
+        let samples =
+            render_native_audio_samples_for_trace(&manifest, &[intro, title], None, &mut sink);
+
+        assert_eq!(samples.len(), 2 * AUDIO_SAMPLES_PER_FRAME * 2);
+        assert_eq!(
+            sink.actions,
+            vec![
+                RecordingAudioAction::StopMusic,
+                RecordingAudioAction::StepFrame,
+                RecordingAudioAction::GenerateSamples(AUDIO_SAMPLES_PER_FRAME),
+                RecordingAudioAction::StartSequence(gems_bgm::ICE),
+                RecordingAudioAction::StepFrame,
+                RecordingAudioAction::GenerateSamples(AUDIO_SAMPLES_PER_FRAME),
+            ],
+            "ASM Load_IntroSequence1 (kid.asm:29068-29070) runs StopMusic before queuing bgm_Ice"
+        );
+    }
+
+    #[test]
+    fn native_audio_director_applies_trace_sfx_and_music_speed_deltas() {
+        let manifest = test_manifest();
+        let prev = trace(GameMode::InGame);
+        let mut curr = trace(GameMode::InGame);
+        curr.played_sound_effect_ids = vec![gems_sfx::NAVIGATE_JINGLE, gems_sfx::SCORE_COUNTER];
+        curr.played_sound_commands = vec![
+            NativeSoundCommand::start_sequence(gems_sfx::NAVIGATE_JINGLE),
+            NativeSoundCommand::stop_sequence(gems_sfx::SCORE_COUNTER),
+        ];
+        curr.played_music_speed_updates = vec![0x34];
+        let mut sink = RecordingAudioSink::default();
+        let mut director = NativeAudioDirector::with_initial_bgm(
+            &manifest,
+            Some(NativeBgmCue::Level(LevelId(0))),
+            &mut sink,
+        );
+        sink.actions.clear();
+
+        director.step(&manifest, &prev, &mut sink);
+        director.step(&manifest, &curr, &mut sink);
+
+        assert_eq!(
+            sink.actions,
+            vec![
+                RecordingAudioAction::StepFrame,
+                RecordingAudioAction::StartSequence(gems_sfx::NAVIGATE_JINGLE),
+                RecordingAudioAction::StopSequence(gems_sfx::SCORE_COUNTER),
+                RecordingAudioAction::SetMusicSpeed(0x34),
+                RecordingAudioAction::StepFrame,
+            ],
+            "ASM-backed GEMS trace commands must be replayed between 60Hz driver steps"
+        );
+    }
+
+    #[test]
+    fn native_audio_director_suppresses_same_frame_sfx_after_transition_stopmusic() {
+        let manifest = test_manifest();
+        let mut draining = trace(GameMode::InGame);
+        draining.level_complete = true;
+        draining.level_complete_score_counter_elapsed_frames = 1;
+        let mut transition = trace(GameMode::LevelTransition);
+        transition.level_complete = true;
+        transition.level_complete_elapsed_frames = 1;
+        transition.level_complete_score_counter_elapsed_frames = 1;
+        transition.level_complete_score_counter_drained = true;
+        transition.played_sound_effect_ids = vec![gems_sfx::SCORE_COUNTER];
+        transition.played_sound_commands =
+            vec![NativeSoundCommand::start_sequence(gems_sfx::SCORE_COUNTER)];
+        let mut sink = RecordingAudioSink::default();
+        let mut director = NativeAudioDirector::with_initial_bgm(
+            &manifest,
+            Some(NativeBgmCue::ScoreBoard),
+            &mut sink,
+        );
+        sink.actions.clear();
+
+        director.step(&manifest, &draining, &mut sink);
+        director.step(&manifest, &transition, &mut sink);
+
+        assert_eq!(
+            sink.actions,
+            vec![
+                RecordingAudioAction::StepFrame,
+                RecordingAudioAction::StopMusic,
+                RecordingAudioAction::StepFrame,
+            ],
+            "ASM loc_D7F4's score-counter replay is pre-reset state when the same condensed LevelTransition frame runs StopMusic"
+        );
+    }
+}
