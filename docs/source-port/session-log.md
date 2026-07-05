@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive physics camera mutation verification
+
+- Project-status still showed no ready/open risks after the slope-input slice,
+  so mutation-tested the compact camera follow/look-offset helper cluster in
+  `physics.rs`.
+- ASM context: `loc_720E`/`loc_7266` clamp camera targets, `loc_726C` and
+  `loc_727E` pull back the look-down accumulator near the ceiling/top of the
+  viewport, and `loc_728C` pulls it back at the level bottom.
+- Mutation at `/tmp/mutants-core-physics-camera-look-20260705-initial`
+  reported 54 mutants tested: 54 caught, 0 missed.
+- No code change was warranted; existing ASM-cited camera edge tests already
+  kill every selected target clamp, nudge, smooth-scroll, and look-offset
+  mutation.
+
 ## 2026-07-05 - proactive movement slope-input mutation verification
 
 - Project-status still showed no ready/open risks after the slope-solid cache
