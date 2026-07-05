@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks lift/shooter-headbutt mutation verification
+
+- Project-status still showed no ready/open risks after the evanescent/Iron
+  Knight slice, so mutation-tested the lift-block rise/fall and shooter
+  headbutt helper cluster in `blocks.rs`.
+- ASM context: `loc_113F4`/`loc_1141E` own the shifting/lift block worker rise
+  and fall passes, while `loc_11448`/`loc_1146E`/`loc_11474` own the shooter
+  support probe, centre gate, and worker spawn metadata.
+- Mutation at `/tmp/mutants-core-blocks-lift-shooter-headbutt-20260705-initial`
+  reported 25 mutants tested: 20 caught, 5 unviable, 0 missed.
+- No code change was warranted; existing exact-value helper tests already kill
+  every selected step, loop, support-probe, and spawn-metadata mutation.
+
 ## 2026-07-05 - proactive blocks evanescent/Iron Knight mutation verification
 
 - Project-status still showed no ready/open risks after the prize-block wobble
