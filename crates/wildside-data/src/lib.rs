@@ -1000,7 +1000,31 @@ pub fn load_manifest(path: &Path) -> Result<AssetManifest> {
     Ok(manifest)
 }
 
+/// Parse and normalise a manifest from raw `asset-manifest.json` bytes,
+/// reading any missing per-level metadata through `source` instead of the
+/// native filesystem — the web build's [`load_manifest`], where the manifest
+/// itself comes out of a fetched [`BundleAssetSource`](crate::BundleAssetSource).
+pub fn parse_manifest_with_source(bytes: &[u8], source: &dyn AssetSource) -> Result<AssetManifest> {
+    let mut manifest: AssetManifest =
+        serde_json::from_slice(bytes).context("failed to parse asset manifest")?;
+    normalise_manifest_with_source(&mut manifest, source)?;
+    Ok(manifest)
+}
+
 pub fn ensure_generated_bundle_contract(manifest: &AssetManifest) -> Result<()> {
+    ensure_generated_bundle_contract_with_source(
+        manifest,
+        &FsAssetSource::new(manifest.output_root.clone()),
+    )
+}
+
+/// Like [`ensure_generated_bundle_contract`] but verifying the decoded assets
+/// through an injected [`AssetSource`] — required on wasm, where the manifest's
+/// `output_root` does not exist as a filesystem path.
+pub fn ensure_generated_bundle_contract_with_source(
+    manifest: &AssetManifest,
+    source: &dyn AssetSource,
+) -> Result<()> {
     if manifest.generated_bundle_version != GENERATED_BUNDLE_VERSION {
         bail!(
             "generated bundle version mismatch: expected {}, got {}",
@@ -1021,9 +1045,9 @@ pub fn ensure_generated_bundle_contract(manifest: &AssetManifest) -> Result<()> 
                 decoded.contract_version
             );
         }
-        validate_decoded_asset_file(manifest, &decoded.foreground, "foreground")?;
-        validate_decoded_asset_file(manifest, &decoded.block, "block")?;
-        validate_decoded_asset_file(manifest, &decoded.background, "background")?;
+        validate_decoded_asset_file(source, &decoded.foreground, "foreground")?;
+        validate_decoded_asset_file(source, &decoded.block, "block")?;
+        validate_decoded_asset_file(source, &decoded.background, "background")?;
     }
     Ok(())
 }
@@ -1582,12 +1606,19 @@ fn merge_level_catalogues(
 }
 
 fn normalise_manifest(manifest: &mut AssetManifest) -> Result<()> {
-    // Default-wired native source: normalisation runs only in the extraction
-    // shell (`load_manifest`/`export_split_bundle`), so it reads the bundle it
-    // just parsed from `output_root` directly. Callers keep the legacy
-    // `&mut AssetManifest` signature.
+    // Default-wired native source: `load_manifest`/`export_split_bundle` read
+    // the bundle they just parsed from `output_root` directly. Callers keep
+    // the legacy `&mut AssetManifest` signature; the web build injects its
+    // fetched source via `parse_manifest_with_source`.
     let source = FsAssetSource::new(manifest.output_root.clone());
-    let background_layout_aliases = load_background_layout_aliases(&source)?;
+    normalise_manifest_with_source(manifest, &source)
+}
+
+fn normalise_manifest_with_source(
+    manifest: &mut AssetManifest,
+    source: &dyn AssetSource,
+) -> Result<()> {
+    let background_layout_aliases = load_background_layout_aliases(source)?;
     for level in &mut manifest.levels {
         if level.resources == LevelResources::default() {
             level.resources = level_resources_from_paths(&level.resource_paths);
@@ -4464,22 +4495,23 @@ fn export_decoded_asset_file(
 }
 
 fn validate_decoded_asset_file(
-    manifest: &AssetManifest,
+    source: &dyn AssetSource,
     asset: &DecodedAssetFile,
     label: &str,
 ) -> Result<()> {
-    let asset_path = manifest.output_root.join(&asset.relative_path);
-    let preview_path = manifest.output_root.join(&asset.preview_png_path);
-    if !asset_path.is_file() {
+    let asset_path = Path::new(&asset.relative_path);
+    let preview_path = Path::new(&asset.preview_png_path);
+    if !source.exists(asset_path) {
         bail!("decoded {label} asset is missing: {}", asset_path.display());
     }
-    if !preview_path.is_file() {
+    if !source.exists(preview_path) {
         bail!(
             "decoded {label} preview is missing: {}",
             preview_path.display()
         );
     }
-    let bytes = fs::read(&asset_path)
+    let bytes = source
+        .read(asset_path)
         .with_context(|| format!("failed to read decoded asset {}", asset_path.display()))?;
     if bytes.len() as u64 != asset.size_bytes {
         bail!(
