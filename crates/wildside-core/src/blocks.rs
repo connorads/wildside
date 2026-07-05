@@ -7484,6 +7484,79 @@ mod tests {
     }
 
     #[test]
+    fn rubber_block_loc_10da4_consumes_one_worker_budget_slot_on_allocation() {
+        // ASM loc_10DA4 (kid.asm:22697-22703): the `$FFFFFB5A` rubber-worker
+        // count increments exactly once before Allocate_ObjectSlot receives the
+        // sub_10DE4 worker.
+        let mut runtime = runtime_for_block_tests();
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 9], 3, 3);
+        grid.set_cell_at(1, 1, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        runtime.block_grid = Some(grid);
+        let mut remaining_object_slots = 2;
+
+        runtime.start_rubber_block_animation_sub_10de4_with_budget(
+            1,
+            1,
+            &mut remaining_object_slots,
+        );
+
+        assert_eq!(remaining_object_slots, 1);
+        assert_eq!(runtime.block_state.rubber_block_animations.len(), 1);
+    }
+
+    #[test]
+    fn rubber_block_floor_contact_uses_kid_horizontal_span_loc_10da4() {
+        // ASM loc_10DA4 is reached once per collision cell. Native expands a
+        // floor hit across Kid's current horizontal span so adjacent rubber cells
+        // in the same contacted row receive the same worker dispatch.
+        let mut runtime = runtime_for_block_tests();
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 72], 6, 6);
+        grid.set_cell_at(1, 2, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        grid.set_cell_at(3, 2, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        runtime.block_grid = Some(grid);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 96,
+            height_pixels: 96,
+        });
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 40 << 16;
+
+        assert_eq!(
+            runtime.rubber_block_contact_cells_sub_10da4(&slice, 2, 2),
+            vec![(2, 2), (3, 2)],
+            "Kid x=48 spans columns 2..=3; column 1 and the vertical side-wall scan are outside the floor-contact path",
+        );
+    }
+
+    #[test]
+    fn rubber_block_floor_contact_requires_rubber_solid_neighbour_loc_10da4() {
+        // ASM loc_10DA4 is dispatched by rubber block collision handlers only;
+        // the native floor-span expansion must not turn other solid blocks into
+        // rubber animation workers.
+        let mut runtime = runtime_for_block_tests();
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 72], 6, 6);
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        grid.set_cell_at(3, 2, terrain::Cell::from_be_bytes(0xE0, 0x0C));
+        runtime.block_grid = Some(grid);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 96,
+            height_pixels: 96,
+        });
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 40 << 16;
+
+        assert_eq!(
+            runtime.rubber_block_contact_cells_sub_10da4(&slice, 2, 2),
+            vec![(2, 2)],
+            "the same-row span sees column 3, but loc_10DA4 must remain rubber+solid only",
+        );
+    }
+
+    #[test]
     fn rubber_block_side_wall_contact_scans_column_upward_loc_922c() {
         // ASM sub_922C -> loc_930E (kid.asm:10699,10747): wall scans keep
         // walking upward through the same collision column after each rubber
@@ -7523,6 +7596,59 @@ mod tests {
                 .rubber_block_animations
                 .iter()
                 .any(|entry| entry.col == 3 && entry.row == 2)
+        );
+    }
+
+    #[test]
+    fn rubber_block_side_wall_contact_respects_body_rows_and_filter_loc_922c() {
+        // ASM sub_922C -> loc_930E keeps side-wall rubber scanning inside Kid's
+        // vertical body span. The native expansion must not include cells above
+        // Kid, below Kid, or non-rubber solid cells in that column.
+        let mut runtime = runtime_for_block_tests();
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 128], 8, 8);
+        grid.set_cell_at(1, 2, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        grid.set_cell_at(1, 3, terrain::Cell::from_be_bytes(0xE0, 0x0C));
+        grid.set_cell_at(1, 4, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        grid.set_cell_at(1, 5, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        grid.set_cell_at(1, 6, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        runtime.block_grid = Some(grid);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 128,
+            height_pixels: 128,
+        });
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 80 << 16;
+
+        assert_eq!(
+            runtime.rubber_block_contact_cells_sub_10da4(&slice, 1, 5),
+            vec![(1, 5), (1, 4)],
+            "Kid y=80 spans rows 3..=5; row 2 is above, row 6 is below, and row 3 is not rubber",
+        );
+    }
+
+    #[test]
+    fn rubber_block_right_span_edge_stays_floor_contact_loc_10da4() {
+        // ASM floor contacts at loc_10DA4 stay in the horizontal expansion path
+        // while the contacted column is still inside Kid's current span; the
+        // side-wall upward scan starts only after the column is outside it.
+        let mut runtime = runtime_for_block_tests();
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 128], 8, 8);
+        grid.set_cell_at(3, 5, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        grid.set_cell_at(3, 4, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        runtime.block_grid = Some(grid);
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 128,
+            height_pixels: 128,
+        });
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 80 << 16;
+
+        assert_eq!(
+            runtime.rubber_block_contact_cells_sub_10da4(&slice, 3, 5),
+            vec![(3, 5)],
+            "column 3 is Kid's inclusive right span edge, so the side-wall scan must not pull row 4 into the contact list",
         );
     }
 

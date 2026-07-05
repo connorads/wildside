@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks rubber animation/contact mutation hardening
+
+- Project-status still showed no ready/open risks after the shooter
+  collision/support slice, so mutation-tested the rubber block animation worker
+  and contact-expansion helpers in `blocks.rs`.
+- ASM context: `loc_10DA4` owns the `$FFFFFB5A` rubber-worker count and
+  sub_10DE4 allocation, `sub_10DE4` owns the rubber skin write/hibernate
+  sequence, and `sub_922C`/`loc_930E` own repeated side-wall contact dispatch.
+- Initial mutation at `/tmp/mutants-core-blocks-rubber-animation-contact-20260705-initial`
+  reported 83 mutants tested: 11 missed, 72 caught. Misses were in the worker
+  budget decrement and rubber contact expansion bounds/filtering.
+- Fix: added tests for one-slot budget consumption, floor horizontal-span bounds,
+  rubber+solid neighbour filtering, side-wall vertical body-row bounds, and the
+  inclusive right-span edge that must stay in the floor-contact path.
+- Final mutation at `/tmp/mutants-core-blocks-rubber-animation-contact-20260705-final`
+  reported 83 mutants tested: 83 caught, 0 missed.
+
 ## 2026-07-05 - proactive blocks shooter collision/support mutation hardening
 
 - Project-status still showed no ready/open risks after the lift/shooter-headbutt
