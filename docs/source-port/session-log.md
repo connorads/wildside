@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive physics ground-horizontal mutation verification
+
+- Project-status still showed no ready/open risks after the Skycutter slice, so
+  mutation-tested the ordinary ground horizontal velocity cluster in
+  `physics.rs`.
+- ASM context: `loc_9B14` dispatches facing/input, `loc_9B2E`/`loc_9B90`
+  apply right/left acceleration and braking, and `loc_9BEE`-`loc_9C06`
+  decelerates no-input movement back to zero.
+- Mutation at `/tmp/mutants-core-physics-ground-horizontal-20260705-initial`
+  reported 66 mutants tested: 63 caught, 3 unviable, 0 missed.
+- No code change was warranted; existing exact-value ground movement tests
+  already kill every selected direction, cap, brake, and no-input mutation.
+
 ## 2026-07-05 - proactive physics Skycutter mutation verification
 
 - Project-status still showed no ready/open risks after the jump/gravity slice,
