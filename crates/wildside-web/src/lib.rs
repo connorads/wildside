@@ -98,3 +98,142 @@ impl WildsideGame {
         FRAME_HEIGHT
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    use wildside_data::{manifest_path, pack_bundle_blob};
+
+    fn cached_bundle_blob() -> Option<Vec<u8>> {
+        let repo_root = match std::env::var("KID_REPO_ROOT") {
+            Ok(root) if !root.is_empty() => PathBuf::from(root),
+            _ => PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .and_then(std::path::Path::parent)
+                .expect("wildside-web crate should live under <repo>/crates/wildside-web")
+                .to_path_buf(),
+        };
+        let generated = repo_root.join(".cache/generated");
+        for entry in std::fs::read_dir(generated).ok()?.flatten() {
+            let path = entry.path();
+            if manifest_path(&path).is_file() {
+                return Some(pack_bundle_blob(&path).expect("pack cached web bundle"));
+            }
+        }
+        eprintln!(
+            "skipping cache-backed wasm boundary test: no generated bundle in .cache/generated"
+        );
+        None
+    }
+
+    fn cached_game(level: Option<u8>) -> Option<WildsideGame> {
+        let blob = cached_bundle_blob()?;
+        Some(WildsideGame::new(&blob, level).expect("cached WildsideGame"))
+    }
+
+    #[test]
+    fn wasm_boundary_reports_frame_buffer_contract() {
+        let Some(mut game) = cached_game(Some(0)) else {
+            return;
+        };
+
+        assert_eq!(WildsideGame::width(), FRAME_WIDTH);
+        assert_eq!(WildsideGame::height(), FRAME_HEIGHT);
+        assert_eq!(game.frame_len(), FRAME_RGBA_LEN);
+        assert_eq!(game.frame_ptr(), game.session.rgba_frame().as_ptr());
+        assert!(!game.frame_ptr().is_null());
+
+        for _ in 0..120 {
+            if !game.on_shell_screen() {
+                break;
+            }
+            game.step(0);
+        }
+        assert!(
+            !game.on_shell_screen(),
+            "ASM Load_InGame (kid.asm:23623-23629) should become visible through the wasm boundary step call"
+        );
+        let trace_before_input = game.session.trace().clone();
+        for _ in 0..8 {
+            game.step(0x08);
+        }
+        assert_ne!(
+            game.session.trace(),
+            &trace_before_input,
+            "stepping through the wasm boundary should advance the underlying trace"
+        );
+        assert_eq!(game.frame_len(), FRAME_RGBA_LEN);
+        assert_eq!(game.frame_ptr(), game.session.rgba_frame().as_ptr());
+    }
+
+    #[test]
+    fn wasm_boundary_exposes_audio_samples_after_enablement() {
+        let Some(mut game) = cached_game(Some(0)) else {
+            return;
+        };
+
+        if let Err(err) = game.enable_audio(48_000) {
+            eprintln!("skipping cache-backed wasm audio boundary test: {err:?}");
+            return;
+        }
+        assert_eq!(game.audio_len(), 0);
+
+        game.step(0);
+
+        assert_eq!(
+            game.audio_len(),
+            800 * 2,
+            "ASM Load_InGame (kid.asm:23623-23629) should expose one 48kHz 60Hz stereo audio frame through the wasm boundary"
+        );
+        assert_eq!(game.audio_ptr(), game.session.audio_samples().as_ptr());
+        assert!(!game.audio_ptr().is_null());
+    }
+
+    #[test]
+    fn wasm_boundary_reports_hash_shell_and_debug_state() {
+        let Some(shell_game) = cached_game(None) else {
+            return;
+        };
+        let Some(mut gameplay_game) = cached_game(Some(0)) else {
+            return;
+        };
+        for _ in 0..120 {
+            if !gameplay_game.on_shell_screen() {
+                break;
+            }
+            gameplay_game.step(0);
+        }
+
+        let mut hasher = Sha1::new();
+        hasher.update(shell_game.session.rgb_frame());
+        assert_eq!(
+            shell_game.frame_rgb_sha1(),
+            format!("{:x}", hasher.finalize())
+        );
+        assert_eq!(
+            shell_game.frame_rgb_sha1().len(),
+            40,
+            "browser console parity hashes should be full SHA-1 hex strings"
+        );
+        assert!(
+            shell_game.on_shell_screen(),
+            "ASM Load_SegaScreen starts as a VDP shell screen"
+        );
+        assert!(
+            !gameplay_game.on_shell_screen(),
+            "ASM Load_InGame should eventually expose gameplay rendering through the wasm boundary"
+        );
+
+        let debug = shell_game.debug_state();
+        assert!(
+            debug.contains("mode=SegaScreen")
+                && debug.contains("level=0x00")
+                && debug.contains("vdp=true")
+                && debug.contains("grid=true")
+                && debug.contains("rgb_nonzero="),
+            "debug_state should cross the wasm boundary unchanged"
+        );
+    }
+}

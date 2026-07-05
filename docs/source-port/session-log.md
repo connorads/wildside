@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive web wasm-boundary mutation hardening
+
+- Project-status still showed no ready/open risks after the web-session audio
+  slice, so mutation-tested the JS-facing `WildsideGame` wrapper in `lib.rs`.
+- ASM context: `Load_InGame` (kid.asm:23623-23629) must advance through the
+  exported `step` boundary and expose generated audio samples; `Load_SegaScreen`
+  starts as a VDP shell whose shell flag, debug state, framebuffer pointer,
+  frame length, and SHA-1 diagnostic are what the browser shell can inspect.
+- Initial mutation at `/tmp/mutants-web-wasm-boundary-20260706-initial`
+  reported 18 mutants tested: 18 missed. Misses were no-op `step`, no-op
+  `enable_audio`, null/default frame/audio pointers, wrong frame/audio lengths,
+  dummy frame hashes, constant shell/debug values, and zero/one dimensions.
+- Fix: added cache-backed host unit tests for the packed-bundle `WildsideGame`
+  contract: dimensions, frame pointer/length, step forwarding, audio
+  enablement/sample pointer/length, RGB SHA-1, shell flag, and debug state.
+- Final mutation at `/tmp/mutants-web-wasm-boundary-20260706-final` reported
+  18 mutants tested: 18 caught, 0 missed.
+
 ## 2026-07-05 - proactive web session audio mutation hardening
 
 - Project-status still showed no ready/open risks after the frame-audio
