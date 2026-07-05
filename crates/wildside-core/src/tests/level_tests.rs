@@ -23113,6 +23113,53 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn hidden_block_reveal_y_offset_follows_asm_loc_e304_bob() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.set_block_grid(grid_with_hidden_block());
+        start_level(&mut runtime);
+        for geyser in &mut runtime.weather.lava_geysers {
+            geyser.sound_suppressed = true;
+        }
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 40 << 16;
+            slice.player.y_pos = 80 << 16;
+            slice.player.y_velocity = -0x0002_0000;
+            slice.player.on_ground = false;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+
+        runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            runtime.block_bounces.len(),
+            1,
+            "ASM sub_DFB0 loc_E096/loc_E29A should queue one hidden-block reveal worker",
+        );
+        assert_eq!(runtime.block_bounces[0].kind, BlockBounceKind::HiddenReveal);
+        assert_eq!(runtime.block_bounces[0].initial_duration, 8);
+
+        for (frame_index, expected_offset) in [-2, -4, -6, -8, -6, -4, -2].into_iter().enumerate() {
+            runtime.step_frame(FrameInput::default());
+            assert_eq!(
+                runtime.block_bounces.len(),
+                1,
+                "ASM loc_E304 reveal worker should still be live at bob frame {frame_index}",
+            );
+            assert_eq!(
+                runtime.block_bounces[0].y_offset_px, expected_offset,
+                "ASM loc_E34C/loc_E35A should apply the cumulative hidden-reveal bob offset at frame {frame_index}",
+            );
+        }
+
+        runtime.step_frame(FrameInput::default());
+        assert!(
+            runtime.block_bounces.is_empty(),
+            "ASM loc_E376 deletes the hidden-block reveal worker after the eighth hibernated bob frame",
+        );
+    }
+
+    #[test]
     fn hidden_block_headbutt_prefers_block_list_reveal_mapping_sub_e3c6() {
         let mut runtime = NativeRuntime::new(manifest());
         let w = 6u16;

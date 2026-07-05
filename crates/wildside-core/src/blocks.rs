@@ -5756,6 +5756,95 @@ mod tests {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn hidden_block_reveal_sprite_words_loc_E07A_E082_rescans_type1_prize_metadata() {
+        let entry = terrain::HiddenBlockEntry {
+            layout_addr: 0x0034,
+            col: 2,
+            row: 3,
+            block_type: 0x01,
+            block_setting: 0,
+        };
+        let visible_prize_reveal = terrain::HiddenBlockRevealSubE3C6 {
+            cell: terrain::Cell::from_be_bytes(0xE1, 0x02),
+            sprite_mapping: 0x1060,
+        };
+        let ordinary_prize_list = terrain::BlockList {
+            prize_blocks: vec![terrain::PrizeBlockEntry {
+                layout_addr: 0x0034,
+                col: 2,
+                row: 3,
+                content: terrain::PrizeContent::Cyclone,
+                disguised: false,
+            }],
+            ghost_blocks: Vec::new(),
+            teleporters: Vec::new(),
+            hidden_blocks: Vec::new(),
+        };
+
+        assert_eq!(
+            NativeRuntime::hidden_block_reveal_sprite_words_loc_E07A_E082(
+                &ordinary_prize_list,
+                &entry,
+                visible_prize_reveal,
+            ),
+            (0xE102, 0x1060),
+            "ASM loc_E082 should leave type-1 visible-prize reveal words unchanged when the matched metadata control word is non-negative",
+        );
+
+        let disguised_prize_list = terrain::BlockList {
+            prize_blocks: vec![
+                terrain::PrizeBlockEntry {
+                    layout_addr: 0x0020,
+                    col: 1,
+                    row: 3,
+                    content: terrain::PrizeContent::Diamond,
+                    disguised: false,
+                },
+                terrain::PrizeBlockEntry {
+                    layout_addr: 0x0034,
+                    col: 2,
+                    row: 3,
+                    content: terrain::PrizeContent::Cyclone,
+                    disguised: true,
+                },
+            ],
+            ghost_blocks: Vec::new(),
+            teleporters: Vec::new(),
+            hidden_blocks: Vec::new(),
+        };
+
+        assert_eq!(
+            NativeRuntime::hidden_block_reveal_sprite_words_loc_E07A_E082(
+                &disguised_prize_list,
+                &entry,
+                visible_prize_reveal,
+            ),
+            (0xE101, 0x1058),
+            "ASM loc_E07A/loc_E082 should replace type-1 reveal words with `$E101/$1058` only when the matched metadata control word is negative",
+        );
+
+        let teleporter_entry = terrain::HiddenBlockEntry {
+            block_type: 0x0B,
+            ..entry
+        };
+        let teleporter_reveal = terrain::HiddenBlockRevealSubE3C6 {
+            cell: terrain::Cell::from_be_bytes(0xEB, 0x2C),
+            sprite_mapping: 0x10A4,
+        };
+
+        assert_eq!(
+            NativeRuntime::hidden_block_reveal_sprite_words_loc_E07A_E082(
+                &disguised_prize_list,
+                &teleporter_entry,
+                teleporter_reveal,
+            ),
+            (0xEB2C, 0x10A4),
+            "ASM sub_DFB0 should bypass loc_E07A/loc_E082 for non-type-1 hidden-block reveals",
+        );
+    }
+
+    #[test]
     fn evanescent_block_reveal_tables_match_asm_loc_1117a_through_loc_11198() {
         // ASM loc_1117A/11188/11196/11198: `moveq #3,d0` makes each DBF loop
         // run four hibernated steps, with the alternate branch reusing the

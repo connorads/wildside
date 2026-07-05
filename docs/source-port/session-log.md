@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks hidden-reveal mutation hardening
+
+- Project-status still showed no ready/open risks after the drilled-dispatch
+  slice, so mutation-tested the hidden-block reveal glue in `blocks.rs`.
+- ASM context: `loc_E07A`/`loc_E082` rescan type-1 hidden-prize metadata and
+  substitute `$E101/$1058` only for negative records; `loc_E304`/`loc_E34C`/
+  `loc_E35A` run the 4-frame up, 4-frame down reveal bob.
+- Initial mutation at `/tmp/mutants-core-blocks-hidden-reveal-glue-20260705-initial`
+  reported 19 mutants tested: 9 missed, 10 caught. Misses were the hidden-reveal
+  bob delta table, the type-1 sprite-word selector return values, the type gate,
+  and the negative metadata control-word sign.
+- Fix: added a live runtime y-offset sequence test for the `loc_E304` bob and a
+  focused ASM selector test for the `loc_E07A`/`loc_E082` type-1 metadata path.
+- Final mutation at `/tmp/mutants-core-blocks-hidden-reveal-glue-20260705-final`
+  reported 19 mutants tested: 19 caught, 0 missed.
+
 ## 2026-07-05 - proactive blocks drilled-dispatch mutation hardening
 
 - Project-status still showed no ready/open risks after the metal-push slice, so
