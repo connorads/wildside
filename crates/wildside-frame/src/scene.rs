@@ -1279,6 +1279,41 @@ fn title_glyph_to_ascii(glyph: u8) -> Option<char> {
     }
 }
 
+/// Composite the ROM-derived title-card letter workers over a VDP-rendered
+/// frame. This is the one overlay that belongs on shell screens; both the
+/// native player/capture pipeline and the web shell call it after
+/// `wildside_md::render_vdp_into`, so the gating logic lives here once.
+pub fn render_vdp_trace_overlay(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    frame: &mut [u8],
+) {
+    // ASM Load_IntroSequence4 (`sub_1B988`) sets `Camera_Y_pos=4` and allocates
+    // a single object running `loc_1C7A0` with `IntroText4` — the holographic
+    // background plus the story-text writer. It never allocates a player/Kid
+    // GfxObjectSlot: the per-glyph kid montage poses belong to
+    // `Load_IntroSequence3` (`unk_1AF24`/`loc_1AEEC`) and `Load_IntroSequence5`
+    // (`loc_1BCD0`), not IntroSequence4. The previous overlay composited a
+    // normal Kid sprite here from a stale carried `kid_gfx` pose
+    // (kid_x/kid_y ~ $60/$D0), which drew a spurious Kid at the bottom-left of
+    // the story screen (#210). No player overlay belongs on IntroSequence4.
+    if trace.boot_phase.as_deref() != Some("starting_level")
+        || trace.game_mode != GameMode::LevelTransition
+    {
+        return;
+    }
+
+    // ASM Load_TitleCard has two independent pieces: `Load_TitleCard` builds
+    // the static VDP shell, then `loc_1AB26` / `loc_1AC70` animate
+    // Title_Letter gfx workers over it. The VDP path owns the shell; this
+    // overlay keeps the ROM-derived letter workers visible without restoring
+    // the old invented static level-card text.
+    let overlay = build_title_card_worker_overlay_scene(trace, Some(level_visuals));
+    if !overlay.commands.is_empty() {
+        render_scene_overlay(&overlay, frame);
+    }
+}
+
 /// Per-glyph sprite descriptor from ASM `unk_C86E8`..`unk_C87F8`
 /// (kid.asm:49238-49272). Each `off_1AC2A` entry points to a
 /// `sprite_frame_vram tile_offset, ox, oy, width, height` macro; the

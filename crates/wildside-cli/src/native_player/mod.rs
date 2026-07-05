@@ -864,37 +864,6 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     Ok(())
 }
 
-pub(crate) fn render_vdp_trace_overlay(
-    trace: &NativeTraceFrame,
-    level_visuals: &NativeLevelVisuals,
-    frame: &mut [u8],
-) {
-    // ASM Load_IntroSequence4 (`sub_1B988`) sets `Camera_Y_pos=4` and allocates
-    // a single object running `loc_1C7A0` with `IntroText4` — the holographic
-    // background plus the story-text writer. It never allocates a player/Kid
-    // GfxObjectSlot: the per-glyph kid montage poses belong to
-    // `Load_IntroSequence3` (`unk_1AF24`/`loc_1AEEC`) and `Load_IntroSequence5`
-    // (`loc_1BCD0`), not IntroSequence4. The previous overlay composited a
-    // normal Kid sprite here from a stale carried `kid_gfx` pose
-    // (kid_x/kid_y ~ $60/$D0), which drew a spurious Kid at the bottom-left of
-    // the story screen (#210). No player overlay belongs on IntroSequence4.
-    if trace.boot_phase.as_deref() != Some("starting_level")
-        || trace.game_mode != GameMode::LevelTransition
-    {
-        return;
-    }
-
-    // ASM Load_TitleCard has two independent pieces: `Load_TitleCard` builds
-    // the static VDP shell, then `loc_1AB26` / `loc_1AC70` animate
-    // Title_Letter gfx workers over it. The VDP path owns the shell; this
-    // overlay keeps the ROM-derived letter workers visible without restoring
-    // the old invented static level-card text.
-    let overlay = build_title_card_worker_overlay_scene(trace, Some(level_visuals));
-    if !overlay.commands.is_empty() {
-        render_scene_overlay(&overlay, frame);
-    }
-}
-
 fn recording_frame_limit_reached(options: &NativePlayOptions, recorded_frames: usize) -> bool {
     options
         .record_frames
