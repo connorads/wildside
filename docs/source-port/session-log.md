@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive data asset-source mutation verification
+
+- Project-status still showed no ready/open risks after the bundle-blob slice,
+  so mutation-tested the native and in-memory `AssetSource` adapters in
+  `asset_source.rs`.
+- Scope: this is the generated-bundle read port used by native, tests, and the
+  fetched web bundle backend. The important behaviours are root-relative
+  filesystem reads, `is_file`-style existence checks, relative in-memory keys,
+  replacement, missing-read errors, and the `len`/`is_empty` contract.
+- Focused tests already covered the adapter contract. Mutation at
+  `/tmp/mutants-data-asset-source-20260706-initial` reported 15 mutants tested:
+  15 caught, 0 missed. No code changes were needed.
+
 ## 2026-07-06 - proactive data bundle-blob mutation hardening
 
 - Project-status still showed no ready/open risks after the web wasm-boundary
