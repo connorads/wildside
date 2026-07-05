@@ -12535,6 +12535,41 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_9942 (kid.asm:11487): while `$FFFFFA0D` remains positive after
+    /// `subq.b #1`, the routine branches to loc_9974 and does not read the
+    /// next `unk_96AC` script entry.
+    #[test]
+    #[allow(non_snake_case)]
+    fn sub_98f2_motion_timer_loc_9942_decrements_without_advancing_script() {
+        let step = skycutter_visual_step_sub_98F2(
+            SkycutterVisualStateSub98F2 {
+                flipboard_counter: 0,
+                on_board: false,
+                facing: Direction::Right,
+                motion_phase: 4,
+                motion_timer: 5,
+                motion_script_index: Some(7),
+                roll_accum: 0,
+            },
+            false,
+            false,
+        );
+
+        assert_eq!(
+            step.state.motion_timer, 4,
+            "ASM loc_9942: `subq.b #1,$FA0D` decrements 5 to 4 before `bgt.s loc_9974`",
+        );
+        assert_eq!(
+            step.state.motion_phase, 4,
+            "ASM loc_9942: positive timer skips loc_996A, so the current phase is preserved",
+        );
+        assert_eq!(
+            step.state.motion_script_index,
+            Some(7),
+            "ASM loc_9942: positive timer leaves the script pointer unchanged",
+        );
+    }
+
     // --- loc_9974: sub_98F2 A-button speed modifier ---
 
     /// ASM loc_9974 (kid.asm:11509): `moveq #$10,d7; tst.b (Ctrl_A_Held).w;

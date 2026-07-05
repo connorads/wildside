@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive helmets visual support mutation hardening
+
+- Project-status still showed no ready/open risks after the Eyeclops beam
+  slice, so mutation-tested the `helmets.rs` visual/support helpers around
+  airborne Kid visuals, Juggernaut support state, and Skycutter board visuals.
+- ASM context: `sub_B270` gates the `$FFFFFA67` airborne latch at `loc_B28E`,
+  Juggernaut companion preserve path at `loc_B2DE`, Maniaxe throw preserve path
+  at `loc_B304`, and signed velocity buckets at `loc_B350`; `sub_98F2`
+  decrements Skycutter's motion timer at `loc_9942` before deciding whether to
+  read the `unk_96AC` script.
+- Initial mutation at
+  `/tmp/mutants-core-helmets-visual-support-20260705-initial` reported 71
+  mutants tested: 8 missed, 60 caught, 3 unviable. Actionable misses were the
+  airborne-latch `$18(a3)` negation, Juggernaut/Maniaxe conjunctive gates,
+  zero/equality velocity bucket boundaries, and Skycutter timer decrement.
+- Fix: added ASM-cited edge tests for `loc_B28E`, `loc_B2DE`, `loc_B304`,
+  `loc_B350`, and `loc_9942`.
+- Final mutation at
+  `/tmp/mutants-core-helmets-visual-support-20260705-final` reports 71 mutants
+  tested: 67 caught, 3 unviable, 1 missed, 0 actionable missed. The remaining
+  survivor is the known non-target Maniaxe axe `lifetime` field deletion that
+  cargo-mutants still selects from `step_maniaxe_axe`.
+
 ## 2026-07-05 - proactive Eyeclops beam mutation hardening
 
 - Project-status still showed no ready/open risks after the platform special
