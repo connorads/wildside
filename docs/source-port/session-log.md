@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks clock/continue prize mutation verification
+
+- Project-status still showed no ready/open risks after the collected-prize arc
+  slice, so mutation-tested the clock/continue prize helper cluster in
+  `blocks.rs`.
+- ASM context: `loc_10792` starts the first clock loop/refcount, `loc_10796`
+  ticks countdown/swap/delete, `loc_107B0` gates clock falling exit,
+  `loc_107E0` stops the last clock loop, and `loc_10838` plays the raw Continue
+  delete sound before object deletion.
+- Mutation at `/tmp/mutants-core-blocks-clock-continue-20260705-initial`
+  reported 31 mutants tested: 26 caught, 5 unviable, 0 missed.
+- No code change was warranted; existing exact-value tests already kill every
+  selected refcount, countdown, falling-gate, cleanup, and Continue-delete
+  mutation.
+
 ## 2026-07-05 - proactive blocks collected-prize arc mutation verification
 
 - Project-status still showed no ready/open risks after the lift block slice, so
