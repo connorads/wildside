@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive data level-layout mutation verification
+
+- Project-status still showed no ready/open risks after the asset-source slice,
+  so mutation-tested the ASM-cited background layout helpers in
+  `level_layout.rs`.
+- ASM context: `sub_12752` marks corner-tile neighbours, `sub_12792` applies
+  the guarded high-byte bit update, `sub_127A8` prepares the level-layout cell
+  from terrain bytes, and `sub_127CE` inserts background layout records after
+  lower-or-equal offsets.
+- Focused tests already covered the helper contract. Mutation at
+  `/tmp/mutants-data-level-layout-20260706-initial` reported 30 mutants tested:
+  30 caught, 0 missed. No code changes were needed.
+
 ## 2026-07-06 - proactive data asset-source mutation verification
 
 - Project-status still showed no ready/open risks after the bundle-blob slice,
