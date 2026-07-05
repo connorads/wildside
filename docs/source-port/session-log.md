@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks hidden-reveal dispatch mutation hardening
+
+- Project-status still showed no ready/open risks after the hidden-reveal glue
+  slice, so mutation-tested `queue_hidden_block_reveal_bounces_from_diff` in
+  `blocks.rs`.
+- ASM context: `sub_DFB0`/`loc_E096` only allocates reveal workers after a hidden
+  cell becomes a real block, skips duplicate active reveal workers for the same
+  source cell, and `loc_E2D2` converts the reveal object position back to tile
+  coordinates.
+- Initial mutation at `/tmp/mutants-core-blocks-hidden-reveal-dispatch-20260705-initial`
+  reported 36 mutants tested: 12 missed, 24 caught. Misses were the changed-cell
+  gate, active duplicate suppression predicates, and fallback worker tile
+  coordinate shifts.
+- Fix: added runtime dispatcher tests for changed-cell filtering, fallback
+  worker source-cell placement, active same-cell suppression, expired worker
+  replacement, and unrelated-cell non-suppression.
+- Final mutation at `/tmp/mutants-core-blocks-hidden-reveal-dispatch-20260705-final`
+  reported 36 mutants tested: 36 caught, 0 missed.
+
 ## 2026-07-05 - proactive blocks hidden-reveal mutation hardening
 
 - Project-status still showed no ready/open risks after the drilled-dispatch

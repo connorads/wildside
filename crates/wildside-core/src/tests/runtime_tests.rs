@@ -9145,6 +9145,139 @@ mod chunk_09 {
     }
 
     #[test]
+    fn hidden_block_reveal_dispatch_requires_changed_solid_cell_loc_e096() {
+        for (after_hi, after_lo, case) in [
+            (0xA5, 0x01, "unchanged hidden block"),
+            (0x00, 0x00, "cleared non-block cell"),
+        ] {
+            let mut rt = NativeRuntime::new(manifest());
+            rt.set_block_grid(grid_with_cells(8, 8, &[(2, 2, after_hi, after_lo)]));
+
+            rt.queue_hidden_block_reveal_bounces_from_diff(Some(&[(2, 2)]));
+
+            assert!(
+                rt.block_bounces.is_empty(),
+                "ASM sub_DFB0 loc_E096 should only queue a reveal worker after a hidden cell becomes a real block: {case}",
+            );
+            assert!(
+                rt.played_sound_effects.is_empty(),
+                "unchanged/non-block cells must not queue sfx_Reveal_Hidden_block: {case}",
+            );
+        }
+    }
+
+    #[test]
+    fn hidden_block_reveal_dispatch_places_fallback_worker_at_source_cell_loc_e096() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(grid_with_cells(8, 8, &[(2, 3, 0xE0, 0x01)]));
+
+        rt.queue_hidden_block_reveal_bounces_from_diff(Some(&[(2, 3)]));
+
+        assert_eq!(rt.block_bounces.len(), 1);
+        assert_eq!(
+            (
+                rt.block_bounces[0].cell_x,
+                rt.block_bounces[0].cell_y,
+                rt.block_bounces[0].remaining,
+                rt.block_bounces[0].kind,
+            ),
+            (2, 3, 8, BlockBounceKind::HiddenReveal),
+            "ASM loc_E096/loc_E2D2 should convert the reveal object's pixel position back to the source tile coordinates",
+        );
+        assert_eq!(
+            rt.played_sound_effects,
+            vec![QueuedSoundEffect::HiddenBlockReveal],
+        );
+    }
+
+    #[test]
+    fn hidden_block_reveal_dispatch_only_suppresses_active_same_cell_workers_loc_e096() {
+        let mut active_same_cell = NativeRuntime::new(manifest());
+        active_same_cell.set_block_grid(grid_with_cells(8, 8, &[(2, 3, 0xE0, 0x01)]));
+        active_same_cell.block_bounces.push(BlockBounceAnim {
+            cell_x: 2,
+            cell_y: 3,
+            x_offset_px: 0,
+            remaining: 1,
+            initial_duration: 8,
+            kind: BlockBounceKind::HiddenReveal,
+            prize_content: None,
+            prize_deleted_tile: false,
+            metal_direction: 0,
+            y_offset_px: 0,
+        });
+
+        active_same_cell.queue_hidden_block_reveal_bounces_from_diff(Some(&[(2, 3)]));
+
+        assert_eq!(
+            active_same_cell.block_bounces.len(),
+            1,
+            "ASM loc_E096 native dispatch should not allocate a duplicate worker while the same hidden reveal is still active",
+        );
+        assert!(
+            active_same_cell.played_sound_effects.is_empty(),
+            "duplicate suppression must happen before queuing sfx_Reveal_Hidden_block",
+        );
+
+        let mut expired_same_cell = NativeRuntime::new(manifest());
+        expired_same_cell.set_block_grid(grid_with_cells(8, 8, &[(2, 3, 0xE0, 0x01)]));
+        expired_same_cell.block_bounces.push(BlockBounceAnim {
+            cell_x: 2,
+            cell_y: 3,
+            x_offset_px: 0,
+            remaining: 0,
+            initial_duration: 8,
+            kind: BlockBounceKind::HiddenReveal,
+            prize_content: None,
+            prize_deleted_tile: false,
+            metal_direction: 0,
+            y_offset_px: 0,
+        });
+
+        expired_same_cell.queue_hidden_block_reveal_bounces_from_diff(Some(&[(2, 3)]));
+
+        assert_eq!(
+            expired_same_cell.block_bounces.len(),
+            2,
+            "an expired same-cell worker must not suppress the new loc_E096 reveal worker",
+        );
+        assert_eq!(
+            expired_same_cell.block_bounces[1].remaining, 8,
+            "the newly queued worker should carry loc_E304's eight-frame reveal duration",
+        );
+
+        let mut other_cell_active = NativeRuntime::new(manifest());
+        other_cell_active.set_block_grid(grid_with_cells(8, 8, &[(2, 3, 0xE0, 0x01)]));
+        other_cell_active.block_bounces.push(BlockBounceAnim {
+            cell_x: 4,
+            cell_y: 3,
+            x_offset_px: 0,
+            remaining: 1,
+            initial_duration: 8,
+            kind: BlockBounceKind::HiddenReveal,
+            prize_content: None,
+            prize_deleted_tile: false,
+            metal_direction: 0,
+            y_offset_px: 0,
+        });
+
+        other_cell_active.queue_hidden_block_reveal_bounces_from_diff(Some(&[(2, 3)]));
+
+        assert_eq!(
+            other_cell_active.block_bounces.len(),
+            2,
+            "an active reveal worker at a different cell must not suppress loc_E096 for the newly revealed source cell",
+        );
+        assert_eq!(
+            (
+                other_cell_active.block_bounces[1].cell_x,
+                other_cell_active.block_bounces[1].cell_y
+            ),
+            (2, 3),
+        );
+    }
+
+    #[test]
     fn process_block_effects_teleporter_leaves_transition_to_hazard_path_loc_bc80() {
         let mut rt = NativeRuntime::new(manifest());
         rt.block_list = Some(terrain::BlockList {
