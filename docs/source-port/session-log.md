@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive physics air/jump-horizontal mutation verification
+
+- Project-status still showed no ready/open risks after the ground-horizontal
+  slice, so mutation-tested the airborne and jump-air horizontal velocity
+  cluster in `physics.rs`.
+- ASM context: `sub_8506` owns generic airborne acceleration/deceleration via
+  `loc_852C`/`loc_8572`/`loc_85AC`, while `sub_B084` owns per-helmet jump-air
+  acceleration, run-held 1.5x scaling, and no-input `$400` deceleration.
+- Mutation at `/tmp/mutants-core-physics-air-horizontal-20260705-initial`
+  reported 59 mutants tested: 53 caught, 6 unviable, 0 missed.
+- No code change was warranted; existing exact-value air-control tests already
+  kill every selected cap, turn, sign, run-scale, and no-input mutation.
+
 ## 2026-07-05 - proactive physics ground-horizontal mutation verification
 
 - Project-status still showed no ready/open risks after the Skycutter slice, so
