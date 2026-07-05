@@ -20,9 +20,11 @@ sha1.workspace = true
 wasm-bindgen = "=0.2.126"
 wildside-core = { path = "../wildside-core" }
 wildside-data = { path = "../wildside-data" }
-wildside-frame = { path = "../wildside-frame" }
-# default-features = false drops the C++ machine emulation (ymfm-sys cannot
-# build for bare wasm), leaving just the pure-Rust VDP renderer the shell
-# screens need. The web-audio phase (#20) revisits the audio feature.
+# frame/audio pulls in wildside-md's GEMS machine emulation (ymfm-sys now
+# cross-compiles for bare wasm via zig, see ymfm-sys build.rs) so the browser
+# session drives the same NativeAudioDirector as the native player (#20).
+wildside-frame = { path = "../wildside-frame", features = ["audio"] }
+# default-features = false keeps the direct dependency on the pure-Rust VDP
+# renderer; the machine-emulation `audio` feature arrives via frame/audio.
 wildside-md = { path = "../wildside-md", default-features = false }
 wildside-render = { path = "../wildside-render" }

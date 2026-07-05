@@ -978,6 +978,50 @@ mod tests {
         );
     }
 
+    /// Web audio parity (#20): a web session with audio enabled emits the
+    /// exact f32 stream `render_native_audio_samples_for_trace` (the
+    /// verify-audio-output path) generates for the same traces. Both drive the
+    /// shared NativeAudioDirector, so this pins the WebSession wiring — rate
+    /// 44.1kHz means every frame pulls exactly AUDIO_SAMPLES_PER_FRAME.
+    #[test]
+    fn gameplay_regression_web_session_audio_matches_native_render() {
+        use native_player::{
+            AUDIO_SAMPLE_RATE, load_gems_audio_engine, render_native_audio_samples_for_trace,
+        };
+
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let fs_source = wildside_data::FsAssetSource::new(manifest.output_root.clone());
+        let Ok(mut gems) = load_gems_audio_engine(&fs_source) else {
+            eprintln!("skipping web audio parity test: cached bundle has no GEMS sound banks");
+            return;
+        };
+
+        const FRAMES: usize = 240;
+        let blob =
+            wildside_data::pack_bundle_blob(&manifest.output_root).expect("pack bundle blob");
+        let mut session =
+            wildside_web::WebSession::from_bundle_blob(&blob, Some(0)).expect("web session");
+        session
+            .enable_audio(AUDIO_SAMPLE_RATE)
+            .expect("enable audio");
+        let mut traces = Vec::with_capacity(FRAMES);
+        let mut web_samples = Vec::new();
+        for _ in 0..FRAMES {
+            session.step(0);
+            traces.push(session.trace().clone());
+            web_samples.extend_from_slice(session.audio_samples());
+        }
+
+        let want = render_native_audio_samples_for_trace(&manifest, &traces, None, &mut gems);
+        assert_eq!(web_samples.len(), want.len(), "sample count diverged");
+        assert!(
+            web_samples == want,
+            "web session audio diverged from the native GEMS render for the same traces"
+        );
+    }
+
     fn fixture_manifest() -> AssetManifest {
         AssetManifest {
             generated_bundle_version: wildside_data::GENERATED_BUNDLE_VERSION,
