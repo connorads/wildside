@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks floating-prize metadata mutation verification
+
+- Project-status still showed no ready/open risks after the one-time prize
+  slice, so mutation-tested the floating-prize fall and helmet-cleanup metadata
+  helpers in `blocks.rs`.
+- ASM context: `loc_103DE`/`loc_10402`/`loc_10C50` own falling-prize gravity
+  and row sync, `sub_10C78`/`sub_10CB0` own prize lifetime/classification, and
+  `sub_10CEC`/`sub_10D3E` own helmet-prize cleanup effects.
+- Mutation at `/tmp/mutants-core-blocks-floating-prize-metadata-20260705-initial`
+  reported 29 mutants tested: 24 caught, 5 unviable, 0 missed.
+- No code change was warranted; existing exact-value helper and runtime tests
+  already kill every selected fall, row-sync, lifetime, helmet classification,
+  and cleanup-effect mutation.
+
 ## 2026-07-05 - proactive blocks one-time/ten-diamonds mutation verification
 
 - Project-status still showed no ready/open risks after the clock/continue prize
