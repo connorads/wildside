@@ -12350,6 +12350,36 @@ mod chunk_09 {
     }
 
     #[test]
+    fn lift_block_bob_delta_sub_fb3e_indexes_pass_boundaries_and_tail() {
+        // ASM sub_FB3E loc_FB94/loc_FBA2/loc_FBB0/loc_FBBE/loc_FBCC/loc_FBDA:
+        // each DBF-controlled pass owns a contiguous slice of the bob table;
+        // elapsed == 31 is the first post-table frame.
+        let cases = [
+            (0, Some(-2)),
+            (5, Some(-2)),
+            (6, Some(2)),
+            (11, Some(2)),
+            (12, Some(-2)),
+            (16, Some(-2)),
+            (17, Some(2)),
+            (21, Some(2)),
+            (22, Some(-2)),
+            (25, Some(-2)),
+            (26, Some(2)),
+            (30, Some(2)),
+            (31, None),
+        ];
+
+        for (elapsed, expected) in cases {
+            assert_eq!(
+                NativeRuntime::lift_block_bob_delta_sub_FB3E(elapsed),
+                expected,
+                "ASM sub_FB3E bob delta at elapsed frame {elapsed}"
+            );
+        }
+    }
+
+    #[test]
     fn lift_block_bob_up_pass_loc_fb94_matches_the_first_hibernating_loop() {
         let deltas = NativeRuntime::lift_block_bob_up_pass_loc_FB94();
 

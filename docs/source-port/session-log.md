@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks lift mutation hardening
+
+- Project-status still showed no ready/open risks after the physics air-control
+  slice, so mutation-tested the lift block/platform helper cluster in
+  `blocks.rs`.
+- ASM context: `sub_FB3E` owns the lift block bob pass table before the platform
+  hand-off, `sub_FCA6` owns the lift platform worker loop, and `sub_FD00` applies
+  the signed fixed-point vertical step.
+- Initial mutation at `/tmp/mutants-core-blocks-lift-20260705-initial`
+  reported 95 mutants tested: 7 missed, 88 caught. All misses were concentrated
+  in `lift_block_bob_delta_sub_FB3E` return and boundary comparisons.
+- Fix: added an ASM-cited regression for `sub_FB3E` elapsed-frame indexing at
+  every pass boundary and the first post-table tail frame.
+- Final mutation at `/tmp/mutants-core-blocks-lift-20260705-final` reported 95
+  mutants tested: 95 caught, 0 missed.
+
 ## 2026-07-05 - proactive physics air/jump-horizontal mutation verification
 
 - Project-status still showed no ready/open risks after the ground-horizontal
