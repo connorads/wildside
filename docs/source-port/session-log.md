@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks floating-prize graphics mutation verification
+
+- Project-status still showed no ready/open risks after the floating-prize
+  metadata slice, so mutation-tested the floating-prize graphics spec table in
+  `blocks.rs`.
+- ASM context: `PrizeDiamond_Init`, `PrizeAnkh_Init`, `PrizeClock_Init`, and
+  `PrizeContinue_Init` select the non-helmet floating-prize scripts, while
+  `sub_10CB0` gives helmet prizes palette line 3 before each helmet script.
+- Mutation at `/tmp/mutants-core-blocks-floating-prize-graphics-20260705-initial`
+  reported 12 mutants tested: 11 caught, 1 unviable, 0 missed.
+- No code change was warranted; the existing table test already kills every
+  selected content branch and metadata mutation.
+
 ## 2026-07-05 - proactive blocks floating-prize metadata mutation verification
 
 - Project-status still showed no ready/open risks after the one-time prize
