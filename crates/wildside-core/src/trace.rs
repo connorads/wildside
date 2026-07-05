@@ -3322,6 +3322,26 @@ mod tests {
     }
 
     #[test]
+    fn kid_flip_follow_on_trace_formats_direction_and_stage_labels_loc_aac8() {
+        // ASM loc_AAC8/sub_902A follow-on probes compare stage velocities and
+        // wall-cling direction labels while debugging the attach/floor/wall handoff.
+        assert_eq!(direction_debug_label(Some(Direction::Left)), "left");
+        assert_eq!(direction_debug_label(Some(Direction::Right)), "right");
+        assert_eq!(direction_debug_label(None), "none");
+
+        assert_eq!(
+            kid_flip_follow_on_stage_debug(KidFlipFollowOnStageState {
+                x_velocity: -0x4000,
+                y_velocity: 0x0002_8000,
+                on_ground: false,
+                wall_cling_direction: Some(Direction::Right),
+            }),
+            "x_vel=0xffffc000/y_vel=0x00028000",
+            "ASM loc_AAC8/sub_902A trace stages should print signed 16.16 velocities as ROM-style words"
+        );
+    }
+
+    #[test]
     fn current_character_movement_keeps_rubber_wall_snap_walking_loc_8e74() {
         fn rubber_wall_runtime(has_rubber_worker: bool) -> NativeRuntime {
             let mut runtime = NativeRuntime::new(minimal_manifest());

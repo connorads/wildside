@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive trace Kid flip label mutation hardening
+
+- Project-status still showed no ready/open risks after the Highwater probe
+  slice, so mutation-tested `trace.rs` `direction_debug_label` and
+  `kid_flip_follow_on_stage_debug`.
+- ASM context: the Kid flip follow-on diagnostics compare the `loc_AAC8` /
+  `sub_902A` attach/floor/wall handoff stages, including wall-cling direction
+  labels and signed fixed-point velocities.
+- Initial mutation at
+  `/tmp/mutants-core-trace-kid-flip-labels-20260705-initial` reported 4
+  mutants tested, 4 missed. The published-TAS probe test is cache-backed and
+  does not exercise these helpers inside the mutation sandbox.
+- Fix: added a cache-independent internal trace test covering left/right/none
+  labels and two's-complement 16.16 velocity formatting.
+- Verification: focused `cargo test -p wildside-core
+  kid_flip_follow_on_trace_formats_direction_and_stage_labels_loc_aac8` passes.
+  Final mutation at `/tmp/mutants-core-trace-kid-flip-labels-20260705-final`
+  reports 4 mutants tested: 4 caught, 0 missed.
+
 ## 2026-07-05 - proactive trace Highwater probe mutation hardening
 
 - Project-status still showed no ready/open risks after the collected-helmet
