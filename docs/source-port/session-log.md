@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks smash/ice mutation verification
+
+- Project-status still showed no ready/open risks after the rubber-block slice,
+  so mutation-tested the smash/ice block destroy effect helpers and ice-block
+  bullet target/table/projectile helpers in `blocks.rs`.
+- ASM context: `sub_10EDA` owns smash block effect offsets, `sub_10F9C` owns ice
+  effect offsets/hibernate metadata, and `loc_11006` through `loc_110AA` own
+  ice-block bullet target-cell gating, direction restoration, offsets, and
+  velocity.
+- Mutation at `/tmp/mutants-core-blocks-smash-ice-effects-20260705-initial`
+  reported 107 mutants tested: 107 caught, 0 missed.
+- No code change was warranted; existing effect-origin, cell-gating, bullet table,
+  and projectile construction tests already kill every selected mutation.
+
 ## 2026-07-05 - proactive blocks rubber animation/contact mutation hardening
 
 - Project-status still showed no ready/open risks after the shooter
