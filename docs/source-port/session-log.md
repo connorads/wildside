@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive blocks collected-prize arc mutation verification
+
+- Project-status still showed no ready/open risks after the lift block slice, so
+  mutation-tested the compact collected-prize arc helpers in `blocks.rs`.
+- ASM context: `loc_FEEE` advances cached screen-space fixed-point words,
+  `loc_FEFE` reprojects those high words through camera words and owns the DBF
+  loop tail, and `loc_FF92` wraps the collected-clock HUD flight path.
+- Mutation at `/tmp/mutants-core-blocks-prize-collect-20260705-initial`
+  reported 16 mutants tested: 13 caught, 3 unviable, 0 missed.
+- No code change was warranted; existing exact-value Ankh/clock collection tests
+  already kill every selected screen-word, camera-add, and loop-tail mutation.
+
 ## 2026-07-05 - proactive blocks lift mutation hardening
 
 - Project-status still showed no ready/open risks after the physics air-control
