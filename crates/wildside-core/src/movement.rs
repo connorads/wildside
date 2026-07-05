@@ -8551,7 +8551,8 @@ mod tests {
         intro_sequence_3_allocation_spec_loc_1AEE2, intro_sequence_3_descriptor_loc_1AEBA,
         intro_sequence_3_gfx_object_loc_1AEEC, intro_sequence_3_x_direction_loc_1AF12,
         iron_knight_equal_boundary_slopeup_scan_skips_loc_a75a,
-        iron_knight_solid_edge_slopeup_followup_loc_914a, level_entry_title_advance_x,
+        iron_knight_solid_edge_slopeup_followup_loc_914a,
+        juggernaut_cached_slopeup_contact_loc_a556, level_entry_title_advance_x,
         level_entry_title_axis_step, level_entry_title_deferred_number_indices_loc_1ABF4,
         level_entry_title_deferred_number_target_x_loc_1AD56, level_entry_title_random_x,
         level_entry_title_random_y, level_entry_title_random_y_snap_loc_1acf8,
@@ -9209,6 +9210,24 @@ mod tests {
         assert_eq!(
             left_at_cap, None,
             "ASM loc_A99E should use the ordinary advance once leftward cap bleed has already reached the cap",
+        );
+    }
+
+    #[test]
+    fn loc_a556_cached_slopeup_contact_uses_cached_row_tile_top() {
+        let w: u16 = 8;
+        let h: u16 = 8;
+        let data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        grid.set_cell_at(4, 4, terrain::Cell::from_be_bytes(0x40, 0x00));
+
+        let probe = juggernaut_cached_slopeup_contact_loc_a556(&grid, 48, 80, 16)
+            .expect("ASM sub_A4EE loc_A556 should recover the cached SlopeUp cell one row above");
+
+        assert_eq!(
+            (probe.cell_x, probe.cell_y, probe.floor_y_px),
+            (4, 4, 79),
+            "ASM sub_A4EE loc_A556 should convert cached row 4 to tile top $40 before SlopeUp floor interpolation",
         );
     }
 

@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive movement slope-solid cache mutation hardening
+
+- Project-status still showed no ready/open risks after the slope-exit
+  verification slice, so mutation-tested the `movement.rs` helpers around the
+  `loc_A556` cached SlopeUp contact and `loc_9FBC` slope-to-solid walking tail.
+- ASM context: `sub_A4EE loc_A556` can recover the cached `$FB6C` slope tile
+  one row above the ordinary foot probe, and `loc_9FBC` exits slope walking
+  onto plain solid support.
+- Initial mutation at
+  `/tmp/mutants-core-movement-slope-solid-cache-20260705-initial` reported 37
+  mutants tested: 2 missed, 34 caught, 1 unviable. Both misses were the cached
+  row-to-tile-top expression in `juggernaut_cached_slopeup_contact_loc_a556`.
+- Fix: added an ASM-cited private-helper test proving cached row 4 maps to tile
+  top `$40` before SlopeUp floor interpolation.
+- Final mutation at
+  `/tmp/mutants-core-movement-slope-solid-cache-20260705-final` reports 37
+  mutants tested: 36 caught, 1 unviable, 0 missed.
+
 ## 2026-07-05 - proactive movement slope-exit mutation verification
 
 - Project-status still showed no ready/open risks after the level-flow slice, so
