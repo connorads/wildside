@@ -1,12 +1,13 @@
-//! SDL-free CPU rasteriser shared by `wildside-cli`'s native player and the
-//! future browser (WASM) build.
+//! SDL-free CPU rasteriser and trace→GEMS audio director shared by
+//! `wildside-cli`'s native player and the browser (WASM) build (`wildside-web`).
 //!
 //! This crate owns the pure layer that turns a gameplay trace
 //! (`wildside-core`) plus decoded visuals (`wildside-render`) into
 //! [`DrawCommand`]s and then CPU-rasterises them into a fixed 320×224
 //! framebuffer. It holds **zero** platform/SDL references: SDL (native) and a
 //! canvas blit (web) only upload, scale, and present the buffer this crate
-//! produces.
+//! produces. The [`audio`] module turns the same trace into GEMS driver
+//! commands for both frontends (see its module doc).
 //!
 //! ## Pixel format: RGB24
 //!
