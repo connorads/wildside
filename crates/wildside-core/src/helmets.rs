@@ -3715,6 +3715,90 @@ mod tests {
     }
 
     #[test]
+    fn eyeclops_beam_world_strip_sub_e49a_uses_short_table_before_counter_four() {
+        let strip = eyeclops_beam_world_strip_sub_E49A(2, 0x0120, 0x00A0, 0x0100, 0x0080, 0)
+            .expect("ASM sub_E49A branches to loc_E512 while decremented d7 is below 4");
+
+        assert_eq!(
+            strip,
+            EyeclopsBeamWorldStripSubE49A {
+                start_x: 0x0132,
+                end_x: 0x014A,
+                top_y: 0x0089,
+                bottom_y: 0x00A1,
+                map_probe_screen_x: 0x00CA,
+                top_probe_screen_y: 0x0089,
+                bottom_probe_screen_y: 0x00A1,
+            },
+            "ASM sub_E49A loc_E4C4/loc_E512/loc_E70A should convert the short segment-1 beam tip and vertical band into world coordinates",
+        );
+    }
+
+    #[test]
+    fn eyeclops_beam_world_strip_sub_e49a_switches_to_long_strip_at_counter_four() {
+        let strip = eyeclops_beam_world_strip_sub_E49A(5, 0x0120, 0x00A0, 0x0100, 0x0080, 0)
+            .expect("ASM sub_E49A branches to loc_E650 once decremented d7 is 4");
+
+        assert_eq!(
+            strip,
+            EyeclopsBeamWorldStripSubE49A {
+                start_x: 0x0132,
+                end_x: 0x016A,
+                top_y: 0x0075,
+                bottom_y: 0x00B5,
+                map_probe_screen_x: 0x00EA,
+                top_probe_screen_y: 0x0075,
+                bottom_probe_screen_y: 0x00B5,
+            },
+            "ASM sub_E49A uses `cmpi.w #4,d7; bge.w loc_E650`, so decremented d7=4 must take the long strip path",
+        );
+    }
+
+    #[test]
+    fn eyeclops_beam_world_strip_sub_e49a_mirrors_short_strip_left() {
+        let strip = eyeclops_beam_world_strip_sub_E49A(2, 0x0010, 0x0008, 0x0020, 0x0010, 0xFF)
+            .expect("ASM loc_E50A handles mirrored short beams before loc_E70A");
+
+        assert_eq!(
+            strip,
+            EyeclopsBeamWorldStripSubE49A {
+                start_x: -26,
+                end_x: -2,
+                top_y: -15,
+                bottom_y: 9,
+                map_probe_screen_x: 0x0046,
+                top_probe_screen_y: 0x0061,
+                bottom_probe_screen_y: 0x0079,
+            },
+            "ASM loc_E50A subtracts the short segment span from biased screen X; loc_E70A then unbiases with the camera",
+        );
+    }
+
+    #[test]
+    fn eyeclops_beam_collision_probe_loc_e70a_uses_long_forward_strip_at_segment_four() {
+        let probe = eyeclops_beam_collision_probe_loc_E70A(4, 0x00B2, 0x0091, 0)
+            .expect("ASM loc_E70A should receive the loc_E650 long-strip probe for segment 4");
+
+        assert_eq!(
+            probe,
+            (0x00EA, 0x0075, 0x00B5),
+            "ASM sub_E49A sends d7=4 through loc_E650, not the four-entry off_E560 short-beam table",
+        );
+    }
+
+    #[test]
+    fn eyeclops_beam_collision_probe_loc_e70a_uses_reverse_setup_for_left_long_strip() {
+        let probe = eyeclops_beam_collision_probe_loc_E70A(4, 0x00E0, 0x0091, 0xFF)
+            .expect("ASM loc_E67E should accept this mirrored long-strip beam");
+
+        assert_eq!(
+            probe,
+            (0x00A8, 0x0075, 0x00B5),
+            "ASM loc_E67E subtracts the doubled span and `$20` from screen X for mirrored long beams",
+        );
+    }
+
+    #[test]
     fn diamond_power_circle_of_doom_clamps_size_table_upper_bound_loc_3f81a() {
         // ASM loc_3F81A / byte_3F8B4 (kid.asm:44537, 44560): the ROM indexes
         // the 28-byte table with `$3E(a0).w >> 1`. Native keeps the last ROM

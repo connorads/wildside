@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-05 - proactive Eyeclops beam mutation hardening
+
+- Project-status still showed no ready/open risks after the platform special
+  coroutine slice, so mutation-tested the Eyeclops beam strip/probe helpers in
+  `helmets.rs`.
+- ASM context: `sub_E49A` owns the beam render/collision strip, with short
+  beam tables through `loc_E50A`/`loc_E512` and long strip setup through
+  `loc_E650`/`loc_E67E` before the terrain probe at `loc_E70A`.
+- Initial mutation at
+  `/tmp/mutants-core-helmets-eyeclops-beam-20260705-initial` reported 98
+  mutants tested: 15 missed, 77 caught, 6 unviable. Actionable misses were the
+  short-to-long boundary at decremented `d7=4`, mirrored long-strip setup, and
+  world-coordinate conversion of the beam strip/probe.
+- Fix: added cache-independent in-module tests for short, mirrored, and
+  segment-4 long-strip coordinates plus direct collision-probe boundaries.
+- Final mutation at
+  `/tmp/mutants-core-helmets-eyeclops-beam-20260705-final` reports 98 mutants
+  tested: 90 caught, 6 unviable, 2 missed, 0 actionable missed. The remaining
+  misses are equivalent/non-target: `tile_word | $0800` equals `^ $0800` for
+  the fixed ROM beam tables because that bit is clear, and the selector still
+  includes Maniaxe's default-equivalent `lifetime: 0` field deletion.
+
 ## 2026-07-05 - proactive platform special coroutine mutation hardening
 
 - Project-status still showed no ready/open risks after the physics murder-wall
