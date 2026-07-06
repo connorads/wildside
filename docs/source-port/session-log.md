@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene Boss Eye routing mutation hardening
+
+- Project-status still showed no ready/open risks after the Kid projectile
+  hit-spark slice, so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `boss_eye_object_mapping_index_loc_37abc|boss_eye_object_order_word_loc_393c8|trace_has_boss_eye_object_slot_loc_3931a|order_boss_eye_satellites_sub_ff6`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-boss-eye-routing-20260706-initial` reported 23
+  mutants tested: 7 caught, 1 unviable, and 15 missed. Added ASM-cited coverage
+  for Boss Eye waiting-object debug-field parsing, exact `loc_3931A` slot
+  matching, `sub_393C8`/`sub_FF6` order-word sorting, and duplicate satellite
+  suppression while leaving unmatched satellites and Boss Eye attacks visible.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 115 tests.
+  Final mutation at
+  `/tmp/mutants-frame-scene-boss-eye-routing-20260706-final` reported 23
+  mutants tested: 22 caught, 1 unviable, and 0 missed.
+
 ## 2026-07-06 - proactive frame scene Kid projectile hit-spark mutation hardening
 
 - Project-status still showed no ready/open risks after the floating-prize

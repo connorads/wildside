@@ -8708,6 +8708,196 @@ mod tests {
     }
 
     #[test]
+    fn boss_eye_scene_helpers_parse_debug_fields_and_exact_object_slots_loc_3931a() {
+        let object = sample_boss_eye_object(40 << 16, 48 << 16, Some("7"), Some("0x002A"));
+        assert_eq!(
+            boss_eye_object_mapping_index_loc_37abc(&object),
+            Some(7),
+            "ASM sub_37ABC stores the selected `unk_C8488..unk_C84C0` mapping index in the waiting eye debug field"
+        );
+        assert_eq!(
+            boss_eye_object_order_word_loc_393c8(&object),
+            0x002A,
+            "ASM sub_393C8/sub_FF6 sorts waiting eyes by `$A(a3)`, exported as a hex debug word"
+        );
+
+        let decimal_order = sample_boss_eye_object(40 << 16, 48 << 16, Some("3"), Some("42"));
+        assert_eq!(
+            boss_eye_object_order_word_loc_393c8(&decimal_order),
+            42,
+            "debug traces may serialise the ASM `$A(a3)` order word in decimal"
+        );
+
+        let invalid_mapping =
+            sample_boss_eye_object(40 << 16, 48 << 16, Some("not-a-byte"), Some("bad-order"));
+        assert_eq!(
+            boss_eye_object_mapping_index_loc_37abc(&invalid_mapping),
+            None
+        );
+        assert_eq!(
+            boss_eye_object_order_word_loc_393c8(&invalid_mapping),
+            0,
+            "invalid or absent order words fall back to the ROM sub_FF6 default order"
+        );
+
+        let trace = NativeTraceFrame {
+            active_objects: vec![object],
+            ..NativeTraceFrame::default()
+        };
+        assert!(trace_has_boss_eye_object_slot_loc_3931a(
+            &trace,
+            40 << 16,
+            48 << 16
+        ));
+        assert!(
+            !trace_has_boss_eye_object_slot_loc_3931a(&trace, 41 << 16, 48 << 16),
+            "ASM loc_3931A suppression requires the exact waiting-eye X slot"
+        );
+        assert!(
+            !trace_has_boss_eye_object_slot_loc_3931a(&trace, 40 << 16, 49 << 16),
+            "ASM loc_3931A suppression requires the exact waiting-eye Y slot"
+        );
+
+        let no_mapping_trace = NativeTraceFrame {
+            active_objects: vec![sample_boss_eye_object(40 << 16, 48 << 16, None, Some("0"))],
+            ..NativeTraceFrame::default()
+        };
+        assert!(
+            !trace_has_boss_eye_object_slot_loc_3931a(&no_mapping_trace, 40 << 16, 48 << 16),
+            "only ASM sub_37ABC-mapped `$21` waiting-eye slots suppress duplicate satellite projectiles"
+        );
+
+        let mut wrong_kind = sample_boss_eye_object(40 << 16, 48 << 16, Some("2"), Some("0"));
+        wrong_kind.kind = NativeObjectKind::Enemy { object_type: 0x20 };
+        let wrong_kind_trace = NativeTraceFrame {
+            active_objects: vec![wrong_kind],
+            ..NativeTraceFrame::default()
+        };
+        assert!(
+            !trace_has_boss_eye_object_slot_loc_3931a(&wrong_kind_trace, 40 << 16, 48 << 16),
+            "only ASM loc_3931A `$21` Boss Eye objects participate in duplicate suppression"
+        );
+    }
+
+    #[test]
+    fn boss_eye_waiting_objects_render_sorted_scene_markers_sub_393c8() {
+        let visuals = sample_level_visuals(1);
+        let high_order = sample_boss_eye_object(100 << 16, 72 << 16, Some("2"), Some("0x0020"));
+        let low_order = sample_boss_eye_object(80 << 16, 64 << 16, Some("5"), Some("0x0010"));
+        let trace = NativeTraceFrame {
+            camera_x_pos: 8 << 16,
+            camera_y_pos: 4 << 16,
+            active_objects: vec![high_order, low_order],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene =
+            build_game_scene_filtered(&trace, false, &visuals, None, LayerFilter::solo("enemies"));
+        let rects = scene_rects(&scene.commands);
+
+        assert_eq!(
+            rects,
+            vec![
+                (64, 52, 16, 16, [120, 200, 255]),
+                (66, 62, 4, 4, [255, 255, 255]),
+                (84, 60, 16, 16, [120, 200, 255]),
+                (94, 62, 4, 4, [255, 255, 255]),
+            ],
+            "ASM loc_3931A waiting Boss Eye objects render after sub_393C8/sub_FF6 `$A(a3)` ordering, using sub_37ABC mapping highlights"
+        );
+    }
+
+    #[test]
+    fn boss_eye_satellites_sort_without_moving_other_projectiles_sub_ff6() {
+        let mut projectiles = vec![
+            sample_boss_eye_projectile(ActiveProjectileKind::BossEyeSatellite, 40, 48, 2, 0x0020),
+            sample_boss_eye_projectile(ActiveProjectileKind::Generic, 96, 48, 0, 0),
+            sample_boss_eye_projectile(ActiveProjectileKind::BossEyeSatellite, 56, 48, 6, 0x0010),
+            sample_boss_eye_projectile(ActiveProjectileKind::BossEyeAttack, 72, 48, 1, 0),
+        ];
+
+        order_boss_eye_satellites_sub_ff6(&mut projectiles);
+
+        assert_eq!(
+            (
+                projectiles[0].kind,
+                projectiles[0].x_pos,
+                projectiles[0].boss_eye_sprite_mapping_index,
+                projectiles[0].boss_eye_sprite_order_word_a,
+            ),
+            (ActiveProjectileKind::BossEyeSatellite, 56 << 16, 6, 0x0010),
+            "ASM sub_FF6 reorders only Boss Eye satellite GfxObjects by `$A(a3)`"
+        );
+        assert_eq!(
+            (projectiles[1].kind, projectiles[1].x_pos),
+            (ActiveProjectileKind::Generic, 96 << 16),
+            "ASM sub_FF6 satellite ordering must not consume unrelated projectile slots"
+        );
+        assert_eq!(
+            (
+                projectiles[2].kind,
+                projectiles[2].x_pos,
+                projectiles[2].boss_eye_sprite_mapping_index,
+                projectiles[2].boss_eye_sprite_order_word_a,
+            ),
+            (ActiveProjectileKind::BossEyeSatellite, 40 << 16, 2, 0x0020)
+        );
+        assert_eq!(
+            (projectiles[3].kind, projectiles[3].x_pos),
+            (ActiveProjectileKind::BossEyeAttack, 72 << 16),
+            "Boss Eye attack markers are rendered in trace order; only satellites mirror sub_FF6 sorting here"
+        );
+    }
+
+    #[test]
+    fn boss_eye_satellite_render_suppresses_matching_waiting_object_loc_3931a() {
+        let visuals = sample_level_visuals(1);
+        let trace = NativeTraceFrame {
+            camera_x_pos: 8 << 16,
+            camera_y_pos: 4 << 16,
+            active_objects: vec![sample_boss_eye_object(
+                40 << 16,
+                48 << 16,
+                Some("3"),
+                Some("0x0010"),
+            )],
+            active_projectile_details: vec![
+                sample_boss_eye_projectile(
+                    ActiveProjectileKind::BossEyeSatellite,
+                    40,
+                    48,
+                    3,
+                    0x0010,
+                ),
+                sample_boss_eye_projectile(
+                    ActiveProjectileKind::BossEyeSatellite,
+                    56,
+                    48,
+                    6,
+                    0x0020,
+                ),
+                sample_boss_eye_projectile(ActiveProjectileKind::BossEyeAttack, 72, 48, 1, 0),
+            ],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene =
+            build_game_scene_filtered(&trace, false, &visuals, None, LayerFilter::solo("effects"));
+        let rects = scene_rects(&scene.commands);
+
+        assert_eq!(
+            rects,
+            vec![
+                (40, 36, 16, 16, [120, 200, 255]),
+                (46, 47, 4, 4, [255, 255, 255]),
+                (56, 36, 16, 16, [120, 200, 255]),
+                (62, 37, 4, 4, [255, 255, 255]),
+            ],
+            "ASM loc_3931A waiting-eye object slots replace matching Boss Eye satellite projectile markers, while unmatched satellites and attacks still render"
+        );
+    }
+
+    #[test]
     fn floating_prize_diamond_visibility_and_frame_timing_follow_loc_10396_103b2() {
         use wildside_core::terrain::PrizeContent;
 
@@ -10461,6 +10651,22 @@ mod tests {
         }
     }
 
+    fn scene_rects(commands: &[DrawCommand]) -> Vec<(i32, i32, i32, i32, [u8; 3])> {
+        commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Rect {
+                    x,
+                    y,
+                    width,
+                    height,
+                    colour,
+                } => Some((*x, *y, *width, *height, *colour)),
+                _ => None,
+            })
+            .collect()
+    }
+
     fn assert_child_frame(
         frame: Option<SpriteFrame>,
         expected: (u16, i16, i16, u16, u16),
@@ -10630,6 +10836,54 @@ mod tests {
             walk_phase: None,
             wait_timer: None,
             debug_fields: BTreeMap::default(),
+        }
+    }
+
+    fn sample_boss_eye_object(
+        x_pos: u32,
+        y_pos: u32,
+        mapping_index: Option<&str>,
+        order_word: Option<&str>,
+    ) -> NativeObjectSnapshot {
+        let mut debug_fields = BTreeMap::default();
+        if let Some(mapping_index) = mapping_index {
+            debug_fields.insert(
+                "boss_eye_sprite_mapping_index_loc_37abc".to_owned(),
+                mapping_index.to_owned(),
+            );
+        }
+        if let Some(order_word) = order_word {
+            debug_fields.insert(
+                "boss_eye_sprite_order_word_a_loc_393c8".to_owned(),
+                order_word.to_owned(),
+            );
+        }
+
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy {
+                object_type: BOSS_EYE_OBJECT_TYPE,
+            },
+            x_pos,
+            y_pos,
+            debug_fields,
+            ..sample_object_snapshot()
+        }
+    }
+
+    fn sample_boss_eye_projectile(
+        kind: ActiveProjectileKind,
+        x_px: u32,
+        y_px: u32,
+        mapping_index: u8,
+        order_word: u16,
+    ) -> ActiveProjectileSnapshot {
+        ActiveProjectileSnapshot {
+            kind,
+            x_pos: x_px << 16,
+            y_pos: y_px << 16,
+            boss_eye_sprite_mapping_index: mapping_index,
+            boss_eye_sprite_order_word_a: order_word,
+            ..ActiveProjectileSnapshot::default()
         }
     }
 
