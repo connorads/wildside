@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive render bundle EOL mutation hardening
+
+- Project-status still showed no ready/open risks after the MD runtime probe
+  slice, so mutation-tested `wildside-render/src/bundle.rs` scoped to
+  `pause_menu|eol_|hologram|shared_vram|palette_permutation`.
+- Initial mutation at `/tmp/mutants-render-bundle-eol-20260706-refresh`
+  reported 65 mutants tested: 55 caught, 4 missed, 6 unviable. Three misses
+  were real EOL hologram optional-asset guard gaps; the fourth was the known
+  equivalent HoloBG copy bound.
+- Added an in-memory regression for incomplete ASM `loc_C0CC`/`loc_C140` EOL
+  hologram asset sets, then removed the redundant HoloBG destination guard
+  because the destination span is guaranteed by the tile-count calculation.
+  Final mutation at `/tmp/mutants-render-bundle-eol-20260706-final2` reported
+  62 mutants tested: 56 caught, 6 unviable, and 0 missed. Focused EOL tests
+  passed.
+
 ## 2026-07-06 - proactive MD runtime probe mutation hardening
 
 - Project-status still showed no ready/open risks after the standalone GEMS

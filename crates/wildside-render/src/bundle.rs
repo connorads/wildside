@@ -1044,9 +1044,7 @@ fn combine_eol_hologram_tile_sheet(
     let mut tiles = vec![Tile { pixels: [0; 64] }; tile_count];
     for (index, tile) in background_tiles.tiles.into_iter().enumerate() {
         let dest = usize::from(EOL_HOLOGRAM_BACKGROUND_VRAM_BASE_TILE_INDEX) + index;
-        if dest < tiles.len() {
-            tiles[dest] = tile;
-        }
+        tiles[dest] = tile;
     }
     for (index, tile) in block_tiles.tiles.into_iter().enumerate() {
         let dest = usize::from(EOL_HOLOGRAM_BLOCKS_VRAM_BASE_TILE_INDEX) + index;
@@ -4979,16 +4977,20 @@ mod tests {
         compose_player_frame, crop_eol_score_frame_to_declared_bounds,
         enemy_palette_with_cleared_slot_eight, fd, fg_permutation_file,
         forest_enemy_art_permutation, forest_enemy_palette_with_borrowed_slots, frame_to_pixels,
-        layered_background_enigma_base_word_loc_128ba, load_palette_permutation,
-        load_special_effect_unknown_visuals, normalise_layered_background_tile_base_loc_128ba,
+        layered_background_enigma_base_word_loc_128ba, load_eol_hologram_visuals,
+        load_palette_permutation, load_special_effect_unknown_visuals,
+        normalise_layered_background_tile_base_loc_128ba,
     };
     use crate::{
         LayeredBackgroundPlane, MdColour, Palette, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
     };
     use sha1::{Digest, Sha1};
     use std::fs;
+    use std::path::Path;
     use tempfile::TempDir;
-    use wildside_data::{AssetFile, AssetManifest, EnemyLayout, FsAssetSource};
+    use wildside_data::{
+        AssetFile, AssetManifest, EnemyLayout, FsAssetSource, InMemoryAssetSource,
+    };
 
     fn tile_ref(tile_index: u16) -> TileRef {
         TileRef {
@@ -5104,6 +5106,32 @@ mod tests {
             "ASM sub_C254/unk_C2EA can reveal tile word $4417, so native must keep the longer HoloBG art range instead of truncating at the two HoloBlocks tiles"
         );
         assert_eq!(sheet.tiles[0x041A].pixels[0], 0x1F);
+    }
+
+    #[test]
+    fn eol_hologram_visuals_skip_unless_all_assets_are_present() {
+        let required_assets = [
+            super::EOL_HOLOGRAM_BACKGROUND_ART_PATH,
+            super::EOL_HOLOGRAM_BLOCKS_ART_PATH,
+            super::EOL_HOLOGRAM_TILEMAP_PATH,
+            super::EOL_HOLOGRAM_PALETTE_PATH,
+        ];
+
+        for missing_asset in required_assets {
+            let mut source = InMemoryAssetSource::new();
+            for present_asset in required_assets {
+                if present_asset != missing_asset {
+                    source.insert(Path::new("scenes").join(present_asset), vec![0]);
+                }
+            }
+
+            assert!(
+                load_eol_hologram_visuals(&source)
+                    .expect("incomplete optional EOL hologram asset set should be skipped")
+                    .is_none(),
+                "ASM loc_C0CC/loc_C140 EOL hologram visuals require the complete art/tilemap/palette set; missing {missing_asset}"
+            );
+        }
     }
 
     fn enemy_layout_with_slots(enemy_type_slots: Vec<u16>) -> EnemyLayout {
