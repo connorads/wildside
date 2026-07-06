@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame sprite-geometry mutation verification
+
+- Project-status still showed no ready/open risks after the HUD slice, so
+  mutation-tested the frame sprite geometry helpers in `sprites.rs`.
+- Scope: `align_sprite_dimension`, `sprite_draw_position`, `build_sprite_tiles`,
+  `build_sprite_tiles_with_flip`, `append_sprite_band_tiles`, and
+  `append_sprite_chunk_tiles`, covering 32px mapping bands/chunks, left-facing
+  offset flips, and priority overrides used by player/enemy rendering.
+- Mutation at `/tmp/mutants-frame-sprite-geometry-20260706-initial` reported
+  65 mutants tested: 60 caught, 3 unviable, 2 equivalent, 0 actionable missed.
+  The two survivors were `> 0` -> `>= 0` zero-tail guards; the mutated calls
+  still append zero rows/columns and leave `next_tile_index` unchanged, so they
+  are behaviour-equivalent. No code changes were needed.
+
 ## 2026-07-06 - proactive frame HUD helper mutation verification
 
 - Project-status still showed no ready/open risks after the render-helper slice,
