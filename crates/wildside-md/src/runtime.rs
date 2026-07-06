@@ -4613,6 +4613,39 @@ mod tests {
     }
 
     #[test]
+    fn sample_vdp_pixel_decodes_plane_b_and_hscroll_registers() {
+        // VDP register 4 encodes the Plane B name-table base, and register $0D
+        // encodes the HScroll table base. The diagnostic sampler must report
+        // the same source metadata as the renderer, not just the final colour.
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[4] = 0x81;
+        vdp.registers[0x0D] = 1;
+        set_tile_pixel(&mut vdp.vram, 4, 0, 0, 3);
+        write_cram_colour(&mut vdp.cram, 0x10 + 3, 0x00E);
+        write_tile_entry(&mut vdp.vram, 0x2000, 0, 0x2000 | 4);
+        write_tile_entry(&mut vdp.vram, 0x2000, 1, 5);
+        vdp.vram[0x0402..0x0404].copy_from_slice(&8u16.to_be_bytes());
+
+        let sample = crate::vdp::sample_vdp_pixel(&vdp, 8, 0);
+        let plane_b = sample
+            .layers
+            .iter()
+            .find(|layer| layer.layer == "plane_b")
+            .expect("plane B sample should be present");
+
+        assert_eq!(plane_b.map_base, 0x2000);
+        assert_eq!(plane_b.cell_x, 0);
+        assert_eq!(plane_b.cell_y, 0);
+        assert_eq!(plane_b.cell_index, 0);
+        assert_eq!(plane_b.entry, 0x2000 | 4);
+        assert_eq!(plane_b.tile_index, 4);
+        assert_eq!(plane_b.source_x, 0);
+        assert_eq!(plane_b.source_y, 0);
+        assert_eq!(plane_b.colour_index, 3);
+        assert_eq!(plane_b.rgb, Some([0xFF, 0x00, 0x00]));
+    }
+
+    #[test]
     fn sample_plane_pixel_reports_scrolled_wrapped_source() {
         let mut vdp = blank_vdp_snapshot();
         set_tile_pixel(&mut vdp.vram, 4, 1, 3, 3);

@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive MD VDP mutation hardening
+
+- Project-status still showed no ready/open risks after the frame scene
+  tile-plane slice, so mutation-tested the pure software VDP renderer in
+  `wildside-md/src/vdp.rs`.
+- Scope: Plane A/B/window/sprite/tile renderer helpers plus the diagnostic
+  `sample_vdp_pixel` source-metadata surface used by frame debugging.
+- Initial mutation at `/tmp/mutants-md-vdp-20260706-initial` reported 489
+  mutants tested: 470 caught, 15 unviable, 4 missed. The misses were all in
+  `sample_vdp_pixel` Plane B base and HScroll table register decoding.
+- Added a public sampler regression that pins Plane B map-base masking and
+  HScroll offset metadata. Final mutation at
+  `/tmp/mutants-md-vdp-20260706-final` reported 489 mutants tested: 474
+  caught, 15 unviable, 0 missed.
+
 ## 2026-07-06 - proactive frame scene tile-plane mutation hardening
 
 - Project-status still showed no ready/open risks after the sprite-geometry
