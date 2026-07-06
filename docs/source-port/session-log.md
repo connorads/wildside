@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive CLI rust-source-context mutation refresh
+
+- Project-status still showed no ready/open risks after the diff-helper slice,
+  so refreshed current-HEAD mutation evidence for
+  `wildside-cli/src/rust_source_context.rs`.
+- Scope: comment/literal sanitising, raw strings, byte/plain char literals,
+  lexer token progress, cfg-test item ranges, nested attrs, cfg expressions,
+  and production-vs-test ASM citation classification.
+- Focused `rust_source_context::tests` passed. Mutation at
+  `/tmp/mutants-cli-rust-source-context-20260706` reported 188 mutants tested:
+  138 caught, 3 unviable, 47 timeout-only non-progress mutants, and 0 missed;
+  cargo-mutants exited 3 because timeout outcomes are still reported as red.
+  No code changes were needed.
+
 ## 2026-07-06 - proactive CLI diff mutation refresh
 
 - Project-status still showed no ready/open risks after the backlog-lint slice,
