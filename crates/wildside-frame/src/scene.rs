@@ -8452,6 +8452,98 @@ mod tests {
     }
 
     #[test]
+    fn pause_menu_tile_cursor_rewrites_only_live_slots_loc_6b0e() {
+        for (pause_menu_option, expected_top, expected_bottom, label) in [
+            (
+                0,
+                PAUSE_MENU_CURSOR_TILE_LOC_6B0E,
+                PAUSE_MENU_BLANK_TILE_LOC_6B0E,
+                "upper",
+            ),
+            (
+                1,
+                PAUSE_MENU_BLANK_TILE_LOC_6B0E,
+                PAUSE_MENU_CURSOR_TILE_LOC_6B0E,
+                "lower",
+            ),
+        ] {
+            let trace = NativeTraceFrame {
+                pause_menu_option,
+                ..NativeTraceFrame::default()
+            };
+
+            assert_eq!(
+                pause_menu_tile_with_live_cursor_loc_6b0e(&trace, 1, 1, sample_tile_ref(0x0123))
+                    .tile_index,
+                expected_top,
+                "ASM loc_6B0E writes the {label} cursor state to the top arrow slot only"
+            );
+            assert_eq!(
+                pause_menu_tile_with_live_cursor_loc_6b0e(&trace, 3, 1, sample_tile_ref(0x0123))
+                    .tile_index,
+                expected_bottom,
+                "ASM loc_6B0E writes the {label} cursor state to the bottom arrow slot only"
+            );
+
+            for (row, column) in [(1, 2), (2, 1), (3, 2), (0, 1)] {
+                assert_eq!(
+                    pause_menu_tile_with_live_cursor_loc_6b0e(
+                        &trace,
+                        row,
+                        column,
+                        sample_tile_ref(0x0123),
+                    )
+                    .tile_index,
+                    0x0123,
+                    "ASM loc_6B0E leaves non-cursor pause tile row {row} column {column} unchanged"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn pause_menu_sprite_hide_masks_first_tile_range_sub_6874() {
+        let mut commands = vec![
+            DrawCommand::Rect {
+                x: 1,
+                y: 2,
+                width: 3,
+                height: 4,
+                colour: [5, 6, 7],
+            },
+            sample_sprite_command(&[]),
+            sample_sprite_command(&[0x0675]),
+            sample_sprite_command(&[0x0676]),
+            sample_sprite_command(&[0x8676]),
+            sample_sprite_command(&[0x068E]),
+            sample_sprite_command(&[0x068F]),
+            sample_sprite_command(&[0x0675, 0x0676]),
+        ];
+
+        hide_pause_menu_overwritten_sprite_commands_sub_6874(&mut commands);
+
+        let retained_first_tiles = commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite { tiles, .. } => {
+                    Some(tiles.first().map(|tile| tile.tile.tile_index))
+                }
+                DrawCommand::Rect { .. } => None,
+                other => panic!("unexpected command in pause sprite-hide fixture: {other:?}"),
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            retained_first_tiles,
+            vec![None, Some(0x0675), Some(0x068F), Some(0x0675)],
+            "ASM sub_6874 loc_68AC masks first pattern tile with `$7FF` and clears only `$676..=$68E` pause-menu sprites"
+        );
+        assert!(
+            matches!(commands.first(), Some(DrawCommand::Rect { .. })),
+            "ASM sub_6874 scans hardware sprites only and leaves other draw commands intact"
+        );
+    }
+
+    #[test]
     fn shooter_block_projectile_tail_loc_ef62_matches_direction_tile_words() {
         for (x_velocity, y_velocity, expected, label) in [
             (0, -1, (-4, -8, 0x8295), "ASM loc_EF62 up tail"),
@@ -11283,6 +11375,23 @@ mod tests {
             offset_x,
             offset_y,
             tile: sample_tile_ref(tile_index),
+        }
+    }
+
+    fn sample_sprite_command(tile_indices: &[u16]) -> DrawCommand {
+        DrawCommand::Sprite {
+            x: 0,
+            y: 0,
+            tile_sheet: Arc::new(sample_tile_sheet(tile_indices.len().max(1))),
+            palette: Arc::new(sample_palette()),
+            tiles: tile_indices
+                .iter()
+                .map(|&tile_index| SpriteTile {
+                    offset_x: 0,
+                    offset_y: 0,
+                    tile: sample_tile_ref(tile_index),
+                })
+                .collect(),
         }
     }
 

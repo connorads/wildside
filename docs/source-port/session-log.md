@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene pause-menu mutation hardening
+
+- Project-status still showed no ready/open risks after the EOL hardware
+  diagnostic slice, so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `pause_menu_tile_with_live_cursor_loc_6b0e|hide_pause_menu_overwritten_sprite_commands_sub_6874`.
+- Initial mutation at `/tmp/mutants-frame-scene-pause-menu-20260706-initial`
+  reported 20 mutants tested: 7 caught, 1 unviable, and 12 missed. Added
+  ASM-cited frame-scene coverage for `sub_6874 loc_68AC` first-tile masked
+  pause-menu sprite hiding and `Game_Paused_Loop loc_6B0E` live cursor tile
+  rewriting.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 132 tests after
+  the new regressions. Final mutation at
+  `/tmp/mutants-frame-scene-pause-menu-20260706-final` reported 20 mutants
+  tested: 19 caught, 1 unviable, and 0 missed.
+
 ## 2026-07-06 - proactive frame scene EOL hardware diagnostic mutation hardening
 
 - Project-status still showed no ready/open risks after the render-latch slice,
