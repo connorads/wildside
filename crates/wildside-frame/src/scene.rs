@@ -9563,6 +9563,138 @@ mod tests {
     }
 
     #[test]
+    fn kid_projectile_hit_spark_frames_follow_stru_1f40_and_fallback_loc_1f08() {
+        let mut visuals = sample_level_visuals(0x300);
+        visuals.block_tiles = sample_tile_sheet_with_pixel(0x300, 0x66);
+
+        for (remaining, expected_vram_tile) in [
+            (4, 0x02CF),
+            (3, 0x02D8),
+            (2, 0x02E1),
+            (1, 0x02EA),
+            (0, 0x02EA),
+        ] {
+            let mut commands = Vec::new();
+            push_kid_projectile_hit_spark_loc_1f08(&mut commands, &visuals, 80, 96, remaining);
+
+            let DrawCommand::Sprite {
+                x,
+                y,
+                tile_sheet,
+                palette,
+                tiles,
+            } = commands.single()
+            else {
+                panic!("ASM loc_1F08/stru_1F40 should emit the hit-spark sprite");
+            };
+            let expected_tile_base = expected_vram_tile - BLOCK_TILE_VRAM_BASE;
+            assert_eq!(
+                (*x, *y),
+                (68, 84),
+                "ASM loc_1F08 places the 24x24 mapping around `$44/$46`; remaining={remaining}"
+            );
+            assert_eq!(tiles.len(), 9);
+            assert_eq!(tiles[0].offset_x, 0);
+            assert_eq!(tiles[0].offset_y, 0);
+            assert_eq!(tiles[8].offset_x, 16);
+            assert_eq!(tiles[8].offset_y, 16);
+            assert_eq!(
+                tiles
+                    .iter()
+                    .map(|tile| tile.tile.tile_index)
+                    .collect::<Vec<_>>(),
+                (expected_tile_base..=expected_tile_base + 8).collect::<Vec<_>>(),
+                "ASM stru_1F40 remaining={remaining} selects the `$2CF/$2D8/$2E1/$2EA` 3x3 block-art mapping"
+            );
+            assert!(
+                tiles.iter().all(|tile| !tile.tile.priority
+                    && tile.tile.palette_line == 0
+                    && !tile.tile.flip_x
+                    && !tile.tile.flip_y),
+                "ASM loc_1F08 palette_line=3 is already represented by the foreground block palette in native frame assets"
+            );
+            assert_eq!(
+                tile_sheet.tiles[usize::from(expected_tile_base)].pixels[0],
+                0x66
+            );
+            assert_eq!(palette.colours, visuals.palettes.foreground.colours);
+        }
+
+        let final_tile_base = 0x02EA - BLOCK_TILE_VRAM_BASE;
+        let short_sheet = sample_level_visuals(usize::from(final_tile_base + 8));
+        let mut commands = Vec::new();
+        push_kid_projectile_hit_spark_loc_1f08(&mut commands, &short_sheet, 80, 96, 1);
+
+        let DrawCommand::Rect {
+            x,
+            y,
+            width,
+            height,
+            colour,
+        } = commands.single()
+        else {
+            panic!("ASM loc_1F08 missing block-art fallback should be a diagnostic rect");
+        };
+        assert_eq!(
+            (*x, *y, *width, *height, *colour),
+            (77, 93, 6, 6, [255, 240, 96])
+        );
+    }
+
+    #[test]
+    fn kid_projectile_hit_spark_effect_layer_applies_camera_and_uses_block_art_loc_1f08() {
+        let mut visuals = sample_level_visuals(0x300);
+        visuals.block_tiles = sample_tile_sheet_with_pixel(0x300, 0x77);
+        let trace = NativeTraceFrame {
+            camera_x_pos: 8 << 16,
+            camera_y_pos: 4 << 16,
+            kid_projectile_hit_sparks: vec![(100, 72, 3)],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: true,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        let DrawCommand::Sprite {
+            x,
+            y,
+            tile_sheet,
+            tiles,
+            ..
+        } = scene.commands.single()
+        else {
+            panic!("ASM loc_1F08 trace helper should render through the effects layer");
+        };
+        let expected_tile_base = 0x02D8 - BLOCK_TILE_VRAM_BASE;
+        assert_eq!(
+            (*x, *y),
+            (80, 56),
+            "ASM loc_1F08 copies `$44/$46`; frame rendering subtracts Camera_X/Y before sprite-origin placement"
+        );
+        assert_eq!(tiles[0].tile.tile_index, expected_tile_base);
+        assert_eq!(tiles[8].tile.tile_index, expected_tile_base + 8);
+        assert_eq!(
+            tile_sheet.tiles[usize::from(expected_tile_base)].pixels[0],
+            0x77
+        );
+    }
+
+    #[test]
     fn block_bounce_kind_prefers_typed_trace_and_legacy_defaults_to_prize() {
         let mut trace = NativeTraceFrame {
             block_bounces: vec![(3, 4, 12, 0)],

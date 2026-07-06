@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene Kid projectile hit-spark mutation hardening
+
+- Project-status still showed no ready/open risks after the floating-prize
+  slice, so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `push_kid_projectile_hit_spark_loc_1f08|KID_PROJECTILE_HIT_SPARK_FRAMES_STRU_1F40`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-kid-projectile-hit-spark-20260706-initial`
+  reported 20 mutants tested: 7 caught and 13 missed. Added ASM-cited coverage
+  for `loc_1F08`/`stru_1F40` four-frame `$2CF/$2D8/$2E1/$2EA` block-art
+  mapping, 24x24 sprite geometry, final-frame guard, missing-sheet fallback,
+  and effects-layer camera routing.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 111 tests.
+  Final mutation at
+  `/tmp/mutants-frame-scene-kid-projectile-hit-spark-20260706-final`
+  reported 20 mutants tested: 20 caught and 0 missed.
+
 ## 2026-07-06 - proactive frame scene floating-prize mutation hardening
 
 - Project-status still showed no ready/open risks after the child-projectile
