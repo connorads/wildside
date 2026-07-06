@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene EOL counter mutation hardening
+
+- Project-status still showed no ready/open risks after the EOL palette slice,
+  so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `eol_bonus_amounts_for_trace|eol_score_counter_snapshot_for_trace`.
+- Initial mutation at `/tmp/mutants-frame-scene-eol-counter-20260706-initial`
+  reported 23 mutants tested: 7 caught, 1 unviable, and 15 missed. Added
+  ASM-cited frame-scene coverage for `loc_D468` EOL bonus-row ordering and
+  gates, `loc_D17E` captured initial score selection, and `loc_D770` visible
+  counter replay with the oracle-backed `loc_D774` stall mapping.
+- Focused regression `cargo test -q -p wildside-frame --lib eol_` passed with
+  8 EOL tests. Final mutation at
+  `/tmp/mutants-frame-scene-eol-counter-20260706-final` reported 23 mutants
+  tested: 22 caught, 1 unviable, and 0 missed.
+
 ## 2026-07-06 - proactive frame scene EOL palette mutation hardening
 
 - Project-status still showed no ready/open risks after the EOL position slice,

@@ -8485,6 +8485,98 @@ mod tests {
     }
 
     #[test]
+    fn eol_bonus_amounts_follow_loc_d468_row_order_and_flags() {
+        let all_rows_trace = NativeTraceFrame {
+            level_timer_seconds: 125,
+            level_damage_taken: false,
+            level_prize_collected: false,
+            level_path_bonus_amount: 7_000,
+            level_speed_bonus_awarded: true,
+            ..NativeTraceFrame::default()
+        };
+        let (all_amounts, all_count) = eol_bonus_amounts_for_trace(&all_rows_trace);
+        assert_eq!(all_count, 5);
+        assert_eq!(
+            &all_amounts[..all_count],
+            &[2_050, 5_000, 5_000, 7_000, 10_000],
+            "ASM loc_D468-loc_D660 loads EOL amounts as time, no-hit, no-prize, path, then speed"
+        );
+
+        let time_only_trace = NativeTraceFrame {
+            level_timer_seconds: 1,
+            level_damage_taken: true,
+            level_prize_collected: true,
+            level_path_bonus_amount: 0,
+            level_speed_bonus_awarded: false,
+            ..NativeTraceFrame::default()
+        };
+        let (time_only_amounts, time_only_count) = eol_bonus_amounts_for_trace(&time_only_trace);
+        assert_eq!(time_only_count, 1);
+        assert_eq!(
+            &time_only_amounts[..time_only_count],
+            &[10],
+            "ASM loc_D5A0/loc_D5D2/loc_D60E/loc_D660 skip bonus rows when their trace flags say the ROM did not allocate them"
+        );
+    }
+
+    #[test]
+    fn eol_score_counter_snapshot_uses_loc_d17e_initial_score_gate() {
+        let captured_initial_score_trace = NativeTraceFrame {
+            level_complete: true,
+            level_complete_initial_score: 1_000,
+            score: 9_999,
+            level_timer_seconds: 1,
+            level_damage_taken: true,
+            level_prize_collected: true,
+            level_complete_score_counter_elapsed_frames: 1,
+            ..NativeTraceFrame::default()
+        };
+
+        let captured = eol_score_counter_snapshot_for_trace(&captured_initial_score_trace);
+        assert_eq!(
+            (
+                captured.score,
+                captured.amount_count,
+                captured.remaining_amounts[0]
+            ),
+            (1_010, 1, 0),
+            "ASM loc_D17E preserves the copied starting score for loc_D770 rendering while the first frame drains the only 10-point row"
+        );
+
+        let fallback_initial_score_trace = NativeTraceFrame {
+            level_complete: true,
+            level_complete_initial_score: 0,
+            score: 9_999,
+            level_timer_seconds: 1,
+            level_damage_taken: true,
+            level_prize_collected: true,
+            level_complete_score_counter_elapsed_frames: 1,
+            ..NativeTraceFrame::default()
+        };
+        let fallback = eol_score_counter_snapshot_for_trace(&fallback_initial_score_trace);
+        assert_eq!(
+            fallback.score, 9_999,
+            "without a non-zero loc_D17E copy, native reconstructs the pre-bonus score from the trace score minus the active loc_D468 rows"
+        );
+
+        let stalled_trace = NativeTraceFrame {
+            level_complete: true,
+            level_complete_initial_score: 1_000,
+            level_timer_seconds: 125,
+            level_damage_taken: true,
+            level_prize_collected: true,
+            level_complete_score_counter_elapsed_frames: 5,
+            ..NativeTraceFrame::default()
+        };
+        let stalled = eol_score_counter_snapshot_for_trace(&stalled_trace);
+        assert_eq!(
+            (stalled.score, stalled.remaining_amounts[0]),
+            (1_160, 1_890),
+            "ASM loc_D774 oracle stall mapping exposes four loc_D770 transfers by trace frame 5, not five"
+        );
+    }
+
+    #[test]
     fn eol_score_room_palette_fades_on_loc_d734_boundary() {
         let palette = Palette {
             colours: [0x0866, 0x00CE, 0x0000, 0x0040, 0x00E0, 0x0EEE]
