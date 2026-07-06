@@ -3434,6 +3434,40 @@ mod tests {
     }
 
     #[test]
+    fn flying_dragon_dive_selector_covers_loc_348ce_velocity_bands() {
+        let visuals = labelled_enemy_visuals(9, 7);
+        let mut dragon = live_enemy_object(0x0C);
+
+        dragon.x_velocity = Some(0x0001_0000);
+        dragon.y_velocity = Some(0x0001_0000);
+        dragon.facing = Some(Direction::Right);
+        assert!(
+            select_flying_dragon_dive_frame(&labelled_enemy_visuals(8, 7), &dragon).is_none(),
+            "ASM Dragon_Flying.asm loc_348CE indexes C7636 at frame 8, so dive sheets need nine frames"
+        );
+
+        // ASM Dragon_Flying.asm loc_348CE splits `unk_34554` velocity bytes and
+        // indexes `off_345F6`; native maps those visible bands back to the
+        // extracted C75FE/C7616/C761E/C762E/C7636 frames.
+        for (x_px, y_px, facing, expected_tile) in [
+            (1, 1, Direction::Right, 0x0105),  // LnkTo_unk_C7616
+            (1, 4, Direction::Left, 0x0106),   // LnkTo_unk_C761E
+            (-2, 0, Direction::Left, 0x0102),  // LnkTo_unk_C75FE
+            (2, -3, Direction::Left, 0x0107),  // LnkTo_unk_C762E
+            (1, -4, Direction::Right, 0x0108), // LnkTo_unk_C7636
+        ] {
+            dragon.x_velocity = Some(x_px * 0x0001_0000);
+            dragon.y_velocity = Some(y_px * 0x0001_0000);
+            dragon.facing = Some(facing);
+            assert_eq!(
+                selected_live_tile_base(select_flying_dragon_dive_frame(&visuals, &dragon)),
+                expected_tile,
+                "ASM Dragon_Flying.asm loc_348CE should preserve the dive script velocity band"
+            );
+        }
+    }
+
+    #[test]
     fn live_enemy_phase_selectors_use_contact_and_walk_phase() {
         let visuals = labelled_enemy_visuals(8, 7);
         let trace = NativeTraceFrame::default();

@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame live enemy selector mutation hardening
+
+- Project-status still showed no ready/open risks after the sprite palette
+  slice, so mutation-tested `wildside-frame/src/sprites.rs` scoped to live
+  non-RockTank selectors:
+  `select_live_diamond_frame|select_live_flying_dragon_frame|select_flying_dragon_dive_frame|select_live_tar_monster_frame|select_live_sphere_frame|select_live_emo_rock_frame|select_live_hand_frame|select_live_lion_frame`.
+- Initial mutation at
+  `/tmp/mutants-frame-sprites-live-selectors-20260706-refresh` reported 110
+  mutants tested: 97 caught, 8 unviable, and 5 missed. The misses were all in
+  `select_flying_dragon_dive_frame`: the nine-frame sheet guard and four
+  velocity-band arms from ASM `Dragon_Flying.asm loc_348CE`.
+- Added an ASM-cited dive-band regression covering `unk_34554`/`off_345F6`
+  outputs C75FE, C7616, C761E, C762E, and C7636. Final mutation at
+  `/tmp/mutants-frame-sprites-live-selectors-20260706-final` reported 110
+  mutants tested: 102 caught, 8 unviable, and 0 missed.
+
 ## 2026-07-06 - proactive frame sprite palette mutation refresh
 
 - Project-status still showed no ready/open risks after the frame render
