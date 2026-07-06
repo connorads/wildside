@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive MD audio mixer mutation refresh
+
+- Project-status still showed no ready/open risks after the render-level slice,
+  so refreshed current-HEAD mutation evidence for the `wildside-md` runtime
+  audio helper cluster.
+- Scope: first/second-order audio filters, mixer level/event/sample timing,
+  PSG and YM sample bound helpers, and the YM2612 input-clock conversion used
+  by the standalone GEMS path.
+- Focused audio/filter tests already covered the contract. Mutation at
+  `/tmp/mutants-md-audio-mixer-20260706-refresh` reported 191 mutants tested:
+  188 caught, 3 unviable, 0 missed. No code changes were needed.
+
 ## 2026-07-06 - proactive render level mutation refresh
 
 - Project-status still showed no ready/open risks after the ROM verifier slice,
