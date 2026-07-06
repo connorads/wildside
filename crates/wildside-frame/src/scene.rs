@@ -97,6 +97,10 @@ const FLAGPOLE_SPRITES_RENDER_CLEANUP_FRAME_LOC_C0B6_ORACLE: usize =
     TOUCH_FLAGPOLE_GFX_CLEANUP_VISIBLE_FRAME_LOC_C0B6_ORACLE - 1;
 const CONTINUE_SCREEN_INITIAL_HOLD_FRAMES_LOC_D31E: usize = 0x1C;
 const EOL_TEXT_WORKER_SLIDE_FRAMES_LOC_C5A2: usize = 0x1C;
+const PAUSE_MENU_TILE_X_LOC_69D2: i32 = 0x60;
+const PAUSE_MENU_TILE_Y_RESTART_TEXT: i32 = 0x40;
+const PAUSE_MENU_TILE_COLUMNS_LOC_69D2: usize = 16;
+const PAUSE_MENU_TILE_ROWS_LOC_69D2: usize = 5;
 const PAUSE_MENU_TEXT_X_LOC_69D2: i32 = 0x78;
 const PAUSE_MENU_TEXT_TOP_Y_RESTART_TEXT: i32 = 0x48;
 const PAUSE_MENU_TEXT_BOTTOM_Y_RESTART_TEXT: i32 = 0x58;
@@ -4918,39 +4922,23 @@ fn push_pause_menu_tilemap_loc_69d2(
         wildside_core::PauseMenuTextSelectionRestartText::RestartRound => &pause_menu.restart_rows,
         wildside_core::PauseMenuTextSelectionRestartText::GiveUp => &pause_menu.give_up_rows,
     };
-    let text_plan = wildside_core::pause_menu_text_write_plan_loc_69D2(
-        (trace.camera_x_pos >> 16) as u16,
-        (trace.camera_y_pos >> 16) as u16,
-    );
     let tile_sheet = Arc::new(pause_menu.tile_sheet.clone());
     let palette = Arc::new(foreground_palette_for_scene(trace, level_visuals));
-    for (row_index, (row, plan_row)) in rows.iter().zip(text_plan.iter()).enumerate() {
-        debug_assert_eq!(plan_row.vdp_write_cmd & 0x4000_0000, 0x4000_0000);
-        let spans = match plan_row.wrap_segments {
-            None => [(0usize, row.len()), (0, 0)],
-            Some((first_words, second_cmd, second_words)) => {
-                debug_assert_eq!(second_cmd & 0x4000_0000, 0x4000_0000);
-                let first_words = usize::from(first_words);
-                let second_words = usize::from(second_words);
-                debug_assert_eq!(first_words + second_words, row.len());
-                [(0, first_words), (first_words, second_words)]
-            }
-        };
-        for (start, len) in spans {
-            for column_index in start..start.saturating_add(len) {
-                let Some(&tile) = row.get(column_index) else {
-                    continue;
-                };
-                let tile =
-                    pause_menu_tile_with_live_cursor_loc_6b0e(trace, row_index, column_index, tile);
-                commands.push(DrawCommand::IndexedTile {
-                    x: 0x60 + column_index as i32 * 8,
-                    y: 0x40 + row_index as i32 * 8,
-                    tile_sheet: Arc::clone(&tile_sheet),
-                    tile,
-                    palette: Arc::clone(&palette),
-                });
-            }
+    for (row_index, row) in rows.iter().take(PAUSE_MENU_TILE_ROWS_LOC_69D2).enumerate() {
+        for (column_index, &tile) in row
+            .iter()
+            .take(PAUSE_MENU_TILE_COLUMNS_LOC_69D2)
+            .enumerate()
+        {
+            let tile =
+                pause_menu_tile_with_live_cursor_loc_6b0e(trace, row_index, column_index, tile);
+            commands.push(DrawCommand::IndexedTile {
+                x: PAUSE_MENU_TILE_X_LOC_69D2 + column_index as i32 * 8,
+                y: PAUSE_MENU_TILE_Y_RESTART_TEXT + row_index as i32 * 8,
+                tile_sheet: Arc::clone(&tile_sheet),
+                tile,
+                palette: Arc::clone(&palette),
+            });
         }
     }
     true
@@ -8906,6 +8894,119 @@ mod tests {
     }
 
     #[test]
+    fn pause_menu_tilemap_follows_loc_69d2_block_and_restart_text_rows() {
+        let trace = NativeTraceFrame::default();
+        let mut visuals = sample_level_visuals(1);
+        let mut commands = Vec::new();
+        assert!(
+            !push_pause_menu_tilemap_loc_69d2(&mut commands, &trace, &visuals),
+            "ASM loc_69D2 tilemap path should fall back when pause menu art is absent"
+        );
+        assert!(commands.is_empty());
+
+        visuals.pause_menu = Some(sample_pause_menu_visuals());
+        for (trace, expected_base, expected_upper_cursor, expected_lower_cursor, label) in [
+            (
+                NativeTraceFrame {
+                    number_lives: 2,
+                    pause_menu_option: 0,
+                    ..NativeTraceFrame::default()
+                },
+                0x0100,
+                PAUSE_MENU_CURSOR_TILE_LOC_6B0E,
+                PAUSE_MENU_BLANK_TILE_LOC_6B0E,
+                "restart",
+            ),
+            (
+                NativeTraceFrame {
+                    number_lives: 1,
+                    pause_menu_option: 1,
+                    ..NativeTraceFrame::default()
+                },
+                0x0200,
+                PAUSE_MENU_BLANK_TILE_LOC_6B0E,
+                PAUSE_MENU_CURSOR_TILE_LOC_6B0E,
+                "give-up",
+            ),
+        ] {
+            let mut commands = Vec::new();
+
+            assert!(
+                push_pause_menu_tilemap_loc_69d2(&mut commands, &trace, &visuals),
+                "ASM loc_69D2 should use loaded pause menu tile art for the {label} row"
+            );
+
+            let snapshots = commands
+                .indexed_tiles()
+                .into_iter()
+                .map(indexed_tile_snapshot)
+                .collect::<Vec<_>>();
+            assert_eq!(
+                snapshots.len(),
+                PAUSE_MENU_TILE_ROWS_LOC_69D2 * PAUSE_MENU_TILE_COLUMNS_LOC_69D2,
+                "ASM loc_69D2/restart_text writes exactly five rows of 16 pause-menu tile words"
+            );
+            assert_eq!(
+                snapshots[0],
+                (
+                    PAUSE_MENU_TILE_X_LOC_69D2,
+                    PAUSE_MENU_TILE_Y_RESTART_TEXT,
+                    expected_base,
+                    true
+                )
+            );
+            assert_eq!(
+                snapshots[1],
+                (
+                    PAUSE_MENU_TILE_X_LOC_69D2 + 8,
+                    PAUSE_MENU_TILE_Y_RESTART_TEXT,
+                    expected_base + 1,
+                    true
+                )
+            );
+            assert_eq!(
+                snapshots[16],
+                (
+                    PAUSE_MENU_TILE_X_LOC_69D2,
+                    PAUSE_MENU_TILE_Y_RESTART_TEXT + 8,
+                    expected_base + 0x10,
+                    true
+                )
+            );
+            assert_eq!(
+                snapshots[17],
+                (
+                    PAUSE_MENU_TILE_X_LOC_69D2 + 8,
+                    PAUSE_MENU_TILE_Y_RESTART_TEXT + 8,
+                    expected_upper_cursor,
+                    true
+                ),
+                "ASM loc_6B0E rewrites the upper cursor slot for the {label} option"
+            );
+            assert_eq!(
+                snapshots[49],
+                (
+                    PAUSE_MENU_TILE_X_LOC_69D2 + 8,
+                    PAUSE_MENU_TILE_Y_RESTART_TEXT + 0x18,
+                    expected_lower_cursor,
+                    true
+                ),
+                "ASM loc_6B0E rewrites the lower cursor slot for the {label} option"
+            );
+            assert_eq!(
+                snapshots[79],
+                (
+                    PAUSE_MENU_TILE_X_LOC_69D2 + 0x78,
+                    PAUSE_MENU_TILE_Y_RESTART_TEXT + 0x20,
+                    expected_base + 0x4F,
+                    true
+                ),
+                "ASM loc_69D2 keeps the pause menu tile block on an 8-pixel grid"
+            );
+        }
+    }
+
+    #[test]
     fn pause_menu_tile_cursor_rewrites_only_live_slots_loc_6b0e() {
         for (pause_menu_option, expected_top, expected_bottom, label) in [
             (
@@ -12346,6 +12447,29 @@ mod tests {
             tile_sheet: sample_tile_sheet(1),
             rows: vec![vec![sample_tile_ref(0); 40]; 28],
         }
+    }
+
+    fn sample_pause_menu_visuals() -> wildside_render::PauseMenuVisuals {
+        wildside_render::PauseMenuVisuals {
+            tile_sheet: sample_tile_sheet(0x300),
+            vram_base_tile_index: 0x0676,
+            give_up_rows: sample_pause_menu_rows(0x0200),
+            restart_rows: sample_pause_menu_rows(0x0100),
+        }
+    }
+
+    fn sample_pause_menu_rows(base_tile: u16) -> Vec<Vec<TileRef>> {
+        (0..PAUSE_MENU_TILE_ROWS_LOC_69D2)
+            .map(|row| {
+                (0..PAUSE_MENU_TILE_COLUMNS_LOC_69D2)
+                    .map(|column| {
+                        sample_tile_ref(
+                            base_tile + (row * PAUSE_MENU_TILE_COLUMNS_LOC_69D2 + column) as u16,
+                        )
+                    })
+                    .collect()
+            })
+            .collect()
     }
 
     fn sample_eol_score_visuals() -> wildside_render::EolScoreVisuals {

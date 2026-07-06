@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene pause-tilemap mutation hardening
+
+- Project-status still showed no ready/open risks after the pause-text slice,
+  so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `push_pause_menu_tilemap_loc_69d2`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-pause-tilemap-20260706-initial` reported 19
+  mutants tested: 7 caught and 12 missed. Tightened the frame helper to emit
+  the ROM's fixed 5x16 pause-menu tile block in screen space and added
+  ASM-cited coverage for `loc_69D2`/`restart_text` row selection plus
+  `Game_Paused_Loop loc_6B0E` live cursor tile placement.
+- Focused regression
+  `cargo test -q -p wildside-frame --lib pause_menu_tilemap_follows_loc_69d2_block_and_restart_text_rows`
+  passed. Final mutation at
+  `/tmp/mutants-frame-scene-pause-tilemap-20260706-final` reported 17 mutants
+  tested: 17 caught and 0 missed.
+
 ## 2026-07-06 - proactive frame scene pause-text mutation hardening
 
 - Project-status still showed no ready/open risks after the game-over/continue
