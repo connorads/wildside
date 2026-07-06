@@ -8145,7 +8145,7 @@ fn helmet_placeholder_colour(_object_meta: u16) -> [u8; 3] {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::collections::{BTreeMap, HashMap};
 
     use super::*;
     use wildside_core::BlockBounceTrace;
@@ -8202,6 +8202,508 @@ mod tests {
         assert_eq!(
             tiles[0].tile.tile_index, 0x0BA,
             "ASM Fire_Demon loc_3A63C indexes `stru_3A622` modulo its six sprite frames"
+        );
+    }
+
+    #[test]
+    fn projectile_child_static_frames_use_rom_sprite_descriptors() {
+        let visuals = sample_animated_visual(sample_sprite_frame(0x5A));
+
+        assert_child_frame(
+            drips_drop_child_frame(&visuals),
+            (0x082, 0x02, 0x09, 0x05, 0x0A),
+            "ASM Drips.asm loc_33424 falling drop `unk_C7B26`",
+        );
+        assert_child_frame(
+            tar_monster_glob_child_frame(&visuals),
+            (0x0BC, 0x04, 0x04, 0x1E, 0x08),
+            "ASM Tar_Monster.asm loc_3247E straight glob `unk_C781E`",
+        );
+        assert_child_frame(
+            tar_monster_burst_child_frame(&visuals),
+            (0x0C1, 0x03, 0x03, 0x06, 0x06),
+            "ASM Tar_Monster.asm loc_325E6 burst fragment `unk_C782E`",
+        );
+        assert_child_frame(
+            dragon_flying_descent_fire_child_frame(
+                &visuals,
+                &ActiveProjectileSnapshot {
+                    dragon_flying_descent_fire_state:
+                        DragonFlyingDescentFireState::FirstAnimationLoc34C26,
+                    ..ActiveProjectileSnapshot::default()
+                },
+            ),
+            (0x0EC, 0x05, 0x05, 0x13, 0x18),
+            "ASM Dragon_Flying.asm loc_34BAC first descent fire frame",
+        );
+        assert_child_frame(
+            dragon_flying_descent_fire_child_frame(
+                &visuals,
+                &ActiveProjectileSnapshot {
+                    dragon_flying_descent_fire_state:
+                        DragonFlyingDescentFireState::TravelAnimationLoc34C3A,
+                    ..ActiveProjectileSnapshot::default()
+                },
+            ),
+            (0x0F5, 0x06, 0x07, 0x1B, 0x1F),
+            "ASM Dragon_Flying.asm loc_34C3A travel descent fire frame",
+        );
+        assert_child_frame(
+            dragon_flying_descent_fire_child_frame(
+                &visuals,
+                &ActiveProjectileSnapshot {
+                    dragon_flying_descent_fire_state:
+                        DragonFlyingDescentFireState::CleanupFirstLoc34C4A,
+                    ..ActiveProjectileSnapshot::default()
+                },
+            ),
+            (0x105, 0x0D, 0x05, 0x1F, 0x1B),
+            "ASM Dragon_Flying.asm loc_34C4A first cleanup descent fire frame",
+        );
+        assert_child_frame(
+            dragon_flying_descent_fire_child_frame(
+                &visuals,
+                &ActiveProjectileSnapshot {
+                    dragon_flying_descent_fire_state:
+                        DragonFlyingDescentFireState::CleanupSecondLoc34C4A,
+                    ..ActiveProjectileSnapshot::default()
+                },
+            ),
+            (0x115, 0x0F, 0x05, 0x20, 0x10),
+            "ASM Dragon_Flying.asm loc_34C4A second cleanup descent fire frame",
+        );
+    }
+
+    #[test]
+    fn projectile_child_animation_frames_pin_rom_script_boundaries() {
+        let visuals = sample_animated_visual(sample_sprite_frame(0x5A));
+
+        for (remaining, expected, label) in [
+            (
+                u16::MAX,
+                (0x038, 0x09, 0x00, 0x10, 0x05),
+                "ASM Tank_Shooting.asm `stru_3B526` elapsed 0",
+            ),
+            (
+                u16::MAX - 5,
+                (0x038, 0x09, 0x00, 0x10, 0x05),
+                "ASM Tank_Shooting.asm `stru_3B526` elapsed 5",
+            ),
+            (
+                u16::MAX - 6,
+                (0x03A, 0x09, 0x00, 0x0F, 0x05),
+                "ASM Tank_Shooting.asm `stru_3B526` elapsed 6",
+            ),
+            (
+                u16::MAX - 15,
+                (0x038, 0x09, 0x00, 0x10, 0x05),
+                "ASM Tank_Shooting.asm `stru_3B526` elapsed 15",
+            ),
+            (
+                u16::MAX - 60,
+                (0x038, 0x09, 0x00, 0x10, 0x05),
+                "ASM Tank_Shooting.asm `stru_3B526` elapsed 60",
+            ),
+        ] {
+            assert_child_frame(
+                tank_bullet_child_frame(&visuals, remaining),
+                expected,
+                label,
+            );
+        }
+
+        for (remaining, expected, label) in [
+            (
+                15,
+                (0x000, 0x08, 0x00, 0x10, 0x10),
+                "ASM Robot.asm `stru_3A762` impact elapsed 0",
+            ),
+            (
+                12,
+                (0x004, 0x0A, 0x00, 0x14, 0x14),
+                "ASM Robot.asm `stru_3A762` impact elapsed 3",
+            ),
+            (
+                8,
+                (0x00D, 0x0B, 0x00, 0x16, 0x16),
+                "ASM Robot.asm `stru_3A762` impact elapsed 7",
+            ),
+        ] {
+            assert_child_frame(
+                robot_shot_child_frame(&visuals, remaining, 0, true),
+                expected,
+                label,
+            );
+        }
+
+        for (elapsed, expected, label) in [
+            (
+                0,
+                (0x016, 0x03, 0x00, 0x1F, 0x06),
+                "ASM Robot.asm `stru_3A754` flying elapsed 0",
+            ),
+            (
+                3,
+                (0x01A, 0x03, 0x00, 0x1F, 0x06),
+                "ASM Robot.asm `stru_3A754` flying elapsed 3",
+            ),
+            (
+                6,
+                (0x01E, 0x03, 0x00, 0x17, 0x06),
+                "ASM Robot.asm `stru_3A754` flying elapsed 6",
+            ),
+            (
+                9,
+                (0x016, 0x03, 0x00, 0x1F, 0x06),
+                "ASM Robot.asm `stru_3A754` flying elapsed 9",
+            ),
+        ] {
+            assert_child_frame(
+                robot_shot_child_frame(&visuals, 0, elapsed, false),
+                expected,
+                label,
+            );
+        }
+
+        for (projectile, expected, label) in [
+            (
+                ActiveProjectileSnapshot {
+                    x_velocity: 0x1000,
+                    y_velocity: -0x1000,
+                    ..ActiveProjectileSnapshot::default()
+                },
+                (0x00C, 0x00, 0x23, 0x23, 0x23),
+                "ASM Cloud.asm loc_35DF0 diagonal bolt `unk_C7876`",
+            ),
+            (
+                ActiveProjectileSnapshot {
+                    x_velocity: 0x1000,
+                    y_velocity: 0,
+                    ..ActiveProjectileSnapshot::default()
+                },
+                (0x000, 0x00, 0x04, 0x30, 0x07),
+                "ASM Cloud.asm loc_35DF0 horizontal bolt `unk_C7866`",
+            ),
+            (
+                ActiveProjectileSnapshot {
+                    x_velocity: 0,
+                    y_velocity: 0x1000,
+                    ..ActiveProjectileSnapshot::default()
+                },
+                (0x006, 0x04, 0x2F, 0x07, 0x30),
+                "ASM Cloud.asm loc_35DF0 vertical bolt `unk_C786E`",
+            ),
+        ] {
+            assert_child_frame(
+                cloud_lightning_child_frame_loc_35df0(&visuals, &projectile),
+                expected,
+                label,
+            );
+        }
+
+        for (remaining, expected, label) in [
+            (
+                68,
+                (0x028, 0x0B, 0x00, 0x1B, 0x13),
+                "ASM Dragon.asm `stru_3CCC8` elapsed 0",
+            ),
+            (
+                61,
+                (0x028, 0x0B, 0x00, 0x1B, 0x13),
+                "ASM Dragon.asm `stru_3CCC8` elapsed 7",
+            ),
+            (
+                60,
+                (0x034, 0x0A, 0x00, 0x20, 0x15),
+                "ASM Dragon.asm `stru_3CCC8` elapsed 8",
+            ),
+            (
+                50,
+                (0x040, 0x0A, 0x00, 0x20, 0x16),
+                "ASM Dragon.asm `stru_3CCC8` elapsed 18",
+            ),
+            (
+                40,
+                (0x034, 0x0A, 0x00, 0x20, 0x15),
+                "ASM Dragon.asm `stru_3CCC8` elapsed 28",
+            ),
+        ] {
+            assert_child_frame(
+                dragon_walking_breath_child_frame(&visuals, remaining),
+                expected,
+                label,
+            );
+        }
+
+        for (remaining, expected, label) in [
+            (
+                0x0096,
+                (0x070, 0x04, 0x05, 0x0C, 0x0D),
+                "ASM Fireball.asm `stru_330C2` elapsed 0",
+            ),
+            (
+                0x0090,
+                (0x074, 0x04, 0x05, 0x0B, 0x0C),
+                "ASM Fireball.asm `stru_330C2` elapsed 6",
+            ),
+            (
+                0x008A,
+                (0x078, 0x04, 0x05, 0x0B, 0x0B),
+                "ASM Fireball.asm `stru_330C2` elapsed 12",
+            ),
+            (
+                0x0084,
+                (0x070, 0x04, 0x05, 0x0C, 0x0D),
+                "ASM Fireball.asm `stru_330C2` elapsed 18",
+            ),
+        ] {
+            assert_child_frame(
+                fireball_trail_child_frame(&visuals, remaining),
+                expected,
+                label,
+            );
+        }
+    }
+
+    #[test]
+    fn drips_surface_crawler_rom_frames_pin_start_run_and_finish_scripts() {
+        let visuals = sample_animated_visual(sample_sprite_frame(0x5A));
+
+        for (remaining, animation_elapsed, expected, label) in [
+            (
+                u16::MAX,
+                31,
+                (0x0BD, 0x08, 0x00, 0x0F, 0x04),
+                "ASM Drips.asm loc_335D8 startup `stru_33FA6` elapsed 0",
+            ),
+            (
+                u16::MAX,
+                21,
+                (0x0BF, 0x05, 0x00, 0x0F, 0x08),
+                "ASM Drips.asm loc_335D8 startup `stru_33FA6` elapsed 10",
+            ),
+            (
+                u16::MAX,
+                11,
+                (0x0C1, 0x07, 0x00, 0x0E, 0x0C),
+                "ASM Drips.asm loc_335D8 startup `stru_33FA6` elapsed 20",
+            ),
+            (
+                u16::MAX,
+                0,
+                (0x08D, 0x07, 0x00, 0x0F, 0x0F),
+                "ASM Drips.asm loc_33630 mobile `stru_33F14` elapsed 0",
+            ),
+        ] {
+            assert_child_frame(
+                drips_surface_crawler_frame(&visuals, remaining, animation_elapsed),
+                expected,
+                label,
+            );
+        }
+
+        for (elapsed, expected, label) in [
+            (
+                0,
+                (0x08D, 0x07, 0x00, 0x0F, 0x0F),
+                "ASM Drips.asm loc_33630 `stru_33F14` first C7B46 frame",
+            ),
+            (
+                11,
+                (0x08D, 0x07, 0x00, 0x0F, 0x0F),
+                "ASM Drips.asm loc_33630 `stru_33F14` C7B46 duration end",
+            ),
+            (
+                12,
+                (0x089, 0x07, 0x00, 0x0D, 0x0F),
+                "ASM Drips.asm loc_33630 `stru_33F14` switches to C7B3E",
+            ),
+            (
+                24,
+                (0x085, 0x07, 0x00, 0x0F, 0x10),
+                "ASM Drips.asm loc_33630 `stru_33F14` switches to C7B36",
+            ),
+            (
+                120,
+                (0x0DC, 0x07, 0x00, 0x0D, 0x0E),
+                "ASM Drips.asm loc_33630 `stru_33F14` short C7BE6 frame",
+            ),
+            (
+                127,
+                (0x0DC, 0x07, 0x00, 0x0D, 0x0E),
+                "ASM Drips.asm loc_33630 `stru_33F14` C7BE6 duration end",
+            ),
+            (
+                128,
+                (0x085, 0x07, 0x00, 0x0F, 0x10),
+                "ASM Drips.asm loc_33630 `stru_33F14` resumes C7B36",
+            ),
+            (
+                152,
+                (0x0DC, 0x07, 0x00, 0x0D, 0x0E),
+                "ASM Drips.asm loc_33630 `stru_33F14` second C7BE6 frame",
+            ),
+            (
+                160,
+                (0x085, 0x07, 0x00, 0x0F, 0x10),
+                "ASM Drips.asm loc_33630 `stru_33F14` final C7B36 frame",
+            ),
+            (
+                171,
+                (0x085, 0x07, 0x00, 0x0F, 0x10),
+                "ASM Drips.asm loc_33630 `stru_33F14` cycle end",
+            ),
+            (
+                184,
+                (0x089, 0x07, 0x00, 0x0D, 0x0F),
+                "ASM Drips.asm loc_33630 `stru_33F14` wraps modulo total duration",
+            ),
+        ] {
+            assert_eq!(
+                drips_surface_crawler_stru_33f14_frame(elapsed),
+                expected,
+                "{label}"
+            );
+        }
+
+        for (remaining, expected, label) in [
+            (
+                60,
+                (0x0C5, 0x07, 0x07, 0x10, 0x10),
+                "ASM Drips.asm loc_338F8 finish `stru_33F06` elapsed 0",
+            ),
+            (
+                56,
+                (0x0C9, 0x0A, 0x09, 0x17, 0x16),
+                "ASM Drips.asm loc_338F8 finish `stru_33F06` elapsed 4",
+            ),
+            (
+                52,
+                (0x0D2, 0x0B, 0x0C, 0x18, 0x18),
+                "ASM Drips.asm loc_338F8 finish `stru_33F06` elapsed 8",
+            ),
+        ] {
+            assert_child_frame(
+                drips_surface_crawler_finish_frame(&visuals, remaining),
+                expected,
+                label,
+            );
+        }
+    }
+
+    #[test]
+    fn dragon_walking_breath_facing_follows_parent_offset_loc_3d02a() {
+        let dragon = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy {
+                object_type: WALKING_DRAGON_OBJECT_TYPE,
+            },
+            x_pos: 100 << 16,
+            y_pos: 50 << 16,
+            hit_points: Some(1),
+            ..sample_object_snapshot()
+        };
+        let trace = NativeTraceFrame {
+            active_objects: vec![dragon.clone()],
+            ..NativeTraceFrame::default()
+        };
+
+        assert_eq!(
+            dragon_walking_breath_child_facing_loc_3d02a(
+                &trace,
+                &ActiveProjectileSnapshot {
+                    x_pos: 72 << 16,
+                    y_pos: 50 << 16,
+                    ..ActiveProjectileSnapshot::default()
+                },
+            ),
+            Direction::Right,
+            "ASM Dragon.asm loc_3D02A/loc_3D070 places the left-mouth breath at parent x-$1C"
+        );
+        let multi_parent_trace = NativeTraceFrame {
+            active_objects: vec![
+                dragon.clone(),
+                NativeObjectSnapshot {
+                    x_pos: 44 << 16,
+                    ..dragon.clone()
+                },
+            ],
+            ..NativeTraceFrame::default()
+        };
+        assert_eq!(
+            dragon_walking_breath_child_facing_loc_3d02a(
+                &multi_parent_trace,
+                &ActiveProjectileSnapshot {
+                    x_pos: 72 << 16,
+                    y_pos: 50 << 16,
+                    ..ActiveProjectileSnapshot::default()
+                },
+            ),
+            Direction::Right,
+            "ASM Dragon.asm loc_3D02A binds the breath to the first live Walking Dragon parent at x-$1C instead of falling through to a later x+$1C candidate"
+        );
+        assert_eq!(
+            dragon_walking_breath_child_facing_loc_3d02a(
+                &trace,
+                &ActiveProjectileSnapshot {
+                    x_pos: 128 << 16,
+                    y_pos: 51 << 16,
+                    ..ActiveProjectileSnapshot::default()
+                },
+            ),
+            Direction::Left,
+            "ASM Dragon.asm loc_3D02A/loc_3D070 accepts the one-pixel Y capture skew and maps parent x+$1C to left-facing native art"
+        );
+        assert_eq!(
+            dragon_walking_breath_child_facing_loc_3d02a(
+                &trace,
+                &ActiveProjectileSnapshot {
+                    x_pos: 128 << 16,
+                    y_pos: 52 << 16,
+                    ..ActiveProjectileSnapshot::default()
+                },
+            ),
+            Direction::Right,
+            "ASM Dragon.asm loc_3D02A parent lookup ignores breath children more than one pixel off the parent Y"
+        );
+
+        let dead_trace = NativeTraceFrame {
+            active_objects: vec![NativeObjectSnapshot {
+                hit_points: Some(0),
+                ..dragon.clone()
+            }],
+            ..NativeTraceFrame::default()
+        };
+        assert_eq!(
+            dragon_walking_breath_child_facing_loc_3d02a(
+                &dead_trace,
+                &ActiveProjectileSnapshot {
+                    x_pos: 128 << 16,
+                    y_pos: 50 << 16,
+                    ..ActiveProjectileSnapshot::default()
+                },
+            ),
+            Direction::Right,
+            "ASM Dragon.asm loc_3D02A only derives breath facing from a live Walking Dragon parent"
+        );
+
+        let wrong_kind_trace = NativeTraceFrame {
+            active_objects: vec![NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x0C },
+                ..dragon
+            }],
+            ..NativeTraceFrame::default()
+        };
+        assert_eq!(
+            dragon_walking_breath_child_facing_loc_3d02a(
+                &wrong_kind_trace,
+                &ActiveProjectileSnapshot {
+                    x_pos: 128 << 16,
+                    y_pos: 50 << 16,
+                    ..ActiveProjectileSnapshot::default()
+                },
+            ),
+            Direction::Right,
+            "ASM Dragon.asm loc_3D02A should not borrow facing from a Flying Dragon object slot"
         );
     }
 
@@ -9475,6 +9977,29 @@ mod tests {
         }
     }
 
+    fn assert_child_frame(
+        frame: Option<SpriteFrame>,
+        expected: (u16, i16, i16, u16, u16),
+        context: &str,
+    ) {
+        let frame = frame.unwrap_or_else(|| panic!("{context} should resolve a sprite frame"));
+        assert_eq!(
+            (
+                frame.tile_base_index,
+                frame.origin_x,
+                frame.origin_y,
+                frame.width_px,
+                frame.height_px,
+            ),
+            expected,
+            "{context}"
+        );
+        assert_eq!(
+            frame.tile_sheet.tiles[0].pixels[0], 0x5A,
+            "{context} should reuse the loaded enemy tile sheet"
+        );
+    }
+
     fn sample_level_visuals(block_tile_count: usize) -> NativeLevelVisuals {
         let foreground_layout_bytes = vec![0; 20 * 14];
         let foreground_layout =
@@ -9597,6 +10122,30 @@ mod tests {
             height_px: 8,
             tile_base_index: 0,
             tile_sheet: sample_tile_sheet_with_pixel(1, pixel),
+        }
+    }
+
+    fn sample_object_snapshot() -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Player,
+            x_pos: 0,
+            y_pos: 0,
+            layout_index: None,
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: BTreeMap::default(),
         }
     }
 

@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene child-projectile mutation hardening
+
+- Project-status still showed no ready/open risks after the platform sprite
+  refresh, so mutation-tested `wildside-frame/src/scene.rs` scoped to child
+  projectile frame selectors:
+  `drips_drop_child_frame|tar_monster_glob_child_frame|tar_monster_burst_child_frame|tank_bullet_child_frame|robot_shot_child_frame|cloud_lightning_child_frame_loc_35df0|dragon_walking_breath_child_frame|dragon_flying_descent_fire_child_frame|dragon_walking_breath_child_facing_loc_3d02a|fireball_trail_child_frame|drips_surface_crawler_frame|drips_surface_crawler_stru_33f14_frame|drips_surface_crawler_finish_frame`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-child-projectiles-20260706-initial` reported 168
+  mutants tested: 7 caught, 12 unviable, and 149 missed. Added ASM-cited
+  descriptor/timeline tests for Drips drop, Drips surface crawler startup/run/
+  finish, Tar Monster glob/burst children, Tank bullet cadence, Robot shot and
+  impact frames, Cloud lightning directions, Walking/Flying Dragon fire
+  frames, Fireball trail cadence, and Walking Dragon breath-parent facing.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 106 tests.
+  Final mutation at
+  `/tmp/mutants-frame-scene-child-projectiles-20260706-final2` reported 168
+  mutants tested: 156 caught, 12 unviable, and 0 missed.
+
 ## 2026-07-06 - proactive frame platform sprite mutation refresh
 
 - Project-status still showed no ready/open risks after the boss/waited
