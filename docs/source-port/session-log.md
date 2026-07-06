@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame render palette/set-pixel mutation refresh
+
+- Project-status still showed no ready/open risks after the indexed-pixel
+  render slice, so refreshed current-HEAD mutation evidence for
+  `wildside-frame/src/render.rs` scoped to `resolve_palette_colour|set_pixel`.
+- Scope: transparent palette index rejection, 16-colour local palette lookup,
+  compact 8-colour background palette remapping, multi-line palette offsets,
+  framebuffer bounds checks, low-priority occlusion, RGB byte indexing, and
+  high-priority marking.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 101 tests.
+  Mutation at `/tmp/mutants-frame-render-palette-set-pixel-20260706-refresh`
+  reported 29 mutants tested: 29 caught and 0 missed. No code changes were
+  needed.
+
 ## 2026-07-06 - proactive frame render indexed-pixel mutation refresh
 
 - Project-status still showed no ready/open risks after the text/rectangle
