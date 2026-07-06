@@ -8708,6 +8708,358 @@ mod tests {
     }
 
     #[test]
+    fn floating_prize_diamond_visibility_and_frame_timing_follow_loc_10396_103b2() {
+        use wildside_core::terrain::PrizeContent;
+
+        assert!(
+            floating_prize_sprite_visible_loc_103b2(PrizeContent::Diamond, 0x00C9),
+            "ASM PrizeDiamond_Init loc_10396 keeps the normal diamond script visible before the $00C8 blink switch"
+        );
+        assert!(
+            floating_prize_sprite_visible_loc_103b2(PrizeContent::Diamond, 0x00C8),
+            "ASM PrizeDiamond_Init loc_103B2 starts the blink script with a visible frame at d3=$00C8"
+        );
+        assert!(
+            !floating_prize_sprite_visible_loc_103b2(PrizeContent::Diamond, 0x00C5),
+            "ASM PrizeDiamond_Init loc_103B2 alternates to a null frame after three blink ticks"
+        );
+        assert!(
+            floating_prize_sprite_visible_loc_103b2(PrizeContent::Diamond, 0x00C2),
+            "ASM PrizeDiamond_Init loc_103B2 returns to the next visible frame after six blink ticks"
+        );
+        assert!(
+            floating_prize_sprite_visible_loc_103b2(PrizeContent::Clock, 0),
+            "non-diamond prize scripts do not use the loc_103B2 null-frame blink table"
+        );
+        assert!(
+            floating_prize_sprite_visible_loc_103b2(PrizeContent::Clock, 0x00C5),
+            "non-diamond prize scripts must not enter the diamond-only loc_103B2 blink guard"
+        );
+        assert!(
+            !floating_prize_sprite_visible_loc_103b2(PrizeContent::Diamond, 0x00C4),
+            "ASM PrizeDiamond_Init loc_103B2 blink parity comes from elapsed/3 script slots, not raw elapsed ticks"
+        );
+
+        assert_eq!(
+            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x01F4, 99, 3, 4),
+            0,
+            "ASM PrizeDiamond_Init loc_10396 uses local remaining-frame time, not global frame index"
+        );
+        assert_eq!(
+            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x01EB, 0, 3, 4),
+            3,
+            "ASM PrizeDiamond_Init loc_10396 advances the normal diamond frame every frame_duration ticks"
+        );
+        assert_eq!(
+            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x01EB, 0, 4, 5),
+            2,
+            "ASM PrizeDiamond_Init loc_10396 divides elapsed ticks by frame_duration before wrapping normal diamond frames"
+        );
+        assert_eq!(
+            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x00C8, 99, 3, 4),
+            0,
+            "ASM PrizeDiamond_Init loc_103B2 restarts visible/null blink frame selection at d3=$00C8"
+        );
+        assert_eq!(
+            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x00C8, 99, 7, 5),
+            0,
+            "ASM PrizeDiamond_Init loc_103B2 owns the exact d3=$00C8 boundary instead of the normal loc_10396 script"
+        );
+        assert_eq!(
+            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x00BC, 0, 3, 4),
+            2,
+            "ASM PrizeDiamond_Init loc_103B2 advances visible diamond frames every two script slots"
+        );
+        assert_eq!(
+            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x00BE, 0, 3, 4),
+            1,
+            "ASM PrizeDiamond_Init loc_103B2 divides by frame_duration*2 for visible/null pairs"
+        );
+        assert_eq!(
+            floating_prize_frame_index_loc_10396(PrizeContent::Clock, 0, 12, 3, 4),
+            0,
+            "ordinary prize visuals use global trace frame timing"
+        );
+        assert_eq!(
+            floating_prize_frame_index_loc_10396(PrizeContent::Clock, 0, 14, 5, 6),
+            2,
+            "ordinary prize visuals divide the global trace frame by frame_duration before wrapping"
+        );
+        assert_eq!(
+            floating_prize_frame_index_loc_10396(PrizeContent::Clock, 0, 12, 3, 0),
+            0,
+            "empty visual families keep the renderer in bounds"
+        );
+    }
+
+    #[test]
+    fn floating_prize_worker_effect_dispatch_and_sprites_follow_prize_scripts() {
+        use wildside_core::terrain::PrizeContent;
+
+        let mut visuals = sample_level_visuals(1);
+        visuals.hud.diamond_base_tile_index = 0x06E0;
+        visuals.hud.diamond_tiles = sample_tile_sheet_with_pixel(32, 0x44);
+        visuals.hud.digit_base_tile_index = 0x06BA;
+        visuals.hud.digits = sample_tile_sheet_with_pixel(4, 0x55);
+
+        let mut commands = Vec::new();
+        assert!(
+            !render_floating_prize_worker_effect(
+                &mut commands,
+                &visuals,
+                PrizeContent::TenDiamonds,
+                80,
+                96,
+                u16::from(PRIZE_GENERIC_LIFETIME_LOW_BYTE + 1),
+            ),
+            "ASM prize worker effects only take over during the low-byte worker lifetime window"
+        );
+        assert!(commands.is_empty());
+
+        assert!(render_floating_prize_worker_effect(
+            &mut commands,
+            &visuals,
+            PrizeContent::TenDiamonds,
+            80,
+            96,
+            u16::from(PRIZE_GENERIC_LIFETIME_LOW_BYTE),
+        ));
+        let DrawCommand::Sprite {
+            x,
+            y,
+            tile_sheet,
+            tiles,
+            ..
+        } = commands.single()
+        else {
+            panic!("ASM Prize10Diamonds_Init loc_108EE should draw the first HUD diamond worker");
+        };
+        assert_eq!((*x, *y), (78, 86));
+        assert_eq!(tile_sheet.tiles[0].pixels[0], 0x44);
+        assert_eq!(tiles[0].tile.tile_index, 0x000D);
+
+        commands.clear();
+        assert!(render_floating_prize_worker_effect(
+            &mut commands,
+            &visuals,
+            PrizeContent::TenDiamonds,
+            80,
+            96,
+            u16::from(PRIZE_GENERIC_LIFETIME_LOW_BYTE - 1),
+        ));
+        assert_eq!(
+            commands.len(),
+            2,
+            "ASM Prize10Diamonds_Init loc_108EE scans the previous moving worker and the new frame-1 worker"
+        );
+        let DrawCommand::Sprite { x, y, .. } = &commands[0] else {
+            panic!(
+                "ASM Prize10Diamonds_Init loc_108EE should keep drawing the moving frame-0 worker"
+            );
+        };
+        assert_eq!(
+            (*x, *y),
+            (75, 81),
+            "ASM Prize10Diamonds_Init loc_108EE applies the worker FP velocity before sprite-origin placement"
+        );
+
+        commands.clear();
+        assert!(render_ten_diamonds_worker_effect(
+            &mut commands,
+            &visuals,
+            80,
+            96,
+            8,
+        ));
+        assert_eq!(
+            commands.len(),
+            3,
+            "ASM loc_10984 clears the oldest worker at countdown $70 while younger workers remain visible"
+        );
+
+        commands.clear();
+        assert!(
+            !render_ten_diamonds_worker_effect(&mut commands, &visuals, 80, 96, 40),
+            "ASM loc_10984 clears ten-diamond workers after the second burst's visible countdown window"
+        );
+        assert!(commands.is_empty());
+
+        assert!(render_floating_prize_worker_effect(
+            &mut commands,
+            &visuals,
+            PrizeContent::Points10000,
+            80,
+            96,
+            u16::from(PRIZE_GENERIC_LIFETIME_LOW_BYTE),
+        ));
+        let DrawCommand::Sprite {
+            x,
+            y,
+            tile_sheet,
+            tiles,
+            ..
+        } = commands.single()
+        else {
+            panic!("ASM Prize10000Points_Init loc_10B00 should draw the first star worker");
+        };
+        assert_eq!((*x, *y), (76, 84));
+        assert_eq!(tile_sheet.tiles[0].pixels[0], 0x55);
+        assert_eq!(tiles[0].tile.tile_index, 1);
+
+        commands.clear();
+        assert!(render_10000_points_worker_effect(
+            &mut commands,
+            &visuals,
+            80,
+            96,
+            5,
+        ));
+        assert_eq!(
+            commands.len(),
+            2,
+            "ASM Prize10000Points_Init loc_10B00 spawns the second star worker at effect age 5"
+        );
+
+        commands.clear();
+        assert!(render_10000_points_worker_effect(
+            &mut commands,
+            &visuals,
+            80,
+            96,
+            150,
+        ));
+        assert_eq!(
+            commands.len(),
+            4,
+            "ASM Prize10000Points_Init loc_10B00 maps spawn frame 20 to slot offset $10 so the fifth star deletes after exiting left"
+        );
+
+        assert!(
+            prize_10000_points_star_visible_step_loc_10b74(0, 0x0078, 80, 96, true, 2).is_some(),
+            "ASM loc_10B74 keeps a fresh 10000-point star worker visible"
+        );
+        assert!(
+            prize_10000_points_star_visible_step_loc_10b74(0x0010, 0x0010, -0x001B, 96, true, 1,)
+                .is_none(),
+            "ASM loc_10B74 deletes the fifth star worker once its replayed screen X exits left"
+        );
+
+        commands.clear();
+        assert!(
+            !render_floating_prize_worker_effect(
+                &mut commands,
+                &visuals,
+                PrizeContent::Clock,
+                80,
+                96,
+                u16::from(PRIZE_GENERIC_LIFETIME_LOW_BYTE),
+            ),
+            "ordinary floating prizes stay on their sprite/fallback render path"
+        );
+        assert!(commands.is_empty());
+    }
+
+    #[test]
+    fn floating_prize_visual_lookup_and_fallback_colours_follow_content_specs() {
+        use wildside_core::terrain::PrizeContent;
+
+        let mut visuals = sample_level_visuals(1);
+        visuals.floating_prizes.diamond = sample_animated_visual(sample_sprite_frame(0xD1));
+        visuals.floating_prizes.helmets.insert(
+            PrizeContent::Berzerker.to_id(),
+            sample_animated_visual(sample_sprite_frame(0xB8)),
+        );
+        visuals.floating_prizes.icons.insert(
+            PrizeContent::Clock.to_id(),
+            sample_animated_visual(sample_sprite_frame(0xC1)),
+        );
+
+        let diamond_spec = floating_item_graphics_spec(PrizeContent::Diamond.to_id())
+            .expect("ASM PrizeDiamond_Init graphics spec");
+        assert_eq!(diamond_spec.object_meta, 0x0064);
+        assert_eq!(diamond_spec.palette_line, 0);
+        assert_eq!(diamond_spec.animation_script_addr, 0x0001_0D6E);
+        assert!(floating_item_graphics_spec(PrizeContent::Points10000.to_id()).is_none());
+
+        assert_eq!(
+            floating_prize_visuals(&visuals, PrizeContent::Diamond.to_id())
+                .expect("diamond visuals")
+                .frames[0]
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            0xD1,
+            "ASM PrizeDiamond_Init selects the dedicated diamond visual family"
+        );
+        assert_eq!(
+            floating_prize_visuals(&visuals, PrizeContent::Berzerker.to_id())
+                .expect("helmet visuals")
+                .frames[0]
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            0xB8,
+            "ASM sub_10CB0 helmet prizes route through helmet visuals"
+        );
+        assert_eq!(
+            floating_prize_visuals(&visuals, PrizeContent::Clock.to_id())
+                .expect("clock visuals")
+                .frames[0]
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            0xC1,
+            "ASM PrizeClock_Init selects the icon visual family"
+        );
+        assert!(floating_prize_visuals(&visuals, PrizeContent::TenDiamonds.to_id()).is_none());
+
+        assert_eq!(
+            floating_item_colour(PrizeContent::Diamond, Some(diamond_spec)),
+            [100, 200, 255]
+        );
+        let helmet_spec = floating_item_graphics_spec(PrizeContent::Berzerker.to_id())
+            .expect("ASM helmet graphics spec");
+        assert_eq!(helmet_spec.palette_line, 3);
+        assert_eq!(
+            floating_item_colour(PrizeContent::Berzerker, Some(helmet_spec)),
+            [220, 220, 255],
+            "ASM sub_10CB0 helmet fallback colour is a single neutral placeholder until ROM palettes are wired"
+        );
+        assert_eq!(
+            floating_item_colour(
+                PrizeContent::Berzerker,
+                Some(wildside_core::FloatingPrizeGraphicsSpec {
+                    palette_line: 0,
+                    ..helmet_spec
+                }),
+            ),
+            [255, 255, 100],
+            "only ASM sub_10CB0 palette-line-3 helmet specs use the helmet placeholder"
+        );
+        assert_eq!(
+            floating_item_colour(PrizeContent::Points10000, None),
+            [255, 255, 100]
+        );
+        assert_eq!(
+            floating_item_colour(PrizeContent::Ankh, None),
+            [255, 255, 200]
+        );
+        assert_eq!(
+            floating_item_colour(PrizeContent::Clock, None),
+            [200, 255, 200]
+        );
+        assert_eq!(
+            floating_item_colour(PrizeContent::Continue, None),
+            [255, 255, 255]
+        );
+        assert_eq!(
+            floating_item_colour(PrizeContent::TenDiamonds, None),
+            [100, 200, 255]
+        );
+        assert_eq!(helmet_placeholder_colour(0x007C), [220, 220, 255]);
+    }
+
+    #[test]
     fn chunked_plane_b_row_debug_reports_loc_30744_provenance() {
         let trace = NativeTraceFrame {
             frame_index: 60,

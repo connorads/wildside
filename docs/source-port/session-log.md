@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene floating-prize mutation hardening
+
+- Project-status still showed no ready/open risks after the child-projectile
+  slice, so mutation-tested `wildside-frame/src/scene.rs` scoped to floating
+  prize render helpers:
+  `floating_prize_sprite_visible_loc_103b2|floating_prize_frame_index_loc_10396|render_floating_prize_worker_effect|render_ten_diamonds_worker_effect|render_10000_points_worker_effect|prize_10000_points_star_visible_step_loc_10b74|push_worker_sprite|floating_item_graphics_spec|floating_prize_visuals|floating_item_colour|helmet_placeholder_colour`.
+- Initial mutation at `/tmp/mutants-frame-scene-floating-prizes-20260706-initial`
+  reported 95 mutants tested: 7 caught, 3 unviable, and 85 missed. Added
+  ASM-cited coverage for Diamond `loc_10396`/`loc_103B2` normal/blink frame
+  selection, TenDiamonds worker-effect dispatch and movement, 10000-point star
+  worker dispatch/deletion, floating-prize visual-family routing, graphics
+  specs, and fallback colours.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 109 tests.
+  Final mutation at `/tmp/mutants-frame-scene-floating-prizes-20260706-final3`
+  reported 95 mutants tested: 89 caught, 3 unviable, and 3 equivalent
+  survivors (diamond guard-true with saturating visible pre-blink frames,
+  ten-diamond `$70` local `<`/`<=` guarded by the core countdown gate, and
+  Points10000 fallback colour matching the default), with 0 actionable missed.
+
 ## 2026-07-06 - proactive frame scene child-projectile mutation hardening
 
 - Project-status still showed no ready/open risks after the platform sprite
