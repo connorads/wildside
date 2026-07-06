@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive CLI diff mutation refresh
+
+- Project-status still showed no ready/open risks after the backlog-lint slice,
+  so refreshed current-HEAD mutation evidence for `wildside-cli/src/diff.rs`.
+- Scope: frame MAE, pixel mismatch counting, three-panel composite layout, diff
+  amplification/clamping, row preservation, 8x8 text glyph placement/clipping,
+  and diff annotation labels.
+- Focused `diff::tests` passed. Mutation at
+  `/tmp/mutants-cli-diff-20260706-refresh` reported 91 mutants tested: 91
+  caught, 0 missed. No code changes were needed.
+
 ## 2026-07-06 - proactive CLI backlog-lint mutation refresh
 
 - Project-status still showed no ready/open risks after the RAM-diff slice, so
