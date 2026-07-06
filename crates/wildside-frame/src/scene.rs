@@ -1154,10 +1154,9 @@ fn latch_previous_sprite_sources_loc_901(
 
 fn previous_hud_diamond_frame_offset_loc_45ee(offset: u8) -> u8 {
     match offset {
+        // ASM sub_44DC loc_45EE cycles the four `unk_461C` HUD diamond pages;
+        // only the first page wraps, all other offsets step back by one page.
         0 => 6,
-        2 => 0,
-        4 => 2,
-        6 => 4,
         _ => offset.saturating_sub(2),
     }
 }
@@ -8294,6 +8293,114 @@ mod tests {
             "ASM sub_2A4C tile `$8228` requires block-art local tile `$08` to be loaded"
         );
         assert!(commands.is_empty());
+    }
+
+    #[test]
+    fn previous_hud_diamond_frame_offset_loc_45ee_rewinds_dma_page_ring() {
+        for (offset, expected, label) in [
+            (
+                0,
+                6,
+                "ASM sub_44DC loc_45EE wraps the first `unk_461C` page to the previous final page",
+            ),
+            (
+                2,
+                0,
+                "ASM sub_44DC loc_45EE rewinds the second `unk_461C` page",
+            ),
+            (
+                4,
+                2,
+                "ASM sub_44DC loc_45EE rewinds the third `unk_461C` page",
+            ),
+            (
+                6,
+                4,
+                "ASM sub_44DC loc_45EE rewinds the fourth `unk_461C` page",
+            ),
+            (
+                1,
+                0,
+                "ASM sub_44DC loc_45EE non-page offset saturates at zero",
+            ),
+            (
+                8,
+                6,
+                "ASM sub_44DC loc_45EE fallback still rewinds one two-byte page",
+            ),
+        ] {
+            assert_eq!(
+                previous_hud_diamond_frame_offset_loc_45ee(offset),
+                expected,
+                "{label}"
+            );
+        }
+    }
+
+    #[test]
+    fn mode_level_loc_901_latches_previous_sprite_sources() {
+        let mut render_trace = NativeTraceFrame {
+            active_objects: vec![NativeObjectSnapshot {
+                x_pos: 0x0021_0000,
+                y_pos: 0x0084_0000,
+                ..sample_object_snapshot()
+            }],
+            active_projectiles: vec![(0x004B_0000, 0x00A4_0000, true)],
+            active_projectile_details: vec![ActiveProjectileSnapshot {
+                kind: ActiveProjectileKind::Generic,
+                x_pos: 0x004B_0000,
+                y_pos: 0x00A4_0000,
+                friendly: true,
+                ..ActiveProjectileSnapshot::default()
+            }],
+            ..NativeTraceFrame::default()
+        };
+        let previous_trace = NativeTraceFrame {
+            active_objects: vec![
+                NativeObjectSnapshot {
+                    x_pos: 0x0020_0000,
+                    y_pos: 0x0080_0000,
+                    ..sample_object_snapshot()
+                },
+                NativeObjectSnapshot {
+                    kind: NativeObjectKind::Enemy { object_type: 0x0C },
+                    x_pos: 0x0044_0000,
+                    y_pos: 0x006D_0000,
+                    x_velocity: Some(-0x0002_0000),
+                    y_velocity: Some(-0x0003_0000),
+                    facing: Some(Direction::Left),
+                    ..sample_object_snapshot()
+                },
+            ],
+            active_projectiles: vec![
+                (0x004C_0000, 0x00A1_0000, false),
+                (0x0050_0000, 0x00A8_0000, true),
+            ],
+            active_projectile_details: vec![ActiveProjectileSnapshot {
+                kind: ActiveProjectileKind::LionProjectile,
+                x_pos: 0x004C_0000,
+                y_pos: 0x00A1_0000,
+                x_velocity: -0x0006_0000,
+                animation_elapsed_frames: 6,
+                ..ActiveProjectileSnapshot::default()
+            }],
+            ..NativeTraceFrame::default()
+        };
+
+        latch_previous_sprite_sources_loc_901(&mut render_trace, &previous_trace);
+
+        assert_eq!(
+            render_trace.active_objects, previous_trace.active_objects,
+            "ASM Mode_Level loc_901 transfers the previous Sprite_Table before Execute_Objects advances object sprites"
+        );
+        assert_eq!(
+            render_trace.active_projectiles, previous_trace.active_projectiles,
+            "ASM Mode_Level loc_901 presents previous projectile sprite workers"
+        );
+        assert_eq!(
+            render_trace.active_projectile_details, previous_trace.active_projectile_details,
+            "ASM Mode_Level loc_901 presents previous typed projectile sprite details"
+        );
     }
 
     #[test]

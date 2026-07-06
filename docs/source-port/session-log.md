@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene render-latch mutation hardening
+
+- Project-status still showed no ready/open risks after the block-debris slice,
+  so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `latch_previous_sprite_sources_loc_901|previous_hud_diamond_frame_offset_loc_45ee`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-render-latch-20260706-initial` reported 14
+  mutants tested: 7 caught and 7 missed. Simplified the HUD diamond previous
+  page helper to the actual rule (only offset 0 wraps; other values subtract
+  one two-byte page) and added ASM-cited frame-scene coverage for Mode_Level
+  `loc_901` previous sprite-source latching and `sub_44DC loc_45EE` page
+  rewinding.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 128 tests.
+  Final mutation at `/tmp/mutants-frame-scene-render-latch-20260706-final`
+  reported 11 mutants tested: 11 caught and 0 missed.
+
 ## 2026-07-06 - proactive frame scene block debris mutation hardening
 
 - Project-status still showed no ready/open risks after the shooter/Lion
