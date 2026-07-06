@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene Fire Demon trail fallback mutation hardening
+
+- Project-status still showed no ready/open risks after the Heady-Metal
+  death-effect slice, so mutation-tested `wildside-frame/src/scene.rs` scoped
+  to
+  `push_fire_demon_trail|push_fire_demon_trail_sprite|FIRE_DEMON_DEATH_TRAIL|fire_demon_trail_frame`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-fire-demon-trail-20260706-initial` reported 17
+  mutants tested: 11 caught, 1 unviable, and 5 missed. Added an ASM-cited
+  fallback regression for Fire Demon `loc_3A63C`/`stru_3A622` missing-art
+  placeholder geometry.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 120 tests after
+  the new regression. Final mutation at
+  `/tmp/mutants-frame-scene-fire-demon-trail-20260706-final` reported 17
+  mutants tested: 16 caught, 1 unviable, and 0 missed.
+
 ## 2026-07-06 - proactive frame scene Heady-Metal death-effect mutation hardening
 
 - Project-status still showed no ready/open risks after the Boss Eye routing

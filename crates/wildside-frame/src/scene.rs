@@ -8204,6 +8204,24 @@ mod tests {
     }
 
     #[test]
+    fn fire_demon_trail_fallback_keeps_single_rom_unspecified_marker_loc_3a63c() {
+        let mut commands = Vec::new();
+
+        push_fire_demon_trail(
+            &mut commands,
+            32,
+            40,
+            FIRE_DEMON_DEATH_TRAIL_NATIVE_LIFETIME,
+        );
+
+        assert_eq!(
+            scene_rects(&commands),
+            vec![(30, 37, 4, 5, FIRE_TRAIL_PLACEHOLDER_COLOUR)],
+            "ASM Fire_Demon loc_3A63C specifies `stru_3A622` sprite descriptors; missing native art should stay a single placeholder rect, not invent per-frame geometry"
+        );
+    }
+
+    #[test]
     fn projectile_child_static_frames_use_rom_sprite_descriptors() {
         let visuals = sample_animated_visual(sample_sprite_frame(0x5A));
 
