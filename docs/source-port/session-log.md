@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene EOL position mutation hardening
+
+- Project-status still showed no ready/open risks after the teleport/fade slice,
+  so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `eol_position_loc_c5a2|eol_number_position_loc_c48c`.
+- Initial mutation at `/tmp/mutants-frame-scene-eol-position-20260706-initial`
+  reported 21 mutants tested: 7 caught and 14 missed. Added ASM-cited
+  frame-scene coverage for `Object_EOL_Text loc_C5A2` pre-draw movement and
+  `Object_EOL_Number loc_C48C` draw-before-advance positioning, including
+  negative velocity and settled timer behaviour.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 136 tests after
+  the new regressions. Final mutation at
+  `/tmp/mutants-frame-scene-eol-position-20260706-final` reported 21 mutants
+  tested: 21 caught and 0 missed.
+
 ## 2026-07-06 - proactive frame scene teleport fade mutation hardening
 
 - Project-status still showed no ready/open risks after the pause-menu slice,

@@ -8452,6 +8452,39 @@ mod tests {
     }
 
     #[test]
+    fn eol_text_position_moves_before_draw_and_settles_loc_c5a2() {
+        for (initial, velocity, timer, elapsed, expected, label) in [
+            (0x40, 8, 0x1C, 0, 0x40, "initial frame"),
+            (0x40, 8, 0x1C, 1, 0x48, "first hibernate tick"),
+            (0x160, -8, 0x1C, 4, 0x140, "negative velocity"),
+            (0x40, 8, 3, 10, 0x58, "settled after timer"),
+        ] {
+            assert_eq!(
+                eol_position_loc_c5a2(initial, velocity, timer, elapsed),
+                expected,
+                "ASM Object_EOL_Text loc_C5A2 applies `$6C/$70` before drawing for {label}"
+            );
+        }
+    }
+
+    #[test]
+    fn eol_number_position_draws_one_tick_before_advance_loc_c48c() {
+        for (initial, velocity, timer, elapsed, expected, label) in [
+            (0x40, 8, 0x1C, 0, 0x40, "initial frame"),
+            (0x40, 8, 0x1C, 1, 0x40, "first visible digit draw"),
+            (0x40, 8, 0x1C, 2, 0x48, "second visible digit draw"),
+            (0x160, -8, 0x1C, 5, 0x140, "negative velocity"),
+            (0x40, 8, 3, 10, 0x58, "settled after timer"),
+        ] {
+            assert_eq!(
+                eol_number_position_loc_c48c(initial, velocity, timer, elapsed),
+                expected,
+                "ASM Object_EOL_Number loc_C48C draws from `$64/$68` before loc_C4E2 advances for {label}"
+            );
+        }
+    }
+
+    #[test]
     fn pause_menu_tile_cursor_rewrites_only_live_slots_loc_6b0e() {
         for (pause_menu_option, expected_top, expected_bottom, label) in [
             (
