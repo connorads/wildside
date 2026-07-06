@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame sprite palette mutation refresh
+
+- Project-status still showed no ready/open risks after the frame render
+  palette/set-pixel slice, so refreshed current-HEAD mutation evidence for
+  `wildside-frame/src/sprites.rs` scoped to
+  `transform_frame_palette|kid_transform_frame_uses_kid_palette|player_palette_for_damage_phase|enemy_palette_for_damage_flash|enemy_palette_for_heady_metal|select_enemy_palette`.
+- Scope: Kid-form transform palette fallback, ASM `loc_7CD0` old-form frame
+  detection, player damage-flash whitening bounds, enemy damage flash,
+  Heady-Metal palette-word override, and enemy palette variant fallback.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 101 tests.
+  Mutation at `/tmp/mutants-frame-sprites-palette-20260706-refresh` reported
+  28 mutants tested: 21 caught, 7 unviable, and 0 missed. No code changes were
+  needed.
+
 ## 2026-07-06 - proactive frame render palette/set-pixel mutation refresh
 
 - Project-status still showed no ready/open risks after the indexed-pixel
