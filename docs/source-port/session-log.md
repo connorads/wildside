@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive render level mutation refresh
+
+- Project-status still showed no ready/open risks after the ROM verifier slice,
+  so refreshed the current-HEAD mutation evidence for
+  `wildside-render/src/level.rs`.
+- Scope: foreground layout dimension parsing/tolerance, out-of-bounds skin
+  lookup, block visual kind selection, and the ASM `sub_3034A`/`loc_3037C`
+  high-skin block-mapping overread tail.
+- Focused render-level tests already covered the contract. Mutation at
+  `/tmp/mutants-render-level-20260706-refresh` reported 41 mutants tested: 36
+  caught, 5 unviable, 0 missed. No code changes were needed.
+
 ## 2026-07-06 - proactive ROM verifier mutation verification
 
 - Project-status still showed no ready/open risks after the MD VDP renderer
