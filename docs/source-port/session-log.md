@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive CLI backlog-lint mutation refresh
+
+- Project-status still showed no ready/open risks after the RAM-diff slice, so
+  refreshed current-HEAD mutation evidence for `wildside-cli/src/backlog.rs`.
+- Scope: live-lane reads, table-row parsing/filtering, malformed-row guards,
+  NOW block sizing, Verify-cell limits, lane/status ownership, duplicate id
+  detection, and empty-queue handling.
+- Focused `backlog::tests` passed. Mutation at
+  `/tmp/mutants-cli-backlog-20260706-refresh` reported 36 mutants tested: 35
+  caught, 1 unviable, 0 missed. No code changes were needed.
+
 ## 2026-07-06 - proactive CLI RAM-diff mutation refresh
 
 - Project-status still showed no ready/open risks after the oracle-cache
