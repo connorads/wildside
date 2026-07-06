@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene EOL hardware diagnostic mutation hardening
+
+- Project-status still showed no ready/open risks after the render-latch slice,
+  so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `eol_score_hardware_sprite_diagnostics`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-eol-hardware-diagnostics-20260706-initial`
+  reported 24 mutants tested: 7 caught, 1 unviable, and 16 missed. Simplified
+  the internal 32px chunk keys to chunk numbers and added ASM-cited
+  frame-scene coverage for `Make_SpriteFromGfxObject loc_12B8/loc_12C0`
+  hardware chunk grouping, bounds, first tile indices, and empty tile lists.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 130 tests.
+  Final mutation at
+  `/tmp/mutants-frame-scene-eol-hardware-diagnostics-20260706-final`
+  reported 16 mutants tested: 15 caught, 1 unviable, and 0 missed.
+
 ## 2026-07-06 - proactive frame scene render-latch mutation hardening
 
 - Project-status still showed no ready/open risks after the block-debris slice,

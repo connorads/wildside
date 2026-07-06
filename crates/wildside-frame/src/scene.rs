@@ -827,12 +827,11 @@ fn eol_score_hardware_sprite_diagnostics(
     // loc_C070 hardware sprite samples.
     let mut chunk_tiles: Vec<Vec<&SpriteTile>> = Vec::new();
     for tile in tiles {
-        let chunk_x = tile.offset_x.div_euclid(32) * 32;
-        let chunk_y = tile.offset_y.div_euclid(32) * 32;
+        let chunk_x = tile.offset_x.div_euclid(32);
+        let chunk_y = tile.offset_y.div_euclid(32);
         if let Some(existing) = chunk_tiles.iter_mut().find(|chunk| {
             chunk.first().is_some_and(|first| {
-                first.offset_x.div_euclid(32) * 32 == chunk_x
-                    && first.offset_y.div_euclid(32) * 32 == chunk_y
+                first.offset_x.div_euclid(32) == chunk_x && first.offset_y.div_euclid(32) == chunk_y
             })
         }) {
             existing.push(tile);
@@ -8404,6 +8403,55 @@ mod tests {
     }
 
     #[test]
+    fn eol_score_hardware_sprite_diagnostics_groups_32px_chunks_loc_12b8() {
+        let tiles = vec![
+            diagnostic_sprite_tile(0, 0, 0x10),
+            diagnostic_sprite_tile(24, 24, 0x11),
+            diagnostic_sprite_tile(32, 0, 0x20),
+            diagnostic_sprite_tile(40, 8, 0x21),
+            diagnostic_sprite_tile(0, 32, 0x30),
+            diagnostic_sprite_tile(8, 40, 0x31),
+        ];
+
+        let diagnostics = eol_score_hardware_sprite_diagnostics(7, 100, 40, &tiles);
+
+        assert_eq!(
+            diagnostics
+                .iter()
+                .map(|diagnostic| {
+                    (
+                        diagnostic.command_index,
+                        diagnostic.chunk_index,
+                        diagnostic.x,
+                        diagnostic.y,
+                        diagnostic.width,
+                        diagnostic.height,
+                        diagnostic.first_tile_index,
+                        diagnostic.min_x,
+                        diagnostic.min_y,
+                        diagnostic.max_x,
+                        diagnostic.max_y,
+                    )
+                })
+                .collect::<Vec<_>>(),
+            vec![
+                (7, 0, 100, 40, 32, 32, 0x10, 100, 40, 131, 71),
+                (7, 1, 132, 40, 16, 16, 0x20, 132, 40, 147, 55),
+                (7, 2, 100, 72, 16, 16, 0x30, 100, 72, 115, 87),
+            ],
+            "ASM Make_SpriteFromGfxObject loc_12B8/loc_12C0 splits EOL gfx frames into 32px hardware chunks before sub_13C0 sprite-table emission"
+        );
+    }
+
+    #[test]
+    fn eol_score_hardware_sprite_diagnostics_ignores_empty_tile_lists_loc_12b8() {
+        assert!(
+            eol_score_hardware_sprite_diagnostics(7, 100, 40, &[]).is_empty(),
+            "ASM Make_SpriteFromGfxObject loc_12B8 has no hardware sprite when a logical frame has no tiles"
+        );
+    }
+
+    #[test]
     fn shooter_block_projectile_tail_loc_ef62_matches_direction_tile_words() {
         for (x_velocity, y_velocity, expected, label) in [
             (0, -1, (-4, -8, 0x8295), "ASM loc_EF62 up tail"),
@@ -11227,6 +11275,14 @@ mod tests {
         match command {
             DrawCommand::IndexedTile { x, y, tile, .. } => (*x, *y, tile.tile_index, tile.priority),
             other => panic!("expected indexed tile command, got {other:?}"),
+        }
+    }
+
+    fn diagnostic_sprite_tile(offset_x: i32, offset_y: i32, tile_index: u16) -> SpriteTile {
+        SpriteTile {
+            offset_x,
+            offset_y,
+            tile: sample_tile_ref(tile_index),
         }
     }
 
