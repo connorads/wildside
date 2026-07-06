@@ -8837,6 +8837,75 @@ mod tests {
     }
 
     #[test]
+    fn pause_menu_text_follows_loc_69d2_life_branch_and_loc_6b0e_cursor() {
+        for (trace, expected, label) in [
+            (
+                NativeTraceFrame {
+                    number_lives: 2,
+                    pause_menu_option: 0,
+                    ..NativeTraceFrame::default()
+                },
+                vec![
+                    (
+                        PAUSE_MENU_CURSOR_X_LOC_6A84,
+                        PAUSE_MENU_TEXT_TOP_Y_RESTART_TEXT,
+                        ">",
+                    ),
+                    (
+                        PAUSE_MENU_TEXT_X_LOC_69D2,
+                        PAUSE_MENU_TEXT_TOP_Y_RESTART_TEXT,
+                        "CONTINUE",
+                    ),
+                    (
+                        PAUSE_MENU_TEXT_X_LOC_69D2,
+                        PAUSE_MENU_TEXT_BOTTOM_Y_RESTART_TEXT,
+                        "RESTART ROUND",
+                    ),
+                ],
+                "restart row",
+            ),
+            (
+                NativeTraceFrame {
+                    number_lives: 1,
+                    pause_menu_option: 1,
+                    ..NativeTraceFrame::default()
+                },
+                vec![
+                    (
+                        PAUSE_MENU_CURSOR_X_LOC_6A84,
+                        PAUSE_MENU_TEXT_BOTTOM_Y_RESTART_TEXT,
+                        ">",
+                    ),
+                    (
+                        PAUSE_MENU_TEXT_X_LOC_69D2,
+                        PAUSE_MENU_TEXT_TOP_Y_RESTART_TEXT,
+                        "CONTINUE",
+                    ),
+                    (
+                        PAUSE_MENU_TEXT_X_LOC_69D2,
+                        PAUSE_MENU_TEXT_BOTTOM_Y_RESTART_TEXT,
+                        "GIVE UP",
+                    ),
+                ],
+                "give-up row",
+            ),
+        ] {
+            let mut commands = Vec::new();
+
+            push_pause_menu_text_loc_69d2(&mut commands, &trace);
+
+            assert_eq!(
+                text_snapshots(&commands),
+                expected
+                    .into_iter()
+                    .map(|(x, y, text)| (x, y, text.to_owned()))
+                    .collect::<Vec<_>>(),
+                "ASM loc_69D2 chooses {label} from Number_Lives and loc_6B0E places the live cursor from Pause_Option"
+            );
+        }
+    }
+
+    #[test]
     fn pause_menu_tile_cursor_rewrites_only_live_slots_loc_6b0e() {
         for (pause_menu_option, expected_top, expected_bottom, label) in [
             (
@@ -11899,6 +11968,16 @@ mod tests {
                     height,
                     colour,
                 } => Some((*x, *y, *width, *height, *colour)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn text_snapshots(commands: &[DrawCommand]) -> Vec<(i32, i32, String)> {
+        commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Text { x, y, text, .. } => Some((*x, *y, text.clone())),
                 _ => None,
             })
             .collect()

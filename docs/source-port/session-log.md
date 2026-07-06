@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene pause-text mutation hardening
+
+- Project-status still showed no ready/open risks after the game-over/continue
+  slice, so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `push_pause_menu_text_loc_69d2`.
+- Initial mutation at `/tmp/mutants-frame-scene-pause-text-20260706-initial`
+  reported 9 mutants tested: 7 caught and 2 missed. Added ASM-cited
+  frame-scene coverage for `loc_69D2` Number_Lives lower-row selection and
+  `Game_Paused_Loop loc_6B0E` Pause_Option cursor placement.
+- Focused regression
+  `cargo test -q -p wildside-frame --lib pause_menu_text_follows_loc_69d2_life_branch_and_loc_6b0e_cursor`
+  passed. Final mutation at
+  `/tmp/mutants-frame-scene-pause-text-20260706-final` reported 9 mutants
+  tested: 9 caught and 0 missed.
+
 ## 2026-07-06 - proactive frame scene game-over/continue mutation hardening
 
 - Project-status still showed no ready/open risks after the EOL row-bridge
