@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene tile-plane mutation hardening
+
+- Project-status still showed no ready/open risks after the sprite-geometry
+  slice, so mutation-tested the frame scene tile-resolution and special-plane
+  helpers in `scene.rs`.
+- Scope: `resolve_ingame_vram_tile`,
+  `resolve_ingame_vram_tile_with_foreground_palette`, ASM `loc_14D32` storm
+  pattern plane emission, and ASM `loc_14E42` unknown foreground plane emission.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-tile-resolution-20260706-initial` reported 119
+  mutants tested: 76 caught, 2 unviable, 41 missed. Added guard and
+  multi-row/multi-column geometry tests for the storm and unknown planes.
+- Final mutation at
+  `/tmp/mutants-frame-scene-tile-resolution-20260706-final` reported 119
+  mutants tested: 117 caught, 2 unviable, 0 missed.
+
 ## 2026-07-06 - proactive frame sprite-geometry mutation verification
 
 - Project-status still showed no ready/open risks after the HUD slice, so

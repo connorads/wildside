@@ -9062,9 +9062,9 @@ mod tests {
                 plane_address_word: 0x8403,
                 h_scroll_word_pairs: 0x00E0,
                 first_h_scroll_word: 0,
-                second_h_scroll_word: 0,
+                second_h_scroll_word: 11,
                 first_vsram_word: 0,
-                second_vsram_word: 0,
+                second_vsram_word: 13,
                 weather_mode_byte: 0,
                 next_storm_scroll_offset: 0,
             }),
@@ -9088,12 +9088,135 @@ mod tests {
         else {
             panic!("ASM loc_14D32 storm plane should emit indexed tiles");
         };
-        assert_eq!((*x, *y), (0, 0));
-        assert_eq!(tile.tile_index, 0);
+        assert_eq!((*x, *y), (-3, -5));
+        assert_eq!(tile.tile_index, 9);
         assert_eq!(
             tile_sheet.tiles[usize::from(tile.tile_index)].pixels[0],
             0x55
         );
+        let indexed_tiles = commands.indexed_tiles();
+        let visible_cols = FRAME_WIDTH.div_ceil(8) as usize + 1;
+        assert_eq!(
+            indexed_tiles.len(),
+            visible_cols * (FRAME_HEIGHT.div_ceil(8) as usize + 1)
+        );
+        assert_eq!(
+            indexed_tile_snapshot(indexed_tiles[1]),
+            (5, -5, 0x000A, false)
+        );
+        assert_eq!(
+            indexed_tile_snapshot(indexed_tiles[visible_cols]),
+            (-3, 3, 0x000B, false)
+        );
+    }
+
+    #[test]
+    fn storm_pattern_plane_rejects_non_matching_loc_14d32_metadata() {
+        fn valid_upload() -> wildside_core::StormPatternRuntimeUploadLoc14D32 {
+            wildside_core::StormPatternRuntimeUploadLoc14D32 {
+                source_asset_label: "unk_9B65C".to_owned(),
+                vram_tile_addend: 0x0380_0380,
+                skipped_header_longwords: 1,
+                vdp_command: 0x4000_0003,
+                written_longword_count: 4 * 8 * 8 * 4,
+            }
+        }
+
+        fn valid_transfer() -> wildside_core::TransferScrollDataStormLoc30110 {
+            wildside_core::TransferScrollDataStormLoc30110 {
+                plane_address_word: 0x8403,
+                h_scroll_word_pairs: 0x00E0,
+                first_h_scroll_word: 0,
+                second_h_scroll_word: 0,
+                first_vsram_word: 0,
+                second_vsram_word: 0,
+                weather_mode_byte: 0,
+                next_storm_scroll_offset: 0,
+            }
+        }
+
+        let mut visuals = sample_level_visuals(0x20);
+        visuals.weather = Some(WeatherVisuals {
+            palette: sample_palette(),
+            tile_sheet: sample_tile_sheet_with_pixel(0x30, 0x55),
+            vram_base_tile_index: 0x0380,
+            shared_art: None,
+        });
+
+        for (upload, transfer, label) in [
+            (
+                wildside_core::StormPatternRuntimeUploadLoc14D32 {
+                    source_asset_label: "unknown".to_owned(),
+                    ..valid_upload()
+                },
+                valid_transfer(),
+                "source asset",
+            ),
+            (
+                wildside_core::StormPatternRuntimeUploadLoc14D32 {
+                    vram_tile_addend: 0x0380_037F,
+                    ..valid_upload()
+                },
+                valid_transfer(),
+                "tile addend",
+            ),
+            (
+                wildside_core::StormPatternRuntimeUploadLoc14D32 {
+                    skipped_header_longwords: 0,
+                    ..valid_upload()
+                },
+                valid_transfer(),
+                "skipped header",
+            ),
+            (
+                wildside_core::StormPatternRuntimeUploadLoc14D32 {
+                    vdp_command: 0x4000_0002,
+                    ..valid_upload()
+                },
+                valid_transfer(),
+                "VDP command",
+            ),
+            (
+                wildside_core::StormPatternRuntimeUploadLoc14D32 {
+                    written_longword_count: 4 * 8 * 8 * 4 - 1,
+                    ..valid_upload()
+                },
+                valid_transfer(),
+                "written longwords",
+            ),
+            (
+                valid_upload(),
+                wildside_core::TransferScrollDataStormLoc30110 {
+                    plane_address_word: 0x8402,
+                    ..valid_transfer()
+                },
+                "plane address",
+            ),
+            (
+                valid_upload(),
+                wildside_core::TransferScrollDataStormLoc30110 {
+                    h_scroll_word_pairs: 0x00DF,
+                    ..valid_transfer()
+                },
+                "HScroll count",
+            ),
+        ] {
+            let trace = NativeTraceFrame {
+                storm_pattern_upload_loc_14d32: Some(upload),
+                storm_scroll_transfer_loc_30110: Some(transfer),
+                ..NativeTraceFrame::default()
+            };
+            let mut commands = Vec::new();
+
+            assert!(
+                !push_storm_pattern_plane_loc_14d32(&mut commands, &trace, &visuals),
+                "ASM loc_14D32 should reject mismatched {label} metadata"
+            );
+            assert!(
+                commands.is_empty(),
+                "ASM loc_14D32 rejected {label} metadata must not emit tiles"
+            );
+        }
     }
 
     #[test]
@@ -9140,6 +9263,122 @@ mod tests {
         assert_eq!(
             tile_sheet.tiles[usize::from(tile.tile_index)].pixels[0],
             0x66
+        );
+        let indexed_tiles = commands.indexed_tiles();
+        let visible_cols = FRAME_WIDTH.div_ceil(8) as usize + 1;
+        assert_eq!(
+            indexed_tiles.len(),
+            visible_cols * (FRAME_HEIGHT.div_ceil(8) as usize + 1)
+        );
+        assert_eq!(indexed_tile_snapshot(indexed_tiles[1]), (5, -5, 1, true));
+        assert_eq!(
+            indexed_tile_snapshot(indexed_tiles[visible_cols]),
+            (-3, 3, 4, true)
+        );
+    }
+
+    #[test]
+    fn special_effect_unknown_plane_rejects_invalid_loc_14e42_fill_metadata() {
+        fn valid_fill() -> wildside_core::SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
+            wildside_core::SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
+                vdp_command: 0x4000_0003,
+                outer_pass_count: 8,
+                group_count_per_pass: 4,
+                inner_repeat_count: 16,
+                written_longword_count: 8 * 4 * 16 * 2,
+                foreground_plane_register:
+                    SPECIAL_EFFECT_UNKNOWN_FOREGROUND_PLANE_REGISTER_LOC_14E42,
+                background_plane_register: 0x8400,
+            }
+        }
+
+        let mut visuals = sample_level_visuals(0x20);
+        visuals.special_effect_unknown = Some(SpecialEffectUnknownVisuals {
+            tile_sheet: sample_tile_sheet_with_pixel(0x20, 0x66),
+            vram_base_tile_index: 0x0380,
+        });
+
+        for (fill, label) in [
+            (
+                wildside_core::SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
+                    foreground_plane_register: 0x8403,
+                    ..valid_fill()
+                },
+                "foreground plane register",
+            ),
+            (
+                wildside_core::SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
+                    group_count_per_pass: 0,
+                    ..valid_fill()
+                },
+                "group count",
+            ),
+            (
+                wildside_core::SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
+                    inner_repeat_count: 0,
+                    ..valid_fill()
+                },
+                "inner repeat count",
+            ),
+            (
+                wildside_core::SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
+                    outer_pass_count: 0,
+                    ..valid_fill()
+                },
+                "outer pass count",
+            ),
+        ] {
+            let trace = NativeTraceFrame {
+                special_effect_unknown_plane_fill_loc_14e42: Some(fill),
+                ..NativeTraceFrame::default()
+            };
+            let mut commands = Vec::new();
+
+            push_special_effect_unknown_foreground_plane_loc_14e42(&mut commands, &trace, &visuals);
+            assert!(
+                commands.is_empty(),
+                "ASM loc_14E42 rejected {label} metadata must not emit tiles"
+            );
+        }
+    }
+
+    #[test]
+    fn special_effect_unknown_plane_wraps_by_computed_loc_14e42_dimensions() {
+        let mut visuals = sample_level_visuals(0x20);
+        visuals.special_effect_unknown = Some(SpecialEffectUnknownVisuals {
+            tile_sheet: sample_tile_sheet_with_pixel(0x20, 0x66),
+            vram_base_tile_index: 0x0380,
+        });
+        let trace = NativeTraceFrame {
+            special_effect_unknown_plane_fill_loc_14e42: Some(
+                wildside_core::SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
+                    vdp_command: 0x4000_0003,
+                    outer_pass_count: 2,
+                    group_count_per_pass: 3,
+                    inner_repeat_count: 3,
+                    written_longword_count: 2 * 3 * 3 * 2,
+                    foreground_plane_register:
+                        SPECIAL_EFFECT_UNKNOWN_FOREGROUND_PLANE_REGISTER_LOC_14E42,
+                    background_plane_register: 0x8400,
+                },
+            ),
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_special_effect_unknown_foreground_plane_loc_14e42(&mut commands, &trace, &visuals);
+
+        let indexed_tiles = commands.indexed_tiles();
+        let visible_cols = FRAME_WIDTH.div_ceil(8) as usize + 1;
+        assert_eq!(
+            indexed_tile_snapshot(indexed_tiles[7]),
+            (56, 0, 3, true),
+            "ASM loc_14E42 inner repeat count controls the wrapped plane width"
+        );
+        assert_eq!(
+            indexed_tile_snapshot(indexed_tiles[5 * visible_cols]),
+            (0, 40, 8, true),
+            "ASM loc_14E42 outer pass and group counts control the wrapped plane height"
         );
     }
 
@@ -9226,6 +9465,13 @@ mod tests {
             self.iter()
                 .filter(|command| matches!(command, DrawCommand::IndexedTile { .. }))
                 .collect()
+        }
+    }
+
+    fn indexed_tile_snapshot(command: &DrawCommand) -> (i32, i32, u16, bool) {
+        match command {
+            DrawCommand::IndexedTile { x, y, tile, .. } => (*x, *y, tile.tile_index, tile.priority),
+            other => panic!("expected indexed tile command, got {other:?}"),
         }
     }
 
