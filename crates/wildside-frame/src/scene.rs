@@ -8581,6 +8581,58 @@ mod tests {
     }
 
     #[test]
+    fn game_over_continue_overlay_follows_loc_d25e_and_continue_screen_branches() {
+        let eol = sample_eol_score_visuals();
+        let mut commands = Vec::new();
+
+        push_game_over_continue_overlay(
+            &mut commands,
+            &NativeTraceFrame {
+                continue_countdown: Some(291),
+                continue_countdown_elapsed_frames: CONTINUE_SCREEN_INITIAL_HOLD_FRAMES_LOC_D31E + 4,
+                number_continues: 7,
+                ..NativeTraceFrame::default()
+            },
+            &eol,
+        );
+        assert_eq!(
+            sprite_snapshots(&commands),
+            vec![(-0x58, 0x58, 0xC0, false), (0x164, 0x78, 7, false)],
+            "ASM Continue_Screen loc_D31E/loc_D350 slides CONTINUES from $FF88 with +8 and the continue number from $134 with -8"
+        );
+
+        commands.clear();
+        push_game_over_continue_overlay(
+            &mut commands,
+            &NativeTraceFrame {
+                number_continues: 2,
+                ..NativeTraceFrame::default()
+            },
+            &eol,
+        );
+        assert!(
+            commands.is_empty(),
+            "ASM loc_D25E branches to Continue_Screen when Number_Continues is non-zero; without countdown state native must not render GAME OVER"
+        );
+
+        commands.clear();
+        push_game_over_continue_overlay(
+            &mut commands,
+            &NativeTraceFrame {
+                number_continues: 0,
+                game_over_elapsed_frames: 3,
+                ..NativeTraceFrame::default()
+            },
+            &eol,
+        );
+        assert_eq!(
+            sprite_snapshots(&commands),
+            vec![(-0x50, 0x58, 0x60, false), (0x140, 0x78, 0x61, false)],
+            "ASM loc_D25E no-continues path slides GAME from $FF98 with +8 and OVER from $158 with -8"
+        );
+    }
+
+    #[test]
     fn eol_bonus_amounts_follow_loc_d468_row_order_and_flags() {
         let all_rows_trace = NativeTraceFrame {
             level_timer_seconds: 125,

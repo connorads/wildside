@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene game-over/continue mutation hardening
+
+- Project-status still showed no ready/open risks after the EOL row-bridge
+  slice, so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `push_game_over_continue_overlay`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-game-over-continue-20260706-initial` reported 13
+  mutants tested: 7 caught and 6 missed. Added ASM-cited frame-scene coverage
+  for `loc_D25E` no-continues GAME/OVER branch and non-zero-continues skip,
+  plus `Continue_Screen loc_D31E/loc_D350` CONTINUES text and continue-number
+  slide positions.
+- Focused regression
+  `cargo test -q -p wildside-frame --lib game_over_continue_overlay_follows_loc_d25e_and_continue_screen_branches`
+  passed. Final mutation at
+  `/tmp/mutants-frame-scene-game-over-continue-20260706-final` reported 13
+  mutants tested: 13 caught and 0 missed.
+
 ## 2026-07-06 - proactive frame scene EOL row-bridge mutation hardening
 
 - Project-status still showed no ready/open risks after the EOL number-sprite
