@@ -12593,6 +12593,11 @@ remains exact, with the known state-report divergences still first authoritative
   high with no black fade-in on level-1 load; prize block leaks foreground wood) reconfirms them
   with no status change.
 
+## 2026-07-06 #370 focused Dragon-breath respawn check
+
+- **#370** (`[~]` -> `[?]`): focused native repro did not reproduce persistent Dragon breath after reload. Added regressions for both life-loss and continue reloads: seed `EnemyProjectileKind::DragonWalkingBreath` directly on Kid, prove it can kill final-HP Kid, then advance through `lose_life -> Load_InGame` or `Use_Continue -> Load_InGame` and verify native clears the projectile before live handoff and cannot immediately damage Kid. ASM basis: `Dragon.asm loc_3D02A` creates the breath child object; `loc_3D09E` deletes it; the native `Load_InGame` respawn reset mirrors the object-list clear by emptying `projectiles`.
+- Verification: `cargo test -q -p wildside-core issue_370_dragon_breath -- --nocapture`, `cargo test -q -p wildside-core respawn_restarts_with_clean_level_runtime_state -- --nocapture`, and `mise run verify-slice-fast` all pass. Moved to awaiting-human because the original SDL playtest route was human-observed but not captured; human should re-run BLW1 Dragon-breath death/reload and confirm no stale fire remains.
+
 ## 2026-07-06 playtest feedback triage
 
 Source: human voice playtest on current native build. This was tracker triage only; no gameplay code changed.

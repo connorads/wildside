@@ -33,7 +33,8 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-06 playtest triage:** human validation closed a large batch of stale/fixed awaiting-human rows and reopened current failures from live play. The open queue is no longer empty.
-- **Top P0s:** #210 rapid intro/title/menu corruption, #370 BLW1 dragon fire persisting through death/respawn, and #374 named later-level tilemap/instant-death cluster.
+- **Top P0s:** #210 rapid intro/title/menu corruption and #374 named later-level tilemap/instant-death cluster.
+- **#370 moved to awaiting-human:** focused native death/continue respawn regressions prove `DragonWalkingBreath` is cleared before live reload; exact human SDL route still needs validation.
 - **P1 reopened failures:** #254 paired title-art corruption, #185 Hand animation/grab, #230 The Crypt weather corruption, #270 Under Skull Mountain slope-wall launch/floor clip, and #339 Under Skull Mountain load-screen audio noise.
 - **New visual/gameplay bugs:** #371 Dragon off-screen respawn, #372 prize block wobble disappearance over tree/background art, and #373 flagpole not sinking into the floor.
 - **Still route-blocked but reconfirmed:** #252 Tank sprite garble, #280 Hills/green-cloud background seam, and #345 Lion vanish still need exact live frame/route evidence before implementation.
@@ -60,7 +61,6 @@ For newly opened items, capture these facts in the investigation notes:
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 210 | [ ] | P0 | gameflow/render | Rapid intro/title/menu skip can still show black squares or corrupt Red Stealth title art. | 2026-07-06 human playtest fails the fixed candidate. Native live repro: human-observed; oracle status unknown for the failing timing. Minimum gate: visual-parity route plus `verify-slice-fast`. |
-| 370 | [ ] | P0 | enemy/projectile | Dragon fire can persist across death/respawn on Blue Lake Woods 1 and hurt Kid immediately after reload. | 2026-07-06 human playtest: stand on level 0, dragon fire kills Kid, then the reloaded level still contains damaging fire. Native repro not yet captured; oracle unknown. Minimum gate: focused death/respawn scenario plus fast-slice. |
 | 374 | [ ] | P0 | level/render | Several named later levels have corrupt tilemaps and/or instant death on spawn. | 2026-07-06 human playtest names Stairway to Oblivion, Bloody Swamp, Scorpion Isle, Lion's Den, and Hoverboard Beach. Native/oracle capture still needed; gate named-level smoke captures plus `1p-playable` if gameplay changes. |
 | 254 | [ ] | P1 | intro/render | Rapid title/menu skip still corrupts title-screen art with the #210 failure. | Same 2026-07-06 failed human validation as #210. Keep paired with #210 unless investigation proves a separate title-art path. Minimum gate: visual-parity route plus fast-slice. |
 | 185 | [ ] | P1 | enemy | Hand animation/grab is broken: visible hole/default grab pose and no actual grab. | 2026-07-06 human playtest: Hand looks partly improved but crawls/animates incorrectly, shows a hole, jumps after Kid, and no longer grabs. Native repro human-observed; oracle unknown. Minimum gate: Hand route with render and collision assertions. |

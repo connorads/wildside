@@ -257,6 +257,20 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
     runtime.progression.invulnerable_frames = 15;
 }
 
+fn seed_dragon_breath_on_player_loc_3d02a(runtime: &mut NativeRuntime) {
+    let slice = runtime
+        .opening_slice
+        .expect("test level should expose a live player slice");
+    runtime.projectiles.push(EnemyProjectile {
+        x_pos: slice.player.x_pos,
+        y_pos: slice.player.y_pos,
+        lifetime: DRAGON_WALKING_BREATH_LIFETIME,
+        friendly: false,
+        kind: EnemyProjectileKind::DragonWalkingBreath,
+        ..Default::default()
+    });
+}
+
 fn assert_level_restart_state_cleared(runtime: &NativeRuntime) {
     assert!(runtime.killed_enemies.is_empty());
     assert!(runtime.projectiles.is_empty());
@@ -284,6 +298,23 @@ fn assert_level_restart_state_cleared(runtime: &NativeRuntime) {
     );
     assert_eq!(runtime.progression.invulnerable_frames, 0);
     assert!(!runtime.helmet.skycutter_on_board);
+}
+
+fn release_respawn_to_alive(runtime: &mut NativeRuntime) {
+    runtime.step_frame(FrameInput::default());
+    runtime.step_frame(FrameInput {
+        start: true,
+        ..FrameInput::default()
+    });
+    runtime.step_frame(FrameInput::default());
+    for _ in 0..PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES {
+        runtime.step_frame(FrameInput::default());
+    }
+    assert_eq!(
+        runtime.player_lifecycle,
+        PlayerLifecycle::Alive,
+        "respawn Start handoff should release gameplay"
+    );
 }
 
 fn progress_two_transitions_script_input(frame_index: usize) -> FrameInput {
@@ -12096,6 +12127,125 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             PlayerForm::TheKid.max_hitpoints()
         );
         assert_level_restart_state_cleared(&runtime);
+    }
+
+    /// Issue #370: a Blue Lake Woods 1 playtest reported Dragon fire still
+    /// damaging Kid after the death reload. ASM Dragon.asm loc_3D02A creates
+    /// the breath child as a normal object and loc_3D09E deletes it; the
+    /// lose_life -> Load_InGame respawn reset must not carry native's
+    /// DragonWalkingBreath projectile through that reload.
+    #[test]
+    fn issue_370_dragon_breath_cleared_by_death_respawn_loc_3d09e() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.number_lives = 2;
+        runtime.progression.number_hitpoints = 1;
+        runtime.progression.invulnerable_frames = 0;
+        seed_dragon_breath_on_player_loc_3d02a(&mut runtime);
+
+        let slice = runtime.opening_slice.expect("level should expose Kid");
+        assert!(
+            runtime.projectile_hits_player(&slice),
+            "test setup must place ASM Dragon.asm loc_3D02A breath on Kid"
+        );
+
+        runtime.step_frame(FrameInput::default());
+        assert!(
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. }
+            ),
+            "Dragon breath should kill final-HP Kid before the respawn reset"
+        );
+
+        for _ in 0..(PLAYER_DEATH_WINDUP_FRAMES + PLAYER_DEATH_HIDE_FRAMES) {
+            if matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }) {
+                break;
+            }
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+            "expected lose_life -> Load_InGame respawn, got {:?}",
+            runtime.player_lifecycle
+        );
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM Load_InGame respawn reset should clear the Dragon breath child object"
+        );
+
+        release_respawn_to_alive(&mut runtime);
+        let slice = runtime.opening_slice.expect("respawn should expose Kid");
+        assert!(
+            !runtime.projectile_hits_player(&slice),
+            "reloaded level must not immediately damage Kid with stale Dragon breath"
+        );
+    }
+
+    /// Issue #370: the last-life continue path reaches the same Load_InGame
+    /// reset as lose_life, so Dragon.asm loc_3D02A breath must not survive the
+    /// continue reload either.
+    #[test]
+    fn issue_370_dragon_breath_cleared_by_continue_respawn_loc_3d09e() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.number_lives = 1;
+        runtime.progression.number_continues = 2;
+        runtime.progression.number_hitpoints = 1;
+        runtime.progression.invulnerable_frames = 0;
+        seed_dragon_breath_on_player_loc_3d02a(&mut runtime);
+
+        runtime.step_frame(FrameInput::default());
+        assert!(
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. }
+            ),
+            "Dragon breath should kill final-HP Kid before the continue shell"
+        );
+
+        for _ in 0..(PLAYER_DEATH_WINDUP_FRAMES
+            + PLAYER_DEATH_HIDE_FRAMES
+            + PLAYER_GAME_OVER_HOLD_FRAMES)
+        {
+            if matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::ContinueCountdown { .. }
+            ) {
+                break;
+            }
+            runtime.step_frame(FrameInput::default());
+        }
+        assert!(
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::ContinueCountdown { .. }
+            ),
+            "expected continue countdown after last-life Dragon breath death, got {:?}",
+            runtime.player_lifecycle
+        );
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        assert!(
+            matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
+            "using a continue should enter the respawn reload"
+        );
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM Use_Continue -> Load_InGame should clear stale Dragon breath before the reload resumes"
+        );
+
+        release_respawn_to_alive(&mut runtime);
+        let slice = runtime
+            .opening_slice
+            .expect("continue respawn should expose Kid");
+        assert!(
+            !runtime.projectile_hits_player(&slice),
+            "continue reload must not immediately damage Kid with stale Dragon breath"
+        );
     }
 
     #[test]

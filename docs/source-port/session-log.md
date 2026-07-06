@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - #370 Dragon breath respawn guard
+
+- Took #370 from the open queue. Read `Dragon.asm loc_3D02A/loc_3D09E`
+  and the native `Load_InGame` respawn reset; current code already clears
+  `projectiles` on death and continue reload.
+- Added focused native regressions for `DragonWalkingBreath` killing Kid, then
+  being cleared before ordinary death-respawn and last-life continue-respawn
+  live handoff. Moved #370 to `[?]` awaiting human validation because the
+  original SDL route was not captured.
+- Verification: `cargo test -q -p wildside-core issue_370_dragon_breath -- --nocapture`,
+  `cargo test -q -p wildside-core respawn_restarts_with_clean_level_runtime_state -- --nocapture`,
+  and `mise run verify-slice-fast` pass.
+
 ## 2026-07-06 - playtest feedback triage
 
 - Processed human playtest feedback into the tracker. Reopened #210/#254,
