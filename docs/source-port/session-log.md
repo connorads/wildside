@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame HUD helper mutation verification
+
+- Project-status still showed no ready/open risks after the render-helper slice,
+  so mutation-tested the ASM-cited HUD helper set in `hud.rs`.
+- ASM context: `loc_BE0C`/`loc_BE20`/`loc_BE74` own HP pip sizing,
+  `loc_BDC0`/`loc_BEE8` own the HUD command stream and timer display,
+  `loc_45EE`/`loc_4546` own animated HUD icon page selection, `loc_1223C`
+  owns foreground palette rotation, and `loc_C070` owns frozen end-level timer
+  visibility.
+- Focused HUD tests already covered the helper contract. Mutation at
+  `/tmp/mutants-frame-hud-helpers-20260706-initial` reported 145 mutants
+  tested: 136 caught, 9 unviable, 0 missed. No code changes were needed.
+
 ## 2026-07-06 - proactive frame render helper mutation verification
 
 - Project-status still showed no ready/open risks after the data level-layout
