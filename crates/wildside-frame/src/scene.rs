@@ -8577,6 +8577,81 @@ mod tests {
     }
 
     #[test]
+    fn eol_level_skip_time_digits_follow_loc_d47e_gates_and_order() {
+        let eol = sample_eol_score_visuals();
+        let palette = sample_palette();
+
+        for (trace, label) in [
+            (
+                NativeTraceFrame {
+                    level_skip_cheat_enabled: 0,
+                    level_complete_score_rows_started: 1,
+                    level_completion_time: 123,
+                    ..NativeTraceFrame::default()
+                },
+                "disabled level-skip cheat",
+            ),
+            (
+                NativeTraceFrame {
+                    level_skip_cheat_enabled: 1,
+                    level_complete_score_rows_started: 0,
+                    level_completion_time: 123,
+                    ..NativeTraceFrame::default()
+                },
+                "score rows not started",
+            ),
+        ] {
+            let mut commands = Vec::new();
+
+            push_eol_level_skip_time_digits_with_palette_loc_d47e(
+                &mut commands,
+                &eol,
+                &palette,
+                &trace,
+            );
+
+            assert!(
+                commands.is_empty(),
+                "ASM loc_D468 should skip loc_D47E time digits for {label}"
+            );
+        }
+
+        let mut commands = Vec::new();
+        let active_trace = NativeTraceFrame {
+            level_skip_cheat_enabled: 1,
+            level_complete_score_rows_started: 1,
+            level_completion_time: 123,
+            ..NativeTraceFrame::default()
+        };
+
+        push_eol_level_skip_time_digits_with_palette_loc_d47e(
+            &mut commands,
+            &eol,
+            &palette,
+            &active_trace,
+        );
+
+        assert_eq!(
+            sprite_snapshots(&commands),
+            vec![
+                (0x11C, 0xCC, 3, false),
+                (0x110, 0xCC, 2, false),
+                (0x104, 0xCC, 1, false)
+            ],
+            "ASM loc_D47E emits ones/tens/hundreds completion-time digits at $11C/$110/$104 with priority set"
+        );
+        for command in &commands {
+            let DrawCommand::Sprite { tiles, .. } = command else {
+                panic!("ASM loc_D47E should emit sprite commands only");
+            };
+            assert!(
+                tiles.iter().all(|tile| tile.tile.priority),
+                "ASM loc_D47E sets priority=$01 on each level-skip time digit"
+            );
+        }
+    }
+
+    #[test]
     fn eol_score_room_palette_fades_on_loc_d734_boundary() {
         let palette = Palette {
             colours: [0x0866, 0x00CE, 0x0000, 0x0040, 0x00E0, 0x0EEE]
@@ -12043,6 +12118,25 @@ mod tests {
             palette: sample_palette(),
             tile_sheet: sample_tile_sheet(1),
             rows: vec![vec![sample_tile_ref(0); 40]; 28],
+        }
+    }
+
+    fn sample_eol_score_visuals() -> wildside_render::EolScoreVisuals {
+        wildside_render::EolScoreVisuals {
+            palette: sample_palette(),
+            bonus: sample_sprite_frame(0xB0),
+            continues: sample_sprite_frame(0xC0),
+            game: sample_sprite_frame(0x60),
+            no_hit: sample_sprite_frame(0xA1),
+            no_prize: sample_sprite_frame(0xA2),
+            over: sample_sprite_frame(0x61),
+            path: sample_sprite_frame(0xA3),
+            score: sample_sprite_frame(0xC1),
+            seconds: sample_sprite_frame(0x5E),
+            speed: sample_sprite_frame(0xA4),
+            time: sample_sprite_frame(0xA5),
+            under: sample_sprite_frame(0xA6),
+            digits: (0..10).map(sample_sprite_frame).collect(),
         }
     }
 

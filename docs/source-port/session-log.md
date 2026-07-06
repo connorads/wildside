@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene EOL level-skip digit mutation hardening
+
+- Project-status still showed no ready/open risks after the EOL counter slice,
+  so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `push_eol_level_skip_time_digits_with_palette_loc_d47e`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-eol-skip-digits-20260706-initial` reported 15
+  mutants tested: 7 caught and 8 missed. Added ASM-cited frame-scene coverage
+  for `loc_D468` level-skip/score-row gates and `loc_D47E`
+  ones/tens/hundreds completion-time digit extraction, coordinates, and
+  priority.
+- Focused regression
+  `cargo test -q -p wildside-frame --lib eol_level_skip_time_digits_follow_loc_d47e_gates_and_order`
+  passed. Final mutation at
+  `/tmp/mutants-frame-scene-eol-skip-digits-20260706-final` reported 15
+  mutants tested: 15 caught and 0 missed.
+
 ## 2026-07-06 - proactive frame scene EOL counter mutation hardening
 
 - Project-status still showed no ready/open risks after the EOL palette slice,
