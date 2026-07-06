@@ -3866,6 +3866,7 @@ mod tests {
         let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
 
         runtime.set_controller_1(0b0010_0001);
+        assert_eq!(runtime.core.mem.io.p1_port.buttons, 0b0010_0001);
         for addr in super::CTRL_1_ADDR..=super::CTRL_JOYPAD_LATCH_END_ADDR {
             runtime.core.mem.write_work_ram_byte(addr, 0xFF);
         }

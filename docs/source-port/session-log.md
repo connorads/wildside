@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive MD controller mutation hardening
+
+- Project-status still showed no ready/open risks after the MD audio mixer
+  slice, so mutation-tested the `wildside-md` controller helper cluster.
+- Scope: `ControllerPortState` TH phase reads/writes, controller output
+  masking, delayed TH-high timing, MD IO register routing, and the
+  `MdRuntime::set_controller_1` public forwarding surface.
+- Initial mutation at `/tmp/mutants-md-controller-20260706-refresh` reported
+  88 mutants tested: 87 caught, 1 missed. The survivor deleted
+  `MdRuntime::set_controller_1`; the existing setter test called it only before
+  the level-skip reset path cleared controller state.
+- Added an immediate assertion on the runtime controller state before the
+  level-skip latch reset. Final mutation at
+  `/tmp/mutants-md-controller-20260706-final` reported 88 mutants tested: 88
+  caught, 0 missed.
+
 ## 2026-07-06 - proactive MD audio mixer mutation refresh
 
 - Project-status still showed no ready/open risks after the render-level slice,
