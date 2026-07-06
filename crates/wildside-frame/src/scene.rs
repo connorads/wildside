@@ -8222,6 +8222,225 @@ mod tests {
     }
 
     #[test]
+    fn shooter_block_projectile_tail_loc_ef62_matches_direction_tile_words() {
+        for (x_velocity, y_velocity, expected, label) in [
+            (0, -1, (-4, -8, 0x8295), "ASM loc_EF62 up tail"),
+            (1, 0, (0, -4, 0x8A96), "ASM loc_EF62 right tail"),
+            (0, 1, (-4, 0, 0x9295), "ASM loc_EF62 down tail"),
+            (-1, 0, (-8, -4, 0x8296), "ASM loc_EF62 left tail"),
+            (0, 0, (-8, -4, 0x8296), "ASM loc_EF62 stopped tail"),
+            (
+                1,
+                -1,
+                (-4, -8, 0x8295),
+                "ASM loc_EF62 checks vertical-up before horizontal travel",
+            ),
+            (
+                1,
+                1,
+                (0, -4, 0x8A96),
+                "ASM loc_EF62 checks horizontal-right before vertical-down",
+            ),
+        ] {
+            let projectile = ActiveProjectileSnapshot {
+                x_velocity,
+                y_velocity,
+                ..ActiveProjectileSnapshot::default()
+            };
+
+            assert_eq!(
+                shooter_block_projectile_sprite_tail_loc_ef62(&projectile),
+                expected,
+                "{label}"
+            );
+        }
+    }
+
+    #[test]
+    fn shooter_block_projectile_sprite_loc_ef62_resolves_offsets_and_vram_tiles() {
+        let mut visuals = sample_level_visuals(0x77);
+        visuals.block_tiles = sample_tile_sheet_with_pixel(0x77, 0x66);
+
+        for (
+            x_velocity,
+            y_velocity,
+            expected_x,
+            expected_y,
+            expected_local_tile,
+            expected_flip_x,
+            expected_flip_y,
+            label,
+        ) in [
+            (0, -1, 36, 42, 0x75, false, false, "up"),
+            (1, 0, 40, 46, 0x76, true, false, "right"),
+            (0, 1, 36, 50, 0x75, false, true, "down"),
+            (-1, 0, 32, 46, 0x76, false, false, "left"),
+        ] {
+            let projectile = ActiveProjectileSnapshot {
+                x_velocity,
+                y_velocity,
+                ..ActiveProjectileSnapshot::default()
+            };
+            let mut commands = Vec::new();
+
+            assert!(
+                push_shooter_block_projectile_sprite_loc_ef62(
+                    &mut commands,
+                    &visuals,
+                    &projectile,
+                    40,
+                    50
+                ),
+                "ASM loc_EF62 {label} shooter-block tail should resolve to loaded block art"
+            );
+
+            assert_eq!(
+                sprite_tile_snapshot(commands.single()),
+                (
+                    expected_x,
+                    expected_y,
+                    expected_local_tile,
+                    0,
+                    true,
+                    expected_flip_x,
+                    expected_flip_y,
+                    0,
+                    0,
+                ),
+                "ASM loc_EF62 {label} shooter-block tail tile word/offset"
+            );
+            let DrawCommand::Sprite {
+                tile_sheet, tiles, ..
+            } = commands.single()
+            else {
+                panic!("ASM loc_EF62 should emit a one-tile sprite");
+            };
+            assert_eq!(tiles.len(), 1);
+            assert_eq!(
+                tile_sheet.tiles[usize::from(expected_local_tile)].pixels[0],
+                0x66,
+                "ASM loc_EF62 {label} tile should be resolved from block-art VRAM"
+            );
+        }
+
+        let short_visuals = sample_level_visuals(0x76);
+        let projectile = ActiveProjectileSnapshot {
+            x_velocity: 1,
+            ..ActiveProjectileSnapshot::default()
+        };
+        let mut commands = Vec::new();
+
+        assert!(
+            !push_shooter_block_projectile_sprite_loc_ef62(
+                &mut commands,
+                &short_visuals,
+                &projectile,
+                40,
+                50
+            ),
+            "ASM loc_EF62 tile `$296` needs block-art local tile `$76` to be loaded"
+        );
+        assert!(commands.is_empty());
+    }
+
+    #[test]
+    fn lion_projectile_sprite_loc_3e12a_uses_stru_3df34_frames_and_facing() {
+        let mut visuals = sample_level_visuals(1);
+        visuals
+            .enemies
+            .families
+            .insert(LION_OBJECT_TYPE, sample_lion_projectile_visuals());
+
+        for (
+            animation_elapsed_frames,
+            x_velocity,
+            expected_x,
+            expected_y,
+            expected_pixel,
+            expected_tile_index,
+            expected_flip_x,
+            label,
+        ) in [
+            (0, 1, 44, 48, 0x90, 0x000, false, "first right"),
+            (6, 1, 44, 48, 0x91, 0x004, false, "second right"),
+            (12, 1, 44, 49, 0x92, 0x008, false, "third right"),
+            (18, 1, 44, 48, 0x90, 0x000, false, "wrapped right"),
+            (6, -1, 40, 48, 0x91, 0x004, true, "second left"),
+            (6, 0, 44, 48, 0x91, 0x004, false, "zero velocity right"),
+        ] {
+            let projectile = ActiveProjectileSnapshot {
+                animation_elapsed_frames,
+                x_velocity,
+                ..ActiveProjectileSnapshot::default()
+            };
+            let mut commands = Vec::new();
+
+            assert!(
+                push_lion_projectile_sprite_loc_3e12a(&mut commands, &visuals, &projectile, 50, 60),
+                "ASM Lion.asm loc_3E12A {label} projectile frame should resolve from `stru_3DF34`"
+            );
+
+            assert_eq!(
+                sprite_tile_snapshot(commands.single()),
+                (
+                    expected_x,
+                    expected_y,
+                    expected_tile_index,
+                    0,
+                    false,
+                    expected_flip_x,
+                    false,
+                    if expected_flip_x { 8 } else { 0 },
+                    0,
+                ),
+                "ASM Lion.asm loc_3E12A {label} projectile draw command"
+            );
+            let DrawCommand::Sprite {
+                tile_sheet, tiles, ..
+            } = commands.single()
+            else {
+                panic!("ASM Lion.asm loc_3E12A should emit a projectile sprite");
+            };
+            assert_eq!(
+                tiles.len(),
+                4,
+                "ASM Lion.asm loc_3E12A `stru_3DF34` projectile frames cover a 2x2 aligned tile footprint"
+            );
+            assert_eq!(
+                tile_sheet.tiles[0].pixels[0], expected_pixel,
+                "ASM Lion.asm loc_3E12A {label} should select the expected `stru_3DF34` frame"
+            );
+        }
+    }
+
+    #[test]
+    fn lion_projectile_sprite_loc_3e12a_rejects_missing_or_short_visuals() {
+        let visuals = sample_level_visuals(1);
+        let projectile = ActiveProjectileSnapshot::default();
+        let mut commands = Vec::new();
+
+        assert!(
+            !push_lion_projectile_sprite_loc_3e12a(&mut commands, &visuals, &projectile, 50, 60),
+            "ASM Lion.asm loc_3E12A projectile art requires the Lion enemy family"
+        );
+        assert!(commands.is_empty());
+
+        let mut visuals = sample_level_visuals(1);
+        let mut short_visual = sample_lion_projectile_visuals();
+        short_visual.frames.truncate(9);
+        visuals
+            .enemies
+            .families
+            .insert(LION_OBJECT_TYPE, short_visual);
+
+        assert!(
+            !push_lion_projectile_sprite_loc_3e12a(&mut commands, &visuals, &projectile, 50, 60),
+            "ASM Lion.asm loc_3E12A needs frame index 9 from `stru_3DF34`"
+        );
+        assert!(commands.is_empty());
+    }
+
+    #[test]
     fn projectile_child_static_frames_use_rom_sprite_descriptors() {
         let visuals = sample_animated_visual(sample_sprite_frame(0x5A));
 
@@ -10829,6 +11048,28 @@ mod tests {
         }
     }
 
+    fn sprite_tile_snapshot(
+        command: &DrawCommand,
+    ) -> (i32, i32, u16, u8, bool, bool, bool, i32, i32) {
+        match command {
+            DrawCommand::Sprite { x, y, tiles, .. } => {
+                let sprite_tile = *tiles.first().expect("sprite command should contain tiles");
+                (
+                    *x,
+                    *y,
+                    sprite_tile.tile.tile_index,
+                    sprite_tile.tile.palette_line,
+                    sprite_tile.tile.priority,
+                    sprite_tile.tile.flip_x,
+                    sprite_tile.tile.flip_y,
+                    sprite_tile.offset_x,
+                    sprite_tile.offset_y,
+                )
+            }
+            other => panic!("expected sprite command, got {other:?}"),
+        }
+    }
+
     fn scene_rects(commands: &[DrawCommand]) -> Vec<(i32, i32, i32, i32, [u8; 3])> {
         commands
             .iter()
@@ -11051,6 +11292,35 @@ mod tests {
             extra_palettes: Vec::new(),
             frames: vec![frame],
             frame_duration: 1,
+        }
+    }
+
+    fn sample_lion_projectile_visuals() -> AnimatedSpriteVisual {
+        let mut frames = vec![sample_sprite_frame(0); 9];
+        frames.push(sample_lion_projectile_frame(0x000, 0x0C, 0x0C, 0x90));
+        frames.push(sample_lion_projectile_frame(0x004, 0x0C, 0x0C, 0x91));
+        frames.push(sample_lion_projectile_frame(0x008, 0x0A, 0x0B, 0x92));
+        AnimatedSpriteVisual {
+            palette: sample_palette(),
+            extra_palettes: Vec::new(),
+            frames,
+            frame_duration: 1,
+        }
+    }
+
+    fn sample_lion_projectile_frame(
+        tile_base_index: u16,
+        width_px: u16,
+        height_px: u16,
+        pixel: u8,
+    ) -> SpriteFrame {
+        SpriteFrame {
+            origin_x: 0x06,
+            origin_y: 0x00,
+            width_px,
+            height_px,
+            tile_base_index,
+            tile_sheet: sample_tile_sheet_with_pixel(0x10, pixel),
         }
     }
 

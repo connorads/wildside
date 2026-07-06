@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene shooter/Lion projectile mutation hardening
+
+- Project-status still showed no ready/open risks after the Fire Demon trail
+  slice, so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `shooter_block_projectile_sprite_tail_loc_ef62|push_shooter_block_projectile_sprite_loc_ef62|push_lion_projectile_sprite_loc_3e12a`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-shooter-lion-projectiles-20260706-initial`
+  reported 57 mutants tested: 7 caught and 50 missed. Added ASM-cited
+  frame-scene coverage for shooter-block `loc_EF62` direction tile words,
+  offsets, block-art VRAM resolution, and Lion `loc_3E12A`/`stru_3DF34`
+  projectile frame cadence, facing, and missing-art guards.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 124 tests.
+  Final mutation at
+  `/tmp/mutants-frame-scene-shooter-lion-projectiles-20260706-final`
+  reported 57 mutants tested: 57 caught and 0 missed.
+
 ## 2026-07-06 - proactive frame scene Fire Demon trail fallback mutation hardening
 
 - Project-status still showed no ready/open risks after the Heady-Metal
