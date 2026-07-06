@@ -8538,6 +8538,49 @@ mod tests {
     }
 
     #[test]
+    fn eol_bonus_row_bridge_follows_loc_d468_text_and_number_velocities() {
+        let eol = sample_eol_score_visuals();
+        let palette = sample_palette();
+        let mut commands = Vec::new();
+
+        push_eol_bonus_row_with_palette_loc_d468(
+            &mut commands,
+            &eol,
+            &palette,
+            &eol.path,
+            0x10,
+            0x30,
+            0x90,
+            0x100,
+            0x24,
+            3,
+            1_203,
+        );
+
+        assert_eq!(
+            sprite_snapshots(&commands),
+            vec![
+                (0x28, 0x88, 0xA3, false),
+                (0x48, 0x88, 0xB0, false),
+                (0x114, 0x88, 1, false),
+                (0x120, 0x88, 2, false),
+                (0x12C, 0x88, 0, false),
+                (0x138, 0x88, 3, false),
+            ],
+            "ASM loc_D468 uses Load_Object_EOL_Text +8 slide for label/BONUS and Load_Object_EOL_Number -8 slide before loc_C48C digit slots"
+        );
+        for command in &commands {
+            let DrawCommand::Sprite { tiles, .. } = command else {
+                panic!("ASM loc_D468 EOL bonus rows should emit sprite commands only");
+            };
+            assert!(
+                tiles.iter().all(|tile| tile.tile.priority),
+                "ASM Object_EOL_Text loc_C592 and Object_EOL_Number loc_C466 set priority=$01"
+            );
+        }
+    }
+
+    #[test]
     fn eol_bonus_amounts_follow_loc_d468_row_order_and_flags() {
         let all_rows_trace = NativeTraceFrame {
             level_timer_seconds: 125,

@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene EOL row-bridge mutation hardening
+
+- Project-status still showed no ready/open risks after the EOL number-sprite
+  slice, so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `push_eol_text_with_velocity_and_palette_loc_c5a2`,
+  `push_eol_number_with_palette_loc_c5a2`, and
+  `push_eol_bonus_row_with_palette_loc_d468`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-eol-row-bridges-20260706-initial` reported 11
+  mutants tested: 7 caught and 4 missed. Added ASM-cited frame-scene coverage
+  for `loc_D468` EOL bonus-row assembly, `Load_Object_EOL_Text` +8 text slide,
+  `Load_Object_EOL_Number` -8 number slide, and the `loc_C48C` digit slots fed
+  by that bridge.
+- Focused regression
+  `cargo test -q -p wildside-frame --lib eol_bonus_row_bridge_follows_loc_d468_text_and_number_velocities`
+  passed. Final mutation at
+  `/tmp/mutants-frame-scene-eol-row-bridges-20260706-final` reported 11 mutants
+  tested: 11 caught and 0 missed.
+
 ## 2026-07-06 - proactive frame scene EOL number-sprite mutation hardening
 
 - Project-status still showed no ready/open risks after the EOL level-skip
