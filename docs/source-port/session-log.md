@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame platform sprite mutation refresh
+
+- Project-status still showed no ready/open risks after the boss/waited
+  selector refresh, so refreshed current-HEAD mutation evidence for
+  `wildside-frame/src/sprites.rs` scoped to
+  `push_platform_tiles|platform_sprite_cells_loc_24AC|platform_sprite_entry_cell_loc_2548|platform_cell_tiles_loc_2548`.
+- Scope: ASM `loc_244C` platform render dispatch, `loc_24AC`/`loc_2548`
+  sprite-cell emission, mapping-word tile offsets, fixed-point camera-relative
+  positioning, platform-art fallback, and 16x16 platform tile composition.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 102 tests.
+  Mutation at `/tmp/mutants-frame-sprites-platforms-20260706-refresh`
+  reported 36 mutants tested: 33 caught, 3 unviable, and 0 missed. No code
+  changes were needed.
+
 ## 2026-07-06 - proactive frame boss/waited selector mutation refresh
 
 - Project-status still showed no ready/open risks after the live selector
