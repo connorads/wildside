@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame audio helper mutation hardening
+
+- Project-status still showed no ready/open risks after the frame DTO slice, so
+  mutation-tested `wildside-frame/src/audio.rs` scoped to
+  `format_native|is_.*sound|transform_sound_for_helmet|gems_event_music_speed|queued_gems_`.
+- Initial mutation at `/tmp/mutants-frame-audio-helpers-20260706-refresh`
+  reported 43 mutants tested: 10 caught, 32 missed, 1 unviable. The misses were
+  event formatter payloads, queued GEMS delta/reset branches, sound
+  classifiers, and the ASM `loc_7CD0` helmet-transform fallback table.
+- Added focused audio helper regressions. Final mutation at
+  `/tmp/mutants-frame-audio-helpers-20260706-final` reported 43 mutants tested:
+  42 caught, 1 unviable, and 0 missed. `cargo test -q -p wildside-frame --lib`
+  passed with 101 tests.
+
 ## 2026-07-06 - proactive frame DTO mutation refresh
 
 - Project-status still showed no ready/open risks after the render bundle EOL

@@ -1159,6 +1159,181 @@ mod tests {
     }
 
     #[test]
+    fn native_audio_event_formatters_include_frame_context() {
+        let trace = trace(GameMode::InGame);
+
+        assert_eq!(
+            format_native_bgm_event(
+                42,
+                &trace,
+                Some(NativeBgmCue::TitleShell),
+                Some(NativeBgmCue::Level(LevelId(0))),
+                NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE),
+            ),
+            "frame=42 mode=InGame level=00 active_before=Some(TitleShell) active_after=Some(Level(LevelId(0))) command=StopMusicThenStart(7)",
+            "BGM trace diagnostics must keep the before/after cue context that explains reset boundaries"
+        );
+        assert_eq!(
+            format_native_sound_event(
+                43,
+                &trace,
+                NativeSoundCommand::stop_sequence(gems_sfx::SCORE_COUNTER),
+            ),
+            "frame=43 mode=InGame level=00 command=StopSequence(12)",
+            "sound trace diagnostics must include the raw GEMS command path, not only the sound id"
+        );
+        assert_eq!(
+            format_native_music_speed_event(44, &trace, 0x7A),
+            "frame=44 mode=InGame level=00 command=SetMusicSpeed(122)"
+        );
+    }
+
+    #[test]
+    fn queued_gems_helpers_return_deltas_and_reset_spans() {
+        let mut prev = trace(GameMode::InGame);
+        let mut curr = trace(GameMode::InGame);
+        prev.played_sound_effect_ids = vec![gems_sfx::JUMP, gems_sfx::BLOCK_HIT];
+        curr.played_sound_effect_ids = vec![
+            gems_sfx::JUMP,
+            gems_sfx::BLOCK_HIT,
+            gems_sfx::NAVIGATE_JINGLE,
+        ];
+
+        assert_eq!(
+            queued_gems_sound_ids_since(&prev, &curr),
+            &[gems_sfx::NAVIGATE_JINGLE],
+            "cumulative sound-id traces emit only the appended frame delta"
+        );
+
+        curr.played_sound_effect_ids = vec![gems_sfx::SCORE_COUNTER];
+        assert_eq!(
+            queued_gems_sound_ids_since(&prev, &curr),
+            &[gems_sfx::SCORE_COUNTER],
+            "shorter current sound-id traces are post-reset spans and replay in full"
+        );
+
+        prev.played_sound_commands = vec![
+            NativeSoundCommand::start_sequence(gems_sfx::JUMP),
+            NativeSoundCommand::start_sequence(gems_sfx::BLOCK_HIT),
+        ];
+        curr.played_sound_commands = vec![
+            NativeSoundCommand::start_sequence(gems_sfx::JUMP),
+            NativeSoundCommand::start_sequence(gems_sfx::BLOCK_HIT),
+            NativeSoundCommand::stop_sequence(gems_sfx::SCORE_COUNTER),
+        ];
+        assert_eq!(
+            queued_gems_sound_commands_since(&prev, &curr),
+            vec![NativeSoundCommand::stop_sequence(gems_sfx::SCORE_COUNTER)],
+            "typed sound-command traces preserve the command-byte delta"
+        );
+
+        curr.played_sound_commands =
+            vec![NativeSoundCommand::start_sequence(gems_sfx::METAL_BLOCK)];
+        assert_eq!(
+            queued_gems_sound_commands_since(&prev, &curr),
+            vec![NativeSoundCommand::start_sequence(gems_sfx::METAL_BLOCK)],
+            "shorter current command traces are post-reset spans and replay in full"
+        );
+
+        curr.played_sound_commands.clear();
+        assert_eq!(
+            queued_gems_sound_commands_since(&prev, &curr),
+            vec![NativeSoundCommand::start_sequence(gems_sfx::SCORE_COUNTER)],
+            "legacy traces without command bytes fall back to start-sequence commands from sound ids"
+        );
+    }
+
+    #[test]
+    fn queued_gems_music_speed_helpers_return_deltas_and_reset_spans() {
+        let mut prev = trace(GameMode::InGame);
+        let mut curr = trace(GameMode::InGame);
+        prev.played_music_speed_updates = vec![0x7E, 0x7A];
+        curr.played_music_speed_updates = vec![0x7E, 0x7A, 0x76];
+
+        assert_eq!(queued_gems_music_speed_updates_since(&prev, &curr), &[0x76]);
+        assert_eq!(
+            gems_event_music_speed_updates(&prev, &curr),
+            vec![0x76],
+            "ASM-backed music-speed trace updates are cumulative, so only the new tail should replay"
+        );
+
+        curr.played_music_speed_updates = vec![0x74];
+        assert_eq!(
+            queued_gems_music_speed_updates_since(&prev, &curr),
+            &[0x74],
+            "shorter current speed traces are post-reset spans and replay in full"
+        );
+    }
+
+    #[test]
+    fn native_audio_sound_classifiers_match_gems_ids() {
+        for sound_id in [
+            gems_sfx::VOICE_OUCH,
+            gems_sfx::VOICE_OUCH_1,
+            gems_sfx::VOICE_OUCH_2,
+            gems_sfx::VOICE_OUCH_3,
+        ] {
+            assert!(is_ouch_sound_id(sound_id));
+            assert!(is_damage_resolution_voice_sound_id(sound_id));
+        }
+
+        assert!(is_damage_resolution_voice_sound_id(gems_sfx::VOICE_DIE));
+        for sound_id in [gems_sfx::JUMP, gems_sfx::BLOCK_HIT] {
+            assert!(!is_ouch_sound_id(sound_id));
+            assert!(!is_damage_resolution_voice_sound_id(sound_id));
+        }
+
+        for sound_id in [
+            gems_sfx::DESTROY_BLOCK,
+            gems_sfx::METAL_BLOCK,
+            gems_sfx::RUBBER_BLOCK,
+        ] {
+            assert!(is_explicit_block_sound_id(sound_id));
+        }
+        assert!(!is_explicit_block_sound_id(gems_sfx::BLOCK_HIT));
+
+        for sound_id in [
+            gems_sfx::IRON_KNIGHT_TRANSFORM,
+            gems_sfx::MANIAXE_TRANSFORM,
+            gems_sfx::RED_STEALTH_TRANSFORM,
+            gems_sfx::BERZERKER_TRANSFORM,
+            gems_sfx::SKYCUTTER_TRANSFORM,
+            gems_sfx::EYECLOPS_TRANSFORM,
+            gems_sfx::CYCLONE_TRANSFORM,
+            gems_sfx::MICROMAX_TRANSFORM,
+            gems_sfx::JUGGERNAUT_TRANSFORM,
+        ] {
+            assert!(is_transform_sound_id(sound_id));
+        }
+        assert!(!is_transform_sound_id(gems_sfx::MANIAXE_THROW));
+    }
+
+    #[test]
+    fn transform_sound_for_helmet_id_matches_loc_7cd0_table() {
+        let expected = [
+            (1, gems_sfx::SKYCUTTER_TRANSFORM),
+            (2, gems_sfx::CYCLONE_TRANSFORM),
+            (3, gems_sfx::RED_STEALTH_TRANSFORM),
+            (4, gems_sfx::EYECLOPS_TRANSFORM),
+            (5, gems_sfx::JUGGERNAUT_TRANSFORM),
+            (6, gems_sfx::IRON_KNIGHT_TRANSFORM),
+            (7, gems_sfx::BERZERKER_TRANSFORM),
+            (8, gems_sfx::MANIAXE_TRANSFORM),
+            (9, gems_sfx::MICROMAX_TRANSFORM),
+        ];
+
+        for (helmet_id, sound_id) in expected {
+            assert_eq!(
+                transform_sound_for_helmet_id_loc_7cd0(helmet_id),
+                Some(sound_id),
+                "ASM loc_7CD0 maps Current_Helmet through unk_7ED8"
+            );
+        }
+        assert_eq!(transform_sound_for_helmet_id_loc_7cd0(0), None);
+        assert_eq!(transform_sound_for_helmet_id_loc_7cd0(10), None);
+    }
+
+    #[test]
     fn native_audio_director_initial_bgm_primes_sink_without_duplicate_start() {
         let manifest = test_manifest();
         let mut sink = RecordingAudioSink::default();
