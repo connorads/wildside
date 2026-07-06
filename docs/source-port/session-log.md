@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive ROM verifier mutation verification
+
+- Project-status still showed no ready/open risks after the MD VDP renderer
+  slice, so mutation-tested the small ROM verifier/parser crate in
+  `wildside-rom/src/lib.rs`.
+- Scope: default ROM candidate lookup, Kid Chameleon Mega Drive header parsing,
+  ASCII header field trimming/NUL handling, SHA-1 identity surfacing, and
+  verification error paths.
+- Focused ROM verifier tests already covered the contract. Mutation at
+  `/tmp/mutants-rom-lib-20260706-initial` reported 26 mutants tested: 24
+  caught, 2 unviable, 0 missed. No code changes were needed.
+
 ## 2026-07-06 - proactive MD VDP mutation hardening
 
 - Project-status still showed no ready/open risks after the frame scene
