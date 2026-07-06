@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene EOL palette mutation hardening
+
+- Project-status still showed no ready/open risks after the EOL position slice,
+  so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `eol_score_room_palette_loc_d734`.
+- Initial mutation at `/tmp/mutants-frame-scene-eol-palette-20260706-initial`
+  reported 11 mutants tested: 7 caught, 1 unviable, and 3 missed. Added
+  ASM-cited frame-scene coverage for `loc_D734` score-room palette boundary
+  timing, `sub_14C0` final room-colour fading, and the native oracle-bright
+  grid-colour preservation.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 137 tests after
+  the new regression. Focused regression
+  `cargo test -q -p wildside-frame --lib eol_score_room_palette_fades_on_loc_d734_boundary`
+  passed. Final mutation at
+  `/tmp/mutants-frame-scene-eol-palette-20260706-final` reported 11 mutants
+  tested: 10 caught, 1 unviable, and 0 missed.
+
 ## 2026-07-06 - proactive frame scene EOL position mutation hardening
 
 - Project-status still showed no ready/open risks after the teleport/fade slice,

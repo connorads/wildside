@@ -8485,6 +8485,43 @@ mod tests {
     }
 
     #[test]
+    fn eol_score_room_palette_fades_on_loc_d734_boundary() {
+        let palette = Palette {
+            colours: [0x0866, 0x00CE, 0x0000, 0x0040, 0x00E0, 0x0EEE]
+                .into_iter()
+                .map(MdColour::from_word)
+                .collect(),
+        };
+        let before_fade_trace = NativeTraceFrame {
+            level_complete_score_rows_elapsed_frames:
+                EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE - 1,
+            ..NativeTraceFrame::default()
+        };
+        let fade_boundary_trace = NativeTraceFrame {
+            level_complete_score_rows_elapsed_frames:
+                EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE,
+            ..NativeTraceFrame::default()
+        };
+
+        assert_eq!(
+            palette_raw_words(&eol_score_room_palette_loc_d734(
+                &before_fade_trace,
+                &palette
+            )),
+            vec![0x0866, 0x00CE, 0x0000, 0x0040, 0x00E0, 0x0EEE],
+            "ASM loc_D734 waits eight Hibernate_Object_1Frame iterations before the final score-room palette is visible"
+        );
+        assert_eq!(
+            palette_raw_words(&eol_score_room_palette_loc_d734(
+                &fade_boundary_trace,
+                &palette
+            )),
+            vec![0x0433, 0x0067, 0x0000, 0x0040, 0x00E0, 0x0EEE],
+            "ASM loc_D734/sub_14C0 fades room colours at the eighth tick while native keeps the oracle-bright grid colours"
+        );
+    }
+
+    #[test]
     fn pause_menu_tile_cursor_rewrites_only_live_slots_loc_6b0e() {
         for (pause_menu_option, expected_top, expected_bottom, label) in [
             (
@@ -11927,5 +11964,13 @@ mod tests {
         let mut palette = sample_palette();
         palette.colours[0] = MdColour::from_word(word);
         palette
+    }
+
+    fn palette_raw_words(palette: &Palette) -> Vec<u16> {
+        palette
+            .colours
+            .iter()
+            .map(|colour| colour.raw_word)
+            .collect()
     }
 }
