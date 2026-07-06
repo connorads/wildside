@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive CLI oracle-cache mutation refresh
+
+- Project-status still showed no ready/open risks after the CLI release-gate
+  slice, so refreshed current-HEAD mutation evidence for
+  `wildside-cli/src/cache.rs`.
+- Scope: oracle-cache deterministic keying, cache-version invalidation, cache
+  directory shape, cached manifest loading, frame/audio copy and path rewrite,
+  and stale-frame rejection.
+- Focused `cache::tests` passed. Mutation at
+  `/tmp/mutants-cli-cache-20260706-refresh` reported 9 mutants tested: 7
+  caught, 2 unviable, 0 missed. No code changes were needed.
+
 ## 2026-07-06 - proactive CLI release-gate mutation refresh
 
 - Project-status still showed no ready/open risks after the CLI bootstrap
