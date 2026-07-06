@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene block debris mutation hardening
+
+- Project-status still showed no ready/open risks after the shooter/Lion
+  projectile slice, so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `block_debris_velocity_sub_292e|push_block_destroy_debris_sub_292e`.
+- Initial mutation at `/tmp/mutants-frame-scene-block-debris-20260706-initial`
+  reported 33 mutants tested: 7 caught and 26 missed. Added ASM-cited
+  frame-scene coverage for `sub_292E` direction velocity tables, seeded debris
+  offsets, camera-relative draw positions, `sub_2A4C` tile `$8228` resolution,
+  and the missing block-art guard.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 126 tests.
+  Final mutation at `/tmp/mutants-frame-scene-block-debris-20260706-final`
+  reported 33 mutants tested: 33 caught and 0 missed.
+
 ## 2026-07-06 - proactive frame scene shooter/Lion projectile mutation hardening
 
 - Project-status still showed no ready/open risks after the Fire Demon trail

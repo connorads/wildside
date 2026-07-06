@@ -8222,6 +8222,81 @@ mod tests {
     }
 
     #[test]
+    fn block_debris_velocity_tables_match_asm_sub_292e_all_directions() {
+        for (direction, expected, label) in [
+            (
+                2,
+                [(-1, -4), (-1, -3), (1, -3), (1, -4), (1, -5)],
+                "ASM sub_292E loc_2988 uses `unk_29FC`/`unk_2A06`",
+            ),
+            (
+                0,
+                [(-1, -2), (-2, 0), (1, 0), (1, -1), (-1, -2)],
+                "ASM sub_292E loc_297A uses `unk_2A10`/`unk_2A1A`",
+            ),
+            (
+                1,
+                [(-5, -3), (-4, -3), (-3, -3), (-2, -3), (-1, -3)],
+                "ASM sub_292E loc_296C uses `unk_2A38`/`unk_2A42`",
+            ),
+            (
+                3,
+                [(5, -3), (4, -3), (3, -3), (2, -3), (1, -3)],
+                "ASM sub_292E fallthrough uses `unk_2A24`/`unk_2A2E`",
+            ),
+            (
+                7,
+                [(5, -3), (4, -3), (3, -3), (2, -3), (1, -3)],
+                "ASM sub_292E non-0/1/2 directions share the fallthrough table",
+            ),
+        ] {
+            assert_eq!(
+                block_debris_velocity_sub_292e(direction),
+                &expected,
+                "{label}"
+            );
+        }
+    }
+
+    #[test]
+    fn block_destroy_debris_sub_292e_emits_camera_relative_rom_tiles() {
+        let mut visuals = sample_level_visuals(9);
+        visuals.block_tiles = sample_tile_sheet_with_pixel(9, 0x44);
+        let mut commands = Vec::new();
+
+        assert!(
+            push_block_destroy_debris_sub_292e(&mut commands, &visuals, 80, 96, 2, 11, 13),
+            "ASM sub_292E/sub_2A4C should resolve debris tile `$8228` from block-art VRAM"
+        );
+        assert_eq!(
+            commands
+                .iter()
+                .map(indexed_tile_snapshot)
+                .collect::<Vec<_>>(),
+            vec![
+                (68, 79, 0x08, true),
+                (68, 88, 0x08, true),
+                (78, 88, 0x08, true),
+                (78, 79, 0x08, true),
+                (74, 82, 0x08, true),
+            ],
+            "ASM sub_292E seeds `unk_29E8`/`unk_29F2`, applies loc_2988 velocity, then sub_2A4C writes tile `$8228` after camera subtraction"
+        );
+        let DrawCommand::IndexedTile { tile_sheet, .. } = commands[0].clone() else {
+            panic!("ASM sub_2A4C debris should emit indexed block-art tiles");
+        };
+        assert_eq!(tile_sheet.tiles[8].pixels[0], 0x44);
+
+        let short_visuals = sample_level_visuals(8);
+        commands.clear();
+        assert!(
+            !push_block_destroy_debris_sub_292e(&mut commands, &short_visuals, 80, 96, 2, 11, 13),
+            "ASM sub_2A4C tile `$8228` requires block-art local tile `$08` to be loaded"
+        );
+        assert!(commands.is_empty());
+    }
+
+    #[test]
     fn shooter_block_projectile_tail_loc_ef62_matches_direction_tile_words() {
         for (x_velocity, y_velocity, expected, label) in [
             (0, -1, (-4, -8, 0x8295), "ASM loc_EF62 up tail"),
