@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive render background mutation refresh
+
+- Project-status still showed no ready/open risks after the CLI
+  rust-source-context slice, so refreshed current-HEAD mutation evidence for
+  `wildside-render/src/background.rs`.
+- Scope: ASM `loc_12830` chunked-layout parsing, chunk dimension/payload
+  validation, layered background prefix parsing, 32-tile plane row parsing,
+  overflow row composition, and tail clamping.
+- Focused `cargo test -q -p wildside-render background -- --nocapture` passed:
+  19 tests passed, 0 failed. Mutation at
+  `/tmp/mutants-render-background-20260706-refresh` reported 69 mutants tested:
+  62 caught, 7 unviable, and 0 missed. No code changes were needed.
+
 ## 2026-07-06 - proactive CLI rust-source-context mutation refresh
 
 - Project-status still showed no ready/open risks after the diff-helper slice,
