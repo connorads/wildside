@@ -1397,9 +1397,20 @@ fn push_title_card_glyph_tiles(
     };
     let cols = frame.width_px / 8;
     let rows = frame.height_px / 8;
+    let Some(last_tile_offset) = cols
+        .checked_mul(rows)
+        .and_then(|count| count.checked_sub(1))
+    else {
+        return false;
+    };
+    let Some(last_tile_index) = frame.tile_offset.checked_add(last_tile_offset) else {
+        return false;
+    };
+    if usize::from(last_tile_index) >= art.tile_sheet.tiles.len() {
+        return false;
+    }
     let palette = Arc::new(art.palette.clone());
     let tile_sheet = Arc::new(art.tile_sheet.clone());
-    let mut emitted = 0u32;
     for col in 0..cols {
         for row in 0..rows {
             // ASM sprite VRAM layout is column-major: tile_offset advances by
@@ -1407,9 +1418,6 @@ fn push_title_card_glyph_tiles(
             // column-first tile order keeps the rendered letter pixel-for-
             // pixel aligned with `sprite_frame_vram`.
             let tile_index = frame.tile_offset + (col * rows) + row;
-            if usize::from(tile_index) >= tile_sheet.tiles.len() {
-                continue;
-            }
             commands.push(DrawCommand::IndexedTile {
                 x: sx + i32::from(col) * 8,
                 y: sy + i32::from(row) * 8,
@@ -1429,10 +1437,9 @@ fn push_title_card_glyph_tiles(
                 },
                 palette: palette.clone(),
             });
-            emitted += 1;
         }
     }
-    emitted > 0
+    true
 }
 
 pub fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible: bool) -> Scene {
@@ -8143,6 +8150,52 @@ mod tests {
     };
 
     #[test]
+    fn title_card_glyph_tiles_follow_loc_1ac70_sprite_table_and_bounds() {
+        let art = sample_title_card_letters_visuals(0x70);
+        let mut commands = Vec::new();
+
+        assert!(
+            push_title_card_glyph_tiles(&mut commands, &art, 0x7B, 0x23, -0x10),
+            "ASM loc_1AC70 should resolve glyph $7B through off_1AC2A and loaded title-card letter art"
+        );
+
+        let snapshots = commands
+            .indexed_tiles()
+            .into_iter()
+            .map(indexed_tile_snapshot)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            snapshots,
+            vec![
+                (0x23, -0x10, 0x066, false),
+                (0x23, -0x08, 0x067, false),
+                (0x23, 0x00, 0x068, false),
+                (0x23, 0x08, 0x069, false),
+                (0x2B, -0x10, 0x06A, false),
+                (0x2B, -0x08, 0x06B, false),
+                (0x2B, 0x00, 0x06C, false),
+                (0x2B, 0x08, 0x06D, false),
+            ],
+            "ASM loc_1AC70/off_1AC2A renders glyph $7B as a 2x4 tile sprite in column-major VRAM order"
+        );
+
+        let mut invalid_commands = Vec::new();
+        assert!(
+            !push_title_card_glyph_tiles(&mut invalid_commands, &art, 0x84, 0, 0),
+            "ASM loc_1ABEA treats glyph $84 as spacing, not a loc_1AC70 sprite worker"
+        );
+        assert!(invalid_commands.is_empty());
+
+        let short_art = sample_title_card_letters_visuals(0x06D);
+        let mut short_commands = Vec::new();
+        assert!(
+            !push_title_card_glyph_tiles(&mut short_commands, &short_art, 0x7B, 0, 0),
+            "ASM loc_1AC70 must fall back unless the loaded sheet contains every sprite_frame_vram tile"
+        );
+        assert!(short_commands.is_empty());
+    }
+
+    #[test]
     fn fire_demon_trail_sprite_uses_loaded_family_tile_sheet_loc_3a63c() {
         let mut visuals = sample_level_visuals(1);
         visuals.enemies.families.insert(
@@ -12470,6 +12523,15 @@ mod tests {
                     .collect()
             })
             .collect()
+    }
+
+    fn sample_title_card_letters_visuals(
+        tile_count: usize,
+    ) -> wildside_render::TitleCardLettersVisuals {
+        wildside_render::TitleCardLettersVisuals {
+            tile_sheet: sample_tile_sheet(tile_count),
+            palette: sample_palette(),
+        }
     }
 
     fn sample_eol_score_visuals() -> wildside_render::EolScoreVisuals {

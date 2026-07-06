@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene title-card glyph mutation hardening
+
+- Project-status still showed no ready/open risks after the pause-tilemap
+  slice, so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `push_title_card_glyph_tiles`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-title-card-glyph-tiles-20260706-initial` reported
+  33 mutants tested: 7 caught and 26 missed. Tightened the loaded-art guard so
+  missing title-card letter tiles fall back instead of rendering a partial
+  glyph, and added ASM-cited coverage for `loc_1AC70`/`off_1AC2A` column-major
+  sprite tiles, screen positions, invalid spacing glyphs, and short sheets.
+- Focused regression
+  `cargo test -q -p wildside-frame --lib title_card_glyph_tiles_follow_loc_1ac70_sprite_table_and_bounds`
+  passed. Final mutation at
+  `/tmp/mutants-frame-scene-title-card-glyph-tiles-20260706-final` reported 28
+  mutants tested: 28 caught and 0 missed.
+
 ## 2026-07-06 - proactive frame scene pause-tilemap mutation hardening
 
 - Project-status still showed no ready/open risks after the pause-text slice,
