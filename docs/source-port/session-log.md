@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive CLI bootstrap helper mutation hardening
+
+- Project-status still showed no ready/open risks after the MD controller
+  slice, so mutation-tested `wildside-cli/src/bootstrap.rs`.
+- Initial mutation at `/tmp/mutants-cli-bootstrap-full-20260706-initial`
+  reported 52 mutants tested: 12 caught, 9 unviable, 31 missed. Survivors
+  covered public layout wrappers, pinned repo/upstream bootstrap error paths,
+  prepare-lock cleanup/timeout handling, ROM sync/reference build checks,
+  ASL tool detection, command helpers, and reference summary output.
+- Added focused temp-dir tests plus a small prepare-lock clock/sleep seam and
+  returnable reference summary text. Final mutation at
+  `/tmp/mutants-cli-bootstrap-full-20260706-final2` reported 56 mutants tested:
+  46 caught, 10 unviable, 0 missed.
+
 ## 2026-07-06 - proactive MD controller mutation hardening
 
 - Project-status still showed no ready/open risks after the MD audio mixer

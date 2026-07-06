@@ -1,5 +1,6 @@
 use anyhow::{Context, Result, anyhow, bail};
 use clap::ValueEnum;
+use std::fmt::Write as _;
 use std::fs;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
@@ -49,12 +50,14 @@ pub(crate) struct BootstrappedReference {
     pub(crate) purpose: &'static str,
 }
 
+#[derive(Debug)]
 pub(crate) struct NativeAslTools {
     pub(crate) root: PathBuf,
     pub(crate) asl: PathBuf,
     pub(crate) p2bin: PathBuf,
 }
 
+#[derive(Debug)]
 pub(crate) struct PrepareLock {
     path: PathBuf,
 }
@@ -347,11 +350,31 @@ where
 }
 
 pub(crate) fn acquire_prepare_lock(repo_root: &Path) -> Result<PrepareLock> {
+    acquire_prepare_lock_with_clock(
+        repo_root,
+        Duration::from_secs(30),
+        Duration::from_millis(200),
+        Instant::now,
+        thread::sleep,
+    )
+}
+
+fn acquire_prepare_lock_with_clock<FNow, FSleep>(
+    repo_root: &Path,
+    timeout: Duration,
+    retry_delay: Duration,
+    mut now: FNow,
+    mut sleep: FSleep,
+) -> Result<PrepareLock>
+where
+    FNow: FnMut() -> Instant,
+    FSleep: FnMut(Duration),
+{
     let lock_dir = repo_root.join(".cache/generated");
     fs::create_dir_all(&lock_dir)
         .with_context(|| format!("failed to create {}", lock_dir.display()))?;
     let lock_path = lock_dir.join(".prepare.lock");
-    let deadline = Instant::now() + Duration::from_secs(30);
+    let deadline = now() + timeout;
     loop {
         match OpenOptions::new()
             .write(true)
@@ -360,13 +383,13 @@ pub(crate) fn acquire_prepare_lock(repo_root: &Path) -> Result<PrepareLock> {
         {
             Ok(_) => return Ok(PrepareLock { path: lock_path }),
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                if Instant::now() >= deadline {
+                if now() >= deadline {
                     bail!(
                         "timed out waiting for asset prepare lock at {}",
                         lock_path.display()
                     );
                 }
-                thread::sleep(Duration::from_millis(200));
+                sleep(retry_delay);
             }
             Err(error) => {
                 return Err(error)
@@ -546,17 +569,30 @@ pub(crate) fn run_command(command: &mut Command, cwd: Option<&Path>) -> Result<(
 pub(crate) fn print_bootstrapped_references(
     reference_root: &Path,
     references: &[BootstrappedReference],
-) {
-    println!("reference root: {}", reference_root.display());
+) -> String {
+    let output = format_bootstrapped_references(reference_root, references);
+    print!("{output}");
+    output
+}
+
+fn format_bootstrapped_references(
+    reference_root: &Path,
+    references: &[BootstrappedReference],
+) -> String {
+    let mut output = format!("reference root: {}\n", reference_root.display());
     for reference in references {
-        println!(
+        writeln!(
+            &mut output,
             "{}: {} @ {}",
             reference.name,
             reference.path.display(),
             reference.commit
-        );
-        println!("purpose: {}", reference.purpose);
+        )
+        .expect("writing to a String should not fail");
+        writeln!(&mut output, "purpose: {}", reference.purpose)
+            .expect("writing to a String should not fail");
     }
+    output
 }
 
 fn render_command(command: &Command, cwd: &Path) -> String {
@@ -572,7 +608,7 @@ fn render_command(command: &Command, cwd: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::RefCell;
+    use std::cell::{Cell, RefCell};
     use tempfile::TempDir;
 
     fn manifest_with_output_root(output_root: PathBuf) -> AssetManifest {
@@ -605,6 +641,78 @@ mod tests {
             b"blocks",
         )
         .expect("blocklist");
+    }
+
+    fn file_child_path(temp: &TempDir) -> PathBuf {
+        let file_parent = temp.path().join("not-a-dir");
+        fs::write(&file_parent, b"file").expect("file parent");
+        file_parent.join("child")
+    }
+
+    fn write_ascii(rom: &mut [u8], start: usize, len: usize, text: &str) {
+        let bytes = text.as_bytes();
+        let end = start + len.min(bytes.len());
+        rom[start..end].copy_from_slice(&bytes[..end - start]);
+    }
+
+    fn write_test_rom(path: &Path) -> VerifiedRom {
+        let mut rom = vec![0_u8; 0x200];
+        write_ascii(&mut rom, 0x100, 0x10, "SEGA MEGA DRIVE");
+        write_ascii(&mut rom, 0x120, 0x30, "KID CHAMELEON");
+        write_ascii(&mut rom, 0x150, 0x30, "KID CHAMELEON");
+        write_ascii(&mut rom, 0x180, 0x0E, "GM MK-1010");
+        write_ascii(&mut rom, 0x1F0, 0x10, "JUE");
+        fs::write(path, rom).expect("test ROM");
+        verify_rom(path).expect("test ROM should verify")
+    }
+
+    fn run_git(args: &[&str], cwd: &Path) {
+        let status = Command::new("git")
+            .args(args)
+            .current_dir(cwd)
+            .status()
+            .expect("git should run");
+        assert!(status.success(), "git {args:?} failed in {}", cwd.display());
+    }
+
+    fn setup_local_asl_checkout(repo_root: &Path, makefile: &str, existing_tools: &[&str]) {
+        let remote_work = repo_root.join("origin-work");
+        fs::create_dir_all(&remote_work).expect("origin worktree");
+        run_git(&["init"], &remote_work);
+        run_git(&["checkout", "-b", "main"], &remote_work);
+        fs::write(remote_work.join("Makefile.def"), b"# generated for test\n")
+            .expect("Makefile.def");
+        run_git(&["add", "Makefile.def"], &remote_work);
+        run_git(
+            &[
+                "-c",
+                "user.email=connorads@users.noreply.github.com",
+                "-c",
+                "user.name=Wildside Test",
+                "commit",
+                "--no-verify",
+                "-m",
+                "seed",
+            ],
+            &remote_work,
+        );
+        run_git(&["branch", "upstream"], &remote_work);
+
+        let source_dir = repo_root.join(".cache/tooling/asl-releases");
+        fs::create_dir_all(source_dir.parent().expect("source parent")).expect("tooling parent");
+        let status = Command::new("git")
+            .arg("clone")
+            .arg(&remote_work)
+            .arg(&source_dir)
+            .current_dir(repo_root)
+            .status()
+            .expect("git clone should run");
+        assert!(status.success(), "git clone failed");
+
+        fs::write(source_dir.join("Makefile"), makefile).expect("Makefile");
+        for tool in existing_tools {
+            fs::write(source_dir.join(tool), b"tool").expect("existing tool");
+        }
     }
 
     #[test]
@@ -727,5 +835,300 @@ mod tests {
         assert!(calls.contains(&0x1F));
         assert!(calls.contains(&0x35));
         assert!(!calls.contains(&0x09));
+    }
+
+    #[test]
+    fn public_layout_wrappers_report_missing_rom_before_dumping() {
+        let temp = TempDir::new().expect("tempdir");
+        let manifest = manifest_with_output_root(temp.path().to_path_buf());
+        let missing_rom = temp.path().join("missing.bin");
+
+        for error in [
+            ensure_level_layouts(&missing_rom, &manifest, &[0x01])
+                .expect_err("explicit layout wrapper should read ROM"),
+            ensure_gameplay_level_layouts(
+                &missing_rom,
+                &manifest,
+                GameplayScenario::PauseResumeLevel1,
+            )
+            .expect_err("gameplay layout wrapper should read ROM"),
+            ensure_play_native_level_layouts(&missing_rom, &manifest, Some(0x01))
+                .expect_err("play-native layout wrapper should read ROM"),
+        ] {
+            assert!(
+                error.to_string().contains("failed to read ROM"),
+                "unexpected error: {error:#}"
+            );
+        }
+    }
+
+    #[test]
+    fn bootstrap_repo_entrypoints_surface_parent_create_errors() {
+        let temp = TempDir::new().expect("tempdir");
+
+        for error in [
+            bootstrap_upstream(&file_child_path(&temp))
+                .expect_err("upstream bootstrap should fail before git"),
+            bootstrap_pinned_repo(
+                &file_child_path(&temp),
+                "https://example.invalid/repo.git",
+                "abc",
+            )
+            .expect_err("pinned repo bootstrap should fail before git"),
+            bootstrap_references(&file_child_path(&temp), Some(ReferenceName::M68k))
+                .expect_err("reference bootstrap should fail before git"),
+        ] {
+            assert!(
+                error.to_string().contains("failed to create"),
+                "unexpected error: {error:#}"
+            );
+        }
+    }
+
+    #[test]
+    fn prepare_lock_drop_removes_lock_file() {
+        let temp = TempDir::new().expect("tempdir");
+        let lock_path = temp.path().join(".cache/generated/.prepare.lock");
+
+        {
+            let _lock = acquire_prepare_lock(temp.path()).expect("lock should be acquired");
+            assert!(lock_path.is_file());
+        }
+
+        assert!(
+            !lock_path.exists(),
+            "dropping the lock should remove the file"
+        );
+    }
+
+    #[test]
+    fn prepare_lock_waits_then_times_out_on_existing_lock() {
+        let temp = TempDir::new().expect("tempdir");
+        let lock_dir = temp.path().join(".cache/generated");
+        fs::create_dir_all(&lock_dir).expect("lock dir");
+        fs::write(lock_dir.join(".prepare.lock"), b"held").expect("held lock");
+
+        let start = Instant::now();
+        let now_calls = Cell::new(0);
+        let sleep_calls = Cell::new(0);
+        let error = acquire_prepare_lock_with_clock(
+            temp.path(),
+            Duration::from_millis(10),
+            Duration::from_millis(3),
+            || {
+                let call = now_calls.get();
+                now_calls.set(call + 1);
+                match call {
+                    0 => start,
+                    1 => start + Duration::from_millis(1),
+                    _ => start + Duration::from_millis(11),
+                }
+            },
+            |delay| {
+                assert_eq!(delay, Duration::from_millis(3));
+                sleep_calls.set(sleep_calls.get() + 1);
+            },
+        )
+        .expect_err("held lock should time out");
+
+        assert!(
+            error.to_string().contains("timed out waiting"),
+            "unexpected error: {error:#}"
+        );
+        assert_eq!(sleep_calls.get(), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn prepare_lock_reports_non_already_exists_open_errors_without_retry() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = TempDir::new().expect("tempdir");
+        let lock_dir = temp.path().join(".cache/generated");
+        fs::create_dir_all(&lock_dir).expect("lock dir");
+        let original_permissions = fs::metadata(&lock_dir)
+            .expect("lock dir metadata")
+            .permissions();
+        fs::set_permissions(&lock_dir, fs::Permissions::from_mode(0o500))
+            .expect("make lock dir read-only");
+
+        let result = acquire_prepare_lock_with_clock(
+            temp.path(),
+            Duration::from_secs(1),
+            Duration::from_millis(1),
+            Instant::now,
+            |_| panic!("non-AlreadyExists lock errors must not retry"),
+        );
+
+        fs::set_permissions(&lock_dir, original_permissions).expect("restore permissions");
+        let error = result.expect_err("read-only lock dir should fail");
+        assert!(
+            error.to_string().contains("failed to open"),
+            "unexpected error: {error:#}"
+        );
+    }
+
+    #[test]
+    fn sync_rom_into_upstream_copies_rom_to_kid_bin() {
+        let temp = TempDir::new().expect("tempdir");
+        let rom_path = temp.path().join("source.bin");
+        let upstream_dir = temp.path().join("upstream");
+        fs::create_dir_all(&upstream_dir).expect("upstream dir");
+        fs::write(&rom_path, b"rom bytes").expect("source ROM");
+
+        sync_rom_into_upstream(&rom_path, &upstream_dir).expect("ROM sync");
+
+        assert_eq!(
+            fs::read(upstream_dir.join("kid.bin")).expect("upstream ROM"),
+            b"rom bytes"
+        );
+    }
+
+    #[test]
+    fn run_reference_build_accepts_bitperfect_local_build_script() {
+        let temp = TempDir::new().expect("tempdir");
+        let rom_path = temp.path().join("kid.bin");
+        let verified = write_test_rom(&rom_path);
+        let upstream_dir = temp.path().join("upstream");
+        fs::create_dir_all(&upstream_dir).expect("upstream dir");
+        fs::write(upstream_dir.join("split.py"), b"").expect("split script");
+        fs::write(
+            upstream_dir.join("build.sh"),
+            b"#!/bin/sh\ncp kid.bin kid_built.bin\n",
+        )
+        .expect("build script");
+
+        run_reference_build(temp.path(), &upstream_dir, &verified)
+            .expect("local bit-perfect build should pass");
+    }
+
+    #[test]
+    fn run_reference_build_reports_missing_source_rom() {
+        let temp = TempDir::new().expect("tempdir");
+        let rom_path = temp.path().join("kid.bin");
+        let verified = write_test_rom(&rom_path);
+        fs::remove_file(&rom_path).expect("remove source ROM");
+
+        let error = run_reference_build(temp.path(), &temp.path().join("upstream"), &verified)
+            .expect_err("missing source ROM should fail")
+            .to_string();
+
+        assert!(
+            error.contains("failed to copy ROM"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn build_reference_rom_reports_failure_when_no_build_path_succeeds() {
+        let temp = TempDir::new().expect("tempdir");
+        let upstream_dir = temp.path().join("upstream");
+        fs::create_dir_all(&upstream_dir).expect("upstream dir");
+        fs::write(upstream_dir.join("build.sh"), b"#!/bin/sh\nexit 1\n").expect("build script");
+        let source_dir = temp.path().join(".cache/tooling/asl-releases");
+        fs::create_dir_all(source_dir.parent().expect("source parent")).expect("tooling parent");
+        fs::write(&source_dir, b"not a directory").expect("file at tooling path");
+
+        let error = build_reference_rom(temp.path(), &upstream_dir)
+            .expect_err("failed bundled and native builds should error")
+            .to_string();
+
+        assert!(
+            error.contains("failed to execute command") || error.contains("Not a directory"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn ensure_native_asl_tools_reports_parent_create_error_before_git() {
+        let temp = TempDir::new().expect("tempdir");
+        let tooling_parent = temp.path().join(".cache/tooling");
+        fs::create_dir_all(tooling_parent.parent().expect("cache parent")).expect("cache dir");
+        fs::write(&tooling_parent, b"file").expect("file at tooling parent");
+
+        let error = ensure_native_asl_tools(temp.path())
+            .expect_err("file parent should fail before git")
+            .to_string();
+
+        assert!(
+            error.contains("failed to create"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn ensure_native_asl_tools_builds_when_either_binary_is_missing() {
+        let temp = TempDir::new().expect("tempdir");
+        setup_local_asl_checkout(
+            temp.path(),
+            "all:\n\tprintf asl > asl\n\tprintf p2bin > p2bin\n",
+            &["asl"],
+        );
+
+        let tools = ensure_native_asl_tools(temp.path()).expect("ASL tools");
+
+        assert!(tools.asl.is_file());
+        assert!(tools.p2bin.is_file());
+    }
+
+    #[test]
+    fn ensure_native_asl_tools_does_not_rebuild_when_binaries_exist() {
+        let temp = TempDir::new().expect("tempdir");
+        setup_local_asl_checkout(temp.path(), "all:\n\texit 42\n", &["asl", "p2bin"]);
+
+        let tools = ensure_native_asl_tools(temp.path()).expect("ASL tools");
+
+        assert_eq!(fs::read(&tools.asl).expect("asl"), b"tool");
+        assert_eq!(fs::read(&tools.p2bin).expect("p2bin"), b"tool");
+    }
+
+    #[test]
+    fn command_helpers_report_stdout_and_failures() {
+        let stdout = capture_stdout(Command::new("sh").arg("-c").arg("printf wildside"))
+            .expect("stdout command should pass");
+        assert_eq!(stdout, b"wildside");
+
+        let capture_error = capture_stdout(Command::new("sh").arg("-c").arg("exit 3"))
+            .expect_err("failed stdout command should fail")
+            .to_string();
+        assert!(
+            capture_error.contains("command failed"),
+            "unexpected error: {capture_error}"
+        );
+
+        let run_error = run_command(Command::new("sh").arg("-c").arg("exit 7"), None)
+            .expect_err("failed command should fail")
+            .to_string();
+        assert!(
+            run_error.contains("command failed"),
+            "unexpected error: {run_error}"
+        );
+    }
+
+    #[test]
+    fn rendered_and_printed_reference_summaries_include_root_and_purpose() {
+        let reference = BootstrappedReference {
+            name: "m68k",
+            path: PathBuf::from("/refs/m68k"),
+            commit: "abc123",
+            purpose: "instruction reference",
+        };
+
+        let output = print_bootstrapped_references(Path::new("/refs"), &[reference]);
+
+        assert!(output.contains("reference root: /refs"));
+        assert!(output.contains("m68k: /refs/m68k @ abc123"));
+        assert!(output.contains("purpose: instruction reference"));
+    }
+
+    #[test]
+    fn render_command_includes_cwd_program_and_args() {
+        let mut command = Command::new("python3");
+        command.arg("split.py").arg("--flag");
+
+        assert_eq!(
+            render_command(&command, Path::new("/repo/upstream")),
+            "(cd /repo/upstream && python3 split.py --flag)"
+        );
     }
 }
