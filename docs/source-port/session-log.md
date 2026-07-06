@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame boss/waited selector mutation refresh
+
+- Project-status still showed no ready/open risks after the live selector
+  hardening, so refreshed current-HEAD mutation evidence for
+  `wildside-frame/src/sprites.rs` scoped to
+  `boss_head_death_frame_loc_39ebe|boss_head_death_facing_loc_39ebe|opposite_direction|select_waited_sequence_frame`.
+- Scope: ASM `loc_39EBE` boss-head death frame/facing script boundaries,
+  direction inversion helper, and waited enemy death-sequence frame selection.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 102 tests.
+  Mutation at `/tmp/mutants-frame-sprites-boss-waited-20260706-refresh`
+  reported 31 mutants tested: 29 caught, 2 unviable, and 0 missed. No code
+  changes were needed.
+
 ## 2026-07-06 - proactive frame live enemy selector mutation hardening
 
 - Project-status still showed no ready/open risks after the sprite palette
