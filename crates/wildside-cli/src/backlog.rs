@@ -206,6 +206,27 @@ pub(crate) fn awaiting_human_check_problem(check: &str) -> Option<String> {
     {
         return Some("Check must stay human-facing, not an evidence dump".to_owned());
     }
+    const VAGUE_CHECK_PATTERNS: &[&str] = &[
+        "retest the reported",
+        "reported route",
+        "reported issue",
+        "reported audio symptom",
+        "visual symptom is gone",
+        "issue no longer appears",
+        "behaviour now matches the rom",
+        "control and animation feel correct",
+        "rom behaviour appears",
+        "use the linked audit rows",
+        "capture an exact current native recording or frame that reproduces the reported issue",
+    ];
+    if VAGUE_CHECK_PATTERNS
+        .iter()
+        .any(|pattern| lower.contains(pattern))
+    {
+        return Some(
+            "Check is too vague; name the concrete symptom and validation action".to_owned(),
+        );
+    }
     None
 }
 
@@ -616,6 +637,26 @@ mod tests {
     }
 
     #[test]
+    fn lint_rejects_vague_awaiting_human_check() {
+        for check in [
+            "Retest the reported route and confirm the issue no longer appears in native play.",
+            "Retest on real speakers and confirm the reported audio symptom is gone.",
+            "Use the linked audit rows to choose a concrete repro before more implementation work.",
+            "Capture an exact current native recording or frame that reproduces the reported issue.",
+            "Retest the reported enemy route and confirm the behaviour now matches the ROM.",
+        ] {
+            assert_eq!(
+                awaiting_human_check_problem(check),
+                Some(
+                    "Check is too vague; name the concrete symptom and validation action"
+                        .to_owned()
+                ),
+                "{check}"
+            );
+        }
+    }
+
+    #[test]
     fn unknown_awaiting_human_target_is_allowed_and_counted() {
         let dir = TempDir::new().expect("temp");
         write(&dir, BACKLOG_PATH, CLEAN_BACKLOG);
@@ -624,7 +665,7 @@ mod tests {
             AWAITING_HUMAN_PATH,
             "| # | Status | Pri | System | Target | Check | Summary | Verify |\n\
              |-----|--------|-----|--------|--------|-------|---------|--------|\n\
-             | 300 | [?] | P1 | audio | unknown | Confirm the reported issue no longer appears. | proposed | review |\n",
+             | 300 | [?] | P1 | audio | unknown | Collect the same-form helmet; HP should refill without a long freeze. | proposed | review |\n",
         );
 
         run_backlog_lint(dir.path()).expect("unknown target is visible debt, not failure");

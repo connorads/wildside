@@ -446,6 +446,10 @@ fn render_project_status(report: &ProjectStatusReport) -> String {
         }
         let _ = writeln!(
             output,
+            "    - how to use: run `mise run play-native`; Target says where to play, Check says what to confirm"
+        );
+        let _ = writeln!(
+            output,
             "    - review: human playtest required to close [?]/[b] rows"
         );
     }
@@ -885,6 +889,7 @@ not a table row
         assert!(text.contains("#011 P1 player: play row"));
         assert!(text.contains("#012 P1 render: visual row"));
         assert!(text.contains("#013 [?] P0 audio [audio-device]: Confirm the audio row."));
+        assert!(text.contains("how to use: run `mise run play-native`"));
         assert!(text.contains("review: human playtest required to close [?]/[b] rows"));
         assert!(text.contains("warning row"));
         assert_eq!(print_project_status(&report), text);

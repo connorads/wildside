@@ -33,9 +33,10 @@ The whole loop. The backlog is sharded by reader:
    `[?]`/`[b]` → `backlog-awaiting-human.md`, `[x]`/`[-]` → the resolved index in
    `backlog-archive.md`. Awaiting-human rows must set `Target` (`0xNN`, `boot`,
    `demo`, `demo:0xNN`, `audio-device`, `recording:<slug>`, or `unknown`) and a short
-   overlay-safe `Check` sentence with no links, commands, or regression dump. Append
-   closing evidence to the archive under `#NNN`. Keep the open-queue Verify cells short
-   (evidence belongs in the archive).
+   overlay-safe `Check` sentence with no links, commands, regression dump, or vague
+   "reported route" wording. The `Check` must name the concrete symptom and validation
+   action visible to a playtester. Append closing evidence to the archive under `#NNN`.
+   Keep the open-queue Verify cells short (evidence belongs in the archive).
 8. Update the handoff: prepend a one-paragraph session note to `session-log.md`
    (newest first) and rewrite NOW in `backlog.md` to the current state. NOW is a
    handoff, not a changelog; never let it accrete.
@@ -44,8 +45,9 @@ The whole loop. The backlog is sharded by reader:
 `backlog-archive.md` and stop; never commit churn.**
 
 `mise run backlog-lint` enforces the shape (NOW size, lean open-queue Verify cells,
-awaiting-human `Target`/`Check`, each `#NNN` in exactly one lane, rows in the lane their
-status implies); it runs inside `verify-slice-fast`, so drift fails the gate.
+awaiting-human `Target`/`Check`, concrete non-vague human checks, each `#NNN` in exactly
+one lane, rows in the lane their status implies); it runs inside `verify-slice-fast`, so
+drift fails the gate.
 
 ## Fallback: proactive verification
 

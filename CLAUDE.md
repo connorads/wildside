@@ -154,7 +154,8 @@ Canonical bug/feature backlog, sharded by reader (one row per issue):
   Verify cells short here; table shape is status, priority, system, summary, verify.
 - `docs/source-port/backlog-awaiting-human.md`: `[?]`/`[b]` rows. The agent skips them;
   only a human promotes `[?]`→`[x]` or unblocks `[b]`. Its table adds `Target` and
-  `Check` so tools and playtesters can see the validator surface directly.
+  `Check` so tools and playtesters can see the validator surface directly; `Check`
+  must name the concrete symptom and validation action, not "retest the reported route".
 - `docs/source-port/backlog-archive.md`: resolved (`[x]`/`[-]`) rows and per-issue
   evidence/history (follow-ups, rejected hypotheses, dated logs); grep it by `#NNN`
   (e.g. `grep -n '#238' docs/source-port/backlog-archive.md`) rather than loading the tracker.
@@ -200,8 +201,9 @@ top of `backlog.md` (rewrite it each session; never let it accrete: old handoffs
     `[x]`/`[-]` → the resolved index in `backlog-archive.md`. For awaiting-human rows,
     set `Target` (`0xNN`, `boot`, `demo`, `demo:0xNN`, `audio-device`,
     `recording:<slug>`, or `unknown`) and one short overlay-safe `Check` sentence with
-    no links, shell commands, or regression dump. Append closing evidence to
-    `backlog-archive.md` under its `#NNN` (keep the open-queue Verify cell short).
+    no links, shell commands, regression dump, or vague "reported route" wording.
+    Append closing evidence to `backlog-archive.md` under its `#NNN` (keep the
+    open-queue Verify cell short).
     Rewrite the NOW handoff and prepend a session note to `session-log.md` (newest first);
     `mise run backlog-lint` checks the result.
 9. After 3-5 fixes: run `cargo mutants -p wildside-core -- --lib` to check for test gaps

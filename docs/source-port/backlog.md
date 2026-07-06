@@ -26,7 +26,8 @@ and stop — never commit churn.
 Awaiting-human rows live in `backlog-awaiting-human.md` and add `Target` (`0xNN`,
 `boot`, `demo`, `demo:0xNN`, `audio-device`, `recording:<slug>`, or `unknown`) plus
 a short human-facing `Check` sentence so tools can show exactly what a playtester
-must validate.
+must validate. The `Check` names the symptom and action directly; vague fallbacks like
+"retest the reported route" belong in neither docs nor `project-status`.
 
 ## NOW
 
