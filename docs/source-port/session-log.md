@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame render indexed-pixel mutation refresh
+
+- Project-status still showed no ready/open risks after the text/rectangle
+  render slice, so refreshed current-HEAD mutation evidence for
+  `wildside-frame/src/render.rs` scoped to
+  `command_pixel_write|indexed_tile_pixel_write|indexed_tile_row_pixel_write|indexed_tile_slice_pixel_write|indexed_tile_source_pixel_write`.
+- Scope: draw-command pixel provenance, indexed tile bounds, flip-x/flip-y
+  source coordinate mapping, row/slice clipping, tile lookup, palette lookup,
+  and source pixel metadata.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 101 tests.
+  Mutation at `/tmp/mutants-frame-render-indexed-pixel-20260706-refresh`
+  reported 61 mutants tested: 56 caught, 5 unviable, and 0 missed. No code
+  changes were needed.
+
 ## 2026-07-06 - proactive frame render text/rect mutation refresh
 
 - Project-status still showed no ready/open risks after the frame audio helper
