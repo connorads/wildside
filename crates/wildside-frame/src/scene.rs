@@ -7936,13 +7936,11 @@ fn push_heady_metal_death_wobble(
         r if r > HEADYMETAL_WOBBLE_STAGE_4 => 0x7A120 >> 16,
         _ => 0x927C0 >> 16,
     };
-    let phase = if (trace.frame_index & 0x2) == 0 {
-        -1
+    let (horizontal, vertical) = if (trace.frame_index & 0x2) == 0 {
+        (-amplitude, amplitude)
     } else {
-        1
+        (amplitude, -amplitude)
     };
-    let horizontal = amplitude * phase;
-    let vertical = amplitude * -phase;
 
     push_effect_enemy_sprite(
         commands,
@@ -8148,7 +8146,7 @@ mod tests {
     use std::collections::{BTreeMap, HashMap};
 
     use super::*;
-    use wildside_core::BlockBounceTrace;
+    use wildside_core::{BlockBounceTrace, HeadyMetalDeathPieceTrace, HeadyMetalDeathSplitTrace};
     use wildside_data::BackgroundLayoutAlias;
     use wildside_render::{
         AnimatedSpriteVisual, BackgroundChunk, BackgroundPlacement, BackgroundTile,
@@ -9147,6 +9145,168 @@ mod tests {
             "ordinary floating prizes stay on their sprite/fallback render path"
         );
         assert!(commands.is_empty());
+    }
+
+    #[test]
+    fn heady_metal_death_wobble_uses_loc_37708_tiers_and_phase() {
+        let mut visuals = sample_level_visuals(1);
+        add_heady_metal_death_effect_visuals(&mut visuals);
+
+        for (remaining, frame_index, amplitude, label) in [
+            (
+                HEADYMETAL_WOBBLE_STAGE_1 + 1,
+                0,
+                0x30D40 >> 16,
+                "first tier",
+            ),
+            (
+                HEADYMETAL_WOBBLE_STAGE_1,
+                2,
+                0x493E0 >> 16,
+                "$015E boundary",
+            ),
+            (
+                HEADYMETAL_WOBBLE_STAGE_2,
+                0,
+                0x61A80 >> 16,
+                "$00FA boundary",
+            ),
+            (
+                HEADYMETAL_WOBBLE_STAGE_3,
+                2,
+                0x7A120 >> 16,
+                "$0096 boundary",
+            ),
+            (
+                HEADYMETAL_WOBBLE_STAGE_4,
+                0,
+                0x927C0 >> 16,
+                "$0064 boundary",
+            ),
+        ] {
+            let trace = NativeTraceFrame {
+                frame_index,
+                camera_x_pos: 8 << 16,
+                camera_y_pos: 4 << 16,
+                ..NativeTraceFrame::default()
+            };
+            let mut commands = Vec::new();
+
+            push_heady_metal_death_wobble(
+                &mut commands,
+                &trace,
+                &visuals,
+                100 << 16,
+                80 << 16,
+                remaining,
+            );
+
+            let phase = if frame_index & 0x2 == 0 { -1 } else { 1 };
+            assert_eq!(
+                sprite_snapshots(&commands),
+                expected_heady_metal_wobble_snapshots(92, 76, amplitude, phase),
+                "ASM sub_37708/sub_3787C/sub_378A2 {label} should render from the ROM countdown tier and Frame_Counter bit-1 phase"
+            );
+        }
+    }
+
+    #[test]
+    fn heady_metal_death_split_pieces_render_loc_378d6_worker_positions() {
+        let mut visuals = sample_level_visuals(1);
+        add_heady_metal_death_effect_visuals(&mut visuals);
+        let trace = NativeTraceFrame {
+            camera_x_pos: 8 << 16,
+            camera_y_pos: 4 << 16,
+            heady_metal_death_splits: vec![heady_metal_split_trace(vec![
+                heady_metal_piece(0xFB72, 100, 120),
+                heady_metal_piece(0xFB76, 144, 136),
+            ])],
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_heady_metal_death_split_pieces(&mut commands, &trace, &visuals);
+
+        assert_eq!(
+            sprite_snapshots(&commands),
+            vec![(92, 108, 0x21, false), (136, 124, 0x21, false)],
+            "ASM sub_378C8 loc_378D6 renders the cached split workers from traced post-impulse positions"
+        );
+    }
+
+    #[test]
+    fn effects_scene_prefers_heady_metal_split_pieces_over_wobble_loc_378c8() {
+        let mut visuals = sample_level_visuals(1);
+        add_heady_metal_death_effect_visuals(&mut visuals);
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            game_mode_value: GameMode::InGame.as_disassembly_value(),
+            camera_x_pos: 8 << 16,
+            camera_y_pos: 4 << 16,
+            enemy_death_effects: vec![(100 << 16, 80 << 16, HEADYMETAL_WOBBLE_STAGE_1 + 1)],
+            heady_metal_death_splits: vec![heady_metal_split_trace(vec![
+                heady_metal_piece(0xFB72, 100, 120),
+                heady_metal_piece(0xFB76, 144, 136),
+            ])],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter::solo("effects"),
+        );
+
+        assert_eq!(
+            sprite_snapshots(&scene.commands),
+            vec![(92, 108, 0x21, false), (136, 124, 0x21, false)],
+            "ASM sub_378C8 loc_378D6 takes over once split-worker traces exist; the earlier sub_37708 wobble worker must not render alongside them"
+        );
+    }
+
+    #[test]
+    fn effect_enemy_sprite_skips_missing_or_empty_visual_family() {
+        let mut visuals = sample_level_visuals(1);
+        let mut commands = Vec::new();
+
+        push_effect_enemy_sprite(
+            &mut commands,
+            &visuals,
+            0x21,
+            92,
+            116,
+            Direction::Right,
+            false,
+        );
+        assert!(
+            commands.is_empty(),
+            "ASM sub_378C8 loc_378D6 split pieces require loaded enemy art before native can emit a sprite"
+        );
+
+        visuals.enemies.families.insert(
+            0x21,
+            AnimatedSpriteVisual {
+                palette: sample_palette(),
+                extra_palettes: Vec::new(),
+                frames: Vec::new(),
+                frame_duration: 1,
+            },
+        );
+        push_effect_enemy_sprite(
+            &mut commands,
+            &visuals,
+            0x21,
+            92,
+            116,
+            Direction::Right,
+            false,
+        );
+        assert!(
+            commands.is_empty(),
+            "empty native enemy visual families stay render-no-op instead of inventing degraded Heady split art"
+        );
     }
 
     #[test]
@@ -10665,6 +10825,78 @@ mod tests {
                 _ => None,
             })
             .collect()
+    }
+
+    fn sprite_snapshots(commands: &[DrawCommand]) -> Vec<(i32, i32, u8, bool)> {
+        commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite {
+                    x,
+                    y,
+                    tile_sheet,
+                    tiles,
+                    ..
+                } => {
+                    let tile = tiles
+                        .first()
+                        .expect("test sprite commands should contain one tile");
+                    Some((*x, *y, tile_sheet.tiles[0].pixels[0], tile.tile.flip_x))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn expected_heady_metal_wobble_snapshots(
+        screen_x: i32,
+        screen_y: i32,
+        amplitude: i32,
+        phase: i32,
+    ) -> Vec<(i32, i32, u8, bool)> {
+        let horizontal = amplitude * phase;
+        let vertical = amplitude * -phase;
+        vec![
+            (screen_x, screen_y + vertical - 8, 0x20, false),
+            (screen_x - 12 + horizontal, screen_y - 26, 0x21, false),
+            (screen_x + 4 - horizontal, screen_y - 26, 0x21, true),
+        ]
+    }
+
+    fn add_heady_metal_death_effect_visuals(visuals: &mut NativeLevelVisuals) {
+        visuals
+            .enemies
+            .families
+            .insert(0x20, sample_animated_visual(sample_sprite_frame(0x20)));
+        visuals
+            .enemies
+            .families
+            .insert(0x21, sample_animated_visual(sample_sprite_frame(0x21)));
+    }
+
+    fn heady_metal_split_trace(
+        pieces: Vec<HeadyMetalDeathPieceTrace>,
+    ) -> HeadyMetalDeathSplitTrace {
+        HeadyMetalDeathSplitTrace {
+            current_x_velocity_delta: -0x0002_6D18,
+            left_worker_x_velocity_delta: 0x0002_6D18,
+            centre_worker_y_velocity_delta: 0x0001_3880,
+            centre_worker_sprite_label: Some("LnkTo_unk_C8458-Data_Index".to_owned()),
+            right_worker_x_velocity_delta: -0x0002_6D18,
+            far_right_worker_x_velocity_delta: 0x0002_6D18,
+            cleanup_worker_slot_offsets: [0xFB72, 0xFB76, 0xFB7A, 0xFBAE, 0xFBB2],
+            pieces,
+        }
+    }
+
+    fn heady_metal_piece(slot_offset: u16, x_px: u32, y_px: u32) -> HeadyMetalDeathPieceTrace {
+        HeadyMetalDeathPieceTrace {
+            slot_offset,
+            x_pos: x_px << 16,
+            y_pos: y_px << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+        }
     }
 
     fn assert_child_frame(

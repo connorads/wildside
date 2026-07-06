@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene Heady-Metal death-effect mutation hardening
+
+- Project-status still showed no ready/open risks after the Boss Eye routing
+  slice, so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `push_heady_metal_death_wobble|push_heady_metal_death_split_pieces|push_effect_enemy_sprite|HEADYMETAL_WOBBLE_STAGE`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-heady-death-effects-20260706-initial` reported 74
+  mutants tested: 7 caught and 67 missed. Added ASM-cited frame-scene coverage
+  for `sub_37708`/`sub_3787C`/`sub_378A2` wobble countdown tiers and
+  Frame_Counter phase, `sub_378C8` split-worker positions, effects-layer split
+  precedence over the wobble worker, and missing/empty enemy visual families.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 119 tests.
+  Removed two equivalent phase multiply/divide mutation sites by spelling the
+  ROM phases directly. Final mutation at
+  `/tmp/mutants-frame-scene-heady-death-effects-20260706-final-refined`
+  reported 70 mutants tested: 70 caught and 0 missed.
+
 ## 2026-07-06 - proactive frame scene Boss Eye routing mutation hardening
 
 - Project-status still showed no ready/open risks after the Kid projectile
