@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive CLI RAM-diff mutation refresh
+
+- Project-status still showed no ready/open risks after the oracle-cache
+  slice, so refreshed current-HEAD mutation evidence for
+  `wildside-cli/src/ram_diff.rs`.
+- Scope: known WRAM annotations, byte-diff rendering, annotation gating,
+  size-mismatch rejection, and file-input error propagation through
+  `run_ram_diff`.
+- Focused `ram_diff::tests` passed. Mutation at
+  `/tmp/mutants-cli-ram-diff-20260706-refresh` reported 12 mutants tested: 12
+  caught, 0 missed. No code changes were needed.
+
 ## 2026-07-06 - proactive CLI oracle-cache mutation refresh
 
 - Project-status still showed no ready/open risks after the CLI release-gate
