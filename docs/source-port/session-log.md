@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame render text/rect mutation refresh
+
+- Project-status still showed no ready/open risks after the frame audio helper
+  slice, so refreshed current-HEAD mutation evidence for
+  `wildside-frame/src/render.rs` scoped to `rect_contains|text_pixel_visible`.
+- Scope: inclusive-start/exclusive-end rectangle bounds, scaled glyph source
+  pixel mapping, glyph transparency, scaled glyph advance, newline row advance,
+  and zero/negative scale rejection.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 101 tests.
+  Mutation at `/tmp/mutants-frame-render-text-rect-20260706-refresh` reported
+  48 mutants tested: 48 caught and 0 missed. No code changes were needed.
+
 ## 2026-07-06 - proactive frame audio helper mutation hardening
 
 - Project-status still showed no ready/open risks after the frame DTO slice, so
