@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive CLI release-gate mutation refresh
+
+- Project-status still showed no ready/open risks after the CLI bootstrap
+  slice, so refreshed current-HEAD mutation evidence for
+  `wildside-cli/src/release_gate.rs`.
+- Scope: target slugs, state-sweep failure detail/path helpers, cargo-step
+  output summaries, release-step pass/fail recording, Unix timestamp/report
+  paths, and gameplay route membership checks.
+- Focused `release_gate::tests` passed. Mutation at
+  `/tmp/mutants-cli-release-gate-20260706-refresh` reported 30 mutants tested:
+  30 caught, 0 missed.
+
 ## 2026-07-06 - proactive CLI bootstrap helper mutation hardening
 
 - Project-status still showed no ready/open risks after the MD controller
