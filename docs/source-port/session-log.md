@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - playtest feedback triage
+
+- Processed human playtest feedback into the tracker. Reopened #210/#254,
+  #185, #230, #270, and #339; opened #370-#374 for the new dragon,
+  prize-block, flagpole, and named-level failures.
+- Closed validated/stale awaiting-human rows listed in archive section
+  `2026-07-06 playtest feedback triage`; left #169, #252, #280, #345,
+  and #350 in their existing lanes with sharper notes where relevant.
+- Verification: backlog lint only; docs/tracker change, no gameplay code.
+
 ## 2026-07-06 - proactive frame scene title-card glyph mutation hardening
 
 - Project-status still showed no ready/open risks after the pause-tilemap

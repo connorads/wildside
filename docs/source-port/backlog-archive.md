@@ -11344,6 +11344,50 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 328 | [-] | P3 | helmet/physics | NOT A BUG (ORIGINAL_QUIRK): Cyclone helmet "flies straight up / no tornado spin / too powerful" matches the ROM — flight (sub_B168 loc_B214) mutates only y_vel, the tornado spin is sprite animation only (sub_B270 loc_B2A0, no x_vel), and there is no altitude/fuel/duration cap, only a 3px/frame rise clamp (loc_B25E). Native (helmets.rs:5354-5459, constants.rs:774-786) matches the ROM literals. | One cheap human check: confirm Kid does NOT keep rising on a single HELD C (ROM is rising-edge `bclr`; native uses input.c && !prev.c). If held-C keeps rising that IS a divergence -> reopen; otherwise stays [-]. Mark native with // ORIGINAL_QUIRK. See #328 archive. |
 | 336 | [x] | P3 | render/intro | Fixed 2026-06-29: BLW1 title-card Start handoff now stays black through the `Load_InGame` window and fades live gameplay in with oracle-applied `sub_73D0`/`sub_14C0` palette progress. The camera/Kid-Y ramp remains the ROM's treetop-to-floor carry; native no longer reveals the bright scene during frames the ROM keeps black/dim. | `verify-tas` route `.cache/debug/issue336-cold-boot-live/scenario-card-start.json` is CRC/checkpoint-clean for frames 880..1041; capture frames 960/970 are exact black, and 974/980/984 mean brightness tracks oracle. Focused fade tests, frame renderer tests, CLI scene test, and `mise run verify-slice-fast` pass. |
 | 340 | [-] | P3 | audio | NOT-A-BUG 2026-06-19: `sfx_Voice_diamond` ($62) is an ORPHAN ROM asset — defined at constants.asm:45 but with ZERO trigger sites anywhere in the disassembly. The ROM plays only `sfx_Diamond_prize` ($2D) on diamond collect (kid.asm:21103/22184), which native already queues (`DiamondPrize`→0x2D, combat.rs:9635). Native is faithful; there is nothing to wire | n/a — closed NOT-A-BUG. See archive #340 |
+| 003 | [x] | P1 | audio | Human validation 2026-07-06: boot/title/options/Level 0 audio is audible. | Closed from #003/#160 audio retest; specific USM load noise remains #339. |
+| 126 | [x] | P1 | player | Human validation 2026-07-06: Level 0 uphill/downhill slope walking feels correct. | Cross-ref #258/#269 closures; USM slope-wall corner bug remains #270. |
+| 141 | [x] | P1 | render | Human validation 2026-07-06: intro and level title-card graphics no longer show the old missing/corrupt art class. | Rapid title/menu skip corruption remains #210/#254. |
+| 144 | [x] | P1 | enemy | Human validation 2026-07-06: BLW2 RockTank bullets/cadence look fine. | Tank sprite garble remains route-blocked under #252. |
+| 147 | [x] | P1 | player | Human validation 2026-07-06: Kid wall-grab/ledge control feels good. | No current route-specific wall-grab failure. |
+| 160 | [x] | P0 | audio | Human validation 2026-07-06: music and basic SFX work in native play. | Specific USM load noise remains #339. |
+| 161 | [-] | P1 | render | Superseded 2026-07-06: current failing intro/title skip symptom is tracked by #210/#254. | Closed as duplicate/stale broad row. |
+| 167 | [x] | P1 | enemy | Human validation 2026-07-06: common enemy death animations look fine. | No current generic death-animation report. |
+| 176 | [-] | P1 | enemy | Closed 2026-07-06 as stale broad enemy-helper umbrella with no named live repro. | Use named enemy rows for future regressions. |
+| 184 | [-] | P1 | enemy | Closed 2026-07-06 as stale Goat row with no current human route. | Reopen only with a named Goat route. |
+| 187 | [-] | P1 | enemy | Closed 2026-07-06 as stale Mini Hopping Skull row with no current human route. | Reopen only with a named route. |
+| 188 | [-] | P1 | enemy | Closed 2026-07-06 as stale Ninja row with no current human route. | Reopen only with a named route. |
+| 189 | [-] | P1 | enemy | Closed 2026-07-06 as stale Orca row with no current human route. | Reopen only with a named route. |
+| 214 | [x] | P1 | block/enemy | Human validation 2026-07-06: Highwater shooter barrier interaction looks fine. | No current Highwater barrier regression. |
+| 217 | [-] | P1 | player | Closed 2026-07-06 as stale movement-helper umbrella with no concrete route. | Concrete movement failure remains #270. |
+| 227 | [x] | P1 | platform | Human validation 2026-07-06: no current platform issue noticed for this broad row. | Future platform work should use named route rows. |
+| 228 | [x] | P1 | player | Human validation 2026-07-06: no current broad helmet/form route issue noticed. | Specific form/prize rows handled separately. |
+| 229 | [x] | P1 | level | Human validation 2026-07-06: late/bonus level loading no longer fails in the prior way. | New named map corruption/instant-death cluster is #374. |
+| 238 | [x] | P0 | level | Human validation 2026-07-06: completing Highwater Pass no longer loads instant death or empty floor. | Closed. |
+| 241 | [x] | P1 | hud | Human validation 2026-07-06: HUD lives miscount appears fixed. | Closed from awaiting-human blocker. |
+| 246 | [x] | P1 | level | Human validation 2026-07-06: later levels can load without the old visual-load error/failure. | New named corrupted maps tracked by #374. |
+| 248 | [x] | P0 | player | Human validation 2026-07-06: non-dragon death respawn no longer freezes on a black screen waiting for Start. | Dragon-fire respawn persistence is new #370. |
+| 258 | [x] | P0 | player/slope | Human validation 2026-07-06: Level 0 left/right/uphill slope walking is fixed. | USM slope-wall corner remains #270. |
+| 262 | [x] | P1 | level/render | Human validation 2026-07-06: levels 0x05/0x06/0x07 load with aligned tiles/backgrounds/player placement. | Closed. |
+| 263 | [x] | P1 | player/block | Human validation 2026-07-06: Red Stealth/Samurai block breaking is sorted. | Closed. |
+| 264 | [x] | P1 | audio/perf | Human validation 2026-07-06: metal block and diamond SFX no longer slow/stutter BGM. | Specific USM load noise remains #339. |
+| 266 | [x] | P1 | render/level | Human validation 2026-07-06: Hills death-wall drill rendering looks fine. | Closed. |
+| 268 | [x] | P1 | form/animation | Human validation 2026-07-06: Iron Knight/Heavy Man climb animation is correct. | Closed. |
+| 269 | [x] | P1 | form/animation | Human validation 2026-07-06: Red Stealth/Samurai slope animation no longer glitches. | Closed. |
+| 272 | [x] | P1 | audio | Human validation 2026-07-06: Cyclone pickup/transform sound seems fine. | Closed from route-blocked audio row. |
+| 273 | [x] | P1 | block/prize | Human validation 2026-07-06: later helmet-prize block mapping/award works. | Prize wobble over background art is new #372. |
+| 274 | [x] | P1 | demo | Human validation 2026-07-06: attract demo Cyclone prize route is sorted. | Cross-ref #284 closure. |
+| 275 | [x] | P1 | render/hud | Human validation 2026-07-06: collected diamond flies up to the HUD counter. | Closed. |
+| 276 | [x] | P1 | hud | Human validation 2026-07-06: Iron Knight HP pips look correct. | Closed. |
+| 277 | [x] | P1 | player/input | Human validation 2026-07-06: held-left/wall jump input regression is resolved or duplicated by closed slope rows. | Closed. |
+| 279 | [x] | P1 | enemy/block | Human validation 2026-07-06: Rhino/Berzerker breaks the expected blocks. | Closed. |
+| 281 | [x] | P1 | block | Human validation 2026-07-06: push-up/Shifting block behaviour sounds fine. | Closed. |
+| 283 | [x] | P1 | gameflow/death | Human validation 2026-07-06: Hills murder-wall death respawn looks fine. | Closed. |
+| 284 | [x] | P0 | block/prize | Human validation 2026-07-06: later/demo Cyclone prize no longer awards Diamond incorrectly. | Closed with #274. |
+| 286 | [x] | P1 | enemy/lifecycle | Human validation 2026-07-06: RockTank second-stomp/crushed visual issue appears fixed. | Tank sprite garble remains #252. |
+| 289 | [x] | P1 | level/spawn | Human validation 2026-07-06: hell-theme starts and Lion projectiles are fine for the old report. | New named map corruption/instant-death cluster is #374. |
+| 322 | [-] | P0 | render | Closed 2026-07-06 as stale/unreproduced USM3 flying-dragon shoot crash. | Reopen with a fresh crash/backtrace or exact route. |
+| 335 | [x] | P0 | gameflow/death | Human validation 2026-07-06: Hills of the Warrior 1 title-card idle no longer kills Kid before Start. | Closed. |
+| 260 | [-] | P0 | block/enemy | Closed 2026-07-06 as stale route-blocked Drips/metal/projectile report with no fresh route or recognisable target. | Reopen only with a fresh route reaching the interaction. |
 
 
 ## Migrated NOW-block evidence notes (2026-06-20)
@@ -12548,3 +12592,37 @@ remains exact, with the known state-report divergences still first authoritative
 - **#336 / #324:** already open from the 2026-06-25 triage; the 2026-06-26 sighting (Kid floats
   high with no black fade-in on level-1 load; prize block leaks foreground wood) reconfirms them
   with no status change.
+
+## 2026-07-06 playtest feedback triage
+
+Source: human voice playtest on current native build. This was tracker triage only; no gameplay code changed.
+
+### Failed validation / reopened
+
+- **#210/#254**: rapid intro/title/menu skip still shows black squares or corrupt Red Stealth/title art. Moved from awaiting-human back to the open queue.
+- **#185**: Hand still has bad live animation/grab behaviour: visible hole/default grab pose, jumps after Kid, and no longer grabs. Moved back to open.
+- **#230**: The Crypt weather flashes corrupt graphics and drops odd ice/red pieces. Moved back to open as the concrete weather route.
+- **#270**: Under Skull Mountain slope-wall contact still misbehaves. Human gave sharper cases: bottom-left slope into metal block can climb the block, opposite direction can shove Kid left, and right-to-left can teleport through the floor. Moved back to open.
+- **#339**: Under Skull Mountain 2 still plays weird/stale noises on the loading screen. Moved back to open for audio investigation.
+
+### New rows opened
+
+- **#370**: Blue Lake Woods 1 dragon fire persists through death/respawn and hurts Kid immediately after reload.
+- **#371**: Blue Lake Woods 1 walking Dragon can walk left off-screen and reappear at spawn. Needs oracle check before assuming a bug.
+- **#372**: Prize blocks over tree/background art can disappear instead of wobbling; cross-ref old #324 but keep as a fresh route.
+- **#373**: End-of-level flagpole does not sink into the floor; distinct from #369's missing-base blocker.
+- **#374**: Stairway to Oblivion, Bloody Swamp, Scorpion Isle, Lion's Den, and Hoverboard Beach show corrupt tilemaps and/or instant death.
+
+### Closed or superseded
+
+Human validated fixed: **#003/#160**, **#126**, **#141**, **#144**, **#147**, **#167**, **#214**, **#238**, **#241**, **#246**, **#248**, **#258**, **#262**, **#263**, **#264**, **#266**, **#268**, **#269**, **#272**, **#273**, **#274**, **#275**, **#276**, **#277**, **#279**, **#281**, **#283**, **#284**, **#286**, **#289**, and **#335**.
+
+Closed stale/superseded: **#161** is covered by #210/#254; **#176**, **#184**, **#187**, **#188**, **#189**, **#217**, and **#260** lack a current named route; **#322** is not currently reproducible and can reopen only with a fresh crash/backtrace or exact route.
+
+### Left open / still blocked
+
+- **#169** Drips/slime stays open because the human says it is much better but still uncertain.
+- **#252** Tank sprite garble remains blocked on an exact frame; the human reconfirmed the tank animation/sprite map still looks wrong even though the skull shots now work.
+- **#280** remains blocked but reconfirmed for Hills/green-cloud background corruption.
+- **#345** remains blocked but reconfirmed: Lion walks a bit and disappears.
+- **#350** lower Hills foliage row is not closed by this feedback; the new cloud complaint belongs to #280.
