@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame DTO mutation refresh
+
+- Project-status still showed no ready/open risks after the render bundle EOL
+  slice, so refreshed current-HEAD mutation evidence for
+  `wildside-frame/src/dto.rs`.
+- Focused and package baselines passed. Mutation at
+  `/tmp/mutants-frame-dto-20260706-refresh` reported 2 mutants tested: 2
+  caught and 0 missed. This reconfirms the degraded-asset enemy fallback colour
+  regression added on 2026-07-01; no code changes were needed.
+
 ## 2026-07-06 - proactive render bundle EOL mutation hardening
 
 - Project-status still showed no ready/open risks after the MD runtime probe
