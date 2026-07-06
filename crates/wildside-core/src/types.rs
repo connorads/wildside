@@ -112,6 +112,9 @@ pub enum ActiveProjectileKind {
     /// Robot shot impact: ASM `Robot.asm loc_3AC92` initialises
     /// `stru_3A762` and deletes once the three impact frames finish.
     RobotShotImpact,
+    /// Archer arrow child: ASM `Archer.asm Enemy07_ArcherArrow_Init loc_34266`
+    /// allocates a hostile Object_RAM worker with its own GFX slot.
+    ArcherArrow,
     /// Flying Dragon descent fire child: ASM `Dragon_Flying.asm loc_34BAC`
     /// runs a startup sprite, travel loop, and two-stage cleanup.
     DragonFlyingDescentFire,

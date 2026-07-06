@@ -10,6 +10,7 @@ use crate::level::{
 const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
 const LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 103;
+const BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 107;
 const RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0: u16 = 179;
 const RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0: u16 = 0x08;
 const LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS: usize = 0x08;
@@ -79,6 +80,12 @@ fn recording_oracle_warp_target_live_frames(level_id: LevelId) -> usize {
         RECORDING_SETTLED_WARP_LIVE_FRAMES + 0x18
     } else if level_id == LevelId(0x1B) {
         LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES
+    } else if level_id == LevelId(0x3E) {
+        // Bloody Swamp exposes the ROM level-skip live tail through Murderwall
+        // loc_140CE. Oracle issue374 settle tracing reaches frame-0 wall age at
+        // target_live 47, so the recording frame-60 checkpoint needs the same
+        // hidden 47-frame prefix before the normal 60 visible frames.
+        BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES
     } else {
         RECORDING_SETTLED_WARP_LIVE_FRAMES
     }
@@ -731,6 +738,16 @@ mod tests {
             recording_oracle_warp_target_live_frames(LevelId(0x1B)),
             LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES,
             "Skydragon Castle recording settle keeps its shorter opening Sphere loc_36148 age"
+        );
+        assert_eq!(
+            recording_oracle_warp_target_live_frames(LevelId(0x3E)),
+            BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES,
+            "Bloody Swamp recording settle keeps Murderwall loc_140CE's live-tail age"
+        );
+        assert_eq!(
+            recording_oracle_warp_target_live_frames(LevelId(0x3F)),
+            RECORDING_SETTLED_WARP_LIVE_FRAMES,
+            "Scorpion Isle uses the default window; Archer.asm loc_33FDA timing is modelled in enemies"
         );
         assert_eq!(
             recording_oracle_warp_target_live_frames(LevelId(0x12)),

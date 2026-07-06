@@ -985,12 +985,29 @@ pub(crate) const SCORPION_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3DD4A: u16 = 0x3DD4
 
 pub(crate) const ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE: u16 =
     archer_shooting_cycle_delay_frames_loc_341BE();
+pub(crate) const ARCHER_PHASE_SHOOTING_TABLE_LOC_34248: u8 = 0;
+pub(crate) const ARCHER_PHASE_INITIAL_HIBERNATE_PENDING_LOC_33FDA: u8 = 1;
+pub(crate) const ARCHER_PHASE_INITIAL_HIBERNATE_LOC_33FDA: u8 = 2;
+pub(crate) const ARCHER_PHASE_INITIAL_HIBERNATE_SEEDED_LOC_33FDA: u8 = 3;
+pub(crate) const ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C: u8 = 4;
 #[allow(non_snake_case)]
 pub(crate) const fn archer_shooting_cycle_delay_frames_loc_341BE() -> u16 {
     // ASM Archer.asm loc_341BE walks three delay words before the zero fire
     // sentinel. Each delay enters loc_34248 and is consumed by `dbf d3`, so
     // the hibernated wait is `delay + 1` frames for `$64`, `$06`, and `$0C`.
     (0x0064 + 1) + (0x0006 + 1) + (0x000C + 1)
+}
+
+pub(crate) fn archer_initial_hibernate_frames_loc_33fda(
+    rng: &mut RomRandomState,
+    camera_x_px: u32,
+) -> u16 {
+    // ASM Archer.asm Enemy07_Archer_Init loc_33FDA draws one RNG byte, XORs it
+    // with the low byte of Camera_X_pos, then passes the word to
+    // j_Hibernate_Object before loc_3408C can start the shooting table.
+    let random_byte = rng.next_byte();
+    let camera_low_byte = (camera_x_px & 0xFF) as u8;
+    u16::from(random_byte ^ camera_low_byte)
 }
 
 fn fp16_integer_word(position: u32) -> u16 {
@@ -1261,6 +1278,7 @@ pub(crate) struct ActiveEnemy {
     /// Dragon Flying: current command index within the script.
     /// Tornado reuses this as the next `loc_359F2` pattern index from `unk_35A0C`.
     /// Lion reuses this as the live `stru_3DEDA`/`stru_3DEF4` animation phase.
+    /// Archer reuses this as the init/aim/shooting coroutine phase.
     pub(crate) dragon_script_cmd: u8,
     /// Dragon Flying: anchor Y position (FP16.16) — initial spawn Y to return to.
     /// Big Hopping Skull reuses this as packed `loc_364A0` patrol bounds because
@@ -2692,13 +2710,17 @@ impl ActiveEnemy {
                 script.remaining_phase_frames.to_string(),
             );
         }
-        let x_velocity = if matches!(self.family, EnemyFamily::Tank | EnemyFamily::TankShooting)
-            && self.on_ground
+        let x_velocity = if matches!(
+            self.family,
+            EnemyFamily::Goat | EnemyFamily::Tank | EnemyFamily::TankShooting
+        ) && self.on_ground
         {
-            // ASM Tank.asm loc_3B40A / Tank_Shooting.asm loc_3B6AE enter the
-            // shared walker at kid.asm loc_3C026/loc_3C0D2, which clears the
-            // object x_vel/y_vel. Native keeps `$50(a5)` patrol speed in
-            // `x_velocity`; hide that storage detail from ROM-visible snapshots.
+            // ASM Goat.asm loc_3CC52 -> Lion.asm loc_3E566/loc_3E3B2 and
+            // Tank.asm loc_3B40A / Tank_Shooting.asm loc_3B6AE ->
+            // kid.asm loc_3C026/loc_3C0D2 move grounded shared walkers with
+            // `$50(a5)` while the object x_vel/y_vel slot stays clear. Native
+            // keeps that patrol speed in `x_velocity`; hide the storage detail
+            // from ROM-visible snapshots.
             0
         } else {
             self.x_velocity
@@ -3798,7 +3820,11 @@ fn activate_enemies_with_rng_inner(
                 dragon_phase: spawn_dragon_phase(family),
                 dragon_phase_frames: 0,
                 dragon_script_variant: dragon_variant,
-                dragon_script_cmd: 0,
+                dragon_script_cmd: if matches!(family, EnemyFamily::Archer) {
+                    ARCHER_PHASE_INITIAL_HIBERNATE_PENDING_LOC_33FDA
+                } else {
+                    0
+                },
                 dragon_anchor_y: if matches!(family, EnemyFamily::BigHoppingSkull) {
                     big_hopping_skull_pack_patrol_bounds_loc_364a0(
                         view.lower_bound,
@@ -3987,6 +4013,8 @@ pub(crate) fn step_active_enemies_with_rng(
     drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
     mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
+    seed_pending_archer_initial_hibernates_loc_33fda(active, camera_x_px, rng);
+
     let mut drill_drive_refcount = active
         .iter()
         .filter(|enemy| {
@@ -4672,6 +4700,50 @@ pub(crate) fn step_active_enemies_with_rng(
         }
     }
     seed_pending_drips_initial_waits_loc_3340e(active, player_x_pos, rng);
+}
+
+pub(crate) fn seed_pending_archer_initial_hibernates_loc_33fda(
+    active: &mut [ActiveEnemy],
+    camera_x_px: Option<u32>,
+    rng: &mut RomRandomState,
+) {
+    let mut pending_indices: Vec<usize> = active
+        .iter()
+        .enumerate()
+        .filter(|(_, enemy)| {
+            enemy.family == EnemyFamily::Archer
+                && enemy.dragon_script_cmd == ARCHER_PHASE_INITIAL_HIBERNATE_PENDING_LOC_33FDA
+        })
+        .map(|(index, _)| index)
+        .collect();
+    pending_indices.sort_by(|&left, &right| {
+        let left_enemy = &active[left];
+        let right_enemy = &active[right];
+        (
+            right_enemy.segment_index,
+            right_enemy.layout_index,
+            right_enemy.x_pos,
+        )
+            .cmp(&(
+                left_enemy.segment_index,
+                left_enemy.layout_index,
+                left_enemy.x_pos,
+            ))
+    });
+    for index in pending_indices {
+        let enemy = &mut active[index];
+        let hibernate = archer_initial_hibernate_frames_loc_33fda(rng, camera_x_px.unwrap_or(0));
+        enemy.wait_timer = if hibernate == 0 {
+            // ORIGINAL_QUIRK: Execute_Objects loc_E3E decrements the stored
+            // hibernate word before testing it. A zero passed by Archer.asm
+            // loc_33FDA underflows to $FFFF and leaves the Archer dormant for a
+            // full word countdown.
+            u16::MAX
+        } else {
+            hibernate
+        };
+        enemy.dragon_script_cmd = ARCHER_PHASE_INITIAL_HIBERNATE_SEEDED_LOC_33FDA;
+    }
 }
 
 /// Draw the deferred ASM `Drips.asm loc_3340E` initial dormant seeds for every
@@ -10058,6 +10130,34 @@ mod tests {
     use crate::enemies::test_fixtures::*;
 
     #[test]
+    fn goat_snapshot_hides_grounded_shared_walker_patrol_speed_loc_3cc52() {
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Goat,
+            hit_points: 5,
+            on_ground: true,
+            x_velocity: 0x0002_8000,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        assert_eq!(
+            enemy.snapshot().x_velocity,
+            Some(0),
+            "ASM Goat.asm loc_3CC52 -> Lion.asm loc_3E566/loc_3E3B2 moves with `$50(a5)` while the object x_vel slot stays clear"
+        );
+        assert_eq!(
+            enemy.x_velocity, 0x0002_8000,
+            "native keeps the patrol speed internally for the next shared-walker step"
+        );
+
+        enemy.on_ground = false;
+        assert_eq!(
+            enemy.snapshot().x_velocity,
+            Some(0x0002_8000),
+            "ASM shared-walker falling tails use the object x_vel slot, so airborne Goat snapshots keep native x_velocity"
+        );
+    }
+
+    #[test]
     fn hand_snapshot_exports_live_render_phase_loc_327f2_328e0_32906() {
         let mut enemy = ActiveEnemy {
             family: EnemyFamily::Hand,
@@ -10817,6 +10917,49 @@ mod tests {
     }
 
     #[test]
+    fn archer_init_hibernate_seeds_consume_rng_in_descending_layout_order_loc_33fda() {
+        // ASM Allocate_ObjectSlot (kid.asm loc_DE0) inserts equal-priority
+        // enemy objects LIFO, so Archer.asm Enemy07_Archer_Init loc_33FDA
+        // consumes its init hibernate RNG in reverse load order.
+        let camera_x_px = 0x0012;
+        let mut expected_rng = RomRandomState::default();
+        let first_draw = archer_initial_hibernate_frames_loc_33fda(&mut expected_rng, camera_x_px);
+        let second_draw = archer_initial_hibernate_frames_loc_33fda(&mut expected_rng, camera_x_px);
+
+        let mut lower = mini_hopping_skull_test_enemy();
+        lower.family = EnemyFamily::Archer;
+        lower.layout_index = 7;
+        lower.x_pos = 456 << 16;
+        lower.dragon_script_cmd = ARCHER_PHASE_INITIAL_HIBERNATE_PENDING_LOC_33FDA;
+        let mut upper = mini_hopping_skull_test_enemy();
+        upper.family = EnemyFamily::Archer;
+        upper.layout_index = 8;
+        upper.x_pos = 584 << 16;
+        upper.dragon_script_cmd = ARCHER_PHASE_INITIAL_HIBERNATE_PENDING_LOC_33FDA;
+
+        let mut enemies = [lower, upper];
+        let mut rng = RomRandomState::default();
+        seed_pending_archer_initial_hibernates_loc_33fda(&mut enemies, Some(camera_x_px), &mut rng);
+
+        assert_eq!(
+            enemies[1].wait_timer, first_draw,
+            "layout #08 executes first, so it consumes the first Archer.asm loc_33FDA RNG byte"
+        );
+        assert_eq!(
+            enemies[0].wait_timer, second_draw,
+            "layout #07 executes second, so it consumes the second Archer.asm loc_33FDA RNG byte"
+        );
+        assert_eq!(
+            enemies[0].dragon_script_cmd,
+            ARCHER_PHASE_INITIAL_HIBERNATE_SEEDED_LOC_33FDA
+        );
+        assert_eq!(
+            enemies[1].dragon_script_cmd,
+            ARCHER_PHASE_INITIAL_HIBERNATE_SEEDED_LOC_33FDA
+        );
+    }
+
+    #[test]
     fn mini_hopping_skull_spawn_gate_matches_loc_3e9d0_edges() {
         // ASM Mini_Hopping_Skull.asm loc_3E9D0 keeps hibernating outside
         // Kid-relative X [-$50,$50] and Y [0,$A0] from the layout point.
@@ -11101,8 +11244,9 @@ pub(crate) fn spawn_wait_timer(
         // later. Plain Tank.asm never fires.
         EnemyFamily::Tank => 0,
         EnemyFamily::TankShooting => TANK_SHOOTING_INIT_FIRE_TIMER_LOC_3B5FA,
-        // ASM Archer.asm loc_341BE/loc_34248: first shot waits through the
-        // shooting-table pose delays, not the arrow_accuracy re-aim interval.
+        // ASM Archer.asm loc_341BE/loc_34248: once the init hibernate reaches
+        // loc_3408C, the first shot waits through the shooting-table pose
+        // delays, not the arrow_accuracy re-aim interval.
         EnemyFamily::Archer => ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE,
         // Lion: charge timer counts down from $3C (60 frames) before first charge.
         EnemyFamily::Lion => LION_CHARGE_TIMER_INIT,

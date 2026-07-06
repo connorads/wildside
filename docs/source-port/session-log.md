@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - #374 named later-level spawn parity
+
+- Took #374 from the open queue. Re-read `Archer.asm` and murder-wall/load
+  evidence, then modelled Archer init hibernate timing, Archer arrow object/GFX
+  accounting, and Bloody Swamp's settled level-skip murder-wall tail.
+- Five-level native smoke now reaches `InGame` at frame 60 with no death windup
+  for Hoverboard Beach, Lion's Den, Stairway to Oblivion, Bloody Swamp, and
+  Scorpion Isle. Fresh Bloody/Scorpion recordings have `trace_match=true`,
+  `oracle_state_match=true`, and `first_trace_drift=null`; strict pixels remain
+  red only for existing render residual classes.
+- Moved #374 to `[?]` awaiting human validation. Verification included focused
+  Archer/recording/comparator tests, regenerated #374 recordings, and the named
+  level smoke; full gates are recorded under archive #374.
+
 ## 2026-07-06 - #370 Dragon breath respawn guard
 
 - Took #370 from the open queue. Read `Dragon.asm loc_3D02A/loc_3D09E`

@@ -6601,7 +6601,7 @@ fn build_game_scene_filtered(
             let sx = (projectile.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
             let sy = (projectile.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
             match projectile.kind {
-                ActiveProjectileKind::Generic => {
+                ActiveProjectileKind::Generic | ActiveProjectileKind::ArcherArrow => {
                     commands.push(DrawCommand::Rect {
                         x: sx - 2,
                         y: sy - 2,

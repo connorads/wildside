@@ -6607,6 +6607,37 @@ mod chunk_09 {
     }
 
     #[test]
+    fn settled_recording_warp_bloody_swamp_keeps_murder_wall_level_skip_tail_age() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+
+        runtime.boot_to_level(LevelId(0x3E));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x3E));
+
+        let first_recorded_frame = runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            first_recorded_frame.murder_wall_x,
+            Some(-0x0019_0200),
+            "ASM Murderwall loc_140CE plus the level-skip loc_74E0 live tail starts Bloody Swamp recording frame 0 at the oracle issue374 wall age",
+        );
+
+        let trace = std::iter::once(first_recorded_frame)
+            .chain((0..60).map(|_| runtime.step_frame(FrameInput::default())))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            trace[60].camera_x_pos, 0x0007_0000,
+            "ASM loc_74E0 hidden level-skip tail plus 60 recording frames reaches oracle issue374 Bloody Swamp camera_x at frame 60",
+        );
+        assert_eq!(
+            trace[60].murder_wall_x,
+            Some(0x0007_7400),
+            "ASM Murderwall loc_140CE frame-60 wall position should match oracle issue374 after the hidden level-skip tail",
+        );
+    }
+
+    #[test]
     fn settled_recording_warp_level_six_ages_flying_dragon_into_descent_fire() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

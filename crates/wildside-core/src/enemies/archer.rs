@@ -461,10 +461,45 @@ pub(crate) fn step_archer(
     player_y_pos: Option<u32>,
     played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
+    if enemy.dragon_script_cmd == ARCHER_PHASE_INITIAL_HIBERNATE_PENDING_LOC_33FDA {
+        return;
+    }
+    if enemy.dragon_script_cmd == ARCHER_PHASE_INITIAL_HIBERNATE_SEEDED_LOC_33FDA {
+        enemy.dragon_script_cmd = ARCHER_PHASE_INITIAL_HIBERNATE_LOC_33FDA;
+        return;
+    }
+
+    if enemy.dragon_script_cmd == ARCHER_PHASE_INITIAL_HIBERNATE_LOC_33FDA {
+        if enemy.wait_timer > 0 {
+            enemy.wait_timer -= 1;
+            return;
+        }
+
+        // ASM Archer.asm loc_3408C immediately hibernates for one frame before
+        // Object_CheckInRange, kill handling, and target-angle selection run.
+        enemy.dragon_script_cmd = ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C;
+        enemy.wait_timer = 1;
+        return;
+    }
+
+    let mut entered_shooting_table = false;
+    if enemy.dragon_script_cmd == ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C {
+        if enemy.wait_timer > 0 {
+            enemy.wait_timer -= 1;
+            return;
+        }
+        enemy.dragon_script_cmd = ARCHER_PHASE_SHOOTING_TABLE_LOC_34248;
+        enemy.wait_timer = ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE;
+        entered_shooting_table = true;
+    }
+
     if let Some(dir) =
         archer_live_facing_loc_3408c(enemy.x_pos, enemy.y_pos, player_x_pos, player_y_pos)
     {
         enemy.facing = dir;
+    }
+    if entered_shooting_table {
+        return;
     }
 
     // Count down fire timer.
@@ -744,6 +779,102 @@ mod tests {
             arrow_velocity_from_angle(usize::MAX),
             (32 * 0x1000, 0),
             "ASM Archer.asm byte_3437A has 28 entries; native clamps defensive out-of-range angles to the duplicated final right-facing entry"
+        );
+    }
+
+    #[test]
+    fn archer_init_hibernate_xors_rng_with_camera_low_byte_loc_33fda() {
+        let mut expected_rng = RomRandomState::default();
+        let random_byte = expected_rng.next_byte();
+        let mut rng = RomRandomState::default();
+
+        assert_eq!(
+            archer_initial_hibernate_frames_loc_33fda(&mut rng, 0x1234),
+            u16::from(random_byte ^ 0x34),
+            "ASM Archer.asm Enemy07_Archer_Init loc_33FDA uses Get_RandomNumber_byte XOR Camera_X_pos low byte for the initial hibernate",
+        );
+    }
+
+    #[test]
+    fn archer_init_phase_hibernates_before_arming_shooting_table_loc_3408c() {
+        let mut archer = ActiveEnemy {
+            family: EnemyFamily::Archer,
+            wait_timer: 1,
+            dragon_script_cmd: ARCHER_PHASE_INITIAL_HIBERNATE_LOC_33FDA,
+            facing: Direction::Left,
+            hit_points: 1,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_archer(
+            &mut archer,
+            &mut projectiles,
+            Some(200 << 16),
+            Some(100 << 16),
+            None,
+        );
+        assert_eq!(
+            archer.dragon_script_cmd,
+            ARCHER_PHASE_INITIAL_HIBERNATE_LOC_33FDA
+        );
+        assert_eq!(archer.wait_timer, 0);
+        assert!(projectiles.is_empty());
+
+        step_archer(
+            &mut archer,
+            &mut projectiles,
+            Some(200 << 16),
+            Some(100 << 16),
+            None,
+        );
+        assert_eq!(
+            archer.dragon_script_cmd,
+            ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C
+        );
+        assert_eq!(archer.wait_timer, 1);
+        assert_eq!(
+            archer.facing,
+            Direction::Left,
+            "ASM Archer.asm loc_3408C hibernates once before selecting the shooting sector",
+        );
+        assert!(projectiles.is_empty());
+
+        step_archer(
+            &mut archer,
+            &mut projectiles,
+            Some(200 << 16),
+            Some(100 << 16),
+            None,
+        );
+        assert_eq!(
+            archer.dragon_script_cmd,
+            ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C
+        );
+        assert_eq!(archer.wait_timer, 0);
+        assert!(projectiles.is_empty());
+
+        step_archer(
+            &mut archer,
+            &mut projectiles,
+            Some(200 << 16),
+            Some(100 << 16),
+            None,
+        );
+        assert_eq!(
+            archer.dragon_script_cmd,
+            ARCHER_PHASE_SHOOTING_TABLE_LOC_34248
+        );
+        assert_eq!(
+            archer.wait_timer, ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE,
+            "ASM Archer.asm loc_3408C selects facing and loc_3419A arms the shooting table before loc_34248 consumes the first DBF tick",
+        );
+        assert_eq!(archer.facing, Direction::Right);
+        assert!(
+            projectiles.is_empty(),
+            "ASM Archer.asm loc_341BE should not reach the zero fire sentinel on the frame loc_3408C arms the table",
         );
     }
 

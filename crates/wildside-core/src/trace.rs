@@ -119,6 +119,9 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::RobotShotImpact {
         return ActiveProjectileKind::RobotShotImpact;
     }
+    if projectile.kind == EnemyProjectileKind::ArcherArrow {
+        return ActiveProjectileKind::ArcherArrow;
+    }
     if projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire {
         return ActiveProjectileKind::DragonFlyingDescentFire;
     }
@@ -10873,6 +10876,11 @@ impl NativeRuntime {
         } else {
             0
         };
+        let transient_gfx_only_workers = if include_runtime_transients {
+            self.gameplay_transient_gfx_only_worker_count()
+        } else {
+            0
+        };
         let transient_object_only_workers = if include_runtime_transients {
             self.gameplay_transient_object_only_worker_count()
         } else {
@@ -10921,7 +10929,7 @@ impl NativeRuntime {
         });
         (
             roster_count + 2 + extra + transient_object_only_workers,
-            roster_count + 2 + extra,
+            roster_count + 2 + extra + transient_gfx_only_workers,
         )
     }
 
@@ -11024,6 +11032,11 @@ impl NativeRuntime {
             .iter()
             .filter(|item| !item.collected)
             .count();
+        let archer_arrow_workers = self
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::ArcherArrow)
+            .count();
         (self.block_bounces.len()
             + self.count_visible_prize_block_worker_tails()
             + self.prize_block_spawn_flashes.len()
@@ -11036,7 +11049,22 @@ impl NativeRuntime {
             // object/gfx pair, then hibernates through the `$3E/$42` HUD-flight
             // loop before incrementing Number_Diamonds. Native models that
             // worker as the delayed award queue.
-            + self.pending_prize_diamond_awards.len()) as u16
+            + self.pending_prize_diamond_awards.len()
+            // ASM Archer.asm loc_341BE allocates the fired arrow through
+            // j_Allocate_ObjectSlot, and Enemy07_ArcherArrow_Init loc_34266
+            // loads its own GFX slot before the movement loop.
+            + archer_arrow_workers) as u16
+    }
+
+    fn gameplay_transient_gfx_only_worker_count(&self) -> u16 {
+        // ASM Archer.asm Enemy07_Archer_Init loc_33FDA calls loc_32188 to
+        // allocate the held-arrow child GFX slot, then stores the link in
+        // `$36(a5)`/`$3A(a5)`. It increments Number_GfxObjects without
+        // allocating another Object_RAM worker.
+        self.active_enemies
+            .iter()
+            .filter(|enemy| enemy.family == EnemyFamily::Archer)
+            .count() as u16
     }
 
     fn count_visible_prize_block_worker_tails(&self) -> usize {
