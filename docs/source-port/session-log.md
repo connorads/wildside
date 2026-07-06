@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene teleport fade mutation hardening
+
+- Project-status still showed no ready/open risks after the pause-menu slice,
+  so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `push_teleport_warp_tint_loc_bcf6|push_level_entry_palette_fade_sub_73d0`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-teleport-fade-20260706-initial` reported 11
+  mutants tested: 9 caught and 2 missed. Added ASM-cited frame-scene coverage
+  for `loc_BCF6` `$FBCC` teleport tint emission/suppression and `sub_73D0`
+  fullscreen palette fade target/progress forwarding.
+- Baseline `cargo test -q -p wildside-frame --lib` passed with 134 tests after
+  the new regressions. Final mutation at
+  `/tmp/mutants-frame-scene-teleport-fade-20260706-final` reported 11 mutants
+  tested: 11 caught and 0 missed.
+
 ## 2026-07-06 - proactive frame scene pause-menu mutation hardening
 
 - Project-status still showed no ready/open risks after the EOL hardware

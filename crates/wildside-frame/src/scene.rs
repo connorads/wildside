@@ -8544,6 +8544,92 @@ mod tests {
     }
 
     #[test]
+    fn teleport_warp_tint_emits_until_palette_fade_starts_loc_bcf6_sub_73d0() {
+        let mut commands = Vec::new();
+        let trace = NativeTraceFrame {
+            teleport_warp_colour: 0x00EE,
+            level_entry_fade_progress_sub_73d0: None,
+            ..NativeTraceFrame::default()
+        };
+
+        push_teleport_warp_tint_loc_bcf6(&mut commands, &trace);
+
+        let colour = MdColour::from_word(0x00EE);
+        assert_eq!(
+            commands.single(),
+            &DrawCommand::Tint {
+                colour: [colour.red, colour.green, colour.blue],
+                alpha: 96,
+            },
+            "ASM loc_BCF6 seeds `$FBCC=$00EE`; native renders it as the pre-sub_73D0 teleport tint"
+        );
+
+        let mut commands = Vec::new();
+        push_teleport_warp_tint_loc_bcf6(
+            &mut commands,
+            &NativeTraceFrame {
+                teleport_warp_colour: 0,
+                level_entry_fade_progress_sub_73d0: None,
+                ..NativeTraceFrame::default()
+            },
+        );
+        assert!(
+            commands.is_empty(),
+            "without ASM loc_BCF6 `$FBCC` colour there is no teleport tint command"
+        );
+
+        push_teleport_warp_tint_loc_bcf6(
+            &mut commands,
+            &NativeTraceFrame {
+                teleport_warp_colour: 0x00EE,
+                level_entry_fade_progress_sub_73d0: Some(0),
+                ..NativeTraceFrame::default()
+            },
+        );
+        assert!(
+            commands.is_empty(),
+            "once ASM sub_73D0 owns the fullscreen fade, native must not also draw the pre-fade tint"
+        );
+    }
+
+    #[test]
+    fn level_entry_palette_fade_carries_target_word_and_progress_sub_73d0() {
+        let mut commands = Vec::new();
+
+        push_level_entry_palette_fade_sub_73d0(
+            &mut commands,
+            &NativeTraceFrame {
+                teleport_warp_colour: 0x00EE,
+                level_entry_fade_progress_sub_73d0: Some(0x0040),
+                ..NativeTraceFrame::default()
+            },
+        );
+
+        assert_eq!(
+            commands.single(),
+            &DrawCommand::PaletteFadeSub73D0 {
+                target_word: 0x00EE,
+                fade_progress: 0x0040,
+            },
+            "ASM sub_73D0 fades from Palette_Buffer_2 toward the `$FBCC` target word using `$F876` progress"
+        );
+
+        let mut commands = Vec::new();
+        push_level_entry_palette_fade_sub_73d0(
+            &mut commands,
+            &NativeTraceFrame {
+                teleport_warp_colour: 0x00EE,
+                level_entry_fade_progress_sub_73d0: None,
+                ..NativeTraceFrame::default()
+            },
+        );
+        assert!(
+            commands.is_empty(),
+            "without the traced ASM sub_73D0 `$F876` progress, native emits no fullscreen fade command"
+        );
+    }
+
+    #[test]
     fn shooter_block_projectile_tail_loc_ef62_matches_direction_tile_words() {
         for (x_velocity, y_velocity, expected, label) in [
             (0, -1, (-4, -8, 0x8295), "ASM loc_EF62 up tail"),
