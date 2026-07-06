@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive MD standalone GEMS mutation refresh
+
+- Project-status still showed no ready/open risks after the render background
+  slice, so refreshed current-HEAD mutation evidence for
+  `wildside-md/src/runtime.rs` scoped to `GemsBus|GemsAudioEngine`.
+- Scope: standalone GEMS driver reload, YM/PSG write capture, banked ROM reads,
+  FIFO command queueing, ROM-backed driver loading, StopMusic reload/init,
+  sequence start/stop/all-stop, music-speed commands, and frame audio-write
+  drains.
+- Focused `cargo test -q -p wildside-md gems -- --nocapture` passed: 17 tests
+  passed, 0 failed. Mutation at `/tmp/mutants-md-gems-20260706-refresh`
+  reported 86 mutants tested: 84 caught, 2 unviable, and 0 missed. No code
+  changes were needed.
+
 ## 2026-07-06 - proactive render background mutation refresh
 
 - Project-status still showed no ready/open risks after the CLI
