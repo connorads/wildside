@@ -149,12 +149,12 @@ cargo run -p wildside-cli -- asm-coverage --update           # regenerate .cache
 
 ## Iteration workflow
 
-Canonical bug/feature backlog, sharded by reader (one row per issue: status,
-priority, system, summary, verify):
+Canonical bug/feature backlog, sharded by reader (one row per issue):
 - `docs/source-port/backlog.md`: NOW handoff + the **open queue** (`[ ]`/`[~]`). Keep
-  Verify cells short here; the open queue is the hot path.
+  Verify cells short here; table shape is status, priority, system, summary, verify.
 - `docs/source-port/backlog-awaiting-human.md`: `[?]`/`[b]` rows. The agent skips them;
-  only a human promotes `[?]`→`[x]` or unblocks `[b]`.
+  only a human promotes `[?]`→`[x]` or unblocks `[b]`. Its table adds `Target` and
+  `Check` so tools and playtesters can see the validator surface directly.
 - `docs/source-port/backlog-archive.md`: resolved (`[x]`/`[-]`) rows and per-issue
   evidence/history (follow-ups, rejected hypotheses, dated logs); grep it by `#NNN`
   (e.g. `grep -n '#238' docs/source-port/backlog-archive.md`) rather than loading the tracker.
@@ -197,9 +197,12 @@ top of `backlog.md` (rewrite it each session; never let it accrete: old handoffs
 7. Verify mechanically: `mise run verify-slice-fast` must pass (+ `mise run verify-tas-full` after gameplay-affecting commits; do not run the two concurrently, they share `.cache/tas-verify`). The gate runs `cargo clippy --workspace --all-targets -- -D warnings` (the `lint` dep): **a clippy warning is a red gate, same status as a failing test**, and clippy must be green on `main` (the wired pre-commit hook + the gate enforce it). **Gate must be green on main at all times**; never commit tests with unverified values. If values aren't confirmed, mark `#[ignore]` with a comment explaining what needs re-derivation. A red gate blocks all loop commits.
 8. Close out (same commit as the fix): set the row's status and, if it leaves the open
     lane, MOVE the whole row to its lane: `[?]`/`[b]` → `backlog-awaiting-human.md`,
-    `[x]`/`[-]` → the resolved index in `backlog-archive.md`. Append closing evidence to
-    `backlog-archive.md` under its `#NNN` (keep the open-queue Verify cell short). Rewrite
-    the NOW handoff and prepend a session note to `session-log.md` (newest first);
+    `[x]`/`[-]` → the resolved index in `backlog-archive.md`. For awaiting-human rows,
+    set `Target` (`0xNN`, `boot`, `demo`, `demo:0xNN`, `audio-device`,
+    `recording:<slug>`, or `unknown`) and one short overlay-safe `Check` sentence with
+    no links, shell commands, or regression dump. Append closing evidence to
+    `backlog-archive.md` under its `#NNN` (keep the open-queue Verify cell short).
+    Rewrite the NOW handoff and prepend a session note to `session-log.md` (newest first);
     `mise run backlog-lint` checks the result.
 9. After 3-5 fixes: run `cargo mutants -p wildside-core -- --lib` to check for test gaps
 10. After 3-5 fixes: playtest with `mise run play-native`, triage new bugs

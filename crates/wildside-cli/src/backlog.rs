@@ -44,34 +44,78 @@ pub(crate) fn read_live_lanes(repo_root: &Path) -> Result<String> {
     Ok(combined)
 }
 
+/// Cap on the awaiting-human Check cell. Long evidence belongs in Verify/archive.
+const MAX_AWAITING_HUMAN_CHECK_CHARS: usize = 240;
+
 /// One parsed table row, with just the fields the lint inspects.
 struct LintRow {
     id: String,
     status: String,
+    target: Option<String>,
+    check: Option<String>,
     verify: String,
 }
 
-/// Parse `| id | status | pri | system | summary | verify |` rows. Mirrors the
-/// filter-empty positional split used by the selection parsers, and ignores any row
-/// whose first cell is not a numeric id (so heading/separator/template lines are skipped).
-fn parse_rows(contents: &str) -> Vec<LintRow> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BacklogLane {
+    Open,
+    AwaitingHuman,
+}
+
+impl BacklogLane {
+    fn expected_cell_count(self) -> usize {
+        match self {
+            BacklogLane::Open => 6,
+            BacklogLane::AwaitingHuman => 8,
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            BacklogLane::Open => "backlog.md",
+            BacklogLane::AwaitingHuman => "backlog-awaiting-human.md",
+        }
+    }
+}
+
+fn split_markdown_row_cells(line: &str) -> Option<Vec<&str>> {
+    if !line.starts_with('|') {
+        return None;
+    }
+    let parts: Vec<&str> = line.split('|').collect();
+    let cells = &parts[1..parts.len().saturating_sub(1)];
+    let first_cell = cells.first().map_or("", |cell| cell.trim());
+    if first_cell.is_empty() || !first_cell.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    Some(cells.iter().map(|cell| cell.trim()).collect())
+}
+
+/// Parse lane rows. Ignores heading/separator/template lines, but only returns rows
+/// that match the lane's exact table shape; malformed data rows are reported by lint.
+fn parse_rows(contents: &str, lane: BacklogLane) -> Vec<LintRow> {
     let mut rows = Vec::new();
     for line in contents.lines() {
-        if !line.starts_with('|') || line.contains("| Status |") || line.contains("|-----") {
+        let Some(cols) = split_markdown_row_cells(line) else {
+            continue;
+        };
+        if cols.len() != lane.expected_cell_count() || cols.iter().any(|c| c.is_empty()) {
             continue;
         }
-        let cols: Vec<&str> = line
-            .split('|')
-            .map(str::trim)
-            .filter(|c| !c.is_empty())
-            .collect();
-        if cols.len() < 2 || !cols[0].chars().all(|c| c.is_ascii_digit()) {
-            continue;
-        }
+        let (target, check, verify) = match lane {
+            BacklogLane::Open => (None, None, cols[5].to_owned()),
+            BacklogLane::AwaitingHuman => (
+                Some(cols[4].to_owned()),
+                Some(cols[5].to_owned()),
+                cols[7].to_owned(),
+            ),
+        };
         rows.push(LintRow {
             id: cols[0].to_owned(),
             status: cols[1].to_owned(),
-            verify: cols.get(5).copied().unwrap_or("").to_owned(),
+            target,
+            check,
+            verify,
         });
     }
     rows
@@ -93,27 +137,76 @@ fn now_block_len(backlog: &str) -> Option<usize> {
     Some(end.saturating_sub(start))
 }
 
-/// Flag any `| NNN | ... |` data row that is not exactly six non-empty cells. An empty cell
+/// Flag any `| NNN | ... |` data row that is not exactly the lane shape. An empty cell
 /// or an embedded `|` shifts the filter-empty positional parsers, silently mis-routing or
 /// dropping fields; this turns that latent hazard into a hard gate failure.
-fn collect_malformed_rows(contents: &str, lane: &str, problems: &mut Vec<String>) {
+fn collect_malformed_rows(contents: &str, lane: BacklogLane, problems: &mut Vec<String>) {
     for line in contents.lines() {
-        if !line.starts_with('|') {
+        let Some(cells) = split_markdown_row_cells(line) else {
             continue;
-        }
-        let first_cell = line.split('|').nth(1).map_or("", str::trim);
-        if first_cell.is_empty() || !first_cell.chars().all(|c| c.is_ascii_digit()) {
-            continue;
-        }
-        let parts: Vec<&str> = line.split('|').collect();
-        // A clean `| a | b | c | d | e | f |` is 8 parts: 6 cells between empty bounds.
-        let cells = &parts[1..parts.len().saturating_sub(1)];
-        if cells.len() != 6 || cells.iter().any(|c| c.trim().is_empty()) {
+        };
+        if cells.len() != lane.expected_cell_count() || cells.iter().any(|c| c.is_empty()) {
+            let expected = lane.expected_cell_count();
             problems.push(format!(
-                "#{first_cell} in {lane} is malformed: need exactly 6 non-empty cells (an empty cell or embedded '|' shifts columns)"
+                "#{} in {} is malformed: need exactly {expected} non-empty cells (an empty cell or embedded '|' shifts columns)",
+                cells[0],
+                lane.name()
             ));
         }
     }
+}
+
+pub(crate) fn is_valid_awaiting_human_target(target: &str) -> bool {
+    if matches!(target, "boot" | "demo" | "audio-device" | "unknown") {
+        return true;
+    }
+    if let Some(hex) = target.strip_prefix("0x") {
+        return hex.len() == 2 && hex.chars().all(|c| c.is_ascii_hexdigit());
+    }
+    if let Some(hex) = target.strip_prefix("demo:0x") {
+        return hex.len() == 2 && hex.chars().all(|c| c.is_ascii_hexdigit());
+    }
+    if let Some(slug) = target.strip_prefix("recording:") {
+        return !slug.is_empty()
+            && slug
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'));
+    }
+    false
+}
+
+pub(crate) fn awaiting_human_check_problem(check: &str) -> Option<String> {
+    if check.trim().is_empty() {
+        return Some("Check is empty".to_owned());
+    }
+    let len = check.chars().count();
+    if len > MAX_AWAITING_HUMAN_CHECK_CHARS {
+        return Some(format!(
+            "Check is {len} chars (max {MAX_AWAITING_HUMAN_CHECK_CHARS})"
+        ));
+    }
+    let lower = check.to_ascii_lowercase();
+    if check.contains("](") || check.contains("http://") || check.contains("https://") {
+        return Some("Check must not contain Markdown links".to_owned());
+    }
+    let first_word = lower.split_whitespace().next().unwrap_or("");
+    if check.contains('`')
+        || matches!(
+            first_word,
+            "cargo" | "mise" | "pnpm" | "git" | "gh" | "wildside"
+        )
+    {
+        return Some("Check must not contain shell commands".to_owned());
+    }
+    if lower.contains("regression")
+        || lower.contains("verify-slice")
+        || lower.contains("oracle parity")
+        || lower.contains("covered by")
+        || lower.contains("see archive")
+    {
+        return Some("Check must stay human-facing, not an evidence dump".to_owned());
+    }
+    None
 }
 
 /// Enforce the backlog's pit-of-success shape. Returns an error listing every problem so
@@ -140,11 +233,11 @@ pub(crate) fn run_backlog_lint(repo_root: &Path) -> Result<()> {
         );
     }
 
-    collect_malformed_rows(&backlog, "backlog.md", &mut problems);
-    collect_malformed_rows(&awaiting, "backlog-awaiting-human.md", &mut problems);
+    collect_malformed_rows(&backlog, BacklogLane::Open, &mut problems);
+    collect_malformed_rows(&awaiting, BacklogLane::AwaitingHuman, &mut problems);
 
-    let backlog_rows = parse_rows(&backlog);
-    let awaiting_rows = parse_rows(&awaiting);
+    let backlog_rows = parse_rows(&backlog, BacklogLane::Open);
+    let awaiting_rows = parse_rows(&awaiting, BacklogLane::AwaitingHuman);
 
     for row in &backlog_rows {
         let len = row.verify.chars().count();
@@ -168,6 +261,14 @@ pub(crate) fn run_backlog_lint(repo_root: &Path) -> Result<()> {
                 row.id, row.status
             ));
         }
+        let target = row.target.as_deref().unwrap_or("");
+        if !is_valid_awaiting_human_target(target) {
+            problems.push(format!("#{} has invalid Target `{target}`", row.id));
+        }
+        let check = row.check.as_deref().unwrap_or("");
+        if let Some(problem) = awaiting_human_check_problem(check) {
+            problems.push(format!("#{} {problem}", row.id));
+        }
     }
     let backlog_ids: BTreeSet<&str> = backlog_rows.iter().map(|r| r.id.as_str()).collect();
     for row in &awaiting_rows {
@@ -180,10 +281,15 @@ pub(crate) fn run_backlog_lint(repo_root: &Path) -> Result<()> {
     }
 
     if problems.is_empty() {
+        let unknown_targets = awaiting_rows
+            .iter()
+            .filter(|row| row.target.as_deref() == Some("unknown"))
+            .count();
         println!(
-            "backlog-lint: ok ({} open, {} awaiting-human)",
+            "backlog-lint: ok ({} open, {} awaiting-human, {} unknown targets)",
             backlog_rows.len(),
-            awaiting_rows.len()
+            awaiting_rows.len(),
+            unknown_targets
         );
         Ok(())
     } else {
@@ -248,9 +354,9 @@ mod tests {
         write(
             &dir,
             AWAITING_HUMAN_PATH,
-            "| # | Status | Pri | System | Summary | Verify |\n\
-             |-----|--------|-----|--------|---------|--------|\n\
-             | 300 | [?] | P1 | audio | proposed | review |\n",
+            "| # | Status | Pri | System | Target | Check | Summary | Verify |\n\
+             |-----|--------|-----|--------|--------|-------|---------|--------|\n\
+             | 300 | [?] | P1 | audio | audio-device | Confirm clean sound on real speakers. | proposed | review |\n",
         );
         run_backlog_lint(dir.path()).expect("clean lanes lint clean");
     }
@@ -261,7 +367,8 @@ mod tests {
             "| # | Status |\n\
              |-----|--------|\n\
              | abc | [ ] |\n\
-             | 200 | [ ] |\n",
+             | 200 | [ ] | P1 | player | row | verify |\n",
+            BacklogLane::Open,
         );
 
         assert_eq!(rows.len(), 1);
@@ -275,6 +382,7 @@ mod tests {
             "200 | [ ] | P1 | player | missing leading pipe | verify\n\
              | 201 | [ ] | P1 | player | contains | Status | text |\n\
              | 202 | [ ] | P1 | player | valid | verify |\n",
+            BacklogLane::Open,
         );
 
         assert_eq!(rows.len(), 1);
@@ -287,7 +395,7 @@ mod tests {
         collect_malformed_rows(
             "| | [ ] | P1 | player | template | verify |\n\
              | abc | [ ] | P1 | player | template | verify |\n",
-            "backlog.md",
+            BacklogLane::Open,
             &mut problems,
         );
 
@@ -395,9 +503,9 @@ mod tests {
         write(
             &dir,
             AWAITING_HUMAN_PATH,
-            "| # | Status | Pri | System | Summary | Verify |\n\
-             |-----|--------|-----|--------|---------|--------|\n\
-             | 200 | [?] | P1 | player | dup | review |\n",
+            "| # | Status | Pri | System | Target | Check | Summary | Verify |\n\
+             |-----|--------|-----|--------|--------|-------|---------|--------|\n\
+             | 200 | [?] | P1 | player | 0x00 | Confirm the issue in Blue Lake Woods. | dup | review |\n",
         );
         lint_err(&dir);
     }
@@ -413,9 +521,123 @@ mod tests {
         );
         write(&dir, BACKLOG_PATH, &malformed);
         let mut problems = Vec::new();
-        collect_malformed_rows(&malformed, "backlog.md", &mut problems);
+        collect_malformed_rows(&malformed, BacklogLane::Open, &mut problems);
         assert!(problems.iter().any(|p| p.contains("is malformed")));
         lint_err(&dir);
+    }
+
+    #[test]
+    fn lint_requires_six_column_open_rows() {
+        let dir = TempDir::new().expect("temp");
+        write(&dir, BACKLOG_PATH, CLEAN_BACKLOG);
+        run_backlog_lint(dir.path()).expect("six-column open row passes");
+    }
+
+    #[test]
+    fn lint_rejects_six_column_awaiting_human_rows() {
+        let dir = TempDir::new().expect("temp");
+        write(&dir, BACKLOG_PATH, CLEAN_BACKLOG);
+        write(
+            &dir,
+            AWAITING_HUMAN_PATH,
+            "| # | Status | Pri | System | Summary | Verify |\n\
+             |-----|--------|-----|--------|---------|--------|\n\
+             | 300 | [?] | P1 | audio | proposed | review |\n",
+        );
+
+        lint_err(&dir);
+    }
+
+    #[test]
+    fn lint_accepts_valid_eight_column_awaiting_human_rows() {
+        let dir = TempDir::new().expect("temp");
+        write(&dir, BACKLOG_PATH, CLEAN_BACKLOG);
+        write(
+            &dir,
+            AWAITING_HUMAN_PATH,
+            "| # | Status | Pri | System | Target | Check | Summary | Verify |\n\
+             |-----|--------|-----|--------|--------|-------|---------|--------|\n\
+             | 300 | [b] | P1 | audio | demo:0x1b | Confirm the demo prize looks correct. | proposed | review |\n",
+        );
+
+        run_backlog_lint(dir.path()).expect("valid awaiting row passes");
+    }
+
+    #[test]
+    fn lint_rejects_invalid_awaiting_human_target() {
+        let dir = TempDir::new().expect("temp");
+        write(&dir, BACKLOG_PATH, CLEAN_BACKLOG);
+        write(
+            &dir,
+            AWAITING_HUMAN_PATH,
+            "| # | Status | Pri | System | Target | Check | Summary | Verify |\n\
+             |-----|--------|-----|--------|--------|-------|---------|--------|\n\
+             | 300 | [?] | P1 | audio | level-1 | Confirm clean sound on real speakers. | proposed | review |\n",
+        );
+
+        lint_err(&dir);
+    }
+
+    #[test]
+    fn lint_rejects_empty_target_or_check() {
+        let dir = TempDir::new().expect("temp");
+        write(&dir, BACKLOG_PATH, CLEAN_BACKLOG);
+        write(
+            &dir,
+            AWAITING_HUMAN_PATH,
+            "| # | Status | Pri | System | Target | Check | Summary | Verify |\n\
+             |-----|--------|-----|--------|--------|-------|---------|--------|\n\
+             | 300 | [?] | P1 | audio |  | Confirm clean sound on real speakers. | proposed | review |\n\
+             | 301 | [?] | P1 | audio | audio-device |  | proposed | review |\n",
+        );
+
+        lint_err(&dir);
+    }
+
+    #[test]
+    fn lint_rejects_overlong_or_noisy_check() {
+        let dir = TempDir::new().expect("temp");
+        let long = "x".repeat(MAX_AWAITING_HUMAN_CHECK_CHARS + 1);
+        write(&dir, BACKLOG_PATH, CLEAN_BACKLOG);
+        write(
+            &dir,
+            AWAITING_HUMAN_PATH,
+            &format!(
+                "| # | Status | Pri | System | Target | Check | Summary | Verify |\n\
+                 |-----|--------|-----|--------|--------|-------|---------|--------|\n\
+                 | 300 | [?] | P1 | audio | audio-device | {long} | proposed | review |\n\
+                 | 301 | [?] | P1 | audio | audio-device | See [the route](./x). | proposed | review |\n\
+                 | 302 | [?] | P1 | audio | audio-device | Run `mise run play-native` and listen. | proposed | review |\n\
+                 | 303 | [?] | P1 | audio | audio-device | Regression test proves this. | proposed | review |\n"
+            ),
+        );
+
+        lint_err(&dir);
+    }
+
+    #[test]
+    fn unknown_awaiting_human_target_is_allowed_and_counted() {
+        let dir = TempDir::new().expect("temp");
+        write(&dir, BACKLOG_PATH, CLEAN_BACKLOG);
+        write(
+            &dir,
+            AWAITING_HUMAN_PATH,
+            "| # | Status | Pri | System | Target | Check | Summary | Verify |\n\
+             |-----|--------|-----|--------|--------|-------|---------|--------|\n\
+             | 300 | [?] | P1 | audio | unknown | Confirm the reported issue no longer appears. | proposed | review |\n",
+        );
+
+        run_backlog_lint(dir.path()).expect("unknown target is visible debt, not failure");
+        let rows = parse_rows(
+            &fs::read_to_string(dir.path().join(AWAITING_HUMAN_PATH)).expect("read"),
+            BacklogLane::AwaitingHuman,
+        );
+        assert_eq!(
+            rows.iter()
+                .filter(|row| row.target.as_deref() == Some("unknown"))
+                .count(),
+            1
+        );
     }
 
     #[test]

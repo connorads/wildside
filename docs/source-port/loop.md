@@ -4,6 +4,7 @@ The whole loop. The backlog is sharded by reader:
 
 - `backlog.md`: the NOW handoff and the **open queue** (`[ ]`/`[~]` rows). Your file.
 - `backlog-awaiting-human.md`: `[?]`/`[b]` rows. **Skip these**; only a human closes them.
+  Rows use `Target` and `Check` so `project-status` can print the validation surface.
 - `backlog-archive.md`: resolved rows and per-issue evidence, keyed by `#NNN`.
 - `session-log.md`: append-only history of past session handoffs.
 
@@ -13,6 +14,7 @@ The whole loop. The backlog is sharded by reader:
    - **ready to implement now**: open rows with a root cause identified; take the top one;
    - **top open playability / visual risks**: otherwise take the top of these;
    - **human validation/repro blockers**: the awaiting-human lane; never pick these.
+     Each prints `Target` plus the short human `Check`.
 
    Do not eyeball the table for "the top row": order in the file is not priority,
    `project-status` is. If `ready` and the risk lists are empty, use the
@@ -29,8 +31,11 @@ The whole loop. The backlog is sharded by reader:
 7. Commit with the *why*, dead ends included. **Close out in the same commit:** set the
    row's status, and if it leaves the open lane, MOVE the whole row to its lane:
    `[?]`/`[b]` → `backlog-awaiting-human.md`, `[x]`/`[-]` → the resolved index in
-   `backlog-archive.md`. Append closing evidence to the archive under `#NNN`. Keep the
-   open-queue Verify cells short (evidence belongs in the archive).
+   `backlog-archive.md`. Awaiting-human rows must set `Target` (`0xNN`, `boot`,
+   `demo`, `demo:0xNN`, `audio-device`, `recording:<slug>`, or `unknown`) and a short
+   overlay-safe `Check` sentence with no links, commands, or regression dump. Append
+   closing evidence to the archive under `#NNN`. Keep the open-queue Verify cells short
+   (evidence belongs in the archive).
 8. Update the handoff: prepend a one-paragraph session note to `session-log.md`
    (newest first) and rewrite NOW in `backlog.md` to the current state. NOW is a
    handoff, not a changelog; never let it accrete.
@@ -39,8 +44,8 @@ The whole loop. The backlog is sharded by reader:
 `backlog-archive.md` and stop; never commit churn.**
 
 `mise run backlog-lint` enforces the shape (NOW size, lean open-queue Verify cells,
-each `#NNN` in exactly one lane, rows in the lane their status implies); it runs inside
-`verify-slice-fast`, so drift fails the gate.
+awaiting-human `Target`/`Check`, each `#NNN` in exactly one lane, rows in the lane their
+status implies); it runs inside `verify-slice-fast`, so drift fails the gate.
 
 ## Fallback: proactive verification
 

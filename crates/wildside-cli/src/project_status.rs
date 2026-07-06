@@ -1,4 +1,4 @@
-use crate::backlog::read_live_lanes;
+use crate::backlog::{AWAITING_HUMAN_PATH, read_live_lanes};
 use anyhow::{Result, bail};
 use clap::ValueEnum;
 use serde::Serialize;
@@ -48,6 +48,8 @@ struct HumanValidationBlocker {
     status: String,
     priority: String,
     system: String,
+    target: String,
+    check: String,
     summary: String,
 }
 
@@ -99,7 +101,7 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
     let ready_to_implement_items = load_ready_to_implement_items(repo_root, 5)?;
     let top_open_playability_items = load_top_open_items(repo_root, 5, BacklogFocus::Playability)?;
     let top_open_visual_items = load_top_open_items(repo_root, 5, BacklogFocus::VisualParity)?;
-    let human_validation_blockers = load_human_validation_blockers(repo_root)?;
+    let human_validation_blockers = load_human_validation_blockers(repo_root);
 
     let mut warnings = Vec::new();
     if !playable_gate.passed {
@@ -118,6 +120,15 @@ fn build_project_status_report(repo_root: &Path) -> Result<ProjectStatusReport> 
         warnings.push(format!(
             "{} human validation/repro blocker(s) remain; only a human playtest can close [?]/[b] rows",
             human_validation_blockers.len()
+        ));
+    }
+    let unknown_targets = human_validation_blockers
+        .iter()
+        .filter(|item| item.target == "unknown")
+        .count();
+    if unknown_targets > 0 {
+        warnings.push(format!(
+            "{unknown_targets} human validation/repro blocker(s) have unknown targets"
         ));
     }
 
@@ -308,8 +319,9 @@ fn load_ready_to_implement_items(repo_root: &Path, limit: usize) -> Result<Vec<B
     Ok(items)
 }
 
-fn load_human_validation_blockers(repo_root: &Path) -> Result<Vec<HumanValidationBlocker>> {
-    let contents = read_live_lanes(repo_root)?;
+fn load_human_validation_blockers(repo_root: &Path) -> Vec<HumanValidationBlocker> {
+    let contents =
+        fs::read_to_string(repo_root.join(AWAITING_HUMAN_PATH)).unwrap_or_else(|_| String::new());
     let mut items = Vec::new();
     for line in contents.lines() {
         if !line.starts_with('|') {
@@ -320,7 +332,7 @@ fn load_human_validation_blockers(repo_root: &Path) -> Result<Vec<HumanValidatio
             .map(str::trim)
             .filter(|column| !column.is_empty())
             .collect::<Vec<_>>();
-        if columns.len() < 5 {
+        if columns.len() != 8 {
             continue;
         }
         let status = columns[1];
@@ -333,7 +345,9 @@ fn load_human_validation_blockers(repo_root: &Path) -> Result<Vec<HumanValidatio
             status: status.to_owned(),
             priority: priority.to_owned(),
             system: columns[3].to_owned(),
-            summary: columns[4].to_owned(),
+            target: columns[4].to_owned(),
+            check: columns[5].to_owned(),
+            summary: columns[6].to_owned(),
         });
     }
     items.sort_by(|left, right| {
@@ -348,7 +362,7 @@ fn load_human_validation_blockers(repo_root: &Path) -> Result<Vec<HumanValidatio
             .cmp(&priority_rank(&right.priority))
             .then_with(|| left.id.cmp(&right.id))
     });
-    Ok(items)
+    items
 }
 
 fn print_project_status(report: &ProjectStatusReport) -> String {
@@ -426,8 +440,8 @@ fn render_project_status(report: &ProjectStatusReport) -> String {
         for item in &report.human_validation_blockers {
             let _ = writeln!(
                 output,
-                "    - #{} {} {} {}: {}",
-                item.id, item.status, item.priority, item.system, item.summary
+                "    - #{} {} {} {} [{}]: {}",
+                item.id, item.status, item.priority, item.system, item.target, item.check
             );
         }
         let _ = writeln!(
@@ -647,18 +661,33 @@ not a table row
             "\
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 135 | [?] | P1 | render | Level 1 background needs validation | review |
-| 146 | [b] | P1 | level | Level 2 death needs repro | review |
 | 147 | [x] | P1 | render | Closed validation row | done |
 | 148 | [ ] | P1 | player | Agent-actionable row | fix |
 ",
         )
         .expect("backlog");
+        fs::write(
+            temp_dir
+                .path()
+                .join("docs/source-port/backlog-awaiting-human.md"),
+            "\
+| # | Status | Pri | System | Target | Check | Summary | Verify |
+|-----|--------|-----|--------|--------|-------|---------|--------|
+| 135 | [?] | P1 | render | 0x00 | Confirm the level background looks correct. | Level 1 background needs validation | review |
+| 146 | [b] | P1 | level | 0x01 | Reproduce the death route and capture the frame. | Level 2 death needs repro | review |
+",
+        )
+        .expect("awaiting");
 
-        let items = load_human_validation_blockers(temp_dir.path()).expect("items");
+        let items = load_human_validation_blockers(temp_dir.path());
         assert_eq!(items.len(), 2);
         assert_eq!(items[0].id, "135");
         assert_eq!(items[0].status, "[?]");
+        assert_eq!(items[0].target, "0x00");
+        assert_eq!(
+            items[0].check,
+            "Confirm the level background looks correct."
+        );
         assert_eq!(items[1].id, "146");
         assert_eq!(items[1].status, "[b]");
     }
@@ -670,19 +699,30 @@ not a table row
         fs::write(
             temp_dir.path().join("docs/source-port/backlog.md"),
             "\
-not a table row
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 010 | [?] | P1 | render |
-| 011 | [?] | P3 | render | unsupported blocker priority | review |
-| 010 | [b] | P2 | level | p2 blocker | review |
-| 020 | [?] | P1 | render | p1 blocker | review |
-| 030 | [b] | P0 | audio | p0 blocker |
+| 100 | [ ] | P1 | player | open row | verify |
 ",
         )
         .expect("backlog");
+        fs::write(
+            temp_dir
+                .path()
+                .join("docs/source-port/backlog-awaiting-human.md"),
+            "\
+not a table row
+| # | Status | Pri | System | Target | Check | Summary | Verify |
+|-----|--------|-----|--------|--------|-------|---------|--------|
+| 010 | [?] | P1 | render |
+| 011 | [?] | P3 | render | 0x01 | Confirm it. | unsupported blocker priority | review |
+| 010 | [b] | P2 | level | 0x01 | Confirm the p2 blocker. | p2 blocker | review |
+| 020 | [?] | P1 | render | 0x00 | Confirm the p1 blocker. | p1 blocker | review |
+| 030 | [b] | P0 | audio | audio-device | Confirm the p0 blocker. | p0 blocker | review |
+",
+        )
+        .expect("awaiting");
 
-        let items = load_human_validation_blockers(temp_dir.path()).expect("items");
+        let items = load_human_validation_blockers(temp_dir.path());
         assert_eq!(
             items
                 .iter()
@@ -713,15 +753,15 @@ not a table row
                 .path()
                 .join("docs/source-port/backlog-awaiting-human.md"),
             "\
-| # | Status | Pri | System | Summary | Verify |
-|-----|--------|-----|--------|---------|--------|
-| 201 | [?] | P0 | render | sharded blocker | review |
-| 202 | [b] | P1 | level | sharded repro blocker | review |
+| # | Status | Pri | System | Target | Check | Summary | Verify |
+|-----|--------|-----|--------|--------|-------|---------|--------|
+| 201 | [?] | P0 | render | 0x00 | Confirm the sharded blocker. | sharded blocker | review |
+| 202 | [b] | P1 | level | 0x01 | Reproduce the sharded blocker. | sharded repro blocker | review |
 ",
         )
         .expect("awaiting-human");
 
-        let blockers = load_human_validation_blockers(temp_dir.path()).expect("blockers");
+        let blockers = load_human_validation_blockers(temp_dir.path());
         assert_eq!(blockers.len(), 2);
         assert_eq!(blockers[0].id, "201"); // P0 sorts ahead of P1
         assert_eq!(blockers[1].id, "202");
@@ -744,10 +784,20 @@ not a table row
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 123 | [ ] | P1 | player | core playability bug | verify |
-| 135 | [?] | P1 | render | human visual blocker | review |
 ",
         )
         .expect("backlog");
+        fs::write(
+            temp_dir
+                .path()
+                .join("docs/source-port/backlog-awaiting-human.md"),
+            "\
+| # | Status | Pri | System | Target | Check | Summary | Verify |
+|-----|--------|-----|--------|--------|-------|---------|--------|
+| 135 | [?] | P1 | render | 0x00 | Confirm the visual blocker. | human visual blocker | review |
+",
+        )
+        .expect("awaiting");
         fs::write(
             temp_dir
                 .path()
@@ -819,6 +869,8 @@ not a table row
                 status: "[?]".to_owned(),
                 priority: "P0".to_owned(),
                 system: "audio".to_owned(),
+                target: "audio-device".to_owned(),
+                check: "Confirm the audio row.".to_owned(),
                 summary: "human row".to_owned(),
             }],
             warnings: vec!["warning row".to_owned()],
@@ -832,7 +884,7 @@ not a table row
         assert!(text.contains("#010 P0 enemy: ready row"));
         assert!(text.contains("#011 P1 player: play row"));
         assert!(text.contains("#012 P1 render: visual row"));
-        assert!(text.contains("#013 [?] P0 audio: human row"));
+        assert!(text.contains("#013 [?] P0 audio [audio-device]: Confirm the audio row."));
         assert!(text.contains("review: human playtest required to close [?]/[b] rows"));
         assert!(text.contains("warning row"));
         assert_eq!(print_project_status(&report), text);
@@ -888,10 +940,20 @@ not a table row
             "\
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 135 | [?] | P1 | render | human visual blocker | review |
 ",
         )
         .expect("backlog");
+        fs::write(
+            temp_dir
+                .path()
+                .join("docs/source-port/backlog-awaiting-human.md"),
+            "\
+| # | Status | Pri | System | Target | Check | Summary | Verify |
+|-----|--------|-----|--------|--------|-------|---------|--------|
+| 135 | [?] | P1 | render | 0x00 | Confirm the visual blocker. | human visual blocker | review |
+",
+        )
+        .expect("awaiting");
         fs::write(
             temp_dir
                 .path()
@@ -913,5 +975,38 @@ not a table row
 
         run_project_status(temp_dir.path(), ProjectStatusFormat::Text, false)
             .expect("human blockers should not fail unless explicitly requested");
+    }
+
+    #[test]
+    fn project_status_warns_for_unknown_human_targets() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
+        fs::write(
+            temp_dir.path().join("docs/source-port/backlog.md"),
+            "\
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+",
+        )
+        .expect("backlog");
+        fs::write(
+            temp_dir
+                .path()
+                .join("docs/source-port/backlog-awaiting-human.md"),
+            "\
+| # | Status | Pri | System | Target | Check | Summary | Verify |
+|-----|--------|-----|--------|--------|-------|---------|--------|
+| 135 | [?] | P1 | render | unknown | Confirm the reported issue is fixed. | human visual blocker | review |
+",
+        )
+        .expect("awaiting");
+
+        let report = build_project_status_report(temp_dir.path()).expect("report");
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("unknown targets"))
+        );
     }
 }

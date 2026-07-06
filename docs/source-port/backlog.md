@@ -23,6 +23,11 @@ included) under the issue's `#NNN` in `backlog-archive.md` and leave status at
 `[~]`. The stop rule comes from `loop.md`: no code commit ⇒ write the dead end
 and stop — never commit churn.
 
+Awaiting-human rows live in `backlog-awaiting-human.md` and add `Target` (`0xNN`,
+`boot`, `demo`, `demo:0xNN`, `audio-device`, `recording:<slug>`, or `unknown`) plus
+a short human-facing `Check` sentence so tools can show exactly what a playtester
+must validate.
+
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
