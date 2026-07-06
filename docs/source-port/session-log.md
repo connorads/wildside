@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame scene EOL number-sprite mutation hardening
+
+- Project-status still showed no ready/open risks after the EOL level-skip
+  digit slice, so mutation-tested `wildside-frame/src/scene.rs` scoped to
+  `push_eol_number_sprites_with_palette`.
+- Initial mutation at
+  `/tmp/mutants-frame-scene-eol-number-digits-20260706-initial` reported 23
+  mutants tested: 7 caught and 16 missed. Added ASM-cited frame-scene coverage
+  for `Object_EOL_Number loc_C48C` leading-zero suppression, interior zero
+  retention, seven-slot `$C` spacing, the final ones-place zero, and the
+  `loc_C4AE` 9999999 clamp, plus `loc_C466` digit priority.
+- Focused regression
+  `cargo test -q -p wildside-frame --lib eol_number_sprites_follow_loc_c48c_digit_slots_and_zero_rules`
+  passed. Final mutation at
+  `/tmp/mutants-frame-scene-eol-number-digits-20260706-final` reported 23
+  mutants tested: 23 caught and 0 missed.
+
 ## 2026-07-06 - proactive frame scene EOL level-skip digit mutation hardening
 
 - Project-status still showed no ready/open risks after the EOL counter slice,

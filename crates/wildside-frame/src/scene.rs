@@ -8485,6 +8485,59 @@ mod tests {
     }
 
     #[test]
+    fn eol_number_sprites_follow_loc_c48c_digit_slots_and_zero_rules() {
+        let eol = sample_eol_score_visuals();
+        let palette = sample_palette();
+        let mut commands = Vec::new();
+
+        push_eol_number_sprites_with_palette(&mut commands, &eol, &palette, 0x80, 0x90, 1_203);
+
+        assert_eq!(
+            sprite_snapshots(&commands),
+            vec![
+                (0xA4, 0x88, 1, false),
+                (0xB0, 0x88, 2, false),
+                (0xBC, 0x88, 0, false),
+                (0xC8, 0x88, 3, false),
+            ],
+            "ASM Object_EOL_Number loc_C48C suppresses leading zero slots, keeps interior zeroes, and spaces digits by $C from `$64/$68`"
+        );
+        for command in &commands {
+            let DrawCommand::Sprite { tiles, .. } = command else {
+                panic!("ASM Object_EOL_Number loc_C466 should emit sprite commands only");
+            };
+            assert!(
+                tiles.iter().all(|tile| tile.tile.priority),
+                "ASM Object_EOL_Number loc_C466 sets priority=$01 for every digit slot"
+            );
+        }
+
+        commands.clear();
+        push_eol_number_sprites_with_palette(&mut commands, &eol, &palette, 0x80, 0x90, 0);
+        assert_eq!(
+            sprite_snapshots(&commands),
+            vec![(0xC8, 0x88, 0, false)],
+            "ASM Object_EOL_Number loc_C4C0 keeps the final ones-place zero even when all leading slots are blank"
+        );
+
+        commands.clear();
+        push_eol_number_sprites_with_palette(&mut commands, &eol, &palette, 0x80, 0x90, 12_345_678);
+        assert_eq!(
+            sprite_snapshots(&commands),
+            vec![
+                (0x80, 0x88, 9, false),
+                (0x8C, 0x88, 9, false),
+                (0x98, 0x88, 9, false),
+                (0xA4, 0x88, 9, false),
+                (0xB0, 0x88, 9, false),
+                (0xBC, 0x88, 9, false),
+                (0xC8, 0x88, 9, false),
+            ],
+            "ASM Object_EOL_Number loc_C4AE clamps displayed score-row numbers to 9999999"
+        );
+    }
+
+    #[test]
     fn eol_bonus_amounts_follow_loc_d468_row_order_and_flags() {
         let all_rows_trace = NativeTraceFrame {
             level_timer_seconds: 125,
