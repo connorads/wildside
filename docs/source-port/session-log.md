@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive MD runtime probe mutation hardening
+
+- Project-status still showed no ready/open risks after the standalone GEMS
+  slice, so mutation-tested `wildside-md/src/runtime.rs` scoped to
+  `probe_rom|MdRuntime`.
+- Initial mutation at `/tmp/mutants-md-runtime-probe-20260706-initial`
+  reported 55 mutants tested: 47 caught, 4 missed, 4 unviable. The misses were
+  branch inversions in `probe_rom_with_script` and `MdRuntime::snapshot` for
+  non-zero `game_paused` and `options_speed_button_fast` byte-to-bool exports.
+- Added focused probe/snapshot regressions for those flags. Final mutation at
+  `/tmp/mutants-md-runtime-probe-20260706-final` reported 55 mutants tested:
+  51 caught, 4 unviable, and 0 missed. Focused tests and the `wildside-md` lib
+  baseline passed.
+
 ## 2026-07-06 - proactive MD standalone GEMS mutation refresh
 
 - Project-status still showed no ready/open risks after the render background

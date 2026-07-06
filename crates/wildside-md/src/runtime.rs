@@ -2529,6 +2529,11 @@ mod tests {
         mixer.ym2612.write_port(1, value);
     }
 
+    fn move_b_immediate_abs(value: u8, address: u32) -> [u8; 8] {
+        let [a0, a1, a2, a3] = address.to_be_bytes();
+        [0x13, 0xFC, 0x00, value, a0, a1, a2, a3]
+    }
+
     #[test]
     fn probes_reset_vector_and_steps_nops() {
         let rom = [
@@ -2556,6 +2561,24 @@ mod tests {
         let probe = probe_rom(&rom, 2).expect("probe should execute byte write");
 
         assert!(probe.just_received_damage);
+    }
+
+    #[test]
+    fn probe_rom_reports_nonzero_pause_and_speed_flags_as_true() {
+        // CpuProbe booleans mirror raw non-zero WRAM bytes for CLI/oracle state reports.
+        let mut code = Vec::new();
+        code.extend_from_slice(&move_b_immediate_abs(1, super::GAME_PAUSED_ADDR));
+        code.extend_from_slice(&move_b_immediate_abs(
+            1,
+            super::OPTIONS_SUBOPTION_SPEED_ADDR,
+        ));
+        code.extend_from_slice(&[0x4E, 0x71]);
+        let rom = rom_with_code_at_reset(&code);
+
+        let probe = probe_rom(&rom, 3).expect("probe should execute flag writes");
+
+        assert!(probe.game_paused);
+        assert!(probe.options_speed_button_fast);
     }
 
     #[test]
@@ -2631,6 +2654,24 @@ mod tests {
             .write_work_ram_byte(super::JUST_RECEIVED_DAMAGE_ADDR, 1);
 
         assert!(runtime.snapshot().just_received_damage);
+    }
+
+    #[test]
+    fn snapshot_reports_nonzero_pause_and_speed_flags_as_true() {
+        let mut runtime = MdRuntime::new(&nop_rom()).expect("runtime should boot a NOP ROM");
+        runtime
+            .core
+            .mem
+            .write_work_ram_byte(super::GAME_PAUSED_ADDR, 1);
+        runtime
+            .core
+            .mem
+            .write_work_ram_byte(super::OPTIONS_SUBOPTION_SPEED_ADDR, 1);
+
+        let snapshot = runtime.snapshot();
+
+        assert!(snapshot.game_paused);
+        assert!(snapshot.options_speed_button_fast);
     }
 
     #[test]
