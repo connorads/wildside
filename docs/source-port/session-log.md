@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-06 - proactive frame render helper mutation verification
+
+- Project-status still showed no ready/open risks after the data level-layout
+  slice, so mutation-tested the shared frame renderer's compact
+  palette/tint/fade/clear helper set in `render.rs`.
+- ASM context: `loc_6C70` owns pause-palette darkening, `loc_BCF6` seeds the
+  teleport tint colour, and `sub_73D0`/`sub_14C0` own CRAM palette fades.
+- Focused render tests already covered the helper contract. Mutation at
+  `/tmp/mutants-frame-render-palette-20260706-initial` reported 72 mutants
+  tested: 72 caught, 0 missed. No code changes were needed.
+
 ## 2026-07-06 - proactive data level-layout mutation verification
 
 - Project-status still showed no ready/open risks after the asset-source slice,
