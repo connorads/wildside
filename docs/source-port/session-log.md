@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Mini Hopping Skull enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Dragon
+  refresh, ran the single-file mutation wrapper against
+  `enemies/mini_hopping_skull.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/mini_hopping_skull.rs
+  OUTPUT=/tmp/mutants-mini-hopping-skull-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `146 mutants tested in 14m: 90 caught, 56 unviable`.
+- No source edit was warranted. Existing ASM-cited Mini Hopping Skull coverage
+  still kills every viable mutant across air sprite selection, collision
+  dispatch, grounded wait and windup loops, damage/death routing, landing-tail
+  decisions, scream-worker allocation, and relaunch helpers.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Dragon enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Dragon
