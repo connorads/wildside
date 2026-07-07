@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Drips enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Lion
+  refresh, ran the single-file mutation wrapper against `enemies/drips.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/drips.rs
+  OUTPUT=/tmp/mutants-drips-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `299 mutants tested in 30m: 234 caught, 65 unviable`.
+- No source edit was warranted. Existing ASM-cited Drips coverage still kills
+  every viable mutant across ceiling/drop timing, splash reset, surface-crawler
+  init, collision/bounds dispatch, velocity application, movement branch
+  routing, turn scripts, delete tails, and parked idle loops.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Lion enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Ninja
