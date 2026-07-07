@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Scorpion enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Robot
+  refresh, ran the single-file mutation wrapper against `enemies/scorpion.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/scorpion.rs
+  OUTPUT=/tmp/mutants-scorpion-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `57 mutants tested in 6m: 46 caught, 11 unviable`.
+- No source edit was warranted. Existing ASM-cited Scorpion coverage still kills
+  every viable mutant across close-range sting gates, recovery, timer/pacing
+  routes, collision dispatch, and direction resume paths.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Robot enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Fireball
