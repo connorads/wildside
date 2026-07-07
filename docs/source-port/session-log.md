@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Dragon enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Dragon
+  Walking refresh, ran the single-file mutation wrapper against
+  `enemies/dragon.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/dragon.rs
+  OUTPUT=/tmp/mutants-dragon-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `264 mutants tested in 28m: 222 caught, 42 unviable`.
+- No source edit was warranted. Existing ASM-cited Dragon coverage still kills
+  every viable mutant across command-script stepping, hover/drift/descent
+  movement, terrain response and rebound helpers, death child respawn setup,
+  and descent-fire travel/cleanup.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Dragon Walking enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Tank
