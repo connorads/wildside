@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive UFO enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Tar
+  Monster refresh, ran the single-file mutation wrapper against
+  `enemies/ufo.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/ufo.rs
+  OUTPUT=/tmp/mutants-ufo-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `232 mutants tested in 24m: 194 caught, 38 unviable`.
+- No source edit was warranted. Existing ASM-cited UFO coverage still kills
+  every viable mutant across motion selection/scaling, on-screen gates,
+  tracking, random and targeted beam setup, terrain/collision response,
+  hurt-driver/debris paths, and beam child loops.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Tar Monster enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Mini
