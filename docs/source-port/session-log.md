@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Tar Monster enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Mini
+  Hopping Skull refresh, ran the single-file mutation wrapper against
+  `enemies/tar_monster.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/tar_monster.rs
+  OUTPUT=/tmp/mutants-tar-monster-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `141 mutants tested in 14m: 107 caught, 34 unviable`.
+- No source edit was warranted. Existing ASM-cited Tar Monster coverage still
+  kills every viable mutant across bytecode dispatch, emerge/attack/submerge
+  timing, collision and hurt/death routing, shot spawn/motion/wait, projectile
+  reflection/cleanup, burst children, and child initialisation.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Mini Hopping Skull enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Dragon
