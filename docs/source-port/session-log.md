@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Robot enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Fireball
+  refresh, ran the single-file mutation wrapper against `enemies/robot.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/robot.rs
+  OUTPUT=/tmp/mutants-robot-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `105 mutants tested in 11m: 93 caught, 12 unviable`.
+- No source edit was warranted. Existing ASM-cited Robot coverage still kills
+  every viable mutant across walk speed, collision/charge/destroy routing, jump
+  sound edge, shooting windup/head nudge, and shared-walker direction logic.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Fireball enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Tornado
