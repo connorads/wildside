@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Orca enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Diamond
+  refresh, ran the single-file mutation wrapper against `enemies/orca.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/orca.rs
+  OUTPUT=/tmp/mutants-orca-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `91 mutants tested in 10m: 74 caught, 17 unviable`.
+- No source edit was warranted. Existing ASM-cited Orca coverage still kills
+  every viable mutant across init, collision/damage/death routing, Berzerker
+  knockback, collision resume, and lunge decision/wind-up.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Diamond enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Crab
