@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Big Hopping Skull enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Emo Rock
+  refresh, ran the single-file mutation wrapper against
+  `enemies/big_hopping_skull.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/big_hopping_skull.rs
+  OUTPUT=/tmp/mutants-big-hopping-skull-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `71 mutants tested in 7m: 56 caught, 15 unviable`.
+- No source edit was warranted. Existing ASM-cited Big Hopping Skull coverage
+  still kills every viable mutant across startup/range gates, contact and damage
+  waits, hit/death sound gates, death status tails, relaunch/bounds correction,
+  and terrain collision bounces.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Emo Rock enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Cloud
