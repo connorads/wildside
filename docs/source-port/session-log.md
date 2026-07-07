@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 - #371 walking Dragon off-screen retired
+
+- Took #371 from the open queue. Re-read `Dragon.asm loc_3CE5A` plus the shared
+  `Lion.asm loc_3E3B2` / `loc_3E682` / `loc_3E6AE` / `loc_3E77E` walker path:
+  missing floor support keeps horizontal velocity and falls; there is no ROM
+  ledge clamp.
+- Fresh BLW1 current bundles (`issue371-blw1-walking-dragon-current-20260707`
+  and `issue371-blw1-idle-dragon-current-20260707`) match oracle on
+  enemy-frontier slices before the unrelated death/transition export drift.
+- Moved #371 to `[-]` as a duplicate/not-a-bug of #239. Next open work is the
+  visual-risk set: #185, #230, and #372.
+
 ## 2026-07-07 - #373 flagpole sink retired
 
 - Took reopened #373. Re-read `Flagpole_Boss`, `CharacterCollision_TouchFlagpole

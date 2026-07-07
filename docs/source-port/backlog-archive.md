@@ -347,6 +347,31 @@ verification: `cargo test -q -p wildside-cli level_complete_handoff -- --nocaptu
 `cargo test -q -p wildside-core flag_touch -- --nocapture`, `cargo test -q -p wildside-frame -- --nocapture`,
 plus native/oracle captures under `.cache/debug/issue369-highwater-*`.
 
+### #371
+
+Retired 2026-07-07 as not a native bug / duplicate of #239. Re-read
+`Dragon.asm loc_3CE5A` and the shared grounded-walker path in `Lion.asm`:
+`loc_3E3B2` calls `sub_36972` and branches on missing floor support
+(`tst.w d6; bmi.w loc_3E682`); `loc_3E682` sets `$5C(a5)`, keeps the walk
+velocity in `x_vel`, nudges y down one pixel, and enters `loc_3E6AE`; `loc_3E77E`
+then applies gravity. There is no ledge turnaround or arena clamp to port. The
+off-screen disappearance/reappearance is standard enemy loading after the
+faithful fall/off-window path, not a separate lifecycle defect.
+
+Fresh current evidence: `inspect-level --level 00` shows BLW1 instantiates only
+walking Dragons (`0x0D x4`). Recorded current bundles
+`.cache/recordings/issue371-blw1-walking-dragon-current-20260707/` and
+`.cache/recordings/issue371-blw1-idle-dragon-current-20260707/` on commit
+`8286dad23`. Enemy-frontier `tas-diff` on the walk-right route reports
+`120 match, 0 diverge` for frames 0..120; the idle route reports
+`233 match, 0 diverge` for frames 0..233. A matching frame-180 roster has both
+native and oracle exposing `0x0D` layout #02 at `0x00508000,0x01100000`, facing
+Left, HP 1. The existing regression
+`issue_239_walking_dragon_walks_off_a_ledge_and_falls_with_no_arena_clamp` also
+passes on the current branch. Do not "fix" #371 with a Dragon arena clamp or
+ledge turn; reopen only with an exact current native-only lifecycle divergence
+distinct from #239.
+
 ### #373
 
 Retired 2026-07-07 as not a native bug / no ROM behaviour to port. Re-read ASM
@@ -11137,6 +11162,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 366 | [x] | P2 | infra/asm-coverage | asm-coverage now has a checked-in test-only baseline and `--check-no-new-test-only` ratchet; the five orphan subroutines are triaged with inline fidelity notes. | Baseline records 242 grandfathered test-only labels; new test-only labels fail the CLI ratchet; focused asm/core tests, `asm-coverage --update`, and `verify-slice-fast` exit 0. See archive #366. |
 | 367 | [x] | P2 | infra/asm-coverage | `verify-slice-fast` now runs the test-only ratchet, required-label gate, and debug-field audit; the audit scans the oracle helper template and registry hashes are backfilled. | Gate deps report 9 required labels covered, 242 current/242 baseline test-only labels, and 91 emitted/91 registered debug keys; focused tests and `verify-slice-fast` exit 0. See archive #367. |
 | 368 | [x] | P3 | infra/docs | One-off asm-coverage/doc tidy: stale live-source `loc_2510C`/`loc_23629` citations are removed, the required-label failure text points at non-test core/data, audio-trigger refs match the current command model, and CLAUDE.md single-sources asm-coverage commands. | Search checks for stale labels/deleted helper refs; focused asm-coverage/runtime/native-player tests; `cargo fmt`; `asm-coverage --check-required`; `backlog-lint`; `verify-slice-fast`. See archive #368. |
+| 371 | [-] | P2 | enemy/lifecycle | NOT A BUG: BLW1 walking Dragon off-screen fall/respawn is the ROM-faithful no-ledge-clamp shared walker behaviour already tracked by #239. | ASM `Dragon.asm loc_3CE5A` / `Lion.asm loc_3E3B2` / `loc_3E682` / `loc_3E6AE` / `loc_3E77E`; fresh current BLW1 walk-right and idle enemy-frontier slices match oracle, and #239 regression passes. See archive #371. |
 | 373 | [-] | P1 | render/eol | NOT A BUG: the ROM does not sink the end-of-level flagpole into the floor; it holds the flag/base static, then deletes the non-Kid gfx slots at cleanup. | ASM `Flagpole_Boss` / `CharacterCollision_TouchFlagpole loc_C070` / `loc_C0B6`; fresh native and oracle frame captures 56..61 show visible through 58 and gone at 59, with no downward motion. Exact-frame base visibility remains #369. See archive #373. |
 | 349 | [x] | P1 | render | Post-death respawn title-card name text is visible on the real `death_respawn_level1` VDP path; the 2026-06-26 failed-candidate report no longer reproduces on current `main`. | Current native frames 1791/1855/1919 show `BLUE / LAKE / WOODS / I`; regression `death_respawn_vdp_path_overlays_real_title_name_workers_loc_b8de`; focused glyph-worker test. See archive #349. |
 | 358 | [x] | P2 | render/enemy | Cloud lightning projectiles now render ROM bolt sprite art instead of the generic red enemy-projectile dot. | ASM `Cloud.asm loc_35DF0` `unk_C7866`/`C786E`/`C7876`; focused trace/render tests; native/oracle issue358 probe captures. See archive #358. |
