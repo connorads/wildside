@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Crab enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Scorpion
+  refresh, ran the single-file mutation wrapper against `enemies/crab.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/crab.rs
+  OUTPUT=/tmp/mutants-crab-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `87 mutants tested in 9m: 71 caught, 16 unviable`.
+- No source edit was warranted. Existing ASM-cited Crab coverage still kills
+  every viable mutant across init state, collision dispatch, Berzerker
+  knockback, airborne deceleration, wall/slope response, and settle tails.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Scorpion enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Robot
