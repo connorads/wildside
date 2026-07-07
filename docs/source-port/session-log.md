@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Fire Demon enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Driller
+  refresh, ran the single-file mutation wrapper against `enemies/fire_demon.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/fire_demon.rs
+  OUTPUT=/tmp/mutants-fire-demon-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `48 mutants tested in 5m: 30 caught, 18 unviable`.
+- No source edit was warranted. Existing ASM-cited Fire Demon coverage still
+  kills every viable mutant across palette pulse selection, player-tracking,
+  collision dispatch, hurt/death routing, and live-fire projectile setup.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Driller enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Goat
