@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Lion enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Ninja
+  refresh, ran the single-file mutation wrapper against `enemies/lion.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/lion.rs
+  OUTPUT=/tmp/mutants-lion-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `251 mutants tested in 26m: 206 caught, 45 unviable`.
+- No source edit was warranted. Existing ASM-cited Lion coverage still kills
+  every viable mutant across init/tracking gates, roar and post-fire waits,
+  collision routing, projectile launch helpers, charge windows, left-charge and
+  collision-reentry movement, gravity/landing tails, cull/delete paths, and
+  medium-load culling.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Ninja enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the UFO
