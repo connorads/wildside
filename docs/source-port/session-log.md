@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Driller enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Goat
+  refresh, ran the single-file mutation wrapper against `enemies/driller.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/driller.rs
+  OUTPUT=/tmp/mutants-driller-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `24 mutants tested in 3m: 19 caught, 5 unviable`.
+- No source edit was warranted. Existing ASM-cited Driller coverage still kills
+  every viable mutant across live drill-cell probing, left child placement,
+  collision dispatch, hurt/death, and cleanup routing.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Goat enemy mutation refresh)
 
 - **Fallback verification checked.** After #372, `project-status` showed no
