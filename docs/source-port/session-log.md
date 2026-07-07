@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Emo Rock enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Cloud
+  refresh, ran the single-file mutation wrapper against `enemies/emo_rock.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/emo_rock.rs
+  OUTPUT=/tmp/mutants-emo-rock-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `92 mutants tested in 10m: 80 caught, 12 unviable`.
+- No source edit was warranted. Existing ASM-cited Emo Rock coverage still kills
+  every viable mutant across hover/drop timing, clearance and floor probes,
+  collision/landing routing, Berzerker launch/airborne frames, disappear
+  sound/animation, and death/respawn status routing.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Cloud enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Archer
