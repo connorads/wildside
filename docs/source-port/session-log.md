@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Hand enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Drips
+  refresh, ran the single-file mutation wrapper against `enemies/hand.rs`
+  after the #185 render-atlas fix.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/hand.rs
+  OUTPUT=/tmp/mutants-hand-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `167 mutants tested in 18m: 145 caught, 22 unviable`.
+- No source edit was warranted. Existing ASM-cited Hand coverage still kills
+  every viable mutant across jump seed/components, ground and jump collision
+  dispatch, Kid-contact gates, death/delete/respawn paths, terrain scan, grab
+  snap/timer/release, init, patrol/reversal, detection, and live-step branches.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Drips enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Lion
