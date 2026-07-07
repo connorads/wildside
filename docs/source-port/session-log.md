@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Fireball enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Tornado
+  refresh, ran the single-file mutation wrapper against `enemies/fireball.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/fireball.rs
+  OUTPUT=/tmp/mutants-fireball-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `60 mutants tested in 6m: 47 caught, 13 unviable`.
+- No source edit was warranted. Existing ASM-cited Fireball coverage still kills
+  every viable mutant across bounce sound/trail spawning, sprite
+  direction/angle selection, death-status routing, and trail lifetime cleanup.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Tornado enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Armadillo
