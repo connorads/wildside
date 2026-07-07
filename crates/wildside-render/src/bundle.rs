@@ -2087,6 +2087,16 @@ static ENEMY_FAMILIES: &[EnemyFamilySpec] = &[
         extra_palette_paths: &["palette_enemy/Hand_2.bin", "palette_enemy/Hand_3.bin"],
         frame_duration: 1,
         frames: &[
+            // ASM Hand.asm loc_327F2 / `stru_32B6A`: walking starts at
+            // C79AE/C79B6/C79BE; loc_328E0 / `stru_32B56`: jump attack starts
+            // at C79C6/C79CE/C79D6; loc_32906 / `stru_32B50`: grab holds
+            // C79DE. Keep all live frames before the loc_32AA2 death tail.
+            fd(0x000, 0x0F, 0x01, 0x23, 0x0F),
+            fd(0x00A, 0x11, 0x01, 0x27, 0x0A),
+            fd(0x014, 0x0D, 0x01, 0x1C, 0x0C),
+            fd(0x01C, 0x0E, 0x01, 0x20, 0x10),
+            fd(0x024, 0x0E, 0x01, 0x20, 0x13),
+            fd(0x030, 0x13, 0x01, 0x24, 0x16),
             fd(0x03F, 0x10, 0x01, 0x20, 0x12),
             // ASM Hand.asm loc_32AA2 / `stru_32B78`: C79E6/C79EE
             // repeat three times, then C79F6/C79FE/C7A06/C7A0E/C7A16.

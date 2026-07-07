@@ -6879,14 +6879,20 @@ mod tests {
                 },
                 extra_palettes: vec![],
                 frames: vec![
-                    sample_object_frame_with_base(141, 0x20, 0x12, 0x03F),
-                    sample_object_frame_with_base(142, 0x28, 0x0C, 0x04B),
-                    sample_object_frame_with_base(143, 0x28, 0x0D, 0x055),
-                    sample_object_frame_with_base(144, 0x26, 0x08, 0x05F),
-                    sample_object_frame_with_base(145, 0x24, 0x07, 0x064),
-                    sample_object_frame_with_base(146, 0x26, 0x04, 0x069),
-                    sample_object_frame_with_base(147, 0x26, 0x03, 0x06E),
-                    sample_object_frame_with_base(148, 0x1F, 0x01, 0x073),
+                    sample_object_frame_with_base(141, 0x23, 0x0F, 0x000),
+                    sample_object_frame_with_base(142, 0x27, 0x0A, 0x00A),
+                    sample_object_frame_with_base(143, 0x1C, 0x0C, 0x014),
+                    sample_object_frame_with_base(144, 0x20, 0x10, 0x01C),
+                    sample_object_frame_with_base(145, 0x20, 0x13, 0x024),
+                    sample_object_frame_with_base(146, 0x24, 0x16, 0x030),
+                    sample_object_frame_with_base(147, 0x20, 0x12, 0x03F),
+                    sample_object_frame_with_base(148, 0x28, 0x0C, 0x04B),
+                    sample_object_frame_with_base(149, 0x28, 0x0D, 0x055),
+                    sample_object_frame_with_base(150, 0x26, 0x08, 0x05F),
+                    sample_object_frame_with_base(151, 0x24, 0x07, 0x064),
+                    sample_object_frame_with_base(152, 0x26, 0x04, 0x069),
+                    sample_object_frame_with_base(153, 0x26, 0x03, 0x06E),
+                    sample_object_frame_with_base(154, 0x1F, 0x01, 0x073),
                 ],
                 frame_duration: 1,
             },
@@ -7361,12 +7367,13 @@ mod tests {
             "ASM Emo_Rock.asm loc_3621A/loc_362A4: live emo rock shows a body frame, not the stru_36468 shatter tail (got sig {emo_sig})"
         );
 
-        // Hand 0x17: walking installs `stru_32B6A` (frame 0), jump attack
-        // installs `stru_32B56` (frames 1/2, frame 1 at script entry), and grab
-        // installs `stru_32B50` (frame 3). None may free-run into the `loc_32AA2`
-        // death tail frames 4..7 while hit_points is nonzero. frame_index 6 makes
-        // the pre-fix free-run pick frame (6/1)%8 = 6, a death sliver.
-        trace.frame_index = 6;
+        // Hand 0x17: walking installs `stru_32B6A` (C79AE, frame 0), jump
+        // attack installs `stru_32B56` (C79C6, frame 3 at script entry), and
+        // grab installs `stru_32B50` (C79DE, frame 6). None may free-run into
+        // the `loc_32AA2` death tail frames 7..13 while hit_points is nonzero.
+        // frame_index 12 makes the pre-fix free-run pick frame (12/1)%14 = 12,
+        // a death sliver.
+        trace.frame_index = 12;
         let hand = visuals.enemies.families.get(&0x17).expect("hand visuals");
         let hand_walking = base(0x17);
         assert_eq!(
@@ -7384,7 +7391,7 @@ mod tests {
                 .tile_sheet
                 .tiles[0]
                 .pixels[0],
-            142,
+            144,
             "ASM Hand.asm loc_328E0 installs `stru_32B56`; live jumping Hand starts on the attack frame, not the death tail"
         );
         let mut hand_grabbing = base(0x17);
@@ -7394,7 +7401,7 @@ mod tests {
                 .tile_sheet
                 .tiles[0]
                 .pixels[0],
-            144,
+            147,
             "ASM Hand.asm loc_32906 installs `stru_32B50`; live grabbing Hand holds the grab frame"
         );
     }
@@ -18951,17 +18958,17 @@ mod tests {
         object.kind = NativeObjectKind::Enemy { object_type: 0x17 };
         let hand_visuals = visuals.enemies.families.get(&0x17).expect("hand visuals");
         for (remaining, signature) in [
-            (0x42, 142),
-            (0x3C, 143),
-            (0x36, 142),
-            (0x30, 143),
-            (0x2A, 142),
-            (0x24, 143),
-            (0x1E, 144),
-            (0x18, 145),
-            (0x12, 146),
-            (0x0C, 147),
-            (0x06, 148),
+            (0x42, 148),
+            (0x3C, 149),
+            (0x36, 148),
+            (0x30, 149),
+            (0x2A, 148),
+            (0x24, 149),
+            (0x1E, 150),
+            (0x18, 151),
+            (0x12, 152),
+            (0x0C, 153),
+            (0x06, 154),
         ] {
             object.wait_timer = Some(remaining);
             assert_eq!(

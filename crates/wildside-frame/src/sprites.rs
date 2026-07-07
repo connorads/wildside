@@ -1175,19 +1175,19 @@ fn select_live_hand_frame<'a>(
 ) -> Option<&'a wildside_render::SpriteFrame> {
     if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x17 })
         || object.hit_points == Some(0)
-        || enemy_visuals.frames.len() < 4
+        || enemy_visuals.frames.len() < 7
     {
         return None;
     }
 
     // ASM Hand.asm installs live scripts by state: `loc_327F2` walking
     // `stru_32B6A` starts on C79AE (frame 0), `loc_328E0` jump attack
-    // `stru_32B56` starts on C79C6 (frame 1), and `loc_32906` grab
-    // `stru_32B50` holds C79DE (frame 3). Frames 4..7 are the `loc_32AA2`
+    // `stru_32B56` starts on C79C6 (frame 3), and `loc_32906` grab
+    // `stru_32B50` holds C79DE (frame 6). Frames 7..13 are the `loc_32AA2`
     // death tail and must not appear while the Hand is alive.
     let frame = match object.contact_phase {
-        Some(NativeContactPhase::HandJumping) => 1,
-        Some(NativeContactPhase::HandGrabbing) => 3,
+        Some(NativeContactPhase::HandJumping) => 3,
+        Some(NativeContactPhase::HandGrabbing) => 6,
         _ => 0,
     };
     enemy_visuals.frames.get(frame)
@@ -1465,29 +1465,29 @@ pub fn select_enemy_frame<'a>(
             }
             // ASM Hand.asm loc_32AA2 runs `stru_32B78`: C79E6/C79EE repeat
             // three times, then C79F6/C79FE/C7A06/C7A0E/C7A16.
-            0x17 if enemy_visuals.frames.len() >= 8 => {
+            0x17 if enemy_visuals.frames.len() >= 14 => {
                 if remaining > 0x3C {
-                    Some(1)
-                } else if remaining > 0x36 {
-                    Some(2)
-                } else if remaining > 0x30 {
-                    Some(1)
-                } else if remaining > 0x2A {
-                    Some(2)
-                } else if remaining > 0x24 {
-                    Some(1)
-                } else if remaining > 0x1E {
-                    Some(2)
-                } else if remaining > 0x18 {
-                    Some(3)
-                } else if remaining > 0x12 {
-                    Some(4)
-                } else if remaining > 0x0C {
-                    Some(5)
-                } else if remaining > 0x06 {
-                    Some(6)
-                } else {
                     Some(7)
+                } else if remaining > 0x36 {
+                    Some(8)
+                } else if remaining > 0x30 {
+                    Some(7)
+                } else if remaining > 0x2A {
+                    Some(8)
+                } else if remaining > 0x24 {
+                    Some(7)
+                } else if remaining > 0x1E {
+                    Some(8)
+                } else if remaining > 0x18 {
+                    Some(9)
+                } else if remaining > 0x12 {
+                    Some(10)
+                } else if remaining > 0x0C {
+                    Some(11)
+                } else if remaining > 0x06 {
+                    Some(12)
+                } else {
+                    Some(13)
                 }
             }
             // ASM Ninja.asm loc_3DB4E runs `stru_3D50A`: C7D56 for $14,
@@ -3134,7 +3134,7 @@ mod tests {
         assert!(select_live_walking_dragon_frame(&trace, &short, &dragon).is_none());
 
         // ASM Hand.asm loc_327F2/loc_328E0/loc_32906: live Hand requires its
-        // first four body frames; the death tail must be unreachable here.
+        // first seven body frames; the death tail must be unreachable here.
         let hand = live_enemy_object(0x17);
         assert!(select_live_hand_frame(&full, &hand).is_some());
         assert!(select_live_hand_frame(&short, &hand).is_none());
@@ -3324,7 +3324,7 @@ mod tests {
         );
         assert_eq!(
             selected_live_tile_base(select_live_hand_frame(
-                &labelled_enemy_visuals(4, 3),
+                &labelled_enemy_visuals(7, 3),
                 &live_enemy_object(0x17)
             )),
             0x0100
@@ -3496,12 +3496,12 @@ mod tests {
         hand.contact_phase = Some(NativeContactPhase::HandJumping);
         assert_eq!(
             selected_live_tile_base(select_live_hand_frame(&visuals, &hand)),
-            0x0101
+            0x0103
         );
         hand.contact_phase = Some(NativeContactPhase::HandGrabbing);
         assert_eq!(
             selected_live_tile_base(select_live_hand_frame(&visuals, &hand)),
-            0x0103
+            0x0106
         );
 
         // ASM Lion.asm loc_3DFD8/loc_3E0F4: walk_phase indexes the HP-specific

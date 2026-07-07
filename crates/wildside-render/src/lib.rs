@@ -581,6 +581,23 @@ mod tests {
             vec![0, -1, -1, -2, -1, -1, -1, 0, -2],
             "ASM Enemy0E Cloud live and death frame tables keep the bobbing offsets in the sprite descriptors"
         );
+        let hand = visuals.enemies.families.get(&0x17).expect("hand visuals");
+        assert_eq!(
+            hand.frames.len(),
+            14,
+            "ASM Hand.asm live scripts use C79AE..C79DE before the loc_32AA2 death tail"
+        );
+        assert_eq!(
+            hand.frames
+                .iter()
+                .map(|frame| frame.tile_base_index)
+                .collect::<Vec<_>>(),
+            vec![
+                0x000, 0x00A, 0x014, 0x01C, 0x024, 0x030, 0x03F, 0x04B, 0x055, 0x05F, 0x064, 0x069,
+                0x06E, 0x073,
+            ],
+            "ASM Hand.asm `stru_32B6A`/`stru_32B56`/`stru_32B50` and `stru_32B78` descriptor order"
+        );
         assert_eq!(visuals.platforms.horizontal.width_px, 0x48);
         assert_eq!(visuals.platforms.horizontal.height_px, 0x10);
     }
@@ -1258,9 +1275,26 @@ mod tests {
             )?;
             write_file(
                 root.path(),
+                "ingame/artcomp/Enemy17_Hand.bin",
+                &direct_copy_saxman(
+                    &(0..4096)
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
                 "ingame/palette_enemy/Cloud_1.bin",
                 &(0..15)
                     .map(|value| 0x01A0_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_enemy/Hand_1.bin",
+                &(0..15)
+                    .map(|value| 0x01C0_u16 + value)
                     .flat_map(u16::to_be_bytes)
                     .collect::<Vec<_>>(),
             )?;
@@ -1851,6 +1885,7 @@ mod tests {
                     asset_file(root.path(), "ingame/artcomp/Enemy01_Diamond.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy0C_Dragon.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy0E_Cloud.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Enemy17_Hand.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy1C_Mini_hopping_skull.bin"),
                     asset_file(root.path(), "ingame/artcomp/Horizontal_platform.bin"),
                     asset_file(root.path(), "ingame/artcomp/Vertical_platform.bin"),
@@ -1875,6 +1910,7 @@ mod tests {
                     asset_file(root.path(), "ingame/palette_enemy/Crystal_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Dragon_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Cloud_1.bin"),
+                    asset_file(root.path(), "ingame/palette_enemy/Hand_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Mini_Hopping_Skull_1.bin"),
                     asset_file(root.path(), "ingame/palette_kid/Kid.bin"),
                     asset_file(root.path(), "ingame/palette_kid/Iron_Knight.bin"),

@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 - #185 Hand live frames fixed candidate
+
+- Took #185 from the open queue. Re-read `Hand.asm` live scripts and
+  `ingame/anim/enemy/Hand.asm`: walking uses `stru_32B6A` C79AE/C79B6/C79BE,
+  jumping uses `stru_32B56` C79C6/C79CE/C79D6, grabbing uses `stru_32B50`
+  C79DE, and death uses `stru_32B78` C79E6..C7A16.
+- Native had only C79DE plus the death tail in the production atlas, so a live
+  walking Hand could show the grab/death-sliver descriptors. The atlas and
+  selectors now keep live frames first and shift death frames after them.
+- Rejected inventing a Hand body hitbox: the ASM collision-size index for those
+  descriptors still routes through zero rows. Existing grab-dispatch/slice
+  regressions are green, but the old scripted probe remains a separated contact
+  and oracle-warp mismatch. Moved #185 to awaiting-human for the natural
+  Highwater Hand encounter. Next open visual risks are #230 and #372.
+
 ## 2026-07-07 - #371 walking Dragon off-screen retired
 
 - Took #371 from the open queue. Re-read `Dragon.asm loc_3CE5A` plus the shared
