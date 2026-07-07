@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Goat enemy mutation refresh)
+
+- **Fallback verification checked.** After #372, `project-status` showed no
+  ready/open agent rows and only awaiting-human blockers, so ran the
+  `loop.md` proactive mutation fallback on `enemies/goat.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/goat.rs
+  OUTPUT=/tmp/mutants-goat-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `23 mutants tested in 3m: 15 caught, 8 unviable`.
+- No source edit was warranted. Existing ASM-cited Goat coverage still kills
+  every viable mutant across HP-based init animation, collision dispatch,
+  death, Berzerker side-contact launch/shove, and resume routing.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 - #372 prize-block wobble fixed candidate
 
 - Took #372 from the open queue after #230. Re-read `kid.asm sub_1007A`,
