@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive VDP title fade-out mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the scenario
+  hardening, ran a focused mutation shard against the `vdp.rs` title-return
+  fade helpers touched by #210/#254.
+- Evidence: `env TMPDIR=/tmp KID_REPO_ROOT="$PWD" cargo mutants -p
+  wildside-core -f crates/wildside-core/src/vdp.rs -j 4 --gitignore=true --re
+  'apply_pal_fade_out_to_black_loc_28c6|apply_intro_sequence_5_title_return_fade_to_black'
+  --output /tmp/mutants-core-vdp-title-fadeout-20260707-initial
+  --cargo-arg=--lib -- vdp::tests` reports `7 mutants tested in 2m: 7
+  caught`.
+- No source edit was warranted. Existing VDP tests still kill every viable
+  mutant across the `loc_1BA60` title-return fade caller and `loc_28C6`
+  Pal_FadeOut helper.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive scenario mutation hardening)
 
 - **Fallback verification fixed a test gap.** With no ready/open rows after the
