@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Ninja enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the UFO
+  refresh, ran the single-file mutation wrapper against `enemies/ninja.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/ninja.rs
+  OUTPUT=/tmp/mutants-ninja-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `189 mutants tested in 21m: 156 caught, 33 unviable`.
+- No source edit was warranted. Existing ASM-cited Ninja coverage still kills
+  every viable mutant across init, stealth threat routing, guard/jump-threat
+  poses, pacing reset/resume, jump-attack physics and contact dispatch,
+  Kid-above/airborne knockdown, death sequencing, and cadence timers.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive UFO enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Tar
