@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Diamond enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Crab
+  refresh, ran the single-file mutation wrapper against `enemies/diamond.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/diamond.rs
+  OUTPUT=/tmp/mutants-diamond-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `72 mutants tested in 8m: 62 caught, 10 unviable`.
+- No source edit was warranted. Existing ASM-cited Diamond coverage still kills
+  every viable mutant across high-HP movement/collision, Berzerker launch,
+  slope responses, and hurt/death animation routing.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Crab enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Scorpion
