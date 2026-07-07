@@ -372,6 +372,38 @@ passes on the current branch. Do not "fix" #371 with a Dragon arena clamp or
 ledge turn; reopen only with an exact current native-only lifecycle divergence
 distinct from #239.
 
+### #372
+
+Fixed-candidate 2026-07-07: re-read `kid.asm sub_1007A`, `loc_100DA` through
+`loc_10120`, and `stru_101B6`. The ROM copies the original prize block art into
+GfxObject VRAM slots `$220/$229`, marks the live `Level_Layout` cell `$6F00`,
+and draws that copied block as a low-priority GfxObject while the y script moves
+it up/down. Native had the right copied block art and `$6Fxx` source-cell
+suppression from #324, but queued the prize wobble sprite before Scroll A terrain.
+That let later ordinary low-priority tree/background terrain overwrite the
+shifted copied block after priority had already been resolved, producing the
+"disappears instead of wobbling" visual.
+
+Renderer fix: `build_game_scene_filtered` now queues foreground terrain, block-grid
+Scroll A overrides, special foreground-plane draws, and EOL foreground reveal
+before `push_prize_block_wobble_overrides_sub_1007a`. This keeps the existing
+high-priority foreground mask semantics intact: high-priority terrain can still
+mask the low-priority sub_1007A sprite, but ordinary low-priority Scroll A art
+cannot erase it after the sprite has drawn. Regression
+`prize_block_wobble_sprite_stays_over_low_priority_terrain_sub_1007a_issue372`
+failed pre-fix with the row-above terrain colour winning and now passes with the
+copied prize-block pixel visible. Focused verification:
+`cargo test -q -p wildside-frame prize_block_wobble -- --nocapture` and
+`cargo test -q -p wildside-frame scene_pixel_provenance_tracks_priority_acceptance_and_clear -- --nocapture`
+pass; `mise run verify-slice-fast` also passes. Current BLW1 #324 route recaptures are under
+`.cache/debug/issue372/blw1-row1-scene-after/`, with oracle comparison frames
+under `.cache/debug/issue372/blw1-row1-oracle-current/`.
+
+Moved #372 to `[?]` awaiting human validation because the original forest route
+was a live playtest report rather than an exact captured bundle. Human should
+hit the reported forest prize blocks again and confirm the P/prize block visibly
+wobbles instead of disappearing over the tree/background art.
+
 ### #373
 
 Retired 2026-07-07 as not a native bug / no ROM behaviour to port. Re-read ASM

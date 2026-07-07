@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 - #372 prize-block wobble fixed candidate
+
+- Took #372 from the open queue after #230. Re-read `kid.asm sub_1007A`,
+  `loc_100DA` through `loc_10120`, and `stru_101B6`: the ROM draws the copied
+  prize-block art as a low-priority GfxObject while the live cell is `$6F00`.
+- Root cause was render ordering, not core wobble timing. Native queued the
+  copied prize-block sprite before Scroll A terrain, so later ordinary
+  low-priority tree/background art could overwrite the shifted wobble sprite.
+- Moved sub_1007A prize wobble draws after foreground terrain/block/special
+  Scroll A passes and added
+  `prize_block_wobble_sprite_stays_over_low_priority_terrain_sub_1007a_issue372`.
+  Focused prize-wobble, priority-provenance, and `verify-slice-fast` gates pass;
+  old BLW1 #324 route frames recaptured under `.cache/debug/issue372/`.
+- Moved #372 to `[?]` awaiting human validation because the exact forest
+  playtest route was not captured. Current open queue is empty; use
+  `project-status` proactive-verification fallback unless a human row is
+  promoted/unblocked.
+
 ## 2026-07-07 - #230 Crypt SolidGhost block overlay fixed candidate
 
 - Took #230 from the open queue. `inspect-level` proved The Crypt variants

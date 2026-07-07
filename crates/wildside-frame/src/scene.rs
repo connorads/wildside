@@ -6263,14 +6263,6 @@ fn build_game_scene_filtered(
             push_background_tiles(&mut commands, trace, level_visuals);
         }
     }
-    if filter.block_overrides {
-        push_prize_block_wobble_overrides_sub_1007a(
-            &mut commands,
-            trace,
-            level_visuals,
-            block_grid,
-        );
-    }
     if filter.terrain {
         push_level_layout_terrain(&mut commands, trace, level_visuals, block_grid);
     }
@@ -6282,6 +6274,14 @@ fn build_game_scene_filtered(
     }
     if eol_hologram_visible && filter.terrain {
         push_eol_foreground_reveal_tiles(&mut commands, trace, level_visuals, block_grid);
+    }
+    if filter.block_overrides {
+        push_prize_block_wobble_overrides_sub_1007a(
+            &mut commands,
+            trace,
+            level_visuals,
+            block_grid,
+        );
     }
 
     if !eol_hologram_visible && filter.platforms {
@@ -8136,7 +8136,7 @@ fn helmet_placeholder_colour(_object_meta: u16) -> [u8; 3] {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{BTreeMap, HashMap};
+    use std::collections::{BTreeMap, BTreeSet, HashMap};
 
     use super::*;
     use wildside_core::{BlockBounceTrace, HeadyMetalDeathPieceTrace, HeadyMetalDeathSplitTrace};
@@ -11548,6 +11548,106 @@ mod tests {
                 } if (0x05C..=0x05F).contains(&tile.tile_index)
             )),
             "ASM sub_1007A owns active `$6Fxx` prize cells for the whole bob; native must not leak the immutable foreground skin, such as the row-12 diagonal forest tile, under a shifted copied P block"
+        );
+    }
+
+    #[test]
+    fn prize_block_wobble_sprite_stays_over_low_priority_terrain_sub_1007a_issue372() {
+        let mut visuals = sample_level_visuals(0x300);
+        visuals.foreground_tiles = sample_tile_sheet_with_pixel(8, 0x05);
+        visuals.block_tiles = sample_tile_sheet_with_pixel(0x300, 0x0A);
+        let mut foreground_layout_bytes = vec![0; 20 * 14];
+        foreground_layout_bytes[1] = 1;
+        visuals.level.foreground_layout =
+            wildside_render::ForegroundLayout::parse(&foreground_layout_bytes, 1, 1)
+                .expect("foreground layout");
+        visuals.level.foreground_layout_bytes = foreground_layout_bytes;
+        let low_priority_foreground_quad = TileQuad {
+            tiles: [
+                TileRef {
+                    tile_index: FOREGROUND_TILE_VRAM_BASE,
+                    priority: false,
+                    ..sample_tile_ref(FOREGROUND_TILE_VRAM_BASE)
+                },
+                TileRef {
+                    tile_index: FOREGROUND_TILE_VRAM_BASE + 1,
+                    priority: false,
+                    ..sample_tile_ref(FOREGROUND_TILE_VRAM_BASE + 1)
+                },
+                TileRef {
+                    tile_index: FOREGROUND_TILE_VRAM_BASE + 2,
+                    priority: false,
+                    ..sample_tile_ref(FOREGROUND_TILE_VRAM_BASE + 2)
+                },
+                TileRef {
+                    tile_index: FOREGROUND_TILE_VRAM_BASE + 3,
+                    priority: false,
+                    ..sample_tile_ref(FOREGROUND_TILE_VRAM_BASE + 3)
+                },
+            ],
+        };
+        visuals.level.block_mapping = wildside_render::BlockVisualMapping::new(
+            vec![
+                sample_quad(FOREGROUND_TILE_VRAM_BASE + 4),
+                low_priority_foreground_quad,
+            ],
+            (0..81)
+                .map(|skin| sample_quad(BLOCK_TILE_VRAM_BASE + skin * 4))
+                .collect(),
+        )
+        .expect("block mapping");
+
+        let grid = wildside_core::terrain::BlockGrid::from_level_layout(
+            &[
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //
+                0x00, 0x00, 0x6F, 0x00, 0x00, 0x00,
+            ],
+            3,
+            2,
+        );
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            block_bounces: vec![(1, 1, 28, -6)],
+            block_bounce_details: vec![BlockBounceTrace {
+                cell_x: 1,
+                cell_y: 1,
+                x_offset_px: 0,
+                remaining: 28,
+                y_offset_px: -6,
+                kind: BlockBounceTraceKind::Prize,
+            }],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            Some(&grid),
+            LayerFilter {
+                background: false,
+                terrain: true,
+                block_overrides: true,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: false,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        let mut pixels = BTreeSet::new();
+        pixels.insert((16, 10));
+        let diagnostic = sample_scene_pixel_provenance(&scene, &pixels)
+            .into_iter()
+            .next()
+            .expect("pixel diagnostic");
+        let sprite_colour = visuals.palettes.foreground.colours[0x0A];
+        assert_eq!(
+            diagnostic.final_rgb,
+            [sprite_colour.red, sprite_colour.green, sprite_colour.blue],
+            "ASM sub_1007A/stru_101B6 draws the copied prize block as a low-priority GfxObject; ordinary low-priority Scroll A terrain behind the shifted wobble must not erase it after priority has already been resolved"
         );
     }
 

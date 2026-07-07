@@ -37,11 +37,11 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 - **2026-07-07 #270 moved to awaiting-human:** fresh USM1/USM3 slope-wall route searches were clean or stalled before the reported corner, so no gameplay patch is justified without a natural recorded route.
 - **2026-07-07 #339 moved to awaiting-human:** USM2 loading-card audio now zero-fills commandless GEMS frames; live warp recording stayed 240 frames in `LevelTransition` with no audio commands and silent WAV output. Real speaker validation still required.
 - **2026-07-07 #185 moved to awaiting-human:** Hand live render atlas now keeps ASM `stru_32B6A`/`stru_32B56`/`stru_32B50` frames before the `loc_32AA2` death tail; existing grab-dispatch regressions still pass, but the natural grab route needs human validation.
+- **2026-07-07 #372 moved to awaiting-human:** sub_1007A prize-block wobble now renders after Scroll A terrain/block passes, so ordinary low-priority tree/background art cannot erase the copied wobble sprite. Human should re-run the forest prize-block route.
 - **2026-07-07 #373 retired:** ASM and fresh native/oracle EOL captures show the flag/base holds static through the `loc_C070` hibernate and snap-removes at cleanup; there is no ROM sink animation to port. Exact-frame base visibility remains #369.
 - **2026-07-07 #371 retired:** BLW1 walking Dragon off-screen fall/respawn is the same ROM-faithful no-ledge-clamp behaviour as #239; fresh enemy-frontier slices match oracle on the current branch.
 - **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
-- **Next open priority from `project-status`:** visual risk #372 prize block wobble disappearance.
-- **Still-open visual/gameplay bug from 2026-07-06:** #372 prize block wobble disappearance over tree/background art.
+- **Next open priority from `project-status`:** none currently; use the proactive-verification fallback if no human row is promoted.
 - **Still route-blocked but reconfirmed:** #252 Tank sprite garble, #280 Hills/green-cloud background seam, and #345 Lion vanish still need exact live frame/route evidence before implementation.
 - **Closures from this playtest:** #003/#160 audio works; #126/#258/#268/#269 slope/climb rows work; #141/#144/#147/#167/#214/#238/#241/#246/#248/#262/#263/#264/#266/#272/#273/#274/#275/#276/#277/#279/#281/#283/#284/#286/#289/#335 validated fixed; #161/#176/#184/#187/#188/#189/#217/#260/#322 closed stale or superseded. See archive note `2026-07-06 playtest feedback triage`.
 
@@ -65,4 +65,3 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 372 | [ ] | P1 | block/prize | Prize blocks over tree/background art can disappear instead of doing the up/down wobble. | 2026-07-06 human playtest: forest prize blocks with tree/background art can disappear instead of wobbling. Cross-ref #324; capture native/oracle forest prize route before changing renderer. |
