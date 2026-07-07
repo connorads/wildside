@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Archer enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Spinning
+  Twins refresh, ran the single-file mutation wrapper against `enemies/archer.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/archer.rs
+  OUTPUT=/tmp/mutants-archer-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `149 mutants tested in 16m: 138 caught, 11 unviable`.
+- No source edit was warranted. Existing ASM-cited Archer coverage still kills
+  every viable mutant across shot selection, held-arrow setup/positioning, angle
+  math, arrow re-aim/delete, live spawn/sound timing, and death/respawn status
+  routing.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Spinning Twins enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Orca
