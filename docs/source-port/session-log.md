@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Tank enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Big
+  Hopping Skull refresh, ran the single-file mutation wrapper against
+  `enemies/tank.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/tank.rs
+  OUTPUT=/tmp/mutants-tank-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `28 mutants tested in 3m: 21 caught, 7 unviable`.
+- No source edit was warranted. Existing ASM-cited Tank coverage still kills
+  every viable mutant across shared RockTank art-slot/init logic, visible
+  drive-sound gating, mouth cadence and damage/death routes, shooting-tank
+  turret routes, bullet cleanup bounds, and fire cadence/SFX.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Big Hopping Skull enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Emo Rock
