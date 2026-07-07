@@ -7129,6 +7129,87 @@ mod chunk_02 {
         );
     }
 
+    #[test]
+    fn cold_boot_intro_sequence_6_title_menu_spam_does_not_latch_loc_1ae2e_release() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        runtime.set_recorded_title_card_handoff_delay(true);
+        let mut vdp_2717 = None;
+        let mut vdp_2720 = None;
+        let mut vdp_2723 = None;
+        let mut trace_2732 = None;
+        let mut trace_3000 = None;
+        let mut trace_3299 = None;
+
+        for frame_index in 0..=3_299 {
+            let input = if frame_index == 2_400
+                || ((2_700..=2_730).contains(&frame_index) && frame_index % 2 == 0)
+            {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            let trace = runtime.step_frame(input);
+            if frame_index == 2_717 {
+                vdp_2717 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_720 {
+                vdp_2720 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_723 {
+                vdp_2723 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_732 {
+                trace_2732 = Some(trace);
+            } else if frame_index == 3_000 {
+                trace_3000 = Some(trace);
+            } else if frame_index == 3_299 {
+                trace_3299 = Some(trace);
+            }
+        }
+
+        let vdp_2717 =
+            vdp_2717.expect("spam route should still expose the resident title/menu VDP");
+        let vdp_2720 = vdp_2720.expect("spam route should carry the resident title/menu VDP");
+        assert_eq!(
+            vdp_2720.vram, vdp_2717.vram,
+            "ASM loc_1BBD6 -> loc_6E2 keeps the title/menu VRAM resident while Pal_FadeOut runs",
+        );
+        assert_eq!(
+            cram_words(&vdp_2720),
+            faded_cram_to_black(cram_words(&vdp_2717), 0x0020),
+            "Oracle #210 probe frame 2720 has Pal_FadeOut loc_28C6 at `$FFFFF876=$0020`, not the bright title/menu palette"
+        );
+        let vdp_2723 = vdp_2723.expect("spam route should keep the faded title/menu carry");
+        assert_eq!(
+            cram_words(&vdp_2723),
+            faded_cram_to_black(cram_words(&vdp_2717), 0),
+            "Oracle #210 probe frame 2723 has completed Pal_FadeOut loc_28EA; the carried title/menu palette must stay black until Load_TitleCard replaces the VDP"
+        );
+
+        let trace_2732 = trace_2732.expect("spam route should still have a frame-2732 trace");
+        assert_eq!(
+            trace_2732.game_mode,
+            GameMode::LevelTransition,
+            "Oracle #210 probe for 2400 + 2700..2730 even-frame Start taps keeps Game_Mode=$0008; early post-loc_1BBD6 taps must not arm loc_1AE2E"
+        );
+
+        let trace_3000 = trace_3000.expect("spam route should still have a frame-3000 trace");
+        assert_eq!(
+            trace_3000.game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_1AE2E should still be waiting after consumed title-menu carry-window Start spam"
+        );
+
+        let trace_3299 = trace_3299.expect("spam route should still have a frame-3299 trace");
+        assert_eq!(
+            trace_3299.game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_1AE2E should not release gameplay without a later Start edge after the title-card shell is visible"
+        );
+    }
+
     fn cold_boot_vdp_after_optional_start(
         start_frame: Option<usize>,
         target_frame: usize,

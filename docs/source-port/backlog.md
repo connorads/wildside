@@ -32,12 +32,10 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-06 playtest triage:** human validation closed a large batch of stale/fixed awaiting-human rows and reopened current failures from live play. The open queue is no longer empty.
-- **Top P0:** #210 rapid intro/title/menu corruption.
-- **#370 moved to awaiting-human:** focused native death/continue respawn regressions prove `DragonWalkingBreath` is cleared before live reload; exact human SDL route still needs validation.
-- **#374 moved to awaiting-human:** named-level spawn smoke is green and Bloody/Scorpion oracle recordings are trace/state green; strict pixels still have render-only residuals documented under #374.
-- **P1 reopened failures:** #254 paired title-art corruption, #185 Hand animation/grab, #230 The Crypt weather corruption, #270 Under Skull Mountain slope-wall launch/floor clip, and #339 Under Skull Mountain load-screen audio noise.
-- **New visual/gameplay bugs:** #371 Dragon off-screen respawn, #372 prize block wobble disappearance over tree/background art, and #373 flagpole not sinking into the floor.
+- **2026-07-07 #210/#254 moved to awaiting-human:** rapid spam route (`2400:start` plus every even frame `2700..2730:start`) now stays in the title-card transition, consumes Start during the title-menu VDP carry, and fades the carried menu CRAM instead of releasing early gameplay. Human SDL validation still required.
+- **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
+- **Next open priorities from `project-status`:** #270 Under Skull Mountain slope-wall launch/floor clip, #339 Under Skull Mountain 2 load-screen audio noise, #373 flagpole not sinking, then visual risks #185 Hand animation/grab, #230 The Crypt weather corruption, and #372 prize block wobble disappearance.
+- **New/reopened visual/gameplay bugs from 2026-07-06:** #371 Dragon off-screen respawn, #372 prize block wobble disappearance over tree/background art, and #373 flagpole not sinking into the floor.
 - **Still route-blocked but reconfirmed:** #252 Tank sprite garble, #280 Hills/green-cloud background seam, and #345 Lion vanish still need exact live frame/route evidence before implementation.
 - **Closures from this playtest:** #003/#160 audio works; #126/#258/#268/#269 slope/climb rows work; #141/#144/#147/#167/#214/#238/#241/#246/#248/#262/#263/#264/#266/#272/#273/#274/#275/#276/#277/#279/#281/#283/#284/#286/#289/#335 validated fixed; #161/#176/#184/#187/#188/#189/#217/#260/#322 closed stale or superseded. See archive note `2026-07-06 playtest feedback triage`.
 
@@ -61,8 +59,6 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 210 | [ ] | P0 | gameflow/render | Rapid intro/title/menu skip can still show black squares or corrupt Red Stealth title art. | 2026-07-06 human playtest fails the fixed candidate. Native live repro: human-observed; oracle status unknown for the failing timing. Minimum gate: visual-parity route plus `verify-slice-fast`. |
-| 254 | [ ] | P1 | intro/render | Rapid title/menu skip still corrupts title-screen art with the #210 failure. | Same 2026-07-06 failed human validation as #210. Keep paired with #210 unless investigation proves a separate title-art path. Minimum gate: visual-parity route plus fast-slice. |
 | 185 | [ ] | P1 | enemy | Hand animation/grab is broken: visible hole/default grab pose and no actual grab. | 2026-07-06 human playtest: Hand looks partly improved but crawls/animates incorrectly, shows a hole, jumps after Kid, and no longer grabs. Native repro human-observed; oracle unknown. Minimum gate: Hand route with render and collision assertions. |
 | 230 | [ ] | P1 | weather | The Crypt weather flashes corrupt graphics and drops odd ice/red pieces instead of a normal snow/weather effect. | 2026-07-06 human playtest on The Crypt. Native repro human-observed; oracle unknown. Minimum gate: weather pixel/oracle capture and fast-slice. |
 | 270 | [ ] | P1 | player/wall | Under Skull Mountain slope-wall corners can shove Kid horizontally, launch upward, or teleport through the floor. | 2026-07-06 human playtest sharpens USM slope-wall failures: climb blocks, shove left, or floor clip depending direction. Native observed; oracle route needed; gate natural USM gameplay frontier. |

@@ -2081,7 +2081,15 @@ impl NativeRuntime {
                 if let Some((vdp, carry_until_frame)) = &self.title_menu_level_entry_vdp_carry
                     && self.frame_index < *carry_until_frame
                 {
-                    Some(vdp.clone())
+                    let mut vdp = vdp.clone();
+                    let carry_start_frame =
+                        carry_until_frame.saturating_sub(TITLE_MENU_TO_TITLE_CARD_VDP_CARRY_FRAMES);
+                    let fade_progress = Self::title_menu_level_entry_carry_fade_progress_loc_1bbd6(
+                        self.frame_index,
+                        carry_start_frame,
+                    );
+                    vdp::apply_pal_fade_out_to_black_loc_28c6(&mut vdp, fade_progress);
+                    Some(vdp)
                 } else {
                     let theme_index = self.current_level_title_card_theme_index();
                     self.title_card_data
@@ -2118,6 +2126,23 @@ impl NativeRuntime {
         Self::intro_sequence_6_hidden_shell_frame_index_loc_1b43a_at_elapsed(
             self.title_screen_elapsed_frames,
         )
+    }
+
+    fn title_menu_level_entry_carry_fade_progress_loc_1bbd6(
+        frame_index: usize,
+        carry_start_frame: usize,
+    ) -> u16 {
+        let elapsed = frame_index.saturating_sub(carry_start_frame);
+        if elapsed <= 4 {
+            // ASM Obj_TitleMenu loc_1BBD6 sets `$FFFFFBCE` before jumping to
+            // loc_6E2, so Pal_FadeOut loc_28C6 has already consumed most of
+            // its fade by the recorded cold-route VDP carry. Oracle #210
+            // probes expose `$FFFFF876=$0040,$0030,...,$0000` across the
+            // carried title/menu frames.
+            0x0040u16.saturating_sub((elapsed as u16).saturating_mul(0x10))
+        } else {
+            0
+        }
     }
 
     fn intro_sequence_6_start_skip_preserves_natural_vdp_loc_1bab0_at_elapsed(

@@ -7554,9 +7554,23 @@ impl NativeRuntime {
                     // path. ASM loc_1AE2E only consumes a Start edge; gameplay
                     // buttons must not release the title-card hibernate worker
                     // into live Mode_Level input.
+                    let title_menu_vdp_carry_active = self
+                        .title_menu_level_entry_vdp_carry
+                        .as_ref()
+                        .is_some_and(|(_, expires_at)| self.frame_index < *expires_at);
                     enter_gameplay = if recorded_title_replay {
                         if start_pressed {
-                            *start_latched = true;
+                            if title_menu_vdp_carry_active {
+                                // ASM Obj_TitleMenu loc_1BBD6 jumps through
+                                // loc_6E2 while the resident title/menu VDP
+                                // carry is still visible. Oracle issue #210
+                                // probes keep spammed Start edges consumed by
+                                // that carry, not latched for the later
+                                // loc_1AE2E title-card wait.
+                                *start_latched = false;
+                            } else {
+                                *start_latched = true;
+                            }
                             false
                         } else if *start_latched {
                             !self.previous_input.start

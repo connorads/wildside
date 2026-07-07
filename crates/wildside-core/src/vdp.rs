@@ -624,15 +624,20 @@ pub(crate) fn apply_intro_sequence_5_title_return_fade_to_black(
         }
         _ => return false,
     };
+    // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 jumps through loc_6E2.
+    // Because `$FFFFFBCE` is set, loc_6E2 runs Pal_FadeOut (loc_28C6),
+    // stepping `$FFFFF876` by `$10` per VBlank before the VRAM clear.
+    apply_pal_fade_out_to_black_loc_28c6(vdp, fade_progress);
+    true
+}
+
+pub(crate) fn apply_pal_fade_out_to_black_loc_28c6(vdp: &mut VdpState, fade_progress: u16) {
     let palette_buffer_2 = vdp_cram_words(vdp);
     let palette_buffer_3 = [0u16; 0x40];
     let mut palette_buffer = [0u16; 0x40];
     let mut pending_palette_0_mask = u32::MAX;
     let mut pending_palette_1_mask = u32::MAX;
 
-    // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 jumps through loc_6E2.
-    // Because `$FFFFFBCE` is set, loc_6E2 runs Pal_FadeOut (loc_28C6),
-    // stepping `$FFFFF876` by `$10` per VBlank before the VRAM clear.
     crate::level::apply_pending_palette_fade_sub_14C0(
         fade_progress,
         &mut pending_palette_0_mask,
@@ -642,7 +647,6 @@ pub(crate) fn apply_intro_sequence_5_title_return_fade_to_black(
         &mut palette_buffer,
     );
     vdp.write_cram_words(0, &palette_buffer);
-    true
 }
 
 pub(crate) fn build_intro_sequence_1_cold_boot_vdp_at_elapsed(

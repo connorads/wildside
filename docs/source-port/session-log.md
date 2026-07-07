@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 - #210/#254 rapid title-menu spam fixed candidate
+
+- Took reopened #210/#254. Expanded the failing route to `2400:start` plus
+  every even frame `2700..2730:start`; oracle stays in title-card transition,
+  while native pre-fix latched a later Start into `loc_1AE2E` and released
+  gameplay at frame 2732.
+- Re-read `Title_InputLoop`, `Obj_TitleMenu loc_1BBD6`, `loc_6E2`,
+  `Pal_FadeOut loc_28C6/loc_28EA`, `Load_TitleCard`, and `loc_1AE2E`.
+  Native now consumes Start during the title-menu VDP carry and fades carried
+  CRAM before black.
+- Moved #210/#254 to `[?]` awaiting human validation. Verification covered the
+  new cache-backed spam regression, the `cold_boot_intro_sequence_6_` group,
+  `mise run verify-slice-fast`, and `mise run verify-tas-full` (CRC all 37,759
+  frames match; known later full-report state divergences remain).
+- Next open priorities from `project-status`: #270 USM slope-wall launch/floor
+  clip, #339 USM2 load-screen audio noise, #373 flagpole not sinking, then
+  visual risks #185 Hand, #230 Crypt weather, and #372 prize-block wobble.
+
 ## 2026-07-06 - #374 named later-level spawn parity
 
 - Took #374 from the open queue. Re-read `Archer.asm` and murder-wall/load
