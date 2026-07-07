@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Spinning Twins enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Orca
+  refresh, ran the single-file mutation wrapper against
+  `enemies/spinning_twins.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/spinning_twins.rs
+  OUTPUT=/tmp/mutants-spinning-twins-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `126 mutants tested in 13m: 105 caught, 21 unviable`.
+- No source edit was warranted. Existing ASM-cited Spinning Twins coverage still
+  kills every viable mutant across orbit/drop routing, split materialisation,
+  falling visuals, walking child velocity/collision settling, Berzerker launch,
+  and damage/death status routing.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Orca enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Diamond
