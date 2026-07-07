@@ -15673,7 +15673,7 @@ mod chunk_04 {
             0x00, 0x10, // layout_addr (non-zero → not a ghost terminator)
             0x00, 0x03, // col = 3
             0x00, 0x05, // row = 5
-            0x02, // count nibble = 2 → count = 3
+            0x03, // count = 3
             0x01, // vertical = true
         ];
         // Ghost terminator (all zeros)

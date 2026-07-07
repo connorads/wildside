@@ -85,6 +85,40 @@ fn cached_issue289_level06_walk_right_script() -> Option<(LevelId, Vec<u8>)> {
     ))
 }
 
+fn cached_issue230_crypt38_walk_right_script() -> Option<(LevelId, Vec<u8>)> {
+    if !cache_backed_tests_enabled() {
+        eprintln!(
+            "skipping cache-backed source-port test: set KID_ENABLE_CACHE_BACKED_TESTS=1 to use generated .cache assets"
+        );
+        return None;
+    }
+    let scenario_path =
+        repo_root().join(".cache/recordings/issue230-crypt38-walk-right/scenario.json");
+    if !scenario_path.is_file() {
+        eprintln!(
+            "skipping cache-backed source-port test: issue #230 route scenario missing at {}",
+            scenario_path.display()
+        );
+        return None;
+    }
+    let scenario_raw = fs::read_to_string(&scenario_path).expect("read issue #230 route scenario");
+    let scenario_json: serde_json::Value =
+        serde_json::from_str(&scenario_raw).expect("parse issue #230 route scenario");
+    let level = scenario_json["warp_to_level"]
+        .as_u64()
+        .map(|level| LevelId(level as u8))
+        .expect("issue #230 route should declare warp_to_level");
+    Some((
+        level,
+        scenario_json["script"]
+            .as_array()
+            .expect("issue #230 route script array")
+            .iter()
+            .map(|value| value.as_u64().expect("issue #230 route script byte") as u8)
+            .collect(),
+    ))
+}
+
 #[test]
 fn tas_title_cursor_moves_do_not_delay_attract_demo_handoff() {
     let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
@@ -7244,7 +7278,7 @@ mod chunk_09 {
             .find(|group| group.col == 0x17 && group.row == 0x12)
             .copied()
             .expect("Level 0x06 should keep the lower Skull Mountain 3 ghost group after load");
-        assert_eq!(lower_group.count, 3);
+        assert_eq!(lower_group.count, 2);
         assert!(!lower_group.vertical);
         assert_eq!(lower_group.timer, 0x28);
         assert_eq!(lower_group.state, 0);
@@ -7267,7 +7301,7 @@ mod chunk_09 {
             .block_grid
             .as_ref()
             .expect("Level 0x06 grid should exist");
-        for col in 0x17..=0x19 {
+        for col in 0x17..=0x18 {
             let cell = grid.cell_at(col, 0x12);
             assert_eq!(
                 cell.collision,
@@ -7354,6 +7388,113 @@ mod chunk_09 {
                 .is_some_and(|velocity| velocity < 0),
             "ASM sub_902A should preserve the jump launch once sub_F730 has cleared the ghost block collision"
         );
+    }
+
+    #[test]
+    fn issue230_crypt_recording_warp_vanishes_four_cell_vertical_ghost_loc_124a6_f730() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let Some((level, script)) = cached_issue230_crypt38_walk_right_script() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+
+        runtime.boot_to_level(level);
+        runtime.settle_recording_oracle_warp_live_window(level);
+        for frame_index in 0usize..=298 {
+            let input = frame_index
+                .checked_sub(1)
+                .and_then(|index| script.get(index))
+                .copied()
+                .map(FrameInput::from_mask)
+                .unwrap_or_default();
+            runtime.step_frame(input);
+        }
+
+        let ghost_group = runtime
+            .block_state
+            .ghost_groups
+            .iter()
+            .find(|group| group.col == 0x1D && group.row == 0x44)
+            .copied()
+            .expect("The Crypt should keep the vertical SolidGhost group at col $1D row $44");
+        assert_eq!(
+            ghost_group.count, 4,
+            "ASM loc_124BE stores the raw count byte, and sub_F730/loc_F90A clear exactly four vertical cells"
+        );
+        assert!(ghost_group.vertical);
+        assert!(
+            !ghost_group.solid,
+            "ASM sub_F730 should have vanished this Crypt group before issue #230 frame 298"
+        );
+
+        let grid = runtime
+            .block_grid
+            .as_ref()
+            .expect("The Crypt should have a generated block grid");
+        for row in 0x44..=0x47 {
+            let cell = grid.cell_at(0x1D, row);
+            assert!(
+                !cell.has_block,
+                "ASM loc_F90A should clear the SolidGhost block bit for Crypt cell (29,{row})"
+            );
+            assert_eq!(
+                cell.collision,
+                terrain::CollisionKind::Empty,
+                "ASM loc_F90A should clear collision for Crypt cell (29,{row})"
+            );
+        }
+        let support = grid.cell_at(0x1D, 0x48);
+        assert_eq!(
+            support.collision,
+            terrain::CollisionKind::Solid,
+            "ASM DBF count should leave row $48 as solid floor under the vanished Crypt ghost group"
+        );
+        assert!(
+            !support.has_block,
+            "row $48 is ordinary terrain support, not part of the SolidGhost group"
+        );
+    }
+
+    #[test]
+    fn issue230_crypt_walk_right_crosses_vanished_ghost_column_loc_124a6_f730() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let Some((level, script)) = cached_issue230_crypt38_walk_right_script() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(level.0)
+            .settle_recording_warp()
+            .run(&script, script.len());
+
+        let frame_298 = trace
+            .get(298)
+            .expect("issue #230 route should include frame 298");
+        assert_eq!(frame_298.current_level, LevelId(0x38));
+        assert_eq!(
+            frame_298.kid_x_pos,
+            Some(0x01D1_FB00),
+            "oracle tas-diff frame 298: ASM sub_F730 has already cleared the SolidGhost wall at col $1D"
+        );
+        assert_eq!(frame_298.kid_y_pos, Some(0x047F_0000));
+        assert_eq!(frame_298.kid_x_velocity, Some(0x0002_5B00));
+        assert_eq!(frame_298.character_movement, Some(2));
+
+        let frame_305 = trace
+            .get(305)
+            .expect("issue #230 route should include frame 305");
+        assert_eq!(
+            frame_305.kid_x_pos,
+            Some(0x01E0_0F00),
+            "ASM loc_124A6/sub_F730 count parity must let Kid cross the vanished ghost column instead of stopping or falling early"
+        );
+        assert_eq!(frame_305.kid_y_pos, Some(0x047F_0000));
+        assert_eq!(frame_305.kid_y_velocity, Some(0));
+        assert_eq!(frame_305.character_movement, Some(2));
     }
 
     #[test]

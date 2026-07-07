@@ -956,7 +956,10 @@ impl BlockList {
             }
             let col = u16::from_be_bytes([data[offset + 10], data[offset + 11]]);
             let row = u16::from_be_bytes([data[offset + 12], data[offset + 13]]);
-            let count = (data[offset + 14] & 0x0F) + 1;
+            // ASM loc_124BE stores `move.b 5(a1)` for the runtime count.
+            // loc_12516/loc_12526 and sub_F730 subtract one only for DBF, so
+            // this byte is already the exact number of cells in the group.
+            let count = data[offset + 14];
             let vertical = data[offset + 15] & 0x01 != 0;
             let solid = state == 0;
 
@@ -3740,7 +3743,7 @@ mod tests {
         // The ghost's timer=0 acts as prize terminator (layout_addr=0).
         // timer=0, state=0 (solid `$E304` hold), solid_time=25,
         // vanished_time=15, layout_addr=0x0020, col=4, row=6,
-        // count_nibble=0x03→4, vertical=1
+        // count byte=4, vertical=1
         data.extend_from_slice(&[
             0x00, 0x00, // timer = 0 (doubles as prize terminator)
             0x00, // state high byte
@@ -3750,7 +3753,7 @@ mod tests {
             0x00, 0x20, // layout_addr (non-zero → valid ghost)
             0x00, 0x04, // col = 4
             0x00, 0x06, // row = 6
-            0x03, // count nibble = 3 → count = 4
+            0x04, // count = 4
             0x01, // vertical = true
         ]);
         // Ghost terminator (all zeros — timer=0, layout_addr=0, solid_time=0)
@@ -3793,7 +3796,7 @@ mod tests {
         assert_eq!(bl.ghost_blocks.len(), 1);
         assert_eq!(bl.ghost_blocks[0].col, 4);
         assert_eq!(bl.ghost_blocks[0].row, 6);
-        assert_eq!(bl.ghost_blocks[0].count, 4); // nibble 3 + 1
+        assert_eq!(bl.ghost_blocks[0].count, 4);
         assert!(bl.ghost_blocks[0].vertical);
         assert_eq!(bl.ghost_blocks[0].solid_time, 25);
         assert_eq!(bl.ghost_blocks[0].vanished_time, 15);
@@ -5120,7 +5123,7 @@ mod tests {
             0xB3, 0x82, // ghost layout_addr
             0x00, 0x08, // col
             0x00, 0x0E, // row
-            0x01, // count nibble -> 2
+            0x02, // count = 2
             0x00, // horizontal
         ]);
         data.extend_from_slice(&[0u8; GHOST_BLOCK_RECORD_BYTES]);
@@ -5181,7 +5184,7 @@ mod tests {
             0x00, 0x30, // layout_addr
             0x00, 0x02, // col=2
             0x00, 0x04, // row=4
-            0x01, // count=2
+            0x02, // count=2
             0x00, // horizontal
         ]);
         data.extend_from_slice(&[0u8; 16]); // ghost terminator
@@ -5215,7 +5218,7 @@ mod tests {
             0x00, 0x40, // layout_addr
             0x00, 0x07, // col
             0x00, 0x09, // row
-            0x02, // count nibble -> 3 blocks
+            0x03, // count = 3 blocks
             0x01, // vertical
         ]);
         data.extend_from_slice(&[0u8; 16]); // ghost terminator
@@ -5250,7 +5253,7 @@ mod tests {
             0x00, 0x60, // layout_addr
             0x00, 0x08, // col
             0x00, 0x09, // row
-            0x04, // count nibble -> 5 blocks
+            0x05, // count = 5 blocks
             0x01, // vertical
         ]);
         // ASM loc_124BE writes the timer as the first word in each 16-byte
@@ -5264,7 +5267,7 @@ mod tests {
             0x00, 0x80, // layout_addr
             0x00, 0x0A, // col
             0x00, 0x0B, // row
-            0x01, // count nibble -> 2 blocks
+            0x02, // count = 2 blocks
             0x00, // horizontal
         ]);
 
@@ -5303,7 +5306,7 @@ mod tests {
             0x00, 0x00, // layout_addr
             0x00, 0x06, // col
             0x00, 0x07, // row
-            0x00, // count nibble -> 1 block
+            0x01, // count = 1 block
             0x00, // horizontal
         ]);
         data.extend_from_slice(&[0u8; 16]);

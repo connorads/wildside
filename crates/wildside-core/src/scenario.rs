@@ -14,6 +14,11 @@ const BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 107;
 const RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0: u16 = 179;
 const RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0: u16 = 0x08;
 const LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS: usize = 0x08;
+// ASM loc_124A6/sub_F730: #230 Crypt oracle recordings keep the col $1D
+// group vanished at frame 298 while the col $22 wall remains solid until
+// frame 365. The recording shell therefore advances SolidGhost state by $2F
+// ticks beyond the direct boot settle for the 0x38/0x47 block-list aliases.
+const CRYPT_RECORDING_GHOST_BLOCK_EXTRA_TICKS: usize = 0x2F;
 const ISLAND_RECORDING_SHORE_EXTRA_TICKS_LOC_1202A: usize = 0x10;
 const ISLAND_RECORDING_SHORE_LOWER_EXTRA_TICKS_LOC_12188: usize = 0x12;
 const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
@@ -91,8 +96,12 @@ fn recording_oracle_warp_target_live_frames(level_id: LevelId) -> usize {
     }
 }
 
-fn recording_oracle_warp_advances_level_six_ghost_blocks(level_id: LevelId) -> bool {
-    level_id == LevelId(0x06)
+fn recording_oracle_warp_extra_ghost_block_ticks(level_id: LevelId) -> usize {
+    match level_id {
+        LevelId(0x06) => LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS,
+        LevelId(0x38 | 0x47) => CRYPT_RECORDING_GHOST_BLOCK_EXTRA_TICKS,
+        _ => 0,
+    }
 }
 
 fn recording_oracle_warp_resets_level_one_rng(level_id: LevelId) -> bool {
@@ -249,13 +258,15 @@ impl NativeRuntime {
         // ordinary gameplay timer startup stays on LevelTimer::new.
         self.level_timer.seconds = RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0;
         self.level_timer.sub_frames = RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0;
-        if recording_oracle_warp_advances_level_six_ghost_blocks(level_id) {
-            // ASM loc_124A6 calls sub_F730 for ghost blocks on the level-skip
-            // tail that the recording helper observes. Dragon_Flying.asm
-            // loc_3480A oracle frames prove object scheduling is eight frames
-            // younger than the ghost-block phase here, so advance only the
-            // block timer for those remaining ticks.
-            for _ in 0..LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS {
+        let extra_ghost_block_ticks = recording_oracle_warp_extra_ghost_block_ticks(level_id);
+        if extra_ghost_block_ticks != 0 {
+            // ASM loc_124A6 seeds ghost-block descriptors and sub_F730 ticks
+            // them during the level-skip shell that recording helpers observe.
+            // Dragon_Flying.asm loc_3480A pins Level 0x06 object scheduling
+            // eight frames younger than its ghost phase. The Crypt 0x38/0x47
+            // block-list aliases need their oracle-observed SolidGhost phase
+            // without advancing Kid, object loading, or the global timer.
+            for _ in 0..extra_ghost_block_ticks {
                 self.step_ghost_blocks();
             }
         }
@@ -758,15 +769,26 @@ mod tests {
 
     #[test]
     fn recording_oracle_warp_extra_side_effects_are_level_specific() {
-        assert!(!recording_oracle_warp_advances_level_six_ghost_blocks(
-            LevelId(0x05)
-        ));
-        assert!(recording_oracle_warp_advances_level_six_ghost_blocks(
-            LevelId(0x06)
-        ));
-        assert!(!recording_oracle_warp_advances_level_six_ghost_blocks(
-            LevelId(0x07)
-        ));
+        assert_eq!(
+            recording_oracle_warp_extra_ghost_block_ticks(LevelId(0x05)),
+            0
+        );
+        assert_eq!(
+            recording_oracle_warp_extra_ghost_block_ticks(LevelId(0x06)),
+            LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS
+        );
+        assert_eq!(
+            recording_oracle_warp_extra_ghost_block_ticks(LevelId(0x07)),
+            0
+        );
+        assert_eq!(
+            recording_oracle_warp_extra_ghost_block_ticks(LevelId(0x38)),
+            CRYPT_RECORDING_GHOST_BLOCK_EXTRA_TICKS
+        );
+        assert_eq!(
+            recording_oracle_warp_extra_ghost_block_ticks(LevelId(0x47)),
+            CRYPT_RECORDING_GHOST_BLOCK_EXTRA_TICKS
+        );
 
         assert!(!recording_oracle_warp_resets_level_one_rng(LevelId(0)));
         assert!(recording_oracle_warp_resets_level_one_rng(LevelId(1)));

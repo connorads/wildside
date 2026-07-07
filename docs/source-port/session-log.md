@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 - #230 Crypt SolidGhost block overlay fixed candidate
+
+- Took #230 from the open queue. `inspect-level` proved The Crypt variants
+  0x38/0x47 have weather 0; captures isolated the corrupt "weather" pieces to
+  the `block_overrides` SolidGhost layer.
+- Re-read `kid.asm loc_124A6`, `loc_124BE`, `loc_12516`/`loc_12526`, and
+  `sub_F730`: the ghost count byte is exact and `dbf` subtracts one. Native was
+  parsing low-nibble+1, which over-cleared the first vertical group and dropped
+  floor support.
+- Fixed raw SolidGhost count parsing and added the Crypt recording-only `$2F`
+  ghost phase tick so 0x38/0x47 match oracle without advancing Kid, object
+  loading, or global timing. Both Crypt walk-right recordings now pass all 2460
+  frames by CRC; after captures show frame 298 support intact and frame 360 wall
+  solid.
+- Moved #230 to `[?]` awaiting human SDL validation. Next open queue item is
+  #372 prize-block wobble disappearance.
+
 ## 2026-07-07 - #185 Hand live frames fixed candidate
 
 - Took #185 from the open queue. Re-read `Hand.asm` live scripts and
