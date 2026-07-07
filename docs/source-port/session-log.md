@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 - #373 flagpole sink retired
+
+- Took reopened #373. Re-read `Flagpole_Boss`, `CharacterCollision_TouchFlagpole
+  loc_C070`, and `loc_C0B6`: the ROM allocates the waving flag and `Flag_bottom`
+  at fixed coordinates, hibernates, then deletes non-Kid gfx slots; there is no
+  sinking motion.
+- Fresh Highwater flag captures (`issue373-highwater-flag-transition-20260707`)
+  show native scene/effects visible through frame 58 and empty at frame 59.
+  Oracle captures for the same frames show the same visible-then-gone behaviour
+  with no downward slide.
+- Moved #373 to `[-]` as not a native bug. #369 remains the exact-frame
+  base-visibility human-validation row.
+
 ## 2026-07-07 - #339 USM2 loading-card audio fixed candidate
 
 - Took reopened #339 after the 2026-07-06 speaker failure. Live USM2 warp

@@ -347,6 +347,32 @@ verification: `cargo test -q -p wildside-cli level_complete_handoff -- --nocaptu
 `cargo test -q -p wildside-core flag_touch -- --nocapture`, `cargo test -q -p wildside-frame -- --nocapture`,
 plus native/oracle captures under `.cache/debug/issue369-highwater-*`.
 
+### #373
+
+Retired 2026-07-07 as not a native bug / no ROM behaviour to port. Re-read ASM
+`Flagpole_Boss` (kid.asm:15592-15634): both gfx objects are allocated at
+`Flag_X_pos`/`Flag_Y_pos + Number_blank_top_rows*16`; the waving flag uses
+`LnkTo_unk_E0FFE` (`sprite_frame_vram $69A,$06,$00,$28,$20`) and the pole bottom
+uses `LnkTo_unk_E0FDE` (`sprite_frame_vram $696,$08,$10,$10,$10`). There is no
+object loop that increments y or sinks the pole. `CharacterCollision_TouchFlagpole`
+`loc_C070` stops music, deletes gameplay objects, hibernates `$24` frames, then
+`loc_C0B6` deletes every non-Kid gfx slot before the score-room setup.
+
+Fresh current evidence: `record-scenario --slug
+issue373-highwater-flag-transition-20260707 --level 02 --scenario
+highwater-flag-transition-audit --walk-frames 100` recorded the Highwater flag
+transition on commit `2ebe14950`. Native scene/effects captures under
+`.cache/debug/issue373-highwater-native-{scene,effects}/` show the flag/base
+visible through frame 58 (`level_complete_elapsed_frames=58`) and gone at frame
+59, with no downward motion. Oracle captures for the same DynamicScenario under
+`.cache/debug/issue373-highwater-oracle/` show the same visual behaviour: flag/base
+visible at frame 58 and gone at frame 59, no sink. Full `verify-recording` is not
+used as closure evidence because the route diverges later at
+`transition_window@1200` on enemy layout index; the scoped visual frame captures
+cover the reported flagpole motion window. Keep #369 as the separate
+base-visibility validation row; reopen #373 only with a current exact frame that
+shows a distinct flagpole-motion issue not explained by the ROM's snap cleanup.
+
 Live playtest note 2026-06-01: latest human playthrough contradicts several
 previous `[x]` rows. Treat those as reopened until a deterministic native
 recording or live `play-native` verification proves the human path is stable.
@@ -11111,6 +11137,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 366 | [x] | P2 | infra/asm-coverage | asm-coverage now has a checked-in test-only baseline and `--check-no-new-test-only` ratchet; the five orphan subroutines are triaged with inline fidelity notes. | Baseline records 242 grandfathered test-only labels; new test-only labels fail the CLI ratchet; focused asm/core tests, `asm-coverage --update`, and `verify-slice-fast` exit 0. See archive #366. |
 | 367 | [x] | P2 | infra/asm-coverage | `verify-slice-fast` now runs the test-only ratchet, required-label gate, and debug-field audit; the audit scans the oracle helper template and registry hashes are backfilled. | Gate deps report 9 required labels covered, 242 current/242 baseline test-only labels, and 91 emitted/91 registered debug keys; focused tests and `verify-slice-fast` exit 0. See archive #367. |
 | 368 | [x] | P3 | infra/docs | One-off asm-coverage/doc tidy: stale live-source `loc_2510C`/`loc_23629` citations are removed, the required-label failure text points at non-test core/data, audio-trigger refs match the current command model, and CLAUDE.md single-sources asm-coverage commands. | Search checks for stale labels/deleted helper refs; focused asm-coverage/runtime/native-player tests; `cargo fmt`; `asm-coverage --check-required`; `backlog-lint`; `verify-slice-fast`. See archive #368. |
+| 373 | [-] | P1 | render/eol | NOT A BUG: the ROM does not sink the end-of-level flagpole into the floor; it holds the flag/base static, then deletes the non-Kid gfx slots at cleanup. | ASM `Flagpole_Boss` / `CharacterCollision_TouchFlagpole loc_C070` / `loc_C0B6`; fresh native and oracle frame captures 56..61 show visible through 58 and gone at 59, with no downward motion. Exact-frame base visibility remains #369. See archive #373. |
 | 349 | [x] | P1 | render | Post-death respawn title-card name text is visible on the real `death_respawn_level1` VDP path; the 2026-06-26 failed-candidate report no longer reproduces on current `main`. | Current native frames 1791/1855/1919 show `BLUE / LAKE / WOODS / I`; regression `death_respawn_vdp_path_overlays_real_title_name_workers_loc_b8de`; focused glyph-worker test. See archive #349. |
 | 358 | [x] | P2 | render/enemy | Cloud lightning projectiles now render ROM bolt sprite art instead of the generic red enemy-projectile dot. | ASM `Cloud.asm loc_35DF0` `unk_C7866`/`C786E`/`C7876`; focused trace/render tests; native/oracle issue358 probe captures. See archive #358. |
 | 361 | [x] | P2 | render/enemy | Live Hand (0x17) sprites now hold ROM live body/attack/grab frames instead of free-running into the death-tail atlas frames. | ASM `Hand.asm loc_327F2`/`loc_328E0`/`loc_32906`/`loc_32AA2`; focused trace/render tests; native issue361 Highwater Hand captures. See archive #361. |
