@@ -318,8 +318,11 @@ pub fn render_native_audio_samples_for_trace(
         NativeAudioDirector::with_initial_bgm(manifest, initial_active_bgm_cue, audio);
     let mut audio_samples = Vec::with_capacity(trace_frames.len() * AUDIO_SAMPLES_PER_FRAME * 2);
     for trace in trace_frames {
-        director.step(manifest, trace, audio);
-        audio_samples.extend(audio.generate_samples(AUDIO_SAMPLES_PER_FRAME));
+        if director.step(manifest, trace, audio) {
+            audio_samples.extend(audio.generate_samples(AUDIO_SAMPLES_PER_FRAME));
+        } else {
+            audio_samples.extend(std::iter::repeat_n(0.0, AUDIO_SAMPLES_PER_FRAME * 2));
+        }
     }
 
     audio_samples
@@ -372,7 +375,7 @@ impl NativeAudioDirector {
         manifest: &AssetManifest,
         trace: &NativeTraceFrame,
         audio: &mut impl NativeAudioSink,
-    ) {
+    ) -> bool {
         let (next_bgm_cue, bgm_command) =
             native_bgm_state_after_trace(manifest, trace, self.active_bgm_cue);
         let mut queued_bgm_start_this_frame = false;
@@ -385,23 +388,40 @@ impl NativeAudioDirector {
         }
         self.active_bgm_cue = next_bgm_cue;
 
+        let trace_audio_commands = if suppress_sfx_this_frame {
+            Vec::new()
+        } else {
+            self.prev_trace
+                .as_ref()
+                .map(|prev| gems_event_audio_commands(prev, trace))
+                .unwrap_or_default()
+        };
+        if !native_audio_frame_needs_driver_step(
+            self.active_bgm_cue,
+            self.pending_bgm_start,
+            bgm_command,
+            trace_audio_commands.len(),
+        ) {
+            self.prev_trace = Some(trace.clone());
+            return false;
+        }
+
         if !queued_bgm_start_this_frame && let Some(bgm) = self.pending_bgm_start.take() {
             audio.start_sequence(bgm);
         }
-        if !suppress_sfx_this_frame && let Some(prev) = self.prev_trace.as_ref() {
-            for command in gems_event_audio_commands(prev, trace) {
-                match command {
-                    NativeAudioTraceCommand::Sound(command) => {
-                        apply_native_sound_command(audio, command);
-                    }
-                    NativeAudioTraceCommand::MusicSpeed(speed) => {
-                        audio.set_music_speed(speed);
-                    }
+        for command in trace_audio_commands {
+            match command {
+                NativeAudioTraceCommand::Sound(command) => {
+                    apply_native_sound_command(audio, command);
+                }
+                NativeAudioTraceCommand::MusicSpeed(speed) => {
+                    audio.set_music_speed(speed);
                 }
             }
         }
         audio.step_frame();
         self.prev_trace = Some(trace.clone());
+        true
     }
 }
 
@@ -523,6 +543,32 @@ pub fn native_bgm_command_suppresses_same_frame_sfx(
     matches!(command, NativeBgmPlaybackCommand::StopMusicThenStart(_))
         && active_before.is_none()
         && matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
+}
+
+pub fn native_bgm_cue_has_audible_output(active_bgm_cue: Option<NativeBgmCue>) -> bool {
+    matches!(
+        active_bgm_cue,
+        Some(
+            NativeBgmCue::TitleShell
+                | NativeBgmCue::Options
+                | NativeBgmCue::Level(_)
+                | NativeBgmCue::CoreQueued(_)
+                | NativeBgmCue::ScoreBoard
+                | NativeBgmCue::Ending
+        )
+    )
+}
+
+pub fn native_audio_frame_needs_driver_step(
+    active_bgm_cue: Option<NativeBgmCue>,
+    pending_bgm_start: Option<u8>,
+    bgm_command: Option<NativeBgmPlaybackCommand>,
+    trace_audio_command_count: usize,
+) -> bool {
+    native_bgm_cue_has_audible_output(active_bgm_cue)
+        || pending_bgm_start.is_some()
+        || bgm_command.is_some()
+        || trace_audio_command_count != 0
 }
 
 pub fn apply_native_sound_command(audio: &mut impl NativeAudioSink, command: NativeSoundCommand) {
@@ -1136,6 +1182,39 @@ mod tests {
     }
 
     #[test]
+    fn native_audio_frame_driver_step_rule_skips_silent_initial_title_card_loc_1ab26() {
+        assert!(
+            !native_audio_frame_needs_driver_step(None, None, None, 0),
+            "ASM Load_TitleCard loc_1AB26/loc_1AE2E hibernates without PlaySound, so a cold loading card must not clock idle GEMS noise"
+        );
+        assert!(!native_audio_frame_needs_driver_step(
+            Some(NativeBgmCue::StoppedForTransition),
+            None,
+            None,
+            0
+        ));
+        assert!(native_audio_frame_needs_driver_step(
+            Some(NativeBgmCue::Level(LevelId(0))),
+            None,
+            None,
+            0
+        ));
+        assert!(native_audio_frame_needs_driver_step(
+            None,
+            Some(gems_bgm::CAVE),
+            None,
+            0
+        ));
+        assert!(native_audio_frame_needs_driver_step(
+            None,
+            None,
+            Some(NativeBgmPlaybackCommand::StopMusic),
+            0
+        ));
+        assert!(native_audio_frame_needs_driver_step(None, None, None, 1));
+    }
+
+    #[test]
     fn apply_native_sound_command_uses_raw_gems_command_byte() {
         let mut sink = RecordingAudioSink::default();
 
@@ -1377,6 +1456,30 @@ mod tests {
                 RecordingAudioAction::GenerateSamples(AUDIO_SAMPLES_PER_FRAME),
             ],
             "ASM Load_IntroSequence1 (kid.asm:29068-29070) runs StopMusic before queuing bgm_Ice"
+        );
+    }
+
+    #[test]
+    fn render_native_audio_samples_for_trace_zero_fills_silent_title_card_loc_1ab26() {
+        let manifest = test_manifest();
+        let transition = trace(GameMode::LevelTransition);
+        let mut sink = RecordingAudioSink::default();
+
+        let samples = render_native_audio_samples_for_trace(
+            &manifest,
+            &[transition.clone(), transition],
+            None,
+            &mut sink,
+        );
+
+        assert_eq!(samples.len(), 2 * AUDIO_SAMPLES_PER_FRAME * 2);
+        assert!(
+            samples.iter().all(|sample| *sample == 0.0),
+            "ASM Load_TitleCard loc_1AB26/loc_1AE2E has no GEMS command; recorded/native audio should be digital silence, not idle driver output"
+        );
+        assert!(
+            sink.actions.is_empty(),
+            "the sink must not step or render samples for a silent cold title-card frame"
         );
     }
 

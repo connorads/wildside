@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 - #339 USM2 loading-card audio fixed candidate
+
+- Took reopened #339 after the 2026-07-06 speaker failure. Live USM2 warp
+  recording stayed in `LevelTransition` with no trace audio commands, but the
+  pre-fix WAV was non-silent from sample 0.
+- Re-read `Load_TitleCard loc_1AB26` / `loc_1AE2E`, `Load_InGame loc_23629`,
+  `loc_11FD2`/`loc_12004`, and `Obj_Lava_Geyser loc_14772`/`loc_1478E`/
+  `loc_1483A`. The loading card has no sound command; lava `$1E` starts only
+  during gameplay.
+- Native trace rendering and live SDL audio now skip idle GEMS stepping and
+  zero-fill frames with no audible cue, pending start, BGM command, or trace
+  audio command. The after recording is 240 silent `LevelTransition` frames;
+  scripted USM2 gameplay still starts BGM and lava-geyser SFX.
+- Moved #339 to `[?]` awaiting real-speaker validation. Focused audio
+  regressions, `mise run verify-slice-fast`, and `mise run verify-tas-full`
+  pass; full TAS CRC matches all 37,759 frames with the existing baseline
+  divergence report.
+
 ## 2026-07-07 - #270 USM slope-wall route blocked
 
 - Took reopened #270. Re-read `loc_9F18`, `loc_9FBC`, `sub_A254`, and the

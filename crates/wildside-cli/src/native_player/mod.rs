@@ -717,20 +717,41 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 &mut audio_sample_clock,
             );
             let maybe_samples = if let Some(ref mut gems) = gems_engine {
-                if !queued_bgm_start_this_frame && let Some(bgm) = pending_bgm_start.take() {
-                    gems.start_sequence(bgm);
-                }
-                if !suppress_sfx_this_frame {
-                    detect_gems_events(&prev_trace, &trace, gems);
-                }
-                gems.step_frame();
-                if audio_generation.sample_rate == AUDIO_SAMPLE_RATE {
-                    Some(gems.generate_samples(audio_generation.samples_per_frame))
+                let trace_audio_commands = if suppress_sfx_this_frame {
+                    Vec::new()
                 } else {
-                    Some(gems.generate_samples_at_rate(
-                        audio_generation.sample_rate,
-                        audio_generation.samples_per_frame,
-                    ))
+                    gems_event_audio_commands(&prev_trace, &trace)
+                };
+                if native_audio_frame_needs_driver_step(
+                    active_bgm_cue,
+                    pending_bgm_start,
+                    bgm_command,
+                    trace_audio_commands.len(),
+                ) {
+                    if !queued_bgm_start_this_frame && let Some(bgm) = pending_bgm_start.take() {
+                        gems.start_sequence(bgm);
+                    }
+                    for command in trace_audio_commands {
+                        match command {
+                            NativeAudioTraceCommand::Sound(command) => {
+                                apply_native_sound_command(gems, command);
+                            }
+                            NativeAudioTraceCommand::MusicSpeed(speed) => {
+                                gems.set_music_speed(speed);
+                            }
+                        }
+                    }
+                    gems.step_frame();
+                    if audio_generation.sample_rate == AUDIO_SAMPLE_RATE {
+                        Some(gems.generate_samples(audio_generation.samples_per_frame))
+                    } else {
+                        Some(gems.generate_samples_at_rate(
+                            audio_generation.sample_rate,
+                            audio_generation.samples_per_frame,
+                        ))
+                    }
+                } else {
+                    Some(vec![0.0; audio_generation.samples_per_frame * 2])
                 }
             } else {
                 Some(sfx_engine.generate(audio_generation.samples_per_frame))
@@ -2152,20 +2173,6 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
         .into_iter()
         .map(|command| command.sound_id)
         .collect()
-}
-
-/// Detect game events and trigger GEMS sounds.
-fn detect_gems_events(
-    prev: &NativeTraceFrame,
-    curr: &NativeTraceFrame,
-    gems: &mut GemsAudioEngine,
-) {
-    for command in gems_event_audio_commands(prev, curr) {
-        match command {
-            NativeAudioTraceCommand::Sound(command) => apply_native_sound_command(gems, command),
-            NativeAudioTraceCommand::MusicSpeed(speed) => gems.set_music_speed(speed),
-        }
-    }
 }
 
 struct SfxEngine {
