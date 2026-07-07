@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Cloud enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Archer
+  refresh, ran the single-file mutation wrapper against `enemies/cloud.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/cloud.rs
+  OUTPUT=/tmp/mutants-cloud-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `135 mutants tested in 14m: 119 caught, 16 unviable`.
+- No source edit was warranted. Existing ASM-cited Cloud coverage still kills
+  every viable mutant across command-script/status handling, idle gates,
+  diagonal lightning setup/spawn/delete, wall reversal, and death/respawn
+  routing.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Archer enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Spinning
