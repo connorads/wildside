@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Armadillo enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Fire
+  Demon refresh, ran the single-file mutation wrapper against
+  `enemies/armadillo.rs`.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/armadillo.rs
+  OUTPUT=/tmp/mutants-armadillo-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `46 mutants tested in 5m: 34 caught, 12 unviable`.
+- No source edit was warranted. Existing ASM-cited Armadillo coverage still
+  kills every viable mutant across level-based init, collision dispatch,
+  hurt/death, mirrored bit setup, and shared-walker resume routing.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Fire Demon enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Driller
