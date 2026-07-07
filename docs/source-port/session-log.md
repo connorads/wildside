@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 - #270 USM slope-wall route blocked
+
+- Took reopened #270. Re-read `loc_9F18`, `loc_9FBC`, `sub_A254`, and the
+  native slope/wall suppression paths; the centre-tile solid stop is still a
+  plausible ASM seam, but not enough to patch without a failing route.
+- Fresh USM1 and USM3 route searches were clean or stalled before the reported
+  slope-wall corner. USM3 default input hit an ordinary vertical wall at cell
+  `(25,20)` with `slope=0`, not the repeated slope-wall structures farther
+  right.
+- Moved #270 to `[b]` awaiting a natural `play-native --record` bundle with a
+  target frame/coordinate/cell and the generated oracle frontier command. No
+  gameplay code was changed.
+
 ## 2026-07-07 - #210/#254 rapid title-menu spam fixed candidate
 
 - Took reopened #210/#254. Expanded the failing route to `2400:start` plus
