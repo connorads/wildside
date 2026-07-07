@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive Tornado enemy mutation refresh)
+
+- **Fallback verification checked.** With no ready/open rows after the Armadillo
+  refresh, the first Sphere attempt produced only unviable mutants, so ran the
+  single-file mutation wrapper against `enemies/tornado.rs` for a viable shard.
+- Evidence: `env FILE=crates/wildside-core/src/enemies/tornado.rs
+  OUTPUT=/tmp/mutants-tornado-20260707-refresh TMPDIR=/tmp mise run mutants-file`
+  reports `68 mutants tested in 7m: 60 caught, 8 unviable`.
+- No source edit was warranted. Existing ASM-cited Tornado coverage still kills
+  every viable mutant across collision dispatch, hit/delete status routing,
+  Cyclone bounce, live-animation tick, and terrain bounce response logic.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Armadillo enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Fire
