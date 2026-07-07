@@ -796,6 +796,44 @@ mod tests {
     }
 
     #[test]
+    fn settle_recording_oracle_warp_ticks_level_specific_ghost_blocks_loc_124a6_f730() {
+        let mut ordinary_level = runtime_with_single_solid_ghost_group();
+
+        ordinary_level.settle_recording_oracle_warp_live_window(LevelId(0x05));
+
+        let ordinary_group = ordinary_level.block_state.ghost_groups[0];
+        assert_eq!(
+            (
+                ordinary_group.timer,
+                ordinary_group.state,
+                ordinary_group.solid
+            ),
+            (1, 0, true),
+            "ordinary recording settles must not tick ASM sub_F730 SolidGhost state"
+        );
+
+        let mut skull_mountain = runtime_with_single_solid_ghost_group();
+
+        skull_mountain.settle_recording_oracle_warp_live_window(LevelId(0x06));
+
+        let skull_group = skull_mountain.block_state.ghost_groups[0];
+        assert_eq!(
+            (skull_group.timer, skull_group.state, skull_group.solid),
+            (2, 3, false),
+            "ASM loc_124A6/sub_F730 recording settle should advance Level 0x06 by the eight oracle-observed SolidGhost ticks"
+        );
+        let cell = skull_mountain
+            .block_grid
+            .as_ref()
+            .expect("synthetic ghost grid should remain installed")
+            .cell_at(1, 1);
+        assert!(
+            !cell.has_block,
+            "ASM loc_F8A6 should clear the SolidGhost cell during the extra recording-settle ticks"
+        );
+    }
+
+    #[test]
     fn direct_initial_title_card_restore_waits_for_first_live_frame_loc_1ae2e() {
         assert!(
             !should_restore_recorded_title_card_after_first_live(false, GameMode::InGame),
@@ -879,6 +917,39 @@ mod tests {
             }],
             "ASM loc_12188 should clear stale shore DMA uploads and enqueue only the lower-band transfer"
         );
+    }
+
+    fn runtime_with_single_solid_ghost_group() -> NativeRuntime {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut layout = vec![0u8; 4 * 4 * 2];
+        let ghost_offset = (4 + 1) * 2;
+        layout[ghost_offset] = 0xE3;
+        layout[ghost_offset + 1] = 0x04;
+        let mut erase_words = vec![0u16; 4 * 4];
+        erase_words[4 + 1] = 0x6005;
+        runtime.block_grid = Some(
+            terrain::BlockGrid::from_level_layout_with_erase_words_loc_11542(
+                &layout,
+                erase_words,
+                4,
+                4,
+            ),
+        );
+        runtime
+            .block_state
+            .ghost_groups
+            .push(crate::types::GhostGroup {
+                col: 1,
+                row: 1,
+                count: 1,
+                vertical: false,
+                solid_time: 10,
+                vanished_time: 5,
+                timer: 1,
+                state: 0,
+                solid: true,
+            });
+        runtime
     }
 
     fn minimal_manifest() -> AssetManifest {

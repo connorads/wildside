@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-07 handoff (proactive scenario mutation hardening)
+
+- **Fallback verification fixed a test gap.** With no ready/open rows after the
+  Hand refresh, reran the single-file mutation wrapper against `scenario.rs`
+  because #230/#374 changed recording-settle behaviour after its last clean
+  shard.
+- Initial evidence: `env FILE=crates/wildside-core/src/scenario.rs
+  OUTPUT=/tmp/mutants-scenario-20260707-refresh TMPDIR=/tmp mise run
+  mutants-file` reported `101 mutants tested in 11m: 1 missed, 82 caught, 18
+  unviable`.
+- The survivor flipped the `extra_ghost_block_ticks != 0` guard in
+  `settle_recording_oracle_warp_live_window`. Added a cache-free regression for
+  ASM `loc_124A6`/`sub_F730` proving ordinary recording settles leave a
+  synthetic SolidGhost group untouched while Level 0x06 advances the eight
+  oracle-observed ticks.
+- Final evidence: `env FILE=crates/wildside-core/src/scenario.rs
+  OUTPUT=/tmp/mutants-scenario-20260707-after TMPDIR=/tmp mise run
+  mutants-file` reports `101 mutants tested in 11m: 83 caught, 18 unviable`.
+- NEXT: run `mise run project-status`; if no ready/open item appears, keep
+  using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-07 handoff (proactive Hand enemy mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the Drips
