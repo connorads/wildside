@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-10 handoff (real source-port visual release evidence)
+
+- Audited the `1p-accurate` frame path and found its existing `frame_oracle:*`
+  pixels come from wildside-md running the original ROM, not from the source-port
+  renderer. The report now identifies those steps as ROM VDP emulator evidence.
+- Added a bounded source-port renderer probe for Level 0 frames 0, 30, 60, and
+  120, with a fail-closed policy requiring four unmasked checkpoints, exact
+  state, complete diff artefacts, MAE <=1.750, and changed pixels <=2,293.
+- Focused mutation testing initially found nine policy blind spots across probe
+  identity, divergence-category branches, and the inclusive MAE boundary. Added
+  exact cases; final shard reports `38 mutants tested in 4m: 38 caught`.
+- Fresh `mise run release-gate` passed. The probe has exact state at all four
+  checkpoints but is not pixel-perfect: worst MAE is 1.677 with 2,293 changed
+  pixels at frame 30. The composite localises the largest residual around the
+  enemy, tree edge, and foreground.
+- The probe uses a settled Level 0 warp, so it ratchets renderer fidelity without
+  claiming authoritative cold-boot route parity. Opened #375 to trace and burn
+  the visual baseline towards zero.
+- The same gate's state sweep passed 69/69 but verified 0/69 real checkpoints;
+  all 1,011 diffs were oracle limitations. Do not read that result as whole-game
+  accuracy.
+- NEXT: take #375 from `mise run project-status`; trace the frame-30 residual
+  through source-port scene composition, assets, ASM, and oracle layers before
+  changing rendering behaviour.
+
 ## 2026-07-10 handoff (visual oracle comparator hardening)
 
 - With no ready/open backlog row, audited the `1p-accurate` frame comparator.

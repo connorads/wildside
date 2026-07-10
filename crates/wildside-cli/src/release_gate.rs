@@ -133,6 +133,10 @@ const FULL_BOOT_GAMEPLAY_VERIFY_SCENARIOS: &[GameplayScenario] = &[
     GameplayScenario::DeathRespawnStartResumeLevel1,
 ];
 
+const SOURCE_PORT_VISUAL_CHECKPOINTS: usize = 4;
+const SOURCE_PORT_VISUAL_MAX_MAE: f32 = 1.750;
+const SOURCE_PORT_VISUAL_MAX_PIXEL_MISMATCHES: usize = 2_293;
+
 pub(crate) fn run_release_gate(
     repo_root: &Path,
     rom_path: &Path,
@@ -438,6 +442,21 @@ fn run_one_player_accurate_gate(
         })?;
     }
 
+    let visual_run_dir = repo_root
+        .join(".cache/release-gate")
+        .join(report.target.as_str())
+        .join(report.timestamp.as_str())
+        .join("source-port-visual");
+    run_release_step(report, "source_port_frame_oracle:level_00_early", || {
+        let result = sweep::run_source_port_visual_release_probe(
+            repo_root,
+            rom_path,
+            manifest,
+            &visual_run_dir,
+        )?;
+        assess_source_port_visual_evidence(&result)
+    })?;
+
     for scenario in [
         Scenario::BootTitleStartLevel1,
         Scenario::BootTitleStartLevel1MoveRight5s,
@@ -445,7 +464,10 @@ fn run_one_player_accurate_gate(
         let step_name = format!("frame_oracle:{}", scenario.slug());
         run_release_step(report, &step_name, || {
             verify_frames(repo_root, rom_path, &rom_bytes, manifest, scenario)?;
-            Ok(format!("frame compare passed for {}", scenario.slug()))
+            Ok(format!(
+                "ROM VDP emulator compare passed for {} (wildside-md vs jgenesis; not source-port renderer evidence)",
+                scenario.slug()
+            ))
         })?;
     }
 
@@ -539,6 +561,85 @@ fn run_one_player_accurate_gate(
     }
 
     Ok(())
+}
+
+fn assess_source_port_visual_evidence(result: &sweep::LevelSweepResult) -> Result<String> {
+    if result.level_id != 0x00 || result.slug != "release_visual_level_00_early" {
+        bail!(
+            "unexpected source-port visual probe identity: level={:#04x}, slug={}",
+            result.level_id,
+            result.slug
+        );
+    }
+    if let Some(error) = &result.error {
+        bail!("source-port visual probe error: {error}");
+    }
+    if !result.passed {
+        bail!("source-port visual probe did not pass its sweep checks");
+    }
+    if result.total_checkpoints != SOURCE_PORT_VISUAL_CHECKPOINTS {
+        bail!(
+            "source-port visual probe produced {} checkpoints, expected {}",
+            result.total_checkpoints,
+            SOURCE_PORT_VISUAL_CHECKPOINTS
+        );
+    }
+    if result.masked_checkpoints > 0 {
+        bail!(
+            "source-port visual probe left {} of {} checkpoints masked",
+            result.masked_checkpoints,
+            result.total_checkpoints
+        );
+    }
+    let summary = &result.divergence_summary;
+    if !result.state_diffs.is_empty()
+        || summary.authoritative > 0
+        || summary.advisory > 0
+        || summary.accumulation > 0
+        || summary.rng > 0
+        || summary.oracle_limitation > 0
+    {
+        bail!(
+            "source-port visual probe state diverged: authoritative={}, advisory={}, accumulation={}, rng={}, oracle_limitation={}",
+            summary.authoritative,
+            summary.advisory,
+            summary.accumulation,
+            summary.rng,
+            summary.oracle_limitation
+        );
+    }
+
+    let mae = result
+        .mae
+        .ok_or_else(|| anyhow!("source-port visual probe is missing frame MAE"))?;
+    let pixel_mismatches = result
+        .pixel_mismatches
+        .ok_or_else(|| anyhow!("source-port visual probe is missing changed-pixel evidence"))?;
+    if result.diff_images.len() != SOURCE_PORT_VISUAL_CHECKPOINTS {
+        bail!(
+            "source-port visual probe produced {} diff images for {} checkpoints",
+            result.diff_images.len(),
+            SOURCE_PORT_VISUAL_CHECKPOINTS
+        );
+    }
+    if mae > SOURCE_PORT_VISUAL_MAX_MAE {
+        bail!(
+            "source-port visual probe worst MAE {mae:.3} exceeds {SOURCE_PORT_VISUAL_MAX_MAE:.3} baseline"
+        );
+    }
+    if pixel_mismatches > SOURCE_PORT_VISUAL_MAX_PIXEL_MISMATCHES {
+        bail!("source-port visual probe {pixel_mismatches} changed pixels exceed 2,293 baseline");
+    }
+
+    let total_checkpoints = result.total_checkpoints;
+    let diff_dir = result
+        .diff_images
+        .first()
+        .and_then(|path| Path::new(path).parent())
+        .map_or_else(|| "unknown".to_string(), |path| path.display().to_string());
+    Ok(format!(
+        "{total_checkpoints} unmasked source-port checkpoints passed with exact state; worst MAE {mae:.3}, {pixel_mismatches} changed pixels (baselines {SOURCE_PORT_VISUAL_MAX_MAE:.3}/2,293; diffs={diff_dir})"
+    ))
 }
 
 fn state_sweep_passed_detail(
@@ -663,6 +764,24 @@ mod tests {
         }
     }
 
+    fn source_port_visual_result() -> sweep::LevelSweepResult {
+        sweep::LevelSweepResult {
+            level_id: 0x00,
+            slug: "release_visual_level_00_early".to_string(),
+            tier: sweep::SweepTier::Full,
+            passed: true,
+            state_diffs: Vec::new(),
+            mae: Some(1.7),
+            pixel_mismatches: Some(2_293),
+            diff_images: (0..4).map(|index| format!("diff_{index}.png")).collect(),
+            error: None,
+            divergence_summary: sweep::DivergenceSummary::default(),
+            checksum_mismatch: None,
+            total_checkpoints: 4,
+            masked_checkpoints: 0,
+        }
+    }
+
     fn empty_manifest(root: &Path) -> AssetManifest {
         AssetManifest {
             generated_bundle_version: 0,
@@ -698,6 +817,142 @@ mod tests {
         assert_eq!(
             state_sweep_failed_detail(repo_root, &report),
             "state sweep reported 2 failed levels and 1 errors (report=/tmp/kc/.cache/sweep-runs/1776794000/report.json)"
+        );
+    }
+
+    #[test]
+    fn source_port_visual_evidence_accepts_complete_baseline() {
+        let detail = assess_source_port_visual_evidence(&source_port_visual_result())
+            .expect("complete visual evidence should pass");
+
+        assert!(detail.contains("4 unmasked source-port checkpoints"));
+        assert!(detail.contains("worst MAE 1.700"));
+        assert!(detail.contains("2293 changed pixels"));
+
+        let mut exact_boundary = source_port_visual_result();
+        exact_boundary.mae = Some(SOURCE_PORT_VISUAL_MAX_MAE);
+        assess_source_port_visual_evidence(&exact_boundary)
+            .expect("the versioned MAE boundary should pass");
+    }
+
+    #[test]
+    fn source_port_visual_evidence_fails_closed_when_incomplete() {
+        let mut result = source_port_visual_result();
+        result.mae = None;
+        assert!(
+            assess_source_port_visual_evidence(&result)
+                .expect_err("missing MAE should fail")
+                .to_string()
+                .contains("missing frame MAE")
+        );
+
+        let mut result = source_port_visual_result();
+        result.masked_checkpoints = 1;
+        assert!(
+            assess_source_port_visual_evidence(&result)
+                .expect_err("masked checkpoint should fail")
+                .to_string()
+                .contains("1 of 4 checkpoints masked")
+        );
+
+        let mut result = source_port_visual_result();
+        result.diff_images.pop();
+        assert!(
+            assess_source_port_visual_evidence(&result)
+                .expect_err("missing diff artefact should fail")
+                .to_string()
+                .contains("3 diff images for 4 checkpoints")
+        );
+    }
+
+    #[test]
+    fn source_port_visual_evidence_rejects_state_or_pixel_regressions() {
+        for (level_id, slug) in [
+            (0x01, "release_visual_level_00_early"),
+            (0x00, "unexpected_visual_probe"),
+        ] {
+            let mut result = source_port_visual_result();
+            result.level_id = level_id;
+            result.slug = slug.to_string();
+            assert!(
+                assess_source_port_visual_evidence(&result)
+                    .expect_err("wrong probe identity should fail")
+                    .to_string()
+                    .contains("unexpected source-port visual probe identity")
+            );
+        }
+
+        let mut result = source_port_visual_result();
+        result.state_diffs.push(sweep::StateDiff {
+            checkpoint: "frame_030".to_string(),
+            field: "kid_x_pos".to_string(),
+            native_value: "1".to_string(),
+            oracle_value: "2".to_string(),
+            category: sweep::DivergenceCategory::Authoritative,
+        });
+        assert!(
+            assess_source_port_visual_evidence(&result)
+                .expect_err("detailed state divergence should fail")
+                .to_string()
+                .contains("state diverged")
+        );
+
+        let mut result = source_port_visual_result();
+        result.divergence_summary.authoritative = 1;
+        assert!(
+            assess_source_port_visual_evidence(&result)
+                .expect_err("state divergence should fail")
+                .to_string()
+                .contains("authoritative=1")
+        );
+
+        for category in [
+            sweep::DivergenceCategory::Advisory,
+            sweep::DivergenceCategory::Accumulation,
+            sweep::DivergenceCategory::Rng,
+            sweep::DivergenceCategory::OracleLimitation,
+        ] {
+            let mut result = source_port_visual_result();
+            match category {
+                sweep::DivergenceCategory::Authoritative => unreachable!(),
+                sweep::DivergenceCategory::Advisory => {
+                    result.divergence_summary.advisory = 1;
+                }
+                sweep::DivergenceCategory::Accumulation => {
+                    result.divergence_summary.accumulation = 1;
+                }
+                sweep::DivergenceCategory::Rng => {
+                    result.divergence_summary.rng = 1;
+                }
+                sweep::DivergenceCategory::OracleLimitation => {
+                    result.divergence_summary.oracle_limitation = 1;
+                }
+            }
+            assert!(
+                assess_source_port_visual_evidence(&result)
+                    .expect_err("every state divergence category should fail")
+                    .to_string()
+                    .contains("state diverged"),
+                "category {category:?} should be rejected"
+            );
+        }
+
+        let mut result = source_port_visual_result();
+        result.mae = Some(1.751);
+        assert!(
+            assess_source_port_visual_evidence(&result)
+                .expect_err("MAE regression should fail")
+                .to_string()
+                .contains("exceeds 1.750 baseline")
+        );
+
+        let mut result = source_port_visual_result();
+        result.pixel_mismatches = Some(2_294);
+        assert!(
+            assess_source_port_visual_evidence(&result)
+                .expect_err("changed-pixel regression should fail")
+                .to_string()
+                .contains("exceed 2,293 baseline")
         );
     }
 

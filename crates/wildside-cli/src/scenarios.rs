@@ -510,6 +510,22 @@ pub fn idle_level_full_frame_scenario(level_id: u8) -> DynamicScenario {
     scenario
 }
 
+/// Early live-gameplay frames used to ratchet source-port rendering evidence.
+///
+/// This deliberately stops before the first idle enemy interaction diverges.
+/// Every checkpoint therefore compares renderer pixels while native and oracle
+/// gameplay state still agrees exactly.
+pub fn release_visual_level_00_early_scenario() -> DynamicScenario {
+    let mut scenario = idle_level_full_frame_scenario(0x00);
+    scenario.slug = "release_visual_level_00_early".to_string();
+    scenario.frame_count = 121;
+    scenario.script.truncate(scenario.frame_count + 1);
+    scenario
+        .checkpoints
+        .retain(|checkpoint| checkpoint.frame_index <= 120);
+    scenario
+}
+
 /// Walk right for `walk_frames` with periodic jumps. Useful for verifying
 /// movement, enemy encounters, and basic traversal on any level.
 fn walk_right_scenario_for(
@@ -2613,8 +2629,9 @@ mod tests {
         issue_271_level01_rock_tank_stomp_route_audit_scenario,
         issue_271_level01_rock_tank_stomp_sharp_audit_scenario, lava_weather_audit_scenario,
         level_00_slope_right_jump_probe_scenario, level_00_slope_right_probe_scenario,
-        prize_block_scenario, stomp_enemy_scenario, walk_right_iron_knight_scenario,
-        walk_right_juggernaut_scenario, walk_right_red_stealth_scenario, walk_right_scenario,
+        prize_block_scenario, release_visual_level_00_early_scenario, stomp_enemy_scenario,
+        walk_right_iron_knight_scenario, walk_right_juggernaut_scenario,
+        walk_right_red_stealth_scenario, walk_right_scenario,
     };
 
     #[test]
@@ -3749,6 +3766,31 @@ mod tests {
                 ("frame_120", 120),
                 ("frame_300", 300),
                 ("idle_tail", 359),
+            ]
+        );
+    }
+
+    #[test]
+    fn release_visual_level_00_early_scenario_is_bounded_to_live_keyframes() {
+        let scenario = release_visual_level_00_early_scenario();
+
+        assert_eq!(scenario.slug, "release_visual_level_00_early");
+        assert_eq!(scenario.warp_to_level, Some(0x00));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(scenario.frame_count, 121);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+        assert!(scenario.script.iter().all(|&button_mask| button_mask == 0));
+        assert_eq!(
+            scenario
+                .checkpoints
+                .iter()
+                .map(|checkpoint| (checkpoint.label.as_str(), checkpoint.frame_index))
+                .collect::<Vec<_>>(),
+            vec![
+                ("frame_000", 0),
+                ("frame_030", 30),
+                ("level_settle", 60),
+                ("frame_120", 120),
             ]
         );
     }

@@ -11,6 +11,28 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #375
+
+Opened 2026-07-10 from proactive verification of the `1p-accurate` visual lane.
+The old `frame_oracle:*` release steps call `capture_scenario`, whose pixels come
+from `wildside_md::MdRuntime` rendering the original ROM; they compare one ROM
+emulator with jgenesis and do not exercise the source-port renderer. Their
+release-report detail now states that boundary explicitly.
+
+Added `source_port_frame_oracle:level_00_early`, which renders the source-port
+scene at Level 0 frames 0, 30, 60, and 120 and compares it with jgenesis. All
+four checkpoints have exact state and none are masked. The fresh release report
+`.cache/release-gate/1p-accurate/1783701644/report.json` passes with worst MAE
+`1.677` and `2,293` changed pixels at frame 30; the reviewable composite shows
+the largest residual around the enemy, tree edge, and foreground. This is a
+settled-warp renderer comparison, not authoritative cold-boot route evidence.
+Native repro: yes. Oracle status: valid warp-local visual reference, cold-boot
+authority not established. Minimum gate: visual parity. Root cause remains
+unidentified; trace renderer/asset composition against ASM and oracle before a
+gameplay or rendering patch. Focused mutation evidence for the release policy:
+initial `38 mutants: 29 caught, 9 missed`; after adding identity, detailed-state,
+every divergence-category, and exact-threshold tests, final `38/38 caught`.
+
 ### #271
 
 Reopened 2026-07-02 after renewed human validation failure: jumping on RockTank

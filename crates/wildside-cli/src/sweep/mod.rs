@@ -34,7 +34,7 @@ use rayon::prelude::*;
 use release_gate::{latest_release_gate_failed_fields, summarise_release_gate_focuses};
 use scenarios::{
     DynamicCheckpoint, DynamicScenario, NativeDynamicRunOptions, idle_level_full_frame_scenario,
-    idle_level_scenario, run_native_dynamic_scenario,
+    idle_level_scenario, release_visual_level_00_early_scenario, run_native_dynamic_scenario,
 };
 #[cfg(test)]
 use scenarios::{prize_block_scenario, walk_right_scenario};
@@ -859,19 +859,55 @@ fn sweep_single_level(
     checksum: bool,
 ) -> Result<LevelSweepResult> {
     let scenario = idle_sweep_scenario_for_tier(level_id, requested_tier);
+    sweep_single_scenario(
+        repo_root,
+        rom_path,
+        rom_bytes,
+        manifest,
+        backend,
+        run_dir,
+        level_id,
+        scenario,
+        SweepSingleScenarioOptions {
+            requested_tier,
+            checksum,
+            native_run: NativeDynamicRunOptions {
+                settled_warp: requested_tier == SweepTier::Full,
+                trace_physics: false,
+            },
+        },
+    )
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SweepSingleScenarioOptions {
+    requested_tier: SweepTier,
+    checksum: bool,
+    native_run: NativeDynamicRunOptions,
+}
+
+fn sweep_single_scenario(
+    repo_root: &Path,
+    rom_path: &Path,
+    rom_bytes: &[u8],
+    manifest: &AssetManifest,
+    backend: &dyn OracleBackend,
+    run_dir: &Path,
+    level_id: u8,
+    scenario: DynamicScenario,
+    options: SweepSingleScenarioOptions,
+) -> Result<LevelSweepResult> {
+    let SweepSingleScenarioOptions {
+        requested_tier,
+        checksum,
+        native_run,
+    } = options;
     let level_dir = run_dir.join(format!("levels/{level_id:02x}"));
     fs::create_dir_all(&level_dir)
         .with_context(|| format!("failed to create {}", level_dir.display()))?;
 
     // Run native (with warp if specified)
-    let native_trace = run_native_dynamic_scenario(
-        manifest.clone(),
-        &scenario,
-        NativeDynamicRunOptions {
-            settled_warp: requested_tier == SweepTier::Full,
-            trace_physics: false,
-        },
-    )?;
+    let native_trace = run_native_dynamic_scenario(manifest.clone(), &scenario, native_run)?;
 
     // Extract native state at checkpoints
     let native_states = extract_checkpoint_states(&native_trace, &scenario.checkpoints);
@@ -1034,6 +1070,42 @@ fn sweep_single_level(
         total_checkpoints,
         masked_checkpoints,
     })
+}
+
+/// Compare real source-port renderer output with oracle frames at a bounded set
+/// of early Level 0 checkpoints. The caller owns the evidence directory so the
+/// release report and its reviewable PNG artefacts share one run boundary.
+pub(crate) fn run_source_port_visual_release_probe(
+    repo_root: &Path,
+    rom_path: &Path,
+    manifest: &AssetManifest,
+    run_dir: &Path,
+) -> Result<LevelSweepResult> {
+    let rom_bytes = fs::read(rom_path)
+        .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+    let env = ensure_oracles(repo_root)?;
+    let backend = JgenesisBackend { env };
+    fs::create_dir_all(run_dir)
+        .with_context(|| format!("failed to create {}", run_dir.display()))?;
+
+    sweep_single_scenario(
+        repo_root,
+        rom_path,
+        &rom_bytes,
+        manifest,
+        &backend,
+        run_dir,
+        0x00,
+        release_visual_level_00_early_scenario(),
+        SweepSingleScenarioOptions {
+            requested_tier: SweepTier::Full,
+            checksum: false,
+            native_run: NativeDynamicRunOptions {
+                settled_warp: true,
+                trace_physics: false,
+            },
+        },
+    )
 }
 
 fn idle_sweep_scenario_for_tier(level_id: u8, requested_tier: SweepTier) -> DynamicScenario {

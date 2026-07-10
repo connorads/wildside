@@ -139,7 +139,15 @@ Once the active TAS frontier is closed, keep the verification lanes separate:
 
 - `sweep --tier state` answers "do the 69 BCD levels still avoid blocking authoritative diffs under the idle oracle harness?"
 - `release-gate --target 1p-playable` answers "do native gameplay smoke, focused gameplay regressions, and the 69-level native gameplay sweep stay green together?"
-- `release-gate --target 1p-accurate` answers "do boot/title, gameplay compare, frame-oracle, audio-oracle, and state-sweep all stay green together?"
+- `release-gate --target 1p-accurate` answers "do boot/title, gameplay compare, the bounded source-port visual ratchet, ROM-emulator VDP checks, audio-oracle, and state-sweep all stay green together?"
+
+The visual steps have different meanings. `source_port_frame_oracle:level_00_early`
+renders the source-port scene at four settled-warp Level 0 checkpoints and requires
+exact state, no masked checkpoints, complete diff images, MAE <=1.750, and at most
+2,293 changed pixels. It is a reviewable regression ratchet, not pixel-perfect or
+authoritative cold-boot evidence. The legacy `frame_oracle:*` steps render the ROM
+through wildside-md and compare that VDP output with jgenesis; they test emulator
+shell/capture behaviour, not source-port pixels.
 
 2026-07-04 refresh: `env TMPDIR=/tmp mise run verify-1p-playable` passes the
 full `1p-playable` lane. `.cache/release-gate/1p-playable/latest.json` points
@@ -155,6 +163,13 @@ timestamp `1783122304`, with report
 sweep report is `.cache/sweep-runs/1783122357/report.json` (69/69 passed,
 0 authoritative/advisory/accumulation/rng, 1037 oracle limitations,
 `unverified=69`).
+
+2026-07-10 refresh: `env TMPDIR=/tmp mise run release-gate` passes at timestamp
+`1783701644`. Its real source-port visual step compares four unmasked early Level 0
+checkpoints with exact state; worst visual drift is MAE `1.677` and `2,293` changed
+pixels at frame 30. The embedded state sweep is
+`.cache/sweep-runs/1783701669/report.json`: 69/69 passed but `verified=0/69`, with
+all 1,011 diffs classified as oracle limitations.
 
 On 2026-04-22 those lanes were green but still intentionally separate (dated record; bullets below reference the orchestrator retired in the 2026-06-10 autonomy demolition, tag `pre-autonomy-demolition`):
 

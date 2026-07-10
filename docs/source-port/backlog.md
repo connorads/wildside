@@ -32,13 +32,12 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-10 visual verifier hardened:** empty native/oracle RGB buffers now fail instead of producing `NaN` MAE and passing; exact MAE/max-channel arithmetic and native-state replacement are covered by a focused `9 mutants: 6 caught, 3 unviable` shard.
-- **Visual confidence boundary:** `1p-accurate` frame checks still use checkpoint MAE limits and deliberate title/entry exclusions, so a green gate is not pixel-exact proof. Tightening those baselines remains fidelity work.
-- **2026-07-10 full TAS verifier hardened:** truncated native/oracle CRC streams now fail at the first missing frame, including equal-prefix truncation; focused tests and `10/10` killed mutants cover the comparison contract.
-- **Full published-route evidence:** all 37,759 requested player/camera CRC frames match oracle. This is not whole-state or pixel equality: 1,512 sampled checkpoints retain #290's exact baseline of 212 authoritative export diffs and 2 oracle limitations, first at `transition_15_to_00_post/number_objects`.
-- **`verify-tas-full` now fails closed:** CRC drift, incomplete CRC coverage, or a change to the checked-in #290 summary/first-diff baseline makes the task red. The previous unconditional-success task could hide those outcomes.
+- **Real source-port visual evidence added:** `1p-accurate` now renders four early Level 0 gameplay checkpoints through the source-port renderer and compares them with jgenesis. All four have exact state and no masking; worst drift is 2,293 pixels / MAE 1.677 at frame 30. The fail-closed policy kills all 38 focused mutants.
+- **Visual confidence boundary:** the new probe is a settled-warp renderer ratchet, not authoritative cold-boot proof, and it is visibly non-pixel-exact. #375 tracks burning the ratchet towards zero. The older `frame_oracle:*` steps compare wildside-md ROM VDP output with jgenesis, not source-port pixels; reports now say so explicitly.
+- **Full published-route evidence:** all 37,759 requested player/camera CRC frames match oracle, while 1,512 sampled checkpoints retain #290's baseline of 212 authoritative export diffs and 2 oracle limitations. This is not whole-state, enemy, render, or audio equality.
+- **Whole-level sweep boundary:** the latest 69/69 state sweep has 0/69 levels with a real non-masked checkpoint; its 1,011 diffs are oracle limitations, so it proves no level fidelity.
 - **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
-- **Next open priority from `project-status`:** none currently; use the proactive-verification fallback if no human row is promoted.
+- **Next open priority from `project-status`:** #375 early Level 0 visual parity.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -60,3 +59,4 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 375 | [ ] | P2 | Rendering | Early Level 0 source-port frames differ from oracle despite exact checkpoint state | `source_port_frame_oracle:level_00_early` ratchet towards zero |
