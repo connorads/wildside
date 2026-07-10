@@ -35,9 +35,9 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 - **Source-port visual ratchet:** `1p-accurate` renders Level 0 frames 0, 30, 60, and 120 through the source-port renderer against jgenesis with exact state, no masking, MAE 0.000, and zero changed pixels. The gate now requires exact pixels.
 - **Visual confidence boundary:** #375 is resolved for those four settled-warp checkpoints only. This is not cold-boot or whole-game pixel parity. The older `frame_oracle:*` steps compare wildside-md ROM VDP output with jgenesis, not source-port pixels.
 - **Full published-route evidence:** all 37,759 requested player/camera CRC frames match oracle, while 1,512 sampled checkpoints retain #290's baseline of 212 authoritative export diffs and 2 oracle limitations. This is not whole-state, enemy, render, or audio equality.
-- **Whole-level sweep boundary:** report `1783724200` reaches real gameplay on all 69 BCD levels: 29 pass and 40 fail with 175 authoritative diffs. The old all-masked green sweep was invalid.
+- **Whole-level sweep boundary:** report `1783726877` reaches real gameplay on all 69 BCD levels: 30 pass and 39 fail with 173 authoritative diffs. The old all-masked green sweep was invalid.
 - **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
-- **Current work:** #377 is the first newly authoritative sweep failure: Level 0x10 undercounts live objects at both settled-idle checkpoints. #378 tracks the progressive empty interactive-block-list fallback for undumped resource layouts.
+- **Current work:** #378 tracks the progressive empty interactive-block-list fallback for undumped resource layouts. #377 closes with Level 0x10 exact at both state checkpoints.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -59,5 +59,4 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 377 | [ ] | P1 | verify/enemy | Level 0x10 settled-idle state undercounts live objects: native 13 vs oracle 24/23. | Enemy-frontier trace at both state checkpoints, then full state sweep. |
 | 378 | [ ] | P2 | block/assets | Undumped resource layouts load decoded collision terrain with an empty interactive block list. | Synthesis tests for prize, ghost, teleporter, and hidden records from `loc_11C7E` words. |

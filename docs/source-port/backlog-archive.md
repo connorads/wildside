@@ -11,6 +11,30 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #377
+
+Opened 2026-07-11 from the first actionable failure in the canonical state
+sweep. Level 0x10 reported 13 native objects against 24/23 oracle objects at
+its settled-idle checkpoints. An enemy-frontier recording reproduced the
+divergence at frame 0 and exposed the missing Shishkaboss object/GFX workers.
+
+Resolved 2026-07-11. ASM `Enemy22_Shiskaboss_Init` allocates three heads, six
+eyes, and nine waiting skewers before deleting its loader; native now includes
+those waiting workers and each live boss projectile's object/GFX pair in the
+exported roster. ASM `loc_394E8` enters the multi-head movement/fire loop with
+no synthetic 180-frame spawn delay, and `loc_39548..loc_39566` completes a
+started ready-animation without rechecking Kid's activation window; native now
+matches both transitions. Direct recording settle also ages multi-head bosses
+through the 60 hidden live passes performed by the level-skip handoff.
+
+Focused Level 0x10 report `1783726862` passes both checkpoints. Canonical report
+`1783726877` improves the 69-level state sweep from 29 pass / 40 fail / 175
+authoritative diffs to 30 pass / 39 fail / 173 authoritative diffs, with the
+same 5 advisory diffs and 44 oracle limitations. `verify-slice-fast` passes
+6,808 core tests and 13 gameplay regressions; `verify-tas-full` keeps all 37,759
+published-route CRC frames equal with #290's unchanged 212-authoritative /
+2-oracle-limitation checkpoint baseline.
+
 ### #376
 
 Opened 2026-07-10 from proactive verification of the whole-level state sweep.
@@ -11314,6 +11338,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 377 | [x] | P1 | verify/enemy | Level 0x10 state exports the Shishkaboss waiting skewer and live projectile workers with ROM-faithful spawn/fire timing. | Reports `1783726862` and `1783726877`; focused worker/fire/settle regressions and required gates. See archive #377. |
 | 376 | [x] | P1 | verify/state | State sweeps now enter real settled gameplay and preserve evidence categories; exposed Lion lifecycle and Level 0x09 terrain failures are corrected. | Report `1783724200`: all 69 BCD levels have real checkpoints; 29 pass / 40 actionable fail. Focused Level 0/7/9 regressions and required gates. See archive #376. |
 | 375 | [x] | P2 | Rendering | Early Level 0 source-port frames now match oracle pixels at all four bounded release checkpoints. | `source_port_frame_oracle:level_00_early` is state exact, unmasked, and pixel exact; strict `1p-accurate` gate requires MAE 0 / zero changed pixels. See archive #375. |
 | 319 | [x] | P3 | audio | Umbrella: `audio-triggers-fidelity-audit.md` has no standalone backlog candidates left after recheck; concrete trigger gaps are resolved, blocked under human/audio-device rows, or owned by broader #160/GEMS-driver architecture. | Rechecked audit backlog-candidate table, archive #319, and `backlog-validation-2026-06-14`; no code patch warranted. See archive #319. |

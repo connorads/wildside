@@ -9701,7 +9701,7 @@ pub(crate) fn step_boss_fire_with_sounds(
         enemy.wait_timer -= 1;
         return;
     }
-    if multi_head_boss {
+    if multi_head_boss && !attack_windup_remaining {
         let Some(player_y_pos) = player_y_pos else {
             return;
         };
@@ -9795,20 +9795,19 @@ pub(crate) fn step_boss_fire_with_sounds(
         let Some(x_direction) = x_direction else {
             return;
         };
-        if !attack_windup_remaining {
-            // ASM loc_39534/loc_37FC2: `x_direction=0` faces left for these
-            // boss-head sprites; `$FF` is the flipped/right path.
-            enemy.facing = if x_direction == 0 {
-                Direction::Left
-            } else {
-                Direction::Right
-            };
-            // ASM loc_39538/loc_37FC6 caches the selected byte to
-            // `$FFFFFB86/87/88` and starts `stru_39FC6`; native carries that
-            // cached byte as `enemy.facing`.
-            enemy.wait_timer = BOSS_HEAD_ATTACK_WINDUP_TIMER_LOC_39538;
-            return;
-        }
+        // ASM loc_39534/loc_37FC2: `x_direction=0` faces left for these
+        // boss-head sprites; `$FF` is the flipped/right path.
+        enemy.facing = if x_direction == 0 {
+            Direction::Left
+        } else {
+            Direction::Right
+        };
+        // ASM loc_39538/loc_37FC6 caches the selected byte to
+        // `$FFFFFB86/87/88` and starts `stru_39FC6`; native carries that
+        // cached byte as `enemy.facing`. The following attack-wait loop does
+        // not return to this Kid-window branch before loc_39566 fires.
+        enemy.wait_timer = BOSS_HEAD_ATTACK_WINDUP_TIMER_LOC_39538;
+        return;
     }
     if multi_head_boss {
         let movement_status_d7 = 0;
@@ -10428,6 +10427,23 @@ mod tests {
             ([1, 1, 1], [0, 0, 0], [0, 0, 0]),
             "Non-boss families have no multi-head ASM spawn table and keep the sentinel fallback",
         );
+    }
+
+    #[test]
+    fn multi_head_boss_spawn_has_no_synthetic_fire_delay_loc_394e8() {
+        let mut rng = RomRandomState::default();
+
+        for family in [
+            EnemyFamily::Shishkaboss,
+            EnemyFamily::BoomerangBosses,
+            EnemyFamily::BagelBrothers,
+        ] {
+            assert_eq!(
+                spawn_wait_timer(family, 0, 0, &mut rng),
+                0,
+                "ASM loc_394E8/loc_37F80 and sibling head loops immediately run movement and the Kid activation window after their first hibernate; no `$54(a5)` fire-delay field is read",
+            );
+        }
     }
 
     #[test]
@@ -11434,11 +11450,11 @@ pub(crate) fn spawn_wait_timer(
         EnemyFamily::Tornado => TORNADO_PATTERN_FRAMES[usize::from(enemy_level).min(2)],
         // SpinningTwins: orbit-to-walk is collision-triggered, no timer needed.
         EnemyFamily::SpinningTwins => 0,
-        // Bosses: fire first projectile after initial delay.
-        EnemyFamily::HeadyMetal
-        | EnemyFamily::Shishkaboss
-        | EnemyFamily::BoomerangBosses
-        | EnemyFamily::BagelBrothers => BOSS_FIRE_INTERVAL,
+        // ASM loc_394E8/loc_37F80 and sibling multi-head loops immediately
+        // run movement and the Kid activation window after their first
+        // hibernate; they never read the generic `$54(a5)` fire delay.
+        EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses | EnemyFamily::BagelBrothers => 0,
+        EnemyFamily::HeadyMetal => BOSS_FIRE_INTERVAL,
         _ => 0,
     }
 }

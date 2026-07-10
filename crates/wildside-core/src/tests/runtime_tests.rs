@@ -6759,6 +6759,33 @@ mod chunk_09 {
     }
 
     #[test]
+    fn settled_recording_warp_ages_multi_head_boss_level_skip_tail_enemy22_init() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level(LevelId(0x10));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x10));
+        let trace = (0..=60)
+            .map(|_| runtime.step_frame(FrameInput::default()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            trace[60].number_objects, 24,
+            "ASM Enemy22_Shiskaboss_Init keeps nine skewer workers live while loc_39566 has two boss-arrow workers allocated at the oracle Level 0x10 settle checkpoint",
+        );
+        assert_eq!(
+            trace[60]
+                .active_projectile_details
+                .iter()
+                .filter(|projectile| projectile.kind == ActiveProjectileKind::BossHeadArrow)
+                .count(),
+            2,
+            "ASM loc_74E0's hidden live tail must age both loc_39566 projectile gates before Level 0x10 recording frame 60",
+        );
+    }
+
+    #[test]
     fn settled_recording_warp_level_1b_keeps_opening_sphere_short_age_loc_36148() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#377 Shishkaboss worker parity)
+
+- Level 0x10 now exports the nine waiting Shishkaboss skewers and live boss
+  projectile object/GFX pairs allocated by `Enemy22_Shiskaboss_Init`.
+- Multi-head bosses start without a synthetic fire delay, and a started
+  `loc_39548..loc_39566` ready-animation no longer rechecks Kid's activation
+  window. Direct recording settle includes the level-skip handoff's 60 live
+  passes.
+- Focused report `1783726862` passes. Canonical report `1783726877` improves
+  the 69-level sweep to 30 pass / 39 fail / 173 authoritative diffs, with 5
+  advisory diffs and 44 oracle limitations.
+- #377 closes. NEXT: #378, synthesis of interactive block records for decoded
+  resource layouts whose RAM block-list sidecar is absent.
+- `verify-slice-fast` and `verify-tas-full` pass; all 37,759 published-route CRC
+  frames still match with #290's 212-authoritative / 2-limitation baseline.
+
 ## 2026-07-10 handoff (#376 authoritative state-sweep recovery)
 
 - State scenarios now request the recording-oracle settle path, and contextual

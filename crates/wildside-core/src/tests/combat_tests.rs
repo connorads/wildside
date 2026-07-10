@@ -3036,6 +3036,31 @@ fn live_shishkaboss_projectile_uses_sub_397e4_horizontal_spawn() {
 }
 
 #[test]
+fn live_shishkaboss_ready_animation_does_not_recheck_kid_window_loc_39566() {
+    let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0080_0000, 20);
+    boss.wait_timer = BOSS_HEAD_ATTACK_READY_TIMER_LOC_39566;
+    boss.facing = Direction::Left;
+    let mut projectiles = Vec::new();
+
+    step_boss_fire(
+        &mut boss,
+        &mut projectiles,
+        Some(0x0090_0000),
+        Some(0x00C1_0000),
+    );
+
+    assert_eq!(
+        projectiles.len(),
+        1,
+        "ASM loc_39548..loc_39566 tests only movement status and animation byte `$18`; once stru_39FC6 starts, Kid leaving loc_39506's Y window cannot cancel the projectile",
+    );
+    assert_eq!(
+        projectiles[0].x_velocity, -0x0003_0000,
+        "ASM sub_397E4 uses loc_39538's cached left-facing byte even though Kid crossed to the right during the windup",
+    );
+}
+
+#[test]
 fn live_heady_metal_fire_uses_loc_375de_scheduler_for_sub_370d2() {
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 30);
     boss.wait_timer = 0;

@@ -2066,6 +2066,45 @@ mod tests {
     }
 
     #[test]
+    fn shishkaboss_waiting_skewers_and_live_arrows_count_as_gfx_workers_enemy22_init() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.active_enemies.push(ActiveEnemy {
+            family: EnemyFamily::Shishkaboss,
+            ..drips_test_enemy(1, 0)
+        });
+
+        assert_eq!(
+            runtime.gameplay_transient_gfx_worker_count(),
+            9,
+            "ASM Enemy22_Shiskaboss_Init allocates loc_38494..loc_38884 as nine object/gfx workers before they wait on `$FFFFFB4E==3`",
+        );
+
+        runtime.projectiles.extend((0..2).map(|_| EnemyProjectile {
+            kind: EnemyProjectileKind::BossHeadArrow,
+            lifetime: 0x32,
+            ..Default::default()
+        }));
+        assert_eq!(
+            runtime.gameplay_transient_gfx_worker_count(),
+            11,
+            "ASM sub_397E4 -> loc_3A0D2 allocates each live boss arrow as another object/gfx pair",
+        );
+
+        runtime.active_enemies.clear();
+        runtime.projectiles.clear();
+        runtime.projectiles.extend((0..9).map(|_| EnemyProjectile {
+            kind: EnemyProjectileKind::BossSkewer,
+            lifetime: u16::MAX,
+            ..Default::default()
+        }));
+        assert_eq!(
+            runtime.gameplay_transient_gfx_worker_count(),
+            9,
+            "ASM loc_384E8..loc_388D8 launches the existing nine workers; their allocation count must not change at the launch boundary",
+        );
+    }
+
+    #[test]
     fn trace_exposes_boss_eye_orbit_satellites_sub_393c8_39420() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -11046,6 +11085,43 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::ArcherArrow)
             .count();
+        // ASM Enemy22_Shiskaboss_Init allocates loc_38494..loc_38884 up
+        // front. All nine skewer object/gfx workers follow unk_39872 while
+        // waiting for `$FFFFFB4E==3`; native materialises them as BossSkewer
+        // projectiles only at that launch boundary, so count the waiting set
+        // while any Shishkaboss head still owns it.
+        let waiting_shishkaboss_skewer_workers = if self
+            .active_enemies
+            .iter()
+            .any(|enemy| enemy.family == EnemyFamily::Shishkaboss)
+            && !self
+                .projectiles
+                .iter()
+                .any(|projectile| projectile.kind == EnemyProjectileKind::BossSkewer)
+        {
+            9
+        } else {
+            0
+        };
+        // ASM sub_397E4 and the boss child routines allocate ordinary
+        // Object_RAM + GfxObject pairs. These native projectile records are
+        // not present in `active_objects`, so add each live worker here.
+        let boss_projectile_gfx_workers = self
+            .projectiles
+            .iter()
+            .filter(|projectile| {
+                matches!(
+                    projectile.kind,
+                    EnemyProjectileKind::BossHeadArrow
+                        | EnemyProjectileKind::BossHeadBoomerang
+                        | EnemyProjectileKind::BossSkewer
+                        | EnemyProjectileKind::BossEyeAttack
+                        | EnemyProjectileKind::BossDeathBurst
+                        | EnemyProjectileKind::BossEyeSatellite
+                        | EnemyProjectileKind::BossEyePopEffect
+                )
+            })
+            .count();
         (self.block_bounces.len()
             + self.count_visible_prize_block_worker_tails()
             + self.prize_block_spawn_flashes.len()
@@ -11062,7 +11138,9 @@ impl NativeRuntime {
             // ASM Archer.asm loc_341BE allocates the fired arrow through
             // j_Allocate_ObjectSlot, and Enemy07_ArcherArrow_Init loc_34266
             // loads its own GFX slot before the movement loop.
-            + archer_arrow_workers) as u16
+            + archer_arrow_workers
+            + waiting_shishkaboss_skewer_workers
+            + boss_projectile_gfx_workers) as u16
     }
 
     fn gameplay_transient_gfx_only_worker_count(&self) -> u16 {

@@ -9,6 +9,7 @@ use crate::level::{
 // that tail, so settled full-frame traces need the oracle-observed live age.
 const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
+const MULTI_HEAD_BOSS_LEVEL_SKIP_LIVE_TAIL_FRAMES: usize = 60;
 const LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 103;
 const BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 107;
 const RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0: u16 = 179;
@@ -254,7 +255,23 @@ impl NativeRuntime {
         // the first scenario frame then advances to $FFCF via Drips loc_3340E.
         self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
         self.prime_recording_warp_sprite_animation_clocks();
-        let target_live_frames = recording_oracle_warp_target_live_frames(level_id);
+        let multi_head_boss_level_skip_tail = if self
+            .active_enemies
+            .iter()
+            .any(|enemy| is_multi_head_boss(enemy.family))
+        {
+            MULTI_HEAD_BOSS_LEVEL_SKIP_LIVE_TAIL_FRAMES
+        } else {
+            0
+        };
+        // ASM loc_74E0 keeps the target level live behind the level-skip
+        // shell. Enemy22_Shiskaboss_Init and the parallel multi-head boss
+        // initialisers expose that full tail through their continuously
+        // moving head, eye and projectile coroutines before recording frame
+        // zero; the direct native boot shortcut otherwise starts them one
+        // stable-window late.
+        let target_live_frames = recording_oracle_warp_target_live_frames(level_id)
+            .saturating_add(multi_head_boss_level_skip_tail);
         self.settle_target_level_live_window(level_id, target_live_frames);
         // ASM Init_SpriteAttr_HUD loc_BDC0 seeds Time_SubSeconds to 1. The
         // level-skip tail is level-dependent: #289 Level 0x07 watches reach
