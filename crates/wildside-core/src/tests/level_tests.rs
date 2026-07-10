@@ -8899,6 +8899,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: BTreeMap::new(),
         }

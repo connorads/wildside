@@ -2634,6 +2634,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields,
         }
@@ -3098,6 +3099,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields,
         }];
@@ -3141,6 +3143,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields,
         }];
@@ -4310,6 +4313,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: std::collections::BTreeMap::new(),
             }];
@@ -4584,6 +4588,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         }];
@@ -7241,6 +7246,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -7302,6 +7308,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -7470,6 +7477,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         }
@@ -7597,6 +7605,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         }];
@@ -8683,6 +8692,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::from([
                 (String::from("gfx_slot_index"), slot.to_string()),
@@ -8805,6 +8815,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::from([(
                 String::from("glyph"),
@@ -8876,6 +8887,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::from([(
                 String::from("glyph"),
@@ -11402,6 +11414,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         }];
@@ -11500,6 +11513,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: std::collections::BTreeMap::new(),
             },
@@ -11521,6 +11535,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: std::collections::BTreeMap::new(),
             },
@@ -11669,6 +11684,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         }];
@@ -12133,6 +12149,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         }];
@@ -12806,6 +12823,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: std::collections::BTreeMap::new(),
             },
@@ -12827,6 +12845,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: std::collections::BTreeMap::new(),
             },
@@ -12848,6 +12867,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: std::collections::BTreeMap::new(),
             },
@@ -12869,6 +12889,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: std::collections::BTreeMap::new(),
             },
@@ -16052,6 +16073,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: std::collections::BTreeMap::new(),
             },
@@ -16073,6 +16095,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: std::collections::BTreeMap::new(),
             },
@@ -16094,6 +16117,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: std::collections::BTreeMap::new(),
             },
@@ -16127,6 +16151,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -16199,6 +16224,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -16292,6 +16318,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -16347,6 +16374,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -16390,6 +16418,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -16440,6 +16469,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: [(
                 "heady_metal_palette_word_5e_sub_379e8".to_string(),
@@ -16509,6 +16539,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -16549,6 +16580,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -16609,6 +16641,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -16700,6 +16733,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         }];
@@ -17009,6 +17043,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         }];
@@ -17539,6 +17574,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields,
         }
@@ -17568,6 +17604,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: std::collections::BTreeMap::new(),
             },
@@ -17589,6 +17626,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: std::collections::BTreeMap::new(),
             },
@@ -17631,6 +17669,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0x0A + 0x1E),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -17682,6 +17721,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(120 + 10 * 17),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -17728,6 +17768,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(120 + 10 * 17),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -17789,6 +17830,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0x1E + 0x0A + 0x37),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -17846,6 +17888,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -17900,6 +17943,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -17970,6 +18014,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(wait_timer),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18042,6 +18087,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18137,6 +18183,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(8),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18177,6 +18224,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18222,6 +18270,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18270,6 +18319,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0x0A + 0x0A + 0x0A),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18313,6 +18363,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0x15),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18360,6 +18411,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(8),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18400,6 +18452,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0x05 + 0x05 + 0x05 + 0x23),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18444,6 +18497,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0x06 + 0x03 + 0x04 + 0x04 + 0x03 + 0x06),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18491,6 +18545,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18561,6 +18616,7 @@ mod tests {
             shared_walker_patrol_timer: Some(0x003C),
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0),
             debug_fields: std::collections::BTreeMap::from([(
                 String::from("lion_state"),
@@ -18619,6 +18675,7 @@ mod tests {
             shared_walker_patrol_timer: Some(0x12C),
             shared_walker_patrol_short_next: Some(true),
             walk_phase: Some(0),
+            sprite_animation_phase: None,
             wait_timer: Some(0x12C),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18714,6 +18771,7 @@ mod tests {
             shared_walker_patrol_timer: Some(0x12C),
             shared_walker_patrol_short_next: Some(true),
             walk_phase: Some(0),
+            sprite_animation_phase: None,
             wait_timer: Some(0x12C),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18753,6 +18811,7 @@ mod tests {
             shared_walker_patrol_timer: Some(0x12C),
             shared_walker_patrol_short_next: Some(true),
             walk_phase: Some(1),
+            sprite_animation_phase: None,
             wait_timer: Some(0x01F4),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18787,6 +18846,7 @@ mod tests {
             shared_walker_patrol_timer: Some(0x12C),
             shared_walker_patrol_short_next: Some(true),
             walk_phase: Some(0),
+            sprite_animation_phase: None,
             wait_timer: Some(167),
             debug_fields: std::collections::BTreeMap::new(),
         }];
@@ -18829,6 +18889,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -18914,6 +18975,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -19008,6 +19070,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(6 * 5),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -19048,6 +19111,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(7 + 7 + 7),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -19092,6 +19156,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0x19 + 0x0F + 0x14),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -19136,6 +19201,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: Some(0x18 + 0x0C + 0x0A + 0x64),
             debug_fields: std::collections::BTreeMap::new(),
         };
@@ -19185,6 +19251,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: std::collections::BTreeMap::new(),
             },

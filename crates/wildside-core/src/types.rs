@@ -2135,6 +2135,9 @@ pub struct NativeObjectSnapshot {
     pub shared_walker_patrol_short_next: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub walk_phase: Option<u8>,
+    /// Current zero-based frame within the object's active ROM animation script.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sprite_animation_phase: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wait_timer: Option<u16>,
     /// Frontier-specific object debug fields. Start exploratory here; promote
@@ -3165,6 +3168,7 @@ impl ActivePlatform {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields,
         }

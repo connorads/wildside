@@ -2284,6 +2284,7 @@ impl NativeRuntime {
                     shared_walker_patrol_timer: None,
                     shared_walker_patrol_short_next: None,
                     walk_phase: None,
+                    sprite_animation_phase: None,
                     wait_timer: None,
                     // ASM loc_1AC70 (kid.asm:28896-28907): each title worker
                     // stores its source glyph at `$44(a5)` and reads it back

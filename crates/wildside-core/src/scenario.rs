@@ -13,6 +13,9 @@ const LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 103;
 const BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 107;
 const RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0: u16 = 179;
 const RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0: u16 = 0x08;
+const LEVEL_ZERO_RECORDING_TIMER_SECONDS_BEFORE_FRAME_0_LOC_BE82: u16 = 180;
+const LEVEL_ZERO_RECORDING_TIMER_SUBFRAMES_BEFORE_FRAME_0_LOC_BE82: u16 = 1;
+const LEVEL_ZERO_RECORDING_TIME_FRAMES_BEFORE_FRAME_0_LOC_3038A: u16 = 0x003C;
 const LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS: usize = 0x08;
 // ASM loc_124A6/sub_F730: #230 Crypt oracle recordings keep the col $1D
 // group vanished at frame 298 while the col $22 wall remains solid until
@@ -248,16 +251,27 @@ impl NativeRuntime {
         // shortcuts. Oracle settle tracing ends Level 1 at RNG offset $FFCB;
         // the first scenario frame then advances to $FFCF via Drips loc_3340E.
         self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
+        self.prime_recording_warp_sprite_animation_clocks();
         let target_live_frames = recording_oracle_warp_target_live_frames(level_id);
         self.settle_target_level_live_window(level_id, target_live_frames);
-        // ASM Init_SpriteAttr_HUD loc_BDC0 seeds Time_SubSeconds to 1, then
-        // the ROM level-skip recording path reaches scenario frame 0 with
-        // Time_Seconds=2:59 and Time_SubSeconds=$08. The first scripted frame
-        // decrements that to $07; #289 oracle watches show frame 60 at 2:58/$07
-        // and frame 71 at 2:57/$38. Keep this on the recording settle shim so
-        // ordinary gameplay timer startup stays on LevelTimer::new.
-        self.level_timer.seconds = RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0;
-        self.level_timer.sub_frames = RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0;
+        // ASM Init_SpriteAttr_HUD loc_BDC0 seeds Time_SubSeconds to 1. The
+        // level-skip tail is level-dependent: #289 Level 0x07 watches reach
+        // frame 0 at 2:59/$07, while the direct Level 0 release probe reaches
+        // it at 2:59/$3C. Keep both oracle-derived seeds on this recording
+        // settle shim so ordinary gameplay startup stays on LevelTimer::new.
+        if level_id == LevelId(0) {
+            // ASM loc_3038A/Make_SpriteAttr_HUD loc_BE82: direct Level 0
+            // oracle watches reach recording frame 0 at Time_Frames=$003D,
+            // Time=2:59 and Time_SubSeconds=$003C. Seed the immediately prior
+            // state here; the first scenario step performs both decrements.
+            self.time_frames_loc_3038a = LEVEL_ZERO_RECORDING_TIME_FRAMES_BEFORE_FRAME_0_LOC_3038A;
+            self.level_timer.seconds = LEVEL_ZERO_RECORDING_TIMER_SECONDS_BEFORE_FRAME_0_LOC_BE82;
+            self.level_timer.sub_frames =
+                LEVEL_ZERO_RECORDING_TIMER_SUBFRAMES_BEFORE_FRAME_0_LOC_BE82;
+        } else {
+            self.level_timer.seconds = RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0;
+            self.level_timer.sub_frames = RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0;
+        }
         let extra_ghost_block_ticks = recording_oracle_warp_extra_ghost_block_ticks(level_id);
         if extra_ghost_block_ticks != 0 {
             // ASM loc_124A6 seeds ghost-block descriptors and sub_F730 ticks
@@ -863,8 +877,8 @@ mod tests {
 
         assert_eq!(
             (runtime.level_timer.seconds, runtime.level_timer.sub_frames),
-            (179, 0x08),
-            "ASM Init_SpriteAttr_HUD loc_BDC0 recording settle shim must seed the oracle-observed 2:59/$08 timer"
+            (180, 1),
+            "ASM loc_3038A/Make_SpriteAttr_HUD loc_BE82 Level 0 recording settle seeds the state immediately before oracle frame 0 reaches 2:59/$3C"
         );
     }
 

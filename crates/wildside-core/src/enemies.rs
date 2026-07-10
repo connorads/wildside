@@ -1285,6 +1285,8 @@ pub(crate) struct ActiveEnemy {
     /// that family never reads the Dragon Flying anchor state.
     pub(crate) dragon_anchor_y: u32,
     /// Dragon Flying: descent sub-script entry index.
+    /// Dragon Walking keeps its independent `GfxObject_Animate` elapsed tick
+    /// here because the two families never share an active object state.
     pub(crate) dragon_descent_index: u8,
     /// Dragon Flying: frames remaining in current descent entry.
     /// Cloud reuses this for `stru_35EC8` ticks between Cloud.asm loc_35D9E
@@ -2555,6 +2557,12 @@ impl ActiveEnemy {
         } else {
             None
         };
+        let sprite_animation_phase = matches!(self.family, EnemyFamily::DragonWalking).then_some(
+            dragon_walking_sprite_animation_phase_stru_3cc5e(
+                self.dragon_descent_index,
+                self.hit_points,
+            ),
+        );
         let wait_timer = if matches!(self.family, EnemyFamily::DragonWalking | EnemyFamily::Lion)
             || (matches!(self.family, EnemyFamily::BigHoppingSkull)
                 && self.wait_timer > 0
@@ -2823,6 +2831,7 @@ impl ActiveEnemy {
             shared_walker_patrol_timer,
             shared_walker_patrol_short_next,
             walk_phase,
+            sprite_animation_phase,
             wait_timer,
             debug_fields,
         }
@@ -2958,6 +2967,7 @@ impl ActiveEnemy {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         })
@@ -3168,6 +3178,7 @@ impl EnemyFamily {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         })
@@ -4149,10 +4160,29 @@ pub(crate) fn step_active_enemies_with_rng(
                 queue_tank_drive_start_from_sub_3c352(edge.sound_call, &mut played_sound_effects);
             }
         }
+        if matches!(enemy.family, EnemyFamily::DragonWalking)
+            && enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK
+            && enemy.damage_flash_frames == 0
+            && !enemy.death_animation_active
+        {
+            // ASM GfxObject_Animate loc_113E runs independently from the
+            // Dragon.asm loc_3CE90 coroutine, including its hibernated frames.
+            enemy.dragon_descent_index = dragon_walking_sprite_animation_tick_stru_3cc5e(
+                enemy.dragon_descent_index,
+                enemy.hit_points,
+            );
+        }
         if executable_enemy_indices.next_if_eq(&enemy_index).is_none() {
             continue;
         }
+        let restores_dragon_walking_animation =
+            matches!(enemy.family, EnemyFamily::DragonWalking) && enemy.damage_flash_frames == 1;
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
+        if restores_dragon_walking_animation {
+            // ASM Dragon.asm loc_3CEBE restores `$62(a5)` through
+            // Init_Animation after the one-frame hurt script completes.
+            enemy.dragon_descent_index = 0;
+        }
         if matches!(enemy.family, EnemyFamily::FireDemon) {
             // ASM Fire_Demon.asm loc_3A48E allocates a separate palette helper
             // while the global Fire_Demon byte is non-zero. Native stores the
@@ -8057,6 +8087,13 @@ pub(crate) fn spawn_fire_demon_death_trail(projectiles: &mut Vec<EnemyProjectile
 // From ASM Dragon.asm: initial cooldown $12C (300f, line 95), reset after breath $1F4 (500f, line 194).
 pub(crate) const DRAGON_WALKING_BREATH_INITIAL: u16 = 300;
 pub(crate) const DRAGON_WALKING_GRAVITY: i32 = 0x4000;
+const DRAGON_WALKING_ANIMATION_PHASES_STRU_3CC5E: u8 = 12;
+const DRAGON_WALKING_NORMAL_FRAME_TICKS_STRU_3CC5E: u8 = 9;
+const DRAGON_WALKING_HP3_FRAME_TICKS_STRU_3CC90: u8 = 6;
+// The recording-warp shell sees five live object frames before the Dragon's
+// GfxObject animation becomes active. Prime the cyclic clock five ticks before
+// zero so the shared 60-frame settle lands on the ROM phase.
+const DRAGON_WALKING_RECORDING_SETTLE_ANIMATION_LEAD_TICKS: u8 = 5;
 pub(crate) const SHARED_WALKER_STATE_PATROL: i16 = 10;
 pub(crate) const SHARED_WALKER_STATE_FACE_RIGHT: i16 = 1;
 pub(crate) const SHARED_WALKER_STATE_FACE_LEFT: i16 = 2;
@@ -8066,6 +8103,31 @@ const SHARED_WALKER_RELEASE_RANGE: i32 = 0x70;
 const DRAGON_WALKING_PATROL_SHORT_FRAMES: u16 = 0x32;
 const DRAGON_WALKING_PATROL_LONG_FRAMES: u16 = 0x12C;
 const DRAGON_WALKING_PHASE_WALK: u8 = 0;
+
+fn dragon_walking_animation_frame_ticks(hit_points: u8) -> u8 {
+    if hit_points == 3 {
+        DRAGON_WALKING_HP3_FRAME_TICKS_STRU_3CC90
+    } else {
+        DRAGON_WALKING_NORMAL_FRAME_TICKS_STRU_3CC5E
+    }
+}
+
+fn dragon_walking_animation_cycle_ticks(hit_points: u8) -> u8 {
+    dragon_walking_animation_frame_ticks(hit_points) * DRAGON_WALKING_ANIMATION_PHASES_STRU_3CC5E
+}
+
+fn dragon_walking_sprite_animation_tick_stru_3cc5e(elapsed: u8, hit_points: u8) -> u8 {
+    elapsed.wrapping_add(1) % dragon_walking_animation_cycle_ticks(hit_points)
+}
+
+fn dragon_walking_sprite_animation_phase_stru_3cc5e(elapsed: u8, hit_points: u8) -> u8 {
+    elapsed / dragon_walking_animation_frame_ticks(hit_points)
+}
+
+fn dragon_walking_recording_settle_animation_seed_stru_3cc5e(hit_points: u8) -> u8 {
+    dragon_walking_animation_cycle_ticks(hit_points)
+        - DRAGON_WALKING_RECORDING_SETTLE_ANIMATION_LEAD_TICKS
+}
 pub(crate) fn spawn_shared_walker_state(family: EnemyFamily) -> i16 {
     match family {
         EnemyFamily::DragonWalking => {
@@ -10366,6 +10428,37 @@ mod tests {
     }
 
     #[test]
+    fn walking_dragon_animation_phase_matches_stru_3cc5e_and_stru_3cc90() {
+        assert_eq!(
+            dragon_walking_sprite_animation_phase_stru_3cc5e(55, 1),
+            6,
+            "ASM stru_3CC5E uses twelve 9-tick entries"
+        );
+        assert_eq!(dragon_walking_sprite_animation_phase_stru_3cc5e(85, 1), 9);
+        assert_eq!(dragon_walking_sprite_animation_phase_stru_3cc5e(7, 1), 0);
+        assert_eq!(dragon_walking_sprite_animation_phase_stru_3cc5e(67, 1), 7);
+        assert_eq!(
+            dragon_walking_sprite_animation_phase_stru_3cc5e(67, 3),
+            11,
+            "ASM stru_3CC90 keeps the same twelve entries at six ticks each for HP 3"
+        );
+    }
+
+    #[test]
+    fn walking_dragon_recording_settle_seed_lands_on_oracle_phase() {
+        let mut elapsed = dragon_walking_recording_settle_animation_seed_stru_3cc5e(1);
+        for _ in 0..60 {
+            elapsed = dragon_walking_sprite_animation_tick_stru_3cc5e(elapsed, 1);
+        }
+        assert_eq!(elapsed, 55);
+        assert_eq!(
+            dragon_walking_sprite_animation_phase_stru_3cc5e(elapsed, 1),
+            6,
+            "ASM Init_Animation/GfxObject_Animate loc_1040-loc_1194 and the recording warp reach stru_3CC5E phase 6 at frame 0"
+        );
+    }
+
+    #[test]
     fn pacer_walk_speed_covers_family_specific_asm_tiers() {
         assert_eq!(
             pacer_walk_speed(EnemyFamily::Goat, 3),
@@ -12163,6 +12256,18 @@ impl NativeRuntime {
         }
 
         self.fire_demon_trails.extend(spawned_trails);
+    }
+
+    pub(crate) fn prime_recording_warp_sprite_animation_clocks(&mut self) {
+        for enemy in &mut self.active_enemies {
+            if matches!(enemy.family, EnemyFamily::DragonWalking) {
+                // ASM Init_Animation/GfxObject_Animate loc_1040-loc_1194:
+                // the recording level-skip shell has five live object ticks
+                // before the allocated Dragon GfxObject begins its cycle.
+                enemy.dragon_descent_index =
+                    dragon_walking_recording_settle_animation_seed_stru_3cc5e(enemy.hit_points);
+            }
+        }
     }
 
     pub(crate) fn prime_respawn_settle_enemy_loading_loc_368a8(&mut self, level_id: LevelId) {

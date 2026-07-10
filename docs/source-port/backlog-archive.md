@@ -33,6 +33,33 @@ gameplay or rendering patch. Focused mutation evidence for the release policy:
 initial `38 mutants: 29 caught, 9 missed`; after adding identity, detailed-state,
 every divergence-category, and exact-threshold tests, final `38/38 caught`.
 
+Progress 2026-07-10: traced frame 30 through ASM and live oracle memory rather
+than tuning the composite. `Dragon.asm loc_3CE48` installs `stru_3CC5E`, whose
+twelve nine-tick entries select frames `0,1,2,3,4,5,0,1,2,3,7,5` through
+`Init_Animation` / `GfxObject_Animate loc_1040-loc_1194`. Oracle GfxObject
+watches select phases 6, 9, 0, and 7 at release frames 0, 30, 60, and 120;
+native had selected from global `trace.frame_index`. Walking Dragon now owns a
+typed object-local animation phase, including HP-3's six-tick `stru_3CC90`,
+hurt/breath restarts, and the recording-settle phase. The frame-30 native enemy
+layer is byte-exact against the hardware sprite: zero changed pixels and zero
+MAE. Rejected leads: forest layout remapping, Dragon art bytes, palette,
+descriptor geometry, placement, and sprite/terrain composition order all match
+the ROM evidence.
+
+The release probe also overrode its scenario's recording-oracle settle with the
+generic full-frame sweep settle. Direct oracle watches at Level 0 frame 0 show
+`Time_Frames=$003D`, `Time_SubSeconds=$003C`, and `2:59`; native entered at
+`$013E`, `$0007`, and `2:59` after its first step. The Level 0 recording shim
+now seeds the immediately prior `loc_3038A` / `Make_SpriteAttr_HUD loc_BE82`
+state while preserving the 60-frame object age; a cache-backed regression pins
+the exact frame-zero words and Dragon position. The four source-port frames
+improve to 720, 640, 607, and 686 changed pixels, worst MAE `0.738`. The
+fail-closed release baselines are ratcheted from `1.750` / `2,293` to `0.750` /
+`720`; focused boundary tests and a fresh `1p-accurate` gate pass. #375 stays
+open: this is a substantial parity reduction, not pixel equality. Next inspect
+the residual by layer/provenance; do not retry the rejected clock, animation,
+asset, geometry, or composition hypotheses.
+
 ### #271
 
 Reopened 2026-07-02 after renewed human validation failure: jumping on RockTank

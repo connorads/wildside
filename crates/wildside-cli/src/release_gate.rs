@@ -134,8 +134,8 @@ const FULL_BOOT_GAMEPLAY_VERIFY_SCENARIOS: &[GameplayScenario] = &[
 ];
 
 const SOURCE_PORT_VISUAL_CHECKPOINTS: usize = 4;
-const SOURCE_PORT_VISUAL_MAX_MAE: f32 = 1.750;
-const SOURCE_PORT_VISUAL_MAX_PIXEL_MISMATCHES: usize = 2_293;
+const SOURCE_PORT_VISUAL_MAX_MAE: f32 = 0.750;
+const SOURCE_PORT_VISUAL_MAX_PIXEL_MISMATCHES: usize = 720;
 
 pub(crate) fn run_release_gate(
     repo_root: &Path,
@@ -628,7 +628,9 @@ fn assess_source_port_visual_evidence(result: &sweep::LevelSweepResult) -> Resul
         );
     }
     if pixel_mismatches > SOURCE_PORT_VISUAL_MAX_PIXEL_MISMATCHES {
-        bail!("source-port visual probe {pixel_mismatches} changed pixels exceed 2,293 baseline");
+        bail!(
+            "source-port visual probe {pixel_mismatches} changed pixels exceed {SOURCE_PORT_VISUAL_MAX_PIXEL_MISMATCHES} baseline"
+        );
     }
 
     let total_checkpoints = result.total_checkpoints;
@@ -638,7 +640,7 @@ fn assess_source_port_visual_evidence(result: &sweep::LevelSweepResult) -> Resul
         .and_then(|path| Path::new(path).parent())
         .map_or_else(|| "unknown".to_string(), |path| path.display().to_string());
     Ok(format!(
-        "{total_checkpoints} unmasked source-port checkpoints passed with exact state; worst MAE {mae:.3}, {pixel_mismatches} changed pixels (baselines {SOURCE_PORT_VISUAL_MAX_MAE:.3}/2,293; diffs={diff_dir})"
+        "{total_checkpoints} unmasked source-port checkpoints passed with exact state; worst MAE {mae:.3}, {pixel_mismatches} changed pixels (baselines {SOURCE_PORT_VISUAL_MAX_MAE:.3}/{SOURCE_PORT_VISUAL_MAX_PIXEL_MISMATCHES}; diffs={diff_dir})"
     ))
 }
 
@@ -771,8 +773,8 @@ mod tests {
             tier: sweep::SweepTier::Full,
             passed: true,
             state_diffs: Vec::new(),
-            mae: Some(1.7),
-            pixel_mismatches: Some(2_293),
+            mae: Some(0.7),
+            pixel_mismatches: Some(720),
             diff_images: (0..4).map(|index| format!("diff_{index}.png")).collect(),
             error: None,
             divergence_summary: sweep::DivergenceSummary::default(),
@@ -826,8 +828,8 @@ mod tests {
             .expect("complete visual evidence should pass");
 
         assert!(detail.contains("4 unmasked source-port checkpoints"));
-        assert!(detail.contains("worst MAE 1.700"));
-        assert!(detail.contains("2293 changed pixels"));
+        assert!(detail.contains("worst MAE 0.700"));
+        assert!(detail.contains("720 changed pixels"));
 
         let mut exact_boundary = source_port_visual_result();
         exact_boundary.mae = Some(SOURCE_PORT_VISUAL_MAX_MAE);
@@ -938,21 +940,21 @@ mod tests {
         }
 
         let mut result = source_port_visual_result();
-        result.mae = Some(1.751);
+        result.mae = Some(0.751);
         assert!(
             assess_source_port_visual_evidence(&result)
                 .expect_err("MAE regression should fail")
                 .to_string()
-                .contains("exceeds 1.750 baseline")
+                .contains("exceeds 0.750 baseline")
         );
 
         let mut result = source_port_visual_result();
-        result.pixel_mismatches = Some(2_294);
+        result.pixel_mismatches = Some(721);
         assert!(
             assess_source_port_visual_evidence(&result)
                 .expect_err("changed-pixel regression should fail")
                 .to_string()
-                .contains("exceed 2,293 baseline")
+                .contains("exceed 720 baseline")
         );
     }
 

@@ -1101,7 +1101,11 @@ pub(crate) fn run_source_port_visual_release_probe(
             requested_tier: SweepTier::Full,
             checksum: false,
             native_run: NativeDynamicRunOptions {
-                settled_warp: true,
+                // `release_visual_level_00_early_scenario` explicitly uses
+                // the recording-oracle settle path. Keep native on that same
+                // ASM loc_1AE2E bootstrap so HUD time and per-GfxObject
+                // animation age share the oracle's frame-zero boundary.
+                settled_warp: false,
                 trace_physics: false,
             },
         },

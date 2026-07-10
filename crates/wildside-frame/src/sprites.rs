@@ -992,7 +992,13 @@ fn select_live_walking_dragon_frame<'a>(
 
     let live_sequence = [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 7, 5];
     let frame_duration = if object.hit_points == Some(3) { 6 } else { 9 };
-    let phase = (trace.frame_index / frame_duration) % live_sequence.len();
+    // ASM Init_Animation/GfxObject_Animate loc_1040-loc_1194 keeps a
+    // per-GfxObject pointer and timer. Prefer the typed phase captured from
+    // that object; the global trace clock is retained for legacy recordings.
+    let phase = object.sprite_animation_phase.map_or_else(
+        || (trace.frame_index / frame_duration) % live_sequence.len(),
+        |phase| usize::from(phase) % live_sequence.len(),
+    );
     Some(&enemy_visuals.frames[live_sequence[phase]])
 }
 
@@ -2500,6 +2506,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         }
@@ -2540,6 +2547,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields,
         }
@@ -2613,6 +2621,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
         }
@@ -3351,6 +3360,13 @@ mod tests {
         // ASM Dragon.asm loc_3CE48/loc_3CDFC/loc_3CEBE/loc_3CF90: normal,
         // HP-3, hurt, and breath phases each pick a specific live frame.
         assert_eq!(selected_enemy_tile_base(&trace, &visuals, &dragon), 0x0107);
+        dragon.sprite_animation_phase = Some(9);
+        assert_eq!(
+            selected_enemy_tile_base(&trace, &visuals, &dragon),
+            0x0103,
+            "ASM GfxObject_Animate loc_113E must use the Dragon's object-local stru_3CC5E phase instead of global trace time"
+        );
+        dragon.sprite_animation_phase = None;
         dragon.hit_points = Some(3);
         trace.frame_index = 60;
         assert_eq!(selected_enemy_tile_base(&trace, &visuals, &dragon), 0x0107);

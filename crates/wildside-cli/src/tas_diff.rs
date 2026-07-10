@@ -909,6 +909,7 @@ mod tests {
             shared_walker_patrol_timer: Some(0x0029),
             shared_walker_patrol_short_next: Some(false),
             walk_phase: Some(0),
+            sprite_animation_phase: None,
             wait_timer: Some(0x01df),
             debug_fields: std::collections::BTreeMap::new(),
         }
@@ -1261,6 +1262,7 @@ mod tests {
                 shared_walker_patrol_timer: Some(0x0029),
                 shared_walker_patrol_short_next: Some(false),
                 walk_phase: Some(0),
+                sprite_animation_phase: None,
                 wait_timer: Some(0x01df),
                 debug_fields: std::collections::BTreeMap::new(),
             },
@@ -1548,6 +1550,7 @@ mod tests {
                 shared_walker_patrol_timer: Some(0x0029),
                 shared_walker_patrol_short_next: Some(false),
                 walk_phase: Some(0),
+                sprite_animation_phase: None,
                 wait_timer: Some(0x01df),
                 debug_fields: std::collections::BTreeMap::new(),
             }],

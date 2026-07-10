@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-10 handoff (#375 Level 0 clock and Dragon visual parity)
+
+- Traced the dominant early Level 0 residual to two independent state-boundary
+  errors. Walking Dragon rendered from global trace time instead of its
+  `GfxObject_Animate` phase, and the release probe forced native through the
+  generic full-sweep settle while its jgenesis scenario used recording settle.
+- `Dragon.asm loc_3CE48`, `stru_3CC5E` / `stru_3CC90`, and oracle GfxObject
+  watches pin phases 6, 9, 0, and 7 at frames 0, 30, 60, and 120. Native now
+  carries that phase as typed per-object state; the frame-30 enemy-only render
+  is byte-exact with hardware.
+- Direct oracle timer watches pin Level 0 frame 0 at `Time_Frames=$003D`, timer
+  `2:59`, subsecond `$003C`. A Level 0 recording-settle seed and cache-backed
+  regression now preserve those exact words without changing the verified
+  60-frame Dragon movement age.
+- Fresh `1p-accurate` evidence passes with exact state and no masking at all four
+  frames. Changed pixels are 720, 640, 607, and 686; worst MAE is 0.738, down
+  from 1.677 / 2,293 pixels. The gate ratchets to MAE <=0.750 and pixels <=720.
+- #375 remains `[~]`: 607-720 pixels per frame are still not pixel parity.
+  NEXT: inspect residual layer/provenance. Do not retry global Dragon timing,
+  generic settle, timer phase, sprite art/palette/geometry, or composition order.
+
 ## 2026-07-10 handoff (real source-port visual release evidence)
 
 - Audited the `1p-accurate` frame path and found its existing `frame_oracle:*`

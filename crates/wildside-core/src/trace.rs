@@ -307,6 +307,7 @@ fn boss_eye_orbit_object_slot_details_loc_3931a(
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields,
             }
@@ -2956,6 +2957,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: BTreeMap::new(),
             }
@@ -4431,6 +4433,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: BTreeMap::new(),
             }
@@ -4517,6 +4520,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: BTreeMap::new(),
             }));
@@ -4540,6 +4544,7 @@ mod tests {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: BTreeMap::new(),
             }));
@@ -5451,6 +5456,7 @@ mod tests {
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
             walk_phase: None,
+            sprite_animation_phase: None,
             wait_timer: None,
             debug_fields: BTreeMap::new(),
         });
@@ -10231,6 +10237,7 @@ impl NativeRuntime {
                     shared_walker_patrol_timer: None,
                     shared_walker_patrol_short_next: None,
                     walk_phase: None,
+                    sprite_animation_phase: None,
                     wait_timer: None,
                     debug_fields: BTreeMap::new(),
                 });
@@ -10309,6 +10316,7 @@ impl NativeRuntime {
                 shared_walker_patrol_timer: None,
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
+                sprite_animation_phase: None,
                 wait_timer: None,
                 debug_fields: BTreeMap::new(),
             });

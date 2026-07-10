@@ -6501,11 +6501,21 @@ mod chunk_09 {
             return;
         };
         let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.set_recorded_title_card_handoff_delay(true);
 
         runtime.boot_to_level(LevelId(0));
         runtime.settle_recording_oracle_warp_live_window(LevelId(0));
 
         let first_recorded_frame = runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            (
+                first_recorded_frame.time_frames_loc_3038a,
+                first_recorded_frame.level_timer_seconds,
+                first_recorded_frame.level_timer_sub_frames,
+            ),
+            (0x003D, 179, 0x003C),
+            "ASM loc_3038A/Make_SpriteAttr_HUD loc_BE82: Level 0 oracle frame 0 exposes Time_Frames=$003D and timer 2:59/$003C",
+        );
         let first_dragon = first_recorded_frame
             .active_objects
             .into_iter()

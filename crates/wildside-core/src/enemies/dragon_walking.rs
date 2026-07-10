@@ -916,6 +916,9 @@ pub(crate) fn step_dragon_walking(
                         }
                     }
                     enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
+                    // ASM Dragon.asm loc_3CFE4 restores `stru_3CC5E` or
+                    // `stru_3CC90` through Init_Animation, restarting phase 0.
+                    enemy.dragon_descent_index = 0;
                 }
             }
         }

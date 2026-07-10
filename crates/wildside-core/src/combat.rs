@@ -15207,6 +15207,7 @@ fn drips_projectile_object_snapshot_loc_3345c(
         shared_walker_patrol_timer: None,
         shared_walker_patrol_short_next: None,
         walk_phase: None,
+        sprite_animation_phase: None,
         wait_timer: Some(projectile.lifetime),
         debug_fields: std::collections::BTreeMap::new(),
     }
