@@ -210,6 +210,7 @@ pub fn run_tas_diff(
                 .collect::<Vec<_>>(),
             &oracle.frame_crcs,
             start,
+            end,
         )
         .is_none();
     reclassify_crc_clean_lion_projectile_count_diffs(

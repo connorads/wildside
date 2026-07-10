@@ -32,19 +32,12 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-07 #210/#254 moved to awaiting-human:** rapid spam route (`2400:start` plus every even frame `2700..2730:start`) now stays in the title-card transition, consumes Start during the title-menu VDP carry, and fades the carried menu CRAM instead of releasing early gameplay. Human SDL validation still required.
-- **2026-07-07 #230 moved to awaiting-human:** The Crypt report was SolidGhost block overlay timing/count parity, not weather (`weather=0`). Both 0x38 and 0x47 walk-right recordings now match oracle CRC for all 2460 frames; human visual validation still required.
-- **2026-07-07 #270 moved to awaiting-human:** fresh USM1/USM3 slope-wall route searches were clean or stalled before the reported corner, so no gameplay patch is justified without a natural recorded route.
-- **2026-07-07 #339 moved to awaiting-human:** USM2 loading-card audio now zero-fills commandless GEMS frames; live warp recording stayed 240 frames in `LevelTransition` with no audio commands and silent WAV output. Real speaker validation still required.
-- **2026-07-07 #185 moved to awaiting-human:** Hand live render atlas now keeps ASM `stru_32B6A`/`stru_32B56`/`stru_32B50` frames before the `loc_32AA2` death tail; existing grab-dispatch regressions still pass, but the natural grab route needs human validation.
-- **2026-07-07 #372 moved to awaiting-human:** sub_1007A prize-block wobble now renders after Scroll A terrain/block passes, so ordinary low-priority tree/background art cannot erase the copied wobble sprite. Human should re-run the forest prize-block route.
-- **2026-07-07 #373 retired:** ASM and fresh native/oracle EOL captures show the flag/base holds static through the `loc_C070` hibernate and snap-removes at cleanup; there is no ROM sink animation to port. Exact-frame base visibility remains #369.
-- **2026-07-07 #371 retired:** BLW1 walking Dragon off-screen fall/respawn is the same ROM-faithful no-ledge-clamp behaviour as #239; fresh enemy-frontier slices match oracle on the current branch.
+- **2026-07-10 full TAS verifier hardened:** truncated native/oracle CRC streams now fail at the first missing frame, including equal-prefix truncation; focused tests and `10/10` killed mutants cover the comparison contract.
+- **Full published-route evidence:** all 37,759 requested player/camera CRC frames match oracle. This is not whole-state or pixel equality: 1,512 sampled checkpoints retain #290's exact baseline of 212 authoritative export diffs and 2 oracle limitations, first at `transition_15_to_00_post/number_objects`.
+- **`verify-tas-full` now fails closed:** CRC drift, incomplete CRC coverage, or a change to the checked-in #290 summary/first-diff baseline makes the task red. The previous unconditional-success task could hide those outcomes.
 - **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
-- **Current verification:** proactive VDP title fade-out mutation refresh after recent #210/#254 title-return fixes. Focused `env TMPDIR=/tmp KID_REPO_ROOT="$PWD" cargo mutants -p wildside-core -f crates/wildside-core/src/vdp.rs -j 4 --gitignore=true --re 'apply_pal_fade_out_to_black_loc_28c6|apply_intro_sequence_5_title_return_fade_to_black' --output /tmp/mutants-core-vdp-title-fadeout-20260707-initial --cargo-arg=--lib -- vdp::tests` reports `7 mutants tested in 2m: 7 caught`.
 - **Next open priority from `project-status`:** none currently; use the proactive-verification fallback if no human row is promoted.
 - **Still route-blocked but reconfirmed:** #252 Tank sprite garble, #280 Hills/green-cloud background seam, and #345 Lion vanish still need exact live frame/route evidence before implementation.
-- **Closures from this playtest:** #003/#160 audio works; #126/#258/#268/#269 slope/climb rows work; #141/#144/#147/#167/#214/#238/#241/#246/#248/#262/#263/#264/#266/#272/#273/#274/#275/#276/#277/#279/#281/#283/#284/#286/#289/#335 validated fixed; #161/#176/#184/#187/#188/#189/#217/#260/#322 closed stale or superseded. See archive note `2026-07-06 playtest feedback triage`.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

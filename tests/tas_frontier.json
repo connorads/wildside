@@ -22,6 +22,18 @@
       "frontier_frame": 3400,
       "checkpoint_interval": 1,
       "total_frames": 37759,
+      "full_checkpoint_interval": 25,
+      "full_expected_divergence_summary": {
+        "authoritative": 212,
+        "advisory": 0,
+        "accumulation": 0,
+        "rng": 0,
+        "oracle_limitation": 2
+      },
+      "full_expected_first_authoritative_diff": {
+        "checkpoint": "transition_15_to_00_post",
+        "field": "number_objects"
+      },
       "status": "verified"
     },
     "issue305_fast_action_gameplay_probe": {

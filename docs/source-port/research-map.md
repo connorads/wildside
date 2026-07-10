@@ -11,10 +11,20 @@ Progressive fidelity: get it playable, then get it accurate. Every system starts
 The live TAS frontier is closed:
 
 - `kc_any_percent_2024` is authoritative-clean through frame `4916`
-- `any-percent-published` is authoritative-clean through frame `37759`
+- `any-percent-published` is player/camera CRC-clean through frame `37759`
 - TAS-frontier history is tracked in the backlog and the `verify-tas-frontier` gate (the per-frame ledger was retired); `mise run verify-tas-full` re-checks the published route
 
-That is not whole-game completion. As of the 2026-05-18 completion audit, the 1P source-port phase has no open phase blockers: `project-status` reports `1p-playable` and `1p-accurate` green, the published TAS frontier is replay-matched through frame 37759, the canonical backlog has no open phase rows, and the human-validation checklist is empty. Future work should come from fresh reports, post-phase fidelity debt, or broader verification lanes, not from reopening stale TAS/frontier prose. Loop sessions follow `docs/source-port/loop.md`: `backlog.md` is the open queue, the NOW block is the handoff, `mise run project-status` selects the next item in priority order (`[?]`/`[b]` rows live in `backlog-awaiting-human.md`), and the proactive-verification fallback (mutation testing, enemy audit, ASM coverage) covers the no-actionable-item case. `wildside-cli project-status` remains the top-level status surface, with 1P-playable and visual risks ahead of TAS completion prose.
+That is not whole-game completion or whole-state/pixel equality. The 2026-07-10
+full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
+state checkpoints retain the explicit #290 baseline of 212 authoritative export
+diffs and 2 oracle limitations, beginning with `number_objects` after the
+`0x15 -> 0x00` transition. The CRC excludes enemy/render/audio state, object
+counts, hit points, lives, Murder Wall X, and trace-timing fields such as
+velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC stream, or
+change to that checked-in checkpoint baseline; reducing #290 remains separate
+fidelity work.
+
+As of the 2026-05-18 completion audit, the 1P source-port phase has no open phase blockers: `project-status` reports `1p-playable` and `1p-accurate` green, the published TAS frontier is replay-matched through frame 37759, the canonical backlog has no open phase rows, and the human-validation checklist is empty. Future work should come from fresh reports, post-phase fidelity debt, or broader verification lanes, not from reopening stale TAS/frontier prose. Loop sessions follow `docs/source-port/loop.md`: `backlog.md` is the open queue, the NOW block is the handoff, `mise run project-status` selects the next item in priority order (`[?]`/`[b]` rows live in `backlog-awaiting-human.md`), and the proactive-verification fallback (mutation testing, enemy audit, ASM coverage) covers the no-actionable-item case. `wildside-cli project-status` remains the top-level status surface, with 1P-playable and visual risks ahead of TAS completion prose.
 
 2026-07-04 refresh: `env TMPDIR=/tmp mise run release-gate` passes the full
 `1p-accurate` lane. `.cache/release-gate/1p-accurate/latest.json` points at

@@ -2080,8 +2080,11 @@ fn is_false(value: &bool) -> bool {
 }
 
 impl NativeTraceFrame {
-    /// CRC32 of authoritative fields — used for fast divergence detection.
-    /// Excludes advisory fields (number_objects, number_hitpoints, number_lives, murder_wall_x).
+    /// CRC32 of player/camera progression fields used for fast divergence detection.
+    ///
+    /// This is not a whole-state or pixel checksum. It excludes advisory fields
+    /// (`number_objects`, hit points, lives, and Murder Wall X), trace-timing
+    /// fields such as velocity, and enemy/render/audio state.
     pub fn authoritative_crc32(&self) -> u32 {
         let mut hasher = crc32fast::Hasher::new();
         hasher.update(&self.game_mode_value.to_le_bytes());

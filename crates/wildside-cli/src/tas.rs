@@ -114,10 +114,21 @@ pub(crate) fn first_crc_mismatch_from_frame(
     native_crcs: &[u32],
     oracle_crcs: &[u32],
     start: usize,
+    end: usize,
 ) -> Option<usize> {
-    let native_window = native_crcs.get(start..)?;
-    let oracle_window = oracle_crcs.get(start..)?;
-    crate::sweep::find_first_crc_mismatch(native_window, oracle_window).map(|offset| start + offset)
+    let expected_len = end.saturating_sub(start);
+    let native_window = native_crcs
+        .get(start..native_crcs.len().min(end))
+        .unwrap_or_default();
+    let oracle_window = oracle_crcs
+        .get(start..oracle_crcs.len().min(end))
+        .unwrap_or_default();
+    crate::sweep::find_first_crc_mismatch(native_window, oracle_window)
+        .map(|offset| start + offset)
+        .or_else(|| {
+            (native_window.len() != expected_len || oracle_window.len() != expected_len)
+                .then(|| start + native_window.len().min(oracle_window.len()))
+        })
 }
 
 /// Parse the `Input Log.txt` content into per-frame u8 button masks.
@@ -456,10 +467,8 @@ pub fn verify_tas(
         .iter()
         .map(wildside_core::NativeTraceFrame::authoritative_crc32)
         .collect();
-    let first_crc_mismatch = if matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay)
-        && !oracle.frame_crcs.is_empty()
-    {
-        let mismatch = first_crc_mismatch_from_frame(&native_crcs, &oracle.frame_crcs, start);
+    let first_crc_mismatch = if matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay) {
+        let mismatch = first_crc_mismatch_from_frame(&native_crcs, &oracle.frame_crcs, start, end);
         if let Some(first_mismatch) = mismatch {
             println!("  CRC divergence at frame {first_mismatch}");
         } else {
@@ -567,6 +576,11 @@ pub fn verify_tas(
     let report = serde_json::json!({
         "slug": scenario.slug,
         "frame_range": [start, end],
+        "crc_frame_counts": {
+            "requested": end.saturating_sub(start),
+            "native": native_crcs.len().min(end).saturating_sub(start),
+            "oracle": oracle.frame_crcs.len().min(end).saturating_sub(start),
+        },
         "checkpoints": scenario.checkpoints.len(),
         "transitions": transitions.len(),
         "first_crc_mismatch": first_crc_mismatch,
@@ -991,7 +1005,7 @@ pub fn bisect_tas(
 
         if !oracle.frame_crcs.is_empty() {
             if let Some(frame_idx) =
-                first_crc_mismatch_from_frame(&native_crcs, &oracle.frame_crcs, start)
+                first_crc_mismatch_from_frame(&native_crcs, &oracle.frame_crcs, start, end)
             {
                 println!();
                 println!("  RESULT: first CRC divergence at frame {frame_idx}");
@@ -1740,7 +1754,7 @@ mod tests {
         let native = [11, 22, 33, 44, 55];
         let oracle = [99, 22, 33, 88, 55];
 
-        let mismatch = super::first_crc_mismatch_from_frame(&native, &oracle, 1)
+        let mismatch = super::first_crc_mismatch_from_frame(&native, &oracle, 1, 5)
             .expect("mismatch after start");
 
         assert_eq!(mismatch, 3);
@@ -1751,9 +1765,29 @@ mod tests {
         let native = [11, 22, 33, 44, 55];
         let oracle = [99, 22, 33, 44, 55];
 
-        let mismatch = super::first_crc_mismatch_from_frame(&native, &oracle, 1);
+        let mismatch = super::first_crc_mismatch_from_frame(&native, &oracle, 1, 5);
 
         assert_eq!(mismatch, None);
+    }
+
+    #[test]
+    fn first_crc_mismatch_from_frame_rejects_truncated_oracle_tail() {
+        let native = [11, 22, 33];
+        let oracle = [11, 22];
+
+        let mismatch = super::first_crc_mismatch_from_frame(&native, &oracle, 0, 3);
+
+        assert_eq!(mismatch, Some(2));
+    }
+
+    #[test]
+    fn first_crc_mismatch_from_frame_rejects_equally_truncated_streams() {
+        let native = [11, 22];
+        let oracle = [11, 22];
+
+        let mismatch = super::first_crc_mismatch_from_frame(&native, &oracle, 0, 3);
+
+        assert_eq!(mismatch, Some(2));
     }
 
     #[test]

@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-10 handoff (full TAS verifier fail-closed hardening)
+
+- With no ready/open backlog row, audited the published-TAS confidence path.
+  Found that CRC comparison accepted a matching prefix when the oracle stream
+  was truncated, and `verify-tas-full` returned success regardless of its state
+  report.
+- Added requested-range coverage to `first_crc_mismatch_from_frame`; one-sided
+  and equal native/oracle truncation now report the first missing frame.
+  Focused mutation evidence: `10 mutants tested in 4m: 10 caught`.
+- Full `any-percent-published` evidence: all 37,759 requested player/camera CRC
+  frames match. The 1,512 state checkpoints still carry exact #290 baseline:
+  212 authoritative diffs and 2 oracle limitations, first at
+  `transition_15_to_00_post/number_objects`. This is explicitly not whole-state
+  or pixel equality.
+- `tests/tas_frontier.json` now versions that state baseline and
+  `mise run verify-tas-full` fails on CRC drift, incomplete CRC output, or any
+  baseline-summary/first-diff change.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  proactive verification. Do not claim the TAS proves enemy/render/audio or
+  whole-game fidelity; #290 remains awaiting human/policy resolution.
+
 ## 2026-07-07 handoff (proactive VDP title fade-out mutation refresh)
 
 - **Fallback verification checked.** With no ready/open rows after the scenario
