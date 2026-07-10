@@ -24,7 +24,7 @@ use release_gate::{
 use super::*;
 use cache::{OracleCacheKey, load_cached_oracle, store_oracle_cache};
 use diff::{annotate_diff, frame_mae, generate_diff_composite, pixel_mismatch_count};
-use native_player::render_gameplay_frame_evidence_for_level;
+use native_player::render_gameplay_frame_evidence_for_level_with_initial_latch;
 #[cfg(test)]
 use oracle::EnemyFacing;
 use oracle::{
@@ -34,7 +34,8 @@ use rayon::prelude::*;
 use release_gate::{latest_release_gate_failed_fields, summarise_release_gate_focuses};
 use scenarios::{
     DynamicCheckpoint, DynamicScenario, NativeDynamicRunOptions, idle_level_full_frame_scenario,
-    idle_level_scenario, release_visual_level_00_early_scenario, run_native_dynamic_scenario,
+    idle_level_scenario, release_visual_level_00_early_scenario,
+    run_native_dynamic_scenario_with_render_latch,
 };
 #[cfg(test)]
 use scenarios::{prize_block_scenario, walk_right_scenario};
@@ -906,8 +907,11 @@ fn sweep_single_scenario(
     fs::create_dir_all(&level_dir)
         .with_context(|| format!("failed to create {}", level_dir.display()))?;
 
-    // Run native (with warp if specified)
-    let native_trace = run_native_dynamic_scenario(manifest.clone(), &scenario, native_run)?;
+    // Run native (with warp if specified). Frame evidence also needs the
+    // pre-scenario VDP latch because checkpoint zero is post-update state.
+    let native_run =
+        run_native_dynamic_scenario_with_render_latch(manifest.clone(), &scenario, native_run)?;
+    let native_trace = native_run.trace;
 
     // Extract native state at checkpoints
     let native_states = extract_checkpoint_states(&native_trace, &scenario.checkpoints);
@@ -1028,6 +1032,7 @@ fn sweep_single_scenario(
         let (best_mae, best_pixel_mismatches) = compare_checkpoint_frames(
             manifest,
             &native_trace,
+            &native_run.initial_render_latch,
             &scenario,
             &oracle,
             &level_dir,
@@ -2191,6 +2196,7 @@ fn summarise_enemy_states(enemies: &[OracleEnemyState]) -> String {
 fn compare_checkpoint_frames(
     manifest: &AssetManifest,
     native_trace: &[NativeTraceFrame],
+    initial_render_latch: &NativeTraceFrame,
     scenario: &DynamicScenario,
     oracle: &OracleManifest,
     level_dir: &Path,
@@ -2212,11 +2218,12 @@ fn compare_checkpoint_frames(
 
     // Use the existing headless renderer to produce real native frames.
     // Falls back to black frames if level visuals aren't available.
-    let native_frames = render_gameplay_frame_evidence_for_level(
+    let native_frames = render_gameplay_frame_evidence_for_level_with_initial_latch(
         manifest,
         native_trace,
         &gameplay_checkpoints,
         level_id,
+        Some(initial_render_latch),
     )
     .unwrap_or_else(|e| {
         eprintln!(

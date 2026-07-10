@@ -6446,6 +6446,25 @@ mod chunk_09 {
     }
 
     #[test]
+    fn script_runner_returns_pre_step_render_latch_mode_level_loc_901() {
+        let manifest = manifest_with_levels(1);
+        let (zero_frame_latch, zero_trace) = ScriptRunner::new(manifest.clone())
+            .warp_to_level(0)
+            .run_with_initial_render_latch(&[], 0);
+        let (initial_render_latch, trace) = ScriptRunner::new(manifest)
+            .warp_to_level(0)
+            .run_with_initial_render_latch(&[0, 0, 0], 3);
+
+        assert!(zero_trace.is_empty());
+        assert_eq!(trace.len(), 3);
+        assert_eq!(
+            initial_render_latch.authoritative_crc32(),
+            zero_frame_latch.authoritative_crc32(),
+            "ASM Mode_Level loc_901 render evidence must expose the configured runtime boundary before any scenario step"
+        );
+    }
+
+    #[test]
     fn settled_warp_runner_starts_after_stable_ingame_window() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

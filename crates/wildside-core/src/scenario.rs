@@ -470,7 +470,18 @@ impl ScriptRunner {
     }
 
     pub fn run(self, script: &[u8], frame_count: usize) -> Vec<NativeTraceFrame> {
-        self.run_inner(script, frame_count, false).0
+        self.run_inner(script, frame_count, false).1
+    }
+
+    /// Runs the scenario and returns the visible VDP state immediately before
+    /// scenario frame zero alongside the post-update trace timeline.
+    pub fn run_with_initial_render_latch(
+        self,
+        script: &[u8],
+        frame_count: usize,
+    ) -> (NativeTraceFrame, Vec<NativeTraceFrame>) {
+        let (initial_render_latch, trace, _) = self.run_inner(script, frame_count, false);
+        (initial_render_latch, trace)
     }
 
     /// Like [`run`](Self::run) but also captures the per-frame VDP snapshot
@@ -482,7 +493,8 @@ impl ScriptRunner {
         script: &[u8],
         frame_count: usize,
     ) -> (Vec<NativeTraceFrame>, Vec<Option<vdp::VdpState>>) {
-        self.run_inner(script, frame_count, true)
+        let (_, trace, vdp_snapshots) = self.run_inner(script, frame_count, true);
+        (trace, vdp_snapshots)
     }
 
     fn run_inner(
@@ -490,7 +502,11 @@ impl ScriptRunner {
         script: &[u8],
         frame_count: usize,
         capture_vdp: bool,
-    ) -> (Vec<NativeTraceFrame>, Vec<Option<vdp::VdpState>>) {
+    ) -> (
+        NativeTraceFrame,
+        Vec<NativeTraceFrame>,
+        Vec<Option<vdp::VdpState>>,
+    ) {
         let mut runtime = match self.asset_source {
             Some(source) => {
                 NativeRuntime::with_generated_level_layout_with_source(self.assets, source)
@@ -535,6 +551,9 @@ impl ScriptRunner {
         if let Some(count) = self.initial_lives {
             runtime.set_probe_lives_count(count);
         }
+        // ASM Mode_Level loc_901 presents this already-built sprite/scroll/HUD
+        // state before the first scenario step produces its post-update trace.
+        let initial_render_latch = runtime.trace_frame();
         let delay_recording_input = self.settle_warp == Some(SettleWarpMode::RecordingOracle);
         let mut trace = Vec::with_capacity(frame_count);
         let mut vdp_snapshots = if capture_vdp {
@@ -575,7 +594,7 @@ impl ScriptRunner {
                 vdp_snapshots.push(runtime.vdp_state().cloned());
             }
         }
-        (trace, vdp_snapshots)
+        (initial_render_latch, trace, vdp_snapshots)
     }
 }
 

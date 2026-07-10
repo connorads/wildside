@@ -377,6 +377,24 @@ pub(crate) fn run_native_dynamic_scenario(
         .run(&scenario.script, scenario.frame_count))
 }
 
+pub(crate) struct NativeDynamicRun {
+    pub(crate) initial_render_latch: NativeTraceFrame,
+    pub(crate) trace: Vec<NativeTraceFrame>,
+}
+
+pub(crate) fn run_native_dynamic_scenario_with_render_latch(
+    manifest: AssetManifest,
+    scenario: &DynamicScenario,
+    options: NativeDynamicRunOptions,
+) -> Result<NativeDynamicRun> {
+    let (initial_render_latch, trace) = configure_script_runner(manifest, scenario, options)?
+        .run_with_initial_render_latch(&scenario.script, scenario.frame_count);
+    Ok(NativeDynamicRun {
+        initial_render_latch,
+        trace,
+    })
+}
+
 /// Like [`run_native_dynamic_scenario`] but also returns the per-frame VDP
 /// snapshots (`Some` on non-gameplay screens, `None` during gameplay). The
 /// TAS viewer uses these to render real VDP pixels for title/Sega/intro

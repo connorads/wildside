@@ -163,23 +163,34 @@ pub(crate) fn render_gameplay_frame_evidence_for_level(
     checkpoints: &[GameplayCheckpoint],
     level_id: u8,
 ) -> Result<Vec<(String, usize, usize, usize, Vec<u8>)>> {
+    render_gameplay_frame_evidence_for_level_with_initial_latch(
+        manifest,
+        trace,
+        checkpoints,
+        level_id,
+        None,
+    )
+}
+
+pub(crate) fn render_gameplay_frame_evidence_for_level_with_initial_latch(
+    manifest: &AssetManifest,
+    trace: &[NativeTraceFrame],
+    checkpoints: &[GameplayCheckpoint],
+    level_id: u8,
+    initial_render_latch: Option<&NativeTraceFrame>,
+) -> Result<Vec<(String, usize, usize, usize, Vec<u8>)>> {
     let session_assets = load_native_session_assets(manifest, level_id)?;
     checkpoints
         .iter()
         .map(|checkpoint| {
-            let frame = trace
-                .iter()
-                .find(|frame| frame.frame_index == checkpoint.frame_index)
-                .or_else(|| trace.get(checkpoint.frame_index))
-                .ok_or_else(|| {
-                    anyhow!(
-                        "missing native gameplay frame evidence {}@{}",
-                        checkpoint.label,
-                        checkpoint.frame_index
-                    )
-                })?;
+            let frame = trace_frame_with_vdp_latch_at_checkpoint(
+                trace,
+                checkpoint.frame_index,
+                initial_render_latch,
+                checkpoint.label,
+            )?;
             let scene = build_scene(
-                frame,
+                &frame,
                 false,
                 Some(&session_assets.level_visuals),
                 Some(&session_assets.block_grid),
@@ -207,19 +218,14 @@ pub(crate) fn render_dynamic_gameplay_frame_evidence_for_level(
     checkpoints
         .iter()
         .map(|checkpoint| {
-            let frame = trace
-                .iter()
-                .find(|frame| frame.frame_index == checkpoint.frame_index)
-                .or_else(|| trace.get(checkpoint.frame_index))
-                .ok_or_else(|| {
-                    anyhow!(
-                        "missing native gameplay frame evidence {}@{}",
-                        checkpoint.label,
-                        checkpoint.frame_index
-                    )
-                })?;
+            let frame = trace_frame_with_vdp_latch_at_checkpoint(
+                trace,
+                checkpoint.frame_index,
+                None,
+                &checkpoint.label,
+            )?;
             let scene = build_scene(
-                frame,
+                &frame,
                 false,
                 Some(&session_assets.level_visuals),
                 Some(&session_assets.block_grid),
@@ -235,6 +241,38 @@ pub(crate) fn render_dynamic_gameplay_frame_evidence_for_level(
             ))
         })
         .collect()
+}
+
+fn trace_frame_with_vdp_latch_at_checkpoint(
+    trace: &[NativeTraceFrame],
+    checkpoint_frame_index: usize,
+    initial_render_latch: Option<&NativeTraceFrame>,
+    checkpoint_label: &str,
+) -> Result<NativeTraceFrame> {
+    let trace_index = trace
+        .iter()
+        .position(|frame| frame.frame_index == checkpoint_frame_index)
+        .or_else(|| {
+            trace
+                .get(checkpoint_frame_index)
+                .map(|_| checkpoint_frame_index)
+        })
+        .ok_or_else(|| {
+            anyhow!(
+                "missing native gameplay frame evidence {checkpoint_label}@{checkpoint_frame_index}"
+            )
+        })?;
+    let frame = &trace[trace_index];
+    let previous = trace_index
+        .checked_sub(1)
+        .and_then(|index| trace.get(index))
+        .or(initial_render_latch);
+
+    // ASM Mode_Level loc_901 presents the sprite/scroll/HUD tables produced
+    // before the current post-update trace. The first scenario checkpoint
+    // therefore needs the explicit pre-scenario latch; later checkpoints use
+    // their trace-vector predecessor even when trace frame numbers are global.
+    Ok(render_trace_with_vdp_latched_state(frame, previous))
 }
 
 pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) -> Result<()> {
@@ -11573,6 +11611,58 @@ mod tests {
         assert_eq!(
             render_trace.active_projectiles, previous.active_projectiles,
             "ASM Mode_Level loc_901 presents the previous non-Kid sprite table for projectile workers as well"
+        );
+    }
+
+    #[test]
+    fn checkpoint_render_latch_uses_timeline_predecessor_mode_level_loc_901() {
+        let mut initial = sample_trace(GameMode::InGame);
+        initial.current_level = LevelId(0x00);
+        initial.frame_index = 0x05D9;
+        initial.active_objects = vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0D },
+            x_pos: 0x00AA_0000,
+            y_pos: 0x0110_0000,
+            layout_index: Some(0),
+            x_velocity: Some(-0x0000_8000),
+            y_velocity: Some(0),
+            facing: Some(Direction::Left),
+            on_ground: Some(true),
+            hit_points: Some(3),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            sprite_animation_phase: Some(0),
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        }];
+        let mut first = initial.clone();
+        first.frame_index = 0x05DA;
+        first.active_objects[0].x_pos = 0x00A9_8000;
+        let mut second = first.clone();
+        second.frame_index = 0x05DB;
+        second.active_objects[0].x_pos = 0x00A9_0000;
+        let timeline = [first, second];
+
+        let first_render =
+            trace_frame_with_vdp_latch_at_checkpoint(&timeline, 0, Some(&initial), "frame_000")
+                .expect("frame-zero render latch");
+        let second_render =
+            trace_frame_with_vdp_latch_at_checkpoint(&timeline, 1, Some(&initial), "frame_001")
+                .expect("later render latch");
+
+        assert_eq!(
+            first_render.active_objects[0].x_pos, initial.active_objects[0].x_pos,
+            "ASM Mode_Level loc_901 presents the pre-scenario sprite table at checkpoint zero"
+        );
+        assert_eq!(
+            second_render.active_objects[0].x_pos, timeline[0].active_objects[0].x_pos,
+            "checkpoint lookup must use the trace-vector predecessor, not global frame_index - 1"
         );
     }
 

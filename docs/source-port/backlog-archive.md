@@ -60,6 +60,21 @@ open: this is a substantial parity reduction, not pixel equality. Next inspect
 the residual by layer/provenance; do not retry the rejected clock, animation,
 asset, geometry, or composition hypotheses.
 
+Follow-up 2026-07-10: the remaining Dragon outline was a render-boundary bug,
+not sprite placement. The generic sweep renderer fed post-update trace state
+straight to `build_scene`, bypassing the `Mode_Level loc_901` VDP latch already
+used by live play and recording verification. `ScriptRunner` now returns the
+explicit pre-scenario render latch, and checkpoint rendering uses that value at
+frame zero plus the trace-vector predecessor thereafter; it never derives a
+predecessor from global trace frame numbers. Regression
+`checkpoint_render_latch_uses_timeline_predecessor_mode_level_loc_901` covers
+both boundaries. Fresh `1p-accurate` report
+`.cache/release-gate/1p-accurate/1783711712/report.json` passes with exact state,
+no masking, changed pixels 301, 216, 188, and 269, and worst MAE `0.495`. The
+release baselines ratchet to `0.500` / `301`. Region counts are HUD 53-106,
+background 8-74, actors 118-125, foreground 0; #375 remains open for those
+pixel differences.
+
 ### #271
 
 Reopened 2026-07-02 after renewed human validation failure: jumping on RockTank

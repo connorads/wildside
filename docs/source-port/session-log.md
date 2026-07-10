@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-10 handoff (#375 VDP-latched source-port evidence)
+
+- The generic sweep/release renderer bypassed the existing ASM `Mode_Level
+  loc_901` sprite/scroll/HUD latch and rendered post-update trace state. Live
+  play and recording verification already used the correct boundary.
+- `ScriptRunner` now exposes a typed pre-scenario render latch. Checkpoint zero
+  uses it; later checkpoints use their trace-vector predecessor even though
+  recording trace frame numbers are global.
+- Fresh `1p-accurate` evidence passes with exact state and no masking. Changed
+  pixels are 301, 216, 188, and 269; worst MAE is 0.495. The release baseline
+  ratchets to MAE <=0.500 and pixels <=301.
+- #375 remains `[~]`: residual regions are HUD 53-106 pixels, background 8-74,
+  actors 118-125, and foreground 0. NEXT: trace HUD and actor colour/provenance.
+
 ## 2026-07-10 handoff (#375 Level 0 clock and Dragon visual parity)
 
 - Traced the dominant early Level 0 residual to two independent state-boundary
