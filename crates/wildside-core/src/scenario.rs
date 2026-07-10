@@ -68,7 +68,9 @@ fn oracle_warp_target_live_frames(level_id: LevelId) -> usize {
 }
 
 fn recording_oracle_warp_target_live_frames(level_id: LevelId) -> usize {
-    if level_id == LevelId(1) {
+    if level_id == LevelId(0) {
+        RECORDING_SETTLED_WARP_LIVE_FRAMES - 1
+    } else if level_id == LevelId(1) {
         ORACLE_SETTLED_WARP_LIVE_FRAMES - 1
     } else if level_id == LevelId(0x08) {
         // ASM loc_74E0's level-skip path has a live target-level tail before
@@ -765,8 +767,8 @@ mod tests {
     fn recording_oracle_warp_target_live_frames_pin_oracle_routes() {
         assert_eq!(
             recording_oracle_warp_target_live_frames(LevelId(0)),
-            RECORDING_SETTLED_WARP_LIVE_FRAMES,
-            "ASM loc_1AE2E recording scenarios use the 60-frame title-card live window for Level 0"
+            RECORDING_SETTLED_WARP_LIVE_FRAMES - 1,
+            "ASM loc_1AE2E Level 0 recording frame 0 supplies the 60th live gameplay pass after 59 hidden settle steps"
         );
         assert_eq!(
             recording_oracle_warp_target_live_frames(LevelId(1)),
@@ -1174,6 +1176,34 @@ mod tests {
         assert!(
             none_on_gameplay,
             "gameplay frames must leave the VDP snapshot empty",
+        );
+    }
+
+    #[test]
+    fn level09_recording_settle_loads_resource_terrain_loc_11c7e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+
+        runtime.boot_to_level(LevelId(0x09));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x09));
+
+        let frame = runtime.trace_frame();
+        assert_eq!(frame.game_mode, GameMode::InGame);
+        assert_eq!(frame.number_lives, 3);
+        assert_eq!(frame.kid_y_pos, Some(0x019F_0000));
+        assert_eq!(frame.camera_y_pos, 0x00E0_0000);
+        assert!(
+            runtime.block_grid().is_some(),
+            "ASM loc_11C7E resource 0x56 terrain must remain loaded for logical level 0x09"
+        );
+        assert!(
+            runtime
+                .projectiles
+                .iter()
+                .all(|projectile| { projectile.kind != EnemyProjectileKind::DragonWalkingBreath }),
+            "ASM Dragon.asm loc_3CF6E must not run only because a missing terrain sidecar killed Kid during settle"
         );
     }
 }

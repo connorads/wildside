@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-10 handoff (#376 authoritative state-sweep recovery)
+
+- State scenarios now request the recording-oracle settle path, and contextual
+  classification preserves evidence-backed oracle limitations.
+- Level 0 recording settle is aligned by one hidden pass; all 359 player/camera
+  CRC frames match oracle.
+- Regressions exposed by real checkpoints are fixed: Lion hitbox words no longer
+  alias projectile bookkeeping, Level 0x07 retains its horizontal scheduling
+  gate while Level 0x1B keeps the vertical Sphere gate, and Level 0x09 retains
+  decoded resource-0x56 terrain when its RAM block-list sidecar is absent.
+- Canonical state report `1783724200` reaches real gameplay on all 69 BCD
+  levels: 29 pass, 40 fail, 175 authoritative diffs, 5 advisory diffs, and 44
+  oracle limitations. This is a useful red verification surface, not parity.
+- #376 closes. NEXT: #377, the first authoritative failure - Level 0x10's live
+  object roster is native 13 versus oracle 24/23. #378 tracks full interactive
+  block-list synthesis for undumped resource layouts.
+- `verify-slice-fast` and `verify-tas-full` pass; all 37,759 published-route CRC
+  frames still match with #290's 212-authoritative / 2-limitation baseline.
+
 ## 2026-07-10 handoff (#375 pixel-exact bounded source-port evidence)
 
 - The remaining HUD drift came from collapsing VDP-facing sprite-table state

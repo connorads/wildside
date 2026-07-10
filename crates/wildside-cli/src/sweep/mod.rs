@@ -1121,7 +1121,13 @@ fn idle_sweep_scenario_for_tier(level_id: u8, requested_tier: SweepTier) -> Dyna
     if requested_tier == SweepTier::Full {
         idle_level_full_frame_scenario(level_id)
     } else {
-        idle_level_scenario(level_id, None)
+        let mut scenario = idle_level_scenario(level_id, None);
+        // ASM loc_1AE2E: state evidence starts only after the title-card
+        // object consumes Start and the target has held live gameplay for the
+        // settled recording window. Without this, every oracle checkpoint is
+        // still Game_Mode=$0008 and the 69-level sweep proves nothing.
+        scenario.settle_oracle_warp = true;
+        scenario
     }
 }
 
@@ -1174,7 +1180,7 @@ fn classify_state_diff(
         return DivergenceCategory::Advisory;
     }
 
-    DivergenceCategory::Authoritative
+    diff.category
 }
 
 fn divergence_summary_with(category: DivergenceCategory) -> DivergenceSummary {
@@ -4466,6 +4472,29 @@ mod tests {
     }
 
     #[test]
+    fn contextual_reclassification_preserves_evidence_based_oracle_limitation() {
+        let diff = StateDiff {
+            checkpoint: "idle_tail".into(),
+            field: "number_objects".into(),
+            native_value: "6".into(),
+            oracle_value: "5".into(),
+            category: DivergenceCategory::OracleLimitation,
+        };
+
+        let category = classify_state_diff(
+            &diff,
+            &std::collections::HashSet::new(),
+            &std::collections::HashSet::new(),
+        );
+
+        assert_eq!(
+            category,
+            DivergenceCategory::OracleLimitation,
+            "ASM Dragon.asm loc_3D086 object-pass sampling evidence must survive the later death-gap/oracle-bootstrap context pass"
+        );
+    }
+
+    #[test]
     fn paused_oracle_supersedes_death_gap_for_position_diffs() {
         // When a checkpoint is BOTH death-gap (native HP=0) and oracle-paused
         // (oracle stuck on title or pause menu), the oracle's position is
@@ -5226,6 +5255,10 @@ mod tests {
 
         assert_eq!(state.slug, "idle_level_01");
         assert_eq!(state.checkpoints.len(), 2);
+        assert!(
+            state.settle_oracle_warp,
+            "ASM loc_1AE2E state sweeps must start after the oracle reaches stable target gameplay instead of masking title-card checkpoints"
+        );
         assert_eq!(full.slug, "idle_level_full_frames_01");
         assert_eq!(
             full.checkpoints

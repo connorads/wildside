@@ -20162,7 +20162,25 @@ impl NativeRuntime {
             let resource_level = wildside_data::resource_level_id(&self.assets, level_id.0);
             layout_dir.join(format!("{resource_level:02X}.blocklist.bin"))
         };
-        let data = self.assets_source.read(&path).ok()?;
+        let data = match self.assets_source.read(&path) {
+            Ok(data) => data,
+            Err(_) if self.decode_level_layout(level_id).is_some() => {
+                // ASM loc_11C7E builds the interactive block lists while it
+                // applies the decoded BLOCK stream. Native already applies
+                // that stream to the collision grid in `decode_level_layout`;
+                // keep the decoded terrain usable when no oracle RAM sidecar
+                // exists instead of discarding the whole level as empty void.
+                // TODO(fidelity): synthesise prize/ghost/teleporter/hidden
+                // records from the loc_11C7E stream for undumped resources.
+                return Some(terrain::BlockList {
+                    prize_blocks: Vec::new(),
+                    ghost_blocks: Vec::new(),
+                    teleporters: Vec::new(),
+                    hidden_blocks: Vec::new(),
+                });
+            }
+            Err(_) => return None,
+        };
         let mut block_list =
             terrain::BlockList::from_raw_with_level_layout(&data, layout_width, grid)
                 .with_blank_top_rows_sub_140F6(blank_top_rows, layout_width);

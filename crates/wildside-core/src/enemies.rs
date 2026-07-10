@@ -3859,12 +3859,15 @@ fn activate_enemies_with_rng_inner(
                 tar_monster_state: TarMonsterState::default(),
                 spinning_twins_phase: SpinningTwinsPhase::default(),
                 spinning_twins_orbit_index: 0,
-                ufo_beam_segments: lion_runtime_fields
-                    .map_or(0, |runtime| runtime.ufo_beam_segments as u8),
+                // ASM Lion.asm loc_3DFF0 `$48/$4A` are hitbox dimensions,
+                // not Lion projectile count `$5B` or phase/token `$71`.
+                // ActiveEnemy reuses these fields only for the UFO beam and
+                // Lion projectile bookkeeping, so every new Lion starts clear.
+                ufo_beam_segments: 0,
                 ufo_beam_interval: if matches!(family, EnemyFamily::Cloud) {
                     cloud_idle_sprite_reset_loc_35CD2().d2 as u8
                 } else {
-                    lion_runtime_fields.map_or(0, |runtime| runtime.ufo_beam_interval as u8)
+                    0
                 },
                 ufo_on_screen_latch: matches!(family, EnemyFamily::Cloud),
                 boss_head_index: if is_multi_head_boss(family) {
@@ -10689,6 +10692,70 @@ mod tests {
     }
 
     #[test]
+    fn lion_spawn_keeps_hitbox_words_separate_from_projectile_slots_loc_3dff0() {
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![0x0012, 0xFFFF, 0xFFFF],
+            unknown_word: 0x7D00,
+            header_byte: 0x80,
+            object_count: 1,
+            objects: vec![wildside_data::EnemyLayoutObject {
+                object_type: 0x12,
+                flags: 0xFF,
+                hit_points_plus_one: 1,
+                x: 200,
+                y: 144,
+            }],
+            segments: vec![wildside_data::EnemyLayoutSegment {
+                lower_bound: 0,
+                upper_bound: 0x7D00,
+                enemy_type_slots: vec![0x0012, 0xFFFF, 0xFFFF],
+                object_batch_flags: 0x80,
+                object_count: 1,
+                objects: vec![wildside_data::EnemyLayoutObject {
+                    object_type: 0x12,
+                    flags: 0xFF,
+                    hit_points_plus_one: 1,
+                    x: 200,
+                    y: 144,
+                }],
+            }],
+        };
+        let mut active = Vec::new();
+
+        activate_enemies(
+            &mut active,
+            &layout,
+            ActivationWindow {
+                x_min: 0,
+                x_max: 640,
+                y_min: 0,
+                y_max: 480,
+            },
+            0,
+            0,
+            physics::LevelBounds {
+                width_pixels: 4096,
+                height_pixels: 512,
+            },
+            0,
+            0,
+            &std::collections::HashSet::new(),
+        );
+
+        let lion = active.first().expect("Lion should activate");
+        assert_eq!(lion.family, EnemyFamily::Lion);
+        assert_eq!(
+            (lion.ufo_beam_segments, lion.ufo_beam_interval),
+            (0, 0),
+            "ASM Lion.asm loc_3DFF0 writes hitbox half-width `$14` to `$48(a5)` and height `$2F` to `$4A(a5)`; native projectile count `$5B(a5)` and owner token `$71(a5)` must remain clear"
+        );
+        assert_eq!(lion.wait_timer, LION_CHARGE_TIMER_INIT);
+        assert_eq!(lion.shared_walker_state, SHARED_WALKER_STATE_PATROL);
+    }
+
+    #[test]
     fn ninja_spawn_uses_loc_3d554_hp_seed() {
         let layout = EnemyLayout {
             axis_uses_y_position: false,
@@ -12310,7 +12377,7 @@ impl NativeRuntime {
             );
             self.ensure_heady_metal_breakup_slots_loc_39247();
             if frame.camera_x_pos == final_camera_x_pos
-                && frame.camera_y_pos == final_camera_y_pos
+                && (level_id != LevelId(0x1B) || frame.camera_y_pos == final_camera_y_pos)
                 && level_id != LevelId(0)
                 && level_id != LevelId(1)
             {
@@ -12320,10 +12387,12 @@ impl NativeRuntime {
                 // loc_3E7CA's off-ledge charge fall; Level 0x06's Flying Dragon
                 // proves the same tail must age active families through
                 // Dragon_Flying.asm loc_34710 -> loc_348A0 -> loc_34BAC before
-                // the recording helper's 60 visible live frames begin. Use
-                // both axes here: vertical sky starts such as Level 0x1B keep
-                // `Camera_X_pos` stable from step 0 while `Camera_Y_pos` is
-                // still converging.
+                // the recording helper's 60 visible live frames begin.
+                // Level 0x1B is the proven exception: its horizontal camera is
+                // stable from step 0 while the vertical sky-start camera still
+                // converges, and Sphere.asm loc_35F70 oracle state requires
+                // waiting for both axes there. Other levels retain the
+                // loc_368A8 horizontal-window scheduling pinned by Level 0x07.
                 step_active_enemies_with_rng(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),

@@ -11,6 +11,53 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #376
+
+Opened 2026-07-10 from proactive verification of the whole-level state sweep.
+Enabling the existing stable oracle title-card settle gives Level 0 two real,
+unmasked checkpoints instead of masking the entire run as an oracle limitation.
+The settle checkpoint is exact, but the idle-tail checkpoint diverges after
+native walking-Dragon breath damages Kid one frame early. Framewise comparison
+is exact through frame 301; native enters projectile damage at frame 302 while
+oracle remains stationary until frame 303. Native repro: yes. Oracle status:
+authoritative. Minimum gate: `1p-accurate`.
+
+ASM `Mode_Level` runs `Execute_Objects`, then `GfxObjects_MoveAndAnimate`, then
+the Kid-projectile collision passes and `sub_1D76`; `Dragon.asm loc_3D082`
+hibernates before polling the live breath child. Native currently advances all
+projectiles immediately before testing their new positions for Kid contact in
+`resolve_frame_hazards`. Root-cause hypothesis: the native contact pass observes
+the Dragon child at its next-frame position. Pin the contact ordering with a
+focused regression before changing the shared projectile path.
+
+Resolved 2026-07-10. The initial Dragon-contact diagnosis was false: Level 0
+was one hidden settle pass old, so recording frame 0 now supplies the 60th
+`loc_1AE2E` live pass. Its full 359-frame player/camera CRC trace then matches
+oracle exactly. The wider sweep had two independent infrastructure defects:
+state scenarios never enabled recording-oracle settle, and contextual
+reclassification replaced evidence-backed oracle limitations with the default
+authoritative category. Both now have regressions.
+
+Real checkpoints exposed three pre-existing native bugs. Lion init copied ASM
+hitbox words `$48/$4A` into native projectile bookkeeping fields `$5B/$71`,
+suppressing roar/fire; those slots now start clear. The Level 0x1B Sphere fix
+also made every recording settle require final camera Y before enemy scheduling,
+under-ageing Level 0x07's Lion; only the vertical Sphere level keeps that gate.
+Finally, logical Level 0x09 maps to resource 0x56 and had no RAM block-list
+sidecar. Native decoded its `loc_11C7E` terrain successfully, then discarded the
+grid because the sidecar was absent, making Kid fall through the level and
+eventually producing the misleading Dragon breath. Decoded terrain now remains
+usable with a deliberately empty interactive list; full list synthesis is #378.
+
+Fresh canonical state sweep report `.cache/sweep-runs/1783724200/report.json`
+reaches at least one real checkpoint on every one of the 69 BCD levels: 29 pass,
+40 fail, 175 authoritative diffs, 5 advisory diffs, and 44 oracle limitations.
+This resolves the verification blindness rather than claiming whole-game
+parity. The first actionable failure moves to #377 (Level 0x10 object roster).
+`verify-slice-fast` passes (6,804 core tests, 13 CLI gameplay regressions, clean
+clippy/ASM/debug/backlog gates), and `verify-tas-full` keeps all 37,759 CRC
+frames equal with #290's unchanged 212-authoritative / 2-limitation baseline.
+
 ### #375
 
 Opened 2026-07-10 from proactive verification of the `1p-accurate` visual lane.
@@ -11267,6 +11314,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 376 | [x] | P1 | verify/state | State sweeps now enter real settled gameplay and preserve evidence categories; exposed Lion lifecycle and Level 0x09 terrain failures are corrected. | Report `1783724200`: all 69 BCD levels have real checkpoints; 29 pass / 40 actionable fail. Focused Level 0/7/9 regressions and required gates. See archive #376. |
 | 375 | [x] | P2 | Rendering | Early Level 0 source-port frames now match oracle pixels at all four bounded release checkpoints. | `source_port_frame_oracle:level_00_early` is state exact, unmasked, and pixel exact; strict `1p-accurate` gate requires MAE 0 / zero changed pixels. See archive #375. |
 | 319 | [x] | P3 | audio | Umbrella: `audio-triggers-fidelity-audit.md` has no standalone backlog candidates left after recheck; concrete trigger gaps are resolved, blocked under human/audio-device rows, or owned by broader #160/GEMS-driver architecture. | Rechecked audit backlog-candidate table, archive #319, and `backlog-validation-2026-06-14`; no code patch warranted. See archive #319. |
 | 320 | [x] | P3 | camera | Umbrella: `camera-fidelity-audit.md` has no standalone backlog candidates left after recheck; all six candidate camera rows are already `[x]` and the audit reports 0 confirmed gaps. | Rechecked audit backlog-candidate table, archive #320, and `backlog-validation-2026-06-14`; no code patch warranted. See archive #320. |
