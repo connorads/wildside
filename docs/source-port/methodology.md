@@ -143,9 +143,9 @@ Once the active TAS frontier is closed, keep the verification lanes separate:
 
 The visual steps have different meanings. `source_port_frame_oracle:level_00_early`
 renders the source-port scene at four settled-warp Level 0 checkpoints and requires
-exact state, no masked checkpoints, complete diff images, MAE <=1.750, and at most
-2,293 changed pixels. It is a reviewable regression ratchet, not pixel-perfect or
-authoritative cold-boot evidence. The legacy `frame_oracle:*` steps render the ROM
+exact state, no masked checkpoints, complete diff images, MAE 0, and zero changed
+pixels. It is bounded pixel-exact evidence, not authoritative cold-boot or
+whole-game evidence. The legacy `frame_oracle:*` steps render the ROM
 through wildside-md and compare that VDP output with jgenesis; they test emulator
 shell/capture behaviour, not source-port pixels.
 
@@ -170,6 +170,13 @@ checkpoints with exact state; worst visual drift is MAE `1.677` and `2,293` chan
 pixels at frame 30. The embedded state sweep is
 `.cache/sweep-runs/1783701669/report.json`: 69/69 passed but `verified=0/69`, with
 all 1,011 diffs classified as oracle limitations.
+
+2026-07-10 later refresh: `env TMPDIR=/tmp mise run release-gate` passes at
+timestamp `1783717381`. Its four unmasked Level 0 source-port checkpoints have
+exact state, MAE `0.000`, and zero changed pixels under the exact visual
+baseline. The embedded state sweep is
+`.cache/sweep-runs/1783717406/report.json`: 69/69 passed but `verified=0/69`,
+with all 1,011 diffs classified as oracle limitations.
 
 On 2026-04-22 those lanes were green but still intentionally separate (dated record; bullets below reference the orchestrator retired in the 2026-06-10 autonomy demolition, tag `pre-autonomy-demolition`):
 

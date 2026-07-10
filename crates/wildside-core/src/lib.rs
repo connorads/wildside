@@ -555,6 +555,9 @@ pub struct NativeRuntime {
     /// `($FFFFFB5E).w`.
     options_menu_panel_delta: i16,
     level_timer: LevelTimer,
+    /// Whole seconds encoded into the timer digit entries most recently built
+    /// in `Sprite_Table` by ASM Make_SpriteAttr_HUD loc_BEE8.
+    hud_timer_sprite_seconds_loc_bee8: u16,
     hud_animation_state: boot::HudAnimationStateSub44DC,
     /// Camera Y look-ahead accumulator ($FFFFFB58): +1 per frame while down held
     /// and grounded, -8 per frame on release, clamped to [0, 30].
@@ -1348,6 +1351,7 @@ impl NativeRuntime {
             options_menu_right_panel_x: 0x0110,
             options_menu_panel_delta: 0x0118,
             level_timer: LevelTimer::new(),
+            hud_timer_sprite_seconds_loc_bee8: LEVEL_TIMER_START_SECONDS,
             hud_animation_state: boot::HudAnimationStateSub44DC::initialised_from_sub_44_b0(),
             y_look_offset: 0,
             camera_last_kid_y: 0,

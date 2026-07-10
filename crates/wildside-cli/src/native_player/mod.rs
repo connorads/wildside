@@ -2535,6 +2535,7 @@ mod tests {
             iron_knight_climbing: false,
             iron_knight_climb_pose_accum: 0,
             hud_diamond_frame_offset: None,
+            hud_timer_sprite_seconds_loc_bee8: None,
             hud_life_frame_offset: None,
             berzerker_charging: false,
             berzerker_charge_pose: false,
@@ -11505,12 +11506,14 @@ mod tests {
         previous.camera_y_pos = 0x05BC_0000;
         previous.kid_x_pos = Some(0x0040_0000);
         previous.kid_y_pos = Some(0x0660_0000);
+        previous.hud_timer_sprite_seconds_loc_bee8 = Some(179);
 
         let mut trace = previous.clone();
         trace.camera_x_pos = 0x0011_0000;
         trace.camera_y_pos = 0x05BD_0000;
         trace.kid_x_pos = Some(0x0042_0000);
         trace.kid_y_pos = Some(0x0664_0000);
+        trace.hud_timer_sprite_seconds_loc_bee8 = Some(178);
 
         let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
 
@@ -11523,6 +11526,11 @@ mod tests {
             (render_trace.kid_x_pos, render_trace.kid_y_pos),
             (previous.kid_x_pos, previous.kid_y_pos),
             "ASM Mode_Level transfers Kid's previous sprite state before Execute_Objects advances the post-update gameplay trace"
+        );
+        assert_eq!(
+            render_trace.hud_timer_sprite_seconds_loc_bee8,
+            previous.hud_timer_sprite_seconds_loc_bee8,
+            "ASM Mode_Level loc_901 presents the timer entries previously built by Make_SpriteAttr_HUD loc_BEE8"
         );
     }
 
@@ -11909,6 +11917,19 @@ mod tests {
             super::scene::wrap_layered_background_x_loc_11b7a(520, 512),
             8,
             "tiles that pass the full 512px row should wrap back into the visible Plane B range",
+        );
+        assert_eq!(
+            super::scene::layered_background_tile_screen_xs_loc_11b7a(505, 512),
+            [-7, 505, 1017],
+            "ASM loc_11B7A's wrapping Plane B repeats the final 8px tile across the left edge when row H-scroll leaves a 1..7px phase",
+        );
+        assert!(
+            super::scene::layered_background_tile_horizontal_visible_sub_30598(-8, Some(17)),
+            "ASM BackgroundScroll_ApplyForestWaterRipple loc_30598-loc_3060A may move the wrapped x=-8 tile into the viewport by 8 pixels",
+        );
+        assert!(
+            !super::scene::layered_background_tile_horizontal_visible_sub_30598(-16, Some(17)),
+            "the maximum loc_3060A forest ripple offset is 8 pixels",
         );
         assert_eq!(
             super::scene::wrap_layered_background_y_loc_11b7a(-400, 392),
@@ -19914,6 +19935,57 @@ mod tests {
             ),
             (2, 10, 5, 9),
             "ASM loc_BEE8 writes timer digits from $86BA+d and sub_BD0A rewrites the fixed timer row to unk_BD8E positions $90,$98,$9D,$A5"
+        );
+    }
+
+    #[test]
+    fn release_visual_level_settle_uses_built_timer_sprite_loc_bee8() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = crate::scenarios::release_visual_level_00_early_scenario();
+        let run = crate::scenarios::run_native_dynamic_scenario_with_render_latch(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("release visual native trace");
+        let render_trace = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            60,
+            Some(&run.initial_render_latch),
+            "level_settle",
+        )
+        .expect("release visual level-settle render trace");
+        let first_render_trace = trace_frame_with_vdp_latch_at_checkpoint(
+            &run.trace,
+            0,
+            Some(&run.initial_render_latch),
+            "frame_000",
+        )
+        .expect("release visual frame-zero render trace");
+
+        assert_eq!(
+            first_render_trace.hud_timer_sprite_seconds_loc_bee8,
+            Some(180),
+            "ASM loc_1AE2E recording frame 0 presents the initial 3:00 timer table built at Make_SpriteAttr_HUD loc_BEE8"
+        );
+        assert_eq!(
+            (
+                render_trace.level_timer_seconds,
+                render_trace.hud_timer_sprite_seconds_loc_bee8,
+            ),
+            (178, Some(179)),
+            "ASM Mode_Level loc_901 presents the 2:59 timer table built at Make_SpriteAttr_HUD loc_BEE8 while post-update timer RAM has reached 2:58"
+        );
+        assert_eq!(
+            (
+                render_trace.hud_diamond_frame_offset,
+                render_trace.level_skip_cheat_enabled,
+                render_trace.level_completion_time,
+            ),
+            (Some(6), 0, 2),
+            "ASM sub_44DC loc_45EE exposes the native diamond script phase carried into the release checkpoint"
         );
     }
 

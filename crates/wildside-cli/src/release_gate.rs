@@ -134,8 +134,8 @@ const FULL_BOOT_GAMEPLAY_VERIFY_SCENARIOS: &[GameplayScenario] = &[
 ];
 
 const SOURCE_PORT_VISUAL_CHECKPOINTS: usize = 4;
-const SOURCE_PORT_VISUAL_MAX_MAE: f32 = 0.500;
-const SOURCE_PORT_VISUAL_MAX_PIXEL_MISMATCHES: usize = 301;
+const SOURCE_PORT_VISUAL_MAX_MAE: f32 = 0.0;
+const SOURCE_PORT_VISUAL_MAX_PIXEL_MISMATCHES: usize = 0;
 
 pub(crate) fn run_release_gate(
     repo_root: &Path,
@@ -773,8 +773,8 @@ mod tests {
             tier: sweep::SweepTier::Full,
             passed: true,
             state_diffs: Vec::new(),
-            mae: Some(0.495),
-            pixel_mismatches: Some(301),
+            mae: Some(0.0),
+            pixel_mismatches: Some(0),
             diff_images: (0..4).map(|index| format!("diff_{index}.png")).collect(),
             error: None,
             divergence_summary: sweep::DivergenceSummary::default(),
@@ -828,8 +828,8 @@ mod tests {
             .expect("complete visual evidence should pass");
 
         assert!(detail.contains("4 unmasked source-port checkpoints"));
-        assert!(detail.contains("worst MAE 0.495"));
-        assert!(detail.contains("301 changed pixels"));
+        assert!(detail.contains("worst MAE 0.000"));
+        assert!(detail.contains("0 changed pixels"));
 
         let mut exact_boundary = source_port_visual_result();
         exact_boundary.mae = Some(SOURCE_PORT_VISUAL_MAX_MAE);
@@ -940,21 +940,21 @@ mod tests {
         }
 
         let mut result = source_port_visual_result();
-        result.mae = Some(0.501);
+        result.mae = Some(0.001);
         assert!(
             assess_source_port_visual_evidence(&result)
                 .expect_err("MAE regression should fail")
                 .to_string()
-                .contains("exceeds 0.500 baseline")
+                .contains("exceeds 0.000 baseline")
         );
 
         let mut result = source_port_visual_result();
-        result.pixel_mismatches = Some(302);
+        result.pixel_mismatches = Some(1);
         assert!(
             assess_source_port_visual_evidence(&result)
                 .expect_err("changed-pixel regression should fail")
                 .to_string()
-                .contains("exceed 301 baseline")
+                .contains("exceed 0 baseline")
         );
     }
 

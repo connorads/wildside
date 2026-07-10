@@ -7632,6 +7632,7 @@ impl NativeRuntime {
                 self.helmet.iron_knight_climb_pose_accum
             },
             hud_diamond_frame_offset: Some(self.hud_animation_state.diamond_frame_offset_fb5d),
+            hud_timer_sprite_seconds_loc_bee8: Some(self.hud_timer_sprite_seconds_loc_bee8),
             hud_life_frame_offset: Some(self.hud_animation_state.life_frame_offset_fb5e),
             berzerker_charging: if hidden_boot_progression {
                 false

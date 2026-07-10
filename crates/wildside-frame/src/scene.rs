@@ -1059,6 +1059,8 @@ pub fn render_trace_with_vdp_latched_state(
         render_trace.number_lives = previous_trace.number_lives;
         render_trace.diamond_count = previous_trace.diamond_count;
         render_trace.hud_diamond_frame_offset = previous_trace.hud_diamond_frame_offset;
+        render_trace.hud_timer_sprite_seconds_loc_bee8 =
+            previous_trace.hud_timer_sprite_seconds_loc_bee8;
         render_trace.level_timer_seconds = previous_trace.level_timer_seconds;
     }
     if matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
@@ -1100,6 +1102,8 @@ pub fn render_trace_with_vdp_latched_state(
         // the next frame's Make_SpriteAttr_HUD/sub_BDC0-built symbol becomes
         // visible, so the HUD diamond page is latched from the previous trace.
         render_trace.hud_diamond_frame_offset = previous_trace.hud_diamond_frame_offset;
+        render_trace.hud_timer_sprite_seconds_loc_bee8 =
+            previous_trace.hud_timer_sprite_seconds_loc_bee8;
         if trace.form_change_flash_frames > 0 && previous_trace.form_change_flash_frames > 0 {
             // ASM Kid_Transform loc_7CD0 hibernates the player coroutine while
             // Mode_Level still reaches loc_80C/sub_44DC. Oracle frames show
@@ -2140,7 +2144,7 @@ pub fn push_background_tiles(
                     row_index,
                 );
                 for (column, tile) in row.tiles.iter().enumerate() {
-                    let (mut screen_x, screen_y) = background_tile_screen_position(
+                    let (screen_x, screen_y) = background_tile_screen_position(
                         trace,
                         level_visuals,
                         column as u16,
@@ -2151,28 +2155,38 @@ pub fn push_background_tiles(
                     let screen_y = row_height_px.map_or(screen_y, |row_height_px| {
                         wrap_layered_background_y_loc_11b7a(screen_y, row_height_px)
                     });
-                    if wrap_row && let Some(row_width_px) = row_width_px {
-                        screen_x = wrap_layered_background_x_loc_11b7a(screen_x, row_width_px);
+                    let (screen_xs, screen_x_count) = if wrap_row {
+                        row_width_px.map_or(([screen_x, 0, 0], 1), |row_width_px| {
+                            (
+                                layered_background_tile_screen_xs_loc_11b7a(screen_x, row_width_px),
+                                3,
+                            )
+                        })
+                    } else {
+                        ([screen_x, 0, 0], 1)
+                    };
+                    for screen_x in screen_xs.into_iter().take(screen_x_count) {
+                        if !layered_background_tile_horizontal_visible_sub_30598(
+                            screen_x,
+                            background.effect_start_row_selector,
+                        ) || screen_y <= -8
+                            || screen_y >= FRAME_HEIGHT as i32
+                        {
+                            continue;
+                        }
+                        push_layered_background_tile(
+                            commands,
+                            trace,
+                            background.effect_start_row_selector,
+                            level_visuals.level.background_theme_id,
+                            camera_y_px,
+                            screen_x,
+                            screen_y,
+                            tile_sheet.clone(),
+                            palette.clone(),
+                            *tile,
+                        );
                     }
-                    if screen_x <= -8
-                        || screen_y <= -8
-                        || screen_x >= FRAME_WIDTH as i32
-                        || screen_y >= FRAME_HEIGHT as i32
-                    {
-                        continue;
-                    }
-                    push_layered_background_tile(
-                        commands,
-                        trace,
-                        background.effect_start_row_selector,
-                        level_visuals.level.background_theme_id,
-                        camera_y_px,
-                        screen_x,
-                        screen_y,
-                        tile_sheet.clone(),
-                        palette.clone(),
-                        *tile,
-                    );
                 }
             }
         }
@@ -2502,7 +2516,7 @@ pub fn sample_background_pixel_loc_c070(
                     row_index,
                 );
                 for (column, tile) in row.tiles.iter().enumerate() {
-                    let (mut screen_x, screen_y) = background_tile_screen_position(
+                    let (screen_x, screen_y) = background_tile_screen_position(
                         trace,
                         level_visuals,
                         column as u16,
@@ -2513,26 +2527,35 @@ pub fn sample_background_pixel_loc_c070(
                     let screen_y = row_height_px.map_or(screen_y, |row_height_px| {
                         wrap_layered_background_y_loc_11b7a(screen_y, row_height_px)
                     });
-                    if wrap_row && let Some(row_width_px) = row_width_px {
-                        screen_x = wrap_layered_background_x_loc_11b7a(screen_x, row_width_px);
-                    }
-                    if let Some(hit) = sample_layered_background_tile_pixel(
-                        trace,
-                        level_visuals,
-                        &tile_sheet,
-                        &palette,
-                        background.effect_start_row_selector,
-                        camera_y_px,
-                        screen_x,
-                        screen_y,
-                        row_index,
-                        row.selector,
-                        column,
-                        *tile,
-                        sample_x,
-                        sample_y,
-                    ) {
-                        sample = Some(hit);
+                    let (screen_xs, screen_x_count) = if wrap_row {
+                        row_width_px.map_or(([screen_x, 0, 0], 1), |row_width_px| {
+                            (
+                                layered_background_tile_screen_xs_loc_11b7a(screen_x, row_width_px),
+                                3,
+                            )
+                        })
+                    } else {
+                        ([screen_x, 0, 0], 1)
+                    };
+                    for screen_x in screen_xs.into_iter().take(screen_x_count) {
+                        if let Some(hit) = sample_layered_background_tile_pixel(
+                            trace,
+                            level_visuals,
+                            &tile_sheet,
+                            &palette,
+                            background.effect_start_row_selector,
+                            camera_y_px,
+                            screen_x,
+                            screen_y,
+                            row_index,
+                            row.selector,
+                            column,
+                            *tile,
+                            sample_x,
+                            sample_y,
+                        ) {
+                            sample = Some(hit);
+                        }
                     }
                 }
             }
@@ -5241,6 +5264,36 @@ pub fn wrap_layered_background_x_loc_11b7a(screen_x_px: i32, row_width_px: i32) 
         wrapped -= row_width_px;
     }
     wrapped
+}
+
+pub fn layered_background_tile_screen_xs_loc_11b7a(
+    screen_x_px: i32,
+    row_width_px: i32,
+) -> [i32; 3] {
+    // ASM loc_11B7A composes the layered background in a wrapping Plane B
+    // nametable. A row whose H-scroll phase is 1..7 pixels therefore presents
+    // the final tile again at the left edge, rather than exposing backdrop.
+    let wrapped = wrap_layered_background_x_loc_11b7a(screen_x_px, row_width_px);
+    [
+        wrapped.saturating_sub(row_width_px),
+        wrapped,
+        wrapped.saturating_add(row_width_px),
+    ]
+}
+
+pub fn layered_background_tile_horizontal_visible_sub_30598(
+    screen_x_px: i32,
+    effect_start_row_selector: Option<u8>,
+) -> bool {
+    // ASM BackgroundScroll_ApplyForestWaterRipple loc_30598-loc_3060A can
+    // shift a scanline right by 8 pixels. Keep the wrapping tile at x=-8
+    // alive until the per-scanline effect moves it into the viewport.
+    let effect_margin = if effect_start_row_selector.is_some() {
+        8
+    } else {
+        0
+    };
+    screen_x_px > -8 - effect_margin && screen_x_px < FRAME_WIDTH as i32 + effect_margin
 }
 
 pub fn wrap_layered_background_y_loc_11b7a(screen_y_px: i32, row_height_px: i32) -> i32 {

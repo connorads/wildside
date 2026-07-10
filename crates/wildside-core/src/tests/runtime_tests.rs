@@ -6525,6 +6525,11 @@ mod chunk_09 {
         runtime.boot_to_level(LevelId(0));
         runtime.settle_recording_oracle_warp_live_window(LevelId(0));
 
+        assert_eq!(
+            runtime.trace_frame().hud_timer_sprite_seconds_loc_bee8,
+            Some(179),
+            "ASM Mode_Level loc_901 transfers the timer digits previously built by Make_SpriteAttr_HUD loc_BEE8; reseeding live timer RAM must not rewrite that sprite table",
+        );
         let first_recorded_frame = runtime.step_frame(FrameInput::default());
         assert_eq!(
             (
@@ -6534,6 +6539,11 @@ mod chunk_09 {
             ),
             (0x003D, 179, 0x003C),
             "ASM loc_3038A/Make_SpriteAttr_HUD loc_BE82: Level 0 oracle frame 0 exposes Time_Frames=$003D and timer 2:59/$003C",
+        );
+        assert_eq!(
+            first_recorded_frame.hud_timer_sprite_seconds_loc_bee8,
+            Some(179),
+            "ASM Make_SpriteAttr_HUD loc_BEE8 rebuilds the next timer sprite table from the decremented 2:59 live digits",
         );
         let first_dragon = first_recorded_frame
             .active_objects

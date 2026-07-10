@@ -272,6 +272,11 @@ impl NativeRuntime {
             self.level_timer.seconds = RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0;
             self.level_timer.sub_frames = RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0;
         }
+        // ASM loc_1AE2E's recording hand-off exposes the initial 3:00 table
+        // before the first scenario step. The adapter reseeds timer RAM above
+        // after collapsing the hidden settle window, so reseed the loc_BEE8
+        // sprite-table value at the same boundary.
+        self.hud_timer_sprite_seconds_loc_bee8 = self.level_timer.seconds;
         let extra_ghost_block_ticks = recording_oracle_warp_extra_ghost_block_ticks(level_id);
         if extra_ghost_block_ticks != 0 {
             // ASM loc_124A6 seeds ghost-block descriptors and sub_F730 ticks
@@ -898,6 +903,11 @@ mod tests {
             (runtime.level_timer.seconds, runtime.level_timer.sub_frames),
             (180, 1),
             "ASM loc_3038A/Make_SpriteAttr_HUD loc_BE82 Level 0 recording settle seeds the state immediately before oracle frame 0 reaches 2:59/$3C"
+        );
+        assert_eq!(
+            runtime.trace_frame().hud_timer_sprite_seconds_loc_bee8,
+            Some(180),
+            "ASM loc_1AE2E presents the initial 3:00 timer table built by Make_SpriteAttr_HUD loc_BEE8 at recording frame zero"
         );
     }
 

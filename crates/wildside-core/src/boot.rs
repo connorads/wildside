@@ -6005,6 +6005,7 @@ impl NativeRuntime {
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
         self.level_timer = LevelTimer::new();
+        self.hud_timer_sprite_seconds_loc_bee8 = LEVEL_TIMER_START_SECONDS;
         self.time_frames_loc_3038a = 0;
         self.level_damage_taken = false;
         self.level_prize_collected = false;
@@ -7794,6 +7795,7 @@ impl NativeRuntime {
         self.init_murder_wall(self.current_level, 0);
         self.init_weather(self.current_level);
         self.level_timer = LevelTimer::new();
+        self.hud_timer_sprite_seconds_loc_bee8 = LEVEL_TIMER_START_SECONDS;
         self.level_damage_taken = false;
         self.level_prize_collected = false;
         self.level_speed_bonus_awarded = false;

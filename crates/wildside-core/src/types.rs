@@ -1551,6 +1551,10 @@ pub struct NativeTraceFrame {
     /// currently uploaded HUD diamond page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hud_diamond_frame_offset: Option<u8>,
+    /// ASM Make_SpriteAttr_HUD loc_BEE8: whole seconds encoded into the most
+    /// recently built HUD timer sprite entries. `None` denotes legacy traces.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hud_timer_sprite_seconds_loc_bee8: Option<u16>,
     /// ASM sub_44DC loc_4546 `$FFFFFA5E`: byte offset into `AniArt_LifeIcon`
     /// for the currently uploaded HUD life-icon page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1957,6 +1961,7 @@ impl Default for NativeTraceFrame {
             iron_knight_climbing: false,
             iron_knight_climb_pose_accum: 0,
             hud_diamond_frame_offset: None,
+            hud_timer_sprite_seconds_loc_bee8: None,
             hud_life_frame_offset: None,
             berzerker_charging: false,
             berzerker_charge_pose: false,

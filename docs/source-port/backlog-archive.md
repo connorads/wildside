@@ -75,6 +75,24 @@ release baselines ratchet to `0.500` / `301`. Region counts are HUD 53-106,
 background 8-74, actors 118-125, foreground 0; #375 remains open for those
 pixel differences.
 
+Closed 2026-07-10: the final residuals were VDP-facing state and Plane B edge
+semantics. Native now retains the `Make_SpriteAttr_HUD loc_BEE8` timer-table
+seconds separately from later timer RAM, reconstructs direct `loc_1AE2E`
+recording phases for `AniArt_LifeIcon loc_4546/loc_4586` and diamond
+`loc_45EE`, and keeps the forest ripple's wrapped final column available for
+`loc_30598..loc_3060A` to shift onto screen. Focused regressions cover the
+recording boundary, HUD DMA pages, and layered-row wrapping. Fresh strict
+`1p-accurate` report
+`.cache/release-gate/1p-accurate/1783717381/report.json` passes after ratcheting
+the visual policy to MAE `0.000` / zero changed pixels: all four Level 0
+checkpoints are state exact, unmasked, and pixel exact. The embedded sweep
+`.cache/sweep-runs/1783717406/report.json` still verifies 0/69 levels because
+all 1,011 diffs are oracle limitations; it is not whole-game fidelity evidence.
+`verify-slice-fast` and `verify-tas-full` pass; the latter retains CRC equality
+for all 37,759 frames and #290's known 212-authoritative / 2-oracle-limitation
+checkpoint baseline. The bounded visual issue is resolved without broadening
+those claims.
+
 ### #271
 
 Reopened 2026-07-02 after renewed human validation failure: jumping on RockTank
@@ -11249,6 +11267,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 375 | [x] | P2 | Rendering | Early Level 0 source-port frames now match oracle pixels at all four bounded release checkpoints. | `source_port_frame_oracle:level_00_early` is state exact, unmasked, and pixel exact; strict `1p-accurate` gate requires MAE 0 / zero changed pixels. See archive #375. |
 | 319 | [x] | P3 | audio | Umbrella: `audio-triggers-fidelity-audit.md` has no standalone backlog candidates left after recheck; concrete trigger gaps are resolved, blocked under human/audio-device rows, or owned by broader #160/GEMS-driver architecture. | Rechecked audit backlog-candidate table, archive #319, and `backlog-validation-2026-06-14`; no code patch warranted. See archive #319. |
 | 320 | [x] | P3 | camera | Umbrella: `camera-fidelity-audit.md` has no standalone backlog candidates left after recheck; all six candidate camera rows are already `[x]` and the audit reports 0 confirmed gaps. | Rechecked audit backlog-candidate table, archive #320, and `backlog-validation-2026-06-14`; no code patch warranted. See archive #320. |
 | 324 | [x] | P1 | render/block | Fixed 2026-07-02: prize/P block wobble no longer shows the diagonal forest/wood tile under the lifted P block. | Human-confirmed fixed after commit `00e7a6cb1`; exact bundle replay frame 840 and focused before/after crops show lifted P art with no triangle leak. See archive #324. |

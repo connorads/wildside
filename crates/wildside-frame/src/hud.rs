@@ -280,16 +280,16 @@ fn hud_diamond_animation_frame_index(trace: &NativeTraceFrame, frame_count: usiz
         // laid out at offsets 0,2,4,6 for diamond pages 0..3. Normal trace
         // rendering uses the next page because the sampled trace is
         // post-`sub_44DC` while the visible HUD art is the page presented by the
-        // subsequent VBlank. Settled recording compatibility keeps the ROM
-        // `LevelSkip_Cheat` path armed (loc_BB2/loc_74B0) and carries the
-        // one-second `Level_completion_time` seed for loc_D468 while gameplay is
-        // still active; that reduced oracle trace already samples `$FFFFFA5D`
-        // at the visible page.
-        let render_lead = if trace.level_skip_cheat_enabled != 0
-            && trace.level_completion_time == 1
+        // subsequent VBlank. The direct loc_1AE2E recording hand-off reaches
+        // live gameplay with `LevelSkip_Cheat=0` and loc_D468's two-second
+        // completion-time clock. Oracle RAM watches at release frames
+        // 0/30/60/120 show `$FFFFFA5D` two DMA pages ahead of that reduced
+        // native clock.
+        let render_lead = if trace.level_skip_cheat_enabled == 0
+            && trace.level_completion_time > 0
             && !trace.level_complete
         {
-            0
+            HUD_DIAMOND_DMA_PAGE_RENDER_LEAD_LOC_45EE
         } else {
             1
         };
@@ -342,6 +342,15 @@ fn hud_diamond_palette_loc_1223c(
 fn hud_life_icon_tile_base_index_loc_4546(trace: &NativeTraceFrame) -> u16 {
     if trace.level_complete && trace.level_complete_elapsed_frames == 0 {
         4
+    } else if trace.level_skip_cheat_enabled == 0
+        && trace.level_completion_time > 0
+        && !trace.level_complete
+    {
+        // ASM sub_44DC loc_4546/loc_4586 (kid.asm:5592): direct loc_1AE2E
+        // recording hand-offs present the first `AniArt_LifeIcon` DMA page.
+        // Oracle VRAM `$4620` matches ROM page 0 throughout release frames
+        // 0/30/60/120, independently of the reduced native animation offset.
+        0
     } else if trace.level_skip_cheat_enabled != 0
         && trace.level_completion_time == 1
         && !trace.level_complete
@@ -371,6 +380,9 @@ fn hud_life_icon_settled_recording_tile_base_index_loc_4586(offset: Option<u8>) 
 }
 
 fn hud_timer_seconds_loc_c070(trace: &NativeTraceFrame) -> u16 {
+    if let Some(seconds) = trace.hud_timer_sprite_seconds_loc_bee8 {
+        return seconds;
+    }
     if trace.level_complete
         && trace.level_complete_elapsed_frames > 0
         && trace.level_complete_elapsed_frames
@@ -603,22 +615,25 @@ mod tests {
     #[test]
     fn hud_diamond_animation_frame_index_uses_loc_45ee_upload_lead() {
         // ASM sub_44DC loc_45EE: sampled offset pages render one DMA page ahead
-        // in normal gameplay, while settled level-skip recordings expose the
-        // already-visible page.
+        // in normal gameplay. The loc_1AE2E settled recording clock is two
+        // pages behind oracle `$FFFFFA5D`, so its VDP-facing page uses the
+        // two-page upload lead retained by the replay-local fallback.
         let normal_trace = NativeTraceFrame {
             hud_diamond_frame_offset: Some(4),
             ..NativeTraceFrame::default()
         };
         assert_eq!(hud_diamond_animation_frame_index(&normal_trace, 4), 3);
 
-        let settled_trace = NativeTraceFrame {
-            hud_diamond_frame_offset: Some(4),
-            level_skip_cheat_enabled: 1,
-            level_completion_time: 1,
-            level_complete: false,
-            ..NativeTraceFrame::default()
-        };
-        assert_eq!(hud_diamond_animation_frame_index(&settled_trace, 4), 2);
+        for level_completion_time in [1, 2, 3] {
+            let settled_trace = NativeTraceFrame {
+                hud_diamond_frame_offset: Some(4),
+                level_skip_cheat_enabled: 0,
+                level_completion_time,
+                level_complete: false,
+                ..NativeTraceFrame::default()
+            };
+            assert_eq!(hud_diamond_animation_frame_index(&settled_trace, 4), 0);
+        }
 
         let skip_without_settled_completion_time = NativeTraceFrame {
             hud_diamond_frame_offset: Some(4),
@@ -670,6 +685,18 @@ mod tests {
             }),
             4
         );
+        for (level_completion_time, offset) in [(1, 0), (2, 6), (3, 0)] {
+            assert_eq!(
+                hud_life_icon_tile_base_index_loc_4546(&NativeTraceFrame {
+                    hud_life_frame_offset: Some(offset),
+                    level_skip_cheat_enabled: 0,
+                    level_completion_time,
+                    level_complete: false,
+                    ..NativeTraceFrame::default()
+                }),
+                0
+            );
+        }
         assert_eq!(
             hud_life_icon_settled_recording_tile_base_index_loc_4586(Some(4)),
             None
@@ -678,6 +705,17 @@ mod tests {
 
     #[test]
     fn hud_timer_seconds_preserves_visible_loc_c070_boundary_values() {
+        assert_eq!(
+            hud_timer_seconds_loc_c070(&NativeTraceFrame {
+                hud_timer_sprite_seconds_loc_bee8: Some(179),
+                level_timer_seconds: 180,
+                level_timer_sub_frames: 1,
+                game_mode: GameMode::InGame,
+                ..NativeTraceFrame::default()
+            }),
+            179,
+            "ASM Make_SpriteAttr_HUD loc_BEE8 renders the explicitly built timer digits, independently of subsequently reseeded live timer RAM"
+        );
         // ASM CharacterCollision_TouchFlagpole loc_C070: frozen HUD keeps the
         // previous second until the hologram becomes visible.
         assert_eq!(

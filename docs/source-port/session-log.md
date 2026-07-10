@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-10 handoff (#375 pixel-exact bounded source-port evidence)
+
+- The remaining HUD drift came from collapsing VDP-facing sprite-table state
+  into live RAM. Native now traces the `loc_BEE8` timer digits and reconstructs
+  direct-recording life/diamond DMA pages from the `loc_1AE2E` hand-off phase.
+- The remaining forest sliver came from culling Plane B's wrapped final column
+  before `loc_30598..loc_3060A` shifted it onto screen. Layered rows now retain
+  the wrapped neighbours and the eight-pixel ripple margin.
+- Fresh strict `1p-accurate` report `1783717381` passes after ratcheting the
+  visual baseline to exact pixels. Frames 0, 30, 60, and 120 have exact state,
+  no masking, MAE 0.000, and zero changed pixels.
+- #375 moves `[~]` -> `[x]`. This remains a settled-warp Level 0 probe, not
+  cold-boot or whole-game pixel parity. The same gate's sweep remains 0/69
+  genuinely verified checkpoints with 1,011 oracle limitations.
+- `verify-slice-fast` passes, and `verify-tas-full` keeps all 37,759 CRC frames
+  equal with #290's known 212-authoritative / 2-oracle-limitation export baseline.
+- NEXT: no ready/open row remains. Use `loop.md` proactive verification, with
+  the state-sweep oracle reachability gap as the clearest confidence boundary.
+
 ## 2026-07-10 handoff (#375 VDP-latched source-port evidence)
 
 - The generic sweep/release renderer bypassed the existing ASM `Mode_Level
