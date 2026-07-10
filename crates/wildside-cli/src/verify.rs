@@ -681,10 +681,7 @@ pub(crate) fn capture_oracle_pair(
 
     let native = capture_scenario(rom_bytes, scenario)?;
     let native_states = capture_native_states_for_scenario(manifest, scenario);
-    let native = ScenarioCapture {
-        states: native_states,
-        ..native
-    };
+    let native = scenario_capture_with_states(native, native_states);
     write_native_artifacts(&native_dir, &native)?;
     let oracle = run_jgenesis_capture(&env, rom_path, scenario, &oracle_dir)?;
     fs::write(
@@ -703,6 +700,13 @@ pub(crate) fn capture_oracle_pair(
         native,
         oracle,
     })
+}
+
+fn scenario_capture_with_states(
+    native: ScenarioCapture,
+    states: Vec<CapturedState>,
+) -> ScenarioCapture {
+    ScenarioCapture { states, ..native }
 }
 
 pub(crate) fn capture_native_audio_oracle_pair(
@@ -1528,6 +1532,9 @@ pub(crate) fn compare_rgb_frames(native_rgb: &[u8], oracle_rgb: &[u8]) -> Result
             oracle_rgb.len()
         );
     }
+    if native_rgb.is_empty() {
+        bail!("frame buffers are empty; no pixel evidence was captured");
+    }
 
     let mut total_delta = 0u64;
     let mut max_channel_delta = 0u8;
@@ -1602,10 +1609,11 @@ pub(crate) fn contains_u16_subsequence(haystack: &[u16], needle: &[u16]) -> bool
 mod tests {
     use super::{
         AUDIO_FRAME_SAMPLES, audio_event_oracle_window_reports, audio_frame_window, audio_peak,
-        audio_rms, audio_window_metrics, contains_u16_subsequence,
+        audio_rms, audio_window_metrics, compare_rgb_frames, contains_u16_subsequence,
         estimate_zero_crossing_frequency, oracle_scenario_window_samples, parse_audio_event_line,
-        samples_per_video_frame,
+        samples_per_video_frame, scenario_capture_with_states,
     };
+    use crate::capture::{AudioTrace, CapturedState, ScenarioCapture};
 
     fn assert_f32_near(actual: f32, expected: f32) {
         assert!(
@@ -1619,6 +1627,46 @@ mod tests {
             .iter()
             .flat_map(|sample| [*sample, *sample])
             .collect()
+    }
+
+    fn empty_audio_trace() -> AudioTrace {
+        AudioTrace {
+            scenario: String::new(),
+            sample_rate: 44_100,
+            frame_samples: 735,
+            z80_reset_count: 0,
+            first_ym2612_write_frame: None,
+            first_ym2612_write_sample: None,
+            first_ym2612_key_on_frame: None,
+            first_ym2612_key_on_sample: None,
+            first_psg_write_frame: None,
+            first_psg_write_sample: None,
+            first_non_silent_sample: None,
+            first_significant_audio_sample: None,
+            peak_left: 0.0,
+            peak_right: 0.0,
+            frames: Vec::new(),
+        }
+    }
+
+    fn captured_state(label: &str, frame_index: usize) -> CapturedState {
+        CapturedState {
+            label: label.into(),
+            frame_index,
+            game_mode: 0,
+            current_player: 0,
+            number_hitpoints: 0,
+            current_helmet_id: 0,
+            current_level_id: 0,
+            player_1_level_id: 0,
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            kid_x_pos: 0,
+            kid_y_pos: 0,
+            number_objects: 0,
+            number_gfx_objects: 0,
+            active_enemies: Vec::new(),
+        }
     }
 
     #[test]
@@ -1759,5 +1807,45 @@ mod tests {
         assert!(contains_u16_subsequence(&[1, 2, 3, 4], &[]));
         assert!(!contains_u16_subsequence(&[1, 2, 3, 4], &[2, 4]));
         assert!(!contains_u16_subsequence(&[1, 2], &[1, 2, 3]));
+    }
+
+    #[test]
+    fn compare_rgb_frames_reports_exact_mae_and_max_channel_delta() {
+        let diff = compare_rgb_frames(&[0, 10, 255], &[10, 30, 250])
+            .expect("equal-sized RGB buffers should compare");
+
+        assert_f32_near(diff.mean_absolute_error, 35.0 / 3.0);
+        assert_eq!(diff.max_channel_delta, 20);
+
+        let identical = compare_rgb_frames(&[1, 2, 3], &[1, 2, 3])
+            .expect("identical RGB buffers should compare");
+        assert_eq!(identical.mean_absolute_error, 0.0);
+        assert_eq!(identical.max_channel_delta, 0);
+    }
+
+    #[test]
+    fn compare_rgb_frames_rejects_size_mismatch_and_empty_evidence() {
+        let size_error = compare_rgb_frames(&[0, 1, 2], &[0, 1])
+            .expect_err("different-sized RGB buffers must not compare");
+        assert!(size_error.to_string().contains("frame size mismatch"));
+
+        let empty_error = compare_rgb_frames(&[], &[])
+            .expect_err("empty RGB buffers are missing evidence, not a perfect match");
+        assert!(empty_error.to_string().contains("frame buffers are empty"));
+    }
+
+    #[test]
+    fn scenario_capture_with_states_replaces_stale_capture_states() {
+        let native = ScenarioCapture {
+            samples: Vec::new(),
+            frames: Vec::new(),
+            states: vec![captured_state("stale", 1)],
+            audio_trace: empty_audio_trace(),
+        };
+        let current_states = vec![captured_state("current", 2)];
+
+        let capture = scenario_capture_with_states(native, current_states.clone());
+
+        assert_eq!(capture.states, current_states);
     }
 }

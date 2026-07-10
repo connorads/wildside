@@ -24,6 +24,15 @@ velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC stream, or
 change to that checked-in checkpoint baseline; reducing #290 remains separate
 fidelity work.
 
+The visual side has a separate confidence ceiling. `1p-accurate` frame-oracle
+steps compare selected checkpoints with MAE limits (typically 28 or 32) and
+deliberately skip some title/entry pixels, so a passing release gate is not an
+exact-pixel claim. Since 2026-07-10 the RGB comparator rejects empty evidence
+instead of allowing `NaN` MAE to pass, and focused mutation tests pin its exact
+MAE/max-channel arithmetic plus native checkpoint-state replacement. The next
+visual-fidelity step is to replace permissive thresholds/exclusions with
+reviewable per-route pixel baselines, then burn those baselines down toward zero.
+
 As of the 2026-05-18 completion audit, the 1P source-port phase has no open phase blockers: `project-status` reports `1p-playable` and `1p-accurate` green, the published TAS frontier is replay-matched through frame 37759, the canonical backlog has no open phase rows, and the human-validation checklist is empty. Future work should come from fresh reports, post-phase fidelity debt, or broader verification lanes, not from reopening stale TAS/frontier prose. Loop sessions follow `docs/source-port/loop.md`: `backlog.md` is the open queue, the NOW block is the handoff, `mise run project-status` selects the next item in priority order (`[?]`/`[b]` rows live in `backlog-awaiting-human.md`), and the proactive-verification fallback (mutation testing, enemy audit, ASM coverage) covers the no-actionable-item case. `wildside-cli project-status` remains the top-level status surface, with 1P-playable and visual risks ahead of TAS completion prose.
 
 2026-07-04 refresh: `env TMPDIR=/tmp mise run release-gate` passes the full

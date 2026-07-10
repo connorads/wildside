@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-10 handoff (visual oracle comparator hardening)
+
+- With no ready/open backlog row, audited the `1p-accurate` frame comparator.
+  Only the audio half of `verify.rs` had recent mutation evidence.
+- Initial focused mutation found 6 missed / 1 unviable mutations: RGB size
+  comparison, accumulated channel delta, and MAE normalisation could all change
+  without a test failure. Equal empty buffers also returned `NaN` MAE, which
+  bypassed the `MAE > limit` rejection.
+- Added exact MAE/max-channel tests, size/empty-evidence rejection, and a pure
+  state-attachment regression proving current native checkpoint states replace
+  stale capture states before oracle comparison.
+- Final focused mutation: `9 mutants tested in 3m: 6 caught, 3 unviable`, zero
+  survivors. Empty RGB evidence now fails explicitly.
+- Confidence boundary remains explicit: selected frame checkpoints still use
+  MAE limits and title/entry exclusions. A green `1p-accurate` frame step is not
+  pixel-exact evidence; next visual work should version per-route pixel baselines
+  and ratchet them towards zero.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  proactive verification rather than selecting `[?]`/`[b]` rows.
+
 ## 2026-07-10 handoff (full TAS verifier fail-closed hardening)
 
 - With no ready/open backlog row, audited the published-TAS confidence path.
