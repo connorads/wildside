@@ -302,6 +302,24 @@ Per-frame RNG debt falls 31,764 -> 29,688, digest
 next frontier is frame 8070 after the `0x15 -> 0x00` transition: native `$FFD0`,
 oracle `$FFCC`, ring index 4 `$69/$F0`.
 
+Follow-up proactive correction 2026-07-11 traced the demo-1 timeout transition
+through `Mode_Level -> Execute_Objects loc_E12 -> ReadJoypad loc_C0A ->
+loc_6E2`. Oracle WRAM shows frame 8068 in demo mode `$10`; frame 8069 is already
+mode `$00`, has cleared `Demo_Mode_flag`, and retains the terminal draw. RNG
+then freezes through frame 8105 before `Load_SegaScreen loc_12E64` reaches its
+second outer pass at 8106. Native replayed the transition draw correctly but
+then added an extra outer draw on frame 8070.
+
+The typed `DemoAutoTimeoutMode0Entry` now distinguishes a fresh loader entry
+from the replay hand-off that enters loc_6E2's loader hibernation. Regression
+`demo_1_timeout_replay_does_not_duplicate_mode_0_rng_pass_loc_c0a_12e64` pins the
+complete ring across the transition, frozen loader, and second outer pass. All
+37,759 player/camera CRC frames remain exact. Per-frame RNG debt falls 29,688 ->
+28,367, digest `a813ee3e7b8a924c87871c3425a38c09f6f0c317`; sampled RNG diffs fall 2,442 ->
+2,342, digest `4dcdf46fcbc49e22308fdae9fbf277657ace1bef`. Frames 16..9391 are exact. The
+next frontier is frame 9392 at the timeout-restart IntroSequence4 loader
+wake-up: native `$FFEF`, oracle `$FFF3`, ring index 39 `$B1/$96`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

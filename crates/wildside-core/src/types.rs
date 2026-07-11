@@ -2731,6 +2731,14 @@ pub(crate) enum TitleScreenIntroReturnLineage {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DemoAutoTimeoutMode0Entry {
+    Fresh,
+    /// ASM Mode_Level's loc_E12 pass runs before ReadJoypad loc_C0A restarts
+    /// mode 0, then loc_6E2 enters the Load_SegaScreen loader hibernation.
+    ReadJoypadReplay,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockGridSource {
     None,
     Manual,

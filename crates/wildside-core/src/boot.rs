@@ -5380,6 +5380,7 @@ impl NativeRuntime {
         self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.demo_auto_timeout_handoff_active = false;
         self.demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot = false;
+        self.demo_auto_timeout_mode_0_entry = DemoAutoTimeoutMode0Entry::Fresh;
         self.demo_auto_timeout_intro_sequence_1_frames_override = None;
         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
@@ -5741,6 +5742,7 @@ impl NativeRuntime {
         self.demo_auto_timeout_freeze_gameplay_frame = false;
         self.demo_auto_timeout_handoff_active = false;
         self.demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot = false;
+        self.demo_auto_timeout_mode_0_entry = DemoAutoTimeoutMode0Entry::Fresh;
         self.demo_auto_timeout_intro_sequence_1_frames_override = None;
         self.demo_auto_timeout_intro_sequence_2_frames_override = None;
         self.demo_auto_timeout_intro_sequence_3_frames_override = None;
@@ -5822,7 +5824,10 @@ impl NativeRuntime {
         self.previous_input = input;
     }
 
-    pub(crate) fn finish_demo_auto_timeout_return(&mut self) {
+    pub(crate) fn finish_demo_auto_timeout_return(
+        &mut self,
+        mode_0_entry: DemoAutoTimeoutMode0Entry,
+    ) {
         let intro_return_slot_2_early_visibility =
             self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility;
         let start_skip_intro_sequence_5_delay = self.demo_uses_start_skip_intro_return_camera_wrap;
@@ -5852,6 +5857,10 @@ impl NativeRuntime {
         self.demo_auto_timeout_handoff_active = true;
         self.demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot =
             intro_sequence_6_timeout_return_snapshot;
+        // ASM Mode_Level executes loc_E12 before ReadJoypad loc_C0A. On the
+        // replayed demo-1 timeout lineage, preserve that terminal draw while
+        // loc_6E2 enters Load_SegaScreen loc_12E64's loader hibernation.
+        self.demo_auto_timeout_mode_0_entry = mode_0_entry;
         self.demo_auto_timeout_intro_sequence_1_frames_override =
             Some(DEMO_AUTO_TIMEOUT_INTRO_FIRST_SEGMENT_FRAMES);
         self.demo_auto_timeout_intro_sequence_2_frames_override =
@@ -7069,6 +7078,7 @@ impl NativeRuntime {
                     self.demo_auto_timeout_handoff_active = false;
                     self.demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot =
                         false;
+                    self.demo_auto_timeout_mode_0_entry = DemoAutoTimeoutMode0Entry::Fresh;
                     self.timeout_restart_intro_sequence_4_pose_carry = false;
                     self.boot_state = BootState::IntroSequence {
                         segment: 0,
@@ -7265,6 +7275,7 @@ impl NativeRuntime {
                     self.demo_auto_timeout_handoff_active = false;
                     self.demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot =
                         false;
+                    self.demo_auto_timeout_mode_0_entry = DemoAutoTimeoutMode0Entry::Fresh;
                     self.timeout_restart_intro_sequence_4_pose_carry = false;
                     self.boot_state = BootState::IntroSequence {
                         segment: 0,

@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 demo-1 timeout mode-0 RNG entry)
+
+- ASM `Mode_Level -> Execute_Objects loc_E12 -> ReadJoypad loc_C0A -> loc_6E2`
+  means the frame-8069 demo-1 replay hand-off retains the terminal draw before
+  `Load_SegaScreen loc_12E64` enters loader hibernation.
+- Typed `DemoAutoTimeoutMode0Entry` prevents native from duplicating that pass
+  on frame 8070. A complete-ring regression pins the transition, freeze through
+  8105, and second loader pass at 8106.
+- Full-route CRC remains exact on all 37,759 frames. Frames 16..9391 now match
+  complete RNG state; per-frame debt falls 29,688 -> 28,367, digest
+  `a813ee3e7b8a924c87871c3425a38c09f6f0c317`. Sampled RNG diffs fall 2,442 ->
+  2,342, digest `4dcdf46fcbc49e22308fdae9fbf277657ace1bef`.
+- `mise run verify-slice-fast` and `mise run verify-tas-full` pass with the
+  improved checked-in confidence ratchet.
+- NEXT: frame 9392 at the timeout-restart IntroSequence4 loader wake-up. Native
+  is one draw behind (`$FFEF` vs `$FFF3`, ring index 39 `$B1/$96`).
+
 ## 2026-07-11 handoff (#390 IntroSequence3 RNG cadence)
 
 - ASM `sub_1B93E -> sub_1C204` keeps timeout-restart IntroSequence3 RNG-idle

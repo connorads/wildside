@@ -726,6 +726,8 @@ pub struct NativeRuntime {
     /// The cold IntroSequence6 timeout-return path preserves the late demo-1
     /// controller sample into the first mode-0 timeout frames.
     demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot: bool,
+    /// Whether Load_SegaScreen enters before or after its first outer pass.
+    demo_auto_timeout_mode_0_entry: DemoAutoTimeoutMode0Entry,
     /// Timeout restart hands the generic intro state machine a different
     /// sequence-1 duration than cold boot.
     demo_auto_timeout_intro_sequence_1_frames_override: Option<usize>,
@@ -1405,6 +1407,7 @@ impl NativeRuntime {
             demo_auto_timeout_freeze_gameplay_frame: false,
             demo_auto_timeout_handoff_active: false,
             demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot: false,
+            demo_auto_timeout_mode_0_entry: DemoAutoTimeoutMode0Entry::Fresh,
             demo_auto_timeout_intro_sequence_1_frames_override: None,
             demo_auto_timeout_intro_sequence_2_frames_override: None,
             demo_auto_timeout_intro_sequence_3_frames_override: None,
@@ -2411,7 +2414,7 @@ impl NativeRuntime {
             self.demo_auto_timeout_return_pending = false;
         } else if self.demo_auto_timeout_return_pending {
             self.demo_auto_timeout_return_pending = false;
-            self.finish_demo_auto_timeout_return();
+            self.finish_demo_auto_timeout_return(DemoAutoTimeoutMode0Entry::Fresh);
         }
         let demo_mode_active = matches!(self.boot_state, BootState::DemoPlay { .. });
         let Some(input) = self.step_demo_input(input, replay_demo_1_timeout_handoff_frame) else {
@@ -2510,10 +2513,15 @@ impl NativeRuntime {
         };
         let frame_started_in_title_screen =
             matches!(self.boot_state, BootState::TitleScreen { .. });
+        let demo_auto_timeout_mode_0_local_frame =
+            self.title_screen_elapsed_frames.saturating_add(1);
         let demo_auto_timeout_mode_0_rng_long_burn_active = frame_started_in_title_screen
             && self.demo_auto_timeout_handoff_active
             && DEMO_AUTO_TIMEOUT_MODE_0_RNG_LONG_FRAMES
-                .contains(&self.title_screen_elapsed_frames.saturating_add(1));
+                .contains(&demo_auto_timeout_mode_0_local_frame)
+            && !(demo_auto_timeout_mode_0_local_frame == 1
+                && self.demo_auto_timeout_mode_0_entry
+                    == DemoAutoTimeoutMode0Entry::ReadJoypadReplay);
         let frame_started_in_demo_auto_timeout_handoff =
             frame_started_in_title_screen && self.demo_auto_timeout_handoff_active;
         let frame_started_in_level_entry =
@@ -2841,7 +2849,7 @@ impl NativeRuntime {
             self.finish_demo_title_return(raw_input);
         }
         if replay_demo_1_timeout_handoff_frame {
-            self.finish_demo_auto_timeout_return();
+            self.finish_demo_auto_timeout_return(DemoAutoTimeoutMode0Entry::ReadJoypadReplay);
         }
 
         if gameplay_slice_active {

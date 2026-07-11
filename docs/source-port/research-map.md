@@ -23,10 +23,10 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 29,688 mismatches, first at
-frame 8070, under digest `152b71bafff12234855d932051e8a90a3dc161c8`.
-Frames 16..8069 match the complete RNG state exactly; the next mismatch follows
-the published route's `0x15 -> 0x00` transition.
+of the remaining 37,743 frames. It currently records 28,367 mismatches, first at
+frame 9392, under digest `a813ee3e7b8a924c87871c3425a38c09f6f0c317`.
+Frames 16..9391 match the complete RNG state exactly; the next mismatch is the
+timeout-restart IntroSequence4 loader wake-up.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.
@@ -65,6 +65,20 @@ pins the complete ring across all three phases. Per-frame RNG debt falls 31,764
 -> 29,688; sampled RNG diffs fall 2,607 -> 2,442. The next frontier at frame
 8070 is native `$FFD0` versus oracle `$FFCC`, with first ring difference index
 4 `$69/$F0`.
+
+The demo-1 timeout follow-up traces the published frame-8069 transition through
+`Mode_Level -> Execute_Objects loc_E12 -> ReadJoypad loc_C0A -> loc_6E2`.
+Because the ROM calls ReadJoypad after Execute_Objects, that transition frame
+retains the terminal mode-level draw before `Load_SegaScreen loc_12E64` enters
+its loader hibernation; native had replayed the transition correctly, then added
+an extra outer draw on frame 8070.
+`DemoAutoTimeoutMode0Entry` now makes fresh versus already-consumed entry
+explicit. Regression
+`demo_1_timeout_replay_does_not_duplicate_mode_0_rng_pass_loc_c0a_12e64` pins the
+complete ring through the second mode-0 pass at frame 8106. Per-frame RNG debt
+falls 29,688 -> 28,367; sampled RNG diffs fall 2,442 -> 2,342. The next frontier
+at frame 9392 is native `$FFEF` versus oracle `$FFF3`, with first ring difference
+index 39 `$B1/$96`.
 
 The visual side has a separate confidence ceiling. Since 2026-07-10,
 `source_port_frame_oracle:level_00_early` renders the actual source-port scene at

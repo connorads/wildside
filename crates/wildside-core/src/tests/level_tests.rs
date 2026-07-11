@@ -7700,6 +7700,53 @@ mod chunk_02 {
     }
 
     #[test]
+    fn demo_1_timeout_replay_does_not_duplicate_mode_0_rng_pass_loc_c0a_12e64() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(8_111)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_8068_ring = trace[8_068]
+            .rng_ring
+            .as_ref()
+            .expect("frame 8068 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_8068_ring.as_bytes(),
+            trace[8_068].rng_offset.expect("frame 8068 RNG offset"),
+        );
+
+        // ASM Mode_Level calls Execute_Objects before ReadJoypad loc_C0A jumps
+        // through loc_6E2. Published frame 8069 preserves that terminal draw;
+        // Load_SegaScreen loc_12E64 then hibernates instead of adding another.
+        let _ = expected.next_long();
+        assert_eq!(trace[8_069].rng_offset, Some(expected.offset_word()));
+        assert_eq!(trace[8_069].rng_ring.as_ref(), Some(&expected.ring()));
+
+        let expected_ring = expected.ring();
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(8_106).skip(8_070) {
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM loc_C0A -> loc_6E2 enters Load_SegaScreen loc_12E64's loader hibernation without duplicating loc_E12 on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected_ring));
+        }
+
+        let _ = expected.next_long();
+        assert_eq!(trace[8_106].rng_offset, Some(expected.offset_word()));
+        assert_eq!(trace[8_106].rng_ring.as_ref(), Some(&expected.ring()));
+        let expected_ring = expected.ring();
+        for trace_frame in &trace[8_107..=8_110] {
+            assert_eq!(trace_frame.rng_offset, Some(expected.offset_word()));
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected_ring));
+        }
+    }
+
+    #[test]
     fn timeout_restart_intro_sequence_2_runs_live_object_passes_loc_1b9d0_1ba02() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
