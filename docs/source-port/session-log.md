@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#378 decoded interactive block lists)
+
+- Decoder-only resource layouts now synthesise prize, ghost, teleporter, and
+  sorted hidden-block records from the same `loc_11C7E` traversal that applies
+  collision cells; dumped RAM sidecars remain preferred when available.
+- The outer block stream now resumes after each handler's `$FFFF` terminator,
+  matching `loc_11C7E`, and type-6 vertical placement adds the byte-valued
+  `Level_width_tiles` stride directly. All 230,440 fixture cells across 35
+  non-aliased dumped levels are byte-exact.
+- The four decoder-only bonus resources retain 35 prizes, 4 ghost groups, 6
+  teleporters, and 8 hidden records. Broad sidecar count comparison covers 35
+  dumped levels, with Level 0x13 field-exact across all four record families.
+- Canonical report `1783729994` improves the 69-level sweep to 33 pass / 36
+  fail / 150 authoritative diffs; Levels 0x29, 0x53, and 0x66 become green.
+- #378 closes. NEXT: no ready/open row remains; use `loop.md` proactive
+  verification, beginning with the Level 0x11 state-sweep failure.
+- `verify-slice-fast` and `verify-tas-full` pass; all 37,759 published-route CRC
+  frames still match with #290's 212-authoritative / 2-limitation baseline.
+
 ## 2026-07-11 handoff (#377 Shishkaboss worker parity)
 
 - Level 0x10 now exports the nine waiting Shishkaboss skewers and live boss

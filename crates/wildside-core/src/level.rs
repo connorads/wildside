@@ -4505,18 +4505,6 @@ pub(crate) fn resolve_terrain_to_expected_cells_loc_11C34(
     Some(padded)
 }
 
-#[allow(non_snake_case)]
-pub(crate) fn block_layout_dispatch_words_loc_11C7E(block_layout_words: &[u16]) -> Vec<u16> {
-    // ASM loc_11C7E (kid.asm:23839-23848) reads one block-layout word through
-    // `(a1)+`, stops once that word is `$FFFF`, and otherwise dispatches the
-    // word through `AddrTbl_BlockTypes` before looping back to the next entry.
-    block_layout_words
-        .iter()
-        .copied()
-        .take_while(|&word| word != 0xFFFF)
-        .collect()
-}
-
 /// Integrated block-overlay driver: ASM `loc_11C7E` + `AddrTbl_BlockTypes`.
 ///
 /// Consumes the `$FFFF`-terminated block-layout word stream produced by
@@ -4543,9 +4531,13 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
     terrain_bytes: &[u8],
     width_blocks: u16,
     height_blocks: u16,
-) {
+) -> terrain::BlockList {
     let width = usize::from(width_blocks);
     let height = usize::from(height_blocks);
+    let mut prize_blocks = Vec::new();
+    let mut ghost_blocks = Vec::new();
+    let mut teleporters = Vec::new();
+    let mut hidden_blocks = Vec::new();
     let cell_index = |x: u16, y: u16| -> Option<usize> {
         let (xu, yu) = (usize::from(x), usize::from(y));
         if xu >= width || yu >= height {
@@ -4600,6 +4592,17 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                         if let Some(idx) = cell_index(x, y) {
                             if hidden {
                                 write_hidden(cells, idx);
+                                hidden_blocks.push(terrain::HiddenBlockEntry {
+                                    layout_addr: terrain::BlockList::level_layout_low_word_addr(
+                                        x,
+                                        y,
+                                        width_blocks,
+                                    ),
+                                    col: x,
+                                    row: y,
+                                    block_type: block_type as u8,
+                                    block_setting: 0,
+                                });
                             } else {
                                 cells[idx] = base_cell;
                             }
@@ -4620,10 +4623,36 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                     &mut pos,
                     width_blocks,
                     block_type_arg,
-                    |x, y, prop, tile_override| {
-                        if let Some(idx) = cell_index(x, y) {
+                    |cell_x, cell_y, record_x, record_y, prop, tile_override| {
+                        // ASM loc_12434/loc_12480 writes one durable 8-byte
+                        // prize record for every cell, including hidden type-1
+                        // placements. Prize_Init loc_10342 consumes the low
+                        // property nibble and bit 15 marks disguised prizes.
+                        prize_blocks.push(terrain::PrizeBlockEntry {
+                            layout_addr: terrain::BlockList::level_layout_low_word_addr(
+                                cell_x,
+                                cell_y,
+                                width_blocks,
+                            ),
+                            col: record_x,
+                            row: record_y,
+                            content: terrain::PrizeContent::from_id(prop as u8),
+                            disguised: prop & 0x8000 != 0,
+                        });
+                        if let Some(idx) = cell_index(cell_x, cell_y) {
                             if hidden {
                                 write_hidden(cells, idx);
+                                hidden_blocks.push(terrain::HiddenBlockEntry {
+                                    layout_addr: terrain::BlockList::level_layout_low_word_addr(
+                                        cell_x,
+                                        cell_y,
+                                        width_blocks,
+                                    ),
+                                    col: record_x,
+                                    row: record_y,
+                                    block_type: block_type as u8,
+                                    block_setting: 0,
+                                });
                             } else if let Some(tile_word) = tile_override {
                                 cells[idx] = tile_word;
                             } else {
@@ -4641,14 +4670,37 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
             3 => {
                 let _hidden_block_list_addr =
                     block_type_3_init_list_loc_124a6(0xFFFF_3B24).hidden_block_list_addr;
-                run_loop_type3_124a6(block_layout_words, &mut pos, width_blocks, |cell_addr| {
-                    if cell_addr % 2 == 0
-                        && let Ok(idx) = usize::try_from(cell_addr / 2)
-                        && idx < cells.len()
-                    {
-                        cells[idx] = 0xE304;
-                    }
-                });
+                run_loop_type3_124a6(
+                    block_layout_words,
+                    &mut pos,
+                    width_blocks,
+                    |entry, runtime_entry| {
+                        // ASM loc_124BE..loc_1250E materialises the complete
+                        // 16-byte ghost-group record before optionally filling
+                        // its visible cells. sub_F730 consumes these exact
+                        // timer/state/count/stride fields at runtime.
+                        ghost_blocks.push(terrain::GhostBlockEntry {
+                            layout_addr: 0xA652u16.wrapping_add(runtime_entry.cell_addr as u16),
+                            col: runtime_entry.x_pos,
+                            row: runtime_entry.y_row,
+                            count: runtime_entry.byte5,
+                            vertical: runtime_entry.byte7 & 1 != 0,
+                            solid_time: runtime_entry.attr2,
+                            vanished_time: runtime_entry.attr3,
+                            timer: entry.attr0,
+                            state: runtime_entry.priority,
+                            solid: runtime_entry.priority == 0,
+                        });
+                    },
+                    |cell_addr| {
+                        if cell_addr % 2 == 0
+                            && let Ok(idx) = usize::try_from(cell_addr / 2)
+                            && idx < cells.len()
+                        {
+                            cells[idx] = 0xE304;
+                        }
+                    },
+                );
             }
             // loc_1263C (type 4): write `$E407` at the cell and `$E408` at the
             // cell to its right (a 1x2 pair). Hidden → two sub_127A8 cells.
@@ -4663,7 +4715,22 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                     &mut pos,
                     width_blocks,
                     block_type_arg,
-                    |x, y, is_hidden| {
+                    |x, y, is_hidden, destination_word, destination_x| {
+                        // ASM loc_1269C writes a 10-byte custom-FG record:
+                        // layout address, X, Y, then the two source words. The
+                        // first source word packs destination map/Y bytes.
+                        teleporters.push(terrain::TeleporterEntry {
+                            layout_addr: terrain::BlockList::level_layout_low_word_addr(
+                                x,
+                                y,
+                                width_blocks,
+                            ),
+                            col: x,
+                            row: y,
+                            dest_map_id: (destination_word >> 8) as u8,
+                            dest_y: destination_word as u8,
+                            dest_x: destination_x,
+                        });
                         if let Some(idx) = cell_index(x, y) {
                             if is_hidden {
                                 let Ok(cell_addr) = u32::try_from(idx.saturating_mul(2)) else {
@@ -4675,12 +4742,27 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                                     y,
                                     block_type_arg,
                                 );
-                                for cell_addr in [entry.cell_addr, entry.cell_addr_plus_2] {
+                                for (cell_addr, col, setting) in [
+                                    (entry.cell_addr, x, 0),
+                                    (entry.cell_addr_plus_2, x.wrapping_add(1), 1),
+                                ] {
                                     if cell_addr % 2 == 0
                                         && let Ok(idx) = usize::try_from(cell_addr / 2)
                                         && idx < cells.len()
                                     {
                                         write_hidden(cells, idx);
+                                        hidden_blocks.push(terrain::HiddenBlockEntry {
+                                            layout_addr:
+                                                terrain::BlockList::level_layout_low_word_addr(
+                                                    col,
+                                                    y,
+                                                    width_blocks,
+                                                ),
+                                            col,
+                                            row: y,
+                                            block_type: block_type as u8,
+                                            block_setting: setting,
+                                        });
                                     }
                                 }
                             } else {
@@ -4710,6 +4792,22 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                         {
                             if is_hidden {
                                 write_hidden(cells, idx);
+                                let Ok(cell_index) = u16::try_from(idx) else {
+                                    return;
+                                };
+                                let x = cell_index % width_blocks;
+                                let y = cell_index / width_blocks;
+                                hidden_blocks.push(terrain::HiddenBlockEntry {
+                                    layout_addr: terrain::BlockList::level_layout_low_word_addr(
+                                        x,
+                                        y,
+                                        width_blocks,
+                                    ),
+                                    col: x,
+                                    row: y,
+                                    block_type: block_type as u8,
+                                    block_setting: 0,
+                                });
                             } else {
                                 let skin = terrain_bytes
                                     .get(usize::try_from(terrain_addr).unwrap_or(usize::MAX))
@@ -4754,7 +4852,7 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                     width_blocks,
                     block_type as i16,
                     hidden,
-                    |cell_addr, tile_word| {
+                    |cell_addr, tile_word, property_word| {
                         if cell_addr % 2 == 0
                             && let Ok(idx) = usize::try_from(cell_addr / 2)
                             && idx < cells.len()
@@ -4763,6 +4861,22 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                                 cells[idx] = tile_word;
                             } else {
                                 write_hidden(cells, idx);
+                                let Ok(cell_index) = u16::try_from(idx) else {
+                                    return;
+                                };
+                                let x = cell_index % width_blocks;
+                                let y = cell_index / width_blocks;
+                                hidden_blocks.push(terrain::HiddenBlockEntry {
+                                    layout_addr: terrain::BlockList::level_layout_low_word_addr(
+                                        x,
+                                        y,
+                                        width_blocks,
+                                    ),
+                                    col: x,
+                                    row: y,
+                                    block_type: block_type as u8,
+                                    block_setting: property_word as u8,
+                                });
                             }
                         }
                     },
@@ -4794,6 +4908,17 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                                     && idx < cells.len()
                                 {
                                     write_hidden(cells, idx);
+                                    hidden_blocks.push(terrain::HiddenBlockEntry {
+                                        layout_addr: terrain::BlockList::level_layout_low_word_addr(
+                                            x,
+                                            y,
+                                            width_blocks,
+                                        ),
+                                        col: x,
+                                        row: y,
+                                        block_type: block_type as u8,
+                                        block_setting: 0,
+                                    });
                                 }
                             } else {
                                 let result = block_type_11_visible_tile_loc_126c0();
@@ -4831,6 +4956,17 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
             }
         }
     }
+
+    let mut block_list = terrain::BlockList {
+        prize_blocks,
+        ghost_blocks,
+        teleporters,
+        hidden_blocks,
+    };
+    // ASM sub_127CE inserts each hidden record into ascending Level_Layout
+    // address order; sub_E37A later relies on that ordering for binary search.
+    sort_hidden_blocks_by_rom_insertion_loc_127ce(&mut block_list);
+    block_list
 }
 
 #[allow(non_snake_case)]
@@ -5069,7 +5205,7 @@ fn run_loop_with_property_123dc(
     pos: &mut usize,
     width_blocks: u16,
     block_type: i16,
-    mut body: impl FnMut(u16, u16, u16, Option<u16>),
+    mut body: impl FnMut(u16, u16, u16, u16, u16, Option<u16>),
 ) {
     loop {
         let Some(x_word) = words.get(*pos).copied() else {
@@ -5121,7 +5257,7 @@ fn run_loop_with_property_123dc(
             } else {
                 (x.wrapping_add(i), setup.y_row, prop, None)
             };
-            body(cx, cy, prop, tile_override);
+            body(cx, cy, x, setup.y_row, prop, tile_override);
         }
     }
 }
@@ -5135,7 +5271,7 @@ fn run_loop_with_property_125a6(
     width_blocks: u16,
     block_type: i16,
     hidden: bool,
-    mut body: impl FnMut(u32, Option<u16>),
+    mut body: impl FnMut(u32, Option<u16>, u16),
 ) {
     loop {
         let Some(rest) = words.get(*pos..) else {
@@ -5178,7 +5314,7 @@ fn run_loop_with_property_125a6(
                 } else {
                     setup.cell_addr.wrapping_add(u32::from(i).wrapping_mul(2))
                 };
-                body(cell_addr, None);
+                body(cell_addr, None, property_words[usize::from(i)]);
             }
         } else if setup.stride {
             let placement = block_type_1012_vertical_place_loc_12600(
@@ -5190,8 +5326,10 @@ fn run_loop_with_property_125a6(
                 setup.y_row,
                 width_blocks,
             );
-            for (cell_addr, tile_word) in placement.tiles {
-                body(cell_addr, Some(tile_word));
+            for ((cell_addr, tile_word), &property_word) in
+                placement.tiles.into_iter().zip(property_words)
+            {
+                body(cell_addr, Some(tile_word), property_word);
             }
         } else {
             let placement = block_type_1012_horizontal_place_loc_125c8(
@@ -5200,8 +5338,10 @@ fn run_loop_with_property_125a6(
                 property_words,
                 block_type,
             );
-            for (cell_addr, tile_word) in placement.tiles {
-                body(cell_addr, Some(tile_word));
+            for ((cell_addr, tile_word), &property_word) in
+                placement.tiles.into_iter().zip(property_words)
+            {
+                body(cell_addr, Some(tile_word), property_word);
             }
         }
     }
@@ -5215,7 +5355,8 @@ fn run_loop_type3_124a6(
     words: &[u16],
     pos: &mut usize,
     width_blocks: u16,
-    mut body: impl FnMut(u32),
+    mut entry_body: impl FnMut(BlockType3Entry, BlockType3HiddenBlockEntryLoc124E8),
+    mut cell_body: impl FnMut(u32),
 ) {
     loop {
         let Some(rest) = words.get(*pos..) else {
@@ -5237,6 +5378,7 @@ fn run_loop_type3_124a6(
             return;
         };
         let hidden_entry = block_type_3_hidden_block_entry_loc_124e8(&entry, coords.cell_addr);
+        entry_body(entry, hidden_entry);
         if hidden_entry.priority == 0 {
             let cell_addr = hidden_entry.cell_addr;
             if entry.stride != 0 {
@@ -5247,13 +5389,13 @@ fn run_loop_type3_124a6(
                 )
                 .cell_addrs
                 {
-                    body(cell_addr);
+                    cell_body(cell_addr);
                 }
             } else {
                 for cell_addr in
                     block_type_3_horizontal_fill_loc_12516(cell_addr, entry.count).cell_addrs
                 {
-                    body(cell_addr);
+                    cell_body(cell_addr);
                 }
             }
         }
@@ -5268,7 +5410,7 @@ fn run_loop_pair_1263c(
     pos: &mut usize,
     width_blocks: u16,
     block_type: i16,
-    mut body: impl FnMut(u16, u16, bool),
+    mut body: impl FnMut(u16, u16, bool, u16, u16),
 ) {
     loop {
         let Some(rest) = words.get(*pos..) else {
@@ -5288,9 +5430,12 @@ fn run_loop_pair_1263c(
         // ASM loc_1264C reads X,Y, writes the `$E407`/`$E408` pair, then loc_1269C
         // stores two object words `(a1)+,(a1)+` into the list — i.e. 4 words per
         // entry: X, Y, obj0, obj1.
-        if words.get(*pos + 2).is_none() {
+        let Some(&destination_word) = words.get(*pos + 1) else {
             return;
-        }
+        };
+        let Some(&destination_x) = words.get(*pos + 2) else {
+            return;
+        };
         let row_pointer_table = level_layout_row_pointer_offsets_for_overlay_loc_11AFE(
             y_row.wrapping_add(1),
             width_blocks,
@@ -5301,7 +5446,13 @@ fn run_loop_pair_1263c(
             return;
         };
         *pos += 3;
-        body(x, setup.y_row, setup.is_hidden);
+        body(
+            x,
+            setup.y_row,
+            setup.is_hidden,
+            destination_word,
+            destination_x,
+        );
     }
 }
 
@@ -5807,9 +5958,10 @@ pub(crate) fn block_type_7_vertical_advance_loc_123cc(
     //   add.w (Level_width_blocks).w,a3  ; advance terrain pointer by one row
     //   dbf d3,loc_123A4               ; loop for remaining rows
     //   bra.w loc_1233E                ; continue to next layout entry
-    // The vertical stride advances by full row widths in both arrays.
+    // Level_width_tiles is already the byte stride of the word-addressed
+    // Level_Layout array; the ROM adds it directly to a4.
     BlockType7AdvanceLoc123CC {
-        next_cell_addr: cell_addr.wrapping_add(u32::from(level_width_tiles) * 2),
+        next_cell_addr: cell_addr.wrapping_add(u32::from(level_width_tiles)),
         next_terrain_addr: terrain_addr.wrapping_add(u32::from(level_width_blocks)),
     }
 }
@@ -20124,10 +20276,9 @@ impl NativeRuntime {
             && let Ok(block_bytes) = self.assets_source.read(&block_resource)
             && let Ok(block_words) = decode_block_layout_loc_132A6(&block_bytes)
         {
-            let dispatch_words = block_layout_dispatch_words_loc_11C7E(&block_words);
             apply_block_overlay_loc_11C7E(
                 &mut cells,
-                &dispatch_words,
+                &block_words,
                 &terrain_bytes,
                 width_blocks,
                 populated_height_blocks,
@@ -20147,6 +20298,48 @@ impl NativeRuntime {
         Some(grid.with_blank_top_rows_sub_140F6(blank_top_rows))
     }
 
+    /// Rebuild the interactive block-list records emitted as side effects of
+    /// the ROM's static block-overlay pass.
+    ///
+    /// ASM loc_11C7E dispatches the decoded BLOCK word stream once. The same
+    /// handlers both write `Level_Layout` cells and append prize, solid-ghost,
+    /// custom-FG/teleporter, and sorted hidden records to their RAM lists.
+    /// Generated RAM sidecars capture those lists for oracle-reachable levels;
+    /// decoder-only resources must derive them from this authoritative stream.
+    #[allow(non_snake_case)]
+    pub(crate) fn synthesise_block_list_for_level_loc_11C7E(
+        &self,
+        level_id: LevelId,
+    ) -> Option<terrain::BlockList> {
+        let header = self.level_header(level_id)?;
+        let width_blocks = u16::from(header.width_screens).saturating_mul(20);
+        let height_blocks = u16::from(header.height_screens).saturating_mul(14);
+        if width_blocks == 0 || height_blocks == 0 {
+            return None;
+        }
+
+        let block_resource = wildside_data::resource_level_record(&self.assets, level_id.0)
+            .and_then(|record| record.resources.block.as_deref())
+            .map(|relative| std::path::Path::new("level").join(relative))?;
+        let block_bytes = self.assets_source.read(&block_resource).ok()?;
+        let block_words = decode_block_layout_loc_132A6(&block_bytes).ok()?;
+
+        // Record construction depends on the decoded coordinates/properties,
+        // not on the foreground skin. A scratch layout keeps the single ROM
+        // traversal authoritative for both record synthesis and cell effects
+        // without requiring a second, drifting parser.
+        let cell_count = usize::from(width_blocks).saturating_mul(usize::from(height_blocks));
+        let mut scratch_cells = vec![0; cell_count];
+        let scratch_terrain = vec![0; cell_count];
+        Some(apply_block_overlay_loc_11C7E(
+            &mut scratch_cells,
+            &block_words,
+            &scratch_terrain,
+            width_blocks,
+            height_blocks,
+        ))
+    }
+
     pub(crate) fn load_block_list_for_level(
         &self,
         level_id: LevelId,
@@ -20162,28 +20355,11 @@ impl NativeRuntime {
             let resource_level = wildside_data::resource_level_id(&self.assets, level_id.0);
             layout_dir.join(format!("{resource_level:02X}.blocklist.bin"))
         };
-        let data = match self.assets_source.read(&path) {
-            Ok(data) => data,
-            Err(_) if self.decode_level_layout(level_id).is_some() => {
-                // ASM loc_11C7E builds the interactive block lists while it
-                // applies the decoded BLOCK stream. Native already applies
-                // that stream to the collision grid in `decode_level_layout`;
-                // keep the decoded terrain usable when no oracle RAM sidecar
-                // exists instead of discarding the whole level as empty void.
-                // TODO(fidelity): synthesise prize/ghost/teleporter/hidden
-                // records from the loc_11C7E stream for undumped resources.
-                return Some(terrain::BlockList {
-                    prize_blocks: Vec::new(),
-                    ghost_blocks: Vec::new(),
-                    teleporters: Vec::new(),
-                    hidden_blocks: Vec::new(),
-                });
-            }
-            Err(_) => return None,
+        let mut block_list = match self.assets_source.read(&path) {
+            Ok(data) => terrain::BlockList::from_raw_with_level_layout(&data, layout_width, grid),
+            Err(_) => self.synthesise_block_list_for_level_loc_11C7E(level_id)?,
         };
-        let mut block_list =
-            terrain::BlockList::from_raw_with_level_layout(&data, layout_width, grid)
-                .with_blank_top_rows_sub_140F6(blank_top_rows, layout_width);
+        block_list = block_list.with_blank_top_rows_sub_140F6(blank_top_rows, layout_width);
         // ASM sub_127CE inserts hidden-block entries in layout-address order;
         // runtime reveal lookup mirrors sub_E37A with binary search, so preserve
         // that sorted invariant after reading generated sidecar data.

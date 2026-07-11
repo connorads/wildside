@@ -2803,15 +2803,6 @@ mod chunk_08 {
     }
 
     #[test]
-    fn loc_11c7e_stops_dispatching_block_layout_words_at_the_ffff_sentinel() {
-        assert_eq!(
-            crate::level::block_layout_dispatch_words_loc_11C7E(&[0x0003, 0x8012, 0xFFFF, 0x0044]),
-            vec![0x0003, 0x8012],
-            "ASM loc_11C7E should keep dispatching non-`$FFFF` block-layout words through `AddrTbl_BlockTypes` and stop as soon as `(a1)+` yields the sentinel"
-        );
-    }
-
-    #[test]
     fn loc_11c96_only_seeds_the_hidden_block_copy_state_when_entries_exist() {
         assert_eq!(
             crate::level::hidden_block_copy_setup_loc_11C96(0, 0xFFFF_3B24),
@@ -3622,8 +3613,8 @@ mod chunk_08 {
             16,     // level_width_blocks
         );
         assert_eq!(
-            result.next_cell_addr, 0x9EC0,
-            "ASM loc_123CC should advance cell pointer by level_width_tiles * 2 = 64 * 2 = 128 bytes",
+            result.next_cell_addr, 0x9E80,
+            "ASM loc_123CC adds the 64-byte Level_width_tiles row stride directly",
         );
         assert_eq!(
             result.next_terrain_addr, 0x1244,

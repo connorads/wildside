@@ -11,6 +11,37 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #378
+
+Opened 2026-07-10 after logical Level 0x09/resource 0x56 proved that decoded
+terrain remained usable without a dumped RAM block-list sidecar, but the
+progressive fallback deliberately supplied empty prize, ghost, teleporter, and
+hidden lists. Undumped resource layouts therefore lacked interactive blocks.
+
+Resolved 2026-07-11. ASM `loc_11C7E` owns one outer dispatch stream whose
+handlers consume their own `$FFFF`-terminated entry lists before returning to
+the outer loop. Native had truncated the decoded stream at the first handler
+terminator; it now passes the whole stream through the existing overlay
+traversal. That single pure traversal both applies collision cells and returns
+the typed records emitted by `loc_123DC`, `loc_124A6`, `loc_1263C`,
+`loc_125A6`, `sub_127A8`, and `sub_127CE`. Sidecars remain authoritative when
+present; decoder-only resources synthesise their block lists without a second
+parser. The newly exercised full stream also exposed a type-6 vertical stride
+bug: `loc_123CC` adds byte-valued `Level_width_tiles` directly to `a4`, whereas
+native doubled it. The corrected decoder is byte-exact on all 230,440 fixture
+cells across 35 non-aliased dumped levels.
+
+The four decoder-only bonus resources now retain 35 prize records, 4 ghost
+groups, 6 teleporters, and 8 hidden records. A synthetic stream exercises all
+four families; comparison against 35 dumped RAM sidecars matches every prize
+count, and Level 0x13 matches every field across all four self-consistent
+sections. Canonical state report `1783729994` improves from 30 pass / 39 fail /
+173 authoritative diffs to 33 pass / 36 fail / 150 authoritative diffs, with
+Levels 0x29, 0x53, and 0x66 becoming green and advisory diffs unchanged at 5.
+`verify-slice-fast` passes 6,810 core tests and 13 gameplay regressions;
+`verify-tas-full` keeps all 37,759 published-route CRC frames equal with #290's
+unchanged 212-authoritative / 2-oracle-limitation checkpoint baseline.
+
 ### #377
 
 Opened 2026-07-11 from the first actionable failure in the canonical state
@@ -11338,6 +11369,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 378 | [x] | P2 | block/assets | Undumped resource layouts synthesise their interactive prize, ghost, teleporter, and hidden lists from the ROM block stream. | Report `1783729994`; 35-level cell/sidecar parity and focused all-family regressions. See archive #378. |
 | 377 | [x] | P1 | verify/enemy | Level 0x10 state exports the Shishkaboss waiting skewer and live projectile workers with ROM-faithful spawn/fire timing. | Reports `1783726862` and `1783726877`; focused worker/fire/settle regressions and required gates. See archive #377. |
 | 376 | [x] | P1 | verify/state | State sweeps now enter real settled gameplay and preserve evidence categories; exposed Lion lifecycle and Level 0x09 terrain failures are corrected. | Report `1783724200`: all 69 BCD levels have real checkpoints; 29 pass / 40 actionable fail. Focused Level 0/7/9 regressions and required gates. See archive #376. |
 | 375 | [x] | P2 | Rendering | Early Level 0 source-port frames now match oracle pixels at all four bounded release checkpoints. | `source_port_frame_oracle:level_00_early` is state exact, unmasked, and pixel exact; strict `1p-accurate` gate requires MAE 0 / zero changed pixels. See archive #375. |

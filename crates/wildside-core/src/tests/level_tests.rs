@@ -33319,6 +33319,61 @@ mod native_level_terrain_decoder {
         }
     }
 
+    #[test]
+    fn loc_11c7e_synthesises_all_interactive_block_list_record_families() {
+        let width = 20;
+        let height = 14;
+        let terrain = vec![0; usize::from(width) * usize::from(height)];
+        let mut cells = vec![0; terrain.len()];
+        let words = [
+            // ASM loc_123DC: one disguised Cyclone prize at (1,2).
+            0x0001, 0x0001, 0x0002, 0x0001, 0x0000, 0x8003, 0xFFFF,
+            // ASM loc_124A6: one vertical two-cell ghost group at (3,4).
+            0x0003, 0x0003, 0x0004, 0x0002, 0x0001, 0x0009, 0x0000, 0x001E, 0x000C, 0xFFFF,
+            // ASM loc_1263C: one teleporter at (5,6), map 0x12, Y 0x34, X 0x56.
+            0x0004, 0x0005, 0x0006, 0x1234, 0x0056, 0xFFFF,
+            // ASM loc_125A6/sub_127CE: one hidden type-10 block at (7,8).
+            0x800A, 0x0007, 0x0008, 0x0001, 0x0000, 0x00AB, 0xFFFF,
+            // ASM loc_11C7E stream terminator.
+            0xFFFF,
+        ];
+
+        let block_list = crate::level::apply_block_overlay_loc_11C7E(
+            &mut cells, &words, &terrain, width, height,
+        );
+
+        assert_eq!(block_list.prize_blocks.len(), 1);
+        let prize = block_list.prize_blocks[0];
+        assert_eq!((prize.col, prize.row), (1, 2));
+        assert_eq!(prize.content, terrain::PrizeContent::Cyclone);
+        assert!(prize.disguised);
+        assert_eq!(
+            prize.layout_addr,
+            terrain::BlockList::level_layout_low_word_addr(1, 2, width),
+        );
+
+        assert_eq!(block_list.ghost_blocks.len(), 1);
+        let ghost = block_list.ghost_blocks[0];
+        assert_eq!((ghost.col, ghost.row), (3, 4));
+        assert_eq!((ghost.count, ghost.vertical), (2, true));
+        assert_eq!((ghost.timer, ghost.state), (9, 0));
+        assert_eq!((ghost.solid_time, ghost.vanished_time), (30, 12));
+        assert!(ghost.solid);
+
+        assert_eq!(block_list.teleporters.len(), 1);
+        let teleporter = block_list.teleporters[0];
+        assert_eq!((teleporter.col, teleporter.row), (5, 6));
+        assert_eq!(
+            (teleporter.dest_map_id, teleporter.dest_y, teleporter.dest_x,),
+            (0x12, 0x34, 0x0056),
+        );
+
+        assert_eq!(block_list.hidden_blocks.len(), 1);
+        let hidden = &block_list.hidden_blocks[0];
+        assert_eq!((hidden.col, hidden.row), (7, 8));
+        assert_eq!((hidden.block_type, hidden.block_setting), (0x0A, 0xAB));
+    }
+
     /// The unreachable bonus levels have no fixture, so the decoder is wired in
     /// as the fallback. Each must yield a non-empty grid with solid floor cells,
     /// otherwise the player falls straight through (issue #246 / #238).
@@ -33388,6 +33443,229 @@ mod native_level_terrain_decoder {
                 "bonus level {logical:#04X} fallback grid must be non-empty",
             );
         }
+    }
+
+    #[test]
+    fn decoder_only_levels_synthesise_interactive_block_lists_loc_11c7e() {
+        let Some(mut runtime) = cached_runtime_for_decoder() else {
+            return;
+        };
+        let mut prize_count = 0;
+        let mut ghost_count = 0;
+        let mut teleporter_count = 0;
+        let mut hidden_count = 0;
+
+        for logical in UNREACHABLE_BONUS_LEVELS {
+            runtime.reload_block_grid_for_level(LevelId(logical));
+            let list = runtime.block_list.as_ref().unwrap_or_else(|| {
+                panic!("bonus level {logical:#04X} must synthesise its loc_11C7E block list")
+            });
+            prize_count += list.prize_blocks.len();
+            ghost_count += list.ghost_blocks.len();
+            teleporter_count += list.teleporters.len();
+            hidden_count += list.hidden_blocks.len();
+        }
+
+        assert_eq!(
+            (prize_count, ghost_count, teleporter_count, hidden_count),
+            (35, 4, 6, 8),
+            "the four decoder-only ROM resources must retain every loc_11C7E record family",
+        );
+    }
+
+    #[test]
+    fn synthesised_block_list_counts_match_dumped_ram_sidecars_loc_11c7e() {
+        let Some(runtime) = cached_runtime_for_decoder() else {
+            return;
+        };
+        let layout_dir = level_layout_dir();
+        let mut checked = 0;
+        let mut prize_count_matches = 0;
+        let mut all_section_count_matches = 0;
+        let mut compared_all_families = false;
+
+        for logical in 0_u8..=0x68 {
+            let sidecar_path = layout_dir.join(format!("{logical:02X}.blocklist.bin"));
+            let Ok(data) = std::fs::read(sidecar_path) else {
+                continue;
+            };
+            let Some(grid) = runtime.load_block_grid_for_level(LevelId(logical)) else {
+                continue;
+            };
+            let dumped =
+                terrain::BlockList::from_raw_with_level_layout(&data, grid.width_cells, &grid);
+            let Some(synthesised) =
+                runtime.synthesise_block_list_for_level_loc_11C7E(LevelId(logical))
+            else {
+                continue;
+            };
+            checked += 1;
+            let dumped_counts = (
+                dumped.prize_blocks.len(),
+                dumped.ghost_blocks.len(),
+                dumped.teleporters.len(),
+                dumped.hidden_blocks.len(),
+            );
+            let synthesised_counts = (
+                synthesised.prize_blocks.len(),
+                synthesised.ghost_blocks.len(),
+                synthesised.teleporters.len(),
+                synthesised.hidden_blocks.len(),
+            );
+            if dumped_counts.0 == synthesised_counts.0 {
+                prize_count_matches += 1;
+            }
+            if dumped_counts == synthesised_counts {
+                all_section_count_matches += 1;
+            }
+
+            // Logical 0x13/resource 0x13 has non-empty prize, ghost,
+            // teleporter, and hidden sections whose dumped parser boundaries
+            // are self-consistent. Compare every field, not just counts.
+            if logical == 0x13 {
+                let dumped_prizes = dumped
+                    .prize_blocks
+                    .iter()
+                    .map(|entry| {
+                        (
+                            entry.layout_addr,
+                            entry.col,
+                            entry.row,
+                            entry.content.to_id(),
+                            entry.disguised,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                let synthesised_prizes = synthesised
+                    .prize_blocks
+                    .iter()
+                    .map(|entry| {
+                        (
+                            entry.layout_addr,
+                            entry.col,
+                            entry.row,
+                            entry.content.to_id(),
+                            entry.disguised,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                assert_eq!(synthesised_prizes, dumped_prizes);
+
+                let dumped_ghosts = dumped
+                    .ghost_blocks
+                    .iter()
+                    .map(|entry| {
+                        (
+                            entry.layout_addr,
+                            entry.col,
+                            entry.row,
+                            entry.count,
+                            entry.vertical,
+                            entry.solid_time,
+                            entry.vanished_time,
+                            entry.timer,
+                            entry.state,
+                            entry.solid,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                let synthesised_ghosts = synthesised
+                    .ghost_blocks
+                    .iter()
+                    .map(|entry| {
+                        (
+                            entry.layout_addr,
+                            entry.col,
+                            entry.row,
+                            entry.count,
+                            entry.vertical,
+                            entry.solid_time,
+                            entry.vanished_time,
+                            entry.timer,
+                            entry.state,
+                            entry.solid,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                assert_eq!(synthesised_ghosts, dumped_ghosts);
+
+                let dumped_teleporters = dumped
+                    .teleporters
+                    .iter()
+                    .map(|entry| {
+                        (
+                            entry.layout_addr,
+                            entry.col,
+                            entry.row,
+                            entry.dest_map_id,
+                            entry.dest_y,
+                            entry.dest_x,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                let synthesised_teleporters = synthesised
+                    .teleporters
+                    .iter()
+                    .map(|entry| {
+                        (
+                            entry.layout_addr,
+                            entry.col,
+                            entry.row,
+                            entry.dest_map_id,
+                            entry.dest_y,
+                            entry.dest_x,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                assert_eq!(synthesised_teleporters, dumped_teleporters);
+
+                let dumped_hidden = dumped
+                    .hidden_blocks
+                    .iter()
+                    .map(|entry| {
+                        (
+                            entry.layout_addr,
+                            entry.col,
+                            entry.row,
+                            entry.block_type,
+                            entry.block_setting,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                let synthesised_hidden = synthesised
+                    .hidden_blocks
+                    .iter()
+                    .map(|entry| {
+                        (
+                            entry.layout_addr,
+                            entry.col,
+                            entry.row,
+                            entry.block_type,
+                            entry.block_setting,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                assert_eq!(synthesised_hidden, dumped_hidden);
+                compared_all_families = true;
+            }
+        }
+
+        assert!(
+            checked > 30,
+            "expected broad dumped-RAM comparison coverage, checked {checked}",
+        );
+        assert_eq!(
+            prize_count_matches, checked,
+            "loc_123DC prize record counts must match every parsed RAM sidecar",
+        );
+        assert!(
+            all_section_count_matches >= 7,
+            "expected several self-consistent RAM sidecars to match every section; matched {all_section_count_matches}/{checked}",
+        );
+        assert!(
+            compared_all_families,
+            "expected Level 0x13 field comparison"
+        );
     }
 
     /// Leftover/aliased levels whose resource foreground is a few trailing bytes
