@@ -2542,6 +2542,7 @@ impl NativeRuntime {
                         DEMO_AUTO_TIMEOUT_INTRO_FIFTH_RNG_FIRST_LIVE_ELAPSED
                     };
                 elapsed >= first_live_elapsed
+                    && elapsed != INTRO_SEQUENCE_5_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED
             }
             _ => false,
         };

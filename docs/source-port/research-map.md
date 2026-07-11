@@ -23,13 +23,22 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 21,202 mismatches, first at
-frame 16556, under digest `9e4cbc979e892f58a8aa0207a7c84dbada020fa7`.
-Frames 16..16555 match the complete RNG state exactly; the next mismatch is a
-native-only draw during the later Start-skip IntroSequence5 lineage.
+of the remaining 37,743 frames. It currently records 21,052 mismatches, first at
+frame 16705, under digest `2d14a745f2c4213b1ab327f0be7f1b32142fb98c`.
+Frames 16..16704 match the complete RNG state exactly; the next mismatch is an
+early native outer draw during the later title rebuild.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.
+
+The latest correction models `loc_1BC36`'s unique combined
+`sub_1C034(d4=4) -> sub_1C0EE` decompression and VRAM upload as one object pass
+that spans two displayed frames. Regression
+`intro_sequence_5_panel_upload_stretches_loc_e12_pass_across_frame_16556`
+failed on the native-only draw before the fix and pins the complete ring after
+the stretched pass. Per-frame RNG debt falls 21,202 -> 21,052; sampled RNG
+diffs fall 1,755 -> 1,740. The next frontier at frame 16705 is native `$FFCE`
+versus oracle `$FFCA`, with first ring difference index 2 `$16/$D0`.
 
 The latest correction uses the existing Start-skip title-return lineage to wake
 IntroSequence5's outer `Mode_Standard -> Execute_Objects loc_E12` pass on the

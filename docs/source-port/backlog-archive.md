@@ -379,6 +379,27 @@ Per-frame RNG debt falls 21,381 -> 21,202, digest
 The next frontier is frame 16556, where native draws once while oracle freezes:
 native `$FFD7`, oracle `$FFD3`, ring index 11 `$9D/$DA`.
 
+Follow-up proactive correction 2026-07-11 traced frame 16556 to the staged
+IntroSequence5 tile worker `loc_1BC36`. After the `$A0,$90,$0B,$0B`
+hibernations, this iteration calls `sub_1C034(d4=4)` and immediately chains
+into `sub_1C0EE`; unlike the other staged poses, the two decompression/VRAM
+uploads cross the next VBlank before the current object pass returns. Oracle
+captures at frames 16554..16557 show the intermediate presented frame, while
+the complete RNG stream remains `$FFD3` across 16555..16556, proving there is
+no second `Mode_Standard -> Execute_Objects loc_E12` draw.
+
+Native now represents that stretched pass at the worker's local elapsed
+boundary instead of treating every displayed IntroSequence5 frame as a fresh
+outer pass. Regression
+`intro_sequence_5_panel_upload_stretches_loc_e12_pass_across_frame_16556`
+failed at `$FFD7/$FFD3` before the fix and pins the resumed cadence afterwards.
+All 37,759 player/camera CRC frames remain exact. Per-frame RNG debt falls
+21,202 -> 21,052, digest `2d14a745f2c4213b1ab327f0be7f1b32142fb98c`;
+sampled RNG diffs fall 1,755 -> 1,740, digest
+`4d487ead8d940ea35e4e59c0c2e0e83ed0177915`. Frames 16..16704 are exact.
+The next frontier is frame 16705 at the later title rebuild wake: native draws
+one frame early, `$FFCE` versus `$FFCA`, ring index 2 `$16/$D0`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

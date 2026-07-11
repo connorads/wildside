@@ -7948,6 +7948,44 @@ mod chunk_02 {
     }
 
     #[test]
+    fn intro_sequence_5_panel_upload_stretches_loc_e12_pass_across_frame_16556() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(16_570)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_16555_ring = trace[16_555]
+            .rng_ring
+            .as_ref()
+            .expect("frame 16555 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_16555_ring.as_bytes(),
+            trace[16_555].rng_offset.expect("frame 16555 RNG offset"),
+        );
+
+        assert_eq!(
+            trace[16_556].rng_offset,
+            Some(expected.offset_word()),
+            "ASM loc_1BC36 runs sub_1C034(d4=4) and sub_1C0EE in one object pass, stretching the current Mode_Standard -> Execute_Objects loc_E12 pass across published frame 16556 without a second draw",
+        );
+        assert_eq!(trace[16_556].rng_ring.as_ref(), Some(&expected.ring()));
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(16_570).skip(16_557) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM loc_1BC36 returns to the ordinary loc_E12 cadence after the combined sub_1C034/sub_1C0EE upload on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

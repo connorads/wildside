@@ -53,6 +53,14 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_RNG_FIRST_LIVE_ELAPSED: usize =
 /// before the plain timeout-restart lineage.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_START_SKIP_RNG_FIRST_LIVE_ELAPSED: usize =
     DEMO_AUTO_TIMEOUT_INTRO_FIFTH_RNG_FIRST_LIVE_ELAPSED - 1;
+/// Pre-step local elapsed whose `loc_1BC36` object pass chains
+/// `sub_1C034(d4=4)` directly into `sub_1C0EE`. The combined decompression and
+/// VRAM upload crosses the next VBlank, so oracle presents one frame without
+/// returning to `Mode_Standard -> Execute_Objects loc_E12` for another draw.
+/// The boundary follows the worker start plus its `$A0,$90,$0B,$0B`
+/// hibernations; published-route oracle probes pin it at post-step elapsed 385.
+pub(crate) const INTRO_SEQUENCE_5_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED: usize =
+    INTRO_SEQUENCE_5_START_POLL_ELAPSED_FRAMES + 1 + 0xA0 + 0x90 + 0x0B + 0x0B;
 pub(crate) const INTRO_SEGMENT_FRAMES: usize = 80;
 pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
 /// Demo/title-return lineages still use the short local title attract lock

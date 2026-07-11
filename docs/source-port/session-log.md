@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 IntroSequence5 panel-upload VBlank stretch)
+
+- `loc_1BC36` reaches a unique heavy iteration after its
+  `$A0,$90,$0B,$0B` hibernations: `sub_1C034(d4=4)` immediately chains into
+  `sub_1C0EE`. Oracle captures and the RNG stream prove this object pass spans
+  frame 16556 without returning to `Mode_Standard -> Execute_Objects loc_E12`.
+- Native now preserves the ring on that displayed frame. The complete-ring
+  regression failed at `$FFD7/$FFD3` before the fix and pins the ordinary
+  cadence after the stretched pass.
+- Full-route CRC remains exact on all 37,759 frames. Frames 16..16704 now match
+  complete RNG state; per-frame debt falls 21,202 -> 21,052, digest
+  `2d14a745f2c4213b1ab327f0be7f1b32142fb98c`. Sampled RNG diffs fall 1,755 ->
+  1,740, digest `4d487ead8d940ea35e4e59c0c2e0e83ed0177915`.
+- `mise run verify-slice-fast` and the isolated full TAS run are green with the
+  improved checked-in confidence ratchet.
+- NEXT: frame 16705 at the later title rebuild wake. Native draws one frame
+  early (`$FFCE` vs `$FFCA`, ring index 2 `$16/$D0`).
+
 ## 2026-07-11 handoff (#390 later Start-skip IntroSequence5 RNG wake)
 
 - `Load_IntroSequence5` allocates `loc_1BA28` and `loc_1BCD0` together. On the
