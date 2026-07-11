@@ -115,6 +115,29 @@ draws to objects in a different intra-frame order. Continue at the first
 target-live step-12 `UFO.asm loc_35326` caller/order difference; do not change
 the RNG algorithm, seed, total draw count, or add a per-level correction.
 
+Follow-up proactive correction 2026-07-11 resolved that assignment frontier as
+two engine-wide scheduler-order faults. At target-live step 12 the ROM's
+`Execute_Objects loc_E12` longword advances `$FFE7` through `$FFEB` before UFO
+coroutines, then layouts #17/#15 consume `$00/$06` at `$FFEC/$FFED`. Native
+previously stepped enemies first, giving them `$EC/$38`, then burned the same
+four bytes later; this explained how the complete frame-end ring could match
+while parent state differed. The longword burn now precedes
+`refresh_active_roster`.
+
+The second fault appeared after the debug-title hand-off: allocation storage
+remained `9,11,12,13,15,17,8,10`, but the scoped reversal ended and native ran
+#15 before #17. `Allocate_ObjectSlot loc_DE0` keeps normal priority `$0001`
+newest-first and Hand priority `$FFFF` after them for the lifetime of the object
+list. Native now applies that execution permutation only around the coroutine
+pass, then restores allocation order for collision and snapshot consumers. The
+formerly ignored cache-backed regression is live and all four Level 0x48 UFO
+parents match exact frame-zero position, velocity, and facing alongside the
+already-exact 55-byte ring and Drips waits. No seed, timer, level-specific, or
+total-draw correction was added. `mise run verify-slice-fast` passes all 6,832
+core tests, 13 CLI slice tests, clippy, the ASM/debug/backlog ratchets, and every
+sampled TAS frontier. `mise run verify-tas-full` also keeps all 37,759 published
+route frame CRCs exact and leaves the known #290 checkpoint baseline unchanged.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

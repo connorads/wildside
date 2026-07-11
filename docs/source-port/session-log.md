@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 Execute_Objects RNG and object order)
+
+- Level 0x48 target-live step 12 proved native consumed UFO bytes `$EC/$38`
+  before its per-frame random long; ROM `Execute_Objects loc_E12` consumes the
+  long first and assigns `$00/$06` to layouts #17/#15.
+- The random long now runs before `refresh_active_roster`. Enemy coroutines use
+  `Allocate_ObjectSlot loc_DE0` order across the title hand-off: normal priority
+  `$0001` newest-first, then Hand priority `$FFFF` newest-first. Allocation
+  storage is restored before collision and snapshot passes.
+- The formerly ignored frame-zero regression is live: all four Level 0x48 UFO
+  parents now match exact position, velocity, and facing while the full RNG ring
+  remains exact at `$FFD2/$C0` and Drips controller waits remain exact.
+- `verify-slice-fast` passes 6,832 core tests, 13 CLI slice tests, clippy, all
+  ratchets, and sampled TAS frontiers. `verify-tas-full` keeps all 37,759
+  published-route frame CRCs exact with the known #290 baseline unchanged.
+- This closes one concrete false-confidence gap, not whole-game proof. The
+  published-route CRC gate still omits thousands of known RNG-state drifts; a
+  dedicated RNG ratchet remains necessary.
+
 ## 2026-07-11 handoff (#390 typed full-RNG parity)
 
 - Native traces, oracle states, gameplay captures, sweep extraction, and

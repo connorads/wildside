@@ -4753,6 +4753,43 @@ pub(crate) fn step_active_enemies_with_rng(
     seed_pending_drips_initial_waits_loc_3340e(active, player_x_pos, rng);
 }
 
+/// Temporarily arrange allocation-order storage for Execute_Objects loc_E1E.
+///
+/// ASM Allocate_ObjectSlot loc_DE0 inserts newer equal-priority objects first.
+/// Manage_EnemyLoading loc_3690A assigns normal enemies priority `$0001` and
+/// Hand priority `$FFFF`, so normal enemies execute newest-first, followed by
+/// Hands newest-first. The returned map restores storage order after the pass;
+/// collision and snapshot code intentionally retain allocation order.
+fn reorder_active_enemies_for_execute_objects_loc_de0(active: &mut [ActiveEnemy]) -> Vec<usize> {
+    let execution_to_storage = active
+        .iter()
+        .enumerate()
+        .rev()
+        .filter(|(_, enemy)| !matches!(enemy.family, EnemyFamily::Hand))
+        .map(|(index, _)| index)
+        .chain(
+            active
+                .iter()
+                .enumerate()
+                .rev()
+                .filter(|(_, enemy)| matches!(enemy.family, EnemyFamily::Hand))
+                .map(|(index, _)| index),
+        )
+        .collect::<Vec<_>>();
+    let storage = active.to_vec();
+    for (execution_index, &storage_index) in execution_to_storage.iter().enumerate() {
+        active[execution_index] = storage[storage_index];
+    }
+    execution_to_storage
+}
+
+fn restore_active_enemy_storage_order(active: &mut [ActiveEnemy], execution_to_storage: &[usize]) {
+    let executed = active.to_vec();
+    for (execution_index, &storage_index) in execution_to_storage.iter().enumerate() {
+        active[storage_index] = executed[execution_index];
+    }
+}
+
 pub(crate) fn seed_pending_archer_initial_hibernates_loc_33fda(
     active: &mut [ActiveEnemy],
     camera_x_px: Option<u32>,
@@ -11096,7 +11133,8 @@ mod tests {
         upper.drips_attached = true;
         upper.wait_timer = DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E;
 
-        // Native stores active enemies in ascending layout order.
+        // Keep this seed pass independently order-safe for focused arrays and
+        // legacy callers; the runtime applies loc_DE0 around its object pass.
         let mut enemies = [lower, upper];
         let mut rng = RomRandomState::default();
         seed_pending_drips_initial_waits_loc_3340e(&mut enemies, Some(kid_x_pos), &mut rng);
@@ -11108,6 +11146,44 @@ mod tests {
         assert_eq!(
             enemies[0].wait_timer, second_draw,
             "layout #07 executes second, so it consumes the second loc_3340E RNG byte"
+        );
+    }
+
+    #[test]
+    fn enemy_execution_order_is_lifo_with_hand_priority_tail_loc_de0() {
+        let mut active = Vec::new();
+        for layout_index in [9, 11, 12, 13, 15, 17, 8, 10] {
+            let mut enemy = mini_hopping_skull_test_enemy();
+            enemy.layout_index = layout_index;
+            active.push(enemy);
+        }
+        let mut older_hand = mini_hopping_skull_test_enemy();
+        older_hand.family = EnemyFamily::Hand;
+        older_hand.layout_index = 18;
+        active.insert(2, older_hand);
+        let storage_order = active
+            .iter()
+            .map(|enemy| enemy.layout_index)
+            .collect::<Vec<_>>();
+
+        let execution_to_storage = reorder_active_enemies_for_execute_objects_loc_de0(&mut active);
+        assert_eq!(
+            active
+                .iter()
+                .map(|enemy| enemy.layout_index)
+                .collect::<Vec<_>>(),
+            vec![10, 8, 17, 15, 13, 12, 11, 9, 18],
+            "ASM Allocate_ObjectSlot loc_DE0 runs normal priority-1 enemies newest-first, then Hand priority `$FFFF`",
+        );
+
+        restore_active_enemy_storage_order(&mut active, &execution_to_storage);
+        assert_eq!(
+            active
+                .iter()
+                .map(|enemy| enemy.layout_index)
+                .collect::<Vec<_>>(),
+            storage_order,
+            "native collision and snapshot passes retain allocation storage order after Execute_Objects",
         );
     }
 
@@ -12441,6 +12517,8 @@ impl NativeRuntime {
                 // converges, and Sphere.asm loc_35F70 oracle state requires
                 // waiting for both axes there. Other levels retain the
                 // loc_368A8 horizontal-window scheduling pinned by Level 0x07.
+                let enemy_storage_order =
+                    reorder_active_enemies_for_execute_objects_loc_de0(&mut self.active_enemies);
                 step_active_enemies_with_rng(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),
@@ -12459,6 +12537,7 @@ impl NativeRuntime {
                     &mut self.drilled_blocks,
                     None,
                 );
+                restore_active_enemy_storage_order(&mut self.active_enemies, &enemy_storage_order);
                 self.move_heady_metal_body_piece_workers_sub_376ec();
                 self.spawn_fire_demon_walking_trails_loc_3a542();
                 materialize_spinning_twins_drop_splits(&mut self.active_enemies);
@@ -12785,15 +12864,8 @@ impl NativeRuntime {
                 self.ensure_heady_metal_breakup_slots_loc_39247();
                 self.apply_pending_enemy_collisions();
                 let mut played_enemy_sound_effects = Vec::new();
-                let debug_object_list_is_lifo = self.debug_level_entry_mode_level_active_loc_74e0();
-                if debug_object_list_is_lifo {
-                    // ASM Allocate_ObjectSlot loc_DE0 inserts equal-priority
-                    // enemy objects at the head of Execute_Objects loc_E1E's
-                    // linked list. The debug title settle retains allocation
-                    // order in `active_enemies`, so reverse it only while the
-                    // hidden ROM scheduler executes.
-                    self.active_enemies.reverse();
-                }
+                let enemy_storage_order =
+                    reorder_active_enemies_for_execute_objects_loc_de0(&mut self.active_enemies);
                 step_active_enemies_with_rng(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),
@@ -12814,9 +12886,7 @@ impl NativeRuntime {
                     &mut self.drilled_blocks,
                     Some(&mut played_enemy_sound_effects),
                 );
-                if debug_object_list_is_lifo {
-                    self.active_enemies.reverse();
-                }
+                restore_active_enemy_storage_order(&mut self.active_enemies, &enemy_storage_order);
                 self.move_heady_metal_body_piece_workers_sub_376ec();
                 for effect in played_enemy_sound_effects {
                     self.queue_start_sequence(effect);

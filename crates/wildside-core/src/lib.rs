@@ -2610,6 +2610,20 @@ impl NativeRuntime {
             && !hundred_k_trip_teleport_started
             && !hundred_k_trip_transition_active
         {
+            if gameplay_slice_active
+                && !self.paused
+                && self.pending_pause_restart_round.is_none()
+                && !pause_last_life_exit_frame
+                && (matches!(self.boot_state, BootState::InGame)
+                    || (self.demo_gameplay_active() && self.opening_slice.is_some()))
+                && !debug_level_entry_object_pass
+            {
+                // ASM Execute_Objects loc_E12 (kid.asm:1636) calls
+                // Get_RandomNumber_long before walking any object coroutine.
+                // Keep this ahead of refresh_active_roster, which performs the
+                // native enemy object pass and may itself consume RNG bytes.
+                let _ = self.rom_random.next_long();
+            }
             self.refresh_active_roster();
             self.step_pending_prize_diamond_awards();
             self.step_pending_sound_effects();
@@ -2638,15 +2652,6 @@ impl NativeRuntime {
                 && self.pending_pause_restart_round.is_none()
                 && !pause_last_life_exit_frame
             {
-                if (matches!(self.boot_state, BootState::InGame)
-                    || (self.demo_gameplay_active() && self.opening_slice.is_some()))
-                    && !debug_level_entry_object_pass
-                {
-                    // ASM Execute_Objects loc_E12 (kid.asm:1636) starts every
-                    // live Mode_Level object pass with Get_RandomNumber_long
-                    // before object coroutines, Diamond Power, and Kid motion.
-                    let _ = self.rom_random.next_long();
-                }
                 // ASM loc_7606 / loc_8C26 call sub_7428 after DiamondPower_Run
                 // but before the next frame consumes FiveWayShotReady. Use raw
                 // Ctrl_Held here; `gameplay_input` delays A for movement.
