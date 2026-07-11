@@ -7917,6 +7917,37 @@ mod chunk_02 {
     }
 
     #[test]
+    fn start_skip_lineage_intro_sequence_5_wakes_outer_rng_on_loc_1bcd0_frame() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(16_240)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_16227_ring = trace[16_227]
+            .rng_ring
+            .as_ref()
+            .expect("frame 16227 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_16227_ring.as_bytes(),
+            trace[16_227].rng_offset.expect("frame 16227 RNG offset"),
+        );
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(16_240).skip(16_228) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM Load_IntroSequence5 exposes loc_1BCD0 on this Start-skip lineage while Mode_Standard -> Execute_Objects loc_E12 resumes its outer draw on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

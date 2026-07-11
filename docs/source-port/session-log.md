@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 later Start-skip IntroSequence5 RNG wake)
+
+- `Load_IntroSequence5` allocates `loc_1BA28` and `loc_1BCD0` together. On the
+  later Start-skip lineage, oracle exposes `loc_1BCD0` on frame 16228, proving
+  the enclosing `Mode_Standard -> Execute_Objects loc_E12` pass wakes one local
+  frame earlier than the plain timeout-restart lineage.
+- The existing typed Start-skip title-return state now selects that earlier
+  threshold. A complete-ring regression failed at frame 16228 before the fix
+  and pins the following live interval.
+- Full-route CRC remains exact on all 37,759 frames. Frames 16..16555 now match
+  complete RNG state; per-frame debt falls 21,381 -> 21,202, digest
+  `9e4cbc979e892f58a8aa0207a7c84dbada020fa7`. Sampled RNG diffs fall 1,770 ->
+  1,755, digest `07600f1eae453e445f77b64ae4a1227b98d83c16`.
+- `mise run verify-slice-fast` and the isolated full TAS run are green with the
+  improved checked-in confidence ratchet.
+- NEXT: frame 16556 during later IntroSequence5. Native makes one extra draw
+  (`$FFD7` vs `$FFD3`, ring index 11 `$9D/$DA`) and remains one draw ahead.
+
 ## 2026-07-11 handoff (#390 IntroSequence5 RNG cadence)
 
 - ASM `loc_1BA28 -> sub_1C204 -> loc_1BA60` resumes the outer

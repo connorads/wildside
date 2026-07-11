@@ -23,13 +23,22 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 28,367 mismatches, first at
-frame 9392, under digest `a813ee3e7b8a924c87871c3425a38c09f6f0c317`.
-Frames 16..9391 match the complete RNG state exactly; the next mismatch is the
-timeout-restart IntroSequence4 loader wake-up.
+of the remaining 37,743 frames. It currently records 21,202 mismatches, first at
+frame 16556, under digest `9e4cbc979e892f58a8aa0207a7c84dbada020fa7`.
+Frames 16..16555 match the complete RNG state exactly; the next mismatch is a
+native-only draw during the later Start-skip IntroSequence5 lineage.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.
+
+The latest correction uses the existing Start-skip title-return lineage to wake
+IntroSequence5's outer `Mode_Standard -> Execute_Objects loc_E12` pass on the
+same frame that oracle exposes `loc_1BCD0`. Regression
+`start_skip_lineage_intro_sequence_5_wakes_outer_rng_on_loc_1bcd0_frame` pins
+the complete ring from frame 16228. Per-frame RNG debt falls 21,381 -> 21,202;
+sampled RNG diffs fall 1,770 -> 1,755. The next frontier at frame 16556 is a
+native-only draw: `$FFD7` versus `$FFD3`, with first ring difference index 11
+`$9D/$DA`.
 
 The latest correction models demo 2's automatic `ReadJoypad loc_C0A ->
 loc_6E2` timeout as an explicit local scheduler. The terminal Mode_Level frame

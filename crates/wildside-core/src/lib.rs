@@ -2535,7 +2535,13 @@ impl NativeRuntime {
                 // Mode_Standard outer pass. Execute_Objects loc_E12 burns
                 // before loc_1BA60 polls Start, including both deferred
                 // sub_1C246 -> loc_1C264 title hand-off frames.
-                elapsed >= DEMO_AUTO_TIMEOUT_INTRO_FIFTH_RNG_FIRST_LIVE_ELAPSED
+                let first_live_elapsed =
+                    if self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay {
+                        DEMO_AUTO_TIMEOUT_INTRO_FIFTH_START_SKIP_RNG_FIRST_LIVE_ELAPSED
+                    } else {
+                        DEMO_AUTO_TIMEOUT_INTRO_FIFTH_RNG_FIRST_LIVE_ELAPSED
+                    };
+                elapsed >= first_live_elapsed
             }
             _ => false,
         };

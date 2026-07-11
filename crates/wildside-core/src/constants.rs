@@ -47,6 +47,12 @@ pub(crate) const INTRO_SEQUENCE_5_START_POLL_ELAPSED_FRAMES: usize = 57;
 /// the first loc_1BCD0 GFX slots and arms loc_1BA60's Start polling.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_RNG_FIRST_LIVE_ELAPSED: usize =
     INTRO_SEQUENCE_5_START_POLL_ELAPSED_FRAMES;
+/// ASM Load_IntroSequence5 allocates loc_1BCD0 alongside loc_1BA28. On the
+/// later Start-skip title-return lineage, oracle exposes loc_1BCD0's first gfx
+/// slots - and therefore the enclosing loc_E12 object pass - one local frame
+/// before the plain timeout-restart lineage.
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_START_SKIP_RNG_FIRST_LIVE_ELAPSED: usize =
+    DEMO_AUTO_TIMEOUT_INTRO_FIFTH_RNG_FIRST_LIVE_ELAPSED - 1;
 pub(crate) const INTRO_SEGMENT_FRAMES: usize = 80;
 pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
 /// Demo/title-return lineages still use the short local title attract lock

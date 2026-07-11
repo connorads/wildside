@@ -361,6 +361,24 @@ Start-skip IntroSequence5 lineage exposes `loc_1BCD0` one frame earlier than
 the plain timeout path: native `$FFDB`, oracle `$FFDF`, ring index 19
 `$81/$40`; native catches up on frame 16229.
 
+Follow-up proactive correction 2026-07-11 traced the later Start-skip
+IntroSequence5 lineage against the independent `loc_1BCD0` visibility probe.
+`Load_IntroSequence5` allocates `loc_1BA28` and `loc_1BCD0` together; oracle
+exposes the latter's first gfx slots on published frame 16228, proving that the
+enclosing `Mode_Standard -> Execute_Objects loc_E12` pass is already live one
+local frame earlier than on the plain timeout-restart lineage.
+
+Native now selects that earlier threshold from the existing typed Start-skip
+title-return lineage rather than adding a TAS-frame override. Regression
+`start_skip_lineage_intro_sequence_5_wakes_outer_rng_on_loc_1bcd0_frame` failed
+at frame 16228 (`$FFDB/$FFDF`) before the fix and pins the complete ring through
+the following live passes. All 37,759 player/camera CRC frames remain exact.
+Per-frame RNG debt falls 21,381 -> 21,202, digest
+`9e4cbc979e892f58a8aa0207a7c84dbada020fa7`; sampled RNG diffs fall 1,770 ->
+1,755, digest `07600f1eae453e445f77b64ae4a1227b98d83c16`. Frames 16..16555 are exact.
+The next frontier is frame 16556, where native draws once while oracle freezes:
+native `$FFD7`, oracle `$FFD3`, ring index 11 `$9D/$DA`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.
