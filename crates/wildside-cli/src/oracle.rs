@@ -123,6 +123,8 @@ pub struct OracleSettleTraceRow {
     pub rng_offset: u16,
     #[serde(default)]
     pub rng_last_byte: u8,
+    #[serde(default)]
+    pub rng_ram: Vec<u8>,
     pub paused: bool,
     pub camera_x_pos: u32,
     pub camera_y_pos: u32,
@@ -777,6 +779,7 @@ mod tests {
                         "game_mode": 12,
                         "current_level_id": 1,
                         "rng_offset": 65491,
+                        "rng_ram": [1, 2, 3],
                         "paused": false,
                         "camera_x_pos": 0,
                         "camera_y_pos": 1835008,
@@ -804,6 +807,7 @@ mod tests {
         assert_eq!(row.game_mode, 0x000C);
         assert_eq!(row.current_level_id, 0x0001);
         assert_eq!(row.rng_offset, 0xFFD3);
+        assert_eq!(row.rng_ram, [1, 2, 3]);
         assert_eq!(row.camera_y_pos, 0x001C_0000);
         assert_eq!(row.kid_x_pos, 0x0020_0000);
         assert_eq!(row.kid_y_pos, 0x00BF_0000);

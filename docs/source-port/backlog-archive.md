@@ -43,6 +43,23 @@ scheduler, or preserve a typed pre-frame settle boundary that includes global
 RNG and object ordering. Prove it against hidden settle traces for more than
 one level before changing #381 gameplay state.
 
+Follow-up 2026-07-11 added full 55-byte RNG-ring capture to hidden settle rows;
+offset plus last byte was insufficient to compare collapsed boundaries. Level
+0x14 keeps the ring frozen through title-wait step 78, then starts the live
+`Execute_Objects` cadence as Load_InGame restores the player and object roster.
+The header pose appears across steps 79-80, while native's synthetic settle
+step 0 matches step 80. Burning a longword on all 32 synthetic rows therefore
+double-counts non-equivalent phases and lands frame 0 at `$FFCA`, not `$FFE5`.
+
+The stronger ring comparison also rejects an offset-only rewind: native enters
+the post-resume prime at `$FFD5`, but rewinding one longword does not reproduce
+oracle target-live step 0's full `$FFD1` ring. Level 0x05 has a different full
+ring and earlier live-load point at the same title-wait step, so one universal
+ring constant would merely replace a per-level reset with another hidden
+override. Next: schedule enemy loading inside the real level-skip resume/load
+phase, using its typed live-load transition rather than replaying floor/camera
+inspection rows after the shell has completed.
+
 ### #380
 
 Opened 2026-07-11 from canonical state report `1783732342`. Level 0x14

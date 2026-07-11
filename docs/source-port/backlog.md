@@ -37,7 +37,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 - **Full published-route evidence:** all 37,759 requested player/camera CRC frames match oracle, while 1,512 sampled checkpoints retain #290's baseline of 212 authoritative export diffs and 2 oracle limitations. This is not whole-state, enemy, render, or audio equality.
 - **Whole-level sweep boundary:** report `1783734356` reaches real gameplay on all 69 BCD levels: 35 pass and 34 fail with 145 authoritative diffs. The old all-masked green sweep was invalid.
 - **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
-- **Current work:** #381. The recording helper's collapsed respawn prime advances enemy coroutines without the `Execute_Objects` per-frame RNG burn; model that hidden Mode_Level/title-wait boundary generically before changing Drips timing.
+- **Current work:** #381. Full-ring tracing rejects both an offset rewind and one burn per synthetic floor-settle row. Move enemy loading into the actual level-skip resume/load phase so `Execute_Objects` and `Manage_EnemyLoading` share the ROM's live boundary.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

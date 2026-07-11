@@ -149,6 +149,7 @@ struct OracleSettleTraceRow {
     current_level_id: u16,
     rng_offset: u16,
     rng_last_byte: u8,
+    rng_ram: Vec<u8>,
     paused: bool,
     camera_x_pos: u32,
     camera_y_pos: u32,
@@ -440,6 +441,7 @@ const KID_X_DIRECTION_ADDR: usize = 0xFF_24F6;
 const NUMBER_OBJECTS_ADDR: usize = 0xFF_F84A;
 const NUMBER_GFX_OBJECTS_ADDR: usize = 0xFF_F85C;
 const ADDR_FIRST_OBJECT_SLOT_ADDR: usize = 0xFF_F842;
+const RNG_RAM_START_ADDR: usize = 0xFF_FBDA;
 const RNG_RAM_END_ADDR: usize = 0xFF_FC11;
 const SCORE_ADDR: usize = 0xFF_FC4C;
 const NUMBER_LIVES_ADDR: usize = 0xFF_FC3E;
@@ -3322,6 +3324,12 @@ fn capture_settle_trace_row(
         current_level_id: read_emulator_wram_u16(emulator, CURRENT_LEVEL_ID_ADDR),
         rng_offset: read_emulator_wram_u16(emulator, RNG_OFFSET_ADDR),
         rng_last_byte: rng_last_byte_from_emulator(emulator),
+        // ASM Init_RNG/Get_RandomNumber_byte (kid.asm:1106-1204): retain the
+        // full 55-byte ring because offset and last byte alone cannot prove
+        // two collapsed hidden-shell boundaries have the same RNG state.
+        rng_ram: work_ram[work_ram_index(RNG_RAM_START_ADDR)
+            ..work_ram_index(RNG_RAM_END_ADDR)]
+            .to_vec(),
         paused: read_emulator_wram_u8(emulator, GAME_PAUSED_ADDR) != 0,
         camera_x_pos: read_emulator_wram_u32(emulator, CAMERA_X_POS_ADDR),
         camera_y_pos: read_emulator_wram_u32(emulator, CAMERA_Y_POS_ADDR),

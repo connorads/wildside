@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#381 full-ring boundary instrumentation)
+
+- Hidden settle traces now retain the complete 55-byte RNG ring, not only its
+  offset and last byte.
+- Level 0x14 starts live `Execute_Objects` cadence at title-wait step 78 and
+  reaches the header pose at steps 79-80; synthetic settle step 0 maps to step
+  80, not to the start of live scheduling.
+- Burning on all 32 synthetic rows lands at `$FFCA`; rewinding native's
+  `$FFD5` boundary by one longword still does not equal oracle's full `$FFD1`
+  ring. Level 0x05 also proves the live-load point and ring are load-dependent.
+- #381 remains `[~]`; NEXT: run enemy loading inside the typed level-skip
+  resume/load phase and preserve `Execute_Objects` before
+  `Manage_EnemyLoading`. Do not introduce a universal or per-level ring reset.
+
 ## 2026-07-11 handoff (#381 recording-prime RNG ordering)
 
 - Oracle Level 0x14 allocates and seeds all three Drips during its live
