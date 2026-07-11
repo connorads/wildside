@@ -10138,8 +10138,8 @@ mod chunk_09 {
                 rt.block_destroy_effects[0].y_px,
                 rt.block_destroy_effects[0].remaining,
             ),
-            (80, 44, 2),
-            "ASM loc_3BEDE passes tile coordinates to sub_10EDA; direction 2 keeps x=5*16 and applies loc_10F1A's 4px upward nudge",
+            (80, 44, 3),
+            "ASM loc_3BEDE passes tile coordinates to sub_10EDA; direction 2 keeps x=5*16, applies loc_10F1A's 4px upward nudge, and includes the allocating Execute_Objects pass before loc_10F2A's two visible hibernate frames",
         );
     }
 

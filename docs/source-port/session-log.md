@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#385 Driller settle and smash-worker timing)
+
+- Level 0x68's oracle Drillers are allocated during the hidden `loc_74E0`
+  shell and reach recording frame zero 63 object passes older than native's
+  prior stable-window-only model.
+- Driller.asm `loc_3BE78` consumes the drill child's collision from the prior
+  `GfxObjects_Collision` pass. Driller-created `sub_10EDA` workers retain both
+  `loc_10F2A` hibernate frames after allocation.
+- Level 0x68 matches frames 54-63, all 360 CRC frames, and both checkpoints.
+  #385 closes with `verify-slice-fast` and `verify-tas-full` green; the full TAS
+  remains 37,759/37,759 CRC exact with #290's baseline unchanged.
+- Canonical report `1783759203` keeps 36 pass / 33 fail and makes Level 0x68
+  green, but Level 0x54 changes from pass to a 12-difference title-card failure.
+  The same failure reproduces from clean `10c06379d`. NEXT: #386 must make this
+  canonical sweep result stable before later deltas are trusted.
+
 ## 2026-07-11 handoff (#384 Archer settle and projectile timing)
 
 - Hidden level-entry scheduling now starts the ROM's object-only RNG pass at

@@ -10,6 +10,7 @@ use crate::level::{
 const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
 const MULTI_HEAD_BOSS_LEVEL_SKIP_LIVE_TAIL_FRAMES: usize = 60;
+const DRILLER_LEVEL_SKIP_LIVE_TAIL_FRAMES_LOC_3BE78: usize = 63;
 // ASM loc_74E0: residual stable gameplay windows after the recording runner
 // has already executed the typed debug title-card lifecycle and its hidden
 // Mode_Level object passes. The direct compatibility path retains its older
@@ -133,6 +134,18 @@ fn recording_oracle_warp_extra_ghost_block_ticks(level_id: LevelId) -> usize {
 
 fn recording_oracle_warp_resets_level_one_rng(level_id: LevelId) -> bool {
     level_id == LevelId(1)
+}
+
+fn recording_oracle_warp_enemy_live_tail_frames(
+    families: impl IntoIterator<Item = EnemyFamily>,
+    target_window_has_driller: bool,
+) -> usize {
+    let mut has_multi_head_boss = false;
+    for family in families {
+        has_multi_head_boss |= is_multi_head_boss(family);
+    }
+    usize::from(has_multi_head_boss) * MULTI_HEAD_BOSS_LEVEL_SKIP_LIVE_TAIL_FRAMES
+        + usize::from(target_window_has_driller) * DRILLER_LEVEL_SKIP_LIVE_TAIL_FRAMES_LOC_3BE78
 }
 
 fn should_restore_recorded_title_card_after_first_live(
@@ -319,15 +332,25 @@ impl NativeRuntime {
             self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
         }
         self.prime_recording_warp_sprite_animation_clocks();
-        let multi_head_boss_level_skip_tail = if self
-            .active_enemies
-            .iter()
-            .any(|enemy| is_multi_head_boss(enemy.family))
-        {
-            MULTI_HEAD_BOSS_LEVEL_SKIP_LIVE_TAIL_FRAMES
-        } else {
-            0
-        };
+        // ASM loc_74E0 enters the target Mode_Level object schedule while the
+        // recording helper is still inside its fixed title wait. Nearby
+        // Drillers spawn 63 object passes before target_live step zero, so
+        // Driller.asm loc_3BE78 reaches the same drill child and block-worker
+        // phase before the ordinary 60-frame stable window.
+        let (camera_x_px, camera_y_px) = self.opening_slice.map_or((0, 0), |slice| {
+            (slice.camera.x_pos >> 16, slice.camera.y_pos >> 16)
+        });
+        let target_window_has_driller = self.enemy_layout(level_id).is_some_and(|layout| {
+            let view = enemy_layout_view(layout, camera_x_px, camera_y_px);
+            view.objects.iter().any(|object| {
+                EnemyFamily::from_layout_object(view.enemy_type_slots, object)
+                    == EnemyFamily::Driller
+            })
+        });
+        let enemy_level_skip_tail = recording_oracle_warp_enemy_live_tail_frames(
+            self.active_enemies.iter().map(|enemy| enemy.family),
+            target_window_has_driller,
+        );
         // ASM loc_74E0 keeps the target level live behind the level-skip
         // shell. Enemy22_Shiskaboss_Init and the parallel multi-head boss
         // initialisers expose that full tail through their continuously
@@ -336,7 +359,7 @@ impl NativeRuntime {
         // stable-window late.
         let target_live_frames =
             recording_oracle_warp_target_live_frames(level_id, debug_lifecycle_completed)
-                .saturating_add(multi_head_boss_level_skip_tail);
+                .saturating_add(enemy_level_skip_tail);
         self.settle_target_level_live_window(level_id, target_live_frames);
         // ASM Init_SpriteAttr_HUD loc_BDC0 seeds Time_SubSeconds to 1. The
         // level-skip tail is level-dependent: #289 Level 0x07 watches reach
@@ -890,6 +913,25 @@ mod tests {
             recording_oracle_warp_target_live_frames(LevelId(0x12), true),
             RECORDING_SETTLED_WARP_LIVE_FRAMES,
             "ordinary recording oracles use the default stable live window"
+        );
+    }
+
+    #[test]
+    fn recording_oracle_warp_enemy_tail_preserves_driller_loc_3be78_hidden_age() {
+        assert_eq!(
+            recording_oracle_warp_enemy_live_tail_frames([], true),
+            DRILLER_LEVEL_SKIP_LIVE_TAIL_FRAMES_LOC_3BE78,
+            "ASM loc_74E0 gives Driller.asm loc_3BE78 63 hidden object passes before the recording helper's stable target window",
+        );
+        assert_eq!(
+            recording_oracle_warp_enemy_live_tail_frames([EnemyFamily::Archer], false),
+            0,
+            "families without an oracle-proven hidden tail retain the default recording settle window",
+        );
+        assert_eq!(
+            recording_oracle_warp_enemy_live_tail_frames([EnemyFamily::Driller], false),
+            0,
+            "a transient pre-settle roster must not age Drillers unless the target Manage_EnemyLoading window contains them",
         );
     }
 

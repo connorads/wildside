@@ -24590,6 +24590,7 @@ mod chunk_10 {
     fn loc_3be78_driller_drills_front_smash_block_before_pacer_turnaround() {
         let mut enemy = make_pacer(EnemyFamily::Driller, 3, 84, 80);
         enemy.facing = Direction::Right;
+        enemy.shared_drive_sound_previous_render_hidden = true;
         let grid = grid_with_cells(
             8,
             8,
@@ -24624,6 +24625,7 @@ mod chunk_10 {
     fn loc_3be78_driller_probes_right_child_x_not_parent_collision_width() {
         let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
         enemy.facing = Direction::Right;
+        enemy.shared_drive_sound_previous_render_hidden = true;
         let grid = grid_with_cells(
             9,
             8,
@@ -24654,6 +24656,7 @@ mod chunk_10 {
     fn loc_3be78_driller_probes_left_child_x_not_parent_collision_width() {
         let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
         enemy.facing = Direction::Left;
+        enemy.shared_drive_sound_previous_render_hidden = true;
         let grid = grid_with_cells(
             9,
             8,
@@ -24684,6 +24687,7 @@ mod chunk_10 {
     fn loc_3bef2_driller_preserves_ice_block_dispatch_for_runtime_bullets() {
         let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
         enemy.facing = Direction::Right;
+        enemy.shared_drive_sound_previous_render_hidden = true;
         let grid = grid_with_cells(
             9,
             8,
@@ -24714,6 +24718,7 @@ mod chunk_10 {
     fn loc_3be78_driller_does_not_drill_type_c_ec2d_shooter_cells() {
         let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
         enemy.facing = Direction::Right;
+        enemy.shared_drive_sound_previous_render_hidden = true;
         let grid = grid_with_cells(
             9,
             8,
@@ -24741,6 +24746,7 @@ mod chunk_10 {
     fn loc_3be8e_driller_requires_front_wall_collision_before_drilling() {
         let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
         enemy.facing = Direction::Right;
+        enemy.shared_drive_sound_previous_render_hidden = true;
         let grid = grid_with_cells(
             9,
             8,

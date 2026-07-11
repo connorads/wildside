@@ -11,6 +11,32 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #385
+
+Resolved 2026-07-11 from canonical Level 0x68 Elsewhere 31 report
+`1783756175`. Native smashed the x=80 Driller blocks at frame 58 while oracle
+had cleared them during the hidden level-skip shell and smashed the x=112 pair
+on frames 59-60. Oracle settle tracing showed `Game_Mode=$000C` from title-wait
+step 2, nearby Drillers allocated at steps 58-65, and the first hidden smash
+workers at target-live steps 55-56.
+
+ASM `Mode_Level` runs `Execute_Objects` before `GfxObjects_Collision`, so
+Driller.asm `loc_3BE78` now consumes the selected child's collision on the next
+object pass. Recording settle derives the 63-pass hidden tail from a Driller in
+the target `Manage_EnemyLoading` window rather than the transient pre-settle
+roster, and Driller-created `sub_10EDA` workers retain both observable
+`loc_10F2A` hibernate frames after their allocating object pass.
+
+Focused frames 54-63 and all 360 Level 0x68 CRC frames match oracle; both
+authoritative checkpoints pass. `verify-slice-fast` and `verify-tas-full` pass;
+the published route retains all 37,759 matching CRC frames and #290's unchanged
+212-authoritative / 2-oracle-limitation checkpoint baseline. Canonical report
+`1783759203` makes Level 0x68 green. It still reports 36/33 pass/fail because
+Level 0x54 changed from the prior report's pass to a 12-difference title-card
+failure; the identical failure reproduces from clean commit `10c06379d`, so it
+is tracked separately as sweep-stability issue #386 rather than attributed to
+this Driller patch.
+
 ### #384
 
 Resolved 2026-07-11 from canonical Level 0x17 Hoverboard Beach state sweep
@@ -11580,6 +11606,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 385 | [x] | P1 | Enemy/Driller | Driller consumes prior-pass child collision and retains the hidden settle/block-worker age. | Level 0x68 exact across frames 54-63, 360 CRC frames, and both checkpoints. See archive #385. |
 | 384 | [x] | P1 | Enemy/Archer | Hidden settle scheduling, Archer hibernates, fire-row offsets, and off-screen arrow deletion follow the ROM's object wakes. | Reports `1783755508` and `1783756175`; exact frames 60/132/133/359 regression. See archive #384. |
 | 383 | [x] | P1 | Verify/state | Full idle sweeps and `tas-diff` use the scenario's recording-settle bootstrap on both native and oracle. | Level 0 report `1783751667` passes with only two oracle limitations; focused configuration regression. See archive #383. |
 | 382 | [x] | P1 | Combat/timing | Character collision observes the frame-entry damage latch before `loc_BC6E` clears it later in the same frame. | Oracle RAM frames 235-302 and exact Dragon-breath release regression. See archive #382. |

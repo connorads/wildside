@@ -140,12 +140,18 @@ pub(crate) fn step_driller(
         return Vec::new();
     };
 
-    // ASM Driller.asm loc_3BE78 checks the drill child before `loc_3BF66`
-    // dispatches back into the shared walker loop, so a front drillable block
-    // is removed before the pacer wall probe can turn the Driller around.
-    let drilled = driller_drilled_cells_loc_3be78(enemy, grid);
+    // ASM Mode_Level runs Execute_Objects before GfxObjects_Collision. The
+    // child wall code written after the previous object pass is therefore the
+    // only collision Driller.asm loc_3BE78 may consume on this pass.
+    let drilled = if enemy.shared_drive_sound_previous_render_hidden {
+        driller_drilled_cells_loc_3be78(enemy, grid)
+    } else {
+        Vec::new()
+    };
     if drilled.is_empty() {
         step_pacer(enemy, Some(grid));
+        enemy.shared_drive_sound_previous_render_hidden =
+            !driller_drilled_cells_loc_3be78(enemy, grid).is_empty();
     } else {
         let mut grid_after_drill = grid.clone();
         for drilled_block in &drilled {
@@ -156,6 +162,8 @@ pub(crate) fn step_driller(
             );
         }
         step_pacer(enemy, Some(&grid_after_drill));
+        enemy.shared_drive_sound_previous_render_hidden =
+            !driller_drilled_cells_loc_3be78(enemy, &grid_after_drill).is_empty();
     }
 
     drilled
@@ -384,5 +392,34 @@ mod tests {
         assert_eq!(enemies[0].x_velocity, 0);
         assert_eq!(enemies[0].y_velocity, 0);
         assert!(drilled_blocks.is_empty());
+    }
+
+    #[test]
+    fn driller_consumes_child_terrain_collision_on_next_loc_3be78_tick() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Driller;
+        enemy.facing = Direction::Right;
+        let mut grid = mini_hopping_skull_test_grid();
+        grid.set_cell_at(3, 1, terrain::Cell::from_be_bytes(0xE0, 0x01));
+
+        let first_tick = step_driller(&mut enemy, Some(&grid));
+
+        assert!(
+            first_tick.is_empty(),
+            "ASM Mode_Level runs GfxObjects_Collision after Execute_Objects, so Driller.asm loc_3BE78 cannot consume the drill child's new wall collision in the same object tick",
+        );
+
+        let second_tick = step_driller(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            second_tick,
+            vec![DrilledBlockLoc3BE78 {
+                col: 3,
+                row: 1,
+                action: DrillerBlockDrillActionLoc3BEDE::SmashBits,
+                direction: 3,
+            }],
+            "ASM Driller.asm loc_3BE78 consumes the right child's colid_rightwall on the following Execute_Objects pass",
+        );
     }
 }

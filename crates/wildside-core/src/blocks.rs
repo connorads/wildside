@@ -2414,6 +2414,15 @@ impl NativeRuntime {
                     drilled_block.row * 16,
                     drilled_block.direction,
                 );
+                if let Some(effect) = self.block_destroy_effects.last_mut() {
+                    // ASM Driller.asm loc_3BEDE allocates sub_10EDA while the
+                    // parent object is still executing. Native's consolidated
+                    // object pass consumes that newly allocated worker once
+                    // before the frame trace, so include that scheduler pass
+                    // in the seed while preserving loc_10F2A's two observable
+                    // hibernate frames.
+                    effect.remaining = effect.remaining.saturating_add(1);
+                }
             }
             DrillerBlockDrillActionLoc3BEDE::IceBullets => {
                 let target_open = self.block_grid.as_ref().is_some_and(|grid| {

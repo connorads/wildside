@@ -1386,8 +1386,9 @@ pub(crate) struct ActiveEnemy {
     /// Ninja reuses the same two-period phase for `$6E(a5)` attack cadence. Driller and
     /// Rock Tanks reuse the native field as a visible-init drive-refcount latch.
     pub(crate) shared_walker_patrol_short_next: bool,
-    /// Driller/RockTank ASM sub_3C352 `$6A(a5)`: previous `$19(a3)`
-    /// Make_SpriteFromGfxObject clipped flag for drive-loop visibility edges.
+    /// RockTank ASM sub_3C352 `$6A(a5)`: previous `$19(a3)` clipped flag.
+    /// Driller reuses this disjoint-family bit for loc_3BE8E's drill-child
+    /// terrain collision written by the previous GfxObjects_Collision pass.
     pub(crate) shared_drive_sound_previous_render_hidden: bool,
     /// Frontier-only trace label for the last shared-walker branch taken.
     pub(crate) shared_walker_debug_branch: Option<&'static str>,
