@@ -7171,7 +7171,7 @@ mod chunk_09 {
     }
 
     #[test]
-    fn settled_level_one_drips_child_slot_counts_only_before_drop_loc_33424() {
+    fn settled_level_one_drips_crawlers_count_as_objects_loc_335d8() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
@@ -7194,6 +7194,13 @@ mod chunk_09 {
                         .active_projectile_details
                         .iter()
                         .any(|projectile| projectile.kind == ActiveProjectileKind::DripsDrop),
+                    frame
+                        .active_projectile_details
+                        .iter()
+                        .filter(|projectile| {
+                            projectile.kind == ActiveProjectileKind::DripsSurfaceCrawler
+                        })
+                        .count(),
                 ));
             }
         }
@@ -7201,13 +7208,13 @@ mod chunk_09 {
         assert_eq!(
             samples,
             vec![
-                (536, 4, 4, false),
-                (537, 4, 4, false),
-                (597, 4, 4, true),
-                (598, 4, 4, true),
-                (629, 4, 4, false),
+                (536, 6, 4, false, 2),
+                (537, 6, 4, false, 2),
+                (597, 6, 4, true, 2),
+                (598, 6, 4, true, 2),
+                (629, 6, 4, false, 2),
             ],
-            "ASM Drips.asm loc_33424/loc_3345C exposes the Level 1 lower falling child by frames 597-598 for this settled probe; exact tas-diff drips-exact-settled-count-probe shows native/oracle parity through frame 629",
+            "ASM Drips.asm loc_335D8 allocates each surface crawler with j_Allocate_ObjectSlot while loc_33424/loc_3345C reuses the preallocated gfx-only falling child",
         );
     }
 
@@ -14852,9 +14859,8 @@ mod chunk_09 {
         assert_eq!(drips.drips_pending_splash_x_pos, 0x0020_0000);
         assert_eq!(drips.drips_pending_splash_y_pos, 0x0030_0000);
 
-        // Oracle issue-260 loc_33488 trace: the ROM remains in
-        // Hibernate_UntilAnimFinished for frames 305..339 before the second
-        // off_33520 entry resumes at loc_33460 on frame 340.
+        // ASM Drips.asm loc_33488 / stru_33332: the one duration-1 splash
+        // frame finishes before the next off_33520 entry resumes.
         let mut drilled_blocks = Vec::new();
         for _ in 0..DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488 {
             step_active_enemies(

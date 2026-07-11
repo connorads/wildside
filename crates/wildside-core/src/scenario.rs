@@ -5,13 +5,20 @@ use crate::level::{
 
 // Full-frame oracle warps do more than the explicit 60-frame stable-level poll:
 // the ROM level-skip path has a live title-card tail before the helper starts
-// counting stable target frames. Native's direct `boot_to_level` shortcut skips
+// counting stable target frames. The compatibility `boot_to_level` path skips
 // that tail, so settled full-frame traces need the oracle-observed live age.
 const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
 const MULTI_HEAD_BOSS_LEVEL_SKIP_LIVE_TAIL_FRAMES: usize = 60;
-const LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 103;
-const BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 107;
+// ASM loc_74E0: residual stable gameplay windows after the recording runner
+// has already executed the typed debug title-card lifecycle and its hidden
+// Mode_Level object passes. The direct compatibility path retains its older
+// full-window values in `recording_oracle_warp_target_live_frames`.
+const LEVEL_ONE_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 65;
+const LEVEL_SIX_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 61;
+const LEVEL_EIGHT_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 102;
+const LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 70;
+const BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0: u16 = 179;
 const RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0: u16 = 0x08;
 const LEVEL_ZERO_RECORDING_TIMER_SECONDS_BEFORE_FRAME_0_LOC_BE82: u16 = 180;
@@ -68,11 +75,25 @@ fn oracle_warp_target_live_frames(level_id: LevelId) -> usize {
     }
 }
 
-fn recording_oracle_warp_target_live_frames(level_id: LevelId) -> usize {
+fn recording_oracle_warp_target_live_frames(
+    level_id: LevelId,
+    debug_lifecycle_completed: bool,
+) -> usize {
+    if !debug_lifecycle_completed {
+        return match level_id {
+            LevelId(0) => RECORDING_SETTLED_WARP_LIVE_FRAMES,
+            LevelId(1) => ORACLE_SETTLED_WARP_LIVE_FRAMES - 1,
+            LevelId(0x06) => RECORDING_SETTLED_WARP_LIVE_FRAMES + 0x18,
+            LevelId(0x08) => 101,
+            LevelId(0x1B) => 112,
+            LevelId(0x3E) => 107,
+            _ => RECORDING_SETTLED_WARP_LIVE_FRAMES,
+        };
+    }
     if level_id == LevelId(0) {
-        RECORDING_SETTLED_WARP_LIVE_FRAMES - 1
+        RECORDING_SETTLED_WARP_LIVE_FRAMES
     } else if level_id == LevelId(1) {
-        ORACLE_SETTLED_WARP_LIVE_FRAMES - 1
+        LEVEL_ONE_RECORDING_SETTLED_WARP_LIVE_FRAMES
     } else if level_id == LevelId(0x08) {
         // ASM loc_74E0's level-skip path has a live target-level tail before
         // the helper's 60 stable-frame recording window. Level 0x08 exposes
@@ -80,7 +101,7 @@ fn recording_oracle_warp_target_live_frames(level_id: LevelId) -> usize {
         // oracle issue266 frame 0 has advanced 102 wall ticks from the -$30 px
         // seed, so native must enter the scenario one pre-frame earlier and let
         // the traced frame supply tick 102.
-        101
+        LEVEL_EIGHT_RECORDING_SETTLED_WARP_LIVE_FRAMES
     } else if level_id == LevelId(0x06) {
         // Under Skull Mountain 3 exposes the ROM level-skip tail through
         // loc_124A6/sub_F730 ghost-block phase. Once oracle enemy capture can
@@ -88,7 +109,7 @@ fn recording_oracle_warp_target_live_frames(level_id: LevelId) -> usize {
         // same issue #289 recording pins the live tail at 0x18 frames for
         // object scheduling; the final eight ticks belong only to the
         // ghost-block timer below.
-        RECORDING_SETTLED_WARP_LIVE_FRAMES + 0x18
+        LEVEL_SIX_RECORDING_SETTLED_WARP_LIVE_FRAMES
     } else if level_id == LevelId(0x1B) {
         LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES
     } else if level_id == LevelId(0x3E) {
@@ -129,6 +150,18 @@ impl NativeRuntime {
     /// Boot timing matches the oracle helper exactly: 720 frames with
     /// Start presses at frames 120, 200, 280, 360, 460.
     pub fn boot_to_level(&mut self, target: LevelId) {
+        self.boot_to_level_with_warp_lifecycle(target, false);
+    }
+
+    fn boot_to_level_for_recording_oracle(&mut self, target: LevelId) {
+        self.boot_to_level_with_warp_lifecycle(target, true);
+    }
+
+    fn boot_to_level_with_warp_lifecycle(
+        &mut self,
+        target: LevelId,
+        use_recording_oracle_lifecycle: bool,
+    ) {
         let start = FrameInput {
             start: true,
             ..FrameInput::default()
@@ -143,26 +176,49 @@ impl NativeRuntime {
             }
         }
 
-        // The boot-title oracle now keeps the Level 1 title-card shell hidden
-        // through frame 719, so a fixed 720-frame bootstrap no longer implies
-        // that live gameplay has started. Continue idling until the hidden
-        // hand-off actually reaches `InGame`, keeping the helper independent
-        // of the exact title-card settle length.
-        for _ in 0..720 {
-            if matches!(self.boot_state, BootState::InGame) {
-                break;
-            }
-            self.step_frame(idle);
-        }
-
-        // Jump directly to target level using internal skip mechanism.
-        if self.current_level != target {
-            self.pending_level_skip = Some(target);
-            self.step_frame(idle);
-            self.pending_level_skip_resume = true;
-            self.step_frame(idle);
-            for _ in 0..LEVEL_SKIP_RESUME_TOTAL_FRAMES {
+        if !use_recording_oracle_lifecycle {
+            // The boot-title oracle now keeps the Level 1 title-card shell
+            // hidden through frame 719, so a fixed 720-frame bootstrap no
+            // longer implies that live gameplay has started. Compatibility
+            // callers wait for that hand-off; the recording oracle instead
+            // writes Current_LevelID immediately and keeps the hidden shell.
+            for _ in 0..720 {
+                if matches!(self.boot_state, BootState::InGame) {
+                    break;
+                }
                 self.step_frame(idle);
+            }
+        }
+        let used_debug_warp = self.current_level != target;
+        if used_debug_warp {
+            if use_recording_oracle_lifecycle {
+                // ASM loc_74E0 re-enters loc_6E2/Load_TitleCard after the
+                // debug level-skip input. The recording oracle waits 60 live
+                // frames, ticks the skip, then gives the ordinary mode-$0008
+                // title-card lifecycle 120 frames before pressing Start.
+                // Its helper first writes Current_LevelID to target - 1 so
+                // LevelSkip_Cheat's addq.w #1 selects the requested level.
+                self.current_level = LevelId(target.0.wrapping_sub(1));
+                for _ in 0..60 {
+                    self.step_frame(idle);
+                }
+                self.step_frame(idle);
+                self.begin_debug_level_entry_loc_74e0(target);
+                for _ in 0..120 {
+                    self.step_frame(idle);
+                }
+                self.step_frame(start);
+                self.prior_input = FrameInput::default();
+                self.previous_input = FrameInput::default();
+                self.recording_oracle_debug_lifecycle_completed = true;
+            } else {
+                self.pending_level_skip = Some(target);
+                self.step_frame(idle);
+                self.pending_level_skip_resume = true;
+                self.step_frame(idle);
+                for _ in 0..LEVEL_SKIP_RESUME_TOTAL_FRAMES {
+                    self.step_frame(idle);
+                }
             }
         }
 
@@ -182,7 +238,9 @@ impl NativeRuntime {
         self.death_shell_snapshot = None;
         self.level_complete_gfx_snapshot = None;
         self.reload_block_grid_for_level(self.current_level);
-        self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(self.current_level));
+        if !used_debug_warp || !use_recording_oracle_lifecycle {
+            self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(self.current_level));
+        }
         self.level_start_frame = Some(self.frame_index);
         self.allow_pausing = true;
         self.allow_pausing_fade_frames = 17;
@@ -253,7 +311,13 @@ impl NativeRuntime {
         // reaches the ROM's level-skip resume tail that native `boot_to_level`
         // shortcuts. Oracle settle tracing ends Level 1 at RNG offset $FFCB;
         // the first scenario frame then advances to $FFCF via Drips loc_3340E.
-        self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
+        let debug_lifecycle_completed = self.recording_oracle_debug_lifecycle_completed;
+        if level_id == LevelId(0)
+            || (!debug_lifecycle_completed
+                && oracle_warp_primes_respawn_settle_enemy_loading(level_id))
+        {
+            self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
+        }
         self.prime_recording_warp_sprite_animation_clocks();
         let multi_head_boss_level_skip_tail = if self
             .active_enemies
@@ -270,8 +334,9 @@ impl NativeRuntime {
         // moving head, eye and projectile coroutines before recording frame
         // zero; the direct native boot shortcut otherwise starts them one
         // stable-window late.
-        let target_live_frames = recording_oracle_warp_target_live_frames(level_id)
-            .saturating_add(multi_head_boss_level_skip_tail);
+        let target_live_frames =
+            recording_oracle_warp_target_live_frames(level_id, debug_lifecycle_completed)
+                .saturating_add(multi_head_boss_level_skip_tail);
         self.settle_target_level_live_window(level_id, target_live_frames);
         // ASM Init_SpriteAttr_HUD loc_BDC0 seeds Time_SubSeconds to 1. The
         // level-skip tail is level-dependent: #289 Level 0x07 watches reach
@@ -546,7 +611,11 @@ impl ScriptRunner {
         }
         if let Some(level_id) = self.warp_to_level {
             let level_id = LevelId(level_id);
-            runtime.boot_to_level(level_id);
+            if self.settle_warp == Some(SettleWarpMode::RecordingOracle) {
+                runtime.boot_to_level_for_recording_oracle(level_id);
+            } else {
+                runtime.boot_to_level(level_id);
+            }
             match self.settle_warp {
                 Some(SettleWarpMode::FullFrameOracle) => {
                     runtime.settle_oracle_warp_live_window(level_id);
@@ -783,42 +852,42 @@ mod tests {
     #[test]
     fn recording_oracle_warp_target_live_frames_pin_oracle_routes() {
         assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0)),
-            RECORDING_SETTLED_WARP_LIVE_FRAMES - 1,
-            "ASM loc_1AE2E Level 0 recording frame 0 supplies the 60th live gameplay pass after 59 hidden settle steps"
+            recording_oracle_warp_target_live_frames(LevelId(0), true),
+            RECORDING_SETTLED_WARP_LIVE_FRAMES,
+            "ASM loc_1AE2E Level 0 recording settle uses the full 60-frame live window"
         );
         assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(1)),
-            ORACLE_SETTLED_WARP_LIVE_FRAMES - 1,
+            recording_oracle_warp_target_live_frames(LevelId(1), true),
+            LEVEL_ONE_RECORDING_SETTLED_WARP_LIVE_FRAMES,
             "Level 1 recording settle stops at the RNG $FFCB route instead of the full-frame settle age"
         );
         assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0x06)),
-            RECORDING_SETTLED_WARP_LIVE_FRAMES + 0x18,
+            recording_oracle_warp_target_live_frames(LevelId(0x06), true),
+            LEVEL_SIX_RECORDING_SETTLED_WARP_LIVE_FRAMES,
             "Under Skull Mountain 3 carries the Dragon_Flying.asm loc_3480A live-tail age before frame 0"
         );
         assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0x08)),
-            101,
+            recording_oracle_warp_target_live_frames(LevelId(0x08), true),
+            LEVEL_EIGHT_RECORDING_SETTLED_WARP_LIVE_FRAMES,
             "Hills murder-wall recording settle enters one pre-frame before the traced 102nd wall tick"
         );
         assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0x1B)),
+            recording_oracle_warp_target_live_frames(LevelId(0x1B), true),
             LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES,
             "Skydragon Castle recording settle keeps its shorter opening Sphere loc_36148 age"
         );
         assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0x3E)),
+            recording_oracle_warp_target_live_frames(LevelId(0x3E), true),
             BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES,
             "Bloody Swamp recording settle keeps Murderwall loc_140CE's live-tail age"
         );
         assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0x3F)),
+            recording_oracle_warp_target_live_frames(LevelId(0x3F), true),
             RECORDING_SETTLED_WARP_LIVE_FRAMES,
             "Scorpion Isle uses the default window; Archer.asm loc_33FDA timing is modelled in enemies"
         );
         assert_eq!(
-            recording_oracle_warp_target_live_frames(LevelId(0x12)),
+            recording_oracle_warp_target_live_frames(LevelId(0x12), true),
             RECORDING_SETTLED_WARP_LIVE_FRAMES,
             "ordinary recording oracles use the default stable live window"
         );

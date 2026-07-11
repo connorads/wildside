@@ -34,18 +34,17 @@ pub(crate) const DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E: u16 = u16::MAX - 2;
 const DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E: u16 = u16::MAX - 3;
 /// ASM Drips.asm loc_33424 initialises `stru_33F90` and waits until the
 /// animation finishes before exposing the falling child. The script durations
-/// are `$A,$A,8,6,1`, but ASM GfxObject_Animate loc_1158/sub_1194 consumes the
-/// frame that loads each entry and the final duration-1 entry finishes
-/// immediately when the terminator is visible.
-pub(crate) const DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424: u16 =
-    0x0A + 0x0A + 0x08 + 0x06 + 0x01 - 4;
+/// are `$A,$A,8,6,1`. ASM GfxObject_Animate loc_1158/sub_1194 loads each new
+/// entry only after the preceding timer reaches zero, so the five entries
+/// consume their full 35-frame sum; the final duration-1 entry finishes on its
+/// own load frame when the following mode-0 terminator is visible.
+pub(crate) const DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424: u16 = 0x0A + 0x0A + 0x08 + 0x06 + 0x01;
 const DRIPS_PRE_DROP_ANIMATION_FLAG_LOC_33424: u16 = 0x8000;
 /// ASM Drips.asm loc_33488 initialises `stru_33332` and hibernates until the
-/// linked splash child finishes before `off_33520` advances. Oracle issue-260
-/// frame 305 native splash entry stays dormant until frame 340 like the ROM,
-/// so native holds this coroutine across
-/// the linked child animation before advancing the table cursor.
-pub(crate) const DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488: u16 = 39;
+/// linked splash child finishes before `off_33520` advances. `stru_33332` has
+/// one mode-1 frame with duration 1 followed by the mode-0 terminator;
+/// GfxObject_Animate loc_1158/sub_1194 therefore finishes it in one tick.
+pub(crate) const DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488: u16 = 1;
 const DRIPS_SPLASH_ANIMATION_FLAG_LOC_33488: u16 = 0x4000;
 
 fn drips_pre_drop_animation_timer_loc_33424(frames_remaining: u16) -> u16 {
@@ -1631,8 +1630,8 @@ mod tests {
             "ASM Drips.asm loc_3340E reads the visible Kid gfx X; oracle #260's right Drips seed uses the `$68` low byte derived from frame-local physics x `$58` plus 16px"
         );
         assert_eq!(
-            DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424, 31,
-            "ASM GfxObject_Animate loc_1158/sub_1194 counts the frame that loads each `stru_33F90` entry, and the final duration-1 entry finishes immediately when the terminator is visible"
+            DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424, 35,
+            "ASM GfxObject_Animate loc_1158/sub_1194 consumes every `stru_33F90` duration: $A+$A+8+6+1 = 35 frames"
         );
     }
 

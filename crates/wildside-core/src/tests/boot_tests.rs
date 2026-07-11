@@ -3982,6 +3982,54 @@ mod chunk_01 {
     }
 
     #[test]
+    fn cold_boot_frame_720_matches_full_rng_ring_init_rng_execute_objects_issue_381() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::new(manifest);
+        for frame in 0..720 {
+            let input = if BOOT_TO_LEVEL_START_FRAMES.contains(&frame) {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            runtime.step_frame(input);
+        }
+
+        assert!(
+            matches!(
+                runtime.boot_state,
+                BootState::StartingLevel {
+                    start_latched: false,
+                    elapsed_frames: 258,
+                    uses_load_ingame_bootstrap: false,
+                    load_ingame_bootstrap_started: false,
+                }
+            ),
+            "ASM Load_TitleCard loc_1AE2E must remain in Game_Mode=$0008 after Obj_TitleMenu consumes the frame-461 Start edge: {:?}",
+            runtime.boot_state,
+        );
+        assert_eq!(
+            runtime.rom_random.offset_word(),
+            0xFFDE,
+            "ASM Init_RNG and Mode_Standard/Mode_Level Execute_Objects cadence reaches oracle cold-boot frame 720 at RNG offset $FFDE",
+        );
+        assert_eq!(
+            runtime.rom_random.ring_bytes(),
+            [
+                0x3F, 0x03, 0x57, 0x80, 0xEB, 0x61, 0xB4, 0xEC, 0x29, 0xE7, 0x97, 0x19, 0x16, 0xB4,
+                0x17, 0x88, 0xE4, 0x68, 0x97, 0x33, 0xDC, 0x55, 0xF9, 0xB4, 0x48, 0x6E, 0x48, 0xDA,
+                0x4B, 0x28, 0xBB, 0x85, 0x1F, 0xA3, 0xCE, 0x8C, 0x3E, 0x7D, 0x94, 0x79, 0xF6, 0xA9,
+                0x96, 0x80, 0xBF, 0xF0, 0x9E, 0x4D, 0xD2, 0x46, 0xD9, 0xB9, 0x0B, 0xA0, 0xD4,
+            ],
+            "ASM Init_RNG/Get_RandomNumber_byte ring must match the complete oracle WRAM `$FFFFFBDA..$FFFFFC10` image, not only its modulo-55 offset",
+        );
+    }
+
+    #[test]
     fn rom_random_state_matches_get_randomnumber_word_seeded_sequence() {
         // ASM Get_RandomNumber_word (kid.asm:1210-1216) is two successive
         // Get_RandomNumber_byte calls packed into a big-endian word.

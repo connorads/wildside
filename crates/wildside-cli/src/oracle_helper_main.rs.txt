@@ -2863,6 +2863,12 @@ fn boot_and_warp_oracle(
             no_input.clone()
         };
         tick_one_frame(emulator, renderer, audio, &inputs, save_writer)?;
+        capture_settle_trace_row(
+            settle_trace.as_deref_mut(),
+            emulator,
+            "cold_boot",
+            frame + 1,
+        );
     }
     capture_settle_trace_row(settle_trace.as_deref_mut(), emulator, "post_boot", 0);
 
@@ -3317,6 +3323,7 @@ fn capture_settle_trace_row(
         return;
     };
     let work_ram = capture_memory(emulator, GenesisMemoryArea::WorkingRam, 0x1_0000);
+    let capture_background = phase != "cold_boot";
     trace.push(OracleSettleTraceRow {
         phase,
         step,
@@ -3338,13 +3345,27 @@ fn capture_settle_trace_row(
         kid_x_vel: read_emulator_wram_i32(emulator, KID_X_VEL_ADDR),
         kid_y_vel: read_emulator_wram_i32(emulator, KID_Y_VEL_ADDR),
         number_objects: read_emulator_wram_u16(emulator, NUMBER_OBJECTS_ADDR),
-        background_scroll_loc_3050a: background_scroll_debug_loc_3050a(&work_ram),
-        background_row_offsets_loc_30744: background_row_offsets_debug_loc_30744(&work_ram),
-        background_source_window_loc_30744: background_source_window_debug_loc_30744(&work_ram),
-        background_source_absolute_loc_30744: background_source_absolute_debug_loc_30744(&work_ram),
-        background_source_rows_loc_12848: background_source_rows_debug_loc_12848(&work_ram),
-        background_plane_b_rows_loc_307d8: background_plane_b_rows_debug_loc_307d8(emulator),
-        background_plane_b_spans_loc_307d8: background_plane_b_spans_debug_loc_307d8(emulator),
+        background_scroll_loc_3050a: capture_background
+            .then(|| background_scroll_debug_loc_3050a(&work_ram))
+            .unwrap_or_default(),
+        background_row_offsets_loc_30744: capture_background
+            .then(|| background_row_offsets_debug_loc_30744(&work_ram))
+            .unwrap_or_default(),
+        background_source_window_loc_30744: capture_background
+            .then(|| background_source_window_debug_loc_30744(&work_ram))
+            .unwrap_or_default(),
+        background_source_absolute_loc_30744: capture_background
+            .then(|| background_source_absolute_debug_loc_30744(&work_ram))
+            .unwrap_or_default(),
+        background_source_rows_loc_12848: capture_background
+            .then(|| background_source_rows_debug_loc_12848(&work_ram))
+            .unwrap_or_default(),
+        background_plane_b_rows_loc_307d8: capture_background
+            .then(|| background_plane_b_rows_debug_loc_307d8(emulator))
+            .unwrap_or_default(),
+        background_plane_b_spans_loc_307d8: capture_background
+            .then(|| background_plane_b_spans_debug_loc_307d8(emulator))
+            .unwrap_or_default(),
     });
 }
 

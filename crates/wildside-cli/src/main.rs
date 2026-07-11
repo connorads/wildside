@@ -89,6 +89,7 @@ use scenarios::{
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::env;
+use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -2652,17 +2653,18 @@ fn main() -> Result<()> {
 
             if !oracle_manifest.settle_trace.is_empty() {
                 println!(
-                    "settle_phase,settle_step,game_mode,current_level_id,rng_offset,rng_last_byte,paused,camera_x_pos,camera_y_pos,kid_x_pos,kid_y_pos,kid_x_vel,kid_y_vel,number_objects,background_scroll_loc_3050a,background_row_offsets_loc_30744,background_source_window_loc_30744,background_source_absolute_loc_30744,background_source_rows_loc_12848,background_plane_b_rows_loc_307d8,background_plane_b_spans_loc_307d8"
+                    "settle_phase,settle_step,game_mode,current_level_id,rng_offset,rng_last_byte,rng_ram,paused,camera_x_pos,camera_y_pos,kid_x_pos,kid_y_pos,kid_x_vel,kid_y_vel,number_objects,background_scroll_loc_3050a,background_row_offsets_loc_30744,background_source_window_loc_30744,background_source_absolute_loc_30744,background_source_rows_loc_12848,background_plane_b_rows_loc_307d8,background_plane_b_spans_loc_307d8"
                 );
                 for row in &oracle_manifest.settle_trace {
                     println!(
-                        "{},{},0x{:04X},0x{:04X},0x{:04X},0x{:02X},{},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},{},{},{},{},{},{},{},{}",
+                        "{},{},0x{:04X},0x{:04X},0x{:04X},0x{:02X},{},{},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},{},{},{},{},{},{},{},{}",
                         row.phase,
                         row.step,
                         row.game_mode,
                         row.current_level_id,
                         row.rng_offset,
                         row.rng_last_byte,
+                        csv_field(&hex_bytes(&row.rng_ram)),
                         row.paused,
                         row.camera_x_pos,
                         row.camera_y_pos,
@@ -3027,6 +3029,16 @@ fn csv_field(value: &str) -> String {
     } else {
         value.to_owned()
     }
+}
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    bytes.iter().fold(
+        String::with_capacity(bytes.len().saturating_mul(2)),
+        |mut output, byte| {
+            write!(output, "{byte:02X}").expect("writing to String cannot fail");
+            output
+        },
+    )
 }
 
 fn oracle_probe_watch_row_in_range(
@@ -6466,7 +6478,10 @@ AddrTbl_LevelNames:
             .find(|state| state.label == "paused_tail")
             .expect("paused_tail checkpoint");
 
-        assert_eq!(level_settle.game_mode, 0x000C);
+        // ASM Load_TitleCard / loc_1AE2E keeps the cold-boot route in mode
+        // $0008 through frame 719; the direct harness releases it on the next
+        // input frame so pre_pause still samples live Mode_Level.
+        assert_eq!(level_settle.game_mode, 0x0008);
         assert_eq!(pre_pause.game_mode, 0x000C);
         assert!(!pre_pause.game_paused);
         assert_eq!(paused_tail.game_mode, 0x000C);

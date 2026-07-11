@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#381 cold-ring and Drips lifecycle parity)
+
+- Cold boot now matches the oracle's complete 55-byte RNG ring through frame
+  720; recording settle preserves it through the typed `loc_74E0` early-pass,
+  hibernate, and hidden `Mode_Level` lifecycle.
+- Drips timing follows the 35-frame `loc_33424` pre-drop animation and
+  one-frame `loc_33488` splash. Gfx-only `a1`/`a2` slots stay outside
+  `Number_Objects`; hidden parents and real `loc_335D8` crawlers remain counted.
+- Focused report `1783747510` passes Level 0x14. Canonical report `1783747598`
+  retains 35 pass / 34 fail and improves authoritative diffs from 145 to 131;
+  Level 0x14 becomes green.
+- Cold/direct title-card handoff is exact at frames 719/720, while ordinary
+  title-card entries still release on the first live Start edge without
+  buffering gameplay input.
+- `verify-slice-fast` and `verify-tas-full` pass; all 37,759 published-route
+  CRC frames match with #290's 212-authoritative / 2-limitation baseline.
+- #381 closes. NEXT: no ready/open row remains; use the proactive-verification
+  fallback and select a canonical sweep failure for the next enemy-family audit.
+
 ## 2026-07-11 handoff (#381 typed lifecycle rejected by canonical sweep)
 
 - A typed `loc_74E0` title-card experiment ran the oracle-observed early object

@@ -5501,14 +5501,15 @@ impl NativeRuntime {
     }
 
     pub(crate) fn title_screen_rng_long_burn_active(&self) -> bool {
-        // ASM `sub_1C246` can hand native into `Game_Mode=$002C` before the
-        // oracle-visible title shell actually reaches `Obj_TitleMenu`.
-        // Oracle WRAM probes for the cold-boot start-to-level route still see
-        // one final pre-freeze long burn on native-local title frame 59, then
-        // keep `RNG_Offset` frozen from frame 60 through 115 before the later
-        // hidden title rebuild resumes the per-frame
-        // `Execute_Objects -> Get_RandomNumber_long` cadence.
-        !(60..=115).contains(&self.title_screen_elapsed_frames)
+        if self.title_screen_ready_frame == TITLE_SCREEN_READY_GLOBAL_FRAME {
+            // ASM Load_TitleScreen rebuilds the hidden object shell before
+            // Obj_TitleMenu joins Mode_Standard. Early Start-skip cold-boot
+            // WRAM probes keep the ring frozen on local frames 1..=56, then
+            // loc_E12 resumes one longword draw per title pass from frame 57.
+            self.title_screen_elapsed_frames > 56
+        } else {
+            !(60..=115).contains(&self.title_screen_elapsed_frames)
+        }
     }
 
     pub(crate) fn hidden_title_screen_object_counts(&self) -> Option<(u16, u16)> {
@@ -6607,7 +6608,6 @@ impl NativeRuntime {
         let intro_sequence_5_frames_override =
             self.demo_auto_timeout_intro_sequence_5_frames_override;
         let current_level_has_title_card = self.level_has_title_card(self.current_level);
-        let title_screen_ready = self.frame_index >= self.title_screen_ready_frame;
         let mut activate_intro_sequence_3_roster = false;
         let mut play_navigate_jingle = false;
         match &mut self.boot_state {
@@ -7544,9 +7544,7 @@ impl NativeRuntime {
                     *elapsed_frames > 0
                 };
                 if handoff_ready {
-                    let recorded_title_replay = *uses_load_ingame_bootstrap
-                        || self.recorded_title_card_handoff_delay
-                        || !title_screen_ready;
+                    let recorded_title_replay = self.recorded_title_card_handoff_delay;
                     // ASM loc_1AE2E: the title-card worker hibernates for one
                     // frame, then polls Ctrl_Pressed before it writes
                     // `Game_Mode=$000C` and jumps to `loc_6E2`. Oracle-backed
@@ -7578,8 +7576,15 @@ impl NativeRuntime {
                         } else {
                             false
                         }
+                    } else if self.direct_title_card_handoff_capture {
+                        // Direct gameplay captures deliberately collapse the
+                        // loc_1AE2E input gate once its hidden bootstrap age
+                        // is complete; recorded replays retain the Start edge.
+                        self.frame_index > COLD_BOOT_TITLE_CARD_LAST_HIDDEN_FRAME_LOC_1AE2E
                     } else {
-                        *start_latched || start_pressed
+                        // Ordinary runtime entries follow loc_1AE2E directly:
+                        // the first live Start edge releases the title card.
+                        start_pressed
                     };
                     if enter_gameplay {
                         *start_latched = false;

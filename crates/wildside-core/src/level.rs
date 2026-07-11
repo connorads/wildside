@@ -19445,18 +19445,23 @@ impl NativeRuntime {
     /// Enter a level through the normal title-card/loading shell for debug
     /// controls that change level while live play is running.
     pub fn enter_level_debug_title_card(&mut self, level_id: LevelId) -> NativeTraceFrame {
-        self.begin_level_entry(level_id);
-        // ASM loc_74E0 debug level changes re-enter loc_6E2/Load_TitleCard,
-        // but they are native tooling jumps from an already-live scene. Keep
-        // the ROM title-card shell, then expose the freshly settled target
-        // spawn when loc_1AE2E releases instead of replaying the Fast Action
-        // title-start WRAM carry window.
-        self.debug_level_entry_suppresses_title_card_live_handoff = true;
+        self.begin_debug_level_entry_loc_74e0(level_id);
         // play-native can hold that first transition frame without stepping the
         // core, so refresh the VDP shell immediately instead of leaving the old
         // gameplay VDP latched until the next frame.
         self.update_vdp_state();
         self.trace_frame()
+    }
+
+    pub(crate) fn begin_debug_level_entry_loc_74e0(&mut self, level_id: LevelId) {
+        self.begin_level_entry(level_id);
+        // ASM loc_74E0 debug level changes re-enter loc_6E2/Load_TitleCard,
+        // whose hidden Mode_Level pass starts from the raw header pose and
+        // settles Kid under gravity. Keep this source explicit so ordinary
+        // cold-boot and level-advance title cards retain their own timing.
+        self.debug_level_entry_suppresses_title_card_live_handoff = true;
+        self.recorded_title_card_handoff_delay = true;
+        self.opening_slice = Some(self.level_respawn_slice(level_id));
     }
 
     fn init_post_load_object_routine_loc_11f96(&mut self, level_id: LevelId) {
@@ -19659,14 +19664,15 @@ impl NativeRuntime {
             )
             && self.title_menu_active
             && !self.title_menu_cursor_pending;
-        let start_latched = (carry_title_start
-            && !self.recorded_title_card_handoff_delay
-            && level_has_title_card
-            && !uses_load_ingame_bootstrap)
-            || (!carry_title_start
-                && !uses_load_ingame_bootstrap
-                && !level_has_title_card
-                && !matches!(self.boot_state, BootState::TitleScreen { .. }));
+        let start_latched = self.title_screen_ready_frame != TITLE_SCREEN_READY_GLOBAL_FRAME
+            && ((carry_title_start
+                && !self.recorded_title_card_handoff_delay
+                && level_has_title_card
+                && !uses_load_ingame_bootstrap)
+                || (!carry_title_start
+                    && !uses_load_ingame_bootstrap
+                    && !level_has_title_card
+                    && !matches!(self.boot_state, BootState::TitleScreen { .. })));
         self.boot_state = BootState::StartingLevel {
             // ASM loc_1AE2E: Load_TitleCard hibernates, clears the current
             // Ctrl_Pressed Start bit, and waits for a Start edge before

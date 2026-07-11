@@ -243,7 +243,9 @@ pub struct NativeRuntime {
     respawn_live_handoff_frames: u8,
     title_card_live_handoff_frames: u8,
     recorded_title_card_handoff_delay: bool,
+    direct_title_card_handoff_capture: bool,
     debug_level_entry_suppresses_title_card_live_handoff: bool,
+    recording_oracle_debug_lifecycle_completed: bool,
     start_press_count: usize,
     current_level: LevelId,
     level_start_frame: Option<usize>,
@@ -1201,7 +1203,9 @@ impl NativeRuntime {
             respawn_live_handoff_frames: 0,
             title_card_live_handoff_frames: 0,
             recorded_title_card_handoff_delay: false,
+            direct_title_card_handoff_capture: false,
             debug_level_entry_suppresses_title_card_live_handoff: false,
+            recording_oracle_debug_lifecycle_completed: false,
             start_press_count: 0,
             current_level: LevelId(0),
             level_start_frame: None,
@@ -1809,6 +1813,7 @@ impl NativeRuntime {
     /// Select oracle-recorded title-card hand-off timing for scripted replay tools.
     pub fn set_recorded_title_card_handoff_delay(&mut self, enabled: bool) {
         self.recorded_title_card_handoff_delay = enabled;
+        self.direct_title_card_handoff_capture = !enabled;
     }
 
     /// Set the block collision grid for the current level.
@@ -2439,21 +2444,66 @@ impl NativeRuntime {
             false
         };
         let frame_started_in_sega_screen = matches!(self.boot_state, BootState::SegaScreen { .. });
+        let sega_screen_start_skip_rng_long_burn = frame_started_in_sega_screen && start_pressed;
+        let sega_screen_wait_was_already_exhausted = matches!(
+            self.boot_state,
+            BootState::SegaScreen { elapsed } if elapsed >= SEGA_SCREEN_FRAMES
+        );
+        let intro_sequence_rng_long_burn_active = matches!(
+            self.boot_state,
+            BootState::IntroSequence {
+                segment: 0,
+                elapsed: 44..,
+                ..
+            }
+        ) && COLD_SEGA_START_SKIP_INTRO_RNG_FRAME_INDICES
+            .contains(&self.frame_index);
         let frame_started_in_title_screen =
             matches!(self.boot_state, BootState::TitleScreen { .. });
         let frame_started_in_level_entry =
             matches!(self.boot_state, BootState::StartingLevel { .. });
-        let level_entry_hibernated_gameplay_input =
-            self.starting_level_title_card_bootstrap_active_loc_1ae2e();
+        // ASM loc_74E0 -> loc_6E2/Load_TitleCard: the debug level-skip shell
+        // runs two early Mode_Standard object passes, hibernates through the
+        // middle title-card window, then starts hidden Mode_Level on title
+        // wait tick 78. The oracle records post-tick state, so elapsed 78 is
+        // the first pre-step state whose pass must execute.
+        let debug_level_entry_elapsed = match self.boot_state {
+            BootState::StartingLevel { elapsed_frames, .. }
+                if self.debug_level_entry_suppresses_title_card_live_handoff =>
+            {
+                Some(elapsed_frames)
+            }
+            _ => None,
+        };
+        let debug_level_entry_object_pass =
+            debug_level_entry_elapsed.is_some_and(|elapsed| !(2..78).contains(&elapsed));
+        let debug_level_entry_hibernated =
+            debug_level_entry_elapsed.is_some_and(|elapsed| elapsed < 78);
+        let level_entry_hibernated_gameplay_execution = self
+            .starting_level_title_card_bootstrap_active_loc_1ae2e()
+            || debug_level_entry_hibernated;
+        // ASM loc_1AE2E owns Ctrl_Pressed/Ctrl_Held for every title-card
+        // entry, even on routes whose hidden Mode_Level execution continues
+        // underneath the shell.
+        let level_entry_hibernated_gameplay_input = frame_started_in_level_entry;
         self.step_boot_state(input, start_pressed);
         self.update_vdp_state();
-        if frame_started_in_sega_screen
-            && matches!(self.boot_state, BootState::IntroSequence { .. })
+        if sega_screen_start_skip_rng_long_burn
+            || (frame_started_in_sega_screen
+                && matches!(self.boot_state, BootState::IntroSequence { .. })
+                && !sega_screen_wait_was_already_exhausted)
         {
-            // ASM Sega/logo boot still runs through Mode_Standard on the frame
-            // that flips into `Game_Mode=$0004`, so Execute_Objects burns one
-            // `Get_RandomNumber_long` before IntroSequence1 becomes visible on
-            // the traced frame.
+            // ASM Mode_Standard -> Execute_Objects loc_E12 (kid.asm:854,
+            // 1636) burns one `Get_RandomNumber_long` on the final logo pass.
+            // A Start edge ends the logo object's wait on that pass; the
+            // following traced frame only exposes `Game_Mode=$0004`.
+            let _ = self.rom_random.next_long();
+        }
+        if intro_sequence_rng_long_burn_active {
+            // ASM Mode_Standard -> Execute_Objects loc_E12 (kid.asm:854,
+            // 1636): the live IntroSequence1 object pass begins on local
+            // elapsed frame 44 and continues through the deferred Start
+            // hand-off into `Game_Mode=$002C`.
             let _ = self.rom_random.next_long();
         }
         if frame_started_in_title_screen && self.title_screen_rng_long_burn_active() {
@@ -2465,7 +2515,12 @@ impl NativeRuntime {
             let _ = self.rom_random.next_long();
         }
         self.step_allow_pausing_fade_sub_73d0();
-        if frame_started_in_level_entry
+        if debug_level_entry_object_pass {
+            // ASM Execute_Objects loc_E12: both early title-card object passes
+            // and every hidden Mode_Level pass begin with one RNG longword.
+            let _ = self.rom_random.next_long();
+        } else if debug_level_entry_elapsed.is_none()
+            && frame_started_in_level_entry
             && let BootState::StartingLevel {
                 elapsed_frames,
                 uses_load_ingame_bootstrap,
@@ -2515,7 +2570,9 @@ impl NativeRuntime {
             {
                 let _ = title_rng.next_long();
             }
-            self.maybe_seed_starting_level_title_workers(elapsed_frames);
+            if !self.debug_level_entry_suppresses_title_card_live_handoff {
+                self.maybe_seed_starting_level_title_workers(elapsed_frames);
+            }
         }
         if let BootState::DemoPlay { use_demo_2, .. } = self.boot_state
             && self.demo_gameplay_active()
@@ -2527,7 +2584,7 @@ impl NativeRuntime {
         let gameplay_slice_active = (matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::InGame
-        ) && !level_entry_hibernated_gameplay_input)
+        ) && !level_entry_hibernated_gameplay_execution)
             || (self.demo_gameplay_active() && self.opening_slice.is_some());
         if gameplay_slice_active {
             // ASM Mode_Level loc_7E2/Transfer_ScrollDataToVRAM loc_30110 runs
@@ -2575,8 +2632,9 @@ impl NativeRuntime {
                 && self.pending_pause_restart_round.is_none()
                 && !pause_last_life_exit_frame
             {
-                if matches!(self.boot_state, BootState::InGame)
-                    || (self.demo_gameplay_active() && self.opening_slice.is_some())
+                if (matches!(self.boot_state, BootState::InGame)
+                    || (self.demo_gameplay_active() && self.opening_slice.is_some()))
+                    && !debug_level_entry_object_pass
                 {
                     // ASM Execute_Objects loc_E12 (kid.asm:1636) starts every
                     // live Mode_Level object pass with Get_RandomNumber_long
@@ -2590,8 +2648,11 @@ impl NativeRuntime {
                 // ASM loc_1AE2E owns Game_Mode=$0008 until Start writes
                 // Game_Mode=$000C and jumps through loc_6E2. Gameplay input and
                 // Mode_Level execution both stay hibernated during that shell.
-                let title_card_hibernates_gameplay_input =
-                    self.starting_level_title_card_bootstrap_active_loc_1ae2e();
+                // Preserve the frame-start title-card ownership across the
+                // loc_1AE2E mode write: the Start edge may expose Mode_Level
+                // now, but the same frame's gameplay pass still receives no
+                // B/direction input.
+                let title_card_hibernates_gameplay_input = level_entry_hibernated_gameplay_input;
                 let demo_live_input = matches!(self.boot_state, BootState::DemoPlay { .. })
                     && self
                         .demo_startup_frame()
@@ -3218,6 +3279,17 @@ impl NativeRuntime {
         ) && self
             .level_header(self.current_level)
             .is_some_and(|header| header.murder_wall_flags != 0)
+    }
+
+    pub(crate) fn debug_level_entry_mode_level_active_loc_74e0(&self) -> bool {
+        self.debug_level_entry_suppresses_title_card_live_handoff
+            && matches!(
+                self.boot_state,
+                BootState::StartingLevel {
+                    elapsed_frames: 79..,
+                    ..
+                }
+            )
     }
 
     #[allow(non_snake_case)]

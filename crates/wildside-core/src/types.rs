@@ -2813,6 +2813,11 @@ impl RomRandomState {
     pub(crate) fn last_byte(&self) -> u8 {
         self.ram[self.index]
     }
+
+    #[cfg(test)]
+    pub(crate) fn ring_bytes(&self) -> [u8; Self::RAM_LENGTH] {
+        self.ram
+    }
 }
 
 impl Default for RomRandomState {

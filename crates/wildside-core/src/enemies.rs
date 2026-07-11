@@ -12677,7 +12677,8 @@ impl NativeRuntime {
         if !matches!(
             self.boot_state,
             BootState::InGame | BootState::DemoPlay { .. }
-        ) {
+        ) && !self.debug_level_entry_mode_level_active_loc_74e0()
+        {
             return;
         }
         if matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }) {

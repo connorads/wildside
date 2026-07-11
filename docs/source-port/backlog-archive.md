@@ -79,6 +79,23 @@ test changes were reverted. Next: trace and correct cold-boot full-ring
 construction before reintroducing the generic hidden lifecycle. Do not split
 the ring mismatch into a follow-up or hide it with a universal/per-level seed.
 
+Resolved 2026-07-11. Cold boot now reproduces the oracle's complete 55-byte RNG
+ring through frame 720, and the recording-only `loc_74E0` lifecycle preserves
+that ring while running the two early object passes, hibernated title-card
+window, and hidden `Mode_Level` schedule. Level-dependent settle windows retain
+the ROM lifecycle instead of applying a Level 0x14 seed/reset override.
+
+The Drips audit corrected two earlier assumptions: `loc_33424` waits 35 frames
+from `stru_33F90`, while `loc_33488` has a one-frame splash animation; its `a1`
+and `a2` allocations use `j_Allocate_GfxObjectSlot_a1` and therefore do not
+contribute to Object_RAM's `Number_Objects`. Exact recording accounting instead
+keeps the three hidden parent controllers and the real `loc_335D8` surface
+crawlers count-visible. Focused report `1783747510` passes Level 0x14. Canonical
+report `1783747598` retains 35 pass / 34 fail and reduces authoritative diffs
+from 145 to 131; Level 0x14 becomes green. Cold frame-720 full-ring, Level 0x14
+Drips lifecycle/count, direct title-card boundary, and ordinary Start-handoff
+regressions pin the corrected routes.
+
 ### #380
 
 Opened 2026-07-11 from canonical state report `1783732342`. Level 0x14
@@ -3520,6 +3537,12 @@ Note 2026-05-31 for #213: commit `147c296c` implemented the first part of the re
 Note 2026-06-01 for #213: the precise lower-floor count window is now pinned. Oracle WRAM counts the Drips preallocated child object, but not a new gfx slot, on frames 537-597 of `.cache/scenarios/issue-213-drips-floor-probe-2000.json`; the later falling `DripsDrop` at frame 629 was already visually/state matched and must not be counted as this hidden worker. Native now adds a Drips object-only transient during the low dormant timer / early `loc_33424` forming window, excluding the in-flight sentinel. Regression `settled_level_one_drips_child_slot_counts_only_before_drop_loc_33424` samples frames 536/537/597/598/629 so future changes cannot paper over the window by counting every active Drips controller or every DripsDrop.
 
 Note 2026-06-01 follow-up for #213: refined that child-slot count after the jump probes showed the first `loc_33424` wait must not count a child. ASM `Drips.asm loc_33488` is the state split: only after a splash copies the falling child into the surface/pool child (`a2`) and advances `off_33520` should native add an object-only worker during the next wait / early forming window. Added `drips_loc_33424_countdown_does_not_add_hidden_child_object` and `drips_loc_33488_surface_pool_counts_as_object_only_child`. Verification: focused trace tests, `.cache/scenarios/issue-213-drips-floor-probe-2000.json` frames 520-650 clean, and `.cache/scenarios/issue-213-drips-jump-probe.json` frames 0-120 clean. Broader cache-local jump variants still include older non-pinned divergences and need separate repro triage before closing #213.
+
+Correction 2026-07-11 for #213: `loc_33488` allocates `a2` with
+`j_Allocate_GfxObjectSlot_a1`; both Drips child slots are GfxObject_RAM, not
+Object_RAM, and must not increment `Number_Objects`. The count-visible workers
+are the hidden Drips parent controllers and the real `loc_335D8` crawlers.
+The earlier object-only surface-pool interpretation is rejected.
 
 Note 2026-06-02 for #213: `issue-213-drips-camera-only` is now a clean
 64-frame prefix, not the Drips/terrain repro. Fresh native replay passed, but
@@ -11490,6 +11513,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 381 | [x] | P2 | Enemy/state | Recording settle preserves the cold-boot RNG ring and typed title-card lifecycle, aligning Level 0x14 Drips phases and crawler count. | Reports `1783747510` and `1783747598`; exact RNG-ring, Drips lifecycle/count, and title-card regressions. See archive #381. |
 | 380 | [x] | P2 | State parity | Hidden Drips controllers and surface crawlers retain their Object_RAM contribution in `Number_Objects`. | Reports `1783734083` and `1783734356`; exact Level 0x14 settle regression. See archive #380. |
 | 379 | [x] | P1 | verify/enemy | Recording settle preserves the proven Armadillo presentation age, and Platform_RAM entries no longer inflate object/GFX counts. | Reports `1783731833` and `1783732342`; Level 0x11 exact regression and required gates. See archive #379. |
 | 378 | [x] | P2 | block/assets | Undumped resource layouts synthesise their interactive prize, ghost, teleporter, and hidden lists from the ROM block stream. | Report `1783729994`; 35-level cell/sidecar parity and focused all-family regressions. See archive #378. |

@@ -332,7 +332,7 @@ pub(crate) fn verify_pause_resume_level_1(capture: &GameplayCapture) -> Result<(
     let paused_tail = gameplay_checkpoint(capture, "paused_tail")?;
     let resumed_tail = gameplay_checkpoint(capture, "resumed_tail")?;
 
-    if level_settle.game_mode != 0x000C || pre_pause.game_mode != 0x000C {
+    if level_settle.game_mode != 0x0008 || pre_pause.game_mode != 0x000C {
         bail!("pause_resume_level1 never stabilised in gameplay mode before pause");
     }
     if pre_pause.camera_x_pos <= level_settle.camera_x_pos

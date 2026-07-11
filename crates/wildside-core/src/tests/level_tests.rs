@@ -4097,12 +4097,13 @@ mod chunk_02 {
         let frame_520 = frame_520.expect("frame 520 trace");
 
         // ASM Load_TitleCard -> loc_1AB26 -> Execute_Objects reverse the visible
-        // `loc_1AC70` execution order; oracle frame 520 reads fixed gfx slot 2
-        // directly from WRAM after the title worker has settled at its target.
+        // `loc_1AC70` execution order. Oracle cold-boot settle step 521 reads
+        // fixed gfx slot 2 directly from WRAM while its RNG-seeded flight is
+        // still approaching the final `$0040,$0068` target.
         assert_eq!(frame_520.game_mode, GameMode::LevelTransition);
         assert_eq!(frame_520.boot_phase, Some(String::from("starting_level")));
-        assert_eq!(frame_520.kid_x_pos, Some(0x0040_0000));
-        assert_eq!(frame_520.kid_y_pos, Some(0x0068_0000));
+        assert_eq!(frame_520.kid_x_pos, Some(0x007F_0000));
+        assert_eq!(frame_520.kid_y_pos, Some(0x0002_0000));
         assert_eq!(frame_520.number_objects, 15);
         assert_eq!(frame_520.number_gfx_objects, 14);
     }
@@ -5797,14 +5798,22 @@ mod chunk_02 {
         let trace = ScriptRunner::new(manifest)
             .warp_to_level(0x14)
             .settle_recording_warp()
-            .run(&[0], 1)
-            .into_iter()
-            .next()
-            .expect("settled level 0x14 frame 0");
+            .run(&[0; 360], 360);
+        let first = trace.first().expect("settled level 0x14 frame 0");
+        let last = trace.last().expect("settled level 0x14 frame 359");
 
         assert_eq!(
-            trace.number_objects, 6,
+            first.number_objects, 6,
             "ASM Drips.asm Enemy16_Drip_Init keeps all three Drips Object_RAM controllers live through loc_333F6..loc_3350E; the Level 0x14 oracle therefore reports six objects at recording frame 0",
+        );
+        assert_eq!(
+            first.rng_offset,
+            Some(0xFFE5),
+            "ASM Execute_Objects loc_E12 burns one RNG longword before each hidden Mode_Level object pass; oracle settle tracing reaches $FFE1 at target_live step 59 and frame 0 reaches $FFE5",
+        );
+        assert_eq!(
+            last.number_objects, 9,
+            "ASM Drips.asm loc_3340E releases all three surface crawlers by the Level 0x14 oracle's idle frame 359",
         );
     }
 

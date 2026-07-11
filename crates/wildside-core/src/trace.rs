@@ -2007,27 +2007,29 @@ mod tests {
     #[test]
     fn drips_loc_33424_countdown_does_not_add_hidden_child_object() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
-        let without_controller = runtime.gameplay_transient_object_only_worker_count();
+        runtime.recording_oracle_debug_lifecycle_completed = true;
+        let without_controller = runtime.gameplay_transient_object_only_worker_count(0, 0);
         runtime.active_enemies.push(drips_test_enemy(0x0038, 0));
 
         assert_eq!(
-            runtime.gameplay_transient_object_only_worker_count(),
+            runtime.gameplay_transient_object_only_worker_count(0, 0),
             without_controller + 1,
             "ASM Drips.asm loc_33424 only decrements d0 and hibernates the one live controller here; it does not add the falling child until after `stru_33F90` finishes",
         );
     }
 
     #[test]
-    fn drips_loc_33488_surface_pool_counts_as_object_only_child() {
+    fn drips_loc_33488_surface_pool_stays_outside_object_count() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.recording_oracle_debug_lifecycle_completed = true;
         runtime.active_enemies.push(drips_test_enemy(0x0038, 0));
-        let controller_only = runtime.gameplay_transient_object_only_worker_count();
+        let controller_only = runtime.gameplay_transient_object_only_worker_count(0, 0);
         runtime.active_enemies[0].drips_surface_table_index = 1;
 
         assert_eq!(
-            runtime.gameplay_transient_object_only_worker_count(),
-            controller_only + 1,
-            "ASM Drips.asm loc_33488 leaves the `a2` surface-pool child visible in addition to its parent while the parent returns to loc_3340E/loc_33424 for the next wait",
+            runtime.gameplay_transient_object_only_worker_count(0, 0),
+            controller_only,
+            "ASM Drips.asm Enemy16_Drip_Init allocates the `a2` surface-pool child with j_Allocate_GfxObjectSlot_a1, so loc_33488 changes its gfx state without incrementing Number_Objects",
         );
     }
 
@@ -2036,6 +2038,7 @@ mod tests {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
         runtime.current_level = LevelId(0x14);
+        runtime.recording_oracle_debug_lifecycle_completed = true;
         let baseline = runtime.object_counts_from_roster(&[], 0, 0);
         runtime.active_enemies.push(drips_test_enemy(0x0038, 0));
 
@@ -2576,7 +2579,13 @@ mod tests {
 
     #[test]
     fn loc_1ae2e_title_card_start_handoff_does_not_buffer_gameplay_input() {
-        let mut runtime = NativeRuntime::new(manifest_with_title_card_level(0));
+        let mut manifest = manifest_with_title_card_level(0);
+        manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("title-card test level should have header metadata")
+            .murder_wall_flags = 0;
+        let mut runtime = NativeRuntime::new(manifest);
         let bounds = crate::physics::LevelBounds {
             width_pixels: 320,
             height_pixels: 224,
@@ -10718,8 +10727,8 @@ impl NativeRuntime {
                     // allocate Object_RAM without changing the sampled gfx
                     // count, so keep the two transient categories separate.
                     let transient_gfx_workers = self.gameplay_transient_gfx_worker_count();
-                    let transient_object_only_workers =
-                        self.gameplay_transient_object_only_worker_count();
+                    let transient_object_only_workers = self
+                        .gameplay_transient_object_only_worker_count(camera_x_pos, camera_y_pos);
                     (
                         4u16.saturating_add(transient_gfx_workers)
                             .saturating_add(transient_object_only_workers),
@@ -10970,7 +10979,7 @@ impl NativeRuntime {
             0
         };
         let transient_object_only_workers = if include_runtime_transients {
-            self.gameplay_transient_object_only_worker_count()
+            self.gameplay_transient_object_only_worker_count(camera_x_pos, camera_y_pos)
         } else {
             0
         };
@@ -11036,41 +11045,30 @@ impl NativeRuntime {
         )
     }
 
-    fn gameplay_transient_object_only_worker_count(&self) -> u16 {
+    fn gameplay_transient_object_only_worker_count(
+        &self,
+        camera_x_pos: u32,
+        camera_y_pos: u32,
+    ) -> u16 {
         let drips_parent_workers = self
             .active_enemies
             .iter()
-            .filter(|enemy| enemy.family == EnemyFamily::Drips)
+            .filter(|enemy| {
+                self.recording_oracle_debug_lifecycle_completed
+                    && enemy.family == EnemyFamily::Drips
+                    && drips_object_check_in_range_loc_333f6(
+                        enemy,
+                        Some(camera_x_pos >> 16),
+                        Some(camera_y_pos >> 16),
+                    )
+            })
             .count() as u16;
         // ASM Drips.asm Enemy16_Drip_Init is an Object_RAM coroutine whose
         // parent gfx object stays hidden through loc_333F6..loc_3350E. Native
-        // deliberately suppresses that parent from `active_enemy_roster`, so
-        // preserve its Number_Objects contribution separately.
-        let drips_child_workers = self
-            .active_enemies
-            .iter()
-            .filter(|enemy| {
-                if enemy.family != EnemyFamily::Drips {
-                    return false;
-                }
-                if enemy.wait_timer == u16::MAX {
-                    return false;
-                }
-                let forming_frames = if enemy.wait_timer & 0x8000 == 0 {
-                    None
-                } else {
-                    Some(enemy.wait_timer & !0x8000)
-                };
-                // ASM Drips.asm loc_33488 copies the falling child position
-                // into the surface child (`a2`), sets `$13(a2)`, writes the
-                // selected `off_33520` pool sprite, then returns to loc_3340E.
-                // The first loc_33424 wait has no visible surface child; only
-                // waits after at least one splash own this object-only worker.
-                enemy.drips_surface_table_index > 0
-                    && ((enemy.wait_timer <= 0x0038)
-                        || forming_frames.is_some_and(|frames| frames >= 0x0020))
-            })
-            .count() as u16;
+        // deliberately suppresses that parent from `active_enemy_roster`.
+        // The exact loc_74E0 recording route keeps those in-range controller
+        // slots live behind the title shell; ordinary direct boot probes use
+        // their established roster-derived counts.
         // ASM loc_10DA4/sub_10DE4 (kid.asm:22692,22717) allocates a standard
         // Object_RAM coroutine for each rubber-block skin swap, but unlike
         // smash/ice block debris it never calls j_sub_E02 and owns no gfx slot.
@@ -11132,7 +11130,6 @@ impl NativeRuntime {
         // shared `$FFFFFB42` count changes at allocation/deletion boundaries,
         // so retain it when the projectile vector is between those phases.
         drips_parent_workers
-            .saturating_add(drips_child_workers)
             .saturating_add(rubber_skin_workers)
             .saturating_add(lava_special_effect_workers)
             .saturating_add(lion_projectile_workers)
