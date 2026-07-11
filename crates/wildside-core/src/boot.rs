@@ -5504,6 +5504,23 @@ impl NativeRuntime {
         self.frame_index >= self.title_screen_ready_frame
     }
 
+    /// ASM loc_119D8 -> loc_1B5CE: effective later-demo title rebuild elapsed.
+    pub(crate) fn effective_title_screen_rebuild_elapsed(&self) -> usize {
+        // ASM loc_119D8 returns the later demo through loc_6E2 after the
+        // IntroSequence6 lineage has already completed loc_1B5CE's standard
+        // title-pose restore. Oracle exposes both the staged title workers and
+        // their enclosing loc_E12 pass two frames ahead of a generic manual
+        // demo return, matching the existing pose/idle lineage offset.
+        let early_restore_frames =
+            if self.demo_title_return_uses_intro_sequence_6_early_title_restore {
+                DEMO_AUTO_TIMEOUT_INTRO_SEQUENCE_6_EARLY_TITLE_RESTORE_FRAMES
+            } else {
+                0
+            };
+        self.title_screen_elapsed_frames
+            .saturating_add(early_restore_frames)
+    }
+
     pub(crate) fn title_screen_rng_long_burn_active(&self) -> bool {
         if matches!(
             self.title_screen_intro_return_lineage,
@@ -5542,7 +5559,7 @@ impl NativeRuntime {
             // and manual demo-return WRAM probes keep the ring frozen on
             // local frames 1..=56, then loc_E12 resumes one longword draw per
             // title pass from frame 57.
-            self.title_screen_elapsed_frames > 56
+            self.effective_title_screen_rebuild_elapsed() > 56
         } else {
             !(60..=115).contains(&self.title_screen_elapsed_frames)
         }
@@ -5562,7 +5579,7 @@ impl NativeRuntime {
         // 2/1 intro shell on local frames 0..31, a blank rebuild window on
         // 32..55, then the 3/0, 5/1, 5/2, and steady 4/2 shell before
         // `loc_1BB52` exposes the menu cursor.
-        Some(match self.title_screen_elapsed_frames {
+        Some(match self.effective_title_screen_rebuild_elapsed() {
             0..=31 => (2, 1),
             32..=55 => (0, 0),
             56 => (3, 0),

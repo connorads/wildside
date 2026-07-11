@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 later demo-return title restore)
+
+- The later IntroSequence6 demo-return lineage already records that
+  `loc_1B5CE` restored the standard title pose two frames early, but its
+  Load_TitleScreen worker counts and outer `loc_E12` wake used generic timing.
+- Native now applies the existing two-frame lineage offset to both schedules.
+  The frame-22606..22609 object counts match oracle's 3/5/5/4 sequence and RNG
+  advances from frame 22607.
+- Full-route CRC remains exact on all 37,759 frames. Per-frame RNG debt falls
+  15,146 -> 10,148, digest `86a2d554d1f4c66015f017a8b7eeda69991ba9c1`;
+  sampled RNG fields fall 1,256 -> 839, digest
+  `967c53b08799b7d84828341f28b27fba47d19f6a`.
+- `mise run verify-slice-fast` and the isolated full TAS replay pass with the
+  improved checked-in ratchet.
+- NEXT: frame 27603. Native `$FFFC`, oracle `$FFC9`, first ring difference
+  index 0 `$DD/$E6`.
+
 ## 2026-07-11 handoff (#390 IntroSequence6 live worker schedule)
 
 - `Load_IntroSequence6` returns after allocating `loc_1BAB0`, `loc_1B37C`, and

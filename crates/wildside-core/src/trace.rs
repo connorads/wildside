@@ -7057,7 +7057,7 @@ impl NativeRuntime {
         // snapshot drops, the hidden Load_TitleScreen / Obj_TitleMenu rebuild
         // follows the same staged object-count shape as sub_1C246 title
         // returns before the steady title shell takes over.
-        match self.title_screen_elapsed_frames {
+        match self.effective_title_screen_rebuild_elapsed() {
             32..=55 => Some((0, 0)),
             56 => Some((3, 0)),
             57 => Some((5, 1)),

@@ -8170,6 +8170,50 @@ mod chunk_02 {
     }
 
     #[test]
+    fn intro_sequence_6_early_restore_demo_return_wakes_title_workers_loc_119d8() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(22_625)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_22606_ring = trace[22_606]
+            .rng_ring
+            .as_ref()
+            .expect("frame 22606 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_22606_ring.as_bytes(),
+            trace[22_606].rng_offset.expect("frame 22606 RNG offset"),
+        );
+
+        // ASM loc_119D8 returns the later demo to Load_TitleScreen after
+        // loc_1B5CE has already restored this lineage's standard title pose.
+        // Oracle exposes Load_TitleScreen's 3/5/5/4 staged worker counts two
+        // frames earlier than the generic manual-demo-return rebuild.
+        assert_eq!(
+            trace[22_606..=22_609]
+                .iter()
+                .map(|frame| frame.number_objects)
+                .collect::<Vec<_>>(),
+            [3, 5, 5, 4],
+            "ASM loc_119D8 -> loc_6E2 -> Load_TitleScreen exposes the early-restored title workers on published frames 22606..22609",
+        );
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(22_625).skip(22_607) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM loc_119D8 -> loc_6E2 -> Load_TitleScreen has allocated Obj_TitleMenu before Mode_Standard -> Execute_Objects loc_E12 resumes on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

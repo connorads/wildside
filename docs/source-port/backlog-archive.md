@@ -486,6 +486,27 @@ Per-frame RNG debt falls 16,832 -> 15,146, digest
 Frames 16..22606 are exact. The next frontier is frame 22607: native `$FFCB`,
 oracle `$FFCF`, ring index 3 `$00/$51`.
 
+Follow-up proactive correction 2026-07-11 classified frame 22607 as the later
+IntroSequence6 demo return, not a fresh loader. Native already carried the
+typed `demo_title_return_uses_intro_sequence_6_early_title_restore` fact:
+`loc_1B5CE` had restored the standard title pose before `loc_119D8` sent the
+demo through `loc_6E2 -> Load_TitleScreen`. The pose and Obj_TitleMenu idle
+used the two-frame advance, but the staged title-worker counts and outer
+`Mode_Standard -> Execute_Objects loc_E12` wake still used generic manual
+demo-return elapsed time.
+
+Native now derives a shared effective title-rebuild elapsed from that existing
+lineage and uses it for both observable schedules. Regression
+`intro_sequence_6_early_restore_demo_return_wakes_title_workers_loc_119d8`
+failed with native counts 0/0/3/5 against oracle 3/5/5/4 on frames
+22606..22609, then pins that sequence and every complete-ring draw through
+frame 22624. All 37,759 player/camera CRC frames remain exact. Per-frame RNG
+debt falls 15,146 -> 10,148, digest
+`86a2d554d1f4c66015f017a8b7eeda69991ba9c1`; sampled RNG field debt falls
+1,256 -> 839, digest `967c53b08799b7d84828341f28b27fba47d19f6a`.
+Frames 16..27602 are exact. The next frontier is frame 27603: native `$FFFC`,
+oracle `$FFC9`, ring index 0 `$DD/$E6`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

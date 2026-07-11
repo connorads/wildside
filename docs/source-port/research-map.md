@@ -23,13 +23,25 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 15,146 mismatches, first at
-frame 22607, under digest `91bde5af2594ffa7156005d7204440ca4b91092e`.
-Frames 16..22606 match the complete RNG state exactly; the next mismatch begins
-after the published route's first later title/demo cycle.
+of the remaining 37,743 frames. It currently records 10,148 mismatches, first at
+frame 27603, under digest `86a2d554d1f4c66015f017a8b7eeda69991ba9c1`.
+Frames 16..27602 match the complete RNG state exactly; the next mismatch begins
+during a later title/demo cycle.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.
+
+The latest correction carries the existing IntroSequence6 early-title-restore
+lineage through the later manual demo return. `loc_119D8` returns through
+`loc_6E2 -> Load_TitleScreen` after `loc_1B5CE` has already restored the
+standard title pose, so oracle exposes the staged 3/5/5/4 title-worker counts
+and the enclosing `Mode_Standard -> Execute_Objects loc_E12` wake two frames
+ahead of a generic manual return. Regression
+`intro_sequence_6_early_restore_demo_return_wakes_title_workers_loc_119d8`
+failed on the worker sequence before the fix and pins the complete ring from
+frame 22607. Per-frame RNG debt falls 15,146 -> 10,148 and sampled RNG field
+debt falls 1,256 -> 839. The next frontier is frame 27603: native `$FFFC`,
+oracle `$FFC9`, first ring difference index 0 `$DD/$E6`.
 
 The latest correction models IntroSequence6's post-loader object schedule.
 `Load_IntroSequence6` allocates `loc_1BAB0`, `loc_1B37C`, and `sub_1B43A`
