@@ -179,6 +179,36 @@ frontier and an explicit large debt baseline, not a claim of frame-by-frame RNG
 accuracy. Continue by tracing `sub_1B8F4 -> sub_1C246` and the surrounding
 `Execute_Objects` hand-off before changing the existing intro RNG range.
 
+Follow-up proactive correction 2026-07-11 removed that frame-138 frontier at
+its engine-level cause. Native selected the title RNG schedule by comparing
+`title_screen_ready_frame` with one absolute global frame. Delaying the first
+Sega Start from frame 33 to the published route's frame 35 moved the eventual
+IntroSequence1 return two frames, falsely selecting the later-intro schedule.
+The alternative of extending global burn/freeze ranges was rejected as another
+route-timing special case.
+
+Native now stores the typed `TitleScreenIntroReturnLineage`: cold
+IntroSequence1, timeout-restart IntroSequence1 early restore, or later intro.
+The live IntroSequence1 scheduler is derived from `BootState` rather than a
+global index. ASM `Mode_Standard -> Execute_Objects loc_E12` therefore draws on
+frames 138 and 139 while `sub_1B8F4 -> sub_1C246` still owns the Start hand-off,
+then the cold `Load_TitleScreen` hidden rebuild freezes RNG from frame 140.
+Regression
+`intro_sequence_1_start_handoff_finishes_object_passes_before_title_freeze_loc_e12_1c246`
+pins the complete ring across both final draws and the first six frozen title
+frames. The published route is now byte-exact for every post-`Init_RNG` frame
+16..1058.
+
+The full route retains all 37,759 exact player/camera CRCs. Per-frame RNG debt
+falls from 37,617 to 36,699 mismatches, with digest
+`7a066e9e07f27886fa1fb7a5662a98c3f92a80a6`; sampled checkpoint RNG diffs fall
+from 3,105 to 3,022, digest `d1cdf6eb6d8924b03cf4d2be457c1e52c6a0378f`.
+The next exact frontier is frame 1059 in mode `$10` demo play: native `$FFE7`,
+oracle `$FFE3`, first ring difference index 27 `$D4/$C6`. Oracle object count
+drops five to four on frame 1058 and RNG then freezes, so trace the
+`Obj_TitleMenu -> DemoPlay` object scheduler hand-off before changing demo RNG
+cadence.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

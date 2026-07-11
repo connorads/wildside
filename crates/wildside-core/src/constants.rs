@@ -144,10 +144,6 @@ pub(crate) const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = [33, 77, 135, 137, 178
 /// Last zero-based trace frame where the cold Load_TitleCard/loc_1AE2E shell
 /// remains in Game_Mode $0008 before a direct gameplay capture may expose it.
 pub(crate) const COLD_BOOT_TITLE_CARD_LAST_HIDDEN_FRAME_LOC_1AE2E: usize = 719;
-/// Zero-based native frame indices for the live IntroSequence1 object passes
-/// on the oracle-backed early Sega Start-skip route (visible frames 80..=138).
-pub(crate) const COLD_SEGA_START_SKIP_INTRO_RNG_FRAME_INDICES: std::ops::RangeInclusive<usize> =
-    79..=137;
 pub(crate) const TITLE_KID_X_POS: u32 = 0x002E_0000;
 pub(crate) const TITLE_KID_Y_POS: u32 = 0x008C_0000;
 // Oracle-backed published TAS traces expose the first intro-sequence-3 Kid

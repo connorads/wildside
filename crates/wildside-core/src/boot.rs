@@ -5343,6 +5343,7 @@ impl NativeRuntime {
         self.title_idle_frames = 0;
         self.title_screen_elapsed_frames = 0;
         self.title_screen_uses_intro_return_hidden_shell = false;
+        self.title_screen_intro_return_lineage = None;
         self.intro_sequence_6_start_skip_cursor_trace_priority = false;
         self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry = false;
         self.intro_sequence_6_start_skip_natural_vdp_carry = None;
@@ -5418,12 +5419,14 @@ impl NativeRuntime {
         self.pending_prize_clock_hud_flights.clear();
     }
 
-    fn enter_title_screen_from_intro_return(
-        &mut self,
-        intro_sequence_1_uses_early_title_restore: bool,
-    ) {
+    fn enter_title_screen_from_intro_return(&mut self, lineage: TitleScreenIntroReturnLineage) {
         self.enter_title_screen();
         self.title_screen_uses_intro_return_hidden_shell = true;
+        self.title_screen_intro_return_lineage = Some(lineage);
+        let intro_sequence_1_uses_early_title_restore = matches!(
+            lineage,
+            TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence1EarlyRestore
+        );
         // ASM sub_1C246 writes `Game_Mode=$2C` immediately, but the later
         // Load_IntroSequence6 / loc_1BCD0 title rebuild still needs the local
         // settle window before the standard title pose appears.
@@ -5501,7 +5504,10 @@ impl NativeRuntime {
     }
 
     pub(crate) fn title_screen_rng_long_burn_active(&self) -> bool {
-        if self.title_screen_ready_frame == TITLE_SCREEN_READY_GLOBAL_FRAME {
+        if matches!(
+            self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
+        ) {
             // ASM Load_TitleScreen rebuilds the hidden object shell before
             // Obj_TitleMenu joins Mode_Standard. Early Start-skip cold-boot
             // WRAM probes keep the ring frozen on local frames 1..=56, then
@@ -5871,7 +5877,9 @@ impl NativeRuntime {
     }
 
     fn finish_timeout_restart_intro_sequence_4_title_return(&mut self) {
-        self.enter_title_screen_from_intro_return(false);
+        self.enter_title_screen_from_intro_return(
+            TitleScreenIntroReturnLineage::LaterIntroSequence,
+        );
         self.timeout_restart_title_intro_sequence_4_return_pending = false;
         self.timeout_restart_title_intro_sequence_4_camera_carry = true;
         // ASM sub_1C246 already switched back to `Game_Mode=$2C`; on this
@@ -6673,7 +6681,8 @@ impl NativeRuntime {
                         } else if self.timeout_restart_title_intro_sequence_5_return_pending {
                             self.finish_timeout_restart_intro_sequence_5_title_return();
                         } else {
-                            let intro_sequence_1_uses_early_title_restore = *segment == 0
+                            let is_intro_sequence_1 = *segment == 0;
+                            let intro_sequence_1_uses_early_title_restore = is_intro_sequence_1
                                 && self.timeout_restart_intro_sequence_1_uses_early_title_restore;
                             let intro_sequence_5_title_pose = *segment == 4;
                             let intro_sequence_5_title_vdp_snapshot = if intro_sequence_5_title_pose
@@ -6685,14 +6694,21 @@ impl NativeRuntime {
                                 None
                             };
                             if intro_sequence_1_uses_early_title_restore {
-                                self.enter_title_screen_from_intro_return(true);
+                                self.enter_title_screen_from_intro_return(
+                                    TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence1EarlyRestore,
+                                );
                                 self.next_demo_uses_start_skip_intro_return_camera_wrap = true;
                             } else if self.level_has_title_card(self.current_level) {
                                 // ASM sub_1C246 -> loc_1C250 still returns the
                                 // stock title-card levels to the slower hidden
                                 // title rebuild before Obj_TitleMenu accepts
                                 // the later frame-360 / frame-460 Start taps.
-                                self.enter_title_screen_from_intro_return(false);
+                                let lineage = if is_intro_sequence_1 {
+                                    TitleScreenIntroReturnLineage::ColdIntroSequence1
+                                } else {
+                                    TitleScreenIntroReturnLineage::LaterIntroSequence
+                                };
+                                self.enter_title_screen_from_intro_return(lineage);
                                 if intro_sequence_5_title_pose {
                                     // ASM loc_1BA60 -> sub_1C246 -> loc_1C264
                                     // keeps loc_1BCD0's slot-2 IntroSequence5

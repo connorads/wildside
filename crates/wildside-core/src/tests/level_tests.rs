@@ -7518,6 +7518,46 @@ mod chunk_02 {
     }
 
     #[test]
+    fn intro_sequence_1_start_handoff_finishes_object_passes_before_title_freeze_loc_e12_1c246() {
+        let mut script = vec![0; 146];
+        for frame in [35, 79, 137, 139] {
+            script[frame] = 0x80;
+        }
+        let mut assets = manifest();
+        assets.levels[0].title_card = Some(wildside_data::LevelTitleCard {
+            script_bytes: Vec::new(),
+            line_destinations: Vec::new(),
+            level_number_destination: None,
+            level_number_glyph_count: 0,
+        });
+        let trace = run_script(assets, &script, script.len());
+        let frame_137_ring = trace[137]
+            .rng_ring
+            .as_ref()
+            .expect("frame 137 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_137_ring.as_bytes(),
+            trace[137].rng_offset.expect("frame 137 RNG offset"),
+        );
+
+        for trace_frame in &trace[138..=139] {
+            let _ = expected.next_long();
+            let expected_ring = expected.ring();
+            assert_eq!(trace_frame.rng_offset, Some(expected.offset_word()));
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected_ring));
+        }
+        let expected_ring = expected.ring();
+        for frame in &trace[140..=145] {
+            assert_eq!(
+                frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM Mode_Standard -> Execute_Objects loc_E12 burns before sub_1C246 consumes the IntroSequence1 Start edge on frames 138 and 139; Load_TitleScreen then rebuilds inside loc_6E2 without another object pass through frame 145",
+            );
+            assert_eq!(frame.rng_ring.as_ref(), Some(&expected_ring));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

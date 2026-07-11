@@ -658,6 +658,9 @@ pub struct NativeRuntime {
     /// Cold-boot intro-return title rebuild uses Obj_TitleMenu's hidden shell
     /// staging before the later title pose becomes ready.
     title_screen_uses_intro_return_hidden_shell: bool,
+    /// ASM sub_1C246 return path that owns the title RNG scheduler. This is
+    /// stored explicitly because global ready-frame equality is not a lineage.
+    title_screen_intro_return_lineage: Option<TitleScreenIntroReturnLineage>,
     /// The cold IntroSequence6 Start-skip route keeps Obj_TitleMenu's cursor
     /// as the trace-facing gfx object after the hidden title rebuild. Earlier
     /// title-entry routes keep reporting the standard title pose.
@@ -1379,6 +1382,7 @@ impl NativeRuntime {
             title_idle_frames: 0,
             title_screen_elapsed_frames: 0,
             title_screen_uses_intro_return_hidden_shell: false,
+            title_screen_intro_return_lineage: None,
             intro_sequence_6_start_skip_cursor_trace_priority: false,
             intro_sequence_6_start_skip_intro_sequence_5_pose_carry: false,
             intro_sequence_6_start_skip_natural_vdp_carry: None,
@@ -2460,8 +2464,7 @@ impl NativeRuntime {
                 elapsed: 44..,
                 ..
             }
-        ) && COLD_SEGA_START_SKIP_INTRO_RNG_FRAME_INDICES
-            .contains(&self.frame_index);
+        );
         let frame_started_in_title_screen =
             matches!(self.boot_state, BootState::TitleScreen { .. });
         let frame_started_in_level_entry =

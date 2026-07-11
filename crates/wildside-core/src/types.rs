@@ -2722,6 +2722,13 @@ pub(crate) enum BootState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TitleScreenIntroReturnLineage {
+    ColdIntroSequence1,
+    TimeoutRestartIntroSequence1EarlyRestore,
+    LaterIntroSequence,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockGridSource {
     None,
     Manual,

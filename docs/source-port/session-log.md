@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 typed intro-return RNG lineage)
+
+- Replaced absolute title-ready-frame RNG branching with the explicit
+  `TitleScreenIntroReturnLineage`. A delayed Sega skip now remains the cold
+  IntroSequence1 return even when its global frame differs from the old probe.
+- ASM `Mode_Standard -> Execute_Objects loc_E12` continues drawing while the
+  `sub_1B8F4 -> sub_1C246` Start hand-off is still in IntroSequence1, then
+  `Load_TitleScreen` freezes the RNG during its hidden rebuild. The published
+  route now matches the complete ring on every frame 16..1058; the old first
+  mismatch at frame 138 is gone.
+- Full-route CRC remains exact on all 37,759 frames. Per-frame RNG debt falls
+  37,617 -> 36,699 mismatches, digest
+  `7a066e9e07f27886fa1fb7a5662a98c3f92a80a6`; sampled RNG diffs fall
+  3,105 -> 3,022, digest `d1cdf6eb6d8924b03cf4d2be457c1e52c6a0378f`.
+- `mise run verify-slice-fast` and `mise run verify-tas-full` pass.
+- NEXT: frame 1059, where mode `$10` has entered demo play and native consumes
+  one extra longword (`$FFE7` vs oracle `$FFE3`) as the title/demo object shell
+  drops from five objects to four. Trace the `Obj_TitleMenu -> DemoPlay`
+  scheduler hand-off before changing demo RNG cadence.
+
 ## 2026-07-11 handoff (#390 per-frame RNG stream)
 
 - Added an opt-in typed RNG state for every rendered frame: validated offset
