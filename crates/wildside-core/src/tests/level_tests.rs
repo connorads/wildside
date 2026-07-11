@@ -8285,6 +8285,46 @@ mod chunk_02 {
     }
 
     #[test]
+    fn later_intro_sequence_4_title_return_waits_for_load_title_screen() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(32_151)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_32007_ring = trace[32_007]
+            .rng_ring
+            .as_ref()
+            .expect("frame 32007 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_32007_ring.as_bytes(),
+            trace[32_007].rng_offset.expect("frame 32007 RNG offset"),
+        );
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(32_063).skip(32_008) {
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM sub_1B988 -> sub_1C246 -> loc_1C264 is still inside Load_TitleScreen on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(32_151).skip(32_063) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM Load_TitleScreen has allocated Obj_TitleMenu, Obj_TitleTextKid, and Obj_TitleTextChameleon before Mode_Standard -> Execute_Objects loc_E12 on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

@@ -537,6 +537,23 @@ Per-frame RNG debt falls 6,341 -> 5,746, digest
 Frames 16..32007 are exact. The next frontier is frame 32008: native `$FFD4`,
 oracle `$FFD0`, ring index 8 `$3E/$00`.
 
+Follow-up proactive correction 2026-07-11 classified frame 32008 as the later
+IntroSequence4 Start return. ASM `sub_1B988 -> sub_1C246 -> loc_1C264` enters
+`loc_6E2 -> Load_TitleScreen`, which rebuilds the title shell before allocating
+Obj_TitleMenu, Obj_TitleTextKid, and Obj_TitleTextChameleon. Oracle keeps the
+complete ring fixed on published frames 32008..32062, then resumes the
+enclosing `Mode_Standard -> Execute_Objects loc_E12` pass at local title elapsed
+56. Native now gives the typed `LaterIntroSequence` lineage that single loader
+freeze instead of the generic immediate draws plus unrelated 60..115 gap.
+Regression `later_intro_sequence_4_title_return_waits_for_load_title_screen`
+failed at frame 32008 before the fix and pins every draw through frame 32150.
+All 37,759 player/camera CRC frames remain exact. Per-frame RNG debt falls
+5,746 -> 3,537, digest `efa1cc22de401f0c229e2e17a6966b6bf3fc5b4d`;
+sampled RNG field debt falls 480 -> 296, digest
+`205c405f541cb4cac669252da7bcaea7b3abc28f`. Frames 16..34220 are exact. The
+next frontier is frame 34221: native `$FFD2`, oracle `$FFCE`, ring index 6
+`$99/$D9`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

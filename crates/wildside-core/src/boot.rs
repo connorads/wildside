@@ -5524,6 +5524,17 @@ impl NativeRuntime {
     pub(crate) fn title_screen_rng_long_burn_active(&self) -> bool {
         if matches!(
             self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::LaterIntroSequence)
+        ) {
+            // ASM sub_1B988 -> sub_1C246 -> loc_1C264 enters
+            // Load_TitleScreen before Obj_TitleMenu, Obj_TitleTextKid, and
+            // Obj_TitleTextChameleon rejoin loc_E12. This later intro-4
+            // lineage has one loader freeze, not the generic 60..=115 gap.
+            return self.title_screen_elapsed_frames
+                >= TIMEOUT_RESTART_INTRO_SEQUENCE_4_TITLE_RNG_FIRST_LIVE_ELAPSED;
+        }
+        if matches!(
+            self.title_screen_intro_return_lineage,
             Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence3)
         ) {
             // ASM sub_1B93E -> sub_1C246 -> loc_1C264 enters the hidden title

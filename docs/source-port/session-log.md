@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 later IntroSequence4 title loader)
+
+- The later IntroSequence4 Start return follows `sub_1B988 -> sub_1C246 ->
+  loc_1C264 -> loc_6E2 -> Load_TitleScreen`. Oracle keeps the complete ring
+  fixed on published frames 32008..32062 while that loader rebuilds the title
+  shell, then resumes `Mode_Standard -> Execute_Objects loc_E12` at local
+  title elapsed 56 on frame 32063.
+- Native now gives the typed `LaterIntroSequence` lineage that single loader
+  freeze instead of the generic immediate draws plus unrelated 60..115 gap.
+- Full-route CRC remains exact on all 37,759 frames. Per-frame RNG debt falls
+  5,746 -> 3,537, digest `efa1cc22de401f0c229e2e17a6966b6bf3fc5b4d`;
+  sampled RNG fields fall 480 -> 296, digest
+  `205c405f541cb4cac669252da7bcaea7b3abc28f`.
+- `mise run verify-slice-fast` and the full TAS replay pass with the improved
+  checked-in ratchet.
+- NEXT: frame 34221. Native `$FFD2`, oracle `$FFCE`, first ring difference
+  index 6 `$99/$D9`.
+
 ## 2026-07-11 handoff (#390 later IntroSequence6 worker delay)
 
 - On the later demo-2 cleared-camera revisit, oracle keeps RNG frozen through

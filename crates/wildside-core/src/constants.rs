@@ -267,6 +267,11 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_THIRD_RNG_FIRST_LIVE_ELAPSED: usize = 4
 /// `loc_1C264 -> loc_6E2` hidden rebuild rejoins Obj_TitleMenu's outer object
 /// passes. Oracle freezes published frames 6210..6264 and resumes on 6265.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_3_TITLE_RNG_FIRST_LIVE_ELAPSED: usize = 56;
+/// Post-step title elapsed at which the later IntroSequence4 Start return has
+/// finished `loc_1C264 -> loc_6E2 -> Load_TitleScreen`. Oracle keeps the ring
+/// fixed on published frames 32008..32062, then the three allocated title
+/// objects rejoin `Mode_Standard -> Execute_Objects loc_E12` on frame 32063.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_TITLE_RNG_FIRST_LIVE_ELAPSED: usize = 56;
 /// Post-step title elapsed at which the timeout-restart IntroSequence5
 /// `sub_1C246 -> loc_1C264 -> loc_6E2` rebuild rejoins Obj_TitleMenu's outer
 /// object passes. Oracle freezes published frames 10291..10344 and resumes on
