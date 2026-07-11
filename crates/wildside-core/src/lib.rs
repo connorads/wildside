@@ -2535,18 +2535,20 @@ impl NativeRuntime {
                 // Mode_Standard outer pass. Execute_Objects loc_E12 burns
                 // before loc_1BA60 polls Start, including both deferred
                 // sub_1C246 -> loc_1C264 title hand-off frames.
-                let first_live_elapsed =
-                    if self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay {
-                        DEMO_AUTO_TIMEOUT_INTRO_FIFTH_START_SKIP_RNG_FIRST_LIVE_ELAPSED
-                    } else {
-                        DEMO_AUTO_TIMEOUT_INTRO_FIFTH_RNG_FIRST_LIVE_ELAPSED
-                    };
-                let panel_upload_stall_elapsed =
-                    if self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay {
-                        INTRO_SEQUENCE_5_START_SKIP_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED
-                    } else {
-                        INTRO_SEQUENCE_5_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED
-                    };
+                // ASM Load_IntroSequence5 allocates loc_1BCD0 in the same
+                // outer pass that wakes loc_1BA28's workers.
+                let workers_wake_one_frame_early =
+                    self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility;
+                let first_live_elapsed = if workers_wake_one_frame_early {
+                    DEMO_AUTO_TIMEOUT_INTRO_FIFTH_START_SKIP_RNG_FIRST_LIVE_ELAPSED
+                } else {
+                    DEMO_AUTO_TIMEOUT_INTRO_FIFTH_RNG_FIRST_LIVE_ELAPSED
+                };
+                let panel_upload_stall_elapsed = if workers_wake_one_frame_early {
+                    INTRO_SEQUENCE_5_START_SKIP_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED
+                } else {
+                    INTRO_SEQUENCE_5_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED
+                };
                 elapsed >= first_live_elapsed && elapsed != panel_upload_stall_elapsed
             }
             BootState::IntroSequence6 { .. } => {

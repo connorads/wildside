@@ -23,25 +23,23 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 10,148 mismatches, first at
-frame 27603, under digest `86a2d554d1f4c66015f017a8b7eeda69991ba9c1`.
-Frames 16..27602 match the complete RNG state exactly; the next mismatch begins
+of the remaining 37,743 frames. It currently records 6,341 mismatches, first at
+frame 28099, under digest `01bf6e7dfabbb5adacd451e7243dbfb270301c88`.
+Frames 16..28098 match the complete RNG state exactly; the next mismatch begins
 during a later title/demo cycle.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.
 
-The latest correction carries the existing IntroSequence6 early-title-restore
-lineage through the later manual demo return. `loc_119D8` returns through
-`loc_6E2 -> Load_TitleScreen` after `loc_1B5CE` has already restored the
-standard title pose, so oracle exposes the staged 3/5/5/4 title-worker counts
-and the enclosing `Mode_Standard -> Execute_Objects loc_E12` wake two frames
-ahead of a generic manual return. Regression
-`intro_sequence_6_early_restore_demo_return_wakes_title_workers_loc_119d8`
-failed on the worker sequence before the fix and pins the complete ring from
-frame 22607. Per-frame RNG debt falls 15,146 -> 10,148 and sampled RNG field
-debt falls 1,256 -> 839. The next frontier is frame 27603: native `$FFFC`,
-oracle `$FFC9`, first ring difference index 0 `$DD/$E6`.
+The latest correction separates two facts carried by the later IntroSequence5
+lineage. It inherits `Load_IntroSequence5`'s one-frame-early `loc_1BCD0`
+visibility, but not the earlier timeout-restart delay. Native had incorrectly
+keyed the worker wake and panel-upload stall from the delay fact. Regression
+`later_intro_sequence_5_early_loc_1bcd0_visibility_wakes_loc_e12` failed at
+frame 27603 before the fix and now pins one `Execute_Objects loc_E12` longword
+draw per frame through 27620. Per-frame RNG debt falls 10,148 -> 6,341 and
+sampled RNG field debt falls 839 -> 524. The next frontier is frame 28099:
+native `$FFDB`, oracle `$FFD7`, first ring difference index 15 `$F3/$C6`.
 
 The latest correction models IntroSequence6's post-loader object schedule.
 `Load_IntroSequence6` allocates `loc_1BAB0`, `loc_1B37C`, and `sub_1B43A`

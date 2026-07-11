@@ -507,6 +507,20 @@ debt falls 15,146 -> 10,148, digest
 Frames 16..27602 are exact. The next frontier is frame 27603: native `$FFFC`,
 oracle `$FFC9`, ring index 0 `$DD/$E6`.
 
+Follow-up proactive correction 2026-07-11 separated the later IntroSequence5
+lineage's early `loc_1BCD0` visibility from its distinct timeout-restart delay.
+ASM `Load_IntroSequence5` exposes the slot in the same outer pass that wakes
+the `loc_1BA28` workers, so the enclosing `Mode_Standard -> Execute_Objects
+loc_E12` draw and later panel-upload stall follow the typed visibility fact.
+Regression `later_intro_sequence_5_early_loc_1bcd0_visibility_wakes_loc_e12`
+failed at frame 27603 before the fix and now pins complete-ring draws through
+frame 27620. All 37,759 player/camera CRC frames remain exact. Per-frame RNG
+debt falls 10,148 -> 6,341, digest
+`01bf6e7dfabbb5adacd451e7243dbfb270301c88`; sampled RNG field debt falls
+839 -> 524, digest `230f96317f31d3ba2b019a610f02cc83b96a8765`.
+Frames 16..28098 are exact. The next frontier is frame 28099: native `$FFDB`,
+oracle `$FFD7`, ring index 15 `$F3/$C6`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

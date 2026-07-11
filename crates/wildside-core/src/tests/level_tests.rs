@@ -8214,6 +8214,37 @@ mod chunk_02 {
     }
 
     #[test]
+    fn later_intro_sequence_5_early_loc_1bcd0_visibility_wakes_loc_e12() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(27_621)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_27602_ring = trace[27_602]
+            .rng_ring
+            .as_ref()
+            .expect("frame 27602 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_27602_ring.as_bytes(),
+            trace[27_602].rng_offset.expect("frame 27602 RNG offset"),
+        );
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(27_621).skip(27_603) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM Load_IntroSequence5 exposes loc_1BCD0 one frame early on this carried lineage, proving Mode_Standard -> Execute_Objects loc_E12 has resumed on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

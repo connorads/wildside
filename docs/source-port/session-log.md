@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 later IntroSequence5 worker wake)
+
+- The later IntroSequence5 lineage exposes `loc_1BCD0` one frame early but does
+  not carry the earlier timeout-restart end delay. Native incorrectly keyed
+  both the worker wake and panel-upload stall from the delay fact.
+- Native now keys both schedules from the existing typed early-visibility fact,
+  matching `Load_IntroSequence5` and the enclosing
+  `Mode_Standard -> Execute_Objects loc_E12` longword draw on every frame from
+  27603 through the panel upload.
+- Full-route CRC remains exact on all 37,759 frames. Per-frame RNG debt falls
+  10,148 -> 6,341, digest `01bf6e7dfabbb5adacd451e7243dbfb270301c88`;
+  sampled RNG fields fall 839 -> 524, digest
+  `230f96317f31d3ba2b019a610f02cc83b96a8765`.
+- `mise run verify-slice-fast` and the full TAS replay pass with the improved
+  checked-in ratchet.
+- NEXT: frame 28099. Native `$FFDB`, oracle `$FFD7`, first ring difference
+  index 15 `$F3/$C6`.
+
 ## 2026-07-11 handoff (#390 later demo-return title restore)
 
 - The later IntroSequence6 demo-return lineage already records that
