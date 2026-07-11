@@ -60,6 +60,25 @@ override. Next: schedule enemy loading inside the real level-skip resume/load
 phase, using its typed live-load transition rather than replaying floor/camera
 inspection rows after the shell has completed.
 
+Rejected gameplay experiment 2026-07-11: a typed `loc_74E0` debug title-card
+lifecycle reproduced the oracle's two early object passes, hibernated through
+tick 77, and ran hidden `Mode_Level` from tick 78 before the recording settle.
+The focused Level 0x14 route reached six objects and RNG offset `$FFE5` at
+scenario frame 0, then all nine objects at frame 359. Existing recording-warp
+regressions, `verify-slice-fast`, and all 37,759 published-route CRC frames also
+passed with #290's checkpoint baseline unchanged.
+
+Canonical report `1783742694` rejected the patch: the sweep fell from 35 pass /
+34 fail / 145 authoritative diffs to 26 pass / 43 fail / 174 authoritative
+diffs. Level 0x14 still exposed eight native objects against six oracle objects
+at `level_settle`, despite matching the later crawler count, and nine previously
+passing levels became red. The lifecycle correctly changed when RNG is burned,
+but it began from native's already-wrong cold-boot 55-byte ring - matching the
+Level 0x14 offset did not match its last byte or full state. All gameplay and
+test changes were reverted. Next: trace and correct cold-boot full-ring
+construction before reintroducing the generic hidden lifecycle. Do not split
+the ring mismatch into a follow-up or hide it with a universal/per-level seed.
+
 ### #380
 
 Opened 2026-07-11 from canonical state report `1783732342`. Level 0x14

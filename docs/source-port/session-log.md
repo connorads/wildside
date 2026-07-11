@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#381 typed lifecycle rejected by canonical sweep)
+
+- A typed `loc_74E0` title-card experiment ran the oracle-observed early object
+  passes and hidden `Mode_Level` boundary. Level 0x14 reached six objects and
+  RNG offset `$FFE5` at frame 0, then all nine objects at frame 359.
+- Focused regressions, `verify-slice-fast`, and `verify-tas-full` passed; all
+  37,759 published-route CRC frames matched with #290's baseline unchanged.
+- Canonical report `1783742694` rejected the patch: 35 pass / 145 authoritative
+  diffs regressed to 26 pass / 174 diffs, Level 0x14 still had 8/6 objects at
+  `level_settle`, and nine previously passing levels became red.
+- The experiment began from native's wrong cold-boot 55-byte RNG ring. Matching
+  only the offset changed broad enemy phases without reproducing oracle state.
+  All gameplay/test changes were reverted. #381 remains `[~]`; NEXT: correct
+  cold-boot full-ring construction, then reintroduce the generic lifecycle.
+
 ## 2026-07-11 handoff (#381 full-ring boundary instrumentation)
 
 - Hidden settle traces now retain the complete 55-byte RNG ring, not only its
