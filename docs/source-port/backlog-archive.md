@@ -81,6 +81,21 @@ player/camera CRC frames with #290's unchanged 212-authoritative / 2-oracle-
 limitation sampled-state baseline. This is a narrowed frontier, not evidence of
 whole-state or frame-by-frame whole-game accuracy.
 
+Follow-up proactive audit 2026-07-11 enriched the generic oracle Object-slot
+dump with words `$44/$46/$48/$4A/$4C/$50` and compared all four UFO parents
+through the captured settle trace. Native and oracle parent fixed-point state is
+exact through target-live step 11. At step 12, layouts #17 and #15 expire
+`$44` together and receive different `UFO.asm loc_35326` motion records even
+though the exported RNG offset and last byte still match. The ROM's linked-list
+order is already the scoped `loc_74E0` order documented above; replaying LIFO
+outside that shell was rechecked and rejected because it worsens the parents.
+This proves offset/last-byte parity is not sufficient evidence of RNG parity:
+the remaining frontier is the hidden 55-byte ring/history before the first
+post-title UFO motion reload. An ignored cache-backed regression pins the exact
+oracle frame-zero parent positions, velocities, and directions; it must stay
+ignored until that ring-history frontier is derived engine-wide. Do not add a
+Level 0x48 seed reset, timer override, or blanket active-list reversal.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

@@ -1588,6 +1588,12 @@ fn object_slots_debug_loc_e1e(
         let d1 = read_wram_u32(work_ram, object_addr + 0x1A);
         let d2 = read_wram_u32(work_ram, object_addr + 0x1E);
         let d3 = read_wram_u32(work_ram, object_addr + 0x22);
+        let object_44 = read_wram_u16(work_ram, object_addr + 0x44);
+        let object_46 = read_wram_u16(work_ram, object_addr + 0x46);
+        let object_48 = read_wram_u16(work_ram, object_addr + 0x48);
+        let object_4a = read_wram_u16(work_ram, object_addr + 0x4A);
+        let object_4c = read_wram_u16(work_ram, object_addr + 0x4C);
+        let object_50 = read_wram_u16(work_ram, object_addr + 0x50);
         let layout_ptr = read_wram_u32(work_ram, object_addr + OBJECT_LAYOUT_PTR_OFFSET) as usize;
         let layout = layout_index_from_ptr(layout_object_ptr, layout_object_count, layout_ptr)
             .map(|layout_index| {
@@ -1621,7 +1627,7 @@ fn object_slots_debug_loc_e1e(
             String::from("@-")
         };
         slots.push(format!(
-            "{object_addr:#08x}:code={code:#08x},hib={hibernate},d0={d0:#010x},d1={d1:#010x},d2={d2:#010x},d3={d3:#010x}{layout}{gfx}"
+            "{object_addr:#08x}:code={code:#08x},hib={hibernate},d0={d0:#010x},d1={d1:#010x},d2={d2:#010x},d3={d3:#010x},w44={object_44:#06x},w46={object_46:#06x},w48={object_48:#06x},w4a={object_4a:#06x},w4c={object_4c:#06x},w50={object_50:#06x}{layout}{gfx}"
         ));
         object_addr = read_wram_u32(work_ram, object_addr) as usize;
         guard += 1;

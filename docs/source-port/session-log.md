@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 Level 0x48 RNG-ring frontier)
+
+- Generic oracle Object dumps now include `$44/$46/$48/$4A/$4C/$50`; the
+  four UFO parents match fixed-point state through target-live step 11.
+- At step 12, layouts #17/#15 reload `UFO.asm loc_35326` with different motion
+  records while RNG offset and last byte remain equal. Those scalar fields do
+  not prove equality of the 55-byte mutable RNG ring.
+- The ROM/native UFO and interleaved Drips allocation order was rechecked.
+  Applying LIFO outside the existing `loc_74E0` shell worsens the frontier and
+  remains rejected. No per-level RNG reset or timer override was added.
+- An ignored cache-backed regression pins exact frame-zero parent state. NEXT:
+  promote the full RNG ring or a collision-resistant ring digest into typed
+  parity state, locate its first divergence, then trace the responsible ASM
+  caller cadence before changing gameplay.
+
 ## 2026-07-11 handoff (#389 UFO Gfx collision coroutine)
 
 - UFO sprite `$0DE8` resolves to `CollisionSize_Index` row `unk_31CE0`, a

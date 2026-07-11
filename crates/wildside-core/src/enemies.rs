@@ -2567,7 +2567,7 @@ impl ActiveEnemy {
         );
         let wait_timer = if matches!(
             self.family,
-            EnemyFamily::DragonWalking | EnemyFamily::Lion | EnemyFamily::Drips
+            EnemyFamily::DragonWalking | EnemyFamily::Lion | EnemyFamily::Drips | EnemyFamily::UFO
         ) || (matches!(self.family, EnemyFamily::BigHoppingSkull)
             && self.wait_timer > 0
             && !self.death_animation_active)

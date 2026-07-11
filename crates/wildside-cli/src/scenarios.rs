@@ -2629,7 +2629,7 @@ pub fn issue_260_gr_pulse600_scenario() -> DynamicScenario {
 mod tests {
     use super::{
         DynamicCheckpoint, DynamicScenario, DynamicStartPosition, DynamicStartVelocity,
-        GameplayScenario, Scenario, diamond_power_circle_audit_scenario,
+        GameplayScenario, NativeDynamicRunOptions, Scenario, diamond_power_circle_audit_scenario,
         diamond_power_invulnerability_audit_scenario, diamond_power_samurai_haze_audit_scenario,
         diamond_power_snake_audit_scenario, diamond_power_wall_audit_scenario,
         enemy_spawn_audit_scenario, idle_level_full_frame_scenario, idle_level_scenario,
@@ -2647,10 +2647,115 @@ mod tests {
         issue_271_level01_rock_tank_stomp_route_audit_scenario,
         issue_271_level01_rock_tank_stomp_sharp_audit_scenario, lava_weather_audit_scenario,
         level_00_slope_right_jump_probe_scenario, level_00_slope_right_probe_scenario,
-        prize_block_scenario, release_visual_level_00_early_scenario, stomp_enemy_scenario,
-        walk_right_iron_knight_scenario, walk_right_juggernaut_scenario,
+        prize_block_scenario, release_visual_level_00_early_scenario, run_native_dynamic_scenario,
+        stomp_enemy_scenario, walk_right_iron_knight_scenario, walk_right_juggernaut_scenario,
         walk_right_red_stealth_scenario, walk_right_scenario,
     };
+
+    fn cached_generated_manifest() -> Option<wildside_data::AssetManifest> {
+        if !matches!(
+            std::env::var("KID_ENABLE_CACHE_BACKED_TESTS")
+                .ok()
+                .as_deref(),
+            Some("1" | "true" | "TRUE" | "yes" | "YES")
+        ) {
+            return None;
+        }
+        let repo_root = if let Ok(root) = std::env::var("KID_REPO_ROOT")
+            && !root.is_empty()
+        {
+            std::path::PathBuf::from(root)
+        } else {
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+        };
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        manifest_path
+            .is_file()
+            .then(|| wildside_data::load_manifest(&manifest_path).expect("load cached manifest"))
+    }
+
+    #[test]
+    #[ignore = "Level 0x48 recording RNG ring diverges before UFO.asm loc_35326 target-live step 12; offset/last-byte parity is insufficient"]
+    fn level48_recording_frame_zero_matches_ufo_parent_state_loc_35008() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = DynamicScenario {
+            slug: "level48_ufo_parent_state_loc_35008".into(),
+            script: vec![0],
+            frame_count: 1,
+            checkpoints: Vec::new(),
+            start_position: None,
+            start_velocity: None,
+            camera_position: None,
+            playtest_form: None,
+            initial_diamond_count: None,
+            initial_lives: None,
+            warp_to_level: Some(0x48),
+            settle_oracle_warp: true,
+        };
+        let trace =
+            run_native_dynamic_scenario(manifest, &scenario, NativeDynamicRunOptions::default())
+                .expect("run Level 0x48 recording frame zero");
+        let mut parents = trace[0]
+            .active_enemy_details
+            .iter()
+            .filter(|object| {
+                object.kind == wildside_core::NativeObjectKind::Enemy { object_type: 0x0F }
+            })
+            .map(|object| {
+                (
+                    object.layout_index,
+                    object.x_pos,
+                    object.y_pos,
+                    object.x_velocity,
+                    object.y_velocity,
+                    object.facing,
+                )
+            })
+            .collect::<Vec<_>>();
+        parents.sort_unstable_by_key(|(layout_index, ..)| *layout_index);
+
+        assert_eq!(
+            parents,
+            vec![
+                (
+                    Some(8),
+                    0x0246_8000,
+                    0x0140_C000,
+                    Some(0x0003_0000),
+                    Some(-0x0003_0000),
+                    Some(wildside_core::physics::Direction::Right)
+                ),
+                (
+                    Some(9),
+                    0x027E_3000,
+                    0x019F_0000,
+                    Some(0),
+                    Some(0),
+                    Some(wildside_core::physics::Direction::Right)
+                ),
+                (
+                    Some(15),
+                    0x01B8_A000,
+                    0x02F3_8000,
+                    Some(0x0003_2000),
+                    Some(0),
+                    Some(wildside_core::physics::Direction::Right)
+                ),
+                (
+                    Some(17),
+                    0x044B_4800,
+                    0x0427_8000,
+                    Some(0x0003_0000),
+                    Some(0x0003_0000),
+                    Some(wildside_core::physics::Direction::Right)
+                ),
+            ],
+            "ASM UFO.asm Enemy0F_UFO_Loop/loc_35008 plus GfxObjects_Collision: recording frame zero retains the four oracle parent positions, velocities, and directions",
+        );
+    }
 
     #[test]
     fn issue_147_wall_side_jump_audit_drives_red_stealth_into_level2_wall() {
