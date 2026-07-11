@@ -35,11 +35,11 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 - **Source-port visual ratchet:** `1p-accurate` renders Level 0 frames 0, 30, 60, and 120 through the source-port renderer against jgenesis with exact state, no masking, MAE 0.000, and zero changed pixels. The gate now requires exact pixels.
 - **Visual confidence boundary:** #375 is resolved for those four settled-warp checkpoints only. This is not cold-boot or whole-game pixel parity. The older `frame_oracle:*` steps compare wildside-md ROM VDP output with jgenesis, not source-port pixels.
 - **Full published-route evidence:** all 37,759 requested player/camera CRC frames match oracle, while 1,512 sampled checkpoints retain #290's baseline of 212 authoritative export diffs and 2 oracle limitations. This is not whole-state, enemy, render, or audio equality.
-- **Whole-level sweep boundary:** report `1783759203` reaches real gameplay on all 69 BCD levels: 36 pass and 33 fail with 141 blocking diffs. Level 0x68 is newly green; Level 0x54's inconsistent clean-HEAD result is tracked by #386. The old all-masked green sweep was invalid.
+- **Whole-level sweep boundary:** report `1783761928` reaches real gameplay on all 69 BCD levels: 43 pass and 26 fail with 103 blocking diffs, 8 advisory diffs, and 49 oracle limitations. Levels 0x22, 0x27, 0x32, 0x37, 0x39, 0x45, and 0x54 are newly green. The old all-masked green sweep was invalid.
 - **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
-- **Latest proactive fix:** #385 aligns Driller child-collision consumption, hidden settle age, and smash-worker lifetime. Level 0x68 matches all 360 CRC frames and both authoritative checkpoints; frames 54-63 are state-exact.
+- **Latest proactive fix:** #386 rejects mapped-resource RAM fixtures whose dimensions contradict the ROM header, then rebuilds terrain through `loc_11C34`. Level 0x54 now survives and matches both state checkpoints; the canonical sweep improves by seven levels and 38 blocking diffs with no newly failing level.
 - **Full-frame sweep boundary:** #383 removes the native-only synthetic settle override. Level 0 report `1783751667` passes with zero blocking diffs and two known object-export limitations; idle-tail render remains non-blocking at MAE 1.2.
-- **Current work:** #386 - establish why Level 0x54 alternates between pass and a 12-difference title-card failure across canonical runs at the same clean HEAD before trusting sweep deltas.
+- **Current work:** no agent-ready row remains. Run `mise run project-status`, then use `loop.md`'s proactive-verification fallback to select the next concrete fidelity slice.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -61,4 +61,3 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| #386 | [ ] | P1 | Verify/state | Canonical Level 0x54 alternates between pass and a 12-difference title-card failure at the same clean HEAD | Repeated clean-HEAD sweeps give one stable Level 0x54 result |

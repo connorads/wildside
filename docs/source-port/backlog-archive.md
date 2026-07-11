@@ -11,6 +11,36 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #386
+
+Resolved 2026-07-11. The apparent same-HEAD instability was false provenance:
+reports `1783756175` and `1783759203` record different core-source hashes, and
+the earlier green result came from an uncommitted intermediate scenario state.
+The reproducible failure was nevertheless genuine. Logical Level 0x54 maps to
+resource 0x68, whose ROM header is 1x4 screens, but the resource-fallback path
+accepted `level-layout/68` - a debug RAM dump for logical Level 0x68 with a 2x2
+shape. Kid's row-50 spawn was therefore outside native's 28-row grid, fell to
+death, and returned to `Game_Mode=$0008` while oracle remained at `$000C`.
+
+ASM `Load_LevelData loc_15A0` derives dimensions from the mapped resource header
+before `loc_11C34` builds `Level_Layout`. Native now validates only mapped-resource
+fixture fallbacks against that header, preserves explicit logical parity
+specialisations, and rebuilds mismatched fallbacks from the ROM foreground and
+block resources when available. Regression
+`issue386_elsewhere12_mapped_fixture_uses_loc_15a0_dimensions` first observed
+the 40x28 grid and frame-60 death, then pins the 20x56 grid plus the oracle's
+exact live pose, velocity, camera, lives, and game mode.
+
+Final canonical report `1783761928` has 43 pass / 26 fail, 103 authoritative,
+8 advisory, and 49 oracle-limitation differences. Compared with `1783759203`,
+levels 0x22, 0x27, 0x32, 0x37, 0x39, 0x45, and 0x54 become green, no level
+becomes red, and authoritative differences fall by 38. Level 0x54 matches both
+state checkpoints; its focused frame-tier report `1783761473` still has about
+10,200 changed pixels per checkpoint (MAE 5.9), so this is state parity, not
+render parity. `verify-slice-fast` and `verify-tas-full` pass. The published TAS
+retains all 37,759 matching CRC frames and #290's unchanged 212-authoritative /
+2-oracle-limitation sampled-state baseline.
+
 ### #385
 
 Resolved 2026-07-11 from canonical Level 0x68 Elsewhere 31 report
@@ -11606,6 +11636,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 386 | [x] | P1 | Verify/state | Mapped-resource RAM fixtures are rejected when their dimensions contradict the ROM header, preventing aliased terrain from killing Kid during settled entry. | Report `1783761928`: 43/69 pass, seven newly green, 38 fewer blocking diffs; Level 0x54 state-exact. See archive #386. |
 | 385 | [x] | P1 | Enemy/Driller | Driller consumes prior-pass child collision and retains the hidden settle/block-worker age. | Level 0x68 exact across frames 54-63, 360 CRC frames, and both checkpoints. See archive #385. |
 | 384 | [x] | P1 | Enemy/Archer | Hidden settle scheduling, Archer hibernates, fire-row offsets, and off-screen arrow deletion follow the ROM's object wakes. | Reports `1783755508` and `1783756175`; exact frames 60/132/133/359 regression. See archive #384. |
 | 383 | [x] | P1 | Verify/state | Full idle sweeps and `tas-diff` use the scenario's recording-settle bootstrap on both native and oracle. | Level 0 report `1783751667` passes with only two oracle limitations; focused configuration regression. See archive #383. |

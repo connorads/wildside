@@ -20060,22 +20060,24 @@ impl NativeRuntime {
         let layout_dir = std::path::Path::new("level-layout");
         let logical_layout_path = layout_dir.join(format!("{:02X}.bin", level_id.0));
         let logical_metadata_path = layout_dir.join(format!("{:02X}.json", level_id.0));
-        let (layout_path, metadata_path) = if self.assets_source.exists(&logical_layout_path)
-            && self.assets_source.exists(&logical_metadata_path)
-        {
-            (logical_layout_path, logical_metadata_path)
-        } else {
-            // ASM Load_Level_Data resolves Current_LevelID through
-            // MapOrder_Index before loading the BLOCK resource. Generated
-            // Level_Layout files may already be keyed by logical level;
-            // fall back to the resource level only when the logical
-            // specialisation is absent.
-            let resource_level = wildside_data::resource_level_id(&self.assets, level_id.0);
-            (
-                layout_dir.join(format!("{resource_level:02X}.bin")),
-                layout_dir.join(format!("{resource_level:02X}.json")),
-            )
-        };
+        let (layout_path, metadata_path, is_logical_specialisation) =
+            if self.assets_source.exists(&logical_layout_path)
+                && self.assets_source.exists(&logical_metadata_path)
+            {
+                (logical_layout_path, logical_metadata_path, true)
+            } else {
+                // ASM Load_Level_Data resolves Current_LevelID through
+                // MapOrder_Index before loading the BLOCK resource. Generated
+                // Level_Layout files may already be keyed by logical level;
+                // fall back to the resource level only when the logical
+                // specialisation is absent.
+                let resource_level = wildside_data::resource_level_id(&self.assets, level_id.0);
+                (
+                    layout_dir.join(format!("{resource_level:02X}.bin")),
+                    layout_dir.join(format!("{resource_level:02X}.json")),
+                    false,
+                )
+            };
         if !self.assets_source.exists(&layout_path) {
             // No pre-dumped Level_Layout fixture: decode the collision terrain
             // natively from the foreground resource + theme collision table.
@@ -20092,6 +20094,26 @@ impl NativeRuntime {
             .ok()
             .and_then(|bytes| String::from_utf8(bytes).ok())
             .and_then(|json| serde_json::from_str::<LevelLayoutMetadata>(&json).ok())?;
+        if !is_logical_specialisation && let Some(header) = self.level_header(level_id) {
+            let expected_width_blocks = u16::from(header.width_screens).saturating_mul(20);
+            let populated_height_blocks = u16::from(header.height_screens).saturating_mul(14);
+            let shifted_height_blocks = populated_height_blocks.saturating_add(
+                terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits),
+            );
+            if (metadata.width_blocks != expected_width_blocks
+                || (metadata.height_blocks != populated_height_blocks
+                    && metadata.height_blocks != shifted_height_blocks))
+                && let Some(decoded) = self.decode_level_layout(level_id)
+            {
+                // ASM Load_LevelData loc_15A0 derives dimensions from the
+                // mapped resource header before loc_11C34 builds Level_Layout.
+                // Some old debug-skip RAM dumps are keyed by a logical id that
+                // happens to equal this level's mapped resource id; accepting
+                // that unrelated shape makes valid lower rows out-of-bounds.
+                // Rebuild from the ROM resources when they are available.
+                return Some(decoded);
+            }
+        }
         data.truncate(metadata.data_bytes.min(data.len()));
         initialise_level_row_buffers_for_load_loc_11AEA(level_id, metadata.width_blocks);
         let erase_words_loc_11542 = self

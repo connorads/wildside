@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#386 mapped terrain-fixture dimensions)
+
+- The earlier Level 0x54 pass and later failure did not share a core-source
+  hash. The stable bug was a mapped-resource fixture alias, not sweep-worker
+  nondeterminism.
+- Logical Level 0x54 maps to resource 0x68's 1x4 header, but native accepted a
+  2x2 RAM dump created for logical Level 0x68. Kid spawned below its 28-row
+  collision grid and died during the recording settle.
+- Mapped-resource fallbacks now validate dimensions against `Load_LevelData
+  loc_15A0` and rebuild mismatches through `loc_11C34`; logical parity fixtures
+  remain authoritative specialisations.
+- Canonical report `1783761928` improves 36/33 pass/fail and 141 blocking diffs
+  to 43/26 and 103. Seven levels become green with no regression. Level 0x54 is
+  state-exact but still render-inexact at MAE 5.9.
+- Required gates pass; the published TAS remains 37,759/37,759 CRC exact with
+  #290's 212-authoritative / 2-limitation sampled-state baseline unchanged.
+  NEXT: run `project-status`, then take the proactive-verification fallback.
+
 ## 2026-07-11 handoff (#385 Driller settle and smash-worker timing)
 
 - Level 0x68's oracle Drillers are allocated during the hidden `loc_74E0`

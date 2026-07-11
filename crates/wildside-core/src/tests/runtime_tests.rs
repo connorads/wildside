@@ -6586,6 +6586,46 @@ mod chunk_09 {
     }
 
     #[test]
+    fn issue386_elsewhere12_mapped_fixture_uses_loc_15a0_dimensions() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let grid = NativeRuntime::with_generated_level_layout(manifest.clone())
+            .block_grid_for_level(LevelId(0x54))
+            .expect("Level 0x54 should decode its mapped resource terrain");
+        assert_eq!(
+            (grid.width_cells, grid.height_cells),
+            (20, 56),
+            "ASM Load_LevelData loc_15A0: logical Level 0x54 maps to resource 0x68's 1x4 header, so a stale 2x2 live-dump fixture must not override the ROM dimensions",
+        );
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x54)
+            .settle_recording_warp()
+            .run(&[0; 61], 61);
+        let frame_60 = &trace[60];
+
+        assert_eq!(
+            (
+                frame_60.game_mode_value,
+                frame_60.current_level,
+                frame_60.number_lives,
+                frame_60.kid_y_pos,
+                frame_60.kid_y_velocity,
+                frame_60.camera_y_pos,
+            ),
+            (
+                GameMode::InGame.as_disassembly_value(),
+                LevelId(0x54),
+                3,
+                Some(0x032F_0000),
+                Some(0),
+                0x0293_0000,
+            ),
+            "ASM loc_7526/sub_7B30: the debug title-card entry starts Kid one pixel above PlayerStart_Y and resolves the spawn before gravity; the Level 0x54 oracle remains alive at recording frame 60",
+        );
+    }
+
+    #[test]
     fn script_runner_recording_settle_uses_level_zero_recording_age() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
