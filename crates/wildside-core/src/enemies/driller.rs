@@ -421,5 +421,9 @@ mod tests {
             }],
             "ASM Driller.asm loc_3BE78 consumes the right child's colid_rightwall on the following Execute_Objects pass",
         );
+        assert!(
+            !enemy.shared_drive_sound_previous_render_hidden,
+            "ASM Driller.asm loc_3BE8E clears the selected child's `$38` collision word before destroying the block; the following GfxObjects_Collision pass leaves it clear when no next block is present",
+        );
     }
 }

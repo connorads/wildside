@@ -11,6 +11,21 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #387
+
+Resolved 2026-07-11 through `loop.md`'s proactive mutation fallback. A bounded
+`cargo-mutants` run over `crates/wildside-core/src/enemies/driller.rs` found 26
+mutants: 20 caught, five unviable, and one missed. The survivor deleted the `!`
+from the post-drill child-collision latch at `step_driller` line 166.
+
+ASM Driller.asm `loc_3BE8E` consumes and clears the selected child's `$38`
+collision word before `loc_3BEDE`/`loc_3BEF2` destroys the block. The following
+`GfxObjects_Collision` pass leaves that word clear when no next block is present.
+The existing `driller_consumes_child_terrain_collision_on_next_loc_3be78_tick`
+regression now asserts that cleared next-pass latch after the exact drilled-cell
+result. An iterative mutation recheck runs only the former survivor and catches
+it. No gameplay implementation changed.
+
 ### #386
 
 Resolved 2026-07-11. The apparent same-HEAD instability was false provenance:
@@ -11636,6 +11651,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 387 | [x] | P2 | Test/Driller | Driller regression pins the cleared child-collision latch after `loc_3BE8E` consumes a drilled block. | `enemies/driller.rs`: 26 mutants, 21 caught, 5 unviable, 0 missed after iterative recheck. See archive #387. |
 | 386 | [x] | P1 | Verify/state | Mapped-resource RAM fixtures are rejected when their dimensions contradict the ROM header, preventing aliased terrain from killing Kid during settled entry. | Report `1783761928`: 43/69 pass, seven newly green, 38 fewer blocking diffs; Level 0x54 state-exact. See archive #386. |
 | 385 | [x] | P1 | Enemy/Driller | Driller consumes prior-pass child collision and retains the hidden settle/block-worker age. | Level 0x68 exact across frames 54-63, 360 CRC frames, and both checkpoints. See archive #385. |
 | 384 | [x] | P1 | Enemy/Archer | Hidden settle scheduling, Archer hibernates, fire-row offsets, and off-screen arrow deletion follow the ROM's object wakes. | Reports `1783755508` and `1783756175`; exact frames 60/132/133/359 regression. See archive #384. |

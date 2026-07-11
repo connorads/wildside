@@ -37,7 +37,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 - **Full published-route evidence:** all 37,759 requested player/camera CRC frames match oracle, while 1,512 sampled checkpoints retain #290's baseline of 212 authoritative export diffs and 2 oracle limitations. This is not whole-state, enemy, render, or audio equality.
 - **Whole-level sweep boundary:** report `1783761928` reaches real gameplay on all 69 BCD levels: 43 pass and 26 fail with 103 blocking diffs, 8 advisory diffs, and 49 oracle limitations. Levels 0x22, 0x27, 0x32, 0x37, 0x39, 0x45, and 0x54 are newly green. The old all-masked green sweep was invalid.
 - **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
-- **Latest proactive fix:** #386 rejects mapped-resource RAM fixtures whose dimensions contradict the ROM header, then rebuilds terrain through `loc_11C34`. Level 0x54 now survives and matches both state checkpoints; the canonical sweep improves by seven levels and 38 blocking diffs with no newly failing level.
+- **Latest proactive fix:** #387 closes the only surviving `enemies/driller.rs` mutant by pinning `loc_3BE8E`'s child-collision clear after a drilled block. The full file run catches 21 viable mutants; five are unviable.
 - **Full-frame sweep boundary:** #383 removes the native-only synthetic settle override. Level 0 report `1783751667` passes with zero blocking diffs and two known object-export limitations; idle-tail render remains non-blocking at MAE 1.2.
 - **Current work:** no agent-ready row remains. Run `mise run project-status`, then use `loop.md`'s proactive-verification fallback to select the next concrete fidelity slice.
 

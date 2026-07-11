@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#387 Driller mutation hardening)
+
+- With no agent-ready backlog row, the proactive fallback mutation-tested
+  `enemies/driller.rs`: 26 mutants, 20 initially caught, five unviable, one
+  missed.
+- The survivor inverted the post-drill child-collision latch. Driller.asm
+  `loc_3BE8E` clears the selected child's `$38` word, and the following collision
+  pass leaves it clear when no next block exists.
+- The existing next-pass Driller regression now pins that cleared latch. The
+  iterative recheck catches the former survivor; no gameplay code changed.
+  NEXT: rerun `project-status`, then continue the proactive fallback.
+
 ## 2026-07-11 handoff (#386 mapped terrain-fixture dimensions)
 
 - The earlier Level 0x54 pass and later failure did not share a core-source
