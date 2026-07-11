@@ -7700,6 +7700,46 @@ mod chunk_02 {
     }
 
     #[test]
+    fn timeout_restart_intro_sequence_2_runs_live_object_passes_loc_1b9d0_1ba02() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(5_961)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_5545_ring = trace[5_545]
+            .rng_ring
+            .as_ref()
+            .expect("frame 5545 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_5545_ring.as_bytes(),
+            trace[5_545].rng_offset.expect("frame 5545 RNG offset"),
+        );
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(5_954).skip(5_546) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM loc_1B9D0 wakes its render worker before loc_1BA02 enters the live IntroSequence2 object loop on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+        let expected_ring = expected.ring();
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(5_961).skip(5_954) {
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM loc_1BA02 -> loc_6E2 leaves the following IntroSequence3 loader hibernating without an outer loc_E12 pass on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected_ring));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 IntroSequence2 RNG cadence)
+
+- ASM `loc_1B9D0 -> sub_1C204` keeps timeout-restart IntroSequence2 RNG-idle
+  during its hidden loader/fade. `Mode_Standard -> Execute_Objects loc_E12`
+  resumes at local pre-step elapsed 41 and remains live through `loc_1BA02`'s
+  mode-switch frame.
+- Complete-ring regression pins all 408 live draws and the following loader
+  freeze. Full-route CRC remains exact on all 37,759 frames. Frames 16..5994
+  now match complete RNG state; per-frame debt falls 32,213 -> 31,764, digest
+  `d5471a7274de84ab20f13abeec5caa434e150874`. Sampled RNG diffs fall 2,653 ->
+  2,607, digest `262be43bedffea69ca7067066af215d6fb1a03d3`.
+- `mise run verify-slice-fast` and `mise run verify-tas-full` pass with the
+  improved checked-in confidence ratchet.
+- NEXT: frame 5995 at the timeout-restart IntroSequence3 loader wake-up. Native
+  is one draw behind (`$FFD4` vs `$FFD8`, ring index 12 `$34/$37`).
+
 ## 2026-07-11 handoff (#390 demo-2 auto-timeout RNG cadence)
 
 - Demo 2's automatic `ReadJoypad loc_C0A -> loc_6E2` timeout keeps the prior

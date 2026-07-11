@@ -2477,6 +2477,19 @@ impl NativeRuntime {
                 };
                 elapsed >= first_live_elapsed
             }
+            BootState::IntroSequence {
+                segment: 1,
+                elapsed,
+                ..
+            } if self
+                .demo_auto_timeout_intro_sequence_2_frames_override
+                .is_some() =>
+            {
+                // ASM loc_1B9D0 -> sub_1C204 completes the hidden loader/fade
+                // before loc_1BA02 owns a live outer object pass on the
+                // timeout-restart lineage.
+                elapsed >= DEMO_AUTO_TIMEOUT_INTRO_SECOND_RNG_FIRST_LIVE_ELAPSED
+            }
             _ => false,
         };
         let frame_started_in_title_screen =

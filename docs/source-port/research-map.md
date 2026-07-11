@@ -23,10 +23,10 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 32,213 mismatches, first at
-frame 5546, under digest `754f4b4f62f517c6541873ceb6cb70adeaa48727`.
-Frames 16..5545 match the complete RNG state exactly; the next mismatch is the
-timeout-restart IntroSequence2 loader wake-up.
+of the remaining 37,743 frames. It currently records 31,764 mismatches, first at
+frame 5995, under digest `d5471a7274de84ab20f13abeec5caa434e150874`.
+Frames 16..5994 match the complete RNG state exactly; the next mismatch is the
+timeout-restart IntroSequence3 loader wake-up.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.
@@ -43,6 +43,16 @@ pins the frozen player/camera snapshot and complete RNG ring through frame 5200.
 Per-frame RNG debt falls 32,791 -> 32,213; sampled RNG diffs fall 2,699 ->
 2,653. The next frontier at frame 5546 is native `$FFE6` versus oracle `$FFEA`,
 with first ring difference index 30 `$D6/$71`.
+
+The timeout-restart IntroSequence2 follow-up traces `loc_1B9D0 -> sub_1C204`
+as an RNG-idle hidden loader/fade. Its render worker appears before local
+pre-step elapsed 41, where `Mode_Standard -> Execute_Objects loc_E12` resumes
+one longword draw per frame through `loc_1BA02`'s mode-switch frame. Regression
+`timeout_restart_intro_sequence_2_runs_live_object_passes_loc_1b9d0_1ba02`
+pins the complete ring across all 408 live passes and the following loader
+freeze. Per-frame RNG debt falls 32,213 -> 31,764; sampled RNG diffs fall 2,653
+-> 2,607. The next frontier at frame 5995 is native `$FFD4` versus oracle
+`$FFD8`, with first ring difference index 12 `$34/$37`.
 
 The visual side has a separate confidence ceiling. Since 2026-07-10,
 `source_port_frame_oracle:level_00_early` renders the actual source-port scene at

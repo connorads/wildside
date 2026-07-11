@@ -267,6 +267,23 @@ sampled RNG diffs fall 2,699 -> 2,653, digest
 next frontier is frame 5546 at the timeout-restart IntroSequence2 loader
 wake-up: native `$FFE6`, oracle `$FFEA`, ring index 30 `$D6/$71`.
 
+Follow-up proactive correction 2026-07-11 traced timeout-restart
+IntroSequence2's `loc_1B9D0 -> sub_1C204` loader/fade and `loc_1BA02` live
+loop. Oracle keeps RNG frozen through the hidden loader, exposes the render
+worker before local pre-step elapsed 41, then performs one outer
+`Execute_Objects loc_E12` draw per frame through the mode-switch frame.
+
+Native now keys this phase to the existing timeout-restart IntroSequence2
+lineage and local elapsed state. Regression
+`timeout_restart_intro_sequence_2_runs_live_object_passes_loc_1b9d0_1ba02`
+pins all 408 live draws plus the following IntroSequence3 loader freeze. All
+37,759 player/camera CRC frames remain exact. Per-frame RNG debt falls 32,213
+-> 31,764, digest `d5471a7274de84ab20f13abeec5caa434e150874`;
+sampled RNG diffs fall 2,653 -> 2,607, digest
+`262be43bedffea69ca7067066af215d6fb1a03d3`. Frames 16..5994 are exact. The
+next frontier is frame 5995 at the timeout-restart IntroSequence3 loader
+wake-up: native `$FFD4`, oracle `$FFD8`, ring index 12 `$34/$37`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

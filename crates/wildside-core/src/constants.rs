@@ -194,6 +194,12 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIRST_SEGMENT_FRAMES: usize = 361;
 // sequence 2 alive through frame 5952 and only expose `game_mode=0x001C` on
 // frame 5953, so this restart path cannot reuse the shared 80-frame timer.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_SECOND_SEGMENT_FRAMES: usize = 449;
+/// Pre-step local elapsed at which the timeout-restart IntroSequence2 loader
+/// has finished its hidden `loc_1B9D0 -> sub_1C204` setup and the outer
+/// `Mode_Standard -> Execute_Objects loc_E12` pass resumes. Oracle object/RNG
+/// probes expose the render worker on local frame 41 and the first draw on the
+/// following step (published frame 5546).
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_SECOND_RNG_FIRST_LIVE_ELAPSED: usize = 41;
 // ASM loc_1B96E keeps the timeout-restart copy of intro sequence 3 polling
 // the Start-gated sub_1C246 return until the natural timeout hand-off reaches
 // `Game_Mode=$20`. Oracle-backed published TAS traces keep the second visit
