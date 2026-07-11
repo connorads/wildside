@@ -2541,8 +2541,13 @@ impl NativeRuntime {
                     } else {
                         DEMO_AUTO_TIMEOUT_INTRO_FIFTH_RNG_FIRST_LIVE_ELAPSED
                     };
-                elapsed >= first_live_elapsed
-                    && elapsed != INTRO_SEQUENCE_5_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED
+                let panel_upload_stall_elapsed =
+                    if self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay {
+                        INTRO_SEQUENCE_5_START_SKIP_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED
+                    } else {
+                        INTRO_SEQUENCE_5_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED
+                    };
+                elapsed >= first_live_elapsed && elapsed != panel_upload_stall_elapsed
             }
             _ => false,
         };

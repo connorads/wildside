@@ -420,6 +420,26 @@ next frontier is a one-frame phase swap at 20758: native stays `$FFD6` while
 oracle advances to `$FFDA`, ring index 14 `$50/$79`; the streams rejoin on
 20759.
 
+Follow-up proactive correction 2026-07-11 found frame 20758 was still
+IntroSequence5, not IntroSequence6. The earlier `loc_1BC36` panel-upload fix
+treated its Start-skip local elapsed 385 presentation boundary as universal.
+Oracle instead advances the ordinary timeout-restart visit on frame 20758,
+then presents the combined `sub_1C034(d4=4) -> sub_1C0EE` VBlank stretch on
+frame 20759 at local elapsed 386. The already-typed Start-skip lineage is the
+engine-level distinction; no published-frame correction was added.
+
+Regression
+`ordinary_intro_sequence_5_panel_upload_stalls_after_frame_20758_loc_1bc36`
+failed on the missing frame-20758 longword before the fix and pins the complete
+ring through the following freeze and resumed `Mode_Standard ->
+Execute_Objects loc_E12` cadence. The earlier frame-16556 Start-skip regression
+remains green. All 37,759 player/camera CRC frames remain exact. Per-frame RNG
+debt falls 16,865 -> 16,864, digest
+`b40154c53f9ac76cb691d190d894b3cc6aded4fc`; sampled RNG debt remains 1,264,
+digest `f2da5cc10d9792078209e95fe99c8e7b738f9699`. Frames 16..20894 are exact. The
+next frontier begins in IntroSequence6 on frame 20895: native `$FFD0`, oracle
+`$FFD4`, ring index 8 `$27/$F0`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

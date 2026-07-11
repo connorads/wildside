@@ -23,13 +23,26 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 16,865 mismatches, first at
-frame 20758, under digest `452c59c21d739803c738094fa94b29418e7f9d06`.
-Frames 16..20757 match the complete RNG state exactly; the next mismatch is a
-single skipped native outer draw before both streams rejoin on frame 20759.
+of the remaining 37,743 frames. It currently records 16,864 mismatches, first at
+frame 20895, under digest `b40154c53f9ac76cb691d190d894b3cc6aded4fc`.
+Frames 16..20894 match the complete RNG state exactly; the next mismatch begins
+when IntroSequence6's oracle object passes remain live while native freezes.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.
+
+The latest correction scopes `loc_1BC36`'s combined
+`sub_1C034(d4=4) -> sub_1C0EE` upload stall to its typed IntroSequence5
+lineage. The Start-skip visit retains its oracle-pinned local elapsed 385
+presentation stall; the ordinary timeout-restart visit stalls at elapsed 386.
+Regression
+`ordinary_intro_sequence_5_panel_upload_stalls_after_frame_20758_loc_1bc36`
+failed on the missing frame-20758 draw before the fix and pins the complete
+ring through the frame-20759 freeze and resumed cadence. Per-frame RNG debt
+falls 16,865 -> 16,864; sampled RNG debt remains 1,264 because the corrected
+frame lies between sampled checkpoints. The next frontier is IntroSequence6
+frame 20895: native `$FFD0`, oracle `$FFD4`, first ring difference index 8
+`$27/$F0`.
 
 The latest correction preserves the later Start-skip IntroSequence5 rebuild's
 carried hidden-delay frame through `sub_1C246 -> loc_1C264 -> Load_TitleScreen`.

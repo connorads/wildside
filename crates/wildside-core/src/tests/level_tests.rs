@@ -8024,6 +8024,54 @@ mod chunk_02 {
     }
 
     #[test]
+    fn ordinary_intro_sequence_5_panel_upload_stalls_after_frame_20758_loc_1bc36() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(20_775)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_20757_ring = trace[20_757]
+            .rng_ring
+            .as_ref()
+            .expect("frame 20757 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_20757_ring.as_bytes(),
+            trace[20_757].rng_offset.expect("frame 20757 RNG offset"),
+        );
+
+        let _ = expected.next_long();
+        assert_eq!(
+            trace[20_758].rng_offset,
+            Some(expected.offset_word()),
+            "ASM Mode_Standard -> Execute_Objects loc_E12 burns before the ordinary-lineage loc_1BC36 sub_1C034(d4=4) -> sub_1C0EE upload crosses VBlank on published frame 20758; native phase={:?} elapsed={:?}",
+            trace[20_758].boot_phase,
+            trace[20_758].boot_phase_elapsed,
+        );
+        assert_eq!(trace[20_758].rng_ring.as_ref(), Some(&expected.ring()));
+
+        assert_eq!(
+            trace[20_759].rng_offset,
+            Some(expected.offset_word()),
+            "ASM loc_1BC36's combined sub_1C034/sub_1C0EE object pass remains hibernated across published frame 20759",
+        );
+        assert_eq!(trace[20_759].rng_ring.as_ref(), Some(&expected.ring()));
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(20_775).skip(20_760) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM Mode_Standard -> Execute_Objects loc_E12 resumes its ordinary cadence on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

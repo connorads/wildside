@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 ordinary IntroSequence5 upload stall)
+
+- The Start-skip and ordinary timeout-restart IntroSequence5 visits present
+  `loc_1BC36`'s combined `sub_1C034(d4=4) -> sub_1C0EE` upload on adjacent
+  local elapsed boundaries. The earlier global stall incorrectly froze the
+  ordinary visit one frame early.
+- Native now retains elapsed 385 for the Start-skip stall and elapsed 386 for
+  the ordinary lineage. Frame 20758 advances to `$FFDA`, frame 20759 remains
+  frozen, and the complete ring stays exact through frame 20894.
+- Full-route CRC remains exact on all 37,759 frames. Per-frame RNG debt falls
+  16,865 -> 16,864, digest `b40154c53f9ac76cb691d190d894b3cc6aded4fc`.
+  Sampled RNG debt remains 1,264 with digest
+  `f2da5cc10d9792078209e95fe99c8e7b738f9699`.
+- `mise run verify-slice-fast` and the isolated full TAS run pass with the
+  improved checked-in confidence ratchet.
+- NEXT: IntroSequence6 frame 20895. Native freezes at `$FFD0` while oracle
+  advances to `$FFD4` (ring index 8 `$27/$F0`) and continues drawing.
+
 ## 2026-07-11 handoff (#390 later title-rebuild RNG wake)
 
 - The later Start-skip IntroSequence5 title return carries one extra hidden
