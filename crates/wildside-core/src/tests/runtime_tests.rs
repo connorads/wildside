@@ -1700,6 +1700,8 @@ mod chunk_09 {
                         trace.camera_x_pos,
                         trace.camera_y_pos,
                         trace.number_objects,
+                        trace.number_gfx_objects,
+                        trace.character_movement,
                     ));
                 }
                 8_070 => {
@@ -1711,6 +1713,8 @@ mod chunk_09 {
                         trace.camera_x_pos,
                         trace.camera_y_pos,
                         trace.number_objects,
+                        trace.number_gfx_objects,
+                        trace.character_movement,
                     ));
                     break;
                 }
@@ -1726,6 +1730,8 @@ mod chunk_09 {
             0x02FF_0000,
             0x00E7_0000,
             9,
+            8,
+            Some(3),
         ));
         assert_eq!(
             frame_8069, expected,

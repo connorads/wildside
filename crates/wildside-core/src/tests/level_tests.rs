@@ -8451,7 +8451,10 @@ mod chunk_02 {
             frame_81.number_objects, 2,
             "ASM sub_1B8F4 allocates the loc_1C7A0 intro-text worker"
         );
-        assert_eq!(frame_81.number_gfx_objects, 0);
+        assert_eq!(
+            frame_81.number_gfx_objects, 1,
+            "ASM sub_1B8F4 calls sub_1C54A to allocate the intro GfxObject"
+        );
     }
 
     #[test]

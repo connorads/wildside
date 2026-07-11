@@ -723,9 +723,9 @@ pub struct NativeRuntime {
     /// The ROM auto-timeout path clears Game_Mode to 0 instead of taking the
     /// paused title helper used by manual Start aborts.
     demo_auto_timeout_handoff_active: bool,
-    /// The cold IntroSequence6 timeout-return path preserves the late demo-1
-    /// controller sample into the first mode-0 timeout frames.
-    demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot: bool,
+    /// The demo auto-timeout hand-off preserves the final jump movement word
+    /// into the first mode-0 timeout frames.
+    demo_auto_timeout_handoff_preserves_jump_movement: bool,
     /// Whether Load_SegaScreen enters before or after its first outer pass.
     demo_auto_timeout_mode_0_entry: DemoAutoTimeoutMode0Entry,
     /// Timeout restart hands the generic intro state machine a different
@@ -1406,7 +1406,7 @@ impl NativeRuntime {
             demo_auto_timeout_return_pending: false,
             demo_auto_timeout_freeze_gameplay_frame: false,
             demo_auto_timeout_handoff_active: false,
-            demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot: false,
+            demo_auto_timeout_handoff_preserves_jump_movement: false,
             demo_auto_timeout_mode_0_entry: DemoAutoTimeoutMode0Entry::Fresh,
             demo_auto_timeout_intro_sequence_1_frames_override: None,
             demo_auto_timeout_intro_sequence_2_frames_override: None,

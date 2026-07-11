@@ -1515,6 +1515,25 @@ pub(crate) fn compare_sweep_states_for_frontier_with_options(
                 },
             });
         }
+        if matches!(frontier_kind, FrontierKind::Gameplay)
+            && native.number_gfx_objects != oracle.number_gfx_objects
+        {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "number_gfx_objects".into(),
+                native_value: format!("{}", native.number_gfx_objects),
+                oracle_value: format!("{}", oracle.number_gfx_objects),
+                category: if rubber_worker_counter_sampling_matches(native, oracle)
+                    || rock_tank_counter_sampling_matches_loc_3b372(native, oracle)
+                    || prize_diamond_counter_sampling_matches_loc_10396(native, oracle)
+                    || dragon_walking_breath_counter_sampling_matches_loc_3d086(native, oracle)
+                {
+                    DivergenceCategory::OracleLimitation
+                } else {
+                    DivergenceCategory::Authoritative
+                },
+            });
+        }
         if native.number_hitpoints != oracle.number_hitpoints {
             diffs.push(StateDiff {
                 checkpoint: cp.clone(),
@@ -2844,6 +2863,19 @@ mod tests {
     }
 
     #[test]
+    fn compare_sweep_states_detects_number_gfx_objects_diff() {
+        let native = demo_velocity_state(0, 0);
+        let mut oracle = native.clone();
+        oracle.number_gfx_objects = 7;
+
+        let diffs = compare_sweep_states_for_frontier(&[native], &[oracle], FrontierKind::Gameplay);
+
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs[0].field, "number_gfx_objects");
+        assert_eq!(diffs[0].category, DivergenceCategory::Authoritative);
+    }
+
+    #[test]
     fn compare_sweep_states_detects_kid_x_direction_diff() {
         // Regression for backlog #137 (moonwalk on slopes): ASM
         // `loc_9E88: sf x_direction` (SlopeDown -> Right, byte = 0) vs
@@ -3106,8 +3138,9 @@ mod tests {
 
         let gameplay_diffs =
             compare_sweep_states_for_frontier(&native, &oracle, FrontierKind::Gameplay);
-        assert_eq!(gameplay_diffs.len(), 1);
+        assert_eq!(gameplay_diffs.len(), 2);
         assert_eq!(gameplay_diffs[0].field, "number_objects");
+        assert_eq!(gameplay_diffs[1].field, "number_gfx_objects");
     }
 
     #[test]
@@ -5013,9 +5046,14 @@ mod tests {
 
         let diffs = compare_sweep_states_for_frontier(&[native], &[oracle], FrontierKind::Gameplay);
 
-        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs.len(), 2);
         assert_eq!(diffs[0].field, "number_objects");
-        assert_eq!(diffs[0].category, DivergenceCategory::OracleLimitation);
+        assert_eq!(diffs[1].field, "number_gfx_objects");
+        assert!(
+            diffs
+                .iter()
+                .all(|diff| diff.category == DivergenceCategory::OracleLimitation)
+        );
     }
 
     #[test]
@@ -5067,9 +5105,14 @@ mod tests {
 
         let diffs = compare_sweep_states_for_frontier(&[native], &[oracle], FrontierKind::Gameplay);
 
-        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs.len(), 2);
         assert_eq!(diffs[0].field, "number_objects");
-        assert_eq!(diffs[0].category, DivergenceCategory::OracleLimitation);
+        assert_eq!(diffs[1].field, "number_gfx_objects");
+        assert!(
+            diffs
+                .iter()
+                .all(|diff| diff.category == DivergenceCategory::OracleLimitation)
+        );
     }
 
     #[test]

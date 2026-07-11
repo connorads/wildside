@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#290 GfxObject and transition-identity audit)
+
+- Repeated `0x15 -> 0x00` transitions reused checkpoint labels, allowing report
+  evidence to pair a later difference with the first occurrence. Transition
+  labels now include their exact frame.
+- `Number_GfxObjects` existed in typed state but was absent from the gameplay
+  comparator. It is now authoritative and both the fast and full gates ratchet
+  the expanded debt. The full 1,512-checkpoint baseline is 527 authoritative
+  differences plus 6 oracle limitations, first at
+  `frame_300/number_gfx_objects`; the per-frame window through frame 3400 has
+  839 authoritative differences, first at frame 299.
+- Raw oracle WRAM pins demo-1 timeout Objects/GfxObjects/Movement at 9/8/3.
+  Native now preserves the final `Mode_Level -> ReadJoypad loc_C0A` trace
+  snapshot, including `loc_119D8`'s hidden workers. Frames 8067..8103 are exact
+  on compared gameplay state. IntroSequence1 now counts the GfxObject allocated
+  by `sub_1B8F4 -> sub_1C54A`.
+- All 37,759 player/camera CRC frames and all 37,743 post-`Init_RNG` complete RNG
+  states remain exact. The larger state baseline reflects expanded measurement,
+  not a CRC or RNG regression.
+- `mise run verify-slice-fast` and `mise run verify-tas-full` pass. Every fast
+  recording now declares its divergence summary and first authoritative field,
+  so newly exposed state cannot silently inherit a zero-debt claim.
+- NEXT: trace the title-screen GfxObject completion responsible for the first
+  frame-299/300 difference; do not infer its timing without ASM and oracle
+  evidence.
+
 ## 2026-07-11 handoff (#390 complete published-route RNG parity)
 
 - IntroSequence2 returns through `loc_1B9D0 -> loc_1BA02 -> sub_1C246 ->

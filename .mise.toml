@@ -259,10 +259,24 @@ for slug in $(jq -r '"'"'.recordings | keys[]'"'"' "$FRONTIER"); do
     continue
   fi
   report=".cache/tas-verify/$slug/report.json"
-  blocking=$(jq '"'"'.divergence_summary.authoritative + .divergence_summary.accumulation + .divergence_summary.rng'"'"' "$report")
+  actual_summary=$(jq -cS '"'"'.divergence_summary'"'"' "$report")
+  expected_summary=$(jq -cS --arg slug "$slug" '"'"'.recordings[$slug].expected_divergence_summary // {authoritative: 0, advisory: 0, accumulation: 0, rng: 0, oracle_limitation: 0}'"'"' "$FRONTIER")
+  actual_first=$(jq -cS '"'"'.first_authoritative_diff | if . == null then null else {checkpoint, field} end'"'"' "$report")
+  expected_first=$(jq -cS --arg slug "$slug" '"'"'.recordings[$slug].expected_first_authoritative_diff // null'"'"' "$FRONTIER")
   crc=$(jq -r '"'"'.first_crc_mismatch // empty'"'"' "$report")
-  if [ "$blocking" -ne 0 ] || [ -n "$crc" ]; then
-    echo "FAIL: $slug regressed in frames $start..$frame (blocking=$blocking crc=${crc:-none})"
+  requested_crc_frames=$(jq -r '"'"'.crc_frame_counts.requested'"'"' "$report")
+  native_crc_frames=$(jq -r '"'"'.crc_frame_counts.native'"'"' "$report")
+  oracle_crc_frames=$(jq -r '"'"'.crc_frame_counts.oracle'"'"' "$report")
+  expected_crc_frames=$((frame - start))
+  if [ -n "$crc" ] || [ "$requested_crc_frames" -ne "$expected_crc_frames" ] || [ "$native_crc_frames" -ne "$expected_crc_frames" ] || [ "$oracle_crc_frames" -ne "$expected_crc_frames" ]; then
+    echo "FAIL: $slug CRC regressed or coverage is incomplete in frames $start..$frame (first=${crc:-none} requested=$requested_crc_frames native=$native_crc_frames oracle=$oracle_crc_frames expected=$expected_crc_frames)"
+    FAIL=1
+  elif [ "$actual_summary" != "$expected_summary" ] || [ "$actual_first" != "$expected_first" ]; then
+    echo "FAIL: $slug checkpoint divergence baseline changed in frames $start..$frame"
+    echo "  expected summary: $expected_summary"
+    echo "  actual summary:   $actual_summary"
+    echo "  expected first:   $expected_first"
+    echo "  actual first:     $actual_first"
     FAIL=1
   fi
 done

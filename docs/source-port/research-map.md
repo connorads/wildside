@@ -16,9 +16,10 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-11
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints retain the explicit #290 baseline of 212 authoritative export
-diffs and 2 oracle limitations, beginning with `number_objects` after the
-`0x15 -> 0x00` transition. The CRC excludes enemy/render/audio state, object
+state checkpoints retain the explicit #290 baseline of 527 authoritative export
+diffs and 6 oracle limitations, beginning at `frame_300/number_gfx_objects`.
+The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
+labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
@@ -27,6 +28,17 @@ of the remaining 37,743 frames. Every compared frame now matches exactly.
 That is complete per-frame RNG evidence for this route, not whole-state or
 whole-game proof. Reducing #290's authoritative sampled-state baseline remains
 separate fidelity work.
+
+The latest verifier correction makes transition labels frame-unique and compares
+`Number_GfxObjects` as authoritative gameplay state. Its per-frame fast window
+through frame 3400 ratchets 839 differences, first at
+`frame_299/number_gfx_objects`. Raw oracle WRAM at the demo-1 timeout hand-off
+holds Objects/GfxObjects/Movement at 9/8/3. Native now preserves the final
+`Mode_Level -> ReadJoypad loc_C0A` snapshot, including `loc_119D8`'s hidden
+workers, and frames 8067..8103 match on the compared gameplay fields.
+IntroSequence1 also exposes the GfxObject allocated by
+`sub_1B8F4 -> sub_1C54A`. The larger checked-in debt is newly measured state,
+not a player/camera or RNG regression.
 
 The latest correction separates IntroSequence2's title-return scheduler from
 IntroSequence4. ASM `loc_1B9D0 -> loc_1BA02` performs its two `sub_1C1A2`

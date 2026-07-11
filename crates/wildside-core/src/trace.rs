@@ -4094,9 +4094,10 @@ mod tests {
         }
 
         // ASM Load_IntroSequence1 first exposes only the sub_1B8F4 controller at
-        // elapsed 44; loc_1C7A0's intro-text worker joins on the next trace.
+        // elapsed 44. On the next trace, sub_1B8F4 has called sub_1C54A to
+        // allocate the intro GfxObject and loc_1C7A0's text Object worker.
         assert_eq!(counts_at(44), (1, 0));
-        assert_eq!(counts_at(45), (2, 0));
+        assert_eq!(counts_at(45), (2, 1));
     }
 
     #[test]
@@ -6846,7 +6847,7 @@ impl NativeRuntime {
             return MOVE_STANDINGSTILL;
         }
         if self.demo_auto_timeout_handoff_active {
-            if self.demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot {
+            if self.demo_auto_timeout_handoff_preserves_jump_movement {
                 // ASM ReadJoypad loc_C0A (kid.asm:1380) flips to mode 0
                 // after the final loc_A6F8/sub_B168 jump frame has already
                 // populated Character_Movement.
@@ -10051,11 +10052,17 @@ impl NativeRuntime {
                     camera_state.x_pos,
                     camera_state.y_pos,
                 );
+                let active_enemy_gfx_objects = active_objects
+                    .iter()
+                    .filter(|object| matches!(object.kind, NativeObjectKind::Enemy { .. }))
+                    .count() as u16;
                 // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585) allocates an
                 // object-only Start-abort controller. On the timeout-restart
                 // lineage, oracle top-level TAS state keeps that hidden object
-                // count-visible after the cold-boot controller window while
-                // `Number_GfxObjects` continues to follow live gameplay WRAM.
+                // count-visible after the cold-boot controller window.
+                // `Number_GfxObjects` continues to follow live gameplay WRAM,
+                // including each loaded enemy GfxObject omitted by the fixed
+                // demo-controller baseline.
                 let hidden_controller_objects = if frame_counter
                     >= demo::DEMO_1_TIMEOUT_RESTART_EXTRA_CONTROLLER_OBJECT_FRAME
                 {
@@ -10065,7 +10072,7 @@ impl NativeRuntime {
                 };
                 return Some((
                     number_objects.saturating_add(hidden_controller_objects),
-                    number_gfx_objects,
+                    number_gfx_objects.saturating_add(active_enemy_gfx_objects),
                 ));
             }
             if (demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME
@@ -10551,10 +10558,11 @@ impl NativeRuntime {
                 return (1, 0);
             }
             if elapsed >= 45 {
-                // ASM sub_1B8F4 allocates the loc_1C7A0 intro-text worker
-                // before entering sub_1C204/loc_1B920; native does not model
-                // either intro shell object as a gameplay roster entry.
-                return (2, 0);
+                // ASM sub_1B8F4 calls sub_1C54A to allocate the intro
+                // GfxObject, then allocates loc_1C7A0's intro-text Object
+                // before entering sub_1C204/loc_1B920. Native does not model
+                // either intro shell worker as a gameplay roster entry.
+                return (2, 1);
             }
         }
         if let BootState::IntroSequence {

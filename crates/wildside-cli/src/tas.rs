@@ -1006,7 +1006,10 @@ fn merge_transition_checkpoints(
         // Checkpoint just before transition (the last frame of the old level)
         if !existing_frames.contains(&frame) && frame < scenario.frame_count {
             scenario.checkpoints.push(DynamicCheckpoint {
-                label: format!("transition_{:02x}_to_{:02x}_pre", from.0, to.0),
+                label: format!(
+                    "transition_{:02x}_to_{:02x}_pre_frame_{frame}",
+                    from.0, to.0
+                ),
                 frame_index: frame,
             });
         }
@@ -1014,7 +1017,10 @@ fn merge_transition_checkpoints(
         let after = frame + 1;
         if !existing_frames.contains(&after) && after < scenario.frame_count {
             scenario.checkpoints.push(DynamicCheckpoint {
-                label: format!("transition_{:02x}_to_{:02x}_post", from.0, to.0),
+                label: format!(
+                    "transition_{:02x}_to_{:02x}_post_frame_{after}",
+                    from.0, to.0
+                ),
                 frame_index: after,
             });
         }
@@ -1884,6 +1890,53 @@ mod tests {
             scenario.checkpoints[4]
                 .label
                 .contains("transition_01_to_02")
+        );
+    }
+
+    #[test]
+    fn merge_transition_checkpoints_gives_repeated_routes_unique_labels() {
+        let mut scenario = DynamicScenario {
+            slug: "repeated_transition".into(),
+            script: vec![0; 1000],
+            frame_count: 1000,
+            checkpoints: Vec::new(),
+            start_position: None,
+            start_velocity: None,
+            camera_position: None,
+            playtest_form: None,
+            initial_diamond_count: None,
+            initial_lives: None,
+            warp_to_level: None,
+            settle_oracle_warp: false,
+        };
+        let transitions = vec![
+            (
+                100,
+                wildside_core::LevelId(0x15),
+                wildside_core::LevelId(0x00),
+            ),
+            (
+                800,
+                wildside_core::LevelId(0x15),
+                wildside_core::LevelId(0x00),
+            ),
+        ];
+
+        super::merge_transition_checkpoints(&mut scenario, &transitions, 0, 1000);
+
+        let labels = scenario
+            .checkpoints
+            .iter()
+            .map(|checkpoint| checkpoint.label.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            labels,
+            vec![
+                "transition_15_to_00_pre_frame_100",
+                "transition_15_to_00_post_frame_101",
+                "transition_15_to_00_pre_frame_800",
+                "transition_15_to_00_post_frame_801",
+            ]
         );
     }
 
