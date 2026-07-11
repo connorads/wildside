@@ -171,6 +171,12 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_SEQUENCE_6_EARLY_TITLE_RESTORE_FRAMES: 
 // mode-0 Sega handoff through local frame 176, then switch to intro sequence 1
 // on local frame 177 (trace frame 5143).
 pub(crate) const DEMO_AUTO_TIMEOUT_MODE_0_FRAMES: usize = 177;
+/// Post-step local frames whose mode-0 Sega loader reaches an outer
+/// `Execute_Objects` pass. ASM Load_SegaScreen loc_12E64/loc_12E6C keeps the
+/// controller inside its own VBlank loop between these passes; published TAS
+/// WRAM probes expose the matching `Get_RandomNumber_long` draws at global
+/// frames 4967 and 5003.
+pub(crate) const DEMO_AUTO_TIMEOUT_MODE_0_RNG_LONG_FRAMES: [usize; 2] = [1, 37];
 // ASM loc_1B924 hibernates intro sequence 1 for the full `#$12B+1` DBF loop
 // before it hands off to `Game_Mode=$18`. Oracle-backed published TAS traces
 // keep the timeout-restart copy of intro sequence 1 alive through frame 5503

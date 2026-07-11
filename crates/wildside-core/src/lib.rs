@@ -716,9 +716,9 @@ pub struct NativeRuntime {
     /// Demo auto-timeout runs in ReadJoypad after the current gameplay frame,
     /// so the hand-off should not become visible until the next native step.
     demo_auto_timeout_return_pending: bool,
-    /// When the ROM timeout counter trips, the current trace frame already
-    /// exposes the frozen gameplay snapshot rather than another live physics
-    /// step. Skip the remaining per-frame gameplay work once for that frame.
+    /// Demo 2's timeout frame retains the previous trace-facing gameplay
+    /// snapshot even though Execute_Objects still performs its leading RNG
+    /// draw before ReadJoypad reaches loc_C0A.
     demo_auto_timeout_freeze_gameplay_frame: bool,
     /// The ROM auto-timeout path clears Game_Mode to 0 instead of taking the
     /// paused title helper used by manual Start aborts.
@@ -2418,13 +2418,13 @@ impl NativeRuntime {
             self.trace_input = raw_input;
             return self.trace_frame();
         };
+        let freeze_demo_auto_timeout_snapshot = self.demo_auto_timeout_freeze_gameplay_frame;
         let input = self.readjoypad_input_with_options_loc_bb6(input, demo_mode_active);
         self.trace_input = input;
         self.maybe_begin_pending_level_skip();
         self.maybe_begin_pending_level_skip_resume();
         self.maybe_clear_time_frames_for_level_skip_resume_loc_6551();
         self.maybe_finish_level_skip_resume();
-        let freeze_demo_auto_timeout_snapshot = self.demo_auto_timeout_freeze_gameplay_frame;
         // ASM loc_C4E (kid.asm:1404): ReadJoypad edge detection —
         // `eor.b d1,d0; and.b (Ctrl_1).w,d0; or.b d0,(Ctrl_1_Pressed).w`
         // computes newly-pressed bits, then copies held state:
@@ -2457,16 +2457,36 @@ impl NativeRuntime {
             BootState::SegaScreen { elapsed }
                 if elapsed == SEGA_SCREEN_FIRST_OBJECT_PASS_ELAPSED
         );
-        let intro_sequence_rng_long_burn_active = matches!(
-            self.boot_state,
+        let intro_sequence_rng_long_burn_active = match self.boot_state {
             BootState::IntroSequence {
                 segment: 0,
-                elapsed: 44..,
+                elapsed,
                 ..
+            } => {
+                // ASM loc_C0A -> loc_6E2 hands the timeout restart into
+                // IntroSequence1 with its first Mode_Standard object pass on
+                // the VBlank that advances local elapsed 43 -> 44. Cold boot
+                // enters the same loc_E12 schedule from pre-step elapsed 44.
+                let first_live_elapsed = if self
+                    .demo_auto_timeout_intro_sequence_1_frames_override
+                    .is_some()
+                {
+                    43
+                } else {
+                    44
+                };
+                elapsed >= first_live_elapsed
             }
-        );
+            _ => false,
+        };
         let frame_started_in_title_screen =
             matches!(self.boot_state, BootState::TitleScreen { .. });
+        let demo_auto_timeout_mode_0_rng_long_burn_active = frame_started_in_title_screen
+            && self.demo_auto_timeout_handoff_active
+            && DEMO_AUTO_TIMEOUT_MODE_0_RNG_LONG_FRAMES
+                .contains(&self.title_screen_elapsed_frames.saturating_add(1));
+        let frame_started_in_demo_auto_timeout_handoff =
+            frame_started_in_title_screen && self.demo_auto_timeout_handoff_active;
         let frame_started_in_level_entry =
             matches!(self.boot_state, BootState::StartingLevel { .. });
         // ASM loc_74E0 -> loc_6E2/Load_TitleCard: the debug level-skip shell
@@ -2511,7 +2531,13 @@ impl NativeRuntime {
             // hand-off into `Game_Mode=$002C`.
             let _ = self.rom_random.next_long();
         }
-        if frame_started_in_title_screen && self.title_screen_rng_long_burn_active() {
+        if frame_started_in_title_screen
+            && if frame_started_in_demo_auto_timeout_handoff {
+                demo_auto_timeout_mode_0_rng_long_burn_active
+            } else {
+                self.title_screen_rng_long_burn_active()
+            }
+        {
             // ASM TitleScreen still runs through Mode_Standard
             // (kid.asm:854-894), but oracle keeps `RNG_Offset` frozen through
             // the hidden title rebuild window after the early `$002C`
@@ -2604,6 +2630,13 @@ impl NativeRuntime {
             && self.step_hundred_k_trip_timer_loc_7452();
         let hundred_k_trip_transition_active =
             matches!(self.boot_state, BootState::HundredKTripTransition { .. });
+        if freeze_demo_auto_timeout_snapshot && gameplay_slice_active {
+            // ASM Mode_Level -> Execute_Objects loc_E12 draws before ReadJoypad
+            // loc_C0A observes the terminal demo counter. Native keeps the
+            // prior trace-facing physics snapshot on this scheduling boundary,
+            // but the RNG side effect from that final object pass still lands.
+            let _ = self.rom_random.next_long();
+        }
         if !freeze_demo_auto_timeout_snapshot
             && !preserve_demo_title_snapshot_frame
             && !hundred_k_trip_teleport_started

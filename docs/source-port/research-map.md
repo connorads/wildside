@@ -23,13 +23,26 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 32,791 mismatches, first at
-frame 4966, under digest `9be0b1158b8da9a04ba0591ad3cf413007f80b73`.
-Frames 16..4965 match the complete RNG state exactly; the next mismatch is the
-following demo-to-title transition.
+of the remaining 37,743 frames. It currently records 32,213 mismatches, first at
+frame 5546, under digest `754f4b4f62f517c6541873ceb6cb70adeaa48727`.
+Frames 16..5545 match the complete RNG state exactly; the next mismatch is the
+timeout-restart IntroSequence2 loader wake-up.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.
+
+The latest correction models demo 2's automatic `ReadJoypad loc_C0A ->
+loc_6E2` timeout as an explicit local scheduler. The terminal Mode_Level frame
+retains the previous trace-facing player snapshot but still performs
+`Execute_Objects loc_E12`'s leading RNG draw. `Load_SegaScreen` then hibernates
+inside `loc_12E64/loc_12E6C`, reaching outer object passes only on local
+post-step frames 1 and 37 before timeout-restart IntroSequence1 wakes.
+Regression
+`demo_2_auto_timeout_preserves_terminal_and_mode_0_rng_passes_loc_c0a_12e64`
+pins the frozen player/camera snapshot and complete RNG ring through frame 5200.
+Per-frame RNG debt falls 32,791 -> 32,213; sampled RNG diffs fall 2,699 ->
+2,653. The next frontier at frame 5546 is native `$FFE6` versus oracle `$FFEA`,
+with first ring difference index 30 `$D6/$71`.
 
 The visual side has a separate confidence ceiling. Since 2026-07-10,
 `source_port_frame_oracle:level_00_early` renders the actual source-port scene at

@@ -7632,6 +7632,74 @@ mod chunk_02 {
     }
 
     #[test]
+    fn demo_2_auto_timeout_preserves_terminal_and_mode_0_rng_passes_loc_c0a_12e64() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(5_201)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_4965_ring = trace[4_965]
+            .rng_ring
+            .as_ref()
+            .expect("frame 4965 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_4965_ring.as_bytes(),
+            trace[4_965].rng_offset.expect("frame 4965 RNG offset"),
+        );
+
+        // ASM ReadJoypad loc_C0A jumps out of the terminal Mode_Level pass
+        // before another trace-facing player update, even though that pass's
+        // Execute_Objects loc_E12 RNG draw has already happened.
+        assert_eq!(trace[4_966].kid_x_pos, trace[4_965].kid_x_pos);
+        assert_eq!(trace[4_966].kid_y_pos, trace[4_965].kid_y_pos);
+        assert_eq!(trace[4_966].kid_x_velocity, trace[4_965].kid_x_velocity);
+        assert_eq!(trace[4_966].kid_y_velocity, trace[4_965].kid_y_velocity);
+        assert_eq!(
+            trace[4_966].character_movement,
+            trace[4_965].character_movement
+        );
+        assert_eq!(trace[4_966].camera_x_pos, trace[4_965].camera_x_pos);
+        assert_eq!(trace[4_966].camera_y_pos, trace[4_965].camera_y_pos);
+
+        for trace_frame in &trace[4_966..=4_967] {
+            let _ = expected.next_long();
+            let expected_ring = expected.ring();
+            assert_eq!(trace_frame.rng_offset, Some(expected.offset_word()));
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected_ring));
+        }
+        let expected_ring = expected.ring();
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(5_003).skip(4_968) {
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM ReadJoypad loc_C0A preserves the terminal Mode_Level loc_E12 draw and Load_SegaScreen loc_12E64's first mode-0 draw, then hibernates RNG on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected_ring));
+        }
+        let _ = expected.next_long();
+        assert_eq!(trace[5_003].rng_offset, Some(expected.offset_word()));
+        assert_eq!(trace[5_003].rng_ring.as_ref(), Some(&expected.ring()));
+        let expected_ring = expected.ring();
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(5_187).skip(5_004) {
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM Load_SegaScreen loc_12E64 hibernates inside loc_12E6C without another Execute_Objects loc_E12 draw on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected_ring));
+        }
+        for trace_frame in &trace[5_187..=5_200] {
+            let _ = expected.next_long();
+            assert_eq!(trace_frame.rng_offset, Some(expected.offset_word()));
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

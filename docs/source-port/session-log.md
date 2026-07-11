@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 demo-2 auto-timeout RNG cadence)
+
+- Demo 2's automatic `ReadJoypad loc_C0A -> loc_6E2` timeout keeps the prior
+  trace-facing player snapshot while the terminal `Execute_Objects loc_E12`
+  pass still draws RNG.
+- The mode-0 `Load_SegaScreen loc_12E64/loc_12E6C` controller now uses explicit
+  auto-timeout lineage and local elapsed state for its two outer object passes;
+  timeout-restart IntroSequence1 wakes on its distinct pre-step boundary.
+- Complete-ring regression pins the frozen gameplay state and RNG cadence
+  through frame 5200. Full-route CRC remains exact on all 37,759 frames. Frames
+  16..5545 now match complete RNG state; per-frame debt falls 32,791 -> 32,213,
+  digest `754f4b4f62f517c6541873ceb6cb70adeaa48727`. Sampled RNG diffs fall
+  2,699 -> 2,653, digest `7eb7dc36aab53f390231ae45a923b6b48c273e97`.
+- `mise run verify-slice-fast` and `mise run verify-tas-full` pass with the
+  improved checked-in confidence ratchet.
+- NEXT: frame 5546 at the timeout-restart IntroSequence2 loader wake-up. Native
+  is one draw behind (`$FFE6` vs `$FFEA`, ring index 30 `$D6/$71`).
+
 ## 2026-07-11 handoff (#390 manual demo-return RNG lineage)
 
 - The frame-1838 frontier was a manual demo abort, not auto-timeout. Oracle

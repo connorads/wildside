@@ -248,6 +248,25 @@ debt falls 33,019 -> 32,791 with digest
 The next frontier is frame 4966 at the following demo-to-title transition:
 native `$FFD3`, oracle `$FFD7`, first ring difference index 11 `$B0/$49`.
 
+Follow-up proactive correction 2026-07-11 identified frame 4966 as demo 2's
+automatic `ReadJoypad loc_C0A -> loc_6E2` timeout. The final Mode_Level pass
+keeps the previous trace-facing player snapshot but still consumes
+`Execute_Objects loc_E12`'s leading RNG longword. The mode-0 Sega loader then
+hibernates inside `loc_12E64/loc_12E6C`, with outer object passes only on local
+post-step frames 1 and 37 before timeout-restart IntroSequence1 wakes.
+
+Native now separates the terminal RNG side effect from the frozen gameplay
+snapshot and schedules the loader from explicit auto-timeout lineage and local
+elapsed state. Regression
+`demo_2_auto_timeout_preserves_terminal_and_mode_0_rng_passes_loc_c0a_12e64`
+pins player/camera stability and the complete ring through frame 5200. All
+37,759 player/camera CRC frames remain exact. Per-frame RNG debt falls 32,791
+-> 32,213, digest `754f4b4f62f517c6541873ceb6cb70adeaa48727`;
+sampled RNG diffs fall 2,699 -> 2,653, digest
+`7eb7dc36aab53f390231ae45a923b6b48c273e97`. Frames 16..5545 are exact. The
+next frontier is frame 5546 at the timeout-restart IntroSequence2 loader
+wake-up: native `$FFE6`, oracle `$FFEA`, ring index 30 `$D6/$71`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.
