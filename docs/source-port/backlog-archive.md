@@ -209,6 +209,27 @@ drops five to four on frame 1058 and RNG then freezes, so trace the
 `Obj_TitleMenu -> DemoPlay` object scheduler hand-off before changing demo RNG
 cadence.
 
+Follow-up proactive correction 2026-07-11 moved the complete RNG frontier from
+frame 1059 to frame 1838. The earlier handoff description was too broad: native
+and oracle were already in demo mode. `Load_DemoPlay -> Load_InGame` remained
+blocked inside `Kid_Transform`'s `j_sub_8E0` VBlank loop, while native's outer
+gameplay scheduler invented an `Execute_Objects loc_E12` draw on every blocked
+frame. The alternative of treating all `form_change_flash_frames > 0` as
+blocked was rejected because the final count models `loc_7E90` cleanup after
+the VBlank loop has returned.
+
+Native now suppresses the outer RNG draw only while the transform count is
+greater than one and resumes on that cleanup boundary. Regression
+`demo_load_ingame_transform_hibernation_freezes_rng_loc_119b6_7acc` pins the
+complete ring frozen on published frames 1059..1130 and advancing again from
+1131. Frames 16..1837 are byte-exact. Full-route CRC remains exact on all
+37,759 frames; per-frame RNG debt falls 36,699 -> 33,019 with digest
+`5c799c6eff25ad9798674870704fbe0c4dac95db`, while sampled RNG diffs fall
+3,022 -> 2,719 with digest `0c0ea01abc2899ea1131c2855b0c89a48715ed7c`.
+The next frontier is frame 1838 after `ReadJoypad loc_C0A` returns demo mode
+`$10` to title mode `$2C`: oracle freezes at `$FFFA`, native draws once more to
+`$FFFE`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

@@ -2613,14 +2613,21 @@ impl NativeRuntime {
                 && !self.paused
                 && self.pending_pause_restart_round.is_none()
                 && !pause_last_life_exit_frame
+                && self.progression.form_change_flash_frames <= 1
                 && (matches!(self.boot_state, BootState::InGame)
                     || (self.demo_gameplay_active() && self.opening_slice.is_some()))
                 && !debug_level_entry_object_pass
             {
                 // ASM Execute_Objects loc_E12 (kid.asm:1636) calls
                 // Get_RandomNumber_long before walking any object coroutine.
-                // Keep this ahead of refresh_active_roster, which performs the
-                // native enemy object pass and may itself consume RNG bytes.
+                // Load_DemoPlay -> Load_InGame can still be blocked inside
+                // Kid_Transform's j_sub_8E0 VBlank loop before Mode_Level owns
+                // the outer frame. The final cleanup count has already left
+                // that loop and cleared Currently_transforming at loc_7E90,
+                // so resume the outer object pass when the count reaches one.
+                // Otherwise keep this ahead of refresh_active_roster, which
+                // performs the native enemy object pass and may itself consume
+                // RNG bytes.
                 let _ = self.rom_random.next_long();
             }
             self.refresh_active_roster();

@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 transform RNG hibernation)
+
+- `Load_DemoPlay -> Load_InGame` is still blocked inside `Kid_Transform`'s
+  `j_sub_8E0` VBlank loop on the first demo transform. Native had continued
+  inventing one `Execute_Objects loc_E12` draw per blocked frame.
+- The gameplay RNG scheduler now freezes while the transform count is greater
+  than one, then resumes on the final `loc_7E90` cleanup boundary. Regression
+  `demo_load_ingame_transform_hibernation_freezes_rng_loc_119b6_7acc` pins the
+  complete ring through frames 1059..1130 and the resumed draws from 1131.
+- Full-route CRC remains exact on all 37,759 frames. Per-frame RNG debt falls
+  36,699 -> 33,019 mismatches, digest
+  `5c799c6eff25ad9798674870704fbe0c4dac95db`; sampled RNG diffs fall
+  3,022 -> 2,719, digest `0c0ea01abc2899ea1131c2855b0c89a48715ed7c`.
+- `mise run verify-slice-fast` and `mise run verify-tas-full` pass.
+- NEXT: frame 1838, immediately after demo mode `$10` returns to title mode
+  `$2C`. Oracle performs its final demo draw on frame 1837 (`$FFFA`) and then
+  freezes; native reaches `$FFFE`. Trace the demo-timeout replay/handoff flags
+  around `ReadJoypad loc_C0A -> loc_6E2` before changing title cadence.
+
 ## 2026-07-11 handoff (#390 typed intro-return RNG lineage)
 
 - Replaced absolute title-ready-frame RNG branching with the explicit
