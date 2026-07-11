@@ -340,6 +340,27 @@ sampled RNG diffs fall 2,342 -> 2,294, digest
 next frontier is frame 10007 at the timeout-restart IntroSequence5 worker
 wake-up: native `$FFD8`, oracle `$FFDC`, ring index 16 `$66/$43`.
 
+Follow-up proactive correction 2026-07-11 traced timeout-restart
+IntroSequence5's `loc_1BA28 -> sub_1C204 -> loc_1BA60` live loop and
+`sub_1C246 -> loc_1C264` Start return. The hidden workers wake inside a fresh
+outer `Mode_Standard -> Execute_Objects loc_E12` pass at local pre-step elapsed
+57. Oracle keeps that pass live through both deferred title-return frames,
+freezes the subsequent title loader on published frames 10291..10344, then
+resumes Obj_TitleMenu's outer passes at 10345.
+
+Native now derives the intro boundary from its typed segment state and records
+a distinct `TimeoutRestartIntroSequence5` title lineage rather than reusing the
+generic later-intro cadence. Regression
+`timeout_restart_intro_sequence_5_preserves_live_and_title_rng_phases_loc_1ba28_1c264`
+pins the complete ring across all three phases. All 37,759 player/camera CRC
+frames remain exact. Per-frame RNG debt falls 27,752 -> 21,381, digest
+`23548927e780c66e01c03f66b2c05ed81d4f56e0`; sampled RNG diffs fall 2,294 ->
+1,770, digest `5061e5ba53f8cb125cdb0e11f4a777a28199faad`.
+Frames 16..16227 are exact. The next frontier is frame 16228, where the later
+Start-skip IntroSequence5 lineage exposes `loc_1BCD0` one frame earlier than
+the plain timeout path: native `$FFDB`, oracle `$FFDF`, ring index 19
+`$81/$40`; native catches up on frame 16229.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

@@ -41,6 +41,12 @@ pub(crate) const INTRO_FIFTH_SEGMENT_FRAMES: usize = 520;
 /// probes show cold Start taps before global frame 1933 are ignored, while a
 /// frame-1933 tap publishes `Ctrl_1_Pressed=$80` on 1934 before loc_1C264.
 pub(crate) const INTRO_SEQUENCE_5_START_POLL_ELAPSED_FRAMES: usize = 57;
+/// Pre-step local elapsed at which timeout-restart IntroSequence5's
+/// `loc_1BA28` workers wake inside a new outer
+/// `Mode_Standard -> Execute_Objects loc_E12` pass. The same boundary exposes
+/// the first loc_1BCD0 GFX slots and arms loc_1BA60's Start polling.
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_RNG_FIRST_LIVE_ELAPSED: usize =
+    INTRO_SEQUENCE_5_START_POLL_ELAPSED_FRAMES;
 pub(crate) const INTRO_SEGMENT_FRAMES: usize = 80;
 pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
 /// Demo/title-return lineages still use the short local title attract lock
@@ -215,6 +221,11 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_THIRD_RNG_FIRST_LIVE_ELAPSED: usize = 4
 /// `loc_1C264 -> loc_6E2` hidden rebuild rejoins Obj_TitleMenu's outer object
 /// passes. Oracle freezes published frames 6210..6264 and resumes on 6265.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_3_TITLE_RNG_FIRST_LIVE_ELAPSED: usize = 56;
+/// Post-step title elapsed at which the timeout-restart IntroSequence5
+/// `sub_1C246 -> loc_1C264 -> loc_6E2` rebuild rejoins Obj_TitleMenu's outer
+/// object passes. Oracle freezes published frames 10291..10344 and resumes on
+/// 10345, which is local title elapsed 55.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_5_TITLE_RNG_FIRST_LIVE_ELAPSED: usize = 55;
 // ASM loc_1B96A flips `Game_Mode` to intro sequence 4 immediately, but the
 // previous intro-sequence-3 roster objects remain visible until the intro-4
 // setup fully takes over. Oracle-backed timeout-restart traces keep the second

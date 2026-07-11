@@ -2523,6 +2523,20 @@ impl NativeRuntime {
                 // Camera_Y_pos=4, then remains live through loc_1B9B6.
                 elapsed >= DEMO_AUTO_TIMEOUT_INTRO_FOURTH_RNG_FIRST_LIVE_ELAPSED
             }
+            BootState::IntroSequence {
+                segment: 4,
+                elapsed,
+                ..
+            } if self
+                .demo_auto_timeout_intro_sequence_5_frames_override
+                .is_some() =>
+            {
+                // ASM loc_1BA28's hibernating workers wake inside a fresh
+                // Mode_Standard outer pass. Execute_Objects loc_E12 burns
+                // before loc_1BA60 polls Start, including both deferred
+                // sub_1C246 -> loc_1C264 title hand-off frames.
+                elapsed >= DEMO_AUTO_TIMEOUT_INTRO_FIFTH_RNG_FIRST_LIVE_ELAPSED
+            }
             _ => false,
         };
         let frame_started_in_title_screen =

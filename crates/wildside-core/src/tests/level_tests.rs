@@ -7872,6 +7872,51 @@ mod chunk_02 {
     }
 
     #[test]
+    fn timeout_restart_intro_sequence_5_preserves_live_and_title_rng_phases_loc_1ba28_1c264() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(10_421)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_10006_ring = trace[10_006]
+            .rng_ring
+            .as_ref()
+            .expect("frame 10006 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_10006_ring.as_bytes(),
+            trace[10_006].rng_offset.expect("frame 10006 RNG offset"),
+        );
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(10_291).skip(10_007) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM loc_1BA28 wakes its workers inside Execute_Objects loc_E12 and loc_1BA60 keeps the outer pass live through the deferred sub_1C246 -> loc_1C264 title hand-off on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+        let expected_ring = expected.ring();
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(10_345).skip(10_291) {
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM loc_1C264 -> loc_6E2 keeps the timeout-restart IntroSequence5 title loader RNG-idle on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected_ring));
+        }
+        for trace_frame in &trace[10_345..=10_420] {
+            let _ = expected.next_long();
+            assert_eq!(trace_frame.rng_offset, Some(expected.offset_word()));
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

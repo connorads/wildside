@@ -5516,6 +5516,15 @@ impl NativeRuntime {
         }
         if matches!(
             self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence5)
+        ) {
+            // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 enters the title loader
+            // before Obj_TitleMenu rejoins the outer Mode_Standard pass.
+            return self.title_screen_elapsed_frames
+                >= TIMEOUT_RESTART_INTRO_SEQUENCE_5_TITLE_RNG_FIRST_LIVE_ELAPSED;
+        }
+        if matches!(
+            self.title_screen_intro_return_lineage,
             Some(
                 TitleScreenIntroReturnLineage::ColdIntroSequence1
                     | TitleScreenIntroReturnLineage::ManualDemoReturn
@@ -5928,6 +5937,8 @@ impl NativeRuntime {
         let intro_return_hidden_delay =
             self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility;
         self.enter_title_screen();
+        self.title_screen_intro_return_lineage =
+            Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence5);
         self.timeout_restart_title_intro_sequence_5_return_pending = false;
         self.hide_demo_return_title_player = true;
         self.timeout_restart_title_intro_sequence_5_pose = true;

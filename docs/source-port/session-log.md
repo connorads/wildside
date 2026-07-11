@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 IntroSequence5 RNG cadence)
+
+- ASM `loc_1BA28 -> sub_1C204 -> loc_1BA60` resumes the outer
+  `Mode_Standard -> Execute_Objects loc_E12` pass at local pre-step elapsed 57
+  and keeps both deferred `sub_1C246 -> loc_1C264` title-return frames live.
+- A typed `TimeoutRestartIntroSequence5` title lineage freezes the hidden loader
+  on published frames 10291..10344 and resumes outer passes at 10345. The
+  complete-ring regression pins the live intro, title freeze, and resumed title
+  phases.
+- Full-route CRC remains exact on all 37,759 frames. Frames 16..16227 now match
+  complete RNG state; per-frame debt falls 27,752 -> 21,381, digest
+  `23548927e780c66e01c03f66b2c05ed81d4f56e0`. Sampled RNG diffs fall 2,294 ->
+  1,770, digest `5061e5ba53f8cb125cdb0e11f4a777a28199faad`.
+- `mise run verify-slice-fast` and `mise run verify-tas-full` pass with the
+  improved checked-in confidence ratchet.
+- NEXT: frame 16228, where the later Start-skip IntroSequence5 lineage exposes
+  `loc_1BCD0` one frame earlier. Native is one draw behind (`$FFDB` vs `$FFDF`,
+  ring index 19 `$81/$40`) and catches up on 16229.
+
 ## 2026-07-11 handoff (#390 IntroSequence4 RNG cadence)
 
 - ASM `Load_IntroSequence4 -> sub_1B988 -> loc_1B9B6` resumes the outer
