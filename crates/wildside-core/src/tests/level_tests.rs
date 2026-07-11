@@ -7832,6 +7832,46 @@ mod chunk_02 {
     }
 
     #[test]
+    fn timeout_restart_intro_sequence_4_resumes_outer_rng_passes_sub_1b988_1b9b6() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(9_961)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_9391_ring = trace[9_391]
+            .rng_ring
+            .as_ref()
+            .expect("frame 9391 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_9391_ring.as_bytes(),
+            trace[9_391].rng_offset.expect("frame 9391 RNG offset"),
+        );
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(9_950).skip(9_392) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM Mode_Standard -> Execute_Objects loc_E12 resumes its outer draw when sub_1B988 wakes, then stays live through loc_1B9B6 on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+        let expected_ring = expected.ring();
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(9_961).skip(9_950) {
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM loc_1B9B6 -> loc_6E2 leaves Load_IntroSequence5's hidden loader RNG-idle on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected_ring));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

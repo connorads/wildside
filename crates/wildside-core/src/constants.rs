@@ -224,6 +224,13 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES: usize = 27;
 // visible `move.w #4,(Camera_Y_pos).w` does not surface until frame 9392 in
 // the timeout-restart published TAS window, after a short zero-camera gap.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES: usize = 37;
+/// Pre-step local elapsed at which timeout-restart IntroSequence4's
+/// hibernating `sub_1B988` worker wakes inside a new outer
+/// `Mode_Standard -> Execute_Objects loc_E12` pass. The trace produced after
+/// that pass has elapsed 37 and `Camera_Y_pos=4`, so the scheduler burns from
+/// pre-step elapsed 36 through the final `loc_1B9B6` pass.
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FOURTH_RNG_FIRST_LIVE_ELAPSED: usize =
+    TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES - 1;
 // ASM loc_1C210 (kid.asm:31089): shared sub_1C204 fills all 64 words of
 // `Palette_Buffer_3` from `$FFFFFBCC` before the fade-loop timing below.
 // Native's timeout-restart model keeps this path as timing-visible state and

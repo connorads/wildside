@@ -320,6 +320,26 @@ complete ring across the transition, frozen loader, and second outer pass. All
 next frontier is frame 9392 at the timeout-restart IntroSequence4 loader
 wake-up: native `$FFEF`, oracle `$FFF3`, ring index 39 `$B1/$96`.
 
+Follow-up proactive correction 2026-07-11 traced timeout-restart
+IntroSequence4 from `Load_IntroSequence4` through `sub_1B988` and
+`loc_1B9B6`. The hibernating worker wakes inside a fresh outer
+`Mode_Standard -> Execute_Objects loc_E12` pass at local pre-step elapsed 36,
+so oracle consumes one RNG longword per published frame from 9392 through the
+final mode-switch pass at 9949. IntroSequence5's hidden loader then freezes RNG
+through frame 10006.
+
+Native now derives that contiguous live interval from the existing typed intro
+segment and timeout-restart duration, without a global TAS-frame correction or
+duplicate loader lifecycle. Regression
+`timeout_restart_intro_sequence_4_resumes_outer_rng_passes_sub_1b988_1b9b6`
+pins all 558 live draws and the following loader freeze. All 37,759
+player/camera CRC frames remain exact. Per-frame RNG debt falls 28,367 ->
+27,752, digest `7ee1016d905b7146f0747037c6d08aae9cc74a4f`;
+sampled RNG diffs fall 2,342 -> 2,294, digest
+`1ab26bcfa45b1406d321f88af37fdf4ab50c77bc`. Frames 16..10006 are exact. The
+next frontier is frame 10007 at the timeout-restart IntroSequence5 worker
+wake-up: native `$FFD8`, oracle `$FFDC`, ring index 16 `$66/$43`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

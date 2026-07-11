@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 IntroSequence4 RNG cadence)
+
+- ASM `Load_IntroSequence4 -> sub_1B988 -> loc_1B9B6` resumes the outer
+  `Mode_Standard -> Execute_Objects loc_E12` pass at local pre-step elapsed 36.
+  It consumes one longword per frame from published frame 9392 through the
+  final mode-switch pass at 9949; IntroSequence5's hidden loader then freezes.
+- A complete-ring regression pins all 558 live passes and the following loader
+  freeze. Full-route CRC remains exact on all 37,759 frames. Frames 16..10006
+  now match complete RNG state; per-frame debt falls 28,367 -> 27,752, digest
+  `7ee1016d905b7146f0747037c6d08aae9cc74a4f`. Sampled RNG diffs fall 2,342 ->
+  2,294, digest `1ab26bcfa45b1406d321f88af37fdf4ab50c77bc`.
+- `mise run verify-slice-fast` and `mise run verify-tas-full` pass with the
+  improved checked-in confidence ratchet.
+- NEXT: frame 10007 at the timeout-restart IntroSequence5 worker wake-up.
+  Native is one draw behind (`$FFD8` vs `$FFDC`, ring index 16 `$66/$43`).
+
 ## 2026-07-11 handoff (#390 demo-1 timeout mode-0 RNG entry)
 
 - ASM `Mode_Level -> Execute_Objects loc_E12 -> ReadJoypad loc_C0A -> loc_6E2`

@@ -2509,6 +2509,20 @@ impl NativeRuntime {
                 // timeout duration override has been cleared.
                 elapsed >= DEMO_AUTO_TIMEOUT_INTRO_THIRD_RNG_FIRST_LIVE_ELAPSED
             }
+            BootState::IntroSequence {
+                segment: 3,
+                elapsed,
+                ..
+            } if self
+                .demo_auto_timeout_intro_sequence_4_frames_override
+                .is_some() =>
+            {
+                // ASM Load_IntroSequence4 leaves sub_1B988 hibernating until
+                // its worker wakes inside a fresh Mode_Standard outer pass.
+                // Execute_Objects loc_E12 burns before sub_1B988 writes
+                // Camera_Y_pos=4, then remains live through loc_1B9B6.
+                elapsed >= DEMO_AUTO_TIMEOUT_INTRO_FOURTH_RNG_FIRST_LIVE_ELAPSED
+            }
             _ => false,
         };
         let frame_started_in_title_screen =
