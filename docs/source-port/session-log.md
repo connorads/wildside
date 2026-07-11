@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#379 Armadillo presentation age and platform counts)
+
+- Level 0x11's settled Armadillo now retains the 24 hidden `sub_73D0`
+  presentation ticks proven by its oracle frontier, reaching exact frame-0
+  `x=$0163` instead of starting 12 pixels behind.
+- Ordinary Platform_RAM entries no longer increment object/GFX counts; negative
+  special platforms retain their separate `loc_2876` Object_RAM worker.
+- Focused report `1783731833` passes. Canonical report `1783732342` improves
+  the 69-level sweep to 35 pass / 34 fail / 146 authoritative diffs, with
+  Levels 0x11 and 0x12 green and no lost pass.
+- #379 closes. NEXT: no ready/open row remains; use `loop.md` proactive
+  verification, beginning with the Level 0x14 state-sweep failure.
+- `verify-slice-fast` and `verify-tas-full` pass; all 37,759 published-route CRC
+  frames still match with #290's 212-authoritative / 2-limitation baseline.
+
 ## 2026-07-11 handoff (#378 decoded interactive block lists)
 
 - Decoder-only resource layouts now synthesise prize, ghost, teleporter, and

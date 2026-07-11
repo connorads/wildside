@@ -11,6 +11,34 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #379
+
+Opened 2026-07-11 from the first actionable failure in canonical state report
+`1783729994`. Level 0x11 exported five native objects against four oracle
+objects at both checkpoints, while an enemy-frontier recording placed its first
+Armadillo 12 pixels behind the oracle at frame 0.
+
+Resolved 2026-07-11. ASM `sub_7196/sub_73D0` leaves `Mode_Level` scheduling
+gameplay while the opening palette ramps. Level 0x11 oracle traces prove that
+the immediate `Enemy04_Armadillo_Init -> loc_3E546` walker owns a 24-tick
+presentation lead omitted by native's atomic floor snap; the family-level
+recording bootstrap now preserves that age. The same investigation found that
+ordinary platforms were counted as object/GFX roster entries even though ASM
+`Allocate_PlatformSlot` changes the separate `Number_Platforms` pool. Native
+object accounting now excludes Platform_RAM entries and adds only the ordinary
+Object_RAM coroutine allocated for negative special-platform types at
+`loc_2876`.
+
+The Level 0x11 regression pins the oracle frame-0 Armadillo at `x=$0163` and
+`Number_Objects=4`. Its enemy frontier matches through frame 196 before the
+separately visible shared-walker turn window. Focused state report `1783731833`
+passes, and canonical report `1783732342` improves the 69-level sweep from 33
+pass / 36 fail / 150 authoritative diffs to 35 pass / 34 fail / 146
+authoritative diffs, with Levels 0x11 and 0x12 becoming green and no lost pass.
+`verify-slice-fast` passes 6,811 core tests and 13 gameplay regressions;
+`verify-tas-full` keeps all 37,759 published-route CRC frames equal with #290's
+unchanged 212-authoritative / 2-oracle-limitation checkpoint baseline.
+
 ### #378
 
 Opened 2026-07-10 after logical Level 0x09/resource 0x56 proved that decoded
@@ -11369,6 +11397,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 379 | [x] | P1 | verify/enemy | Recording settle preserves the proven Armadillo presentation age, and Platform_RAM entries no longer inflate object/GFX counts. | Reports `1783731833` and `1783732342`; Level 0x11 exact regression and required gates. See archive #379. |
 | 378 | [x] | P2 | block/assets | Undumped resource layouts synthesise their interactive prize, ghost, teleporter, and hidden lists from the ROM block stream. | Report `1783729994`; 35-level cell/sidecar parity and focused all-family regressions. See archive #378. |
 | 377 | [x] | P1 | verify/enemy | Level 0x10 state exports the Shishkaboss waiting skewer and live projectile workers with ROM-faithful spawn/fire timing. | Reports `1783726862` and `1783726877`; focused worker/fire/settle regressions and required gates. See archive #377. |
 | 376 | [x] | P1 | verify/state | State sweeps now enter real settled gameplay and preserve evidence categories; exposed Lion lifecycle and Level 0x09 terrain failures are corrected. | Report `1783724200`: all 69 BCD levels have real checkpoints; 29 pass / 40 actionable fail. Focused Level 0/7/9 regressions and required gates. See archive #376. |

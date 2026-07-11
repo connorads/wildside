@@ -8097,6 +8097,7 @@ const DRAGON_WALKING_HP3_FRAME_TICKS_STRU_3CC90: u8 = 6;
 // GfxObject animation becomes active. Prime the cyclic clock five ticks before
 // zero so the shared 60-frame settle lands on the ROM phase.
 const DRAGON_WALKING_RECORDING_SETTLE_ANIMATION_LEAD_TICKS: u8 = 5;
+const ARMADILLO_RECORDING_PRESENTATION_LEAD_TICKS_LOC_73D0: usize = 24;
 pub(crate) const SHARED_WALKER_STATE_PATROL: i16 = 10;
 pub(crate) const SHARED_WALKER_STATE_FACE_RIGHT: i16 = 1;
 pub(crate) const SHARED_WALKER_STATE_FACE_LEFT: i16 = 2;
@@ -12434,6 +12435,22 @@ impl NativeRuntime {
                 for drilled_block in drilled_blocks {
                     self.apply_drilled_block_loc_3bede_3bef2(drilled_block);
                 }
+            }
+        }
+        for enemy in self
+            .active_enemies
+            .iter_mut()
+            .filter(|enemy| enemy.family == EnemyFamily::Armadillo)
+        {
+            // ASM sub_7196/sub_73D0 keeps Mode_Level scheduling the immediate
+            // Enemy04_Armadillo_Init -> loc_3E546 walker while the opening
+            // palette ramps. Native's atomic floor snap omits this proven
+            // 24-tick movement lead; retain the family-level scheduler age so
+            // every Armadillo spawn follows the same recording hand-off.
+            // TODO(fidelity): promote other enemy-family presentation ages
+            // only when their own ASM/oracle frontier proves the exact lead.
+            for _ in 0..ARMADILLO_RECORDING_PRESENTATION_LEAD_TICKS_LOC_73D0 {
+                step_pacer(enemy, self.block_grid.as_ref());
             }
         }
         self.rebuild_active_enemy_roster();

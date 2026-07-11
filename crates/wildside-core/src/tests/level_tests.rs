@@ -5763,6 +5763,32 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level11_recording_settle_ages_armadillo_during_palette_ramp_loc_73d0_3e546() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x11)
+            .settle_recording_warp()
+            .run(&[0], 1)
+            .into_iter()
+            .next()
+            .expect("settled level 0x11 frame 0");
+        let armadillo = trace
+            .active_enemy_details
+            .iter()
+            .find(|object| object.kind == NativeObjectKind::Enemy { object_type: 0x04 })
+            .expect("settled Level 0x11 Armadillo should be active at frame 0");
+
+        assert_eq!(
+            (armadillo.x_pos, trace.number_objects),
+            (0x0163_0000, 4),
+            "ASM sub_73D0 keeps Mode_Level scheduling the Armadillo through loc_3E546 while the opening palette ramps; Allocate_PlatformSlot keeps the scripted platform outside Number_Objects, and the Level 0x11 oracle reaches x=$0163 with four objects at recording frame 0"
+        );
+    }
+
+    #[test]
     fn spawn_probe_inspection_uses_header_pixels_and_span_right_edge() {
         let mut manifest = manifest_with_playable_spawn();
         let header = manifest.levels[0]

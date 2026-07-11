@@ -10953,12 +10953,27 @@ impl NativeRuntime {
                 ) && pair[0].layout_index == pair[1].layout_index
             })
             .count() as u16;
-        let roster_count = (active_objects.len() as u16)
+        let platform_slot_entries = active_objects
+            .iter()
+            .filter(|object| matches!(object.kind, NativeObjectKind::Platform { .. }))
+            .count() as u16;
+        // ASM Allocate_PlatformSlot (kid.asm:4211) owns a separate
+        // Platform_RAM pool and changes Number_Platforms, not Number_Objects
+        // or Number_GfxObjects. Negative platform types additionally allocate
+        // one Object_RAM coroutine at loc_2876, represented by `special`.
+        let special_platform_object_workers = self
+            .active_platforms
+            .iter()
+            .filter(|platform| platform.special.is_some())
+            .count() as u16;
+        let roster_gfx_count = (active_objects.len() as u16)
             .saturating_sub(tank_turret_child_entries)
+            .saturating_sub(platform_slot_entries)
             .saturating_add(transient_gfx_workers);
+        let roster_object_count = roster_gfx_count.saturating_add(special_platform_object_workers);
         if let Some(counts) = opening_level_one_object_counts(
             self.current_level,
-            roster_count,
+            roster_object_count,
             camera_x_pos,
             camera_y_pos,
         ) {
@@ -10976,8 +10991,8 @@ impl NativeRuntime {
             }
         });
         (
-            roster_count + 2 + extra + transient_object_only_workers,
-            roster_count + 2 + extra + transient_gfx_only_workers,
+            roster_object_count + 2 + extra + transient_object_only_workers,
+            roster_gfx_count + 2 + extra + transient_gfx_only_workers,
         )
     }
 
