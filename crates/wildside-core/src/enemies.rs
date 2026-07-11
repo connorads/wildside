@@ -4050,6 +4050,11 @@ pub(crate) fn step_active_enemies_with_rng(
         .filter(|enemy| matches!(enemy.family, EnemyFamily::UFO) && enemy.ufo_on_screen_latch)
         .count()
         .min(usize::from(u16::MAX)) as u16;
+    // ASM UFO.asm Enemy0F_UFO_ChkShoot / Enemy0F_UFO_ChkLoadBeam share the
+    // single RAM byte `Some_UFO_Shooting` across every UFO object.
+    let mut some_ufo_shooting = active
+        .iter()
+        .any(|enemy| matches!(enemy.family, EnemyFamily::UFO) && enemy.ufo_beam_segments != 0);
     let active_object_next_indices: Vec<Option<usize>> = (0..active.len())
         .map(|index| (index + 1 < active.len()).then_some(index + 1))
         .collect();
@@ -4294,28 +4299,30 @@ pub(crate) fn step_active_enemies_with_rng(
                         player_y_pos,
                         &mut projectiles,
                     );
-                } else {
-                    step_flyer_with_rng(enemy, block_grid, player_x_pos, player_y_pos, rng);
-                    if matches!(enemy.family, EnemyFamily::Cloud)
-                        && let Some(ref mut projs) = projectiles
-                    {
-                        step_cloud_attack(enemy, projs, player_x_pos, player_y_pos);
-                    }
-                    if matches!(enemy.family, EnemyFamily::UFO)
-                        && let Some(ref mut projs) = projectiles
-                    {
-                        step_ufo_beam_with_rng(
+                } else if matches!(enemy.family, EnemyFamily::UFO) {
+                    step_ufo_with_player_and_rng(
+                        enemy,
+                        block_grid,
+                        player_x_pos,
+                        player_y_pos,
+                        rng,
+                        some_ufo_shooting,
+                    );
+                    if let Some(ref mut projs) = projectiles {
+                        some_ufo_shooting = step_ufo_beam_with_rng(
                             enemy,
                             projs,
-                            player_x_pos,
-                            player_y_pos,
+                            player_x_pos.zip(player_y_pos),
                             rng,
+                            some_ufo_shooting,
+                            // ASM UFO.asm unk_34D48 sets `$4C` for all three
+                            // UFO levels, so ChkLoadBeam returns before its
+                            // random-start branch. Targeted ChkShoot remains live.
+                            false,
                             played_sound_effects.as_deref_mut(),
                         );
                     }
-                    if matches!(enemy.family, EnemyFamily::UFO)
-                        && let (Some(kid_x), Some(kid_y)) = (player_x_pos, player_y_pos)
-                    {
+                    if let (Some(kid_x), Some(kid_y)) = (player_x_pos, player_y_pos) {
                         let (next_count, next_latch, sound) = ufo_on_screen_gate_loc_35008(
                             enemy.x_pos,
                             enemy.y_pos,
@@ -4331,6 +4338,13 @@ pub(crate) fn step_active_enemies_with_rng(
                         {
                             sound_effects.push(sound);
                         }
+                    }
+                } else {
+                    step_flyer_with_rng(enemy, block_grid, player_x_pos, player_y_pos, rng);
+                    if matches!(enemy.family, EnemyFamily::Cloud)
+                        && let Some(ref mut projs) = projectiles
+                    {
+                        step_cloud_attack(enemy, projs, player_x_pos, player_y_pos);
                     }
                 }
             }

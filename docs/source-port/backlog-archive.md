@@ -11,6 +11,36 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #389
+
+Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.
+Canonical report `1783763905` showed Level 0x48 Sky Fortress taking two native
+UFO-beam hits and dying by the 60-frame checkpoint while oracle retained two
+HP. The first player/camera CRC divergence was frame 53. ASM UFO.asm exposed
+three engine-level discrepancies: `Some_UFO_Shooting` is one global latch
+shared by every UFO (`Enemy0F_UFO_ChkShoot`/`Enemy0F_UFO_ChkLoadBeam`), all
+configured UFO variants set `$4C` and therefore skip the random beam-start
+branch, and `Enemy0F_UFOBeam_Init` offsets each laser by -4/+4 pixels according
+to `x_direction`. Native had independent shooters, consumed random bytes for
+an unreachable branch, and centred each beam.
+
+Native now walks UFOs with the shared shooting latch and exact spawn offset.
+The laser has a distinct `UfoBeam` domain kind so `Enemy0F_UFOBeam_Loop` can
+delete it on the first terrain collision instead of reusing the terrain-blind
+walking-Dragon breath lifecycle. Exact regressions pin same-frame shooter
+serialization, both X-direction offsets, and floor-contact deletion. Level
+0x48's fatal frame-42 hit disappears; all 360 player/camera CRC frames match.
+Its residual frame-175 HP difference is independently traced to a Drips drop,
+not the UFO path.
+
+Canonical report `1783766204` improves 44/25 pass/fail to 45/24 and reduces
+authoritative differences from 98 to 90 with no newly failing level; Level
+0x20 becomes green. Level 0x48 improves from roughly 60,000 changed pixels and
+7 blockers to 1,857/2,535 changed pixels at its checkpoints and 3 blockers.
+`verify-slice-fast` and `verify-tas-full` pass. The published route retains all
+37,759 matching CRC frames and #290's unchanged 212-authoritative /
+2-oracle-limitation sampled-state baseline.
+
 ### #388
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.
@@ -11680,6 +11710,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 389 | [x] | P1 | Enemy/UFO | UFO beams share the ROM's global shooting latch, use direction-relative spawn offsets, and delete on terrain collision. | Report `1783766204`: 45/69 green, 90 blockers; Level 0x48 is 360/360 CRC exact with residual Drips-only state drift. See archive #389. |
 | 388 | [x] | P1 | Enemy/Cloud | Cloud control waits preserve `loc_35BB2`'s post-incremented command pointer, preventing repeated armed lightning cycles. | Reports `1783763770`/`1783763905`: Level 0x18 state-exact, 44/69 green, 98 blockers. See archive #388. |
 | 387 | [x] | P2 | Test/Driller | Driller regression pins the cleared child-collision latch after `loc_3BE8E` consumes a drilled block. | `enemies/driller.rs`: 26 mutants, 21 caught, 5 unviable, 0 missed after iterative recheck. See archive #387. |
 | 386 | [x] | P1 | Verify/state | Mapped-resource RAM fixtures are rejected when their dimensions contradict the ROM header, preventing aliased terrain from killing Kid during settled entry. | Report `1783761928`: 43/69 pass, seven newly green, 38 fewer blocking diffs; Level 0x54 state-exact. See archive #386. |

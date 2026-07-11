@@ -385,7 +385,8 @@ pub(crate) fn ufo_motion_from_script_loc_35444(
 #[cfg(test)]
 pub(crate) fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     let mut rng = RomRandomState::default();
-    step_ufo_with_player_and_rng(enemy, block_grid, None, None, &mut rng);
+    let some_ufo_shooting = enemy.ufo_beam_segments != 0;
+    step_ufo_with_player_and_rng(enemy, block_grid, None, None, &mut rng, some_ufo_shooting);
 }
 
 pub(crate) fn step_ufo_with_player(
@@ -395,7 +396,15 @@ pub(crate) fn step_ufo_with_player(
     player_y_pos: Option<u32>,
     rng: &mut RomRandomState,
 ) {
-    step_ufo_with_player_and_rng(enemy, block_grid, player_x_pos, player_y_pos, rng);
+    let some_ufo_shooting = enemy.ufo_beam_segments != 0;
+    step_ufo_with_player_and_rng(
+        enemy,
+        block_grid,
+        player_x_pos,
+        player_y_pos,
+        rng,
+        some_ufo_shooting,
+    );
 }
 
 pub(crate) fn step_ufo_with_player_and_rng(
@@ -404,6 +413,7 @@ pub(crate) fn step_ufo_with_player_and_rng(
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
     rng: &mut RomRandomState,
+    some_ufo_shooting: bool,
 ) {
     if enemy.wait_timer == 0 {
         let (motion, facing) = ufo_motion_picker_loc_35326(
@@ -441,7 +451,7 @@ pub(crate) fn step_ufo_with_player_and_rng(
             kid_x,
             kid_y,
             enemy.enemy_level >= 1 || enemy.flight_double_acceleration,
-            enemy.ufo_beam_segments != 0,
+            some_ufo_shooting,
             enemy.flight_double_acceleration,
             enemy.flight_double_terminal_speed,
         )
@@ -565,9 +575,11 @@ fn apply_ufo_terrain_collision_loc_35056(enemy: &mut ActiveEnemy, collision_type
     }
 }
 
-/// UFO beam: spawns downward beam segments at the UFO's position.
-/// ASM: `ChkShoot` fires when player is directly below (±2px), `ChkLoadBeam` fires
-/// randomly (~4/256 per frame). Spawns 4 segments at 5-frame intervals.
+/// UFO beam: spawns downward beam segments beside the UFO.
+/// ASM: `ChkShoot` fires when player is directly below (±2px). `ChkLoadBeam`
+/// contains a random-start branch, but `unk_34D48` sets `$4C` for every
+/// configured UFO level and gates that branch. The `$48=4` counter spawns 3
+/// segments at 5-frame intervals because the fourth tick clears shooting.
 const UFO_BEAM_SEGMENT_COUNT: u8 = 4;
 const UFO_BEAM_INTERVAL_FRAMES: u8 = 5;
 /// Beam segment y_velocity: $30000 from ASM.
@@ -662,17 +674,27 @@ pub(crate) fn step_ufo_beam(
     player_y: Option<u32>,
 ) {
     let mut rng = RomRandomState::default();
-    step_ufo_beam_with_rng(enemy, projectiles, player_x, player_y, &mut rng, None);
+    let some_ufo_shooting = enemy.ufo_beam_segments != 0;
+    let _ = step_ufo_beam_with_rng(
+        enemy,
+        projectiles,
+        player_x.zip(player_y),
+        &mut rng,
+        some_ufo_shooting,
+        true,
+        None,
+    );
 }
 
 pub(crate) fn step_ufo_beam_with_rng(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,
-    player_x: Option<u32>,
-    player_y: Option<u32>,
+    player_pos: Option<(u32, u32)>,
     rng: &mut RomRandomState,
+    mut some_ufo_shooting: bool,
+    random_beam_enabled: bool,
     mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
-) {
+) -> bool {
     // Active beam sequence: spawn segments at intervals
     if enemy.ufo_beam_segments > 0 {
         let tick =
@@ -681,26 +703,33 @@ pub(crate) fn step_ufo_beam_with_rng(
         enemy.ufo_beam_interval = tick.next_beam_interval;
         if tick.clear_ufo_shooting_state {
             let clear = ufo_beam_clear_shooting_state_loc_34ffe();
-            // `tick.next_beam_segments` already mirrors `$48(a5)=0`; keep the
-            // clear result consumed so loc_34FFE's two latch clears stay explicit.
-            let _ = (clear.ufo_shooting_latch, clear.global_shooting_flag);
+            debug_assert!(!clear.ufo_shooting_latch);
+            some_ufo_shooting = clear.global_shooting_flag;
         }
 
         if tick.spawn_beam_segment {
+            // ASM UFO.asm Enemy0F_UFOBeam_Init: start at the UFO X, subtract 4,
+            // then add 8 when `x_direction` is set. Native Direction::Right
+            // represents that set/flipped byte for this enemy.
+            let x_offset_px = if matches!(enemy.facing, Direction::Right) {
+                4
+            } else {
+                -4
+            };
             projectiles.push(EnemyProjectile {
-                x_pos: enemy.x_pos,
+                x_pos: (enemy.x_pos as i64 + (i64::from(x_offset_px) << 16)) as u32,
                 y_pos: (enemy.y_pos as i64 + (10 << 16)) as u32,
                 y_velocity: UFO_BEAM_Y_VELOCITY,
                 lifetime: 60,
-                kind: EnemyProjectileKind::DragonWalkingBreath,
+                kind: EnemyProjectileKind::UfoBeam,
                 ..Default::default()
             });
         }
-        return;
+        return some_ufo_shooting;
     }
 
     // Check if player is directly below — targeted shoot (ASM ChkShoot)
-    if let (Some(px), Some(py)) = (player_x, player_y) {
+    if !some_ufo_shooting && let Some((px, py)) = player_pos {
         let ex = enemy.x_pos >> 16;
         let ey = enemy.y_pos >> 16;
         let kx = px >> 16;
@@ -708,23 +737,29 @@ pub(crate) fn step_ufo_beam_with_rng(
         // Player must be below UFO and within ±2px horizontally
         if ky > ey && kx.abs_diff(ex) <= 2 {
             apply_ufo_beam_start_loc_34eec(enemy);
+            some_ufo_shooting = true;
             if let Some(sound_effects) = played_sound_effects.as_deref_mut() {
                 // ASM UFO.asm loc_34EDC: targeted beam starts play
                 // `sfx_UFO_shoots` before loading the beam counters.
                 sound_effects.push(QueuedSoundEffect::UfoShoots);
             }
-            return;
+            return some_ufo_shooting;
         }
     }
 
-    if ufo_random_beam_should_start_loc_34f8e(rng.next_byte()) {
+    if !some_ufo_shooting
+        && random_beam_enabled
+        && ufo_random_beam_should_start_loc_34f8e(rng.next_byte())
+    {
         apply_ufo_beam_start_loc_34eec(enemy);
+        some_ufo_shooting = true;
         if let Some(sound_effects) = played_sound_effects {
             // ASM UFO.asm loc_34FAE: random beam starts use the same
             // `sfx_UFO_shoots` cue before setting Some_UFO_Shooting.
             sound_effects.push(QueuedSoundEffect::UfoShoots);
         }
     }
+    some_ufo_shooting
 }
 
 pub(crate) fn ufo_random_beam_should_start_loc_34f8e(random_byte: u8) -> bool {
@@ -1963,6 +1998,46 @@ mod tests {
     }
 
     #[test]
+    fn ufo_live_step_allows_only_one_targeted_shooter_loc_34e9c() {
+        let mut first = ufo_test_enemy(100, 80);
+        first.wait_timer = 1;
+        let mut second = first;
+        second.layout_index = 1;
+        let mut enemies = [first, second];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+        let mut projectiles = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            Some(100 << 16),
+            Some(100 << 16),
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            Some(&mut projectiles),
+            &mut rng,
+            &mut drilled_blocks,
+            None,
+        );
+
+        assert_eq!(
+            enemies
+                .iter()
+                .filter(|enemy| enemy.ufo_beam_segments != 0)
+                .count(),
+            1,
+            "ASM UFO.asm Enemy0F_UFO_ChkShoot tests and sets the global Some_UFO_Shooting latch, so a later UFO cannot arm during the same object walk"
+        );
+    }
+
+    #[test]
     fn ufo_motion_scaling_matches_loc_34e10_acceleration_gate() {
         let command = UfoMotionCommand {
             x_acceleration: -0x1000,
@@ -2416,15 +2491,18 @@ mod tests {
         let mut ufo = ufo_test_enemy(100, 80);
         let mut projectiles = Vec::new();
         let mut rng = RomRandomState::default();
+        let some_ufo_shooting = false;
 
-        step_ufo_beam_with_rng(
+        let some_ufo_shooting = step_ufo_beam_with_rng(
             &mut ufo,
             &mut projectiles,
-            Some(100 << 16),
-            Some(81 << 16),
+            Some((100 << 16, 81 << 16)),
             &mut rng,
+            some_ufo_shooting,
+            false,
             None,
         );
+        assert!(some_ufo_shooting);
 
         assert_eq!(
             (ufo.ufo_beam_segments, ufo.ufo_beam_interval, ufo.wait_timer),
@@ -2434,14 +2512,17 @@ mod tests {
 
         let mut same_y = ufo_test_enemy(100, 80);
         let mut rng = rng_with_next_byte(0x10);
-        step_ufo_beam_with_rng(
+        let some_ufo_shooting = false;
+        let some_ufo_shooting = step_ufo_beam_with_rng(
             &mut same_y,
             &mut projectiles,
-            Some(100 << 16),
-            Some(80 << 16),
+            Some((100 << 16, 80 << 16)),
             &mut rng,
+            some_ufo_shooting,
+            false,
             None,
         );
+        assert!(!some_ufo_shooting);
         assert_eq!(
             same_y.ufo_beam_segments, 0,
             "ASM UFO.asm Enemy0F_UFO_ChkShoot rejects Kid on the same Y word with `ble return_34F16`"
@@ -2449,14 +2530,17 @@ mod tests {
 
         let mut outside_x = ufo_test_enemy(100, 80);
         let mut rng = rng_with_next_byte(0x10);
-        step_ufo_beam_with_rng(
+        let some_ufo_shooting = false;
+        let some_ufo_shooting = step_ufo_beam_with_rng(
             &mut outside_x,
             &mut projectiles,
-            Some(103 << 16),
-            Some(81 << 16),
+            Some((103 << 16, 81 << 16)),
             &mut rng,
+            some_ufo_shooting,
+            false,
             None,
         );
+        assert!(!some_ufo_shooting);
         assert_eq!(
             outside_x.ufo_beam_segments, 0,
             "ASM UFO.asm Enemy0F_UFO_ChkShoot rejects Kid beyond the inclusive ±2px X window"

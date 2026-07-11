@@ -6815,6 +6815,19 @@ fn build_game_scene_filtered(
                         colour: ENEMY_PROJECTILE_COLOUR,
                     });
                 }
+                ActiveProjectileKind::UfoBeam => {
+                    // ASM UFO.asm Enemy0F_UFOBeam_Init uses LnkTo_unk_C83A0.
+                    // TODO(fidelity): compile that exact mapping; meanwhile
+                    // keep its narrow laser footprint distinct from the
+                    // stationary walking-Dragon breath rendering.
+                    commands.push(DrawCommand::Rect {
+                        x: sx - 2,
+                        y: sy - 4,
+                        width: 4,
+                        height: 8,
+                        colour: ENEMY_PROJECTILE_COLOUR,
+                    });
+                }
                 ActiveProjectileKind::BossEyeAttack | ActiveProjectileKind::BossEyeSatellite => {
                     sprites::push_boss_eye_attack_marker_sub_37abc(
                         &mut commands,

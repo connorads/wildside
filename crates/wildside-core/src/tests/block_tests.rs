@@ -10071,8 +10071,20 @@ mod chunk_04 {
         );
         let first_beam = &projectiles[0];
         assert_eq!(
-            first_beam.x_pos, enemy.x_pos,
-            "ASM UFO.asm loc_34FD6 allocates each beam segment from the shooting UFO; native projectile bridge keeps the launcher X origin"
+            first_beam.x_pos,
+            enemy.x_pos + (4 << 16),
+            "ASM UFO.asm Enemy0F_UFOBeam_Init subtracts 4 from the launcher X, then adds 8 when the UFO x_direction byte is set (native Direction::Right)"
+        );
+        let mut left_enemy = enemy;
+        left_enemy.facing = Direction::Left;
+        left_enemy.ufo_beam_segments = 4;
+        left_enemy.ufo_beam_interval = 1;
+        let mut left_projectiles = Vec::new();
+        step_ufo_beam(&mut left_enemy, &mut left_projectiles, player_x, player_y);
+        assert_eq!(
+            left_projectiles[0].x_pos,
+            left_enemy.x_pos - (4 << 16),
+            "ASM UFO.asm Enemy0F_UFOBeam_Init leaves the initial 4px subtraction in place when x_direction is clear (native Direction::Left)"
         );
         assert_eq!(
             first_beam.y_pos,
@@ -10098,8 +10110,8 @@ mod chunk_04 {
         assert!(!first_beam.wall_bounce);
         assert_eq!(
             first_beam.kind,
-            EnemyProjectileKind::DragonWalkingBreath,
-            "native bridge keeps UFO beam segments in the hostile beam projectile bucket"
+            EnemyProjectileKind::UfoBeam,
+            "native bridge keeps the UFO laser distinct so Enemy0F_UFOBeam_Loop can apply its own terrain-collision deletion"
         );
     }
 
@@ -10411,8 +10423,18 @@ mod chunk_04 {
         }
         let mut enemy = test_enemy(EnemyFamily::UFO, 0x0100_0000, 0x0080_0000, 1);
         let mut projectiles = Vec::new();
+        let some_ufo_shooting = false;
 
-        enemies::step_ufo_beam_with_rng(&mut enemy, &mut projectiles, None, None, &mut rng, None);
+        let some_ufo_shooting = enemies::step_ufo_beam_with_rng(
+            &mut enemy,
+            &mut projectiles,
+            None,
+            &mut rng,
+            some_ufo_shooting,
+            true,
+            None,
+        );
+        assert!(some_ufo_shooting);
 
         assert_eq!(
             enemy.ufo_beam_segments, 4,

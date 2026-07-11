@@ -82,6 +82,9 @@ pub enum ActiveProjectileKind {
     /// Walking Dragon breath child: ASM `Dragon.asm loc_3D02A` initialises
     /// `stru_3CCC8` as a stationary hostile GfxObject at the dragon mouth.
     DragonWalkingBreath,
+    /// UFO laser child: ASM `UFO.asm Enemy0F_UFOBeam_Init` falls downward
+    /// until `Enemy0F_UFOBeam_Loop` observes any terrain collision.
+    UfoBeam,
     /// UFO first-hurt debris child: ASM `UFO.asm loc_351EE` allocates
     /// `loc_354DA` pieces before the saucer survives through `loc_35228`.
     UfoFirstHurtDebris,
@@ -3327,6 +3330,8 @@ pub(crate) enum EnemyProjectileKind {
     #[default]
     Generic,
     DragonWalkingBreath,
+    /// UFO.asm Enemy0F_UFOBeam_Init downward laser worker.
+    UfoBeam,
     ArcherArrow,
     CloudLightning,
     FireballTrail,

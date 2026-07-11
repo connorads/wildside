@@ -3137,6 +3137,7 @@ impl NativeRuntime {
                 EnemyProjectileKind::FireballTrail | EnemyProjectileKind::FireballObstacleTrail
             );
             let is_cloud_lightning = p.kind == EnemyProjectileKind::CloudLightning;
+            let is_ufo_beam = p.kind == EnemyProjectileKind::UfoBeam;
             let is_dragon_flying_descent_fire =
                 p.kind == EnemyProjectileKind::DragonFlyingDescentFire;
             let is_hail = p.kind == EnemyProjectileKind::Hail;
@@ -3620,6 +3621,10 @@ impl NativeRuntime {
             if !is_lion_projectile {
                 p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
                 p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+            }
+            if is_ufo_beam && grid.is_some_and(|grid| ufo_beam_hits_floor_loc_355d4(grid, p))
+            {
+                return false;
             }
             if is_fireball_trail {
                 if p.kind == EnemyProjectileKind::FireballObstacleTrail {
@@ -4430,6 +4435,18 @@ impl NativeRuntime {
     }
 }
 
+fn ufo_beam_hits_floor_loc_355d4(grid: &terrain::BlockGrid, projectile: &EnemyProjectile) -> bool {
+    // ASM UFO.asm Enemy0F_UFOBeam_Loop: the hibernated object moves first,
+    // then any non-zero collision_type deletes it. Downward-only beams reach
+    // terrain through the floor collision path.
+    terrain::probe_floor(
+        grid,
+        (projectile.x_pos >> 16) as i32,
+        (projectile.y_pos >> 16) as i32,
+    )
+    .on_ground
+}
+
 #[derive(Debug, Clone, Copy)]
 struct ProjectilePlayerBoundsPx {
     left: i32,
@@ -4962,6 +4979,24 @@ mod loc_3e266_tests {
             data[offset] = (collision as u8) << 4;
         }
         terrain::BlockGrid::from_level_layout(&data, width, height)
+    }
+
+    #[test]
+    fn ufo_beam_floor_contact_matches_enemy0f_ufo_beam_loop_loc_355d4() {
+        let grid = grid_with_cells(2, 3, &[(0, 2, terrain::CollisionKind::Solid)]);
+        let above_floor = EnemyProjectile {
+            kind: EnemyProjectileKind::UfoBeam,
+            x_pos: 8 << 16,
+            y_pos: 30 << 16,
+            ..Default::default()
+        };
+        let at_floor = EnemyProjectile {
+            y_pos: 31 << 16,
+            ..above_floor
+        };
+
+        assert!(!super::ufo_beam_hits_floor_loc_355d4(&grid, &above_floor));
+        assert!(super::ufo_beam_hits_floor_loc_355d4(&grid, &at_floor));
     }
 
     #[test]

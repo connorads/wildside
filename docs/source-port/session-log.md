@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#389 UFO shared shooting and beam collision)
+
+- The proactive fallback selected Level 0x48's fatal native UFO-beam drift.
+  UFO.asm shows all saucers share `Some_UFO_Shooting`; configured variants
+  skip random beam starts, spawn at direction-relative X, and delete lasers on
+  terrain collision.
+- Native now models that shared latch and gives the laser a distinct typed
+  lifecycle. Level 0x48 is 360/360 player/camera CRC exact; its remaining late
+  HP drift is a separately traced Drips-drop contact.
+- Canonical report `1783766204` improves 44/25 pass/fail to 45/24 and 98 to 90
+  blocking differences with no regression. Level 0x20 becomes green.
+- Required gates pass. The full published TAS remains 37,759/37,759 CRC exact
+  with #290's sampled-state baseline unchanged. NEXT: rerun `project-status`,
+  then continue the proactive fallback; Level 0x48's Drips divergence at frame
+  175 is a concrete candidate if it ranks highest.
+
 ## 2026-07-11 handoff (#388 Cloud command-pointer timing)
 
 - With no agent-ready row, the proactive fallback selected a canonical sweep

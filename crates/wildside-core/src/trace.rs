@@ -89,6 +89,9 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::DragonWalkingBreath {
         return ActiveProjectileKind::DragonWalkingBreath;
     }
+    if projectile.kind == EnemyProjectileKind::UfoBeam {
+        return ActiveProjectileKind::UfoBeam;
+    }
     if projectile.kind == EnemyProjectileKind::UfoFirstHurtDebris {
         return ActiveProjectileKind::UfoFirstHurtDebris;
     }
