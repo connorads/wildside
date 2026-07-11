@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 demo-1 Dragon GfxObject schedule)
+
+- Raw oracle Object/GfxObject linked lists show demo-1 startup frame 71 at
+  6/2, frame 72 at 7/4 after Kid's two slots link, and frame 73 at 7/5 after
+  the first Dragon GfxObject links. `Manage_EnemyLoading loc_3691E` creates the
+  Dragon Object; `Enemy0D_Dragon_Init` calls `Load_GfxObjectSlot` on the next
+  object pass.
+- The same ordering applies to the third Knights Isle Dragon: startup frame
+  529 links its Object at 8/6, frame 530 links its GfxObject at 8/7, and
+  `loc_119D8` preserves 8/7 through the 32-frame title snapshot.
+- Focused pure and cache-backed tests cover both allocation boundaries and the
+  title snapshot. The published 0..3400 fast window now matches all 3,400
+  gameplay checkpoints, all CRCs, and all 3,384 complete post-`Init_RNG`
+  states; its authoritative baseline falls 99 -> 0.
+- The full 37,759-frame route retains exact CRC and all 37,743 complete RNG
+  states. Its sampled state baseline falls 477 -> 450 authoritative
+  differences plus 10 oracle limitations, first at
+  `frame_5525/number_gfx_objects`. Four limitations become visible only after
+  the earlier dominant count fields match. `mise run verify-slice-fast` and
+  `mise run verify-tas-full` pass.
+- NEXT: trace IntroSequence2's frame-5525 GfxObject through its owning object
+  and ASM allocation routine.
+
 ## 2026-07-12 handoff (#290 title-text GfxObject schedule)
 
 - Raw oracle WRAM and linked-list dumps identify the title GfxObject appearing

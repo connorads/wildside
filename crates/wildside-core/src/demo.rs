@@ -264,6 +264,10 @@ pub(crate) const DEMO_1_LATE_CONTROLLER_COUNT_SECOND_GFX_FRAME: u16 =
 /// Third late demo-1 controller-side worker wakes after the live Kid lands.
 pub(crate) const DEMO_1_LATE_CONTROLLER_COUNT_THIRD_WAKE_FRAME: u16 =
     DEMO_1_GAMEPLAY_START_FRAME + 457;
+/// ASM Enemy0D_Dragon_Init (Dragon.asm; loc_3CD46): the third worker runs on
+/// the following object pass and links its GfxObject through Load_GfxObjectSlot.
+pub(crate) const DEMO_1_LATE_CONTROLLER_COUNT_THIRD_GFX_FRAME: u16 =
+    DEMO_1_LATE_CONTROLLER_COUNT_THIRD_WAKE_FRAME + 1;
 /// Oracle top-level demo-1 trace reports the pause-menu latch after the
 /// controller object has consumed the recorded Start edge. Native keeps this
 /// as trace state; live gameplay has already matched the raw Kid/object WRAM.
@@ -380,6 +384,7 @@ mod tests {
         assert_eq!(DEMO_1_LATE_FALL_VELOCITY_RESTORE_FRAME, 523);
         assert_eq!(DEMO_1_TIMEOUT_RESTART_LATE_FALL_VELOCITY_RESTORE_FRAME, 524);
         assert_eq!(DEMO_1_LATE_CONTROLLER_COUNT_THIRD_WAKE_FRAME, 529);
+        assert_eq!(DEMO_1_LATE_CONTROLLER_COUNT_THIRD_GFX_FRAME, 530);
         assert_eq!(DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME, 587);
         assert_eq!(DEMO_1_LATE_CONTROLLER_PAUSE_END_FRAME, 618);
         assert_eq!(DEMO_1_LATE_JUMP_MOVEMENT_HOLD_START_FRAME, 359);

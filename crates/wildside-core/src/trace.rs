@@ -3996,7 +3996,7 @@ mod tests {
                 Some((4, 4)),
                 DEMO_TITLE_PARTIAL_SNAPSHOT_FRAMES - 1
             ),
-            (8, 6)
+            (8, 7)
         );
         assert_eq!(
             counts_with(
@@ -4194,17 +4194,22 @@ mod tests {
         );
         assert_eq!(
             counts_at(demo::DEMO_1_GAMEPLAY_START_FRAME - 1, false),
-            (6, 4)
+            (6, 2)
         );
         assert_eq!(counts_at(demo::DEMO_1_GAMEPLAY_START_FRAME, false), (7, 4));
         assert_eq!(counts_at(demo::DEMO_OBJECT_WARMUP_FRAME, true), (5, 2));
 
-        // The first-recording visible bootstrap holds its extra hidden worker
-        // through DEMO_OBJECT_BOOTSTRAP_END_FRAME, then keeps the extra gfx
-        // worker for seven more frames before falling back to the grounded hold.
+        // ASM Manage_EnemyLoading loc_3691E allocates the Knights Isle Dragon
+        // Object on demo-1 startup frame 72. Enemy0D_Dragon_Init runs on the
+        // next object pass and calls Load_GfxObjectSlot, so the fifth slot is
+        // visible from frame 73 while the seven Object workers remain live.
+        assert_eq!(
+            counts_at(demo::DEMO_1_GAMEPLAY_START_FRAME + 1, false),
+            (7, 5)
+        );
         assert_eq!(
             counts_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME, false),
-            (7, 4)
+            (7, 5)
         );
         assert_eq!(
             counts_at(demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 1, false),
@@ -4926,6 +4931,15 @@ mod tests {
                 false
             ),
             (8, 6)
+        );
+        assert_eq!(
+            counts_at(
+                demo::DEMO_1_LATE_CONTROLLER_COUNT_THIRD_GFX_FRAME,
+                false,
+                false,
+                false
+            ),
+            (8, 7)
         );
         assert_eq!(
             counts_at(
@@ -10014,7 +10028,9 @@ impl NativeRuntime {
         if self.demo_1_late_title_return_snapshot_active() {
             // ASM loc_119D8 jumps to the title return while the late demo-1
             // controller lineage still owns the top-level object/gfx sample.
-            return Some((8, 6));
+            // The third Enemy0D_Dragon_Init GfxObject remains linked through
+            // this 32-frame partial snapshot, so raw oracle WRAM holds 8/7.
+            return Some((8, 7));
         }
         None
     }
@@ -10135,7 +10151,12 @@ impl NativeRuntime {
         // top-level TAS state reports the controller-side object/gfx counts
         // while raw Kid WRAM is already moving through loc_A6F8; the sampled
         // worker/gfx count advances earlier than the raw Number_Objects row.
-        if frame_counter >= demo::DEMO_1_LATE_CONTROLLER_COUNT_THIRD_WAKE_FRAME {
+        if frame_counter >= demo::DEMO_1_LATE_CONTROLLER_COUNT_THIRD_GFX_FRAME {
+            // ASM Manage_EnemyLoading loc_3691E has already linked the third
+            // Dragon Object. Its next pass runs Enemy0D_Dragon_Init and calls
+            // Load_GfxObjectSlot, raising only Number_GfxObjects from 6 to 7.
+            Some((8, 7))
+        } else if frame_counter >= demo::DEMO_1_LATE_CONTROLLER_COUNT_THIRD_WAKE_FRAME {
             Some((8, 6))
         } else if (demo::DEMO_1_LATE_CONTROLLER_COUNT_FIRST_WAKE_FRAME
             ..=demo::DEMO_1_LATE_CONTROLLER_COUNT_FIRST_SLEEP_FRAME)
@@ -10722,19 +10743,25 @@ impl NativeRuntime {
                 // before the visible gameplay object/gfx allocation appears.
                 (2, 0)
             } else if !use_demo_2 && frame_counter < self.demo_gameplay_start_frame(use_demo_2) {
-                // On the final hidden frame before demo-1 gameplay, Load_InGame
-                // has the four gameplay gfx slots live while the two hidden
-                // non-gfx workers still contribute to Number_Objects.
-                (6, 4)
+                // ASM Load_InGame's final hidden demo-1 frame has two system
+                // GfxObjects live. Kid's two slots are not linked until the
+                // following Execute_Objects pass; raw oracle WRAM reports 6/2.
+                (6, 2)
             } else if frame_counter >= self.demo_gameplay_start_frame(use_demo_2) {
                 if frame_counter <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME {
                     if use_demo_2 {
                         (5, 4)
-                    } else {
-                        // Demo 1 keeps the loc_119D8 controller and hidden
-                        // preload worker counted alongside Kid and the four
-                        // gameplay gfx objects during the bootstrap hold.
+                    } else if frame_counter == self.demo_gameplay_start_frame(use_demo_2) {
+                        // ASM Load_InGame links Kid's two GfxObjects on demo-1
+                        // startup frame 72. Manage_EnemyLoading loc_3691E also
+                        // allocates the Dragon Object, but its gfx slot waits
+                        // for Enemy0D_Dragon_Init on the next object pass.
                         (7, 4)
+                    } else {
+                        // ASM Enemy0D_Dragon_Init calls Load_GfxObjectSlot on
+                        // startup frame 73, raising the live count to five
+                        // while all seven Object workers remain linked.
+                        (7, 5)
                     }
                 } else if !use_demo_2
                     && frame_counter <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME.saturating_add(7)

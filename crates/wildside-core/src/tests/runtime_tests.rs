@@ -1649,6 +1649,81 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_demo_1_allocates_kid_then_dragon_gfx_objects_on_frames_2607_and_2608() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut counts = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(2_609) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if (2_605..=2_608).contains(&frame_index) {
+                counts.push((
+                    frame_index,
+                    trace.boot_phase_elapsed,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+            }
+        }
+
+        // ASM Load_DemoPlay -> Load_InGame exposes its second non-gfx worker
+        // on frame 2605. Frame 2606 has two system GfxObjects; frame 2607 adds
+        // Kid's two slots. Manage_EnemyLoading loc_3691E allocates the Knights
+        // Isle Dragon Object there, then Enemy0D_Dragon_Init calls
+        // Load_GfxObjectSlot on frame 2608. Raw oracle WRAM reads 2/0, 6/2,
+        // 7/4, and 7/5 across these four frames.
+        assert_eq!(
+            counts,
+            vec![
+                (2_605, Some(70), 2, 0),
+                (2_606, Some(71), 6, 2),
+                (2_607, Some(72), 7, 4),
+                (2_608, Some(73), 7, 5),
+            ]
+        );
+    }
+
+    #[test]
+    fn published_tas_demo_1_third_dragon_gfx_object_survives_the_title_snapshot() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut counts = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(3_155) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if (3_063..=3_065).contains(&frame_index)
+                || matches!(frame_index, 3_121 | 3_122 | 3_153 | 3_154)
+            {
+                counts.push((
+                    frame_index,
+                    trace.boot_phase_elapsed,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+            }
+        }
+
+        // ASM Manage_EnemyLoading loc_3691E links the third Knights Isle
+        // Dragon Object on frame 3064. Enemy0D_Dragon_Init calls
+        // Load_GfxObjectSlot on the next Execute_Objects pass, so raw oracle
+        // WRAM advances 7/6 -> 8/6 -> 8/7 across these frames.
+        assert_eq!(
+            counts,
+            vec![
+                (3_063, Some(528), 7, 6),
+                (3_064, Some(529), 8, 6),
+                (3_065, Some(530), 8, 7),
+                (3_121, Some(586), 8, 7),
+                (3_122, Some(0), 8, 7),
+                (3_153, Some(31), 8, 7),
+                (3_154, Some(32), 0, 0),
+            ]
+        );
+    }
+
+    #[test]
     fn published_tas_demo_1_times_out_on_frame_8069() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
