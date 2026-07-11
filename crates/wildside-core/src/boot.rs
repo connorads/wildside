@@ -5524,6 +5524,17 @@ impl NativeRuntime {
     pub(crate) fn title_screen_rng_long_burn_active(&self) -> bool {
         if matches!(
             self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence1EarlyRestore)
+        ) {
+            // ASM sub_1B8F4 -> sub_1C246 -> loc_1C264 returns the restarted
+            // intro-sequence-1 worker through Load_TitleScreen. This early
+            // restore rejoins loc_E12 at elapsed 55 rather than entering the
+            // generic later title gap.
+            return self.title_screen_elapsed_frames
+                >= TIMEOUT_RESTART_INTRO_SEQUENCE_1_EARLY_TITLE_RNG_FIRST_LIVE_ELAPSED;
+        }
+        if matches!(
+            self.title_screen_intro_return_lineage,
             Some(TitleScreenIntroReturnLineage::LaterIntroSequence)
         ) {
             // ASM sub_1B988 -> sub_1C246 -> loc_1C264 enters

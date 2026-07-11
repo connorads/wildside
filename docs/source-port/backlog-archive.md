@@ -554,6 +554,24 @@ sampled RNG field debt falls 480 -> 296, digest
 next frontier is frame 34221: native `$FFD2`, oracle `$FFCE`, ring index 6
 `$99/$D9`.
 
+Follow-up proactive correction 2026-07-11 classified frame 34221 as the
+timeout-restart IntroSequence1 early title restore. ASM `sub_1B8F4 ->
+sub_1C246 -> loc_1C264` enters `loc_6E2 -> Load_TitleScreen`; oracle keeps the
+complete ring fixed on published frames 34221..34274, then resumes the
+enclosing `Mode_Standard -> Execute_Objects loc_E12` pass at local title
+elapsed 55. Native now gives the existing typed
+`TimeoutRestartIntroSequence1EarlyRestore` lineage that loader freeze instead
+of falling through to the generic immediate draws plus unrelated 60..115 gap.
+Regression
+`timeout_restart_intro_sequence_1_early_restore_waits_for_load_title_screen`
+failed at frame 34221 before the fix and pins the complete ring through frame
+34299. All 37,759 player/camera CRC frames remain exact. Per-frame RNG debt
+falls 3,537 -> 882, digest `e6e9d063984aef107f49715b9f73fedcb911d01c`;
+sampled RNG field debt falls 296 -> 74, digest
+`e8ef3f483f2fe64e101df702b81e4270485c3200`. Frames 16..36876 are exact. The
+next frontier is frame 36877: native `$FFEE`, oracle `$FFEA`, ring index 34
+`$CE/$35`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

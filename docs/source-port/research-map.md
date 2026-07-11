@@ -23,26 +23,26 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 3,537 mismatches, first at
-frame 34221, under digest `efa1cc22de401f0c229e2e17a6966b6bf3fc5b4d`.
-Frames 16..34220 match the complete RNG state exactly; the next mismatch begins
+of the remaining 37,743 frames. It currently records 882 mismatches, first at
+frame 36877, under digest `e6e9d063984aef107f49715b9f73fedcb911d01c`.
+Frames 16..36876 match the complete RNG state exactly; the next mismatch begins
 during a later title/demo cycle.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.
 
-The latest correction models the later IntroSequence4 Start return as a typed
-title-loader lineage. `sub_1B988` polls `sub_1C246`; the accepted edge reaches
-`loc_1C264 -> loc_6E2 -> Load_TitleScreen`, which clears and rebuilds the title
-shell before allocating Obj_TitleMenu, Obj_TitleTextKid, and
-Obj_TitleTextChameleon. Oracle keeps the complete ring fixed on published
-frames 32008..32062, then resumes the enclosing `Mode_Standard ->
-Execute_Objects loc_E12` pass at local title elapsed 56. Regression
-`later_intro_sequence_4_title_return_waits_for_load_title_screen` failed on
-frame 32008 before the fix and pins every draw through frame 32150. Per-frame
-RNG debt falls 5,746 -> 3,537 and sampled RNG field debt falls 480 -> 296. The
-next frontier is frame 34221: native `$FFD2`, oracle `$FFCE`, first ring
-difference index 6 `$99/$D9`.
+The latest correction models the timeout-restart IntroSequence1 early return
+as a typed title-loader lineage. `sub_1B8F4` polls `sub_1C246`; the accepted
+edge reaches `loc_1C264 -> loc_6E2 -> Load_TitleScreen`, which clears and
+rebuilds the title shell before its objects rejoin the outer scheduler. Oracle
+keeps the complete ring fixed on published frames 34221..34274, then resumes
+the enclosing `Mode_Standard -> Execute_Objects loc_E12` pass at local title
+elapsed 55. Regression
+`timeout_restart_intro_sequence_1_early_restore_waits_for_load_title_screen`
+failed on frame 34221 before the fix and pins every draw through frame 34299.
+Per-frame RNG debt falls 3,537 -> 882 and sampled RNG field debt falls 296 ->
+74. The next frontier is frame 36877: native `$FFEE`, oracle `$FFEA`, first
+ring difference index 34 `$CE/$35`.
 
 The latest correction models IntroSequence6's post-loader object schedule.
 `Load_IntroSequence6` allocates `loc_1BAB0`, `loc_1B37C`, and `sub_1B43A`

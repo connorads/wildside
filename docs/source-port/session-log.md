@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 timeout-restart IntroSequence1 early title restore)
+
+- The later timeout-restart IntroSequence1 Start return follows `sub_1B8F4 ->
+  sub_1C246 -> loc_1C264 -> loc_6E2 -> Load_TitleScreen`. Oracle keeps the
+  complete ring fixed on published frames 34221..34274, then resumes
+  `Mode_Standard -> Execute_Objects loc_E12` at local title elapsed 55 on
+  frame 34275.
+- Native now gives the typed `TimeoutRestartIntroSequence1EarlyRestore`
+  lineage that loader freeze instead of falling through to the unrelated
+  generic 60..115 title gap.
+- Full-route CRC remains exact on all 37,759 frames. Per-frame RNG debt falls
+  3,537 -> 882, digest `e6e9d063984aef107f49715b9f73fedcb911d01c`;
+  sampled RNG fields fall 296 -> 74, digest
+  `e8ef3f483f2fe64e101df702b81e4270485c3200`.
+- `mise run verify-slice-fast` and the full TAS replay pass with the improved
+  checked-in ratchet.
+- NEXT: frame 36877. Native `$FFEE`, oracle `$FFEA`, first ring difference
+  index 34 `$CE/$35`.
+
 ## 2026-07-11 handoff (#390 later IntroSequence4 title loader)
 
 - The later IntroSequence4 Start return follows `sub_1B988 -> sub_1C246 ->
