@@ -7498,6 +7498,26 @@ mod chunk_02 {
     }
 
     #[test]
+    fn sega_screen_first_object_pass_burns_rng_before_delayed_start_loc_e12_12e64() {
+        let mut script = vec![0; 36];
+        script[35] = 0x80;
+        let trace = run_script(manifest(), &script, script.len());
+        let mut expected = RomRandomState::default();
+        let _ = expected.next_long();
+        let expected_ring = expected.ring();
+
+        assert_eq!(trace[32].rng_offset, Some(0xFFC9));
+        for frame in &trace[33..=35] {
+            assert_eq!(
+                frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM Mode_Standard -> Execute_Objects loc_E12 consumes one RNG longword before dispatching the loc_12E64 logo controller on frame 33; its internal VBlank loop must not defer or repeat that draw when Start arrives on frame 35",
+            );
+            assert_eq!(frame.rng_ring.as_ref(), Some(&expected_ring));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

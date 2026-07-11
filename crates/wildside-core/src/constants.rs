@@ -5,6 +5,10 @@
 // Oracle cold-boot traces also include the hidden startup shell before the
 // logo object reaches those loops, so the first visible intro frame is 173.
 pub(crate) const SEGA_SCREEN_FRAMES: usize = 174;
+// ASM Mode_Standard -> Execute_Objects loc_E12 draws one random longword
+// before dispatching the newly allocated loc_12E64 logo controller. Oracle
+// traces expose the controller on frame 32 and the completed draw on frame 33.
+pub(crate) const SEGA_SCREEN_FIRST_OBJECT_PASS_ELAPSED: usize = 33;
 // ASM Load_IntroSequence1 `sub_1B8F4 -> sub_1C204 -> loc_1B924` uses the
 // shared 17-frame fade helper followed by the `$12B` inclusive DBF wait.
 // Oracle cold-boot probes keep mode `$0004` through frame 533 and enter

@@ -2448,11 +2448,10 @@ impl NativeRuntime {
             self.handle_start_press(input, start_pressed);
             false
         };
-        let frame_started_in_sega_screen = matches!(self.boot_state, BootState::SegaScreen { .. });
-        let sega_screen_start_skip_rng_long_burn = frame_started_in_sega_screen && start_pressed;
-        let sega_screen_wait_was_already_exhausted = matches!(
+        let sega_screen_first_object_pass = matches!(
             self.boot_state,
-            BootState::SegaScreen { elapsed } if elapsed >= SEGA_SCREEN_FRAMES
+            BootState::SegaScreen { elapsed }
+                if elapsed == SEGA_SCREEN_FIRST_OBJECT_PASS_ELAPSED
         );
         let intro_sequence_rng_long_burn_active = matches!(
             self.boot_state,
@@ -2494,15 +2493,12 @@ impl NativeRuntime {
         let level_entry_hibernated_gameplay_input = frame_started_in_level_entry;
         self.step_boot_state(input, start_pressed);
         self.update_vdp_state();
-        if sega_screen_start_skip_rng_long_burn
-            || (frame_started_in_sega_screen
-                && matches!(self.boot_state, BootState::IntroSequence { .. })
-                && !sega_screen_wait_was_already_exhausted)
-        {
+        if sega_screen_first_object_pass {
             // ASM Mode_Standard -> Execute_Objects loc_E12 (kid.asm:854,
-            // 1636) burns one `Get_RandomNumber_long` on the final logo pass.
-            // A Start edge ends the logo object's wait on that pass; the
-            // following traced frame only exposes `Game_Mode=$0004`.
+            // 1636) burns one `Get_RandomNumber_long` before dispatching the
+            // loc_12E64 logo controller. Its loc_12E6C/loc_12E96 VBlank loops
+            // remain inside that same object pass, so a later Start edge or
+            // natural timeout must not defer or repeat the draw.
             let _ = self.rom_random.next_long();
         }
         if intro_sequence_rng_long_burn_active {
