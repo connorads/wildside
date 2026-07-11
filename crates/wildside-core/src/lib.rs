@@ -2482,9 +2482,9 @@ impl NativeRuntime {
             _ => None,
         };
         let debug_level_entry_object_pass =
-            debug_level_entry_elapsed.is_some_and(|elapsed| !(2..75).contains(&elapsed));
+            debug_level_entry_elapsed.is_some_and(|elapsed| !(2..71).contains(&elapsed));
         let debug_level_entry_hibernated =
-            debug_level_entry_elapsed.is_some_and(|elapsed| elapsed < 75);
+            debug_level_entry_elapsed.is_some_and(|elapsed| elapsed < 71);
         let level_entry_hibernated_gameplay_execution = self
             .starting_level_title_card_bootstrap_active_loc_1ae2e()
             || debug_level_entry_hibernated;
@@ -2743,6 +2743,7 @@ impl NativeRuntime {
                         }
                     }
                 }
+                self.load_debug_level_entry_enemies_after_player_loc_80c();
             }
         } else {
             self.last_kid_frame_motion_branch = KidFrameMotionBranch::DemoAutoTimeoutFrozen;
@@ -3292,7 +3293,7 @@ impl NativeRuntime {
             && matches!(
                 self.boot_state,
                 BootState::StartingLevel {
-                    elapsed_frames: 77..,
+                    elapsed_frames: 72..,
                     ..
                 }
             )

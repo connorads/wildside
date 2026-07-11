@@ -60,6 +60,27 @@ initialisers and their shared shooting transition during the captured title
 and target-live windows. Do not add a Level 0x48 RNG reset or four timer
 overrides.
 
+Follow-up proactive correction 2026-07-11 traced the oracle object list at each
+hidden title tick. `Allocate_ObjectSlot loc_DE0` inserts the Level 0x48 entrants
+LIFO; `Mode_Level loc_80C` moves Kid/camera before `Manage_EnemyLoading`, and
+the Start handoff preserves that progressed Mode_Level state. Native now scopes
+those rules to the `loc_74E0` debug-title shell, freezes the UFO shooter's
+acceleration/targets at `loc_34EEC`, counts its live beam worker, and uses the
+single-resume Drips ceiling sentinel implied by `loc_3340E`. A cache-backed
+frame-zero regression now matches oracle RNG `$FFD2`, `number_objects=13`, and
+the four controller waits 64/95/35/68 exactly. This corrects the earlier
+intermediate observation of 14 objects and three beam workers: that was settle
+step 59, while scenario frame zero has 13 objects and two oracle beam workers.
+
+The Level 0x48 idle route is still 0/360 whole-roster exact. Frame zero now has
+the exact scalar/controller frontier and a live native UFO beam, but native's
+`enemy_roster` exports parent enemies while oracle's object roster also exposes
+beam and Drips child workers; later Drips child lifecycle still diverges.
+`verify-slice-fast` passes, and `verify-tas-full` retains all 37,759 exact
+player/camera CRC frames with #290's unchanged 212-authoritative / 2-oracle-
+limitation sampled-state baseline. This is a narrowed frontier, not evidence of
+whole-state or frame-by-frame whole-game accuracy.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

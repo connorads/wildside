@@ -11170,6 +11170,15 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::ArcherArrow)
             .count();
+        // ASM UFO.asm loc_34FD6 allocates each beam through
+        // Allocate_ObjectSlot, then Enemy0F_UFOBeam_Init loads its own GFX
+        // slot. Native keeps these children in `projectiles`, outside the
+        // ordinary active-object roster, so count every live beam here.
+        let ufo_beam_workers = self
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::UfoBeam)
+            .count();
         // ASM Enemy22_Shiskaboss_Init allocates loc_38494..loc_38884 up
         // front. All nine skewer object/gfx workers follow unk_39872 while
         // waiting for `$FFFFFB4E==3`; native materialises them as BossSkewer
@@ -11224,6 +11233,7 @@ impl NativeRuntime {
             // j_Allocate_ObjectSlot, and Enemy07_ArcherArrow_Init loc_34266
             // loads its own GFX slot before the movement loop.
             + archer_arrow_workers
+            + ufo_beam_workers
             + waiting_shishkaboss_skewer_workers
             + boss_projectile_gfx_workers) as u16
     }

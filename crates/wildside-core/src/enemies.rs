@@ -12747,47 +12747,52 @@ impl NativeRuntime {
                 // fire when the last driving Rock Tank leaves (see
                 // `stop_rock_tank_drive_sound_on_last_exit_loc_3c46e`).
                 let driving_rock_tanks_before = self.driving_rock_tank_count();
-                if self.enemy_loading_initial_pass_complete {
-                    // ASM Mode_Level loc_80C calls Manage_EnemyLoading after
-                    // Execute_Objects for live post-initial-pass entrants.
-                    // The Level 01 RockTank pair at `$0288,$008F` exposes that
-                    // order in oracle traces; other families retain native's
-                    // established pre-step timing until their own oracle cases
-                    // prove a different first-frame phase.
-                    activate_enemies_with_rng_inner(
-                        &mut self.active_enemies,
-                        enemy_layout,
-                        window,
-                        camera_x_px,
-                        camera_y_px,
-                        level_bounds,
-                        slice.player.x_pos,
-                        slice.player.y_pos,
-                        blank_top_rows,
-                        self.enemy_loading_initial_pass_complete,
-                        &self.killed_enemies,
-                        &mut self.rom_random,
-                        true,
-                    );
-                } else {
-                    activate_enemies_with_rng(
-                        &mut self.active_enemies,
-                        enemy_layout,
-                        window,
-                        camera_x_px,
-                        camera_y_px,
-                        level_bounds,
-                        slice.player.x_pos,
-                        slice.player.y_pos,
-                        blank_top_rows,
-                        self.enemy_loading_initial_pass_complete,
-                        &self.killed_enemies,
-                        &mut self.rom_random,
-                    );
+                if !self.debug_level_entry_mode_level_active_loc_74e0() {
+                    if self.enemy_loading_initial_pass_complete {
+                        activate_enemies_with_rng_inner(
+                            &mut self.active_enemies,
+                            enemy_layout,
+                            window,
+                            camera_x_px,
+                            camera_y_px,
+                            level_bounds,
+                            slice.player.x_pos,
+                            slice.player.y_pos,
+                            blank_top_rows,
+                            self.enemy_loading_initial_pass_complete,
+                            &self.killed_enemies,
+                            &mut self.rom_random,
+                            true,
+                        );
+                    } else {
+                        activate_enemies_with_rng(
+                            &mut self.active_enemies,
+                            enemy_layout,
+                            window,
+                            camera_x_px,
+                            camera_y_px,
+                            level_bounds,
+                            slice.player.x_pos,
+                            slice.player.y_pos,
+                            blank_top_rows,
+                            self.enemy_loading_initial_pass_complete,
+                            &self.killed_enemies,
+                            &mut self.rom_random,
+                        );
+                    }
                 }
                 self.ensure_heady_metal_breakup_slots_loc_39247();
                 self.apply_pending_enemy_collisions();
                 let mut played_enemy_sound_effects = Vec::new();
+                let debug_object_list_is_lifo = self.debug_level_entry_mode_level_active_loc_74e0();
+                if debug_object_list_is_lifo {
+                    // ASM Allocate_ObjectSlot loc_DE0 inserts equal-priority
+                    // enemy objects at the head of Execute_Objects loc_E1E's
+                    // linked list. The debug title settle retains allocation
+                    // order in `active_enemies`, so reverse it only while the
+                    // hidden ROM scheduler executes.
+                    self.active_enemies.reverse();
+                }
                 step_active_enemies_with_rng(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),
@@ -12808,6 +12813,9 @@ impl NativeRuntime {
                     &mut self.drilled_blocks,
                     Some(&mut played_enemy_sound_effects),
                 );
+                if debug_object_list_is_lifo {
+                    self.active_enemies.reverse();
+                }
                 self.move_heady_metal_body_piece_workers_sub_376ec();
                 for effect in played_enemy_sound_effects {
                     self.queue_start_sequence(effect);
@@ -12850,25 +12858,26 @@ impl NativeRuntime {
                     self.apply_drilled_block_loc_3bede_3bef2(drilled_block);
                 }
                 self.drilled_blocks.clear();
-                // ASM Mode_Level loc_80C calls Manage_EnemyLoading after
-                // Execute_Objects. Newly allocated RockTank enemies are
-                // visible in WRAM this frame, but their init/move routine does
-                // not run until the next object pass.
-                activate_enemies_with_rng(
-                    &mut self.active_enemies,
-                    enemy_layout,
-                    window,
-                    camera_x_px,
-                    camera_y_px,
-                    level_bounds,
-                    slice.player.x_pos,
-                    slice.player.y_pos,
-                    blank_top_rows,
-                    self.enemy_loading_initial_pass_complete,
-                    &self.killed_enemies,
-                    &mut self.rom_random,
-                );
-                self.ensure_heady_metal_breakup_slots_loc_39247();
+                if !self.debug_level_entry_mode_level_active_loc_74e0() {
+                    // ASM Mode_Level loc_80C calls Manage_EnemyLoading after
+                    // Execute_Objects. Newly allocated objects initialise on
+                    // the next object pass.
+                    activate_enemies_with_rng(
+                        &mut self.active_enemies,
+                        enemy_layout,
+                        window,
+                        camera_x_px,
+                        camera_y_px,
+                        level_bounds,
+                        slice.player.x_pos,
+                        slice.player.y_pos,
+                        blank_top_rows,
+                        self.enemy_loading_initial_pass_complete,
+                        &self.killed_enemies,
+                        &mut self.rom_random,
+                    );
+                    self.ensure_heady_metal_breakup_slots_loc_39247();
+                }
                 self.stop_rock_tank_drive_sound_on_last_exit_loc_3c46e(driving_rock_tanks_before);
                 self.rebuild_active_enemy_roster();
             } else {
@@ -12937,6 +12946,48 @@ impl NativeRuntime {
         if let Some(slice) = self.opening_slice.as_mut() {
             slice.set_kid_grabbed_by_hand(kid_grabbed_by_hand);
         }
+    }
+
+    /// Run the debug title shell's `Manage_EnemyLoading` tail after Kid and
+    /// camera have executed for the frame.
+    ///
+    /// ASM Mode_Level loc_80C calls loc_36814 after Execute_Objects loc_E12.
+    /// The Level 0x48 oracle title trace proves the opening camera has moved
+    /// from x=$280 to $278 before layout #11 enters the first load batch.
+    pub(crate) fn load_debug_level_entry_enemies_after_player_loc_80c(&mut self) {
+        if !self.debug_level_entry_mode_level_active_loc_74e0() || !self.enemy_loading_enabled() {
+            return;
+        }
+        let Some(slice) = self.opening_slice else {
+            return;
+        };
+        let Some(enemy_layout) = self.enemy_layout(self.current_level).cloned() else {
+            return;
+        };
+        let window = ActivationWindow::from_camera(slice.camera);
+        let camera_x_px = slice.camera.x_pos >> 16;
+        let camera_y_px = slice.camera.y_pos >> 16;
+        let level_bounds = self.level_bounds(self.current_level);
+        let blank_top_rows = self.level_header(self.current_level).map_or(0, |header| {
+            terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits)
+        });
+        activate_enemies_with_rng(
+            &mut self.active_enemies,
+            &enemy_layout,
+            window,
+            camera_x_px,
+            camera_y_px,
+            level_bounds,
+            slice.player.x_pos,
+            slice.player.y_pos,
+            blank_top_rows,
+            self.enemy_loading_initial_pass_complete,
+            &self.killed_enemies,
+            &mut self.rom_random,
+        );
+        self.enemy_loading_initial_pass_complete = true;
+        self.ensure_heady_metal_breakup_slots_loc_39247();
+        self.rebuild_active_enemy_roster();
     }
 }
 

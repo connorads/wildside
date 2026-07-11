@@ -14562,7 +14562,7 @@ mod chunk_04 {
             "Drips must reach the ceiling before its first drop spawns",
         );
         assert_eq!(
-            enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E,
+            enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E,
             "ASM Drips.asm loc_333F6/loc_3340E reaches the RNG draw after the oracle #260 two-frame coroutine bridge from ceiling contact",
         );
 

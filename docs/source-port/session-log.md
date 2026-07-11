@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 Level 0x48 hidden scheduler parity)
+
+- Oracle title ticks prove `loc_74E0` enters hidden Mode_Level at elapsed 71,
+  loads enemies after the same-frame camera step, and executes equal-priority
+  entrants LIFO through `loc_E1E`; Start preserves that progressed state.
+- Level 0x48 scenario frame zero now matches RNG `$FFD2`, `number_objects=13`,
+  and Drips waits 64/95/35/68 exactly. The earlier 14-object/three-beam count
+  described settle step 59, not scenario frame zero.
+- The 360-frame route remains 0/360 whole-roster exact: native and oracle still
+  export/model UFO beam and Drips child workers differently, with later Drips
+  child lifecycle drift. Exact player/camera CRC and exact scalar controller
+  state therefore do not establish whole-object parity.
+- Required gates pass. The published route remains 37,759/37,759 CRC exact with
+  #290's unchanged 212-authoritative / 2-oracle-limitation sampled-state
+  baseline. NEXT: rerun `project-status`, then continue the proactive fallback
+  from the Level 0x48 child-worker roster/lifecycle frontier.
+
 ## 2026-07-11 handoff (#390 Drips/UFO settle-state observability)
 
 - Level 0x48 frame zero has exact player/camera CRC but native RNG `$FFFA`, 11

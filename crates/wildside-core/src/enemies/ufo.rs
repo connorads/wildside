@@ -150,6 +150,10 @@ pub(crate) struct UfoBeamStartLoc34Eec {
     pub(crate) beam_interval: u8,
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
+    pub(crate) x_acceleration: i32,
+    pub(crate) y_acceleration: i32,
+    pub(crate) target_x_velocity: i32,
+    pub(crate) target_y_velocity: i32,
     pub(crate) wait_timer: u16,
 }
 
@@ -653,6 +657,10 @@ pub(crate) fn ufo_beam_start_loc_34eec() -> UfoBeamStartLoc34Eec {
         beam_interval: 5,
         x_velocity: 0,
         y_velocity: 0,
+        x_acceleration: 0,
+        y_acceleration: 0,
+        target_x_velocity: 0,
+        target_y_velocity: 0,
         wait_timer: 0x32,
     }
 }
@@ -663,6 +671,10 @@ fn apply_ufo_beam_start_loc_34eec(enemy: &mut ActiveEnemy) {
     enemy.ufo_beam_interval = beam_start.beam_interval;
     enemy.x_velocity = beam_start.x_velocity;
     enemy.y_velocity = beam_start.y_velocity;
+    enemy.x_acceleration = beam_start.x_acceleration;
+    enemy.y_acceleration = beam_start.y_acceleration;
+    enemy.target_x_velocity = beam_start.target_x_velocity;
+    enemy.target_y_velocity = beam_start.target_y_velocity;
     enemy.wait_timer = beam_start.wait_timer;
 }
 
@@ -2008,6 +2020,10 @@ mod tests {
         let mut drilled_blocks = Vec::new();
         let mut projectiles = Vec::new();
 
+        // ASM Allocate_ObjectSlot loc_DE0 inserts equal-priority objects at
+        // the head of the loc_E1E execution list. Native stores allocation
+        // order, so the runtime reverses that storage only for the object pass.
+        enemies.reverse();
         step_active_enemies_with_rng(
             &mut enemies,
             None,
@@ -2026,6 +2042,7 @@ mod tests {
             &mut drilled_blocks,
             None,
         );
+        enemies.reverse();
 
         assert_eq!(
             enemies
@@ -2034,6 +2051,11 @@ mod tests {
                 .count(),
             1,
             "ASM UFO.asm Enemy0F_UFO_ChkShoot tests and sets the global Some_UFO_Shooting latch, so a later UFO cannot arm during the same object walk"
+        );
+        assert_eq!(
+            (enemies[0].ufo_beam_segments, enemies[1].ufo_beam_segments),
+            (0, UFO_BEAM_SEGMENT_COUNT),
+            "ASM Allocate_ObjectSlot loc_DE0 inserts equal-priority UFOs LIFO, so layout #1 executes before layout #0 and owns Some_UFO_Shooting"
         );
     }
 
@@ -2432,9 +2454,13 @@ mod tests {
                 beam_interval: 5,
                 x_velocity: 0,
                 y_velocity: 0,
+                x_acceleration: 0,
+                y_acceleration: 0,
+                target_x_velocity: 0,
+                target_y_velocity: 0,
                 wait_timer: 0x32,
             },
-            "ASM UFO.asm loc_34EEC writes `$48=4`, `$4A=5`, clears x/y velocity, and reloads `$44=$32`"
+            "ASM UFO.asm loc_34EEC writes `$48=4`, `$4A=5`, clears d0-d3 plus x/y velocity, and reloads `$44=$32`"
         );
     }
 

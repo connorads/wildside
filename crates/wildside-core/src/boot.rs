@@ -7607,12 +7607,11 @@ impl NativeRuntime {
                         // progressed slice and just discard the title workers
                         // once gameplay input makes the live state visible.
                         if self.debug_level_entry_suppresses_title_card_live_handoff {
-                            // ASM loc_74E0 re-enters loc_6E2/Load_TitleCard
-                            // from live gameplay. Native debug entry suppresses
-                            // the title-card carry frames, so collapse the
-                            // hidden Load_InGame shell back to a fresh settled
-                            // target spawn before exposing Mode_Level.
-                            self.reset_current_level_runtime_state_for_respawn();
+                            // ASM loc_74E0 enters Mode_Level under the title
+                            // shell. The recording oracle is already in
+                            // Game_Mode=$000C with live enemies throughout the
+                            // final title-wait ticks, so Start must preserve
+                            // that progressed object list and RNG state.
                             self.player_lifecycle = PlayerLifecycle::Alive;
                         } else if self
                             .level_header(self.current_level)

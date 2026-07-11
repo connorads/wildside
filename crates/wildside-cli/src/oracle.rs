@@ -134,6 +134,10 @@ pub struct OracleSettleTraceRow {
     pub kid_y_vel: i32,
     pub number_objects: u16,
     #[serde(default)]
+    pub object_slots_loc_e1e: String,
+    #[serde(default)]
+    pub drips_object_slots_loc_33488: String,
+    #[serde(default)]
     pub background_scroll_loc_3050a: String,
     #[serde(default)]
     pub background_row_offsets_loc_30744: String,

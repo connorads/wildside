@@ -26,12 +26,11 @@ pub(crate) const DRIPS_DROP_LIFETIME: u16 = u16::MAX;
 /// loc_3340E until the child reaches loc_33488.
 pub(crate) const DRIPS_DROP_IN_FLIGHT_TIMER: u16 = u16::MAX;
 
-/// Native-only two-frame bridge after loc_333F6 ceiling contact. Oracle #260
-/// shows the Level 01 right Drips reaches loc_33424 two trace frames after the
-/// native ceiling snap; delaying the loc_3340E seed keeps the RNG draw aligned
-/// with the ROM coroutine resume point.
-pub(crate) const DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E: u16 = u16::MAX - 2;
-const DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E: u16 = u16::MAX - 3;
+/// Native-only one-resume bridge after loc_333F6 ceiling contact. Oracle #260
+/// and the Level 0x48 title trace show loc_3340E consuming RNG two trace
+/// captures after the native ceiling snap: the contact frame plus one resumed
+/// object pass.
+pub(crate) const DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E: u16 = u16::MAX - 3;
 /// ASM Drips.asm loc_33424 initialises `stru_33F90` and waits until the
 /// animation finishes before exposing the falling child. The script durations
 /// are `$A,$A,8,6,1`. ASM GfxObject_Animate loc_1158/sub_1194 loads each new
@@ -1459,7 +1458,7 @@ pub(crate) fn step_drips(
                 enemy.y_pos = (DRIPS_CEILING_BOX_TOP_OFFSET_LOC_1A6C as u32) << 16;
                 enemy.y_velocity = gate.y_velocity;
                 enemy.drips_attached = true;
-                enemy.wait_timer = DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E;
+                enemy.wait_timer = DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E;
                 return;
             }
             let contact_row = terrain::pixel_to_cell(box_top_px).max(0) as u16;
@@ -1490,7 +1489,7 @@ pub(crate) fn step_drips(
                 // Execute_Objects slot. Same-frame attaches must consume RNG
                 // in descending layout order (Allocate_ObjectSlot LIFO), so
                 // the draw is deferred to `seed_pending_drips_initial_waits`.
-                enemy.wait_timer = DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E;
+                enemy.wait_timer = DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E;
             }
             return;
         }
@@ -1504,10 +1503,6 @@ pub(crate) fn step_drips(
         // ASM Drips.asm loc_33516: while the preallocated falling child is
         // active, the parent hibernates one frame, range-checks, and loops.
         let _idle = drips_idle_loop_loc_33516();
-        return;
-    }
-    if enemy.wait_timer == DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E {
-        enemy.wait_timer = DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E;
         return;
     }
     if enemy.wait_timer == DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E {
@@ -1638,12 +1633,8 @@ mod tests {
     #[test]
     fn drips_animation_timer_flags_are_stable_loc_33424_loc_33488() {
         assert_eq!(
-            DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E, 0xFFFD,
-            "ASM Drips.asm loc_333F6/loc_3340E bridge uses the literal first native sentinel `$FFFD`",
-        );
-        assert_eq!(
             DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E, 0xFFFC,
-            "ASM Drips.asm loc_333F6/loc_3340E bridge uses the literal second native sentinel `$FFFC`",
+            "ASM Drips.asm loc_333F6/loc_3340E bridge uses the literal one-resume native sentinel `$FFFC`",
         );
         assert_eq!(
             drips_pre_drop_animation_timer_loc_33424(0x001F),
@@ -1934,7 +1925,7 @@ mod tests {
             "ASM Drips.asm loc_333F6 clears y_vel after the top-boundary ceiling contact",
         );
         assert_eq!(
-            enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E,
+            enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E,
             "the loc_333F6/loc_3340E bridge starts after top-boundary ceiling contact",
         );
         assert!(projectiles.is_empty());
@@ -1991,7 +1982,7 @@ mod tests {
             "ASM loc_1A6C snaps to contact tile top plus `$12` after ceiling terrain contact",
         );
         assert_eq!(enemy.y_velocity, 0);
-        assert_eq!(enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E);
+        assert_eq!(enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E);
         assert!(projectiles.is_empty());
     }
 
@@ -2018,7 +2009,7 @@ mod tests {
         );
         assert_eq!(enemy.y_pos, 0x0032_0000);
         assert_eq!(enemy.y_velocity, 0);
-        assert_eq!(enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E);
+        assert_eq!(enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E);
         assert!(projectiles.is_empty());
     }
 

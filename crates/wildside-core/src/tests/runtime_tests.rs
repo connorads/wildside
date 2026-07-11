@@ -6764,6 +6764,43 @@ mod chunk_09 {
     }
 
     #[test]
+    fn level48_recording_settle_matches_ufo_drips_rng_frontier_loc_74e0() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let frame = ScriptRunner::new(manifest)
+            .warp_to_level(0x48)
+            .settle_recording_warp()
+            .run(&[0], 1)
+            .into_iter()
+            .next()
+            .expect("one settled Level 0x48 frame");
+        let mut drips_waits = frame
+            .active_enemy_details
+            .iter()
+            .filter(|object| object.kind == NativeObjectKind::Enemy { object_type: 0x16 })
+            .map(|object| (object.x_pos >> 16, object.wait_timer))
+            .collect::<Vec<_>>();
+        drips_waits.sort_unstable_by_key(|(x, _)| *x);
+
+        assert_eq!(
+            (frame.rng_offset, frame.number_objects, drips_waits),
+            (
+                Some(0xFFD2),
+                13,
+                vec![
+                    (488, Some(0x0040)),
+                    (504, Some(0x005F)),
+                    (648, Some(0x0023)),
+                    (664, Some(0x0044)),
+                ],
+            ),
+            "ASM loc_74E0 -> Execute_Objects loc_E12 and UFO.asm Enemy0F_UFO_Init: the debug title shell begins the target object schedule at oracle title-wait step 72, leaving frame 0 at RNG $FFD2, 13 counted workers, and the four loc_3340E Drips waits",
+        );
+    }
+
+    #[test]
     fn settled_recording_warp_level_eight_keeps_murder_wall_level_skip_tail_age() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
