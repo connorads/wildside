@@ -7986,6 +7986,44 @@ mod chunk_02 {
     }
 
     #[test]
+    fn start_skip_lineage_title_rebuild_wakes_loc_e12_after_frame_16705() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(16_720)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_16704_ring = trace[16_704]
+            .rng_ring
+            .as_ref()
+            .expect("frame 16704 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_16704_ring.as_bytes(),
+            trace[16_704].rng_offset.expect("frame 16704 RNG offset"),
+        );
+
+        assert_eq!(
+            trace[16_705].rng_offset,
+            Some(expected.offset_word()),
+            "ASM sub_1C246 -> loc_1C264 -> Load_TitleScreen keeps the later Start-skip rebuild outside Mode_Standard -> Execute_Objects loc_E12 on published frame 16705",
+        );
+        assert_eq!(trace[16_705].rng_ring.as_ref(), Some(&expected.ring()));
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(16_720).skip(16_706) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM Load_TitleScreen has allocated Obj_TitleMenu before the outer loc_E12 pass resumes on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

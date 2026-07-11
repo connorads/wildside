@@ -5519,9 +5519,16 @@ impl NativeRuntime {
             Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence5)
         ) {
             // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 enters the title loader
-            // before Obj_TitleMenu rejoins the outer Mode_Standard pass.
-            return self.title_screen_elapsed_frames
-                >= TIMEOUT_RESTART_INTRO_SEQUENCE_5_TITLE_RNG_FIRST_LIVE_ELAPSED;
+            // before Obj_TitleMenu rejoins the outer Mode_Standard pass. The
+            // later Start-skip lineage carries the same extra rebuild frame
+            // already modelled for its loc_1BAEA title-menu delay.
+            let first_live_elapsed =
+                if self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay {
+                    START_SKIP_TIMEOUT_RESTART_INTRO_SEQUENCE_5_TITLE_RNG_FIRST_LIVE_ELAPSED
+                } else {
+                    TIMEOUT_RESTART_INTRO_SEQUENCE_5_TITLE_RNG_FIRST_LIVE_ELAPSED
+                };
+            return self.title_screen_elapsed_frames >= first_live_elapsed;
         }
         if matches!(
             self.title_screen_intro_return_lineage,

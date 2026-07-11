@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 later title-rebuild RNG wake)
+
+- The later Start-skip IntroSequence5 title return carries one extra hidden
+  rebuild frame through `sub_1C246 -> loc_1C264 -> Load_TitleScreen` before
+  `Obj_TitleMenu` rejoins `Mode_Standard -> Execute_Objects loc_E12`.
+- Native now uses the durable title-local hidden-delay lineage: frame 16705
+  remains `$FFCA`, and the outer longword cadence resumes at `$FFCE` on 16706.
+  The plain timeout-restart frame-10345 wake remains unchanged.
+- Full-route CRC remains exact on all 37,759 frames. Frames 16..20757 now match
+  complete RNG state; per-frame debt falls 21,052 -> 16,865, digest
+  `452c59c21d739803c738094fa94b29418e7f9d06`. Sampled RNG diffs fall 1,740 ->
+  1,264, digest `f2da5cc10d9792078209e95fe99c8e7b738f9699`.
+- `mise run verify-slice-fast` and the isolated full TAS run pass with the
+  improved checked-in confidence ratchet.
+- NEXT: frame 20758. Native stays `$FFD6` while oracle advances to `$FFDA`
+  (ring index 14 `$50/$79`), then both streams rejoin on frame 20759.
+
 ## 2026-07-11 handoff (#390 IntroSequence5 panel-upload VBlank stretch)
 
 - `loc_1BC36` reaches a unique heavy iteration after its

@@ -400,6 +400,26 @@ sampled RNG diffs fall 1,755 -> 1,740, digest
 The next frontier is frame 16705 at the later title rebuild wake: native draws
 one frame early, `$FFCE` versus `$FFCA`, ring index 2 `$16/$D0`.
 
+Follow-up proactive correction 2026-07-11 traced that wake to the later
+Start-skip lineage's carried hidden title delay. The plain timeout-restart
+`sub_1C246 -> loc_1C264 -> Load_TitleScreen` path resumes Obj_TitleMenu's outer
+`Mode_Standard -> Execute_Objects loc_E12` pass at local elapsed 55, but the
+later lineage stays inside the loader for one more displayed frame. The
+existing title-local `timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay`
+state already preserves this distinction after the earlier demo flags are
+consumed, so no TAS-frame or generic title correction was added.
+
+Regression `start_skip_lineage_title_rebuild_wakes_loc_e12_after_frame_16705`
+failed at `$FFCE/$FFCA` before the fix and pins the complete ring frozen on
+frame 16705, then advancing from frame 16706. The plain frame-10345 wake
+regression remains green. All 37,759 player/camera CRC frames remain exact.
+Per-frame RNG debt falls 21,052 -> 16,865, digest
+`452c59c21d739803c738094fa94b29418e7f9d06`; sampled RNG diffs fall 1,740 ->
+1,264, digest `f2da5cc10d9792078209e95fe99c8e7b738f9699`. Frames 16..20757 are exact. The
+next frontier is a one-frame phase swap at 20758: native stays `$FFD6` while
+oracle advances to `$FFDA`, ring index 14 `$50/$79`; the streams rejoin on
+20759.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

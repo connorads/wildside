@@ -23,13 +23,25 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 21,052 mismatches, first at
-frame 16705, under digest `2d14a745f2c4213b1ab327f0be7f1b32142fb98c`.
-Frames 16..16704 match the complete RNG state exactly; the next mismatch is an
-early native outer draw during the later title rebuild.
+of the remaining 37,743 frames. It currently records 16,865 mismatches, first at
+frame 20758, under digest `452c59c21d739803c738094fa94b29418e7f9d06`.
+Frames 16..20757 match the complete RNG state exactly; the next mismatch is a
+single skipped native outer draw before both streams rejoin on frame 20759.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.
+
+The latest correction preserves the later Start-skip IntroSequence5 rebuild's
+carried hidden-delay frame through `sub_1C246 -> loc_1C264 -> Load_TitleScreen`.
+The durable title-local lineage selects local elapsed 56 while the plain
+timeout-restart path retains its oracle-pinned elapsed 55 wake. Regression
+`start_skip_lineage_title_rebuild_wakes_loc_e12_after_frame_16705` failed at
+`$FFCE/$FFCA` before the fix and pins the complete ring frozen on frame 16705,
+then live through `Obj_TitleMenu`'s outer `loc_E12` passes from frame 16706.
+Per-frame RNG debt falls 21,052 -> 16,865; sampled RNG diffs fall 1,740 ->
+1,264. The next frontier at frame 20758 is native `$FFD6` versus oracle
+`$FFDA`, with first ring difference index 14 `$50/$79`; both streams rejoin on
+frame 20759.
 
 The latest correction models `loc_1BC36`'s unique combined
 `sub_1C034(d4=4) -> sub_1C0EE` decompression and VRAM upload as one object pass
