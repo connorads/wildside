@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 complete published-route RNG parity)
+
+- IntroSequence2 returns through `loc_1B9D0 -> loc_1BA02 -> sub_1C246 ->
+  loc_1C264 -> loc_6E2 -> Load_TitleScreen`. Oracle keeps the complete ring
+  fixed through published frame 36877 at local title elapsed 56, then resumes
+  `Mode_Standard -> Execute_Objects loc_E12` at elapsed 57 on frame 36878.
+- Native now records `LaterIntroSequence2` separately from IntroSequence4's
+  elapsed-56 loader boundary. The regression pins the final stall and every
+  following draw through frame 36929.
+- Full-route CRC remains exact on all 37,759 frames. RNG now matches on every
+  one of the 37,743 post-`Init_RNG` frames, including all 55 ring bytes and the
+  offset; per-frame debt falls 882 -> 0 and sampled RNG fields fall 74 -> 0.
+- `mise run verify-slice-fast` and the full TAS replay pass with the improved
+  checked-in zero-divergence RNG ratchet.
+- NEXT: #290's 212 authoritative sampled-state differences remain. Exact CRC
+  and RNG parity do not prove object, enemy, render, audio, or whole-state
+  equality.
+
 ## 2026-07-11 handoff (#390 timeout-restart IntroSequence1 early title restore)
 
 - The later timeout-restart IntroSequence1 Start return follows `sub_1B8F4 ->

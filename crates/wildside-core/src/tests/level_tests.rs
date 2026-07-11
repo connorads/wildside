@@ -8365,6 +8365,44 @@ mod chunk_02 {
     }
 
     #[test]
+    fn later_intro_sequence_2_title_return_keeps_final_load_title_screen_stall() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(36_930)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_36876_ring = trace[36_876]
+            .rng_ring
+            .as_ref()
+            .expect("frame 36876 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_36876_ring.as_bytes(),
+            trace[36_876].rng_offset.expect("frame 36876 RNG offset"),
+        );
+
+        assert_eq!(
+            trace[36_877].rng_offset,
+            Some(expected.offset_word()),
+            "ASM loc_1B9D0 -> loc_1BA02 -> sub_1C246 is still inside Load_TitleScreen on published frame 36877",
+        );
+        assert_eq!(trace[36_877].rng_ring.as_ref(), Some(&expected.ring()));
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(36_930).skip(36_878) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM Load_TitleScreen must return before Mode_Standard -> Execute_Objects loc_E12 resumes on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

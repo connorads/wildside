@@ -27,25 +27,16 @@
         "authoritative": 212,
         "advisory": 0,
         "accumulation": 0,
-        "rng": 74,
+        "rng": 0,
         "oracle_limitation": 2
       },
-      "full_expected_rng_divergence_digest": "e8ef3f483f2fe64e101df702b81e4270485c3200",
+      "full_expected_rng_divergence_digest": "",
       "full_expected_rng_frame_comparison": {
         "start_frame": 16,
         "compared_frames": 37743,
-        "mismatch_count": 882,
-        "mismatch_digest": "e6e9d063984aef107f49715b9f73fedcb911d01c",
-        "first_mismatch": {
-          "frame": 36877,
-          "native_offset": 65518,
-          "oracle_offset": 65514,
-          "first_ring_difference": {
-            "index": 34,
-            "native_byte": 206,
-            "oracle_byte": 53
-          }
-        }
+        "mismatch_count": 0,
+        "mismatch_digest": null,
+        "first_mismatch": null
       },
       "full_expected_first_authoritative_diff": {
         "checkpoint": "transition_15_to_00_post",

@@ -572,6 +572,22 @@ sampled RNG field debt falls 296 -> 74, digest
 next frontier is frame 36877: native `$FFEE`, oracle `$FFEA`, ring index 34
 `$CE/$35`.
 
+Follow-up proactive correction 2026-07-11 closed the remaining published-route
+RNG frontier. Frame 36877 is an IntroSequence2 return, not IntroSequence4: ASM
+`loc_1B9D0 -> loc_1BA02` runs two `sub_1C1A2` updates before `sub_1C246 ->
+loc_1C264 -> loc_6E2 -> Load_TitleScreen`. Oracle keeps the complete ring fixed
+through local title elapsed 56 on frame 36877 and resumes the enclosing
+`Mode_Standard -> Execute_Objects loc_E12` pass at elapsed 57 on frame 36878.
+Native now records a typed `LaterIntroSequence2` lineage instead of collapsing
+it into IntroSequence4's elapsed-56 schedule. Regression
+`later_intro_sequence_2_title_return_keeps_final_load_title_screen_stall`
+failed at frame 36877 before the fix and pins every following complete-ring
+draw through frame 36929. All 37,759 player/camera CRC frames remain exact, and
+all 37,743 post-`Init_RNG` frames now match the oracle offset and all 55 ring
+bytes. Per-frame RNG debt falls 882 -> 0; sampled RNG field debt falls 74 -> 0.
+This closes #390's published-route RNG stream, not #290's 212 authoritative
+sampled-state differences or whole-game fidelity.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

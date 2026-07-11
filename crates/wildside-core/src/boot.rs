@@ -5535,6 +5535,17 @@ impl NativeRuntime {
         }
         if matches!(
             self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::LaterIntroSequence2)
+        ) {
+            // ASM loc_1B9D0 -> loc_1BA02 performs two sub_1C1A2 updates
+            // before sub_1C246 can enter loc_1C264 and Load_TitleScreen. This
+            // source lineage rejoins the outer loc_E12 pass at elapsed 57,
+            // one frame after the later IntroSequence4 return.
+            return self.title_screen_elapsed_frames
+                >= INTRO_SEQUENCE_2_TITLE_RNG_FIRST_LIVE_ELAPSED;
+        }
+        if matches!(
+            self.title_screen_intro_return_lineage,
             Some(TitleScreenIntroReturnLineage::LaterIntroSequence)
         ) {
             // ASM sub_1B988 -> sub_1C246 -> loc_1C264 enters
@@ -6781,15 +6792,15 @@ impl NativeRuntime {
                                     TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence1EarlyRestore,
                                 );
                                 self.next_demo_uses_start_skip_intro_return_camera_wrap = true;
-                            } else if self.level_has_title_card(self.current_level) {
+                            } else if current_level_has_title_card {
                                 // ASM sub_1C246 -> loc_1C250 still returns the
                                 // stock title-card levels to the slower hidden
                                 // title rebuild before Obj_TitleMenu accepts
                                 // the later frame-360 / frame-460 Start taps.
-                                let lineage = if is_intro_sequence_1 {
-                                    TitleScreenIntroReturnLineage::ColdIntroSequence1
-                                } else {
-                                    TitleScreenIntroReturnLineage::LaterIntroSequence
+                                let lineage = match *segment {
+                                    0 => TitleScreenIntroReturnLineage::ColdIntroSequence1,
+                                    1 => TitleScreenIntroReturnLineage::LaterIntroSequence2,
+                                    _ => TitleScreenIntroReturnLineage::LaterIntroSequence,
                                 };
                                 self.enter_title_screen_from_intro_return(lineage);
                                 if intro_sequence_5_title_pose {
