@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 IntroSequence3 RNG cadence)
+
+- ASM `sub_1B93E -> sub_1C204` keeps timeout-restart IntroSequence3 RNG-idle
+  until local pre-step elapsed 41. `loc_1B96E` and both deferred
+  `sub_1C246 -> loc_1C264` Start hand-off frames retain the live outer pass.
+- A typed timeout-restart title lineage freezes the hidden rebuild on published
+  frames 6210..6264, then resumes `Execute_Objects loc_E12` at 6265. The
+  complete-ring regression pins the live, frozen, and resumed phases.
+- Full-route CRC remains exact on all 37,759 frames. Frames 16..8069 now match
+  complete RNG state; per-frame debt falls 31,764 -> 29,688, digest
+  `152b71bafff12234855d932051e8a90a3dc161c8`. Sampled RNG diffs fall 2,607 ->
+  2,442, digest `54c1a1df9612a2caa8f38b255ac3ddca9414ab6d`.
+- `mise run verify-slice-fast` and `mise run verify-tas-full` pass with the
+  improved checked-in confidence ratchet.
+- NEXT: frame 8070 after the `0x15 -> 0x00` transition. Native is one draw
+  ahead (`$FFD0` vs `$FFCC`, ring index 4 `$69/$F0`).
+
 ## 2026-07-11 handoff (#390 IntroSequence2 RNG cadence)
 
 - ASM `loc_1B9D0 -> sub_1C204` keeps timeout-restart IntroSequence2 RNG-idle

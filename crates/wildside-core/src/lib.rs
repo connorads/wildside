@@ -2490,6 +2490,22 @@ impl NativeRuntime {
                 // timeout-restart lineage.
                 elapsed >= DEMO_AUTO_TIMEOUT_INTRO_SECOND_RNG_FIRST_LIVE_ELAPSED
             }
+            BootState::IntroSequence {
+                segment: 2,
+                elapsed,
+                ..
+            } if self
+                .demo_auto_timeout_intro_sequence_3_frames_override
+                .is_some()
+                || self.timeout_restart_title_intro_sequence_3_return_pending =>
+            {
+                // ASM sub_1B93E -> sub_1C204 completes the hidden loader/fade
+                // before loc_1B96E owns the live outer object-pass window.
+                // sub_1C246 then consumes Start without ending that pass, so
+                // keep both deferred loc_1C264 hand-off frames live after the
+                // timeout duration override has been cleared.
+                elapsed >= DEMO_AUTO_TIMEOUT_INTRO_THIRD_RNG_FIRST_LIVE_ELAPSED
+            }
             _ => false,
         };
         let frame_started_in_title_screen =

@@ -2726,6 +2726,7 @@ pub(crate) enum TitleScreenIntroReturnLineage {
     ColdIntroSequence1,
     ManualDemoReturn,
     TimeoutRestartIntroSequence1EarlyRestore,
+    TimeoutRestartIntroSequence3,
     LaterIntroSequence,
 }
 

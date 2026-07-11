@@ -207,6 +207,14 @@ pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_SECOND_RNG_FIRST_LIVE_ELAPSED: usize = 
 // the native boot-state model needs a 299-frame local timer here rather than
 // the earlier 256-frame approximation.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_THIRD_SEGMENT_FRAMES: usize = 299;
+/// Pre-step local elapsed at which timeout-restart IntroSequence3 has finished
+/// `sub_1B93E -> sub_1C204` and resumes the outer `Execute_Objects loc_E12`
+/// draw. Oracle exposes the first live pass on published frame 5995.
+pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_THIRD_RNG_FIRST_LIVE_ELAPSED: usize = 41;
+/// Post-step title elapsed at which the timeout-restart IntroSequence3
+/// `loc_1C264 -> loc_6E2` hidden rebuild rejoins Obj_TitleMenu's outer object
+/// passes. Oracle freezes published frames 6210..6264 and resumes on 6265.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_3_TITLE_RNG_FIRST_LIVE_ELAPSED: usize = 56;
 // ASM loc_1B96A flips `Game_Mode` to intro sequence 4 immediately, but the
 // previous intro-sequence-3 roster objects remain visible until the intro-4
 // setup fully takes over. Oracle-backed timeout-restart traces keep the second

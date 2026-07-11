@@ -23,10 +23,10 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 31,764 mismatches, first at
-frame 5995, under digest `d5471a7274de84ab20f13abeec5caa434e150874`.
-Frames 16..5994 match the complete RNG state exactly; the next mismatch is the
-timeout-restart IntroSequence3 loader wake-up.
+of the remaining 37,743 frames. It currently records 29,688 mismatches, first at
+frame 8070, under digest `152b71bafff12234855d932051e8a90a3dc161c8`.
+Frames 16..8069 match the complete RNG state exactly; the next mismatch follows
+the published route's `0x15 -> 0x00` transition.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.
@@ -53,6 +53,18 @@ pins the complete ring across all 408 live passes and the following loader
 freeze. Per-frame RNG debt falls 32,213 -> 31,764; sampled RNG diffs fall 2,653
 -> 2,607. The next frontier at frame 5995 is native `$FFD4` versus oracle
 `$FFD8`, with first ring difference index 12 `$34/$37`.
+
+The timeout-restart IntroSequence3 follow-up traces `sub_1B93E -> sub_1C204`
+through the live `loc_1B96E` loop and `sub_1C246 -> loc_1C264` Start hand-off.
+It uses an explicit title-return lineage: the outer `Execute_Objects loc_E12`
+pass wakes at local pre-step elapsed 41, remains live on both deferred hand-off
+frames, freezes through the hidden title rebuild on published frames
+6210..6264, and resumes at 6265. Regression
+`timeout_restart_intro_sequence_3_preserves_live_and_title_rng_phases_sub_1b93e_1c264`
+pins the complete ring across all three phases. Per-frame RNG debt falls 31,764
+-> 29,688; sampled RNG diffs fall 2,607 -> 2,442. The next frontier at frame
+8070 is native `$FFD0` versus oracle `$FFCC`, with first ring difference index
+4 `$69/$F0`.
 
 The visual side has a separate confidence ceiling. Since 2026-07-10,
 `source_port_frame_oracle:level_00_early` renders the actual source-port scene at

@@ -284,6 +284,24 @@ sampled RNG diffs fall 2,653 -> 2,607, digest
 next frontier is frame 5995 at the timeout-restart IntroSequence3 loader
 wake-up: native `$FFD4`, oracle `$FFD8`, ring index 12 `$34/$37`.
 
+Follow-up proactive correction 2026-07-11 traced timeout-restart
+IntroSequence3's `sub_1B93E -> sub_1C204` hidden loader, `loc_1B96E` live loop,
+and `sub_1C246 -> loc_1C264` Start return. Oracle wakes the outer
+`Execute_Objects loc_E12` pass at local pre-step elapsed 41 and keeps both
+deferred Start hand-off frames live. The following title rebuild freezes RNG on
+published frames 6210..6264, then resumes one longword draw per frame at 6265.
+
+Native now records a typed `TimeoutRestartIntroSequence3` title-return lineage
+and derives all three phases from local elapsed state. Regression
+`timeout_restart_intro_sequence_3_preserves_live_and_title_rng_phases_sub_1b93e_1c264`
+pins the complete ring across the live intro loop, hand-off, title freeze, and
+resumed title passes. All 37,759 player/camera CRC frames remain exact.
+Per-frame RNG debt falls 31,764 -> 29,688, digest
+`152b71bafff12234855d932051e8a90a3dc161c8`; sampled RNG diffs fall 2,607 ->
+2,442, digest `54c1a1df9612a2caa8f38b255ac3ddca9414ab6d`. Frames 16..8069 are exact. The
+next frontier is frame 8070 after the `0x15 -> 0x00` transition: native `$FFD0`,
+oracle `$FFCC`, ring index 4 `$69/$F0`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

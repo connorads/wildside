@@ -5506,6 +5506,15 @@ impl NativeRuntime {
     pub(crate) fn title_screen_rng_long_burn_active(&self) -> bool {
         if matches!(
             self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence3)
+        ) {
+            // ASM sub_1B93E -> sub_1C246 -> loc_1C264 enters the hidden title
+            // rebuild before Obj_TitleMenu rejoins loc_E12's outer pass.
+            return self.title_screen_elapsed_frames
+                >= TIMEOUT_RESTART_INTRO_SEQUENCE_3_TITLE_RNG_FIRST_LIVE_ELAPSED;
+        }
+        if matches!(
+            self.title_screen_intro_return_lineage,
             Some(
                 TitleScreenIntroReturnLineage::ColdIntroSequence1
                     | TitleScreenIntroReturnLineage::ManualDemoReturn
@@ -5871,6 +5880,8 @@ impl NativeRuntime {
 
     fn finish_timeout_restart_intro_sequence_3_title_return(&mut self) {
         self.enter_title_screen();
+        self.title_screen_intro_return_lineage =
+            Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence3);
         self.timeout_restart_title_intro_sequence_3_return_pending = false;
         self.hide_demo_return_title_player = true;
         self.timeout_restart_title_intro_sequence_3_pose = true;
