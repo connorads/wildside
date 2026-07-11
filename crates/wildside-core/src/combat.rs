@@ -14222,12 +14222,24 @@ fn hand_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
 }
 
 fn drips_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    if matches!(
+        enemy.contact_phase,
+        Some(NativeContactPhase::DripsFallingChild)
+    ) {
+        // ASM Drips.asm loc_33424 writes LnkTo_unk_C7B26 to the visible
+        // falling child. GfxObjects_CollisionKid loc_1BCE resolves
+        // CollisionSize_Index[553] to unk_318A6: `dc.w -$2,$4,0,$9`.
+        return EnemyContactBounds {
+            left_px: -2,
+            right_px: 2,
+            top_px: 0,
+            bottom_px: 9,
+        };
+    }
     if enemy.wait_timer.is_some() && !enemy.stationary {
-        // ASM Drips.asm loc_33424/loc_3345C visible child workers are exposed
-        // through `drips_projectile_object_snapshot_loc_3345c`; their typed
-        // projectile contact path carries the verified drop/crawler boxes.
-        // Keep their legacy fallback here until each child `$22` animation row
-        // is modelled separately.
+        // ASM Drips.asm loc_335D8/loc_338F8 surface children use later
+        // `$22` mappings. Preserve their existing typed crawler box until
+        // those animation rows are split individually.
         return EnemyContactBounds {
             left_px: -ENEMY_CONTACT_HALF_WIDTH,
             right_px: ENEMY_CONTACT_HALF_WIDTH,
@@ -15202,7 +15214,8 @@ fn drips_projectile_object_snapshot_loc_3345c(
         damage_flash: false,
         palette_variant: 0,
         stationary: false,
-        contact_phase: None,
+        contact_phase: (projectile.kind == EnemyProjectileKind::DripsDrop)
+            .then_some(NativeContactPhase::DripsFallingChild),
         shared_walker_state: None,
         shared_walker_patrol_timer: None,
         shared_walker_patrol_short_next: None,

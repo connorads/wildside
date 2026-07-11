@@ -11,6 +11,32 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #390
+
+Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback. Level
+0x48 had all 360 player/camera CRC frames exact but lost one HP at frame 175,
+while oracle retained two HP. The collision-order probe identified a falling
+Drips child at x=648: native's temporary family box reached Kid by one pixel.
+
+ASM `Drips.asm loc_33424` writes `LnkTo_unk_C7B26` to the falling child.
+`GfxObjects_CollisionKid loc_1BCE` therefore selects
+`CollisionSize_Index[553]`, row `unk_318A6`: `dc.w -$2,$4,0,$9`, or bounds
+`(-2,+2,0,+9)`. Native instead reused the crawler fallback `(-4,+4,-8,+8)`.
+The child snapshot now carries a typed `DripsFallingChild` contact phase and
+uses the ROM row, while crawler and crawler-burst stomp behaviour retains its
+separate existing box. The exact collision-row regression failed before the
+fix; the full suite caught and prevented an initially over-broad family change.
+
+Level 0x48 frames 174-178 now retain oracle HP and classify the old contact as
+horizontally separated by one pixel. Canonical report `1783767927` keeps 45/24
+pass/fail and reduces blocking differences from 90 to 89 with no regression.
+The remaining Level 0x48 mismatch is object count/lifecycle: at recording frame
+zero native Drips waits are roughly 98-102 frames while oracle has 35/64/68/95,
+after different prior object-loading/RNG histories. `verify-slice-fast` and
+`verify-tas-full` pass. The published route retains all 37,759 matching CRC
+frames and #290's unchanged 212-authoritative / 2-oracle-limitation sampled
+state baseline.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.
@@ -11710,6 +11736,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 390 | [x] | P1 | Combat/Drips | Falling Drips children use their exact ROM sprite collision row instead of the surface-crawler fallback. | Report `1783767927`: Level 0x48 HP parity restored, 89 blockers; exact collision-row regression. See archive #390. |
 | 389 | [x] | P1 | Enemy/UFO | UFO beams share the ROM's global shooting latch, use direction-relative spawn offsets, and delete on terrain collision. | Report `1783766204`: 45/69 green, 90 blockers; Level 0x48 is 360/360 CRC exact with residual Drips-only state drift. See archive #389. |
 | 388 | [x] | P1 | Enemy/Cloud | Cloud control waits preserve `loc_35BB2`'s post-incremented command pointer, preventing repeated armed lightning cycles. | Reports `1783763770`/`1783763905`: Level 0x18 state-exact, 44/69 green, 98 blockers. See archive #388. |
 | 387 | [x] | P2 | Test/Driller | Driller regression pins the cleared child-collision latch after `loc_3BE8E` consumes a drilled block. | `enemies/driller.rs`: 26 mutants, 21 caught, 5 unviable, 0 missed after iterative recheck. See archive #387. |

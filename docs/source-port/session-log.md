@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 Drips falling-child collision row)
+
+- Level 0x48's exact player/camera CRC concealed a native-only HP loss at frame
+  175. The temporary Drips child box overlapped Kid by one pixel.
+- `Drips.asm loc_33424` selects `CollisionSize_Index[553]` row `unk_318A6` for
+  the falling child: `(-2,+2,0,+9)`. A typed contact phase now separates that
+  row from the existing surface-crawler box; crawler stomp regressions stay green.
+- Canonical report `1783767927` remains 45/24 pass/fail and improves 90 to 89
+  blockers. Level 0x48 HP now matches; its remaining object-count drift begins
+  with different Drips timers and prior object-loading/RNG history.
+- Required gates pass. The full published TAS remains 37,759/37,759 CRC exact
+  with #290's sampled-state baseline unchanged. NEXT: rerun `project-status`,
+  then continue the proactive fallback from an early object-loading/RNG fault.
+
 ## 2026-07-11 handoff (#389 UFO shared shooting and beam collision)
 
 - The proactive fallback selected Level 0x48's fatal native UFO-beam drift.

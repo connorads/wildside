@@ -242,6 +242,28 @@ fn drips_parent_contact_uses_rom_collision_size_row_loc_1bce() {
 }
 
 #[test]
+fn drips_falling_child_contact_uses_rom_collision_size_row_loc_3345c() {
+    let mut drop = test_enemy(EnemyFamily::Drips, 100 << 16, 100 << 16, 1);
+    drop.wait_timer = DRIPS_DROP_IN_FLIGHT_TIMER;
+    let mut snapshot = drop.snapshot();
+    snapshot.wait_timer = Some(DRIPS_DROP_IN_FLIGHT_TIMER);
+    snapshot.stationary = false;
+    snapshot.contact_phase = Some(NativeContactPhase::DripsFallingChild);
+
+    let bounds = enemy_contact_bounds(&snapshot);
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-2, 2, 0, 9),
+        "ASM Drips.asm loc_33424 writes LnkTo_unk_C7B26 to the falling child; GfxObjects_CollisionKid loc_1BCE indexes CollisionSize_Index[553] row unk_318A6 = dc.w -$2,$4,0,$9",
+    );
+}
+
+#[test]
 fn tar_monster_live_contact_uses_rom_collision_size_row_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 101 << 16;
