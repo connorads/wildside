@@ -6626,6 +6626,42 @@ mod chunk_09 {
     }
 
     #[test]
+    fn issue388_pyramids_cloud_wait_resumes_at_next_loc_35bb2_command() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x18)
+            .settle_recording_warp()
+            .run(&[0; 360], 360);
+        let idle_tail = &trace[359];
+
+        assert_eq!(
+            (
+                idle_tail.game_mode_value,
+                idle_tail.number_lives,
+                idle_tail.number_hitpoints,
+                idle_tail.just_received_damage,
+                idle_tail.number_objects,
+                idle_tail.kid_x_pos,
+                idle_tail.kid_y_pos,
+                idle_tail.camera_y_pos,
+            ),
+            (
+                GameMode::InGame.as_disassembly_value(),
+                3,
+                1,
+                false,
+                6,
+                Some(0x0060_0000),
+                Some(0x00CF_0000),
+                0x002C_0000,
+            ),
+            "ASM Cloud.asm loc_35BB2/loc_35C54: a0 remains after the consumed wait word, so the Level 0x18 Cloud clears `$44(a5)` after its second wait instead of repeatedly firing until Kid dies",
+        );
+    }
+
+    #[test]
     fn script_runner_recording_settle_uses_level_zero_recording_age() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

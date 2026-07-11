@@ -11,6 +11,35 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #388
+
+Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.
+Canonical report `1783761928` showed Level 0x18 Pyramids of Peril dying before
+the idle-tail checkpoint: native reached `Game_Mode=$0008`, two lives, and 17
+objects while oracle remained in `$000C` with three lives, one HP, and six
+objects. Per-frame checksum evidence placed the first player-state divergence at
+frame 232. The durable idle probe showed native Cloud lightning dealing a fatal
+second hit; oracle dealt one hit and left Kid alive.
+
+ASM Cloud.asm `loc_35BB2` reads each command with `(a0)+`; `loc_35C54` preserves
+that post-incremented `a0` across every hibernate and DBF iteration, then resumes
+at the following command. Native instead saved the consumed wait command's
+index, replayed it forever, and left `$44(a5)` armed. The control state now saves
+the following command index. Unit regressions pin both `$7800 -> loc_35C72` and
+`$1E00 -> loc_35C7A`, while
+`issue388_pyramids_cloud_wait_resumes_at_next_loc_35bb2_command` pins the exact
+oracle idle-tail state.
+
+Focused report `1783763770` passes both checkpoints with no state differences.
+Canonical report `1783763905` improves 43/26 pass/fail to 44/25 and 103 to 98
+authoritative differences, with no newly failing level. Focused frame-tier
+report `1783763934` remains render-inexact at 1,249 changed pixels and MAE 1.1,
+so this proves state parity, not pixel parity. A bounded control-function
+mutation run catches all eight viable mutants; one return-default mutant is
+unviable. `verify-slice-fast` and `verify-tas-full` pass; the published route
+retains all 37,759 matching CRC frames and #290's unchanged 212-authoritative /
+2-oracle-limitation sampled-state baseline.
+
 ### #387
 
 Resolved 2026-07-11 through `loop.md`'s proactive mutation fallback. A bounded
@@ -11651,6 +11680,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 388 | [x] | P1 | Enemy/Cloud | Cloud control waits preserve `loc_35BB2`'s post-incremented command pointer, preventing repeated armed lightning cycles. | Reports `1783763770`/`1783763905`: Level 0x18 state-exact, 44/69 green, 98 blockers. See archive #388. |
 | 387 | [x] | P2 | Test/Driller | Driller regression pins the cleared child-collision latch after `loc_3BE8E` consumes a drilled block. | `enemies/driller.rs`: 26 mutants, 21 caught, 5 unviable, 0 missed after iterative recheck. See archive #387. |
 | 386 | [x] | P1 | Verify/state | Mapped-resource RAM fixtures are rejected when their dimensions contradict the ROM header, preventing aliased terrain from killing Kid during settled entry. | Report `1783761928`: 43/69 pass, seven newly green, 38 fewer blocking diffs; Level 0x54 state-exact. See archive #386. |
 | 385 | [x] | P1 | Enemy/Driller | Driller consumes prior-pass child collision and retains the hidden settle/block-worker age. | Level 0x68 exact across frames 54-63, 360 CRC frames, and both checkpoints. See archive #385. |

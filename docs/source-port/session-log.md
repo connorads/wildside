@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#388 Cloud command-pointer timing)
+
+- With no agent-ready row, the proactive fallback selected a canonical sweep
+  failure: Level 0x18 died from a second native Cloud lightning strike while
+  oracle remained alive with one HP.
+- Cloud.asm `loc_35BB2` post-increments a0 before `loc_35C54` waits. Native saved
+  the consumed wait index instead, repeated it forever, and never reached the
+  `$44(a5)` clear command.
+- Native now resumes at the following script command. Exact unit and Level 0x18
+  idle-tail regressions pass; all eight viable focused mutants are caught.
+- Canonical report `1783763905` improves 43/26 pass/fail and 103 blocking diffs
+  to 44/25 and 98 with no regression. State is exact; focused render remains
+  inexact at MAE 1.1. Required gates pass; the full TAS remains 37,759/37,759
+  CRC exact with #290's sampled-state baseline unchanged. NEXT: rerun
+  `project-status`, then continue the proactive fallback.
+
 ## 2026-07-11 handoff (#387 Driller mutation hardening)
 
 - With no agent-ready backlog row, the proactive fallback mutation-tested

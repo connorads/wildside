@@ -112,7 +112,10 @@ pub(crate) fn cloud_control_script_tick_loc_35BAC(
                 return CloudControlScriptTickLoc35BAC {
                     object_44: status_44,
                     next_object_44: status_44,
-                    next_command_index: (index - 1) as u8,
+                    // ASM Cloud.asm loc_35BB2/loc_35C54: a0 is post-incremented
+                    // when the wait word is read and survives every hibernate,
+                    // so the expired DBF resumes at the following command.
+                    next_command_index: index as u8,
                     next_wait_frames: wait.hibernate_frames.saturating_sub(1) as u16,
                 };
             }
@@ -887,7 +890,7 @@ mod tests {
             CloudControlScriptTickLoc35BAC {
                 object_44: 0x00,
                 next_object_44: 0x00,
-                next_command_index: 0,
+                next_command_index: 1,
                 next_wait_frames: 0x78,
             },
             "ASM Cloud.asm loc_35C7A clears `$44(a5)`, then the $FFFF sentinel restarts loc_35BAC and the first wait runs unarmed"
@@ -895,13 +898,38 @@ mod tests {
     }
 
     #[test]
-    fn cloud_control_script_tick_loc_35c56_continues_active_wait_frame() {
+    fn cloud_control_script_tick_loc_35c56_resumes_after_wait_command() {
         assert_eq!(
-            cloud_control_script_tick_loc_35BAC(2, 0x1E, 0xFF),
+            cloud_control_script_tick_loc_35BAC(0, 0, 0xFF),
             CloudControlScriptTickLoc35BAC {
                 object_44: 0xFF,
                 next_object_44: 0xFF,
-                next_command_index: 2,
+                next_command_index: 1,
+                next_wait_frames: 0x78,
+            },
+            "ASM Cloud.asm loc_35C54 preserves a0 after reading the $7800 command, so loc_35BB2 resumes at the following status command after DBF expires"
+        );
+
+        assert_eq!(
+            cloud_control_script_tick_loc_35BAC(1, 0, 0xFF),
+            CloudControlScriptTickLoc35BAC {
+                object_44: 0xFF,
+                next_object_44: 0xFF,
+                next_command_index: 3,
+                next_wait_frames: 0x1E,
+            },
+            "ASM Cloud.asm loc_35C72 sets `$44(a5)`, then loc_35BB2 consumes the following $1E00 wait and preserves a0 at loc_35C7A"
+        );
+    }
+
+    #[test]
+    fn cloud_control_script_tick_loc_35c56_continues_active_wait_frame() {
+        assert_eq!(
+            cloud_control_script_tick_loc_35BAC(3, 0x1E, 0xFF),
+            CloudControlScriptTickLoc35BAC {
+                object_44: 0xFF,
+                next_object_44: 0xFF,
+                next_command_index: 3,
                 next_wait_frames: 0x1D,
             },
             "ASM Cloud.asm loc_35C56 hibernates one frame and DBFs the active wait counter before loc_35BB2 can fetch the next command"
