@@ -8072,6 +8072,47 @@ mod chunk_02 {
     }
 
     #[test]
+    fn intro_sequence_6_mode_switch_keeps_nine_loc_1ba90_outer_passes() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(20_915)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_20894_ring = trace[20_894]
+            .rng_ring
+            .as_ref()
+            .expect("frame 20894 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_20894_ring.as_bytes(),
+            trace[20_894].rng_offset.expect("frame 20894 RNG offset"),
+        );
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(20_904).skip(20_895) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM loc_1BA5C has written Game_Mode=$28, but loc_1BA90 still owns a live Mode_Standard -> Execute_Objects loc_E12 pass on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+
+        let expected_ring = expected.ring();
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(20_915).skip(20_904) {
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM loc_1BAAC -> loc_6E2 has entered the RNG-idle Load_IntroSequence6 loader on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected_ring));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

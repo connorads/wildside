@@ -440,6 +440,28 @@ digest `f2da5cc10d9792078209e95fe99c8e7b738f9699`. Frames 16..20894 are exact. T
 next frontier begins in IntroSequence6 on frame 20895: native `$FFD0`, oracle
 `$FFD4`, ring index 8 `$27/$F0`.
 
+Follow-up proactive correction 2026-07-11 traced those IntroSequence6 entry
+frames back across the mode-write boundary. ASM `loc_1BA5C` writes
+`Game_Mode=$28`, seeds `$FFFFF876=$100`, and branches into `loc_1BA90` without
+loading the new mode. That loop hibernates, subtracts `$20`, and repeats through
+`$E0,$C0,$A0,$80,$60,$40,$20,$00,-$20`: nine resumes that still return
+through the enclosing `Mode_Standard -> Execute_Objects loc_E12` pass. Only
+the negative result takes `loc_1BAAC -> loc_6E2 -> Load_IntroSequence6`.
+
+Native now derives those nine passes from the fade arithmetic rather than TAS
+frame numbers. Regression
+`intro_sequence_6_mode_switch_keeps_nine_loc_1ba90_outer_passes` failed on
+frame 20895 before the fix and pins all nine complete-ring draws plus the
+frame-20904 loader freeze. All 37,759 player/camera CRC frames remain exact.
+Per-frame RNG debt falls 16,864 -> 16,832, digest
+`57c89ddff61efc69240e9a2d31db643d905e2c3a`. The 25-frame sampled RNG field
+count rises 1,264 -> 1,398, digest
+`96365ca1d893b641e60ed61a63fef407df26adbb`, because the corrected later stream
+differs in more ring fields at those sparse checkpoints even though 32 fewer
+frames differ in the complete stream. Frames 16..20926 are exact. The next
+frontier is IntroSequence6 frame 20927: native `$FFF4`, oracle `$FFF8`, ring
+index 44 `$5C/$B7`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

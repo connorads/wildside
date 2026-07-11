@@ -2549,6 +2549,15 @@ impl NativeRuntime {
                     };
                 elapsed >= first_live_elapsed && elapsed != panel_upload_stall_elapsed
             }
+            BootState::IntroSequence6 { .. } => {
+                // ASM loc_1BA5C writes Game_Mode=$28 before loc_1BA90's
+                // `$100,$E0,...,$00` fade resumes have finished. Each resume
+                // is still inside the old Mode_Standard -> Execute_Objects
+                // loc_E12 pass; loc_1BAAC only enters Load_IntroSequence6
+                // after the ninth draw.
+                self.title_screen_elapsed_frames
+                    < INTRO_SEQUENCE_6_ENTRY_FADE_OUTER_PASSES_LOC_1BA90
+            }
             _ => false,
         };
         let frame_started_in_title_screen =

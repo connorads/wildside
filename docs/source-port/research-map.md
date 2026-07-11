@@ -23,13 +23,29 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 16,864 mismatches, first at
-frame 20895, under digest `b40154c53f9ac76cb691d190d894b3cc6aded4fc`.
-Frames 16..20894 match the complete RNG state exactly; the next mismatch begins
-when IntroSequence6's oracle object passes remain live while native freezes.
+of the remaining 37,743 frames. It currently records 16,832 mismatches, first at
+frame 20927, under digest `57c89ddff61efc69240e9a2d31db643d905e2c3a`.
+Frames 16..20926 match the complete RNG state exactly; the next mismatch begins
+when IntroSequence6's first post-loader oracle object pass resumes while native
+remains frozen.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.
+
+The latest correction models `loc_1BA5C`'s mode-write ordering rather than
+treating `Game_Mode=$28` as immediate entry to `Load_IntroSequence6`. The ROM
+first executes nine `loc_1BA90` hibernation resumes while subtracting `$20`
+from its `$100` fade word through `$00`; every resume remains in the enclosing
+`Mode_Standard -> Execute_Objects loc_E12` pass. Only the negative result takes
+`loc_1BAAC -> loc_6E2` into the loader. Regression
+`intro_sequence_6_mode_switch_keeps_nine_loc_1ba90_outer_passes` failed on
+frame 20895 before the fix and pins nine complete-ring draws followed by the
+frame-20904 loader freeze. Per-frame RNG debt falls 16,864 -> 16,832. The
+sampled RNG field count rises 1,264 -> 1,398 because the corrected stream
+changes how many ring fields differ at later 25-frame samples; the complete
+per-frame comparator is stronger evidence and shows 32 fewer mismatching
+frames. The next frontier is IntroSequence6 frame 20927: native `$FFF4`, oracle
+`$FFF8`, first ring difference index 44 `$5C/$B7`.
 
 The latest correction scopes `loc_1BC36`'s combined
 `sub_1C034(d4=4) -> sub_1C0EE` upload stall to its typed IntroSequence5

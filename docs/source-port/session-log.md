@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 IntroSequence6 pre-loader fade passes)
+
+- `loc_1BA5C` writes `Game_Mode=$28` before its `$100` fade has finished.
+  Nine `loc_1BA90` hibernation resumes still return through the enclosing
+  `Mode_Standard -> Execute_Objects loc_E12` pass; only `loc_1BAAC -> loc_6E2`
+  enters `Load_IntroSequence6`.
+- Native now advances the complete ring on frames 20895..20903 and freezes from
+  frame 20904, matching oracle exactly through frame 20926.
+- Full-route CRC remains exact on all 37,759 frames. Per-frame RNG debt falls
+  16,864 -> 16,832, digest `57c89ddff61efc69240e9a2d31db643d905e2c3a`.
+  Sampled RNG field debt rises 1,264 -> 1,398, digest
+  `96365ca1d893b641e60ed61a63fef407df26adbb`, because later 25-frame samples
+  expose more differing ring fields despite 32 fewer mismatching frames.
+- `mise run verify-slice-fast` and the isolated full TAS run pass with the new
+  checked-in ratchet.
+- NEXT: IntroSequence6 frame 20927. Native remains `$FFF4` while oracle resumes
+  at `$FFF8` (ring index 44 `$5C/$B7`) and continues drawing.
+
 ## 2026-07-11 handoff (#390 ordinary IntroSequence5 upload stall)
 
 - The Start-skip and ordinary timeout-restart IntroSequence5 visits present

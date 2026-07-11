@@ -66,6 +66,12 @@ pub(crate) const INTRO_SEQUENCE_5_START_SKIP_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED
 /// frame later. Published frames 20758/20759 pin the live/frozen boundary.
 pub(crate) const INTRO_SEQUENCE_5_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED: usize =
     INTRO_SEQUENCE_5_START_SKIP_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED + 1;
+/// ASM loc_1BA5C writes `Game_Mode=$28`, then loc_1BA90 hibernates and
+/// subtracts `$20` from the `$100` palette-fade word until it becomes
+/// negative. Those nine inclusive resumes still return through the existing
+/// Mode_Standard `Execute_Objects loc_E12` pass before loc_1BAAC enters
+/// `loc_6E2 -> Load_IntroSequence6`.
+pub(crate) const INTRO_SEQUENCE_6_ENTRY_FADE_OUTER_PASSES_LOC_1BA90: usize = 9;
 pub(crate) const INTRO_SEGMENT_FRAMES: usize = 80;
 pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
 /// Demo/title-return lineages still use the short local title attract lock
