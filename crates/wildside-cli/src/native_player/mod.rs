@@ -2550,6 +2550,7 @@ mod tests {
             number_gfx_objects: 4,
             rng_offset: None,
             rng_last_byte: None,
+            rng_ring: None,
             level_complete: false,
             level_complete_elapsed_frames: 0,
             level_complete_score_rows_elapsed_frames: 0,

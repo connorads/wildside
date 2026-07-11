@@ -533,6 +533,29 @@ pub(crate) fn compare_gameplay_checkpoints_against_oracle(
                 gameplay_debug_context(native)
             );
         }
+        if let (Some(native_offset), Some(oracle_offset)) = (native.rng_offset, oracle.rng_offset)
+            && rng_states_are_initialised(native.rng_offset, oracle.rng_offset)
+            && native_offset != oracle_offset
+        {
+            bail!(
+                "gameplay state {}@{} diverged in RNG offset (native {native_offset:04X}, oracle {oracle_offset:04X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                run_dir.display()
+            );
+        }
+        if let (Some(native_ring), Some(oracle_ring)) = (&native.rng_ring, &oracle.rng_ring)
+            && rng_states_are_initialised(native.rng_offset, oracle.rng_offset)
+            && let Some((index, native_byte, oracle_byte)) =
+                native_ring.first_difference(oracle_ring)
+        {
+            bail!(
+                "gameplay state {}@{} diverged in RNG ring byte {index} (native {native_byte:02X}, oracle {oracle_byte:02X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                run_dir.display()
+            );
+        }
     }
 
     Ok(())
@@ -728,7 +751,28 @@ pub(crate) fn gameplay_differing_fields(
     if native.character_movement != oracle.character_movement {
         fields.push("character_movement");
     }
+    if rng_states_are_initialised(native.rng_offset, oracle.rng_offset)
+        && matches!((native.rng_offset, oracle.rng_offset), (Some(left), Some(right)) if left != right)
+    {
+        fields.push("rng_offset");
+    }
+    if rng_states_are_initialised(native.rng_offset, oracle.rng_offset)
+        && matches!((&native.rng_ring, &oracle.rng_ring), (Some(left), Some(right)) if left != right)
+    {
+        fields.push("rng_ring");
+    }
     fields
+}
+
+fn rng_states_are_initialised(native_offset: Option<u16>, oracle_offset: Option<u16>) -> bool {
+    fn points_inside_ring(offset: u16) -> bool {
+        matches!(offset as i16, -55..=-1)
+    }
+
+    matches!(
+        (native_offset, oracle_offset),
+        (Some(native), Some(oracle)) if points_inside_ring(native) && points_inside_ring(oracle)
+    )
 }
 
 pub(crate) fn gameplay_checkpoint_window(scenario: GameplayScenario, frame_index: usize) -> String {
@@ -778,6 +822,21 @@ pub(crate) fn gameplay_field_value(state: &GameplayState, field: &str) -> String
         "character_movement" => state
             .character_movement
             .map_or_else(|| String::from("none"), |value| format!("{value:04X}")),
+        "rng_offset" => state
+            .rng_offset
+            .map_or_else(|| String::from("none"), |value| format!("{value:04X}")),
+        "rng_ring" => state.rng_ring.as_ref().map_or_else(
+            || String::from("none"),
+            |ring| {
+                ring.as_bytes().iter().fold(
+                    String::with_capacity(wildside_core::RomRandomRing::LENGTH * 2),
+                    |mut output, byte| {
+                        let _ = write!(output, "{byte:02X}");
+                        output
+                    },
+                )
+            },
+        ),
         "kid_collision_type" => state
             .kid_collision_type
             .map_or_else(|| String::from("none"), |value| format!("{value:04X}")),
@@ -1129,6 +1188,7 @@ pub(crate) fn native_trace_to_oracle_state(
         currently_transforming: Some(frame.form_change_flash_frames > 1),
         rng_offset: frame.rng_offset,
         rng_last_byte: frame.rng_last_byte,
+        rng_ring: frame.rng_ring.clone(),
         level_special_effects: None,
         gameplay_debug_fields: frame.gameplay_debug_fields.clone(),
         cpu_registers: None,
@@ -1405,6 +1465,29 @@ pub(crate) fn compare_native_states_against_oracle_with_options(
                 run_dir.display()
             );
         }
+        if let (Some(native_offset), Some(oracle_offset)) = (native.rng_offset, oracle.rng_offset)
+            && rng_states_are_initialised(native.rng_offset, oracle.rng_offset)
+            && native_offset != oracle_offset
+        {
+            bail!(
+                "gameplay state {}@{} diverged in RNG offset (native {native_offset:04X}, oracle {oracle_offset:04X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                run_dir.display()
+            );
+        }
+        if let (Some(native_ring), Some(oracle_ring)) = (&native.rng_ring, &oracle.rng_ring)
+            && rng_states_are_initialised(native.rng_offset, oracle.rng_offset)
+            && let Some((index, native_byte, oracle_byte)) =
+                native_ring.first_difference(oracle_ring)
+        {
+            bail!(
+                "gameplay state {}@{} diverged in RNG ring byte {index} (native {native_byte:02X}, oracle {oracle_byte:02X}); artefacts in {}",
+                native.label,
+                native.frame_index,
+                run_dir.display()
+            );
+        }
         if state_player_words_are_authoritative(native, oracle)
             && native.just_received_damage != oracle.just_received_damage
         {
@@ -1643,6 +1726,7 @@ pub(crate) fn compare_enemy_snapshots_against_oracle(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wildside_core::RomRandomRing;
 
     fn oracle_state(label: &str, frame_index: usize, game_mode: u16) -> OracleState {
         OracleState {
@@ -1682,6 +1766,7 @@ mod tests {
             currently_transforming: Some(false),
             rng_offset: None,
             rng_last_byte: None,
+            rng_ring: None,
             level_special_effects: None,
             gameplay_debug_fields: BTreeMap::new(),
             cpu_registers: None,
@@ -1713,6 +1798,8 @@ mod tests {
             options_speed_button_fast: false,
             invulnerable_frames: Some(0),
             just_received_damage: Some(false),
+            rng_offset: None,
+            rng_ring: None,
             kid_ground_probe: Some("ground".into()),
             kid_grounded_release_probe: None,
             kid_jump_gravity_probe: None,
@@ -1840,6 +1927,31 @@ mod tests {
         oracle.camera_y_pos = native.camera_y_pos + CAMERA_POSITION_TOLERANCE;
         oracle.kid_x_pos = native.kid_x_pos + CAMERA_POSITION_TOLERANCE;
         oracle.kid_y_pos = native.kid_y_pos + CAMERA_POSITION_TOLERANCE;
+
+        assert!(gameplay_differing_fields(&native, &oracle).is_empty());
+    }
+
+    #[test]
+    fn gameplay_differing_fields_reports_rng_ring_drift_with_matching_offset() {
+        let mut native = gameplay_state(720, "frame_00720", 0x0020_0000);
+        native.rng_offset = Some(0xFFED);
+        native.rng_ring = Some(RomRandomRing::from_bytes([0x06; RomRandomRing::LENGTH]));
+        let mut oracle = native.clone();
+        let mut oracle_bytes = [0x06; RomRandomRing::LENGTH];
+        oracle_bytes[17] = 0x07;
+        oracle.rng_ring = Some(RomRandomRing::from_bytes(oracle_bytes));
+
+        assert_eq!(gameplay_differing_fields(&native, &oracle), ["rng_ring"]);
+    }
+
+    #[test]
+    fn gameplay_differing_fields_skips_oracle_wram_before_init_rng() {
+        let mut native = gameplay_state(0, "frame_00000", 0);
+        native.rng_offset = Some(0xFFC9);
+        native.rng_ring = Some(RomRandomRing::from_bytes([0x89; RomRandomRing::LENGTH]));
+        let mut oracle = native.clone();
+        oracle.rng_offset = Some(0);
+        oracle.rng_ring = Some(RomRandomRing::from_bytes([0; RomRandomRing::LENGTH]));
 
         assert!(gameplay_differing_fields(&native, &oracle).is_empty());
     }
@@ -2106,6 +2218,25 @@ mod tests {
             .expect_err("ordinary state comparison must keep camera authoritative");
 
         assert!(error.to_string().contains("diverged in camera position"));
+    }
+
+    #[test]
+    fn compare_native_states_reports_first_rng_ring_byte_with_matching_scalars() {
+        let run_dir = Path::new("/tmp/strict-rng-ring");
+        let mut native = oracle_state("ufo_target_live", 12, 0x000C);
+        native.rng_offset = Some(0xFFED);
+        native.rng_last_byte = Some(0x06);
+        native.rng_ring = Some(RomRandomRing::from_bytes([0x06; RomRandomRing::LENGTH]));
+        let mut oracle = native.clone();
+        let mut oracle_bytes = [0x06; RomRandomRing::LENGTH];
+        oracle_bytes[23] = 0xAA;
+        oracle.rng_ring = Some(RomRandomRing::from_bytes(oracle_bytes));
+
+        let error = compare_native_states_against_oracle(run_dir, &[native], &[oracle])
+            .expect_err("one mutable RNG byte must remain authoritative");
+
+        assert!(error.to_string().contains("RNG ring byte 23"));
+        assert!(error.to_string().contains("native 06, oracle AA"));
     }
 
     #[test]

@@ -56,6 +56,9 @@ const KID_COLLISION_TYPE_ADDR: u32 = 0x00FF_2518;
 const CHARACTER_MOVEMENT_ADDR: u32 = 0x00FF_FA56;
 const INVULNERABLE_FRAMES_ADDR: u32 = 0x00FF_FA2B;
 const JUST_RECEIVED_DAMAGE_ADDR: u32 = 0x00FF_FA73;
+const RNG_RAM_START_ADDR: u32 = 0x00FF_FBDA;
+const RNG_RAM_LENGTH: usize = 55;
+const RNG_OFFSET_ADDR: u32 = 0x00FF_FC12;
 const VRAM_LEN: usize = 0x1_0000;
 const CRAM_LEN: usize = 0x80;
 const VSRAM_LEN: usize = 0x50;
@@ -155,6 +158,8 @@ pub struct CpuProbe {
     pub options_speed_button_fast: bool,
     pub invulnerable_frames: u8,
     pub just_received_damage: bool,
+    pub rng_offset: u16,
+    pub rng_ring: [u8; RNG_RAM_LENGTH],
     pub number_objects: u16,
     pub number_gfx_objects: u16,
     pub z80_interrupt_mode: u8,
@@ -691,6 +696,13 @@ pub fn probe_rom_with_script(
             .mem
             .read_work_ram_byte(JUST_RECEIVED_DAMAGE_ADDR)
             != 0,
+        rng_offset: runtime.core.mem.read_work_ram_word(RNG_OFFSET_ADDR),
+        rng_ring: std::array::from_fn(|index| {
+            runtime
+                .core
+                .mem
+                .read_work_ram_byte(RNG_RAM_START_ADDR + index as u32)
+        }),
         number_objects: runtime.core.mem.read_work_ram_word(NUMBER_OBJECTS_ADDR),
         number_gfx_objects: runtime.core.mem.read_work_ram_word(NUMBER_GFX_OBJECTS_ADDR),
         z80_interrupt_mode: runtime.z80.interrupt_mode,
@@ -901,6 +913,12 @@ impl MdRuntime {
                 != 0,
             invulnerable_frames: self.core.mem.read_work_ram_byte(INVULNERABLE_FRAMES_ADDR),
             just_received_damage: self.core.mem.read_work_ram_byte(JUST_RECEIVED_DAMAGE_ADDR) != 0,
+            rng_offset: self.core.mem.read_work_ram_word(RNG_OFFSET_ADDR),
+            rng_ring: std::array::from_fn(|index| {
+                self.core
+                    .mem
+                    .read_work_ram_byte(RNG_RAM_START_ADDR + index as u32)
+            }),
             number_objects: self.core.mem.read_work_ram_word(NUMBER_OBJECTS_ADDR),
             number_gfx_objects: self.core.mem.read_work_ram_word(NUMBER_GFX_OBJECTS_ADDR),
             z80_interrupt_mode: self.z80.interrupt_mode,

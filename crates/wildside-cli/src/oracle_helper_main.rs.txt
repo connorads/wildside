@@ -408,6 +408,8 @@ struct OracleState {
     #[serde(default)]
     rng_last_byte: Option<u8>,
     #[serde(default)]
+    rng_ring: Option<Vec<u8>>,
+    #[serde(default)]
     level_special_effects: Option<u16>,
     #[serde(default)]
     gameplay_debug_fields: BTreeMap<String, String>,
@@ -1379,6 +1381,10 @@ fn capture_state(
         currently_transforming: Some(currently_transforming),
         rng_offset: Some(read_wram_u16(&work_ram, RNG_OFFSET_ADDR)),
         rng_last_byte: Some(rng_last_byte(&work_ram)),
+        rng_ring: Some(
+            work_ram[work_ram_index(RNG_RAM_START_ADDR)..work_ram_index(RNG_RAM_END_ADDR)]
+                .to_vec(),
+        ),
         level_special_effects: Some(read_wram_u16(&work_ram, LEVEL_SPECIAL_EFFECTS_ADDR)),
         gameplay_debug_fields,
         cpu_registers: cpu_regs,

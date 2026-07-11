@@ -1,6 +1,6 @@
 use super::*;
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
-use wildside_core::run_script_with_trace;
+use wildside_core::{RomRandomRing, run_script_with_trace};
 
 pub(crate) const AUDIO_SAMPLE_RATE: u32 = 44_100;
 pub(crate) const AUDIO_FRAME_SAMPLES: usize = 735;
@@ -101,6 +101,10 @@ pub(crate) struct GameplayState {
     pub(crate) options_speed_button_fast: bool,
     pub(crate) invulnerable_frames: Option<u8>,
     pub(crate) just_received_damage: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) rng_offset: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) rng_ring: Option<RomRandomRing>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) kid_ground_probe: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -388,6 +392,8 @@ pub(crate) fn gameplay_state_from_probe(
         options_speed_button_fast: snapshot.options_speed_button_fast,
         invulnerable_frames: Some(snapshot.invulnerable_frames),
         just_received_damage: Some(snapshot.just_received_damage),
+        rng_offset: Some(snapshot.rng_offset),
+        rng_ring: Some(RomRandomRing::from_bytes(snapshot.rng_ring)),
         kid_ground_probe: None,
         kid_grounded_release_probe: None,
         kid_jump_gravity_probe: None,
@@ -542,6 +548,8 @@ pub(crate) fn gameplay_state_from_native_trace(snapshot: &NativeTraceFrame) -> G
         options_speed_button_fast: snapshot.options_speed_button_fast,
         invulnerable_frames: Some(snapshot.invulnerable_frames.try_into().unwrap_or(u8::MAX)),
         just_received_damage: Some(snapshot.just_received_damage),
+        rng_offset: snapshot.rng_offset,
+        rng_ring: snapshot.rng_ring.clone(),
         kid_ground_probe: snapshot
             .gameplay_debug_fields
             .get("kid_ground_probe")
@@ -1031,6 +1039,8 @@ mod tests {
             options_speed_button_fast: false,
             invulnerable_frames: Some(0),
             just_received_damage: Some(false),
+            rng_offset: None,
+            rng_ring: None,
             kid_ground_probe: None,
             kid_grounded_release_probe: None,
             kid_jump_gravity_probe: None,

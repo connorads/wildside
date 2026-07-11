@@ -2676,7 +2676,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Level 0x48 recording RNG ring diverges before UFO.asm loc_35326 target-live step 12; offset/last-byte parity is insufficient"]
+    #[ignore = "Level 0x48 full RNG state matches at frame zero, but UFO.asm loc_35326 assigns the same draw stream to parents in a different intra-frame order"]
     fn level48_recording_frame_zero_matches_ufo_parent_state_loc_35008() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

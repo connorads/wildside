@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 typed full-RNG parity)
+
+- Native traces, oracle states, gameplay captures, sweep extraction, and
+  `--rng-trace` now carry the validated 55-byte ROM RNG ring plus its offset.
+  A malformed-length capture is rejected; strict comparisons report the first
+  differing byte after both sides have run `Init_RNG`.
+- Fresh Level 0x48 frame zero is exact for the entire RNG state: offset `$FFD2`,
+  last byte `$C0`, and all 55 ring bytes match oracle. The prior hidden-ring
+  divergence hypothesis is rejected.
+- UFO parents still differ at that boundary, so the remaining
+  `UFO.asm loc_35326` problem is intra-frame object scheduling/draw assignment:
+  equal draws are attached to different parents. NEXT: compare the target-live
+  step-12 caller order without changing seed, algorithm, or total draw count.
+- A trial whole-TAS RNG gate exposed thousands of pre-existing RNG-state drifts
+  on otherwise CRC-clean published routes. It remains diagnostic pending a
+  dedicated baseline/ratchet; the mandatory fast gate must stay green.
+
 ## 2026-07-11 handoff (#390 Level 0x48 RNG-ring frontier)
 
 - Generic oracle Object dumps now include `$44/$46/$48/$4A/$4C/$50`; the

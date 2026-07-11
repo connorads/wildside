@@ -96,6 +96,25 @@ oracle frame-zero parent positions, velocities, and directions; it must stay
 ignored until that ring-history frontier is derived engine-wide. Do not add a
 Level 0x48 seed reset, timer override, or blanket active-list reversal.
 
+Follow-up proactive correction 2026-07-11 promoted the complete 55-byte ring
+and offset into typed native/oracle/TAS parity state. `RomRandomRing` rejects
+captures of any other length; strict checkpoint/gameplay comparisons report the
+first differing byte after both sides have run `Init_RNG`, while legacy traces
+without a ring remain readable. `tas-diff --rng-trace` now prints `ring_diff`
+directly. The ordinary sweep frontier does not yet gate on RNG: enabling that
+comparison exposes thousands of already-present published-route RNG drifts
+despite matching player/camera CRCs, so those need a dedicated ratchet rather
+than turning the mandatory fast gate red in an instrumentation commit.
+
+The fresh Level 0x48 frame-zero result rejects the preceding ring-history
+hypothesis: native and oracle both end at offset `$FFD2`, last byte `$C0`, and
+the same 55 bytes (`F8 5C 32 ... 29 15 4A`). A cache-backed regression pins the
+whole ring. Since the UFO parents already differ while the complete global RNG
+state agrees, the ROM and native consumed the same draw stream but assigned
+draws to objects in a different intra-frame order. Continue at the first
+target-live step-12 `UFO.asm loc_35326` caller/order difference; do not change
+the RNG algorithm, seed, total draw count, or add a per-level correction.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

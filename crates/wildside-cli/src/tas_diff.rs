@@ -92,7 +92,9 @@ pub fn run_tas_diff(
     )?;
 
     if rng_trace {
-        println!("frame native_rng native_byte native_delta oracle_rng oracle_byte oracle_delta");
+        println!(
+            "frame native_rng native_byte native_delta oracle_rng oracle_byte oracle_delta ring_diff"
+        );
         let mut previous_native_rng = None;
         let mut previous_oracle_rng = None;
         for frame_idx in start..end {
@@ -107,6 +109,12 @@ pub fn run_tas_diff(
                 checkpoint_state(&oracle.states, &label).and_then(|state| state.rng_offset);
             let oracle_rng_last_byte =
                 checkpoint_state(&oracle.states, &label).and_then(|state| state.rng_last_byte);
+            let ring_diff = format_rng_ring_difference(
+                native_trace
+                    .get(frame_idx)
+                    .and_then(|frame| frame.rng_ring.as_ref()),
+                checkpoint_state(&oracle.states, &label).and_then(|state| state.rng_ring.as_ref()),
+            );
             let native_delta = format_rng_delta(previous_native_rng, native_rng_offset);
             let oracle_delta = format_rng_delta(previous_oracle_rng, oracle_rng_offset);
             let native_rng =
@@ -118,7 +126,7 @@ pub fn run_tas_diff(
             let oracle_byte =
                 oracle_rng_last_byte.map_or_else(|| "-".to_owned(), |byte| format!("{byte:#04x}"));
             println!(
-                "{frame_idx:>5} {native_rng:>10} {native_byte:>11} {native_delta:>12} {oracle_rng:>10} {oracle_byte:>11} {oracle_delta:>12}"
+                "{frame_idx:>5} {native_rng:>10} {native_byte:>11} {native_delta:>12} {oracle_rng:>10} {oracle_byte:>11} {oracle_delta:>12} {ring_diff}"
             );
             previous_native_rng = native_rng_offset;
             previous_oracle_rng = oracle_rng_offset;
@@ -442,6 +450,23 @@ pub fn run_tas_diff(
     }
 
     Ok(())
+}
+
+fn format_rng_ring_difference(
+    native: Option<&wildside_core::RomRandomRing>,
+    oracle: Option<&wildside_core::RomRandomRing>,
+) -> String {
+    match (native, oracle) {
+        (Some(native), Some(oracle)) => native.first_difference(oracle).map_or_else(
+            || String::from("match"),
+            |(index, native_byte, oracle_byte)| {
+                format!("byte[{index}]={native_byte:#04x}/{oracle_byte:#04x}")
+            },
+        ),
+        (None, Some(_)) => String::from("native-missing"),
+        (Some(_), None) => String::from("oracle-missing"),
+        (None, None) => String::from("missing"),
+    }
 }
 
 fn diff_category_tag(diff: &StateDiff) -> &'static str {
@@ -817,13 +842,13 @@ mod tests {
         checkpoint_state, collision_source_label, diff_category_tag, format_collision_source_value,
         format_native_enemy_debug, format_opt_bool, format_opt_i32, format_opt_u16,
         format_opt_u16_hex, format_opt_u32, format_oracle_enemy_debug, format_rng_delta,
-        native_gameplay_debug, native_gameplay_field, native_object_debug,
-        native_object_debug_relevant, oracle_gameplay_debug, oracle_gameplay_field,
-        oracle_object_debug, should_print_object_roster, summarize_entries,
+        format_rng_ring_difference, native_gameplay_debug, native_gameplay_field,
+        native_object_debug, native_object_debug_relevant, oracle_gameplay_debug,
+        oracle_gameplay_field, oracle_object_debug, should_print_object_roster, summarize_entries,
     };
     use crate::sweep::{DivergenceCategory, StateDiff};
     use wildside_core::{
-        GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame,
+        GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame, RomRandomRing,
         physics::Direction,
     };
 
@@ -885,6 +910,7 @@ mod tests {
             currently_transforming: None,
             rng_offset: None,
             rng_last_byte: None,
+            rng_ring: None,
             level_special_effects: None,
             gameplay_debug_fields: std::collections::BTreeMap::new(),
             cpu_registers: None,
@@ -934,6 +960,19 @@ mod tests {
         assert_eq!(format_opt_bool(Some(true)), "true");
         assert_eq!(format_opt_bool(Some(false)), "false");
         assert_eq!(format_opt_bool(None), "-");
+
+        let native = RomRandomRing::from_bytes([0x11; RomRandomRing::LENGTH]);
+        let mut oracle_bytes = [0x11; RomRandomRing::LENGTH];
+        oracle_bytes[23] = 0x22;
+        let oracle = RomRandomRing::from_bytes(oracle_bytes);
+        assert_eq!(
+            format_rng_ring_difference(Some(&native), Some(&oracle)),
+            "byte[23]=0x11/0x22"
+        );
+        assert_eq!(
+            format_rng_ring_difference(Some(&native), Some(&native)),
+            "match"
+        );
     }
 
     #[test]
@@ -1382,6 +1421,7 @@ mod tests {
             currently_transforming: None,
             rng_offset: None,
             rng_last_byte: None,
+            rng_ring: None,
             level_special_effects: None,
             gameplay_debug_fields,
             cpu_registers: None,
@@ -1472,6 +1512,7 @@ mod tests {
             number_gfx_objects: 0,
             rng_offset: None,
             rng_last_byte: None,
+            rng_ring: None,
             level_complete: false,
             level_complete_elapsed_frames: 0,
             level_complete_score_rows_elapsed_frames: 0,

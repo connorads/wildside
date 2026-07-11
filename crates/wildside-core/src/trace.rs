@@ -7763,6 +7763,7 @@ impl NativeRuntime {
             number_gfx_objects,
             rng_offset: Some(self.rom_random.offset_word()),
             rng_last_byte: Some(self.rom_random.last_byte()),
+            rng_ring: Some(self.rom_random.ring()),
             level_complete: matches!(self.player_lifecycle, PlayerLifecycle::LevelComplete { .. }),
             level_complete_elapsed_frames,
             level_complete_score_rows_elapsed_frames,
