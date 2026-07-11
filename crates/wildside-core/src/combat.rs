@@ -14236,7 +14236,7 @@ fn drips_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
             bottom_px: 9,
         };
     }
-    if enemy.wait_timer.is_some() && !enemy.stationary {
+    if enemy.layout_index.is_none() && enemy.wait_timer.is_some() && !enemy.stationary {
         // ASM Drips.asm loc_335D8/loc_338F8 surface children use later
         // `$22` mappings. Preserve their existing typed crawler box until
         // those animation rows are split individually.

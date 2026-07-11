@@ -2564,10 +2564,12 @@ impl ActiveEnemy {
                 self.hit_points,
             ),
         );
-        let wait_timer = if matches!(self.family, EnemyFamily::DragonWalking | EnemyFamily::Lion)
-            || (matches!(self.family, EnemyFamily::BigHoppingSkull)
-                && self.wait_timer > 0
-                && !self.death_animation_active)
+        let wait_timer = if matches!(
+            self.family,
+            EnemyFamily::DragonWalking | EnemyFamily::Lion | EnemyFamily::Drips
+        ) || (matches!(self.family, EnemyFamily::BigHoppingSkull)
+            && self.wait_timer > 0
+            && !self.death_animation_active)
             || (self.death_animation_active && enemy_death_animation_frames(self.family).is_some())
         {
             Some(self.wait_timer)
@@ -11105,6 +11107,19 @@ mod tests {
         assert_eq!(
             enemies[0].wait_timer, second_draw,
             "layout #07 executes second, so it consumes the second loc_3340E RNG byte"
+        );
+    }
+
+    #[test]
+    fn drips_snapshot_exposes_controller_wait_loc_3340e() {
+        let mut drips = mini_hopping_skull_test_enemy();
+        drips.family = EnemyFamily::Drips;
+        drips.wait_timer = 0x0040;
+
+        assert_eq!(
+            drips.snapshot().wait_timer,
+            Some(0x0040),
+            "ASM Drips.asm loc_3340E keeps the controller's dormant countdown in d0 across hibernates; full-state oracle traces must expose it rather than reducing parity to visible position",
         );
     }
 

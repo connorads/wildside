@@ -37,6 +37,29 @@ after different prior object-loading/RNG histories. `verify-slice-fast` and
 frames and #290's unchanged 212-authoritative / 2-oracle-limitation sampled
 state baseline.
 
+Follow-up proactive investigation 2026-07-11 promoted the hidden Drips
+controller wait into `NativeObjectSnapshot.wait_timer`, so ordinary full-state
+diffs can compare `Drips.asm loc_3340E` without parsing the specialised
+`drips_lifecycle_probe`. Level 0x48 recording frame zero is now pinned as a
+genuine shared scheduler frontier: native RNG is `$FFFA`, object count is 11,
+and sorted Drips waits are 98/101/101/102; oracle RNG is `$FFD2`, object count
+is 14, and waits are 64/95/35/68. Oracle also owns four UFO parents plus three
+live `Enemy0F_UFOBeam_Init` children while native owns four parents and no beam
+children. The RNG implementation and ring are not corrupt: during the title
+wait, equal offsets have matching ring prefixes and follow the same
+`Execute_Objects loc_E12` longword cadence.
+
+Rejected hypotheses: globally starting the debug title-card Mode_Level window
+three frames earlier and forcing an extra `loc_1AE2E` release frame made the
+Level 0x48 RNG offset almost exact but broke existing oracle-pinned Level 0x07,
+0x11, and 0x14 recording states; replaying the generic respawn-settle loader
+also consumed the wrong RNG history. Reversing the native active-enemy slice
+did not change this frontier, so the ROM's LIFO allocation rule cannot be
+applied as a blanket storage reversal. Continue by tracing the four UFO parent
+initialisers and their shared shooting transition during the captured title
+and target-live windows. Do not add a Level 0x48 RNG reset or four timer
+overrides.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

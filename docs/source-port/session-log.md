@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 Drips/UFO settle-state observability)
+
+- Level 0x48 frame zero has exact player/camera CRC but native RNG `$FFFA`, 11
+  objects, and Drips waits 98/101/101/102 versus oracle `$FFD2`, 14 objects,
+  and waits 64/95/35/68. Oracle's three extra objects are live UFO beam workers.
+- Drips controller waits are now typed `NativeObjectSnapshot` state, so normal
+  full-state diffs expose this hidden divergence without a specialised probe.
+- The RNG ring and longword cadence are sound. Broad earlier-title, extra
+  title-release, respawn-prime, and blanket active-list reversal hypotheses
+  were disproved and removed; existing Level 0x07/0x11/0x14 oracle pins caught
+  the over-broad scheduler experiment.
+- NEXT: trace the four Level 0x48 UFO initialisers and shared shooting transition
+  across title/target-live settle. Do not reset RNG or patch Drips timers.
+
 ## 2026-07-11 handoff (#390 Drips falling-child collision row)
 
 - Level 0x48's exact player/camera CRC concealed a native-only HP loss at frame
