@@ -8423,8 +8423,9 @@ mod chunk_04 {
             "arrow should move toward player (right)"
         );
         assert_eq!(
-            enemy.wait_timer, ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE,
-            "ASM loc_341BE/loc_34248 resets to the shooting-table pose delay, not arrow_accuracy"
+            enemy.wait_timer,
+            ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE - 1,
+            "ASM loc_341BE/loc_34248 counts the fire-entry hibernate as the first frame of the shooting-table pose delay"
         );
     }
 
@@ -9068,8 +9069,9 @@ mod chunk_04 {
 
         assert_eq!(projs.len(), 1);
         assert_eq!(
-            enemy.wait_timer, ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE,
-            "live archer should reload the full pose-table delay after firing"
+            enemy.wait_timer,
+            ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE - 1,
+            "ASM loc_34248 reloads the pose-table delay after its entry-frame hibernate"
         );
     }
 
@@ -9170,11 +9172,12 @@ mod chunk_04 {
             None,
         );
         let arrow = &projs[0];
-        // Facing Right → X offset +8px (negate of -8). Y offset: horizontal → -17px.
+        // ASM loc_341BE's zero sentinel stores the object offset `$FFF2,$FFEF`;
+        // loc_34216 negates only x when facing right.
         assert_eq!(
             arrow.x_pos >> 16,
-            100 + 8,
-            "right-facing: 8px right of archer"
+            100 + 14,
+            "right-facing: 14px right of archer"
         );
         assert_eq!(arrow.y_pos >> 16, 100 - 17, "horizontal: 17px above archer");
     }

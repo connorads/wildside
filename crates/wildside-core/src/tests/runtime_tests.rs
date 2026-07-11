@@ -6560,6 +6560,32 @@ mod chunk_09 {
     }
 
     #[test]
+    fn issue384_hoverboard_beach_archer_does_not_fire_by_recording_frame_60_loc_33fda() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let level = LevelId(0x17);
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(level.0)
+            .settle_recording_warp()
+            .run(&[0; 360], 360);
+        let frame_60 = &trace[60];
+        assert_eq!(
+            frame_60.number_objects, 5,
+            "ASM Archer.asm loc_33FDA/loc_3408C/loc_34266: the Level 0x17 oracle remains in the initial hibernate and held-arrow pose path through recording frame 60, so Number_of_Arrows stays zero and no arrow contributes to Number_Objects"
+        );
+        assert_eq!(
+            (trace[132].number_objects, trace[133].number_objects),
+            (6, 5),
+            "ASM Make_SpriteFromGfxObject loc_11B6 and Archer.asm loc_342D6/loc_34336: the first arrow exists on oracle frame 132, then its off-screen `$19` flag decrements Number_of_Arrows and deletes it on frame 133"
+        );
+        assert_eq!(
+            trace[359].number_objects, 5,
+            "ASM Archer.asm loc_34336: no fired arrow remains at the Level 0x17 idle-tail checkpoint"
+        );
+    }
+
+    #[test]
     fn script_runner_recording_settle_uses_level_zero_recording_age() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

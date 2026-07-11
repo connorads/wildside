@@ -2470,8 +2470,9 @@ impl NativeRuntime {
         // ASM loc_74E0 -> loc_6E2/Load_TitleCard: the debug level-skip shell
         // runs two early Mode_Standard object passes, hibernates through the
         // middle title-card window, then starts hidden Mode_Level on title
-        // wait tick 78. The oracle records post-tick state, so elapsed 78 is
-        // the first pre-step state whose pass must execute.
+        // wait tick 75. The first pass only burns Execute_Objects' RNG
+        // longword; Manage_EnemyLoading exposes the Archer on the following
+        // tick, when Enemy07_Archer_Init loc_33FDA consumes its RNG byte.
         let debug_level_entry_elapsed = match self.boot_state {
             BootState::StartingLevel { elapsed_frames, .. }
                 if self.debug_level_entry_suppresses_title_card_live_handoff =>
@@ -2481,9 +2482,9 @@ impl NativeRuntime {
             _ => None,
         };
         let debug_level_entry_object_pass =
-            debug_level_entry_elapsed.is_some_and(|elapsed| !(2..78).contains(&elapsed));
+            debug_level_entry_elapsed.is_some_and(|elapsed| !(2..75).contains(&elapsed));
         let debug_level_entry_hibernated =
-            debug_level_entry_elapsed.is_some_and(|elapsed| elapsed < 78);
+            debug_level_entry_elapsed.is_some_and(|elapsed| elapsed < 75);
         let level_entry_hibernated_gameplay_execution = self
             .starting_level_title_card_bootstrap_active_loc_1ae2e()
             || debug_level_entry_hibernated;
@@ -3291,7 +3292,7 @@ impl NativeRuntime {
             && matches!(
                 self.boot_state,
                 BootState::StartingLevel {
-                    elapsed_frames: 79..,
+                    elapsed_frames: 77..,
                     ..
                 }
             )

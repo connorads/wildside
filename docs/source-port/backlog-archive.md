@@ -11,6 +11,35 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #384
+
+Resolved 2026-07-11 from canonical Level 0x17 Hoverboard Beach state sweep
+report `1783752032`. Native exposed the Archer two hidden title-wait ticks too
+late and seeded it in the same pass as the first `Execute_Objects` RNG draw,
+then shortened the coroutine hibernates and used the held-arrow pose offset as
+the fired object's position. It consequently had a live arrow at frame 60,
+where the oracle retained five objects and `Number_of_Arrows=0`.
+
+Oracle settle traces and WRAM dumps at frames 132-133 establish the complete
+route. The hidden shell runs an object-only RNG pass at title-wait tick 75 and
+enemy loading on the following pass; `Enemy07_Archer_Init loc_33FDA`,
+`loc_3408C`, and `loc_34248` then produce the first arrow on frame 132. The
+zero sentinel stores the Shooting_Horizontal object's `$FFF2,$FFEF` offsets,
+so it moves to x=424. `Make_SpriteFromGfxObject loc_11B6` leaves `$19` set
+beyond the camera's +`$160` bound, and `loc_342D6`/`loc_34336` observes that
+cached flag on frame 133 and deletes the object.
+
+Native now keeps the object-only and enemy-loading phases separate, resumes
+the Archer's one-frame/DBF hibernates on the ROM boundaries, uses the fire-row
+object offsets, and delays the off-screen `$19` deletion until the next object
+wake. The cache-backed regression pins frames 60, 132, 133, and 359. Focused
+Level 0x17 state report `1783755508`, `verify-slice-fast`, and
+`verify-tas-full` pass. All 37,759 published-route CRC frames match and #290's
+212-authoritative / 2-oracle-limitation checkpoint baseline is unchanged.
+Canonical report `1783756175` improves the whole-level boundary from 35/34
+pass/fail with 131 blocking diffs to 36/33 with 130; Level 0x17 is the newly
+green level.
+
 ### #383
 
 Resolved 2026-07-11 from Level 0 full-sweep report `1783751049`. The scenario
@@ -11551,6 +11580,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 384 | [x] | P1 | Enemy/Archer | Hidden settle scheduling, Archer hibernates, fire-row offsets, and off-screen arrow deletion follow the ROM's object wakes. | Reports `1783755508` and `1783756175`; exact frames 60/132/133/359 regression. See archive #384. |
 | 383 | [x] | P1 | Verify/state | Full idle sweeps and `tas-diff` use the scenario's recording-settle bootstrap on both native and oracle. | Level 0 report `1783751667` passes with only two oracle limitations; focused configuration regression. See archive #383. |
 | 382 | [x] | P1 | Combat/timing | Character collision observes the frame-entry damage latch before `loc_BC6E` clears it later in the same frame. | Oracle RAM frames 235-302 and exact Dragon-breath release regression. See archive #382. |
 | 381 | [x] | P2 | Enemy/state | Recording settle preserves the cold-boot RNG ring and typed title-card lifecycle, aligning Level 0x14 Drips phases and crawler count. | Reports `1783747510` and `1783747598`; exact RNG-ring, Drips lifecycle/count, and title-card regressions. See archive #381. |

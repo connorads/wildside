@@ -377,12 +377,12 @@ pub(crate) fn archer_angle_loc_34458(
     }
 }
 
-/// Archer arrow spawn X offset (Archer.asm Shooting_Horizontal/Vertical 3rd frame: $FFF8 = -8).
-const ARCHER_ARROW_X_OFFSET: i32 = -8;
-/// Archer arrow spawn Y offset for horizontal shooting (Archer.asm: $FFEF = -17).
+/// Archer arrow object X offset (Archer.asm Shooting_Horizontal/Vertical zero sentinel: $FFF2).
+const ARCHER_ARROW_X_OFFSET: i32 = -14;
+/// Archer arrow object Y offset for horizontal shooting (Archer.asm zero sentinel: $FFEF).
 const ARCHER_ARROW_Y_OFFSET_HORIZONTAL: i32 = -17;
-/// Archer arrow spawn Y offset for vertical shooting (Archer.asm: $FFE8 = -24).
-const ARCHER_ARROW_Y_OFFSET_VERTICAL: i32 = -24;
+/// Archer arrow object Y offset for vertical shooting (Archer.asm zero sentinel: $FFE2).
+const ARCHER_ARROW_Y_OFFSET_VERTICAL: i32 = -30;
 
 /// Adjust arrow angle by ±1 toward target on a 28-value circular ring.
 /// ASM loc_34308/loc_34320: if shortest arc ≤ 14 steps, move direct; otherwise wrap.
@@ -470,7 +470,7 @@ pub(crate) fn step_archer(
     }
 
     if enemy.dragon_script_cmd == ARCHER_PHASE_INITIAL_HIBERNATE_LOC_33FDA {
-        if enemy.wait_timer > 0 {
+        if enemy.wait_timer > 1 {
             enemy.wait_timer -= 1;
             return;
         }
@@ -484,12 +484,15 @@ pub(crate) fn step_archer(
 
     let mut entered_shooting_table = false;
     if enemy.dragon_script_cmd == ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C {
-        if enemy.wait_timer > 0 {
+        if enemy.wait_timer > 1 {
             enemy.wait_timer -= 1;
             return;
         }
         enemy.dragon_script_cmd = ARCHER_PHASE_SHOOTING_TABLE_LOC_34248;
-        enemy.wait_timer = ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE;
+        // ASM loc_34248 hibernates on the table-entry frame. The three DBF
+        // spans total 121 visible frames, so the post-entry countdown stores
+        // 120 further wakes before the zero sentinel fires.
+        enemy.wait_timer = ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE - 1;
         entered_shooting_table = true;
     }
 
@@ -511,7 +514,7 @@ pub(crate) fn step_archer(
     // Reset timer for the next shooting-table cycle. `arrow_accuracy` below is
     // only the fired arrow's re-aim cadence, not the archer's shot cadence.
     let level = enemy.hit_points.saturating_sub(1).min(2) as usize;
-    enemy.wait_timer = ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE;
+    enemy.wait_timer = ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE - 1;
 
     // Need player position to compute angle.
     let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
@@ -541,9 +544,10 @@ pub(crate) fn step_archer(
     let arrow_setup = archer_arrow_setup_loc_341AA(angle, enemy.facing);
     let reaim = ARCHER_FIRE_TIMER[level];
 
-    // Spawn offset from Archer.asm 3rd animation frame.
-    // Vertical shooting table: Y=-24. Horizontal table: Y=-17.
-    // X offset negated when facing right (ASM loc_34216).
+    // ASM loc_341BE's zero sentinel advances past the fire sprite word, then
+    // copies that row's `$FFF2,$FFEF`/`$FFF2,$FFE2` object offsets. These are
+    // distinct from the preceding held-arrow pose at `$FFF8,$FFEF`/`$FFF8,$FFE8`.
+    // X is negated when facing right at loc_34216.
     let y_offset = if shot_selection.uses_vertical_table {
         ARCHER_ARROW_Y_OFFSET_VERTICAL
     } else {
@@ -818,42 +822,9 @@ mod tests {
         );
         assert_eq!(
             archer.dragon_script_cmd,
-            ARCHER_PHASE_INITIAL_HIBERNATE_LOC_33FDA
-        );
-        assert_eq!(archer.wait_timer, 0);
-        assert!(projectiles.is_empty());
-
-        step_archer(
-            &mut archer,
-            &mut projectiles,
-            Some(200 << 16),
-            Some(100 << 16),
-            None,
-        );
-        assert_eq!(
-            archer.dragon_script_cmd,
             ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C
         );
         assert_eq!(archer.wait_timer, 1);
-        assert_eq!(
-            archer.facing,
-            Direction::Left,
-            "ASM Archer.asm loc_3408C hibernates once before selecting the shooting sector",
-        );
-        assert!(projectiles.is_empty());
-
-        step_archer(
-            &mut archer,
-            &mut projectiles,
-            Some(200 << 16),
-            Some(100 << 16),
-            None,
-        );
-        assert_eq!(
-            archer.dragon_script_cmd,
-            ARCHER_PHASE_AIM_HIBERNATE_LOC_3408C
-        );
-        assert_eq!(archer.wait_timer, 0);
         assert!(projectiles.is_empty());
 
         step_archer(
@@ -868,10 +839,14 @@ mod tests {
             ARCHER_PHASE_SHOOTING_TABLE_LOC_34248
         );
         assert_eq!(
-            archer.wait_timer, ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE,
-            "ASM Archer.asm loc_3408C selects facing and loc_3419A arms the shooting table before loc_34248 consumes the first DBF tick",
+            archer.wait_timer,
+            ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE - 1
         );
-        assert_eq!(archer.facing, Direction::Right);
+        assert_eq!(
+            archer.facing,
+            Direction::Right,
+            "ASM Archer.asm loc_3408C's one-frame hibernate resumes into shooting-sector selection on the next object wake",
+        );
         assert!(
             projectiles.is_empty(),
             "ASM Archer.asm loc_341BE should not reach the zero fire sentinel on the frame loc_3408C arms the table",
@@ -966,8 +941,8 @@ mod tests {
         assert_eq!(projectiles.len(), 1);
         assert_eq!(
             (projectiles[0].x_pos >> 16, projectiles[0].y_pos >> 16),
-            (92, 76),
-            "ASM Archer.asm Shooting_Vertical third fire frame uses x offset `$FFF8` and y offset `$FFE8`"
+            (86, 70),
+            "ASM Archer.asm loc_341BE's Shooting_Vertical zero sentinel stores the arrow object's `$FFF2,$FFE2` offsets"
         );
         assert_eq!(
             projectiles[0].current_angle, 0x0A,

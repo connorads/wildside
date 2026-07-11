@@ -1343,6 +1343,19 @@ fn drips_surface_crawler_out_of_level_bounds_loc_33588(
     vertical_contact != 0
 }
 
+fn archer_arrow_outside_horizontal_sprite_bounds_loc_11b6(
+    projectile_x_pos: u32,
+    camera_x_pos: u32,
+) -> bool {
+    // ASM Make_SpriteFromGfxObject loc_11B6 sets `$19(a3)` until the sprite
+    // origin passes its camera bounds check: signed screen x must remain in
+    // [-$40,$160]. Archer.asm loc_342D6 deletes the arrow on the next wake
+    // when that byte is still set.
+    let screen_x =
+        ((projectile_x_pos >> 16) as u16).wrapping_sub((camera_x_pos >> 16) as u16) as i16;
+    !(-0x40..=0x160).contains(&screen_x)
+}
+
 fn drips_surface_crawler_supported_below_loc_33650(
     grid: &terrain::BlockGrid,
     projectile: &EnemyProjectile,
@@ -3152,6 +3165,27 @@ impl NativeRuntime {
             // `step_tracked_shooter_object_loc_EDFA` already bounds the object at
             // the level edge, so exempt it from the generic lifetime path.
             let is_shooter_block = p.kind == EnemyProjectileKind::ShooterBlock;
+            if p.kind == EnemyProjectileKind::ArcherArrow
+                && p.animation_elapsed_frames != 0
+                && camera.is_some_and(|camera| {
+                    archer_arrow_outside_horizontal_sprite_bounds_loc_11b6(
+                        p.x_pos,
+                        camera.x_pos,
+                    )
+                })
+            {
+                let delete = archer_arrow_delete_loc_34336(archer_arrow_count);
+                debug_assert!(delete.deletes_current_object);
+                archer_arrow_count = delete.number_of_arrows;
+                return false;
+            }
+            if p.kind == EnemyProjectileKind::ArcherArrow {
+                // ASM Enemy07_ArcherArrow_Init reaches loc_342D6 by
+                // hibernating first. Make_SpriteFromGfxObject writes `$19`
+                // later on the spawn frame, and the worker observes that
+                // cached flag only after its next wake.
+                p.animation_elapsed_frames = 1;
+            }
             let uses_loc_3263c_post_move_gravity = matches!(
                 p.kind,
                 EnemyProjectileKind::DripsSurfaceCrawlerBurst | EnemyProjectileKind::UfoFirstHurtDebris

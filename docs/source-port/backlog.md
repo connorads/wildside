@@ -35,11 +35,11 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 - **Source-port visual ratchet:** `1p-accurate` renders Level 0 frames 0, 30, 60, and 120 through the source-port renderer against jgenesis with exact state, no masking, MAE 0.000, and zero changed pixels. The gate now requires exact pixels.
 - **Visual confidence boundary:** #375 is resolved for those four settled-warp checkpoints only. This is not cold-boot or whole-game pixel parity. The older `frame_oracle:*` steps compare wildside-md ROM VDP output with jgenesis, not source-port pixels.
 - **Full published-route evidence:** all 37,759 requested player/camera CRC frames match oracle, while 1,512 sampled checkpoints retain #290's baseline of 212 authoritative export diffs and 2 oracle limitations. This is not whole-state, enemy, render, or audio equality.
-- **Whole-level sweep boundary:** report `1783747598` reaches real gameplay on all 69 BCD levels: 35 pass and 34 fail with 131 authoritative diffs. The old all-masked green sweep was invalid.
+- **Whole-level sweep boundary:** report `1783756175` reaches real gameplay on all 69 BCD levels: 36 pass and 33 fail with 130 blocking diffs. The old all-masked green sweep was invalid.
 - **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
-- **Latest proactive fix:** #382 aligns the frame-entry `Just_received_damage` gate with `Mode_Level`/`loc_BC6E`; the Level 0 aligned recording spends the sustained Dragon-breath hit on oracle frame 302.
+- **Latest proactive fix:** #384 aligns the hidden level-entry object/enemy phases and Archer coroutine timing. Level 0x17 report `1783755508` passes, including the first arrow's exact frame-132 spawn and frame-133 off-screen deletion.
 - **Full-frame sweep boundary:** #383 removes the native-only synthetic settle override. Level 0 report `1783751667` passes with zero blocking diffs and two known object-export limitations; idle-tail render remains non-blocking at MAE 1.2.
-- **Current work:** no ready/open row remains. Use the proactive fallback and select the next failure from canonical state report `1783747598`; do not infer gameplay bugs from the rejected full-sweep bootstrap boundary.
+- **Current work:** no ready/open row remains. Use the proactive fallback and select the next failure from canonical state report `1783756175`; do not infer gameplay bugs from the rejected full-sweep bootstrap boundary.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#384 Archer settle and projectile timing)
+
+- Hidden level-entry scheduling now starts the ROM's object-only RNG pass at
+  title-wait tick 75, then exposes enemy loading for the Archer's `loc_33FDA`
+  RNG seed on the following pass.
+- Archer initial/aim hibernates and the `loc_34248` DBF delay resume on the
+  ROM wake boundaries. The fired object uses the zero-sentinel offsets rather
+  than the preceding held-arrow pose.
+- Oracle WRAM proves the Level 0x17 arrow spawns on frame 132 and is deleted on
+  frame 133 because `Make_SpriteFromGfxObject loc_11B6` leaves `$19` set beyond
+  the camera bound. Native mirrors the one-wake delay.
+- Focused Level 0x17 report `1783755508` passes. #384 closes. NEXT: use
+  `project-status` and the proactive fallback to select the next canonical
+  state-sweep failure.
+- Canonical report `1783756175` improves the whole-level boundary from 35/34
+  pass/fail with 131 blocking diffs to 36/33 with 130; Level 0x17 becomes
+  green without reducing the pass count elsewhere.
+- `verify-slice-fast` and `verify-tas-full` pass; all 37,759 published-route
+  CRC frames match and #290's 212-authoritative / 2-limitation baseline is
+  unchanged.
+
 ## 2026-07-11 handoff (#383 full-sweep bootstrap alignment)
 
 - Full idle sweeps and `tas-diff` now honour `settle_oracle_warp` on native,
