@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 IntroSequence6 live worker schedule)
+
+- `Load_IntroSequence6` returns after allocating `loc_1BAB0`, `loc_1B37C`, and
+  `sub_1B43A`, so the enclosing `Mode_Standard -> Execute_Objects loc_E12`
+  passes resume on published frame 20927.
+- `sub_1B43A -> loc_1B45A` stretches those passes across frame 21118 for its
+  palette blackout hibernate and frames 21120..21130 for the
+  `sub_1B532`/`Load_TitleArt` VDP rebuild. Native now preserves both pauses.
+- Full-route CRC remains exact on all 37,759 frames. Per-frame RNG debt falls
+  16,832 -> 15,146, digest `91bde5af2594ffa7156005d7204440ca4b91092e`;
+  sampled RNG fields fall 1,398 -> 1,256, digest
+  `84953f5519cbb9bd2637120eda547ade82753c0f`.
+- `mise run verify-slice-fast` and the isolated full TAS replay pass with the
+  improved checked-in ratchet.
+- NEXT: frame 22607. Native `$FFCB`, oracle `$FFCF`, first ring difference
+  index 3 `$00/$51`.
+
 ## 2026-07-11 handoff (#390 IntroSequence6 pre-loader fade passes)
 
 - `loc_1BA5C` writes `Game_Mode=$28` before its `$100` fade has finished.

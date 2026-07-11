@@ -462,6 +462,30 @@ frames differ in the complete stream. Frames 16..20926 are exact. The next
 frontier is IntroSequence6 frame 20927: native `$FFF4`, oracle `$FFF8`, ring
 index 44 `$5C/$B7`.
 
+Follow-up proactive correction 2026-07-11 traced the first post-loader pass
+through `Load_IntroSequence6`. After its VRAM work completes, it allocates
+`loc_1BAB0`, `loc_1B37C`, and `sub_1B43A` before returning, so the surrounding
+`Mode_Standard -> Execute_Objects loc_E12` loop resumes its one-longword outer
+draw on published frame 20927.
+
+The same oracle trace exposes two non-uniform intervals in that live schedule.
+`sub_1B43A -> loc_1B45A` copies and clears all 64 palette words at `loc_1B470`
+before a one-frame hibernate, producing the frame-21118 pause. Its next pass
+runs `sub_1BF24` and `sub_1B532`, restores the palette at `loc_1B494`, and
+hibernates once more; `Load_TitleArt` then stretches that pass across frames
+21120..21130 before the outer cadence resumes on 21131.
+
+Native now derives those phases from IntroSequence6-local displayed frames,
+not global TAS-frame checks. Regression
+`intro_sequence_6_workers_preserve_loc_e12_rng_around_loc_1b45a_upload_stalls`
+failed on frame 20927 before the fix and pins every complete-ring draw/freeze
+through frame 21144. All 37,759 player/camera CRC frames remain exact.
+Per-frame RNG debt falls 16,832 -> 15,146, digest
+`91bde5af2594ffa7156005d7204440ca4b91092e`; sampled RNG field debt falls
+1,398 -> 1,256, digest `84953f5519cbb9bd2637120eda547ade82753c0f`.
+Frames 16..22606 are exact. The next frontier is frame 22607: native `$FFCB`,
+oracle `$FFCF`, ring index 3 `$00/$51`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

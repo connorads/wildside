@@ -72,6 +72,20 @@ pub(crate) const INTRO_SEQUENCE_5_PANEL_UPLOAD_STALL_PRE_STEP_ELAPSED: usize =
 /// Mode_Standard `Execute_Objects loc_E12` pass before loc_1BAAC enters
 /// `loc_6E2 -> Load_IntroSequence6`.
 pub(crate) const INTRO_SEQUENCE_6_ENTRY_FADE_OUTER_PASSES_LOC_1BA90: usize = 9;
+/// Post-step local frame on which `Load_IntroSequence6` has returned after
+/// allocating `loc_1BAB0`, `loc_1B37C`, and `sub_1B43A`, allowing the next
+/// `Mode_Standard -> Execute_Objects loc_E12` pass to draw. Published-route
+/// oracle probes resume on global frame 20927, local frame 33.
+pub(crate) const INTRO_SEQUENCE_6_POST_LOADER_RNG_FIRST_LIVE_FRAME: usize = 33;
+/// Post-step local frame consumed by loc_1B45A's first one-frame hibernate
+/// after its 64-word palette blackout. The enclosing loc_E12 pass has already
+/// drawn on the preceding frame, so the oracle RNG ring stays fixed here.
+pub(crate) const INTRO_SEQUENCE_6_PALETTE_BLACKOUT_STALL_FRAME_LOC_1B470: usize = 224;
+/// Post-step local frames during which loc_1B45A's `sub_1B532` tilemap rebuild
+/// and `Load_TitleArt` decompression/uploads keep the current object pass
+/// stretched across VBlanks. Oracle resumes the ordinary outer draw on 237.
+pub(crate) const INTRO_SEQUENCE_6_TITLE_ART_STALL_FIRST_FRAME_LOC_1B494: usize = 226;
+pub(crate) const INTRO_SEQUENCE_6_TITLE_ART_STALL_LAST_FRAME_LOAD_TITLE_ART: usize = 236;
 pub(crate) const INTRO_SEGMENT_FRAMES: usize = 80;
 pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
 /// Demo/title-return lineages still use the short local title attract lock

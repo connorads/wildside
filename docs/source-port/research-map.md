@@ -23,14 +23,26 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 16,832 mismatches, first at
-frame 20927, under digest `57c89ddff61efc69240e9a2d31db643d905e2c3a`.
-Frames 16..20926 match the complete RNG state exactly; the next mismatch begins
-when IntroSequence6's first post-loader oracle object pass resumes while native
-remains frozen.
+of the remaining 37,743 frames. It currently records 15,146 mismatches, first at
+frame 22607, under digest `91bde5af2594ffa7156005d7204440ca4b91092e`.
+Frames 16..22606 match the complete RNG state exactly; the next mismatch begins
+after the published route's first later title/demo cycle.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.
+
+The latest correction models IntroSequence6's post-loader object schedule.
+`Load_IntroSequence6` allocates `loc_1BAB0`, `loc_1B37C`, and `sub_1B43A`
+before returning to `Mode_Standard`, so `Execute_Objects loc_E12` resumes one
+outer draw per displayed frame from published frame 20927. The
+`sub_1B43A -> loc_1B45A` tail crosses VBlank once after the palette blackout,
+draws once more, then remains in `sub_1B532`/`Load_TitleArt` across the staged
+title upload before ordinary passes resume. Regression
+`intro_sequence_6_workers_preserve_loc_e12_rng_around_loc_1b45a_upload_stalls`
+failed at frame 20927 before the fix and pins the complete ring through both
+upload pauses. Per-frame RNG debt falls 16,832 -> 15,146 and sampled RNG field
+debt falls 1,398 -> 1,256. The next frontier is frame 22607: native `$FFCB`,
+oracle `$FFCF`, first ring difference index 3 `$00/$51`.
 
 The latest correction models `loc_1BA5C`'s mode-write ordering rather than
 treating `Game_Mode=$28` as immediate entry to `Load_IntroSequence6`. The ROM

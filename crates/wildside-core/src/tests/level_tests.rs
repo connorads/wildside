@@ -8113,6 +8113,63 @@ mod chunk_02 {
     }
 
     #[test]
+    fn intro_sequence_6_workers_preserve_loc_e12_rng_around_loc_1b45a_upload_stalls() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(21_145)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_20926_ring = trace[20_926]
+            .rng_ring
+            .as_ref()
+            .expect("frame 20926 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_20926_ring.as_bytes(),
+            trace[20_926].rng_offset.expect("frame 20926 RNG offset"),
+        );
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(21_118).skip(20_927) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM Load_IntroSequence6 has allocated loc_1BAB0, loc_1B37C, and sub_1B43A before Mode_Standard -> Execute_Objects loc_E12 resumes its outer draw on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+
+        assert_eq!(trace[21_118].rng_offset, Some(expected.offset_word()));
+        assert_eq!(trace[21_118].rng_ring.as_ref(), Some(&expected.ring()));
+
+        let _ = expected.next_long();
+        assert_eq!(trace[21_119].rng_offset, Some(expected.offset_word()));
+        assert_eq!(trace[21_119].rng_ring.as_ref(), Some(&expected.ring()));
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(21_131).skip(21_120) {
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM loc_1B45A's sub_1B532/Load_TitleArt VDP rebuild keeps the current loc_E12 object pass stretched across published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(21_145).skip(21_131) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM loc_1B45A has returned after Load_TitleArt before the ordinary loc_E12 cadence resumes on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;
