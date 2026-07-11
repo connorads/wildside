@@ -1,4 +1,5 @@
 use anyhow::{Context, Result, bail};
+use sha1::{Digest, Sha1};
 use std::io::Read;
 use std::path::Path;
 
@@ -129,6 +130,27 @@ pub(crate) fn first_crc_mismatch_from_frame(
             (native_window.len() != expected_len || oracle_window.len() != expected_len)
                 .then(|| start + native_window.len().min(oracle_window.len()))
         })
+}
+
+fn rng_divergence_digest(diffs: &[crate::sweep::StateDiff]) -> Option<String> {
+    let mut hasher = Sha1::new();
+    let mut count = 0usize;
+    for diff in diffs
+        .iter()
+        .filter(|diff| diff.category == crate::sweep::DivergenceCategory::Rng)
+    {
+        count += 1;
+        for field in [
+            diff.checkpoint.as_str(),
+            diff.field.as_str(),
+            diff.native_value.as_str(),
+            diff.oracle_value.as_str(),
+        ] {
+            hasher.update((field.len() as u64).to_be_bytes());
+            hasher.update(field.as_bytes());
+        }
+    }
+    (count != 0).then(|| format!("{:x}", hasher.finalize()))
 }
 
 /// Parse the `Input Log.txt` content into per-frame u8 button masks.
@@ -363,6 +385,7 @@ pub fn verify_tas(
     frame_end: Option<usize>,
     checkpoint_interval: Option<usize>,
     frontier_kind: crate::sweep::FrontierKind,
+    include_rng: bool,
 ) -> Result<()> {
     let scenario_json = std::fs::read_to_string(scenario_path)
         .with_context(|| format!("failed to read {}", scenario_path.display()))?;
@@ -484,10 +507,14 @@ pub fn verify_tas(
     };
 
     // Compare
-    let mut state_diffs = crate::sweep::compare_sweep_states_for_frontier(
+    let mut state_diffs = crate::sweep::compare_sweep_states_for_frontier_with_options(
         &native_states,
         &oracle.states,
         frontier_kind,
+        crate::sweep::SweepStateComparisonOptions {
+            include_rng,
+            ..crate::sweep::SweepStateComparisonOptions::default()
+        },
     );
     let crc_clean = matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay)
         && !oracle.frame_crcs.is_empty()
@@ -571,6 +598,7 @@ pub fn verify_tas(
                 "oracle_state": oracle_state,
             })
         });
+    let rng_divergence_digest = rng_divergence_digest(&state_diffs);
 
     // Write summary report
     let report = serde_json::json!({
@@ -592,6 +620,7 @@ pub fn verify_tas(
             "rng": divergence_summary.rng,
             "oracle_limitation": divergence_summary.oracle_limitation,
         },
+        "rng_divergence_digest": rng_divergence_digest,
         "first_authoritative_diff": first_authoritative_diff,
     });
     let report_path = run_dir.join("report.json");
@@ -822,13 +851,13 @@ fn merge_transition_checkpoints(
 
 /// Result of a single verify-tas probe: either clean or divergent at a specific checkpoint.
 struct ProbeResult {
-    /// Frame index of the first authoritative divergence, if any.
-    first_auth_frame: Option<usize>,
-    /// Field name + values for the first authoritative divergence.
-    first_auth_detail: Option<(String, String, String)>,
+    /// Frame index of the first authoritative or requested RNG divergence.
+    first_blocking_frame: Option<usize>,
+    /// Field name + values for the first blocking divergence.
+    first_blocking_detail: Option<(String, String, String)>,
 }
 
-/// Run native + oracle for a scenario slice, return the first authoritative divergence frame.
+/// Run native + oracle for a scenario slice, returning the first blocking divergence.
 /// This is the inner loop used by both `verify_tas` and `bisect_tas`.
 fn probe_tas(
     repo_root: &std::path::Path,
@@ -839,6 +868,7 @@ fn probe_tas(
     end: usize,
     checkpoints: &[DynamicCheckpoint],
     frontier_kind: crate::sweep::FrontierKind,
+    include_rng: bool,
 ) -> Result<ProbeResult> {
     // Build a sliced scenario for this probe
     let probe_scenario = DynamicScenario {
@@ -894,13 +924,17 @@ fn probe_tas(
         frontier_kind,
         crate::sweep::SweepStateComparisonOptions {
             ignore_camera_position: probe_scenario.camera_position.is_some(),
+            include_rng,
         },
     );
-    let first_auth = state_diffs
-        .iter()
-        .find(|diff| diff.category == crate::sweep::DivergenceCategory::Authoritative);
+    let first_blocking = state_diffs.iter().find(|diff| {
+        matches!(
+            diff.category,
+            crate::sweep::DivergenceCategory::Authoritative | crate::sweep::DivergenceCategory::Rng
+        )
+    });
 
-    match first_auth {
+    match first_blocking {
         Some(diff) => {
             // Parse frame index from checkpoint label "frame_NNN"
             let frame = diff
@@ -909,8 +943,8 @@ fn probe_tas(
                 .and_then(|s| s.parse::<usize>().ok())
                 .unwrap_or(0);
             Ok(ProbeResult {
-                first_auth_frame: Some(frame),
-                first_auth_detail: Some((
+                first_blocking_frame: Some(frame),
+                first_blocking_detail: Some((
                     diff.field.clone(),
                     diff.native_value.clone(),
                     diff.oracle_value.clone(),
@@ -918,13 +952,13 @@ fn probe_tas(
             })
         }
         None => Ok(ProbeResult {
-            first_auth_frame: None,
-            first_auth_detail: None,
+            first_blocking_frame: None,
+            first_blocking_detail: None,
         }),
     }
 }
 
-/// Binary-search for the first frame with an authoritative divergence.
+/// Binary-search for the first authoritative or requested RNG divergence.
 ///
 /// Strategy:
 /// 1. Coarse scan with checkpoint-interval=50 to find the first divergent region
@@ -937,6 +971,7 @@ pub fn bisect_tas(
     frame_start: Option<usize>,
     frame_end: Option<usize>,
     frontier_kind: crate::sweep::FrontierKind,
+    include_rng: bool,
 ) -> Result<()> {
     let scenario_json = std::fs::read_to_string(scenario_path)
         .with_context(|| format!("failed to read {}", scenario_path.display()))?;
@@ -955,6 +990,7 @@ pub fn bisect_tas(
 
     if matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay)
         && scenario.camera_position.is_none()
+        && !include_rng
     {
         // Fast path: use per-frame CRC arrays if oracle supports them
         println!("  computing native CRCs ({end} frames)...");
@@ -1052,10 +1088,11 @@ pub fn bisect_tas(
         end,
         &coarse_checkpoints,
         frontier_kind,
+        include_rng,
     )?;
 
-    let Some(first_coarse_frame) = coarse.first_auth_frame else {
-        println!("  PASS: no authoritative divergences in frames {start}..{end}");
+    let Some(first_coarse_frame) = coarse.first_blocking_frame else {
+        println!("  PASS: no blocking divergences in frames {start}..{end}");
         return Ok(());
     };
 
@@ -1074,7 +1111,7 @@ pub fn bisect_tas(
     let mut lo = prev_checkpoint;
     let mut hi = first_coarse_frame;
     let mut best_frame = first_coarse_frame;
-    let mut best_detail = coarse.first_auth_detail;
+    let mut best_detail = coarse.first_blocking_detail;
 
     while lo < hi {
         let mid = lo + (hi - lo) / 2;
@@ -1100,13 +1137,14 @@ pub fn bisect_tas(
             mid + 1,
             &checkpoints,
             frontier_kind,
+            include_rng,
         )?;
 
-        match result.first_auth_frame {
+        match result.first_blocking_frame {
             Some(f) => {
                 // Divergence at or before mid — search lower half
                 best_frame = f;
-                best_detail = result.first_auth_detail;
+                best_detail = result.first_blocking_detail;
                 hi = mid;
             }
             None => {
@@ -1132,21 +1170,22 @@ pub fn bisect_tas(
             lo + 1,
             &checkpoints,
             frontier_kind,
+            include_rng,
         )?;
-        if let Some(f) = result.first_auth_frame {
+        if let Some(f) = result.first_blocking_frame {
             best_frame = f;
-            best_detail = result.first_auth_detail;
+            best_detail = result.first_blocking_detail;
         }
     }
 
     println!();
     if let Some((field, native_val, oracle_val)) = best_detail {
-        println!("  RESULT: first authoritative divergence at frame {best_frame}");
+        println!("  RESULT: first blocking divergence at frame {best_frame}");
         println!("    field: {field}");
         println!("    native: {native_val}");
         println!("    oracle: {oracle_val}");
     } else {
-        println!("  RESULT: first authoritative divergence at frame {best_frame}");
+        println!("  RESULT: first blocking divergence at frame {best_frame}");
     }
 
     Ok(())
@@ -1193,6 +1232,36 @@ fn crc_oracle_scenario(mut scenario: DynamicScenario, end: usize) -> DynamicScen
 mod tests {
     use super::*;
     use std::io::{Cursor, Write as IoWrite};
+
+    #[test]
+    fn rng_divergence_digest_ratchets_every_rng_value_and_ignores_other_categories() {
+        let rng_diff = crate::sweep::StateDiff {
+            checkpoint: "frame_150".into(),
+            field: "rng_ring".into(),
+            native_value: "byte[0]=0xc4".into(),
+            oracle_value: "byte[0]=0x1f".into(),
+            category: crate::sweep::DivergenceCategory::Rng,
+        };
+        let authoritative_diff = crate::sweep::StateDiff {
+            checkpoint: "frame_150".into(),
+            field: "kid_x_pos".into(),
+            native_value: "0x00000000".into(),
+            oracle_value: "0x00010000".into(),
+            category: crate::sweep::DivergenceCategory::Authoritative,
+        };
+
+        let digest = rng_divergence_digest(std::slice::from_ref(&rng_diff));
+        assert_eq!(
+            rng_divergence_digest(&[rng_diff.clone(), authoritative_diff]),
+            digest,
+            "unrelated known checkpoint debt must not perturb the RNG ratchet",
+        );
+
+        let mut changed = rng_diff;
+        changed.oracle_value = "byte[0]=0x20".into();
+        assert_ne!(rng_divergence_digest(&[changed]), digest);
+        assert_eq!(rng_divergence_digest(&[]), None);
+    }
 
     /// Build a minimal BK2 ZIP in memory for testing.
     fn build_test_bk2(header: &str, input_log: &str) -> Vec<u8> {

@@ -138,6 +138,17 @@ core tests, 13 CLI slice tests, clippy, the ASM/debug/backlog ratchets, and ever
 sampled TAS frontier. `mise run verify-tas-full` also keeps all 37,759 published
 route frame CRCs exact and leaves the known #290 checkpoint baseline unchanged.
 
+Follow-up proactive gate hardening 2026-07-11 closes the documented whole-TAS
+RNG ratchet gap without pretending the existing drift is correct. `verify-tas
+--include-rng` opts the generic checkpoint comparator into offset and complete
+55-byte-ring comparison after both sides have run `Init_RNG`; ordinary frontier
+calls remain unchanged. The full published route exposes 3,105 RNG diffs across
+its 1,512 checkpoints despite all 37,759 player/camera CRC frames matching. The
+gate pins both that count and SHA-1 `2f25a497227a879ef131ad0f18e706cf62e37691`
+over every RNG checkpoint/field/native/oracle tuple, so moving a divergence
+cannot pass merely by preserving the count. This is a 25-frame sampled ratchet,
+not per-frame RNG proof; eliminating the baseline remains fidelity work.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

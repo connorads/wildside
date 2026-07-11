@@ -282,7 +282,7 @@ slug=any-percent-published
 frontier=tests/tas_frontier.json
 frame=$(jq -r --arg slug "$slug" '"'"'.recordings[$slug].total_frames'"'"' "$frontier")
 checkpoint_interval=$(jq -r --arg slug "$slug" '"'"'.recordings[$slug].full_checkpoint_interval'"'"' "$frontier")
-cargo run --release -q -p wildside-cli -- verify-tas --scenario tests/data/tas/$slug/scenario.json --frame-start 0 --frame-end "$frame" --checkpoint-interval "$checkpoint_interval" --frontier-kind gameplay
+cargo run --release -q -p wildside-cli -- verify-tas --scenario tests/data/tas/$slug/scenario.json --frame-start 0 --frame-end "$frame" --checkpoint-interval "$checkpoint_interval" --frontier-kind gameplay --include-rng
 report=.cache/tas-verify/$slug/report.json
 crc=$(jq -r '"'"'.first_crc_mismatch // empty'"'"' "$report")
 requested_crc_frames=$(jq -r '"'"'.crc_frame_counts.requested'"'"' "$report")
@@ -292,6 +292,8 @@ actual_summary=$(jq -cS '"'"'.divergence_summary'"'"' "$report")
 expected_summary=$(jq -cS --arg slug "$slug" '"'"'.recordings[$slug].full_expected_divergence_summary'"'"' "$frontier")
 actual_first=$(jq -cS '"'"'.first_authoritative_diff | {checkpoint, field}'"'"' "$report")
 expected_first=$(jq -cS --arg slug "$slug" '"'"'.recordings[$slug].full_expected_first_authoritative_diff'"'"' "$frontier")
+actual_rng_digest=$(jq -r '"'"'.rng_divergence_digest // empty'"'"' "$report")
+expected_rng_digest=$(jq -r --arg slug "$slug" '"'"'.recordings[$slug].full_expected_rng_divergence_digest'"'"' "$frontier")
 if [ -n "$crc" ]; then
   echo "FAIL: full TAS CRC regressed at frame $crc"
   exit 1
@@ -300,15 +302,17 @@ if [ "$requested_crc_frames" -ne "$frame" ] || [ "$native_crc_frames" -ne "$fram
   echo "FAIL: full TAS CRC coverage incomplete (requested=$requested_crc_frames native=$native_crc_frames oracle=$oracle_crc_frames expected=$frame)"
   exit 1
 fi
-if [ "$actual_summary" != "$expected_summary" ] || [ "$actual_first" != "$expected_first" ]; then
+if [ "$actual_summary" != "$expected_summary" ] || [ "$actual_first" != "$expected_first" ] || [ "$actual_rng_digest" != "$expected_rng_digest" ]; then
   echo "FAIL: full TAS checkpoint divergence baseline changed"
   echo "  expected summary: $expected_summary"
   echo "  actual summary:   $actual_summary"
   echo "  expected first:   $expected_first"
   echo "  actual first:     $actual_first"
+  echo "  expected RNG digest: $expected_rng_digest"
+  echo "  actual RNG digest:   $actual_rng_digest"
   exit 1
 fi
-echo "Full TAS CRC: all $frame frames match; known #290 checkpoint baseline unchanged ($actual_summary)"
+echo "Full TAS CRC: all $frame frames match; checkpoint and sampled RNG baselines unchanged ($actual_summary rng_digest=$actual_rng_digest)"
 '
 """
 description = "Full any-percent TAS verification — run after gameplay-affecting commits"

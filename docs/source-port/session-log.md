@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 full-route RNG ratchet)
+
+- Added opt-in `verify-tas --include-rng` comparison for the initialised RNG
+  offset and complete 55-byte ring. Default frontier behaviour stays unchanged.
+- The published route has 3,105 known RNG diffs across 1,512 checkpoints even
+  though all 37,759 player/camera CRC frames match. This quantifies why CRC
+  equality alone was insufficient evidence of full state accuracy.
+- `verify-tas-full` now pins the RNG count and digest
+  `2f25a497227a879ef131ad0f18e706cf62e37691`, alongside its existing CRC and
+  #290 baselines. Any moved, added, or removed sampled RNG diff fails the gate.
+- Confidence boundary: this samples RNG every 25 frames and still carries known
+  debt. Per-frame RNG streaming and reducing those 3,105 diffs remain open.
+
 ## 2026-07-11 handoff (#390 Execute_Objects RNG and object order)
 
 - Level 0x48 target-live step 12 proved native consumed UFO bytes `$EC/$38`

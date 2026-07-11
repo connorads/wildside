@@ -27,9 +27,10 @@
         "authoritative": 212,
         "advisory": 0,
         "accumulation": 0,
-        "rng": 0,
+        "rng": 3105,
         "oracle_limitation": 2
       },
+      "full_expected_rng_divergence_digest": "2f25a497227a879ef131ad0f18e706cf62e37691",
       "full_expected_first_authoritative_diff": {
         "checkpoint": "transition_15_to_00_post",
         "field": "number_objects"

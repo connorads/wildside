@@ -1445,6 +1445,7 @@ pub(crate) fn compare_sweep_states_for_frontier(
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct SweepStateComparisonOptions {
     pub(crate) ignore_camera_position: bool,
+    pub(crate) include_rng: bool,
 }
 
 pub(crate) fn compare_sweep_states_for_frontier_with_options(
@@ -1688,6 +1689,34 @@ pub(crate) fn compare_sweep_states_for_frontier_with_options(
                 oracle_value: format!("{o_damage}"),
                 category: DivergenceCategory::Authoritative,
             });
+        }
+        if options.include_rng
+            && crate::compare::rng_states_are_initialised(native.rng_offset, oracle.rng_offset)
+        {
+            if let (Some(native_offset), Some(oracle_offset)) =
+                (native.rng_offset, oracle.rng_offset)
+                && native_offset != oracle_offset
+            {
+                diffs.push(StateDiff {
+                    checkpoint: cp.clone(),
+                    field: "rng_offset".into(),
+                    native_value: format!("{native_offset:#06x}"),
+                    oracle_value: format!("{oracle_offset:#06x}"),
+                    category: DivergenceCategory::Rng,
+                });
+            }
+            if let (Some(native_ring), Some(oracle_ring)) = (&native.rng_ring, &oracle.rng_ring)
+                && let Some((index, native_byte, oracle_byte)) =
+                    native_ring.first_difference(oracle_ring)
+            {
+                diffs.push(StateDiff {
+                    checkpoint: cp.clone(),
+                    field: "rng_ring".into(),
+                    native_value: format!("byte[{index}]={native_byte:#04x}"),
+                    oracle_value: format!("byte[{index}]={oracle_byte:#04x}"),
+                    category: DivergenceCategory::Rng,
+                });
+            }
         }
         if native.game_paused != oracle.game_paused {
             diffs.push(StateDiff {
@@ -4461,6 +4490,7 @@ mod tests {
             FrontierKind::Gameplay,
             SweepStateComparisonOptions {
                 ignore_camera_position: true,
+                ..SweepStateComparisonOptions::default()
             },
         );
 
@@ -4483,12 +4513,57 @@ mod tests {
             FrontierKind::Gameplay,
             SweepStateComparisonOptions {
                 ignore_camera_position: true,
+                ..SweepStateComparisonOptions::default()
             },
         );
 
         assert_eq!(diffs.len(), 1);
         assert_eq!(diffs[0].field, "kid_x_pos");
         assert_eq!(diffs[0].category, DivergenceCategory::Authoritative);
+    }
+
+    #[test]
+    fn compare_sweep_states_only_reports_rng_state_when_requested() {
+        let mut native = demo_velocity_state(0, 0);
+        native.rng_offset = Some(0xFFED);
+        native.rng_ring = Some(wildside_core::RomRandomRing::from_bytes(
+            [0x06; wildside_core::RomRandomRing::LENGTH],
+        ));
+        let mut oracle = native.clone();
+        oracle.rng_offset = Some(0xFFEE);
+        let mut oracle_ring = [0x06; wildside_core::RomRandomRing::LENGTH];
+        oracle_ring[17] = 0x07;
+        oracle.rng_ring = Some(wildside_core::RomRandomRing::from_bytes(oracle_ring));
+
+        assert!(
+            compare_sweep_states_for_frontier(
+                &[native.clone()],
+                &[oracle.clone()],
+                FrontierKind::Gameplay,
+            )
+            .is_empty(),
+            "existing frontier callers opt in before known RNG debt becomes blocking",
+        );
+
+        let diffs = compare_sweep_states_for_frontier_with_options(
+            &[native],
+            &[oracle],
+            FrontierKind::Gameplay,
+            SweepStateComparisonOptions {
+                include_rng: true,
+                ..SweepStateComparisonOptions::default()
+            },
+        );
+        assert_eq!(
+            diffs
+                .iter()
+                .map(|diff| (diff.field.as_str(), diff.category))
+                .collect::<Vec<_>>(),
+            vec![
+                ("rng_offset", DivergenceCategory::Rng),
+                ("rng_ring", DivergenceCategory::Rng),
+            ],
+        );
     }
 
     #[test]

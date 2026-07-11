@@ -764,7 +764,10 @@ pub(crate) fn gameplay_differing_fields(
     fields
 }
 
-fn rng_states_are_initialised(native_offset: Option<u16>, oracle_offset: Option<u16>) -> bool {
+pub(crate) fn rng_states_are_initialised(
+    native_offset: Option<u16>,
+    oracle_offset: Option<u16>,
+) -> bool {
     fn points_inside_ring(offset: u16) -> bool {
         matches!(offset as i16, -55..=-1)
     }

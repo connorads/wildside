@@ -14,15 +14,18 @@ The live TAS frontier is closed:
 - `any-percent-published` is player/camera CRC-clean through frame `37759`
 - TAS-frontier history is tracked in the backlog and the `verify-tas-frontier` gate (the per-frame ledger was retired); `mise run verify-tas-full` re-checks the published route
 
-That is not whole-game completion or whole-state/pixel equality. The 2026-07-10
+That is not whole-game completion or whole-state/pixel equality. The 2026-07-11
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
 state checkpoints retain the explicit #290 baseline of 212 authoritative export
 diffs and 2 oracle limitations, beginning with `number_objects` after the
 `0x15 -> 0x00` transition. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC stream, or
-change to that checked-in checkpoint baseline; reducing #290 remains separate
-fidelity work.
+change to that checked-in checkpoint baseline. It now also enables typed RNG
+comparison and pins all 3,105 known offset/55-byte-ring diffs by count plus a
+SHA-1 digest of every sampled checkpoint/field/value tuple. This detects moved
+RNG debt at the 25-frame checkpoint cadence; it does not yet prove per-frame RNG
+equality. Reducing #290 and the RNG baseline remains separate fidelity work.
 
 The visual side has a separate confidence ceiling. Since 2026-07-10,
 `source_port_frame_oracle:level_00_early` renders the actual source-port scene at

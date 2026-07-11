@@ -1044,6 +1044,9 @@ enum Commands {
         /// Which frontier to optimise for during verification/bisection
         #[arg(long, value_enum, default_value_t = sweep::FrontierKind::Gameplay)]
         frontier_kind: sweep::FrontierKind,
+        /// Compare the complete initialised ROM RNG ring and offset at checkpoints
+        #[arg(long, default_value_t = false)]
+        include_rng: bool,
     },
     /// Side-by-side native vs oracle comparison for TAS debugging.
     TasDiff {
@@ -2376,6 +2379,7 @@ fn main() -> Result<()> {
             checkpoint_interval,
             bisect,
             frontier_kind,
+            include_rng,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -2390,6 +2394,7 @@ fn main() -> Result<()> {
                     frame_start,
                     frame_end,
                     frontier_kind,
+                    include_rng,
                 )?;
             } else {
                 tas::verify_tas(
@@ -2401,6 +2406,7 @@ fn main() -> Result<()> {
                     frame_end,
                     checkpoint_interval,
                     frontier_kind,
+                    include_rng,
                 )?;
             }
         }
