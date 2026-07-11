@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#383 full-sweep bootstrap alignment)
+
+- Full idle sweeps and `tas-diff` now honour `settle_oracle_warp` on native,
+  matching the oracle helper's recording/title-card bootstrap instead of
+  overriding native with the older synthetic `FullFrameOracle` path.
+- Level 0's native Dragon encounter had been roughly 47 frames older, producing
+  a fatal hit at frame 254 and checksum divergence at frame 255 against the
+  oracle's frame-302 death.
+- Focused report `1783751667` passes Level 0 with zero blocking diffs and only
+  two known `Number_Objects` oracle limitations. Early/mid pixels remain exact;
+  idle-tail presentation is non-blocking at MAE 1.2 / 3162 changed pixels.
+- #383 closes. NEXT: select the next canonical state-sweep failure via
+  `project-status`/the proactive fallback; do not use awaiting-human rows.
+
 ## 2026-07-11 handoff (#382 damage-latch scheduling)
 
 - Level 0's first Dragon-breath hit is exact at frame 235. Oracle RAM keeps

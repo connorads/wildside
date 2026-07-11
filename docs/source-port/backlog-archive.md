@@ -11,6 +11,24 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #383
+
+Resolved 2026-07-11 from Level 0 full-sweep report `1783751049`. The scenario
+set `settle_oracle_warp=true`, so the oracle ran its real cold-boot,
+title-card, and 60-live-frame recording bootstrap. `sweep_single_level` and
+`tas-diff` nevertheless overrode native with the older synthetic
+`FullFrameOracle` path. Native's Dragon encounter was consequently about 47
+frames older: its fatal breath hit began at scenario frame 254 while oracle's
+began at frame 302, and the checksum frontier broke at frame 255.
+
+Full idle sweeps and their diagnostics now honour the scenario flag and select
+the same `RecordingOracle` native path used by the oracle helper. A focused
+configuration regression prevents the native-only override from returning.
+Level 0 full report `1783751667` passes with zero blocking diffs; the only two
+state differences are known oracle `Number_Objects` export limitations. Early
+and mid-window pixels remain exact, while the idle-tail render has non-blocking
+MAE 1.2 / 3162 changed pixels.
+
 ### #382
 
 Resolved 2026-07-11 from the Level 0 idle Dragon-breath frontier. Native and
@@ -27,10 +45,9 @@ still exporting the live timer/flag after `loc_BC6E` clears. The focused
 regression pins the Dragon breath release boundary, and the aligned recording
 route has no authoritative player-state divergence across frames 295-305.
 
-Full sweep report `1783751049` still fails Level 0 because that harness ages
-native through a different settled-warp path than the oracle; its fatal hit is
-roughly 47 frames early. That distinct harness alignment issue is not hidden by
-the damage-latch correction.
+Full sweep report `1783751049` exposed the distinct native/oracle settled-warp
+misalignment subsequently resolved under #383; it was not hidden by the
+damage-latch correction.
 
 ### #381
 
@@ -11534,6 +11551,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 383 | [x] | P1 | Verify/state | Full idle sweeps and `tas-diff` use the scenario's recording-settle bootstrap on both native and oracle. | Level 0 report `1783751667` passes with only two oracle limitations; focused configuration regression. See archive #383. |
 | 382 | [x] | P1 | Combat/timing | Character collision observes the frame-entry damage latch before `loc_BC6E` clears it later in the same frame. | Oracle RAM frames 235-302 and exact Dragon-breath release regression. See archive #382. |
 | 381 | [x] | P2 | Enemy/state | Recording settle preserves the cold-boot RNG ring and typed title-card lifecycle, aligning Level 0x14 Drips phases and crawler count. | Reports `1783747510` and `1783747598`; exact RNG-ring, Drips lifecycle/count, and title-card regressions. See archive #381. |
 | 380 | [x] | P2 | State parity | Hidden Drips controllers and surface crawlers retain their Object_RAM contribution in `Number_Objects`. | Reports `1783734083` and `1783734356`; exact Level 0x14 settle regression. See archive #380. |

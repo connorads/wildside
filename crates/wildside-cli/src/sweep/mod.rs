@@ -872,12 +872,20 @@ fn sweep_single_level(
         SweepSingleScenarioOptions {
             requested_tier,
             checksum,
-            native_run: NativeDynamicRunOptions {
-                settled_warp: requested_tier == SweepTier::Full,
-                trace_physics: false,
-            },
+            native_run: idle_sweep_native_run_options(requested_tier),
         },
     )
+}
+
+fn idle_sweep_native_run_options(_requested_tier: SweepTier) -> NativeDynamicRunOptions {
+    NativeDynamicRunOptions {
+        // `idle_level_full_frame_scenario` sets `settle_oracle_warp`, which
+        // makes the oracle run its recording/title-card bootstrap. Let
+        // configure_script_runner select RecordingOracle from that same flag;
+        // FullFrameOracle is the older synthetic native-only boundary (#383).
+        settled_warp: false,
+        trace_physics: false,
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -2669,6 +2677,16 @@ pub(crate) fn run_sweep_compare(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn full_idle_sweep_uses_scenario_recording_settle_for_both_sides() {
+        let options = idle_sweep_native_run_options(SweepTier::Full);
+
+        assert!(
+            !options.settled_warp,
+            "settle_oracle_warp runs the oracle recording bootstrap, so native must not override it with the synthetic FullFrameOracle path"
+        );
+    }
 
     #[test]
     fn parse_level_range_single() {

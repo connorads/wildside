@@ -61,12 +61,13 @@ pub fn run_tas_diff(
 
     // Run native (with physics trace if requested)
     println!("  running native ({end} frames)...");
-    let use_settled_warp = scenario.slug.starts_with("idle_level_full_frames_");
     let native_trace = run_native_dynamic_scenario(
         manifest.clone(),
         &scenario,
         NativeDynamicRunOptions {
-            settled_warp: use_settled_warp,
+            // Honour the scenario's `settle_oracle_warp` flag so diagnostics
+            // replay the same recording/title-card bootstrap as the oracle.
+            settled_warp: false,
             trace_physics: include_physics_trace,
         },
     )?;
