@@ -1536,6 +1536,57 @@ impl<'de> Deserialize<'de> for RomRandomRing {
     }
 }
 
+/// Complete post-`Init_RNG` state for one rendered frame.
+///
+/// ASM `Init_RNG` / `Get_RandomNumber_byte` (`kid.asm:1106-1204`) keeps the
+/// offset within `RNG_RAM_End-$37 .. RNG_RAM_End-$01`. Values outside that
+/// range are pre-initialisation WRAM and cannot construct this type.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RomRandomFrameState {
+    offset: u16,
+    ring: RomRandomRing,
+}
+
+impl RomRandomFrameState {
+    pub const fn offset_is_initialised(offset: u16) -> bool {
+        let signed = offset as i16;
+        signed >= -55 && signed <= -1
+    }
+
+    pub fn from_initialised_parts(offset: u16, ring: RomRandomRing) -> Option<Self> {
+        Self::offset_is_initialised(offset).then_some(Self { offset, ring })
+    }
+
+    pub const fn offset(&self) -> u16 {
+        self.offset
+    }
+
+    pub const fn ring(&self) -> &RomRandomRing {
+        &self.ring
+    }
+}
+
+impl<'de> Deserialize<'de> for RomRandomFrameState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct RawFrameState {
+            offset: u16,
+            ring: RomRandomRing,
+        }
+
+        let raw = RawFrameState::deserialize(deserializer)?;
+        Self::from_initialised_parts(raw.offset, raw.ring).ok_or_else(|| {
+            serde::de::Error::custom(format_args!(
+                "initialised ROM RNG offset must be in $FFC9..=$FFFF, found ${:04X}",
+                raw.offset
+            ))
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct NativeTraceFrame {
@@ -4519,6 +4570,32 @@ mod tests {
         let right = RomRandomRing::from_bytes(right_bytes);
 
         assert_eq!(left.first_difference(&right), Some((37, 0x11, 0x22)));
+    }
+
+    #[test]
+    fn rom_random_frame_state_only_represents_initialised_complete_rng_loc_1186() {
+        let ring = RomRandomRing::from_bytes([0x5A; RomRandomRing::LENGTH]);
+
+        let first = RomRandomFrameState::from_initialised_parts(0xFFC9, ring.clone())
+            .expect("RNG_RAM_End-$37 is the first valid ring offset");
+        let last = RomRandomFrameState::from_initialised_parts(0xFFFF, ring.clone())
+            .expect("RNG_RAM_End-$01 is the last valid ring offset");
+        assert_eq!(first.offset(), 0xFFC9);
+        assert_eq!(last.ring(), &ring);
+        assert!(RomRandomFrameState::from_initialised_parts(0, ring.clone()).is_none());
+        assert!(RomRandomFrameState::from_initialised_parts(0xFFC8, ring).is_none());
+    }
+
+    #[test]
+    fn rom_random_frame_state_serde_rejects_pre_init_offset() {
+        let json = serde_json::json!({
+            "offset": 0,
+            "ring": vec![0x5Au8; RomRandomRing::LENGTH],
+        });
+
+        let error = serde_json::from_value::<RomRandomFrameState>(json)
+            .expect_err("per-frame RNG stream must not encode pre-Init_RNG WRAM");
+        assert!(error.to_string().contains("initialised ROM RNG offset"));
     }
 
     #[test]

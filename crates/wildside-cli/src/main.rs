@@ -2583,6 +2583,7 @@ fn main() -> Result<()> {
                 vdp_pixel_samples: vdp_pixel_samples.clone(),
                 capture_cpu_state,
                 capture_settle_trace,
+                capture_rng_stream: false,
             };
             let oracle_manifest = crate::oracle::run_jgenesis_capture_dynamic_with_options(
                 &env,

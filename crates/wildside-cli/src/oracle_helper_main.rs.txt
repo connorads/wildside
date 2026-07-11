@@ -236,6 +236,8 @@ struct OracleManifest {
     states: Vec<OracleState>,
     frame_crcs: Vec<u32>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    frame_rng_states: Vec<Option<wildside_core::RomRandomFrameState>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     memory_watches: Vec<HashMap<String, i64>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     vdp_pixel_samples: Vec<OracleVdpPixelSampleRow>,
@@ -592,6 +594,7 @@ fn main() -> Result<()> {
     let mut vdp_pixel_samples_spec = String::new();
     let mut capture_cpu_state = false;
     let mut capture_settle_trace = false;
+    let mut capture_rng_stream = false;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -609,6 +612,7 @@ fn main() -> Result<()> {
             "--vdp-pixel-samples" => vdp_pixel_samples_spec = args.next().unwrap_or_default(),
             "--capture-cpu-state" => capture_cpu_state = true,
             "--capture-settle-trace" => capture_settle_trace = true,
+            "--capture-rng-stream" => capture_rng_stream = true,
             other => return Err(anyhow!("unknown arg {other}")),
         }
     }
@@ -630,7 +634,7 @@ fn main() -> Result<()> {
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     match mode {
         OutputMode::Capture => {
-            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, capture_cpu_state, capture_settle_trace)?;
+            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, capture_cpu_state, capture_settle_trace, capture_rng_stream)?;
         }
         OutputMode::EnemyLayoutTrace => {
             run_enemy_layout_trace(&rom, &resolved)?;
@@ -700,7 +704,7 @@ fn resolve_scenario(
     }
 }
 
-fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], capture_cpu_state: bool, capture_settle_trace: bool) -> Result<()> {
+fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], capture_cpu_state: bool, capture_settle_trace: bool, capture_rng_stream: bool) -> Result<()> {
     let mut checkpoint_index = 0usize;
     let mut save_writer = NullSaveWriter;
     let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
@@ -711,6 +715,9 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     let mut rendered_frames = Vec::new();
     let mut captured_states = Vec::new();
     let mut frame_crcs: Vec<u32> = Vec::with_capacity(resolved.frame_count);
+    let mut frame_rng_states = capture_rng_stream
+        .then(|| Vec::with_capacity(resolved.frame_count))
+        .unwrap_or_default();
     let mut all_memory_watches: Vec<HashMap<String, i64>> = Vec::new();
     let mut all_vdp_pixel_samples: Vec<OracleVdpPixelSampleRow> = Vec::new();
     let mut settle_trace: Vec<OracleSettleTraceRow> = Vec::new();
@@ -804,6 +811,19 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                 // Per-frame CRC of authoritative RAM state
                 {
                     let work_ram = capture_memory(&mut emulator, GenesisMemoryArea::WorkingRam, 0x1_0000);
+                    if capture_rng_stream {
+                        let offset = read_wram_u16(&work_ram, RNG_OFFSET_ADDR);
+                        let ring = work_ram
+                            [work_ram_index(RNG_RAM_START_ADDR)..work_ram_index(RNG_RAM_END_ADDR)]
+                            .try_into()
+                            .expect("RNG_RAM bounds must contain exactly 55 bytes");
+                        frame_rng_states.push(
+                            wildside_core::RomRandomFrameState::from_initialised_parts(
+                                offset,
+                                wildside_core::RomRandomRing::from_bytes(ring),
+                            ),
+                        );
+                    }
                     let mut crc_hasher = crc32fast::Hasher::new();
                     crc_hasher.update(&read_wram_u16(&work_ram, GAME_MODE_ADDR).to_le_bytes());
                     crc_hasher.update(&read_wram_u16(&work_ram, CURRENT_LEVEL_ID_ADDR).to_le_bytes());
@@ -899,6 +919,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         frames: rendered_frames,
         states: captured_states,
         frame_crcs,
+        frame_rng_states,
         memory_watches: all_memory_watches,
         vdp_pixel_samples: all_vdp_pixel_samples,
         settle_trace,

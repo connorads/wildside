@@ -149,6 +149,36 @@ over every RNG checkpoint/field/native/oracle tuple, so moving a divergence
 cannot pass merely by preserving the count. This is a 25-frame sampled ratchet,
 not per-frame RNG proof; eliminating the baseline remains fidelity work.
 
+Follow-up proactive correction 2026-07-11 replaces that sampling ceiling with
+an opt-in compact per-frame stream of typed RNG state. Each rendered native and
+oracle frame carries either no valid post-`Init_RNG` state or the validated
+offset plus all 55 ring bytes; the verifier starts only when both sides are
+initialised, rejects incomplete streams, records the first differing byte, and
+hashes the complete native/oracle state of every mismatching frame.
+
+The finer stream immediately exposed a real blind spot between 25-frame
+checkpoints. On the published route, oracle advanced `$FFC9 -> $FFCD` on frame
+33 while native waited for the frame-35 Start edge, then caught up. CPU capture
+at frames 33-35 showed the oracle inside `WaitForVint` with `d7=$03970000`, the
+longword returned before the logo controller wait. ASM `Mode_Standard ->
+Execute_Objects loc_E12` calls `Get_RandomNumber_long` before dispatching the
+new `loc_12E64` object; its `loc_12E6C/loc_12E96` VBlank loops remain inside
+that same pass. Native now consumes the single longword on the controller's
+first pass, not on Start or natural timeout. Regression
+`sega_screen_first_object_pass_burns_rng_before_delayed_start_loc_e12_12e64`
+pins the offset and complete ring through the delayed Start frame. Fresh oracle
+comparison makes frames 28..37 exact.
+
+The full route still has all 37,759 player/camera CRC frames equal. The new RNG
+stream begins at frame 16 and compares all 37,743 post-initialisation frames;
+37,617 currently differ, pinned by SHA-1
+`b719b40236d68210f5bbcea0734ac945c8ffe28e`. The first remaining mismatch is
+frame 138: native `$FFD5`, oracle `$FFD9`, first ring difference index 13
+`$69/$E9`, during the IntroSequence1-to-title hand-off. This is now an exact
+frontier and an explicit large debt baseline, not a claim of frame-by-frame RNG
+accuracy. Continue by tracing `sub_1B8F4 -> sub_1C246` and the surrounding
+`Execute_Objects` hand-off before changing the existing intro RNG range.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

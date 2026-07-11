@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 per-frame RNG stream)
+
+- Added an opt-in typed RNG state for every rendered frame: validated offset
+  plus all 55 ring bytes. The full-route gate rejects missing native/oracle
+  frames and pins the first mismatch, mismatch count, and digest.
+- Per-frame evidence exposed a sampled-checkpoint blind spot at frame 33 on the
+  published route. ROM `Mode_Standard -> Execute_Objects loc_E12` draws before
+  dispatching the `loc_12E64` Sega-logo controller; native deferred that draw
+  until the frame-35 Start edge. Native now draws on the first object pass, and
+  frames 28..37 match offset and complete ring exactly.
+- The full 37,759-frame replay remains player/camera CRC-exact. RNG comparison
+  begins after `Init_RNG` at frame 16 and finds 37,617 mismatches across 37,743
+  frames, digest `b719b40236d68210f5bbcea0734ac945c8ffe28e`. The first remaining
+  mismatch is frame 138 in the IntroSequence1-to-title hand-off.
+- This is complete per-frame RNG observation on one TAS route, not proof of
+  whole-state, render, audio, enemy, or whole-game parity. NEXT: trace the
+  frame-138 hand-off through `sub_1B8F4`, `sub_1C246`, and `Execute_Objects`.
+
 ## 2026-07-11 handoff (#390 full-route RNG ratchet)
 
 - Added opt-in `verify-tas --include-rng` comparison for the initialised RNG

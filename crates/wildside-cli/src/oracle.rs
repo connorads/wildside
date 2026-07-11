@@ -35,6 +35,7 @@ pub(crate) struct OracleRunOptions {
     pub(crate) vdp_pixel_samples: Option<String>,
     pub(crate) capture_cpu_state: bool,
     pub(crate) capture_settle_trace: bool,
+    pub(crate) capture_rng_stream: bool,
 }
 
 /// Abstraction over emulator backends for oracle comparison.
@@ -100,6 +101,8 @@ pub struct OracleManifest {
     pub states: Vec<OracleState>,
     #[serde(default)]
     pub frame_crcs: Vec<u32>,
+    #[serde(default)]
+    pub frame_rng_states: Vec<Option<wildside_core::RomRandomFrameState>>,
     #[serde(default)]
     pub memory_watches: Vec<HashMap<String, i64>>,
     #[serde(default)]
@@ -408,6 +411,9 @@ pub fn run_jgenesis_capture_dynamic_with_options(
     }
     if options.capture_settle_trace {
         cmd.arg("--capture-settle-trace");
+    }
+    if options.capture_rng_stream {
+        cmd.arg("--capture-rng-stream");
     }
     let stdout = capture_stdout(&mut cmd, None)?;
     serde_json::from_slice(&stdout).context("failed to parse jgenesis oracle manifest")
@@ -840,6 +846,26 @@ mod tests {
         );
         assert_eq!(row.background_plane_b_rows_loc_307d8, "B18=0780");
         assert_eq!(row.background_plane_b_spans_loc_307d8, "B18=05..2F:2780");
+    }
+
+    #[test]
+    fn oracle_manifest_deserialises_typed_per_frame_rng_stream_loc_1186() {
+        let ring = vec![0x5Au8; wildside_core::RomRandomRing::LENGTH];
+        let manifest: OracleManifest = serde_json::from_value(serde_json::json!({
+            "sample_rate": 44100,
+            "audio_path": "audio.wav",
+            "frames": [],
+            "states": [],
+            "frame_rng_states": [null, {"offset": 0xFFEDu16, "ring": ring}],
+        }))
+        .expect("oracle boundary should parse complete post-Init_RNG frame state");
+
+        assert_eq!(manifest.frame_rng_states.len(), 2);
+        let state = manifest.frame_rng_states[1]
+            .as_ref()
+            .expect("second frame is initialised");
+        assert_eq!(state.offset(), 0xFFED);
+        assert_eq!(state.ring().as_bytes(), &[0x5A; 55]);
     }
 
     #[test]

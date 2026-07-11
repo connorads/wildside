@@ -31,6 +31,22 @@
         "oracle_limitation": 2
       },
       "full_expected_rng_divergence_digest": "2f25a497227a879ef131ad0f18e706cf62e37691",
+      "full_expected_rng_frame_comparison": {
+        "start_frame": 16,
+        "compared_frames": 37743,
+        "mismatch_count": 37617,
+        "mismatch_digest": "b719b40236d68210f5bbcea0734ac945c8ffe28e",
+        "first_mismatch": {
+          "frame": 138,
+          "native_offset": 65493,
+          "oracle_offset": 65497,
+          "first_ring_difference": {
+            "index": 13,
+            "native_byte": 105,
+            "oracle_byte": 233
+          }
+        }
+      },
       "full_expected_first_authoritative_diff": {
         "checkpoint": "transition_15_to_00_post",
         "field": "number_objects"

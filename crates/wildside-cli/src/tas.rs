@@ -153,6 +153,108 @@ fn rng_divergence_digest(diffs: &[crate::sweep::StateDiff]) -> Option<String> {
     (count != 0).then(|| format!("{:x}", hasher.finalize()))
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RngFrameMismatch {
+    frame_index: usize,
+    native_offset: Option<u16>,
+    oracle_offset: Option<u16>,
+    first_ring_difference: Option<(usize, u8, u8)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RngFrameComparison {
+    start_frame: Option<usize>,
+    compared_frames: usize,
+    mismatch_count: usize,
+    first_mismatch: Option<RngFrameMismatch>,
+    mismatch_digest: Option<String>,
+}
+
+fn compare_rng_frame_streams(
+    native: &[Option<wildside_core::RomRandomFrameState>],
+    oracle: &[Option<wildside_core::RomRandomFrameState>],
+    range_start: usize,
+) -> RngFrameComparison {
+    let shared_len = native.len().min(oracle.len());
+    let start_frame = (range_start.min(shared_len)..shared_len)
+        .find(|&index| native[index].is_some() && oracle[index].is_some());
+    let Some(start) = start_frame else {
+        return RngFrameComparison {
+            start_frame: None,
+            compared_frames: 0,
+            mismatch_count: 0,
+            first_mismatch: None,
+            mismatch_digest: None,
+        };
+    };
+
+    let mut hasher = Sha1::new();
+    let mut mismatch_count = 0usize;
+    let mut first_mismatch = None;
+    for frame_index in start..shared_len {
+        let native_state = native[frame_index].as_ref();
+        let oracle_state = oracle[frame_index].as_ref();
+        if native_state == oracle_state {
+            continue;
+        }
+
+        mismatch_count += 1;
+        hasher.update((frame_index as u64).to_be_bytes());
+        update_rng_frame_digest(&mut hasher, native_state);
+        update_rng_frame_digest(&mut hasher, oracle_state);
+        first_mismatch.get_or_insert_with(|| RngFrameMismatch {
+            frame_index,
+            native_offset: native_state.map(wildside_core::RomRandomFrameState::offset),
+            oracle_offset: oracle_state.map(wildside_core::RomRandomFrameState::offset),
+            first_ring_difference: native_state
+                .zip(oracle_state)
+                .and_then(|(left, right)| left.ring().first_difference(right.ring())),
+        });
+    }
+
+    RngFrameComparison {
+        start_frame,
+        compared_frames: shared_len - start,
+        mismatch_count,
+        first_mismatch,
+        mismatch_digest: (mismatch_count != 0).then(|| format!("{:x}", hasher.finalize())),
+    }
+}
+
+fn update_rng_frame_digest(hasher: &mut Sha1, state: Option<&wildside_core::RomRandomFrameState>) {
+    match state {
+        Some(state) => {
+            hasher.update([1]);
+            hasher.update(state.offset().to_be_bytes());
+            hasher.update(state.ring().as_bytes());
+        }
+        None => hasher.update([0]),
+    }
+}
+
+fn extract_native_rng_frame_stream(
+    trace: &[wildside_core::NativeTraceFrame],
+) -> Result<Vec<Option<wildside_core::RomRandomFrameState>>> {
+    trace
+        .iter()
+        .map(|frame| {
+            let Some(offset) = frame.rng_offset else {
+                return Ok(None);
+            };
+            if !wildside_core::RomRandomFrameState::offset_is_initialised(offset) {
+                return Ok(None);
+            }
+            let ring = frame.rng_ring.clone().with_context(|| {
+                format!(
+                    "native frame {} has initialised RNG offset {offset:#06x} without a complete RNG ring",
+                    frame.frame_index
+                )
+            })?;
+            Ok(wildside_core::RomRandomFrameState::from_initialised_parts(offset, ring))
+        })
+        .collect()
+}
+
 /// Parse the `Input Log.txt` content into per-frame u8 button masks.
 ///
 /// Format:
@@ -376,6 +478,27 @@ fn cold_boot_advisory(scenario: &DynamicScenario) -> Option<String> {
     })
 }
 
+fn run_tas_oracle(
+    env: &crate::oracle::OracleEnvironment,
+    rom_path: &Path,
+    scenario_file: &Path,
+    oracle_dir: &Path,
+    skip_frames_before: Option<usize>,
+    capture_rng_stream: bool,
+) -> Result<crate::oracle::OracleManifest> {
+    crate::oracle::run_jgenesis_capture_dynamic_with_options(
+        env,
+        rom_path,
+        scenario_file,
+        oracle_dir,
+        &crate::oracle::OracleRunOptions {
+            skip_frames_before,
+            capture_rng_stream,
+            ..crate::oracle::OracleRunOptions::default()
+        },
+    )
+}
+
 pub fn verify_tas(
     repo_root: &std::path::Path,
     rom_path: &std::path::Path,
@@ -437,6 +560,10 @@ pub fn verify_tas(
         &scenario,
         NativeDynamicRunOptions::default(),
     )?;
+    let native_rng_states = include_rng
+        .then(|| extract_native_rng_frame_stream(&native_trace))
+        .transpose()?
+        .unwrap_or_default();
 
     let mut native_states =
         crate::sweep::extract_checkpoint_states(&native_trace, &scenario.checkpoints);
@@ -477,12 +604,13 @@ pub fn verify_tas(
     let env = crate::oracle::ensure_oracles(repo_root)?;
     let oracle_dir = run_dir.join("oracle");
     std::fs::create_dir_all(&oracle_dir)?;
-    let oracle = crate::oracle::run_jgenesis_capture_dynamic(
+    let oracle = run_tas_oracle(
         &env,
         rom_path,
         &scenario_file,
         &oracle_dir,
         None,
+        include_rng,
     )?;
 
     // Per-frame CRC comparison (fast divergence detection)
@@ -505,6 +633,25 @@ pub fn verify_tas(
     } else {
         None
     };
+    let rng_frame_comparison = include_rng
+        .then(|| compare_rng_frame_streams(&native_rng_states, &oracle.frame_rng_states, start));
+    if let Some(comparison) = &rng_frame_comparison {
+        match &comparison.first_mismatch {
+            Some(first) => println!(
+                "  RNG: {} mismatches across {} compared frames; first at frame {} (native offset {:?}, oracle offset {:?}, ring {:?})",
+                comparison.mismatch_count,
+                comparison.compared_frames,
+                first.frame_index,
+                first.native_offset,
+                first.oracle_offset,
+                first.first_ring_difference,
+            ),
+            None => println!(
+                "  RNG: all {} post-Init_RNG frames match from {:?}",
+                comparison.compared_frames, comparison.start_frame,
+            ),
+        }
+    }
 
     // Compare
     let mut state_diffs = crate::sweep::compare_sweep_states_for_frontier_with_options(
@@ -599,6 +746,34 @@ pub fn verify_tas(
             })
         });
     let rng_divergence_digest = rng_divergence_digest(&state_diffs);
+    let rng_frame_report = rng_frame_comparison.as_ref().map(|comparison| {
+        let first_mismatch = comparison.first_mismatch.as_ref().map(|mismatch| {
+            serde_json::json!({
+                "frame": mismatch.frame_index,
+                "native_offset": mismatch.native_offset,
+                "oracle_offset": mismatch.oracle_offset,
+                "first_ring_difference": mismatch.first_ring_difference.map(
+                    |(index, native_byte, oracle_byte)| serde_json::json!({
+                        "index": index,
+                        "native_byte": native_byte,
+                        "oracle_byte": oracle_byte,
+                    })
+                ),
+            })
+        });
+        serde_json::json!({
+            "frame_counts": {
+                "requested": end.saturating_sub(start),
+                "native": native_rng_states.len().min(end).saturating_sub(start),
+                "oracle": oracle.frame_rng_states.len().min(end).saturating_sub(start),
+            },
+            "start_frame": comparison.start_frame,
+            "compared_frames": comparison.compared_frames,
+            "mismatch_count": comparison.mismatch_count,
+            "mismatch_digest": comparison.mismatch_digest,
+            "first_mismatch": first_mismatch,
+        })
+    });
 
     // Write summary report
     let report = serde_json::json!({
@@ -621,6 +796,7 @@ pub fn verify_tas(
             "oracle_limitation": divergence_summary.oracle_limitation,
         },
         "rng_divergence_digest": rng_divergence_digest,
+        "rng_frame_comparison": rng_frame_report,
         "first_authoritative_diff": first_authoritative_diff,
     });
     let report_path = run_dir.join("report.json");
@@ -1261,6 +1437,82 @@ mod tests {
         changed.oracle_value = "byte[0]=0x20".into();
         assert_ne!(rng_divergence_digest(&[changed]), digest);
         assert_eq!(rng_divergence_digest(&[]), None);
+    }
+
+    fn rng_frame(offset: u16, byte: u8) -> Option<wildside_core::RomRandomFrameState> {
+        wildside_core::RomRandomFrameState::from_initialised_parts(
+            offset,
+            wildside_core::RomRandomRing::from_bytes([byte; wildside_core::RomRandomRing::LENGTH]),
+        )
+    }
+
+    #[test]
+    fn per_frame_rng_comparison_starts_when_both_sides_are_initialised_loc_1186() {
+        let native = vec![None, rng_frame(0xFFED, 0x11), rng_frame(0xFFEE, 0x22)];
+        let oracle = vec![rng_frame(0xFFC9, 0x99), None, rng_frame(0xFFEE, 0x22)];
+
+        let comparison = compare_rng_frame_streams(&native, &oracle, 0);
+
+        assert_eq!(comparison.start_frame, Some(2));
+        assert_eq!(comparison.compared_frames, 1);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.first_mismatch, None);
+        assert_eq!(comparison.mismatch_digest, None);
+    }
+
+    #[test]
+    fn per_frame_rng_comparison_ratchets_full_state_and_first_byte() {
+        let native = vec![
+            None,
+            rng_frame(0xFFED, 0x11),
+            rng_frame(0xFFEE, 0x22),
+            rng_frame(0xFFEF, 0x33),
+        ];
+        let oracle = vec![
+            None,
+            rng_frame(0xFFED, 0x11),
+            rng_frame(0xFFEF, 0x22),
+            rng_frame(0xFFEF, 0x44),
+        ];
+
+        let comparison = compare_rng_frame_streams(&native, &oracle, 0);
+
+        assert_eq!(comparison.start_frame, Some(1));
+        assert_eq!(comparison.compared_frames, 3);
+        assert_eq!(comparison.mismatch_count, 2);
+        assert_eq!(
+            comparison.first_mismatch,
+            Some(RngFrameMismatch {
+                frame_index: 2,
+                native_offset: Some(0xFFEE),
+                oracle_offset: Some(0xFFEF),
+                first_ring_difference: None,
+            }),
+        );
+        assert!(comparison.mismatch_digest.is_some());
+
+        let mut moved = oracle;
+        moved[3] = rng_frame(0xFFEF, 0x45);
+        assert_ne!(
+            compare_rng_frame_streams(&native, &moved, 0).mismatch_digest,
+            comparison.mismatch_digest,
+            "digest must include every byte, not only the first reported mismatch",
+        );
+    }
+
+    #[test]
+    fn native_rng_stream_rejects_initialised_frame_without_complete_ring() {
+        let frame = wildside_core::NativeTraceFrame {
+            frame_index: 150,
+            rng_offset: Some(0xFFED),
+            rng_ring: None,
+            ..wildside_core::NativeTraceFrame::default()
+        };
+
+        let error = extract_native_rng_frame_stream(&[frame])
+            .expect_err("missing typed ring must make per-frame evidence incomplete");
+        assert!(error.to_string().contains("frame 150"));
+        assert!(error.to_string().contains("complete RNG ring"));
     }
 
     /// Build a minimal BK2 ZIP in memory for testing.

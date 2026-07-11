@@ -20,12 +20,14 @@ state checkpoints retain the explicit #290 baseline of 212 authoritative export
 diffs and 2 oracle limitations, beginning with `number_objects` after the
 `0x15 -> 0x00` transition. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
-velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC stream, or
-change to that checked-in checkpoint baseline. It now also enables typed RNG
-comparison and pins all 3,105 known offset/55-byte-ring diffs by count plus a
-SHA-1 digest of every sampled checkpoint/field/value tuple. This detects moved
-RNG debt at the 25-frame checkpoint cadence; it does not yet prove per-frame RNG
-equality. Reducing #290 and the RNG baseline remains separate fidelity work.
+velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
+stream, or change to the checked-in baselines. Typed RNG comparison starts after
+`Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
+of the remaining 37,743 frames. It currently records 37,617 mismatches, first at
+frame 138, under digest `b719b40236d68210f5bbcea0734ac945c8ffe28e`.
+That is complete per-frame RNG evidence for this route and an explicit large
+debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
+baseline remains separate fidelity work.
 
 The visual side has a separate confidence ceiling. Since 2026-07-10,
 `source_port_frame_oracle:level_00_early` renders the actual source-port scene at
