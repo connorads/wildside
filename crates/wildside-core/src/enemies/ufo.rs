@@ -3,6 +3,59 @@ use super::*;
 /// UFO: acceleration-based drifting through a once-per-second ROM motion table.
 pub(crate) const UFO_ACCELERATION: i32 = 0x400;
 pub(crate) const UFO_PATTERN_FRAMES: u16 = 60;
+// ASM CollisionSize_Index entry for UFO sprite `$0DE8` -> unk_31CE0:
+// `dc.w -$E,$1C,-$1B,$18` (left, width, top, height).
+const UFO_COLLISION_HALF_WIDTH_LOC_31CE0: i32 = 14;
+const UFO_COLLISION_TOP_OFFSET_LOC_31CE0: i32 = -27;
+const UFO_COLLISION_BOTTOM_OFFSET_LOC_31CE0: i32 = -3;
+const UFO_COLLISION_HEIGHT_LOC_31CE0: i32 = 24;
+
+fn ufo_probe_wall_loc_16f0(
+    grid: &terrain::BlockGrid,
+    center_x_px: i32,
+    center_y_px: i32,
+    y_velocity: i32,
+    moving_right: bool,
+) -> Option<terrain::WallProbe> {
+    // ASM GfxObjects_Collision loc_173E-loc_1796 scans every tile row touched
+    // by unk_31CE0, including a one-pixel overlap at the hitbox top. The
+    // generic three-point character probe can miss that top row.
+    let edge_x = if moving_right {
+        center_x_px + UFO_COLLISION_HALF_WIDTH_LOC_31CE0
+    } else {
+        center_x_px - UFO_COLLISION_HALF_WIDTH_LOC_31CE0
+    };
+    let top_y = center_y_px + UFO_COLLISION_TOP_OFFSET_LOC_31CE0;
+    let bottom_y = center_y_px + UFO_COLLISION_BOTTOM_OFFSET_LOC_31CE0;
+    let first_row = top_y.div_euclid(16);
+    let last_row = bottom_y.div_euclid(16);
+
+    for row in first_row..=last_row {
+        // ASM GfxObjects_Collision_Solid chooses the floor branch when a
+        // descending UFO's first overlap is confined to its bottom tile row.
+        if y_velocity >= 0 && row == last_row {
+            continue;
+        }
+        let probe_y = top_y.max(row * 16);
+        let probe = terrain::probe_at(grid, edge_x, probe_y);
+        if probe.cell.collision == terrain::CollisionKind::Solid {
+            let wall_x_px = if moving_right {
+                i32::from(probe.cell_x) * 16
+            } else {
+                (i32::from(probe.cell_x) + 1) * 16
+            };
+            return Some(terrain::WallProbe {
+                hit: true,
+                wall_x_px,
+                cell: probe.cell,
+                cell_x: probe.cell_x,
+                cell_y: probe.cell_y,
+            });
+        }
+    }
+
+    None
+}
 
 // ASM UFO.asm `unk_35344`: 16 motion records selected by loc_35326 using
 // `(Get_RandomNumber_byte() ^ x_pos.low_byte) & $0F`.
@@ -419,6 +472,17 @@ pub(crate) fn step_ufo_with_player_and_rng(
     rng: &mut RomRandomState,
     some_ufo_shooting: bool,
 ) {
+    // ASM UFO.asm Enemy0F_UFO_Loop: the coroutine resumes after its one-frame
+    // hibernate, consumes the collision word written by GfxObjects_Collision,
+    // then immediately performs the next acceleration/movement iteration.
+    // UFOs do not use Dragon Flying's script counter, so retain that pending
+    // collision word in `dragon_phase_frames` between native frames.
+    let pending_collision_type = enemy.dragon_phase_frames as i16;
+    enemy.dragon_phase_frames = 0;
+    if pending_collision_type != 0 {
+        apply_ufo_terrain_collision_loc_35056(enemy, pending_collision_type);
+    }
+
     if enemy.wait_timer == 0 {
         let (motion, facing) = ufo_motion_picker_loc_35326(
             rng.next_byte(),
@@ -474,27 +538,28 @@ pub(crate) fn step_ufo_with_player_and_rng(
 
     enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
 
-    // ASM UFO.asm Enemy0F_UFO_ExecCollisionBehavior: terrain contacts enter
-    // loc_35056 through `Enemy0F_UFO_CollisionBehaviors`.
+    // ASM GfxObjects_Collision -> UFO.asm Enemy0F_UFO_ExecCollisionBehavior:
+    // collision scans run after the UFO hibernates, snap the fixed-point
+    // position to the contacted surface, and leave a word for the next object
+    // pass. The `$0DE8` UFO sprite uses unk_31CE0's 28x24 box at (-14,-27).
     if let Some(grid) = block_grid {
         let cx = (enemy.x_pos >> 16) as i32;
         let cy = (enemy.y_pos >> 16) as i32;
         let moving_right = enemy.x_velocity >= 0;
-        let wall = terrain::probe_wall(
-            grid,
-            cx,
-            cy,
-            ENEMY_PROBE_HALF_WIDTH,
-            ENEMY_PROBE_HEIGHT,
-            moving_right,
-        );
-        if wall.hit {
+        let wall = ufo_probe_wall_loc_16f0(grid, cx, cy, enemy.y_velocity, moving_right);
+        if let Some(wall) = wall.filter(|_| enemy.x_velocity != 0) {
             let collision_type = if moving_right { 0x0004 } else { 0x0008 };
-            apply_ufo_terrain_collision_loc_35056(enemy, collision_type);
+            let snapped_x = if moving_right {
+                wall.wall_x_px - UFO_COLLISION_HALF_WIDTH_LOC_31CE0
+            } else {
+                wall.wall_x_px + UFO_COLLISION_HALF_WIDTH_LOC_31CE0
+            };
+            enemy.x_pos = (snapped_x as u32) << 16;
+            enemy.dragon_phase_frames = collision_type;
             return;
         }
 
-        let floor = terrain::probe_floor(grid, cx, cy);
+        let floor = terrain::probe_floor(grid, cx, cy + UFO_COLLISION_BOTTOM_OFFSET_LOC_31CE0);
         if floor.on_ground {
             let collision_type = match floor.cell.collision {
                 terrain::CollisionKind::SlopeUp => 0x0014,
@@ -503,15 +568,29 @@ pub(crate) fn step_ufo_with_player_and_rng(
                 _ => 0,
             };
             if collision_type != 0 {
-                apply_ufo_terrain_collision_loc_35056(enemy, collision_type);
+                if collision_type == 0x000C {
+                    // ASM GfxObjects_Collision loc_1A44 subtracts the
+                    // unk_31CE0 top and height, then `subq #1`: a flat floor
+                    // at Y leaves the UFO anchor at Y+2.
+                    let snapped_y = floor.floor_y_px + 2;
+                    enemy.y_pos = (snapped_y as u32) << 16;
+                }
+                enemy.dragon_phase_frames = collision_type;
                 return;
             }
         }
 
-        let ceiling =
-            terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
+        let ceiling = terrain::probe_ceiling(
+            grid,
+            cx,
+            cy + UFO_COLLISION_BOTTOM_OFFSET_LOC_31CE0,
+            UFO_COLLISION_HALF_WIDTH_LOC_31CE0,
+            UFO_COLLISION_HEIGHT_LOC_31CE0,
+        );
         if ceiling.hit && enemy.y_velocity < 0 {
-            apply_ufo_terrain_collision_loc_35056(enemy, 0x0010);
+            let snapped_y = ceiling.ceiling_y_px - UFO_COLLISION_TOP_OFFSET_LOC_31CE0;
+            enemy.y_pos = (snapped_y as u32) << 16;
+            enemy.dragon_phase_frames = 0x0010;
         }
     }
 }
@@ -873,11 +952,15 @@ pub(crate) struct UfoWallBounceLoc35120 {
 }
 
 pub(crate) fn ufo_bounce_wall_tail_loc_35120(x_velocity: i32, d0: i32) -> UfoWallBounceLoc35120 {
-    // ASM UFO.asm loc_35120: after the wall bounce has negated `x_vel`, keep it.
-    // Clear-only behavior means positive `d0` values are negated so they can be
-    // used as a bounce impulse; negative `d0` passes through unchanged.
+    // ASM UFO.asm Enemy0F_UFO_BounceWall loc_35104/loc_35120: negate
+    // `x_vel`, then make d0 oppose that bounced velocity so acceleration
+    // decelerates it towards the cleared d1 target.
     let x_velocity = x_velocity.wrapping_neg();
-    let d0 = if d0 >= 0 { d0.wrapping_neg() } else { d0 };
+    let d0 = if x_velocity < 0 {
+        d0.wrapping_abs()
+    } else {
+        d0.wrapping_abs().wrapping_neg()
+    };
 
     UfoWallBounceLoc35120 { x_velocity, d0 }
 }
@@ -892,10 +975,15 @@ pub(crate) fn ufo_bounce_floor_ceil_tail_loc_35146(
     y_velocity: i32,
     d2: i32,
 ) -> UfoFloorCeilBounceLoc35146 {
-    // ASM UFO.asm loc_35146: after the floor/ceiling bounce has negated `y_vel`,
-    // keep it and negate only non-negative `d2` values as a secondary impulse.
+    // ASM UFO.asm Enemy0F_UFO_BounceFloorCeil loc_3512A/loc_35146: negate
+    // `y_vel`, then make d2 oppose that bounced velocity so acceleration
+    // decelerates it towards the cleared d3 target.
     let y_velocity = y_velocity.wrapping_neg();
-    let d2 = if d2 >= 0 { d2.wrapping_neg() } else { d2 };
+    let d2 = if y_velocity < 0 {
+        d2.wrapping_abs()
+    } else {
+        d2.wrapping_abs().wrapping_neg()
+    };
 
     UfoFloorCeilBounceLoc35146 { y_velocity, d2 }
 }
@@ -2706,8 +2794,60 @@ mod tests {
                 ufo.target_x_velocity,
                 ufo.facing
             ),
-            (-0x0001_0000, -0x0000_1000, 0, Direction::Left),
-            "ASM UFO.asm loc_35056 wall dispatch enters Enemy0F_UFO_BounceWall/loc_35120 and reverses velocity, acceleration, target, and facing"
+            (-0x0001_0000, 0x0000_1000, 0, Direction::Left),
+            "ASM UFO.asm loc_35056 wall dispatch enters Enemy0F_UFO_BounceWall/loc_35120 and reverses velocity while acceleration opposes the bounce"
+        );
+    }
+
+    #[test]
+    fn ufo_wall_collision_snaps_and_hibernates_before_loc_35120_bounce() {
+        let grid = ufo_test_grid(8, 8, &[(4, 3, 0x60, 0x00)]);
+        let mut ufo = ufo_test_enemy(96, 80);
+        ufo.x_velocity = -0x0003_0000;
+        ufo.x_acceleration = -0x0000_1000;
+        ufo.target_x_velocity = -0x0003_0000;
+        let mut rng = RomRandomState::default();
+
+        step_ufo_with_player(&mut ufo, Some(&grid), None, None, &mut rng);
+
+        assert_eq!(
+            (ufo.x_pos, ufo.x_velocity, ufo.dragon_phase_frames),
+            (94 << 16, -0x0003_0000, 0x0008),
+            "ASM GfxObjects_Collision loc_19D2/loc_1A00 snaps unk_31CE0's -14px UFO edge to the wall and leaves leftwall `$08` for the hibernated coroutine"
+        );
+
+        step_ufo_with_player(&mut ufo, Some(&grid), None, None, &mut rng);
+
+        assert!(
+            ufo.x_velocity > 0,
+            "ASM UFO.asm Enemy0F_UFO_Loop resumes at loc_35056/Enemy0F_UFO_BounceWall before the next acceleration and movement pass"
+        );
+    }
+
+    #[test]
+    fn ufo_floor_collision_snaps_and_hibernates_before_loc_35146_bounce() {
+        let grid = ufo_test_grid(8, 8, &[(5, 5, 0x60, 0x00)]);
+        let mut ufo = ufo_test_enemy(80, 81);
+        ufo.y_velocity = 0x0001_0000;
+        ufo.y_acceleration = 0;
+        ufo.target_y_velocity = 0x0001_0000;
+        ufo.wait_timer = 3;
+        let mut rng = RomRandomState::default();
+
+        step_ufo_with_player(&mut ufo, Some(&grid), None, None, &mut rng);
+
+        assert_eq!(
+            (ufo.y_pos, ufo.y_velocity, ufo.dragon_phase_frames),
+            (82 << 16, 0x0001_0000, 0x000C),
+            "ASM GfxObjects_Collision loc_1A44 snaps unk_31CE0's -3px UFO bottom to two pixels below the flat-floor surface and leaves floor `$0C` for the hibernated coroutine",
+        );
+
+        step_ufo_with_player(&mut ufo, Some(&grid), None, None, &mut rng);
+
+        assert_eq!(
+            (ufo.y_pos, ufo.y_velocity),
+            (81 << 16, -0x0001_0000),
+            "ASM UFO.asm Enemy0F_UFO_Loop resumes at loc_35056/Enemy0F_UFO_BounceFloorCeil before the next acceleration and movement pass",
         );
     }
 
@@ -2788,9 +2928,9 @@ mod tests {
             ufo_bounce_wall_tail_loc_35120(0x0100_0000, 0x0200_0000),
             UfoWallBounceLoc35120 {
                 x_velocity: -0x0100_0000,
-                d0: -0x0200_0000,
+                d0: 0x0200_0000,
             },
-            "ASM UFO.asm loc_35120 keeps negated `x_vel` and negates positive `d0`"
+            "ASM UFO.asm loc_35120 keeps positive `d0` while the bounced velocity is negative"
         );
 
         assert_eq!(
@@ -2799,7 +2939,7 @@ mod tests {
                 x_velocity: 0x0100_0000,
                 d0: -0x0200_0000,
             },
-            "ASM UFO.asm loc_35120 preserves negative `d0` and negates `x_vel`"
+            "ASM UFO.asm loc_35104 preserves negative `d0` while the bounced velocity is positive"
         );
     }
 
@@ -2809,9 +2949,9 @@ mod tests {
             ufo_bounce_floor_ceil_tail_loc_35146(0x0100_0000, 0x0200_0000),
             UfoFloorCeilBounceLoc35146 {
                 y_velocity: -0x0100_0000,
-                d2: -0x0200_0000,
+                d2: 0x0200_0000,
             },
-            "ASM UFO.asm loc_35146 keeps negated `y_vel` and negates positive `d2`"
+            "ASM UFO.asm loc_35146 keeps positive `d2` while the bounced velocity is negative"
         );
 
         assert_eq!(
@@ -2820,7 +2960,7 @@ mod tests {
                 y_velocity: 0x0100_0000,
                 d2: -0x0200_0000,
             },
-            "ASM UFO.asm loc_35146 preserves negative `d2` and negates `y_vel`"
+            "ASM UFO.asm loc_3512A preserves negative `d2` while the bounced velocity is positive"
         );
     }
 

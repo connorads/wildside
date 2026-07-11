@@ -10483,45 +10483,55 @@ mod chunk_04 {
 
     #[test]
     fn ufo_floor_collision_uses_loc_35056_floorceil_bounce() {
-        let mut enemy = test_enemy(EnemyFamily::UFO, 72 << 16, 47 << 16, 1);
+        let mut enemy = test_enemy(EnemyFamily::UFO, 72 << 16, 49 << 16, 1);
         enemy.y_velocity = 0x0001_0000;
-        enemy.y_acceleration = 0;
+        enemy.y_acceleration = 0x0000_0800;
         enemy.target_y_velocity = 0x0003_0000;
         enemy.wait_timer = UFO_PATTERN_FRAMES;
         let grid = bounce_grid(&[(4, 3)]);
 
         step_ufo(&mut enemy, Some(&grid));
+        assert_eq!(
+            enemy.dragon_phase_frames, 0x000C,
+            "ASM GfxObjects_Collision leaves colid_floor for the hibernated UFO coroutine",
+        );
+        step_ufo(&mut enemy, Some(&grid));
 
         assert_eq!(
             enemy.y_velocity, -0x0001_0000,
-            "ASM UFO.asm loc_35056 maps colid_floor through Enemy0F_UFO_BounceFloorCeil",
+            "ASM UFO.asm loc_35056 maps the pending colid_floor through Enemy0F_UFO_BounceFloorCeil before the next acceleration pass",
         );
-        assert_eq!(enemy.y_acceleration, 0);
+        assert_eq!(enemy.y_acceleration, 0x0000_0800);
         assert_eq!(enemy.target_y_velocity, 0);
     }
 
     #[test]
     fn ufo_ceiling_collision_uses_loc_35056_floorceil_bounce() {
-        let mut enemy = test_enemy(EnemyFamily::UFO, 40 << 16, 34 << 16, 1);
+        let mut enemy = test_enemy(EnemyFamily::UFO, 40 << 16, 45 << 16, 1);
         enemy.y_velocity = -0x0001_0000;
-        enemy.y_acceleration = 0;
+        enemy.y_acceleration = -0x0000_0800;
         enemy.target_y_velocity = -0x0001_0000;
         enemy.wait_timer = UFO_PATTERN_FRAMES;
         let grid = bounce_grid(&[(2, 1)]);
 
         step_ufo(&mut enemy, Some(&grid));
+        assert_eq!(
+            enemy.dragon_phase_frames, 0x0010,
+            "ASM GfxObjects_Collision leaves colid_ceiling for the hibernated UFO coroutine",
+        );
+        step_ufo(&mut enemy, Some(&grid));
 
         assert_eq!(
-            enemy.y_velocity, 0x0001_0000,
-            "ASM UFO.asm loc_35056 maps colid_ceiling through Enemy0F_UFO_BounceFloorCeil",
+            enemy.y_velocity, 0x0000_F800,
+            "ASM UFO.asm loc_35056 maps the pending colid_ceiling through Enemy0F_UFO_BounceFloorCeil before the next acceleration pass",
         );
-        assert_eq!(enemy.y_acceleration, 0);
+        assert_eq!(enemy.y_acceleration, -0x0000_0800);
         assert_eq!(enemy.target_y_velocity, 0);
     }
 
     #[test]
     fn ufo_slopeup_collision_uses_loc_35056_slope_bounce() {
-        let mut enemy = test_enemy(EnemyFamily::UFO, 72 << 16, 54 << 16, 1);
+        let mut enemy = test_enemy(EnemyFamily::UFO, 72 << 16, 57 << 16, 1);
         enemy.y_velocity = 0x0001_0000;
         enemy.target_x_velocity = 0x0003_0000;
         enemy.target_y_velocity = 0x0003_0000;
@@ -10531,14 +10541,19 @@ mod chunk_04 {
         let grid = grid_with_cells(8, 8, &[(4, 3, 0x40, 0)]);
 
         step_ufo(&mut enemy, Some(&grid));
+        assert_eq!(
+            enemy.dragon_phase_frames, 0x0014,
+            "ASM GfxObjects_Collision leaves the slope-up word for the hibernated UFO coroutine",
+        );
+        step_ufo(&mut enemy, Some(&grid));
 
         assert_eq!(
-            enemy.x_velocity, -0x0001_0000,
-            "ASM UFO.asm Enemy0F_UFO_BounceUpSlope sets x_vel to -$10000",
+            enemy.x_velocity, -0x0000_F800,
+            "ASM UFO.asm Enemy0F_UFO_BounceUpSlope sets x_vel to -$10000 before the next loc_3502A acceleration pass",
         );
         assert_eq!(
-            enemy.y_velocity, -0x0001_0000,
-            "ASM UFO.asm Enemy0F_UFO_BounceUpSlope sets y_vel to -$10000",
+            enemy.y_velocity, -0x0000_F800,
+            "ASM UFO.asm Enemy0F_UFO_BounceUpSlope sets y_vel to -$10000 before the next loc_3502A acceleration pass",
         );
         assert_eq!(enemy.x_acceleration, 0x800);
         assert_eq!(enemy.y_acceleration, 0x800);
@@ -10558,14 +10573,19 @@ mod chunk_04 {
         let grid = grid_with_cells(8, 8, &[(4, 3, 0x50, 0)]);
 
         step_ufo(&mut enemy, Some(&grid));
+        assert_eq!(
+            enemy.dragon_phase_frames, 0x0018,
+            "ASM GfxObjects_Collision leaves the slope-down word for the hibernated UFO coroutine",
+        );
+        step_ufo(&mut enemy, Some(&grid));
 
         assert_eq!(
-            enemy.x_velocity, 0x0001_0000,
-            "ASM UFO.asm Enemy0F_UFO_BounceDownSlope sets x_vel to $10000",
+            enemy.x_velocity, 0x0000_F800,
+            "ASM UFO.asm Enemy0F_UFO_BounceDownSlope sets x_vel to $10000 before the next loc_3501E acceleration pass",
         );
         assert_eq!(
-            enemy.y_velocity, -0x0001_0000,
-            "ASM UFO.asm Enemy0F_UFO_BounceDownSlope sets y_vel to -$10000",
+            enemy.y_velocity, -0x0000_F800,
+            "ASM UFO.asm Enemy0F_UFO_BounceDownSlope sets y_vel to -$10000 before the next loc_3502A acceleration pass",
         );
         assert_eq!(enemy.x_acceleration, -0x800);
         assert_eq!(enemy.y_acceleration, 0x800);
@@ -10956,7 +10976,7 @@ mod chunk_04 {
             enemy.x_velocity, -0x0002_0000,
             "ASM Tornado.asm loc_35948 maps wall collisions through UFO.asm loc_35120, negating x_vel",
         );
-        assert_eq!(enemy.x_acceleration, -0x0000_0800);
+        assert_eq!(enemy.x_acceleration, 0x0000_0800);
         assert_eq!(enemy.target_x_velocity, 0);
         assert_eq!(enemy.facing, Direction::Right);
     }
@@ -10975,7 +10995,7 @@ mod chunk_04 {
             falling.y_velocity, -0x0001_0000,
             "ASM Tornado.asm loc_35948 should bounce floor contact only after a downward y_vel reaches the floor",
         );
-        assert_eq!(falling.y_acceleration, -0x0000_0800);
+        assert_eq!(falling.y_acceleration, 0x0000_0800);
         assert_eq!(falling.target_y_velocity, 0);
 
         let mut stationary = test_enemy(EnemyFamily::Tornado, 40 << 16, 48 << 16, 1);

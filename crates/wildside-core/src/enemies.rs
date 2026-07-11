@@ -1268,8 +1268,9 @@ pub(crate) struct ActiveEnemy {
     /// Generic countdown timer for phased enemies (EmoRock hover wait, etc.)
     pub(crate) wait_timer: u16,
     pub(crate) dragon_phase: DragonFlyingState,
-    /// Dragon Flying: frames in the current phase. Sphere reuses this u16 as
-    /// the GfxObjects_Collision `collision_type(a3)` consumed next AI pass.
+    /// Dragon Flying: frames in the current phase. Sphere and UFO reuse this
+    /// u16 as the GfxObjects_Collision `collision_type(a3)` consumed next AI
+    /// pass.
     pub(crate) dragon_phase_frames: u16,
     /// Dragon Flying: script variant (0, 1, 2) from layout skin byte.
     /// Dragon Walking reuses bit 7 for the ASM Dragon.asm loc_3CD16 `$5C(a5)`

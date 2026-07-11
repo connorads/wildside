@@ -1569,9 +1569,10 @@ fn object_slots_debug_loc_e1e(
 ) -> String {
     // ASM Execute_Objects loc_E1E (kid.asm:1636): the active object list is
     // threaded from Addr_FirstObjectSlot through the longword at offset 0.
-    // Dump code pointer + hibernate counter + owned gfx position so #214 can
-    // distinguish real sub_10EDA/sub_10F9C hibernating workers from native
-    // synthetic block_fx accounting.
+    // Dump code pointer, coroutine registers, hibernate counter, and owned gfx
+    // position. Object+$16..$36 stores d0-d3/a0-a3 across hibernation; the
+    // motion registers and fixed-point gfx state make enemy scheduler/RNG and
+    // collision timing auditable without adding family-specific probes.
     let mut slots = Vec::new();
     let layout_object_ptr = read_wram_u32(work_ram, ENEMY_LAYOUT_OBJECT_PTR_ADDR) as usize;
     let layout_object_count = read_rom_u8(rom, layout_object_ptr + 1);
@@ -1583,6 +1584,10 @@ fn object_slots_debug_loc_e1e(
     {
         let code = read_wram_u32(work_ram, object_addr + 4);
         let hibernate = read_wram_u16(work_ram, object_addr + 8);
+        let d0 = read_wram_u32(work_ram, object_addr + 0x16);
+        let d1 = read_wram_u32(work_ram, object_addr + 0x1A);
+        let d2 = read_wram_u32(work_ram, object_addr + 0x1E);
+        let d3 = read_wram_u32(work_ram, object_addr + 0x22);
         let layout_ptr = read_wram_u32(work_ram, object_addr + OBJECT_LAYOUT_PTR_OFFSET) as usize;
         let layout = layout_index_from_ptr(layout_object_ptr, layout_object_count, layout_ptr)
             .map(|layout_index| {
@@ -1599,9 +1604,12 @@ fn object_slots_debug_loc_e1e(
             // Object+$36 and loc_3478C can keep the Object live while the
             // helper's active-enemy GfxObject scan omits display-cleared slots.
             format!(
-                "@{},{}:disp={:#04x},col={},src={:#06x}",
-                read_wram_u16(work_ram, gfx_addr + OBJECT_X_POS_OFFSET),
-                read_wram_u16(work_ram, gfx_addr + OBJECT_Y_POS_OFFSET),
+                "@{:#010x},{:#010x}:vel={:#010x},{:#010x},spr={:#06x},disp={:#04x},col={},src={:#06x}",
+                read_wram_u32(work_ram, gfx_addr + OBJECT_X_POS_OFFSET),
+                read_wram_u32(work_ram, gfx_addr + OBJECT_Y_POS_OFFSET),
+                read_wram_u32(work_ram, gfx_addr + 0x26),
+                read_wram_u32(work_ram, gfx_addr + 0x2A),
+                read_wram_u16(work_ram, gfx_addr + 0x22),
                 read_wram_u8(work_ram, gfx_addr + DISPLAY_FLAG_OFFSET),
                 format_collision_type(read_wram_u16(
                     work_ram,
@@ -1613,7 +1621,7 @@ fn object_slots_debug_loc_e1e(
             String::from("@-")
         };
         slots.push(format!(
-            "{object_addr:#08x}:code={code:#08x},hib={hibernate}{layout}{gfx}"
+            "{object_addr:#08x}:code={code:#08x},hib={hibernate},d0={d0:#010x},d1={d1:#010x},d2={d2:#010x},d3={d3:#010x}{layout}{gfx}"
         ));
         object_addr = read_wram_u32(work_ram, object_addr) as usize;
         guard += 1;

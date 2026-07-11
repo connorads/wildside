@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#389 UFO Gfx collision coroutine)
+
+- UFO sprite `$0DE8` resolves to `CollisionSize_Index` row `unk_31CE0`, a
+  28x24 box at `(-14,-27)`; the generic character probe missed top-row walls.
+- Native now performs the ROM's post-object snap, carries `collision_type(a3)`
+  through the one-frame hibernate, and applies loc_35104/loc_3512A bounce signs
+  on the next object pass. Tornado's shared bounce assertions follow the same
+  sign branches.
+- Level 0x48 keeps its two object-lifecycle blockers. Relative to detached
+  pre-change HEAD, idle-tail changed pixels improve 2,779 -> 2,159 and worst
+  MAE 3.5 -> 2.8; settle changed pixels rise 1,845 -> 2,439. No state blocker is
+  added.
+- Fast and full TAS gates pass; all 37,759 published-route CRC frames remain
+  exact with the unchanged 212-authoritative / 2-oracle-limitation sampled
+  baseline. Current whole-level report `1783779907` is 43/26 with 96 blockers;
+  the older 45/24 handoff predates the debug-title scheduler commit. NEXT: run
+  `project-status`, then continue from Level 0x48 beam/Drips child lifecycle.
+
 ## 2026-07-11 handoff (#390 Level 0x48 hidden scheduler parity)
 
 - Oracle title ticks prove `loc_74E0` enters hidden Mode_Level at elapsed 71,

@@ -111,6 +111,33 @@ authoritative differences from 98 to 90 with no newly failing level; Level
 37,759 matching CRC frames and #290's unchanged 212-authoritative /
 2-oracle-limitation sampled-state baseline.
 
+Follow-up proactive correction 2026-07-11 traced the first remaining UFO parent
+drift through `oracle_object_slots_loc_e1e`, extended to expose each Object's
+persisted d0-d3 and full Gfx fixed-point position, velocity, sprite, collision,
+and source words. `CollisionSize_Index` maps UFO sprite `$0DE8` to `unk_31CE0`
+(`-$E,$1C,-$1B,$18`), while native used the generic character probe and applied
+the bounce in the collision frame. Native now scans the UFO's full 28x24 ROM
+box, snaps wall/floor/ceiling contacts in the post-object Gfx collision pass,
+retains `collision_type(a3)` through the one-frame hibernate, and dispatches
+`Enemy0F_UFO_BounceWall`/`Enemy0F_UFO_BounceFloorCeil` on the next object pass.
+The loc_35104/loc_3512A sign branches also keep acceleration opposed to the
+bounced velocity; Tornado shares those exact ROM routines.
+
+Exact wall and floor regressions pin the snap, pending collision word, and
+next-pass bounce; the older floor/ceiling/slope and Tornado tests now assert the
+same coroutine/sign semantics. A detached-HEAD audit proves this slice adds no
+state blockers: pre-change HEAD and current both report five blockers across
+Levels 0x01, 0x48, and 0x68. On Level 0x48, current keeps the same two object-
+lifecycle blockers, improves idle-tail changed pixels 2,779 -> 2,159 and worst
+checkpoint MAE 3.5 -> 2.8, while settle changed pixels rise 1,845 -> 2,439.
+Whole-level report `1783779907` is 43 pass / 26 fail with 96 blocking, 3
+advisory, and 45 oracle-limitation diffs; the older 45/24 handoff preceded the
+debug-title scheduler commit and is not the current baseline. `verify-slice-fast`
+and `verify-tas-full` pass; the published route remains 37,759/37,759 CRC exact
+with #290's unchanged 212-authoritative / 2-oracle-limitation sampled-state
+baseline. The Level 0x48 route remains 0/360 whole-roster exact because beam and
+Drips child-worker representation/lifecycle still differs.
+
 ### #388
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.
