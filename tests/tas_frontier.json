@@ -6,15 +6,11 @@
       "frontier_frame": 800,
       "checkpoint_interval": 1,
       "expected_divergence_summary": {
-        "authoritative": 20,
+        "authoritative": 0,
         "advisory": 0,
         "accumulation": 0,
         "rng": 0,
         "oracle_limitation": 0
-      },
-      "expected_first_authoritative_diff": {
-        "checkpoint": "frame_780",
-        "field": "number_gfx_objects"
       },
       "total_frames": 800,
       "status": "verified"
@@ -25,15 +21,11 @@
       "frontier_frame": 850,
       "checkpoint_interval": 1,
       "expected_divergence_summary": {
-        "authoritative": 55,
+        "authoritative": 0,
         "advisory": 0,
         "accumulation": 0,
         "rng": 0,
         "oracle_limitation": 0
-      },
-      "expected_first_authoritative_diff": {
-        "checkpoint": "frame_780",
-        "field": "number_gfx_objects"
       },
       "total_frames": 4916,
       "status": "verified"
@@ -44,20 +36,20 @@
       "frontier_frame": 3400,
       "checkpoint_interval": 1,
       "expected_divergence_summary": {
-        "authoritative": 839,
+        "authoritative": 99,
         "advisory": 0,
         "accumulation": 0,
         "rng": 0,
         "oracle_limitation": 0
       },
       "expected_first_authoritative_diff": {
-        "checkpoint": "frame_299",
+        "checkpoint": "frame_2606",
         "field": "number_gfx_objects"
       },
       "total_frames": 37759,
       "full_checkpoint_interval": 25,
       "full_expected_divergence_summary": {
-        "authoritative": 527,
+        "authoritative": 477,
         "advisory": 0,
         "accumulation": 0,
         "rng": 0,
@@ -72,7 +64,7 @@
         "first_mismatch": null
       },
       "full_expected_first_authoritative_diff": {
-        "checkpoint": "frame_300",
+        "checkpoint": "frame_3075",
         "field": "number_gfx_objects"
       },
       "status": "verified"

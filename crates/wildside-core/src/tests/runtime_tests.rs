@@ -4802,15 +4802,17 @@ mod chunk_09 {
     }
 
     #[test]
-    fn published_tas_boot_title_keeps_kid_hidden_until_frame_289() {
+    fn published_tas_boot_title_exposes_obj_title_text_kid_bursts_on_frames_289_and_299() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
         };
         let mut frame_287 = None;
         let mut frame_288 = None;
         let mut frame_289 = None;
+        let mut frame_298_gfx_objects = None;
+        let mut frame_299_gfx_objects = None;
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(290) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(300) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 287 => {
@@ -4835,7 +4837,12 @@ mod chunk_09 {
                         trace.title_screen_ready,
                         trace.kid_x_pos,
                         trace.kid_y_pos,
+                        trace.number_gfx_objects,
                     ));
+                }
+                298 => frame_298_gfx_objects = Some(trace.number_gfx_objects),
+                299 => {
+                    frame_299_gfx_objects = Some(trace.number_gfx_objects);
                     break;
                 }
                 _ => {}
@@ -4859,8 +4866,19 @@ mod chunk_09 {
                 true,
                 Some(TITLE_KID_X_POS),
                 Some(TITLE_KID_Y_POS),
+                3,
             )),
-            "the published TAS only restores the standard title pose on frame 289"
+            "ASM Obj_TitleTextKid -> sub_1B652 restores the title pose and allocates its first popup on frame 289"
+        );
+        assert_eq!(
+            frame_298_gfx_objects,
+            Some(3),
+            "ASM loc_1B63C keeps only the first sub_1B652 popup through frame 298"
+        );
+        assert_eq!(
+            frame_299_gfx_objects,
+            Some(4),
+            "ASM loc_1B63C -> sub_1B652 allocates the second title-text popup on frame 299"
         );
     }
 

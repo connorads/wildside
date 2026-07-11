@@ -5622,6 +5622,25 @@ impl NativeRuntime {
         })
     }
 
+    pub(crate) fn title_text_kid_gfx_count_loc_1b5e4_sub_1b652(&self) -> u16 {
+        // ASM Load_TitleScreen -> Obj_TitleTextKid (kid.asm:29444, 29834)
+        // exposes the worker's initial GfxObject at local rebuild elapsed 57.
+        // loc_1B5E4 then hibernates for `$1E`, runs loc_1B610's inclusive
+        // `$2A` DBF drift, hibernates for `$14`, allocates the first
+        // sub_1B652 popup, hibernates for `$A`, and allocates the second.
+        const OBJ_TITLE_TEXT_KID_INITIAL_GFX_ELAPSED: usize = 57;
+        let setup = title_text_kid_setup_loc_1B5E4();
+        let first_burst_elapsed = OBJ_TITLE_TEXT_KID_INITIAL_GFX_ELAPSED
+            + usize::from(setup.pre_drift_hibernate_frames)
+            + usize::from(setup.drift_frame_count)
+            + usize::from(setup.post_drift_hibernate_frames);
+        let second_burst_elapsed =
+            first_burst_elapsed + usize::from(setup.interstitial_hibernate_frames);
+        let elapsed = self.effective_title_screen_rebuild_elapsed();
+
+        2 + u16::from(elapsed >= first_burst_elapsed) + u16::from(elapsed >= second_burst_elapsed)
+    }
+
     pub(crate) fn demo_startup_frame(&self) -> Option<u16> {
         match self.boot_state {
             BootState::DemoPlay { frame_counter, .. } => Some(frame_counter),

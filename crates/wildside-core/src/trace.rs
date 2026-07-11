@@ -848,6 +848,11 @@ mod tests {
         assert_eq!(hidden_count_with(56, false, false, true), Some((3, 0)));
         assert_eq!(hidden_count_with(57, false, false, true), Some((5, 1)));
         assert_eq!(hidden_count_with(58, false, false, true), Some((5, 2)));
+        assert_eq!(hidden_count_with(59, false, false, true), Some((4, 2)));
+        assert_eq!(hidden_count_with(149, false, false, true), Some((4, 2)));
+        assert_eq!(hidden_count_with(150, false, false, true), Some((4, 3)));
+        assert_eq!(hidden_count_with(159, false, false, true), Some((4, 3)));
+        assert_eq!(hidden_count_with(160, false, false, true), Some((4, 4)));
         assert_eq!(hidden_count_with(56, true, false, true), None);
         assert_eq!(hidden_count_with(56, false, true, true), None);
         assert_eq!(hidden_count_with(56, false, false, false), None);
@@ -4839,6 +4844,26 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_counts_second_obj_title_text_kid_burst_from_elapsed_160() {
+        fn gfx_count_at(title_screen_elapsed_frames: usize) -> u16 {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+            runtime.title_screen_ready_frame = 0;
+            runtime.title_menu_active = true;
+            runtime.title_menu_cursor_pending = false;
+            runtime.title_screen_elapsed_frames = title_screen_elapsed_frames;
+            runtime.trace_frame().number_gfx_objects
+        }
+
+        // ASM Obj_TitleTextKid loc_1B5E4 -> sub_1B652 allocates its first
+        // popup at local elapsed 150, hibernates for `$A`, then allocates the
+        // second popup at elapsed 160. Raw oracle WRAM changes 3 -> 4 on the
+        // corresponding published-route frame 299.
+        assert_eq!(gfx_count_at(159), 3);
+        assert_eq!(gfx_count_at(160), 4);
+    }
+
+    #[test]
     fn trace_frame_late_controller_counts_follow_playback_windows() {
         fn counts_at(
             frame_counter: u16,
@@ -7063,6 +7088,7 @@ impl NativeRuntime {
             56 => Some((3, 0)),
             57 => Some((5, 1)),
             58 => Some((5, 2)),
+            59.. => Some((4, self.title_text_kid_gfx_count_loc_1b5e4_sub_1b652())),
             _ => None,
         }
     }
@@ -10888,10 +10914,10 @@ impl NativeRuntime {
         }
         if matches!(
             self.boot_state,
-            // ASM Obj_TitleMenu allocates the title shell before gameplay:
-            // the idle loop keeps 4 objects / 2 gfx slots alive, and
-            // `loc_1BB52` adds the menu cursor as a third gfx slot once the
-            // first Start press arms the active title menu.
+            // ASM Load_TitleScreen allocates the title shell before gameplay.
+            // Obj_TitleTextKid loc_1B5E4 owns two later sub_1B652 popup
+            // GfxObjects; raw WRAM shows its second popup joining at local
+            // rebuild elapsed 160 while the four Object workers stay live.
             BootState::TitleScreen { .. } | BootState::IntroSequence6 { .. }
         ) {
             if self.cold_demo_timeout_intro_sequence_6_shell() && !self.title_screen_ready() {
@@ -10922,7 +10948,11 @@ impl NativeRuntime {
                 return counts;
             }
             if self.title_menu_active && !self.title_menu_cursor_pending {
-                return (4, 3);
+                // Obj_TitleMenu's active shell exposes at least three slots;
+                // Obj_TitleTextKid's second sub_1B652 popup raises the live
+                // WRAM count to four independently of the menu state.
+                let number_gfx_objects = self.title_text_kid_gfx_count_loc_1b5e4_sub_1b652().max(3);
+                return (4, number_gfx_objects);
             }
         }
         if !matches!(

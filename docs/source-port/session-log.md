@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 title-text GfxObject schedule)
+
+- Raw oracle WRAM and linked-list dumps identify the title GfxObject appearing
+  at frame 289 as the first `Obj_TitleTextKid -> sub_1B652` popup and frame 299
+  as the second. Both are parented by Object `$FFFF0E14`; the second allocation
+  advances its coroutine from `loc_1B63C` to `loc_1B650`. The old native count
+  happened to report three by treating the slot as a menu cursor.
+- Native now derives the popup edges from `loc_1B5E4`'s `$1E` hibernation,
+  inclusive `$2A` DBF drift, `$14` pause, and `$A` interstitial hibernation.
+  That produces local rebuild elapsed 150/160 and is shared by cold title and
+  manual demo-return shells.
+- Published frames 270..899 and 1836..2010 match every compared gameplay
+  checkpoint. The fast 0..3400 baseline falls 839 -> 99 authoritative
+  differences and moves to demo-play `frame_2606/number_gfx_objects`; both
+  title-only recordings fall to zero state differences.
+- The full sampled baseline falls 527 -> 477 authoritative differences plus 6
+  oracle limitations, first at `frame_3075/number_gfx_objects`. All 37,759
+  player/camera CRC frames and all 37,743 complete post-`Init_RNG` states remain
+  exact. `mise run verify-slice-fast` and `mise run verify-tas-full` pass.
+- NEXT: derive the demo-play GfxObject schedule around frames 2606..2616 and
+  3065 onward from the live object/GfxObject lists and owning ASM routines.
+
 ## 2026-07-11 handoff (#290 GfxObject and transition-identity audit)
 
 - Repeated `0x15 -> 0x00` transitions reused checkpoint labels, allowing report

@@ -16,8 +16,8 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-11
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints retain the explicit #290 baseline of 527 authoritative export
-diffs and 6 oracle limitations, beginning at `frame_300/number_gfx_objects`.
+state checkpoints retain the explicit #290 baseline of 477 authoritative export
+diffs and 6 oracle limitations, beginning at `frame_3075/number_gfx_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -29,16 +29,17 @@ That is complete per-frame RNG evidence for this route, not whole-state or
 whole-game proof. Reducing #290's authoritative sampled-state baseline remains
 separate fidelity work.
 
-The latest verifier correction makes transition labels frame-unique and compares
-`Number_GfxObjects` as authoritative gameplay state. Its per-frame fast window
-through frame 3400 ratchets 839 differences, first at
-`frame_299/number_gfx_objects`. Raw oracle WRAM at the demo-1 timeout hand-off
-holds Objects/GfxObjects/Movement at 9/8/3. Native now preserves the final
-`Mode_Level -> ReadJoypad loc_C0A` snapshot, including `loc_119D8`'s hidden
-workers, and frames 8067..8103 match on the compared gameplay fields.
-IntroSequence1 also exposes the GfxObject allocated by
-`sub_1B8F4 -> sub_1C54A`. The larger checked-in debt is newly measured state,
-not a player/camera or RNG regression.
+The latest correction resolves the first expanded-state frontier. Raw oracle
+WRAM identifies the frame-289 and frame-299 GfxObjects as the two
+`Obj_TitleTextKid loc_1B5E4 -> sub_1B652` popups parented by Object
+`$FFFF0E14`; the second allocation advances that coroutine from `loc_1B63C`
+to `loc_1B650`. Native derives the local elapsed-150/160 edges from the ROM's
+`$1E` hibernation, inclusive `$2A` DBF drift, `$14` pause, and `$A`
+interstitial wait, and reuses the schedule after manual demo returns. Published
+frames 270..899 and 1836..2010 now match every compared gameplay checkpoint.
+The per-frame window through frame 3400 falls 839 -> 99 authoritative
+differences, first at demo-play `frame_2606/number_gfx_objects`; both title-only
+recordings are clean. CRC and complete RNG state remain exact.
 
 The latest correction separates IntroSequence2's title-return scheduler from
 IntroSequence4. ASM `loc_1B9D0 -> loc_1BA02` performs its two `sub_1C1A2`
