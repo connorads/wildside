@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#381 recording-prime RNG ordering)
+
+- Oracle Level 0x14 allocates and seeds all three Drips during its live
+  title-wait shell, then executes 27 more object passes before the 60-row
+  stable window. Its target-live step 0 is RNG `$FFD1` with waits
+  `$18/$04/$22`.
+- Native's collapsed 32-frame respawn prime calls enemy scheduling directly,
+  omitting `Execute_Objects loc_E12`'s one-longword RNG burn per Mode_Level
+  pass. It begins the stable window at `$FFD8` with already-divergent phases.
+- Window-length, count-override, and per-level RNG-reset hypotheses are
+  rejected. #381 remains `[~]`; NEXT: introduce a generic pre-frame
+  Mode_Level settle scheduler and verify it across multiple levels.
+- No gameplay patch was made for #381. Temporary oracle/native diagnostics
+  were reverted; the only retained changes are this evidence handoff and the
+  in-progress tracker state.
+
 ## 2026-07-11 handoff (#380 Drips Object_RAM accounting)
 
 - Level 0x14 now counts the three hidden `Enemy16_Drip_Init` Object_RAM

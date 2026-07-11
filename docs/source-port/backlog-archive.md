@@ -11,6 +11,38 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #381
+
+Opened 2026-07-11 from #380's residual Level 0x14 idle-tail divergence.
+Native allocates two Drips surface crawlers by recording frame 359 against
+oracle's three, and the lifecycle split is already present at frame 0.
+
+Investigation 2026-07-11 localised the cause to the recording-warp adapter,
+not `Drips.asm` countdown or crawler logic. Oracle hidden-settle tracing shows
+the three controllers allocated during the live title-wait shell. At
+title-wait step 94, `loc_3340E` has seeded their `d0` waits to `$33/$1F/$3D`;
+27 subsequent object passes leave `$18/$04/$22` at `post_title_start` and
+`target_live` step 0. RNG is `$FFD1` there, advances exactly one
+`Get_RandomNumber_long` per hidden live row, ends step 59 at `$FFE1`, and
+reaches `$FFE5` on scenario frame 0.
+
+Native enters `prime_respawn_settle_enemy_loading_loc_368a8` at `$FFD5` and
+directly schedules all 32 inspected settle frames through
+`step_active_enemies_with_rng`, consuming only the three Drips seed bytes and
+leaving `$FFD8` before the stable window. The subsequent window has the correct
+four-byte cadence, but it starts from already-wrong waits (`$801E/$18/$00`)
+and ring state. ASM `Mode_Level` calls `Execute_Objects`, whose `loc_E12` head
+draws `Get_RandomNumber_long` before object coroutines on every live pass; the
+collapsed native prime bypasses that ordering.
+
+Rejected: changing the 60-frame window, forcing a third crawler count, or
+adding another level-specific RNG ring reset like the existing Level 1 shim.
+Those hide the pre-frame state error and violate the engine-level rule. Next:
+model the hidden title-wait/respawn prime through one generic Mode_Level frame
+scheduler, or preserve a typed pre-frame settle boundary that includes global
+RNG and object ordering. Prove it against hidden settle traces for more than
+one level before changing #381 gameplay state.
+
 ### #380
 
 Opened 2026-07-11 from canonical state report `1783732342`. Level 0x14
