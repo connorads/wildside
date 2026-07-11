@@ -5506,12 +5506,16 @@ impl NativeRuntime {
     pub(crate) fn title_screen_rng_long_burn_active(&self) -> bool {
         if matches!(
             self.title_screen_intro_return_lineage,
-            Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
+            Some(
+                TitleScreenIntroReturnLineage::ColdIntroSequence1
+                    | TitleScreenIntroReturnLineage::ManualDemoReturn
+            )
         ) {
             // ASM Load_TitleScreen rebuilds the hidden object shell before
             // Obj_TitleMenu joins Mode_Standard. Early Start-skip cold-boot
-            // WRAM probes keep the ring frozen on local frames 1..=56, then
-            // loc_E12 resumes one longword draw per title pass from frame 57.
+            // and manual demo-return WRAM probes keep the ring frozen on
+            // local frames 1..=56, then loc_E12 resumes one longword draw per
+            // title pass from frame 57.
             self.title_screen_elapsed_frames > 56
         } else {
             !(60..=115).contains(&self.title_screen_elapsed_frames)
@@ -5772,6 +5776,8 @@ impl NativeRuntime {
             self.current_camera_state().y_pos,
         );
         self.enter_title_screen();
+        self.title_screen_intro_return_lineage =
+            Some(TitleScreenIntroReturnLineage::ManualDemoReturn);
         self.current_level = LevelId(0);
         // ASM loc_119D8 jumps to loc_6E2 after writing Game_Mode=$2C. Oracle
         // exposes that manual demo-return frame as an already-ready title

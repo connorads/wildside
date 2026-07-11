@@ -23,10 +23,10 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 33,019 mismatches, first at
-frame 1838, under digest `5c799c6eff25ad9798674870704fbe0c4dac95db`.
-Frames 16..1837 match the complete RNG state exactly; the next mismatch is the
-demo-timeout return to title.
+of the remaining 37,743 frames. It currently records 32,791 mismatches, first at
+frame 4966, under digest `9be0b1158b8da9a04ba0591ad3cf413007f80b73`.
+Frames 16..4965 match the complete RNG state exactly; the next mismatch is the
+following demo-to-title transition.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.

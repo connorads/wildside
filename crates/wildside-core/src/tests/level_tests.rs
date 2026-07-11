@@ -7595,6 +7595,43 @@ mod chunk_02 {
     }
 
     #[test]
+    fn manual_demo_title_return_freezes_rng_after_final_object_pass_loc_c0a_6e2() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(1_897)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let expected_offset = trace[1_837]
+            .rng_offset
+            .expect("frame 1837 has post-Init_RNG state");
+        let expected_ring = trace[1_837]
+            .rng_ring
+            .as_ref()
+            .expect("frame 1837 has post-Init_RNG state");
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(1_894).skip(1_838) {
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected_offset),
+                "ASM ReadJoypad loc_C0A jumps through loc_6E2 after the final demo object pass; the title-return loader does not re-enter Execute_Objects loc_E12 on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(expected_ring));
+        }
+        let mut expected =
+            RomRandomState::from_raw_parts(*expected_ring.as_bytes(), expected_offset);
+        for trace_frame in &trace[1_894..=1_896] {
+            let _ = expected.next_long();
+            let expected_ring = expected.ring();
+            assert_eq!(trace_frame.rng_offset, Some(expected.offset_word()));
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected_ring));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;

@@ -230,6 +230,24 @@ The next frontier is frame 1838 after `ReadJoypad loc_C0A` returns demo mode
 `$10` to title mode `$2C`: oracle freezes at `$FFFA`, native draws once more to
 `$FFFE`.
 
+Follow-up proactive correction 2026-07-11 identified frame 1838 as a manual
+demo abort rather than auto-timeout. Oracle `ReadJoypad loc_C0A -> loc_6E2`
+probes keep RNG frozen on frames 1838..1893 while `Load_TitleScreen` rebuilds,
+then resume one `Execute_Objects loc_E12` longword per frame at 1894. Native's
+generic title schedule had started drawing immediately.
+
+The title scheduler now carries explicit `ManualDemoReturn` lineage and reuses
+the ROM-backed 56-frame hidden rebuild cadence without a global frame range.
+Regression
+`manual_demo_title_return_freezes_rng_after_final_object_pass_loc_c0a_6e2`
+pins the complete ring across both the freeze and resumption. Frames 16..4965
+are byte-exact. Full-route CRC remains exact on all 37,759 frames; per-frame RNG
+debt falls 33,019 -> 32,791 with digest
+`9be0b1158b8da9a04ba0591ad3cf413007f80b73`, while sampled RNG diffs fall
+2,719 -> 2,699 with digest `38676bd2c2af7c7680c5b1f6ccf95054f44168c7`.
+The next frontier is frame 4966 at the following demo-to-title transition:
+native `$FFD3`, oracle `$FFD7`, first ring difference index 11 `$B0/$49`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

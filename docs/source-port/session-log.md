@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 manual demo-return RNG lineage)
+
+- The frame-1838 frontier was a manual demo abort, not auto-timeout. Oracle
+  `ReadJoypad loc_C0A -> loc_6E2` probes freeze RNG on frames 1838..1893 while
+  `Load_TitleScreen` rebuilds, then resume one `Execute_Objects loc_E12` draw
+  per frame at 1894.
+- Added explicit `ManualDemoReturn` title lineage instead of a global frame
+  range. Regression
+  `manual_demo_title_return_freezes_rng_after_final_object_pass_loc_c0a_6e2`
+  pins the complete ring across all 56 frozen frames and the resumed draws.
+- Full-route CRC remains exact on all 37,759 frames. Frames 16..4965 now match
+  the complete RNG state. Per-frame debt falls 33,019 -> 32,791, digest
+  `9be0b1158b8da9a04ba0591ad3cf413007f80b73`; sampled RNG diffs fall
+  2,719 -> 2,699, digest `38676bd2c2af7c7680c5b1f6ccf95054f44168c7`.
+- `mise run verify-slice-fast` and `mise run verify-tas-full` pass.
+- NEXT: frame 4966 at the next demo-to-title transition. Native is one draw
+  behind (`$FFD3` vs oracle `$FFD7`, first ring difference index 11
+  `$B0/$49`). Probe that transition's input and lineage before changing the
+  shared manual-return schedule.
+
 ## 2026-07-11 handoff (#390 transform RNG hibernation)
 
 - `Load_DemoPlay -> Load_InGame` is still blocked inside `Kid_Transform`'s
