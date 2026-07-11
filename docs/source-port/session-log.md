@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#390 later IntroSequence6 worker delay)
+
+- On the later demo-2 cleared-camera revisit, oracle keeps RNG frozen through
+  local IntroSequence6 frames 33..35, exposes the three `Load_IntroSequence6`
+  allocations on frame 35, then resumes the enclosing
+  `Mode_Standard -> Execute_Objects loc_E12` draw on frame 36.
+- Native now shifts the complete `loc_1BAB0`/`loc_1B37C`/`sub_1B43A` worker
+  schedule by three frames on that lineage, including `loc_1B45A`'s later
+  upload stalls, without shifting `loc_1BA90`'s entry-fade passes.
+- Full-route CRC remains exact on all 37,759 frames. Per-frame RNG debt falls
+  6,341 -> 5,746, digest `39fd69e5e0a41ac2da8aadb1be6e927249c023d5`;
+  sampled RNG fields fall 524 -> 480, digest
+  `21962b114039023b1bb180eeafde76abf0e65fb4`.
+- `mise run verify-slice-fast` and the full TAS replay pass with the improved
+  checked-in ratchet.
+- NEXT: frame 32008. Native `$FFD4`, oracle `$FFD0`, first ring difference
+  index 8 `$3E/$00`.
+
 ## 2026-07-11 handoff (#390 later IntroSequence5 worker wake)
 
 - The later IntroSequence5 lineage exposes `loc_1BCD0` one frame early but does

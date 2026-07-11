@@ -27,23 +27,23 @@
         "authoritative": 212,
         "advisory": 0,
         "accumulation": 0,
-        "rng": 524,
+        "rng": 480,
         "oracle_limitation": 2
       },
-      "full_expected_rng_divergence_digest": "230f96317f31d3ba2b019a610f02cc83b96a8765",
+      "full_expected_rng_divergence_digest": "21962b114039023b1bb180eeafde76abf0e65fb4",
       "full_expected_rng_frame_comparison": {
         "start_frame": 16,
         "compared_frames": 37743,
-        "mismatch_count": 6341,
-        "mismatch_digest": "01bf6e7dfabbb5adacd451e7243dbfb270301c88",
+        "mismatch_count": 5746,
+        "mismatch_digest": "39fd69e5e0a41ac2da8aadb1be6e927249c023d5",
         "first_mismatch": {
-          "frame": 28099,
-          "native_offset": 65499,
-          "oracle_offset": 65495,
+          "frame": 32008,
+          "native_offset": 65492,
+          "oracle_offset": 65488,
           "first_ring_difference": {
-            "index": 15,
-            "native_byte": 243,
-            "oracle_byte": 198
+            "index": 8,
+            "native_byte": 62,
+            "oracle_byte": 0
           }
         }
       },

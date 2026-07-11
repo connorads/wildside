@@ -77,6 +77,13 @@ pub(crate) const INTRO_SEQUENCE_6_ENTRY_FADE_OUTER_PASSES_LOC_1BA90: usize = 9;
 /// `Mode_Standard -> Execute_Objects loc_E12` pass to draw. Published-route
 /// oracle probes resume on global frame 20927, local frame 33.
 pub(crate) const INTRO_SEQUENCE_6_POST_LOADER_RNG_FIRST_LIVE_FRAME: usize = 33;
+/// The later early-title-restore revisit reaches `Load_IntroSequence6` with a
+/// three-frame delayed worker shell: oracle keeps the complete RNG ring fixed
+/// through local frames 33..35, exposes the three allocations on frame 35,
+/// then resumes `Mode_Standard -> Execute_Objects loc_E12` on frame 36. Apply
+/// the same offset to the later `loc_1B45A` upload stalls because they belong
+/// to those newly allocated workers, not to the preceding `loc_1BA90` fade.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_WORKER_DELAY_FRAMES: usize = 3;
 /// Post-step local frame consumed by loc_1B45A's first one-frame hibernate
 /// after its 64-word palette blackout. The enclosing loc_E12 pass has already
 /// drawn on the preceding frame, so the oracle RNG ring stays fixed here.

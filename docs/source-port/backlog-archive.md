@@ -521,6 +521,22 @@ debt falls 10,148 -> 6,341, digest
 Frames 16..28098 are exact. The next frontier is frame 28099: native `$FFDB`,
 oracle `$FFD7`, ring index 15 `$F3/$C6`.
 
+Follow-up proactive correction 2026-07-11 traced the later demo-2
+IntroSequence6 loader boundary. Oracle keeps the complete RNG ring frozen on
+local frames 33..35, exposes `Load_IntroSequence6`'s `loc_1BAB0`, `loc_1B37C`,
+and `sub_1B43A` allocations on frame 35, then resumes the enclosing
+`Mode_Standard -> Execute_Objects loc_E12` pass on frame 36. Native now shifts
+that whole worker schedule by three frames on the cleared-camera later-revisit
+lineage, including `loc_1B45A`'s upload stalls, while leaving `loc_1BA90`'s
+entry-fade passes unchanged. Regression
+`later_intro_sequence_6_loader_delays_loc_e12_until_workers_exist` failed at
+frame 28099 before the fix. All 37,759 player/camera CRC frames remain exact.
+Per-frame RNG debt falls 6,341 -> 5,746, digest
+`39fd69e5e0a41ac2da8aadb1be6e927249c023d5`; sampled RNG field debt falls
+524 -> 480, digest `21962b114039023b1bb180eeafde76abf0e65fb4`.
+Frames 16..32007 are exact. The next frontier is frame 32008: native `$FFD4`,
+oracle `$FFD0`, ring index 8 `$3E/$00`.
+
 ### #389
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback.

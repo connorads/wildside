@@ -2551,22 +2551,40 @@ impl NativeRuntime {
                 };
                 elapsed >= first_live_elapsed && elapsed != panel_upload_stall_elapsed
             }
-            BootState::IntroSequence6 { .. } => {
+            BootState::IntroSequence6 {
+                carry_timeout_restart_hidden_camera_wrap,
+                ..
+            } => {
                 let displayed_local_frame = self.title_screen_elapsed_frames.saturating_add(1);
+                // ASM Load_DemoPlay toggles `$FFFFFBC8`; on the later demo-2
+                // revisit the cleared-camera lineage and false toggle identify
+                // the three-frame-delayed Load_IntroSequence6 worker shell.
+                let later_worker_delay = if self.intro_sequence_6_entered_from_timeout_restart
+                    && !carry_timeout_restart_hidden_camera_wrap
+                    && !self.demo_toggle
+                {
+                    TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_WORKER_DELAY_FRAMES
+                } else {
+                    0
+                };
+                let worker_local_frame = displayed_local_frame.saturating_sub(later_worker_delay);
                 // ASM loc_1BA5C writes Game_Mode=$28 before loc_1BA90's
                 // `$100,$E0,...,$00` fade resumes have finished. Each resume
                 // is still inside the old Mode_Standard -> Execute_Objects
                 // loc_E12 pass; loc_1BAAC only enters Load_IntroSequence6
                 // after the ninth draw. Once the loader allocates loc_1BAB0,
                 // loc_1B37C, and sub_1B43A, the outer passes resume except
-                // while loc_1B45A's palette/title uploads cross VBlanks.
+                // while loc_1B45A's palette/title uploads cross VBlanks. The
+                // later early-title-restore lineage exposes those three new
+                // workers three frames later, so shift their whole schedule
+                // without shifting loc_1BA90's already-running fade passes.
                 displayed_local_frame <= INTRO_SEQUENCE_6_ENTRY_FADE_OUTER_PASSES_LOC_1BA90
-                    || (displayed_local_frame >= INTRO_SEQUENCE_6_POST_LOADER_RNG_FIRST_LIVE_FRAME
-                        && displayed_local_frame
+                    || (worker_local_frame >= INTRO_SEQUENCE_6_POST_LOADER_RNG_FIRST_LIVE_FRAME
+                        && worker_local_frame
                             != INTRO_SEQUENCE_6_PALETTE_BLACKOUT_STALL_FRAME_LOC_1B470
                         && !(INTRO_SEQUENCE_6_TITLE_ART_STALL_FIRST_FRAME_LOC_1B494
                             ..=INTRO_SEQUENCE_6_TITLE_ART_STALL_LAST_FRAME_LOAD_TITLE_ART)
-                            .contains(&displayed_local_frame))
+                            .contains(&worker_local_frame))
             }
             _ => false,
         };

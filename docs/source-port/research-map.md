@@ -23,23 +23,26 @@ counts, hit points, lives, Murder Wall X, and trace-timing fields such as
 velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. It currently records 6,341 mismatches, first at
-frame 28099, under digest `01bf6e7dfabbb5adacd451e7243dbfb270301c88`.
-Frames 16..28098 match the complete RNG state exactly; the next mismatch begins
+of the remaining 37,743 frames. It currently records 5,746 mismatches, first at
+frame 32008, under digest `39fd69e5e0a41ac2da8aadb1be6e927249c023d5`.
+Frames 16..32007 match the complete RNG state exactly; the next mismatch begins
 during a later title/demo cycle.
 That is complete per-frame RNG evidence for this route and an explicit large
 debt baseline, not RNG equality or whole-game proof. Reducing #290 and the RNG
 baseline remains separate fidelity work.
 
-The latest correction separates two facts carried by the later IntroSequence5
-lineage. It inherits `Load_IntroSequence5`'s one-frame-early `loc_1BCD0`
-visibility, but not the earlier timeout-restart delay. Native had incorrectly
-keyed the worker wake and panel-upload stall from the delay fact. Regression
-`later_intro_sequence_5_early_loc_1bcd0_visibility_wakes_loc_e12` failed at
-frame 27603 before the fix and now pins one `Execute_Objects loc_E12` longword
-draw per frame through 27620. Per-frame RNG debt falls 10,148 -> 6,341 and
-sampled RNG field debt falls 839 -> 524. The next frontier is frame 28099:
-native `$FFDB`, oracle `$FFD7`, first ring difference index 15 `$F3/$C6`.
+The latest correction models the later demo-2 IntroSequence6 worker shell as a
+distinct displayed schedule. Oracle keeps the complete ring fixed on local
+frames 33..35, exposes `Load_IntroSequence6`'s `loc_1BAB0`, `loc_1B37C`, and
+`sub_1B43A` allocations on frame 35, then returns to the enclosing
+`Mode_Standard -> Execute_Objects loc_E12` pass on frame 36. Native shifts that
+whole newly allocated worker schedule by three frames, including
+`loc_1B45A`'s later upload stalls, while the preceding `loc_1BA90` fade passes
+retain their original cadence. Regression
+`later_intro_sequence_6_loader_delays_loc_e12_until_workers_exist` failed at
+frame 28099 before the fix. Per-frame RNG debt falls 6,341 -> 5,746 and sampled
+RNG field debt falls 524 -> 480. The next frontier is frame 32008: native
+`$FFD4`, oracle `$FFD0`, first ring difference index 8 `$3E/$00`.
 
 The latest correction models IntroSequence6's post-loader object schedule.
 `Load_IntroSequence6` allocates `loc_1BAB0`, `loc_1B37C`, and `sub_1B43A`

@@ -8245,6 +8245,46 @@ mod chunk_02 {
     }
 
     #[test]
+    fn later_intro_sequence_6_loader_delays_loc_e12_until_workers_exist() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let trace: Vec<_> = script
+            .iter()
+            .copied()
+            .take(28_121)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .collect();
+        let frame_28098_ring = trace[28_098]
+            .rng_ring
+            .as_ref()
+            .expect("frame 28098 has post-Init_RNG state");
+        let mut expected = RomRandomState::from_raw_parts(
+            *frame_28098_ring.as_bytes(),
+            trace[28_098].rng_offset.expect("frame 28098 RNG offset"),
+        );
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(28_102).skip(28_099) {
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM Load_IntroSequence6 has not returned or allocated loc_1BAB0, loc_1B37C, and sub_1B43A on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+
+        for (frame_index, trace_frame) in trace.iter().enumerate().take(28_121).skip(28_102) {
+            let _ = expected.next_long();
+            assert_eq!(
+                trace_frame.rng_offset,
+                Some(expected.offset_word()),
+                "ASM Load_IntroSequence6 has returned before Mode_Standard -> Execute_Objects loc_E12 on published frame {frame_index}",
+            );
+            assert_eq!(trace_frame.rng_ring.as_ref(), Some(&expected.ring()));
+        }
+    }
+
+    #[test]
     fn sega_screen_start_press_switches_to_intro_sequence_on_following_frame() {
         let mut script = vec![0; 35];
         script[33] = 0x80;
