@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#382 damage-latch scheduling)
+
+- Level 0's first Dragon-breath hit is exact at frame 235. Oracle RAM keeps
+  `Just_received_damage` set through frame 300, clears it during frame 301, and
+  spends the sustained-contact fatal hit on frame 302.
+- Native now gates `Character_CheckCollision` with the frame-entry latch while
+  preserving the 66-frame `loc_BC54..loc_BC6E` live countdown and clear.
+- The focused regression passes and aligned recording frames 295-305 have no
+  authoritative player-state divergence.
+- Full sweep `1783751049` remains red because its native settled-warp path ages
+  the Dragon encounter roughly 47 frames ahead of the oracle. NEXT: align the
+  full-sweep bootstrap paths and prove the canonical frontier moves.
+- #382 closes with required gates green.
+
 ## 2026-07-11 handoff (#381 cold-ring and Drips lifecycle parity)
 
 - Cold boot now matches the oracle's complete 55-byte RNG ring through frame

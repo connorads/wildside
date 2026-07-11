@@ -7844,6 +7844,11 @@ impl NativeRuntime {
     /// Returns true if the frame should continue to physics/gameplay processing.
     /// Returns false for early-return cases (non-alive lifecycle, paused, etc.).
     pub(crate) fn step_lifecycle(&mut self, input: FrameInput) -> bool {
+        // ASM Mode_Level runs Character_CheckCollision before the separately
+        // scheduled loc_BC34 damage-flash object. Preserve the latch value that
+        // collision saw even when loc_BC6E's 66th hibernate wake clears the
+        // live flag during this native frame (#382, Level 00 idle f301-302).
+        self.recent_damage_gate_held_this_frame_loc_bc6e = self.just_received_damage;
         if matches!(self.boot_state, BootState::EndingSequence { .. }) {
             self.opening_slice = None;
             return false;
@@ -7870,6 +7875,7 @@ impl NativeRuntime {
             self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
             self.progression.invulnerable_frames = 0;
             self.just_received_damage = false;
+            self.recent_damage_gate_held_this_frame_loc_bc6e = false;
             self.kid_is_invulnerable = false;
             self.paused = false;
             self.pause_menu_option = 0;

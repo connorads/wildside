@@ -271,6 +271,41 @@ fn seed_dragon_breath_on_player_loc_3d02a(runtime: &mut NativeRuntime) {
     });
 }
 
+/// Issue #382: ASM Mode_Level runs Character_CheckCollision before the
+/// independent loc_BC6E damage-flash worker clears Just_received_damage.
+/// Oracle Level 00 idle frames 301-302 therefore keep the final overlapping
+/// Dragon.asm loc_3D02A breath hit gated on the clear frame and spend it on
+/// the following frame.
+#[test]
+fn issue_382_dragon_breath_waits_until_frame_after_loc_bc6e_clears_damage_latch() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.number_hitpoints = 1;
+    runtime.progression.invulnerable_frames = 1;
+    runtime.just_received_damage = true;
+    seed_dragon_breath_on_player_loc_3d02a(&mut runtime);
+
+    runtime.step_frame(FrameInput::default());
+
+    assert_eq!(
+        runtime.progression.invulnerable_frames, 0,
+        "ASM loc_BC6E clears the 66-frame damage latch on this frame"
+    );
+    assert_eq!(
+        runtime.progression.number_hitpoints, 1,
+        "ASM Character_CheckCollision already observed the frame-entry latch before loc_BC6E clears it"
+    );
+    assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));
+
+    runtime.step_frame(FrameInput::default());
+
+    assert_eq!(runtime.progression.number_hitpoints, 0);
+    assert!(matches!(
+        runtime.player_lifecycle,
+        PlayerLifecycle::DeathWindup { .. }
+    ));
+}
+
 fn assert_level_restart_state_cleared(runtime: &NativeRuntime) {
     assert!(runtime.killed_enemies.is_empty());
     assert!(runtime.projectiles.is_empty());

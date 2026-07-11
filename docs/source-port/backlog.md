@@ -37,7 +37,8 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 - **Full published-route evidence:** all 37,759 requested player/camera CRC frames match oracle, while 1,512 sampled checkpoints retain #290's baseline of 212 authoritative export diffs and 2 oracle limitations. This is not whole-state, enemy, render, or audio equality.
 - **Whole-level sweep boundary:** report `1783747598` reaches real gameplay on all 69 BCD levels: 35 pass and 34 fail with 131 authoritative diffs. The old all-masked green sweep was invalid.
 - **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
-- **Current work:** no ready/open row remains. Use `loop.md` proactive verification; the next enemy-family audit should start from a canonical sweep failure, not an awaiting-human row.
+- **Latest proactive fix:** #382 aligns the frame-entry `Just_received_damage` gate with `Mode_Level`/`loc_BC6E`; the Level 0 aligned recording spends the sustained Dragon-breath hit on oracle frame 302.
+- **Current work:** full-sweep report `1783751049` still ages native's Level 0 Dragon encounter roughly 47 frames ahead of oracle because the two sides use different settled-warp paths. Align that harness boundary before auditing later gameplay.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

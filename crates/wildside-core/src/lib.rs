@@ -571,6 +571,10 @@ pub struct NativeRuntime {
     level_damage_taken: bool,
     /// Exact per-frame damage latch, mirroring ROM `Just_received_damage`.
     just_received_damage: bool,
+    /// Frame-entry snapshot of `Just_received_damage`. Mode_Level collision
+    /// observes this before the independent loc_BC6E flash worker can clear
+    /// the live latch later in the same frame.
+    recent_damage_gate_held_this_frame_loc_bc6e: bool,
     /// Debug-only attribution for the hostile projectile that triggered Kid
     /// damage during the current frame.
     last_projectile_damage_probe: Option<String>,
@@ -1361,6 +1365,7 @@ impl NativeRuntime {
             camera_last_kid_y: 0,
             level_damage_taken: false,
             just_received_damage: false,
+            recent_damage_gate_held_this_frame_loc_bc6e: false,
             last_projectile_damage_probe: None,
             last_drips_splash_reseed_probe: None,
             lion_projectile_object_only_tail_count: 0,

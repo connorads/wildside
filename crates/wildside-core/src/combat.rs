@@ -15301,10 +15301,11 @@ impl NativeRuntime {
         // `colid_kidbelow` ($28); Character_CheckCollision dispatches off_B640
         // entry 9 through Check_for_recent_damge -> loc_B700, so spikes use the
         // normal HP/helmet damage path rather than an unconditional Death jump.
+        let kid_damage_invulnerable = self.progression.invulnerable_frames != 0
+            || self.recent_damage_gate_held_this_frame_loc_bc6e
+            || self.kid_is_invulnerable;
         if slice.player.on_spikes
-            && normal_recent_damage_survives_invulnerability_gate_loc_1d00(
-                self.progression.invulnerable_frames != 0 || self.kid_is_invulnerable,
-            )
+            && normal_recent_damage_survives_invulnerability_gate_loc_1d00(kid_damage_invulnerable)
         {
             self.opening_slice = Some(*slice);
             self.apply_damage();
@@ -15312,8 +15313,6 @@ impl NativeRuntime {
             return true;
         }
 
-        let kid_damage_invulnerable =
-            self.progression.invulnerable_frames != 0 || self.kid_is_invulnerable;
         let normal_recent_damage_live =
             normal_recent_damage_survives_invulnerability_gate_loc_1d00(kid_damage_invulnerable);
 

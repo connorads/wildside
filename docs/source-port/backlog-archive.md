@@ -11,6 +11,27 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #382
+
+Resolved 2026-07-11 from the Level 0 idle Dragon-breath frontier. Native and
+oracle take their first `loc_3D02A` breath hit together at frame 235, but native
+spent the sustained-contact fatal hit on frame 301 while oracle kept
+`Just_received_damage=$FF` through frame 300, cleared it during frame 301, and
+spent the hit on frame 302.
+
+ASM `Mode_Level` runs `Character_CheckCollision` before the independent
+`loc_BC34..loc_BC6E` damage-flash object. Native decremented its 66-frame timer
+in `step_lifecycle` first, so collision incorrectly observed the same-frame
+clear. The runtime now snapshots the frame-entry latch for damage gating while
+still exporting the live timer/flag after `loc_BC6E` clears. The focused
+regression pins the Dragon breath release boundary, and the aligned recording
+route has no authoritative player-state divergence across frames 295-305.
+
+Full sweep report `1783751049` still fails Level 0 because that harness ages
+native through a different settled-warp path than the oracle; its fatal hit is
+roughly 47 frames early. That distinct harness alignment issue is not hidden by
+the damage-latch correction.
+
 ### #381
 
 Opened 2026-07-11 from #380's residual Level 0x14 idle-tail divergence.
@@ -11513,6 +11534,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 382 | [x] | P1 | Combat/timing | Character collision observes the frame-entry damage latch before `loc_BC6E` clears it later in the same frame. | Oracle RAM frames 235-302 and exact Dragon-breath release regression. See archive #382. |
 | 381 | [x] | P2 | Enemy/state | Recording settle preserves the cold-boot RNG ring and typed title-card lifecycle, aligning Level 0x14 Drips phases and crawler count. | Reports `1783747510` and `1783747598`; exact RNG-ring, Drips lifecycle/count, and title-card regressions. See archive #381. |
 | 380 | [x] | P2 | State parity | Hidden Drips controllers and surface crawlers retain their Object_RAM contribution in `Number_Objects`. | Reports `1783734083` and `1783734356`; exact Level 0x14 settle regression. See archive #380. |
 | 379 | [x] | P1 | verify/enemy | Recording settle preserves the proven Armadillo presentation age, and Platform_RAM entries no longer inflate object/GFX counts. | Reports `1783731833` and `1783732342`; Level 0x11 exact regression and required gates. See archive #379. |
