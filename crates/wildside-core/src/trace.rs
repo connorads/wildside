@@ -2007,24 +2007,64 @@ mod tests {
     #[test]
     fn drips_loc_33424_countdown_does_not_add_hidden_child_object() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
+        let without_controller = runtime.gameplay_transient_object_only_worker_count();
         runtime.active_enemies.push(drips_test_enemy(0x0038, 0));
 
         assert_eq!(
             runtime.gameplay_transient_object_only_worker_count(),
-            0,
-            "ASM Drips.asm loc_33424 only decrements d0 and hibernates the controller here; it does not set the falling child's `$13/$14/$3C` status bytes until after `stru_33F90` finishes",
+            without_controller + 1,
+            "ASM Drips.asm loc_33424 only decrements d0 and hibernates the one live controller here; it does not add the falling child until after `stru_33F90` finishes",
         );
     }
 
     #[test]
     fn drips_loc_33488_surface_pool_counts_as_object_only_child() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
-        runtime.active_enemies.push(drips_test_enemy(0x0038, 1));
+        runtime.active_enemies.push(drips_test_enemy(0x0038, 0));
+        let controller_only = runtime.gameplay_transient_object_only_worker_count();
+        runtime.active_enemies[0].drips_surface_table_index = 1;
 
         assert_eq!(
             runtime.gameplay_transient_object_only_worker_count(),
-            1,
-            "ASM Drips.asm loc_33488 leaves the `a2` surface-pool child visible while the parent returns to loc_3340E/loc_33424 for the next wait",
+            controller_only + 1,
+            "ASM Drips.asm loc_33488 leaves the `a2` surface-pool child visible in addition to its parent while the parent returns to loc_3340E/loc_33424 for the next wait",
+        );
+    }
+
+    #[test]
+    fn drips_parent_controller_counts_as_object_only_worker_enemy16_drip_init() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0x14);
+        let baseline = runtime.object_counts_from_roster(&[], 0, 0);
+        runtime.active_enemies.push(drips_test_enemy(0x0038, 0));
+
+        let with_controller = runtime.object_counts_from_roster(&[], 0, 0);
+
+        assert_eq!(
+            with_controller,
+            (baseline.0 + 1, baseline.1),
+            "ASM Drips.asm Enemy16_Drip_Init allocates one Object_RAM controller that remains live through loc_333F6..loc_3350E; suppressing its hidden gfx snapshot must not remove it from Number_Objects",
+        );
+    }
+
+    #[test]
+    fn drips_surface_crawler_counts_as_object_only_worker_loc_335d8() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0x14);
+        let baseline = runtime.object_counts_from_roster(&[], 0, 0);
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            ..Default::default()
+        });
+
+        let with_crawler = runtime.object_counts_from_roster(&[], 0, 0);
+
+        assert_eq!(
+            with_crawler,
+            (baseline.0 + 1, baseline.1),
+            "ASM Drips.asm loc_33488 allocates loc_335D8 through j_Allocate_ObjectSlot; native projectile storage must retain that Object_RAM count without changing the sampled Number_GfxObjects",
         );
     }
 
@@ -10997,6 +11037,15 @@ impl NativeRuntime {
     }
 
     fn gameplay_transient_object_only_worker_count(&self) -> u16 {
+        let drips_parent_workers = self
+            .active_enemies
+            .iter()
+            .filter(|enemy| enemy.family == EnemyFamily::Drips)
+            .count() as u16;
+        // ASM Drips.asm Enemy16_Drip_Init is an Object_RAM coroutine whose
+        // parent gfx object stays hidden through loc_333F6..loc_3350E. Native
+        // deliberately suppresses that parent from `active_enemy_roster`, so
+        // preserve its Number_Objects contribution separately.
         let drips_child_workers = self
             .active_enemies
             .iter()
@@ -11049,6 +11098,20 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire)
             .count() as u16;
+        let visible_drips_surface_crawler_workers = self
+            .projectiles
+            .iter()
+            .filter(|projectile| {
+                matches!(
+                    projectile.kind,
+                    EnemyProjectileKind::DripsSurfaceCrawler
+                        | EnemyProjectileKind::DripsSurfaceCrawlerBurst
+                        | EnemyProjectileKind::DripsSurfaceCrawlerFinish
+                )
+            })
+            .count() as u16;
+        let drips_surface_crawler_workers = visible_drips_surface_crawler_workers
+            .max(self.drips_surface_crawler_count_loc_fffffb42 as u16);
         let pending_dragon_walking_breath_workers = self
             .active_enemies
             .iter()
@@ -11063,12 +11126,19 @@ impl NativeRuntime {
         // ASM Dragon_Flying.asm loc_34BAC follows the same Object_RAM child
         // pattern for descent fire; native models it as a projectile but ROM
         // Number_Objects includes the child worker.
-        drips_child_workers
+        // ASM Drips.asm loc_33488 allocates loc_335D8 through
+        // j_Allocate_ObjectSlot. Its crawler, burst, and finish phases are one
+        // continuing Object_RAM worker represented by native projectiles. The
+        // shared `$FFFFFB42` count changes at allocation/deletion boundaries,
+        // so retain it when the projectile vector is between those phases.
+        drips_parent_workers
+            .saturating_add(drips_child_workers)
             .saturating_add(rubber_skin_workers)
             .saturating_add(lava_special_effect_workers)
             .saturating_add(lion_projectile_workers)
             .saturating_add(dragon_walking_breath_workers)
             .saturating_add(dragon_flying_descent_fire_workers)
+            .saturating_add(drips_surface_crawler_workers)
             .saturating_add(pending_dragon_walking_breath_workers)
     }
 

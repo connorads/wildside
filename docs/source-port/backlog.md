@@ -35,9 +35,9 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 - **Source-port visual ratchet:** `1p-accurate` renders Level 0 frames 0, 30, 60, and 120 through the source-port renderer against jgenesis with exact state, no masking, MAE 0.000, and zero changed pixels. The gate now requires exact pixels.
 - **Visual confidence boundary:** #375 is resolved for those four settled-warp checkpoints only. This is not cold-boot or whole-game pixel parity. The older `frame_oracle:*` steps compare wildside-md ROM VDP output with jgenesis, not source-port pixels.
 - **Full published-route evidence:** all 37,759 requested player/camera CRC frames match oracle, while 1,512 sampled checkpoints retain #290's baseline of 212 authoritative export diffs and 2 oracle limitations. This is not whole-state, enemy, render, or audio equality.
-- **Whole-level sweep boundary:** report `1783732342` reaches real gameplay on all 69 BCD levels: 35 pass and 34 fail with 146 authoritative diffs. The old all-masked green sweep was invalid.
+- **Whole-level sweep boundary:** report `1783734356` reaches real gameplay on all 69 BCD levels: 35 pass and 34 fail with 145 authoritative diffs. The old all-masked green sweep was invalid.
 - **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
-- **Current work:** no ready/open row remains. Use `loop.md` proactive verification; the first actionable state-sweep failure is Level 0x14.
+- **Current work:** #381, Level 0x14's recording-settle Drips lifecycle starts from the wrong RNG/phase and allocates two surface crawlers by the idle tail instead of three.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -59,3 +59,4 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 381 | [ ] | P2 | Enemy/state | Level 0x14 recording settle starts Drips from the wrong RNG/lifecycle phase and misses one idle-tail surface crawler | Focused Drips frontier + Level 0x14 state sweep |

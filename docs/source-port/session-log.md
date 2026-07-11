@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-11 handoff (#380 Drips Object_RAM accounting)
+
+- Level 0x14 now counts the three hidden `Enemy16_Drip_Init` Object_RAM
+  controllers without exposing parent gfx snapshots.
+- Surface crawler, burst, and finish projectile phases retain the continuing
+  worker allocated by `loc_33488` and run by `loc_335D8`.
+- The exact recording-settle regression reaches the oracle's six objects.
+  Canonical report `1783734356` improves to 35 pass / 34 fail / 145
+  authoritative diffs with no lost pass.
+- #380 closes. NEXT: #381, the distinct Level 0x14 recording-settle RNG/Drips
+  lifecycle mismatch that leaves native with two idle-tail crawlers against
+  oracle's three.
+- Required gates pass; all 37,759 published-route CRC frames still match with
+  #290's 212-authoritative / 2-limitation baseline.
+
 ## 2026-07-11 handoff (#379 Armadillo presentation age and platform counts)
 
 - Level 0x11's settled Armadillo now retains the 24 hidden `sub_73D0`

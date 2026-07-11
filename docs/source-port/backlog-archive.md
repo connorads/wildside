@@ -11,6 +11,31 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #380
+
+Opened 2026-07-11 from canonical state report `1783732342`. Level 0x14
+exported three native objects against six oracle objects at recording frame 0,
+then three against nine at the idle tail.
+
+Resolved 2026-07-11. ASM `Enemy16_Drip_Init` keeps each of the three hidden
+Drips parents alive as an Object_RAM controller through
+`loc_333F6..loc_3350E`; native deliberately suppresses their gfx snapshots and
+had also lost their `Number_Objects` contribution. ASM `loc_33488` allocates
+the surface crawler's continuing `loc_335D8` Object_RAM worker, which native
+stores as a projectile. Object accounting now includes both worker classes
+without changing `Number_GfxObjects`, retaining the shared `$FFFFFB42` count at
+crawler allocation/deletion boundaries.
+
+The cache-backed Level 0x14 regression pins recording frame 0 at six objects.
+Focused report `1783734083` fixes that settle checkpoint and improves the idle
+tail from three native objects to eight against nine oracle objects. The
+remaining crawler is not an accounting projection error: native and oracle
+already have different RNG offsets and Drips phases at recording frame 0, and
+oracle allocates three crawlers by frame 359 against native's two. #381 owns
+that lifecycle/RNG divergence rather than hiding it with a count override.
+Canonical report `1783734356` retains 35 pass / 34 fail and reduces
+authoritative diffs from 146 to 145 with no lost pass.
+
 ### #379
 
 Opened 2026-07-11 from the first actionable failure in canonical state report
@@ -11397,6 +11422,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 380 | [x] | P2 | State parity | Hidden Drips controllers and surface crawlers retain their Object_RAM contribution in `Number_Objects`. | Reports `1783734083` and `1783734356`; exact Level 0x14 settle regression. See archive #380. |
 | 379 | [x] | P1 | verify/enemy | Recording settle preserves the proven Armadillo presentation age, and Platform_RAM entries no longer inflate object/GFX counts. | Reports `1783731833` and `1783732342`; Level 0x11 exact regression and required gates. See archive #379. |
 | 378 | [x] | P2 | block/assets | Undumped resource layouts synthesise their interactive prize, ghost, teleporter, and hidden lists from the ROM block stream. | Report `1783729994`; 35-level cell/sidecar parity and focused all-family regressions. See archive #378. |
 | 377 | [x] | P1 | verify/enemy | Level 0x10 state exports the Shishkaboss waiting skewer and live projectile workers with ROM-faithful spawn/fire timing. | Reports `1783726862` and `1783726877`; focused worker/fire/settle regressions and required gates. See archive #377. |

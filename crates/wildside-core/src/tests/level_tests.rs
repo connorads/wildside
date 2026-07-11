@@ -5789,6 +5789,26 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level14_recording_settle_counts_drips_controllers_enemy16_drip_init() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x14)
+            .settle_recording_warp()
+            .run(&[0], 1)
+            .into_iter()
+            .next()
+            .expect("settled level 0x14 frame 0");
+
+        assert_eq!(
+            trace.number_objects, 6,
+            "ASM Drips.asm Enemy16_Drip_Init keeps all three Drips Object_RAM controllers live through loc_333F6..loc_3350E; the Level 0x14 oracle therefore reports six objects at recording frame 0",
+        );
+    }
+
+    #[test]
     fn spawn_probe_inspection_uses_header_pixels_and_span_right_edge() {
         let mut manifest = manifest_with_playable_spawn();
         let header = manifest.levels[0]
