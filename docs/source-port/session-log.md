@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 Dragon walking breath lifecycle)
+
+- Raw linked lists reject the frame-7850 Dragon breath count classification as
+  an oracle limitation: oracle 10/9 matched its live Object/GfxObject roster,
+  while native retained two breath children and reported 11/10.
+- `Dragon.asm loc_3CF90`, `loc_3CFDA`, `loc_3D082`, and `loc_3D09E` establish
+  parent-linked allocation, accepted-contact finish, and deletion. Native now
+  retains the owner link and exports pending allocation in object-pass order.
+- The full route remains exact for all 37,759 CRC frames and 37,743 complete RNG
+  states. Its 1,512 checkpoints remain authoritative-clean; classified
+  limitations fall 15 -> 7.
+- NEXT: resolve exact one-pass Dragon breath boundaries at frames 7834, 7835,
+  7885, and 8006. The ignored edge regression pins the confirmed 7885/8006
+  targets without hiding them from exact comparison.
+
 ## 2026-07-12 handoff (#290 later IntroSequence2 title roster)
 
 - Raw linked-list WRAM shows `loc_1B9D0 -> loc_1BA02 -> sub_1C246 ->

@@ -3940,9 +3940,13 @@ impl NativeRuntime {
             // x=[-0x40,0x180], y=[-0x40,0x120]. Drips.asm loc_3345C instead
             // checks the hidden controller through Object_CheckInRange's wider
             // normal range, so the falling child must not use this narrow
-            // generic projectile cull.
+            // generic projectile cull. Dragon.asm loc_3D082 likewise follows
+            // its parent `$5B` signal and animation end, not Lion's box.
             if let (Some(owner), Some(camera)) = (p.owner, camera)
-                && p.kind != EnemyProjectileKind::DripsDrop
+                && !matches!(
+                    p.kind,
+                    EnemyProjectileKind::DripsDrop | EnemyProjectileKind::DragonWalkingBreath
+                )
             {
                 let screen_x = ((p.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
                 let screen_y = ((p.y_pos >> 16) as i32) - ((camera.y_pos >> 16) as i32);
@@ -4005,7 +4009,7 @@ impl NativeRuntime {
                     }
                     return false;
                 }
-                if let Some(owner) = p.owner {
+                if is_lion_projectile && let Some(owner) = p.owner {
                     released_owners.push(owner);
                 }
                 if p.kind == EnemyProjectileKind::ArcherArrow {

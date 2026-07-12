@@ -2111,8 +2111,24 @@ mod tests {
 
         assert_eq!(
             runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
+            (2, 2),
+            "ASM Dragon.asm loc_3CE90 has not run for the next roster entry at trace time, so its wait-timer-one child is not count-visible yet",
+        );
+
+        runtime.active_enemies.insert(
+            0,
+            ActiveEnemy {
+                family: EnemyFamily::DragonWalking,
+                on_ground: true,
+                wait_timer: 2,
+                ..drips_test_enemy(2, 0)
+            },
+        );
+
+        assert_eq!(
+            runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
             (3, 3),
-            "ASM Dragon.asm loc_3CE90 decrements `$66(a5)` and reaches loc_3CF6E/loc_3CF90 in the same sampled object pass; loc_3D02A loads the child's GfxObject in that lifecycle",
+            "ASM Dragon.asm loc_3CE90 decrements `$66(a5)` and reaches loc_3CF6E/loc_3CF90 in the same sampled object pass for later roster entries; loc_3D02A loads the child's GfxObject in that lifecycle",
         );
     }
 
@@ -11558,13 +11574,19 @@ impl NativeRuntime {
         let pending_dragon_walking_breath_workers = self
             .active_enemies
             .iter()
+            // The first native roster entry is the next Object pass, while
+            // later entries have already crossed loc_3CE90 at trace time.
+            // Raw WRAM therefore exposes their wait-timer-one allocations but
+            // not the first entry's until the following frame.
+            .skip(1)
             .filter(|enemy| enemy.has_pending_dragon_walking_breath_child_loc_3ce90())
             .count();
         // ASM Dragon.asm loc_3CF90 allocates the breath Object_RAM child;
         // loc_3D02A immediately calls j_Load_GfxObjectSlot, loc_3D082 keeps
         // the pair live, and loc_3D09E deletes the linked lifecycle. Native
-        // stores the child outside `active_objects`, so both live projectiles
-        // and the same-pass pending allocation contribute an Object/Gfx pair.
+        // stores the child outside `active_objects`. A later roster entry can
+        // therefore be count-visible one trace before native materialises its
+        // child; the next entry has not crossed its object pass yet.
         // ASM Enemy22_Shiskaboss_Init allocates loc_38494..loc_38884 up
         // front. All nine skewer object/gfx workers follow unk_39872 while
         // waiting for `$FFFFFB4E==3`; native materialises them as BossSkewer

@@ -512,7 +512,7 @@ pub(crate) const DRAGON_WALKING_BREATH_HOLD_FRAMES: u16 = 68;
 pub(crate) const DRAGON_WALKING_RECOVER_FRAMES: u16 = 0;
 pub(crate) const DRAGON_WALKING_BREATH_OFFSET_PX: i32 = 0x1C;
 
-const DRAGON_WALKING_PHASE_BREATH: u8 = 1;
+pub(crate) const DRAGON_WALKING_PHASE_BREATH: u8 = 1;
 const DRAGON_WALKING_PHASE_RECOVER: u8 = 2;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -804,6 +804,11 @@ pub(crate) fn step_dragon_walking(
                 y_pos: child_position.y_pos,
                 lifetime: DRAGON_WALKING_BREATH_LIFETIME,
                 kind: EnemyProjectileKind::DragonWalkingBreath,
+                owner: Some(EnemyProjectileOwner {
+                    segment_index: enemy.segment_index,
+                    layout_index: enemy.layout_index,
+                    token: 0,
+                }),
                 ..Default::default()
             });
             enemy.wait_timer = breath_trigger.breath_timer;
@@ -1358,6 +1363,15 @@ mod tests {
         assert_eq!(breath.y_velocity, 0);
         assert_eq!(breath.lifetime, DRAGON_WALKING_BREATH_LIFETIME);
         assert_eq!(breath.kind, EnemyProjectileKind::DragonWalkingBreath);
+        assert_eq!(
+            breath.owner,
+            Some(EnemyProjectileOwner {
+                segment_index: dragon.segment_index,
+                layout_index: dragon.layout_index,
+                token: 0,
+            }),
+            "ASM Dragon.asm loc_3CF90 child must retain its parent identity so loc_3CFDA can end the linked lifecycle",
+        );
         assert_eq!(dragon.wait_timer, DRAGON_WALKING_BREATH_RESET);
         assert_eq!(dragon.dragon_script_cmd, DRAGON_WALKING_PHASE_BREATH);
         assert_eq!(

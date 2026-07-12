@@ -7825,6 +7825,32 @@ fn orca_collision_resume_loc_3d2bc(enemy: &ActiveEnemy) -> OrcaResumeBranch {
 }
 
 impl NativeRuntime {
+    fn finish_dragon_walking_breath_child_loc_3cfda(
+        projectiles: &mut [EnemyProjectile],
+        enemy: &ActiveEnemy,
+    ) {
+        if enemy.dragon_script_cmd != DRAGON_WALKING_PHASE_BREATH {
+            return;
+        }
+        let owner = EnemyProjectileOwner {
+            segment_index: enemy.segment_index,
+            layout_index: enemy.layout_index,
+            token: 0,
+        };
+        // ASM Dragon.asm loc_3CFDA sets the parent's `$5B` done flag on an
+        // accepted body contact. The linked child observes it at loc_3D082
+        // and deletes through loc_3D09E instead of waiting for animation end.
+        for projectile in projectiles.iter_mut().filter(|projectile| {
+            projectile.kind == EnemyProjectileKind::DragonWalkingBreath
+                && projectile.owner == Some(owner)
+        }) {
+            // loc_3D082 hibernates once before observing `$5B`. Keep the
+            // collision frame linked, then make the following zero frame the
+            // loc_3D09E deletion edge.
+            projectile.lifetime = projectile.lifetime.min(2);
+        }
+    }
+
     #[allow(non_snake_case)]
     pub(crate) fn level_complete_scoreboard_reveal_frames_loc_C21E(&self) -> usize {
         let camera = self.current_camera_state();
@@ -9691,6 +9717,12 @@ impl NativeRuntime {
                 // loc_3CF50 resume for ignored contacts.
                 match dragon_walking_collision_route_loc_3ce9a(collision.collision_type as i16) {
                     DragonWalkingCollisionRouteLoc3CE9A::Damage => {
+                        if collision.collision_type == DRAGON_COLID_KIDABOVE {
+                            Self::finish_dragon_walking_breath_child_loc_3cfda(
+                                &mut self.projectiles,
+                                enemy,
+                            );
+                        }
                         if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
                             kill_indices.push(active_idx);
                         } else {
@@ -9711,6 +9743,10 @@ impl NativeRuntime {
                                 );
                             }
                             DragonWalkingBerzerkerSideGateLoc3CF0E::Knockback(knockback) => {
+                                Self::finish_dragon_walking_breath_child_loc_3cfda(
+                                    &mut self.projectiles,
+                                    enemy,
+                                );
                                 debug_assert!(!knockback.has_level_collision);
                                 debug_assert!(knockback.has_kid_collision);
                                 debug_assert!(knockback.is_moved);

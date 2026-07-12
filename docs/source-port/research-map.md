@@ -16,7 +16,7 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints are authoritative-clean and retain 15 classified oracle
+state checkpoints are authoritative-clean and retain 7 classified oracle
 limitations.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
@@ -27,6 +27,16 @@ stream, or change to the checked-in baselines. Typed RNG comparison starts after
 of the remaining 37,743 frames. Every compared frame now matches exactly.
 That is complete per-frame RNG and authoritative sampled-state evidence for
 this route, not whole-state or whole-game proof.
+
+The latest correction audits the published route's Dragon walking breath counts
+against raw linked lists and `Dragon.asm`. `loc_3CF90` allocates a linked child;
+accepted body contact sets parent `$5B` at `loc_3CFDA`, which the child observes
+at `loc_3D082` before `loc_3D09E` deletes it. Native children now retain parent
+identity and finish from that signal, while trace counts expose pending
+wait-timer-one allocations in object-pass order. The full sampled baseline keeps
+zero authoritative differences and falls from 15 to 7 limitations. Exact frames
+7800..8050 are 246/250 clean; the remaining one-pass boundaries are 7834, 7835,
+7885, and 8006.
 
 The latest correction maps the later IntroSequence2 Start return through raw
 linked-list WRAM. `loc_1B9D0 -> loc_1BA02 -> sub_1C246 -> loc_1C264` carries

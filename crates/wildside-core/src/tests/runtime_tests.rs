@@ -1232,12 +1232,43 @@ mod chunk_09 {
     }
 
     #[test]
-    #[ignore = "#290: native Dragon object scheduling still allocates frame 7954 one frame early and deletes frame 8006 one frame late"]
-    fn published_tas_dragon_breath_count_edges_match_object_scheduler_loc_3cf90_3d09e() {
+    fn published_tas_dragon_breath_counts_follow_raw_lists_loc_3cfda_3d09e() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
         };
-        let expected = [(7_954usize, (10u16, 9u16)), (8_006, (10, 9))];
+        let expected = [
+            (7_817usize, (11u16, 10u16)),
+            (7_850usize, (10u16, 9u16)),
+            (7_954, (10, 9)),
+        ];
+        let mut captured = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(7_955) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if expected
+                .iter()
+                .any(|(expected_frame, _)| *expected_frame == frame_index)
+            {
+                captured.push((
+                    frame_index,
+                    (trace.number_objects, trace.number_gfx_objects),
+                ));
+            }
+        }
+
+        assert_eq!(
+            captured, expected,
+            "ASM Dragon.asm loc_3CF90 allocates each breath pair, loc_3CFDA ends a contacted parent's child, and loc_3D09E removes completed children from both linked-list counts",
+        );
+    }
+
+    #[test]
+    #[ignore = "#290: native Dragon breath animation completion remains one object pass late at frames 7885 and 8006"]
+    fn published_tas_dragon_breath_completion_edges_match_loc_3d09e() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let expected = [(7_885usize, (9u16, 8u16)), (8_006, (10, 9))];
         let mut captured = Vec::new();
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(8_007) {
@@ -1255,7 +1286,7 @@ mod chunk_09 {
 
         assert_eq!(
             captured, expected,
-            "ASM Dragon.asm loc_3CF90 must allocate and loc_3D09E must delete each Object/GfxObject pair on the oracle scheduler frame",
+            "ASM Dragon.asm loc_3D082 -> loc_3D09E must delete each completed breath pair on the oracle object pass",
         );
     }
 
