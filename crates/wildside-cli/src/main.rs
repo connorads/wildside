@@ -553,6 +553,13 @@ enum Commands {
         /// .cache/playtest/. Mutually exclusive with --record and --scenario.
         #[arg(long, default_value_t = false)]
         playtest: bool,
+        /// Record session-long mic narration to <session>/mic.wav (requires
+        /// --playtest). Default command: ffmpeg avfoundation, mono 16 kHz.
+        #[arg(long, default_value_t = false)]
+        mic: bool,
+        /// Custom mic capture command; `{wav}` is replaced with the WAV path.
+        #[arg(long)]
+        mic_command: Option<String>,
     },
     ProbeCpu {
         #[arg(long)]
@@ -1578,6 +1585,8 @@ fn main() -> Result<()> {
             record_frontier_kind,
             scenario,
             playtest,
+            mic,
+            mic_command,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -1594,6 +1603,8 @@ fn main() -> Result<()> {
                         "--playtest and --scenario are mutually exclusive; playtest needs live input"
                     );
                 }
+            } else if mic || mic_command.is_some() {
+                bail!("--mic/--mic-command require --playtest");
             }
             let scripted_scenario = scenario
                 .as_deref()
@@ -1660,6 +1671,8 @@ fn main() -> Result<()> {
                 PlaytestOptions {
                     session_dir: repo_root.join(".cache/playtest").join(session_slug),
                     issues: load_playtest_issues(&repo_root),
+                    mic_command: mic_command
+                        .or_else(|| mic.then(|| native_player::DEFAULT_MIC_COMMAND.to_owned())),
                 }
             });
             run_native_player(

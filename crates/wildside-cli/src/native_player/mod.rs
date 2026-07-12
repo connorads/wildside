@@ -1,3 +1,4 @@
+mod mic;
 mod playtest;
 mod segment_recorder;
 
@@ -8,8 +9,10 @@ use crate::scenarios::{
     DynamicCheckpoint, DynamicScenario, DynamicStartPosition, GameplayCheckpoint,
 };
 use anyhow::{Result, anyhow, bail};
+pub(crate) use mic::DEFAULT_MIC_COMMAND;
+use mic::MicCapture;
 pub use playtest::PlaytestOptions;
-use playtest::{PlaytestSession, PlaytestWarp, VerdictKind};
+use playtest::{MicInfo, PlaytestSession, PlaytestWarp, SyncMarkKind, VerdictKind};
 pub(crate) use playtest::{load_playtest_issues, playtest_session_slug, unix_time_ms};
 use sdl2::audio::AudioQueue;
 use sdl2::controller::{Button, GameController};
@@ -54,6 +57,9 @@ use wildside_render::load_level_visuals;
 
 const FRAME_TIME: Duration = Duration::from_micros(16_667);
 const LEVEL_CARD_HOLD_FRAMES: usize = 60;
+/// One sync mark per ~second of gameplay keeps transcript alignment tight
+/// without bloating session.json.
+const PLAYTEST_SYNC_MARK_INTERVAL_FRAMES: usize = 60;
 const AUDIO_QUEUE_TARGET_FRAMES: usize = 2;
 const AUDIO_SOFTWARE_BACKLOG_MAX_FRAMES: usize = 60;
 const SDL_AUDIO_CALLBACK_SAMPLES: u16 = 512;
@@ -432,6 +438,29 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         segment.set_final_frame(&frame);
         recorder = Some(segment);
     }
+    let mut mic_capture: Option<MicCapture> = None;
+    if let Some(template) = options
+        .playtest
+        .as_ref()
+        .and_then(|playtest| playtest.mic_command.as_deref())
+        && let Some(session) = playtest_session.as_mut()
+    {
+        let wav_path = session.session_dir().join("mic.wav");
+        match MicCapture::spawn(template, &wav_path) {
+            Ok(capture) => {
+                session.set_mic_info(MicInfo {
+                    command: capture.command_line().to_owned(),
+                    wav_path: String::from("mic.wav"),
+                    sample_rate: 16_000,
+                    channels: 1,
+                    started_at_unix_ms: unix_time_ms(),
+                })?;
+                eprintln!("Playtest mic capture: {}", capture.command_line());
+                mic_capture = Some(capture);
+            }
+            Err(error) => eprintln!("Playtest mic capture failed to start: {error:#}"),
+        }
+    }
     let mut audio_diagnostics = NativeAudioDiagnostics::new(
         has_gems,
         audio_queue.is_some(),
@@ -741,6 +770,18 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 // clean release before live buttons feed the runtime again.
                 wait_for_live_input_release = true;
             }
+            if let Some(session) = playtest_session.as_mut() {
+                let frame_index = recorder
+                    .as_ref()
+                    .map_or(0, SegmentRecorder::frame_len)
+                    .saturating_sub(1);
+                let kind = if paused {
+                    SyncMarkKind::Pause
+                } else {
+                    SyncMarkKind::Resume
+                };
+                session.add_sync_mark(kind, frame_index);
+            }
         }
 
         if let Some(kind) = pending_verdict
@@ -887,6 +928,15 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                     && recorder.record_frame(buttons, &trace, options)
                 {
                     dump_recording_and_exit = true;
+                }
+                if let (Some(session), Some(recorder)) =
+                    (playtest_session.as_mut(), recorder.as_ref())
+                    && recorder.frame_len() % PLAYTEST_SYNC_MARK_INTERVAL_FRAMES == 1
+                {
+                    session.add_sync_mark(
+                        SyncMarkKind::Interval,
+                        recorder.frame_len().saturating_sub(1),
+                    );
                 }
             }
 
@@ -1180,6 +1230,9 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         }
     }
 
+    if let Some(capture) = mic_capture.take() {
+        capture.stop();
+    }
     if let Some(session) = playtest_session.as_mut() {
         rotate_playtest_segment(
             &mut recorder,

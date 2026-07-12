@@ -63,6 +63,8 @@ struct ActiveSegmentMeta {
 pub struct PlaytestOptions {
     pub session_dir: PathBuf,
     pub issues: Vec<HumanValidationBlocker>,
+    /// Mic capture command template (`{wav}` placeholder); None disables mic.
+    pub mic_command: Option<String>,
 }
 
 /// The `session.json` contract consumed by `playtest-ingest` and follow-up
@@ -365,7 +367,26 @@ impl PlaytestSession {
             bundle_dir: bundle_dir.clone(),
             start,
         });
+        self.add_sync_mark(SyncMarkKind::SegmentStart, 0);
         self.session_dir.join(bundle_dir)
+    }
+
+    /// Stamp a frame↔wall-clock correspondence for transcript alignment.
+    pub(crate) fn add_sync_mark(&mut self, kind: SyncMarkKind, frame_index: usize) {
+        self.file.sync_marks.push(SyncMark {
+            kind,
+            wall_clock_ms: unix_time_ms(),
+            segment_index: self.current_segment_index(),
+            frame_index,
+        });
+        // Sync marks are only evidence once the session file survives; a
+        // failed write surfaces on the next verdict/bookmark persist.
+        let _ = self.persist();
+    }
+
+    pub(crate) fn set_mic_info(&mut self, mic: MicInfo) -> Result<()> {
+        self.file.mic = Some(mic);
+        self.persist()
     }
 
     /// Close out the active segment's bookkeeping after its recorder was
@@ -777,6 +798,7 @@ mod tests {
         let options = PlaytestOptions {
             session_dir: root.path().join("pt-test"),
             issues,
+            mic_command: None,
         };
         let session = PlaytestSession::create(&options, String::from("romsha"), None, None)
             .expect("create session");
@@ -1026,6 +1048,46 @@ mod tests {
     }
 
     #[test]
+    fn sync_marks_stamp_segment_positions_in_order() {
+        let (mut session, _root) = session_with_issues(Vec::new());
+        session.begin_segment(segment_start(None));
+        session.add_sync_mark(SyncMarkKind::Pause, 120);
+        session.add_sync_mark(SyncMarkKind::Resume, 120);
+        session.end_segment(false, "issue-warp").expect("end seg01");
+        session.begin_segment(segment_start(Some(0x03)));
+        session.add_sync_mark(SyncMarkKind::Interval, 60);
+
+        let marks = &session.file().sync_marks;
+        let kinds: Vec<SyncMarkKind> = marks.iter().map(|mark| mark.kind).collect();
+        assert_eq!(
+            kinds,
+            vec![
+                SyncMarkKind::SegmentStart,
+                SyncMarkKind::Pause,
+                SyncMarkKind::Resume,
+                SyncMarkKind::SegmentStart,
+                SyncMarkKind::Interval,
+            ],
+            "begin_segment stamps its own SegmentStart mark"
+        );
+        assert_eq!(marks[0].segment_index, 1);
+        assert_eq!(marks[0].frame_index, 0);
+        assert_eq!(marks[3].segment_index, 2);
+        assert_eq!(marks[4].frame_index, 60);
+        assert!(
+            marks
+                .windows(2)
+                .all(|pair| pair[0].wall_clock_ms <= pair[1].wall_clock_ms),
+            "wall-clock stamps are monotonic"
+        );
+
+        let written =
+            fs::read_to_string(session.session_dir().join("session.json")).expect("session.json");
+        let parsed: PlaytestSessionFile = serde_json::from_str(&written).expect("parse");
+        assert_eq!(parsed.sync_marks.len(), 5, "sync marks persist");
+    }
+
+    #[test]
     fn bookmarks_capture_trace_position_with_pixel_coordinates() {
         let (mut session, _root) = session_with_issues(Vec::new());
         session.begin_segment(segment_start(Some(0x03)));
@@ -1085,6 +1147,7 @@ mod tests {
         let options = PlaytestOptions {
             session_dir: session_dir.clone(),
             issues: vec![sample_issue("#238", "0x03")],
+            mic_command: None,
         };
 
         let session = PlaytestSession::create(
