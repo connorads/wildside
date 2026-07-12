@@ -67,6 +67,10 @@ impl SegmentRecorder {
         self.save_worthy = true;
     }
 
+    pub(super) fn save_worthy(&self) -> bool {
+        self.save_worthy
+    }
+
     /// Record one stepped frame's input and trace. Returns true when the
     /// recording should stop (target-enemy contact tail elapsed or the
     /// `--record-frames` limit is reached).

@@ -6477,6 +6477,73 @@ AddrTbl_LevelNames:
     }
 
     #[test]
+    fn gameplay_regression_playtest_segment_replays_deterministically() {
+        // A playtest segment starts from a fresh warp (playtest_warp_session)
+        // and must replay bit-identically through the verify-recording native
+        // path from its saved `{warp_to_level}` scenario. A drifting frame
+        // here means paused/live-only state leaked into the segment.
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let options = crate::NativePlayOptions {
+            fullscreen: false,
+            scale: None,
+            debug_overlay: false,
+            warp_level: None,
+            settled: false,
+            record_to: None,
+            record_frames: None,
+            record_stop_on_target_enemy_contact: false,
+            record_contact_tail_frames: 30,
+            record_notes: None,
+            record_route_target: None,
+            record_frontier_kind: None,
+            scripted_route: None,
+            playtest: None,
+        };
+        let (_assets, mut runtime) =
+            crate::native_player::playtest_warp_session(&manifest, &options, 0x00)
+                .expect("playtest warp session");
+
+        let mut script = vec![0u8; 30];
+        for buttons in script.iter_mut().skip(5).take(12) {
+            *buttons = 1 << 3; // hold Right, as a live playtester would
+        }
+        let live_trace: Vec<_> = script
+            .iter()
+            .map(|&buttons| runtime.step_frame(wildside_core::FrameInput::from_mask(buttons)))
+            .collect();
+
+        let start = crate::recording::RecordingStart {
+            warp_level: Some(0x00),
+            settled: false,
+            record_frames: None,
+        };
+        let recording_bundle = crate::recording::build_recording(
+            &manifest,
+            "pt-test-seg01",
+            start,
+            script,
+            live_trace.clone(),
+        )
+        .expect("build segment recording");
+        let replay = crate::recording::run_recorded_trace(
+            &manifest,
+            start,
+            &recording_bundle.manifest.scenario,
+        )
+        .expect("native replay");
+
+        assert_eq!(replay.len(), live_trace.len());
+        for (frame_index, (live, replayed)) in live_trace.iter().zip(&replay).enumerate() {
+            assert_eq!(
+                live, replayed,
+                "playtest segment frame {frame_index} must replay identically"
+            );
+        }
+    }
+
+    #[test]
     fn gameplay_regression_native_gameplay_capture_uses_default_runtime_path() {
         let (_source_root, _bundle_root, manifest) = exported_test_manifest();
         let capture =

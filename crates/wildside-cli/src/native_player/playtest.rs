@@ -30,6 +30,32 @@ pub(crate) enum IssueFilter {
     All,
 }
 
+/// What arming an issue asks the player loop to do. Warp-capable targets start
+/// a fresh deterministic segment; everything else pins the Check and waits for
+/// the player to reach the target manually.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PlaytestWarp {
+    Level(u8),
+    Boot,
+}
+
+/// The issue currently under validation: its Check stays pinned on the HUD
+/// until a Y/H/G verdict lands.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ArmedIssue {
+    pub(crate) issue_id: String,
+    pub(crate) target: String,
+    pub(crate) check: String,
+}
+
+#[derive(Debug, Clone)]
+struct ActiveSegmentMeta {
+    index: usize,
+    slug: String,
+    bundle_dir: String,
+    start: RecordingStart,
+}
+
 /// Session-level playtest inputs resolved by `main.rs` (repo paths and backlog
 /// IO stay out of the SDL loop).
 #[derive(Debug, Clone)]
@@ -148,6 +174,9 @@ pub(crate) struct PlaytestSession {
     browser_selection: usize,
     filter: IssueFilter,
     toast: Option<(String, usize)>,
+    armed: Option<ArmedIssue>,
+    active_segment: Option<ActiveSegmentMeta>,
+    segment_counter: usize,
 }
 
 impl PlaytestSession {
@@ -181,6 +210,9 @@ impl PlaytestSession {
             browser_selection: 0,
             filter: IssueFilter::CurrentLevel,
             toast: None,
+            armed: None,
+            active_segment: None,
+            segment_counter: 0,
         };
         session.persist()?;
         Ok(session)
@@ -259,6 +291,99 @@ impl PlaytestSession {
             .collect()
     }
 
+    /// Arm the selected issue: close the browser, pin its Check on the HUD,
+    /// and tell the loop whether the target warrants a warp + fresh segment.
+    pub(crate) fn arm_selected(&mut self, current_level: u8) -> Option<PlaytestWarp> {
+        let filtered = self.filtered_issues(current_level);
+        let selection = self.browser_selection.min(filtered.len().saturating_sub(1));
+        let issue = (*filtered.get(selection)?).clone();
+        let warp = if issue.target == "boot" {
+            Some(PlaytestWarp::Boot)
+        } else {
+            issue
+                .target
+                .strip_prefix("0x")
+                .and_then(|hex| u8::from_str_radix(hex, 16).ok())
+                .map(PlaytestWarp::Level)
+        };
+        self.show_toast(format!("ARMED {} [{}]", issue.id, issue.target));
+        self.armed = Some(ArmedIssue {
+            issue_id: issue.id,
+            target: issue.target,
+            check: issue.check,
+        });
+        self.close_browser();
+        warp
+    }
+
+    pub(crate) fn armed(&self) -> Option<&ArmedIssue> {
+        self.armed.as_ref()
+    }
+
+    /// Record a Y/H/G verdict for the armed issue at the current segment
+    /// position. Returns true when a verdict was recorded (an issue was armed).
+    pub(crate) fn record_verdict(&mut self, kind: VerdictKind, frame_index: usize) -> Result<bool> {
+        let Some(armed) = self.armed.take() else {
+            return Ok(false);
+        };
+        let label = match kind {
+            VerdictKind::ConfirmedFixed => "CONFIRMED FIXED",
+            VerdictKind::StillBroken => "STILL BROKEN",
+            VerdictKind::Partial => "PARTIAL",
+        };
+        self.show_toast(format!("{}: {label}", armed.issue_id));
+        self.file.verdicts.push(Verdict {
+            issue_id: armed.issue_id,
+            target: armed.target,
+            check: armed.check,
+            verdict: kind,
+            segment_index: self.current_segment_index(),
+            frame_index,
+            at_unix_ms: unix_time_ms(),
+            note: None,
+        });
+        self.persist()?;
+        Ok(true)
+    }
+
+    pub(crate) fn current_segment_index(&self) -> usize {
+        self.active_segment
+            .as_ref()
+            .map_or(self.segment_counter, |segment| segment.index)
+    }
+
+    /// Register the next segment and return its absolute bundle directory.
+    pub(crate) fn begin_segment(&mut self, start: RecordingStart) -> PathBuf {
+        self.segment_counter += 1;
+        let index = self.segment_counter;
+        let bundle_dir = format!("segments/seg{index:02}");
+        let slug = format!("{}-seg{index:02}", self.file.session_slug);
+        self.active_segment = Some(ActiveSegmentMeta {
+            index,
+            slug,
+            bundle_dir: bundle_dir.clone(),
+            start,
+        });
+        self.session_dir.join(bundle_dir)
+    }
+
+    /// Close out the active segment's bookkeeping after its recorder was
+    /// flushed (`saved`) or discarded.
+    pub(crate) fn end_segment(&mut self, saved: bool, reason: &str) -> Result<()> {
+        let Some(segment) = self.active_segment.take() else {
+            return Ok(());
+        };
+        self.file.segments.push(SegmentRecord {
+            index: segment.index,
+            slug: segment.slug,
+            bundle_dir: segment.bundle_dir,
+            start: segment.start,
+            saved,
+            reason: reason.to_owned(),
+        });
+        self.persist()
+    }
+
     pub(crate) fn show_toast(&mut self, message: impl Into<String>) {
         self.toast = Some((message.into(), TOAST_HOLD_FRAMES));
     }
@@ -283,7 +408,21 @@ impl PlaytestSession {
                 current_level,
             ));
         }
-        self.toast.as_ref().map(|(message, _)| toast_scene(message))
+        let mut commands = Vec::new();
+        if let Some(armed) = self.armed.as_ref() {
+            commands.extend(armed_hud_commands(armed));
+        }
+        if let Some((message, _)) = self.toast.as_ref() {
+            commands.extend(toast_commands(message));
+        }
+        if commands.is_empty() {
+            return None;
+        }
+        Some(Scene {
+            background: [0, 0, 0],
+            commands,
+            pause_palette_darken: false,
+        })
     }
 
     #[cfg(test)]
@@ -399,23 +538,56 @@ fn issue_browser_scene(
     }
 }
 
-/// Transient confirmation banner at the bottom of the frame.
-fn toast_scene(message: &str) -> Scene {
-    let message: String = message.chars().take(BROWSER_TEXT_COLUMNS - 2).collect();
-    Scene {
-        background: [0, 0, 0],
-        commands: vec![
-            DrawCommand::Rect {
-                x: 0,
-                y: (FRAME_HEIGHT as i32) - 14,
-                width: FRAME_WIDTH as i32,
-                height: 14,
-                colour: [24, 32, 48],
-            },
-            text(8, (FRAME_HEIGHT as i32) - 11, &message, [255, 255, 200], 1),
-        ],
-        pause_palette_darken: false,
+/// Armed-issue HUD pinned to the top of the frame: issue id, target, verdict
+/// key hints, and the Check sentence across one or two lines.
+fn armed_hud_commands(armed: &ArmedIssue) -> Vec<DrawCommand> {
+    let check_chars: Vec<char> = armed.check.chars().collect();
+    let first: String = check_chars.iter().take(BROWSER_TEXT_COLUMNS).collect();
+    let rest: String = check_chars
+        .iter()
+        .skip(BROWSER_TEXT_COLUMNS)
+        .take(BROWSER_TEXT_COLUMNS)
+        .collect();
+    let height = if rest.is_empty() { 24 } else { 34 };
+    let mut commands = vec![
+        DrawCommand::Rect {
+            x: 0,
+            y: 0,
+            width: FRAME_WIDTH as i32,
+            height,
+            colour: [16, 24, 40],
+        },
+        text(
+            4,
+            3,
+            &format!(
+                "{} [{}]  Y FIXED H BROKEN G PARTIAL",
+                armed.issue_id, armed.target
+            ),
+            [255, 255, 160],
+            1,
+        ),
+        text(4, 13, &first, [160, 220, 160], 1),
+    ];
+    if !rest.is_empty() {
+        commands.push(text(4, 23, &rest, [160, 220, 160], 1));
     }
+    commands
+}
+
+/// Transient confirmation banner at the bottom of the frame.
+fn toast_commands(message: &str) -> Vec<DrawCommand> {
+    let message: String = message.chars().take(BROWSER_TEXT_COLUMNS - 2).collect();
+    vec![
+        DrawCommand::Rect {
+            x: 0,
+            y: (FRAME_HEIGHT as i32) - 14,
+            width: FRAME_WIDTH as i32,
+            height: 14,
+            colour: [24, 32, 48],
+        },
+        text(8, (FRAME_HEIGHT as i32) - 11, &message, [255, 255, 200], 1),
+    ]
 }
 
 /// Load the awaiting-human lane for the in-game browser, skipping rows whose
@@ -696,6 +868,120 @@ mod tests {
             session.overlay_scene(0x03).is_none(),
             "toast expires after its hold frames"
         );
+    }
+
+    fn segment_start(warp_level: Option<u8>) -> RecordingStart {
+        RecordingStart {
+            warp_level,
+            settled: false,
+            record_frames: None,
+        }
+    }
+
+    #[test]
+    fn arming_pins_check_and_reports_warp_action() {
+        let (mut session, _root) = session_with_issues(vec![
+            sample_issue("238", "0x03"),
+            sample_issue("240", "boot"),
+            sample_issue("241", "demo:0x05"),
+        ]);
+        session.toggle_browser(0x03);
+        session.toggle_filter(0x03); // ALL, so every target is reachable
+
+        assert_eq!(session.arm_selected(0x03), Some(PlaytestWarp::Level(0x03)));
+        assert!(!session.browser_open(), "arming closes the browser");
+        assert_eq!(
+            session.armed().map(|armed| armed.issue_id.as_str()),
+            Some("238")
+        );
+
+        session.toggle_browser(0x03);
+        session.move_selection(1, 0x03);
+        assert_eq!(session.arm_selected(0x03), Some(PlaytestWarp::Boot));
+
+        session.toggle_browser(0x03);
+        session.move_selection(2, 0x03);
+        assert_eq!(
+            session.arm_selected(0x03),
+            None,
+            "demo targets arm without warping"
+        );
+        assert_eq!(
+            session.armed().map(|armed| armed.issue_id.as_str()),
+            Some("241")
+        );
+
+        let scene = session.overlay_scene(0x03).expect("armed HUD");
+        let lines = scene_text(&scene);
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("241") && line.contains("Y FIXED")),
+            "armed HUD pins the issue id and verdict hints: {lines:?}"
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("Dragons resume patrol")),
+            "armed HUD pins the Check sentence: {lines:?}"
+        );
+    }
+
+    #[test]
+    fn verdicts_record_segment_position_and_disarm() {
+        let (mut session, _root) = session_with_issues(vec![sample_issue("238", "0x03")]);
+        let bundle_dir = session.begin_segment(segment_start(Some(0x03)));
+        assert!(bundle_dir.ends_with("segments/seg01"));
+        session.toggle_browser(0x03);
+        session.arm_selected(0x03);
+
+        assert!(
+            session
+                .record_verdict(VerdictKind::StillBroken, 42)
+                .expect("record verdict")
+        );
+        assert!(session.armed().is_none(), "verdict disarms the issue");
+        assert!(
+            !session
+                .record_verdict(VerdictKind::ConfirmedFixed, 43)
+                .expect("no-op without armed issue"),
+            "verdicts need an armed issue"
+        );
+
+        let verdict = session.file().verdicts.first().expect("stored verdict");
+        assert_eq!(verdict.issue_id, "238");
+        assert_eq!(verdict.verdict, VerdictKind::StillBroken);
+        assert_eq!(verdict.segment_index, 1);
+        assert_eq!(verdict.frame_index, 42);
+
+        let written =
+            fs::read_to_string(session.session_dir().join("session.json")).expect("session.json");
+        let parsed: PlaytestSessionFile = serde_json::from_str(&written).expect("parse");
+        assert_eq!(parsed.verdicts.len(), 1, "verdicts persist immediately");
+    }
+
+    #[test]
+    fn segment_bookkeeping_numbers_and_persists_segments() {
+        let (mut session, _root) = session_with_issues(Vec::new());
+        let first = session.begin_segment(segment_start(None));
+        assert!(first.ends_with("segments/seg01"));
+        assert_eq!(session.current_segment_index(), 1);
+        session.end_segment(true, "issue-warp").expect("end seg01");
+
+        let second = session.begin_segment(segment_start(Some(0x05)));
+        assert!(second.ends_with("segments/seg02"));
+        session.end_segment(false, "exit").expect("end seg02");
+
+        let segments = &session.file().segments;
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].index, 1);
+        assert!(segments[0].saved);
+        assert_eq!(segments[0].reason, "issue-warp");
+        assert_eq!(segments[0].bundle_dir, "segments/seg01");
+        assert!(segments[0].slug.ends_with("-seg01"));
+        assert_eq!(segments[1].index, 2);
+        assert!(!segments[1].saved);
+        assert_eq!(segments[1].start.warp_level, Some(0x05));
     }
 
     #[test]

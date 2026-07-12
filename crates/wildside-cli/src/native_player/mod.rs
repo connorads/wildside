@@ -9,7 +9,7 @@ use crate::scenarios::{
 };
 use anyhow::{Result, anyhow, bail};
 pub use playtest::PlaytestOptions;
-use playtest::PlaytestSession;
+use playtest::{PlaytestSession, PlaytestWarp, VerdictKind};
 pub(crate) use playtest::{load_playtest_issues, playtest_session_slug, unix_time_ms};
 use sdl2::audio::AudioQueue;
 use sdl2::controller::{Button, GameController};
@@ -110,7 +110,7 @@ impl From<DynamicScenario> for NativeScriptedRoute {
 }
 
 #[derive(Debug, Clone)]
-struct NativeSessionAssets {
+pub(crate) struct NativeSessionAssets {
     level_visuals: NativeLevelVisuals,
     block_grid: BlockGrid,
 }
@@ -425,6 +425,13 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     } else {
         None
     };
+    if let Some(session) = playtest_session.as_mut() {
+        let start = playtest_segment_start(options.warp_level, options.settled);
+        let bundle_dir = session.begin_segment(start);
+        let mut segment = SegmentRecorder::new(bundle_dir, start)?;
+        segment.set_final_frame(&frame);
+        recorder = Some(segment);
+    }
     let mut audio_diagnostics = NativeAudioDiagnostics::new(
         has_gems,
         audio_queue.is_some(),
@@ -473,6 +480,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         let mut toggle_fullscreen = false;
         let mut reset_runtime = false;
         let mut dump_recording_and_exit = false;
+        let mut pending_playtest_warp: Option<PendingPlaytestWarp> = None;
+        let mut pending_verdict: Option<VerdictKind> = None;
         let was_paused = playtest_session
             .as_ref()
             .is_some_and(PlaytestSession::paused);
@@ -542,6 +551,37 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                     }
                 }
                 Event::KeyDown {
+                    keycode: Some(Keycode::Return | Keycode::Space),
+                    repeat: false,
+                    ..
+                } if playtest_session
+                    .as_ref()
+                    .is_some_and(PlaytestSession::browser_open) =>
+                {
+                    let session = playtest_session
+                        .as_mut()
+                        .expect("guard checked playtest session");
+                    pending_playtest_warp = match session.arm_selected(trace.current_level.0) {
+                        Some(PlaytestWarp::Level(level)) => Some(PendingPlaytestWarp::Level(level)),
+                        Some(PlaytestWarp::Boot) => Some(PendingPlaytestWarp::Boot),
+                        None => None,
+                    };
+                }
+                Event::KeyDown {
+                    keycode: Some(key @ (Keycode::Y | Keycode::H | Keycode::G)),
+                    repeat: false,
+                    ..
+                } if playtest_session.as_ref().is_some_and(|session| {
+                    session.armed().is_some() && !session.browser_open()
+                }) =>
+                {
+                    pending_verdict = Some(match key {
+                        Keycode::Y => VerdictKind::ConfirmedFixed,
+                        Keycode::H => VerdictKind::StillBroken,
+                        _ => VerdictKind::Partial,
+                    });
+                }
+                Event::KeyDown {
                     keycode: Some(Keycode::F11),
                     repeat: false,
                     ..
@@ -556,7 +596,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                     repeat: false,
                     ..
                 } => {
-                    if options.record_to.is_some() {
+                    if options.record_to.is_some() || playtest_session.is_some() {
                         dump_recording_and_exit = true;
                     }
                 }
@@ -584,7 +624,12 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                             "play-native recording does not support reset/warp debug controls (R/N/P)"
                         );
                     }
-                    if let Some((next, next_assets)) = load_debug_warp_session_assets(
+                    if playtest_session.is_some() {
+                        // Playtest segments must start from a state
+                        // verify-recording can reconstruct, so N/P become
+                        // fresh-runtime warps that split the segment.
+                        pending_playtest_warp = Some(PendingPlaytestWarp::Next);
+                    } else if let Some((next, next_assets)) = load_debug_warp_session_assets(
                         manifest,
                         trace.current_level,
                         DebugWarpDirection::Next,
@@ -620,7 +665,9 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                             "play-native recording does not support reset/warp debug controls (R/N/P)"
                         );
                     }
-                    if let Some((prev, prev_assets)) = load_debug_warp_session_assets(
+                    if playtest_session.is_some() {
+                        pending_playtest_warp = Some(PendingPlaytestWarp::Previous);
+                    } else if let Some((prev, prev_assets)) = load_debug_warp_session_assets(
                         manifest,
                         trace.current_level,
                         DebugWarpDirection::Previous,
@@ -685,7 +732,104 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             }
         }
 
+        if let Some(kind) = pending_verdict
+            && let Some(session) = playtest_session.as_mut()
+        {
+            let frame_index = recorder
+                .as_ref()
+                .map_or(0, SegmentRecorder::frame_len)
+                .saturating_sub(1);
+            if session.record_verdict(kind, frame_index)?
+                && matches!(kind, VerdictKind::StillBroken | VerdictKind::Partial)
+                && let Some(recorder) = recorder.as_mut()
+            {
+                // Broken/partial verdicts are evidence: keep this segment.
+                recorder.mark_save_worthy();
+            }
+        }
+
+        if let Some(warp) = pending_playtest_warp
+            && let Some(session) = playtest_session.as_mut()
+        {
+            if warp == PendingPlaytestWarp::Boot {
+                reset_runtime = true;
+            } else {
+                let resolved_level = match warp {
+                    PendingPlaytestWarp::Level(level) => Some(LevelId(level)),
+                    PendingPlaytestWarp::Next => load_debug_warp_session_assets(
+                        manifest,
+                        trace.current_level,
+                        DebugWarpDirection::Next,
+                    )
+                    .map(|(level, _)| level),
+                    PendingPlaytestWarp::Previous => load_debug_warp_session_assets(
+                        manifest,
+                        trace.current_level,
+                        DebugWarpDirection::Previous,
+                    )
+                    .map(|(level, _)| level),
+                    PendingPlaytestWarp::Boot => unreachable!("boot handled via reset"),
+                };
+                let warped = resolved_level.and_then(|level| {
+                    match playtest_warp_session(manifest, options, level.0) {
+                        Ok(warp_state) => Some((level, warp_state)),
+                        Err(error) => {
+                            eprintln!("playtest warp to 0x{:02X} failed: {error:#}", level.0);
+                            None
+                        }
+                    }
+                });
+                if let Some((level, (next_assets, next_runtime))) = warped {
+                    let reason = match warp {
+                        PendingPlaytestWarp::Level(_) => "issue-warp",
+                        PendingPlaytestWarp::Next => "debug-next",
+                        _ => "debug-prev",
+                    };
+                    rotate_playtest_segment(
+                        &mut recorder,
+                        session,
+                        reason,
+                        Some(playtest_segment_start(Some(level.0), false)),
+                        manifest,
+                        options,
+                        &audio_diagnostics,
+                        &trace,
+                        audio_channels,
+                        audio_recording_sample_rate,
+                    )?;
+                    session_assets = next_assets;
+                    runtime = next_runtime;
+                    trace = runtime.trace_frame();
+                    current_level_id = trace.current_level.0;
+                    active_bgm_cue = None;
+                    pending_bgm_start = None;
+                    level_card_frames_remaining = 0;
+                    debug_level_card_fallback_frames_remaining = 0;
+                    suppress_level_card_for_debug_warp = false;
+                    fade_alpha = 0;
+                    fading_in = false;
+                    wait_for_live_input_release = true;
+                } else {
+                    session.show_toast("NO PLAYABLE TARGET LEVEL");
+                }
+            }
+        }
+
         if reset_runtime {
+            if let Some(session) = playtest_session.as_mut() {
+                rotate_playtest_segment(
+                    &mut recorder,
+                    session,
+                    "reset",
+                    Some(playtest_segment_start(options.warp_level, options.settled)),
+                    manifest,
+                    options,
+                    &audio_diagnostics,
+                    &trace,
+                    audio_channels,
+                    audio_recording_sample_rate,
+                )?;
+            }
             session_assets = load_native_session_assets(manifest, initial_level_id)?;
             runtime = initialise_runtime(manifest, &session_assets, options);
             trace = runtime.trace_frame();
@@ -974,6 +1118,12 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             }
         }
 
+        // Capture the segment's final-frame artifact before playtest overlays
+        // land so the bundle evidence stays pure gameplay.
+        if let Some(recorder) = recorder.as_mut() {
+            recorder.set_final_frame(&frame);
+        }
+
         if let Some(session) = playtest_session.as_mut() {
             session.tick();
             if let Some(scene) = session.overlay_scene(trace.current_level.0) {
@@ -984,9 +1134,6 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         texture
             .update(None, &frame, (FRAME_WIDTH as usize) * 3)
             .map_err(|error| anyhow!("failed to update SDL texture: {error}"))?;
-        if let Some(recorder) = recorder.as_mut() {
-            recorder.set_final_frame(&frame);
-        }
         canvas.clear();
         canvas
             .copy(&texture, None, None)
@@ -1008,6 +1155,20 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         }
     }
 
+    if let Some(session) = playtest_session.as_mut() {
+        rotate_playtest_segment(
+            &mut recorder,
+            session,
+            "exit",
+            None,
+            manifest,
+            options,
+            &audio_diagnostics,
+            &trace,
+            audio_channels,
+            audio_recording_sample_rate,
+        )?;
+    }
     if let Some(recorder) = recorder.take() {
         recorder.finalise(
             manifest,
@@ -1079,6 +1240,83 @@ fn native_player_should_step_frame(
 /// queued, or captured into the segment recording.
 fn native_player_should_step_audio(paused: bool, capture_audio: bool, queue_present: bool) -> bool {
     !paused && (capture_audio || queue_present)
+}
+
+/// Deterministic-start actions queued from playtest hotkeys; each finalises
+/// the active segment and (except session exit) starts a fresh one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PendingPlaytestWarp {
+    Level(u8),
+    Next,
+    Previous,
+    Boot,
+}
+
+/// A playtest segment start reproducible by verify-recording: fresh runtime,
+/// explicit warp/boot state, no live-only carry-over.
+fn playtest_segment_start(
+    warp_level: Option<u8>,
+    settled: bool,
+) -> crate::recording::RecordingStart {
+    crate::recording::RecordingStart {
+        warp_level,
+        settled,
+        record_frames: None,
+    }
+}
+
+/// Live playtest warp: fresh runtime + assets for `level`, exactly the state
+/// `verify-recording` reconstructs from the segment's `{warp_to_level}`
+/// scenario. Deliberately NOT the carried-state debug warp
+/// (`enter_debug_hotkey_level`) — carried lives/score/form would make the
+/// recorded segment unreplayable.
+pub(crate) fn playtest_warp_session(
+    manifest: &AssetManifest,
+    options: &NativePlayOptions,
+    level: u8,
+) -> Result<(NativeSessionAssets, NativeRuntime)> {
+    let session_assets = load_native_session_assets(manifest, level)?;
+    let warp_options = NativePlayOptions {
+        warp_level: Some(level),
+        settled: false,
+        scripted_route: None,
+        ..options.clone()
+    };
+    let runtime = initialise_runtime(manifest, &session_assets, &warp_options);
+    Ok((session_assets, runtime))
+}
+
+/// Finalise the active playtest segment (flush if save-worthy, else discard)
+/// and optionally start the next one.
+fn rotate_playtest_segment(
+    recorder: &mut Option<SegmentRecorder>,
+    session: &mut PlaytestSession,
+    reason: &str,
+    next_start: Option<crate::recording::RecordingStart>,
+    manifest: &AssetManifest,
+    options: &NativePlayOptions,
+    audio_diagnostics: &NativeAudioDiagnostics,
+    current_trace: &NativeTraceFrame,
+    audio_channels: u8,
+    audio_sample_rate: u32,
+) -> Result<()> {
+    if let Some(old) = recorder.take() {
+        let saved = old.save_worthy();
+        old.finalise(
+            manifest,
+            options,
+            audio_diagnostics.clone().into_lines(),
+            current_trace.clone(),
+            audio_channels,
+            audio_sample_rate,
+        )?;
+        session.end_segment(saved, reason)?;
+    }
+    if let Some(start) = next_start {
+        let bundle_dir = session.begin_segment(start);
+        *recorder = Some(SegmentRecorder::new(bundle_dir, start)?);
+    }
+    Ok(())
 }
 
 fn should_step_runtime_during_level_card_hold(
