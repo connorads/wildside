@@ -482,6 +482,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         let mut dump_recording_and_exit = false;
         let mut pending_playtest_warp: Option<PendingPlaytestWarp> = None;
         let mut pending_verdict: Option<VerdictKind> = None;
+        let mut pending_bookmark = false;
         let was_paused = playtest_session
             .as_ref()
             .is_some_and(PlaytestSession::paused);
@@ -580,6 +581,16 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                         Keycode::H => VerdictKind::StillBroken,
                         _ => VerdictKind::Partial,
                     });
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::B),
+                    repeat: false,
+                    ..
+                } if playtest_session
+                    .as_ref()
+                    .is_some_and(|session| !session.browser_open()) =>
+                {
+                    pending_bookmark = true;
                 }
                 Event::KeyDown {
                     keycode: Some(Keycode::F11),
@@ -1122,6 +1133,20 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         // land so the bundle evidence stays pure gameplay.
         if let Some(recorder) = recorder.as_mut() {
             recorder.set_final_frame(&frame);
+        }
+
+        if pending_bookmark && let Some(session) = playtest_session.as_mut() {
+            let frame_index = recorder
+                .as_ref()
+                .map_or(0, SegmentRecorder::frame_len)
+                .saturating_sub(1);
+            let screenshot_path = session.add_bookmark(&trace, frame_index)?;
+            // Pre-overlay frame: bookmark evidence stays pure gameplay.
+            playtest::write_playtest_screenshot(&screenshot_path, &frame)?;
+            if let Some(recorder) = recorder.as_mut() {
+                // Bookmarks are evidence: keep this segment.
+                recorder.mark_save_worthy();
+            }
         }
 
         if let Some(session) = playtest_session.as_mut() {

@@ -14,6 +14,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+use wildside_core::NativeTraceFrame;
 use wildside_frame::{DrawCommand, FRAME_HEIGHT, FRAME_WIDTH, Scene, text};
 
 /// Frames a toast confirmation stays on screen (~3 seconds at 60 fps).
@@ -384,6 +385,33 @@ impl PlaytestSession {
         self.persist()
     }
 
+    /// Drop a draft-ID bookmark at the current trace position and return the
+    /// absolute path the caller should write the screenshot to.
+    pub(crate) fn add_bookmark(
+        &mut self,
+        trace: &NativeTraceFrame,
+        segment_frame_index: usize,
+    ) -> Result<PathBuf> {
+        let draft_id = format!("PT-{:03}", self.file.bookmarks.len() + 1);
+        let screenshot = format!("bookmarks/{draft_id}.png");
+        let screenshot_path = self.session_dir.join(&screenshot);
+        fs::create_dir_all(self.session_dir.join("bookmarks"))
+            .with_context(|| format!("failed to create {}", self.session_dir.display()))?;
+        self.show_toast(format!("BOOKMARK {draft_id}"));
+        self.file.bookmarks.push(Bookmark {
+            draft_id,
+            segment_index: self.current_segment_index(),
+            frame_index: segment_frame_index,
+            level: trace.current_level.0,
+            kid_x: trace.kid_x_pos.map(|position| position >> 16),
+            kid_y: trace.kid_y_pos.map(|position| position >> 16),
+            screenshot,
+            at_unix_ms: unix_time_ms(),
+        });
+        self.persist()?;
+        Ok(screenshot_path)
+    }
+
     pub(crate) fn show_toast(&mut self, message: impl Into<String>) {
         self.toast = Some((message.into(), TOAST_HOLD_FRAMES));
     }
@@ -573,6 +601,19 @@ fn armed_hud_commands(armed: &ArmedIssue) -> Vec<DrawCommand> {
         commands.push(text(4, 23, &rest, [160, 220, 160], 1));
     }
     commands
+}
+
+/// Write a 320x224 RGB24 frame as the bookmark screenshot.
+pub(crate) fn write_playtest_screenshot(path: &Path, rgb: &[u8]) -> Result<()> {
+    image::save_buffer_with_format(
+        path,
+        rgb,
+        FRAME_WIDTH,
+        FRAME_HEIGHT,
+        image::ColorType::Rgb8,
+        image::ImageFormat::Png,
+    )
+    .with_context(|| format!("failed to write {}", path.display()))
 }
 
 /// Transient confirmation banner at the bottom of the frame.
@@ -982,6 +1023,59 @@ mod tests {
         assert_eq!(segments[1].index, 2);
         assert!(!segments[1].saved);
         assert_eq!(segments[1].start.warp_level, Some(0x05));
+    }
+
+    #[test]
+    fn bookmarks_capture_trace_position_with_pixel_coordinates() {
+        let (mut session, _root) = session_with_issues(Vec::new());
+        session.begin_segment(segment_start(Some(0x03)));
+        let trace = NativeTraceFrame {
+            current_level: wildside_core::LevelId(0x03),
+            kid_x_pos: Some(230 << 16),
+            kid_y_pos: Some((271 << 16) | 0x8000), // sub-pixel bits must drop
+            ..NativeTraceFrame::default()
+        };
+        let screenshot_path = session.add_bookmark(&trace, 512).expect("bookmark");
+        assert!(screenshot_path.ends_with("bookmarks/PT-001.png"));
+
+        let second = session
+            .add_bookmark(&NativeTraceFrame::default(), 600)
+            .expect("second bookmark");
+        assert!(
+            second.ends_with("bookmarks/PT-002.png"),
+            "draft ids increment"
+        );
+
+        let bookmark = session.file().bookmarks.first().expect("stored bookmark");
+        assert_eq!(bookmark.draft_id, "PT-001");
+        assert_eq!(bookmark.segment_index, 1);
+        assert_eq!(bookmark.frame_index, 512);
+        assert_eq!(bookmark.level, 0x03);
+        assert_eq!(bookmark.kid_x, Some(230));
+        assert_eq!(
+            bookmark.kid_y,
+            Some(271),
+            "16.16 fixed-point shifts to pixels"
+        );
+        assert_eq!(bookmark.screenshot, "bookmarks/PT-001.png");
+
+        let written =
+            fs::read_to_string(session.session_dir().join("session.json")).expect("session.json");
+        let parsed: PlaytestSessionFile = serde_json::from_str(&written).expect("parse");
+        assert_eq!(parsed.bookmarks.len(), 2, "bookmarks persist immediately");
+    }
+
+    #[test]
+    fn screenshot_writer_produces_readable_png() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let path = root.path().join("PT-001.png");
+        let mut rgb = vec![0u8; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        rgb[0] = 200; // distinctive top-left pixel
+        write_playtest_screenshot(&path, &rgb).expect("write png");
+
+        let image = image::open(&path).expect("readable png").to_rgb8();
+        assert_eq!(image.dimensions(), (FRAME_WIDTH, FRAME_HEIGHT));
+        assert_eq!(image.get_pixel(0, 0).0, [200, 0, 0]);
     }
 
     #[test]
