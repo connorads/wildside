@@ -1915,6 +1915,40 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_timeout_restart_intro_5_advances_title_text_kid_popup_passes() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let expected = [
+            (10_437, 4, 2),
+            (10_438, 4, 3),
+            (10_447, 4, 3),
+            (10_448, 4, 4),
+            (16_798, 4, 2),
+            (16_799, 4, 3),
+            (16_808, 4, 3),
+            (16_809, 4, 4),
+        ];
+        let mut actual = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(16_810) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if expected
+                .iter()
+                .any(|(expected_frame, _, _)| *expected_frame == frame_index)
+            {
+                actual.push((frame_index, trace.number_objects, trace.number_gfx_objects));
+            }
+        }
+
+        // ASM Obj_TitleTextKid loc_1B5E4 -> sub_1B652 links each popup on
+        // the Execute_Objects pass that resumes the hibernating title worker.
+        // Raw oracle WRAM pins the plain timeout return two passes ahead and
+        // the delayed Start-skip return one pass ahead of the generic shell.
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn published_tas_demo_1_times_out_on_frame_8069() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

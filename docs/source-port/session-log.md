@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 IntroSequence5 title popup passes)
+
+- Raw WRAM confirms `Obj_TitleTextKid loc_1B5E4 -> sub_1B652` links its two
+  popup GfxObjects at frames 10438/10448 on the plain IntroSequence5 timeout
+  return and 16799/16809 on the delayed Start-skip return.
+- Native now advances the plain lineage by two Object passes and the delayed
+  lineage by one, matching both distinct return schedules without changing the
+  generic title shell.
+- The interval-1 authoritative ratchet falls 20 -> 14 fields across 13 frames;
+  the first remaining row is `frame_12580/number_gfx_objects`.
+- NEXT: audit frames 12580..12589, where native retains 4 GfxObjects and oracle
+  retains 3 throughout a ten-frame Demo 1 window.
+
 ## 2026-07-12 handoff (#290 Demo 1 controller Gfx trace)
 
 - Raw WRAM frames 7478..7495 keep `Number_GfxObjects=7` and the same three

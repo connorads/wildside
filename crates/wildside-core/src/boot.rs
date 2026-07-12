@@ -5692,19 +5692,28 @@ impl NativeRuntime {
             + usize::from(setup.post_drift_hibernate_frames);
         let second_burst_elapsed =
             first_burst_elapsed + usize::from(setup.interstitial_hibernate_frames);
-        let allocation_pass_advance = matches!(
-            self.title_screen_intro_return_lineage,
+        let allocation_pass_advance = match self.title_screen_intro_return_lineage {
+            Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence5) => {
+                if self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay {
+                    1
+                } else {
+                    2
+                }
+            }
             Some(
                 TitleScreenIntroReturnLineage::LaterIntroSequence
-                    | TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence3
-            )
-        );
-        // ASM Obj_TitleTextKid loc_1B5E4 -> sub_1B652: these two return
-        // lineages rejoin loc_E12 one object pass early, so the worker's full
-        // allocation timeline advances together, not just its initial slot.
+                | TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence3,
+            ) => 1,
+            _ => 0,
+        };
+        // ASM Obj_TitleTextKid loc_1B5E4 -> sub_1B652: these return
+        // lineages rejoin loc_E12 ahead of the generic title shell. The plain
+        // IntroSequence5 timeout return is two object passes ahead; its later
+        // Start-skip variant retains one hidden-delay pass. Advance the full
+        // worker timeline together, not just its initial slot.
         let elapsed = self
             .effective_title_screen_rebuild_elapsed()
-            .saturating_add(usize::from(allocation_pass_advance));
+            .saturating_add(allocation_pass_advance);
 
         2 + u16::from(elapsed >= first_burst_elapsed) + u16::from(elapsed >= second_burst_elapsed)
     }
