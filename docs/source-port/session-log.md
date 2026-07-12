@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 Demo 1 controller Gfx trace)
+
+- Raw WRAM frames 7478..7495 keep `Number_GfxObjects=7` and the same three
+  walking-Dragon parent/Gfx slots linked throughout.
+- Native's seven-frame 8/4 pre-pause count was an inferred trace override, not
+  a `loc_368A8`/`loc_3691E` lifecycle edge. It now stays 8/7 through frames
+  7486..7492; exact frames 7478..7499 are clean.
+- The interval-1 authoritative ratchet falls 27 -> 20 fields across 19 frames;
+  the first remaining row is `frame_10438/number_gfx_objects`.
+- NEXT: audit the frame-10438/10439 and 10448/10449 title-return GfxObject
+  cluster against raw linked-list slots and its title ASM lineage.
+
 ## 2026-07-12 handoff (#290 IntroSequence3 title Gfx passes)
 
 - Raw WRAM identifies one coherent six-row cluster at frames 6265..6268, 6358,

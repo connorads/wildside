@@ -16,9 +16,9 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compares all 37,759 requested player/camera CRC frames and all 37,759
-exported-state frames. CRC is exact, but 26 state frames retain 27 authoritative
-count differences: 24 GfxObject fields and three Object fields, first at
-`frame_7486/number_gfx_objects`.
+exported-state frames. CRC is exact, but 19 state frames retain 20 authoritative
+count differences: 17 GfxObject fields and three Object fields, first at
+`frame_10438/number_gfx_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -31,10 +31,16 @@ this route, not whole-state or whole-game proof.
 
 The latest confidence correction promotes the full published-route state gate
 from every 25th frame to every frame. The former 1,512-checkpoint report was
-clean, but interval-1 comparison currently finds 27 authoritative count fields
-across 26 of 37,759 frames. The checked-in baseline enforces that result and its first
+clean, but interval-1 comparison currently finds 20 authoritative count fields
+across 19 of 37,759 frames. The checked-in baseline enforces that result and its first
 row, so fixes must ratchet real per-frame debt down rather than preserve a
 sampled-green claim. Player/camera CRC and complete RNG remain exact per frame.
+
+The latest correction removes a synthetic seven-frame Demo 1 GfxObject dip.
+Raw WRAM keeps `Number_GfxObjects=7` and the same three walking-Dragon parent
+and Gfx slots linked throughout frames 7478..7495. Native now keeps the
+controller trace at 8/7 before and during the pause instead of inferring 8/4
+for frames 7486..7492. The first remaining row moves to frame 10438.
 
 The latest behaviour correction follows the timeout-restart IntroSequence3
 return through `Load_TitleScreen -> Obj_TitleTextKid loc_1B5E4 -> sub_1B652`.

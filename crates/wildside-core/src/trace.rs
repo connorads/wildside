@@ -5067,7 +5067,7 @@ mod tests {
                 true,
                 false
             ),
-            (8, 4)
+            (8, 7)
         );
         assert_eq!(
             counts_at(
@@ -10364,25 +10364,15 @@ impl NativeRuntime {
                     number_gfx_objects.saturating_add(active_enemy_gfx_objects),
                 ));
             }
-            if (demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME
+            if (demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME.saturating_sub(7)
                 ..=demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME)
                 .contains(&frame_counter)
             {
                 // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585) keeps the
                 // timeout-restart demo-1 controller lineage count-visible
-                // here, but oracle shows its paired gfx worker awake rather
-                // than the cold-boot demo-1 8/6 pause sample.
+                // here. Raw WRAM keeps the same seven GfxObjects linked before
+                // and throughout the pause; there is no pre-pause list dip.
                 return Some((8, 7));
-            }
-            if (demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME.saturating_sub(7)
-                ..demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME)
-                .contains(&frame_counter)
-            {
-                // ASM Load_DemoPlay -> loc_119D8 (kid.asm:23585): the
-                // timeout-restart lineage wakes the controller-side object
-                // count seven trace frames before its gfx workers become
-                // count-visible.
-                return Some((8, 4));
             }
         }
         let controller_sample_frame = if !self.demo_started_from_timeout_restart_shell

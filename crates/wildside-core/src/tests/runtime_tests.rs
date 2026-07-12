@@ -1891,6 +1891,30 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_demo_1_keeps_walking_dragon_gfx_across_layout_segment_boundary() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let expected = [(7_485, 8, 7), (7_486, 8, 7), (7_492, 8, 7), (7_493, 8, 7)];
+        let mut actual = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(7_494) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if expected
+                .iter()
+                .any(|(expected_frame, _, _)| *expected_frame == frame_index)
+            {
+                actual.push((frame_index, trace.number_objects, trace.number_gfx_objects));
+            }
+        }
+
+        // ASM Dragon.asm shared walker -> sub_3E8BA culls each already-linked
+        // object from its live position; loc_368A8 changing layout segments
+        // does not deallocate or reinitialise the three existing GfxObjects.
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn published_tas_demo_1_times_out_on_frame_8069() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
