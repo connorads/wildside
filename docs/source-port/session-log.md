@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 later IntroSequence4 title-return roster)
+
+- Raw linked-list WRAM shows `sub_1B988 -> sub_1C246 -> loc_1C264` carrying
+  two Objects and zero GfxObjects into title on frame 32007. `loc_6E2` clears
+  both lists on frame 32039 and `Load_TitleScreen loc_1B258` begins its rebuild
+  one Object pass earlier than the generic intro-return schedule.
+- The rebuilt title becomes visible with the first `Obj_TitleTextKid loc_1B5E4
+  -> sub_1B652` popup on frame 32156; the second joins on frame 32166. Native
+  now preserves the intermediate 4/3 list instead of treating title-ready as
+  immediate steady 4/4.
+- Frames 31980..32720 match all 740 state checkpoints. Full sampled debt falls
+  7 -> 6 authoritative differences with 15 oracle limitations; first sampled
+  diff moves to `frame_34250/number_objects`. All 37,759 CRC frames and 37,743
+  complete RNG states remain exact.
+- NEXT: trace frame 34250's timeout-restart title shell, where native exports
+  0/0 versus oracle 2/1.
+
 ## 2026-07-12 handoff (#290 later IntroSequence6 menu cursor GfxObject)
 
 - Raw linked-list WRAM identifies `$FFFF2578`, owned by `$FFFF0DA0`, as the

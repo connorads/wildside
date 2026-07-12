@@ -11280,11 +11280,24 @@ impl NativeRuntime {
             {
                 return counts;
             }
+            let title_text_kid_gfx_count = self.title_text_kid_gfx_count_loc_1b5e4_sub_1b652();
+            if matches!(
+                self.title_screen_intro_return_lineage,
+                Some(TitleScreenIntroReturnLineage::LaterIntroSequence)
+            ) && title_text_kid_gfx_count < 4
+            {
+                // ASM Obj_TitleTextKid loc_1B5E4 -> sub_1B652: the later
+                // intro-sequence-4 title return becomes pose-visible after
+                // the first popup joins, but ten frames before the second.
+                // Preserve that raw 4/3 list instead of treating title-ready
+                // as an immediate steady 4/4 roster.
+                return (4, title_text_kid_gfx_count);
+            }
             if self.title_menu_active && !self.title_menu_cursor_pending {
                 // Obj_TitleMenu's active shell exposes at least three slots;
                 // Obj_TitleTextKid's second sub_1B652 popup raises the live
                 // WRAM count to four independently of the menu state.
-                let number_gfx_objects = self.title_text_kid_gfx_count_loc_1b5e4_sub_1b652().max(3);
+                let number_gfx_objects = title_text_kid_gfx_count.max(3);
                 return (4, number_gfx_objects);
             }
         }

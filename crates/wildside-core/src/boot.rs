@@ -5607,13 +5607,33 @@ impl NativeRuntime {
             return None;
         }
 
+        let elapsed = self.effective_title_screen_rebuild_elapsed();
+        if matches!(
+            self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::LaterIntroSequence)
+        ) {
+            // ASM sub_1B988 -> sub_1C246 -> loc_1C264 enters Load_TitleScreen
+            // with two Object workers but no linked GfxObject. Raw oracle WRAM
+            // then shows loc_6E2's list clear through local frame 54 and
+            // Load_TitleScreen loc_1B258's first three allocations on frame 55,
+            // one pass earlier than the generic intro-return schedule.
+            return Some(match elapsed {
+                0..=31 => (2, 0),
+                32..=54 => (0, 0),
+                55 => (3, 0),
+                56 => (5, 1),
+                57 => (5, 2),
+                _ => (4, 2),
+            });
+        }
+
         // ASM `sub_1C246 -> Load_TitleScreen -> Obj_TitleMenu` rebuilds the
         // hidden title shell in stages on the cold-boot intro-return lineage.
         // Oracle gameplay windows for the published TAS route show the carried
         // 2/1 intro shell on local frames 0..31, a blank rebuild window on
         // 32..55, then the 3/0, 5/1, 5/2, and steady 4/2 shell before
         // `loc_1BB52` exposes the menu cursor.
-        Some(match self.effective_title_screen_rebuild_elapsed() {
+        Some(match elapsed {
             0..=31 => (2, 1),
             32..=55 => (0, 0),
             56 => (3, 0),
@@ -5637,7 +5657,12 @@ impl NativeRuntime {
             + usize::from(setup.post_drift_hibernate_frames);
         let second_burst_elapsed =
             first_burst_elapsed + usize::from(setup.interstitial_hibernate_frames);
-        let elapsed = self.effective_title_screen_rebuild_elapsed();
+        let elapsed = self
+            .effective_title_screen_rebuild_elapsed()
+            .saturating_add(usize::from(matches!(
+                self.title_screen_intro_return_lineage,
+                Some(TitleScreenIntroReturnLineage::LaterIntroSequence)
+            )));
 
         2 + u16::from(elapsed >= first_burst_elapsed) + u16::from(elapsed >= second_burst_elapsed)
     }

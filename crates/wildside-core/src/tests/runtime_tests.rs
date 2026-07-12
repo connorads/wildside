@@ -6433,6 +6433,65 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_later_intro_sequence_4_title_return_rebuild_counts_match_loc_1b258() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(32_167) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(
+                frame_index,
+                32_007
+                    | 32_038
+                    | 32_039
+                    | 32_061
+                    | 32_062
+                    | 32_063
+                    | 32_064
+                    | 32_065
+                    | 32_066
+                    | 32_155
+                    | 32_156
+                    | 32_165
+                    | 32_166
+            ) {
+                samples.push((
+                    frame_index,
+                    trace.game_mode,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+            }
+        }
+
+        // ASM sub_1B988 -> sub_1C246 -> loc_1C264 enters Load_TitleScreen.
+        // Raw oracle WRAM shows the two carried Object workers have no linked
+        // GfxObject, loc_6E2 clears both lists on frame 32039, then
+        // Load_TitleScreen loc_1B258 allocates its three workers before the
+        // following Obj_TitleMenu passes add loc_1BB10 and loc_1C7A0.
+        assert_eq!(
+            samples,
+            vec![
+                (32_007, GameMode::TitleScreen, 2, 0),
+                (32_038, GameMode::TitleScreen, 2, 0),
+                (32_039, GameMode::TitleScreen, 0, 0),
+                (32_061, GameMode::TitleScreen, 0, 0),
+                (32_062, GameMode::TitleScreen, 3, 0),
+                (32_063, GameMode::TitleScreen, 5, 1),
+                (32_064, GameMode::TitleScreen, 5, 2),
+                (32_065, GameMode::TitleScreen, 4, 2),
+                (32_066, GameMode::TitleScreen, 4, 2),
+                (32_155, GameMode::TitleScreen, 4, 2),
+                (32_156, GameMode::TitleScreen, 4, 3),
+                (32_165, GameMode::TitleScreen, 4, 3),
+                (32_166, GameMode::TitleScreen, 4, 4),
+            ]
+        );
+    }
+
+    #[test]
     fn published_tas_later_timeout_restart_title_restores_pose_on_frame_32156() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
