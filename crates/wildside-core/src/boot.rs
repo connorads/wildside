@@ -5868,11 +5868,12 @@ impl NativeRuntime {
     pub(crate) fn finish_demo_title_return(&mut self, input: FrameInput) {
         let intro_sequence_6_early_title_restore =
             self.demo_uses_intro_sequence_6_early_title_restore;
-        let frozen_counts = self.object_counts_from_roster(
-            &self.active_objects(),
-            self.current_camera_state().x_pos,
-            self.current_camera_state().y_pos,
-        );
+        // ASM loc_119D8 writes Game_Mode=$2C only after Mode_Level has exposed
+        // the terminal controller-side sample. Freeze those top-level counts,
+        // including loc_119D8's own linked Object/Gfx pair, rather than
+        // rebuilding them from the visible gameplay roster.
+        let frozen_trace = self.trace_frame();
+        let frozen_counts = (frozen_trace.number_objects, frozen_trace.number_gfx_objects);
         self.enter_title_screen();
         self.title_screen_intro_return_lineage =
             Some(TitleScreenIntroReturnLineage::ManualDemoReturn);

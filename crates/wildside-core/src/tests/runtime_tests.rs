@@ -5104,6 +5104,41 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_intro_6_demo_1_start_return_preserves_loc_119d8_counts() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(22_585) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 22_551 | 22_552 | 22_583 | 22_584) {
+                samples.push((
+                    frame_index,
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+            }
+        }
+
+        // ASM loc_119D8 writes Game_Mode=$2C and jumps to loc_6E2 without
+        // deleting its Object/Gfx pair. The terminal 9/8 Mode_Level sample is
+        // therefore retained for the 32-frame manual title snapshot, then the
+        // hidden title rebuild clears both linked lists.
+        assert_eq!(
+            samples,
+            vec![
+                (22_551, GameMode::DemoPlay, Some(703), 9, 8),
+                (22_552, GameMode::TitleScreen, Some(0), 9, 8),
+                (22_583, GameMode::TitleScreen, Some(31), 9, 8),
+                (22_584, GameMode::TitleScreen, Some(32), 0, 0),
+            ]
+        );
+    }
+
+    #[test]
     fn published_tas_boot_title_exposes_obj_title_text_kid_bursts_on_frames_289_and_299() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

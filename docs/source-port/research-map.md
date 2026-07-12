@@ -16,9 +16,9 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints retain the explicit #290 baseline of 56 authoritative export
+state checkpoints retain the explicit #290 baseline of 52 authoritative export
 diffs and 15 oracle limitations, beginning at
-`transition_15_to_00_post_frame_22552/number_objects`.
+`frame_28075/number_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -30,7 +30,17 @@ That is complete per-frame RNG evidence for this route, not whole-state or
 whole-game proof. Reducing #290's authoritative sampled-state baseline remains
 separate fidelity work.
 
-The latest correction separates the carried-wrap IntroSequence6 Demo 1
+The latest correction preserves the manual Demo 1 title-return snapshot from
+the terminal top-level trace. `loc_119D8` writes `Game_Mode=$2C` and jumps to
+`loc_6E2` without deleting its linked Object/Gfx pair, so the oracle carries
+9/8 for 32 title frames before the hidden rebuild clears both lists. Native no
+longer reconstructs 8/7 from the visible Dragon roster. Published frames
+22545..22590 now match every compared state checkpoint. The full sampled
+baseline falls 56 -> 52 authoritative differences with 15 oracle limitations,
+first at `frame_28075/number_objects`; full-route CRC and complete RNG remain
+exact.
+
+The previous correction separates the carried-wrap IntroSequence6 Demo 1
 controller count phase from cold Demo 1. Raw Object lists and the native enemy
 roster show that `Mode_Level loc_80C -> Manage_EnemyLoading loc_368A8/loc_3691E`
 already links both later Dragons on the correct passes. The hidden `loc_119D8`

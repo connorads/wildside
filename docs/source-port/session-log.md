@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 manual Demo 1 title snapshot)
+
+- The published Start edge at frame 22552 follows `loc_119D8 -> loc_6E2`.
+  ASM changes mode without deleting the controller's linked Object/Gfx pair,
+  and the oracle retains the terminal 9/8 Mode_Level count sample.
+- Native rebuilt 8/7 from the visible Dragon roster. It now freezes the
+  top-level terminal trace, preserving 9/8 for the 32-frame manual title
+  snapshot before the hidden title rebuild clears both lists.
+- Frames 22545..22590 match all 45 state checkpoints. Full sampled debt falls
+  56 -> 52 authoritative differences with 15 oracle limitations; first sampled
+  diff moves to `frame_28075/number_objects`. All 37,759 CRC frames and 37,743
+  complete RNG states remain exact.
+- NEXT: trace frame 28075, where native has entered IntroSequence6 with 0/0
+  while oracle still exports the preceding in-game 4/5 roster.
+
 ## 2026-07-12 handoff (#290 IntroSequence6 Demo 1 controller count phase)
 
 - Exact oracle comparison around frames 22220..22310 showed four count-edge
