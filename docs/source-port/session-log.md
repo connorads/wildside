@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 IntroSequence3 rotating roster counts)
+
+- ASM `Load_IntroSequence3 -> loc_1AEBA` selects one `unk_1AF78` roster and
+  stops at its first `$FF`, producing 8/6/6/7 direct GfxObjects. The three
+  controller-linked GfxObjects join on the next object pass.
+- The second timeout restart is now exact at 3/6 on frame 9097 and 4/9 on
+  frame 9098. Its IntroSequence4 hand-off clears the Kid pose at local elapsed
+  27 but retains the 3/9 roster counts through elapsed 30, clearing at 31.
+- Frames 9080..9395 match all 315 per-frame CRC, RNG, and state checkpoints.
+  Full sampled debt falls 439 -> 392 authoritative differences with 7 oracle
+  limitations; the first authoritative diff moves to
+  `frame_9700/number_objects`. All 37,759 CRC frames and all 37,743 complete
+  post-`Init_RNG` states remain exact.
+- NEXT: trace IntroSequence4 frame 9700's extra native Object through
+  `Load_IntroSequence4/sub_1B988` and its controller/text-worker lifecycle.
+
 ## 2026-07-12 handoff (#290 Dragon breath GfxObject lifecycle)
 
 - Raw oracle Object/GfxObject lists prove `loc_3CF90` allocates a breath Object,

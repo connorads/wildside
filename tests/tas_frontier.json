@@ -45,7 +45,7 @@
       "total_frames": 37759,
       "full_checkpoint_interval": 25,
       "full_expected_divergence_summary": {
-        "authoritative": 439,
+        "authoritative": 392,
         "advisory": 0,
         "accumulation": 0,
         "rng": 0,
@@ -60,8 +60,8 @@
         "first_mismatch": null
       },
       "full_expected_first_authoritative_diff": {
-        "checkpoint": "frame_9100",
-        "field": "number_gfx_objects"
+        "checkpoint": "frame_9700",
+        "field": "number_objects"
       },
       "status": "verified"
     },

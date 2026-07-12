@@ -1080,11 +1080,11 @@ mod tests {
             runtime.current_player_state(),
             Some(PlayerState::intro_sequence_3_pose_for_roster(1))
         );
-        assert_eq!(runtime.object_counts_from_roster(&[], 0, 0), (3, 0x000B));
+        assert_eq!(runtime.object_counts_from_roster(&[], 0, 0), (3, 9));
 
         runtime.boot_state = BootState::IntroSequence {
             segment: 3,
-            elapsed: TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES,
+            elapsed: INTRO_SEQUENCE_4_POSE_CARRY_FRAMES,
             pending_title_skip: 0,
         };
 
@@ -4134,9 +4134,9 @@ mod tests {
         assert_eq!(counts_with(true, false, 30), (1, 0));
         assert_eq!(counts_with(true, false, 31), (0, 0));
         assert_eq!(counts_with(false, true, 31), (0, 0));
-        assert_eq!(counts_with(false, true, 41), (3, 0x000B));
+        assert_eq!(counts_with(false, true, 41), (3, 8));
         assert_eq!(counts_with(false, true, 42), (4, 0x000B));
-        assert_ne!(counts_with(false, false, 41), (3, 0x000B));
+        assert_ne!(counts_with(false, false, 41), (3, 8));
     }
 
     #[test]
@@ -7167,7 +7167,7 @@ impl NativeRuntime {
                 segment: 3,
                 elapsed,
                 ..
-            } if elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES
+            } if elapsed < INTRO_SEQUENCE_4_POSE_CARRY_FRAMES
         )
     }
 
@@ -10623,16 +10623,22 @@ impl NativeRuntime {
                 .is_some()
                 || self.timeout_restart_title_intro_sequence_3_return_pending)
         {
+            let direct_gfx_count = crate::movement::intro_sequence_3_direct_gfx_count_loc_1AEBA(
+                self.active_intro_sequence_3_roster_index,
+            );
+            let live_gfx_count = direct_gfx_count.saturating_add(3);
             // ASM Load_IntroSequence3 -> sub_1B93E (kid.asm:29078,30238)
-            // follows the same sub_1C204 fade shell as loc_1B9D0. The timeout
-            // restart keeps the controller counted, clears during the hidden
-            // object-slot rebuild, then carries one extra shell worker until
-            // loc_1B96A's visible roster owns the scene.
+            // follows the same sub_1C204 fade shell as loc_1B9D0. At elapsed
+            // 41, loc_1AEBA has allocated only the selected roster's direct
+            // GfxObjects. On the next object pass, sub_1B93E/sub_1C54A and the
+            // sub_1C572/loc_1C58C workers add three linked GfxObjects; the text
+            // worker remains until loc_1C7A0 reaches its terminator.
             return match elapsed {
                 0..=30 => (1, 0),
                 31..=40 => (0, 0),
-                42..=115 => (4, 0x000B),
-                _ => (3, 0x000B),
+                41 => (3, direct_gfx_count),
+                42..=115 => (4, live_gfx_count),
+                _ => (3, live_gfx_count),
             };
         }
         if let BootState::IntroSequence {
@@ -10641,11 +10647,22 @@ impl NativeRuntime {
             ..
         } = self.boot_state
         {
-            if elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES {
+            let carry_frames = if self.timeout_restart_intro_sequence_4_pose_carry {
+                TIMEOUT_RESTART_INTRO_SEQUENCE_4_ROSTER_COUNT_CARRY_FRAMES
+            } else {
+                INTRO_SEQUENCE_4_POSE_CARRY_FRAMES
+            };
+            if elapsed < carry_frames {
                 // ASM loc_1B96A writes `Game_Mode=$20`, but the previous
                 // Load_IntroSequence3/sub_1B93E roster remains counted until
                 // Load_IntroSequence4/sub_1B988's rebuild clears the hand-off.
-                return (3, 0x000B);
+                return (
+                    3,
+                    crate::movement::intro_sequence_3_direct_gfx_count_loc_1AEBA(
+                        self.active_intro_sequence_3_roster_index,
+                    )
+                    .saturating_add(3),
+                );
             }
             if elapsed + 1 == TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES {
                 // ASM sub_1B988 has cleared the roster but has not yet exposed
@@ -10789,9 +10806,9 @@ impl NativeRuntime {
                     // prize-block bounces, loc_102B8 spawn flashes, and
                     // sub_10EDA/sub_292E block debris workers, still allocate
                     // object+gfx slots during demo playback. Object-only
-                    // children such as Dragon.asm loc_3CF90/loc_3D02A breath
-                    // allocate Object_RAM without changing the sampled gfx
-                    // count, so keep the two transient categories separate.
+                    // Object-only children and ordinary Object/GfxObject pairs
+                    // remain separate categories; Dragon.asm loc_3CF90 /
+                    // loc_3D02A breath children belong to the latter.
                     let transient_gfx_workers = self.gameplay_transient_gfx_worker_count();
                     let transient_object_only_workers = self
                         .gameplay_transient_object_only_worker_count(camera_x_pos, camera_y_pos);
@@ -10847,7 +10864,13 @@ impl NativeRuntime {
             // clearing the live Load_IntroSequence3/sub_1B93E object counters.
             // The stale loc_1AEBA gfx roster remains count-visible while the
             // intro-sequence-3 pose is carried into the first title frames.
-            return (3, 0x000B);
+            return (
+                3,
+                crate::movement::intro_sequence_3_direct_gfx_count_loc_1AEBA(
+                    self.active_intro_sequence_3_roster_index,
+                )
+                .saturating_add(3),
+            );
         }
         if self.title_counts_intro_sequence_5_workers() {
             // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 switches Game_Mode to

@@ -6724,7 +6724,7 @@ mod chunk_08 {
                 (5_953, GameMode::IntroSequence3, Some(0), 1, 0),
                 (5_983, GameMode::IntroSequence3, Some(30), 1, 0),
                 (5_984, GameMode::IntroSequence3, Some(31), 0, 0),
-                (5_994, GameMode::IntroSequence3, Some(41), 3, 0x000B),
+                (5_994, GameMode::IntroSequence3, Some(41), 3, 8),
                 (5_995, GameMode::IntroSequence3, Some(42), 4, 0x000B),
                 (6_068, GameMode::IntroSequence3, Some(115), 4, 0x000B),
                 (6_069, GameMode::IntroSequence3, Some(116), 3, 0x000B),
@@ -7049,13 +7049,31 @@ mod chunk_08 {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 9_096 => {
-                    frame_9096 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                    frame_9096 = Some((
+                        trace.game_mode,
+                        trace.kid_x_pos,
+                        trace.kid_y_pos,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
                 }
                 9_097 => {
-                    frame_9097 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                    frame_9097 = Some((
+                        trace.game_mode,
+                        trace.kid_x_pos,
+                        trace.kid_y_pos,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
                 }
                 9_098 => {
-                    frame_9098 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                    frame_9098 = Some((
+                        trace.game_mode,
+                        trace.kid_x_pos,
+                        trace.kid_y_pos,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
                     break;
                 }
                 _ => {}
@@ -7064,7 +7082,7 @@ mod chunk_08 {
 
         assert_eq!(
             frame_9096,
-            Some((GameMode::IntroSequence3, None, None)),
+            Some((GameMode::IntroSequence3, None, None, 0, 0)),
             "frame 9096 should already be the hidden intro-sequence-3 frame before the roster pose appears",
         );
         assert_eq!(
@@ -7073,6 +7091,8 @@ mod chunk_08 {
                 GameMode::IntroSequence3,
                 Some(0x0070_0000),
                 Some(0x00CC_0000),
+                3,
+                6,
             )),
             "frame 9097 should expose the second Load_IntroSequence3 roster's third descriptor pose",
         );
@@ -7082,6 +7102,8 @@ mod chunk_08 {
                 GameMode::IntroSequence3,
                 Some(0x0070_0000),
                 Some(0x00CC_0000),
+                4,
+                9,
             )),
             "frame 9098 should keep the same second-roster intro-sequence-3 pose once the glyph objects appear",
         );
@@ -7102,6 +7124,17 @@ mod chunk_08 {
             crate::movement::intro_sequence_3_descriptor_loc_1AEBA(1, 6),
             None,
             "ASM loc_1AEBA should branch to `return_1AF22` as soon as the roster byte is `$FF` because `move.b (a2)+,d0` leaves the sign bit set for `bmi.w`",
+        );
+    }
+
+    #[test]
+    fn loc_1aeba_counts_each_rotating_intro_sequence_3_roster_until_its_first_ff() {
+        assert_eq!(
+            (0..PlayerState::intro_sequence_3_roster_count())
+                .map(crate::movement::intro_sequence_3_direct_gfx_count_loc_1AEBA)
+                .collect::<Vec<_>>(),
+            vec![8, 6, 6, 7],
+            "ASM Load_IntroSequence3 / loc_1AEBA must stop each `unk_1AF78` roster at its first negative `$FF` byte instead of treating every DBF capacity as a live GfxObject",
         );
     }
 
@@ -7509,8 +7542,10 @@ mod chunk_08 {
         let mut frame_9355 = None;
         let mut frame_9381 = None;
         let mut frame_9382 = None;
+        let mut frame_9385 = None;
+        let mut frame_9386 = None;
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(9_383) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(9_387) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 9_355 => {
@@ -7519,6 +7554,8 @@ mod chunk_08 {
                         trace.kid_x_pos,
                         trace.kid_y_pos,
                         trace.kid_facing,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
                     ));
                 }
                 9_381 => {
@@ -7527,10 +7564,38 @@ mod chunk_08 {
                         trace.kid_x_pos,
                         trace.kid_y_pos,
                         trace.kid_facing,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
                     ));
                 }
                 9_382 => {
-                    frame_9382 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
+                    frame_9382 = Some((
+                        trace.game_mode,
+                        trace.kid_x_pos,
+                        trace.kid_y_pos,
+                        trace.kid_facing,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
+                9_385 => {
+                    frame_9385 = Some((
+                        trace.game_mode,
+                        trace.kid_x_pos,
+                        trace.kid_y_pos,
+                        trace.kid_facing,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
+                9_386 => {
+                    frame_9386 = Some((
+                        trace.game_mode,
+                        trace.kid_x_pos,
+                        trace.kid_y_pos,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
                     break;
                 }
                 _ => {}
@@ -7539,7 +7604,9 @@ mod chunk_08 {
 
         // ASM loc_1B96A flips into `Game_Mode=$20`, but Load_IntroSequence4 /
         // sub_1B988 do not blank the old roster immediately; oracle keeps the
-        // second intro-sequence-3 pose alive until frame 9382.
+        // second intro-sequence-3 pose alive through frame 9381 and its linked
+        // roster counted through frame 9385. Frame 9386 is the first trace
+        // after sub_1B988 clears those slots.
         assert_eq!(
             frame_9355,
             Some((
@@ -7547,6 +7614,8 @@ mod chunk_08 {
                 Some(0x0070_0000),
                 Some(0x00CC_0000),
                 Some(Direction::Left),
+                3,
+                9,
             )),
             "frame 9355 should enter intro sequence 4 without discarding the second intro-sequence-3 roster pose",
         );
@@ -7557,13 +7626,25 @@ mod chunk_08 {
                 Some(0x0070_0000),
                 Some(0x00CC_0000),
                 Some(Direction::Left),
+                3,
+                9,
             )),
             "oracle keeps the carried intro-sequence-3 pose visible through frame 9381",
         );
         assert_eq!(
             frame_9382,
-            Some((GameMode::IntroSequence4, None, None)),
-            "once sub_1B988 has taken over, frame 9382 should finally clear the carried intro-sequence-3 pose",
+            Some((GameMode::IntroSequence4, None, None, None, 3, 9,)),
+            "oracle clears the pose but still counts the second intro-sequence-3 roster on frame 9382",
+        );
+        assert_eq!(
+            frame_9385,
+            Some((GameMode::IntroSequence4, None, None, None, 3, 9,)),
+            "oracle keeps only the counted roster through the last timeout-restart carry frame",
+        );
+        assert_eq!(
+            frame_9386,
+            Some((GameMode::IntroSequence4, None, None, 0, 0)),
+            "sub_1B988 should clear the carried roster on frame 9386",
         );
     }
 

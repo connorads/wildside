@@ -16,8 +16,8 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints retain the explicit #290 baseline of 439 authoritative export
-diffs and 7 oracle limitations, beginning at `frame_9100/number_gfx_objects`.
+state checkpoints retain the explicit #290 baseline of 392 authoritative export
+diffs and 7 oracle limitations, beginning at `frame_9700/number_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -51,7 +51,7 @@ at 1/0 and `loc_1C7A0` text worker at 2/0. The full sampled baseline falls
 450 -> 442 authoritative differences, first at demo-play
 `frame_7950/number_gfx_objects`; CRC and complete RNG remain exact.
 
-The latest correction classifies walking-Dragon breath children from their real
+The previous correction classifies walking-Dragon breath children from their real
 linked lifecycle. `loc_3CF90` allocates Object_RAM, `loc_3D02A` immediately
 calls `j_Load_GfxObjectSlot`, `loc_3D082` keeps both linked, and `loc_3D09E`
 deletes the pair. Native previously counted these projectiles as Object-only.
@@ -60,6 +60,17 @@ The full sampled baseline falls 442 -> 439 authoritative differences and 10 ->
 `frame_9100/number_gfx_objects`. Exact oracle probes also expose two remaining
 one-frame Dragon scheduler edges at frames 7954 and 8006, retained as #290 debt
 rather than masked. CRC and complete RNG remain exact.
+
+The latest correction derives IntroSequence3's counts from the selected
+`unk_1AF78` roster. `Load_IntroSequence3 -> loc_1AEBA` stops at the first `$FF`,
+giving 8/6/6/7 direct GfxObjects; `sub_1B93E -> sub_1C54A`, `sub_1C572`, and
+`loc_1C58C` add three linked GfxObjects on the next pass. The second timeout
+restart therefore exposes 3/6 at published frame 9097 and 4/9 at 9098. Across
+the IntroSequence4 hand-off, the Kid pose clears at elapsed 27 while the 3/9
+roster remains counted through elapsed 30 and clears at 31. Frames 9080..9395
+are exact at all 315 per-frame CRC, RNG, and state checkpoints. Full sampled
+debt falls 439 -> 392 authoritative differences with 7 oracle limitations;
+the first authoritative difference moves to `frame_9700/number_objects`.
 
 The latest correction separates IntroSequence2's title-return scheduler from
 IntroSequence4. ASM `loc_1B9D0 -> loc_1BA02` performs its two `sub_1C1A2`

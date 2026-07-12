@@ -295,9 +295,15 @@ pub(crate) const START_SKIP_TIMEOUT_RESTART_INTRO_SEQUENCE_5_TITLE_RNG_FIRST_LIV
     56;
 // ASM loc_1B96A flips `Game_Mode` to intro sequence 4 immediately, but the
 // previous intro-sequence-3 roster objects remain visible until the intro-4
-// setup fully takes over. Oracle-backed timeout-restart traces keep the second
-// roster pose alive through frames 9355..9381 and only clear it on 9382.
-pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_POSE_CARRY_FRAMES: usize = 27;
+// setup fully takes over. Oracle clears the visible Kid pose after 27 traced
+// frames on both the cold and timeout-restart lineages.
+pub(crate) const INTRO_SEQUENCE_4_POSE_CARRY_FRAMES: usize = 27;
+/// ASM loc_1B96A -> loc_6E2 -> Load_IntroSequence4/sub_1B988. The later
+/// timeout-restart lineage enters through a different outer object-pass phase:
+/// oracle keeps roster 1's Object/GfxObject counts alive on published frames
+/// 9355..9385 and clears them on 9386, at local elapsed 31, even though the Kid
+/// pose fields clear four frames earlier.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_4_ROSTER_COUNT_CARRY_FRAMES: usize = 31;
 // ASM Load_IntroSequence4 only allocates the `sub_1B988` object; the first
 // visible `move.w #4,(Camera_Y_pos).w` does not surface until frame 9392 in
 // the timeout-restart published TAS window, after a short zero-camera gap.

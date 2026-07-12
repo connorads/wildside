@@ -119,6 +119,19 @@ pub(crate) fn intro_sequence_3_descriptor_loc_1AEBA(
 }
 
 #[allow(non_snake_case)]
+pub(crate) fn intro_sequence_3_direct_gfx_count_loc_1AEBA(roster_index: usize) -> u16 {
+    // ASM Load_IntroSequence3 / loc_1AEBA (kid.asm:29089-29132) selects one
+    // eight-byte `unk_1AF78` roster through `$FFFFFC83`, allocates one direct
+    // GfxObject per non-negative descriptor byte, and returns at the first
+    // `$FF` sentinel instead of assuming all four rosters contain eight slots.
+    (0..INTRO_SEQUENCE_3_ROSTERS[0].len())
+        .take_while(|descriptor_slot| {
+            intro_sequence_3_descriptor_loc_1AEBA(roster_index, *descriptor_slot).is_some()
+        })
+        .count() as u16
+}
+
+#[allow(non_snake_case)]
 pub(crate) fn intro_sequence_3_allocation_spec_loc_1AEE2(
     descriptor: IntroSequence3Descriptor,
 ) -> u32 {

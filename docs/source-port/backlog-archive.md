@@ -1720,6 +1720,19 @@ native frame 7954 allocates one Dragon count one frame early and frame 8006
 deletes one frame late. An ignored oracle-exact regression pins both rather than
 masking them.
 
+Follow-up 2026-07-12 for #290: ASM `Load_IntroSequence3 -> loc_1AEBA` selects
+one eight-byte `unk_1AF78` roster and stops at its first `$FF`, so the four
+direct GfxObject counts are 8/6/6/7 rather than a fixed 8. On the next object
+pass `sub_1B93E -> sub_1C54A`, `sub_1C572`, and `loc_1C58C` add three linked
+GfxObjects. Native now exposes the second timeout restart as 3/6 on frame 9097
+and 4/9 on 9098. Exact oracle comparison also separates the IntroSequence4
+hand-off fields: the Kid pose clears at local elapsed 27, while the roster
+remains counted at 3/9 through elapsed 30 and clears at 31. Frames 9080..9395
+match all 315 per-frame CRC, RNG, and state checkpoints. Full sampled debt
+falls 439 -> 392 authoritative differences with 7 oracle limitations, moving
+the first authoritative diff to `frame_9700/number_objects`; all 37,759 CRC
+frames and 37,743 complete RNG states remain exact.
+
 Live play-native note 2026-06-11 with all pushed changes: keep the following as
 current acceptance failures even where recent focused probes or fixed-candidate
 rows are green. #288 intro still shows Kid/jacket below the prize block before
