@@ -6769,6 +6769,63 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_later_intro_sequence_2_title_counts_follow_raw_lists() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(36_982) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(
+                frame_index,
+                36_821
+                    | 36_852
+                    | 36_853
+                    | 36_876
+                    | 36_877
+                    | 36_878
+                    | 36_879
+                    | 36_880
+                    | 36_970
+                    | 36_971
+                    | 36_980
+                    | 36_981
+            ) {
+                samples.push((
+                    frame_index,
+                    trace.game_mode,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+            }
+        }
+
+        // ASM loc_1B9D0 -> loc_1BA02 -> sub_1C246 -> loc_1C264 carries two
+        // IntroSequence2 Objects without a GfxObject through 32 title traces.
+        // Load_TitleScreen then clears and rebuilds both lists, while
+        // Obj_TitleTextKid loc_1B5E4 -> sub_1B652 contributes its two later
+        // popup GfxObjects ten traces apart.
+        assert_eq!(
+            samples,
+            vec![
+                (36_821, GameMode::TitleScreen, 2, 0),
+                (36_852, GameMode::TitleScreen, 2, 0),
+                (36_853, GameMode::TitleScreen, 0, 0),
+                (36_876, GameMode::TitleScreen, 0, 0),
+                (36_877, GameMode::TitleScreen, 3, 0),
+                (36_878, GameMode::TitleScreen, 5, 1),
+                (36_879, GameMode::TitleScreen, 5, 2),
+                (36_880, GameMode::TitleScreen, 4, 2),
+                (36_970, GameMode::TitleScreen, 4, 2),
+                (36_971, GameMode::TitleScreen, 4, 3),
+                (36_980, GameMode::TitleScreen, 4, 3),
+                (36_981, GameMode::TitleScreen, 4, 4),
+            ]
+        );
+    }
+
+    #[test]
     fn published_tas_later_timeout_restart_intro_sequence_1_restarts_demo_play_on_frame_34916() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

@@ -16,9 +16,8 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints retain the explicit #290 baseline of 3 authoritative export
-diffs and 15 oracle limitations, beginning at
-`frame_36825/number_gfx_objects`.
+state checkpoints are authoritative-clean and retain 15 classified oracle
+limitations.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -26,20 +25,25 @@ velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
 of the remaining 37,743 frames. Every compared frame now matches exactly.
-That is complete per-frame RNG evidence for this route, not whole-state or
-whole-game proof. Reducing #290's authoritative sampled-state baseline remains
-separate fidelity work.
+That is complete per-frame RNG and authoritative sampled-state evidence for
+this route, not whole-state or whole-game proof.
 
-The latest correction maps the early-restore IntroSequence1 Start return
+The latest correction maps the later IntroSequence2 Start return through raw
+linked-list WRAM. `loc_1B9D0 -> loc_1BA02 -> sub_1C246 -> loc_1C264` carries
+two Objects and no GfxObject through 32 title traces, then follows the generic
+`Load_TitleScreen loc_1B258` rebuild schedule. After the title pose returns,
+`Obj_TitleTextKid loc_1B5E4 -> sub_1B652` exposes 4/3 for ten frames before the
+second popup makes 4/4. Published frames 36750..37560 match all 810 state
+checkpoints. The full sampled baseline falls 3 -> 0 authoritative differences
+with 15 oracle limitations; full-route CRC and complete RNG remain exact.
+
+The previous correction maps the early-restore IntroSequence1 Start return
 through raw linked-list WRAM. `sub_1B8F4 -> sub_1C246 -> loc_1C264` carries
-the final controller/text pair at 2/1 through 32 title traces. The lineage's
-two-frame early restore advances the fresh `Load_TitleScreen` allocations but
-does not advance `loc_6E2`'s deletion of those carried lists. After the title
-pose returns, `Obj_TitleTextKid loc_1B5E4 -> sub_1B652` exposes 4/3 for ten
-frames before the second popup makes 4/4. Published frames 34180..34930 match
-all 750 state checkpoints. The full sampled baseline falls 6 -> 3
-authoritative differences with 15 oracle limitations, first at
-`frame_36825/number_gfx_objects`; full-route CRC and complete RNG remain exact.
+the final controller/text pair at 2/1 through 32 title traces. Its two-frame
+early restore advances fresh allocations but not `loc_6E2`'s carried-list
+deletion. Published frames 34180..34930 match all 750 state checkpoints. The
+full sampled baseline falls 6 -> 3 authoritative differences with 15 oracle
+limitations, first at `frame_36825/number_gfx_objects`.
 
 The previous correction maps the later IntroSequence4 Start return through raw
 Object/GfxObject WRAM. `sub_1B988 -> sub_1C246 -> loc_1C264` reaches

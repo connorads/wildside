@@ -5644,6 +5644,23 @@ impl NativeRuntime {
                 _ => (4, 2),
             });
         }
+        if matches!(
+            self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::LaterIntroSequence2)
+        ) {
+            // ASM loc_1B9D0 -> loc_1BA02 -> sub_1C246 -> loc_1C264 enters
+            // Load_TitleScreen with two Object workers and no linked
+            // GfxObject. Raw oracle WRAM keeps that roster through local
+            // frame 31, then follows the generic loc_1B258 rebuild timing.
+            return Some(match elapsed {
+                0..=31 => (2, 0),
+                32..=55 => (0, 0),
+                56 => (3, 0),
+                57 => (5, 1),
+                58 => (5, 2),
+                _ => (4, 2),
+            });
+        }
 
         // ASM `sub_1C246 -> Load_TitleScreen -> Obj_TitleMenu` rebuilds the
         // hidden title shell in stages on the cold-boot intro-return lineage.

@@ -11285,6 +11285,7 @@ impl NativeRuntime {
                 self.title_screen_intro_return_lineage,
                 Some(
                     TitleScreenIntroReturnLineage::LaterIntroSequence
+                        | TitleScreenIntroReturnLineage::LaterIntroSequence2
                         | TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence1EarlyRestore
                 )
             ) && title_text_kid_gfx_count < 4

@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 later IntroSequence2 title roster)
+
+- Raw linked-list WRAM shows `loc_1B9D0 -> loc_1BA02 -> sub_1C246 ->
+  loc_1C264` carrying two Objects and no GfxObject through 32 title traces.
+  The later `Load_TitleScreen loc_1B258` rebuild uses the generic schedule.
+- `Obj_TitleTextKid loc_1B5E4 -> sub_1B652` links its first popup on frame
+  36971 and its second on frame 36981. Native now preserves the intervening
+  4/3 list instead of treating the visible title as steady 4/4.
+- Frames 36750..37560 match all 810 state checkpoints. The full 1,512-point
+  route baseline falls 3 -> 0 authoritative differences and retains 15 oracle
+  limitations. All 37,759 CRC frames and 37,743 complete RNG states are exact.
+- NEXT: select the next proactive-verification fallback. Prefer a whole-level
+  sweep blocker or audit a concrete classified oracle limitation; one clean
+  published route is not whole-game proof.
+
 ## 2026-07-12 handoff (#290 early-restore IntroSequence1 title roster)
 
 - Raw linked-list WRAM shows `sub_1B8F4 -> sub_1C246 -> loc_1C264` carrying
