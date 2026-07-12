@@ -1573,8 +1573,6 @@ pub(crate) enum EnemyArchetype {
     Inert,
 }
 
-/// Walking dragons also use the 1px Y offset.
-const DRAGON_WALKING_SPAWN_Y_OFFSET_PX: u32 = 1;
 /// ASM Dragon_Flying.asm loc_3492C: `move.w #2,-(sp); jsr Hibernate_Object`
 /// before the walking-dragon child is allocated at loc_3CD16.
 pub(crate) const DRAGON_FLYING_DEATH_PRE_CHILD_HIBERNATE_FRAMES: u16 = 2;
@@ -10032,9 +10030,6 @@ pub(crate) fn spawn_y_pos_sub_36FF4(
 ) -> u32 {
     let object_y = object_y.saturating_add(enemy_spawn_y_adjustment_sub_36FF4(blank_top_rows));
     match family {
-        EnemyFamily::DragonWalking => {
-            object_y.saturating_add(DRAGON_WALKING_SPAWN_Y_OFFSET_PX) << 16
-        }
         EnemyFamily::Hand => {
             let y_word =
                 u16::try_from(object_y & 0xFFFF).expect("masked Hand spawn y fits in a word");
@@ -12762,6 +12757,7 @@ impl NativeRuntime {
         if self.gameplay_hibernating_for_transform() {
             return;
         }
+        self.pending_enemy_gfx_initialisations_loc_3691e = 0;
         self.active_enemy_roster.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
@@ -12929,26 +12925,6 @@ impl NativeRuntime {
                     self.apply_drilled_block_loc_3bede_3bef2(drilled_block);
                 }
                 self.drilled_blocks.clear();
-                if !self.debug_level_entry_mode_level_active_loc_74e0() {
-                    // ASM Mode_Level loc_80C calls Manage_EnemyLoading after
-                    // Execute_Objects. Newly allocated objects initialise on
-                    // the next object pass.
-                    activate_enemies_with_rng(
-                        &mut self.active_enemies,
-                        enemy_layout,
-                        window,
-                        camera_x_px,
-                        camera_y_px,
-                        level_bounds,
-                        slice.player.x_pos,
-                        slice.player.y_pos,
-                        blank_top_rows,
-                        self.enemy_loading_initial_pass_complete,
-                        &self.killed_enemies,
-                        &mut self.rom_random,
-                    );
-                    self.ensure_heady_metal_breakup_slots_loc_39247();
-                }
                 self.stop_rock_tank_drive_sound_on_last_exit_loc_3c46e(driving_rock_tanks_before);
                 self.rebuild_active_enemy_roster();
             } else {
@@ -13017,6 +12993,52 @@ impl NativeRuntime {
         if let Some(slice) = self.opening_slice.as_mut() {
             slice.set_kid_grabbed_by_hand(kid_grabbed_by_hand);
         }
+    }
+
+    pub(crate) fn manage_enemy_loading_after_execute_objects_loc_80c(&mut self) {
+        if self.paused
+            || self.gameplay_hibernating_for_transform()
+            || self.debug_level_entry_mode_level_active_loc_74e0()
+            || !self.enemy_loading_enabled()
+        {
+            return;
+        }
+        let Some(slice) = self.opening_slice else {
+            return;
+        };
+        let Some(enemy_layout) = self.enemy_layout(self.current_level).cloned() else {
+            return;
+        };
+        let blank_top_rows = self.level_header(self.current_level).map_or(0, |header| {
+            terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits)
+        });
+        let level_bounds = self.level_bounds(self.current_level);
+        let active_before_trailing_load = self.active_enemies.len();
+
+        // ASM Mode_Level loc_80C calls Manage_EnemyLoading after the complete
+        // Execute_Objects pass. Kid's object has therefore updated Camera_X/Y
+        // before loc_368A8 tests the inclusive -$80..$1C0 load window. Newly
+        // allocated loc_3691E objects initialise on the next object pass.
+        activate_enemies_with_rng(
+            &mut self.active_enemies,
+            &enemy_layout,
+            ActivationWindow::from_camera(slice.camera),
+            slice.camera.x_pos >> 16,
+            slice.camera.y_pos >> 16,
+            level_bounds,
+            slice.player.x_pos,
+            slice.player.y_pos,
+            blank_top_rows,
+            self.enemy_loading_initial_pass_complete,
+            &self.killed_enemies,
+            &mut self.rom_random,
+        );
+        self.pending_enemy_gfx_initialisations_loc_3691e =
+            self.active_enemies
+                .len()
+                .saturating_sub(active_before_trailing_load)
+                .min(usize::from(u16::MAX)) as u16;
+        self.ensure_heady_metal_breakup_slots_loc_39247();
     }
 
     /// Run the debug title shell's `Manage_EnemyLoading` tail after Kid and

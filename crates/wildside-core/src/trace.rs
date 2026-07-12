@@ -5035,7 +5035,8 @@ mod tests {
                 false,
                 false
             ),
-            (4, 4)
+            (5, 4),
+            "ASM loc_11FB0 -> loc_12098 keeps the Island controller Object-only after the sampled startup window"
         );
         assert_eq!(
             counts_at(
@@ -10195,6 +10196,33 @@ impl NativeRuntime {
                 // count-visible.
                 return Some((8, 4));
             }
+        }
+        if !use_demo_2
+            && !self.demo_started_from_timeout_restart_shell
+            && !self.demo_uses_intro_sequence_6_timeout_return_velocity_sample
+            && frame_counter > demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME
+        {
+            let transient_gfx_workers = self.gameplay_transient_gfx_worker_count();
+            let transient_object_only_workers = self.gameplay_transient_object_only_worker_count(
+                self.current_camera_state().x_pos,
+                self.current_camera_state().y_pos,
+            );
+            let active_enemy_objects = self.active_enemies.len().min(usize::from(u16::MAX)) as u16;
+            let active_enemy_gfx_objects = active_enemy_objects
+                .saturating_sub(self.pending_enemy_gfx_initialisations_loc_3691e);
+            // ASM Load_DemoPlay -> loc_119D8 and Load_InGame retain the fixed
+            // 4/4 demo shell. Knights Isle's loc_11FB0 -> loc_12098 Island
+            // controller adds one Object-only slot. Mode_Level loc_80C calls
+            // Manage_EnemyLoading loc_3691E after Execute_Objects, so a newly
+            // linked Dragon Object gains its Enemy0D_Dragon_Init GfxObject on
+            // the following pass rather than the allocation frame.
+            return Some((
+                5u16.saturating_add(active_enemy_objects)
+                    .saturating_add(transient_gfx_workers)
+                    .saturating_add(transient_object_only_workers),
+                4u16.saturating_add(active_enemy_gfx_objects)
+                    .saturating_add(transient_gfx_workers),
+            ));
         }
         if use_demo_2
             || !(demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME.saturating_add(1)

@@ -16,8 +16,8 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints retain the explicit #290 baseline of 238 authoritative export
-diffs and 9 oracle limitations, beginning at `frame_13750/number_objects`.
+state checkpoints retain the explicit #290 baseline of 72 authoritative export
+diffs and 15 oracle limitations, beginning at `frame_16650/number_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -28,6 +28,19 @@ of the remaining 37,743 frames. Every compared frame now matches exactly.
 That is complete per-frame RNG evidence for this route, not whole-state or
 whole-game proof. Reducing #290's authoritative sampled-state baseline remains
 separate fidelity work.
+
+The latest correction extends the exact state frontier through mature Demo 1.
+`Mode_Level loc_80C` runs `Manage_EnemyLoading` after the complete
+`Execute_Objects` pass, so Kid's current camera drives the inclusive
+`loc_368A8` load window. `loc_3691E` links a Dragon Object on that pass and
+`Enemy0D_Dragon_Init` links its GfxObject on the following pass. The Island
+`loc_11FB0 -> loc_12098` controller remains Object-only. Native now preserves
+that ordering, derives mature counts from the live Dragon roster, and copies
+walking-Dragon layout Y through `sub_36FF4` without the unsupported +1px
+offset. Published frames 13747..14055 match all 309 per-frame state and CRC
+checkpoints. The full sampled baseline falls 238 -> 72 authoritative
+differences with 15 oracle limitations; first authoritative sampled debt moves
+to title frame 16650. Full-route CRC and complete RNG remain exact.
 
 The latest correction closes the expanded-state fast frontier. Raw oracle WRAM
 linked lists show demo-1 startup frame 71 with two system GfxObjects, frame 72

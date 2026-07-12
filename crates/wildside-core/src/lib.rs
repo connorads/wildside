@@ -307,6 +307,10 @@ pub struct NativeRuntime {
     /// Native currently mirrors it for settled recording/oracle-warps, where
     /// probe frames start after the hidden first pass has already happened.
     enemy_loading_initial_pass_complete: bool,
+    /// Enemy Objects linked by the trailing `Manage_EnemyLoading` pass have
+    /// not yet run their family initialiser to allocate a GfxObject.
+    /// ASM Mode_Level loc_80C -> loc_3691E, then Execute_Objects loc_E1E.
+    pending_enemy_gfx_initialisations_loc_3691e: u16,
     /// Blocks drilled by Driller enemies this frame.
     /// Driller.asm loc_3BE78: checks sprite timer, destroys Smash/Ice blocks ahead.
     drilled_blocks: Vec<DrilledBlockLoc3BE78>,
@@ -1255,6 +1259,7 @@ impl NativeRuntime {
             killed_enemies: HashSet::new(),
             enemy_status_words: [0; 0x001E],
             enemy_loading_initial_pass_complete: false,
+            pending_enemy_gfx_initialisations_loc_3691e: 0,
             drilled_blocks: Vec::new(),
             active_platforms: Vec::new(),
             active_platform_roster: Vec::new(),
@@ -2901,6 +2906,7 @@ impl NativeRuntime {
                         }
                     }
                 }
+                self.manage_enemy_loading_after_execute_objects_loc_80c();
                 self.load_debug_level_entry_enemies_after_player_loc_80c();
             }
         } else {

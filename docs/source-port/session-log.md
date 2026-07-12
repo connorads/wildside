@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 mature Demo 1 roster schedule)
+
+- ASM `Mode_Level loc_80C` runs `Manage_EnemyLoading loc_368A8/loc_3691E`
+  after the full Object pass, so Kid's updated camera admits Dragon layout #1
+  on frame 13778. Its Object is counted immediately; `Enemy0D_Dragon_Init`
+  links the GfxObject on the following pass. Island `loc_12098` remains an
+  Object-only controller.
+- `Enemy0D_Dragon_Init -> sub_36FF4` copies layout Y and adds only the blank
+  top-row shift. Removing native's unsupported +1px walking-Dragon offset
+  makes the new airborne Dragon's spawn state exact.
+- Frames 13747..14055 match all 309 per-frame state and CRC checkpoints. Full
+  sampled debt falls 238 -> 72 authoritative differences with 15 oracle
+  limitations; first authoritative sampled diff moves to
+  `frame_16650/number_objects`. All 37,759 CRC frames and 37,743 complete RNG
+  states remain exact.
+- NEXT: trace title frame 16650's carried 3/5 native versus 6/7 oracle roster.
+
 ## 2026-07-12 handoff (#290 IntroSequence5 linked-list schedule)
 
 - Oracle WRAM proves `Load_IntroSequence5` exposes two controller Objects on

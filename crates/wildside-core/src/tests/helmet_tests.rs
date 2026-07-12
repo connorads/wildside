@@ -9378,6 +9378,41 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_plain_demo_1_mature_roster_counts_live_dragons_and_island_controller() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+
+        let expected = [
+            (13_747, 8, 7),
+            (13_757, 9, 8),
+            (13_778, 10, 8),
+            (13_779, 10, 9),
+            (14_055, 11, 10),
+        ];
+        let mut observed = Vec::new();
+        for (frame_index, mask) in script.iter().copied().enumerate().take(14_057) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if let Some(&(_, objects, gfx_objects)) =
+                expected.iter().find(|&&(frame, _, _)| frame == frame_index)
+            {
+                observed.push((frame_index, trace.number_objects, trace.number_gfx_objects));
+                assert_eq!(
+                    (trace.number_objects, trace.number_gfx_objects),
+                    (objects, gfx_objects),
+                    "published frame {frame_index}"
+                );
+            }
+        }
+
+        // ASM loc_11FB0 -> loc_12098 keeps the Island background controller
+        // Object-only. Manage_EnemyLoading loc_3691E links each Dragon Object
+        // after Execute_Objects; Enemy0D_Dragon_Init links its GfxObject on the
+        // following pass, which is why frame 13778 has 10/8 before 10/9.
+        assert_eq!(observed.len(), expected.len());
+    }
+
+    #[test]
     fn death_respawn_level_1_falling_pre_death_frame_1680_stays_jump_not_wall_climb() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;

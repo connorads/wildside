@@ -7096,7 +7096,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn enemy_spawn_y_pos_sub_36ff4_applies_blank_top_rows_before_family_offsets() {
+    fn enemy_spawn_y_pos_sub_36ff4_applies_blank_top_rows_to_layout_y() {
         assert_eq!(
             enemies::spawn_y_pos_sub_36FF4(EnemyFamily::BigHoppingSkull, 0x00E0, 4),
             0x0120_0000,
@@ -7104,8 +7104,8 @@ mod chunk_04 {
         );
         assert_eq!(
             enemies::spawn_y_pos_sub_36FF4(EnemyFamily::DragonWalking, 0x00E0, 4),
-            0x0121_0000,
-            "ASM sub_36FF4 should run before Dragon Walking's extra +1px spawn offset",
+            0x0120_0000,
+            "ASM Enemy0D_Dragon_Init -> sub_36FF4 should add only the blank-top-row shift to layout Y",
         );
     }
 

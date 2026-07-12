@@ -1759,6 +1759,20 @@ every compared state, CRC, and complete RNG checkpoint. Full sampled debt falls
 first sampled diff to `frame_13750/number_objects`; all 37,759 CRC frames and
 37,743 complete RNG states remain exact.
 
+Follow-up 2026-07-12 for #290: mature Demo 1 now follows the ROM's scheduler
+boundary. `Mode_Level loc_80C` calls `Manage_EnemyLoading` after the complete
+`Execute_Objects` pass, so Kid's updated camera drives `loc_368A8` and
+`loc_3691E` links Dragon layout #1 on frame 13778. The Dragon Object is count-
+visible immediately while `Enemy0D_Dragon_Init` links its GfxObject on the
+following pass. `loc_11FB0 -> loc_12098` keeps the Island controller Object-
+only. `Enemy0D_Dragon_Init -> sub_36FF4` also disproves native's old +1px
+walking-Dragon spawn offset: the ROM copies layout Y and adds only the blank
+top-row shift. Frames 13747..14055 now match all 309 per-frame state and CRC
+checkpoints. The full sampled baseline falls 238 -> 72 authoritative
+differences with 15 oracle limitations, moving the first authoritative sampled
+diff to `frame_16650/number_objects`; all 37,759 CRC frames and all 37,743
+complete RNG states remain exact.
+
 Live play-native note 2026-06-11 with all pushed changes: keep the following as
 current acceptance failures even where recent focused probes or fixed-candidate
 rows are green. #288 intro still shows Kid/jacket below the prize block before
