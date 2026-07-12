@@ -421,12 +421,14 @@ pub(crate) const INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS: usize = 9;
 // elapses.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_LINEAGE_EXTRA_FRAMES: usize =
     TIMEOUT_RESTART_INTRO_SEQUENCE_4_FADE_FRAMES;
-// ASM loc_1BCD0 spawns three loc_1BE3C particle gfx objects from the
-// unk_1BE18/unk_1BE24/unk_1BE30 tables late in the Start-skip
-// timeout-restart revisit. Oracle top-level counts keep those three extra
-// workers visible before loc_1BA5C reaches the final Game_Mode=$28 hand-off.
+// ASM loc_1BCD0 hibernates for $1A0 frames after allocating its five pose
+// GfxObjects. On the wake-up pass it allocates four replacement Objects and
+// deletes itself plus its two owned GfxObjects; the following loc_E12 pass
+// lets loc_1BE3C/loc_1BE88 allocate four replacement GfxObjects. The normal
+// timeout-restart lineage first exposes that wake-up at local elapsed 475;
+// the early-visibility lineage reaches it one frame earlier.
 pub(crate) const DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME: usize =
-    17 + 0x01BD + DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_LINEAGE_EXTRA_FRAMES;
+    TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES + 0x01A1;
 // ASM Load_IntroSequence6 no longer allocates loc_1BA28 / loc_1BCD0; it
 // switches to the new `loc_1BAB0` / `loc_1B37C` / `sub_1B43A` title-shell
 // workers immediately, so the carried slot-2 pose in the verifier's fixed
@@ -1077,8 +1079,8 @@ mod tests {
             "ASM loc_1BA5C hibernates through 0x1BC+1 iterations plus lineage padding"
         );
         assert_eq!(
-            DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME, 479,
-            "ASM loc_1BCD0 particle workers remain visible until the start-skip handoff count"
+            DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME, 475,
+            "ASM loc_1BCD0 wakes after the inclusive $1A0 hibernation count"
         );
         assert_eq!(
             CONTINUE_FIRST_PHASE_FRAMES, 319,

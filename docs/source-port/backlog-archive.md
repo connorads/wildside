@@ -1773,6 +1773,21 @@ differences with 15 oracle limitations, moving the first authoritative sampled
 diff to `frame_16650/number_objects`; all 37,759 CRC frames and all 37,743
 complete RNG states remain exact.
 
+Follow-up 2026-07-12 for #290: raw WRAM resolves the late IntroSequence5
+replacement roster. On published frame 16645, `loc_1BCD0` wakes after its
+`$1A0` hibernation, allocates four replacement Objects, then deletes itself
+and its two owned GfxObjects; three deliberately unowned pose slots remain,
+making the transient count 6/3. The following `loc_E12` pass runs
+`loc_1BE3C/loc_1BE88` and links four replacement GfxObjects for 6/7.
+`sub_1C246 -> loc_1C264` carries 6/7 into title through frame 16681 before
+`loc_6E2` clears both lists; `Load_TitleScreen -> Obj_TitleMenu` then rebuilds
+3/0, 5/1, 5/2, and 4/2. Frames 16640..16724 match all 85 per-frame state,
+CRC, and complete RNG checkpoints. Oracle frames 20848..20855 confirm the same
+6/3 -> 6/7 schedule on the later natural timeout visit. `verify-slice-fast`
+passes. The full route retains 37,759/37,759 CRC and 37,743/37,743 complete RNG
+equality; sampled state debt falls 72 -> 63 authoritative differences with 15
+oracle limitations, first at `frame_20900/number_objects`.
+
 Live play-native note 2026-06-11 with all pushed changes: keep the following as
 current acceptance failures even where recent focused probes or fixed-candidate
 rows are green. #288 intro still shows Kid/jacket below the prize block before

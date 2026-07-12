@@ -3969,6 +3969,43 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_intro_sequence_5_late_particle_roster_follows_loc_1bcd0_passes() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut observed = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(16_651) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 16_644..=16_646 | 16_649..=16_650) {
+                observed.push((
+                    frame_index,
+                    trace.game_mode,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+            }
+        }
+
+        // ASM loc_1BCD0 wakes after its $1A0 hibernation on frame 16645,
+        // allocates four replacement Objects, then deletes itself and its two
+        // owned GfxObjects. The three deliberately unowned pose GfxObjects
+        // remain linked. On the next loc_E12 pass, loc_1BE3C/loc_1BE88 link
+        // four replacement GfxObjects; sub_1C246 carries that 6/7 roster into
+        // the frame-16650 title return without clearing either list.
+        assert_eq!(
+            observed,
+            vec![
+                (16_644, GameMode::IntroSequence5, 3, 5),
+                (16_645, GameMode::IntroSequence5, 6, 3),
+                (16_646, GameMode::IntroSequence5, 6, 7),
+                (16_649, GameMode::IntroSequence5, 6, 7),
+                (16_650, GameMode::TitleScreen, 6, 7),
+            ]
+        );
+    }
+
+    #[test]
     fn published_tas_intro_return_title_keeps_kid_hidden_through_frame_16798() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
@@ -4251,12 +4288,7 @@ mod chunk_09 {
         // pose at `x=0`, `y=$E0` is still visible on the first mode-$28 frame.
         assert_eq!(
             frame_20852,
-            Some((
-                GameMode::IntroSequence5,
-                Some(DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME),
-                6,
-                0,
-            )),
+            Some((GameMode::IntroSequence5, Some(479), 6, 7)),
             "ASM loc_1BCD0 -> loc_1BE3C should keep the late title-particle workers count-visible before the timeout hand-off",
         );
         assert_eq!(

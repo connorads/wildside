@@ -4154,13 +4154,15 @@ mod tests {
             (frame.number_objects, frame.number_gfx_objects)
         }
 
-        // ASM loc_1BCD0 keeps its five direct GfxObjects linked until the late
-        // loc_1BE3C Start-skip threshold replaces that roster with the three
-        // title-particle Objects and their enclosing workers.
+        // ASM loc_1BCD0 keeps its five direct GfxObjects linked until its
+        // $1A0 hibernation expires. That pass replaces the Object roster and
+        // frees two owned GfxObjects; loc_1BE3C/loc_1BE88 link four new
+        // GfxObjects on the following pass.
         let particle_count_frame =
             DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME;
         assert_eq!(counts_at(particle_count_frame - 1), (3, 5));
-        assert_eq!(counts_at(particle_count_frame), (6, 0));
+        assert_eq!(counts_at(particle_count_frame), (6, 3));
+        assert_eq!(counts_at(particle_count_frame + 1), (6, 7));
     }
 
     #[test]
@@ -4713,12 +4715,14 @@ mod tests {
 
     #[test]
     fn trace_frame_intro_5_title_return_rebuild_follows_load_title_screen_passes() {
-        fn counts_at(title_screen_elapsed_frames: usize) -> (u16, u16) {
+        fn counts_at(title_screen_elapsed_frames: usize, delayed_lineage: bool) -> (u16, u16) {
             let mut runtime = NativeRuntime::new(minimal_manifest());
             runtime.boot_state = BootState::TitleScreen { cursor: 0 };
             runtime.title_screen_intro_return_lineage =
                 Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence5);
             runtime.title_screen_elapsed_frames = title_screen_elapsed_frames;
+            runtime.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay =
+                delayed_lineage;
 
             let frame = runtime.trace_frame();
             (frame.number_objects, frame.number_gfx_objects)
@@ -4726,11 +4730,16 @@ mod tests {
 
         // ASM Load_TitleScreen -> Obj_TitleMenu -> loc_1BB10/loc_1C7A0:
         // allocation is visible one outer loc_E12 object pass at a time.
-        assert_eq!(counts_at(54), (3, 0));
-        assert_eq!(counts_at(55), (5, 1));
-        assert_eq!(counts_at(56), (5, 2));
-        assert_eq!(counts_at(57), (4, 2));
-        assert_eq!(counts_at(58), (4, 2));
+        assert_eq!(counts_at(54, false), (3, 0));
+        assert_eq!(counts_at(55, false), (5, 1));
+        assert_eq!(counts_at(56, false), (5, 2));
+        assert_eq!(counts_at(57, false), (4, 2));
+        assert_eq!(counts_at(58, false), (4, 2));
+        assert_eq!(counts_at(54, true), (0, 0));
+        assert_eq!(counts_at(55, true), (3, 0));
+        assert_eq!(counts_at(56, true), (5, 1));
+        assert_eq!(counts_at(57, true), (5, 2));
+        assert_eq!(counts_at(58, true), (4, 2));
     }
 
     #[test]
@@ -7168,7 +7177,6 @@ impl NativeRuntime {
                 self.title_screen_intro_return_lineage,
                 Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence5)
             )
-            || self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay
         {
             return None;
         }
@@ -7176,14 +7184,24 @@ impl NativeRuntime {
         // ASM Load_TitleScreen allocates Obj_TitleMenu, Obj_TitleTextKid, and
         // Obj_TitleTextChameleon in one pass. On the next loc_E12 pass,
         // Obj_TitleMenu allocates loc_1BB10 and loc_1C7A0; the two new
-        // GfxObjects then join over the following two passes. Published TAS
-        // oracle WRAM exposes this lineage two frames before the generic
-        // title-return schedule.
-        match self.title_screen_elapsed_frames {
-            54 => Some((3, 0)),
-            55 => Some((5, 1)),
-            56 => Some((5, 2)),
-            57..=58 => Some((4, 2)),
+        // GfxObjects then join over the following two passes. Oracle WRAM
+        // exposes the plain lineage two frames before the generic title-return
+        // schedule; the later Start-skip lineage begins one frame after that.
+        let first_rebuild_frame = 54
+            + usize::from(
+                self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay,
+            );
+        if self.title_screen_elapsed_frames < first_rebuild_frame {
+            return None;
+        }
+        match self
+            .title_screen_elapsed_frames
+            .saturating_sub(first_rebuild_frame)
+        {
+            0 => Some((3, 0)),
+            1 => Some((5, 1)),
+            2 => Some((5, 2)),
+            3..=4 => Some((4, 2)),
             _ => None,
         }
     }
@@ -10838,13 +10856,22 @@ impl NativeRuntime {
                 .is_some_and(|counted_frames| {
                     elapsed < visible_elapsed.saturating_add(counted_frames)
                 });
-            if elapsed >= DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME {
-                // ASM loc_1BCD0 -> loc_1BE3C (kid.asm:30567,30667) keeps the
-                // three title-particle gfx workers from the unk_1BE18 /
-                // unk_1BE24 / unk_1BE30 tables count-visible near the end of
-                // the later Start-skip timeout-restart revisit, before
-                // loc_1BA5C switches to Game_Mode=$28.
-                return (6, 0);
+            let particle_roster_elapsed =
+                DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME
+                    .saturating_sub(usize::from(
+                        self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility,
+                    ));
+            if elapsed >= particle_roster_elapsed {
+                // ASM loc_1BCD0 -> loc_1BE3C/loc_1BE88
+                // (kid.asm:30567,30667,30689): the wake-up pass allocates four
+                // Objects, deletes loc_1BCD0 and its two owned GfxObjects, but
+                // leaves three unowned pose slots linked. The four new
+                // GfxObjects join on the following loc_E12 pass.
+                return if elapsed == particle_roster_elapsed {
+                    (6, 3)
+                } else {
+                    (6, 7)
+                };
             }
             // ASM loc_1BA28 allocates loc_1C7A0 and loc_1BC36; loc_1BCD0
             // allocates five direct GfxObjects and then hibernates. IntroText5
@@ -10986,6 +11013,12 @@ impl NativeRuntime {
             );
         }
         if self.title_counts_intro_sequence_5_workers() {
+            if self.timeout_restart_title_intro_sequence_5_particle_roster {
+                // ASM sub_1C246 -> loc_1C264 changes Game_Mode without
+                // clearing either linked list. Keep loc_1BE3C/loc_1BE88's
+                // mature replacement roster until loc_6E2 clears it.
+                return (6, 7);
+            }
             // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 switches Game_Mode to
             // $2C without immediately clearing the live loc_1BA28/loc_1BCD0
             // workers. Cold intro-return keeps the title hidden-shell worker

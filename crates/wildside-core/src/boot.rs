@@ -5389,6 +5389,7 @@ impl NativeRuntime {
         self.timeout_restart_title_intro_sequence_3_return_pending = false;
         self.timeout_restart_title_intro_sequence_4_return_pending = false;
         self.timeout_restart_title_intro_sequence_5_return_pending = false;
+        self.timeout_restart_title_intro_sequence_5_particle_roster = false;
         self.preserve_demo_title_snapshot = false;
         self.timeout_restart_title_intro_sequence_3_pose = false;
         self.timeout_restart_title_intro_sequence_4_camera_carry = false;
@@ -5834,6 +5835,7 @@ impl NativeRuntime {
         self.demo_auto_timeout_intro_sequence_4_frames_override = None;
         self.demo_auto_timeout_intro_sequence_5_frames_override = None;
         self.timeout_restart_title_intro_sequence_5_return_pending = false;
+        self.timeout_restart_title_intro_sequence_5_particle_roster = false;
         self.timeout_restart_title_intro_sequence_3_pose = false;
         self.timeout_restart_title_intro_sequence_5_pose = false;
         self.timeout_restart_intro_sequence_4_pose_carry = false;
@@ -6002,7 +6004,10 @@ impl NativeRuntime {
             .saturating_sub(TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_EARLY_ATTRACT_LOCK_FRAMES);
     }
 
-    fn finish_timeout_restart_intro_sequence_5_title_return(&mut self) {
+    fn finish_timeout_restart_intro_sequence_5_title_return(
+        &mut self,
+        particle_roster_active: bool,
+    ) {
         let intro_return_hidden_delay =
             self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility;
         self.enter_title_screen();
@@ -6011,6 +6016,7 @@ impl NativeRuntime {
         self.timeout_restart_title_intro_sequence_5_return_pending = false;
         self.hide_demo_return_title_player = true;
         self.timeout_restart_title_intro_sequence_5_pose = true;
+        self.timeout_restart_title_intro_sequence_5_particle_roster = particle_roster_active;
         self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay =
             intro_return_hidden_delay;
         let carried_title_wait_frames = if intro_return_hidden_delay { 1 } else { 2 };
@@ -6785,7 +6791,15 @@ impl NativeRuntime {
                         } else if self.timeout_restart_title_intro_sequence_4_return_pending {
                             self.finish_timeout_restart_intro_sequence_4_title_return();
                         } else if self.timeout_restart_title_intro_sequence_5_return_pending {
-                            self.finish_timeout_restart_intro_sequence_5_title_return();
+                            let particle_roster_elapsed =
+                                DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME
+                                    .saturating_sub(usize::from(
+                                        self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility,
+                                    ));
+                            let particle_roster_active = *elapsed >= particle_roster_elapsed;
+                            self.finish_timeout_restart_intro_sequence_5_title_return(
+                                particle_roster_active,
+                            );
                         } else {
                             let is_intro_sequence_1 = *segment == 0;
                             let intro_sequence_1_uses_early_title_restore = is_intro_sequence_1

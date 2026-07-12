@@ -16,8 +16,8 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints retain the explicit #290 baseline of 72 authoritative export
-diffs and 15 oracle limitations, beginning at `frame_16650/number_objects`.
+state checkpoints retain the explicit #290 baseline of 63 authoritative export
+diffs and 15 oracle limitations, beginning at `frame_20900/number_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -29,7 +29,20 @@ That is complete per-frame RNG evidence for this route, not whole-state or
 whole-game proof. Reducing #290's authoritative sampled-state baseline remains
 separate fidelity work.
 
-The latest correction extends the exact state frontier through mature Demo 1.
+The latest correction models late IntroSequence5 as the ROM's linked-list
+replacement rather than a flat 3/5 roster. After `loc_1BCD0`'s `$1A0`
+hibernation, the wake-up pass allocates four Objects, deletes itself and its two
+owned GfxObjects, and leaves three unowned pose slots linked at 6/3. The next
+`loc_E12` pass runs `loc_1BE3C/loc_1BE88` and links four new GfxObjects for
+6/7. `sub_1C246 -> loc_1C264` carries that roster into title until `loc_6E2`
+clears it; `Load_TitleScreen` then rebuilds the shell over four passes. Frames
+16640..16724 match all 85 per-frame state, CRC, and complete RNG checkpoints.
+The later natural timeout visit is count-exact too. The full sampled baseline
+falls 72 -> 63 authoritative differences with 15 oracle limitations, first at
+`frame_20900/number_objects`; all 37,759 CRC frames and 37,743 complete RNG
+states remain exact.
+
+The previous correction extends the exact state frontier through mature Demo 1.
 `Mode_Level loc_80C` runs `Manage_EnemyLoading` after the complete
 `Execute_Objects` pass, so Kid's current camera drives the inclusive
 `loc_368A8` load window. `loc_3691E` links a Dragon Object on that pass and

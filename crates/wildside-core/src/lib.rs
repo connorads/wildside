@@ -759,6 +759,9 @@ pub struct NativeRuntime {
     /// ASM sub_1C246 can also jump straight from timeout-restart intro
     /// sequence 5 into title mode after the shared 2-frame Start deferral.
     timeout_restart_title_intro_sequence_5_return_pending: bool,
+    /// ASM loc_1BCD0 has replaced the five-pose GfxObject roster with the
+    /// late loc_1BE3C/loc_1BE88 particle roster before entering title mode.
+    timeout_restart_title_intro_sequence_5_particle_roster: bool,
     /// Demo abort returns to title without rebuilding Kid/camera RAM
     /// immediately; oracle traces keep exposing the live gameplay snapshot
     /// under title mode until later title objects take over.
@@ -1421,6 +1424,7 @@ impl NativeRuntime {
             timeout_restart_title_intro_sequence_3_return_pending: false,
             timeout_restart_title_intro_sequence_4_return_pending: false,
             timeout_restart_title_intro_sequence_5_return_pending: false,
+            timeout_restart_title_intro_sequence_5_particle_roster: false,
             preserve_demo_title_snapshot: false,
             demo_title_snapshot_object_counts: None,
             timeout_restart_title_intro_sequence_3_pose: false,

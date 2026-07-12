@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 late IntroSequence5 particle roster)
+
+- Raw WRAM proves `loc_1BCD0` wakes on published frame 16645, allocates four
+  replacement Objects, then deletes itself and its two owned GfxObjects. Three
+  unowned pose slots remain, producing the one-pass 6/3 roster.
+- On frame 16646, `loc_1BE3C/loc_1BE88` link four replacement GfxObjects for
+  6/7. `sub_1C246 -> loc_1C264` carries 6/7 through title frame 16681;
+  `loc_6E2 -> Load_TitleScreen` then clears and rebuilds 3/0, 5/1, 5/2, 4/2.
+- Frames 16640..16724 match all 85 per-frame state, CRC, and complete RNG
+  checkpoints. The later natural timeout roster is count-exact. Full sampled
+  debt falls 72 -> 63 authoritative differences with 15 oracle limitations;
+  first authoritative sampled diff moves to `frame_20900/number_objects`.
+  All 37,759 CRC frames and 37,743 complete RNG states remain exact.
+- NEXT: trace IntroSequence6 frame 20900's native 0/0 versus oracle 4/5 roster.
+
 ## 2026-07-12 handoff (#290 mature Demo 1 roster schedule)
 
 - ASM `Mode_Level loc_80C` runs `Manage_EnemyLoading loc_368A8/loc_3691E`
