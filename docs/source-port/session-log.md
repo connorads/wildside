@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 later IntroSequence6 menu cursor GfxObject)
+
+- Raw linked-list WRAM identifies `$FFFF2578`, owned by `$FFFF0DA0`, as the
+  fifth GfxObject. Start at frame 28762 drives `Obj_TitleMenu loc_1BAEE ->
+  loc_1BB52`; the cursor joins two object passes later on frame 28764.
+- The cursor stays linked through the terminal `loc_1BB02 -> loc_6E2` demo
+  hand-off sample. Native now tracks this raw two-frame allocation separately
+  from the longer visual menu activation delay.
+- Frames 28750..29404 match all 655 state checkpoints. Full sampled debt falls
+  35 -> 7 authoritative differences with 15 oracle limitations; first sampled
+  diff moves to `frame_32025/number_gfx_objects`. All 37,759 CRC frames and
+  37,743 complete RNG states remain exact.
+- NEXT: trace frame 32025's early title-return shell, where native exports 2/1
+  versus oracle 2/0.
+
 ## 2026-07-12 handoff (#290 later IntroSequence6 revisit roster)
 
 - Raw oracle WRAM pins every later-revisit boundary from inherited 4/5 through

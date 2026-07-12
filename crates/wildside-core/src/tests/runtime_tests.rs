@@ -5697,6 +5697,40 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_later_intro_sequence_6_menu_keeps_loc_1bb52_cursor_gfx() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(29_437) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 28_763 | 28_764 | 29_435 | 29_436) {
+                samples.push((
+                    frame_index,
+                    trace.game_mode,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+            }
+        }
+
+        // ASM Obj_TitleMenu loc_1BB52 allocates the `$FFFF2578` cursor
+        // GfxObject owned by `$FFFF0DA0`. Raw oracle linked lists show it
+        // joining the settled 4/4 title shell on frame 28764 and remaining
+        // live until loc_1BB02 hands the next demo to loc_6E2.
+        assert_eq!(
+            samples,
+            vec![
+                (28_763, GameMode::IntroSequence6, 4, 4),
+                (28_764, GameMode::IntroSequence6, 4, 5),
+                (29_435, GameMode::DemoPlay, 4, 5),
+                (29_436, GameMode::DemoPlay, 1, 0),
+            ]
+        );
+    }
+
+    #[test]
     fn published_tas_later_intro_sequence_6_revisit_keeps_camera_cleared_on_frame_28098() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

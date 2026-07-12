@@ -16,9 +16,9 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints retain the explicit #290 baseline of 35 authoritative export
+state checkpoints retain the explicit #290 baseline of 7 authoritative export
 diffs and 15 oracle limitations, beginning at
-`frame_28775/number_gfx_objects`.
+`frame_32025/number_gfx_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -30,7 +30,17 @@ That is complete per-frame RNG evidence for this route, not whole-state or
 whole-game proof. Reducing #290's authoritative sampled-state baseline remains
 separate fidelity work.
 
-The latest correction maps the complete later IntroSequence6 revisit roster
+The latest correction follows the later IntroSequence6 menu cursor through raw
+linked-list WRAM. The published frame-28762 Start edge takes `Obj_TitleMenu
+loc_1BAEE -> loc_1BB52`; cursor GfxObject `$FFFF2578`, owned by `$FFFF0DA0`,
+joins two object passes later and survives the terminal `loc_1BB02 -> loc_6E2`
+demo hand-off sample. Native now separates that allocation from the 15-frame
+visual menu activation delay. Published frames 28750..29404 match all 655 state
+checkpoints. The full sampled baseline falls 35 -> 7 authoritative differences
+with 15 oracle limitations, first at `frame_32025/number_gfx_objects`;
+full-route CRC and complete RNG remain exact.
+
+The previous correction maps the complete later IntroSequence6 revisit roster
 from raw oracle WRAM. After carrying 4/5 through local elapsed 21, this lineage
 delays the post-clear `loc_1BAB0`/`loc_1B37C`/`sub_1B43A` allocation and every
 later `loc_1B5CE`, `loc_1B6AC`, `loc_1BB10`, `sub_1B652`, and `loc_1C7A0` edge

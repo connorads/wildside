@@ -155,6 +155,11 @@ pub(crate) const TITLE_MENU_TO_TITLE_CARD_VDP_CARRY_FRAMES: usize = 38;
 /// inactive for this short setup window after the first Start press arms the
 /// menu.
 pub(crate) const TITLE_MENU_ACTIVATION_DELAY_FRAMES: usize = 15;
+/// ASM Obj_TitleMenu `loc_1BB52` links the cursor GfxObject two object passes
+/// after the Start edge, before the full menu/VDP activation delay finishes.
+/// Raw published-route WRAM shows `$FFFF2578` joining on frame 28764 after the
+/// frame-28762 Start press.
+pub(crate) const TITLE_MENU_CURSOR_GFX_ALLOCATION_DELAY_FRAMES_LOC_1BB52: usize = 2;
 /// ASM Load_IntroSequence6 allocates the `loc_1BAB0`, `loc_1B37C`, and
 /// `sub_1B43A` workers together. Although `loc_1BAB0` has a `$B8` DBF wait,
 /// oracle frame probes for the cold IntroSequence6 Start-skip route show the

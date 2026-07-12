@@ -7392,6 +7392,16 @@ impl NativeRuntime {
             340..=341 => Some((5, 3)),
             342 => Some((4, 3)),
             343 => Some((4, 4)),
+            _ if self.title_menu_active
+                && self.frame_index
+                    >= self.title_menu_arm_frame.saturating_sub(
+                        TITLE_MENU_ACTIVATION_DELAY_FRAMES.saturating_sub(
+                            TITLE_MENU_CURSOR_GFX_ALLOCATION_DELAY_FRAMES_LOC_1BB52,
+                        ),
+                    ) =>
+            {
+                Some((4, 5))
+            }
             _ => None,
         }
     }
@@ -10985,7 +10995,16 @@ impl NativeRuntime {
             .demo_startup_frame()
             .zip(self.demo_uses_second_recording())
         {
-            return if frame_counter <= demo::DEMO_LEVEL_SWITCH_FRAME {
+            return if frame_counter <= demo::DEMO_LEVEL_SWITCH_FRAME
+                && use_demo_2
+                && self.demo_uses_intro_sequence_6_later_demo_2_preload_row
+            {
+                // ASM Obj_TitleMenu loc_1BB52 -> loc_1BB02 -> loc_6E2:
+                // the later IntroSequence6 route has entered DemoPlay, but
+                // its `$FFFF2578` cursor GfxObject remains linked throughout
+                // this terminal hand-off window before Load_DemoPlay clears it.
+                (4, 5)
+            } else if frame_counter <= demo::DEMO_LEVEL_SWITCH_FRAME {
                 (4, 4)
             } else if frame_counter
                 < self
