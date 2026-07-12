@@ -937,15 +937,24 @@ fn compare_test_only_baseline(
 }
 
 fn enforce_no_new_test_only_labels(report: &TestOnlyRatchetReport) -> Result<()> {
-    if report.new_labels.is_empty() {
-        return Ok(());
+    if !report.new_labels.is_empty() {
+        bail!(
+            "{} new ASM label(s) are test-only debt; wire them into production or explicitly update {} after review",
+            report.new_labels.len(),
+            TEST_ONLY_BASELINE_PATH
+        )
     }
 
-    bail!(
-        "{} new ASM label(s) are test-only debt; wire them into production or explicitly update {} after review",
-        report.new_labels.len(),
-        TEST_ONLY_BASELINE_PATH
-    )
+    if !report.burned_down_labels.is_empty() {
+        bail!(
+            "{} test-only ASM label(s) are no longer debt but still listed in {}; \
+             remove them from the baseline so the ratchet cannot silently regress",
+            report.burned_down_labels.len(),
+            TEST_ONLY_BASELINE_PATH
+        )
+    }
+
+    Ok(())
 }
 
 // ── Public entry point ─────────────────────────────────────────────────
@@ -1145,12 +1154,21 @@ pub(crate) fn run_asm_coverage(
                 println!("  - {label}");
             }
         }
+        if !report.burned_down_labels.is_empty() {
+            println!(
+                "\ntest-only ratchet: FAIL ({} burned-down label(s) still in baseline; current {}, baseline {})",
+                report.burned_down_labels.len(),
+                report.current_count,
+                report.baseline_count
+            );
+            for label in &report.burned_down_labels {
+                println!("  - {label}");
+            }
+        }
         enforce_no_new_test_only_labels(&report)?;
         println!(
-            "\ntest-only ratchet: ok ({} current, {} baseline, {} burned down)",
-            report.current_count,
-            report.baseline_count,
-            report.burned_down_labels.len()
+            "\ntest-only ratchet: ok ({} current, {} baseline)",
+            report.current_count, report.baseline_count
         );
     }
 
@@ -1316,7 +1334,28 @@ mod tests {
     }
 
     #[test]
-    fn test_only_ratchet_allows_grandfathered_labels_and_burn_down() {
+    fn test_only_ratchet_allows_grandfathered_labels() {
+        let baseline = TestOnlyBaseline {
+            version: 1,
+            labels: BTreeSet::from(["loc_1111".to_owned(), "loc_2222".to_owned()]),
+        };
+        let map = coverage_map_with(vec![
+            make_label_with_state("loc_1111", CoverageState::TestOnlyDebt),
+            make_label_with_state("loc_2222", CoverageState::TestOnlyDebt),
+            make_label_with_state("loc_3333", CoverageState::Reachable),
+        ]);
+
+        let report = compare_test_only_baseline(&map, &baseline);
+
+        assert_eq!(report.current_count, 2);
+        assert_eq!(report.baseline_count, 2);
+        assert!(report.new_labels.is_empty());
+        assert!(report.burned_down_labels.is_empty());
+        enforce_no_new_test_only_labels(&report).expect("in-sync baseline should pass");
+    }
+
+    #[test]
+    fn test_only_ratchet_requires_baseline_shrink_after_burn_down() {
         let baseline = TestOnlyBaseline {
             version: 1,
             labels: BTreeSet::from(["loc_1111".to_owned(), "loc_2222".to_owned()]),
@@ -1332,7 +1371,12 @@ mod tests {
         assert_eq!(report.baseline_count, 2);
         assert!(report.new_labels.is_empty());
         assert_eq!(report.burned_down_labels, vec!["loc_2222"]);
-        enforce_no_new_test_only_labels(&report).expect("burn-down should pass");
+        let err = enforce_no_new_test_only_labels(&report)
+            .expect_err("stale baseline entries must fail the ratchet");
+        assert!(
+            err.to_string().contains(TEST_ONLY_BASELINE_PATH),
+            "error should point at the baseline file to shrink: {err}"
+        );
     }
 
     #[test]
