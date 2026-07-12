@@ -35,10 +35,10 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 - **Source-port visual ratchet:** `1p-accurate` renders Level 0 frames 0, 30, 60, and 120 through the source-port renderer against jgenesis with exact state, no masking, MAE 0.000, and zero changed pixels. The gate now requires exact pixels.
 - **Visual confidence boundary:** #375 is resolved for those four settled-warp checkpoints only. This is not cold-boot or whole-game pixel parity. The older `frame_oracle:*` steps compare wildside-md ROM VDP output with jgenesis, not source-port pixels.
 - **Full published-route evidence:** all 37,759 requested player/camera CRC frames match oracle. The complete RNG stream also matches on all 37,743 post-`Init_RNG` frames, including the offset and all 55 ring bytes on every frame. The gameplay and enemy-frontier passes compare every one of the 37,759 frames with zero authoritative, advisory, accumulation, RNG, oracle-limitation, or enemy-roster differences. This is exact CRC, RNG, exported gameplay state, and enemy-roster evidence on one route, not whole-RAM, render, audio, every-input, or whole-game equality.
-- **Whole-level sweep boundary:** baseline report `1783779907` (43/69 pass, 96 blocking diffs) predates this session. Focused re-sweeps since: 0x24/0x50/0x51 `camera_y` clean (loc_75D4 leading camera tick, #037 override deleted); Level 0x40 report `1783887206` has exact settle counts and exact one-trail population, exposing a separate idle-tail Object/Gfx deficit (#393); 0x01/0x36 undercounts reattributed to idle-warp settle roster gaps (#392). Re-run the full sweep for a fresh canonical report.
+- **Whole-level sweep boundary:** baseline report `1783779907` (43/69 pass, 96 blocking diffs) predates this session. Focused re-sweeps since: 0x24/0x50/0x51 `camera_y` clean (loc_75D4 leading camera tick, #037 override deleted); Level 0x40 report `1783887206` has exact settle counts and exact one-trail population, exposing a separate idle-tail Object/Gfx deficit (#393); 0x01/0x36 report `1783891445` is exact at settle and idle tail (#392). Re-run the full sweep for a fresh canonical report.
 - **Check tightening:** insta snapshots re-homed to `src/tests/snapshots/` with real (unredacted) values; `asm-coverage --check-no-new-test-only` now fails on stale baseline entries (45 re-banked, 241 -> 196); advisory-masking prose retired from CLAUDE.md/methodology.md.
 - **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
-- **Current work:** #392 (idle-warp settle roster misses in-view enemies) and #393 (Level 0x40 recording-settle phase/worker drift) are open; take `mise run project-status`'s top item.
+- **Current work:** #393 (Level 0x40 recording-settle phase/worker drift) is open; take `mise run project-status`'s top item.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -60,5 +60,4 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 392 | [ ] | P2 | State parity/enemy loading | Idle-warp settle roster misses in-view enemies: Level 0x01 on-screen RockTank pair and 0x36 Lion never activate at settle (obj +1/+2, gfx +3 oracle surplus). | `sweep --levels 1,54 --tier state` settle checkpoints; see archive #392. |
 | 393 | [ ] | P2 | State parity/FireDemon | Level 0x40 idle tail has one fewer non-trail Object/Gfx worker and the surviving Fire Demon trail is three ticks ahead of oracle. | `sweep --levels 64 --tier state` idle_tail counts; see archive #393. |

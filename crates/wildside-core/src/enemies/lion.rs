@@ -1566,8 +1566,15 @@ fn step_lion_charge_movement_loc_3e11e(
         let current_x_px = (enemy.x_pos >> 16) as i32;
         let next_x_px = (next_x >> 16) as i32;
         let current_y_px = (enemy.y_pos >> 16) as i32;
-        let wall =
-            dragon_walking_probe_wall(grid, current_x_px, next_x_px, current_y_px, moving_right);
+        let wall = dragon_walking_probe_wall(
+            grid,
+            current_x_px,
+            next_x_px,
+            current_y_px,
+            moving_right,
+            LION_CHARGE_PROBE_HALF_WIDTH,
+            LION_CHARGE_PROBE_HEIGHT,
+        );
         let floor_support = dragon_walking_floor_support(grid, next_x_px, current_y_px);
         enemy.shared_walker_terrain_trace = SharedWalkerTerrainTrace {
             next_x_px: Some(next_x_px),
@@ -1604,12 +1611,15 @@ fn step_lion_charge_movement_loc_3e11e(
                 }
             };
             if exits_charge {
-                enemy.x_pos = dragon_walking_wall_snap_x(wall.wall_x_px, moving_right);
+                // ASM Lion.asm loc_3E406/loc_3E5BA branches to loc_3E48E/
+                // loc_3E642 before loc_3E4C6/loc_3E67A can commit candidate
+                // d2. Preserve the current centre instead of applying the
+                // generic Dragon 8px wall snap; Lion `$48(a5)` is `$14`.
                 enemy.x_velocity = 0;
                 enemy.y_velocity = 0;
                 shared_walker_turnaround(enemy);
+                register_shared_walker_turnaround(enemy);
                 enemy.lion_state = LionState::Walking;
-                enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
                 // ASM Lion.asm loc_3E48E/loc_3E642: charge exits set `$4E(a5)`.
                 enemy.scorpion_tracking_lock = true;
             }
@@ -1691,9 +1701,9 @@ fn step_lion_charge_movement_loc_3e11e(
                         // ASM Lion.asm loc_3E476/loc_3E62A -> loc_3E48E/
                         // loc_3E642: leaving the alert band drops back to
                         // walking, latches `$4E(a5)`, and stores `$42=$FF88`
-                        // for non-patrol alert states.
+                        // for non-patrol alert states. `$54(a5)` is preserved;
+                        // only loc_3E078 reloads the roar timer to `$B4`.
                         enemy.lion_state = LionState::Walking;
-                        enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
                         enemy.scorpion_tracking_lock = true;
                         enemy.shared_walker_state = -0x78;
                         enemy.x_velocity = 0;
@@ -2645,7 +2655,7 @@ mod tests {
     }
 
     #[test]
-    fn lion_grounded_left_charge_slope_boundary_uses_current_x_loc_3e566() {
+    fn lion_grounded_left_charge_uses_full_half_width_loc_3e566() {
         let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
         grid.set_cell_at(1, 2, terrain::Cell::from_be_bytes(0x40, 0x00));
         let mut lion = ActiveEnemy {
@@ -2654,6 +2664,7 @@ mod tests {
             on_ground: true,
             facing: Direction::Left,
             hit_points: 6,
+            wait_timer: 12,
             x_pos: 41 << 16,
             y_pos: 32 << 16,
             ..mini_hopping_skull_test_enemy()
@@ -2666,23 +2677,22 @@ mod tests {
             .wall
             .expect("grounded Lion charge should record the wall probe");
         assert!(
-            wall.hit,
-            "ASM Lion.asm loc_3E566 -> sub_36A58 should treat the crossed left SlopeUp foot-row boundary as a wall"
+            !wall.hit,
+            "ASM Lion.asm loc_3E566 -> sub_36A58 uses `$48(a5)=$14`; the slope already under this 20px-wide body is not a newly crossed leading boundary"
         );
-        assert_eq!(wall.cell_x, 1);
-        assert_eq!(wall.cell_y, 2);
         assert_eq!(
             lion.lion_state,
-            LionState::Walking,
-            "ASM Lion.asm loc_3E5BA/loc_3E642 should leave charge movement after the left slope boundary hit"
+            LionState::Charging,
+            "ASM Lion.asm loc_3E566 should continue the charge while the full-width leading probe is clear"
         );
         assert_eq!(
             lion.x_pos,
             41 << 16,
-            "ASM shared walker left-wall snap should place the Lion one half-width past the slope cell edge"
+            "ASM Lion.asm loc_3E79E preserves the current X when the full-width floor scan enters the airborne charge"
         );
-        assert_eq!(lion.wait_timer, LION_COOLDOWN_AFTER_FIRE);
-        assert!(lion.scorpion_tracking_lock);
+        assert!(!lion.on_ground);
+        assert_eq!(lion.wait_timer, 12);
+        assert!(!lion.scorpion_tracking_lock);
     }
 
     #[test]
@@ -2695,6 +2705,7 @@ mod tests {
             on_ground: true,
             facing: Direction::Right,
             hit_points: 6,
+            wait_timer: 12,
             x_pos: 24 << 16,
             y_pos: 32 << 16,
             ..mini_hopping_skull_test_enemy()
@@ -2720,7 +2731,7 @@ mod tests {
             24 << 16,
             "ASM shared walker right-wall snap should place the Lion one half-width before the solid cell edge"
         );
-        assert_eq!(lion.wait_timer, LION_COOLDOWN_AFTER_FIRE);
+        assert_eq!(lion.wait_timer, 12);
         assert!(lion.scorpion_tracking_lock);
     }
 
@@ -2744,7 +2755,7 @@ mod tests {
             LionState::Walking,
             "ASM Lion.asm loc_3E476 -> loc_3E48E should leave the charge when Kid exits the alert band"
         );
-        assert_eq!(lion.wait_timer, LION_COOLDOWN_AFTER_FIRE);
+        assert_eq!(lion.wait_timer, 12);
         assert!(lion.scorpion_tracking_lock);
         assert_eq!(
             lion.shared_walker_state, -0x78,

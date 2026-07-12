@@ -325,6 +325,20 @@ impl NativeRuntime {
         // shortcuts. Oracle settle tracing ends Level 1 at RNG offset $FFCB;
         // the first scenario frame then advances to $FFCF via Drips loc_3340E.
         let debug_lifecycle_completed = self.recording_oracle_debug_lifecycle_completed;
+        if debug_lifecycle_completed {
+            // ASM loc_1AE2E -> loc_6E2 -> Load_InGame rebuilds the enemy
+            // status table and Object list immediately before the target's
+            // first Mode_Level pass. The recording adapter collapses that
+            // boundary after its debug title wait, so discard objects, status
+            // and loader state accumulated against the raw pre-settle camera.
+            // Otherwise a target entry can inherit an old death or cooldown,
+            // as the Level 0x36 Lion did before its loc_3E078 roar window.
+            self.active_enemies.clear();
+            self.rebuild_active_enemy_roster();
+            self.killed_enemies.clear();
+            self.enemy_status_words.fill(0);
+            self.enemy_loading_initial_pass_complete = false;
+        }
         if level_id == LevelId(0)
             || (!debug_lifecycle_completed
                 && oracle_warp_primes_respawn_settle_enemy_loading(level_id))

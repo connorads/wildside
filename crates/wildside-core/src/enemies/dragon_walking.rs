@@ -618,7 +618,15 @@ fn dragon_walking_blocked(enemy: &ActiveEnemy, block_grid: Option<&terrain::Bloc
     let current_cx = (enemy.x_pos >> 16) as i32;
     let cx = (next_x >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
-    let wall = dragon_walking_probe_wall(grid, current_cx, cx, cy, moving_right);
+    let wall = dragon_walking_probe_wall(
+        grid,
+        current_cx,
+        cx,
+        cy,
+        moving_right,
+        ENEMY_PROBE_HALF_WIDTH,
+        ENEMY_PROBE_HEIGHT,
+    );
     if wall.hit {
         return true;
     }
@@ -660,7 +668,15 @@ fn step_dragon_walking_walk(
         let next_x = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
         let current_cx = (enemy.x_pos >> 16) as i32;
         let cx = (next_x >> 16) as i32;
-        let mut wall = dragon_walking_probe_wall(grid, current_cx, cx, current_y_px, moving_right);
+        let mut wall = dragon_walking_probe_wall(
+            grid,
+            current_cx,
+            cx,
+            current_y_px,
+            moving_right,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+        );
         let step_px = (cx - current_cx).abs();
         let leading_side_boundary_offset = ENEMY_PROBE_HALF_WIDTH + 1;
         let leading_boundary_distance_px =

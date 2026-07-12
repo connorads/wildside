@@ -210,9 +210,9 @@ mod chunk_04 {
             None
         );
         assert_eq!(
-            opening_level_one_object_counts(LevelId(1), 3, 0, 0x0014_0000),
-            Some((4, 4)),
-            "ASM loc_74E0 level-skip resume / oracle full-frame Level 0x01: player + first RockTank pair reports Number_Objects=4 at the settled opening camera",
+            opening_level_one_object_counts(LevelId(1), 2, 0, 0x0014_0000),
+            Some((4, 6)),
+            "ASM loc_74E0 level-skip resume / oracle Level 0x01 frame 60: player + first RockTank body reports 4 Objects / 6 GfxObjects at the settled opening camera",
         );
     }
 
@@ -13091,7 +13091,11 @@ mod chunk_04 {
             LionState::Walking,
             "should return to walking after overshooting player"
         );
-        assert_eq!(enemy.wait_timer, LION_COOLDOWN_AFTER_FIRE);
+        assert_eq!(
+            enemy.wait_timer,
+            LION_CHARGE_TIMER_INIT - 1,
+            "ASM Lion.asm loc_3E48E preserves `$54(a5)` after the charge exits"
+        );
     }
 
     #[test]

@@ -1235,7 +1235,7 @@ mod tests {
 
         assert_eq!(
             runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
-            (4, 2),
+            (4, 3),
             "ASM loc_10DA4/sub_10DE4 allocates one Object_RAM worker per rubber cell through Allocate_ObjectSlot, but no GfxObject slot"
         );
     }
@@ -2105,7 +2105,7 @@ mod tests {
 
         assert_eq!(
             runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
-            (3, 3),
+            (3, 4),
             "ASM Dragon.asm loc_3CF90 allocates the breath Object_RAM child and loc_3D02A immediately calls j_Load_GfxObjectSlot; native must count the projectile as one Object/GfxObject pair",
         );
     }
@@ -2140,7 +2140,7 @@ mod tests {
 
         assert_eq!(
             runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
-            (3, 3),
+            (3, 4),
             "ASM Dragon.asm loc_3D082 keeps the naturally completed child linked through its final poll, while loc_3CFDA contact completion deletes the other child early",
         );
 
@@ -2149,7 +2149,7 @@ mod tests {
         runtime.active_enemies[1].dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
         assert_eq!(
             runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
-            (3, 3),
+            (3, 4),
             "ASM Dragon.asm loc_3D082 observes the animation end before loc_3D09E removes the linked pair on the following object pass",
         );
     }
@@ -2168,7 +2168,7 @@ mod tests {
 
         assert_eq!(
             runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
-            (2, 2),
+            (2, 3),
             "ASM Dragon.asm loc_3CE90 has not run for the next roster entry at trace time, so its wait-timer-one child is not count-visible yet",
         );
 
@@ -2184,7 +2184,7 @@ mod tests {
 
         assert_eq!(
             runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
-            (2, 2),
+            (2, 3),
             "ASM Dragon.asm loc_3CE90 leaves `$66(a5)=1` without a child; Number_Objects and Number_GfxObjects change only after loc_3CF90/loc_3D02A allocate the linked pair",
         );
     }
@@ -4728,11 +4728,11 @@ mod tests {
         }
 
         // ASM Load_InGame keeps two fixed system objects live alongside the
-        // player/enemy roster. Mountain/Cave/Island themes allocate one extra
-        // palette-rotation object/gfx slot.
-        assert_eq!(counts_for_theme(0, 0), (5, 5));
-        assert_eq!(counts_for_theme(7, 0), (6, 6));
-        assert_eq!(counts_for_theme(0, 4), (6, 6));
+        // player/enemy roster, while Kid owns a second GfxObject. Mountain,
+        // Cave and Island themes allocate one extra palette-rotation pair.
+        assert_eq!(counts_for_theme(0, 0), (5, 6));
+        assert_eq!(counts_for_theme(7, 0), (6, 7));
+        assert_eq!(counts_for_theme(0, 4), (6, 7));
     }
 
     #[test]
@@ -11603,7 +11603,8 @@ impl NativeRuntime {
         // The original game keeps 2 fixed system objects (game manager
         // and HUD/state). An additional palette-rotation object is
         // allocated for Mountain (fg=7), Cave (fg=8), or Island (bg=4)
-        // themes. The native roster already includes the player.
+        // themes. The native roster already includes the player, whose second
+        // GfxObject is part of the fixed gameplay shell.
         let extra = self.level_header(self.current_level).map_or(0, |h| {
             if h.level_theme == 7 || h.level_theme == 8 || h.background_theme == 4 {
                 1u16
@@ -11613,7 +11614,7 @@ impl NativeRuntime {
         });
         (
             roster_object_count + 2 + extra + transient_object_only_workers,
-            roster_gfx_count + 2 + extra + transient_gfx_only_workers,
+            roster_gfx_count + 3 + extra + transient_gfx_only_workers,
         )
     }
 
@@ -11646,18 +11647,6 @@ impl NativeRuntime {
         // smash/ice block debris it never calls j_sub_E02 and owns no gfx slot.
         let rubber_skin_workers = self.block_state.rubber_block_animations.len() as u16;
         let lava_special_effect_workers = self.lava_special_effect_object_only_worker_count();
-        // ASM Lion.asm loc_3E12A allocates the roar shot as a child object
-        // worker and tracks the live child count in parent `$5B`. Native
-        // renders/collides it as a lightweight projectile, so account for the
-        // ROM worker through the parent count without adding a gfx slot.
-        let lion_parent_projectile_workers = self
-            .active_enemies
-            .iter()
-            .filter(|enemy| enemy.family == EnemyFamily::Lion)
-            .map(|enemy| u16::from(enemy.ufo_beam_segments))
-            .sum::<u16>();
-        let lion_projectile_workers =
-            lion_parent_projectile_workers.max(self.lion_projectile_object_only_tail_count);
         let dragon_flying_descent_fire_workers = self
             .projectiles
             .iter()
@@ -11688,7 +11677,6 @@ impl NativeRuntime {
         drips_parent_workers
             .saturating_add(rubber_skin_workers)
             .saturating_add(lava_special_effect_workers)
-            .saturating_add(lion_projectile_workers)
             .saturating_add(dragon_flying_descent_fire_workers)
             .saturating_add(drips_surface_crawler_workers)
     }
@@ -11741,6 +11729,18 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::CloudLightning)
             .count();
+        // ASM Lion.asm loc_3E0DA allocates the roar shot's Object, then
+        // loc_3E12A calls j_Load_GfxObjectSlot before initialising its art.
+        // Native stores the shot on the parent, outside the active roster, so
+        // it contributes one worker to both linked-list counts.
+        let lion_parent_projectile_workers = self
+            .active_enemies
+            .iter()
+            .filter(|enemy| enemy.family == EnemyFamily::Lion)
+            .map(|enemy| usize::from(enemy.ufo_beam_segments))
+            .sum::<usize>();
+        let lion_projectile_workers = lion_parent_projectile_workers
+            .max(usize::from(self.lion_projectile_object_only_tail_count));
         // ASM Fire_Demon.asm loc_3A564 allocates each fire-trail child through
         // j_Allocate_ObjectSlot while Number_of_Fire_Trails < 7, and the child
         // init loc_3A63C loads a GfxObject slot, so every burning trail owns
@@ -11848,6 +11848,7 @@ impl NativeRuntime {
             + archer_arrow_workers
             + ufo_beam_workers
             + cloud_lightning_workers
+            + lion_projectile_workers
             + fire_demon_trail_workers
             + dragon_walking_breath_workers
             + waiting_shishkaboss_skewer_workers
@@ -12268,10 +12269,10 @@ pub(crate) fn opening_level_one_object_counts(
 ) -> Option<(u16, u16)> {
     if level_id == LevelId(1) && camera_x_pos == 0 {
         // ASM loc_74E0 level-skip resume reaches Blue Lake Woods 2 with only
-        // the player plus RockTank pair live in object RAM; oracle frame-0 WRAM
-        // reports `Number_Objects=4` rather than the generic live-gameplay
-        // `roster + system + palette` count.
-        return Some((roster_count + 1, roster_count + 1));
+        // the player plus RockTank body/turret live with loc_7456/loc_BC44's
+        // fixed workers. Oracle frame-60 WRAM reports 4 Objects / 6 GfxObjects:
+        // the turret is Gfx-only and Kid owns the additional gameplay Gfx slot.
+        return Some((roster_count + 2, roster_count + 4));
     }
     if level_id != LevelId(0) || camera_x_pos > 0x0200_0000 {
         return None;

@@ -13402,7 +13402,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
                 flag_touch_trace.number_objects,
                 flag_touch_trace.number_gfx_objects
             ),
-            (5, 6),
+            (5, 7),
             "ASM CharacterCollision_TouchFlagpole loc_C056 clears non-Kid gfx links before loc_C070 deletes object slots, preserving stale gfx slots on the touch frame"
         );
         assert!(

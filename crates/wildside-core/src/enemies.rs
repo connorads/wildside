@@ -377,6 +377,9 @@ pub(crate) fn pacer_probe_half_width(family: EnemyFamily) -> i32 {
         | EnemyFamily::DragonWalking
         | EnemyFamily::Goat
         | EnemyFamily::Scorpion => 9,
+        // ASM Lion.asm loc_3DFF0 seeds `$48(a5)=$14`; Lion's loc_3E392/
+        // loc_3E546 walking callbacks continue to use that same carrier.
+        EnemyFamily::Lion => LION_CHARGE_PROBE_HALF_WIDTH,
         _ => ENEMY_PROBE_HALF_WIDTH,
     }
 }
@@ -387,6 +390,9 @@ pub(crate) fn pacer_probe_height(family: EnemyFamily) -> i32 {
         // Tank_Shooting.asm loc_3B5A6 seed `$4A(a5)=$20` before entering the
         // shared walker loops.
         EnemyFamily::Robot | EnemyFamily::Tank | EnemyFamily::TankShooting => 32,
+        // ASM Lion.asm loc_3DFF0 seeds `$4A(a5)=$2F` for every charge and
+        // walking callback reached through loc_3E11E.
+        EnemyFamily::Lion => LION_CHARGE_PROBE_HEIGHT,
         _ => ENEMY_PROBE_HEIGHT,
     }
 }
@@ -7453,8 +7459,26 @@ pub(crate) fn shared_walker_turnaround_loc_3c026(
     }
 }
 
+pub(crate) fn lion_turnaround_loc_3e48e_3e642(
+    turnaround_counter: u8,
+) -> SharedWalkerTurnaroundLoc3C026 {
+    // ASM Lion.asm loc_3E48E/loc_3E642: `addq.b #1,$5A(a5)` advances the
+    // Lion-specific wall counter. Unlike the shared loc_3C026 walker tail,
+    // which adds four then tests `beq`, Lion does not branch on byte wrap;
+    // loc_3E94E is reached only from the terrain scan's hurt bit.
+    let next_counter = turnaround_counter.wrapping_add(1);
+    SharedWalkerTurnaroundLoc3C026 {
+        next_counter,
+        collision_type: None,
+    }
+}
+
 fn register_shared_walker_turnaround(enemy: &mut ActiveEnemy) -> bool {
-    let result = shared_walker_turnaround_loc_3c026(enemy.shared_walker_turnaround_counter);
+    let result = if matches!(enemy.family, EnemyFamily::Lion) {
+        lion_turnaround_loc_3e48e_3e642(enemy.shared_walker_turnaround_counter)
+    } else {
+        shared_walker_turnaround_loc_3c026(enemy.shared_walker_turnaround_counter)
+    };
     enemy.shared_walker_turnaround_counter = result.next_counter;
     if result.collision_type.is_some() {
         register_enemy_terrain_kill(enemy);
@@ -8413,6 +8437,8 @@ fn dragon_walking_probe_wall(
     center_x_px: i32,
     foot_y_px: i32,
     moving_right: bool,
+    half_width: i32,
+    height: i32,
 ) -> terrain::WallProbe {
     let wall_center_x = if moving_right {
         center_x_px
@@ -8420,9 +8446,9 @@ fn dragon_walking_probe_wall(
         center_x_px - 1
     };
     let edge_x = if moving_right {
-        wall_center_x + ENEMY_PROBE_HALF_WIDTH + 1
+        wall_center_x + half_width + 1
     } else {
-        wall_center_x - ENEMY_PROBE_HALF_WIDTH
+        wall_center_x - half_width
     };
 
     // ORIGINAL_QUIRK: the shared Dragon/Lion grounded walker helpers
@@ -8430,14 +8456,10 @@ fn dragon_walking_probe_wall(
     // the turnaround path. The frame-3126 TAS frontier depends on a spike
     // shoulder counting as a wall.
     let lower_body_y = foot_y_px - 8;
-    let upper_body_y = foot_y_px - ENEMY_PROBE_HEIGHT + 8;
-    let body_probe_ys = [
-        lower_body_y,
-        foot_y_px - ENEMY_PROBE_HEIGHT / 2,
-        upper_body_y,
-    ];
+    let upper_body_y = foot_y_px - height + 8;
+    let body_probe_ys = [lower_body_y, foot_y_px - height / 2, upper_body_y];
 
-    let leading_side_boundary_offset = ENEMY_PROBE_HALF_WIDTH + 1;
+    let leading_side_boundary_offset = half_width + 1;
     let leading_boundary_distance_px = if moving_right {
         (-(current_center_x_px + leading_side_boundary_offset)).rem_euclid(16)
     } else {
@@ -8524,7 +8546,15 @@ fn step_dragon_walking_airborne(enemy: &mut ActiveEnemy, block_grid: Option<&ter
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
     let moving_right = enemy.x_velocity >= 0;
-    let wall = dragon_walking_probe_wall(grid, cx, cx, cy, moving_right);
+    let wall = dragon_walking_probe_wall(
+        grid,
+        cx,
+        cx,
+        cy,
+        moving_right,
+        ENEMY_PROBE_HALF_WIDTH,
+        ENEMY_PROBE_HEIGHT,
+    );
     let floor = terrain::probe_floor(grid, cx, cy);
     enemy.shared_walker_terrain_trace = SharedWalkerTerrainTrace {
         next_x_px: Some(cx),
@@ -10669,6 +10699,28 @@ mod tests {
                 collision_type: Some(-1),
             },
             "ASM loc_3C464 should write collision_type=$FFFF when $5A overflows"
+        );
+    }
+
+    #[test]
+    fn lion_turnaround_counter_uses_single_byte_step_loc_3e48e_3e642() {
+        assert_eq!(pacer_probe_half_width(EnemyFamily::Lion), 0x14);
+        assert_eq!(pacer_probe_height(EnemyFamily::Lion), 0x2F);
+        assert_eq!(
+            lion_turnaround_loc_3e48e_3e642(0xFE),
+            SharedWalkerTurnaroundLoc3C026 {
+                next_counter: 0xFF,
+                collision_type: None,
+            },
+            "ASM Lion.asm loc_3E48E/loc_3E642 should add one to `$5A(a5)` without taking the generic shared-walker death route"
+        );
+        assert_eq!(
+            lion_turnaround_loc_3e48e_3e642(0xFF),
+            SharedWalkerTurnaroundLoc3C026 {
+                next_counter: 0,
+                collision_type: None,
+            },
+            "ASM Lion.asm loc_3E48E/loc_3E642 should wrap `$5A(a5)` without the generic walker's `beq` death branch"
         );
     }
 

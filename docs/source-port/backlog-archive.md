@@ -39,6 +39,20 @@ native idle-warp settle roster has not activated them. Next probe: trace
 `Manage_EnemyLoading loc_368A8/loc_3691E` camera-keyed activation during the
 settle window against oracle Object_RAM.
 
+Resolved 2026-07-12. Object_RAM disproved part of the opening diagnosis:
+Level 0x01 already held its Rock Tank body, while the count projection omitted
+the Tank turret and Kid's second GfxObject. Level 0x36 did require a fresh
+`Load_InGame` object/status boundary; retaining the pre-settle Lion carried an
+old wall/cooldown state into the target window. `Lion.asm loc_3DFF0` also keeps
+the `$14/$2F` carrier dimensions in the walking callbacks, `loc_3E48E/loc_3E642`
+preserve `$54(a5)` and increment `$5A(a5)` by one without the generic walker's
+wrap-death branch, and `loc_3E0DA/loc_3E12A` allocate the roar child as
+Object+Gfx. Native now reaches the oracle x=276 Lion centre, retains the Lion
+and its shot through idle tail, and exports exact counts. Cache regression
+pins frame 60 and frame 359. Focused state sweep report `1783891445`: Level
+0x01 and 0x36 both pass settle and idle-tail checkpoints. `verify-slice-fast`
+and the 37,759-frame full TAS gate pass.
+
 ### #391
 
 Opened 2026-07-12 after faithful fire-trail counting exposed the divergence.

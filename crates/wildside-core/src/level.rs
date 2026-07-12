@@ -19390,6 +19390,11 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.pending_dragon_death_children.clear();
         self.pending_dragon_death_animations.clear();
+        // ASM Load_InGame rebuilds EnemyStatus_Table before
+        // Manage_EnemyLoading loc_36840. Native's parallel killed-index set
+        // must reset at the same boundary, or a dead index from the previous
+        // level suppresses an unrelated target entry (Level 0x36 Lion #00).
+        self.killed_enemies.clear();
         self.enemy_status_words.fill(0);
         self.enemy_loading_initial_pass_complete = false;
         self.active_platforms.clear();
@@ -19794,6 +19799,11 @@ impl NativeRuntime {
         self.active_enemies.clear();
         self.pending_dragon_death_children.clear();
         self.pending_dragon_death_animations.clear();
+        // ASM Load_InGame rebuilds EnemyStatus_Table before
+        // Manage_EnemyLoading loc_36840. Native's parallel killed-index set
+        // must reset at the same boundary, or a dead index from the previous
+        // level suppresses an unrelated target entry (Level 0x36 Lion #00).
+        self.killed_enemies.clear();
         self.enemy_status_words.fill(0);
         self.enemy_loading_initial_pass_complete = false;
         self.active_platforms.clear();

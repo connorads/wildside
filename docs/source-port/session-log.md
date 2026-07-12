@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#392 exact recording-settle enemy workers)
+
+- `Load_InGame` now clears the collapsed recording adapter's old object/status
+  state before the target's first `Manage_EnemyLoading loc_368A8/loc_3691E`
+  pass; Level 0x36 no longer inherits a pre-target Lion cooldown.
+- `Lion.asm loc_3DFF0/loc_3E48E/loc_3E642` now keeps the 20x47 carrier,
+  preserves the roar timer on wall/alert exits, and wraps `$5A` without the
+  generic shared-walker death branch. `loc_3E0DA/loc_3E12A` roar shots count as
+  Object+Gfx workers; Kid's second GfxObject is included in the fixed shell.
+- Cache-backed settle/idle regression is green. Focused state report
+  `1783891445` passes Levels 0x01 and 0x36 at every checkpoint; #392 is
+  resolved. `verify-slice-fast` and the 37,759-frame full TAS gate pass.
+- NEXT: run `mise run project-status`; #393 is the remaining open proactive
+  sweep correction.
+
 ## 2026-07-12 handoff (#391 exact Fire Demon trail population)
 
 - `Enemy00_FireDemon_Init loc_3A414` supplies the shared walker `$B` half-width,

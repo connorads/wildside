@@ -7704,6 +7704,33 @@ mod chunk_09 {
     }
 
     #[test]
+    fn recording_settle_loads_in_view_enemies_loc_368a8_3691e() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        for (level, expected_counts) in [(0x01, (4, 6)), (0x36, (5, 6))] {
+            let trace = ScriptRunner::new(manifest.clone())
+                .warp_to_level(level)
+                .settle_recording_warp()
+                .run(&[0; 360], 360);
+            let frame_60 = &trace[60];
+
+            assert_eq!(
+                (frame_60.number_objects, frame_60.number_gfx_objects),
+                expected_counts,
+                "ASM Mode_Level loc_80C -> Manage_EnemyLoading loc_368A8/loc_3691E must allocate every in-view enemy during the settled recording window for Level {level:#04x}",
+            );
+            assert_eq!(
+                (trace[359].number_objects, trace[359].number_gfx_objects),
+                expected_counts,
+                "ASM Lion.asm sub_3E8BA keeps the Level {level:#04x} in-view roster alive at the idle tail: {:?}",
+                trace[359].active_enemy_details,
+            );
+        }
+    }
+
+    #[test]
     fn issue388_pyramids_cloud_wait_resumes_at_next_loc_35bb2_command() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
