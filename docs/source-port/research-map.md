@@ -16,8 +16,9 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints retain the explicit #290 baseline of 57 authoritative export
-diffs and 15 oracle limitations, beginning at `frame_22275/number_objects`.
+state checkpoints retain the explicit #290 baseline of 56 authoritative export
+diffs and 15 oracle limitations, beginning at
+`transition_15_to_00_post_frame_22552/number_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -29,7 +30,17 @@ That is complete per-frame RNG evidence for this route, not whole-state or
 whole-game proof. Reducing #290's authoritative sampled-state baseline remains
 separate fidelity work.
 
-The latest correction models the carried-wrap IntroSequence6 linked lists from
+The latest correction separates the carried-wrap IntroSequence6 Demo 1
+controller count phase from cold Demo 1. Raw Object lists and the native enemy
+roster show that `Mode_Level loc_80C -> Manage_EnemyLoading loc_368A8/loc_3691E`
+already links both later Dragons on the correct passes. The hidden `loc_119D8`
+controller-side sample alone remains one Object pass behind on this lineage.
+Published frames 22274..22296 now reproduce both Object-then-Gfx transitions.
+The full sampled baseline falls 57 -> 56 authoritative differences with 15
+oracle limitations, first at the frame-22552 DemoPlay-to-title transition;
+full-route CRC and complete RNG remain exact.
+
+The previous correction models the carried-wrap IntroSequence6 linked lists from
 raw oracle WRAM. `loc_1BE74` deletes the two short IntroSequence5 particles on
 frame 20890, leaving 4/5 until `Load_IntroSequence6` clears both lists. The new
 shell then follows `sub_1B43A`, `loc_1B5CE`, `loc_1B6AC`,

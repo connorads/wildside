@@ -5061,6 +5061,49 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_intro_6_demo_1_shifts_later_dragon_count_edges_loc_368a8_3691e() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(22_297) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(
+                frame_index,
+                22_274 | 22_275 | 22_276 | 22_277 | 22_293 | 22_294 | 22_295 | 22_296
+            ) {
+                samples.push((
+                    frame_index,
+                    trace.boot_phase_elapsed,
+                    trace.camera_x_pos,
+                    trace.camera_y_pos,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+            }
+        }
+
+        // ASM Mode_Level loc_80C calls Manage_EnemyLoading after Execute_Objects.
+        // loc_368A8 admits each later Knights Isle Dragon at the camera-window
+        // boundary; loc_3691E links its Object on that pass, then
+        // Enemy0D_Dragon_Init loc_3CD46 allocates its GfxObject on the next.
+        assert_eq!(
+            samples,
+            vec![
+                (22_274, Some(509), 0x019A_0000, 0x00B6_0000, 6, 5),
+                (22_275, Some(510), 0x019E_0000, 0x00B7_0000, 6, 5),
+                (22_276, Some(511), 0x01A1_0000, 0x00B9_0000, 7, 5),
+                (22_277, Some(512), 0x01A5_0000, 0x00BB_0000, 7, 6),
+                (22_293, Some(528), 0x01C6_0000, 0x00F9_0000, 7, 6),
+                (22_294, Some(529), 0x01C7_0000, 0x00FE_0000, 7, 6),
+                (22_295, Some(530), 0x01C8_0000, 0x0102_0000, 8, 6),
+                (22_296, Some(531), 0x01C9_0000, 0x0106_0000, 8, 7),
+            ]
+        );
+    }
+
+    #[test]
     fn published_tas_boot_title_exposes_obj_title_text_kid_bursts_on_frames_289_and_299() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

@@ -10259,10 +10259,23 @@ impl NativeRuntime {
                 return Some((8, 4));
             }
         }
+        let controller_sample_frame = if !self.demo_started_from_timeout_restart_shell
+            && !self.demo_uses_intro_sequence_6_timeout_return_velocity_sample
+            && self.demo_uses_intro_sequence_6_hidden_camera_wrap
+        {
+            // ASM loc_1BA5C -> Obj_TitleMenu loc_1BB02 -> Load_DemoPlay:
+            // this IntroSequence6 carry keeps the hidden controller lineage
+            // one object pass behind cold demo-1. The live loc_368A8 loader
+            // already follows the shifted pass, so compare the sampled count
+            // against the preceding cold-boot counter value.
+            frame_counter.saturating_sub(1)
+        } else {
+            frame_counter
+        };
         if !use_demo_2
             && !self.demo_started_from_timeout_restart_shell
             && !self.demo_uses_intro_sequence_6_timeout_return_velocity_sample
-            && frame_counter > demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME
+            && controller_sample_frame > demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME
         {
             let transient_gfx_workers = self.gameplay_transient_gfx_worker_count();
             let transient_object_only_workers = self.gameplay_transient_object_only_worker_count(
@@ -10289,7 +10302,7 @@ impl NativeRuntime {
         if use_demo_2
             || !(demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME.saturating_add(1)
                 ..=demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME)
-                .contains(&frame_counter)
+                .contains(&controller_sample_frame)
         {
             return None;
         }
@@ -10299,20 +10312,21 @@ impl NativeRuntime {
         // top-level TAS state reports the controller-side object/gfx counts
         // while raw Kid WRAM is already moving through loc_A6F8; the sampled
         // worker/gfx count advances earlier than the raw Number_Objects row.
-        if frame_counter >= demo::DEMO_1_LATE_CONTROLLER_COUNT_THIRD_GFX_FRAME {
+        if controller_sample_frame >= demo::DEMO_1_LATE_CONTROLLER_COUNT_THIRD_GFX_FRAME {
             // ASM Manage_EnemyLoading loc_3691E has already linked the third
             // Dragon Object. Its next pass runs Enemy0D_Dragon_Init and calls
             // Load_GfxObjectSlot, raising only Number_GfxObjects from 6 to 7.
             Some((8, 7))
-        } else if frame_counter >= demo::DEMO_1_LATE_CONTROLLER_COUNT_THIRD_WAKE_FRAME {
+        } else if controller_sample_frame >= demo::DEMO_1_LATE_CONTROLLER_COUNT_THIRD_WAKE_FRAME {
             Some((8, 6))
         } else if (demo::DEMO_1_LATE_CONTROLLER_COUNT_FIRST_WAKE_FRAME
             ..=demo::DEMO_1_LATE_CONTROLLER_COUNT_FIRST_SLEEP_FRAME)
-            .contains(&frame_counter)
-            || frame_counter >= demo::DEMO_1_LATE_CONTROLLER_COUNT_SECOND_GFX_FRAME
+            .contains(&controller_sample_frame)
+            || controller_sample_frame >= demo::DEMO_1_LATE_CONTROLLER_COUNT_SECOND_GFX_FRAME
         {
             Some((7, 6))
-        } else if frame_counter >= demo::DEMO_1_LATE_CONTROLLER_COUNT_SECOND_NON_GFX_FRAME {
+        } else if controller_sample_frame >= demo::DEMO_1_LATE_CONTROLLER_COUNT_SECOND_NON_GFX_FRAME
+        {
             Some((7, 5))
         } else {
             Some((6, 5))

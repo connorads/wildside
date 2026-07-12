@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 IntroSequence6 Demo 1 controller count phase)
+
+- Exact oracle comparison around frames 22220..22310 showed four count-edge
+  differences but no player/camera or RNG drift. Raw Object lists and native
+  rosters proved both later Dragons already enter on the correct
+  `loc_368A8/loc_3691E` passes.
+- The carried-wrap IntroSequence6 lineage keeps the hidden `loc_119D8`
+  controller count sample one Object pass behind cold Demo 1. Applying that
+  lineage phase to the existing controller schedule restores 6/5 -> 7/5 ->
+  7/6 and 7/6 -> 8/6 -> 8/7 at the two later Dragon boundaries.
+- Full sampled debt falls 57 -> 56 authoritative differences with 15 oracle
+  limitations; first sampled diff moves to
+  `transition_15_to_00_post_frame_22552/number_objects`. All 37,759 CRC frames
+  and 37,743 complete RNG states remain exact.
+- NEXT: trace the frame-22552 DemoPlay-to-title Object/Gfx carry from raw linked
+  lists before changing the export model.
+
 ## 2026-07-12 handoff (#290 carried-wrap IntroSequence6 roster)
 
 - Raw linked-list WRAM shows `loc_1BE74` deleting the two short particles on
