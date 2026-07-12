@@ -2260,6 +2260,39 @@ mod tests {
     }
 
     #[test]
+    fn fire_demon_trail_child_counts_as_object_and_gfx_worker_loc_3a63c() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0x40);
+        let baseline = runtime.object_counts_from_roster(&[], 0, 0);
+        runtime
+            .fire_demon_trails
+            .extend((0u32..2).map(|index| FireDemonTrailChild {
+                x_pos: 0x0100_0000 + (index << 16),
+                y_pos: 0x0200_0000,
+                remaining_frames: 0x96,
+            }));
+
+        assert_eq!(
+            runtime.gameplay_transient_gfx_worker_count(),
+            2,
+            "ASM Fire_Demon.asm loc_3A564 allocates each fire trail through j_Allocate_ObjectSlot and loc_3A63C loads its GfxObject slot; each burning trail is one transient object/gfx worker",
+        );
+        assert_eq!(
+            runtime.object_counts_from_roster(&[], 0, 0),
+            (baseline.0 + 2, baseline.1 + 2),
+            "ASM Fire_Demon.asm loc_3A63C gives every trail an Object+Gfx pair, so live trails raise Number_Objects and Number_GfxObjects together",
+        );
+
+        runtime.fire_demon_trails.clear();
+        assert_eq!(
+            runtime.object_counts_from_roster(&[], 0, 0),
+            baseline,
+            "ASM Fire_Demon.asm loc_3A6CA expires the trail timer and loc_3A6DA deletes the pair, releasing both slots",
+        );
+    }
+
+    #[test]
     fn trace_exposes_boss_eye_orbit_satellites_sub_393c8_39420() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -11708,6 +11741,13 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::CloudLightning)
             .count();
+        // ASM Fire_Demon.asm loc_3A564 allocates each fire-trail child through
+        // j_Allocate_ObjectSlot while Number_of_Fire_Trails < 7, and the child
+        // init loc_3A63C loads a GfxObject slot, so every burning trail owns
+        // an Object+Gfx pair until the loc_3A6CA wait loop expires its timer
+        // or loses floor support and loc_3A6DA deletes it. Native keeps the
+        // children in `fire_demon_trails`, outside the active-object roster.
+        let fire_demon_trail_workers = self.fire_demon_trails.len();
         let dragon_walking_breath_workers = self
             .active_enemies
             .iter()
@@ -11808,6 +11848,7 @@ impl NativeRuntime {
             + archer_arrow_workers
             + ufo_beam_workers
             + cloud_lightning_workers
+            + fire_demon_trail_workers
             + dragon_walking_breath_workers
             + waiting_shishkaboss_skewer_workers
             + boss_projectile_gfx_workers) as u16
