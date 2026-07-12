@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 later Demo 2 velocity trace)
+
+- Exact frames 29405..29431 exposed a native-only `$00060000` Kid y velocity,
+  not an oracle limitation.
+- ASM `Obj_TitleMenu loc_1BB02 -> Load_DemoPlay` changes mode, selects Demo 2,
+  allocates the controller, and enters `Load_InGame`; it never writes Kid's
+  velocity. The synthetic sample now remains limited to the distinct cold
+  timeout-return Demo 1 lineage.
+- Frames 29380..29450 are 70/70 exact. Full CRC, complete RNG, and all 1,512
+  sampled state checkpoints now have zero classified differences.
+- NEXT: audit the exact frame-27857 IntroSequence5 Object-count edge. One
+  replay-matched route is not whole-game proof.
+
 ## 2026-07-12 handoff (#290 intro movement trace)
 
 - Exact frames 27640..27870 exposed 26 native-only `Character_Movement=2`

@@ -3915,10 +3915,11 @@ mod tests {
     }
 
     #[test]
-    fn trace_frame_later_intro_6_velocity_sample_requires_second_recording_preload() {
+    fn trace_frame_intro_6_velocity_sample_requires_timeout_return_lineage() {
         fn y_velocity_at(
             use_demo_2: bool,
             uses_later_intro_6_preload: bool,
+            uses_timeout_return_velocity_sample: bool,
             frame_counter: u16,
         ) -> Option<i32> {
             let mut runtime = NativeRuntime::new(minimal_manifest());
@@ -3929,6 +3930,8 @@ mod tests {
             };
             runtime.demo_uses_intro_sequence_6_later_demo_2_preload_row =
                 uses_later_intro_6_preload;
+            runtime.demo_uses_intro_sequence_6_timeout_return_velocity_sample =
+                uses_timeout_return_velocity_sample;
             let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
                 width_pixels: 320,
                 height_pixels: 224,
@@ -3940,9 +3943,10 @@ mod tests {
         }
 
         // ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay carries `$60000` only
-        // for the later IntroSequence6 second-recording preload window.
+        // for the cold IntroSequence6 timeout-return first-recording window.
         assert_eq!(
             y_velocity_at(
+                false,
                 true,
                 true,
                 demo::DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME
@@ -3951,6 +3955,7 @@ mod tests {
         );
         assert_eq!(
             y_velocity_at(
+                false,
                 true,
                 true,
                 demo::DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME + 1
@@ -3959,6 +3964,7 @@ mod tests {
         );
         assert_eq!(
             y_velocity_at(
+                true,
                 true,
                 false,
                 demo::DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME
@@ -3969,6 +3975,7 @@ mod tests {
             y_velocity_at(
                 false,
                 true,
+                false,
                 demo::DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME
             ),
             Some(0)
@@ -7880,9 +7887,9 @@ impl NativeRuntime {
                 // gravity; oracle WRAM velocity remains at the object field.
                 self.death_preserved_object_velocity
                     .map_or(0, |(_, y_velocity)| y_velocity)
-            } else if self.intro_sequence_6_start_velocity_sample_active() {
+            } else if self.intro_sequence_6_timeout_return_velocity_sample_active() {
                 // ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay (kid.asm:30399,
-                // 23585) reaches the later IntroSequence6 shell with the
+                // 23585) reaches the cold timeout-return IntroSequence6 shell with the
                 // previous controller-side sample still exposed through
                 // the hidden Load_InGame bootstrap.
                 // Raw Kid WRAM is still the title-pose object here; only
@@ -10209,15 +10216,15 @@ impl NativeRuntime {
         }
     }
 
-    fn intro_sequence_6_start_velocity_sample_active(&self) -> bool {
+    fn intro_sequence_6_timeout_return_velocity_sample_active(&self) -> bool {
         self.demo_startup_frame()
             .zip(self.demo_uses_second_recording())
             .is_some_and(|(frame_counter, use_demo_2)| {
                 self.demo_uses_intro_sequence_6_later_demo_2_preload_row
+                    && self.demo_uses_intro_sequence_6_timeout_return_velocity_sample
                     && frame_counter
                         <= demo::DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME
-                    && (use_demo_2
-                        || self.demo_uses_intro_sequence_6_timeout_return_velocity_sample)
+                    && !use_demo_2
             })
     }
 

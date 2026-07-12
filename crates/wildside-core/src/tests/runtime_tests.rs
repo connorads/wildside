@@ -6316,18 +6316,18 @@ mod chunk_09 {
                 Some(0),
                 Some(TITLE_KID_X_POS),
                 Some(TITLE_KID_Y_POS),
-                Some(0x0006_0000),
+                Some(0),
             )),
-            "ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay should make frame 29405 the first later-lineage demo-play frame while preserving the oracle controller-side y velocity sample",
+            "ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay should make frame 29405 the first later-lineage demo-play frame without synthesising a Kid velocity write",
         );
         assert_eq!(
             frame_29431,
             Some((
                 GameMode::DemoPlay,
                 Some(demo::DEMO_2_INTRO_SEQUENCE_6_LATER_CONTROLLER_SAMPLE_END_FRAME as usize),
-                Some(0x0006_0000),
+                Some(0),
             )),
-            "frame 29431 should be the last later IntroSequence6 demo-2 controller-side y velocity sample",
+            "frame 29431 should keep the oracle Kid y velocity inert throughout the later IntroSequence6 demo-2 controller window",
         );
         assert_eq!(
             frame_29432,

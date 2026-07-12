@@ -15,9 +15,8 @@ The live TAS frontier is closed:
 - TAS-frontier history is tracked in the backlog and the `verify-tas-frontier` gate (the per-frame ledger was retired); `mise run verify-tas-full` re-checks the published route
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
-full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints are authoritative-clean and retain 1 classified oracle
-limitations.
+full replay compared all 37,759 requested player/camera CRC frames, and its 1,512
+state checkpoints have zero classified differences.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -28,7 +27,14 @@ of the remaining 37,743 frames. Every compared frame now matches exactly.
 That is complete per-frame RNG and authoritative sampled-state evidence for
 this route, not whole-state or whole-game proof.
 
-The latest correction keeps `Character_Movement` inert for IntroSequence3/4/5
+The latest correction removes a synthetic `$00060000` Kid y-velocity sample
+from the later IntroSequence6 Demo 2 hand-off. ASM `Obj_TitleMenu loc_1BB02 ->
+Load_DemoPlay` changes mode, selects the recording, allocates the controller,
+and enters `Load_InGame`; it does not write Kid's velocity. Exact frames
+29380..29450 are 70/70 clean. The full sampled baseline now has zero classified
+differences.
+
+The previous correction keeps `Character_Movement` inert for IntroSequence3/4/5
 presentation rosters. Their `Load_IntroSequence*` paths allocate Objects and
 GfxObjects but never enter Kid's `loc_75D4` movement routine. Exact frames
 27640..27870 improve 203/230 -> 229/230; the remaining frame-27857 Object-count
