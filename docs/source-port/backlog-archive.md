@@ -1746,6 +1746,19 @@ to the separate IntroSequence5 loader at frame 9949. Full sampled debt falls
 first sampled diff to `frame_9950/number_objects`; all 37,759 CRC frames and
 37,743 complete RNG states remain exact.
 
+Follow-up 2026-07-12 for #290: raw oracle WRAM and per-frame comparison now
+cover IntroSequence5 through its direct title rebuild. `Load_IntroSequence5`
+allocates `loc_1BA28` and `loc_1BCD0` on frame 10006; the next object pass adds
+IntroText5's `loc_1C7A0`, `loc_1BC36`, and five direct GfxObjects. `loc_1C7B6`
+deletes IntroText5 on frame 10261. After Start, `sub_1C246 -> loc_1C264`
+carries the remaining 3/5 linked lists through title frame 10321; `loc_6E2`
+clears both on 10322, then `Load_TitleScreen -> Obj_TitleMenu` rebuilds 3/0,
+5/1, 5/2, and 4/2 across frames 10344..10347. Frames 9949..10360 match at
+every compared state, CRC, and complete RNG checkpoint. Full sampled debt falls
+352 -> 238 authoritative differences with 9 oracle limitations, moving the
+first sampled diff to `frame_13750/number_objects`; all 37,759 CRC frames and
+37,743 complete RNG states remain exact.
+
 Live play-native note 2026-06-11 with all pushed changes: keep the following as
 current acceptance failures even where recent focused probes or fixed-candidate
 rows are green. #288 intro still shows Kid/jacket below the prize block before

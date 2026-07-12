@@ -4627,6 +4627,15 @@ mod tests {
     }
 
     #[test]
+    fn introtext5_counted_lifetime_reaches_ff_loc_1c7b6_after_254_traces() {
+        assert_eq!(
+            intro_text_worker_counted_frames_loc_1c7a0(4),
+            Some(254),
+            "ASM IntroText5 has one allocation trace, one initial loc_1C7AE hibernate, `$20`/`$60` pauses, and 62 glyphs at two frames each before loc_1C7B6 dispatches `$FF`",
+        );
+    }
+
+    #[test]
     fn intro_sequence_text_worker_honours_second_fe_delay_before_third_line() {
         let data = empty_intro_data();
         let first_line = b"THERE WAS A NEW MACHINE";

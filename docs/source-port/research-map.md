@@ -16,8 +16,8 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints retain the explicit #290 baseline of 352 authoritative export
-diffs and 7 oracle limitations, beginning at `frame_9950/number_objects`.
+state checkpoints retain the explicit #290 baseline of 238 authoritative export
+diffs and 9 oracle limitations, beginning at `frame_13750/number_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -82,6 +82,18 @@ on the free list and drops `Number_Objects` from 2 to 1. The exact per-frame
 frontier advances to IntroSequence5 frame 9949. Full sampled debt falls 392 ->
 352 authoritative differences with 7 oracle limitations, first at
 `frame_9950/number_objects`; CRC and complete RNG remain exact.
+
+The next correction models IntroSequence5's complete early linked-list and
+title-return schedule. `Load_IntroSequence5` allocates `loc_1BA28` and
+`loc_1BCD0`; the following object pass adds IntroText5's `loc_1C7A0`, the
+`loc_1BC36` tile worker, and five direct GfxObjects. IntroText5 deletes at
+`loc_1C7B6` on frame 10261. `sub_1C246 -> loc_1C264` carries the remaining
+3/5 lists into title through frame 10321, `loc_6E2` clears both lists on 10322,
+and `Load_TitleScreen -> Obj_TitleMenu` rebuilds 3/0, 5/1, 5/2, then 4/2 on
+frames 10344..10347. Frames 9949..10360 are exact at every compared state,
+CRC, and RNG checkpoint. Full sampled debt falls 352 -> 238 authoritative
+differences with 9 oracle limitations, first at `frame_13750/number_objects`;
+CRC and complete RNG remain exact.
 
 The latest correction separates IntroSequence2's title-return scheduler from
 IntroSequence4. ASM `loc_1B9D0 -> loc_1BA02` performs its two `sub_1C1A2`

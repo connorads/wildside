@@ -4154,11 +4154,12 @@ mod tests {
             (frame.number_objects, frame.number_gfx_objects)
         }
 
-        // ASM loc_1BCD0 -> loc_1BE3C only adds the three title-particle workers
-        // at the late Start-skip timeout-restart threshold.
+        // ASM loc_1BCD0 keeps its five direct GfxObjects linked until the late
+        // loc_1BE3C Start-skip threshold replaces that roster with the three
+        // title-particle Objects and their enclosing workers.
         let particle_count_frame =
             DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME;
-        assert_eq!(counts_at(particle_count_frame - 1), (3, 0));
+        assert_eq!(counts_at(particle_count_frame - 1), (3, 5));
         assert_eq!(counts_at(particle_count_frame), (6, 0));
     }
 
@@ -4678,7 +4679,7 @@ mod tests {
     }
 
     #[test]
-    fn trace_frame_intro_5_title_return_counts_expire_after_pose_carry_window() {
+    fn trace_frame_intro_5_title_return_counts_expire_at_loc_6e2_clear() {
         fn counts_at(title_screen_elapsed_frames: usize) -> (u16, u16) {
             let mut runtime = NativeRuntime::new(minimal_manifest());
             runtime.boot_state = BootState::TitleScreen { cursor: 0 };
@@ -4690,15 +4691,46 @@ mod tests {
         }
 
         // ASM sub_1C246 -> loc_1C264 leaves the loc_1BA28/loc_1BCD0 shell
-        // counted only while the carried intro-sequence-5 pose remains live.
+        // linked after the carried pose is overwritten. loc_6E2 clears the
+        // three Objects and five GfxObjects together four frames later.
         assert_eq!(
             counts_at(TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES - 1),
-            (3, 0)
+            (3, 5)
+        );
+        assert_eq!(
+            counts_at(TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES),
+            (3, 5)
+        );
+        assert_eq!(
+            counts_at(TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_COUNT_CARRY_FRAMES - 1),
+            (3, 5)
         );
         assert_ne!(
-            counts_at(TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES),
-            (3, 0)
+            counts_at(TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_COUNT_CARRY_FRAMES),
+            (3, 5)
         );
+    }
+
+    #[test]
+    fn trace_frame_intro_5_title_return_rebuild_follows_load_title_screen_passes() {
+        fn counts_at(title_screen_elapsed_frames: usize) -> (u16, u16) {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+            runtime.title_screen_intro_return_lineage =
+                Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence5);
+            runtime.title_screen_elapsed_frames = title_screen_elapsed_frames;
+
+            let frame = runtime.trace_frame();
+            (frame.number_objects, frame.number_gfx_objects)
+        }
+
+        // ASM Load_TitleScreen -> Obj_TitleMenu -> loc_1BB10/loc_1C7A0:
+        // allocation is visible one outer loc_E12 object pass at a time.
+        assert_eq!(counts_at(54), (3, 0));
+        assert_eq!(counts_at(55), (5, 1));
+        assert_eq!(counts_at(56), (5, 2));
+        assert_eq!(counts_at(57), (4, 2));
+        assert_eq!(counts_at(58), (4, 2));
     }
 
     #[test]
@@ -7129,6 +7161,32 @@ impl NativeRuntime {
         }
     }
 
+    fn timeout_restart_intro_5_title_return_object_counts(&self) -> Option<(u16, u16)> {
+        if !matches!(self.boot_state, BootState::TitleScreen { .. })
+            || !matches!(
+                self.title_screen_intro_return_lineage,
+                Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence5)
+            )
+            || self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay
+        {
+            return None;
+        }
+
+        // ASM Load_TitleScreen allocates Obj_TitleMenu, Obj_TitleTextKid, and
+        // Obj_TitleTextChameleon in one pass. On the next loc_E12 pass,
+        // Obj_TitleMenu allocates loc_1BB10 and loc_1C7A0; the two new
+        // GfxObjects then join over the following two passes. Published TAS
+        // oracle WRAM exposes this lineage two frames before the generic
+        // title-return schedule.
+        match self.title_screen_elapsed_frames {
+            54 => Some((3, 0)),
+            55 => Some((5, 1)),
+            56 => Some((5, 2)),
+            57..=58 => Some((4, 2)),
+            _ => None,
+        }
+    }
+
     fn title_uses_timeout_restart_intro_sequence_3_pose(&self) -> bool {
         matches!(self.boot_state, BootState::TitleScreen { .. })
             && self.timeout_restart_title_intro_sequence_3_pose
@@ -7153,7 +7211,7 @@ impl NativeRuntime {
         let carry_frames = if self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry {
             INTRO_SEQUENCE_6_START_SKIP_TITLE_INTRO_SEQUENCE_5_COUNT_CARRY_FRAMES
         } else {
-            TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES
+            TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_COUNT_CARRY_FRAMES
         };
         matches!(self.boot_state, BootState::TitleScreen { .. })
             && self.timeout_restart_title_intro_sequence_5_pose
@@ -10732,6 +10790,26 @@ impl NativeRuntime {
                 .demo_auto_timeout_intro_sequence_5_frames_override
                 .is_some()
         {
+            if elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_5_CAMERA_CARRY_FRAMES {
+                // ASM loc_1B9B6 -> loc_6E2 switches Game_Mode to `$24`, but
+                // the old sub_1B988 controller survives until the loader wipe.
+                return (1, 0);
+            }
+            let visible_elapsed = TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES;
+            if elapsed + 1 < visible_elapsed {
+                // ASM loc_6E2 has cleared the carried controller while
+                // Load_IntroSequence5 is still inside its hibernating loader.
+                return (0, 0);
+            }
+            if elapsed + 1 == visible_elapsed {
+                // ASM Load_IntroSequence5 (kid.asm:29324-29363) has allocated
+                // loc_1BA28 and loc_1BCD0, but neither has run yet.
+                return (2, 0);
+            }
+            let intro_text_is_live = crate::vdp::intro_text_worker_counted_frames_loc_1c7a0(4)
+                .is_some_and(|counted_frames| {
+                    elapsed < visible_elapsed.saturating_add(counted_frames)
+                });
             if elapsed >= DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME {
                 // ASM loc_1BCD0 -> loc_1BE3C (kid.asm:30567,30667) keeps the
                 // three title-particle gfx workers from the unk_1BE18 /
@@ -10740,12 +10818,11 @@ impl NativeRuntime {
                 // loc_1BA5C switches to Game_Mode=$28.
                 return (6, 0);
             }
-            // ASM Load_IntroSequence5 -> loc_1BA28/loc_1BCD0
-            // (kid.asm:29324,30316,30567): the timeout-restart copy keeps the
-            // controller, loc_1BC36 tile worker, and loc_1BCD0 gfx-slot worker
-            // counted while the fixed verifier still reads the stale slot-2
-            // pose. Native does not model these workers as roster entries.
-            return (3, 0);
+            // ASM loc_1BA28 allocates loc_1C7A0 and loc_1BC36; loc_1BCD0
+            // allocates five direct GfxObjects and then hibernates. IntroText5
+            // deletes itself at `$FF`, leaving the controller, tile worker, and
+            // loc_1BCD0 Object with all five GfxObjects still linked.
+            return (3 + u16::from(intro_text_is_live), 5);
         }
         if let Some((frame_counter, use_demo_2)) = self
             .demo_startup_frame()
@@ -10891,9 +10968,18 @@ impl NativeRuntime {
             } else {
                 3
             };
-            return (count_visible, 0);
+            // ASM loc_1BCD0's five direct GfxObjects remain linked on the
+            // timeout-restart path until loc_6E2 clears both lists. Preserve
+            // the separately probed cold Start-skip lineage until its Gfx
+            // roster is derived from oracle WRAM.
+            let gfx_count_visible =
+                u16::from(!self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry) * 5;
+            return (count_visible, gfx_count_visible);
         }
         if let Some(counts) = self.timeout_restart_intro_3_title_return_object_counts() {
+            return counts;
+        }
+        if let Some(counts) = self.timeout_restart_intro_5_title_return_object_counts() {
             return counts;
         }
         if let Some(counts) = self.demo_title_return_hidden_object_counts() {

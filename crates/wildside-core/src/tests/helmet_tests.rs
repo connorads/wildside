@@ -7884,6 +7884,48 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_intro_sequence_5_loader_counts_loc_1ba28_1bcd0() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut frames = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(10_262) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(
+                frame_index,
+                9_949 | 9_979 | 9_980 | 10_005 | 10_006 | 10_007 | 10_260 | 10_261
+            ) {
+                frames.push((
+                    frame_index,
+                    trace.game_mode,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+            }
+        }
+
+        // ASM Load_IntroSequence5 allocates loc_1BA28 and loc_1BCD0 after the
+        // carried sub_1B988 slot clears. loc_1BA28 then allocates IntroText5's
+        // loc_1C7A0 Object and the loc_1BC36 tile worker, while loc_1BCD0
+        // allocates five GfxObjects. Oracle WRAM confirms the exact linked-list
+        // transitions, including IntroText5's `$FF` deletion at frame 10261.
+        assert_eq!(
+            frames,
+            vec![
+                (9_949, GameMode::IntroSequence5, 1, 0),
+                (9_979, GameMode::IntroSequence5, 1, 0),
+                (9_980, GameMode::IntroSequence5, 0, 0),
+                (10_005, GameMode::IntroSequence5, 0, 0),
+                (10_006, GameMode::IntroSequence5, 2, 0),
+                (10_007, GameMode::IntroSequence5, 4, 5),
+                (10_260, GameMode::IntroSequence5, 4, 5),
+                (10_261, GameMode::IntroSequence5, 3, 5),
+            ]
+        );
+    }
+
+    #[test]
     fn published_tas_second_timeout_restart_clears_intro_sequence_5_camera_on_frame_9980() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
@@ -8060,6 +8102,9 @@ mod chunk_08 {
         let mut frame_10290 = None;
         let mut frame_10317 = None;
         let mut frame_10318 = None;
+        let mut frame_10321 = None;
+        let mut frame_10322 = None;
+        let mut title_rebuild_counts = Vec::new();
         let mut frame_10437 = None;
         let mut frame_10438 = None;
 
@@ -8100,6 +8145,19 @@ mod chunk_08 {
                 10_318 => {
                     frame_10318 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
                 }
+                10_321 => {
+                    frame_10321 = Some((trace.number_objects, trace.number_gfx_objects));
+                }
+                10_322 => {
+                    frame_10322 = Some((trace.number_objects, trace.number_gfx_objects));
+                }
+                10_344..=10_349 => {
+                    title_rebuild_counts.push((
+                        frame_index,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
                 10_437 => {
                     frame_10437 = Some((trace.game_mode, trace.kid_x_pos, trace.kid_y_pos));
                 }
@@ -8121,7 +8179,9 @@ mod chunk_08 {
         // slots. Oracle probes show the published TAS presses Start (`mask=0x80`)
         // on frame 10288, stays in intro sequence 5 through 10289, carries the
         // loc_1BCD0 slot-2 pose through title frame 10317, blanks Kid on 10318,
-        // then restores the standard title pose on 10438.
+        // keeps loc_1BCD0's five linked GfxObjects through 10321, then loc_6E2
+        // clears both lists on 10322 before the standard title pose returns on
+        // 10438.
         assert_eq!(
             frame_10288,
             Some((
@@ -8130,7 +8190,7 @@ mod chunk_08 {
                 Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
                 Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
                 3,
-                0,
+                5,
             )),
             "frame 10288 should be the published TAS Start press that arms the intro-sequence-5 title return",
         );
@@ -8141,7 +8201,7 @@ mod chunk_08 {
                 Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
                 Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
                 3,
-                0,
+                5,
             )),
             "ASM loc_1BA28/loc_1BCD0 should keep the stale three-object shell visible while frame 10289 remains in intro sequence 5 during the shared 2-frame Start deferral",
         );
@@ -8152,7 +8212,7 @@ mod chunk_08 {
                 Some(INTRO_SEQUENCE_5_SLOT_2_X_POS),
                 Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
                 3,
-                0,
+                5,
             )),
             "frame 10290 should enter title mode without discarding loc_1BCD0's slot-2 pose or stale intro shell count",
         );
@@ -8169,6 +8229,28 @@ mod chunk_08 {
             frame_10318,
             Some((GameMode::TitleScreen, None, None)),
             "the title rebuild should blank Kid on the frame after the carried slot-2 pose clears",
+        );
+        assert_eq!(
+            frame_10321,
+            Some((3, 5)),
+            "loc_1BCD0's five linked GfxObjects should remain count-visible through the last pre-loc_6E2 title frame",
+        );
+        assert_eq!(
+            frame_10322,
+            Some((0, 0)),
+            "ASM loc_6E2 should clear the stale Object and GfxObject lists together",
+        );
+        assert_eq!(
+            title_rebuild_counts,
+            vec![
+                (10_344, 3, 0),
+                (10_345, 5, 1),
+                (10_346, 5, 2),
+                (10_347, 4, 2),
+                (10_348, 4, 2),
+                (10_349, 4, 2),
+            ],
+            "ASM Load_TitleScreen should allocate its three shell Objects before Obj_TitleMenu adds loc_1BB10 and loc_1C7A0 on the next object pass",
         );
         assert_eq!(
             frame_10437,

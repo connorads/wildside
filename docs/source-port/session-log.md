@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 IntroSequence5 linked-list schedule)
+
+- Oracle WRAM proves `Load_IntroSequence5` exposes two controller Objects on
+  frame 10006. The next pass adds IntroText5, `loc_1BC36`, and five direct
+  `loc_1BCD0` GfxObjects; `loc_1C7B6` deletes the text Object on frame 10261.
+- `sub_1C246 -> loc_1C264` carries the remaining 3/5 lists into title through
+  frame 10321. `loc_6E2` clears both lists on 10322, then `Load_TitleScreen ->
+  Obj_TitleMenu` rebuilds 3/0, 5/1, 5/2, and 4/2 on frames 10344..10347.
+- Frames 9949..10360 match every compared state, CRC, and complete RNG
+  checkpoint. Full sampled debt falls 352 -> 238 authoritative differences
+  with 9 oracle limitations; first sampled diff is
+  `frame_13750/number_objects`. All 37,759 CRC frames and all 37,743 complete
+  post-`Init_RNG` states remain exact.
+- NEXT: trace demo-play frame 13750's 4/4 native versus 8/7 oracle roster from
+  `Load_DemoPlay`, enemy allocation, and transient child lifecycles.
+
 ## 2026-07-12 handoff (#290 IntroText4 Object deletion)
 
 - Raw oracle WRAM frame 9689 links Object `$FFFF0E14` at `loc_1C7B2` ahead of

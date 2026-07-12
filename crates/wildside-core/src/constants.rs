@@ -479,6 +479,10 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_DEMO_HANDOFF_EXTRA_FRAME
 // loc_1BCD0 slot-2 pose survives into title mode until the later title rebuild
 // overwrites that WRAM slot 28 frames later.
 pub(crate) const TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES: usize = 28;
+// ASM sub_1C246 -> loc_1C264 changes mode without unlinking loc_1BCD0's five
+// GfxObjects. Oracle WRAM keeps the stale three-Object/five-GfxObject lists
+// through title-local frame 31; loc_6E2 clears both lists on frame 32.
+pub(crate) const TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_COUNT_CARRY_FRAMES: usize = 32;
 // After the carried intro-sequence-5 slot-2 pose clears, oracle keeps title
 // slot 2 blank through frame 10437 and only restores the standard title pose
 // on 10438.
