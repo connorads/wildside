@@ -1733,6 +1733,19 @@ falls 439 -> 392 authoritative differences with 7 oracle limitations, moving
 the first authoritative diff to `frame_9700/number_objects`; all 37,759 CRC
 frames and 37,743 complete RNG states remain exact.
 
+Follow-up 2026-07-12 for #290: raw oracle WRAM frame 9689 links Object
+`$FFFF0E14` at resume PC `loc_1C7B2` ahead of the `sub_1B988` controller;
+frame 9690 puts that slot on the free list and drops `Number_Objects` 2 -> 1.
+This is IntroText4 reaching the `$FF` branch in `loc_1C7B6`. Native now derives
+the counted `loc_1C7A0` lifetime from the real script bytes: one allocation
+trace, the initial hibernate, each `$FE` duration, and each header-sized glyph
+delay; `$FD` consumes no frame and `$FF` deletes immediately. IntroText4 is
+therefore counted for exactly 298 traces. The exact per-frame frontier advances
+to the separate IntroSequence5 loader at frame 9949. Full sampled debt falls
+392 -> 352 authoritative differences with 7 oracle limitations, moving the
+first sampled diff to `frame_9950/number_objects`; all 37,759 CRC frames and
+37,743 complete RNG states remain exact.
+
 Live play-native note 2026-06-11 with all pushed changes: keep the following as
 current acceptance failures even where recent focused probes or fixed-candidate
 rows are green. #288 intro still shows Kid/jacket below the prize block before

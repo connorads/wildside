@@ -1564,6 +1564,34 @@ fn intro_text_script_loc_1c7a0(segment: usize) -> Option<IntroTextScriptLoc1C7A0
     }
 }
 
+pub(crate) fn intro_text_worker_counted_frames_loc_1c7a0(segment: usize) -> Option<usize> {
+    let script = intro_text_script_loc_1c7a0(segment)?;
+    // ASM loc_1C7A0 -> loc_1C7AE/loc_1C7B6 (kid.asm:31404-31423): the newly
+    // allocated Object is visible in the allocation-frame trace, then spends
+    // one initial hibernate, each `$FE` duration, and each header-sized glyph
+    // delay alive. `$FD` line breaks consume no frame; `$FF` deletes the Object
+    // in the same pass that dispatches the terminator.
+    let mut hibernate_frames = 1usize;
+    let mut byte_index = 0usize;
+    while let Some(&byte) = script.text_bytes.get(byte_index) {
+        byte_index += 1;
+        match byte {
+            0xFF => return Some(hibernate_frames.saturating_add(1)),
+            0xFD => {}
+            0xFE => {
+                let duration = *script.text_bytes.get(byte_index)?;
+                byte_index += 1;
+                hibernate_frames = hibernate_frames.saturating_add(usize::from(duration));
+            }
+            _ => {
+                hibernate_frames =
+                    hibernate_frames.saturating_add(usize::from(script.delay_frames));
+            }
+        }
+    }
+    None
+}
+
 fn title_sega_text_script_loc_1c7a0() -> IntroTextScriptLoc1C7A0 {
     // ASM SegaText (kid.asm:31398): header `(0,$67D3,0,$19,$19)` followed by
     // the copyright glyph pair, `1992 SEGA`, and `$FF`.
@@ -4586,6 +4614,15 @@ mod tests {
             vram_word(&after, 0x0110),
             0x67E6,
             "ASM sub_1C7F6 should write IntroText1's first `T` tile only once loc_1C7A0 reaches the glyph path",
+        );
+    }
+
+    #[test]
+    fn introtext4_counted_lifetime_reaches_ff_loc_1c7b6_after_298_traces() {
+        assert_eq!(
+            intro_text_worker_counted_frames_loc_1c7a0(3),
+            Some(298),
+            "ASM IntroText4 has one allocation trace, one initial loc_1C7AE hibernate, `$20`/`$40` pauses, and 100 glyphs at two frames each before loc_1C7B6 dispatches `$FF`",
         );
     }
 

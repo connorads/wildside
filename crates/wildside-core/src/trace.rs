@@ -10671,9 +10671,17 @@ impl NativeRuntime {
                 return (1, 0);
             }
             if elapsed >= TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES {
-                // ASM sub_1B988 owns the scene after writing Camera_Y_pos=4,
-                // exposing the controller plus intro-text worker counts.
-                return (2, 0);
+                // ASM sub_1B988 owns the scene after writing Camera_Y_pos=4.
+                // Its loc_1C7A0 IntroText4 child remains counted only through
+                // the script's final hibernate; loc_1C7B6 deletes that Object
+                // as soon as it dispatches the `$FF` terminator.
+                let text_worker_is_live = crate::vdp::intro_text_worker_counted_frames_loc_1c7a0(3)
+                    .is_some_and(|counted_frames| {
+                        elapsed
+                            < TIMEOUT_RESTART_INTRO_SEQUENCE_4_CAMERA_HANDOFF_FRAMES
+                                .saturating_add(counted_frames)
+                    });
+                return (1 + u16::from(text_worker_is_live), 0);
             }
         }
         if let BootState::IntroSequence {

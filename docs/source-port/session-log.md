@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 IntroText4 Object deletion)
+
+- Raw oracle WRAM frame 9689 links Object `$FFFF0E14` at `loc_1C7B2` ahead of
+  the `sub_1B988` controller. Frame 9690 puts that text slot on the free list
+  and drops `Number_Objects` from 2 to 1.
+- Native now derives `loc_1C7A0` worker lifetime from the selected intro-text
+  script: allocation trace, initial hibernate, `$FE` pauses, and per-glyph
+  delay, with `$FD` taking no frame and `$FF` deleting immediately. IntroText4
+  is counted for exactly 298 traces.
+- The exact per-frame frontier advances from frame 9690 to the separate
+  IntroSequence5 loader at frame 9949. Full sampled debt falls 392 -> 352
+  authoritative differences with 7 oracle limitations; first sampled diff is
+  `frame_9950/number_objects`. All 37,759 CRC frames and all 37,743 complete
+  post-`Init_RNG` states remain exact.
+- NEXT: trace `Load_IntroSequence5 -> loc_1BA28/loc_1BCD0` Object/GfxObject
+  allocation and deletion boundaries from frames 9949..10007.
+
 ## 2026-07-12 handoff (#290 IntroSequence3 rotating roster counts)
 
 - ASM `Load_IntroSequence3 -> loc_1AEBA` selects one `unk_1AF78` roster and

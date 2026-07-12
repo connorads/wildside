@@ -7741,6 +7741,53 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_tas_introtext4_deletes_its_object_at_ff_loc_1c7b6() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut frame_9689 = None;
+        let mut frame_9690 = None;
+        let mut frame_9691 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(9_692) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                9_689 => {
+                    frame_9689 = Some((
+                        trace.game_mode,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
+                9_690 => {
+                    frame_9690 = Some((
+                        trace.game_mode,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                }
+                9_691 => {
+                    frame_9691 = Some((
+                        trace.game_mode,
+                        trace.number_objects,
+                        trace.number_gfx_objects,
+                    ));
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        // ASM loc_1C7A0/loc_1C7B6 dispatches IntroText4 until `$FF`, then
+        // jumps to Delete_CurrentObject. Oracle WRAM frame 9689 has the text
+        // slot `$FFFF0E14` at loc_1C7B2 ahead of sub_1B988; frame 9690 puts it
+        // on the free list and leaves only the controller counted.
+        assert_eq!(frame_9689, Some((GameMode::IntroSequence4, 2, 0)));
+        assert_eq!(frame_9690, Some((GameMode::IntroSequence4, 1, 0)));
+        assert_eq!(frame_9691, Some((GameMode::IntroSequence4, 1, 0)));
+    }
+
+    #[test]
     fn published_tas_second_timeout_restart_keeps_intro_sequence_4_alive_on_frame_9895() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

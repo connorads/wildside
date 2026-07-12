@@ -16,8 +16,8 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints retain the explicit #290 baseline of 392 authoritative export
-diffs and 7 oracle limitations, beginning at `frame_9700/number_objects`.
+state checkpoints retain the explicit #290 baseline of 352 authoritative export
+diffs and 7 oracle limitations, beginning at `frame_9950/number_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -71,6 +71,17 @@ roster remains counted through elapsed 30 and clears at 31. Frames 9080..9395
 are exact at all 315 per-frame CRC, RNG, and state checkpoints. Full sampled
 debt falls 439 -> 392 authoritative differences with 7 oracle limitations;
 the first authoritative difference moves to `frame_9700/number_objects`.
+
+The next correction models the finite `loc_1C7A0` text-Object lifetime from
+the same script data used by the VDP replay. The worker is counted for its
+allocation trace, initial hibernate, every `$FE` pause, and every per-glyph
+header delay; `$FD` line breaks consume no frame and `$FF` deletes immediately.
+IntroText4 therefore remains live for 298 traces. Oracle WRAM frame 9689 links
+slot `$FFFF0E14` at `loc_1C7B2` ahead of `sub_1B988`; frame 9690 puts that slot
+on the free list and drops `Number_Objects` from 2 to 1. The exact per-frame
+frontier advances to IntroSequence5 frame 9949. Full sampled debt falls 392 ->
+352 authoritative differences with 7 oracle limitations, first at
+`frame_9950/number_objects`; CRC and complete RNG remain exact.
 
 The latest correction separates IntroSequence2's title-return scheduler from
 IntroSequence4. ASM `loc_1B9D0 -> loc_1BA02` performs its two `sub_1C1A2`
