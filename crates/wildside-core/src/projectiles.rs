@@ -2948,6 +2948,13 @@ impl NativeRuntime {
             }
             let delete_flag_set = camera
                 .is_some_and(|camera| fire_demon_trail_offscreen_flag_loc_11ee(trail, camera));
+            if trail.scheduler_delay_frames > 0 {
+                // ASM Fire_Demon.asm loc_3A564 allocates a later Object_RAM
+                // coroutine. It cannot run in the parent's current pass, and
+                // loc_3A6CA then hibernates once before the first d3 decrement.
+                trail.scheduler_delay_frames -= 1;
+                return true;
+            }
             let step = fire_demon_fire_trail_wait_loop_tick_loc_3a6ca(
                 delete_flag_set,
                 trail.remaining_frames,

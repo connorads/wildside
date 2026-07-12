@@ -15454,6 +15454,7 @@ mod chunk_09 {
             x_pos: 100 << 16,
             y_pos: 100 << 16,
             remaining_frames: 0x96,
+            scheduler_delay_frames: 0,
         });
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 100 << 16;
@@ -15479,6 +15480,7 @@ mod chunk_09 {
             x_pos: 100 << 16,
             y_pos: 122 << 16,
             remaining_frames: 0x96,
+            scheduler_delay_frames: 0,
         });
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 100 << 16;
@@ -15500,6 +15502,7 @@ mod chunk_09 {
             x_pos: 114 << 16,
             y_pos: 100 << 16,
             remaining_frames: 0x96,
+            scheduler_delay_frames: 0,
         });
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 100 << 16;
@@ -15521,6 +15524,7 @@ mod chunk_09 {
             x_pos: 53 << 16,
             y_pos: 100 << 16,
             remaining_frames: 0x96,
+            scheduler_delay_frames: 0,
         });
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 100 << 16;
@@ -15542,6 +15546,7 @@ mod chunk_09 {
             x_pos: 87 << 16,
             y_pos: 79 << 16,
             remaining_frames: 0x96,
+            scheduler_delay_frames: 0,
         });
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 100 << 16;
@@ -15745,6 +15750,7 @@ mod chunk_09 {
                 x_pos: 0x0020_0000,
                 y_pos: 0x0020_0000,
                 remaining_frames: 0x96,
+                scheduler_delay_frames: 0,
             };
             7
         ];
@@ -15813,6 +15819,7 @@ mod chunk_09 {
             x_pos: 0x0064_0000,
             y_pos: 0x00D0_0000,
             remaining_frames: 0x95,
+            scheduler_delay_frames: 0,
         });
 
         let trace = rt.trace_frame();
@@ -15846,8 +15853,48 @@ mod chunk_09 {
             .count();
 
         assert_eq!(
-            trail_count, 1,
-            "ASM Fire_Demon.asm loc_3A542/loc_3A6CA and oracle Level 0x40 frame 359 keep one live trail; the loc_11EE `$0160` boundary must cull the two right-side children",
+            trail_count,
+            1,
+            "ASM Fire_Demon.asm loc_3A542/loc_3A6CA and oracle Level 0x40 frame 359 keep one live trail; the loc_11EE `$0160` boundary must cull the two right-side children: {:?}",
+            (
+                frame.number_objects,
+                frame.number_gfx_objects,
+                &frame.active_projectile_details
+            ),
+        );
+        let mut fire_demon_x_positions = frame
+            .active_enemy_details
+            .iter()
+            .filter(|enemy| matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x00 }))
+            .map(|enemy| enemy.x_pos)
+            .collect::<Vec<_>>();
+        fire_demon_x_positions.sort_unstable();
+        assert!(
+            fire_demon_x_positions
+                .iter()
+                .zip([0x0194_0000_u32, 0x01F4_0000, 0x0203_0000])
+                .all(|(native, oracle)| native.abs_diff(oracle) <= 2 << 16),
+            "ASM Fire_Demon.asm loc_3A542 -> loc_3C04E must retain the recording oracle's object-scheduler age within one 2px patrol step at frame 359: {:?}",
+            (&fire_demon_x_positions, &frame.active_projectile_details),
+        );
+        let trail = frame
+            .active_projectile_details
+            .iter()
+            .find(|projectile| projectile.kind == ActiveProjectileKind::FireDemonDeathTrail)
+            .expect("one Fire Demon trail at Level 0x40 frame 359");
+        assert!(
+            trail.x_pos.abs_diff(0x0150_0000) <= 1 << 16,
+            "ASM Fire_Demon.asm loc_3A63C copies the parent X within the state oracle's 1px scheduler tolerance: {:#010x}",
+            trail.x_pos,
+        );
+        assert_eq!(
+            trail.remaining_frames, 14,
+            "ASM Fire_Demon.asm loc_3A6CA decrements d3 once per child-object pass after the oracle-aligned spawn",
+        );
+        assert_eq!(
+            (frame.number_objects, frame.number_gfx_objects),
+            (8, 8),
+            "ASM Execute_Objects loc_E1E and Make_SpriteFromGfxObject loc_14A4 expose eight linked Object/Gfx workers at oracle Level 0x40 frame 359",
         );
     }
 
@@ -15953,6 +16000,7 @@ mod chunk_09 {
             x_pos: 100 << 16,
             y_pos: 100 << 16,
             remaining_frames: 1,
+            scheduler_delay_frames: 0,
         });
 
         rt.step_projectiles();
@@ -15966,6 +16014,7 @@ mod chunk_09 {
             x_pos: 100 << 16,
             y_pos: 100 << 16,
             remaining_frames: 0,
+            scheduler_delay_frames: 0,
         });
 
         rt.step_projectiles();
@@ -15989,6 +16038,7 @@ mod chunk_09 {
             x_pos: 0x0020_0000,
             y_pos: 0x0020_0000,
             remaining_frames: 0x96,
+            scheduler_delay_frames: 0,
         });
 
         rt.step_projectiles();
@@ -16011,6 +16061,7 @@ mod chunk_09 {
             x_pos: 0x0020_0000,
             y_pos: 0x0020_0000,
             remaining_frames: 0x96,
+            scheduler_delay_frames: 0,
         });
 
         rt.step_projectiles();

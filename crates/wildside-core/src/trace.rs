@@ -2271,6 +2271,7 @@ mod tests {
                 x_pos: 0x0100_0000 + (index << 16),
                 y_pos: 0x0200_0000,
                 remaining_frames: 0x96,
+                scheduler_delay_frames: 0,
             }));
 
         assert_eq!(
@@ -2289,6 +2290,25 @@ mod tests {
             runtime.object_counts_from_roster(&[], 0, 0),
             baseline,
             "ASM Fire_Demon.asm loc_3A6CA expires the trail timer and loc_3A6DA deletes the pair, releasing both slots",
+        );
+    }
+
+    #[test]
+    fn fire_demons_share_one_object_only_palette_helper_loc_3a414() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let baseline = runtime.gameplay_transient_object_only_worker_count(0, 0);
+        runtime
+            .active_enemies
+            .extend((0..3).map(|layout_index| ActiveEnemy {
+                family: EnemyFamily::FireDemon,
+                layout_index,
+                ..drips_test_enemy(0, 0)
+            }));
+
+        assert_eq!(
+            runtime.gameplay_transient_object_only_worker_count(0, 0),
+            baseline + 1,
+            "ASM Fire_Demon.asm loc_3A414 tests the global Fire_Demon byte before allocating loc_3A48E, so every live Fire Demon shares one Object-only palette coroutine",
         );
     }
 
@@ -11601,10 +11621,10 @@ impl NativeRuntime {
             return counts;
         }
         // The original game keeps 2 fixed system objects (game manager
-        // and HUD/state). An additional palette-rotation object is
+        // and HUD/state), while Kid owns a second GfxObject slot. An additional
+        // palette-rotation object is
         // allocated for Mountain (fg=7), Cave (fg=8), or Island (bg=4)
-        // themes. The native roster already includes the player, whose second
-        // GfxObject is part of the fixed gameplay shell.
+        // themes. The native roster already includes the player's first slot.
         let extra = self.level_header(self.current_level).map_or(0, |h| {
             if h.level_theme == 7 || h.level_theme == 8 || h.background_theme == 4 {
                 1u16
@@ -11646,6 +11666,11 @@ impl NativeRuntime {
         // Object_RAM coroutine for each rubber-block skin swap, but unlike
         // smash/ice block debris it never calls j_sub_E02 and owns no gfx slot.
         let rubber_skin_workers = self.block_state.rubber_block_animations.len() as u16;
+        let fire_demon_palette_helper_workers = u16::from(
+            self.active_enemies
+                .iter()
+                .any(|enemy| enemy.family == EnemyFamily::FireDemon),
+        );
         let lava_special_effect_workers = self.lava_special_effect_object_only_worker_count();
         let dragon_flying_descent_fire_workers = self
             .projectiles
@@ -11675,6 +11700,11 @@ impl NativeRuntime {
         // shared `$FFFFFB42` count changes at allocation/deletion boundaries,
         // so retain it when the projectile vector is between those phases.
         drips_parent_workers
+            // ASM Fire_Demon.asm loc_3A414 allocates loc_3A48E through
+            // j_Allocate_ObjectSlot only while the global Fire_Demon byte is
+            // zero. Every live demon shares that one palette coroutine, which
+            // never calls a GfxObject allocator.
+            .saturating_add(fire_demon_palette_helper_workers)
             .saturating_add(rubber_skin_workers)
             .saturating_add(lava_special_effect_workers)
             .saturating_add(dragon_flying_descent_fire_workers)

@@ -229,6 +229,8 @@ pub(crate) struct FireDemonTrailChild {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
     pub(crate) remaining_frames: u16,
+    /// Allocation pass plus loc_3A6CA's first one-frame hibernate.
+    pub(crate) scheduler_delay_frames: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

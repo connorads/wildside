@@ -8186,9 +8186,10 @@ pub(crate) fn fire_demon_death_trail_child_loc_3a63c(x: u32, y: u32) -> FireDemo
     // waits with d3=$96 and has no velocity.
     let y_px = ((y >> 16) as u16).wrapping_add(0x000F) & 0xFFF0;
     FireDemonTrailChild {
-        x_pos: x,
+        x_pos: x & 0xFFFF_0000,
         y_pos: u32::from(y_px) << 16,
         remaining_frames: 0x96,
+        scheduler_delay_frames: 2,
     }
 }
 
@@ -12989,6 +12990,11 @@ impl NativeRuntime {
                     enemy.wait_timer = enemy.wait_timer.saturating_add(1);
                     enemy.dragon_script_variant |= DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG;
                 }
+                // ASM Fire_Demon.asm loc_3A542 allocates the trail before
+                // loc_3A5D4 dispatches into the shared walker at loc_3C04E/
+                // loc_3C0FA. Sample the parent's frame-entry position before
+                // the native movement pass for the same object ordering.
+                self.spawn_fire_demon_walking_trails_loc_3a542();
                 step_active_enemies_with_rng(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),
@@ -13014,7 +13020,6 @@ impl NativeRuntime {
                 for effect in played_enemy_sound_effects {
                     self.queue_start_sequence(effect);
                 }
-                self.spawn_fire_demon_walking_trails_loc_3a542();
                 materialize_spinning_twins_drop_splits(&mut self.active_enemies);
                 let mut death_animation_hibernated_indices = Vec::new();
                 let mut death_animation_sound_indices = Vec::new();

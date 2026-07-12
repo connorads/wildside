@@ -11,6 +11,22 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #394
+
+Opened 2026-07-12 while closing #393. Focused Level 0x40 report `1783893809`
+has exact idle-tail state but native exports 13/13 Object/Gfx workers against
+oracle 12/12 at `level_settle`. Interval-1 frame 59 has six native trails
+against five oracle trails. The extra native trail is x=352, y=1872 with 99
+frames remaining and belongs to the high layout-34 Fire Demon. Oracle
+Object_RAM has five trails, the shared palette helper, three parents, Kid, HUD,
+and the level worker. The oracle layout-34 parent also has a different sprite
+mapping from layouts 36/37 while native gives all three the same animation
+phase. Evidence source: state sweep plus Object_RAM. Native repro: reproduced.
+Oracle repro: authoritative. Minimum gate: fast-slice plus focused Level 0x40
+sweep. Next probe: trace the three parents' initial GfxObject animation state
+and scheduler wakes through `Enemy00_FireDemon_Init loc_3A414`; do not add a
+Level 0x40 phase override.
+
 ### #393
 
 Opened 2026-07-12 while closing #391. Focused Level 0x40 report `1783887206`
@@ -24,6 +40,19 @@ Object_RAM. Native repro: reproduced. Oracle repro: authoritative. Minimum
 gate: fast-slice plus `sweep --levels 64 --tier state`. Next probe: classify the
 oracle's extra non-gameplay Object/Gfx slot and trace the shared recording-settle
 scheduler before changing Fire Demon animation age.
+
+Resolved 2026-07-12. `Fire_Demon.asm loc_3A414` allocates one Object-only
+palette coroutine shared by all live Fire Demons, not one Object+Gfx worker per
+parent. The recording handoff now preserves the target's live enemy roster
+instead of reconstructing older parents, while still clearing killed/status
+bookkeeping. `loc_3A542` allocates walking trails before the shared-walker
+movement pass; `loc_3A63C` copies whole-word parent positions; and `loc_3A6CA`
+gives a newly allocated child two scheduler frames before its first timer
+decrement. Native now retains one frame-359 trail with the oracle's 14 ticks,
+exports exact 8/8 Object/Gfx counts, and keeps all three parents within one 2px
+patrol step. Cache-backed regression pins that idle-tail roster, timer, worker
+count, and position tolerance. Focused report `1783893809` has no idle-tail
+state differences. Its distinct settle-only extra trail is tracked as #394.
 
 ### #392
 
@@ -12637,6 +12666,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 393 | [x] | P2 | State parity/FireDemon | Recording settle preserves live Fire Demons, models their singleton palette helper, and schedules trail allocation/timers in ROM order. | Report `1783893809`: idle tail exact at 8/8 with trail timer 14; settle phase residual is #394. See archive #393. |
 | 391 | [x] | P2 | Enemy/FireDemon | Fire Demon trails use the ROM's 11px walker probe and exact `$0160` sprite cull boundary, leaving one live trail at the Level 0x40 idle tail. | Report `1783887206`: settle exact and one trail per side; residual phase/worker drift is #393. See archive #391. |
 | 390 | [x] | P1 | Combat/Drips | Falling Drips children use their exact ROM sprite collision row instead of the surface-crawler fallback. | Report `1783767927`: Level 0x48 HP parity restored, 89 blockers; exact collision-row regression. See archive #390. |
 | 389 | [x] | P1 | Enemy/UFO | UFO beams share the ROM's global shooting latch, use direction-relative spawn offsets, and delete on terrain collision. | Report `1783766204`: 45/69 green, 90 blockers; Level 0x48 is 360/360 CRC exact with residual Drips-only state drift. See archive #389. |

@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#393 exact Fire Demon idle workers)
+
+- `Fire_Demon.asm loc_3A414` now projects one shared Object-only palette helper;
+  the generic gameplay shell retains Kid's second GfxObject.
+- Recording settle preserves the target's live Fire Demon roster. Trail children
+  allocate before parent movement, copy whole-word X, and wait two scheduler
+  frames before `loc_3A6CA` first decrements their timer.
+- Level 0x40 frame 359 now matches oracle at 8/8 Object/Gfx workers with one
+  trail and exactly 14 timer ticks. Focused report `1783893809` has no idle-tail
+  state differences; #393 is resolved.
+- The same report exposes a distinct settle-only surplus from layout 34's
+  animation phase. It is #394. NEXT: run `mise run project-status` and take its
+  top printed item.
+
 ## 2026-07-12 handoff (#392 exact recording-settle enemy workers)
 
 - `Load_InGame` now clears the collapsed recording adapter's old object/status
