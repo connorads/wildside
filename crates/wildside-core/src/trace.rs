@@ -7358,6 +7358,44 @@ impl NativeRuntime {
         }
     }
 
+    /// ASM Load_IntroSequence6 / sub_1B43A: later-revisit title roster.
+    fn later_revisit_intro_sequence_6_object_counts(&self) -> Option<(u16, u16)> {
+        if !self.intro_sequence_6_entered_from_timeout_restart
+            || !matches!(
+                self.boot_state,
+                BootState::IntroSequence6 {
+                    carry_intro_sequence_5_slot_2_pose: true,
+                    carry_timeout_restart_hidden_camera_wrap: false,
+                    ..
+                }
+            )
+        {
+            return None;
+        }
+
+        // Raw oracle WRAM shows the same Load_IntroSequence6 owners as the
+        // carried-wrap shell, but this later revisit delays the post-clear
+        // loc_1BAB0/loc_1B37C/sub_1B43A list by three frames. The subsequent
+        // loc_1B5CE, loc_1B6AC, loc_1BB10, sub_1B652, and loc_1C7A0 edges keep
+        // that three-frame phase through the settled 4/4 roster.
+        match self.title_screen_elapsed_frames {
+            0..=21 => Some((4, 5)),
+            22..=34 => Some((0, 0)),
+            35..=197 => Some((3, 0)),
+            198..=238 => Some((2, 0)),
+            239 => Some((4, 0)),
+            240..=265 => Some((4, 1)),
+            266..=269 => Some((3, 1)),
+            270 => Some((4, 1)),
+            271..=332 => Some((4, 2)),
+            333..=339 => Some((4, 3)),
+            340..=341 => Some((5, 3)),
+            342 => Some((4, 3)),
+            343 => Some((4, 4)),
+            _ => None,
+        }
+    }
+
     pub(crate) fn intro_sequence_6_hidden_camera_y_for_elapsed(
         elapsed: usize,
         carry_timeout_restart_hidden_camera_wrap: bool,
@@ -11191,6 +11229,9 @@ impl NativeRuntime {
             BootState::TitleScreen { .. } | BootState::IntroSequence6 { .. }
         ) {
             if let Some(counts) = self.carried_wrap_intro_sequence_6_object_counts() {
+                return counts;
+            }
+            if let Some(counts) = self.later_revisit_intro_sequence_6_object_counts() {
                 return counts;
             }
             if self.cold_demo_timeout_intro_sequence_6_shell() && !self.title_screen_ready() {

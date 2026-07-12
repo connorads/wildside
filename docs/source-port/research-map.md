@@ -16,9 +16,9 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints retain the explicit #290 baseline of 52 authoritative export
+state checkpoints retain the explicit #290 baseline of 35 authoritative export
 diffs and 15 oracle limitations, beginning at
-`frame_28075/number_objects`.
+`frame_28775/number_gfx_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -30,7 +30,16 @@ That is complete per-frame RNG evidence for this route, not whole-state or
 whole-game proof. Reducing #290's authoritative sampled-state baseline remains
 separate fidelity work.
 
-The latest correction preserves the manual Demo 1 title-return snapshot from
+The latest correction maps the complete later IntroSequence6 revisit roster
+from raw oracle WRAM. After carrying 4/5 through local elapsed 21, this lineage
+delays the post-clear `loc_1BAB0`/`loc_1B37C`/`sub_1B43A` allocation and every
+later `loc_1B5CE`, `loc_1B6AC`, `loc_1BB10`, `sub_1B652`, and `loc_1C7A0` edge
+by three frames relative to the earlier carried-wrap shell. Published frames
+28060..28415 match all 355 state checkpoints. The full sampled baseline falls
+52 -> 35 authoritative differences with 15 oracle limitations, first at
+`frame_28775/number_gfx_objects`; full-route CRC and complete RNG remain exact.
+
+The previous correction preserves the manual Demo 1 title-return snapshot from
 the terminal top-level trace. `loc_119D8` writes `Game_Mode=$2C` and jumps to
 `loc_6E2` without deleting its linked Object/Gfx pair, so the oracle carries
 9/8 for 32 title frames before the hidden rebuild clears both lists. Native no

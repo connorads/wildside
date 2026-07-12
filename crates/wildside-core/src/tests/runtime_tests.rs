@@ -5644,6 +5644,59 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_later_intro_sequence_6_revisit_tracks_load_intro_sequence_6_counts() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let sample_frames = [
+            28_065, 28_066, 28_087, 28_088, 28_100, 28_101, 28_263, 28_264, 28_304, 28_305, 28_306,
+            28_331, 28_332, 28_335, 28_336, 28_337, 28_398, 28_399, 28_405, 28_406, 28_407, 28_408,
+            28_409,
+        ];
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(28_410) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if sample_frames.contains(&frame_index) {
+                samples.push((frame_index, trace.number_objects, trace.number_gfx_objects));
+            }
+        }
+
+        // ASM Load_IntroSequence6 clears the inherited loc_1BCD0 lists, then
+        // allocates loc_1BAB0, loc_1B37C, and sub_1B43A. Later boundaries are
+        // owned by loc_1B5CE, loc_1B6AC, loc_1BB10, sub_1B652, and loc_1C7A0.
+        // Raw oracle WRAM pins both sides of every Object/Gfx list transition.
+        assert_eq!(
+            samples,
+            vec![
+                (28_065, 4, 5),
+                (28_066, 4, 5),
+                (28_087, 4, 5),
+                (28_088, 0, 0),
+                (28_100, 0, 0),
+                (28_101, 3, 0),
+                (28_263, 3, 0),
+                (28_264, 2, 0),
+                (28_304, 2, 0),
+                (28_305, 4, 0),
+                (28_306, 4, 1),
+                (28_331, 4, 1),
+                (28_332, 3, 1),
+                (28_335, 3, 1),
+                (28_336, 4, 1),
+                (28_337, 4, 2),
+                (28_398, 4, 2),
+                (28_399, 4, 3),
+                (28_405, 4, 3),
+                (28_406, 5, 3),
+                (28_407, 5, 3),
+                (28_408, 4, 3),
+                (28_409, 4, 4),
+            ]
+        );
+    }
+
+    #[test]
     fn published_tas_later_intro_sequence_6_revisit_keeps_camera_cleared_on_frame_28098() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

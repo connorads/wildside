@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 later IntroSequence6 revisit roster)
+
+- Raw oracle WRAM pins every later-revisit boundary from inherited 4/5 through
+  list clear and the `loc_1BAB0`/`loc_1B37C`/`sub_1B43A`, `loc_1B5CE`,
+  `loc_1B6AC`, `loc_1BB10`, `sub_1B652`, and `loc_1C7A0` rebuild to 4/4.
+- This lineage's post-clear loader schedule is three frames behind the earlier
+  carried-wrap IntroSequence6 shell. A regression pins both sides of all 14
+  Object/Gfx transitions; frames 28060..28415 are 355/355 state-exact.
+- Full sampled debt falls 52 -> 35 authoritative differences with 15 oracle
+  limitations; first sampled diff moves to `frame_28775/number_gfx_objects`.
+  All 37,759 CRC frames and 37,743 complete RNG states remain exact.
+- NEXT: identify the fifth settled GfxObject at frame 28775 from raw linked
+  lists; native exports 4/4 while oracle exports 4/5.
+
 ## 2026-07-12 handoff (#290 manual Demo 1 title snapshot)
 
 - The published Start edge at frame 22552 follows `loc_119D8 -> loc_6E2`.
