@@ -11,6 +11,37 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #392
+
+Opened 2026-07-12 from probe report `1783877469` while refuting the Drips
+un-gating plan (dead end under #380). Idle sweep Level 0x01 exports 3/3
+native objects/gfx against 4/6 oracle; Level 0x36 exports 3/3 against 5/6.
+Evidence source: oracle state sweep. Native repro: reproduced (settle roster
+holds zero enemies on both levels). Oracle repro: authoritative. Minimum
+gate: fast-slice plus `sweep --levels 1,54 --tier state`. The oracle has
+allocated the in-view spawn-window enemies (0x01: RockTank at 200,223 with
+its Tank.asm loc_3B372 turret gfx child; 0x36: Lion at 296,383) while the
+native idle-warp settle roster has not activated them. Next probe: trace
+`Manage_EnemyLoading loc_368A8/loc_3691E` camera-keyed activation during the
+settle window against oracle Object_RAM.
+
+### #391
+
+Opened 2026-07-12 after faithful fire-trail counting exposed the divergence.
+Evidence source: oracle state sweep reports `1783876160` (before) and
+`1783877115` (after). Native repro: reproduced. Oracle repro: authoritative.
+Minimum gate: fast-slice plus `sweep --levels 64 --tier state`. With
+Fire_Demon.asm loc_3A564/loc_3A63C trail children counted as Object+Gfx
+workers, Level 0x40 settle closes -6 -> -1 but the idle tail flips from -2
+to +5: native holds the 7-trail `Number_of_Fire_Trails` cap while the oracle
+holds 2. The counting projection is correct per ASM; the divergence is trail
+population - the native spawn cadence (one per 36-frame loc_3A542 walking
+loop per active demon) times the $96-frame loc_3A6CA timer overruns the cap,
+so either native activates more walking demons than the ROM does off-screen,
+or a trail lifecycle beat (the `$19(a3)` delete flag, timer, or spawn gate)
+diverges. Probe per-frame `Number_of_Fire_Trails` against the oracle before
+touching gameplay code.
+
 ### #390
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback. Level
@@ -921,6 +952,18 @@ oracle allocates three crawlers by frame 359 against native's two. #381 owns
 that lifecycle/RNG divergence rather than hiding it with a count override.
 Canonical report `1783734356` retains 35 pass / 34 fail and reduces
 authoritative diffs from 146 to 145 with no lost pass.
+
+Dead end 2026-07-12: a follow-up plan proposed un-gating the Drips parent
+count from `recording_oracle_debug_lifecycle_completed` to close the idle
+sweep's Level 0x01/0x36 object undercounts. The probe refuted the premise
+before any code change: report `1783877469` shows 0x36 (+2 obj, +3 gfx) has
+NO Drips at all (eight Lions), and 0x01's two Drips sit at y=543, far outside
+the spawn camera window, while its surplus is +1 obj / +3 gfx with the
+on-screen RockTank pair unaccounted. Both surpluses are enemy-activation
+gaps (native's settle roster holds zero enemies while the oracle has
+allocated the in-view RockTank/Lion plus their gfx children), not suppressed
+Drips parents. Do not retry the un-gating; the next probe belongs on why the
+native idle-warp roster misses in-view enemies at settle.
 
 ### #379
 
