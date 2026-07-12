@@ -4075,10 +4075,11 @@ mod tests {
             (frame.number_objects, frame.number_gfx_objects)
         }
 
-        // ASM Load_IntroSequence2 -> loc_1B9D0/sub_1C204 keeps the controller
-        // counted through local frame 30, clears for the hidden rebuild, then
-        // reallocates the controller before IntroText2 joins the object count.
-        assert_eq!(counts_at(30), (1, 0));
+        // ASM sub_1B8F4 -> loc_1B920 carries IntroSequence1's linked
+        // sub_1C54A GfxObject through local frame 30, clears for the hidden
+        // rebuild, then Load_IntroSequence2 reallocates the controller before
+        // IntroText2 joins the object count without a replacement GfxObject.
+        assert_eq!(counts_at(30), (1, 1));
         assert_eq!(counts_at(31), (0, 0));
         assert_eq!(counts_at(41), (1, 0));
         assert_eq!(counts_at(42), (2, 0));
@@ -10574,12 +10575,13 @@ impl NativeRuntime {
                 .demo_auto_timeout_intro_sequence_2_frames_override
                 .is_some()
         {
-            // ASM Load_IntroSequence2 -> loc_1B9D0 (kid.asm:29299,30296)
-            // allocates the controller object before entering sub_1C204.
-            // Oracle traces keep that worker counted through the early fade,
-            // expose the loc_1B9F4 hidden clear window, then count both the
-            // controller and IntroText2 worker once loc_1BA02's loop is live.
+            // ASM sub_1B8F4 -> loc_1B920 leaves IntroSequence1's sub_1C54A
+            // GfxObject linked while Game_Mode already exposes IntroSequence2.
+            // Load_IntroSequence2 then clears the inherited roster, allocates
+            // the loc_1B9D0 controller, and finally exposes loc_1C7A0's text
+            // worker without allocating a replacement GfxObject.
             return match elapsed {
+                0..=30 => (1, 1),
                 31..=40 => (0, 0),
                 42..=285 => (2, 0),
                 _ => (1, 0),

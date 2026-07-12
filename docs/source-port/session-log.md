@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 IntroSequence1 GfxObject carry)
+
+- Raw oracle WRAM shows the first timeout-restart IntroSequence2 frames still
+  execute IntroSequence1's `loc_1B920`. Its `sub_1C54A` GfxObject remains
+  linked through global frame 5534/local elapsed 30, producing 1/1 even though
+  `Game_Mode` already identifies IntroSequence2.
+- `loc_6E2` clears the inherited Object/GfxObject roster on frame 5535. The
+  actual `Load_IntroSequence2 -> loc_1B9D0` controller appears at 1/0 on frame
+  5545, followed by `loc_1C7A0`'s text worker at 2/0 on frame 5546; this scene
+  allocates no replacement GfxObject.
+- Focused pure and cache-backed route regressions cover the carry, clear, and
+  rebuild boundaries. Full sampled debt falls 450 -> 442 authoritative
+  differences plus 10 oracle limitations, first at demo-play
+  `frame_7950/number_gfx_objects`. All 37,759 CRC frames and all 37,743 complete
+  post-`Init_RNG` states remain exact. `mise run verify-slice-fast` and
+  `mise run verify-tas-full` pass.
+- NEXT: trace demo-play frame 7950's missing GfxObject through the live Dragon
+  Object/GfxObject lists and its `Enemy0D_Dragon_Init`/child lifecycle.
+
 ## 2026-07-12 handoff (#290 demo-1 Dragon GfxObject schedule)
 
 - Raw oracle Object/GfxObject linked lists show demo-1 startup frame 71 at

@@ -16,8 +16,8 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints retain the explicit #290 baseline of 450 authoritative export
-diffs and 10 oracle limitations, beginning at `frame_5525/number_gfx_objects`.
+state checkpoints retain the explicit #290 baseline of 442 authoritative export
+diffs and 10 oracle limitations, beginning at `frame_7950/number_gfx_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -41,6 +41,15 @@ differences before GfxObject comparison was corrected and 99 after the title
 fix. The full sampled baseline falls 477 -> 450 authoritative differences; its
 10 oracle limitations include four fields newly exposed after the dominant
 count mismatch cleared. CRC and complete RNG state remain exact.
+
+The next correction models the cross-mode IntroSequence1 roster carry. Raw
+oracle WRAM retains the `sub_1B8F4 -> loc_1B920` controller and its linked
+`sub_1C54A` GfxObject through published frame 5534 even though `Game_Mode`
+already identifies IntroSequence2. `loc_6E2` clears the inherited 1/1 roster
+on frame 5535; `Load_IntroSequence2 -> loc_1B9D0` then exposes its controller
+at 1/0 and `loc_1C7A0` text worker at 2/0. The full sampled baseline falls
+450 -> 442 authoritative differences, first at demo-play
+`frame_7950/number_gfx_objects`; CRC and complete RNG remain exact.
 
 The latest correction separates IntroSequence2's title-return scheduler from
 IntroSequence4. ASM `loc_1B9D0 -> loc_1BA02` performs its two `sub_1C1A2`

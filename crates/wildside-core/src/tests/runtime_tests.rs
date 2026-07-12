@@ -1724,6 +1724,43 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_intro_sequence_2_carries_intro_1_gfx_until_rebuild() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut counts = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(5_547) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 5_525 | 5_534 | 5_535 | 5_545 | 5_546) {
+                counts.push((
+                    frame_index,
+                    trace.boot_phase_elapsed,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+            }
+        }
+
+        // ASM sub_1B8F4 -> loc_1B920 leaves IntroSequence1's sub_1C54A
+        // GfxObject linked while Game_Mode already exposes IntroSequence2.
+        // Raw oracle WRAM keeps that 1/1 roster through frame 5534, clears it
+        // in loc_6E2's rebuild on frame 5535, then Load_IntroSequence2 ->
+        // loc_1B9D0 exposes its controller and loc_1C7A0 text worker without
+        // allocating another GfxObject.
+        assert_eq!(
+            counts,
+            vec![
+                (5_525, Some(21), 1, 1),
+                (5_534, Some(30), 1, 1),
+                (5_535, Some(31), 0, 0),
+                (5_545, Some(41), 1, 0),
+                (5_546, Some(42), 2, 0),
+            ]
+        );
+    }
+
+    #[test]
     fn published_tas_demo_1_times_out_on_frame_8069() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
