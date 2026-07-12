@@ -366,9 +366,12 @@ pub(crate) fn pacer_probe_half_width(family: EnemyFamily) -> i32 {
         // Tank_Shooting.asm loc_3B5A6 seed `$48(a5)=$B` before entering the
         // same shared walker loops.
         EnemyFamily::Robot | EnemyFamily::Tank | EnemyFamily::TankShooting => 11,
-        // ASM Armadillo.asm loc_3C766, Goat.asm loc_3CA7E, and Scorpion.asm
-        // loc_3DBD8 seed `$48(a5)=9`.
-        EnemyFamily::Armadillo | EnemyFamily::Goat | EnemyFamily::Scorpion => 9,
+        // ASM Armadillo.asm loc_3C766, Dragon.asm loc_3CDFC, Goat.asm
+        // loc_3CA7E, and Scorpion.asm loc_3DBD8 seed `$48(a5)=9`.
+        EnemyFamily::Armadillo
+        | EnemyFamily::DragonWalking
+        | EnemyFamily::Goat
+        | EnemyFamily::Scorpion => 9,
         _ => ENEMY_PROBE_HALF_WIDTH,
     }
 }
@@ -8340,11 +8343,15 @@ fn dragon_walking_floor_support(
     center_x_px: i32,
     foot_y_px: i32,
 ) -> DragonWalkingFloorSupport {
+    // ASM Dragon.asm loc_3CDFC seeds `$48(a5)=9`; the Lion.asm loc_3E3B2 /
+    // loc_3E566 scans use that full half-width, including the ninth support
+    // pixel on either side of the centre.
+    let half_width = pacer_probe_half_width(EnemyFamily::DragonWalking);
     let center = terrain::probe_floor(grid, center_x_px, foot_y_px);
-    let left = terrain::probe_floor(grid, center_x_px - ENEMY_PROBE_HALF_WIDTH, foot_y_px);
-    let right = terrain::probe_floor(grid, center_x_px + ENEMY_PROBE_HALF_WIDTH, foot_y_px);
+    let left = terrain::probe_floor(grid, center_x_px - half_width, foot_y_px);
+    let right = terrain::probe_floor(grid, center_x_px + half_width, foot_y_px);
     DragonWalkingFloorSupport {
-        selected: terrain::probe_floor_hitbox(grid, center_x_px, foot_y_px, ENEMY_PROBE_HALF_WIDTH),
+        selected: terrain::probe_floor_hitbox(grid, center_x_px, foot_y_px, half_width),
         center,
         left,
         right,

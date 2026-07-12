@@ -2100,7 +2100,13 @@ fn direct_enemy_object_type_from_collision_source(collision_source: u16) -> Opti
     // or repurpose Object+$44, so the enemy-layout pointer path above cannot
     // identify them even though the displayed GfxObject is still authoritative.
     let object_type = u8::try_from(collision_source).ok()?;
-    (object_type != 0).then_some(object_type)
+    // ASM constants.asm starts non-enemy GfxObject metadata at
+    // `objid_prizediamond=$64`; PrizeHelmetCyclone_Init writes
+    // `objid_cyclone=$70` before loc_104AE. Those values share the same
+    // GfxObject field as loc_32146's direct enemy id, so accepting every
+    // non-zero byte misclassifies prizes as enemies.
+    const FIRST_NON_ENEMY_OBJECT_META: u8 = 0x64;
+    (object_type != 0 && object_type < FIRST_NON_ENEMY_OBJECT_META).then_some(object_type)
 }
 
 fn format_collision_type(collision_type: u16) -> String {

@@ -661,7 +661,11 @@ fn step_dragon_walking_walk(
         let current_cx = (enemy.x_pos >> 16) as i32;
         let cx = (next_x >> 16) as i32;
         let wall = dragon_walking_probe_wall(grid, current_cx, cx, current_y_px, moving_right);
-        let floor_support = dragon_walking_floor_support(grid, cx, current_y_px);
+        // ASM Lion.asm loc_3E3B2 calls sub_36972 against the current x_pos,
+        // then computes the proposed `$50(a5)` step in d2. The support scan
+        // therefore sees the trailing ninth Dragon pixel for one final frame
+        // before loc_3E682 enters the airborne loop.
+        let floor_support = dragon_walking_floor_support(grid, current_cx, current_y_px);
         enemy.shared_walker_terrain_trace = SharedWalkerTerrainTrace {
             next_x_px: Some(cx),
             wall: Some(wall),
@@ -1301,6 +1305,25 @@ mod tests {
             dragon.shared_walker_debug_branch,
             Some("patrol_airborne_start")
         );
+    }
+
+    #[test]
+    fn dragon_walking_scans_current_x_before_projected_step_loc_3e3b2() {
+        let grid = dragon_walking_grid(32, 32, &[(22, 25)]);
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.hit_points = 2;
+        dragon.x_pos = (376 << 16) + 0x8000;
+        dragon.y_pos = 400 << 16;
+
+        let step = step_dragon_walking_walk(&mut dragon, Some(&grid), None);
+
+        assert!(matches!(step, DragonWalkingWalkStep::Walked));
+        assert!(
+            dragon.on_ground,
+            "ASM Lion.asm loc_3E3B2 calls sub_36972 at current x=376 before computing projected x=377; Dragon.asm loc_3CDFC `$48(a5)=9` still reaches support column 22",
+        );
+        assert_eq!(dragon.x_pos, 377 << 16);
+        assert_eq!(dragon.y_pos, 400 << 16);
     }
 
     #[test]

@@ -3617,13 +3617,14 @@ mod chunk_04 {
         );
         for family in [
             EnemyFamily::Armadillo,
+            EnemyFamily::DragonWalking,
             EnemyFamily::Goat,
             EnemyFamily::Scorpion,
         ] {
             assert_eq!(
                 pacer_probe_half_width(family),
                 9,
-                "ASM Armadillo/Goat/Scorpion init seeds `$48(a5)=9` for the shared walker loop",
+                "ASM Armadillo/Dragon/Goat/Scorpion init seeds `$48(a5)=9` for the shared walker loop",
             );
         }
         assert_eq!(

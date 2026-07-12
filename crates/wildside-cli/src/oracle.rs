@@ -662,6 +662,16 @@ mod tests {
     }
 
     #[test]
+    fn helper_excludes_prize_metadata_from_direct_enemy_capture_loc_104ae() {
+        assert!(
+            HELPER_TEMPLATE.contains("const FIRST_NON_ENEMY_OBJECT_META: u8 = 0x64;")
+                && HELPER_TEMPLATE
+                    .contains("object_type != 0 && object_type < FIRST_NON_ENEMY_OBJECT_META"),
+            "ASM constants.asm starts prize metadata at objid_prizediamond=$64, and PrizeHelmetCyclone_Init writes objid_cyclone=$70 before loc_104AE; neither may enter the enemy roster",
+        );
+    }
+
+    #[test]
     fn write_if_changed_writes_missing_or_changed_files_only() {
         let dir = TempDir::new().expect("temp dir");
         let path = dir.path().join("generated.txt");

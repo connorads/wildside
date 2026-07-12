@@ -1812,6 +1812,20 @@ oracle exports object type `$70` at `$00480000,$02400000`. This is an explicit
 fidelity debt, not an oracle limitation; classify the object and representation
 against ASM before implementing a fix.
 
+Follow-up 2026-07-12 for #290: the `$70` frontier was verifier debt, not a
+missing enemy. `constants.asm` starts prize metadata at `objid_prizediamond=$64`,
+and `PrizeHelmetCyclone_Init` writes `objid_cyclone=$70` before `loc_104AE`; the
+oracle helper had treated every non-zero byte in that shared GfxObject field as
+an enemy id. Bounding direct ids below `$64` removes 3,112 false differences.
+The next real frontier exposed a walking Dragon fall four frames early.
+`Dragon.asm loc_3CDFC` sets `$48(a5)=9`, while `Lion.asm loc_3E3B2` calls
+`sub_36972` at current X before calculating its proposed step. Native now uses
+that ninth support pixel and ordering; frames 2775..2800 match 25/25 enemy
+checkpoints. Full gameplay remains zero-difference, CRC remains 37,759/37,759,
+and complete RNG remains 37,743/37,743. Enemy debt falls 5,725 -> 2,417; the
+next first difference is `frame_2978/enemy_roster`, where native Dragon `$0D`
+is half a pixel behind oracle at the same Y, facing, layout identity, and HP.
+
 Live play-native note 2026-06-11 with all pushed changes: keep the following as
 current acceptance failures even where recent focused probes or fixed-candidate
 rows are green. #288 intro still shows Kid/jacket below the prize block before

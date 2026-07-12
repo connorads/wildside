@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 prize classification and Dragon support scan)
+
+- ASM identifies oracle object metadata `$70` as the Cyclone prize. The helper
+  now excludes prize metadata beginning at `$64`, removing 3,112 false enemy
+  differences without hiding any enemy ids.
+- The first real frontier was Dragon `$0D` falling early. Native now honours
+  `Dragon.asm loc_3CDFC`'s 9px half-width and `Lion.asm loc_3E3B2`'s current-X
+  support scan ordering. Frames 2775..2800 match all 25 enemy checkpoints.
+- Full gameplay remains 37,759/37,759 exact, CRC remains 37,759/37,759, and
+  complete RNG remains 37,743/37,743. Enemy debt falls 5,725 -> 2,417.
+- NEXT: probe `frame_2978/enemy_roster`; native Dragon `$0D` is half a pixel
+  behind oracle with matching Y, facing, layout identity, and HP.
+
 ## 2026-07-12 handoff (#290 enemy-frontier confidence boundary)
 
 - Auditing the verifier found that gameplay mode compared every exported
