@@ -11,6 +11,22 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #395
+
+Opened and resolved 2026-07-13 from proactive whole-level state report
+`1783897725`. Native counted the Mountain, Cave, and Island post-load palette
+controller as an Object+Gfx pair, producing a stable +1 `Number_GfxObjects`
+error at both checkpoints across 14 otherwise-exact levels. ASM `Load_InGame
+loc_11F96/loc_11FB0` calls `Allocate_ObjectSlot` only for
+`RotatePalette_Lava_Water` or `loc_1202A`; neither routine allocates a
+GfxObject. The shared count projection now adds this helper only to
+`Number_Objects`. The existing theme-count regression was red before the fix,
+and the flag-touch stale-Gfx regression still retains its real enemy slot
+without inventing a palette Gfx slot. Focused report `1783898128` passes Levels
+0x02, 0x03, and 0x04 exactly. Full report `1783898144` improves 26/69 pass and
+150 blockers to 40/69 pass and 118 blockers. `verify-slice-fast` and the full
+37,759-frame CRC/RNG/gameplay/enemy-frontier gate pass.
+
 ### #394
 
 Opened 2026-07-12 while closing #393. Focused Level 0x40 report `1783893809`
@@ -12678,6 +12694,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 395 | [x] | P1 | trace/objects | Mountain, Cave, and Island post-load palette controllers contribute an Object slot only, matching `Load_InGame loc_11F96/loc_11FB0`. | Report `1783898144`: 40/69 pass, 118 blockers; see archive #395. |
 | 394 | [x] | P2 | Enemy/FireDemon | Recording settle restores the first live Fire Demon loader cohort's hidden Gfx animation ticks, removing the Level 0x40 frame-59 surplus trail. | Report `1783896236`: settle and idle tail exact; see archive #394. |
 | 393 | [x] | P2 | State parity/FireDemon | Recording settle preserves live Fire Demons, models their singleton palette helper, and schedules trail allocation/timers in ROM order. | Report `1783893809`: idle tail exact at 8/8 with trail timer 14; settle phase residual is #394. See archive #393. |
 | 391 | [x] | P2 | Enemy/FireDemon | Fire Demon trails use the ROM's 11px walker probe and exact `$0160` sprite cull boundary, leaving one live trail at the Level 0x40 idle tail. | Report `1783887206`: settle exact and one trail per side; residual phase/worker drift is #393. See archive #391. |

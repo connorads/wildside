@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#395 Object-only theme controller)
+
+- `Load_InGame loc_11F96/loc_11FB0` allocates Mountain, Cave, and Island
+  palette controllers through `Allocate_ObjectSlot` only; native no longer
+  invents a paired Gfx worker.
+- Focused report `1783898128` makes 0x02/0x03/0x04 exact. Full report
+  `1783898144` improves 26/69 pass and 150 blockers to 40/69 and 118, resolving
+  14 levels and 32 false count differences.
+- Fast verification and the full 37,759-frame CRC/RNG/gameplay/enemy-frontier
+  gate pass. NEXT: use report `1783898144` for the next proactive divergence.
+
 ## 2026-07-12 handoff (Gfx animation mutation refresh)
 
 - `gfx_animation.rs` mutation testing is clean: 18 mutants tested, 16 caught,

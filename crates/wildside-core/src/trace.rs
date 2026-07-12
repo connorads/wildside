@@ -4748,11 +4748,12 @@ mod tests {
         }
 
         // ASM Load_InGame keeps two fixed system objects live alongside the
-        // player/enemy roster, while Kid owns a second GfxObject. Mountain,
-        // Cave and Island themes allocate one extra palette-rotation pair.
+        // player/enemy roster, while Kid owns a second GfxObject. loc_11F96
+        // and loc_11FB0 allocate the Mountain/Cave/Island palette controller
+        // through Allocate_ObjectSlot only, so it has no GfxObject partner.
         assert_eq!(counts_for_theme(0, 0), (5, 6));
-        assert_eq!(counts_for_theme(7, 0), (6, 7));
-        assert_eq!(counts_for_theme(0, 4), (6, 7));
+        assert_eq!(counts_for_theme(7, 0), (6, 6));
+        assert_eq!(counts_for_theme(0, 4), (6, 6));
     }
 
     #[test]
@@ -11622,9 +11623,11 @@ impl NativeRuntime {
         }
         // The original game keeps 2 fixed system objects (game manager
         // and HUD/state), while Kid owns a second GfxObject slot. An additional
-        // palette-rotation object is
-        // allocated for Mountain (fg=7), Cave (fg=8), or Island (bg=4)
-        // themes. The native roster already includes the player's first slot.
+        // palette-rotation Object is allocated for Mountain (fg=7), Cave
+        // (fg=8), or Island (bg=4) themes. ASM Load_InGame loc_11F96/loc_11FB0
+        // calls Allocate_ObjectSlot only, so the helper never increments
+        // Number_GfxObjects. The native roster includes the player's first
+        // GfxObject slot already.
         let extra = self.level_header(self.current_level).map_or(0, |h| {
             if h.level_theme == 7 || h.level_theme == 8 || h.background_theme == 4 {
                 1u16
@@ -11634,7 +11637,7 @@ impl NativeRuntime {
         });
         (
             roster_object_count + 2 + extra + transient_object_only_workers,
-            roster_gfx_count + 3 + extra + transient_gfx_only_workers,
+            roster_gfx_count + 3 + transient_gfx_only_workers,
         )
     }
 
