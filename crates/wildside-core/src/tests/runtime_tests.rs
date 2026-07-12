@@ -3829,6 +3829,40 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_later_demo_1_playbacks_export_the_real_game_paused_latch() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(33_301) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 13_725 | 22_375 | 25_100 | 33_300) {
+                samples.push((
+                    frame_index,
+                    trace.paused,
+                    runtime.paused,
+                    runtime.allow_pausing,
+                ));
+            }
+        }
+
+        // ASM loc_74C8 is the only gameplay input path that sets
+        // Game_Paused, and sub_6874 tests that byte directly. Later demo-1
+        // controller-count samples must not synthesise a pause latch while
+        // the live gameplay object pass continues.
+        assert_eq!(
+            samples,
+            vec![
+                (13_725, false, false, false),
+                (22_375, false, false, false),
+                (25_100, false, false, false),
+                (33_300, false, false, false),
+            ]
+        );
+    }
+
+    #[test]
     fn published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

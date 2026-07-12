@@ -268,9 +268,9 @@ pub(crate) const DEMO_1_LATE_CONTROLLER_COUNT_THIRD_WAKE_FRAME: u16 =
 /// the following object pass and links its GfxObject through Load_GfxObjectSlot.
 pub(crate) const DEMO_1_LATE_CONTROLLER_COUNT_THIRD_GFX_FRAME: u16 =
     DEMO_1_LATE_CONTROLLER_COUNT_THIRD_WAKE_FRAME + 1;
-/// Oracle top-level demo-1 trace reports the pause-menu latch after the
-/// controller object has consumed the recorded Start edge. Native keeps this
-/// as trace state; live gameplay has already matched the raw Kid/object WRAM.
+/// Oracle top-level cold-boot demo-1 trace reports the pause-menu latch after
+/// the controller object has consumed the recorded Start edge while
+/// `Allow_Pausing` is set. Later attract lineages keep it clear.
 pub(crate) const DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME: u16 = DEMO_1_GAMEPLAY_START_FRAME + 515;
 pub(crate) const DEMO_1_LATE_CONTROLLER_PAUSE_END_FRAME: u16 =
     DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME;

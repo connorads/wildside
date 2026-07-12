@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 later Demo 1 pause trace)
+
+- Exact comparison rejected four classified pause limitations: native gameplay
+  continued while only the trace-facing `paused` field was synthesised true.
+- ASM `loc_74C8` gates the `Game_Paused` write on `Allow_Pausing`. The later
+  attract lineages keep that latch clear, unlike the cold first demo.
+- Published 70-frame windows around 13725, 22375, 25100, and 33300 are 280/280
+  clean. Full CRC and RNG remain exact; 1,512 sampled checkpoints retain zero
+  authoritative differences and limitations fall 7 -> 3.
+- NEXT: audit `frame_27700/character_movement`,
+  `frame_27825/character_movement`, or `frame_29425/kid_y_vel`; one clean route
+  is not whole-game proof.
+
 ## 2026-07-12 handoff (#290 exact Dragon breath object-pass edges)
 
 - The remaining completion edges were roster-order dependent, not a universal

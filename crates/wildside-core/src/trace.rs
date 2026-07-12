@@ -3980,6 +3980,7 @@ mod tests {
         fn paused_at(
             use_demo_2: bool,
             started_from_timeout_restart_shell: bool,
+            allow_pausing: bool,
             frame_counter: u16,
         ) -> bool {
             let mut runtime = NativeRuntime::new(minimal_manifest());
@@ -3989,29 +3990,41 @@ mod tests {
                 use_demo_2,
             };
             runtime.demo_started_from_timeout_restart_shell = started_from_timeout_restart_shell;
+            runtime.allow_pausing = allow_pausing;
             runtime.trace_frame().paused
         }
 
         // ASM Load_DemoPlay -> loc_119D8 exposes the late controller Start
-        // sample only for ordinary first-recording playback.
+        // sample only for ordinary first-recording playback after loc_7420
+        // has set Allow_Pausing.
         assert!(paused_at(
             false,
             false,
+            true,
             demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME
         ));
         assert!(!paused_at(
             false,
             false,
+            true,
             demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME - 1
         ));
         assert!(!paused_at(
             true,
             false,
+            true,
             demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME
         ));
         assert!(!paused_at(
             false,
             true,
+            true,
+            demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME
+        ));
+        assert!(!paused_at(
+            false,
+            false,
+            false,
             demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME
         ));
     }
@@ -10228,6 +10241,7 @@ impl NativeRuntime {
             .is_some_and(|(frame_counter, use_demo_2)| {
                 !use_demo_2
                     && !self.demo_started_from_timeout_restart_shell
+                    && self.allow_pausing
                     && (demo::DEMO_1_LATE_CONTROLLER_PAUSE_START_FRAME
                         ..=demo::DEMO_1_LATE_CONTROLLER_PAUSE_END_FRAME)
                         .contains(&frame_counter)

@@ -49,7 +49,7 @@
         "advisory": 0,
         "accumulation": 0,
         "rng": 0,
-        "oracle_limitation": 7
+        "oracle_limitation": 3
       },
       "full_expected_rng_divergence_digest": "",
       "full_expected_rng_frame_comparison": {
