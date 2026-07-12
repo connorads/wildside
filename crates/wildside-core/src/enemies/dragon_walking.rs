@@ -900,6 +900,7 @@ pub(crate) fn step_dragon_walking(
                 debug_assert!(child_delete.deletes_current_object);
                 enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_RECOVER;
                 enemy.dragon_phase_frames = DRAGON_WALKING_RECOVER_FRAMES;
+                enemy.dragon_script_variant &= !DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG;
             }
         }
         DRAGON_WALKING_PHASE_RECOVER => {

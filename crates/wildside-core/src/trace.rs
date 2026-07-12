@@ -11685,12 +11685,6 @@ impl NativeRuntime {
                     projectile.kind == EnemyProjectileKind::DragonWalkingBreath
                         && projectile.owner == Some(owner)
                 }) {
-                    // ASM Dragon.asm loc_3CF90 allocates inside the ordered
-                    // Object pass. The next entry has not crossed that edge at
-                    // sample time; later entries have linked through loc_3D02A.
-                    Some(_) if enemy.dragon_phase_frames == DRAGON_WALKING_BREATH_HOLD_FRAMES => {
-                        *enemy_index != 0
-                    }
                     // ASM loc_3CFDA can end the child before its animation.
                     // Natural loc_3D082 completion remains linked through the
                     // final phase-one poll.
@@ -11698,7 +11692,16 @@ impl NativeRuntime {
                     // Native removes the expired record before the parent
                     // observes loc_3D082's done flag. The ROM pair remains in
                     // both linked lists for that phase-zero sample.
-                    None => enemy.dragon_phase_frames == 0 && *enemy_index == 0,
+                    None => {
+                        // ASM Kid_Transform loc_7E90 retains the parent's
+                        // loc_3CE90 callback, not an additional loc_3D082
+                        // child poll. Once that phase-tagged child is absent,
+                        // it has already left both ROM lists at this sample.
+                        enemy.dragon_script_variant & DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG
+                            == 0
+                            && enemy.dragon_phase_frames == 0
+                            && *enemy_index == 0
+                    }
                 }
             })
             .count();

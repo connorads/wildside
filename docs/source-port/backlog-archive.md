@@ -1874,6 +1874,21 @@ complete RNG remains 37,743/37,743 exact, and enemy debt falls 2,320 -> 952.
 The next frontier is `frame_7954/enemy_roster`, where walking Dragon layout 2
 is half a pixel ahead of oracle as its breath child allocates.
 
+Follow-up 2026-07-12 for #290: `Kid_Transform loc_7E90` returns into the
+ordered `Execute_Objects loc_E1E` pass rather than restarting it atomically.
+Walking Dragon layout 2 is the final normal enemy in that pass, so its retained
+`loc_3CE90` `$66` callback leaves one final half-pixel walk at frame 7954 before
+`loc_3CF6E/loc_3CF90` allocates breath. Native now preserves that phase through
+the linked `loc_3D082/loc_3D09E` child lifecycle, including the frame-8023
+Object/GfxObject deletion sample. Cache-backed regression
+`published_tas_dragon_breath_counts_follow_raw_lists_loc_3cfda_3d09e` pins the
+7953..7955 movement/timer edge and the 8022..8024 list counts. Focused enemy
+frames 2904..2913 and gameplay frames 8021..8023 remain exact. Full gameplay
+and CRC remain 37,759/37,759 exact, complete RNG remains 37,743/37,743 exact,
+and enemy debt falls 952 -> 672. The next frontier is
+`frame_21838/enemy_roster`, where native retains walking Dragon layout 2 after
+the oracle has removed it.
+
 Live play-native note 2026-06-11 with all pushed changes: keep the following as
 current acceptance failures even where recent focused probes or fixed-candidate
 rows are green. #288 intro still shows Kid/jacket below the prize block before

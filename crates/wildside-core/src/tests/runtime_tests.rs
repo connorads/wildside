@@ -1341,10 +1341,14 @@ mod chunk_09 {
             (7_835, (10, 9)),
             (7_850usize, (10u16, 9u16)),
             (7_954, (10, 9)),
+            (8_022, (10, 9)),
+            (8_023, (9, 8)),
+            (8_024, (9, 8)),
         ];
         let mut captured = Vec::new();
+        let mut final_execute_dragon = Vec::new();
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(7_955) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(8_025) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             if expected
                 .iter()
@@ -1355,11 +1359,38 @@ mod chunk_09 {
                     (trace.number_objects, trace.number_gfx_objects),
                 ));
             }
+            if matches!(frame_index, 7_953..=7_955) {
+                let dragon = runtime
+                    .active_enemies
+                    .iter()
+                    .find(|enemy| {
+                        enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 2
+                    })
+                    .unwrap_or_else(|| {
+                        panic!("walking Dragon #02 should be live on frame {frame_index}")
+                    });
+                final_execute_dragon.push((
+                    frame_index,
+                    dragon.x_pos,
+                    dragon.wait_timer,
+                    dragon.dragon_script_cmd,
+                    dragon.dragon_script_variant & DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG != 0,
+                ));
+            }
         }
 
         assert_eq!(
             captured, expected,
             "ASM Dragon.asm loc_3CF90 allocates each breath pair, loc_3CFDA ends a contacted parent's child, and loc_3D09E removes completed children from both linked-list counts",
+        );
+        assert_eq!(
+            final_execute_dragon,
+            vec![
+                (7_953, 0x01E3_0000, 2, DRAGON_WALKING_PHASE_WALK, true),
+                (7_954, 0x01E2_8000, 1, DRAGON_WALKING_PHASE_WALK, true),
+                (7_955, 0x01E2_8000, 500, DRAGON_WALKING_PHASE_BREATH, true,),
+            ],
+            "ASM Kid_Transform loc_7E90 resumes the suspended Execute_Objects loc_E1E pass one callback behind native's atomic transform model, preserving the final Dragon's `$66=1` walk before loc_3CE90/loc_3CF6E",
         );
     }
 

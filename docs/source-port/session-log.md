@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 final Dragon transform callback)
+
+- `Kid_Transform loc_7E90` returns into the ordered `Execute_Objects loc_E1E`
+  pass. Native now retains the final walking Dragon's `$66` callback phase,
+  matching its last half-pixel step before `loc_3CF6E` allocates breath.
+- The same phase marker follows the linked `loc_3D082/loc_3D09E` child through
+  its frame-8023 Object/GfxObject deletion sample. Cache-backed tests pin
+  frames 7953..7955 and 8022..8024; the earlier frame-2908 Dragon stays exact.
+- Full gameplay and CRC remain 37,759/37,759 exact and complete RNG remains
+  37,743/37,743 exact. Enemy debt falls 952 -> 672.
+- NEXT: inspect `frame_21838/enemy_roster`, where native retains walking Dragon
+  layout 2 after oracle has removed it.
+
 ## 2026-07-12 handoff (#290 transform and Dragon Object-pass resume)
 
 - `Kid_Transform loc_7E90` resumes the outer `Execute_Objects loc_E12` pass

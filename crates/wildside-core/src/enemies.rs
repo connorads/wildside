@@ -1276,8 +1276,9 @@ pub(crate) struct ActiveEnemy {
     /// pass.
     pub(crate) dragon_phase_frames: u16,
     /// Dragon Flying: script variant (0, 1, 2) from layout skin byte.
-    /// Dragon Walking reuses bit 7 for the ASM Dragon.asm loc_3CD16 `$5C(a5)`
-    /// parent-spawned-child flag; no layout walking-dragon variant uses it.
+    /// Dragon Walking reuses bit 7 for Dragon.asm loc_3CD16's `$5C(a5)`
+    /// parent-spawned-child flag and bit 6 for Kid_Transform loc_7E90's retained
+    /// callback phase; no layout walking-dragon variant uses either bit.
     pub(crate) dragon_script_variant: u8,
     /// Dragon Flying: current command index within the script.
     /// Tornado reuses this as the next `loc_359F2` pattern index from `unk_35A0C`.
@@ -1405,6 +1406,7 @@ pub(crate) struct ActiveEnemy {
 }
 
 pub(crate) const DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG: u8 = 0x80;
+pub(crate) const DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG: u8 = 0x40;
 pub(crate) const ARMADILLO_PARENT_SPAWNED_CHILD_FLAG: u8 = 0x80;
 pub(crate) const ARMADILLO_SPAWNED_CHILD_FALL_WAIT_TIMER_LOC_3C954: u16 = 0xC954;
 
@@ -12856,6 +12858,18 @@ impl NativeRuntime {
                 let mut played_enemy_sound_effects = Vec::new();
                 let enemy_storage_order =
                     reorder_active_enemies_for_execute_objects_loc_de0(&mut self.active_enemies);
+                if self.progression.form_change_flash_frames == 1
+                    && let Some(enemy) = self.active_enemies.last_mut()
+                    && enemy.family == EnemyFamily::DragonWalking
+                    && enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK
+                {
+                    // ASM Kid_Transform loc_7E90 returns into the suspended
+                    // Execute_Objects loc_E1E pass. The final normal enemy is
+                    // still one loc_3CE90 callback behind native's atomic
+                    // transform model, so retain that `$66` frame here.
+                    enemy.wait_timer = enemy.wait_timer.saturating_add(1);
+                    enemy.dragon_script_variant |= DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG;
+                }
                 step_active_enemies_with_rng(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),
