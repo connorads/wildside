@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (Gfx animation mutation refresh)
+
+- `gfx_animation.rs` mutation testing is clean: 18 mutants tested, 16 caught,
+  2 unviable, 0 missed, and 0 timed out.
+- `mutants-file` now supplies `/tmp` when the host omits `TMPDIR`; isolated
+  dependency build scripts no longer fail before the unmutated baseline.
+- NEXT: run `mise run project-status`; if no ready/open risk appears, continue
+  the proactive-verification fallback in `loop.md`.
+
 ## 2026-07-12 handoff (#394 exact Fire Demon settle cohort)
 
 - Oracle Object_RAM animation timers separate the high layout-34 Fire Demon
