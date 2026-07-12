@@ -15668,6 +15668,25 @@ mod chunk_09 {
     }
 
     #[test]
+    fn fire_demon_walking_trail_skips_clipped_child_loc_3a542_3a6ca() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.block_grid = Some(supported_fire_demon_trail_grid_loc_3a63c());
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera = CameraState { x_pos: 0, y_pos: 0 };
+        rt.opening_slice = Some(slice);
+        let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0180_0000, 0x0020_0000, 3);
+        demon.on_ground = true;
+        rt.active_enemies.push(demon);
+
+        rt.spawn_fire_demon_walking_trails_loc_3a542();
+
+        assert!(
+            rt.fire_demon_trails.is_empty(),
+            "ASM Make_SpriteFromGfxObject loc_11EE leaves `$19(a3)` set beyond x=$160, so Fire_Demon.asm loc_3A6CA deletes the clipped walking-trail child",
+        );
+    }
+
+    #[test]
     fn fire_demon_refresh_active_roster_spawns_walking_trail_loc_3a542_3a63c() {
         let mut rt = NativeRuntime::new(manifest());
         rt.boot_state = BootState::InGame;

@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#391 Fire Demon trail culling)
+
+- `Fire_Demon.asm loc_3A6CA` now models the `$19` delete flag from
+  `Make_SpriteFromGfxObject loc_11EE`, including `stru_3A622`'s six vertical
+  extents. Clipped walking-trail children no longer persist or reach the
+  native trace boundary.
+- Level 0x40 focused sweep report `1783883578` keeps settle counts exact and
+  reduces the idle-tail Object/Gfx surplus from six workers to one. #391
+  remains active; next compare layout-36's final spawn/support edge rather
+  than adding a level-specific animation phase.
+- Rejected a 39/42-frame Fire-Demon-only recording tail: it shifted the count
+  mismatch from idle tail to settle and was removed.
+- Demo mutation audit: 81 mutants, 63 caught, 18 unviable, 0 missed, 0 timed
+  out (`/tmp/mutants-demo-20260712-tmp`).
+- NEXT: finish #391's single-worker frontier, then take #392.
+
 ## 2026-07-12 handoff (check-tightening, transient worker counts, camera settle)
 
 - Check tightening: the three insta snapshots were silently broken (orphaned

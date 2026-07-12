@@ -42,6 +42,25 @@ or a trail lifecycle beat (the `$19(a3)` delete flag, timer, or spawn gate)
 diverges. Probe per-frame `Number_of_Fire_Trails` against the oracle before
 touching gameplay code.
 
+Progress 2026-07-12: interval-1 oracle Object_RAM proved the three frame-zero
+trails all belong to the one Fire Demon crossing the visible floor; the two
+off-screen parents' children do not survive. `Fire_Demon.asm loc_3A6CA` tests
+the gfx object's `$19` byte after every hibernate, and
+`Make_SpriteFromGfxObject loc_11EE` leaves it set when the current
+`stru_3A622` mapping is clipped. Native now derives the six mapping extents,
+applies the exact sprite window to typed trails, and skips clipped allocations
+at the trace boundary. Focused report `1783883578` keeps settle counts exact
+and reduces the idle-tail surplus from six Object/Gfx workers to one (9/9
+native versus 8/8 oracle). The 71 Fire Demon tests pass, including a new
+off-screen child regression.
+
+Rejected follow-up: adding a Fire-Demon-only 39/42-frame recording settle tail
+nearly reproduced oracle frame-zero lifetimes but moved the remaining count
+error from idle tail to level settle. It also encoded presentation age rather
+than the missing scheduler beat, so it was removed. Continue from the one
+remaining worker by comparing the visible layout-36 parent's spawn/support
+edge at the idle checkpoint; do not add a Level 0x40 phase override.
+
 ### #390
 
 Resolved 2026-07-11 through `loop.md`'s proactive failing-sweep fallback. Level

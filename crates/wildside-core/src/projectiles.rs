@@ -115,6 +115,26 @@ pub(crate) fn fire_demon_trail_has_floor_support_loc_3a63c(
         && (support.right & 0x7000) == 0x6000
 }
 
+pub(crate) fn fire_demon_trail_offscreen_flag_loc_11ee(
+    trail: &FireDemonTrailChild,
+    camera: CameraState,
+) -> bool {
+    const TRAIL_FRAME_VERTICAL_EXTENTS_STRU_3A622: [i32; 6] = [8, 7, 6, 8, 8, 6];
+
+    // ASM Fire_Demon.asm stru_3A622 uses six six-tick mappings. loc_3A6CA
+    // tests `$19(a3)` after the hibernated frame, while Make_SpriteFromGfxObject
+    // loc_11EE leaves that byte set when the current mapping is clipped.
+    let elapsed_frames = 0x96u16.wrapping_sub(trail.remaining_frames);
+    let mapping_index = usize::from((elapsed_frames / 6) % 6);
+    let vertical_extent = TRAIL_FRAME_VERTICAL_EXTENTS_STRU_3A622[mapping_index];
+    !NativeRuntime::sprite_visibility_window_loc_11EE(
+        (trail.x_pos >> 16) as u16 as i16 as i32,
+        (trail.y_pos >> 16) as u16 as i16 as i32,
+        camera,
+        vertical_extent,
+    )
+}
+
 pub(crate) const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;
 const DRIPS_SURFACE_CRAWLER_LIFETIME: u16 = u16::MAX;
 const DRIPS_SURFACE_CRAWLER_STARTUP_FRAMES_LOC_335D8: u16 = 36;
@@ -2914,7 +2934,7 @@ impl NativeRuntime {
         }
     }
 
-    pub(crate) fn step_fire_demon_trails(&mut self) {
+    pub(crate) fn step_fire_demon_trails_with_camera(&mut self, camera: Option<CameraState>) {
         let grid = self.block_grid.as_ref();
         let mut fire_trail_count = self.fire_demon_trails.len().min(usize::from(u16::MAX)) as u16;
         self.fire_demon_trails.retain_mut(|trail| {
@@ -2926,8 +2946,12 @@ impl NativeRuntime {
                 fire_trail_count = delete.next_fire_trail_count;
                 return false;
             }
-            let step =
-                fire_demon_fire_trail_wait_loop_tick_loc_3a6ca(false, trail.remaining_frames);
+            let delete_flag_set = camera
+                .is_some_and(|camera| fire_demon_trail_offscreen_flag_loc_11ee(trail, camera));
+            let step = fire_demon_fire_trail_wait_loop_tick_loc_3a6ca(
+                delete_flag_set,
+                trail.remaining_frames,
+            );
             debug_assert!(step.hibernates_one_frame);
             trail.remaining_frames = step.remaining_timer;
             match step.next {
@@ -2947,6 +2971,10 @@ impl NativeRuntime {
                 }
             }
         });
+    }
+
+    pub(crate) fn step_fire_demon_trails(&mut self) {
+        self.step_fire_demon_trails_with_camera(self.opening_slice.map(|slice| slice.camera));
     }
 
     pub(crate) fn step_diamond_power_rain_slots(&mut self) {

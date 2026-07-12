@@ -57,7 +57,9 @@ use crate::combat::{
     shishka_bagel_head_3_post_projectile_wait_loop_loc_397bc,
     shishka_bagel_head_3_wait_loop_loc_39734,
 };
-use crate::projectiles::fire_demon_trail_has_floor_support_loc_3a63c;
+use crate::projectiles::{
+    fire_demon_trail_has_floor_support_loc_3a63c, fire_demon_trail_offscreen_flag_loc_11ee,
+};
 
 // Per-family enemy engines split into sibling files (issue #40). Each child opens
 // `use super::*;` to reach the shared types/engines that stay in this parent, and
@@ -12480,11 +12482,15 @@ impl NativeRuntime {
             let trail = fire_demon_death_trail_child_loc_3a63c(enemy.x_pos, enemy.y_pos);
             if grid.is_some_and(|grid| {
                 !fire_demon_trail_has_floor_support_loc_3a63c(grid, trail.x_pos, trail.y_pos)
-            }) {
+            }) || self
+                .opening_slice
+                .is_some_and(|slice| fire_demon_trail_offscreen_flag_loc_11ee(&trail, slice.camera))
+            {
                 // ASM Fire_Demon.asm loc_3A63C immediately reaches loc_3A6DA
                 // when the three sampled floor cells fail the `$6000` support
-                // checks, undoing the allocation count before the child can be
-                // observed.
+                // checks. Make_SpriteFromGfxObject loc_11EE likewise leaves
+                // `$19(a3)` set for a clipped child, which loc_3A6CA deletes
+                // before native's next trace boundary.
                 continue;
             }
 
