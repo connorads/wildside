@@ -15803,6 +15803,28 @@ mod chunk_09 {
     }
 
     #[test]
+    fn level_40_idle_tail_keeps_one_fire_demon_trail_loc_3a542_3a6ca() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x40)
+            .settle_recording_warp()
+            .run(&vec![0; 360], 360);
+        let frame = trace.last().expect("Level 0x40 frame 359");
+        let trail_count = frame
+            .active_projectile_details
+            .iter()
+            .filter(|projectile| projectile.kind == ActiveProjectileKind::FireDemonDeathTrail)
+            .count();
+
+        assert_eq!(
+            trail_count, 1,
+            "ASM Fire_Demon.asm loc_3A542/loc_3A6CA and oracle Level 0x40 frame 359 keep one live trail; the loc_11EE `$0160` boundary must cull the two right-side children",
+        );
+    }
+
+    #[test]
     fn dragon_walking_breath_projectile_projects_to_trace_loc_3d02a() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {

@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#391 exact Fire Demon trail population)
+
+- `Enemy00_FireDemon_Init loc_3A414` supplies the shared walker `$B` half-width,
+  and `Make_SpriteFromGfxObject loc_11EE` caps screen X at `$0160`. Native now
+  uses both ROM values rather than an 8px generic probe and 384px cull bound.
+- Cache-backed Level 0x40 regression and focused report `1783887206` retain one
+  Fire Demon trail on both sides; settle Object/Gfx counts remain exact. #391
+  is resolved.
+- The idle tail now exposes a separate 7/7 native versus 8/8 oracle worker
+  deficit plus a three-tick surviving-trail phase drift. It is #393, not a
+  trail-population regression.
+- NEXT: run `mise run project-status`; take #392 or #393 in printed priority
+  order.
+
 ## 2026-07-12 handoff (#391 Fire Demon trail culling)
 
 - `Fire_Demon.asm loc_3A6CA` now models the `$19` delete flag from

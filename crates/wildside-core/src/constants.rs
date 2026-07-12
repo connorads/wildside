@@ -657,7 +657,9 @@ pub(crate) const EARLY_START_LOAD_INGAME_PRELOAD_OBJECTS_FRAME: usize = 30;
 pub(crate) const PLAYER_DEATH_SPRITE_Y_EXTENT_PX: i32 = 0x1B;
 pub(crate) const SPRITE_VISIBILITY_BOTTOM_MARGIN_PX: i32 = 0x80;
 pub(crate) const SPRITE_VISIBILITY_TOP_MARGIN_PX: i32 = 0x80;
-pub(crate) const SPRITE_VISIBILITY_RIGHT_MARGIN_PX: i32 = 0x40;
+// ASM Make_SpriteFromGfxObject loc_11EE compares screen X directly with
+// `$0160`: 320 visible pixels plus a 32px right-side allocation margin.
+pub(crate) const SPRITE_VISIBILITY_RIGHT_MARGIN_PX: i32 = 0x20;
 pub(crate) const SPRITE_VISIBILITY_LEFT_MARGIN_PX: i32 = 0x40;
 /// ASM loc_D2C4/loc_D2CE: no-continue GAME OVER waits through a `$3C`
 /// text-fall hibernate before the `$1A3` Start-skippable title-return loop.

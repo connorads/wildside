@@ -11,6 +11,20 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #393
+
+Opened 2026-07-12 while closing #391. Focused Level 0x40 report `1783887206`
+has exact settle Object/Gfx counts and one Fire Demon trail on each side at the
+idle tail, but native exports 7/7 workers against oracle 8/8. The deficit is
+therefore not another trail-population error. The surviving native trail is at
+x=337.5 with 11 frames remaining while oracle has x=336 with 14 frames
+remaining, and the native parents are roughly five movement ticks older after
+recording settle. Evidence source: oracle state sweep plus interval-1
+Object_RAM. Native repro: reproduced. Oracle repro: authoritative. Minimum
+gate: fast-slice plus `sweep --levels 64 --tier state`. Next probe: classify the
+oracle's extra non-gameplay Object/Gfx slot and trace the shared recording-settle
+scheduler before changing Fire Demon animation age.
+
 ### #392
 
 Opened 2026-07-12 from probe report `1783877469` while refuting the Drips
@@ -60,6 +74,17 @@ error from idle tail to level settle. It also encoded presentation age rather
 than the missing scheduler beat, so it was removed. Continue from the one
 remaining worker by comparing the visible layout-36 parent's spawn/support
 edge at the idle checkpoint; do not add a Level 0x40 phase override.
+
+Resolved 2026-07-12. `Enemy00_FireDemon_Init loc_3A414` writes `$B` to the
+shared walker's half-width field, while native used the generic 8px probe.
+`Make_SpriteFromGfxObject loc_11EE` rejects screen X above `$0160`; native's
+right margin incorrectly extended that boundary to 384px instead of 352px.
+The typed Fire Demon now uses the 11px probe and the shared visibility window
+uses the exact `$0160` limit. Cache-backed regression
+`level_40_idle_tail_keeps_one_fire_demon_trail_loc_3a542_3a6ca` pins the oracle
+population. Focused report `1783887206` keeps settle counts exact and retains
+one trail on both sides. Its residual native 7/7 versus oracle 8/8 idle count
+and three-tick surviving-trail phase drift are separately tracked as #393.
 
 ### #390
 
@@ -12598,6 +12623,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 391 | [x] | P2 | Enemy/FireDemon | Fire Demon trails use the ROM's 11px walker probe and exact `$0160` sprite cull boundary, leaving one live trail at the Level 0x40 idle tail. | Report `1783887206`: settle exact and one trail per side; residual phase/worker drift is #393. See archive #391. |
 | 390 | [x] | P1 | Combat/Drips | Falling Drips children use their exact ROM sprite collision row instead of the surface-crawler fallback. | Report `1783767927`: Level 0x48 HP parity restored, 89 blockers; exact collision-row regression. See archive #390. |
 | 389 | [x] | P1 | Enemy/UFO | UFO beams share the ROM's global shooting latch, use direction-relative spawn offsets, and delete on terrain collision. | Report `1783766204`: 45/69 green, 90 blockers; Level 0x48 is 360/360 CRC exact with residual Drips-only state drift. See archive #389. |
 | 388 | [x] | P1 | Enemy/Cloud | Cloud control waits preserve `loc_35BB2`'s post-incremented command pointer, preventing repeated armed lightning cycles. | Reports `1783763770`/`1783763905`: Level 0x18 state-exact, 44/69 green, 98 blockers. See archive #388. |

@@ -11138,6 +11138,10 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             "ASM loc_11EE should keep sprites visible at the inclusive bottom edge when `y_pos-Camera_Y_pos-d6 == $160`"
         );
         assert!(
+            !NativeRuntime::sprite_visibility_window_loc_11EE(0x0161, 0x0170, camera, 0x0010),
+            "ASM loc_11EE should reject sprites once `x_pos-Camera_X_pos` exceeds `$160`"
+        );
+        assert!(
             !NativeRuntime::sprite_visibility_window_loc_11EE(0x0160, 0x0171, camera, 0x0010),
             "ASM loc_11EE should reject sprites once `y_pos-Camera_Y_pos-d6` exceeds `$160`"
         );
@@ -25899,14 +25903,16 @@ mod chunk_10 {
                 (7, 13, 0x50, 0x00),
             ],
         );
-        let mut enemy = make_pacer(EnemyFamily::FireDemon, 4, 103, 208);
+        // Enemy00_FireDemon_Init loc_3A414 seeds `$48(a5)=$B`, so centre
+        // x=100 puts the 11px right probe one pixel before the boundary.
+        let mut enemy = make_pacer(EnemyFamily::FireDemon, 4, 100, 208);
         enemy.facing = Direction::Right;
 
         step_pacer(&mut enemy, Some(&grid));
 
         assert_eq!(
             enemy.x_pos,
-            104 << 16,
+            101 << 16,
             "ASM loc_3C04E equality branch should store d2 once through loc_3C0C6, not add the native extra turn step",
         );
         assert_eq!(
