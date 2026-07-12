@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 Dragon breath GfxObject lifecycle)
+
+- Raw oracle Object/GfxObject lists prove `loc_3CF90` allocates a breath Object,
+  `loc_3D02A` immediately loads its GfxObject, `loc_3D082` keeps the pair live,
+  and `loc_3D09E` deletes the linked lifecycle. Native now counts live and
+  same-pass pending breath children as Object/GfxObject pairs.
+- Focused pure and cache-backed regressions cover pre-allocation, one/two live
+  children, and final deletion. An ignored oracle-exact regression preserves
+  the two residual scheduler edges: native frame 7954 allocates one count early
+  and frame 8006 deletes one late.
+- Full sampled debt falls 442 -> 439 authoritative differences and 10 -> 7
+  oracle limitations; the first authoritative diff moves to IntroSequence3
+  `frame_9100/number_gfx_objects`. All 37,759 CRC frames and all 37,743 complete
+  post-`Init_RNG` states remain exact.
+- NEXT: preserve #290's two Dragon scheduler edges as explicit debt; the next
+  general proactive slice starts at IntroSequence3 frame 9100's two excess
+  GfxObjects.
+
 ## 2026-07-12 handoff (#290 IntroSequence1 GfxObject carry)
 
 - Raw oracle WRAM shows the first timeout-restart IntroSequence2 frames still

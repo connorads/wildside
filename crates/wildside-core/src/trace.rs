@@ -2080,7 +2080,7 @@ mod tests {
     }
 
     #[test]
-    fn dragon_walking_breath_counts_as_object_only_child_loc_3cf90() {
+    fn dragon_walking_breath_counts_as_object_and_gfx_child_loc_3d02a() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
         runtime.current_level = LevelId(1);
@@ -2092,8 +2092,8 @@ mod tests {
 
         assert_eq!(
             runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
-            (3, 2),
-            "ASM Dragon.asm loc_3CF90 allocates the loc_3D02A breath Object_RAM child; native stores it as a projectile, so it must contribute to Number_Objects without adding a roster/gfx slot",
+            (3, 3),
+            "ASM Dragon.asm loc_3CF90 allocates the breath Object_RAM child and loc_3D02A immediately calls j_Load_GfxObjectSlot; native must count the projectile as one Object/GfxObject pair",
         );
     }
 
@@ -2111,8 +2111,8 @@ mod tests {
 
         assert_eq!(
             runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
-            (3, 2),
-            "ASM Dragon.asm loc_3CE90 decrements `$66(a5)` and reaches loc_3CF6E/loc_3CF90 in the same sampled object pass, so wait_timer=1 already contributes the breath child object",
+            (3, 3),
+            "ASM Dragon.asm loc_3CE90 decrements `$66(a5)` and reaches loc_3CF6E/loc_3CF90 in the same sampled object pass; loc_3D02A loads the child's GfxObject in that lifecycle",
         );
     }
 
@@ -4389,7 +4389,7 @@ mod tests {
     }
 
     #[test]
-    fn demo_play_object_counts_include_dragon_breath_object_only_child_loc_3cf90() {
+    fn demo_play_object_counts_include_dragon_breath_gfx_child_loc_3d02a() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::DemoPlay {
             frame_counter: demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME + 1,
@@ -4405,12 +4405,11 @@ mod tests {
         });
 
         // ASM Dragon.asm loc_3CF90 allocates the breath as an Object_RAM child;
-        // loc_3D02A only borrows a gfx worker for the animation setup, matching
-        // the #290 TAS frontier where Number_Objects differs but
-        // Number_GfxObjects stays at the demo-play baseline.
+        // loc_3D02A calls j_Load_GfxObjectSlot and loc_3D082 keeps the linked
+        // GfxObject live until loc_3D09E deletes the child lifecycle.
         let counts = runtime.object_counts_from_roster(&[], 0, 0);
         assert_eq!(counts.0, baseline.0 + 1);
-        assert_eq!(counts.1, baseline.1);
+        assert_eq!(counts.1, baseline.1 + 1);
     }
 
     #[test]
@@ -11157,11 +11156,6 @@ impl NativeRuntime {
             .sum::<u16>();
         let lion_projectile_workers =
             lion_parent_projectile_workers.max(self.lion_projectile_object_only_tail_count);
-        let dragon_walking_breath_workers = self
-            .projectiles
-            .iter()
-            .filter(|projectile| projectile.kind == EnemyProjectileKind::DragonWalkingBreath)
-            .count() as u16;
         let dragon_flying_descent_fire_workers = self
             .projectiles
             .iter()
@@ -11181,17 +11175,6 @@ impl NativeRuntime {
             .count() as u16;
         let drips_surface_crawler_workers = visible_drips_surface_crawler_workers
             .max(self.drips_surface_crawler_count_loc_fffffb42 as u16);
-        let pending_dragon_walking_breath_workers = self
-            .active_enemies
-            .iter()
-            .filter(|enemy| enemy.has_pending_dragon_walking_breath_child_loc_3ce90())
-            .count() as u16;
-        // ASM Dragon.asm loc_3CF90 allocates a child Object_RAM slot whose
-        // loc_3D02A/loc_3D082 worker owns the breath animation. Native models
-        // that child as a projectile, so count it here without adding a gfx
-        // slot; loc_3CE90 reaches loc_3CF90 in the same object pass when the
-        // timer decrements from 1 to 0, and `Load_GfxObjectSlot` does not
-        // change the sampled Number_GfxObjects at the #290 TAS frontier.
         // ASM Dragon_Flying.asm loc_34BAC follows the same Object_RAM child
         // pattern for descent fire; native models it as a projectile but ROM
         // Number_Objects includes the child worker.
@@ -11204,10 +11187,8 @@ impl NativeRuntime {
             .saturating_add(rubber_skin_workers)
             .saturating_add(lava_special_effect_workers)
             .saturating_add(lion_projectile_workers)
-            .saturating_add(dragon_walking_breath_workers)
             .saturating_add(dragon_flying_descent_fire_workers)
             .saturating_add(drips_surface_crawler_workers)
-            .saturating_add(pending_dragon_walking_breath_workers)
     }
 
     fn lava_special_effect_object_only_worker_count(&self) -> u16 {
@@ -11247,6 +11228,21 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::UfoBeam)
             .count();
+        let dragon_walking_breath_workers = self
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::DragonWalkingBreath)
+            .count();
+        let pending_dragon_walking_breath_workers = self
+            .active_enemies
+            .iter()
+            .filter(|enemy| enemy.has_pending_dragon_walking_breath_child_loc_3ce90())
+            .count();
+        // ASM Dragon.asm loc_3CF90 allocates the breath Object_RAM child;
+        // loc_3D02A immediately calls j_Load_GfxObjectSlot, loc_3D082 keeps
+        // the pair live, and loc_3D09E deletes the linked lifecycle. Native
+        // stores the child outside `active_objects`, so both live projectiles
+        // and the same-pass pending allocation contribute an Object/Gfx pair.
         // ASM Enemy22_Shiskaboss_Init allocates loc_38494..loc_38884 up
         // front. All nine skewer object/gfx workers follow unk_39872 while
         // waiting for `$FFFFFB4E==3`; native materialises them as BossSkewer
@@ -11302,6 +11298,8 @@ impl NativeRuntime {
             // loads its own GFX slot before the movement loop.
             + archer_arrow_workers
             + ufo_beam_workers
+            + dragon_walking_breath_workers
+            + pending_dragon_walking_breath_workers
             + waiting_shishkaboss_skewer_workers
             + boss_projectile_gfx_workers) as u16
     }

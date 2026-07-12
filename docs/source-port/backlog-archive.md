@@ -1707,6 +1707,19 @@ demo-play window was not hiding a later published-route gameplay frontier;
 keep #290 at `[?]` only because backlog policy requires human validation before
 closing proposed-fix rows.
 
+Follow-up 2026-07-12 for #290: raw Object/GfxObject lists correct the earlier
+"Object-only" interpretation. Dragon.asm `loc_3CF90` allocates the breath
+Object, `loc_3D02A` immediately calls `j_Load_GfxObjectSlot`, `loc_3D082` keeps
+the pair linked, and `loc_3D09E` deletes it. Native now counts live and pending
+breath projectiles as Object/GfxObject pairs. Full sampled debt falls 442 -> 439
+authoritative differences and 10 -> 7 oracle limitations, moving the first
+authoritative diff from `frame_7950/number_gfx_objects` to
+`frame_9100/number_gfx_objects`; all 37,759 CRC frames and 37,743 complete RNG
+states remain exact. Exact per-frame probes retain two known scheduler debts:
+native frame 7954 allocates one Dragon count one frame early and frame 8006
+deletes one frame late. An ignored oracle-exact regression pins both rather than
+masking them.
+
 Live play-native note 2026-06-11 with all pushed changes: keep the following as
 current acceptance failures even where recent focused probes or fixed-candidate
 rows are green. #288 intro still shows Kid/jacket below the prize block before

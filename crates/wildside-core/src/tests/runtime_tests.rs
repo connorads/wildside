@@ -1198,6 +1198,68 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_dragon_breath_children_follow_rom_object_gfx_lifecycle_loc_3d02a() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let expected = [
+            (7_937usize, (9u16, 8u16)),
+            (7_938, (10, 9)),
+            (7_955, (11, 10)),
+            (8_005, (11, 10)),
+            (8_022, (10, 9)),
+            (8_023, (9, 8)),
+        ];
+        let mut captured = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(8_024) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if expected
+                .iter()
+                .any(|(expected_frame, _)| *expected_frame == frame_index)
+            {
+                captured.push((
+                    frame_index,
+                    (trace.number_objects, trace.number_gfx_objects),
+                ));
+            }
+        }
+
+        assert_eq!(
+            captured, expected,
+            "ASM Dragon.asm loc_3CF90 allocates each breath child, loc_3D02A loads its linked GfxObject, loc_3D082 keeps both live, and loc_3D09E deletes the lifecycle",
+        );
+    }
+
+    #[test]
+    #[ignore = "#290: native Dragon object scheduling still allocates frame 7954 one frame early and deletes frame 8006 one frame late"]
+    fn published_tas_dragon_breath_count_edges_match_object_scheduler_loc_3cf90_3d09e() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let expected = [(7_954usize, (10u16, 9u16)), (8_006, (10, 9))];
+        let mut captured = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(8_007) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if expected
+                .iter()
+                .any(|(expected_frame, _)| *expected_frame == frame_index)
+            {
+                captured.push((
+                    frame_index,
+                    (trace.number_objects, trace.number_gfx_objects),
+                ));
+            }
+        }
+
+        assert_eq!(
+            captured, expected,
+            "ASM Dragon.asm loc_3CF90 must allocate and loc_3D09E must delete each Object/GfxObject pair on the oracle scheduler frame",
+        );
+    }
+
+    #[test]
     fn published_tas_frame_7969_reports_kid_ground_probe() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
