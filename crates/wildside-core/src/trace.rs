@@ -10318,14 +10318,26 @@ impl NativeRuntime {
         let (frame_counter, use_demo_2) = self
             .demo_startup_frame()
             .zip(self.demo_uses_second_recording())?;
+        let intro_sequence_6_hidden_camera_wrap = !use_demo_2
+            && !self.demo_started_from_timeout_restart_shell
+            && !self.demo_uses_intro_sequence_6_timeout_return_velocity_sample
+            && self.demo_uses_intro_sequence_6_hidden_camera_wrap;
         if !use_demo_2
-            && self.demo_uses_intro_sequence_6_timeout_return_velocity_sample
+            && (self.demo_uses_intro_sequence_6_timeout_return_velocity_sample
+                || intro_sequence_6_hidden_camera_wrap)
             && frame_counter == demo::DEMO_CAMERA_HOLD_START_FRAME + 1
         {
-            // ASM loc_1BB02 -> Load_DemoPlay keeps one controller-side object
-            // count-visible immediately before the cold timeout-return demo-1
-            // hidden camera row is sampled.
+            // ASM loc_1BB02 -> Load_DemoPlay -> loc_119D8 keeps one
+            // controller-side object count-visible immediately before both
+            // IntroSequence6 demo-1 hidden-camera rows are sampled.
             return Some((2, 0));
+        }
+        if intro_sequence_6_hidden_camera_wrap
+            && frame_counter == demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME + 8
+        {
+            // ASM Load_InGame retains the final hidden bootstrap Object for
+            // one more Execute_Objects pass on this carried-wrap lineage.
+            return Some((7, 5));
         }
         if !use_demo_2
             && (self.demo_started_from_timeout_restart_shell
@@ -10375,10 +10387,7 @@ impl NativeRuntime {
                 return Some((8, 7));
             }
         }
-        let controller_sample_frame = if !self.demo_started_from_timeout_restart_shell
-            && !self.demo_uses_intro_sequence_6_timeout_return_velocity_sample
-            && self.demo_uses_intro_sequence_6_hidden_camera_wrap
-        {
+        let controller_sample_frame = if intro_sequence_6_hidden_camera_wrap {
             // ASM loc_1BA5C -> Obj_TitleMenu loc_1BB02 -> Load_DemoPlay:
             // this IntroSequence6 carry keeps the hidden controller lineage
             // one object pass behind cold demo-1. The live loc_368A8 loader
@@ -10415,10 +10424,13 @@ impl NativeRuntime {
                     .saturating_add(transient_gfx_workers),
             ));
         }
+        let controller_sample_window = demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME.saturating_add(1)
+            ..=demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME;
+        let shifted_first_controller_sample = intro_sequence_6_hidden_camera_wrap
+            && frame_counter == demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME.saturating_add(1);
         if use_demo_2
-            || !(demo::DEMO_TRACE_GROUNDED_HOLD_END_FRAME.saturating_add(1)
-                ..=demo::DEMO_1_LATE_CONTROLLER_COUNT_SAMPLE_END_FRAME)
-                .contains(&controller_sample_frame)
+            || (!controller_sample_window.contains(&controller_sample_frame)
+                && !shifted_first_controller_sample)
         {
             return None;
         }

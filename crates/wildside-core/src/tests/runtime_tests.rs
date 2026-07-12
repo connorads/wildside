@@ -5248,6 +5248,40 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_intro_sequence_6_demo_1_counts_follow_loc_119d8_load_ingame_passes() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let expected = [
+            (21_823, 1, 0),
+            (21_824, 2, 0),
+            (21_825, 2, 0),
+            (21_853, 7, 5),
+            (21_854, 7, 5),
+            (21_855, 6, 5),
+            (22_017, 6, 5),
+            (22_018, 6, 5),
+            (22_019, 6, 5),
+        ];
+        let mut actual = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(22_020) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if expected
+                .iter()
+                .any(|(expected_frame, _, _)| *expected_frame == frame_index)
+            {
+                actual.push((frame_index, trace.number_objects, trace.number_gfx_objects));
+            }
+        }
+
+        // ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay -> loc_119D8 ->
+        // Load_InGame retains the hidden controller and bootstrap workers in
+        // Object-pass order. Raw oracle WRAM pins the three shifted edges.
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn published_tas_intro_sequence_6_keeps_demo_1_bootstrap_hidden_on_frame_21837() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

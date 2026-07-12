@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 interval-1 published route clean)
+
+- Raw Object/GfxObject heads pin the final three carried IntroSequence6 demo-1
+  edges: the hidden `loc_119D8` controller joins at frame 21824, the last
+  `Load_InGame` bootstrap Object survives through frame 21854, and the live
+  controller-sampled 6/5 window begins at frame 22018.
+- Native now shifts those three boundaries together for the carried-wrap
+  lineage. A cache-backed regression covers both sides of every edge.
+- The interval-1 authoritative ratchet falls 4 -> 0. All 37,759 CRC frames and
+  all 37,743 complete post-`Init_RNG` states remain exact; the full exported
+  state report has zero differences in every classification.
+- NEXT: use the proactive-verification fallback. This closes known per-frame
+  exported-state debt on one route, not whole-RAM, render, audio, every-input,
+  enemy-internal, or whole-game proof.
+
 ## 2026-07-12 handoff (#290 recurring cold-title popup interval)
 
 - Raw WRAM shows two base GfxObjects through frame 12579, the first
