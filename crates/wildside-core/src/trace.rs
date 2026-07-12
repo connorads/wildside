@@ -883,19 +883,19 @@ mod tests {
         );
         assert_eq!(
             hidden_count_with(56, BootState::TitleScreen { cursor: 0 }, true),
-            Some((5, 0))
-        );
-        assert_eq!(
-            hidden_count_with(57, BootState::TitleScreen { cursor: 0 }, true),
             Some((5, 1))
         );
         assert_eq!(
+            hidden_count_with(57, BootState::TitleScreen { cursor: 0 }, true),
+            Some((5, 2))
+        );
+        assert_eq!(
             hidden_count_with(58, BootState::TitleScreen { cursor: 0 }, true),
-            Some((4, 1))
+            Some((4, 2))
         );
         assert_eq!(
             hidden_count_with(59, BootState::TitleScreen { cursor: 0 }, true),
-            Some((4, 1))
+            Some((4, 2))
         );
         assert_eq!(
             hidden_count_with(55, BootState::TitleScreen { cursor: 0 }, false),
@@ -7238,16 +7238,14 @@ impl NativeRuntime {
         }
 
         // ASM Load_TitleScreen (kid.asm:29444) allocates the three title
-        // shell objects, then Obj_TitleMenu (kid.asm:30380) allocates the
-        // title flash and text workers. This timeout-return lineage exposes
-        // those counters one frame earlier than the generic manual demo-return
-        // path and keeps the title-card gfx counter hidden until the steady
-        // title shell takes over.
+        // shell objects, then the resumed loc_E12 pass runs Obj_TitleMenu and
+        // Obj_TitleTextKid. Raw WRAM shows the latter's initial GfxObject on
+        // that same pass and the companion worker on the following pass.
         match self.title_screen_elapsed_frames {
             55 => Some((3, 0)),
-            56 => Some((5, 0)),
-            57 => Some((5, 1)),
-            58..=59 => Some((4, 1)),
+            56 => Some((5, 1)),
+            57 => Some((5, 2)),
+            58..=59 => Some((4, 2)),
             _ => None,
         }
     }

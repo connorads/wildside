@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 IntroSequence3 title Gfx passes)
+
+- Raw WRAM identifies one coherent six-row cluster at frames 6265..6268, 6358,
+  and 6368: the timeout-restart IntroSequence3 title return advances the whole
+  `Obj_TitleTextKid loc_1B5E4 -> sub_1B652` allocation timeline one object pass.
+- Native now advances the initial title workers and both popup allocations only
+  for that proven lineage. Exact frames 6230..6379 are clean.
+- The interval-1 authoritative ratchet falls 33 -> 27 fields across 26 frames;
+  the first remaining row is `frame_7486/number_gfx_objects`.
+- NEXT: audit the frame-7486..7492 Demo 1 enemy GfxObject cluster against raw
+  linked-list slots and the relevant enemy ASM.
+
 ## 2026-07-12 handoff (#290 interval-1 TAS state gate)
 
 - A true interval-1 audit compares all 37,759 published-route state frames.

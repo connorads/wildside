@@ -5692,12 +5692,19 @@ impl NativeRuntime {
             + usize::from(setup.post_drift_hibernate_frames);
         let second_burst_elapsed =
             first_burst_elapsed + usize::from(setup.interstitial_hibernate_frames);
+        let allocation_pass_advance = matches!(
+            self.title_screen_intro_return_lineage,
+            Some(
+                TitleScreenIntroReturnLineage::LaterIntroSequence
+                    | TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence3
+            )
+        );
+        // ASM Obj_TitleTextKid loc_1B5E4 -> sub_1B652: these two return
+        // lineages rejoin loc_E12 one object pass early, so the worker's full
+        // allocation timeline advances together, not just its initial slot.
         let elapsed = self
             .effective_title_screen_rebuild_elapsed()
-            .saturating_add(usize::from(matches!(
-                self.title_screen_intro_return_lineage,
-                Some(TitleScreenIntroReturnLineage::LaterIntroSequence)
-            )));
+            .saturating_add(usize::from(allocation_pass_advance));
 
         2 + u16::from(elapsed >= first_burst_elapsed) + u16::from(elapsed >= second_burst_elapsed)
     }

@@ -16,9 +16,9 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compares all 37,759 requested player/camera CRC frames and all 37,759
-exported-state frames. CRC is exact, but 32 state frames retain 33 authoritative
-count differences: 30 GfxObject fields and three Object fields, first at
-`frame_6265/number_gfx_objects`.
+exported-state frames. CRC is exact, but 26 state frames retain 27 authoritative
+count differences: 24 GfxObject fields and three Object fields, first at
+`frame_7486/number_gfx_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -31,10 +31,17 @@ this route, not whole-state or whole-game proof.
 
 The latest confidence correction promotes the full published-route state gate
 from every 25th frame to every frame. The former 1,512-checkpoint report was
-clean, but interval-1 comparison finds 33 authoritative count fields across 32
-of 37,759 frames. The checked-in baseline now enforces that result and its first
+clean, but interval-1 comparison currently finds 27 authoritative count fields
+across 26 of 37,759 frames. The checked-in baseline enforces that result and its first
 row, so fixes must ratchet real per-frame debt down rather than preserve a
 sampled-green claim. Player/camera CRC and complete RNG remain exact per frame.
+
+The latest behaviour correction follows the timeout-restart IntroSequence3
+return through `Load_TitleScreen -> Obj_TitleTextKid loc_1B5E4 -> sub_1B652`.
+Raw WRAM shows that lineage rejoining `loc_E12` one object pass early, advancing
+the initial title GfxObjects and both popup allocations together. Published
+frames 6230..6379 are now exact, removing six fields and moving the first
+remaining row to frame 7486.
 
 The latest behaviour correction shifts the complete later IntroSequence5 worker lifecycle
 with its one-pass-early `loc_1BA28 -> loc_1BCD0/loc_1C7A0` allocation. Native

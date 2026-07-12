@@ -1855,6 +1855,42 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_timeout_restart_intro_3_advances_title_text_kid_gfx_passes() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let expected = [
+            (6_264, 3, 0),
+            (6_265, 5, 1),
+            (6_266, 5, 2),
+            (6_268, 4, 2),
+            (6_269, 4, 2),
+            (6_357, 4, 2),
+            (6_358, 4, 3),
+            (6_359, 4, 3),
+            (6_367, 4, 3),
+            (6_368, 4, 4),
+            (6_369, 4, 4),
+        ];
+        let mut actual = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(6_370) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if expected
+                .iter()
+                .any(|(expected_frame, _, _)| *expected_frame == frame_index)
+            {
+                actual.push((frame_index, trace.number_objects, trace.number_gfx_objects));
+            }
+        }
+
+        // ASM Load_TitleScreen -> Obj_TitleTextKid loc_1B5E4 -> sub_1B652:
+        // after the timeout-restart IntroSequence3 return rejoins loc_E12,
+        // each initial and popup GfxObject allocation is visible on that pass.
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn published_tas_demo_1_times_out_on_frame_8069() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
