@@ -304,8 +304,13 @@ native_crc_frames=$(jq -r '"'"'.crc_frame_counts.native'"'"' "$report")
 oracle_crc_frames=$(jq -r '"'"'.crc_frame_counts.oracle'"'"' "$report")
 actual_summary=$(jq -cS '"'"'.divergence_summary'"'"' "$report")
 expected_summary=$(jq -cS --arg slug "$slug" '"'"'.recordings[$slug].full_expected_divergence_summary'"'"' "$frontier")
-actual_first=$(jq -cS '"'"'.first_authoritative_diff | {checkpoint, field}'"'"' "$report")
+actual_first=$(jq -cS '"'"'.first_authoritative_diff | if . == null then null else {checkpoint, field} end'"'"' "$report")
 expected_first=$(jq -cS --arg slug "$slug" '"'"'.recordings[$slug].full_expected_first_authoritative_diff'"'"' "$frontier")
+enemy_checkpoints=$(jq -r '"'"'.enemy_frontier.checkpoints'"'"' "$report")
+actual_enemy_summary=$(jq -cS '"'"'.enemy_frontier.divergence_summary'"'"' "$report")
+expected_enemy_summary=$(jq -cS --arg slug "$slug" '"'"'.recordings[$slug].full_expected_enemy_divergence_summary'"'"' "$frontier")
+actual_enemy_first=$(jq -cS '"'"'.enemy_frontier.first_authoritative_diff | if . == null then null else {checkpoint, field} end'"'"' "$report")
+expected_enemy_first=$(jq -cS --arg slug "$slug" '"'"'.recordings[$slug].full_expected_first_enemy_authoritative_diff'"'"' "$frontier")
 actual_rng_digest=$(jq -r '"'"'.rng_divergence_digest // empty'"'"' "$report")
 expected_rng_digest=$(jq -r --arg slug "$slug" '"'"'.recordings[$slug].full_expected_rng_divergence_digest'"'"' "$frontier")
 actual_rng_frames=$(jq -cS '"'"'.rng_frame_comparison | {start_frame, compared_frames, mismatch_count, mismatch_digest, first_mismatch}'"'"' "$report")
@@ -325,19 +330,27 @@ if [ "$rng_requested_frames" -ne "$frame" ] || [ "$rng_native_frames" -ne "$fram
   echo "FAIL: full TAS per-frame RNG coverage incomplete (requested=$rng_requested_frames native=$rng_native_frames oracle=$rng_oracle_frames expected=$frame)"
   exit 1
 fi
-if [ "$actual_summary" != "$expected_summary" ] || [ "$actual_first" != "$expected_first" ] || [ "$actual_rng_digest" != "$expected_rng_digest" ] || [ "$actual_rng_frames" != "$expected_rng_frames" ]; then
+if [ "$enemy_checkpoints" -ne "$frame" ]; then
+  echo "FAIL: full TAS enemy-frontier coverage incomplete (actual=$enemy_checkpoints expected=$frame)"
+  exit 1
+fi
+if [ "$actual_summary" != "$expected_summary" ] || [ "$actual_first" != "$expected_first" ] || [ "$actual_enemy_summary" != "$expected_enemy_summary" ] || [ "$actual_enemy_first" != "$expected_enemy_first" ] || [ "$actual_rng_digest" != "$expected_rng_digest" ] || [ "$actual_rng_frames" != "$expected_rng_frames" ]; then
   echo "FAIL: full TAS checkpoint divergence baseline changed"
   echo "  expected summary: $expected_summary"
   echo "  actual summary:   $actual_summary"
   echo "  expected first:   $expected_first"
   echo "  actual first:     $actual_first"
+  echo "  expected enemy summary: $expected_enemy_summary"
+  echo "  actual enemy summary:   $actual_enemy_summary"
+  echo "  expected enemy first:   $expected_enemy_first"
+  echo "  actual enemy first:     $actual_enemy_first"
   echo "  expected RNG digest: $expected_rng_digest"
   echo "  actual RNG digest:   $actual_rng_digest"
   echo "  expected per-frame RNG: $expected_rng_frames"
   echo "  actual per-frame RNG:   $actual_rng_frames"
   exit 1
 fi
-echo "Full TAS CRC: all $frame frames match; checkpoint, sampled RNG, and per-frame RNG baselines unchanged ($actual_summary rng_digest=$actual_rng_digest per_frame=$actual_rng_frames)"
+echo "Full TAS CRC: all $frame frames match; gameplay state remains clean; enemy frontier debt ratcheted ($actual_enemy_summary first=$actual_enemy_first); sampled and per-frame RNG baselines unchanged (rng_digest=$actual_rng_digest per_frame=$actual_rng_frames)"
 '
 """
 description = "Full any-percent TAS verification — run after gameplay-affecting commits"

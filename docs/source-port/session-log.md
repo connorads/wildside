@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 enemy-frontier confidence boundary)
+
+- Auditing the verifier found that gameplay mode compared every exported
+  gameplay field but deliberately omitted `active_enemies`; its clean result
+  therefore did not prove enemy-state equality.
+- `verify-tas` now derives a separate enemy-frontier report from the same
+  37,759 captured state pairs. The full gate ratchets its checkpoint coverage,
+  divergence summary, and first authoritative field.
+- Gameplay remains zero-difference on all 37,759 checkpoints, CRC remains exact
+  on all 37,759 frames, and complete RNG remains exact on 37,743 frames. Enemy
+  state has 5,725 authoritative roster differences, first at
+  `frame_1022/enemy_roster` for oracle object type `$70`.
+- NEXT: identify `$70` in ASM and decide whether the first frontier is missing
+  native behaviour or an exported-representation mismatch. Probe before code.
+
 ## 2026-07-12 handoff (#290 interval-1 published route clean)
 
 - Raw Object/GfxObject heads pin the final three carried IntroSequence6 demo-1

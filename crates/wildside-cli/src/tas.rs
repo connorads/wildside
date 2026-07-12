@@ -685,6 +685,24 @@ pub fn verify_tas(
         crc_clean,
     );
     let divergence_summary = crate::sweep::summarise_state_diffs(&state_diffs);
+    let enemy_frontier_report =
+        matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay).then(|| {
+            let enemy_diffs = crate::sweep::compare_sweep_states_for_frontier_with_options(
+                &native_states,
+                &oracle.states,
+                crate::sweep::FrontierKind::Enemy,
+                crate::sweep::SweepStateComparisonOptions::default(),
+            );
+            let report =
+                frontier_diff_report(&enemy_diffs, native_states.len().min(oracle.states.len()));
+            let summary = crate::sweep::summarise_state_diffs(&enemy_diffs);
+            println!(
+                "  enemy frontier: {} divergences ({} authoritative)",
+                enemy_diffs.len(),
+                summary.authoritative,
+            );
+            report
+        });
 
     if state_diffs.is_empty() {
         println!(
@@ -798,12 +816,38 @@ pub fn verify_tas(
         "rng_divergence_digest": rng_divergence_digest,
         "rng_frame_comparison": rng_frame_report,
         "first_authoritative_diff": first_authoritative_diff,
+        "enemy_frontier": enemy_frontier_report,
     });
     let report_path = run_dir.join("report.json");
     std::fs::write(&report_path, serde_json::to_vec_pretty(&report)?)?;
     println!("  report: {}", report_path.display());
 
     Ok(())
+}
+
+fn frontier_diff_report(
+    state_diffs: &[crate::sweep::StateDiff],
+    checkpoint_count: usize,
+) -> serde_json::Value {
+    let summary = crate::sweep::summarise_state_diffs(state_diffs);
+    let first_authoritative_diff = state_diffs
+        .iter()
+        .find(|diff| diff.category == crate::sweep::DivergenceCategory::Authoritative)
+        .map(|diff| {
+            serde_json::json!({
+                "checkpoint": diff.checkpoint,
+                "field": diff.field,
+                "native_value": diff.native_value,
+                "oracle_value": diff.oracle_value,
+            })
+        });
+
+    serde_json::json!({
+        "checkpoints": checkpoint_count,
+        "total_diffs": state_diffs.len(),
+        "divergence_summary": summary,
+        "first_authoritative_diff": first_authoritative_diff,
+    })
 }
 
 fn checkpoint_pair<'a>(
@@ -1443,6 +1487,32 @@ mod tests {
         changed.oracle_value = "byte[0]=0x20".into();
         assert_ne!(rng_divergence_digest(&[changed]), digest);
         assert_eq!(rng_divergence_digest(&[]), None);
+    }
+
+    #[test]
+    fn frontier_diff_report_exposes_controlled_enemy_divergence() {
+        let diff = crate::sweep::StateDiff {
+            checkpoint: "frame_1022".into(),
+            field: "enemy_roster".into(),
+            native_value: String::new(),
+            oracle_value: "70:00480000,02400000:Left".into(),
+            category: crate::sweep::DivergenceCategory::Authoritative,
+        };
+
+        let report = frontier_diff_report(std::slice::from_ref(&diff), 37_759);
+
+        assert_eq!(report["checkpoints"], 37_759);
+        assert_eq!(report["total_diffs"], 1);
+        assert_eq!(report["divergence_summary"]["authoritative"], 1);
+        assert_eq!(
+            report["first_authoritative_diff"],
+            serde_json::json!({
+                "checkpoint": "frame_1022",
+                "field": "enemy_roster",
+                "native_value": "",
+                "oracle_value": "70:00480000,02400000:Left",
+            })
+        );
     }
 
     fn rng_frame(offset: u16, byte: u8) -> Option<wildside_core::RomRandomFrameState> {

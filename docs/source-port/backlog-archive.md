@@ -1802,6 +1802,16 @@ The full route retains 37,759/37,759 CRC and 37,743/37,743 complete RNG
 equality; sampled state debt falls 63 -> 57 authoritative differences with 15
 oracle limitations, first at `frame_22275/number_objects`.
 
+Follow-up 2026-07-12 for #290: the full gate now computes gameplay and enemy
+frontiers from the same native/oracle capture instead of allowing the clean
+gameplay report to imply enemy equality. All 37,759 gameplay checkpoints remain
+zero-difference and all 37,743 complete post-`Init_RNG` states remain exact.
+The separately ratcheted enemy frontier has 5,725 authoritative roster
+differences, first at `frame_1022/enemy_roster`: native exports no entry while
+oracle exports object type `$70` at `$00480000,$02400000`. This is an explicit
+fidelity debt, not an oracle limitation; classify the object and representation
+against ASM before implementing a fix.
+
 Live play-native note 2026-06-11 with all pushed changes: keep the following as
 current acceptance failures even where recent focused probes or fixed-candidate
 rows are green. #288 intro still shows Kid/jacket below the prize block before
