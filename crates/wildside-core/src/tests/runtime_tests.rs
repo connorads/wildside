@@ -1232,6 +1232,105 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_transform_cleanup_resumes_dragons_loc_7e90_e12() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut captured = Vec::new();
+        let mut wall_boundary = Vec::new();
+        let mut frame_7797_counts = None;
+        let mut breath_contact_resume = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(7_860) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 7_685 | 7_686) {
+                let mut dragons: Vec<_> = runtime
+                    .active_enemies
+                    .iter()
+                    .filter(|enemy| enemy.family == EnemyFamily::DragonWalking)
+                    .map(|enemy| (enemy.layout_index, enemy.x_pos))
+                    .collect();
+                dragons.sort_unstable_by_key(|dragon| dragon.0);
+                captured.push((frame_index, dragons));
+            }
+            if matches!(frame_index, 7_746..=7_748) {
+                let dragon = runtime
+                    .active_enemies
+                    .iter()
+                    .find(|enemy| {
+                        enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 2
+                    })
+                    .unwrap_or_else(|| {
+                        panic!("walking Dragon #02 should be live on frame {frame_index}")
+                    });
+                wall_boundary.push((frame_index, dragon.x_pos, dragon.facing));
+            }
+            if frame_index == 7_797 {
+                frame_7797_counts = Some((trace.number_objects, trace.number_gfx_objects));
+            }
+            if matches!(frame_index, 7_858 | 7_859) {
+                let dragon = runtime
+                    .active_enemies
+                    .iter()
+                    .find(|enemy| {
+                        enemy.family == EnemyFamily::DragonWalking && enemy.layout_index == 0
+                    })
+                    .unwrap_or_else(|| {
+                        panic!("walking Dragon #00 should be live on frame {frame_index}")
+                    });
+                breath_contact_resume.push((frame_index, dragon.x_pos, dragon.facing));
+            }
+        }
+
+        assert_eq!(
+            captured,
+            vec![
+                (
+                    7_685,
+                    vec![
+                        (0, 0x032F_0000),
+                        (1, 0x03A8_8000),
+                        (2, 0x01F8_8000),
+                        (4, 0x02E5_8000),
+                    ],
+                ),
+                (
+                    7_686,
+                    vec![
+                        (0, 0x032F_8000),
+                        (1, 0x03A8_0000),
+                        (2, 0x01F9_0000),
+                        (4, 0x02E6_0000),
+                    ],
+                ),
+            ],
+            "ASM Kid_Transform loc_7E90 clears Currently_transforming before the outer Execute_Objects loc_E12 pass resumes every walking Dragon on frame 7686",
+        );
+        assert_eq!(
+            wall_boundary,
+            vec![
+                (7_746, 0x0217_0000, Direction::Right),
+                (7_747, 0x0217_8000, Direction::Right),
+                (7_748, 0x0217_8000, Direction::Left),
+            ],
+            "ASM Lion.asm loc_3E3B2/loc_3E406 should preserve the resumed Dragon's fractional wall-boundary phase",
+        );
+        assert_eq!(
+            frame_7797_counts,
+            Some((9, 8)),
+            "ASM Dragon.asm loc_3CF90/loc_3D02A breath allocation must retain its oracle object-count phase after transform cleanup",
+        );
+        assert_eq!(
+            breath_contact_resume,
+            vec![
+                (7_858, 0x0367_0000, Direction::Right),
+                (7_859, 0x0367_8000, Direction::Right),
+            ],
+            "ASM Dragon.asm loc_3CFDA -> loc_3CEBE -> loc_3CF4C/loc_3CF62 resumes walking after a nonlethal Kid-above hit ends the breath child",
+        );
+    }
+
+    #[test]
     fn published_tas_dragon_breath_counts_follow_raw_lists_loc_3cfda_3d09e() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

@@ -2048,19 +2048,6 @@ impl ActiveEnemy {
             && self.wait_timer == ARMADILLO_SPAWNED_CHILD_FALL_WAIT_TIMER_LOC_3C954
     }
 
-    pub(crate) fn has_pending_dragon_walking_breath_child_loc_3ce90(&self) -> bool {
-        // ASM Dragon.asm loc_3CE90 decrements `$66(a5)` and falls through to
-        // loc_3CF6E/loc_3CF90 in the same object pass when the stored timer
-        // becomes zero. Native spawns the projectile during `step`, but trace
-        // counts sample before that mutation, so `wait_timer == 1` already has
-        // a visible Object_RAM breath child in the ROM.
-        matches!(self.family, EnemyFamily::DragonWalking)
-            && self.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK
-            && self.wait_timer == 1
-            && self.grounded_frames == 0
-            && self.damage_flash_frames != ENEMY_DAMAGE_FLASH_FRAMES
-    }
-
     fn take_dragon_walking_damage_or_queue_death(&mut self) -> bool {
         let parent_spawned_child = self.is_dragon_walking_parent_spawned_child();
         match dragon_walking_damage_route_loc_3cebe(
@@ -8162,7 +8149,7 @@ const SHARED_WALKER_DETECT_RANGE: i32 = 0x60;
 const SHARED_WALKER_RELEASE_RANGE: i32 = 0x70;
 const DRAGON_WALKING_PATROL_SHORT_FRAMES: u16 = 0x32;
 const DRAGON_WALKING_PATROL_LONG_FRAMES: u16 = 0x12C;
-const DRAGON_WALKING_PHASE_WALK: u8 = 0;
+pub(crate) const DRAGON_WALKING_PHASE_WALK: u8 = 0;
 
 fn dragon_walking_animation_frame_ticks(hit_points: u8) -> u8 {
     if hit_points == 3 {
@@ -12761,7 +12748,7 @@ impl NativeRuntime {
         if self.paused {
             return;
         }
-        if self.gameplay_hibernating_for_transform() {
+        if self.object_pass_hibernating_for_transform_loc_7e90() {
             return;
         }
         self.pending_enemy_gfx_initialisations_loc_3691e = 0;

@@ -2084,9 +2084,22 @@ mod tests {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
         runtime.current_level = LevelId(1);
+        runtime.active_enemies.push(ActiveEnemy {
+            family: EnemyFamily::DragonWalking,
+            segment_index: 0,
+            layout_index: 1,
+            dragon_script_cmd: DRAGON_WALKING_PHASE_BREATH,
+            dragon_phase_frames: 32,
+            ..drips_test_enemy(0, 0)
+        });
         runtime.projectiles.push(EnemyProjectile {
             kind: EnemyProjectileKind::DragonWalkingBreath,
             lifetime: 60,
+            owner: Some(EnemyProjectileOwner {
+                segment_index: 0,
+                layout_index: 1,
+                token: 0,
+            }),
             ..Default::default()
         });
 
@@ -2098,7 +2111,7 @@ mod tests {
     }
 
     #[test]
-    fn dragon_walking_breath_zero_lifetime_count_follows_object_pass_loc_3d09e() {
+    fn dragon_walking_breath_completion_count_follows_child_phase_loc_3d09e() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
         runtime.current_level = LevelId(1);
@@ -2108,6 +2121,8 @@ mod tests {
                 family: EnemyFamily::DragonWalking,
                 segment_index: 0,
                 layout_index,
+                dragon_script_cmd: DRAGON_WALKING_PHASE_BREATH,
+                dragon_phase_frames: if layout_index == 2 { 1 } else { 32 },
                 ..drips_test_enemy(0, 0)
             }));
         runtime
@@ -2126,12 +2141,21 @@ mod tests {
         assert_eq!(
             runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
             (3, 3),
-            "ASM Dragon.asm loc_3D09E has deleted the later roster entry's completed child at trace time, while the first entry's child remains linked until its next Object pass",
+            "ASM Dragon.asm loc_3D082 keeps the naturally completed child linked through its final poll, while loc_3CFDA contact completion deletes the other child early",
+        );
+
+        runtime.projectiles.clear();
+        runtime.active_enemies[0].dragon_phase_frames = 0;
+        runtime.active_enemies[1].dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
+        assert_eq!(
+            runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
+            (3, 3),
+            "ASM Dragon.asm loc_3D082 observes the animation end before loc_3D09E removes the linked pair on the following object pass",
         );
     }
 
     #[test]
-    fn dragon_walking_breath_count_includes_wait_timer_one_child_loc_3ce90() {
+    fn dragon_walking_breath_count_waits_for_allocated_child_loc_3cf90() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
         runtime.current_level = LevelId(1);
@@ -2160,8 +2184,8 @@ mod tests {
 
         assert_eq!(
             runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
-            (3, 3),
-            "ASM Dragon.asm loc_3CE90 decrements `$66(a5)` and reaches loc_3CF6E/loc_3CF90 in the same sampled object pass for later roster entries; loc_3D02A loads the child's GfxObject in that lifecycle",
+            (2, 2),
+            "ASM Dragon.asm loc_3CE90 leaves `$66(a5)=1` without a child; Number_Objects and Number_GfxObjects change only after loc_3CF90/loc_3D02A allocate the linked pair",
         );
     }
 
@@ -11642,40 +11666,47 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::UfoBeam)
             .count();
-        let next_dragon_walking_owner =
-            self.active_enemies
-                .first()
-                .map(|enemy| EnemyProjectileOwner {
+        let dragon_walking_breath_workers = self
+            .active_enemies
+            .iter()
+            .enumerate()
+            .filter(|(enemy_index, enemy)| {
+                if enemy.family != EnemyFamily::DragonWalking
+                    || enemy.dragon_script_cmd != DRAGON_WALKING_PHASE_BREATH
+                {
+                    return false;
+                }
+                let owner = EnemyProjectileOwner {
                     segment_index: enemy.segment_index,
                     layout_index: enemy.layout_index,
                     token: 0,
-                });
-        let dragon_walking_breath_workers = self
-            .projectiles
-            .iter()
-            .filter(|projectile| {
-                projectile.kind == EnemyProjectileKind::DragonWalkingBreath
-                    && (projectile.lifetime > 0 || projectile.owner == next_dragon_walking_owner)
+                };
+                match self.projectiles.iter().find(|projectile| {
+                    projectile.kind == EnemyProjectileKind::DragonWalkingBreath
+                        && projectile.owner == Some(owner)
+                }) {
+                    // ASM Dragon.asm loc_3CF90 allocates inside the ordered
+                    // Object pass. The next entry has not crossed that edge at
+                    // sample time; later entries have linked through loc_3D02A.
+                    Some(_) if enemy.dragon_phase_frames == DRAGON_WALKING_BREATH_HOLD_FRAMES => {
+                        *enemy_index != 0
+                    }
+                    // ASM loc_3CFDA can end the child before its animation.
+                    // Natural loc_3D082 completion remains linked through the
+                    // final phase-one poll.
+                    Some(projectile) => projectile.lifetime > 0 || enemy.dragon_phase_frames <= 1,
+                    // Native removes the expired record before the parent
+                    // observes loc_3D082's done flag. The ROM pair remains in
+                    // both linked lists for that phase-zero sample.
+                    None => enemy.dragon_phase_frames == 0 && *enemy_index == 0,
+                }
             })
-            .count();
-        let pending_dragon_walking_breath_workers = self
-            .active_enemies
-            .iter()
-            // The first native roster entry is the next Object pass, while
-            // later entries have already crossed loc_3CE90 at trace time.
-            // Raw WRAM therefore exposes their wait-timer-one allocations but
-            // not the first entry's until the following frame.
-            .skip(1)
-            .filter(|enemy| enemy.has_pending_dragon_walking_breath_child_loc_3ce90())
             .count();
         // ASM Dragon.asm loc_3CF90 allocates the breath Object_RAM child;
         // loc_3D02A immediately calls j_Load_GfxObjectSlot, loc_3D082 keeps
         // the pair live, and loc_3D09E deletes the linked lifecycle. Native
-        // stores the child outside `active_objects`. Later roster entries have
-        // already deleted a zero-lifetime child at trace time; the first entry
-        // is the next Object pass and remains linked until the following
-        // sample. A later pending entry can likewise be count-visible one
-        // trace before native materialises its child.
+        // stores the child outside `active_objects`. Count only a materialised
+        // child: raw `$66(a5)=1` still has no Object/GfxObject pair.
         // ASM Enemy22_Shiskaboss_Init allocates loc_38494..loc_38884 up
         // front. All nine skewer object/gfx workers follow unk_39872 while
         // waiting for `$FFFFFB4E==3`; native materialises them as BossSkewer
@@ -11732,7 +11763,6 @@ impl NativeRuntime {
             + archer_arrow_workers
             + ufo_beam_workers
             + dragon_walking_breath_workers
-            + pending_dragon_walking_breath_workers
             + waiting_shishkaboss_skewer_workers
             + boss_projectile_gfx_workers) as u16
     }

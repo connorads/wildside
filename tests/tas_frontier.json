@@ -52,14 +52,14 @@
         "oracle_limitation": 0
       },
       "full_expected_enemy_divergence_summary": {
-        "authoritative": 2320,
+        "authoritative": 952,
         "advisory": 0,
         "accumulation": 0,
         "rng": 0,
         "oracle_limitation": 0
       },
       "full_expected_first_enemy_authoritative_diff": {
-        "checkpoint": "frame_7686",
+        "checkpoint": "frame_7954",
         "field": "enemy_roster"
       },
       "full_expected_rng_divergence_digest": "",

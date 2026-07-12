@@ -3529,6 +3529,13 @@ impl NativeRuntime {
         self.progression.form_change_flash_frames > 0
     }
 
+    pub(crate) fn object_pass_hibernating_for_transform_loc_7e90(&self) -> bool {
+        // ASM Kid_Transform loc_7E90 clears Currently_transforming and returns
+        // from the final cleanup count. The outer Execute_Objects loc_E12 pass
+        // therefore resumes while native's pre-lifecycle countdown is one.
+        self.progression.form_change_flash_frames > 1
+    }
+
     fn apply_form_width_overlap_fixup(&mut self, slice: &mut OpeningSliceState) {
         if self.progression.form_width_delta == 0 {
             return;

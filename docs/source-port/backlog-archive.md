@@ -1853,6 +1853,27 @@ RNG remains 37,743/37,743 exact, and enemy debt falls 2,325 -> 2,320. The next
 frontier is `frame_7686/enemy_roster`, where four mature Dragons differ by
 half-pixel steps as Kid exits transformation hibernation.
 
+Follow-up 2026-07-12 for #290: `Kid_Transform loc_7E90` clears
+`Currently_transforming` before returning to the outer `Execute_Objects
+loc_E12` pass. Native's gameplay countdown still needs its final cleanup frame,
+but enemy execution now resumes while that countdown is one, matching all four
+walking Dragons' half-pixel step at frame 7686. The resumed right-facing wall
+path also keeps the final fractional step before `Lion.asm loc_3E406` turns in
+place. Breath Object/Gfx counts now follow `loc_3CF90/loc_3D02A/loc_3D082` from
+the materialised child, parent phase, and Object-pass position instead of a
+wait-timer projection. Finally, nonlethal Kid-above contact during breath ends
+the child at `loc_3CFDA`, hibernates through `loc_3CEBE`, and returns the parent
+to walking through `loc_3CF4C/loc_3CF62`.
+
+Cache-backed regression `published_tas_transform_cleanup_resumes_dragons_loc_7e90_e12`
+pins frames 7685/7686, the 7746..7748 fractional wall boundary, frame 7797
+linked counts, and the 7858/7859 contact resume. Exact gameplay frames
+7678..8024 are clean. `mise run verify-slice-fast` and `mise run
+verify-tas-full` pass. Full gameplay and CRC remain 37,759/37,759 exact,
+complete RNG remains 37,743/37,743 exact, and enemy debt falls 2,320 -> 952.
+The next frontier is `frame_7954/enemy_roster`, where walking Dragon layout 2
+is half a pixel ahead of oracle as its breath child allocates.
+
 Live play-native note 2026-06-11 with all pushed changes: keep the following as
 current acceptance failures even where recent focused probes or fixed-candidate
 rows are green. #288 intro still shows Kid/jacket below the prize block before

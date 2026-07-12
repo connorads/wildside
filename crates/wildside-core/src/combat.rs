@@ -8053,9 +8053,12 @@ impl NativeRuntime {
         }
 
         // ASM Dragon.asm loc_3CEBE plays the hurt animation to completion
-        // before restoring the saved walking script when the hit is nonlethal.
+        // before loc_3CF4C/loc_3CF62 restore the walking coroutine when the
+        // hit is nonlethal, including a hit received during loc_3CFAE breath.
         enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES + 1;
         enemy.grounded_frames = DRAGON_WALKING_NONLETHAL_STOMP_HIBERNATE_FRAMES;
+        enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
+        enemy.dragon_phase_frames = 0;
         enemy.x_velocity = 0;
         enemy.y_velocity = 0;
     }

@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 transform and Dragon Object-pass resume)
+
+- `Kid_Transform loc_7E90` resumes the outer `Execute_Objects loc_E12` pass
+  when native's flash countdown is one, so all four walking Dragons now take
+  their oracle half-pixel step at frame 7686.
+- Right-facing wall crossing preserves the fractional `loc_3E3B2` position,
+  breath Object/Gfx counts follow the parent phase and Object-pass position,
+  and nonlethal breath contact returns through `loc_3CEBE/loc_3CF62` after the
+  hurt hibernate.
+- Full gameplay and CRC remain 37,759/37,759 exact and complete RNG remains
+  37,743/37,743 exact. Enemy debt falls 2,320 -> 952.
+- NEXT: inspect `frame_7954/enemy_roster`, where walking Dragon layout 2 is
+  half a pixel ahead of oracle as its breath child allocates.
+
 ## 2026-07-12 handoff (#290 active GfxObject capture)
 
 - Frame 3045 was a verifier artefact: the new Dragon Object had not run

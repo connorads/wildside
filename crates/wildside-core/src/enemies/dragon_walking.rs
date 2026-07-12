@@ -660,7 +660,18 @@ fn step_dragon_walking_walk(
         let next_x = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
         let current_cx = (enemy.x_pos >> 16) as i32;
         let cx = (next_x >> 16) as i32;
-        let wall = dragon_walking_probe_wall(grid, current_cx, cx, current_y_px, moving_right);
+        let mut wall = dragon_walking_probe_wall(grid, current_cx, cx, current_y_px, moving_right);
+        let step_px = (cx - current_cx).abs();
+        let leading_side_boundary_offset = ENEMY_PROBE_HALF_WIDTH + 1;
+        let leading_boundary_distance_px =
+            (-(current_cx + leading_side_boundary_offset)).rem_euclid(0x10);
+        if moving_right && step_px <= leading_boundary_distance_px {
+            // ASM Lion.asm loc_3E3B2/loc_3E566: walking Dragon pacing ignores
+            // the current-position right-side flag while `cmp.w d1,d3; bcc`
+            // says the next whole-pixel step has not crossed the leading 16px
+            // boundary. This preserves the oracle-backed fractional step.
+            wall.hit = false;
+        }
         // ASM Lion.asm loc_3E3B2 calls sub_36972 against the current x_pos,
         // then computes the proposed `$50(a5)` step in d2. The support scan
         // therefore sees the trailing ninth Dragon pixel for one final frame
@@ -674,7 +685,9 @@ fn step_dragon_walking_walk(
             right_floor: Some(floor_support.right),
         };
         if wall.hit {
-            enemy.x_pos = dragon_walking_wall_snap_x(wall.wall_x_px, moving_right);
+            // ASM Lion.asm loc_3E406 -> loc_3E434 changes the walker state
+            // without storing proposed d2 or snapping x_pos. Keep the exact
+            // FP16.16 position reached by the preceding fractional step.
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
             shared_walker_turnaround(enemy);
@@ -1231,6 +1244,36 @@ mod tests {
             "ASM Lion.asm loc_3E4C6/loc_3E67A shared walker should commit d2 = x_pos + DragonWalking HP-3 speed while calm"
         );
         assert_eq!(dragon.shared_walker_debug_branch, Some("patrol_walk"));
+    }
+
+    #[test]
+    fn dragon_walking_wall_turn_preserves_fractional_boundary_loc_3e3b2_3e406() {
+        let mut solid_cells: Vec<_> = (0..40).map(|col| (col, 28)).collect();
+        solid_cells.push((34, 27));
+        let grid = dragon_walking_grid(40, 30, &solid_cells);
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.hit_points = 1;
+        dragon.x_pos = 0x0216_8000;
+        dragon.y_pos = 0x01C0_0000;
+
+        step_dragon_walking_walk(&mut dragon, Some(&grid), None);
+        assert_eq!(
+            (dragon.x_pos, dragon.facing),
+            (0x0217_0000, Direction::Right)
+        );
+
+        step_dragon_walking_walk(&mut dragon, Some(&grid), None);
+        assert_eq!(
+            (dragon.x_pos, dragon.facing),
+            (0x0217_8000, Direction::Right)
+        );
+
+        step_dragon_walking_walk(&mut dragon, Some(&grid), None);
+        assert_eq!(
+            (dragon.x_pos, dragon.facing),
+            (0x0217_8000, Direction::Left),
+            "ASM Lion.asm loc_3E3B2 commits both half-pixel steps before loc_3E406 turns the walking Dragon at the current FP16.16 position",
+        );
     }
 
     #[test]

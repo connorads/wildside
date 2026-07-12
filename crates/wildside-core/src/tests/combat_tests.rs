@@ -20162,7 +20162,9 @@ mod chunk_03 {
             "dragon should enter breath hold"
         );
 
-        for _ in 0..(DRAGON_WALKING_BREATH_HOLD_FRAMES + 8) {
+        // ASM Lion.asm loc_3E3B2 commits the Dragon's half-pixel approach
+        // steps before loc_3E406 turns at the crossed wall boundary.
+        for _ in 0..(DRAGON_WALKING_BREATH_HOLD_FRAMES + 24) {
             step_dragon_walking(&mut enemy, Some(&grid), &mut projectiles, Some(60 << 16));
         }
 
