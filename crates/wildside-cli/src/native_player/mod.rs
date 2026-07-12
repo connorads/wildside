@@ -1,8 +1,7 @@
-use crate::inspect::target_enemy_contact_from_frame;
+mod segment_recorder;
+
 use crate::recording::{
-    RecordingBundleArtifacts, RecordingRouteTarget, build_recording,
-    recording_route_target_score_commands, recording_start_from_options,
-    recording_tas_frontier_command, save_recording_with_artifacts,
+    RecordingBundleArtifacts, RecordingRouteTarget, recording_start_from_options,
 };
 use crate::scenarios::{
     DynamicCheckpoint, DynamicScenario, DynamicStartPosition, GameplayCheckpoint,
@@ -16,6 +15,13 @@ use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
 use sdl2::video::FullscreenType;
+use segment_recorder::SegmentRecorder;
+#[cfg(test)]
+use segment_recorder::{
+    TargetEnemyContactStop, append_target_enemy_contact_checkpoint,
+    native_recording_follow_up_commands, recording_frame_limit_reached,
+    update_target_contact_auto_stop,
+};
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::thread;
@@ -385,19 +391,24 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     let mut debug_level_card_fallback_frames_remaining: usize = 0;
     let mut suppress_level_card_for_debug_warp = false;
     let mut wait_for_live_input_release = false;
-    let mut recorded_script = Vec::new();
-    let mut recorded_trace = Vec::new();
-    let mut target_contact_stop_tail_remaining: Option<usize> = None;
-    let mut target_contact_stop: Option<TargetEnemyContactStop> = None;
-    let mut recorded_audio = Vec::new();
-    let mut recorded_audio_events = Vec::new();
+    let mut recorder = options
+        .record_to
+        .as_ref()
+        .map(|record_to| {
+            SegmentRecorder::new(record_to.clone(), recording_start_from_options(options))
+        })
+        .transpose()?;
+    if let Some(recorder) = recorder.as_mut() {
+        // Plain --record runs are a single always-save-worthy segment.
+        recorder.mark_save_worthy();
+        recorder.set_final_frame(&frame);
+    }
     let mut audio_diagnostics = NativeAudioDiagnostics::new(
         has_gems,
         audio_queue.is_some(),
         audio_channels,
         audio_output_sample_rate,
     );
-    let mut final_frame_rgb = options.record_to.as_ref().map(|_| frame.clone());
     let mut audio_queue_priming = audio_queue.is_some();
     let mut live_audio_backlog = LiveAudioBacklog::new(AUDIO_SOFTWARE_BACKLOG_MAX_FRAMES);
     let audio_recording_sample_rate = if audio_queue.is_some() {
@@ -614,26 +625,15 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                             .scripted_route
                             .as_ref()
                             .map(|route| (route.script.as_slice(), route.delay_recording_input)),
-                        recorded_trace.len(),
+                        recorder.as_ref().map_or(0, SegmentRecorder::frame_len),
                         live_buttons,
                     )
                 };
                 trace = runtime.step_frame(FrameInput::from_mask(buttons));
-                if options.record_to.is_some() {
-                    recorded_script.push(buttons);
-                    recorded_trace.push(trace.clone());
-                    if update_target_contact_auto_stop(
-                        options,
-                        &trace,
-                        recorded_trace.len().saturating_sub(1),
-                        &mut target_contact_stop_tail_remaining,
-                        &mut target_contact_stop,
-                    ) {
-                        dump_recording_and_exit = true;
-                    }
-                    if recording_frame_limit_reached(options, recorded_trace.len()) {
-                        dump_recording_and_exit = true;
-                    }
+                if let Some(recorder) = recorder.as_mut()
+                    && recorder.record_frame(buttons, &trace, options)
+                {
+                    dump_recording_and_exit = true;
                 }
             }
 
@@ -706,15 +706,16 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         let (next_bgm_cue, bgm_command) =
             native_bgm_state_after_trace(manifest, &trace, active_bgm_cue);
         if let Some(command) = bgm_command
-            && options.record_to.is_some()
+            && let Some(recorder) = recorder.as_mut()
         {
-            recorded_audio_events.push(format_native_bgm_event(
-                recorded_trace.len().saturating_sub(1),
+            let event = format_native_bgm_event(
+                recorder.frame_len().saturating_sub(1),
                 &trace,
                 active_bgm_cue,
                 next_bgm_cue,
                 command,
-            ));
+            );
+            recorder.push_audio_event(event);
         }
         if let Some(command) = bgm_command {
             if let Some(ref mut gems) = gems_engine {
@@ -738,7 +739,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         }
         active_bgm_cue = next_bgm_cue;
 
-        let should_capture_audio = options.record_to.is_some();
+        let should_capture_audio = recorder.is_some();
         let should_step_audio = should_capture_audio || audio_queue.is_some();
         if should_step_audio {
             if let Some(ref aq) = audio_queue {
@@ -796,8 +797,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             };
             if let Some(samples) = maybe_samples {
                 audio_diagnostics.record_generated_frame(samples.len());
-                if should_capture_audio {
-                    recorded_audio.extend_from_slice(&samples);
+                if let Some(recorder) = recorder.as_mut() {
+                    recorder.record_audio(&samples);
                 }
                 if let Some(ref aq) = audio_queue {
                     if live_audio_backlog.push_frame(samples) {
@@ -877,8 +878,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         texture
             .update(None, &frame, (FRAME_WIDTH as usize) * 3)
             .map_err(|error| anyhow!("failed to update SDL texture: {error}"))?;
-        if options.record_to.is_some() {
-            final_frame_rgb = Some(frame.clone());
+        if let Some(recorder) = recorder.as_mut() {
+            recorder.set_final_frame(&frame);
         }
         canvas.clear();
         canvas
@@ -901,115 +902,18 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         }
     }
 
-    save_native_recording_bundle(
-        manifest,
-        options,
-        recorded_script,
-        recorded_trace,
-        recorded_audio,
-        recorded_audio_events,
-        audio_diagnostics.into_lines(),
-        final_frame_rgb,
-        trace,
-        target_contact_stop.as_ref(),
-        audio_channels,
-        audio_recording_sample_rate,
-    )?;
+    if let Some(recorder) = recorder.take() {
+        recorder.finalise(
+            manifest,
+            options,
+            audio_diagnostics.into_lines(),
+            trace,
+            audio_channels,
+            audio_recording_sample_rate,
+        )?;
+    }
 
     Ok(())
-}
-
-fn recording_frame_limit_reached(options: &NativePlayOptions, recorded_frames: usize) -> bool {
-    options
-        .record_frames
-        .is_some_and(|limit| recorded_frames >= limit)
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct TargetEnemyContactStop {
-    frame_index: usize,
-    object_type: u8,
-    result: String,
-    gate: String,
-    score_px: i64,
-}
-
-fn update_target_contact_auto_stop(
-    options: &NativePlayOptions,
-    trace: &NativeTraceFrame,
-    replay_frame_index: usize,
-    tail_remaining: &mut Option<usize>,
-    detected_contact: &mut Option<TargetEnemyContactStop>,
-) -> bool {
-    if let Some(remaining) = tail_remaining {
-        if *remaining == 0 {
-            return true;
-        }
-        *remaining -= 1;
-        return false;
-    }
-
-    let Some(target) = &options.record_route_target else {
-        return false;
-    };
-    if !options.record_stop_on_target_enemy_contact {
-        return false;
-    }
-    let Some(contact) = target
-        .enemies
-        .iter()
-        .filter_map(|enemy| {
-            target_enemy_contact_from_frame(std::slice::from_ref(trace), *enemy, 0)
-                .map(|contact| (*enemy, contact))
-        })
-        .find(|(_, contact)| contact.result != "none")
-    else {
-        return false;
-    };
-    let (object_type, contact) = contact;
-    detected_contact.get_or_insert_with(|| TargetEnemyContactStop {
-        frame_index: replay_frame_index,
-        object_type,
-        result: contact.result.clone(),
-        gate: contact.gate.clone(),
-        score_px: contact.score_px,
-    });
-    let tail = options.record_contact_tail_frames;
-    eprintln!(
-        "recording target enemy contact detected: enemy=0x{object_type:02X} frame={replay_frame_index} result={} gate={} score_px={} tail_frames={}",
-        contact.result, contact.gate, contact.score_px, tail
-    );
-    if tail == 0 {
-        true
-    } else {
-        *tail_remaining = Some(tail - 1);
-        false
-    }
-}
-
-fn append_target_enemy_contact_checkpoint(
-    scenario: &mut DynamicScenario,
-    contact: &TargetEnemyContactStop,
-) {
-    if contact.frame_index >= scenario.frame_count {
-        return;
-    }
-    let label = format!(
-        "target_enemy_contact_{:02X}_{}",
-        contact.object_type, contact.result
-    );
-    if scenario.checkpoints.iter().any(|checkpoint| {
-        checkpoint.label == label && checkpoint.frame_index == contact.frame_index
-    }) {
-        return;
-    }
-    scenario.checkpoints.push(DynamicCheckpoint {
-        label,
-        frame_index: contact.frame_index,
-    });
-    scenario
-        .checkpoints
-        .sort_by_key(|checkpoint| checkpoint.frame_index);
 }
 
 fn native_frame_buttons(
@@ -1202,174 +1106,6 @@ fn should_start_native_level_card_overlay_for_level_change(
     // renderer. Level changes, debug warps, and death/continue restarts should
     // expose the ROM/current core state instead of a native placeholder.
     false
-}
-
-fn save_native_recording_bundle(
-    manifest: &AssetManifest,
-    options: &NativePlayOptions,
-    mut recorded_script: Vec<u8>,
-    mut recorded_trace: Vec<NativeTraceFrame>,
-    recorded_audio: Vec<f32>,
-    recorded_audio_events: Vec<String>,
-    audio_diagnostics: Vec<String>,
-    final_frame_rgb: Option<Vec<u8>>,
-    current_trace: NativeTraceFrame,
-    target_contact_stop: Option<&TargetEnemyContactStop>,
-    audio_channels: u8,
-    audio_sample_rate: u32,
-) -> Result<()> {
-    let Some(record_to) = &options.record_to else {
-        return Ok(());
-    };
-
-    if recorded_trace.is_empty() {
-        recorded_script.push(0);
-        recorded_trace.push(current_trace);
-    }
-    if let Some(route) = &options.scripted_route {
-        recorded_script = route
-            .script
-            .iter()
-            .copied()
-            .take(recorded_trace.len())
-            .collect();
-    }
-    let recorded_audio_events = if options.scripted_route.is_some() {
-        native_audio_events_for_trace(manifest, &recorded_trace)
-    } else {
-        recorded_audio_events
-    };
-
-    let slug = record_to
-        .file_name()
-        .and_then(|name| name.to_str())
-        .ok_or_else(|| {
-            anyhow!(
-                "recording path has no valid file name: {}",
-                record_to.display()
-            )
-        })?;
-    let mut recording = build_recording(
-        manifest,
-        slug,
-        recording_start_from_options(options),
-        recorded_script,
-        recorded_trace,
-    )?;
-    recording.manifest.record_command = native_recording_command(slug, options);
-    recording.manifest.tas_frontier_command = recording_tas_frontier_command(
-        slug,
-        options.record_frontier_kind.as_deref().unwrap_or("enemy"),
-    );
-    recording
-        .manifest
-        .route_target
-        .clone_from(&options.record_route_target);
-    if let Some(contact) = target_contact_stop {
-        append_target_enemy_contact_checkpoint(&mut recording.manifest.scenario, contact);
-    }
-    if let Some(route) = &options.scripted_route {
-        recording.manifest.scenario.start_position = route.start_position;
-        recording.manifest.scenario.start_velocity = route.start_velocity;
-        recording.manifest.scenario.camera_position = route.camera_position;
-        recording.manifest.scenario.playtest_form = route.playtest_form;
-        recording.manifest.scenario.initial_diamond_count = route.initial_diamond_count;
-        recording.manifest.scenario.initial_lives = route.initial_lives;
-    }
-    let artifacts = RecordingBundleArtifacts {
-        user_notes: options.record_notes.clone(),
-        final_frame_rgb,
-        audio_samples: Some(recorded_audio),
-        audio_sample_rate,
-        audio_channels: u16::from(audio_channels),
-        audio_events: recorded_audio_events,
-        audio_diagnostics,
-    };
-    save_recording_with_artifacts(record_to, &recording, &artifacts)?;
-    println!(
-        "recording saved to {}. verify with: cargo run -p wildside-cli -- verify-recording --slug {}",
-        record_to.display(),
-        slug
-    );
-    for command in native_recording_follow_up_commands(slug, options) {
-        println!("{command}");
-    }
-    Ok(())
-}
-
-fn native_recording_follow_up_commands(slug: &str, options: &NativePlayOptions) -> Vec<String> {
-    let mut commands = vec![recording_tas_frontier_command(
-        slug,
-        options.record_frontier_kind.as_deref().unwrap_or("enemy"),
-    )];
-    if let Some(target) = &options.record_route_target {
-        commands.extend(recording_route_target_score_commands(slug, target));
-    }
-    commands
-}
-
-fn native_recording_command(slug: &str, options: &NativePlayOptions) -> String {
-    use std::fmt::Write;
-
-    let mut command = String::from("cargo run --release -p wildside-cli -- play-native");
-    if let Some(level) = options.warp_level {
-        let _ = write!(command, " --warp-level {level:02X}");
-    }
-    if options.settled {
-        command.push_str(" --settled");
-    }
-    let _ = write!(command, " --record {slug}");
-    if let Some(frame_limit) = options.record_frames {
-        let _ = write!(command, " --record-frames {frame_limit}");
-    }
-    if options.record_stop_on_target_enemy_contact {
-        command.push_str(" --record-stop-on-target-enemy-contact");
-        if options.record_contact_tail_frames != 30 {
-            let _ = write!(
-                command,
-                " --record-contact-tail-frames {}",
-                options.record_contact_tail_frames
-            );
-        }
-    }
-    if let Some(target) = &options.record_route_target {
-        append_record_route_target_args(&mut command, target);
-    }
-    if let Some(frontier_kind) = &options.record_frontier_kind {
-        let _ = write!(command, " --record-frontier-kind {frontier_kind}");
-    }
-    command
-}
-
-fn append_record_route_target_args(command: &mut String, target: &RecordingRouteTarget) {
-    use std::fmt::Write;
-
-    if let Some(label) = &target.label {
-        let _ = write!(command, " --record-target-label {label}");
-    }
-    if let Some(level) = target.level {
-        let _ = write!(command, " --record-target-level {level:02X}");
-    }
-    for point in &target.points {
-        let _ = write!(
-            command,
-            " --record-target-point {},{}",
-            point.x_px, point.y_px
-        );
-    }
-    for cell in &target.cells {
-        let _ = write!(command, " --record-target-cell {},{}", cell.col, cell.row);
-    }
-    for cell in &target.cell_hitboxes {
-        let _ = write!(
-            command,
-            " --record-target-cell-hitbox {},{}",
-            cell.col, cell.row
-        );
-    }
-    for enemy in &target.enemies {
-        let _ = write!(command, " --record-target-enemy {enemy:02X}");
-    }
 }
 
 fn load_native_session_assets(
@@ -15667,52 +15403,56 @@ mod tests {
         let mut sfx_trace = trace.clone();
         sfx_trace.played_sound_effect_ids.push(gems_sfx::BLOCK_HIT);
         let final_frame = vec![0x22; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        let options = NativePlayOptions {
+            fullscreen: false,
+            scale: None,
+            debug_overlay: false,
+            warp_level: None,
+            settled: false,
+            record_to: Some(record_dir.clone()),
+            record_frames: Some(900),
+            record_stop_on_target_enemy_contact: true,
+            record_contact_tail_frames: 12,
+            record_notes: Some(String::from("stuck on level card")),
+            record_route_target: Some(RecordingRouteTarget {
+                label: Some(String::from("usm3-slope")),
+                level: Some(0x06),
+                points: Vec::new(),
+                cells: vec![crate::recording::RecordingTargetCell { col: 28, row: 32 }],
+                cell_hitboxes: Vec::new(),
+                enemies: vec![0x0A],
+            }),
+            record_frontier_kind: Some(String::from("gameplay")),
+            scripted_route: Some(NativeScriptedRoute {
+                script: vec![16, 0],
+                delay_recording_input: false,
+                start_position: Some(DynamicStartPosition { x: 230, y: 271 }),
+                start_velocity: None,
+                camera_position: Some(DynamicStartPosition { x: 16, y: 136 }),
+                playtest_form: Some(PlayerForm::RedStealth.helmet_id()),
+                initial_diamond_count: Some(12),
+                initial_lives: Some(1),
+            }),
+        };
 
-        save_native_recording_bundle(
-            &fixture.manifest,
-            &NativePlayOptions {
-                fullscreen: false,
-                scale: None,
-                debug_overlay: false,
-                warp_level: None,
-                settled: false,
-                record_to: Some(record_dir.clone()),
-                record_frames: Some(900),
-                record_stop_on_target_enemy_contact: true,
-                record_contact_tail_frames: 12,
-                record_notes: Some(String::from("stuck on level card")),
-                record_route_target: Some(RecordingRouteTarget {
-                    label: Some(String::from("usm3-slope")),
-                    level: Some(0x06),
-                    points: Vec::new(),
-                    cells: vec![crate::recording::RecordingTargetCell { col: 28, row: 32 }],
-                    cell_hitboxes: Vec::new(),
-                    enemies: vec![0x0A],
-                }),
-                record_frontier_kind: Some(String::from("gameplay")),
-                scripted_route: Some(NativeScriptedRoute {
-                    script: vec![16, 0],
-                    delay_recording_input: false,
-                    start_position: Some(DynamicStartPosition { x: 230, y: 271 }),
-                    start_velocity: None,
-                    camera_position: Some(DynamicStartPosition { x: 16, y: 136 }),
-                    playtest_form: Some(PlayerForm::RedStealth.helmet_id()),
-                    initial_diamond_count: Some(12),
-                    initial_lives: Some(1),
-                }),
-            },
-            vec![16, 0],
-            vec![trace.clone(), sfx_trace],
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            Some(final_frame),
-            trace.clone(),
-            None,
-            1,
-            AUDIO_SAMPLE_RATE,
-        )
-        .expect("save freeze repro");
+        let mut recorder =
+            SegmentRecorder::new(record_dir.clone(), recording_start_from_options(&options))
+                .expect("segment recorder");
+        recorder.mark_save_worthy();
+        assert!(!recorder.record_frame(16, &trace, &options));
+        assert!(!recorder.record_frame(0, &sfx_trace, &options));
+        assert_eq!(recorder.frame_len(), 2);
+        recorder.set_final_frame(&final_frame);
+        recorder
+            .finalise(
+                &fixture.manifest,
+                &options,
+                Vec::new(),
+                trace.clone(),
+                1,
+                AUDIO_SAMPLE_RATE,
+            )
+            .expect("save freeze repro");
 
         let manifest_text =
             fs::read_to_string(record_dir.join("manifest.json")).expect("manifest text");
@@ -15775,47 +15515,114 @@ mod tests {
             score_px: 17,
         };
 
-        save_native_recording_bundle(
-            &fixture.manifest,
-            &NativePlayOptions {
-                fullscreen: false,
-                scale: None,
-                debug_overlay: false,
-                warp_level: Some(0x01),
-                settled: true,
-                record_to: Some(record_dir.clone()),
-                record_frames: None,
-                record_stop_on_target_enemy_contact: true,
-                record_contact_tail_frames: 30,
-                record_notes: None,
-                record_route_target: Some(RecordingRouteTarget {
-                    label: Some(String::from("issue271-live-rocktank")),
-                    level: Some(0x01),
-                    points: Vec::new(),
-                    cells: Vec::new(),
-                    cell_hitboxes: Vec::new(),
-                    enemies: vec![0x0A],
-                }),
-                record_frontier_kind: Some(String::from("gameplay")),
-                scripted_route: None,
-            },
-            vec![0, 0, 0],
-            vec![trace.clone(), trace.clone(), trace.clone()],
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            None,
-            trace,
-            Some(&contact_stop),
-            1,
-            AUDIO_SAMPLE_RATE,
-        )
-        .expect("save contact repro");
+        let options = NativePlayOptions {
+            fullscreen: false,
+            scale: None,
+            debug_overlay: false,
+            warp_level: Some(0x01),
+            settled: true,
+            record_to: Some(record_dir.clone()),
+            record_frames: None,
+            record_stop_on_target_enemy_contact: true,
+            record_contact_tail_frames: 30,
+            record_notes: None,
+            record_route_target: Some(RecordingRouteTarget {
+                label: Some(String::from("issue271-live-rocktank")),
+                level: Some(0x01),
+                points: Vec::new(),
+                cells: Vec::new(),
+                cell_hitboxes: Vec::new(),
+                enemies: vec![0x0A],
+            }),
+            record_frontier_kind: Some(String::from("gameplay")),
+            scripted_route: None,
+        };
+
+        let mut recorder =
+            SegmentRecorder::new(record_dir.clone(), recording_start_from_options(&options))
+                .expect("segment recorder");
+        recorder.mark_save_worthy();
+        for _ in 0..3 {
+            assert!(!recorder.record_frame(0, &trace, &options));
+        }
+        recorder.set_target_contact_stop(contact_stop);
+        recorder
+            .finalise(
+                &fixture.manifest,
+                &options,
+                Vec::new(),
+                trace,
+                1,
+                AUDIO_SAMPLE_RATE,
+            )
+            .expect("save contact repro");
 
         let scenario_text =
             fs::read_to_string(record_dir.join("scenario.json")).expect("scenario text");
         assert!(scenario_text.contains("\"label\": \"target_enemy_contact_0A_damage\""));
         assert!(scenario_text.contains("\"frame_index\": 1"));
+    }
+
+    fn plain_record_options(record_dir: &Path, record_frames: Option<usize>) -> NativePlayOptions {
+        NativePlayOptions {
+            fullscreen: false,
+            scale: None,
+            debug_overlay: false,
+            warp_level: None,
+            settled: false,
+            record_to: Some(record_dir.to_path_buf()),
+            record_frames,
+            record_stop_on_target_enemy_contact: false,
+            record_contact_tail_frames: 30,
+            record_notes: None,
+            record_route_target: None,
+            record_frontier_kind: None,
+            scripted_route: None,
+        }
+    }
+
+    #[test]
+    fn segment_recorder_discards_segments_not_marked_save_worthy() {
+        let fixture = ManifestFixture::new().expect("manifest fixture");
+        let record_dir = fixture._root.path().join("recordings").join("discarded");
+        let trace = sample_trace(GameMode::InGame);
+        let options = plain_record_options(&record_dir, None);
+
+        let mut recorder =
+            SegmentRecorder::new(record_dir.clone(), recording_start_from_options(&options))
+                .expect("segment recorder");
+        assert!(!recorder.record_frame(0, &trace, &options));
+        recorder
+            .finalise(
+                &fixture.manifest,
+                &options,
+                Vec::new(),
+                trace,
+                1,
+                AUDIO_SAMPLE_RATE,
+            )
+            .expect("discard without save");
+
+        assert!(
+            !record_dir.exists(),
+            "a segment nothing marked save-worthy must not write a bundle"
+        );
+    }
+
+    #[test]
+    fn segment_recorder_stops_at_record_frames_limit() {
+        let record_dir = PathBuf::from(".cache/recordings/limit-parity");
+        let trace = sample_trace(GameMode::InGame);
+        let options = plain_record_options(&record_dir, Some(2));
+
+        let mut recorder = SegmentRecorder::new(record_dir, recording_start_from_options(&options))
+            .expect("segment recorder");
+        assert!(!recorder.record_frame(0, &trace, &options));
+        assert!(
+            recorder.record_frame(0, &trace, &options),
+            "hitting --record-frames must stop the recording on the same frame as the loop check"
+        );
+        assert_eq!(recorder.frame_len(), 2);
     }
 
     #[test]
