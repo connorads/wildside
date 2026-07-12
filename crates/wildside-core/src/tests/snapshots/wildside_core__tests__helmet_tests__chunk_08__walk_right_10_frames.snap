@@ -1,0 +1,203 @@
+---
+source: crates/wildside-core/src/tests/helmet_tests.rs
+expression: trace
+---
+frame_index: 10
+time_frames_loc_3038a: 10
+game_mode: InGame
+game_mode_value: 12
+start_press_count: 0
+boot_phase: ~
+boot_phase_elapsed: ~
+title_screen_ready: false
+current_player: 0
+current_level: 0
+player_1_level_id: 0
+current_level_name: Blue Lake Woods 1
+player_start_x: 1872
+player_start_y: 224
+flag_x: 1872
+flag_y: 768
+level_enemy_object_count: 22
+active_enemy_object_count: 0
+active_platform_object_count: 0
+number_lives: 3
+number_continues: 3
+number_hitpoints: 2
+current_helmet_id: 0
+paused: false
+kid_x_pos: 122867712
+kid_y_pos: 17760256
+kid_x_velocity: 36864
+kid_y_velocity: 0
+character_movement: 2
+kid_facing: Right
+kid_on_ground: true
+walk_visual_accumulator: 90
+iron_knight_climbing: false
+hud_diamond_frame_offset: 4
+hud_timer_sprite_seconds_loc_bee8: 180
+hud_life_frame_offset: 4
+berzerker_charging: false
+berzerker_charge_pose: false
+berzerker_walk_pose: false
+kid_on_slope: 0
+active_objects:
+  - kind: Player
+    x_pos: 122867712
+    y_pos: 17760256
+    layout_index: ~
+    x_velocity: ~
+    y_velocity: ~
+    facing: ~
+    on_ground: ~
+    hit_points: ~
+    damage_flash: false
+    palette_variant: 0
+    stationary: false
+camera_x_pos: 104857600
+camera_y_pos: 7340032
+number_objects: 8
+number_gfx_objects: 4
+rng_offset: 65521
+rng_last_byte: 130
+rng_ring:
+  - 137
+  - 192
+  - 146
+  - 3
+  - 151
+  - 163
+  - 28
+  - 9
+  - 188
+  - 69
+  - 229
+  - 108
+  - 169
+  - 21
+  - 181
+  - 104
+  - 150
+  - 222
+  - 32
+  - 82
+  - 83
+  - 238
+  - 253
+  - 54
+  - 205
+  - 234
+  - 75
+  - 191
+  - 17
+  - 109
+  - 163
+  - 255
+  - 246
+  - 86
+  - 165
+  - 99
+  - 3
+  - 79
+  - 164
+  - 166
+  - 130
+  - 75
+  - 196
+  - 244
+  - 137
+  - 108
+  - 80
+  - 253
+  - 153
+  - 95
+  - 146
+  - 216
+  - 208
+  - 144
+  - 104
+level_complete: false
+level_complete_elapsed_frames: 0
+level_complete_score_rows_elapsed_frames: 0
+level_complete_score_counter_elapsed_frames: 0
+level_complete_score_counter_drained: false
+level_complete_initial_score: 0
+game_over: false
+continue_countdown: ~
+game_complete: false
+ending_elapsed: ~
+options_cursor: ~
+sound_test_track: ~
+played_sound_effect_ids:
+  - 30
+  - 30
+played_sound_commands:
+  - command_byte: 16
+    sound_id: 30
+  - command_byte: 16
+    sound_id: 30
+two_player: false
+options_two_player_two_controllers: false
+options_controls_scheme: 0
+options_speed_button_fast: false
+invulnerable_frames: 0
+kid_is_invulnerable: false
+just_received_damage: false
+diamond_power_active: false
+diamond_count: 0
+score: 0
+level_timer_seconds: 180
+level_timer_sub_frames: 51
+level_damage_taken: false
+level_prize_collected: false
+level_speed_bonus_awarded: false
+level_path_bonus_amount: 0
+murder_wall_x: ~
+active_projectiles: []
+active_geysers: []
+island_shore_cycle_active: false
+rotate_palette_lava_water_state_loc_1223c:
+  - 6
+  - 8
+  - 1
+lava_water_palette_words_loc_1223c:
+  - 0
+  - 0
+  - 0
+  - 0
+lava_geyser_palette_words_loc_14b2a:
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+block_bounces: []
+block_destroy_effects: []
+block_debris_pieces: []
+prize_block_spawn_flashes: []
+floating_items: []
+enemy_death_effects: []
+death_windup_elapsed: 0
+form_change_flash_frames: 0
+stomped_this_frame: false
+blocks_hit_this_frame: 0
+sound_test_play_pending: false
+gameplay_debug_fields:
+  kid_collision_handoff_probe: "lifecycle=alive/prev_post=none/pending_stomp=0/pending_contact=0/pending_form=none/pending_level_skip=none/form_flash=0/ground=1/jump_buffer=0/wall_cling=none/stomp_candidate=0/stomp_enemy=none/anchor=0x07524000,0x010f0000"
+  kid_flip_branch_probe: "wall_scan=0/b_press=0/c_press=0/helmet=0x0000/facing=right/ground=1=>1/branch=no_wall_path/wall=hit=0/x=0/cell=0,0 collision=empty block=None has_block=0"
+  kid_flip_follow_on_probe: "branch=no_wall_path/motion=normal_physics/post=none/wall_hit_after_floor=0/entry[x_vel=0x00008000/y_vel=0x00000000/ground=1/wall_cling=none]/press_away[x_vel=0x00008000/y_vel=0x00000000/ground=1/wall_cling=none]/jump_gravity[x_vel=0x00009000/y_vel=0x00000000/ground=1/wall_cling=none]/floor[x_vel=0x00009000/y_vel=0x00000000/ground=1/wall_cling=none]/wall[x_vel=0x00009000/y_vel=0x00000000/ground=1/wall_cling=none]"
+  kid_gameplay_path_probe: lifecycle=alive/motion=normal_physics/post=none/paused=0
+  kid_goal_probe: "lifecycle=alive/level_complete=0/touch=0/flag=(1872, 768)/dx_px=2/dy_px=497"
+  kid_ground_probe: "latched_ground=1/latched_floor_y=271/y_vel=0x00000000/left=ground=1/y=272/cell=116,17 collision=Solid block=None/center=ground=1/y=272/cell=117,17 collision=Solid block=None/right=ground=1/y=272/cell=117,17 collision=Solid block=None/hitbox=ground=1/y=272/cell=117,17 collision=Solid block=None"
+  kid_grounded_release_probe: "ground=1/held=right/jump=0/jump_buffer=0/velocity=grounded_hold/custom_gravity=0/wall_cling=none/scan=row=17/cols=116..117/support=solid@116,17 block=None/release=0/post=none/terrain=grid=manual/current[solid,None,skin=0x00]"
+  kid_iron_knight_block_breaker_probe: "helmet=0x0000/facing=right/x_vel=0x00008000/speed_gate=0/wall=hit=0/x=0/cell=0,0 collision=empty block=None has_block=0/candidate=0"
+  kid_jump_gravity_probe: branch=grounded_hold/jump=0/jump_buffer=0=>0/just_jumped=0=>0/b_held=0/custom_gravity=0/y_vel=0x00000000->0x00000000/ground=1=>1
+  kid_pre_physics_probe: "start[x=0x07524000/y=0x010f0000/x_vel=0x00008000/y_vel=0x00000000/ground=1]/before_physics[x=0x07524000/y=0x010f0000/x_vel=0x00008000/y_vel=0x00000000/ground=1]/first=none/mutators=none"
+  kid_same_frame_stomp_probe: "candidate=0/enemy=none/pre_y_vel=0x00000000/post_y_vel=0x00000000/anchor=0x07524000,0x010f0000"
+  kid_special_motion_probe: helmet=0x0000/skycutter_on_board=0/skycutter_flipboard=0/cyclone_flying=0/cyclone_y_accel=0/iron_knight_climbing=0/iron_knight_climb_accel=0/iron_knight_climb_pose=0/micromax_stuck=0/pending_stomp_bounce=0/form_flash=0
+  kid_wall_cling_release_probe: "held=right/probe_dir=right(held)/wall_cling=none/sticky=R0L0/ground=1/y_vel=0x00000000/y=271=>271/branch=no_wall_cling_state/sub_ADB8=wall_cling_missing/sub_AE6E=wall_cling_missing/wall=hit=0/x=0/cell=0,0 collision=empty block=None has_block=0/top_edge=hit=0/x=0/cell=0,0 collision=empty block=None has_block=0"
+  native_platform_loader_loc_2744: offset=0x000c next_index=1 number_platforms=0 next_free=0xedba layout_len=2 active_slots=0 active_links=none

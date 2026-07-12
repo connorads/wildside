@@ -1,12 +1,5 @@
 use super::*;
 
-fn redact_advisory(snap: &mut insta::Settings) {
-    snap.add_redaction(".number_objects", "[advisory]");
-    snap.add_redaction(".score", "[advisory]");
-    snap.add_redaction(".murder_wall_x", "[advisory]");
-    snap.add_redaction(".number_gfx_objects", "[advisory]");
-}
-
 mod chunk_08 {
     use super::*;
 
@@ -2341,11 +2334,7 @@ mod chunk_08 {
             runtime.step_frame(FrameInput::default());
         }
         let trace = runtime.trace_frame();
-        let mut settings = insta::Settings::clone_current();
-        redact_advisory(&mut settings);
-        settings.bind(|| {
-            insta::assert_yaml_snapshot!("idle_level0_frame60", trace);
-        });
+        insta::assert_yaml_snapshot!("idle_level0_frame60", trace);
     }
 
     #[test]
@@ -2359,11 +2348,7 @@ mod chunk_08 {
             });
         }
         let trace = runtime.trace_frame();
-        let mut settings = insta::Settings::clone_current();
-        redact_advisory(&mut settings);
-        settings.bind(|| {
-            insta::assert_yaml_snapshot!("walk_right_10_frames", trace);
-        });
+        insta::assert_yaml_snapshot!("walk_right_10_frames", trace);
     }
 
     #[test]
@@ -2389,11 +2374,7 @@ mod chunk_08 {
             });
         }
         let trace = runtime.trace_frame();
-        let mut settings = insta::Settings::clone_current();
-        redact_advisory(&mut settings);
-        settings.bind(|| {
-            insta::assert_yaml_snapshot!("jump_sequence_6frames", trace);
-        });
+        insta::assert_yaml_snapshot!("jump_sequence_6frames", trace);
     }
 
     // -------------------------------------------------------------------
