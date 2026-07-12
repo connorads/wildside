@@ -447,6 +447,7 @@ const KID_X_DIRECTION_ADDR: usize = 0xFF_24F6;
 const NUMBER_OBJECTS_ADDR: usize = 0xFF_F84A;
 const NUMBER_GFX_OBJECTS_ADDR: usize = 0xFF_F85C;
 const ADDR_FIRST_OBJECT_SLOT_ADDR: usize = 0xFF_F842;
+const ADDR_FIRST_GFX_OBJECT_SLOT_ADDR: usize = 0xFF_F858;
 const RNG_RAM_START_ADDR: usize = 0xFF_FBDA;
 const RNG_RAM_END_ADDR: usize = 0xFF_FC11;
 const SCORE_ADDR: usize = 0xFF_FC4C;
@@ -1438,8 +1439,7 @@ fn capture_enemy_states(
     let layout_object_ptr = read_wram_u32(work_ram, ENEMY_LAYOUT_OBJECT_PTR_ADDR) as usize;
     let layout_object_count = read_rom_u8(rom, layout_object_ptr + 1);
     let kid_gfx_object = read_wram_u32(work_ram, ADDR_GFX_OBJECT_KID_ADDR) as usize;
-    for slot_index in 0..GFX_OBJECT_SLOT_COUNT {
-        let base = GFX_OBJECT_RAM_ADDR + slot_index * GFX_OBJECT_SLOT_SIZE;
+    for (slot_index, base) in active_gfx_object_slots_loc_14a4(work_ram) {
         if read_wram_u8(work_ram, base + DISPLAY_FLAG_OFFSET) == 0 {
             continue;
         }
@@ -1502,6 +1502,34 @@ fn capture_enemy_states(
     }
     enemies.sort_by_key(|enemy| (enemy.object_type, enemy.x_pos, enemy.y_pos));
     enemies
+}
+
+fn active_gfx_object_slots_loc_14a4(work_ram: &[u8]) -> Vec<(usize, usize)> {
+    // ASM Make_SpritesFromGfxObjects loc_14A4 follows Addr_FirstGfxObjectSlot's
+    // linked list. Freed physical slots retain stale fields until allocation,
+    // but they are not active GfxObjects and must not enter oracle state.
+    let mut slots = Vec::new();
+    let mut seen = [false; GFX_OBJECT_SLOT_COUNT];
+    let mut base =
+        read_wram_u32(work_ram, ADDR_FIRST_GFX_OBJECT_SLOT_ADDR) as usize;
+    for _ in 0..GFX_OBJECT_SLOT_COUNT {
+        let Some(offset) = base.checked_sub(GFX_OBJECT_RAM_ADDR) else {
+            break;
+        };
+        if offset >= GFX_OBJECT_SLOT_SIZE * GFX_OBJECT_SLOT_COUNT
+            || offset % GFX_OBJECT_SLOT_SIZE != 0
+        {
+            break;
+        }
+        let slot_index = offset / GFX_OBJECT_SLOT_SIZE;
+        if seen[slot_index] {
+            break;
+        }
+        seen[slot_index] = true;
+        slots.push((slot_index, base));
+        base = read_wram_u32(work_ram, base) as usize;
+    }
+    slots
 }
 
 fn platform_collision_scratch_debug_loc_257e(work_ram: &[u8]) -> Option<String> {

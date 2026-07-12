@@ -1840,6 +1840,19 @@ gameplay and CRC remain 37,759/37,759 exact, complete RNG remains
 `frame_3045/enemy_roster`, where oracle exposes layout Dragon #0 with HP 0 one
 frame before native.
 
+Follow-up 2026-07-12 for #290: frame 3045 was verifier debt, not an early
+Dragon allocation. The Dragon Object points at `Enemy0D_Dragon_Init loc_3CD46`
+but has not yet called `Load_GfxObjectSlot`; a freed physical GfxObject slot
+retained stale display, parent, and Dragon fields. ASM allocation at
+`loc_FD4/loc_FE6`, movement at `GfxObjects_MoveAndAnimate loc_144E`, and sprite
+creation at `Make_SpritesFromGfxObjects loc_14A4` all follow
+`Addr_FirstGfxObjectSlot`. Oracle enemy capture now follows that active list
+with bounds, alignment, and cycle guards. Frames 3040..3050 match all ten
+enemy checkpoints. Full gameplay and CRC remain 37,759/37,759 exact, complete
+RNG remains 37,743/37,743 exact, and enemy debt falls 2,325 -> 2,320. The next
+frontier is `frame_7686/enemy_roster`, where four mature Dragons differ by
+half-pixel steps as Kid exits transformation hibernation.
+
 Live play-native note 2026-06-11 with all pushed changes: keep the following as
 current acceptance failures even where recent focused probes or fixed-candidate
 rows are green. #288 intro still shows Kid/jacket below the prize block before

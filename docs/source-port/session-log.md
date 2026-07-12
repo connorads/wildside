@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 active GfxObject capture)
+
+- Frame 3045 was a verifier artefact: the new Dragon Object had not run
+  `Enemy0D_Dragon_Init`, but a freed physical GfxObject slot retained stale
+  Dragon display and parent fields.
+- Oracle enemy capture now follows `Addr_FirstGfxObjectSlot`, matching
+  `Make_SpritesFromGfxObjects loc_14A4`, with bounds, alignment, and cycle
+  guards. Frames 3040..3050 are enemy-exact.
+- Full gameplay and CRC remain 37,759/37,759 exact and complete RNG remains
+  37,743/37,743 exact. Enemy debt falls 2,325 -> 2,320.
+- NEXT: inspect `frame_7686/enemy_roster`, where all four mature walking
+  Dragons differ by half-pixel steps as Kid exits transformation hibernation.
+
 ## 2026-07-12 handoff (#290 Dragon recovery and hurt scheduling)
 
 - `Dragon.asm loc_3CFE4/loc_3D01E` tail-dispatches to the shared walker in the

@@ -682,6 +682,16 @@ mod tests {
     }
 
     #[test]
+    fn helper_captures_only_active_gfx_objects_loc_14a4() {
+        assert!(
+            HELPER_TEMPLATE.contains("const ADDR_FIRST_GFX_OBJECT_SLOT_ADDR: usize = 0xFF_F858;")
+                && HELPER_TEMPLATE.contains("fn active_gfx_object_slots_loc_14a4(")
+                && HELPER_TEMPLATE.contains("base = read_wram_u32(work_ram, base) as usize;"),
+            "ASM Make_SpritesFromGfxObjects loc_14A4 walks Addr_FirstGfxObjectSlot, so freed physical slots with stale display data must not enter the enemy roster",
+        );
+    }
+
+    #[test]
     fn write_if_changed_writes_missing_or_changed_files_only() {
         let dir = TempDir::new().expect("temp dir");
         let path = dir.path().join("generated.txt");
