@@ -2229,6 +2229,37 @@ mod tests {
     }
 
     #[test]
+    fn cloud_lightning_child_counts_as_object_and_gfx_worker_loc_35df0() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0x40);
+        let baseline = runtime.object_counts_from_roster(&[], 0, 0);
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::CloudLightning,
+            lifetime: 60,
+            ..Default::default()
+        });
+
+        assert_eq!(
+            runtime.gameplay_transient_gfx_worker_count(),
+            1,
+            "ASM Cloud.asm loc_35DB8 allocates the lightning bolt through j_Allocate_ObjectSlot and loc_35DF0 loads its GfxObject slot; each live bolt is one transient object/gfx worker",
+        );
+        assert_eq!(
+            runtime.object_counts_from_roster(&[], 0, 0),
+            (baseline.0 + 1, baseline.1 + 1),
+            "ASM Cloud.asm loc_35DF0 gives the bolt an Object+Gfx pair, so a live bolt raises Number_Objects and Number_GfxObjects by one each",
+        );
+
+        runtime.projectiles.clear();
+        assert_eq!(
+            runtime.object_counts_from_roster(&[], 0, 0),
+            baseline,
+            "ASM Cloud.asm loc_35E8A deletes the bolt via j_Delete_CurrentObject on first collision or animation end, releasing both slots",
+        );
+    }
+
+    #[test]
     fn trace_exposes_boss_eye_orbit_satellites_sub_393c8_39420() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -11666,6 +11697,17 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::UfoBeam)
             .count();
+        // ASM Cloud.asm loc_35DB8 allocates the lightning-bolt child through
+        // j_Allocate_ObjectSlot on the attack tick, and its init loc_35DF0
+        // loads a GfxObject slot, so each live bolt owns an Object+Gfx pair.
+        // loc_35E8A deletes it via j_Delete_CurrentObject on first collision
+        // or animation end. Native keeps the child in `projectiles`, outside
+        // the ordinary active-object roster, so count every live bolt here.
+        let cloud_lightning_workers = self
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::CloudLightning)
+            .count();
         let dragon_walking_breath_workers = self
             .active_enemies
             .iter()
@@ -11765,6 +11807,7 @@ impl NativeRuntime {
             // loads its own GFX slot before the movement loop.
             + archer_arrow_workers
             + ufo_beam_workers
+            + cloud_lightning_workers
             + dragon_walking_breath_workers
             + waiting_shishkaboss_skewer_workers
             + boss_projectile_gfx_workers) as u16
