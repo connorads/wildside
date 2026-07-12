@@ -4314,6 +4314,59 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_intro_sequence_6_exposes_exact_title_worker_lifetimes() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let expected = [
+            (20_889, 6, 7),
+            (20_890, 4, 5),
+            (20_915, 4, 5),
+            (20_916, 0, 0),
+            (20_925, 0, 0),
+            (20_926, 3, 0),
+            (21_088, 3, 0),
+            (21_089, 2, 0),
+            (21_129, 2, 0),
+            (21_130, 4, 0),
+            (21_131, 4, 1),
+            (21_156, 4, 1),
+            (21_157, 3, 1),
+            (21_160, 3, 1),
+            (21_161, 4, 1),
+            (21_162, 4, 2),
+            (21_223, 4, 2),
+            (21_224, 4, 3),
+            (21_230, 4, 3),
+            (21_231, 5, 3),
+            (21_232, 5, 3),
+            (21_233, 4, 3),
+            (21_234, 4, 4),
+        ];
+        let mut observed = Vec::new();
+        let mut expected_index = 0;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(21_235) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if expected
+                .get(expected_index)
+                .is_some_and(|(expected_frame, _, _)| *expected_frame == frame_index)
+            {
+                observed.push((frame_index, trace.number_objects, trace.number_gfx_objects));
+                expected_index += 1;
+            }
+        }
+
+        // ASM loc_1BE74 deletes the two short IntroSequence5 particles before
+        // Load_IntroSequence6 clears the carried lists. ASM sub_1B43A then
+        // rebuilds loc_1B5CE/loc_1B6AC and the bottom-boundary worker;
+        // loc_1BB10, sub_1B652, and loc_1C7A0 account for the later one-frame
+        // and two-frame roster changes. Raw oracle WRAM establishes every
+        // inclusive boundary below, including the transient Sega-text Object.
+        assert_eq!(observed, expected);
+    }
+
+    #[test]
     fn published_tas_intro_sequence_6_clears_carried_slot_2_pose_on_frame_20912() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

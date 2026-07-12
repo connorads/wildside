@@ -1788,6 +1788,20 @@ passes. The full route retains 37,759/37,759 CRC and 37,743/37,743 complete RNG
 equality; sampled state debt falls 72 -> 63 authoritative differences with 15
 oracle limitations, first at `frame_20900/number_objects`.
 
+Follow-up 2026-07-12 for #290: raw oracle linked-list WRAM resolves the
+carried-wrap IntroSequence6 roster. `loc_1BE74` deletes the two short
+IntroSequence5 particles on frame 20890, leaving 4/5 through frame 20915;
+Load_IntroSequence6 then clears both lists before allocating `loc_1BAB0`,
+`loc_1B37C`, and `sub_1B43A`. The remaining boundaries follow `loc_1B5CE`,
+`loc_1B6AC`, `GfxObjects_Collision_BottomBoundary4`, `loc_1BB10`, `sub_1B652`,
+and the two-frame `loc_1C7A0` Sega-text Object through settled 4/4 on frame
+21234. The carried `$FFF00000` camera lineage is distinct from the verified
+cold `$FFD00000` shell at frame 6850. Frames 20885..21240 match all 355
+per-frame state, CRC, and complete RNG checkpoints. `verify-slice-fast` passes.
+The full route retains 37,759/37,759 CRC and 37,743/37,743 complete RNG
+equality; sampled state debt falls 63 -> 57 authoritative differences with 15
+oracle limitations, first at `frame_22275/number_objects`.
+
 Live play-native note 2026-06-11 with all pushed changes: keep the following as
 current acceptance failures even where recent focused probes or fixed-candidate
 rows are green. #288 intro still shows Kid/jacket below the prize block before

@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 carried-wrap IntroSequence6 roster)
+
+- Raw linked-list WRAM shows `loc_1BE74` deleting the two short particles on
+  frame 20890, leaving 4/5 through frame 20915 before Load_IntroSequence6
+  clears both lists.
+- `sub_1B43A`, `loc_1B5CE`, `loc_1B6AC`, the bottom-boundary worker,
+  `loc_1BB10`, `sub_1B652`, and transient `loc_1C7A0` account for every later
+  Object/GfxObject boundary through settled 4/4 on frame 21234. The carried
+  `$FFF00000` camera flag separates this schedule from the verified cold
+  `$FFD00000` shell.
+- Frames 20885..21240 match all 355 per-frame state, CRC, and complete RNG
+  checkpoints. Full sampled debt falls 63 -> 57 authoritative differences
+  with 15 oracle limitations; first sampled diff moves to
+  `frame_22275/number_objects`. All 37,759 CRC frames and 37,743 complete RNG
+  states remain exact.
+- NEXT: trace DemoPlay frame 22275's native 7/5 versus oracle 6/5 roster.
+
 ## 2026-07-12 handoff (#290 late IntroSequence5 particle roster)
 
 - Raw WRAM proves `loc_1BCD0` wakes on published frame 16645, allocates four

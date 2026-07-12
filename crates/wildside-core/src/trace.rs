@@ -4163,6 +4163,8 @@ mod tests {
         assert_eq!(counts_at(particle_count_frame - 1), (3, 5));
         assert_eq!(counts_at(particle_count_frame), (6, 3));
         assert_eq!(counts_at(particle_count_frame + 1), (6, 7));
+        assert_eq!(counts_at(particle_count_frame + 0x29), (6, 7));
+        assert_eq!(counts_at(particle_count_frame + 0x2A), (4, 5));
     }
 
     #[test]
@@ -7312,6 +7314,48 @@ impl NativeRuntime {
             && !self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility
             && !self.demo_timeout_restart_uses_start_skip_intro_sequence_5_delay
             && !self.demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff
+    }
+
+    fn intro_sequence_6_carries_timeout_restart_hidden_camera_wrap(&self) -> bool {
+        matches!(
+            self.boot_state,
+            BootState::IntroSequence6 {
+                carry_timeout_restart_hidden_camera_wrap: true,
+                ..
+            }
+        )
+    }
+
+    /// ASM Load_IntroSequence6 / sub_1B43A: carried-wrap title roster.
+    fn carried_wrap_intro_sequence_6_object_counts(&self) -> Option<(u16, u16)> {
+        if !self.cold_demo_timeout_intro_sequence_6_shell()
+            || !self.intro_sequence_6_carries_timeout_restart_hidden_camera_wrap()
+        {
+            return None;
+        }
+
+        // Raw oracle WRAM identifies each linked-list owner. Load_IntroSequence6
+        // first leaves loc_1BE88, loc_1BE3C, loc_1BCCE, and loc_1BA64 carried;
+        // it then clears both lists and allocates loc_1BAB0, loc_1B37C, and
+        // sub_1B43A. The later boundaries follow loc_1B5CE, loc_1B6AC,
+        // GfxObjects_Collision_BottomBoundary4, loc_1BB10, sub_1B652, and the
+        // two-frame loc_1C7A0 Sega-text Object exactly.
+        match self.title_screen_elapsed_frames {
+            0..=21 => Some((4, 5)),
+            22..=31 => Some((0, 0)),
+            32..=194 => Some((3, 0)),
+            195..=235 => Some((2, 0)),
+            236 => Some((4, 0)),
+            237..=262 => Some((4, 1)),
+            263..=266 => Some((3, 1)),
+            267 => Some((4, 1)),
+            268..=329 => Some((4, 2)),
+            330..=336 => Some((4, 3)),
+            337..=338 => Some((5, 3)),
+            339 => Some((4, 3)),
+            340 => Some((4, 4)),
+            _ => None,
+        }
     }
 
     pub(crate) fn intro_sequence_6_hidden_camera_y_for_elapsed(
@@ -10869,8 +10913,14 @@ impl NativeRuntime {
                 // GfxObjects join on the following loc_E12 pass.
                 return if elapsed == particle_roster_elapsed {
                     (6, 3)
-                } else {
+                } else if elapsed < particle_roster_elapsed.saturating_add(0x2A) {
                     (6, 7)
+                } else {
+                    // ASM unk_1BE18/unk_1BE30 seed d0=$28. After the
+                    // allocation and wake-up passes, loc_1BE74's inclusive
+                    // DBF lifetime expires 42 exposed frames later, deleting
+                    // the two short Objects and their two owned GfxObjects.
+                    (4, 5)
                 };
             }
             // ASM loc_1BA28 allocates loc_1C7A0 and loc_1BC36; loc_1BCD0
@@ -11126,6 +11176,9 @@ impl NativeRuntime {
             // rebuild elapsed 160 while the four Object workers stay live.
             BootState::TitleScreen { .. } | BootState::IntroSequence6 { .. }
         ) {
+            if let Some(counts) = self.carried_wrap_intro_sequence_6_object_counts() {
+                return counts;
+            }
             if self.cold_demo_timeout_intro_sequence_6_shell() && !self.title_screen_ready() {
                 return match self.title_screen_elapsed_frames {
                     // ASM loc_1BA5C -> Load_IntroSequence6 initial hidden
