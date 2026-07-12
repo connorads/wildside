@@ -32,11 +32,11 @@ The latest correction audits the published route's Dragon walking breath counts
 against raw linked lists and `Dragon.asm`. `loc_3CF90` allocates a linked child;
 accepted body contact sets parent `$5B` at `loc_3CFDA`, which the child observes
 at `loc_3D082` before `loc_3D09E` deletes it. Native children now retain parent
-identity and finish from that signal, while trace counts expose pending
-wait-timer-one allocations in object-pass order. The full sampled baseline keeps
-zero authoritative differences and falls from 15 to 7 limitations. Exact frames
-7800..8050 are 246/250 clean; the remaining one-pass boundaries are 7834, 7835,
-7885, and 8006.
+identity and finish from that signal, while trace counts expose allocation and
+deletion in Object-pass order. Later roster children have already run at trace
+time; the first entry is the next pass and its zero-lifetime child remains
+linked. The full sampled baseline keeps zero authoritative differences and 7
+limitations. Exact frames 7800..8050 are 250/250 clean.
 
 The latest correction maps the later IntroSequence2 Start return through raw
 linked-list WRAM. `loc_1B9D0 -> loc_1BA02 -> sub_1C246 -> loc_1C264` carries

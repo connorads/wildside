@@ -1238,6 +1238,8 @@ mod chunk_09 {
         };
         let expected = [
             (7_817usize, (11u16, 10u16)),
+            (7_834, (10, 9)),
+            (7_835, (10, 9)),
             (7_850usize, (10u16, 9u16)),
             (7_954, (10, 9)),
         ];
@@ -1263,7 +1265,6 @@ mod chunk_09 {
     }
 
     #[test]
-    #[ignore = "#290: native Dragon breath animation completion remains one object pass late at frames 7885 and 8006"]
     fn published_tas_dragon_breath_completion_edges_match_loc_3d09e() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

@@ -2098,6 +2098,39 @@ mod tests {
     }
 
     #[test]
+    fn dragon_walking_breath_zero_lifetime_count_follows_object_pass_loc_3d09e() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(1);
+        runtime
+            .active_enemies
+            .extend([2, 4].map(|layout_index| ActiveEnemy {
+                family: EnemyFamily::DragonWalking,
+                segment_index: 0,
+                layout_index,
+                ..drips_test_enemy(0, 0)
+            }));
+        runtime
+            .projectiles
+            .extend([2, 4].map(|layout_index| EnemyProjectile {
+                kind: EnemyProjectileKind::DragonWalkingBreath,
+                lifetime: 0,
+                owner: Some(EnemyProjectileOwner {
+                    segment_index: 0,
+                    layout_index,
+                    token: 0,
+                }),
+                ..Default::default()
+            }));
+
+        assert_eq!(
+            runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
+            (3, 3),
+            "ASM Dragon.asm loc_3D09E has deleted the later roster entry's completed child at trace time, while the first entry's child remains linked until its next Object pass",
+        );
+    }
+
+    #[test]
     fn dragon_walking_breath_count_includes_wait_timer_one_child_loc_3ce90() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -11566,10 +11599,21 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::UfoBeam)
             .count();
+        let next_dragon_walking_owner =
+            self.active_enemies
+                .first()
+                .map(|enemy| EnemyProjectileOwner {
+                    segment_index: enemy.segment_index,
+                    layout_index: enemy.layout_index,
+                    token: 0,
+                });
         let dragon_walking_breath_workers = self
             .projectiles
             .iter()
-            .filter(|projectile| projectile.kind == EnemyProjectileKind::DragonWalkingBreath)
+            .filter(|projectile| {
+                projectile.kind == EnemyProjectileKind::DragonWalkingBreath
+                    && (projectile.lifetime > 0 || projectile.owner == next_dragon_walking_owner)
+            })
             .count();
         let pending_dragon_walking_breath_workers = self
             .active_enemies
@@ -11584,9 +11628,11 @@ impl NativeRuntime {
         // ASM Dragon.asm loc_3CF90 allocates the breath Object_RAM child;
         // loc_3D02A immediately calls j_Load_GfxObjectSlot, loc_3D082 keeps
         // the pair live, and loc_3D09E deletes the linked lifecycle. Native
-        // stores the child outside `active_objects`. A later roster entry can
-        // therefore be count-visible one trace before native materialises its
-        // child; the next entry has not crossed its object pass yet.
+        // stores the child outside `active_objects`. Later roster entries have
+        // already deleted a zero-lifetime child at trace time; the first entry
+        // is the next Object pass and remains linked until the following
+        // sample. A later pending entry can likewise be count-visible one
+        // trace before native materialises its child.
         // ASM Enemy22_Shiskaboss_Init allocates loc_38494..loc_38884 up
         // front. All nine skewer object/gfx workers follow unk_39872 while
         // waiting for `$FFFFFB4E==3`; native materialises them as BossSkewer

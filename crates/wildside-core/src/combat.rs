@@ -7844,10 +7844,11 @@ impl NativeRuntime {
             projectile.kind == EnemyProjectileKind::DragonWalkingBreath
                 && projectile.owner == Some(owner)
         }) {
-            // loc_3D082 hibernates once before observing `$5B`. Keep the
-            // collision frame linked, then make the following zero frame the
-            // loc_3D09E deletion edge.
-            projectile.lifetime = projectile.lifetime.min(2);
+            // The parent consumes the collision before the linked child runs
+            // later in the same Execute_Objects pass. Mark it expired so
+            // native's later projectile step reproduces loc_3D09E before the
+            // current frame's linked-list sample.
+            projectile.lifetime = 0;
         }
     }
 

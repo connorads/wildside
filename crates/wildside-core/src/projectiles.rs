@@ -3290,7 +3290,7 @@ impl NativeRuntime {
                     debug_assert!(delete.deletes_current_object);
                     archer_arrow_count = delete.number_of_arrows;
                 }
-                if let Some(owner) = p.owner {
+                if is_lion_projectile && let Some(owner) = p.owner {
                     released_owners.push(owner);
                 }
                 return false;

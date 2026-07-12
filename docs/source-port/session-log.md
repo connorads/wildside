@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 exact Dragon breath object-pass edges)
+
+- The remaining completion edges were roster-order dependent, not a universal
+  lifetime off-by-one. Layout 4 and 1 children are later Object passes and are
+  absent at frames 7885/8006; layout 2 is the first native roster entry and its
+  zero-lifetime child remains linked at frame 8022 until its next pass.
+- Trace export now applies the same order to `loc_3D09E` completion, while
+  contact-driven `$5B` deletion occurs in the parent's current pass. Gameplay
+  projectile lifetime is unchanged.
+- Cache-backed route regressions and the pure scheduler test pass. Exact frames
+  7800..8050 improve 246/250 -> 250/250 with no classified differences.
+- NEXT: audit one of #290's 7 remaining sampled limitation rows, or take the
+  next proactive-verification fallback. One exact demo window is not
+  whole-game proof.
+
 ## 2026-07-12 handoff (#290 Dragon walking breath lifecycle)
 
 - Raw linked lists reject the frame-7850 Dragon breath count classification as
