@@ -1674,12 +1674,13 @@ fn object_slots_debug_loc_e1e(
             // Object+$36 and loc_3478C can keep the Object live while the
             // helper's active-enemy GfxObject scan omits display-cleared slots.
             format!(
-                "@{:#010x},{:#010x}:vel={:#010x},{:#010x},spr={:#06x},disp={:#04x},col={},src={:#06x}",
+                "@{:#010x},{:#010x}:vel={:#010x},{:#010x},spr={:#06x},anim={:#06x},disp={:#04x},col={},src={:#06x}",
                 read_wram_u32(work_ram, gfx_addr + OBJECT_X_POS_OFFSET),
                 read_wram_u32(work_ram, gfx_addr + OBJECT_Y_POS_OFFSET),
                 read_wram_u32(work_ram, gfx_addr + 0x26),
                 read_wram_u32(work_ram, gfx_addr + 0x2A),
                 read_wram_u16(work_ram, gfx_addr + 0x22),
+                read_wram_u16(work_ram, gfx_addr + 0x32),
                 read_wram_u8(work_ram, gfx_addr + DISPLAY_FLAG_OFFSET),
                 format_collision_type(read_wram_u16(
                     work_ram,

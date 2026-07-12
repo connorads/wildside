@@ -27,6 +27,18 @@ sweep. Next probe: trace the three parents' initial GfxObject animation state
 and scheduler wakes through `Enemy00_FireDemon_Init loc_3A414`; do not add a
 Level 0x40 phase override.
 
+Resolved 2026-07-12. Oracle Object_RAM proved the high layout-34 parent enters
+recording frame 0 on a distinct `stru_3A31A` phase from the later loader
+cohort. `Mode_Level loc_6E2` runs `Execute_Objects`/`Manage_EnemyLoading`
+before `GfxObject_Animate sub_113E`; native's typed recording handoff had
+elided four Gfx passes for the first already-live cohort only. The recording
+shim restores those ticks by loader cohort, not level or layout id. The high
+parent no longer allocates the surplus frame-59 child: Level 0x40 has five
+trails and 12/12 Object/Gfx workers there, while frame 359 retains #393's one
+trail, 14-tick timer, and 8/8 workers. Focused report `1783896236` passes both
+real checkpoints with zero state differences. `verify-slice-fast` and the
+full 37,759-frame TAS/RNG/enemy-frontier gate pass.
+
 ### #393
 
 Opened 2026-07-12 while closing #391. Focused Level 0x40 report `1783887206`
@@ -12666,6 +12678,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 394 | [x] | P2 | Enemy/FireDemon | Recording settle restores the first live Fire Demon loader cohort's hidden Gfx animation ticks, removing the Level 0x40 frame-59 surplus trail. | Report `1783896236`: settle and idle tail exact; see archive #394. |
 | 393 | [x] | P2 | State parity/FireDemon | Recording settle preserves live Fire Demons, models their singleton palette helper, and schedules trail allocation/timers in ROM order. | Report `1783893809`: idle tail exact at 8/8 with trail timer 14; settle phase residual is #394. See archive #393. |
 | 391 | [x] | P2 | Enemy/FireDemon | Fire Demon trails use the ROM's 11px walker probe and exact `$0160` sprite cull boundary, leaving one live trail at the Level 0x40 idle tail. | Report `1783887206`: settle exact and one trail per side; residual phase/worker drift is #393. See archive #391. |
 | 390 | [x] | P1 | Combat/Drips | Falling Drips children use their exact ROM sprite collision row instead of the surface-crawler fallback. | Report `1783767927`: Level 0x48 HP parity restored, 89 blockers; exact collision-row regression. See archive #390. |

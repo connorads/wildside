@@ -870,6 +870,21 @@ pub(crate) fn fire_demon_walking_trail_step_loc_3a542(
     }
 }
 
+pub(crate) fn fire_demon_recording_handoff_phase_loc_1040(
+    animation_phase: u8,
+    first_loader_cohort_phase: u8,
+    raw_enemy_level: u8,
+) -> u8 {
+    // ASM Mode_Level loc_6E2 runs Execute_Objects/Manage_EnemyLoading before
+    // GfxObject_Animate sub_113E. The recording helper's hidden loc_74E0 tail
+    // therefore advances the first already-live Fire Demon GfxObject four
+    // times beyond native's typed title-card handoff. The following loader
+    // cohort is already represented by native's later allocation pass.
+    let hidden_gfx_ticks = 4 * u8::from(animation_phase == first_loader_cohort_phase);
+    let loop_frames = if raw_enemy_level == 2 { 18 } else { 36 };
+    (animation_phase + hidden_gfx_ticks) % loop_frames
+}
+
 pub(crate) const FIRE_DEMON_BERZERKER_LAUNCH_GRAVITY_LOC_3A610: i32 = 0x0000_4000;
 pub(crate) const FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610: u16 = 0xA610;
 
@@ -2550,12 +2565,18 @@ impl ActiveEnemy {
                 .then_some(self.shared_walker_patrol_timer);
         let shared_walker_patrol_short_next = matches!(self.family, EnemyFamily::DragonWalking)
             .then_some(self.shared_walker_patrol_short_next);
-        let walk_phase = if matches!(self.family, EnemyFamily::DragonWalking)
+        let walk_phase = if matches!(self.family, EnemyFamily::FireDemon) {
+            // ASM Fire_Demon.asm loc_3A542 reads the live stru_3A31A/stru_3A334
+            // GfxObject frame and timer before the shared walker dispatch.
+            // Native stores that per-object animation clock as an elapsed tick.
+            Some(self.grounded_frames)
+        } else if matches!(self.family, EnemyFamily::DragonWalking)
             || (matches!(self.family, EnemyFamily::Lion)
                 && matches!(
                     self.lion_state,
                     LionState::Walking | LionState::Charging | LionState::ResumingCharge
-                )) {
+                ))
+        {
             Some(self.dragon_script_cmd)
         } else {
             None
@@ -12558,8 +12579,22 @@ impl NativeRuntime {
     }
 
     pub(crate) fn prime_recording_warp_sprite_animation_clocks(&mut self) {
+        let first_fire_demon_loader_cohort_phase = self
+            .active_enemies
+            .iter()
+            .filter(|enemy| matches!(enemy.family, EnemyFamily::FireDemon))
+            .map(|enemy| enemy.grounded_frames)
+            .min();
         for enemy in &mut self.active_enemies {
-            if matches!(enemy.family, EnemyFamily::DragonWalking) {
+            if matches!(enemy.family, EnemyFamily::FireDemon)
+                && let Some(first_loader_cohort_phase) = first_fire_demon_loader_cohort_phase
+            {
+                enemy.grounded_frames = fire_demon_recording_handoff_phase_loc_1040(
+                    enemy.grounded_frames,
+                    first_loader_cohort_phase,
+                    enemy.enemy_level,
+                );
+            } else if matches!(enemy.family, EnemyFamily::DragonWalking) {
                 // ASM Init_Animation/GfxObject_Animate loc_1040-loc_1194:
                 // the recording level-skip shell has five live object ticks
                 // before the allocated Dragon GfxObject begins its cycle.

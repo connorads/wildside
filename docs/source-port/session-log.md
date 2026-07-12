@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#394 exact Fire Demon settle cohort)
+
+- Oracle Object_RAM animation timers separate the high layout-34 Fire Demon
+  from the two later-loaded parents. `Mode_Level loc_6E2` and
+  `GfxObject_Animate sub_113E` expose four hidden recording-tail Gfx ticks for
+  the first already-live loader cohort.
+- The recording handoff restores that cohort generically, without a Level 0x40
+  or layout-id override. Frame 59 now has five trails and exact 12/12
+  Object/Gfx workers; frame 359 retains one trail, timer 14, and 8/8 workers.
+- Focused report `1783896236` passes both real Level 0x40 checkpoints with zero
+  state differences. Fast verification and the full 37,759-frame CRC/RNG/state
+  and enemy-frontier gate pass. #394 is resolved.
+- NEXT: run `mise run project-status`; if no ready/open risk appears, use the
+  proactive-verification fallback in `loop.md`.
+
 ## 2026-07-12 handoff (#393 exact Fire Demon idle workers)
 
 - `Fire_Demon.asm loc_3A414` now projects one shared Object-only palette helper;

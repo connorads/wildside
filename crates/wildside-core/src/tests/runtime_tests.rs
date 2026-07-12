@@ -15845,6 +15845,37 @@ mod chunk_09 {
             .warp_to_level(0x40)
             .settle_recording_warp()
             .run(&vec![0; 360], 360);
+        let mut fire_demon_phases = trace[0]
+            .active_enemy_details
+            .iter()
+            .filter(|enemy| matches!(enemy.kind, NativeObjectKind::Enemy { object_type: 0x00 }))
+            .map(|enemy| (enemy.layout_index, enemy.walk_phase))
+            .collect::<Vec<_>>();
+        fire_demon_phases.sort_unstable();
+        assert_eq!(
+            fire_demon_phases,
+            vec![
+                (Some(34), Some(34)),
+                (Some(36), Some(31)),
+                (Some(37), Some(31))
+            ],
+            "ASM Init_Animation sub_1040/GfxObject_Animate sub_113E and oracle Object_RAM preserve the high Fire Demon's distinct loader-cohort phase at recording frame 0",
+        );
+        let settle_frame = &trace[59];
+        let settle_trails = settle_frame
+            .active_projectile_details
+            .iter()
+            .filter(|projectile| projectile.kind == ActiveProjectileKind::FireDemonDeathTrail)
+            .count();
+        assert_eq!(
+            settle_trails, 5,
+            "ASM Fire_Demon.asm loc_3A542 and oracle Object_RAM keep five trail children at Level 0x40 frame 59",
+        );
+        assert_eq!(
+            (settle_frame.number_objects, settle_frame.number_gfx_objects),
+            (12, 12),
+            "oracle Level 0x40 frame 59 counts three parents, five trails, the singleton palette helper, Kid, HUD, and the level worker",
+        );
         let frame = trace.last().expect("Level 0x40 frame 359");
         let trail_count = frame
             .active_projectile_details

@@ -4543,6 +4543,25 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_recording_handoff_restores_first_loader_cohort_loc_1040() {
+        assert_eq!(
+            fire_demon_recording_handoff_phase_loc_1040(6, 6, 0),
+            10,
+            "ASM Mode_Level loc_6E2 and GfxObject_Animate sub_113E advance the first already-live Fire Demon through the four hidden recording-tail Gfx passes",
+        );
+        assert_eq!(
+            fire_demon_recording_handoff_phase_loc_1040(7, 6, 0),
+            7,
+            "ASM Manage_EnemyLoading runs before GfxObject_Animate, so the following loader cohort keeps its later native allocation phase",
+        );
+        assert_eq!(
+            fire_demon_recording_handoff_phase_loc_1040(16, 16, 2),
+            2,
+            "ASM stru_3A334 wraps raw enemy-level 2 Fire Demons on the eighteen-tick walk cycle",
+        );
+    }
+
+    #[test]
     fn fire_demon_collision_loc_3a564_allocates_while_trail_count_below_seven() {
         assert_eq!(
             fire_demon_fire_trail_allocation_loc_3a564(6),
