@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 recurring cold-title popup interval)
+
+- Raw WRAM shows two base GfxObjects through frame 12579, the first
+  `Obj_TitleTextKid loc_1B5E4 -> sub_1B652` popup at frame 12580, and the
+  second at frame 12590.
+- The shared helper already produced 2 -> 3 -> 4 correctly. The recurring
+  `ColdIntroSequence1` title lineage bypassed it while `Obj_TitleMenu` was
+  inactive and fell through to synthetic steady 4/4; it now preserves the
+  real ten-frame 4/3 interval.
+- The interval-1 authoritative ratchet falls 14 -> 4 fields across three
+  frames; the first remaining row is `frame_21824/number_objects`.
+- NEXT: audit the IntroSequence6 rebuild edges at frames 21824, 21854, and
+  22018 against raw Object/GfxObject linked lists.
+
 ## 2026-07-12 handoff (#290 IntroSequence5 title popup passes)
 
 - Raw WRAM confirms `Obj_TitleTextKid loc_1B5E4 -> sub_1B652` links its two

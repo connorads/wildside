@@ -1949,6 +1949,35 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_later_demo_1_title_popup_passes_remain_sequential() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let expected = [
+            (12_579, 4, 2),
+            (12_580, 4, 3),
+            (12_589, 4, 3),
+            (12_590, 4, 4),
+        ];
+        let mut actual = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(12_591) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if expected
+                .iter()
+                .any(|(expected_frame, _, _)| *expected_frame == frame_index)
+            {
+                actual.push((frame_index, trace.number_objects, trace.number_gfx_objects));
+            }
+        }
+
+        // ASM Obj_TitleTextKid loc_1B5E4 -> sub_1B652 allocates one popup,
+        // hibernates for `$A`, then allocates the second. Raw oracle WRAM
+        // therefore exposes a real ten-frame 4/3 interval on this return.
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn published_tas_demo_1_times_out_on_frame_8069() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

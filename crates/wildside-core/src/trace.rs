@@ -11362,17 +11362,19 @@ impl NativeRuntime {
             if matches!(
                 self.title_screen_intro_return_lineage,
                 Some(
-                    TitleScreenIntroReturnLineage::LaterIntroSequence
+                    TitleScreenIntroReturnLineage::ColdIntroSequence1
+                        | TitleScreenIntroReturnLineage::LaterIntroSequence
                         | TitleScreenIntroReturnLineage::LaterIntroSequence2
                         | TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence1EarlyRestore
                 )
             ) && title_text_kid_gfx_count < 4
             {
-                // ASM Obj_TitleTextKid loc_1B5E4 -> sub_1B652: these early
-                // title-restore lineages become pose-visible after the first
-                // popup joins, but ten frames before the second. Preserve
-                // that raw 4/3 list instead of treating title-ready as an
-                // immediate steady 4/4 roster.
+                // ASM Obj_TitleTextKid loc_1B5E4 -> sub_1B652: these title
+                // returns become pose-visible after the first popup joins,
+                // but ten frames before the second. Preserve that raw 4/3
+                // list instead of treating title-ready as an immediate
+                // steady 4/4 roster. The cold lineage can recur after a later
+                // demo timeout with Obj_TitleMenu still inactive.
                 return (4, title_text_kid_gfx_count);
             }
             if self.title_menu_active && !self.title_menu_cursor_pending {
