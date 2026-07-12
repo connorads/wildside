@@ -17,6 +17,7 @@ mod inspect;
 mod native_player;
 mod oracle;
 mod player;
+mod playtest_ingest;
 mod project_status;
 mod ram_diff;
 mod recording;
@@ -824,6 +825,23 @@ enum Commands {
         scenario: GameplayScenario,
         #[arg(long)]
         run_slug: String,
+    },
+    /// Emit a draft markdown report for a playtest session (verdicts,
+    /// bookmarks, aligned mic narration). Never edits the backlog.
+    PlaytestIngest {
+        /// Session slug (under .cache/playtest/) or a session directory path.
+        #[arg(long)]
+        session: String,
+        /// Pre-made transcript export (SRT, VTT, or whisper JSON).
+        #[arg(long)]
+        transcript: Option<PathBuf>,
+        /// Local transcription command printing SRT/VTT/JSON to stdout;
+        /// `{wav}` is replaced with the session's mic.wav path.
+        #[arg(long)]
+        whisper_cmd: Option<String>,
+        /// Report path (default: <session>/report.md).
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
     VerifyRecording {
         #[arg(long)]
@@ -2122,6 +2140,21 @@ fn main() -> Result<()> {
         Commands::CompareCachedNativeGameplay { scenario, run_slug } => {
             let repo_root = current_dir()?;
             compare_cached_native_gameplay_run(&repo_root, &run_slug, scenario)?;
+        }
+        Commands::PlaytestIngest {
+            session,
+            transcript,
+            whisper_cmd,
+            out,
+        } => {
+            let repo_root = current_dir()?;
+            playtest_ingest::run_playtest_ingest(
+                &repo_root,
+                &session,
+                transcript.as_deref(),
+                whisper_cmd.as_deref(),
+                out.as_deref(),
+            )?;
         }
         Commands::VerifyRecording {
             rom,

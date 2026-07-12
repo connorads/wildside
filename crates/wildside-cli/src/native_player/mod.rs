@@ -12,8 +12,11 @@ use anyhow::{Result, anyhow, bail};
 pub(crate) use mic::DEFAULT_MIC_COMMAND;
 use mic::MicCapture;
 pub use playtest::PlaytestOptions;
-use playtest::{MicInfo, PlaytestSession, PlaytestWarp, SyncMarkKind, VerdictKind};
-pub(crate) use playtest::{load_playtest_issues, playtest_session_slug, unix_time_ms};
+use playtest::{MicInfo, PlaytestSession, PlaytestWarp};
+pub(crate) use playtest::{
+    PlaytestSessionFile, SyncMark as PlaytestSyncMark, SyncMarkKind, VerdictKind,
+    load_playtest_issues, playtest_session_slug, unix_time_ms,
+};
 use sdl2::audio::AudioQueue;
 use sdl2::controller::{Button, GameController};
 use sdl2::event::Event;

@@ -85,6 +85,12 @@ Exit criteria:
 
 Goal: make real play sessions reproducible, reviewable, and useful to future agents.
 
+Playtest mode covers the interactive lane: `play-native --playtest [--mic]` drives an
+in-game awaiting-human issue browser with verdict hotkeys, bug bookmarks, segmented
+replayable recordings, and an optional narration sidecar; `playtest-ingest` aligns the
+transcript and emits a draft report a follow-up agent session applies. See
+`docs/source-port/playtesting.md`.
+
 Tasks:
 
 - extend `play-native --record <slug>` from "input + trace" into a standard playtest bundle

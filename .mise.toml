@@ -45,6 +45,18 @@ run = "cargo run --release -p wildside-cli -- play"
 [tasks.play-native]
 run = "cargo run --release -p wildside-cli -- play-native"
 
+[tasks.playtest]
+run = "cargo run --release -p wildside-cli -- play-native --playtest --mic"
+description = "Playtest session with mic narration: F1 issue browser, Y/H/G verdicts, B bookmarks (docs/source-port/playtesting.md)"
+
+[tasks.playtest-no-mic]
+run = "cargo run --release -p wildside-cli -- play-native --playtest"
+description = "Playtest session without mic capture"
+
+[tasks.playtest-ingest]
+run = "cargo run --release -p wildside-cli -- playtest-ingest"
+description = "Draft report from a playtest session: mise run playtest-ingest -- --session <slug> --transcript <file>"
+
 [tasks.bootstrap-native]
 run = """
 sh -ec '
