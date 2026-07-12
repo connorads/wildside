@@ -11893,10 +11893,23 @@ impl NativeRuntime {
         // allocate the held-arrow child GFX slot, then stores the link in
         // `$36(a5)`/`$3A(a5)`. It increments Number_GfxObjects without
         // allocating another Object_RAM worker.
-        self.active_enemies
+        let archer_held_arrow_workers = self
+            .active_enemies
             .iter()
             .filter(|enemy| enemy.family == EnemyFamily::Archer)
-            .count() as u16
+            .count() as u16;
+        let dragon_flying_descent_fire_gfx_workers = self
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire)
+            .count() as u16;
+        // ASM Dragon_Flying.asm loc_348A0 allocates the child Object slot;
+        // loc_34BAC then calls Load_GfxObjectSlot before loc_32146 links its
+        // collision source. Native counts the Object side in
+        // gameplay_transient_object_only_worker_count, so add the paired Gfx
+        // side here while the typed projectile exists, including loc_34C4A's
+        // two cleanup hibernations.
+        archer_held_arrow_workers.saturating_add(dragon_flying_descent_fire_gfx_workers)
     }
 
     fn count_visible_prize_block_worker_tails(&self) -> usize {

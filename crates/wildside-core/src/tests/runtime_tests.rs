@@ -7987,6 +7987,32 @@ mod chunk_09 {
             .get(74)
             .expect("Level 0x06 issue #289 probe should include frame 74");
 
+        let dragon_at = |frame: usize| {
+            trace[frame]
+                .active_enemy_details
+                .iter()
+                .find(|object| {
+                    object.kind == NativeObjectKind::Enemy { object_type: 0x0C }
+                        && object.layout_index == Some(0)
+                })
+                .expect("Level 0x06 opening Flying Dragon")
+        };
+        assert_eq!(
+            (dragon_at(3).x_pos, dragon_at(3).y_pos),
+            (0x0088_0000, 0x001F_0000),
+            "ASM Dragon_Flying.asm loc_3480A DBF hibernation and the interval-1 oracle keep the opening Dragon stationary through recording frame 3",
+        );
+        assert_eq!(
+            (dragon_at(8).x_pos, dragon_at(8).y_pos),
+            (0x0088_0000, 0x001F_0000),
+            "ASM Dragon_Flying.asm loc_3480A keeps the opening Dragon stationary through oracle recording frame 8",
+        );
+        assert_eq!(
+            (dragon_at(9).x_pos, dragon_at(9).y_pos),
+            (0x0087_0000, 0x0020_0000),
+            "ASM Dragon_Flying.asm loc_348FC first commits the descent vector on oracle recording frame 9",
+        );
+
         assert_eq!(
             frame_36.number_objects, 6,
             "ASM Dragon_Flying.asm loc_348A0/loc_34BAC spawns the descent-fire child during the settled recording live window; oracle issue289 frame 36 has the Dragon parent plus fire child active",
@@ -7997,6 +8023,10 @@ mod chunk_09 {
                 .iter()
                 .any(|projectile| projectile.kind == ActiveProjectileKind::DragonFlyingDescentFire),
             "ASM Dragon_Flying.asm loc_34BAC child must be present at oracle issue289 frame 36, not a load-only parent still waiting in loc_34710 hover",
+        );
+        assert_eq!(
+            trace[60].number_gfx_objects, 6,
+            "ASM Dragon_Flying.asm loc_34BAC calls Load_GfxObjectSlot before loc_32146, so the descent-fire child contributes one GfxObject at oracle recording frame 60",
         );
         assert_eq!(
             frame_68.number_objects, 6,

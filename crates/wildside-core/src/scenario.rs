@@ -16,7 +16,11 @@ const DRILLER_LEVEL_SKIP_LIVE_TAIL_FRAMES_LOC_3BE78: usize = 63;
 // Mode_Level object passes. The direct compatibility path retains its older
 // full-window values in `recording_oracle_warp_target_live_frames`.
 const LEVEL_ONE_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 65;
-const LEVEL_SIX_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 61;
+// ASM loc_74E0 plus Dragon_Flying.asm loc_3480A: after the typed debug-title
+// lifecycle, Level 0x06 reaches the recording hand-off after 55 stable target
+// passes. The interval-1 oracle keeps the opening Dragon stationary through
+// frame 8 and commits its first descent vector on frame 9.
+const LEVEL_SIX_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 55;
 const LEVEL_EIGHT_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 102;
 const LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 70;
 const BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 108;

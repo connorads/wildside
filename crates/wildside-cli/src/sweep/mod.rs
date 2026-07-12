@@ -2059,7 +2059,7 @@ fn normalised_enemy_roster_for_frontier_with_peer<'a>(
 }
 
 fn dragon_flying_descent_fire_child_is_native_projectile(
-    _state: &OracleState,
+    state: &OracleState,
     peer: &OracleState,
     enemy: &OracleEnemyState,
 ) -> bool {
@@ -2085,7 +2085,41 @@ fn dragon_flying_descent_fire_child_is_native_projectile(
     // that gameplay-visible descent fire as an EnemyProjectile, so enemy
     // frontier should compare the parent dragon while letting the projectile
     // debug prove the child is present at the same position/velocity.
-    native_projectiles.contains(&projectile_marker)
+    if native_projectiles.contains(&projectile_marker) {
+        return true;
+    }
+
+    // ASM loc_34C4A clears both velocities and collision participation before
+    // hibernating through two cleanup mappings. Native retains the typed child
+    // worker, and therefore both ROM worker counts, but deliberately omits it
+    // from the damage-probe string. At that boundary the oracle's loc_34Cxx
+    // Object code, one extra `$0C` collision-source row, exact Object/Gfx
+    // counts, and a separately matching parent identify the cleanup child
+    // without weakening ordinary Flying Dragon position comparison.
+    let oracle_has_descent_fire_object = state
+        .gameplay_debug_fields
+        .get("oracle_object_slots_loc_e1e")
+        .is_some_and(|slots| slots.contains("code=0x034c"));
+    let state_dragons = state
+        .active_enemies
+        .iter()
+        .filter(|candidate| candidate.object_type == DRAGON_FLYING_OBJECT_TYPE)
+        .count();
+    let peer_dragons = peer
+        .active_enemies
+        .iter()
+        .filter(|candidate| candidate.object_type == DRAGON_FLYING_OBJECT_TYPE)
+        .count();
+    let matches_peer_parent = peer
+        .active_enemies
+        .iter()
+        .any(|candidate| enemy_roster_entries_match(candidate, enemy));
+
+    oracle_has_descent_fire_object
+        && state.number_objects == peer.number_objects
+        && state.number_gfx_objects == peer.number_gfx_objects
+        && state_dragons == peer_dragons.saturating_add(1)
+        && !matches_peer_parent
 }
 
 fn enemy_roster_entries_match(native: &OracleEnemyState, oracle: &OracleEnemyState) -> bool {
@@ -3953,6 +3987,22 @@ mod tests {
         assert!(
             enemy_roster_frontier_matches(&native_state, &oracle_state),
             "ASM Dragon_Flying.asm loc_348A0/loc_34BAC exposes descent fire as an oracle child GfxObject, while native tracks the same gameplay object as DragonFlyingDescentFire"
+        );
+
+        let mut cleanup_native = native_state.clone();
+        cleanup_native.gameplay_debug_fields.clear();
+        let mut cleanup_oracle = oracle_state;
+        let cleanup_child = cleanup_oracle
+            .active_enemies
+            .iter_mut()
+            .find(|enemy| enemy.gfx_slot_index == Some(5))
+            .expect("oracle Flying Dragon descent-fire child");
+        cleanup_child.x_velocity = 0;
+        cleanup_child.y_velocity = 0;
+        cleanup_child.collision_type = Some(0x0018);
+        assert!(
+            enemy_roster_frontier_matches(&cleanup_native, &cleanup_oracle),
+            "ASM Dragon_Flying.asm loc_34C4A clears native projectile contact during the two cleanup hibernations, but equal Object/Gfx counts and oracle loc_34Cxx Object code still prove the typed child worker is live",
         );
     }
 

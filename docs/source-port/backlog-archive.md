@@ -11,6 +11,30 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #396
+
+Opened and resolved 2026-07-13 from proactive whole-level report
+`1783898144`. Level 0x06 exported one fewer GfxObject at `level_settle`.
+Interval-1 enemy-frontier tracing exposed a stronger hidden error: native moved
+the opening Flying Dragon on frame 3 while oracle remained in
+`Dragon_Flying.asm loc_3480A` through frame 8 and first committed the descent
+vector on frame 9. Native was six object passes early throughout the parent
+trajectory and consequently entered the `loc_34C4A` child cleanup six frames
+early.
+
+The typed debug-title lifecycle's Level 0x06 recording hand-off now stops six
+stable target passes earlier. The parent position, velocity, and facing match
+oracle on every frame 0-74. ASM `loc_348A0` allocates the descent-fire Object,
+and `loc_34BAC` calls `Load_GfxObjectSlot`; native now counts that typed child
+as both an Object and Gfx worker through the two cleanup hibernations. Enemy
+frontier maps the oracle cleanup row only when the `loc_34Cxx` Object code is
+present, Object/Gfx counts are exact, there is exactly one extra `$0C` row,
+and the parent separately matches. Focused report `1783899737` passes Level
+0x06 exactly. Full report `1783899751` improves 40/69 pass and 118 blockers to
+42/69 and 116; the shared Gfx correction also clears Level 0x19's remaining
+authoritative settle difference. `verify-slice-fast` and the full 37,759-frame
+CRC/RNG/gameplay/enemy-frontier gate pass.
+
 ### #395
 
 Opened and resolved 2026-07-13 from proactive whole-level state report
@@ -12694,6 +12718,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 396 | [x] | P1 | enemy/recording | Flying Dragon recording hand-off and descent-fire Object/Gfx lifecycle match `loc_3480A`/`loc_34BAC`/`loc_34C4A`. | Report `1783899751`: 42/69 pass, 116 blockers; interval-1 frames 0-74 exact. See archive #396. |
 | 395 | [x] | P1 | trace/objects | Mountain, Cave, and Island post-load palette controllers contribute an Object slot only, matching `Load_InGame loc_11F96/loc_11FB0`. | Report `1783898144`: 40/69 pass, 118 blockers; see archive #395. |
 | 394 | [x] | P2 | Enemy/FireDemon | Recording settle restores the first live Fire Demon loader cohort's hidden Gfx animation ticks, removing the Level 0x40 frame-59 surplus trail. | Report `1783896236`: settle and idle tail exact; see archive #394. |
 | 393 | [x] | P2 | State parity/FireDemon | Recording settle preserves live Fire Demons, models their singleton palette helper, and schedules trail allocation/timers in ROM order. | Report `1783893809`: idle tail exact at 8/8 with trail timer 14; settle phase residual is #394. See archive #393. |

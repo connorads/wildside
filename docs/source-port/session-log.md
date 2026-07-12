@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#396 exact Flying Dragon settle lifecycle)
+
+- Interval-1 oracle tracing proved Level 0x06's opening Flying Dragon was six
+  object passes early: oracle stays at `(136,31)` through frame 8 and moves on
+  frame 9 per `loc_3480A`, while native previously moved on frame 3.
+- The recording hand-off now matches parent state on every frame 0-74.
+  `loc_34BAC` descent fire contributes its real Object+Gfx pair through
+  `loc_34C4A` cleanup, with constrained child normalisation in enemy frontier.
+- Focused report `1783899737` passes Level 0x06. Full report `1783899751`
+  improves 40/69 pass and 118 blockers to 42/69 and 116, also making Level
+  0x19 exact at every authoritative checkpoint.
+- Fast verification and the full 37,759-frame CRC/RNG/gameplay/enemy-frontier
+  gate pass. NEXT: use report `1783899751` for proactive verification.
+
 ## 2026-07-13 handoff (#395 Object-only theme controller)
 
 - `Load_InGame loc_11F96/loc_11FB0` allocates Mountain, Cave, and Island
