@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 early-restore IntroSequence1 title roster)
+
+- Raw linked-list WRAM shows `sub_1B8F4 -> sub_1C246 -> loc_1C264` carrying
+  the final IntroSequence1 controller/text pair at 2/1 through 32 title traces.
+  The two-frame early restore advances fresh `Load_TitleScreen` work, but not
+  `loc_6E2`'s deletion of those carried lists.
+- `Obj_TitleTextKid loc_1B5E4 -> sub_1B652` links its first popup on frame
+  34368 and its second on frame 34378. Native now preserves the intervening
+  4/3 list instead of treating the early-visible title as steady 4/4.
+- Frames 34180..34930 match all 750 state checkpoints. Full sampled debt falls
+  6 -> 3 authoritative differences with 15 oracle limitations; first sampled
+  diff moves to `frame_36825/number_gfx_objects`. All 37,759 CRC frames and
+  37,743 complete RNG states remain exact.
+- NEXT: trace the later IntroSequence2 title-return 2/1 versus 2/0 shell at
+  frame 36825 and its remaining popup boundary.
+
 ## 2026-07-12 handoff (#290 later IntroSequence4 title-return roster)
 
 - Raw linked-list WRAM shows `sub_1B988 -> sub_1C246 -> loc_1C264` carrying

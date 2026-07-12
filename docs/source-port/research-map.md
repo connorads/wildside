@@ -16,9 +16,9 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints retain the explicit #290 baseline of 6 authoritative export
+state checkpoints retain the explicit #290 baseline of 3 authoritative export
 diffs and 15 oracle limitations, beginning at
-`frame_34250/number_objects`.
+`frame_36825/number_gfx_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -30,7 +30,18 @@ That is complete per-frame RNG evidence for this route, not whole-state or
 whole-game proof. Reducing #290's authoritative sampled-state baseline remains
 separate fidelity work.
 
-The latest correction maps the later IntroSequence4 Start return through raw
+The latest correction maps the early-restore IntroSequence1 Start return
+through raw linked-list WRAM. `sub_1B8F4 -> sub_1C246 -> loc_1C264` carries
+the final controller/text pair at 2/1 through 32 title traces. The lineage's
+two-frame early restore advances the fresh `Load_TitleScreen` allocations but
+does not advance `loc_6E2`'s deletion of those carried lists. After the title
+pose returns, `Obj_TitleTextKid loc_1B5E4 -> sub_1B652` exposes 4/3 for ten
+frames before the second popup makes 4/4. Published frames 34180..34930 match
+all 750 state checkpoints. The full sampled baseline falls 6 -> 3
+authoritative differences with 15 oracle limitations, first at
+`frame_36825/number_gfx_objects`; full-route CRC and complete RNG remain exact.
+
+The previous correction maps the later IntroSequence4 Start return through raw
 Object/GfxObject WRAM. `sub_1B988 -> sub_1C246 -> loc_1C264` reaches
 `Load_TitleScreen` with two carried Objects and no GfxObject. `loc_6E2` clears
 both lists on frame 32039; `loc_1B258` exposes the first three fresh Objects on

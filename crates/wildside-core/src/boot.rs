@@ -5610,6 +5610,24 @@ impl NativeRuntime {
         let elapsed = self.effective_title_screen_rebuild_elapsed();
         if matches!(
             self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence1EarlyRestore)
+        ) {
+            // ASM sub_1B8F4 -> sub_1C246 -> loc_1C264 carries the final
+            // IntroSequence1 controller/text pair through 32 title traces.
+            // This lineage's two-frame early restore advances the later
+            // Load_TitleScreen allocations, but loc_6E2 does not clear the
+            // carried lists two frames early with them.
+            return Some(match self.title_screen_elapsed_frames {
+                0..=31 => (2, 1),
+                32..=53 => (0, 0),
+                54 => (3, 0),
+                55 => (5, 1),
+                56 => (5, 2),
+                _ => (4, 2),
+            });
+        }
+        if matches!(
+            self.title_screen_intro_return_lineage,
             Some(TitleScreenIntroReturnLineage::LaterIntroSequence)
         ) {
             // ASM sub_1B988 -> sub_1C246 -> loc_1C264 enters Load_TitleScreen
