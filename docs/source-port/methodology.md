@@ -396,7 +396,7 @@ Beyond binary pass/fail, classify each sweep divergence to track fidelity trends
 | Category | Definition | Example | Action |
 |----------|-----------|---------|--------|
 | Authoritative | Position, velocity, lifecycle, collision state differ | Player x off by 12px at frame 400 | Must fix, real bug |
-| Advisory | Score, lives, diamonds, object count, murder wall x | Score 1200 vs 1400 | Masked in sweep; tracked separately |
+| Advisory | Retired category: `ADVISORY_FIELDS` (sweep/mod.rs) is empty, no field is masked | Historic: score masked as "expected divergence" | Do not reintroduce; classify each diff as a bug or an evidence-backed oracle limitation |
 | Accumulation | Small per-frame error compounds over time | 1px/frame camera drift | Fix root cause (rounding, FP truncation) |
 | RNG | Divergence from non-deterministic or seed-dependent path | Enemy spawn timer differs | Verify seed handling; may need RNG synchronisation |
 | Oracle limitation | Oracle crashes or behaves incorrectly | 8 warp-broken levels (game_mode=0x4E73) | Document; do not chase |
@@ -592,12 +592,12 @@ Lessons learned from bsnes, Chocolate Doom, Julius, OpenMW, devilutionX, and pro
 | **Skipping regression tests** | "Quick fix" introduces new bugs discovered later | Every fix becomes a permanent test; no exceptions (Chocolate Doom statcheck) |
 | **Optimising before understanding** | Speed hacks obscure correct behaviour | Get it right first, optimise later with benchmarks (bsnes) |
 | **Non-deterministic engine** | Replay testing becomes impossible | Fixed RNG, deterministic frame stepping, no system-time dependencies (Chocolate Doom: M_Random seed bug broke cross-session determinism) |
-| **Advisory field confusion** | Chasing divergences that are expected | Clear advisory vs authoritative distinction; mask advisory in sweep |
+| **Advisory field confusion** | Blanket field masks hide real bugs behind "expected divergence" labels | `ADVISORY_FIELDS` stays empty; every diff is a bug or an evidence-backed `oracle_limitation` matcher (see sweep/mod.rs rationale comment) |
 | **Code churn breaking replays** | Refactors silently change execution order | Snapshot tests detect state drift; replay scenarios catch desync (Chocolate Doom) |
 | **Whack-a-mole emulation** | Each fix creates new regressions in a cycle | Understand the root cause at hardware/engine level before fixing symptoms (bsnes) |
 | **Conflating compatibility with accuracy** | "It works" masks underlying incorrectness | Accuracy naturally enables compatibility; the reverse is not true (bsnes) |
 | **Untested test suite** | Tests pass but miss real bugs (false confidence) | Mutation testing quarterly; surviving mutants = test gaps (Trail of Bits) |
-| **Unclassified divergences** | Chasing advisory divergences, ignoring accumulation drift | Classify every divergence by category; trend by category over time |
+| **Unclassified divergences** | Chasing oracle-limitation noise, ignoring accumulation drift | Classify every divergence by category; trend by category over time |
 | **Coarse divergence detection** | "Something's wrong in level 23" but no precision | Framewise checksums + frame-level bisection to pinpoint exact frame and field |
 | **Dead-coded helper drift** | Helper implements ASM routine and has tests, but no production caller exists; the broken behaviour the helper would fix ships anyway | Grep for `#[cfg_attr(not(test), allow(dead_code))]` whenever a user reports a behaviour gap. Examples found 2026-05-19: `kid_airborne_visual_sub_B270` (Red Stealth airborne slash, #153) and `drips_ceiling_gate_loc_333_f6` (Drips slime ceiling attach, #155) both shipped untested in production. Pattern: helper is faithful to ASM and unit-tested, but no `step_*` or runtime call invokes it. Fix order: state field, runtime call, renderer plumbing, integration test |
 | **Tautological reference-port tests** | `#[cfg(test)] pub(crate) fn` ports an ASM routine and the test asserts only that helper's own output; coverage rises but the shipped path never executes the routine | Treat this as test-only fidelity debt, not behaviour proof. Prefer wiring the port into production, or write a differential/integration test that drives the production path and compares against oracle/ASM-derived expectations. Grandfather existing debt with `asm-coverage --check-no-new-test-only`; do not add new labels without review. |

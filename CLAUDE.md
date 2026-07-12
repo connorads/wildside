@@ -54,7 +54,7 @@ Use sources in this order:
 ## Fidelity principles
 
 - **Bugs are features**: original game bugs must be faithfully reproduced: collision edge cases, sprite glitches, off-by-ones. Mark with `// ORIGINAL_QUIRK: <description>`. (Julius, OpenMW, Chocolate Doom, devilutionX all preserve original bugs for compatibility)
-- **Oracle is truth**: if native differs from oracle, native is wrong until proven otherwise. Exceptions: advisory fields only. ("Accuracy is not 'does it play Zelda?'; playing games is a side effect of accuracy", byuu)
+- **Oracle is truth**: if native differs from oracle, native is wrong until proven otherwise. Exceptions: evidence-backed `oracle_limitation` classifications only. ("Accuracy is not 'does it play Zelda?'; playing games is a side effect of accuracy", byuu)
 - **Never guess**: when behaviour is ambiguous, trace the disassembly or compare oracle frames. Write a probe scenario before writing any fix. (bsnes: 80 hours to reverse-engineer one Speedy Gonzales bus conflict rather than guessing)
 - **Engine-level only**: no level-specific overrides or game-specific hacks. If a fix works for level 1 but breaks level 23, the architecture needs rethinking. (bsnes: "whack-a-mole emulation" anti-pattern)
 - **Progressive fidelity**: approximate implementations acceptable as stepping stones when marked `// TODO(fidelity): <description>` and tracked. Never ship a guess as if it were verified.
@@ -170,11 +170,11 @@ top of `backlog.md` (rewrite it each session; never let it accrete: old handoffs
 - Fix behaviours at engine level, never level-specific overrides
 - Every fix must pass full sweep; if it fixes level 1 but breaks level 23, the fix is wrong
 - Every bug fixed should become a permanent regression test (scenario or snapshot)
-- Advisory fields (score, lives, diamonds, number_objects, murder_wall_x) are expected divergences, not bugs
+- No advisory field masking: `ADVISORY_FIELDS` (sweep/mod.rs) is empty; every field diff is either a bug or an evidence-backed `oracle_limitation` (e.g. oracle stuck on title/pause), never a silently masked "expected divergence"
 - Probe before coding: write a scenario that exercises the behaviour, run against oracle, understand ground truth before touching native code
 - Cross-reference sources: check disassembly AND oracle; if they agree, proceed. If they disagree, investigate further
 - Preserve original quirks explicitly: mark with `// ORIGINAL_QUIRK:`. If behaviour looks wrong but oracle confirms it, the original game has that behaviour
-- Advisory vs authoritative: advisory divergences are expected and masked in sweep. Authoritative divergences (position, velocity, state, lifecycle) are always bugs
+- Oracle-limitation vs authoritative: `oracle_limitation` covers checkpoints where the oracle never reached a comparable state (title, pause, wrong warp level) and needs cited evidence in the matcher. Authoritative divergences (position, velocity, state, lifecycle, counts, score) are always bugs
 - Reject dead ends once: record them in `backlog-archive.md` under the issue's `#NNN` so the next session does not retry them from memory or roadmap prose
 
 ### Session protocol
@@ -247,7 +247,7 @@ diff composites, and per-layer diagnostics.
 - jgenesis emulator as ground truth for game state
 - `DynamicScenario`: per-frame u8 button masks, JSON-serialisable, identical execution paths in native and oracle
 - Sweep: 105 levels x idle scenario, state-level checkpoint comparison
-- Position tolerance: 6px. Advisory fields masked.
+- Position tolerance: 6px. No field-level advisory masking (`ADVISORY_FIELDS` is empty); non-comparable oracle checkpoints classify as `oracle_limitation` with cited evidence.
 
 ### Pixel-perfect frame comparison (visual correctness)
 - 320x224 fixed-palette pixel art; exact pixel matching is appropriate (no perceptual metrics needed)
@@ -261,7 +261,7 @@ diff composites, and per-layer diagnostics.
 
 ### Snapshot testing (regression)
 - `insta` crate: `assert_yaml_snapshot!` on NativeTraceFrame structs
-- Redactions for advisory fields, `cargo insta review` TUI for accepting intentional changes
+- No redactions: snapshots pin every field, including object counts and score; `cargo insta review` TUI for accepting intentional changes
 - Complements oracle (correctness) with native-vs-prior-native (regression)
 
 ## Test strategy
