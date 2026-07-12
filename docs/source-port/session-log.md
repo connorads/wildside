@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 exact later IntroSequence5 lifecycle)
+
+- Raw WRAM showed oracle deleting the IntroText5 Object at frame 27857 while
+  the three long-lived workers and five GfxObjects remained. The wider exact
+  visit also exposed allocation-count errors at frames 27602 and 27603.
+- ASM `loc_1BA28 -> loc_1BCD0/loc_1C7A0` runs as one allocation pass. The
+  intro-return lineage wakes that whole pass early, so native now shifts the
+  allocated-only row, live 4/5 roster, particle wake, and `loc_1C7B6` `$FF`
+  deletion together.
+- Frames 27600..28066 are 467/467 exact. A route regression pins both sides of
+  allocation and deletion; the pure count test pins the lineage boundary.
+- NEXT: run or strengthen a full per-frame published-route state audit. These
+  three unsampled errors existed while the 25-frame state gate was green, so
+  sampled parity is not frame-by-frame state proof.
+
 ## 2026-07-12 handoff (#290 later Demo 2 velocity trace)
 
 - Exact frames 29405..29431 exposed a native-only `$00060000` Kid y velocity,

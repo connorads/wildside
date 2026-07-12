@@ -27,14 +27,22 @@ of the remaining 37,743 frames. Every compared frame now matches exactly.
 That is complete per-frame RNG and authoritative sampled-state evidence for
 this route, not whole-state or whole-game proof.
 
-The latest correction removes a synthetic `$00060000` Kid y-velocity sample
+The latest correction shifts the complete later IntroSequence5 worker lifecycle
+with its one-pass-early `loc_1BA28 -> loc_1BCD0/loc_1C7A0` allocation. Native
+had shifted the visible pose and later particle wake but not the initial Object
+rows or IntroText5's `loc_1C7B6` deletion. Exact frames 27600..28066 now match
+all 467 per-frame state, CRC, and RNG checkpoints. The three fixed rows were
+outside the 25-frame sampled gate, so its zero-difference result is not proof of
+full frame-by-frame state parity.
+
+The previous correction removes a synthetic `$00060000` Kid y-velocity sample
 from the later IntroSequence6 Demo 2 hand-off. ASM `Obj_TitleMenu loc_1BB02 ->
 Load_DemoPlay` changes mode, selects the recording, allocates the controller,
 and enters `Load_InGame`; it does not write Kid's velocity. Exact frames
 29380..29450 are 70/70 clean. The full sampled baseline now has zero classified
 differences.
 
-The previous correction keeps `Character_Movement` inert for IntroSequence3/4/5
+The earlier correction keeps `Character_Movement` inert for IntroSequence3/4/5
 presentation rosters. Their `Load_IntroSequence*` paths allocate Objects and
 GfxObjects but never enter Kid's `loc_75D4` movement routine. Exact frames
 27640..27870 improve 203/230 -> 229/230; the remaining frame-27857 Object-count

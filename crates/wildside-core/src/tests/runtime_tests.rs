@@ -3888,6 +3888,45 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_later_intro_sequence_5_shifts_introtext5_lifecycle_one_pass_early() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(27_859) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 27_601..=27_604 | 27_856..=27_858) {
+                samples.push((
+                    frame_index,
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    trace.number_objects,
+                    trace.number_gfx_objects,
+                ));
+            }
+        }
+
+        // ASM loc_1BA28 -> loc_1BCD0/loc_1C7A0: the later IntroSequence5
+        // lineage allocates the worker pair and then runs the full 4/5 roster
+        // one pass early. IntroText5's final glyph delay therefore resumes
+        // into loc_1C7B6's `$FF` and deletes on frame 27857; the three
+        // loc_1BA28/loc_1BC36/loc_1BCD0 workers and five GfxObjects remain.
+        assert_eq!(
+            samples,
+            vec![
+                (27_601, GameMode::IntroSequence5, Some(55), 0, 0),
+                (27_602, GameMode::IntroSequence5, Some(56), 2, 0),
+                (27_603, GameMode::IntroSequence5, Some(57), 4, 5),
+                (27_604, GameMode::IntroSequence5, Some(58), 4, 5),
+                (27_856, GameMode::IntroSequence5, Some(310), 4, 5),
+                (27_857, GameMode::IntroSequence5, Some(311), 3, 5),
+                (27_858, GameMode::IntroSequence5, Some(312), 3, 5),
+            ]
+        );
+    }
+
+    #[test]
     fn published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

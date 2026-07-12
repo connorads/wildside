@@ -4210,7 +4210,7 @@ mod tests {
 
     #[test]
     fn trace_frame_intro_sequence_5_timeout_restart_counts_expose_particle_threshold() {
-        fn counts_at(elapsed: usize) -> (u16, u16) {
+        fn counts_at(elapsed: usize, early_visibility: bool) -> (u16, u16) {
             let mut runtime = NativeRuntime::new(minimal_manifest());
             runtime.boot_state = BootState::IntroSequence {
                 segment: 4,
@@ -4218,6 +4218,8 @@ mod tests {
                 pending_title_skip: 0,
             };
             runtime.demo_auto_timeout_intro_sequence_5_frames_override = Some(0);
+            runtime.demo_timeout_restart_uses_intro_return_slot_2_early_visibility =
+                early_visibility;
 
             let frame = runtime.trace_frame();
             (frame.number_objects, frame.number_gfx_objects)
@@ -4229,11 +4231,16 @@ mod tests {
         // GfxObjects on the following pass.
         let particle_count_frame =
             DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME;
-        assert_eq!(counts_at(particle_count_frame - 1), (3, 5));
-        assert_eq!(counts_at(particle_count_frame), (6, 3));
-        assert_eq!(counts_at(particle_count_frame + 1), (6, 7));
-        assert_eq!(counts_at(particle_count_frame + 0x29), (6, 7));
-        assert_eq!(counts_at(particle_count_frame + 0x2A), (4, 5));
+        assert_eq!(counts_at(55, true), (0, 0));
+        assert_eq!(counts_at(56, true), (2, 0));
+        assert_eq!(counts_at(57, true), (4, 5));
+        assert_eq!(counts_at(310, true), (4, 5));
+        assert_eq!(counts_at(311, true), (3, 5));
+        assert_eq!(counts_at(particle_count_frame - 1, false), (3, 5));
+        assert_eq!(counts_at(particle_count_frame, false), (6, 3));
+        assert_eq!(counts_at(particle_count_frame + 1, false), (6, 7));
+        assert_eq!(counts_at(particle_count_frame + 0x29, false), (6, 7));
+        assert_eq!(counts_at(particle_count_frame + 0x2A, false), (4, 5));
     }
 
     #[test]
@@ -11020,7 +11027,14 @@ impl NativeRuntime {
                 // the old sub_1B988 controller survives until the loader wipe.
                 return (1, 0);
             }
-            let visible_elapsed = TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES;
+            // ASM loc_1BA28 -> loc_1BCD0/loc_1C7A0: the intro-return lineage
+            // wakes this entire allocation pass one frame early, including
+            // the two allocated-but-not-run Objects and the following 4/5
+            // live-worker row.
+            let visible_elapsed = TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES
+                .saturating_sub(usize::from(
+                    self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility,
+                ));
             if elapsed + 1 < visible_elapsed {
                 // ASM loc_6E2 has cleared the carried controller while
                 // Load_IntroSequence5 is still inside its hibernating loader.
@@ -11033,6 +11047,9 @@ impl NativeRuntime {
             }
             let intro_text_is_live = crate::vdp::intro_text_worker_counted_frames_loc_1c7a0(4)
                 .is_some_and(|counted_frames| {
+                    // ASM loc_1C7A0 -> loc_1C7B6: the `$FF` deletion shifts
+                    // with the allocation pass rather than using a separate
+                    // lineage timer.
                     elapsed < visible_elapsed.saturating_add(counted_frames)
                 });
             let particle_roster_elapsed =
