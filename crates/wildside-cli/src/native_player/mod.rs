@@ -408,7 +408,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         recorder.mark_save_worthy();
         recorder.set_final_frame(&frame);
     }
-    let playtest_session = if let Some(playtest_options) = options.playtest.as_ref() {
+    let mut playtest_session = if let Some(playtest_options) = options.playtest.as_ref() {
         let git_status = crate::recording::current_git_status();
         let session = PlaytestSession::create(
             playtest_options,
@@ -473,6 +473,9 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         let mut toggle_fullscreen = false;
         let mut reset_runtime = false;
         let mut dump_recording_and_exit = false;
+        let was_paused = playtest_session
+            .as_ref()
+            .is_some_and(PlaytestSession::paused);
 
         for event in events.poll_iter() {
             match event {
@@ -492,7 +495,52 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                     keycode: Some(Keycode::Escape),
                     repeat: false,
                     ..
-                } => break 'running,
+                } => {
+                    if let Some(session) = playtest_session.as_mut()
+                        && session.browser_open()
+                    {
+                        session.close_browser();
+                    } else {
+                        break 'running;
+                    }
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::F1),
+                    repeat: false,
+                    ..
+                } => {
+                    if let Some(session) = playtest_session.as_mut() {
+                        session.toggle_browser(trace.current_level.0);
+                    }
+                }
+                Event::KeyDown {
+                    keycode:
+                        Some(
+                            key @ (Keycode::Up
+                            | Keycode::Down
+                            | Keycode::W
+                            | Keycode::S
+                            | Keycode::Left
+                            | Keycode::Right),
+                        ),
+                    ..
+                } if playtest_session
+                    .as_ref()
+                    .is_some_and(PlaytestSession::browser_open) =>
+                {
+                    let session = playtest_session
+                        .as_mut()
+                        .expect("guard checked playtest session");
+                    match key {
+                        Keycode::Up | Keycode::W => {
+                            session.move_selection(-1, trace.current_level.0);
+                        }
+                        Keycode::Down | Keycode::S => {
+                            session.move_selection(1, trace.current_level.0);
+                        }
+                        _ => session.toggle_filter(trace.current_level.0),
+                    }
+                }
                 Event::KeyDown {
                     keycode: Some(Keycode::F11),
                     repeat: false,
@@ -613,6 +661,30 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             apply_window_mode(&mut canvas, &video, fullscreen, options.scale)?;
         }
 
+        let paused = playtest_session
+            .as_ref()
+            .is_some_and(PlaytestSession::paused);
+        if paused != was_paused {
+            if let Some(ref aq) = audio_queue {
+                if paused {
+                    aq.pause();
+                } else {
+                    // Resume through the existing prime path so the queue
+                    // refills to target depth before playback restarts.
+                    aq.clear();
+                    live_audio_backlog.clear();
+                    audio_queue_priming = true;
+                    audio_diagnostics.record_queue_clear();
+                    audio_diagnostics.record_queue_prime();
+                }
+            }
+            if !paused {
+                // Browser navigation keys double as gameplay input; require a
+                // clean release before live buttons feed the runtime again.
+                wait_for_live_input_release = true;
+            }
+        }
+
         if reset_runtime {
             session_assets = load_native_session_assets(manifest, initial_level_id)?;
             runtime = initialise_runtime(manifest, &session_assets, options);
@@ -632,7 +704,11 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 level_card_frames_remaining,
                 debug_level_card_fallback_frames_remaining,
             );
-            if !level_card_hold_active || should_step_during_hold {
+            if native_player_should_step_frame(
+                paused,
+                level_card_hold_active,
+                should_step_during_hold,
+            ) {
                 let buttons = if should_step_during_hold {
                     0
                 } else {
@@ -762,7 +838,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         active_bgm_cue = next_bgm_cue;
 
         let should_capture_audio = recorder.is_some();
-        let should_step_audio = should_capture_audio || audio_queue.is_some();
+        let should_step_audio =
+            native_player_should_step_audio(paused, should_capture_audio, audio_queue.is_some());
         if should_step_audio {
             if let Some(ref aq) = audio_queue {
                 queue_live_audio_backlog(
@@ -897,6 +974,13 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             }
         }
 
+        if let Some(session) = playtest_session.as_mut() {
+            session.tick();
+            if let Some(scene) = session.overlay_scene(trace.current_level.0) {
+                render_scene_overlay(&scene, &mut frame);
+            }
+        }
+
         texture
             .update(None, &frame, (FRAME_WIDTH as usize) * 3)
             .map_err(|error| anyhow!("failed to update SDL texture: {error}"))?;
@@ -978,6 +1062,23 @@ fn native_level_card_hold_active(
     debug_level_card_fallback_frames_remaining: usize,
 ) -> bool {
     level_card_frames_remaining > 0 || debug_level_card_fallback_frames_remaining > 0
+}
+
+/// Replay-safety invariant: a paused player must never step the runtime, so no
+/// paused frame can enter a segment script (the loop only records frames it
+/// stepped). A leaked pause frame would desync deterministic replay.
+fn native_player_should_step_frame(
+    paused: bool,
+    level_card_hold_active: bool,
+    should_step_during_hold: bool,
+) -> bool {
+    !paused && (!level_card_hold_active || should_step_during_hold)
+}
+
+/// While paused the audio pipeline stalls entirely: nothing is generated,
+/// queued, or captured into the segment recording.
+fn native_player_should_step_audio(paused: bool, capture_audio: bool, queue_present: bool) -> bool {
+    !paused && (capture_audio || queue_present)
 }
 
 fn should_step_runtime_during_level_card_hold(
@@ -15641,6 +15742,30 @@ mod tests {
             !record_dir.exists(),
             "a segment nothing marked save-worthy must not write a bundle"
         );
+    }
+
+    #[test]
+    fn gameplay_regression_playtest_pause_frames_never_recorded() {
+        // Replay-safety invariant: while the playtest browser holds the game,
+        // the runtime must not step, so no frame can enter a segment script
+        // and no audio can be generated or captured.
+        for (hold_active, step_during_hold) in
+            [(false, false), (true, false), (true, true), (false, true)]
+        {
+            assert!(
+                !native_player_should_step_frame(true, hold_active, step_during_hold),
+                "paused player stepped with hold_active={hold_active} step_during_hold={step_during_hold}"
+            );
+        }
+        assert!(native_player_should_step_frame(false, false, false));
+        assert!(native_player_should_step_frame(false, true, true));
+        assert!(!native_player_should_step_frame(false, true, false));
+
+        assert!(!native_player_should_step_audio(true, true, true));
+        assert!(!native_player_should_step_audio(true, false, true));
+        assert!(native_player_should_step_audio(false, true, false));
+        assert!(native_player_should_step_audio(false, false, true));
+        assert!(!native_player_should_step_audio(false, false, false));
     }
 
     #[test]

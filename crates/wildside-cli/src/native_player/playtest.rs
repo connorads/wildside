@@ -14,6 +14,21 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+use wildside_frame::{DrawCommand, FRAME_HEIGHT, FRAME_WIDTH, Scene, text};
+
+/// Frames a toast confirmation stays on screen (~3 seconds at 60 fps).
+const TOAST_HOLD_FRAMES: usize = 180;
+/// Issue rows visible at once in the browser window.
+const BROWSER_VISIBLE_ROWS: usize = 14;
+/// 320px wide frame / 8px glyphs.
+const BROWSER_TEXT_COLUMNS: usize = (FRAME_WIDTH as usize) / 8;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum IssueFilter {
+    /// Issues targeting the level being played, plus `unknown` targets.
+    CurrentLevel,
+    All,
+}
 
 /// Session-level playtest inputs resolved by `main.rs` (repo paths and backlog
 /// IO stay out of the SDL loop).
@@ -128,6 +143,11 @@ pub(crate) struct PlaytestSession {
     session_dir: PathBuf,
     file: PlaytestSessionFile,
     issues: Vec<HumanValidationBlocker>,
+    browser_open: bool,
+    /// Selection index into the *filtered* issue list.
+    browser_selection: usize,
+    filter: IssueFilter,
+    toast: Option<(String, usize)>,
 }
 
 impl PlaytestSession {
@@ -157,6 +177,10 @@ impl PlaytestSession {
                 ..PlaytestSessionFile::default()
             },
             issues: options.issues.clone(),
+            browser_open: false,
+            browser_selection: 0,
+            filter: IssueFilter::CurrentLevel,
+            toast: None,
         };
         session.persist()?;
         Ok(session)
@@ -177,9 +201,220 @@ impl PlaytestSession {
         &self.issues
     }
 
+    /// Player-level pause: gameplay must not step (and segments must not
+    /// record) while any playtest UI holds the game.
+    pub(crate) fn paused(&self) -> bool {
+        self.browser_open
+    }
+
+    pub(crate) fn browser_open(&self) -> bool {
+        self.browser_open
+    }
+
+    pub(crate) fn toggle_browser(&mut self, current_level: u8) {
+        if self.browser_open {
+            self.close_browser();
+        } else {
+            self.browser_open = true;
+            self.clamp_selection(current_level);
+        }
+    }
+
+    pub(crate) fn close_browser(&mut self) {
+        self.browser_open = false;
+    }
+
+    pub(crate) fn move_selection(&mut self, delta: i64, current_level: u8) {
+        let len = self.filtered_issues(current_level).len();
+        if len == 0 {
+            self.browser_selection = 0;
+            return;
+        }
+        let current = self.browser_selection.min(len - 1) as i64;
+        self.browser_selection = current.saturating_add(delta).clamp(0, len as i64 - 1) as usize;
+    }
+
+    pub(crate) fn toggle_filter(&mut self, current_level: u8) {
+        self.filter = match self.filter {
+            IssueFilter::CurrentLevel => IssueFilter::All,
+            IssueFilter::All => IssueFilter::CurrentLevel,
+        };
+        self.clamp_selection(current_level);
+        let label = match self.filter {
+            IssueFilter::CurrentLevel => format!("LEVEL {current_level:02X}+UNKNOWN"),
+            IssueFilter::All => String::from("ALL"),
+        };
+        self.show_toast(format!("FILTER: {label}"));
+    }
+
+    fn clamp_selection(&mut self, current_level: u8) {
+        let len = self.filtered_issues(current_level).len();
+        self.browser_selection = self.browser_selection.min(len.saturating_sub(1));
+    }
+
+    pub(crate) fn filtered_issues(&self, current_level: u8) -> Vec<&HumanValidationBlocker> {
+        self.issues
+            .iter()
+            .filter(|issue| issue_matches_filter(issue, self.filter, current_level))
+            .collect()
+    }
+
+    pub(crate) fn show_toast(&mut self, message: impl Into<String>) {
+        self.toast = Some((message.into(), TOAST_HOLD_FRAMES));
+    }
+
+    /// Per-frame housekeeping (toast countdown).
+    pub(crate) fn tick(&mut self) {
+        if let Some((_, remaining)) = self.toast.as_mut() {
+            *remaining = remaining.saturating_sub(1);
+            if *remaining == 0 {
+                self.toast = None;
+            }
+        }
+    }
+
+    /// The overlay to composite over the finished frame, if any.
+    pub(crate) fn overlay_scene(&self, current_level: u8) -> Option<Scene> {
+        if self.browser_open {
+            return Some(issue_browser_scene(
+                &self.filtered_issues(current_level),
+                self.browser_selection,
+                self.filter,
+                current_level,
+            ));
+        }
+        self.toast.as_ref().map(|(message, _)| toast_scene(message))
+    }
+
     #[cfg(test)]
     pub(crate) fn file(&self) -> &PlaytestSessionFile {
         &self.file
+    }
+}
+
+fn issue_matches_filter(
+    issue: &HumanValidationBlocker,
+    filter: IssueFilter,
+    current_level: u8,
+) -> bool {
+    match filter {
+        IssueFilter::All => true,
+        IssueFilter::CurrentLevel => {
+            issue.target == "unknown" || target_level(&issue.target) == Some(current_level)
+        }
+    }
+}
+
+/// Level a `0xNN` (or `demo:0xNN`) target points at, if any.
+fn target_level(target: &str) -> Option<u8> {
+    let hex = target
+        .strip_prefix("0x")
+        .or_else(|| target.strip_prefix("demo:0x"))?;
+    u8::from_str_radix(hex, 16).ok()
+}
+
+/// Pause-screen issue browser: dim backdrop, windowed issue rows, filter and
+/// key-hint lines. `issues` is the already-filtered list.
+fn issue_browser_scene(
+    issues: &[&HumanValidationBlocker],
+    selection: usize,
+    filter: IssueFilter,
+    current_level: u8,
+) -> Scene {
+    let mut commands = vec![DrawCommand::Tint {
+        colour: [0, 0, 0],
+        alpha: 176,
+    }];
+    let filter_label = match filter {
+        IssueFilter::CurrentLevel => format!("LEVEL {current_level:02X}+UNKNOWN"),
+        IssueFilter::All => String::from("ALL"),
+    };
+    commands.push(text(
+        8,
+        8,
+        &format!("PLAYTEST ISSUES  FILTER: {filter_label}"),
+        [255, 255, 160],
+        1,
+    ));
+
+    if issues.is_empty() {
+        commands.push(text(
+            8,
+            32,
+            "NO AWAITING-HUMAN ISSUES FOR THIS FILTER",
+            [200, 200, 200],
+            1,
+        ));
+    } else {
+        let selection = selection.min(issues.len() - 1);
+        let window_start = selection.saturating_sub(BROWSER_VISIBLE_ROWS - 1);
+        for (row, (index, issue)) in issues
+            .iter()
+            .enumerate()
+            .skip(window_start)
+            .take(BROWSER_VISIBLE_ROWS)
+            .enumerate()
+        {
+            let selected = index == selection;
+            let marker = if selected { ">" } else { " " };
+            let line = format!(
+                "{marker} {} {} {} {} {}",
+                issue.id, issue.status, issue.priority, issue.target, issue.summary
+            );
+            let line: String = line.chars().take(BROWSER_TEXT_COLUMNS).collect();
+            let colour = if selected {
+                [255, 255, 255]
+            } else {
+                [170, 190, 210]
+            };
+            commands.push(text(8, 24 + (row as i32) * 10, &line, colour, 1));
+        }
+        if let Some(issue) = issues.get(selection) {
+            let check_chars: Vec<char> = issue.check.chars().collect();
+            let first: String = check_chars.iter().take(BROWSER_TEXT_COLUMNS).collect();
+            let rest: String = check_chars
+                .iter()
+                .skip(BROWSER_TEXT_COLUMNS)
+                .take(BROWSER_TEXT_COLUMNS)
+                .collect();
+            commands.push(text(8, 176, &first, [160, 220, 160], 1));
+            if !rest.is_empty() {
+                commands.push(text(8, 186, &rest, [160, 220, 160], 1));
+            }
+        }
+    }
+
+    commands.push(text(
+        8,
+        (FRAME_HEIGHT as i32) - 16,
+        "UP/DOWN SELECT  L/R FILTER  ENTER ARM  F1 RESUME",
+        [140, 140, 140],
+        1,
+    ));
+
+    Scene {
+        background: [0, 0, 0],
+        commands,
+        pause_palette_darken: false,
+    }
+}
+
+/// Transient confirmation banner at the bottom of the frame.
+fn toast_scene(message: &str) -> Scene {
+    let message: String = message.chars().take(BROWSER_TEXT_COLUMNS - 2).collect();
+    Scene {
+        background: [0, 0, 0],
+        commands: vec![
+            DrawCommand::Rect {
+                x: 0,
+                y: (FRAME_HEIGHT as i32) - 14,
+                width: FRAME_WIDTH as i32,
+                height: 14,
+                colour: [24, 32, 48],
+            },
+            text(8, (FRAME_HEIGHT as i32) - 11, &message, [255, 255, 200], 1),
+        ],
+        pause_palette_darken: false,
     }
 }
 
@@ -320,6 +555,147 @@ mod tests {
                 .expect("parse minimal session file");
         assert!(parsed.segments.is_empty());
         assert!(parsed.mic.is_none());
+    }
+
+    fn session_with_issues(
+        issues: Vec<HumanValidationBlocker>,
+    ) -> (PlaytestSession, tempfile::TempDir) {
+        let root = tempfile::tempdir().expect("tempdir");
+        let options = PlaytestOptions {
+            session_dir: root.path().join("pt-test"),
+            issues,
+        };
+        let session = PlaytestSession::create(&options, String::from("romsha"), None, None)
+            .expect("create session");
+        (session, root)
+    }
+
+    fn scene_text(scene: &Scene) -> Vec<String> {
+        scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Text { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn current_level_filter_keeps_matching_level_and_unknown_targets() {
+        let (session, _root) = session_with_issues(vec![
+            sample_issue("238", "0x03"),
+            sample_issue("240", "0x11"),
+            sample_issue("241", "unknown"),
+            sample_issue("242", "demo:0x03"),
+            sample_issue("243", "boot"),
+        ]);
+
+        let filtered = session.filtered_issues(0x03);
+        let ids: Vec<&str> = filtered.iter().map(|issue| issue.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec!["238", "241", "242"],
+            "current-level filter keeps 0xNN/demo:0xNN targets for the played level plus unknown"
+        );
+
+        let mut session = session;
+        session.toggle_filter(0x03);
+        assert_eq!(
+            session.filtered_issues(0x03).len(),
+            5,
+            "ALL keeps every issue"
+        );
+    }
+
+    #[test]
+    fn browser_scene_lists_issues_and_marks_selection() {
+        let (mut session, _root) = session_with_issues(vec![
+            sample_issue("238", "0x03"),
+            sample_issue("241", "unknown"),
+        ]);
+        session.toggle_browser(0x03);
+        assert!(session.paused(), "open browser pauses the player");
+        session.move_selection(1, 0x03);
+
+        let scene = session.overlay_scene(0x03).expect("browser scene");
+        let lines = scene_text(&scene);
+        assert!(lines[0].contains("FILTER: LEVEL 03+UNKNOWN"));
+        assert!(
+            lines.iter().any(|line| line.starts_with("  238")),
+            "unselected row keeps a blank marker: {lines:?}"
+        );
+        assert!(
+            lines.iter().any(|line| line.starts_with("> 241")),
+            "selected row carries the > marker: {lines:?}"
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("Dragons resume patrol")),
+            "selected issue pins its Check sentence: {lines:?}"
+        );
+    }
+
+    #[test]
+    fn browser_scene_shows_placeholder_for_empty_lane() {
+        let (mut session, _root) = session_with_issues(Vec::new());
+        session.toggle_browser(0x00);
+        session.move_selection(1, 0x00);
+
+        let scene = session.overlay_scene(0x00).expect("browser scene");
+        let lines = scene_text(&scene);
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("NO AWAITING-HUMAN ISSUES")),
+            "empty lane shows a placeholder: {lines:?}"
+        );
+    }
+
+    #[test]
+    fn selection_clamps_when_filter_shrinks_the_list() {
+        let (mut session, _root) = session_with_issues(vec![
+            sample_issue("238", "0x03"),
+            sample_issue("240", "0x11"),
+            sample_issue("241", "0x11"),
+        ]);
+        session.toggle_browser(0x11);
+        session.move_selection(5, 0x11);
+        assert_eq!(session.filtered_issues(0x11).len(), 2);
+
+        // ALL grows the list; back to current-level shrinks it again.
+        session.toggle_filter(0x11);
+        session.move_selection(5, 0x11);
+        session.toggle_filter(0x11);
+
+        let scene = session.overlay_scene(0x11).expect("browser scene");
+        let lines = scene_text(&scene);
+        assert!(
+            lines.iter().any(|line| line.starts_with("> 241")),
+            "selection clamps to the last filtered row: {lines:?}"
+        );
+    }
+
+    #[test]
+    fn toast_shows_after_browser_close_and_expires() {
+        let (mut session, _root) = session_with_issues(vec![sample_issue("238", "0x03")]);
+        session.toggle_browser(0x03);
+        session.toggle_filter(0x03);
+        session.close_browser();
+        assert!(!session.paused());
+
+        let scene = session.overlay_scene(0x03).expect("toast scene");
+        let lines = scene_text(&scene);
+        assert!(lines.iter().any(|line| line.contains("FILTER: ALL")));
+
+        for _ in 0..TOAST_HOLD_FRAMES {
+            session.tick();
+        }
+        assert!(
+            session.overlay_scene(0x03).is_none(),
+            "toast expires after its hold frames"
+        );
     }
 
     #[test]
