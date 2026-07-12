@@ -6019,80 +6019,33 @@ mod chunk_02 {
     }
 
     #[test]
-    fn respawn_camera_convergence_is_limited_to_oracle_backed_levels() {
-        let max_y = 76i32;
-        let mut slice = OpeningSliceState::respawn_from_pose(
-            LevelBounds {
-                width_pixels: 320,
-                height_pixels: u16::try_from(max_y + physics::VIEWPORT_HEIGHT)
-                    .expect("synthetic level height should fit in u16"),
-            },
-            LevelStartPose {
-                kid_x_pos: 0x0020_0000,
-                kid_y_pos: u32::try_from(max_y + physics::CAMERA_PLAYER_OFFSET + 100)
-                    .expect("synthetic player y should fit in u32")
-                    << 16,
-                camera_x_pos: 0,
-                camera_y_pos: u32::try_from(max_y - 2)
-                    .expect("synthetic camera y should fit in u32")
-                    << 16,
-            },
+    fn respawn_settle_runs_leading_camera_follow_before_first_step_loc_75d4() {
+        let Some(runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        let frames = runtime.inspect_respawn_settle(LevelId(0), 2);
+        let spawn = frames
+            .first()
+            .expect("respawn settle inspection should include the pre-step frame");
+        let bounds = runtime.level_bounds(LevelId(0));
+        let pose = runtime.level_start_pose(LevelId(0), bounds);
+        let (expected_x, expected_y) = physics::update_camera(
+            (pose.camera_x_pos >> 16) as i32,
+            (pose.camera_y_pos >> 16) as i32,
+            (spawn.kid_x_pos >> 16) as i32,
+            (spawn.kid_y_pos >> 16) as i32,
+            &bounds,
         );
 
-        NativeRuntime::finish_respawn_camera_convergence(&mut slice, LevelId(0));
-
+        // ASM loc_75D4 (kid.asm:7707): the spawn coroutine runs `sub_71E4`
+        // once against the fresh spawn pose before its first hibernate, so the
+        // recorded pre-step frame carries one camera-follow beat over the raw
+        // loc_11F48 page-aligned seed. No level id may special-case this.
         assert_eq!(
-            slice.camera.y_pos,
-            u32::try_from(max_y - 2).expect("synthetic camera y should fit in u32") << 16,
-            "ordinary respawns should not receive the archived #037 +2px settle carry",
-        );
-
-        NativeRuntime::finish_respawn_camera_convergence(&mut slice, LevelId(0x24));
-
-        assert_eq!(
-            slice.camera.y_pos,
-            u32::try_from(max_y - 1).expect("synthetic converged camera y should fit in u32") << 16,
-            "special-case respawn camera convergence should clamp with level height minus viewport before applying the final +2px settle beat",
-        );
-
-        let target_y = 40i32;
-        let mut unclamped_slice = OpeningSliceState::respawn_from_pose(
-            LevelBounds {
-                width_pixels: 320,
-                height_pixels: 800,
-            },
-            LevelStartPose {
-                kid_x_pos: 0x0020_0000,
-                kid_y_pos: u32::try_from(target_y + physics::CAMERA_PLAYER_OFFSET)
-                    .expect("synthetic player y should fit in u32")
-                    << 16,
-                camera_x_pos: 0,
-                camera_y_pos: u32::try_from(target_y - 2)
-                    .expect("synthetic camera y should fit in u32")
-                    << 16,
-            },
-        );
-
-        NativeRuntime::finish_respawn_camera_convergence(&mut unclamped_slice, LevelId(0x51));
-
-        assert_eq!(
-            unclamped_slice.camera.y_pos,
-            u32::try_from(target_y - 1).expect("synthetic converged camera y should fit in u32")
-                << 16,
-            "special-case respawn camera convergence should derive the unclamped target from player y minus the camera offset",
-        );
-
-        let mut airborne_slice = unclamped_slice;
-        airborne_slice.player.on_ground = false;
-        airborne_slice.camera.y_pos =
-            u32::try_from(target_y - 2).expect("synthetic camera y should fit in u32") << 16;
-
-        NativeRuntime::finish_respawn_camera_convergence(&mut airborne_slice, LevelId(0x51));
-
-        assert_eq!(
-            airborne_slice.camera.y_pos,
-            u32::try_from(target_y - 2).expect("synthetic camera y should fit in u32") << 16,
-            "respawn camera convergence should not apply the final settle beat while the player is airborne",
+            (spawn.camera_x_pos >> 16, spawn.camera_y_pos >> 16),
+            (expected_x.max(0) as u32, expected_y.max(0) as u32),
+            "respawn settle should apply exactly one loc_75D4 leading sub_71E4 tick to the loc_11F48 camera seed before the first physics step",
         );
     }
 

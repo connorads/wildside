@@ -9695,11 +9695,29 @@ mod chunk_08 {
         runtime.warp_to_level(LevelId(0x24));
         let settled = runtime.level_respawn_slice_with_floor_snap(LevelId(0x24));
 
-        // ASM Load_InGame seeds the header pose, then the hidden init frames run
-        // the normal `sub_71E4` camera follow while Kid settles onto the floor.
-        // Focused backlog #037 traces for Wind Castles 1 converge at camera_y=$36E.
+        // ASM loc_11F48 seeds the page-aligned camera (896) under the header
+        // pose, loc_75D4 runs one leading `sub_71E4` tick before the first
+        // hibernate, then Kid falls to the floor while `loc_72C8` follows.
+        // Live oracle settle trace for Wind Castles 1: kid_y=$40F,
+        // camera_y=$36C (876 = grounded target 879 - 3).
         assert_eq!(settled.player.y_pos, 0x040F_0000);
-        assert_eq!(settled.camera.y_pos, 0x036E_0000);
+        assert_eq!(settled.camera.y_pos, 0x036C_0000);
+    }
+
+    #[test]
+    fn respawn_settle_level_50_matches_oracle_camera_convergence() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        runtime.warp_to_level(LevelId(0x50));
+        let settled = runtime.level_respawn_slice_with_floor_snap(LevelId(0x50));
+
+        // ASM loc_11F48 seeds camera_y=672 under the falling Kid; the
+        // loc_75D4 leading `sub_71E4` tick plus per-frame `loc_72C8` follow
+        // rest at the live-oracle Elsewhere 9 values: kid_y=$32F,
+        // camera_y=$28C (652 = grounded target 655 - 3).
+        assert_eq!(settled.player.y_pos, 0x032F_0000);
+        assert_eq!(settled.camera.y_pos, 0x028C_0000);
     }
 
     #[test]
@@ -9710,10 +9728,11 @@ mod chunk_08 {
         runtime.warp_to_level(LevelId(0x51));
         let settled = runtime.level_respawn_slice_with_floor_snap(LevelId(0x51));
 
-        // ASM sub_71E4 uses the same hidden init camera-follow path here; the
-        // cached backlog #037 tracker for Elsewhere 10 converges at camera_y=$28E.
+        // ASM sub_71E4 uses the same hidden init camera-follow path here.
+        // Live oracle settle trace for Elsewhere 10: kid_y=$32F,
+        // camera_y=$28C (652), identical to Level 0x50's shared spawn shape.
         assert_eq!(settled.player.y_pos, 0x032F_0000);
-        assert_eq!(settled.camera.y_pos, 0x028E_0000);
+        assert_eq!(settled.camera.y_pos, 0x028C_0000);
     }
 
     #[test]

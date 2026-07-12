@@ -19461,7 +19461,14 @@ impl NativeRuntime {
         // cold-boot and level-advance title cards retain their own timing.
         self.debug_level_entry_suppresses_title_card_live_handoff = true;
         self.recorded_title_card_handoff_delay = true;
-        self.opening_slice = Some(self.level_respawn_slice(level_id));
+        let mut opening_slice = self.level_respawn_slice(level_id);
+        // ASM loc_75D4 (kid.asm:7707): the spawn coroutine runs `sub_71E4`
+        // once against the fresh header pose before its first hibernate. The
+        // live gravity settle that follows only runs post-collision follows,
+        // so without this leading tick seed-below-target levels rest one
+        // pixel short of the oracle's `target - 3` (0x24/0x50/0x51 cluster).
+        opening_slice.update_camera_follow(0);
+        self.opening_slice = Some(opening_slice);
     }
 
     fn init_post_load_object_routine_loc_11f96(&mut self, level_id: LevelId) {
@@ -20514,6 +20521,16 @@ impl NativeRuntime {
         // override with no gameplay effect (not modelled in native).
         Self::resolve_spawn_wall_overlap(&mut slice, &grid);
 
+        // ASM loc_75D4 (kid.asm:7707): the spawn coroutine runs `sub_71E4`
+        // once against the fresh spawn pose BEFORE its first hibernate; every
+        // later follow runs after that frame's collision pass. This leading
+        // camera tick is what lets seed-below-target levels (page-aligned
+        // `loc_11F48` camera seed under the falling Kid, e.g. 0x24/0x50/0x51)
+        // enter the `loc_72C8` dead zone one beat earlier and rest at the
+        // oracle's `target - 3`; from-below levels share the same fixed point
+        // with or without it.
+        slice.update_camera_follow(0);
+
         if let Some((trace, _)) = settle_trace.as_mut() {
             trace.push(RespawnSettleFrame {
                 step_index: 0,
@@ -20585,48 +20602,7 @@ impl NativeRuntime {
             }
         }
 
-        Self::finish_respawn_camera_convergence(&mut slice, level_id);
-        if let Some((trace, _)) = settle_trace.as_mut()
-            && let Some(last) = trace.last_mut()
-        {
-            last.kid_x_pos = slice.player.x_pos;
-            last.kid_y_pos = slice.player.y_pos;
-            last.kid_x_velocity = slice.player.x_velocity;
-            last.kid_y_velocity = slice.player.y_velocity;
-            last.kid_on_ground = slice.player.on_ground;
-            last.kid_on_spikes = slice.player.on_spikes;
-            last.camera_x_pos = slice.camera.x_pos;
-            last.camera_y_pos = slice.camera.y_pos;
-            last.floor_y_pos = slice.terrain.floor_y_pos;
-        }
         slice
-    }
-
-    pub(crate) fn finish_respawn_camera_convergence(
-        slice: &mut OpeningSliceState,
-        level_id: LevelId,
-    ) {
-        if !matches!(level_id, LevelId(0x24 | 0x51)) {
-            return;
-        }
-
-        let player_y_px = (slice.player.y_pos >> 16) as i32;
-        let camera_y_px = (slice.camera.y_pos >> 16) as i32;
-        let max_y = i32::from(slice.level_bounds.height_pixels) - physics::VIEWPORT_HEIGHT;
-        let target_y_px = (player_y_px - physics::CAMERA_PLAYER_OFFSET)
-            .max(0)
-            .min(max_y);
-        if !slice.player.on_ground || target_y_px - camera_y_px != 2 {
-            return;
-        }
-
-        // ASM loc_75D4: hidden init frames keep running `sub_71E4` while Kid
-        // settles onto the floor. Only the archived #037 oracle traces for
-        // levels 0x24/0x51 currently prove a final +2px pre-settle carry.
-        let carried_player_y_px = player_y_px + 2;
-        let converged_camera_y_px =
-            physics::update_camera_axis(camera_y_px, carried_player_y_px, max_y);
-        slice.camera.y_pos = (converged_camera_y_px.max(0) as u32) << 16;
     }
 
     pub(crate) fn resolve_spawn_wall_overlap(
