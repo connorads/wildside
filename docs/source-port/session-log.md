@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 interval-1 TAS state gate)
+
+- A true interval-1 audit compares all 37,759 published-route state frames.
+  CRC still matches on all 37,759 frames and complete RNG on all 37,743
+  post-initialisation frames.
+- State is not yet frame-by-frame exact: 32 frames contain 33 authoritative
+  fields. Thirty are GfxObject counts and three are Object counts; frame 22018
+  differs on both. The first row is `frame_6265/number_gfx_objects`.
+- `tests/tas_frontier.json` now enforces checkpoint interval 1, the 33-field
+  baseline, and the first row. The earlier clean 1,512-checkpoint sample missed
+  every remaining difference and is retired as the full-route confidence gate.
+- NEXT: audit the frame-6265 title-rebuild GfxObject cluster and ratchet 33 down.
+  Per-frame route state is stronger evidence, but still not whole-state,
+  per-pixel, audio, every-input, or whole-game proof.
+
 ## 2026-07-12 handoff (#290 exact later IntroSequence5 lifecycle)
 
 - Raw WRAM showed oracle deleting the IntroText5 Object at frame 27857 while

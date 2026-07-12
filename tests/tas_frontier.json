@@ -43,9 +43,9 @@
         "oracle_limitation": 0
       },
       "total_frames": 37759,
-      "full_checkpoint_interval": 25,
+      "full_checkpoint_interval": 1,
       "full_expected_divergence_summary": {
-        "authoritative": 0,
+        "authoritative": 33,
         "advisory": 0,
         "accumulation": 0,
         "rng": 0,
@@ -60,8 +60,8 @@
         "first_mismatch": null
       },
       "full_expected_first_authoritative_diff": {
-        "checkpoint": null,
-        "field": null
+        "checkpoint": "frame_6265",
+        "field": "number_gfx_objects"
       },
       "status": "verified"
     },

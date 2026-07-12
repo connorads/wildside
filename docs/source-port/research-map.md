@@ -15,8 +15,10 @@ The live TAS frontier is closed:
 - TAS-frontier history is tracked in the backlog and the `verify-tas-frontier` gate (the per-frame ledger was retired); `mise run verify-tas-full` re-checks the published route
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
-full replay compared all 37,759 requested player/camera CRC frames, and its 1,512
-state checkpoints have zero classified differences.
+full replay compares all 37,759 requested player/camera CRC frames and all 37,759
+exported-state frames. CRC is exact, but 32 state frames retain 33 authoritative
+count differences: 30 GfxObject fields and three Object fields, first at
+`frame_6265/number_gfx_objects`.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
 counts, hit points, lives, Murder Wall X, and trace-timing fields such as
@@ -24,16 +26,22 @@ velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
 stream, or change to the checked-in baselines. Typed RNG comparison starts after
 `Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
 of the remaining 37,743 frames. Every compared frame now matches exactly.
-That is complete per-frame RNG and authoritative sampled-state evidence for
+That is complete per-frame RNG and per-frame exported-state evidence for
 this route, not whole-state or whole-game proof.
 
-The latest correction shifts the complete later IntroSequence5 worker lifecycle
+The latest confidence correction promotes the full published-route state gate
+from every 25th frame to every frame. The former 1,512-checkpoint report was
+clean, but interval-1 comparison finds 33 authoritative count fields across 32
+of 37,759 frames. The checked-in baseline now enforces that result and its first
+row, so fixes must ratchet real per-frame debt down rather than preserve a
+sampled-green claim. Player/camera CRC and complete RNG remain exact per frame.
+
+The latest behaviour correction shifts the complete later IntroSequence5 worker lifecycle
 with its one-pass-early `loc_1BA28 -> loc_1BCD0/loc_1C7A0` allocation. Native
 had shifted the visible pose and later particle wake but not the initial Object
 rows or IntroText5's `loc_1C7B6` deletion. Exact frames 27600..28066 now match
 all 467 per-frame state, CRC, and RNG checkpoints. The three fixed rows were
-outside the 25-frame sampled gate, so its zero-difference result is not proof of
-full frame-by-frame state parity.
+outside the 25-frame sampled gate, directly motivating the interval-1 gate.
 
 The previous correction removes a synthetic `$00060000` Kid y-velocity sample
 from the later IntroSequence6 Demo 2 hand-off. ASM `Obj_TitleMenu loc_1BB02 ->
