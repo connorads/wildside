@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 trailing enemy loader order)
+
+- The carried-wrap IntroSequence6 Demo 1 lineage exposes one extra hidden
+  Object pass before its advanced camera row. Native now runs only already-
+  linked enemies through `Execute_Objects loc_E1E`, then allocates new layout
+  entries through `Mode_Level loc_80C -> Manage_EnemyLoading loc_3691E`.
+- Dragon layout 2 is absent on frame 21,838, initialises at its exact layout
+  position on 21,839, and takes its first movement step on 21,840. The ordinary
+  demo lineage retains its hidden `Load_InGame` allocation pass; frames
+  2,607..2,609 remain enemy-exact.
+- Full gameplay, CRC, complete RNG, and enemy rosters are exact across all
+  37,759 published-route frames. Enemy debt falls 672 -> 0.
+- NEXT: run `mise run project-status`; with no ready/open risk, take the
+  proactive-verification fallback in `loop.md`.
+
 ## 2026-07-12 handoff (#290 final Dragon transform callback)
 
 - `Kid_Transform loc_7E90` returns into the ordered `Execute_Objects loc_E1E`

@@ -2376,6 +2376,11 @@ impl NativeRuntime {
     }
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
+        // ASM Mode_Level loc_80C: this trace-only count represents Objects
+        // linked by this frame's trailing loc_3691E pass before their next
+        // Execute_Objects loc_E1E initialiser. It must not leak into title or
+        // other non-gameplay frames that skip `refresh_active_roster`.
+        self.pending_enemy_gfx_initialisations_loc_3691e = 0;
         let title_card_live_handoff_active_at_frame_start = self.title_card_live_handoff_frames > 0;
         if title_card_live_handoff_active_at_frame_start {
             self.title_card_live_handoff_frames =

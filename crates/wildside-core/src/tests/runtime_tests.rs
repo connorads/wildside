@@ -1395,6 +1395,42 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_trailing_loader_initialises_dragon_on_next_object_pass_loc_3691e_3cd46() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut captured = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(21_841) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 21_837..=21_840) {
+                captured.push((
+                    frame_index,
+                    trace
+                        .active_objects
+                        .iter()
+                        .find(|object| {
+                            object.kind == NativeObjectKind::Enemy { object_type: 0x0D }
+                                && object.layout_index == Some(2)
+                        })
+                        .map(|object| (object.x_pos, object.y_pos)),
+                ));
+            }
+        }
+
+        assert_eq!(
+            captured,
+            vec![
+                (21_837, None),
+                (21_838, None),
+                (21_839, Some((0x0150_0000, 0x0180_0000))),
+                (21_840, Some((0x014F_8000, 0x0181_0000))),
+            ],
+            "ASM Mode_Level loc_80C runs Manage_EnemyLoading loc_3691E after Execute_Objects: the new Dragon Object waits at Enemy0D_Dragon_Init loc_3CD46 until the next pass, which links its spawn-position GfxObject before AI can move it",
+        );
+    }
+
+    #[test]
     fn published_tas_dragon_breath_completion_edges_match_loc_3d09e() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

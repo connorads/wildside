@@ -1889,6 +1889,23 @@ and enemy debt falls 952 -> 672. The next frontier is
 `frame_21838/enemy_roster`, where native retains walking Dragon layout 2 after
 the oracle has removed it.
 
+Follow-up 2026-07-12 for #290: the carried-wrap IntroSequence6 Demo 1 lineage
+exposes an extra hidden Object pass before its advanced camera row. Native now
+retains already-linked enemies through `Execute_Objects loc_E1E`, then follows
+`Mode_Level loc_80C -> Manage_EnemyLoading loc_36814/loc_3691E` after Kid and
+camera execute. Dragon layout 2 is absent on frame 21838, links its GfxObject at
+the exact layout position through `Enemy0D_Dragon_Init loc_3CD46` on frame
+21839, and takes its first movement step on frame 21840. The ordinary demo
+lineage keeps the hidden `Load_InGame` allocation pass proven by exact frames
+2607..2609. Cache-backed regression
+`published_tas_trailing_loader_initialises_dragon_on_next_object_pass_loc_3691e_3cd46`
+pins the carried-wrap lifecycle. Focused frames 21836..21845 are 9/9 exact.
+Full verification is exact for all 37,759 gameplay checkpoints and CRCs, all
+37,743 complete post-`Init_RNG` states, and all 37,759 enemy rosters. Enemy debt
+falls 672 -> 0. #290 remains `[?]` only for the human-validation evidence
+boundary; this route does not prove whole-RAM, render, audio, every-input, or
+whole-game equality.
+
 Live play-native note 2026-06-11 with all pushed changes: keep the following as
 current acceptance failures even where recent focused probes or fixed-candidate
 rows are green. #288 intro still shows Kid/jacket below the prize block before

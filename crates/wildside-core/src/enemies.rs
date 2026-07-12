@@ -3253,8 +3253,69 @@ pub(crate) fn activate_enemies_with_rng(
         enemy_loading_initial_pass_complete,
         killed,
         rng,
-        false,
+        ExistingEnemyLoaderAction::Retain,
     );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn allocate_enemies_after_execute_objects_loc_3691e(
+    active: &mut Vec<ActiveEnemy>,
+    layout: &EnemyLayout,
+    window: ActivationWindow,
+    camera_x_px: u32,
+    camera_y_px: u32,
+    level_bounds: physics::LevelBounds,
+    player_x: u32,
+    player_y: u32,
+    blank_top_rows: u16,
+    enemy_loading_initial_pass_complete: bool,
+    killed: &std::collections::HashSet<(usize, usize)>,
+    rng: &mut RomRandomState,
+) {
+    activate_enemies_with_rng_inner(
+        active,
+        layout,
+        window,
+        camera_x_px,
+        camera_y_px,
+        level_bounds,
+        player_x,
+        player_y,
+        blank_top_rows,
+        enemy_loading_initial_pass_complete,
+        killed,
+        rng,
+        ExistingEnemyLoaderAction::Preserve,
+    );
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ExistingEnemyLoaderAction {
+    Retain,
+    Preserve,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn retain_active_enemies_before_execute_objects_loc_3c46e(
+    active: &mut Vec<ActiveEnemy>,
+    view: &EnemyLayoutView<'_>,
+    window: ActivationWindow,
+    camera_x_px: u32,
+    camera_y_px: u32,
+    level_bounds: physics::LevelBounds,
+) {
+    let active_enemy_count = active.len();
+    active.retain(|enemy| {
+        enemy_should_remain_active(
+            enemy,
+            view,
+            window,
+            camera_x_px,
+            camera_y_px,
+            level_bounds,
+            active_enemy_count,
+        )
+    });
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -3271,7 +3332,7 @@ fn activate_enemies_with_rng_inner(
     enemy_loading_initial_pass_complete: bool,
     killed: &std::collections::HashSet<(usize, usize)>,
     rng: &mut RomRandomState,
-    defer_rock_tank_spawn: bool,
+    existing_enemy_action: ExistingEnemyLoaderAction,
 ) {
     let view = enemy_layout_view(layout, camera_x_px, camera_y_px);
     // Most enemies despawn on spawn-point exit. Flyers keep their live object
@@ -3294,18 +3355,16 @@ fn activate_enemies_with_rng_inner(
     //
     // Native handles deactivation by dropping the enemy from the active
     // list; sound cleanup is managed separately by the sound system.
-    let active_enemy_count = active.len();
-    active.retain(|enemy| {
-        enemy_should_remain_active(
-            enemy,
+    if existing_enemy_action == ExistingEnemyLoaderAction::Retain {
+        retain_active_enemies_before_execute_objects_loc_3c46e(
+            active,
             &view,
             window,
             camera_x_px,
             camera_y_px,
             level_bounds,
-            active_enemy_count,
-        )
-    });
+        );
+    }
 
     // Activate new enemies that entered the window.
     for (index, object) in view.objects.iter().enumerate() {
@@ -3328,10 +3387,6 @@ fn activate_enemies_with_rng_inner(
         let family = EnemyFamily::from_layout_object(view.enemy_type_slots, object);
         if matches!(family, EnemyFamily::MiniHoppingSkull)
             && !mini_hopping_skull_spawn_gate_loc_3e9d0(object_x, object_y, player_x, player_y)
-        {
-            continue;
-        }
-        if defer_rock_tank_spawn && matches!(family, EnemyFamily::Tank | EnemyFamily::TankShooting)
         {
             continue;
         }
@@ -12753,7 +12808,6 @@ impl NativeRuntime {
         if self.object_pass_hibernating_for_transform_loc_7e90() {
             return;
         }
-        self.pending_enemy_gfx_initialisations_loc_3691e = 0;
         self.active_enemy_roster.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
@@ -12820,23 +12874,27 @@ impl NativeRuntime {
                 // `stop_rock_tank_drive_sound_on_last_exit_loc_3c46e`).
                 let driving_rock_tanks_before = self.driving_rock_tank_count();
                 if !self.debug_level_entry_mode_level_active_loc_74e0() {
-                    if self.enemy_loading_initial_pass_complete {
-                        activate_enemies_with_rng_inner(
+                    if self.enemy_loading_initial_pass_complete
+                        || self.demo_uses_intro_sequence_6_hidden_camera_wrap
+                    {
+                        let view = enemy_layout_view(enemy_layout, camera_x_px, camera_y_px);
+                        // ASM Execute_Objects loc_E1E only runs already-linked
+                        // enemies. New layout entries are allocated later by
+                        // Mode_Level loc_80C -> Manage_EnemyLoading loc_36814.
+                        // The IntroSequence6 demo lineage exposes the extra
+                        // hidden object pass before its advanced camera row.
+                        retain_active_enemies_before_execute_objects_loc_3c46e(
                             &mut self.active_enemies,
-                            enemy_layout,
+                            &view,
                             window,
                             camera_x_px,
                             camera_y_px,
                             level_bounds,
-                            slice.player.x_pos,
-                            slice.player.y_pos,
-                            blank_top_rows,
-                            self.enemy_loading_initial_pass_complete,
-                            &self.killed_enemies,
-                            &mut self.rom_random,
-                            true,
                         );
                     } else {
+                        // ASM Load_InGame's ordinary hidden Mode_Level loc_80C
+                        // pass has already linked the layout batch represented
+                        // by this visible demo/gameplay object snapshot.
                         activate_enemies_with_rng(
                             &mut self.active_enemies,
                             enemy_layout,
@@ -13022,12 +13080,11 @@ impl NativeRuntime {
         });
         let level_bounds = self.level_bounds(self.current_level);
         let active_before_trailing_load = self.active_enemies.len();
-
         // ASM Mode_Level loc_80C calls Manage_EnemyLoading after the complete
         // Execute_Objects pass. Kid's object has therefore updated Camera_X/Y
         // before loc_368A8 tests the inclusive -$80..$1C0 load window. Newly
         // allocated loc_3691E objects initialise on the next object pass.
-        activate_enemies_with_rng(
+        allocate_enemies_after_execute_objects_loc_3691e(
             &mut self.active_enemies,
             &enemy_layout,
             ActivationWindow::from_camera(slice.camera),
@@ -13072,7 +13129,8 @@ impl NativeRuntime {
         let blank_top_rows = self.level_header(self.current_level).map_or(0, |header| {
             terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits)
         });
-        activate_enemies_with_rng(
+        let active_before_trailing_load = self.active_enemies.len();
+        allocate_enemies_after_execute_objects_loc_3691e(
             &mut self.active_enemies,
             &enemy_layout,
             window,
@@ -13086,6 +13144,11 @@ impl NativeRuntime {
             &self.killed_enemies,
             &mut self.rom_random,
         );
+        self.pending_enemy_gfx_initialisations_loc_3691e =
+            self.active_enemies
+                .len()
+                .saturating_sub(active_before_trailing_load)
+                .min(usize::from(u16::MAX)) as u16;
         self.enemy_loading_initial_pass_complete = true;
         self.ensure_heady_metal_breakup_slots_loc_39247();
         self.rebuild_active_enemy_roster();
