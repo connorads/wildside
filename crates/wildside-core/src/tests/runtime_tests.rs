@@ -3863,6 +3863,31 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_intro_rosters_keep_character_movement_inert() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(27_869) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(
+                frame_index,
+                27_651 | 27_698 | 27_751 | 27_825 | 27_839 | 27_854 | 27_868
+            ) {
+                // ASM Load_IntroSequence3/4/5 allocate presentation Objects
+                // and GfxObjects without entering Kid's loc_75D4 movement
+                // routine or writing Character_Movement.
+                assert_eq!(
+                    trace.character_movement,
+                    Some(0),
+                    "frame {frame_index} should keep the intro movement word inert; boot state: {:?}",
+                    runtime.boot_state,
+                );
+            }
+        }
+    }
+
+    #[test]
     fn published_tas_mode_24_exposes_loc_1bcd0_slot_2_on_frame_16228() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

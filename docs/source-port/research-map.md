@@ -16,7 +16,7 @@ The live TAS frontier is closed:
 
 That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
 full replay compared all 37,759 requested player/camera CRC frames, but its 1,512
-state checkpoints are authoritative-clean and retain 3 classified oracle
+state checkpoints are authoritative-clean and retain 1 classified oracle
 limitations.
 The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
 labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
@@ -28,7 +28,14 @@ of the remaining 37,743 frames. Every compared frame now matches exactly.
 That is complete per-frame RNG and authoritative sampled-state evidence for
 this route, not whole-state or whole-game proof.
 
-The latest correction removes a synthetic Demo 1 pause trace from later attract
+The latest correction keeps `Character_Movement` inert for IntroSequence3/4/5
+presentation rosters. Their `Load_IntroSequence*` paths allocate Objects and
+GfxObjects but never enter Kid's `loc_75D4` movement routine. Exact frames
+27640..27870 improve 203/230 -> 229/230; the remaining frame-27857 Object-count
+edge is separate. The full sampled baseline remains authoritative-clean and
+classified limitations fall 3 -> 1.
+
+The previous correction removes a synthetic Demo 1 pause trace from later attract
 lineages. ASM `loc_74C8` sets `Game_Paused` only after `loc_7420` sets
 `Allow_Pausing`; the four later published-route samples keep both latches clear
 and continue their gameplay Object passes. Exact 70-frame windows around frames

@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 intro movement trace)
+
+- Exact frames 27640..27870 exposed 26 native-only `Character_Movement=2`
+  rows, not just the two sampled classifications.
+- ASM `Load_IntroSequence3/4/5` allocates presentation rosters without entering
+  Kid's `loc_75D4` movement routine. Native now exports movement zero for those
+  modes instead of inferring walking from the sprite pose.
+- The window improves 203/230 -> 229/230 exact. Frame 27857 retains a separate
+  one-frame `number_objects` mismatch. Full sampled limitations fall 3 -> 1;
+  CRC, RNG, and authoritative state remain exact.
+- NEXT: audit `frame_29425/kid_y_vel` or the exact frame-27857 IntroSequence5
+  Object-count edge. One replay-matched route is not whole-game proof.
+
 ## 2026-07-12 handoff (#290 later Demo 1 pause trace)
 
 - Exact comparison rejected four classified pause limitations: native gameplay

@@ -6980,15 +6980,18 @@ impl NativeRuntime {
         if matches!(
             self.boot_state,
             BootState::TitleScreen { .. }
+                | BootState::IntroSequence { .. }
                 | BootState::IntroSequence6 { .. }
                 | BootState::OptionsMenu { .. }
                 | BootState::SoundTest { .. }
                 | BootState::EndingSequence { .. }
         ) && !self.title_uses_full_demo_snapshot()
         {
-            // ASM Obj_TitleMenu loc_1BBDE/loc_1BBF6 consumes Up/Down into the
-            // title cursor's local `d1` row; it does not write
-            // Character_Movement at $FFFFFA56 while Game_Mode remains $2C.
+            // ASM Load_IntroSequence3/4/5 allocate presentation Objects and
+            // GfxObjects without entering Kid's loc_75D4 movement routine.
+            // Obj_TitleMenu loc_1BBDE/loc_1BBF6 likewise consumes Up/Down into
+            // its local `d1` row. None writes Character_Movement at
+            // $FFFFFA56 while these presentation modes remain active.
             return MOVE_STANDINGSTILL;
         }
         if self.demo_auto_timeout_handoff_active {
