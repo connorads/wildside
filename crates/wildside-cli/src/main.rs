@@ -41,8 +41,9 @@ use anyhow::{Context, Result, anyhow, bail};
 use clap::{Parser, Subcommand, ValueEnum};
 use image::{ColorType, ImageFormat};
 use native_player::{
-    NativePlayOptions, NativeScriptedRoute, render_dynamic_gameplay_frame_evidence,
-    render_gameplay_frame_evidence, run_native_player,
+    NativePlayOptions, NativeScriptedRoute, PlaytestOptions, load_playtest_issues,
+    playtest_session_slug, render_dynamic_gameplay_frame_evidence, render_gameplay_frame_evidence,
+    run_native_player, unix_time_ms,
 };
 use oracle::{
     EnemyFacing, OracleEnemyState, OracleEnvironment, OracleManifest, OracleState, ensure_oracles,
@@ -547,6 +548,11 @@ enum Commands {
         /// Replay a DynamicScenario JSON through the live SDL player loop.
         #[arg(long)]
         scenario: Option<PathBuf>,
+        /// Playtest mode: F1 issue browser fed from the awaiting-human lane,
+        /// verdict hotkeys, and segmented session recording under
+        /// .cache/playtest/. Mutually exclusive with --record and --scenario.
+        #[arg(long, default_value_t = false)]
+        playtest: bool,
     },
     ProbeCpu {
         #[arg(long)]
@@ -1571,11 +1577,24 @@ fn main() -> Result<()> {
             record_target_enemy,
             record_frontier_kind,
             scenario,
+            playtest,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            if playtest {
+                if record.is_some() {
+                    bail!(
+                        "--playtest and --record are mutually exclusive; playtest manages its own segment recordings"
+                    );
+                }
+                if scenario.is_some() {
+                    bail!(
+                        "--playtest and --scenario are mutually exclusive; playtest needs live input"
+                    );
+                }
+            }
             let scripted_scenario = scenario
                 .as_deref()
                 .map(load_record_scenario_file)
@@ -1636,6 +1655,13 @@ fn main() -> Result<()> {
                     );
                 }
             }
+            let playtest_options = playtest.then(|| {
+                let session_slug = playtest_session_slug(unix_time_ms() / 1000);
+                PlaytestOptions {
+                    session_dir: repo_root.join(".cache/playtest").join(session_slug),
+                    issues: load_playtest_issues(&repo_root),
+                }
+            });
             run_native_player(
                 &manifest,
                 &NativePlayOptions {
@@ -1652,6 +1678,7 @@ fn main() -> Result<()> {
                     record_route_target,
                     record_frontier_kind: Some(frontier_kind_arg(record_frontier_kind).to_owned()),
                     scripted_route: scripted_scenario.map(NativeScriptedRoute::from),
+                    playtest: playtest_options,
                 },
             )?;
         }

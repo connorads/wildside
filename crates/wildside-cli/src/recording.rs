@@ -2702,12 +2702,12 @@ fn format_kid_position(frame: &NativeTraceFrame) -> String {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct GitStatus {
-    commit: Option<String>,
-    dirty: bool,
+pub(crate) struct GitStatus {
+    pub(crate) commit: Option<String>,
+    pub(crate) dirty: bool,
 }
 
-fn current_git_status() -> Option<GitStatus> {
+pub(crate) fn current_git_status() -> Option<GitStatus> {
     let commit = run_git(["rev-parse", "HEAD"]);
     let dirty_output = run_git(["status", "--short"]);
     if commit.is_none() && dirty_output.is_none() {

@@ -1,3 +1,4 @@
+mod playtest;
 mod segment_recorder;
 
 use crate::recording::{
@@ -7,6 +8,9 @@ use crate::scenarios::{
     DynamicCheckpoint, DynamicScenario, DynamicStartPosition, GameplayCheckpoint,
 };
 use anyhow::{Result, anyhow, bail};
+pub use playtest::PlaytestOptions;
+use playtest::PlaytestSession;
+pub(crate) use playtest::{load_playtest_issues, playtest_session_slug, unix_time_ms};
 use sdl2::audio::AudioQueue;
 use sdl2::controller::{Button, GameController};
 use sdl2::event::Event;
@@ -75,6 +79,7 @@ pub struct NativePlayOptions {
     pub record_route_target: Option<RecordingRouteTarget>,
     pub record_frontier_kind: Option<String>,
     pub scripted_route: Option<NativeScriptedRoute>,
+    pub playtest: Option<PlaytestOptions>,
 }
 
 #[derive(Debug, Clone)]
@@ -403,6 +408,23 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         recorder.mark_save_worthy();
         recorder.set_final_frame(&frame);
     }
+    let playtest_session = if let Some(playtest_options) = options.playtest.as_ref() {
+        let git_status = crate::recording::current_git_status();
+        let session = PlaytestSession::create(
+            playtest_options,
+            manifest.rom_sha1.clone(),
+            git_status.as_ref().and_then(|status| status.commit.clone()),
+            git_status.as_ref().map(|status| status.dirty),
+        )?;
+        eprintln!(
+            "Playtest session {}: {} awaiting-human issue(s) loaded.",
+            session.session_dir().display(),
+            session.issues().len()
+        );
+        Some(session)
+    } else {
+        None
+    };
     let mut audio_diagnostics = NativeAudioDiagnostics::new(
         has_gems,
         audio_queue.is_some(),
@@ -911,6 +933,13 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             audio_channels,
             audio_recording_sample_rate,
         )?;
+    }
+    if let Some(session) = playtest_session.as_ref() {
+        session.persist()?;
+        println!(
+            "playtest session saved to {}",
+            session.session_dir().display()
+        );
     }
 
     Ok(())
@@ -13737,6 +13766,7 @@ mod tests {
                 record_route_target: None,
                 record_frontier_kind: None,
                 scripted_route: None,
+                playtest: None,
             },
         );
 
@@ -13778,6 +13808,7 @@ mod tests {
                 record_route_target: None,
                 record_frontier_kind: None,
                 scripted_route: None,
+                playtest: None,
             },
         );
 
@@ -15433,6 +15464,7 @@ mod tests {
                 initial_diamond_count: Some(12),
                 initial_lives: Some(1),
             }),
+            playtest: None,
         };
 
         let mut recorder =
@@ -15536,6 +15568,7 @@ mod tests {
             }),
             record_frontier_kind: Some(String::from("gameplay")),
             scripted_route: None,
+            playtest: None,
         };
 
         let mut recorder =
@@ -15578,6 +15611,7 @@ mod tests {
             record_route_target: None,
             record_frontier_kind: None,
             scripted_route: None,
+            playtest: None,
         }
     }
 
@@ -15704,6 +15738,7 @@ mod tests {
                 }),
                 record_frontier_kind: Some(String::from("gameplay")),
                 scripted_route: None,
+                playtest: None,
             },
         );
 
@@ -15740,6 +15775,7 @@ mod tests {
             }),
             record_frontier_kind: Some(String::from("gameplay")),
             scripted_route: None,
+            playtest: None,
         };
         let mut no_contact = sample_trace(GameMode::InGame);
         no_contact.gameplay_debug_fields.insert(
@@ -15833,6 +15869,7 @@ mod tests {
             record_route_target: None,
             record_frontier_kind: None,
             scripted_route: None,
+            playtest: None,
         };
 
         assert!(!recording_frame_limit_reached(&options, 2));

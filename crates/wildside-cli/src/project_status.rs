@@ -43,14 +43,14 @@ struct BacklogItem {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-struct HumanValidationBlocker {
-    id: String,
-    status: String,
-    priority: String,
-    system: String,
-    target: String,
-    check: String,
-    summary: String,
+pub(crate) struct HumanValidationBlocker {
+    pub(crate) id: String,
+    pub(crate) status: String,
+    pub(crate) priority: String,
+    pub(crate) system: String,
+    pub(crate) target: String,
+    pub(crate) check: String,
+    pub(crate) summary: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -319,7 +319,7 @@ fn load_ready_to_implement_items(repo_root: &Path, limit: usize) -> Result<Vec<B
     Ok(items)
 }
 
-fn load_human_validation_blockers(repo_root: &Path) -> Vec<HumanValidationBlocker> {
+pub(crate) fn load_human_validation_blockers(repo_root: &Path) -> Vec<HumanValidationBlocker> {
     let contents =
         fs::read_to_string(repo_root.join(AWAITING_HUMAN_PATH)).unwrap_or_else(|_| String::new());
     let mut items = Vec::new();
