@@ -672,6 +672,16 @@ mod tests {
     }
 
     #[test]
+    fn helper_excludes_kid_gfx_from_direct_enemy_capture_loc_1cf2() {
+        assert!(
+            HELPER_TEMPLATE.contains("const ADDR_GFX_OBJECT_KID_ADDR: usize = 0xFF_F85E;")
+                && HELPER_TEMPLATE.contains("let kid_gfx_object = read_wram_u32(")
+                && HELPER_TEMPLATE.contains("if base == kid_gfx_object"),
+            "ASM GfxObjects_CollisionKid loc_1CF2 copies an enemy collision source into Kid's GfxObject, which must not make Kid appear in the enemy roster",
+        );
+    }
+
+    #[test]
     fn write_if_changed_writes_missing_or_changed_files_only() {
         let dir = TempDir::new().expect("temp dir");
         let path = dir.path().join("generated.txt");

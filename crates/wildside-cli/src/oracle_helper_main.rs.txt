@@ -476,6 +476,7 @@ const BACKGROUND_ROW_OFFSETS_ADDR: usize = 0xFF_4D5C;
 const BACKGROUND_WIDTH_ADDR: usize = 0xFF_F8A6;
 const BACKGROUND_NO_SCROLL_FLAG_ADDR: usize = 0xFF_FB4A;
 const TIME_FRAMES_ADDR: usize = 0xFF_FC24;
+const ADDR_GFX_OBJECT_KID_ADDR: usize = 0xFF_F85E;
 const ENEMY_LAYOUT_HEADER_PTR_ADDR: usize = 0xFF_F8F2;
 const ENEMY_LAYOUT_OBJECT_PTR_ADDR: usize = 0xFF_F8F6;
 const ADDR_FIRST_SHOOTER_OBJECT_SLOT_ADDR: usize = 0xFF_F8CA;
@@ -1436,9 +1437,17 @@ fn capture_enemy_states(
     let mut enemies = Vec::new();
     let layout_object_ptr = read_wram_u32(work_ram, ENEMY_LAYOUT_OBJECT_PTR_ADDR) as usize;
     let layout_object_count = read_rom_u8(rom, layout_object_ptr + 1);
+    let kid_gfx_object = read_wram_u32(work_ram, ADDR_GFX_OBJECT_KID_ADDR) as usize;
     for slot_index in 0..GFX_OBJECT_SLOT_COUNT {
         let base = GFX_OBJECT_RAM_ADDR + slot_index * GFX_OBJECT_SLOT_SIZE;
         if read_wram_u8(work_ram, base + DISPLAY_FLAG_OFFSET) == 0 {
+            continue;
+        }
+        // ASM GfxObjects_CollisionKid loc_1CF2 copies an enemy's `$3A`
+        // collision source into Kid's GfxObject. The source identifies what
+        // Kid touched, not Kid's object type, so never use it as the direct
+        // enemy fallback for the slot named by Addr_GfxObject_Kid.
+        if base == kid_gfx_object {
             continue;
         }
         let parent_object = read_wram_u32(work_ram, base + PARENT_OBJECT_OFFSET) as usize;

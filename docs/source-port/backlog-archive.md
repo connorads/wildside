@@ -1826,6 +1826,20 @@ and complete RNG remains 37,743/37,743. Enemy debt falls 5,725 -> 2,417; the
 next first difference is `frame_2978/enemy_roster`, where native Dragon `$0D`
 is half a pixel behind oracle at the same Y, facing, layout identity, and HP.
 
+Follow-up 2026-07-12 for #290: `Dragon.asm loc_3CFE4/loc_3D01E` does not
+return after restoring the walk animation; it tail-dispatches through
+`Lion.asm loc_3E3AC` to `Scorpion.asm loc_3DEA0` and moves in that same pass.
+The next stomp edge required the complementary ordering from `loc_3CE90`: the
+ROM decrements breath timer `$66(a5)` before reading collision state, then
+`loc_3CEBE` hibernates before the shared walker. Native now preserves both
+orders. The oracle helper also stops counting Kid as a second Dragon when
+`GfxObjects_CollisionKid loc_1CF2` copies the contacted Dragon's collision
+source into Kid's live GfxObject. Frames 2968..3044 are enemy-exact. Full
+gameplay and CRC remain 37,759/37,759 exact, complete RNG remains
+37,743/37,743 exact, and enemy debt falls 2,417 -> 2,325. The next frontier is
+`frame_3045/enemy_roster`, where oracle exposes layout Dragon #0 with HP 0 one
+frame before native.
+
 Live play-native note 2026-06-11 with all pushed changes: keep the following as
 current acceptance failures even where recent focused probes or fixed-candidate
 rows are green. #288 intro still shows Kid/jacket below the prize block before

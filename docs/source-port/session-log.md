@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-12 handoff (#290 Dragon recovery and hurt scheduling)
+
+- `Dragon.asm loc_3CFE4/loc_3D01E` tail-dispatches to the shared walker in the
+  breath-recovery pass. Native now moves on that pass instead of one frame late.
+- `Dragon.asm loc_3CE90` decrements the breath timer before routing a pending
+  stomp to `loc_3CEBE`; native now preserves that timer edge but hibernates
+  before movement. Published frames 2968..3044 are enemy-exact.
+- `GfxObjects_CollisionKid loc_1CF2` copies the contacted enemy id into Kid's
+  collision-source field. The oracle helper no longer misclassifies that live
+  Kid GfxObject as another enemy.
+- Full gameplay and CRC remain 37,759/37,759 exact and complete RNG remains
+  37,743/37,743 exact. Enemy debt falls 2,417 -> 2,325.
+- NEXT: inspect `frame_3045/enemy_roster`, where oracle exposes layout Dragon #0
+  with HP 0 one frame before native.
+
 ## 2026-07-12 handoff (#290 prize classification and Dragon support scan)
 
 - ASM identifies oracle object metadata `$70` as the Cyclone prize. The helper

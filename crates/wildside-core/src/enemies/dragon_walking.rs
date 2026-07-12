@@ -769,9 +769,9 @@ pub(crate) fn step_dragon_walking(
 
     let dragon_hurt_hibernate_armed = enemy.damage_flash_frames == ENEMY_DAMAGE_FLASH_FRAMES;
     if enemy.grounded_frames > 0 && !dragon_hurt_hibernate_armed {
-        enemy.grounded_frames -= 1;
         enemy.x_velocity = 0;
         enemy.y_velocity = 0;
+        enemy.grounded_frames -= 1;
         enemy.shared_walker_debug_branch = Some("grounded_hibernate");
         return;
     }
@@ -822,6 +822,16 @@ pub(crate) fn step_dragon_walking(
             enemy.y_velocity = 0;
             return;
         }
+    }
+
+    if enemy.grounded_frames > 0 && dragon_hurt_hibernate_armed {
+        // ASM Dragon.asm loc_3CE90 decrements `$66(a5)` before it consumes the
+        // pending collision through loc_3CEBE, but the hurt animation then
+        // hibernates before loc_3CF62 can reach the shared walker.
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0;
+        enemy.shared_walker_debug_branch = Some("hurt_hibernate_start");
+        return;
     }
 
     if !enemy.on_ground {
@@ -901,30 +911,40 @@ pub(crate) fn step_dragon_walking(
                             match dragon_walking_breath_normal_dispatch_loc_3d01e(enemy.facing) {
                                 DragonWalkingBreathNormalDispatchLoc3D01E::Loc3E560 => {
                                     debug_assert_eq!(enemy.facing, Direction::Left);
-                                    enemy.shared_walker_debug_branch =
-                                        Some("breath_ordinary_left_loc_3d01e");
                                 }
                                 DragonWalkingBreathNormalDispatchLoc3D01E::Loc3E3AC => {
                                     debug_assert_eq!(enemy.facing, Direction::Right);
-                                    enemy.shared_walker_debug_branch =
-                                        Some("breath_ordinary_right_loc_3d01e");
                                 }
+                            }
+                            enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
+                            // ASM Dragon.asm loc_3D01E tail-dispatches through
+                            // Lion.asm loc_3E560/loc_3E3AC to Scorpion.asm
+                            // loc_3DEA0, so the shared walker runs in this same
+                            // coroutine pass rather than waiting one frame.
+                            if matches!(
+                                step_dragon_walking_walk(enemy, block_grid, player_x_pos),
+                                DragonWalkingWalkStep::StartedAirborne
+                            ) {
+                                step_dragon_walking_airborne(enemy, block_grid);
                             }
                         }
                         DragonWalkingBreathSpawnedDispatchLoc3D00C::SpawnedChildLeftPacing => {
                             debug_assert!(parent_spawned_child);
                             debug_assert_eq!(enemy.facing, Direction::Left);
-                            enemy.shared_walker_debug_branch =
-                                Some("breath_spawned_left_loc_3d00c");
+                            enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
+                            // ASM Dragon.asm loc_3D00C jumps directly to the
+                            // airborne loop at Lion.asm loc_3E7CA.
+                            step_dragon_walking_airborne(enemy, block_grid);
                         }
                         DragonWalkingBreathSpawnedDispatchLoc3D00C::SpawnedChildRightPacing => {
                             debug_assert!(parent_spawned_child);
                             debug_assert_eq!(enemy.facing, Direction::Right);
-                            enemy.shared_walker_debug_branch =
-                                Some("breath_spawned_right_loc_3d00c");
+                            enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
+                            // ASM Dragon.asm loc_3D00C jumps directly to the
+                            // airborne loop at Lion.asm loc_3E6AE.
+                            step_dragon_walking_airborne(enemy, block_grid);
                         }
                     }
-                    enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
                     // ASM Dragon.asm loc_3CFE4 restores `stru_3CC5E` or
                     // `stru_3CC90` through Init_Animation, restarting phase 0.
                     enemy.dragon_descent_index = 0;
@@ -1351,12 +1371,24 @@ mod tests {
 
         dragon.grounded_frames = 2;
         dragon.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+        dragon.wait_timer = 100;
+        let x_before_hurt_hibernate = dragon.x_pos;
+        let wait_before_hurt_hibernate = dragon.wait_timer;
 
         step_dragon_walking(&mut dragon, None, &mut projectiles, None);
 
         assert_eq!(
             dragon.grounded_frames, 2,
             "ASM Dragon.asm loc_3CEBE hurt hibernate is already represented by the armed damage-flash frame and must not spend the generic grounded hibernate"
+        );
+        assert_eq!(
+            dragon.x_pos, x_before_hurt_hibernate,
+            "ASM Dragon.asm loc_3CE90 routes the pending hit through loc_3CEBE before the loc_3CF62 shared-walker tail, so the Dragon must not walk on the first hurt-hibernate frame"
+        );
+        assert_eq!(
+            dragon.wait_timer,
+            wait_before_hurt_hibernate - 1,
+            "ASM Dragon.asm loc_3CE90 decrements `$66(a5)` before reading collision_type and entering loc_3CEBE"
         );
     }
 
@@ -1434,8 +1466,9 @@ mod tests {
     }
 
     #[test]
-    fn dragon_walking_recover_phase_counts_down_then_walks_loc_3cfe4_3d01e() {
+    fn dragon_walking_recover_phase_resumes_walk_same_frame_loc_3cfe4_3d01e_3e3ac_3dea0() {
         let mut dragon = dragon_walking_test_enemy();
+        dragon.x_pos = 0x0100 << 16;
         dragon.dragon_script_cmd = DRAGON_WALKING_PHASE_RECOVER;
         dragon.dragon_phase_frames = 1;
         let mut projectiles = Vec::new();
@@ -1455,10 +1488,11 @@ mod tests {
             "ASM Dragon.asm loc_3D01E should resume the ordinary walking dispatch after recovery finishes"
         );
         assert_eq!(
-            dragon.shared_walker_debug_branch,
-            Some("breath_ordinary_right_loc_3d01e"),
-            "ASM Dragon.asm loc_3D00C should continue to loc_3D01E when `$5C(a5)` is clear"
+            dragon.x_pos,
+            (0x0100 << 16) + pacer_walk_speed(EnemyFamily::DragonWalking, 3) as u32,
+            "ASM Dragon.asm loc_3CFE4/loc_3D01E should tail-dispatch through Lion.asm loc_3E3AC to Scorpion.asm loc_3DEA0 and move in the breath-recovery frame"
         );
+        assert_eq!(dragon.shared_walker_debug_branch, Some("patrol_walk"));
     }
 
     #[test]
@@ -1483,8 +1517,8 @@ mod tests {
         );
         assert_eq!(
             dragon.shared_walker_debug_branch,
-            Some("breath_spawned_right_loc_3d00c"),
-            "ASM Dragon.asm loc_3D00C should route set `$5C(a5)` recovery directly to the spawned-child pacing label"
+            Some("airborne_fall"),
+            "ASM Dragon.asm loc_3D00C should route set `$5C(a5)` recovery directly through Lion.asm loc_3E6AE in the same coroutine pass"
         );
     }
 
