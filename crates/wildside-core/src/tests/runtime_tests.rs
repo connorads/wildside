@@ -7662,6 +7662,8 @@ mod chunk_09 {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
         };
+        let mut expected_resident_vdp = None;
+        let mut observed_fade_vdp = Vec::new();
         let mut frame_34274 = None;
         let mut frame_34275 = None;
         let mut frame_34276 = None;
@@ -7669,6 +7671,28 @@ mod chunk_09 {
         for (frame_index, mask) in script.iter().copied().enumerate().take(34_277) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
+                34_219 => {
+                    let elapsed = trace
+                        .boot_phase_elapsed
+                        .expect("frame 34219 should expose IntroSequence1 elapsed");
+                    expected_resident_vdp =
+                        runtime.intro_sub_1b850_data.as_ref().and_then(|data| {
+                            runtime.sega_screen_data.as_ref().map(|sega_data| {
+                                // ASM sub_1B8F4 loc_1B924 wakes the loc_1C7A0
+                                // text worker once more before loc_1C264 enters
+                                // loc_6E2's Pal_FadeOut.
+                                vdp::build_intro_sequence_1_cold_boot_vdp_at_elapsed(
+                                    data,
+                                    sega_data,
+                                    runtime.title_screen_region_byte,
+                                    elapsed + 1,
+                                )
+                            })
+                        });
+                }
+                34_220 | 34_223 | 34_224 | 34_237 | 34_238 => {
+                    observed_fade_vdp.push((frame_index, runtime.vdp_state().cloned()));
+                }
                 34_274 => frame_34274 = runtime.vdp_state().cloned(),
                 34_275 => {
                     frame_34275 = Some((
@@ -7686,6 +7710,33 @@ mod chunk_09 {
                 }
                 _ => {}
             }
+        }
+
+        let resident_vdp = expected_resident_vdp
+            .expect("cached generated manifest should contain cold IntroSequence1 data");
+        let faded_resident_vdp = |elapsed| {
+            let mut vdp = resident_vdp.clone();
+            assert!(vdp::apply_intro_title_return_fade_to_black_loc_28c6(
+                &mut vdp, elapsed,
+            ));
+            vdp
+        };
+        let expected_fade_vdp = [
+            (34_220, resident_vdp.clone()),
+            (34_223, resident_vdp.clone()),
+            (34_224, faded_resident_vdp(4)),
+            (34_237, faded_resident_vdp(17)),
+            (34_238, vdp::blank_vdp_state()),
+        ];
+
+        for ((observed_frame, observed), (expected_frame, expected)) in
+            observed_fade_vdp.iter().zip(expected_fade_vdp.iter())
+        {
+            assert_eq!(observed_frame, expected_frame);
+            assert!(
+                observed.as_ref() == Some(expected),
+                "ASM loc_1B924 -> loc_1C264 -> loc_6E2 early-restore title VDP diverged at published frame {observed_frame}",
+            );
         }
 
         let title_data = runtime

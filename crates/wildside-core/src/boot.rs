@@ -6999,6 +6999,13 @@ impl NativeRuntime {
                                 self.enter_title_screen_from_intro_return(
                                     TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence1EarlyRestore,
                                 );
+                                // ASM sub_1B8F4 loc_1B924 carries the same
+                                // final loc_1C7A0 image into loc_6E2 as the
+                                // cold return. This lineage's two-frame offset
+                                // belongs to the later title-loader rejoin,
+                                // not Pal_FadeOut's resident-image phase.
+                                self.intro_sequence_1_title_return_vdp_snapshot
+                                    .clone_from(&cold_intro_sequence_1_title_snapshot);
                                 self.next_demo_uses_start_skip_intro_return_camera_wrap = true;
                             } else if current_level_has_title_card {
                                 // ASM sub_1C246 -> loc_1C250 still returns the

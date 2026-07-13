@@ -294,6 +294,27 @@ player/camera CRC, and all 37,743 post-`Init_RNG` frames remain exact. Frame 39
 remains first at 2,643 pixels; frame 34220 is the new worst at 69,982 pixels,
 so #406 remains open.
 
+Progress 2026-07-13: frame 34220 is the timeout-restart IntroSequence1
+early-restore return. ASM `sub_1B8F4 loc_1B924 -> sub_1C246 -> loc_1C264 ->
+loc_6E2` carries the same final `loc_1C7A0` text-worker image into
+`Pal_FadeOut loc_28C6` as the cold return. Oracle retains it on frames
+34220..34223, fades it on frames 34224..34237, then clears to black on frame
+34238. This lineage's known two-frame offset applies only when the later
+`Load_TitleScreen` rebuild rejoins the outer object pass.
+
+Native now snapshots the final IntroSequence1 VDP in the typed early-restore
+branch and shares the resident-fade renderer while leaving its elapsed-55
+loader reveal intact. The extended regression
+`published_tas_early_restore_intro_sequence_1_stages_load_title_screen_loc_1b258`
+pins the final worker frame, fade hold, first and last fade steps, black clear,
+base upload, and first fresh object pass. Twelve sampled boundaries on frames
+34219..34276 are byte-identical to oracle. Full verification gains 18 exact
+frames and removes 902,860 changed pixel instances: 21,132 exact, 16,627
+divergent, and 147,720,784 changed pixel instances. Gameplay, enemy,
+player/camera CRC, and all 37,743 post-`Init_RNG` frames remain exact. Frame 39
+remains first at 2,643 pixels; frame 837 is the new worst at 67,037 pixels, so
+#406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

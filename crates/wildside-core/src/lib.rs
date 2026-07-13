@@ -2179,7 +2179,10 @@ impl NativeRuntime {
             BootState::TitleScreen { .. }
                 if matches!(
                     self.title_screen_intro_return_lineage,
-                    Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
+                    Some(
+                        TitleScreenIntroReturnLineage::ColdIntroSequence1
+                            | TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence1EarlyRestore
+                    )
                 ) && self
                     .intro_return_load_title_screen_reveal_elapsed()
                     .is_some_and(|reveal| self.title_screen_elapsed_frames < reveal) =>

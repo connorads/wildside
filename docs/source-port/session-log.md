@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 early-restore IntroSequence1 resident fade)
+
+- Frame 34220 exposed timeout-restart `sub_1B8F4 loc_1B924 -> loc_1C264
+  -> loc_6E2`. Native now carries the final `loc_1C7A0` intro-text image
+  through the same `Pal_FadeOut loc_28C6` shell as the cold return while
+  retaining this lineage's separate two-frame title-loader rejoin.
+- Twelve sampled boundaries from frames 34219..34276 are byte-identical to
+  oracle. The complete route gains 18 exact frames and removes 902,860 changed
+  pixel instances: 21,132 exact, 16,627 divergent, and 147,720,784 changed
+  pixel instances. Gameplay, enemy, player/camera CRC, and post-`Init_RNG`
+  frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 837 is the new worst at 67,037
+  pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 cold IntroSequence1 resident title fade)
 
 - Frame 139 exposed the cold `sub_1B8F4 loc_1B924 -> sub_1C246 -> loc_1C264
