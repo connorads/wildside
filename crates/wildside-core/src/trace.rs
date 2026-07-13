@@ -6797,6 +6797,21 @@ impl NativeRuntime {
         (fade_progress <= 0x0100).then_some(fade_progress)
     }
 
+    fn demo_level_entry_palette_fade_progress_sub_73d0(&self) -> Option<u16> {
+        let frame_counter = self.demo_startup_frame()?;
+        let use_demo_2 = self.demo_uses_second_recording()?;
+        let fade_elapsed = frame_counter.checked_sub(self.demo_gameplay_start_frame(use_demo_2))?;
+        let applied_elapsed = fade_elapsed.saturating_sub(1);
+        let fade_progress = applied_elapsed.saturating_mul(0x10);
+
+        // ASM Load_DemoPlay -> Load_InGame -> sub_7196 allocates sub_73D0
+        // inside the persistent DemoPlay wrapper. The first live gameplay
+        // presentation consumes `$0000`, and the wrapper retains that result
+        // for one VBlank before loc_7402 advances `$FFFFF876` by `$10` per
+        // frame and deletes the worker after `$0100`.
+        (fade_progress <= 0x0100).then_some(fade_progress)
+    }
+
     fn early_start_title_menu_cursor_pose_carry_active(&self) -> bool {
         self.early_start_title_shell_elapsed_frames()
             .is_some_and(|elapsed| elapsed < EARLY_START_TITLE_MENU_CURSOR_POSE_CARRY_FRAMES)
@@ -8352,6 +8367,7 @@ impl NativeRuntime {
             level_entry_fade_progress_sub_73d0: self
                 .title_card_live_handoff_palette_fade_progress_sub_73d0()
                 .or_else(|| self.demo_title_palette_fade_progress_loc_28c6())
+                .or_else(|| self.demo_level_entry_palette_fade_progress_sub_73d0())
                 .or_else(|| {
                     (matches!(self.boot_state, BootState::InGame) && !self.allow_pausing)
                         .then_some(self.level_entry_fade_progress_sub_73d0)

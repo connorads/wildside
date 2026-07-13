@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 demo level-entry palette fade)
+
+- Frame 2618 exposed a missing `Load_DemoPlay -> Load_InGame -> sub_7196 ->
+  sub_73D0` presentation. Native now exposes the full-screen palette worker
+  through DemoPlay, including its retained first VBlank and `$10` fade steps.
+- The complete route gains 42 exact frames and removes 14,126,093 changed pixel
+  instances: 17,152 exact, 20,607 divergent, and 208,694,067 changed pixel
+  instances. Gameplay, enemy, and post-`Init_RNG` frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 196 is the new worst at 71,034
+  pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 IntroSequence3-to-4 natural timeout)
 
 - Frame 15577 exposed the natural `sub_1B93E -> loc_1B96A` timeout. Native now

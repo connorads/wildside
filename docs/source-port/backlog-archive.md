@@ -126,6 +126,23 @@ instances. Gameplay, enemy, and all 37,743 post-`Init_RNG` frames remain exact.
 Frame 2618 is the next near-full-screen frontier at 71,291 pixels, so #406
 remains open.
 
+Progress 2026-07-13: frame 2618 is the middle of the demo level-entry palette
+fade. ASM `Load_DemoPlay` calls `Load_InGame`; `sub_7196` allocates `sub_73D0`,
+which blends the whole CRAM palette from the FBCC fill colour, retains its first
+live presentation for one VBlank, and advances `$FFFFF876` by `$10` until the
+worker deletes after `$0100`. Native kept the demo mode wrapper but omitted the
+worker from its renderer-facing trace, so it displayed the full level palette
+immediately.
+
+Native now derives the worker's current counter from the shared demo gameplay
+start clock, including lineage-specific startup offsets. Full verification
+gains 42 exact frames and removes 14,126,093 changed pixel instances: 17,152
+exact, 20,607 divergent, and 208,694,067 changed pixel instances. Gameplay,
+enemy, and all 37,743 post-`Init_RNG` frames remain exact. The residual
+Knights Isle window is ordinary water/shore and HUD render debt, not the fade
+worker. Frame 196 is the next near-full-screen frontier at 71,034 pixels, so
+#406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

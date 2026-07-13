@@ -9197,6 +9197,37 @@ mod chunk_02 {
     }
 
     #[test]
+    fn demo_load_ingame_exposes_fullscreen_palette_fade_sub_73d0() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut frames = Vec::new();
+        for (frame_index, mask) in script.iter().copied().take(2_626).enumerate() {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 2_606 | 2_607 | 2_610 | 2_623 | 2_624 | 2_625) {
+                frames.push((
+                    frame_index,
+                    trace.boot_phase_elapsed,
+                    trace.level_entry_fade_progress_sub_73d0,
+                ));
+            }
+        }
+
+        assert_eq!(
+            frames,
+            vec![
+                (2_606, Some(71), None),
+                (2_607, Some(72), Some(0x0000)),
+                (2_610, Some(75), Some(0x0020)),
+                (2_623, Some(88), Some(0x00F0)),
+                (2_624, Some(89), Some(0x0100)),
+                (2_625, Some(90), None),
+            ],
+            "ASM Load_DemoPlay -> Load_InGame -> sub_7196 -> sub_73D0 should expose the current fade counter before loc_7402 advances it and delete the worker after `$0100`",
+        );
+    }
+
+    #[test]
     fn cold_intro_sequence_5_late_start_carries_loc_1be3c_particle_phase() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
