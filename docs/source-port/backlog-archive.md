@@ -376,6 +376,25 @@ instances. Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG`
 frames remain exact. Frame 39 remains first at 2,643 pixels; frame 96 is the
 new worst at 51,566 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 96 was the cold-boot Wild Side fade after the
+frame-79 Start edge. Dense cross-frame comparison showed native frames 83..97
+were exactly oracle frames 84..98: `Load_SegaScreen loc_12EDE` had entered
+`Load_IntroSequence1 sub_1B8F4 -> sub_1C204`, but native presented the first
+`Pal_1C28A` buffer step one VBlank early. The same schedule is not shared by
+the typed post-demo restart lineage; an initial global shift correctly fixed
+frames 83..97 but the full gate rejected 120 new later-cycle mismatches.
+
+Native now distinguishes cold boot from post-demo IntroSequence1 restarts and
+delays only the cold-boot palette presentation. Regression
+`published_tas_sega_start_handoff_presents_sub_1c204_fade_one_frame_later`
+pins black frame 82 and the first two fade steps, while the paired unit test
+pins the existing demo-restart clock. Dense frames 82..99 are pixel-exact.
+Full verification gains 15 exact frames and removes 238,272 changed pixel
+instances: 21,513 exact, 16,246 divergent, and 125,757,996 changed pixel
+instances. Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG`
+frames remain exact. Frame 39 remains first at 2,643 pixels; frame 3126 is the
+new worst at 36,503 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

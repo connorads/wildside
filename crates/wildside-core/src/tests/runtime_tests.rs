@@ -23,6 +23,55 @@ fn cached_any_percent_demo_runtime_and_script() -> Option<(NativeRuntime, Vec<u8
 }
 
 #[test]
+fn published_tas_sega_start_handoff_presents_sub_1c204_fade_one_frame_later() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut samples = Vec::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(85) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if matches!(frame_index, 82..=84) {
+            samples.push((
+                frame_index,
+                trace.game_mode,
+                trace.boot_phase_elapsed,
+                runtime.vdp_state().cloned(),
+            ));
+        }
+    }
+
+    // ASM Load_SegaScreen loc_12EDE changes Game_Mode after the frame-79
+    // Start edge. Load_IntroSequence1's sub_1B8F4 enters sub_1C204, whose
+    // first Pal_1C28A palette-buffer update is not presented until the
+    // following VBlank. Oracle therefore keeps black through published
+    // frame 82, presents the first fade step on frame 83, and advances it
+    // again on frame 84.
+    assert_eq!(samples[0].1, GameMode::IntroSequence1);
+    assert_eq!(samples[1].1, GameMode::IntroSequence1);
+    assert_eq!(samples[2].1, GameMode::IntroSequence1);
+    assert_eq!(samples[0].2, Some(46));
+    assert_eq!(samples[1].2, Some(47));
+    assert_eq!(samples[2].2, Some(48));
+    assert!(
+        samples[0]
+            .3
+            .as_ref()
+            .is_some_and(|vdp| vdp.cram.iter().all(|byte| *byte == 0)),
+    );
+    assert!(
+        samples[1]
+            .3
+            .as_ref()
+            .is_some_and(|vdp| vdp.cram.iter().any(|byte| *byte != 0)),
+    );
+    assert_ne!(
+        samples[2].3.as_ref().map(|vdp| &vdp.cram),
+        samples[1].3.as_ref().map(|vdp| &vdp.cram),
+    );
+}
+
+#[test]
 fn published_tas_cold_intro_1_title_restore_stages_load_title_screen_loc_1b258() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;

@@ -6926,12 +6926,21 @@ impl NativeRuntime {
                                     // text worker once more before sub_1C246 enters
                                     // loc_1C264. Preserve that final presented VDP
                                     // for loc_6E2's Pal_FadeOut.
-                                    vdp::build_intro_sequence_1_cold_boot_vdp_at_elapsed(
-                                        data,
-                                        sega_data,
-                                        self.title_screen_region_byte,
-                                        elapsed.saturating_add(1),
-                                    )
+                                    if intro_sequence_1_frames_override.is_some() {
+                                        vdp::build_intro_sequence_1_demo_restart_vdp_at_elapsed(
+                                            data,
+                                            sega_data,
+                                            self.title_screen_region_byte,
+                                            elapsed.saturating_add(1),
+                                        )
+                                    } else {
+                                        vdp::build_intro_sequence_1_cold_boot_vdp_at_elapsed(
+                                            data,
+                                            sega_data,
+                                            self.title_screen_region_byte,
+                                            elapsed.saturating_add(1),
+                                        )
+                                    }
                                 })
                             })
                         } else {

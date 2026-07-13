@@ -1971,6 +1971,17 @@ impl NativeRuntime {
                 if *segment == 0
                     && let Some(sega_data) = self.sega_screen_data.as_ref()
                 {
+                    if self
+                        .demo_auto_timeout_intro_sequence_1_frames_override
+                        .is_some()
+                    {
+                        return vdp::build_intro_sequence_1_demo_restart_vdp_at_elapsed(
+                            data,
+                            sega_data,
+                            self.title_screen_region_byte,
+                            *elapsed,
+                        );
+                    }
                     return vdp::build_intro_sequence_1_cold_boot_vdp_at_elapsed(
                         data,
                         sega_data,

@@ -732,6 +732,40 @@ pub(crate) fn build_intro_sequence_1_cold_boot_vdp_at_elapsed(
     title_variant: u8,
     elapsed: usize,
 ) -> VdpState {
+    build_intro_sequence_1_vdp_at_elapsed(
+        data,
+        sega_data,
+        title_variant,
+        elapsed,
+        INTRO_SEQUENCE_1_COLD_BOOT_FADE_IN_START_ELAPSED,
+        INTRO_SEQUENCE_1_COLD_BOOT_FULL_PALETTE_ELAPSED,
+    )
+}
+
+pub(crate) fn build_intro_sequence_1_demo_restart_vdp_at_elapsed(
+    data: &IntroSub1B850Data,
+    sega_data: &SegaScreenData,
+    title_variant: u8,
+    elapsed: usize,
+) -> VdpState {
+    build_intro_sequence_1_vdp_at_elapsed(
+        data,
+        sega_data,
+        title_variant,
+        elapsed,
+        INTRO_SEQUENCE_1_DEMO_RESTART_FADE_IN_START_ELAPSED,
+        INTRO_SEQUENCE_1_DEMO_RESTART_FULL_PALETTE_ELAPSED,
+    )
+}
+
+fn build_intro_sequence_1_vdp_at_elapsed(
+    data: &IntroSub1B850Data,
+    sega_data: &SegaScreenData,
+    title_variant: u8,
+    elapsed: usize,
+    fade_in_start_elapsed: usize,
+    full_palette_elapsed: usize,
+) -> VdpState {
     // ASM Load_IntroSequence1 runs `sub_1B8F4 -> sub_1C204 -> loc_1B924`
     // after `Load_SegaScreen` hands off at loc_12EDE. The ROM-visible VDP
     // output keeps the Sega palette fade on screen first, then holds black
@@ -746,15 +780,18 @@ pub(crate) fn build_intro_sequence_1_cold_boot_vdp_at_elapsed(
 
     let mut vdp =
         build_intro_sequence_vdp_with_title_variant_at_elapsed(data, 0, title_variant, elapsed, 0);
-    if elapsed < INTRO_SEQUENCE_1_FADE_IN_START_ELAPSED {
+    if elapsed < fade_in_start_elapsed {
         vdp.cram.fill(0);
         return vdp;
     }
 
-    if (INTRO_SEQUENCE_1_FADE_IN_START_ELAPSED..INTRO_SEQUENCE_1_FULL_PALETTE_ELAPSED)
-        .contains(&elapsed)
-    {
-        apply_intro_sequence_1_sub_1c204_palette_fade(&mut vdp, data, elapsed);
+    if (fade_in_start_elapsed..full_palette_elapsed).contains(&elapsed) {
+        apply_intro_sequence_1_sub_1c204_palette_fade(
+            &mut vdp,
+            data,
+            elapsed,
+            fade_in_start_elapsed,
+        );
     }
     vdp
 }
@@ -762,8 +799,12 @@ pub(crate) fn build_intro_sequence_1_cold_boot_vdp_at_elapsed(
 const SEGA_SCREEN_INTRO_HANDOFF_ELAPSED: usize = 173;
 const INTRO_SEQUENCE_1_SEGA_FADE_START_ELAPSED: usize = 3;
 const INTRO_SEQUENCE_1_SEGA_FADE_OUT_ELAPSED: usize = 17;
-const INTRO_SEQUENCE_1_FADE_IN_START_ELAPSED: usize = 46;
-const INTRO_SEQUENCE_1_FULL_PALETTE_ELAPSED: usize = 61;
+// ASM sub_1B8F4's sub_1C204 fade writes Pal_1C28A after hibernating; the
+// first updated palette is presented on the following VBlank.
+const INTRO_SEQUENCE_1_COLD_BOOT_FADE_IN_START_ELAPSED: usize = 47;
+const INTRO_SEQUENCE_1_COLD_BOOT_FULL_PALETTE_ELAPSED: usize = 62;
+const INTRO_SEQUENCE_1_DEMO_RESTART_FADE_IN_START_ELAPSED: usize = 46;
+const INTRO_SEQUENCE_1_DEMO_RESTART_FULL_PALETTE_ELAPSED: usize = 61;
 const INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A: usize = 43;
 const INTRO_SEQUENCE_2_PREVIOUS_FADE_OUT_ELAPSED: usize = 17;
 const INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED: usize = 44;
@@ -919,12 +960,13 @@ fn apply_intro_sequence_1_sub_1c204_palette_fade(
     vdp: &mut VdpState,
     data: &IntroSub1B850Data,
     elapsed: usize,
+    fade_in_start_elapsed: usize,
 ) {
     apply_intro_sequence_palette_fade_in_loc_1c204(
         vdp,
         &data.palette_segment_0,
         elapsed,
-        INTRO_SEQUENCE_1_FADE_IN_START_ELAPSED,
+        fade_in_start_elapsed,
     );
 }
 
@@ -4018,18 +4060,18 @@ mod tests {
     }
 
     #[test]
-    fn intro_sequence_1_cold_boot_starts_wild_side_fade_on_elapsed_46_loc_1c204() {
+    fn intro_sequence_1_cold_boot_starts_wild_side_fade_on_elapsed_47_loc_1c204() {
         let mut intro = empty_intro_data();
         intro.palette_segment_0 = vec![0x0EEE, 0x0444];
         let sega = minimal_sega_data();
 
-        let black_tail = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 45);
+        let black_tail = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 46);
         assert!(
             black_tail.cram.iter().all(|byte| *byte == 0),
             "ASM sub_1B8F4/sub_1C204 keeps CRAM black through the frame before Pal_1C28A begins fading in",
         );
 
-        let first_fade = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 46);
+        let first_fade = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 47);
         let mut target = [0u16; 0x40];
         target[0] = 0x0EEE;
         target[1] = 0x0444;
@@ -4037,23 +4079,23 @@ mod tests {
         assert_eq!(
             vdp_cram_words(&first_fade),
             expected,
-            "ASM sub_1C204 starts fading Pal_1C28A into CRAM at cold-boot elapsed 46",
+            "ASM sub_1C204's first Pal_1C28A fade step is presented at cold-boot elapsed 47",
         );
     }
 
     #[test]
-    fn intro_sequence_1_cold_boot_keeps_fading_until_elapsed_60_loc_1c204() {
+    fn intro_sequence_1_cold_boot_keeps_fading_until_elapsed_61_loc_1c204() {
         let mut intro = empty_intro_data();
         intro.palette_segment_0 = vec![0x0EEE, 0x0444];
         let sega = minimal_sega_data();
 
-        let fading = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 60);
-        let normal = build_intro_sequence_vdp_with_title_variant_at_elapsed(&intro, 0, 1, 60, 0);
+        let fading = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 61);
+        let normal = build_intro_sequence_vdp_with_title_variant_at_elapsed(&intro, 0, 1, 61, 0);
 
         assert_ne!(
             vdp_cram_words(&fading),
             vdp_cram_words(&normal),
-            "ASM sub_1C204 still owns the Pal_1C28A fade on elapsed 60; the normal palette is restored on the next frame",
+            "ASM sub_1C204 still owns the Pal_1C28A fade on elapsed 61; the normal palette is restored on the next frame",
         );
     }
 
@@ -4063,13 +4105,34 @@ mod tests {
         intro.palette_segment_0 = vec![0x0000, 0x0EEE, 0x0444];
         let sega = minimal_sega_data();
 
-        let cold_boot = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 61);
-        let normal = build_intro_sequence_vdp_with_title_variant_at_elapsed(&intro, 0, 1, 61, 0);
+        let cold_boot = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 62);
+        let normal = build_intro_sequence_vdp_with_title_variant_at_elapsed(&intro, 0, 1, 62, 0);
 
         assert_eq!(
             cold_boot.cram, normal.cram,
             "ASM sub_1B8F4 resumes loc_1B924 after sub_1C204, so the cold-boot-only palette transition must rejoin the normal IntroSequence1 VDP path",
         );
+    }
+
+    #[test]
+    fn intro_sequence_1_demo_restart_keeps_existing_sub_1c204_presentation_schedule() {
+        let mut intro = empty_intro_data();
+        intro.palette_segment_0 = vec![0x0EEE, 0x0444];
+        let sega = minimal_sega_data();
+
+        let first_fade = build_intro_sequence_1_demo_restart_vdp_at_elapsed(&intro, &sega, 1, 46);
+        let mut target = [0u16; 0x40];
+        target[0] = 0x0EEE;
+        target[1] = 0x0444;
+        assert_eq!(
+            vdp_cram_words(&first_fade),
+            expected_palette_fade(0x0010, &target, &[0; 0x40]),
+            "ASM sub_1B8F4/sub_1C204 on the post-demo restart lineage presents its first Pal_1C28A fade step at elapsed 46",
+        );
+
+        let restarted = build_intro_sequence_1_demo_restart_vdp_at_elapsed(&intro, &sega, 1, 61);
+        let normal = build_intro_sequence_vdp_with_title_variant_at_elapsed(&intro, 0, 1, 61, 0);
+        assert_eq!(restarted.cram, normal.cram);
     }
 
     #[test]

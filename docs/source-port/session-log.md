@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 cold IntroSequence1 palette presentation)
+
+- Frame 96 exposed the cold-boot `Load_SegaScreen loc_12EDE ->
+  Load_IntroSequence1 sub_1B8F4 -> sub_1C204` handoff. Native presented the
+  first `Pal_1C28A` fade step one VBlank early; post-demo restarts keep their
+  separate existing schedule.
+- Dense frames 82..99 are pixel-exact. The complete route gains 15 exact
+  frames and removes 238,272 changed pixel instances: 21,513 exact, 16,246
+  divergent, and 125,757,996 changed pixel instances. All state channels stay
+  exact.
+- Frame 39 remains first at 2,643 pixels. Frame 3126 is the new worst at
+  36,503 pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 timeout-restart IntroSequence5 fade-in)
 
 - Frames 10010 and 16231 exposed `Load_IntroSequence5 -> loc_1BA28 ->
