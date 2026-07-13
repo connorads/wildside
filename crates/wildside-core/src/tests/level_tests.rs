@@ -6555,6 +6555,72 @@ mod chunk_02 {
     }
 
     #[test]
+    fn later_intro_sequence_6_presents_loc_1b45a_blackout_and_palette_restore() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut frames = Vec::new();
+        for (frame_index, mask) in script.iter().copied().enumerate().take(28_295) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if (28_291..=28_294).contains(&frame_index) {
+                assert_eq!(trace.game_mode, GameMode::IntroSequence6);
+                frames.push((frame_index, runtime.vdp_state().cloned()));
+            }
+        }
+
+        let vdp = |frame_index: usize| {
+            frames
+                .iter()
+                .find(|(frame, _)| *frame == frame_index)
+                .and_then(|(_, vdp)| vdp.as_ref())
+                .expect("published IntroSequence6 frame should expose VDP state")
+        };
+        let word_at = |frame_index: usize, byte_addr: usize| {
+            let vdp = vdp(frame_index);
+            u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]])
+        };
+        let frame_7_first_word_addr = 128 + 0x15 * 2;
+
+        assert_eq!(
+            word_at(28_291, frame_7_first_word_addr),
+            0x210F,
+            "ASM loc_1B446 should retain its final pre-blackout transformation mapping through published frame 28291",
+        );
+        assert_eq!(
+            word_at(28_292, frame_7_first_word_addr),
+            0x2115,
+            "ASM loc_1B470 should present sub_1BF24 frame 7 at the first palette-blackout boundary",
+        );
+        assert!(
+            vdp(28_292).cram.iter().all(|&byte| byte == 0),
+            "ASM loc_1B470 clears all 64 palette words on published frame 28292",
+        );
+        assert_eq!(
+            word_at(28_292, 0xE000),
+            0x00BD,
+            "ASM loc_1B470 should retain Load_IntroSequence6's striped plane before sub_1B532 runs",
+        );
+        assert!(
+            vdp(28_293).cram.iter().all(|&byte| byte == 0),
+            "ASM loc_1B494 restores the saved palette only after the interstitial blackout frame",
+        );
+        assert_ne!(
+            word_at(28_293, 0xE000),
+            0x00BD,
+            "ASM sub_1B532 should rebuild the title-text plane during the second blackout frame",
+        );
+        assert!(
+            vdp(28_294).cram.iter().any(|&byte| byte != 0),
+            "ASM loc_1B494 should restore the title palette on published frame 28294",
+        );
+        assert_eq!(
+            word_at(28_294, frame_7_first_word_addr),
+            0x2115,
+            "ASM sub_1BF24 frame 7 should remain mapped while Load_TitleArt owns the following upload stall",
+        );
+    }
+
+    #[test]
     fn cold_boot_intro_sequence_6_uses_load_intro_sequence_6_vdp_before_title_ready() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;

@@ -74,6 +74,23 @@ divergent, and 235,866,790 changed pixel instances. All gameplay, enemy, and
 post-`Init_RNG` frames remain exact. Frame 28294 is the next near-full-screen
 frontier at 71,647 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 28294 exposed a collapsed `sub_1B43A ->
+loc_1B45A` tail. ASM `loc_1B470` copies and clears all 64 palette words, then
+hibernates; the next pass presents `sub_1BF24` frame 7, runs `sub_1B532`,
+restores the palette at `loc_1B494`, and hibernates again before
+`Load_TitleArt` completes. Native previously jumped directly from the final
+hidden-shell mapping to the fully loaded title-art state.
+
+Native now models the first blackout with the striped plane, the second with
+the rebuilt title-text plane, the palette-restored pre-title-art upload, and
+the final loaded-art state separately on cold, wrapped, and three-frame-delayed
+timeout lineages. Published frames 28288..28316 and 21115..21135 are
+pixel-exact. Full verification gains 39 exact frames and removes 2,538,454
+changed pixel instances: 16,616 exact, 21,143 divergent, and 233,328,336
+changed pixel instances. Gameplay, enemy, and post-`Init_RNG` parity remains
+exact. Frame 6209 is the next near-full-screen frontier at 71,520 pixels, so
+#406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

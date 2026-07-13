@@ -31,15 +31,18 @@ ring bytes on every one of the remaining 37,743 frames. Every compared frame
 matches exactly. This is complete per-frame RNG and per-frame exported-state
 evidence for this route, not whole-state, audio, every-input, or whole-game proof.
 The `source_port_visible_rgb24_v1` pass renders one bounded-memory native frame
-for every oracle PNG: 16,577/37,759 frames match exactly and 21,182 differ, with
-235,866,790 changed pixel instances. The first mismatch is frame 39 (2,643
-pixels); frame 28294 is the next near-full-screen mismatch at 71,647 pixels.
+for every oracle PNG: 16,616/37,759 frames match exactly and 21,143 differ, with
+233,328,336 changed pixel instances. The first mismatch is frame 39 (2,643
+pixels); frame 6209 is the next near-full-screen mismatch at 71,520 pixels.
 #406's engine-level corrections model manual `loc_119D8` and timeout `loc_C0A`
 demo returns through `Pal_FadeOut -> loc_6E2`, the timeout-restart
 `Load_IntroSequence6` clocks, and the rotating title transformation art,
-palette, and object-worker variants selected by `sub_1C278`. They make 3,453
-additional route frames exact, suppress the pause renderer while synchronous
-`Pal_FadeOut` owns the display, and remove 366,143,453 changed pixel instances.
+palette, and object-worker variants selected by `sub_1C278`. The
+`sub_1B43A -> loc_1B45A` tail also preserves its two blackout VBlanks,
+intermediate title-plane rebuild, palette restore, and later title-art upload.
+Together these corrections make 3,492 additional route frames exact, suppress
+the pause renderer while synchronous `Pal_FadeOut` owns the display, and
+remove 368,681,907 changed pixel instances.
 #406 owns this measured visual frontier; the four settled-warp source-port
 visual-gate checkpoints remain exact.
 

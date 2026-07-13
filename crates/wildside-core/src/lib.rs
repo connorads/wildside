@@ -1057,6 +1057,13 @@ struct IntroSequence6StartSkipNaturalVdpCarry {
     carry_timeout_restart_hidden_camera_wrap: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IntroSequence6Loc1b45aVdpPhase {
+    BlackoutBeforeTitleRows,
+    BlackoutAfterTitleRows,
+    RestoredBeforeTitleArt,
+}
+
 impl NativeRuntime {
     pub(crate) fn ensure_heady_metal_breakup_slots_loc_39247(&mut self) {
         if self.heady_metal_breakup_slots_sub_37708.is_some()
@@ -1974,6 +1981,41 @@ impl NativeRuntime {
                     )
                 })
             }
+            BootState::IntroSequence6 { .. }
+                if self.intro_sequence_6_loc_1b45a_vdp_phase().is_some() =>
+            {
+                let phase = self
+                    .intro_sequence_6_loc_1b45a_vdp_phase()
+                    .expect("guard ensures loc_1B45A VDP phase is present");
+                self.title_screen_data.as_ref().map(|data| match phase {
+                    IntroSequence6Loc1b45aVdpPhase::BlackoutBeforeTitleRows => {
+                        vdp::build_intro_sequence_6_vdp_at_loc_1b470_palette_blackout(
+                            data,
+                            self.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
+                            self.title_screen_region_byte,
+                            self.current_camera_state().y_pos,
+                            false,
+                        )
+                    }
+                    IntroSequence6Loc1b45aVdpPhase::BlackoutAfterTitleRows => {
+                        vdp::build_intro_sequence_6_vdp_at_loc_1b470_palette_blackout(
+                            data,
+                            self.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
+                            self.title_screen_region_byte,
+                            self.current_camera_state().y_pos,
+                            true,
+                        )
+                    }
+                    IntroSequence6Loc1b45aVdpPhase::RestoredBeforeTitleArt => {
+                        vdp::build_intro_sequence_6_vdp_after_loc_1b494_palette_restore(
+                            data,
+                            self.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
+                            self.title_screen_region_byte,
+                            self.current_camera_state().y_pos,
+                        )
+                    }
+                })
+            }
             BootState::IntroSequence6 { .. } if !self.title_screen_vdp_ready() => {
                 self.title_screen_data.as_ref().map(|data| {
                     vdp::build_intro_sequence_6_vdp_with_character_frame(
@@ -2434,6 +2476,51 @@ impl NativeRuntime {
             && !self.title_screen_ready()
             && self.title_screen_elapsed_frames >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_REBUILD_FRAMES
             && self.title_screen_elapsed_frames < INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES
+    }
+
+    fn intro_sequence_6_loc_1b45a_vdp_phase(&self) -> Option<IntroSequence6Loc1b45aVdpPhase> {
+        let BootState::IntroSequence6 {
+            carry_timeout_restart_hidden_camera_wrap,
+            ..
+        } = self.boot_state
+        else {
+            return None;
+        };
+        if self.intro_sequence_6_start_skip_cursor_trace_priority
+            || self.title_screen_ready()
+            || self.title_screen_elapsed_frames >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_REBUILD_FRAMES
+        {
+            return None;
+        }
+
+        // ASM sub_1B43A -> loc_1B45A runs on the same worker-local clock as
+        // the loc_E12 stall schedule. The later timeout-restart revisit delays
+        // that worker by three displayed frames; the wrapped first revisit and
+        // cold boot do not. loc_1B470 presents frame 7 while clearing CRAM,
+        // then sub_1B532 rebuilds the title-text plane one VBlank later. The
+        // saved palette returns before the long Load_TitleArt upload completes.
+        let displayed_local_frame = self.title_screen_elapsed_frames.saturating_add(1);
+        let later_worker_delay = if self.intro_sequence_6_entered_from_timeout_restart
+            && !carry_timeout_restart_hidden_camera_wrap
+            && !self.demo_toggle
+        {
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_WORKER_DELAY_FRAMES
+        } else {
+            0
+        };
+        let worker_local_frame = displayed_local_frame.saturating_sub(later_worker_delay);
+        match worker_local_frame {
+            INTRO_SEQUENCE_6_PALETTE_BLACKOUT_STALL_FRAME_LOC_1B470 => {
+                Some(IntroSequence6Loc1b45aVdpPhase::BlackoutBeforeTitleRows)
+            }
+            frame if frame == INTRO_SEQUENCE_6_PALETTE_BLACKOUT_STALL_FRAME_LOC_1B470 + 1 => {
+                Some(IntroSequence6Loc1b45aVdpPhase::BlackoutAfterTitleRows)
+            }
+            frame if frame >= INTRO_SEQUENCE_6_TITLE_ART_STALL_FIRST_FRAME_LOC_1B494 => {
+                Some(IntroSequence6Loc1b45aVdpPhase::RestoredBeforeTitleArt)
+            }
+            _ => None,
+        }
     }
 
     fn title_screen_vdp_blackout(&self) -> bool {

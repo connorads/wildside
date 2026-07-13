@@ -3041,6 +3041,30 @@ pub(crate) fn build_intro_sequence_6_vdp_after_loc_1b45a_title_art(
     region_byte: u8,
     camera_y_pos: u32,
 ) -> VdpState {
+    let mut vdp = build_intro_sequence_6_vdp_after_loc_1b494_palette_restore(
+        data,
+        lightning_flash_frame,
+        region_byte,
+        camera_y_pos,
+    );
+
+    // ASM loc_1B494 hibernates once after restoring Palette_Buffer, then
+    // Load_TitleArt uploads the four title-text/menu chunks before the three
+    // replacement workers are allocated.
+    for (vram_byte_addr, art_bytes) in &data.title_art_chunks {
+        vdp.write_vram(*vram_byte_addr, art_bytes);
+    }
+
+    vdp
+}
+
+pub(crate) fn build_intro_sequence_6_vdp_at_loc_1b470_palette_blackout(
+    data: &TitleScreenData,
+    lightning_flash_frame: u8,
+    region_byte: u8,
+    camera_y_pos: u32,
+    title_text_plane_rebuilt: bool,
+) -> VdpState {
     let mut vdp = build_intro_sequence_6_vdp_with_character_frame(
         data,
         Some(crate::boot::title_screen_hidden_shell_palette_restore_loc_1B45A().blackout_frame),
@@ -3048,14 +3072,46 @@ pub(crate) fn build_intro_sequence_6_vdp_after_loc_1b45a_title_art(
         region_byte,
         camera_y_pos,
     );
+    if title_text_plane_rebuilt {
+        rebuild_intro_sequence_6_title_text_plane_sub_1b532(&mut vdp, data, lightning_flash_frame);
+    }
 
+    // ASM loc_1B470 clears every Palette_Buffer word while copying it to
+    // Palette_Buffer_2. Palette_to_VRAM presents that all-zero buffer across
+    // both the initial and interstitial blackout frames.
+    vdp.cram.fill(0);
+    vdp
+}
+
+pub(crate) fn build_intro_sequence_6_vdp_after_loc_1b494_palette_restore(
+    data: &TitleScreenData,
+    lightning_flash_frame: u8,
+    region_byte: u8,
+    camera_y_pos: u32,
+) -> VdpState {
+    let mut vdp = build_intro_sequence_6_vdp_with_character_frame(
+        data,
+        Some(crate::boot::title_screen_hidden_shell_palette_restore_loc_1B45A().blackout_frame),
+        lightning_flash_frame,
+        region_byte,
+        camera_y_pos,
+    );
+    rebuild_intro_sequence_6_title_text_plane_sub_1b532(&mut vdp, data, lightning_flash_frame);
+    vdp
+}
+
+fn rebuild_intro_sequence_6_title_text_plane_sub_1b532(
+    vdp: &mut VdpState,
+    data: &TitleScreenData,
+    lightning_flash_frame: u8,
+) {
     // ASM sub_1B532 (kid.asm:29782): clear 8 longwords at $1780, then copy
     // 28 full plane rows from decoded `unk_2F840` to VRAM $E000. `loc_1B37C`
     // continues to upload lightning frames into $17A0 afterwards.
     for word_index in 0..usize::from(8u16 * 2) {
         vdp.write_vram_word(0x1780 + word_index * 2, 0);
     }
-    write_full_plane_rows(&mut vdp, 0xE000, &data.title_text_chameleon_rows);
+    write_full_plane_rows(vdp, 0xE000, &data.title_text_chameleon_rows);
 
     let upload = wildside_data::thunder_animation_frame_upload_sub_1B41C(
         lightning_flash_frame.into(),
@@ -3068,15 +3124,6 @@ pub(crate) fn build_intro_sequence_6_vdp_after_loc_1b45a_title_art(
         vdp.write_vram(byte_addr, &[b0, b1, b2, b3]);
         byte_addr += 4;
     }
-
-    // ASM sub_1B43A loc_1B45A (kid.asm:29687-29701): after showing frame 7
-    // and rebuilding the title text plane, the natural no-input path restores
-    // title art while the loc_1B37C lightning/scroll shell is still active.
-    for (vram_byte_addr, art_bytes) in &data.title_art_chunks {
-        vdp.write_vram(*vram_byte_addr, art_bytes);
-    }
-
-    vdp
 }
 
 #[allow(non_snake_case)]

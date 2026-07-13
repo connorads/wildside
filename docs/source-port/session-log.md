@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 IntroSequence6 loc_1B45A phases)
+
+- Frame 28294 exposed a collapsed `sub_1B43A -> loc_1B45A` tail. Native now
+  distinguishes the first `loc_1B470` blackout with the striped plane, the
+  second blackout after `sub_1B532`, the `loc_1B494` palette-restored state,
+  and the later completed `Load_TitleArt` upload on every lineage.
+- Published frames 28288..28316 and 21115..21135 are pixel-exact. The complete
+  route gains 39 exact frames and removes 2,538,454 changed pixel instances:
+  16,616 exact, 21,143 divergent, and 233,328,336 changed pixel instances. All
+  gameplay, enemy, and post-`Init_RNG` frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 6209 is the next
+  near-full-screen mismatch at 71,520 pixels. NEXT: keep #406 open and trace
+  that visual frontier.
+
 ## 2026-07-13 handoff (#406 manual title-return variants)
 
 - Frame 22607 is the first manual-demo title return whose `sub_1C246 ->
