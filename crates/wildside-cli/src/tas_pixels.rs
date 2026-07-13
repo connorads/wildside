@@ -202,8 +202,9 @@ pub(crate) fn compare_tas_pixels(
             let Some(label) = requested.get(&frame_index) else {
                 return Ok(());
             };
-            if trace.current_level.0 != current_level {
-                current_level = trace.current_level.0;
+            let render_level = runtime.source_port_render_level().0;
+            if render_level != current_level {
+                current_level = render_level;
                 level_visuals = load_session_assets(manifest, current_level)?.0;
             }
             let native_rgb =

@@ -3710,8 +3710,9 @@ mod chunk_09 {
         };
         let mut frame_1774 = None;
         let mut frame_1779 = None;
+        let mut frame_1793 = None;
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(1_780) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_794) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             if frame_index == 1_774 {
                 frame_1774 = Some((
@@ -3722,6 +3723,10 @@ mod chunk_09 {
                     trace.kid_y_pos,
                     trace.camera_x_pos,
                     trace.camera_y_pos,
+                    trace.teleport_warp_colour,
+                    trace.level_entry_fade_progress_sub_73d0,
+                    runtime.source_port_render_level(),
+                    runtime.vdp_state().is_none(),
                 ));
             }
             if frame_index == 1_779 {
@@ -3733,7 +3738,16 @@ mod chunk_09 {
                     trace.kid_y_pos,
                     trace.camera_x_pos,
                     trace.camera_y_pos,
+                    trace.teleport_warp_colour,
+                    trace.level_entry_fade_progress_sub_73d0,
+                    runtime.source_port_render_level(),
+                    runtime.vdp_state().is_none(),
                 ));
+            }
+            if frame_index == 1_793 {
+                frame_1793 = runtime
+                    .vdp_state()
+                    .map(|vdp| (vdp.cram[0..2].to_vec(), runtime.source_port_render_level()));
                 break;
             }
         }
@@ -3746,14 +3760,27 @@ mod chunk_09 {
             Some(0x00CF_0000),
             0x00EA_0000,
             0x002C_0000,
+            0x082A,
+            Some(0x0100),
+            LevelId(0x1B),
+            true,
         ));
         assert_eq!(
             frame_1774, expected,
             "the first title frame after demo abort should still expose the live demo snapshot"
         );
         assert_eq!(
-            frame_1779, expected,
-            "the live demo snapshot should stay frozen across the early post-abort title frames"
+            frame_1779,
+            expected.map(|mut snapshot| {
+                snapshot.8 = Some(0x00E0);
+                snapshot
+            }),
+            "ASM loc_119D8 -> Pal_FadeOut should retain the demo scene and advance the `$082A` palette fade across early title frames"
+        );
+        assert_eq!(
+            frame_1793,
+            Some((vec![0x08, 0x2A], LevelId(0x00))),
+            "ASM Pal_FadeOut -> loc_6E2 should replace the gameplay scene with a solid `$082A` VDP after the fade tail"
         );
     }
 

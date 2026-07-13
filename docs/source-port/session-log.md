@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 manual demo-return rendering)
+
+- ASM `loc_119D8` changes mode and level before `Pal_FadeOut` finishes with
+  the resident gameplay planes. Native now keeps the demo level's render
+  assets, applies the ROM `$082A` palette blend with its observed VBlank
+  phase, presents the cleared-VRAM solid fill, then reveals the rebuilt title
+  on local frame 57. `Game_Paused` can remain set, but the render view suppresses
+  the pause menu because synchronous `Pal_FadeOut`, not `Mode_Level`, owns the
+  display. Core and renderer regressions pin both hand-offs.
+- The focused frames 1836..1894 now contain 38 exact frames; the solid `$082A`
+  window is byte-exact. The full route improves by 148 exact frames and
+  14,893,530 changed pixel instances: 13,272 exact, 24,487 divergent, and
+  587,116,713 changed pixel instances. CRC, typed gameplay, enemy roster, and
+  all 37,743 post-`Init_RNG` states remain exact.
+- Frame 39 remains the first mismatch at 2,643 pixels. Frame 4973 is the next
+  worst mismatch at all 71,680 pixels. NEXT: keep #406 open and trace frame
+  3133's transition against ASM and oracle.
+
 ## 2026-07-13 handoff (#406 full TAS source-port pixel frontier)
 
 - `verify-tas --compare-pixels` replays native rendering through the same

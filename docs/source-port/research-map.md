@@ -31,11 +31,15 @@ ring bytes on every one of the remaining 37,743 frames. Every compared frame
 matches exactly. This is complete per-frame RNG and per-frame exported-state
 evidence for this route, not whole-state, audio, every-input, or whole-game proof.
 The `source_port_visible_rgb24_v1` pass renders one bounded-memory native frame
-for every oracle PNG: 13,124/37,759 frames match exactly and 24,635 differ, with
-602,010,243 changed pixel instances. The first mismatch is frame 39 (2,643
-pixels); frame 1837 differs in all 71,680 pixels because native presents the
-title menu while oracle still presents gameplay after the 0x1B-to-0x00
-transition. #406 owns this measured visual frontier; the four settled-warp
+for every oracle PNG: 13,272/37,759 frames match exactly and 24,487 differ, with
+587,116,713 changed pixel instances. The first mismatch is frame 39 (2,643
+pixels); frame 4973 is the next all-screen mismatch at 71,680 pixels. #406's
+first engine-level correction models manual demo return through ASM
+`loc_119D8 -> Pal_FadeOut -> loc_6E2`: the resident gameplay scene fades to
+CRAM `$082A`, holds the cleared-VRAM fill, then reveals the rebuilt title. It
+makes 148 additional route frames exact, suppresses the pause renderer while
+synchronous `Pal_FadeOut` owns the display, and removes 14,893,530 changed
+pixel instances. #406 owns this measured visual frontier; the four settled-warp
 source-port visual-gate checkpoints remain exact.
 
 The latest confidence correction promotes the full published-route state gate

@@ -5797,6 +5797,33 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) fn demo_title_palette_fade_progress_loc_28c6(&self) -> Option<u16> {
+        if !matches!(
+            self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::ManualDemoReturn)
+        ) || self.title_screen_elapsed_frames >= DEMO_TITLE_PALETTE_FADE_SCENE_FRAMES_LOC_28C6
+        {
+            return None;
+        }
+
+        // ASM loc_119D8 writes `$082A` to FBCC before loc_6E2 enters
+        // Pal_FadeOut. The call crosses three VBlank presentation boundaries
+        // before loc_28C6's first `$10` subtraction is visible, then presents
+        // one descending blend step per frame until loc_6E2 clears VRAM.
+        Some(0x0100u16.saturating_sub(
+            (self.title_screen_elapsed_frames.saturating_sub(3) as u16).saturating_mul(0x10),
+        ))
+    }
+
+    pub(crate) fn demo_title_solid_fill_active_loc_6e2(&self) -> bool {
+        matches!(
+            self.title_screen_intro_return_lineage,
+            Some(TitleScreenIntroReturnLineage::ManualDemoReturn)
+        ) && (DEMO_TITLE_PALETTE_FADE_SCENE_FRAMES_LOC_28C6
+            ..DEMO_TITLE_SOLID_FILL_END_ELAPSED_LOC_6E2)
+            .contains(&self.title_screen_elapsed_frames)
+    }
+
     fn begin_demo_play(&mut self, use_demo_2: bool) {
         let timeout_restart_demo_bootstrap = self.timeout_restart_title_intro_sequence_3_pose;
         let start_skip_intro_return_camera_wrap =
@@ -5944,6 +5971,7 @@ impl NativeRuntime {
     pub(crate) fn finish_demo_title_return(&mut self, input: FrameInput) {
         let intro_sequence_6_early_title_restore =
             self.demo_uses_intro_sequence_6_early_title_restore;
+        let demo_title_visual_level = self.current_level;
         // ASM loc_119D8 writes Game_Mode=$2C only after Mode_Level has exposed
         // the terminal controller-side sample. Freeze those top-level counts,
         // including loc_119D8's own linked Object/Gfx pair, rather than
@@ -5967,6 +5995,7 @@ impl NativeRuntime {
         self.paused = frozen_counts != (12, 12);
         self.pause_toggle_pending = false;
         self.preserve_demo_title_snapshot = true;
+        self.demo_title_visual_level = Some(demo_title_visual_level);
         self.demo_title_snapshot_object_counts = Some(frozen_counts);
         self.hide_demo_return_title_player = true;
         self.next_demo_uses_demo_title_return_camera_wrap = true;
@@ -6111,6 +6140,7 @@ impl NativeRuntime {
 
     fn finish_demo_title_snapshot_handoff(&mut self) {
         self.preserve_demo_title_snapshot = false;
+        self.demo_title_visual_level = None;
         self.demo_title_snapshot_object_counts = None;
         self.opening_slice = None;
         self.active_enemies.clear();

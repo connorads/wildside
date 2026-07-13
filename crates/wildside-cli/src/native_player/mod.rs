@@ -974,9 +974,10 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
 
         // Trigger BGM before stepping audio so title/level transitions do not
         // emit one more frame of stale music.
-        let level_changed = trace.current_level.0 != current_level_id;
+        let render_level = runtime.source_port_render_level();
+        let level_changed = render_level.0 != current_level_id;
         if level_changed {
-            let new_level = trace.current_level.0;
+            let new_level = render_level.0;
             match load_level_change_session_assets(manifest, LevelId(new_level)) {
                 Ok((resolved_level, new_assets)) => {
                     apply_live_level_change_session_assets(
@@ -995,8 +996,10 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                     );
                 }
             }
-            fade_alpha = 255;
-            fading_in = true;
+            if trace.game_mode != GameMode::TitleScreen {
+                fade_alpha = 255;
+                fading_in = true;
+            }
             if should_start_native_level_card_overlay_for_level_change(
                 &trace,
                 options.warp_level,

@@ -213,6 +213,14 @@ pub(crate) const INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES: usize = 41;
 // few frames later when the title objects fully take over.
 pub(crate) const DEMO_TITLE_FULL_SNAPSHOT_FRAMES: usize = 28;
 pub(crate) const DEMO_TITLE_PARTIAL_SNAPSHOT_FRAMES: usize = 32;
+/// ASM loc_119D8 -> Pal_FadeOut loc_28C6 presents the resident gameplay image
+/// for 19 local title frames: four `$0100` presentation boundaries followed
+/// by the 15 visible descending `$10` blend steps before VRAM is cleared.
+pub(crate) const DEMO_TITLE_PALETTE_FADE_SCENE_FRAMES_LOC_28C6: usize = 19;
+/// ASM Pal_FadeOut -> loc_6E2 clears VRAM after the fade. Oracle keeps the
+/// `$082A` background colour visible through local frame 56 and presents the
+/// first rebuilt title image on local frame 57.
+pub(crate) const DEMO_TITLE_SOLID_FILL_END_ELAPSED_LOC_6E2: usize = 57;
 // The ROM auto-timeout branch keeps the frozen gameplay snapshot alive one
 // title frame longer than the manual Start-abort helper before Kid blanks,
 // then clears camera/progression one frame later as well.

@@ -8337,11 +8337,13 @@ impl NativeRuntime {
             // level-skip path under LevelSkipHold; the no-card Teleport
             // (Load_InGame, loc_BCF6) runs it under InGame while the entry fade
             // is still in progress (`!allow_pausing`).
-            teleport_warp_colour: if matches!(
+            teleport_warp_colour: if self.demo_title_palette_fade_progress_loc_28c6().is_some() {
+                // ASM loc_119D8 writes `$082A` to FBCC before Pal_FadeOut.
+                0x082A
+            } else if matches!(
                 self.boot_state,
                 BootState::StartingLevel { .. } | BootState::LevelSkipHold
-            ) || (matches!(self.boot_state, BootState::InGame)
-                && !self.allow_pausing)
+            ) || (matches!(self.boot_state, BootState::InGame) && !self.allow_pausing)
             {
                 self.teleport_warp_colour_fbcc
             } else {
@@ -8349,6 +8351,7 @@ impl NativeRuntime {
             },
             level_entry_fade_progress_sub_73d0: self
                 .title_card_live_handoff_palette_fade_progress_sub_73d0()
+                .or_else(|| self.demo_title_palette_fade_progress_loc_28c6())
                 .or_else(|| {
                     (matches!(self.boot_state, BootState::InGame) && !self.allow_pausing)
                         .then_some(self.level_entry_fade_progress_sub_73d0)

@@ -766,6 +766,9 @@ pub struct NativeRuntime {
     /// immediately; oracle traces keep exposing the live gameplay snapshot
     /// under title mode until later title objects take over.
     preserve_demo_title_snapshot: bool,
+    /// Level whose gameplay VDP image remains resident while manual demo
+    /// return runs Pal_FadeOut before loc_6E2 clears VRAM.
+    demo_title_visual_level: Option<LevelId>,
     demo_title_snapshot_object_counts: Option<(u16, u16)>,
     /// The timeout-restart intro-sequence-3 return reaches title mode before
     /// the standard title pose appears; oracle traces keep the last intro pose
@@ -1426,6 +1429,7 @@ impl NativeRuntime {
             timeout_restart_title_intro_sequence_5_return_pending: false,
             timeout_restart_title_intro_sequence_5_particle_roster: false,
             preserve_demo_title_snapshot: false,
+            demo_title_visual_level: None,
             demo_title_snapshot_object_counts: None,
             timeout_restart_title_intro_sequence_3_pose: false,
             timeout_restart_title_intro_sequence_4_camera_carry: false,
@@ -1865,6 +1869,17 @@ impl NativeRuntime {
             .map(|slice| (slice.player.x_pos, slice.player.y_pos))
     }
 
+    /// Level assets backing the source-port renderer's currently presented
+    /// image. ASM loc_119D8 changes `Current_LevelID` to zero before
+    /// Pal_FadeOut has finished presenting the demo gameplay planes.
+    pub fn source_port_render_level(&self) -> LevelId {
+        if self.demo_title_palette_fade_progress_loc_28c6().is_some() {
+            self.demo_title_visual_level.unwrap_or(self.current_level)
+        } else {
+            self.current_level
+        }
+    }
+
     /// Rebuild VDP state based on the current boot phase.
     /// Called once per frame after `step_boot_state`.
     fn update_vdp_state(&mut self) {
@@ -1883,6 +1898,16 @@ impl NativeRuntime {
                     // stale title shell.
                     vdp::build_sega_screen_vdp(data, self.title_screen_elapsed_frames)
                 })
+            }
+            BootState::TitleScreen { .. }
+                if self.demo_title_palette_fade_progress_loc_28c6().is_some() =>
+            {
+                // ASM loc_119D8 -> Pal_FadeOut keeps the gameplay planes and
+                // sprites resident while CRAM fades towards `$082A`.
+                None
+            }
+            BootState::TitleScreen { .. } if self.demo_title_solid_fill_active_loc_6e2() => {
+                Some(vdp::solid_colour_vdp_state(0x082A))
             }
             BootState::IntroSequence {
                 segment, elapsed, ..

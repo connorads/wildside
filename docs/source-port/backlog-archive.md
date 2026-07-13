@@ -11,6 +11,27 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #406
+
+Progress 2026-07-13: the first full-route worst frame was a render hand-off,
+not gameplay drift. ASM `loc_119D8` writes `Game_Mode=$2C`, clears
+`Current_LevelID`, and writes `$082A` to FBCC before `loc_6E2` calls
+`Pal_FadeOut`. Oracle retains the final demo gameplay planes while CRAM fades,
+then shows a solid `$082A` cleared-VRAM frame through local title frame 56 and
+reveals the rebuilt title on frame 57. Native instead selected its title scene
+as soon as the typed mode changed.
+
+The source port now carries the demo level as an explicit render asset source
+through the fade, reuses the ROM `sub_14C0` palette blend, and builds a solid
+VDP state for the VRAM-clear hold. When `Game_Paused` remains set on the Start
+edge, the render view suppresses the pause menu because synchronous
+`Pal_FadeOut`, not `Mode_Level`, owns the display. The focused frames
+1836..1894 contain 38 byte-exact frames. Full verification keeps all 37,759
+CRC, typed gameplay, and enemy-frontier frames plus all 37,743 post-`Init_RNG`
+frames exact. Pixel evidence improves from 13,124 to 13,272 exact frames and
+from 602,010,243 to 587,116,713 changed pixel instances. The next all-screen
+frontier is frame 4973, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

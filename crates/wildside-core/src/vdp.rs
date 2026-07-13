@@ -138,6 +138,14 @@ pub(crate) fn blank_vdp_state() -> VdpState {
     VdpState::new()
 }
 
+pub(crate) fn solid_colour_vdp_state(colour_word: u16) -> VdpState {
+    let mut vdp = VdpState::new();
+    // ASM loc_119D8 -> Pal_FadeOut -> loc_6E2 leaves CRAM filled with FBCC's
+    // `$082A` while the following VRAM/title rebuild is still hidden.
+    vdp.write_cram_words(0, &[colour_word]);
+    vdp
+}
+
 /// Cached Sega screen art and palette data, loaded once from the asset bundle
 /// and reused across frames (only the palette changes during the fade).
 #[derive(Debug, Clone)]

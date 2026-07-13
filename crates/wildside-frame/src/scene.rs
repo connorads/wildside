@@ -1027,6 +1027,21 @@ pub fn render_trace_with_vdp_latched_state(
     previous_trace: Option<&NativeTraceFrame>,
 ) -> NativeTraceFrame {
     let mut render_trace = trace.clone();
+    if trace.game_mode == GameMode::TitleScreen
+        && trace.teleport_warp_colour == 0x082A
+        && trace.level_entry_fade_progress_sub_73d0.is_some()
+    {
+        // ASM loc_119D8 writes Game_Mode=$2C and Current_LevelID=0 before
+        // Pal_FadeOut loc_28C6 has finished presenting the resident gameplay
+        // planes. Select the gameplay scene while retaining current frozen
+        // snapshot state and the ROM palette-fade render command.
+        render_trace.game_mode = GameMode::DemoPlay;
+        render_trace.game_mode_value = GameMode::DemoPlay.as_disassembly_value();
+        // ASM loc_119D8 can leave Game_Paused set on the Start edge, but
+        // loc_6E2 is blocked inside synchronous Pal_FadeOut rather than
+        // returning to Mode_Level's loc_67E4 pause-menu renderer.
+        render_trace.paused = false;
+    }
     if matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
         && trace.level_complete
         && trace.level_complete_elapsed_frames == 0
@@ -8214,6 +8229,28 @@ mod tests {
         PlatformVisuals, PlayerFormVisuals, PlayerVisuals, SpecialEffectUnknownVisuals,
         SpriteFrame, Tile, TileQuad, WeatherVisuals,
     };
+
+    #[test]
+    fn manual_demo_return_renders_resident_gameplay_during_pal_fade_loc_119d8_28c6() {
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::TitleScreen,
+            game_mode_value: GameMode::TitleScreen.as_disassembly_value(),
+            paused: true,
+            teleport_warp_colour: 0x082A,
+            level_entry_fade_progress_sub_73d0: Some(0x00E0),
+            ..NativeTraceFrame::default()
+        };
+
+        let render_trace = render_trace_with_vdp_latched_state(&trace, None);
+
+        assert_eq!(render_trace.game_mode, GameMode::DemoPlay);
+        assert!(!render_trace.paused);
+        assert_eq!(render_trace.teleport_warp_colour, 0x082A);
+        assert_eq!(
+            render_trace.level_entry_fade_progress_sub_73d0,
+            Some(0x00E0)
+        );
+    }
 
     #[test]
     fn title_card_glyph_tiles_follow_loc_1ac70_sprite_table_and_bounds() {
