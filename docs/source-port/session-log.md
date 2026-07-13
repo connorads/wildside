@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 demo-timeout fade and verifier grid latch)
+
+- Frame 12142 mixed an outgoing Level 0x1B fade with Level 0's already-loaded
+  grid, while native's ReadJoypad auto-timeout palette clock was one step
+  ahead. The verifier now pairs cross-mode render art with its own static grid
+  while retaining the live mutable runtime grid during normal gameplay; the
+  timeout path presents the final `$0010` `loc_28C6` step on frame 12151.
+- Focused frame 12142 falls from 64,859 to 4,068 changed pixels. Full-route
+  changed pixels fall by 2,849,041 to 134,964,248; exact/mismatch frames remain
+  21,336/16,423 because residual scene details remain. All state channels stay
+  exact.
+- Frame 39 remains first at 2,643 pixels. Frame 16274 is the new worst at
+  59,062 pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 title-to-demo resident fades)
 
 - Frame 837 exposed `Obj_TitleMenu loc_1BB02 -> loc_6E2 -> Pal_FadeOut`.

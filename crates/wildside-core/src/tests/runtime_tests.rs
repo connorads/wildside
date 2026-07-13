@@ -337,6 +337,38 @@ fn published_tas_title_to_demo_replays_loc_28c6_resident_fade() {
 }
 
 #[test]
+fn published_tas_demo_timeout_return_keeps_outgoing_render_level_through_loc_28c6() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut samples = Vec::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(12_153) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if matches!(frame_index, 12_133 | 12_142 | 12_151 | 12_152) {
+            samples.push((
+                frame_index,
+                runtime.source_port_render_level(),
+                runtime.demo_title_palette_fade_progress_loc_28c6(),
+            ));
+        }
+    }
+
+    // ASM demo timeout ReadJoypad loc_C0A -> loc_6E2 retains the outgoing
+    // Knights Isle planes through Pal_FadeOut even though Current_LevelID has
+    // already been reset to zero for the following title/intro shell.
+    assert_eq!(
+        samples,
+        vec![
+            (12_133, LevelId(0x1B), Some(0x0100)),
+            (12_142, LevelId(0x1B), Some(0x00A0)),
+            (12_151, LevelId(0x1B), Some(0x0010)),
+            (12_152, LevelId(0x00), None),
+        ]
+    );
+}
+
+#[test]
 fn cold_boot_intro_sequence_6_enters_demo_play_on_frame_3270() {
     let mut runtime = NativeRuntime::new(manifest());
     let mut frame_3269 = None;

@@ -12,7 +12,7 @@ use crate::oracle::{OracleFrame, OracleManifest};
 use crate::scenarios::{
     DynamicScenario, NativeDynamicRunOptions, try_for_each_native_dynamic_frame,
 };
-use wildside_core::{NativeRuntime, NativeTraceFrame};
+use wildside_core::{NativeRuntime, NativeTraceFrame, terrain::BlockGrid};
 use wildside_data::AssetManifest;
 use wildside_render::NativeLevelVisuals;
 
@@ -191,7 +191,8 @@ pub(crate) fn compare_tas_pixels(
     }
 
     let mut current_level = scenario.warp_to_level.unwrap_or(0);
-    let (mut level_visuals, _) = load_session_assets(manifest, current_level)?;
+    let (mut level_visuals, mut render_level_block_grid) =
+        load_session_assets(manifest, current_level)?;
     let mut accumulator = PixelComparisonAccumulator::default();
     let mut native_frames = 0usize;
     try_for_each_native_dynamic_frame(
@@ -205,10 +206,26 @@ pub(crate) fn compare_tas_pixels(
             let render_level = runtime.source_port_render_level().0;
             if render_level != current_level {
                 current_level = render_level;
-                level_visuals = load_session_assets(manifest, current_level)?.0;
+                (level_visuals, render_level_block_grid) =
+                    load_session_assets(manifest, current_level)?;
             }
-            let native_rgb =
-                render_source_port_frame(runtime, previous_trace, trace, &level_visuals);
+            // ASM loc_119D8 / ReadJoypad loc_C0A reset Current_LevelID before
+            // loc_6E2 finishes fading the outgoing demo planes. In that
+            // window, pair the latched render level's art with its own layout;
+            // normal gameplay still uses runtime.block_grid() so live block
+            // mutations remain visible to the verifier.
+            let block_grid = if render_level == trace.current_level.0 {
+                runtime.block_grid()
+            } else {
+                Some(&render_level_block_grid)
+            };
+            let native_rgb = render_source_port_frame(
+                runtime,
+                previous_trace,
+                trace,
+                &level_visuals,
+                block_grid,
+            );
             let oracle_frame = oracle_frames
                 .get(&frame_index)
                 .expect("missing oracle frames rejected before replay");
@@ -264,6 +281,7 @@ fn render_source_port_frame(
     previous_trace: &NativeTraceFrame,
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
+    block_grid: Option<&BlockGrid>,
 ) -> Vec<u8> {
     let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
     let render_trace = render_trace_with_vdp_latched_state(trace, Some(previous_trace));
@@ -271,12 +289,7 @@ fn render_source_port_frame(
         render_native_vdp_rgb(vdp, &mut rgb);
         render_vdp_trace_overlay(&render_trace, level_visuals, &mut rgb);
     } else {
-        let scene = build_scene(
-            &render_trace,
-            false,
-            Some(level_visuals),
-            runtime.block_grid(),
-        );
+        let scene = build_scene(&render_trace, false, Some(level_visuals), block_grid);
         render_scene(&scene, &mut rgb);
     }
     rgb

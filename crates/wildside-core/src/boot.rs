@@ -5820,20 +5820,25 @@ impl NativeRuntime {
             self.title_screen_intro_return_lineage,
             Some(TitleScreenIntroReturnLineage::ManualDemoReturn)
         );
-        if !(manual_demo_return || self.demo_auto_timeout_handoff_active)
-            || self.title_screen_elapsed_frames >= DEMO_TITLE_PALETTE_FADE_SCENE_FRAMES_LOC_28C6
-        {
+        if !(manual_demo_return || self.demo_auto_timeout_handoff_active) {
+            return None;
+        }
+        let fade_elapsed = self
+            .title_screen_elapsed_frames
+            .saturating_sub(usize::from(self.demo_auto_timeout_handoff_active));
+        if fade_elapsed >= DEMO_TITLE_PALETTE_FADE_SCENE_FRAMES_LOC_28C6 {
             return None;
         }
 
         // ASM manual return loc_119D8 and timeout return loc_C0A write `$082A`
         // to FBCC before loc_6E2 enters Pal_FadeOut. The call crosses three
         // VBlank presentation boundaries before loc_28C6's first `$10`
-        // subtraction is visible, then presents one descending blend step per
-        // frame until loc_6E2 clears VRAM.
-        Some(0x0100u16.saturating_sub(
-            (self.title_screen_elapsed_frames.saturating_sub(3) as u16).saturating_mul(0x10),
-        ))
+        // subtraction is visible. ReadJoypad's replayed auto-timeout handoff
+        // has already incremented the typed title elapsed counter on its mode
+        // switch frame, so its visible fade clock is one frame behind that
+        // counter. Both paths then present one descending blend step per frame
+        // until loc_6E2 clears VRAM.
+        Some(0x0100u16.saturating_sub((fade_elapsed.saturating_sub(3) as u16).saturating_mul(0x10)))
     }
 
     pub(crate) fn demo_title_solid_fill_active_loc_6e2(&self) -> bool {

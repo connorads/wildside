@@ -334,6 +334,26 @@ instances. Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG`
 frames remain exact. Frame 39 remains first at 2,643 pixels; frame 12142 is the
 new worst at 64,297 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 12142 is inside the demo auto-timeout return through
+`ReadJoypad loc_C0A -> loc_6E2 -> Pal_FadeOut loc_28C6`. The typed runtime
+correctly retained Level 0x1B as the render level, but the full pixel verifier
+paired its art with `runtime.block_grid()` after Current_LevelID had already
+reloaded Level 0. Native's replayed ReadJoypad handoff also advanced the fade
+one presentation boundary early, dropping the outgoing scene before oracle's
+final `$0010` step on frame 12151.
+
+The verifier now uses the latched render level's static grid only when render
+level and current gameplay level differ, retaining the live mutable grid for
+ordinary gameplay. Native subtracts the already-consumed timeout handoff frame
+from the visible fade clock. Regression
+`published_tas_demo_timeout_return_keeps_outgoing_render_level_through_loc_28c6`
+pins Level 0x1B and `$0100/$00A0/$0010` through the clear boundary. Focused
+frame 12142 falls from 64,859 to 4,068 changed pixels. The complete route keeps
+21,336 exact and 16,423 divergent frames but removes 2,849,041 changed pixel
+instances, reaching 134,964,248. Gameplay, enemy, player/camera CRC, and all
+37,743 post-`Init_RNG` frames remain exact. Frame 16274 is the new worst at
+59,062 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.
