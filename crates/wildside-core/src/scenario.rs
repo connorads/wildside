@@ -642,6 +642,37 @@ impl ScriptRunner {
         (trace, vdp_snapshots)
     }
 
+    /// Replay a scenario while visiting each frame without retaining the
+    /// complete trace or cloning each frame's VDP memory.
+    ///
+    /// The visitor receives the scenario-relative index, the post-step
+    /// runtime, the pre-step trace used by the renderer's VDP latch, and the
+    /// post-step trace. Returning an error stops the replay immediately.
+    pub fn try_for_each_frame<E, F>(
+        self,
+        script: &[u8],
+        frame_count: usize,
+        mut visitor: F,
+    ) -> Result<(), E>
+    where
+        F: FnMut(usize, &NativeRuntime, &NativeTraceFrame, &NativeTraceFrame) -> Result<(), E>,
+    {
+        let (mut runtime, delay_recording_input, mut restore_title_card_handoff) =
+            self.into_runtime();
+        for frame_index in 0..frame_count {
+            let previous_trace = runtime.trace_frame();
+            let input = script_frame_input(script, frame_index, delay_recording_input);
+            let trace = runtime.step_frame(input);
+            restore_recorded_title_card_handoff_if_needed(
+                &mut runtime,
+                &mut restore_title_card_handoff,
+                trace.game_mode,
+            );
+            visitor(frame_index, &runtime, &previous_trace, &trace)?;
+        }
+        Ok(())
+    }
+
     fn run_inner(
         self,
         script: &[u8],
@@ -652,6 +683,38 @@ impl ScriptRunner {
         Vec<NativeTraceFrame>,
         Vec<Option<vdp::VdpState>>,
     ) {
+        let (mut runtime, delay_recording_input, mut restore_title_card_handoff) =
+            self.into_runtime();
+        // ASM Mode_Level loc_901 presents this already-built sprite/scroll/HUD
+        // state before the first scenario step produces its post-update trace.
+        let initial_render_latch = runtime.trace_frame();
+        let mut trace = Vec::with_capacity(frame_count);
+        let mut vdp_snapshots = if capture_vdp {
+            Vec::with_capacity(frame_count)
+        } else {
+            Vec::new()
+        };
+        for frame_index in 0..frame_count {
+            let input = script_frame_input(script, frame_index, delay_recording_input);
+            let snapshot = runtime.step_frame(input);
+            restore_recorded_title_card_handoff_if_needed(
+                &mut runtime,
+                &mut restore_title_card_handoff,
+                snapshot.game_mode,
+            );
+            trace.push(snapshot);
+            if capture_vdp {
+                // step_frame can early-return before update_vdp_state (lib.rs:2546,
+                // the DemoPlay no-input path), so the captured snapshot then
+                // reflects the prior frame - identical to what play-native
+                // observes, so viewer/player parity holds.
+                vdp_snapshots.push(runtime.vdp_state().cloned());
+            }
+        }
+        (initial_render_latch, trace, vdp_snapshots)
+    }
+
+    fn into_runtime(self) -> (NativeRuntime, bool, bool) {
         let mut runtime = match self.asset_source {
             Some(source) => {
                 NativeRuntime::with_generated_level_layout_with_source(self.assets, source)
@@ -700,50 +763,43 @@ impl ScriptRunner {
         if let Some(count) = self.initial_lives {
             runtime.set_probe_lives_count(count);
         }
-        // ASM Mode_Level loc_901 presents this already-built sprite/scroll/HUD
-        // state before the first scenario step produces its post-update trace.
-        let initial_render_latch = runtime.trace_frame();
         let delay_recording_input = self.settle_warp == Some(SettleWarpMode::RecordingOracle);
-        let mut trace = Vec::with_capacity(frame_count);
-        let mut vdp_snapshots = if capture_vdp {
-            Vec::with_capacity(frame_count)
-        } else {
-            Vec::new()
-        };
-        let mut restore_recorded_title_card_after_first_live =
-            self.restore_recorded_title_card_after_first_live;
-        for frame_index in 0..frame_count {
-            // ASM Mode_Level (kid.asm:877-917) executes objects/player logic
-            // before ReadJoypad, so the settled recording oracle's script byte
-            // for frame N is only visible to gameplay on traced frame N+2.
-            let input_index = if delay_recording_input {
-                frame_index.checked_sub(1)
-            } else {
-                Some(frame_index)
-            };
-            let input = input_index
-                .and_then(|index| script.get(index))
-                .copied()
-                .map(FrameInput::from_mask)
-                .unwrap_or_default();
-            let snapshot = runtime.step_frame(input);
-            if should_restore_recorded_title_card_after_first_live(
-                restore_recorded_title_card_after_first_live,
-                snapshot.game_mode,
-            ) {
-                runtime.set_recorded_title_card_handoff_delay(true);
-                restore_recorded_title_card_after_first_live = false;
-            }
-            trace.push(snapshot);
-            if capture_vdp {
-                // step_frame can early-return before update_vdp_state (lib.rs:2546,
-                // the DemoPlay no-input path), so the captured snapshot then
-                // reflects the prior frame — identical to what play-native
-                // observes, so viewer/player parity holds.
-                vdp_snapshots.push(runtime.vdp_state().cloned());
-            }
-        }
-        (initial_render_latch, trace, vdp_snapshots)
+        (
+            runtime,
+            delay_recording_input,
+            self.restore_recorded_title_card_after_first_live,
+        )
+    }
+}
+
+fn script_frame_input(
+    script: &[u8],
+    frame_index: usize,
+    delay_recording_input: bool,
+) -> FrameInput {
+    // ASM Mode_Level (kid.asm:877-917) executes objects/player logic before
+    // ReadJoypad, so the settled recording oracle's script byte for frame N is
+    // only visible to gameplay on traced frame N+2.
+    let input_index = if delay_recording_input {
+        frame_index.checked_sub(1)
+    } else {
+        Some(frame_index)
+    };
+    input_index
+        .and_then(|index| script.get(index))
+        .copied()
+        .map(FrameInput::from_mask)
+        .unwrap_or_default()
+}
+
+fn restore_recorded_title_card_handoff_if_needed(
+    runtime: &mut NativeRuntime,
+    restore_title_card_handoff: &mut bool,
+    game_mode: GameMode,
+) {
+    if should_restore_recorded_title_card_after_first_live(*restore_title_card_handoff, game_mode) {
+        runtime.set_recorded_title_card_handoff_delay(true);
+        *restore_title_card_handoff = false;
     }
 }
 
@@ -1251,6 +1307,65 @@ mod tests {
             trace.iter().any(|frame| frame.frame_index != 0),
             "the returned trace must come from live runtime stepping, not a default-frame replacement"
         );
+    }
+
+    #[test]
+    fn try_for_each_frame_streams_aligned_runtime_frames_without_collecting() {
+        let manifest = minimal_manifest();
+        let script = [0, 0, 0];
+        let expected = ScriptRunner::new(manifest.clone()).run(&script, script.len());
+        let mut visited = Vec::new();
+
+        ScriptRunner::new(manifest)
+            .try_for_each_frame(&script, script.len(), |index, runtime, previous, trace| {
+                visited.push((
+                    index,
+                    previous.frame_index,
+                    trace.frame_index,
+                    runtime.trace_frame().authoritative_crc32(),
+                    trace.authoritative_crc32(),
+                ));
+                Ok::<_, std::convert::Infallible>(())
+            })
+            .expect("stream frames");
+
+        assert_eq!(visited.len(), script.len());
+        assert_eq!(
+            visited
+                .iter()
+                .map(|(_, _, _, _, trace_crc)| *trace_crc)
+                .collect::<Vec<_>>(),
+            expected
+                .iter()
+                .map(NativeTraceFrame::authoritative_crc32)
+                .collect::<Vec<_>>(),
+            "streaming replay must preserve ScriptRunner::run frame semantics"
+        );
+        assert!(
+            visited
+                .iter()
+                .enumerate()
+                .all(|(expected, (actual, _, _, runtime_crc, trace_crc))| {
+                    expected == *actual && runtime_crc == trace_crc
+                }),
+            "the visitor must receive every post-step runtime frame in script order"
+        );
+    }
+
+    #[test]
+    fn try_for_each_frame_stops_on_visitor_error() {
+        let manifest = minimal_manifest();
+        let mut visited = Vec::new();
+
+        let error = ScriptRunner::new(manifest)
+            .try_for_each_frame(&[0; 4], 4, |index, _, _, _| {
+                visited.push(index);
+                if index == 1 { Err("stop") } else { Ok(()) }
+            })
+            .expect_err("visitor failure must stop the replay");
+
+        assert_eq!(error, "stop");
+        assert_eq!(visited, [0, 1]);
     }
 
     #[test]

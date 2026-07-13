@@ -24,15 +24,19 @@ lives, Murder Wall X, velocity, and `Two_player_flag`; the typed comparator chec
 those exported gameplay fields that both engines model, including
 `Two_player_flag` after #404.
 
-`verify-tas-full` fails on any projection mismatch, incomplete CRC or RNG stream,
-projection-contract change, or typed-state/enemy baseline change. Typed RNG
+`verify-tas-full` fails on any projection mismatch, incomplete CRC, RNG, or RGB24
+stream, projection-contract change, or typed-state/enemy/pixel baseline change. Typed RNG
 comparison starts after `Init_RNG` at frame 16 and checks the offset plus all 55
 ring bytes on every one of the remaining 37,743 frames. Every compared frame
 matches exactly. This is complete per-frame RNG and per-frame exported-state
-evidence for this route, not whole-state, pixel, audio, every-input, or whole-game
-proof. The full TAS run writes oracle PNGs but does not render and compare a
-native PNG for every route frame; only the separate named visual gates prove
-exact pixels at their stated checkpoints.
+evidence for this route, not whole-state, audio, every-input, or whole-game proof.
+The `source_port_visible_rgb24_v1` pass renders one bounded-memory native frame
+for every oracle PNG: 13,124/37,759 frames match exactly and 24,635 differ, with
+602,010,243 changed pixel instances. The first mismatch is frame 39 (2,643
+pixels); frame 1837 differs in all 71,680 pixels because native presents the
+title menu while oracle still presents gameplay after the 0x1B-to-0x00
+transition. #406 owns this measured visual frontier; the four settled-warp
+source-port visual-gate checkpoints remain exact.
 
 The latest confidence correction promotes the full published-route state gate
 from every 25th frame to every frame. The checked-in baseline enforces zero

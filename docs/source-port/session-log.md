@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 full TAS source-port pixel frontier)
+
+- `verify-tas --compare-pixels` replays native rendering through the same
+  configured `ScriptRunner` and compares RGB24 buffers against oracle PNGs one
+  frame at a time. It reports explicit requested/native/oracle/compared counts,
+  exact and divergent frames, changed pixels, first/worst evidence, and a stable
+  mismatch digest without retaining VDP snapshots or writing native frame sets.
+- The full 37,759-frame published route completes in 154 seconds: CRC, typed
+  gameplay, enemy roster, and all 37,743 post-`Init_RNG` states remain exact.
+  Pixels are not exact: 13,124 frames match and 24,635 differ, totalling
+  602,010,243 changed pixel instances. First mismatch is frame 39 (2,643
+  pixels); worst is frame 1837 (all 71,680 pixels).
+- Visual inspection shows native frame 1837 presenting the title menu while
+  oracle still presents live gameplay after the 0x1B-to-0x00 transition. The
+  mandatory full TAS gate now ratchets complete RGB24 coverage and this visual
+  baseline. NEXT: #406 traces that transition renderer state against ASM and
+  oracle before changing runtime behaviour.
+
 ## 2026-07-13 handoff (#405 explicit TAS CRC evidence boundary)
 
 - `verify-tas` now reports the named `player_camera_progression_v1` projection,

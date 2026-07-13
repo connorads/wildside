@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use wildside_core::{NativeTraceFrame, PlayerForm, ScriptRunner};
+use wildside_core::{NativeRuntime, NativeTraceFrame, PlayerForm, ScriptRunner};
 use wildside_data::AssetManifest;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -409,6 +409,25 @@ pub(crate) fn run_native_dynamic_scenario_with_vdp(
 )> {
     Ok(configure_script_runner(manifest, scenario, options)?
         .run_with_vdp(&scenario.script, scenario.frame_count))
+}
+
+/// Replay a dynamic scenario through the same configured runner as state
+/// verification while allowing a caller to consume rendered evidence one
+/// frame at a time.
+pub(crate) fn try_for_each_native_dynamic_frame<F>(
+    manifest: AssetManifest,
+    scenario: &DynamicScenario,
+    options: NativeDynamicRunOptions,
+    visitor: F,
+) -> Result<()>
+where
+    F: FnMut(usize, &NativeRuntime, &NativeTraceFrame, &NativeTraceFrame) -> Result<()>,
+{
+    configure_script_runner(manifest, scenario, options)?.try_for_each_frame(
+        &scenario.script,
+        scenario.frame_count,
+        visitor,
+    )
 }
 
 fn configure_script_runner(

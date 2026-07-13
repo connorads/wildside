@@ -310,7 +310,7 @@ slug=any-percent-published
 frontier=tests/tas_frontier.json
 frame=$(jq -r --arg slug "$slug" '"'"'.recordings[$slug].total_frames'"'"' "$frontier")
 checkpoint_interval=$(jq -r --arg slug "$slug" '"'"'.recordings[$slug].full_checkpoint_interval'"'"' "$frontier")
-cargo run --release -q -p wildside-cli -- verify-tas --scenario tests/data/tas/$slug/scenario.json --frame-start 0 --frame-end "$frame" --checkpoint-interval "$checkpoint_interval" --frontier-kind gameplay --include-rng
+cargo run --release -q -p wildside-cli -- verify-tas --scenario tests/data/tas/$slug/scenario.json --frame-start 0 --frame-end "$frame" --checkpoint-interval "$checkpoint_interval" --frontier-kind gameplay --include-rng --compare-pixels
 report=.cache/tas-verify/$slug/report.json
 crc=$(jq -r '"'"'.first_crc_mismatch // empty'"'"' "$report")
 requested_crc_frames=$(jq -r '"'"'.crc_frame_counts.requested'"'"' "$report")
@@ -334,6 +334,14 @@ expected_rng_frames=$(jq -cS --arg slug "$slug" '"'"'.recordings[$slug].full_exp
 rng_requested_frames=$(jq -r '"'"'.rng_frame_comparison.frame_counts.requested'"'"' "$report")
 rng_native_frames=$(jq -r '"'"'.rng_frame_comparison.frame_counts.native'"'"' "$report")
 rng_oracle_frames=$(jq -r '"'"'.rng_frame_comparison.frame_counts.oracle'"'"' "$report")
+pixel_projection=$(jq -r '"'"'.pixel_comparison.projection // empty'"'"' "$report")
+pixel_proves_range=$(jq -r '"'"'.pixel_comparison.proves_every_frame_in_range | tostring'"'"' "$report")
+pixel_requested_frames=$(jq -r '"'"'.pixel_comparison.frame_counts.requested // 0'"'"' "$report")
+pixel_native_frames=$(jq -r '"'"'.pixel_comparison.frame_counts.native // 0'"'"' "$report")
+pixel_oracle_frames=$(jq -r '"'"'.pixel_comparison.frame_counts.oracle // 0'"'"' "$report")
+pixel_compared_frames=$(jq -r '"'"'.pixel_comparison.frame_counts.compared // 0'"'"' "$report")
+actual_pixels=$(jq -cS '"'"'.pixel_comparison | {exact_match_frames, mismatch_frames, total_changed_pixels, mismatch_digest, first_mismatch: (.first_mismatch | if . == null then null else {frame_index, changed_pixels} end), worst_mismatch: (.worst_mismatch | if . == null then null else {frame_index, changed_pixels} end)}'"'"' "$report")
+expected_pixels=$(jq -cS --arg slug "$slug" '"'"'.recordings[$slug].full_expected_pixel_comparison'"'"' "$frontier")
 if [ -n "$crc" ]; then
   echo "FAIL: full TAS player/camera CRC regressed at frame $crc"
   exit 1
@@ -350,11 +358,15 @@ if [ "$rng_requested_frames" -ne "$frame" ] || [ "$rng_native_frames" -ne "$fram
   echo "FAIL: full TAS per-frame RNG coverage incomplete (requested=$rng_requested_frames native=$rng_native_frames oracle=$rng_oracle_frames expected=$frame)"
   exit 1
 fi
+if [ "$pixel_projection" != "source_port_visible_rgb24_v1" ] || [ "$pixel_proves_range" != "true" ] || [ "$pixel_requested_frames" -ne "$frame" ] || [ "$pixel_native_frames" -ne "$frame" ] || [ "$pixel_oracle_frames" -ne "$frame" ] || [ "$pixel_compared_frames" -ne "$frame" ]; then
+  echo "FAIL: full TAS pixel evidence incomplete or projection changed (projection=$pixel_projection proves_range=$pixel_proves_range requested=$pixel_requested_frames native=$pixel_native_frames oracle=$pixel_oracle_frames compared=$pixel_compared_frames expected=$frame)"
+  exit 1
+fi
 if [ "$enemy_checkpoints" -ne "$frame" ]; then
   echo "FAIL: full TAS enemy-frontier coverage incomplete (actual=$enemy_checkpoints expected=$frame)"
   exit 1
 fi
-if [ "$actual_summary" != "$expected_summary" ] || [ "$actual_first" != "$expected_first" ] || [ "$actual_enemy_summary" != "$expected_enemy_summary" ] || [ "$actual_enemy_first" != "$expected_enemy_first" ] || [ "$actual_rng_digest" != "$expected_rng_digest" ] || [ "$actual_rng_frames" != "$expected_rng_frames" ]; then
+if [ "$actual_summary" != "$expected_summary" ] || [ "$actual_first" != "$expected_first" ] || [ "$actual_enemy_summary" != "$expected_enemy_summary" ] || [ "$actual_enemy_first" != "$expected_enemy_first" ] || [ "$actual_rng_digest" != "$expected_rng_digest" ] || [ "$actual_rng_frames" != "$expected_rng_frames" ] || [ "$actual_pixels" != "$expected_pixels" ]; then
   echo "FAIL: full TAS checkpoint divergence baseline changed"
   echo "  expected summary: $expected_summary"
   echo "  actual summary:   $actual_summary"
@@ -368,9 +380,11 @@ if [ "$actual_summary" != "$expected_summary" ] || [ "$actual_first" != "$expect
   echo "  actual RNG digest:   $actual_rng_digest"
   echo "  expected per-frame RNG: $expected_rng_frames"
   echo "  actual per-frame RNG:   $actual_rng_frames"
+  echo "  expected pixels: $expected_pixels"
+  echo "  actual pixels:   $actual_pixels"
   exit 1
 fi
-echo "Full TAS player/camera CRC: all $frame frames match; typed gameplay state remains clean; no full-route pixel comparison is performed; enemy frontier debt ratcheted ($actual_enemy_summary first=$actual_enemy_first); sampled and per-frame RNG baselines unchanged (rng_digest=$actual_rng_digest per_frame=$actual_rng_frames)"
+echo "Full TAS evidence: all $frame player/camera CRC, typed gameplay, enemy, RNG, and rendered-pixel frames checked; pixel fidelity baseline ratcheted ($actual_pixels)"
 '
 """
 description = "Full any-percent TAS verification — run after gameplay-affecting commits"

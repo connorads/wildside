@@ -509,6 +509,7 @@ pub fn verify_tas(
     checkpoint_interval: Option<usize>,
     frontier_kind: crate::sweep::FrontierKind,
     include_rng: bool,
+    compare_pixels: bool,
 ) -> Result<()> {
     let scenario_json = std::fs::read_to_string(scenario_path)
         .with_context(|| format!("failed to read {}", scenario_path.display()))?;
@@ -612,6 +613,12 @@ pub fn verify_tas(
         None,
         include_rng,
     )?;
+    let pixel_comparison = compare_pixels
+        .then(|| crate::tas_pixels::compare_tas_pixels(manifest, &scenario, &oracle, start, end))
+        .transpose()?;
+    if let Some(comparison) = &pixel_comparison {
+        println!("  pixels: {}", comparison.console_summary());
+    }
 
     // Per-frame player/camera progression CRC (fast divergence detection).
     // This is deliberately not a whole-state or rendered-frame checksum.
@@ -824,6 +831,7 @@ pub fn verify_tas(
         "rng_frame_comparison": rng_frame_report,
         "first_authoritative_diff": first_authoritative_diff,
         "enemy_frontier": enemy_frontier_report,
+        "pixel_comparison": pixel_comparison,
     });
     let report_path = run_dir.join("report.json");
     std::fs::write(&report_path, serde_json::to_vec_pretty(&report)?)?;

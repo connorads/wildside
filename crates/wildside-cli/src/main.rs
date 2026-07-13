@@ -27,6 +27,7 @@ mod scenarios;
 mod sweep;
 mod tas;
 mod tas_diff;
+mod tas_pixels;
 mod verify;
 mod view_tas;
 
@@ -1078,6 +1079,9 @@ enum Commands {
         /// Compare the complete initialised ROM RNG ring and offset at checkpoints
         #[arg(long, default_value_t = false)]
         include_rng: bool,
+        /// Render and compare native/oracle RGB pixels at every requested checkpoint
+        #[arg(long, default_value_t = false)]
+        compare_pixels: bool,
     },
     /// Side-by-side native vs oracle comparison for TAS debugging.
     TasDiff {
@@ -2453,12 +2457,16 @@ fn main() -> Result<()> {
             bisect,
             frontier_kind,
             include_rng,
+            compare_pixels,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             if bisect {
+                if compare_pixels {
+                    bail!("--compare-pixels is not supported with --bisect");
+                }
                 tas::bisect_tas(
                     &repo_root,
                     &rom_path,
@@ -2480,6 +2488,7 @@ fn main() -> Result<()> {
                     checkpoint_interval,
                     frontier_kind,
                     include_rng,
+                    compare_pixels,
                 )?;
             }
         }
