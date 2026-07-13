@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 IntroSequence4 resident fade)
+
+- Frame 9950 exposed `sub_1B988 loc_1B9B6 -> loc_6E2`: mode changed to
+  IntroSequence5 before `Pal_FadeOut` presented the resident IntroSequence4
+  VDP. Native now carries that VDP through the two-frame palette hold and
+  shared 17-frame fade before the IntroSequence5 loader owns presentation.
+- Focused frames 9945..9969 are pixel-exact. Full verification gains 64 exact
+  frames and removes 1,620,220 changed pixel instances: 21,577 exact, 16,182
+  divergent, and 75,285,064 changed pixel instances. All state channels stay
+  exact.
+- Frame 39 remains first at 2,643 pixels. Frame 32007 is the new worst at
+  26,987 pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 resident demo scroll latch)
 
 - Frame 3126 used the exact post-update WRAM camera but shifted the resident

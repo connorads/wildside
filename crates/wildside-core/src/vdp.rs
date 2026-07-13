@@ -815,6 +815,7 @@ const INTRO_SEQUENCE_3_FULL_PALETTE_ELAPSED: usize = 60;
 const INTRO_SEQUENCE_4_PREVIOUS_FADE_OUT_ELAPSED: usize = 17;
 const INTRO_SEQUENCE_4_FADE_IN_START_ELAPSED: usize = 39;
 const INTRO_SEQUENCE_4_FULL_PALETTE_ELAPSED: usize = 55;
+const INTRO_SEQUENCE_5_PREVIOUS_FADE_OUT_ELAPSED: usize = 17;
 const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02: usize = 42 + 0x3C + 18;
 const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_FRAMES_LOC_1BA02: usize = 0x014A;
 
@@ -954,6 +955,30 @@ pub(crate) fn build_intro_sequence_4_handoff_vdp_at_elapsed(
         );
     }
     vdp
+}
+
+pub(crate) fn build_intro_sequence_5_handoff_vdp_at_elapsed(
+    elapsed: usize,
+    resident_intro_sequence_4_vdp: Option<&VdpState>,
+) -> Option<VdpState> {
+    // ASM sub_1B988 loc_1B9B6 -> loc_6E2 first presents and fades the
+    // resident IntroSequence4 VDP. Only after Pal_FadeOut returns does
+    // Load_IntroSequence5 clear VRAM and build loc_1BA28 under black.
+    if elapsed >= INTRO_SEQUENCE_5_PREVIOUS_FADE_OUT_ELAPSED {
+        return None;
+    }
+
+    let mut vdp = resident_intro_sequence_4_vdp
+        .cloned()
+        .unwrap_or_else(blank_vdp_state);
+    if elapsed > 2 {
+        apply_intro_sequence_fade_out_to_black_loc_1c204(
+            &mut vdp,
+            elapsed,
+            INTRO_SEQUENCE_5_PREVIOUS_FADE_OUT_ELAPSED,
+        );
+    }
+    Some(vdp)
 }
 
 fn apply_intro_sequence_1_sub_1c204_palette_fade(

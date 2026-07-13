@@ -429,6 +429,25 @@ frames but removes another 1,554,629 changed pixel instances, reaching
 frames remain exact. Frame 39 remains first at 2,643 pixels; frame 9950 is the
 new worst at 28,772 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 9950 was the mode boundary after IntroSequence4,
+not an early hidden IntroSequence5 frame. ASM `sub_1B988 loc_1B9B6` writes
+`Game_Mode=$24`, sets FBCE, and jumps to `loc_6E2`, whose `Pal_FadeOut` runs
+before VRAM is cleared and `Load_IntroSequence5` builds `loc_1BA28`. Native
+kept the resident hologram-room VDP only on elapsed zero, then rendered black.
+
+Native now snapshots the completed IntroSequence4 VDP at the typed mode
+handoff, holds its CRAM for the first two hibernations, and applies the shared
+17-frame `sub_1C204` fade before handing presentation to IntroSequence5.
+Regression
+`published_tas_intro_sequence_4_to_5_fades_resident_vdp_loc_1b9b6_6e2` pins
+the resident hold, stable VRAM, and first palette step. All focused frames
+9945..9969 are pixel-exact. Full verification gains 64 exact frames and
+removes 1,620,220 changed pixel instances: 21,577 exact, 16,182 divergent,
+and 75,285,064 changed pixel instances. Gameplay, enemy, player/camera CRC,
+and all 37,743 post-`Init_RNG` frames remain exact. Frame 39 remains first at
+2,643 pixels; frame 32007 is the new worst at 26,987 pixels, so #406 remains
+open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

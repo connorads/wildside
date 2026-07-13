@@ -803,6 +803,10 @@ pub struct NativeRuntime {
     /// Resident IntroSequence3 VDP copied across `loc_1B96A -> Game_Mode=$20`
     /// so `loc_6E2` can present Pal_FadeOut before Load_IntroSequence4.
     intro_sequence_4_handoff_vdp_snapshot: Option<vdp::VdpState>,
+    /// Resident IntroSequence4 VDP copied across `sub_1B988 loc_1B9B6 ->
+    /// Game_Mode=$24` so `loc_6E2` can present Pal_FadeOut before
+    /// Load_IntroSequence5 clears VRAM.
+    intro_sequence_5_handoff_vdp_snapshot: Option<vdp::VdpState>,
     /// The later Start-skip intro-return lineage reaches the same
     /// `sub_1C246 -> Game_Mode=$2C` hand-off, but oracle keeps the rebuilt
     /// title pose hidden for one extra frame before the standard title pose
@@ -1469,6 +1473,7 @@ impl NativeRuntime {
             intro_sequence_2_title_return_vdp_snapshot: None,
             intro_sequence_3_handoff_vdp_snapshot: None,
             intro_sequence_4_handoff_vdp_snapshot: None,
+            intro_sequence_5_handoff_vdp_snapshot: None,
             timeout_restart_title_intro_sequence_5_pose: false,
             timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay: false,
             timeout_restart_intro_sequence_4_pose_carry: false,
@@ -1946,6 +1951,19 @@ impl NativeRuntime {
             self.intro_sequence_4_handoff_vdp_snapshot
                 .clone_from(&previous_vdp_state);
         }
+        if matches!(
+            self.boot_state,
+            BootState::IntroSequence {
+                segment: 4,
+                elapsed: 0,
+                ..
+            }
+        ) {
+            // ASM sub_1B988 loc_1B9B6 changes Game_Mode before loc_6E2's
+            // Pal_FadeOut has consumed the resident IntroSequence4 image.
+            self.intro_sequence_5_handoff_vdp_snapshot
+                .clone_from(&previous_vdp_state);
+        }
         self.vdp_state = match &self.boot_state {
             BootState::SegaScreen { elapsed } => self
                 .sega_screen_data
@@ -2012,13 +2030,11 @@ impl NativeRuntime {
                     );
                 }
                 if *segment == 4
-                    && *elapsed == 0
-                    && let Some(vdp) = previous_vdp_state.clone()
+                    && let Some(vdp) = vdp::build_intro_sequence_5_handoff_vdp_at_elapsed(
+                        *elapsed,
+                        self.intro_sequence_5_handoff_vdp_snapshot.as_ref(),
+                    )
                 {
-                    // ASM sub_1B988 writes Game_Mode=$24 and jumps through
-                    // j_loc_6E2; the oracle still displays the final
-                    // intro-sequence-4 VDP on that first trace frame before
-                    // loc_1BA28's hidden sub_1C204 shell goes black.
                     return vdp;
                 }
                 if *segment == 4

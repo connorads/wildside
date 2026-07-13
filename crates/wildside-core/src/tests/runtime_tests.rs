@@ -4694,6 +4694,42 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_intro_sequence_4_to_5_fades_resident_vdp_loc_1b9b6_6e2() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(9_953) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 9_949..=9_952) {
+                samples.push((
+                    frame_index,
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    runtime.vdp_state().cloned(),
+                ));
+            }
+        }
+
+        // ASM sub_1B988 loc_1B9B6 changes Game_Mode to $24 and jumps through
+        // loc_6E2. Pal_FadeOut keeps the completed IntroSequence4 planes and
+        // holds their palette for two more VBlanks before the first fade step.
+        assert_eq!(samples.len(), 4);
+        let resident = samples[0].3.as_ref().expect("frame 9949 resident VDP");
+        assert_eq!(samples[0].1, GameMode::IntroSequence5);
+        assert_eq!(samples[0].2, Some(0));
+        assert_eq!(samples[1].3.as_ref(), Some(resident));
+        assert_eq!(samples[2].3.as_ref(), Some(resident));
+        assert_eq!(samples[3].1, GameMode::IntroSequence5);
+        assert_eq!(samples[3].2, Some(3));
+        let first_fade = samples[3].3.as_ref().expect("frame 9952 first fade VDP");
+        assert_eq!(first_fade.vram, resident.vram);
+        assert_ne!(first_fade.cram, resident.cram);
+        assert!(first_fade.cram.iter().any(|byte| *byte != 0));
+    }
+
+    #[test]
     fn published_tas_intro_sequence_5_waits_for_the_frame_16648_start_press() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
