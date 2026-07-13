@@ -3483,7 +3483,7 @@ impl NativeRuntime {
                     .map_or(demo::DEMO_GAMEPLAY_START_FRAME, |use_demo_2| {
                         self.demo_gameplay_start_frame(use_demo_2)
                     });
-                match self.demo_startup_frame() {
+                let demo_special_kid_path = match self.demo_startup_frame() {
                     Some(frame)
                         if demo_use_demo_2 == Some(false)
                             && (demo_gameplay_start..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
@@ -3492,16 +3492,19 @@ impl NativeRuntime {
                         self.last_kid_frame_motion_branch =
                             KidFrameMotionBranch::DemoBootstrapPoseHold;
                         self.apply_demo_1_bootstrap_pose_hold();
+                        true
                     }
                     Some(frame) if frame == demo_gameplay_start => {
                         self.last_kid_frame_motion_branch =
                             KidFrameMotionBranch::DemoBootstrapCameraHandoff;
                         self.apply_demo_bootstrap_camera_handoff();
+                        true
                     }
                     Some(frame) if frame == demo::DEMO_BOOTSTRAP_INIT_FRAME => {
                         self.last_kid_frame_motion_branch =
                             KidFrameMotionBranch::DemoBootstrapInitialSettle;
                         self.apply_demo_bootstrap_initial_settle();
+                        true
                     }
                     Some(frame)
                         if frame > demo::DEMO_BOOTSTRAP_INIT_FRAME
@@ -3510,6 +3513,7 @@ impl NativeRuntime {
                         self.last_kid_frame_motion_branch =
                             KidFrameMotionBranch::DemoBootstrapFreefall;
                         self.apply_demo_bootstrap_freefall(frame);
+                        true
                     }
                     Some(frame)
                         if (demo::DEMO_BOOTSTRAP_GROUNDED_FRAME
@@ -3519,12 +3523,14 @@ impl NativeRuntime {
                         self.last_kid_frame_motion_branch =
                             KidFrameMotionBranch::DemoBootstrapGroundedHold;
                         self.apply_demo_bootstrap_grounded_hold();
+                        true
                     }
                     _ => {
                         if self.try_apply_demo_bootstrap_grounded_run(gameplay_input, jump_pressed)
                         {
                             self.last_kid_frame_motion_branch =
                                 KidFrameMotionBranch::DemoBootstrapGroundedRun;
+                            true
                         } else {
                             self.seed_demo_1_late_jump_reentry();
                             self.restore_demo_1_late_fall_velocity();
@@ -3536,8 +3542,15 @@ impl NativeRuntime {
                             self.step_ghost_blocks();
                             self.refresh_opening_slice(gameplay_input, jump_pressed);
                             self.repair_timeout_restart_demo_1_late_jump_reentry();
+                            false
                         }
                     }
+                };
+                if demo_special_kid_path && self.time_frames_loc_3038a != 0 {
+                    // ASM Execute_Objects loc_E12 schedules the independent
+                    // loc_1202A Island object while the demo bootstrap's Kid
+                    // path is hibernating outside refresh_opening_slice.
+                    self.step_island_shore_cycle_loc_1202a();
                 }
                 self.manage_enemy_loading_after_execute_objects_loc_80c();
                 self.load_debug_level_entry_enemies_after_player_loc_80c();

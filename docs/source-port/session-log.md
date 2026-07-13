@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 Island object scheduler)
+
+- Frame 7808's Island water phase came from a dropped independent Object_RAM
+  coroutine, not the corrected global clock. Oracle pins `loc_1202A` counters
+  `(7,4,6)`, next phases `(0,3,4)`, and VRAM bands `(3,2,3)`.
+- The specialised demo Kid bootstrap now continues scheduling the Island
+  object after its initial hibernation. Focused frames 7780..7840 keep all 61
+  gameplay checkpoints exact and remove 31,348 changed pixel instances.
+- Full verification retains 22,007 exact and 15,752 divergent frames while
+  removing 1,040,719 changed pixel instances, leaving 67,643,347. All state
+  channels remain exact. Frame 7814 is now worst at 11,403 pixels. NEXT: keep
+  #406 open and trace that residual visual frontier.
+
 ## 2026-07-13 handoff (#406 demo HUD/scroll scheduler)
 
 - Frame 7808 exposed an Island demo presentation clock 88 frames ahead of

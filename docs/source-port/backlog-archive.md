@@ -532,6 +532,30 @@ player/camera CRC, and all 37,743 post-`Init_RNG` frames remain exact. Frame 39
 remains first at 2,643 pixels; frame 7808 remains worst at 11,854 pixels, so
 #406 remains open on its residual visual debt.
 
+Progress 2026-07-14: frame 7808's remaining Island-water mismatch exposed an
+independent Object_RAM scheduling gap rather than another global clock error.
+Oracle frame 7808 stores the `loc_1202A` object in the second `$74`-byte slot:
+`loc_12098/loc_12110/loc_12188` counters are `(7,4,6)`, saved next phases are
+`(0,3,4)`, and direct VRAM `$F600/$F6C0/$F760` hashes identify resident shore
+bands `(3,2,3)`. Native instead reported `(4,1,16)/(1,0,2)` and bands
+`(0,3,1)` because its specialised demo Kid bootstrap bypassed
+`refresh_opening_slice` for 58 passes and accidentally bypassed the unrelated
+Island coroutine with it.
+
+Native now schedules `loc_1202A` on every specialised demo Kid pass after the
+initial `Load_InGame` hibernation, while ordinary gameplay and recording-settle
+routes retain their existing single scheduler pass. Regression
+`published_tas_demo_2_exposes_loc_3038a_loc_bee8_and_island_shore_clocks`
+first failed on the native counters/bands and now pins the full oracle tuple;
+all nine Island shore tests pass. Focused frames 7780..7840 keep all 61
+gameplay checkpoints exact and reduce changed pixels from 660,397 to 629,049;
+frame 7808 falls from 11,854 to 10,761. Full verification removes 1,040,719
+changed pixel instances while retaining 22,007 exact and 15,752 divergent
+frames, for 67,643,347 changed pixel instances. Gameplay, enemy,
+player/camera CRC, and all 37,743 post-`Init_RNG` frames remain exact. Frame 39
+remains first at 2,643 pixels; frame 7814 is now worst at 11,403 pixels, so
+#406 remains open on that residual visual debt.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

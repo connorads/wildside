@@ -5589,13 +5589,14 @@ mod chunk_09 {
     }
 
     #[test]
-    fn published_tas_demo_2_exposes_loc_3038a_and_loc_bee8_clocks_at_frame_7798() {
+    fn published_tas_demo_2_exposes_loc_3038a_loc_bee8_and_island_shore_clocks() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
         };
         let mut frame_7798 = None;
+        let mut frame_7808 = None;
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(7_799) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(7_809) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             if frame_index == 7_798 {
                 frame_7798 = Some((
@@ -5609,7 +5610,11 @@ mod chunk_09 {
                     trace.camera_y_pos >> 16,
                     trace.boot_phase_elapsed,
                 ));
-                break;
+            } else if frame_index == 7_808 {
+                frame_7808 = Some((
+                    trace.island_shore_cycle_state_loc_1202a,
+                    trace.island_shore_vram_frames_loc_1202a,
+                ));
             }
         }
 
@@ -5629,6 +5634,14 @@ mod chunk_09 {
                 175,
                 Some(809),
             )),
+        );
+        assert_eq!(
+            frame_7808,
+            Some((
+                Some((0x0007, 0x0004, 0x0006, 0x0000, 0x0003, 0x0004)),
+                Some((0x0003, 0x0002, 0x0003)),
+            )),
+            "oracle Object_RAM and VRAM at frame 7808 pin ASM loc_12098/loc_12110/loc_12188 counters, next phases, and resident shore-art bands",
         );
     }
 
