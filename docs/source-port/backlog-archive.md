@@ -354,6 +354,28 @@ instances, reaching 134,964,248. Gameplay, enemy, player/camera CRC, and all
 37,743 post-`Init_RNG` frames remain exact. Frame 16274 is the new worst at
 59,062 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 16274 was the final black frame from native reusing
+the cold-boot IntroSequence5 elapsed-104 visibility gate on timeout-restart
+visits. ASM `Load_IntroSequence5` allocates `loc_1BA28` and `loc_1BCD0`
+together; `loc_1BA28 -> sub_1C204` then presents the loaded alley three outer
+traces after the first GfxObject pass. Oracle frames 10009/10010 pin the plain
+elapsed-60/61 boundary and frames 16230/16231 pin the already-proven early-pass
+lineage at elapsed 59/60. The first `$10` palette step is consumed during the
+hidden `loc_1C234 -> loc_1C21E` pass, so the first presented frame carries
+`$20`.
+
+Native now selects the timeout-restart visibility boundary from that typed
+lineage and fades the complete `Pal_1C346` plus `loc_1C540` region overlay.
+Regression
+`published_tas_timeout_restart_intro_sequence_5_reveals_loc_1ba28_after_fade_shell`
+pins both black-to-visible boundaries. All densely captured frames 10009..10025
+and 16230..16246 are pixel-exact, including former worst frame 16274. Full
+verification gains 162 exact frames and removes 8,967,980 changed pixel
+instances: 21,498 exact, 16,261 divergent, and 125,996,268 changed pixel
+instances. Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG`
+frames remain exact. Frame 39 remains first at 2,643 pixels; frame 96 is the
+new worst at 51,566 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

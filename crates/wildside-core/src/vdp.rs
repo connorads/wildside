@@ -18,7 +18,7 @@ use crate::constants::{
     INTRO_FIFTH_SEGMENT_FRAMES, INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
     INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS, INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES,
     INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES, INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES,
-    TITLE_ATTRACT_LOCK_FRAMES,
+    TIMEOUT_RESTART_INTRO_SEQUENCE_5_VDP_VISIBLE_ELAPSED_LOC_1BA28, TITLE_ATTRACT_LOCK_FRAMES,
 };
 
 const VRAM_SIZE: usize = 0x1_0000;
@@ -536,6 +536,65 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     elapsed: usize,
     intro_sequence_3_roster_index: usize,
 ) -> VdpState {
+    build_intro_sequence_vdp_with_title_variant_at_elapsed_and_visible_threshold(
+        data,
+        segment,
+        title_variant,
+        elapsed,
+        intro_sequence_3_roster_index,
+        INTRO_SEQUENCE_5_VISIBLE_ELAPSED_LOC_1BA28,
+    )
+}
+
+pub(crate) fn build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
+    data: &IntroSub1B850Data,
+    title_variant: u8,
+    elapsed: usize,
+    intro_sequence_3_roster_index: usize,
+    workers_wake_one_frame_early: bool,
+) -> VdpState {
+    // ASM Load_IntroSequence5 allocates loc_1BA28 and loc_1BCD0 together.
+    // sub_1C204 exposes the loaded VDP three presented traces after the first
+    // loc_1BCD0 pass on timeout-restart visits. The later Start-skip lineage
+    // advances that complete outer pass by one frame, as independently proven
+    // by its slot-2 WRAM visibility.
+    let visible_elapsed = TIMEOUT_RESTART_INTRO_SEQUENCE_5_VDP_VISIBLE_ELAPSED_LOC_1BA28
+        .saturating_sub(usize::from(workers_wake_one_frame_early));
+    let mut vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed_and_visible_threshold(
+        data,
+        4,
+        title_variant,
+        elapsed,
+        intro_sequence_3_roster_index,
+        visible_elapsed,
+    );
+    if (visible_elapsed..visible_elapsed + 0x10).contains(&elapsed) {
+        // ASM sub_1C204 starts `$FFFFF876` at zero and advances it by `$10`
+        // per VBlank. Fade the complete Pal_1C346 plus loc_1C540 region
+        // overlay already present in this VDP, rather than fading only the
+        // common first 49 words.
+        let target_palette = vdp_cram_words(&vdp);
+        apply_intro_sequence_palette_fade_in_loc_1c204(
+            &mut vdp,
+            &target_palette,
+            elapsed,
+            // ASM loc_1C234 seeds the pending palette masks before the first
+            // loc_1C21E hibernate. That hidden pass consumes `$10`; the first
+            // presented alley frame therefore carries `$20`, not `$10`.
+            visible_elapsed.saturating_sub(1),
+        );
+    }
+    vdp
+}
+
+fn build_intro_sequence_vdp_with_title_variant_at_elapsed_and_visible_threshold(
+    data: &IntroSub1B850Data,
+    segment: usize,
+    title_variant: u8,
+    elapsed: usize,
+    intro_sequence_3_roster_index: usize,
+    intro_sequence_5_visible_elapsed: usize,
+) -> VdpState {
     if segment == 1 {
         return build_intro_sequence_2_handoff_vdp_at_elapsed(data, title_variant, elapsed);
     }
@@ -551,7 +610,7 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     if segment == 3 {
         return build_intro_sequence_4_handoff_vdp_at_elapsed(data, title_variant, elapsed, None);
     }
-    if segment == 4 && elapsed < INTRO_SEQUENCE_5_VISIBLE_ELAPSED_LOC_1BA28 {
+    if segment == 4 && elapsed < intro_sequence_5_visible_elapsed {
         // ASM loc_1BA28 allocates IntroText5/loc_1BC36, then enters the same
         // sub_1C204 hidden shell before loc_1BA5C's visible loop. Oracle frame
         // 1920 has blank VRAM+CRAM at intro-sequence-5 elapsed 44.

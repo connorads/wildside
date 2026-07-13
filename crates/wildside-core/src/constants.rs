@@ -399,6 +399,13 @@ pub(crate) const TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_4_EARLY_ATTRACT_LOCK_FRAME
 // intro sequence 5 is still active. Start-skip intro-return lineage handles
 // its one-frame-earlier revisit separately in `trace.rs`.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES: usize = 58;
+// ASM loc_1BA28 -> sub_1C204 presents the already-loaded alley three outer
+// traces after loc_1BCD0's first GfxObject pass on timeout-restart visits.
+// Oracle frames 10009/10010 pin the plain elapsed 60/61 boundary; the later
+// Start-skip lineage shifts the enclosing object pass, and therefore the
+// display boundary, one frame earlier at frames 16230/16231.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_5_VDP_VISIBLE_ELAPSED_LOC_1BA28: usize =
+    TIMEOUT_RESTART_INTRO_SEQUENCE_5_SLOT_2_VISIBLE_ELAPSED_FRAMES + 3;
 pub(crate) const INTRO_SEQUENCE_5_SLOT_2_X_POS: u32 = 0x0000_0000;
 pub(crate) const INTRO_SEQUENCE_5_SLOT_2_Y_POS: u32 = 0x00E0_0000;
 // ASM loc_1BA28 dispatches to the shared fade helper sub_1C204 before

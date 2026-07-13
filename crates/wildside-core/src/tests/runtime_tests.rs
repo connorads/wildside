@@ -4550,6 +4550,56 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_timeout_restart_intro_sequence_5_reveals_loc_1ba28_after_fade_shell() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(16_232) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 10_009 | 10_010 | 16_230 | 16_231) {
+                samples.push((
+                    frame_index,
+                    trace.game_mode,
+                    trace.boot_phase_elapsed,
+                    runtime.vdp_state().cloned(),
+                ));
+            }
+        }
+
+        // ASM Load_IntroSequence5 allocates loc_1BA28 and loc_1BCD0 in the
+        // same loader pass. loc_1BA28 then runs sub_1C204's hidden palette
+        // shell before loc_1BA5C presents the loaded alley. Oracle frames
+        // 10009/10010 pin the plain local elapsed 60/61 boundary, while
+        // 16230/16231 pin the early-pass lineage at 59/60. Elapsed 104 is the
+        // separate cold intro boundary.
+        for ((hidden, visible), (hidden_elapsed, visible_elapsed)) in samples
+            .chunks_exact(2)
+            .map(|pair| (&pair[0], &pair[1]))
+            .zip([(60, 61), (59, 60)])
+        {
+            assert_eq!(hidden.1, GameMode::IntroSequence5);
+            assert_eq!(hidden.2, Some(hidden_elapsed));
+            assert_eq!(hidden.3, Some(vdp::blank_vdp_state()));
+            assert_eq!(visible.1, GameMode::IntroSequence5);
+            assert_eq!(visible.2, Some(visible_elapsed));
+            let visible_vdp = visible.3.as_ref().unwrap_or_else(|| {
+                panic!(
+                    "published frame {} should expose the ASM loc_1BA28 alley VDP",
+                    visible.0,
+                )
+            });
+            assert!(
+                visible_vdp.cram.iter().any(|byte| *byte != 0)
+                    && visible_vdp.vram.iter().any(|byte| *byte != 0),
+                "ASM loc_1BA28 -> sub_1C204 should reveal the timeout-restart alley on published frame {}",
+                visible.0,
+            );
+        }
+    }
+
+    #[test]
     fn published_tas_intro_sequence_5_waits_for_the_frame_16648_start_press() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

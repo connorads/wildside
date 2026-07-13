@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 timeout-restart IntroSequence5 fade-in)
+
+- Frames 10010 and 16231 exposed `Load_IntroSequence5 -> loc_1BA28 ->
+  sub_1C204`. Native now uses the plain elapsed-61 reveal and the proven
+  early-pass elapsed-60 reveal, including the hidden first `$10` palette step
+  and complete region-overlay palette.
+- Dense captures at frames 10009..10025 and 16230..16246 are pixel-exact. The
+  complete route gains 162 exact frames and removes 8,967,980 changed pixel
+  instances: 21,498 exact, 16,261 divergent, and 125,996,268 changed pixel
+  instances. All state channels stay exact.
+- Frame 39 remains first at 2,643 pixels. Frame 96 is the new worst at 51,566
+  pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 demo-timeout fade and verifier grid latch)
 
 - Frame 12142 mixed an outgoing Level 0x1B fade with Level 0's already-loaded

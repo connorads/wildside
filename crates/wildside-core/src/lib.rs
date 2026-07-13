@@ -2005,6 +2005,19 @@ impl NativeRuntime {
                     // loc_1BA28's hidden sub_1C204 shell goes black.
                     return vdp;
                 }
+                if *segment == 4
+                    && self
+                        .demo_auto_timeout_intro_sequence_5_frames_override
+                        .is_some()
+                {
+                    return vdp::build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
+                        data,
+                        self.title_screen_region_byte,
+                        *elapsed,
+                        self.active_intro_sequence_3_roster_index,
+                        self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility,
+                    );
+                }
                 vdp::build_intro_sequence_vdp_with_title_variant_at_elapsed(
                     data,
                     *segment,
