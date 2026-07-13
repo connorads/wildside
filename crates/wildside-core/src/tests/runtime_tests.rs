@@ -418,6 +418,48 @@ fn published_tas_demo_timeout_return_keeps_outgoing_render_level_through_loc_28c
 }
 
 #[test]
+fn published_tas_knights_isle_demo_runs_island_shore_object_loc_11fb0_1202a() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut samples = Vec::new();
+    for (frame_index, mask) in script.iter().copied().enumerate().take(3_127) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if matches!(frame_index, 3_120 | 3_126) {
+            samples.push((
+                frame_index,
+                trace.game_mode,
+                trace.current_level,
+                runtime.source_port_render_level(),
+                runtime.demo_title_palette_fade_progress_loc_28c6(),
+                trace.island_shore_cycle_active,
+                trace.island_shore_vram_frames_loc_1202a,
+            ));
+        }
+    }
+
+    // ASM Load_DemoPlay -> Load_InGame loc_11FB0 allocates loc_1202A for the
+    // Island background. The synchronous Pal_FadeOut shell freezes and keeps
+    // that outgoing object state while Current_LevelID is already zero.
+    assert_eq!(samples.len(), 2);
+    assert_eq!(samples[0].0, 3_120);
+    assert_eq!(samples[0].1, GameMode::DemoPlay);
+    assert_eq!(samples[0].2, LevelId(0x15));
+    assert_eq!(samples[0].3, LevelId(0x15));
+    assert_eq!(samples[0].4, None);
+    assert!(samples[0].5);
+    assert!(samples[0].6.is_some());
+
+    assert_eq!(samples[1].0, 3_126);
+    assert_eq!(samples[1].1, GameMode::TitleScreen);
+    assert_eq!(samples[1].2, LevelId(0x00));
+    assert_eq!(samples[1].3, LevelId(0x15));
+    assert_eq!(samples[1].4, Some(0x00F0));
+    assert!(samples[1].5);
+    assert_eq!(samples[1].6, samples[0].6);
+}
+
+#[test]
 fn cold_boot_intro_sequence_6_enters_demo_play_on_frame_3270() {
     let mut runtime = NativeRuntime::new(manifest());
     let mut frame_3269 = None;

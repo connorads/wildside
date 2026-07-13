@@ -6284,6 +6284,9 @@ impl NativeRuntime {
         self.block_state.lift_platforms.clear();
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
+        // ASM Load_DemoPlay -> Load_InGame loc_11FB0 allocates loc_1202A for
+        // Island backgrounds on demo entry just as it does on normal entry.
+        self.init_post_load_object_routine_loc_11f96(level_id);
         self.level_timer = LevelTimer::new();
         self.hud_timer_sprite_seconds_loc_bee8 = LEVEL_TIMER_START_SECONDS;
         self.time_frames_loc_3038a = 0;

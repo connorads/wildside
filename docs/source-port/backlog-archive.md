@@ -395,6 +395,23 @@ instances. Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG`
 frames remain exact. Frame 39 remains first at 2,643 pixels; frame 3126 is the
 new worst at 36,503 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 3126 exposed missing Island shore animation during
+the Knight's Isle attract demo and its resident return fade. ASM
+`Load_DemoPlay -> Load_InGame loc_11FB0` allocates `loc_1202A` whenever the
+background theme is Island. Native's normal level-entry path already ran the
+equivalent post-load object initialiser, but `begin_demo_gameplay` skipped it,
+leaving all three typed shore VRAM frame cursors absent.
+
+Demo entry now shares that ASM-backed post-load initialisation. Regression
+`published_tas_knights_isle_demo_runs_island_shore_object_loc_11fb0_1202a`
+pins the active object on published frame 3120 and its frozen outgoing state
+through `Pal_FadeOut` frame 3126. Captured frame 3120 visibly restores all
+three water bands. Full verification keeps 21,513 exact and 16,246 divergent
+frames but removes 47,298,083 changed pixel instances, reaching 78,459,913.
+Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG` frames
+remain exact. Frame 39 remains first at 2,643 pixels; frame 3126 remains the
+worst but falls to 28,787 pixels, so #406 remains open on its residual debt.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

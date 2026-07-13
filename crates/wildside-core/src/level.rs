@@ -19476,7 +19476,7 @@ impl NativeRuntime {
         self.opening_slice = Some(opening_slice);
     }
 
-    fn init_post_load_object_routine_loc_11f96(&mut self, level_id: LevelId) {
+    pub(crate) fn init_post_load_object_routine_loc_11f96(&mut self, level_id: LevelId) {
         self.island_shore_cycle_loc_1202a = None;
         self.island_shore_dma_uploads_loc_1202a.clear();
         self.rotate_palette_lava_water_loc_1223c = None;

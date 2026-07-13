@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 demo Island shore animation)
+
+- Frame 3126 exposed Knight's Isle demo entry without the Island background
+  object. ASM `Load_DemoPlay -> Load_InGame loc_11FB0` allocates `loc_1202A`;
+  native demo setup now shares the existing post-load object initialiser.
+- The published-route regression pins the active three-band shore cycle on
+  frame 3120 and its frozen resident state through `Pal_FadeOut` frame 3126.
+  Full verification removes 47,298,083 changed pixel instances: 21,513 exact,
+  16,246 divergent, and 78,459,913 changed pixel instances. All state channels
+  stay exact.
+- Frame 39 remains first at 2,643 pixels. Frame 3126 remains the worst but
+  falls from 36,503 to 28,787 pixels. NEXT: keep #406 open and trace its
+  residual visual debt.
+
 ## 2026-07-13 handoff (#406 cold IntroSequence1 palette presentation)
 
 - Frame 96 exposed the cold-boot `Load_SegaScreen loc_12EDE ->
