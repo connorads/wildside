@@ -448,6 +448,26 @@ and all 37,743 post-`Init_RNG` frames remain exact. Frame 39 remains first at
 2,643 pixels; frame 32007 is the new worst at 26,987 pixels, so #406 remains
 open.
 
+Progress 2026-07-13: frame 32007 was the later timeout-restart
+IntroSequence4 Start return. ASM `sub_1C246 loc_1C264` writes
+`Game_Mode=$2C`, sets FBCE, and jumps to `loc_6E2`; `Pal_FadeOut` still owns
+the completed `sub_1B988` room and IntroText4 VDP until the VRAM clear. Native
+already modelled this lineage's exact camera, object counts, RNG schedule, and
+title-loader rejoin, but selected its black title shell immediately.
+
+The explicit `LaterIntroSequence` lineage now snapshots its resident VDP
+before title entry resets presentation state and shares the proven title-return
+hold/fade clock. The extended
+`published_tas_later_intro_sequence_4_title_restore_stages_load_title_screen_loc_1b258`
+regression pins the four-frame hold, first and last palette steps, VRAM clear,
+base title upload, and first fresh title-object pass. All focused frames
+31995..32030 are pixel-exact. Full verification gains 18 exact frames and
+removes 430,836 changed pixel instances: 21,595 exact, 16,164 divergent, and
+74,854,228 changed pixel instances. Gameplay, enemy, player/camera CRC, and
+all 37,743 post-`Init_RNG` frames remain exact. Frame 39 remains first at
+2,643 pixels; frame 21196 is the new worst at 24,042 pixels, so #406 remains
+open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

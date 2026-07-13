@@ -5366,6 +5366,7 @@ impl NativeRuntime {
         self.intro_sequence_6_start_skip_natural_vdp_carry = None;
         self.intro_sequence_5_title_return_vdp_snapshot = None;
         self.intro_sequence_1_title_return_vdp_snapshot = None;
+        self.intro_sequence_4_title_return_vdp_snapshot = None;
         self.demo_entry_title_vdp_snapshot = None;
         self.timeout_restart_intro_sequence_3_title_return_vdp_snapshot = None;
         self.intro_sequence_2_title_return_vdp_snapshot = None;
@@ -5447,10 +5448,15 @@ impl NativeRuntime {
             matches!(lineage, TitleScreenIntroReturnLineage::LaterIntroSequence2)
                 .then(|| self.vdp_state.clone())
                 .flatten();
+        let intro_sequence_4_resident_vdp =
+            matches!(lineage, TitleScreenIntroReturnLineage::LaterIntroSequence)
+                .then(|| self.vdp_state.clone())
+                .flatten();
         self.enter_title_screen();
         self.title_screen_uses_intro_return_hidden_shell = true;
         self.title_screen_intro_return_lineage = Some(lineage);
         self.intro_sequence_2_title_return_vdp_snapshot = intro_sequence_2_resident_vdp;
+        self.intro_sequence_4_title_return_vdp_snapshot = intro_sequence_4_resident_vdp;
         let intro_sequence_1_uses_early_title_restore = matches!(
             lineage,
             TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence1EarlyRestore

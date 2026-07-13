@@ -7434,6 +7434,12 @@ mod chunk_09 {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
         };
+        let mut frame_32006 = None;
+        let mut frame_32007 = None;
+        let mut frame_32010 = None;
+        let mut frame_32011 = None;
+        let mut frame_32024 = None;
+        let mut frame_32025 = None;
         let mut frame_32062 = None;
         let mut frame_32063 = None;
         let mut frame_32064 = None;
@@ -7441,6 +7447,12 @@ mod chunk_09 {
         for (frame_index, mask) in script.iter().copied().enumerate().take(32_065) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
+                32_006 => frame_32006 = runtime.vdp_state().cloned(),
+                32_007 => frame_32007 = runtime.vdp_state().cloned(),
+                32_010 => frame_32010 = runtime.vdp_state().cloned(),
+                32_011 => frame_32011 = runtime.vdp_state().cloned(),
+                32_024 => frame_32024 = runtime.vdp_state().cloned(),
+                32_025 => frame_32025 = runtime.vdp_state().cloned(),
                 32_062 => frame_32062 = runtime.vdp_state().cloned(),
                 32_063 => {
                     frame_32063 = Some((
@@ -7490,11 +7502,24 @@ mod chunk_09 {
                 lineage,
             );
 
-        // ASM sub_1B988 -> sub_1C246 -> loc_1C264 -> loc_6E2 runs the
-        // blocking title loader one outer pass ahead of the IntroSequence2
-        // return. Oracle frame 32062 is its final black hold, frame 32063
-        // presents Load_TitleScreen's base upload, and frame 32064 exposes
-        // the first fresh title-object pass.
+        // ASM sub_1B988 -> sub_1C246 -> loc_1C264 -> loc_6E2 first keeps the
+        // completed IntroSequence4 VDP resident while Pal_FadeOut runs. Oracle
+        // holds frames 32007..32010, fades frames 32011..32024, then clears
+        // VRAM on frame 32025 before the blocking title loader. Frame 32063
+        // presents Load_TitleScreen's base upload, and frame 32064 exposes the
+        // first fresh title-object pass.
+        let resident = frame_32006.expect("frame 32006 resident IntroSequence4 VDP");
+        assert_eq!(frame_32007.as_ref(), Some(&resident));
+        assert_eq!(frame_32010.as_ref(), Some(&resident));
+        let first_fade = frame_32011.expect("frame 32011 first Pal_FadeOut step");
+        assert_eq!(first_fade.vram, resident.vram);
+        assert_ne!(first_fade.cram, resident.cram);
+        assert!(
+            frame_32024
+                .as_ref()
+                .is_some_and(|vdp| vdp.cram.iter().any(|byte| *byte != 0))
+        );
+        assert_eq!(frame_32025, Some(vdp::blank_vdp_state()));
         assert_eq!(frame_32062, Some(vdp::blank_vdp_state()));
         assert_eq!(
             frame_32063,

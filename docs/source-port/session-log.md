@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 IntroSequence4 title-return fade)
+
+- Frame 32007 exposed `sub_1C246 -> loc_1C264 -> loc_6E2`: the later
+  IntroSequence4 Start return changed mode before `Pal_FadeOut` presented its
+  completed room/text VDP. The explicit lineage now snapshots that resident
+  VDP before title entry resets presentation state.
+- Focused frames 31995..32030 are pixel-exact. Full verification gains 18
+  exact frames and removes 430,836 changed pixel instances: 21,595 exact,
+  16,164 divergent, and 74,854,228 changed pixel instances. All state channels
+  stay exact.
+- Frame 39 remains first at 2,643 pixels. Frame 21196 is the new worst at
+  24,042 pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 IntroSequence4 resident fade)
 
 - Frame 9950 exposed `sub_1B988 loc_1B9B6 -> loc_6E2`: mode changed to

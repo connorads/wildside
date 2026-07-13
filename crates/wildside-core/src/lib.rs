@@ -686,6 +686,9 @@ pub struct NativeRuntime {
     /// ASM sub_1B8F4 loc_1B924 title return keeps the final IntroSequence1
     /// worker image resident while loc_6E2 runs Pal_FadeOut.
     intro_sequence_1_title_return_vdp_snapshot: Option<vdp::VdpState>,
+    /// ASM sub_1B988 -> sub_1C246 -> loc_1C264 title return keeps the final
+    /// IntroSequence4 image resident while loc_6E2 runs Pal_FadeOut.
+    intro_sequence_4_title_return_vdp_snapshot: Option<vdp::VdpState>,
     /// ASM `$FFFFFC82`: title/intro region selector. Load_IntroSequence5 calls
     /// sub_1C278 before selecting its helmet art and palette overlay.
     title_screen_region_byte: u8,
@@ -1435,6 +1438,7 @@ impl NativeRuntime {
             intro_sequence_6_start_skip_natural_vdp_carry: None,
             intro_sequence_5_title_return_vdp_snapshot: None,
             intro_sequence_1_title_return_vdp_snapshot: None,
+            intro_sequence_4_title_return_vdp_snapshot: None,
             // ASM loc_61C seeds `$FFFFFC82` to 2 before the cold-boot intro;
             // Load_IntroSequence5's first sub_1C278 call then wraps it to 0.
             title_screen_region_byte: 2,
@@ -2313,6 +2317,24 @@ impl NativeRuntime {
                     < INTRO_SEQUENCE_2_TITLE_RNG_FIRST_LIVE_ELAPSED =>
             {
                 self.intro_sequence_2_title_return_vdp_snapshot
+                    .clone()
+                    .and_then(|mut vdp| {
+                        vdp::apply_intro_title_return_fade_to_black_loc_28c6(
+                            &mut vdp,
+                            self.title_screen_elapsed_frames,
+                        )
+                        .then_some(vdp)
+                    })
+                    .or_else(|| Some(vdp::blank_vdp_state()))
+            }
+            BootState::TitleScreen { .. }
+                if matches!(
+                    self.title_screen_intro_return_lineage,
+                    Some(TitleScreenIntroReturnLineage::LaterIntroSequence)
+                ) && self.title_screen_elapsed_frames
+                    < TIMEOUT_RESTART_INTRO_SEQUENCE_4_TITLE_RNG_FIRST_LIVE_ELAPSED =>
+            {
+                self.intro_sequence_4_title_return_vdp_snapshot
                     .clone()
                     .and_then(|mut vdp| {
                         vdp::apply_intro_title_return_fade_to_black_loc_28c6(
