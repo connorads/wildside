@@ -218,6 +218,23 @@ are pixel-exact. Full verification gains 210 exact frames and removes
 post-`Init_RNG` frames remain exact. Frame 36821 is the next near-full-screen
 frontier at 70,637 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 36821 is the first title presentation after Start
+returns the later IntroSequence2 through `loc_1B9D0 -> loc_1BA02 -> sub_1C246
+-> loc_1C264 -> loc_6E2`. The ROM keeps the final hologram-room VDP unchanged
+for four title traces, steps its CRAM through `Pal_FadeOut loc_28C6`, then
+clears VRAM before the already-modelled hidden `Load_TitleScreen` rebuild.
+Native previously selected the black title-loader state immediately.
+
+Native now snapshots this lineage's resident VDP before changing typed mode
+and reuses the shared `loc_28C6` palette fade. Regression
+`published_tas_later_intro_sequence_2_title_return_fades_resident_vdp_loc_28c6`
+pins unchanged, first-fade, final-fade, and cleared frames. Published title
+frames 36821..36840 are pixel-exact. Full verification gains 18 exact frames
+and removes 943,571 changed pixel instances: 19,750 exact, 18,009 divergent,
+and 166,438,007 changed pixel instances. Gameplay, enemy, and all 37,743
+post-`Init_RNG` frames remain exact. Frame 34275 is the next near-full-screen
+frontier at 70,607 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

@@ -624,8 +624,8 @@ pub(crate) fn apply_intro_title_return_fade_to_black_loc_28c6(
         }
         _ => return false,
     };
-    // ASM sub_1B93E/loc_1BA60 -> sub_1C246 -> loc_1C264 jump through
-    // loc_6E2. Because `$FFFFFBCE` is set, loc_6E2 runs Pal_FadeOut
+    // ASM sub_1B93E/loc_1BA02/loc_1BA60 -> sub_1C246 -> loc_1C264 jump
+    // through loc_6E2. Because `$FFFFFBCE` is set, loc_6E2 runs Pal_FadeOut
     // (loc_28C6), stepping `$FFFFF876` by `$10` per VBlank before the VRAM
     // clear.
     apply_pal_fade_out_to_black_loc_28c6(vdp, fade_progress);

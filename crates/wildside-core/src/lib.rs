@@ -784,6 +784,9 @@ pub struct NativeRuntime {
     /// Resident IntroSequence3 VDP copied across `sub_1C246 -> loc_1C264` so
     /// `loc_6E2` can present Pal_FadeOut before clearing VRAM.
     timeout_restart_intro_sequence_3_title_return_vdp_snapshot: Option<vdp::VdpState>,
+    /// Resident IntroSequence2 VDP copied across `loc_1BA02 -> sub_1C246 ->
+    /// loc_1C264` so `loc_6E2` can present Pal_FadeOut before clearing VRAM.
+    intro_sequence_2_title_return_vdp_snapshot: Option<vdp::VdpState>,
     /// Resident IntroSequence2 VDP presented by `Load_IntroSequence3 ->
     /// sub_1B93E -> sub_1C204` before the rebuilt Wild Side scene fades in.
     intro_sequence_3_handoff_vdp_snapshot: Option<vdp::VdpState>,
@@ -1450,6 +1453,7 @@ impl NativeRuntime {
             timeout_restart_title_intro_sequence_3_pose: false,
             timeout_restart_title_intro_sequence_4_camera_carry: false,
             timeout_restart_intro_sequence_3_title_return_vdp_snapshot: None,
+            intro_sequence_2_title_return_vdp_snapshot: None,
             intro_sequence_3_handoff_vdp_snapshot: None,
             intro_sequence_4_handoff_vdp_snapshot: None,
             timeout_restart_title_intro_sequence_5_pose: false,
@@ -2193,6 +2197,24 @@ impl NativeRuntime {
                     < TIMEOUT_RESTART_INTRO_SEQUENCE_3_TITLE_RNG_FIRST_LIVE_ELAPSED =>
             {
                 self.timeout_restart_intro_sequence_3_title_return_vdp_snapshot
+                    .clone()
+                    .and_then(|mut vdp| {
+                        vdp::apply_intro_title_return_fade_to_black_loc_28c6(
+                            &mut vdp,
+                            self.title_screen_elapsed_frames,
+                        )
+                        .then_some(vdp)
+                    })
+                    .or_else(|| Some(vdp::blank_vdp_state()))
+            }
+            BootState::TitleScreen { .. }
+                if matches!(
+                    self.title_screen_intro_return_lineage,
+                    Some(TitleScreenIntroReturnLineage::LaterIntroSequence2)
+                ) && self.title_screen_elapsed_frames
+                    < INTRO_SEQUENCE_2_TITLE_RNG_FIRST_LIVE_ELAPSED =>
+            {
+                self.intro_sequence_2_title_return_vdp_snapshot
                     .clone()
                     .and_then(|mut vdp| {
                         vdp::apply_intro_title_return_fade_to_black_loc_28c6(

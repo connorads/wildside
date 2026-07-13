@@ -7587,6 +7587,75 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_later_intro_sequence_2_title_return_fades_resident_vdp_loc_28c6() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut resident_vdp = None;
+        let mut title_frames = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(36_840) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                36_820 => resident_vdp = runtime.vdp_state().cloned(),
+                36_821 | 36_825 | 36_838 | 36_839 => title_frames.push((
+                    frame_index,
+                    trace.boot_phase,
+                    trace.boot_phase_elapsed,
+                    runtime.vdp_state().cloned(),
+                )),
+                _ => {}
+            }
+        }
+
+        let resident_vdp = resident_vdp.expect("frame 36820 has resident IntroSequence2 VDP");
+        let expected_title_frames = [0usize, 4, 17]
+            .into_iter()
+            .map(|elapsed| {
+                let mut vdp = resident_vdp.clone();
+                assert!(vdp::apply_intro_title_return_fade_to_black_loc_28c6(
+                    &mut vdp, elapsed
+                ));
+                Some(vdp)
+            })
+            .chain(std::iter::once(Some(vdp::blank_vdp_state())))
+            .collect::<Vec<_>>();
+
+        // ASM loc_1B9D0 -> loc_1BA02 -> sub_1C246 -> loc_1C264 -> loc_6E2
+        // retains the final IntroSequence2 VDP while Pal_FadeOut loc_28C6
+        // steps its CRAM, then clears VRAM after the final fade trace.
+        assert_eq!(
+            title_frames,
+            vec![
+                (
+                    36_821,
+                    Some(String::from("title_screen")),
+                    Some(0),
+                    expected_title_frames[0].clone(),
+                ),
+                (
+                    36_825,
+                    Some(String::from("title_screen")),
+                    Some(4),
+                    expected_title_frames[1].clone(),
+                ),
+                (
+                    36_838,
+                    Some(String::from("title_screen")),
+                    Some(17),
+                    expected_title_frames[2].clone(),
+                ),
+                (
+                    36_839,
+                    Some(String::from("title_screen")),
+                    Some(18),
+                    expected_title_frames[3].clone(),
+                ),
+            ],
+        );
+    }
+
+    #[test]
     fn published_tas_later_intro_sequence_2_title_counts_follow_raw_lists() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
