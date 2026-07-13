@@ -2085,6 +2085,30 @@ impl NativeRuntime {
                     )
                 })
             }
+            BootState::IntroSequence6 { cursor, .. }
+                if self.intro_sequence_6_natural_title_workers_active() =>
+            {
+                self.title_screen_data.as_ref().map(|data| {
+                    let menu_cursor = (self.title_menu_active
+                        && !self.title_menu_cursor_pending)
+                        .then_some(*cursor);
+                    vdp::build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                        data,
+                        7,
+                        self.title_screen_region_byte,
+                        menu_cursor,
+                        true,
+                        self.title_screen_elapsed_frames,
+                        vdp::TitleScreenVdpLineage {
+                            natural_intro_sequence_6_pre_ready_shell: true,
+                            natural_intro_sequence_6_worker_elapsed: Some(
+                                self.title_screen_elapsed_frames,
+                            ),
+                            ..vdp::TitleScreenVdpLineage::default()
+                        },
+                    )
+                })
+            }
             BootState::IntroSequence6 { .. }
                 if self.intro_sequence_6_natural_title_vdp_rebuilt() =>
             {
@@ -2180,6 +2204,7 @@ impl NativeRuntime {
                                 intro_return_hidden_shell: false,
                                 direct_intro_sequence_5_title_return: false,
                                 natural_intro_sequence_6_pre_ready_shell: true,
+                                natural_intro_sequence_6_worker_elapsed: None,
                                 fresh_title_worker_lineage: false,
                             },
                         )
@@ -2367,6 +2392,7 @@ impl NativeRuntime {
                             intro_return_hidden_shell: true,
                             direct_intro_sequence_5_title_return: false,
                             natural_intro_sequence_6_pre_ready_shell: false,
+                            natural_intro_sequence_6_worker_elapsed: None,
                             fresh_title_worker_lineage: true,
                         },
                     )
@@ -2463,6 +2489,9 @@ impl NativeRuntime {
                                 && self.timeout_restart_title_intro_sequence_5_pose
                                 && !self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry,
                             natural_intro_sequence_6_pre_ready_shell,
+                            natural_intro_sequence_6_worker_elapsed:
+                                natural_intro_sequence_6_pre_ready_shell
+                                    .then_some(title_elapsed_frames),
                             fresh_title_worker_lineage,
                         },
                     )
@@ -2805,6 +2834,19 @@ impl NativeRuntime {
             && !self.title_screen_ready()
             && self.title_screen_elapsed_frames >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_REBUILD_FRAMES
             && self.title_screen_elapsed_frames < INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES
+    }
+
+    fn intro_sequence_6_natural_title_workers_active(&self) -> bool {
+        // ASM loc_1B45A allocates loc_1B6AC/loc_1B5CE after Load_TitleArt.
+        // Their `$1E` waits end well before loc_1B5CE's trace-facing title
+        // pose, so preserve the live reveal throughout mode `$28`. The prior
+        // presentation already has GfxObjects_Collision_BottomBoundary4's
+        // final zero-scroll row, although the two title workers wake on the
+        // following pass.
+        matches!(self.boot_state, BootState::IntroSequence6 { .. })
+            && !self.intro_sequence_6_start_skip_cursor_trace_priority
+            && self.title_screen_elapsed_frames
+                >= INTRO_SEQUENCE_6_NATURAL_TITLE_WORKER_START_FRAMES.saturating_sub(1)
     }
 
     fn intro_sequence_6_loc_1b45a_vdp_phase(&self) -> Option<IntroSequence6Loc1b45aVdpPhase> {

@@ -17,6 +17,7 @@ use crate::boot::{
 use crate::constants::{
     INTRO_FIFTH_SEGMENT_FRAMES, INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
     INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS, INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES,
+    INTRO_SEQUENCE_6_NATURAL_TITLE_WORKER_START_FRAMES,
     INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES, INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES,
     TIMEOUT_RESTART_INTRO_SEQUENCE_5_VDP_VISIBLE_ELAPSED_LOC_1BA28, TITLE_ATTRACT_LOCK_FRAMES,
 };
@@ -3067,6 +3068,7 @@ pub(crate) struct TitleScreenVdpLineage {
     pub(crate) intro_return_hidden_shell: bool,
     pub(crate) direct_intro_sequence_5_title_return: bool,
     pub(crate) natural_intro_sequence_6_pre_ready_shell: bool,
+    pub(crate) natural_intro_sequence_6_worker_elapsed: Option<usize>,
     pub(crate) fresh_title_worker_lineage: bool,
 }
 
@@ -3131,7 +3133,38 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
     write_full_plane_rows(&mut vdp, 0xE000, &data.title_text_chameleon_rows);
     let mut sprite_entries = Vec::new();
     if title_ready {
-        if lineage.natural_intro_sequence_6_pre_ready_shell {
+        if let Some(elapsed) = lineage.natural_intro_sequence_6_worker_elapsed {
+            let worker_elapsed =
+                elapsed.saturating_sub(INTRO_SEQUENCE_6_NATURAL_TITLE_WORKER_START_FRAMES);
+            // ASM loc_1B6AC -> loc_1BB10/loc_1BB36: the allocated child first
+            // executes its slide calculation two object presentations after
+            // the parent wakes, then advances eight pixels per live pass.
+            let slide_elapsed = elapsed.saturating_sub(
+                INTRO_SEQUENCE_6_NATURAL_TITLE_WORKER_START_FRAMES.saturating_add(2),
+            );
+            let counter =
+                0x0027u16.saturating_sub(u16::try_from(slide_elapsed).unwrap_or(u16::MAX));
+            let x_pos = crate::boot::title_text_intro_sprite_x_pos_loc_1BB36_and_loc_1BB44(counter);
+            append_title_intro_text_sprite_loc_1bb10_with_x(&mut sprite_entries, x_pos as u16);
+
+            // ASM loc_1B5CE/loc_1B610: y starts at `$FFA3`; after the same
+            // `$1E` wait, `is_moved` applies y_vel=6 for the inclusive
+            // 43-frame DBF drift, converging exactly on the normal y=$A5.
+            let drift_frames = worker_elapsed.min(0x002A + 1);
+            let y_pos = (-0x005D_i32 + i32::try_from(drift_frames).unwrap_or(i32::MAX) * 6) as u16;
+            append_title_text_kid_sprite_loc_1b5e4_with_y(&mut sprite_entries, y_pos);
+            // ASM loc_1B610 reaches sub_1B652 after the 30-frame wait, the
+            // inclusive 43-frame drift and its 20-frame pause. Rebase this
+            // natural worker clock onto the standard title helper's local-57
+            // allocation origin so both popup children retain their ROM
+            // animation cadence.
+            let title_object_elapsed = elapsed
+                .saturating_sub(
+                    INTRO_SEQUENCE_6_NATURAL_TITLE_WORKER_START_FRAMES.saturating_sub(30),
+                )
+                .saturating_add(57);
+            append_title_text_burst_sprites_sub_1b652(&mut sprite_entries, title_object_elapsed);
+        } else if lineage.natural_intro_sequence_6_pre_ready_shell {
             // ASM loc_1B6AC allocates loc_1BB10 before the normal title shell
             // is trace-ready; oracle frame 2700 catches the sliding small
             // title-text sprite at hardware x=$0154, before the settled title
@@ -3162,16 +3195,23 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
                 );
             }
         }
-        write_title_text_chameleon_anim_loc_1b71a(
-            &mut vdp,
-            data,
-            title_elapsed_frames,
-            lineage.intro_return_hidden_shell,
-            lineage.direct_intro_sequence_5_title_return,
-            lineage.natural_intro_sequence_6_pre_ready_shell,
-            lineage.fresh_title_worker_lineage,
-        );
-        if !lineage.natural_intro_sequence_6_pre_ready_shell {
+        write_title_text_chameleon_anim_loc_1b71a(&mut vdp, data, title_elapsed_frames, lineage);
+        if let Some(elapsed) = lineage.natural_intro_sequence_6_worker_elapsed {
+            // ASM loc_1B6DC allocates SegaText 101 passes after loc_1B6AC's
+            // parent allocation. Rebase the natural mode-$28 clock onto that
+            // allocation instead of treating trace-facing title readiness as
+            // a newly allocated worker.
+            let title_object_elapsed = elapsed.saturating_sub(
+                INTRO_SEQUENCE_6_NATURAL_TITLE_WORKER_START_FRAMES.saturating_sub(30),
+            );
+            overlay_title_sega_text_worker_loc_1c7a0(
+                &mut vdp,
+                title_object_elapsed,
+                false,
+                false,
+                false,
+            );
+        } else if !lineage.natural_intro_sequence_6_pre_ready_shell {
             overlay_title_sega_text_worker_loc_1c7a0(
                 &mut vdp,
                 title_elapsed_frames,
@@ -3402,24 +3442,25 @@ fn write_title_text_chameleon_anim_loc_1b71a(
     vdp: &mut VdpState,
     data: &TitleScreenData,
     elapsed: usize,
-    intro_return_hidden_shell: bool,
-    direct_intro_sequence_5_title_return: bool,
-    natural_intro_sequence_6_pre_ready_shell: bool,
-    fresh_title_worker_lineage: bool,
+    lineage: TitleScreenVdpLineage,
 ) {
-    let d3_elapsed = if fresh_title_worker_lineage {
+    let d3_elapsed = if let Some(elapsed) = lineage.natural_intro_sequence_6_worker_elapsed {
+        // ASM loc_1B6AC seeds d3=0 after its `$1E` wait; loc_1B6CE then
+        // hibernates once and sub_1B71A increments it on every live pass.
+        elapsed.saturating_sub(INTRO_SEQUENCE_6_NATURAL_TITLE_WORKER_START_FRAMES)
+    } else if lineage.fresh_title_worker_lineage {
         // ASM Load_TitleScreen allocates a fresh Obj_TitleTextChameleon with
         // its own coroutine registers. Its first visible sub_1B71A pass must
         // start from d3=0 instead of inheriting the outer title-frame clock.
         elapsed.saturating_sub(57)
-    } else if direct_intro_sequence_5_title_return {
+    } else if lineage.direct_intro_sequence_5_title_return {
         // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 enters Load_TitleScreen,
         // which allocates fresh Obj_TitleTextChameleon at kid.asm:29464-29466.
         // Oracle pixels on the direct `$24` title-return route show that this
         // worker is already seven sub_1B71A ticks ahead when the rebuilt title
         // VDP is first presented.
         elapsed.saturating_add(7)
-    } else if intro_return_hidden_shell {
+    } else if lineage.intro_return_hidden_shell {
         // ASM loc_1B6AC/loc_1B6DC is allocated by loc_1B45A before the
         // Start-skip title VDP becomes visible. The hidden Chameleon worker's
         // preserved `d3` is five sub_1B71A ticks ahead through the visible
@@ -3435,7 +3476,13 @@ fn write_title_text_chameleon_anim_loc_1b71a(
     };
     let d3 = u16::try_from(d3_elapsed).unwrap_or(u16::MAX);
     let map_index = title_text_chameleon_anim_map_index(d3_elapsed);
-    let d2 = if natural_intro_sequence_6_pre_ready_shell {
+    let d2 = if let Some(elapsed) = lineage.natural_intro_sequence_6_worker_elapsed {
+        // ASM loc_1B6AC seeds d2=$28. The first loc_1B6CE call observes $28,
+        // then each presented pass decrements it until the 40th reaches zero.
+        let worker_elapsed =
+            elapsed.saturating_sub(INTRO_SEQUENCE_6_NATURAL_TITLE_WORKER_START_FRAMES);
+        0x0029_i16.saturating_sub(i16::try_from(worker_elapsed).unwrap_or(i16::MAX))
+    } else if lineage.natural_intro_sequence_6_pre_ready_shell {
         // ASM loc_1B6AC -> loc_1B6CE (kid.asm:29917-29931): the natural
         // IntroSequence6 title handoff reaches the visible title shell while
         // the `$28` countdown reveal is still in progress. Oracle frame 2700
@@ -6995,6 +7042,7 @@ mod tests {
                 intro_return_hidden_shell: true,
                 direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
+                natural_intro_sequence_6_worker_elapsed: None,
                 fresh_title_worker_lineage: false,
             },
         );
@@ -7015,6 +7063,7 @@ mod tests {
                 intro_return_hidden_shell: true,
                 direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
+                natural_intro_sequence_6_worker_elapsed: None,
                 fresh_title_worker_lineage: false,
             },
         );
@@ -7036,6 +7085,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
+                    natural_intro_sequence_6_worker_elapsed: None,
                     fresh_title_worker_lineage: false,
                 },
             );
@@ -7060,6 +7110,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
+                    natural_intro_sequence_6_worker_elapsed: None,
                     fresh_title_worker_lineage: false,
                 },
             );
@@ -7104,6 +7155,7 @@ mod tests {
                 intro_return_hidden_shell: true,
                 direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
+                natural_intro_sequence_6_worker_elapsed: None,
                 fresh_title_worker_lineage: false,
             },
         );
@@ -7125,6 +7177,7 @@ mod tests {
                 intro_return_hidden_shell: true,
                 direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
+                natural_intro_sequence_6_worker_elapsed: None,
                 fresh_title_worker_lineage: false,
             },
         );
@@ -7147,6 +7200,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
+                    natural_intro_sequence_6_worker_elapsed: None,
                     fresh_title_worker_lineage: false,
                 },
             );
@@ -7188,6 +7242,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
+                    natural_intro_sequence_6_worker_elapsed: None,
                     fresh_title_worker_lineage: false,
                 },
             );
@@ -7214,6 +7269,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
+                    natural_intro_sequence_6_worker_elapsed: None,
                     fresh_title_worker_lineage: false,
                 },
             );
@@ -7235,6 +7291,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: false,
                     natural_intro_sequence_6_pre_ready_shell: false,
+                    natural_intro_sequence_6_worker_elapsed: None,
                     fresh_title_worker_lineage: false,
                 },
             );

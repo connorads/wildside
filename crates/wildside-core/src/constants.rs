@@ -137,6 +137,11 @@ pub(crate) const INTRO_SEQUENCE_6_START_SKIP_TITLE_INTRO_SEQUENCE_5_COUNT_CARRY_
 /// `Load_TitleArt`/`sub_1B532`, even though trace-facing title readiness
 /// remains false until the later `loc_1B5CE` title-pose point.
 pub(crate) const INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_REBUILD_FRAMES: usize = 244;
+/// ASM loc_1B45A resumes the outer object pass on local frame 237 after
+/// `Load_TitleArt`, having allocated `loc_1B6AC` and `loc_1B5CE`. Both wait
+/// `$1E` frames before their live reveal loops, so their first moving title
+/// presentation begins on local frame 267 while Game_Mode remains `$28`.
+pub(crate) const INTRO_SEQUENCE_6_NATURAL_TITLE_WORKER_START_FRAMES: usize = 267;
 /// The natural no-input IntroSequence6 path has moved from the intermediate
 /// `loc_1B45A` hidden-shell restore to the normal title VDP shell by oracle
 /// frame 2700, while trace-facing title readiness remains false.

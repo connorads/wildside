@@ -468,6 +468,27 @@ all 37,743 post-`Init_RNG` frames remain exact. Frame 39 remains first at
 2,643 pixels; frame 21196 is the new worst at 24,042 pixels, so #406 remains
 open.
 
+Progress 2026-07-13: frame 21196 was inside IntroSequence6's live title
+reveal, not a static post-loader hold. ASM `sub_1B43A loc_1B45A` restores the
+palette, reloads title art, then allocates `loc_1B6AC` and `loc_1B5CE`.
+`loc_1B6AC` waits `$1E` frames before starting the `loc_1BB10` slide and
+40-frame `loc_1B6CE/sub_1B71A` Chameleon reveal, then later allocates SegaText
+from `loc_1B6DC`; `loc_1B5CE` runs the parallel Kid drift and `sub_1B652`
+bursts. Native froze the rebuilt VDP until its later trace-facing title-ready
+boundary, skipping that whole presentation interval.
+
+The natural IntroSequence6 renderer now carries the worker-local elapsed
+through the title VDP lineage and reconstructs the ROM slide, reveal, drift,
+burst, and Sega-text clocks. Regression
+`published_tas_intro_sequence_6_title_workers_advance_after_loc_1b45a` first
+proved frames 21195/21196 incorrectly froze, then pins the live consecutive
+VDP updates. All 201 focused frames 21160..21360 are pixel-exact. Full
+verification gains 379 exact frames and removes 1,903,315 changed pixel
+instances: 21,974 exact, 15,785 divergent, and 72,950,913 changed pixel
+instances. Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG`
+frames remain exact. Frame 39 remains first at 2,643 pixels; frame 21158 is
+the new worst at 15,089 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

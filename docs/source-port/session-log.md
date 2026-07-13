@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 IntroSequence6 live title workers)
+
+- Frame 21196 exposed the frozen interval after `sub_1B43A loc_1B45A`:
+  native loaded title art but did not present `loc_1B6AC`/`loc_1B5CE`'s live
+  slide, Chameleon reveal, Kid drift/bursts, and later Sega-text workers.
+- Focused frames 21160..21360 are pixel-exact. Full verification gains 379
+  exact frames and removes 1,903,315 changed pixel instances: 21,974 exact,
+  15,785 divergent, and 72,950,913 changed pixel instances. All state channels
+  stay exact.
+- Frame 39 remains first at 2,643 pixels. Frame 21158 is the new worst at
+  15,089 pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 IntroSequence4 title-return fade)
 
 - Frame 32007 exposed `sub_1C246 -> loc_1C264 -> loc_6E2`: the later

@@ -5545,6 +5545,37 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_intro_sequence_6_title_workers_advance_after_loc_1b45a() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut frame_21195 = None;
+        let mut frame_21196 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(21_197) {
+            runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                21_195 => frame_21195 = runtime.vdp_state().cloned(),
+                21_196 => {
+                    frame_21196 = runtime.vdp_state().cloned();
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        // ASM sub_1B43A loc_1B45A restores the saved palette, reloads title
+        // art, then allocates loc_1B6AC and loc_1B5CE. Their one-frame
+        // hibernation loops advance the Chameleon plane reveal and Kid/title
+        // sprites on every presented frame. Oracle frames 21195 and 21196
+        // are consecutive distinct images inside that live worker interval.
+        assert_ne!(
+            frame_21195, frame_21196,
+            "loc_1B6AC/loc_1B5CE must not freeze the rebuilt title VDP before the trace-facing title pose becomes ready",
+        );
+    }
+
+    #[test]
     fn published_tas_intro_sequence_6_exposes_title_pose_on_frame_21224() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
