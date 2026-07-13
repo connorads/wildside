@@ -5366,6 +5366,7 @@ impl NativeRuntime {
         self.intro_sequence_6_start_skip_natural_vdp_carry = None;
         self.intro_sequence_5_title_return_vdp_snapshot = None;
         self.intro_sequence_1_title_return_vdp_snapshot = None;
+        self.demo_entry_title_vdp_snapshot = None;
         self.timeout_restart_intro_sequence_3_title_return_vdp_snapshot = None;
         self.intro_sequence_2_title_return_vdp_snapshot = None;
         self.title_screen_ready_frame = if self.frame_index < TITLE_SCREEN_READY_GLOBAL_FRAME {
@@ -5860,6 +5861,7 @@ impl NativeRuntime {
     }
 
     fn begin_demo_play(&mut self, use_demo_2: bool) {
+        let title_vdp_snapshot = self.vdp_state.clone();
         let timeout_restart_demo_bootstrap = self.timeout_restart_title_intro_sequence_3_pose;
         let start_skip_intro_return_camera_wrap =
             self.next_demo_uses_start_skip_intro_return_camera_wrap;
@@ -5934,6 +5936,7 @@ impl NativeRuntime {
             data_index: 0,
             use_demo_2,
         };
+        self.demo_entry_title_vdp_snapshot = title_vdp_snapshot;
         self.current_level = LevelId(0);
         self.level_start_frame = None;
         self.opening_slice = None;

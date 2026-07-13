@@ -709,6 +709,9 @@ pub struct NativeRuntime {
     /// ASM Obj_TitleMenu `loc_1BBD6` jumps into `loc_6E2`, but Load_TitleCard
     /// does not immediately replace the resident title/menu VDP image.
     title_menu_level_entry_vdp_carry: Option<(vdp::VdpState, usize)>,
+    /// ASM Obj_TitleMenu `loc_1BB02` jumps into `loc_6E2`, retaining the
+    /// completed title image while Pal_FadeOut runs before Load_DemoPlay.
+    demo_entry_title_vdp_snapshot: Option<vdp::VdpState>,
     /// Demo playback reads inputs after game logic (ASM ReadJoypad path), so
     /// the byte fetched this frame becomes the controller state for the next
     /// frame.
@@ -1434,6 +1437,7 @@ impl NativeRuntime {
             title_menu_selection_pending: None,
             title_menu_selection_delay_frames: 0,
             title_menu_level_entry_vdp_carry: None,
+            demo_entry_title_vdp_snapshot: None,
             demo_buffered_input: None,
             pending_demo_title_return: 0,
             demo_title_return_after_frame: false,
@@ -2422,10 +2426,19 @@ impl NativeRuntime {
                 use_demo_2,
                 ..
             } if *frame_counter < self.demo_gameplay_start_frame(*use_demo_2) => {
-                // ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay -> Load_InGame
-                // keeps the pre-gameplay demo bootstrap visually black even
-                // after Game_Mode has become DemoPlay.
-                Some(vdp::blank_vdp_state())
+                // ASM Obj_TitleMenu loc_1BB02 -> loc_6E2 keeps the completed
+                // title VDP resident through Pal_FadeOut, then Load_DemoPlay
+                // -> Load_InGame keeps the remaining bootstrap black.
+                self.demo_entry_title_vdp_snapshot
+                    .clone()
+                    .and_then(|mut vdp| {
+                        vdp::apply_title_to_demo_fade_to_black_loc_28c6(
+                            &mut vdp,
+                            usize::from(*frame_counter),
+                        )
+                        .then_some(vdp)
+                    })
+                    .or_else(|| Some(vdp::blank_vdp_state()))
             }
             _ if matches!(self.player_lifecycle, PlayerLifecycle::Respawning { .. }) => {
                 // ASM lose_life -> Teleport loc_B8DE writes Game_Mode=$0008

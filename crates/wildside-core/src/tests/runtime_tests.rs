@@ -291,6 +291,52 @@ fn tas_title_cursor_moves_do_not_delay_attract_demo_handoff() {
 }
 
 #[test]
+fn published_tas_title_to_demo_replays_loc_28c6_resident_fade() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut resident_vdp = None;
+    let mut observed = Vec::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(856) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        match frame_index {
+            836 => resident_vdp = runtime.vdp_state().cloned(),
+            837 | 840 | 841 | 854 | 855 => {
+                observed.push((frame_index, runtime.vdp_state().cloned()));
+            }
+            _ => {}
+        }
+    }
+
+    let resident_vdp = resident_vdp.expect("frame 836 should expose the completed title VDP");
+    let faded_resident_vdp = |elapsed| {
+        let mut vdp = resident_vdp.clone();
+        assert!(vdp::apply_title_to_demo_fade_to_black_loc_28c6(
+            &mut vdp, elapsed,
+        ));
+        vdp
+    };
+    let expected = [
+        (837, resident_vdp.clone()),
+        (840, faded_resident_vdp(3)),
+        (841, faded_resident_vdp(4)),
+        (854, faded_resident_vdp(17)),
+        (855, vdp::blank_vdp_state()),
+    ];
+
+    for ((observed_frame, observed), (expected_frame, expected)) in
+        observed.iter().zip(expected.iter())
+    {
+        assert_eq!(observed_frame, expected_frame);
+        assert!(
+            observed.as_ref() == Some(expected),
+            "ASM Obj_TitleMenu loc_1BB02 -> loc_6E2 -> Pal_FadeOut diverged at published frame {observed_frame}",
+        );
+    }
+}
+
+#[test]
 fn cold_boot_intro_sequence_6_enters_demo_play_on_frame_3270() {
     let mut runtime = NativeRuntime::new(manifest());
     let mut frame_3269 = None;

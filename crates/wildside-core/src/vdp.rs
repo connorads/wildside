@@ -632,6 +632,23 @@ pub(crate) fn apply_intro_title_return_fade_to_black_loc_28c6(
     true
 }
 
+pub(crate) fn apply_title_to_demo_fade_to_black_loc_28c6(
+    vdp: &mut VdpState,
+    demo_elapsed_frames: usize,
+) -> bool {
+    let fade_progress = match demo_elapsed_frames {
+        0..=2 => return true,
+        3..=17 => 0x0100u16.saturating_sub(((demo_elapsed_frames - 2) as u16).saturating_mul(0x10)),
+        _ => return false,
+    };
+    // ASM Obj_TitleMenu loc_1BB02 writes Game_Mode=$10 before jumping through
+    // loc_6E2. This entry reaches Pal_FadeOut one presentation boundary ahead
+    // of the sub_1C246 title-return path: three resident frames, then all 15
+    // descending `$10` steps before Load_DemoPlay's black bootstrap.
+    apply_pal_fade_out_to_black_loc_28c6(vdp, fade_progress);
+    true
+}
+
 pub(crate) fn apply_pal_fade_out_to_black_loc_28c6(vdp: &mut VdpState, fade_progress: u16) {
     let palette_buffer_2 = vdp_cram_words(vdp);
     let palette_buffer_3 = [0u16; 0x40];

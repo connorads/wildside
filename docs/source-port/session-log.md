@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 title-to-demo resident fades)
+
+- Frame 837 exposed `Obj_TitleMenu loc_1BB02 -> loc_6E2 -> Pal_FadeOut`.
+  Demo entry now snapshots the completed title VDP, holds it for three traces,
+  presents all 15 descending `$10` palette steps, then rejoins the existing
+  black `Load_DemoPlay -> Load_InGame` bootstrap.
+- Sampled frames 836..855 are pixel-exact. The shared engine correction gains
+  204 exact route frames and removes 9,907,495 changed pixel instances: 21,336
+  exact, 16,423 divergent, and 137,813,289 changed pixel instances. Gameplay,
+  enemy, player/camera CRC, and post-`Init_RNG` frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 12142 is the new worst at
+  64,297 pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 early-restore IntroSequence1 resident fade)
 
 - Frame 34220 exposed timeout-restart `sub_1B8F4 loc_1B924 -> loc_1C264

@@ -315,6 +315,25 @@ player/camera CRC, and all 37,743 post-`Init_RNG` frames remain exact. Frame 39
 remains first at 2,643 pixels; frame 837 is the new worst at 67,037 pixels, so
 #406 remains open.
 
+Progress 2026-07-13: frame 837 is the first attract-demo presentation after
+`Obj_TitleMenu loc_1BB02` writes `Game_Mode=$10` and jumps directly through
+`loc_6E2 -> Pal_FadeOut`. Oracle retains the completed title VDP for three
+demo traces, presents all 15 descending `$10` palette steps, then clears to
+black before the already-correct `Load_DemoPlay -> Load_InGame` bootstrap.
+This clock begins one presentation boundary earlier than the `sub_1C246`
+intro-to-title fade shell.
+
+Native now snapshots the title VDP at every typed demo entry and applies a
+dedicated `loc_1BB02` fade clock. Regression
+`published_tas_title_to_demo_replays_loc_28c6_resident_fade` pins the final
+title frame, hold, first and last fade steps, and black clear. Sampled frames
+836..855 are pixel-exact. The engine-level correction fixes repeated route
+entries, gaining 204 exact frames and removing 9,907,495 changed pixel
+instances: 21,336 exact, 16,423 divergent, and 137,813,289 changed pixel
+instances. Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG`
+frames remain exact. Frame 39 remains first at 2,643 pixels; frame 12142 is the
+new worst at 64,297 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.
