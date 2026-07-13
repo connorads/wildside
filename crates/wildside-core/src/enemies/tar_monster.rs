@@ -403,7 +403,7 @@ pub(crate) fn tar_monster_loc_3224e() -> TarMonsterLoc3224EReturn {
 pub(crate) fn tar_monster_loc_32256(raw_command: i16) -> TarMonsterLoc32256Return {
     // ASM loc_32256: read one signed word; negative -> restart script at loc_32248;
     // otherwise `move.b d0,d7` indexes `off_32290` by low-byte byte offset.
-    if raw_command < 0 {
+    if raw_command.is_negative() {
         return TarMonsterLoc32256Return {
             raw_command,
             route: TarMonsterLoc32256Route::Restart,
@@ -1191,9 +1191,8 @@ pub(crate) fn step_tar_monster_with_sounds(
                     y_pos: spawn.y_pos,
                     x_velocity: motion.x_velocity,
                     lifetime: 120,
-                    // ASM loc_324D0 sets only x_vel. The `$1000` gravity at
-                    // loc_3263C belongs to burst children, not this glob.
-                    gravity: 0,
+                    // ASM loc_324D0 sets only x_vel. The default zero gravity
+                    // remains; loc_3263C's `$1000` belongs to burst children.
                     kind: EnemyProjectileKind::TarMonsterStraightGlob,
                     tar_monster_collision_response_budget: setup.collision_response_budget,
                     ..Default::default()
@@ -2341,7 +2340,10 @@ mod tests {
             "ASM Tar_Monster.asm loc_324D0 mirrors the loc_3247E `x-$19` setup by adding $32 when x_direction is non-zero"
         );
         assert_eq!(projectiles[0].y_pos, 0x006E_0000);
-        assert_eq!(projectiles[0].x_velocity, TAR_MONSTER_GLOB_SPEED_X);
+        assert_eq!(
+            projectiles[0].x_velocity, 0x4_0000,
+            "ASM Tar_Monster.asm loc_324D0 sets +4px/frame when x_direction is non-zero"
+        );
         assert_eq!(
             projectiles[0],
             EnemyProjectile {
@@ -2375,7 +2377,10 @@ mod tests {
         assert_eq!(projectiles.len(), 1);
         assert_eq!(projectiles[0].x_pos, 0x0107_0000);
         assert_eq!(projectiles[0].y_pos, 0x006E_0000);
-        assert_eq!(projectiles[0].x_velocity, -TAR_MONSTER_GLOB_SPEED_X);
+        assert_eq!(
+            projectiles[0].x_velocity, -0x4_0000,
+            "ASM Tar_Monster.asm loc_324D0 sets -4px/frame when x_direction is zero"
+        );
     }
 
     #[test]

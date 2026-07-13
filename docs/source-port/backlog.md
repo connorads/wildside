@@ -38,7 +38,7 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 - **Whole-level sweep boundary:** canonical report `1783914264` is 47/69 pass with 106 blocking differences, 3 advisory differences, and 56 oracle limitations. #402 corrects #401's coarse Tar Monster model with the real `unk_32264` cursor, 28-frame animations, `unk_316AC` glob collision box, and prior-pass collision latch. Levels 0x46 and 0x51 remain authoritative-exact. This is still two idle checkpoints per sweepable level, not full-route or every-input proof.
 - **Check tightening:** insta snapshots re-homed to `src/tests/snapshots/` with real (unredacted) values; `asm-coverage --check-no-new-test-only` now fails on stale baseline entries (45 re-banked, 241 -> 196); advisory-masking prose retired from CLAUDE.md/methodology.md.
 - **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
-- **Current work:** #403 is resolved. Tar burst children use the ROM Gfx collision boxes, prior-pass collision latch, boundary/tile clamping, delayed `$19`, and contact-axis-only fixed-point clamping. Every measured Level 0x64 cleanup transition from frame 134 through 338 is exact.
+- **Current work:** no ready/open risks. The proactive Tar Monster mutation refresh found one real weak assertion in `loc_324D0` glob speed; exact ±4px/frame assertions now kill that mutant. The signed restart branch is explicit and the straight glob relies on its default zero gravity, eliminating one timeout and one equivalent mutant.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

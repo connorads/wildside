@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (proactive Tar Monster mutation refresh)
+
+- With no ready/open rows after #403, the single-file mutation wrapper tested
+  `enemies/tar_monster.rs`: 148 mutants in 15 minutes, with 111 caught, 34
+  unviable, two missed, and one timeout.
+- One miss was real: `loc_324D0` glob speed was asserted through the same
+  constant as production. Exact `+0x4_0000` and `-0x4_0000` assertions now pin
+  the ROM's ±4px/frame values. The other miss deleted an explicit `gravity: 0`
+  already supplied by `Default`; removing the redundant field removes the
+  equivalent mutant. Using `i16::is_negative` expresses `loc_32256`'s signed
+  restart branch without the timeout-prone relational mutation.
+- Targeted rerun `/tmp/mutants-tar-speed-20260713` catches all 16 selected
+  speed and projectile-construction mutants. `mise run verify-slice-fast`
+  passes. No gameplay behaviour changes, so full TAS verification is not
+  required beyond #403's immediately preceding exact 37,759-frame run.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or enemy shard.
+
 ## 2026-07-13 handoff (#403 Tar burst Gfx collision)
 
 - Burst children now use `unk_316B8` then `unk_316C2`, full-box
