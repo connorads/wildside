@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 later IntroSequence4 title restore)
+
+- Frame 32063 exposed the later `sub_1B988 -> sub_1C246 -> loc_1C264 ->
+  loc_6E2 -> Load_TitleScreen` return. Unlike the IntroSequence1/2 paths, this
+  loader rejoins one outer pass earlier: native now presents its effective
+  elapsed-57 base upload at traced elapsed 56 and the first title-object pass
+  one frame later.
+- Sampled published frames across 32062..32283, including both
+  `sub_1B652` title bursts and the complete animation rewind, are pixel-exact.
+  The complete route gains 449 exact frames and removes 6,899,759 changed
+  pixel instances: 19,522 exact, 18,237 divergent, and 179,666,299 changed
+  pixel instances. Gameplay, enemy, and post-`Init_RNG` frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 5953 is the new worst at
+  70,637 pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 later IntroSequence2 title restore)
 
 - Frame 36878 exposed the later `loc_1B9D0 -> loc_1BA02 -> sub_1C246 ->

@@ -2178,23 +2178,23 @@ impl NativeRuntime {
                     .or_else(|| Some(vdp::blank_vdp_state()))
             }
             BootState::TitleScreen { .. }
-                if self.intro_return_load_title_screen_reveal_at_elapsed_57()
-                    && self.title_screen_elapsed_frames == 57 =>
+                if self.intro_return_load_title_screen_reveal_elapsed()
+                    == Some(self.title_screen_elapsed_frames) =>
             {
                 self.title_screen_data.as_ref().map(|data| {
                     // ASM sub_1C246 -> loc_1C264 -> loc_6E2 blocks through
                     // Pal_FadeOut, clears VRAM, then runs Load_TitleScreen on
-                    // both the cold IntroSequence1 and loc_1B9D0 -> loc_1BA02
-                    // IntroSequence2 returns. Their first presented frame
-                    // contains the base uploads but precedes the fresh title
-                    // workers' first loc_E12 pass.
+                    // the cold IntroSequence1, loc_1B9D0 -> loc_1BA02
+                    // IntroSequence2, and sub_1B988 IntroSequence4 returns.
+                    // Their first presented frame contains the base uploads
+                    // but precedes the fresh title workers' first loc_E12 pass.
                     vdp::build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
                         data,
                         7,
                         self.title_screen_region_byte,
                         None,
                         false,
-                        self.title_screen_elapsed_frames,
+                        57,
                         vdp::TitleScreenVdpLineage {
                             intro_return_hidden_shell: true,
                             direct_intro_sequence_5_title_return: false,
@@ -2229,11 +2229,17 @@ impl NativeRuntime {
                         self.title_screen_intro_return_lineage,
                         Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence3)
                     );
+                    let later_intro_sequence_4_return = matches!(
+                        self.title_screen_intro_return_lineage,
+                        Some(TitleScreenIntroReturnLineage::LaterIntroSequence)
+                    );
                     let title_elapsed_frames = if manual_demo_return {
                         self.effective_title_screen_rebuild_elapsed()
-                    } else if timeout_restart_intro_sequence_3_return {
-                        // ASM sub_1B93E's title loader rejoins loc_E12 one
-                        // frame ahead of the generic manual-demo rebuild.
+                    } else if timeout_restart_intro_sequence_3_return
+                        || later_intro_sequence_4_return
+                    {
+                        // ASM sub_1B93E and sub_1B988's title loaders rejoin
+                        // loc_E12 one frame ahead of the generic intro return.
                         self.title_screen_elapsed_frames.saturating_add(1)
                     } else {
                         self.title_screen_elapsed_frames
@@ -2245,7 +2251,7 @@ impl NativeRuntime {
                     let fresh_title_worker_lineage =
                         manual_demo_return
                             || timeout_restart_intro_sequence_3_return
-                            || self.intro_return_load_title_screen_reveal_at_elapsed_57();
+                            || self.intro_return_load_title_screen_reveal_elapsed().is_some();
                     let fresh_title_base_upload =
                         fresh_title_worker_lineage && title_elapsed_frames == 57;
                     let title_vdp_ready =
@@ -2542,8 +2548,9 @@ impl NativeRuntime {
 
     fn title_screen_vdp_ready(&self) -> bool {
         self.title_screen_ready()
-            || (self.intro_return_load_title_screen_reveal_at_elapsed_57()
-                && self.title_screen_elapsed_frames >= 58)
+            || self
+                .intro_return_load_title_screen_reveal_elapsed()
+                .is_some_and(|elapsed| self.title_screen_elapsed_frames > elapsed)
             || (self.title_screen_uses_intro_return_hidden_shell
                 && self.timeout_restart_title_intro_sequence_5_pose
                 && !self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry
@@ -2569,15 +2576,20 @@ impl NativeRuntime {
             )
     }
 
-    fn intro_return_load_title_screen_reveal_at_elapsed_57(&self) -> bool {
-        self.title_screen_uses_intro_return_hidden_shell
-            && matches!(
-                self.title_screen_intro_return_lineage,
-                Some(
-                    TitleScreenIntroReturnLineage::ColdIntroSequence1
-                        | TitleScreenIntroReturnLineage::LaterIntroSequence2
-                )
-            )
+    fn intro_return_load_title_screen_reveal_elapsed(&self) -> Option<usize> {
+        if !self.title_screen_uses_intro_return_hidden_shell {
+            return None;
+        }
+        match self.title_screen_intro_return_lineage {
+            Some(
+                TitleScreenIntroReturnLineage::ColdIntroSequence1
+                | TitleScreenIntroReturnLineage::LaterIntroSequence2,
+            ) => Some(57),
+            // ASM sub_1B988 -> sub_1C246 rejoins the blocking title loader
+            // one outer pass earlier than the IntroSequence1/2 returns.
+            Some(TitleScreenIntroReturnLineage::LaterIntroSequence) => Some(56),
+            _ => None,
+        }
     }
 
     fn cold_intro_sequence_1_pre_vdp_menu_activation(&self) -> bool {

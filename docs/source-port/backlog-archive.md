@@ -182,6 +182,24 @@ changed pixel instances. Gameplay, enemy, and all 37,743 post-`Init_RNG`
 frames remain exact. Frame 32063 is the next near-full-screen frontier at
 70,663 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 32063 is the first visible title-loader frame after
+the later IntroSequence4 return. ASM `sub_1B988 -> sub_1C246 -> loc_1C264 ->
+loc_6E2` uses the same blocking `Load_TitleScreen` rebuild as IntroSequence1/2,
+but rejoins one outer pass earlier. Oracle keeps traced elapsed 55 black,
+presents the effective elapsed-57 base upload at traced elapsed 56, and exposes
+the first fresh title-object pass at traced elapsed 57.
+
+Native now models that lineage-specific offset without changing the shared
+title-worker clock. Regression
+`published_tas_later_intro_sequence_4_title_restore_stages_load_title_screen_loc_1b258`
+pins the black/base/object boundary. Sampled published frames 32062..32283,
+including both `sub_1B652` burst allocations and the complete animation rewind,
+are pixel-exact. Full verification gains 449 exact frames and removes 6,899,759
+changed pixel instances: 19,522 exact, 18,237 divergent, and 179,666,299
+changed pixel instances. Gameplay, enemy, and all 37,743 post-`Init_RNG`
+frames remain exact. Frame 5953 is the next near-full-screen frontier at
+70,637 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.
