@@ -721,8 +721,14 @@ fn tar_monster_gfx_collision_loc_16f0(
         }
     };
 
-    projectile.x_pos = (u32::from(corrected_x as u16)) << 16;
-    projectile.y_pos = (u32::from(corrected_y as u16)) << 16;
+    // ASM loc_197E/loc_19D2 clear only `$1C` (x fraction), while
+    // loc_1A44/loc_1A6C clear only `$20` (y fraction). Preserving the other
+    // axis is observable on diagonal Tar children across later contacts.
+    match collision_type {
+        0x04 | 0x08 => projectile.x_pos = (u32::from(corrected_x as u16)) << 16,
+        0x0C | 0x10 => projectile.y_pos = (u32::from(corrected_y as u16)) << 16,
+        _ => {}
+    }
     collision_type
 }
 
@@ -5277,6 +5283,48 @@ mod loc_3e266_tests {
 
         assert!(!super::ufo_beam_hits_floor_loc_355d4(&grid, &above_floor));
         assert!(super::ufo_beam_hits_floor_loc_355d4(&grid, &at_floor));
+    }
+
+    #[test]
+    fn tar_wall_contact_preserves_y_fraction_loc_197e() {
+        let grid = grid_with_cells(4, 4, &[(2, 1, terrain::CollisionKind::Solid)]);
+        let mut projectile = EnemyProjectile {
+            x_pos: (29 << 16) | 0x4000,
+            y_pos: (20 << 16) | 0x8000,
+            x_velocity: 1 << 16,
+            ..Default::default()
+        };
+
+        let collision = super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3);
+
+        assert_eq!(collision, 0x04);
+        assert_eq!(projectile.x_pos, 28 << 16);
+        assert_eq!(
+            projectile.y_pos,
+            (20 << 16) | 0x8000,
+            "ASM kid.asm loc_197E clears only the x fraction"
+        );
+    }
+
+    #[test]
+    fn tar_floor_contact_preserves_x_fraction_loc_1a44() {
+        let grid = grid_with_cells(4, 4, &[(1, 2, terrain::CollisionKind::Solid)]);
+        let mut projectile = EnemyProjectile {
+            x_pos: (20 << 16) | 0xC000,
+            y_pos: (29 << 16) | 0x4000,
+            y_velocity: 1 << 16,
+            ..Default::default()
+        };
+
+        let collision = super::tar_monster_gfx_collision_loc_16f0(&grid, &mut projectile, 3);
+
+        assert_eq!(collision, 0x0C);
+        assert_eq!(
+            projectile.x_pos,
+            (20 << 16) | 0xC000,
+            "ASM kid.asm loc_1A44 clears only the y fraction"
+        );
+        assert_eq!(projectile.y_pos, 28 << 16);
     }
 
     #[test]

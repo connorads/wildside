@@ -5941,9 +5941,8 @@ mod chunk_02 {
             (246, 14, 17),
             (259, 14, 17),
             (260, 13, 16),
-            // TODO(fidelity): #403 still deletes the left-boundary child at
-            // native frame 286 instead of the oracle's frame 289. The other
-            // seven burst cleanup transitions are exact.
+            (288, 13, 16),
+            (289, 12, 15),
             (290, 12, 15),
             (291, 11, 14),
             (337, 11, 14),

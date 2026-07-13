@@ -13,6 +13,15 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #403
 
+Resolved 2026-07-13. The remaining three-frame drift came from clearing both
+16.16 position fractions after every collision. `GfxObjects_Collision`
+`loc_197E`/`loc_19D2` clears only `$1C` after a wall clamp, while
+`loc_1A44`/`loc_1A6C` clears only `$20` after a vertical clamp. Native now
+preserves the uncontacted axis fraction. The Level 0x64 Object/Gfx cleanup
+schedule is exact at frames 134, 215, 233, 240, 246, 260, 289, 291, and 338.
+Focused wall/floor regressions pin the axis-specific fraction behaviour, and
+the cache-backed recording regression pins the complete measured schedule.
+
 Progress 2026-07-13: direct oracle WRAM dumps over Level 0x64 frames 117-338
 show `loc_3263C` children start with LnkTo_unk_C782E/`unk_316B8` (-3, width
 6), switch to LnkTo_unk_C7836/`unk_316C2` (-2, width 4) after their first
@@ -12899,6 +12908,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 403 | [x] | P2 | enemy/fidelity | Tar Monster burst children use exact Gfx collision latches, hitboxes, and contact-axis-only fixed-point clamps through cleanup. | Level 0x64 frames 134-338 exact. See archive #403. |
 | 402 | [x] | P2 | enemy/fidelity | Tar Monster executes the typed `unk_32264` cursor and exact opening shot/burst schedule through the measured interval. | Report `1783914264`: 47/69 pass; measured Tar intervals exact. See archive #402. |
 | 401 | [x] | P2 | enemy/fidelity | Tar Monster opening timing, glob direction, staged burst allocation, and `$19` off-screen cleanup match the ROM interval. | Report `1783908515`: 47/69 pass, 106 blockers; see archive #401. |
 | 400 | [x] | P2 | enemy/fidelity | Tar Monster parents retain their second linked Gfx slot and every live glob/burst worker contributes its Object+Gfx pair. | Report `1783906962`: 47/69 pass, 107 blockers; see archive #400. |
