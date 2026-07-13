@@ -784,6 +784,9 @@ pub struct NativeRuntime {
     /// Resident IntroSequence3 VDP copied across `sub_1C246 -> loc_1C264` so
     /// `loc_6E2` can present Pal_FadeOut before clearing VRAM.
     timeout_restart_intro_sequence_3_title_return_vdp_snapshot: Option<vdp::VdpState>,
+    /// Resident IntroSequence2 VDP presented by `Load_IntroSequence3 ->
+    /// sub_1B93E -> sub_1C204` before the rebuilt Wild Side scene fades in.
+    intro_sequence_3_handoff_vdp_snapshot: Option<vdp::VdpState>,
     /// Resident IntroSequence3 VDP copied across `loc_1B96A -> Game_Mode=$20`
     /// so `loc_6E2` can present Pal_FadeOut before Load_IntroSequence4.
     intro_sequence_4_handoff_vdp_snapshot: Option<vdp::VdpState>,
@@ -1447,6 +1450,7 @@ impl NativeRuntime {
             timeout_restart_title_intro_sequence_3_pose: false,
             timeout_restart_title_intro_sequence_4_camera_carry: false,
             timeout_restart_intro_sequence_3_title_return_vdp_snapshot: None,
+            intro_sequence_3_handoff_vdp_snapshot: None,
             intro_sequence_4_handoff_vdp_snapshot: None,
             timeout_restart_title_intro_sequence_5_pose: false,
             timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay: false,
@@ -1902,6 +1906,19 @@ impl NativeRuntime {
         if matches!(
             self.boot_state,
             BootState::IntroSequence {
+                segment: 2,
+                elapsed: 0,
+                ..
+            }
+        ) {
+            // ASM Load_IntroSequence3 -> sub_1B93E -> sub_1C204 presents the
+            // resident IntroSequence2 image before fading its CRAM to black.
+            self.intro_sequence_3_handoff_vdp_snapshot
+                .clone_from(&previous_vdp_state);
+        }
+        if matches!(
+            self.boot_state,
+            BootState::IntroSequence {
                 segment: 3,
                 elapsed: 0,
                 ..
@@ -1955,6 +1972,15 @@ impl NativeRuntime {
                         self.title_screen_region_byte,
                         *elapsed,
                         self.intro_sequence_4_handoff_vdp_snapshot.as_ref(),
+                    );
+                }
+                if *segment == 2 {
+                    return vdp::build_intro_sequence_3_handoff_vdp_at_elapsed(
+                        data,
+                        self.title_screen_region_byte,
+                        *elapsed,
+                        self.active_intro_sequence_3_roster_index,
+                        self.intro_sequence_3_handoff_vdp_snapshot.as_ref(),
                     );
                 }
                 if *segment == 4

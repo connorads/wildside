@@ -7102,6 +7102,71 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_timeout_restart_intro_sequence_3_replays_sub_1b93e_palette_shell() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut frame_5952 = None;
+        let mut frame_5953 = None;
+        let mut frame_5993 = None;
+        let mut frame_5994 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(5_995) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                5_952 => frame_5952 = runtime.vdp_state().cloned(),
+                5_953 => {
+                    frame_5953 = Some((
+                        trace.boot_phase,
+                        trace.boot_phase_elapsed,
+                        runtime.vdp_state().cloned(),
+                    ));
+                }
+                5_993 => frame_5993 = runtime.vdp_state().cloned(),
+                5_994 => {
+                    frame_5994 = Some((
+                        trace.boot_phase,
+                        trace.boot_phase_elapsed,
+                        runtime.vdp_state().cloned(),
+                    ));
+                }
+                _ => {}
+            }
+        }
+
+        let resident = frame_5952.expect("frame 5952 should retain IntroSequence2 VDP");
+        // ASM Load_IntroSequence3 -> sub_1B93E -> sub_1C204 presents the
+        // resident IntroSequence2 image once at the mode handoff, fades it to
+        // black, then keeps the rebuilt scene black past loc_1AEEC's first
+        // trace-visible roster frame. Oracle first starts fading the new scene
+        // in on frame 5998.
+        assert_eq!(
+            frame_5953,
+            Some((
+                Some(String::from("intro_sequence_3")),
+                Some(0),
+                Some(resident),
+            )),
+        );
+        assert!(
+            frame_5993
+                .as_ref()
+                .is_some_and(|vdp| vdp.cram.iter().all(|byte| *byte == 0)),
+            "the rebuilt scene should remain hidden under black CRAM on frame 5993",
+        );
+        let (phase, elapsed, frame_5994_vdp) =
+            frame_5994.expect("frame 5994 should be IntroSequence3 elapsed 41");
+        assert_eq!(phase.as_deref(), Some("intro_sequence_3"));
+        assert_eq!(elapsed, Some(41));
+        assert!(
+            frame_5994_vdp
+                .as_ref()
+                .is_some_and(|vdp| vdp.cram.iter().all(|byte| *byte == 0)),
+            "loc_1AEEC's first roster pass should still render under black CRAM",
+        );
+    }
+
+    #[test]
     fn published_tas_later_intro_sequence_4_title_return_rebuild_counts_match_loc_1b258() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

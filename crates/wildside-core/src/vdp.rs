@@ -539,6 +539,15 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     if segment == 1 {
         return build_intro_sequence_2_handoff_vdp_at_elapsed(data, title_variant, elapsed);
     }
+    if segment == 2 {
+        return build_intro_sequence_3_handoff_vdp_at_elapsed(
+            data,
+            title_variant,
+            elapsed,
+            intro_sequence_3_roster_index,
+            None,
+        );
+    }
     if segment == 3 {
         return build_intro_sequence_4_handoff_vdp_at_elapsed(data, title_variant, elapsed, None);
     }
@@ -552,20 +561,6 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     let mut vdp = build_intro_sequence_vdp_base_with_title_variant(data, segment, title_variant);
     if segment == 0 && elapsed >= INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A {
         overlay_intro_sequence_1_prompt_sprite_sub_1C54A(&mut vdp, elapsed);
-    }
-    if segment == 2 && elapsed < INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
-        // ASM Load_IntroSequence3 -> sub_1B93E enters the shared sub_1C204
-        // fade shell before loc_1AEEC's roster objects are visible. The VRAM
-        // rebuild exists, but oracle frames remain black until the hidden
-        // fade/rebuild window reaches the first visible roster frame.
-        vdp.cram.fill(0);
-    }
-    if segment == 2 && elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
-        overlay_intro_sequence_3_sprite_table_loc_1AEEC(
-            &mut vdp,
-            intro_sequence_3_roster_index,
-            elapsed - INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
-        );
     }
     if segment == 4 {
         overlay_intro_sequence_5_tile_worker_loc_1BC36(&mut vdp, data, elapsed);
@@ -697,6 +692,9 @@ const INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A: usize = 43;
 const INTRO_SEQUENCE_2_PREVIOUS_FADE_OUT_ELAPSED: usize = 17;
 const INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED: usize = 44;
 const INTRO_SEQUENCE_2_FULL_PALETTE_ELAPSED: usize = 60;
+const INTRO_SEQUENCE_3_PREVIOUS_FADE_OUT_ELAPSED: usize = 17;
+const INTRO_SEQUENCE_3_FADE_IN_START_ELAPSED: usize = 44;
+const INTRO_SEQUENCE_3_FULL_PALETTE_ELAPSED: usize = 60;
 const INTRO_SEQUENCE_4_PREVIOUS_FADE_OUT_ELAPSED: usize = 17;
 const INTRO_SEQUENCE_4_FADE_IN_START_ELAPSED: usize = 39;
 const INTRO_SEQUENCE_4_FULL_PALETTE_ELAPSED: usize = 55;
@@ -741,6 +739,58 @@ fn build_intro_sequence_2_handoff_vdp_at_elapsed(
             &data.palette_segment_1,
             elapsed,
             INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED,
+        );
+    }
+    vdp
+}
+
+pub(crate) fn build_intro_sequence_3_handoff_vdp_at_elapsed(
+    data: &IntroSub1B850Data,
+    title_variant: u8,
+    elapsed: usize,
+    intro_sequence_3_roster_index: usize,
+    resident_intro_sequence_2_vdp: Option<&VdpState>,
+) -> VdpState {
+    // ASM Load_IntroSequence3 -> sub_1B93E -> sub_1C204 first presents the
+    // resident IntroSequence2 image and fades its CRAM to black. The rebuilt
+    // Wild Side scene remains black while loc_1AEEC allocates the roster, then
+    // Pal_1C28A fades in from the first post-loader object passes.
+    if elapsed < INTRO_SEQUENCE_3_PREVIOUS_FADE_OUT_ELAPSED {
+        let mut vdp = resident_intro_sequence_2_vdp
+            .cloned()
+            .unwrap_or_else(blank_vdp_state);
+        if elapsed > 0 {
+            apply_intro_sequence_fade_out_to_black_loc_1c204(
+                &mut vdp,
+                elapsed,
+                INTRO_SEQUENCE_3_PREVIOUS_FADE_OUT_ELAPSED,
+            );
+        }
+        return vdp;
+    }
+
+    let mut vdp = build_intro_sequence_vdp_base_with_title_variant(data, 2, title_variant);
+    if elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
+        overlay_intro_sequence_3_sprite_table_loc_1AEEC(
+            &mut vdp,
+            intro_sequence_3_roster_index,
+            elapsed - INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
+        );
+    }
+    overlay_intro_text_worker_loc_1c7a0(&mut vdp, 2, elapsed);
+
+    if elapsed < INTRO_SEQUENCE_3_FADE_IN_START_ELAPSED {
+        vdp.cram.fill(0);
+        return vdp;
+    }
+    if (INTRO_SEQUENCE_3_FADE_IN_START_ELAPSED..INTRO_SEQUENCE_3_FULL_PALETTE_ELAPSED)
+        .contains(&elapsed)
+    {
+        apply_intro_sequence_palette_fade_in_loc_1c204(
+            &mut vdp,
+            &data.palette_segment_0,
+            elapsed,
+            INTRO_SEQUENCE_3_FADE_IN_START_ELAPSED,
         );
     }
     vdp
@@ -4357,7 +4407,7 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    fn intro_sequence_3_sub_1C204_keeps_palette_black_before_visible_elapsed() {
+    fn intro_sequence_3_sub_1C204_keeps_palette_black_until_post_roster_fade() {
         let data = IntroSub1B850Data {
             palette_segment_0: vec![0x0EEE; 0x40],
             ..empty_intro_data()
@@ -4376,7 +4426,7 @@ mod tests {
             "ASM sub_1B93E enters sub_1C204's hidden fade shell before loc_1AEEC exposes the Wild Side roster, so early intro-sequence-3 CRAM should stay black",
         );
 
-        let visible = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+        let roster_live = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &data,
             2,
             1,
@@ -4384,9 +4434,22 @@ mod tests {
             1,
         );
         assert_eq!(
-            cram_word(&visible, 1),
-            0x0EEE,
-            "ASM loc_1AEEC's first visible roster frame should use the loaded Pal_1C28A colours rather than the hidden sub_1C204 black palette",
+            cram_word(&roster_live, 1),
+            0,
+            "ASM loc_1AEEC's first trace-visible roster pass still runs under sub_1C204's black palette",
+        );
+
+        let first_fade = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            2,
+            1,
+            INTRO_SEQUENCE_3_FADE_IN_START_ELAPSED,
+            1,
+        );
+        assert_eq!(
+            vdp_cram_words(&first_fade),
+            expected_palette_fade(0x0010, &[0x0EEE; 0x40], &[0; 0x40]),
+            "ASM sub_1B93E -> sub_1C204 exposes the first Pal_1C28A fade step after the roster is live",
         );
     }
 

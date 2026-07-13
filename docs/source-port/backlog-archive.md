@@ -200,6 +200,24 @@ changed pixel instances. Gameplay, enemy, and all 37,743 post-`Init_RNG`
 frames remain exact. Frame 5953 is the next near-full-screen frontier at
 70,637 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 5953 is the first `Game_Mode=$1C` presentation
+after the timeout-restart IntroSequence2. ASM `Load_IntroSequence3 ->
+sub_1B93E -> sub_1C204` presents the resident IntroSequence2 VDP once, fades
+its CRAM to black over 17 frames, rebuilds the Wild Side scene while black,
+then fades `Pal_1C28A` in. `loc_1AEEC` makes the roster trace-visible before
+that second fade is visible, so trace visibility does not imply lit pixels.
+
+Native now snapshots the resident VDP and models both palette phases around
+the existing roster clock. Regressions
+`published_tas_timeout_restart_intro_sequence_3_replays_sub_1b93e_palette_shell`
+and `intro_sequence_3_sub_1C204_keeps_palette_black_until_post_roster_fade`
+pin the handoff, black hold, and first fade step. Published frames 5952..6209
+are pixel-exact. Full verification gains 210 exact frames and removes
+12,284,721 changed pixel instances: 19,732 exact, 18,027 divergent, and
+167,381,578 changed pixel instances. Gameplay, enemy, and all 37,743
+post-`Init_RNG` frames remain exact. Frame 36821 is the next near-full-screen
+frontier at 70,637 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

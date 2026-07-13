@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 IntroSequence3 palette shell)
+
+- Frame 5953 exposed `Load_IntroSequence3 -> sub_1B93E -> sub_1C204`'s full
+  presentation shell. Native now retains and fades the resident
+  IntroSequence2 VDP, keeps the rebuilt Wild Side VRAM under black CRAM after
+  `loc_1AEEC` makes the roster trace-visible, then replays the 16 palette
+  steps from the hidden first `$10` update.
+- Published frames 5952..6209 are pixel-exact. The complete route gains 210
+  exact frames and removes 12,284,721 changed pixel instances: 19,732 exact,
+  18,027 divergent, and 167,381,578 changed pixel instances. Gameplay, enemy,
+  and post-`Init_RNG` frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 36821 is the new worst at
+  70,637 pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 later IntroSequence4 title restore)
 
 - Frame 32063 exposed the later `sub_1B988 -> sub_1C246 -> loc_1C264 ->
