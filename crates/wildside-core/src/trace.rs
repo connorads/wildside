@@ -2042,7 +2042,7 @@ mod tests {
     }
 
     #[test]
-    fn drips_parent_controller_counts_as_object_only_worker_enemy16_drip_init() {
+    fn drips_parent_controller_counts_as_object_and_three_gfx_workers_enemy16_drip_init() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
         runtime.current_level = LevelId(0x14);
@@ -2054,13 +2054,13 @@ mod tests {
 
         assert_eq!(
             with_controller,
-            (baseline.0 + 1, baseline.1),
-            "ASM Drips.asm Enemy16_Drip_Init allocates one Object_RAM controller that remains live through loc_333F6..loc_3350E; suppressing its hidden gfx snapshot must not remove it from Number_Objects",
+            (baseline.0 + 1, baseline.1 + 3),
+            "ASM Drips.asm Enemy16_Drip_Init loads the controller's a3 GfxObject and allocates its a1/a2 children; suppressing those hidden snapshots must retain one Object and three Gfx workers",
         );
     }
 
     #[test]
-    fn drips_surface_crawler_counts_as_object_only_worker_loc_335d8() {
+    fn drips_surface_crawler_counts_as_object_and_gfx_worker_loc_335d8() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
         runtime.current_level = LevelId(0x14);
@@ -2074,8 +2074,8 @@ mod tests {
 
         assert_eq!(
             with_crawler,
-            (baseline.0 + 1, baseline.1),
-            "ASM Drips.asm loc_33488 allocates loc_335D8 through j_Allocate_ObjectSlot; native projectile storage must retain that Object_RAM count without changing the sampled Number_GfxObjects",
+            (baseline.0 + 1, baseline.1 + 1),
+            "ASM Drips.asm loc_33488 allocates loc_335D8 through j_Allocate_ObjectSlot, then loc_335D8 loads its linked GfxObject slot; native projectile storage must retain both counts",
         );
     }
 
@@ -11626,7 +11626,7 @@ impl NativeRuntime {
             0
         };
         let transient_gfx_only_workers = if include_runtime_transients {
-            self.gameplay_transient_gfx_only_worker_count()
+            self.gameplay_transient_gfx_only_worker_count(camera_x_pos, camera_y_pos)
         } else {
             0
         };
@@ -11706,19 +11706,8 @@ impl NativeRuntime {
         camera_x_pos: u32,
         camera_y_pos: u32,
     ) -> u16 {
-        let drips_parent_workers = self
-            .active_enemies
-            .iter()
-            .filter(|enemy| {
-                self.recording_oracle_debug_lifecycle_completed
-                    && enemy.family == EnemyFamily::Drips
-                    && drips_object_check_in_range_loc_333f6(
-                        enemy,
-                        Some(camera_x_pos >> 16),
-                        Some(camera_y_pos >> 16),
-                    )
-            })
-            .count() as u16;
+        let drips_parent_workers =
+            self.hidden_drips_parent_worker_count_enemy16_drip_init(camera_x_pos, camera_y_pos);
         // ASM Drips.asm Enemy16_Drip_Init is an Object_RAM coroutine whose
         // parent gfx object stays hidden through loc_333F6..loc_3350E. Native
         // deliberately suppresses that parent from `active_enemy_roster`.
@@ -11740,7 +11729,41 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire)
             .count() as u16;
-        let visible_drips_surface_crawler_workers = self
+        // ASM Dragon_Flying.asm loc_34BAC follows the same Object_RAM child
+        // pattern for descent fire; native models it as a projectile but ROM
+        // Number_Objects includes the child worker.
+        drips_parent_workers
+            // ASM Fire_Demon.asm loc_3A414 allocates loc_3A48E through
+            // j_Allocate_ObjectSlot only while the global Fire_Demon byte is
+            // zero. Every live demon shares that one palette coroutine, which
+            // never calls a GfxObject allocator.
+            .saturating_add(fire_demon_palette_helper_workers)
+            .saturating_add(rubber_skin_workers)
+            .saturating_add(lava_special_effect_workers)
+            .saturating_add(dragon_flying_descent_fire_workers)
+    }
+
+    fn hidden_drips_parent_worker_count_enemy16_drip_init(
+        &self,
+        camera_x_pos: u32,
+        camera_y_pos: u32,
+    ) -> u16 {
+        self.active_enemies
+            .iter()
+            .filter(|enemy| {
+                self.recording_oracle_debug_lifecycle_completed
+                    && enemy.family == EnemyFamily::Drips
+                    && drips_object_check_in_range_loc_333f6(
+                        enemy,
+                        Some(camera_x_pos >> 16),
+                        Some(camera_y_pos >> 16),
+                    )
+            })
+            .count() as u16
+    }
+
+    fn drips_surface_crawler_worker_count_loc_335d8(&self) -> usize {
+        let visible_workers = self
             .projectiles
             .iter()
             .filter(|projectile| {
@@ -11751,27 +11774,13 @@ impl NativeRuntime {
                         | EnemyProjectileKind::DripsSurfaceCrawlerFinish
                 )
             })
-            .count() as u16;
-        let drips_surface_crawler_workers = visible_drips_surface_crawler_workers
-            .max(self.drips_surface_crawler_count_loc_fffffb42 as u16);
-        // ASM Dragon_Flying.asm loc_34BAC follows the same Object_RAM child
-        // pattern for descent fire; native models it as a projectile but ROM
-        // Number_Objects includes the child worker.
+            .count();
         // ASM Drips.asm loc_33488 allocates loc_335D8 through
-        // j_Allocate_ObjectSlot. Its crawler, burst, and finish phases are one
-        // continuing Object_RAM worker represented by native projectiles. The
+        // j_Allocate_ObjectSlot, and loc_335D8 loads the worker's GfxObject.
+        // The crawler, burst, and finish phases are one continuing pair. The
         // shared `$FFFFFB42` count changes at allocation/deletion boundaries,
         // so retain it when the projectile vector is between those phases.
-        drips_parent_workers
-            // ASM Fire_Demon.asm loc_3A414 allocates loc_3A48E through
-            // j_Allocate_ObjectSlot only while the global Fire_Demon byte is
-            // zero. Every live demon shares that one palette coroutine, which
-            // never calls a GfxObject allocator.
-            .saturating_add(fire_demon_palette_helper_workers)
-            .saturating_add(rubber_skin_workers)
-            .saturating_add(lava_special_effect_workers)
-            .saturating_add(dragon_flying_descent_fire_workers)
-            .saturating_add(drips_surface_crawler_workers)
+        visible_workers.max(self.drips_surface_crawler_count_loc_fffffb42)
     }
 
     fn lava_special_effect_object_only_worker_count(&self) -> u16 {
@@ -11827,6 +11836,7 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::TankBullet)
             .count();
+        let drips_surface_crawler_workers = self.drips_surface_crawler_worker_count_loc_335d8();
         // ASM Lion.asm loc_3E0DA allocates the roar shot's Object, then
         // loc_3E12A calls j_Load_GfxObjectSlot before initialising its art.
         // Native stores the shot on the parent, outside the active roster, so
@@ -11949,6 +11959,7 @@ impl NativeRuntime {
             // ASM Tank_Shooting.asm loc_3C50E allocates the Object_RAM
             // worker, then loc_3B730 loads its linked GfxObject slot.
             + tank_bullet_workers
+            + drips_surface_crawler_workers
             + lion_projectile_workers
             + fire_demon_trail_workers
             + dragon_walking_breath_workers
@@ -11956,7 +11967,11 @@ impl NativeRuntime {
             + boss_projectile_gfx_workers) as u16
     }
 
-    fn gameplay_transient_gfx_only_worker_count(&self) -> u16 {
+    fn gameplay_transient_gfx_only_worker_count(
+        &self,
+        camera_x_pos: u32,
+        camera_y_pos: u32,
+    ) -> u16 {
         // ASM Archer.asm Enemy07_Archer_Init loc_33FDA calls loc_32188 to
         // allocate the held-arrow child GFX slot, then stores the link in
         // `$36(a5)`/`$3A(a5)`. It increments Number_GfxObjects without
@@ -11971,13 +11986,22 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire)
             .count() as u16;
+        let hidden_drips_gfx_workers = self
+            .hidden_drips_parent_worker_count_enemy16_drip_init(camera_x_pos, camera_y_pos)
+            .saturating_mul(3);
         // ASM Dragon_Flying.asm loc_348A0 allocates the child Object slot;
         // loc_34BAC then calls Load_GfxObjectSlot before loc_32146 links its
         // collision source. Native counts the Object side in
         // gameplay_transient_object_only_worker_count, so add the paired Gfx
         // side here while the typed projectile exists, including loc_34C4A's
         // two cleanup hibernations.
-        archer_held_arrow_workers.saturating_add(dragon_flying_descent_fire_gfx_workers)
+        // ASM Drips.asm Enemy16_Drip_Init loads the controller's a3 GfxObject
+        // and preallocates a1/a2 through j_Allocate_GfxObjectSlot_a1. Native
+        // suppresses all three hidden snapshots and adds their one Object side
+        // separately, so retain all three slots in the Gfx-only projection.
+        archer_held_arrow_workers
+            .saturating_add(dragon_flying_descent_fire_gfx_workers)
+            .saturating_add(hidden_drips_gfx_workers)
     }
 
     fn count_visible_prize_block_worker_tails(&self) -> usize {

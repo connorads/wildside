@@ -11,6 +11,7 @@ const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
 const MULTI_HEAD_BOSS_LEVEL_SKIP_LIVE_TAIL_FRAMES: usize = 60;
 const DRILLER_LEVEL_SKIP_LIVE_TAIL_FRAMES_LOC_3BE78: usize = 63;
+const DRIPS_LEVEL_SKIP_LIVE_WINDOW_CORRECTION_LOC_33424: isize = -7;
 // ASM loc_74E0: residual stable gameplay windows after the recording runner
 // has already executed the typed debug title-card lifecycle and its hidden
 // Mode_Level object passes. The direct compatibility path retains its older
@@ -140,16 +141,20 @@ fn recording_oracle_warp_resets_level_one_rng(level_id: LevelId) -> bool {
     level_id == LevelId(1)
 }
 
-fn recording_oracle_warp_enemy_live_tail_frames(
+fn recording_oracle_warp_enemy_live_window_adjustment(
     families: impl IntoIterator<Item = EnemyFamily>,
     target_window_has_driller: bool,
-) -> usize {
+) -> isize {
     let mut has_multi_head_boss = false;
+    let mut has_drips = false;
     for family in families {
         has_multi_head_boss |= is_multi_head_boss(family);
+        has_drips |= family == EnemyFamily::Drips;
     }
-    usize::from(has_multi_head_boss) * MULTI_HEAD_BOSS_LEVEL_SKIP_LIVE_TAIL_FRAMES
-        + usize::from(target_window_has_driller) * DRILLER_LEVEL_SKIP_LIVE_TAIL_FRAMES_LOC_3BE78
+    (usize::from(has_multi_head_boss) * MULTI_HEAD_BOSS_LEVEL_SKIP_LIVE_TAIL_FRAMES
+        + usize::from(target_window_has_driller) * DRILLER_LEVEL_SKIP_LIVE_TAIL_FRAMES_LOC_3BE78)
+        as isize
+        + isize::from(has_drips) * DRIPS_LEVEL_SKIP_LIVE_WINDOW_CORRECTION_LOC_33424
 }
 
 fn should_restore_recorded_title_card_after_first_live(
@@ -361,7 +366,7 @@ impl NativeRuntime {
                     == EnemyFamily::Driller
             })
         });
-        let enemy_level_skip_tail = recording_oracle_warp_enemy_live_tail_frames(
+        let enemy_level_skip_adjustment = recording_oracle_warp_enemy_live_window_adjustment(
             self.active_enemies.iter().map(|enemy| enemy.family),
             target_window_has_driller,
         );
@@ -371,9 +376,13 @@ impl NativeRuntime {
         // moving head, eye and projectile coroutines before recording frame
         // zero; the direct native boot shortcut otherwise starts them one
         // stable-window late.
+        // ASM loc_74E0 keeps family workers live for a different portion of
+        // the hidden level-skip shell. Drips.asm loc_3340E/loc_33424 exposes
+        // seven fewer passes than native's generic stable target window;
+        // derive that correction from the active family, not the level ID.
         let target_live_frames =
             recording_oracle_warp_target_live_frames(level_id, debug_lifecycle_completed)
-                .saturating_add(enemy_level_skip_tail);
+                .saturating_add_signed(enemy_level_skip_adjustment);
         self.settle_target_level_live_window(level_id, target_live_frames);
         // ASM Init_SpriteAttr_HUD loc_BDC0 seeds Time_SubSeconds to 1. The
         // level-skip tail is level-dependent: #289 Level 0x07 watches reach
@@ -931,21 +940,26 @@ mod tests {
     }
 
     #[test]
-    fn recording_oracle_warp_enemy_tail_preserves_driller_loc_3be78_hidden_age() {
+    fn recording_oracle_warp_enemy_tail_matches_family_hidden_age() {
         assert_eq!(
-            recording_oracle_warp_enemy_live_tail_frames([], true),
-            DRILLER_LEVEL_SKIP_LIVE_TAIL_FRAMES_LOC_3BE78,
+            recording_oracle_warp_enemy_live_window_adjustment([], true),
+            DRILLER_LEVEL_SKIP_LIVE_TAIL_FRAMES_LOC_3BE78 as isize,
             "ASM loc_74E0 gives Driller.asm loc_3BE78 63 hidden object passes before the recording helper's stable target window",
         );
         assert_eq!(
-            recording_oracle_warp_enemy_live_tail_frames([EnemyFamily::Archer], false),
+            recording_oracle_warp_enemy_live_window_adjustment([EnemyFamily::Archer], false),
             0,
             "families without an oracle-proven hidden tail retain the default recording settle window",
         );
         assert_eq!(
-            recording_oracle_warp_enemy_live_tail_frames([EnemyFamily::Driller], false),
+            recording_oracle_warp_enemy_live_window_adjustment([EnemyFamily::Driller], false),
             0,
             "a transient pre-settle roster must not age Drillers unless the target Manage_EnemyLoading window contains them",
+        );
+        assert_eq!(
+            recording_oracle_warp_enemy_live_window_adjustment([EnemyFamily::Drips], false),
+            DRIPS_LEVEL_SKIP_LIVE_WINDOW_CORRECTION_LOC_33424,
+            "ASM loc_74E0 gives Drips.asm loc_3340E/loc_33424 seven fewer live passes than the generic stable recording window",
         );
     }
 

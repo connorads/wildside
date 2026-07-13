@@ -11,6 +11,39 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #399
+
+Opened and resolved 2026-07-13 from proactive whole-level report
+`1783902809`. Level 0x14 exported four Gfx workers against oracle 13 at
+`level_settle` and four against 16 at `idle_tail`, while every other settled
+field matched. `Enemy16_Drip_Init` loads the parent's a3 GfxObject and
+preallocates a1/a2, so each hidden controller contributes one Object and three
+Gfx workers. `loc_33488` allocates each surface crawler's Object worker and
+`loc_335D8` loads its paired GfxObject. Native now projects those suppressed
+workers from the live parent and crawler lifecycles.
+
+Interval-1 comparison then exposed the stronger timing error: native allocated
+all three crawlers seven frames early. The two falling children visible at
+frame 0 were likewise seven `loc_3345C` gravity passes older, and native RNG
+reached `$FFCA` where oracle reached `$FFE5`. The typed recording title shell
+was running the generic 60-pass stable window, while the ROM Drips route
+exposes 53 passes through `loc_74E0` before frame 0. Recording settle now
+derives a -7 correction from an active Drips family, not the level ID. Exact
+regressions pin RNG `$FFE5` and crawler Object/Gfx transitions at frames 231,
+243, and 262.
+
+Focused gameplay state and pixel CRC match all 360 Level 0x14 frames. Its
+enemy-roster frontier still reports the known structural representation debt:
+native suppresses the hidden Drips parent/child Gfx rows that oracle exports,
+even though their authoritative counts and gameplay lifecycle now match.
+Focused report `1783905198` passes Level 0x14. Full report `1783905612`
+improves 44/69 pass and 113 blockers to 45/69 and 112 with no previously
+passing regression. Level 0x48's Drips deficit also narrows from 12 missing Gfx
+workers to one missing Object/Gfx pair at each checkpoint, but remains open
+whole-level evidence rather than part of this closure. `verify-slice-fast`
+passes. The full published route matches all 37,759 CRC/gameplay checkpoints,
+all 37,743 post-`Init_RNG` states, and the enemy frontier with zero divergences.
+
 ### #398
 
 Opened and resolved 2026-07-13 from proactive whole-level report
@@ -12766,6 +12799,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 399 | [x] | P2 | enemy/fidelity | Drips recording settle projects all parent/crawler Gfx workers and matches the ROM's family-specific live window. | Report `1783905612`: 45/69 pass, 112 blockers; see archive #399. |
 | 398 | [x] | P2 | enemy/fidelity | Shooting RockTank bullets use their allocated Object+Gfx pair, full `unk_314D0` terrain box, and prior-pass collision latch. | Report `1783902809`: 44/69 pass, 113 blockers; see archive #398. |
 | 397 | [x] | P2 | enemy/counts | RockTank body/turret pairs share one Object slot while retaining both Gfx slots. | Report `1783901023`: 43/69 pass, 114 blockers; bullet correction in #398. |
 | 396 | [x] | P1 | enemy/recording | Flying Dragon recording hand-off and descent-fire Object/Gfx lifecycle match `loc_3480A`/`loc_34BAC`/`loc_34C4A`. | Report `1783899751`: 42/69 pass, 116 blockers; interval-1 frames 0-74 exact. See archive #396. |

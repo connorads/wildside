@@ -5842,14 +5842,37 @@ mod chunk_02 {
             "ASM Drips.asm Enemy16_Drip_Init keeps all three Drips Object_RAM controllers live through loc_333F6..loc_3350E; the Level 0x14 oracle therefore reports six objects at recording frame 0",
         );
         assert_eq!(
+            first.number_gfx_objects, 13,
+            "ASM Drips.asm Enemy16_Drip_Init gives each of the three hidden controllers an a3 GfxObject plus preallocated a1/a2 children; the Level 0x14 oracle therefore reports thirteen GfxObjects at recording frame 0",
+        );
+        assert_eq!(
             first.rng_offset,
             Some(0xFFE5),
-            "ASM Execute_Objects loc_E12 burns one RNG longword before each hidden Mode_Level object pass; oracle settle tracing reaches $FFE1 at target_live step 59 and frame 0 reaches $FFE5",
+            "ASM Execute_Objects loc_E12 burns one RNG longword before each hidden Mode_Level object pass; oracle settle tracing reaches $FFE1 at target_live step 52 and frame 0 reaches $FFE5",
         );
         assert_eq!(
             last.number_objects, 9,
             "ASM Drips.asm loc_3340E releases all three surface crawlers by the Level 0x14 oracle's idle frame 359",
         );
+        assert_eq!(
+            last.number_gfx_objects, 16,
+            "ASM Drips.asm loc_335D8 loads one linked GfxObject for each of the three live surface-crawler Object workers",
+        );
+        for (frame_index, expected_objects, expected_gfx_objects) in [
+            (230, 6, 13),
+            (231, 7, 14),
+            (242, 7, 14),
+            (243, 8, 15),
+            (261, 8, 15),
+            (262, 9, 16),
+        ] {
+            let frame = &trace[frame_index];
+            assert_eq!(
+                (frame.number_objects, frame.number_gfx_objects),
+                (expected_objects, expected_gfx_objects),
+                "ASM Drips.asm loc_3345C -> loc_33488 -> loc_335D8 allocates the Level 0x14 surface crawlers on the oracle-observed falling-child collision frames",
+            );
+        }
     }
 
     #[test]

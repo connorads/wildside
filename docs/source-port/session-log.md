@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#399 exact Drips settle workers)
+
+- `Enemy16_Drip_Init` owns one Object and three Gfx workers per hidden parent;
+  each `loc_335D8` surface crawler adds one Object+Gfx pair.
+- The Drips recording shell exposes seven fewer `loc_3340E`/`loc_33424`
+  passes than the generic stable window. The active-family correction restores
+  RNG and crawler allocations at frames 231, 243, and 262 without a level-id
+  override.
+- Focused Level 0x14 gameplay and pixel CRC match all 360 frames. Report
+  `1783905612` improves 44/69 pass and 113 blockers to 45/69 and 112, with no
+  previously passing regression.
+- Fast verification passes. The published route matches all 37,759 frame CRCs
+  and gameplay checkpoints, all 37,743 post-initialisation RNG states, and the
+  enemy frontier with zero divergences. NEXT: use report `1783905612` for
+  proactive verification.
+
 ## 2026-07-13 handoff (#398 exact shooting RockTank bullet lifecycle)
 
 - Correcting #397: `loc_3C50E` allocates each bullet's Object worker before
