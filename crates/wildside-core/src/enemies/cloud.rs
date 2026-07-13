@@ -654,6 +654,7 @@ fn cloud_projectile_spawn_loc_35df0(
         drips_child_byte_44: 0,
         drips_child_byte_45: 0,
         tar_monster_collision_response_budget: 0,
+        tar_monster_byte_19_latched: false,
         dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
         dragon_flying_descent_fire_counter: 0,
         boss_death_burst_state: BossDeathBurstState::None,

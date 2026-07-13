@@ -3643,6 +3643,9 @@ pub(crate) struct EnemyProjectile {
     /// Tar_Monster.asm loc_3261C seeds d3=2; loc_32698 decrements this before
     /// each off_32656 collision dispatch and deletes once it underflows.
     pub(crate) tar_monster_collision_response_budget: u16,
+    /// ASM Make_SpriteFromGfxObject writes GfxObject `$19` after the Object
+    /// callback; Tar_Monster.asm loc_3263C observes that prior-pass value.
+    pub(crate) tar_monster_byte_19_latched: bool,
     /// Dragon_Flying.asm loc_34C26/loc_34C4A coroutine label for the descent
     /// fire child.
     pub(crate) dragon_flying_descent_fire_state: DragonFlyingDescentFireState,

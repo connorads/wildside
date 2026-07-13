@@ -11,6 +11,26 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #403
+
+Progress 2026-07-13: direct oracle WRAM dumps over Level 0x64 frames 117-338
+show `loc_3263C` children start with LnkTo_unk_C782E/`unk_316B8` (-3, width
+6), switch to LnkTo_unk_C7836/`unk_316C2` (-2, width 4) after their first
+`loc_32682` response, and retain Gfx `collision_type` for the next Object
+wake. `$19` remains zero on every sampled live child, so the measured cleanup
+is collision-budget driven.
+
+Native now applies `GfxObjects_Collision loc_16F0` boundary and full-box tile
+contact, exact solid-face clamping, the two ROM link boxes, and prior-pass
+collision/`$19` latches. Level 0x64 Object/Gfx cleanup transitions are exact
+at 215, 233, 240, 246, 260, 291, and 338. One edge remains: the child that the
+oracle clamps to x=2 with `colid_leftwall` at frame 288 and deletes at 289 is
+deleted by native at frame 286. Attempts to consume collision in the current
+pass, skip all movement on response frames, or delay response velocities fixed
+that edge only by breaking earlier exact transitions; those scheduler-wide
+changes are rejected. Continue by tracing that child's earlier `colid_rightwall`
+response and fixed-point x phase, not by adding a frame offset.
+
 ### #402
 
 Opened and resolved 2026-07-13 after Level 0x64 interval-1 RAM watches proved

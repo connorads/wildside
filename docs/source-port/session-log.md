@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#403 Tar burst Gfx collision)
+
+- Burst children now use `unk_316B8` then `unk_316C2`, full-box
+  `GfxObjects_Collision loc_16F0` boundary/tile clamping, and prior-pass
+  collision and `$19` latches rather than centre-cell same-pass collision.
+- Level 0x64 cleanup transitions at frames 215, 233, 240, 246, 260, 291, and
+  338 match oracle. One child remains early: native deletes at 286 while the
+  oracle clamps x=2 with `colid_leftwall` at 288 and deletes at 289.
+- Current-pass response, response-frame movement suppression, and global
+  velocity-delay variants regressed the already exact transitions and are
+  rejected. NEXT: keep #403 active and trace the surviving child's earlier
+  right-wall response/fixed-point x phase; do not apply a three-frame offset.
+- Verification: focused Level 0x64 and collision-latch regressions,
+  `mise run verify-slice-fast`, and `mise run verify-tas-full` pass. The full
+  published route remains exact across 37,759 CRC/gameplay/enemy frames and
+  37,743 post-`Init_RNG` frames.
+
 ## 2026-07-13 handoff (#402 typed Tar Monster control script)
 
 - `unk_32264` is now a typed, byte-addressed control stream with its exact DBF

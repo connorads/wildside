@@ -18540,10 +18540,13 @@ mod chunk_09 {
     }
 
     #[test]
-    fn loc_3263c_burst_helpers_apply_gravity_after_move() {
-        for kind in [
-            EnemyProjectileKind::TarMonsterBurstChild,
-            EnemyProjectileKind::DripsSurfaceCrawlerBurst,
+    fn loc_3263c_burst_helpers_apply_their_asm_gravity_order() {
+        for (kind, expected_y_pos) in [
+            (
+                EnemyProjectileKind::TarMonsterBurstChild,
+                (102 << 16) + 0x1000,
+            ),
+            (EnemyProjectileKind::DripsSurfaceCrawlerBurst, 102 << 16),
         ] {
             let mut rt = NativeRuntime::new(manifest());
             let mut proj = make_projectile(100, 100);
@@ -18556,9 +18559,8 @@ mod chunk_09 {
 
             let moved = &rt.projectiles[0];
             assert_eq!(
-                moved.y_pos,
-                102 << 16,
-                "ASM Tar_Monster.asm loc_3263C hibernates/moves before adding gravity for {kind:?}"
+                moved.y_pos, expected_y_pos,
+                "ASM Tar_Monster.asm loc_3263C resumes with `$1000` feeding Tar-child motion; Drips keeps the shared post-move gravity order for {kind:?}"
             );
             assert_eq!(
                 moved.y_velocity, 0x0002_1000,

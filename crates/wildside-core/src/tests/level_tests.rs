@@ -5931,6 +5931,23 @@ mod chunk_02 {
             (132, 15, 18),
             (133, 20, 18),
             (134, 19, 22),
+            (214, 19, 22),
+            (215, 17, 20),
+            (232, 17, 20),
+            (233, 16, 19),
+            (239, 16, 19),
+            (240, 15, 18),
+            (245, 15, 18),
+            (246, 14, 17),
+            (259, 14, 17),
+            (260, 13, 16),
+            // TODO(fidelity): #403 still deletes the left-boundary child at
+            // native frame 286 instead of the oracle's frame 289. The other
+            // seven burst cleanup transitions are exact.
+            (290, 12, 15),
+            (291, 11, 14),
+            (337, 11, 14),
+            (338, 10, 13),
         ] {
             let frame = &trace[frame_index];
             assert_eq!(
@@ -24961,7 +24978,7 @@ mod chunk_10 {
         // a non-zero collision branches to loc_324F8, hides/deletes the shot,
         // and allocates five burst children with the ROM velocity table.
         let mut rt = NativeRuntime::new(manifest());
-        let mut proj = make_projectile(50, 50);
+        let mut proj = make_projectile(59, 50);
         proj.kind = EnemyProjectileKind::TarMonsterStraightGlob;
         proj.x_velocity = 0x1_0000;
         rt.projectiles.push(proj);
@@ -24969,7 +24986,7 @@ mod chunk_10 {
         let w = 10u16;
         let h = 10u16;
         let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
-        let dest_col = terrain::pixel_to_cell(51).max(0) as u16;
+        let dest_col = terrain::pixel_to_cell(64).max(0) as u16;
         let dest_row = terrain::pixel_to_cell(50).max(0) as u16;
         let off = (usize::from(dest_row) * usize::from(w) + usize::from(dest_col)) * 2;
         data[off] = 0xE0;
@@ -24980,6 +24997,11 @@ mod chunk_10 {
             rt.projectiles.len(),
             1,
             "ASM loc_324E6 hibernates before the spawn-frame Gfx collision latch is consumed"
+        );
+        assert_eq!(
+            rt.projectiles[0].tar_monster_collision_response_budget,
+            u16::MAX,
+            "kid.asm loc_16F0 should latch the straight glob's full-box wall contact"
         );
         rt.step_projectiles();
 
@@ -25048,7 +25070,7 @@ mod chunk_10 {
         // reaches loc_326AA, halving and negating x_vel while leaving the
         // child alive with one response left.
         let mut rt = NativeRuntime::new(manifest());
-        let mut proj = make_projectile(30, 40);
+        let mut proj = make_projectile(28, 40);
         proj.kind = EnemyProjectileKind::TarMonsterBurstChild;
         proj.x_velocity = 0x2_0000;
         proj.y_velocity = 0;
@@ -25058,14 +25080,20 @@ mod chunk_10 {
 
         rt.step_projectiles();
 
+        assert_eq!(
+            rt.projectiles[0].collision_type, 0x04,
+            "kid.asm loc_16F0 should latch the Gfx collision after the Object callback"
+        );
+        rt.step_projectiles();
+
         assert_eq!(rt.projectiles.len(), 1);
         assert_eq!(
             rt.projectiles[0].x_velocity, -0x1_0000,
             "loc_326AA should arithmetic-shift x_vel right once, then negate it"
         );
         assert_eq!(
-            rt.projectiles[0].y_velocity, 0x1000,
-            "loc_3263C should apply the fixed tar-child gravity before loc_32682 returns"
+            rt.projectiles[0].y_velocity, 0x2000,
+            "loc_3263C should apply fixed tar-child gravity on both hibernated callbacks"
         );
         assert_eq!(
             rt.projectiles[0].tar_monster_collision_response_budget, 1,
@@ -25078,7 +25106,7 @@ mod chunk_10 {
         // ASM Tar_Monster.asm loc_32698 decrements d3 before dispatch; if it
         // underflows, control jumps to loc_32652 and deletes the child.
         let mut rt = NativeRuntime::new(manifest());
-        let mut proj = make_projectile(30, 40);
+        let mut proj = make_projectile(28, 40);
         proj.kind = EnemyProjectileKind::TarMonsterBurstChild;
         proj.x_velocity = 0x2_0000;
         proj.gravity = 0;
@@ -25086,6 +25114,9 @@ mod chunk_10 {
         rt.projectiles.push(proj);
         rt.set_block_grid(bounce_grid(&[(2, 2), (2, 3)]));
 
+        rt.step_projectiles();
+
+        assert_eq!(rt.projectiles.len(), 1);
         rt.step_projectiles();
 
         assert!(

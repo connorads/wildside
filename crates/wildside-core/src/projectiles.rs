@@ -549,57 +549,21 @@ fn tar_monster_projectile_keep_after_delete_loc_32652() -> bool {
 
 fn step_tar_monster_burst_child_loop_loc_3263c(
     projectile: &mut EnemyProjectile,
-    grid: Option<&terrain::BlockGrid>,
     byte_19_nonzero: bool,
 ) -> bool {
-    let mut collision_type = 0;
-    if let Some(grid) = grid {
-        let px_i = (projectile.x_pos >> 16) as i32;
-        let py_i = (projectile.y_pos >> 16) as i32;
-        let col = terrain::pixel_to_cell(px_i).max(0) as u16;
-        let row = terrain::pixel_to_cell(py_i).max(0) as u16;
-        let cell = grid.cell_at(col, row);
-        if cell.has_block && cell.collision != terrain::CollisionKind::Empty {
-            // ASM Tar_Monster.asm loc_3263C applies fixed `$1000` gravity
-            // before loc_32682 observes the collision route.
-            let y_velocity_after_gravity = projectile.y_velocity.wrapping_add(0x1000);
-            let prev_px =
-                ((projectile.x_pos as i64 - i64::from(projectile.x_velocity)) as u32 >> 16) as i32;
-            let prev_py = ((projectile.y_pos as i64 - i64::from(y_velocity_after_gravity)) as u32
-                >> 16) as i32;
-
-            let col_h = terrain::pixel_to_cell(px_i).max(0) as u16;
-            let row_h = terrain::pixel_to_cell(prev_py).max(0) as u16;
-            let cell_h = grid.cell_at(col_h, row_h);
-
-            let col_v = terrain::pixel_to_cell(prev_px).max(0) as u16;
-            let row_v = terrain::pixel_to_cell(py_i).max(0) as u16;
-            let cell_v = grid.cell_at(col_v, row_v);
-
-            let h_blocked = cell_h.has_block && cell_h.collision != terrain::CollisionKind::Empty;
-            let v_blocked = cell_v.has_block && cell_v.collision != terrain::CollisionKind::Empty;
-            collision_type = lion_projectile_terrain_collision_id_loc_3e260(
-                h_blocked,
-                v_blocked,
-                projectile.x_velocity,
-                y_velocity_after_gravity,
-                cell,
-            ) as i16;
-        }
-    }
-
     // ASM Tar_Monster.asm loc_3263C: hibernate/move first, then add `$1000`
     // gravity and dispatch any collision through loc_32682 before deciding
     // whether to loop or delete.
     let step = tar_monster_projectile_loop_loc_3263C(
         projectile.y_velocity,
-        collision_type,
+        projectile.collision_type,
         projectile.tar_monster_collision_response_budget,
         true,
         byte_19_nonzero,
     );
     debug_assert!(step.hibernates_one_frame);
     projectile.y_velocity = step.y_velocity;
+    projectile.collision_type = 0;
 
     match step.route {
         TarMonsterProjectileLoopRouteLoc3263C::DeleteCurrentObject => {
@@ -650,6 +614,116 @@ fn step_tar_monster_burst_child_loop_loc_3263c(
             }
         },
     }
+}
+
+fn tar_monster_gfx_collision_loc_16f0(
+    grid: &terrain::BlockGrid,
+    projectile: &mut EnemyProjectile,
+    extent: i32,
+) -> i16 {
+    let x = i32::from((projectile.x_pos >> 16) as u16 as i16);
+    let y = i32::from((projectile.y_pos >> 16) as u16 as i16);
+
+    // ASM kid.asm loc_16F0 checks the level boundaries before the tile loop,
+    // clamps the GfxObject centre, and leaves collision_type for the Object
+    // callback on its next wake.
+    let (collision_type, corrected_x, corrected_y) = if x - extent < 0 {
+        (0x08, extent, y)
+    } else if x + extent >= grid.width_pixels() {
+        (0x04, grid.width_pixels() - extent - 1, y)
+    } else if y - extent < 0 {
+        (0x10, x, extent)
+    } else if y + extent >= grid.height_pixels() {
+        (0x0C, x, grid.height_pixels() - extent - 1)
+    } else {
+        let left_col = terrain::pixel_to_cell(x - extent) as u16;
+        let right_col = terrain::pixel_to_cell(x + extent) as u16;
+        let top_row = terrain::pixel_to_cell(y - extent) as u16;
+        let bottom_row = terrain::pixel_to_cell(y + extent) as u16;
+        let contact = (top_row..=bottom_row).find_map(|row| {
+            (left_col..=right_col).find_map(|col| {
+                let cell = grid.cell_at(col, row);
+                matches!(
+                    cell.collision,
+                    terrain::CollisionKind::Solid
+                        | terrain::CollisionKind::SlopeUp
+                        | terrain::CollisionKind::SlopeDown
+                )
+                .then_some((col, row, cell))
+            })
+        });
+        let Some((col, row, cell)) = contact else {
+            return 0;
+        };
+
+        let prev_x = i32::from(
+            ((projectile.x_pos as i64 - i64::from(projectile.x_velocity)) as u32 >> 16) as u16
+                as i16,
+        );
+        let prev_y = i32::from(
+            ((projectile.y_pos as i64 - i64::from(projectile.y_velocity)) as u32 >> 16) as u16
+                as i16,
+        );
+        let cell_left = i32::from(col) * 16;
+        let cell_right = cell_left + 15;
+        let cell_top = i32::from(row) * 16;
+        let cell_bottom = cell_top + 15;
+        let solid_at = |col: i32, row: i32| {
+            col >= 0
+                && row >= 0
+                && matches!(
+                    grid.cell_at(col as u16, row as u16).collision,
+                    terrain::CollisionKind::Solid
+                )
+        };
+        let col_i = i32::from(col);
+        let row_i = i32::from(row);
+        // ASM GfxObjects_Collision_Solid loc_18AA..loc_1A12 resolves a
+        // continuous neighbouring solid face before comparing corner travel
+        // ratios. This ordering matters when a diagonal Tar child enters the
+        // first pixel of a floor or wall.
+        let continuous_face = match (projectile.x_velocity >= 0, projectile.y_velocity >= 0) {
+            (true, true) if solid_at(col_i - 1, row_i) => Some(0x0C),
+            (true, true) if solid_at(col_i, row_i - 1) => Some(0x04),
+            (false, true) if solid_at(col_i + 1, row_i) => Some(0x0C),
+            (false, true) if solid_at(col_i, row_i - 1) => Some(0x08),
+            (true, false) if solid_at(col_i - 1, row_i) => Some(0x10),
+            (true, false) if solid_at(col_i, row_i + 1) => Some(0x04),
+            (false, false) if solid_at(col_i + 1, row_i) => Some(0x10),
+            (false, false) if solid_at(col_i, row_i + 1) => Some(0x08),
+            _ => None,
+        };
+        let crossed_horizontally = if projectile.x_velocity >= 0 {
+            prev_x + extent < cell_left
+        } else {
+            prev_x - extent > cell_right
+        };
+        let crossed_vertically = if projectile.y_velocity >= 0 {
+            prev_y + extent < cell_top
+        } else {
+            prev_y - extent > cell_bottom
+        };
+        let collision_type = continuous_face.unwrap_or_else(|| {
+            lion_projectile_terrain_collision_id_loc_3e260(
+                crossed_horizontally,
+                crossed_vertically,
+                projectile.x_velocity,
+                projectile.y_velocity,
+                cell,
+            )
+        }) as i16;
+        match collision_type {
+            0x04 => (collision_type, cell_left - extent - 1, y),
+            0x08 => (collision_type, cell_right + extent + 1, y),
+            0x0C => (collision_type, x, cell_top - extent - 1),
+            0x10 => (collision_type, x, cell_bottom + extent + 1),
+            _ => (collision_type, x, y),
+        }
+    };
+
+    projectile.x_pos = (u32::from(corrected_x as u16)) << 16;
+    projectile.y_pos = (u32::from(corrected_y as u16)) << 16;
+    collision_type
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -3750,7 +3824,19 @@ impl NativeRuntime {
                 }
             }
 
-            if !is_lion_projectile {
+            if is_tar_monster_burst_child
+                && !tar_monster_burst_child_initialising
+                && !step_tar_monster_burst_child_loop_loc_3263c(
+                    p,
+                    p.tar_monster_byte_19_latched,
+                )
+            {
+                return false;
+            }
+
+            let tar_monster_collision_latched = is_tar_monster_straight_glob
+                && p.tar_monster_collision_response_budget == u16::MAX;
+            if !is_lion_projectile && !tar_monster_collision_latched {
                 p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
                 p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
             }
@@ -4003,8 +4089,8 @@ impl NativeRuntime {
 
             if p.kind == EnemyProjectileKind::TarMonsterStraightGlob {
                 let collision_latched = p.tar_monster_collision_response_budget == u16::MAX;
-                let collision_now =
-                    grid.is_some_and(|grid| projectile_terrain_contact_loc_3345c(grid, p));
+                let collision_now = grid
+                    .is_some_and(|grid| tar_monster_gfx_collision_loc_16f0(grid, p, 4) != 0);
                 if p.lifetime == 119 {
                     // ASM loc_3231C allocates the Object worker early enough
                     // for loc_32468 to initialise its GfxObject in the same
@@ -4051,15 +4137,19 @@ impl NativeRuntime {
                 }
             }
 
-            if p.kind == EnemyProjectileKind::TarMonsterBurstChild
-                && !tar_monster_burst_child_initialising
-                && !step_tar_monster_burst_child_loop_loc_3263c(
-                    p,
-                    grid,
-                    tar_monster_byte_19_nonzero,
-                )
-            {
-                return false;
+            if p.kind == EnemyProjectileKind::TarMonsterBurstChild {
+                // ASM loc_3261C starts on LnkTo_unk_C782E (`unk_316B8`,
+                // -3..+3). loc_32682 switches to LnkTo_unk_C7836
+                // (`unk_316C2`, -2..+2) on its first collision response.
+                let extent = if p.tar_monster_collision_response_budget == 2 {
+                    3
+                } else {
+                    2
+                };
+                p.collision_type = grid.map_or(0, |grid| {
+                    tar_monster_gfx_collision_loc_16f0(grid, p, extent)
+                });
+                p.tar_monster_byte_19_latched = tar_monster_byte_19_nonzero;
             }
 
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawlerBurst
