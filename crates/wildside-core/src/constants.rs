@@ -77,6 +77,11 @@ pub(crate) const INTRO_SEQUENCE_6_ENTRY_FADE_OUTER_PASSES_LOC_1BA90: usize = 9;
 /// `Mode_Standard -> Execute_Objects loc_E12` pass to draw. Published-route
 /// oracle probes resume on global frame 20927, local frame 33.
 pub(crate) const INTRO_SEQUENCE_6_POST_LOADER_RNG_FIRST_LIVE_FRAME: usize = 33;
+/// The first timeout-restart Load_IntroSequence6 worker shell presents two
+/// frames earlier than the cold-boot reconstruction clock: oracle exposes
+/// sub_1B43A's first sub_1BF24 mapping on local frame 33 instead of 35.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_EARLY_WORKER_PRESENTATION_ADVANCE_FRAMES: usize =
+    2;
 /// The later early-title-restore revisit reaches `Load_IntroSequence6` with a
 /// three-frame delayed worker shell: oracle keeps the complete RNG ring fixed
 /// through local frames 33..35, exposes the three allocations on frame 35,

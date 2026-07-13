@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 IntroSequence6 worker clocks)
+
+- Frame 20927 is the first timeout-restart `Load_IntroSequence6` shell.
+  Oracle presents `sub_1B43A -> loc_1B446 -> sub_1BF24` frame 0 at local
+  elapsed 33; the later cleared-camera revisit presents it at 36, while the
+  existing cold-boot calibration remains at 35. `loc_1B37C` lightning keeps
+  its independent VBlank calibration.
+- Focused 101-frame windows gain 17 exact frames and remove 301,068 changed
+  pixel instances. The complete route gains the same 17 exact frames and
+  removes 333,159 changed pixel instances: 13,442 exact, 24,317 divergent,
+  and 568,787,633 changed pixel instances. All CRC, typed gameplay, enemy, and
+  post-`Init_RNG` frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 22607 is the next all-screen
+  mismatch. NEXT: keep #406 open and trace that title-return frame.
+
 ## 2026-07-13 handoff (#406 demo-timeout rendering)
 
 - ASM ReadJoypad `loc_C0A` uses the same `Pal_FadeOut -> loc_6E2` resident

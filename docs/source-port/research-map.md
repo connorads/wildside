@@ -31,17 +31,16 @@ ring bytes on every one of the remaining 37,743 frames. Every compared frame
 matches exactly. This is complete per-frame RNG and per-frame exported-state
 evidence for this route, not whole-state, audio, every-input, or whole-game proof.
 The `source_port_visible_rgb24_v1` pass renders one bounded-memory native frame
-for every oracle PNG: 13,425/37,759 frames match exactly and 24,334 differ, with
-569,120,792 changed pixel instances. The first mismatch is frame 39 (2,643
-pixels); frame 20927 is the next all-screen mismatch at 71,680 pixels. #406's
-first engine-level corrections model manual `loc_119D8` and timeout `loc_C0A`
-demo returns through `Pal_FadeOut -> loc_6E2`: the resident gameplay scene
-fades to CRAM `$082A`, holds the cleared-VRAM fill, then reveals the rebuilt
-title or Sega VDP on its distinct boundary. They make 301 additional route
-frames exact, suppress the pause renderer while synchronous `Pal_FadeOut` owns
-the display, and remove 32,889,451 changed pixel instances. #406 owns this
-measured visual frontier; the four settled-warp source-port visual-gate
-checkpoints remain exact.
+for every oracle PNG: 13,442/37,759 frames match exactly and 24,317 differ, with
+568,787,633 changed pixel instances. The first mismatch is frame 39 (2,643
+pixels); frame 22607 is the next all-screen mismatch at 71,680 pixels. #406's
+engine-level corrections model manual `loc_119D8` and timeout `loc_C0A` demo
+returns through `Pal_FadeOut -> loc_6E2`, plus the timeout-restart
+`Load_IntroSequence6` clocks for `loc_1B37C` lightning and `sub_1B43A`
+character mappings. They make 318 additional route frames exact, suppress the
+pause renderer while synchronous `Pal_FadeOut` owns the display, and remove
+33,222,610 changed pixel instances. #406 owns this measured visual frontier;
+the four settled-warp source-port visual-gate checkpoints remain exact.
 
 The latest confidence correction promotes the full published-route state gate
 from every 25th frame to every frame. The checked-in baseline enforces zero

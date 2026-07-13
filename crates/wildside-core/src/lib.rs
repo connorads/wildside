@@ -2178,8 +2178,52 @@ impl NativeRuntime {
 
     fn intro_sequence_6_hidden_shell_frame_index_loc_1b43a(&self) -> Option<u8> {
         Self::intro_sequence_6_hidden_shell_frame_index_loc_1b43a_at_elapsed(
-            self.title_screen_elapsed_frames,
+            self.intro_sequence_6_hidden_shell_presentation_elapsed_loc_1b43a(),
         )
+    }
+
+    fn intro_sequence_6_hidden_shell_presentation_elapsed_loc_1b43a(&self) -> usize {
+        let elapsed = self.title_screen_elapsed_frames;
+        let BootState::IntroSequence6 {
+            carry_timeout_restart_hidden_camera_wrap,
+            ..
+        } = self.boot_state
+        else {
+            return elapsed;
+        };
+        Self::intro_sequence_6_hidden_shell_presentation_elapsed_loc_1b43a_for_lineage(
+            elapsed,
+            self.intro_sequence_6_entered_from_timeout_restart,
+            carry_timeout_restart_hidden_camera_wrap,
+            self.demo_toggle,
+        )
+    }
+
+    fn intro_sequence_6_hidden_shell_presentation_elapsed_loc_1b43a_for_lineage(
+        elapsed: usize,
+        entered_from_timeout_restart: bool,
+        carry_timeout_restart_hidden_camera_wrap: bool,
+        demo_toggle: bool,
+    ) -> usize {
+        if !entered_from_timeout_restart {
+            return elapsed;
+        }
+
+        // ASM loc_1BA5C -> Load_IntroSequence6 allocates loc_1B37C and
+        // sub_1B43A after the shared fade. The first timeout-restart shell is
+        // two presentation frames ahead of cold boot; the later cleared-camera
+        // revisit retains the existing three-frame worker delay relative to
+        // that first shell.
+        let early_elapsed = elapsed.saturating_add(
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_EARLY_WORKER_PRESENTATION_ADVANCE_FRAMES,
+        );
+        if carry_timeout_restart_hidden_camera_wrap {
+            early_elapsed
+        } else if !demo_toggle {
+            early_elapsed.saturating_sub(TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_WORKER_DELAY_FRAMES)
+        } else {
+            elapsed
+        }
     }
 
     fn title_menu_level_entry_carry_fade_progress_loc_1bbd6(
@@ -2262,8 +2306,43 @@ impl NativeRuntime {
 
     fn intro_sequence_6_lightning_flash_frame_loc_1b37c(&self) -> u8 {
         Self::intro_sequence_6_lightning_flash_frame_loc_1b37c_at_elapsed(
-            self.title_screen_elapsed_frames,
+            self.intro_sequence_6_lightning_presentation_elapsed_loc_1b37c(),
         )
+    }
+
+    fn intro_sequence_6_lightning_presentation_elapsed_loc_1b37c(&self) -> usize {
+        let elapsed = self.title_screen_elapsed_frames;
+        let BootState::IntroSequence6 {
+            carry_timeout_restart_hidden_camera_wrap: true,
+            ..
+        } = self.boot_state
+        else {
+            return elapsed;
+        };
+        Self::intro_sequence_6_lightning_presentation_elapsed_loc_1b37c_for_lineage(
+            elapsed,
+            self.intro_sequence_6_entered_from_timeout_restart,
+            true,
+        )
+    }
+
+    fn intro_sequence_6_lightning_presentation_elapsed_loc_1b37c_for_lineage(
+        elapsed: usize,
+        entered_from_timeout_restart: bool,
+        carry_timeout_restart_hidden_camera_wrap: bool,
+    ) -> usize {
+        // ASM loc_1B37C's opening three-frame hibernations already have their
+        // own cold/later presentation calibration. Only the first wrapped
+        // timeout-restart shell needs the two-frame worker advance here;
+        // applying sub_1B43A's later mapping correction would shift every
+        // subsequent lightning upload off its oracle-backed cadence.
+        if entered_from_timeout_restart && carry_timeout_restart_hidden_camera_wrap {
+            elapsed.saturating_add(
+                TIMEOUT_RESTART_INTRO_SEQUENCE_6_EARLY_WORKER_PRESENTATION_ADVANCE_FRAMES,
+            )
+        } else {
+            elapsed
+        }
     }
 
     fn intro_sequence_6_lightning_flash_frame_loc_1b37c_at_elapsed(

@@ -6480,6 +6480,63 @@ mod chunk_02 {
     }
 
     #[test]
+    fn timeout_restart_intro_sequence_6_workers_use_lineage_presentation_clock() {
+        let early_elapsed =
+            NativeRuntime::intro_sequence_6_hidden_shell_presentation_elapsed_loc_1b43a_for_lineage(
+                33, true, true, true,
+            );
+        assert_eq!(
+            NativeRuntime::intro_sequence_6_hidden_shell_frame_index_loc_1b43a_at_elapsed(
+                early_elapsed,
+            ),
+            Some(0),
+            "ASM Load_IntroSequence6 -> sub_1B43A should present its first timeout-restart mapping on published-route local frame 33",
+        );
+        for elapsed in 0..100 {
+            assert_eq!(
+                NativeRuntime::intro_sequence_6_lightning_presentation_elapsed_loc_1b37c_for_lineage(
+                    elapsed, true, true,
+                ),
+                elapsed + TIMEOUT_RESTART_INTRO_SEQUENCE_6_EARLY_WORKER_PRESENTATION_ADVANCE_FRAMES,
+                "ASM loc_1B37C timeout-restart presentation clock should stay two frames ahead at local frame {elapsed}",
+            );
+        }
+
+        let later_elapsed_35 =
+            NativeRuntime::intro_sequence_6_hidden_shell_presentation_elapsed_loc_1b43a_for_lineage(
+                35, true, false, false,
+            );
+        assert_eq!(
+            NativeRuntime::intro_sequence_6_hidden_shell_frame_index_loc_1b43a_at_elapsed(
+                later_elapsed_35,
+            ),
+            None,
+            "ASM later Load_IntroSequence6 revisit should retain the three-frame worker delay through local frame 35",
+        );
+
+        let later_elapsed_36 =
+            NativeRuntime::intro_sequence_6_hidden_shell_presentation_elapsed_loc_1b43a_for_lineage(
+                36, true, false, false,
+            );
+        assert_eq!(
+            NativeRuntime::intro_sequence_6_hidden_shell_frame_index_loc_1b43a_at_elapsed(
+                later_elapsed_36,
+            ),
+            Some(0),
+            "ASM later Load_IntroSequence6 revisit should present sub_1B43A on local frame 36",
+        );
+        for elapsed in 0..100 {
+            assert_eq!(
+                NativeRuntime::intro_sequence_6_lightning_presentation_elapsed_loc_1b37c_for_lineage(
+                    elapsed, true, false,
+                ),
+                elapsed,
+                "ASM loc_1B37C later-revisit lightning cadence should retain its independent presentation clock at local frame {elapsed}",
+            );
+        }
+    }
+
+    #[test]
     fn cold_boot_intro_sequence_6_uses_load_intro_sequence_6_vdp_before_title_ready() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;

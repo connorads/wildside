@@ -43,6 +43,19 @@ is 13,425 exact frames, 24,334 divergent frames, and 569,120,792 changed pixel
 instances with state/RNG parity unchanged. Frame 20927 is the next all-screen
 frontier.
 
+Progress 2026-07-13: frame 20927 belongs to the first timeout-restart
+`Load_IntroSequence6` transformation shell, not a gameplay transition. ASM
+`loc_1BA5C` enters mode `$28`, then allocates independent `loc_1B37C`
+lightning and `sub_1B43A -> loc_1B446 -> sub_1BF24` character-map workers.
+Oracle presents the first mapping on local frame 33; the later cleared-camera
+revisit presents it on frame 36, retaining the already-modelled three-frame
+worker delay, while cold boot remains on frame 35. Giving the independently
+calibrated mapping and lightning reconstructions their correct lineage clocks
+adds 17 exact route frames and removes 333,159 changed pixel instances. Current
+evidence is 13,442 exact, 24,317 divergent, and 568,787,633 changed pixel
+instances with state/RNG parity unchanged. Frame 22607 is the next all-screen
+frontier.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.
