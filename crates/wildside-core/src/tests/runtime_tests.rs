@@ -3785,6 +3785,25 @@ mod chunk_09 {
     }
 
     #[test]
+    fn intro_sequence_6_manual_demo_return_advances_loc_6e2_title_rebuild_two_frames() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.title_screen_intro_return_lineage =
+            Some(TitleScreenIntroReturnLineage::ManualDemoReturn);
+        runtime.demo_title_return_uses_intro_sequence_6_early_title_restore = true;
+
+        runtime.title_screen_elapsed_frames = 54;
+        assert!(runtime.demo_title_solid_fill_active_loc_6e2());
+
+        runtime.title_screen_elapsed_frames = 55;
+        assert!(
+            !runtime.demo_title_solid_fill_active_loc_6e2(),
+            "ASM loc_119D8 rejoins the IntroSequence6-restored title shell two VBlank presentations ahead, so local frame 55 exposes Load_TitleScreen instead of `$082A`",
+        );
+        assert_eq!(runtime.effective_title_screen_rebuild_elapsed(), 57);
+    }
+
+    #[test]
     fn published_tas_demo_2_timeout_restore_reuses_title_pose_on_frames_23955_and_23956() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

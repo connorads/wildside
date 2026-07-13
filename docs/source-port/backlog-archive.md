@@ -56,6 +56,24 @@ evidence is 13,442 exact, 24,317 divergent, and 568,787,633 changed pixel
 instances with state/RNG parity unchanged. Frame 22607 is the next all-screen
 frontier.
 
+Progress 2026-07-13: frame 22607 is the first of two manual-demo title returns
+whose `sub_1C246 -> sub_1C278` pass advances `$FFFFFC82` to the Juggernaut
+variant. The other two route returns retain Red Stealth. `sub_1B2A4` selects
+the matching transformation art, `loc_1C4E2` overlays its 19 palette words,
+and `Load_TitleScreen` allocates a fresh `Obj_TitleTextChameleon` worker. The
+IntroSequence6 return also reaches the rebuilt title two frames earlier than
+the simpler lineage. Native previously reused one art/palette and inherited
+the wrong Chameleon phase.
+
+The title builder now loads all three ROM variants, selects art and palette by
+the rotated region byte, and derives the manual-return object passes from the
+fresh worker clocks. All 28 sampled local frames 53..59 around the four manual
+return boundaries are pixel-exact. Full verification gains 3,135 exact frames
+and removes 332,920,843 changed pixel instances: 16,577 exact, 21,182
+divergent, and 235,866,790 changed pixel instances. All gameplay, enemy, and
+post-`Init_RNG` frames remain exact. Frame 28294 is the next near-full-screen
+frontier at 71,647 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

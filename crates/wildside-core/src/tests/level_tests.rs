@@ -29,6 +29,24 @@ fn imported_early_start_boot_script() -> Vec<u8> {
     script
 }
 
+#[test]
+fn intro_start_skip_advances_title_region_sub_1c246_sub_1c278() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let script = imported_early_start_boot_script();
+
+    for frame_index in 0..=139 {
+        runtime.step_frame(FrameInput::from_mask(
+            script.get(frame_index).copied().unwrap_or_default(),
+        ));
+    }
+
+    assert!(matches!(runtime.boot_state, BootState::TitleScreen { .. }));
+    assert_eq!(
+        runtime.title_screen_region_byte, 0,
+        "ASM sub_1C246 -> loc_1C250 calls sub_1C278 for Game_Mode=$04, rotating the cold `$FFFFFC82` seed from 2 to 0 before Load_TitleScreen",
+    );
+}
+
 fn collision_rect_sub_1f52(
     left_px: i16,
     right_px: i16,

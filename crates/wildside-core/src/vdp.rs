@@ -1637,12 +1637,19 @@ fn overlay_title_sega_text_worker_loc_1c7a0(
     elapsed: usize,
     intro_return_hidden_shell: bool,
     direct_intro_sequence_5_title_return: bool,
+    manual_demo_return: bool,
 ) {
     // ASM loc_1B6AC hibernates 30 frames, loc_1B6CE reveals Chameleon for 40
     // frames, and loc_1B6DC spawns SegaText when its preserved counter reaches
     // `$1E`. The loc_1C7A0 worker then performs its own initial one-frame
     // hibernate before writing this zero-delay text in one pass.
-    let start_elapsed = if direct_intro_sequence_5_title_return {
+    let start_elapsed = if manual_demo_return {
+        // ASM loc_119D8 -> loc_6E2 -> Load_TitleScreen allocates the title
+        // objects after presenting the base title upload. Obj_TitleTextKid
+        // and Obj_TitleTextChameleon are visible on effective loader frame
+        // 58; the newly allocated loc_1C7A0 child runs on frame 59.
+        58
+    } else if direct_intro_sequence_5_title_return {
         // ASM loc_1BA60 -> sub_1C246 -> Load_TitleScreen reaches the direct
         // IntroSequence5 title-return shell at the title-attract lock frame.
         // The freshly allocated SegaText worker still spends loc_1C7A0's
@@ -2461,8 +2468,10 @@ fn asset_label_mapeni_filename(label: &str) -> String {
 /// Cached decompressed assets for the title screen (`Load_TitleScreen`).
 #[derive(Debug, Clone)]
 pub(crate) struct TitleScreenData {
-    /// 4 decompressed Saxman art chunks in upload order.
+    /// 4 sub_1B2A4 upload slots; slot 1 carries the default Red Stealth art.
     art_chunks: [(usize, Vec<u8>); 4],
+    /// `$FFFFFC82`-selected art uploaded to VRAM $21E0 by sub_1B2A4.
+    transformation_art_variants: [Vec<u8>; 3],
     /// 4 decompressed Saxman art chunks from ASM `Load_TitleArt`.
     title_art_chunks: [(usize, Vec<u8>); 4],
     /// Decoded Enigma tilemap for plane A (written starting at word $20C1).
@@ -2481,6 +2490,8 @@ pub(crate) struct TitleScreenData {
     tile_patch_words: [u16; 32],
     /// Palette words from Pal_1C400 (title.bin — 0x33 words).
     palette_words: Vec<u16>,
+    /// ASM loc_1C4E2 overlays at Palette_Buffer+$1A for `$FFFFFC82=1/2`.
+    palette_variant_overlays: [Vec<u16>; 2],
 }
 
 #[derive(Debug, Clone)]
@@ -2564,6 +2575,17 @@ pub(crate) fn load_title_screen_data(source: &dyn AssetSource) -> Result<TitleSc
     let art_chunks: [(usize, Vec<u8>); 4] = art_chunks
         .try_into()
         .map_err(|_| anyhow::anyhow!("expected 4 art chunks"))?;
+    let transformation_art_variants = [
+        art_chunks[1].1.clone(),
+        load_saxman_art(
+            source,
+            &scenes.join("artcomp/Maniaxe_transformation_from_intro.bin"),
+        )?,
+        load_saxman_art(
+            source,
+            &scenes.join("artcomp/Juggernaut_transformation_from_intro.bin"),
+        )?,
+    ];
 
     // ASM Load_TitleArt (kid.asm:29810): `DecompressToRAM` expands
     // Title_text_CHAMELEON through RAM staging, then writes the transformed
@@ -2662,10 +2684,9 @@ pub(crate) fn load_title_screen_data(source: &dyn AssetSource) -> Result<TitleSc
         )
     })?;
 
-    // Get tile patch words from the load plan.
-    // ASM loc_1C4E0 (kid.asm:31213): region byte 1 seeds the optional
-    // 0x13-word title-palette overlay; native's title-screen cache currently
-    // uses the default region path, so the symbolic plan has no overlay load.
+    // The symbolic plan supplies the shared tile-patch words. FC82-selected
+    // transformation art and palette overlays are cached separately above
+    // and below because the VDP builder chooses them for each presented frame.
     let plan = wildside_data::title_screen_load_plan_sub_1B2A4(0);
     let tile_patch_words = plan.tile_patch_words;
 
@@ -2673,12 +2694,17 @@ pub(crate) fn load_title_screen_data(source: &dyn AssetSource) -> Result<TitleSc
     // the inclusive DBF loop copies 0x33 words from Pal_1C400 into
     // Palette_Buffer; native loads those same title palette words for CRAM.
     // ASM loc_1C4E2 (kid.asm:31216): non-default regions copy their selected
-    // 0x13-word overlay into Palette_Buffer+$1A; the default region path leaves
-    // the base palette unchanged before native writes it to CRAM.
+    // 0x13-word overlay into Palette_Buffer+$1A; the default path leaves the
+    // base palette unchanged.
     let palette_words = load_palette_words(source, &scenes.join("palette/title.bin"))?;
+    let palette_variant_overlays = [
+        load_palette_words(source, &scenes.join("palette/title_maniaxe.bin"))?,
+        load_palette_words(source, &scenes.join("palette/title_juggernaut.bin"))?,
+    ];
 
     Ok(TitleScreenData {
         art_chunks,
+        transformation_art_variants,
         title_art_chunks,
         plane_a_tilemap,
         title_text_chameleon_rows: title_text_chameleon_upload.rows,
@@ -2688,6 +2714,7 @@ pub(crate) fn load_title_screen_data(source: &dyn AssetSource) -> Result<TitleSc
         lightning_art_bytes,
         tile_patch_words,
         palette_words,
+        palette_variant_overlays,
     })
 }
 
@@ -2803,6 +2830,7 @@ pub(crate) struct TitleScreenVdpLineage {
     pub(crate) intro_return_hidden_shell: bool,
     pub(crate) direct_intro_sequence_5_title_return: bool,
     pub(crate) natural_intro_sequence_6_pre_ready_shell: bool,
+    pub(crate) manual_demo_return: bool,
 }
 
 pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
@@ -2828,7 +2856,15 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
     }
 
     // ASM sub_1B2A4 (kid.asm:29472): upload the shared intro/title art chunks.
-    for (vram_byte_addr, art_bytes) in &data.art_chunks {
+    for (chunk_index, (vram_byte_addr, art_bytes)) in data.art_chunks.iter().enumerate() {
+        // ASM sub_1B2A4 loc_1B2D8 (kid.asm:29475-29484): the second upload
+        // chooses Red Stealth, Maniaxe, or Juggernaut transformation art from
+        // `$FFFFFC82`; the other three chunks are shared.
+        let art_bytes = if chunk_index == 1 {
+            &data.transformation_art_variants[usize::from(region_byte.min(2))]
+        } else {
+            art_bytes
+        };
         vdp.write_vram(*vram_byte_addr, art_bytes);
     }
 
@@ -2837,8 +2873,7 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
         vdp.write_vram_word(0xF000 + i * 2, word);
     }
 
-    // ASM loc_1C4BE/loc_1C4E2: write Pal_1C400 to Palette_Buffer/CRAM.
-    vdp.write_cram_words(0, &data.palette_words);
+    write_title_palette_sub_1b2a4_loc_1c4e2(&mut vdp, data, region_byte);
 
     // ASM Load_TitleArt (kid.asm:29810): direct VRAM art uploads for the title
     // logo/menu elements. byte_22080 is RAM-only title text animation data.
@@ -2871,16 +2906,16 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
             // at y=$006F while trace-facing title readiness is still false.
             append_title_text_kid_sprite_loc_1b5e4_with_y(&mut sprite_entries, 0x006F);
         } else {
-            let direct_title_return_first_object_frame = lineage
-                .direct_intro_sequence_5_title_return
-                && title_elapsed_frames == TITLE_ATTRACT_LOCK_FRAMES;
+            let title_return_first_object_frame = (lineage.direct_intro_sequence_5_title_return
+                && title_elapsed_frames == TITLE_ATTRACT_LOCK_FRAMES)
+                || (lineage.manual_demo_return && title_elapsed_frames == 58);
             append_title_text_kid_sprite_loc_1b5e4(&mut sprite_entries, title_elapsed_frames);
-            if !direct_title_return_first_object_frame {
+            if !title_return_first_object_frame {
                 // ASM Load_TitleScreen allocates Obj_TitleMenu before
                 // Obj_TitleTextKid, but Obj_TitleMenu must run once more before
-                // its loc_1BB10 child sprite appears. On the direct
-                // IntroSequence5 title-return route, oracle frame 2160 shows
-                // only the Kid title chunks; frame 2161 links loc_1BB10.
+                // its loc_1BB10 child sprite appears. Both the direct
+                // IntroSequence5 return and loc_119D8 manual demo return show
+                // only the Kid title chunks on their first object pass.
                 append_title_intro_text_sprite_loc_1bb10(&mut sprite_entries, title_elapsed_frames);
             }
         }
@@ -2891,6 +2926,7 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
             lineage.intro_return_hidden_shell,
             lineage.direct_intro_sequence_5_title_return,
             lineage.natural_intro_sequence_6_pre_ready_shell,
+            lineage.manual_demo_return,
         );
         if !lineage.natural_intro_sequence_6_pre_ready_shell {
             overlay_title_sega_text_worker_loc_1c7a0(
@@ -2898,6 +2934,7 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
                 title_elapsed_frames,
                 lineage.intro_return_hidden_shell,
                 lineage.direct_intro_sequence_5_title_return,
+                lineage.manual_demo_return,
             );
         }
     }
@@ -2972,13 +3009,20 @@ pub(crate) fn build_intro_sequence_6_vdp_with_character_frame(
     vdp.write_vsram_word(2, 0);
 
     // ASM sub_1B2A4 uploads the transformation/title base art and palette.
-    for (vram_byte_addr, art_bytes) in &data.art_chunks {
+    for (chunk_index, (vram_byte_addr, art_bytes)) in data.art_chunks.iter().enumerate() {
+        // ASM sub_1B2A4 loc_1B2D8 selects the same FC82 transformation-art
+        // variant when called by Load_IntroSequence6.
+        let art_bytes = if chunk_index == 1 {
+            &data.transformation_art_variants[usize::from(region_byte.min(2))]
+        } else {
+            art_bytes
+        };
         vdp.write_vram(*vram_byte_addr, art_bytes);
     }
     for (i, &word) in data.tile_patch_words.iter().enumerate() {
         vdp.write_vram_word(0xF000 + i * 2, word);
     }
-    vdp.write_cram_words(0, &data.palette_words);
+    write_title_palette_sub_1b2a4_loc_1c4e2(&mut vdp, data, region_byte);
 
     // ASM Load_IntroSequence6 calls sub_1C5D0 with the sub_1B2A4 decoded map,
     // then sub_1B43A repeatedly calls sub_1BF24 for the hidden shell frames.
@@ -3071,8 +3115,14 @@ fn write_title_text_chameleon_anim_loc_1b71a(
     intro_return_hidden_shell: bool,
     direct_intro_sequence_5_title_return: bool,
     natural_intro_sequence_6_pre_ready_shell: bool,
+    manual_demo_return: bool,
 ) {
-    let d3_elapsed = if direct_intro_sequence_5_title_return {
+    let d3_elapsed = if manual_demo_return {
+        // ASM Load_TitleScreen allocates a fresh Obj_TitleTextChameleon with
+        // its own coroutine registers. Its first visible sub_1B71A pass must
+        // start from d3=0 instead of inheriting the outer title-frame clock.
+        elapsed.saturating_sub(57)
+    } else if direct_intro_sequence_5_title_return {
         // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 enters Load_TitleScreen,
         // which allocates fresh Obj_TitleTextChameleon at kid.asm:29464-29466.
         // Oracle pixels on the direct `$24` title-return route show that this
@@ -3254,6 +3304,26 @@ fn write_title_character_frame_sub_1bf24(
     };
 
     write_title_character_tilemap_rect(vdp, &frame.tilemap_words, frame.width_words, 0x20BC);
+}
+
+fn write_title_palette_sub_1b2a4_loc_1c4e2(
+    vdp: &mut VdpState,
+    data: &TitleScreenData,
+    region_byte: u8,
+) {
+    // ASM sub_1B2A4 -> loc_1C4B2/loc_1C4BE (kid.asm:31197-31205):
+    // copy the inclusive `$32` DBF range from Pal_1C400 first.
+    vdp.write_cram_words(0, &data.palette_words);
+
+    // ASM loc_1C4E0/loc_1C4E2 (kid.asm:31207-31218): non-zero FC82
+    // variants overwrite 19 words at Palette_Buffer+$1A with either the
+    // Maniaxe or Juggernaut palette before the next Palette_to_VRAM pass.
+    let overlay = match region_byte.min(2) {
+        0 => return,
+        1 => &data.palette_variant_overlays[0],
+        _ => &data.palette_variant_overlays[1],
+    };
+    vdp.write_cram_words(0x0D, overlay);
 }
 
 fn write_title_character_tilemap_rect(
@@ -5911,7 +5981,8 @@ mod tests {
             }
         }
         let data = TitleScreenData {
-            art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            art_chunks: [(0, vec![]), (0x21E0, vec![0x11]), (0, vec![]), (0, vec![])],
+            transformation_art_variants: [vec![0xA0], vec![0xB0], vec![0xC0]],
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: tilemap,
             title_text_chameleon_rows: [[0; 64]; 28],
@@ -5921,8 +5992,20 @@ mod tests {
             lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
+            palette_variant_overlays: [vec![], vec![]],
         };
         let vdp = build_title_screen_vdp_with_character_frame(&data, 0, 0);
+        assert_eq!(
+            vdp.vram[0x21E0], 0xA0,
+            "ASM sub_1B2A4 loc_1B2D8 keeps byte_26E3D Red Stealth transformation art when `$FFFFFC82=0`",
+        );
+        let maniaxe = build_title_screen_vdp_with_character_frame(&data, 0, 1);
+        assert_eq!(maniaxe.vram[0x21E0], 0xB0);
+        let juggernaut = build_title_screen_vdp_with_character_frame(&data, 0, 2);
+        assert_eq!(
+            juggernaut.vram[0x21E0], 0xC0,
+            "ASM loc_1B2D8 selects byte_282C1 Juggernaut transformation art when `$FFFFFC82=2`",
+        );
 
         // Sample row-major source-vs-target pairs across every edge so any
         // arithmetic mutation on `(cell_y + row) * 128 + (cell_x + col) * 2`
@@ -6091,6 +6174,7 @@ mod tests {
         patch[31] = 0x2222;
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            transformation_art_variants: [vec![], vec![], vec![]],
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
@@ -6100,6 +6184,7 @@ mod tests {
             lightning_art_bytes: vec![],
             tile_patch_words: patch,
             palette_words: vec![],
+            palette_variant_overlays: [vec![], vec![]],
         };
         let vdp = build_title_screen_vdp_with_character_frame(&data, 0, 0);
 
@@ -6113,6 +6198,7 @@ mod tests {
     fn title_screen_vdp_load_title_art_uploads_menu_chunks() {
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            transformation_art_variants: [vec![], vec![], vec![]],
             title_art_chunks: [
                 (0x6760, vec![0x77, 0x88]),
                 (0x9A60, vec![0x11, 0x22]),
@@ -6127,6 +6213,7 @@ mod tests {
             lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
+            palette_variant_overlays: [vec![], vec![]],
         };
 
         let vdp = build_title_screen_vdp_with_character_frame(&data, 0, 0);
@@ -6173,6 +6260,7 @@ mod tests {
         }
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            transformation_art_variants: [vec![], vec![], vec![]],
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
@@ -6182,6 +6270,7 @@ mod tests {
             lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
+            palette_variant_overlays: [vec![], vec![]],
         };
 
         let vdp = build_title_screen_vdp_with_character_frame_and_menu(&data, 0, 0, Some(2));
@@ -6266,6 +6355,7 @@ mod tests {
         let decoded_words = (0u16..(7 * 29) as u16).collect::<Vec<_>>();
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            transformation_art_variants: [vec![], vec![], vec![]],
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
@@ -6275,6 +6365,7 @@ mod tests {
             lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
+            palette_variant_overlays: [vec![], vec![]],
         };
 
         let vdp = build_title_screen_vdp_with_character_frame_menu_and_title_objects(
@@ -6307,6 +6398,7 @@ mod tests {
     fn title_screen_vdp_loc_1b6dc_replays_sega_text_after_chameleon_reveal() {
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            transformation_art_variants: [vec![], vec![], vec![]],
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
@@ -6316,6 +6408,7 @@ mod tests {
             lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
+            palette_variant_overlays: [vec![], vec![]],
         };
 
         let early = build_title_screen_vdp_with_character_frame_menu_and_title_objects(
@@ -6347,9 +6440,79 @@ mod tests {
     }
 
     #[test]
+    fn manual_demo_return_runs_sega_text_after_first_title_object_pass() {
+        let data = TitleScreenData {
+            art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            transformation_art_variants: [vec![], vec![], vec![]],
+            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            plane_a_tilemap: vec![],
+            title_text_chameleon_rows: [[0; 64]; 28],
+            title_text_chameleon_anim_maps: [
+                vec![0x0100; 7 * 29],
+                vec![0x0200; 7 * 29],
+                vec![0x0300; 7 * 29],
+            ],
+            title_menu_tilemap_words: vec![],
+            character_frames: Vec::new(),
+            lightning_art_bytes: vec![],
+            tile_patch_words: [0; 32],
+            palette_words: vec![],
+            palette_variant_overlays: [vec![], vec![]],
+        };
+        let copyright_write =
+            wildside_data::title_intro_glyph_write_sub_1C7F6(0, 0x67D3, 0x19, 0x19, 0x2A);
+        let lineage = TitleScreenVdpLineage {
+            manual_demo_return: true,
+            ..TitleScreenVdpLineage::default()
+        };
+
+        let first_object_pass =
+            build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                &data, 7, 0, None, true, 58, lineage,
+            );
+        assert_eq!(
+            vram_word(
+                &first_object_pass,
+                usize::from(copyright_write.vram_word_address)
+            ),
+            0x20BC,
+            "ASM Load_TitleScreen's first Mode_Standard pass exposes the title objects before the new loc_1C7A0 child has run",
+        );
+        assert_eq!(
+            vram_word(&first_object_pass, 0x090A),
+            0x0100,
+            "ASM Obj_TitleTextChameleon starts with d3=0, so its first sub_1B71A pass selects unk_2E706 instead of inheriting the global title elapsed phase",
+        );
+        assert!(
+            sprite_table_index_without_link(&first_object_pass, (0x0114, 0x04, 0x4780, 0x018C))
+                .is_none(),
+            "ASM Obj_TitleMenu has not linked its loc_1BB10 child on the first post-Load_TitleScreen object pass",
+        );
+
+        let second_object_pass =
+            build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                &data, 7, 0, None, true, 59, lineage,
+            );
+        assert_eq!(
+            vram_word(
+                &second_object_pass,
+                usize::from(copyright_write.vram_word_address)
+            ),
+            0x67FD,
+            "ASM loc_1C7A0 writes the zero-delay SegaText string on the second post-loader object pass",
+        );
+        assert!(
+            sprite_table_index_without_link(&second_object_pass, (0x0114, 0x04, 0x4780, 0x018C))
+                .is_some(),
+            "ASM Obj_TitleMenu links loc_1BB10 on the second post-loader object pass",
+        );
+    }
+
+    #[test]
     fn title_screen_vdp_intro_return_replays_sega_text_when_vdp_becomes_visible() {
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            transformation_art_variants: [vec![], vec![], vec![]],
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
@@ -6359,6 +6522,7 @@ mod tests {
             lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
+            palette_variant_overlays: [vec![], vec![]],
         };
         let copyright_write =
             wildside_data::title_intro_glyph_write_sub_1C7F6(0, 0x67D3, 0x19, 0x19, 0x2A);
@@ -6375,6 +6539,7 @@ mod tests {
                 intro_return_hidden_shell: true,
                 direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
+                manual_demo_return: false,
             },
         );
         assert_eq!(
@@ -6394,6 +6559,7 @@ mod tests {
                 intro_return_hidden_shell: true,
                 direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
+                manual_demo_return: false,
             },
         );
         assert_eq!(
@@ -6414,6 +6580,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
+                    manual_demo_return: false,
                 },
             );
         assert_eq!(
@@ -6437,6 +6604,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
+                    manual_demo_return: false,
                 },
             );
         assert_eq!(
@@ -6456,6 +6624,7 @@ mod tests {
         let map2 = vec![0x3000; 7 * 29];
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            transformation_art_variants: [vec![], vec![], vec![]],
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
@@ -6465,6 +6634,7 @@ mod tests {
             lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
+            palette_variant_overlays: [vec![], vec![]],
         };
 
         let visible = build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
@@ -6478,6 +6648,7 @@ mod tests {
                 intro_return_hidden_shell: true,
                 direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
+                manual_demo_return: false,
             },
         );
 
@@ -6498,6 +6669,7 @@ mod tests {
                 intro_return_hidden_shell: true,
                 direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
+                manual_demo_return: false,
             },
         );
 
@@ -6519,6 +6691,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
+                    manual_demo_return: false,
                 },
             );
 
@@ -6534,6 +6707,7 @@ mod tests {
     fn title_screen_vdp_direct_return_only_suppresses_loc_1bb10_on_first_object_frame() {
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            transformation_art_variants: [vec![], vec![], vec![]],
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
@@ -6543,6 +6717,7 @@ mod tests {
             lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
+            palette_variant_overlays: [vec![], vec![]],
         };
 
         let direct_first =
@@ -6557,6 +6732,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
+                    manual_demo_return: false,
                 },
             );
         assert!(
@@ -6582,6 +6758,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
+                    manual_demo_return: false,
                 },
             );
         assert!(
@@ -6602,6 +6779,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: false,
                     natural_intro_sequence_6_pre_ready_shell: false,
+                    manual_demo_return: false,
                 },
             );
         assert!(
@@ -6618,6 +6796,7 @@ mod tests {
     fn title_screen_vdp_loc_1bb10_keeps_intro_text_sprite_visible_on_menu() {
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            transformation_art_variants: [vec![], vec![], vec![]],
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
@@ -6627,6 +6806,7 @@ mod tests {
             lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
+            palette_variant_overlays: [vec![], vec![]],
         };
 
         let vdp = build_title_screen_vdp_with_character_frame_menu_and_title_objects(
@@ -6660,6 +6840,7 @@ mod tests {
                 (0, vec![]),
                 (0, vec![]),
             ],
+            transformation_art_variants: [vec![], vec![], vec![]],
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: rows,
@@ -6669,6 +6850,7 @@ mod tests {
             lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
             palette_words: vec![],
+            palette_variant_overlays: [vec![], vec![]],
         };
 
         let vdp = build_title_screen_vdp_with_character_frame(&data, 0, 0);
@@ -6700,6 +6882,7 @@ mod tests {
         }
         let data = TitleScreenData {
             art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            transformation_art_variants: [vec![], vec![], vec![]],
             title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
             plane_a_tilemap: vec![],
             title_text_chameleon_rows: [[0; 64]; 28],
@@ -6713,10 +6896,22 @@ mod tests {
             }],
             lightning_art_bytes: vec![],
             tile_patch_words: [0; 32],
-            palette_words: vec![],
+            palette_words: (0x1000..0x1033).collect(),
+            palette_variant_overlays: [(0x2000..0x2013).collect(), (0x3000..0x3013).collect()],
         };
 
         let vdp = build_title_screen_vdp_with_character_frame(&data, 7, 2);
+
+        assert_eq!(
+            u16::from_be_bytes([vdp.cram[0x1A], vdp.cram[0x1B]]),
+            0x3000,
+            "ASM sub_1B2A4 -> loc_1C4E2 overlays Pal_1C48C at Palette_Buffer+$1A for `$FFFFFC82=2`",
+        );
+        assert_eq!(
+            u16::from_be_bytes([vdp.cram[0x3E], vdp.cram[0x3F]]),
+            0x3012,
+            "ASM loc_1C4E2 copies the full inclusive `$12` DBF range of 19 Juggernaut palette words",
+        );
 
         let row_3_col_15_addr = (1 + 3) * 128 + (0x15 + 15) * 2;
         let row_3_col_15 =

@@ -2022,6 +2022,7 @@ impl NativeRuntime {
                                 intro_return_hidden_shell: false,
                                 direct_intro_sequence_5_title_return: false,
                                 natural_intro_sequence_6_pre_ready_shell: true,
+                                manual_demo_return: false,
                             },
                         )
                     } else if elapsed >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_REBUILD_FRAMES {
@@ -2101,7 +2102,23 @@ impl NativeRuntime {
                     } else {
                         None
                     };
-                    let title_vdp_ready = self.title_screen_vdp_ready();
+                    let manual_demo_return = matches!(
+                        self.title_screen_intro_return_lineage,
+                        Some(TitleScreenIntroReturnLineage::ManualDemoReturn)
+                    );
+                    let title_elapsed_frames = if manual_demo_return {
+                        self.effective_title_screen_rebuild_elapsed()
+                    } else {
+                        self.title_screen_elapsed_frames
+                    };
+                    // ASM loc_119D8 -> loc_6E2 -> Load_TitleScreen presents
+                    // sub_1BF24/sub_1B532 once before the newly allocated title
+                    // objects have run. The following Mode_Standard pass adds
+                    // the Kid/Chameleon title workers.
+                    let manual_demo_return_base_upload =
+                        manual_demo_return && title_elapsed_frames == 57;
+                    let title_vdp_ready =
+                        self.title_screen_vdp_ready() && !manual_demo_return_base_upload;
                     let frame_index = if title_vdp_ready {
                         7
                     } else {
@@ -2118,7 +2135,7 @@ impl NativeRuntime {
                         self.title_screen_region_byte,
                         menu_cursor,
                         title_vdp_ready,
-                        self.title_screen_elapsed_frames,
+                        title_elapsed_frames,
                         vdp::TitleScreenVdpLineage {
                             intro_return_hidden_shell: self
                                 .title_screen_uses_intro_return_hidden_shell,
@@ -2127,6 +2144,7 @@ impl NativeRuntime {
                                 && self.timeout_restart_title_intro_sequence_5_pose
                                 && !self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry,
                             natural_intro_sequence_6_pre_ready_shell,
+                            manual_demo_return,
                         },
                     )
                 })

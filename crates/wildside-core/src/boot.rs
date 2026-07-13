@@ -5830,8 +5830,16 @@ impl NativeRuntime {
         } else {
             return false;
         };
-        (DEMO_TITLE_PALETTE_FADE_SCENE_FRAMES_LOC_28C6..end_elapsed)
-            .contains(&self.title_screen_elapsed_frames)
+        let elapsed = if manual_demo_return {
+            // ASM loc_119D8 returns through the title pose already restored by
+            // the later IntroSequence6 lineage. Its loader presentation is
+            // two frames ahead, matching the same loc_E12 advance used by the
+            // hidden object and RNG rebuild clocks.
+            self.effective_title_screen_rebuild_elapsed()
+        } else {
+            self.title_screen_elapsed_frames
+        };
+        (DEMO_TITLE_PALETTE_FADE_SCENE_FRAMES_LOC_28C6..end_elapsed).contains(&elapsed)
     }
 
     fn begin_demo_play(&mut self, use_demo_2: bool) {
@@ -6905,6 +6913,17 @@ impl NativeRuntime {
                     };
                     *pending_title_skip -= 1;
                     if *pending_title_skip == 0 {
+                        if *segment < 4 {
+                            // ASM sub_1C246 -> loc_1C250 (kid.asm:31120-31130):
+                            // Start returns from Game_Mode $04..$20 call
+                            // sub_1C278 before loc_1C264 enters title. Modes
+                            // $24/$28 skip this rotation because IntroSequence5
+                            // already advances `$FFFFFC82` while loading.
+                            self.title_screen_region_byte =
+                                wildside_data::advance_title_screen_region_byte_sub_1C278(
+                                    self.title_screen_region_byte,
+                                );
+                        }
                         if self.timeout_restart_title_intro_sequence_3_return_pending {
                             self.finish_timeout_restart_intro_sequence_3_title_return();
                         } else if self.timeout_restart_title_intro_sequence_4_return_pending {

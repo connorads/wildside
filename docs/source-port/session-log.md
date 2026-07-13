@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 manual title-return variants)
+
+- Frame 22607 is the first manual-demo title return whose `sub_1C246 ->
+  sub_1C278` pass selects the Juggernaut title variant. Native now rotates the
+  title region byte, selects all three `sub_1B2A4` transformation-art variants,
+  applies the `loc_1C4E2` palette overlay, and runs fresh title-object clocks.
+- All 28 sampled local frames 53..59 around the route's four manual-return
+  boundaries are pixel-exact. The complete route gains 3,135 exact frames and
+  removes 332,920,843 changed pixel instances: 16,577 exact, 21,182 divergent,
+  and 235,866,790 changed pixel instances. All gameplay, enemy, and
+  post-`Init_RNG` frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 28294 is the next
+  near-full-screen mismatch at 71,647 pixels. NEXT: keep #406 open and trace
+  that visual frontier.
+
 ## 2026-07-13 handoff (#406 IntroSequence6 worker clocks)
 
 - Frame 20927 is the first timeout-restart `Load_IntroSequence6` shell.
