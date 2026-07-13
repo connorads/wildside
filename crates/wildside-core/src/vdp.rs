@@ -3238,6 +3238,7 @@ pub(crate) fn build_intro_sequence_6_vdp_with_character_frame(
     frame_index: Option<u8>,
     lightning_flash_frame: u8,
     region_byte: u8,
+    level_layout_x_pos: u32,
     camera_y_pos: u32,
 ) -> VdpState {
     let mut vdp = VdpState::new();
@@ -3276,12 +3277,13 @@ pub(crate) fn build_intro_sequence_6_vdp_with_character_frame(
         byte_addr += 4;
     }
 
-    // ASM sub_1B222 -> loc_1B23A seeds Horiz_Scroll_Buffer with
-    // `$FFB8_0000`, so Scroll A is shifted left by 72px while Scroll B stays
-    // at zero during the hidden title shell.
+    // ASM sub_1B222 -> loc_1B23A copies the current Level_Layout high word to
+    // every Horiz_Scroll_Buffer Scroll A entry while Scroll B stays at zero.
+    // GfxObjects_Collision_BottomBoundary4 -> loc_1B51A advances the initial
+    // `$FFB8_0000` value by 4.5 pixels per pass until it reaches zero.
     let hscroll_base = usize::from(vdp.registers[0x0D]) << 10;
     for line in 0..224usize {
-        vdp.write_vram_word(hscroll_base + line * 4, 0xFFB8);
+        vdp.write_vram_word(hscroll_base + line * 4, (level_layout_x_pos >> 16) as u16);
         vdp.write_vram_word(hscroll_base + line * 4 + 2, 0);
     }
     // ASM sub_1B222 copies `$FFFFA656` into Camera_Y_pos before the common VDP
@@ -3322,12 +3324,14 @@ pub(crate) fn build_intro_sequence_6_vdp_after_loc_1b45a_title_art(
     data: &TitleScreenData,
     lightning_flash_frame: u8,
     region_byte: u8,
+    level_layout_x_pos: u32,
     camera_y_pos: u32,
 ) -> VdpState {
     let mut vdp = build_intro_sequence_6_vdp_after_loc_1b494_palette_restore(
         data,
         lightning_flash_frame,
         region_byte,
+        level_layout_x_pos,
         camera_y_pos,
     );
 
@@ -3345,6 +3349,7 @@ pub(crate) fn build_intro_sequence_6_vdp_at_loc_1b470_palette_blackout(
     data: &TitleScreenData,
     lightning_flash_frame: u8,
     region_byte: u8,
+    level_layout_x_pos: u32,
     camera_y_pos: u32,
     title_text_plane_rebuilt: bool,
 ) -> VdpState {
@@ -3353,6 +3358,7 @@ pub(crate) fn build_intro_sequence_6_vdp_at_loc_1b470_palette_blackout(
         Some(crate::boot::title_screen_hidden_shell_palette_restore_loc_1B45A().blackout_frame),
         lightning_flash_frame,
         region_byte,
+        level_layout_x_pos,
         camera_y_pos,
     );
     if title_text_plane_rebuilt {
@@ -3370,6 +3376,7 @@ pub(crate) fn build_intro_sequence_6_vdp_after_loc_1b494_palette_restore(
     data: &TitleScreenData,
     lightning_flash_frame: u8,
     region_byte: u8,
+    level_layout_x_pos: u32,
     camera_y_pos: u32,
 ) -> VdpState {
     let mut vdp = build_intro_sequence_6_vdp_with_character_frame(
@@ -3377,6 +3384,7 @@ pub(crate) fn build_intro_sequence_6_vdp_after_loc_1b494_palette_restore(
         Some(crate::boot::title_screen_hidden_shell_palette_restore_loc_1B45A().blackout_frame),
         lightning_flash_frame,
         region_byte,
+        level_layout_x_pos,
         camera_y_pos,
     );
     rebuild_intro_sequence_6_title_text_plane_sub_1b532(&mut vdp, data, lightning_flash_frame);

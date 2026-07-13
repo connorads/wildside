@@ -2117,7 +2117,8 @@ impl NativeRuntime {
                         data,
                         self.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
                         self.title_screen_region_byte,
-                        self.current_camera_state().y_pos,
+                        self.intro_sequence_6_level_layout_x(),
+                        self.intro_sequence_6_presented_hidden_camera_y(),
                     )
                 })
             }
@@ -2133,7 +2134,8 @@ impl NativeRuntime {
                             data,
                             self.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
                             self.title_screen_region_byte,
-                            self.current_camera_state().y_pos,
+                            self.intro_sequence_6_level_layout_x(),
+                            self.intro_sequence_6_presented_hidden_camera_y(),
                             false,
                         )
                     }
@@ -2142,7 +2144,8 @@ impl NativeRuntime {
                             data,
                             self.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
                             self.title_screen_region_byte,
-                            self.current_camera_state().y_pos,
+                            self.intro_sequence_6_level_layout_x(),
+                            self.intro_sequence_6_presented_hidden_camera_y(),
                             true,
                         )
                     }
@@ -2151,7 +2154,8 @@ impl NativeRuntime {
                             data,
                             self.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
                             self.title_screen_region_byte,
-                            self.current_camera_state().y_pos,
+                            self.intro_sequence_6_level_layout_x(),
+                            self.intro_sequence_6_presented_hidden_camera_y(),
                         )
                     }
                 })
@@ -2163,7 +2167,8 @@ impl NativeRuntime {
                         self.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
                         self.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
                         self.title_screen_region_byte,
-                        self.current_camera_state().y_pos,
+                        self.intro_sequence_6_level_layout_x(),
+                        self.intro_sequence_6_presented_hidden_camera_y(),
                     )
                 })
             }
@@ -2185,12 +2190,18 @@ impl NativeRuntime {
                 let elapsed = self
                     .title_screen_elapsed_frames
                     .saturating_add(carry.elapsed_at_mode_switch);
-                let camera_y_pos = Self::intro_sequence_6_hidden_camera_y_for_elapsed(
+                let camera_y_pos =
+                    Self::intro_sequence_6_presented_hidden_camera_y_for_elapsed(
                     elapsed,
                     carry.carry_timeout_restart_hidden_camera_wrap,
                     false,
                 )
                     .unwrap_or_else(|| self.current_camera_state().y_pos);
+                let level_layout_x_pos = Self::intro_sequence_6_level_layout_x_for_elapsed(
+                    elapsed,
+                    carry.carry_timeout_restart_hidden_camera_wrap,
+                    false,
+                );
                 self.title_screen_data.as_ref().map(|data| {
                     if elapsed >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES {
                         vdp::build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
@@ -2215,6 +2226,7 @@ impl NativeRuntime {
                                 elapsed,
                             ),
                             self.title_screen_region_byte,
+                            level_layout_x_pos,
                             camera_y_pos,
                         )
                     } else {
@@ -2227,6 +2239,7 @@ impl NativeRuntime {
                                 elapsed,
                             ),
                             self.title_screen_region_byte,
+                            level_layout_x_pos,
                             camera_y_pos,
                         )
                     }

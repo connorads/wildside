@@ -5545,6 +5545,50 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_intro_sequence_6_scroll_a_follows_loc_1b51a_ramp() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut scroll_a_words = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(21_160) {
+            runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(
+                frame_index,
+                21_141 | 21_142 | 21_143 | 21_157 | 21_158 | 21_159
+            ) {
+                let vdp = runtime
+                    .vdp_state()
+                    .expect("IntroSequence6 should expose a VDP state");
+                let hscroll_base = usize::from(vdp.registers[0x0D]) << 10;
+                scroll_a_words.push((
+                    frame_index,
+                    u16::from_be_bytes([vdp.vram[hscroll_base], vdp.vram[hscroll_base + 1]]),
+                    u16::from_be_bytes([vdp.vsram[0], vdp.vsram[1]]),
+                ));
+            }
+        }
+
+        // ASM GfxObjects_Collision_BottomBoundary4 -> loc_1B51A derives
+        // `d0 = $FFB80000 >> 4`, then subtracts that fixed delta before each
+        // `sub_1B222` presentation. The updated VDP row appears one frame after
+        // the typed WRAM camera state: Scroll A advances by 4.5 pixels and
+        // VSRAM by one pixel per pass, then both retain zero after the inclusive
+        // 16-pass DBF loop deletes the worker.
+        assert_eq!(
+            scroll_a_words,
+            [
+                (21_141, 0xFFB8, 0xFFF0),
+                (21_142, 0xFFB8, 0xFFF0),
+                (21_143, 0xFFBC, 0xFFF1),
+                (21_157, 0xFFFB, 0xFFFF),
+                (21_158, 0x0000, 0x0000),
+                (21_159, 0x0000, 0x0000),
+            ],
+        );
+    }
+
+    #[test]
     fn published_tas_intro_sequence_6_title_workers_advance_after_loc_1b45a() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

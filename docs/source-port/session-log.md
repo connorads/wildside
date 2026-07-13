@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 IntroSequence6 scroll ramp)
+
+- Frame 21158 exposed `GfxObjects_Collision_BottomBoundary4 -> loc_1B51A`'s
+  16-pass fixed-point scroll ramp: native kept Scroll A at `$FFB8` and missed
+  the VDP row's one-frame presentation latch behind typed WRAM camera state.
+- Focused frames 21135..21162 are pixel-exact. Full verification gains 33 exact
+  frames and removes 358,569 changed pixel instances: 22,007 exact, 15,752
+  divergent, and 72,592,344 changed pixel instances. All state channels stay
+  exact.
+- Frame 39 remains first at 2,643 pixels. Frame 7808 is the new worst at
+  14,806 pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 IntroSequence6 live title workers)
 
 - Frame 21196 exposed the frozen interval after `sub_1B43A loc_1B45A`:

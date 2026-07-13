@@ -489,6 +489,24 @@ instances. Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG`
 frames remain exact. Frame 39 remains first at 2,643 pixels; frame 21158 is
 the new worst at 15,089 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 21158 exposed the final visible pass of
+`GfxObjects_Collision_BottomBoundary4 -> loc_1B51A`. The ROM arithmetic-shifts
+`Level_Layout=$FFB80000` and the wrapped hidden camera by four, then subtracts
+those fixed deltas for an inclusive 16-pass DBF loop before calling `sub_1B222`.
+Native advanced typed camera Y but kept Scroll A fixed at `$FFB8`, and presented
+the VDP row on the WRAM update frame instead of after the worker's hibernate.
+
+IntroSequence6 now derives both scroll axes from that fixed-point ROM clock and
+models the one-frame VDP presentation latch without changing typed trace state.
+Regression `published_tas_intro_sequence_6_scroll_a_follows_loc_1b51a_ramp`
+first proved the frozen Scroll A words, then pins `$FFB8,$FFBC,$FFC1,...,0`
+alongside the lagged VSRAM values. Focused frames 21135..21162 are pixel-exact.
+Full verification gains 33 exact frames and removes 358,569 changed pixel
+instances: 22,007 exact, 15,752 divergent, and 72,592,344 changed pixel
+instances. Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG`
+frames remain exact. Frame 39 remains first at 2,643 pixels; frame 7808 is the
+new worst at 14,806 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

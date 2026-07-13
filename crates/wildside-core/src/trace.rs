@@ -7776,6 +7776,94 @@ impl NativeRuntime {
         Some(0)
     }
 
+    pub(crate) fn intro_sequence_6_level_layout_x_for_elapsed(
+        elapsed: usize,
+        carry_timeout_restart_hidden_camera_wrap: bool,
+        cold_timeout_restart_shell: bool,
+    ) -> u32 {
+        let ramp_elapsed_frame = if carry_timeout_restart_hidden_camera_wrap {
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_RAMP_ELAPSED_FRAMES
+        } else if cold_timeout_restart_shell {
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_CAMERA_RAMP_ELAPSED_FRAMES.saturating_sub(1)
+        } else {
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_CAMERA_RAMP_ELAPSED_FRAMES
+        };
+        // ASM loc_1B51A hibernates before each subtraction and sub_1B222
+        // upload. The typed WRAM camera exposes its first updated value on the
+        // ramp frame, while the corresponding VDP scroll row is presented on
+        // the following frame.
+        let presented_ramp_elapsed_frame = ramp_elapsed_frame.saturating_add(1);
+        if elapsed < presented_ramp_elapsed_frame {
+            return 0xFFB8_0000;
+        }
+
+        let ramp_frame = elapsed - presented_ramp_elapsed_frame;
+        if ramp_frame < TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_RAMP_FRAMES {
+            // ASM GfxObjects_Collision_BottomBoundary4 -> loc_1B51A:
+            // `d0 = $FFB80000 >> 4 = $FFFB8000`; subtracting that negative
+            // fixed delta advances Level_Layout by 4.5 pixels per pass.
+            return 0xFFB8_0000_u32
+                .wrapping_add(((ramp_frame as u32).wrapping_add(1)).wrapping_mul(0x0004_8000));
+        }
+
+        0
+    }
+
+    pub(crate) fn intro_sequence_6_presented_hidden_camera_y_for_elapsed(
+        elapsed: usize,
+        carry_timeout_restart_hidden_camera_wrap: bool,
+        cold_timeout_restart_shell: bool,
+    ) -> Option<u32> {
+        let ramp_elapsed_frame = if carry_timeout_restart_hidden_camera_wrap {
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_CAMERA_RAMP_ELAPSED_FRAMES
+        } else if cold_timeout_restart_shell {
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_CAMERA_RAMP_ELAPSED_FRAMES.saturating_sub(1)
+        } else {
+            TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_CAMERA_RAMP_ELAPSED_FRAMES
+        };
+        let presented_elapsed = if elapsed >= ramp_elapsed_frame {
+            elapsed.saturating_sub(1)
+        } else {
+            elapsed
+        };
+        Self::intro_sequence_6_hidden_camera_y_for_elapsed(
+            presented_elapsed,
+            carry_timeout_restart_hidden_camera_wrap,
+            cold_timeout_restart_shell,
+        )
+    }
+
+    pub(crate) fn intro_sequence_6_level_layout_x(&self) -> u32 {
+        let BootState::IntroSequence6 {
+            carry_timeout_restart_hidden_camera_wrap,
+            ..
+        } = self.boot_state
+        else {
+            return 0;
+        };
+        Self::intro_sequence_6_level_layout_x_for_elapsed(
+            self.title_screen_elapsed_frames,
+            carry_timeout_restart_hidden_camera_wrap,
+            self.cold_demo_timeout_intro_sequence_6_shell(),
+        )
+    }
+
+    pub(crate) fn intro_sequence_6_presented_hidden_camera_y(&self) -> u32 {
+        let BootState::IntroSequence6 {
+            carry_timeout_restart_hidden_camera_wrap,
+            ..
+        } = self.boot_state
+        else {
+            return self.current_camera_state().y_pos;
+        };
+        Self::intro_sequence_6_presented_hidden_camera_y_for_elapsed(
+            self.title_screen_elapsed_frames,
+            carry_timeout_restart_hidden_camera_wrap,
+            self.cold_demo_timeout_intro_sequence_6_shell(),
+        )
+        .unwrap_or_else(|| self.current_camera_state().y_pos)
+    }
+
     fn intro_sequence_6_timeout_restart_hidden_camera_y(&self) -> Option<u32> {
         let BootState::IntroSequence6 {
             carry_intro_sequence_5_slot_2_pose: true,
