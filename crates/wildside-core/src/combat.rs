@@ -15320,12 +15320,10 @@ impl NativeRuntime {
         // expiry writes collision_type=4 and queues sfx_Voice_no_time, but
         // does not branch to Death immediately. A same-frame sub_902A loc_9142
         // pit fall therefore wins before the deferred timer crush is consumed.
-        let level_timer_expired = self.level_timer.tick();
-        // ASM Make_SpriteAttr_HUD loc_BE82 decrements the live timer and
-        // loc_BEE8 writes those digit tiles into the next Sprite_Table. Mode_Level
-        // loc_901 transfers that table on the following pass, so retain the
-        // built value separately from later recording/bootstrap RAM seeds.
-        self.hud_timer_sprite_seconds_loc_bee8 = self.level_timer.seconds;
+        let level_timer_expired = self
+            .pending_demo_timer_tick_result_loc_be82
+            .take()
+            .unwrap_or_else(|| self.tick_level_timer_hud_loc_be82());
         if level_timer_expired {
             self.progression.number_hitpoints = 0;
             self.queue_start_sequence(QueuedSoundEffect::VoiceNoTime);
@@ -15721,6 +15719,16 @@ impl NativeRuntime {
             }
         }
         false
+    }
+
+    pub(crate) fn tick_level_timer_hud_loc_be82(&mut self) -> bool {
+        let level_timer_expired = self.level_timer.tick();
+        // ASM Make_SpriteAttr_HUD loc_BE82 decrements the live timer and
+        // loc_BEE8 writes those digit tiles into the next Sprite_Table. Mode_Level
+        // loc_901 transfers that table on the following pass, so retain the
+        // built value separately from later recording/bootstrap RAM seeds.
+        self.hud_timer_sprite_seconds_loc_bee8 = self.level_timer.seconds;
+        level_timer_expired
     }
 }
 

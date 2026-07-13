@@ -507,6 +507,31 @@ instances. Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG`
 frames remain exact. Frame 39 remains first at 2,643 pixels; frame 7808 is the
 new worst at 14,806 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 7808 was the Island demo with exact camera, player,
+enemy roster, and gameplay state but an early global presentation clock. Oracle
+WRAM probes show `Load_DemoPlay -> Load_InGame` keeps `Time_Frames=0` and the
+timer at `3:01/$01` through published frame 6977, then the first shared
+Mode_Level HUD/scroll tail presents `Time_Frames=1` and `3:00/$3C` on frame
+6978. During `Kid_Transform loc_7CBE/loc_7D22`, frames 7604..7684 keep
+`Currently_transforming=$FF`, `Time_Frames=$0272`, and timer subsecond `$22`;
+`loc_7E90` clears the flag and the suspended outer pass reaches `loc_892 ->
+loc_3038A` on frame 7685 without a second HUD decrement.
+
+Native now separates Make_SpriteAttr_HUD's leading loc_BE82 tick from the
+later hazard pass, begins the demo Mode_Level tail at startup frame 72, and
+suppresses the trailing loc_3038A increment while the Kid transform coroutine
+owns VBlank. Regression
+`published_tas_demo_2_exposes_loc_3038a_and_loc_bee8_clocks_at_frame_7798`
+first exposed native `Time_Frames=828` / `2:49`, then pins oracle
+`Time_Frames=740`, `2:48/$29`, HUD `2:48`, camera `(629,175)`, and demo startup
+frame 809. Focused frames 7780..7840 retain exact gameplay on all 61 frames;
+frame 7808 falls from 14,806 to 11,854 changed pixels. Full verification removes
+3,908,278 changed pixel instances while retaining 22,007 exact and 15,752
+divergent frames, for 68,684,066 changed pixel instances. Gameplay, enemy,
+player/camera CRC, and all 37,743 post-`Init_RNG` frames remain exact. Frame 39
+remains first at 2,643 pixels; frame 7808 remains worst at 11,854 pixels, so
+#406 remains open on its residual visual debt.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

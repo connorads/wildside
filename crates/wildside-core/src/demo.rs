@@ -136,6 +136,11 @@ pub(crate) const DEMO_GAMEPLAY_START_FRAME: u16 = 65;
 /// Demo 1 (Knights Isle) keeps the player hidden and inert seven frames longer
 /// than demo 2 before exposing gameplay state in RAM.
 pub(crate) const DEMO_1_GAMEPLAY_START_FRAME: u16 = 72;
+/// First demo startup frame whose suspended Load_InGame object pass reaches
+/// the shared Mode_Level HUD/scroll tail. Demo 2 exposes Kid/camera state seven
+/// frames earlier, but oracle WRAM keeps Time_Frames and Time_SubSeconds
+/// unchanged until this frame.
+pub(crate) const DEMO_MODE_LEVEL_TAIL_START_FRAME: u16 = 72;
 /// Oracle-backed published TAS traces keep the Knights Isle demo auto-timeout
 /// compare sixty-eight frames behind the raw startup frame counter. `loc_C22`
 /// compares the stored timeout counter before incrementing it, and oracle RAM

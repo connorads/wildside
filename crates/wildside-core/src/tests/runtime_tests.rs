@@ -5589,6 +5589,50 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_demo_2_exposes_loc_3038a_and_loc_bee8_clocks_at_frame_7798() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut frame_7798 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(7_799) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if frame_index == 7_798 {
+                frame_7798 = Some((
+                    trace.game_mode,
+                    trace.current_level,
+                    trace.time_frames_loc_3038a,
+                    trace.level_timer_seconds,
+                    trace.level_timer_sub_frames,
+                    trace.hud_timer_sprite_seconds_loc_bee8,
+                    trace.camera_x_pos >> 16,
+                    trace.camera_y_pos >> 16,
+                    trace.boot_phase_elapsed,
+                ));
+                break;
+            }
+        }
+
+        // Oracle WRAM/VDP evidence at published frame 7798 exposes
+        // Time_Frames=740 before BackgroundScroll_ComputeShiftData loc_30452,
+        // while Make_SpriteAttr_HUD loc_BEE8 retains the visible 2:48 digits.
+        assert_eq!(
+            frame_7798,
+            Some((
+                GameMode::DemoPlay,
+                LevelId(0x15),
+                740,
+                168,
+                41,
+                Some(168),
+                629,
+                175,
+                Some(809),
+            )),
+        );
+    }
+
+    #[test]
     fn published_tas_intro_sequence_6_title_workers_advance_after_loc_1b45a() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

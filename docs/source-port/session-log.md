@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 demo HUD/scroll scheduler)
+
+- Frame 7808 exposed an Island demo presentation clock 88 frames ahead of
+  oracle despite exact gameplay. `Load_InGame` reaches the shared Mode_Level
+  HUD/scroll tail at demo startup frame 72, while `Kid_Transform
+  loc_7CBE/loc_7D22` freezes both clocks across its VBlank coroutine.
+- Frame 7798 now matches oracle `Time_Frames=740`, timer `2:48/$29`, HUD digits,
+  mode, level, camera, and demo startup frame. Focused frames 7780..7840 keep
+  all 61 gameplay checkpoints exact; frame 7808 falls from 14,806 to 11,854
+  changed pixels.
+- Full verification keeps 22,007 exact and 15,752 divergent frames but removes
+  3,908,278 changed pixel instances, leaving 68,684,066. All state channels
+  remain exact. NEXT: keep #406 open and trace frame 7808's residual pixels.
+
 ## 2026-07-13 handoff (#406 IntroSequence6 scroll ramp)
 
 - Frame 21158 exposed `GfxObjects_Collision_BottomBoundary4 -> loc_1B51A`'s

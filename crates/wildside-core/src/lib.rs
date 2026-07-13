@@ -568,6 +568,9 @@ pub struct NativeRuntime {
     /// Whole seconds encoded into the timer digit entries most recently built
     /// in `Sprite_Table` by ASM Make_SpriteAttr_HUD loc_BEE8.
     hud_timer_sprite_seconds_loc_bee8: u16,
+    /// Result of the demo's leading Mode_Level HUD tick, consumed by the
+    /// later native hazard pass when the Kid object is live.
+    pending_demo_timer_tick_result_loc_be82: Option<bool>,
     hud_animation_state: boot::HudAnimationStateSub44DC,
     /// Camera Y look-ahead accumulator ($FFFFFB58): +1 per frame while down held
     /// and grounded, -8 per frame on release, clamped to [0, 30].
@@ -1413,6 +1416,7 @@ impl NativeRuntime {
             options_menu_panel_delta: 0x0118,
             level_timer: LevelTimer::new(),
             hud_timer_sprite_seconds_loc_bee8: LEVEL_TIMER_START_SECONDS,
+            pending_demo_timer_tick_result_loc_be82: None,
             hud_animation_state: boot::HudAnimationStateSub44DC::initialised_from_sub_44_b0(),
             y_look_offset: 0,
             camera_last_kid_y: 0,
@@ -2968,6 +2972,9 @@ impl NativeRuntime {
     }
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
+        let transform_hibernating_at_frame_start =
+            self.object_pass_hibernating_for_transform_loc_7e90();
+        self.pending_demo_timer_tick_result_loc_be82 = None;
         if self.opening_slice.is_some()
             && matches!(
                 self.boot_state,
@@ -3348,6 +3355,20 @@ impl NativeRuntime {
             BootState::StartingLevel { .. } | BootState::InGame
         ) && !level_entry_hibernated_gameplay_execution)
             || (self.demo_gameplay_active() && self.opening_slice.is_some());
+        if matches!(
+            self.boot_state,
+            BootState::DemoPlay { frame_counter, .. }
+                if frame_counter >= demo::DEMO_MODE_LEVEL_TAIL_START_FRAME
+        ) && gameplay_slice_active
+            && !transform_hibernating_at_frame_start
+        {
+            // ASM Mode_Level calls Make_SpriteAttr_HUD before Execute_Objects.
+            // Demo bootstrap and other Kid hibernations can keep native
+            // movement out of resolve_frame_hazards even though this outer HUD
+            // pass still decrements Time_SubSeconds at loc_BE82.
+            self.pending_demo_timer_tick_result_loc_be82 =
+                Some(self.tick_level_timer_hud_loc_be82());
+        }
         if gameplay_slice_active {
             // ASM Mode_Level loc_7E2/Transfer_ScrollDataToVRAM loc_30110 runs
             // before Execute_Objects and the later `sub_6034` weather worker.
@@ -3560,9 +3581,22 @@ impl NativeRuntime {
                 boot::hud_lives_clamp_loc_BF2A(self.progression.number_lives);
         }
 
-        if self.game_mode().as_disassembly_value() != 0 {
-            // ASM loc_3038A: non-zero `Game_Mode` increments `Time_Frames`
-            // before BackgroundScroll_ComputeShiftData/ComputeShiftLayers.
+        let demo_mode_level_tail_hibernating = matches!(
+            self.boot_state,
+            BootState::DemoPlay { frame_counter, .. }
+                if frame_counter < demo::DEMO_MODE_LEVEL_TAIL_START_FRAME
+        );
+        if self.game_mode().as_disassembly_value() != 0
+            && !demo_mode_level_tail_hibernating
+            && !self.object_pass_hibernating_for_transform_loc_7e90()
+        {
+            // ASM Mode_Level loc_892 reaches loc_3038A only after the current
+            // Execute_Objects pass returns. Kid_Transform loc_7CBE/loc_7D22
+            // instead waits inside sub_8E0, so those VBlanks transfer the
+            // existing scroll/HUD buffers without incrementing Time_Frames.
+            // The demo Load_InGame bootstrap similarly reaches this tail only
+            // from DEMO_MODE_LEVEL_TAIL_START_FRAME. The loc_7E90 cleanup
+            // frame returns to the suspended outer pass and reaches it normally.
             self.time_frames_loc_3038a = self.time_frames_loc_3038a.wrapping_add(1);
         }
         let trace = self.trace_frame();
