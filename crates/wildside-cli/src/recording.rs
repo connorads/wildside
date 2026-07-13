@@ -2974,6 +2974,7 @@ mod tests {
             active_enemy_details: Vec::new(),
             camera_x_pos: 0,
             camera_y_pos: 0,
+            resident_gameplay_vdp_camera_loc_300ba: None,
             number_objects: 0,
             number_gfx_objects: 0,
             rng_offset: None,

@@ -1510,6 +1510,7 @@ mod tests {
             score: 0,
             camera_x_pos: 0,
             camera_y_pos: 0,
+            resident_gameplay_vdp_camera_loc_300ba: None,
             number_objects: 1,
             number_gfx_objects: 0,
             rng_offset: None,

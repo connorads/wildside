@@ -8268,6 +8268,10 @@ impl NativeRuntime {
             active_enemy_details,
             camera_x_pos: camera_state.x_pos,
             camera_y_pos: camera_state.y_pos,
+            resident_gameplay_vdp_camera_loc_300ba: self
+                .demo_title_palette_fade_progress_loc_28c6()
+                .and(self.gameplay_vdp_camera_latch_loc_300ba)
+                .map(|camera| (camera.x_pos, camera.y_pos)),
             number_objects,
             number_gfx_objects,
             rng_offset: Some(self.rom_random.offset_word()),

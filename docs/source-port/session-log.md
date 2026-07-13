@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 resident demo scroll latch)
+
+- Frame 3126 used the exact post-update WRAM camera but shifted the resident
+  gameplay image one pixel right. ASM `Mode_Level` transfers VDP scroll at
+  `loc_300BA` before `Execute_Objects` and `ReadJoypad`; native now exposes
+  that earlier camera as separate typed presentation state through the fade.
+- Focused frame 3126 falls from 28,787 to 6,212 changed pixels. Full
+  verification removes 1,554,629 changed pixel instances: 21,513 exact,
+  16,246 divergent, and 76,905,284 changed pixel instances. All state channels
+  stay exact.
+- Frame 39 remains first at 2,643 pixels. Frame 9950 is the new worst at
+  28,772 pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 demo Island shore animation)
 
 - Frame 3126 exposed Knight's Isle demo entry without the Island background

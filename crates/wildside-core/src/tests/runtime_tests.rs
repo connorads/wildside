@@ -434,6 +434,7 @@ fn published_tas_knights_isle_demo_runs_island_shore_object_loc_11fb0_1202a() {
                 runtime.demo_title_palette_fade_progress_loc_28c6(),
                 trace.island_shore_cycle_active,
                 trace.island_shore_vram_frames_loc_1202a,
+                trace.resident_gameplay_vdp_camera_loc_300ba,
             ));
         }
     }
@@ -449,6 +450,7 @@ fn published_tas_knights_isle_demo_runs_island_shore_object_loc_11fb0_1202a() {
     assert_eq!(samples[0].4, None);
     assert!(samples[0].5);
     assert!(samples[0].6.is_some());
+    assert_eq!(samples[0].7, None);
 
     assert_eq!(samples[1].0, 3_126);
     assert_eq!(samples[1].1, GameMode::TitleScreen);
@@ -457,6 +459,7 @@ fn published_tas_knights_isle_demo_runs_island_shore_object_loc_11fb0_1202a() {
     assert_eq!(samples[1].4, Some(0x00F0));
     assert!(samples[1].5);
     assert_eq!(samples[1].6, samples[0].6);
+    assert_eq!(samples[1].7, Some((0x01E8_0000, 0x011C_0000)));
 }
 
 #[test]

@@ -412,6 +412,23 @@ Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG` frames
 remain exact. Frame 39 remains first at 2,643 pixels; frame 3126 remains the
 worst but falls to 28,787 pixels, so #406 remains open on its residual debt.
 
+Progress 2026-07-13: the residual frame-3126 image was structurally one pixel
+right even though its exported camera was exact. ASM `Mode_Level` calls
+`Transfer_ScrollDataToVRAM loc_300BA` before `Execute_Objects` and
+`ReadJoypad`; the frame-3122 manual abort therefore advances WRAM camera X to
+`$01E7` only after the resident VDP has already latched `$01E8`. Native changed
+mode first and rendered the post-update WRAM value throughout `Pal_FadeOut`.
+
+Native now records that pre-object-pass camera as typed VDP presentation state
+and uses it only while the outgoing gameplay planes remain resident. The
+published regression pins authoritative camera `$01E7` separately from the
+resident `$01E8` VDP latch. Focused frame 3126 falls from 28,787 to 6,212
+changed pixels. Full verification keeps 21,513 exact and 16,246 divergent
+frames but removes another 1,554,629 changed pixel instances, reaching
+76,905,284. Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG`
+frames remain exact. Frame 39 remains first at 2,643 pixels; frame 9950 is the
+new worst at 28,772 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

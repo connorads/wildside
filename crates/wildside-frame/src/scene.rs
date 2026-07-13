@@ -1039,6 +1039,10 @@ pub fn render_trace_with_vdp_latched_state(
         // frozen snapshot state and the ROM palette-fade render command.
         render_trace.game_mode = GameMode::DemoPlay;
         render_trace.game_mode_value = GameMode::DemoPlay.as_disassembly_value();
+        if let Some((camera_x_pos, camera_y_pos)) = trace.resident_gameplay_vdp_camera_loc_300ba {
+            render_trace.camera_x_pos = camera_x_pos;
+            render_trace.camera_y_pos = camera_y_pos;
+        }
         // ASM loc_119D8 can leave Game_Paused set on the Start edge, but
         // loc_6E2 is blocked inside synchronous Pal_FadeOut rather than
         // returning to Mode_Level's loc_67E4 pause-menu renderer.
@@ -8238,6 +8242,9 @@ mod tests {
             game_mode: GameMode::TitleScreen,
             game_mode_value: GameMode::TitleScreen.as_disassembly_value(),
             paused: true,
+            camera_x_pos: 0x01E7_0000,
+            camera_y_pos: 0x011C_0000,
+            resident_gameplay_vdp_camera_loc_300ba: Some((0x01E8_0000, 0x011C_0000)),
             teleport_warp_colour: 0x082A,
             level_entry_fade_progress_sub_73d0: Some(0x00E0),
             ..NativeTraceFrame::default()
@@ -8247,6 +8254,10 @@ mod tests {
 
         assert_eq!(render_trace.game_mode, GameMode::DemoPlay);
         assert!(!render_trace.paused);
+        assert_eq!(
+            (render_trace.camera_x_pos, render_trace.camera_y_pos),
+            (0x01E8_0000, 0x011C_0000)
+        );
         assert_eq!(render_trace.teleport_warp_colour, 0x082A);
         assert_eq!(
             render_trace.level_entry_fade_progress_sub_73d0,

@@ -1696,6 +1696,11 @@ pub struct NativeTraceFrame {
     pub active_enemy_details: Vec<NativeObjectSnapshot>,
     pub camera_x_pos: u32,
     pub camera_y_pos: u32,
+    /// Camera words most recently presented by ASM Mode_Level ->
+    /// Transfer_ScrollDataToVRAM loc_300BA while gameplay planes remain
+    /// resident in a non-gameplay shell. `None` outside that hand-off.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resident_gameplay_vdp_camera_loc_300ba: Option<(u32, u32)>,
     pub number_objects: u16,
     pub number_gfx_objects: u16,
     pub rng_offset: Option<u16>,
@@ -2086,6 +2091,7 @@ impl Default for NativeTraceFrame {
             active_enemy_details: Vec::new(),
             camera_x_pos: 0,
             camera_y_pos: 0,
+            resident_gameplay_vdp_camera_loc_300ba: None,
             number_objects: 0,
             number_gfx_objects: 0,
             rng_offset: None,

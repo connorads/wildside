@@ -280,6 +280,10 @@ pub struct NativeRuntime {
     pending_player_start_override_loc_11bd2: Option<(u16, u16)>,
     player_lifecycle: PlayerLifecycle,
     opening_slice: Option<OpeningSliceState>,
+    /// Camera words transferred by ASM Mode_Level ->
+    /// Transfer_ScrollDataToVRAM loc_300BA before the current gameplay object
+    /// pass can advance the authoritative camera state.
+    gameplay_vdp_camera_latch_loc_300ba: Option<CameraState>,
     probe_start_slope_settle_frames: u8,
     starting_level_title_workers: Vec<LevelEntryTitleWorker>,
     starting_level_title_rng: Option<RomRandomState>,
@@ -1272,6 +1276,7 @@ impl NativeRuntime {
             pending_player_start_override_loc_11bd2: None,
             player_lifecycle: PlayerLifecycle::Alive,
             opening_slice: None,
+            gameplay_vdp_camera_latch_loc_300ba: None,
             probe_start_slope_settle_frames: 0,
             starting_level_title_workers: Vec::new(),
             starting_level_title_rng: None,
@@ -2870,6 +2875,17 @@ impl NativeRuntime {
     }
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
+        if self.opening_slice.is_some()
+            && matches!(
+                self.boot_state,
+                BootState::InGame | BootState::DemoPlay { .. }
+            )
+        {
+            // ASM Mode_Level transfers scroll before Execute_Objects and
+            // ReadJoypad, so a later same-frame mode switch must retain this
+            // camera rather than the post-update WRAM camera.
+            self.gameplay_vdp_camera_latch_loc_300ba = Some(self.current_camera_state());
+        }
         // ASM Mode_Level loc_80C: this trace-only count represents Objects
         // linked by this frame's trailing loc_3691E pass before their next
         // Execute_Objects loc_E1E initialiser. It must not leak into title or
