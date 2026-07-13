@@ -31,9 +31,9 @@ ring bytes on every one of the remaining 37,743 frames. Every compared frame
 matches exactly. This is complete per-frame RNG and per-frame exported-state
 evidence for this route, not whole-state, audio, every-input, or whole-game proof.
 The `source_port_visible_rgb24_v1` pass renders one bounded-memory native frame
-for every oracle PNG: 17,893/37,759 frames match exactly and 19,866 differ, with
-193,192,045 changed pixel instances. The first mismatch is frame 39 (2,643
-pixels); frame 36878 is the next near-full-screen mismatch at 71,034 pixels.
+for every oracle PNG: 19,073/37,759 frames match exactly and 18,686 differ, with
+186,566,058 changed pixel instances. The first mismatch is frame 39 (2,643
+pixels); frame 32063 is the next near-full-screen mismatch at 70,663 pixels.
 #406's engine-level corrections model manual `loc_119D8` and timeout `loc_C0A`
 demo returns through `Pal_FadeOut -> loc_6E2`, the timeout-restart
 `Load_IntroSequence6` clocks, and the rotating title transformation art,

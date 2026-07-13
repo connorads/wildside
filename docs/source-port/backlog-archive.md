@@ -160,6 +160,28 @@ activation whose arm time predates the visible title VDP. Published frames
 post-`Init_RNG` frames remain exact. Frame 36878 is the next near-full-screen
 frontier at 71,034 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 36878 is the first visible title-loader frame after
+the later IntroSequence2 Start return. ASM `loc_1B9D0 -> loc_1BA02 ->
+sub_1C246 -> loc_1C264 -> loc_6E2` keeps the VDP black through local elapsed
+56, presents `Load_TitleScreen`'s base upload at elapsed 57, then exposes its
+fresh title workers. `Obj_TitleTextKid loc_1B5E4 -> sub_1B652` later allocates
+two burst children. The retained `a3` pointer makes the following writes move
+those children to `($2E,$8C)` and `($5A,$98)`, and `stru_1B68A` replays an
+8-frame flash, 100-frame null mapping, 8-frame closing flash, and command-2
+rewind.
+
+Native now shares the verified elapsed-57 loader reveal across the cold
+IntroSequence1 and later IntroSequence2 lineages and renders both complete
+high-priority burst cycles with the original pointer quirk. Regressions
+`published_tas_later_intro_sequence_2_title_restore_stages_load_title_screen_loc_1b258`
+and `fresh_title_workers_replay_sub_1b652_bursts_at_pointer_quirk_positions`
+pin the loader and animation boundaries. Published frames 36870..37518 are
+pixel-exact. Full verification gains 1,180 exact frames and removes 6,625,987
+changed pixel instances: 19,073 exact, 18,686 divergent, and 186,566,058
+changed pixel instances. Gameplay, enemy, and all 37,743 post-`Init_RNG`
+frames remain exact. Frame 32063 is the next near-full-screen frontier at
+70,663 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

@@ -3608,6 +3608,23 @@ pub(crate) fn title_text_kid_setup_loc_1B5E4() -> TitleTextKidSetupLoc1B5E4 {
     }
 }
 
+#[allow(non_snake_case)]
+pub(crate) fn title_text_kid_burst_allocation_elapseds_loc_1B5E4_sub_1B652() -> [usize; 2] {
+    // ASM Load_TitleScreen -> Obj_TitleTextKid exposes its initial GfxObject
+    // at local rebuild elapsed 57. loc_1B5E4 then follows the hibernation and
+    // inclusive DBF schedule below before allocating each sub_1B652 child.
+    const OBJ_TITLE_TEXT_KID_INITIAL_GFX_ELAPSED: usize = 57;
+    let setup = title_text_kid_setup_loc_1B5E4();
+    let first = OBJ_TITLE_TEXT_KID_INITIAL_GFX_ELAPSED
+        + usize::from(setup.pre_drift_hibernate_frames)
+        + usize::from(setup.drift_frame_count)
+        + usize::from(setup.post_drift_hibernate_frames);
+    [
+        first,
+        first + usize::from(setup.interstitial_hibernate_frames),
+    ]
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TitleTextChameleonIdleStepLoc1B6A2 {
     pub(crate) hibernate_frames: u16,
@@ -5681,18 +5698,10 @@ impl NativeRuntime {
 
     pub(crate) fn title_text_kid_gfx_count_loc_1b5e4_sub_1b652(&self) -> u16 {
         // ASM Load_TitleScreen -> Obj_TitleTextKid (kid.asm:29444, 29834)
-        // exposes the worker's initial GfxObject at local rebuild elapsed 57.
-        // loc_1B5E4 then hibernates for `$1E`, runs loc_1B610's inclusive
-        // `$2A` DBF drift, hibernates for `$14`, allocates the first
-        // sub_1B652 popup, hibernates for `$A`, and allocates the second.
-        const OBJ_TITLE_TEXT_KID_INITIAL_GFX_ELAPSED: usize = 57;
-        let setup = title_text_kid_setup_loc_1B5E4();
-        let first_burst_elapsed = OBJ_TITLE_TEXT_KID_INITIAL_GFX_ELAPSED
-            + usize::from(setup.pre_drift_hibernate_frames)
-            + usize::from(setup.drift_frame_count)
-            + usize::from(setup.post_drift_hibernate_frames);
-        let second_burst_elapsed =
-            first_burst_elapsed + usize::from(setup.interstitial_hibernate_frames);
+        // follows loc_1B5E4's hibernation and inclusive DBF schedule before
+        // allocating its two sub_1B652 popup GfxObjects.
+        let [first_burst_elapsed, second_burst_elapsed] =
+            title_text_kid_burst_allocation_elapseds_loc_1B5E4_sub_1B652();
         let allocation_pass_advance = match self.title_screen_intro_return_lineage {
             Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence5) => {
                 if self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay {

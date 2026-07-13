@@ -2178,14 +2178,16 @@ impl NativeRuntime {
                     .or_else(|| Some(vdp::blank_vdp_state()))
             }
             BootState::TitleScreen { .. }
-                if self.cold_intro_sequence_1_title_return()
+                if self.intro_return_load_title_screen_reveal_at_elapsed_57()
                     && self.title_screen_elapsed_frames == 57 =>
             {
                 self.title_screen_data.as_ref().map(|data| {
                     // ASM sub_1C246 -> loc_1C264 -> loc_6E2 blocks through
-                    // Pal_FadeOut, clears VRAM, then runs Load_TitleScreen.
-                    // Its first presented frame contains the base uploads but
-                    // precedes the fresh title workers' first loc_E12 pass.
+                    // Pal_FadeOut, clears VRAM, then runs Load_TitleScreen on
+                    // both the cold IntroSequence1 and loc_1B9D0 -> loc_1BA02
+                    // IntroSequence2 returns. Their first presented frame
+                    // contains the base uploads but precedes the fresh title
+                    // workers' first loc_E12 pass.
                     vdp::build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
                         data,
                         7,
@@ -2243,7 +2245,7 @@ impl NativeRuntime {
                     let fresh_title_worker_lineage =
                         manual_demo_return
                             || timeout_restart_intro_sequence_3_return
-                            || self.cold_intro_sequence_1_title_return();
+                            || self.intro_return_load_title_screen_reveal_at_elapsed_57();
                     let fresh_title_base_upload =
                         fresh_title_worker_lineage && title_elapsed_frames == 57;
                     let title_vdp_ready =
@@ -2540,7 +2542,8 @@ impl NativeRuntime {
 
     fn title_screen_vdp_ready(&self) -> bool {
         self.title_screen_ready()
-            || (self.cold_intro_sequence_1_title_return() && self.title_screen_elapsed_frames >= 58)
+            || (self.intro_return_load_title_screen_reveal_at_elapsed_57()
+                && self.title_screen_elapsed_frames >= 58)
             || (self.title_screen_uses_intro_return_hidden_shell
                 && self.timeout_restart_title_intro_sequence_5_pose
                 && !self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry
@@ -2563,6 +2566,17 @@ impl NativeRuntime {
             && matches!(
                 self.title_screen_intro_return_lineage,
                 Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
+            )
+    }
+
+    fn intro_return_load_title_screen_reveal_at_elapsed_57(&self) -> bool {
+        self.title_screen_uses_intro_return_hidden_shell
+            && matches!(
+                self.title_screen_intro_return_lineage,
+                Some(
+                    TitleScreenIntroReturnLineage::ColdIntroSequence1
+                        | TitleScreenIntroReturnLineage::LaterIntroSequence2
+                )
             )
     }
 

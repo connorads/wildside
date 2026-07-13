@@ -2962,6 +2962,12 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
                 // only the Kid title chunks on their first object pass.
                 append_title_intro_text_sprite_loc_1bb10(&mut sprite_entries, title_elapsed_frames);
             }
+            if lineage.fresh_title_worker_lineage {
+                append_title_text_burst_sprites_sub_1b652(
+                    &mut sprite_entries,
+                    title_elapsed_frames,
+                );
+            }
         }
         write_title_text_chameleon_anim_loc_1b71a(
             &mut vdp,
@@ -3313,6 +3319,76 @@ fn append_title_text_kid_sprite_loc_1b5e4_with_y(
             height: 0x3D,
         },
     );
+}
+
+#[allow(non_snake_case)]
+fn append_title_text_burst_sprites_sub_1b652(
+    entries: &mut Vec<HardwareSpriteEntry>,
+    elapsed: usize,
+) {
+    let burst = crate::boot::title_text_burst_sprite_sub_1B652();
+    let setup = crate::boot::title_text_kid_setup_loc_1B5E4();
+    let allocation_elapseds =
+        crate::boot::title_text_kid_burst_allocation_elapseds_loc_1B5E4_sub_1B652();
+    let animation_cycle_frames = burst
+        .animation_frames
+        .iter()
+        .map(|frame| usize::from(frame.duration_frames))
+        .sum::<usize>();
+
+    for (allocation_elapsed, (x_pos, y_pos)) in
+        allocation_elapseds.into_iter().zip(setup.popup_positions)
+    {
+        // ASM sub_1B652 calls Init_Animation after the current GfxObject pass,
+        // so the new child first reaches Make_SpriteFromGfxObject one frame
+        // after allocation. The command-2 tail rewinds the full animation.
+        let Some(displayed_elapsed) = elapsed.checked_sub(allocation_elapsed.saturating_add(1))
+        else {
+            continue;
+        };
+        let mut cycle_elapsed = displayed_elapsed % animation_cycle_frames;
+        let mut sprite_index = None;
+        for (frame, frame_sprite_index) in burst.animation_frames.iter().zip([
+            Some(0x000C),
+            Some(0x0012),
+            None,
+            Some(0x0000),
+            Some(0x0006),
+        ]) {
+            let duration = usize::from(frame.duration_frames);
+            if cycle_elapsed < duration {
+                sprite_index = frame_sprite_index;
+                break;
+            }
+            cycle_elapsed -= duration;
+        }
+        let Some(sprite_index) = sprite_index else {
+            continue;
+        };
+
+        // ORIGINAL_QUIRK: sub_1B652 returns with a3 pointing at the allocated
+        // child. loc_1B610's following pose writes therefore move the first
+        // burst to ($2E,$8C) and the second to ($5A,$98), not the main KID
+        // title sprite.
+        append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
+            entries,
+            IntroGfxObjectForSpriteTable {
+                x_pos,
+                y_pos,
+                palette_line: burst.palette_line,
+                vram_tile: burst.vram_tile,
+                priority: u8::from(burst.priority_flag),
+                x_direction: 0,
+            },
+            IntroSpriteFrameVram {
+                sprite_index,
+                x_center: 0,
+                y_center: 0,
+                width: 0x10,
+                height: 0x18,
+            },
+        );
+    }
 }
 
 #[allow(non_snake_case)]
@@ -6596,6 +6672,68 @@ mod tests {
             sprite_table_index_without_link(&second_object_pass, (0x0114, 0x04, 0x4780, 0x018C))
                 .is_some(),
             "ASM Obj_TitleMenu links loc_1BB10 on the second post-loader object pass",
+        );
+    }
+
+    #[test]
+    fn fresh_title_workers_replay_sub_1b652_bursts_at_pointer_quirk_positions() {
+        let mut entries = Vec::new();
+        append_title_text_burst_sprites_sub_1b652(&mut entries, 150);
+        assert!(
+            entries.is_empty(),
+            "ASM sub_1B652 allocates after the elapsed-150 GfxObject pass"
+        );
+
+        append_title_text_burst_sprites_sub_1b652(&mut entries, 151);
+        assert_eq!(
+            entries,
+            vec![HardwareSpriteEntry {
+                y_pos: 0x00F4,
+                size_byte: 0x06,
+                pattern: 0xC558,
+                x_pos: 0x00AE,
+            }],
+            "ASM sub_1B652 -> Init_Animation exposes unk_E11B6 one pass later at the first child position written through a3",
+        );
+
+        entries.clear();
+        append_title_text_burst_sprites_sub_1b652(&mut entries, 155);
+        assert_eq!(
+            entries[0].pattern, 0xC55E,
+            "ASM stru_1B68A advances from unk_E11B6 to unk_E11BE after four frames",
+        );
+
+        entries.clear();
+        append_title_text_burst_sprites_sub_1b652(&mut entries, 159);
+        assert!(
+            entries.is_empty(),
+            "ASM stru_1B68A hides the first burst for its 100-frame null mapping"
+        );
+
+        append_title_text_burst_sprites_sub_1b652(&mut entries, 161);
+        assert_eq!(
+            entries,
+            vec![HardwareSpriteEntry {
+                y_pos: 0x0100,
+                size_byte: 0x06,
+                pattern: 0xC558,
+                x_pos: 0x00DA,
+            }],
+            "ASM loc_1B610 allocates the second child ten frames later and writes ($5A,$98) through the retained a3 pointer",
+        );
+
+        entries.clear();
+        append_title_text_burst_sprites_sub_1b652(&mut entries, 259);
+        assert_eq!(
+            entries[0].pattern, 0xC54C,
+            "ASM stru_1B68A reaches unk_E11A6 after the 100-frame null mapping",
+        );
+
+        entries.clear();
+        append_title_text_burst_sprites_sub_1b652(&mut entries, 267);
+        assert_eq!(
+            entries[0].pattern, 0xC558,
+            "ASM command 2 rewinds the full 116-frame stru_1B68A cycle",
         );
     }
 
