@@ -143,6 +143,23 @@ Knights Isle window is ordinary water/shore and HUD render debt, not the fade
 worker. Frame 196 is the next near-full-screen frontier at 71,034 pixels, so
 #406 remains open.
 
+Progress 2026-07-13: frame 196 is the first visible frame after a cold
+IntroSequence1 Start return. ASM `sub_1C246 -> loc_1C264` sets the fade flag
+and jumps through `loc_6E2`, which blocks through `Pal_FadeOut`, clears VRAM,
+and calls `Load_TitleScreen`. Oracle therefore keeps frame 195 black, presents
+the loader's `sub_1BF24`/`sub_1B532` base upload on frame 196, and exposes the
+fresh title-object passes on frames 197 and 198. The frame-181 Start tap occurs
+inside that blocking loader and must not draw the menu.
+
+Native now separates the loader presentation from the fresh
+`Obj_TitleTextKid`/`Obj_TitleTextChameleon` clocks and suppresses a menu
+activation whose arm time predates the visible title VDP. Published frames
+195..289 are pixel-exact. Full verification gains 741 exact frames and removes
+15,502,022 changed pixel instances: 17,893 exact, 19,866 divergent, and
+193,192,045 changed pixel instances. Gameplay, enemy, and all 37,743
+post-`Init_RNG` frames remain exact. Frame 36878 is the next near-full-screen
+frontier at 71,034 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

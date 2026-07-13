@@ -31,9 +31,9 @@ ring bytes on every one of the remaining 37,743 frames. Every compared frame
 matches exactly. This is complete per-frame RNG and per-frame exported-state
 evidence for this route, not whole-state, audio, every-input, or whole-game proof.
 The `source_port_visible_rgb24_v1` pass renders one bounded-memory native frame
-for every oracle PNG: 17,152/37,759 frames match exactly and 20,607 differ, with
-208,694,067 changed pixel instances. The first mismatch is frame 39 (2,643
-pixels); frame 196 is the next near-full-screen mismatch at 71,034 pixels.
+for every oracle PNG: 17,893/37,759 frames match exactly and 19,866 differ, with
+193,192,045 changed pixel instances. The first mismatch is frame 39 (2,643
+pixels); frame 36878 is the next near-full-screen mismatch at 71,034 pixels.
 #406's engine-level corrections model manual `loc_119D8` and timeout `loc_C0A`
 demo returns through `Pal_FadeOut -> loc_6E2`, the timeout-restart
 `Load_IntroSequence6` clocks, and the rotating title transformation art,
@@ -46,10 +46,12 @@ blackout, and the fresh `Load_TitleScreen` worker passes. The natural
 IntroSequence3 timeout likewise preserves the old VDP through `loc_1B96A ->
 loc_6E2`, then fades the rebuilt IntroSequence4 palette through `sub_1C204`.
 Demo `Load_InGame` also exposes `sub_73D0`'s complete palette fade through the
-persistent DemoPlay wrapper. Together these corrections make 4,028 additional
+persistent DemoPlay wrapper. The cold IntroSequence1 Start return additionally
+stages `Load_TitleScreen`'s base upload and fresh title-worker passes after the
+blocking `loc_6E2` blackout. Together these corrections make 4,769 additional
 route frames exact, suppress
 the pause renderer while synchronous `Pal_FadeOut` owns the display, and
-remove 393,316,176 changed pixel instances.
+remove 408,818,198 changed pixel instances.
 #406 owns this measured visual frontier; the four settled-warp source-port
 visual-gate checkpoints remain exact.
 

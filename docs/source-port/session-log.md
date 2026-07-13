@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 cold IntroSequence1 title restore)
+
+- Frame 196 exposed the cold `sub_1C246 -> loc_1C264 -> loc_6E2 ->
+  Load_TitleScreen` return. Native now presents the loader base frame before
+  the fresh title-object passes and ignores menu activation from a Start tap
+  received while the blocking loader was hidden.
+- Published frames 195..289 are pixel-exact. The complete route gains 741
+  exact frames and removes 15,502,022 changed pixel instances: 17,893 exact,
+  19,866 divergent, and 193,192,045 changed pixel instances. Gameplay, enemy,
+  and post-`Init_RNG` frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 36878 is the new worst at
+  71,034 pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 demo level-entry palette fade)
 
 - Frame 2618 exposed a missing `Load_DemoPlay -> Load_InGame -> sub_7196 ->

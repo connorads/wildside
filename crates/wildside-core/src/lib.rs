@@ -2177,12 +2177,40 @@ impl NativeRuntime {
                     })
                     .or_else(|| Some(vdp::blank_vdp_state()))
             }
+            BootState::TitleScreen { .. }
+                if self.cold_intro_sequence_1_title_return()
+                    && self.title_screen_elapsed_frames == 57 =>
+            {
+                self.title_screen_data.as_ref().map(|data| {
+                    // ASM sub_1C246 -> loc_1C264 -> loc_6E2 blocks through
+                    // Pal_FadeOut, clears VRAM, then runs Load_TitleScreen.
+                    // Its first presented frame contains the base uploads but
+                    // precedes the fresh title workers' first loc_E12 pass.
+                    vdp::build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                        data,
+                        7,
+                        self.title_screen_region_byte,
+                        None,
+                        false,
+                        self.title_screen_elapsed_frames,
+                        vdp::TitleScreenVdpLineage {
+                            intro_return_hidden_shell: true,
+                            direct_intro_sequence_5_title_return: false,
+                            natural_intro_sequence_6_pre_ready_shell: false,
+                            fresh_title_worker_lineage: true,
+                        },
+                    )
+                })
+            }
             BootState::TitleScreen { .. } if self.title_screen_vdp_blackout() => {
                 Some(vdp::blank_vdp_state())
             }
             BootState::IntroSequence6 { .. } | BootState::TitleScreen { .. } => {
                 self.title_screen_data.as_ref().map(|data| {
-                    let menu_cursor = if self.title_menu_active && !self.title_menu_cursor_pending {
+                    let menu_cursor = if self.title_menu_active
+                        && !self.title_menu_cursor_pending
+                        && !self.cold_intro_sequence_1_pre_vdp_menu_activation()
+                    {
                         match self.boot_state {
                             BootState::TitleScreen { cursor }
                             | BootState::IntroSequence6 { cursor, .. } => Some(cursor),
@@ -2213,7 +2241,9 @@ impl NativeRuntime {
                     // objects have run. The following Mode_Standard pass adds
                     // the Kid/Chameleon title workers.
                     let fresh_title_worker_lineage =
-                        manual_demo_return || timeout_restart_intro_sequence_3_return;
+                        manual_demo_return
+                            || timeout_restart_intro_sequence_3_return
+                            || self.cold_intro_sequence_1_title_return();
                     let fresh_title_base_upload =
                         fresh_title_worker_lineage && title_elapsed_frames == 57;
                     let title_vdp_ready =
@@ -2510,6 +2540,7 @@ impl NativeRuntime {
 
     fn title_screen_vdp_ready(&self) -> bool {
         self.title_screen_ready()
+            || (self.cold_intro_sequence_1_title_return() && self.title_screen_elapsed_frames >= 58)
             || (self.title_screen_uses_intro_return_hidden_shell
                 && self.timeout_restart_title_intro_sequence_5_pose
                 && !self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry
@@ -2525,6 +2556,25 @@ impl NativeRuntime {
                 && !self.intro_sequence_6_start_skip_cursor_trace_priority
                 && self.title_screen_elapsed_frames
                     >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES)
+    }
+
+    fn cold_intro_sequence_1_title_return(&self) -> bool {
+        self.title_screen_uses_intro_return_hidden_shell
+            && matches!(
+                self.title_screen_intro_return_lineage,
+                Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
+            )
+    }
+
+    fn cold_intro_sequence_1_pre_vdp_menu_activation(&self) -> bool {
+        if !self.cold_intro_sequence_1_title_return() || !self.title_menu_active {
+            return false;
+        }
+        let title_entry_frame = self
+            .frame_index
+            .saturating_sub(self.title_screen_elapsed_frames);
+        let first_visible_vdp_frame = title_entry_frame.saturating_add(57);
+        self.title_menu_arm_frame <= first_visible_vdp_frame
     }
 
     fn intro_sequence_6_natural_title_vdp_rebuilt(&self) -> bool {
