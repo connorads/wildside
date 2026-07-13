@@ -14,27 +14,36 @@ The live TAS frontier is closed:
 - `any-percent-published` is player/camera CRC-clean through frame `37759`
 - TAS-frontier history is tracked in the backlog and the `verify-tas-frontier` gate (the per-frame ledger was retired); `mise run verify-tas-full` re-checks the published route
 
-That is not whole-game completion or whole-state/pixel equality. The 2026-07-12
+That is not whole-game completion or whole-state/pixel equality. The 2026-07-13
 full replay compares all 37,759 requested player/camera CRC frames and all 37,759
-exported-state frames. CRC is exact, but 19 state frames retain 20 authoritative
-count differences: 17 GfxObject fields and three Object fields, first at
-`frame_10438/number_gfx_objects`.
-The earlier 212/2 baseline omitted `Number_GfxObjects` and repeated transition
-labels could associate report evidence with the wrong occurrence. The CRC excludes enemy/render/audio state, object
-counts, hit points, lives, Murder Wall X, and trace-timing fields such as
-velocity. `verify-tas-full` fails on any CRC mismatch, incomplete CRC or RNG
-stream, or change to the checked-in baselines. Typed RNG comparison starts after
-`Init_RNG` at frame 16 and checks the offset plus all 55 ring bytes on every one
-of the remaining 37,743 frames. Every compared frame now matches exactly.
-That is complete per-frame RNG and per-frame exported-state evidence for
-this route, not whole-state or whole-game proof.
+typed exported-state and enemy-roster frames with zero differences. The CRC is
+the named `player_camera_progression_v1` projection: game mode, level, camera and
+Kid positions, helmet, score, diamonds, Diamond Power, and current player. It
+explicitly excludes pixels, enemy/render/audio state, object counts, hit points,
+lives, Murder Wall X, velocity, and `Two_player_flag`; the typed comparator checks
+those exported gameplay fields that both engines model, including
+`Two_player_flag` after #404.
+
+`verify-tas-full` fails on any projection mismatch, incomplete CRC or RNG stream,
+projection-contract change, or typed-state/enemy baseline change. Typed RNG
+comparison starts after `Init_RNG` at frame 16 and checks the offset plus all 55
+ring bytes on every one of the remaining 37,743 frames. Every compared frame
+matches exactly. This is complete per-frame RNG and per-frame exported-state
+evidence for this route, not whole-state, pixel, audio, every-input, or whole-game
+proof. The full TAS run writes oracle PNGs but does not render and compare a
+native PNG for every route frame; only the separate named visual gates prove
+exact pixels at their stated checkpoints.
 
 The latest confidence correction promotes the full published-route state gate
-from every 25th frame to every frame. The former 1,512-checkpoint report was
-clean, but interval-1 comparison currently finds 20 authoritative count fields
-across 19 of 37,759 frames. The checked-in baseline enforces that result and its first
-row, so fixes must ratchet real per-frame debt down rather than preserve a
+from every 25th frame to every frame. The checked-in baseline enforces zero
+typed differences, so fixes must preserve real per-frame equality rather than a
 sampled-green claim. Player/camera CRC and complete RNG remain exact per frame.
+
+### Frontier history
+
+The chronological notes below explain how the former sampled and interval-1
+debts were removed. Their intermediate counts are superseded by the current
+zero-difference result above.
 
 The latest correction removes a synthetic seven-frame Demo 1 GfxObject dip.
 Raw WRAM keeps `Number_GfxObjects=7` and the same three walking-Dragon parent

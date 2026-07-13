@@ -279,9 +279,11 @@ for slug in $(jq -r '"'"'.recordings | keys[]'"'"' "$FRONTIER"); do
   requested_crc_frames=$(jq -r '"'"'.crc_frame_counts.requested'"'"' "$report")
   native_crc_frames=$(jq -r '"'"'.crc_frame_counts.native'"'"' "$report")
   oracle_crc_frames=$(jq -r '"'"'.crc_frame_counts.oracle'"'"' "$report")
+  crc_projection=$(jq -r '"'"'.crc_projection.name // empty'"'"' "$report")
+  crc_proves_pixels=$(jq -r '"'"'.crc_projection.proves_pixels | tostring'"'"' "$report")
   expected_crc_frames=$((frame - start))
-  if [ -n "$crc" ] || [ "$requested_crc_frames" -ne "$expected_crc_frames" ] || [ "$native_crc_frames" -ne "$expected_crc_frames" ] || [ "$oracle_crc_frames" -ne "$expected_crc_frames" ]; then
-    echo "FAIL: $slug CRC regressed or coverage is incomplete in frames $start..$frame (first=${crc:-none} requested=$requested_crc_frames native=$native_crc_frames oracle=$oracle_crc_frames expected=$expected_crc_frames)"
+  if [ -n "$crc" ] || [ "$requested_crc_frames" -ne "$expected_crc_frames" ] || [ "$native_crc_frames" -ne "$expected_crc_frames" ] || [ "$oracle_crc_frames" -ne "$expected_crc_frames" ] || [ "$crc_projection" != "player_camera_progression_v1" ] || [ "$crc_proves_pixels" != "false" ]; then
+    echo "FAIL: $slug player/camera CRC regressed, coverage is incomplete, or projection contract changed in frames $start..$frame (first=${crc:-none} requested=$requested_crc_frames native=$native_crc_frames oracle=$oracle_crc_frames expected=$expected_crc_frames projection=$crc_projection proves_pixels=$crc_proves_pixels)"
     FAIL=1
   elif [ "$actual_summary" != "$expected_summary" ] || [ "$actual_first" != "$expected_first" ]; then
     echo "FAIL: $slug checkpoint divergence baseline changed in frames $start..$frame"
@@ -314,6 +316,8 @@ crc=$(jq -r '"'"'.first_crc_mismatch // empty'"'"' "$report")
 requested_crc_frames=$(jq -r '"'"'.crc_frame_counts.requested'"'"' "$report")
 native_crc_frames=$(jq -r '"'"'.crc_frame_counts.native'"'"' "$report")
 oracle_crc_frames=$(jq -r '"'"'.crc_frame_counts.oracle'"'"' "$report")
+crc_projection=$(jq -r '"'"'.crc_projection.name // empty'"'"' "$report")
+crc_proves_pixels=$(jq -r '"'"'.crc_projection.proves_pixels | tostring'"'"' "$report")
 actual_summary=$(jq -cS '"'"'.divergence_summary'"'"' "$report")
 expected_summary=$(jq -cS --arg slug "$slug" '"'"'.recordings[$slug].full_expected_divergence_summary'"'"' "$frontier")
 actual_first=$(jq -cS '"'"'.first_authoritative_diff | if . == null then null else {checkpoint, field} end'"'"' "$report")
@@ -331,11 +335,15 @@ rng_requested_frames=$(jq -r '"'"'.rng_frame_comparison.frame_counts.requested'"
 rng_native_frames=$(jq -r '"'"'.rng_frame_comparison.frame_counts.native'"'"' "$report")
 rng_oracle_frames=$(jq -r '"'"'.rng_frame_comparison.frame_counts.oracle'"'"' "$report")
 if [ -n "$crc" ]; then
-  echo "FAIL: full TAS CRC regressed at frame $crc"
+  echo "FAIL: full TAS player/camera CRC regressed at frame $crc"
   exit 1
 fi
 if [ "$requested_crc_frames" -ne "$frame" ] || [ "$native_crc_frames" -ne "$frame" ] || [ "$oracle_crc_frames" -ne "$frame" ]; then
-  echo "FAIL: full TAS CRC coverage incomplete (requested=$requested_crc_frames native=$native_crc_frames oracle=$oracle_crc_frames expected=$frame)"
+  echo "FAIL: full TAS player/camera CRC coverage incomplete (requested=$requested_crc_frames native=$native_crc_frames oracle=$oracle_crc_frames expected=$frame)"
+  exit 1
+fi
+if [ "$crc_projection" != "player_camera_progression_v1" ] || [ "$crc_proves_pixels" != "false" ]; then
+  echo "FAIL: full TAS CRC projection contract changed (name=$crc_projection proves_pixels=$crc_proves_pixels)"
   exit 1
 fi
 if [ "$rng_requested_frames" -ne "$frame" ] || [ "$rng_native_frames" -ne "$frame" ] || [ "$rng_oracle_frames" -ne "$frame" ]; then
@@ -362,7 +370,7 @@ if [ "$actual_summary" != "$expected_summary" ] || [ "$actual_first" != "$expect
   echo "  actual per-frame RNG:   $actual_rng_frames"
   exit 1
 fi
-echo "Full TAS CRC: all $frame frames match; gameplay state remains clean; enemy frontier debt ratcheted ($actual_enemy_summary first=$actual_enemy_first); sampled and per-frame RNG baselines unchanged (rng_digest=$actual_rng_digest per_frame=$actual_rng_frames)"
+echo "Full TAS player/camera CRC: all $frame frames match; typed gameplay state remains clean; no full-route pixel comparison is performed; enemy frontier debt ratcheted ($actual_enemy_summary first=$actual_enemy_first); sampled and per-frame RNG baselines unchanged (rng_digest=$actual_rng_digest per_frame=$actual_rng_frames)"
 '
 """
 description = "Full any-percent TAS verification — run after gameplay-affecting commits"

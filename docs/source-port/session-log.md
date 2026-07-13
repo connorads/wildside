@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#405 explicit TAS CRC evidence boundary)
+
+- `verify-tas` now reports the named `player_camera_progression_v1` projection,
+  its exact 11 fields, and machine-readable `proves_pixels=false` and
+  `proves_whole_state=false`. Both TAS gates reject a missing or changed
+  projection contract.
+- User-facing output says `player/camera CRC`, and the full gate explicitly says
+  it performs no full-route pixel comparison. Two stale code comments claiming
+  CRC-clean frames prove rendered/pixel equality were corrected. The full TAS
+  oracle run writes PNGs, but it has no corresponding native full-route PNG
+  stream to compare.
+- Focused projection and 20-frame oracle checks pass. NEXT: design a bounded,
+  streaming native-vs-oracle pixel hash gate before making any full-route pixel
+  claim; until then only named visual checkpoints prove exact rendering.
+
 ## 2026-07-13 handoff (#404 typed TAS player-mode parity)
 
 - The published-route CRC is deliberately narrow and opaque: it includes

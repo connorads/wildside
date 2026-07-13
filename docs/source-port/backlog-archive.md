@@ -11,6 +11,31 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #405
+
+Opened and resolved 2026-07-13 during the next proactive confidence audit.
+`verify-tas` called its narrow progression checksum simply `CRC`, while two
+reclassification comments claimed CRC-clean frames proved rendered or pixel
+equality. The implementation and `NativeTraceFrame` documentation contradicted
+that claim: the checksum covers 11 player/camera progression fields and excludes
+render, audio, enemies, object counts, velocity, and other gameplay state. The
+full TAS run produces oracle PNGs but no corresponding native full-route PNG
+stream, so it cannot compare every rendered frame.
+
+Reports now publish a named `player_camera_progression_v1` projection with the
+exact field list and explicit `proves_pixels=false` / `proves_whole_state=false`
+flags. Both `verify-tas-frontier` and `verify-tas-full` ratchet this contract.
+CLI and gate output says `player/camera CRC`, and the full gate explicitly states
+that no full-route pixel comparison is performed. `research-map.md` now records
+the current zero-difference typed result without retaining stale intermediate
+counts as the current frontier.
+
+The projection unit regression and a 20-frame native/oracle smoke pass, with the
+new report contract present. This improves confidence reporting, not pixel
+coverage: only the separate named visual gates prove exact source-port pixels at
+their stated checkpoints. A future full-route pixel claim requires a bounded
+native render stream and exact comparison against the oracle frames.
+
 ### #404
 
 Opened and resolved 2026-07-13 during proactive verification of the published
@@ -12932,6 +12957,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 405 | [x] | P2 | verification | TAS reports and gates name the CRC projection and state that it proves neither pixels nor whole state. | Projection contract ratcheted. See archive #405. |
 | 404 | [x] | P2 | verification | Published TAS comparison directly checks `Current_player` and ROM `Two_player_flag` every frame. | 37,759 typed checkpoints exact. See archive #404. |
 | 403 | [x] | P2 | enemy/fidelity | Tar Monster burst children use exact Gfx collision latches, hitboxes, and contact-axis-only fixed-point clamps through cleanup. | Level 0x64 frames 134-338 exact. See archive #403. |
 | 402 | [x] | P2 | enemy/fidelity | Tar Monster executes the typed `unk_32264` cursor and exact opening shot/burst schedule through the measured interval. | Report `1783914264`: 47/69 pass; measured Tar intervals exact. See archive #402. |

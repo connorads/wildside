@@ -2200,6 +2200,21 @@ fn is_false(value: &bool) -> bool {
 }
 
 impl NativeTraceFrame {
+    pub const PLAYER_CAMERA_CRC_PROJECTION_NAME: &'static str = "player_camera_progression_v1";
+    pub const PLAYER_CAMERA_CRC_FIELDS: &'static [&'static str] = &[
+        "game_mode",
+        "current_level",
+        "camera_x_pos",
+        "camera_y_pos",
+        "kid_x_pos",
+        "kid_y_pos",
+        "current_helmet_id",
+        "score",
+        "diamond_count",
+        "diamond_power_active",
+        "current_player",
+    ];
+
     /// CRC32 of player/camera progression fields used for fast divergence detection.
     ///
     /// This is not a whole-state or pixel checksum. It excludes advisory fields
@@ -4545,6 +4560,13 @@ mod tests {
         );
         frame.camera_x_pos = frame.camera_x_pos.wrapping_add(0x0001_0000);
         assert_ne!(frame.authoritative_crc32(), base_crc);
+        assert_eq!(
+            NativeTraceFrame::PLAYER_CAMERA_CRC_PROJECTION_NAME,
+            "player_camera_progression_v1"
+        );
+        assert_eq!(NativeTraceFrame::PLAYER_CAMERA_CRC_FIELDS.len(), 11);
+        assert!(!NativeTraceFrame::PLAYER_CAMERA_CRC_FIELDS.contains(&"two_player"));
+        assert!(!NativeTraceFrame::PLAYER_CAMERA_CRC_FIELDS.contains(&"pixels"));
     }
 
     #[test]

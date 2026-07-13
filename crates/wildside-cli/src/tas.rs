@@ -613,7 +613,8 @@ pub fn verify_tas(
         include_rng,
     )?;
 
-    // Per-frame CRC comparison (fast divergence detection)
+    // Per-frame player/camera progression CRC (fast divergence detection).
+    // This is deliberately not a whole-state or rendered-frame checksum.
     let native_crcs: Vec<u32> = native_trace
         .iter()
         .map(wildside_core::NativeTraceFrame::authoritative_crc32)
@@ -621,13 +622,13 @@ pub fn verify_tas(
     let first_crc_mismatch = if matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay) {
         let mismatch = first_crc_mismatch_from_frame(&native_crcs, &oracle.frame_crcs, start, end);
         if let Some(first_mismatch) = mismatch {
-            println!("  CRC divergence at frame {first_mismatch}");
+            println!("  player/camera CRC divergence at frame {first_mismatch}");
         } else {
             let compared_frames = native_crcs
                 .len()
                 .min(oracle.frame_crcs.len())
                 .saturating_sub(start);
-            println!("  CRC: all {compared_frames} frames match in {start}..{end}",);
+            println!("  player/camera CRC: all {compared_frames} frames match in {start}..{end}",);
         }
         mismatch
     } else {
@@ -802,6 +803,12 @@ pub fn verify_tas(
             "native": native_crcs.len().min(end).saturating_sub(start),
             "oracle": oracle.frame_crcs.len().min(end).saturating_sub(start),
         },
+        "crc_projection": {
+            "name": wildside_core::NativeTraceFrame::PLAYER_CAMERA_CRC_PROJECTION_NAME,
+            "fields": wildside_core::NativeTraceFrame::PLAYER_CAMERA_CRC_FIELDS,
+            "proves_pixels": false,
+            "proves_whole_state": false,
+        },
         "checkpoints": scenario.checkpoints.len(),
         "transitions": transitions.len(),
         "first_crc_mismatch": first_crc_mismatch,
@@ -887,7 +894,7 @@ fn reclassify_crc_clean_velocity_diffs(
             && native_state.kid_x_pos == oracle_state.kid_x_pos
             && native_state.kid_y_pos == oracle_state.kid_y_pos
         {
-            // CRC-clean frames prove the rendered/player-visible state is in
+            // CRC-clean frames prove the player/camera projection is in
             // lockstep. Treat isolated top-level velocity export skew as a
             // trace limitation so gates still block on real gameplay,
             // position, object, or CRC drift.
@@ -946,7 +953,8 @@ pub(crate) fn reclassify_crc_clean_lion_projectile_count_diffs(
             // j_Allocate_ObjectSlot. Oracle WRAM samples expose the live slot
             // at loc_3E196, or loc_3E2AC while hibernating in the bounce loop,
             // even when the exported `Number_Objects` is one lower.
-            // CRC-clean frames prove gameplay and pixels are already aligned.
+            // CRC-clean frames prove the player/camera projection is aligned;
+            // the live oracle slot dump separately proves this count skew.
             diff.category = crate::sweep::DivergenceCategory::OracleLimitation;
         }
     }
@@ -1219,7 +1227,7 @@ pub fn bisect_tas(
         && !include_rng
     {
         // Fast path: use per-frame CRC arrays if oracle supports them
-        println!("  computing native CRCs ({end} frames)...");
+        println!("  computing native player/camera CRCs ({end} frames)...");
         let crc_scenario = DynamicScenario {
             slug: scenario.slug.clone(),
             script: scenario.script[..end.min(scenario.script.len())].to_vec(),
@@ -1245,7 +1253,7 @@ pub fn bisect_tas(
             .collect();
 
         // Run oracle for full CRC arrays
-        println!("  running oracle for CRC comparison ({end} frames)...");
+        println!("  running oracle for player/camera CRC comparison ({end} frames)...");
         let crc_scenario = crc_oracle_scenario(crc_scenario, end);
         let run_dir = repo_root
             .join(".cache/tas-verify")
@@ -1270,7 +1278,7 @@ pub fn bisect_tas(
                 first_crc_mismatch_from_frame(&native_crcs, &oracle.frame_crcs, start, end)
             {
                 println!();
-                println!("  RESULT: first CRC divergence at frame {frame_idx}");
+                println!("  RESULT: first player/camera CRC divergence at frame {frame_idx}");
                 if let Some(native_frame) = native_trace.get(frame_idx) {
                     println!(
                         "    native: mode={:#06x} level={:02x} kid=({:#010x},{:#010x}) vel=({:?},{:?})",
@@ -1295,7 +1303,7 @@ pub fn bisect_tas(
     }
 
     // Fallback: legacy binary search if oracle doesn't provide CRCs
-    println!("  oracle has no CRC data, falling back to checkpoint bisection...");
+    println!("  oracle has no player/camera CRC data, falling back to checkpoint bisection...");
 
     // Phase 1: coarse scan with interval=50
     let coarse_interval = 50;
