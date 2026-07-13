@@ -927,6 +927,13 @@ pub(crate) const TANK_SHOOTING_FIRST_SHOT_DELAY_FRAMES: u16 = 74;
 /// `move.w #$49,$54(a5)` seeds the first shot countdown.
 pub(crate) const TANK_SHOOTING_INIT_FIRE_TIMER_LOC_3B5FA: u16 =
     TANK_SHOOTING_FIRST_SHOT_DELAY_FRAMES - 1;
+/// ASM loc_74E0 -> Tank_Shooting.asm loc_3C50E: native's collapsed recording
+/// title shell reaches the turret cycle nine ticks older than the ROM path.
+pub(crate) const TANK_SHOOTING_RECORDING_HANDOFF_TIMER_DELAY_LOC_3C50E: u16 = 9;
+
+pub(crate) fn tank_shooting_recording_handoff_wait_timer_loc_3c50e(wait_timer: u16) -> u16 {
+    wait_timer.saturating_add(TANK_SHOOTING_RECORDING_HANDOFF_TIMER_DELAY_LOC_3C50E)
+}
 /// ASM Tank_Shooting.asm loc_3B700: nonfatal turret hits hibernate the parent
 /// for five frames before falling through to loc_3B720.
 pub(crate) const TANK_SHOOTING_HURT_HIBERNATE_FRAMES: u8 = 5;
@@ -12600,6 +12607,13 @@ impl NativeRuntime {
                 // before the allocated Dragon GfxObject begins its cycle.
                 enemy.dragon_descent_index =
                     dragon_walking_recording_settle_animation_seed_stru_3cc5e(enemy.hit_points);
+            } else if matches!(enemy.family, EnemyFamily::TankShooting) {
+                // ASM loc_74E0 -> Tank_Shooting.asm loc_3C50E: the ROM's
+                // level-skip shell and native's collapsed title lifecycle
+                // reach the 60-frame recording window with different turret
+                // ages. Delay only the animation timer without moving parent.
+                enemy.wait_timer =
+                    tank_shooting_recording_handoff_wait_timer_loc_3c50e(enemy.wait_timer);
             }
         }
     }

@@ -1233,6 +1233,18 @@ mod tests {
     }
 
     #[test]
+    fn tank_shooting_recording_handoff_delays_turret_cycle_loc_3c50e() {
+        assert_eq!(
+            tank_shooting_recording_handoff_wait_timer_loc_3c50e(
+                TANK_SHOOTING_INIT_FIRE_TIMER_LOC_3B5FA,
+            ),
+            TANK_SHOOTING_INIT_FIRE_TIMER_LOC_3B5FA
+                + TANK_SHOOTING_RECORDING_HANDOFF_TIMER_DELAY_LOC_3C50E,
+            "ASM loc_74E0 reaches the recording window with Tank_Shooting.asm loc_3C50E's turret animation nine ticks younger than native's collapsed title shell",
+        );
+    }
+
+    #[test]
     fn tank_child_layout_matches_init_offsets_from_loc_3b372() {
         // ASM Tank.asm loc_3B372 copies the parent x/y into the child sprite,
         // then `subi.w #8,$1E(a1)` lifts the child 8px above the body.

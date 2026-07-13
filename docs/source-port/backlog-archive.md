@@ -11,6 +11,33 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #398
+
+Opened and resolved 2026-07-13 from proactive whole-level report
+`1783901023`. Level 0x43 exported ten GfxObjects against oracle eight at
+`level_settle`, with the two surplus workers coming from shooting RockTank
+bullets whose lifecycle was both misclassified and too long. Correcting #397:
+`Tank_Shooting.asm loc_3C50E` allocates an Object slot for each bullet before
+`loc_3B730` loads its paired GfxObject, so every live bullet contributes one
+Object and one Gfx worker rather than a Gfx-only worker.
+
+ASM `CollisionSize_Index` object meta 3 selects `unk_314D0`'s
+`(-5,+10,-31,+31)` collision box. `Mode_Level` runs `GfxObjects_Collision`
+after `Execute_Objects`, so `loc_3B7BA` consumes the collision latch on the
+following object pass. Native now scans that full box against solid and sloped
+terrain, retains the bullet for the collision frame, and deletes it on the
+next pass. The generic recording hand-off also delays shooting RockTank
+turret timers by the nine ticks hidden by native's collapsed title shell,
+without moving the parent or branching on level id.
+
+Focused interval-1 gameplay comparison matches all 360 frames. Focused report
+`1783902765` passes Level 0x43 at both checkpoints; its visual residual is the
+unchanged background-scroll difference. Full report `1783902809` improves
+43/69 pass and 114 blockers to 44/69 and 113. `verify-slice-fast` passes, and
+the full published route matches all 37,759 CRC/gameplay checkpoints, all
+37,743 post-`Init_RNG` RNG states, and the enemy frontier with zero
+divergences.
+
 ### #397
 
 Opened and resolved 2026-07-13 from proactive whole-level report
@@ -22,9 +49,9 @@ Native had collapsed the body/turret pair in both counters even though ASM
 `Tank_Shooting.asm loc_3B5FA` allocates the turret directly with
 `j_Allocate_GfxObjectSlot_a1`: the pair shares one Object_RAM coroutine but
 owns two GfxObject slots. The projection now collapses the pair only for
-`Number_Objects`. A separate regression pins `loc_3B730` bullets as Gfx-only
-workers because that callback calls `j_Load_GfxObjectSlot` without allocating
-an Object slot.
+`Number_Objects`. Correction from #398: `loc_3C50E` allocates each bullet's
+Object worker before `loc_3B730` loads its paired GfxObject, so a live bullet
+contributes to both counters.
 
 Focused report `1783901009` makes Level 0x58 authoritative-green; its five
 idle-tail differences remain correctly classified as an oracle-paused
@@ -12739,7 +12766,8 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 397 | [x] | P2 | enemy/counts | RockTank body/turret pairs share one Object slot while retaining both Gfx slots; bullets remain Gfx-only workers. | Report `1783901023`: 43/69 pass, 114 blockers; see archive #397. |
+| 398 | [x] | P2 | enemy/fidelity | Shooting RockTank bullets use their allocated Object+Gfx pair, full `unk_314D0` terrain box, and prior-pass collision latch. | Report `1783902809`: 44/69 pass, 113 blockers; see archive #398. |
+| 397 | [x] | P2 | enemy/counts | RockTank body/turret pairs share one Object slot while retaining both Gfx slots. | Report `1783901023`: 43/69 pass, 114 blockers; bullet correction in #398. |
 | 396 | [x] | P1 | enemy/recording | Flying Dragon recording hand-off and descent-fire Object/Gfx lifecycle match `loc_3480A`/`loc_34BAC`/`loc_34C4A`. | Report `1783899751`: 42/69 pass, 116 blockers; interval-1 frames 0-74 exact. See archive #396. |
 | 395 | [x] | P1 | trace/objects | Mountain, Cave, and Island post-load palette controllers contribute an Object slot only, matching `Load_InGame loc_11F96/loc_11FB0`. | Report `1783898144`: 40/69 pass, 118 blockers; see archive #395. |
 | 394 | [x] | P2 | Enemy/FireDemon | Recording settle restores the first live Fire Demon loader cohort's hidden Gfx animation ticks, removing the Level 0x40 frame-59 surplus trail. | Report `1783896236`: settle and idle tail exact; see archive #394. |

@@ -2080,7 +2080,7 @@ mod tests {
     }
 
     #[test]
-    fn tank_bullet_counts_as_gfx_only_worker_loc_3b730() {
+    fn tank_bullet_counts_as_object_and_gfx_worker_loc_3c50e_3b730() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
         runtime.current_level = LevelId(0x58);
@@ -2093,8 +2093,8 @@ mod tests {
 
         assert_eq!(
             runtime.object_counts_from_roster(&[], 0, 0),
-            (baseline.0, baseline.1 + 1),
-            "ASM Tank_Shooting.asm loc_3B730 calls j_Load_GfxObjectSlot directly, so a live tank bullet raises Number_GfxObjects without allocating an Object slot",
+            (baseline.0 + 1, baseline.1 + 1),
+            "ASM Tank_Shooting.asm loc_3C50E allocates the loc_3B730 Object worker before loc_3B730 loads its paired GfxObject slot",
         );
     }
 
@@ -11822,6 +11822,11 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::CloudLightning)
             .count();
+        let tank_bullet_workers = self
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::TankBullet)
+            .count();
         // ASM Lion.asm loc_3E0DA allocates the roar shot's Object, then
         // loc_3E12A calls j_Load_GfxObjectSlot before initialising its art.
         // Native stores the shot on the parent, outside the active roster, so
@@ -11941,6 +11946,9 @@ impl NativeRuntime {
             + archer_arrow_workers
             + ufo_beam_workers
             + cloud_lightning_workers
+            // ASM Tank_Shooting.asm loc_3C50E allocates the Object_RAM
+            // worker, then loc_3B730 loads its linked GfxObject slot.
+            + tank_bullet_workers
             + lion_projectile_workers
             + fire_demon_trail_workers
             + dragon_walking_breath_workers
@@ -11963,23 +11971,13 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire)
             .count() as u16;
-        let tank_bullet_gfx_workers = self
-            .projectiles
-            .iter()
-            .filter(|projectile| projectile.kind == EnemyProjectileKind::TankBullet)
-            .count() as u16;
         // ASM Dragon_Flying.asm loc_348A0 allocates the child Object slot;
         // loc_34BAC then calls Load_GfxObjectSlot before loc_32146 links its
         // collision source. Native counts the Object side in
         // gameplay_transient_object_only_worker_count, so add the paired Gfx
         // side here while the typed projectile exists, including loc_34C4A's
         // two cleanup hibernations.
-        // ASM Tank_Shooting.asm loc_3B730 calls j_Load_GfxObjectSlot directly
-        // for the bullet and never allocates an Object_RAM coroutine. Native
-        // stores that Gfx-only lifecycle in the typed projectile collection.
-        archer_held_arrow_workers
-            .saturating_add(dragon_flying_descent_fire_gfx_workers)
-            .saturating_add(tank_bullet_gfx_workers)
+        archer_held_arrow_workers.saturating_add(dragon_flying_descent_fire_gfx_workers)
     }
 
     fn count_visible_prize_block_worker_tails(&self) -> usize {

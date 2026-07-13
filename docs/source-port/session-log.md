@@ -7,13 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#398 exact shooting RockTank bullet lifecycle)
+
+- Correcting #397: `loc_3C50E` allocates each bullet's Object worker before
+  `loc_3B730` loads its paired Gfx slot. Live bullets contribute to both
+  counters, not Gfx only.
+- Native now matches `unk_314D0`'s full terrain box and `Mode_Level`'s
+  prior-pass collision latch. The recording hand-off restores the nine hidden
+  turret ticks without moving the parent or adding a level-specific override.
+- Focused interval-1 gameplay matches all 360 frames. Report `1783902765`
+  passes Level 0x43; full report `1783902809` improves 43/69 pass and 114
+  blockers to 44/69 and 113.
+- Fast verification passes. The published route matches all 37,759 frame CRCs
+  and gameplay checkpoints, all 37,743 post-initialisation RNG states, and the
+  enemy frontier with zero divergences. NEXT: use report `1783902809` for
+  proactive verification.
+
 ## 2026-07-13 handoff (#397 exact RockTank Gfx-slot accounting)
 
 - Oracle `loc_14A4` traversal proved the Level 0x58 settle roster has two Kid,
   two RockTank, and two fixed Gfx slots. `Tank_Shooting.asm loc_3B5FA` shares
   one Object_RAM coroutine between body/turret but allocates both Gfx slots.
-- Native now collapses the pair only in `Number_Objects`; `loc_3B730` tank
-  bullets separately contribute their direct Gfx-only allocation.
+- Native now collapses the pair only in `Number_Objects`. The later #398
+  investigation corrects this handoff's bullet classification: `loc_3C50E`
+  allocates an Object worker before `loc_3B730` loads its paired Gfx slot.
 - Focused report `1783901009` makes Level 0x58 authoritative-green. Full report
   `1783901023` improves 42/69 pass and 116 blockers to 43/69 and 114.
 - Fast verification and the full 37,759-frame CRC/RNG/gameplay/enemy-frontier

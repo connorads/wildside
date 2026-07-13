@@ -1257,6 +1257,30 @@ fn projectile_terrain_contact_loc_3345c(
 ) -> bool {
     let px_i = (projectile.x_pos >> 16) as i32;
     let py_i = (projectile.y_pos >> 16) as i32;
+    if projectile.kind == EnemyProjectileKind::TankBullet {
+        // ASM CollisionSize_Index object meta 3 selects unk_314D0
+        // (-5,+10,-31,+31). GfxObjects_Collision scans the full box against
+        // level collision, including ordinary solid terrain without a block
+        // object; loc_3B7BA deletes the worker after any non-zero result.
+        const LEFT: i32 = -5;
+        const RIGHT: i32 = 5;
+        const TOP: i32 = -31;
+        const BOTTOM: i32 = 0;
+        let left_col = terrain::pixel_to_cell(px_i + LEFT).max(0) as u16;
+        let right_col = terrain::pixel_to_cell(px_i + RIGHT).max(0) as u16;
+        let top_row = terrain::pixel_to_cell(py_i + TOP).max(0) as u16;
+        let bottom_row = terrain::pixel_to_cell(py_i + BOTTOM).max(0) as u16;
+        return (top_row..=bottom_row).any(|row| {
+            (left_col..=right_col).any(|col| {
+                matches!(
+                    grid.cell_at(col, row).collision,
+                    terrain::CollisionKind::Solid
+                        | terrain::CollisionKind::SlopeUp
+                        | terrain::CollisionKind::SlopeDown
+                )
+            })
+        });
+    }
     if projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire {
         // ASM Dragon_Flying.asm loc_34C3A tests `collision_type(a3)` after
         // GfxObjects_Collision runs. Object meta `$0C` maps through
@@ -3853,24 +3877,23 @@ impl NativeRuntime {
                 // ASM Tank_Shooting.asm loc_3B7BA: tank shots do not use a DBF
                 // lifetime; after each hibernated frame they survive only while
                 // their signed camera-relative x/y words stay in [-$80, $1C0]
-                // and the worker's level-collision word stays clear.
-                let collision_type = if let Some(g) = grid
-                    && projectile_terrain_contact_loc_3345c(g, p)
-                {
-                    1
-                } else {
-                    0
-                };
+                // and the worker's prior level-collision word stays clear.
+                // Mode_Level runs GfxObjects_Collision after Execute_Objects,
+                // so a new wall result remains visible for this frame and is
+                // consumed on the following loc_3B7BA pass.
                 let route = tank_bullet_loop_route_loc_3b7ba(
                     (p.x_pos >> 16) as u16,
                     (p.y_pos >> 16) as u16,
                     (camera.x_pos >> 16) as u16,
                     (camera.y_pos >> 16) as u16,
-                    collision_type,
+                    p.collision_type as u16,
                 );
                 if route == TankBulletLoopRouteLoc3B7BA::Delete {
                     return false;
                 }
+                p.collision_type = i16::from(
+                    grid.is_some_and(|g| projectile_terrain_contact_loc_3345c(g, p)),
+                );
             }
 
             if is_robot_shot && let Some(camera) = camera {

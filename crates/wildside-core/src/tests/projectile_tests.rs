@@ -7460,9 +7460,56 @@ mod chunk_06 {
 
         rt.step_projectiles();
 
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Mode_Level runs GfxObjects_Collision after the loc_3B7BA object pass, so the collision frame remains linked",
+        );
+        assert_ne!(rt.projectiles[0].collision_type, 0);
+        rt.step_projectiles();
+
         assert!(
             rt.projectiles.is_empty(),
-            "ASM Tank_Shooting.asm loc_3B730 sets has_level_collision; loc_3B7BA should branch to loc_3B7EC when terrain collision_type becomes nonzero"
+            "ASM Tank_Shooting.asm loc_3B730 sets has_level_collision; the next loc_3B7BA pass should branch to loc_3B7EC when terrain collision_type is nonzero"
+        );
+    }
+
+    #[test]
+    fn tank_bullet_loc_3b7ba_uses_unk_314d0_box_against_plain_solid_wall() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut slice = combat_slice();
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        rt.opening_slice = Some(slice);
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 41 << 16,
+            y_pos: 242 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: u16::MAX,
+            kind: EnemyProjectileKind::TankBullet,
+            ..Default::default()
+        });
+        let w = 8u16;
+        let h = 20u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let offset = (usize::from(14u16) * usize::from(w) + usize::from(2u16)) * 2;
+        data[offset] = 0x60;
+        rt.set_block_grid(terrain::BlockGrid::from_level_layout(&data, w, h));
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM GfxObjects_Collision writes the wall result after the current object pass",
+        );
+        assert_ne!(rt.projectiles[0].collision_type, 0);
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM CollisionSize_Index object meta 3 selects unk_314D0; GfxObjects_Collision must report the plain solid wall for the following loc_3B7BA pass",
         );
     }
 
