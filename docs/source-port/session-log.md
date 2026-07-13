@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#404 typed TAS player-mode parity)
+
+- The published-route CRC is deliberately narrow and opaque: it includes
+  `Current_player` but omitted ROM `Two_player_flag`. The typed comparator now
+  reports both fields directly, and the oracle/helper/capture boundaries carry
+  `Two_player_flag` from `$FFFFFC38` end to end.
+- `Obj_TitleMenu Title_InputLoop` keeps its 0-2 cursor in register `d1` and
+  writes `Two_player_flag` before gameplay. This rejected comparing native's
+  cursor with helper byte `$FFFF0DBD`. Helper `title_screen_ready` is likewise
+  only a Kid-X heuristic and is not the same domain state as native menu-ready.
+- Focused comparator tests pass. `mise run verify-tas-full` passes all 37,759
+  CRC, gameplay, and enemy-frontier frames and all 37,743 post-`Init_RNG`
+  frames with the new two-player check. NEXT: run `mise run project-status`;
+  if no ready/open item appears, continue `loop.md` proactive verification.
+
 ## 2026-07-13 handoff (proactive Tar Monster mutation refresh)
 
 - With no ready/open rows after #403, the single-file mutation wrapper tested

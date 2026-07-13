@@ -363,6 +363,7 @@ struct OracleState {
     #[serde(default)]
     main_menu_option: Option<u8>,
     current_player: u8,
+    two_player: bool,
     number_hitpoints: u16,
     current_helmet_id: u16,
     current_level_id: u16,
@@ -429,6 +430,8 @@ const CTRL_1_PRESSED_ADDR: usize = 0xFF_F80E;
 const CTRL_HELD_ADDR: usize = 0xFF_F812;
 const CTRL_PRESSED_ADDR: usize = 0xFF_F813;
 const CURRENT_PLAYER_ADDR: usize = 0xFF_FC39;
+// ASM `Two_player_flag` (`variables.asm`, `$FFFFFC38`).
+const TWO_PLAYER_FLAG_ADDR: usize = 0xFF_FC38;
 const NUMBER_HITPOINTS_ADDR: usize = 0xFF_FC40;
 const CURRENT_LEVEL_ID_ADDR: usize = 0xFF_FC44;
 const CURRENT_HELMET_ID_ADDR: usize = 0xFF_FC46;
@@ -1356,6 +1359,7 @@ fn capture_state(
         main_menu_option: matches!(game_mode, 0x002C | 0x0014)
             .then(|| read_wram_u8(&work_ram, MAIN_MENU_OPTION_ADDR)),
         current_player: read_wram_u8(&work_ram, CURRENT_PLAYER_ADDR),
+        two_player: read_wram_u8(&work_ram, TWO_PLAYER_FLAG_ADDR) != 0,
         number_hitpoints: read_wram_u16(&work_ram, NUMBER_HITPOINTS_ADDR),
         current_helmet_id: read_wram_u16(&work_ram, CURRENT_HELMET_ID_ADDR),
         current_level_id: read_wram_u16(&work_ram, CURRENT_LEVEL_ID_ADDR),

@@ -5547,6 +5547,7 @@ AddrTbl_LevelNames:
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 2,
             current_helmet_id: 0,
             current_level_id: 0,

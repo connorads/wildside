@@ -228,6 +228,9 @@ pub struct OracleState {
     #[serde(default)]
     pub main_menu_option: Option<u8>,
     pub current_player: u8,
+    /// ASM `Two_player_flag` (`variables.asm`, `$FFFFFC38`).
+    #[serde(default)]
+    pub two_player: bool,
     pub number_hitpoints: u16,
     pub current_helmet_id: u16,
     pub current_level_id: u16,

@@ -1364,6 +1364,7 @@ pub(crate) fn extract_checkpoint_states(
                 title_screen_ready: frame.title_screen_ready,
                 main_menu_option,
                 current_player: frame.current_player,
+                two_player: frame.two_player,
                 number_hitpoints: frame.number_hitpoints,
                 current_helmet_id: frame.current_helmet_id,
                 current_level_id: frame.current_level.0 as u16,
@@ -1464,6 +1465,26 @@ pub(crate) fn compare_sweep_states_for_frontier_with_options(
                 field: "game_mode".into(),
                 native_value: format!("{:#06x}", native.game_mode),
                 oracle_value: format!("{:#06x}", oracle.game_mode),
+                category: DivergenceCategory::Authoritative,
+            });
+        }
+        if native.current_player != oracle.current_player {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "current_player".into(),
+                native_value: format!("{:#04x}", native.current_player),
+                oracle_value: format!("{:#04x}", oracle.current_player),
+                category: DivergenceCategory::Authoritative,
+            });
+        }
+        // ASM Obj_TitleMenu `Title_InputLoop` (kid.asm:30442-30447) writes
+        // `Two_player_flag` before gameplay; this state changes player turns.
+        if native.two_player != oracle.two_player {
+            diffs.push(StateDiff {
+                checkpoint: cp.clone(),
+                field: "two_player".into(),
+                native_value: native.two_player.to_string(),
+                oracle_value: oracle.two_player.to_string(),
                 category: DivergenceCategory::Authoritative,
             });
         }
@@ -2855,6 +2876,7 @@ mod tests {
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 3,
             current_helmet_id: 0,
             current_level_id: 0,
@@ -2925,6 +2947,7 @@ mod tests {
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 3,
             current_helmet_id: 0,
             current_level_id: 0,
@@ -2983,6 +3006,7 @@ mod tests {
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 3,
             current_helmet_id: 0,
             current_level_id: 0,
@@ -3023,6 +3047,34 @@ mod tests {
     }
 
     #[test]
+    fn gameplay_frontier_detects_current_player_drift() {
+        let native = demo_velocity_state(0, 0);
+        let mut oracle = native.clone();
+        // ASM `Current_player` (`variables.asm`, `$FFFFFC39`).
+        oracle.current_player = 1;
+
+        let diffs = compare_sweep_states_for_frontier(&[native], &[oracle], FrontierKind::Gameplay);
+
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs[0].field, "current_player");
+        assert_eq!(diffs[0].category, DivergenceCategory::Authoritative);
+    }
+
+    #[test]
+    fn gameplay_frontier_detects_two_player_flag_title_input_loop_drift() {
+        let native = demo_velocity_state(0, 0);
+        let mut oracle = native.clone();
+        // ASM Obj_TitleMenu `Title_InputLoop` (kid.asm:30442-30447).
+        oracle.two_player = !native.two_player;
+
+        let diffs = compare_sweep_states_for_frontier(&[native], &[oracle], FrontierKind::Gameplay);
+
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs[0].field, "two_player");
+        assert_eq!(diffs[0].category, DivergenceCategory::Authoritative);
+    }
+
+    #[test]
     fn enemy_frontier_detects_enemy_roster_drift_before_gameplay_drift() {
         let enemy = OracleEnemyState {
             object_type: 0x0D,
@@ -3050,6 +3102,7 @@ mod tests {
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 3,
             current_helmet_id: 0,
             current_level_id: 0,
@@ -3125,6 +3178,7 @@ mod tests {
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 2,
             current_helmet_id: 0,
             current_level_id: 1,
@@ -3213,6 +3267,7 @@ mod tests {
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 2,
             current_helmet_id: 0,
             current_level_id: 1,
@@ -3302,6 +3357,7 @@ mod tests {
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 2,
             current_helmet_id: 0,
             current_level_id: 1,
@@ -3394,6 +3450,7 @@ mod tests {
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 2,
             current_helmet_id: 0,
             current_level_id: 1,
@@ -3481,6 +3538,7 @@ mod tests {
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 2,
             current_helmet_id: 0,
             current_level_id: 1,
@@ -3576,6 +3634,7 @@ mod tests {
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 1,
             current_helmet_id: 0,
             current_level_id: 1,
@@ -3692,6 +3751,7 @@ mod tests {
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 1,
             current_helmet_id: 0,
             current_level_id: 1,
@@ -3776,6 +3836,7 @@ mod tests {
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 3,
             current_helmet_id: 0,
             current_level_id: 0,
@@ -3933,6 +3994,7 @@ mod tests {
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 3,
             current_helmet_id: 0,
             current_level_id: 6,
@@ -4519,6 +4581,7 @@ mod tests {
             title_screen_ready: false,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 3,
             current_helmet_id: 0,
             current_level_id: 0,
@@ -4995,6 +5058,7 @@ mod tests {
             title_screen_ready: true,
             main_menu_option: None,
             current_player: 0,
+            two_player: false,
             number_hitpoints: 3,
             current_helmet_id: 2,
             current_level_id: 0x001B,

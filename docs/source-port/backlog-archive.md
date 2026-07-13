@@ -11,6 +11,30 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #404
+
+Opened and resolved 2026-07-13 during proactive verification of the published
+TAS accuracy claim. `NativeTraceFrame::authoritative_crc32` deliberately hashes
+only a narrow player/camera progression projection. It included
+`Current_player` but the typed comparator did not diagnose that field, and
+neither path covered `Two_player_flag` (`$FFFFFC38`), which changes player-turn
+behaviour.
+
+The oracle helper, emulator snapshot, native capture, and typed comparison now
+carry `Two_player_flag` end to end. `Current_player` also has a direct typed
+comparison. ASM `Obj_TitleMenu Title_InputLoop` (kid.asm:30442-30447) holds the
+0-2 cursor in `d1` and writes `Two_player_flag` before gameplay, so the audit
+rejected two superficially shared fields: helper `main_menu_option` reads an
+unrelated `$FFFF0DBD` byte, while helper `title_screen_ready` is only the
+heuristic `Game_Mode` title/options plus non-zero Kid X. Neither is equivalent
+to the corresponding native domain state.
+
+The focused comparator regressions pass. `mise run verify-tas-full` remains
+exact across all 37,759 CRC/gameplay/enemy-frontier frames, with zero typed or
+enemy-roster differences, and all 37,743 post-`Init_RNG` states. This strengthens
+one-route evidence without claiming whole-RAM, pixel, audio, every-input, or
+whole-game equality.
+
 ### #403
 
 Resolved 2026-07-13. The remaining three-frame drift came from clearing both
@@ -12908,6 +12932,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 404 | [x] | P2 | verification | Published TAS comparison directly checks `Current_player` and ROM `Two_player_flag` every frame. | 37,759 typed checkpoints exact. See archive #404. |
 | 403 | [x] | P2 | enemy/fidelity | Tar Monster burst children use exact Gfx collision latches, hitboxes, and contact-axis-only fixed-point clamps through cleanup. | Level 0x64 frames 134-338 exact. See archive #403. |
 | 402 | [x] | P2 | enemy/fidelity | Tar Monster executes the typed `unk_32264` cursor and exact opening shot/burst schedule through the measured interval. | Report `1783914264`: 47/69 pass; measured Tar intervals exact. See archive #402. |
 | 401 | [x] | P2 | enemy/fidelity | Tar Monster opening timing, glob direction, staged burst allocation, and `$19` off-screen cleanup match the ROM interval. | Report `1783908515`: 47/69 pass, 106 blockers; see archive #401. |

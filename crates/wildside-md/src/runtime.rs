@@ -40,6 +40,8 @@ const PAUSE_OPTION_ADDR: u32 = 0x00FF_FAD1;
 const DEMO_MODE_FLAG_ADDR: u32 = 0x00FF_FBC9;
 const GAME_MODE_ADDR: u32 = 0x00FF_FBCA;
 const CURRENT_PLAYER_ADDR: u32 = 0x00FF_FC39;
+// ASM `Two_player_flag` (`variables.asm`, `$FFFFFC38`).
+const TWO_PLAYER_FLAG_ADDR: u32 = 0x00FF_FC38;
 const NUMBER_LIVES_ADDR: u32 = 0x00FF_FC3E;
 const NUMBER_HITPOINTS_ADDR: u32 = 0x00FF_FC40;
 const LEVEL_SKIP_CHEAT_ADDR: u32 = 0x00FF_FC37;
@@ -139,6 +141,7 @@ pub struct CpuProbe {
     pub demo_mode_flag: u8,
     pub game_mode: u16,
     pub current_player: u8,
+    pub two_player: bool,
     pub number_lives: u16,
     pub number_hitpoints: u16,
     pub current_level_id: u16,
@@ -661,6 +664,7 @@ pub fn probe_rom_with_script(
         demo_mode_flag: runtime.core.mem.read_work_ram_byte(DEMO_MODE_FLAG_ADDR),
         game_mode: runtime.core.mem.read_work_ram_word(GAME_MODE_ADDR),
         current_player: runtime.core.mem.read_work_ram_byte(CURRENT_PLAYER_ADDR),
+        two_player: runtime.core.mem.read_work_ram_byte(TWO_PLAYER_FLAG_ADDR) != 0,
         number_lives: runtime.core.mem.read_work_ram_word(NUMBER_LIVES_ADDR),
         number_hitpoints: runtime.core.mem.read_work_ram_word(NUMBER_HITPOINTS_ADDR),
         current_level_id: runtime.core.mem.read_work_ram_word(CURRENT_LEVEL_ID_ADDR),
@@ -885,6 +889,7 @@ impl MdRuntime {
             demo_mode_flag: self.core.mem.read_work_ram_byte(DEMO_MODE_FLAG_ADDR),
             game_mode: self.core.mem.read_work_ram_word(GAME_MODE_ADDR),
             current_player: self.core.mem.read_work_ram_byte(CURRENT_PLAYER_ADDR),
+            two_player: self.core.mem.read_work_ram_byte(TWO_PLAYER_FLAG_ADDR) != 0,
             number_lives: self.core.mem.read_work_ram_word(NUMBER_LIVES_ADDR),
             number_hitpoints: self.core.mem.read_work_ram_word(NUMBER_HITPOINTS_ADDR),
             current_level_id: self.core.mem.read_work_ram_word(CURRENT_LEVEL_ID_ADDR),
