@@ -35,10 +35,10 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 - **Source-port visual ratchet:** `1p-accurate` renders Level 0 frames 0, 30, 60, and 120 through the source-port renderer against jgenesis with exact state, no masking, MAE 0.000, and zero changed pixels. The gate now requires exact pixels.
 - **Visual confidence boundary:** #375 is resolved for those four settled-warp checkpoints only. This is not cold-boot or whole-game pixel parity. The older `frame_oracle:*` steps compare wildside-md ROM VDP output with jgenesis, not source-port pixels.
 - **Full published-route evidence:** all 37,759 requested player/camera CRC frames match oracle. The complete RNG stream also matches on all 37,743 post-`Init_RNG` frames, including the offset and all 55 ring bytes on every frame. The gameplay and enemy-frontier passes compare every one of the 37,759 frames with zero authoritative, advisory, accumulation, RNG, oracle-limitation, or enemy-roster differences. This is exact CRC, RNG, exported gameplay state, and enemy-roster evidence on one route, not whole-RAM, render, audio, every-input, or whole-game equality.
-- **Whole-level sweep boundary:** canonical report `1783905612` is 45/69 pass with 112 blocking differences, 3 advisory differences, and 56 oracle limitations. #399 makes Level 0x14 authoritative-exact by restoring the Drips recording window and projecting its real parent/crawler Gfx workers. This is still two idle checkpoints per sweepable level, not full-route or every-input proof.
+- **Whole-level sweep boundary:** canonical report `1783906962` is 47/69 pass with 107 blocking differences, 3 advisory differences, and 56 oracle limitations. #400 restores Tar Monster parent/projectile workers, making Levels 0x46 and 0x51 authoritative-exact and removing one Level 0x64 blocker. This is still two idle checkpoints per sweepable level, not full-route or every-input proof.
 - **Check tightening:** insta snapshots re-homed to `src/tests/snapshots/` with real (unredacted) values; `asm-coverage --check-no-new-test-only` now fails on stale baseline entries (45 re-banked, 241 -> 196); advisory-masking prose retired from CLAUDE.md/methodology.md.
 - **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
-- **Current work:** no ready/open risk remains. Run `mise run project-status`; if it stays empty, take the next proactive-verification fallback from report `1783905612`.
+- **Current work:** #401 - Level 0x46 interval tracing shows native's straight Tar glob surviving while the ROM glob hits terrain and becomes five burst children at frames 110-111. Pixel CRC remains exact because the workers are off-screen; enemy/projectile state is not exact.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -60,3 +60,4 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 401 | [ ] | P2 | enemy/fidelity | Level 0x46 Tar glob misses the ROM terrain burst and survives past frames 110-111. | Interval-1 projectile lifecycle |

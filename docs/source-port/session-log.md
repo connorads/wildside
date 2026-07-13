@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#400 exact Tar Monster worker accounting)
+
+- `Enemy05_TarMonster_Init loc_321E4` and `loc_32200 -> loc_32188` give each
+  parent one Object and two Gfx workers. `loc_32468` and `loc_325E6` give each
+  straight glob and burst child an Object+Gfx pair.
+- Focused Level 0x46 report `1783906956` passes. Full report `1783906962`
+  improves 45/69 pass and 112 blockers to 47/69 and 107 without regressing a
+  previously passing level; Levels 0x46 and 0x51 now pass.
+- Interval-1 Level 0x46 pixels match all 360 frames, but state exposes #401:
+  native's off-screen glob survives where oracle collides and bursts at frames
+  110-111. NEXT: correct that projectile lifecycle from `loc_324E6` through
+  `loc_3263C`; do not infer accuracy from the green CRC route.
+
 ## 2026-07-13 handoff (#399 exact Drips settle workers)
 
 - `Enemy16_Drip_Init` owns one Object and three Gfx workers per hidden parent;

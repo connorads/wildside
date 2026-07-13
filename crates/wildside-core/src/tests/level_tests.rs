@@ -5876,6 +5876,26 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level46_recording_settle_counts_tar_monster_linked_gfx_child_loc_32200() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x46)
+            .settle_recording_warp()
+            .run(&[0; 360], 360);
+        for frame_index in [0, 60, 359] {
+            let frame = &trace[frame_index];
+            assert_eq!(
+                (frame.number_objects, frame.number_gfx_objects),
+                (8, 10),
+                "ASM Tar_Monster.asm loc_321E4/loc_32200 keeps the opening Tar Monster's one Object and two linked Gfx workers live across the Level 0x46 settled idle route",
+            );
+        }
+    }
+
+    #[test]
     fn spawn_probe_inspection_uses_header_pixels_and_span_right_edge() {
         let mut manifest = manifest_with_playable_spawn();
         let header = manifest.levels[0]

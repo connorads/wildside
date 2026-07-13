@@ -11,6 +11,25 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #400
+
+Opened and resolved 2026-07-13 from proactive whole-level report
+`1783905612`. Levels 0x46 and 0x51 each exported one fewer Gfx worker than
+oracle at both settled checkpoints. `Enemy05_TarMonster_Init loc_321E4` loads
+the parent's GfxObject, then `loc_32200` calls `loc_32188` to splice a second
+Gfx-only child into the same Object lifecycle. Native collapses that linked
+pair into one enemy snapshot and now restores the suppressed slot. Straight
+globs and burst children also count as Object+Gfx pairs from `loc_32468` and
+`loc_325E6` rather than disappearing from the exported counters.
+
+Focused Level 0x46 sweep report `1783906956` passes. Full report `1783906962`
+improves 45/69 pass and 112 authoritative differences to 47/69 and 107 with no
+previously passing regression: Levels 0x46 and 0x51 become authoritative-exact,
+and Level 0x64 loses one blocker. Interval-1 tracing found a separate real
+behavioural fault tracked by #401: native's off-screen straight glob remains
+live while oracle bursts it into five children at frames 110-111. Frame CRC is
+exact across all 360 samples, so pixel parity alone would not reveal it.
+
 ### #399
 
 Opened and resolved 2026-07-13 from proactive whole-level report
@@ -12799,6 +12818,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 400 | [x] | P2 | enemy/fidelity | Tar Monster parents retain their second linked Gfx slot and every live glob/burst worker contributes its Object+Gfx pair. | Report `1783906962`: 47/69 pass, 107 blockers; see archive #400. |
 | 399 | [x] | P2 | enemy/fidelity | Drips recording settle projects all parent/crawler Gfx workers and matches the ROM's family-specific live window. | Report `1783905612`: 45/69 pass, 112 blockers; see archive #399. |
 | 398 | [x] | P2 | enemy/fidelity | Shooting RockTank bullets use their allocated Object+Gfx pair, full `unk_314D0` terrain box, and prior-pass collision latch. | Report `1783902809`: 44/69 pass, 113 blockers; see archive #398. |
 | 397 | [x] | P2 | enemy/counts | RockTank body/turret pairs share one Object slot while retaining both Gfx slots. | Report `1783901023`: 43/69 pass, 114 blockers; bullet correction in #398. |

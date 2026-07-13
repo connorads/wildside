@@ -2080,6 +2080,45 @@ mod tests {
     }
 
     #[test]
+    fn tar_monster_parent_counts_as_object_and_two_gfx_workers_loc_321e4_32200() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0x46);
+        let baseline = runtime.object_counts_from_roster(&[], 0, 0);
+        let mut tar_monster = drips_test_enemy(0, 0);
+        tar_monster.family = EnemyFamily::TarMonster;
+        let snapshot = tar_monster.snapshot();
+        runtime.active_enemies.push(tar_monster);
+
+        assert_eq!(
+            runtime.object_counts_from_roster(&[snapshot], 0, 0),
+            (baseline.0 + 1, baseline.1 + 2),
+            "ASM Tar_Monster.asm loc_321E4 loads the parent's GfxObject, then loc_32200 calls loc_32188 to splice a second Gfx-only child into the same Object lifecycle",
+        );
+    }
+
+    #[test]
+    fn tar_monster_projectiles_count_as_object_gfx_pairs_loc_32468_325e6() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        let baseline = runtime.object_counts_from_roster(&[], 0, 0);
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::TarMonsterStraightGlob,
+            ..Default::default()
+        });
+        runtime.projectiles.extend((0..5).map(|_| EnemyProjectile {
+            kind: EnemyProjectileKind::TarMonsterBurstChild,
+            ..Default::default()
+        }));
+
+        assert_eq!(
+            runtime.object_counts_from_roster(&[], 0, 0),
+            (baseline.0 + 6, baseline.1 + 6),
+            "ASM Tar_Monster.asm loc_32468 and loc_325E6 load a GfxObject for every allocated straight-glob and burst-child Object worker",
+        );
+    }
+
+    #[test]
     fn tank_bullet_counts_as_object_and_gfx_worker_loc_3c50e_3b730() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -11918,9 +11957,10 @@ impl NativeRuntime {
         } else {
             0
         };
-        // ASM sub_397E4 and the boss child routines allocate ordinary
-        // Object_RAM + GfxObject pairs. These native projectile records are
-        // not present in `active_objects`, so add each live worker here.
+        // ASM Tar_Monster.asm loc_32468 and loc_325E6, sub_397E4, and the boss
+        // child routines allocate ordinary Object_RAM + GfxObject pairs.
+        // These native projectile records are not present in `active_objects`,
+        // so add each live worker here.
         let boss_projectile_gfx_workers = self
             .projectiles
             .iter()
@@ -11934,6 +11974,8 @@ impl NativeRuntime {
                         | EnemyProjectileKind::BossDeathBurst
                         | EnemyProjectileKind::BossEyeSatellite
                         | EnemyProjectileKind::BossEyePopEffect
+                        | EnemyProjectileKind::TarMonsterStraightGlob
+                        | EnemyProjectileKind::TarMonsterBurstChild
                 )
             })
             .count();
@@ -11989,6 +12031,11 @@ impl NativeRuntime {
         let hidden_drips_gfx_workers = self
             .hidden_drips_parent_worker_count_enemy16_drip_init(camera_x_pos, camera_y_pos)
             .saturating_mul(3);
+        let tar_monster_linked_gfx_workers = self
+            .active_enemies
+            .iter()
+            .filter(|enemy| enemy.family == EnemyFamily::TarMonster)
+            .count() as u16;
         // ASM Dragon_Flying.asm loc_348A0 allocates the child Object slot;
         // loc_34BAC then calls Load_GfxObjectSlot before loc_32146 links its
         // collision source. Native counts the Object side in
@@ -11999,9 +12046,14 @@ impl NativeRuntime {
         // and preallocates a1/a2 through j_Allocate_GfxObjectSlot_a1. Native
         // suppresses all three hidden snapshots and adds their one Object side
         // separately, so retain all three slots in the Gfx-only projection.
+        // ASM Tar_Monster.asm loc_321E4 loads the parent's a3 GfxObject, then
+        // loc_32200 calls loc_32188 to splice a second Gfx-only child into the
+        // same Object lifecycle. Native collapses the pair into one enemy
+        // snapshot, so restore the linked child while its parent remains live.
         archer_held_arrow_workers
             .saturating_add(dragon_flying_descent_fire_gfx_workers)
             .saturating_add(hidden_drips_gfx_workers)
+            .saturating_add(tar_monster_linked_gfx_workers)
     }
 
     fn count_visible_prize_block_worker_tails(&self) -> usize {
