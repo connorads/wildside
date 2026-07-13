@@ -11,7 +11,43 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #402
+
+Opened and resolved 2026-07-13 after Level 0x64 interval-1 RAM watches proved
+the aggregate Tar Monster phase countdown did not execute the ROM control
+stream. Both oracle parents enter `loc_3231C` at frame 85 and allocate their
+opening straight globs at frame 94. Oracle then reaches Object/Gfx counts
+11/14 at frame 94, 16/14 at 116, 15/18 at 117, 20/18 at 133, and 19/22 at
+134. The existing model fired from a shortened hand-written cycle and its raw
+control bytes were corrupt from offset 22 onward.
+
+Native now decodes `unk_32264` as typed commands with a byte-addressed cursor,
+executes immediate toggles without invented frames, and preserves every
+inclusive `loc_322AA`/`loc_3231C` DBF wait. `stru_3272E` and `stru_3274C` each
+take 28 native animation ticks on the measured route. `loc_324D0` gives the
+straight glob horizontal velocity without the burst child's gravity, while
+LnkTo_unk_C781E selects CollisionSize_Index entry 441/`unk_316AC`. A newly
+allocated glob can latch same-frame Gfx terrain collision for `loc_324E6` to
+consume on its next Object wake.
+
+The cache-backed Level 0x46 regression matches the complete opening shot and
+burst transition at frames 109-112. Level 0x64 matches every watched
+Object/Gfx transition through frame 134. The broad enemy-frontier check is not
+globally green: its 0-134 run reports 136 authoritative roster differences,
+including other enemy positions/metadata and Tar export fields, despite exact
+Tar lifecycle counts. Visual diffs at frames 94, 116, and 133 likewise expose
+the wider roster/render gap. After frame 134, burst-child collision/cleanup
+timing diverges; #403 tracks `loc_3263C` rather than extending this closure's
+claim. Whole-level report `1783914264` remains 47/69 pass with 106 blocking
+differences, 3 advisory differences, and 56 oracle limitations, unchanged from
+the pre-fix baseline with no passing-level regression.
+
 ### #401
+
+Correction from #402: this entry records the evidence available at closure,
+but its 35/24-frame animation, `unk_314D0` glob box, and aggregate opening-hold
+interpretations were wrong. The later bytecode/RAM trace supersedes those
+details; the Level 0x46 transition frames remain valid regression evidence.
 
 Opened and resolved 2026-07-13 after #400's worker accounting made every live
 Tar projectile visible to interval comparison. Native fired its opening glob
@@ -12843,6 +12879,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 402 | [x] | P2 | enemy/fidelity | Tar Monster executes the typed `unk_32264` cursor and exact opening shot/burst schedule through the measured interval. | Report `1783914264`: 47/69 pass; measured Tar intervals exact. See archive #402. |
 | 401 | [x] | P2 | enemy/fidelity | Tar Monster opening timing, glob direction, staged burst allocation, and `$19` off-screen cleanup match the ROM interval. | Report `1783908515`: 47/69 pass, 106 blockers; see archive #401. |
 | 400 | [x] | P2 | enemy/fidelity | Tar Monster parents retain their second linked Gfx slot and every live glob/burst worker contributes its Object+Gfx pair. | Report `1783906962`: 47/69 pass, 107 blockers; see archive #400. |
 | 399 | [x] | P2 | enemy/fidelity | Drips recording settle projects all parent/crawler Gfx workers and matches the ROM's family-specific live window. | Report `1783905612`: 45/69 pass, 112 blockers; see archive #399. |

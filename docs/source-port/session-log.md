@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#402 typed Tar Monster control script)
+
+- `unk_32264` is now a typed, byte-addressed control stream with its exact DBF
+  waits and immediate commands; both measured Level 0x64 parents fire at frame
+  94 after entering `loc_3231C` at frame 85.
+- Straight globs use `loc_324D0`'s horizontal-only motion,
+  LnkTo_unk_C781E's `unk_316AC` collision box, and the ROM's prior-pass
+  collision latch. Level 0x46 matches frames 109-112 and Level 0x64 matches all
+  watched Object/Gfx transitions through frame 134.
+- The broad Level 0x64 enemy frontier remains red from frame 0 and the visual
+  diffs show wider enemy placement/render gaps. After frame 134 the Tar burst
+  schedule also drifts. Whole-level report `1783914264` is unchanged at 47/69
+  pass and 106 blockers. NEXT: #403, trace `loc_3263C` collision responses and
+  `$19` cleanup through frame 359.
+
 ## 2026-07-13 handoff (#401 exact Tar Monster opening projectile lifecycle)
 
 - `unk_32264`'s opening holds and the seven-frame `stru_3272E` animation place

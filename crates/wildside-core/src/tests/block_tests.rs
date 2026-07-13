@@ -14358,60 +14358,44 @@ mod chunk_04 {
     // --- TarMonster ---
 
     #[test]
-    fn tar_monster_cycles_through_states() {
+    fn tar_monster_follows_unk_32264_command_cursor() {
         let mut enemy = test_enemy(EnemyFamily::TarMonster, 60 << 16, 200 << 16, 4);
         let mut projs = Vec::new();
         enemy.tar_monster_state = TarMonsterState::Submerged;
         enemy.wait_timer = 0;
 
-        // Submerged → Emerging
+        // ASM Tar_Monster.asm loc_32256 starts with appear, then the $5A wait.
         step_tar_monster(&mut enemy, &mut projs);
         assert_eq!(enemy.tar_monster_state, TarMonsterState::Emerging);
         assert_eq!(enemy.wait_timer, TAR_MONSTER_EMERGE_FRAMES);
+        assert_eq!(enemy.dragon_script_cmd, 2);
 
-        // Wait through emerge animation
         for _ in 0..TAR_MONSTER_EMERGE_FRAMES {
             step_tar_monster(&mut enemy, &mut projs);
         }
-        assert_eq!(enemy.wait_timer, 0);
-        step_tar_monster(&mut enemy, &mut projs);
         assert_eq!(enemy.tar_monster_state, TarMonsterState::Visible);
-        assert_eq!(enemy.wait_timer, TAR_MONSTER_VISIBLE_FRAMES);
+        assert_eq!(enemy.wait_timer, 0x5A + 1);
+        assert_eq!(enemy.dragon_script_cmd, 6);
 
-        // Wait through visible period
-        for _ in 0..TAR_MONSTER_VISIBLE_FRAMES {
-            step_tar_monster(&mut enemy, &mut projs);
+        // ASM unk_32264 alternates linked-child toggles with DBF waits
+        // $05, $0A, $07 and $32 before dispatching attack at offset $16.
+        for wait in [0x5A + 1, 0x05 + 1, 0x0A + 1, 0x07 + 1, 0x32 + 1] {
+            for _ in 0..wait {
+                step_tar_monster(&mut enemy, &mut projs);
+            }
         }
-        step_tar_monster(&mut enemy, &mut projs);
         assert_eq!(enemy.tar_monster_state, TarMonsterState::Attacking);
         assert_eq!(enemy.wait_timer, TAR_MONSTER_ATTACK_FRAMES);
+        assert_eq!(enemy.dragon_script_cmd, 24);
 
-        // During attack, a glob shot fires at frame 8
         projs.clear();
         for _ in 0..TAR_MONSTER_ATTACK_FRAMES {
             step_tar_monster(&mut enemy, &mut projs);
         }
-        assert_eq!(projs.len(), 1, "glob shot should fire during attack");
-        assert_ne!(projs[0].x_velocity, 0, "glob shot has horizontal velocity");
-
-        step_tar_monster(&mut enemy, &mut projs);
-        assert_eq!(enemy.tar_monster_state, TarMonsterState::Submerging);
-        assert_eq!(
-            enemy.wait_timer,
-            TAR_MONSTER_SUBMERGE_FRAMES
-                + tar_monster_post_submerge_hold_loc_32454().hibernate_frames,
-            "ASM Tar_Monster.asm loc_32454 keeps the parent in the post-submerge hold after stru_3274C finishes"
-        );
-
-        // Wait through submerge animation plus loc_32454 post-submerge DBF hold.
-        for _ in 0..TAR_MONSTER_SUBMERGE_FRAMES
-            + tar_monster_post_submerge_hold_loc_32454().hibernate_frames
-        {
-            step_tar_monster(&mut enemy, &mut projs);
-        }
-        step_tar_monster(&mut enemy, &mut projs);
-        assert_eq!(enemy.tar_monster_state, TarMonsterState::Submerged);
-        assert_eq!(enemy.wait_timer, TAR_MONSTER_SUBMERGED_FRAMES);
+        assert_eq!(projs.len(), 1, "ASM loc_3231C allocates one straight glob");
+        assert_eq!(enemy.tar_monster_state, TarMonsterState::Visible);
+        assert_eq!(enemy.wait_timer, 0x1E + 1);
+        assert_eq!(enemy.dragon_script_cmd, 28);
     }
 
     #[test]

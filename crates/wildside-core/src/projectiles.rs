@@ -1262,19 +1262,29 @@ fn projectile_terrain_contact_loc_3345c(
         projectile.kind,
         EnemyProjectileKind::TankBullet | EnemyProjectileKind::TarMonsterStraightGlob
     ) {
-        // ASM CollisionSize_Index object meta 3 (Tank bullet) and 5 (Tar glob)
-        // both select unk_314D0
-        // (-5,+10,-31,+31). GfxObjects_Collision scans the full box against
-        // level collision, including ordinary solid terrain without a block
-        // object; loc_3B7BA deletes the worker after any non-zero result.
-        const LEFT: i32 = -5;
-        const RIGHT: i32 = 5;
-        const TOP: i32 = -31;
-        const BOTTOM: i32 = 0;
-        let left_col = terrain::pixel_to_cell(px_i + LEFT).max(0) as u16;
-        let right_col = terrain::pixel_to_cell(px_i + RIGHT).max(0) as u16;
-        let top_row = terrain::pixel_to_cell(py_i + TOP).max(0) as u16;
-        let bottom_row = terrain::pixel_to_cell(py_i + BOTTOM).max(0) as u16;
+        // ASM GfxObjects_Collision indexes CollisionSize_Index with the live
+        // sprite link in `$22`, not object_meta. Tar loc_3247E installs
+        // LnkTo_unk_C781E at offset $06E4; entry 441 selects unk_316AC
+        // (-4,+8,-4,+8). Tank keeps its established unk_314D0 box.
+        let (left, right, top, bottom) =
+            if projectile.kind == EnemyProjectileKind::TarMonsterStraightGlob {
+                (-4, 4, -4, 4)
+            } else {
+                (-5, 5, -31, 0)
+            };
+        if px_i + left < 0
+            || px_i + right >= grid.width_pixels()
+            || py_i + top < 0
+            || py_i + bottom >= grid.height_pixels()
+        {
+            // ASM GfxObjects_Collision_ChkBoundaries routes any hitbox edge
+            // outside Level_width/height_pixels to a non-zero collision type.
+            return true;
+        }
+        let left_col = terrain::pixel_to_cell(px_i + left).max(0) as u16;
+        let right_col = terrain::pixel_to_cell(px_i + right).max(0) as u16;
+        let top_row = terrain::pixel_to_cell(py_i + top).max(0) as u16;
+        let bottom_row = terrain::pixel_to_cell(py_i + bottom).max(0) as u16;
         return (top_row..=bottom_row).any(|row| {
             (left_col..=right_col).any(|col| {
                 matches!(
@@ -1359,20 +1369,22 @@ mod terrain_contact_tests {
     use super::*;
 
     #[test]
-    fn tar_monster_glob_uses_full_meta_five_box_unk_314d0() {
+    fn tar_monster_glob_uses_sprite_link_box_unk_316ac() {
         let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
         grid.set_cell_at(1, 1, terrain::Cell::from_be_bytes(0x60, 0x00));
         let projectile = EnemyProjectile {
             x_pos: 32 << 16,
-            y_pos: 32 << 16,
+            y_pos: 40 << 16,
             kind: EnemyProjectileKind::TarMonsterStraightGlob,
             ..Default::default()
         };
 
         assert!(
-            projectile_terrain_contact_loc_3345c(&grid, &projectile),
-            "ASM Tar_Monster.asm loc_3247E writes object_meta 5; CollisionSize_Index maps it to unk_314D0, whose top edge reaches the solid row above the glob origin",
+            !projectile_terrain_contact_loc_3345c(&grid, &projectile),
+            "ASM loc_3247E's LnkTo_unk_C781E offset $06E4 maps to CollisionSize_Index entry 441/unk_316AC, so a tile 9px above the glob is outside its box",
         );
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0x60, 0x00));
+        assert!(projectile_terrain_contact_loc_3345c(&grid, &projectile));
     }
 }
 
@@ -3249,10 +3261,16 @@ impl NativeRuntime {
             let is_ufo_first_hurt_debris = p.kind == EnemyProjectileKind::UfoFirstHurtDebris;
             let is_tar_monster_burst_child =
                 p.kind == EnemyProjectileKind::TarMonsterBurstChild;
+            let is_tar_monster_straight_glob =
+                p.kind == EnemyProjectileKind::TarMonsterStraightGlob;
             let tar_monster_burst_child_initialising =
                 is_tar_monster_burst_child && p.animation_elapsed_frames == 1;
             let tar_monster_byte_19_nonzero = camera.is_some_and(|camera| {
+                let screen_y = ((p.y_pos >> 16) as u16)
+                    .wrapping_sub((camera.y_pos >> 16) as u16)
+                    .wrapping_sub(6) as i16;
                 archer_arrow_outside_horizontal_sprite_bounds_loc_11b6(p.x_pos, camera.x_pos)
+                    || !(-0x80..=0x160).contains(&screen_y)
             });
             if tar_monster_burst_child_initialising {
                 // ASM loc_325E6 owns the first callback after loc_324F8's raw
@@ -3377,6 +3395,12 @@ impl NativeRuntime {
                 && !is_boss_eye_pop_effect
                 && !is_boss_skewer
                 && !is_shooter_block
+                // ASM Tar_Monster.asm loc_324E6 loops until collision or the
+                // GfxObject `$19` out-of-range flag, with no DBF lifetime.
+                && !is_tar_monster_straight_glob
+                // ASM Tar_Monster.asm loc_3263C likewise loops until `$19` or
+                // loc_32682 spends its collision-response budget.
+                && !is_tar_monster_burst_child
                 && p.lifetime == 0
             {
                 if p.kind == EnemyProjectileKind::DripsSurfaceCrawlerFinish {
@@ -3421,8 +3445,12 @@ impl NativeRuntime {
                 // ASM Process_ShooterObjects/loc_EDFA has no DBF lifetime; the
                 // bullet dies only on a collidable cell or the level edge.
                 && !is_shooter_block
+                // ASM Tar_Monster.asm loc_3263C has no DBF lifetime.
+                && !is_tar_monster_burst_child
             {
-                p.lifetime -= 1;
+                // Tar Monster uses this native field only as an initialisation
+                // age marker. loc_324E6 keeps looping after it reaches zero.
+                p.lifetime = p.lifetime.saturating_sub(1);
             }
             if is_robot_shot {
                 // ASM Robot.asm loc_3AC0C initialises `stru_3A754`; loc_3AC48
@@ -3973,24 +4001,39 @@ impl NativeRuntime {
                 }
             }
 
-            if p.kind == EnemyProjectileKind::TarMonsterStraightGlob
-                // ASM loc_3231C allocates the Object worker, then loc_32468
-                // initialises its GfxObject on the worker's later scheduler
-                // pass. The first loc_324E6 hibernate therefore cannot consume
-                // a same-pass terrain collision latch.
-                && p.lifetime < 119
-            {
-                let collision_type = u16::from(
-                    grid.is_some_and(|grid| projectile_terrain_contact_loc_3345c(grid, p)),
-                );
+            if p.kind == EnemyProjectileKind::TarMonsterStraightGlob {
+                let collision_latched = p.tar_monster_collision_response_budget == u16::MAX;
+                let collision_now =
+                    grid.is_some_and(|grid| projectile_terrain_contact_loc_3345c(grid, p));
+                if p.lifetime == 119 {
+                    // ASM loc_3231C allocates the Object worker early enough
+                    // for loc_32468 to initialise its GfxObject in the same
+                    // Object_RAM scan. loc_324E6 hibernates before consuming
+                    // collision, but the later GfxObjects_Collision pass can
+                    // already latch terrain for the next frame's wake.
+                    if collision_now || tar_monster_byte_19_nonzero {
+                        p.tar_monster_collision_response_budget = u16::MAX;
+                    }
+                    return true;
+                }
                 // ASM Make_SpriteFromGfxObject loc_11B6 clears `$19` only for
                 // an in-range sprite. loc_324E6 falls through to loc_324F8
                 // when the off-screen glob wakes with that byte still set.
-                let wait =
-                    tar_monster_shot_wait_loc_324E6(collision_type, tar_monster_byte_19_nonzero);
+                let wait = tar_monster_shot_wait_loc_324E6(
+                    u16::from(collision_latched),
+                    collision_latched && tar_monster_byte_19_nonzero,
+                );
                 debug_assert!(wait.hibernates_one_frame);
                 match wait.route {
-                    TarMonsterShotWaitRouteLoc324E6::ContinueLoop => return true,
+                    TarMonsterShotWaitRouteLoc324E6::ContinueLoop => {
+                        if collision_now || tar_monster_byte_19_nonzero {
+                            // Gfx collision/sprite compilation happens after
+                            // this Object callback. Preserve its result for
+                            // the next frame's loc_324E6 wake.
+                            p.tar_monster_collision_response_budget = u16::MAX;
+                        }
+                        return true;
+                    }
                     TarMonsterShotWaitRouteLoc324E6::BurstCleanup => {
                         // ASM Tar_Monster.asm loc_324E6 -> loc_324F8: once the
                         // straight glob's collision word is non-zero, hide/delete the
@@ -4424,6 +4467,11 @@ impl NativeRuntime {
                 // visual/terrain-collision child, not a Kid damage worker.
                 return true;
             }
+            if p.kind == EnemyProjectileKind::TarMonsterBurstChild {
+                // ASM loc_3261C sets `$3D`, which makes
+                // GfxObjects_CollisionKid skip these burst workers.
+                return true;
+            }
             if drips_surface_crawler_suppresses_kid_contact_loc_335d8(p) {
                 // ASM Drips.asm loc_335D8 finishes `stru_33FA6` before
                 // `st is_moved(a3)`, then loc_33650 yields once before its
@@ -4512,6 +4560,12 @@ impl NativeRuntime {
                             .saturating_add(1);
                         p.lifetime = 0;
                     }
+                    true
+                } else if p.kind == EnemyProjectileKind::TarMonsterStraightGlob {
+                    // ASM GfxObjects_CollisionKid treats zero `$3D` as
+                    // enabled. loc_3247E leaves it clear, so preserve the glob
+                    // and let loc_324E6 consume collision_type next frame.
+                    p.tar_monster_collision_response_budget = u16::MAX;
                     true
                 } else if p.kind == EnemyProjectileKind::FireDemonDeathTrail
                     || p.kind == EnemyProjectileKind::FireballTrail
@@ -4613,6 +4667,17 @@ fn projectile_overlaps_player_loc_1c18(
 ) -> bool {
     let prx = (projectile.x_pos >> 16) as i32;
     let pry = (projectile.y_pos >> 16) as i32;
+    if projectile.kind == EnemyProjectileKind::TarMonsterStraightGlob {
+        // ASM loc_3247E uses LnkTo_unk_C781E; CollisionSize_Index entry
+        // 441/unk_316AC is left -4, width 8, top -4, height 8.
+        return inclusive_bounds_overlap_loc_1bce(
+            prx - 4,
+            prx + 4,
+            pry - 4,
+            pry + 4,
+            player_bounds,
+        );
+    }
     if projectile.kind == EnemyProjectileKind::LionProjectile {
         // ASM Lion.asm loc_3E12A uses `stru_3DF34`, whose frames
         // LnkTo_unk_C7E20/C7E28/C7E30 map via CollisionSize_Index[667..669]

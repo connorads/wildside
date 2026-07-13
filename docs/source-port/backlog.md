@@ -35,10 +35,10 @@ must validate. The `Check` names the symptom and action directly; vague fallback
 - **Source-port visual ratchet:** `1p-accurate` renders Level 0 frames 0, 30, 60, and 120 through the source-port renderer against jgenesis with exact state, no masking, MAE 0.000, and zero changed pixels. The gate now requires exact pixels.
 - **Visual confidence boundary:** #375 is resolved for those four settled-warp checkpoints only. This is not cold-boot or whole-game pixel parity. The older `frame_oracle:*` steps compare wildside-md ROM VDP output with jgenesis, not source-port pixels.
 - **Full published-route evidence:** all 37,759 requested player/camera CRC frames match oracle. The complete RNG stream also matches on all 37,743 post-`Init_RNG` frames, including the offset and all 55 ring bytes on every frame. The gameplay and enemy-frontier passes compare every one of the 37,759 frames with zero authoritative, advisory, accumulation, RNG, oracle-limitation, or enemy-roster differences. This is exact CRC, RNG, exported gameplay state, and enemy-roster evidence on one route, not whole-RAM, render, audio, every-input, or whole-game equality.
-- **Whole-level sweep boundary:** canonical report `1783908515` is 47/69 pass with 106 blocking differences, 3 advisory differences, and 56 oracle limitations. #400 restores Tar Monster parent/projectile workers; #401 aligns the opening script, full collision box, delayed Gfx allocation, and `$19` off-screen cleanup. Levels 0x46 and 0x51 remain authoritative-exact and Level 0x64 loses another blocker. This is still two idle checkpoints per sweepable level, not full-route or every-input proof.
+- **Whole-level sweep boundary:** canonical report `1783914264` is 47/69 pass with 106 blocking differences, 3 advisory differences, and 56 oracle limitations. #402 corrects #401's coarse Tar Monster model with the real `unk_32264` cursor, 28-frame animations, `unk_316AC` glob collision box, and prior-pass collision latch. Levels 0x46 and 0x51 remain authoritative-exact. This is still two idle checkpoints per sweepable level, not full-route or every-input proof.
 - **Check tightening:** insta snapshots re-homed to `src/tests/snapshots/` with real (unredacted) values; `asm-coverage --check-no-new-test-only` now fails on stale baseline entries (45 re-banked, 241 -> 196); advisory-masking prose retired from CLAUDE.md/methodology.md.
 - **Current awaiting-human P0s:** #210 rapid title/menu skip, #370 Dragon breath respawn, and #374 named later-level spawn parity.
-- **Current work:** no ready/open risk remains. Run `mise run project-status`; if it stays empty, take the next proactive-verification fallback from report `1783908515`.
+- **Current work:** #403 - Level 0x64 matches the Tar control script and opening allocations through frame 134, then its `loc_3263C` burst-child collision and `$19` cleanup schedule diverges from oracle.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -60,3 +60,4 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 403 | [ ] | P2 | enemy/fidelity | Align Tar Monster `loc_3263C` burst-child collision responses and `$19` cleanup after the exact opening allocations. | Level 0x64 frames 134-359 |

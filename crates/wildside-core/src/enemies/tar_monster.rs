@@ -1,21 +1,17 @@
 use super::*;
 
-/// Emerge animation duration (`stru_3272E`: 7 frames, delay 4 means 5 ticks each).
-pub(crate) const TAR_MONSTER_EMERGE_FRAMES: u16 = 35;
-/// Visible hold before attack sequence ($32 = 50 frames from bytecode).
-pub(crate) const TAR_MONSTER_VISIBLE_FRAMES: u16 = 50;
+/// Emerge animation duration (`stru_3272E`: seven four-frame entries).
+pub(crate) const TAR_MONSTER_EMERGE_FRAMES: u16 = 28;
 /// Attack sequence duration. ASM loc_32310/loc_3231C/loc_32348/loc_32360:
 /// three `moveq #8,d0` + `dbf` loops, so each phase lasts 9 frames.
 pub(crate) const TAR_MONSTER_ATTACK_FRAMES: u16 = 27;
 /// Zero-based elapsed frame index for the glob shot. ASM loc_3231C fires after
 /// the first 9-frame `dbf` loop, which is elapsed frame 8 in the native countdown.
 pub(crate) const TAR_MONSTER_ATTACK_FIRE_FRAME: u16 = 8;
-/// Submerge animation duration (24 frames, reverse of emerge).
-pub(crate) const TAR_MONSTER_SUBMERGE_FRAMES: u16 = 24;
+/// Submerge animation duration (`stru_3274C`: seven four-frame entries).
+pub(crate) const TAR_MONSTER_SUBMERGE_FRAMES: u16 = 28;
 /// Horizontal glob shot speed: ±4px/frame (Tar_Monster.asm line 316: $FFFC = -4).
 pub(crate) const TAR_MONSTER_GLOB_SPEED_X: i32 = 4 << 16;
-/// Glob gravity: $1000/frame (Tar_Monster.asm line 412).
-pub(crate) const TAR_MONSTER_GLOB_GRAVITY: i32 = 0x1000;
 /// ASM loc_32534: final three child velocities in the Tar Monster burst sequence.
 pub(crate) const TAR_MONSTER_BURST_TAIL_VELOCITIES_LOC_32534: [(i32, i32); 3] = [
     (0x0_8000, -0x2_0000),
@@ -35,9 +31,26 @@ pub(crate) const TAR_MONSTER_BURST_BLOB_VELOCITIES_LOC_324F8: [(i32, i32); 5] = 
 /// 16-bit step command in the native script interpreter.
 pub(crate) const TAR_MONSTER_CONTROL_BYTES_LOC_32248: [u8; 44] = [
     0x00, 0x04, 0x00, 0x10, 0x5A, 0x00, 0x00, 0x10, 0x05, 0x00, 0x00, 0x10, 0x0A, 0x00, 0x00, 0x10,
-    0x07, 0x00, 0x00, 0x10, 0x32, 0x00, 0x00, 0x10, 0x00, 0x0A, 0x00, 0x00, 0x08, 0x46, 0x00, 0x00,
-    0x0C, 0x00, 0x00, 0x04, 0x14, 0x00, 0x00, 0x08, 0x46, 0x00, 0xFF, 0xFF,
+    0x07, 0x00, 0x00, 0x10, 0x32, 0x00, 0x00, 0x14, 0x00, 0x10, 0x1E, 0x00, 0x00, 0x08, 0x46, 0x00,
+    0x00, 0x0C, 0x00, 0x04, 0x14, 0x00, 0x00, 0x08, 0x46, 0x00, 0xFF, 0xFF,
 ];
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub(crate) enum TarMonsterScriptCommandLoc32256 {
+    Wait { dbf_seed: u8 },
+    Appear,
+    Disappear,
+    ToggleDirection,
+    ToggleLinkedChild,
+    Attack,
+    Restart,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub(crate) struct TarMonsterScriptStepLoc32256 {
+    pub(crate) command: TarMonsterScriptCommandLoc32256,
+    pub(crate) next_offset: u8,
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) enum TarMonsterLoc32290Target {
@@ -176,18 +189,6 @@ pub(crate) enum TarMonsterDeathStatusRouteLoc3243A {
 pub(crate) struct TarMonsterDeathStatusUpdateLoc3243A {
     pub(crate) route: TarMonsterDeathStatusRouteLoc3243A,
     pub(crate) deletes_current_object: bool,
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub(crate) struct TarMonsterPostSubmergeHoldLoc32454 {
-    pub(crate) child_visible_during_animation: bool,
-    pub(crate) animation_label: &'static str,
-    pub(crate) hibernate_until_animation_finished: bool,
-    pub(crate) dbf_seed: u16,
-    pub(crate) hibernate_frames: u16,
-    pub(crate) checks_object_range_each_frame: bool,
-    pub(crate) polls_collision_each_frame: bool,
-    pub(crate) restarts_control_script: bool,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -426,6 +427,49 @@ pub(crate) fn tar_monster_loc_32256(raw_command: i16) -> TarMonsterLoc32256Retur
     }
 }
 
+/// Decode one word from `unk_32264`, preserving the ROM's byte-addressed cursor.
+pub(crate) fn tar_monster_script_step_loc_32256(offset: u8) -> TarMonsterScriptStepLoc32256 {
+    let offset = usize::from(offset);
+    let bytes = TAR_MONSTER_CONTROL_BYTES_LOC_32248
+        .get(offset..offset + 2)
+        .expect("Tar Monster script cursor must address a complete word");
+    let raw_command = i16::from_be_bytes([bytes[0], bytes[1]]);
+    let route = tar_monster_loc_32256(raw_command).route;
+    let command = match route {
+        TarMonsterLoc32256Route::Restart => TarMonsterScriptCommandLoc32256::Restart,
+        TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322A8) => {
+            TarMonsterScriptCommandLoc32256::Wait { dbf_seed: bytes[0] }
+        }
+        TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322BC) => {
+            TarMonsterScriptCommandLoc32256::Appear
+        }
+        TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322DA) => {
+            TarMonsterScriptCommandLoc32256::Disappear
+        }
+        TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322FC) => {
+            TarMonsterScriptCommandLoc32256::ToggleDirection
+        }
+        TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc32308) => {
+            TarMonsterScriptCommandLoc32256::ToggleLinkedChild
+        }
+        TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc32310) => {
+            TarMonsterScriptCommandLoc32256::Attack
+        }
+        TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Invalid(command)) => {
+            panic!("invalid Tar Monster script command byte offset {command:#04x}")
+        }
+    };
+
+    TarMonsterScriptStepLoc32256 {
+        command,
+        next_offset: if command == TarMonsterScriptCommandLoc32256::Restart {
+            0
+        } else {
+            (offset + 2) as u8
+        },
+    }
+}
+
 #[allow(non_snake_case)]
 pub(crate) fn tar_monster_wait_loop_loc_322aa(
     d0_after_loc_322a8: u16,
@@ -587,23 +631,6 @@ pub(crate) fn tar_monster_death_status_update_loc_3243A(
     TarMonsterDeathStatusUpdateLoc3243A {
         route,
         deletes_current_object: true,
-    }
-}
-
-#[allow(non_snake_case)]
-pub(crate) fn tar_monster_post_submerge_hold_loc_32454() -> TarMonsterPostSubmergeHoldLoc32454 {
-    // ASM loc_32454: after hiding the child and waiting for `stru_3274C`, d0
-    // starts at `$50`; the one-frame hibernate/range/collision loop is DBF
-    // inclusive and then branches back to loc_32248.
-    TarMonsterPostSubmergeHoldLoc32454 {
-        child_visible_during_animation: false,
-        animation_label: "stru_3274C",
-        hibernate_until_animation_finished: true,
-        dbf_seed: 0x50,
-        hibernate_frames: 0x51,
-        checks_object_range_each_frame: true,
-        polls_collision_each_frame: true,
-        restarts_control_script: true,
     }
 }
 
@@ -1164,7 +1191,9 @@ pub(crate) fn step_tar_monster_with_sounds(
                     y_pos: spawn.y_pos,
                     x_velocity: motion.x_velocity,
                     lifetime: 120,
-                    gravity: TAR_MONSTER_GLOB_GRAVITY,
+                    // ASM loc_324D0 sets only x_vel. The `$1000` gravity at
+                    // loc_3263C belongs to burst children, not this glob.
+                    gravity: 0,
                     kind: EnemyProjectileKind::TarMonsterStraightGlob,
                     tar_monster_collision_response_budget: setup.collision_response_budget,
                     ..Default::default()
@@ -1172,78 +1201,61 @@ pub(crate) fn step_tar_monster_with_sounds(
             }
         }
         enemy.wait_timer -= 1;
-        return;
+        if enemy.wait_timer > 0 {
+            return;
+        }
+        match enemy.tar_monster_state {
+            TarMonsterState::Emerging => enemy.tar_monster_state = TarMonsterState::Visible,
+            TarMonsterState::Attacking => enemy.tar_monster_state = TarMonsterState::Visible,
+            TarMonsterState::Submerging => enemy.tar_monster_state = TarMonsterState::Submerged,
+            TarMonsterState::Submerged | TarMonsterState::Visible => {}
+        }
     }
-    match enemy.tar_monster_state {
-        TarMonsterState::Submerged => {
-            let dispatch = tar_monster_loc_32256(0x0004);
-            debug_assert_eq!(
-                dispatch.route,
-                TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322BC)
-            );
-            let sound = tar_monster_appear_sound_loc_322c0();
-            debug_assert_eq!(sound.sound_effect_label, "sfx_Tar_Monster_appears");
-            debug_assert!(sound.preserves_script_command_d0);
-            // ASM Tar_Monster.asm loc_322BC falls through loc_322C0 to play
-            // the appear cue at the start of the appear sequence.
-            played_sound_effects.push(QueuedSoundEffect::TarMonsterAppears);
-            let animation = tar_monster_appear_animation_loc_322c8();
-            debug_assert_eq!(animation.animation_label, "stru_3272E");
-            debug_assert!(animation.hibernate_until_animation_finished);
-            debug_assert!(animation.resumes_control_script);
-            enemy.tar_monster_state = TarMonsterState::Emerging;
-            enemy.wait_timer = animation.animation_frames;
-        }
-        TarMonsterState::Emerging => {
-            let dispatch = tar_monster_loc_32256(0x000C);
-            debug_assert_eq!(
-                dispatch.route,
-                TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322FC)
-            );
-            // ASM Tar_Monster.asm loc_322FC does not run until after the first
-            // attack/disappear branch in `unk_32264`. The opening loc_32310
-            // shot therefore preserves the init direction.
-            enemy.tar_monster_state = TarMonsterState::Visible;
-            let visible_hold = tar_monster_wait_loop_loc_322aa(TAR_MONSTER_VISIBLE_FRAMES);
-            debug_assert!(visible_hold.checks_object_range_each_frame);
-            debug_assert!(visible_hold.polls_collision_each_frame);
-            debug_assert_eq!(visible_hold.next_collision_type, 0);
-            debug_assert_eq!(
-                visible_hold.hibernate_frames,
-                u32::from(TAR_MONSTER_VISIBLE_FRAMES) + 1
-            );
-            // ASM loc_322AA counts the transition frame as an inclusive DBF
-            // hibernate; native stores the pre-transition countdown only.
-            enemy.wait_timer = visible_hold.hibernate_frames.saturating_sub(1) as u16;
-        }
-        TarMonsterState::Visible => {
-            enemy.tar_monster_state = TarMonsterState::Attacking;
-            enemy.wait_timer = TAR_MONSTER_ATTACK_FRAMES;
-        }
-        TarMonsterState::Attacking => {
-            let dispatch = tar_monster_loc_32256(0x0008);
-            debug_assert_eq!(
-                dispatch.route,
-                TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322DA)
-            );
-            // ASM Tar_Monster.asm loc_322DA plays
-            // `sfx_Tar_Monster_disappears` before the submerge animation.
-            played_sound_effects.push(QueuedSoundEffect::TarMonsterDisappears);
-            enemy.tar_monster_state = TarMonsterState::Submerging;
-            let post_submerge = tar_monster_post_submerge_hold_loc_32454();
-            debug_assert!(!post_submerge.child_visible_during_animation);
-            debug_assert_eq!(post_submerge.animation_label, "stru_3274C");
-            debug_assert!(post_submerge.hibernate_until_animation_finished);
-            debug_assert_eq!(post_submerge.dbf_seed, 0x50);
-            debug_assert_eq!(post_submerge.hibernate_frames, 0x51);
-            debug_assert!(post_submerge.checks_object_range_each_frame);
-            debug_assert!(post_submerge.polls_collision_each_frame);
-            debug_assert!(post_submerge.restarts_control_script);
-            enemy.wait_timer = TAR_MONSTER_SUBMERGE_FRAMES + post_submerge.hibernate_frames;
-        }
-        TarMonsterState::Submerging => {
-            enemy.tar_monster_state = TarMonsterState::Submerged;
-            enemy.wait_timer = TAR_MONSTER_SUBMERGED_FRAMES;
+
+    // ASM loc_32256 runs immediate commands back-to-back until a wait or
+    // animation hibernates. `dragon_script_cmd` stores the byte offset in
+    // `unk_32264`, not a dense command index.
+    loop {
+        let step = tar_monster_script_step_loc_32256(enemy.dragon_script_cmd);
+        enemy.dragon_script_cmd = step.next_offset;
+        match step.command {
+            TarMonsterScriptCommandLoc32256::Wait { dbf_seed } => {
+                let wait = tar_monster_wait_loop_loc_322aa(u16::from(dbf_seed));
+                enemy.wait_timer = wait.hibernate_frames as u16;
+                return;
+            }
+            TarMonsterScriptCommandLoc32256::Appear => {
+                let sound = tar_monster_appear_sound_loc_322c0();
+                debug_assert_eq!(sound.sound_effect_label, "sfx_Tar_Monster_appears");
+                // ASM loc_322BC/loc_322C0 plays the cue before `stru_3272E`.
+                played_sound_effects.push(QueuedSoundEffect::TarMonsterAppears);
+                let animation = tar_monster_appear_animation_loc_322c8();
+                debug_assert_eq!(animation.animation_label, "stru_3272E");
+                enemy.tar_monster_state = TarMonsterState::Emerging;
+                enemy.wait_timer = animation.animation_frames;
+                return;
+            }
+            TarMonsterScriptCommandLoc32256::Disappear => {
+                // ASM loc_322DA hides the linked child and runs `stru_3274C`.
+                played_sound_effects.push(QueuedSoundEffect::TarMonsterDisappears);
+                enemy.tar_monster_state = TarMonsterState::Submerging;
+                enemy.wait_timer = TAR_MONSTER_SUBMERGE_FRAMES;
+                return;
+            }
+            TarMonsterScriptCommandLoc32256::ToggleDirection => {
+                // ASM loc_322FC toggles both the body and linked child direction.
+                enemy.facing = opposite_direction(enemy.facing);
+            }
+            TarMonsterScriptCommandLoc32256::ToggleLinkedChild => {
+                // ASM loc_32308 toggles only `$13(a2)`. Native represents the
+                // linked sprite and parent as one Tar Monster render phase.
+            }
+            TarMonsterScriptCommandLoc32256::Attack => {
+                enemy.tar_monster_state = TarMonsterState::Attacking;
+                enemy.wait_timer = TAR_MONSTER_ATTACK_FRAMES;
+                return;
+            }
+            TarMonsterScriptCommandLoc32256::Restart => {}
         }
     }
 }
@@ -1411,6 +1423,49 @@ mod tests {
             TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Invalid(5)),
             "ASM Tar_Monster.asm loc_32256 uses the command low byte as a byte offset into a longword table, not as a dense target index"
         );
+    }
+
+    #[test]
+    fn tar_monster_script_decoder_preserves_unk_32264_words_and_byte_offsets() {
+        use TarMonsterScriptCommandLoc32256 as Command;
+
+        let expected = [
+            (0, Command::Appear),
+            (2, Command::ToggleLinkedChild),
+            (4, Command::Wait { dbf_seed: 0x5A }),
+            (6, Command::ToggleLinkedChild),
+            (8, Command::Wait { dbf_seed: 0x05 }),
+            (10, Command::ToggleLinkedChild),
+            (12, Command::Wait { dbf_seed: 0x0A }),
+            (14, Command::ToggleLinkedChild),
+            (16, Command::Wait { dbf_seed: 0x07 }),
+            (18, Command::ToggleLinkedChild),
+            (20, Command::Wait { dbf_seed: 0x32 }),
+            (22, Command::Attack),
+            (24, Command::ToggleLinkedChild),
+            (26, Command::Wait { dbf_seed: 0x1E }),
+            (28, Command::Disappear),
+            (30, Command::Wait { dbf_seed: 0x46 }),
+            (32, Command::ToggleDirection),
+            (34, Command::Appear),
+            (36, Command::Wait { dbf_seed: 0x14 }),
+            (38, Command::Disappear),
+            (40, Command::Wait { dbf_seed: 0x46 }),
+            (42, Command::Restart),
+        ];
+
+        for (offset, command) in expected {
+            let step = tar_monster_script_step_loc_32256(offset);
+            assert_eq!(step.command, command, "ASM unk_32264 byte offset {offset}");
+            assert_eq!(
+                step.next_offset,
+                if command == Command::Restart {
+                    0
+                } else {
+                    offset + 2
+                }
+            );
+        }
     }
 
     #[test]
@@ -1645,24 +1700,6 @@ mod tests {
                 decrement: 0x0400,
             },
             "ASM Tar_Monster.asm loc_3243A receives the bit-6 path after subtracting `$400` from EnemyStatus_Table[d0 & $3F]"
-        );
-    }
-
-    #[test]
-    fn tar_monster_post_submerge_hold_loc_32454_uses_inclusive_dbf_wait() {
-        assert_eq!(
-            tar_monster_post_submerge_hold_loc_32454(),
-            TarMonsterPostSubmergeHoldLoc32454 {
-                child_visible_during_animation: false,
-                animation_label: "stru_3274C",
-                hibernate_until_animation_finished: true,
-                dbf_seed: 0x50,
-                hibernate_frames: 0x51,
-                checks_object_range_each_frame: true,
-                polls_collision_each_frame: true,
-                restarts_control_script: true,
-            },
-            "ASM Tar_Monster.asm loc_32454 starts from d0=$50, so the DBF loop hibernates and polls collision for 81 frames before branching to loc_32248"
         );
     }
 
@@ -2269,8 +2306,9 @@ mod tests {
     #[test]
     fn tar_monster_sequence_queues_disappear_sound_loc_322da() {
         let mut enemy = tar_monster_test_enemy();
-        enemy.tar_monster_state = TarMonsterState::Attacking;
+        enemy.tar_monster_state = TarMonsterState::Visible;
         enemy.wait_timer = 0;
+        enemy.dragon_script_cmd = 28;
         let mut projectiles = Vec::new();
         let mut sound_effects = Vec::new();
 
@@ -2312,7 +2350,7 @@ mod tests {
                 x_velocity: TAR_MONSTER_GLOB_SPEED_X,
                 y_velocity: 0,
                 lifetime: 120,
-                gravity: TAR_MONSTER_GLOB_GRAVITY,
+                gravity: 0,
                 friendly: false,
                 homing_accel: 0,
                 speed_cap: 0,
@@ -2343,16 +2381,19 @@ mod tests {
     #[test]
     fn tar_monster_attack_runs_twenty_seven_frames_per_loc_3231c() {
         let mut enemy = tar_monster_test_enemy();
+        enemy.dragon_script_cmd = 24;
         let mut projectiles = Vec::new();
 
         for _ in 0..27 {
             step_tar_monster(&mut enemy, &mut projectiles);
         }
 
-        assert_eq!(enemy.tar_monster_state, TarMonsterState::Attacking);
-        assert_eq!(enemy.wait_timer, 0);
+        assert_eq!(enemy.tar_monster_state, TarMonsterState::Visible);
+        assert_eq!(enemy.wait_timer, 0x1E + 1);
 
-        step_tar_monster(&mut enemy, &mut projectiles);
+        for _ in 0..=0x1E {
+            step_tar_monster(&mut enemy, &mut projectiles);
+        }
 
         assert_eq!(enemy.tar_monster_state, TarMonsterState::Submerging);
     }

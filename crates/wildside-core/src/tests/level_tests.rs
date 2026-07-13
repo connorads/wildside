@@ -5906,7 +5906,37 @@ mod chunk_02 {
             assert_eq!(
                 (frame.number_objects, frame.number_gfx_objects),
                 (expected_objects, expected_gfx_objects),
-                "ASM Tar_Monster.asm loc_32310 -> loc_32468 -> loc_324F8 -> loc_325E6 allocates the straight glob and its five-child terrain burst on the oracle-observed Level 0x46 frames",
+                "frame {frame_index}: ASM Tar_Monster.asm loc_32310 -> loc_32468 -> loc_324F8 -> loc_325E6 allocates the straight glob and its five-child terrain burst on the oracle-observed Level 0x46 frames",
+            );
+        }
+    }
+
+    #[test]
+    fn level64_recording_follows_tar_monster_opening_script_loc_32256_324e6() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x64)
+            .settle_recording_warp()
+            .run(&[0; 360], 360);
+        for (frame_index, expected_objects, expected_gfx_objects) in [
+            (0, 9, 12),
+            (93, 9, 12),
+            (94, 11, 14),
+            (115, 11, 14),
+            (116, 16, 14),
+            (117, 15, 18),
+            (132, 15, 18),
+            (133, 20, 18),
+            (134, 19, 22),
+        ] {
+            let frame = &trace[frame_index];
+            assert_eq!(
+                (frame.number_objects, frame.number_gfx_objects),
+                (expected_objects, expected_gfx_objects),
+                "frame {frame_index}: ASM Tar_Monster.asm unk_32264/loc_32256 reaches loc_3231C at frame 85 and loc_32468 at frame 94; loc_324E6 preserves each straight glob until its next-frame collision latch reaches loc_324F8",
             );
         }
     }
@@ -24945,6 +24975,12 @@ mod chunk_10 {
         data[off] = 0xE0;
         rt.set_block_grid(terrain::BlockGrid::from_level_layout(&data, w, h));
 
+        rt.step_projectiles();
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM loc_324E6 hibernates before the spawn-frame Gfx collision latch is consumed"
+        );
         rt.step_projectiles();
 
         assert_eq!(

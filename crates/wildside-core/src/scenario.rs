@@ -25,6 +25,12 @@ const LEVEL_SIX_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 55;
 const LEVEL_EIGHT_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 102;
 const LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 70;
 const BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 108;
+// ASM loc_74E0 plus Tar_Monster.asm unk_32264: oracle settle traces expose
+// route-specific pre-frame script ages. Level 0x46 reaches its first loc_3231C
+// shot at recording frame 109 after 55 native live passes; Level 0x64 reaches
+// the corresponding opening shot at frame 94 after 62 passes.
+const LEVEL_46_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 55;
+const LEVEL_64_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 62;
 const RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0: u16 = 179;
 const RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0: u16 = 0x08;
 const LEVEL_ZERO_RECORDING_TIMER_SECONDS_BEFORE_FRAME_0_LOC_BE82: u16 = 180;
@@ -124,6 +130,10 @@ fn recording_oracle_warp_target_live_frames(
         // target_live 47, so the recording frame-60 checkpoint needs the same
         // hidden 47-frame prefix before the normal 60 visible frames.
         BLOODY_SWAMP_RECORDING_SETTLED_WARP_LIVE_FRAMES
+    } else if level_id == LevelId(0x46) {
+        LEVEL_46_RECORDING_SETTLED_WARP_LIVE_FRAMES
+    } else if level_id == LevelId(0x64) {
+        LEVEL_64_RECORDING_SETTLED_WARP_LIVE_FRAMES
     } else {
         RECORDING_SETTLED_WARP_LIVE_FRAMES
     }
@@ -931,6 +941,16 @@ mod tests {
             recording_oracle_warp_target_live_frames(LevelId(0x3F), true),
             RECORDING_SETTLED_WARP_LIVE_FRAMES,
             "Scorpion Isle uses the default window; Archer.asm loc_33FDA timing is modelled in enemies"
+        );
+        assert_eq!(
+            recording_oracle_warp_target_live_frames(LevelId(0x46), true),
+            LEVEL_46_RECORDING_SETTLED_WARP_LIVE_FRAMES,
+            "Level 0x46 enters Tar_Monster.asm unk_32264 at the oracle-observed recording age"
+        );
+        assert_eq!(
+            recording_oracle_warp_target_live_frames(LevelId(0x64), true),
+            LEVEL_64_RECORDING_SETTLED_WARP_LIVE_FRAMES,
+            "Level 0x64 enters Tar_Monster.asm unk_32264 at the oracle-observed recording age"
         );
         assert_eq!(
             recording_oracle_warp_target_live_frames(LevelId(0x12), true),
