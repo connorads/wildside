@@ -4519,6 +4519,109 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_timeout_restart_intro_sequence_5_title_return_retains_loc_28c6_resident_vdp() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut expected_resident_vdp = None;
+        let mut observed_vdp = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(16_708) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                16_649 => {
+                    let elapsed = trace
+                        .boot_phase_elapsed
+                        .expect("frame 16649 should expose IntroSequence5 elapsed");
+                    expected_resident_vdp = runtime.intro_sub_1b850_data.as_ref().map(|data| {
+                        // ASM loc_1BA60 hibernates before sub_1C246 polls the
+                        // Start edge. The final deferred object pass advances
+                        // the resident loc_1BCD0/loc_1BE3C image twice before
+                        // loc_1C264 jumps into loc_6E2's Pal_FadeOut.
+                        vdp::build_intro_sequence_vdp_with_title_variant_at_elapsed(
+                            data,
+                            4,
+                            runtime.title_screen_region_byte,
+                            elapsed + 2,
+                            runtime.active_intro_sequence_3_roster_index,
+                        )
+                    });
+                }
+                16_650 => {
+                    assert_eq!(trace.game_mode, GameMode::TitleScreen);
+                    observed_vdp.push((frame_index, runtime.vdp_state().cloned()));
+                }
+                16_656 | 16_667 | 16_668 | 16_705..=16_707 => {
+                    observed_vdp.push((frame_index, runtime.vdp_state().cloned()));
+                }
+                _ => {}
+            }
+        }
+
+        let resident_vdp = expected_resident_vdp
+            .expect("cached generated manifest should contain IntroSequence5 data");
+        let faded_resident_vdp = |elapsed| {
+            let mut vdp = resident_vdp.clone();
+            assert!(vdp::apply_intro_title_return_fade_to_black_loc_28c6(
+                &mut vdp, elapsed,
+            ));
+            vdp
+        };
+        let title_data = runtime
+            .title_screen_data
+            .as_ref()
+            .expect("cached generated manifest should contain title-screen data");
+        let title_lineage = vdp::TitleScreenVdpLineage {
+            fresh_title_worker_lineage: true,
+            ..vdp::TitleScreenVdpLineage::default()
+        };
+        let title_base_upload =
+            vdp::build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                title_data,
+                7,
+                runtime.title_screen_region_byte,
+                None,
+                false,
+                57,
+                title_lineage,
+            );
+        let title_first_object_pass =
+            vdp::build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                title_data,
+                7,
+                runtime.title_screen_region_byte,
+                None,
+                true,
+                58,
+                title_lineage,
+            );
+        let expected_vdp = [
+            (16_650, resident_vdp.clone()),
+            (16_656, faded_resident_vdp(6)),
+            (16_667, faded_resident_vdp(17)),
+            (16_668, vdp::blank_vdp_state()),
+            (16_705, vdp::blank_vdp_state()),
+            (16_706, title_base_upload),
+            (16_707, title_first_object_pass),
+        ];
+
+        // ASM sub_1C246 -> loc_1C264 -> loc_6E2 enters Game_Mode=$2C before
+        // loc_28C6 fades the resident IntroSequence5 VDP and before loc_700
+        // clears VRAM. Frames 16650..16705 therefore retain, fade, then clear
+        // the final loc_1BA60 worker image. Load_TitleScreen's base upload and
+        // first fresh loc_E12 object pass follow on frames 16706 and 16707.
+        for ((observed_frame, observed), (expected_frame, expected)) in
+            observed_vdp.iter().zip(expected_vdp.iter())
+        {
+            assert_eq!(observed_frame, expected_frame);
+            assert!(
+                observed.as_ref() == Some(expected),
+                "ASM loc_1C264 -> loc_6E2 title-return VDP diverged at published frame {observed_frame}",
+            );
+        }
+    }
+
+    #[test]
     fn published_tas_intro_sequence_5_late_particle_roster_follows_loc_1bcd0_passes() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

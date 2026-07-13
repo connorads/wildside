@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 IntroSequence5 resident title fade)
+
+- Frame 16656 exposed the Start-driven `loc_1BA60 -> sub_1C246 -> loc_1C264
+  -> loc_6E2` timeout-restart IntroSequence5 return. Native now snapshots the
+  final deferred worker VDP, fades it through `Pal_FadeOut loc_28C6`, holds the
+  cleared VRAM black, and rejoins the fresh title loader on the proven clock.
+- Frames 16668..16708 are pixel-exact. The complete route gains 774 exact
+  frames and removes 8,797,944 changed pixel instances: 21,078 exact, 16,681
+  divergent, and 150,424,273 changed pixel instances. Gameplay, enemy,
+  player/camera CRC, and post-`Init_RNG` frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 139 is the new worst at 69,982
+  pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 early IntroSequence1 title reveal)
 
 - Frame 34275 exposed timeout-restart `sub_1B8F4 -> sub_1C246 -> loc_1C264

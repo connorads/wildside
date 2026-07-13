@@ -6151,12 +6151,17 @@ impl NativeRuntime {
     fn finish_timeout_restart_intro_sequence_5_title_return(
         &mut self,
         particle_roster_active: bool,
+        resident_vdp: Option<vdp::VdpState>,
     ) {
         let intro_return_hidden_delay =
             self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility;
         self.enter_title_screen();
         self.title_screen_intro_return_lineage =
             Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence5);
+        // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 jumps into loc_6E2 while
+        // the final loc_1BCD0/loc_1BE3C image is still resident. Pal_FadeOut
+        // loc_28C6 consumes that image before loc_700 clears VRAM.
+        self.intro_sequence_5_title_return_vdp_snapshot = resident_vdp;
         self.timeout_restart_title_intro_sequence_5_return_pending = false;
         self.hide_demo_return_title_player = true;
         self.timeout_restart_title_intro_sequence_5_pose = true;
@@ -6904,9 +6909,7 @@ impl NativeRuntime {
                 // edge is consumed there on the following outer frame, so the
                 // visible mode flip is deferred by one traced frame, not two.
                 if *pending_title_skip > 0 {
-                    let direct_intro_sequence_5_title_snapshot = if *segment == 4
-                        && !self.timeout_restart_title_intro_sequence_5_return_pending
-                    {
+                    let direct_intro_sequence_5_title_snapshot = if *segment == 4 {
                         if *pending_title_skip == 1 {
                             // ASM loc_1BA60 hibernates before polling sub_1C246.
                             // On the final deferred frame, loc_1C264 carries
@@ -6955,6 +6958,9 @@ impl NativeRuntime {
                             let particle_roster_active = *elapsed >= particle_roster_elapsed;
                             self.finish_timeout_restart_intro_sequence_5_title_return(
                                 particle_roster_active,
+                                direct_intro_sequence_5_title_snapshot
+                                    .clone()
+                                    .or_else(|| self.vdp_state.clone()),
                             );
                         } else {
                             let is_intro_sequence_1 = *segment == 0;

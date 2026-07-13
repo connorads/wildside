@@ -2173,6 +2173,29 @@ impl NativeRuntime {
                     .or_else(|| Some(vdp::blank_vdp_state()))
             }
             BootState::TitleScreen { .. }
+                if matches!(
+                    self.title_screen_intro_return_lineage,
+                    Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence5)
+                ) && self.title_screen_elapsed_frames
+                    < if self.timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay
+                    {
+                        START_SKIP_TIMEOUT_RESTART_INTRO_SEQUENCE_5_TITLE_RNG_FIRST_LIVE_ELAPSED
+                    } else {
+                        TIMEOUT_RESTART_INTRO_SEQUENCE_5_TITLE_RNG_FIRST_LIVE_ELAPSED
+                    } =>
+            {
+                self.intro_sequence_5_title_return_vdp_snapshot
+                    .clone()
+                    .and_then(|mut vdp| {
+                        vdp::apply_intro_title_return_fade_to_black_loc_28c6(
+                            &mut vdp,
+                            self.title_screen_elapsed_frames,
+                        )
+                        .then_some(vdp)
+                    })
+                    .or_else(|| Some(vdp::blank_vdp_state()))
+            }
+            BootState::TitleScreen { .. }
                 if self.title_screen_uses_intro_return_hidden_shell
                     && self.timeout_restart_title_intro_sequence_5_pose
                     && !self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry
@@ -2277,6 +2300,10 @@ impl NativeRuntime {
                         self.title_screen_intro_return_lineage,
                         Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence3)
                     );
+                    let timeout_restart_intro_sequence_5_return = matches!(
+                        self.title_screen_intro_return_lineage,
+                        Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence5)
+                    );
                     let timeout_restart_intro_sequence_1_early_return = matches!(
                         self.title_screen_intro_return_lineage,
                         Some(
@@ -2292,6 +2319,7 @@ impl NativeRuntime {
                     {
                         self.effective_title_screen_rebuild_elapsed()
                     } else if timeout_restart_intro_sequence_3_return
+                        || timeout_restart_intro_sequence_5_return
                         || later_intro_sequence_4_return
                     {
                         // ASM sub_1B93E and sub_1B988's title loaders rejoin
@@ -2307,6 +2335,7 @@ impl NativeRuntime {
                     let fresh_title_worker_lineage =
                         manual_demo_return
                             || timeout_restart_intro_sequence_3_return
+                            || timeout_restart_intro_sequence_5_return
                             || self.intro_return_load_title_screen_reveal_elapsed().is_some();
                     let fresh_title_base_upload =
                         fresh_title_worker_lineage && title_elapsed_frames == 57;

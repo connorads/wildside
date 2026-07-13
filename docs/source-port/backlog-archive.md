@@ -254,6 +254,26 @@ and 159,222,217 changed pixel instances. Gameplay, enemy, and all 37,743
 post-`Init_RNG` frames remain exact. Frame 16656 is the next near-full-screen
 frontier at 70,586 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 16656 is inside the Start-driven timeout-restart
+IntroSequence5 return. ASM `loc_1BA60 -> sub_1C246 -> loc_1C264` changes
+`Game_Mode` before `loc_6E2` runs `Pal_FadeOut loc_28C6`, clears VRAM at
+`loc_700`, and calls `Load_TitleScreen`. Native discarded the resident alley
+scene and selected completed title art immediately.
+
+Native now builds the final deferred `loc_1BCD0`/`loc_1BE3C` worker image,
+retains it unchanged for four title traces, fades its CRAM, holds cleared VRAM
+black, then rejoins the fresh title loader at the same proven effective clock
+as the byte-identical frame-6265 and frame-32063 oracle sequences. Regression
+`published_tas_timeout_restart_intro_sequence_5_title_return_retains_loc_28c6_resident_vdp`
+pins the resident image, fade, blackout, base upload, and first fresh object
+pass. Frames 16668..16708 are pixel-exact; the small earlier residue belongs to
+the existing live IntroSequence5 worker reconstruction. Full verification gains
+774 exact frames and removes 8,797,944 changed pixel instances: 21,078 exact,
+16,681 divergent, and 150,424,273 changed pixel instances. Gameplay, enemy,
+player/camera CRC, and all 37,743 post-`Init_RNG` frames remain exact. Frame 39
+remains first at 2,643 pixels; frame 139 is the new worst at 69,982 pixels, so
+#406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.
