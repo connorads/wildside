@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#397 exact RockTank Gfx-slot accounting)
+
+- Oracle `loc_14A4` traversal proved the Level 0x58 settle roster has two Kid,
+  two RockTank, and two fixed Gfx slots. `Tank_Shooting.asm loc_3B5FA` shares
+  one Object_RAM coroutine between body/turret but allocates both Gfx slots.
+- Native now collapses the pair only in `Number_Objects`; `loc_3B730` tank
+  bullets separately contribute their direct Gfx-only allocation.
+- Focused report `1783901009` makes Level 0x58 authoritative-green. Full report
+  `1783901023` improves 42/69 pass and 116 blockers to 43/69 and 114.
+- Fast verification and the full 37,759-frame CRC/RNG/gameplay/enemy-frontier
+  gate pass. NEXT: use report `1783901023` for proactive verification.
+
 ## 2026-07-13 handoff (#396 exact Flying Dragon settle lifecycle)
 
 - Interval-1 oracle tracing proved Level 0x06's opening Flying Dragon was six

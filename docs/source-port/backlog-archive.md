@@ -11,6 +11,27 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #397
+
+Opened and resolved 2026-07-13 from proactive whole-level report
+`1783899751`. Level 0x58 exported five GfxObjects against oracle six at
+`level_settle`, while all 70 focused gameplay CRC frames matched. Oracle's
+`loc_14A4` linked-list traversal at frame 60 proved the six slots were Kid's
+pair, the shooting RockTank body/turret pair, and the two fixed level slots.
+Native had collapsed the body/turret pair in both counters even though ASM
+`Tank_Shooting.asm loc_3B5FA` allocates the turret directly with
+`j_Allocate_GfxObjectSlot_a1`: the pair shares one Object_RAM coroutine but
+owns two GfxObject slots. The projection now collapses the pair only for
+`Number_Objects`. A separate regression pins `loc_3B730` bullets as Gfx-only
+workers because that callback calls `j_Load_GfxObjectSlot` without allocating
+an Object slot.
+
+Focused report `1783901009` makes Level 0x58 authoritative-green; its five
+idle-tail differences remain correctly classified as an oracle-paused
+limitation. Full report `1783901023` improves 42/69 pass and 116 blockers to
+43/69 and 114 with no new failures. `verify-slice-fast` and the full
+37,759-frame CRC/RNG/gameplay/enemy-frontier gate pass.
+
 ### #396
 
 Opened and resolved 2026-07-13 from proactive whole-level report
@@ -12718,6 +12739,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 397 | [x] | P2 | enemy/counts | RockTank body/turret pairs share one Object slot while retaining both Gfx slots; bullets remain Gfx-only workers. | Report `1783901023`: 43/69 pass, 114 blockers; see archive #397. |
 | 396 | [x] | P1 | enemy/recording | Flying Dragon recording hand-off and descent-fire Object/Gfx lifecycle match `loc_3480A`/`loc_34BAC`/`loc_34C4A`. | Report `1783899751`: 42/69 pass, 116 blockers; interval-1 frames 0-74 exact. See archive #396. |
 | 395 | [x] | P1 | trace/objects | Mountain, Cave, and Island post-load palette controllers contribute an Object slot only, matching `Load_InGame loc_11F96/loc_11FB0`. | Report `1783898144`: 40/69 pass, 118 blockers; see archive #395. |
 | 394 | [x] | P2 | Enemy/FireDemon | Recording settle restores the first live Fire Demon loader cohort's hidden Gfx animation ticks, removing the Level 0x40 frame-59 surplus trail. | Report `1783896236`: settle and idle tail exact; see archive #394. |
