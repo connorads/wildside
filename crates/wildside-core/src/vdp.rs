@@ -621,7 +621,7 @@ fn apply_intro_sequence_5_loc_1ba90_fade_to_aaa(vdp: &mut VdpState, fade_elapsed
     vdp.write_cram_words(0, &palette_buffer);
 }
 
-pub(crate) fn apply_intro_sequence_5_title_return_fade_to_black(
+pub(crate) fn apply_intro_title_return_fade_to_black_loc_28c6(
     vdp: &mut VdpState,
     title_elapsed_frames: usize,
 ) -> bool {
@@ -632,9 +632,10 @@ pub(crate) fn apply_intro_sequence_5_title_return_fade_to_black(
         }
         _ => return false,
     };
-    // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 jumps through loc_6E2.
-    // Because `$FFFFFBCE` is set, loc_6E2 runs Pal_FadeOut (loc_28C6),
-    // stepping `$FFFFF876` by `$10` per VBlank before the VRAM clear.
+    // ASM sub_1B93E/loc_1BA60 -> sub_1C246 -> loc_1C264 jump through
+    // loc_6E2. Because `$FFFFFBCE` is set, loc_6E2 runs Pal_FadeOut
+    // (loc_28C6), stepping `$FFFFF876` by `$10` per VBlank before the VRAM
+    // clear.
     apply_pal_fade_out_to_black_loc_28c6(vdp, fade_progress);
     true
 }
@@ -1637,17 +1638,17 @@ fn overlay_title_sega_text_worker_loc_1c7a0(
     elapsed: usize,
     intro_return_hidden_shell: bool,
     direct_intro_sequence_5_title_return: bool,
-    manual_demo_return: bool,
+    fresh_title_worker_lineage: bool,
 ) {
     // ASM loc_1B6AC hibernates 30 frames, loc_1B6CE reveals Chameleon for 40
     // frames, and loc_1B6DC spawns SegaText when its preserved counter reaches
     // `$1E`. The loc_1C7A0 worker then performs its own initial one-frame
     // hibernate before writing this zero-delay text in one pass.
-    let start_elapsed = if manual_demo_return {
-        // ASM loc_119D8 -> loc_6E2 -> Load_TitleScreen allocates the title
-        // objects after presenting the base title upload. Obj_TitleTextKid
-        // and Obj_TitleTextChameleon are visible on effective loader frame
-        // 58; the newly allocated loc_1C7A0 child runs on frame 59.
+    let start_elapsed = if fresh_title_worker_lineage {
+        // ASM loc_119D8 and sub_1B93E -> loc_1C264 both allocate fresh title
+        // objects after presenting the base upload. Obj_TitleTextKid and
+        // Obj_TitleTextChameleon are visible on effective loader frame 58;
+        // the newly allocated loc_1C7A0 child runs on frame 59.
         58
     } else if direct_intro_sequence_5_title_return {
         // ASM loc_1BA60 -> sub_1C246 -> Load_TitleScreen reaches the direct
@@ -2830,7 +2831,7 @@ pub(crate) struct TitleScreenVdpLineage {
     pub(crate) intro_return_hidden_shell: bool,
     pub(crate) direct_intro_sequence_5_title_return: bool,
     pub(crate) natural_intro_sequence_6_pre_ready_shell: bool,
-    pub(crate) manual_demo_return: bool,
+    pub(crate) fresh_title_worker_lineage: bool,
 }
 
 pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
@@ -2908,7 +2909,7 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
         } else {
             let title_return_first_object_frame = (lineage.direct_intro_sequence_5_title_return
                 && title_elapsed_frames == TITLE_ATTRACT_LOCK_FRAMES)
-                || (lineage.manual_demo_return && title_elapsed_frames == 58);
+                || (lineage.fresh_title_worker_lineage && title_elapsed_frames == 58);
             append_title_text_kid_sprite_loc_1b5e4(&mut sprite_entries, title_elapsed_frames);
             if !title_return_first_object_frame {
                 // ASM Load_TitleScreen allocates Obj_TitleMenu before
@@ -2926,7 +2927,7 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
             lineage.intro_return_hidden_shell,
             lineage.direct_intro_sequence_5_title_return,
             lineage.natural_intro_sequence_6_pre_ready_shell,
-            lineage.manual_demo_return,
+            lineage.fresh_title_worker_lineage,
         );
         if !lineage.natural_intro_sequence_6_pre_ready_shell {
             overlay_title_sega_text_worker_loc_1c7a0(
@@ -2934,7 +2935,7 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
                 title_elapsed_frames,
                 lineage.intro_return_hidden_shell,
                 lineage.direct_intro_sequence_5_title_return,
-                lineage.manual_demo_return,
+                lineage.fresh_title_worker_lineage,
             );
         }
     }
@@ -3162,9 +3163,9 @@ fn write_title_text_chameleon_anim_loc_1b71a(
     intro_return_hidden_shell: bool,
     direct_intro_sequence_5_title_return: bool,
     natural_intro_sequence_6_pre_ready_shell: bool,
-    manual_demo_return: bool,
+    fresh_title_worker_lineage: bool,
 ) {
-    let d3_elapsed = if manual_demo_return {
+    let d3_elapsed = if fresh_title_worker_lineage {
         // ASM Load_TitleScreen allocates a fresh Obj_TitleTextChameleon with
         // its own coroutine registers. Its first visible sub_1B71A pass must
         // start from d3=0 instead of inheriting the outer title-frame clock.
@@ -4002,7 +4003,7 @@ mod tests {
     fn intro_sequence_5_title_return_fade_to_black_honours_hold_and_fade_windows() {
         let mut hold = VdpState::new();
         hold.write_cram_words(0, &[0x0EEE, 0x0444]);
-        assert!(apply_intro_sequence_5_title_return_fade_to_black(
+        assert!(apply_intro_title_return_fade_to_black_loc_28c6(
             &mut hold, 3
         ));
         assert_eq!(
@@ -4016,7 +4017,7 @@ mod tests {
         source[0] = 0x0EEE;
         source[1] = 0x0444;
         fading.write_cram_words(0, &source);
-        assert!(apply_intro_sequence_5_title_return_fade_to_black(
+        assert!(apply_intro_title_return_fade_to_black_loc_28c6(
             &mut fading,
             4
         ));
@@ -4025,14 +4026,14 @@ mod tests {
 
         let mut second_step = VdpState::new();
         second_step.write_cram_words(0, &source);
-        assert!(apply_intro_sequence_5_title_return_fade_to_black(
+        assert!(apply_intro_title_return_fade_to_black_loc_28c6(
             &mut second_step,
             5
         ));
         let expected_second_step = expected_palette_fade(0x00E0, &source, &[0; 0x40]);
         assert_eq!(vdp_cram_words(&second_step), expected_second_step);
 
-        assert!(!apply_intro_sequence_5_title_return_fade_to_black(
+        assert!(!apply_intro_title_return_fade_to_black_loc_28c6(
             &mut fading,
             18
         ));
@@ -6509,7 +6510,7 @@ mod tests {
         let copyright_write =
             wildside_data::title_intro_glyph_write_sub_1C7F6(0, 0x67D3, 0x19, 0x19, 0x2A);
         let lineage = TitleScreenVdpLineage {
-            manual_demo_return: true,
+            fresh_title_worker_lineage: true,
             ..TitleScreenVdpLineage::default()
         };
 
@@ -6586,7 +6587,7 @@ mod tests {
                 intro_return_hidden_shell: true,
                 direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
-                manual_demo_return: false,
+                fresh_title_worker_lineage: false,
             },
         );
         assert_eq!(
@@ -6606,7 +6607,7 @@ mod tests {
                 intro_return_hidden_shell: true,
                 direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
-                manual_demo_return: false,
+                fresh_title_worker_lineage: false,
             },
         );
         assert_eq!(
@@ -6627,7 +6628,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
-                    manual_demo_return: false,
+                    fresh_title_worker_lineage: false,
                 },
             );
         assert_eq!(
@@ -6651,7 +6652,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
-                    manual_demo_return: false,
+                    fresh_title_worker_lineage: false,
                 },
             );
         assert_eq!(
@@ -6695,7 +6696,7 @@ mod tests {
                 intro_return_hidden_shell: true,
                 direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
-                manual_demo_return: false,
+                fresh_title_worker_lineage: false,
             },
         );
 
@@ -6716,7 +6717,7 @@ mod tests {
                 intro_return_hidden_shell: true,
                 direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
-                manual_demo_return: false,
+                fresh_title_worker_lineage: false,
             },
         );
 
@@ -6738,7 +6739,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
-                    manual_demo_return: false,
+                    fresh_title_worker_lineage: false,
                 },
             );
 
@@ -6779,7 +6780,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
-                    manual_demo_return: false,
+                    fresh_title_worker_lineage: false,
                 },
             );
         assert!(
@@ -6805,7 +6806,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: true,
                     natural_intro_sequence_6_pre_ready_shell: false,
-                    manual_demo_return: false,
+                    fresh_title_worker_lineage: false,
                 },
             );
         assert!(
@@ -6826,7 +6827,7 @@ mod tests {
                     intro_return_hidden_shell: true,
                     direct_intro_sequence_5_title_return: false,
                     natural_intro_sequence_6_pre_ready_shell: false,
-                    manual_demo_return: false,
+                    fresh_title_worker_lineage: false,
                 },
             );
         assert!(

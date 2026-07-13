@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 IntroSequence3 title-return VDP)
+
+- Frame 6209 exposed the timeout-restart IntroSequence3 Start return. Native
+  now carries the resident scene through `sub_1C246 -> loc_1C264 -> loc_6E2`,
+  the `Pal_FadeOut` presentations, and the cleared-VRAM blackout.
+- `Load_TitleScreen` now presents its base upload before the fresh Kid,
+  Chameleon, menu-child, and SegaText worker passes. Sampled frames across
+  6208..6273 are pixel-exact.
+- The complete route gains 339 exact frames and removes 4,596,910 changed pixel
+  instances: 16,955 exact, 20,804 divergent, and 228,731,426 changed pixel
+  instances. Gameplay, enemy, and post-`Init_RNG` frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 15577 is the next
+  near-full-screen mismatch at 71,313 pixels. NEXT: keep #406 open and trace
+  that visual frontier.
+
 ## 2026-07-13 handoff (#406 IntroSequence6 loc_1B45A phases)
 
 - Frame 28294 exposed a collapsed `sub_1B43A -> loc_1B45A` tail. Native now

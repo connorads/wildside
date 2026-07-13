@@ -5348,6 +5348,7 @@ impl NativeRuntime {
         self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry = false;
         self.intro_sequence_6_start_skip_natural_vdp_carry = None;
         self.intro_sequence_5_title_return_vdp_snapshot = None;
+        self.timeout_restart_intro_sequence_3_title_return_vdp_snapshot = None;
         self.title_screen_ready_frame = if self.frame_index < TITLE_SCREEN_READY_GLOBAL_FRAME {
             self.frame_index
                 .saturating_add(TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES)
@@ -6094,9 +6095,11 @@ impl NativeRuntime {
     }
 
     fn finish_timeout_restart_intro_sequence_3_title_return(&mut self) {
+        let resident_vdp = self.vdp_state.clone();
         self.enter_title_screen();
         self.title_screen_intro_return_lineage =
             Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence3);
+        self.timeout_restart_intro_sequence_3_title_return_vdp_snapshot = resident_vdp;
         self.timeout_restart_title_intro_sequence_3_return_pending = false;
         self.hide_demo_return_title_player = true;
         self.timeout_restart_title_intro_sequence_3_pose = true;

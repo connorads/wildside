@@ -781,6 +781,9 @@ pub struct NativeRuntime {
     /// The later intro-sequence-4 Start return reaches title mode while the
     /// carried `sub_1B988` camera hand-off is still latched.
     timeout_restart_title_intro_sequence_4_camera_carry: bool,
+    /// Resident IntroSequence3 VDP copied across `sub_1C246 -> loc_1C264` so
+    /// `loc_6E2` can present Pal_FadeOut before clearing VRAM.
+    timeout_restart_intro_sequence_3_title_return_vdp_snapshot: Option<vdp::VdpState>,
     /// The later Start-skip intro-return lineage reaches the same
     /// `sub_1C246 -> Game_Mode=$2C` hand-off, but oracle keeps the rebuilt
     /// title pose hidden for one extra frame before the standard title pose
@@ -1440,6 +1443,7 @@ impl NativeRuntime {
             demo_title_snapshot_object_counts: None,
             timeout_restart_title_intro_sequence_3_pose: false,
             timeout_restart_title_intro_sequence_4_camera_carry: false,
+            timeout_restart_intro_sequence_3_title_return_vdp_snapshot: None,
             timeout_restart_title_intro_sequence_5_pose: false,
             timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay: false,
             timeout_restart_intro_sequence_4_pose_carry: false,
@@ -2064,7 +2068,7 @@ impl NativeRuntime {
                                 intro_return_hidden_shell: false,
                                 direct_intro_sequence_5_title_return: false,
                                 natural_intro_sequence_6_pre_ready_shell: true,
-                                manual_demo_return: false,
+                                fresh_title_worker_lineage: false,
                             },
                         )
                     } else if elapsed >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_REBUILD_FRAMES {
@@ -2105,7 +2109,7 @@ impl NativeRuntime {
                 self.intro_sequence_5_title_return_vdp_snapshot
                     .clone()
                     .and_then(|mut vdp| {
-                        vdp::apply_intro_sequence_5_title_return_fade_to_black(
+                        vdp::apply_intro_title_return_fade_to_black_loc_28c6(
                             &mut vdp,
                             self.title_screen_elapsed_frames,
                         )
@@ -2122,7 +2126,25 @@ impl NativeRuntime {
                 self.intro_sequence_5_title_return_vdp_snapshot
                     .clone()
                     .and_then(|mut vdp| {
-                        vdp::apply_intro_sequence_5_title_return_fade_to_black(
+                        vdp::apply_intro_title_return_fade_to_black_loc_28c6(
+                            &mut vdp,
+                            self.title_screen_elapsed_frames,
+                        )
+                        .then_some(vdp)
+                    })
+                    .or_else(|| Some(vdp::blank_vdp_state()))
+            }
+            BootState::TitleScreen { .. }
+                if matches!(
+                    self.title_screen_intro_return_lineage,
+                    Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence3)
+                ) && self.title_screen_elapsed_frames
+                    < TIMEOUT_RESTART_INTRO_SEQUENCE_3_TITLE_RNG_FIRST_LIVE_ELAPSED =>
+            {
+                self.timeout_restart_intro_sequence_3_title_return_vdp_snapshot
+                    .clone()
+                    .and_then(|mut vdp| {
+                        vdp::apply_intro_title_return_fade_to_black_loc_28c6(
                             &mut vdp,
                             self.title_screen_elapsed_frames,
                         )
@@ -2148,8 +2170,16 @@ impl NativeRuntime {
                         self.title_screen_intro_return_lineage,
                         Some(TitleScreenIntroReturnLineage::ManualDemoReturn)
                     );
+                    let timeout_restart_intro_sequence_3_return = matches!(
+                        self.title_screen_intro_return_lineage,
+                        Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence3)
+                    );
                     let title_elapsed_frames = if manual_demo_return {
                         self.effective_title_screen_rebuild_elapsed()
+                    } else if timeout_restart_intro_sequence_3_return {
+                        // ASM sub_1B93E's title loader rejoins loc_E12 one
+                        // frame ahead of the generic manual-demo rebuild.
+                        self.title_screen_elapsed_frames.saturating_add(1)
                     } else {
                         self.title_screen_elapsed_frames
                     };
@@ -2157,10 +2187,12 @@ impl NativeRuntime {
                     // sub_1BF24/sub_1B532 once before the newly allocated title
                     // objects have run. The following Mode_Standard pass adds
                     // the Kid/Chameleon title workers.
-                    let manual_demo_return_base_upload =
-                        manual_demo_return && title_elapsed_frames == 57;
+                    let fresh_title_worker_lineage =
+                        manual_demo_return || timeout_restart_intro_sequence_3_return;
+                    let fresh_title_base_upload =
+                        fresh_title_worker_lineage && title_elapsed_frames == 57;
                     let title_vdp_ready =
-                        self.title_screen_vdp_ready() && !manual_demo_return_base_upload;
+                        self.title_screen_vdp_ready() && !fresh_title_base_upload;
                     let frame_index = if title_vdp_ready {
                         7
                     } else {
@@ -2186,7 +2218,7 @@ impl NativeRuntime {
                                 && self.timeout_restart_title_intro_sequence_5_pose
                                 && !self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry,
                             natural_intro_sequence_6_pre_ready_shell,
-                            manual_demo_return,
+                            fresh_title_worker_lineage,
                         },
                     )
                 })

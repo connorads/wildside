@@ -9060,6 +9060,74 @@ mod chunk_02 {
     }
 
     #[test]
+    fn timeout_restart_intro_sequence_3_title_return_runs_loc_28c6_before_vram_clear() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut frames = Vec::new();
+        for (frame_index, mask) in script.iter().copied().take(6_268).enumerate() {
+            runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(
+                frame_index,
+                6_208 | 6_209 | 6_212 | 6_213 | 6_227 | 6_264 | 6_265 | 6_266 | 6_267
+            ) {
+                frames.push((frame_index, runtime.vdp_state().cloned()));
+            }
+        }
+        let vdp = |frame_index| {
+            frames
+                .iter()
+                .find_map(|(index, vdp)| (*index == frame_index).then_some(vdp.as_ref()))
+                .flatten()
+                .expect("published timeout-restart title return should expose VDP state")
+        };
+        let source = vdp(6_208);
+
+        for frame_index in [6_209, 6_212] {
+            assert_eq!(
+                vdp(frame_index),
+                source,
+                "ASM sub_1B93E -> sub_1C246 -> loc_1C264 keeps the resident IntroSequence3 VDP through Pal_FadeOut's initial presentation hold on published frame {frame_index}",
+            );
+        }
+        assert_eq!(vdp(6_213).vram, source.vram);
+        assert_eq!(
+            cram_words(vdp(6_213)),
+            faded_cram_to_black(cram_words(source), 0x00F0),
+            "ASM loc_28C6 presents the first `$10` fade step before loc_700 clears VRAM",
+        );
+        for frame_index in [6_227, 6_264] {
+            let black = vdp(frame_index);
+            assert!(
+                black.vram.iter().all(|&byte| byte == 0)
+                    && black.cram.iter().all(|&byte| byte == 0),
+                "ASM loc_700 keeps the hidden Load_TitleScreen rebuild black on published frame {frame_index}",
+            );
+        }
+        assert!(
+            vdp(6_265).vram.iter().any(|&byte| byte != 0)
+                && vdp(6_265).cram.iter().any(|&byte| byte != 0),
+            "ASM Load_TitleScreen exposes its rebuilt title VDP when Obj_TitleMenu rejoins loc_E12 on published frame 6265",
+        );
+        assert!(
+            !vdp_sprite_table_contains_without_link(vdp(6_265), (0x00E8, 0x0F, 0x44D3, 0x00AE),),
+            "ASM Load_TitleScreen presents the base sub_1BF24/sub_1B532 upload before Obj_TitleTextKid's first loc_1B5E4 pass on published frame 6265",
+        );
+        assert!(
+            vdp_sprite_table_contains_without_link(vdp(6_266), (0x00E8, 0x0F, 0x44D3, 0x00AE),)
+                && !vdp_sprite_table_contains_without_link(
+                    vdp(6_266),
+                    (0x0114, 0x04, 0x4780, 0x018C),
+                ),
+            "ASM Obj_TitleTextKid runs before Obj_TitleMenu links loc_1BB10 on the first post-loader object pass",
+        );
+        assert!(
+            vdp_sprite_table_contains_without_link(vdp(6_267), (0x0114, 0x04, 0x4780, 0x018C),),
+            "ASM Obj_TitleMenu links loc_1BB10 on the second post-loader object pass",
+        );
+    }
+
+    #[test]
     fn cold_intro_sequence_5_late_start_carries_loc_1be3c_particle_phase() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;

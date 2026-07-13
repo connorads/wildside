@@ -91,6 +91,25 @@ changed pixel instances. Gameplay, enemy, and post-`Init_RNG` parity remains
 exact. Frame 6209 is the next near-full-screen frontier at 71,520 pixels, so
 #406 remains open.
 
+Progress 2026-07-13: frame 6209 is the Start-driven timeout-restart
+IntroSequence3 return. ASM `sub_1B93E -> loc_1B96E` consumes Start in
+`sub_1C246`, and `loc_1C264` sets the fade flag before jumping through
+`loc_6E2`. The ROM therefore retains the final IntroSequence3 VDP for four
+presentations, runs `Pal_FadeOut`, clears VRAM at `loc_700`, and keeps the
+hidden title loader black through frame 6264. `Load_TitleScreen` then presents
+its base `sub_1BF24`/`sub_1B532` upload before fresh title workers appear over
+the next two object passes. Native previously selected the completed title VDP
+as soon as the typed mode changed.
+
+Native now stores this lineage's resident VDP explicitly, reuses the shared
+`loc_28C6` fade, and gives the rebuilt title its fresh worker clock. Focused
+frames at every hold, fade, blackout, and 6265..6273 reveal boundary are
+pixel-exact. Full verification gains 339 exact frames and removes 4,596,910
+changed pixel instances: 16,955 exact, 20,804 divergent, and 228,731,426
+changed pixel instances. Gameplay, enemy, and all 37,743 post-`Init_RNG`
+frames remain exact. Frame 15577 is the next near-full-screen frontier at
+71,313 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.
