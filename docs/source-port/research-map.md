@@ -31,9 +31,9 @@ ring bytes on every one of the remaining 37,743 frames. Every compared frame
 matches exactly. This is complete per-frame RNG and per-frame exported-state
 evidence for this route, not whole-state, audio, every-input, or whole-game proof.
 The `source_port_visible_rgb24_v1` pass renders one bounded-memory native frame
-for every oracle PNG: 16,955/37,759 frames match exactly and 20,804 differ, with
-228,731,426 changed pixel instances. The first mismatch is frame 39 (2,643
-pixels); frame 15577 is the next near-full-screen mismatch at 71,313 pixels.
+for every oracle PNG: 17,110/37,759 frames match exactly and 20,649 differ, with
+222,820,160 changed pixel instances. The first mismatch is frame 39 (2,643
+pixels); frame 2618 is the next near-full-screen mismatch at 71,291 pixels.
 #406's engine-level corrections model manual `loc_119D8` and timeout `loc_C0A`
 demo returns through `Pal_FadeOut -> loc_6E2`, the timeout-restart
 `Load_IntroSequence6` clocks, and the rotating title transformation art,
@@ -42,10 +42,12 @@ palette, and object-worker variants selected by `sub_1C278`. The
 intermediate title-plane rebuild, palette restore, and later title-art upload.
 The timeout-restart IntroSequence3 Start return also preserves its resident VDP
 through `sub_1C246 -> loc_1C264 -> loc_6E2`, `Pal_FadeOut`, the cleared-VRAM
-blackout, and the fresh `Load_TitleScreen` worker passes. Together these
-corrections make 3,831 additional route frames exact, suppress
+blackout, and the fresh `Load_TitleScreen` worker passes. The natural
+IntroSequence3 timeout likewise preserves the old VDP through `loc_1B96A ->
+loc_6E2`, then fades the rebuilt IntroSequence4 palette through `sub_1C204`.
+Together these corrections make 3,986 additional route frames exact, suppress
 the pause renderer while synchronous `Pal_FadeOut` owns the display, and
-remove 373,278,817 changed pixel instances.
+remove 379,190,083 changed pixel instances.
 #406 owns this measured visual frontier; the four settled-warp source-port
 visual-gate checkpoints remain exact.
 

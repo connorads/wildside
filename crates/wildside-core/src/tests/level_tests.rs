@@ -9128,6 +9128,75 @@ mod chunk_02 {
     }
 
     #[test]
+    fn timeout_restart_intro_sequence_3_timeout_fades_into_intro_sequence_4_sub_1c204() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut frames = Vec::new();
+        for (frame_index, mask) in script.iter().copied().take(15_633).enumerate() {
+            runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(
+                frame_index,
+                15_576
+                    | 15_577
+                    | 15_579
+                    | 15_580
+                    | 15_593
+                    | 15_594
+                    | 15_616
+                    | 15_617
+                    | 15_631
+                    | 15_632
+            ) {
+                frames.push((frame_index, runtime.vdp_state().cloned()));
+            }
+        }
+        let vdp = |frame_index| {
+            frames
+                .iter()
+                .find_map(|(index, vdp)| (*index == frame_index).then_some(vdp.as_ref()))
+                .flatten()
+                .expect("published IntroSequence3-to-4 handoff should expose VDP state")
+        };
+        let intro_3 = vdp(15_576);
+
+        for frame_index in [15_577, 15_579] {
+            assert_eq!(
+                vdp(frame_index),
+                intro_3,
+                "ASM sub_1B93E -> loc_1B96A -> loc_6E2 retains the final IntroSequence3 VDP before Pal_FadeOut advances on published frame {frame_index}",
+            );
+        }
+        for (frame_index, fade_progress) in [(15_580, 0x00F0), (15_593, 0x0020)] {
+            assert_eq!(vdp(frame_index).vram, intro_3.vram);
+            assert_eq!(
+                cram_words(vdp(frame_index)),
+                faded_cram_to_black(cram_words(intro_3), fade_progress),
+                "ASM Pal_FadeOut loc_28C6 should retain IntroSequence3 VRAM at progress {fade_progress:#06x} on published frame {frame_index}",
+            );
+        }
+        assert!(
+            vdp(15_594).cram.iter().all(|&byte| byte == 0),
+            "ASM Load_IntroSequence4 -> sub_1B988 -> sub_1C204 keeps CRAM black on published frame 15594",
+        );
+        assert_eq!(
+            cram_words(vdp(15_616)),
+            faded_cram_to_black(cram_words(vdp(15_631)), 0x0010),
+            "ASM sub_1C204 advances Pal_1C2F0 by its first `$10` step while the rendered corridor remains black on published frame 15616",
+        );
+        assert_eq!(
+            cram_words(vdp(15_617)),
+            faded_cram_to_black(cram_words(vdp(15_631)), 0x0020),
+            "ASM sub_1C204 presents the second `$10` fade-in step on published frame 15617",
+        );
+        assert_eq!(
+            vdp(15_631).cram,
+            vdp(15_632).cram,
+            "ASM sub_1C204 has completed the Pal_1C2F0 fade-in by published frame 15631",
+        );
+    }
+
+    #[test]
     fn cold_intro_sequence_5_late_start_carries_loc_1be3c_particle_phase() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;

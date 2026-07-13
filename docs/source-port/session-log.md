@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 IntroSequence3-to-4 natural timeout)
+
+- Frame 15577 exposed the natural `sub_1B93E -> loc_1B96A` timeout. Native now
+  retains the final IntroSequence3 VDP through `loc_6E2` and `Pal_FadeOut`,
+  rebuilds IntroSequence4 under black, and applies `sub_1B988 -> sub_1C204`'s
+  `$10` palette steps.
+- Every published frame across 15576..15632 is pixel-exact. The complete route
+  gains 155 exact frames and removes 5,911,266 changed pixel instances: 17,110
+  exact, 20,649 divergent, and 222,820,160 changed pixel instances. Gameplay,
+  enemy, and post-`Init_RNG` frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 2618 is the new worst at
+  71,291 pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 IntroSequence3 title-return VDP)
 
 - Frame 6209 exposed the timeout-restart IntroSequence3 Start return. Native

@@ -110,6 +110,22 @@ changed pixel instances. Gameplay, enemy, and all 37,743 post-`Init_RNG`
 frames remain exact. Frame 15577 is the next near-full-screen frontier at
 71,313 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 15577 is the natural IntroSequence3 timeout.
+`sub_1B93E -> loc_1B96A` writes `Game_Mode=$20` before `loc_6E2` fades the
+resident scene and clears VRAM. `Load_IntroSequence4` then rebuilds the corridor
+under black, and `sub_1B988 -> sub_1C204` fades `Pal_1C2F0` into CRAM in `$10`
+steps. Native previously discarded the final IntroSequence3 VDP immediately
+and exposed the completed corridor palette in one jump.
+
+Native now snapshots the resident VDP at the mode hand-off, uses the shared
+`sub_1C204` fade arithmetic for both halves, and preserves the hidden rebuild
+window. Every published frame from 15576 through 15632 is pixel-exact. Full
+verification gains 155 exact frames and removes 5,911,266 changed pixel
+instances: 17,110 exact, 20,649 divergent, and 222,820,160 changed pixel
+instances. Gameplay, enemy, and all 37,743 post-`Init_RNG` frames remain exact.
+Frame 2618 is the next near-full-screen frontier at 71,291 pixels, so #406
+remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

@@ -784,6 +784,9 @@ pub struct NativeRuntime {
     /// Resident IntroSequence3 VDP copied across `sub_1C246 -> loc_1C264` so
     /// `loc_6E2` can present Pal_FadeOut before clearing VRAM.
     timeout_restart_intro_sequence_3_title_return_vdp_snapshot: Option<vdp::VdpState>,
+    /// Resident IntroSequence3 VDP copied across `loc_1B96A -> Game_Mode=$20`
+    /// so `loc_6E2` can present Pal_FadeOut before Load_IntroSequence4.
+    intro_sequence_4_handoff_vdp_snapshot: Option<vdp::VdpState>,
     /// The later Start-skip intro-return lineage reaches the same
     /// `sub_1C246 -> Game_Mode=$2C` hand-off, but oracle keeps the rebuilt
     /// title pose hidden for one extra frame before the standard title pose
@@ -1444,6 +1447,7 @@ impl NativeRuntime {
             timeout_restart_title_intro_sequence_3_pose: false,
             timeout_restart_title_intro_sequence_4_camera_carry: false,
             timeout_restart_intro_sequence_3_title_return_vdp_snapshot: None,
+            intro_sequence_4_handoff_vdp_snapshot: None,
             timeout_restart_title_intro_sequence_5_pose: false,
             timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay: false,
             timeout_restart_intro_sequence_4_pose_carry: false,
@@ -1895,6 +1899,19 @@ impl NativeRuntime {
     /// Called once per frame after `step_boot_state`.
     fn update_vdp_state(&mut self) {
         let previous_vdp_state = self.vdp_state.clone();
+        if matches!(
+            self.boot_state,
+            BootState::IntroSequence {
+                segment: 3,
+                elapsed: 0,
+                ..
+            }
+        ) {
+            // ASM sub_1B93E -> loc_1B96A changes Game_Mode before loc_6E2's
+            // Pal_FadeOut has consumed the resident IntroSequence3 image.
+            self.intro_sequence_4_handoff_vdp_snapshot
+                .clone_from(&previous_vdp_state);
+        }
         self.vdp_state = match &self.boot_state {
             BootState::SegaScreen { elapsed } => self
                 .sega_screen_data
@@ -1930,6 +1947,14 @@ impl NativeRuntime {
                         sega_data,
                         self.title_screen_region_byte,
                         *elapsed,
+                    );
+                }
+                if *segment == 3 {
+                    return vdp::build_intro_sequence_4_handoff_vdp_at_elapsed(
+                        data,
+                        self.title_screen_region_byte,
+                        *elapsed,
+                        self.intro_sequence_4_handoff_vdp_snapshot.as_ref(),
                     );
                 }
                 if *segment == 4

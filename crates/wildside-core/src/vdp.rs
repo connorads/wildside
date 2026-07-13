@@ -539,6 +539,9 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     if segment == 1 {
         return build_intro_sequence_2_handoff_vdp_at_elapsed(data, title_variant, elapsed);
     }
+    if segment == 3 {
+        return build_intro_sequence_4_handoff_vdp_at_elapsed(data, title_variant, elapsed, None);
+    }
     if segment == 4 && elapsed < INTRO_SEQUENCE_5_VISIBLE_ELAPSED_LOC_1BA28 {
         // ASM loc_1BA28 allocates IntroText5/loc_1BC36, then enters the same
         // sub_1C204 hidden shell before loc_1BA5C's visible loop. Oracle frame
@@ -555,12 +558,6 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
         // fade shell before loc_1AEEC's roster objects are visible. The VRAM
         // rebuild exists, but oracle frames remain black until the hidden
         // fade/rebuild window reaches the first visible roster frame.
-        vdp.cram.fill(0);
-    }
-    if segment == 3 && elapsed < INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
-        // ASM Load_IntroSequence4 -> sub_1B988 also enters sub_1C204 before
-        // loc_1B9B2 starts the visible alley/corridor text loop. Oracle
-        // frames stay black during this shared hidden fade/rebuild window.
         vdp.cram.fill(0);
     }
     if segment == 2 && elapsed >= INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
@@ -700,6 +697,9 @@ const INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A: usize = 43;
 const INTRO_SEQUENCE_2_PREVIOUS_FADE_OUT_ELAPSED: usize = 17;
 const INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED: usize = 44;
 const INTRO_SEQUENCE_2_FULL_PALETTE_ELAPSED: usize = 60;
+const INTRO_SEQUENCE_4_PREVIOUS_FADE_OUT_ELAPSED: usize = 17;
+const INTRO_SEQUENCE_4_FADE_IN_START_ELAPSED: usize = 39;
+const INTRO_SEQUENCE_4_FULL_PALETTE_ELAPSED: usize = 55;
 const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02: usize = 42 + 0x3C + 18;
 const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_FRAMES_LOC_1BA02: usize = 0x014A;
 
@@ -741,6 +741,49 @@ fn build_intro_sequence_2_handoff_vdp_at_elapsed(
             &data.palette_segment_1,
             elapsed,
             INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED,
+        );
+    }
+    vdp
+}
+
+pub(crate) fn build_intro_sequence_4_handoff_vdp_at_elapsed(
+    data: &IntroSub1B850Data,
+    title_variant: u8,
+    elapsed: usize,
+    resident_intro_sequence_3_vdp: Option<&VdpState>,
+) -> VdpState {
+    // ASM sub_1B93E -> loc_1B96A -> loc_6E2 first fades the resident
+    // IntroSequence3 VDP to black. Load_IntroSequence4 then rebuilds the
+    // corridor image under black before sub_1B988 -> sub_1C204 fades
+    // Pal_1C2F0 into CRAM.
+    if elapsed < INTRO_SEQUENCE_4_PREVIOUS_FADE_OUT_ELAPSED {
+        let mut vdp = resident_intro_sequence_3_vdp
+            .cloned()
+            .unwrap_or_else(blank_vdp_state);
+        if elapsed > 0 {
+            apply_intro_sequence_fade_out_to_black_loc_1c204(
+                &mut vdp,
+                elapsed,
+                INTRO_SEQUENCE_4_PREVIOUS_FADE_OUT_ELAPSED,
+            );
+        }
+        return vdp;
+    }
+
+    let mut vdp = build_intro_sequence_vdp_base_with_title_variant(data, 3, title_variant);
+    overlay_intro_text_worker_loc_1c7a0(&mut vdp, 3, elapsed);
+    if elapsed < INTRO_SEQUENCE_4_FADE_IN_START_ELAPSED {
+        vdp.cram.fill(0);
+        return vdp;
+    }
+    if (INTRO_SEQUENCE_4_FADE_IN_START_ELAPSED..INTRO_SEQUENCE_4_FULL_PALETTE_ELAPSED)
+        .contains(&elapsed)
+    {
+        apply_intro_sequence_palette_fade_in_loc_1c204(
+            &mut vdp,
+            &data.palette_segment_1,
+            elapsed,
+            INTRO_SEQUENCE_4_FADE_IN_START_ELAPSED,
         );
     }
     vdp
@@ -4300,9 +4343,9 @@ mod tests {
             1,
         );
         assert_eq!(
-            cram_word(&visible, 1),
-            0x0EEE,
-            "ASM loc_1B9B2 should expose IntroSequence4's loaded palette once the shared sub_1C204 hidden shell has completed",
+            vdp_cram_words(&visible),
+            expected_palette_fade(0x0030, &[0x0EEE; 0x40], &[0; 0x40]),
+            "ASM sub_1C204 should expose the third Pal_1C2F0 fade step at the first roster-visible elapsed frame",
         );
     }
 
