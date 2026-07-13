@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#401 exact Tar Monster opening projectile lifecycle)
+
+- `unk_32264`'s opening holds and the seven-frame `stru_3272E` animation place
+  the left-facing glob at frame 109. The first `loc_322FC` direction toggle is
+  later in the script, after this attack.
+- `loc_324F8` allocates five burst Objects at frame 110; `loc_325E6` loads Gfx
+  at 111; Make_SpriteFromGfxObject `loc_11B6` leaves `$19` set off-screen, so
+  `loc_3263C` deletes them at 112. The cache-backed regression pins every edge.
+- All 360 gameplay checkpoints and pixel CRCs now match on Level 0x46. Report
+  `1783908515` remains 47/69 pass and improves 107 blockers to 106 without a
+  passing-level regression. NEXT: proactive verification from that report.
+
 ## 2026-07-13 handoff (#400 exact Tar Monster worker accounting)
 
 - `Enemy05_TarMonster_Init loc_321E4` and `loc_32200 -> loc_32188` give each

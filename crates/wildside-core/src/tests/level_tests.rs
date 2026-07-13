@@ -5893,6 +5893,22 @@ mod chunk_02 {
                 "ASM Tar_Monster.asm loc_321E4/loc_32200 keeps the opening Tar Monster's one Object and two linked Gfx workers live across the Level 0x46 settled idle route",
             );
         }
+        for (frame_index, expected_objects, expected_gfx_objects) in [
+            (78, 8, 10),
+            (79, 8, 10),
+            (108, 8, 10),
+            (109, 9, 11),
+            (110, 14, 11),
+            (111, 13, 15),
+            (112, 8, 10),
+        ] {
+            let frame = &trace[frame_index];
+            assert_eq!(
+                (frame.number_objects, frame.number_gfx_objects),
+                (expected_objects, expected_gfx_objects),
+                "ASM Tar_Monster.asm loc_32310 -> loc_32468 -> loc_324F8 -> loc_325E6 allocates the straight glob and its five-child terrain burst on the oracle-observed Level 0x46 frames",
+            );
+        }
     }
 
     #[test]
@@ -24933,18 +24949,34 @@ mod chunk_10 {
 
         assert_eq!(
             rt.projectiles.len(),
-            5,
-            "loc_324F8 should replace the straight glob with five burst children"
+            6,
+            "loc_324F8 should retain the hidden glob for one hibernate and allocate five Object children"
         );
         assert!(
             rt.projectiles
                 .iter()
-                .all(|projectile| projectile.kind != EnemyProjectileKind::TarMonsterStraightGlob),
-            "the original straight glob should be deleted after loc_324F8"
+                .filter(|projectile| {
+                    projectile.kind == EnemyProjectileKind::TarMonsterStraightGlob
+                })
+                .count()
+                == 1,
+            "loc_32534 should retain the original straight glob for one scheduler pass"
+        );
+        assert!(
+            rt.projectiles
+                .iter()
+                .filter(|projectile| {
+                    projectile.kind == EnemyProjectileKind::TarMonsterBurstChild
+                })
+                .all(|projectile| projectile.animation_elapsed_frames == 1),
+            "loc_324F8 should leave new children as Object-only allocations until their callback"
         );
         assert_eq!(
             rt.projectiles
                 .iter()
+                .filter(|projectile| {
+                    projectile.kind == EnemyProjectileKind::TarMonsterBurstChild
+                })
                 .map(|projectile| (projectile.x_velocity, projectile.y_velocity))
                 .collect::<Vec<_>>(),
             vec![
@@ -24955,6 +24987,21 @@ mod chunk_10 {
                 (0x0000_2000, -0x0001_C000),
             ],
             "loc_324F8/loc_32534 child velocities should match the ROM table"
+        );
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles.len(),
+            5,
+            "loc_32534 should delete the original glob on its next scheduler pass"
+        );
+        assert!(
+            rt.projectiles.iter().all(|projectile| {
+                projectile.kind == EnemyProjectileKind::TarMonsterBurstChild
+                    && projectile.animation_elapsed_frames == 0
+            }),
+            "loc_325E6 should promote each child to a Gfx object on its first callback"
         );
     }
 

@@ -550,6 +550,7 @@ fn tar_monster_projectile_keep_after_delete_loc_32652() -> bool {
 fn step_tar_monster_burst_child_loop_loc_3263c(
     projectile: &mut EnemyProjectile,
     grid: Option<&terrain::BlockGrid>,
+    byte_19_nonzero: bool,
 ) -> bool {
     let mut collision_type = 0;
     if let Some(grid) = grid {
@@ -595,7 +596,7 @@ fn step_tar_monster_burst_child_loop_loc_3263c(
         collision_type,
         projectile.tar_monster_collision_response_budget,
         true,
-        false,
+        byte_19_nonzero,
     );
     debug_assert!(step.hibernates_one_frame);
     projectile.y_velocity = step.y_velocity;
@@ -1257,8 +1258,12 @@ fn projectile_terrain_contact_loc_3345c(
 ) -> bool {
     let px_i = (projectile.x_pos >> 16) as i32;
     let py_i = (projectile.y_pos >> 16) as i32;
-    if projectile.kind == EnemyProjectileKind::TankBullet {
-        // ASM CollisionSize_Index object meta 3 selects unk_314D0
+    if matches!(
+        projectile.kind,
+        EnemyProjectileKind::TankBullet | EnemyProjectileKind::TarMonsterStraightGlob
+    ) {
+        // ASM CollisionSize_Index object meta 3 (Tank bullet) and 5 (Tar glob)
+        // both select unk_314D0
         // (-5,+10,-31,+31). GfxObjects_Collision scans the full box against
         // level collision, including ordinary solid terrain without a block
         // object; loc_3B7BA deletes the worker after any non-zero result.
@@ -1346,6 +1351,28 @@ fn projectile_terrain_contact_loc_3345c(
             return cell.has_block && cell.collision == terrain::CollisionKind::Solid;
         }
         cell.has_block && cell.collision != terrain::CollisionKind::Empty
+    }
+}
+
+#[cfg(test)]
+mod terrain_contact_tests {
+    use super::*;
+
+    #[test]
+    fn tar_monster_glob_uses_full_meta_five_box_unk_314d0() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+        grid.set_cell_at(1, 1, terrain::Cell::from_be_bytes(0x60, 0x00));
+        let projectile = EnemyProjectile {
+            x_pos: 32 << 16,
+            y_pos: 32 << 16,
+            kind: EnemyProjectileKind::TarMonsterStraightGlob,
+            ..Default::default()
+        };
+
+        assert!(
+            projectile_terrain_contact_loc_3345c(&grid, &projectile),
+            "ASM Tar_Monster.asm loc_3247E writes object_meta 5; CollisionSize_Index maps it to unk_314D0, whose top edge reaches the solid row above the glob origin",
+        );
     }
 }
 
@@ -3189,6 +3216,13 @@ impl NativeRuntime {
             })
             .count() as u16;
         self.projectiles.retain_mut(|p| {
+            if p.kind == EnemyProjectileKind::TarMonsterStraightGlob
+                && p.animation_elapsed_frames == 1
+            {
+                // ASM loc_32534 hibernates once after allocating the five
+                // burst Objects, then deletes the hidden original at loc_32652.
+                return false;
+            }
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
             let is_robot_shot = p.kind == EnemyProjectileKind::RobotShot;
             let is_fireball_trail = matches!(
@@ -3215,6 +3249,17 @@ impl NativeRuntime {
             let is_ufo_first_hurt_debris = p.kind == EnemyProjectileKind::UfoFirstHurtDebris;
             let is_tar_monster_burst_child =
                 p.kind == EnemyProjectileKind::TarMonsterBurstChild;
+            let tar_monster_burst_child_initialising =
+                is_tar_monster_burst_child && p.animation_elapsed_frames == 1;
+            let tar_monster_byte_19_nonzero = camera.is_some_and(|camera| {
+                archer_arrow_outside_horizontal_sprite_bounds_loc_11b6(p.x_pos, camera.x_pos)
+            });
+            if tar_monster_burst_child_initialising {
+                // ASM loc_325E6 owns the first callback after loc_324F8's raw
+                // Object allocation. Gfx loading happens on this pass; level
+                // collision is observed after the following hibernate.
+                p.animation_elapsed_frames = 0;
+            }
             let is_juggernaut_skull = Self::is_juggernaut_skull_projectile(p);
             // ASM Process_ShooterObjects/loc_EDFA (kid.asm:19298/19311) has no
             // frame timer: a launched spike object simulates off-screen until it
@@ -3929,10 +3974,20 @@ impl NativeRuntime {
             }
 
             if p.kind == EnemyProjectileKind::TarMonsterStraightGlob
-                && let Some(g) = grid
-                && projectile_terrain_contact_loc_3345c(g, p)
+                // ASM loc_3231C allocates the Object worker, then loc_32468
+                // initialises its GfxObject on the worker's later scheduler
+                // pass. The first loc_324E6 hibernate therefore cannot consume
+                // a same-pass terrain collision latch.
+                && p.lifetime < 119
             {
-                let wait = tar_monster_shot_wait_loc_324E6(1, false);
+                let collision_type = u16::from(
+                    grid.is_some_and(|grid| projectile_terrain_contact_loc_3345c(grid, p)),
+                );
+                // ASM Make_SpriteFromGfxObject loc_11B6 clears `$19` only for
+                // an in-range sprite. loc_324E6 falls through to loc_324F8
+                // when the off-screen glob wakes with that byte still set.
+                let wait =
+                    tar_monster_shot_wait_loc_324E6(collision_type, tar_monster_byte_19_nonzero);
                 debug_assert!(wait.hibernates_one_frame);
                 match wait.route {
                     TarMonsterShotWaitRouteLoc324E6::ContinueLoop => return true,
@@ -3945,13 +4000,21 @@ impl NativeRuntime {
                             p.x_pos,
                             p.y_pos,
                         );
-                        return tar_monster_projectile_keep_after_delete_loc_32652();
+                        p.x_velocity = 0;
+                        p.y_velocity = 0;
+                        p.animation_elapsed_frames = 1;
+                        return true;
                     }
                 }
             }
 
             if p.kind == EnemyProjectileKind::TarMonsterBurstChild
-                && !step_tar_monster_burst_child_loop_loc_3263c(p, grid)
+                && !tar_monster_burst_child_initialising
+                && !step_tar_monster_burst_child_loop_loc_3263c(
+                    p,
+                    grid,
+                    tar_monster_byte_19_nonzero,
+                )
             {
                 return false;
             }

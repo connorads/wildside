@@ -8190,14 +8190,18 @@ pub(crate) const ORCA_LUNGE_COOLDOWN: u16 = 300;
 // --- TarMonster constants (Tar_Monster.asm) ---
 // Bytecode-driven cycle: submerged → emerge → visible → attack → submerge → loop.
 // Timings from ASM script tables (unk_32264, unk_3226C):
-//   Initial idle: 4f then 90f ($5A)
-//   Emerge animation: 24f (stru_3272E, 6 sprites × 4fps)
+//   Initial pre-attack holds: 91f + 6f + 11f + 8f
+//   Emerge animation: 35f (stru_3272E, 7 frames × 5 ticks)
 //   Visible hold: 50f ($32) before attack
 //   Attack: 27f (9+9+9 from `moveq #8,d0` + `dbf` in loc_3231C/loc_32348/loc_32360),
 //   fires the horizontal glob shot after the first 9-frame wind-up
 //   Submerge animation: 24f (stru_3274C, reverse of emerge)
-/// Initial submerged wait before first emergence (Tar_Monster.asm unk_32264: 4 + 90).
-pub(crate) const TAR_MONSTER_SUBMERGED_FRAMES: u16 = 94;
+/// Scheduler-normalised opening holds before the first attack.
+///
+/// ASM `unk_32264` hibernates for 91 + 6 + 11 + 8 frames before the final
+/// 51-frame hold. Native's three explicit state-dispatch frames account for
+/// the remaining ticks around this stored countdown.
+pub(crate) const TAR_MONSTER_SUBMERGED_FRAMES: u16 = 113;
 /// HP lookup table for TarMonster init (`Hitpoints_Enemy_05`, Tar_Monster.asm).
 pub(crate) const TAR_MONSTER_HITPOINTS_BY_LEVEL: [u8; 4] = [2, 4, 6, 0];
 

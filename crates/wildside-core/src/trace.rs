@@ -11768,6 +11768,14 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::DragonFlyingDescentFire)
             .count() as u16;
+        let tar_monster_burst_object_init_workers = self
+            .projectiles
+            .iter()
+            .filter(|projectile| {
+                projectile.kind == EnemyProjectileKind::TarMonsterBurstChild
+                    && projectile.animation_elapsed_frames == 1
+            })
+            .count() as u16;
         // ASM Dragon_Flying.asm loc_34BAC follows the same Object_RAM child
         // pattern for descent fire; native models it as a projectile but ROM
         // Number_Objects includes the child worker.
@@ -11780,6 +11788,9 @@ impl NativeRuntime {
             .saturating_add(rubber_skin_workers)
             .saturating_add(lava_special_effect_workers)
             .saturating_add(dragon_flying_descent_fire_workers)
+            // ASM Tar_Monster.asm loc_324F8 allocates five Object slots;
+            // their loc_325E6 callbacks load GfxObjects one scheduler pass later.
+            .saturating_add(tar_monster_burst_object_init_workers)
     }
 
     fn hidden_drips_parent_worker_count_enemy16_drip_init(
@@ -11975,8 +11986,8 @@ impl NativeRuntime {
                         | EnemyProjectileKind::BossEyeSatellite
                         | EnemyProjectileKind::BossEyePopEffect
                         | EnemyProjectileKind::TarMonsterStraightGlob
-                        | EnemyProjectileKind::TarMonsterBurstChild
-                )
+                ) || (projectile.kind == EnemyProjectileKind::TarMonsterBurstChild
+                    && projectile.animation_elapsed_frames == 0)
             })
             .count();
         (self.block_bounces.len()

@@ -1,7 +1,7 @@
 use super::*;
 
-/// Emerge animation duration (6 frames × 4 ticks = 24 frames).
-pub(crate) const TAR_MONSTER_EMERGE_FRAMES: u16 = 24;
+/// Emerge animation duration (`stru_3272E`: 7 frames, delay 4 means 5 ticks each).
+pub(crate) const TAR_MONSTER_EMERGE_FRAMES: u16 = 35;
 /// Visible hold before attack sequence ($32 = 50 frames from bytecode).
 pub(crate) const TAR_MONSTER_VISIBLE_FRAMES: u16 = 50;
 /// Attack sequence duration. ASM loc_32310/loc_3231C/loc_32348/loc_32360:
@@ -1200,10 +1200,9 @@ pub(crate) fn step_tar_monster_with_sounds(
                 dispatch.route,
                 TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322FC)
             );
-            // ASM Tar_Monster.asm loc_322FC toggles parent and child
-            // x_direction; native models the parent-facing part of this
-            // visible phase boundary.
-            enemy.facing = opposite_direction(enemy.facing);
+            // ASM Tar_Monster.asm loc_322FC does not run until after the first
+            // attack/disappear branch in `unk_32264`. The opening loc_32310
+            // shot therefore preserves the init direction.
             enemy.tar_monster_state = TarMonsterState::Visible;
             let visible_hold = tar_monster_wait_loop_loc_322aa(TAR_MONSTER_VISIBLE_FRAMES);
             debug_assert!(visible_hold.checks_object_range_each_frame);
@@ -1286,6 +1285,9 @@ pub(crate) fn spawn_tar_monster_retaliation(
             lifetime: 60,
             gravity: 0x1000,
             kind: EnemyProjectileKind::TarMonsterBurstChild,
+            // ASM loc_324F8 allocates all five Object slots before their
+            // loc_325E6 callbacks load GfxObjects on the next scheduler pass.
+            animation_elapsed_frames: 1,
             tar_monster_collision_response_budget: setup.collision_response_budget,
             ..Default::default()
         });
@@ -2159,6 +2161,7 @@ mod tests {
                     speed_cap: 0,
                     wall_bounce: false,
                     kind: EnemyProjectileKind::TarMonsterBurstChild,
+                    animation_elapsed_frames: 1,
                     tar_monster_collision_response_budget: 2,
                     ..Default::default()
                 },

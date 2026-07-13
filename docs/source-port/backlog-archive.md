@@ -11,6 +11,31 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #401
+
+Opened and resolved 2026-07-13 after #400's worker accounting made every live
+Tar projectile visible to interval comparison. Native fired its opening glob
+at frame 79 in the wrong direction and retained its burst through frame 174;
+oracle fired left at frame 109, allocated five burst Objects at frame 110,
+loaded their GfxObjects at frame 111, and deleted the off-screen workers at
+frame 112. All 360 pixel CRCs matched, demonstrating that the green render
+route alone concealed 189 authoritative count differences.
+
+`unk_32264` supplies 91 + 6 + 11 + 8 frame opening holds, while `stru_3272E`
+contains seven delay-4 animation frames - 35 ticks, not the previous 24. The
+opening attack precedes `loc_322FC`, so it retains the initial left direction.
+`loc_3247E` uses object meta 5, whose `CollisionSize_Index` entry is the full
+`unk_314D0` box. `loc_324F8` allocates all five Object workers before their
+`loc_325E6` callbacks load GfxObjects. Finally, Make_SpriteFromGfxObject
+`loc_11B6` leaves `$19` set outside `-$40..$160`; `loc_324E6` and `loc_3263C`
+consume that flag after one hibernate and delete the off-screen workers.
+
+The cache-backed Level 0x46 regression pins frames 78, 79, and 108-112. The
+focused interval-1 comparison now passes all 360 gameplay checkpoints with all
+360 pixel CRCs exact. Focused sweep report `1783908510` passes; full report
+`1783908515` remains 47/69 pass and improves 107 authoritative differences to
+106 with no previously passing regression.
+
 ### #400
 
 Opened and resolved 2026-07-13 from proactive whole-level report
@@ -12818,6 +12843,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 401 | [x] | P2 | enemy/fidelity | Tar Monster opening timing, glob direction, staged burst allocation, and `$19` off-screen cleanup match the ROM interval. | Report `1783908515`: 47/69 pass, 106 blockers; see archive #401. |
 | 400 | [x] | P2 | enemy/fidelity | Tar Monster parents retain their second linked Gfx slot and every live glob/burst worker contributes its Object+Gfx pair. | Report `1783906962`: 47/69 pass, 107 blockers; see archive #400. |
 | 399 | [x] | P2 | enemy/fidelity | Drips recording settle projects all parent/crawler Gfx workers and matches the ROM's family-specific live window. | Report `1783905612`: 45/69 pass, 112 blockers; see archive #399. |
 | 398 | [x] | P2 | enemy/fidelity | Shooting RockTank bullets use their allocated Object+Gfx pair, full `unk_314D0` terrain box, and prior-pass collision latch. | Report `1783902809`: 44/69 pass, 113 blockers; see archive #398. |
