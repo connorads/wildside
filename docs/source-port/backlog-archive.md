@@ -235,6 +235,25 @@ and 166,438,007 changed pixel instances. Gameplay, enemy, and all 37,743
 post-`Init_RNG` frames remain exact. Frame 34275 is the next near-full-screen
 frontier at 70,607 pixels, so #406 remains open.
 
+Progress 2026-07-13: frame 34275 is the first live title-loader presentation
+after timeout-restart IntroSequence1 returns through `sub_1B8F4 -> sub_1C246
+-> loc_1C264 -> loc_6E2 -> Load_TitleScreen`. The existing WRAM/RNG evidence
+already proved that this lineage rejoins the outer object pass two frames ahead
+of the generic return, but native's VDP blackout ignored that offset. Oracle
+frames from 34275 onward are byte-identical to the already-correct direct
+IntroSequence5 title rebuild beginning at frame 10345.
+
+Native now gives this lineage a local reveal elapsed of 55 and advances its
+renderer-facing fresh-worker clock by the same two passes as its RNG/object
+clock. Regression
+`published_tas_early_restore_intro_sequence_1_stages_load_title_screen_loc_1b258`
+pins the black, base-upload, and first-object frames. All 103 directly captured
+frames 34268..34370 are pixel-exact. Full verification gains 554 exact frames
+and removes 7,215,790 changed pixel instances: 20,304 exact, 17,455 divergent,
+and 159,222,217 changed pixel instances. Gameplay, enemy, and all 37,743
+post-`Init_RNG` frames remain exact. Frame 16656 is the next near-full-screen
+frontier at 70,586 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

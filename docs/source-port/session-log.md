@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 early IntroSequence1 title reveal)
+
+- Frame 34275 exposed timeout-restart `sub_1B8F4 -> sub_1C246 -> loc_1C264
+  -> loc_6E2 -> Load_TitleScreen`. Native now applies the already-proven
+  two-pass early restore to the VDP reveal and fresh title-worker clock, not
+  only the RNG/object schedule.
+- All directly captured frames 34268..34370 are pixel-exact. The complete
+  route gains 554 exact frames and removes 7,215,790 changed pixel instances:
+  20,304 exact, 17,455 divergent, and 159,222,217 changed pixel instances.
+  Gameplay, enemy, and post-`Init_RNG` frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 16656 is the new worst at
+  70,586 pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 IntroSequence2 resident title fade)
 
 - Frame 36821 exposed the Start-driven `loc_1B9D0 -> loc_1BA02 -> sub_1C246

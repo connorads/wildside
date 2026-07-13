@@ -7503,6 +7503,91 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_early_restore_intro_sequence_1_stages_load_title_screen_loc_1b258() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut frame_34274 = None;
+        let mut frame_34275 = None;
+        let mut frame_34276 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(34_277) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            match frame_index {
+                34_274 => frame_34274 = runtime.vdp_state().cloned(),
+                34_275 => {
+                    frame_34275 = Some((
+                        trace.boot_phase,
+                        trace.boot_phase_elapsed,
+                        runtime.vdp_state().cloned(),
+                    ));
+                }
+                34_276 => {
+                    frame_34276 = Some((
+                        trace.boot_phase,
+                        trace.boot_phase_elapsed,
+                        runtime.vdp_state().cloned(),
+                    ));
+                }
+                _ => {}
+            }
+        }
+
+        let title_data = runtime
+            .title_screen_data
+            .as_ref()
+            .expect("cached generated manifest should contain title-screen data");
+        let lineage = vdp::TitleScreenVdpLineage {
+            intro_return_hidden_shell: true,
+            fresh_title_worker_lineage: true,
+            ..vdp::TitleScreenVdpLineage::default()
+        };
+        let expected_loader_frame =
+            vdp::build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                title_data,
+                7,
+                runtime.title_screen_region_byte,
+                None,
+                false,
+                57,
+                lineage,
+            );
+        let expected_first_object_pass =
+            vdp::build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                title_data,
+                7,
+                runtime.title_screen_region_byte,
+                None,
+                true,
+                58,
+                lineage,
+            );
+
+        // ASM sub_1B8F4 -> sub_1C246 -> loc_1C264 -> loc_6E2 runs the
+        // blocking title loader two outer passes ahead of the generic return.
+        // Oracle frame 34274 is its final black hold, frame 34275 presents
+        // Load_TitleScreen's base upload, and frame 34276 exposes the first
+        // fresh title-object pass.
+        assert_eq!(frame_34274, Some(vdp::blank_vdp_state()));
+        assert_eq!(
+            frame_34275,
+            Some((
+                Some(String::from("title_screen")),
+                Some(55),
+                Some(expected_loader_frame),
+            )),
+        );
+        assert_eq!(
+            frame_34276,
+            Some((
+                Some(String::from("title_screen")),
+                Some(56),
+                Some(expected_first_object_pass),
+            )),
+        );
+    }
+
+    #[test]
     fn published_tas_later_intro_sequence_2_title_restore_stages_load_title_screen_loc_1b258() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

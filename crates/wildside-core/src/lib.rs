@@ -2277,11 +2277,19 @@ impl NativeRuntime {
                         self.title_screen_intro_return_lineage,
                         Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence3)
                     );
+                    let timeout_restart_intro_sequence_1_early_return = matches!(
+                        self.title_screen_intro_return_lineage,
+                        Some(
+                            TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence1EarlyRestore
+                        )
+                    );
                     let later_intro_sequence_4_return = matches!(
                         self.title_screen_intro_return_lineage,
                         Some(TitleScreenIntroReturnLineage::LaterIntroSequence)
                     );
-                    let title_elapsed_frames = if manual_demo_return {
+                    let title_elapsed_frames = if manual_demo_return
+                        || timeout_restart_intro_sequence_1_early_return
+                    {
                         self.effective_title_screen_rebuild_elapsed()
                     } else if timeout_restart_intro_sequence_3_return
                         || later_intro_sequence_4_return
@@ -2629,6 +2637,11 @@ impl NativeRuntime {
             return None;
         }
         match self.title_screen_intro_return_lineage {
+            // ASM sub_1B8F4 -> sub_1C246 rejoins the blocking title loader two
+            // outer passes ahead of its generic cold IntroSequence1 return.
+            Some(TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence1EarlyRestore) => {
+                Some(TIMEOUT_RESTART_INTRO_SEQUENCE_1_EARLY_TITLE_RNG_FIRST_LIVE_ELAPSED)
+            }
             Some(
                 TitleScreenIntroReturnLineage::ColdIntroSequence1
                 | TitleScreenIntroReturnLineage::LaterIntroSequence2,
