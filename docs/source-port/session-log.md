@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 cold IntroSequence1 resident title fade)
+
+- Frame 139 exposed the cold `sub_1B8F4 loc_1B924 -> sub_1C246 -> loc_1C264
+  -> loc_6E2` title return. Native now captures the final deferred intro-text
+  worker image, retains it for four title traces, fades it through
+  `Pal_FadeOut loc_28C6`, then rejoins the existing black title rebuild.
+- Sampled frames 139..197 are pixel-exact. The complete route gains 36 exact
+  frames and removes 1,800,629 changed pixel instances: 21,114 exact, 16,645
+  divergent, and 148,623,644 changed pixel instances. Gameplay, enemy,
+  player/camera CRC, and post-`Init_RNG` frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 34220 is the new worst at
+  69,982 pixels. NEXT: keep #406 open and trace that visual frontier.
+
 ## 2026-07-13 handoff (#406 IntroSequence5 resident title fade)
 
 - Frame 16656 exposed the Start-driven `loc_1BA60 -> sub_1C246 -> loc_1C264

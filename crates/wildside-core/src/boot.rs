@@ -5365,6 +5365,7 @@ impl NativeRuntime {
         self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry = false;
         self.intro_sequence_6_start_skip_natural_vdp_carry = None;
         self.intro_sequence_5_title_return_vdp_snapshot = None;
+        self.intro_sequence_1_title_return_vdp_snapshot = None;
         self.timeout_restart_intro_sequence_3_title_return_vdp_snapshot = None;
         self.intro_sequence_2_title_return_vdp_snapshot = None;
         self.title_screen_ready_frame = if self.frame_index < TITLE_SCREEN_READY_GLOBAL_FRAME {
@@ -6909,6 +6910,25 @@ impl NativeRuntime {
                 // edge is consumed there on the following outer frame, so the
                 // visible mode flip is deferred by one traced frame, not two.
                 if *pending_title_skip > 0 {
+                    let cold_intro_sequence_1_title_snapshot =
+                        if *segment == 0 && *pending_title_skip == 1 {
+                            self.intro_sub_1b850_data.as_ref().and_then(|data| {
+                                self.sega_screen_data.as_ref().map(|sega_data| {
+                                    // ASM sub_1B8F4 loc_1B924 wakes the loc_1C7A0
+                                    // text worker once more before sub_1C246 enters
+                                    // loc_1C264. Preserve that final presented VDP
+                                    // for loc_6E2's Pal_FadeOut.
+                                    vdp::build_intro_sequence_1_cold_boot_vdp_at_elapsed(
+                                        data,
+                                        sega_data,
+                                        self.title_screen_region_byte,
+                                        elapsed.saturating_add(1),
+                                    )
+                                })
+                            })
+                        } else {
+                            None
+                        };
                     let direct_intro_sequence_5_title_snapshot = if *segment == 4 {
                         if *pending_title_skip == 1 {
                             // ASM loc_1BA60 hibernates before polling sub_1C246.
@@ -6991,6 +7011,10 @@ impl NativeRuntime {
                                     _ => TitleScreenIntroReturnLineage::LaterIntroSequence,
                                 };
                                 self.enter_title_screen_from_intro_return(lineage);
+                                if is_intro_sequence_1 {
+                                    self.intro_sequence_1_title_return_vdp_snapshot
+                                        .clone_from(&cold_intro_sequence_1_title_snapshot);
+                                }
                                 if intro_sequence_5_title_pose {
                                     // ASM loc_1BA60 -> sub_1C246 -> loc_1C264
                                     // keeps loc_1BCD0's slot-2 IntroSequence5

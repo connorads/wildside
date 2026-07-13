@@ -274,6 +274,26 @@ player/camera CRC, and all 37,743 post-`Init_RNG` frames remain exact. Frame 39
 remains first at 2,643 pixels; frame 139 is the new worst at 69,982 pixels, so
 #406 remains open.
 
+Progress 2026-07-13: frame 139 is the cold IntroSequence1 Start return. ASM
+`sub_1B8F4 loc_1B924` wakes the `loc_1C7A0` text worker once more before
+`sub_1C246 -> loc_1C264` changes mode and jumps into `loc_6E2`. The ROM keeps
+that final intro image resident for four title traces, fades it through
+`Pal_FadeOut loc_28C6`, then clears VRAM and runs the already-modelled black
+`Load_TitleScreen` rebuild. Native jumped directly to black.
+
+Native now builds and stores the final deferred IntroSequence1 VDP, reuses the
+shared title-return fade, and preserves the existing elapsed-57 title loader
+reveal. The extended regression
+`published_tas_cold_intro_1_title_restore_stages_load_title_screen_loc_1b258`
+pins the final intro worker frame, fade hold, first and last fade steps, first
+black frame, final black frame, base upload, and first fresh object pass.
+Sampled frames 139..197 are pixel-exact. Full verification gains 36 exact
+frames and removes 1,800,629 changed pixel instances: 21,114 exact, 16,645
+divergent, and 148,623,644 changed pixel instances. Gameplay, enemy,
+player/camera CRC, and all 37,743 post-`Init_RNG` frames remain exact. Frame 39
+remains first at 2,643 pixels; frame 34220 is the new worst at 69,982 pixels,
+so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

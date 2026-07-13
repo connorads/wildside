@@ -27,6 +27,8 @@ fn published_tas_cold_intro_1_title_restore_stages_load_title_screen_loc_1b258()
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;
     };
+    let mut expected_resident_vdp = None;
+    let mut observed_fade_vdp = Vec::new();
     let mut frame_195 = None;
     let mut frame_196 = None;
     let mut frame_197 = None;
@@ -34,6 +36,28 @@ fn published_tas_cold_intro_1_title_restore_stages_load_title_screen_loc_1b258()
     for (frame_index, mask) in script.iter().copied().enumerate().take(198) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
         match frame_index {
+            138 => {
+                let elapsed = trace
+                    .boot_phase_elapsed
+                    .expect("frame 138 should expose IntroSequence1 elapsed");
+                expected_resident_vdp = runtime.intro_sub_1b850_data.as_ref().and_then(|data| {
+                    runtime.sega_screen_data.as_ref().map(|sega_data| {
+                        // ASM sub_1B8F4 loc_1B924 hibernates before polling
+                        // sub_1C246. The final deferred loc_1C7A0 object pass
+                        // adds the next text glyph before loc_1C264 enters
+                        // loc_6E2's Pal_FadeOut.
+                        vdp::build_intro_sequence_1_cold_boot_vdp_at_elapsed(
+                            data,
+                            sega_data,
+                            runtime.title_screen_region_byte,
+                            elapsed + 1,
+                        )
+                    })
+                });
+            }
+            139 | 142 | 143 | 156 | 157 => {
+                observed_fade_vdp.push((frame_index, runtime.vdp_state().cloned()));
+            }
             195 => frame_195 = runtime.vdp_state().cloned(),
             196 => {
                 frame_196 = Some((
@@ -51,6 +75,33 @@ fn published_tas_cold_intro_1_title_restore_stages_load_title_screen_loc_1b258()
             }
             _ => {}
         }
+    }
+
+    let resident_vdp = expected_resident_vdp
+        .expect("cached generated manifest should contain cold IntroSequence1 data");
+    let faded_resident_vdp = |elapsed| {
+        let mut vdp = resident_vdp.clone();
+        assert!(vdp::apply_intro_title_return_fade_to_black_loc_28c6(
+            &mut vdp, elapsed,
+        ));
+        vdp
+    };
+    let expected_fade_vdp = [
+        (139, resident_vdp.clone()),
+        (142, resident_vdp.clone()),
+        (143, faded_resident_vdp(4)),
+        (156, faded_resident_vdp(17)),
+        (157, vdp::blank_vdp_state()),
+    ];
+
+    for ((observed_frame, observed), (expected_frame, expected)) in
+        observed_fade_vdp.iter().zip(expected_fade_vdp.iter())
+    {
+        assert_eq!(observed_frame, expected_frame);
+        assert!(
+            observed.as_ref() == Some(expected),
+            "ASM loc_1B924 -> loc_1C264 -> loc_6E2 cold title-return VDP diverged at published frame {observed_frame}",
+        );
     }
 
     let title_data = runtime
@@ -83,11 +134,12 @@ fn published_tas_cold_intro_1_title_restore_stages_load_title_screen_loc_1b258()
             lineage,
         );
 
-    // ASM sub_1C246 -> loc_1C264 -> loc_6E2 runs Pal_FadeOut and the
-    // blocking title loader. Oracle frame 195 is the final black hold, frame
-    // 196 presents Load_TitleScreen's base upload, and frame 197 exposes the
-    // first fresh Obj_TitleTextKid/Obj_TitleTextChameleon pass. The Start tap
-    // on frame 181 occurred inside the blocking loader, so no menu is drawn.
+    // ASM sub_1C246 -> loc_1C264 -> loc_6E2 retains and fades the final intro
+    // VDP, then runs the blocking title loader. Oracle frame 195 is the final
+    // black hold, frame 196 presents Load_TitleScreen's base upload, and frame
+    // 197 exposes the first fresh Obj_TitleTextKid/Obj_TitleTextChameleon pass.
+    // The Start tap on frame 181 occurred inside the blocking loader, so no
+    // menu is drawn.
     assert_eq!(frame_195, Some(vdp::blank_vdp_state()));
     assert_eq!(
         frame_196,

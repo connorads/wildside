@@ -679,6 +679,9 @@ pub struct NativeRuntime {
     /// Direct `$24` IntroSequence5 title returns keep the current VDP image for
     /// a few frames before the hidden title rebuild blacks it out.
     intro_sequence_5_title_return_vdp_snapshot: Option<vdp::VdpState>,
+    /// ASM sub_1B8F4 loc_1B924 title return keeps the final IntroSequence1
+    /// worker image resident while loc_6E2 runs Pal_FadeOut.
+    intro_sequence_1_title_return_vdp_snapshot: Option<vdp::VdpState>,
     /// ASM `$FFFFFC82`: title/intro region selector. Load_IntroSequence5 calls
     /// sub_1C278 before selecting its helmet art and palette overlay.
     title_screen_region_byte: u8,
@@ -1419,6 +1422,7 @@ impl NativeRuntime {
             intro_sequence_6_start_skip_intro_sequence_5_pose_carry: false,
             intro_sequence_6_start_skip_natural_vdp_carry: None,
             intro_sequence_5_title_return_vdp_snapshot: None,
+            intro_sequence_1_title_return_vdp_snapshot: None,
             // ASM loc_61C seeds `$FFFFFC82` to 2 before the cold-boot intro;
             // Load_IntroSequence5's first sub_1C278 call then wraps it to 0.
             title_screen_region_byte: 2,
@@ -2162,6 +2166,25 @@ impl NativeRuntime {
                 // then the `Load_TitleScreen` restore is black until the
                 // title VDP rebuild reaches the short 58-frame reveal.
                 self.intro_sequence_5_title_return_vdp_snapshot
+                    .clone()
+                    .and_then(|mut vdp| {
+                        vdp::apply_intro_title_return_fade_to_black_loc_28c6(
+                            &mut vdp,
+                            self.title_screen_elapsed_frames,
+                        )
+                        .then_some(vdp)
+                    })
+                    .or_else(|| Some(vdp::blank_vdp_state()))
+            }
+            BootState::TitleScreen { .. }
+                if matches!(
+                    self.title_screen_intro_return_lineage,
+                    Some(TitleScreenIntroReturnLineage::ColdIntroSequence1)
+                ) && self
+                    .intro_return_load_title_screen_reveal_elapsed()
+                    .is_some_and(|reveal| self.title_screen_elapsed_frames < reveal) =>
+            {
+                self.intro_sequence_1_title_return_vdp_snapshot
                     .clone()
                     .and_then(|mut vdp| {
                         vdp::apply_intro_title_return_fade_to_black_loc_28c6(
