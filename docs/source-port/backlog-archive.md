@@ -32,6 +32,17 @@ frames exact. Pixel evidence improves from 13,124 to 13,272 exact frames and
 from 602,010,243 to 587,116,713 changed pixel instances. The next all-screen
 frontier is frame 4973, so #406 remains open.
 
+Progress 2026-07-13: frame 4973 is the timed-out-demo counterpart. ReadJoypad
+`loc_C0A` writes mode zero and `$082A`, but `loc_6E2` still blocks inside
+`Pal_FadeOut` before `Load_SegaScreen` owns the VDP. Oracle shows the resident
+gameplay fade on local frames 0-18, the solid `$082A` clear fill through frame
+36, then Sega on frame 37. Native previously selected its generated Sega VDP
+immediately. Extending the render hand-off to this lineage adds 153 exact route
+frames and removes 17,995,921 changed pixel instances. Combined #406 progress
+is 13,425 exact frames, 24,334 divergent frames, and 569,120,792 changed pixel
+instances with state/RNG parity unchanged. Frame 20927 is the next all-screen
+frontier.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

@@ -1027,14 +1027,16 @@ pub fn render_trace_with_vdp_latched_state(
     previous_trace: Option<&NativeTraceFrame>,
 ) -> NativeTraceFrame {
     let mut render_trace = trace.clone();
-    if trace.game_mode == GameMode::TitleScreen
-        && trace.teleport_warp_colour == 0x082A
+    if matches!(
+        trace.game_mode,
+        GameMode::SegaScreen | GameMode::TitleScreen
+    ) && trace.teleport_warp_colour == 0x082A
         && trace.level_entry_fade_progress_sub_73d0.is_some()
     {
-        // ASM loc_119D8 writes Game_Mode=$2C and Current_LevelID=0 before
-        // Pal_FadeOut loc_28C6 has finished presenting the resident gameplay
-        // planes. Select the gameplay scene while retaining current frozen
-        // snapshot state and the ROM palette-fade render command.
+        // ASM manual return loc_119D8 and timeout return loc_C0A change mode
+        // before Pal_FadeOut loc_28C6 has finished presenting the resident
+        // gameplay planes. Select the gameplay scene while retaining current
+        // frozen snapshot state and the ROM palette-fade render command.
         render_trace.game_mode = GameMode::DemoPlay;
         render_trace.game_mode_value = GameMode::DemoPlay.as_disassembly_value();
         // ASM loc_119D8 can leave Game_Paused set on the Start edge, but

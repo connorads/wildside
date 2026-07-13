@@ -1889,16 +1889,6 @@ impl NativeRuntime {
                 .sega_screen_data
                 .as_ref()
                 .map(|data| vdp::build_sega_screen_vdp(data, *elapsed)),
-            BootState::TitleScreen { .. } if self.demo_auto_timeout_handoff_active => {
-                self.sega_screen_data.as_ref().map(|data| {
-                    // ASM ReadJoypad loc_C0A writes Game_Mode=$00 for the demo
-                    // auto-timeout restart. Native keeps the title-state timer
-                    // as scheduling state until IntroSequence1 takes over, but
-                    // the visible VDP must be the mode-0 Sega logo, not the
-                    // stale title shell.
-                    vdp::build_sega_screen_vdp(data, self.title_screen_elapsed_frames)
-                })
-            }
             BootState::TitleScreen { .. }
                 if self.demo_title_palette_fade_progress_loc_28c6().is_some() =>
             {
@@ -1908,6 +1898,15 @@ impl NativeRuntime {
             }
             BootState::TitleScreen { .. } if self.demo_title_solid_fill_active_loc_6e2() => {
                 Some(vdp::solid_colour_vdp_state(0x082A))
+            }
+            BootState::TitleScreen { .. } if self.demo_auto_timeout_handoff_active => {
+                self.sega_screen_data.as_ref().map(|data| {
+                    // ASM ReadJoypad loc_C0A writes Game_Mode=$00 for the demo
+                    // auto-timeout restart. Once Pal_FadeOut and loc_6E2's
+                    // `$082A` clear hold finish, the visible VDP follows the
+                    // mode-0 Sega loader rather than the title shell.
+                    vdp::build_sega_screen_vdp(data, self.title_screen_elapsed_frames)
+                })
             }
             BootState::IntroSequence {
                 segment, elapsed, ..

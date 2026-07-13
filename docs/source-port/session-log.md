@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-13 handoff (#406 demo-timeout rendering)
+
+- ASM ReadJoypad `loc_C0A` uses the same `Pal_FadeOut -> loc_6E2` resident
+  gameplay fade as manual demo return, but continues into mode-0
+  `Load_SegaScreen`. Native now keeps gameplay for local frames 0-18, the
+  solid `$082A` VRAM-clear fill through frame 36, and reveals Sega on frame
+  37. A focused 43-frame slice has 19 exact frames and no state divergence.
+- The full route gains another 153 exact frames and removes 17,995,921 changed
+  pixel instances. Since #406 opened, the two return fixes total 301 additional
+  exact frames and 32,889,451 fewer changed pixel instances. Current evidence
+  is 13,425 exact, 24,334 divergent, and 569,120,792 changed pixel instances;
+  all CRC, typed gameplay, enemy, and post-`Init_RNG` frames remain exact.
+- Frame 39 remains first at 2,643 pixels. Frame 20927 is the next all-screen
+  mismatch. NEXT: keep #406 open and trace that transition lineage.
+
 ## 2026-07-13 handoff (#406 manual demo-return rendering)
 
 - ASM `loc_119D8` changes mode and level before `Pal_FadeOut` finishes with

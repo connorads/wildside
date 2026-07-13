@@ -221,6 +221,10 @@ pub(crate) const DEMO_TITLE_PALETTE_FADE_SCENE_FRAMES_LOC_28C6: usize = 19;
 /// `$082A` background colour visible through local frame 56 and presents the
 /// first rebuilt title image on local frame 57.
 pub(crate) const DEMO_TITLE_SOLID_FILL_END_ELAPSED_LOC_6E2: usize = 57;
+/// ASM ReadJoypad loc_C0A returns a timed-out demo through Pal_FadeOut and
+/// mode-0 Load_SegaScreen. Oracle retains the `$082A` VRAM-clear fill through
+/// local frame 36 and presents the Sega VDP on local frame 37.
+pub(crate) const DEMO_AUTO_TIMEOUT_SOLID_FILL_END_ELAPSED_LOC_6E2: usize = 37;
 // The ROM auto-timeout branch keeps the frozen gameplay snapshot alive one
 // title frame longer than the manual Start-abort helper before Kid blanks,
 // then clears camera/progression one frame later as well.

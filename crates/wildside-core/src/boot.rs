@@ -5798,29 +5798,39 @@ impl NativeRuntime {
     }
 
     pub(crate) fn demo_title_palette_fade_progress_loc_28c6(&self) -> Option<u16> {
-        if !matches!(
+        let manual_demo_return = matches!(
             self.title_screen_intro_return_lineage,
             Some(TitleScreenIntroReturnLineage::ManualDemoReturn)
-        ) || self.title_screen_elapsed_frames >= DEMO_TITLE_PALETTE_FADE_SCENE_FRAMES_LOC_28C6
+        );
+        if !(manual_demo_return || self.demo_auto_timeout_handoff_active)
+            || self.title_screen_elapsed_frames >= DEMO_TITLE_PALETTE_FADE_SCENE_FRAMES_LOC_28C6
         {
             return None;
         }
 
-        // ASM loc_119D8 writes `$082A` to FBCC before loc_6E2 enters
-        // Pal_FadeOut. The call crosses three VBlank presentation boundaries
-        // before loc_28C6's first `$10` subtraction is visible, then presents
-        // one descending blend step per frame until loc_6E2 clears VRAM.
+        // ASM manual return loc_119D8 and timeout return loc_C0A write `$082A`
+        // to FBCC before loc_6E2 enters Pal_FadeOut. The call crosses three
+        // VBlank presentation boundaries before loc_28C6's first `$10`
+        // subtraction is visible, then presents one descending blend step per
+        // frame until loc_6E2 clears VRAM.
         Some(0x0100u16.saturating_sub(
             (self.title_screen_elapsed_frames.saturating_sub(3) as u16).saturating_mul(0x10),
         ))
     }
 
     pub(crate) fn demo_title_solid_fill_active_loc_6e2(&self) -> bool {
-        matches!(
+        let manual_demo_return = matches!(
             self.title_screen_intro_return_lineage,
             Some(TitleScreenIntroReturnLineage::ManualDemoReturn)
-        ) && (DEMO_TITLE_PALETTE_FADE_SCENE_FRAMES_LOC_28C6
-            ..DEMO_TITLE_SOLID_FILL_END_ELAPSED_LOC_6E2)
+        );
+        let end_elapsed = if self.demo_auto_timeout_handoff_active {
+            DEMO_AUTO_TIMEOUT_SOLID_FILL_END_ELAPSED_LOC_6E2
+        } else if manual_demo_return {
+            DEMO_TITLE_SOLID_FILL_END_ELAPSED_LOC_6E2
+        } else {
+            return false;
+        };
+        (DEMO_TITLE_PALETTE_FADE_SCENE_FRAMES_LOC_28C6..end_elapsed)
             .contains(&self.title_screen_elapsed_frames)
     }
 
@@ -6021,6 +6031,7 @@ impl NativeRuntime {
         &mut self,
         mode_0_entry: DemoAutoTimeoutMode0Entry,
     ) {
+        let demo_title_visual_level = self.current_level;
         let intro_return_slot_2_early_visibility =
             self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility;
         let start_skip_intro_sequence_5_delay = self.demo_uses_start_skip_intro_return_camera_wrap;
@@ -6058,6 +6069,7 @@ impl NativeRuntime {
         self.demo_auto_timeout_intro_sequence_5_frames_override =
             Some(DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES);
         self.preserve_demo_title_snapshot = true;
+        self.demo_title_visual_level = Some(demo_title_visual_level);
         self.demo_title_snapshot_object_counts = Some(frozen_counts);
         self.hide_demo_return_title_player = true;
         self.player_lifecycle = PlayerLifecycle::Alive;

@@ -4769,6 +4769,7 @@ mod chunk_08 {
     #[allow(non_snake_case)]
     fn loc_C0A_demo_auto_ends_after_max_frames() {
         let mut runtime = NativeRuntime::new(manifest());
+        runtime.current_level = LevelId(demo::DEMO_1_LEVEL);
         runtime.boot_state = BootState::DemoPlay {
             frame_counter: demo::DEMO_MAX_FRAMES + demo::DEMO_1_TIMEOUT_COUNTER_OFFSET_FRAMES,
             data_index: 0,
@@ -4799,6 +4800,16 @@ mod chunk_08 {
         assert!(
             matches!(runtime.boot_state, BootState::TitleScreen { .. }),
             "the handoff should reuse title rebuild state after max demo frames"
+        );
+        assert_eq!(handoff_frame.teleport_warp_colour, 0x082A);
+        assert_eq!(
+            handoff_frame.level_entry_fade_progress_sub_73d0,
+            Some(0x0100)
+        );
+        assert_eq!(
+            runtime.source_port_render_level(),
+            LevelId(demo::DEMO_1_LEVEL),
+            "ASM loc_C0A -> Pal_FadeOut should retain the timed-out demo's resident level image"
         );
     }
 
