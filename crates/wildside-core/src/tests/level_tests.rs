@@ -6576,8 +6576,15 @@ mod chunk_02 {
                 NativeRuntime::intro_sequence_6_lightning_presentation_elapsed_loc_1b37c_for_lineage(
                     elapsed, true, false,
                 ),
-                elapsed,
-                "ASM loc_1B37C later-revisit lightning cadence should retain its independent presentation clock at local frame {elapsed}",
+                elapsed + INTRO_SEQUENCE_6_LIGHTNING_PRESENTATION_ADVANCE_FRAMES,
+                "ASM loc_1B37C later-revisit lightning cadence should stay one object pass ahead at local frame {elapsed}",
+            );
+            assert_eq!(
+                NativeRuntime::intro_sequence_6_lightning_presentation_elapsed_loc_1b37c_for_lineage(
+                    elapsed, false, false,
+                ),
+                elapsed + INTRO_SEQUENCE_6_LIGHTNING_PRESENTATION_ADVANCE_FRAMES,
+                "ASM loc_1B37C cold-boot lightning cadence should stay one object pass ahead at local frame {elapsed}",
             );
         }
     }
@@ -8208,6 +8215,147 @@ mod chunk_02 {
                 (21_089, 0x9BC4_B262),
             ],
             "ASM loc_1B3BC should retain its three-frame DBF cadence, then loc_1B37C should present closing sub_1B41C frames 0,1,0,2,0 on the oracle-derived published frames",
+        );
+    }
+
+    #[test]
+    fn published_tas_intro_sequence_6_sub_1b41c_and_sub_1bf24_uploads_keep_local_lineage() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let expected_frames = [
+            20_972, 21_035, 21_047, 21_056, 28_147, 28_177, 28_204, 28_231,
+        ];
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().take(28_232).enumerate() {
+            runtime.step_frame(FrameInput::from_mask(mask));
+            if expected_frames.contains(&frame_index) {
+                let carry = matches!(
+                    runtime.boot_state,
+                    BootState::IntroSequence6 {
+                        carry_timeout_restart_hidden_camera_wrap: true,
+                        ..
+                    }
+                );
+                let lightning_raster_start = runtime
+                    .vdp_state()
+                    .and_then(|vdp| vdp.raster_frame.as_ref())
+                    .and_then(|raster| {
+                        raster
+                            .vram_word_writes
+                            .iter()
+                            .find(|write| write.byte_addr == 0x17A0)
+                    })
+                    .map(|write| (write.scanline, write.pixel));
+                let title_raster_start = runtime
+                    .vdp_state()
+                    .and_then(|vdp| vdp.raster_frame.as_ref())
+                    .and_then(|raster| {
+                        raster
+                            .vram_word_writes
+                            .iter()
+                            .find(|write| write.byte_addr == 0x00AA)
+                    })
+                    .map(|write| (write.scanline, write.pixel));
+                samples.push((
+                    frame_index,
+                    runtime.title_screen_elapsed_frames,
+                    runtime.intro_sequence_6_lightning_presentation_elapsed_loc_1b37c(),
+                    runtime.intro_sequence_6_entered_from_timeout_restart,
+                    carry,
+                    runtime.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
+                    lightning_raster_start,
+                    title_raster_start,
+                ));
+            }
+        }
+
+        assert_eq!(
+            samples,
+            [
+                (
+                    20_972,
+                    78,
+                    82,
+                    true,
+                    true,
+                    3,
+                    Some((142, 380)),
+                    Some((101, 300))
+                ),
+                (
+                    21_035,
+                    141,
+                    145,
+                    true,
+                    true,
+                    2,
+                    Some((147, 12)),
+                    Some((105, 380))
+                ),
+                (
+                    21_047,
+                    153,
+                    157,
+                    true,
+                    true,
+                    2,
+                    Some((146, 76)),
+                    Some((105, 76))
+                ),
+                (
+                    21_056,
+                    162,
+                    166,
+                    true,
+                    true,
+                    3,
+                    Some((141, 12)),
+                    Some((99, 380))
+                ),
+                (
+                    28_147,
+                    81,
+                    82,
+                    true,
+                    false,
+                    3,
+                    Some((143, 92)),
+                    Some((102, 28))
+                ),
+                (
+                    28_177,
+                    111,
+                    112,
+                    true,
+                    false,
+                    1,
+                    Some((158, 76)),
+                    Some((117, 76))
+                ),
+                (
+                    28_204,
+                    138,
+                    139,
+                    true,
+                    false,
+                    4,
+                    Some((193, 140)),
+                    Some((152, 76))
+                ),
+                (
+                    28_231,
+                    165,
+                    166,
+                    true,
+                    false,
+                    3,
+                    Some((179, 268)),
+                    Some((138, 220))
+                ),
+            ],
+            "ASM loc_1B37C/sub_1B41C and sub_1B43A/sub_1BF24 keep independent cold/wrapped/later worker clocks; oracle FIFO traces pin each active-display upload start",
         );
     }
 

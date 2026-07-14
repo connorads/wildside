@@ -675,6 +675,29 @@ Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG` frames remain
 exact. Frame 39 remains first at 2,643 pixels; frame 21047 is now worst at
 7,195 pixels, so #406 remains open.
 
+Progress 2026-07-14: frame 21047 combined two active-display uploads rather
+than exposing a wrong final VDP state. ASM `loc_1B37C -> sub_1B41C` streams the
+lightning art while `sub_1B43A -> loc_1B446 -> sub_1BF24 -> sub_1C5D0` streams
+the 18x20 Plane A title mapping. Oracle FIFO traces established separate cold,
+wrapped-timeout, and later-timeout worker clocks and the ordered word-write
+starts for both streams. Native now builds the raster from frame-start VRAM,
+merges both uploads, and keeps post-frame VRAM authoritative.
+
+The H40 renderer also corrects its access-slot boundary: a pixel-12 FIFO write
+occurs in left blanking and affects the current scanline's background fetch,
+while pixel-28 and later writes remain visible from the following scanline.
+Regressions pin both cases, all three IntroSequence6 worker lineages, and eight
+oracle RGB24 hashes across the two published timeout windows. Every frame in
+20972..21056 and 28147..28231 is pixel-exact; the cold 2477..2561 window is
+also pixel-exact with player, camera, and enemy-frontier parity, apart from its
+pre-existing advisory `number_objects` report.
+
+Full verification gains 78 exact frames and removes 258,259 changed pixel
+instances: 24,004 exact, 13,755 divergent, and 9,194,202 changed pixels.
+Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG` frames remain
+exact. Frame 39 remains first at 2,643 pixels; frame 28028 is now worst at
+5,271 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

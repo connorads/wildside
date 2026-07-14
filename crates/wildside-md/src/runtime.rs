@@ -2762,6 +2762,35 @@ mod tests {
     }
 
     #[test]
+    fn render_vdp_applies_left_blanking_fifo_write_to_current_h40_scanline() {
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[2] = 0x08;
+        vdp.cram[2..4].copy_from_slice(&[0x0E, 0xEE]);
+        make_tile_opaque(&mut vdp.vram, 1, 1);
+        write_tile_entry(&mut vdp.vram, 0x2000, 0, 0x0001);
+        let mut initial_vram = vdp.vram.clone();
+        write_tile_entry(&mut initial_vram, 0x2000, 0, 0x0000);
+        vdp.raster_frame = Some(VdpRasterFrame {
+            initial_vram,
+            vram_word_writes: vec![VdpRasterVramWordWrite {
+                scanline: 0,
+                pixel: 12,
+                byte_addr: 0x2000,
+                value: 0x0001,
+            }],
+        });
+        let mut rgb = vec![0; 320 * 224 * 3];
+
+        render_vdp_into(&vdp, &mut rgb);
+
+        assert_eq!(
+            &rgb[0..3],
+            &[0xFF, 0xFF, 0xFF],
+            "the H40 pixel-12 FIFO slot precedes active display at H=$01A and must feed the current background scanline"
+        );
+    }
+
+    #[test]
     fn render_vdp_decodes_plane_b_name_table_base_mask() {
         // ASM VDP setup writes register 4 as the plane B name-table base; only
         // bits 0..2 form the Mega Drive base address used by rendering.

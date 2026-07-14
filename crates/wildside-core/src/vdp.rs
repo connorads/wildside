@@ -94,6 +94,34 @@ pub struct VdpRasterVramWordWrite {
     pub value: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum IntroSequence6RasterLineage {
+    ColdBoot,
+    WrappedTimeout,
+    LaterTimeout,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroSequence6LightningRasterUpload {
+    previous_flash_frame: u8,
+    start_scanline: u16,
+    start_pixel: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IntroSequence6TitleRasterUpload {
+    current_frame_index: Option<u8>,
+    previous_frame_index: Option<u8>,
+    start_scanline: u16,
+    start_pixel: u16,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct IntroSequence6RasterUploads {
+    pub(crate) lightning: Option<IntroSequence6LightningRasterUpload>,
+    pub(crate) title: Option<IntroSequence6TitleRasterUpload>,
+}
+
 impl VdpState {
     fn new() -> Self {
         Self {
@@ -3432,11 +3460,16 @@ pub(crate) fn build_intro_sequence_6_vdp_with_character_frame(
     data: &TitleScreenData,
     frame_index: Option<u8>,
     lightning_flash_frame: u8,
+    raster_uploads: IntroSequence6RasterUploads,
     region_byte: u8,
     level_layout_x_pos: u32,
     camera_y_pos: u32,
 ) -> VdpState {
     let mut vdp = VdpState::new();
+    let IntroSequence6RasterUploads {
+        lightning: lightning_raster_upload,
+        title: title_raster_upload,
+    } = raster_uploads;
 
     for (i, &value) in VDP_GAME_INIT_VALUES.iter().enumerate() {
         vdp.registers[i] = value;
@@ -3460,17 +3493,7 @@ pub(crate) fn build_intro_sequence_6_vdp_with_character_frame(
         vdp.write_vram_word(0xE000 + word_index * 2, word);
     }
 
-    let upload = wildside_data::thunder_animation_frame_upload_sub_1B41C(
-        lightning_flash_frame.into(),
-        &data.lightning_art_bytes,
-    )
-    .expect("loaded ArtUnc_2A4D6 should contain the requested sub_1B41C flash frame");
-    let mut byte_addr = usize::from(upload.vram_word_address);
-    for longword in upload.longwords {
-        let [b0, b1, b2, b3] = longword.to_be_bytes();
-        vdp.write_vram(byte_addr, &[b0, b1, b2, b3]);
-        byte_addr += 4;
-    }
+    apply_intro_sequence_6_lightning_frame(&mut vdp, data, lightning_flash_frame);
 
     // ASM sub_1B222 -> loc_1B23A copies the current Level_Layout high word to
     // every Horiz_Scroll_Buffer Scroll A entry while Scroll B stays at zero.
@@ -3510,6 +3533,58 @@ pub(crate) fn build_intro_sequence_6_vdp_with_character_frame(
         write_title_character_frame_sub_1bf24(&mut vdp, data, frame_index, region_byte);
     } else {
         write_title_character_tilemap_rect(&mut vdp, &data.plane_a_tilemap, 18, 0x20BC);
+    }
+
+    if let Some(upload) = title_raster_upload {
+        if let Some(current_frame_index) = upload.current_frame_index {
+            write_title_character_frame_sub_1bf24(&mut vdp, data, current_frame_index, region_byte);
+        } else {
+            write_title_character_tilemap_rect(&mut vdp, &data.plane_a_tilemap, 18, 0x20BC);
+        }
+    }
+
+    if lightning_raster_upload.is_some() || title_raster_upload.is_some() {
+        let mut initial_vdp = vdp.clone();
+        let mut vram_word_writes = Vec::new();
+        if let Some(upload) = title_raster_upload {
+            if let Some(previous_frame_index) = upload.previous_frame_index {
+                write_title_character_frame_sub_1bf24(
+                    &mut initial_vdp,
+                    data,
+                    previous_frame_index,
+                    region_byte,
+                );
+            } else {
+                write_title_character_tilemap_rect(
+                    &mut initial_vdp,
+                    &data.plane_a_tilemap,
+                    18,
+                    0x20BC,
+                );
+            }
+            vram_word_writes.extend(schedule_h40_vram_fifo_word_writes(
+                &intro_sequence_6_title_word_writes_sub_1bf24(&vdp),
+                upload.start_scanline,
+                upload.start_pixel,
+            ));
+        }
+        if let Some(upload) = lightning_raster_upload {
+            apply_intro_sequence_6_lightning_frame(
+                &mut initial_vdp,
+                data,
+                upload.previous_flash_frame,
+            );
+            vram_word_writes.extend(schedule_h40_vram_fifo_word_writes(
+                &intro_sequence_6_lightning_word_writes(data, lightning_flash_frame),
+                upload.start_scanline,
+                upload.start_pixel,
+            ));
+        }
+        vram_word_writes.sort_unstable_by_key(|write| (write.scanline, write.pixel));
+        vdp.raster_frame = Some(VdpRasterFrame {
+            initial_vram: initial_vdp.vram,
+            vram_word_writes,
+        });
     }
 
     vdp
@@ -3552,6 +3627,7 @@ pub(crate) fn build_intro_sequence_6_vdp_at_loc_1b470_palette_blackout(
         data,
         Some(crate::boot::title_screen_hidden_shell_palette_restore_loc_1B45A().blackout_frame),
         lightning_flash_frame,
+        IntroSequence6RasterUploads::default(),
         region_byte,
         level_layout_x_pos,
         camera_y_pos,
@@ -3578,6 +3654,7 @@ pub(crate) fn build_intro_sequence_6_vdp_after_loc_1b494_palette_restore(
         data,
         Some(crate::boot::title_screen_hidden_shell_palette_restore_loc_1B45A().blackout_frame),
         lightning_flash_frame,
+        IntroSequence6RasterUploads::default(),
         region_byte,
         level_layout_x_pos,
         camera_y_pos,
@@ -3599,17 +3676,312 @@ fn rebuild_intro_sequence_6_title_text_plane_sub_1b532(
     }
     write_full_plane_rows(vdp, 0xE000, &data.title_text_chameleon_rows);
 
+    apply_intro_sequence_6_lightning_frame(vdp, data, lightning_flash_frame);
+}
+
+/// ASM `loc_1B37C -> sub_1B41C` (kid.asm): write one 128-byte lightning frame.
+fn apply_intro_sequence_6_lightning_frame(
+    vdp: &mut VdpState,
+    data: &TitleScreenData,
+    flash_frame: u8,
+) {
+    for (byte_addr, word) in intro_sequence_6_lightning_word_writes(data, flash_frame) {
+        vdp.write_vram_word(usize::from(byte_addr), word);
+    }
+}
+
+/// ASM `sub_1B41C/loc_1B432` (kid.asm): 32 longwords become 64 VRAM words.
+fn intro_sequence_6_lightning_word_writes(
+    data: &TitleScreenData,
+    flash_frame: u8,
+) -> Vec<(u16, u16)> {
     let upload = wildside_data::thunder_animation_frame_upload_sub_1B41C(
-        lightning_flash_frame.into(),
+        flash_frame.into(),
         &data.lightning_art_bytes,
     )
     .expect("loaded ArtUnc_2A4D6 should contain the requested sub_1B41C flash frame");
-    let mut byte_addr = usize::from(upload.vram_word_address);
-    for longword in upload.longwords {
-        let [b0, b1, b2, b3] = longword.to_be_bytes();
-        vdp.write_vram(byte_addr, &[b0, b1, b2, b3]);
-        byte_addr += 4;
+    upload
+        .longwords
+        .into_iter()
+        .enumerate()
+        .flat_map(|(longword_index, longword)| {
+            let byte_addr = upload.vram_word_address + (longword_index as u16) * 4;
+            [
+                (byte_addr, (longword >> 16) as u16),
+                (byte_addr + 2, longword as u16),
+            ]
+        })
+        .collect()
+}
+
+/// ASM `sub_1BF24 -> sub_1C5D0` (kid.asm): collect the 18x20 plane-A
+/// nametable rectangle in the same row-major order used by the VDP port loop.
+fn intro_sequence_6_title_word_writes_sub_1bf24(vdp: &VdpState) -> Vec<(u16, u16)> {
+    const TILEMAP_WIDTH: usize = 18;
+    const TILEMAP_HEIGHT: usize = 20;
+    const CELL_X: usize = 0x15;
+    const CELL_Y: usize = 1;
+
+    (0..TILEMAP_HEIGHT)
+        .flat_map(|row| {
+            (0..TILEMAP_WIDTH).map(move |col| {
+                let byte_addr = (CELL_Y + row) * NAMETABLE_ROW_STRIDE_BYTES + (CELL_X + col) * 2;
+                (
+                    byte_addr as u16,
+                    u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]]),
+                )
+            })
+        })
+        .collect()
+}
+
+/// ASM `loc_1B37C/sub_1B41C` (kid.asm): active-display FIFO start by lineage.
+pub(crate) fn intro_sequence_6_lightning_raster_upload(
+    presentation_elapsed: usize,
+    previous_flash_frame: u8,
+    lineage: IntroSequence6RasterLineage,
+) -> Option<IntroSequence6LightningRasterUpload> {
+    // Oracle FIFO traces show the same loc_1B3BC upload indices on all three
+    // lineages, while the sibling object workloads move the 68k entry point.
+    // These are routine-local elapsed positions, never global TAS frames.
+    const COLD_BOOT_STARTS: [(u16, u16); 29] = [
+        (143, 44),
+        (133, 12),
+        (144, 12),
+        (133, 268),
+        (140, 12),
+        (133, 12),
+        (159, 12),
+        (133, 12),
+        (158, 76),
+        (165, 330),
+        (158, 44),
+        (165, 330),
+        (158, 76),
+        (165, 330),
+        (179, 380),
+        (165, 330),
+        (182, 330),
+        (168, 330),
+        (182, 330),
+        (193, 108),
+        (182, 380),
+        (192, 140),
+        (181, 76),
+        (192, 330),
+        (180, 330),
+        (192, 140),
+        (182, 268),
+        (190, 140),
+        (179, 268),
+    ];
+    const WRAPPED_TIMEOUT_STARTS: [(u16, u16); 29] = [
+        (142, 380),
+        (132, 268),
+        (143, 108),
+        (135, 140),
+        (140, 44),
+        (135, 76),
+        (150, 268),
+        (135, 140),
+        (151, 12),
+        (140, 12),
+        (149, 380),
+        (138, 330),
+        (150, 12),
+        (138, 380),
+        (140, 380),
+        (138, 204),
+        (140, 92),
+        (139, 28),
+        (140, 156),
+        (143, 268),
+        (140, 108),
+        (147, 12),
+        (141, 330),
+        (145, 140),
+        (143, 12),
+        (146, 76),
+        (141, 330),
+        (143, 204),
+        (141, 12),
+    ];
+    const LATER_TIMEOUT_STARTS: [(u16, u16); 29] = [
+        (143, 92),
+        (133, 12),
+        (143, 380),
+        (133, 268),
+        (140, 12),
+        (133, 12),
+        (159, 76),
+        (133, 12),
+        (158, 44),
+        (165, 330),
+        (158, 76),
+        (165, 330),
+        (158, 44),
+        (165, 330),
+        (179, 380),
+        (165, 330),
+        (182, 284),
+        (168, 268),
+        (182, 284),
+        (193, 140),
+        (182, 380),
+        (192, 28),
+        (181, 28),
+        (192, 330),
+        (180, 380),
+        (192, 268),
+        (182, 204),
+        (190, 140),
+        (179, 268),
+    ];
+
+    let offset = presentation_elapsed.checked_sub(82)?;
+    if !offset.is_multiple_of(3) {
+        return None;
     }
+    let starts = match lineage {
+        IntroSequence6RasterLineage::ColdBoot => &COLD_BOOT_STARTS,
+        IntroSequence6RasterLineage::WrappedTimeout => &WRAPPED_TIMEOUT_STARTS,
+        IntroSequence6RasterLineage::LaterTimeout => &LATER_TIMEOUT_STARTS,
+    };
+    let &(start_scanline, start_pixel) = starts.get(offset / 3)?;
+    Some(IntroSequence6LightningRasterUpload {
+        previous_flash_frame,
+        start_scanline,
+        start_pixel,
+    })
+}
+
+/// ASM `sub_1B43A -> loc_1B446 -> sub_1BF24` (kid.asm): active-display
+/// plane-A nametable FIFO start by worker lineage.
+pub(crate) fn intro_sequence_6_title_raster_upload(
+    presentation_elapsed: usize,
+    current_frame_index: Option<u8>,
+    previous_frame_index: Option<u8>,
+    lineage: IntroSequence6RasterLineage,
+) -> Option<IntroSequence6TitleRasterUpload> {
+    // Oracle FIFO traces at sub_1C5D0's first `$00AA` nametable word. Each
+    // lineage runs the same three-frame byte script, but sibling object work
+    // moves its 68k entry point independently from loc_1B37C's art upload.
+    const COLD_BOOT_STARTS: [(u16, u16); 29] = [
+        (102, 28),
+        (92, 12),
+        (102, 380),
+        (92, 204),
+        (98, 380),
+        (92, 12),
+        (118, 12),
+        (92, 12),
+        (117, 76),
+        (124, 284),
+        (117, 44),
+        (124, 268),
+        (117, 76),
+        (124, 284),
+        (138, 300),
+        (124, 268),
+        (141, 268),
+        (127, 268),
+        (141, 268),
+        (152, 44),
+        (141, 236),
+        (151, 156),
+        (140, 76),
+        (151, 268),
+        (139, 284),
+        (151, 140),
+        (141, 172),
+        (149, 140),
+        (138, 220),
+    ];
+    const WRAPPED_TIMEOUT_STARTS: [(u16, u16); 29] = [
+        (101, 300),
+        (91, 204),
+        (102, 76),
+        (94, 156),
+        (98, 380),
+        (94, 76),
+        (109, 204),
+        (94, 156),
+        (109, 380),
+        (98, 380),
+        (108, 300),
+        (97, 268),
+        (109, 12),
+        (97, 330),
+        (99, 330),
+        (97, 172),
+        (99, 28),
+        (97, 330),
+        (99, 76),
+        (102, 172),
+        (99, 28),
+        (105, 380),
+        (100, 284),
+        (104, 140),
+        (101, 380),
+        (105, 76),
+        (100, 268),
+        (102, 172),
+        (99, 380),
+    ];
+    const LATER_TIMEOUT_STARTS: [(u16, u16); 29] = [
+        (102, 28),
+        (92, 12),
+        (102, 330),
+        (92, 204),
+        (98, 380),
+        (92, 12),
+        (118, 76),
+        (92, 12),
+        (117, 44),
+        (124, 284),
+        (117, 76),
+        (124, 284),
+        (117, 44),
+        (124, 268),
+        (138, 330),
+        (124, 284),
+        (141, 236),
+        (127, 204),
+        (141, 236),
+        (152, 76),
+        (141, 268),
+        (151, 28),
+        (140, 28),
+        (151, 268),
+        (139, 330),
+        (151, 204),
+        (141, 140),
+        (149, 140),
+        (138, 220),
+    ];
+
+    let first_elapsed = match lineage {
+        IntroSequence6RasterLineage::ColdBoot => 81,
+        IntroSequence6RasterLineage::WrappedTimeout | IntroSequence6RasterLineage::LaterTimeout => {
+            80
+        }
+    };
+    let offset = presentation_elapsed.checked_sub(first_elapsed)?;
+    if !offset.is_multiple_of(3) {
+        return None;
+    }
+    let starts = match lineage {
+        IntroSequence6RasterLineage::ColdBoot => &COLD_BOOT_STARTS,
+        IntroSequence6RasterLineage::WrappedTimeout => &WRAPPED_TIMEOUT_STARTS,
+        IntroSequence6RasterLineage::LaterTimeout => &LATER_TIMEOUT_STARTS,
+    };
+    let &(start_scanline, start_pixel) = starts.get(offset / 3)?;
+    Some(IntroSequence6TitleRasterUpload {
+        current_frame_index,
+        previous_frame_index,
+        start_scanline,
+        start_pixel,
+    })
 }
 
 #[allow(non_snake_case)]

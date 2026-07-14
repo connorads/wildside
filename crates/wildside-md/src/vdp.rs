@@ -193,10 +193,12 @@ fn apply_vram_raster_writes_before_scanline(
     scanline: usize,
 ) {
     while let Some(write) = raster_frame.vram_word_writes.get(*write_index)
-        // The VDP background pipeline latches the next displayed row before
-        // that scanline begins. A FIFO write during N can affect N+1, never a
-        // partial span of background pixels within N.
-        && usize::from(write.scanline) < scanline
+        // H40 active display starts at internal H=$01A. FIFO commits in the
+        // left-blanking slot at pixel 12 precede that line's background fetch;
+        // commits from pixel 28 onwards feed the following scanline. The VDP
+        // still never exposes a partial horizontal span for ordinary VRAM.
+        && (usize::from(write.scanline) < scanline
+            || (usize::from(write.scanline) == scanline && write.pixel < 0x01A))
     {
         let byte_addr = usize::from(write.byte_addr);
         if let Some(slot) = vdp.vram.get_mut(byte_addr..byte_addr + 2) {

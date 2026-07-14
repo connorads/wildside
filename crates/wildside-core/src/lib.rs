@@ -2170,6 +2170,10 @@ impl NativeRuntime {
                         data,
                         self.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
                         self.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
+                        vdp::IntroSequence6RasterUploads {
+                            lightning: self.intro_sequence_6_lightning_raster_upload(),
+                            title: self.intro_sequence_6_title_raster_upload(),
+                        },
                         self.title_screen_region_byte,
                         self.intro_sequence_6_level_layout_x(),
                         self.intro_sequence_6_presented_hidden_camera_y(),
@@ -2242,6 +2246,7 @@ impl NativeRuntime {
                             Self::intro_sequence_6_lightning_flash_frame_loc_1b37c_at_elapsed(
                                 elapsed,
                             ),
+                            vdp::IntroSequence6RasterUploads::default(),
                             self.title_screen_region_byte,
                             level_layout_x_pos,
                             camera_y_pos,
@@ -2719,10 +2724,83 @@ impl NativeRuntime {
         )
     }
 
+    /// ASM `loc_1B37C -> sub_1B41C` (kid.asm): active-display upload timing.
+    fn intro_sequence_6_lightning_raster_upload(
+        &self,
+    ) -> Option<vdp::IntroSequence6LightningRasterUpload> {
+        let BootState::IntroSequence6 {
+            carry_timeout_restart_hidden_camera_wrap,
+            ..
+        } = self.boot_state
+        else {
+            return None;
+        };
+        let presentation_elapsed = self.intro_sequence_6_lightning_presentation_elapsed_loc_1b37c();
+        let previous_flash_frame =
+            Self::intro_sequence_6_lightning_flash_frame_loc_1b37c_at_elapsed(
+                presentation_elapsed.saturating_sub(1),
+            );
+        let lineage = if !self.intro_sequence_6_entered_from_timeout_restart {
+            vdp::IntroSequence6RasterLineage::ColdBoot
+        } else if carry_timeout_restart_hidden_camera_wrap {
+            vdp::IntroSequence6RasterLineage::WrappedTimeout
+        } else {
+            vdp::IntroSequence6RasterLineage::LaterTimeout
+        };
+        vdp::intro_sequence_6_lightning_raster_upload(
+            presentation_elapsed,
+            previous_flash_frame,
+            lineage,
+        )
+    }
+
+    /// ASM `sub_1B43A -> loc_1B446 -> sub_1BF24` (kid.asm): active-display
+    /// hidden-character nametable upload timing.
+    fn intro_sequence_6_title_raster_upload(&self) -> Option<vdp::IntroSequence6TitleRasterUpload> {
+        let BootState::IntroSequence6 {
+            carry_timeout_restart_hidden_camera_wrap,
+            ..
+        } = self.boot_state
+        else {
+            return None;
+        };
+        let presentation_elapsed =
+            self.intro_sequence_6_hidden_shell_presentation_elapsed_loc_1b43a();
+        // Oracle sub_1C5D0 traces show both timeout lineages entering the
+        // repeating loc_1B446 byte stream one object pass ahead of the
+        // trace-facing worker clock. Keep that correction local to frames
+        // which actually contain the active-display upload; loc_1B45A's later
+        // blackout/restore phase retains its separately verified timing.
+        let raster_frame_elapsed = presentation_elapsed.saturating_add(usize::from(
+            self.intro_sequence_6_entered_from_timeout_restart,
+        ));
+        let current_frame_index =
+            Self::intro_sequence_6_hidden_shell_frame_index_loc_1b43a_at_elapsed(
+                raster_frame_elapsed,
+            );
+        let previous_frame_index =
+            Self::intro_sequence_6_hidden_shell_frame_index_loc_1b43a_at_elapsed(
+                raster_frame_elapsed.saturating_sub(1),
+            );
+        let lineage = if !self.intro_sequence_6_entered_from_timeout_restart {
+            vdp::IntroSequence6RasterLineage::ColdBoot
+        } else if carry_timeout_restart_hidden_camera_wrap {
+            vdp::IntroSequence6RasterLineage::WrappedTimeout
+        } else {
+            vdp::IntroSequence6RasterLineage::LaterTimeout
+        };
+        vdp::intro_sequence_6_title_raster_upload(
+            presentation_elapsed,
+            current_frame_index,
+            previous_frame_index,
+            lineage,
+        )
+    }
+
     fn intro_sequence_6_lightning_presentation_elapsed_loc_1b37c(&self) -> usize {
         let elapsed = self.title_screen_elapsed_frames;
         let BootState::IntroSequence6 {
-            carry_timeout_restart_hidden_camera_wrap: true,
+            carry_timeout_restart_hidden_camera_wrap,
             ..
         } = self.boot_state
         else {
@@ -2731,7 +2809,7 @@ impl NativeRuntime {
         Self::intro_sequence_6_lightning_presentation_elapsed_loc_1b37c_for_lineage(
             elapsed,
             self.intro_sequence_6_entered_from_timeout_restart,
-            true,
+            carry_timeout_restart_hidden_camera_wrap,
         )
     }
 
@@ -2740,17 +2818,17 @@ impl NativeRuntime {
         entered_from_timeout_restart: bool,
         carry_timeout_restart_hidden_camera_wrap: bool,
     ) -> usize {
-        // ASM loc_1B37C's opening three-frame hibernations already have their
-        // own cold/later presentation calibration. Only the first wrapped
-        // timeout-restart shell needs the two-frame worker advance here;
-        // applying sub_1B43A's later mapping correction would shift every
-        // subsequent lightning upload off its oracle-backed cadence.
+        // ASM loc_1B37C's opening three-frame hibernations have an independent
+        // presentation clock from sibling sub_1B43A. The first wrapped timeout
+        // shell is four passes ahead; cold boot and the later timeout revisit
+        // are one pass ahead. Oracle FIFO traces pin the same local upload
+        // elapsed while their scanline entry points remain lineage-specific.
         if entered_from_timeout_restart && carry_timeout_restart_hidden_camera_wrap {
             elapsed.saturating_add(
                 TIMEOUT_RESTART_INTRO_SEQUENCE_6_EARLY_LIGHTNING_PRESENTATION_ADVANCE_FRAMES,
             )
         } else {
-            elapsed
+            elapsed.saturating_add(INTRO_SEQUENCE_6_LIGHTNING_PRESENTATION_ADVANCE_FRAMES)
         }
     }
 

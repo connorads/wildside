@@ -7527,6 +7527,68 @@ mod tests {
     }
 
     #[test]
+    fn published_tas_intro_sequence_6_sub_1b41c_and_sub_1bf24_raster_uploads_match_oracle_rgb() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let repo_root = crate_dir
+            .parent()
+            .and_then(Path::parent)
+            .expect("wildside-cli crate should live under <repo>/crates/wildside-cli");
+        let scenario: DynamicScenario = serde_json::from_str(
+            &fs::read_to_string(
+                repo_root.join("tests/data/tas/any-percent-published/scenario.json"),
+            )
+            .expect("published TAS scenario should be readable"),
+        )
+        .expect("published TAS scenario should parse");
+        let expected = BTreeSet::from([
+            (20_972, "0bae57cd129737a0a866a8d58d771482a2458880"),
+            (21_035, "12dcf791e6df147a7eb67b3472ece351b25f5373"),
+            (21_047, "50765db7c4b7acfabcab289b3a03a1cd0c5ef063"),
+            (21_056, "571c8e321a3bc3d2743329355f601dc36c4e864f"),
+            (28_147, "fef6d04bafa9fdd5acaca2c0394817f33a547d98"),
+            (28_177, "6a5e30e303b2002b5adee27fcd8f18fc62d73586"),
+            (28_204, "bdb9d0926ceb806fec2429eee41b1214cdb4f752"),
+            (28_231, "9a7fefbf313bf9f8786e787563bef17033de8c8a"),
+        ]);
+        let max_frame = expected
+            .iter()
+            .map(|(frame, _)| *frame)
+            .max()
+            .expect("oracle samples should not be empty");
+        let session_assets = load_native_session_assets(&manifest, 0)
+            .expect("published TAS should load level 0 rendering assets");
+        let mut runtime = NativeRuntime::new(manifest);
+        let mut actual = BTreeSet::new();
+
+        for (frame_index, mask) in scenario
+            .script
+            .iter()
+            .copied()
+            .enumerate()
+            .take(max_frame + 1)
+        {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if expected.iter().any(|(frame, _)| *frame == frame_index) {
+                let rgb =
+                    render_vdp_frame_for_test(&runtime, &trace, &session_assets.level_visuals);
+                actual.insert((frame_index, format!("{:x}", Sha1::digest(rgb))));
+            }
+        }
+
+        assert_eq!(
+            actual,
+            expected
+                .into_iter()
+                .map(|(frame, digest)| (frame, digest.to_string()))
+                .collect(),
+            "ASM loc_1B37C/sub_1B41C lightning and sub_1B43A/sub_1BF24 title uploads must match oracle RGB byte-for-byte",
+        );
+    }
+
+    #[test]
     fn diamond_enemy_animates_while_stationary_stru_3aca8() {
         let mut trace = sample_trace(GameMode::InGame);
         let visuals = sample_level_visuals();

@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 IntroSequence6 concurrent raster uploads)
+
+- Frame 21047 combined `sub_1B41C` lightning art and `sub_1BF24 -> sub_1C5D0`
+  title-map uploads during active display. Oracle FIFO traces pin both streams
+  across cold, wrapped-timeout, and later-timeout worker lineages.
+- Native now merges both ordered uploads from frame-start VRAM. H40 pixel-12
+  left-blanking writes affect the current scanline; pixel-28 and later writes
+  affect the following scanline. Both boundaries have regressions.
+- Full verification gains 78 exact frames and removes 258,259 changed pixels:
+  24,004 exact, 13,755 divergent, and 9,194,202 changed. All state channels
+  remain exact. Frame 28028 is now worst at 5,271 pixels. NEXT: keep #406 open
+  and trace that visual frontier.
+
 ## 2026-07-14 handoff (#406 IntroSequence5 raster uploads)
 
 - Frame 16534 was a mid-frame Plane A transfer, not a wrong final VDP state.

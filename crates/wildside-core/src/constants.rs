@@ -89,6 +89,11 @@ pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_EARLY_WORKER_PRESENTATION_ADVA
 /// leaves the lightning strip two frames late.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_EARLY_LIGHTNING_PRESENTATION_ADVANCE_FRAMES:
     usize = 4;
+/// Cold boot and the later timeout revisit present `loc_1B37C/sub_1B41C` one
+/// object pass ahead of the trace-facing title clock. Oracle FIFO traces place
+/// the first active-display loop upload at local presentation elapsed 82 on
+/// both lineages; retaining the raw elapsed selects the preceding flash frame.
+pub(crate) const INTRO_SEQUENCE_6_LIGHTNING_PRESENTATION_ADVANCE_FRAMES: usize = 1;
 /// The later early-title-restore revisit reaches `Load_IntroSequence6` with a
 /// three-frame delayed worker shell: oracle keeps the complete RNG ring fixed
 /// through local frames 33..35, exposes the three allocations on frame 35,
