@@ -823,14 +823,31 @@ pub(crate) fn build_intro_sequence_1_cold_boot_vdp_at_elapsed(
     title_variant: u8,
     elapsed: usize,
 ) -> VdpState {
-    build_intro_sequence_1_vdp_at_elapsed(
+    let mut vdp = build_intro_sequence_1_vdp_at_elapsed(
         data,
         sega_data,
         title_variant,
         elapsed,
         INTRO_SEQUENCE_1_COLD_BOOT_FADE_IN_START_ELAPSED,
         INTRO_SEQUENCE_1_COLD_BOOT_FULL_PALETTE_ELAPSED,
-    )
+    );
+    let first_intro_text_glyph = INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0[0] + 1 + 0x20;
+    if elapsed >= first_intro_text_glyph {
+        let previous_vdp = build_intro_sequence_1_vdp_at_elapsed(
+            data,
+            sega_data,
+            title_variant,
+            elapsed - 1,
+            INTRO_SEQUENCE_1_COLD_BOOT_FADE_IN_START_ELAPSED,
+            INTRO_SEQUENCE_1_COLD_BOOT_FULL_PALETTE_ELAPSED,
+        );
+        vdp.raster_frame = Some(VdpRasterFrame {
+            initial_vram: previous_vdp.vram,
+            initial_cram: None,
+            vram_word_writes: Vec::new(),
+        });
+    }
+    vdp
 }
 
 pub(crate) fn build_intro_sequence_1_demo_restart_vdp_at_elapsed(
@@ -6040,6 +6057,21 @@ mod tests {
             vram_word(&after, 0x0110),
             0x67E6,
             "ASM sub_1C7F6 should write IntroText1's first `T` tile only once loc_1C7A0 reaches the glyph path",
+        );
+        let cold_boot_after = build_intro_sequence_1_cold_boot_vdp_at_elapsed(
+            &data,
+            &minimal_sega_data(),
+            1,
+            first_glyph_elapsed,
+        );
+        let raster = cold_boot_after
+            .raster_frame
+            .as_ref()
+            .expect("loc_1C7F6's active-display tile write should retain prior scanout VRAM");
+        assert_eq!(
+            u16::from_be_bytes([raster.initial_vram[0x0110], raster.initial_vram[0x0111]]),
+            INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0,
+            "ASM loc_1C7A0/sub_1C7F6 updates end-of-frame VRAM first; the `T` becomes visible on the following scanout",
         );
     }
 
