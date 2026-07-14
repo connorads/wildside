@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 Plane B camera history)
+
+- Frame 7814 exposed Plane B's missing camera history. `Load_InGame loc_11F48`
+  and `loc_2FFE8` preload from the player-start grid; `loc_30452 -> sub_30744`
+  uploads newly exposed cells, and `sub_307D8` uses the row source without an
+  extra tile bias.
+- Focused frames 7780..7840 remain gameplay-exact and fall from 629,049 to
+  41,044 changed pixels; frame 7814 falls from 11,403 to 837.
+- Full verification gains 771 exact frames and removes 55,339,346 changed
+  pixels: 22,778 exact, 14,981 divergent, and 12,304,001 changed. All state
+  channels remain exact. Frame 28373 is now worst at 10,911 pixels. NEXT: keep
+  #406 open and trace that visual frontier.
+
 ## 2026-07-14 handoff (#406 Island object scheduler)
 
 - Frame 7808's Island water phase came from a dropped independent Object_RAM

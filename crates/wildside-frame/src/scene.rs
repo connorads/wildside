@@ -2371,7 +2371,10 @@ pub fn background_scroll_pixel_diagnostic_loc_3050a(
         .div_euclid(8)
         .rem_euclid(i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A).ok()?)
         as usize;
-    let source_column_bias = 1_i32;
+    // ASM sub_307D8 loc_30840 adds the normalised scroll column directly to
+    // the `$87B2` row pointer. The source and VDP columns therefore share the
+    // same zero-based origin.
+    let source_column_bias = 0_i32;
     let source_column_start = (scroll_x_px.div_euclid(8) + source_column_bias)
         .rem_euclid(i32::try_from(background_width).ok()?) as usize;
     let (sample_column, _) = chunked_plane_b_cell_at_sample_x_loc_3050a(sample_x, scroll_x_px)?;
@@ -2942,17 +2945,26 @@ impl ChunkedPlaneBRowsLoc307D8 {
             return None;
         }
         let layer_speed = background_layer_speed_loc_3050a(level_visuals, row);
-        let scroll_x_px =
-            chunked_background_upload_scroll_x_px_loc_2ffe8(trace, camera_x_px, layer_speed);
+        let load_grid_camera_x_px =
+            load_ingame_camera_grid_x_px_loc_11f48(trace.player_start_x, camera_x_px);
+        let preload_camera_x_px = if trace.level_skip_cheat_enabled != 0 {
+            camera_x_px
+        } else {
+            load_grid_camera_x_px
+        };
+        let scroll_x_px = chunked_background_upload_scroll_x_px_loc_2ffe8(
+            trace,
+            preload_camera_x_px,
+            layer_speed,
+        );
         let destination_column = scroll_x_px
             .div_euclid(8)
             .rem_euclid(i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A).unwrap_or(0x40))
             as usize;
-        let source_column_bias = if level_visuals.level.background_scroll.is_some() {
-            1
-        } else {
-            0
-        };
+        // ASM sub_307D8 loc_30840: `lea ($FFFF4D5C),a0; move.w
+        // (a0,d5.w),a0; ... add.w d0,a0` consumes the normalised scroll
+        // column without an extra source bias.
+        let source_column_bias = 0;
         let source_column = (scroll_x_px.div_euclid(8) + source_column_bias)
             .rem_euclid(i32::try_from(self.source.width).ok()?)
             as usize;
@@ -2991,6 +3003,7 @@ impl ChunkedPlaneBRowsLoc307D8 {
         self.apply_elapsed_column_writes_loc_30744(
             &mut history,
             trace,
+            preload_camera_x_px,
             camera_x_px,
             layer_speed,
             changed_column_row,
@@ -3018,17 +3031,23 @@ impl ChunkedPlaneBRowsLoc307D8 {
         } else {
             preload_time_frames
         };
-        let upload_scroll_x_px =
-            chunked_background_upload_scroll_x_px_loc_2ffe8(trace, camera_x_px, layer_speed);
+        let load_grid_camera_x_px =
+            load_ingame_camera_grid_x_px_loc_11f48(trace.player_start_x, camera_x_px);
+        let preload_camera_x_px = if trace.level_skip_cheat_enabled != 0 {
+            camera_x_px
+        } else {
+            load_grid_camera_x_px
+        };
+        let upload_scroll_x_px = chunked_background_upload_scroll_x_px_loc_2ffe8(
+            trace,
+            preload_camera_x_px,
+            layer_speed,
+        );
         let upload_destination = upload_scroll_x_px
             .div_euclid(8)
             .rem_euclid(i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A).unwrap_or(0x40))
             as usize;
-        let source_column_bias = if level_visuals.level.background_scroll.is_some() {
-            1
-        } else {
-            0
-        };
+        let source_column_bias = 0;
         let upload_source = (upload_scroll_x_px.div_euclid(8) + source_column_bias)
             .rem_euclid(i32::try_from(self.source.width).ok()?)
             as usize;
@@ -3036,8 +3055,11 @@ impl ChunkedPlaneBRowsLoc307D8 {
         // BackgroundScroll_ComputeShiftLayers loc_3050A display pixels. It
         // reads the packed Horiz_Scroll_Data word written by loc_30452 and
         // shifts it by three before building the VDP/source row window.
-        let upload_data_word =
-            background_scroll_data_word_loc_30452(preload_time_frames, camera_x_px, layer_speed);
+        let upload_data_word = background_scroll_data_word_loc_30452(
+            preload_time_frames,
+            preload_camera_x_px,
+            layer_speed,
+        );
         let upload_data_column = usize::from((upload_data_word >> 3) & 0x003F);
         let upload_data_source =
             (usize::from(upload_data_word >> 3) + source_column_bias as usize) % self.source.width;
@@ -3267,6 +3289,7 @@ impl ChunkedPlaneBRowsLoc307D8 {
         &self,
         history: &mut ChunkedPlaneBRowHistoryLoc30744,
         trace: &NativeTraceFrame,
+        preload_camera_x_px: i32,
         camera_x_px: i32,
         layer_speed: u8,
         row: usize,
@@ -3274,6 +3297,41 @@ impl ChunkedPlaneBRowsLoc307D8 {
     ) {
         let current_time_frames = background_time_frames_for_trace_loc_3050a(trace);
         let preload_time_frames = current_time_frames.saturating_sub(trace.frame_index);
+        if matches!(layer_speed, 0x18..=0x88) && (layer_speed - 0x10).is_multiple_of(8) {
+            // ASM Load_InGame loc_11F48/loc_2FFE8 seeds Plane B at the
+            // player-start screen grid. Each later camera crossing changes a
+            // loc_30452 slot and sub_30744 writes the newly exposed far-edge
+            // cell. Replaying that path is essential for natural demo/TAS
+            // routes; uploading the whole row at the final camera leaves a
+            // rotating `$0780` hole that the hardware has already filled.
+            let mut previous_scroll = background_scroll_data_word_loc_30452(
+                preload_time_frames,
+                preload_camera_x_px,
+                layer_speed,
+            );
+            let step = if camera_x_px >= preload_camera_x_px {
+                1
+            } else {
+                -1
+            };
+            let mut path_camera_x_px = preload_camera_x_px;
+            while path_camera_x_px != camera_x_px {
+                path_camera_x_px += step;
+                let current_scroll = background_scroll_data_word_loc_30452(
+                    current_time_frames,
+                    path_camera_x_px,
+                    layer_speed,
+                );
+                history.apply_changed_column_loc_30744(
+                    source_buffer,
+                    previous_scroll,
+                    current_scroll,
+                    row,
+                );
+                previous_scroll = current_scroll;
+            }
+            return;
+        }
         if preload_time_frames == current_time_frames {
             return;
         }
@@ -10830,8 +10888,8 @@ mod tests {
         for expected in [
             "B18 sel=08 t=174 preload=114 first=0",
             "upload_px=28",
-            "upload=d03<-s04",
-            "upload_data=d11<-s12w005D",
+            "upload=d03<-s03",
+            "upload_data=d11<-s11w005D",
             "changed_src=alias",
             "t88:c0009->000A:d50<-s50:2782",
             "words=",
@@ -10905,7 +10963,7 @@ mod tests {
     }
 
     #[test]
-    fn chunked_plane_b_direct_row_upload_uses_source_bias_loc_307d8() {
+    fn chunked_plane_b_direct_row_upload_uses_exact_source_column_loc_307d8() {
         let trace = NativeTraceFrame {
             frame_index: 0,
             time_frames_loc_3038a: 0,
@@ -10948,12 +11006,68 @@ mod tests {
         assert_eq!(
             &row[0..4],
             &[
+                Some((0x20, 1)),
                 Some((0x21, 1)),
                 Some((0x22, 1)),
                 Some((0x23, 1)),
-                Some((0, 1)),
             ],
-            "ASM sub_307D8 consumes the scroll-column source with the native +1 chunked background bias before streaming the Plane-B row"
+            "ASM sub_307D8 adds the normalised Horiz_Scroll_Data column directly to the `$87B2` row pointer before streaming Plane B; it does not add a source-column bias"
+        );
+    }
+
+    #[test]
+    fn chunked_plane_b_natural_camera_path_starts_at_load_grid_loc_2ffe8_30744() {
+        let trace = NativeTraceFrame {
+            frame_index: 876,
+            time_frames_loc_3038a: 756,
+            camera_x_pos: 667 << 16,
+            camera_y_pos: 165 << 16,
+            player_start_x: Some(0),
+            player_start_y: Some(0),
+            ..NativeTraceFrame::default()
+        };
+
+        let mut visuals = sample_level_visuals(1);
+        visuals.level.background_theme_id = 4;
+        visuals.level.foreground_layout_bytes = vec![0; 80 * 14];
+        visuals.level.foreground_layout =
+            ForegroundLayout::parse(&visuals.level.foreground_layout_bytes, 4, 1)
+                .expect("wide foreground layout");
+        visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
+            layer_speeds: vec![0x20; 32],
+            has_terminator: true,
+        });
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: vec![BackgroundPlacement {
+                chunk_id: 0,
+                x_tiles: 0,
+                y_tiles: 0,
+            }],
+            chunks: vec![BackgroundChunk {
+                width_tiles: 110,
+                height_tiles: 1,
+                tiles: (0..110)
+                    .map(|column| BackgroundTile {
+                        tile_index: 0x20 + column % 6,
+                        flip_x: false,
+                    })
+                    .collect(),
+            }],
+        });
+
+        let row = chunked_plane_b_row_words_for_trace_loc_30744(&trace, &visuals, 667, 0)
+            .expect("natural chunked Plane-B row history");
+
+        assert!(
+            row[..=50]
+                .iter()
+                .all(|cell| cell.is_some_and(|(_, palette)| palette == 1)),
+            "ASM Load_InGame loc_11F48/loc_2FFE8 uploads B00 columns 0..40 at the player-start camera grid, then loc_30452/sub_30744 fills columns 41..50 while camera X advances to 667"
+        );
+        assert_eq!(
+            row[51..],
+            [Some((0, 0)); 13],
+            "ASM sub_307D8 leaves columns beyond the load span and loc_30452 camera frontier as the old `$0780` Plane-B cells"
         );
     }
 

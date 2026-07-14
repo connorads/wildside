@@ -556,6 +556,26 @@ player/camera CRC, and all 37,743 post-`Init_RNG` frames remain exact. Frame 39
 remains first at 2,643 pixels; frame 7814 is now worst at 11,403 pixels, so
 #406 remains open on that residual visual debt.
 
+Progress 2026-07-14: frame 7814's large residual was Plane B water history,
+not gameplay state. ASM `Load_InGame loc_11F48` and `loc_2FFE8` preload rows
+from the player-start 320px load grid; `BackgroundScroll_ComputeShiftData
+loc_30452 -> sub_30744` then uploads every newly exposed far-edge cell as the
+camera travels. `sub_307D8 loc_30840` adds the normalised row source directly,
+contradicting native's extra one-tile source-column bias. Oracle VRAM row dumps
+confirmed both findings.
+
+Native now reconstructs that natural camera path for Plane B and uses the exact
+source column. Regressions
+`chunked_plane_b_natural_camera_path_starts_at_load_grid_loc_2ffe8_30744` and
+`chunked_plane_b_direct_row_upload_uses_exact_source_column_loc_307d8` first
+failed on the old behaviour and now pin the ASM model. Focused frames
+7780..7840 remain gameplay-exact and fall from 629,049 to 41,044 changed
+pixels; frame 7814 falls from 11,403 to 837. Full verification gains 771 exact
+frames and removes 55,339,346 changed pixel instances: 22,778 exact, 14,981
+divergent, and 12,304,001 changed pixels. Gameplay, enemy, player/camera CRC,
+and all 37,743 post-`Init_RNG` frames remain exact. Frame 39 remains first at
+2,643 pixels; frame 28373 is now worst at 10,911 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.
