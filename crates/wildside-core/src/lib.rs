@@ -2458,8 +2458,25 @@ impl NativeRuntime {
                         || timeout_restart_intro_sequence_1_early_return
                     {
                         self.effective_title_screen_rebuild_elapsed()
+                    } else if timeout_restart_intro_sequence_5_return {
+                        // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 returns from
+                        // Load_TitleScreen before the first resumed loc_E12
+                        // presentation. The ordinary return's fresh
+                        // Obj_TitleTextChameleon pass is two renderer ticks
+                        // ahead of the raw title-mode clock; the later
+                        // Start-skip lineage carries one additional hidden
+                        // loader frame. The independently verified RNG cadence
+                        // still resumes only once on either frame.
+                        self.title_screen_elapsed_frames.saturating_add(
+                            if self
+                                .timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay
+                            {
+                                1
+                            } else {
+                                2
+                            },
+                        )
                     } else if timeout_restart_intro_sequence_3_return
-                        || timeout_restart_intro_sequence_5_return
                         || later_intro_sequence_4_return
                     {
                         // ASM sub_1B93E and sub_1B988's title loaders rejoin

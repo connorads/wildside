@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 direct IntroSequence5 title clock)
+
+- Frame 10345 exposed a one-pass renderer lag on the ordinary timeout-restart
+  IntroSequence5 title rebuild. Oracle VRAM retained `loc_1B258`'s `$20BC`
+  fill there, then advanced `sub_1B71A` on frames 10346, 10349, and 10353.
+- The typed ordinary lineage now rejoins `loc_E12` one renderer tick earlier.
+  Frames 10340..10984 are exact; the distinct later Start-skip lineage keeps
+  its hidden delay and remains exact across 16698..16715.
+- Full verification gains 203 exact frames and removes 429,957 changed pixels:
+  23,824 exact, 13,935 divergent, and 9,828,494 changed. All state channels
+  remain exact. Frame 21077 is now worst at 8,118 pixels. NEXT: keep #406 open
+  and trace that visual frontier.
+
 ## 2026-07-14 handoff (#406 later IntroSequence6 title workers)
 
 - Frame 28373 exposed a three-pass presentation lead in the later

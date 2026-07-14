@@ -8143,6 +8143,38 @@ mod chunk_02 {
     }
 
     #[test]
+    fn published_tas_timeout_restart_intro_sequence_5_advances_title_vdp_on_first_loc_e12_pass() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().take(10_354).enumerate() {
+            runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 10_345 | 10_346 | 10_349 | 10_353) {
+                let vdp = runtime
+                    .vdp_state()
+                    .expect("timeout-restart title return should expose VDP state");
+                let word = |byte_addr: usize| {
+                    u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]])
+                };
+                samples.push((frame_index, word(0x0908), word(0x098C)));
+            }
+        }
+
+        assert_eq!(
+            samples,
+            [
+                (10_345, 0x20BC, 0x20BC),
+                (10_346, 0x00BC, 0x433F),
+                (10_349, 0x00BC, 0x43D0),
+                (10_353, 0x00BC, 0x4451),
+            ],
+            "ASM Load_TitleScreen allocates Obj_TitleTextChameleon before the first resumed Mode_Standard -> Execute_Objects loc_E12 pass; oracle VRAM shows the base loc_1B258 fill on frame 10345, then sub_1B71A advances on frames 10346, 10349, and 10353",
+        );
+    }
+
+    #[test]
     fn start_skip_lineage_intro_sequence_5_wakes_outer_rng_on_loc_1bcd0_frame() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

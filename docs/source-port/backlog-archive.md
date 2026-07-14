@@ -600,6 +600,29 @@ Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG` frames remain
 exact. Frame 39 remains first at 2,643 pixels; frame 10345 is now worst at
 9,169 pixels, so #406 remains open.
 
+Progress 2026-07-14: frame 10345 was the ordinary timeout-restart
+IntroSequence5 title rebuild. Cross-frame comparison showed every oracle frame
+matched native's following renderer phase through the remaining title window.
+Direct VRAM pinned the sequence: oracle retained `loc_1B258`'s `$20BC` base
+fill on frame 10345, then exposed fresh `Obj_TitleTextChameleon -> sub_1B71A`
+uploads on frames 10346, 10349, and 10353. Native was one presentation late.
+
+ASM `loc_1BA60 -> sub_1C246 -> loc_1C264 -> Load_TitleScreen` allocates the
+fresh title workers before the first resumed `Mode_Standard -> Execute_Objects
+loc_E12` pass. Native now advances that ordinary renderer lineage by one tick
+without changing its independently verified RNG clock. The later Start-skip
+lineage retains its additional hidden loader frame; its existing frame-16706
+base-upload regression caught and rejected applying the offset universally.
+Regression
+`published_tas_timeout_restart_intro_sequence_5_advances_title_vdp_on_first_loc_e12_pass`
+first failed on all four oracle VRAM checkpoints and now passes. Frames
+10340..10984 and the preserved 16698..16715 window are pixel-exact. Full
+verification gains 203 exact frames and removes 429,957 changed pixel
+instances: 23,824 exact, 13,935 divergent, and 9,828,494 changed pixels.
+Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG` frames remain
+exact. Frame 39 remains first at 2,643 pixels; frame 21077 is now worst at
+8,118 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.
