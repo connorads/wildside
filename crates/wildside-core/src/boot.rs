@@ -6312,7 +6312,11 @@ impl NativeRuntime {
         // Island backgrounds on demo entry just as it does on normal entry.
         self.init_post_load_object_routine_loc_11f96(level_id);
         self.level_timer = LevelTimer::new();
-        self.hud_timer_sprite_seconds_loc_bee8 = LEVEL_TIMER_START_SECONDS;
+        // ASM Load_DemoPlay -> Load_InGame enters sub_8E0's loc_8FE HUD tail
+        // before the demo bootstrap first exposes gameplay. Init_SpriteAttr_HUD
+        // has seeded 3:01/$01, so this hidden Make_SpriteAttr_HUD loc_BE82 pass
+        // presents 3:00/$3C by published-TAS frame 902.
+        let _ = self.tick_level_timer_hud_loc_be82();
         self.time_frames_loc_3038a = 0;
         self.level_damage_taken = false;
         self.level_prize_collected = false;

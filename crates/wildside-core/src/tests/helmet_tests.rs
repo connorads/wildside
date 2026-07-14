@@ -2461,6 +2461,17 @@ mod chunk_08 {
         };
         runtime.begin_demo_gameplay(LevelId(demo::DEMO_2_LEVEL));
 
+        let demo_entry = runtime.trace_frame();
+        assert_eq!(
+            (
+                demo_entry.level_timer_seconds,
+                demo_entry.level_timer_sub_frames,
+                demo_entry.hud_timer_sprite_seconds_loc_bee8,
+            ),
+            (180, 0x3C, Some(180)),
+            "ASM Load_DemoPlay -> Load_InGame sub_8E0 loc_8FE reaches Make_SpriteAttr_HUD loc_BE82 before the bootstrap becomes visible; published-TAS oracle frame 902 has 3:00/$3C"
+        );
+
         let opening_slice = runtime
             .opening_slice
             .expect("demo bootstrap should create an opening slice");
@@ -2484,7 +2495,11 @@ mod chunk_08 {
         assert!(
             freefall.kid_y_pos.expect("freefall y") > bootstrap_init.kid_y_pos.expect("settle y")
         );
-        assert_eq!(freefall.kid_y_velocity, Some(0));
+        assert_eq!(
+            freefall.kid_y_velocity,
+            Some(0x0000_4000),
+            "ASM Load_InGame's hidden freefall hand-off exposes the first $4000 shadow velocity at bootstrap frame 67"
+        );
         assert_eq!(freefall.kid_on_ground, Some(false));
         assert_eq!(freefall.number_objects, 5);
         assert_eq!(freefall.number_gfx_objects, 4);

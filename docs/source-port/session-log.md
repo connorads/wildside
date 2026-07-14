@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 demo bootstrap HUD tick)
+
+- Oracle frame 902 has already completed `sub_8E0 loc_8FE`'s hidden
+  `Make_SpriteAttr_HUD loc_BE82` pass at 3:00/$3C before the HUD first appears.
+  Native now performs that entry tick instead of carrying the initial 3:01 table
+  into visible frame 905.
+- Frame 905 falls from 39 to 2 changed pixels. Full verification retains exact
+  state and RNG across the route, removes 1,880 changed pixels overall, and
+  settles at 24,130 exact / 13,629 divergent frames / 8,479,893 changed pixels.
+  Three later frames become small mismatches, so keep the per-frame evidence in
+  view. NEXT: inspect the two residual frame-905 pixels before changing the
+  global demo bootstrap schedule.
+
 ## 2026-07-14 handoff (#406 post-visible Sega CRAM DMA)
 
 - Oracle FIFO traces place the cold-boot `sub_1C204` palette DMA on lines

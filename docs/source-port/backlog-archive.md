@@ -13,6 +13,22 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-14: published-TAS frame 905 first makes the DemoPlay HUD
+visible. Oracle WRAM reaches `Time=3:00`, `Time_SubSeconds=$3C`, and
+`Time_Frames=1` on frame 902, after `Load_DemoPlay -> Load_InGame` has run
+`sub_8E0 loc_8FE`'s hidden `Make_SpriteAttr_HUD` pass. Native retained
+`Init_SpriteAttr_HUD`'s initial 3:01 table until the visible hand-off. Demo
+entry now performs that hidden `loc_BE82` tick and pins the 3:00/$3C sprite
+table in a regression test. Frame 905 falls from 39 to 2 changed pixels.
+
+The full 37,759-frame route has zero typed gameplay, enemy, player/camera, or
+RNG divergence. It removes 1,880 changed pixel instances overall, to 8,479,893,
+while three later frames become small mismatches: 24,130 exact and 13,629
+divergent. The narrower first visible frontier and lower total pixel debt make
+this an improvement; retain the measured trade-off rather than globally shifting
+the demo bootstrap clock. Frame 22500 remains worst at 2,595 pixels. #406 remains
+open.
+
 Progress 2026-07-14: direct oracle CRAM FIFO tracing shows the cold-boot
 `sub_1C204` Sega fade transfer completing on scanlines 237-238, after the
 224-line visible field. The VDP model now preserves the resulting CRAM for
