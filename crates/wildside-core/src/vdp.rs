@@ -596,6 +596,7 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
         elapsed,
         intro_sequence_3_roster_index,
         INTRO_SEQUENCE_5_VISIBLE_ELAPSED_LOC_1BA28,
+        false,
     )
 }
 
@@ -620,6 +621,10 @@ pub(crate) fn build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
         elapsed,
         intro_sequence_3_roster_index,
         visible_elapsed,
+        // ASM loc_1BC36 worker clocks diverge across the repeated FC82
+        // variants: oracle FC82=0 frame 28028 reaches the final d4=5 upload
+        // here, while FC82=1 frame 16533 is still on an earlier upload.
+        title_variant == 0,
     );
     if (visible_elapsed..visible_elapsed + 0x10).contains(&elapsed) {
         // ASM sub_1C204 starts `$FFFFF876` at zero and advances it by `$10`
@@ -647,6 +652,7 @@ fn build_intro_sequence_vdp_with_title_variant_at_elapsed_and_visible_threshold(
     elapsed: usize,
     intro_sequence_3_roster_index: usize,
     intro_sequence_5_visible_elapsed: usize,
+    include_timeout_final_frame_5_raster: bool,
 ) -> VdpState {
     if segment == 1 {
         return build_intro_sequence_2_handoff_vdp_at_elapsed(data, title_variant, elapsed);
@@ -675,7 +681,12 @@ fn build_intro_sequence_vdp_with_title_variant_at_elapsed_and_visible_threshold(
         overlay_intro_sequence_1_prompt_sprite_sub_1C54A(&mut vdp, elapsed);
     }
     if segment == 4 {
-        overlay_intro_sequence_5_tile_worker_loc_1BC36(&mut vdp, data, elapsed);
+        overlay_intro_sequence_5_tile_worker_loc_1BC36(
+            &mut vdp,
+            data,
+            elapsed,
+            include_timeout_final_frame_5_raster,
+        );
         overlay_intro_sequence_5_sprite_table_loc_1BCD0(&mut vdp, title_variant, elapsed);
     }
     overlay_intro_text_worker_loc_1c7a0(&mut vdp, segment, elapsed);
@@ -1476,9 +1487,24 @@ fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(
     let mut sprite_entries = Vec::new();
     let visible_particle_start = INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0
         + INTRO_SEQUENCE_5_PARTICLE_VISIBLE_DELAY_LOC_1BCD0;
-    let particle_elapsed = elapsed.checked_sub(visible_particle_start);
+    // ASM loc_1BE3C/loc_1BE88 load moving GfxObjects, then immediately reach
+    // Hibernate_Object_1Frame before the first sprite-table image is exposed.
+    // Oracle frame 28022 therefore contains the post-hibernate positions, not
+    // the allocation seeds represented by simulation frame zero.
+    // The FC82=0 timeout revisit exposes the replacement workers one
+    // post-hibernate pass ahead of the earlier FC82 variants. Oracle frame
+    // 28022 contains that advanced chain; the already-exact FC82=1/2 windows
+    // retain the allocation-pass phase.
+    let post_hibernate_particle_phase = title_variant == 0;
+    let particle_elapsed = elapsed
+        .checked_sub(visible_particle_start)
+        .map(|elapsed| elapsed.saturating_add(usize::from(post_hibernate_particle_phase)));
     if let Some(particle_elapsed) = particle_elapsed {
-        append_intro_sequence_5_particles_loc_1BE3C(&mut sprite_entries, particle_elapsed);
+        append_intro_sequence_5_particles_loc_1BE3C(
+            &mut sprite_entries,
+            particle_elapsed,
+            post_hibernate_particle_phase,
+        );
         append_intro_sequence_5_center_particle_loc_1BE88(
             &mut sprite_entries,
             title_variant,
@@ -1531,6 +1557,7 @@ struct IntroSequence5ParticleLoc1BE3C {
 fn append_intro_sequence_5_particles_loc_1BE3C(
     entries: &mut Vec<HardwareSpriteEntry>,
     particle_elapsed: usize,
+    post_hibernate_particle_phase: bool,
 ) {
     // ASM loc_1BE3C/loc_1BE74 (kid.asm:30667): after loc_1BCD0's `$1A0`
     // hibernate, three workers load `unk_1BE18/24/30`, use addroffset
@@ -1562,12 +1589,30 @@ fn append_intro_sequence_5_particles_loc_1BE3C(
             frame: intro_sprite_frame_vram(0x0AE, 0x3B, 0x1B),
         },
     ];
-    for particle in particles {
+    // ASM loc_1BCD0 allocates unk_1BE18, unk_1BE24, then unk_1BE30. The FC82=0
+    // post-hibernate pass exposes the newest worker first; oracle frame 28022
+    // confirms 30,24,18. Earlier variant windows retain the allocation pass.
+    let particle_order = if post_hibernate_particle_phase {
+        [2, 1, 0]
+    } else {
+        [0, 1, 2]
+    };
+    for particle_index in particle_order {
+        let particle = particles[particle_index];
         if particle_elapsed > particle.loop_count {
             continue;
         }
         let frames = particle_elapsed as i32;
-        let y_gravity = 0x0000_4000 * frames.saturating_mul(frames + 1) / 2;
+        // ASM loc_1BE74 resumes after movement for the displayed pass, then
+        // adds `$4000` to y_vel. The acceleration therefore lags position by
+        // one pass, as confirmed by oracle sprite-table Y values from frames
+        // 28022 onward.
+        let gravity_steps = if post_hibernate_particle_phase {
+            frames.saturating_sub(1)
+        } else {
+            frames + 1
+        };
+        let y_gravity = 0x0000_4000 * frames.saturating_mul(gravity_steps) / 2;
         append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
             entries,
             IntroGfxObjectForSpriteTable {
@@ -2592,18 +2637,7 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
             + 0x08,
         6,
     ),
-    (
-        0xA0 + 0x90
-            + 0x0B
-            + 0x0B
-            + 0x0B
-            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY
-            + 0x37
-            + 0x08
-            + 0x08
-            + 0x0F,
-        5,
-    ),
+    (INTRO_SEQUENCE_5_LOC_1BC36_FINAL_FRAME_5_RASTER_ELAPSED, 5),
 ];
 // ASM loc_1BC36 calls sub_1C034 on these hibernate boundaries. Exact oracle
 // FIFO traces show the first four uploads entering active display after `$3A`;
@@ -2613,6 +2647,8 @@ const INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY: usize = 0x3A;
 const INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY: usize = 0x3B;
 const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED: usize =
     0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY;
+const INTRO_SEQUENCE_5_LOC_1BC36_FINAL_FRAME_5_RASTER_ELAPSED: usize =
+    INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED + 0x37 + 0x08 + 0x08 + 0x0F;
 // ASM loc_1BC36 sub_1C034(d4=4) -> sub_1C0EE presents the panel from exact
 // cold frames 2260..2271 and timeout-restart frames 16555..16566.
 const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED: usize =
@@ -2641,7 +2677,10 @@ struct IntroSequence5RasterUpload {
 }
 
 #[allow(non_snake_case)]
-fn intro_sequence_5_raster_upload_loc_1BC36(elapsed: usize) -> Option<IntroSequence5RasterUpload> {
+fn intro_sequence_5_raster_upload_loc_1BC36(
+    elapsed: usize,
+    include_timeout_final_frame_5_raster: bool,
+) -> Option<IntroSequence5RasterUpload> {
     // ASM sub_1C034/loc_1C09E..loc_1C0D6 and sub_1C0EE/sub_1C5D0.
     // Positions are FIFO-pop times measured from jgenesis on both the cold and
     // timeout-restart lineages; they are routine-local, not TAS frame numbers.
@@ -2655,7 +2694,7 @@ fn intro_sequence_5_raster_upload_loc_1BC36(elapsed: usize) -> Option<IntroSeque
         INTRO_SEQUENCE_5_LOC_1BC36_FRAME_2_RASTER_ELAPSED => Some(IntroSequence5RasterUpload {
             previous_frame_index: 1,
             frame_index: 2,
-            frame_start: (96, 44),
+            frame_start: (96, 76),
             panel_start: None,
         }),
         INTRO_SEQUENCE_5_LOC_1BC36_FRAME_3_RASTER_ELAPSED => Some(IntroSequence5RasterUpload {
@@ -2676,6 +2715,16 @@ fn intro_sequence_5_raster_upload_loc_1BC36(elapsed: usize) -> Option<IntroSeque
             frame_start: (139, 12),
             panel_start: None,
         }),
+        INTRO_SEQUENCE_5_LOC_1BC36_FINAL_FRAME_5_RASTER_ELAPSED
+            if include_timeout_final_frame_5_raster =>
+        {
+            Some(IntroSequence5RasterUpload {
+                previous_frame_index: 6,
+                frame_index: 5,
+                frame_start: (136, 204),
+                panel_start: None,
+            })
+        }
         _ => None,
     }
 }
@@ -2685,12 +2734,14 @@ fn overlay_intro_sequence_5_tile_worker_loc_1BC36(
     vdp: &mut VdpState,
     data: &IntroSub1B850Data,
     elapsed: usize,
+    include_timeout_final_frame_5_raster: bool,
 ) {
     // ASM loc_1BC36 (kid.asm:30516) calls sub_1C034 before each hibernate.
     // sub_1C034 decodes one `off_1C126` map with base tile `$A340` into a
     // 16x25 staging buffer, then streams 25 fixed rows into the Scroll A
     // nametable at VRAM `$0194..$0D94`.
-    let raster_upload = intro_sequence_5_raster_upload_loc_1BC36(elapsed);
+    let raster_upload =
+        intro_sequence_5_raster_upload_loc_1BC36(elapsed, include_timeout_final_frame_5_raster);
     let frame_index = INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE
         .iter()
         .rev()
@@ -5625,10 +5676,20 @@ mod tests {
     #[allow(non_snake_case)]
     fn intro_sequence_5_loc_1BE3C_particles_move_on_first_visible_frame() {
         let mut entries = Vec::new();
-        append_intro_sequence_5_particles_loc_1BE3C(&mut entries, 1);
+        append_intro_sequence_5_particles_loc_1BE3C(&mut entries, 1, true);
 
         assert_eq!(
             entries[0],
+            HardwareSpriteEntry {
+                y_pos: 0x00E9,
+                size_byte: 0x0F,
+                pattern: 0x431A,
+                x_pos: 0x00B0,
+            },
+            "ASM loc_1BCD0 allocates unk_1BE18/24/30 in order, but oracle frame 28022 exposes loc_1BE3C's newest unk_1BE30 worker first",
+        );
+        assert_eq!(
+            entries[6],
             HardwareSpriteEntry {
                 y_pos: 0x00BF,
                 size_byte: 0x0F,
@@ -5643,7 +5704,7 @@ mod tests {
     #[allow(non_snake_case)]
     fn intro_sequence_5_loc_1BE3C_keeps_short_particles_through_dbf_zero() {
         let mut entries = Vec::new();
-        append_intro_sequence_5_particles_loc_1BE3C(&mut entries, 0x28);
+        append_intro_sequence_5_particles_loc_1BE3C(&mut entries, 0x28, true);
 
         assert_eq!(
             entries.len(),
@@ -6858,6 +6919,54 @@ mod tests {
             vram_word(&frame_5, frame_2400_clear_artefact_addr),
             0x1111,
             "ASM loc_1BC36's later sub_1C034(d4=5) redraw should replace the temporary sub_1C112 clear instead of being overwritten by it",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_5_loc_1bc36_final_frame_5_upload_retains_frame_6_raster_baseline() {
+        let data = IntroSub1B850Data {
+            intro_sequence_5_frame_tilemaps: (0..8)
+                .map(|frame| vec![0x1100 + frame; 12 * 24])
+                .collect(),
+            ..empty_intro_data()
+        };
+        let before = build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
+            &data,
+            0,
+            INTRO_SEQUENCE_5_LOC_1BC36_FINAL_FRAME_5_RASTER_ELAPSED - 1,
+            0,
+            true,
+        );
+        let boundary = build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
+            &data,
+            0,
+            INTRO_SEQUENCE_5_LOC_1BC36_FINAL_FRAME_5_RASTER_ELAPSED,
+            0,
+            true,
+        );
+        let changed_byte_addr = (0..0x1000)
+            .step_by(2)
+            .find(|&byte_addr| {
+                before.vram[byte_addr..byte_addr + 2] != boundary.vram[byte_addr..byte_addr + 2]
+            })
+            .expect("ASM loc_1BC36's final d4=5 upload must replace the preceding d4=6 map");
+        let raster_frame = boundary
+            .raster_frame
+            .as_ref()
+            .expect("ASM loc_1BC36's final d4=5 upload crosses active display");
+
+        assert_eq!(
+            &raster_frame.initial_vram[changed_byte_addr..changed_byte_addr + 2],
+            &before.vram[changed_byte_addr..changed_byte_addr + 2],
+            "ASM loc_1BC36 must render the preceding d4=6 map until the final d4=5 FIFO writes arrive",
+        );
+        assert_eq!(
+            raster_frame
+                .vram_word_writes
+                .first()
+                .map(|write| (write.scanline, write.pixel)),
+            Some((136, 204)),
+            "oracle FIFO tracing pins the final loc_1BC36 d4=5 upload entry point",
         );
     }
 

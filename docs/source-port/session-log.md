@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 IntroSequence5 final raster and particles)
+
+- Frame 28028 combined `loc_1BC36`'s final d4=5 Plane A upload with
+  `loc_1BCD0 -> loc_1BE3C` particle workers. Oracle FIFO tracing pins the
+  final upload to line 136 pixel 204 and corrects the earlier d4=2 boundary to
+  line 96 pixel 76.
+- Native now retains d4=6 as the raster baseline and gives the FC82=0 timeout
+  revisit its post-hibernate particle phase. Frame 16533 and frame 28028 are
+  pixel-exact. Frames 28022 and 28023 retain pre-existing 135/18-pixel sprite
+  compositor debt; an incomplete fetch-limit experiment was rejected.
+- Full verification gains 43 exact frames and removes 98,514 changed pixels:
+  24,047 exact, 13,712 divergent, and 9,095,688 changed. All state and RNG
+  channels remain exact. Frame 20758 is now worst at 4,616 pixels. NEXT: keep
+  #406 open and trace that visual frontier.
+
 ## 2026-07-14 handoff (#406 IntroSequence6 concurrent raster uploads)
 
 - Frame 21047 combined `sub_1B41C` lightning art and `sub_1BF24 -> sub_1C5D0`

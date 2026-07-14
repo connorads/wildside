@@ -7467,7 +7467,7 @@ mod tests {
     }
 
     #[test]
-    fn published_tas_intro_sequence_5_loc_1bc36_raster_uploads_match_oracle_rgb() {
+    fn published_tas_intro_sequence_5_loc_1bc36_and_loc_1bcd0_match_oracle_rgb() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
@@ -7490,6 +7490,7 @@ mod tests {
             (16_555, "230290decb271280eb32fa1e6116ccc3f1677e6e"),
             (16_556, "56a9fea2758074239a31ed7c2e675db9b964932b"),
             (16_567, "2c86924eb9daa5c8be51b6ba5f5863e4d62010ad"),
+            (28_028, "f37481751e3576d0de9f86de28b88ef9ac6903eb"),
         ]);
         let max_frame = expected
             .iter()
@@ -7522,7 +7523,7 @@ mod tests {
                 .into_iter()
                 .map(|(frame, digest)| (frame, digest.to_string()))
                 .collect(),
-            "ASM loc_1BC36/sub_1C034/sub_1C0EE FIFO-crossing frames must match oracle RGB byte-for-byte"
+            "ASM loc_1BC36/sub_1C034/sub_1C0EE FIFO crossings and loc_1BCD0/loc_1BE3C particles must match oracle RGB byte-for-byte"
         );
     }
 

@@ -13,6 +13,31 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-14: frame 28028 combined the final `loc_1BC36` d4=5 Plane A
+upload with `loc_1BCD0 -> loc_1BE3C` particle workers. Oracle execution proves
+that the FC82=0 timeout revisit reaches the repeated d4=5 upload after
+`5,6,7,6`, while native previously left the d4=6 map as the frame-start state
+without modelling the active-display transfer. FIFO tracing pins its first
+write to line 136 pixel 204. The same trace corrects the earlier d4=2 boundary
+from line 96 pixel 44 to pixel 76, restoring the one-pixel frame 16533 debt.
+
+Native now retains d4=6 as the raster baseline until the final upload commits,
+and models the FC82=0 particle workers one post-hibernate pass ahead with the
+newest worker first. The published replay regression pins exact RGB at frame
+28028 alongside the existing IntroSequence5 upload crossings. Of frames
+28020..28040, 19 are exact; frames 28022 and 28023 retain pre-existing 135- and
+18-pixel sprite-compositor residuals. A partial Mega Drive sprite-fetch limit
+made those exact but regressed established frames because transparent
+sprite-buffer semantics remain unmodelled, so it was rejected rather than
+landed.
+
+`mise run verify-slice-fast` and `mise run verify-tas-full` pass. Full-route
+pixel evidence gains 43 exact frames and removes 98,514 changed pixel
+instances: 24,047 exact, 13,712 divergent, and 9,095,688 changed. All 37,759
+player/camera, typed gameplay, and enemy frames plus all 37,743 post-`Init_RNG`
+frames remain exact. Frame 39 remains first at 2,643 pixels; frame 20758 is the
+new worst at 4,616 pixels, so #406 remains open.
+
 Progress 2026-07-13: the first full-route worst frame was a render hand-off,
 not gameplay drift. ASM `loc_119D8` writes `Game_Mode=$2C`, clears
 `Current_LevelID`, and writes `$082A` to FBCC before `loc_6E2` calls
