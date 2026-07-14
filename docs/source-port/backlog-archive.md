@@ -13,6 +13,30 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-14: frame 20927 exposed two independent `loc_1B37C`
+clocks. The wrapped-timeout worker becomes live on local frame 33 and follows
+the ASM opening exactly: retain lightning frame 0 through the initial
+three-frame hibernate, then present `1,0,2,0` at three-frame intervals. The
+existing four-pass presentation advance instead belongs to active-display FIFO
+placement from the DBF loop onward; reusing it for opening flash selection
+advanced the 128-byte `sub_1B41C` art at VRAM `$17A0` while leaving the title
+map, palette, scroll, and silhouette geometry correct.
+
+Native now gives the wrapped opening an explicit worker-local clock through
+local frame 47, then retains the already-verified raster presentation clock
+from the first DBF upload on local frame 48. A pure cadence regression cites
+`loc_1B37C`; a cache-backed RGB regression pins the opening art at published
+frames 20927, 20930, 20933, 20936, 20939, and 20942. Fresh captures make every
+frame from 20920 through 20945 exact. Cold-boot frames 2428/2432/2435/2438/2441
+and later-timeout frames 28060/28066/28069/28072/28075/28078 remain exact.
+
+`mise run verify-slice-fast` is green. Full-route evidence gains 12 exact
+frames and removes 49,409 changed pixel instances: 24,081 exact, 13,678
+divergent, and 8,781,000 changed. All 37,759 player/camera, typed gameplay, and
+enemy frames plus all 37,743 post-`Init_RNG` frames remain exact. Frame 28102
+is the new worst at 4,198 pixels and shows the same silhouette with the wrong
+lightning art on the later-timeout lineage. #406 remains open.
+
 Progress 2026-07-14: frame 1837 exposed two different clocks that a single
 post-step trace could not represent. ASM `Mode_Level` transfers the resident
 sprite table before `Execute_Objects`; the later `loc_119D8` / `ReadJoypad
@@ -37,9 +61,10 @@ passes are green. Full-route evidence gains 2 exact frames and removes 224,587
 changed pixel instances: 24,069 exact, 13,690 divergent, and 8,830,409 changed.
 All 37,759 player/camera, typed gameplay, and enemy frames plus all 37,743
 post-`Init_RNG` frames remain exact. Frame 20927 is the new worst at 4,198
-pixels: native presents a flat grey IntroSequence6 frame while oracle presents
-the ninja silhouette on black. Continue from the first visible `loc_1B37C`
-raster. #406 remains open.
+pixels: both sides present the ninja silhouette on black, but native selects
+the wrong `sub_1B41C` lightning-art frame at VRAM `$17A0`, making it speckled
+blue instead of white. Continue from the first visible `loc_1B37C` raster.
+#406 remains open.
 
 Progress 2026-07-14: frame 20849 combined two engine-level VDP debts. The
 software renderer applied H40's 320-pixel sprite budget while scanning and

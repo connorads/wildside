@@ -6590,6 +6590,30 @@ mod chunk_02 {
     }
 
     #[test]
+    fn wrapped_timeout_loc_1b37c_opening_uses_worker_hibernate_clock() {
+        for (worker_elapsed, expected_flash_frame) in [
+            (0, 0),
+            (2, 0),
+            (3, 1),
+            (5, 1),
+            (6, 0),
+            (8, 0),
+            (9, 2),
+            (11, 2),
+            (12, 0),
+            (14, 0),
+        ] {
+            assert_eq!(
+                NativeRuntime::intro_sequence_6_wrapped_timeout_opening_lightning_flash_frame_loc_1b37c(
+                    worker_elapsed,
+                ),
+                expected_flash_frame,
+                "ASM loc_1B37C should retain each opening sub_1B41C flash for its preceding three-frame hibernate at worker elapsed {worker_elapsed}",
+            );
+        }
+    }
+
+    #[test]
     fn later_intro_sequence_6_presents_loc_1b45a_blackout_and_palette_restore() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

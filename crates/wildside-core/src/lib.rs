@@ -2749,9 +2749,47 @@ impl NativeRuntime {
     }
 
     fn intro_sequence_6_lightning_flash_frame_loc_1b37c(&self) -> u8 {
+        let wrapped_timeout_opening_worker_elapsed = matches!(
+            self.boot_state,
+            BootState::IntroSequence6 {
+                carry_timeout_restart_hidden_camera_wrap: true,
+                ..
+            }
+        )
+        .then_some(self.title_screen_elapsed_frames)
+        .filter(|_| self.intro_sequence_6_entered_from_timeout_restart)
+        .and_then(|elapsed| {
+            elapsed
+                .checked_sub(INTRO_SEQUENCE_6_POST_LOADER_RNG_FIRST_LIVE_FRAME)
+                .filter(|&worker_elapsed| worker_elapsed < 5 * 3)
+        });
+        if let Some(worker_elapsed) = wrapped_timeout_opening_worker_elapsed {
+            return Self::intro_sequence_6_wrapped_timeout_opening_lightning_flash_frame_loc_1b37c(
+                worker_elapsed,
+            );
+        }
+
         Self::intro_sequence_6_lightning_flash_frame_loc_1b37c_at_elapsed(
             self.intro_sequence_6_lightning_presentation_elapsed_loc_1b37c(),
         )
+    }
+
+    fn intro_sequence_6_wrapped_timeout_opening_lightning_flash_frame_loc_1b37c(
+        worker_elapsed: usize,
+    ) -> u8 {
+        const HIBERNATE_FRAMES: usize = 3;
+
+        // ASM loc_1B37C (kid.asm:29587): retain frame 0 through the initial
+        // three-frame hibernate, then present the opening `1,0,2,0` uploads at
+        // three-frame intervals. The wrapped-timeout worker becomes live on
+        // local frame 33, independently of the active-display FIFO clock.
+        let completed_uploads = worker_elapsed / HIBERNATE_FRAMES;
+        if completed_uploads == 0 {
+            return 0;
+        }
+        crate::boot::title_screen_lightning_sequence_loc_1B37C().steps
+            [completed_uploads.saturating_sub(1).min(3)]
+        .flash_frame
     }
 
     /// ASM `loc_1B37C -> sub_1B41C` (kid.asm): active-display upload timing.

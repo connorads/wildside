@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 wrapped IntroSequence6 opening lightning)
+
+- ASM `loc_1B37C` retains frame 0 for its initial three-frame hibernate, then
+  presents opening uploads `1,0,2,0`. The wrapped worker becomes live on local
+  frame 33; its active-display FIFO clock remains independently advanced.
+- Native now uses that worker-local clock through local frame 47, then rejoins
+  the verified DBF-loop raster schedule. Frames 20920-20945 are exact, and
+  sampled cold-boot and later-timeout controls remain exact. This also corrects
+  the prior handoff: native already had the silhouette geometry, but selected
+  speckled blue `sub_1B41C` art instead of the oracle's white art.
+- Full verification gains 12 exact frames and removes 49,409 changed pixels:
+  24,081 exact, 13,678 divergent, and 8,781,000 changed. All state and RNG
+  channels remain exact. Frame 28102 is now worst at 4,198 pixels and shows the
+  same art-selection symptom on the later-timeout lineage. NEXT: keep #406 open
+  and trace that worker activation without shifting the exact FIFO schedule.
+
 ## 2026-07-14 handoff (#406 demo-return resident raster)
 
 - ASM `Mode_Level` transfers the existing sprite table before `Execute_Objects`;
