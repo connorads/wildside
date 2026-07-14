@@ -7589,6 +7589,9 @@ mod tests {
             (28_177, "6a5e30e303b2002b5adee27fcd8f18fc62d73586"),
             (28_204, "bdb9d0926ceb806fec2429eee41b1214cdb4f752"),
             (28_231, "9a7fefbf313bf9f8786e787563bef17033de8c8a"),
+            (28_764, "7dca922db0f07d2800269b7080930bc3b2ddcd70"),
+            (28_765, "819769bad840cb5c2be6192ffca88972d06856e4"),
+            (28_766, "be40f286b4f452bd27871d43e1bd50702bde5cc8"),
         ]);
         let max_frame = expected
             .iter()

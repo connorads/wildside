@@ -708,9 +708,13 @@ pub struct NativeRuntime {
     /// False during the initial title attract wait where only Start matters.
     /// True once the Start press arms the real interactive title menu.
     title_menu_active: bool,
-    /// True on the exact frame the title menu gets armed; the cursor sprite
-    /// only becomes visible on the following traced frame.
+    /// True while `Obj_TitleMenu` keeps its 15-frame input lock after Start.
+    /// VDP map/cursor linking has the independent two-pass clock below.
     title_menu_cursor_pending: bool,
+    /// First frame whose final VDP state contains `Obj_TitleMenu loc_1BB52`'s
+    /// menu map and cursor. Input remains locked independently until
+    /// `title_menu_arm_frame`.
+    title_menu_vdp_upload_frame_loc_1bb52: Option<usize>,
     /// Hidden title Start consumed before trace-facing readiness. The ROM's
     /// title-loop countdown is live, but the next Start should expose the
     /// interactive menu rather than selecting the current row.
@@ -1459,6 +1463,7 @@ impl NativeRuntime {
             title_menu_arm_frame: 0,
             title_menu_active: false,
             title_menu_cursor_pending: false,
+            title_menu_vdp_upload_frame_loc_1bb52: None,
             title_menu_hidden_prearm_pending: false,
             title_menu_selection_pending: None,
             title_menu_selection_delay_frames: 0,
@@ -2125,8 +2130,8 @@ impl NativeRuntime {
                 self.title_screen_data.as_ref().map(|data| {
                     let title_worker_elapsed =
                         self.intro_sequence_6_title_worker_presentation_elapsed_loc_1b45a();
-                    let menu_cursor = (self.title_menu_active
-                        && !self.title_menu_cursor_pending)
+                    let menu_cursor = self
+                        .title_menu_vdp_active_loc_1bb52()
                         .then_some(*cursor);
                     vdp::build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
                         data,
@@ -2138,6 +2143,8 @@ impl NativeRuntime {
                         vdp::TitleScreenVdpLineage {
                             natural_intro_sequence_6_pre_ready_shell: true,
                             natural_intro_sequence_6_worker_elapsed: Some(title_worker_elapsed),
+                            title_menu_raster_upload: self
+                                .title_menu_vdp_raster_upload_active_loc_1bb52(),
                             ..vdp::TitleScreenVdpLineage::default()
                         },
                     )
@@ -2255,6 +2262,7 @@ impl NativeRuntime {
                                 natural_intro_sequence_6_pre_ready_shell: true,
                                 natural_intro_sequence_6_worker_elapsed: None,
                                 fresh_title_worker_lineage: false,
+                                ..vdp::TitleScreenVdpLineage::default()
                             },
                         )
                     } else if elapsed >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_REBUILD_FRAMES {
@@ -2446,6 +2454,7 @@ impl NativeRuntime {
                             natural_intro_sequence_6_pre_ready_shell: false,
                             natural_intro_sequence_6_worker_elapsed: None,
                             fresh_title_worker_lineage: true,
+                            ..vdp::TitleScreenVdpLineage::default()
                         },
                     )
                 })
@@ -2455,8 +2464,7 @@ impl NativeRuntime {
             }
             BootState::IntroSequence6 { .. } | BootState::TitleScreen { .. } => {
                 self.title_screen_data.as_ref().map(|data| {
-                    let menu_cursor = if self.title_menu_active
-                        && !self.title_menu_cursor_pending
+                    let menu_cursor = if self.title_menu_vdp_active_loc_1bb52()
                         && !self.cold_intro_sequence_1_pre_vdp_menu_activation()
                     {
                         match self.boot_state {
@@ -2562,6 +2570,8 @@ impl NativeRuntime {
                                 natural_intro_sequence_6_pre_ready_shell
                                     .then_some(title_elapsed_frames),
                             fresh_title_worker_lineage,
+                            title_menu_raster_upload: self
+                                .title_menu_vdp_raster_upload_active_loc_1bb52(),
                         },
                     )
                 })
@@ -2983,6 +2993,20 @@ impl NativeRuntime {
                 && !self.intro_sequence_6_start_skip_cursor_trace_priority
                 && self.title_screen_elapsed_frames
                     >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES)
+    }
+
+    fn title_menu_vdp_active_loc_1bb52(&self) -> bool {
+        self.title_menu_active
+            && self
+                .title_menu_vdp_upload_frame_loc_1bb52
+                .map_or(!self.title_menu_cursor_pending, |upload_frame| {
+                    self.frame_index >= upload_frame
+                })
+    }
+
+    fn title_menu_vdp_raster_upload_active_loc_1bb52(&self) -> bool {
+        self.title_menu_active
+            && self.title_menu_vdp_upload_frame_loc_1bb52 == Some(self.frame_index)
     }
 
     fn cold_intro_sequence_1_title_return(&self) -> bool {

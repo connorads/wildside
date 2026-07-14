@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 title-menu loc_1BB52 raster activation)
+
+- Oracle frame 28764 ends with the menu in VRAM but presents the bare title:
+  the first duplicated `$451B` FIFO write lands at line 81, pixel 220, below
+  the menu. Native now separates `loc_1BB52`'s two-pass VDP-link clock from its
+  15-frame input lock and represents the first upload as a raster frame.
+- Cache-backed VDP tests pin the old-visible/new-final split. Frames
+  28764-28766 are exact in source-port RGB regressions.
+- Full verification gains 12 exact frames and removes 49,920 changed pixels:
+  24,107 exact, 13,652 divergent, and 8,669,394 changed. All state and RNG
+  channels remain exact. Frame 22152 is now worst at 4,140 pixels. NEXT: keep
+  #406 open and instrument Level 0x15 Knight's Isle `loc_1202A` DMA/FIFO
+  timing. Blanket and multi-upload previous-frame latches both regress the
+  full-route pixel ratchet and were removed; do not retry them.
+
 ## 2026-07-14 handoff (#406 later FC82=1 IntroSequence5 particles)
 
 - Oracle/native SAT dumps show the later FC82=1 visit presents `loc_1BE3C`

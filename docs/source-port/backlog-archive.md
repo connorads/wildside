@@ -13,6 +13,47 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Investigation follow-up 2026-07-14: direct pixel inspection corrected the
+initial visual diagnosis at frame 22152. Its 4,140-pixel difference is the
+Island shore animation, not blank Plane B regions. Native trace state crosses
+`loc_12098` and `loc_12188` together from shore frames `(2,2,1)` to `(3,2,2)`;
+rendering the prior bands reduces the frame to 90 changed pixels, leaving
+separate HUD/top-edge residue.
+
+Two broad hypotheses were rejected rather than retained. Latching the previous
+shore art on every gameplay frame loses 47 exact frames and worsens the route
+to 24,060 exact / 13,699 divergent / 9,764,796 changed. Restricting that latch
+to passes with multiple `loc_1202A` DMA uploads still loses four exact frames
+and worsens the route to 24,103 exact / 13,656 divergent / 8,749,909 changed.
+Both keep gameplay, enemy, and RNG parity but fail the pixel ratchet. No code
+from either trial remains. The next pass must instrument actual DMA/FIFO timing
+across the exact and divergent Island upload frames; do not add a route- or
+upload-count-specific latch.
+
+Progress 2026-07-14: raw oracle VDP dumps disproved the assumption that
+`Obj_TitleMenu loc_1BB52` waits for the whole 15-frame post-Start lock. Oracle
+frame 28764 already ends with menu word `$451B` at VRAM `$0208`, while its
+visible pixels still show the bare title. Direct FIFO tracing records the first
+duplicated `$451B` write at line 81, pixel 220, below the menu's scanlines
+32-71; frame 28765 therefore presents the completed upload. Native instead
+kept both the VDP upload and input readiness behind the same 15-frame clock.
+
+Native now models the clocks independently. `loc_1BB52` links the map and
+cursor after two object passes, preserving the 15-frame input lock, and the
+first upload is represented as a raster frame with the oracle line/pixel
+schedule. The cache-backed VDP regression pins frame 28763's old word, frame
+28764's old visible/new final split and first FIFO write, and frame 28765's
+settled word. Source-port RGB regressions make frames 28764-28766 exact.
+
+`mise run verify-slice-fast` is green. Full-route evidence gains 12 exact
+frames and removes 49,920 changed pixel instances: 24,107 exact, 13,652
+divergent, and 8,669,394 changed. All 37,759 player/camera, typed gameplay, and
+enemy frames plus all 37,743 post-`Init_RNG` frames remain exact. Frame 22152
+is the new worst at 4,140 pixels: the Level 0x15 Knight's Isle background
+animation is on a different visible phase. Trace `loc_1202A`'s Island shore-art
+DMA presentation rather than guessing from the visual symptom.
+#406 remains open.
+
 Progress 2026-07-14: frame 16648's text, Kid, planes, and state timing were
 already correct; the large mismatch belonged to the IntroSequence5 particle
 SAT. Oracle/native VRAM dumps at frames 16647-16649 show the later FC82=1

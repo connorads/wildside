@@ -6869,6 +6869,54 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_later_intro_sequence_6_menu_streams_loc_1bb52_on_frame_28764() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(28_766) {
+            runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 28_763..=28_765) {
+                let vdp = runtime
+                    .vdp_state()
+                    .expect("later IntroSequence6 menu frames should expose a VDP shell");
+                let menu_word = u16::from_be_bytes([vdp.vram[0x0208], vdp.vram[0x0209]]);
+                let raster = vdp.raster_frame.as_ref().map(|raster| {
+                    let initial_menu_word = u16::from_be_bytes([
+                        raster.initial_vram[0x0208],
+                        raster.initial_vram[0x0209],
+                    ]);
+                    let first_write = raster
+                        .vram_word_writes
+                        .first()
+                        .map(|write| (write.scanline, write.pixel, write.byte_addr, write.value));
+                    (initial_menu_word, first_write)
+                });
+                samples.push((frame_index, menu_word, raster));
+            }
+        }
+
+        // ASM Obj_TitleMenu loc_1BB52 -> sub_1C5D0 writes the 13x5 menu map
+        // after the frame-28762 Start edge. Oracle FIFO tracing places its
+        // first duplicated `$451B` commit on frame 28764 at line 81 pixel 220.
+        // That is below the menu's final scanline, so frame 28764 renders from
+        // the old `$20BC` map while retaining the completed menu in final VRAM.
+        assert_eq!(
+            samples,
+            vec![
+                (28_763, 0x20BC, None),
+                (
+                    28_764,
+                    0x451B,
+                    Some((0x20BC, Some((81, 220, 0x0208, 0x451B))))
+                ),
+                (28_765, 0x451B, None),
+            ],
+        );
+    }
+
+    #[test]
     fn published_tas_later_intro_sequence_6_revisit_keeps_camera_cleared_on_frame_28098() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

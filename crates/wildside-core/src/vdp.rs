@@ -3451,6 +3451,8 @@ pub(crate) struct TitleScreenVdpLineage {
     pub(crate) natural_intro_sequence_6_pre_ready_shell: bool,
     pub(crate) natural_intro_sequence_6_worker_elapsed: Option<usize>,
     pub(crate) fresh_title_worker_lineage: bool,
+    /// `Obj_TitleMenu loc_1BB52` is streaming its first menu map this frame.
+    pub(crate) title_menu_raster_upload: bool,
 }
 
 pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
@@ -3602,6 +3604,15 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
             );
         }
     }
+    let menu_raster_initial_vram = if menu_cursor.is_some() && lineage.title_menu_raster_upload {
+        if !sprite_entries.is_empty() {
+            let sprite_table_base = sprite_table_base_byte_addr(&vdp.registers);
+            write_sprite_table_entries(&mut vdp, sprite_table_base, &sprite_entries);
+        }
+        Some(vdp.vram.clone())
+    } else {
+        None
+    };
     if let Some(cursor) = menu_cursor {
         write_title_menu_tilemap_loc_1bb52(&mut vdp, &data.title_menu_tilemap_words);
         append_title_menu_cursor_sprite_loc_1bb52(&mut sprite_entries, cursor);
@@ -3609,6 +3620,17 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
     if !sprite_entries.is_empty() {
         let sprite_table_base = sprite_table_base_byte_addr(&vdp.registers);
         write_sprite_table_entries(&mut vdp, sprite_table_base, &sprite_entries);
+    }
+    if let Some(initial_vram) = menu_raster_initial_vram {
+        // Direct oracle FIFO tracing places loc_1BB52 -> sub_1C5D0's first
+        // duplicated menu word on line 81 pixel 220. The menu occupies rows
+        // 32..71, so the completed post-frame VRAM is first visible on the
+        // following frame rather than retroactively changing this one.
+        let writes = title_menu_tilemap_word_writes_loc_1bb52(&data.title_menu_tilemap_words);
+        vdp.raster_frame = Some(VdpRasterFrame {
+            initial_vram,
+            vram_word_writes: schedule_h40_vram_fifo_word_writes(&writes, 81, 220),
+        });
     }
 
     vdp
@@ -4151,6 +4173,28 @@ fn write_title_menu_tilemap_loc_1bb52(vdp: &mut VdpState, tilemap_words: &[u16])
     // interactive 1P/2P/options menu after the first Start press.
     let tilemap_words = title_menu_tilemap_buffer_loc_1bb52(tilemap_words);
     write_tilemap_rect_at_cell(vdp, &tilemap_words, 13, 5, 4, 4);
+}
+
+fn title_menu_tilemap_word_writes_loc_1bb52(tilemap_words: &[u16]) -> Vec<(u16, u16)> {
+    const MENU_WIDTH: usize = 13;
+    const MENU_HEIGHT: usize = 5;
+    const MENU_CELL_X: usize = 4;
+    const MENU_CELL_Y: usize = 4;
+    let words = title_menu_tilemap_buffer_loc_1bb52(tilemap_words);
+    words
+        .into_iter()
+        .enumerate()
+        .map(|(index, word)| {
+            let row = index / MENU_WIDTH;
+            let col = index % MENU_WIDTH;
+            let byte_addr = (MENU_CELL_Y + row) * 128 + (MENU_CELL_X + col) * 2;
+            (
+                u16::try_from(byte_addr).expect("title menu nametable address should fit u16"),
+                word,
+            )
+        })
+        .take(MENU_WIDTH * MENU_HEIGHT)
+        .collect()
 }
 
 fn title_menu_tilemap_buffer_loc_1bb52(menu_words: &[u16]) -> Vec<u16> {
@@ -7977,6 +8021,7 @@ mod tests {
                 natural_intro_sequence_6_pre_ready_shell: false,
                 natural_intro_sequence_6_worker_elapsed: None,
                 fresh_title_worker_lineage: false,
+                title_menu_raster_upload: false,
             },
         );
         assert_eq!(
@@ -7998,6 +8043,7 @@ mod tests {
                 natural_intro_sequence_6_pre_ready_shell: false,
                 natural_intro_sequence_6_worker_elapsed: None,
                 fresh_title_worker_lineage: false,
+                title_menu_raster_upload: false,
             },
         );
         assert_eq!(
@@ -8020,6 +8066,7 @@ mod tests {
                     natural_intro_sequence_6_pre_ready_shell: false,
                     natural_intro_sequence_6_worker_elapsed: None,
                     fresh_title_worker_lineage: false,
+                    title_menu_raster_upload: false,
                 },
             );
         assert_eq!(
@@ -8045,6 +8092,7 @@ mod tests {
                     natural_intro_sequence_6_pre_ready_shell: false,
                     natural_intro_sequence_6_worker_elapsed: None,
                     fresh_title_worker_lineage: false,
+                    title_menu_raster_upload: false,
                 },
             );
         assert_eq!(
@@ -8090,6 +8138,7 @@ mod tests {
                 natural_intro_sequence_6_pre_ready_shell: false,
                 natural_intro_sequence_6_worker_elapsed: None,
                 fresh_title_worker_lineage: false,
+                title_menu_raster_upload: false,
             },
         );
 
@@ -8112,6 +8161,7 @@ mod tests {
                 natural_intro_sequence_6_pre_ready_shell: false,
                 natural_intro_sequence_6_worker_elapsed: None,
                 fresh_title_worker_lineage: false,
+                title_menu_raster_upload: false,
             },
         );
 
@@ -8135,6 +8185,7 @@ mod tests {
                     natural_intro_sequence_6_pre_ready_shell: false,
                     natural_intro_sequence_6_worker_elapsed: None,
                     fresh_title_worker_lineage: false,
+                    title_menu_raster_upload: false,
                 },
             );
 
@@ -8177,6 +8228,7 @@ mod tests {
                     natural_intro_sequence_6_pre_ready_shell: false,
                     natural_intro_sequence_6_worker_elapsed: None,
                     fresh_title_worker_lineage: false,
+                    title_menu_raster_upload: false,
                 },
             );
         assert!(
@@ -8204,6 +8256,7 @@ mod tests {
                     natural_intro_sequence_6_pre_ready_shell: false,
                     natural_intro_sequence_6_worker_elapsed: None,
                     fresh_title_worker_lineage: false,
+                    title_menu_raster_upload: false,
                 },
             );
         assert!(
@@ -8226,6 +8279,7 @@ mod tests {
                     natural_intro_sequence_6_pre_ready_shell: false,
                     natural_intro_sequence_6_worker_elapsed: None,
                     fresh_title_worker_lineage: false,
+                    title_menu_raster_upload: false,
                 },
             );
         assert!(

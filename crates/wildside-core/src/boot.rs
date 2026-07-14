@@ -5392,6 +5392,7 @@ impl NativeRuntime {
         };
         self.title_menu_active = false;
         self.title_menu_cursor_pending = false;
+        self.title_menu_vdp_upload_frame_loc_1bb52 = None;
         self.title_menu_hidden_prearm_pending = false;
         self.title_menu_selection_pending = None;
         self.title_menu_selection_delay_frames = 0;
@@ -7483,6 +7484,10 @@ impl NativeRuntime {
                         self.title_idle_frames = 0;
                         self.title_menu_active = true;
                         self.title_menu_cursor_pending = true;
+                        self.title_menu_vdp_upload_frame_loc_1bb52 =
+                            Some(self.frame_index.saturating_add(
+                                TITLE_MENU_CURSOR_GFX_ALLOCATION_DELAY_FRAMES_LOC_1BB52,
+                            ));
                         self.title_menu_arm_frame = self
                             .frame_index
                             .saturating_add(TITLE_MENU_ACTIVATION_DELAY_FRAMES);
@@ -7660,6 +7665,10 @@ impl NativeRuntime {
                         self.title_idle_frames = 0;
                         self.title_menu_active = true;
                         self.title_menu_cursor_pending = true;
+                        self.title_menu_vdp_upload_frame_loc_1bb52 =
+                            Some(self.frame_index.saturating_add(
+                                TITLE_MENU_CURSOR_GFX_ALLOCATION_DELAY_FRAMES_LOC_1BB52,
+                            ));
                         self.title_menu_hidden_prearm_pending = false;
                         self.title_menu_arm_frame = self
                             .frame_index
@@ -7694,6 +7703,10 @@ impl NativeRuntime {
                     self.title_idle_frames = 0;
                     self.title_menu_hidden_prearm_pending = false;
                     self.title_menu_cursor_pending = true;
+                    self.title_menu_vdp_upload_frame_loc_1bb52 =
+                        Some(self.frame_index.saturating_add(
+                            TITLE_MENU_CURSOR_GFX_ALLOCATION_DELAY_FRAMES_LOC_1BB52,
+                        ));
                     self.title_menu_arm_frame = self
                         .frame_index
                         .saturating_add(TITLE_MENU_ACTIVATION_DELAY_FRAMES);
