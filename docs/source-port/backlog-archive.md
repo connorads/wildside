@@ -13,6 +13,31 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-14: frame 16648's text, Kid, planes, and state timing were
+already correct; the large mismatch belonged to the IntroSequence5 particle
+SAT. Oracle/native VRAM dumps at frames 16647-16649 show the later FC82=1
+Start-skip revisit exposes `loc_1BE3C` workers newest-first, one movement pass
+ahead, with acceleration applied after the presented movement. The generic
+FC82=1 reconstruction instead used allocation order and the cold/shared phase.
+
+Native now types that later FC82=1 worker lineage separately. It preserves the
+shared tile-worker clock, but selects the allocation-chain order `2,1,0`, adds
+one simulation pass, and uses `n(n-1)/2` gravity matching `loc_1BE74`'s
+hibernate/move/acceleration order. A second ASM issue surfaced at three pixels:
+`loc_1C542` copies 14 words from the seven-word Pal_1C3C6 Maniaxe mask, so the
+read continues into Pal_1C3D4. The asset loader now preserves that sequential
+ROM read instead of leaving CRAM word 56 stale. A runtime regression pins the
+zero word; RGB regressions pin frames 16648-16649 and retain all prior FC82
+controls. Frame 16647 still differs by 3 software-compositor pixels despite
+exact VRAM, CRAM, and VSRAM, so it remains separate debt.
+
+`mise run verify-slice-fast` is green. Full-route evidence gains 2 exact frames
+and removes 12,277 changed pixel instances: 24,095 exact, 13,664 divergent,
+and 8,719,314 changed. All 37,759 player/camera, typed gameplay, and enemy
+frames plus all 37,743 post-`Init_RNG` frames remain exact. Frame 28765 is the
+new worst at 4,160 pixels: oracle presents `Obj_TitleMenu loc_1BB52`'s menu
+rectangle while native retains the bare title. #406 remains open.
+
 Progress 2026-07-14: frame 28102 was the later-timeout counterpart of the
 wrapped `loc_1B37C` opening clock. Oracle-backed runtime tests already proved
 that `Load_IntroSequence6` keeps the object lists empty through local frame 35,

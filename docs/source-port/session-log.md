@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 later FC82=1 IntroSequence5 particles)
+
+- Oracle/native SAT dumps show the later FC82=1 visit presents `loc_1BE3C`
+  workers newest-first, one movement pass ahead, with acceleration after the
+  presented move. Native now models that lineage independently of the shared
+  FC82=1 tile clock.
+- ASM `loc_1C542` reads 14 words from the seven-word Pal_1C3C6 mask and spills
+  into Pal_1C3D4. Native now preserves that sequential read; a regression pins
+  CRAM word 56. Frames 16648-16649 are exact. Frame 16647 retains 3 separate
+  compositor pixels despite exact VDP memories.
+- Full verification gains 2 exact frames and removes 12,277 changed pixels:
+  24,095 exact, 13,664 divergent, and 8,719,314 changed. All state and RNG
+  channels remain exact. Frame 28765 is now worst at 4,160 pixels. NEXT: keep
+  #406 open and trace `Obj_TitleMenu loc_1BB52 -> sub_1C5D0`; oracle uploads
+  the menu rectangle two frames before native.
+
 ## 2026-07-14 handoff (#406 later IntroSequence6 opening lightning)
 
 - Oracle worker-list and RNG boundaries place the later `loc_1B37C` activation

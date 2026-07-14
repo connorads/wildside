@@ -7487,6 +7487,8 @@ mod tests {
         )
         .expect("published TAS scenario should parse");
         let expected = BTreeSet::from([
+            (16_648, "b292f95a8f4ab41264037eb2678f9278f610d01c"),
+            (16_649, "86ac4b3b2fec090e8273bd2e40b57a5f1bead0ff"),
             (16_533, "2da2c2dfec6edc6bdb0c091cf665168af67b13ae"),
             (16_534, "361c03351cc9ac89dde0260aa726bbe9f6d7e749"),
             (16_544, "85e620398547bee6b55651032df609dc1b73dfc0"),

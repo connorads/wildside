@@ -368,7 +368,8 @@ pub(crate) struct IntroSub1B850Data {
     intro_sequence_5_common_art_chunks: [(usize, Vec<u8>); 3],
     /// Load_IntroSequence5 helmet art variants selected by `$FFFFFC82`.
     intro_sequence_5_helmet_art_variants: [Vec<u8>; 3],
-    /// Pal_1C3C6 overlay applied by sub_1C512 when `$FFFFFC82 == 1`.
+    /// Fourteen-word Pal_1C3C6 overlay applied by sub_1C512 when
+    /// `$FFFFFC82 == 1`, including its sequential spill into Pal_1C3D4.
     intro_sequence_5_palette_variant_1_overlay: Vec<u16>,
     /// Pal_1C3D4 overlay applied by sub_1C512 when `$FFFFFC82 != 0 && != 1`.
     intro_sequence_5_palette_variant_2_overlay: Vec<u16>,
@@ -501,10 +502,22 @@ pub(crate) fn load_intro_sub_1b850_data(source: &dyn AssetSource) -> Result<Intr
     let intro_sequence_5_helmet_art_variants: [Vec<u8>; 3] = intro_sequence_5_helmet_art_variants
         .try_into()
         .map_err(|_| anyhow::anyhow!("expected 3 intro sequence 5 helmet art variants"))?;
-    let intro_sequence_5_palette_variant_1_overlay =
+    let mut intro_sequence_5_palette_variant_1_overlay =
         load_palette_words(source, &scenes.join("palette/title_maniaxe_mask.bin"))?;
     let intro_sequence_5_palette_variant_2_overlay =
         load_palette_words(source, &scenes.join("palette/title_juggernaut_mask.bin"))?;
+    // ASM loc_1C540/loc_1C542 (kid.asm:31273-31278) copies 14 words from
+    // Pal_1C3C6 even though the Maniaxe mask contains only seven words before
+    // Pal_1C3D4. Preserve that sequential ROM read instead of leaving the
+    // second half of Palette_Buffer_2's overlay stale.
+    const INTRO_SEQUENCE_5_PALETTE_OVERLAY_WORDS_LOC_1C542: usize = 0x0D + 1;
+    let spill_words = INTRO_SEQUENCE_5_PALETTE_OVERLAY_WORDS_LOC_1C542
+        .saturating_sub(intro_sequence_5_palette_variant_1_overlay.len());
+    intro_sequence_5_palette_variant_1_overlay.extend(
+        intro_sequence_5_palette_variant_2_overlay
+            .iter()
+            .take(spill_words),
+    );
     let intro_sequence_5_tilemap_raw = source
         .read(&scenes.join("mapeni/intro3_alley.bin"))
         .context("failed to read intro sequence 5 tilemap")?;
@@ -621,9 +634,14 @@ pub(crate) fn build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
         elapsed,
         intro_sequence_3_roster_index,
         visible_elapsed,
-        match title_variant {
-            0 => IntroSequence5WorkerLineage::TimeoutFc82Zero,
-            2 => IntroSequence5WorkerLineage::TimeoutFc82Two,
+        // ASM loc_1BCD0 -> loc_1BE3C (kid.asm:30567-30667): the later FC82=1
+        // Start-skip revisit exposes the newest allocated particle first and
+        // one moved pass ahead. Oracle SAT frames 16647-16649 distinguish this
+        // from the cold/shared FC82=1 allocation order.
+        match (title_variant, workers_wake_one_frame_early) {
+            (0, _) => IntroSequence5WorkerLineage::TimeoutFc82Zero,
+            (1, true) => IntroSequence5WorkerLineage::TimeoutFc82OneStartSkip,
+            (2, _) => IntroSequence5WorkerLineage::TimeoutFc82Two,
             _ => IntroSequence5WorkerLineage::Shared,
         },
     );
@@ -688,7 +706,12 @@ fn build_intro_sequence_vdp_with_title_variant_at_elapsed_and_visible_threshold(
             elapsed.saturating_sub(intro_sequence_5_worker_lineage.tile_worker_delay()),
             intro_sequence_5_worker_lineage,
         );
-        overlay_intro_sequence_5_sprite_table_loc_1BCD0(&mut vdp, title_variant, elapsed);
+        overlay_intro_sequence_5_sprite_table_loc_1BCD0(
+            &mut vdp,
+            title_variant,
+            elapsed,
+            intro_sequence_5_worker_lineage,
+        );
     }
     overlay_intro_text_worker_loc_1c7a0(&mut vdp, segment, elapsed);
     vdp
@@ -1448,11 +1471,15 @@ struct IntroSequence5GfxObjectLoc1BCD0 {
 enum IntroSequence5ParticleLineage {
     TimeoutFc82Zero,
     Shared,
+    TimeoutFc82OneStartSkip,
     TimeoutFc82Two,
 }
 
 impl IntroSequence5ParticleLineage {
-    fn from_title_variant(title_variant: u8) -> Self {
+    fn from_worker_lineage(title_variant: u8, worker_lineage: IntroSequence5WorkerLineage) -> Self {
+        if worker_lineage == IntroSequence5WorkerLineage::TimeoutFc82OneStartSkip {
+            return Self::TimeoutFc82OneStartSkip;
+        }
         match title_variant {
             0 => Self::TimeoutFc82Zero,
             2 => Self::TimeoutFc82Two,
@@ -1465,18 +1492,23 @@ impl IntroSequence5ParticleLineage {
     }
 
     fn simulation_phase(self) -> usize {
-        usize::from(self == Self::TimeoutFc82Zero)
+        usize::from(matches!(
+            self,
+            Self::TimeoutFc82Zero | Self::TimeoutFc82OneStartSkip
+        ))
     }
 
     fn particle_order(self) -> [usize; 3] {
         match self {
-            Self::TimeoutFc82Zero | Self::TimeoutFc82Two => [2, 1, 0],
+            Self::TimeoutFc82Zero | Self::TimeoutFc82OneStartSkip | Self::TimeoutFc82Two => {
+                [2, 1, 0]
+            }
             Self::Shared => [0, 1, 2],
         }
     }
 
     fn gravity_steps(self, frames: i32) -> i32 {
-        if self == Self::TimeoutFc82Zero {
+        if matches!(self, Self::TimeoutFc82Zero | Self::TimeoutFc82OneStartSkip) {
             frames.saturating_sub(1)
         } else {
             frames + 1
@@ -1489,6 +1521,7 @@ fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(
     vdp: &mut VdpState,
     title_variant: u8,
     elapsed: usize,
+    worker_lineage: IntroSequence5WorkerLineage,
 ) {
     // ASM loc_1BCD0 (kid.asm:30567): allocates five visible gfx slots with
     // palette line 2, VRAM tile `$26C`, and frame links unk_E1066/E106E/
@@ -1536,7 +1569,8 @@ fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(
     // Object/SAT presentation lineages. FC82=0 exposes one advanced worker
     // pass. FC82=2 keeps the pre-particle SAT for one final trace, then exposes
     // the newest allocated worker first without rewinding its simulation.
-    let particle_lineage = IntroSequence5ParticleLineage::from_title_variant(title_variant);
+    let particle_lineage =
+        IntroSequence5ParticleLineage::from_worker_lineage(title_variant, worker_lineage);
     let particle_elapsed = elapsed
         .checked_sub(visible_particle_start)
         .filter(|_| {
@@ -2697,6 +2731,7 @@ struct IntroSequence5RasterUpload {
 enum IntroSequence5WorkerLineage {
     Shared,
     TimeoutFc82Zero,
+    TimeoutFc82OneStartSkip,
     TimeoutFc82Two,
 }
 

@@ -4735,6 +4735,7 @@ mod chunk_09 {
             return;
         };
         let mut frame_16647 = None;
+        let mut frame_16647_palette_word_56 = None;
         let mut frame_16648 = None;
         let mut frame_16649 = None;
         let mut frame_16650 = None;
@@ -4749,6 +4750,9 @@ mod chunk_09 {
                         trace.kid_x_pos,
                         trace.kid_y_pos,
                     ));
+                    frame_16647_palette_word_56 = runtime
+                        .vdp_state()
+                        .map(|vdp| u16::from_be_bytes([vdp.cram[0x70], vdp.cram[0x71]]));
                 }
                 16_648 => {
                     frame_16648 = Some((
@@ -4794,6 +4798,11 @@ mod chunk_09 {
                 Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
             )),
             "frame 16647 should still be intro sequence 5 with loc_1BCD0's slot-2 pose visible",
+        );
+        assert_eq!(
+            frame_16647_palette_word_56,
+            Some(0),
+            "ASM loc_1C540/loc_1C542 should spill the 14-word FC82=1 palette copy from Pal_1C3C6 into Pal_1C3D4's leading zero words",
         );
         assert_eq!(
             frame_16648,
