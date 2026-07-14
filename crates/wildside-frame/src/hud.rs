@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use wildside_core::{
-    GameMode, NativeTraceFrame, PlayerForm, hitpoint_display_art_dma_loop_loc_12C34,
+    GameMode, LevelId, NativeTraceFrame, PlayerForm, hitpoint_display_art_dma_loop_loc_12C34,
 };
 use wildside_render::{NativeLevelVisuals, TileRef};
 
@@ -18,6 +18,7 @@ const HUD_DIAMOND_COUNT_X: i32 = 0x190 - 128;
 const HUD_DIAMOND_COUNT_Y: i32 = 0xA4 - 128;
 const HUD_DIAMOND_ANIMATION_FRAME_DURATION: usize = 6;
 const HUD_DIAMOND_DMA_PAGE_RENDER_LEAD_LOC_45EE: usize = 2;
+const DEMO_1_LEVEL_LOC_119B6: LevelId = LevelId(0x15);
 // ASM Make_SpriteAttr_HUD loc_BE0C (kid.asm:15407): d2 starts at $80 and
 // `addi.w #$10,d2` runs before the first hitpoint sprite write, so the first
 // visible HP pip lands at biased X $90, i.e. screen X 16.
@@ -285,7 +286,16 @@ fn hud_diamond_animation_frame_index(trace: &NativeTraceFrame, frame_count: usiz
         // completion-time clock. Oracle RAM watches at release frames
         // 0/30/60/120 show `$FFFFFA5D` two DMA pages ahead of that reduced
         // native clock.
-        let render_lead = if trace.level_skip_cheat_enabled == 0
+        let render_lead = if trace.game_mode == GameMode::DemoPlay
+            && trace.current_level == DEMO_1_LEVEL_LOC_119B6
+        {
+            // ASM Load_DemoPlay loc_119B6 chooses Knights Isle for demo 1,
+            // then Load_InGame's `sub_44B0`/`sub_44DC` performs the first HUD
+            // DMA before the trace renderer's sampled VBlank. Oracle VRAM at
+            // published-TAS frames 902..970 shows `$DD40` holds the direct
+            // `unk_461C` page selected by `$FFFFFA5D`, without a render lead.
+            0
+        } else if trace.level_skip_cheat_enabled == 0
             && trace.level_completion_time > 0
             && !trace.level_complete
         {
@@ -623,6 +633,14 @@ mod tests {
             ..NativeTraceFrame::default()
         };
         assert_eq!(hud_diamond_animation_frame_index(&normal_trace, 4), 3);
+
+        let demo_1_trace = NativeTraceFrame {
+            game_mode: GameMode::DemoPlay,
+            current_level: LevelId(0x15),
+            hud_diamond_frame_offset: Some(4),
+            ..NativeTraceFrame::default()
+        };
+        assert_eq!(hud_diamond_animation_frame_index(&demo_1_trace, 4), 2);
 
         for level_completion_time in [1, 2, 3] {
             let settled_trace = NativeTraceFrame {

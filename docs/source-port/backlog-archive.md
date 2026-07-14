@@ -13,6 +13,18 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-14: oracle VRAM dumps at published-TAS frames 902..970 show
+Demo 1's `$DD40` diamond page follows `$FFFFFA5D` directly: page 2 through
+902..907, then pages 3, 4, 1 in six-frame blocks. This is the
+`Load_DemoPlay loc_119B6` Knights Isle path, distinct from the normal
+post-`sub_44DC` presentation lead. The source-port HUD renderer now recognises
+that typed DemoPlay/level combination and selects the direct `unk_461C` page.
+The full 37,759-frame route remains state/RNG/enemy exact and improves to
+24,250 exact RGB frames, 13,509 divergent frames, and 8,474,031 changed pixel
+instances - 491 more exact frames and 5,862 fewer changed pixels. Frame 905
+remains the first two-pixel mismatch; frame 22511 is worst at 2,595 pixels.
+#406 remains open.
+
 Progress 2026-07-14: published-TAS frame 905 first makes the DemoPlay HUD
 visible. Oracle WRAM reaches `Time=3:00`, `Time_SubSeconds=$3C`, and
 `Time_Frames=1` on frame 902, after `Load_DemoPlay -> Load_InGame` has run

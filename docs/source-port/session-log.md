@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 Demo 1 diamond HUD DMA page)
+
+- Oracle VRAM frames 902..970 establish that Demo 1 Knights Isle presents the
+  direct `sub_44DC loc_45EE` `$FA5D` diamond page at `$DD40`, unlike the normal
+  trace presentation lead. The renderer scopes that mapping to
+  `Load_DemoPlay loc_119B6`'s typed DemoPlay/level path.
+- Full verification stays state/RNG/enemy exact and improves to 24,250 exact /
+  13,509 divergent frames / 8,474,031 changed pixels. Frame 905 remains the
+  first mismatch at 2 pixels; frame 22511 is now worst at 2,595 pixels. NEXT:
+  inspect the residual frame-905 ankh pixels, without changing global HUD DMA
+  timing.
+
 ## 2026-07-14 handoff (#406 demo bootstrap HUD tick)
 
 - Oracle frame 902 has already completed `sub_8E0 loc_8FE`'s hidden
