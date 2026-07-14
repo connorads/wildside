@@ -12,6 +12,6 @@ mod vdp;
 #[cfg(feature = "audio")]
 pub use runtime::*;
 pub use vdp::{
-    FrameBuffer, VdpPixelLayerSample, VdpPixelSample, VdpSnapshot, render_vdp_into,
-    sample_vdp_pixel,
+    FrameBuffer, VdpPixelLayerSample, VdpPixelSample, VdpRasterFrame, VdpRasterVramWordWrite,
+    VdpSnapshot, render_vdp_into, sample_vdp_pixel,
 };

@@ -8,6 +8,23 @@ pub struct VdpSnapshot {
     pub vram: Vec<u8>,
     pub cram: Vec<u8>,
     pub vsram: Vec<u8>,
+    pub raster_frame: Option<VdpRasterFrame>,
+}
+
+/// VRAM state and ordered writes for a frame whose CPU work overlaps display.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VdpRasterFrame {
+    pub initial_vram: Vec<u8>,
+    pub vram_word_writes: Vec<VdpRasterVramWordWrite>,
+}
+
+/// One FIFO-committed VRAM word write at the VDP raster position it takes effect.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VdpRasterVramWordWrite {
+    pub scanline: u16,
+    pub pixel: u16,
+    pub byte_addr: u16,
+    pub value: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,21 +98,56 @@ pub fn render_vdp_into(vdp: &VdpSnapshot, rgb: &mut [u8]) {
     let vscroll_b = i32::from(read_u16_wrapped(&vdp.vsram, 2) as i16);
     let (plane_width_cells, plane_height_cells) = plane_dimensions(vdp.registers[0x10]);
     let window_region = window_region(&vdp.registers, width, height);
-    let sprite_scan = SpriteLineScan::build(&vdp.vram, sprite_table_base, height, width);
+    let raster_frame = vdp.raster_frame.as_ref();
+    let mut raster_vdp = raster_frame.map(|raster_frame| {
+        let mut raster_vdp = vdp.clone();
+        raster_vdp.vram.clone_from(&raster_frame.initial_vram);
+        raster_vdp.raster_frame = None;
+        raster_vdp
+    });
+    let initial_vram = raster_vdp
+        .as_ref()
+        .map_or(vdp.vram.as_slice(), |raster_vdp| raster_vdp.vram.as_slice());
+    let sprite_scan = SpriteLineScan::build(initial_vram, sprite_table_base, height, width);
+    let mut raster_write_index = 0usize;
 
     for y in 0..height {
+        if let (Some(raster_frame), Some(raster_vdp)) = (raster_frame, raster_vdp.as_mut()) {
+            apply_vram_raster_writes_before_scanline(
+                raster_frame,
+                raster_vdp,
+                &mut raster_write_index,
+                y,
+            );
+        }
         let plane_a = ScrollPlane {
             base: plane_a_base,
             width_cells: plane_width_cells,
             height_cells: plane_height_cells,
-            hscroll: hscroll_for_line(&vdp.vram, hscroll_base, y, 0, vdp.registers[0x0B]),
+            hscroll: hscroll_for_line(
+                raster_vdp
+                    .as_ref()
+                    .map_or(vdp.vram.as_slice(), |vdp| vdp.vram.as_slice()),
+                hscroll_base,
+                y,
+                0,
+                vdp.registers[0x0B],
+            ),
             vscroll: vscroll_a,
         };
         let plane_b = ScrollPlane {
             base: plane_b_base,
             width_cells: plane_width_cells,
             height_cells: plane_height_cells,
-            hscroll: hscroll_for_line(&vdp.vram, hscroll_base, y, 2, vdp.registers[0x0B]),
+            hscroll: hscroll_for_line(
+                raster_vdp
+                    .as_ref()
+                    .map_or(vdp.vram.as_slice(), |vdp| vdp.vram.as_slice()),
+                hscroll_base,
+                y,
+                2,
+                vdp.registers[0x0B],
+            ),
             vscroll: vscroll_b,
         };
         let window_plane = WindowPlane {
@@ -104,22 +156,53 @@ pub fn render_vdp_into(vdp: &VdpSnapshot, rgb: &mut [u8]) {
         };
         let line_sprites = sprite_scan.sprites_on_line(y);
         for x in 0..width {
+            let presented_vdp = raster_vdp.as_ref().unwrap_or(vdp);
             for priority in [false, true] {
-                if let Some(colour) = plane_pixel_rgb(vdp, &plane_b, x, y, priority) {
+                if let Some(colour) = plane_pixel_rgb(presented_vdp, &plane_b, x, y, priority) {
                     write_rgb(rgb, width, x, y, colour);
                 }
-                if let Some(colour) =
-                    plane_a_or_window_pixel_rgb(vdp, &plane_a, &window_plane, x, y, priority)
-                {
+                if let Some(colour) = plane_a_or_window_pixel_rgb(
+                    presented_vdp,
+                    &plane_a,
+                    &window_plane,
+                    x,
+                    y,
+                    priority,
+                ) {
                     write_rgb(rgb, width, x, y, colour);
                 }
-                if let Some(colour) =
-                    scanline_sprite_pixel_rgb(vdp, &sprite_scan, line_sprites, x, y, priority)
-                {
+                if let Some(colour) = scanline_sprite_pixel_rgb(
+                    presented_vdp,
+                    &sprite_scan,
+                    line_sprites,
+                    x,
+                    y,
+                    priority,
+                ) {
                     write_rgb(rgb, width, x, y, colour);
                 }
             }
         }
+    }
+}
+
+fn apply_vram_raster_writes_before_scanline(
+    raster_frame: &VdpRasterFrame,
+    vdp: &mut VdpSnapshot,
+    write_index: &mut usize,
+    scanline: usize,
+) {
+    while let Some(write) = raster_frame.vram_word_writes.get(*write_index)
+        // The VDP background pipeline latches the next displayed row before
+        // that scanline begins. A FIFO write during N can affect N+1, never a
+        // partial span of background pixels within N.
+        && usize::from(write.scanline) < scanline
+    {
+        let byte_addr = usize::from(write.byte_addr);
+        if let Some(slot) = vdp.vram.get_mut(byte_addr..byte_addr + 2) {
+            slot.copy_from_slice(&write.value.to_be_bytes());
+        }
+        *write_index += 1;
     }
 }
 

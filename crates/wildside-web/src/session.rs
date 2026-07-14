@@ -174,6 +174,21 @@ impl WebSession {
                 vram: vdp.vram.clone(),
                 cram: vdp.cram.clone(),
                 vsram: vdp.vsram.clone(),
+                raster_frame: vdp.raster_frame.as_ref().map(|raster_frame| {
+                    wildside_md::VdpRasterFrame {
+                        initial_vram: raster_frame.initial_vram.clone(),
+                        vram_word_writes: raster_frame
+                            .vram_word_writes
+                            .iter()
+                            .map(|write| wildside_md::VdpRasterVramWordWrite {
+                                scanline: write.scanline,
+                                pixel: write.pixel,
+                                byte_addr: write.byte_addr,
+                                value: write.value,
+                            })
+                            .collect(),
+                    }
+                }),
             };
             wildside_md::render_vdp_into(&snapshot, &mut self.rgb);
             render_vdp_trace_overlay(&self.trace, &self.visuals, &mut self.rgb);

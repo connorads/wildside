@@ -96,6 +96,7 @@ pub(crate) fn capture_scenario_frames(
     use native_player::{
         NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene_filtered, load_session_assets,
         render_scene, render_trace_with_vdp_latched_state, render_vdp_trace_overlay,
+        vdp_snapshot_from_core,
     };
 
     fs::create_dir_all(output_dir)
@@ -191,12 +192,7 @@ pub(crate) fn capture_scenario_frames(
         let mut rgb = vec![0u8; w * h * 3];
         if vdp_full_frame {
             if let Some(vdp) = runtime.vdp_state() {
-                let snapshot = wildside_md::VdpSnapshot {
-                    registers: vdp.registers,
-                    vram: vdp.vram.clone(),
-                    cram: vdp.cram.clone(),
-                    vsram: vdp.vsram.clone(),
-                };
+                let snapshot = vdp_snapshot_from_core(vdp);
                 wildside_md::render_vdp_into(&snapshot, &mut rgb);
                 render_vdp_trace_overlay(&trace, &level_visuals, &mut rgb);
             } else {

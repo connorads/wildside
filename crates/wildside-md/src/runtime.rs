@@ -1253,6 +1253,7 @@ impl MdBus {
             vram: self.vdp.vram.clone(),
             cram: self.vdp.cram.clone(),
             vsram: self.vdp.vsram.clone(),
+            raster_frame: None,
         }
     }
 
@@ -2464,8 +2465,8 @@ mod tests {
         probe_rom, ym_sample_cycle_end, ym2612_input_clocks_for_z80_cycles,
     };
     use crate::vdp::{
-        ScrollPlane, SpriteLineScan, VdpSnapshot, WindowPlane, WindowRegion, cram_rgb,
-        render_vdp_into, scale_channel,
+        ScrollPlane, SpriteLineScan, VdpRasterFrame, VdpRasterVramWordWrite, VdpSnapshot,
+        WindowPlane, WindowRegion, cram_rgb, render_vdp_into, scale_channel,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -2496,6 +2497,7 @@ mod tests {
             vram: vec![0; 0x1_0000],
             cram: vec![0; 0x80],
             vsram: vec![0; 0x50],
+            raster_frame: None,
         }
     }
 
@@ -2722,6 +2724,41 @@ mod tests {
         render_vdp_into(&vdp, &mut rgb);
 
         assert_eq!(&rgb[0..3], &[0xFF, 0xFF, 0xFF]);
+    }
+
+    #[test]
+    fn render_vdp_latches_fifo_vram_writes_on_the_following_background_scanline() {
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[2] = 0x08;
+        vdp.cram[2..4].copy_from_slice(&[0x0E, 0xEE]);
+        make_tile_opaque(&mut vdp.vram, 1, 1);
+        write_tile_entry(&mut vdp.vram, 0x2000, 0, 0x0001);
+        let mut initial_vram = vdp.vram.clone();
+        write_tile_entry(&mut initial_vram, 0x2000, 0, 0x0000);
+        vdp.raster_frame = Some(VdpRasterFrame {
+            initial_vram,
+            vram_word_writes: vec![VdpRasterVramWordWrite {
+                scanline: 0,
+                pixel: 44,
+                byte_addr: 0x2000,
+                value: 0x0001,
+            }],
+        });
+        let mut rgb = vec![0; 320 * 224 * 3];
+
+        render_vdp_into(&vdp, &mut rgb);
+
+        assert_eq!(
+            &rgb[0..3],
+            &[0x00, 0x00, 0x00],
+            "a FIFO write during scanline 0 must not change its already-latched background"
+        );
+        let second_scanline = 320 * 3;
+        assert_eq!(
+            &rgb[second_scanline..second_scanline + 3],
+            &[0xFF, 0xFF, 0xFF],
+            "the committed VRAM word must feed the next background scanline"
+        );
     }
 
     #[test]

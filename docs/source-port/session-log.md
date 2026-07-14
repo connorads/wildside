@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 IntroSequence5 raster uploads)
+
+- Frame 16534 was a mid-frame Plane A transfer, not a wrong final VDP state.
+  Oracle FIFO traces pin `sub_1C034`'s frame-map and `sub_1C5D0`'s panel writes
+  to H40 slots and scanlines.
+- The core now carries typed frame-start VRAM plus ordered raster writes; the
+  renderer applies them from the following background scanline. Published
+  frames 16533..16568 are exact at every sampled upload boundary.
+- Full verification gains 31 exact frames and removes 104,487 changed pixels:
+  23,926 exact, 13,833 divergent, and 9,452,461 changed. All state channels
+  remain exact. Frame 21047 is now worst at 7,195 pixels. NEXT: keep #406 open
+  and trace that visual frontier.
+
 ## 2026-07-14 handoff (#406 IntroSequence6 lightning tail)
 
 - Frame 21077 exposed a timeout-restart `loc_1B37C` phase error. CRAM and

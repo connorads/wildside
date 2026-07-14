@@ -141,13 +141,35 @@ pub(crate) const NATIVE_FRAME_HEIGHT: u32 = FRAME_HEIGHT;
 /// copy lazily on render rather than coupling wildside-core capture to wildside-md.
 /// `render_vdp_into` hard-codes 320×224, matching `NATIVE_FRAME_WIDTH/HEIGHT`.
 pub(crate) fn render_native_vdp_rgb(vdp: &wildside_core::vdp::VdpState, rgb: &mut [u8]) {
-    let snapshot = wildside_md::VdpSnapshot {
+    let snapshot = vdp_snapshot_from_core(vdp);
+    wildside_md::render_vdp_into(&snapshot, rgb);
+}
+
+pub(crate) fn vdp_snapshot_from_core(
+    vdp: &wildside_core::vdp::VdpState,
+) -> wildside_md::VdpSnapshot {
+    wildside_md::VdpSnapshot {
         registers: vdp.registers,
         vram: vdp.vram.clone(),
         cram: vdp.cram.clone(),
         vsram: vdp.vsram.clone(),
-    };
-    wildside_md::render_vdp_into(&snapshot, rgb);
+        raster_frame: vdp
+            .raster_frame
+            .as_ref()
+            .map(|raster_frame| wildside_md::VdpRasterFrame {
+                initial_vram: raster_frame.initial_vram.clone(),
+                vram_word_writes: raster_frame
+                    .vram_word_writes
+                    .iter()
+                    .map(|write| wildside_md::VdpRasterVramWordWrite {
+                        scanline: write.scanline,
+                        pixel: write.pixel,
+                        byte_addr: write.byte_addr,
+                        value: write.value,
+                    })
+                    .collect(),
+            }),
+    }
 }
 
 pub(crate) fn load_session_assets(
@@ -2658,6 +2680,7 @@ fn try_load_generated_level_layout(
 mod tests {
     use super::*;
     use crate::scenarios::{GameplayScenario, prize_block_scenario};
+    use sha1::{Digest, Sha1};
     use std::fs;
     use std::path::Path;
     use std::sync::Arc;
@@ -7407,12 +7430,7 @@ mod tests {
         let vdp = runtime
             .vdp_state()
             .expect("test route should expose a VDP shell");
-        let snapshot = wildside_md::VdpSnapshot {
-            registers: vdp.registers,
-            vram: vdp.vram.clone(),
-            cram: vdp.cram.clone(),
-            vsram: vdp.vsram.clone(),
-        };
+        let snapshot = vdp_snapshot_from_core(vdp);
         let mut frame = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
         wildside_md::render_vdp_into(&snapshot, &mut frame);
         render_vdp_trace_overlay(trace, level_visuals, &mut frame);
@@ -7445,6 +7463,66 @@ mod tests {
         assert!(
             non_blank,
             "a Sega/title VDP frame should render non-black pixels",
+        );
+    }
+
+    #[test]
+    fn published_tas_intro_sequence_5_loc_1bc36_raster_uploads_match_oracle_rgb() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let repo_root = crate_dir
+            .parent()
+            .and_then(Path::parent)
+            .expect("wildside-cli crate should live under <repo>/crates/wildside-cli");
+        let scenario: DynamicScenario = serde_json::from_str(
+            &fs::read_to_string(
+                repo_root.join("tests/data/tas/any-percent-published/scenario.json"),
+            )
+            .expect("published TAS scenario should be readable"),
+        )
+        .expect("published TAS scenario should parse");
+        let expected = BTreeSet::from([
+            (16_533, "2da2c2dfec6edc6bdb0c091cf665168af67b13ae"),
+            (16_534, "361c03351cc9ac89dde0260aa726bbe9f6d7e749"),
+            (16_544, "85e620398547bee6b55651032df609dc1b73dfc0"),
+            (16_555, "230290decb271280eb32fa1e6116ccc3f1677e6e"),
+            (16_556, "56a9fea2758074239a31ed7c2e675db9b964932b"),
+            (16_567, "2c86924eb9daa5c8be51b6ba5f5863e4d62010ad"),
+        ]);
+        let max_frame = expected
+            .iter()
+            .map(|(frame, _)| *frame)
+            .max()
+            .expect("oracle samples should not be empty");
+        let session_assets = load_native_session_assets(&manifest, 0)
+            .expect("published TAS should load level 0 rendering assets");
+        let mut runtime = NativeRuntime::new(manifest);
+        let mut actual = BTreeSet::new();
+
+        for (frame_index, mask) in scenario
+            .script
+            .iter()
+            .copied()
+            .enumerate()
+            .take(max_frame + 1)
+        {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if expected.iter().any(|(frame, _)| *frame == frame_index) {
+                let rgb =
+                    render_vdp_frame_for_test(&runtime, &trace, &session_assets.level_visuals);
+                actual.insert((frame_index, format!("{:x}", Sha1::digest(rgb))));
+            }
+        }
+
+        assert_eq!(
+            actual,
+            expected
+                .into_iter()
+                .map(|(frame, digest)| (frame, digest.to_string()))
+                .collect(),
+            "ASM loc_1BC36/sub_1C034/sub_1C0EE FIFO-crossing frames must match oracle RGB byte-for-byte"
         );
     }
 

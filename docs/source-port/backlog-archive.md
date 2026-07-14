@@ -647,6 +647,34 @@ Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG` frames remain
 exact. Frame 39 remains first at 2,643 pixels; frame 16534 is now worst at
 7,420 pixels, so #406 remains open.
 
+Progress 2026-07-14: frame 16534 belonged to IntroSequence5's fourth frame-map
+upload. Native and oracle ended the pass with the same map, but oracle exposed
+only the words that had crossed the VDP FIFO before each background scanline.
+The old renderer treated final VRAM as if it existed for the whole frame, and
+the scene model held the fourth frame for a static 60 passes because sparse
+captures had mistaken an in-progress transfer for an animation delay.
+
+ASM `loc_1BC36 -> sub_1C034` streams 377 Plane A words for each animation
+frame. After frame four it immediately calls `sub_1C0EE -> sub_1C5D0` for the
+100-word story panel, hibernates `$B` passes, clears the panel, and advances to
+frame five. Direct oracle FIFO instrumentation established the H40 write slots
+and the owning scanlines; repeated cold and published-route captures established
+the 58/59-pass split around the panel. The core now exports a typed frame-start
+VRAM image and ordered word-write timeline. The Mega Drive renderer applies
+writes after the scanline on which the FIFO commits while retaining post-frame
+VRAM as authoritative state for checkpoints and the next frame.
+
+Regressions pin the scene schedule, all 954 duplicated FIFO word commits, the
+following-scanline latch rule, and six oracle RGB24 hashes spanning partial
+frame-map, panel, and clear boundaries. Published frames 16533..16568 are exact
+at every sampled upload boundary. The equivalent cold route is exact except for
+a separate one-pixel residual on frame 2238, so it is not claimed as fully
+resolved. Full verification gains 31 exact frames and removes 104,487 changed
+pixel instances: 23,926 exact, 13,833 divergent, and 9,452,461 changed pixels.
+Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG` frames remain
+exact. Frame 39 remains first at 2,643 pixels; frame 21047 is now worst at
+7,195 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

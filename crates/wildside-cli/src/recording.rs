@@ -8,6 +8,7 @@ use crate::native_player::{
     chunked_plane_b_row_debug_for_trace_loc_30744, eol_score_sprite_diagnostics,
     load_session_assets, render_scene, render_scene_overlay, render_trace_with_vdp_latched_state,
     render_vdp_trace_overlay, sample_background_pixel_loc_c070, sample_scene_pixel_provenance,
+    vdp_snapshot_from_core,
 };
 use crate::oracle::{OracleFrame, OracleManifest, OracleState, run_jgenesis_capture_dynamic};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
@@ -1304,12 +1305,7 @@ fn render_runtime_checkpoint_frame(
         // ASM intro/title loaders build the visible screen in VDP memory.
         // Recording verification must use the same VDP renderer as play-native,
         // otherwise intro checkpoints fall back to black trace-only placeholders.
-        let snapshot = wildside_md::VdpSnapshot {
-            registers: vdp.registers,
-            vram: vdp.vram.clone(),
-            cram: vdp.cram.clone(),
-            vsram: vdp.vsram.clone(),
-        };
+        let snapshot = vdp_snapshot_from_core(vdp);
         wildside_md::render_vdp_into(&snapshot, &mut rgb);
         render_vdp_trace_overlay(trace, level_visuals, &mut rgb);
     } else {
@@ -1642,12 +1638,7 @@ fn attach_native_pixel_samples(
                 let vdp_samples = runtime
                     .vdp_state()
                     .map(|vdp| {
-                        let snapshot = wildside_md::VdpSnapshot {
-                            registers: vdp.registers,
-                            vram: vdp.vram.clone(),
-                            cram: vdp.cram.clone(),
-                            vsram: vdp.vsram.clone(),
-                        };
+                        let snapshot = vdp_snapshot_from_core(vdp);
                         pixels
                             .iter()
                             .map(|(x, y)| NativeVdpPixelDiagnostic::from_sample(&snapshot, *x, *y))

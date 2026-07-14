@@ -75,6 +75,23 @@ pub struct VdpState {
     pub vram: Vec<u8>,
     pub cram: Vec<u8>,
     pub vsram: Vec<u8>,
+    pub raster_frame: Option<VdpRasterFrame>,
+}
+
+/// VRAM state and ordered FIFO writes for a frame that changes while displayed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VdpRasterFrame {
+    pub initial_vram: Vec<u8>,
+    pub vram_word_writes: Vec<VdpRasterVramWordWrite>,
+}
+
+/// One FIFO-committed VRAM word write at its visible VDP raster position.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VdpRasterVramWordWrite {
+    pub scanline: u16,
+    pub pixel: u16,
+    pub byte_addr: u16,
+    pub value: u16,
 }
 
 impl VdpState {
@@ -84,6 +101,7 @@ impl VdpState {
             vram: vec![0; VRAM_SIZE],
             cram: vec![0; CRAM_SIZE],
             vsram: vec![0; VSRAM_SIZE],
+            raster_frame: None,
         }
     }
 
@@ -96,13 +114,19 @@ impl VdpState {
         let end = (byte_addr + data.len()).min(self.vram.len());
         let copy_len = end - byte_addr;
         self.vram[byte_addr..end].copy_from_slice(&data[..copy_len]);
+        if let Some(raster_frame) = self.raster_frame.as_mut() {
+            raster_frame.initial_vram[byte_addr..end].copy_from_slice(&data[..copy_len]);
+        }
     }
 
     /// Write a single big-endian word to VRAM at the given byte address.
     fn write_vram_word(&mut self, byte_addr: usize, word: u16) {
         if byte_addr + 1 < self.vram.len() {
-            self.vram[byte_addr] = (word >> 8) as u8;
-            self.vram[byte_addr + 1] = word as u8;
+            let bytes = word.to_be_bytes();
+            self.vram[byte_addr..byte_addr + 2].copy_from_slice(&bytes);
+            if let Some(raster_frame) = self.raster_frame.as_mut() {
+                raster_frame.initial_vram[byte_addr..byte_addr + 2].copy_from_slice(&bytes);
+            }
         }
     }
 
@@ -1699,8 +1723,7 @@ fn write_sprite_table_entries(
             0
         };
         vdp.write_vram_word(entry_base, entry.y_pos);
-        vdp.vram[entry_base + 2] = entry.size_byte;
-        vdp.vram[entry_base + 3] = link;
+        vdp.write_vram_word(entry_base + 2, u16::from_be_bytes([entry.size_byte, link]));
         vdp.write_vram_word(entry_base + 4, entry.pattern);
         vdp.write_vram_word(entry_base + 6, entry.x_pos);
     }
@@ -2491,25 +2514,33 @@ fn build_intro_sequence_5_vdp(data: &IntroSub1B850Data, title_variant: u8) -> Vd
 
 const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
     (0, 0),
-    (0xA0 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY, 1),
     (
-        0xA0 + 0x90 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY,
+        0xA0 + INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY,
+        1,
+    ),
+    (
+        0xA0 + 0x90 + INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY,
         2,
     ),
     (
-        0xA0 + 0x90 + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY,
+        0xA0 + 0x90 + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY,
         3,
     ),
     (
-        0xA0 + 0x90 + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY,
+        0xA0 + 0x90 + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY,
         4,
     ),
     (
-        0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY,
+        0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY,
         5,
     ),
     (
-        0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY + 0x37,
+        0xA0 + 0x90
+            + 0x0B
+            + 0x0B
+            + 0x0B
+            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY
+            + 0x37,
         6,
     ),
     (
@@ -2517,7 +2548,7 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
             + 0x0B
             + 0x0B
             + 0x0B
-            + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY
+            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY
             + 0x37
             + 0x08,
         7,
@@ -2527,7 +2558,7 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
             + 0x0B
             + 0x0B
             + 0x0B
-            + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY
+            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY
             + 0x37
             + 0x08
             + 0x08,
@@ -2538,7 +2569,7 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
             + 0x0B
             + 0x0B
             + 0x0B
-            + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY
+            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY
             + 0x37
             + 0x08
             + 0x08
@@ -2546,20 +2577,80 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
         5,
     ),
 ];
-// ASM loc_1BC36 calls sub_1C034 on the hibernate boundaries above, but the
-// VDP frame changes present one display window later. Oracle frame 2040 still
-// shows frame 0 after the first `$A0` hibernate; frame 2100 has caught up to
-// frame 1. Later checkpoints keep the same delay through the panel sequence.
-const INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY: usize = 0x3C;
+// ASM loc_1BC36 calls sub_1C034 on these hibernate boundaries. Exact oracle
+// FIFO traces show the first four uploads entering active display after `$3A`;
+// the combined d4=4/sub_1C0EE pass crosses VBlank and leaves later uploads one
+// presented frame behind that clock.
+const INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY: usize = 0x3A;
+const INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY: usize = 0x3B;
 const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED: usize =
-    0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY;
-// ASM loc_1BC36 writes the sub_1C0EE panel and then clears it with sub_1C112,
-// but oracle frames 2212/2272 show those VRAM writes never become a presented
-// frame before the delayed sub_1C034(d4=5) redraw replaces the area.
+    0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY;
+// ASM loc_1BC36 sub_1C034(d4=4) -> sub_1C0EE presents the panel from exact
+// cold frames 2260..2271 and timeout-restart frames 16555..16566.
 const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED: usize =
-    INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED;
+    0xA0 + 0x90 + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY;
 const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED: usize =
     INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED;
+const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_1_RASTER_ELAPSED: usize =
+    0xA0 + INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY;
+const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_2_RASTER_ELAPSED: usize =
+    0xA0 + 0x90 + INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY;
+const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_3_RASTER_ELAPSED: usize =
+    0xA0 + 0x90 + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY;
+const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_4_RASTER_ELAPSED: usize =
+    0xA0 + 0x90 + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY;
+
+const H40_VRAM_FIFO_ACCESS_PIXELS: [u16; 18] = [
+    12, 28, 44, 76, 92, 108, 140, 156, 172, 204, 220, 236, 268, 284, 300, 330, 332, 380,
+];
+
+#[derive(Debug, Clone, Copy)]
+struct IntroSequence5RasterUpload {
+    previous_frame_index: u16,
+    frame_index: u16,
+    frame_start: (u16, u16),
+    panel_start: Option<(u16, u16)>,
+}
+
+#[allow(non_snake_case)]
+fn intro_sequence_5_raster_upload_loc_1BC36(elapsed: usize) -> Option<IntroSequence5RasterUpload> {
+    // ASM sub_1C034/loc_1C09E..loc_1C0D6 and sub_1C0EE/sub_1C5D0.
+    // Positions are FIFO-pop times measured from jgenesis on both the cold and
+    // timeout-restart lineages; they are routine-local, not TAS frame numbers.
+    match elapsed {
+        INTRO_SEQUENCE_5_LOC_1BC36_FRAME_1_RASTER_ELAPSED => Some(IntroSequence5RasterUpload {
+            previous_frame_index: 0,
+            frame_index: 1,
+            frame_start: (74, 76),
+            panel_start: None,
+        }),
+        INTRO_SEQUENCE_5_LOC_1BC36_FRAME_2_RASTER_ELAPSED => Some(IntroSequence5RasterUpload {
+            previous_frame_index: 1,
+            frame_index: 2,
+            frame_start: (96, 44),
+            panel_start: None,
+        }),
+        INTRO_SEQUENCE_5_LOC_1BC36_FRAME_3_RASTER_ELAPSED => Some(IntroSequence5RasterUpload {
+            previous_frame_index: 2,
+            frame_index: 3,
+            frame_start: (108, 108),
+            panel_start: None,
+        }),
+        INTRO_SEQUENCE_5_LOC_1BC36_FRAME_4_RASTER_ELAPSED => Some(IntroSequence5RasterUpload {
+            previous_frame_index: 3,
+            frame_index: 4,
+            frame_start: (132, 380),
+            panel_start: Some((196, 140)),
+        }),
+        INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED => Some(IntroSequence5RasterUpload {
+            previous_frame_index: 4,
+            frame_index: 5,
+            frame_start: (139, 12),
+            panel_start: None,
+        }),
+        _ => None,
+    }
+}
 
 #[allow(non_snake_case)]
 fn overlay_intro_sequence_5_tile_worker_loc_1BC36(
@@ -2571,27 +2662,80 @@ fn overlay_intro_sequence_5_tile_worker_loc_1BC36(
     // sub_1C034 decodes one `off_1C126` map with base tile `$A340` into a
     // 16x25 staging buffer, then streams 25 fixed rows into the Scroll A
     // nametable at VRAM `$0194..$0D94`.
-    if let Some(frame_index) = INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE
+    let raster_upload = intro_sequence_5_raster_upload_loc_1BC36(elapsed);
+    let frame_index = INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE
         .iter()
         .rev()
         .find_map(|(start_elapsed, frame_index)| {
             (elapsed >= *start_elapsed).then_some(*frame_index)
-        })
-    {
+        });
+    if let Some(frame_index) = frame_index {
+        let initial_vram = raster_upload.map(|upload| {
+            let mut initial_vdp = vdp.clone();
+            apply_intro_sequence_5_sub_1C034_frame(
+                &mut initial_vdp,
+                data,
+                upload.previous_frame_index,
+            );
+            initial_vdp.vram
+        });
         apply_intro_sequence_5_sub_1C034_frame(vdp, data, frame_index);
+
+        if let (Some(upload), Some(initial_vram)) = (raster_upload, initial_vram) {
+            let mut writes = intro_sequence_5_sub_1C034_word_writes(data, upload.frame_index);
+            let mut vram_word_writes = schedule_h40_vram_fifo_word_writes(
+                &writes,
+                upload.frame_start.0,
+                upload.frame_start.1,
+            );
+            if let Some(panel_start) = upload.panel_start {
+                apply_intro_sequence_5_panel_sub_1C0EE(vdp, data, 3, 0x13);
+                writes = intro_sequence_5_panel_word_writes_sub_1C0EE(data, 3, 0x13);
+                vram_word_writes.extend(schedule_h40_vram_fifo_word_writes(
+                    &writes,
+                    panel_start.0,
+                    panel_start.1,
+                ));
+            }
+            vdp.raster_frame = Some(VdpRasterFrame {
+                initial_vram,
+                vram_word_writes,
+            });
+        }
     }
 
-    if (INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED
-        ..INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED)
-        .contains(&elapsed)
-    {
-        apply_intro_sequence_5_blank_panel_sub_1C112(vdp, 3, 0x13);
-    } else if (INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED
-        ..INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED)
-        .contains(&elapsed)
+    if raster_upload.is_none()
+        && (INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED
+            ..INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED)
+            .contains(&elapsed)
     {
         apply_intro_sequence_5_panel_sub_1C0EE(vdp, data, 3, 0x13);
     }
+}
+
+fn schedule_h40_vram_fifo_word_writes(
+    writes: &[(u16, u16)],
+    start_scanline: u16,
+    start_pixel: u16,
+) -> Vec<VdpRasterVramWordWrite> {
+    let start_slot = H40_VRAM_FIFO_ACCESS_PIXELS
+        .iter()
+        .position(|&pixel| pixel == start_pixel)
+        .expect("oracle-derived FIFO start pixel must be an H40 access slot");
+    writes
+        .iter()
+        .flat_map(|&(byte_addr, value)| [(byte_addr, value); 2])
+        .enumerate()
+        .map(|(write_index, (byte_addr, value))| {
+            let slot = start_slot + write_index;
+            VdpRasterVramWordWrite {
+                scanline: start_scanline + (slot / H40_VRAM_FIFO_ACCESS_PIXELS.len()) as u16,
+                pixel: H40_VRAM_FIFO_ACCESS_PIXELS[slot % H40_VRAM_FIFO_ACCESS_PIXELS.len()],
+                byte_addr,
+                value,
+            }
+        })
+        .collect()
 }
 
 #[allow(non_snake_case)]
@@ -2634,6 +2778,56 @@ fn apply_intro_sequence_5_sub_1C034_frame(
 }
 
 #[allow(non_snake_case)]
+fn intro_sequence_5_sub_1C034_word_writes(
+    data: &IntroSub1B850Data,
+    frame_index: u16,
+) -> Vec<(u16, u16)> {
+    let Ok(plan) = wildside_data::intro_sequence_5_frame_load_plan_sub_1C034(frame_index) else {
+        return Vec::new();
+    };
+    let mut staged_vdp = VdpState::new();
+    apply_intro_sequence_5_sub_1C034_frame(&mut staged_vdp, data, frame_index);
+    let mut writes = Vec::new();
+    for row_write in plan.vram_rows {
+        for word_offset in 0..row_write.word_count {
+            let byte_addr = row_write.vram_word_address + word_offset * 2;
+            let byte_offset = usize::from(byte_addr);
+            writes.push((
+                byte_addr,
+                u16::from_be_bytes([
+                    staged_vdp.vram[byte_offset],
+                    staged_vdp.vram[byte_offset + 1],
+                ]),
+            ));
+        }
+    }
+    writes
+}
+
+#[allow(non_snake_case)]
+fn intro_sequence_5_panel_word_writes_sub_1C0EE(
+    data: &IntroSub1B850Data,
+    plane_cell_x: u16,
+    plane_cell_y: u16,
+) -> Vec<(u16, u16)> {
+    let plan =
+        wildside_data::intro_sequence_5_panel_load_plan_sub_1C0EE(plane_cell_x, plane_cell_y);
+    let width = usize::from(plan.plane_upload.width_words);
+    let height = usize::from(plan.plane_upload.height_words);
+    (0..height)
+        .flat_map(|row| {
+            (0..width).filter_map(move |col| {
+                let value = *data.intro_sequence_5_panel_tilemap.get(row * width + col)?;
+                let byte_addr = (usize::from(plan.plane_upload.plane_cell_y) + row)
+                    * NAMETABLE_ROW_STRIDE_BYTES
+                    + (usize::from(plan.plane_upload.plane_cell_x) + col) * 2;
+                Some((u16::try_from(byte_addr).ok()?, value))
+            })
+        })
+        .collect()
+}
+
+#[allow(non_snake_case)]
 fn apply_intro_sequence_5_panel_sub_1C0EE(
     vdp: &mut VdpState,
     data: &IntroSub1B850Data,
@@ -2653,6 +2847,7 @@ fn apply_intro_sequence_5_panel_sub_1C0EE(
 }
 
 #[allow(non_snake_case)]
+#[cfg(test)]
 fn apply_intro_sequence_5_blank_panel_sub_1C112(
     vdp: &mut VdpState,
     plane_cell_x: u16,
@@ -6099,7 +6294,7 @@ mod tests {
             &data,
             4,
             0,
-            0xA0 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY - 1,
+            0xA0 + INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY - 1,
             0,
         );
         assert_eq!(
@@ -6112,7 +6307,7 @@ mod tests {
             &data,
             4,
             0,
-            0xA0 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY,
+            0xA0 + INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY,
             0,
         );
         assert_eq!(
@@ -6146,7 +6341,7 @@ mod tests {
             &data,
             4,
             0,
-            0xA0 + 0x90 + 0x16 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY,
+            0xA0 + 0x90 + 0x16 + INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY,
             0,
         );
         assert_eq!(
@@ -6159,7 +6354,7 @@ mod tests {
             &data,
             4,
             0,
-            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY - 1,
+            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY - 1,
             0,
         );
         assert_eq!(
@@ -6172,7 +6367,7 @@ mod tests {
             &data,
             4,
             0,
-            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY,
+            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY,
             0,
         );
         assert_eq!(
@@ -6185,7 +6380,8 @@ mod tests {
             &data,
             4,
             0,
-            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY + 0x37 - 1,
+            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY + 0x37
+                - 1,
             0,
         );
         assert_eq!(
@@ -6198,7 +6394,7 @@ mod tests {
             &data,
             4,
             0,
-            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY + 0x37,
+            0xA0 + 0x90 + 0x21 + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY + 0x37,
             0,
         );
         assert_eq!(
@@ -6228,46 +6424,50 @@ mod tests {
         assert_ne!(
             vram_word(&before_panel, panel_byte_addr),
             0xCAFE,
-            "ASM loc_1BC36 calls sub_1C0EE after sub_1C034(d4=4), but oracle frames keep the transient panel hidden until frame 5 replaces it"
+            "ASM loc_1BC36 has not called sub_1C0EE before the d4=4 upload pass"
         );
 
-        let oracle_frame_2212 = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+        let raster_boundary = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &data,
             4,
             0,
-            0xA0 + 0x90 + 0x20,
+            INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED,
             0,
         );
-        assert_ne!(
-            vram_word(&oracle_frame_2212, panel_byte_addr),
+        assert_eq!(
+            vram_word(&raster_boundary, panel_byte_addr),
             0xCAFE,
-            "ASM loc_1BC36 calls sub_1C0EE before hibernating, but oracle frame 2212 shows the panel is still hidden by the VDP presentation delay",
+            "ASM loc_1BC36 sub_1C034(d4=4) -> sub_1C0EE leaves the panel in final VRAM on the crossing frame",
+        );
+        let raster_frame = raster_boundary
+            .raster_frame
+            .as_ref()
+            .expect("ASM loc_1BC36 crossing frame should retain ordered FIFO writes");
+        assert_ne!(
+            u16::from_be_bytes([
+                raster_frame.initial_vram[panel_byte_addr],
+                raster_frame.initial_vram[panel_byte_addr + 1],
+            ]),
+            0xCAFE,
+            "ASM sub_1C0EE begins during active display, so the raster baseline must retain the pre-panel plane"
+        );
+        assert_eq!(
+            raster_frame.vram_word_writes.len(),
+            2 * (377 + 100),
+            "ASM sub_1C034 streams 377 words and sub_1C0EE/sub_1C5D0 streams 100; jgenesis commits each 68k data-port word on two H40 FIFO slots"
         );
 
-        let delayed_boundary = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+        let panel_tail = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &data,
             4,
             0,
-            INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED - 1,
+            INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED - 1,
             0,
         );
-        assert_ne!(
-            vram_word(&delayed_boundary, panel_byte_addr),
+        assert_eq!(
+            vram_word(&panel_tail, panel_byte_addr),
             0xCAFE,
-            "ASM loc_1BC36 calls sub_1C0EE(d4=3,d5=$13), but oracle frame 2272 shows the panel is still a transient VRAM write rather than a presented frame"
-        );
-
-        let cleared = build_intro_sequence_vdp_with_title_variant_at_elapsed(
-            &data,
-            4,
-            0,
-            INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED,
-            0,
-        );
-        assert_ne!(
-            vram_word(&cleared, panel_byte_addr),
-            0xCAFE,
-            "ASM loc_1BC36 calls sub_1C112 after the next `$B` hibernate; at the delayed boundary the frame-5 redraw has replaced the temporary panel"
+            "ASM loc_1BC36 keeps the sub_1C0EE panel through the complete `$B` hibernate"
         );
 
         let frame_5 = build_intro_sequence_vdp_with_title_variant_at_elapsed(
@@ -6276,6 +6476,11 @@ mod tests {
             0,
             INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED,
             0,
+        );
+        assert_ne!(
+            vram_word(&frame_5, panel_byte_addr),
+            0xCAFE,
+            "ASM sub_1C112 clears the panel before sub_1C034(d4=5) crosses the next active display"
         );
         assert_eq!(
             vram_word(&frame_5, frame_2400_clear_artefact_addr),
