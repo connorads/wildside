@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 later IntroSequence6 opening lightning)
+
+- Oracle worker-list and RNG boundaries place the later `loc_1B37C` activation
+  on local frame 36, three frames after the wrapped visit. Native now derives
+  both timeout opening clocks from their typed lineage and keeps the separately
+  verified DBF/FIFO presentation schedules unchanged.
+- Six red-first RGB samples pin the later opening. Every frame 28100-28120 is
+  exact, while the wrapped samples remain exact in the same regression.
+- Full verification gains 12 exact frames and removes 49,409 changed pixels:
+  24,093 exact, 13,666 divergent, and 8,731,591 changed. All state and RNG
+  channels remain exact. Frame 16648 is now worst at 4,178 pixels. NEXT: keep
+  #406 open and trace IntroSequence5's resident Start-press raster around
+  `sub_1C246`; native advances the text/Kid pose while oracle retains the
+  earlier no-text partial pose through the two-frame deferral.
+
 ## 2026-07-14 handoff (#406 wrapped IntroSequence6 opening lightning)
 
 - ASM `loc_1B37C` retains frame 0 for its initial three-frame hibernate, then

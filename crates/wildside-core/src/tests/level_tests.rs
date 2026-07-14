@@ -6590,7 +6590,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn wrapped_timeout_loc_1b37c_opening_uses_worker_hibernate_clock() {
+    fn timeout_lineages_loc_1b37c_opening_use_worker_hibernate_clock() {
         for (worker_elapsed, expected_flash_frame) in [
             (0, 0),
             (2, 0),
@@ -6604,7 +6604,7 @@ mod chunk_02 {
             (14, 0),
         ] {
             assert_eq!(
-                NativeRuntime::intro_sequence_6_wrapped_timeout_opening_lightning_flash_frame_loc_1b37c(
+                NativeRuntime::intro_sequence_6_timeout_opening_lightning_flash_frame_loc_1b37c(
                     worker_elapsed,
                 ),
                 expected_flash_frame,

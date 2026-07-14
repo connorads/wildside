@@ -13,6 +13,31 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-14: frame 28102 was the later-timeout counterpart of the
+wrapped `loc_1B37C` opening clock. Oracle-backed runtime tests already proved
+that `Load_IntroSequence6` keeps the object lists empty through local frame 35,
+allocates the three workers on frame 35, and resumes `Mode_Standard ->
+Execute_Objects loc_E12` on local frame 36. Consequently, the later lightning
+worker's elapsed zero is local 36, exactly three frames after the wrapped
+lineage's local-33 activation. The existing later presentation advance remains
+correct from local frame 51, where the first DBF upload reaches elapsed 52.
+
+Native now derives the timeout opening start from the typed lineage: local 33
+for the wrapped visit and local 36 for the delayed later visit. Both use the
+same ASM `3, upload` opening helper for worker elapsed 0..14, then rejoin their
+unchanged raster clocks. Six new red-first RGB samples pin later frames 28102,
+28105, 28108, 28111, 28114, and 28117. Fresh native/oracle captures make every
+frame from 28100 through 28120 exact; the wrapped samples remain exact in the
+same regression.
+
+`mise run verify-slice-fast` is green. Full-route evidence gains 12 exact
+frames and removes 49,409 changed pixel instances: 24,093 exact, 13,666
+divergent, and 8,731,591 changed. All 37,759 player/camera, typed gameplay, and
+enemy frames plus all 37,743 post-`Init_RNG` frames remain exact. Frame 16648
+is the new worst at 4,178 pixels on the IntroSequence5 Start-press resident
+raster around `sub_1C246`; mode/state timing is already oracle-exact. #406
+remains open.
+
 Progress 2026-07-14: frame 20927 exposed two independent `loc_1B37C`
 clocks. The wrapped-timeout worker becomes live on local frame 33 and follows
 the ASM opening exactly: retain lightning frame 0 through the initial
