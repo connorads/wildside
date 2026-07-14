@@ -5413,6 +5413,7 @@ impl NativeRuntime {
         self.timeout_restart_title_intro_sequence_5_return_pending = false;
         self.timeout_restart_title_intro_sequence_5_particle_roster = false;
         self.preserve_demo_title_snapshot = false;
+        self.demo_title_render_snapshot = None;
         self.timeout_restart_title_intro_sequence_3_pose = false;
         self.timeout_restart_title_intro_sequence_4_camera_carry = false;
         self.timeout_restart_title_intro_sequence_5_pose = false;
@@ -6017,7 +6018,11 @@ impl NativeRuntime {
         self.reload_block_grid_for_level(self.current_level);
     }
 
-    pub(crate) fn finish_demo_title_return(&mut self, input: FrameInput) {
+    pub(crate) fn finish_demo_title_return(
+        &mut self,
+        input: FrameInput,
+        render_snapshot: Option<ResidentGameplayRenderSnapshot>,
+    ) {
         let intro_sequence_6_early_title_restore =
             self.demo_uses_intro_sequence_6_early_title_restore;
         let demo_title_visual_level = self.current_level;
@@ -6027,6 +6032,10 @@ impl NativeRuntime {
         // rebuilding them from the visible gameplay roster.
         let frozen_trace = self.trace_frame();
         let frozen_counts = (frozen_trace.number_objects, frozen_trace.number_gfx_objects);
+        let render_snapshot = render_snapshot.unwrap_or_else(|| ResidentGameplayRenderSnapshot {
+            trace: frozen_trace.clone(),
+            block_grid: self.block_grid.clone(),
+        });
         self.enter_title_screen();
         self.title_screen_intro_return_lineage =
             Some(TitleScreenIntroReturnLineage::ManualDemoReturn);
@@ -6045,6 +6054,7 @@ impl NativeRuntime {
         self.pause_toggle_pending = false;
         self.preserve_demo_title_snapshot = true;
         self.demo_title_visual_level = Some(demo_title_visual_level);
+        self.demo_title_render_snapshot = Some(Box::new(render_snapshot));
         self.demo_title_snapshot_object_counts = Some(frozen_counts);
         self.hide_demo_return_title_player = true;
         self.next_demo_uses_demo_title_return_camera_wrap = true;
@@ -6069,6 +6079,7 @@ impl NativeRuntime {
     pub(crate) fn finish_demo_auto_timeout_return(
         &mut self,
         mode_0_entry: DemoAutoTimeoutMode0Entry,
+        render_snapshot: Option<ResidentGameplayRenderSnapshot>,
     ) {
         let demo_title_visual_level = self.current_level;
         let intro_return_slot_2_early_visibility =
@@ -6085,6 +6096,10 @@ impl NativeRuntime {
         let frozen_trace = self.trace_frame();
         let frozen_counts = (frozen_trace.number_objects, frozen_trace.number_gfx_objects);
         let preserves_jump_movement = frozen_trace.character_movement == Some(3);
+        let render_snapshot = render_snapshot.unwrap_or_else(|| ResidentGameplayRenderSnapshot {
+            trace: frozen_trace.clone(),
+            block_grid: self.block_grid.clone(),
+        });
         self.enter_title_screen();
         self.current_level = LevelId(0);
         self.paused = false;
@@ -6109,6 +6124,7 @@ impl NativeRuntime {
             Some(DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES);
         self.preserve_demo_title_snapshot = true;
         self.demo_title_visual_level = Some(demo_title_visual_level);
+        self.demo_title_render_snapshot = Some(Box::new(render_snapshot));
         self.demo_title_snapshot_object_counts = Some(frozen_counts);
         self.hide_demo_return_title_player = true;
         self.player_lifecycle = PlayerLifecycle::Alive;
@@ -6199,6 +6215,7 @@ impl NativeRuntime {
     fn finish_demo_title_snapshot_handoff(&mut self) {
         self.preserve_demo_title_snapshot = false;
         self.demo_title_visual_level = None;
+        self.demo_title_render_snapshot = None;
         self.demo_title_snapshot_object_counts = None;
         self.opening_slice = None;
         self.active_enemies.clear();

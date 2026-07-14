@@ -1161,8 +1161,11 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         } else {
             trace.clone()
         };
-        let render_trace =
-            render_trace_with_vdp_latched_state(&base_render_trace, Some(&prev_trace));
+        let render_trace = render_trace_with_vdp_latched_state_and_resident(
+            &base_render_trace,
+            Some(&prev_trace),
+            runtime.source_port_render_trace_snapshot(),
+        );
 
         if render_debug_level_card_fallback {
             let scene = build_debug_level_card_fallback_scene(&render_trace);
@@ -1177,7 +1180,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 &render_trace,
                 debug_overlay_visible,
                 Some(&session_assets.level_visuals),
-                runtime.block_grid(),
+                runtime.source_port_render_block_grid(),
             );
             render_scene(&scene, &mut frame);
         }

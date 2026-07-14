@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::native_player::{
     NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene, load_session_assets,
-    render_native_vdp_rgb, render_scene, render_trace_with_vdp_latched_state,
+    render_native_vdp_rgb, render_scene, render_trace_with_vdp_latched_state_and_resident,
     render_vdp_trace_overlay,
 };
 use crate::oracle::{OracleFrame, OracleManifest};
@@ -214,11 +214,9 @@ pub(crate) fn compare_tas_pixels(
             // window, pair the latched render level's art with its own layout;
             // normal gameplay still uses runtime.block_grid() so live block
             // mutations remain visible to the verifier.
-            let block_grid = if render_level == trace.current_level.0 {
-                runtime.block_grid()
-            } else {
-                Some(&render_level_block_grid)
-            };
+            let block_grid = runtime
+                .source_port_render_block_grid()
+                .or(Some(&render_level_block_grid));
             let native_rgb = render_source_port_frame(
                 runtime,
                 previous_trace,
@@ -284,7 +282,11 @@ fn render_source_port_frame(
     block_grid: Option<&BlockGrid>,
 ) -> Vec<u8> {
     let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
-    let render_trace = render_trace_with_vdp_latched_state(trace, Some(previous_trace));
+    let render_trace = render_trace_with_vdp_latched_state_and_resident(
+        trace,
+        Some(previous_trace),
+        runtime.source_port_render_trace_snapshot(),
+    );
     if let Some(vdp) = runtime.vdp_state() {
         render_native_vdp_rgb(vdp, &mut rgb);
         render_vdp_trace_overlay(&render_trace, level_visuals, &mut rgb);

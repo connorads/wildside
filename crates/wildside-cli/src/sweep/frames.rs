@@ -1,10 +1,11 @@
 use super::*;
 use scenarios::{
-    DynamicScenario, NativeDynamicRunOptions, idle_level_scenario, prize_block_scenario,
-    run_native_dynamic_scenario, stomp_enemy_scenario, walk_right_scenario,
+    DynamicScenario, idle_level_scenario, prize_block_scenario, stomp_enemy_scenario,
+    walk_right_scenario,
 };
 use wildside_core::{FrameInput, LevelId, NativeRuntime, PlayerForm};
 
+#[cfg(test)]
 fn capture_frame_block_grid<'a>(
     runtime: &'a NativeRuntime,
     loaded_block_grid: &'a wildside_core::terrain::BlockGrid,
@@ -95,7 +96,7 @@ pub(crate) fn capture_scenario_frames(
 ) -> Result<()> {
     use native_player::{
         NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene_filtered, load_session_assets,
-        render_scene, render_trace_with_vdp_latched_state, render_vdp_trace_overlay,
+        render_scene, render_trace_with_vdp_latched_state_and_resident, render_vdp_trace_overlay,
         vdp_snapshot_from_core,
     };
 
@@ -116,16 +117,6 @@ pub(crate) fn capture_scenario_frames(
         && filter.effects
         && filter.eol_score
         && filter.hud;
-    let native_trace = if vdp_full_frame {
-        None
-    } else {
-        Some(run_native_dynamic_scenario(
-            manifest.clone(),
-            scenario,
-            NativeDynamicRunOptions::default(),
-        )?)
-    };
-
     let (mut level_visuals, mut block_grid) = load_session_assets(manifest, current_visual_level)?;
     let w = NATIVE_FRAME_WIDTH as usize;
     let h = NATIVE_FRAME_HEIGHT as usize;
@@ -182,47 +173,44 @@ pub(crate) fn capture_scenario_frames(
         }
         requested.next();
 
-        if trace.current_level.0 != current_visual_level {
-            current_visual_level = trace.current_level.0;
-            let loaded = load_session_assets(manifest, trace.current_level.0)?;
+        let render_level = runtime.source_port_render_level().0;
+        if render_level != current_visual_level {
+            current_visual_level = render_level;
+            let loaded = load_session_assets(manifest, render_level)?;
             level_visuals = loaded.0;
             block_grid = loaded.1;
         }
+        let render_trace = render_trace_with_vdp_latched_state_and_resident(
+            &trace,
+            Some(&previous_trace),
+            runtime.source_port_render_trace_snapshot(),
+        );
+        let render_block_grid = runtime
+            .source_port_render_block_grid()
+            .unwrap_or(&block_grid);
 
         let mut rgb = vec![0u8; w * h * 3];
         if vdp_full_frame {
             if let Some(vdp) = runtime.vdp_state() {
                 let snapshot = vdp_snapshot_from_core(vdp);
                 wildside_md::render_vdp_into(&snapshot, &mut rgb);
-                render_vdp_trace_overlay(&trace, &level_visuals, &mut rgb);
+                render_vdp_trace_overlay(&render_trace, &level_visuals, &mut rgb);
             } else {
-                let render_trace =
-                    render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
                 let scene = build_scene_filtered(
                     &render_trace,
                     false,
                     Some(&level_visuals),
-                    Some(capture_frame_block_grid(&runtime, &block_grid)),
+                    Some(render_block_grid),
                     filter,
                 );
                 render_scene(&scene, &mut rgb);
             }
         } else {
-            let native_trace = native_trace
-                .as_ref()
-                .expect("layer capture should have trace");
-            let Some(frame) = native_trace.get(frame_idx) else {
-                println!(
-                    "  frame {frame_idx}: not in trace (len={})",
-                    native_trace.len()
-                );
-                continue;
-            };
             let scene = build_scene_filtered(
-                frame,
+                &render_trace,
                 false,
                 Some(&level_visuals),
-                Some(capture_frame_block_grid(&runtime, &block_grid)),
+                Some(render_block_grid),
                 filter,
             );
             render_scene(&scene, &mut rgb);
@@ -833,6 +821,7 @@ fn count_non_background_pixels(rgb: &[u8], pixel_count: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sha1::{Digest, Sha1};
     use std::path::PathBuf;
     use wildside_core::terrain::{BlockGrid, Cell};
     use wildside_data::AssetManifest;
@@ -1057,6 +1046,50 @@ mod tests {
             capture_frame_block_grid(&runtime, &fallback_grid).cell_at(0, 0),
             Cell::from_be_bytes(0xE0, 0x01),
             "ASM sub_1007A writes `$E001` before Prize_Init; capture-scenario-frames must render the live runtime grid so struck prize blocks do not appear as stale `$E101` cells",
+        );
+    }
+
+    #[test]
+    fn capture_scenario_frame_uses_published_demo_return_render_latch() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let repo_root = crate_dir
+            .parent()
+            .and_then(Path::parent)
+            .expect("wildside-cli crate should live under <repo>/crates/wildside-cli");
+        let scenario: DynamicScenario = serde_json::from_str(
+            &fs::read_to_string(
+                repo_root.join("tests/data/tas/any-percent-published/scenario.json"),
+            )
+            .expect("published TAS scenario should be readable"),
+        )
+        .expect("published TAS scenario should parse");
+        let output_dir = tempfile::tempdir().expect("tempdir");
+
+        capture_scenario_frames(
+            &manifest,
+            &scenario,
+            &[1837],
+            output_dir.path(),
+            native_player::LayerFilter::default(),
+            false,
+        )
+        .expect("capture published demo-return frame");
+
+        let rgb = image::open(
+            output_dir
+                .path()
+                .join("any-percent-published_frame_01837.png"),
+        )
+        .expect("read captured frame")
+        .to_rgb8()
+        .into_raw();
+        assert_eq!(
+            format!("{:x}", Sha1::digest(rgb)),
+            "c3547c4529104b95ec3308dc43b967ba866fe139",
+            "ASM Mode_Level transfers the terminal sprite table before ReadJoypad loc_C0A resets Current_LevelID and loc_6E2 fades the resident demo-1 raster",
         );
     }
 

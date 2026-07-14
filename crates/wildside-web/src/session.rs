@@ -13,7 +13,7 @@ use wildside_core::{FrameInput, LevelId, NativeRuntime, NativeTraceFrame};
 use wildside_data::{AssetSource, BundleAssetSource, parse_manifest_with_source};
 use wildside_frame::{
     AudioSampleClock, FRAME_HEIGHT, FRAME_WIDTH, NativeAudioDirector, build_scene,
-    load_gems_audio_engine, render_scene, render_trace_with_vdp_latched_state,
+    load_gems_audio_engine, render_scene, render_trace_with_vdp_latched_state_and_resident,
     render_vdp_trace_overlay,
 };
 use wildside_md::GemsAudioEngine;
@@ -134,16 +134,15 @@ impl WebSession {
                 .generate_samples_at_rate(audio.output_rate, sample_count);
         }
 
-        if self.trace.current_level.0 != self.visuals_level {
+        let render_level = self.runtime.source_port_render_level().0;
+        if render_level != self.visuals_level {
             // Keep the previous level's visuals if the new level's are missing
             // from the bundle rather than killing the session mid-play.
-            if let Ok(visuals) = load_level_visuals_with_source(
-                &self.manifest,
-                self.trace.current_level.0,
-                &*self.source,
-            ) {
+            if let Ok(visuals) =
+                load_level_visuals_with_source(&self.manifest, render_level, &*self.source)
+            {
                 self.visuals = visuals;
-                self.visuals_level = self.trace.current_level.0;
+                self.visuals_level = render_level;
             }
         }
 
@@ -164,6 +163,11 @@ impl WebSession {
 
     fn render_frame_after_step(&mut self, previous_trace: Option<&NativeTraceFrame>) {
         self.rgb.fill(0);
+        let render_trace = render_trace_with_vdp_latched_state_and_resident(
+            &self.trace,
+            previous_trace,
+            self.runtime.source_port_render_trace_snapshot(),
+        );
         if let Some(vdp) = self.runtime.vdp_state() {
             // VDP shell screens (Sega/intro/title/level card) mirror the
             // capture_scenario_frames pipeline (wildside-cli sweep/frames.rs):
@@ -191,14 +195,13 @@ impl WebSession {
                 }),
             };
             wildside_md::render_vdp_into(&snapshot, &mut self.rgb);
-            render_vdp_trace_overlay(&self.trace, &self.visuals, &mut self.rgb);
+            render_vdp_trace_overlay(&render_trace, &self.visuals, &mut self.rgb);
         } else {
-            let render_trace = render_trace_with_vdp_latched_state(&self.trace, previous_trace);
             let scene = build_scene(
                 &render_trace,
                 false,
                 Some(&self.visuals),
-                self.runtime.block_grid(),
+                self.runtime.source_port_render_block_grid(),
             );
             render_scene(&scene, &mut self.rgb);
         }

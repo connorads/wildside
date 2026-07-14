@@ -1026,17 +1026,35 @@ pub fn render_trace_with_vdp_latched_state(
     trace: &NativeTraceFrame,
     previous_trace: Option<&NativeTraceFrame>,
 ) -> NativeTraceFrame {
-    let mut render_trace = trace.clone();
-    if matches!(
+    render_trace_with_vdp_latched_state_and_resident(trace, previous_trace, None)
+}
+
+pub fn render_trace_with_vdp_latched_state_and_resident(
+    trace: &NativeTraceFrame,
+    previous_trace: Option<&NativeTraceFrame>,
+    resident_gameplay_trace: Option<&NativeTraceFrame>,
+) -> NativeTraceFrame {
+    let resident_gameplay_fade = matches!(
         trace.game_mode,
         GameMode::SegaScreen | GameMode::TitleScreen
     ) && trace.teleport_warp_colour == 0x082A
-        && trace.level_entry_fade_progress_sub_73d0.is_some()
-    {
+        && trace.level_entry_fade_progress_sub_73d0.is_some();
+    let mut render_trace = if resident_gameplay_fade {
+        resident_gameplay_trace
+            .cloned()
+            .unwrap_or_else(|| trace.clone())
+    } else {
+        trace.clone()
+    };
+    if resident_gameplay_fade {
         // ASM manual return loc_119D8 and timeout return loc_C0A change mode
         // before Pal_FadeOut loc_28C6 has finished presenting the resident
-        // gameplay planes. Select the gameplay scene while retaining current
-        // frozen snapshot state and the ROM palette-fade render command.
+        // gameplay planes. Select the terminal gameplay snapshot while
+        // retaining the current ROM palette-fade render command.
+        render_trace.teleport_warp_colour = trace.teleport_warp_colour;
+        render_trace.level_entry_fade_progress_sub_73d0 = trace.level_entry_fade_progress_sub_73d0;
+        render_trace.resident_gameplay_vdp_camera_loc_300ba =
+            trace.resident_gameplay_vdp_camera_loc_300ba;
         render_trace.game_mode = GameMode::DemoPlay;
         render_trace.game_mode_value = GameMode::DemoPlay.as_disassembly_value();
         if let Some((camera_x_pos, camera_y_pos)) = trace.resident_gameplay_vdp_camera_loc_300ba {

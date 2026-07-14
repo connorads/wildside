@@ -226,6 +226,12 @@ fn heady_metal_cached_workers_sub_37708_from_anchor_loc_39247(
 }
 
 #[derive(Debug, Clone)]
+struct ResidentGameplayRenderSnapshot {
+    trace: NativeTraceFrame,
+    block_grid: Option<terrain::BlockGrid>,
+}
+
+#[derive(Debug, Clone)]
 pub struct NativeRuntime {
     assets: AssetManifest,
     /// Injected byte source for every generated-bundle read at level-load and
@@ -785,6 +791,9 @@ pub struct NativeRuntime {
     /// Level whose gameplay VDP image remains resident while manual demo
     /// return runs Pal_FadeOut before loc_6E2 clears VRAM.
     demo_title_visual_level: Option<LevelId>,
+    /// Terminal gameplay raster state presented while loc_119D8 / ReadJoypad
+    /// loc_C0A has entered title mode but loc_6E2 is still fading the planes.
+    demo_title_render_snapshot: Option<Box<ResidentGameplayRenderSnapshot>>,
     demo_title_snapshot_object_counts: Option<(u16, u16)>,
     /// The timeout-restart intro-sequence-3 return reaches title mode before
     /// the standard title pose appears; oracle traces keep the last intro pose
@@ -1474,6 +1483,7 @@ impl NativeRuntime {
             timeout_restart_title_intro_sequence_5_particle_roster: false,
             preserve_demo_title_snapshot: false,
             demo_title_visual_level: None,
+            demo_title_render_snapshot: None,
             demo_title_snapshot_object_counts: None,
             timeout_restart_title_intro_sequence_3_pose: false,
             timeout_restart_title_intro_sequence_4_camera_carry: false,
@@ -1926,6 +1936,26 @@ impl NativeRuntime {
             self.demo_title_visual_level.unwrap_or(self.current_level)
         } else {
             self.current_level
+        }
+    }
+
+    /// Terminal gameplay trace retained through the synchronous demo-return
+    /// fade after Current_LevelID has already been reset.
+    pub fn source_port_render_trace_snapshot(&self) -> Option<&NativeTraceFrame> {
+        self.demo_title_palette_fade_progress_loc_28c6()
+            .and(self.demo_title_render_snapshot.as_deref())
+            .map(|snapshot| &snapshot.trace)
+    }
+
+    /// Outgoing mutated layout retained alongside the demo-return trace.
+    pub fn source_port_render_block_grid(&self) -> Option<&terrain::BlockGrid> {
+        if self.demo_title_palette_fade_progress_loc_28c6().is_some() {
+            self.demo_title_render_snapshot
+                .as_deref()
+                .and_then(|snapshot| snapshot.block_grid.as_ref())
+                .or(self.block_grid.as_ref())
+        } else {
+            self.block_grid.as_ref()
         }
     }
 
@@ -3170,13 +3200,19 @@ impl NativeRuntime {
             self.demo_auto_timeout_return_pending = false;
         } else if self.demo_auto_timeout_return_pending {
             self.demo_auto_timeout_return_pending = false;
-            self.finish_demo_auto_timeout_return(DemoAutoTimeoutMode0Entry::Fresh);
+            self.finish_demo_auto_timeout_return(DemoAutoTimeoutMode0Entry::Fresh, None);
         }
         let demo_mode_active = matches!(self.boot_state, BootState::DemoPlay { .. });
         let Some(input) = self.step_demo_input(input, replay_demo_1_timeout_handoff_frame) else {
             self.trace_input = raw_input;
             return self.trace_frame();
         };
+        let demo_return_render_snapshot_at_frame_start = (replay_demo_1_timeout_handoff_frame
+            || self.demo_title_return_after_frame)
+            .then(|| ResidentGameplayRenderSnapshot {
+                trace: self.trace_frame(),
+                block_grid: self.block_grid.clone(),
+            });
         let freeze_demo_auto_timeout_snapshot = self.demo_auto_timeout_freeze_gameplay_frame;
         let input = self.readjoypad_input_with_options_loc_bb6(input, demo_mode_active);
         self.trace_input = input;
@@ -3707,10 +3743,12 @@ impl NativeRuntime {
         }
         if self.demo_title_return_after_frame {
             self.demo_title_return_after_frame = false;
-            self.finish_demo_title_return(raw_input);
-        }
-        if replay_demo_1_timeout_handoff_frame {
-            self.finish_demo_auto_timeout_return(DemoAutoTimeoutMode0Entry::ReadJoypadReplay);
+            self.finish_demo_title_return(raw_input, demo_return_render_snapshot_at_frame_start);
+        } else if replay_demo_1_timeout_handoff_frame {
+            self.finish_demo_auto_timeout_return(
+                DemoAutoTimeoutMode0Entry::ReadJoypadReplay,
+                demo_return_render_snapshot_at_frame_start,
+            );
         }
 
         if gameplay_slice_active {

@@ -13,6 +13,34 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-14: frame 1837 exposed two different clocks that a single
+post-step trace could not represent. ASM `Mode_Level` transfers the resident
+sprite table before `Execute_Objects`; the later `loc_119D8` / `ReadJoypad
+loc_C0A` mode switch resets `Current_LevelID` and jumps into synchronous
+`loc_6E2` / `Pal_FadeOut` while that terminal gameplay raster remains visible.
+The exported post-object counters were already oracle-exact, but reconstructing
+the raster from their title-facing trace discarded mutated blocks and moving
+sprites.
+
+Native now stores a typed resident-render snapshot containing the frame-start
+gameplay trace and outgoing mutated `Level_Layout`, independently of the
+post-object trace used for state parity. The snapshot is scoped to the
+`loc_28C6` fade and cleared at the title handoff. TAS verification, scenario
+capture, recording diagnostics, native play, and web play all consume the same
+render level, trace, and layout. A cache-backed RGB SHA regression pins
+published frame 1837; it falls from 4,313 to 600 changed pixels, with the
+remaining diamond-animation and block debt already present at the preceding
+gameplay boundary.
+
+`mise run verify-slice-fast` and two deterministic `mise run verify-tas-full`
+passes are green. Full-route evidence gains 2 exact frames and removes 224,587
+changed pixel instances: 24,069 exact, 13,690 divergent, and 8,830,409 changed.
+All 37,759 player/camera, typed gameplay, and enemy frames plus all 37,743
+post-`Init_RNG` frames remain exact. Frame 20927 is the new worst at 4,198
+pixels: native presents a flat grey IntroSequence6 frame while oracle presents
+the ninja silhouette on black. Continue from the first visible `loc_1B37C`
+raster. #406 remains open.
+
 Progress 2026-07-14: frame 20849 combined two engine-level VDP debts. The
 software renderer applied H40's 320-pixel sprite budget while scanning and
 dropped a whole sprite that crossed the boundary. JGenesis mirrors the hardware

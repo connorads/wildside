@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 demo-return resident raster)
+
+- ASM `Mode_Level` transfers the existing sprite table before `Execute_Objects`;
+  `loc_119D8` / `ReadJoypad loc_C0A` then resets `Current_LevelID` and blocks in
+  `loc_6E2` while the outgoing planes fade. Native now keeps frame-start render
+  state separate from post-object trace counters.
+- A typed resident snapshot retains the terminal trace and mutated block grid.
+  Capture, recording, native, web, and TAS renderers all select that same state.
+  Frame 1837 falls from 4,313 to 600 changed pixels.
+- Full verification gains 2 exact frames and removes 224,587 changed pixels:
+  24,069 exact, 13,690 divergent, and 8,830,409 changed. All state and RNG
+  channels remain exact. Frame 20927 is now worst at 4,198 pixels. NEXT: keep
+  #406 open and trace the first visible IntroSequence6 ninja raster against
+  `loc_1B37C`; native is flat grey while oracle is black with the silhouette.
+
 ## 2026-07-14 handoff (#406 H40 partial sprite fetch and FC82=2 SAT latch)
 
 - The renderer now models H40's two sprite phases: scan at most 20 sprites,

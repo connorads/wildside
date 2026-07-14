@@ -6,9 +6,9 @@ use crate::native_player::{
     NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, NativeEolScoreSpriteDiagnostic, NativePlayOptions,
     background_scroll_pixel_diagnostic_loc_3050a, build_scene, build_scene_filtered,
     chunked_plane_b_row_debug_for_trace_loc_30744, eol_score_sprite_diagnostics,
-    load_session_assets, render_scene, render_scene_overlay, render_trace_with_vdp_latched_state,
-    render_vdp_trace_overlay, sample_background_pixel_loc_c070, sample_scene_pixel_provenance,
-    vdp_snapshot_from_core,
+    load_session_assets, render_scene, render_scene_overlay,
+    render_trace_with_vdp_latched_state_and_resident, render_vdp_trace_overlay,
+    sample_background_pixel_loc_c070, sample_scene_pixel_provenance, vdp_snapshot_from_core,
 };
 use crate::oracle::{OracleFrame, OracleManifest, OracleState, run_jgenesis_capture_dynamic};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
@@ -1234,9 +1234,10 @@ fn render_dynamic_checkpoint_frames(
             level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
         }
 
-        let level_changed = trace.current_level.0 != current_level_id;
+        let render_level = runtime.source_port_render_level().0;
+        let level_changed = render_level != current_level_id;
         if level_changed {
-            current_level_id = trace.current_level.0;
+            current_level_id = render_level;
             let (new_visuals, _) = load_session_assets(manifest, current_level_id)?;
             level_visuals = new_visuals;
             level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
@@ -1253,7 +1254,11 @@ fn render_dynamic_checkpoint_frames(
                 pre_probe_render_trace.as_ref(),
                 &previous_trace,
             );
-            let mut render_trace = render_trace_with_vdp_latched_state(&trace, Some(render_latch));
+            let mut render_trace = render_trace_with_vdp_latched_state_and_resident(
+                &trace,
+                Some(render_latch),
+                runtime.source_port_render_trace_snapshot(),
+            );
             if level_card_frames_remaining > 0 {
                 render_trace.game_mode = GameMode::LevelTransition;
                 render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
@@ -1309,7 +1314,12 @@ fn render_runtime_checkpoint_frame(
         wildside_md::render_vdp_into(&snapshot, &mut rgb);
         render_vdp_trace_overlay(trace, level_visuals, &mut rgb);
     } else {
-        let scene = build_scene(trace, false, Some(level_visuals), runtime.block_grid());
+        let scene = build_scene(
+            trace,
+            false,
+            Some(level_visuals),
+            runtime.source_port_render_block_grid(),
+        );
         render_scene(&scene, &mut rgb);
     }
     rgb
@@ -1371,9 +1381,10 @@ fn write_dynamic_checkpoint_layer_frames(
             level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
         }
 
-        let level_changed = trace.current_level.0 != current_level_id;
+        let render_level = runtime.source_port_render_level().0;
+        let level_changed = render_level != current_level_id;
         if level_changed {
-            current_level_id = trace.current_level.0;
+            current_level_id = render_level;
             let (new_visuals, _) = load_session_assets(manifest, current_level_id)?;
             level_visuals = new_visuals;
             level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
@@ -1390,7 +1401,11 @@ fn write_dynamic_checkpoint_layer_frames(
                 pre_probe_render_trace.as_ref(),
                 &previous_trace,
             );
-            let mut render_trace = render_trace_with_vdp_latched_state(&trace, Some(render_latch));
+            let mut render_trace = render_trace_with_vdp_latched_state_and_resident(
+                &trace,
+                Some(render_latch),
+                runtime.source_port_render_trace_snapshot(),
+            );
             if level_card_frames_remaining > 0 {
                 render_trace.game_mode = GameMode::LevelTransition;
                 render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
@@ -1401,7 +1416,7 @@ fn write_dynamic_checkpoint_layer_frames(
                     &render_trace,
                     false,
                     Some(&level_visuals),
-                    runtime.block_grid(),
+                    runtime.source_port_render_block_grid(),
                     LayerFilter::solo(layer),
                 );
                 let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
@@ -1553,9 +1568,10 @@ fn attach_native_pixel_samples(
             level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
         }
 
-        let level_changed = trace.current_level.0 != current_level_id;
+        let render_level = runtime.source_port_render_level().0;
+        let level_changed = render_level != current_level_id;
         if level_changed {
-            current_level_id = trace.current_level.0;
+            current_level_id = render_level;
             let (new_visuals, _) = load_session_assets(manifest, current_level_id)?;
             level_visuals = new_visuals;
             level_card_frames_remaining = RECORDING_LEVEL_CARD_HOLD_FRAMES;
@@ -1574,8 +1590,11 @@ fn attach_native_pixel_samples(
                     pre_probe_render_trace.as_ref(),
                     &previous_trace,
                 );
-                let mut render_trace =
-                    render_trace_with_vdp_latched_state(&trace, Some(render_latch));
+                let mut render_trace = render_trace_with_vdp_latched_state_and_resident(
+                    &trace,
+                    Some(render_latch),
+                    runtime.source_port_render_trace_snapshot(),
+                );
                 if level_card_frames_remaining > 0 {
                     render_trace.game_mode = GameMode::LevelTransition;
                     render_trace.game_mode_value = GameMode::LevelTransition.as_disassembly_value();
@@ -1620,20 +1639,20 @@ fn attach_native_pixel_samples(
                 let layer_samples = sample_native_layers_for_pixels(
                     &render_trace,
                     &level_visuals,
-                    runtime.block_grid(),
+                    runtime.source_port_render_block_grid(),
                     pixels,
                 );
                 let scene = build_scene(
                     &render_trace,
                     false,
                     Some(&level_visuals),
-                    runtime.block_grid(),
+                    runtime.source_port_render_block_grid(),
                 );
                 let final_scene_samples = sample_scene_pixel_provenance(&scene, pixels);
                 let eol_sprites = eol_score_sprite_diagnostics(
                     &render_trace,
                     &level_visuals,
-                    runtime.block_grid(),
+                    runtime.source_port_render_block_grid(),
                 );
                 let vdp_samples = runtime
                     .vdp_state()
