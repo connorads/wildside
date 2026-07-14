@@ -142,6 +142,22 @@ struct OracleVdpPixelSampleRow {
 }
 
 #[derive(Debug, Serialize)]
+struct OracleVdpFifoCommitRow {
+    frame: usize,
+    commits: Vec<OracleVdpFifoCommit>,
+}
+
+#[derive(Debug, Serialize)]
+struct OracleVdpFifoCommit {
+    scanline: u16,
+    pixel: u16,
+    target: String,
+    address: u32,
+    word: u16,
+    byte_size: u8,
+}
+
+#[derive(Debug, Serialize)]
 struct OracleSettleTraceRow {
     phase: &'static str,
     step: usize,
@@ -241,6 +257,8 @@ struct OracleManifest {
     memory_watches: Vec<HashMap<String, i64>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     vdp_pixel_samples: Vec<OracleVdpPixelSampleRow>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    vdp_fifo_commits: Vec<OracleVdpFifoCommitRow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     settle_trace: Vec<OracleSettleTraceRow>,
 }
@@ -597,6 +615,7 @@ fn main() -> Result<()> {
     let mut cram_dump_frames_spec = String::new();
     let mut vsram_dump_frames_spec = String::new();
     let mut vdp_pixel_samples_spec = String::new();
+    let mut vdp_fifo_commit_frames_spec = String::new();
     let mut capture_cpu_state = false;
     let mut capture_settle_trace = false;
     let mut capture_rng_stream = false;
@@ -615,6 +634,7 @@ fn main() -> Result<()> {
             "--cram-dump-frames" => cram_dump_frames_spec = args.next().unwrap_or_default(),
             "--vsram-dump-frames" => vsram_dump_frames_spec = args.next().unwrap_or_default(),
             "--vdp-pixel-samples" => vdp_pixel_samples_spec = args.next().unwrap_or_default(),
+            "--vdp-fifo-commit-frames" => vdp_fifo_commit_frames_spec = args.next().unwrap_or_default(),
             "--capture-cpu-state" => capture_cpu_state = true,
             "--capture-settle-trace" => capture_settle_trace = true,
             "--capture-rng-stream" => capture_rng_stream = true,
@@ -634,12 +654,13 @@ fn main() -> Result<()> {
     let cram_dump_frames = parse_frame_list(&cram_dump_frames_spec)?;
     let vsram_dump_frames = parse_frame_list(&vsram_dump_frames_spec)?;
     let vdp_pixel_samples = parse_vdp_pixel_samples(&vdp_pixel_samples_spec)?;
+    let vdp_fifo_commit_frames = parse_frame_list(&vdp_fifo_commit_frames_spec)?;
 
     let rom = fs::read(&rom_path)
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     match mode {
         OutputMode::Capture => {
-            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, capture_cpu_state, capture_settle_trace, capture_rng_stream)?;
+            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, &vdp_fifo_commit_frames, capture_cpu_state, capture_settle_trace, capture_rng_stream)?;
         }
         OutputMode::EnemyLayoutTrace => {
             run_enemy_layout_trace(&rom, &resolved)?;
@@ -709,7 +730,7 @@ fn resolve_scenario(
     }
 }
 
-fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], capture_cpu_state: bool, capture_settle_trace: bool, capture_rng_stream: bool) -> Result<()> {
+fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], vdp_fifo_commit_frames: &[usize], capture_cpu_state: bool, capture_settle_trace: bool, capture_rng_stream: bool) -> Result<()> {
     let mut checkpoint_index = 0usize;
     let mut save_writer = NullSaveWriter;
     let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
@@ -725,6 +746,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         .unwrap_or_default();
     let mut all_memory_watches: Vec<HashMap<String, i64>> = Vec::new();
     let mut all_vdp_pixel_samples: Vec<OracleVdpPixelSampleRow> = Vec::new();
+    let mut all_vdp_fifo_commits: Vec<OracleVdpFifoCommitRow> = Vec::new();
     let mut settle_trace: Vec<OracleSettleTraceRow> = Vec::new();
 
     // Pre-warp: boot to level 0, then advance to target level.
@@ -764,6 +786,8 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     if let Some(count) = resolved.initial_lives {
         apply_probe_lives_count(&mut emulator, count);
     }
+    // Ignore boot/warp activity. Each retained row is exactly one scenario frame.
+    let _ = emulator.debug().drain_wildside_fifo_commits();
 
     while frame_index < resolved.frame_count {
         let pre_frame_eol_vdp_pixel_samples_debug = resolved
@@ -815,6 +839,31 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                 }
                 // Per-frame CRC of authoritative RAM state
                 {
+                    let fifo_commits = emulator
+                        .debug()
+                        .drain_wildside_fifo_commits()
+                        .into_iter()
+                        .map(|commit| OracleVdpFifoCommit {
+                            scanline: commit.scanline,
+                            pixel: commit.pixel,
+                            target: match commit.target {
+                                0 => "vram",
+                                1 => "cram",
+                                2 => "vsram",
+                                _ => "unknown",
+                            }
+                            .to_string(),
+                            address: commit.address,
+                            word: commit.word,
+                            byte_size: commit.byte_size,
+                        })
+                        .collect();
+                    if vdp_fifo_commit_frames.contains(&frame_index) {
+                        all_vdp_fifo_commits.push(OracleVdpFifoCommitRow {
+                            frame: frame_index,
+                            commits: fifo_commits,
+                        });
+                    }
                     let work_ram = capture_memory(&mut emulator, GenesisMemoryArea::WorkingRam, 0x1_0000);
                     if capture_rng_stream {
                         let offset = read_wram_u16(&work_ram, RNG_OFFSET_ADDR);
@@ -927,6 +976,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         frame_rng_states,
         memory_watches: all_memory_watches,
         vdp_pixel_samples: all_vdp_pixel_samples,
+        vdp_fifo_commits: all_vdp_fifo_commits,
         settle_trace,
     };
     println!("{}", serde_json::to_string_pretty(&manifest)?);

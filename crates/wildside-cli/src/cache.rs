@@ -145,6 +145,7 @@ mod tests {
             frame_rng_states: Vec::new(),
             memory_watches: Vec::new(),
             vdp_pixel_samples: Vec::new(),
+            vdp_fifo_commits: Vec::new(),
             settle_trace: Vec::new(),
         }
     }

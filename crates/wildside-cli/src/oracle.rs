@@ -33,6 +33,7 @@ pub(crate) struct OracleRunOptions {
     pub(crate) cram_dump_frames: Option<String>,
     pub(crate) vsram_dump_frames: Option<String>,
     pub(crate) vdp_pixel_samples: Option<String>,
+    pub(crate) vdp_fifo_commit_frames: Option<String>,
     pub(crate) capture_cpu_state: bool,
     pub(crate) capture_settle_trace: bool,
     pub(crate) capture_rng_stream: bool,
@@ -108,6 +109,8 @@ pub struct OracleManifest {
     #[serde(default)]
     pub vdp_pixel_samples: Vec<OracleVdpPixelSampleRow>,
     #[serde(default)]
+    pub vdp_fifo_commits: Vec<OracleVdpFifoCommitRow>,
+    #[serde(default)]
     pub settle_trace: Vec<OracleSettleTraceRow>,
 }
 
@@ -115,6 +118,27 @@ pub struct OracleManifest {
 pub struct OracleVdpPixelSampleRow {
     pub frame: usize,
     pub samples: String,
+}
+
+/// FIFO writes that completed at the VDP memory port during one rendered frame.
+///
+/// This is deliberately a presentation-side oracle artefact, separate from
+/// gameplay debug fields. A completed write can become visible part-way through
+/// a scanline, unlike an end-of-frame VRAM dump.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct OracleVdpFifoCommitRow {
+    pub frame: usize,
+    pub commits: Vec<OracleVdpFifoCommit>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct OracleVdpFifoCommit {
+    pub scanline: u16,
+    pub pixel: u16,
+    pub target: String,
+    pub address: u32,
+    pub word: u16,
+    pub byte_size: u8,
 }
 
 #[derive(Debug, Clone, serde::Serialize, Deserialize)]
@@ -299,6 +323,7 @@ pub fn ensure_oracles(repo_root: &Path) -> Result<OracleEnvironment> {
     let jgenesis_dir = oracle_root.join("jgenesis");
     checkout_repo(&jgenesis_dir, JGENESIS_URL, JGENESIS_COMMIT)?;
     patch_jgenesis_cpu_registers(&jgenesis_dir)?;
+    patch_jgenesis_fifo_commit_trace(&jgenesis_dir)?;
 
     let helper_dir = oracle_root.join("jgenesis-helper");
     write_helper_project(&helper_dir, repo_root, &jgenesis_dir)?;
@@ -409,6 +434,9 @@ pub fn run_jgenesis_capture_dynamic_with_options(
     if let Some(ref samples) = options.vdp_pixel_samples {
         cmd.arg("--vdp-pixel-samples").arg(samples);
     }
+    if let Some(ref frames) = options.vdp_fifo_commit_frames {
+        cmd.arg("--vdp-fifo-commit-frames").arg(frames);
+    }
     if options.capture_cpu_state {
         cmd.arg("--capture-cpu-state");
     }
@@ -501,6 +529,147 @@ fn patch_jgenesis_cpu_registers(jgenesis_dir: &Path) -> Result<()> {
 
     fs::write(&debug_rs, patched)
         .with_context(|| format!("failed to write patched {}", debug_rs.display()))
+}
+
+/// Patch the pinned jgenesis checkout with a drainable journal of completed
+/// FIFO writes. The VDP owns the timing, so the journal is recorded at
+/// `Vdp::pop_fifo`, not when the 68000 pushes an entry into the FIFO.
+fn patch_jgenesis_fifo_commit_trace(jgenesis_dir: &Path) -> Result<()> {
+    let vdp_rs = jgenesis_dir.join("backend/genesis-core/src/vdp.rs");
+    let mut vdp = fs::read_to_string(&vdp_rs)
+        .with_context(|| format!("failed to read {}", vdp_rs.display()))?;
+
+    if !vdp.contains("WildsideVdpFifoCommit") {
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "type Vsram = [u8; VSRAM_LEN];\n",
+            "type Vsram = [u8; VSRAM_LEN];\n\n#[derive(Debug, Clone, Copy, Encode, Decode)]\npub struct WildsideVdpFifoCommit {\n    pub scanline: u16,\n    pub pixel: u16,\n    pub target: u8,\n    pub address: u32,\n    pub word: u16,\n    pub byte_size: u8,\n}\n",
+            &vdp_rs,
+        )?;
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "    fifo: VdpFifo,\n",
+            "    fifo: VdpFifo,\n    wildside_fifo_commits: VecDeque<WildsideVdpFifoCommit>,\n",
+            &vdp_rs,
+        )?;
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "            fifo: VdpFifo::new(),\n",
+            "            fifo: VdpFifo::new(),\n            wildside_fifo_commits: VecDeque::new(),\n",
+            &vdp_rs,
+        )?;
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "    fn pop_fifo(&mut self) {\n        let entry = self.fifo.front();\n",
+            "    fn pop_fifo(&mut self) {\n        let entry = self.fifo.front().clone();\n",
+            &vdp_rs,
+        )?;
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "        // VRAM fill begins when an entry is popped from the FIFO after starting VRAM fill DMA\n",
+            "        if entry.mode == DataPortMode::Write {\n            let commit = match entry.location {\n                DataPortLocation::Vram => Some(WildsideVdpFifoCommit {\n                    scanline: self.state.scanline,\n                    pixel: self.state.pixel,\n                    target: 0,\n                    address: entry.address & 0xFFFF,\n                    word: entry.word,\n                    byte_size: match entry.size { VramWriteSize::Word => 2, VramWriteSize::Byte => 1 },\n                }),\n                DataPortLocation::Cram => Some(WildsideVdpFifoCommit {\n                    scanline: self.state.scanline,\n                    pixel: self.state.pixel,\n                    target: 1,\n                    address: entry.address & 0x7F,\n                    word: entry.word,\n                    byte_size: 2,\n                }),\n                DataPortLocation::Vsram if (entry.address & 0x7F & !1) < VSRAM_LEN as u32 => {\n                    Some(WildsideVdpFifoCommit {\n                        scanline: self.state.scanline,\n                        pixel: self.state.pixel,\n                        target: 2,\n                        address: entry.address & 0x7F & !1,\n                        word: entry.word,\n                        byte_size: 2,\n                    })\n                }\n                DataPortLocation::Vram8Bit | DataPortLocation::Vsram | DataPortLocation::Invalid => None,\n            };\n            if let Some(commit) = commit {\n                self.wildside_fifo_commits.push_back(commit);\n            }\n        }\n\n        // VRAM fill begins when an entry is popped from the FIFO after starting VRAM fill DMA\n",
+            &vdp_rs,
+        )?;
+        fs::write(&vdp_rs, &vdp)
+            .with_context(|| format!("failed to write patched {}", vdp_rs.display()))?;
+    }
+    // jgenesis represents a word-sized VRAM entry across two FIFO slots, but
+    // updates the visible bytes at the first. Keep that first event only.
+    if vdp.contains("WildsideVdpFifoCommit") && !vdp.contains("Record that visible commit once.") {
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "                DataPortLocation::Vram => Some(WildsideVdpFifoCommit {\n",
+            "                // A word entry occupies two FIFO slots, but jgenesis changes both\n                // bytes at the first slot. Record that visible commit once.\n                DataPortLocation::Vram if entry.vram_write == VramWriteFlag::First => Some(WildsideVdpFifoCommit {\n",
+            &vdp_rs,
+        )?;
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "                DataPortLocation::Vram8Bit | DataPortLocation::Vsram | DataPortLocation::Invalid => None,\n",
+            "                DataPortLocation::Vram | DataPortLocation::Vram8Bit | DataPortLocation::Vsram | DataPortLocation::Invalid => None,\n",
+            &vdp_rs,
+        )?;
+        fs::write(&vdp_rs, &vdp)
+            .with_context(|| format!("failed to write patched {}", vdp_rs.display()))?;
+    }
+    if vdp.contains("WildsideVdpFifoCommit")
+        && !vdp.contains("VdpFifoEntry, VramWriteFlag, VramWriteSize")
+    {
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "use crate::vdp::fifo::{VdpFifo, VdpFifoEntry, VramWriteSize};\n",
+            "use crate::vdp::fifo::{VdpFifo, VdpFifoEntry, VramWriteFlag, VramWriteSize};\n",
+            &vdp_rs,
+        )?;
+        fs::write(&vdp_rs, &vdp)
+            .with_context(|| format!("failed to write patched {}", vdp_rs.display()))?;
+    }
+
+    let vdp_debug_rs = jgenesis_dir.join("backend/genesis-core/src/vdp/debug.rs");
+    let mut vdp_debug = fs::read_to_string(&vdp_debug_rs)
+        .with_context(|| format!("failed to read {}", vdp_debug_rs.display()))?;
+    if !vdp_debug.contains("drain_wildside_fifo_commits") {
+        vdp_debug = replace_jgenesis_source(
+            &vdp_debug,
+            "use crate::vdp::{ColorModifier, SpriteData, Vdp, colors, render, sprites};\n",
+            "use crate::vdp::{ColorModifier, SpriteData, Vdp, WildsideVdpFifoCommit, colors, render, sprites};\n",
+            &vdp_debug_rs,
+        )?;
+        vdp_debug = replace_jgenesis_source(
+            &vdp_debug,
+            "    pub fn debug_vsram_view(&mut self) -> impl DebugMemoryView {\n        DebugBytesView(self.vsram.as_mut_slice())\n    }\n}\n",
+            "    pub fn debug_vsram_view(&mut self) -> impl DebugMemoryView {\n        DebugBytesView(self.vsram.as_mut_slice())\n    }\n\n    pub fn drain_wildside_fifo_commits(&mut self) -> Vec<WildsideVdpFifoCommit> {\n        self.wildside_fifo_commits.drain(..).collect()\n    }\n}\n",
+            &vdp_debug_rs,
+        )?;
+        fs::write(&vdp_debug_rs, vdp_debug)
+            .with_context(|| format!("failed to write patched {}", vdp_debug_rs.display()))?;
+    }
+
+    let debug_rs = jgenesis_dir.join("backend/genesis-core/src/api/debug.rs");
+    let mut debug = fs::read_to_string(&debug_rs)
+        .with_context(|| format!("failed to read {}", debug_rs.display()))?;
+    if !debug.contains("drain_wildside_fifo_commits") {
+        debug = replace_jgenesis_source(
+            &debug,
+            "use crate::vdp::ColorModifier;\n",
+            "use crate::vdp::{ColorModifier, WildsideVdpFifoCommit};\n",
+            &debug_rs,
+        )?;
+        let final_brace = debug.rfind('}').ok_or_else(|| {
+            anyhow!(
+                "could not find debug API closing brace in {}",
+                debug_rs.display()
+            )
+        })?;
+        debug.insert_str(
+            final_brace,
+            "    /// Drain FIFO writes that completed at the VDP memory port.\n    pub fn drain_wildside_fifo_commits(&mut self) -> Vec<WildsideVdpFifoCommit> {\n        self.0.vdp.drain_wildside_fifo_commits()\n    }\n\n",
+        );
+        fs::write(&debug_rs, debug)
+            .with_context(|| format!("failed to write patched {}", debug_rs.display()))?;
+    }
+
+    Ok(())
+}
+
+fn replace_jgenesis_source(
+    contents: &str,
+    needle: &str,
+    replacement: &str,
+    path: &Path,
+) -> Result<String> {
+    let index = contents.find(needle).ok_or_else(|| {
+        anyhow!(
+            "pinned jgenesis layout changed; expected {:?} in {}",
+            needle,
+            path.display()
+        )
+    })?;
+    Ok(format!(
+        "{}{}{}",
+        &contents[..index],
+        replacement,
+        &contents[index + needle.len()..]
+    ))
 }
 
 fn checkout_repo(dir: &Path, url: &str, commit: &str) -> Result<()> {
@@ -911,6 +1080,37 @@ mod tests {
                 && HELPER_TEMPLATE.contains("write_emulator_wram_u16(\n        emulator,\n        PLAYER_COLLISION_HALF_WIDTH_ADDR,\n        collision_half_width,\n    );"),
             "oracle playtest_form must seed ASM sub_B41C's $FFFFFA78 half-width alongside Current_Helmet"
         );
+    }
+
+    #[test]
+    fn helper_exposes_completed_vdp_fifo_writes_as_frame_rows() {
+        assert!(
+            HELPER_TEMPLATE.contains("--vdp-fifo-commit-frames")
+                && HELPER_TEMPLATE.contains("drain_wildside_fifo_commits")
+                && HELPER_TEMPLATE.contains("vdp_fifo_commits: all_vdp_fifo_commits"),
+            "FIFO instrumentation must drain completed VDP writes every frame and retain requested rows"
+        );
+
+        let manifest: OracleManifest = serde_json::from_value(serde_json::json!({
+            "sample_rate": 44100,
+            "audio_path": "audio.wav",
+            "frames": [],
+            "states": [],
+            "vdp_fifo_commits": [{
+                "frame": 905,
+                "commits": [{
+                    "scanline": 224,
+                    "pixel": 0,
+                    "target": "vram",
+                    "address": 0xDD40,
+                    "word": 0x1234,
+                    "byte_size": 2
+                }]
+            }]
+        }))
+        .expect("manifest should parse FIFO commit rows");
+        assert_eq!(manifest.vdp_fifo_commits[0].frame, 905);
+        assert_eq!(manifest.vdp_fifo_commits[0].commits[0].address, 0xDD40);
     }
 
     #[test]

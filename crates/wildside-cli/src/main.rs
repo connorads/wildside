@@ -1222,6 +1222,9 @@ enum Commands {
         /// Oracle VDP pixel samples as X/Y pairs (e.g. 0/169,126/169)
         #[arg(long)]
         vdp_pixel_samples: Option<String>,
+        /// Frames for completed oracle VDP FIFO writes with scanline/pixel timing.
+        #[arg(long)]
+        vdp_fifo_commit_frames: Option<String>,
         /// Conditional filter: only show frames matching predicate (e.g. "0xFF2502>=0")
         /// Multiple --when flags are ANDed. Ops: =, !=, <, >, <=, >=
         #[arg(long)]
@@ -2615,6 +2618,7 @@ fn main() -> Result<()> {
             native_cram_dump_frames,
             native_vsram_dump_frames,
             vdp_pixel_samples,
+            vdp_fifo_commit_frames,
             when,
             capture_cpu_state,
             capture_settle_trace,
@@ -2663,6 +2667,7 @@ fn main() -> Result<()> {
                 cram_dump_frames: cram_dump_frames.clone(),
                 vsram_dump_frames: vsram_dump_frames.clone(),
                 vdp_pixel_samples: vdp_pixel_samples.clone(),
+                vdp_fifo_commit_frames: vdp_fifo_commit_frames.clone(),
                 capture_cpu_state,
                 capture_settle_trace,
                 capture_rng_stream: false,
@@ -2836,15 +2841,31 @@ fn main() -> Result<()> {
             {
                 println!("vdp_sample_frame={},{}", row.frame, row.samples);
             }
+            for row in oracle_manifest
+                .vdp_fifo_commits
+                .iter()
+                .filter(|row| (start..=end).contains(&row.frame))
+            {
+                println!(
+                    "vdp_fifo_frame={},{}",
+                    row.frame,
+                    serde_json::to_string(&row.commits)?
+                );
+            }
 
             // Also output checkpoint states for the range
             let state_count = oracle_manifest.states.len();
             eprintln!(
-                "Oracle probe complete: {} state checkpoints, {} watch rows, {} VDP sample rows",
+                "Oracle probe complete: {} state checkpoints, {} watch rows, {} VDP sample rows, {} FIFO commit rows",
                 state_count,
                 watch_rows_in_range.len(),
                 oracle_manifest
                     .vdp_pixel_samples
+                    .iter()
+                    .filter(|row| (start..=end).contains(&row.frame))
+                    .count(),
+                oracle_manifest
+                    .vdp_fifo_commits
                     .iter()
                     .filter(|row| (start..=end).contains(&row.frame))
                     .count()

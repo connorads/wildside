@@ -13,6 +13,25 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-14: the oracle helper now exposes a drainable completed-VDP
+FIFO journal through `oracle-probe --vdp-fifo-commit-frames`. It records VRAM,
+CRAM and VSRAM writes at jgenesis `Vdp::pop_fifo` with frame, scanline and pixel
+timing, and discards the second slot of each word-sized VRAM entry because its
+first slot already changes the visible bytes. Published-TAS `$DD40` captures
+show diamond uploads only on frames 902, 908, 914 and 920: frame 902 commits
+on visible scanlines 5..8, while frames 908/914/920 commit in vblank around
+scanlines 257..259. Frame 905 has no `$DD40` commit. This proves that a
+post-update `$FFFFFA5D` page cannot by itself select the displayed HUD page;
+derive presentation from the per-frame VDP commit boundary. #406 remains open.
+
+Rejected 2026-07-14: Demo 2's `Load_DemoPlay loc_119B6` branch does expose a
+direct `$FFFFFA5D -> $DD40` diamond page in the local frames 900..970, reducing
+that window from 5,498 to 3,674 changed pixels. Applying that render lead to
+all Demo 2 frames is nevertheless wrong: the complete 37,759-frame TAS route
+falls from 24,250 to 24,063 exact RGB frames and rises from 8,474,031 to
+8,519,977 changed pixels. Reverted. Do not retry a blanket Demo 2 diamond
+page rule; derive the live VDP presentation boundary first.
+
 Progress 2026-07-14: oracle VRAM dumps at published-TAS frames 902..970 show
 Demo 1's `$DD40` diamond page follows `$FFFFFA5D` directly: page 2 through
 902..907, then pages 3, 4, 1 in six-frame blocks. This is the
