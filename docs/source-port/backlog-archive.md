@@ -13,6 +13,32 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-14: frame 20758 belonged to the FC82=2 `loc_1BC36` worker,
+not another art or object-state mismatch. Native and oracle final VRAM showed
+that native applied each map one frame early while oracle retained the prior
+map, streamed the update during the following active display, then reached the
+same final state. The already-exact FC82=0 and FC82=1 visits use distinct
+Object-pass lineages, so shifting the shared timeline would have regressed
+their pinned frames.
+
+Native now represents the IntroSequence5 worker lineage explicitly and delays
+only the FC82=2 tile worker by one outer pass. Oracle FIFO tracing extends the
+raster model through the late `loc_1BC36` tail: d4=6 begins at line 125 pixel
+172, d4=7 at line 114 pixel 204, the return to d4=6 at line 125 pixel 172, and
+the final d4=5 at line 134 pixel 380. The published replay regression pins 16
+new boundary frames; every sampled map transition from frames 20590..20841 is
+pixel-exact.
+
+`mise run verify-slice-fast` and `mise run verify-tas-full` pass. Full-route
+pixel evidence gains 18 exact frames and removes 33,341 changed pixel
+instances: 24,065 exact, 13,694 divergent, and 9,062,347 changed. All 37,759
+player/camera, typed gameplay, and enemy frames plus all 37,743 post-`Init_RNG`
+frames remain exact. Frame 20849 is the new worst at 4,609 pixels. Its oracle
+image exposes line-budgeted fragments of the `loc_1BCD0 -> loc_1BE3C` sprite
+chain while native draws the complete chain; this is VDP sprite-line evaluator
+and transparent sprite-buffer debt, not evidence for another particle-timing
+guess. #406 remains open.
+
 Progress 2026-07-14: frame 28028 combined the final `loc_1BC36` d4=5 Plane A
 upload with `loc_1BCD0 -> loc_1BE3C` particle workers. Oracle execution proves
 that the FC82=0 timeout revisit reaches the repeated d4=5 upload after

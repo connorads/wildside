@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 IntroSequence5 FC82=2 raster lineage)
+
+- Frame 20758 was `loc_1BC36`'s FC82=2 d4=4 Plane A upload presented one
+  outer Object pass too early. Final VRAM proved each boundary changed on the
+  following frame; the earlier FC82=0/1 visits keep their existing clocks.
+- Native now types the worker lineage and models the one-pass delay. Oracle
+  FIFO traces add d4=6 at line 125 pixel 172, d4=7 at line 114 pixel 204, the
+  return d4=6 at line 125 pixel 172, and final d4=5 at line 134 pixel 380.
+  All sampled boundaries from frames 20590..20841 are exact.
+- Full verification gains 18 exact frames and removes 33,341 changed pixels:
+  24,065 exact, 13,694 divergent, and 9,062,347 changed. All state and RNG
+  channels remain exact. Frame 20849 is now worst at 4,609 pixels and isolates
+  hardware sprite-line evaluation. NEXT: keep #406 open and model that VDP
+  behaviour without regressing established exact frames.
+
 ## 2026-07-14 handoff (#406 IntroSequence5 final raster and particles)
 
 - Frame 28028 combined `loc_1BC36`'s final d4=5 Plane A upload with

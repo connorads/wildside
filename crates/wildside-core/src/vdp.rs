@@ -596,7 +596,7 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
         elapsed,
         intro_sequence_3_roster_index,
         INTRO_SEQUENCE_5_VISIBLE_ELAPSED_LOC_1BA28,
-        false,
+        IntroSequence5WorkerLineage::Shared,
     )
 }
 
@@ -621,10 +621,11 @@ pub(crate) fn build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
         elapsed,
         intro_sequence_3_roster_index,
         visible_elapsed,
-        // ASM loc_1BC36 worker clocks diverge across the repeated FC82
-        // variants: oracle FC82=0 frame 28028 reaches the final d4=5 upload
-        // here, while FC82=1 frame 16533 is still on an earlier upload.
-        title_variant == 0,
+        match title_variant {
+            0 => IntroSequence5WorkerLineage::TimeoutFc82Zero,
+            2 => IntroSequence5WorkerLineage::TimeoutFc82Two,
+            _ => IntroSequence5WorkerLineage::Shared,
+        },
     );
     if (visible_elapsed..visible_elapsed + 0x10).contains(&elapsed) {
         // ASM sub_1C204 starts `$FFFFF876` at zero and advances it by `$10`
@@ -652,7 +653,7 @@ fn build_intro_sequence_vdp_with_title_variant_at_elapsed_and_visible_threshold(
     elapsed: usize,
     intro_sequence_3_roster_index: usize,
     intro_sequence_5_visible_elapsed: usize,
-    include_timeout_final_frame_5_raster: bool,
+    intro_sequence_5_worker_lineage: IntroSequence5WorkerLineage,
 ) -> VdpState {
     if segment == 1 {
         return build_intro_sequence_2_handoff_vdp_at_elapsed(data, title_variant, elapsed);
@@ -684,8 +685,8 @@ fn build_intro_sequence_vdp_with_title_variant_at_elapsed_and_visible_threshold(
         overlay_intro_sequence_5_tile_worker_loc_1BC36(
             &mut vdp,
             data,
-            elapsed,
-            include_timeout_final_frame_5_raster,
+            elapsed.saturating_sub(intro_sequence_5_worker_lineage.tile_worker_delay()),
+            intro_sequence_5_worker_lineage,
         );
         overlay_intro_sequence_5_sprite_table_loc_1BCD0(&mut vdp, title_variant, elapsed);
     }
@@ -2607,36 +2608,9 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
         0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY,
         5,
     ),
-    (
-        0xA0 + 0x90
-            + 0x0B
-            + 0x0B
-            + 0x0B
-            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY
-            + 0x37,
-        6,
-    ),
-    (
-        0xA0 + 0x90
-            + 0x0B
-            + 0x0B
-            + 0x0B
-            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY
-            + 0x37
-            + 0x08,
-        7,
-    ),
-    (
-        0xA0 + 0x90
-            + 0x0B
-            + 0x0B
-            + 0x0B
-            + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY
-            + 0x37
-            + 0x08
-            + 0x08,
-        6,
-    ),
+    (INTRO_SEQUENCE_5_LOC_1BC36_FRAME_6_RASTER_ELAPSED, 6),
+    (INTRO_SEQUENCE_5_LOC_1BC36_FRAME_7_RASTER_ELAPSED, 7),
+    (INTRO_SEQUENCE_5_LOC_1BC36_RETURN_FRAME_6_RASTER_ELAPSED, 6),
     (INTRO_SEQUENCE_5_LOC_1BC36_FINAL_FRAME_5_RASTER_ELAPSED, 5),
 ];
 // ASM loc_1BC36 calls sub_1C034 on these hibernate boundaries. Exact oracle
@@ -2647,8 +2621,14 @@ const INTRO_SEQUENCE_5_LOC_1BC36_PRE_PANEL_PRESENTATION_DELAY: usize = 0x3A;
 const INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY: usize = 0x3B;
 const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED: usize =
     0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_POST_PANEL_PRESENTATION_DELAY;
+const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_6_RASTER_ELAPSED: usize =
+    INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED + 0x37;
+const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_7_RASTER_ELAPSED: usize =
+    INTRO_SEQUENCE_5_LOC_1BC36_FRAME_6_RASTER_ELAPSED + 0x08;
+const INTRO_SEQUENCE_5_LOC_1BC36_RETURN_FRAME_6_RASTER_ELAPSED: usize =
+    INTRO_SEQUENCE_5_LOC_1BC36_FRAME_7_RASTER_ELAPSED + 0x08;
 const INTRO_SEQUENCE_5_LOC_1BC36_FINAL_FRAME_5_RASTER_ELAPSED: usize =
-    INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED + 0x37 + 0x08 + 0x08 + 0x0F;
+    INTRO_SEQUENCE_5_LOC_1BC36_RETURN_FRAME_6_RASTER_ELAPSED + 0x0F;
 // ASM loc_1BC36 sub_1C034(d4=4) -> sub_1C0EE presents the panel from exact
 // cold frames 2260..2271 and timeout-restart frames 16555..16566.
 const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED: usize =
@@ -2676,10 +2656,26 @@ struct IntroSequence5RasterUpload {
     panel_start: Option<(u16, u16)>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IntroSequence5WorkerLineage {
+    Shared,
+    TimeoutFc82Zero,
+    TimeoutFc82Two,
+}
+
+impl IntroSequence5WorkerLineage {
+    fn tile_worker_delay(self) -> usize {
+        // ASM loc_1BC36 runs on an independently scheduled Object. Oracle
+        // FC82=2 frames 20591..20856 retain each previous map for one outer
+        // trace after the FC82=0/1 presentation clock used by earlier visits.
+        usize::from(self == Self::TimeoutFc82Two)
+    }
+}
+
 #[allow(non_snake_case)]
 fn intro_sequence_5_raster_upload_loc_1BC36(
     elapsed: usize,
-    include_timeout_final_frame_5_raster: bool,
+    lineage: IntroSequence5WorkerLineage,
 ) -> Option<IntroSequence5RasterUpload> {
     // ASM sub_1C034/loc_1C09E..loc_1C0D6 and sub_1C0EE/sub_1C5D0.
     // Positions are FIFO-pop times measured from jgenesis on both the cold and
@@ -2715,13 +2711,53 @@ fn intro_sequence_5_raster_upload_loc_1BC36(
             frame_start: (139, 12),
             panel_start: None,
         }),
+        INTRO_SEQUENCE_5_LOC_1BC36_FRAME_6_RASTER_ELAPSED
+            if lineage == IntroSequence5WorkerLineage::TimeoutFc82Two =>
+        {
+            Some(IntroSequence5RasterUpload {
+                previous_frame_index: 5,
+                frame_index: 6,
+                frame_start: (125, 172),
+                panel_start: None,
+            })
+        }
+        INTRO_SEQUENCE_5_LOC_1BC36_FRAME_7_RASTER_ELAPSED
+            if lineage == IntroSequence5WorkerLineage::TimeoutFc82Two =>
+        {
+            Some(IntroSequence5RasterUpload {
+                previous_frame_index: 6,
+                frame_index: 7,
+                frame_start: (114, 204),
+                panel_start: None,
+            })
+        }
+        INTRO_SEQUENCE_5_LOC_1BC36_RETURN_FRAME_6_RASTER_ELAPSED
+            if lineage == IntroSequence5WorkerLineage::TimeoutFc82Two =>
+        {
+            Some(IntroSequence5RasterUpload {
+                previous_frame_index: 7,
+                frame_index: 6,
+                frame_start: (125, 172),
+                panel_start: None,
+            })
+        }
         INTRO_SEQUENCE_5_LOC_1BC36_FINAL_FRAME_5_RASTER_ELAPSED
-            if include_timeout_final_frame_5_raster =>
+            if lineage == IntroSequence5WorkerLineage::TimeoutFc82Zero =>
         {
             Some(IntroSequence5RasterUpload {
                 previous_frame_index: 6,
                 frame_index: 5,
                 frame_start: (136, 204),
+                panel_start: None,
+            })
+        }
+        INTRO_SEQUENCE_5_LOC_1BC36_FINAL_FRAME_5_RASTER_ELAPSED
+            if lineage == IntroSequence5WorkerLineage::TimeoutFc82Two =>
+        {
+            Some(IntroSequence5RasterUpload {
+                previous_frame_index: 6,
+                frame_index: 5,
+                frame_start: (134, 380),
                 panel_start: None,
             })
         }
@@ -2734,14 +2770,13 @@ fn overlay_intro_sequence_5_tile_worker_loc_1BC36(
     vdp: &mut VdpState,
     data: &IntroSub1B850Data,
     elapsed: usize,
-    include_timeout_final_frame_5_raster: bool,
+    lineage: IntroSequence5WorkerLineage,
 ) {
     // ASM loc_1BC36 (kid.asm:30516) calls sub_1C034 before each hibernate.
     // sub_1C034 decodes one `off_1C126` map with base tile `$A340` into a
     // 16x25 staging buffer, then streams 25 fixed rows into the Scroll A
     // nametable at VRAM `$0194..$0D94`.
-    let raster_upload =
-        intro_sequence_5_raster_upload_loc_1BC36(elapsed, include_timeout_final_frame_5_raster);
+    let raster_upload = intro_sequence_5_raster_upload_loc_1BC36(elapsed, lineage);
     let frame_index = INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE
         .iter()
         .rev()
@@ -6968,6 +7003,86 @@ mod tests {
             Some((136, 204)),
             "oracle FIFO tracing pins the final loc_1BC36 d4=5 upload entry point",
         );
+    }
+
+    #[test]
+    fn intro_sequence_5_loc_1bc36_timeout_fc82_two_delays_and_schedules_tail_uploads() {
+        let data = IntroSub1B850Data {
+            intro_sequence_5_frame_tilemaps: (0..8)
+                .map(|frame| vec![0x1100 + frame; 12 * 24])
+                .collect(),
+            ..empty_intro_data()
+        };
+        let before = build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
+            &data,
+            2,
+            INTRO_SEQUENCE_5_LOC_1BC36_FRAME_6_RASTER_ELAPSED,
+            0,
+            false,
+        );
+        let boundary = build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
+            &data,
+            2,
+            INTRO_SEQUENCE_5_LOC_1BC36_FRAME_6_RASTER_ELAPSED + 1,
+            0,
+            false,
+        );
+
+        assert!(
+            before.raster_frame.is_none(),
+            "ASM loc_1BC36's FC82=2 worker retains d4=5 for one outer trace before the d4=6 upload",
+        );
+        assert_eq!(
+            boundary
+                .raster_frame
+                .as_ref()
+                .and_then(|raster| raster.vram_word_writes.first())
+                .map(|write| (write.scanline, write.pixel)),
+            Some((125, 172)),
+            "oracle frame 20825 pins the delayed FC82=2 d4=6 FIFO entry point",
+        );
+
+        let expected_tail = [
+            (
+                INTRO_SEQUENCE_5_LOC_1BC36_FRAME_6_RASTER_ELAPSED,
+                5,
+                6,
+                (125, 172),
+            ),
+            (
+                INTRO_SEQUENCE_5_LOC_1BC36_FRAME_7_RASTER_ELAPSED,
+                6,
+                7,
+                (114, 204),
+            ),
+            (
+                INTRO_SEQUENCE_5_LOC_1BC36_RETURN_FRAME_6_RASTER_ELAPSED,
+                7,
+                6,
+                (125, 172),
+            ),
+            (
+                INTRO_SEQUENCE_5_LOC_1BC36_FINAL_FRAME_5_RASTER_ELAPSED,
+                6,
+                5,
+                (134, 380),
+            ),
+        ];
+        for (elapsed, previous_frame_index, frame_index, frame_start) in expected_tail {
+            let upload = intro_sequence_5_raster_upload_loc_1BC36(
+                elapsed,
+                IntroSequence5WorkerLineage::TimeoutFc82Two,
+            )
+            .expect("ASM loc_1BC36 FC82=2 tail upload should retain raster evidence");
+            assert_eq!(
+                (
+                    upload.previous_frame_index,
+                    upload.frame_index,
+                    upload.frame_start,
+                ),
+                (previous_frame_index, frame_index, frame_start),
+            );
+        }
     }
 
     #[test]
