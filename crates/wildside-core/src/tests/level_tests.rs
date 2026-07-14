@@ -6498,6 +6498,33 @@ mod chunk_02 {
     }
 
     #[test]
+    fn published_tas_later_intro_sequence_6_title_workers_keep_delayed_loc_1b45a_clock() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut frame_28373 = None;
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(28_374) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if frame_index == 28_373 {
+                assert_eq!(trace.game_mode, GameMode::IntroSequence6);
+                frame_28373 = runtime.vdp_state().cloned();
+                break;
+            }
+        }
+
+        let vdp = frame_28373.expect("published frame 28373 should expose title-worker VDP");
+        assert!(
+            vdp_sprite_table_contains_without_link(&vdp, (0x0114, 0x04, 0x4780, 0x016C)),
+            "ASM sub_1B43A -> loc_1B45A allocates loc_1B6AC on the later three-frame-delayed worker schedule; oracle frame 28373 keeps loc_1BB10 at hardware x=$016C",
+        );
+        assert!(
+            vdp_sprite_table_contains_without_link(&vdp, (0x00C4, 0x0F, 0x44D3, 0x00AE)),
+            "ASM loc_1B5CE -> loc_1B610 shares the delayed worker schedule; oracle frame 28373 keeps the first KID sprite chunk at hardware y=$00C4",
+        );
+    }
+
+    #[test]
     fn timeout_restart_intro_sequence_6_workers_use_lineage_presentation_clock() {
         let early_elapsed =
             NativeRuntime::intro_sequence_6_hidden_shell_presentation_elapsed_loc_1b43a_for_lineage(

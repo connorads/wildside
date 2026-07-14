@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 later IntroSequence6 title workers)
+
+- Frame 28373 exposed a three-pass presentation lead in the later
+  timeout-restart IntroSequence6 title workers. Oracle VRAM had `loc_1BB10` at
+  x=`$016C` and KID at y=`$00C4`; native's `$0184/$00D6` was exactly three
+  8px/6px worker steps ahead.
+- The existing later-lineage delay now covers the `sub_1B43A -> loc_1B45A`
+  child-worker clock. Frames 28368..28378 are exact, and the wider 28250..28450
+  handoff window is 194/201 exact with only earlier upload-boundary debt.
+- Full verification gains 843 exact frames and removes 2,045,550 changed
+  pixels: 23,621 exact, 14,138 divergent, and 10,258,451 changed. All state
+  channels remain exact. Frame 10345 is now worst at 9,169 pixels. NEXT: keep
+  #406 open and trace that visual frontier.
+
 ## 2026-07-14 handoff (#406 Plane B camera history)
 
 - Frame 7814 exposed Plane B's missing camera history. `Load_InGame loc_11F48`

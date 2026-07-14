@@ -2093,6 +2093,8 @@ impl NativeRuntime {
                 if self.intro_sequence_6_natural_title_workers_active() =>
             {
                 self.title_screen_data.as_ref().map(|data| {
+                    let title_worker_elapsed =
+                        self.intro_sequence_6_title_worker_presentation_elapsed_loc_1b45a();
                     let menu_cursor = (self.title_menu_active
                         && !self.title_menu_cursor_pending)
                         .then_some(*cursor);
@@ -2102,12 +2104,10 @@ impl NativeRuntime {
                         self.title_screen_region_byte,
                         menu_cursor,
                         true,
-                        self.title_screen_elapsed_frames,
+                        title_worker_elapsed,
                         vdp::TitleScreenVdpLineage {
                             natural_intro_sequence_6_pre_ready_shell: true,
-                            natural_intro_sequence_6_worker_elapsed: Some(
-                                self.title_screen_elapsed_frames,
-                            ),
+                            natural_intro_sequence_6_worker_elapsed: Some(title_worker_elapsed),
                             ..vdp::TitleScreenVdpLineage::default()
                         },
                     )
@@ -2862,8 +2862,33 @@ impl NativeRuntime {
         // following pass.
         matches!(self.boot_state, BootState::IntroSequence6 { .. })
             && !self.intro_sequence_6_start_skip_cursor_trace_priority
-            && self.title_screen_elapsed_frames
+            && self.intro_sequence_6_title_worker_presentation_elapsed_loc_1b45a()
                 >= INTRO_SEQUENCE_6_NATURAL_TITLE_WORKER_START_FRAMES.saturating_sub(1)
+    }
+
+    fn intro_sequence_6_title_worker_presentation_elapsed_loc_1b45a(&self) -> usize {
+        let elapsed = self.title_screen_elapsed_frames;
+        let BootState::IntroSequence6 {
+            carry_timeout_restart_hidden_camera_wrap,
+            ..
+        } = self.boot_state
+        else {
+            return elapsed;
+        };
+
+        // ASM sub_1B43A -> loc_1B45A allocates loc_1B6AC and loc_1B5CE on
+        // the same delayed object schedule as the parent worker. The later
+        // timeout-restart revisit resumes those workers three presentations
+        // behind the raw mode-$28 clock; their 8px loc_1BB10 slide, 6px
+        // loc_1B610 drift, and sub_1B71A map cadence all retain that delay.
+        if self.intro_sequence_6_entered_from_timeout_restart
+            && !carry_timeout_restart_hidden_camera_wrap
+            && !self.demo_toggle
+        {
+            elapsed.saturating_sub(TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_WORKER_DELAY_FRAMES)
+        } else {
+            elapsed
+        }
     }
 
     fn intro_sequence_6_loc_1b45a_vdp_phase(&self) -> Option<IntroSequence6Loc1b45aVdpPhase> {

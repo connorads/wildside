@@ -576,6 +576,30 @@ divergent, and 12,304,001 changed pixels. Gameplay, enemy, player/camera CRC,
 and all 37,743 post-`Init_RNG` frames remain exact. Frame 39 remains first at
 2,643 pixels; frame 28373 is now worst at 10,911 pixels, so #406 remains open.
 
+Progress 2026-07-14: frame 28373 was the later timeout-restart
+IntroSequence6 title shell, with exact gameplay state but a three-pass visual
+lead. Cross-frame comparison showed every native frame 28368..28377 matched the
+oracle frame three steps later. Direct VRAM at frame 28373 narrowed both title
+workers: oracle `loc_1BB10` was at hardware x=`$016C` while native used
+`$0184`, and oracle KID began at hardware y=`$00C4` while native used `$00D6`.
+Those 24px/18px deltas are exactly three `loc_1BB36` 8px slides and
+`loc_1B610` 6px drifts. CRAM and VSRAM already matched.
+
+ASM `sub_1B43A -> loc_1B45A` allocates `loc_1B6AC` and `loc_1B5CE` as children
+of the same delayed later-revisit worker whose three-frame offset was already
+used for mapping, upload-stall, RNG, and camera scheduling. Native now applies
+that delay to the complete child-worker presentation clock and its activation
+boundary. Regression
+`published_tas_later_intro_sequence_6_title_workers_keep_delayed_loc_1b45a_clock`
+first failed on both oracle sprite-table positions and now passes. Frames
+28368..28378 are pixel-exact; the wider 28250..28450 handoff is 194/201 exact,
+with its seven remaining mismatches confined to earlier upload boundaries.
+Full verification gains 843 exact frames and removes 2,045,550 changed pixel
+instances: 23,621 exact, 14,138 divergent, and 10,258,451 changed pixels.
+Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG` frames remain
+exact. Frame 39 remains first at 2,643 pixels; frame 10345 is now worst at
+9,169 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

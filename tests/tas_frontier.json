@@ -68,17 +68,17 @@
         "first_mismatch": null
       },
       "full_expected_pixel_comparison": {
-        "exact_match_frames": 22778,
-        "mismatch_frames": 14981,
-        "total_changed_pixels": 12304001,
-        "mismatch_digest": "9a60414356bba929348fb006b1efea78fa10c36c",
+        "exact_match_frames": 23621,
+        "mismatch_frames": 14138,
+        "total_changed_pixels": 10258451,
+        "mismatch_digest": "e217bb4774fdc3bf1a9ec30d0d62d09eb77a3e74",
         "first_mismatch": {
           "frame_index": 39,
           "changed_pixels": 2643
         },
         "worst_mismatch": {
-          "frame_index": 28373,
-          "changed_pixels": 10911
+          "frame_index": 10345,
+          "changed_pixels": 9169
         }
       },
       "status": "verified"
