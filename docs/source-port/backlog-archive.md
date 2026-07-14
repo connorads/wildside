@@ -13,6 +13,20 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-14: direct oracle CRAM FIFO tracing shows the cold-boot
+`sub_1C204` Sega fade transfer completing on scanlines 237-238, after the
+224-line visible field. The VDP model now preserves the resulting CRAM for
+post-frame state parity while its raster frame samples the pre-DMA CRAM. The
+special final Sega resident frame remains scoped to cold boot: applying either
+rule to demo-restart presentation regressed the route. Renderer and core tests
+pin the below-field palette latch and the final resident frame.
+
+The full 37,759-frame published route gains 15 exact RGB frames and removes
+21,054 changed pixels: 24,123 exact, 13,636 divergent, and 8,482,131 changed.
+All player/camera, typed gameplay, enemy, and 37,743 post-`Init_RNG` frames
+remain exact. Frames 39-53 are exact; frame 114 is now the first mismatch at
+24 pixels and frame 22500 the worst at 2,595 pixels. #406 remains open.
+
 Progress 2026-07-14: direct oracle FIFO tracing resolves the Knight's Isle
 shore timing ambiguity. `loc_12098/loc_12110/loc_12188` commits at VRAM
 `$F600/$F6C0/$F760` on scanlines 241-246, below the 224-line visible field.
@@ -36,6 +50,18 @@ instances: 24,108 exact, 13,651 divergent, and 8,503,185 changed. All 37,759
 player/camera, typed gameplay, and enemy frames plus all 37,743 post-`Init_RNG`
 frames remain exact. Frame 22152 falls from 4,140 to 90 changed pixels. Frame
 39 is the new worst at 2,643 pixels, so #406 remains open.
+
+Rejected 2026-07-14: frame 39's 2,643 changed pixels are confined to the
+96x32 Sega logo. Oracle CRAM dumps show its `sub_1C204` fade palette remains
+at the initial value on frame 39 while native has advanced one step. Delaying
+native `Load_SegaScreen -> sub_1C204` presentation by one VBlank made CRAM
+identical on frames 38-43 and 50, and made frame 39 RGB-exact. The complete
+37,759-frame RGB pass nevertheless regressed from 24,108 exact / 13,651
+divergent / 8,503,185 changed to 23,996 exact / 13,763 divergent / 8,651,857
+changed. Its first mismatch moved to frame 53 and its worst to frame 5146.
+The uncommitted timing change was reverted. This establishes that CRAM
+checkpoint timing alone is insufficient: trace the renderer's presented
+raster/VBlank boundary before revisiting `loc_12EDE` / `sub_1C204`.
 
 Investigation follow-up 2026-07-14: direct pixel inspection corrected the
 initial visual diagnosis at frame 22152. Its 4,140-pixel difference is the

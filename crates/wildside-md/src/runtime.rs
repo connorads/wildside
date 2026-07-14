@@ -2744,6 +2744,7 @@ mod tests {
         write_tile_entry(&mut initial_vram, 0x2000, 0, 0x0000);
         vdp.raster_frame = Some(VdpRasterFrame {
             initial_vram,
+            initial_cram: None,
             vram_word_writes: vec![VdpRasterVramWordWrite {
                 scanline: 0,
                 pixel: 44,
@@ -2779,6 +2780,7 @@ mod tests {
         write_tile_entry(&mut initial_vram, 0x2000, 0, 0x0000);
         vdp.raster_frame = Some(VdpRasterFrame {
             initial_vram,
+            initial_cram: None,
             vram_word_writes: vec![VdpRasterVramWordWrite {
                 scanline: 0,
                 pixel: 12,
@@ -2794,6 +2796,29 @@ mod tests {
             &rgb[0..3],
             &[0xFF, 0xFF, 0xFF],
             "the H40 pixel-12 FIFO slot precedes active display at H=$01A and must feed the current background scanline"
+        );
+    }
+
+    #[test]
+    fn render_vdp_uses_pre_dma_cram_for_a_palette_transfer_below_the_visible_field() {
+        let mut vdp = blank_vdp_snapshot();
+        vdp.registers[7] = 1;
+        vdp.cram[2..4].copy_from_slice(&[0x00, 0x0E]);
+        let mut initial_cram = vdp.cram.clone();
+        initial_cram[2..4].copy_from_slice(&[0x0E, 0x00]);
+        vdp.raster_frame = Some(VdpRasterFrame {
+            initial_vram: vdp.vram.clone(),
+            initial_cram: Some(initial_cram.clone()),
+            vram_word_writes: vec![],
+        });
+        let mut rgb = vec![0; 320 * 224 * 3];
+
+        render_vdp_into(&vdp, &mut rgb);
+
+        assert_eq!(
+            rgb[..3],
+            cram_rgb(&initial_cram, 1),
+            "a CRAM DMA completing after scanline 223 must retain final state without recolouring the already-rendered frame",
         );
     }
 

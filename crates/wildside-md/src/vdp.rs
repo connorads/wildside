@@ -11,10 +11,11 @@ pub struct VdpSnapshot {
     pub raster_frame: Option<VdpRasterFrame>,
 }
 
-/// VRAM state and ordered writes for a frame whose CPU work overlaps display.
+/// VDP state at visible scanout plus ordered VRAM writes during display.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VdpRasterFrame {
     pub initial_vram: Vec<u8>,
+    pub initial_cram: Option<Vec<u8>>,
     pub vram_word_writes: Vec<VdpRasterVramWordWrite>,
 }
 
@@ -84,11 +85,6 @@ pub(crate) struct WindowPlane {
 pub fn render_vdp_into(vdp: &VdpSnapshot, rgb: &mut [u8]) {
     let width = 320usize;
     let height = 224usize;
-    let background = cram_rgb(&vdp.cram, usize::from(vdp.registers[7] & 0x3F));
-    for pixel in rgb.chunks_exact_mut(3) {
-        pixel.copy_from_slice(&background);
-    }
-
     let plane_a_base = (usize::from(vdp.registers[2] & 0x38)) << 10;
     let plane_b_base = (usize::from(vdp.registers[4] & 0x07)) << 13;
     let window_base = window_plane_base(&vdp.registers);
@@ -102,9 +98,21 @@ pub fn render_vdp_into(vdp: &VdpSnapshot, rgb: &mut [u8]) {
     let mut raster_vdp = raster_frame.map(|raster_frame| {
         let mut raster_vdp = vdp.clone();
         raster_vdp.vram.clone_from(&raster_frame.initial_vram);
+        if let Some(initial_cram) = &raster_frame.initial_cram {
+            raster_vdp.cram.clone_from(initial_cram);
+        }
         raster_vdp.raster_frame = None;
         raster_vdp
     });
+    let background = cram_rgb(
+        raster_vdp
+            .as_ref()
+            .map_or(vdp.cram.as_slice(), |vdp| vdp.cram.as_slice()),
+        usize::from(vdp.registers[7] & 0x3F),
+    );
+    for pixel in rgb.chunks_exact_mut(3) {
+        pixel.copy_from_slice(&background);
+    }
     let initial_vram = raster_vdp
         .as_ref()
         .map_or(vdp.vram.as_slice(), |raster_vdp| raster_vdp.vram.as_slice());

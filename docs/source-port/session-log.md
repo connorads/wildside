@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 post-visible Sega CRAM DMA)
+
+- Oracle FIFO traces place the cold-boot `sub_1C204` palette DMA on lines
+  237-238, below visible scanout. The raster now samples pre-DMA CRAM while
+  keeping final CRAM as the state checkpoint.
+- Frames 39-53 are RGB-exact. The complete route improves to 24,123 exact
+  frames, 13,636 divergent frames, and 8,482,131 changed pixels; state and RNG
+  channels remain exact. NEXT: investigate frame 114's 24-pixel first mismatch.
+
 ## 2026-07-14 handoff (#406 Island shore DMA presentation)
 
 - Oracle FIFO traces place `loc_12098/loc_12110/loc_12188` commits on lines

@@ -158,6 +158,7 @@ pub(crate) fn vdp_snapshot_from_core(
             .as_ref()
             .map(|raster_frame| wildside_md::VdpRasterFrame {
                 initial_vram: raster_frame.initial_vram.clone(),
+                initial_cram: raster_frame.initial_cram.clone(),
                 vram_word_writes: raster_frame
                     .vram_word_writes
                     .iter()

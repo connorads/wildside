@@ -78,10 +78,13 @@ pub struct VdpState {
     pub raster_frame: Option<VdpRasterFrame>,
 }
 
-/// VRAM state and ordered FIFO writes for a frame that changes while displayed.
+/// VDP state at the start of visible scanout plus ordered writes while displayed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VdpRasterFrame {
     pub initial_vram: Vec<u8>,
+    /// CRAM sampled at the start of visible scanout when a later DMA only
+    /// changes the post-frame VDP state.
+    pub initial_cram: Option<Vec<u8>>,
     pub vram_word_writes: Vec<VdpRasterVramWordWrite>,
 }
 
@@ -858,10 +861,34 @@ fn build_intro_sequence_1_vdp_at_elapsed(
     // after `Load_SegaScreen` hands off at loc_12EDE. The ROM-visible VDP
     // output keeps the Sega palette fade on screen first, then holds black
     // before sub_1C204 fades Pal_1C28A into CRAM for the Wild Side scene.
-    if elapsed < INTRO_SEQUENCE_1_SEGA_FADE_OUT_ELAPSED {
+    let cold_boot = fade_in_start_elapsed == INTRO_SEQUENCE_1_COLD_BOOT_FADE_IN_START_ELAPSED;
+    if elapsed < INTRO_SEQUENCE_1_SEGA_FADE_OUT_ELAPSED
+        || (cold_boot && elapsed == INTRO_SEQUENCE_1_SEGA_FADE_OUT_ELAPSED)
+    {
         let mut vdp = build_sega_screen_vdp(sega_data, SEGA_SCREEN_INTRO_HANDOFF_ELAPSED + elapsed);
-        if elapsed >= INTRO_SEQUENCE_1_SEGA_FADE_START_ELAPSED {
+        if elapsed == INTRO_SEQUENCE_1_SEGA_FADE_OUT_ELAPSED {
+            // ASM sub_1C204 returns through loc_1C240 after its last hibernate.
+            // The following visible frame still scans the resident Sega planes;
+            // the IntroSequence1 black interval begins on the next frame.
+            apply_intro_sequence_1_sega_fade_out_loc_1c204(&mut vdp, elapsed - 1);
+        } else if elapsed >= INTRO_SEQUENCE_1_SEGA_FADE_START_ELAPSED {
+            let mut visible_vdp = vdp.clone();
+            if elapsed > INTRO_SEQUENCE_1_SEGA_FADE_START_ELAPSED {
+                apply_intro_sequence_1_sega_fade_out_loc_1c204(&mut visible_vdp, elapsed - 1);
+            }
             apply_intro_sequence_1_sega_fade_out_loc_1c204(&mut vdp, elapsed);
+            if cold_boot {
+                // ASM sub_1C204 (kid.asm:31084-31113) changes Palette_Buffer,
+                // then Palette_to_VRAM's CRAM DMA completes on oracle scanlines
+                // 237-238. Those writes are below the 224-line visible field:
+                // retain the post-DMA CRAM for state parity but rasterise this
+                // frame from the pre-DMA palette.
+                vdp.raster_frame = Some(VdpRasterFrame {
+                    initial_vram: vdp.vram.clone(),
+                    initial_cram: Some(visible_vdp.cram),
+                    vram_word_writes: Vec::new(),
+                });
+            }
         }
         return vdp;
     }
@@ -2885,6 +2912,7 @@ fn overlay_intro_sequence_5_tile_worker_loc_1BC36(
             }
             vdp.raster_frame = Some(VdpRasterFrame {
                 initial_vram,
+                initial_cram: None,
                 vram_word_writes,
             });
         }
@@ -3629,6 +3657,7 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
         let writes = title_menu_tilemap_word_writes_loc_1bb52(&data.title_menu_tilemap_words);
         vdp.raster_frame = Some(VdpRasterFrame {
             initial_vram,
+            initial_cram: None,
             vram_word_writes: schedule_h40_vram_fifo_word_writes(&writes, 81, 220),
         });
     }
@@ -3763,6 +3792,7 @@ pub(crate) fn build_intro_sequence_6_vdp_with_character_frame(
         vram_word_writes.sort_unstable_by_key(|write| (write.scanline, write.pixel));
         vdp.raster_frame = Some(VdpRasterFrame {
             initial_vram: initial_vdp.vram,
+            initial_cram: None,
             vram_word_writes,
         });
     }
@@ -4875,6 +4905,28 @@ mod tests {
             expected,
             "ASM Load_SegaScreen loc_12EDE enters sub_1C204 on cold-boot elapsed 3, so the Sega CRAM must have taken the first fade-out step",
         );
+
+        let initial_cram = vdp
+            .raster_frame
+            .as_ref()
+            .and_then(|raster| raster.initial_cram.as_ref())
+            .expect("post-visible CRAM DMA should retain the palette used for visible scanout");
+        assert_eq!(
+            u16::from_be_bytes([initial_cram[2], initial_cram[3]]),
+            0x0EEE,
+            "ASM sub_1C204's palette DMA completes below the visible field, so elapsed 3 rasterises the pre-fade Sega palette",
+        );
+
+        let next_vdp = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 4);
+        let next_initial_cram = next_vdp
+            .raster_frame
+            .as_ref()
+            .and_then(|raster| raster.initial_cram.as_ref())
+            .expect("each sub_1C204 fade DMA should retain the prior visible palette");
+        assert_eq!(
+            next_initial_cram, &vdp.cram,
+            "ASM sub_1C204 at the next VBlank presents the preceding post-DMA palette before completing its own below-field transfer",
+        );
     }
 
     #[test]
@@ -4896,15 +4948,31 @@ mod tests {
     }
 
     #[test]
-    fn intro_sequence_1_cold_boot_holds_black_before_wild_side_fade_loc_1c204() {
+    fn intro_sequence_1_cold_boot_keeps_resident_sega_frame_before_black_loc_1c204() {
         let intro = empty_intro_data();
         let sega = minimal_sega_data();
 
-        let vdp = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 17);
+        let resident_sega = build_intro_sequence_1_cold_boot_vdp_at_elapsed(
+            &intro,
+            &sega,
+            1,
+            INTRO_SEQUENCE_1_SEGA_FADE_OUT_ELAPSED,
+        );
+        assert!(
+            resident_sega.cram.iter().any(|byte| *byte != 0),
+            "ASM sub_1C204 returns after its final hibernate, so the resident Sega VDP is still presented for one frame",
+        );
+
+        let vdp = build_intro_sequence_1_cold_boot_vdp_at_elapsed(
+            &intro,
+            &sega,
+            1,
+            INTRO_SEQUENCE_1_SEGA_FADE_OUT_ELAPSED + 1,
+        );
 
         assert!(
             vdp.cram.iter().all(|byte| *byte == 0),
-            "ASM sub_1B8F4/sub_1C204 leaves a black VDP window between the Sega fade-out and the Pal_1C28A fade-in",
+            "ASM sub_1B8F4/sub_1C204 starts the black VDP window after the final resident Sega frame and before the Pal_1C28A fade-in",
         );
     }
 
