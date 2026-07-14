@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 IntroSequence6 lightning tail)
+
+- Frame 21077 exposed a timeout-restart `loc_1B37C` phase error. CRAM and
+  VSRAM matched; only `sub_1B41C`'s 128-byte VRAM `$17A0` upload differed.
+- The lightning worker now uses its four-frame lineage advance and preserves
+  ASM `loc_1B3BC`'s closing `0,1,0,2,0` uploads. Eight sampled boundaries from
+  20942..21089 are pixel-exact.
+- Full verification gains 71 exact frames and removes 271,546 changed pixels:
+  23,895 exact, 13,864 divergent, and 9,556,948 changed. All state channels
+  remain exact. Frame 16534 is now worst at 7,420 pixels. NEXT: keep #406 open
+  and trace that visual frontier.
+
 ## 2026-07-14 handoff (#406 direct IntroSequence5 title clock)
 
 - Frame 10345 exposed a one-pass renderer lag on the ordinary timeout-restart

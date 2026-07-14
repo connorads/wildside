@@ -2747,7 +2747,7 @@ impl NativeRuntime {
         // subsequent lightning upload off its oracle-backed cadence.
         if entered_from_timeout_restart && carry_timeout_restart_hidden_camera_wrap {
             elapsed.saturating_add(
-                TIMEOUT_RESTART_INTRO_SEQUENCE_6_EARLY_WORKER_PRESENTATION_ADVANCE_FRAMES,
+                TIMEOUT_RESTART_INTRO_SEQUENCE_6_EARLY_LIGHTNING_PRESENTATION_ADVANCE_FRAMES,
             )
         } else {
             elapsed
@@ -2761,25 +2761,37 @@ impl NativeRuntime {
         const LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES: usize = 49;
         const LOC_1B3BC_FIRST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES: usize =
             LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES + 3;
-        const LOC_1B3BC_LAST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES: usize =
-            LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES + ((0x002C + 1) * 3) + 2;
+        const LOC_1B3BC_LOOP_FLASH_COUNT: usize = 0x002C + 1;
+        const LOC_1B3BC_CLOSING_FLASH_START_TITLE_ELAPSED_FRAMES: usize =
+            LOC_1B3BC_FIRST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES
+                + LOC_1B3BC_LOOP_FLASH_COUNT * 3;
 
         let sequence = crate::boot::title_screen_lightning_sequence_loc_1B37C();
-        if (LOC_1B3BC_FIRST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES
-            ..=LOC_1B3BC_LAST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES)
-            .contains(&title_screen_elapsed_frames)
-        {
-            // ASM loc_1B3BC (kid.asm:29608): after the opening flashes, the
-            // DBF loop uploads `(d1 & 3) + 1` for d1=$2C..0. Oracle WRAM at
-            // cold-boot frames 2460/2520/2580 shows this loop starts on native
-            // title elapsed 49 and keeps d1=0's flash visible while hibernating
-            // before the first post-loop zero upload.
-            let loop_uploads =
-                (title_screen_elapsed_frames - LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES) / 3;
-            let d1 = 0x002C_u16
-                .saturating_add(1)
-                .saturating_sub(loop_uploads.try_into().unwrap_or(u16::MAX));
-            return ((d1 & 3) + 1) as u8;
+        if title_screen_elapsed_frames >= LOC_1B3BC_FIRST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES {
+            if title_screen_elapsed_frames < LOC_1B3BC_CLOSING_FLASH_START_TITLE_ELAPSED_FRAMES {
+                // ASM loc_1B3BC (kid.asm:29608): after the opening flashes,
+                // the DBF loop uploads `(d1 & 3) + 1` for d1=$2C..0. Oracle
+                // WRAM at cold-boot frames 2460/2520/2580 shows this loop
+                // starts on native title elapsed 49 and keeps d1=0's flash
+                // visible while hibernating before the post-loop zero upload.
+                let loop_uploads =
+                    (title_screen_elapsed_frames - LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES) / 3;
+                let d1 = 0x002C_u16
+                    .saturating_add(1)
+                    .saturating_sub(loop_uploads.try_into().unwrap_or(u16::MAX));
+                return ((d1 & 3) + 1) as u8;
+            }
+
+            // ASM loc_1B3BC -> loc_1B37C (kid.asm:29613-29635): after DBF
+            // expires, present the five closing uploads `0,1,0,2,0`, each
+            // after its own three-frame hibernate, then retain frame 0 when
+            // the worker deletes itself. Use the canonical script tail so the
+            // reconstructed VDP cannot silently omit this closing sequence.
+            let closing_index = (title_screen_elapsed_frames
+                - LOC_1B3BC_CLOSING_FLASH_START_TITLE_ELAPSED_FRAMES)
+                / 3;
+            return sequence.steps[4 + LOC_1B3BC_LOOP_FLASH_COUNT + closing_index.min(4)]
+                .flash_frame;
         }
         // ASM loc_1BA90's intro-5 fade hold precedes Load_IntroSequence6, and
         // loc_1B37C then begins with `j_Hibernate_Object #3` before its first

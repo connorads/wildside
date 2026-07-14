@@ -6542,8 +6542,9 @@ mod chunk_02 {
                 NativeRuntime::intro_sequence_6_lightning_presentation_elapsed_loc_1b37c_for_lineage(
                     elapsed, true, true,
                 ),
-                elapsed + TIMEOUT_RESTART_INTRO_SEQUENCE_6_EARLY_WORKER_PRESENTATION_ADVANCE_FRAMES,
-                "ASM loc_1B37C timeout-restart presentation clock should stay two frames ahead at local frame {elapsed}",
+                elapsed
+                    + TIMEOUT_RESTART_INTRO_SEQUENCE_6_EARLY_LIGHTNING_PRESENTATION_ADVANCE_FRAMES,
+                "ASM loc_1B37C timeout-restart presentation clock should stay four frames ahead at local frame {elapsed}",
             );
         }
 
@@ -8171,6 +8172,42 @@ mod chunk_02 {
                 (10_353, 0x00BC, 0x4451),
             ],
             "ASM Load_TitleScreen allocates Obj_TitleTextChameleon before the first resumed Mode_Standard -> Execute_Objects loc_E12 pass; oracle VRAM shows the base loc_1B258 fill on frame 10345, then sub_1B71A advances on frames 10346, 10349, and 10353",
+        );
+    }
+
+    #[test]
+    fn published_tas_timeout_restart_intro_sequence_6_closes_loc_1b37c_lightning_script() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().take(21_090).enumerate() {
+            runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(
+                frame_index,
+                20_942 | 20_945 | 21_074 | 21_077 | 21_080 | 21_083 | 21_086 | 21_089
+            ) {
+                let vdp = runtime
+                    .vdp_state()
+                    .expect("timeout-restart IntroSequence6 should expose VDP state");
+                samples.push((frame_index, crc32fast::hash(&vdp.vram[0x17A0..0x1820])));
+            }
+        }
+
+        assert_eq!(
+            samples,
+            [
+                (20_942, 0x5B28_E4F3),
+                (20_945, 0x531E_CAD1),
+                (21_074, 0x5B28_E4F3),
+                (21_077, 0x9BC4_B262),
+                (21_080, 0x5B28_E4F3),
+                (21_083, 0x9BC4_B262),
+                (21_086, 0x20A6_2734),
+                (21_089, 0x9BC4_B262),
+            ],
+            "ASM loc_1B3BC should retain its three-frame DBF cadence, then loc_1B37C should present closing sub_1B41C frames 0,1,0,2,0 on the oracle-derived published frames",
         );
     }
 

@@ -82,6 +82,13 @@ pub(crate) const INTRO_SEQUENCE_6_POST_LOADER_RNG_FIRST_LIVE_FRAME: usize = 33;
 /// sub_1B43A's first sub_1BF24 mapping on local frame 33 instead of 35.
 pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_EARLY_WORKER_PRESENTATION_ADVANCE_FRAMES: usize =
     2;
+/// `loc_1B37C` is allocated beside `sub_1B43A`, but its first timeout-restart
+/// presentation is four frames ahead of the cold reconstruction clock. Oracle
+/// VRAM keeps every `sub_1B41C` upload on a three-frame boundary from published
+/// frames 20942 through 21089; using the mapping worker's two-frame correction
+/// leaves the lightning strip two frames late.
+pub(crate) const TIMEOUT_RESTART_INTRO_SEQUENCE_6_EARLY_LIGHTNING_PRESENTATION_ADVANCE_FRAMES:
+    usize = 4;
 /// The later early-title-restore revisit reaches `Load_IntroSequence6` with a
 /// three-frame delayed worker shell: oracle keeps the complete RNG ring fixed
 /// through local frames 33..35, exposes the three allocations on frame 35,

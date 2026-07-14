@@ -623,6 +623,30 @@ Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG` frames remain
 exact. Frame 39 remains first at 2,643 pixels; frame 21077 is now worst at
 8,118 pixels, so #406 remains open.
 
+Progress 2026-07-14: frame 21077 belonged to the closing timeout-restart
+IntroSequence6 lightning sequence. Direct VDP comparison ruled out palette,
+scroll, and character mapping: CRAM and VSRAM were exact, while only the
+128-byte `sub_1B41C` upload at VRAM `$17A0` differed. The complete oracle VRAM
+timeline showed native's three-frame flash cadence two presentation frames
+late from frames 20942..21078, then stuck on frame 0 instead of running the
+closing flashes.
+
+ASM `loc_1B37C -> loc_1B3BC` gives the lightning object its own three-frame
+hibernations and, after the 45-step DBF loop, explicitly uploads `0,1,0,2,0`
+before deleting itself. Native had reused sibling `sub_1B43A`'s two-frame
+timeout-lineage correction and fallen back to an already exhausted full
+script, silently omitting that tail. The lightning worker now has its
+oracle-derived four-frame presentation advance and indexes the canonical
+five-step script tail. Regression
+`published_tas_timeout_restart_intro_sequence_6_closes_loc_1b37c_lightning_script`
+first failed at every affected boundary and now passes. Sampled frames
+20942, 20945, 21074, 21077, 21080, 21083, 21086, and 21089 are pixel-exact.
+Full verification gains 71 exact frames and removes 271,546 changed pixel
+instances: 23,895 exact, 13,864 divergent, and 9,556,948 changed pixels.
+Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG` frames remain
+exact. Frame 39 remains first at 2,643 pixels; frame 16534 is now worst at
+7,420 pixels, so #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.
