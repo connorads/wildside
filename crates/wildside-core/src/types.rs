@@ -1852,6 +1852,10 @@ pub struct NativeTraceFrame {
     /// `loc_1202A` Island shore DMA uploads emitted on this frame.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub island_shore_dma_uploads_loc_1202a: Vec<IslandShoreDmaUploadLoc1202A>,
+    /// The current shore DMA trace event is frame-aligned with the oracle's
+    /// post-visible FIFO commit and becomes visible on the following frame.
+    #[serde(default)]
+    pub island_shore_post_visible_dma_latch_loc_1202a: bool,
     /// `Init_SpecialEffect_Lava loc_14C6A` lava-art upload emitted on this frame.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub lava_geyser_art_uploads_loc_14c6a: Vec<LavaGeyserArtUploadLoc14C6A>,
@@ -2147,6 +2151,7 @@ impl Default for NativeTraceFrame {
             island_shore_cycle_state_loc_1202a: None,
             island_shore_vram_frames_loc_1202a: None,
             island_shore_dma_uploads_loc_1202a: Vec::new(),
+            island_shore_post_visible_dma_latch_loc_1202a: false,
             lava_geyser_art_uploads_loc_14c6a: Vec::new(),
             rotate_palette_lava_water_state_loc_1223c: None,
             lava_water_palette_words_loc_1223c: None,

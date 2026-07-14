@@ -463,6 +463,45 @@ fn published_tas_knights_isle_demo_runs_island_shore_object_loc_11fb0_1202a() {
 }
 
 #[test]
+fn published_tas_island_shore_dma_clock_tracks_demo_lineages_loc_1202a() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut samples = Vec::new();
+    for (frame_index, mask) in script.iter().copied().enumerate().take(22_153) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if matches!(
+            frame_index,
+            2_921 | 2_922 | 2_923 | 7_604 | 7_605 | 22_151 | 22_152
+        ) {
+            samples.push((
+                frame_index,
+                trace
+                    .island_shore_dma_uploads_loc_1202a
+                    .iter()
+                    .map(|upload| upload.vram_word_address)
+                    .collect::<Vec<_>>(),
+                trace.island_shore_post_visible_dma_latch_loc_1202a,
+            ));
+        }
+    }
+
+    assert_eq!(
+        samples,
+        vec![
+            (2_921, vec![], false),
+            (2_922, vec![0xF600, 0xF760], false),
+            (2_923, vec![], false),
+            (7_604, vec![], false),
+            (7_605, vec![], false),
+            (22_151, vec![], false),
+            (22_152, vec![0xF600, 0xF760], true),
+        ],
+        "ASM loc_12098/loc_12110/loc_12188 ordinary post-update events are already one frame behind the FIFO commit, while the IntroSequence6 hidden-camera-wrap event is frame-aligned and needs a post-visible render latch"
+    );
+}
+
+#[test]
 fn cold_boot_intro_sequence_6_enters_demo_play_on_frame_3270() {
     let mut runtime = NativeRuntime::new(manifest());
     let mut frame_3269 = None;

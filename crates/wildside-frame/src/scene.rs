@@ -1143,6 +1143,7 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.hud_diamond_frame_offset = previous_trace.hud_diamond_frame_offset;
         render_trace.hud_timer_sprite_seconds_loc_bee8 =
             previous_trace.hud_timer_sprite_seconds_loc_bee8;
+        latch_island_shore_vram_bands_loc_1202a(&mut render_trace, trace, previous_trace);
         if trace.form_change_flash_frames > 0 && previous_trace.form_change_flash_frames > 0 {
             // ASM Kid_Transform loc_7CD0 hibernates the player coroutine while
             // Mode_Level still reaches loc_80C/sub_44DC. Oracle frames show
@@ -1181,6 +1182,37 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         }
     }
     render_trace
+}
+
+fn latch_island_shore_vram_bands_loc_1202a(
+    render_trace: &mut NativeTraceFrame,
+    trace: &NativeTraceFrame,
+    previous_trace: &NativeTraceFrame,
+) {
+    if !trace.island_shore_post_visible_dma_latch_loc_1202a {
+        return;
+    }
+    let (Some(mut visible_frames), Some(previous_frames)) = (
+        trace.island_shore_vram_frames_loc_1202a,
+        previous_trace.island_shore_vram_frames_loc_1202a,
+    ) else {
+        return;
+    };
+
+    // ASM loc_12098/loc_12110/loc_12188 issue the `$F600/$F6C0/$F760`
+    // DMAs after their one-frame hibernate. Direct oracle FIFO traces place
+    // these commits on scanlines 241..246, below the 224-line visible field.
+    // Retain only the bands uploaded on this pass: other tuple components can
+    // legitimately change at level/presentation boundaries without a DMA.
+    for upload in &trace.island_shore_dma_uploads_loc_1202a {
+        match upload.vram_word_address {
+            0xF600 => visible_frames.0 = previous_frames.0,
+            0xF6C0 => visible_frames.1 = previous_frames.1,
+            0xF760 => visible_frames.2 = previous_frames.2,
+            _ => {}
+        }
+    }
+    render_trace.island_shore_vram_frames_loc_1202a = Some(visible_frames);
 }
 
 fn latch_previous_sprite_sources_loc_901(
@@ -8302,7 +8334,10 @@ mod tests {
     use std::collections::{BTreeMap, BTreeSet, HashMap};
 
     use super::*;
-    use wildside_core::{BlockBounceTrace, HeadyMetalDeathPieceTrace, HeadyMetalDeathSplitTrace};
+    use wildside_core::{
+        BlockBounceTrace, HeadyMetalDeathPieceTrace, HeadyMetalDeathSplitTrace,
+        IslandShoreDmaUploadLoc1202A,
+    };
     use wildside_data::BackgroundLayoutAlias;
     use wildside_render::{
         AnimatedSpriteVisual, BackgroundChunk, BackgroundPlacement, BackgroundTile,
@@ -8338,6 +8373,61 @@ mod tests {
         assert_eq!(
             render_trace.level_entry_fade_progress_sub_73d0,
             Some(0x00E0)
+        );
+    }
+
+    #[test]
+    fn island_shore_render_latches_only_post_visible_dma_bands_loc_1202a() {
+        let mut previous = NativeTraceFrame {
+            game_mode: GameMode::DemoPlay,
+            game_mode_value: GameMode::DemoPlay.as_disassembly_value(),
+            current_level: wildside_core::LevelId(0x15),
+            island_shore_vram_frames_loc_1202a: Some((2, 2, 1)),
+            ..NativeTraceFrame::default()
+        };
+        let mut trace = previous.clone();
+        trace.island_shore_vram_frames_loc_1202a = Some((3, 3, 2));
+        trace.island_shore_post_visible_dma_latch_loc_1202a = true;
+        trace.island_shore_dma_uploads_loc_1202a = vec![
+            IslandShoreDmaUploadLoc1202A {
+                frame_index: 3,
+                art_source_label: "unk_980F0".to_owned(),
+                source_offset: 0xC2,
+                vram_word_address: 0xF6C0,
+                dma_length_bytes: 0xA0,
+            },
+            IslandShoreDmaUploadLoc1202A {
+                frame_index: 2,
+                art_source_label: "unk_97E0E".to_owned(),
+                source_offset: 0x162,
+                vram_word_address: 0xF760,
+                dma_length_bytes: 0x180,
+            },
+        ];
+
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
+
+        assert_eq!(
+            render_trace.island_shore_vram_frames_loc_1202a,
+            Some((3, 2, 1)),
+            "ASM loc_12110/loc_12188 DMAs commit below the visible field, so only their middle/lower bands retain previous VRAM; the non-uploaded primary band stays current"
+        );
+
+        previous.island_shore_vram_frames_loc_1202a = Some((3, 2, 1));
+        trace.island_shore_vram_frames_loc_1202a = Some((0, 2, 1));
+        trace.island_shore_dma_uploads_loc_1202a = vec![IslandShoreDmaUploadLoc1202A {
+            frame_index: 0,
+            art_source_label: "unk_9784A".to_owned(),
+            source_offset: 2,
+            vram_word_address: 0xF600,
+            dma_length_bytes: 0xC0,
+        }];
+
+        let primary_render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
+        assert_eq!(
+            primary_render_trace.island_shore_vram_frames_loc_1202a,
+            previous.island_shore_vram_frames_loc_1202a,
+            "ASM loc_12098's post-visible `$F600` DMA retains only the previous primary band"
         );
     }
 

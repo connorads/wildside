@@ -1462,6 +1462,7 @@ mod tests {
             game_mode: GameMode::TitleScreen,
             game_mode_value: GameMode::TitleScreen.as_disassembly_value(),
             time_frames_loc_3038a: 0,
+            island_shore_post_visible_dma_latch_loc_1202a: false,
             start_press_count: 0,
             boot_phase: None,
             boot_phase_elapsed: None,

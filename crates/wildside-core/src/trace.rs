@@ -8629,6 +8629,13 @@ impl NativeRuntime {
                 )
             }),
             island_shore_dma_uploads_loc_1202a: self.island_shore_dma_uploads_loc_1202a.clone(),
+            // ASM loc_12098/loc_12110/loc_12188 commit below the visible
+            // field. Ordinary Demo 1's post-update trace event is already one
+            // frame later than the FIFO commit, but the IntroSequence6 hidden
+            // camera-wrap lineage is frame-aligned and needs a render latch.
+            island_shore_post_visible_dma_latch_loc_1202a: self
+                .demo_uses_intro_sequence_6_hidden_camera_wrap
+                && !self.island_shore_dma_uploads_loc_1202a.is_empty(),
             lava_geyser_art_uploads_loc_14c6a: self.lava_geyser_art_uploads_loc_14c6a.clone(),
             rotate_palette_lava_water_state_loc_1223c: self
                 .rotate_palette_lava_water_loc_1223c

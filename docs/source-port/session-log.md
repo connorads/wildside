@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 Island shore DMA presentation)
+
+- Oracle FIFO traces place `loc_12098/loc_12110/loc_12188` commits on lines
+  241-246. Ordinary native trace events are already one frame later; the
+  IntroSequence6 hidden-camera-wrap event is frame-aligned and now latches
+  only uploaded bands for one visible frame.
+- A full-route per-frame subtraction rejected a global counter advance: it
+  moved four `$F6C0` events across transformation hibernation and regressed
+  four 81-frame plateaus. The DMA event vector is now frame-local, and focused
+  tests pin ordinary, cleared, and wrapped events.
+- Full verification gains one exact frame and removes 166,209 changed pixels:
+  24,108 exact, 13,651 divergent, and 8,503,185 changed. All state and RNG
+  channels remain exact. Frame 22152 falls from 4,140 to 90 pixels. NEXT: keep
+  #406 open and inspect frame 39, now worst at 2,643 pixels.
+
 ## 2026-07-14 handoff (#406 title-menu loc_1BB52 raster activation)
 
 - Oracle frame 28764 ends with the menu in VRAM but presents the bare title:

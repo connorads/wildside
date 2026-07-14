@@ -13,6 +13,30 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-14: direct oracle FIFO tracing resolves the Knight's Isle
+shore timing ambiguity. `loc_12098/loc_12110/loc_12188` commits at VRAM
+`$F600/$F6C0/$F760` on scanlines 241-246, below the 224-line visible field.
+Ordinary Demo 1 FIFO commits precede native post-update trace events by one
+frame, so their immediate native presentation is already correct. The
+IntroSequence6 hidden-camera-wrap lineage is the exception: oracle and native
+both emit the `(3,2,2)` `$F600/$F760` event on frame 22152, so only that typed
+lineage retains the previously visible uploaded bands for the current frame.
+
+The full-route subtraction rejected a global counter advance. It moved four
+ordinary `$F6C0` uploads across transformation hibernation, regressing exactly
+81 frames by 597 pixels on each visit. A focused FIFO trace proves oracle
+commits `$F6C0` on frame 7685 at line 246; the prior native event on frame 7686
+already presents the correct next visible frame. The frame-local DMA vector is
+also cleared at each runtime step so a hibernating object cannot repeat a stale
+event. Cache-backed tests pin ordinary frame 2922, the cleared frame 2923, and
+the wrapped frame 22152; the renderer test pins per-band post-visible latching.
+
+Full verification gains one exact frame and removes 166,209 changed pixel
+instances: 24,108 exact, 13,651 divergent, and 8,503,185 changed. All 37,759
+player/camera, typed gameplay, and enemy frames plus all 37,743 post-`Init_RNG`
+frames remain exact. Frame 22152 falls from 4,140 to 90 changed pixels. Frame
+39 is the new worst at 2,643 pixels, so #406 remains open.
+
 Investigation follow-up 2026-07-14: direct pixel inspection corrected the
 initial visual diagnosis at frame 22152. Its 4,140-pixel difference is the
 Island shore animation, not blank Plane B regions. Native trace state crosses

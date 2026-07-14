@@ -3204,6 +3204,10 @@ impl NativeRuntime {
         let transform_hibernating_at_frame_start =
             self.object_pass_hibernating_for_transform_loc_7e90();
         self.pending_demo_timer_tick_result_loc_be82 = None;
+        // ASM loc_12098/loc_12110/loc_12188 DMA requests are emitted by one
+        // Execute_Objects pass. Do not retain them across frames whose object
+        // pass skips the shore worker, including transformation hibernation.
+        self.island_shore_dma_uploads_loc_1202a.clear();
         if self.opening_slice.is_some()
             && matches!(
                 self.boot_state,
