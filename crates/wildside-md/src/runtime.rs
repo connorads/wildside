@@ -2542,6 +2542,13 @@ mod tests {
         vram[base + 6..base + 8].copy_from_slice(&((xpos + 128) as u16).to_be_bytes());
     }
 
+    fn sprite_fetch_indices(scan: &SpriteLineScan, line: usize) -> Vec<u8> {
+        scan.sprites_on_line(line)
+            .iter()
+            .map(|fetch| fetch.entry_index)
+            .collect()
+    }
+
     fn assert_close(actual: f32, expected: f32, epsilon: f32) {
         assert!(
             (actual - expected).abs() <= epsilon,
@@ -4925,20 +4932,18 @@ mod tests {
         assert_eq!(scan.entries[0].ypos, 5);
         assert_eq!(scan.entries[0].width_tiles, 2);
         assert_eq!(scan.entries[0].height_tiles, 3);
-        assert_eq!(scan.entries[0].width_pixels, 16);
         assert_eq!(scan.entries[0].height_pixels, 24);
         assert_eq!(scan.entries[0].pattern, 0x0123);
         assert_eq!(scan.entries[1].xpos, 11);
         assert_eq!(scan.entries[1].ypos, -4);
         assert_eq!(scan.entries[1].width_tiles, 1);
         assert_eq!(scan.entries[1].height_tiles, 2);
-        assert_eq!(scan.entries[1].width_pixels, 8);
         assert_eq!(scan.entries[1].height_pixels, 16);
         assert_eq!(scan.entries[1].pattern, 0x0456);
-        assert_eq!(scan.sprites_on_line(4), &[1]);
-        assert_eq!(scan.sprites_on_line(5), &[0, 1]);
-        assert_eq!(scan.sprites_on_line(12), &[0]);
-        assert_eq!(scan.sprites_on_line(23), &[0]);
+        assert_eq!(sprite_fetch_indices(&scan, 4), [1]);
+        assert_eq!(sprite_fetch_indices(&scan, 5), [0, 1]);
+        assert_eq!(sprite_fetch_indices(&scan, 12), [0]);
+        assert_eq!(sprite_fetch_indices(&scan, 23), [0]);
     }
 
     #[test]
@@ -4974,8 +4979,10 @@ mod tests {
             "H40 VDP scanlines expose at most 20 sprites; the 21st linked sprite must be dropped from the line list"
         );
         assert_eq!(
-            scan.sprites_on_line(0).last(),
-            Some(&u8::try_from(crate::vdp::MAX_SPRITES_PER_LINE - 1).expect("cap fits in u8"))
+            scan.sprites_on_line(0)
+                .last()
+                .map(|fetch| fetch.entry_index),
+            Some(u8::try_from(crate::vdp::MAX_SPRITES_PER_LINE - 1).expect("cap fits in u8"))
         );
     }
 
@@ -5007,9 +5014,51 @@ mod tests {
             "VDP sprite link traversal should still parse sprites after the scanline exceeds the H40 sprite-pixel budget"
         );
         assert_eq!(
-            scan.sprites_on_line(0),
-            &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            sprite_fetch_indices(&scan, 0),
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
             "Mega Drive H40 VDP exposes at most 320 sprite pixels per scanline, so the eleventh 32px sprite is dropped even before the 20-sprite count cap"
+        );
+    }
+
+    #[test]
+    fn sprite_line_scan_fetches_partial_final_sprite_at_h40_tile_budget() {
+        let mut vdp = blank_vdp_snapshot();
+        let sprite_table_base = 0x3000;
+        for sprite_index in 0..9 {
+            write_sprite_entry(
+                &mut vdp.vram,
+                sprite_table_base,
+                sprite_index,
+                0,
+                0x0C00 | u16::try_from(sprite_index + 1).expect("sprite link fits"),
+                0,
+                0,
+            );
+        }
+        write_sprite_entry(&mut vdp.vram, sprite_table_base, 9, 0, 10, 0, 0);
+        write_sprite_entry(&mut vdp.vram, sprite_table_base, 10, 0, 0x0C00, 100, 100);
+        set_tile_pixel(&mut vdp.vram, 102, 0, 0, 1);
+        set_tile_pixel(&mut vdp.vram, 103, 0, 0, 1);
+        write_cram_colour(&mut vdp.cram, 1, 0xEEE);
+
+        let scan = SpriteLineScan::build(&vdp.vram, sprite_table_base, 8, 320);
+        let line_sprites = scan.sprites_on_line(0);
+
+        assert_eq!(
+            line_sprites.last().map(|fetch| fetch.fetched_width_tiles),
+            Some(3),
+            "the phase-3 fetch model should retain the partial width of the final sprite",
+        );
+
+        assert_eq!(
+            crate::vdp::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 116, 0, false),
+            Some([0xFF, 0xFF, 0xFF]),
+            "Mega Drive H40 fetches the first three tiles of a four-tile sprite when 24 of the 320 sprite pixels remain",
+        );
+        assert_eq!(
+            crate::vdp::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 124, 0, false),
+            None,
+            "the fourth tile must remain unfetched after the H40 sprite-pixel budget is exhausted",
         );
     }
 

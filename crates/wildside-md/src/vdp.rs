@@ -447,17 +447,23 @@ pub(crate) const MAX_SPRITES_PER_LINE: usize = 20;
 pub(crate) struct SpriteEntry {
     pub(crate) xpos: i32,
     pub(crate) ypos: i32,
-    pub(crate) width_pixels: i32,
     pub(crate) height_pixels: i32,
     pub(crate) width_tiles: usize,
     pub(crate) height_tiles: usize,
     pub(crate) pattern: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SpriteLineFetch {
+    pub(crate) entry_index: u8,
+    pub(crate) fetched_width_tiles: usize,
+}
+
 pub(crate) struct SpriteLineScan {
     pub(crate) entries: Vec<SpriteEntry>,
-    // Per-scanline: indices into `entries` for sprites visible on that line.
-    pub(crate) line_indices: Vec<Vec<u8>>,
+    // Per-scanline phase-3 fetches after the 20-sprite scan cap and 40-tile
+    // H40 fetch budget. The final sprite can be only partially fetched.
+    pub(crate) line_fetches: Vec<Vec<SpriteLineFetch>>,
 }
 
 impl SpriteLineScan {
@@ -468,8 +474,10 @@ impl SpriteLineScan {
         sprite_pixels_per_line: usize,
     ) -> Self {
         let mut entries = Vec::with_capacity(MAX_SPRITES);
-        let mut line_indices = vec![Vec::new(); screen_height];
-        let mut line_sprite_pixels = vec![0usize; screen_height];
+        let mut line_fetches = vec![Vec::new(); screen_height];
+        let mut line_scanned_sprites = vec![0usize; screen_height];
+        let mut line_fetched_tiles = vec![0usize; screen_height];
+        let max_fetched_tiles = sprite_pixels_per_line / 8;
         let mut sprite_index = 0usize;
         let mut visited = [false; MAX_SPRITES];
 
@@ -487,14 +495,12 @@ impl SpriteLineScan {
             let next_link = usize::from(size_link & 0x7F);
             let width_tiles = usize::from(((size_link >> 10) & 0x03) + 1);
             let height_tiles = usize::from(((size_link >> 8) & 0x03) + 1);
-            let width_pixels = (width_tiles * 8) as i32;
             let height_pixels = (height_tiles * 8) as i32;
 
             let entry_idx = entries.len() as u8;
             entries.push(SpriteEntry {
                 xpos,
                 ypos,
-                width_pixels,
                 height_pixels,
                 width_tiles,
                 height_tiles,
@@ -503,16 +509,26 @@ impl SpriteLineScan {
 
             let top = ypos.max(0) as usize;
             let bottom = ((ypos + height_pixels) as usize).min(screen_height);
-            for (line, sprite_pixels) in line_indices[top.min(bottom)..bottom]
+            for ((fetches, scanned_sprites), fetched_tiles) in line_fetches[top.min(bottom)..bottom]
                 .iter_mut()
-                .zip(&mut line_sprite_pixels[top.min(bottom)..bottom])
+                .zip(&mut line_scanned_sprites[top.min(bottom)..bottom])
+                .zip(&mut line_fetched_tiles[top.min(bottom)..bottom])
             {
-                if line.len() < MAX_SPRITES_PER_LINE
-                    && sprite_pixels.saturating_add(width_pixels as usize) <= sprite_pixels_per_line
-                {
-                    line.push(entry_idx);
-                    *sprite_pixels += width_pixels as usize;
+                if *scanned_sprites >= MAX_SPRITES_PER_LINE {
+                    continue;
                 }
+                *scanned_sprites += 1;
+
+                let remaining_tiles = max_fetched_tiles.saturating_sub(*fetched_tiles);
+                let fetched_width_tiles = width_tiles.min(remaining_tiles);
+                if fetched_width_tiles == 0 {
+                    continue;
+                }
+                fetches.push(SpriteLineFetch {
+                    entry_index: entry_idx,
+                    fetched_width_tiles,
+                });
+                *fetched_tiles += fetched_width_tiles;
             }
 
             if next_link == 0 {
@@ -523,30 +539,31 @@ impl SpriteLineScan {
 
         Self {
             entries,
-            line_indices,
+            line_fetches,
         }
     }
 
-    pub(crate) fn sprites_on_line(&self, y: usize) -> &[u8] {
-        &self.line_indices[y]
+    pub(crate) fn sprites_on_line(&self, y: usize) -> &[SpriteLineFetch] {
+        &self.line_fetches[y]
     }
 }
 
 pub(crate) fn scanline_sprite_pixel_rgb(
     vdp: &VdpSnapshot,
     scan: &SpriteLineScan,
-    line_sprites: &[u8],
+    line_sprites: &[SpriteLineFetch],
     screen_x: usize,
     screen_y: usize,
     priority: bool,
 ) -> Option<[u8; 3]> {
     let screen_x_i = screen_x as i32;
     let screen_y_i = screen_y as i32;
-    for &entry_idx in line_sprites {
-        let entry = &scan.entries[entry_idx as usize];
+    for fetch in line_sprites {
+        let entry = &scan.entries[fetch.entry_index as usize];
+        let fetched_width_pixels = (fetch.fetched_width_tiles * 8) as i32;
         if ((entry.pattern & 0x8000) != 0) == priority
             && screen_x_i >= entry.xpos
-            && screen_x_i < entry.xpos + entry.width_pixels
+            && screen_x_i < entry.xpos + fetched_width_pixels
             && screen_y_i >= entry.ypos
             && screen_y_i < entry.ypos + entry.height_pixels
         {

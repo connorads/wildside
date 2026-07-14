@@ -1444,6 +1444,46 @@ struct IntroSequence5GfxObjectLoc1BCD0 {
     frame: IntroSpriteFrameVram,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IntroSequence5ParticleLineage {
+    TimeoutFc82Zero,
+    Shared,
+    TimeoutFc82Two,
+}
+
+impl IntroSequence5ParticleLineage {
+    fn from_title_variant(title_variant: u8) -> Self {
+        match title_variant {
+            0 => Self::TimeoutFc82Zero,
+            2 => Self::TimeoutFc82Two,
+            _ => Self::Shared,
+        }
+    }
+
+    fn presentation_delay(self) -> usize {
+        usize::from(self == Self::TimeoutFc82Two)
+    }
+
+    fn simulation_phase(self) -> usize {
+        usize::from(self == Self::TimeoutFc82Zero)
+    }
+
+    fn particle_order(self) -> [usize; 3] {
+        match self {
+            Self::TimeoutFc82Zero | Self::TimeoutFc82Two => [2, 1, 0],
+            Self::Shared => [0, 1, 2],
+        }
+    }
+
+    fn gravity_steps(self, frames: i32) -> i32 {
+        if self == Self::TimeoutFc82Zero {
+            frames.saturating_sub(1)
+        } else {
+            frames + 1
+        }
+    }
+}
+
 #[allow(non_snake_case)]
 fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(
     vdp: &mut VdpState,
@@ -1492,19 +1532,22 @@ fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(
     // Hibernate_Object_1Frame before the first sprite-table image is exposed.
     // Oracle frame 28022 therefore contains the post-hibernate positions, not
     // the allocation seeds represented by simulation frame zero.
-    // The FC82=0 timeout revisit exposes the replacement workers one
-    // post-hibernate pass ahead of the earlier FC82 variants. Oracle frame
-    // 28022 contains that advanced chain; the already-exact FC82=1/2 windows
-    // retain the allocation-pass phase.
-    let post_hibernate_particle_phase = title_variant == 0;
+    // The repeated timeout visits reach the same worker through different
+    // Object/SAT presentation lineages. FC82=0 exposes one advanced worker
+    // pass. FC82=2 keeps the pre-particle SAT for one final trace, then exposes
+    // the newest allocated worker first without rewinding its simulation.
+    let particle_lineage = IntroSequence5ParticleLineage::from_title_variant(title_variant);
     let particle_elapsed = elapsed
         .checked_sub(visible_particle_start)
-        .map(|elapsed| elapsed.saturating_add(usize::from(post_hibernate_particle_phase)));
+        .filter(|_| {
+            elapsed >= visible_particle_start.saturating_add(particle_lineage.presentation_delay())
+        })
+        .map(|elapsed| elapsed.saturating_add(particle_lineage.simulation_phase()));
     if let Some(particle_elapsed) = particle_elapsed {
         append_intro_sequence_5_particles_loc_1BE3C(
             &mut sprite_entries,
             particle_elapsed,
-            post_hibernate_particle_phase,
+            particle_lineage,
         );
         append_intro_sequence_5_center_particle_loc_1BE88(
             &mut sprite_entries,
@@ -1512,7 +1555,10 @@ fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(
             particle_elapsed,
         );
     }
-    let static_start_index = if elapsed >= visible_particle_start.saturating_sub(1) {
+    let static_removal_elapsed = visible_particle_start
+        .saturating_sub(1)
+        .saturating_add(particle_lineage.presentation_delay());
+    let static_start_index = if elapsed >= static_removal_elapsed {
         2
     } else {
         0
@@ -1558,7 +1604,7 @@ struct IntroSequence5ParticleLoc1BE3C {
 fn append_intro_sequence_5_particles_loc_1BE3C(
     entries: &mut Vec<HardwareSpriteEntry>,
     particle_elapsed: usize,
-    post_hibernate_particle_phase: bool,
+    lineage: IntroSequence5ParticleLineage,
 ) {
     // ASM loc_1BE3C/loc_1BE74 (kid.asm:30667): after loc_1BCD0's `$1A0`
     // hibernate, three workers load `unk_1BE18/24/30`, use addroffset
@@ -1590,15 +1636,10 @@ fn append_intro_sequence_5_particles_loc_1BE3C(
             frame: intro_sprite_frame_vram(0x0AE, 0x3B, 0x1B),
         },
     ];
-    // ASM loc_1BCD0 allocates unk_1BE18, unk_1BE24, then unk_1BE30. The FC82=0
-    // post-hibernate pass exposes the newest worker first; oracle frame 28022
-    // confirms 30,24,18. Earlier variant windows retain the allocation pass.
-    let particle_order = if post_hibernate_particle_phase {
-        [2, 1, 0]
-    } else {
-        [0, 1, 2]
-    };
-    for particle_index in particle_order {
+    // ASM loc_1BCD0 allocates unk_1BE18, unk_1BE24, then unk_1BE30. Oracle
+    // frames 20850 and 28022 expose the newest worker first on the repeated
+    // FC82=2 and FC82=0 Object/SAT lineages respectively.
+    for particle_index in lineage.particle_order() {
         let particle = particles[particle_index];
         if particle_elapsed > particle.loop_count {
             continue;
@@ -1608,11 +1649,7 @@ fn append_intro_sequence_5_particles_loc_1BE3C(
         // adds `$4000` to y_vel. The acceleration therefore lags position by
         // one pass, as confirmed by oracle sprite-table Y values from frames
         // 28022 onward.
-        let gravity_steps = if post_hibernate_particle_phase {
-            frames.saturating_sub(1)
-        } else {
-            frames + 1
-        };
+        let gravity_steps = lineage.gravity_steps(frames);
         let y_gravity = 0x0000_4000 * frames.saturating_mul(gravity_steps) / 2;
         append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
             entries,
@@ -5689,6 +5726,50 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    fn intro_sequence_5_loc_1BE3C_fc82_two_presents_particles_after_one_sat_latch() {
+        let visible_particle_start = INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0
+            + INTRO_SEQUENCE_5_PARTICLE_VISIBLE_DELAY_LOC_1BCD0;
+        let pre_boundary = build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
+            &empty_intro_data(),
+            2,
+            visible_particle_start - 1,
+            0,
+            false,
+        );
+        let boundary = build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
+            &empty_intro_data(),
+            2,
+            visible_particle_start,
+            0,
+            false,
+        );
+        let presented = build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
+            &empty_intro_data(),
+            2,
+            visible_particle_start + 1,
+            0,
+            false,
+        );
+
+        assert_eq!(
+            sprite_entry_words(&pre_boundary, 0),
+            (0x00D0, 0x0F, 1, 0x426C, 0x00B0),
+            "oracle frame 20848 keeps loc_1BCD0's first P-block slot through the FC82=2 pre-particle SAT latch",
+        );
+        assert_eq!(
+            sprite_entry_words(&boundary, 0),
+            (0x0130, 0x0F, 1, 0x429E, 0x0080),
+            "ASM loc_1BCD0/loc_1BE3C leaves the FC82=2 pre-particle SAT visible for one final outer trace on oracle frame 20849",
+        );
+        assert_eq!(
+            sprite_entry_words(&presented, 0),
+            (0x00E9, 0x0F, 1, 0x431A, 0x00B0),
+            "oracle frame 20850 presents the newest loc_1BE30 worker first at its already-advanced position",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
     fn intro_sequence_5_loc_1BE3C_deletes_short_lived_particles_by_dbf_count() {
         let vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &empty_intro_data(),
@@ -5711,7 +5792,11 @@ mod tests {
     #[allow(non_snake_case)]
     fn intro_sequence_5_loc_1BE3C_particles_move_on_first_visible_frame() {
         let mut entries = Vec::new();
-        append_intro_sequence_5_particles_loc_1BE3C(&mut entries, 1, true);
+        append_intro_sequence_5_particles_loc_1BE3C(
+            &mut entries,
+            1,
+            IntroSequence5ParticleLineage::TimeoutFc82Zero,
+        );
 
         assert_eq!(
             entries[0],
@@ -5739,7 +5824,11 @@ mod tests {
     #[allow(non_snake_case)]
     fn intro_sequence_5_loc_1BE3C_keeps_short_particles_through_dbf_zero() {
         let mut entries = Vec::new();
-        append_intro_sequence_5_particles_loc_1BE3C(&mut entries, 0x28, true);
+        append_intro_sequence_5_particles_loc_1BE3C(
+            &mut entries,
+            0x28,
+            IntroSequence5ParticleLineage::TimeoutFc82Zero,
+        );
 
         assert_eq!(
             entries.len(),

@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-14 handoff (#406 H40 partial sprite fetch and FC82=2 SAT latch)
+
+- The renderer now models H40's two sprite phases: scan at most 20 sprites,
+  then fetch at most 40 tiles with a partial final sprite. The typed
+  `SpriteLineFetch` decision replaces whole-sprite rejection at the pixel
+  budget.
+- Oracle/native SAT dumps prove FC82=2 keeps the pre-particle table for one
+  final presented trace, then exposes `loc_1BE30/24/18` newest-first at their
+  already-advanced positions. Frames 20847..20849 are exact; frame 20850 is
+  down to 128 pixels. FC82=0 samples remain stable.
+- Full verification gains 2 exact frames and removes 7,351 changed pixels:
+  24,067 exact, 13,692 divergent, and 9,054,996 changed. All state and RNG
+  channels remain exact. Frame 1837 is now worst at 4,313 pixels. NEXT: keep
+  #406 open and trace the demo-1 `0x1B -> 0x00` presented render latch; raw
+  scenario capture uses a different transition boundary.
+
 ## 2026-07-14 handoff (#406 IntroSequence5 FC82=2 raster lineage)
 
 - Frame 20758 was `loc_1BC36`'s FC82=2 d4=4 Plane A upload presented one

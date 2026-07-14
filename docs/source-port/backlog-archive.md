@@ -13,6 +13,32 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-14: frame 20849 combined two engine-level VDP debts. The
+software renderer applied H40's 320-pixel sprite budget while scanning and
+dropped a whole sprite that crossed the boundary. JGenesis mirrors the hardware
+phases: scan up to 20 sprites, then fetch up to 40 tiles, including a partial
+final sprite. `SpriteLineFetch` now records the selected entry and its fetched
+tile width explicitly, with a red-first regression proving a 3-of-4-tile final
+fetch.
+
+Oracle/native SAT dumps at frames 20847..20850 also showed FC82=2's particle
+handoff one presented trace early. Native now keeps the pre-particle
+`loc_1BCD0` table through frame 20848, removes its first two static slots on
+20849, and presents `loc_1BE30/24/18` newest-first on 20850 without rewinding
+their already-advanced positions. Frames 20847..20849 are exact; frame 20850
+falls to 128 changed pixels. The existing FC82=0 samples remain 135, 18, and 0
+at frames 28022..28024.
+
+`mise run verify-slice-fast` and two deterministic `mise run verify-tas-full`
+passes are green. Full-route evidence gains 2 exact frames and removes 7,351
+changed pixel instances: 24,067 exact, 13,692 divergent, and 9,054,996 changed.
+All 37,759 player/camera, typed gameplay, and enemy frames plus all 37,743
+post-`Init_RNG` frames remain exact. Frame 1837 is the new worst at 4,313
+pixels on the demo-1 `0x1B -> 0x00` return. Continue from the verifier's
+presented transition latch; raw `capture-scenario-frames` exposes the next
+level's VDP and is not equivalent evidence for this boundary. #406 remains
+open.
+
 Progress 2026-07-14: frame 20758 belonged to the FC82=2 `loc_1BC36` worker,
 not another art or object-state mismatch. Native and oracle final VRAM showed
 that native applied each map one frame early while oracle retained the prior
