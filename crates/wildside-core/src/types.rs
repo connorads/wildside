@@ -1669,6 +1669,10 @@ pub struct NativeTraceFrame {
     /// for the currently uploaded HUD life-icon page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hud_life_frame_offset: Option<u8>,
+    /// ASM sub_44DC loc_4586: `AniArt_LifeIcon` page currently resident at
+    /// VRAM `$4620`, represented as the `off_457A` byte offset (0, 4, or 8).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hud_life_icon_vram_page_loc_4586: Option<u8>,
     /// ROM `Berzerker_charging` (`$FFFFFA6E`): set by ASM loc_9564 after the
     /// Berzerker/Cyclone walk accumulator carries.
     #[serde(default)]
@@ -2086,6 +2090,7 @@ impl Default for NativeTraceFrame {
             hud_diamond_frame_offset: None,
             hud_timer_sprite_seconds_loc_bee8: None,
             hud_life_frame_offset: None,
+            hud_life_icon_vram_page_loc_4586: None,
             berzerker_charging: false,
             berzerker_charge_pose: false,
             berzerker_walk_pose: false,

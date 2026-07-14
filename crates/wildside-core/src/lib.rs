@@ -578,6 +578,9 @@ pub struct NativeRuntime {
     /// later native hazard pass when the Kid object is live.
     pending_demo_timer_tick_result_loc_be82: Option<bool>,
     hud_animation_state: boot::HudAnimationStateSub44DC,
+    /// ASM sub_44DC loc_4586's currently resident life-icon art page at VRAM
+    /// `$4620`. This differs from `$FFFFFA5E` after the animation table wraps.
+    hud_life_icon_vram_page_loc_4586: u8,
     /// Camera Y look-ahead accumulator ($FFFFFB58): +1 per frame while down held
     /// and grounded, -8 per frame on release, clamped to [0, 30].
     y_look_offset: i16,
@@ -1431,6 +1434,9 @@ impl NativeRuntime {
             hud_timer_sprite_seconds_loc_bee8: LEVEL_TIMER_START_SECONDS,
             pending_demo_timer_tick_result_loc_be82: None,
             hud_animation_state: boot::HudAnimationStateSub44DC::initialised_from_sub_44_b0(),
+            // Oracle Demo 1 bootstrap frames expose ArtUnc_4692 page 2 before
+            // the first loc_4586 life-icon upload occurs.
+            hud_life_icon_vram_page_loc_4586: 8,
             y_look_offset: 0,
             camera_last_kid_y: 0,
             level_damage_taken: false,
@@ -3828,6 +3834,12 @@ impl NativeRuntime {
             // frame is sampled.
             let step = boot::step_hud_animation_sub_44DC(self.hud_animation_state);
             self.hud_animation_state = step.next_state;
+            if let Some(life_upload) = step.life_upload {
+                // ASM loc_4586 selects `off_457A[frame]`, then sub_44D0 copies
+                // its 128-byte page to VRAM `$4620`. Keep the resident page,
+                // rather than inferring it later from the looping `$FFFA5E`.
+                self.hud_life_icon_vram_page_loc_4586 = life_upload.frame_table_byte_offset;
+            }
             // ASM loc_BF2A (kid.asm:15526): the lives HUD path clamps
             // Number_Lives to 99 during display, not when prizes/score award
             // extra lives.

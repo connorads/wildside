@@ -372,6 +372,11 @@ fn hud_life_icon_tile_base_index_loc_4546(trace: &NativeTraceFrame) -> u16 {
         // recordings only expose the final offset-6 live page before the frozen
         // HUD hand-off; earlier offsets remain on the frozen HUD page.
         tile_base_index
+    } else if let Some(vram_page) = trace.hud_life_icon_vram_page_loc_4586 {
+        // ASM sub_44DC loc_4586 writes the selected ArtUnc_4692 page into
+        // `$4620`; the table offset alone cannot identify that persistent
+        // page after loc_455E wraps back to zero.
+        u16::from(vram_page)
     } else if trace.hud_life_frame_offset == Some(0) {
         // ASM sub_44DC loc_4546 starts `AniArt_LifeIcon` at byte offset 0.
         // Oracle frame issue-289-level06-idle-current@179 shows the normal
@@ -692,6 +697,15 @@ mod tests {
                 ..NativeTraceFrame::default()
             }),
             8
+        );
+        assert_eq!(
+            hud_life_icon_tile_base_index_loc_4546(&NativeTraceFrame {
+                hud_life_frame_offset: Some(0),
+                hud_life_icon_vram_page_loc_4586: Some(0),
+                ..NativeTraceFrame::default()
+            }),
+            0,
+            "ASM sub_44DC loc_4586's resident page distinguishes a post-wrap offset-zero state from bootstrap art"
         );
         assert_eq!(
             hud_life_icon_tile_base_index_loc_4546(&NativeTraceFrame {

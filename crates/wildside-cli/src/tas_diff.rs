@@ -1501,6 +1501,7 @@ mod tests {
             hud_diamond_frame_offset: None,
             hud_timer_sprite_seconds_loc_bee8: None,
             hud_life_frame_offset: None,
+            hud_life_icon_vram_page_loc_4586: None,
             berzerker_charging: false,
             berzerker_charge_pose: false,
             berzerker_walk_pose: false,

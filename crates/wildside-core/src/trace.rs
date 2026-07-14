@@ -1156,6 +1156,12 @@ mod tests {
         runtime.current_level = LevelId(0);
 
         assert_eq!(
+            runtime.trace_frame().hud_life_icon_vram_page_loc_4586,
+            Some(8),
+            "ASM sub_44DC loc_4586 has not yet replaced the bootstrap ArtUnc_4692 page"
+        );
+
+        assert_eq!(
             runtime.trace_frame().hud_life_frame_offset,
             Some(0),
             "ASM sub_44B0 leaves `$FFFFFA5E` at zero before Mode_Level runs sub_44DC"
@@ -1170,6 +1176,11 @@ mod tests {
             trace.hud_life_frame_offset,
             Some(2),
             "ASM Mode_Level loc_80C calls sub_44DC; loc_4546 advances `$FFFFFA5E` by two when seeded countdown `$FFFFFA59=4` expires"
+        );
+        assert_eq!(
+            trace.hud_life_icon_vram_page_loc_4586,
+            Some(4),
+            "ASM sub_44DC loc_4586 copies AniArt_LifeIcon page 1 to VRAM `$4620` after the first life countdown expires"
         );
     }
 
@@ -8322,6 +8333,7 @@ impl NativeRuntime {
             hud_diamond_frame_offset: Some(self.hud_animation_state.diamond_frame_offset_fb5d),
             hud_timer_sprite_seconds_loc_bee8: Some(self.hud_timer_sprite_seconds_loc_bee8),
             hud_life_frame_offset: Some(self.hud_animation_state.life_frame_offset_fb5e),
+            hud_life_icon_vram_page_loc_4586: Some(self.hud_life_icon_vram_page_loc_4586),
             berzerker_charging: if hidden_boot_progression {
                 false
             } else {
