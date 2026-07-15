@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-15 handoff (#406 stale pixel baseline regenerated)
+
+- The last session's pull-up latch commit (4893740c1) improved the route but
+  left `tests/tas_frontier.json` pinned at the pre-fix numbers, so
+  `verify-tas-full` was red on an improvement. Full re-run: 24,310 exact /
+  13,449 divergent / 8,408,626 changed pixels; state/CRC/RNG/enemy all exact.
+  Baseline regenerated.
+- New frontier characterised from pixel diffs: frames 963-968 diverge by 59
+  pixels in the Demo 1 HUD timer digits (x16-41 y16-23); from 969 an 84-pixel
+  HUD diamond page phase at x288-299 y34-45 — the `$DD40` DMA
+  scanline-boundary gap already recorded under #406. Worst frame 22511 and the
+  transform window 22490..22550 are unchanged. NEXT: model the Demo 1 HUD
+  timer digit phase at frame 963 (trace `Make_SpriteAttr_HUD loc_BE82` /
+  `sub_8E0` cadence against oracle VDP FIFO before patching).
+
 ## 2026-07-14 handoff (#406 Demo 1 diamond HUD DMA page)
 
 - Oracle VRAM frames 902..970 establish that Demo 1 Knights Isle presents the

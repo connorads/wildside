@@ -13,6 +13,21 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-15: the pull-up sprite latch (`Init_Animation loc_1040` via
+`Transfer_SpriteAndKidToVRAM loc_A70`, commit 4893740c1) plus the two earlier
+HUD page commits had moved the frontier but the pinned
+`full_expected_pixel_comparison` baseline was never regenerated, so
+`verify-tas-full` failed on an improvement. Re-run: 24,310 exact / 13,449
+divergent / 8,408,626 changed pixels; state, CRC, RNG and enemy comparisons
+all remain exact. Frame 905 and its neighbourhood (890..930) are now
+pixel-exact. New first mismatch is frame 963 at 59 pixels: Demo 1 HUD timer
+digits (bbox x16-41 y16-23, blue/white glyph swaps) holding through frame 968;
+from frame 969 an 84-pixel HUD diamond page phase at x288-299 y34-45 takes
+over — the same `$DD40` DMA scanline-boundary gap recorded in the 2026-07-14
+sub_44DC rejection below. Worst frame 22511 (2,595 pixels) and the whole Iron
+Knight transform window 22490..22550 (~110k pixels) are unchanged. Baseline
+updated in `tests/tas_frontier.json`. #406 remains open.
+
 Rejected 2026-07-14: preserving both `Kid_Transform` table identities in a
 render-only trace latch and walking the old table backwards (`loc_7CA6`) then
 the target table forwards (`loc_7D0A`) still does not model the presented
