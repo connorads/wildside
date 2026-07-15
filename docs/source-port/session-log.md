@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-15 handoff (#406 Demo 2 diamond-page rejection)
+
+- Oracle `$FFFFFA5D`/VRAM frames 968..980 show Demo 2 (level 0x1B) presenting
+  the direct `$DD40` diamond page. Applying that direct selector makes the
+  local 968..989 window exact, but both a global DemoPlay rule and a 0x1B-only
+  rule regress the full route by 190 exact frames and 40,498 changed pixels.
+  The selector lacks its presented-VDP boundary condition; the attempted code
+  was reverted and evidence is archived under #406.
+- NEXT: take the SEGA logo shimmer cluster. The committed visual baseline
+  remains 24,349 exact / 13,410 divergent / 8,194,538 px, with state, CRC,
+  enemy and RNG exact.
+
 ## 2026-07-15 handoff (#406 demo bootstrap HUD presentation clock)
 
 - `Load_DemoPlay -> Load_InGame sub_8E0` invokes `Make_SpriteAttr_HUD loc_BE82`

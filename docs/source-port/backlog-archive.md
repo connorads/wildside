@@ -13,6 +13,14 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Rejected 2026-07-15: broadening the `$DD40` direct-page exception from demo 1
+to `Load_DemoPlay` globally makes published-TAS frames 968..989 exact, but
+regresses the full route from 24,349 exact / 13,410 divergent / 8,194,538 px
+to 24,159 / 13,600 / 8,235,036. Restricting it to demo level 0x1B produces the
+same result. Oracle RAM/VRAM at 968..980 proves direct `$FFFFFA5D` selection in
+that window, but not the condition that limits it. Keep the existing demo-1
+exception and derive the missing VDP-presented boundary before revisiting.
+
 Progress 2026-07-15: Demo bootstrap now carries a dedicated presented
 `Make_SpriteAttr_HUD loc_BE82` timer rather than advancing authoritative
 `LevelTimer` before `loc_3038A` wakes. `Load_DemoPlay -> Load_InGame sub_8E0`
