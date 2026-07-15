@@ -13,6 +13,13 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Rejected 2026-07-15: applying `Obj_TitleTextChameleon`'s final `sub_1B71A`
+upload to every retained DemoPlay title snapshot makes the focused cold and
+later handoffs exact (frames 830..860 and 21755..21776) but regresses the full
+published route: 24,835 exact frames and 7,250,442 changed pixels, versus the
+prior 24,903 and 7,108,406. The source worker has route-dependent VDP-presented
+state beyond its map index; do not model it as a blanket post-switch mutation.
+
 Rejected 2026-07-15: `loc_700`'s active-display clear cannot be approximated
 as a contiguous `$0000..$0FFF` VRAM overwrite. That source-backed trial does
 remove the frame-21765 Robot, but it also erases retained title content and
