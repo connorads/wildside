@@ -13,6 +13,17 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Investigation 2026-07-15: a consecutive published-TAS FIFO capture over
+frames 896..1000 confirms `sub_44DC loc_45EE/loc_460A -> sub_5D4A`'s same
+`$DD40` 0x200-byte diamond DMA reaches the display at materially different
+times: frame 902 begins at scanline 5, pixel 44 and continues through line 33,
+whereas frame 908 begins in vblank at scanline 258, pixel 400 and continues on
+line 259. The `$FFFFFA5D` selector is already post-update on both frames, so
+neither it nor a persistent upload-event latch identifies the pixels presented
+at the HUD sprite scanlines. The next implementation must carry a gameplay VDP
+timeline/FIFO boundary into the renderer; do not add another DemoPlay, level,
+or frame-count page rule. #406 remains open.
+
 Rejected 2026-07-15: treating every Demo 1 frame on level `$1B` as the
 `Load_DemoPlay loc_119B6` direct `$DD40` HUD-DMA phase makes frames 960..975
 pixel-exact, including frame 968, but regresses the full route to 24,594 exact
