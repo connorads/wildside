@@ -13,6 +13,53 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-15: first presented-transform-phase slice (step 3 vertical
+slice) lands. New pure enumerator `transform_presentation.rs` reproduces
+`Kid_Transform`'s displayed `sub_8E0` passes from `stru_7FF8`: each
+`anim_frame` descriptor is (pass_count, `off_7D34` selector, art link) and the
+`loc_7CBE`/`loc_7D22` inner loops run exactly pass_count displayed VBlank
+frames — the old renderer's 97-frame duration sum was a `dbf` mis-derivation
+(+1 per descriptor) that phase-shifted the whole art sequence; the countdown
+seed 82 is 81 passes plus the `loc_7E90` cleanup frame. The trace stamps
+`transform_source_helmet_id_loc_7ca6` (captured at resolve time; the old form
+is unrecoverable from post-update state), scene.rs latches it with the
+countdown, and `select_player_transform_render` resolves art positionally:
+`transform_steps[descriptor_index]` is verified positional with `stru_7FF8`'s
+C30E8/C354E/C39B4/C3FBA art-link sequence (bundle art `None` exactly at the
+HelmetDefault descriptors 12/14), palettes from the handler (HelmetArt →
+`sub_8106` transform palette; HelmetDefault and cleanup → `sub_80D0` form
+palette on the default art). This differs structurally from both 2026-07-14
+rejections: exact pass enumeration (no duration arithmetic), per-pass
+art+palette handlers, and scope limited to Kid→IronKnight forward transforms
+with fallback everywhere else. The scene.rs first-transform latch is untouched
+— the phase model never engages at rendered countdown 0, so it provably covers
+none of that latch. Sliced 22480..22580: 140,925 → 105,976 px and the
+mid-screen Kid clusters vanish; native 22505/22511 now match the oracle poses
+(the "flash halo" pose was real oracle art, previously phase-shifted). Full
+route: 8,408,626 → 8,213,356 changed pixels (−195,270); the worst frame was
+22511 (2,595 px, the IronKnight transform), now 21765 at 2,387 px;
+exact/divergent frame counts and first mismatch unchanged — strict Pareto —
+and state/CRC/RNG/enemy stay exact. Baseline ratcheted.
+
+Probe/scope 2026-07-15: demo windows 1224..1831 / 35344..35941 are
+Kid→Cyclone forward transforms (oracle frame 1500 shows the tornado form);
+Cyclone's `stru_7F30` uses selector-0 Kid-art entries, so porting it needs the
+`KidWithSpark` handler art first — unchanged this slice (fallback path).
+Remaining debt inside the IronKnight windows is not transform art: a
+full-width sparse ~1,300 px/frame shimmer tint (rows 34-163) and the left-edge
+enemy palette cluster `grid:1,15-5,20` (native green vs oracle blue during the
+transform — likely the per-pass `sub_8106`/`sub_80D0` palette-line writes
+spilling onto shared enemy palette lines; future slice alongside the
+`off_8176`/`off_8162` spark overlay).
+
+Diagnosis 2026-07-15 (from the cluster worklist + oracle PNGs): top cluster
+`grid:14,12-25,15` (540 frames / 1,053,540 px = 12.5% of all debt, nine
+windows on a 3-mismatch/1-match cadence at a constant 1,951 px/frame, oracle
+frame 5037) is the SEGA logo shimmer on the intro-VDP path — a palette-cycle
+phase bug in the native VDP render path, not gameplay debt; cheap future win.
+Cluster tiers otherwise: mid-screen = transform windows, full-width =
+transition flashes. #406 remains open.
+
 Tooling 2026-07-15: `verify-tas --pixel-mismatch-report` now emits a standalone
 per-frame bbox + cluster worklist (clusters keyed by verified HUD rect —
 timer_digits x16-41 y16-23, hud_diamond x288-299 y34-45 — or 8px-quantised grid

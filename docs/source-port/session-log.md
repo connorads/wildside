@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-15 handoff (#406 presented-transform-phase slice 1: Kid→IronKnight)
+
+- `Kid_Transform` walks `off_7EE2` tables with exactly pass_count `sub_8E0`
+  passes per `anim_frame` descriptor; the renderer's 97-frame duration sum was
+  a `dbf` mis-derivation (+1 per descriptor) that phase-shifted the whole
+  IronKnight art sequence. New pure enumerator (`transform_presentation.rs`,
+  `stru_7FF8` ported verbatim, 81 passes + `loc_7E90` cleanup = countdown 82)
+  + trace-stamped source helmet + positional art/palette resolution in
+  `select_player_transform_render`; everything unported falls back.
+- Full route: 8,408,626 → 8,213,356 px (−195,270), worst frame was 22511 (the
+  IronKnight transform) now 21765; frame counts, first mismatch, state, CRC,
+  RNG, enemy all unchanged — strict Pareto. Baseline ratcheted.
+- Probe findings archived: demo windows 1224/35344 are Kid→Cyclone (needs
+  selector-0 `KidWithSpark` art before porting); SEGA logo shimmer diagnosed
+  as the top cluster (1.05M px, intro-VDP palette-cycle phase, cheap win);
+  left-edge enemy palette diff during transforms = probable per-pass
+  palette-line spill. NEXT: take the next slice from the recorded order (SEGA
+  shimmer or HUD `$DD40` page enumerator).
+
 ## 2026-07-15 handoff (#406 pixel-debt clustering + ratchet gate)
 
 - Tooling session, no gameplay change. `verify-tas --pixel-mismatch-report` now
