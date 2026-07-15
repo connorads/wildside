@@ -12706,6 +12706,12 @@ impl NativeRuntime {
             {
                 self.queue_start_sequence(transform_sound);
             }
+            // ASM loc_7CA6 (kid.asm): the backward walk reads the OLD helmet's
+            // table while `Current_Helmet` still holds the old form. Native has
+            // already switched `current_form`, so capture the old form here —
+            // the only point it is still known — as presentation input for the
+            // transform pass enumerator.
+            self.progression.transform_source_form = Some(old_form);
             let old_frames = transform_anim_frames(old_form);
             let new_frames = transform_anim_frames(form);
             // ASM loc_7C24 (kid.asm:8350): `move.l 4(a0),d7; beq.w loc_7C3A;

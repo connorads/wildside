@@ -1073,6 +1073,12 @@ pub(crate) struct PlayerProgression {
     pub(crate) invulnerable_frames: usize,
     /// Visual flash countdown after form change (0=inactive).
     pub(crate) form_change_flash_frames: u8,
+    /// ASM Kid_Transform loc_7CA6 (kid.asm): form worn before the live
+    /// transform (`Current_Helmet` during the backward table walk).
+    /// Presentation input for the transform pass enumerator; the old form is
+    /// unrecoverable from post-update state after the first transform frame.
+    /// Only meaningful while `form_change_flash_frames` is non-zero.
+    pub(crate) transform_source_form: Option<PlayerForm>,
     pub(crate) diamond_count: u16,
     pub(crate) score: u32,
     /// Pending half-width change from form transform.
@@ -1099,6 +1105,7 @@ impl Default for PlayerProgression {
             extra_hitpoint_slots: 0,
             invulnerable_frames: 0,
             form_change_flash_frames: 0,
+            transform_source_form: None,
             diamond_count: 0,
             score: 0,
             diamond_power_frames: 0,
@@ -1943,6 +1950,11 @@ pub struct NativeTraceFrame {
     pub death_windup_elapsed: u16,
     /// Form-change visual flash countdown (0=no flash).
     pub form_change_flash_frames: u8,
+    /// ASM Kid_Transform loc_7CA6 (kid.asm): helmet id worn before the live
+    /// transform. Presentation input for the pass enumerator; `None` when no
+    /// transform countdown is live.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transform_source_helmet_id_loc_7ca6: Option<u16>,
     /// True if a stomp occurred this frame (for SFX).
     pub stomped_this_frame: bool,
     /// Number of blocks hit by headbutt this frame (for SFX).
@@ -2183,6 +2195,7 @@ impl Default for NativeTraceFrame {
             heady_metal_body_pieces_sub_37abc: Vec::new(),
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,
+            transform_source_helmet_id_loc_7ca6: None,
             stomped_this_frame: false,
             blocks_hit_this_frame: 0,
             sound_test_play_pending: false,

@@ -1509,6 +1509,7 @@ mod tests {
             kid_on_slope: 0,
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,
+            transform_source_helmet_id_loc_7ca6: None,
             score: 0,
             camera_x_pos: 0,
             camera_y_pos: 0,

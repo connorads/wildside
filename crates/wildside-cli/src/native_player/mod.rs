@@ -2847,6 +2847,7 @@ mod tests {
             stomped_this_frame: false,
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,
+            transform_source_helmet_id_loc_7ca6: None,
             blocks_hit_this_frame: 0,
             sound_test_play_pending: false,
             gameplay_debug_fields: std::collections::BTreeMap::new(),
