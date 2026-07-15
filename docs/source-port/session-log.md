@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-15 handoff (#406 pixel-debt clustering + ratchet gate)
+
+- Tooling session, no gameplay change. `verify-tas --pixel-mismatch-report` now
+  emits a per-frame bbox + cluster worklist (HUD-rect or 8px-grid keys), and
+  `tas-pixel-baseline` replaces the byte-for-byte pixel jq block in
+  `verify-tas-full` with a Pareto ratchet: ok exit 0, IMPROVEMENT exit 3 with
+  the exact `--update` splice command, REGRESSION exit 1. Full run green;
+  baseline matches (24,310 exact / 13,449 divergent / 8,408,626 px).
+- First full-route worklist: 1,248 clusters. Named HUD debt is small
+  (hud_diamond 2,079 frames / 113,838 px; timer_digits 18 / 1,038). Top cluster
+  is centre-screen `grid:14,12-25,15` (540 frames / 1,053,540 px, bbox
+  (113,98)-(204,126)); next tier is full-width transform/page flashes. Top 12
+  clusters carry 29% of the pixel debt; the long tail suggests a systemic
+  presented-VRAM/sprite-phase cause. NEXT: scope the presented-VRAM model
+  (step 3) from the worklist; frame 963 timer-digit phase remains the entry
+  frontier.
+
 ## 2026-07-15 handoff (#406 stale pixel baseline regenerated)
 
 - The last session's pull-up latch commit (4893740c1) improved the route but

@@ -13,6 +13,30 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Tooling 2026-07-15: `verify-tas --pixel-mismatch-report` now emits a standalone
+per-frame bbox + cluster worklist (clusters keyed by verified HUD rect —
+timer_digits x16-41 y16-23, hud_diamond x288-299 y34-45 — or 8px-quantised grid
+bbox, sorted by total changed pixels), and `tas-pixel-baseline` replaces the
+byte-for-byte pixel jq block in `verify-tas-full` with a Pareto ratchet: Match
+exit 0, IMPROVEMENT exit 3 printing the exact `--update` splice command,
+REGRESSION exit 1 with the worsened metrics marked. An improved frontier can no
+longer present as an opaque red gate (the 4893740c1 stale-baseline rediscovery
+class). `--update` splices only the `full_expected_pixel_comparison` block; a
+test pins that the committed block round-trips byte-identically. First
+full-route worklist (`.cache/tas-verify/any-percent-published/mismatch-report.json`,
+refreshed by every `verify-tas-full` run): the 13,449 divergent frames /
+8,408,626 px resolve into 1,248 clusters. Named HUD debt is small — hud_diamond
+2,079 frames / 113,838 px (samples 969..37713), timer_digits 18 frames /
+1,038 px — leaving 11,352 frames / 8,293,750 px in grid buckets. Top cluster is
+centre-screen `grid:14,12-25,15` (540 frames / 1,053,540 px, bbox
+(113,98)-(204,126), samples 5037/36211 — Kid body region, transform/flash
+phase), then full-width page/flash buckets `grid:0,0-39,2x` (341 frames /
+~541k px) and mid-screen transform buckets. The top 12 clusters cover 2.43M px
+(29%); the 1,236-cluster long tail is consistent with a systemic
+presented-VRAM/sprite-phase cause rather than a few local bugs — this is the
+sizing data for the deferred presented-VRAM model (step 3). Full run green and
+baseline matches. #406 remains open.
+
 Progress 2026-07-15: the pull-up sprite latch (`Init_Animation loc_1040` via
 `Transfer_SpriteAndKidToVRAM loc_A70`, commit 4893740c1) plus the two earlier
 HUD page commits had moved the frontier but the pinned
