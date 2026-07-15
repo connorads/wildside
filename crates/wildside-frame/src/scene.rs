@@ -1091,6 +1091,8 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.kid_x_velocity = previous_trace.kid_x_velocity;
         render_trace.kid_y_velocity = previous_trace.kid_y_velocity;
         render_trace.form_change_flash_frames = previous_trace.form_change_flash_frames;
+        render_trace.transform_source_helmet_id_loc_7ca6 =
+            previous_trace.transform_source_helmet_id_loc_7ca6;
         render_trace.invulnerable_frames = previous_trace.invulnerable_frames;
         render_trace.death_windup_elapsed = previous_trace.death_windup_elapsed;
         render_trace.number_hitpoints = previous_trace.number_hitpoints;
@@ -1137,6 +1139,11 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         // source through that one-VBlank sprite latch.
         render_trace.ledge_snap_cooldown = previous_trace.ledge_snap_cooldown;
         render_trace.form_change_flash_frames = previous_trace.form_change_flash_frames;
+        // Presentation input travels with the latched countdown: the stamp is
+        // guarded on a live countdown, so the loc_7E90 cleanup frame (post-
+        // update countdown 0) still needs the previous frame's source helmet.
+        render_trace.transform_source_helmet_id_loc_7ca6 =
+            previous_trace.transform_source_helmet_id_loc_7ca6;
         // ASM Mode_Level calls Make_SpriteAttr_HUD/sub_BDC0 before the later
         // GfxObjects_CollisionKid path can reach Check_for_recent_damge
         // loc_B700, so the visible HP pips are also a pre-update latch.

@@ -3,7 +3,8 @@ use std::sync::Arc;
 use wildside_core::{
     NativeContactPhase, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame,
     PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C, PlatformSpriteEntryLoc2548,
-    PlatformSpriteVariantLoc244C, PlayerForm, physics::Direction,
+    PlatformSpriteVariantLoc244C, PlayerForm, TransformHandler, physics::Direction,
+    presented_transform_phase,
 };
 use wildside_render::{MdColour, NativeLevelVisuals, Palette, SpriteFrame, TileRef};
 
@@ -691,6 +692,73 @@ pub fn select_player_form_visuals<'a>(
         .expect("Kid visuals should always be loaded")
 }
 
+/// Resolve the transform frame and palette for one displayed frame.
+///
+/// Ported path: ASM Kid_Transform loc_7D0A (kid.asm) — when the trace carries
+/// the transform source helmet and `presented_transform_phase` covers the
+/// (old, new) pair, resolve art positionally from the phase's descriptor index
+/// (the bundle's `transform_steps` mirror the `off_7EE2` descriptor order) and
+/// the palette from the `off_7D34` handler: HelmetArt → sub_8106 transform
+/// palette, HelmetDefault (and the loc_7E90 cleanup frame) → sub_80D0 form
+/// palette on the form's default/idle art. Unported transforms fall back to
+/// the legacy duration-sum walk plus the frame-identity palette heuristic.
+pub fn select_player_transform_render<'a>(
+    trace: &NativeTraceFrame,
+    player_visuals: &'a wildside_render::PlayerVisuals,
+    form_visuals: &'a wildside_render::PlayerFormVisuals,
+) -> Option<(&'a wildside_render::SpriteFrame, &'a Palette)> {
+    if trace.form_change_flash_frames == 0 {
+        return None;
+    }
+    if let Some(old_helmet_id) = trace.transform_source_helmet_id_loc_7ca6
+        && let Some(phase) = presented_transform_phase(
+            old_helmet_id,
+            trace.current_helmet_id,
+            trace.form_change_flash_frames,
+        )
+        && let Some(resolved) = phase_transform_render_loc_7d0a(&phase, form_visuals)
+    {
+        return Some(resolved);
+    }
+    let frame = select_player_transform_frame(trace, form_visuals)?;
+    Some((
+        frame,
+        transform_frame_palette(frame, player_visuals, form_visuals),
+    ))
+}
+
+/// ASM off_7D34 handler → (art, palette) for a ported transform pass.
+fn phase_transform_render_loc_7d0a<'a>(
+    phase: &wildside_core::PresentedTransformPhase,
+    form_visuals: &'a wildside_render::PlayerFormVisuals,
+) -> Option<(&'a wildside_render::SpriteFrame, &'a Palette)> {
+    match phase.handler {
+        TransformHandler::HelmetArt => {
+            // ASM loc_7D44 (kid.asm): descriptor art link on the sub_8106
+            // transform palette. The bundle's transform_steps are positional
+            // with stru_7FF8, so a missing frame means a bundle mismatch —
+            // return None and let the legacy walk handle it.
+            let frame = form_visuals
+                .transform_steps
+                .get(phase.descriptor_index)
+                .and_then(|step| step.frame.as_ref())?;
+            let palette = form_visuals
+                .transform_palette
+                .as_ref()
+                .unwrap_or(&form_visuals.palette);
+            Some((frame, palette))
+        }
+        TransformHandler::HelmetDefault => {
+            // ASM loc_7D5A (kid.asm): off_79B2[Current_Helmet] default pose on
+            // the sub_80D0 form palette; also the loc_7E90 cleanup frame.
+            Some((&form_visuals.idle, &form_visuals.palette))
+        }
+        // No ported table uses the Kid handlers yet (IronKnight stru_7FF8 is
+        // all selector 4/8); fall back if that ever changes.
+        TransformHandler::KidWithSpark { .. } => None,
+    }
+}
+
 pub fn select_player_transform_frame<'a>(
     trace: &NativeTraceFrame,
     player_visuals: &'a wildside_render::PlayerFormVisuals,
@@ -848,9 +916,10 @@ pub fn push_player_sprite_with_priority_override(
     let form_visuals = select_player_form_visuals(trace, &level_visuals.player);
     let render_facing = trace.kid_facing.unwrap_or(Direction::Right);
     let (screen_x, screen_y) = player_screen_position(object, trace);
-    if let Some(frame) = select_player_transform_frame(trace, form_visuals) {
+    if let Some((frame, base_palette)) =
+        select_player_transform_render(trace, &level_visuals.player, form_visuals)
+    {
         let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
-        let base_palette = transform_frame_palette(frame, &level_visuals.player, form_visuals);
         commands.push(DrawCommand::Sprite {
             x: draw_x,
             y: draw_y,
@@ -4696,6 +4765,124 @@ mod tests {
             )
             .map(|frame| frame.tile_base_index),
             None
+        );
+    }
+
+    /// ASM Kid_Transform loc_7D0A / stru_7FF8 (kid.asm): a synthesised
+    /// Kid→IronKnight trace resolves art positionally from the phase table at
+    /// every countdown value — no dependence on the legacy duration sum (the
+    /// steps here carry deliberately wrong 1-frame durations). HelmetDefault
+    /// descriptors (12/14) and the loc_7E90 cleanup frame (countdown 1) render
+    /// the form default/idle art on the form palette; HelmetArt passes render
+    /// the descriptor's step art on the sub_8106 transform palette.
+    #[test]
+    fn select_player_transform_render_follows_iron_knight_phase_table_loc_7d0a() {
+        let transform_colour = wildside_render::MdColour {
+            red: 0xEE,
+            green: 0x00,
+            blue: 0x00,
+            raw_word: 0x000E,
+        };
+        let mut iron_knight = labelled_player_visuals();
+        iron_knight.transform_steps = (0u16..16)
+            .map(|descriptor_index| wildside_render::PlayerTransformStep {
+                duration_frames: 1,
+                frame: if descriptor_index == 12 || descriptor_index == 14 {
+                    None
+                } else {
+                    Some(labelled_frame(0x0C00 + descriptor_index))
+                },
+            })
+            .collect();
+        iron_knight.transform_palette = Some(wildside_render::Palette {
+            colours: vec![transform_colour],
+        });
+        let mut forms = std::collections::HashMap::new();
+        forms.insert(0u16, labelled_player_visuals());
+        forms.insert(6u16, iron_knight);
+        let player_visuals = wildside_render::PlayerVisuals { forms };
+        let form_visuals = &player_visuals.forms[&6];
+
+        // stru_7FF8 pass counts restated: descriptor per displayed pass.
+        let run_lengths: [(u16, u8); 16] = [
+            (0, 7),
+            (1, 6),
+            (2, 5),
+            (3, 5),
+            (4, 4),
+            (5, 4),
+            (6, 4),
+            (7, 4),
+            (8, 5),
+            (9, 5),
+            (10, 5),
+            (11, 5),
+            (12, 5),
+            (13, 5),
+            (14, 9),
+            (15, 3),
+        ];
+        let mut expected_descriptors: Vec<u16> = Vec::new();
+        for (descriptor_index, pass_count) in run_lengths {
+            expected_descriptors.extend(std::iter::repeat_n(
+                descriptor_index,
+                usize::from(pass_count),
+            ));
+        }
+        assert_eq!(expected_descriptors.len(), 81);
+
+        for (offset, descriptor_index) in expected_descriptors.iter().copied().enumerate() {
+            let countdown = 82 - u8::try_from(offset).unwrap();
+            let trace = NativeTraceFrame {
+                form_change_flash_frames: countdown,
+                current_helmet_id: 6,
+                transform_source_helmet_id_loc_7ca6: Some(0),
+                ..NativeTraceFrame::default()
+            };
+            let (frame, palette) =
+                select_player_transform_render(&trace, &player_visuals, form_visuals)
+                    .unwrap_or_else(|| panic!("no transform render at countdown {countdown}"));
+            if descriptor_index == 12 || descriptor_index == 14 {
+                assert_eq!(frame.tile_base_index, 0x0100, "countdown {countdown}");
+                assert!(palette.colours.is_empty(), "countdown {countdown}");
+            } else {
+                assert_eq!(
+                    frame.tile_base_index,
+                    0x0C00 + descriptor_index,
+                    "countdown {countdown}"
+                );
+                assert_eq!(
+                    palette.colours,
+                    vec![transform_colour],
+                    "countdown {countdown}"
+                );
+            }
+        }
+
+        // Countdown 1 is the loc_7E90 cleanup frame: form default art/palette.
+        let cleanup_trace = NativeTraceFrame {
+            form_change_flash_frames: 1,
+            current_helmet_id: 6,
+            transform_source_helmet_id_loc_7ca6: Some(0),
+            ..NativeTraceFrame::default()
+        };
+        let (frame, palette) =
+            select_player_transform_render(&cleanup_trace, &player_visuals, form_visuals).unwrap();
+        assert_eq!(frame.tile_base_index, 0x0100);
+        assert!(palette.colours.is_empty());
+
+        // Without the stamped source helmet the legacy duration walk decides,
+        // proving the ported path never engages on unstamped traces.
+        let unstamped_trace = NativeTraceFrame {
+            form_change_flash_frames: 82,
+            current_helmet_id: 6,
+            ..NativeTraceFrame::default()
+        };
+        assert_eq!(
+            select_player_transform_render(&unstamped_trace, &player_visuals, form_visuals)
+                .map(|(frame, _)| frame.tile_base_index),
+            select_player_transform_frame(&unstamped_trace, form_visuals)
+                .map(|frame| frame.tile_base_index),
         );
     }
 
