@@ -515,8 +515,14 @@ impl SpriteLineScan {
                 pattern,
             });
 
+            // Sprite coordinates are signed after the VDP's $80 origin. A
+            // zeroed terminator entry therefore starts at -128px. Do not cast
+            // its negative bottom to usize: that wraps and incorrectly makes
+            // the empty entry cover every scanline. Kid's `loc_B42` writes
+            // exactly this zeroed first entry before the sprite-table DMA.
+            let sprite_bottom = ypos + height_pixels;
             let top = ypos.max(0) as usize;
-            let bottom = ((ypos + height_pixels) as usize).min(screen_height);
+            let bottom = sprite_bottom.clamp(0, screen_height as i32) as usize;
             for ((fetches, scanned_sprites), fetched_tiles) in line_fetches[top.min(bottom)..bottom]
                 .iter_mut()
                 .zip(&mut line_scanned_sprites[top.min(bottom)..bottom])

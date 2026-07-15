@@ -13,6 +13,37 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Rejected 2026-07-15: clearing the title Sprite_Table is not the frame-21765
+fix. `Obj_TitleMenu loc_1BB02 -> loc_6E2/loc_720` clears RAM and `loc_B42`
+DMAs a zeroed first hardware-sprite entry, but the oracle's missing Robot is
+title-plane content, not a VDP sprite: native and oracle captures retain the
+same mismatch after the exact terminator transfer. The experiment exposed a
+separate renderer bug - a zeroed entry has VDP Y coordinate -$80, whose
+negative bottom wrapped to all scanlines - so the VDP now clips signed
+offscreen sprites before forming scanline fetches. Keep that hardware
+regression; derive the title-plane snapshot/VRAM-clear presentation boundary
+for the Robot discrepancy separately.
+
+Rejected 2026-07-15: selecting the direct `$DD40` page for Demo 2's level
+`0x1B` is not a valid presentation model. A fresh oracle probe over frames
+900..1150 confirms `$FFFFFC3D` stays zero while `$FFFFFA5D` advances and VRAM
+`$DD40` follows the direct page; the scoped 900..1200 comparison improves
+213/25,805 divergent frames/pixels to 123/12,521. But the full route worsens
+from 24,903 exact / 12,856 divergent / 7,108,406 pixels to 24,715 / 13,044 /
+7,148,904, with first mismatch moving to 990. The boundary is therefore not a
+level identity. Preserve the Demo 1 special case and derive the underlying
+VBlank/DMA scanout hand-off before changing Demo 2.
+
+Rejected 2026-07-15: the narrower pre-transform variant is also insufficient.
+Native phase capture finds frame 1058 begins `Kid_Transform` with countdown
+73 and frame 1059 applies the established one-page `loc_45EE` rewind; direct
+page selection is correct through frame 1057, and then first disagrees at
+1058. Restricting the raw-zero `$FC3D` presentation to pre-transform Demo 2
+improves frames 900..1200 to 129 divergent / 12,449 pixels, but the full route
+still regresses to 24,671 exact / 13,088 divergent / 7,150,520 pixels. The
+rendering model lacks more than the first transform hand-off; retain the
+baseline and model `$DD40` DMA visibility as independent presentation state.
+
 Progress 2026-07-15: `Load_EnemyArtPaletteToVRAM loc_36D16..loc_36E42`
 advances `d7` across `$FFFF` enemy-layout slots. Level 0 declares
 `[$FFFF, $000C, $FFFF]`, so its walking Dragon shares flying Dragon art but

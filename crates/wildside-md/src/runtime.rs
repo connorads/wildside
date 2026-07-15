@@ -5088,6 +5088,20 @@ mod tests {
     }
 
     #[test]
+    fn sprite_line_scan_keeps_a_zeroed_loc_b42_terminator_offscreen() {
+        let mut vdp = blank_vdp_snapshot();
+        let sprite_table_base = 0x3000;
+        write_sprite_entry(&mut vdp.vram, sprite_table_base, 0, 0, 0, 0, 0);
+
+        let scan = SpriteLineScan::build(&vdp.vram, sprite_table_base, 224, 320);
+
+        assert!(
+            scan.sprites_on_line(0).is_empty() && scan.sprites_on_line(223).is_empty(),
+            "ASM loc_B42 clears the first sprite entry; its VDP -$80 coordinate must not wrap across the frame"
+        );
+    }
+
+    #[test]
     fn scanline_sprite_pixel_rgb_applies_priority_bounds_and_local_offsets() {
         let mut vdp = blank_vdp_snapshot();
         set_tile_pixel(&mut vdp.vram, 0, 1, 1, 2);

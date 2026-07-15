@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-15 handoff (#406 title-to-demo visual investigation)
+
+- Frame 21765's 2,387-pixel Robot mismatch is title-plane content, not a
+  surviving hardware sprite. `loc_6E2`/`loc_720` and `loc_B42` correctly clear
+  the RAM Sprite_Table and DMA its zeroed terminator, but that transfer leaves
+  the mismatch unchanged. NEXT: derive the title snapshot/VRAM-clear boundary,
+  separately from the Demo 2 `$DD40` HUD-page presentation boundary.
+- The experiment found and fixed a VDP renderer edge case: a zeroed first
+  sprite entry is at -$80 after the hardware origin adjustment and must not
+  wrap across every scanline. Fast slice is green; visual route totals remain
+  24,903 exact / 12,856 divergent / 7,108,406 px pending a full rerun.
+
 ## 2026-07-15 handoff (#406 Cyclone transform selectors)
 
 - `Kid_Transform loc_7D0A` walks Cyclone `stru_7F30`: selector 0 is Kid
