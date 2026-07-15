@@ -580,6 +580,11 @@ pub struct NativeRuntime {
     /// Whole seconds encoded into the timer digit entries most recently built
     /// in `Sprite_Table` by ASM Make_SpriteAttr_HUD loc_BEE8.
     hud_timer_sprite_seconds_loc_bee8: u16,
+    /// Demo bootstrap's presented `Make_SpriteAttr_HUD loc_BE82` clock.
+    /// `loc_3038A` remains suspended during this interval, so it cannot reuse
+    /// the authoritative level timer without perturbing unrelated presentation
+    /// state such as the `$DD40` HUD DMA phase.
+    demo_hud_timer_presentation_loc_be82: Option<LevelTimer>,
     /// Result of the demo's leading Mode_Level HUD tick, consumed by the
     /// later native hazard pass when the Kid object is live.
     pending_demo_timer_tick_result_loc_be82: Option<bool>,
@@ -1438,6 +1443,7 @@ impl NativeRuntime {
             options_menu_panel_delta: 0x0118,
             level_timer: LevelTimer::new(),
             hud_timer_sprite_seconds_loc_bee8: LEVEL_TIMER_START_SECONDS,
+            demo_hud_timer_presentation_loc_be82: None,
             pending_demo_timer_tick_result_loc_be82: None,
             hud_animation_state: boot::HudAnimationStateSub44DC::initialised_from_sub_44_b0(),
             // Oracle Demo 1 bootstrap frames expose ArtUnc_4692 page 2 before
@@ -3619,6 +3625,14 @@ impl NativeRuntime {
             // pass still decrements Time_SubSeconds at loc_BE82.
             self.pending_demo_timer_tick_result_loc_be82 =
                 Some(self.tick_level_timer_hud_loc_be82());
+        }
+        if matches!(self.boot_state, BootState::DemoPlay { .. })
+            && self.demo_gameplay_active()
+            && gameplay_slice_active
+            && self.level_start_frame != Some(self.frame_index)
+            && !transform_hibernating_at_frame_start
+        {
+            self.tick_demo_hud_timer_presentation_loc_be82();
         }
         if gameplay_slice_active {
             // ASM Mode_Level loc_7E2/Transfer_ScrollDataToVRAM loc_30110 runs

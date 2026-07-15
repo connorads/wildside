@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-15 handoff (#406 demo bootstrap HUD presentation clock)
+
+- `Load_DemoPlay -> Load_InGame sub_8E0` invokes `Make_SpriteAttr_HUD loc_BE82`
+  during bootstrap while `loc_3038A` and authoritative `LevelTimer` remain
+  delayed. Native now tracks that presented HUD timer separately, avoiding both
+  stale 3:00 digits and the `$DD40` diamond DMA phase shift caused by advancing
+  gameplay time early. Frame 962 pins authoritative 3:00/$06 versus presented
+  2:59; frames 961..967 are RGB-exact.
+- Full route: 24,349 exact / 13,410 divergent / 8,194,538 px; state, CRC,
+  enemy and RNG all exact. Baseline ratcheted, first mismatch is 968 (84-pixel
+  HUD diamond page), worst remains 21765. NEXT: `$DD40` diamond-page
+  enumerator, then the SEGA shimmer cluster.
+
 ## 2026-07-15 handoff (#406 presented-transform-phase slice 1: Kid→IronKnight)
 
 - `Kid_Transform` walks `off_7EE2` tables with exactly pass_count `sub_8E0`

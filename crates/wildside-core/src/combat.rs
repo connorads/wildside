@@ -15736,6 +15736,20 @@ impl NativeRuntime {
         self.hud_timer_sprite_seconds_loc_bee8 = self.level_timer.seconds;
         level_timer_expired
     }
+
+    pub(crate) fn tick_demo_hud_timer_presentation_loc_be82(&mut self) {
+        let Some(mut timer) = self.demo_hud_timer_presentation_loc_be82 else {
+            return;
+        };
+        let _ = timer.tick();
+        self.demo_hud_timer_presentation_loc_be82 = Some(timer);
+        // ASM Load_DemoPlay -> Load_InGame sub_8E0 repeatedly calls
+        // Make_SpriteAttr_HUD loc_BE82 during the bootstrap, before the
+        // suspended loc_3038A gameplay tail advances authoritative timer state.
+        // Preserve that rendered sprite-table clock without changing gameplay
+        // time or the unrelated sub_44DC `$DD40` page sequence.
+        self.hud_timer_sprite_seconds_loc_bee8 = timer.seconds;
+    }
 }
 
 #[cfg(test)]

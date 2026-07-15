@@ -23,6 +23,36 @@ fn cached_any_percent_demo_runtime_and_script() -> Option<(NativeRuntime, Vec<u8
 }
 
 #[test]
+fn published_tas_demo_bootstrap_presents_hud_timer_before_authoritative_timer_tail() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut frame_962 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(963) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 962 {
+            frame_962 = Some((
+                trace.game_mode,
+                trace.current_level,
+                trace.level_timer_seconds,
+                trace.level_timer_sub_frames,
+                trace.hud_timer_sprite_seconds_loc_bee8,
+            ));
+        }
+    }
+
+    // ASM Load_DemoPlay -> Load_InGame sub_8E0 reaches Make_SpriteAttr_HUD
+    // loc_BE82 on every bootstrap pass, while loc_3038A remains suspended.
+    // Oracle frame 962 therefore displays 2:59 even though native's
+    // authoritative timer has not reached its delayed gameplay-tail tick.
+    assert_eq!(
+        frame_962,
+        Some((GameMode::DemoPlay, LevelId(0x1B), 180, 6, Some(179))),
+    );
+}
+
+#[test]
 fn published_tas_sega_start_handoff_presents_sub_1c204_fade_one_frame_later() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;

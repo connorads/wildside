@@ -13,6 +13,36 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-15: Demo bootstrap now carries a dedicated presented
+`Make_SpriteAttr_HUD loc_BE82` timer rather than advancing authoritative
+`LevelTimer` before `loc_3038A` wakes. `Load_DemoPlay -> Load_InGame sub_8E0`
+does enter the HUD builder on every bootstrap pass, whereas the native
+authoritative timer tail begins later; sharing the two clocks had either left
+the frame-963 digits at 3:00 or shifted the unrelated `sub_44DC
+loc_45EE/loc_4626` `$DD40` diamond DMA page. The new presentation clock begins
+from the entry pass's 3:00/$3C state and is sampled only into the built HUD
+sprite-table value. Cache-backed replay regression pins frame 962:
+DemoPlay/0x1B keeps authoritative time at 3:00/$06 while its presented timer is
+2:59. Oracle/native captures are exact through frames 961..967. Full route:
+24,310 → 24,349 exact frames, 13,449 → 13,410 divergent, and 8,213,356 →
+8,194,538 changed pixels; first mismatch moves 963 → 968 (the pre-existing
+84-pixel `$DD40` diamond page), worst remains frame 21765 at 2,387 pixels.
+All 37,759 player/camera, gameplay, enemy-roster and rendered frames plus all
+37,743 post-init RNG frames remain exact where applicable; baseline ratcheted.
+
+Rejected 2026-07-15: extending the DemoPlay timer tick from
+`DEMO_MODE_LEVEL_TAIL_START_FRAME` back to the first bootstrap pass made the
+frame-963 timer digits exact: oracle WRAM at frame 962 is `2:59/$3C`, and a
+cache-backed route regression pinned native `level_timer=179`,
+`hud_timer_sprite_seconds_loc_bee8=179` there. It is not a valid standalone
+fix. The timing change also advanced the rendered `$DD40` diamond presentation
+to a wrong page from frames 962 onward (84 pixels per frame), worsening the
+visual frontier despite zero gameplay/CRC/RNG/enemy differences over 900..1000.
+The underlying missing model is a separate bootstrap HUD presentation clock:
+the ROM's `Make_SpriteAttr_HUD loc_BE82` timer writes and `sub_44DC
+loc_45EE/loc_4626` DMA page commits must be represented independently, rather
+than advancing the authoritative level timer early. Reverted.
+
 Progress 2026-07-15: first presented-transform-phase slice (step 3 vertical
 slice) lands. New pure enumerator `transform_presentation.rs` reproduces
 `Kid_Transform`'s displayed `sub_8E0` passes from `stru_7FF8`: each

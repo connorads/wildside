@@ -6317,6 +6317,7 @@ impl NativeRuntime {
         // has seeded 3:01/$01, so this hidden Make_SpriteAttr_HUD loc_BE82 pass
         // presents 3:00/$3C by published-TAS frame 902.
         let _ = self.tick_level_timer_hud_loc_be82();
+        self.demo_hud_timer_presentation_loc_be82 = Some(self.level_timer);
         self.time_frames_loc_3038a = 0;
         self.level_damage_taken = false;
         self.level_prize_collected = false;
