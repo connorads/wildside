@@ -3,6 +3,36 @@
 /// Produces a 3-panel composite: [native | oracle | amplified_diff]
 /// with text annotations showing MAE, level ID, and checkpoint label.
 use font8x8::UnicodeFonts;
+use serde::Serialize;
+
+/// Inclusive pixel-space bounding box of a mismatch region.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub(crate) struct BBox {
+    pub(crate) min_x: usize,
+    pub(crate) min_y: usize,
+    pub(crate) max_x: usize,
+    pub(crate) max_y: usize,
+}
+
+impl BBox {
+    /// True when `other` lies entirely inside `self` (inclusive bounds).
+    pub(crate) fn contains(&self, other: &BBox) -> bool {
+        self.min_x <= other.min_x
+            && self.min_y <= other.min_y
+            && self.max_x >= other.max_x
+            && self.max_y >= other.max_y
+    }
+
+    /// Smallest box covering both `self` and `other`.
+    pub(crate) fn union(&self, other: &BBox) -> BBox {
+        BBox {
+            min_x: self.min_x.min(other.min_x),
+            min_y: self.min_y.min(other.min_y),
+            max_x: self.max_x.max(other.max_x),
+            max_y: self.max_y.max(other.max_y),
+        }
+    }
+}
 
 /// Mean absolute error between two RGB byte buffers.
 pub(crate) fn frame_mae(native: &[u8], oracle: &[u8]) -> f32 {
@@ -23,6 +53,31 @@ pub(crate) fn pixel_mismatch_count(a: &[u8], b: &[u8]) -> usize {
         .zip(b.chunks_exact(3))
         .filter(|(pa, pb)| pa != pb)
         .count()
+}
+
+/// Count mismatching pixels and their inclusive bounding box in one pass.
+///
+/// `width` is the frame width in pixels (x/y derive from the RGB triplet
+/// index). Returns `None` when the buffers are pixel-identical.
+pub(crate) fn pixel_mismatch_bbox(a: &[u8], b: &[u8], width: usize) -> Option<(usize, BBox)> {
+    let mut count = 0usize;
+    let mut bbox: Option<BBox> = None;
+    for (index, (pa, pb)) in a.chunks_exact(3).zip(b.chunks_exact(3)).enumerate() {
+        if pa == pb {
+            continue;
+        }
+        count += 1;
+        let x = index % width;
+        let y = index / width;
+        let pixel = BBox {
+            min_x: x,
+            min_y: y,
+            max_x: x,
+            max_y: y,
+        };
+        bbox = Some(bbox.map_or(pixel, |existing| existing.union(&pixel)));
+    }
+    bbox.map(|bbox| (count, bbox))
 }
 
 /// Generate a 3-panel composite RGB image: [native | oracle | amplified_diff].
@@ -155,6 +210,107 @@ mod tests {
         let a = vec![10, 20, 30, 40, 50, 60, 70, 80, 90];
         let b = vec![10, 20, 30, 41, 50, 60, 0, 0, 0];
         assert_eq!(pixel_mismatch_count(&a, &b), 2);
+    }
+
+    #[test]
+    fn pixel_mismatch_bbox_identical_is_none() {
+        let frame = vec![128u8; 320 * 224 * 3];
+        assert_eq!(pixel_mismatch_bbox(&frame, &frame, 320), None);
+    }
+
+    #[test]
+    fn pixel_mismatch_bbox_count_matches_pixel_mismatch_count() {
+        // 4x2 frame with mismatches scattered across both rows.
+        let mut a = vec![0u8; 4 * 2 * 3];
+        let b = vec![0u8; 4 * 2 * 3];
+        for pixel in [1usize, 3, 4, 6] {
+            a[pixel * 3] = 200;
+        }
+        let (count, _) = pixel_mismatch_bbox(&a, &b, 4).expect("mismatches present");
+        assert_eq!(count, pixel_mismatch_count(&a, &b));
+        assert_eq!(count, 4);
+    }
+
+    #[test]
+    fn pixel_mismatch_bbox_single_pixel_is_tight() {
+        let mut a = vec![0u8; 8 * 4 * 3];
+        let b = vec![0u8; 8 * 4 * 3];
+        // Pixel at (5, 2)
+        a[(2 * 8 + 5) * 3 + 1] = 9;
+        let (count, bbox) = pixel_mismatch_bbox(&a, &b, 8).expect("mismatch present");
+        assert_eq!(count, 1);
+        assert_eq!(
+            bbox,
+            BBox {
+                min_x: 5,
+                min_y: 2,
+                max_x: 5,
+                max_y: 2
+            }
+        );
+    }
+
+    #[test]
+    fn pixel_mismatch_bbox_spans_opposite_corners() {
+        let mut a = vec![0u8; 8 * 4 * 3];
+        let b = vec![0u8; 8 * 4 * 3];
+        // Top-right (7, 0) and bottom-left (0, 3)
+        a[7 * 3] = 1;
+        a[(3 * 8) * 3] = 1;
+        let (count, bbox) = pixel_mismatch_bbox(&a, &b, 8).expect("mismatches present");
+        assert_eq!(count, 2);
+        assert_eq!(
+            bbox,
+            BBox {
+                min_x: 0,
+                min_y: 0,
+                max_x: 7,
+                max_y: 3
+            }
+        );
+    }
+
+    #[test]
+    fn bbox_contains_and_union() {
+        let outer = BBox {
+            min_x: 10,
+            min_y: 10,
+            max_x: 20,
+            max_y: 20,
+        };
+        let inner = BBox {
+            min_x: 12,
+            min_y: 10,
+            max_x: 20,
+            max_y: 18,
+        };
+        let outside = BBox {
+            min_x: 12,
+            min_y: 10,
+            max_x: 21,
+            max_y: 18,
+        };
+        assert!(outer.contains(&inner));
+        assert!(outer.contains(&outer));
+        assert!(!outer.contains(&outside));
+        assert_eq!(
+            inner.union(&outside),
+            BBox {
+                min_x: 12,
+                min_y: 10,
+                max_x: 21,
+                max_y: 18
+            }
+        );
+        assert_eq!(
+            outer.union(&outside),
+            BBox {
+                min_x: 10,
+                min_y: 10,
+                max_x: 21,
+                max_y: 20
+            }
+        );
     }
 
     #[test]

@@ -1082,6 +1082,10 @@ enum Commands {
         /// Render and compare native/oracle RGB pixels at every requested checkpoint
         #[arg(long, default_value_t = false)]
         compare_pixels: bool,
+        /// Write a standalone per-frame pixel-mismatch + cluster report JSON to
+        /// this path (requires --compare-pixels; not supported with --bisect)
+        #[arg(long)]
+        pixel_mismatch_report: Option<PathBuf>,
     },
     /// Side-by-side native vs oracle comparison for TAS debugging.
     TasDiff {
@@ -2461,14 +2465,21 @@ fn main() -> Result<()> {
             frontier_kind,
             include_rng,
             compare_pixels,
+            pixel_mismatch_report,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            if pixel_mismatch_report.is_some() && !compare_pixels {
+                bail!("--pixel-mismatch-report requires --compare-pixels");
+            }
             if bisect {
                 if compare_pixels {
                     bail!("--compare-pixels is not supported with --bisect");
+                }
+                if pixel_mismatch_report.is_some() {
+                    bail!("--pixel-mismatch-report is not supported with --bisect");
                 }
                 tas::bisect_tas(
                     &repo_root,
@@ -2492,6 +2503,7 @@ fn main() -> Result<()> {
                     frontier_kind,
                     include_rng,
                     compare_pixels,
+                    pixel_mismatch_report.as_deref(),
                 )?;
             }
         }

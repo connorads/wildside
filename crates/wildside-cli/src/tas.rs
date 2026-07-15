@@ -510,6 +510,7 @@ pub fn verify_tas(
     frontier_kind: crate::sweep::FrontierKind,
     include_rng: bool,
     compare_pixels: bool,
+    pixel_mismatch_report: Option<&Path>,
 ) -> Result<()> {
     let scenario_json = std::fs::read_to_string(scenario_path)
         .with_context(|| format!("failed to read {}", scenario_path.display()))?;
@@ -613,11 +614,42 @@ pub fn verify_tas(
         None,
         include_rng,
     )?;
-    let pixel_comparison = compare_pixels
-        .then(|| crate::tas_pixels::compare_tas_pixels(manifest, &scenario, &oracle, start, end))
-        .transpose()?;
+    let (pixel_comparison, pixel_mismatch_detail) = match compare_pixels
+        .then(|| {
+            crate::tas_pixels::compare_tas_pixels(
+                manifest,
+                &scenario,
+                &oracle,
+                start,
+                end,
+                pixel_mismatch_report.is_some(),
+            )
+        })
+        .transpose()?
+    {
+        Some((comparison, detail)) => (Some(comparison), detail),
+        None => (None, None),
+    };
     if let Some(comparison) = &pixel_comparison {
         println!("  pixels: {}", comparison.console_summary());
+    }
+    if let (Some(path), Some(detail)) = (pixel_mismatch_report, &pixel_mismatch_detail) {
+        if let Some(parent) = path.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create {}", parent.display()))?;
+        }
+        std::fs::write(path, serde_json::to_vec_pretty(detail)?)
+            .with_context(|| format!("failed to write {}", path.display()))?;
+        println!(
+            "  pixel mismatch report: {} ({} clusters)",
+            path.display(),
+            detail.clusters.len()
+        );
+        for cluster in detail.clusters.iter().take(3) {
+            println!("    {}", cluster.console_summary());
+        }
     }
 
     // Per-frame player/camera progression CRC (fast divergence detection).
