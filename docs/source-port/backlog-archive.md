@@ -13,6 +13,56 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Rejected 2026-07-14: preserving both `Kid_Transform` table identities in a
+render-only trace latch and walking the old table backwards (`loc_7CA6`) then
+the target table forwards (`loc_7D0A`) still does not model the presented
+sprite phase. Converting each extracted descriptor to its raw `anim_frame`
+duration improves Iron Knight frames 22490..22550 from 110,266 to 99,370
+changed pixels (frame 22511: 2,595 to 1,373), but the full 37,759-frame route
+regresses to 24,199 exact / 13,560 divergent / 8,513,475 changed pixels. The
+first mismatch remains frame 905 (2 pixels) and the worst moves to frame 22514
+(2,595 pixels); player/camera, gameplay, enemy, and RNG parity remain exact.
+The final source latch likely needs the individual sprite and palette writes
+from every `sub_8E0` pass, not only table identity plus countdown. Reverted.
+#406 remains open.
+
+Rejected 2026-07-14: converting every transform descriptor's `DBF` VBlank
+duration back to the core countdown unit improves the local Iron Knight
+transform window (22490..22550) by 5,081 changed pixels and frame 22511 from
+2,595 to 1,373. It is nevertheless globally wrong: the full 37,759-frame route
+regresses from 8,474,031 to 8,525,389 changed pixels, loses 31 exact frames,
+and moves the worst mismatch to frame 22525 (2,663 pixels). The renderer must
+consume a visible sprite-table phase produced by Kid_Transform's individual
+`sub_8E0` passes; do not derive it from either raw countdown or descriptor
+duration alone. Reverted. #406 remains open.
+
+Progress 2026-07-14: the full-route worst frame, 22511 (2,595 changed RGB
+pixels), is an Iron Knight transform hibernation, not a gameplay divergence.
+Native and oracle agree on `form_change_flash_frames=35`, helmet 6, player
+position and camera, but native presents a later transformation art phase while
+the ROM's visible sprite table remains several internal `Kid_Transform
+loc_7CBE/loc_7D22 -> sub_8E0` passes behind. Oracle frames 22490..22550 show
+that the displayed transform phase holds across repeated outer frames, whereas
+the native renderer derives a new art frame directly from the decremented
+countdown. Do not apply a global countdown offset: the best matching native
+phase changes within the sequence. Model the sprite-table writes produced by
+the internal `sub_8E0` loop before changing transform art selection. #406
+remains open.
+
+Rejected 2026-07-14: a typed `sub_44DC` HUD-art latch that advances only on
+life/diamond upload events cannot replace the existing renderer timing rules.
+The native trace at frames 900..970 advances its diamond selector on 902, 908,
+914 and 920, but the oracle `$DD40` DMAs respectively complete on visible
+scanlines 5..33, across the frame boundary, across the frame boundary, and in
+vblank. Applying that latch changed the full published route to 23,995 exact
+frames, 13,764 divergent frames and 8,513,369 changed pixels, with first RGB
+mismatch delayed to frame 957. Restoring the established sprite-source latch
+returns the exact baseline: 24,250 exact / 13,509 divergent / 8,474,031 changed
+pixels, first mismatch frame 905 (2 pixels), worst frame 22511 (2,595 pixels),
+with zero gameplay, enemy, player/camera or RNG divergence. Do not consume this
+state until HUD DMA completion is modelled at its scanline boundary. #406 remains
+open.
+
 Progress 2026-07-14: the oracle helper now exposes a drainable completed-VDP
 FIFO journal through `oracle-probe --vdp-fifo-commit-frames`. It records VRAM,
 CRAM and VSRAM writes at jgenesis `Vdp::pop_fifo` with frame, scanline and pixel
