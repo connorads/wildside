@@ -68,6 +68,10 @@ const SEGA_FIRST_FADE_COPY_ELAPSED: usize = 67;
 /// Fade loop d1 init (frame delay counter) and d3 init (palette cursor).
 const SEGA_FADE_FRAME_DELAY_INIT: i16 = 0x14;
 const SEGA_FADE_PALETTE_CURSOR_INIT: i16 = 0x28;
+/// Oracle FIFO captures put each `loc_12ED2` CRAM strip below the preceding
+/// three visible scanouts. The VDP state is post-DMA, while rasterisation must
+/// retain the earlier displayed palette for those frames.
+const SEGA_FADE_CRAM_PRESENTATION_LAG_LOC_12ED2: usize = 3;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VdpState {
@@ -247,10 +251,36 @@ pub(crate) fn build_sega_screen_vdp(data: &SegaScreenData, elapsed: usize) -> Vd
         }
     }
 
+    let cram = sega_screen_cram_loc_12dfe_12ed2(data, elapsed);
+    let visible_elapsed = elapsed.saturating_sub(SEGA_FADE_CRAM_PRESENTATION_LAG_LOC_12ED2);
+    let visible_cram = sega_screen_cram_loc_12dfe_12ed2(data, visible_elapsed);
+    vdp.cram = cram;
+    if vdp.cram != visible_cram {
+        vdp.raster_frame = Some(VdpRasterFrame {
+            initial_vram: vdp.vram.clone(),
+            initial_cram: Some(visible_cram),
+            vram_word_writes: Vec::new(),
+        });
+    }
+
+    vdp
+}
+
+/// ASM Load_SegaScreen loc_12DFE/loc_12E96/loc_12ED2: final CRAM state after
+/// the initial palette copy and any completed fade-strip uploads.
+fn sega_screen_cram_loc_12dfe_12ed2(data: &SegaScreenData, elapsed: usize) -> Vec<u8> {
+    let mut cram = vec![0; CRAM_SIZE];
+
     // Initial palette: copy first 13 words to CRAM line 0.
-    let initial_palette =
-        &data.palette_words[..SEGA_INITIAL_PALETTE_WORD_COUNT.min(data.palette_words.len())];
-    vdp.write_cram_words(0, initial_palette);
+    for (index, word) in data
+        .palette_words
+        .iter()
+        .take(SEGA_INITIAL_PALETTE_WORD_COUNT)
+        .enumerate()
+    {
+        let byte_offset = index * 2;
+        cram[byte_offset..byte_offset + 2].copy_from_slice(&word.to_be_bytes());
+    }
 
     // ASM palette fade animation (loc_12E96 → loc_12ED2):
     // After the hidden setup and initial logo hold, every 4th visible fade
@@ -293,12 +323,15 @@ pub(crate) fn build_sega_screen_vdp(data: &SegaScreenData, elapsed: usize) -> Vd
         if source_word_index + SEGA_FADE_STRIP_WORDS <= data.palette_words.len() {
             let strip =
                 &data.palette_words[source_word_index..source_word_index + SEGA_FADE_STRIP_WORDS];
-            vdp.write_cram_words(SEGA_FADE_STRIP_CRAM_WORD_OFFSET, strip);
+            for (index, word) in strip.iter().enumerate() {
+                let byte_offset = (SEGA_FADE_STRIP_CRAM_WORD_OFFSET + index) * 2;
+                cram[byte_offset..byte_offset + 2].copy_from_slice(&word.to_be_bytes());
+            }
         }
         palette_cursor -= 2;
     }
 
-    vdp
+    cram
 }
 
 /// Load and cache Sega screen art + palette data from the asset bundle.
@@ -6509,6 +6542,49 @@ mod tests {
             u16::from_be_bytes([vdp_cursor_zero.cram[4], vdp_cursor_zero.cram[5]]),
             palette_words[2],
             "22nd fade copy at cursor=0: CRAM word 2 = palette_words[2 + 0/2] = palette_words[2]",
+        );
+    }
+
+    #[test]
+    fn sega_fade_loc_12ed2_retains_previous_cram_during_three_visible_scanouts() {
+        // ASM loc_12E96..loc_12ED2 (kid.asm:25515-25543) updates
+        // Palette_Buffer and queues Palette_to_VRAM after WaitForVint. Oracle
+        // FIFO captures at published-TAS frames 5037..5040 show the first
+        // changed strip commits below the visible field, while the logo keeps
+        // the preceding CRAM for three scanouts. The final VDP state remains
+        // post-DMA; only raster scanout must use the delayed palette.
+        let mut palette_words = vec![0u16; 33];
+        for (index, word) in palette_words.iter_mut().enumerate() {
+            *word = 0x1000 + index as u16;
+        }
+        let data = SegaScreenData {
+            art_bytes: vec![0; 32],
+            palette_words: palette_words.clone(),
+        };
+
+        let first_copy = build_sega_screen_vdp(&data, SEGA_FIRST_FADE_COPY_ELAPSED);
+        assert_eq!(
+            u16::from_be_bytes([first_copy.cram[4], first_copy.cram[5]]),
+            palette_words[22],
+            "loc_12ED2's completed VDP state keeps the newly copied strip"
+        );
+        assert_eq!(
+            first_copy
+                .raster_frame
+                .as_ref()
+                .and_then(|raster| raster.initial_cram.as_ref())
+                .map(|cram| u16::from_be_bytes([cram[4], cram[5]])),
+            Some(palette_words[2]),
+            "the first three scanouts retain Pal_12EEC's preceding CRAM word"
+        );
+
+        let presented = build_sega_screen_vdp(
+            &data,
+            SEGA_FIRST_FADE_COPY_ELAPSED + SEGA_FADE_CRAM_PRESENTATION_LAG_LOC_12ED2,
+        );
+        assert!(
+            presented.raster_frame.is_none(),
+            "after the three delayed scanouts, the loc_12ED2 strip is visible directly"
         );
     }
 

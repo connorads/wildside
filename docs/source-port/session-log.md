@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-15 handoff (#406 SEGA logo CRAM presentation)
+
+- `Load_SegaScreen loc_12E96..loc_12ED2` writes each palette strip below the
+  visible scanout. Oracle frames 5037..5039 retain prior CRAM while 5040 shows
+  the new strip, so native now presents `VdpRasterFrame.initial_cram` for three
+  scanouts while retaining the correct post-copy CRAM state.
+- The focused 5020..5060 window is 40/40 pixel-exact. Full route is now 24,889
+  exact / 12,870 divergent / 7,140,998 px, with CRC, gameplay, enemy and RNG
+  exact; baseline ratcheted. NEXT: Kid→Cyclone demo-window transforms, starting
+  with selector-0 `KidWithSpark` art.
+
 ## 2026-07-15 handoff (#406 Demo 2 diamond-page rejection)
 
 - Oracle `$FFFFFA5D`/VRAM frames 968..980 show Demo 2 (level 0x1B) presenting

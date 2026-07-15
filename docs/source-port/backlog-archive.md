@@ -13,6 +13,20 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-15: `Load_SegaScreen loc_12E96..loc_12ED2` changes an
+11-word CRAM strip after each 21-frame delay while fading the SEGA logo.
+Oracle CRAM/FIFO captures show the write committing below the visible region,
+so native's final CRAM state was correct but displayed three scanouts early:
+frames 5037..5039 retain the old strip and frame 5040 first shows the new one.
+`build_sega_screen_vdp` now preserves the post-copy CRAM state while its
+`VdpRasterFrame.initial_cram` exposes the preceding palette for those three
+scanouts. The regression cites the same labels and pins the first strip plus
+the three-frame boundary; the focused 5020..5060 route window is 40/40
+pixel-exact with player, camera, enemy and RNG parity. Full route improves
+24,349 → 24,889 exact frames, 13,410 → 12,870 divergent, and 8,194,538 →
+7,140,998 changed pixels. First mismatch remains frame 968 and worst remains
+21765 at 2,387 pixels; all state channels stay exact. Baseline ratcheted.
+
 Rejected 2026-07-15: broadening the `$DD40` direct-page exception from demo 1
 to `Load_DemoPlay` globally makes published-TAS frames 968..989 exact, but
 regresses the full route from 24,349 exact / 13,410 divergent / 8,194,538 px
