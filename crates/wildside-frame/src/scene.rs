@@ -1131,6 +1131,11 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.kid_y_velocity = previous_trace.kid_y_velocity;
         render_trace.character_movement = previous_trace.character_movement;
         render_trace.walk_visual_accumulator = previous_trace.walk_visual_accumulator;
+        // ASM Init_Animation loc_1040 writes the pull-up `addroffset_sprite`
+        // after Mode_Level's Transfer_SpriteAndKidToVRAM loc_A70 has already
+        // displayed the previous Sprite_Table. Keep the former animation
+        // source through that one-VBlank sprite latch.
+        render_trace.ledge_snap_cooldown = previous_trace.ledge_snap_cooldown;
         render_trace.form_change_flash_frames = previous_trace.form_change_flash_frames;
         // ASM Mode_Level calls Make_SpriteAttr_HUD/sub_BDC0 before the later
         // GfxObjects_CollisionKid path can reach Check_for_recent_damge
@@ -8728,6 +8733,31 @@ mod tests {
         assert_eq!(
             render_trace.active_projectile_details, previous_trace.active_projectile_details,
             "ASM Mode_Level loc_901 presents previous typed projectile sprite details"
+        );
+    }
+
+    #[test]
+    fn mode_level_loc_a70_latches_pull_up_animation_source() {
+        let previous_trace = NativeTraceFrame {
+            game_mode: GameMode::DemoPlay,
+            game_mode_value: GameMode::DemoPlay.as_disassembly_value(),
+            current_level: wildside_core::LevelId(0x1B),
+            ledge_snap_cooldown: 0,
+            ..NativeTraceFrame::default()
+        };
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::DemoPlay,
+            game_mode_value: GameMode::DemoPlay.as_disassembly_value(),
+            current_level: wildside_core::LevelId(0x1B),
+            ledge_snap_cooldown: 21,
+            ..NativeTraceFrame::default()
+        };
+
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
+
+        assert_eq!(
+            render_trace.ledge_snap_cooldown, 0,
+            "ASM Transfer_SpriteAndKidToVRAM loc_A70 displays the prior Sprite_Table before kid_flip loc_ABF0 calls Init_Animation for stru_8BB4"
         );
     }
 
