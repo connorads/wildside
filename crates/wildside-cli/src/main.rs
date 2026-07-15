@@ -1230,6 +1230,9 @@ enum Commands {
         /// Frames for completed oracle VDP FIFO writes with scanline/pixel timing.
         #[arg(long)]
         vdp_fifo_commit_frames: Option<String>,
+        /// Inclusive VDP FIFO address range to retain (e.g. 0xDD40-0xDF3F).
+        #[arg(long)]
+        vdp_fifo_commit_address_range: Option<String>,
         /// Conditional filter: only show frames matching predicate (e.g. "0xFF2502>=0")
         /// Multiple --when flags are ANDed. Ops: =, !=, <, >, <=, >=
         #[arg(long)]
@@ -2651,6 +2654,7 @@ fn main() -> Result<()> {
             native_vsram_dump_frames,
             vdp_pixel_samples,
             vdp_fifo_commit_frames,
+            vdp_fifo_commit_address_range,
             when,
             capture_cpu_state,
             capture_settle_trace,
@@ -2700,6 +2704,7 @@ fn main() -> Result<()> {
                 vsram_dump_frames: vsram_dump_frames.clone(),
                 vdp_pixel_samples: vdp_pixel_samples.clone(),
                 vdp_fifo_commit_frames: vdp_fifo_commit_frames.clone(),
+                vdp_fifo_commit_address_range: vdp_fifo_commit_address_range.clone(),
                 capture_cpu_state,
                 capture_settle_trace,
                 capture_rng_stream: false,

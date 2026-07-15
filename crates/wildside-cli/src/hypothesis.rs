@@ -127,6 +127,7 @@ pub fn test_hypothesis(
             vsram_dump_frames: None,
             vdp_pixel_samples: None,
             vdp_fifo_commit_frames: None,
+            vdp_fifo_commit_address_range: None,
             capture_cpu_state: false,
             capture_settle_trace: false,
             capture_rng_stream: false,

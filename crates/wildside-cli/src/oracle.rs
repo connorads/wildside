@@ -34,6 +34,7 @@ pub(crate) struct OracleRunOptions {
     pub(crate) vsram_dump_frames: Option<String>,
     pub(crate) vdp_pixel_samples: Option<String>,
     pub(crate) vdp_fifo_commit_frames: Option<String>,
+    pub(crate) vdp_fifo_commit_address_range: Option<String>,
     pub(crate) capture_cpu_state: bool,
     pub(crate) capture_settle_trace: bool,
     pub(crate) capture_rng_stream: bool,
@@ -436,6 +437,10 @@ pub fn run_jgenesis_capture_dynamic_with_options(
     }
     if let Some(ref frames) = options.vdp_fifo_commit_frames {
         cmd.arg("--vdp-fifo-commit-frames").arg(frames);
+    }
+    if let Some(ref address_range) = options.vdp_fifo_commit_address_range {
+        cmd.arg("--vdp-fifo-commit-address-range")
+            .arg(address_range);
     }
     if options.capture_cpu_state {
         cmd.arg("--capture-cpu-state");

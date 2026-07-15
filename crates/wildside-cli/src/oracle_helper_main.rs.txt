@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail};
 use bincode::{Decode, Encode};
 use genesis_config::{
     GenesisAspectRatio, GenesisControllerType, GenesisInputs, GenesisJoypadState,
@@ -242,6 +242,29 @@ fn parse_frame_list(spec: &str) -> Result<Vec<usize>> {
     spec.split(',')
         .map(|s| s.trim().parse::<usize>().with_context(|| format!("invalid frame number: {s}")))
         .collect()
+}
+
+/// Inclusive VDP byte-address filter for a FIFO journal. The VDP exposes
+/// word-aligned addresses, but the inclusive bounds deliberately accept any
+/// byte value so a caller can isolate an exact DMA destination span.
+fn parse_vdp_fifo_commit_address_range(spec: &str) -> Result<Option<(u32, u32)>> {
+    if spec.is_empty() {
+        return Ok(None);
+    }
+    let (start, end) = spec
+        .split_once('-')
+        .context("VDP FIFO address range must be START-END (for example 0xDD40-0xDF3F)")?;
+    let parse_address = |value: &str| {
+        let value = value.trim();
+        let digits = value.strip_prefix("0x").or_else(|| value.strip_prefix("0X")).unwrap_or(value);
+        u32::from_str_radix(digits, 16).with_context(|| format!("invalid VDP FIFO address: {value}"))
+    };
+    let start = parse_address(start)?;
+    let end = parse_address(end)?;
+    if start > end {
+        bail!("VDP FIFO address range start {start:#X} exceeds end {end:#X}");
+    }
+    Ok(Some((start, end)))
 }
 
 #[derive(Debug, Serialize)]
@@ -616,6 +639,7 @@ fn main() -> Result<()> {
     let mut vsram_dump_frames_spec = String::new();
     let mut vdp_pixel_samples_spec = String::new();
     let mut vdp_fifo_commit_frames_spec = String::new();
+    let mut vdp_fifo_commit_address_range_spec = String::new();
     let mut capture_cpu_state = false;
     let mut capture_settle_trace = false;
     let mut capture_rng_stream = false;
@@ -635,6 +659,7 @@ fn main() -> Result<()> {
             "--vsram-dump-frames" => vsram_dump_frames_spec = args.next().unwrap_or_default(),
             "--vdp-pixel-samples" => vdp_pixel_samples_spec = args.next().unwrap_or_default(),
             "--vdp-fifo-commit-frames" => vdp_fifo_commit_frames_spec = args.next().unwrap_or_default(),
+            "--vdp-fifo-commit-address-range" => vdp_fifo_commit_address_range_spec = args.next().unwrap_or_default(),
             "--capture-cpu-state" => capture_cpu_state = true,
             "--capture-settle-trace" => capture_settle_trace = true,
             "--capture-rng-stream" => capture_rng_stream = true,
@@ -655,12 +680,13 @@ fn main() -> Result<()> {
     let vsram_dump_frames = parse_frame_list(&vsram_dump_frames_spec)?;
     let vdp_pixel_samples = parse_vdp_pixel_samples(&vdp_pixel_samples_spec)?;
     let vdp_fifo_commit_frames = parse_frame_list(&vdp_fifo_commit_frames_spec)?;
+    let vdp_fifo_commit_address_range = parse_vdp_fifo_commit_address_range(&vdp_fifo_commit_address_range_spec)?;
 
     let rom = fs::read(&rom_path)
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     match mode {
         OutputMode::Capture => {
-            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, &vdp_fifo_commit_frames, capture_cpu_state, capture_settle_trace, capture_rng_stream)?;
+            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, &vdp_fifo_commit_frames, vdp_fifo_commit_address_range, capture_cpu_state, capture_settle_trace, capture_rng_stream)?;
         }
         OutputMode::EnemyLayoutTrace => {
             run_enemy_layout_trace(&rom, &resolved)?;
@@ -730,7 +756,7 @@ fn resolve_scenario(
     }
 }
 
-fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], vdp_fifo_commit_frames: &[usize], capture_cpu_state: bool, capture_settle_trace: bool, capture_rng_stream: bool) -> Result<()> {
+fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], vdp_fifo_commit_frames: &[usize], vdp_fifo_commit_address_range: Option<(u32, u32)>, capture_cpu_state: bool, capture_settle_trace: bool, capture_rng_stream: bool) -> Result<()> {
     let mut checkpoint_index = 0usize;
     let mut save_writer = NullSaveWriter;
     let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
@@ -857,6 +883,9 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                             word: commit.word,
                             byte_size: commit.byte_size,
                         })
+                        .filter(|commit| vdp_fifo_commit_address_range.is_none_or(|(start, end)| {
+                            (start..=end).contains(&commit.address)
+                        }))
                         .collect();
                     if vdp_fifo_commit_frames.contains(&frame_index) {
                         all_vdp_fifo_commits.push(OracleVdpFifoCommitRow {
