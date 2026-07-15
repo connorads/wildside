@@ -2622,9 +2622,34 @@ impl NativeRuntime {
                 // ASM Obj_TitleMenu loc_1BB02 -> loc_6E2 keeps the completed
                 // title VDP resident through Pal_FadeOut, then Load_DemoPlay
                 // -> Load_InGame keeps the remaining bootstrap black.
+                let final_title_worker_elapsed = self.title_screen_elapsed_frames;
+                let final_title_worker_lineage = vdp::TitleScreenVdpLineage {
+                    fresh_title_worker_lineage: matches!(
+                        self.title_screen_intro_return_lineage,
+                        Some(
+                            TitleScreenIntroReturnLineage::ManualDemoReturn
+                                | TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence3
+                                | TitleScreenIntroReturnLineage::TimeoutRestartIntroSequence5
+                        )
+                    ) || self.intro_return_load_title_screen_reveal_elapsed().is_some(),
+                    ..vdp::TitleScreenVdpLineage::default()
+                };
                 self.demo_entry_title_vdp_snapshot
                     .clone()
                     .and_then(|mut vdp| {
+                        if let Some(data) = self.title_screen_data.as_ref() {
+                            // ASM Obj_TitleTextChameleon loc_1B6A2 -> sub_1B71A:
+                            // retain the worker's coroutine lineage across the
+                            // loc_1BB02 -> loc_6E2 mode switch. Cold IntroSequence1
+                            // returns use the freshly allocated worker clock; the
+                            // later IntroSequence6 route keeps the normal clock.
+                            vdp::apply_title_to_demo_final_chameleon_upload_sub_1B71A(
+                                &mut vdp,
+                                data,
+                                final_title_worker_elapsed,
+                                final_title_worker_lineage,
+                            );
+                        }
                         vdp::apply_title_to_demo_fade_to_black_loc_28c6(
                             &mut vdp,
                             usize::from(*frame_counter),

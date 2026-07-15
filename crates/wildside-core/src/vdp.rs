@@ -832,6 +832,21 @@ pub(crate) fn apply_title_to_demo_fade_to_black_loc_28c6(
     true
 }
 
+/// ASM `Obj_TitleTextChameleon` / `sub_1B71A`: the title worker has already
+/// entered its final map upload when `Obj_TitleMenu loc_1BB02` switches to
+/// DemoPlay. Its FIFO writes complete before the title's lower map rows are
+/// scanned, so the retained title snapshot must include that final map rather
+/// than the preceding frame's worker state.
+#[allow(non_snake_case)]
+pub(crate) fn apply_title_to_demo_final_chameleon_upload_sub_1B71A(
+    vdp: &mut VdpState,
+    data: &TitleScreenData,
+    title_elapsed_frames: usize,
+    lineage: TitleScreenVdpLineage,
+) {
+    write_title_text_chameleon_anim_loc_1b71a(vdp, data, title_elapsed_frames, lineage);
+}
+
 pub(crate) fn apply_pal_fade_out_to_black_loc_28c6(vdp: &mut VdpState, fade_progress: u16) {
     let palette_buffer_2 = vdp_cram_words(vdp);
     let palette_buffer_3 = [0u16; 0x40];

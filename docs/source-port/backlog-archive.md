@@ -13,6 +13,15 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Rejected 2026-07-15: `loc_700`'s active-display clear cannot be approximated
+as a contiguous `$0000..$0FFF` VRAM overwrite. That source-backed trial does
+remove the frame-21765 Robot, but it also erases retained title content and
+turns the focused 21755..21776 window from 26,257 to 170,142 changed pixels.
+The oracle's 2,387-pixel difference is confined to the Robot bbox
+`x=51..262, y=154..192`; it keeps the KID sprite and CHAMELEON plane-B logo.
+The correct model needs the VDP port/FIFO scanout timing or an oracle-derived
+subset of the title-character tilemap, not a guessed clear prefix.
+
 Rejected 2026-07-15: clearing the title Sprite_Table is not the frame-21765
 fix. `Obj_TitleMenu loc_1BB02 -> loc_6E2/loc_720` clears RAM and `loc_B42`
 DMAs a zeroed first hardware-sprite entry, but the oracle's missing Robot is
