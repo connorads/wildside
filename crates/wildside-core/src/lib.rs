@@ -14,6 +14,7 @@ mod projectiles;
 mod scenario;
 pub mod terrain;
 mod trace;
+mod transform_presentation;
 pub(crate) mod types;
 pub mod vdp;
 mod weather;
@@ -112,6 +113,11 @@ use std::collections::HashSet;
 use std::sync::Arc;
 #[cfg(test)]
 pub(crate) use trace::opening_level_one_object_counts;
+pub use transform_presentation::{
+    IRON_KNIGHT_TRANSFORM_TABLE_STRU_7FF8, PresentedTransformPhase, TransformDescriptor,
+    TransformHandler, TransformTableSource, ported_forward_transform_passes,
+    presented_transform_phase,
+};
 pub use types::*;
 pub use weather::{
     LavaGeyserCameraWindowInputLoc147D6, LavaGeyserFullHeightRowLoc14874,
