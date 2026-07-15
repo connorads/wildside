@@ -13,6 +13,13 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Rejected 2026-07-15: treating every Demo 1 frame on level `$1B` as the
+`Load_DemoPlay loc_119B6` direct `$DD40` HUD-DMA phase makes frames 960..975
+pixel-exact, including frame 968, but regresses the full route to 24,594 exact
+frames and 7,177,428 changed pixels; the next mismatch moves to frame 990
+(197 pixels). The no-lead page selection is a bounded bootstrap presentation
+state, not a property of all Demo 1 gameplay.
+
 Rejected 2026-07-15: applying `Obj_TitleTextChameleon`'s final `sub_1B71A`
 upload to every retained DemoPlay title snapshot makes the focused cold and
 later handoffs exact (frames 830..860 and 21755..21776) but regresses the full

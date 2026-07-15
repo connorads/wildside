@@ -18,7 +18,7 @@ const HUD_DIAMOND_COUNT_X: i32 = 0x190 - 128;
 const HUD_DIAMOND_COUNT_Y: i32 = 0xA4 - 128;
 const HUD_DIAMOND_ANIMATION_FRAME_DURATION: usize = 6;
 const HUD_DIAMOND_DMA_PAGE_RENDER_LEAD_LOC_45EE: usize = 2;
-const DEMO_1_LEVEL_LOC_119B6: LevelId = LevelId(0x1B);
+const DEMO_1_LEVEL_LOC_119B6: LevelId = LevelId(0x15);
 // ASM Make_SpriteAttr_HUD loc_BE0C (kid.asm:15407): d2 starts at $80 and
 // `addi.w #$10,d2` runs before the first hitpoint sprite write, so the first
 // visible HP pip lands at biased X $90, i.e. screen X 16.
@@ -641,17 +641,11 @@ mod tests {
 
         let demo_1_trace = NativeTraceFrame {
             game_mode: GameMode::DemoPlay,
-            current_level: LevelId(0x1B),
-            hud_diamond_frame_offset: Some(0),
-            level_skip_cheat_enabled: 0,
-            level_completion_time: 1,
+            current_level: LevelId(0x15),
+            hud_diamond_frame_offset: Some(4),
             ..NativeTraceFrame::default()
         };
-        assert_eq!(
-            hud_diamond_animation_frame_index(&demo_1_trace, 4),
-            0,
-            "ASM Load_DemoPlay loc_119B6 selects Knights Isle ($1B); its direct $DD40 page is not the settled route's two-page lead"
-        );
+        assert_eq!(hud_diamond_animation_frame_index(&demo_1_trace, 4), 2);
 
         for level_completion_time in [1, 2, 3] {
             let settled_trace = NativeTraceFrame {
