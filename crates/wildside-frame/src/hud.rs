@@ -1255,6 +1255,7 @@ mod tests {
             juggernaut_skull: None,
             enemies: EnemyVisuals {
                 families: HashMap::new(),
+                layout_palette_variants: HashMap::new(),
             },
             floating_prizes: sample_floating_prize_visuals(),
             flag: FlagVisuals {

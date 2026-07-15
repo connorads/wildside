@@ -13,6 +13,56 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-15: `Load_EnemyArtPaletteToVRAM loc_36D16..loc_36E42`
+advances `d7` across `$FFFF` enemy-layout slots. Level 0 declares
+`[$FFFF, $000C, $FFFF]`, so its walking Dragon shares flying Dragon art but
+loads Dragon_2 into the second physical palette slot. Oracle CRAM at frame
+13825 contains Dragon_2 (`0422 0642 0862 0A84 008E 02CE 0CCC`); native now
+derives the default family palette from that physical slot, with explicit
+runtime variants retaining precedence. The Level 0 capture changes from green
+to oracle-blue. Full 37,759-frame verification remains state/enemy/RNG exact
+and has the same aggregate visual totals (24,903 exact, 12,856 divergent,
+7,108,406 changed pixels), so do not ratchet the baseline solely for this
+source-correct colour substitution.
+
+Correction 2026-07-15: the full-route conditional `oracle-probe` filter did
+not emit transform rows, but an explicit 7598..7610 probe proves the route
+does exercise `Kid_Transform`: frame 7604 changes `Current_Helmet` 0→6 and
+has `Currently_transforming` `$FFFFFA6D=$FF`. Native reaches the same Iron
+Knight post-update state, while its frame-7604 render trace remains Kid with
+no transform countdown. Oracle CRAM dumps retain the pre-transform shared
+sprite line through frame 7604 and first contain `sub_8106`'s Iron Knight
+words on frame 7605.
+
+Rejected 2026-07-15: do not apply that transform palette to the visible
+Dragon. Oracle captures show the Dragon blue on frame 7603, before either the
+pickup or the CRAM write; replacing its native local palette with the exact
+Iron Knight transform palette makes it grey on frame 7605. The Dragon's
+`EnemyArt_PaletteLines` selection is independent of `Palette_Buffer+$62`, so
+the blue-oracle/green-native residual predates and is unrelated to the
+`sub_8106`/`sub_80D0` player transformation. Keep the native transform state;
+next inspect the Dragon palette-line/art selection rather than a global CRAM
+override.
+
+Rejected 2026-07-15: do not clear the derived trace
+`level_completion_time` outside the `loc_C0CC` completion coroutine, even
+though oracle `$FFFFFC3D` is zero during Demo 2 frame 968. That makes the
+960..990 window pixel-exact by removing the HUD's two-page `$DD40` lead, but
+full TAS falls from 24,903 to 24,579 exact frames and rises from 7,108,406 to
+7,160,973 changed pixels. Existing renderer paths use the field as a
+presentation surrogate beyond its raw WRAM lifetime. Preserve its current
+trace semantics; model a separate, source-derived Demo 2 HUD-page
+presentation boundary before changing `sub_44DC loc_45EE` selection.
+
+Rejected 2026-07-15: do not remove the ordinary previous-Sprite_Table latch
+for the whole `Kid_Transform` window. `loc_7D0A/loc_7D22` does call `sub_8E0`
+after each descriptor, and its post-descriptor image improves the first Iron
+Knight frame 13826, but it advances the remainder of the 81-pass sequence:
+oracle/native agree on the latched purple pose at frame 13906, while the
+post-descriptor trial makes native Kid disappear. The 13820..13915 window
+remains 95 pixel-divergent frames and the correct model must account for the
+initial hand-off separately from the established repeated-pass latch.
+
 Progress 2026-07-15: Cyclone's `stru_7F30` has 72 displayed passes. Its
 selector-0 descriptors call `loc_7D80` with `LnkTo_unk_A4A22` (Kid walk-1) and
 the Kid palette; selector 4 uses Cyclone transform art/palette and selector 8

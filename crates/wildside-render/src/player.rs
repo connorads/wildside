@@ -164,6 +164,10 @@ pub struct EolHologramVisuals {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnemyVisuals {
     pub families: std::collections::HashMap<u8, AnimatedSpriteVisual>,
+    /// Palette variant loaded for each family from its physical enemy-layout
+    /// slot. The ROM advances `d7` over blank slots before choosing a CRAM
+    /// line, so this is not the ordinal among non-blank enemies.
+    pub layout_palette_variants: std::collections::HashMap<u8, u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

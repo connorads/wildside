@@ -7178,7 +7178,10 @@ mod tests {
                 frame_duration: 9,
             },
         );
-        EnemyVisuals { families }
+        EnemyVisuals {
+            families,
+            layout_palette_variants: HashMap::new(),
+        }
     }
 
     fn sample_floating_prize_visuals() -> wildside_render::FloatingPrizeVisuals {

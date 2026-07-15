@@ -1812,7 +1812,10 @@ pub fn push_enemy_sprite(
             let (turret_x, turret_y) =
                 sprite_draw_position(&turret_frame, screen_x, turret_screen_y, render_facing);
             let palette = enemy_palette_for_damage_flash(
-                select_enemy_palette(enemy_visuals, object.palette_variant),
+                select_enemy_palette(
+                    enemy_visuals,
+                    enemy_palette_variant(level_visuals, object_type, object.palette_variant),
+                ),
                 rock_tank_damage_flash(object, trace, object_type),
             );
             commands.push(DrawCommand::Sprite {
@@ -1839,7 +1842,10 @@ pub fn push_enemy_sprite(
     let frame = select_enemy_frame(trace, enemy_visuals, object);
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
     let palette = enemy_palette_for_heady_metal_sub_379e8(
-        select_enemy_palette(enemy_visuals, object.palette_variant),
+        select_enemy_palette(
+            enemy_visuals,
+            enemy_palette_variant(level_visuals, object_type, object.palette_variant),
+        ),
         object,
         object_type,
     );
@@ -1865,7 +1871,10 @@ pub fn push_enemy_sprite(
         let (turret_x, turret_y) =
             sprite_draw_position(&turret_frame, screen_x, turret_screen_y, render_facing);
         let palette = enemy_palette_for_damage_flash(
-            select_enemy_palette(enemy_visuals, object.palette_variant),
+            select_enemy_palette(
+                enemy_visuals,
+                enemy_palette_variant(level_visuals, object_type, object.palette_variant),
+            ),
             object.damage_flash,
         );
         commands.push(DrawCommand::Sprite {
@@ -2065,6 +2074,22 @@ pub fn select_enemy_palette(
         return pal;
     }
     &visuals.palette
+}
+
+/// ASM `Load_EnemyArtPaletteToVRAM` `loc_36D16`: use the palette that the
+/// level's physical enemy slot loaded when a live object has no explicit
+/// palette override. Object-local variants still describe runtime effects.
+fn enemy_palette_variant(level_visuals: &NativeLevelVisuals, object_type: u8, explicit: u8) -> u8 {
+    if explicit != 0 {
+        explicit
+    } else {
+        level_visuals
+            .enemies
+            .layout_palette_variants
+            .get(&object_type)
+            .copied()
+            .unwrap_or(0)
+    }
 }
 
 pub fn push_platform_tiles(
@@ -2522,6 +2547,7 @@ mod tests {
             juggernaut_skull: None,
             enemies: wildside_render::EnemyVisuals {
                 families: std::collections::HashMap::new(),
+                layout_palette_variants: std::collections::HashMap::new(),
             },
             floating_prizes: wildside_render::FloatingPrizeVisuals {
                 diamond: prize_visual,
@@ -3911,6 +3937,26 @@ mod tests {
             select_enemy_palette(&visuals, 3).colours[0].raw_word,
             0x0100,
             "out-of-range variants fall back to the base palette"
+        );
+    }
+
+    #[test]
+    fn enemy_palette_variant_uses_physical_layout_slot_unless_explicit() {
+        let mut level_visuals = minimal_level_visuals_for_platforms();
+        level_visuals
+            .enemies
+            .layout_palette_variants
+            .insert(0x0D, 1);
+
+        assert_eq!(
+            enemy_palette_variant(&level_visuals, 0x0D, 0),
+            1,
+            "ASM Load_EnemyArtPaletteToVRAM loc_36D16 derives the ordinary Dragon palette from its second physical layout slot"
+        );
+        assert_eq!(
+            enemy_palette_variant(&level_visuals, 0x0D, 2),
+            2,
+            "runtime object palette variants remain explicit overrides"
         );
     }
 

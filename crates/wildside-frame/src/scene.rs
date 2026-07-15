@@ -12768,6 +12768,7 @@ mod tests {
             juggernaut_skull: None,
             enemies: EnemyVisuals {
                 families: HashMap::new(),
+                layout_palette_variants: HashMap::new(),
             },
             floating_prizes: FloatingPrizeVisuals {
                 diamond: empty_prize,

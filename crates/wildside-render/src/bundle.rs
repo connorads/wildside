@@ -3887,6 +3887,7 @@ fn load_enemy_visuals(
     background_palette: &Palette,
 ) -> EnemyVisuals {
     let mut families = std::collections::HashMap::new();
+    let layout_palette_variants = enemy_layout_palette_variants(enemy_layout);
     for spec in ENEMY_FAMILIES {
         let palette =
             match load_ingame_palette_asset(manifest, source, spec.palette_path, spec.art_path) {
@@ -3948,7 +3949,47 @@ fn load_enemy_visuals(
             },
         );
     }
-    EnemyVisuals { families }
+    EnemyVisuals {
+        families,
+        layout_palette_variants,
+    }
+}
+
+/// ASM `Load_EnemyArtPaletteToVRAM` `loc_36D16`: `d7` starts at zero and is
+/// incremented at `loc_36E42` even when the corresponding layout slot is
+/// `$FFFF`. Normal enemy palettes therefore select Dragon_1/2/3 by physical
+/// layout slot, including blanks, rather than by the number of loaded families.
+fn enemy_layout_palette_variants(
+    enemy_layout: Option<&EnemyLayout>,
+) -> std::collections::HashMap<u8, u8> {
+    let mut variants = std::collections::HashMap::new();
+    let Some(enemy_layout) = enemy_layout else {
+        return variants;
+    };
+
+    for (slot_index, &slot) in enemy_layout.enemy_type_slots.iter().take(3).enumerate() {
+        if slot == 0xFFFF {
+            continue;
+        }
+        let slot_type = (slot & 0x0FFF) as u8;
+        for spec in ENEMY_FAMILIES {
+            if enemy_slot_uses_same_art(u16::from(slot_type), u16::from(spec.object_type)) {
+                variants.insert(spec.object_type, slot_index as u8);
+            }
+        }
+    }
+    variants
+}
+
+fn enemy_slot_uses_same_art(slot_type: u16, object_type: u16) -> bool {
+    slot_type == object_type
+        // ASM `EnemyLoad_Index` maps these object pairs to the same art and
+        // palette descriptors. The walking Dragon child therefore uses the
+        // flying Dragon's physical layout slot.
+        || matches!(
+            (slot_type, object_type),
+            (0x0A | 0x0B, 0x0A | 0x0B) | (0x0C | 0x0D, 0x0C | 0x0D)
+        )
 }
 
 fn forest_enemy_art_permutation(
@@ -3973,12 +4014,11 @@ fn forest_enemy_art_permutation(
 }
 
 fn forest_enemy_slot_uses_same_art(first_slot_type: u16, object_type: u16) -> bool {
-    first_slot_type == object_type
-        // ASM Load_EnemyArtToVRAM loc_36E24 remaps the first forest enemy art
-        // upload, not each native enemy family wrapper. RockTank/TankShooting
-        // and Dragon/DragonWalking share art files, so both native visuals
-        // must inherit the first slot's RAM pixel remap.
-        || matches!((first_slot_type, object_type), (0x0A | 0x0B, 0x0A | 0x0B) | (0x0C | 0x0D, 0x0C | 0x0D))
+    // ASM Load_EnemyArtToVRAM loc_36E24 remaps the first forest enemy art
+    // upload, not each native enemy family wrapper. RockTank/TankShooting
+    // and Dragon/DragonWalking share art files, so both native visuals
+    // must inherit the first slot's RAM pixel remap.
+    enemy_slot_uses_same_art(first_slot_type, object_type)
 }
 
 fn apply_enemy_art_permutation(frames: &mut [SpriteFrame], permutation: &[u8; 16]) {
@@ -4985,8 +5025,9 @@ mod tests {
         apply_layered_background_palette_fallback, background_followup_art_loc_11ea2_11ec4,
         bg_permutation_file, canvas_to_tiles, combine_eol_hologram_tile_sheet,
         compose_player_frame, crop_eol_score_frame_to_declared_bounds,
-        enemy_palette_with_cleared_slot_eight, fd, fg_permutation_file,
-        forest_enemy_art_permutation, forest_enemy_palette_with_borrowed_slots, frame_to_pixels,
+        enemy_layout_palette_variants, enemy_palette_with_cleared_slot_eight, fd,
+        fg_permutation_file, forest_enemy_art_permutation,
+        forest_enemy_palette_with_borrowed_slots, frame_to_pixels,
         layered_background_enigma_base_word_loc_128ba, load_eol_hologram_visuals,
         load_palette_permutation, load_special_effect_unknown_visuals,
         normalise_layered_background_tile_base_loc_128ba,
@@ -5200,6 +5241,23 @@ mod tests {
         assert_eq!(
             forest_enemy_art_permutation(8, Some(&dragon_first), 0x0C),
             None
+        );
+    }
+
+    #[test]
+    fn enemy_layout_palette_variants_preserve_blank_slot_indices() {
+        let layout = enemy_layout_with_slots(vec![0xFFFF, 0x000C, 0xFFFF]);
+        let variants = enemy_layout_palette_variants(Some(&layout));
+
+        assert_eq!(
+            variants.get(&0x0C),
+            Some(&1),
+            "ASM Load_EnemyArtPaletteToVRAM loc_36D16/loc_36E42 increments d7 for the leading blank before loading Dragon_2"
+        );
+        assert_eq!(
+            variants.get(&0x0D),
+            Some(&1),
+            "ASM EnemyLoad_Index shares Dragon art and palette descriptors between the flying layout slot and walking Dragon child"
         );
     }
 
