@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-15 handoff (#406 Cyclone transform selectors)
+
+- `Kid_Transform loc_7D0A` walks Cyclone `stru_7F30`: selector 0 is Kid
+  walk-1 on Kid palette, selector 4 is Cyclone transform art, selector 8 is
+  Cyclone default art. The demo transform windows now use that exact sequence.
+- Full route: 24,903 exact / 12,856 divergent / 7,108,406 px, with CRC,
+  gameplay, enemy and RNG exact; baseline ratcheted. NEXT: helmet-to-helmet
+  backward transform walks, then per-pass palette-line spill.
+
 ## 2026-07-15 handoff (#406 SEGA logo CRAM presentation)
 
 - `Load_SegaScreen loc_12E96..loc_12ED2` writes each palette strip below the

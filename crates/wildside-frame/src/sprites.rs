@@ -716,7 +716,8 @@ pub fn select_player_transform_render<'a>(
             trace.current_helmet_id,
             trace.form_change_flash_frames,
         )
-        && let Some(resolved) = phase_transform_render_loc_7d0a(&phase, form_visuals)
+        && let Some(resolved) =
+            phase_transform_render_loc_7d0a(&phase, player_visuals, form_visuals)
     {
         return Some(resolved);
     }
@@ -730,6 +731,7 @@ pub fn select_player_transform_render<'a>(
 /// ASM off_7D34 handler → (art, palette) for a ported transform pass.
 fn phase_transform_render_loc_7d0a<'a>(
     phase: &wildside_core::PresentedTransformPhase,
+    player_visuals: &'a wildside_render::PlayerVisuals,
     form_visuals: &'a wildside_render::PlayerFormVisuals,
 ) -> Option<(&'a wildside_render::SpriteFrame, &'a Palette)> {
     match phase.handler {
@@ -753,9 +755,17 @@ fn phase_transform_render_loc_7d0a<'a>(
             // the sub_80D0 form palette; also the loc_7E90 cleanup frame.
             Some((&form_visuals.idle, &form_visuals.palette))
         }
-        // No ported table uses the Kid handlers yet (IronKnight stru_7FF8 is
-        // all selector 4/8); fall back if that ever changes.
-        TransformHandler::KidWithSpark { .. } => None,
+        TransformHandler::KidWithSpark { spark: false } => {
+            // ASM stru_7F30 descriptor 0/2 → loc_7D80 (kid.asm): both use
+            // LnkTo_unk_A4A22, Kid walk-1, and loc_7DF0's Kid palette.
+            // The Cyclone table has no selector-$C spark descriptor.
+            let kid = player_visuals.forms.get(&0)?;
+            Some((&kid.walk[0], &kid.palette))
+        }
+        // Selector $C enters loc_7D7C and creates a separate sparkle GFX
+        // object before the Kid-art path. Keep its legacy fallback until that
+        // second sprite is represented by the trace renderer.
+        TransformHandler::KidWithSpark { spark: true } => None,
     }
 }
 
@@ -4883,6 +4893,62 @@ mod tests {
                 .map(|(frame, _)| frame.tile_base_index),
             select_player_transform_frame(&unstamped_trace, form_visuals)
                 .map(|frame| frame.tile_base_index),
+        );
+    }
+
+    /// ASM Kid_Transform loc_7D0A / stru_7F30 (kid.asm): Cyclone descriptor
+    /// 0 enters selector 0 and therefore renders Kid walk-1 on Kid's palette;
+    /// descriptor 7 enters selector 8 and restores Cyclone's default art.
+    #[test]
+    fn select_player_transform_render_follows_cyclone_selector_zero_loc_7d80() {
+        let kid_colour = wildside_render::MdColour {
+            red: 0x00,
+            green: 0xEE,
+            blue: 0x00,
+            raw_word: 0x00E0,
+        };
+        let mut kid = labelled_player_visuals();
+        kid.palette = wildside_render::Palette {
+            colours: vec![kid_colour],
+        };
+        let mut cyclone = labelled_player_visuals();
+        cyclone.palette = marked_palette(0x0500);
+        cyclone.transform_palette = Some(marked_palette(0x0600));
+        cyclone.transform_steps = (0u16..10)
+            .map(|descriptor_index| wildside_render::PlayerTransformStep {
+                duration_frames: 1,
+                frame: Some(labelled_frame(0x0C00 + descriptor_index)),
+            })
+            .collect();
+        let mut forms = std::collections::HashMap::new();
+        forms.insert(0u16, kid);
+        forms.insert(2u16, cyclone);
+        let player_visuals = wildside_render::PlayerVisuals { forms };
+        let cyclone_visuals = &player_visuals.forms[&2];
+
+        let kid_trace = NativeTraceFrame {
+            form_change_flash_frames: 73,
+            current_helmet_id: 2,
+            transform_source_helmet_id_loc_7ca6: Some(0),
+            ..NativeTraceFrame::default()
+        };
+        let (frame, palette) =
+            select_player_transform_render(&kid_trace, &player_visuals, cyclone_visuals)
+                .expect("Cyclone selector-0 render");
+        assert_eq!(frame.tile_base_index, 0x0200);
+        assert_eq!(palette.colours, vec![kid_colour]);
+
+        let default_trace = NativeTraceFrame {
+            form_change_flash_frames: 29,
+            ..kid_trace
+        };
+        let (frame, palette) =
+            select_player_transform_render(&default_trace, &player_visuals, cyclone_visuals)
+                .expect("Cyclone selector-8 render");
+        assert_eq!(frame.tile_base_index, 0x0100);
+        assert_eq!(
+            palette.colours, cyclone_visuals.palette.colours,
+            "selector 8 runs loc_7D5A's form palette path"
         );
     }
 

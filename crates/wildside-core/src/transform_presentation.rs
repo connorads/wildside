@@ -56,6 +56,7 @@ pub struct PresentedTransformPhase {
 }
 
 const HELMET_THE_KID: u16 = 0;
+const HELMET_CYCLONE: u16 = 2;
 const HELMET_IRON_KNIGHT: u16 = 6;
 
 const fn helmet_art(pass_count: u8, art_link: u32) -> TransformDescriptor {
@@ -73,6 +74,30 @@ const fn helmet_default(pass_count: u8) -> TransformDescriptor {
         art_link: 0,
     }
 }
+
+const fn kid_art(pass_count: u8, art_link: u32) -> TransformDescriptor {
+    TransformDescriptor {
+        pass_count,
+        handler: TransformHandler::KidWithSpark { spark: false },
+        art_link,
+    }
+}
+
+/// ASM stru_7F30 (kid.asm): Cyclone forward transform table. Its selector-0
+/// entries use Kid walk-1 art on Kid's palette; selector 4 uses the Cyclone
+/// transform palette and selector 8 restores Cyclone's default art/palette.
+pub const CYCLONE_TRANSFORM_TABLE_STRU_7F30: [TransformDescriptor; 10] = [
+    kid_art(16, 0xA4A22),
+    helmet_art(4, 0xBB48A),
+    kid_art(8, 0xA4A22),
+    helmet_art(4, 0xBB48A),
+    helmet_art(4, 0xBB710),
+    helmet_art(4, 0xBB48A),
+    helmet_art(4, 0xBB710),
+    helmet_default(8),
+    helmet_art(4, 0xBB710),
+    helmet_default(16),
+];
 
 /// ASM stru_7FF8 (kid.asm): IronKnight forward transform table. 16 descriptors
 /// whose pass counts sum to 81 = `transform_anim_frames(IronKnight)`. Art links
@@ -100,6 +125,7 @@ pub const IRON_KNIGHT_TRANSFORM_TABLE_STRU_7FF8: [TransformDescriptor; 16] = [
 /// helmets return `None` so the renderer keeps its existing fallback path.
 fn forward_table_off_7ee2(new_helmet_id: u16) -> Option<&'static [TransformDescriptor]> {
     match new_helmet_id {
+        HELMET_CYCLONE => Some(&CYCLONE_TRANSFORM_TABLE_STRU_7F30),
         HELMET_IRON_KNIGHT => Some(&IRON_KNIGHT_TRANSFORM_TABLE_STRU_7FF8),
         _ => None,
     }
@@ -200,6 +226,50 @@ mod tests {
         assert_eq!(sum, 81);
         assert_eq!(sum, transform_anim_frames(PlayerForm::IronKnight));
         assert_eq!(ported_forward_transform_passes(6), Some(81));
+    }
+
+    /// ASM stru_7F30 (kid.asm): Cyclone's ten descriptors sum to 72 passes;
+    /// selector 0 is Kid art, selectors 4/8 are transform/default Cyclone art.
+    #[test]
+    fn cyclone_table_matches_stru_7f30_descriptors() {
+        let expected = [
+            (16, TransformHandler::KidWithSpark { spark: false }, 0xA4A22),
+            (4, TransformHandler::HelmetArt, 0xBB48A),
+            (8, TransformHandler::KidWithSpark { spark: false }, 0xA4A22),
+            (4, TransformHandler::HelmetArt, 0xBB48A),
+            (4, TransformHandler::HelmetArt, 0xBB710),
+            (4, TransformHandler::HelmetArt, 0xBB48A),
+            (4, TransformHandler::HelmetArt, 0xBB710),
+            (8, TransformHandler::HelmetDefault, 0),
+            (4, TransformHandler::HelmetArt, 0xBB710),
+            (16, TransformHandler::HelmetDefault, 0),
+        ];
+        for (descriptor, expected) in CYCLONE_TRANSFORM_TABLE_STRU_7F30.iter().zip(expected) {
+            assert_eq!(
+                (
+                    descriptor.pass_count,
+                    descriptor.handler,
+                    descriptor.art_link
+                ),
+                expected
+            );
+        }
+        assert_eq!(ported_forward_transform_passes(2), Some(72));
+        assert_eq!(
+            ported_forward_transform_passes(2),
+            Some(u32::from(transform_anim_frames(PlayerForm::Cyclone)))
+        );
+
+        let first = presented_transform_phase(0, 2, 73).expect("Cyclone first pass");
+        assert_eq!(
+            first.handler,
+            TransformHandler::KidWithSpark { spark: false }
+        );
+        assert_eq!(first.palette_helmet_id, HELMET_THE_KID);
+        let default = presented_transform_phase(0, 2, 29).expect("Cyclone default pass");
+        assert_eq!(default.descriptor_index, 7);
+        assert_eq!(default.handler, TransformHandler::HelmetDefault);
+        assert_eq!(default.palette_helmet_id, HELMET_CYCLONE);
     }
 
     /// ASM stru_7FF8 (kid.asm) restated independently: run-length shape,
@@ -355,8 +425,7 @@ mod tests {
     /// Unported target helmets and out-of-range countdowns fall back.
     #[test]
     fn unported_or_out_of_range_returns_none() {
-        // Cyclone (stru_7F30) uses selector-0 Kid-art entries; not ported yet.
-        assert!(presented_transform_phase(0, 2, 40).is_none());
+        assert!(presented_transform_phase(0, 3, 40).is_none());
         assert!(presented_transform_phase(0, 6, 0).is_none());
         assert!(presented_transform_phase(0, 6, 83).is_none());
     }

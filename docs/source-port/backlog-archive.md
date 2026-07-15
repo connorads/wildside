@@ -13,6 +13,17 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #406
 
+Progress 2026-07-15: Cyclone's `stru_7F30` has 72 displayed passes. Its
+selector-0 descriptors call `loc_7D80` with `LnkTo_unk_A4A22` (Kid walk-1) and
+the Kid palette; selector 4 uses Cyclone transform art/palette and selector 8
+uses the default Cyclone art/palette. The presentation model now resolves all
+three real handlers, retaining the separate-spark selector-$C fallback because
+this table never invokes it. Pure descriptor and renderer regressions pin the
+selector-0 and selector-8 boundary. Full route: 24,889 → 24,903 exact frames,
+12,870 → 12,856 divergent, and 7,140,998 → 7,108,406 changed pixels. First
+mismatch remains frame 968, worst remains 21765 at 2,387 pixels; state, enemy
+and RNG channels remain exact. Baseline ratcheted.
+
 Progress 2026-07-15: `Load_SegaScreen loc_12E96..loc_12ED2` changes an
 11-word CRAM strip after each 21-frame delay while fading the SEGA logo.
 Oracle CRAM/FIFO captures show the write committing below the visible region,
