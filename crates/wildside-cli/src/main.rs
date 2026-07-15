@@ -27,6 +27,7 @@ mod scenarios;
 mod sweep;
 mod tas;
 mod tas_diff;
+mod tas_pixel_baseline;
 mod tas_pixels;
 mod verify;
 mod view_tas;
@@ -1295,6 +1296,25 @@ enum Commands {
         /// outside the grandfathered baseline.
         #[arg(long, default_value_t = false)]
         check_no_new_test_only: bool,
+    },
+    /// Ratchet-aware pixel-fidelity gate: compare a verify-tas pixel report
+    /// against the committed frontier baseline. Exit 0 on match, 1 on
+    /// regression (or coverage failure), 3 on improvement (baseline stale;
+    /// re-run with --update after review).
+    TasPixelBaseline {
+        /// Path to the verify-tas report.json (must include pixel_comparison)
+        #[arg(long)]
+        report: PathBuf,
+        /// Path to the frontier baseline file
+        #[arg(long, default_value = "tests/tas_frontier.json")]
+        frontier: PathBuf,
+        /// Recording slug whose full_expected_pixel_comparison block to check
+        #[arg(long)]
+        slug: String,
+        /// Splice the report's pixel comparison into the frontier baseline
+        /// (surgical: only that block changes; byte-identical writes skipped)
+        #[arg(long, default_value_t = false)]
+        update: bool,
     },
 }
 
@@ -2972,6 +2992,18 @@ fn main() -> Result<()> {
                 check_required,
                 check_no_new_test_only,
             )?;
+        }
+        Commands::TasPixelBaseline {
+            report,
+            frontier,
+            slug,
+            update,
+        } => {
+            let code =
+                tas_pixel_baseline::run_tas_pixel_baseline(&report, &frontier, &slug, update)?;
+            if code != 0 {
+                std::process::exit(code);
+            }
         }
     }
     Ok(())
