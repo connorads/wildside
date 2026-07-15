@@ -301,7 +301,7 @@ fn hud_diamond_animation_frame_index(trace: &NativeTraceFrame, frame_count: usiz
         {
             HUD_DIAMOND_DMA_PAGE_RENDER_LEAD_LOC_45EE
         } else {
-            1
+            0
         };
         return (usize::from(offset / 2) + render_lead) % frame_count;
     }
@@ -629,15 +629,15 @@ mod tests {
 
     #[test]
     fn hud_diamond_animation_frame_index_uses_loc_45ee_upload_lead() {
-        // ASM sub_44DC loc_45EE: sampled offset pages render one DMA page ahead
-        // in normal gameplay. The loc_1AE2E settled recording clock is two
+        // ASM sub_44DC loc_45EE: stable sampled offset pages render their
+        // selected DMA page in normal gameplay. The loc_1AE2E settled recording clock is two
         // pages behind oracle `$FFFFFA5D`, so its VDP-facing page uses the
         // two-page upload lead retained by the replay-local fallback.
         let normal_trace = NativeTraceFrame {
             hud_diamond_frame_offset: Some(4),
             ..NativeTraceFrame::default()
         };
-        assert_eq!(hud_diamond_animation_frame_index(&normal_trace, 4), 3);
+        assert_eq!(hud_diamond_animation_frame_index(&normal_trace, 4), 2);
 
         let demo_1_trace = NativeTraceFrame {
             game_mode: GameMode::DemoPlay,
@@ -667,7 +667,7 @@ mod tests {
         };
         assert_eq!(
             hud_diamond_animation_frame_index(&skip_without_settled_completion_time, 4),
-            3
+            2
         );
 
         let replay_local_trace = NativeTraceFrame {

@@ -1137,10 +1137,16 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         // loc_B700, so the visible HP pips are also a pre-update latch.
         render_trace.number_hitpoints = previous_trace.number_hitpoints;
         render_trace.extra_hitpoint_slots = previous_trace.extra_hitpoint_slots;
-        // ASM sub_44DC loc_45EE updates the diamond DMA script offset before
-        // the next frame's Make_SpriteAttr_HUD/sub_BDC0-built symbol becomes
-        // visible, so the HUD diamond page is latched from the previous trace.
-        render_trace.hud_diamond_frame_offset = previous_trace.hud_diamond_frame_offset;
+        // ASM loc_4626 starts the $DD40 DMA immediately after loc_45EE moves
+        // to a new `unk_461C` selector. That new page reaches the HUD
+        // scanline in the same frame; otherwise the Sprite_Table latch keeps
+        // the prior page visible.
+        render_trace.hud_diamond_frame_offset =
+            if trace.hud_diamond_frame_offset == previous_trace.hud_diamond_frame_offset {
+                previous_trace.hud_diamond_frame_offset
+            } else {
+                trace.hud_diamond_frame_offset
+            };
         render_trace.hud_timer_sprite_seconds_loc_bee8 =
             previous_trace.hud_timer_sprite_seconds_loc_bee8;
         latch_island_shore_vram_bands_loc_1202a(&mut render_trace, trace, previous_trace);
