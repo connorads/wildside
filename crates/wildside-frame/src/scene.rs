@@ -5620,7 +5620,15 @@ fn prize_block_wobble_frame_sub_1007a(
     // ASM stru_101B6/stru_10296 (kid.asm:21447,21529): the prize-block
     // wobble worker alternates 16x16 sprite frames at VRAM tiles $220 and
     // $229 for three hibernated frames each while sub_1007A moves y_pos.
-    let tile_base_index = if (elapsed / 3).is_multiple_of(2) {
+    // The first visible hibernate frame still uses the resident prize page;
+    // the first copied `$220` frame begins one tick later. `anim_frame 1,3`
+    // then keeps each copied page for three hibernates.
+    let copied_elapsed = elapsed.saturating_sub(1);
+    let tile_base_index = if (4..=6).contains(&remaining) {
+        // ASM loc_10112 enters the final rise/fall tail with the `$229`
+        // mapping still resident for three hibernates.
+        0x009
+    } else if (copied_elapsed / 3).is_multiple_of(2) {
         0x000
     } else {
         0x009
@@ -6007,12 +6015,6 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
             continue;
         }
         if block_bounce_kind_for_trace(trace, col, row) != Some(BlockBounceTraceKind::Prize) {
-            continue;
-        }
-        if remaining == 1 && y_offset == 0 {
-            // ASM sub_1007A loc_10120/loc_1026E has reached the spawn/commit
-            // hand-off here; oracle frames no longer paint the copied wobble
-            // sprite over the settled row cell.
             continue;
         }
         push_prize_block_wobble_sub_1007a(
@@ -11434,9 +11436,10 @@ mod tests {
             (31, 0x000),
             (30, 0x000),
             (29, 0x000),
-            (28, 0x009),
-            (26, 0x009),
-            (25, 0x000),
+            (28, 0x000),
+            (27, 0x009),
+            (25, 0x009),
+            (6, 0x009),
         ];
 
         for (remaining, expected_tile_base_index) in cases {
