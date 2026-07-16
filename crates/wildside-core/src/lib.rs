@@ -3852,10 +3852,15 @@ impl NativeRuntime {
             );
         }
 
-        if gameplay_slice_active {
+        if Self::hud_animation_runs_in_mode_level_loc_80c(
+            gameplay_slice_active,
+            transform_hibernating_at_frame_start,
+        ) {
             // ASM Mode_Level loc_80C (kid.asm:923): `bsr.w sub_44DC` advances
             // animated HUD VRAM pages once per level frame before the rendered
-            // frame is sampled.
+            // frame is sampled. Kid_Transform loc_7CBE/loc_7D22 waits in
+            // sub_8E0 instead of returning to this outer pass, preserving the
+            // resident `$DD40` page through the hibernating VBlanks.
             let step = boot::step_hud_animation_sub_44DC(self.hud_animation_state);
             self.hud_animation_state = step.next_state;
             if let Some(diamond_upload) = step.diamond_upload {
@@ -4463,6 +4468,13 @@ impl NativeRuntime {
 
     pub(crate) fn gameplay_hibernating_for_transform(&self) -> bool {
         self.progression.form_change_flash_frames > 0
+    }
+
+    const fn hud_animation_runs_in_mode_level_loc_80c(
+        gameplay_slice_active: bool,
+        transform_hibernating_at_frame_start: bool,
+    ) -> bool {
+        gameplay_slice_active && !transform_hibernating_at_frame_start
     }
 
     pub(crate) fn object_pass_hibernating_for_transform_loc_7e90(&self) -> bool {

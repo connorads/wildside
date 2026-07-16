@@ -1160,6 +1160,20 @@ mod tests {
     }
 
     #[test]
+    fn transform_hibernation_skips_mode_level_hud_animation() {
+        // ASM Kid_Transform loc_7CBE/loc_7D22 (kid.asm) waits in sub_8E0
+        // instead of returning to Mode_Level loc_80C/sub_44DC. Oracle
+        // published-TAS frame 1058 keeps `$FFFFFA58/$FFFFFA5D` at 1/4 and
+        // emits no `$DD40` DMA while this VBlank hibernation is active.
+        assert!(!NativeRuntime::hud_animation_runs_in_mode_level_loc_80c(
+            true, true
+        ));
+        assert!(NativeRuntime::hud_animation_runs_in_mode_level_loc_80c(
+            true, false
+        ));
+    }
+
+    #[test]
     fn trace_exposes_live_hud_life_icon_offset_from_sub_44dc() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
