@@ -78,6 +78,7 @@ const DRIPS_OBJECT_TYPE: u8 = 0x16;
 const BOSS_EYE_OBJECT_TYPE: u8 = 0x21;
 const TAR_MONSTER_OBJECT_TYPE: u8 = 0x05;
 const PRIZE_GENERIC_LIFETIME_LOW_BYTE: u8 = 0x20;
+const PRIZE_BLOCK_RESIDENT_PAGE_SKIN_SUB_1007A: u8 = 0x02;
 const PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8: u8 = 25;
 // ASM loc_D734: after loc_D702 allocates the EOL row workers, the ROM runs
 // eight one-frame palette fade steps before the score rows are visible in the
@@ -109,7 +110,6 @@ const PAUSE_MENU_CURSOR_TILE_LOC_6B0E: u16 = 0x0006;
 const PAUSE_MENU_BLANK_TILE_LOC_6B0E: u16 = 0x0002;
 const PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE: [(u8, u16); 4] =
     [(4, 0x02CF), (6, 0x02D8), (10, 0x02E1), (4, 0x02EA)];
-const PRIZE_BLOCK_VISIBLE_SKIN_LOC_12408: u8 = 0x02;
 const SHIFTING_BLOCK_RISE_TILE_LOC_113F4: u16 = 0x0276;
 const BACKGROUND_TILE_VRAM_BASE_LOC_128BA: u16 = 0x0780;
 const ISLAND_SHORE_PRIMARY_VRAM_TILE_LOC_12098: u16 = 0xF600 / 32;
@@ -5642,41 +5642,50 @@ fn push_prize_block_wobble_sub_1007a(
     y: i32,
     remaining: u8,
 ) {
-    let _oracle_frame = prize_block_wobble_frame_sub_1007a(level_visuals, remaining);
-    let Some(resolved) = level_visuals.level.block_mapping.resolve(
-        PRIZE_BLOCK_VISIBLE_SKIN_LOC_12408,
-        Some(wildside_core::terrain::BlockType::Prize as u8),
-    ) else {
-        return;
+    let frame = prize_block_wobble_frame_sub_1007a(level_visuals, remaining);
+    let tiles = if remaining == 31 {
+        // ASM sub_1007A loc_100C4 initialises the `$220` mapping after
+        // Make_SpritesFromGfxObjects has built this frame's Sprite_Table. The
+        // oracle therefore still sees the resident generic prize page on the
+        // first visible hibernate frame, before the copied art is displayed.
+        let Some(resolved) = level_visuals.level.block_mapping.resolve(
+            PRIZE_BLOCK_RESIDENT_PAGE_SKIN_SUB_1007A,
+            Some(wildside_core::terrain::BlockType::Prize as u8),
+        ) else {
+            return;
+        };
+        resolved
+            .quad
+            .tiles
+            .iter()
+            .copied()
+            .enumerate()
+            .map(|(index, mut tile)| {
+                tile.tile_index = tile
+                    .tile_index
+                    .checked_sub(BLOCK_TILE_VRAM_BASE)
+                    .unwrap_or(tile.tile_index);
+                tile.priority = false;
+                SpriteTile {
+                    offset_x: if index % 2 == 0 { 0 } else { 8 },
+                    offset_y: if index < 2 { 0 } else { 8 },
+                    tile,
+                }
+            })
+            .collect()
+    } else {
+        if usize::from(frame.tile_base_index.saturating_add(3)) >= frame.tile_sheet.tiles.len() {
+            return;
+        }
+        build_sprite_tiles(&frame, Direction::Right, 0)
     };
-    let tiles = resolved
-        .quad
-        .tiles
-        .iter()
-        .copied()
-        .enumerate()
-        .map(|(index, mut tile)| {
-            let local_tile_index = tile
-                .tile_index
-                .checked_sub(BLOCK_TILE_VRAM_BASE)
-                .unwrap_or(tile.tile_index);
-            tile.tile_index = local_tile_index;
-            tile.priority = false;
-            SpriteTile {
-                offset_x: if index % 2 == 0 { 0 } else { 8 },
-                offset_y: if index < 2 { 0 } else { 8 },
-                tile,
-            }
-        })
-        .collect();
     // ASM sub_1007A/loc_10200 draws low-priority `unk_E0E4E`/`unk_E0E5E`
     // mappings from live VRAM copy slots `$220`/`$229` while the Level_Layout
-    // cell is `$6F00`. Native does not model those scratch copies, so it draws
-    // the `$E102` prize source quad that the scratch slot contains.
+    // cell is `$6F00`. The source cell's skin is not a prize block glyph.
     commands.push(DrawCommand::Sprite {
         x,
         y,
-        tile_sheet: Arc::new(level_visuals.block_tiles.clone()),
+        tile_sheet: Arc::new(frame.tile_sheet),
         palette: Arc::new(level_visuals.palettes.foreground.clone()),
         tiles,
     });
@@ -11444,7 +11453,7 @@ mod tests {
     }
 
     #[test]
-    fn prize_block_wobble_draw_clears_priority_and_uses_fixed_vram_frames_sub_1007a() {
+    fn prize_block_wobble_draw_uses_resident_then_copied_vram_frames_sub_1007a() {
         let visuals = sample_level_visuals(0x300);
         let mut commands = Vec::new();
 
@@ -11460,15 +11469,15 @@ mod tests {
                 .iter()
                 .map(|tile| tile.tile.tile_index)
                 .collect::<Vec<_>>(),
-            vec![0x008, 0x009, 0x00A, 0x00B],
-            "ASM stru_101B6 remaining=28 selects live VRAM copy slot `$229`; native renders the `$E102` source quad"
+            vec![0x009, 0x00A, 0x00B, 0x00C],
+            "ASM stru_101B6 remaining=28 selects live VRAM copy slot `$229`"
         );
         assert_eq!(
             tiles
                 .iter()
                 .map(|tile| (tile.offset_x, tile.offset_y))
                 .collect::<Vec<_>>(),
-            vec![(0, 0), (8, 0), (0, 8), (8, 8)]
+            vec![(0, 0), (0, 8), (8, 0), (8, 8)]
         );
         assert!(
             tiles.iter().all(|tile| !tile.tile.priority),
@@ -11487,7 +11496,7 @@ mod tests {
                 .map(|tile| tile.tile.tile_index)
                 .collect::<Vec<_>>(),
             vec![0x008, 0x009, 0x00A, 0x00B],
-            "ASM stru_101B6 remaining=31 selects live VRAM copy slot `$220`; native renders the `$E102` source quad"
+            "ASM sub_1007A loc_100C4 leaves the generic prize page resident for the first visible hibernate frame"
         );
     }
 
