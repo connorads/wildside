@@ -74,6 +74,16 @@ but reproduces the full-route regression exactly: 24,715 exact / 13,044
 divergent / 7,148,904 pixels, first mismatch 990. This confirms the missing
 state is the DMA scanout boundary, not the DemoPlay mode condition.
 
+Confirmed 2026-07-16: a fresh full published-TAS pixel run on the current
+renderer remains 24,903 exact / 12,856 divergent / 7,108,406 changed pixels,
+with the first mismatch at frame 968 (84 pixels, HUD diamond). Oracle frame
+968 has `$FFFFFA58=$06`, `$FFFFFA5D=$00`, and VRAM `$DD40..$DF3F` hashes
+exactly to `diamond_1.bin`. Requesting native synthetic VRAM for that frame
+fails with `native frame 968 has no synthetic VDP state`; gameplay rendering
+still infers the diamond page from trace state. Do not tune that inference:
+the missing owned gameplay VDP/FIFO presentation timeline is now directly
+reproduced at the live frontier.
+
 Rejected 2026-07-15: the narrower pre-transform variant is also insufficient.
 Native phase capture finds frame 1058 begins `Kid_Transform` with countdown
 73 and frame 1059 applies the established one-page `loc_45EE` rewind; direct
