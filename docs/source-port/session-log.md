@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-16 handoff (#406 helmet prize spawn-flash DMA window)
+
+- Oracle frames 1023..1040 hide a spawned helmet prize for exactly the first
+  three `stru_102DE` flash frames (4+6+$A = 20); ASM `sub_10CB0` marks helmet
+  art DMA'd (`$12=1`) unlike resident diamond/`sub_10C78` art. Native now
+  hides helmet prizes over that window and draws the `loc_102B8` flash above
+  the emerging prize (`#$2001` over `#$1FFF`). Focused 1021..1050 window went
+  6,108 -> 3,861 px; full route 6,910,596 -> 6,823,853 px with 0 new
+  divergent frames. A 24-frame +44 px residue (flash elapsed 4..5 per helmet
+  hit) stays on the worklist.
+- The full-route rerun exposed a pre-existing ratchet red: the committed
+  baseline (24,903 exact) predates five focused-window renderer commits
+  (f509b596c..9c8a1fcf4) that flipped ~130 exact frames divergent while
+  improving totals and moving the frontier 968 -> 1020. Opened #407 to
+  attribute the flips per commit before any re-baseline. NEXT: take #407,
+  then the +44 helmet-flash residue.
+
 ## 2026-07-15 handoff (#406 title-to-demo visual investigation)
 
 - Frame 21765's 2,387-pixel Robot mismatch is title-plane content, not a

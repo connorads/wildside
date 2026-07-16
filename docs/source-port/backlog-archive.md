@@ -11,6 +11,25 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #407
+
+Opened 2026-07-16: a full-route control run on clean main (at 9c8a1fcf4)
+measures 24,773 exact / 12,986 divergent / 6,910,596 changed pixels, first
+mismatch 1020, worst 21765 at 2,387 px. The committed
+`tests/tas_frontier.json` baseline (24,903 / 12,856 / 7,108,406 / 968) was
+last confirmed at 5b6d74d88; the five renderer commits after it (f509b596c
+"Freeze HUD animation during transforms", 4892946de "Render HUD diamond from
+resident VRAM page", c67b03951 "Render prize block VRAM wobble frames",
+39ce50d50 "Align prize block wobble VRAM phases", 9c8a1fcf4 "Present live
+HUD life-icon DMA pages") were verified on focused windows only. Net effect:
+-130 exact frames, -197,810 px, frontier 968 -> 1020, so `tas-pixel-baseline`
+(and therefore `verify-tas-full`) is red in both directions. Evidence source:
+oracle pixel pass (authoritative); native repro: reproduced; minimum gate:
+`verify-tas-full`. Do not `--update` the baseline until the flipped frames
+are attributed: run the full pixel pass at 5b6d74d88 for its per-frame set,
+diff against the current per-frame set, then bisect the five commits on the
+flipped frames' focused windows.
+
 ### #406
 
 Investigation 2026-07-15: a consecutive published-TAS FIFO capture over
@@ -1358,6 +1377,29 @@ instances: 24,004 exact, 13,755 divergent, and 9,194,202 changed pixels.
 Gameplay, enemy, player/camera CRC, and all 37,743 post-`Init_RNG` frames remain
 exact. Frame 39 remains first at 2,643 pixels; frame 28028 is now worst at
 5,271 pixels, so #406 remains open.
+
+Fixed 2026-07-16 (helmet prize spawn presentation): oracle frames 1023..1040
+on the published route (level $1B demo P-block hit at 1021) show the spawned
+helmet absent for exactly the first three `stru_102DE` flash animation frames
+(4+6+$A = 20) and visible from the final 4-frame burst, which overlaps it.
+`sub_10CB0` sets `$12(a3)=1` (DMA'd sprite art) for all nine helmet
+initialisers, while `PrizeDiamond_Init` and `sub_10C78` prizes use resident
+art and display at once. Native now hides helmet floating items while a
+matching `loc_102B8` flash is inside that 20-frame window and draws the flash
+after floating prizes (`sub_1007A` allocates the flash at `#$2001` above
+`Prize_Init` at `#$1FFF`). Focused 1021..1050 window: 6,108 -> 3,861 px,
+exact 4 -> 6 (1043..1045 now exact). Full route vs same-day main control:
+24,773 -> 24,780 exact, 6,910,596 -> 6,823,853 px, 0 new divergent frames.
+
+Rejected 2026-07-16: a blanket full-flash hide (all 24+1 flash frames, any
+prize content) measures worse than the 20-frame helmet-only window: it
+regresses the reveal tail 1041..1045 by +455 px because the oracle shows the
+helmet under the final burst, and it would also wrongly hide resident-art
+diamond prizes. Residue: 24 route frames are worse by exactly +44 px each
+(two frames per helmet hit at flash elapsed 4..5, e.g. 1025/1026); derive
+what the oracle presents there before widening or narrowing the window. The
+TODO(fidelity) stands: replace the flash-frame boundary with the owned VDP
+DMA-residency timeline. #406 remains open.
 
 ### #405
 

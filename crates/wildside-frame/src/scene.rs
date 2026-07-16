@@ -110,6 +110,9 @@ const PAUSE_MENU_CURSOR_TILE_LOC_6B0E: u16 = 0x0006;
 const PAUSE_MENU_BLANK_TILE_LOC_6B0E: u16 = 0x0002;
 const PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE: [(u8, u16); 4] =
     [(4, 0x02CF), (6, 0x02D8), (10, 0x02E1), (4, 0x02EA)];
+// ASM stru_102DE first three flash animation frames (4+6+$A): the window in
+// which a sub_10CB0 DMA'd helmet prize has no presentable art yet.
+const HELMET_PRIZE_DMA_HIDDEN_FLASH_FRAMES_STRU_102DE: u8 = 20;
 const SHIFTING_BLOCK_RISE_TILE_LOC_113F4: u16 = 0x0276;
 const BACKGROUND_TILE_VRAM_BASE_LOC_128BA: u16 = 0x0780;
 const ISLAND_SHORE_PRIMARY_VRAM_TILE_LOC_12098: u16 = 0xF600 / 32;
@@ -5791,6 +5794,43 @@ fn push_prize_block_spawn_flash_loc_102b8(
     true
 }
 
+/// ASM sub_10CB0 (kid.asm): helmet prize initialisers set `$12(a3)=1` — the
+/// sprite art is DMA'd — unlike PrizeDiamond_Init and sub_10C78 prizes whose
+/// resident art displays immediately. Oracle frames 1023..1040 on the
+/// published route show the helmet absent for exactly the first three
+/// stru_102DE flash animation frames (4+6+$A = 20) and visible from the
+/// final 4-frame burst, which the higher-priority flash object then overlaps.
+/// TODO(fidelity): replace the flash-frame boundary with the owned VDP
+/// DMA-residency timeline once it exists (#406).
+fn helmet_prize_hidden_during_spawn_flash_dma_sub_10cb0(
+    content: wildside_core::terrain::PrizeContent,
+    x_px: u16,
+    y_px: u16,
+    flashes: &[(u16, u16, u8)],
+) -> bool {
+    use wildside_core::terrain::PrizeContent;
+    if !matches!(
+        content,
+        PrizeContent::Skycutter
+            | PrizeContent::Cyclone
+            | PrizeContent::RedStealth
+            | PrizeContent::Eyeclops
+            | PrizeContent::Juggernaut
+            | PrizeContent::IronKnight
+            | PrizeContent::Berzerker
+            | PrizeContent::Maniaxe
+            | PrizeContent::Micromax
+    ) {
+        return false;
+    }
+    flashes.iter().any(|&(flash_x, flash_y, remaining)| {
+        let elapsed = PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8.saturating_sub(remaining);
+        elapsed < HELMET_PRIZE_DMA_HIDDEN_FLASH_FRAMES_STRU_102DE
+            && flash_x == x_px
+            && (flash_y..=flash_y + 32).contains(&y_px)
+    })
+}
+
 fn push_kid_projectile_hit_spark_loc_1f08(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
@@ -7412,20 +7452,6 @@ fn build_game_scene_filtered(
             }
         }
 
-        for &(x_px, y_px, remaining) in &trace.prize_block_spawn_flashes {
-            let camera_x_px = (trace.camera_x_pos >> 16) as i32;
-            let camera_y_px = (trace.camera_y_pos >> 16) as i32;
-            let screen_x = i32::from(x_px) - camera_x_px;
-            let screen_y = i32::from(y_px) - camera_y_px;
-            push_prize_block_spawn_flash_loc_102b8(
-                &mut commands,
-                level_visuals,
-                screen_x,
-                screen_y,
-                remaining,
-            );
-        }
-
         for &(x_px, y_px, remaining) in &trace.kid_projectile_hit_sparks {
             let camera_x_px = (trace.camera_x_pos >> 16) as i32;
             let camera_y_px = (trace.camera_y_pos >> 16) as i32;
@@ -7442,9 +7468,20 @@ fn build_game_scene_filtered(
 
         // Floating prize items: small coloured shape rising upward
         for &(x_px, y_px, remaining, content_id) in &trace.floating_items {
+            let content = wildside_core::terrain::PrizeContent::from_id(content_id);
+            // ASM sub_10CB0: helmet prize art is DMA'd and has no presentable
+            // page while the loc_102B8 flash runs its first three animation
+            // frames; resident-art prizes (diamond, sub_10C78) draw at once.
+            if helmet_prize_hidden_during_spawn_flash_dma_sub_10cb0(
+                content,
+                x_px,
+                y_px,
+                &trace.prize_block_spawn_flashes,
+            ) {
+                continue;
+            }
             let fx = i32::from(x_px) - (trace.camera_x_pos >> 16) as i32;
             let fy = i32::from(y_px) - (trace.camera_y_pos >> 16) as i32;
-            let content = wildside_core::terrain::PrizeContent::from_id(content_id);
             if render_floating_prize_worker_effect(
                 &mut commands,
                 level_visuals,
@@ -7515,6 +7552,23 @@ fn build_game_scene_filtered(
                 height: 1,
                 colour: [255, 255, 255],
             });
+        }
+
+        // ASM sub_1007A spawns the loc_102B8 flash at object priority #$2001
+        // and Prize_Init at #$1FFF, so the flash sprite wins overlapped pixels;
+        // draw it after the floating prizes to keep that ordering.
+        for &(x_px, y_px, remaining) in &trace.prize_block_spawn_flashes {
+            let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+            let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+            let screen_x = i32::from(x_px) - camera_x_px;
+            let screen_y = i32::from(y_px) - camera_y_px;
+            push_prize_block_spawn_flash_loc_102b8(
+                &mut commands,
+                level_visuals,
+                screen_x,
+                screen_y,
+                remaining,
+            );
         }
 
         if trace.heady_metal_death_splits.is_empty() {
@@ -11533,6 +11587,52 @@ mod tests {
         assert!(
             prize_block_spawn_flash_frame_loc_102b8(&short_sheet, 5).is_none(),
             "24x24 frame needs all nine tiles from the final `$2EA` base"
+        );
+    }
+
+    #[test]
+    fn helmet_prize_hides_during_spawn_flash_dma_window_sub_10cb0() {
+        use wildside_core::terrain::PrizeContent;
+        // remaining 23 => elapsed 2: inside the first three stru_102DE frames.
+        let early_flash = [(72, 568, 23)];
+        // remaining 5 => elapsed 20: final 4-frame burst, art now presentable.
+        let final_burst = [(72, 568, 5)];
+
+        assert!(
+            super::helmet_prize_hidden_during_spawn_flash_dma_sub_10cb0(
+                PrizeContent::RedStealth,
+                72,
+                576,
+                &early_flash,
+            ),
+            "ASM sub_10CB0 DMA'd helmet art has no presentable page during the early flash"
+        );
+        assert!(
+            !super::helmet_prize_hidden_during_spawn_flash_dma_sub_10cb0(
+                PrizeContent::RedStealth,
+                72,
+                576,
+                &final_burst,
+            ),
+            "the helmet becomes visible once stru_102DE reaches its final 4-frame burst"
+        );
+        assert!(
+            !super::helmet_prize_hidden_during_spawn_flash_dma_sub_10cb0(
+                PrizeContent::Diamond,
+                72,
+                576,
+                &early_flash,
+            ),
+            "PrizeDiamond_Init art is resident ($12=0) and displays immediately"
+        );
+        assert!(
+            !super::helmet_prize_hidden_during_spawn_flash_dma_sub_10cb0(
+                PrizeContent::RedStealth,
+                80,
+                576,
+                &early_flash,
+            ),
+            "an unrelated helmet prize at another column must remain visible"
         );
     }
 
