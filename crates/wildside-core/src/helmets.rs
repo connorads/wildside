@@ -6671,7 +6671,7 @@ impl NativeRuntime {
         // ASM sub_B270 loc_B2A0 (kid.asm:14154-14175): after flight physics,
         // advance `$FFFFF8F0` from `Cyclone_YAcceleration` and use it to select
         // the Cyclone spin sprite. Native-player consumes the stored phase.
-        let visual_step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+        let visual_input = KidAirborneVisualInputSubB270 {
             helmet_id: self.progression.current_form.helmet_id(),
             is_animated: false,
             on_ground: slice.player.on_ground,
@@ -6686,6 +6686,15 @@ impl NativeRuntime {
             jump_threshold: 0,
             c_held: input.c,
             red_stealth_sword_swing: 0,
+        };
+        let first_visual_step = kid_airborne_visual_sub_B270(visual_input);
+        // Oracle WRAM probes on the published route show two `loc_B2A0`
+        // accumulator updates per native trace frame while Cyclone is flying.
+        // Keep flight physics single-stepped; only replay the visual subroutine
+        // with its stored phase as the next input.
+        let visual_step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+            cyclone_frame_accum: first_visual_step.next_cyclone_frame_accum,
+            ..visual_input
         });
         slice.walk_visual_accumulator = visual_step.next_cyclone_frame_accum;
     }

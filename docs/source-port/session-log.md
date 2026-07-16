@@ -7,6 +7,44 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-16 handoff (#408 Cyclone phase)
+
+- Oracle WRAM probes established that active Cyclone flight advances
+  `$FFFFF8F0` through `sub_B270 loc_B2A0` twice per trace frame. Native now
+  repeats only that visual phase pass, not flight physics. Frame 4207 phase is
+  exact (`0x00DB`), and full published TAS improved to 24,965 exact / 12,794
+  divergent / 5,740,342 changed pixels. CRC, RNG, gameplay and enemy parity
+  remain exact; `tas_frontier.json` ratcheted. NEXT: prize/effect members of
+  #408, with frame 1020 prize-block #412 still the first mismatch.
+
+## 2026-07-16 note (#412 frame-1020 correction)
+
+- Frame 1020's Level 0x1B prize cell is present as `$E102`, but oracle VDP
+  retains a live 2x2 `$229` sprite one frame after native removes the copied
+  prize sprite. The block art and skin-2 mapping match. A 32-frame wobble
+  worker regressed frames 996..1019 and was discarded. NEXT: trace the ROM
+  GfxObject/Sprite_Table presentation lifetime separately from the 31-frame
+  gameplay worker.
+
+## 2026-07-16 handoff (#408 body-clock falsification)
+
+- Wired ROM-accurate `GfxObject_Animate` state to Diamond, Rock Tank, flying
+  Dragon and Sphere, then ran the full published TAS. Gameplay/CRC/enemy/RNG
+  parity stayed exact but pixels remained 24,780 exact / 12,979 divergent /
+  6,823,853 changed - exactly current. Discarded the no-op code. The live route
+  body clocks already align; NEXT: isolate the actual Cyclone/prize/effect
+  mismatches before coding #408 again.
+
+## 2026-07-16 handoff (#408 per-object animation state)
+
+- Confirmed `GfxObject_Animate loc_113E..loc_1194` is object-local script
+  pointer/timer state, not a global frame clock. Native only exports a typed
+  phase for walking Dragons; all other live selectors remain frame-index
+  approximations. Rejected reusing existing enemy fields because each carries
+  family-specific AI/coroutine state. NEXT: dedicated animation script/frame/
+  timer on `ActiveEnemy`, reset at Init_Animation analogues, snapshot it, then
+  start with Diamond and Rock Tank selector regressions before a full TAS run.
+
 ## 2026-07-16 handoff (#406 pixel-cluster triage → ready rows #408-#415)
 
 - Stratified 63-frame sample of the 12,979 divergent route frames (top spatial

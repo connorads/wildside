@@ -30,6 +30,40 @@ are attributed: run the full pixel pass at 5b6d74d88 for its per-frame set,
 diff against the current per-frame set, then bisect the five commits on the
 flipped frames' focused windows.
 
+### #408
+
+Follow-up 2026-07-16: narrowed the Cyclone member with oracle WRAM watches.
+At route frames 4198..4212, native `walk_visual_accumulator` (`$FFFFF8F0`)
+advanced once by the `loc_B2A0` delta, while oracle advanced twice. For example,
+frame 4207 was native `0x01A3` versus oracle `0x00DB`; the matching
+`Cyclone_YAcceleration` was `0xF200`, proving physics was not the cause.
+Native now replays only the visual `sub_B270` phase calculation with its first
+stored result, leaving acceleration and velocity single-stepped. The focused
+phase sequence exactly matches oracle. Full TAS then improved from 24,903 exact
+/ 12,856 divergent / 7,108,406 changed pixels to 24,965 exact / 12,794
+divergent / 5,740,342 changed pixels, with CRC, RNG, gameplay and enemy parity
+still exact. The committed pixel baseline was ratcheted. Remaining #408 work is
+prize/effect animation only; do not revert the Cyclone second visual pass.
+
+### #412
+
+Follow-up 2026-07-16: recaptured the current frontier pair at frame 1020.
+Native and oracle player/camera/RNG state are exact. The target Level 0x1B
+cell is prize record `(col=4,row=36,layout=0xC81A)` and the generated
+`level-layout/1B.bin` stores `$E102` there, so the old “fixture path bypasses
+overlay” diagnosis is false. Oracle VDP shows the target as a live 2x2 `$229`
+sprite, not a plane or isolated block quad. Native clears its live grid cell
+at frame 989 after the demo headbutt and its copied prize sprite disappears at
+frame 1020 one frame before the oracle.
+
+Rejected 2026-07-16: extending the native `sub_1007A` bounce from 31 to 32
+frames and replaying the last `$229` sprite made frame 1020 exact, but caused
+new sprite-only mismatches from frame 996 and increased total visual debt.
+The ROM movement table has 31 hibernations; the remaining discrepancy is the
+separate GfxObject/Sprite_Table presentation lifetime, not gameplay bounce
+state or `Block_Mappings` art provenance. Keep the original 31-frame worker
+until that lifetime is modelled directly.
+
 ### #406
 
 Investigation 2026-07-16 (pixel-cluster triage): sampled 65 route frames from

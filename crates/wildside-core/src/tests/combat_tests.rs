@@ -32984,8 +32984,8 @@ mod chunk_05 {
         rt.step_cyclone_flight(&mut slice, FrameInput::default());
 
         assert_eq!(
-            slice.walk_visual_accumulator, 0x0138,
-            "ASM sub_B270 loc_B2A0: post-physics Cyclone_YAcceleration $1200 produces phase delta $38 and stores it in `$FFFFF8F0`"
+            slice.walk_visual_accumulator, 0x0170,
+            "ASM sub_B270 loc_B2A0: the active-flight path advances `$FFFFF8F0` twice by the post-physics Cyclone_YAcceleration delta $38"
         );
     }
 
