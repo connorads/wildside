@@ -68,6 +68,12 @@ from 24,903 exact / 12,856 divergent / 7,108,406 pixels to 24,715 / 13,044 /
 level identity. Preserve the Demo 1 special case and derive the underlying
 VBlank/DMA scanout hand-off before changing Demo 2.
 
+Rechecked 2026-07-16: applying that same direct selection to all `DemoPlay`
+frames improves the local 900..1100 window from 114 to 80 divergent frames,
+but reproduces the full-route regression exactly: 24,715 exact / 13,044
+divergent / 7,148,904 pixels, first mismatch 990. This confirms the missing
+state is the DMA scanout boundary, not the DemoPlay mode condition.
+
 Rejected 2026-07-15: the narrower pre-transform variant is also insufficient.
 Native phase capture finds frame 1058 begins `Kid_Transform` with countdown
 73 and frame 1059 applies the established one-page `loc_45EE` rewind; direct
