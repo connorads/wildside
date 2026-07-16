@@ -91,6 +91,12 @@ exact frames, moving its frontier from 968 to 990. The full route regresses to
 event, but do not equate residency with visibility: the next layer must model
 the FIFO/scanout boundary that chooses the displayed page.
 
+Follow-up 2026-07-16: oracle frames 1058..1124 freeze `$FFFFFA58/$FFFFFA5D`
+at `$01/$04` and emit no `$DD40` FIFO commits. The immediate-residency
+regression at 1071..1075 is therefore transform presentation debt, not a
+missing diamond upload. Preserve the resident page and model the hibernating
+field's displayed-page transition separately.
+
 Rejected 2026-07-15: the narrower pre-transform variant is also insufficient.
 Native phase capture finds frame 1058 begins `Kid_Transform` with countdown
 73 and frame 1059 applies the established one-page `loc_45EE` rewind; direct
