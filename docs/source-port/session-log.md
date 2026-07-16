@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-16 handoff (#408 prize flash timing)
+
+- `loc_102B8` leaves the previous `P` visible for remaining 25/24; its first
+  flash page is presented at 23. `sub_1007A`'s copied `$229` page is visible
+  at tail remaining 3/2. Full TAS: 24,971 exact / 12,788 divergent /
+  5,707,854 changed pixels. NEXT: frame 1022 stale `P` overlay, then the
+  separate flash CRAM-residency mismatch at 1023-24.
+
 ## 2026-07-16 handoff (#412 GfxObject tail)
 
 - `sub_1007A loc_10120` now exports its existing GfxObject tail separately

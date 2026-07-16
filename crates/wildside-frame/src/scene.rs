@@ -5753,6 +5753,13 @@ fn prize_block_spawn_flash_frame_loc_102b8(
     debug_assert_eq!(flash.addroffset_sprite, 0x0F2E);
     debug_assert_eq!(flash.animation_script_addr, 0x0001_02DE);
 
+    // ASM loc_102B8 starts the animation then hibernates. The GfxObject does
+    // not replace the settled `P` block sprite until two presented frames
+    // later: the published-route oracle retains `P` at remaining=25 and 24,
+    // then shows stru_102DE's first `$2CF` page at remaining=23.
+    if remaining >= PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8 - 1 {
+        return None;
+    }
     let elapsed = PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8.saturating_sub(remaining);
     let mut frame_start = 0_u8;
     // ASM loc_102B8/stru_102DE (kid.asm:21578) initialises four 24x24 sprite
@@ -6072,10 +6079,10 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
         // presentation-only tail at the settled block position, not another
         // wobble step. The final live mapping is `unk_E0E5E` / VRAM `$229`.
         // Native decrements tail bookkeeping at frame start. The new Diamond
-        // tail is therefore `3` on the one frame where the ROM still has
-        // `stru_101B6`'s final `$229` entry in Sprite_Table; later values are
-        // object-count overlap after the GfxObject animation has stopped.
-        if remaining != 3 {
+        // tail is therefore `3` and `2` across the two frames where the ROM
+        // still has `stru_101B6`'s final `$229` entry in Sprite_Table.
+        // `remaining=1` is count-only overlap after the GfxObject stops.
+        if !(2..=3).contains(&remaining) {
             continue;
         }
         push_prize_block_wobble_sub_1007a(
@@ -11608,9 +11615,18 @@ mod tests {
         trace.prize_block_worker_tails_sub_1007a[0].2 = 2;
         commands.clear();
         push_prize_block_wobble_overrides_sub_1007a(&mut commands, &trace, &visuals, None);
+        assert_eq!(
+            commands.len(),
+            1,
+            "ASM sub_1007A retains the final sprite for tail remaining=2"
+        );
+
+        trace.prize_block_worker_tails_sub_1007a[0].2 = 1;
+        commands.clear();
+        push_prize_block_wobble_overrides_sub_1007a(&mut commands, &trace, &visuals, None);
         assert!(
             commands.is_empty(),
-            "ASM sub_1007A deletes the final sprite after the one visible tail frame"
+            "ASM sub_1007A deletes the final sprite after its two visible tail frames"
         );
     }
 
@@ -11618,7 +11634,7 @@ mod tests {
     fn prize_block_spawn_flash_frame_pins_script_thresholds_and_sheet_guard_loc_102b8() {
         let visuals = sample_level_visuals(0x300);
         let cases = [
-            (25, 0x02CF),
+            (23, 0x02CF),
             (22, 0x02CF),
             (21, 0x02D8),
             (16, 0x02D8),
@@ -11639,6 +11655,12 @@ mod tests {
             assert_eq!((frame.origin_x, frame.origin_y), (0x0C, 0x0C));
             assert_eq!((frame.width_px, frame.height_px), (0x18, 0x18));
         }
+
+        assert!(
+            prize_block_spawn_flash_frame_loc_102b8(&visuals, 25).is_none()
+                && prize_block_spawn_flash_frame_loc_102b8(&visuals, 24).is_none(),
+            "ASM loc_102B8 retains the prior P sprite for two presented frames before stru_102DE's first page"
+        );
 
         let short_sheet = sample_level_visuals(usize::from(0x02EA - BLOCK_TILE_VRAM_BASE + 8));
         assert!(

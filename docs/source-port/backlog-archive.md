@@ -70,8 +70,13 @@ final `$229` mapping visible at the accumulated `+2px` Y position for the
 tail's `remaining=3` trace frame; `remaining=2/1` are count-only overlap.
 Frames 1018..1020 are pixel-exact, and the full 37,759-frame pass improves to
 24,967 exact / 12,792 divergent / 5,722,192 changed pixels with all gameplay,
-enemy, and RNG comparisons exact. The ratcheted full TAS gate passes. Frame
-1021 is the next independent prize-spawn mismatch.
+enemy, and RNG comparisons exact. The ratcheted full TAS gate passes.
+
+Follow-up 2026-07-16: `loc_102B8` retains the underlying `P` for its first two
+presented frames, and `sub_1007A`'s copied `$229` page survives tail
+`remaining=3/2`. The full route improves to 24,971 exact / 12,788 divergent /
+5,707,854 changed pixels. Frame 1022's stale `P` overlay is next; the 1023-24
+flash CRAM-residency difference remains separate.
 
 ### #409
 
