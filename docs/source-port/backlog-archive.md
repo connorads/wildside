@@ -32,6 +32,78 @@ flipped frames' focused windows.
 
 ### #406
 
+Investigation 2026-07-16 (pixel-cluster triage): sampled 65 route frames from
+`mismatch-report.json` (top-25 spatial clusters by px, HUD-region
+first/worst/last, per-2,500-frame strata, frontier 1020, 4 exact controls).
+`capture-scenario-frames` (default VDP path) reproduced the report's
+changed-pixel counts on all 65, proving it renders the same
+`source_port_visible_rgb24_v1` projection as the gate. 63 frames were
+independently classified, synthesised into 11 root-cause clusters, and each
+cluster deep-dived against the disassembly then adversarially verified by two
+lenses (pixel evidence + code/ASM). Artefacts (untracked):
+`.cache/debug/406-clusters/` incl. `workflow-findings.json`. Outcomes:
+
+- Confirmed → ready rows. #408: dynamic gfx-object/effect animation phase is
+  derived from the global `frame_index` (`(frame_index/duration)%count`,
+  sprites.rs) instead of the ROM's per-object `animation_timer(a3)` decremented
+  by `GfxObject_Animate` (kid.asm:2114, `loc_1158..loc_1182`, `off_1176`);
+  members incl. 4207/4733/35829 (cyclone spin, prize bursts, diamond
+  spin/sparkle), est 2,000-3,500 frames. #409: the resident DMA-page arms of
+  BOTH HUD icons (`hud_diamond_animation_frame_index` hud.rs:279-285 and the
+  `hud_life_icon_vram_page_loc_4586` arm) return the recorded page with no
+  presentation lead, so diamond (1,861 frames, region=hud_diamond) and life
+  icon (1,190 frames, grid:36,1-37,5) each lag one step at their transitions;
+  consistent with the 2026-07-15 FIFO finding — fix the shared `sub_44DC`
+  presentation layer, not per-icon page rules. #410: enemy palette variant
+  taken from the physical layout slot index (`enemy_layout_palette_variants`
+  bundle.rs:3962) where ROM `Load_EnemyArtPaletteToVRAM` `loc_36D16` uses
+  `rotate_left(2)&3` of the slot word (+0/+4/+8 pointer table); blue
+  lizard/dragon + Kid dragon form render green (members 7141..8069, 22457,
+  22466). #411: HUD timer digits read the live post-decrement second with no
+  one-frame Sprite_Table lag; ROM `Mode_Level` DMAs `Sprite_Table` before
+  `Make_SpriteAttr_HUD` updates it (`loc_BE82`/`loc_BEE8`), so oracle shows the
+  old digit for one frame at each boundary (members 2667, 24635; the flagpole
+  branch of `hud_timer_seconds_loc_c070` already models this). #412 (frontier
+  frame 1020): visible "P" prize block dropped because the fixture
+  level-layout path bypasses `apply_block_overlay_loc_11C7E` (`loc_123DC`
+  writes `$E102`/`$E101` authoritatively in ROM) and the reconcile guard
+  (level.rs:5051, added for the BLW2 `$EC2D` false diamond) skips restoring a
+  cell the fixture captured as non-prize.
+- Narrowed → open rows. #413: Plane-B static per-frame reconstruction
+  (`row_for_trace` scene.rs:3016) leaks wrong tiles at seams — chunked
+  column-upload source column (`loc_2FFE8`/`sub_30744`/`sub_307D8`, frame
+  36783: 22 px all at x≡4 mod 8, native always loses planet content) and
+  forest water-ripple right-edge seam (`loc_30598`/`loc_3060A`, frame 13697:
+  x=319 only). #414: intro/title/story-card ±1-step drift traced to
+  per-segment `start_elapsed` anchors hand-fit to mid-animation checkpoints
+  (`INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0=[45,42,43,39,58]`); the glyph
+  cadence itself is verified exact vs `loc_1C7A0..loc_1C7DC`; seg1 drifts
+  ahead, seg4 behind (5787/8890 vs 20004), flame palette-cycle (21765) and
+  pose arm (16630) same family. #415: Hoverboard Beach totem section shows
+  plank platform + carried Kid where oracle freed it and a different enemy
+  species active (7918, 14140, 25513, 25525, 33713, 37754); static planes and
+  HUD are pixel-identical, so it is object-state divergence, not temporal
+  drift.
+- Rejected 2026-07-16: (1) life-icon-specific "missing lead" fix — the active
+  resident arms of BOTH icons are lead-free and symmetric
+  (`HUD_DIAMOND_DMA_PAGE_RENDER_LEAD_LOC_45EE` exists only in the non-active
+  offset/fallback arms), and frame 37684 (84/99 px in the diamond, shading
+  swapped) proves the diamond also lags at its own transitions; fix must be
+  shared (#409). (2) ±1px Plane-B scroll offset — mechanically disproven:
+  rolling native ±1px makes members 20-50x worse; diffs are
+  tile-boundary-locked and one-directional. (3) Targeting the platform
+  carry/escape loop `loc_26A2`/`loc_26B6`/`loc_26C0`/`loc_26FE` for #415 —
+  #306 mutation-proved that math exact (24/24 mutants killed); candidates are
+  the inert TrapPlatformUp/Down `off_40D2` dispatch (types.rs:2086 keys off
+  raw=="0") or an upstream Kid state break; bisect before coding. (4) Uniform
+  present-latch for intro text workers — seg1/seg4 drift in opposite
+  directions under identical latch treatment, so a uniform latch cannot fix
+  both and would worsen seg4 (#414). (5) Clustering 17829 with the frame-1020
+  prize block — its 5 px are the HUD life icon at (290-293,14-16); re-filed
+  under #409. Long tail: single-pixel sprite-timing residues (24889, 27908)
+  stay under #406; controls 19999/29897 verified pixel-exact. #406 remains
+  open as the umbrella pixel-debt tracker.
+
 Investigation 2026-07-15: a consecutive published-TAS FIFO capture over
 frames 896..1000 confirms `sub_44DC loc_45EE/loc_460A -> sub_5D4A`'s same
 `$DD40` 0x200-byte diamond DMA reaches the display at materially different

@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-16 handoff (#406 pixel-cluster triage → ready rows #408-#415)
+
+- Stratified 63-frame sample of the 12,979 divergent route frames (top spatial
+  clusters, HUD regions, per-2,500-frame strata, frontier 1020, 4 exact
+  controls); verified `capture-scenario-frames` reproduces the gate's
+  `source_port_visible_rgb24_v1` pixels exactly on all 65 sampled frames.
+- Multi-agent triage (independent per-frame classification → root-cause
+  synthesis → per-cluster ASM deep dive → two adversarial verification lenses)
+  collapsed the debt into 11 clusters: 5 confirmed root causes (new ready rows
+  #408-#412), 3 narrowed defects (#413-#415), 1 long-tail bucket, controls
+  clean. Five rejected hypotheses recorded under #406 in the archive so they
+  are not retried.
+- Biggest levers: #408 per-object `GfxObject_Animate` animation phase (est
+  2,000-3,500 frames) and #409 shared HUD resident DMA-page presentation
+  (~3,050 frames). #412 root-causes the current frontier frame 1020 itself.
+
 ## 2026-07-16 handoff (#406 helmet prize spawn-flash DMA window)
 
 - Oracle frames 1023..1040 hide a spawned helmet prize for exactly the first
