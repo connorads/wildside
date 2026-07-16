@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use wildside_core::{
-    GameMode, LevelId, NativeTraceFrame, PlayerForm, hitpoint_display_art_dma_loop_loc_12C34,
+    GameMode, LevelId, NativeObjectKind, NativeTraceFrame, PlayerForm,
+    hitpoint_display_art_dma_loop_loc_12C34,
 };
 use wildside_render::{NativeLevelVisuals, TileRef};
 
@@ -362,9 +363,15 @@ fn hud_life_icon_tile_base_index_loc_4546(trace: &NativeTraceFrame) -> u16 {
     } else if trace.level_skip_cheat_enabled == 0
         && trace.level_completion_time > 0
         && !trace.level_complete
+        && !trace
+            .active_objects
+            .iter()
+            .any(|object| matches!(object.kind, NativeObjectKind::Player))
     {
         // ASM sub_44DC loc_4546/loc_4586 (kid.asm:5592): direct loc_1AE2E
-        // recording hand-offs present the first `AniArt_LifeIcon` DMA page.
+        // recording hand-offs present the first `AniArt_LifeIcon` DMA page
+        // before `Load_InGame` creates the Kid object. Once Mode_Level is
+        // live, use its actual cursor/resident DMA state instead.
         // Oracle VRAM `$4620` matches ROM page 0 throughout release frames
         // 0/30/60/120, independently of the reduced native animation offset.
         0
@@ -590,9 +597,10 @@ pub fn push_game_hud(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
+    use std::collections::{BTreeMap, HashMap};
     use wildside_core::{
         EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE, HudTimerSpritePositionSubBD0A,
+        NativeObjectSnapshot,
     };
     use wildside_render::{
         AnimatedSpriteVisual, BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals,
@@ -746,6 +754,40 @@ mod tests {
                 0
             );
         }
+        assert_eq!(
+            hud_life_icon_tile_base_index_loc_4546(&NativeTraceFrame {
+                hud_life_frame_offset: Some(4),
+                hud_life_icon_vram_page_loc_4586: Some(8),
+                level_skip_cheat_enabled: 0,
+                level_completion_time: 1,
+                level_complete: false,
+                active_objects: vec![NativeObjectSnapshot {
+                    kind: NativeObjectKind::Player,
+                    x_pos: 0,
+                    y_pos: 0,
+                    layout_index: None,
+                    x_velocity: None,
+                    y_velocity: None,
+                    facing: None,
+                    on_ground: None,
+                    hit_points: None,
+                    damage_flash: false,
+                    palette_variant: 0,
+                    stationary: false,
+                    contact_phase: None,
+                    shared_walker_state: None,
+                    shared_walker_patrol_timer: None,
+                    shared_walker_patrol_short_next: None,
+                    walk_phase: None,
+                    sprite_animation_phase: None,
+                    wait_timer: None,
+                    debug_fields: BTreeMap::default(),
+                }],
+                ..NativeTraceFrame::default()
+            }),
+            8,
+            "ASM sub_44DC loc_4546/loc_4586 keeps the resident DMA page after Load_InGame creates Kid"
+        );
         assert_eq!(
             hud_life_icon_settled_recording_tile_base_index_loc_4586(Some(4)),
             None
