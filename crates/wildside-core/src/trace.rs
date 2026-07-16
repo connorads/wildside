@@ -8780,6 +8780,11 @@ impl NativeRuntime {
                     },
                 })
                 .collect(),
+            prize_block_worker_tails_sub_1007a: self
+                .prize_block_worker_tails
+                .iter()
+                .map(|tail| (tail.cell_x, tail.cell_y, tail.remaining))
+                .collect(),
             block_destroy_effects: self
                 .block_destroy_effects
                 .iter()

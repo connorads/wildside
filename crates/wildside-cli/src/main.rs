@@ -5824,6 +5824,7 @@ AddrTbl_LevelNames:
             block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),
             block_debris_pieces: Vec::new(),
+            prize_block_worker_tails_sub_1007a: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
             kid_projectile_hit_sparks: Vec::new(),
             floating_items: Vec::new(),

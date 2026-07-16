@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-16 handoff (#412 GfxObject tail)
+
+- `sub_1007A loc_10120` now exports its existing GfxObject tail separately
+  from the 31-frame wobble worker. The final `$229` sprite keeps the net +2px
+  Y offset for one visible tail frame; frames 1018..1020 are exact. Full TAS
+  is green at 24,967 exact / 12,792 divergent / 5,722,192 changed pixels.
+  NEXT: frame 1021 prize-spawn presentation (`loc_102B8`/`Prize_Init`).
+
 ## 2026-07-16 handoff (#408 Cyclone phase)
 
 - Oracle WRAM probes established that active Cyclone flight advances

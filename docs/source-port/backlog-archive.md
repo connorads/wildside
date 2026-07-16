@@ -64,6 +64,43 @@ separate GfxObject/Sprite_Table presentation lifetime, not gameplay bounce
 state or `Block_Mappings` art provenance. Keep the original 31-frame worker
 until that lifetime is modelled directly.
 
+Resolved 2026-07-16: export the existing post-wobble GfxObject tail rather
+than extending the 31-frame gameplay worker. `sub_1007A loc_10120` leaves its
+final `$229` mapping visible at the accumulated `+2px` Y position for the
+tail's `remaining=3` trace frame; `remaining=2/1` are count-only overlap.
+Frames 1018..1020 are pixel-exact, and the full 37,759-frame pass improves to
+24,967 exact / 12,792 divergent / 5,722,192 changed pixels with all gameplay,
+enemy, and RNG comparisons exact. The ratcheted full TAS gate passes. Frame
+1021 is the next independent prize-spawn mismatch.
+
+### #409
+
+Probe 2026-07-16: recaptured the HUD DMA FIFO at published-route frames
+902, 908, 914, and 920 across both `$4620` and `$DD40` ranges. The diamond
+upload at frame 902 begins at visible scanline 5/pixel 44; later uploads finish
+in VBlank. The native trace stores only the post-frame resident pages and the
+renderer has no gameplay raster-write timeline, so neither icon can choose its
+visible page from existing state. Do not add a mode, level, or frame-count
+page rule. Model ordered gameplay VDP/FIFO commits and raster visibility first.
+
+### #410
+
+Resolved 2026-07-16: commit `f60eac958` already models
+`Load_EnemyArtPaletteToVRAM loc_36D16`. `enemy_layout_palette_variants` retains
+physical slot indices across `$FFFF` blanks, `resolved_enemy_palette` rotates
+the high slot bits, and the renderer uses that variant unless an object has an
+explicit runtime override. Source tests cover the leading-blank Dragon_2
+case and the renderer selection. No further palette change is warranted.
+
+### #411
+
+Resolved 2026-07-16: the native core already records the timer seconds encoded
+by `Make_SpriteAttr_HUD loc_BEE8`, and `render_trace_with_vdp_latched_state`
+selects the previous trace's timer Sprite_Table value during ordinary gameplay.
+`hud_timer_seconds_loc_c070` also retains the frozen pre-hologram timer after
+the flagpole hand-off. Existing core and frame tests cover both source paths;
+the live row was stale.
+
 ### #406
 
 Investigation 2026-07-16 (pixel-cluster triage): sampled 65 route frames from

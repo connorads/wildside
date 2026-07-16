@@ -6065,6 +6065,30 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
             remaining,
         );
     }
+    for &(col, row, remaining) in &trace.prize_block_worker_tails_sub_1007a {
+        // ASM sub_1007A loc_10120 has completed its 31 hibernated movement
+        // passes, but `Hibernate_UntilAnimFinished` retains the copied
+        // GfxObject until `stru_101B6` reaches its terminator. This is a
+        // presentation-only tail at the settled block position, not another
+        // wobble step. The final live mapping is `unk_E0E5E` / VRAM `$229`.
+        // Native decrements tail bookkeeping at frame start. The new Diamond
+        // tail is therefore `3` on the one frame where the ROM still has
+        // `stru_101B6`'s final `$229` entry in Sprite_Table; later values are
+        // object-count overlap after the GfxObject animation has stopped.
+        if remaining != 3 {
+            continue;
+        }
+        push_prize_block_wobble_sub_1007a(
+            commands,
+            level_visuals,
+            i32::from(col) * 16 - camera_x_px,
+            // The six `sub_1007A` movement loops end at +2px:
+            // -12 + 12 - 10 + 10 - 8 + 10. The worker stops moving, but its
+            // GfxObject keeps that settled position through the final sprite.
+            i32::from(row) * 16 - camera_y_px + 2,
+            4,
+        );
+    }
 }
 
 pub fn push_block_grid_overrides(
@@ -11554,6 +11578,39 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![0x008, 0x009, 0x00A, 0x00B],
             "ASM sub_1007A loc_100C4 leaves the generic prize page resident for the first visible hibernate frame"
+        );
+    }
+
+    #[test]
+    fn prize_block_worker_tail_keeps_final_gfx_sprite_one_frame_sub_1007a() {
+        let visuals = sample_level_visuals(0x300);
+        let mut trace = NativeTraceFrame {
+            prize_block_worker_tails_sub_1007a: vec![(2, 3, 3)],
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_prize_block_wobble_overrides_sub_1007a(&mut commands, &trace, &visuals, None);
+
+        let DrawCommand::Sprite { x, y, tiles, .. } = commands.single() else {
+            panic!("ASM sub_1007A loc_10120 should retain one final GfxObject sprite");
+        };
+        assert_eq!((*x, *y), (32, 50));
+        assert_eq!(
+            tiles
+                .iter()
+                .map(|tile| tile.tile.tile_index)
+                .collect::<Vec<_>>(),
+            vec![0x009, 0x00A, 0x00B, 0x00C],
+            "ASM sub_1007A loc_10120 -> Hibernate_UntilAnimFinished keeps the final `$229` copied page at the settled +2px position"
+        );
+
+        trace.prize_block_worker_tails_sub_1007a[0].2 = 2;
+        commands.clear();
+        push_prize_block_wobble_overrides_sub_1007a(&mut commands, &trace, &visuals, None);
+        assert!(
+            commands.is_empty(),
+            "ASM sub_1007A deletes the final sprite after the one visible tail frame"
         );
     }
 

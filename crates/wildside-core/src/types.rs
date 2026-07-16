@@ -1921,6 +1921,13 @@ pub struct NativeTraceFrame {
     /// older recordings that only serialised `block_bounces` still load cleanly.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub block_bounce_details: Vec<BlockBounceTrace>,
+    /// ASM `sub_1007A`'s GfxObject after the 31 hibernated block-motion
+    /// passes: (cell_x, cell_y, animation frames remaining). This is separate
+    /// from `block_bounces` because `Hibernate_UntilAnimFinished` keeps the
+    /// copied block sprite presentation alive after the gameplay worker has
+    /// stopped moving the cell.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub prize_block_worker_tails_sub_1007a: Vec<(u16, u16, u8)>,
     /// Block destruction fragment effects: (x_px, y_px, remaining_frames, direction).
     #[serde(default, deserialize_with = "deserialize_block_destroy_effects")]
     pub block_destroy_effects: Vec<(u16, u16, u8, u16)>,
@@ -2189,6 +2196,7 @@ impl Default for NativeTraceFrame {
             storm_sprites_sub_61ca: Vec::new(),
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
+            prize_block_worker_tails_sub_1007a: Vec::new(),
             block_destroy_effects: Vec::new(),
             block_debris_pieces: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
