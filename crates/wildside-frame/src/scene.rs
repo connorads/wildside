@@ -1100,6 +1100,7 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.number_lives = previous_trace.number_lives;
         render_trace.diamond_count = previous_trace.diamond_count;
         render_trace.hud_diamond_frame_offset = previous_trace.hud_diamond_frame_offset;
+        render_trace.hud_diamond_vram_page_loc_5d4a = previous_trace.hud_diamond_vram_page_loc_5d4a;
         render_trace.hud_timer_sprite_seconds_loc_bee8 =
             previous_trace.hud_timer_sprite_seconds_loc_bee8;
         render_trace.level_timer_seconds = previous_trace.level_timer_seconds;
@@ -1159,6 +1160,13 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
             } else {
                 trace.hud_diamond_frame_offset
             };
+        render_trace.hud_diamond_vram_page_loc_5d4a = if trace.hud_diamond_vram_page_loc_5d4a
+            == previous_trace.hud_diamond_vram_page_loc_5d4a
+        {
+            previous_trace.hud_diamond_vram_page_loc_5d4a
+        } else {
+            trace.hud_diamond_vram_page_loc_5d4a
+        };
         render_trace.hud_timer_sprite_seconds_loc_bee8 =
             previous_trace.hud_timer_sprite_seconds_loc_bee8;
         latch_island_shore_vram_bands_loc_1202a(&mut render_trace, trace, previous_trace);

@@ -84,6 +84,13 @@ still infers the diamond page from trace state. Do not tune that inference:
 the missing owned gameplay VDP/FIFO presentation timeline is now directly
 reproduced at the live frontier.
 
+Rejected 2026-07-16: presenting the newly recorded `sub_5D4A` resident
+`off_7B0AC` page immediately fixes the focused 960..1000 window from 8 to 32
+exact frames, moving its frontier from 968 to 990. The full route regresses to
+24,720 exact / 13,039 divergent, however. Retain the runtime-owned DMA-page
+event, but do not equate residency with visibility: the next layer must model
+the FIFO/scanout boundary that chooses the displayed page.
+
 Rejected 2026-07-15: the narrower pre-transform variant is also insufficient.
 Native phase capture finds frame 1058 begins `Kid_Transform` with countdown
 73 and frame 1059 applies the established one-page `loc_45EE` rewind; direct

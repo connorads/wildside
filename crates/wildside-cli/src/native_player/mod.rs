@@ -2751,6 +2751,7 @@ mod tests {
             iron_knight_climbing: false,
             iron_knight_climb_pose_accum: 0,
             hud_diamond_frame_offset: None,
+            hud_diamond_vram_page_loc_5d4a: None,
             hud_timer_sprite_seconds_loc_bee8: None,
             hud_life_frame_offset: None,
             hud_life_icon_vram_page_loc_4586: None,

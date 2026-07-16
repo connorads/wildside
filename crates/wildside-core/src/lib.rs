@@ -589,6 +589,9 @@ pub struct NativeRuntime {
     /// later native hazard pass when the Kid object is live.
     pending_demo_timer_tick_result_loc_be82: Option<bool>,
     hud_animation_state: boot::HudAnimationStateSub44DC,
+    /// The selected `off_7B0AC` page last transferred by ASM sub_5D4A to
+    /// HUD-diamond VRAM `$DD40`; presentation timing is modelled separately.
+    gameplay_hud_vram_state: vdp::GameplayHudVramState,
     /// ASM sub_44DC loc_4586's currently resident life-icon art page at VRAM
     /// `$4620`. This differs from `$FFFFFA5E` after the animation table wraps.
     hud_life_icon_vram_page_loc_4586: u8,
@@ -1446,6 +1449,7 @@ impl NativeRuntime {
             demo_hud_timer_presentation_loc_be82: None,
             pending_demo_timer_tick_result_loc_be82: None,
             hud_animation_state: boot::HudAnimationStateSub44DC::initialised_from_sub_44_b0(),
+            gameplay_hud_vram_state: vdp::GameplayHudVramState::initialised_from_sub_44b0(),
             // Oracle Demo 1 bootstrap frames expose ArtUnc_4692 page 2 before
             // the first loc_4586 life-icon upload occurs.
             hud_life_icon_vram_page_loc_4586: 8,
@@ -3854,6 +3858,10 @@ impl NativeRuntime {
             // frame is sampled.
             let step = boot::step_hud_animation_sub_44DC(self.hud_animation_state);
             self.hud_animation_state = step.next_state;
+            if let Some(diamond_upload) = step.diamond_upload {
+                self.gameplay_hud_vram_state
+                    .record_diamond_dma_sub_5d4a(diamond_upload.frame_table_byte_offset);
+            }
             if let Some(life_upload) = step.life_upload {
                 // ASM loc_4586 selects `off_457A[frame]`, then sub_44D0 copies
                 // its 128-byte page to VRAM `$4620`. Keep the resident page,

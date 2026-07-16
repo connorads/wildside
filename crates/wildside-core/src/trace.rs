@@ -1139,6 +1139,11 @@ mod tests {
             Some(0),
             "ASM sub_44B0 leaves `$FFFFFA5D` at zero before Mode_Level runs sub_44DC"
         );
+        assert_eq!(
+            runtime.trace_frame().hud_diamond_vram_page_loc_5d4a,
+            Some(0),
+            "ASM sub_44B0 leaves the first off_7B0AC page resident at HUD VRAM `$DD40`"
+        );
 
         let trace = runtime.step_frame(FrameInput::default());
 
@@ -1146,6 +1151,11 @@ mod tests {
             trace.hud_diamond_frame_offset,
             Some(2),
             "ASM Mode_Level loc_80C calls sub_44DC; loc_45EE advances `$FFFFFA5D` by two on the first level frame"
+        );
+        assert_eq!(
+            trace.hud_diamond_vram_page_loc_5d4a,
+            Some(4),
+            "ASM sub_44DC loc_4626 passes unk_461C frame byte 4 to sub_5D4A, which makes off_7B0AC[1] resident at VRAM `$DD40`"
         );
     }
 
@@ -8331,6 +8341,10 @@ impl NativeRuntime {
                 self.helmet.iron_knight_climb_pose_accum
             },
             hud_diamond_frame_offset: Some(self.hud_animation_state.diamond_frame_offset_fb5d),
+            hud_diamond_vram_page_loc_5d4a: Some(
+                self.gameplay_hud_vram_state
+                    .diamond_frame_table_byte_offset_loc_5d4a(),
+            ),
             hud_timer_sprite_seconds_loc_bee8: Some(self.hud_timer_sprite_seconds_loc_bee8),
             hud_life_frame_offset: Some(self.hud_animation_state.life_frame_offset_fb5e),
             hud_life_icon_vram_page_loc_4586: Some(self.hud_life_icon_vram_page_loc_4586),

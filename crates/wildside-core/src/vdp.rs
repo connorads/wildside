@@ -22,6 +22,39 @@ use crate::constants::{
     TIMEOUT_RESTART_INTRO_SEQUENCE_5_VDP_VISIBLE_ELAPSED_LOC_1BA28, TITLE_ATTRACT_LOCK_FRAMES,
 };
 
+/// Gameplay-owned VRAM state for HUD DMA operations.
+///
+/// The gameplay renderer previously inferred the diamond art page directly
+/// from `$FFFFFA5D`.  That RAM byte is the `unk_461C` script cursor, whereas
+/// `sub_5D4A` writes the selected `off_7B0AC` page into VRAM `$DD40`.  Keep the
+/// latter as an independent fact so a later FIFO/scanout timeline can decide
+/// when it becomes visible without reinterpreting gameplay RAM.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GameplayHudVramState {
+    diamond_frame_table_byte_offset_loc_5d4a: u8,
+}
+
+impl GameplayHudVramState {
+    pub(crate) const fn initialised_from_sub_44b0() -> Self {
+        // ASM sub_44B0 (kid.asm:5520) leaves the paired animation selectors at
+        // zero. The first sub_5D4A transfer therefore selects off_7B0AC[0].
+        Self {
+            diamond_frame_table_byte_offset_loc_5d4a: 0,
+        }
+    }
+
+    pub(crate) fn record_diamond_dma_sub_5d4a(&mut self, frame_table_byte_offset: u16) {
+        // ASM sub_44DC loc_4626 (kid.asm:5692) passes the frame byte from
+        // unk_461C to sub_5D4A, whose off_7B0AC selectors are 0, 4, 8, 12.
+        self.diamond_frame_table_byte_offset_loc_5d4a =
+            u8::try_from(frame_table_byte_offset).expect("sub_5D4A selector fits in u8");
+    }
+
+    pub(crate) const fn diamond_frame_table_byte_offset_loc_5d4a(self) -> u8 {
+        self.diamond_frame_table_byte_offset_loc_5d4a
+    }
+}
+
 const VRAM_SIZE: usize = 0x1_0000;
 const CRAM_SIZE: usize = 0x80;
 const VSRAM_SIZE: usize = 0x50;
