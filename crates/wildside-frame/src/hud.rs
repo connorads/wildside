@@ -275,6 +275,13 @@ fn hud_diamond_animation_frame_index(trace: &NativeTraceFrame, frame_count: usiz
     if frame_count == 0 {
         return 0;
     }
+    if let Some(resident_page) = trace.hud_diamond_vram_page_loc_5d4a {
+        // ASM sub_44DC loc_4626 -> sub_5D4A writes the selected off_7B0AC
+        // 0x200-byte page to VRAM `$DD40`. The trace records that resident
+        // selector independently of `$FFFFFA5D`, which freezes during
+        // Kid_Transform's sub_8E0 VBlank hibernation.
+        return (usize::from(resident_page / 4)) % frame_count;
+    }
     if let Some(offset) = trace.hud_diamond_frame_offset {
         // ASM sub_44DC loc_45EE/loc_460A (kid.asm:5670): `$FFFFFA5D`
         // stores the byte offset into `unk_461C`, whose speed/frame pairs are
@@ -638,6 +645,16 @@ mod tests {
             ..NativeTraceFrame::default()
         };
         assert_eq!(hud_diamond_animation_frame_index(&normal_trace, 4), 2);
+
+        let resident_vram_trace = NativeTraceFrame {
+            hud_diamond_frame_offset: Some(2),
+            hud_diamond_vram_page_loc_5d4a: Some(8),
+            ..NativeTraceFrame::default()
+        };
+        assert_eq!(
+            hud_diamond_animation_frame_index(&resident_vram_trace, 4),
+            2
+        );
 
         let demo_1_trace = NativeTraceFrame {
             game_mode: GameMode::DemoPlay,
