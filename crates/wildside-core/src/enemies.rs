@@ -11761,16 +11761,35 @@ pub(crate) fn resolved_enemy_id(enemy_type_slots: &[u16], object_type: u8) -> Op
 
 /// Extract the palette variant (0, 1, or 2) from the enemy type slot.
 pub(crate) fn resolved_enemy_palette(enemy_type_slots: &[u16], object_type: u8) -> u8 {
-    if object_type & 0x80 == 0 {
-        return 0;
-    }
-    let slot_index = usize::from(object_type & 0x7F);
-    let Some(&raw_slot) = enemy_type_slots.get(slot_index) else {
+    let raw_slot = if object_type & 0x80 != 0 {
+        enemy_type_slots
+            .get(usize::from(object_type & 0x7F))
+            .copied()
+    } else {
+        // ASM Load_EnemyArtPaletteToVRAM loc_36D16 (kid.asm) consults the
+        // level header's raw type word even when the layout object contains
+        // the resolved direct ID. The upper two bits remain the palette arm.
+        enemy_type_slots
+            .iter()
+            .copied()
+            .find(|slot| *slot != 0xFFFF && (*slot & 0x3FFF) == u16::from(object_type))
+    };
+    let Some(raw_slot) = raw_slot else {
         return 0;
     };
     // ASM loc_36D16 (kid.asm:38603): the object-type slot selects an enemy
     // layout header word, and the top two bits rotate into the palette variant.
     enemy_art_palette_entry_loc_36D16(raw_slot).map_or(0, |entry| entry.palette_variant)
+}
+
+#[cfg(test)]
+#[test]
+fn direct_enemy_id_uses_matching_header_palette_loc_36d16() {
+    assert_eq!(
+        resolved_enemy_palette(&[0x400D, 0xFFFF], 0x0D),
+        1,
+        "ASM Load_EnemyArtPaletteToVRAM loc_36D16 retains the palette bits from a direct Dragon ID's matching header word"
+    );
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
