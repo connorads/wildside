@@ -136,7 +136,7 @@ pub fn run_tas_diff(
 
     if player_trace {
         println!(
-            "frame input native_x native_y native_xv native_yv native_move native_ground native_facing native_rng oracle_x oracle_y oracle_xv oracle_yv oracle_move oracle_ground oracle_dir oracle_rng"
+            "frame input native_x native_y native_obj_x native_obj_y native_xv native_yv native_form native_move native_ground native_facing native_phase native_rng oracle_x oracle_y oracle_xv oracle_yv oracle_move oracle_ground oracle_dir oracle_mapping oracle_gfx_order oracle_rng"
         );
         for frame_idx in start..end {
             let label = format!("frame_{frame_idx}");
@@ -147,16 +147,42 @@ pub fn run_tas_diff(
                 .get(frame_idx)
                 .map_or_else(|| "-".to_owned(), |mask| format!("{mask:#04x}"));
             println!(
-                "{frame_idx:>5} {input:>5} {:>8} {:>8} {:>9} {:>9} {:>11} {:>13} {:>13} {:>10} {:>8} {:>8} {:>9} {:>9} {:>11} {:>13} {:>10} {:>10}",
+                "{frame_idx:>5} {input:>5} {:>8} {:>8} {:>12} {:>12} {:>9} {:>9} {:>11} {:>11} {:>13} {:>13} {:>12} {:>10} {:>8} {:>8} {:>9} {:>9} {:>11} {:>13} {:>10} {:>14} {:>16} {:>10}",
                 format_opt_u32(native_frame.and_then(|frame| frame.kid_x_pos)),
                 format_opt_u32(native_frame.and_then(|frame| frame.kid_y_pos)),
+                format_opt_u32(native_frame.and_then(|frame| {
+                    frame
+                        .active_objects
+                        .iter()
+                        .find(|object| {
+                            matches!(object.kind, wildside_core::NativeObjectKind::Player)
+                        })
+                        .map(|object| object.x_pos)
+                })),
+                format_opt_u32(native_frame.and_then(|frame| {
+                    frame
+                        .active_objects
+                        .iter()
+                        .find(|object| {
+                            matches!(object.kind, wildside_core::NativeObjectKind::Player)
+                        })
+                        .map(|object| object.y_pos)
+                })),
                 format_opt_i32(native_frame.and_then(|frame| frame.kid_x_velocity)),
                 format_opt_i32(native_frame.and_then(|frame| frame.kid_y_velocity)),
+                native_frame.map_or_else(
+                    || "-".to_owned(),
+                    |frame| { format!("{:#04x}", frame.current_helmet_id) }
+                ),
                 format_opt_u16(native_frame.and_then(|frame| frame.character_movement)),
                 format_opt_bool(native_frame.and_then(|frame| frame.kid_on_ground)),
                 native_frame
                     .and_then(|frame| frame.kid_facing)
                     .map_or_else(|| "-".to_owned(), |facing| format!("{facing:?}")),
+                native_frame.map_or_else(
+                    || "-".to_owned(),
+                    |frame| format!("{:#06x}", frame.walk_visual_accumulator),
+                ),
                 format_opt_u16_hex(native_frame.and_then(|frame| frame.rng_offset)),
                 oracle_state.map_or_else(|| "-".to_owned(), |state| state.kid_x_pos.to_string()),
                 oracle_state.map_or_else(|| "-".to_owned(), |state| state.kid_y_pos.to_string()),
@@ -170,6 +196,20 @@ pub fn run_tas_diff(
                 oracle_state
                     .and_then(|state| state.kid_x_direction)
                     .map_or_else(|| "-".to_owned(), |direction| format!("{direction:#04x}")),
+                oracle_state
+                    .and_then(|state| {
+                        state
+                            .gameplay_debug_fields
+                            .get("oracle_kid_addroffset_sprite")
+                    })
+                    .map_or_else(|| "-".to_owned(), Clone::clone),
+                oracle_state
+                    .and_then(|state| {
+                        state
+                            .gameplay_debug_fields
+                            .get("oracle_gfx_sprite_order_loc_14a4")
+                    })
+                    .map_or_else(|| "-".to_owned(), Clone::clone),
                 format_opt_u16_hex(oracle_state.and_then(|state| state.rng_offset)),
             );
         }

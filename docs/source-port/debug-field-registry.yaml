@@ -863,6 +863,24 @@
       "first_added_commit": "688c4a61",
       "intended_meaning": "Oracle-side filtered Object_RAM dump for Drips.asm loc_33488/loc_335D8 and Tar_Monster.asm loc_325B6 helper handoff fields: object code, hibernate, last Get_RandomNumber_byte ring result, child pointers, saved a1/a2/a3 gfx position/velocity/collision, $44/$46/$48 scratch words, and owned gfx position/velocity/collision.",
       "promotion_trigger": "Promote if Drips lifecycle parity or checked-in regressions start depending on typed ROM object handoff fields."
+    },
+    {
+      "key": "oracle_kid_addroffset_sprite",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "issue-406-tas-pixel-parity",
+      "first_added_commit": "pending",
+      "intended_meaning": "Oracle live Kid GfxObject `addroffset_sprite` word at `$FF2502`, the Data_Index mapping selected by the latest player visual routine.",
+      "promotion_trigger": "Promote to typed player presentation state if landing or animation parity consumes the mapping beyond this focused Cyclone probe."
+    },
+    {
+      "key": "oracle_gfx_sprite_order_loc_14a4",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "issue-406-tas-pixel-parity",
+      "first_added_commit": "pending",
+      "intended_meaning": "Oracle GfxObject linked-list order from `Allocate_GfxObjectSlot` loc_FD4 / `Make_SpritesFromGfxObjects` loc_14A4, including allocation order word, object metadata, position and sprite mapping.",
+      "promotion_trigger": "Promote to typed presentation ordering only if repeatable SAT parity requires native to reproduce ROM GfxObject ordering."
     }
   ]
 }
