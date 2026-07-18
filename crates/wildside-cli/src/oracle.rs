@@ -112,6 +112,8 @@ pub struct OracleManifest {
     #[serde(default)]
     pub vdp_fifo_commits: Vec<OracleVdpFifoCommitRow>,
     #[serde(default)]
+    pub vdp_fifo_enqueues: Vec<OracleVdpFifoCommitRow>,
+    #[serde(default)]
     pub settle_trace: Vec<OracleSettleTraceRow>,
 }
 
@@ -129,6 +131,8 @@ pub struct OracleVdpPixelSampleRow {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct OracleVdpFifoCommitRow {
     pub frame: usize,
+    #[serde(default)]
+    pub m68k_cycle_counter: u64,
     pub commits: Vec<OracleVdpFifoCommit>,
 }
 
@@ -140,6 +144,10 @@ pub struct OracleVdpFifoCommit {
     pub address: u32,
     pub word: u16,
     pub byte_size: u8,
+    #[serde(default)]
+    pub m68k_pc: u32,
+    #[serde(default)]
+    pub m68k_cycles: u64,
 }
 
 #[derive(Debug, Clone, serde::Serialize, Deserialize)]
@@ -578,6 +586,90 @@ fn patch_jgenesis_fifo_commit_trace(jgenesis_dir: &Path) -> Result<()> {
         fs::write(&vdp_rs, &vdp)
             .with_context(|| format!("failed to write patched {}", vdp_rs.display()))?;
     }
+    if !vdp.contains("WildsideVdpFifoEnqueue") {
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "pub struct WildsideVdpFifoCommit {\n",
+            "pub struct WildsideVdpFifoEnqueue {\n    pub scanline: u16,\n    pub pixel: u16,\n    pub target: u8,\n    pub address: u32,\n    pub word: u16,\n    pub byte_size: u8,\n}\n\n#[derive(Debug, Clone, Copy, Encode, Decode)]\npub struct WildsideVdpFifoCommit {\n",
+            &vdp_rs,
+        )?;
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "    wildside_fifo_commits: VecDeque<WildsideVdpFifoCommit>,\n",
+            "    wildside_fifo_commits: VecDeque<WildsideVdpFifoCommit>,\n    wildside_fifo_enqueues: VecDeque<WildsideVdpFifoEnqueue>,\n",
+            &vdp_rs,
+        )?;
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "            wildside_fifo_commits: VecDeque::new(),\n",
+            "            wildside_fifo_commits: VecDeque::new(),\n            wildside_fifo_enqueues: VecDeque::new(),\n",
+            &vdp_rs,
+        )?;
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "        self.fifo.push(entry);\n",
+            "        if entry.mode == DataPortMode::Write {\n            let enqueue = match entry.location {\n                DataPortLocation::Vram if entry.vram_write == VramWriteFlag::First => Some(WildsideVdpFifoEnqueue {\n                    scanline: self.state.scanline,\n                    pixel: self.state.pixel,\n                    target: 0,\n                    address: entry.address & 0xFFFF,\n                    word: entry.word,\n                    byte_size: match entry.size { VramWriteSize::Word => 2, VramWriteSize::Byte => 1 },\n                }),\n                DataPortLocation::Cram => Some(WildsideVdpFifoEnqueue {\n                    scanline: self.state.scanline,\n                    pixel: self.state.pixel,\n                    target: 1,\n                    address: entry.address & 0x7F,\n                    word: entry.word,\n                    byte_size: 2,\n                }),\n                DataPortLocation::Vsram if (entry.address & 0x7F & !1) < VSRAM_LEN as u32 => Some(WildsideVdpFifoEnqueue {\n                    scanline: self.state.scanline,\n                    pixel: self.state.pixel,\n                    target: 2,\n                    address: entry.address & 0x7F & !1,\n                    word: entry.word,\n                    byte_size: 2,\n                }),\n                DataPortLocation::Vram | DataPortLocation::Vram8Bit | DataPortLocation::Vsram | DataPortLocation::Invalid => None,\n            };\n            if let Some(enqueue) = enqueue {\n                self.wildside_fifo_enqueues.push_back(enqueue);\n            }\n        }\n\n        self.fifo.push(entry);\n",
+            &vdp_rs,
+        )?;
+        fs::write(&vdp_rs, &vdp)
+            .with_context(|| format!("failed to write patched {}", vdp_rs.display()))?;
+    }
+    if !vdp.contains("wildside_m68k_context") {
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "pub struct WildsideVdpFifoEnqueue {\n    pub scanline: u16,\n    pub pixel: u16,\n    pub target: u8,\n    pub address: u32,\n    pub word: u16,\n    pub byte_size: u8,\n}",
+            "pub struct WildsideVdpFifoEnqueue {\n    pub scanline: u16,\n    pub pixel: u16,\n    pub target: u8,\n    pub address: u32,\n    pub word: u16,\n    pub byte_size: u8,\n    // wildside_m68k_context_fields\n    pub m68k_pc: u32,\n    pub m68k_cycles: u64,\n}",
+            &vdp_rs,
+        )?;
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "    wildside_fifo_enqueues: VecDeque<WildsideVdpFifoEnqueue>,\n",
+            "    wildside_fifo_enqueues: VecDeque<WildsideVdpFifoEnqueue>,\n    wildside_m68k_pc: u32,\n    wildside_m68k_cycles: u64,\n",
+            &vdp_rs,
+        )?;
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "            wildside_fifo_enqueues: VecDeque::new(),\n",
+            "            wildside_fifo_enqueues: VecDeque::new(),\n            wildside_m68k_pc: 0,\n            wildside_m68k_cycles: 0,\n",
+            &vdp_rs,
+        )?;
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "    pub fn write_control(&mut self, value: u16) {\n",
+            "    pub fn set_wildside_m68k_context(&mut self, pc: u32, cycles: u64) {\n        self.wildside_m68k_pc = pc;\n        self.wildside_m68k_cycles = cycles;\n    }\n\n    pub fn write_control(&mut self, value: u16) {\n",
+            &vdp_rs,
+        )?;
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "                    byte_size: match entry.size { VramWriteSize::Word => 2, VramWriteSize::Byte => 1 },\n",
+            "                    byte_size: match entry.size { VramWriteSize::Word => 2, VramWriteSize::Byte => 1 },\n                    m68k_pc: self.wildside_m68k_pc,\n                    m68k_cycles: self.wildside_m68k_cycles,\n",
+            &vdp_rs,
+        )?;
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "                    byte_size: 2,\n                }),\n                DataPortLocation::Vsram",
+            "                    byte_size: 2,\n                    m68k_pc: self.wildside_m68k_pc,\n                    m68k_cycles: self.wildside_m68k_cycles,\n                }),\n                DataPortLocation::Vsram",
+            &vdp_rs,
+        )?;
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "                    byte_size: 2,\n                }),\n                DataPortLocation::Vram | DataPortLocation::Vram8Bit",
+            "                    byte_size: 2,\n                    m68k_pc: self.wildside_m68k_pc,\n                    m68k_cycles: self.wildside_m68k_cycles,\n                }),\n                DataPortLocation::Vram | DataPortLocation::Vram8Bit",
+            &vdp_rs,
+        )?;
+        fs::write(&vdp_rs, &vdp)
+            .with_context(|| format!("failed to write patched {}", vdp_rs.display()))?;
+    }
+    if !vdp.contains("wildside_m68k_context_fields") {
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "pub struct WildsideVdpFifoEnqueue {\n    pub scanline: u16,\n    pub pixel: u16,\n    pub target: u8,\n    pub address: u32,\n    pub word: u16,\n    pub byte_size: u8,\n}",
+            "pub struct WildsideVdpFifoEnqueue {\n    pub scanline: u16,\n    pub pixel: u16,\n    pub target: u8,\n    pub address: u32,\n    pub word: u16,\n    pub byte_size: u8,\n    // wildside_m68k_context_fields\n    pub m68k_pc: u32,\n    pub m68k_cycles: u64,\n}",
+            &vdp_rs,
+        )?;
+        fs::write(&vdp_rs, &vdp)
+            .with_context(|| format!("failed to write patched {}", vdp_rs.display()))?;
+    }
     // jgenesis represents a word-sized VRAM entry across two FIFO slots, but
     // updates the visible bytes at the first. Keep that first event only.
     if vdp.contains("WildsideVdpFifoCommit") && !vdp.contains("Record that visible commit once.") {
@@ -625,7 +717,23 @@ fn patch_jgenesis_fifo_commit_trace(jgenesis_dir: &Path) -> Result<()> {
             "    pub fn debug_vsram_view(&mut self) -> impl DebugMemoryView {\n        DebugBytesView(self.vsram.as_mut_slice())\n    }\n\n    pub fn drain_wildside_fifo_commits(&mut self) -> Vec<WildsideVdpFifoCommit> {\n        self.wildside_fifo_commits.drain(..).collect()\n    }\n}\n",
             &vdp_debug_rs,
         )?;
-        fs::write(&vdp_debug_rs, vdp_debug)
+        fs::write(&vdp_debug_rs, &vdp_debug)
+            .with_context(|| format!("failed to write patched {}", vdp_debug_rs.display()))?;
+    }
+    if !vdp_debug.contains("drain_wildside_fifo_enqueues") {
+        vdp_debug = replace_jgenesis_source(
+            &vdp_debug,
+            "use crate::vdp::{ColorModifier, SpriteData, Vdp, WildsideVdpFifoCommit, colors, render, sprites};\n",
+            "use crate::vdp::{ColorModifier, SpriteData, Vdp, WildsideVdpFifoCommit, WildsideVdpFifoEnqueue, colors, render, sprites};\n",
+            &vdp_debug_rs,
+        )?;
+        vdp_debug = replace_jgenesis_source(
+            &vdp_debug,
+            "    pub fn drain_wildside_fifo_commits(&mut self) -> Vec<WildsideVdpFifoCommit> {\n        self.wildside_fifo_commits.drain(..).collect()\n    }\n",
+            "    pub fn drain_wildside_fifo_commits(&mut self) -> Vec<WildsideVdpFifoCommit> {\n        self.wildside_fifo_commits.drain(..).collect()\n    }\n\n    pub fn drain_wildside_fifo_enqueues(&mut self) -> Vec<WildsideVdpFifoEnqueue> {\n        self.wildside_fifo_enqueues.drain(..).collect()\n    }\n",
+            &vdp_debug_rs,
+        )?;
+        fs::write(&vdp_debug_rs, &vdp_debug)
             .with_context(|| format!("failed to write patched {}", vdp_debug_rs.display()))?;
     }
 
@@ -649,7 +757,83 @@ fn patch_jgenesis_fifo_commit_trace(jgenesis_dir: &Path) -> Result<()> {
             final_brace,
             "    /// Drain FIFO writes that completed at the VDP memory port.\n    pub fn drain_wildside_fifo_commits(&mut self) -> Vec<WildsideVdpFifoCommit> {\n        self.0.vdp.drain_wildside_fifo_commits()\n    }\n\n",
         );
-        fs::write(&debug_rs, debug)
+        fs::write(&debug_rs, &debug)
+            .with_context(|| format!("failed to write patched {}", debug_rs.display()))?;
+    }
+
+    let api_rs = jgenesis_dir.join("backend/genesis-core/src/api.rs");
+    let mut api = fs::read_to_string(&api_rs)
+        .with_context(|| format!("failed to read {}", api_rs.display()))?;
+    if !api.contains("wildside_m68k_cycle_counter") {
+        api = replace_jgenesis_source(
+            &api,
+            "    cycles: GenesisCycleCounters,\n",
+            "    cycles: GenesisCycleCounters,\n    wildside_m68k_cycle_counter: u64,\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "            cycles: GenesisCycleCounters::new(config.clamped_m68k_divider()),\n",
+            "            cycles: GenesisCycleCounters::new(config.clamped_m68k_divider()),\n            wildside_m68k_cycle_counter: 0,\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "        let m68k_wait = bus.cycles.m68k_wait_cpu_cycles != 0;\n",
+            "        bus.vdp.set_wildside_m68k_context(m68k_pc, self.wildside_m68k_cycle_counter);\n        let m68k_wait = bus.cycles.m68k_wait_cpu_cycles != 0;\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "        let elapsed_mclk_cycles = bus.cycles.record_68k_instruction(\n",
+            "        self.wildside_m68k_cycle_counter += u64::from(m68k_cycles);\n\n        let elapsed_mclk_cycles = bus.cycles.record_68k_instruction(\n",
+            &api_rs,
+        )?;
+        fs::write(&api_rs, &api)
+            .with_context(|| format!("failed to write patched {}", api_rs.display()))?;
+    }
+    if !api.contains("bus.vdp.set_wildside_m68k_context") {
+        api = replace_jgenesis_source(
+            &api,
+            "        self.vdp.set_wildside_m68k_context(m68k_pc, self.wildside_m68k_cycle_counter);\n",
+            "        bus.vdp.set_wildside_m68k_context(m68k_pc, self.wildside_m68k_cycle_counter);\n",
+            &api_rs,
+        )?;
+        fs::write(&api_rs, &api)
+            .with_context(|| format!("failed to write patched {}", api_rs.display()))?;
+    }
+    if !debug.contains("drain_wildside_fifo_enqueues") {
+        debug = replace_jgenesis_source(
+            &debug,
+            "use crate::vdp::{ColorModifier, WildsideVdpFifoCommit};\n",
+            "use crate::vdp::{ColorModifier, WildsideVdpFifoCommit, WildsideVdpFifoEnqueue};\n",
+            &debug_rs,
+        )?;
+        let final_brace = debug.rfind('}').ok_or_else(|| {
+            anyhow!(
+                "could not find debug API closing brace in {}",
+                debug_rs.display()
+            )
+        })?;
+        debug.insert_str(
+            final_brace,
+            "    /// Drain FIFO writes when the 68000 or a pending write entered the VDP FIFO.\n    pub fn drain_wildside_fifo_enqueues(&mut self) -> Vec<WildsideVdpFifoEnqueue> {\n        self.0.vdp.drain_wildside_fifo_enqueues()\n    }\n\n",
+        );
+        fs::write(&debug_rs, &debug)
+            .with_context(|| format!("failed to write patched {}", debug_rs.display()))?;
+    }
+    if !debug.contains("Cumulative M68K cycles executed since emulator reset.") {
+        let final_brace = debug.rfind('}').ok_or_else(|| {
+            anyhow!(
+                "could not find debug API closing brace in {}",
+                debug_rs.display()
+            )
+        })?;
+        debug.insert_str(
+            final_brace,
+            "    /// Cumulative M68K cycles executed since emulator reset.\n    #[must_use]\n    pub fn wildside_m68k_cycle_counter(&self) -> u64 {\n        self.0.wildside_m68k_cycle_counter\n    }\n\n",
+        );
+        fs::write(&debug_rs, &debug)
             .with_context(|| format!("failed to write patched {}", debug_rs.display()))?;
     }
 
@@ -1088,12 +1272,14 @@ mod tests {
     }
 
     #[test]
-    fn helper_exposes_completed_vdp_fifo_writes_as_frame_rows() {
+    fn helper_exposes_vdp_fifo_enqueue_and_commit_rows() {
         assert!(
             HELPER_TEMPLATE.contains("--vdp-fifo-commit-frames")
                 && HELPER_TEMPLATE.contains("drain_wildside_fifo_commits")
-                && HELPER_TEMPLATE.contains("vdp_fifo_commits: all_vdp_fifo_commits"),
-            "FIFO instrumentation must drain completed VDP writes every frame and retain requested rows"
+                && HELPER_TEMPLATE.contains("drain_wildside_fifo_enqueues")
+                && HELPER_TEMPLATE.contains("vdp_fifo_commits: all_vdp_fifo_commits")
+                && HELPER_TEMPLATE.contains("vdp_fifo_enqueues: all_vdp_fifo_enqueues"),
+            "FIFO instrumentation must retain both enqueue and completed VDP writes every frame"
         );
 
         let manifest: OracleManifest = serde_json::from_value(serde_json::json!({
@@ -1109,6 +1295,19 @@ mod tests {
                     "target": "vram",
                     "address": 0xDD40,
                     "word": 0x1234,
+                    "byte_size": 2,
+                    "m68k_pc": 0x080C,
+                    "m68k_cycles": 42
+                }]
+            }],
+            "vdp_fifo_enqueues": [{
+                "frame": 905,
+                "commits": [{
+                    "scanline": 4,
+                    "pixel": 34,
+                    "target": "vram",
+                    "address": 0xDD40,
+                    "word": 0xA000,
                     "byte_size": 2
                 }]
             }]
@@ -1116,6 +1315,8 @@ mod tests {
         .expect("manifest should parse FIFO commit rows");
         assert_eq!(manifest.vdp_fifo_commits[0].frame, 905);
         assert_eq!(manifest.vdp_fifo_commits[0].commits[0].address, 0xDD40);
+        assert_eq!(manifest.vdp_fifo_enqueues[0].commits[0].pixel, 34);
+        assert_eq!(manifest.vdp_fifo_enqueues[0].commits[0].m68k_pc, 0x080C);
     }
 
     #[test]

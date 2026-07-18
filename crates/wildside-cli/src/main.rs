@@ -1227,7 +1227,7 @@ enum Commands {
         /// Oracle VDP pixel samples as X/Y pairs (e.g. 0/169,126/169)
         #[arg(long)]
         vdp_pixel_samples: Option<String>,
-        /// Frames for completed oracle VDP FIFO writes with scanline/pixel timing.
+        /// Frames for oracle VDP FIFO enqueue and commit records with scanline/pixel timing.
         #[arg(long)]
         vdp_fifo_commit_frames: Option<String>,
         /// Inclusive VDP FIFO address range to retain (e.g. 0xDD40-0xDF3F).
@@ -2885,6 +2885,17 @@ fn main() -> Result<()> {
             {
                 println!(
                     "vdp_fifo_frame={},{}",
+                    row.frame,
+                    serde_json::to_string(&row.commits)?
+                );
+            }
+            for row in oracle_manifest
+                .vdp_fifo_enqueues
+                .iter()
+                .filter(|row| (start..=end).contains(&row.frame))
+            {
+                println!(
+                    "vdp_fifo_enqueue_frame={},{}",
                     row.frame,
                     serde_json::to_string(&row.commits)?
                 );

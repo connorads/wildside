@@ -889,6 +889,7 @@ mod tests {
             memory_watches: Vec::new(),
             vdp_pixel_samples: Vec::new(),
             vdp_fifo_commits: Vec::new(),
+            vdp_fifo_enqueues: Vec::new(),
             settle_trace: Vec::new(),
         }
     }

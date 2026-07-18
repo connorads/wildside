@@ -144,6 +144,7 @@ struct OracleVdpPixelSampleRow {
 #[derive(Debug, Serialize)]
 struct OracleVdpFifoCommitRow {
     frame: usize,
+    m68k_cycle_counter: u64,
     commits: Vec<OracleVdpFifoCommit>,
 }
 
@@ -155,6 +156,8 @@ struct OracleVdpFifoCommit {
     address: u32,
     word: u16,
     byte_size: u8,
+    m68k_pc: u32,
+    m68k_cycles: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -282,6 +285,8 @@ struct OracleManifest {
     vdp_pixel_samples: Vec<OracleVdpPixelSampleRow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     vdp_fifo_commits: Vec<OracleVdpFifoCommitRow>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    vdp_fifo_enqueues: Vec<OracleVdpFifoCommitRow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     settle_trace: Vec<OracleSettleTraceRow>,
 }
@@ -773,6 +778,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     let mut all_memory_watches: Vec<HashMap<String, i64>> = Vec::new();
     let mut all_vdp_pixel_samples: Vec<OracleVdpPixelSampleRow> = Vec::new();
     let mut all_vdp_fifo_commits: Vec<OracleVdpFifoCommitRow> = Vec::new();
+    let mut all_vdp_fifo_enqueues: Vec<OracleVdpFifoCommitRow> = Vec::new();
     let mut settle_trace: Vec<OracleSettleTraceRow> = Vec::new();
 
     // Pre-warp: boot to level 0, then advance to target level.
@@ -882,15 +888,49 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                             address: commit.address,
                             word: commit.word,
                             byte_size: commit.byte_size,
+                            // Completion is VDP-owned and may follow a later CPU instruction.
+                            // Only enqueue rows carry the issuing M68K context.
+                            m68k_pc: 0,
+                            m68k_cycles: 0,
                         })
                         .filter(|commit| vdp_fifo_commit_address_range.is_none_or(|(start, end)| {
                             (start..=end).contains(&commit.address)
                         }))
                         .collect();
+                    let fifo_enqueues = emulator
+                        .debug()
+                        .drain_wildside_fifo_enqueues()
+                        .into_iter()
+                        .map(|enqueue| OracleVdpFifoCommit {
+                            scanline: enqueue.scanline,
+                            pixel: enqueue.pixel,
+                            target: match enqueue.target {
+                                0 => "vram",
+                                1 => "cram",
+                                2 => "vsram",
+                                _ => "unknown",
+                            }
+                            .to_string(),
+                            address: enqueue.address,
+                            word: enqueue.word,
+                            byte_size: enqueue.byte_size,
+                            m68k_pc: enqueue.m68k_pc,
+                            m68k_cycles: enqueue.m68k_cycles,
+                        })
+                        .filter(|enqueue| vdp_fifo_commit_address_range.is_none_or(|(start, end)| {
+                            (start..=end).contains(&enqueue.address)
+                        }))
+                        .collect();
                     if vdp_fifo_commit_frames.contains(&frame_index) {
                         all_vdp_fifo_commits.push(OracleVdpFifoCommitRow {
                             frame: frame_index,
+                            m68k_cycle_counter: emulator.debug().wildside_m68k_cycle_counter(),
                             commits: fifo_commits,
+                        });
+                        all_vdp_fifo_enqueues.push(OracleVdpFifoCommitRow {
+                            frame: frame_index,
+                            m68k_cycle_counter: emulator.debug().wildside_m68k_cycle_counter(),
+                            commits: fifo_enqueues,
                         });
                     }
                     let work_ram = capture_memory(&mut emulator, GenesisMemoryArea::WorkingRam, 0x1_0000);
@@ -1006,6 +1046,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         memory_watches: all_memory_watches,
         vdp_pixel_samples: all_vdp_pixel_samples,
         vdp_fifo_commits: all_vdp_fifo_commits,
+        vdp_fifo_enqueues: all_vdp_fifo_enqueues,
         settle_trace,
     };
     println!("{}", serde_json::to_string_pretty(&manifest)?);
