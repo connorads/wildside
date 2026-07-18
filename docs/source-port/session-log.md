@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#409 Mode_Level entry-work ledger)
+
+- Native captures the source-ordered `Mode_Level` phases and typed
+  `Execute_Objects sub_E12` workload before the object pass mutates its linked
+  workers.
+- Prize wobble/tail, flash, floating-prize, enemy/platform, player, and
+  `loc_11F96` palette-coroutine owners are explicit. Any remaining worker is
+  retained as typed classification debt rather than silently timed.
+- Published-route frame 1697 has 14 linked entry objects; Kid then allocates
+  the two workers responsible for the post-frame count of 16. This resolves
+  the misleading post-state workload sample.
+- This unit is pixel-neutral. Next derive path cycle costs and feed the typed
+  `sub_44DC` commands into gameplay raster writes.
+
+---
+
 ## 2026-07-18 handoff (#409 typed HUD DMA commands)
 
 - All five `sub_44DC` uploads now cross the trace boundary as typed,

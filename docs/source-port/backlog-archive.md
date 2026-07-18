@@ -306,6 +306,24 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-18: native now captures a typed
+`ModeLevelPreHudWorkLedger` immediately before `Execute_Objects sub_E12`
+mutates the linked list. Its phase sequence follows `Mode_Level`
+(`kid.asm:901-923`) through sprite/Kid, palette, scroll, `sub_1596`,
+`sub_6874`, HUD attributes, object execution, `sub_21F8`, and the unpaused
+power/collision tail. The object facts distinguish player work,
+`sub_1007A` prize wobble/tail workers, `loc_102B8` flashes, floating prizes,
+enemy/platform workers, and the `Load_InGame loc_11F96/loc_11FB0`
+palette-rotation coroutine; any remaining owner stays explicit as
+`unclassified_runtime_transient_workers`, while the non-transient aggregate
+stays separate for later enemy/platform expansion. Capture at the entry boundary matters:
+published-route frame 1697 has 14 linked objects before Kid allocates the two
+workers that raise the post-frame trace count to 16. A red-first regression
+pins the source order and prize-worker taxonomy. This is pixel-neutral and
+does not assign cycle constants. Next derive the typed player/prize branch
+costs, then schedule the existing `sub_44DC` commands into gameplay
+`VdpRasterFrame` writes.
+
 Progress 2026-07-18: frame 1697's life upload is now a typed
 `HudDmaEventSub44DC::LifeIcon` trace event rather than an exploratory debug
 string. The same enum represents all five command sites in exact routine

@@ -237,16 +237,6 @@ struct ResidentGameplayRenderSnapshot {
     block_grid: Option<terrain::BlockGrid>,
 }
 
-/// Observable player work before ASM `Mode_Level` reaches `sub_44DC`.
-/// This is a calibration fact, not a timing estimate or page selector.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ModeLevelPlayerWorkBeforeHud {
-    Absent,
-    Activation,
-    Stationary,
-    Moving,
-}
-
 #[derive(Debug, Clone)]
 pub struct NativeRuntime {
     assets: AssetManifest,
@@ -607,6 +597,9 @@ pub struct NativeRuntime {
     /// resulting resident VRAM pages, so a later raster scheduler can decide
     /// their visible scanout position from Mode_Level workload.
     hud_dma_events_sub_44dc: Vec<HudDmaEventSub44DC>,
+    /// Source-ordered workload captured immediately before the live
+    /// `Execute_Objects sub_E12` pass mutates any linked worker.
+    mode_level_work_before_hud_sub_44dc: Option<ModeLevelPreHudWorkLedger>,
     /// The selected `off_7B0AC` page last transferred by ASM sub_5D4A to
     /// HUD-diamond VRAM `$DD40`; presentation timing is modelled separately.
     gameplay_hud_vram_state: vdp::GameplayHudVramState,
@@ -1469,6 +1462,7 @@ impl NativeRuntime {
             pending_demo_timer_tick_result_loc_be82: None,
             hud_animation_state: boot::HudAnimationStateSub44DC::initialised_from_sub_44_b0(),
             hud_dma_events_sub_44dc: Vec::new(),
+            mode_level_work_before_hud_sub_44dc: None,
             gameplay_hud_vram_state: vdp::GameplayHudVramState::initialised_from_sub_44b0(),
             // Oracle Demo 1 bootstrap frames expose ArtUnc_4692 page 2 before
             // the first loc_4586 life-icon upload occurs.
@@ -3247,6 +3241,7 @@ impl NativeRuntime {
             self.object_pass_hibernating_for_transform_loc_7e90();
         self.pending_demo_timer_tick_result_loc_be82 = None;
         self.hud_dma_events_sub_44dc.clear();
+        self.mode_level_work_before_hud_sub_44dc = None;
         // ASM loc_12098/loc_12110/loc_12188 DMA requests are emitted by one
         // Execute_Objects pass. Do not retain them across frames whose object
         // pass skips the shore worker, including transformation hibernation.
@@ -3693,6 +3688,8 @@ impl NativeRuntime {
                     || (self.demo_gameplay_active() && self.opening_slice.is_some()))
                 && !debug_level_entry_object_pass
             {
+                self.mode_level_work_before_hud_sub_44dc =
+                    Some(self.observe_mode_level_work_before_hud_sub_44dc());
                 // ASM Execute_Objects loc_E12 (kid.asm:1636) calls
                 // Get_RandomNumber_long before walking any object coroutine.
                 // Load_DemoPlay -> Load_InGame can still be blocked inside

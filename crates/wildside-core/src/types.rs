@@ -1613,6 +1613,71 @@ impl<'de> Deserialize<'de> for RomRandomFrameState {
     }
 }
 
+/// Observable player coroutine path inside ASM `Execute_Objects` before
+/// `Mode_Level` reaches `sub_44DC`.
+///
+/// These categories are work facts only. They deliberately carry no cycle
+/// estimate because each category still contains multiple 68k branch paths.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelPlayerWorkBeforeHud {
+    Absent,
+    Activation,
+    Stationary,
+    Moving,
+}
+
+/// Source-ordered fixed phases executed by ASM `Mode_Level` before `sub_44DC`
+/// (kid.asm:901-923).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelPreHudPhase {
+    TransferSpriteAndKidToVram,
+    PaletteToVram,
+    TransferScrollDataToVram,
+    ForegroundUpdateSub1596,
+    HudPreparationSub6874,
+    MakeSpriteAttrHud,
+    ExecuteObjectsSubE12,
+    PostObjectSub21F8,
+    DiamondPowerRun,
+    SubDfb0,
+    SubF7e0,
+    WeatherSub6034,
+    SubF096,
+}
+
+/// Typed workload facts for ASM `Execute_Objects sub_E12`.
+///
+/// `unclassified_runtime_transient_workers` prevents a future cycle scheduler
+/// from treating the transient taxonomy as complete when native does not yet
+/// expose a worker's resumed ASM routine. The non-transient aggregate remains
+/// separate because enemy/platform callbacks need their own later expansion.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelExecuteObjectsWork {
+    pub linked_object_count: u16,
+    pub linked_non_transient_object_count: u16,
+    pub player: ModeLevelPlayerWorkBeforeHud,
+    pub prize_block_wobble_workers_sub_1007a: u16,
+    pub prize_block_worker_tails_sub_1007a: u16,
+    pub prize_block_flash_workers_loc_102b8: u16,
+    pub floating_prize_workers: u16,
+    pub active_enemy_workers: u16,
+    pub active_platform_workers: u16,
+    pub palette_rotation_worker_loc_11f96: u16,
+    pub unclassified_runtime_transient_workers: u16,
+}
+
+/// Typed, source-ordered observation at the `Mode_Level -> sub_44DC` boundary.
+///
+/// This value is intentionally not a cycle count. It is the input contract for
+/// the later pure 68k-cycle and VDP-raster scheduler.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelPreHudWorkLedger {
+    pub phases: Vec<ModeLevelPreHudPhase>,
+    pub execute_objects: ModeLevelExecuteObjectsWork,
+}
+
 /// Frame-local HUD art DMA command emitted by ASM `sub_44DC` (kid.asm).
 ///
 /// The destination and transfer length are fixed by the ROM routine, so the
@@ -1776,6 +1841,12 @@ pub struct NativeTraceFrame {
     /// during this frame, before raster timing assigns their VDP write cycles.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hud_dma_events_sub_44dc: Vec<HudDmaEventSub44DC>,
+    /// ASM `Mode_Level` fixed call order and typed `Execute_Objects sub_E12`
+    /// workload observed before this frame's `sub_44DC` commands.
+    ///
+    /// This is absent when the outer Mode_Level pass does not reach sub_44DC.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode_level_work_before_hud_sub_44dc: Option<ModeLevelPreHudWorkLedger>,
     /// ROM `Berzerker_charging` (`$FFFFFA6E`): set by ASM loc_9564 after the
     /// Berzerker/Cyclone walk accumulator carries.
     #[serde(default)]
@@ -2233,6 +2304,7 @@ impl Default for NativeTraceFrame {
             hud_life_frame_offset: None,
             hud_life_icon_vram_page_loc_4586: None,
             hud_dma_events_sub_44dc: Vec::new(),
+            mode_level_work_before_hud_sub_44dc: None,
             berzerker_charging: false,
             berzerker_charge_pose: false,
             berzerker_walk_pose: false,

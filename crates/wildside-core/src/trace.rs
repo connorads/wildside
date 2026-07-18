@@ -1306,6 +1306,81 @@ mod tests {
     }
 
     #[test]
+    fn trace_exposes_ordered_mode_level_work_before_sub_44dc_for_prize_workers() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0);
+        runtime.hud_dma_events_sub_44dc = vec![HudDmaEventSub44DC::LifeIcon {
+            frame_table_byte_offset: 4,
+        }];
+        runtime.block_bounces.push(BlockBounceAnim {
+            cell_x: 0x0A,
+            cell_y: 0x0C,
+            x_offset_px: 0,
+            remaining: 31,
+            kind: BlockBounceKind::Prize,
+            initial_duration: 31,
+            prize_content: Some(terrain::PrizeContent::Diamond),
+            prize_deleted_tile: false,
+            metal_direction: 0,
+            y_offset_px: 0,
+        });
+        runtime.prize_block_worker_tails.push(PrizeBlockWorkerTail {
+            cell_x: 0x0A,
+            cell_y: 0x0C,
+            content: Some(terrain::PrizeContent::Diamond),
+            remaining: 1,
+        });
+        runtime
+            .prize_block_spawn_flashes
+            .push(PrizeBlockSpawnFlash {
+                x_px: 0x00A8,
+                y_px: 0x00B0,
+                remaining: 4,
+            });
+        runtime.floating_items.push(diamond_at_x(0x00A8));
+        runtime.mode_level_work_before_hud_sub_44dc =
+            Some(runtime.observe_mode_level_work_before_hud_sub_44dc());
+
+        let trace = runtime.trace_frame();
+
+        assert_eq!(
+            trace.mode_level_work_before_hud_sub_44dc,
+            Some(ModeLevelPreHudWorkLedger {
+                phases: vec![
+                    ModeLevelPreHudPhase::TransferSpriteAndKidToVram,
+                    ModeLevelPreHudPhase::PaletteToVram,
+                    ModeLevelPreHudPhase::TransferScrollDataToVram,
+                    ModeLevelPreHudPhase::ForegroundUpdateSub1596,
+                    ModeLevelPreHudPhase::HudPreparationSub6874,
+                    ModeLevelPreHudPhase::MakeSpriteAttrHud,
+                    ModeLevelPreHudPhase::ExecuteObjectsSubE12,
+                    ModeLevelPreHudPhase::PostObjectSub21F8,
+                    ModeLevelPreHudPhase::DiamondPowerRun,
+                    ModeLevelPreHudPhase::SubDfb0,
+                    ModeLevelPreHudPhase::SubF7e0,
+                    ModeLevelPreHudPhase::WeatherSub6034,
+                    ModeLevelPreHudPhase::SubF096,
+                ],
+                execute_objects: ModeLevelExecuteObjectsWork {
+                    linked_object_count: 6,
+                    linked_non_transient_object_count: 2,
+                    player: ModeLevelPlayerWorkBeforeHud::Absent,
+                    prize_block_wobble_workers_sub_1007a: 1,
+                    prize_block_worker_tails_sub_1007a: 1,
+                    prize_block_flash_workers_loc_102b8: 1,
+                    floating_prize_workers: 1,
+                    active_enemy_workers: 0,
+                    active_platform_workers: 0,
+                    palette_rotation_worker_loc_11f96: 0,
+                    unclassified_runtime_transient_workers: 0,
+                },
+            }),
+            "ASM Mode_Level (kid.asm:901) fixes the phases before sub_44DC, while Execute_Objects sub_E12 resumes each linked prize coroutine"
+        );
+    }
+
+    #[test]
     fn in_game_object_counts_include_rubber_block_skin_workers() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -8040,6 +8115,104 @@ impl NativeRuntime {
         Some(PlayerState::title_menu_cursor_pose(y_pos))
     }
 
+    pub(crate) fn observe_mode_level_work_before_hud_sub_44dc(&self) -> ModeLevelPreHudWorkLedger {
+        let player_state = self.current_player_state();
+        let camera_state = self.current_camera_state();
+        let active_objects = self.active_objects();
+        let (linked_object_count, _) =
+            self.object_counts_from_roster(&active_objects, camera_state.x_pos, camera_state.y_pos);
+        let (linked_non_transient_object_count, _) = self
+            .object_counts_from_roster_without_runtime_transients(
+                &active_objects,
+                camera_state.x_pos,
+                camera_state.y_pos,
+            );
+        let active_enemy_workers = active_objects
+            .iter()
+            .filter(|object| matches!(object.kind, NativeObjectKind::Enemy { .. }))
+            .count() as u16;
+        let active_platform_workers = active_objects
+            .iter()
+            .filter(|object| matches!(object.kind, NativeObjectKind::Platform { .. }))
+            .count() as u16;
+        let player = match player_state {
+            None => ModeLevelPlayerWorkBeforeHud::Absent,
+            Some(_) if self.level_start_frame == Some(self.frame_index) => {
+                ModeLevelPlayerWorkBeforeHud::Activation
+            }
+            Some(state) if state.x_velocity != 0 || state.y_velocity != 0 => {
+                ModeLevelPlayerWorkBeforeHud::Moving
+            }
+            Some(_) => ModeLevelPlayerWorkBeforeHud::Stationary,
+        };
+        let prize_block_wobble_workers_sub_1007a = self
+            .block_bounces
+            .iter()
+            .filter(|bounce| bounce.kind == BlockBounceKind::Prize)
+            .count() as u16;
+        let prize_block_worker_tails_sub_1007a =
+            self.count_visible_prize_block_worker_tails() as u16;
+        let prize_block_flash_workers_loc_102b8 = self.prize_block_spawn_flashes.len() as u16;
+        let floating_prize_workers = self
+            .floating_items
+            .iter()
+            .filter(|item| !item.collected)
+            .count() as u16;
+        // ASM Load_InGame loc_11F96/loc_11FB0 allocates an Object-only
+        // palette coroutine for Mountain, Cave, and Island themes.
+        let palette_rotation_worker_loc_11f96 =
+            self.level_header(self.current_level).map_or(0, |header| {
+                u16::from(
+                    header.level_theme == 7
+                        || header.level_theme == 8
+                        || header.background_theme == 4,
+                )
+            });
+        let classified_runtime_transient_workers = prize_block_wobble_workers_sub_1007a
+            .saturating_add(prize_block_worker_tails_sub_1007a)
+            .saturating_add(prize_block_flash_workers_loc_102b8)
+            .saturating_add(floating_prize_workers);
+        let linked_runtime_transient_workers =
+            linked_object_count.saturating_sub(linked_non_transient_object_count);
+        let mut phases = vec![
+            ModeLevelPreHudPhase::TransferSpriteAndKidToVram,
+            ModeLevelPreHudPhase::PaletteToVram,
+            ModeLevelPreHudPhase::TransferScrollDataToVram,
+            ModeLevelPreHudPhase::ForegroundUpdateSub1596,
+            ModeLevelPreHudPhase::HudPreparationSub6874,
+            ModeLevelPreHudPhase::MakeSpriteAttrHud,
+            ModeLevelPreHudPhase::ExecuteObjectsSubE12,
+            ModeLevelPreHudPhase::PostObjectSub21F8,
+        ];
+        if !self.paused {
+            phases.extend([
+                ModeLevelPreHudPhase::DiamondPowerRun,
+                ModeLevelPreHudPhase::SubDfb0,
+                ModeLevelPreHudPhase::SubF7e0,
+                ModeLevelPreHudPhase::WeatherSub6034,
+                ModeLevelPreHudPhase::SubF096,
+            ]);
+        }
+
+        ModeLevelPreHudWorkLedger {
+            phases,
+            execute_objects: ModeLevelExecuteObjectsWork {
+                linked_object_count,
+                linked_non_transient_object_count,
+                player,
+                prize_block_wobble_workers_sub_1007a,
+                prize_block_worker_tails_sub_1007a,
+                prize_block_flash_workers_loc_102b8,
+                floating_prize_workers,
+                active_enemy_workers,
+                active_platform_workers,
+                palette_rotation_worker_loc_11f96,
+                unclassified_runtime_transient_workers: linked_runtime_transient_workers
+                    .saturating_sub(classified_runtime_transient_workers),
+            },
+        }
+    }
+
     pub fn trace_frame(&self) -> NativeTraceFrame {
         let game_mode = self.game_mode();
         let boot_phase = self.boot_phase_label().map(str::to_owned);
@@ -8105,6 +8278,16 @@ impl NativeRuntime {
             .iter()
             .filter(|object| matches!(object.kind, NativeObjectKind::Platform { .. }))
             .count();
+        let mode_level_player_work = match player_state {
+            None => ModeLevelPlayerWorkBeforeHud::Absent,
+            Some(_) if self.level_start_frame == Some(self.frame_index) => {
+                ModeLevelPlayerWorkBeforeHud::Activation
+            }
+            Some(state) if state.x_velocity != 0 || state.y_velocity != 0 => {
+                ModeLevelPlayerWorkBeforeHud::Moving
+            }
+            Some(_) => ModeLevelPlayerWorkBeforeHud::Stationary,
+        };
         let mut gameplay_debug_fields = BTreeMap::new();
         if self.progression.form_change_flash_frames > 1 {
             gameplay_debug_fields.insert("currently_transforming".into(), "true".into());
@@ -8113,17 +8296,7 @@ impl NativeRuntime {
             gameplay_debug_fields.insert("gameplay_hibernated".into(), "true".into());
         }
         if !self.hud_dma_events_sub_44dc.is_empty() {
-            let player_work = match player_state {
-                None => ModeLevelPlayerWorkBeforeHud::Absent,
-                Some(_) if self.level_start_frame == Some(self.frame_index) => {
-                    ModeLevelPlayerWorkBeforeHud::Activation
-                }
-                Some(state) if state.x_velocity != 0 || state.y_velocity != 0 => {
-                    ModeLevelPlayerWorkBeforeHud::Moving
-                }
-                Some(_) => ModeLevelPlayerWorkBeforeHud::Stationary,
-            };
-            let player_work = match player_work {
+            let player_work = match mode_level_player_work {
                 ModeLevelPlayerWorkBeforeHud::Absent => "absent",
                 ModeLevelPlayerWorkBeforeHud::Activation => "activation",
                 ModeLevelPlayerWorkBeforeHud::Stationary => "stationary",
@@ -8493,6 +8666,7 @@ impl NativeRuntime {
             hud_life_frame_offset: Some(self.hud_animation_state.life_frame_offset_fb5e),
             hud_life_icon_vram_page_loc_4586: Some(self.hud_life_icon_vram_page_loc_4586),
             hud_dma_events_sub_44dc: self.hud_dma_events_sub_44dc.clone(),
+            mode_level_work_before_hud_sub_44dc: self.mode_level_work_before_hud_sub_44dc.clone(),
             berzerker_charging: if hidden_boot_progression {
                 false
             } else {
