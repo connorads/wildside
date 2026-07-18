@@ -237,6 +237,31 @@ struct ResidentGameplayRenderSnapshot {
     block_grid: Option<terrain::BlockGrid>,
 }
 
+/// ASM sub_44DC upload destination, retained until the gameplay raster
+/// scheduler turns the command into ordered VDP word writes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HudDmaTargetSub44DC {
+    LifeIcon,
+    Diamond,
+}
+
+/// ASM sub_44DC loc_4546/loc_4626 frame-local HUD DMA command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct HudDmaEventSub44DC {
+    target: HudDmaTargetSub44DC,
+    frame_table_byte_offset: u8,
+}
+
+/// Observable player work before ASM `Mode_Level` reaches `sub_44DC`.
+/// This is a calibration fact, not a timing estimate or page selector.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ModeLevelPlayerWorkBeforeHud {
+    Absent,
+    Activation,
+    Stationary,
+    Moving,
+}
+
 #[derive(Debug, Clone)]
 pub struct NativeRuntime {
     assets: AssetManifest,
@@ -592,6 +617,11 @@ pub struct NativeRuntime {
     /// later native hazard pass when the Kid object is live.
     pending_demo_timer_tick_result_loc_be82: Option<bool>,
     hud_animation_state: boot::HudAnimationStateSub44DC,
+    /// ASM sub_44DC loc_4546/loc_4626 emits these HUD uploads in execution
+    /// order. This records the frame-local commands separately from their
+    /// resulting resident VRAM pages, so a later raster scheduler can decide
+    /// their visible scanout position from Mode_Level workload.
+    hud_dma_events_sub_44dc: Vec<HudDmaEventSub44DC>,
     /// The selected `off_7B0AC` page last transferred by ASM sub_5D4A to
     /// HUD-diamond VRAM `$DD40`; presentation timing is modelled separately.
     gameplay_hud_vram_state: vdp::GameplayHudVramState,
@@ -1453,6 +1483,7 @@ impl NativeRuntime {
             demo_hud_timer_presentation_loc_be82: None,
             pending_demo_timer_tick_result_loc_be82: None,
             hud_animation_state: boot::HudAnimationStateSub44DC::initialised_from_sub_44_b0(),
+            hud_dma_events_sub_44dc: Vec::new(),
             gameplay_hud_vram_state: vdp::GameplayHudVramState::initialised_from_sub_44b0(),
             // Oracle Demo 1 bootstrap frames expose ArtUnc_4692 page 2 before
             // the first loc_4586 life-icon upload occurs.
@@ -3230,6 +3261,7 @@ impl NativeRuntime {
         let transform_hibernating_at_frame_start =
             self.object_pass_hibernating_for_transform_loc_7e90();
         self.pending_demo_timer_tick_result_loc_be82 = None;
+        self.hud_dma_events_sub_44dc.clear();
         // ASM loc_12098/loc_12110/loc_12188 DMA requests are emitted by one
         // Execute_Objects pass. Do not retain them across frames whose object
         // pass skips the shore worker, including transformation hibernation.
@@ -3882,15 +3914,24 @@ impl NativeRuntime {
             // resident `$DD40` page through the hibernating VBlanks.
             let step = boot::step_hud_animation_sub_44DC(self.hud_animation_state);
             self.hud_animation_state = step.next_state;
-            if let Some(diamond_upload) = step.diamond_upload {
-                self.gameplay_hud_vram_state
-                    .record_diamond_dma_sub_5d4a(diamond_upload.frame_table_byte_offset);
-            }
             if let Some(life_upload) = step.life_upload {
                 // ASM loc_4586 selects `off_457A[frame]`, then sub_44D0 copies
                 // its 128-byte page to VRAM `$4620`. Keep the resident page,
                 // rather than inferring it later from the looping `$FFFA5E`.
                 self.hud_life_icon_vram_page_loc_4586 = life_upload.frame_table_byte_offset;
+                self.hud_dma_events_sub_44dc.push(HudDmaEventSub44DC {
+                    target: HudDmaTargetSub44DC::LifeIcon,
+                    frame_table_byte_offset: life_upload.frame_table_byte_offset,
+                });
+            }
+            if let Some(diamond_upload) = step.diamond_upload {
+                self.gameplay_hud_vram_state
+                    .record_diamond_dma_sub_5d4a(diamond_upload.frame_table_byte_offset);
+                self.hud_dma_events_sub_44dc.push(HudDmaEventSub44DC {
+                    target: HudDmaTargetSub44DC::Diamond,
+                    frame_table_byte_offset: u8::try_from(diamond_upload.frame_table_byte_offset)
+                        .expect("sub_5D4A selector fits in u8"),
+                });
             }
             // ASM loc_BF2A (kid.asm:15526): the lives HUD path clamps
             // Number_Lives to 99 during display, not when prizes/score award

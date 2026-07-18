@@ -1157,6 +1157,11 @@ mod tests {
             Some(4),
             "ASM sub_44DC loc_4626 passes unk_461C frame byte 4 to sub_5D4A, which makes off_7B0AC[1] resident at VRAM `$DD40`"
         );
+        assert_eq!(
+            trace.gameplay_debug_fields.get("hud_dma_events_sub_44dc"),
+            Some(&"diamond:page=04/vram=DD40/words=256".to_string()),
+            "ASM sub_44DC loc_4626 records the frame-local 0x200-byte HUD diamond DMA before a raster scheduler assigns its FIFO position"
+        );
     }
 
     #[test]
@@ -1205,6 +1210,11 @@ mod tests {
             trace.hud_life_icon_vram_page_loc_4586,
             Some(4),
             "ASM sub_44DC loc_4586 copies AniArt_LifeIcon page 1 to VRAM `$4620` after the first life countdown expires"
+        );
+        assert_eq!(
+            trace.gameplay_debug_fields.get("hud_dma_events_sub_44dc"),
+            Some(&"life:page=04/vram=4620/words=64".to_string()),
+            "ASM sub_44DC loc_4586 records the frame-local 0x80-byte life-icon DMA before a raster scheduler assigns its FIFO position"
         );
     }
 
@@ -8048,6 +8058,44 @@ impl NativeRuntime {
         }
         if self.gameplay_hibernating_for_transform() {
             gameplay_debug_fields.insert("gameplay_hibernated".into(), "true".into());
+        }
+        if !self.hud_dma_events_sub_44dc.is_empty() {
+            let events = self
+                .hud_dma_events_sub_44dc
+                .iter()
+                .map(|event| match event.target {
+                    HudDmaTargetSub44DC::LifeIcon => format!(
+                        "life:page={:02X}/vram=4620/words=64",
+                        event.frame_table_byte_offset
+                    ),
+                    HudDmaTargetSub44DC::Diamond => format!(
+                        "diamond:page={:02X}/vram=DD40/words=256",
+                        event.frame_table_byte_offset
+                    ),
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            gameplay_debug_fields.insert("hud_dma_events_sub_44dc".into(), events);
+            let player_work = match player_state {
+                None => ModeLevelPlayerWorkBeforeHud::Absent,
+                Some(_) if self.level_start_frame == Some(self.frame_index) => {
+                    ModeLevelPlayerWorkBeforeHud::Activation
+                }
+                Some(state) if state.x_velocity != 0 || state.y_velocity != 0 => {
+                    ModeLevelPlayerWorkBeforeHud::Moving
+                }
+                Some(_) => ModeLevelPlayerWorkBeforeHud::Stationary,
+            };
+            let player_work = match player_work {
+                ModeLevelPlayerWorkBeforeHud::Absent => "absent",
+                ModeLevelPlayerWorkBeforeHud::Activation => "activation",
+                ModeLevelPlayerWorkBeforeHud::Stationary => "stationary",
+                ModeLevelPlayerWorkBeforeHud::Moving => "moving",
+            };
+            gameplay_debug_fields.insert(
+                "mode_level_player_work_before_hud".into(),
+                player_work.into(),
+            );
         }
         let floating_diamond_debug =
             player_state.and_then(|state| self.floating_diamond_contact_candidates(state));
