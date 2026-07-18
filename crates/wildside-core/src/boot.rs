@@ -356,6 +356,17 @@ impl HudAnimationStateSub44DC {
     }
 }
 
+/// ASM sub_44B0 (kid.asm:5520): each Load_InGame resets the five HUD
+/// countdown bytes, but leaves the adjacent animation-table offsets intact.
+pub(crate) fn reset_hud_animation_countdowns_sub_44b0(state: &mut HudAnimationStateSub44DC) {
+    let frames = init_hud_animation_frames_sub_44B0();
+    state.coin_countdown_fb5b = frames.coin_3_frame;
+    state.life_countdown_fb59 = frames.heart_1_frame;
+    state.clock_countdown_fb5a = frames.heart_2_frame;
+    state.diamond_countdown_fb58 = frames.coin_1_frame;
+    state.flag_countdown_fb5c = frames.coin_2_frame;
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HudFrameUploadSub44DC {
     pub(crate) asset_label: &'static str,

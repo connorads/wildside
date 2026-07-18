@@ -39,11 +39,11 @@ use crate::boot::{
     prize_10000_points_star_cleanup_loc_10BE6, prize_10000_points_star_dispatch_loc_10B76,
     prize_10000_points_star_latch_screen_pos_loc_10B9A, prize_10000_points_star_spawn_loc_10B3A,
     prize_10000_points_star_step_loc_10B74, read_io_port_a10001_flags_sub_6E24,
-    sega_screen_object_bootstrap_loc_12E48, sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236,
-    step_hud_animation_sub_44DC, title_shell_art_decompress_loc_1BF54,
-    title_shell_art_index_loc_1BF3E, title_shell_vram_fill_loc_1BF70,
-    validate_options_after_ram_clear_loc_5FE, vdp_game_init_register_commands_loc_5E6,
-    vdp_upload_32_longwords_sub_44D0,
+    reset_hud_animation_countdowns_sub_44b0, sega_screen_object_bootstrap_loc_12E48,
+    sega_screen_tile_strip_sub_12E3C, sin_cos_sub_40236, step_hud_animation_sub_44DC,
+    title_shell_art_decompress_loc_1BF54, title_shell_art_index_loc_1BF3E,
+    title_shell_vram_fill_loc_1BF70, validate_options_after_ram_clear_loc_5FE,
+    vdp_game_init_register_commands_loc_5E6, vdp_upload_32_longwords_sub_44D0,
 };
 use crate::combat::*;
 use crate::helmets::{

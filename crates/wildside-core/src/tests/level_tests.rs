@@ -29501,6 +29501,56 @@ mod chunk_10 {
         assert_eq!(frames.heart_2_frame, 5, "ASM sub_44B0: $FFFFFA5A = 5");
     }
 
+    #[test]
+    fn reset_hud_animation_countdowns_sub_44b0_reseeds_countdowns_only() {
+        // ASM sub_44B0 (kid.asm:5520): Load_InGame re-seeds the five HUD
+        // countdown bytes ($FFFFFA58-$FFFFFA5C) while the paired
+        // animation-table offsets ($FFFFFA5D-$FFFFFA61) are untouched.
+        let mut state = HudAnimationStateSub44DC {
+            coin_countdown_fb5b: 0xAA,
+            coin_frame_offset_fb60: 6,
+            life_countdown_fb59: 0xBB,
+            life_frame_offset_fb5e: 7,
+            clock_countdown_fb5a: 0xCC,
+            clock_frame_offset_fb5f: 8,
+            diamond_countdown_fb58: 0xDD,
+            diamond_frame_offset_fb5d: 9,
+            flag_countdown_fb5c: 0xEE,
+            flag_frame_offset_fb61: 10,
+        };
+
+        reset_hud_animation_countdowns_sub_44b0(&mut state);
+
+        assert_eq!(
+            state.diamond_countdown_fb58, 1,
+            "ASM sub_44B0: $FFFFFA58 = 1"
+        );
+        assert_eq!(state.flag_countdown_fb5c, 2, "ASM sub_44B0: $FFFFFA5C = 2");
+        assert_eq!(state.coin_countdown_fb5b, 3, "ASM sub_44B0: $FFFFFA5B = 3");
+        assert_eq!(state.life_countdown_fb59, 4, "ASM sub_44B0: $FFFFFA59 = 4");
+        assert_eq!(state.clock_countdown_fb5a, 5, "ASM sub_44B0: $FFFFFA5A = 5");
+        assert_eq!(
+            state.diamond_frame_offset_fb5d, 9,
+            "ASM sub_44B0 does not touch $FFFFFA5D"
+        );
+        assert_eq!(
+            state.flag_frame_offset_fb61, 10,
+            "ASM sub_44B0 does not touch $FFFFFA61"
+        );
+        assert_eq!(
+            state.coin_frame_offset_fb60, 6,
+            "ASM sub_44B0 does not touch $FFFFFA60"
+        );
+        assert_eq!(
+            state.life_frame_offset_fb5e, 7,
+            "ASM sub_44B0 does not touch $FFFFFA5E"
+        );
+        assert_eq!(
+            state.clock_frame_offset_fb5f, 8,
+            "ASM sub_44B0 does not touch $FFFFFA5F"
+        );
+    }
+
     // === sub_44D0 tests: VDP upload 32 longwords ===
 
     #[test]

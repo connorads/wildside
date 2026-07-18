@@ -19429,6 +19429,7 @@ impl NativeRuntime {
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
         self.init_post_load_object_routine_loc_11f96(level_id);
+        boot::reset_hud_animation_countdowns_sub_44b0(&mut self.hud_animation_state);
         self.level_timer = LevelTimer::new();
         self.hud_timer_sprite_seconds_loc_bee8 = LEVEL_TIMER_START_SECONDS;
         self.time_frames_loc_3038a = 0;
