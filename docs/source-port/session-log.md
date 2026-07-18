@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (deferred WIP landed: sub_44B0 + #409/#406 instrumentation)
+
+- Landed the deferred working-tree WIP as six commits: `sub_44B0` Load_InGame
+  HUD-countdown reset with a new ASM-cited regression test; #409 native
+  `hud_dma_events_sub_44dc` + `mode_level_player_work_before_hud` emitters;
+  #409 oracle VDP FIFO enqueue journal with issuing M68K PC/cycle context
+  (helper template SHA changed, oracle captures regenerate on first use);
+  #406 probe fields `oracle_kid_addroffset_sprite` and
+  `oracle_gfx_sprite_order_loc_14a4` plus tas-diff player_trace columns;
+  registry introduction hashes recorded.
+- All changes measured pixel-neutral: baseline unchanged at 26,368 exact /
+  11,391 divergent / 3,627,338 changed pixels, first mismatch frame 1408.
+- Next: type the #409 workload as a native raster-timing ledger before
+  touching presentation pixels; drive the frame-1408+ worker-overlap #406
+  frontier with the new tas-diff columns.
+
+---
+
 ## 2026-07-17 handoff (#406 Kid post-landing SAT source)
 
 - The 1518..1526 every-frame RGB probe is state/CRC-exact but has six Kid-only
