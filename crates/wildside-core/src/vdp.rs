@@ -3015,24 +3015,39 @@ fn schedule_h40_vram_fifo_word_writes(
     start_scanline: u16,
     start_pixel: u16,
 ) -> Vec<VdpRasterVramWordWrite> {
+    try_schedule_h40_vram_fifo_word_writes(writes, start_scanline, start_pixel)
+        .expect("oracle-derived FIFO start pixel must be an H40 access slot")
+}
+
+/// Schedule VRAM words from a proven first H40 FIFO commit position.
+///
+/// Returns `None` when `start_pixel` is not a hardware access slot. Each VRAM
+/// word occupies two access slots, matching the renderer's existing
+/// byte-access timing model.
+pub fn try_schedule_h40_vram_fifo_word_writes(
+    writes: &[(u16, u16)],
+    start_scanline: u16,
+    start_pixel: u16,
+) -> Option<Vec<VdpRasterVramWordWrite>> {
     let start_slot = H40_VRAM_FIFO_ACCESS_PIXELS
         .iter()
-        .position(|&pixel| pixel == start_pixel)
-        .expect("oracle-derived FIFO start pixel must be an H40 access slot");
-    writes
-        .iter()
-        .flat_map(|&(byte_addr, value)| [(byte_addr, value); 2])
-        .enumerate()
-        .map(|(write_index, (byte_addr, value))| {
-            let slot = start_slot + write_index;
-            VdpRasterVramWordWrite {
-                scanline: start_scanline + (slot / H40_VRAM_FIFO_ACCESS_PIXELS.len()) as u16,
-                pixel: H40_VRAM_FIFO_ACCESS_PIXELS[slot % H40_VRAM_FIFO_ACCESS_PIXELS.len()],
-                byte_addr,
-                value,
-            }
-        })
-        .collect()
+        .position(|&pixel| pixel == start_pixel)?;
+    Some(
+        writes
+            .iter()
+            .flat_map(|&(byte_addr, value)| [(byte_addr, value); 2])
+            .enumerate()
+            .map(|(write_index, (byte_addr, value))| {
+                let slot = start_slot + write_index;
+                VdpRasterVramWordWrite {
+                    scanline: start_scanline + (slot / H40_VRAM_FIFO_ACCESS_PIXELS.len()) as u16,
+                    pixel: H40_VRAM_FIFO_ACCESS_PIXELS[slot % H40_VRAM_FIFO_ACCESS_PIXELS.len()],
+                    byte_addr,
+                    value,
+                }
+            })
+            .collect(),
+    )
 }
 
 #[allow(non_snake_case)]

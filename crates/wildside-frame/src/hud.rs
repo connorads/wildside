@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
 use wildside_core::{
-    GameMode, LevelId, NativeObjectKind, NativeTraceFrame, PlayerForm,
+    GameMode, HudDmaEventSub44DC, LevelId, NativeObjectKind, NativeTraceFrame, PlayerForm,
     hitpoint_display_art_dma_loop_loc_12C34,
+    vdp::{VdpRasterVramWordWrite, try_schedule_h40_vram_fifo_word_writes},
 };
-use wildside_render::{NativeLevelVisuals, TileRef};
+use wildside_render::{NativeLevelVisuals, TileRef, TileSheet};
 
 use crate::dto::*;
 use crate::scene::*;
@@ -224,10 +225,50 @@ pub fn push_hud_icon(
                 // The trace renderer has no live VDP memory for normal
                 // gameplay, so this mirrors the ROM page selected by the
                 // sampled `$FFFFFA5E` state.
-                let frame = wildside_render::SpriteFrame {
-                    tile_base_index: hud_life_icon_tile_base_index_loc_4546(trace),
+                let tile_base_index = hud_life_icon_tile_base_index_loc_4546(trace);
+                let mut frame = wildside_render::SpriteFrame {
+                    tile_base_index,
                     ..frame.clone()
                 };
+                if let Some(timing) =
+                    trace
+                        .hud_raster_upload_timings_sub_44dc
+                        .iter()
+                        .find(|timing| {
+                            matches!(
+                                timing.command,
+                                HudDmaEventSub44DC::LifeIcon {
+                                    frame_table_byte_offset
+                                } if u16::from(frame_table_byte_offset) == tile_base_index
+                            )
+                        })
+                {
+                    let source_words = (0..timing.command.word_count())
+                        .map(|word_index| {
+                            (
+                                timing
+                                    .command
+                                    .vram_byte_address()
+                                    .wrapping_add(word_index.wrapping_mul(2)),
+                                0,
+                            )
+                        })
+                        .collect::<Vec<_>>();
+                    if let Some(writes) = try_schedule_h40_vram_fifo_word_writes(
+                        &source_words,
+                        timing.first_commit_scanline,
+                        timing.first_commit_pixel,
+                    ) {
+                        frame.tile_sheet = hud_life_icon_raster_tile_sheet_loc_4586(
+                            &frame.tile_sheet,
+                            u16::from(timing.previous_frame_table_byte_offset),
+                            tile_base_index,
+                            &writes,
+                            timing.first_commit_scanline,
+                            y,
+                        );
+                    }
+                }
                 push_sprite_frame_top_left(commands, &frame, &icon.palette, x, y);
             }
         }
@@ -402,6 +443,77 @@ fn hud_life_icon_tile_base_index_loc_4546(trace: &NativeTraceFrame) -> u16 {
     } else {
         0
     }
+}
+
+fn hud_life_icon_raster_tile_sheet_loc_4586(
+    tile_sheet: &TileSheet,
+    previous_page_tile_base: u16,
+    current_page_tile_base: u16,
+    writes: &[VdpRasterVramWordWrite],
+    upload_start_scanline: u16,
+    sprite_y: i32,
+) -> TileSheet {
+    let mut presented = tile_sheet.clone();
+    for destination_tile_offset in 0..4usize {
+        let previous_tile_index =
+            usize::from(previous_page_tile_base).saturating_add(destination_tile_offset);
+        let current_tile_index =
+            usize::from(current_page_tile_base).saturating_add(destination_tile_offset);
+        let (Some(previous_tile), Some(current_tile)) = (
+            tile_sheet.tiles.get(previous_tile_index),
+            tile_sheet.tiles.get(current_tile_index),
+        ) else {
+            continue;
+        };
+        let Some(destination_tile) = presented.tiles.get_mut(current_tile_index) else {
+            continue;
+        };
+
+        for tile_row in 0..8usize {
+            // ASM sub_44DC loc_4586 writes four 32-byte tiles to `$4620`.
+            // Mega Drive sprite tiles are column-major, so offsets 0/1 are
+            // the upper/lower left tiles and 2/3 the upper/lower right tiles.
+            let screen_scanline = sprite_y + ((destination_tile_offset % 2) * 8 + tile_row) as i32;
+            for word_in_row in 0..2usize {
+                let destination_word = destination_tile_offset * 16 + tile_row * 2 + word_in_row;
+                let byte_addr = 0x4620 + (destination_word * 2) as u16;
+                // Match wildside-md's VDP raster boundary: an H40 FIFO commit
+                // before internal H=$01A feeds this line; later commits feed
+                // the following line. This permits a single tile row to retain
+                // its old right-hand word while its left-hand word is new.
+                let current_word_visible = screen_scanline >= 0
+                    && writes.iter().any(|write| {
+                        if write.byte_addr != byte_addr {
+                            return false;
+                        }
+                        // A Mode_Level upload can begin in the 262-line NTSC
+                        // frame's trailing VBlank and continue after line 261.
+                        // The unwrapped scheduler retains that chronology:
+                        // pre-wrap words seed visible scanout, while line 262+
+                        // maps to visible line 0+.
+                        if upload_start_scanline >= 224 && write.scanline < 262 {
+                            return true;
+                        }
+                        let effective_scanline = if upload_start_scanline >= 224 {
+                            write.scanline.saturating_sub(262)
+                        } else {
+                            write.scanline
+                        };
+                        effective_scanline < screen_scanline as u16
+                            || (effective_scanline == screen_scanline as u16 && write.pixel < 0x01A)
+                    });
+                let source_tile = if current_word_visible {
+                    current_tile
+                } else {
+                    previous_tile
+                };
+                let start_pixel = tile_row * 8 + word_in_row * 4;
+                destination_tile.pixels[start_pixel..start_pixel + 4]
+                    .copy_from_slice(&source_tile.pixels[start_pixel..start_pixel + 4]);
+            }
+        }
+    }
+    presented
 }
 
 fn hud_life_icon_settled_recording_tile_base_index_loc_4586(offset: Option<u8>) -> Option<u16> {
@@ -609,8 +721,8 @@ mod tests {
     use super::*;
     use std::collections::{BTreeMap, HashMap};
     use wildside_core::{
-        EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE, HudTimerSpritePositionSubBD0A,
-        NativeObjectSnapshot,
+        EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE, HudRasterUploadTimingSub44DC,
+        HudTimerSpritePositionSubBD0A, NativeObjectSnapshot,
     };
     use wildside_render::{
         AnimatedSpriteVisual, BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals,
@@ -801,6 +913,130 @@ mod tests {
         assert_eq!(
             hud_life_icon_settled_recording_tile_base_index_loc_4586(Some(4)),
             None
+        );
+    }
+
+    #[test]
+    fn frame_1697_life_icon_raster_keeps_pre_loc_4586_page_until_visible_scanout_finishes() {
+        let mut tiles = Vec::new();
+        for page_colour in [1, 2, 3] {
+            tiles.extend((0..4).map(|_| Tile {
+                pixels: [page_colour; 64],
+            }));
+        }
+        let sheet = TileSheet { tiles };
+        let after_icon_scanout = (0..64)
+            .map(|word_index| VdpRasterVramWordWrite {
+                scanline: 42 + word_index / 8,
+                pixel: 380,
+                byte_addr: 0x4620 + word_index * 2,
+                value: 0,
+            })
+            .collect::<Vec<_>>();
+
+        let frame_1697 = hud_life_icon_raster_tile_sheet_loc_4586(
+            &sheet,
+            0,
+            4,
+            &after_icon_scanout,
+            42,
+            HUD_ANKH_Y,
+        );
+
+        assert!(
+            frame_1697.tiles[4..8]
+                .iter()
+                .all(|tile| tile.pixels == [1; 64]),
+            "oracle frame 1697 commits loc_4586 on scanlines 42..49, after the HUD ankh at scanlines 13..28 has fetched the previous page"
+        );
+
+        let split_first_row = hud_life_icon_raster_tile_sheet_loc_4586(
+            &sheet,
+            0,
+            4,
+            &[
+                VdpRasterVramWordWrite {
+                    scanline: HUD_ANKH_Y as u16,
+                    pixel: 12,
+                    byte_addr: 0x4620,
+                    value: 0,
+                },
+                VdpRasterVramWordWrite {
+                    scanline: HUD_ANKH_Y as u16,
+                    pixel: 28,
+                    byte_addr: 0x4622,
+                    value: 0,
+                },
+            ],
+            HUD_ANKH_Y as u16,
+            HUD_ANKH_Y,
+        );
+        assert_eq!(
+            &split_first_row.tiles[4].pixels[..8],
+            &[2, 2, 2, 2, 1, 1, 1, 1]
+        );
+
+        let vblank_started = hud_life_icon_raster_tile_sheet_loc_4586(
+            &sheet,
+            0,
+            4,
+            &[VdpRasterVramWordWrite {
+                scanline: 260,
+                pixel: 380,
+                byte_addr: 0x4620,
+                value: 0,
+            }],
+            260,
+            HUD_ANKH_Y,
+        );
+        assert_eq!(
+            &vblank_started.tiles[4].pixels[..8],
+            &[2, 2, 2, 2, 1, 1, 1, 1],
+            "a pre-wrap VBlank commit seeds the following visible scanout"
+        );
+
+        let mut visuals = sample_level_visuals();
+        visuals
+            .floating_prizes
+            .icons
+            .get_mut(&0x0B)
+            .expect("ankh visuals")
+            .frames[0] = SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px: 16,
+            height_px: 16,
+            tile_base_index: 0,
+            tile_sheet: sheet,
+        };
+        let mut commands = Vec::new();
+        push_hud_icon(
+            &mut commands,
+            &visuals,
+            "ankh",
+            &NativeTraceFrame {
+                hud_life_icon_vram_page_loc_4586: Some(4),
+                hud_raster_upload_timings_sub_44dc: vec![HudRasterUploadTimingSub44DC {
+                    command: HudDmaEventSub44DC::LifeIcon {
+                        frame_table_byte_offset: 4,
+                    },
+                    previous_frame_table_byte_offset: 0,
+                    first_commit_scanline: 42,
+                    first_commit_pixel: 380,
+                }],
+                ..NativeTraceFrame::default()
+            },
+            HUD_ANKH_X,
+            HUD_ANKH_Y,
+        );
+        let DrawCommand::Sprite { tile_sheet, .. } = &commands[0] else {
+            panic!("ankh should use a sprite command");
+        };
+        assert!(
+            tile_sheet.tiles[4..8]
+                .iter()
+                .all(|tile| tile.pixels == [1; 64]),
+            "the typed loc_4586 timing record must drive the production HUD command"
         );
     }
 

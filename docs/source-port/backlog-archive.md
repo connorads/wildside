@@ -306,6 +306,18 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-18: the renderer now consumes a compact typed
+`HudRasterUploadTimingSub44DC` only when a source-derived scheduler supplies
+one. The command fixes target/length, the record carries the frame-start page
+and first H40 FIFO commit, and the shared scheduler expands it into per-word
+writes. The life-icon compositor applies the same H=$01A scanline boundary as
+the VDP renderer, including a mixed four-pixel word within one tile row.
+Red-first frame-1697 coverage proves commits on scanlines 42..49 leave the
+scanline-13..28 ankh entirely on its previous page and exercises the
+production HUD command. Native emits no timing records yet, so this enabling
+unit is pixel-neutral and cannot become a timing heuristic. Next derive the
+first commit from the typed `Mode_Level` workload.
+
 Progress 2026-07-18: native now captures a typed
 `ModeLevelPreHudWorkLedger` immediately before `Execute_Objects sub_E12`
 mutates the linked list. Its phase sequence follows `Mode_Level`
@@ -316,7 +328,8 @@ power/collision tail. The object facts distinguish player work,
 enemy/platform workers, and the `Load_InGame loc_11F96/loc_11FB0`
 palette-rotation coroutine; any remaining owner stays explicit as
 `unclassified_runtime_transient_workers`, while the non-transient aggregate
-stays separate for later enemy/platform expansion. Capture at the entry boundary matters:
+stays separate for later enemy/platform expansion. Capture at the entry
+boundary matters:
 published-route frame 1697 has 14 linked objects before Kid allocates the two
 workers that raise the post-frame trace count to 16. A red-first regression
 pins the source order and prize-worker taxonomy. This is pixel-neutral and

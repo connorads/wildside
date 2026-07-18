@@ -1737,6 +1737,18 @@ impl HudDmaEventSub44DC {
     }
 }
 
+/// Raster placement assigned to one frame-local ASM `sub_44DC` upload.
+///
+/// The command fixes destination and length. The previous page fixes
+/// frame-start VRAM, while the first FIFO commit fixes the hardware schedule.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HudRasterUploadTimingSub44DC {
+    pub command: HudDmaEventSub44DC,
+    pub previous_frame_table_byte_offset: u8,
+    pub first_commit_scanline: u16,
+    pub first_commit_pixel: u16,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct NativeTraceFrame {
@@ -1841,6 +1853,10 @@ pub struct NativeTraceFrame {
     /// during this frame, before raster timing assigns their VDP write cycles.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hud_dma_events_sub_44dc: Vec<HudDmaEventSub44DC>,
+    /// Gameplay HUD uploads whose source-derived 68k workload has assigned a
+    /// concrete first H40 FIFO commit. Empty means timing is not yet proven.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hud_raster_upload_timings_sub_44dc: Vec<HudRasterUploadTimingSub44DC>,
     /// ASM `Mode_Level` fixed call order and typed `Execute_Objects sub_E12`
     /// workload observed before this frame's `sub_44DC` commands.
     ///
@@ -2304,6 +2320,7 @@ impl Default for NativeTraceFrame {
             hud_life_frame_offset: None,
             hud_life_icon_vram_page_loc_4586: None,
             hud_dma_events_sub_44dc: Vec::new(),
+            hud_raster_upload_timings_sub_44dc: Vec::new(),
             mode_level_work_before_hud_sub_44dc: None,
             berzerker_charging: false,
             berzerker_charge_pose: false,

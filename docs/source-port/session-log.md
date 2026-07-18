@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#409 HUD per-word raster seam)
+
+- `HudRasterUploadTimingSub44DC` carries a proven previous page and first H40
+  FIFO commit; the existing hardware schedule expands it into word writes.
+- The life-icon renderer composes old/new 4-pixel words using the same
+  H=$01A scanline boundary as the VDP renderer.
+- A red-first frame-1697 regression proves its scanline-42..49 upload leaves
+  the scanline-13..28 ankh entirely on the prior page and exercises the
+  production HUD command.
+- Native emits no timings yet, so pixels remain unchanged. Next derive the
+  first commit from the typed `Mode_Level` workload.
+
+---
+
 ## 2026-07-18 handoff (#409 Mode_Level entry-work ledger)
 
 - Native captures the source-ordered `Mode_Level` phases and typed

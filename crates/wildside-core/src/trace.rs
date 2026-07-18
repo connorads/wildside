@@ -8666,6 +8666,7 @@ impl NativeRuntime {
             hud_life_frame_offset: Some(self.hud_animation_state.life_frame_offset_fb5e),
             hud_life_icon_vram_page_loc_4586: Some(self.hud_life_icon_vram_page_loc_4586),
             hud_dma_events_sub_44dc: self.hud_dma_events_sub_44dc.clone(),
+            hud_raster_upload_timings_sub_44dc: Vec::new(),
             mode_level_work_before_hud_sub_44dc: self.mode_level_work_before_hud_sub_44dc.clone(),
             berzerker_charging: if hidden_boot_progression {
                 false
