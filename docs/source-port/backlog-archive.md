@@ -590,6 +590,26 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-18: frame 1683's single pixel was the VDP first-opaque
+relation between an older `$229` `sub_1007A` wobble worker and a newly
+allocated `$2CF` `loc_102B8` flash. `Allocate_GfxObjectSlot loc_FD4` inserts
+equal `$2001` priorities stably, while Kid's `$2000` entry remains earlier;
+`Make_SpritesFromGfxObjects loc_14A4` therefore emits Kid, wobble, flash.
+Native now defers wobble submission until after Kid and emits it through the
+typed SAT path. The regression pins that complete local order. Focused route
+frames 1368 and 1683 are exact, proving the former blanket-promotion
+regression and the target arbitration are both resolved.
+
+Full RGB gains 11 exact frames and removes 84 changed pixel instances:
+26,382 exact / 11,377 divergent / 3,620,978 changed pixels. First mismatch
+advances from frame 1683 to frame 1697 (7 pixels at x=289..293/y=13..16);
+native/oracle captures place it in the life icon, already owned by #409's
+resident-DMA workload boundary. Gameplay, player/camera, RNG, and enemy
+frontiers remain exact; 24 object-count checkpoints remain evidence-backed
+oracle limitations. The pixel ratchet was updated after review. #406 remains
+open on measured route visual debt; continue through #409, not another wobble
+ordering change.
+
 Progress 2026-07-17: oracle direct VDP samples disprove the remaining frame-1508
 priority theory. `PrizeDiamond_Init loc_10396` uses resident `$6F2` art, and
 the native trace must retain its preceding flight sample only after the initial

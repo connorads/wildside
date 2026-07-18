@@ -4,7 +4,13 @@
     "warn_after_commits": 2,
     "fail_after_commits": 4
   },
-  "candidate_promotions": [],
+  "candidate_promotions": [
+    {
+      "key": "oracle_gfx_sprite_order_loc_14a4",
+      "reason": "Repeated #406 SAT investigations used the oracle GfxObject chain to choose and verify typed Kid, wobble, flash ordering.",
+      "maturity_status": "ready"
+    }
+  ],
   "fields": [
     {
       "key": "segment_index",
@@ -876,11 +882,12 @@
     {
       "key": "oracle_gfx_sprite_order_loc_14a4",
       "scope": "frame",
-      "status": "exploratory",
+      "status": "candidate",
       "owner": "issue-406-tas-pixel-parity",
       "first_added_commit": "8dd727a6",
       "intended_meaning": "Oracle GfxObject linked-list order from `Allocate_GfxObjectSlot` loc_FD4 / `Make_SpritesFromGfxObjects` loc_14A4, including allocation order word, object metadata, position and sprite mapping.",
-      "promotion_trigger": "Promote to typed presentation ordering only if repeatable SAT parity requires native to reproduce ROM GfxObject ordering."
+      "promotion_trigger": "Promote to typed presentation ordering only if repeatable SAT parity requires native to reproduce ROM GfxObject ordering.",
+      "stale_candidate_exemption": "#406 now consumes the proven Kid, wobble, flash relation through typed SatSprite ordering; retain the broader oracle chain probe until remaining mixed Sprite_Table sources are typed."
     }
   ]
 }

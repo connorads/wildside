@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#406 prize-wobble SAT order)
+
+- `Allocate_GfxObjectSlot loc_FD4` stably orders equal `$2001` entries, so
+  Kid `$2000` precedes older `sub_1007A` wobble workers, which precede newly
+  allocated `loc_102B8` flashes in `Make_SpritesFromGfxObjects loc_14A4`.
+- Native now defers wobble submission until after Kid and emits it as typed
+  SAT. Focused route frames 1368 and 1683 are pixel-exact.
+- Full RGB improves to 26,382 exact / 11,377 divergent / 3,620,978 changed
+  pixels. First mismatch advances to frame 1697: seven life-icon pixels owned
+  by #409's resident-DMA workload boundary. State, player/camera, RNG, and
+  enemy frontiers remain exact.
+- Next: continue #409's source-derived pre-HUD workload ledger; preserve the
+  proven Kid → wobble → flash order.
+
+---
+
 ## 2026-07-18 handoff (#406 Cyclone stationary mapping)
 
 - The typed Cyclone `loc_AB0A`/`loc_AB4A` landing source remains authoritative

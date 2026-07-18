@@ -5924,10 +5924,11 @@ fn push_prize_block_wobble_sub_1007a(
         }
         build_sprite_tiles(&frame, Direction::Right, 0)
     };
-    // ASM sub_1007A/loc_10200 draws low-priority `unk_E0E4E`/`unk_E0E5E`
-    // mappings from live VRAM copy slots `$220`/`$229` while the Level_Layout
-    // cell is `$6F00`. The source cell's skin is not a prize block glyph.
-    commands.push(DrawCommand::Sprite {
+    // ASM Allocate_GfxObjectSlot loc_FD4 / Make_SpritesFromGfxObjects loc_14A4
+    // keeps the `$2001` sub_1007A worker in the source-ordered SAT chain.
+    // Its low-priority `unk_E0E4E`/`unk_E0E5E` mapping still stays behind
+    // high-priority Scroll A while reserving opaque pixels from later sprites.
+    commands.push(DrawCommand::SatSprite {
         x,
         y,
         tile_sheet: Arc::new(frame.tile_sheet),
@@ -6838,15 +6839,6 @@ fn build_game_scene_filtered(
     if eol_hologram_visible && filter.terrain {
         push_eol_foreground_reveal_tiles(&mut commands, trace, level_visuals, block_grid);
     }
-    if filter.block_overrides {
-        push_prize_block_wobble_overrides_sub_1007a(
-            &mut commands,
-            trace,
-            level_visuals,
-            block_grid,
-        );
-    }
-
     if !eol_hologram_visible && filter.platforms {
         for object in trace.active_objects.iter().filter(|object| {
             matches!(
@@ -6960,6 +6952,18 @@ fn build_game_scene_filtered(
                 priority_override,
             );
         }
+    }
+    if filter.block_overrides {
+        // ASM Allocate_GfxObjectSlot loc_FD4 sorts Kid's `$2000` GfxObject
+        // before every `$2001` sub_1007A worker. Equal-priority insertion is
+        // stable, so active wobble workers then precede newly allocated
+        // loc_102B8 flashes in Make_SpritesFromGfxObjects loc_14A4.
+        push_prize_block_wobble_overrides_sub_1007a(
+            &mut commands,
+            trace,
+            level_visuals,
+            block_grid,
+        );
     }
 
     if !eol_hologram_visible && filter.effects {
@@ -12313,8 +12317,8 @@ mod tests {
 
         push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 28);
 
-        let DrawCommand::Sprite { x, y, tiles, .. } = commands.single() else {
-            panic!("ASM sub_1007A should emit one wobble sprite");
+        let DrawCommand::SatSprite { x, y, tiles, .. } = commands.single() else {
+            panic!("ASM sub_1007A should emit one source-ordered wobble SAT sprite");
         };
         assert_eq!((*x, *y), (32, 48));
         assert_eq!(tiles.len(), 4);
@@ -12341,8 +12345,8 @@ mod tests {
         let mut commands = Vec::new();
         push_prize_block_wobble_sub_1007a(&mut commands, &visuals, 32, 48, 31);
 
-        let DrawCommand::Sprite { tiles, .. } = commands.single() else {
-            panic!("ASM sub_1007A should emit one wobble sprite");
+        let DrawCommand::SatSprite { tiles, .. } = commands.single() else {
+            panic!("ASM sub_1007A should emit one source-ordered wobble SAT sprite");
         };
         assert_eq!(
             tiles
@@ -12351,6 +12355,62 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![0x008, 0x009, 0x00A, 0x00B],
             "ASM sub_1007A loc_100C4 leaves the generic prize page resident for the first visible hibernate frame"
+        );
+    }
+
+    #[test]
+    fn prize_block_wobble_sat_follows_kid_and_precedes_spawn_flash_sub_1007a() {
+        let visuals = sample_level_visuals(0x300);
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            active_objects: vec![NativeObjectSnapshot {
+                x_pos: 100 << 16,
+                y_pos: 100 << 16,
+                ..sample_object_snapshot()
+            }],
+            block_bounces: vec![(2, 2, 28, 0)],
+            block_bounce_details: vec![BlockBounceTrace {
+                cell_x: 2,
+                cell_y: 2,
+                x_offset_px: 0,
+                remaining: 28,
+                y_offset_px: 0,
+                kind: BlockBounceTraceKind::Prize,
+            }],
+            prize_block_spawn_flashes: vec![(80, 80, 23)],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: true,
+                platforms: false,
+                enemies: false,
+                player: true,
+                effects: true,
+                eol_score: false,
+                hud: false,
+            },
+        );
+        let sat_positions = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::SatSprite { x, y, .. } => Some((*x, *y)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            sat_positions,
+            vec![(100, 92), (32, 32), (68, 68)],
+            "ASM Allocate_GfxObjectSlot loc_FD4 / Make_SpritesFromGfxObjects loc_14A4 sorts Kid `$2000`, then the older sub_1007A `$2001` wobble, then its newly allocated loc_102B8 `$2001` flash"
         );
     }
 
@@ -12365,7 +12425,7 @@ mod tests {
 
         push_prize_block_wobble_overrides_sub_1007a(&mut commands, &trace, &visuals, None);
 
-        let DrawCommand::Sprite { x, y, tiles, .. } = commands.single() else {
+        let DrawCommand::SatSprite { x, y, tiles, .. } = commands.single() else {
             panic!("ASM sub_1007A loc_10120 should retain one final GfxObject sprite");
         };
         assert_eq!((*x, *y), (32, 50));
@@ -12749,12 +12809,12 @@ mod tests {
 
         push_prize_block_wobble_overrides_sub_1007a(&mut commands, &trace, &visuals, Some(&grid));
 
-        let DrawCommand::Sprite { x, y, .. } = commands.single() else {
+        let DrawCommand::SatSprite { x, y, .. } = commands.single() else {
             panic!("ASM sub_1007A should emit one source-position wobble sprite");
         };
         assert_eq!((*x, *y), (8, 12));
 
-        let DrawCommand::Sprite { tiles, .. } = commands.single() else {
+        let DrawCommand::SatSprite { tiles, .. } = commands.single() else {
             panic!("ASM sub_1007A should emit one source-position wobble sprite");
         };
         assert_eq!(
@@ -12781,7 +12841,7 @@ mod tests {
             &visuals,
             Some(&rewritten_grid),
         );
-        let DrawCommand::Sprite { tiles, .. } = commands.single() else {
+        let DrawCommand::SatSprite { tiles, .. } = commands.single() else {
             panic!("ASM sub_1007A should still draw the fixed sprite over rewritten `$6F00` cells");
         };
         assert_eq!(
@@ -12814,7 +12874,7 @@ mod tests {
             &visuals,
             Some(&grid),
         );
-        let DrawCommand::Sprite { x, y, .. } = commands.single() else {
+        let DrawCommand::SatSprite { x, y, .. } = commands.single() else {
             panic!("ASM sub_1007A should emit shifted wobble sprites");
         };
         assert_eq!(
