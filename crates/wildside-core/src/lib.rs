@@ -237,21 +237,6 @@ struct ResidentGameplayRenderSnapshot {
     block_grid: Option<terrain::BlockGrid>,
 }
 
-/// ASM sub_44DC upload destination, retained until the gameplay raster
-/// scheduler turns the command into ordered VDP word writes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum HudDmaTargetSub44DC {
-    LifeIcon,
-    Diamond,
-}
-
-/// ASM sub_44DC loc_4546/loc_4626 frame-local HUD DMA command.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct HudDmaEventSub44DC {
-    target: HudDmaTargetSub44DC,
-    frame_table_byte_offset: u8,
-}
-
 /// Observable player work before ASM `Mode_Level` reaches `sub_44DC`.
 /// This is a calibration fact, not a timing estimate or page selector.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -3914,23 +3899,47 @@ impl NativeRuntime {
             // resident `$DD40` page through the hibernating VBlanks.
             let step = boot::step_hud_animation_sub_44DC(self.hud_animation_state);
             self.hud_animation_state = step.next_state;
+            if let Some(coin_upload) = step.coin_upload {
+                // ASM sub_44DC loc_4534 (kid.asm): the coin longword writes
+                // precede every later HUD-art command in this pass.
+                self.hud_dma_events_sub_44dc.push(HudDmaEventSub44DC::Coin {
+                    frame_table_byte_offset: coin_upload.frame_table_byte_offset,
+                });
+            }
             if let Some(life_upload) = step.life_upload {
                 // ASM loc_4586 selects `off_457A[frame]`, then sub_44D0 copies
                 // its 128-byte page to VRAM `$4620`. Keep the resident page,
                 // rather than inferring it later from the looping `$FFFA5E`.
                 self.hud_life_icon_vram_page_loc_4586 = life_upload.frame_table_byte_offset;
-                self.hud_dma_events_sub_44dc.push(HudDmaEventSub44DC {
-                    target: HudDmaTargetSub44DC::LifeIcon,
-                    frame_table_byte_offset: life_upload.frame_table_byte_offset,
-                });
+                self.hud_dma_events_sub_44dc
+                    .push(HudDmaEventSub44DC::LifeIcon {
+                        frame_table_byte_offset: life_upload.frame_table_byte_offset,
+                    });
+            }
+            if let Some(clock_upload) = step.clock_upload {
+                // ASM sub_44DC loc_45DA (kid.asm): clock art follows life art
+                // and precedes the two DMA-backed HUD animations.
+                self.hud_dma_events_sub_44dc
+                    .push(HudDmaEventSub44DC::Clock {
+                        frame_table_byte_offset: clock_upload.frame_table_byte_offset,
+                    });
             }
             if let Some(diamond_upload) = step.diamond_upload {
                 self.gameplay_hud_vram_state
                     .record_diamond_dma_sub_5d4a(diamond_upload.frame_table_byte_offset);
-                self.hud_dma_events_sub_44dc.push(HudDmaEventSub44DC {
-                    target: HudDmaTargetSub44DC::Diamond,
-                    frame_table_byte_offset: u8::try_from(diamond_upload.frame_table_byte_offset)
+                self.hud_dma_events_sub_44dc
+                    .push(HudDmaEventSub44DC::Diamond {
+                        frame_table_byte_offset: u8::try_from(
+                            diamond_upload.frame_table_byte_offset,
+                        )
                         .expect("sub_5D4A selector fits in u8"),
+                    });
+            }
+            if let Some(flag_upload) = step.flag_upload {
+                // ASM sub_44DC loc_4680 -> sub_5DA6 (kid.asm): the flag DMA is
+                // the final HUD-art command before the routine returns.
+                self.hud_dma_events_sub_44dc.push(HudDmaEventSub44DC::Flag {
+                    frame_table_byte_offset: flag_upload.frame_table_byte_offset,
                 });
             }
             // ASM loc_BF2A (kid.asm:15526): the lives HUD path clamps

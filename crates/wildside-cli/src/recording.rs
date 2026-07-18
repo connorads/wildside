@@ -2939,6 +2939,7 @@ mod tests {
             time_frames_loc_3038a: 0,
             island_shore_post_visible_dma_latch_loc_1202a: false,
             floating_items_transferred_loc_901: Vec::new(),
+            hud_dma_events_sub_44dc: Vec::new(),
             start_press_count: 0,
             boot_phase: None,
             boot_phase_elapsed: None,

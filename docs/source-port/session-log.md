@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#409 typed HUD DMA commands)
+
+- All five `sub_44DC` uploads now cross the trace boundary as typed,
+  ROM-ordered coin/life/clock/diamond/flag commands; each variant fixes its
+  VRAM target and word count.
+- The exploratory `hud_dma_events_sub_44dc` debug string and registry entry
+  are removed. Existing traces without the field default to an empty command
+  stream.
+- This unit is pixel-neutral. The measured first RGB mismatch remains frame
+  1697: seven life-icon pixels whose oracle DMA commits at scanlines 42..49,
+  after the icon's visible scanout.
+- Next: feed the typed commands into a source-derived pre-HUD workload/raster
+  model. Do not add selector, frame-table, or recorded-cycle timing rules.
+
+---
+
 ## 2026-07-18 handoff (#406 prize-wobble SAT order)
 
 - `Allocate_GfxObjectSlot loc_FD4` stably orders equal `$2001` entries, so

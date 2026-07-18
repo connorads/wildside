@@ -306,6 +306,17 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-18: frame 1697's life upload is now a typed
+`HudDmaEventSub44DC::LifeIcon` trace event rather than an exploratory debug
+string. The same enum represents all five command sites in exact routine
+order: coin `loc_4534`, life `loc_4586`, clock `loc_45DA`, diamond
+`loc_4626 -> sub_5D4A`, and flag `loc_4680 -> sub_5DA6`. Each variant fixes
+its VRAM target and word count, so target/address/length combinations cannot
+drift; a staggered first-five-frame regression pins every command. Missing
+legacy trace fields still default empty. This is pixel-neutral enabling work:
+next consume the commands through source-derived pre-HUD workload and raster
+timing, without a selector or recorded-cycle table.
+
 Follow-up 2026-07-17: source review pins the exact ordering boundary. `Mode_Level`
 (`kid.asm:901-924`) transfers Sprite_Table/Kid art, palette and scroll, builds
 HUD sprites, then executes object and collision paths before `sub_44DC`.

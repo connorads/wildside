@@ -1613,6 +1613,65 @@ impl<'de> Deserialize<'de> for RomRandomFrameState {
     }
 }
 
+/// Frame-local HUD art DMA command emitted by ASM `sub_44DC` (kid.asm).
+///
+/// The destination and transfer length are fixed by the ROM routine, so the
+/// variant carries only the table offset that selects the source art page.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HudDmaEventSub44DC {
+    /// ASM loc_4534 -> sub_44D0: 0x80 bytes to VRAM `$4720`.
+    Coin { frame_table_byte_offset: u8 },
+    /// ASM loc_4586 -> sub_44D0: 0x80 bytes to VRAM `$4620`.
+    LifeIcon { frame_table_byte_offset: u8 },
+    /// ASM loc_45DA -> sub_44D0: 0x80 bytes to VRAM `$46A0`.
+    Clock { frame_table_byte_offset: u8 },
+    /// ASM loc_4626 -> sub_5D4A: 0x200 bytes to VRAM `$DD40`.
+    Diamond { frame_table_byte_offset: u8 },
+    /// ASM loc_4680 -> sub_5DA6: 0x280 bytes to VRAM `$D340`.
+    Flag { frame_table_byte_offset: u8 },
+}
+
+impl HudDmaEventSub44DC {
+    pub const fn frame_table_byte_offset(self) -> u8 {
+        match self {
+            Self::Coin {
+                frame_table_byte_offset,
+            }
+            | Self::LifeIcon {
+                frame_table_byte_offset,
+            }
+            | Self::Clock {
+                frame_table_byte_offset,
+            }
+            | Self::Diamond {
+                frame_table_byte_offset,
+            }
+            | Self::Flag {
+                frame_table_byte_offset,
+            } => frame_table_byte_offset,
+        }
+    }
+
+    pub const fn vram_byte_address(self) -> u16 {
+        match self {
+            Self::Coin { .. } => 0x4720,
+            Self::LifeIcon { .. } => 0x4620,
+            Self::Clock { .. } => 0x46A0,
+            Self::Diamond { .. } => 0xDD40,
+            Self::Flag { .. } => 0xD340,
+        }
+    }
+
+    pub const fn word_count(self) -> u16 {
+        match self {
+            Self::Coin { .. } | Self::LifeIcon { .. } | Self::Clock { .. } => 64,
+            Self::Diamond { .. } => 256,
+            Self::Flag { .. } => 320,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct NativeTraceFrame {
@@ -1713,6 +1772,10 @@ pub struct NativeTraceFrame {
     /// VRAM `$4620`, represented as the `off_457A` byte offset (0, 4, or 8).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hud_life_icon_vram_page_loc_4586: Option<u8>,
+    /// ASM `sub_44DC` loc_4586/loc_4626: ROM-ordered HUD DMA commands emitted
+    /// during this frame, before raster timing assigns their VDP write cycles.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hud_dma_events_sub_44dc: Vec<HudDmaEventSub44DC>,
     /// ROM `Berzerker_charging` (`$FFFFFA6E`): set by ASM loc_9564 after the
     /// Berzerker/Cyclone walk accumulator carries.
     #[serde(default)]
@@ -2169,6 +2232,7 @@ impl Default for NativeTraceFrame {
             hud_diamond_count_loc_bdc0: None,
             hud_life_frame_offset: None,
             hud_life_icon_vram_page_loc_4586: None,
+            hud_dma_events_sub_44dc: Vec::new(),
             berzerker_charging: false,
             berzerker_charge_pose: false,
             berzerker_walk_pose: false,

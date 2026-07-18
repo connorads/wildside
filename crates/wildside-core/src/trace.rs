@@ -1158,10 +1158,57 @@ mod tests {
             "ASM sub_44DC loc_4626 passes unk_461C frame byte 4 to sub_5D4A, which makes off_7B0AC[1] resident at VRAM `$DD40`"
         );
         assert_eq!(
-            trace.gameplay_debug_fields.get("hud_dma_events_sub_44dc"),
-            Some(&"diamond:page=04/vram=DD40/words=256".to_string()),
-            "ASM sub_44DC loc_4626 records the frame-local 0x200-byte HUD diamond DMA before a raster scheduler assigns its FIFO position"
+            trace.hud_dma_events_sub_44dc,
+            vec![HudDmaEventSub44DC::Diamond {
+                frame_table_byte_offset: 4,
+            }],
+            "ASM sub_44DC loc_4626 emits the frame-local HUD diamond DMA before a raster scheduler assigns its FIFO position"
         );
+        let event = trace.hud_dma_events_sub_44dc[0];
+        assert_eq!(event.frame_table_byte_offset(), 4);
+        assert_eq!(event.vram_byte_address(), 0xDD40);
+        assert_eq!(event.word_count(), 256);
+    }
+
+    #[test]
+    fn trace_exposes_complete_staggered_hud_dma_sequence_from_sub_44dc() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0);
+
+        let frames = (0..5)
+            .map(|_| runtime.step_frame(FrameInput::default()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            frames
+                .iter()
+                .map(|trace| trace.hud_dma_events_sub_44dc.as_slice())
+                .collect::<Vec<_>>(),
+            vec![
+                &[HudDmaEventSub44DC::Diamond {
+                    frame_table_byte_offset: 4,
+                }][..],
+                &[HudDmaEventSub44DC::Flag {
+                    frame_table_byte_offset: 4,
+                }],
+                &[HudDmaEventSub44DC::Coin {
+                    frame_table_byte_offset: 4,
+                }],
+                &[HudDmaEventSub44DC::LifeIcon {
+                    frame_table_byte_offset: 4,
+                }],
+                &[HudDmaEventSub44DC::Clock {
+                    frame_table_byte_offset: 4,
+                }],
+            ],
+            "ASM sub_44B0 seeds countdowns 1..5; sub_44DC visits coin, life, clock, diamond, then flag on every Mode_Level pass"
+        );
+        assert_eq!(
+            frames[1].hud_dma_events_sub_44dc[0].vram_byte_address(),
+            0xD340
+        );
+        assert_eq!(frames[1].hud_dma_events_sub_44dc[0].word_count(), 320);
     }
 
     #[test]
@@ -1212,10 +1259,16 @@ mod tests {
             "ASM sub_44DC loc_4586 copies AniArt_LifeIcon page 1 to VRAM `$4620` after the first life countdown expires"
         );
         assert_eq!(
-            trace.gameplay_debug_fields.get("hud_dma_events_sub_44dc"),
-            Some(&"life:page=04/vram=4620/words=64".to_string()),
-            "ASM sub_44DC loc_4586 records the frame-local 0x80-byte life-icon DMA before a raster scheduler assigns its FIFO position"
+            trace.hud_dma_events_sub_44dc,
+            vec![HudDmaEventSub44DC::LifeIcon {
+                frame_table_byte_offset: 4,
+            }],
+            "ASM sub_44DC loc_4586 emits the frame-local HUD life-icon DMA before a raster scheduler assigns its FIFO position"
         );
+        let event = trace.hud_dma_events_sub_44dc[0];
+        assert_eq!(event.frame_table_byte_offset(), 4);
+        assert_eq!(event.vram_byte_address(), 0x4620);
+        assert_eq!(event.word_count(), 64);
     }
 
     #[test]
@@ -8060,22 +8113,6 @@ impl NativeRuntime {
             gameplay_debug_fields.insert("gameplay_hibernated".into(), "true".into());
         }
         if !self.hud_dma_events_sub_44dc.is_empty() {
-            let events = self
-                .hud_dma_events_sub_44dc
-                .iter()
-                .map(|event| match event.target {
-                    HudDmaTargetSub44DC::LifeIcon => format!(
-                        "life:page={:02X}/vram=4620/words=64",
-                        event.frame_table_byte_offset
-                    ),
-                    HudDmaTargetSub44DC::Diamond => format!(
-                        "diamond:page={:02X}/vram=DD40/words=256",
-                        event.frame_table_byte_offset
-                    ),
-                })
-                .collect::<Vec<_>>()
-                .join(",");
-            gameplay_debug_fields.insert("hud_dma_events_sub_44dc".into(), events);
             let player_work = match player_state {
                 None => ModeLevelPlayerWorkBeforeHud::Absent,
                 Some(_) if self.level_start_frame == Some(self.frame_index) => {
@@ -8455,6 +8492,7 @@ impl NativeRuntime {
             hud_diamond_count_loc_bdc0: Some(self.hud_diamond_count_loc_bdc0),
             hud_life_frame_offset: Some(self.hud_animation_state.life_frame_offset_fb5e),
             hud_life_icon_vram_page_loc_4586: Some(self.hud_life_icon_vram_page_loc_4586),
+            hud_dma_events_sub_44dc: self.hud_dma_events_sub_44dc.clone(),
             berzerker_charging: if hidden_boot_progression {
                 false
             } else {

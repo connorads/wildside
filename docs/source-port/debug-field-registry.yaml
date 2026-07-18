@@ -238,15 +238,6 @@
       "promotion_trigger": "Promote after a second frontier or checked-in parity assertion depends on a dedicated typed hibernate flag."
     },
     {
-      "key": "hud_dma_events_sub_44dc",
-      "scope": "frame",
-      "status": "exploratory",
-      "owner": "issue-409-hud-raster",
-      "first_added_commit": "232435b1",
-      "intended_meaning": "Frame-local life-icon and diamond HUD DMA commands emitted by ASM sub_44DC loc_4546/loc_4626, retaining destination, selected page, and transfer word count before a raster scheduler assigns FIFO timing.",
-      "promotion_trigger": "Promote to a typed raster-event stream when gameplay VDP state uses this command sequence to construct VdpRasterFrame writes or checked-in pixel parity asserts its timing."
-    },
-    {
       "key": "mode_level_player_work_before_hud",
       "scope": "frame",
       "status": "exploratory",
