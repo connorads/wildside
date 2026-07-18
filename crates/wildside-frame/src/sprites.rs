@@ -538,13 +538,16 @@ pub fn select_player_frame<'a>(
         return &player_visuals.flight_spin[frame_index];
     }
 
-    if let Some(source) = trace.cyclone_grounded_sprite_source
+    if x_velocity != 0
+        && let Some(source) = trace.cyclone_grounded_sprite_source
         && !player_visuals.walk.is_empty()
     {
         // ASM loc_AB0A/loc_AB4A (kid.asm:13390-13430) clears flight without
         // calling sub_942A, preserving the last `addroffset_sprite` through
         // the Sprite_Table handoff. The shared phase still names a flight
-        // phase here, so select the typed retained mapping directly.
+        // phase here, so select the typed retained mapping directly while
+        // grounded motion continues. Once x velocity reaches zero, sub_942A
+        // loc_95BA writes the standing mapping instead.
         let frame_index = match source {
             CycloneGroundedSpriteSource::Walk3 => 2,
             CycloneGroundedSpriteSource::Walk4 => 3,
@@ -4486,6 +4489,36 @@ mod tests {
                 &visuals
             ),
             0x0302
+        );
+
+        // ASM sub_942A loc_95BA: Cyclone's retained loc_AB0A/loc_AB4A
+        // landing mapping survives while grounded motion continues, but the
+        // no-input stationary branch writes the standing mapping.
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::Cyclone.helmet_id(),
+                    cyclone_grounded_sprite_source: Some(CycloneGroundedSpriteSource::Walk4),
+                    kid_on_ground: Some(true),
+                    kid_x_velocity: Some(0x1800),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0202
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::Cyclone.helmet_id(),
+                    cyclone_grounded_sprite_source: Some(CycloneGroundedSpriteSource::Walk4),
+                    kid_on_ground: Some(true),
+                    kid_x_velocity: Some(0),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0100
         );
 
         // ASM sub_B270 loc_B350/loc_B380: airborne down slash wins over the

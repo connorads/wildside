@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#406 Cyclone stationary mapping)
+
+- The typed Cyclone `loc_AB0A`/`loc_AB4A` landing source remains authoritative
+  while grounded motion continues, but can no longer override `sub_942A
+  loc_95BA` once the latched x velocity reaches zero.
+- An ASM-cited selector regression pins moving `Walk4` and stationary idle.
+  Frames 1518..1528 are pixel-exact.
+- Full RGB improves to 26,371 exact / 11,388 divergent / 3,621,062 changed
+  pixels. First mismatch advances from frame 1526 to frame 1683 (1 pixel);
+  gameplay, player/camera, RNG, and enemy frontiers remain exact.
+- Next: attribute the one-pixel frame-1683 residue.
+
+---
+
 ## 2026-07-18 handoff (#406 collected-diamond replacement SAT order)
 
 - `PrizeDiamond_Init loc_10404` deletes the collected source as it allocates

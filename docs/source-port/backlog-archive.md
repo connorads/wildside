@@ -2389,6 +2389,22 @@ limitations. `verify-slice-fast` passes. `verify-tas-full` produced the
 ratchet improvement and the baseline was updated. #406 remains open at frame
 1526.
 
+Progress 2026-07-18 (Cyclone stationary mapping): native's typed
+`cyclone_grounded_sprite_source` preserves the mapping written across
+`loc_AB0A`/`loc_AB4A`, but its one-frame presentation latch could carry
+`Walk4` into a trace whose x velocity and `Character_Movement` were already
+zero. ASM `sub_942A loc_95BA` writes the standing mapping once horizontal input
+ends. The player selector now honours the retained landing source only while
+latched x velocity is non-zero. An ASM-cited regression pins both moving
+`Walk4` and stationary idle.
+
+Frames 1518..1528 are pixel-exact. Full TAS improves from 26,369 to 26,371
+exact frames, 11,390 to 11,388 divergent frames, and 3,626,834 to 3,621,062
+changed pixel instances. The first mismatch advances from frame 1526 (481 px)
+to frame 1683 (1 px). Gameplay, player/camera, RNG, and enemy parity remain
+exact with the same 24 oracle limitations. `verify-slice-fast` passes and the
+full RGB ratchet is updated. #406 remains open at frame 1683.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.
