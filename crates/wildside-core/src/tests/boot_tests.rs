@@ -4160,12 +4160,12 @@ mod chunk_01 {
         assert_eq!(
             scratch_debris_pieces_sub_292E(&queue, 0)[0],
             ScratchDebrisPieceSub292E {
-                y_velocity_px: -1,
+                y_velocity_px: 0,
                 x_velocity_px: -3,
-                y_pos_px: 0x0080,
-                x_pos_px: 0x0120,
+                y_pos_px: 0x0084,
+                x_pos_px: 0x0124,
             },
-            "ASM loc_2928 should still flow into `loc_293A` and write the same first debris record as the standard builder path",
+            "ASM loc_2928 flows into `loc_293A`; loc_2994 counts d7 down 4..0 while a1 rises, so scratch slot 0 takes the source-index-4 table entry, matching the standard builder path",
         );
     }
 
@@ -4187,22 +4187,10 @@ mod chunk_01 {
             scratch_debris_pieces_sub_292E(&queue, 0),
             [
                 ScratchDebrisPieceSub292E {
-                    y_velocity_px: -1,
-                    x_velocity_px: -3,
-                    y_pos_px: 0x0080,
-                    x_pos_px: 0x0120,
-                },
-                ScratchDebrisPieceSub292E {
-                    y_velocity_px: -1,
-                    x_velocity_px: -3,
-                    y_pos_px: 0x0088,
-                    x_pos_px: 0x0120,
-                },
-                ScratchDebrisPieceSub292E {
                     y_velocity_px: 0,
                     x_velocity_px: -3,
-                    y_pos_px: 0x0088,
-                    x_pos_px: 0x0128,
+                    y_pos_px: 0x0084,
+                    x_pos_px: 0x0124,
                 },
                 ScratchDebrisPieceSub292E {
                     y_velocity_px: 1,
@@ -4213,8 +4201,20 @@ mod chunk_01 {
                 ScratchDebrisPieceSub292E {
                     y_velocity_px: 0,
                     x_velocity_px: -3,
-                    y_pos_px: 0x0084,
-                    x_pos_px: 0x0124,
+                    y_pos_px: 0x0088,
+                    x_pos_px: 0x0128,
+                },
+                ScratchDebrisPieceSub292E {
+                    y_velocity_px: -1,
+                    x_velocity_px: -3,
+                    y_pos_px: 0x0088,
+                    x_pos_px: 0x0120,
+                },
+                ScratchDebrisPieceSub292E {
+                    y_velocity_px: -1,
+                    x_velocity_px: -3,
+                    y_pos_px: 0x0080,
+                    x_pos_px: 0x0120,
                 },
             ],
             "ASM sub_292E should write the shared 0/8/8/0/4 position offsets and direction-2 signed velocity tables into the five 16-byte debris records",
@@ -4233,21 +4233,9 @@ mod chunk_01 {
             [
                 ScratchDebrisPieceSub292E {
                     y_velocity_px: 0,
-                    x_velocity_px: -5,
-                    y_pos_px: 0x0080,
-                    x_pos_px: 0x0120,
-                },
-                ScratchDebrisPieceSub292E {
-                    y_velocity_px: 0,
-                    x_velocity_px: -4,
-                    y_pos_px: 0x0088,
-                    x_pos_px: 0x0120,
-                },
-                ScratchDebrisPieceSub292E {
-                    y_velocity_px: 0,
-                    x_velocity_px: -3,
-                    y_pos_px: 0x0088,
-                    x_pos_px: 0x0128,
+                    x_velocity_px: -1,
+                    y_pos_px: 0x0084,
+                    x_pos_px: 0x0124,
                 },
                 ScratchDebrisPieceSub292E {
                     y_velocity_px: 0,
@@ -4257,9 +4245,21 @@ mod chunk_01 {
                 },
                 ScratchDebrisPieceSub292E {
                     y_velocity_px: 0,
-                    x_velocity_px: -1,
-                    y_pos_px: 0x0084,
-                    x_pos_px: 0x0124,
+                    x_velocity_px: -3,
+                    y_pos_px: 0x0088,
+                    x_pos_px: 0x0128,
+                },
+                ScratchDebrisPieceSub292E {
+                    y_velocity_px: 0,
+                    x_velocity_px: -4,
+                    y_pos_px: 0x0088,
+                    x_pos_px: 0x0120,
+                },
+                ScratchDebrisPieceSub292E {
+                    y_velocity_px: 0,
+                    x_velocity_px: -5,
+                    y_pos_px: 0x0080,
+                    x_pos_px: 0x0120,
                 },
             ],
             "ASM loc_293A (kid.asm:4887) should fall through to `unk_2A24`/`unk_2A2E` when `d6` is neither 0, 1, nor 2",
@@ -4276,22 +4276,10 @@ mod chunk_01 {
             scratch_debris_pieces_sub_292E(&queue, 0),
             [
                 ScratchDebrisPieceSub292E {
-                    y_velocity_px: -1,
-                    x_velocity_px: -4,
-                    y_pos_px: 0x0080,
-                    x_pos_px: 0x0120,
-                },
-                ScratchDebrisPieceSub292E {
-                    y_velocity_px: -1,
-                    x_velocity_px: -3,
-                    y_pos_px: 0x0088,
-                    x_pos_px: 0x0120,
-                },
-                ScratchDebrisPieceSub292E {
                     y_velocity_px: 0,
-                    x_velocity_px: -3,
-                    y_pos_px: 0x0088,
-                    x_pos_px: 0x0128,
+                    x_velocity_px: -5,
+                    y_pos_px: 0x0084,
+                    x_pos_px: 0x0124,
                 },
                 ScratchDebrisPieceSub292E {
                     y_velocity_px: 1,
@@ -4301,9 +4289,21 @@ mod chunk_01 {
                 },
                 ScratchDebrisPieceSub292E {
                     y_velocity_px: 0,
-                    x_velocity_px: -5,
-                    y_pos_px: 0x0084,
-                    x_pos_px: 0x0124,
+                    x_velocity_px: -3,
+                    y_pos_px: 0x0088,
+                    x_pos_px: 0x0128,
+                },
+                ScratchDebrisPieceSub292E {
+                    y_velocity_px: -1,
+                    x_velocity_px: -3,
+                    y_pos_px: 0x0088,
+                    x_pos_px: 0x0120,
+                },
+                ScratchDebrisPieceSub292E {
+                    y_velocity_px: -1,
+                    x_velocity_px: -4,
+                    y_pos_px: 0x0080,
+                    x_pos_px: 0x0120,
                 },
             ],
             "ASM loc_297A (kid.asm:4910) should select `unk_2A10`/`unk_2A1A` when `tst.w d6` sees the zero direction",
@@ -4322,20 +4322,8 @@ mod chunk_01 {
                 ScratchDebrisPieceSub292E {
                     y_velocity_px: -1,
                     x_velocity_px: -2,
-                    y_pos_px: 0x0080,
-                    x_pos_px: 0x0120,
-                },
-                ScratchDebrisPieceSub292E {
-                    y_velocity_px: -1,
-                    x_velocity_px: 0,
-                    y_pos_px: 0x0088,
-                    x_pos_px: 0x0120,
-                },
-                ScratchDebrisPieceSub292E {
-                    y_velocity_px: 0,
-                    x_velocity_px: 0,
-                    y_pos_px: 0x0088,
-                    x_pos_px: 0x0128,
+                    y_pos_px: 0x0084,
+                    x_pos_px: 0x0124,
                 },
                 ScratchDebrisPieceSub292E {
                     y_velocity_px: 1,
@@ -4344,10 +4332,22 @@ mod chunk_01 {
                     x_pos_px: 0x0128,
                 },
                 ScratchDebrisPieceSub292E {
+                    y_velocity_px: 0,
+                    x_velocity_px: 0,
+                    y_pos_px: 0x0088,
+                    x_pos_px: 0x0128,
+                },
+                ScratchDebrisPieceSub292E {
+                    y_velocity_px: -1,
+                    x_velocity_px: 0,
+                    y_pos_px: 0x0088,
+                    x_pos_px: 0x0120,
+                },
+                ScratchDebrisPieceSub292E {
                     y_velocity_px: -1,
                     x_velocity_px: -2,
-                    y_pos_px: 0x0084,
-                    x_pos_px: 0x0124,
+                    y_pos_px: 0x0080,
+                    x_pos_px: 0x0120,
                 },
             ],
             "ASM loc_296C (kid.asm:4904) should select `unk_2A38`/`unk_2A42` when `d6 == 1`",
@@ -4364,22 +4364,10 @@ mod chunk_01 {
             scratch_debris_pieces_sub_292E(&queue, 0),
             [
                 ScratchDebrisPieceSub292E {
-                    y_velocity_px: -1,
-                    x_velocity_px: -3,
-                    y_pos_px: 0x0080,
-                    x_pos_px: 0x0120,
-                },
-                ScratchDebrisPieceSub292E {
-                    y_velocity_px: -1,
-                    x_velocity_px: -3,
-                    y_pos_px: 0x0088,
-                    x_pos_px: 0x0120,
-                },
-                ScratchDebrisPieceSub292E {
                     y_velocity_px: 0,
                     x_velocity_px: -3,
-                    y_pos_px: 0x0088,
-                    x_pos_px: 0x0128,
+                    y_pos_px: 0x0084,
+                    x_pos_px: 0x0124,
                 },
                 ScratchDebrisPieceSub292E {
                     y_velocity_px: 1,
@@ -4390,8 +4378,20 @@ mod chunk_01 {
                 ScratchDebrisPieceSub292E {
                     y_velocity_px: 0,
                     x_velocity_px: -3,
-                    y_pos_px: 0x0084,
-                    x_pos_px: 0x0124,
+                    y_pos_px: 0x0088,
+                    x_pos_px: 0x0128,
+                },
+                ScratchDebrisPieceSub292E {
+                    y_velocity_px: -1,
+                    x_velocity_px: -3,
+                    y_pos_px: 0x0088,
+                    x_pos_px: 0x0120,
+                },
+                ScratchDebrisPieceSub292E {
+                    y_velocity_px: -1,
+                    x_velocity_px: -3,
+                    y_pos_px: 0x0080,
+                    x_pos_px: 0x0120,
                 },
             ],
             "ASM loc_2988 (kid.asm:4916) should select `unk_29FC`/`unk_2A06` when `cmpi.w #2,d6` matches exactly",
@@ -4414,13 +4414,13 @@ mod chunk_01 {
         assert_eq!(
             pieces.map(|piece| (piece.x_pos_px, piece.y_pos_px)),
             [
-                (0x0132, 0x0086),
-                (0x0132, 0x008E),
-                (0x013A, 0x008E),
-                (0x013A, 0x0086),
                 (0x0136, 0x008A),
+                (0x013A, 0x0086),
+                (0x013A, 0x008E),
+                (0x0132, 0x008E),
+                (0x0132, 0x0086),
             ],
-            "ASM loc_2994 should add the shared `unk_29E8`/`unk_29F2` offsets onto `x_pos(a3)` and `y_pos(a3)` in piece order before advancing `a1` by `$10` bytes",
+            "ASM loc_2994 should add the shared `unk_29E8`/`unk_29F2` offsets with d7 descending from 4 to 0 before advancing `a1` by `$10` bytes",
         );
     }
 
@@ -4442,7 +4442,7 @@ mod chunk_01 {
         );
         assert_eq!(
             scratch_debris_pieces_sub_292E(&queue, SUB_28FC_SLOT_COUNT - 1)[0].x_velocity_px,
-            -5,
+            -1,
             "ASM sub_292E should keep using the selected direction table right up to the wrapping sixth slot",
         );
     }

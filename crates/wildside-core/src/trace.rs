@@ -5444,15 +5444,15 @@ mod tests {
         // fractions do not carry into the rendered world pixel.
         runtime.queue_prize_diamond_award_at_screen_offset(0x0064_C000, 0x0050_C000);
 
+        let trace = runtime.trace_frame();
+        assert!(
+            trace.floating_items.is_empty(),
+            "ASM PrizeDiamondCollected_Init loc_FE3E is not PrizeDiamond_Init's block-spawn worker",
+        );
         assert_eq!(
-            runtime.trace_frame().floating_items,
-            vec![(
-                0x0084,
-                0x0054,
-                0x01F4,
-                terrain::PrizeContent::Diamond.to_id()
-            )],
-            "ASM loc_FEFE rebuilds collected-prize world x/y with word additions after loc_FEEE's cached screen-coordinate step",
+            trace.prize_diamond_hud_flights_loc_fe3e,
+            vec![(0x0084, 0x0054, 0x01F4)],
+            "ASM loc_FEFE rebuilds the collected-prize world words while retaining a presentable HUD-flight Sprite_Table entry",
         );
     }
 
@@ -8253,6 +8253,44 @@ impl NativeRuntime {
                 state.y_velocity
             }
         });
+        let prize_diamond_hud_flights_loc_fe3e = self
+            .pending_prize_diamond_hud_flights
+            .iter()
+            .map(|flight| {
+                // ASM PrizeDiamondCollected_Init loc_FE3E (kid.asm:21143)
+                // reprojects its cached camera-relative arc before the next
+                // Sprite_Table build. This is distinct from PrizeDiamond_Init:
+                // its initial frame is already presentable.
+                let arc_step = PrizeCollectedArcHibernateStepLocFEEE {
+                    next_screen_x_fp: flight.screen_x_fp,
+                    next_screen_y_fp: flight.screen_y_fp,
+                    screen_x_word: Self::high_word_from_i32(flight.screen_x_fp),
+                    screen_y_word: Self::high_word_from_i32(flight.screen_y_fp),
+                };
+                let loop_counter = u16::from(flight.remaining_delay.saturating_sub(1));
+                let world_step = Self::prize_collected_world_step_loc_FEFE(
+                    arc_step,
+                    Self::high_word_from_i32(camera_state.x_pos as i32),
+                    Self::high_word_from_i32(camera_state.y_pos as i32),
+                    loop_counter,
+                );
+                debug_assert_eq!(world_step.next_loop_counter, loop_counter.wrapping_sub(1));
+                debug_assert_eq!(
+                    world_step.should_loop,
+                    flight.remaining_delay > 1,
+                    "ASM loc_FEFE DBF loops until the final visible hibernate tick",
+                );
+                let elapsed = u16::from(
+                    NativeRuntime::PRIZE_DIAMOND_AWARD_DELAY_FRAMES
+                        .saturating_sub(flight.remaining_delay),
+                );
+                (
+                    world_step.world_x_word,
+                    world_step.world_y_word,
+                    0x01F4u16.saturating_sub(elapsed),
+                )
+            })
+            .collect();
         NativeTraceFrame {
             frame_index: self.frame_index,
             time_frames_loc_3038a: self.time_frames_loc_3038a,
@@ -8308,6 +8346,9 @@ impl NativeRuntime {
             } else {
                 self.progression.current_form.helmet_id()
             },
+            hud_transform_target_helmet_id: (!hidden_boot_progression
+                && self.progression.form_change_flash_frames > 0)
+                .then_some(self.progression.current_form.helmet_id()),
             red_stealth_sword_timer: if hidden_boot_progression {
                 0
             } else {
@@ -8319,6 +8360,9 @@ impl NativeRuntime {
                 self.helmet.red_stealth_airborne_slash_counter
             },
             cyclone_flying: !hidden_boot_progression && self.helmet.cyclone_flying,
+            cyclone_grounded_sprite_source: (!hidden_boot_progression)
+                .then_some(self.helmet.cyclone_grounded_sprite_source)
+                .flatten(),
             paused: self.paused || self.demo_1_late_controller_pause_active(),
             pause_menu_option: if self.paused {
                 self.pause_menu_option
@@ -8360,6 +8404,7 @@ impl NativeRuntime {
                     .diamond_frame_table_byte_offset_loc_5d4a(),
             ),
             hud_timer_sprite_seconds_loc_bee8: Some(self.hud_timer_sprite_seconds_loc_bee8),
+            hud_diamond_count_loc_bdc0: Some(self.hud_diamond_count_loc_bdc0),
             hud_life_frame_offset: Some(self.hud_animation_state.life_frame_offset_fb5e),
             hud_life_icon_vram_page_loc_4586: Some(self.hud_life_icon_vram_page_loc_4586),
             berzerker_charging: if hidden_boot_progression {
@@ -8790,6 +8835,12 @@ impl NativeRuntime {
                 .iter()
                 .map(|e| (e.x_px, e.y_px, e.remaining, e.direction))
                 .collect(),
+            block_destroy_ice_effects: self
+                .block_destroy_effects
+                .iter()
+                .filter(|e| e.pending_ice_origin_nudge)
+                .map(|e| (e.x_px, e.y_px))
+                .collect(),
             block_debris_pieces: if self.block_debris_sprite_pieces_sub_2a4c.is_empty() {
                 {
                     self.block_debris_swarms
@@ -8831,44 +8882,6 @@ impl NativeRuntime {
                     let y_px = (f.y_pos >> 16) as u16;
                     (x_px, y_px, f.remaining, f.content.to_id())
                 })
-                .chain(self.pending_prize_diamond_hud_flights.iter().map(|flight| {
-                    // ASM PrizeDiamondCollected_Init loc_FE3E (kid.asm:21143)
-                    // flies the sprite toward screen x=$126/y=$30 using cached
-                    // camera-relative `$3E/$42`, then rebuilds world x/y from
-                    // the current camera before drawing.
-                    let arc_step = PrizeCollectedArcHibernateStepLocFEEE {
-                        next_screen_x_fp: flight.screen_x_fp,
-                        next_screen_y_fp: flight.screen_y_fp,
-                        screen_x_word: Self::high_word_from_i32(flight.screen_x_fp),
-                        screen_y_word: Self::high_word_from_i32(flight.screen_y_fp),
-                    };
-                    let loop_counter = u16::from(flight.remaining_delay.saturating_sub(1));
-                    let world_step = Self::prize_collected_world_step_loc_FEFE(
-                        arc_step,
-                        Self::high_word_from_i32(camera_state.x_pos as i32),
-                        Self::high_word_from_i32(camera_state.y_pos as i32),
-                        loop_counter,
-                    );
-                    debug_assert_eq!(world_step.next_loop_counter, loop_counter.wrapping_sub(1));
-                    debug_assert_eq!(
-                        world_step.should_loop,
-                        flight.remaining_delay > 1,
-                        "ASM loc_FEFE DBF loops until the final visible hibernate tick",
-                    );
-                    let x_px = world_step.world_x_word;
-                    let y_px = world_step.world_y_word;
-                    let elapsed = u16::from(
-                        NativeRuntime::PRIZE_DIAMOND_AWARD_DELAY_FRAMES
-                            .saturating_sub(flight.remaining_delay),
-                    );
-                    let remaining = 0x01F4u16.saturating_sub(elapsed);
-                    (
-                        x_px,
-                        y_px,
-                        remaining,
-                        terrain::PrizeContent::Diamond.to_id(),
-                    )
-                }))
                 .chain(self.pending_prize_clock_hud_flights.iter().map(|flight| {
                     // ASM loc_FF92 (kid.asm:21260) advances the collected
                     // clock's cached screen-space words before reprojecting
@@ -8891,6 +8904,9 @@ impl NativeRuntime {
                     )
                 }))
                 .collect(),
+            floating_items_transferred_loc_901: Vec::new(),
+            prize_diamond_hud_flights_loc_fe3e,
+            prize_diamond_hud_flight_transferred_loc_fe3e: false,
             clock_prize_animation_swaps_loc_10796: self
                 .clock_prize_animation_swaps_loc_10796
                 .clone(),
@@ -8946,6 +8962,7 @@ impl NativeRuntime {
             } else {
                 None
             },
+            transform_source_hitpoints_loc_bdc0: self.progression.transform_source_hitpoints,
             stomped_this_frame: self.stomped_this_frame,
             blocks_hit_this_frame: self.blocks_hit_this_frame,
             sound_test_play_pending: self.sound_test_play_pending,
@@ -12247,6 +12264,16 @@ impl NativeRuntime {
         self.prize_block_worker_tails
             .iter()
             .filter(|tail| {
+                let own_live_prize = || {
+                    self.floating_items.iter().find(|item| {
+                        !item.collected
+                            && item.level_col == tail.cell_x
+                            && item.level_row == tail.cell_y
+                    })
+                };
+                // The distant-diamond suppression below is diamond-specific
+                // (see its comment); a same-cell non-diamond prize must not
+                // stand in for the tail's own live diamond.
                 let own_live_diamond = || {
                     self.floating_items.iter().find(|item| {
                         !item.collected
@@ -12264,13 +12291,21 @@ impl NativeRuntime {
                             self.progression.current_form.half_width(),
                         )
                     });
+                // ASM sub_1007A (kid.asm:21512-21536) allocates the flash and
+                // Prize_Init workers, then deletes its own worker on the same
+                // wake. Non-diamond prizes therefore replace, rather than add
+                // to, the stale block-worker slot in Number_of_Objects.
+                let suppressed_by_own_non_diamond_prize = tail
+                    .content
+                    .is_some_and(|content| content != terrain::PrizeContent::Diamond)
+                    && own_live_prize().is_some();
                 // ASM PrizeDiamond_Init (kid.asm:21604) creates the
                 // count-visible diamond object through the standard collision
                 // path. Published demo probes show the old sub_1007A block
                 // worker remains counted only while its own diamond is already
                 // in Kid's horizontal collision band; distant live diamonds
                 // replace only their matching stale worker count.
-                !suppressed_by_own_distant_diamond
+                !suppressed_by_own_distant_diamond && !suppressed_by_own_non_diamond_prize
             })
             .count()
     }

@@ -13024,14 +13024,16 @@ fn spawn_block_debris_common_sub_292E(
 
     let direction_index = usize::from(direction.min(3));
     for piece_index in 0..SUB_292E_PIECE_COUNT {
+        // ASM loc_2994 indexes its tables with descending d7 (4..0).
+        let source_index = SUB_292E_PIECE_COUNT - 1 - piece_index;
         let base = SUB_292E_SLOT_PIECES_OFFSET + piece_index * SUB_292E_PIECE_STRIDE_BYTES;
-        let y_velocity_bytes = SUB_292E_Y_VELOCITIES[direction_index][piece_index].to_be_bytes();
-        let x_velocity_bytes = SUB_292E_X_VELOCITIES[direction_index][piece_index].to_be_bytes();
+        let y_velocity_bytes = SUB_292E_Y_VELOCITIES[direction_index][source_index].to_be_bytes();
+        let x_velocity_bytes = SUB_292E_X_VELOCITIES[direction_index][source_index].to_be_bytes();
         let y_pos_bytes = y_pos_px
-            .wrapping_add(SUB_292E_Y_OFFSETS[piece_index])
+            .wrapping_add(SUB_292E_Y_OFFSETS[source_index])
             .to_be_bytes();
         let x_pos_bytes = x_pos_px
-            .wrapping_add(SUB_292E_X_OFFSETS[piece_index])
+            .wrapping_add(SUB_292E_X_OFFSETS[source_index])
             .to_be_bytes();
 
         slot[base..base + 2].copy_from_slice(&y_velocity_bytes);

@@ -3573,6 +3573,11 @@ mod chunk_11 {
             !rt.helmet.cyclone_flying,
             "ASM loc_818A: `sf (Cyclone_flying).w` — landing must clear Cyclone flight flag"
         );
+        assert_eq!(
+            rt.helmet.cyclone_grounded_sprite_source,
+            Some(CycloneGroundedSpriteSource::Walk3),
+            "ASM loc_AB0A/loc_AB4A: sub_DB22 clears flight without sub_942A overwriting the retained landing mapping"
+        );
     }
 
     /// ASM loc_818A (kid.asm:8934): the double `sf (Cyclone_flying).w` in ASM

@@ -2716,6 +2716,7 @@ mod tests {
             game_mode_value: mode.as_disassembly_value(),
             time_frames_loc_3038a: 0,
             island_shore_post_visible_dma_latch_loc_1202a: false,
+            floating_items_transferred_loc_901: Vec::new(),
             start_press_count: 6,
             boot_phase: None,
             boot_phase_elapsed: None,
@@ -2738,6 +2739,7 @@ mod tests {
             red_stealth_sword_timer: 0,
             red_stealth_airborne_slash_counter: 0,
             cyclone_flying: false,
+            cyclone_grounded_sprite_source: None,
             paused: false,
             pause_menu_option: 0,
             kid_x_pos: Some(0x0020_0000),
@@ -2753,6 +2755,7 @@ mod tests {
             hud_diamond_frame_offset: None,
             hud_diamond_vram_page_loc_5d4a: None,
             hud_timer_sprite_seconds_loc_bee8: None,
+            hud_diamond_count_loc_bdc0: None,
             hud_life_frame_offset: None,
             hud_life_icon_vram_page_loc_4586: None,
             berzerker_charging: false,
@@ -2841,6 +2844,8 @@ mod tests {
             prize_block_spawn_flashes: Vec::new(),
             kid_projectile_hit_sparks: Vec::new(),
             floating_items: Vec::new(),
+            prize_diamond_hud_flights_loc_fe3e: Vec::new(),
+            prize_diamond_hud_flight_transferred_loc_fe3e: false,
             clock_prize_animation_swaps_loc_10796: Vec::new(),
             continue_prize_animation_swaps_loc_1080a: Vec::new(),
             enemy_death_effects: Vec::new(),
@@ -2849,7 +2854,10 @@ mod tests {
             stomped_this_frame: false,
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,
+            hud_transform_target_helmet_id: None,
+            block_destroy_ice_effects: Vec::new(),
             transform_source_helmet_id_loc_7ca6: None,
+            transform_source_hitpoints_loc_bdc0: None,
             blocks_hit_this_frame: 0,
             sound_test_play_pending: false,
             gameplay_debug_fields: std::collections::BTreeMap::new(),
@@ -12134,6 +12142,25 @@ mod tests {
             render_trace.hud_diamond_frame_offset,
             Some(4),
             "ASM Kid_Transform loc_7CD0 hibernates gameplay while Mode_Level loc_80C still reaches sub_44DC; oracle frames keep the visible HUD diamond one unk_461C page behind the post-update previous trace"
+        );
+    }
+
+    #[test]
+    fn transform_cleanup_uses_current_hud_diamond_page_loc_7e90() {
+        let mut previous = sample_trace(GameMode::DemoPlay);
+        previous.current_level = LevelId(0x00);
+        previous.hud_diamond_frame_offset = Some(4);
+        previous.form_change_flash_frames = 2;
+
+        let mut trace = previous.clone();
+        trace.hud_diamond_frame_offset = Some(6);
+        trace.form_change_flash_frames = 1;
+
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
+
+        assert_eq!(
+            render_trace.hud_diamond_frame_offset, trace.hud_diamond_frame_offset,
+            "ASM Kid_Transform loc_7E90 clears Currently_transforming before the final cleanup VBlank, so sub_44DC loc_4626's current $DD40 DMA page is visible"
         );
     }
 

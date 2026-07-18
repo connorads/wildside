@@ -11,6 +11,18 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #415
+
+Resolved 2026-07-17 without a platform or carry-loop change. The current
+published-TAS state/enemy report has zero authoritative, advisory,
+accumulation, RNG, or enemy-roster differences across all 37,759 frames.
+Focused enemy-frontier comparison at the first historical sample (frame 7918)
+also matches the roster with no retained plank platform. The historical
+Hoverboard Beach mismatch is therefore absent in the current integrated
+implementation; `loc_26A2`/`loc_26B6`/`loc_26C0`/`loc_26FE` remains untouched.
+
+---
+
 ### #407
 
 Opened 2026-07-16: a full-route control run on clean main (at 9c8a1fcf4)
@@ -30,7 +42,104 @@ are attributed: run the full pixel pass at 5b6d74d88 for its per-frame set,
 diff against the current per-frame set, then bisect the five commits on the
 flipped frames' focused windows.
 
+Rejected 2026-07-17: at the current worst RGB frame 7794, oracle VDP dumps
+show identical Plane-B row uploads at frames 7793 and 7794, but
+`BackgroundScroll_ComputeShiftLayers loc_3050A` exposes current
+`Time_Frames=736` in its H-scroll word `$032D`. Rendering all auto-scroll
+rows from that current clock improves the local boundary but regresses the
+full route to 24,926 exact / 12,833 mismatch frames / 5,277,156 changed
+pixels, with worst frame 7794 rising to 4,607 pixels. The established
+previous-VDP-phase renderer is therefore retained. The remaining fault needs
+a row-specific presented-H-scroll/VDP boundary model, not a global clock
+change. State, CRC, enemy and RNG parity remain exact.
+
+Investigation 2026-07-17: frame 7794's 3,912-pixel raw-VDP difference is
+2,811 pixels of Island shore. Oracle Object_RAM (`loc_12098`) proves native
+and ROM agree at Demo 2 frame 7600, then native skips exactly one shore worker
+pass before frame 7700. At frame 7794 the ROM has
+`w44/w46/w48,d3/d2/d1=(3,9,20,2,2,4)` and resident bands `(1,1,3)`; native
+has `(4,1,1,2,1,3)` and `(1,0,2)`. Rendering `(1,1,3)` reduces that frame to
+93 pixels but breaks 7792-93, proving the correction must be the missing
+execution pass, not a renderer override. Rejected a literal DMA-byte-offset
+copy: the extracted shore assets omit the ROM's two-byte `dc.w $17` header, so
+the existing tile-aligned asset boundary already represents the `+2/$C2/$162`
+DMA sources; shifting it regresses adjacent frames above 9,000 pixels. Narrow
+the first skipped pass between 7600 and 7700 before modifying the Demo 2
+scheduler.
+
 ### #408
+
+Progress 2026-07-17: frame 1347's 326-pixel cluster is the pre-debris smash
+worker, not a five-piece debris swarm. ASM `sub_10EDA loc_10F2A` maps the 2x2
+`$224` sprite and hibernates for two frames before `sub_292E`; ice's
+`sub_10F9C loc_10FEC` equivalently uses `$276` for three. Native now retains
+the ice identity after its one-time origin nudge, exports a typed
+`block_destroy_ice_effects` trace list, and draws the appropriate mapped
+worker until the shared debris scratch slot begins. The first Sprite_Table
+latch reduces this sequence but is not exact: direct RGB AE remains
+252/355/321/457 at frames 1347..1350, so allocation timing crosses an earlier
+trace boundary than ordinary GfxObjects. Do not tune it by hand. Full TAS
+preserves CRC/gameplay/enemy/RNG parity and improves from 5,928,942 to
+5,922,344 changed pixels (25,029 exact / 12,730 mismatch frames); still above
+the 5,707,854 ratchet.
+
+Progress 2026-07-17: corrected the remaining block-smash Sprite_Table hand-off.
+`sub_10EDA` first maps `unk_E0E4E`/`$220` at the source origin, then applies
+the direction nudge before `loc_10F2A` maps `$224`; `sub_10F9C` analogously
+uses `$23D` then `$276`. `sub_292E` debris positions are current-update state,
+but `Mode_Level loc_901` displays the prior Sprite_Table, so the renderer
+latches existing debris, retains only a vanished final worker, and suppresses
+that worker's just-seeded debris on the hand-off. Gfx-object priority order puts
+these workers before Kid, so their sprite commands are inserted before the Kid
+command. Oracle RGB frames 1346..1351 are exact (previously 1,385 changed
+pixels). Full `verify-tas-full` is green: all 37,759 gameplay/CRC/enemy frames
+and all 37,743 post-init RNG frames match, with 25,077 exact / 12,682 divergent
+RGB frames and 5,551,988 changed pixels - 370,356 fewer than the prior full run
+and below the 5,707,854 ratchet. #408 remains open for the broader per-object
+animation-timer work.
+
+Progress 2026-07-17: oracle WRAM dumps at published-TAS frames 4728..4740
+identified nine simultaneous Diamond prize GfxObjects (`object_meta=$64`).
+Their `animation_timer(a3)`/`addroffset_sprite(a3)` cursors differ, but
+`stru_10D6E` aliases `LnkTo1..4_unk_E0E66` to the same `$6F2` VRAM sprite.
+The visible art is therefore the resident `sub_44DC`/`sub_5D4A` HUD-DMA page,
+not an object-local cursor. `scene.rs` now selects that recorded page for
+floating Diamond prizes, retaining the local script only where no VDP page is
+available. Frames 4728..4740 are pixel-exact (12/12). The full TAS holds all
+state/enemy/RNG parity and improves to 25,029 exact / 12,730 mismatch frames /
+5,928,942 changed pixels, from 5,933,950; it remains above the 5,707,854
+ratchet. Regression: `floating_prize_diamond_visibility_and_frame_timing_follow_loc_10396_103b2`.
+
+Rejected 2026-07-17: seeding Diamond's extracted `sprite_animation_phase`
+from zero at activation and incrementing it every scheduler frame makes the
+first focussed cluster (4728..4740) diverge on all 12 frames (12,942 pixels,
+first frame 4728 = 918). `GfxObject_Animate` is still the correct ROM model,
+but the phase must be initialised from the object slot's actual
+`animation_timer(a3)`/script cursor, not a native activation counter.
+
+Follow-up 2026-07-17: oracle SAT/VRAM probes for the Level 0x1B Cyclone prize
+showed that `loc_102B8` holds the previous P sprite for remaining 25/24, then
+presents `$2CF` through remaining 20 before `$2D8`. The `$2D8` VRAM page equals
+the decoded block-art source. `Mode_Level` transfers the prior Sprite_Table to
+VDP before `Execute_Objects` wakes `loc_104AE`; although
+`Make_SpriteFromGfxObject` later writes the post-step y to WRAM, the displayed
+frame uses the preceding integer y. Native therefore derives that display lag
+from the shared `$0320` countdown. The trace worker removes `loc_102B8` after
+its final page, but the transferred Sprite_Table still displays that `$2EA`
+entry for one VBlank. Native retains only a prior `remaining=1` flash whose
+worker is absent from the current trace; it does not latch normal page
+boundaries. Focused frames 1018..1057 are RGB-exact. The full 37,759-frame
+run retains zero gameplay, enemy, and RNG differences and improves the prior
+candidate's 5,951,727 changed pixels to 5,939,819, but it remains above the
+5,707,854 pixel ratchet. It is uncommitted; the new first residual is frame
+1058's 267-pixel HUD/transform presentation.
+
+Rejected 2026-07-17: suppressing `loc_102B8`'s final `$2EA` page at trace
+`remaining=1` was an attractive frame-1046 explanation, but the focused
+1018..1062 oracle pass added the same 189-pixel mismatch at frame 1045 and
+left frame 1046 mismatched. The trace counter alone cannot represent this
+display boundary. Keep the four-frame script mapping and derive the remaining
+composition from an explicit displayed-Sprite_Table timeline.
 
 Follow-up 2026-07-16: narrowed the Cyclone member with oracle WRAM watches.
 At route frames 4198..4212, native `walk_visual_accumulator` (`$FFFFF8F0`)
@@ -44,6 +153,64 @@ phase sequence exactly matches oracle. Full TAS then improved from 24,903 exact
 divergent / 5,740,342 changed pixels, with CRC, RNG, gameplay and enemy parity
 still exact. The committed pixel baseline was ratcheted. Remaining #408 work is
 prize/effect animation only; do not revert the Cyclone second visual pass.
+
+Rejected 2026-07-17: a fresh Level 0x1B probe made frame 1351's four-pixel
+Cyclone difference look like a duplicate `loc_B2A0` update: oracle
+`$FFFFF8F0` values at 1346..1355 were `21B,0EB,29B,12B,29B,0EB,21B,2AB,01B,06B`.
+Removing the second native `kid_airborne_visual_sub_B270` call made the
+ASM-cited unit regression change from `$170` to `$138`, but a freshly recorded
+published route retained the same native sequence (`243,02B,103,1CB,283,02B,
+0C3,10B,143,16B`): the outer gameplay path invokes it twice. Its focused RGB
+window also remained non-exact (0/543/0/4/11/613 changed pixels at
+1348..1353). Keep the second visual pass. Trace the ROM call sites around
+`Mode_Level` before changing this shared accumulator again.
+
+Confirmed 2026-07-17: a repeat oracle watch removes the last uncertainty in
+that rejection. At frames 1346..1355, `Cyclone_YAcceleration` is
+`E200,E600,EA00,EE00,F200,F600,FA00,CE00,D200,D600`; each `$FFFFF8F0`
+transition is exactly two `loc_B2A0` deltas modulo `$300`. For example, with
+`E600`, the 16-bit `neg; addi #$2000; asl #2; lsr #8` delta is `$E8`, and
+`$21B + $E8 + $E8 = $0EB` after the ROM's single `$300` wrap. The two visual
+updates are authoritative for this route even though the responsible higher
+level call path remains to be named. Do not reduce the pass count again.
+
+Rejected 2026-07-17: `PrizeHelmetCyclone_Init` does install the one-frame
+`stru_106E8` script, but forcing every helmet prize's extracted source-art
+sheet to frame zero is not the displayed VDP model. The focused 1346..1355
+window stayed 0/0/0/0/0/4/11/24/22/12 changed pixels, including frame 1351,
+while the full authoritative route preserved all state, enemy, and RNG parity
+but regressed RGB from 4,800,160 to 4,810,361 changed pixels. The global-frame
+selection is still an approximation, but this static-frame replacement is not
+valid; retain it until the relevant VRAM/Sprite_Table residency is traced.
+
+Progress 2026-07-17: modelled the remaining ordinary prize cursor directly.
+`PrizeAnkh_Init loc_1071E`, `PrizeClock_Init loc_FF4E`, and
+`PrizeContinue_Init loc_107B4` replace their one-frame initial animation with
+`stru_10C0E`/`stru_10C1E`/`stru_10C2E` when `d3=$012C`; `GfxObject_Animate
+loc_1158/sub_1194` then runs six visible ticks followed by six null ticks.
+The renderer now derives that gate from each prize's own remaining lifetime,
+never `frame_index`. The published TAS contains no currently visible sample of
+this late prize state: full comparison stays at 25,113 exact / 12,646 divergent
+frames / 4,810,361 changed pixels, with all 37,759 gameplay, enemy, CRC, and
+RNG frames exact. Keep #408 open for the remaining dynamic object scripts.
+
+Rejected 2026-07-17: the current route's first remaining RGB mismatch, frame
+1351 at screen rectangle 163..164 x 94..104, is not a fresh dynamic-object
+target. A 1348..1355 enemy-frontier `tas-diff` has exact state on every frame
+and an empty object roster at frame 1351; the Cyclone's double
+`sub_B270 loc_B2A0` update therefore remains the already-confirmed behaviour,
+not a candidate for another animation-clock change. Do not use this frame to
+seed or tune a generic `GfxObject_Animate` cursor. The next #408 investigation
+needs a rendered mismatch with a concrete live object/script identity.
+
+Rechecked 2026-07-17: the current full published-route RGB report still first
+differs at frame 1351 by four pixels in the same `163..164 × 94..104` box.
+A fresh `tas-diff --frontier-kind enemy` over frames 1000..1080 is state-exact,
+and the previously checked 1348..1355 slice still has no live object at frame
+1351. The generic `GfxObject_Animate` hypothesis has no current object/script
+target. #408 returns to the open queue until a rendered mismatch identifies
+one; do not retry the confirmed Cyclone double `sub_B270` pass or seed a
+cursor from this frame.
 
 ### #412
 
@@ -78,7 +245,77 @@ presented frames, and `sub_1007A`'s copied `$229` page survives tail
 5,707,854 changed pixels. Frame 1022's stale `P` overlay is next; the 1023-24
 flash CRAM-residency difference remains separate.
 
+Rejected 2026-07-16: spawning the non-diamond `Prize_Init` item on the
+restored-cell wake made frame 1022 exact (-197 pixels) because the oracle
+Sprite_Table already contains the prize. It is not a valid gameplay fix:
+the full TAS first diverged authoritatively at frame 1057, then accumulated
+145,272 state diffs, 32,977 RNG mismatches, and 157,406,620 changed pixels.
+Keep the original object lifecycle. A second render-only trace probe surfaced
+Cyclone `(72,576,$0320)` during `Restored`, but produced 455 changed pixels at
+1022 (+258 over the 197-pixel baseline): its ordinary helmet art/residency path
+is not the oracle Sprite_Table entry. The remaining 1023-24 discrepancy needs
+the VDP/CRAM residency timeline.
+
+Rejected 2026-07-16: applying the existing two-page `$FFFFFA5D` offset-path
+lead to the resident `$DD40` diamond page is not valid. On the controlled
+published-route window 1057..1058 it changed the baseline from one 39-pixel
+diamond mismatch at 1058 to 129 changed pixels across both frames. Resident
+page and cursor have different presentation timing; derive the former from
+oracle VRAM/frame evidence rather than reusing the cursor lead.
+
+Rejected 2026-07-17: `DiamondPower_Main_CircleOfDoom loc_3F880` sprites use
+the `$6F2` HUD diamond window, but replacing their base sheet with the sampled
+`sub_5D4A` resident page is not a valid presentation model. It changes
+published-TAS frame 35829 from red to the oracle's brown family but still
+differs in the diamond pattern; the full pass regresses from 4,810,361 to
+4,926,095 changed pixels. The recorded page is not the displayed raster page.
+Keep the base-sheet renderer until the ordered `$DD40` FIFO/raster visibility
+timeline exists under #409.
+
+Rejected 2026-07-16: the first Diamond-local animation-clock slice reused
+`grounded_frames` as `stru_3ACA8` elapsed ticks and surfaced it through
+`sprite_animation_phase`. The controlled 1749..1751 window was not
+Diamond-isolated - 3,905 changed pixels across large multi-effect grids - so
+it cannot establish the phase origin or justify a runtime-state reuse. Reverted
+without a full pass. Next: capture a Diamond-only oracle window before wiring
+the generic `GfxAnimationState` model.
+
+Rejected 2026-07-16: a temporary settled Level `0x03` Diamond probe patched
+both `start_position=(720,128)` and `camera_position=(600,0)`, intending to
+centre `Diamond.asm`'s `(792,95)` instance. Native and oracle already differed
+in player and terrain presentation at frame 0, so their position/camera probe
+patches do not share a presentation latch. Its six-tick captures cannot measure
+`GfxObject_Animate` phase. Do not use patched-camera DynamicScenarios for this
+renderer clock; obtain a natural-route window instead.
+
+Probe 2026-07-16: oracle slot `$1058` proves the Cyclone hand-off sequence:
+`Prize_Init` (`$10330`) occupies it at frame 1021, `PrizeHelmetCyclone_Init`
+(`$104B2`) at 1022, and linked GfxObject `$2610` starts at `(72,576)` before
+its first `sub_10C38` `$1388` Y delta at 1023. Moving native's ordinary prize
+spawn from `PendingClear` to the end-of-frame `Restored` finisher made frame
+1022 exact (first pixel mismatch 1023, 87 px), confirming the allocation
+boundary. Resolved 2026-07-16: `GfxObjects_CollisionKid` uses the Cyclone
+object's 31px upper collision extent and latches at 1057; `PrizeHelmet*`
+loc_104AE/loc_105D6 wakes on 1058 and supplies the pending helmet before the
+Kid dispatch. Native now runs `sub_7ACC` before normal movement on that wake,
+so its target-form wall-space check produces the oracle x=$48 position and
+starts `Kid_Transform`. The full 37,759-frame TAS has zero authoritative
+gameplay, enemy, or RNG differences. The remaining 1023-24 discrepancy is
+strictly live flash art/CRAM residency; do not delay `sub_10C38` motion or
+mask the render.
+
 ### #409
+
+Follow-up 2026-07-17: source review pins the exact ordering boundary. `Mode_Level`
+(`kid.asm:901-924`) transfers Sprite_Table/Kid art, palette and scroll, builds
+HUD sprites, then executes object and collision paths before `sub_44DC`.
+`sub_44DC` itself emits the already-native life upload at `loc_4586` before
+the diamond upload at `loc_4626 -> sub_5D4A`; the missing fact is not command
+order or a resident-page policy. Its variable pre-HUD execution workload has
+no typed native ledger, so the exploratory `activation`/`stationary`/`moving`
+classification cannot safely become a cycle constant. Keep #409 in progress:
+inventory source-backed VDP work producers before constructing gameplay
+`VdpRasterFrame` writes. No pixel patch or commit.
 
 Probe 2026-07-16: recaptured the HUD DMA FIFO at published-route frames
 902, 908, 914, and 920 across both `$4620` and `$DD40` ranges. The diamond
@@ -87,6 +324,208 @@ in VBlank. The native trace stores only the post-frame resident pages and the
 renderer has no gameplay raster-write timeline, so neither icon can choose its
 visible page from existing state. Do not add a mode, level, or frame-count
 page rule. Model ordered gameplay VDP/FIFO commits and raster visibility first.
+
+Follow-up 2026-07-17: `Kid_Transform` begins after `sub_44DC` has queued the
+frame-1058 `$DD40` upload. HUD rendering prefers the resident DMA-page trace
+field over the `FA5D` offset, so rewinding only the latter was inert. Latching
+both to the prior visible `unk_461C` page makes frame 1061 exact. Focused
+oracle comparison over frames 1018..1062 is 41/44 exact; remaining clusters
+are frame 1058 player extent (228 px), 1059 HUD-life pips (52 px), and 1060
+HUD-life pips (156 px). Do not reintroduce the first-transform current-player
+trial: it measured 620 changed pixels at frame 1058.
+
+Follow-up 2026-07-17: `Make_SpriteAttr_HUD loc_BDC0` keeps the old-form HP
+capacity through the first transform VBlank, but `Kid_Transform loc_7C40`
+loads the new helmet sprite page immediately. `PrizeHelmetCyclone loc_104AE`
+has also woken once through `sub_10C38` before the synchronous `sub_8E0`
+VBlank loop removes the collected worker from native state. Rendering the
+current helmet, retaining the pre-update HP count, and carrying the prize
+worker at its next integer y while retaining its animation countdown makes
+frames 1058..1061 exact. The full published route improves from 24,971 exact
+frames / 5,939,819 changed pixels to 25,018 / 5,933,950; all 37,759 state,
+enemy, CRC, and RNG comparisons remain exact. The candidate is still above
+the 5,707,854-pixel ratchet, so #409 remains open and uncommitted.
+
+Rejected 2026-07-17: frame 1130 is a 39-pixel HUD-diamond-only mismatch while
+the surrounding transform frames are exact. Rewinding the resident `$DD40`
+page one additional step only on the final transform VBlank worsens it to 84
+pixels; the residual is not a simple final-page lead. Preserve the current
+page latch and investigate the final `sub_8E0` HUD/Sprite_Table timing instead.
+
+Rejected 2026-07-17: using the previous resident `$DD40` selector only when
+the transform countdown is one makes focused frame 1130 exact, but the full
+route regresses from 25,018 exact frames / 5,933,950 pixels to 25,017 /
+5,933,956. The final VBlank has form-specific presentation timing; do not
+encode a global final-countdown resident-page rule.
+
+Follow-up 2026-07-17: the 12 final-transform frames confirm the rejected rule
+is not recoverable by the resident selector alone: it fixes 1130 (39→0) and
+improves 13907/17640, but worsens 4113, 7685, and 11279. Identical selector
+offsets occur on both sides. The missing discriminator is earlier VBlank/FIFO
+state, not form, countdown, or `$FFFFFA5D` page offset.
+
+Follow-up 2026-07-17: `sub_8E0` (kid.asm:1006) builds sprites, waits VInt,
+transfers sprites/palette, then builds HUD attributes; it never calls
+`sub_44DC`. Native route frames 1129/1130 both expose frozen selector/page
+`FA5D=6`/`DD40=12`, while the renderer repeatedly maps the selector backward
+to page 10. The required model is a page latch at transform-coroutine entry,
+not a per-hibernation selector rewind.
+
+Rejected 2026-07-17: suppressing the final displayed transform sprite from
+`loc_7D5A`'s visible-flag clear worsens the VDP capture at route frame 7685.
+That clear targets a resident GfxObject whose lifecycle is not represented by
+the trace player's draw command; it is not permission to omit the rendered
+HelmetDefault sprite.
+
+Probe 2026-07-17: a second natural HUD transition confirms that the missing
+state is an ordered raster event, not an icon/page policy. At route frame 3903
+the `$DD40..$DF3F` diamond upload commits 256 words only on scanlines 257..260;
+at frame 3909 it commits the same 256 words across scanlines 0..261, with 246
+words during active display. Both arise from `sub_44DC loc_45EE/loc_4626`, while
+the RAM cursor advances `FA5D:6→0` then `0→2`. A single resident-page selector
+cannot represent the partially rewritten 2x2 HUD sprite at scanline 34.
+`VdpRasterFrame` already has the correct renderer-side abstraction, but gameplay
+must first emit the ordered `$DD40` and `$4620` writes with a workload-derived
+start position. Do not add selector leads or transition tables.
+
+Follow-up 2026-07-17: a contiguous natural-route FIFO probe at 3880..3915
+rules out using the HUD selector or active roster as a timing proxy. The same
+256-word `$DD40` upload begins/ends at 3885 `5:76..33:204` (all 256 visible),
+3891 `258:372..5:268` (52 visible), 3897 `258:400..6:172` (59 visible), 3903
+`257:404..260:196` (zero visible), 3909 `260:380..27:108` (246 visible), and
+3915 `260:190..23:156` (211 visible). The six samples have the expected
+`FA58=6` expiry and normal selector progression; the route's object roster is
+empty. A correct implementation therefore needs a gameplay VDP event stream
+that records pre-scanout VRAM and ordered HUD upload words, scheduled from the
+actual Mode_Level workload/cycle model. Rejected alternatives: selector lead,
+form/countdown rule, object-count rule, and a recorded-route timing table.
+
+Progress 2026-07-17: native now preserves the exact frame-local `sub_44DC`
+commands as the exploratory `hud_dma_events_sub_44dc` trace field, in ROM
+order: life `loc_4586` (`$4620`, 64 words) then diamond `loc_4626 -> sub_5D4A`
+(`$DD40`, 256 words). Targeted trace regressions pin both individual events and
+`mise run audit-debug-fields` reports all 94 emitted keys registered. This is
+instrumentation only - it deliberately does not choose scanline timing or alter
+pixels. Next derive the FIFO start from actual Mode_Level workload and promote
+the event stream into typed `VdpRasterFrame` writes; do not use the debug event
+as a new selector/timing heuristic.
+
+Probe 2026-07-17: the oracle FIFO journal now records both entry to the FIFO
+and the visible commit. The 256-word `$DD40` upload windows are 3885
+`enqueue 5:34..33:46 / commit 5:76..33:204`, 3891
+`258:358..5:110 / 258:372..5:268`, 3897
+`258:386..6:30 / 258:400..6:172`, 3903
+`257:390..260:184 / 257:404..260:196`, 3909
+`260:322..26:334 / 260:380..27:108`, and 3915
+`260:174..23:14 / 260:190..23:156`. Every sample queues and commits all 256
+words; the varying enqueue window proves that the missing input is the work
+before `Mode_Level` reaches `sub_44DC`, not FIFO-only delay. `Mode_Level`
+orders sprite, palette, scroll, object, and collision work before that call.
+Next: represent those pre-HUD DMA/work phases as a typed native raster-timing
+ledger, then use its events to construct `VdpRasterFrame` writes.
+
+Follow-up 2026-07-17: the FIFO enqueue journal now also stamps the issuing
+M68K PC and cumulative cycle counter, with each retained row carrying its
+frame-end counter. All six `$DD40` uploads issue from `sub_5D4A` PC `$005D9E`.
+Measured work from the preceding frame boundary to that enqueue is: frame 3885
+17,135 cycles (Kid first becomes live), 3891 13,098, 3897 13,146, 3903 12,650
+(stationary player), 3909 14,029, and 3915 13,871 (moving player). Enemy and
+platform rosters are empty throughout. The native ledger must therefore model
+the player lifecycle/movement execution phase before `sub_44DC`, not use an
+object count, selector, or a frame table. The oracle records the raw timing;
+the native core must expose typed work facts before any cycle conversion.
+
+Follow-up 2026-07-17: the native trace now classifies that pre-HUD player work
+as `activation`, `stationary`, or `moving` beside a real `sub_44DC` event. The
+3885/3891/3897/3903/3909/3915 route probe matches the lifecycle buckets above.
+A full frame-3903 enqueue trace fixes the VDP command ordering by issue time:
+palette `$09A6`, scroll `$300C6/$300D2/$30104`, HUD `$5D9E`, then Sprite_Table
+and Kid `$0AA0/$0B30`; this is a DMA/FIFO ordering fact, not permission to
+reorder Mode_Level's gameplay work. Frame 1351, the first remaining #406 RGB
+frontier, has no `$DD40` enqueue - the next HUD upload is frame 1352. #409
+therefore cannot explain that four-pixel Cyclone residual, though it remains
+the engine-level fix for the later HUD transitions. Do not conflate the two
+frontiers or add a Cyclone/HUD selector rule.
+
+Rejected 2026-07-17: the exploratory player-work classification cannot
+calibrate a native FIFO scheduler. The two natural `moving` samples already
+span 13,146 (frame 3897) to 14,029 (frame 3909) M68K cycles before `sub_5D4A`,
+while the empty-roster `stationary` sample is 12,650 (frame 3903). The ROM
+call order is fixed - `Mode_Level` runs sprite, palette, scroll, object, and
+collision work before `sub_44DC` (kid.asm:901-924) - but the native engine has
+no typed accounting for those individual paths. Do not convert the four labels
+into cycle constants or a route table. A valid next slice must first introduce
+an ordered, source-derived pre-HUD workload ledger; until then the existing
+frame-local DMA commands are evidence only and cannot safely change pixels.
+
+Probe 2026-07-17: frame 1351's Sprite_Table DMA `$1000..$127F` begins at
+scanline 225, before visible scanout. The four pixels fall in SAT slot 13
+(`x=158`, `y=87`, tile `$228`), part of the Cyclone display composition, while
+the main Kid DMA is slot 22 (`$625` at VRAM `$C4A0`). Oracle `$C4A0` begins
+with the extracted `cyclone_spinning_1.bin` but its tail differs after byte
+515, proving that the ROM presentation is a mixed resident-art/SAT mapping
+rather than a clean current-frame asset blit. The native renderer draws the
+whole decoded frame directly. Do not change `loc_B2A0` phase or swap a spin
+asset: derive the complete Cyclone Sprite_Table mapping and partial Kid DMA
+residency before patching these pixels.
+
+Correction 2026-07-17: full SAT decoding separates two independent pieces of
+evidence. Slots 22-23 are the low-priority Cyclone body at `$625/$635`, a
+4×5 composition sourced from the partial `$C4A0` Kid DMA. The first RGB
+residual is instead high-priority slot 13, one of ten repeated `$228` tiles
+emitted before Kid (slots 12-21). Its coordinates surround the Cyclone but it
+is not the Kid-art DMA tail. The renderer presently flattens its player
+composition and has no typed provenance for this separate SAT stream. Keep
+the partial-DMA fact for the general presentation model, but trace the
+producer of the `$228` slots before attempting a frame-1351 rendering change.
+
+Progress 2026-07-17: oracle WRAM identifies that producer class. The ten
+`$228` SAT slots come from two live high-priority GfxObjects at `$FFFF2448`
+and `$FFFF2494`, both anchored at world `(0x640,0x350)`, with Data_Index
+offsets `$112C` and `$1140`. They have no normal owner object and precede Kid
+in the GfxObject link chain. Native's renderer exposes no corresponding
+auxiliary GfxObject snapshots, so its flattened player draw cannot preserve
+their ordering or tile coverage. Next: resolve those Data_Index entries and
+model the auxiliary GfxObjects as typed renderer inputs; do not treat them as
+HUD, a Sprite_Table anomaly, or a Cyclone spin-frame substitution.
+
+Correction 2026-07-17: those live GfxObjects resolve to `Flagpole_Boss`'s
+`unk_E0FDE`/`unk_E0FFE` descriptors, but their world x=`$640` is off-screen
+at the frame-1351 camera and cannot emit the displayed `$8228` entries.
+`sub_2A4C` (kid.asm:5053-5182) is the actual producer: oracle scratch slots
+at `$FFFFF01E` contain two active five-piece block-debris swarms. After
+subtracting camera `(205,137)`, their positions exactly equal SAT slots 12-21
+(including slot 13 at `(158,87)`). Native's trace carries the same two active
+five-piece swarms. Its renderer deliberately latches their positions from the
+prior trace; replacing all ten with current positions worsens frame 1351 from
+four to 471 changed pixels, so that broad latch remains. The residual is only
+the rightmost pixels of the two `$8228` tiles at x=164, rows 94/103/104. Next:
+compare those tile nibbles and their Sprite_Table ordering/residency; do not
+alter Cyclone, flag, generic culling, or the whole debris latch.
+
+Rejected 2026-07-17: presenting all current debris coordinates with the
+current camera worsens frame 1351 to 370 pixels; presenting current coordinates
+against the ordinary prior scroll latch worsens it to 471. The existing broad
+debris latch remains the closest model. Investigate only the two residual SAT
+entries, not a whole-stream timing replacement.
+
+Rejected 2026-07-17: replacing only the newest five-piece scratch slot with
+current-camera coordinates reduces the frame to 183 changed pixels, but still
+contradicts the four-pixel baseline. Scratch-slot age alone is not the
+presentation boundary. Keep the old whole-stream latch until a direct SAT
+entry model can account for sprite overlap and priority.
+
+Rejected 2026-07-17: the first typed timing input is too coarse. A fresh
+oracle/native recheck confirms the six `$DD40` windows and maps them to native
+`activation` (3885), `stationary` (3891/3897/3903), and `moving`
+(3909/3915) classifications. The three stationary frames still enqueue at
+258:358, 258:386, and 257:390, so that enum cannot derive an H40 FIFO start.
+Also, `NativeRuntime::vdp_state()` is deliberately `None` in gameplay: the
+source-port path renders a scene, while `VdpRasterFrame` only exists for shell
+VDP snapshots. Do not promote the debug command into a guessed scanline rule
+or add a parallel partial-HUD compositor. The next valid change must first
+expose the actual ordered Mode_Level work/DMA sequence as typed data and give
+the gameplay presentation path an owned raster boundary.
 
 ### #410
 
@@ -106,7 +545,174 @@ selects the previous trace's timer Sprite_Table value during ordinary gameplay.
 the flagpole hand-off. Existing core and frame tests cover both source paths;
 the live row was stale.
 
+### #413
+
+Rejected 2026-07-17: the archived 22-pixel route-frame-36783 Plane-B seam is
+not reproducible from the current release renderer. Fresh native/oracle scene
+captures at 36782..36784 differ by 69,886/70,629/70,637 pixels respectively,
+far beyond the recorded cluster. `sub_307D8 loc_30840` does source its row
+column from the packed `Horiz_Scroll_Data` word, while current
+`row_for_trace` separately exposes that value only in diagnostics; however,
+the stale visual baseline cannot validate a source-column patch. Regenerate a
+current full mismatch report and use its matching build before changing the
+Plane-B history.
+
+Correction 2026-07-17: those captures used `--scene`, which is not the
+gate's `source_port_visible_rgb24_v1` projection. A fresh full route report
+and default VDP captures reproduce 129/22/0 changed pixels at frames
+36782..36784. Replacing `row_for_trace`'s upload source column with the packed
+`Horiz_Scroll_Data >> 3` value did not change the seam, so that patch was
+reverted. The recorded cluster is current; retain the existing source-column
+calculation until a distinct ASM-backed cause is found.
+
+Reconfirmed 2026-07-17: the current full report (`4,017,011` changed pixels)
+and fresh default-projection captures again give frame 36782 = 129 pixels,
+36783 = 22 pixels, and 36784 = exact. This is a stable Plane-B history case,
+not the `--scene` compositor mismatch. `sub_307D8 loc_30840` already has the
+right source-column arithmetic, so the next probe must compare the native row
+history with oracle Plane-B VRAM for the live camera/scroll words; do not retry
+the packed-column replacement.
+
+Correction 2026-07-17: the fresh native trace makes the preceding conclusion
+invalid. Route frames 36782..36784 are `IntroSequence2` with camera `(0,0)`,
+no gameplay objects, and no level Plane-B path; the 129/22/0 pixel cluster is
+an intro presentation mismatch. Do not read `$6000` Plane-B rows or change
+`sub_307D8` from these frames. Re-triage #413 only from a current mismatch
+whose trace is live gameplay with a chunked Plane-B background.
+
+Rechecked 2026-07-17: current frame 13697 is live Demo 1 gameplay, but its
+only residue is three pixels at the right edge (`x=319,y=141..144`). The
+current renderer calculates the Forest ripple rows directly from the same
+`loc_30598..loc_3060A` loop; default native/oracle captures are visually
+coincident and reveal no distinct source-column, wrap, or row-history
+discrepancy. Do not change Plane-B wrapping from this residual. Reopen only
+with a source-proven row-history difference.
+
 ### #406
+
+Progress 2026-07-17: oracle direct VDP samples disprove the remaining frame-1508
+priority theory. `PrizeDiamond_Init loc_10396` uses resident `$6F2` art, and
+the native trace must retain its preceding flight sample only after the initial
+`$01F4` hand-off. A selective same-content/nearest-position latch makes focused
+frames 1505..1512 exact without regressing the Cyclone helmet prize at 1028.
+Full `verify-tas-full` improves from 26,137 exact / 11,622 divergent /
+3,789,046 changed pixels to 26,340 / 11,419 / 3,633,785, moving the first
+residue to frame 1520. The ratchet was updated after review. Frame 1520..1525
+is a Kid-only SAT cluster: oracle SAT #0C changes from x=157/y=144/tile `$629`
+at 1519 to x=156/y=141/tile `$625` at 1520. Rejected: global current Kid
+fields, Player-object, and camera sources each regress the preceding airborne
+sequence (the camera trial changes full-plane pixels). Preserve the prior
+Sprite_Table latch and derive the exact post-landing Kid source boundary.
+
+Investigation 2026-07-17: `ScriptRunner::try_for_each_frame` does supply the
+raw pre-step trace, and the scene helper intentionally replaces it with the
+prior VDP/Sprite_Table latch. A one-frame 1518..1526 RGB probe confirms six
+Kid-only mismatches (2,306 pixels): native and oracle player/camera CRCs are
+exact, but the native post-landing Kid SAT art differs. The ROM's
+`loc_AB0A/loc_AB4A -> sub_DB22 -> loc_8BF0` clears `is_animated` and preserves
+the incoming `addroffset_sprite` through that transfer; `sub_942A loc_95DA`
+then owns the later walking mapping. Native traces expose scalar position,
+velocity, and phase but not that selected mapping. Do not infer it from a
+coordinate delta or velocity threshold: add a typed Kid mapping/Sprite_Table
+source latch at the actual post-landing write boundary.
+
+Dead end 2026-07-17: `Make_SpritesFromGfxObjects sub_1492` sets the Kid base
+to `$625`; oracle SAT #0C through 1520..1525 follows the current world/camera
+delta but a Player-only compensation in the prior camera space regresses 36 of
+100 focused frames, beginning at 1500. The native `NativeObjectSnapshot` for
+Kid has no `addroffset_sprite`/mapping value, so neither current nor prior
+coordinates establish the source pose. Do not retry current-object or
+coordinate compensation. Capture or model Kid's selected mapping at the
+post-landing boundary first.
+
+Follow-up 2026-07-17: `render_trace_with_vdp_latched_state` receives an
+already camera-latched `previous_trace`; around 1518..1525 its current and
+previous camera words are identical despite the oracle VDP scroll advancing.
+The helper cannot derive the required scroll delta, so a Player-only
+coordinate adjustment is unobservable there. Preserve the helper and expose
+the pre-latch VDP scroll/source at its caller before revisiting coordinates.
+
+Rejected 2026-07-17: frame 1508's three-pixel RGB residue is not a stale
+`$DD40` diamond page. Oracle VRAM `$DD40..$DF3F` hashes to
+`diamond_3.bin`, matching native's selector `$08`; frame 1507 similarly
+matches `diamond_2.bin`. Layer captures isolate the mismatch: native's
+block-override layer has the same grey pixel as oracle, then the effects layer
+paints the resident diamond's gold/red pixel above it. Converting all diamond
+prizes to `SatSprite`, or reversing the `loc_102B8` spawn-flash draw order,
+both turn the otherwise exact 1507..1509 window into 84 changed pixels;
+making the flash a normal sprite has no effect. Do not apply a global SAT or
+flash ordering rule. Derive the concrete block-override/prize Sprite_Table
+source relation and priority mask at this overlap first.
+
+Progress 2026-07-17: `Allocate_GfxObjectSlot` clears the collected diamond's new GfxObject before `PrizeDiamondCollected_Init loc_FE3E` writes its world words. Native now discards pickup subpixels before calculating the HUD arc. The focused 1404..1442 slice improves from 26 exact / 12 divergent to 32 / 6, with its first residue at frame 1411 (37 pixels). Full RGB improves to 26,124 exact frames, 11,635 divergent frames, and 3,791,584 changed pixels; the pixel ratchet matches. `verify-tas-full` is otherwise blocked by 24 object-count oracle limitations around diamond pickups while its state baseline expects zero. This coordinate-only correction does not alter object lifecycle. #406 remains open.
+
+Progress 2026-07-17: `sub_292E loc_2994` starts with `d7=4`; its `dbf`
+loop therefore writes the five scratch records with table indices 4,3,2,1,0,
+not 0,1,2,3,4. Oracle `$FFFFF01E` at frame 1351 confirms that order for both
+active swarms and `sub_2A4C` then maps them to SAT slots 12-21. Native now
+uses that order in both runtime debris initialisation and the scratch-queue
+fallback. The remaining 21 pixels were only overlapping `$8228` tiles: the
+software compositor paints later commands over earlier commands, opposite to
+VDP SAT priority, so it submits the source-order SAT sequence backwards.
+The focused capture of frame 1351 is now 0 changed pixels. Source tests pin
+the DBF record order and software SAT submission order; `verify-slice-fast`
+reports zero authoritative differences and no CRC mismatch through the
+published 0..3400 frontier. Re-run the complete RGB pass before selecting the
+next visual frontier; do not replace the established prior Sprite_Table latch.
+
+Full verification 2026-07-17: `verify-tas-full` passes all 37,759 requested
+frames with zero authoritative, advisory, accumulation, RNG, and
+oracle-limitation differences, no player/camera CRC mismatch, and complete
+pixel coverage. The RGB report improves to 25,159 exact / 12,600 mismatch
+frames / 4,801,189 changed pixels. Its new first mismatch is frame 1397 (231
+pixels); frame 1351 is exact. Continue #406 from frame 1397 with an oracle
+capture and ASM trace.
+
+Correction 2026-07-17: oracle frame 1397's 231-pixel 16x16 cluster is SAT
+slot 29 at `(144,111)`, mapping `$229`. It is the final retained
+`sub_1007A`/`stru_101B6` prize-block GfxObject, not a Maniaxe prize: the
+parent object uses `PrizeHelmetManiaxe_Init`, but `sub_10CEC` has replaced its
+GfxObject with the generic block worker. Native records that renderer-only
+tail as `remaining=4`, while the renderer admitted only `3` and `2`. Oracle
+frames 1395..1397 retain `$229`; allowing `2..=4` makes a focused frame-1397
+scene capture pixel-exact (0 changed pixels). A unit test pins the `4`
+boundary. Full TAS verification is running before the next frontier is chosen.
+
+Full verification 2026-07-17: the correction preserves exact authoritative,
+enemy-frontier, CRC, and per-frame RNG parity across all 37,759 frames. RGB
+improves to 25,165 exact frames and 4,785,979 changed pixels; the next
+frontier is frame 1399 (274 pixels). Its SAT has a `$2CF` spawn flash, `$6F2`
+diamond, and `$224` worker. The `$224` entry's owner is Object_RAM `$1058`,
+handler `Block_LoadSmashBits → sub_10EDA loc_10F2A`, cell `(22,14)`, direction
+`2`, hibernation count `2`. Native's same frame has no `block_destroy_effect`
+despite the matching block/prize tail, so do not change the generic tail
+mapping to mimic it. Trace the missing native producer/event first.
+
+Investigation 2026-07-17 (current RGB frontier): the full report is now
+25,113/37,759 exact frames, 12,646 changed frames, and 4,810,361 changed
+pixels; its first difference is frame 1351, four pixels at x=163..164,
+y=94..104. Native and oracle player position, velocity, movement, facing and
+RNG match at frames 1346..1355. The pixels lie inside the flying Cyclone sprite
+and are only shade-2 versus shade-3 substitutions, not a coordinate shift.
+The Cyclone frame bucket is also unchanged: both current phase values select
+`unk_BA55A` (`cyclone_spinning_1.bin`). This rules out a new object-local
+animation cursor and changing the confirmed two `sub_B270 loc_B2A0` updates.
+`Mode_Level` transfers the prior Sprite_Table and Kid DMA before executing the
+player/object work (kid.asm:901-924; `Transfer_SpriteAndKidToVRAM` at
+kid.asm:1235-1313), so the remaining symptom is partial/resident VRAM
+presentation. Continue with the typed VDP workload/raster model in #409; do
+not add a Cyclone selector or phase rule from this four-pixel frontier.
+
+Rejected 2026-07-17: advancing every `DeferredPrizeBlockPhase::Deleted`
+entry into `Restored` on its zero-count wake, then allowing `FreshSmash`
+through `sub_BB54`, appears locally consistent with `sub_1007A loc_10120`.
+It is not a valid engine rule: the published route diverges authoritatively
+before frame 1397 and produces 38k-pixel frame differences. The direct
+FreshSmash unit path can dispatch `Block_LoadSmashBits`, but native reaches
+the `(22,14)` frontier while the lifecycle still contains the original Prize
+cell. Derive the object-order hand-off from the ROM's live object traversal;
+do not advance the shared deleted-counter state or enable FreshSmash dispatch
+globally from this one SAT symptom.
 
 Investigation 2026-07-16 (pixel-cluster triage): sampled 65 route frames from
 `mismatch-report.json` (top-25 spatial clusters by px, HUD-region
@@ -179,6 +785,44 @@ lenses (pixel evidence + code/ASM). Artefacts (untracked):
   under #409. Long tail: single-pixel sprite-timing residues (24889, 27908)
   stay under #406; controls 19999/29897 verified pixel-exact. #406 remains
   open as the umbrella pixel-debt tracker.
+
+Investigation 2026-07-17 (#414): published frames 5787 and 8890 are the same
+IntroSequence2 local elapsed (283), not a global presentation tie-break. Oracle
+and native VRAM dumps at Plane-B `$E2B8` show oracle retains `$295E` on frame
+5787 and writes `$C7F8` on 5788, while native wrote `$C7F8` one frame early.
+`loc_1B9D0` allocates the `IntroText2` worker and `loc_1C7A0` hibernates before
+parsing its script, so `INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0[1]` advances
+from 42 to 43. `verify-tas --frame-start 5784 --frame-end 5790
+--checkpoint-interval 1 --include-rng --compare-pixels` is exact at all six
+frames after the correction. Do not generalise this anchor: frame 16630 is an
+IntroSequence5 pose-arm mismatch, 21765 is title flame/text, and 20004 is an
+IntroSequence4 cell.
+
+Follow-up 2026-07-17 (#414 IntroText4): oracle VRAM at published frames
+20000..20006 writes successive `loc_1C7A0` glyph cells on each even frame,
+while native's anchor 39 wrote the same cells one frame later. `sub_1B988`
+allocates IntroText4 before entering `sub_1C204`; anchor 38 makes the focused
+19980..20031 RGB window exact at all 51 frames, with state, enemy, and RNG
+parity unchanged.
+
+Rechecked 2026-07-17 (#414 title text): frame 21764 is exact, then the
+native `Obj_TitleTextChameleon -> sub_1B71A` map advances at frame 21765
+while oracle VRAM `$0900` retains the prior title-plane words through frames
+21765..21766. The resulting delta is the 2,387-pixel `x=51..262,y=154..192`
+CHAMELEON band - not a palette, Robot sprite, or character-pose difference.
+`sub_1B71A` does run after a one-frame hibernate, but the observed scanout is
+a retained-VDP/FIFO boundary; the previously rejected blanket retained-title
+snapshot remains invalid. Do not add a title elapsed/map-index exception.
+Model the ordered title VDP writes and their display boundary before revisiting.
+
+Rejected 2026-07-17 (#414 IntroSequence5): at local elapsed 459, `loc_1C7A0`
+has already deleted IntroText5 and `loc_1BC36` calls `sub_1C034` for frame 7.
+Suppressing native's text replay therefore looked correct, but the focused
+16620..16661 RGB comparison regressed frame 16630 from 1,359 to 3,099 changed
+pixels: it revealed a black Plane-A region where oracle retains alley bricks.
+The synthetic per-frame map lacks the resident tilemap contents that frame 7
+would overwrite. Do not suppress text or adjust pose timing until the
+IntroSequence5 map-residency timeline is modelled.
 
 Investigation 2026-07-15: a consecutive published-TAS FIFO capture over
 frames 896..1000 confirms `sub_44DC loc_45EE/loc_460A -> sub_5D4A`'s same
@@ -1548,6 +2192,182 @@ diamond prizes. Residue: 24 route frames are worse by exactly +44 px each
 what the oracle presents there before widening or narrowing the window. The
 TODO(fidelity) stands: replace the flash-frame boundary with the owned VDP
 DMA-residency timeline. #406 remains open.
+
+Rejected 2026-07-17 (frame 1408 block worker): oracle VRAM/SAT captures at
+1407..1411 prove the state-exact worker at `(160,98)` uses SAT tile `$224`
+at frame 1408, then two `$224` entries at 1409. The static renderer's
+`$220`/source-origin approximation has only 10 changed pixels at 1408.
+Replacing it with the literal `unk_E0E76` `$241` descriptor regressed that
+frame to 220 changed pixels; presenting `$224` at the post-nudge origin
+regressed it to 220 as well. A literal column-major tile remap also regressed
+the 1404..1412 window from 301 to 559 changed pixels. The decompressed
+`Blocks.bin` bytes for `$224` exactly match oracle VRAM.
+
+Correction 2026-07-17 (frame 1408): the 10 differing pixels are under SAT
+slot 35's `$2D8` prize-flash sprite, not the `$224` worker. Oracle VDP samples
+at `157..160/115` report the flash source yet the displayed framebuffer follows
+the concurrent Plane-A composition; all nine `$2D8..$2E0` source tiles match
+decompressed `Blocks.bin`. Moving the complete low-priority flash command
+behind the foreground grid made the focused frame worse (243 changed pixels,
+`21x18` bbox). Do not use a global command reorder or a source-art remap:
+model the VDP's per-pixel plane/sprite presentation boundary before changing
+this calibrated approximation. #406 remains open behind #409's gameplay
+raster work.
+
+Rejected 2026-07-17 (frame 1408 SAT submission): `Allocate_GfxObjectSlot`
+sorts `$A(a3)` ascending (kid.asm:1894-1909), `Make_SpritesFromGfxObjects`
+emits that chain into SAT (kid.asm:2558-2576), and the VDP keeps the first
+opaque sprite pixel. Moving the `$2001` `loc_102B8` flash before the player in
+the software command list therefore looked plausible, but fresh oracle
+comparison over 1404..1412 regressed from four exact / four divergent frames
+(`10/95/102/94` pixels at 1408..1411) to zero exact / eight divergent frames
+(`67..116` pixels). Oracle samples at 157..160/115..118 also show all involved
+Plane A, Plane B, and SAT pixels are low priority, with final ownership varying
+per pixel. Do not reorder the flash globally or relative to Kid. The required
+boundary is a typed SAT submission order plus first-opaque per-pixel sprite
+arbitration before the existing plane-priority compositor can model this
+family.
+
+Rejected 2026-07-17 (frame 1408 renderer arbitration): a pure first-opaque
+sprite compositor did preserve an earlier SAT pixel beneath a high-priority
+plane, but applying it to the current `Scene.commands` list regressed the
+1407..1409 oracle window from one 10-pixel mismatch to 92 changed pixels at
+1407 and 135 at 1408. The scene list is not yet a source-faithful complete SAT
+ordering, so renderer-local VDP arbitration cannot be correct. Reverted. Build
+the typed SAT submission sequence first, then make first-opaque arbitration
+consume that sequence rather than the mixed scene command stream.
+
+Progress 2026-07-17 (frame 1408 typed SAT): `DrawCommand::SatSprite` now
+models the source-proven Kid → `loc_102B8` flash relation from
+`Make_SpritesFromGfxObjects` (kid.asm:2558-2576). Its renderer reserves the
+first opaque SAT pixel while retaining normal plane priority. The focused
+release comparison for frames 1407..1409 is pixel-exact; the 1404..1412 window
+improves to five exact frames and moves the first residual to 1409 (84 px).
+Player/camera, RNG, and enemy checks remain exact. Promoting the nearby
+Block_LoadSmashBits worker to that typed stream regressed the same window to
+zero exact frames (124 px at 1404), so its trace is not the transferred SAT
+source and the trial was reverted. `cargo test -p wildside-frame` has six
+pre-existing unrelated failures; the new SAT regression and player command
+test pass, as does `cargo clippy -p wildside-frame --all-targets -D warnings`.
+Full TAS completed with 25,848 exact frames, 11,911 divergent frames, and
+3,962,487 changed pixels - an improvement of three exact frames and 34,170
+changed pixels. The ratchet now records the first mismatch at frame 1409
+(84 px); state, player/camera CRC, RNG, and enemy parity remain exact.
+
+Rejected 2026-07-17 (frame 1409 `$6F2` identity): SAT slot 22 is a
+high-priority `$86F2` entry before the `$2E1` flash, but it is not native's
+`floating_items` prize-diamond path. Promoting every floating diamond to the
+typed SAT stream regressed frames 1407..1412 to zero exact frames (first 84 px
+at 1407), so the trial was reverted. `DiamondPower_CompileSprites` runs after
+`Make_SpritesFromGfxObjects` (kid.asm:950-954) and is a distinct candidate;
+identify the exact trace producer and transferred-table latch before changing
+that producer.
+
+Rejected 2026-07-17 (frame 1409 collected-diamond HUD flight):
+`PrizeDiamondCollected_Init` does create a priority-1 GfxObject
+(kid.asm:21107-21119), and native exposes its `$3E/$42` arc separately as
+`prize_diamond_hud_flights_loc_fe3e`. Treating only that path as typed SAT
+nevertheless regressed frames 1407..1413 from one exact frame to none, with
+frame 1408 returning to an 84-pixel mismatch and frame 1409 worsening from 84
+to 116 pixels. The `$86F2` entry may share the resident page but this native
+trace projection is not its transferred-table submission source. Reverted;
+trace the source that fills the pre-flash slot rather than widening SAT inputs.
+
+Correction 2026-07-17: a native recording proves that `$86F2` is precisely
+the collected-diamond HUD flight: frame 1409 has
+`prize_diamond_hud_flights_loc_fe3e=(364,224,499)`, which maps to oracle SAT
+slot 22 at screen `(150,104)`. `DiamondPower_CompileSprites` is empty. The
+same oracle table puts the two `$224` `Block_LoadSmashBits` workers after the
+flash. Promoting both the confirmed diamond and those post-flash workers to
+typed SAT still gives the rejected 84/116-pixel window. Thus the unresolved
+boundary is the prior transferred Sprite_Table, not producer identity or the
+scene insertion order. Reverted; add a source-derived transferred-table
+snapshot before changing this family again.
+
+Rejected 2026-07-17 (frame 1408 literal smash mapping): `sub_10EDA` does set
+`$224` after its direction nudge and before hibernation (kid.asm:22815-22839),
+and oracle SAT confirms `$224` at the worker slot. Submitting that literal
+`$224` at the trace position nevertheless worsens frame 1408 from 10 to 210
+changed pixels (bbox `(160,97)-(175,116)`), frame 1409 from 84 to 109, and
+frame 1410 from 85 to 85. The decompressed source tile is therefore not the
+presentation tile consumed by the current extracted block sheet at this
+boundary. Restore the calibrated `$220`/origin approximation; identify the
+resident VRAM tile source or extraction mapping before changing the worker
+again.
+
+Correction 2026-07-17 (frame 1408 resident block art): decoding
+`ingame/artcomp/Blocks.bin` and comparing `$220..$229` against the oracle VRAM
+snapshot shows every 32-byte tile is identical. The extracted source art is
+not the mismatch. Retrying the source-proven `$224` worker as a typed SAT entry
+improves the ordinary-sprite trial (210 -> 98 changed pixels) but still
+regresses the calibrated result, where frame 1408 is exact and frame 1409 is
+84 pixels. The missing input is the transferred Sprite_Table/compositor state,
+not a tile remap. Reverted; do not retry worker tile or SAT substitutions until
+that state is represented.
+
+Rejected 2026-07-17 (generic smash-worker Sprite_Table latch):
+`Block_LoadSmashBits` does allocate its `$2001` GfxObject into the same chain
+as the flash (kid.asm:22781-22784), but cloning the preceding
+`block_destroy_effects` trace alongside normal GfxObjects is wrong. A focused
+1404..1412 oracle run falls from five exact frames with first mismatch 1409
+(84 pixels) to four exact frames with first mismatch 1408 (199 pixels).
+The existing effect trace is already presentation-timed despite representing a
+GfxObject. Reverted after a red-to-green unit characterisation. Do not apply a
+generic previous-frame latch; derive the separate `$86F2` transferred entry or
+the compositor state that owns the residual overlap.
+
+Rejected 2026-07-17 (direct `$86F2` SAT attribute): oracle SAT slot 22 is
+`$86F2`, so the collected-diamond HUD flight does carry palette 0, tile `$6F2`,
+and high priority. Rendering only that current trace as a high-priority typed
+SAT sprite before the low-priority `loc_102B8` flash regresses the 1404..1413
+window from five exact frames / first 1409 (84 pixels) to four exact / first
+1408 (84 pixels). The producer and attribute are correct, but one direct trace
+entry cannot share a compositor with the remaining ordinary scene sprites.
+Reverted; derive a complete transferred SAT sequence before promoting another
+individual entry.
+
+Progress 2026-07-17 (transferred `$86F2` diamond): `PrizeDiamondCollected_Init`
+creates a presentable source on its first frame, but later arc samples are
+transferred from the previous Sprite_Table. Native now retains the creation
+frame, then latches `prize_diamond_hud_flights_loc_fe3e` and marks the result as
+a transferred high-priority SAT `$86F2` entry. This keeps frame 1408 exact and
+reduces the 1404..1442 flight window from 3,901 to 1,703 changed pixels (five
+to nine exact frames). Full TAS improves from 25,848 to 25,870 exact frames and
+from 3,962,487 to 3,802,137 changed pixels, with 11,889 divergent frames.
+The ratchet is updated; the first residual remains frame 1409 at 45 pixels.
+The latch unit test, `cargo clippy -p wildside-frame --all-targets -D warnings`,
+and `backlog-lint` pass.
+
+Progress 2026-07-17 (diamond DMA selector): `sub_5D4A` adds the selector to
+`off_7B0AC`, a longword-pointer table. Oracle VRAM `$6F2` at route frames
+1408..1411 byte-matches `diamond_2` when the selector is `$04`; the old
+selector/2 conversion chose `diamond_3`. Native now uses selector/4. The
+focused 1404..1442 window rises from nine to 26 exact frames, and full TAS
+improves to 26,095 exact / 11,664 divergent / 3,795,776 changed pixels. First
+mismatch advances to frame 1410 (49 pixels); ratchet updated.
+
+Rejected 2026-07-17 (current-arc `$86F2` submission): source SAT coordinates
+appear current at some samples, but using current arc data for every
+post-creation high-priority `$86F2` submission regresses the 1404..1442 window
+from 26 to five exact frames and makes frame 1409 diverge by 128 pixels. The
+transferred-entry timing model remains the calibrated presentation boundary.
+Reverted after focused oracle comparison.
+
+Rejected 2026-07-17 (first-transfer-only `$86F2` timing): retaining the
+previous arc only at the first post-creation sample and switching to current
+arc data thereafter also fails. The 1404..1442 window falls from 26 exact
+frames to six, with a 128-pixel mismatch at frame 1410. Keep the established
+all-transferred presentation path until the complete Sprite_Table boundary is
+represented; do not encode a per-frame crossover.
+
+Rejected 2026-07-17 (literal `Increase_Diamonds` target): the apparent
+`$127,$1F` target in `PrizeDiamondCollected_Init loc_FE3E` is not the route
+worker represented by this native HUD-flight mirror. Replacing its calibrated
+`loc_10988` `$126,$30` velocity with that literal target makes the focused
+1404..1442 slice diverge on 31 frames (4,114 changed pixels), from frame 1411
+through 1434. The existing target produces the smaller transferred-entry
+residue. Reverted; identify the actual object producer before altering this
+shared mirror.
 
 ### #405
 
@@ -14495,6 +15315,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 415 | [x] | P1 | platforms/enemy | Hoverboard Beach totem platform/carry divergence is absent in the integrated published-TAS state and enemy projections. | 37,759 state/enemy checkpoints exact; frame 7918 roster matches. See archive #415. |
 | 405 | [x] | P2 | verification | TAS reports and gates name the CRC projection and state that it proves neither pixels nor whole state. | Projection contract ratcheted. See archive #405. |
 | 404 | [x] | P2 | verification | Published TAS comparison directly checks `Current_player` and ROM `Two_player_flag` every frame. | 37,759 typed checkpoints exact. See archive #404. |
 | 403 | [x] | P2 | enemy/fidelity | Tar Monster burst children use exact Gfx collision latches, hitboxes, and contact-axis-only fixed-point clamps through cleanup. | Level 0x64 frames 134-338 exact. See archive #403. |

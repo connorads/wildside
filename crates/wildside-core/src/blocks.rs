@@ -1908,17 +1908,23 @@ impl NativeRuntime {
     ) -> BlockDebrisSwarmSub2A4C {
         let velocities = Self::block_debris_velocity_sub_292e(direction);
         BlockDebrisSwarmSub2A4C {
-            pieces: core::array::from_fn(|index| BlockDebrisPieceSub2A4C {
-                // ASM sub_292E (kid.asm:4881) seeds word x/y positions and
-                // x/y velocities; sub_2A4C then treats them as 16.16 longs.
-                x_pos_fp: i32::from(x_px)
-                    .saturating_add(i32::from(Self::BLOCK_DEBRIS_BASE_X_SUB_292E[index]))
-                    << 16,
-                y_pos_fp: i32::from(y_px)
-                    .saturating_add(i32::from(Self::BLOCK_DEBRIS_BASE_Y_SUB_292E[index]))
-                    << 16,
-                x_velocity_fp: i32::from(velocities[index].0) << 16,
-                y_velocity_fp: i32::from(velocities[index].1) << 16,
+            pieces: core::array::from_fn(|index| {
+                // ASM loc_2994 enters with `d7=4`; `dbf d7,loc_2994` walks
+                // every velocity/position table backwards through indices
+                // 4,3,2,1,0. Scratch-record order is observable in the SAT.
+                let source_index = Self::BLOCK_DEBRIS_BASE_X_SUB_292E.len() - 1 - index;
+                BlockDebrisPieceSub2A4C {
+                    // ASM sub_292E (kid.asm:4881) seeds word x/y positions and
+                    // x/y velocities; sub_2A4C then treats them as 16.16 longs.
+                    x_pos_fp: i32::from(x_px).saturating_add(i32::from(
+                        Self::BLOCK_DEBRIS_BASE_X_SUB_292E[source_index],
+                    )) << 16,
+                    y_pos_fp: i32::from(y_px).saturating_add(i32::from(
+                        Self::BLOCK_DEBRIS_BASE_Y_SUB_292E[source_index],
+                    )) << 16,
+                    x_velocity_fp: i32::from(velocities[source_index].0) << 16,
+                    y_velocity_fp: i32::from(velocities[source_index].1) << 16,
+                }
             }),
         }
     }
@@ -3417,6 +3423,17 @@ impl NativeRuntime {
                                     y_px: entry.row.saturating_mul(16).saturating_sub(8),
                                     remaining: Self::PRIZE_BLOCK_SPAWN_FLASH_FRAMES,
                                 });
+                                if entry.content == terrain::PrizeContent::Diamond {
+                                    // ASM PrizeDiamond_Init (kid.asm:21604)
+                                    // clears `is_moved`, so its fourth
+                                    // displayed sub_1007A tail frame overlaps
+                                    // the restore-and-spawn hand-off. Advance
+                                    // the data lifecycle here while the tail
+                                    // remains visible; generic prizes retain
+                                    // their following wake.
+                                    grid.set_cell_at(entry.col, entry.row, entry.restore_cell);
+                                    entry.phase = DeferredPrizeBlockPhase::Restored;
+                                }
                             }
                         }
                         true
@@ -3431,8 +3448,16 @@ impl NativeRuntime {
                         true
                     }
                     DeferredPrizeBlockPhase::PendingClear
-                    | DeferredPrizeBlockPhase::PendingClearPrizeSpawned
-                    | DeferredPrizeBlockPhase::FreshSmash => true,
+                    | DeferredPrizeBlockPhase::PendingClearPrizeSpawned => true,
+                    DeferredPrizeBlockPhase::FreshSmash => {
+                        if entry.content == terrain::PrizeContent::Diamond {
+                            // ASM sub_1007A writes `$E001` after Kid in the
+                            // fourth tail frame; PrizeDiamond_Init first runs
+                            // on the following wake, alongside Smash Bits.
+                            early_spawned_prizes.push(Self::floating_item_from_prize_clear(entry));
+                        }
+                        true
+                    }
                 });
         }
         self.floating_items.extend(early_spawned_prizes);
@@ -3463,10 +3488,11 @@ impl NativeRuntime {
         let mut retained_entries = Vec::new();
         for mut entry in std::mem::take(&mut self.block_state.deferred_ceiling_clears) {
             match entry.phase {
-                DeferredPrizeBlockPhase::Deleted | DeferredPrizeBlockPhase::Restored => {
+                DeferredPrizeBlockPhase::Deleted => {
                     retained_entries.push(entry);
                 }
-                DeferredPrizeBlockPhase::PendingClear
+                DeferredPrizeBlockPhase::Restored
+                | DeferredPrizeBlockPhase::PendingClear
                 | DeferredPrizeBlockPhase::PendingClearPrizeSpawned => {
                     if entry.reveal_only {
                         // ASM loc_101D8 (kid.asm:21459): disguised prize
@@ -3495,7 +3521,12 @@ impl NativeRuntime {
                     if Self::is_helmet_prize(entry.content) {
                         self.clear_existing_helmet_prizes_for_sub_10cec();
                     }
-                    if entry.phase == DeferredPrizeBlockPhase::PendingClear {
+                    if matches!(
+                        entry.phase,
+                        DeferredPrizeBlockPhase::Restored | DeferredPrizeBlockPhase::PendingClear
+                    ) && !(entry.content == terrain::PrizeContent::Diamond
+                        && entry.phase == DeferredPrizeBlockPhase::Restored)
+                    {
                         spawned_items.push(Self::floating_item_from_prize_clear(&entry));
                     }
                     // ASM sub_7196 creates Kid with priority #1, while
@@ -4540,7 +4571,11 @@ impl NativeRuntime {
     pub(crate) fn collect_floating_items(&mut self, slice: &mut OpeningSliceState) {
         use crate::constants::{PLAYER_HALF_WIDTH, PLAYER_HEIGHT};
         const PLAYER_PRIZE_PICKUP_HEIGHT: i32 = (PLAYER_HEIGHT + 1) / 2;
-        const HELMET_OBJECT_COLLISION_MIN_DY_PX: i32 = -17;
+        // ASM GfxObjects_CollisionKid (kid.asm:3310) uses the helmet's
+        // collision-size sub-box, whose upper edge reaches 31px above Kid's
+        // origin for the Cyclone object. The published TAS latches at
+        // frame 1057 with the sprite origin 31px above Kid.
+        const HELMET_OBJECT_COLLISION_MIN_DY_PX: i32 = -31;
 
         let collision_anchor = self
             .last_kid_frame_collision_handoff_probe
@@ -4683,7 +4718,11 @@ impl NativeRuntime {
                 }
             }
 
-            if overlap_x && overlap_y {
+            // ASM PrizeHelmet* loc_10464..loc_106B4 deletes through the
+            // GfxObject collision latch on its next hibernated wake. Unlike
+            // resident-art prizes, a helmet must not also take this generic
+            // lower-body pickup path on the latch frame.
+            if overlap_x && overlap_y && !Self::is_helmet_prize(item.content) {
                 // ASM loc_FF92 and loc_1000A / loc_1001E (kid.asm:21260,
                 // 21302-21312) hibernate the collected clock object from its
                 // cached camera-relative `$3E/$42` words before the timer award
@@ -5332,12 +5371,11 @@ impl NativeRuntime {
         self.block_debris_sprite_pieces_sub_2a4c.clear();
 
         for e in &mut self.block_destroy_effects {
-            if e.pending_ice_origin_nudge {
+            if e.pending_ice_origin_nudge && e.remaining == 4 {
                 let (x_px, y_px) =
                     Self::ice_block_destroy_effect_origin_sub_10F9C(e.direction, e.x_px, e.y_px);
                 e.x_px = x_px;
                 e.y_px = y_px;
-                e.pending_ice_origin_nudge = false;
             }
             e.remaining = e.remaining.saturating_sub(1);
         }
@@ -5421,24 +5459,42 @@ impl NativeRuntime {
             self.block_debris_scratch_cursor_sub_292e = 0;
         }
 
-        let deleted_collision_latched_prize_form = self
+        let deleted_collision_latched_prize = self
             .floating_items
             .iter()
             .filter(|f| f.collision_latched)
             .find_map(|f| match f.content {
-                terrain::PrizeContent::Skycutter => Some(PlayerForm::Skycutter),
-                terrain::PrizeContent::Cyclone => Some(PlayerForm::Cyclone),
-                terrain::PrizeContent::RedStealth => Some(PlayerForm::RedStealth),
-                terrain::PrizeContent::Eyeclops => Some(PlayerForm::Eyeclops),
-                terrain::PrizeContent::Juggernaut => Some(PlayerForm::Juggernaut),
-                terrain::PrizeContent::IronKnight => Some(PlayerForm::IronKnight),
-                terrain::PrizeContent::Berzerker => Some(PlayerForm::Berzerker),
-                terrain::PrizeContent::Maniaxe => Some(PlayerForm::Maniaxe),
-                terrain::PrizeContent::Micromax => Some(PlayerForm::Micromax),
+                terrain::PrizeContent::Skycutter => {
+                    Some((f.content, PlayerForm::Skycutter, f.x_pos, f.y_pos))
+                }
+                terrain::PrizeContent::Cyclone => {
+                    Some((f.content, PlayerForm::Cyclone, f.x_pos, f.y_pos))
+                }
+                terrain::PrizeContent::RedStealth => {
+                    Some((f.content, PlayerForm::RedStealth, f.x_pos, f.y_pos))
+                }
+                terrain::PrizeContent::Eyeclops => {
+                    Some((f.content, PlayerForm::Eyeclops, f.x_pos, f.y_pos))
+                }
+                terrain::PrizeContent::Juggernaut => {
+                    Some((f.content, PlayerForm::Juggernaut, f.x_pos, f.y_pos))
+                }
+                terrain::PrizeContent::IronKnight => {
+                    Some((f.content, PlayerForm::IronKnight, f.x_pos, f.y_pos))
+                }
+                terrain::PrizeContent::Berzerker => {
+                    Some((f.content, PlayerForm::Berzerker, f.x_pos, f.y_pos))
+                }
+                terrain::PrizeContent::Maniaxe => {
+                    Some((f.content, PlayerForm::Maniaxe, f.x_pos, f.y_pos))
+                }
+                terrain::PrizeContent::Micromax => {
+                    Some((f.content, PlayerForm::Micromax, f.x_pos, f.y_pos))
+                }
                 _ => None,
             });
         self.floating_items.retain(|f| !f.collision_latched);
-        if let Some(form) = deleted_collision_latched_prize_form {
+        if let Some((content, form, x_pos, y_pos)) = deleted_collision_latched_prize {
             if form == self.progression.current_form {
                 // ASM Kid_Transform loc_7C76 (kid.asm:8387): when the collected
                 // helmet matches the current form (Current_Helmet ==
@@ -5454,19 +5510,18 @@ impl NativeRuntime {
                 self.progression.number_hitpoints =
                     form.max_hitpoints() + self.progression.extra_hitpoint_slots;
             } else {
-                // ASM PrizeHelmet* loc_105D6 observes the object-side collision on
-                // its wake frame and deletes the prize while Kid's airborne object
-                // is already at the loc_A6F8 hibernate point. Oracle keeps
-                // Current_Helmet unchanged through the old helmet's reverse table,
-                // then loc_7CD0 writes the new helmet before the forward table.
-                let old_frames =
-                    crate::combat::transform_anim_frames(self.progression.current_form);
-                let new_frames = crate::combat::transform_anim_frames(form);
-                self.prize_helmet_collision_hibernate_delay_frames = self
-                    .prize_helmet_collision_hibernate_delay_frames
-                    .max((old_frames + new_frames + 2) as u8);
-                self.prize_helmet_collision_hibernate_hitpoints_form = Some(form);
-                self.prize_helmet_collision_hibernate_switch_form = Some(form);
+                // ASM loc_104AE/loc_105D6: collision is observed after the
+                // object's one-frame hibernate, then Kid_Transform runs on
+                // that wake. Use the normal prize path on this next frame,
+                // rather than adding a second native-only hibernate sequence.
+                self.apply_prize_content_at_world_pos(
+                    content,
+                    x_pos,
+                    y_pos.clamp(0, i64::from(u32::MAX)) as u32,
+                );
+                // `sub_7ACC` runs from the Kid dispatch after this object pass.
+                // `refresh_opening_slice` invokes that handler before normal
+                // movement so its target-form space check owns this wake frame.
             }
         }
 

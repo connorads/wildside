@@ -580,6 +580,9 @@ pub struct NativeRuntime {
     /// Whole seconds encoded into the timer digit entries most recently built
     /// in `Sprite_Table` by ASM Make_SpriteAttr_HUD loc_BEE8.
     hud_timer_sprite_seconds_loc_bee8: u16,
+    /// ASM Make_SpriteAttr_HUD loc_BDC0 snapshots Number_Diamonds before
+    /// Execute_Objects can complete a collected-diamond worker.
+    hud_diamond_count_loc_bdc0: u16,
     /// Demo bootstrap's presented `Make_SpriteAttr_HUD loc_BE82` clock.
     /// `loc_3038A` remains suspended during this interval, so it cannot reuse
     /// the authoritative level timer without perturbing unrelated presentation
@@ -1446,6 +1449,7 @@ impl NativeRuntime {
             options_menu_panel_delta: 0x0118,
             level_timer: LevelTimer::new(),
             hud_timer_sprite_seconds_loc_bee8: LEVEL_TIMER_START_SECONDS,
+            hud_diamond_count_loc_bdc0: 0,
             demo_hud_timer_presentation_loc_be82: None,
             pending_demo_timer_tick_result_loc_be82: None,
             hud_animation_state: boot::HudAnimationStateSub44DC::initialised_from_sub_44_b0(),
@@ -3684,6 +3688,10 @@ impl NativeRuntime {
                 // RNG bytes.
                 let _ = self.rom_random.next_long();
             }
+            // ASM Mode_Level loc_7F4 builds the HUD before Execute_Objects.
+            // Preserve the count encoded into this frame's Sprite_Table;
+            // Increase_Diamonds may increment it later in the object pass.
+            self.hud_diamond_count_loc_bdc0 = self.progression.diamond_count;
             self.refresh_active_roster();
             self.step_pending_prize_diamond_awards();
             self.step_pending_sound_effects();
@@ -3809,7 +3817,18 @@ impl NativeRuntime {
                             // ghost-block worker (`sub_F730`) update Level_Layout
                             // before Kid's `sub_902A` ceiling probes consume it.
                             self.step_ghost_blocks();
+                            let transform_starts_this_frame =
+                                self.progression.form_change_flash_frames == 0;
                             self.refresh_opening_slice(gameplay_input, jump_pressed);
+                            if transform_starts_this_frame
+                                && self.progression.form_change_flash_frames > 0
+                            {
+                                // ASM Mode_Level loc_80C dispatches loc_12098
+                                // before Kid_Transform loc_7E90 hibernates the
+                                // Kid path. A transformation begun during the
+                                // refresh must retain that final object tick.
+                                self.step_island_shore_cycle_loc_1202a();
+                            }
                             self.repair_timeout_restart_demo_1_late_jump_reentry();
                             false
                         }
@@ -4771,6 +4790,22 @@ impl NativeRuntime {
         }
         // Tick visual effects
         self.step_visual_effects();
+        // ASM loc_75D4 calls sub_7ACC from the Kid dispatch, while a
+        // PrizeHelmet* worker at loc_104AE/loc_105D6 can set its pending form
+        // before that dispatch. Run the same space-clear immediately, before
+        // movement, so Kid_Transform owns this wake frame.
+        if self.handle_pending_form_change_sub_7acc(&mut slice) {
+            return;
+        }
+        // ASM PrizeHelmet* loc_104AE/loc_105D6 can start Kid_Transform from
+        // an object wake before this frame's movement state dispatch. Once it
+        // has done so, the transform coroutine owns the frame; letting the
+        // ordinary loop continue moves Kid into the adjacent wall first.
+        if self.gameplay_hibernating_for_transform() {
+            self.last_kid_frame_motion_branch = KidFrameMotionBranch::TransformHibernating;
+            self.opening_slice = Some(slice);
+            return;
+        }
         // Prize blocks headbutted from below update their queued sub_1007A
         // lifecycle before movement, so the clear frame is collision-visible.
         self.step_deferred_ceiling_clears();
@@ -5776,6 +5811,14 @@ impl NativeRuntime {
             // motion state through sub_DB22 before grounded movement resumes.
             // Mounted Skycutter board landings take the `$FA6A` loop/bounce
             // path instead, so keep that state for the board handler.
+            if self.progression.current_form == PlayerForm::Cyclone && self.helmet.cyclone_flying {
+                // ASM loc_AB0A/loc_AB4A falls through to loc_8BF0 without
+                // calling sub_942A, so the prior `addroffset_sprite` remains
+                // the Sprite_Table source. Oracle `$FF2502` captures identify
+                // it as Cyclone walk 3 on this landing frame.
+                self.helmet.cyclone_grounded_sprite_source =
+                    Some(CycloneGroundedSpriteSource::Walk3);
+            }
             self.clear_special_movement_state_sub_DB22();
         }
         if slice.player.on_ground {

@@ -128,6 +128,16 @@ pub enum DrawCommand {
         palette: Arc<Palette>,
         tiles: Vec<SpriteTile>,
     },
+    /// A Sprite_Table entry whose order is already established by the ROM's
+    /// GfxObject priority chain. Unlike generic scene sprites, the renderer
+    /// applies the VDP's first-opaque-pixel arbitration across these entries.
+    SatSprite {
+        x: i32,
+        y: i32,
+        tile_sheet: Arc<TileSheet>,
+        palette: Arc<Palette>,
+        tiles: Vec<SpriteTile>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

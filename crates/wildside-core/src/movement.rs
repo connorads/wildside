@@ -6489,9 +6489,6 @@ impl OpeningSliceState {
                     .find_map(|&(col, row, phase)| {
                         (col == probe.cell_x && row == probe.cell_y).then_some(phase)
                     });
-            if deferred_prize_ceiling_phase == Some(DeferredPrizeBlockPhase::FreshSmash) {
-                return;
-            }
             let deferred_prize_ceiling_cell = deferred_prize_ceiling_phase.is_some();
             let hidden_block_in_jump_window = (!deferred_prize_ceiling_cell
                 && probe.cell.collision == terrain::CollisionKind::HiddenBlock)
@@ -6645,7 +6642,8 @@ impl OpeningSliceState {
             // handler. sub_914A caches the first ceiling tile in $FFFFFB6C;
             // sub_BBE2 may then select the solid tile immediately to its right
             // when Kid's centre column is already past the cached cell.
-            if !deferred_prize_ceiling_cell
+            if (!deferred_prize_ceiling_cell
+                || deferred_prize_ceiling_phase == Some(DeferredPrizeBlockPhase::FreshSmash))
                 && block_dispatch_probe.cell.collision == terrain::CollisionKind::Solid
                 && block_dispatch_probe.cell.has_block
             {

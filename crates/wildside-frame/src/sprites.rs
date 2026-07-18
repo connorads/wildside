@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use wildside_core::{
-    NativeContactPhase, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame,
-    PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C, PlatformSpriteEntryLoc2548,
-    PlatformSpriteVariantLoc244C, PlayerForm, TransformHandler, physics::Direction,
-    presented_transform_phase,
+    CycloneGroundedSpriteSource, NativeContactPhase, NativeObjectKind, NativeObjectSnapshot,
+    NativeTraceFrame, PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C,
+    PlatformSpriteEntryLoc2548, PlatformSpriteVariantLoc244C, PlayerForm, TransformHandler,
+    physics::Direction, presented_transform_phase,
 };
 use wildside_render::{MdColour, NativeLevelVisuals, Palette, SpriteFrame, TileRef};
 
@@ -538,6 +538,20 @@ pub fn select_player_frame<'a>(
         return &player_visuals.flight_spin[frame_index];
     }
 
+    if let Some(source) = trace.cyclone_grounded_sprite_source
+        && !player_visuals.walk.is_empty()
+    {
+        // ASM loc_AB0A/loc_AB4A (kid.asm:13390-13430) clears flight without
+        // calling sub_942A, preserving the last `addroffset_sprite` through
+        // the Sprite_Table handoff. The shared phase still names a flight
+        // phase here, so select the typed retained mapping directly.
+        let frame_index = match source {
+            CycloneGroundedSpriteSource::Walk3 => 2,
+            CycloneGroundedSpriteSource::Walk4 => 3,
+        };
+        return &player_visuals.walk[frame_index.min(player_visuals.walk.len() - 1)];
+    }
+
     // ASM sub_B270 loc_B350/loc_B380 (kid.asm:14220-14248): the airborne
     // attack-down counter (`red_stealth_airborne_slash_counter`, 0→$7F)
     // selects one of four downward-slash phases via `counter >> 5`. Native
@@ -906,7 +920,7 @@ pub fn push_player_sprite_with_priority_override(
         let render_facing = trace.kid_facing.unwrap_or(Direction::Right);
         let (screen_x, screen_y) = player_screen_position(object, trace);
         let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
-        commands.push(DrawCommand::Sprite {
+        commands.push(DrawCommand::SatSprite {
             x: draw_x,
             y: draw_y,
             tile_sheet: Arc::new(frame.tile_sheet.clone()),
@@ -930,7 +944,7 @@ pub fn push_player_sprite_with_priority_override(
         select_player_transform_render(trace, &level_visuals.player, form_visuals)
     {
         let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
-        commands.push(DrawCommand::Sprite {
+        commands.push(DrawCommand::SatSprite {
             x: draw_x,
             y: draw_y,
             tile_sheet: Arc::new(frame.tile_sheet.clone()),
@@ -953,7 +967,7 @@ pub fn push_player_sprite_with_priority_override(
     // later loc_1292 draw path still flips solely from live x_direction.
     let flip_x = matches!(render_facing, Direction::Left);
 
-    commands.push(DrawCommand::Sprite {
+    commands.push(DrawCommand::SatSprite {
         x: draw_x,
         y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
@@ -2699,6 +2713,13 @@ mod tests {
                 palette,
                 tiles,
                 ..
+            }
+            | DrawCommand::SatSprite {
+                x,
+                y,
+                palette,
+                tiles,
+                ..
             },
         ] = commands
         else {
@@ -4057,19 +4078,19 @@ mod tests {
             ),
             (
                 0x17,
-                8,
+                14,
                 &[
-                    (66, 1),
-                    (60, 2),
-                    (54, 1),
-                    (48, 2),
-                    (42, 1),
-                    (36, 2),
-                    (30, 3),
-                    (24, 4),
-                    (18, 5),
-                    (12, 6),
-                    (6, 7),
+                    (66, 7),
+                    (60, 8),
+                    (54, 7),
+                    (48, 8),
+                    (42, 7),
+                    (36, 8),
+                    (30, 9),
+                    (24, 10),
+                    (18, 11),
+                    (12, 12),
+                    (6, 13),
                 ],
                 "ASM Hand.asm loc_32AA2 `stru_32B78`",
             ),

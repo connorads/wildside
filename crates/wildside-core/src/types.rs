@@ -1013,6 +1013,10 @@ pub(crate) struct HelmetState {
     pub(crate) skycutter_on_board: bool,
     pub(crate) cyclone_flying: bool,
     pub(crate) cyclone_y_accel: i16,
+    /// Last Cyclone grounded mapping written around ASM `loc_AB0A -> sub_DB22`.
+    /// The shared `$FFFFF8F0` phase is still a flight value during this handoff,
+    /// so it cannot identify the retained Sprite_Table source.
+    pub(crate) cyclone_grounded_sprite_source: Option<CycloneGroundedSpriteSource>,
     pub(crate) red_stealth_sword_timer: u8,
     /// ASM loc_B350/loc_B380 (kid.asm:14220-14248) per-frame counter for the
     /// Red Stealth airborne attack-down slash. Increments by `$10` each frame
@@ -1061,6 +1065,17 @@ impl HelmetState {
     }
 }
 
+/// Cyclone's explicit grounded mapping source during the flight-to-walk handoff.
+///
+/// ASM `loc_AB0A/loc_AB4A` (kid.asm:13390-13430) clears the flight state and
+/// falls through to `loc_8BF0` without calling `sub_942A`; the selected
+/// `addroffset_sprite` therefore survives independently from `$FFFFF8F0`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CycloneGroundedSpriteSource {
+    Walk3,
+    Walk4,
+}
+
 /// Player progression: form, lives, HP, diamonds, score, and combat state.
 #[derive(Debug, Clone)]
 pub(crate) struct PlayerProgression {
@@ -1079,6 +1094,7 @@ pub(crate) struct PlayerProgression {
     /// unrecoverable from post-update state after the first transform frame.
     /// Only meaningful while `form_change_flash_frames` is non-zero.
     pub(crate) transform_source_form: Option<PlayerForm>,
+    pub(crate) transform_source_hitpoints: Option<u16>,
     pub(crate) diamond_count: u16,
     pub(crate) score: u32,
     /// Pending half-width change from form transform.
@@ -1106,6 +1122,7 @@ impl Default for PlayerProgression {
             invulnerable_frames: 0,
             form_change_flash_frames: 0,
             transform_source_form: None,
+            transform_source_hitpoints: None,
             diamond_count: 0,
             score: 0,
             diamond_power_frames: 0,
@@ -1629,6 +1646,10 @@ pub struct NativeTraceFrame {
     #[serde(default, skip_serializing_if = "is_zero_u16")]
     pub extra_hitpoint_slots: u16,
     pub current_helmet_id: u16,
+    /// Live `Current_Helmet` for HUD coroutine decisions when player art is
+    /// presented from the preceding Sprite_Table.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hud_transform_target_helmet_id: Option<u16>,
     /// ROM `Red_Stealth_sword_swing` mirror for native-player rendering.
     #[serde(default, skip_serializing_if = "is_zero_u8")]
     pub red_stealth_sword_timer: u8,
@@ -1642,6 +1663,9 @@ pub struct NativeTraceFrame {
     /// renders the three Cyclone spin frames from `$FFFFF8F0 >> 8`.
     #[serde(default, skip_serializing_if = "is_false")]
     pub cyclone_flying: bool,
+    /// Explicit Cyclone mapping preserved through the flight-to-walk handoff.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cyclone_grounded_sprite_source: Option<CycloneGroundedSpriteSource>,
     pub paused: bool,
     /// ROM `Pause_Option` (`$FFFFFAD1`): 0 = Continue, 1 = Restart Round/Give Up.
     /// Advisory/render-only; `paused` remains the gameplay gate.
@@ -1677,6 +1701,10 @@ pub struct NativeTraceFrame {
     /// recently built HUD timer sprite entries. `None` denotes legacy traces.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hud_timer_sprite_seconds_loc_bee8: Option<u16>,
+    /// ASM Make_SpriteAttr_HUD loc_BDC0: Number_Diamonds used to build the
+    /// current HUD Sprite_Table before Execute_Objects advances prize workers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hud_diamond_count_loc_bdc0: Option<u16>,
     /// ASM sub_44DC loc_4546 `$FFFFFA5E`: byte offset into `AniArt_LifeIcon`
     /// for the currently uploaded HUD life-icon page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1931,6 +1959,11 @@ pub struct NativeTraceFrame {
     /// Block destruction fragment effects: (x_px, y_px, remaining_frames, direction).
     #[serde(default, deserialize_with = "deserialize_block_destroy_effects")]
     pub block_destroy_effects: Vec<(u16, u16, u8, u16)>,
+    /// Ice-block workers among `block_destroy_effects`: (x_px, y_px).
+    /// ASM sub_10F9C/loc_10FEC uses the `$276` 2x2 mapping, while smash
+    /// workers use sub_10EDA/loc_10F2A's `$224` mapping.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub block_destroy_ice_effects: Vec<(u16, u16)>,
     /// Falling block debris shards from ASM `sub_2A4C`: (x_px, y_px).
     #[serde(default)]
     pub block_debris_pieces: Vec<(i16, i16)>,
@@ -1943,6 +1976,21 @@ pub struct NativeTraceFrame {
     pub kid_projectile_hit_sparks: Vec<(u16, u16, u8)>,
     /// Floating prize items rising from blocks: (x_px, y_px, remaining_frames, content_id).
     pub floating_items: Vec<(u16, u16, u16, u8)>,
+    /// Previous-frame prize entries retained solely for Mode_Level's Sprite_Table
+    /// transfer: (x_px, y_px, remaining_frames, content_id).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub floating_items_transferred_loc_901: Vec<(u16, u16, u16, u8)>,
+    /// Render-only copies of `PrizeDiamondCollected_Init` HUD-flight sprites:
+    /// (x_px, y_px, remaining_frames). Unlike a just-spawned diamond, this
+    /// worker owns a presentable Sprite_Table entry on its initial frame.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub prize_diamond_hud_flights_loc_fe3e: Vec<(u16, u16, u16)>,
+    /// Presentation-only latch for `PrizeDiamondCollected_Init` (`loc_FE3E`).
+    /// `Mode_Level` transfers the previous Sprite_Table before the worker
+    /// advances its arc, so the renderer distinguishes a freshly-created
+    /// presentable diamond from an entry transferred from the prior frame.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub prize_diamond_hud_flight_transferred_loc_fe3e: bool,
     /// ASM PrizeClock_Init loc_10796 animation-swap events: (x_px, y_px).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub clock_prize_animation_swaps_loc_10796: Vec<(u16, u16)>,
@@ -1967,6 +2015,8 @@ pub struct NativeTraceFrame {
     /// transform countdown is live.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transform_source_helmet_id_loc_7ca6: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transform_source_hitpoints_loc_bdc0: Option<u16>,
     /// True if a stomp occurred this frame (for SFX).
     pub stomped_this_frame: bool,
     /// Number of blocks hit by headbutt this frame (for SFX).
@@ -2094,11 +2144,13 @@ impl Default for NativeTraceFrame {
             number_lives: 0,
             number_continues: 0,
             number_hitpoints: 0,
+            hud_transform_target_helmet_id: None,
             extra_hitpoint_slots: 0,
             current_helmet_id: 0,
             red_stealth_sword_timer: 0,
             red_stealth_airborne_slash_counter: 0,
             cyclone_flying: false,
+            cyclone_grounded_sprite_source: None,
             paused: false,
             pause_menu_option: 0,
             kid_x_pos: None,
@@ -2114,6 +2166,7 @@ impl Default for NativeTraceFrame {
             hud_diamond_frame_offset: None,
             hud_diamond_vram_page_loc_5d4a: None,
             hud_timer_sprite_seconds_loc_bee8: None,
+            hud_diamond_count_loc_bdc0: None,
             hud_life_frame_offset: None,
             hud_life_icon_vram_page_loc_4586: None,
             berzerker_charging: false,
@@ -2198,10 +2251,14 @@ impl Default for NativeTraceFrame {
             block_bounce_details: Vec::new(),
             prize_block_worker_tails_sub_1007a: Vec::new(),
             block_destroy_effects: Vec::new(),
+            block_destroy_ice_effects: Vec::new(),
             block_debris_pieces: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
             kid_projectile_hit_sparks: Vec::new(),
             floating_items: Vec::new(),
+            floating_items_transferred_loc_901: Vec::new(),
+            prize_diamond_hud_flights_loc_fe3e: Vec::new(),
+            prize_diamond_hud_flight_transferred_loc_fe3e: false,
             clock_prize_animation_swaps_loc_10796: Vec::new(),
             continue_prize_animation_swaps_loc_1080a: Vec::new(),
             enemy_death_effects: Vec::new(),
@@ -2210,6 +2267,7 @@ impl Default for NativeTraceFrame {
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,
             transform_source_helmet_id_loc_7ca6: None,
+            transform_source_hitpoints_loc_bdc0: None,
             stomped_this_frame: false,
             blocks_hit_this_frame: 0,
             sound_test_play_pending: false,

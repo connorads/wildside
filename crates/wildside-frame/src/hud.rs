@@ -180,7 +180,10 @@ fn hud_hitpoints_visible_loc_bdc0(
     if trace.form_change_flash_frames == 0 {
         return true;
     }
-    let Some(form_visuals) = level_visuals.player.forms.get(&trace.current_helmet_id) else {
+    let hud_helmet_id = trace
+        .hud_transform_target_helmet_id
+        .unwrap_or(trace.current_helmet_id);
+    let Some(form_visuals) = level_visuals.player.forms.get(&hud_helmet_id) else {
         return true;
     };
     let transform_frames = form_visuals
@@ -196,7 +199,7 @@ fn hud_hitpoints_visible_loc_bdc0(
     // Make_SpriteAttr_HUD loc_BDC0 sees Currently_transforming and branches to
     // loc_BE82. The first hibernated transform frame therefore still displays
     // the old HP pips; subsequent transform frames do not.
-    usize::from(trace.form_change_flash_frames) >= transform_frames
+    usize::from(trace.form_change_flash_frames) > transform_frames
 }
 
 pub fn push_hud_icon(
@@ -492,7 +495,14 @@ pub fn push_game_hud(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
 ) {
-    let max_hp = PlayerForm::from_helmet_id(trace.current_helmet_id).map_or_else(
+    let hitpoint_capacity_helmet_id = if trace.form_change_flash_frames > 0 {
+        trace
+            .transform_source_helmet_id_loc_7ca6
+            .unwrap_or(trace.current_helmet_id)
+    } else {
+        trace.current_helmet_id
+    };
+    let max_hp = PlayerForm::from_helmet_id(hitpoint_capacity_helmet_id).map_or_else(
         || PlayerForm::TheKid.max_hitpoints(),
         PlayerForm::max_hitpoints,
     ) as i32
@@ -981,7 +991,11 @@ mod tests {
         ));
         assert!(hud_hitpoints_visible_loc_bdc0(
             &NativeTraceFrame {
-                form_change_flash_frames: 5,
+                // ASM loc_BDC0 shows the old HP pips only on the first
+                // transform hand-off frame; form_change_flash_frames seeds to
+                // transform_frames + 1 (= 6 for helmet 0), so only that max
+                // value is visible and it hides once it decrements.
+                form_change_flash_frames: 6,
                 current_helmet_id: 0,
                 ..NativeTraceFrame::default()
             },

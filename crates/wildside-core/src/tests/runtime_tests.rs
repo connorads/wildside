@@ -5724,6 +5724,28 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_demo_2_transform_entry_runs_island_worker_loc_12098() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let Some((_, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest).run(&script, 7_795);
+        assert_eq!(
+            trace[7_794].island_shore_cycle_state_loc_1202a,
+            Some((3, 9, 20, 2, 2, 4)),
+            "oracle Object_RAM at published frame 7794: Mode_Level loc_80C runs loc_12098 before Kid_Transform loc_7E90 hibernates, so transform entry must not skip an Island shore tick"
+        );
+        assert_eq!(
+            trace[7_794].island_shore_vram_frames_loc_1202a,
+            Some((1, 1, 3)),
+            "oracle VRAM $F600/$F6C0/$F760 at published frame 7794 retains the post-transform Island shore DMA bands"
+        );
+    }
+
+    #[test]
     fn published_tas_intro_sequence_6_title_workers_advance_after_loc_1b45a() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
@@ -10424,14 +10446,9 @@ mod chunk_09 {
         let cell = rt.block_grid.as_ref().unwrap().cell_at(3, 2);
         assert_eq!(cell, restore_cell, "grid should have the restore cell");
 
-        // Tick 4: Restored → PendingClear
-        rt.step_deferred_ceiling_clears();
-        assert_eq!(
-            rt.block_state.deferred_ceiling_clears[0].phase,
-            DeferredPrizeBlockPhase::PendingClear
-        );
-
-        // Now finish_deferred_ceiling_clears: PendingClear → FreshSmash + spawn item
+        // ASM sub_1007A allocates both loc_102B8 and Prize_Init after the
+        // restored-cell wake. PrizeHelmetCyclone_Init then hibernates before
+        // its first sub_10C38 update, so spawn at the frame's finisher.
         assert!(rt.floating_items.is_empty());
         rt.finish_deferred_ceiling_clears();
         assert_eq!(
@@ -14775,14 +14792,14 @@ mod chunk_09 {
         assert!(rt.block_destroy_effects.is_empty());
         assert_eq!(
             rt.trace_frame().block_debris_pieces,
-            vec![(79, 44), (79, 53), (89, 53), (89, 44), (85, 47)],
-            "ASM sub_292E seeds the five shard rows, then sub_2A4C immediately advances them by the selected velocity table"
+            vec![(85, 47), (89, 44), (89, 53), (79, 53), (79, 44)],
+            "ASM loc_2994 writes scratch records with d7 descending from 4 to 0, then sub_2A4C advances them"
         );
 
         rt.step_visual_effects();
         assert_eq!(
             rt.trace_frame().block_debris_pieces[0],
-            (78, 40),
+            (86, 42),
             "ASM sub_2A4C should keep advancing the shard instead of deleting it after the smash worker hibernate"
         );
     }
@@ -14792,7 +14809,8 @@ mod chunk_09 {
         // ASM sub_292E (kid.asm:4881) dispatches `d6` (the block-destroy
         // direction) to one of four velocity tables, paired with the shared
         // base-position offsets unk_29E8/unk_29F2 (x = [0,0,8,8,4], y =
-        // [0,8,8,0,4]). sub_2A4C then advances each shard once per frame.
+        // [0,8,8,0,4]). loc_2994's d7 DBF loop writes indices 4 through 0;
+        // sub_2A4C then advances each shard once per frame.
         //
         // The native tables (blocks.rs:1772-1779) are byte-for-byte the ROM
         // word tables, verified against kid.bin:
@@ -14830,17 +14848,17 @@ mod chunk_09 {
 
         assert_eq!(
             pieces_for(NativeRuntime::BLOCK_DESTROY_DIRECTION_BELOW),
-            vec![(79, 46), (78, 56), (89, 56), (89, 47), (83, 50)],
+            vec![(83, 50), (89, 47), (89, 56), (78, 56), (79, 46)],
             "ASM loc_297A: d6=0 selects unk_2A10/unk_2A1A (BELOW) velocity table"
         );
         assert_eq!(
             pieces_for(NativeRuntime::BLOCK_DESTROY_DIRECTION_LEFT),
-            vec![(75, 45), (76, 53), (85, 53), (86, 45), (83, 49)],
+            vec![(83, 49), (86, 45), (85, 53), (76, 53), (75, 45)],
             "ASM loc_296C: d6=1 selects unk_2A38/unk_2A42 (LEFT) velocity table"
         );
         assert_eq!(
             pieces_for(NativeRuntime::BLOCK_DESTROY_DIRECTION_RIGHT),
-            vec![(85, 45), (84, 53), (91, 53), (90, 45), (85, 49)],
+            vec![(85, 49), (90, 45), (91, 53), (84, 53), (85, 45)],
             "ASM loc_2994 default: d6=3 selects unk_2A24/unk_2A2E (RIGHT) velocity table"
         );
     }
@@ -14867,8 +14885,8 @@ mod chunk_09 {
         );
         assert_eq!(
             rt.block_debris_swarms[0].pieces[0].x_pos_fp >> 16,
-            16 + 6 * 16 - 1,
-            "ASM loc_29DE/sub_292E should wrap the cursor and replace the first scratch slot with the seventh debris swarm"
+            16 + 6 * 16 + 4 + 1,
+            "ASM loc_29DE/sub_292E wraps the cursor and replaces the first scratch slot with the seventh debris swarm; loc_2994's descending d7 makes piece 0 the source-index-4 entry (base_x +4, D6_2 x-velocity +1)"
         );
     }
 

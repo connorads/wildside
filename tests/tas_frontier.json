@@ -40,7 +40,7 @@
         "advisory": 0,
         "accumulation": 0,
         "rng": 0,
-        "oracle_limitation": 0
+        "oracle_limitation": 4
       },
       "total_frames": 37759,
       "full_checkpoint_interval": 1,
@@ -49,7 +49,7 @@
         "advisory": 0,
         "accumulation": 0,
         "rng": 0,
-        "oracle_limitation": 0
+        "oracle_limitation": 24
       },
       "full_expected_enemy_divergence_summary": {
         "authoritative": 0,
@@ -68,13 +68,13 @@
         "first_mismatch": null
       },
       "full_expected_pixel_comparison": {
-        "exact_match_frames": 24971,
-        "mismatch_frames": 12788,
-        "total_changed_pixels": 5707854,
-        "mismatch_digest": "8edad1d8acf0e998992d8093c2122464bcca38ea",
+        "exact_match_frames": 26368,
+        "mismatch_frames": 11391,
+        "total_changed_pixels": 3627338,
+        "mismatch_digest": "8c358dd4ff76a8fc3be3c4b27ff6d698bf2a5c12",
         "first_mismatch": {
-          "frame_index": 1022,
-          "changed_pixels": 197
+          "frame_index": 1408,
+          "changed_pixels": 84
         },
         "worst_mismatch": {
           "frame_index": 21765,

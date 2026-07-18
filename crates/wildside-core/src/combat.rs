@@ -12095,6 +12095,13 @@ impl NativeRuntime {
         screen_y_fp: i32,
     ) {
         self.queue_prize_diamond_award();
+        // ASM PrizeDiamondCollected_Init loc_FE3E (kid.asm:21114-21115)
+        // seeds its fresh GfxObject with `move.w` writes from `$44/$46(a5)`.
+        // `Allocate_GfxObjectSlot` clears its low words, so the HUD flight
+        // starts on integer pixels even when native collision state retained
+        // a subpixel pickup position.
+        let screen_x_fp = screen_x_fp & !0xFFFF;
+        let screen_y_fp = screen_y_fp & !0xFFFF;
         // ASM Increase_Diamonds and loc_10988 share the same HUD target arc:
         // cache camera-relative `$3E/$42`, then seed `$26/$2A` from
         // (`#$1260000`/`#$300000` - cached position) >> 5.
@@ -12646,6 +12653,7 @@ impl NativeRuntime {
             return;
         };
         let old_form = self.progression.current_form;
+        let old_hitpoints = self.progression.number_hitpoints;
         self.progression.current_form = form;
         // ASM loc_7C76 (kid.asm:8387): `move.w (Current_Helmet).w,d7` — main
         // dispatch after sub_7C1C GFX deletion. Three paths:
@@ -12712,6 +12720,7 @@ impl NativeRuntime {
             // the only point it is still known — as presentation input for the
             // transform pass enumerator.
             self.progression.transform_source_form = Some(old_form);
+            self.progression.transform_source_hitpoints = Some(old_hitpoints);
             let old_frames = transform_anim_frames(old_form);
             let new_frames = transform_anim_frames(form);
             // ASM loc_7C24 (kid.asm:8350): `move.l 4(a0),d7; beq.w loc_7C3A;

@@ -6593,6 +6593,7 @@ impl NativeRuntime {
         if self.progression.current_form != PlayerForm::Cyclone {
             self.helmet.cyclone_flying = false;
             self.helmet.cyclone_y_accel = 0;
+            self.helmet.cyclone_grounded_sprite_source = None;
             return;
         }
 
@@ -6608,10 +6609,27 @@ impl NativeRuntime {
         // the walking→airborne transition; this flag clear covers landing.
         if self.helmet.cyclone_flying && slice.player.on_ground {
             self.helmet.cyclone_flying = false;
+            // ASM loc_AB0A/loc_AB4A (kid.asm:13390-13430) clears flight and
+            // runs sub_DB22, but does not call sub_942A. The original
+            // addroffset_sprite source therefore survives this frame. Oracle
+            // `$FF2502` captures on the published route select walk 3 here,
+            // then walk 4 on the first ordinary grounded update.
+            self.helmet.cyclone_grounded_sprite_source = Some(CycloneGroundedSpriteSource::Walk3);
             return;
         }
 
         if !self.helmet.cyclone_flying {
+            self.helmet.cyclone_grounded_sprite_source = match (
+                self.helmet.cyclone_grounded_sprite_source,
+                slice.player.on_ground,
+                slice.player.x_velocity,
+            ) {
+                (Some(CycloneGroundedSpriteSource::Walk3), true, velocity) if velocity != 0 => {
+                    Some(CycloneGroundedSpriteSource::Walk4)
+                }
+                (Some(_), _, 0) | (Some(_), false, _) => None,
+                (source, _, _) => source,
+            };
             return;
         }
 

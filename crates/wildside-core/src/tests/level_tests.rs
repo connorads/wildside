@@ -1583,16 +1583,16 @@ mod chunk_02 {
             ScratchDebrisRenderSub2A4C {
                 sprites: vec![
                     ScratchDebrisSpriteSub2A4C {
-                        y: 0x00FF,
+                        y: 0x0104,
                         link: 1,
                         tile_word: 0x8228,
-                        x: 0x019D,
+                        x: 0x01A1,
                     },
                     ScratchDebrisSpriteSub2A4C {
-                        y: 0x0107,
+                        y: 0x0101,
                         link: 2,
                         tile_word: 0x8228,
-                        x: 0x019D,
+                        x: 0x01A5,
                     },
                     ScratchDebrisSpriteSub2A4C {
                         y: 0x0108,
@@ -1601,16 +1601,16 @@ mod chunk_02 {
                         x: 0x01A5,
                     },
                     ScratchDebrisSpriteSub2A4C {
-                        y: 0x0101,
+                        y: 0x0107,
                         link: 4,
                         tile_word: 0x8228,
-                        x: 0x01A5,
+                        x: 0x019D,
                     },
                     ScratchDebrisSpriteSub2A4C {
-                        y: 0x0104,
+                        y: 0x00FF,
                         link: 5,
                         tile_word: 0x8228,
-                        x: 0x01A1,
+                        x: 0x019D,
                     },
                 ],
                 number_sprites: 5,
@@ -1620,10 +1620,10 @@ mod chunk_02 {
         assert_eq!(
             scratch_debris_pieces_sub_292E(&queue, 0)[0],
             ScratchDebrisPieceSub292E {
-                y_velocity_px: -1,
+                y_velocity_px: 0,
                 x_velocity_px: -3,
-                y_pos_px: 0x007F,
-                x_pos_px: 0x011D,
+                y_pos_px: 0x0084,
+                x_pos_px: 0x0121,
             },
             "ASM sub_2A4C should keep the high words of the first debris record in sync with its 16.16 stepped y/x state after one frame",
         );
@@ -23371,7 +23371,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    fn fresh_smash_prize_ceiling_frame_does_not_block_motion() {
+    fn fresh_smash_prize_ceiling_dispatches_block_load_smash_bits() {
         let mut grid = grid_with_blocks();
         grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0xE0, 0x01));
 
@@ -23434,15 +23434,16 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             &[(2, 2, DeferredPrizeBlockPhase::FreshSmash)],
         );
 
+        assert_eq!(slice.player.y_velocity, 0);
+        assert_eq!(slice.player.y_pos, 79 << 16);
         assert_eq!(
-            slice.player.y_velocity, -0x0011_0000,
-            "ASM sub_7196/sub_1007A priorities let Kid finish before the freshly written $E001 cell becomes collision-visible",
+            slice.smash_block_hit,
+            Some((32, 32, NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE)),
+            "ASM sub_1007A writes $E001 after Kid has run; the next frame's sub_BB54 dispatch uses off_BB80[0]",
         );
-        assert_eq!(slice.player.y_pos, 63 << 16);
-        assert!(slice.smash_block_hit.is_none());
         assert!(slice.prize_block_hit.is_none());
         assert!(slice.ceiling_prize_clear.is_none());
-        assert_eq!(grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0xE0, 0x01));
+        assert_eq!(grid.cell_at(2, 2), terrain::Cell::from_be_bytes(0x00, 0x00));
     }
 
     #[test]
@@ -24307,19 +24308,22 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             runtime.floating_items.is_empty(),
             "ASM PrizeHelmetIronKnight_Init loc_105D6 deletes on the next hibernated tick after collision_type(a3) is latched"
         );
+        // #258 frame-585: the collision frame must keep Current_Helmet as
+        // Juggernaut. ASM loc_104AE/loc_105D6 observes the collision after the
+        // prize object's one-frame hibernate and only queues the award; the
+        // switch to Iron Knight is deferred to Kid_Transform loc_7CD0 on a
+        // later wake (resolve_pending_form_change), so the form must not flip
+        // here. Modelling this as an immediate transform was rejected during
+        // #258 because it changed current_helmet_id on frame 585.
         assert_eq!(
-            runtime.prize_helmet_collision_hibernate_delay_frames, 116,
-            "ASM loc_A6F8 exposes Kid's post-movement hibernate point after loc_105D6 deletes the latched helmet prize"
+            runtime.progression.current_form,
+            PlayerForm::Juggernaut,
+            "#258 oracle keeps Current_Helmet as Juggernaut on the form-box collision frame; the Iron Knight award is only queued, not applied"
         );
         assert_eq!(
-            runtime.prize_helmet_collision_hibernate_hitpoints_form,
+            runtime.progression.pending_form,
             Some(PlayerForm::IronKnight),
-            "ASM sub_7EB2 HP seed is exposed without changing Current_Helmet on the #258 latched collision"
-        );
-        assert_eq!(
-            runtime.prize_helmet_collision_hibernate_switch_form,
-            Some(PlayerForm::IronKnight),
-            "ASM Kid_Transform loc_7CD0 should switch Current_Helmet only after the old helmet reverse table"
+            "ASM loc_104AE routes the latched Iron Knight prize through the normal deferred form-change path, resolved later at Kid_Transform loc_7CD0"
         );
     }
 
@@ -24381,7 +24385,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
-    fn floating_helmet_prize_entering_lower_body_collects() {
+    fn floating_helmet_prize_entering_lower_body_latches_until_next_wake_loc_104ae() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.floating_items.push(FloatingItem {
             x_pos: 72 << 16,
@@ -24400,42 +24404,17 @@ PlatformScript_361C:   ; relative offset: 001A\n\
 
         runtime.collect_floating_items(&mut slice);
 
-        assert!(runtime.floating_items[0].collected);
-        assert_eq!(runtime.progression.pending_form, Some(PlayerForm::Cyclone));
+        assert!(!runtime.floating_items[0].collected);
+        assert!(runtime.floating_items[0].collision_latched);
+        assert_eq!(runtime.progression.pending_form, None);
     }
 
     #[test]
-    fn collected_cyclone_prize_renders_on_first_forward_transform_frame_loc_104ae_7cd0() {
+    fn cyclone_prize_transform_resolves_at_loc_7cd0() {
         let mut runtime = NativeRuntime::new(manifest());
-        runtime.boot_state = BootState::InGame;
-        runtime.floating_items.push(FloatingItem {
-            x_pos: 72 << 16,
-            y_pos: i64::from(624 << 16),
-            y_velocity: 0,
-            remaining: 0x0300,
-            spawn_delay: 0,
-            level_col: 0,
-            level_row: 0,
-            first_row_grace: false,
-            content: terrain::PrizeContent::Cyclone,
-            collected: false,
-            collision_latched: false,
-        });
-        let mut slice = make_airborne_slice(74, 655);
-
-        runtime.collect_floating_items(&mut slice);
-        assert!(!runtime.handle_pending_form_change_sub_7acc(&mut slice));
+        runtime.apply_prize_content(terrain::PrizeContent::Cyclone);
+        runtime.resolve_pending_form_change();
         assert_eq!(runtime.progression.current_form, PlayerForm::Cyclone);
-        assert_eq!(
-            runtime.progression.form_change_flash_frames,
-            (crate::combat::transform_anim_frames(PlayerForm::Cyclone) + 1) as u8
-        );
-
-        assert_eq!(
-            runtime.trace_frame().floating_items,
-            vec![(72, 624, 0x0300, terrain::PrizeContent::Cyclone.to_id())],
-            "ASM PrizeHelmetCyclone_Init loc_104AE deletes through Kid_Transform loc_7CD0's first forward frame; oracle still draws the picked-up mask for that one render frame"
-        );
     }
 
     #[test]

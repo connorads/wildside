@@ -54,6 +54,7 @@ pub fn render_scene(scene: &Scene, rgb: &mut [u8]) {
 /// `render_scene` without the backdrop fill or pause darken.
 pub fn render_scene_overlay(scene: &Scene, rgb: &mut [u8]) {
     let mut high_priority_pixels = vec![false; (FRAME_WIDTH * FRAME_HEIGHT) as usize];
+    let mut sat_opaque_pixels = vec![false; (FRAME_WIDTH * FRAME_HEIGHT) as usize];
     for command in &scene.commands {
         match command {
             DrawCommand::Rect {
@@ -159,6 +160,22 @@ pub fn render_scene_overlay(scene: &Scene, rgb: &mut [u8]) {
             } => draw_sprite(
                 rgb,
                 &mut high_priority_pixels,
+                *x,
+                *y,
+                tile_sheet,
+                palette,
+                tiles,
+            ),
+            DrawCommand::SatSprite {
+                x,
+                y,
+                tile_sheet,
+                palette,
+                tiles,
+            } => draw_sat_sprite_first_opaque(
+                rgb,
+                &mut high_priority_pixels,
+                &mut sat_opaque_pixels,
                 *x,
                 *y,
                 tile_sheet,
@@ -419,6 +436,13 @@ fn command_pixel_write(
             y,
         ),
         DrawCommand::Sprite {
+            x: cx,
+            y: cy,
+            tile_sheet,
+            palette,
+            tiles,
+        }
+        | DrawCommand::SatSprite {
             x: cx,
             y: cy,
             tile_sheet,
@@ -806,6 +830,72 @@ pub fn draw_sprite(
             tile.tile,
             palette,
         );
+    }
+}
+
+/// Rasterise source-ordered Sprite_Table entries.
+///
+/// ASM Make_SpritesFromGfxObjects (kid.asm:2558-2576) writes a linked SAT in
+/// GfxObject priority order. The VDP retains the first non-transparent sprite
+/// pixel it sees, independently from whether a plane later hides that pixel.
+#[allow(clippy::too_many_arguments)]
+fn draw_sat_sprite_first_opaque(
+    rgb: &mut [u8],
+    high_priority_pixels: &mut [bool],
+    sat_opaque_pixels: &mut [bool],
+    x: i32,
+    y: i32,
+    tile_sheet: &TileSheet,
+    palette: &Palette,
+    tiles: &[SpriteTile],
+) {
+    for sprite_tile in tiles {
+        let Some(tile) = tile_sheet
+            .tiles
+            .get(usize::from(sprite_tile.tile.tile_index))
+        else {
+            continue;
+        };
+        for dest_y in 0..8 {
+            for dest_x in 0..8 {
+                let source_x = if sprite_tile.tile.flip_x {
+                    7 - dest_x
+                } else {
+                    dest_x
+                };
+                let source_y = if sprite_tile.tile.flip_y {
+                    7 - dest_y
+                } else {
+                    dest_y
+                };
+                let palette_index = tile.pixels[source_y * 8 + source_x];
+                let Some(colour) =
+                    resolve_palette_colour(palette, sprite_tile.tile.palette_line, palette_index)
+                else {
+                    continue;
+                };
+                let pixel_x = x + sprite_tile.offset_x + dest_x as i32;
+                let pixel_y = y + sprite_tile.offset_y + dest_y as i32;
+                if !(0..FRAME_WIDTH as i32).contains(&pixel_x)
+                    || !(0..FRAME_HEIGHT as i32).contains(&pixel_y)
+                {
+                    continue;
+                }
+                let pixel_index = (pixel_y as u32 * FRAME_WIDTH + pixel_x as u32) as usize;
+                if sat_opaque_pixels[pixel_index] {
+                    continue;
+                }
+                sat_opaque_pixels[pixel_index] = true;
+                set_pixel(
+                    rgb,
+                    high_priority_pixels,
+                    pixel_x,
+                    pixel_y,
+                    colour,
+                    Some(sprite_tile.tile.priority),
+                );
+            }
+        }
     }
 }
 
@@ -1345,6 +1435,55 @@ mod tests {
         assert_eq!(pixel_rgb(&rgb, 7, 9), [0, 0, 0]);
         assert_eq!(pixel_rgb(&rgb, 10, 13), [1, 2, 3]);
         assert_eq!(pixel_rgb(&rgb, 17, 20), [15, 30, 45]);
+    }
+
+    #[test]
+    fn sat_sprites_keep_the_first_opaque_pixel() {
+        // ASM Make_SpritesFromGfxObjects (kid.asm:2558-2576) emits the
+        // source-ordered Sprite_Table. The VDP retains its first opaque pixel.
+        let tile_sheet = test_tile_sheet();
+        let first_palette = test_palette(16);
+        let mut later_palette = (*test_palette(16)).clone();
+        later_palette.colours[1] = MdColour {
+            red: 90,
+            green: 91,
+            blue: 92,
+            raw_word: 0,
+        };
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        render_scene(
+            &Scene {
+                background: [0, 0, 0],
+                commands: vec![
+                    DrawCommand::SatSprite {
+                        x: 10,
+                        y: 10,
+                        tile_sheet: Arc::clone(&tile_sheet),
+                        palette: first_palette,
+                        tiles: vec![SpriteTile {
+                            offset_x: 0,
+                            offset_y: 0,
+                            tile: test_tile_ref(false),
+                        }],
+                    },
+                    DrawCommand::SatSprite {
+                        x: 10,
+                        y: 10,
+                        tile_sheet,
+                        palette: Arc::new(later_palette),
+                        tiles: vec![SpriteTile {
+                            offset_x: 0,
+                            offset_y: 0,
+                            tile: test_tile_ref(false),
+                        }],
+                    },
+                ],
+                pause_palette_darken: false,
+            },
+            &mut rgb,
+        );
+
+        assert_eq!(pixel_rgb(&rgb, 10, 10), [1, 2, 3]);
     }
 
     #[test]

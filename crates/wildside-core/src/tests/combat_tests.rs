@@ -13326,12 +13326,12 @@ mod chunk_03 {
         runtime.queue_prize_diamond_award_at_screen_offset(start_x, start_y);
 
         assert_eq!(
-            runtime.trace_frame().floating_items,
-            vec![(0x0064, 0x0050, 0x01F4, 0x00)],
+            runtime.trace_frame().prize_diamond_hud_flights_loc_fe3e,
+            vec![(0x0064, 0x0050, 0x01F4)],
             "contact frame should render the collected diamond at the pickup screen offset",
         );
 
-        for _ in 0..usize::from(NativeRuntime::PRIZE_DIAMOND_AWARD_DELAY_FRAMES - 1) {
+        for _ in 0..usize::from(NativeRuntime::PRIZE_DIAMOND_AWARD_DELAY_FRAMES - 2) {
             runtime.step_pending_prize_diamond_awards();
         }
 
@@ -13340,8 +13340,17 @@ mod chunk_03 {
             "ASM dbf loop finishes the visible flight before Number_Diamonds increments",
         );
         assert!(
-            !runtime.trace_frame().floating_items.is_empty(),
+            !runtime
+                .trace_frame()
+                .prize_diamond_hud_flights_loc_fe3e
+                .is_empty(),
             "the collected-diamond gfx worker should remain visible until the final hibernate tick",
+        );
+
+        runtime.step_pending_prize_diamond_awards();
+        assert_eq!(
+            runtime.progression.diamond_count, 0,
+            "the penultimate hibernate tick must still leave Number_Diamonds unchanged",
         );
 
         runtime.step_pending_prize_diamond_awards();
@@ -13351,8 +13360,29 @@ mod chunk_03 {
             "Number_Diamonds increments only after the HUD flight worker completes",
         );
         assert!(
-            runtime.trace_frame().floating_items.is_empty(),
+            runtime
+                .trace_frame()
+                .prize_diamond_hud_flights_loc_fe3e
+                .is_empty(),
             "the collected-diamond gfx worker deletes after the delayed award",
+        );
+    }
+
+    /// ASM PrizeDiamondCollected_Init loc_FE3E (kid.asm:21114-21115): the
+    /// freshly allocated GfxObject is cleared, then `move.w` seeds `$3E/$42`
+    /// from the pickup position. Subpixel collision residue must not affect
+    /// the fixed-point HUD arc.
+    #[test]
+    fn prize_diamond_hud_flight_discards_subpixels_loc_fe3e() {
+        let mut runtime = NativeRuntime::new(manifest());
+
+        runtime.queue_prize_diamond_award_at_screen_offset(0x0064_C000, 0x0050_C000);
+        runtime.step_pending_prize_diamond_awards();
+
+        assert_eq!(
+            runtime.trace_frame().prize_diamond_hud_flights_loc_fe3e,
+            vec![(0x006A, 0x004F, 0x01F3)],
+            "the first arc step must match a whole-word GfxObject seed",
         );
     }
 

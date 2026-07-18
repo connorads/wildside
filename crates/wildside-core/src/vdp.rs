@@ -2029,9 +2029,9 @@ const INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0: u16 = 0x67C0;
 
 const INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0: [usize; 5] = [
     45, // ASM sub_1B8F4/loc_1C7A0; cold-boot IntroText1 glyph cadence matches oracle frame 280/360 checkpoints.
-    42, // ASM loc_1B9D0; timeout-return traces expose controller+IntroText2 at elapsed 42.
+    43, // ASM loc_1B9D0/loc_1C7A0; oracle keeps plane-B $E2B8 unchanged at published frame 5787, then writes the final period on 5788.
     43, // ASM sub_1B93E exposes IntroText3 one rendered frame after the hidden VDP rebuild shell.
-    39, // ASM sub_1B988 allocates IntroText4 before sub_1C204, so the text has already advanced when the fade shell exposes the corridor.
+    38, // ASM sub_1B988/loc_1C7A0; oracle VRAM writes IntroText4 glyph cells at published frames 20000, 20002, 20004, and 20006 one frame before the prior anchor.
     58, // ASM loc_1BA28 allocates IntroText5 before sub_1C204; oracle frame 1980 shows `THIS IS` but not `THE`.
 ];
 // ASM Load_IntroSequence5 allocates loc_1BA28 and loc_1BCD0 before entering
@@ -6219,6 +6219,22 @@ mod tests {
             vram_word(&vdp, 0xE18E),
             0x213B,
             "ASM IntroText2 starts with `$FE,$90`; loc_1C7A0 must not blank plane-B hologram cells before sub_1C7F6 reaches the first glyph",
+        );
+    }
+
+    #[test]
+    fn introtext2_allocation_anchor_waits_for_the_final_period_loc_1c7a0() {
+        assert_eq!(
+            INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0[1], 43,
+            "ASM loc_1B9D0 allocates IntroText2 before loc_1C7A0's hibernate/parser loop; oracle VRAM keeps the final plane-B cell at `$E2B8` unchanged on published frame 5787 and writes `$C7F8` on 5788"
+        );
+    }
+
+    #[test]
+    fn introtext4_allocation_anchor_matches_oracle_glyph_cadence_loc_1c7a0() {
+        assert_eq!(
+            INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0[3], 38,
+            "ASM sub_1B988 allocates IntroText4's loc_1C7A0 worker before the fade shell; oracle VRAM writes its successive glyph cells at published frames 20000, 20002, 20004, and 20006, while anchor 39 delays each native write one frame",
         );
     }
 

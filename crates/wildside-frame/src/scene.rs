@@ -78,6 +78,8 @@ const DRIPS_OBJECT_TYPE: u8 = 0x16;
 const BOSS_EYE_OBJECT_TYPE: u8 = 0x21;
 const TAR_MONSTER_OBJECT_TYPE: u8 = 0x05;
 const PRIZE_GENERIC_LIFETIME_LOW_BYTE: u8 = 0x20;
+/// ASM PrizeDiamond_Init (kid.asm:21604): initial `object_timer` is `$01F4`.
+const PRIZE_DIAMOND_INITIAL_LIFETIME: u16 = 0x01F4;
 const PRIZE_BLOCK_RESIDENT_PAGE_SKIN_SUB_1007A: u8 = 0x02;
 const PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8: u8 = 25;
 // ASM loc_D734: after loc_D702 allocates the EOL row workers, the ROM runs
@@ -110,9 +112,11 @@ const PAUSE_MENU_CURSOR_TILE_LOC_6B0E: u16 = 0x0006;
 const PAUSE_MENU_BLANK_TILE_LOC_6B0E: u16 = 0x0002;
 const PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE: [(u8, u16); 4] =
     [(4, 0x02CF), (6, 0x02D8), (10, 0x02E1), (4, 0x02EA)];
-// ASM stru_102DE first three flash animation frames (4+6+$A): the window in
-// which a sub_10CB0 DMA'd helmet prize has no presentable art yet.
-const HELMET_PRIZE_DMA_HIDDEN_FLASH_FRAMES_STRU_102DE: u8 = 20;
+// ASM PrizeHelmet* initialises the DMA-backed GfxObject before its first
+// visible step. The published TAS oracle shows that sprite behind the first
+// displayed loc_102B8 page (remaining=23), so only the two pre-presentation
+// frames retain the prior P sprite without a presentable prize page.
+const HELMET_PRIZE_DMA_HIDDEN_PRE_PRESENTATION_FRAMES_LOC_102B8: u8 = 2;
 const SHIFTING_BLOCK_RISE_TILE_LOC_113F4: u16 = 0x0276;
 const BACKGROUND_TILE_VRAM_BASE_LOC_128BA: u16 = 0x0780;
 const ISLAND_SHORE_PRIMARY_VRAM_TILE_LOC_12098: u16 = 0xF600 / 32;
@@ -122,6 +126,10 @@ const SPECIAL_EFFECT_UNKNOWN_FOREGROUND_PLANE_REGISTER_LOC_14E42: u16 = 0x8218;
 const KID_PROJECTILE_HIT_SPARK_FRAMES_STRU_1F40: [(u8, u16); 4] =
     [(1, 0x02CF), (1, 0x02D8), (1, 0x02E1), (1, 0x02EA)];
 const BLOCK_DEBRIS_TILE_ATTR_SUB_2A4C: u16 = 0x8228;
+const SMASH_BLOCK_WORKER_INITIAL_TILE_BASE_SUB_10EDA: u16 = 0x0220;
+const SMASH_BLOCK_WORKER_TILE_BASE_LOC_10F2A: u16 = 0x0224;
+const ICE_BLOCK_WORKER_INITIAL_TILE_BASE_SUB_10F9C: u16 = 0x023D;
+const ICE_BLOCK_WORKER_TILE_BASE_LOC_10FEC: u16 = 0x0276;
 const BLOCK_DEBRIS_BASE_X_SUB_292E: [i16; 5] = [0, 0, 8, 8, 4];
 const BLOCK_DEBRIS_BASE_Y_SUB_292E: [i16; 5] = [0, 8, 8, 0, 4];
 const BLOCK_DEBRIS_VEL_D6_2_SUB_292E: [(i16, i16); 5] =
@@ -644,6 +652,16 @@ fn block_debris_velocity_sub_292e(direction: u16) -> &'static [(i16, i16); 5] {
     }
 }
 
+fn block_debris_software_submission_order_sub_2a4c(
+    pieces: &[(i16, i16)],
+) -> impl Iterator<Item = &(i16, i16)> {
+    // ASM sub_2A4C (kid.asm:5053) links SAT entries in scratch-record order.
+    // DrawCommand::SatSprite preserves the VDP's first opaque pixel, so the
+    // source order is now the hardware order rather than a software-painter
+    // reversal.
+    pieces.iter()
+}
+
 fn push_block_destroy_debris_sub_292e(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
@@ -661,10 +679,9 @@ fn push_block_destroy_debris_sub_292e(
     };
 
     let velocities = block_debris_velocity_sub_292e(direction);
-    for index in 0..5 {
-        // ASM `sub_292E` seeds five sprite-worker rows from `unk_29E8`/
-        // `unk_29F2`, then `sub_2A4C` immediately advances by the row's
-        // direction-selected velocity before writing sprite tile `$8228`.
+    for index in (0..5).rev() {
+        // ASM loc_2994 starts d7 at 4, so its DBF loop writes scratch records
+        // from table index 4 through 0 before sub_2A4C advances them.
         let x = i32::from(x_px)
             + i32::from(BLOCK_DEBRIS_BASE_X_SUB_292E[index])
             + i32::from(velocities[index].0)
@@ -677,6 +694,63 @@ fn push_block_destroy_debris_sub_292e(
     }
 
     true
+}
+
+fn push_block_destroy_worker_loc_10f2a_or_10fec(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    x_px: u16,
+    y_px: u16,
+    tile_base: u16,
+    camera_x_px: i32,
+    camera_y_px: i32,
+) -> bool {
+    let Some(tile_base_index) = tile_base.checked_sub(BLOCK_TILE_VRAM_BASE) else {
+        return false;
+    };
+    if usize::from(tile_base_index.saturating_add(3)) >= level_visuals.block_tiles.tiles.len() {
+        return false;
+    }
+
+    // ASM Make_SpriteFromGfxObject loc_12B8 consumes `sprite_frame_vram`
+    // as one 16x16 hardware sprite. Do not emit Plane-style tiles here: that
+    // changes both layer ordering and the Mega Drive's column-major sprite
+    // tile order.
+    let frame = wildside_render::SpriteFrame {
+        origin_x: 0,
+        origin_y: 0x10,
+        width_px: 0x10,
+        height_px: 0x10,
+        tile_base_index,
+        tile_sheet: level_visuals.block_tiles.clone(),
+    };
+    commands.push(DrawCommand::Sprite {
+        x: i32::from(x_px) - camera_x_px,
+        y: i32::from(y_px) - camera_y_px,
+        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        palette: Arc::new(level_visuals.palettes.foreground.clone()),
+        // `block_tiles` is already normalised from VDP storage into screen
+        // rows by asset extraction, so use the renderer's normal tile layout.
+        tiles: build_sprite_tiles(&frame, Direction::Right, 0),
+    });
+    true
+}
+
+fn initial_block_destroy_worker_origin_sub_10eda_or_10f9c(
+    direction: u16,
+    x_px: u16,
+    y_px: u16,
+) -> (u16, u16) {
+    match direction {
+        // ASM loc_10F26/loc_10FE8 applies +4 X after the initial mapping.
+        3 => (x_px.saturating_sub(4), y_px),
+        // ASM loc_10F1A/loc_10FDC applies -4 Y after the initial mapping.
+        2 => (x_px, y_px.saturating_add(4)),
+        // ASM loc_10F20/loc_10FE2 applies -4 X after the initial mapping.
+        1 => (x_px.saturating_add(4), y_px),
+        // ASM sub_10EDA/sub_10F9C applies +4 Y on the default branch.
+        _ => (x_px, y_px.saturating_sub(4)),
+    }
 }
 
 /// Controls which layers are rendered. Used for layer-isolated diagnosis.
@@ -1088,6 +1162,7 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.frame_index = previous_trace.frame_index;
         render_trace.current_helmet_id = previous_trace.current_helmet_id;
         render_trace.cyclone_flying = previous_trace.cyclone_flying;
+        render_trace.cyclone_grounded_sprite_source = previous_trace.cyclone_grounded_sprite_source;
         render_trace.kid_facing = previous_trace.kid_facing;
         render_trace.kid_on_ground = previous_trace.kid_on_ground;
         render_trace.kid_on_slope = previous_trace.kid_on_slope;
@@ -1101,7 +1176,9 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.number_hitpoints = previous_trace.number_hitpoints;
         render_trace.extra_hitpoint_slots = previous_trace.extra_hitpoint_slots;
         render_trace.number_lives = previous_trace.number_lives;
-        render_trace.diamond_count = previous_trace.diamond_count;
+        render_trace.diamond_count = previous_trace
+            .hud_diamond_count_loc_bdc0
+            .unwrap_or(previous_trace.diamond_count);
         render_trace.hud_diamond_frame_offset = previous_trace.hud_diamond_frame_offset;
         render_trace.hud_diamond_vram_page_loc_5d4a = previous_trace.hud_diamond_vram_page_loc_5d4a;
         render_trace.hud_timer_sprite_seconds_loc_bee8 =
@@ -1130,6 +1207,7 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.frame_index = previous_trace.frame_index;
         render_trace.current_helmet_id = previous_trace.current_helmet_id;
         render_trace.cyclone_flying = previous_trace.cyclone_flying;
+        render_trace.cyclone_grounded_sprite_source = previous_trace.cyclone_grounded_sprite_source;
         render_trace.kid_facing = previous_trace.kid_facing;
         render_trace.kid_on_ground = previous_trace.kid_on_ground;
         render_trace.kid_on_slope = previous_trace.kid_on_slope;
@@ -1150,9 +1228,13 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
             previous_trace.transform_source_helmet_id_loc_7ca6;
         // ASM Mode_Level calls Make_SpriteAttr_HUD/sub_BDC0 before the later
         // GfxObjects_CollisionKid path can reach Check_for_recent_damge
-        // loc_B700, so the visible HP pips are also a pre-update latch.
+        // loc_B700 or PrizeDiamondCollected loc_10C78, so the visible HUD
+        // counters are also pre-update latches.
         render_trace.number_hitpoints = previous_trace.number_hitpoints;
         render_trace.extra_hitpoint_slots = previous_trace.extra_hitpoint_slots;
+        render_trace.diamond_count = previous_trace
+            .hud_diamond_count_loc_bdc0
+            .unwrap_or(previous_trace.diamond_count);
         // ASM loc_4626 starts the $DD40 DMA immediately after loc_45EE moves
         // to a new `unk_461C` selector. That new page reaches the HUD
         // scanline in the same frame; otherwise the Sprite_Table latch keeps
@@ -1173,41 +1255,48 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.hud_timer_sprite_seconds_loc_bee8 =
             previous_trace.hud_timer_sprite_seconds_loc_bee8;
         latch_island_shore_vram_bands_loc_1202a(&mut render_trace, trace, previous_trace);
-        if trace.form_change_flash_frames > 0 && previous_trace.form_change_flash_frames > 0 {
-            // ASM Kid_Transform loc_7CD0 hibernates the player coroutine while
-            // Mode_Level still reaches loc_80C/sub_44DC. Oracle frames show
-            // the visible HUD diamond page remains one `unk_461C` art slot
-            // behind that post-update trace value during those repeated
-            // transform hibernates.
-            render_trace.hud_diamond_frame_offset = previous_trace
-                .hud_diamond_frame_offset
-                .map(previous_hud_diamond_frame_offset_loc_45ee);
+        if trace.form_change_flash_frames > 1 {
+            // ASM Kid_Transform loc_7C40/loc_7CD0 enters its synchronous
+            // sub_8E0 VBlank loop after sub_44DC has started the next `$DD40`
+            // transfer. The displayed diamond keeps the page that preceded
+            // that upload while Currently_transforming remains set. loc_7E90
+            // clears that flag before its final cleanup VBlank, so its `$DD40`
+            // upload is visible immediately. Keep the RAM selector and
+            // resident-DMA selector in agreement - HUD drawing gives the
+            // latter precedence.
+            let visible_offset = if previous_trace.form_change_flash_frames > 0 {
+                previous_trace
+                    .hud_diamond_frame_offset
+                    .map(previous_hud_diamond_frame_offset_loc_45ee)
+            } else {
+                previous_trace.hud_diamond_frame_offset
+            };
+            render_trace.hud_diamond_frame_offset = visible_offset;
+            render_trace.hud_diamond_vram_page_loc_5d4a =
+                visible_offset.map(|offset| offset.saturating_mul(2));
+            if previous_trace.form_change_flash_frames > 0 {
+                render_trace.number_hitpoints = trace
+                    .transform_source_hitpoints_loc_bdc0
+                    .unwrap_or(render_trace.number_hitpoints);
+            }
         }
         if trace.form_change_flash_frames > 0 && previous_trace.form_change_flash_frames == 0 {
-            // ASM Kid_Transform loc_7C40/loc_7CD0 starts after the frame's
-            // sprite attributes have already been built. The first visible
-            // transform frame therefore keeps Kid's previous visual state
-            // even though the post-update trace has already entered the
-            // transform coroutine and adjusted the new form's collision width.
-            render_trace.current_helmet_id = previous_trace.current_helmet_id;
-            render_trace.kid_facing = previous_trace.kid_facing;
-            render_trace.kid_on_ground = previous_trace.kid_on_ground;
-            render_trace.kid_on_slope = previous_trace.kid_on_slope;
-            render_trace.kid_x_velocity = previous_trace.kid_x_velocity;
-            render_trace.kid_y_velocity = previous_trace.kid_y_velocity;
-            render_trace.form_change_flash_frames = previous_trace.form_change_flash_frames;
-            if let Some(previous_player) = previous_trace
-                .active_objects
+            // ASM Kid_Transform loc_7C40/loc_7CD0 transfers the new helmet's
+            // sprite page in its first synchronous sub_8E0 VBlank, while the
+            // preceding Make_SpriteAttr_HUD pass still reflects old-form HP.
+            render_trace.number_hitpoints = trace
+                .transform_source_hitpoints_loc_bdc0
+                .unwrap_or(previous_trace.number_hitpoints);
+            // ASM sub_8E0 enters after the prize worker advances through
+            // loc_104AE, retaining that next Sprite_Table source while the
+            // native gameplay trace has removed it.
+            render_trace.floating_items = previous_trace
+                .floating_items
                 .iter()
-                .find(|object| object.kind == NativeObjectKind::Player)
-                .cloned()
-                && let Some(render_player) = render_trace
-                    .active_objects
-                    .iter_mut()
-                    .find(|object| object.kind == NativeObjectKind::Player)
-            {
-                *render_player = previous_player;
-            }
+                .map(|&(x_pos, y_pos, remaining, content)| {
+                    (x_pos, y_pos.saturating_add(3), remaining, content)
+                })
+                .collect();
         }
     }
     render_trace
@@ -1257,6 +1346,133 @@ fn latch_previous_sprite_sources_loc_901(
     render_trace
         .active_projectile_details
         .clone_from(&previous_trace.active_projectile_details);
+    // PrizeDiamondCollected_Init loc_FE3E creates a presentable GfxObject on
+    // its creation pass, then advances its camera-relative arc before the
+    // following Sprite_Table build. Preserve the initial source, but present
+    // the preceding arc sample once the worker was already live.
+    if !previous_trace.prize_diamond_hud_flights_loc_fe3e.is_empty() {
+        render_trace
+            .prize_diamond_hud_flights_loc_fe3e
+            .clone_from(&previous_trace.prize_diamond_hud_flights_loc_fe3e);
+        render_trace.prize_diamond_hud_flight_transferred_loc_fe3e = true;
+    }
+    // ASM Mode_Level loc_901 transfers the prior Sprite_Table before the
+    // loc_102B8 worker's terminating wake removes its GfxObject. The renderer's
+    // calibrated live flash clock owns normal page transitions, but a trace
+    // no longer contains the worker on this final display VBlank. Retain just
+    // that final `$2EA` entry (remaining=1) until the transfer has presented
+    // it; do not latch earlier pages or their `$2CF/$2D8/$2E1` boundaries.
+    for previous_flash in previous_trace
+        .prize_block_spawn_flashes
+        .iter()
+        .filter(|&&(_, _, remaining)| remaining == 1)
+    {
+        let current_has_same_worker = render_trace
+            .prize_block_spawn_flashes
+            .iter()
+            .any(|&(x_px, y_px, _)| x_px == previous_flash.0 && y_px == previous_flash.1);
+        if !current_has_same_worker {
+            render_trace.prize_block_spawn_flashes.push(*previous_flash);
+        }
+    }
+
+    // ASM Mode_Level loc_901 transfers the already-built debris sprites.
+    // Their motion advances during the current update, so the visible pieces
+    // are the prior trace positions just like ordinary Sprite_Table entries.
+    render_trace
+        .block_debris_pieces
+        .clone_from(&previous_trace.block_debris_pieces);
+
+    // ASM Mode_Level loc_901 transfers the prior Sprite_Table before the
+    // current trace's sub_292E hand-off is visible. A vanished worker therefore
+    // remains for one display while its freshly seeded first debris positions
+    // must not yet be drawn.
+    for previous in &previous_trace.block_destroy_effects {
+        let current_has_same_worker = render_trace
+            .block_destroy_effects
+            .iter()
+            .any(|current| current.0 == previous.0 && current.1 == previous.1);
+        if current_has_same_worker {
+            continue;
+        }
+        let initial_debris_positions =
+            block_destroy_initial_debris_positions_sub_292e(previous.0, previous.1, previous.3);
+        render_trace.block_debris_pieces.retain(|piece| {
+            !initial_debris_positions
+                .iter()
+                .any(|initial| initial == piece)
+        });
+        if previous_trace
+            .block_destroy_ice_effects
+            .contains(&(previous.0, previous.1))
+        {
+            render_trace
+                .block_destroy_ice_effects
+                .push((previous.0, previous.1));
+        }
+        render_trace.block_destroy_effects.push(*previous);
+    }
+
+    // PrizeDiamond_Init loc_10396 is a resident-art GfxObject, unlike helmet
+    // prize workers whose current trace already represents their DMA-backed
+    // source. Keep each live diamond's prior position after its initial
+    // `$01F4` hand-off, but leave every other prize and a newly allocated
+    // diamond on its current source.
+    for current in &mut render_trace.floating_items {
+        let (_, _, _, content_id) = *current;
+        if wildside_core::terrain::PrizeContent::from_id(content_id)
+            != wildside_core::terrain::PrizeContent::Diamond
+        {
+            continue;
+        }
+        if let Some(previous) = previous_trace
+            .floating_items
+            .iter()
+            .filter(|&&(x_pos, _, _, previous_content_id)| {
+                x_pos == current.0 && previous_content_id == content_id
+            })
+            .min_by_key(|&&(_, previous_y_pos, _, _)| previous_y_pos.abs_diff(current.1))
+            && previous.2 != PRIZE_DIAMOND_INITIAL_LIFETIME
+        {
+            *current = *previous;
+        }
+    }
+
+    // ASM Mode_Level loc_901 transfers the preceding Sprite_Table before
+    // PrizeDiamond_Init loc_10404 can delete a collected prize. Retain a
+    // prior item absent from post-update state for that final visible frame.
+    for previous in &previous_trace.floating_items {
+        let present_in_current_trace = render_trace
+            .floating_items
+            .iter()
+            .any(|current| current.0 == previous.0 && current.3 == previous.3);
+        if !present_in_current_trace {
+            render_trace.floating_items.push(*previous);
+            render_trace
+                .floating_items_transferred_loc_901
+                .push(*previous);
+        }
+    }
+}
+
+fn block_destroy_initial_debris_positions_sub_292e(
+    x_px: u16,
+    y_px: u16,
+    direction: u16,
+) -> [(i16, i16); 5] {
+    let velocities = block_debris_velocity_sub_292e(direction);
+    std::array::from_fn(|index| {
+        let x = i32::from(x_px)
+            + i32::from(BLOCK_DEBRIS_BASE_X_SUB_292E[index])
+            + i32::from(velocities[index].0);
+        let y = i32::from(y_px)
+            + i32::from(BLOCK_DEBRIS_BASE_Y_SUB_292E[index])
+            + i32::from(velocities[index].1);
+        (
+            i16::try_from(x).unwrap_or(if x.is_negative() { i16::MIN } else { i16::MAX }),
+            i16::try_from(y).unwrap_or(if y.is_negative() { i16::MIN } else { i16::MAX }),
+        )
+    })
 }
 
 fn previous_hud_diamond_frame_offset_loc_45ee(offset: u8) -> u8 {
@@ -3991,6 +4207,24 @@ fn push_sprite_frame(
     push_sprite_frame_with_priority(commands, frame, palette, screen_x, screen_y, None);
 }
 
+fn push_sat_sprite_frame(
+    commands: &mut Vec<DrawCommand>,
+    frame: &wildside_render::SpriteFrame,
+    palette: &Palette,
+    screen_x: i32,
+    screen_y: i32,
+) {
+    let facing = Direction::Right;
+    let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
+    commands.push(DrawCommand::SatSprite {
+        x: draw_x,
+        y: draw_y,
+        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        palette: Arc::new(palette.clone()),
+        tiles: build_sprite_tiles(frame, facing, 0),
+    });
+}
+
 fn push_sprite_frame_with_priority(
     commands: &mut Vec<DrawCommand>,
     frame: &wildside_render::SpriteFrame,
@@ -5761,12 +5995,18 @@ fn prize_block_spawn_flash_frame_loc_102b8(
         return None;
     }
     let elapsed = PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8.saturating_sub(remaining);
+    // The two retained P presentations occur after `j_Init_Animation` but
+    // before its first displayed stru_102DE step. Start the script timer only
+    // when `$2CF` becomes visible: oracle SAT keeps `$2CF` through frame 1026
+    // (remaining=20), rather than switching at remaining=21.
+    let script_elapsed =
+        elapsed.saturating_sub(HELMET_PRIZE_DMA_HIDDEN_PRE_PRESENTATION_FRAMES_LOC_102B8);
     let mut frame_start = 0_u8;
     // ASM loc_102B8/stru_102DE (kid.asm:21578) initialises four 24x24 sprite
     // frames at block-art VRAM tiles $2CF, $2D8, $2E1, and $2EA.
     for (duration, vram_tile) in PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE {
         let frame_end = frame_start.saturating_add(duration);
-        if elapsed < frame_end || frame_end == 24 {
+        if script_elapsed < frame_end || frame_end == 24 {
             let tile_base_index = vram_tile.checked_sub(BLOCK_TILE_VRAM_BASE)?;
             if usize::from(tile_base_index.saturating_add(8))
                 >= level_visuals.block_tiles.tiles.len()
@@ -5797,18 +6037,19 @@ fn push_prize_block_spawn_flash_loc_102b8(
     let Some(frame) = prize_block_spawn_flash_frame_loc_102b8(level_visuals, remaining) else {
         return false;
     };
-    push_sprite_frame(commands, &frame, &level_visuals.palettes.foreground, x, y);
+    // ASM sub_1007A allocates loc_102B8 at `$2001`, immediately after Kid's
+    // `$2000` GfxObject. Preserve that known Sprite_Table relation instead of
+    // treating the flash as an ordinary scene overlay.
+    push_sat_sprite_frame(commands, &frame, &level_visuals.palettes.foreground, x, y);
     true
 }
 
 /// ASM sub_10CB0 (kid.asm): helmet prize initialisers set `$12(a3)=1` — the
 /// sprite art is DMA'd — unlike PrizeDiamond_Init and sub_10C78 prizes whose
-/// resident art displays immediately. Oracle frames 1023..1040 on the
-/// published route show the helmet absent for exactly the first three
-/// stru_102DE flash animation frames (4+6+$A = 20) and visible from the
-/// final 4-frame burst, which the higher-priority flash object then overlaps.
-/// TODO(fidelity): replace the flash-frame boundary with the owned VDP
-/// DMA-residency timeline once it exists (#406).
+/// resident art displays immediately. Oracle frame 1023 shows both the
+/// palette-0 loc_102B8 flash and the palette-3 helmet sprite: transparent
+/// flash pixels reveal the helmet below. It is absent only for loc_102B8's two
+/// pre-presentation frames, when the prior P sprite remains on screen.
 fn helmet_prize_hidden_during_spawn_flash_dma_sub_10cb0(
     content: wildside_core::terrain::PrizeContent,
     x_px: u16,
@@ -5832,7 +6073,7 @@ fn helmet_prize_hidden_during_spawn_flash_dma_sub_10cb0(
     }
     flashes.iter().any(|&(flash_x, flash_y, remaining)| {
         let elapsed = PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8.saturating_sub(remaining);
-        elapsed < HELMET_PRIZE_DMA_HIDDEN_FLASH_FRAMES_STRU_102DE
+        elapsed < HELMET_PRIZE_DMA_HIDDEN_PRE_PRESENTATION_FRAMES_LOC_102B8
             && flash_x == x_px
             && (flash_y..=flash_y + 32).contains(&y_px)
     })
@@ -6078,11 +6319,28 @@ pub fn push_prize_block_wobble_overrides_sub_1007a(
         // GfxObject until `stru_101B6` reaches its terminator. This is a
         // presentation-only tail at the settled block position, not another
         // wobble step. The final live mapping is `unk_E0E5E` / VRAM `$229`.
-        // Native decrements tail bookkeeping at frame start. The new Diamond
-        // tail is therefore `3` and `2` across the two frames where the ROM
-        // still has `stru_101B6`'s final `$229` entry in Sprite_Table.
+        // Native decrements tail bookkeeping at frame start. The ROM retains
+        // the final `$229` entry across native tail values `4`, `3`, and `2`.
+        // Oracle frame 1397 has that Sprite_Table entry while native records
+        // the worker as `tail=4`.
         // `remaining=1` is count-only overlap after the GfxObject stops.
-        if !(2..=3).contains(&remaining) {
+        if !(2..=4).contains(&remaining) {
+            continue;
+        }
+        let diamond_has_taken_the_worker_slot = remaining == 2
+            && trace
+                .floating_items
+                .iter()
+                .any(|&(x_px, y_px, _, content_id)| {
+                    wildside_core::terrain::PrizeContent::from_id(content_id)
+                        == wildside_core::terrain::PrizeContent::Diamond
+                        && x_px / 16 == col
+                        && y_px / 16 == row
+                });
+        if diamond_has_taken_the_worker_slot {
+            // ASM sub_1007A → PrizeDiamond_Init (kid.asm:21496-21607): the
+            // diamond reuses the tail object's Gfx slot on its first wake.
+            // Do not submit both the stale `$229` mapping and the diamond.
             continue;
         }
         push_prize_block_wobble_sub_1007a(
@@ -6141,6 +6399,21 @@ pub fn push_block_grid_overrides(
                 continue;
             }
             if is_prize_bounce {
+                continue;
+            }
+            let smash_write_is_not_presentable_yet =
+                trace
+                    .prize_block_spawn_flashes
+                    .iter()
+                    .any(|&(x_px, y_px, remaining)| {
+                        remaining == 25
+                            && x_px == col.saturating_mul(16).saturating_add(8)
+                            && y_px == row.saturating_mul(16).saturating_sub(8)
+                    });
+            if smash_write_is_not_presentable_yet {
+                // ASM sub_1007A writes `$E001` after the sprite-list build;
+                // loc_102B8 is live, but the new grid tile reaches VDP on
+                // the following frame.
                 continue;
             }
             if is_shifting_bounce {
@@ -6648,6 +6921,10 @@ fn build_game_scene_filtered(
             );
         }
     }
+    // The worker trace is compiled later, but this established compositor path
+    // keeps its current presentation latch separate from Kid's source-backed
+    // SAT entry.
+    let block_destroy_sprite_insert_at = commands.len();
     if !eol_hologram_visible && filter.player {
         // ASM `loc_BC34` damage-flash thread (kid.asm:15181-15215): during
         // the 66-frame `Just_received_damage` window, the ROM alternates
@@ -7435,14 +7712,65 @@ fn build_game_scene_filtered(
             // Block-pass handles the offset draw; nothing to do here.
         }
 
+        let mut block_destroy_commands = Vec::new();
         // ASM `sub_292E` (kid.asm:4881) emits five direction-keyed debris
         // workers, and `sub_2A4C` (kid.asm:5025) draws each with tile `$8228`.
         // Keep the old centre marker only as an asset-missing fallback.
-        for &(x_px, y_px, _remaining, direction) in &trace.block_destroy_effects {
+        for &(x_px, y_px, remaining, direction) in &trace.block_destroy_effects {
             let camera_x_px = (trace.camera_x_pos >> 16) as i32;
             let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+            if remaining > 0 {
+                let is_ice = trace.block_destroy_ice_effects.contains(&(x_px, y_px));
+                let (worker_x_px, worker_y_px, tile_base) = if is_ice && remaining == 4 {
+                    // ASM sub_10F9C maps `$23D` before its direction branch,
+                    // so its first displayed frame has the source-cell
+                    // origin. The later loc_10FEC `$276` page is nudged.
+                    let (worker_x_px, worker_y_px) =
+                        initial_block_destroy_worker_origin_sub_10eda_or_10f9c(
+                            direction, x_px, y_px,
+                        );
+                    (
+                        worker_x_px,
+                        worker_y_px,
+                        ICE_BLOCK_WORKER_INITIAL_TILE_BASE_SUB_10F9C,
+                    )
+                } else if is_ice {
+                    // ASM sub_10F9C loc_10FEC holds `$241` for three
+                    // hibernated frames before sub_292E emits debris.
+                    (x_px, y_px, ICE_BLOCK_WORKER_TILE_BASE_LOC_10FEC)
+                } else if !is_ice && remaining == 2 {
+                    // ASM sub_10EDA maps `$220` before loc_10F1A/20/26
+                    // applies the four-pixel direction nudge. The first
+                    // displayed hibernate therefore uses that source origin;
+                    // loc_10F2A switches to `$224` for the final tick.
+                    let (worker_x_px, worker_y_px) =
+                        initial_block_destroy_worker_origin_sub_10eda_or_10f9c(
+                            direction, x_px, y_px,
+                        );
+                    (
+                        worker_x_px,
+                        worker_y_px,
+                        SMASH_BLOCK_WORKER_INITIAL_TILE_BASE_SUB_10EDA,
+                    )
+                } else {
+                    // ASM sub_10EDA loc_10F2A holds `$224` for two
+                    // hibernated frames before sub_292E emits debris.
+                    (x_px, y_px, SMASH_BLOCK_WORKER_TILE_BASE_LOC_10F2A)
+                };
+                if push_block_destroy_worker_loc_10f2a_or_10fec(
+                    &mut block_destroy_commands,
+                    level_visuals,
+                    worker_x_px,
+                    worker_y_px,
+                    tile_base,
+                    camera_x_px,
+                    camera_y_px,
+                ) {
+                    continue;
+                }
+            }
             if push_block_destroy_debris_sub_292e(
-                &mut commands,
+                &mut block_destroy_commands,
                 level_visuals,
                 x_px,
                 y_px,
@@ -7455,7 +7783,7 @@ fn build_game_scene_filtered(
 
             let cx = i32::from(x_px) + 8 - camera_x_px;
             let cy = i32::from(y_px) + 8 - camera_y_px;
-            commands.push(DrawCommand::Rect {
+            block_destroy_commands.push(DrawCommand::Rect {
                 x: cx - 3,
                 y: cy - 3,
                 width: 6,
@@ -7470,18 +7798,26 @@ fn build_game_scene_filtered(
         ) {
             let camera_x_px = (trace.camera_x_pos >> 16) as i32;
             let camera_y_px = (trace.camera_y_pos >> 16) as i32;
-            for &(x_px, y_px) in &trace.block_debris_pieces {
-                // ASM sub_2A4C (kid.asm:5053) emits persistent falling debris
-                // sprite entries with tile `$8228` after sub_292E seeds the
-                // scratch slot.
-                push_resolved_tile(
-                    &mut commands,
-                    i32::from(x_px) - camera_x_px,
-                    i32::from(y_px) - camera_y_px,
-                    tile.clone(),
-                );
+            for &(x_px, y_px) in
+                block_debris_software_submission_order_sub_2a4c(&trace.block_debris_pieces)
+            {
+                block_destroy_commands.push(DrawCommand::SatSprite {
+                    x: i32::from(x_px) - camera_x_px,
+                    y: i32::from(y_px) - camera_y_px,
+                    tile_sheet: tile.tile_sheet.clone(),
+                    palette: tile.palette.clone(),
+                    tiles: vec![SpriteTile {
+                        offset_x: 0,
+                        offset_y: 0,
+                        tile: tile.tile,
+                    }],
+                });
             }
         }
+        commands.splice(
+            block_destroy_sprite_insert_at..block_destroy_sprite_insert_at,
+            block_destroy_commands,
+        );
 
         for &(x_px, y_px, remaining) in &trace.kid_projectile_hit_sparks {
             let camera_x_px = (trace.camera_x_pos >> 16) as i32;
@@ -7498,8 +7834,37 @@ fn build_game_scene_filtered(
         }
 
         // Floating prize items: small coloured shape rising upward
-        for &(x_px, y_px, remaining, content_id) in &trace.floating_items {
+        for (x_px, y_px, remaining, content_id, is_collected_diamond_flight) in trace
+            .floating_items
+            .iter()
+            .copied()
+            .map(|(x_px, y_px, remaining, content_id)| (x_px, y_px, remaining, content_id, false))
+            .chain(trace.prize_diamond_hud_flights_loc_fe3e.iter().map(
+                |&(x_px, y_px, remaining)| {
+                    (
+                        x_px,
+                        y_px,
+                        remaining,
+                        wildside_core::terrain::PrizeContent::Diamond.to_id(),
+                        true,
+                    )
+                },
+            ))
+        {
             let content = wildside_core::terrain::PrizeContent::from_id(content_id);
+            let transferred_from_previous_sprite_table = trace
+                .floating_items_transferred_loc_901
+                .contains(&(x_px, y_px, remaining, content_id));
+            if content == wildside_core::terrain::PrizeContent::Diamond
+                && remaining == PRIZE_DIAMOND_INITIAL_LIFETIME
+                && !is_collected_diamond_flight
+            {
+                // ASM PrizeDiamond_Init (kid.asm:21604): a block-spawned
+                // diamond's reused slot becomes live before its first
+                // presentable sprite frame. PrizeDiamondCollected_Init
+                // loc_FE3E is a distinct worker and displays immediately.
+                continue;
+            }
             // ASM sub_10CB0: helmet prize art is DMA'd and has no presentable
             // page while the loc_102B8 flash runs its first three animation
             // frames; resident-art prizes (diamond, sub_10C78) draw at once.
@@ -7512,7 +7877,8 @@ fn build_game_scene_filtered(
                 continue;
             }
             let fx = i32::from(x_px) - (trace.camera_x_pos >> 16) as i32;
-            let fy = i32::from(y_px) - (trace.camera_y_pos >> 16) as i32;
+            let fy = i32::from(floating_prize_display_y_loc_104ae(content, y_px, remaining))
+                - (trace.camera_y_pos >> 16) as i32;
             if render_floating_prize_worker_effect(
                 &mut commands,
                 level_visuals,
@@ -7528,23 +7894,77 @@ fn build_game_scene_filtered(
                 if !floating_prize_sprite_visible_loc_103b2(content, remaining) {
                     continue;
                 }
-                let frame_index = floating_prize_frame_index_loc_10396(
-                    content,
-                    remaining,
-                    trace.frame_index,
-                    prize_visuals.frame_duration.max(1),
-                    prize_visuals.frames.len().max(1),
-                );
+                let frame_count = prize_visuals.frames.len().max(1);
+                let frame_index =
+                    if matches!(content, wildside_core::terrain::PrizeContent::Diamond) {
+                        // ASM PrizeDiamond_Init loc_10396 uses stru_10D6E's
+                        // LnkTo1..4_unk_E0E66 mappings, but every mapping targets
+                        // the same `$6F2` VRAM sprite. sub_44DC/sub_5D4A owns
+                        // that page, so all simultaneous prize diamonds display
+                        // the resident HUD DMA frame rather than their individual
+                        // GfxObject_Animate cursors.
+                        floating_diamond_frame_index_from_resident_page_loc_5d4a(
+                            trace.hud_diamond_vram_page_loc_5d4a,
+                            floating_prize_frame_index_loc_10396(
+                                content,
+                                remaining,
+                                prize_visuals.frame_duration.max(1),
+                                frame_count,
+                            ),
+                            frame_count,
+                        )
+                    } else {
+                        floating_prize_frame_index_loc_10396(
+                            content,
+                            remaining,
+                            prize_visuals.frame_duration.max(1),
+                            frame_count,
+                        )
+                    };
                 if let Some(frame) = prize_visuals.frames.get(frame_index) {
                     let facing = Direction::Right;
                     let (draw_x, draw_y) = sprite_draw_position(frame, fx, fy, facing);
-                    commands.push(DrawCommand::Sprite {
-                        x: draw_x,
-                        y: draw_y,
-                        tile_sheet: Arc::new(frame.tile_sheet.clone()),
-                        palette: Arc::new(prize_visuals.palette.clone()),
-                        tiles: build_sprite_tiles(frame, facing, 0),
-                    });
+                    let mut tiles = build_sprite_tiles(frame, facing, 0);
+                    if is_collected_diamond_flight
+                        && trace.prize_diamond_hud_flight_transferred_loc_fe3e
+                    {
+                        // ASM PrizeDiamondCollected_Init loc_FE3E supplies
+                        // `unk_E0E66` as high-priority SAT word `$86F2` only
+                        // after the preceding Sprite_Table has transferred.
+                        for tile in &mut tiles {
+                            tile.tile.priority = true;
+                        }
+                    }
+                    let retained_demo_sprite_table =
+                        trace.resident_gameplay_vdp_camera_loc_300ba.is_some();
+                    // ASM Make_SpritesFromGfxObjects (kid.asm:2558-2576)
+                    // appends resident prize-diamond entries to Sprite_Table.
+                    // During loc_119D8's resident gameplay fade, the retained
+                    // VDP Sprite_Table keeps its first opaque pixel; live
+                    // gameplay otherwise builds the later prize entry here.
+                    commands.push(
+                        if is_collected_diamond_flight
+                            && trace.prize_diamond_hud_flight_transferred_loc_fe3e
+                            || retained_demo_sprite_table
+                            || transferred_from_previous_sprite_table
+                        {
+                            DrawCommand::SatSprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(prize_visuals.palette.clone()),
+                                tiles,
+                            }
+                        } else {
+                            DrawCommand::Sprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(prize_visuals.palette.clone()),
+                                tiles,
+                            }
+                        },
+                    );
                     continue;
                 }
             }
@@ -7954,14 +8374,62 @@ fn floating_prize_sprite_visible_loc_103b2(
             let blink_elapsed = 0x00C8u16.saturating_sub(remaining_frames);
             (blink_elapsed / 3).is_multiple_of(2)
         }
+        wildside_core::terrain::PrizeContent::Ankh
+        | wildside_core::terrain::PrizeContent::Clock
+        | wildside_core::terrain::PrizeContent::Continue
+            if remaining_frames <= 0x012C =>
+        {
+            // ASM PrizeAnkh_Init loc_1071E / PrizeClock_Init loc_FF4E /
+            // PrizeContinue_Init loc_107B4: each changes from its one-frame
+            // initial script to `stru_10C0E`/`stru_10C1E`/`stru_10C2E` when
+            // d3 reaches $012C. GfxObject_Animate loc_1158/sub_1194 then
+            // keeps its per-object cursor visible for six ticks and null for
+            // six, independently of the global Time_Frames counter.
+            let blink_elapsed = 0x012Cu16.saturating_sub(remaining_frames);
+            (blink_elapsed / 6).is_multiple_of(2)
+        }
         _ => true,
     }
+}
+
+fn floating_prize_display_y_loc_104ae(
+    content: wildside_core::terrain::PrizeContent,
+    y_px: u16,
+    remaining_frames: u16,
+) -> u16 {
+    use wildside_core::terrain::PrizeContent;
+
+    if !matches!(
+        content,
+        PrizeContent::Skycutter
+            | PrizeContent::Cyclone
+            | PrizeContent::RedStealth
+            | PrizeContent::Eyeclops
+            | PrizeContent::Juggernaut
+            | PrizeContent::IronKnight
+            | PrizeContent::Berzerker
+            | PrizeContent::Maniaxe
+            | PrizeContent::Micromax
+    ) {
+        return y_px;
+    }
+
+    // ASM Mode_Level (kid.asm:901-950) transfers the preceding Sprite_Table
+    // before Execute_Objects wakes loc_104AE and sub_10C38 advances its Gfx y.
+    // The trace holds that post-step state, while this VDP frame still displays
+    // the prior integer y. Helmets share the `$0320` countdown and `$1388`
+    // per-frame gravity.
+    let elapsed = 0x0320u16.saturating_sub(remaining_frames);
+    let gravity = 0x1388u64;
+    let cumulative = gravity * u64::from(elapsed) * u64::from(elapsed + 1) / 2;
+    let previous = gravity * u64::from(elapsed.saturating_sub(1)) * u64::from(elapsed) / 2;
+    let displayed_lag_px = (cumulative >> 16).saturating_sub(previous >> 16) as u16;
+    y_px.saturating_sub(displayed_lag_px)
 }
 
 fn floating_prize_frame_index_loc_10396(
     content: wildside_core::terrain::PrizeContent,
     remaining_frames: u16,
-    trace_frame_index: usize,
     frame_duration: usize,
     frame_count: usize,
 ) -> usize {
@@ -7983,8 +8451,31 @@ fn floating_prize_frame_index_loc_10396(
             let blink_elapsed = 0x00C8u16.saturating_sub(remaining_frames);
             usize::from(blink_elapsed) / (frame_duration * 2) % frame_count
         }
-        _ => trace_frame_index / frame_duration % frame_count,
+        _ => {
+            // ASM `Init_Animation` gives every non-diamond prize its own
+            // cursor. Helmet scripts are one-frame loops; Ankh/Clock/Continue
+            // use the visibility gate above once their later blink script is
+            // installed. Neither may inherit global `Time_Frames` phase.
+            0
+        }
     }
+}
+
+fn floating_diamond_frame_index_from_resident_page_loc_5d4a(
+    resident_page: Option<u8>,
+    script_frame_index: usize,
+    frame_count: usize,
+) -> usize {
+    if frame_count == 0 {
+        return 0;
+    }
+    resident_page.map_or(script_frame_index % frame_count, |page| {
+        // ASM sub_5D4A adds its selector directly to `off_7B0AC`, whose
+        // four resident diamond-page pointers are longwords. The selector
+        // therefore advances in four-byte units: `$00/$04/$08/$0C` select
+        // diamond pages 1..4, not two-byte words.
+        usize::from(page / 4) % frame_count
+    })
 }
 
 fn render_floating_prize_worker_effect(
@@ -8554,6 +9045,29 @@ mod tests {
     }
 
     #[test]
+    fn mode_level_loc_7f4_keeps_pre_object_diamond_counter_in_sprite_table() {
+        let previous_trace = NativeTraceFrame {
+            game_mode: GameMode::DemoPlay,
+            game_mode_value: GameMode::DemoPlay.as_disassembly_value(),
+            current_level: wildside_core::LevelId(0x1B),
+            diamond_count: 1,
+            hud_diamond_count_loc_bdc0: Some(0),
+            ..NativeTraceFrame::default()
+        };
+        let trace = NativeTraceFrame {
+            diamond_count: 1,
+            ..previous_trace.clone()
+        };
+
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
+
+        assert_eq!(
+            render_trace.diamond_count, 0,
+            "ASM Mode_Level loc_7F4 calls Make_SpriteAttr_HUD before Execute_Objects completes Increase_Diamonds"
+        );
+    }
+
+    #[test]
     fn title_card_glyph_tiles_follow_loc_1ac70_sprite_table_and_bounds() {
         let art = sample_title_card_letters_visuals(0x70);
         let mut commands = Vec::new();
@@ -8702,6 +9216,19 @@ mod tests {
     }
 
     #[test]
+    fn block_debris_software_submission_preserves_sat_order_sub_2a4c() {
+        let pieces = [(0x0147, 0x00E1), (0x014B, 0x00E0), (0x014B, 0x00EB)];
+
+        assert_eq!(
+            block_debris_software_submission_order_sub_2a4c(&pieces)
+                .copied()
+                .collect::<Vec<_>>(),
+            vec![(0x0147, 0x00E1), (0x014B, 0x00E0), (0x014B, 0x00EB)],
+            "ASM sub_2A4C links debris SAT entries in scratch order and SatSprite preserves the VDP's first opaque pixel"
+        );
+    }
+
+    #[test]
     fn block_destroy_debris_sub_292e_emits_camera_relative_rom_tiles() {
         let mut visuals = sample_level_visuals(9);
         visuals.block_tiles = sample_tile_sheet_with_pixel(9, 0x44);
@@ -8717,13 +9244,13 @@ mod tests {
                 .map(indexed_tile_snapshot)
                 .collect::<Vec<_>>(),
             vec![
-                (68, 79, 0x08, true),
-                (68, 88, 0x08, true),
-                (78, 88, 0x08, true),
-                (78, 79, 0x08, true),
                 (74, 82, 0x08, true),
+                (78, 79, 0x08, true),
+                (78, 88, 0x08, true),
+                (68, 88, 0x08, true),
+                (68, 79, 0x08, true),
             ],
-            "ASM sub_292E seeds `unk_29E8`/`unk_29F2`, applies loc_2988 velocity, then sub_2A4C writes tile `$8228` after camera subtraction"
+            "ASM loc_2994 seeds `unk_29E8`/`unk_29F2` with d7 descending, applies loc_2988 velocity, then sub_2A4C writes tile `$8228` after camera subtraction"
         );
         let DrawCommand::IndexedTile { tile_sheet, .. } = commands[0].clone() else {
             panic!("ASM sub_2A4C debris should emit indexed block-art tiles");
@@ -8737,6 +9264,39 @@ mod tests {
             "ASM sub_2A4C tile `$8228` requires block-art local tile `$08` to be loaded"
         );
         assert!(commands.is_empty());
+    }
+
+    #[test]
+    fn block_destroy_worker_uses_hardware_sprite_mapping_loc_10f2a() {
+        let mut visuals = sample_level_visuals(9);
+        visuals.block_tiles = sample_tile_sheet_with_pixel(9, 0x44);
+        let mut commands = Vec::new();
+
+        assert!(
+            push_block_destroy_worker_loc_10f2a_or_10fec(
+                &mut commands,
+                &visuals,
+                80,
+                96,
+                SMASH_BLOCK_WORKER_TILE_BASE_LOC_10F2A,
+                11,
+                13,
+            ),
+            "ASM loc_10F2A maps `unk_E0E56` as a resident 16x16 `$224` sprite"
+        );
+
+        let DrawCommand::Sprite { x, y, tiles, .. } = commands.single() else {
+            panic!("ASM Make_SpriteFromGfxObject loc_12B8 emits one hardware sprite");
+        };
+        assert_eq!((*x, *y), (69, 83));
+        assert_eq!(
+            tiles
+                .iter()
+                .map(|tile| (tile.offset_x, tile.offset_y, tile.tile.tile_index))
+                .collect::<Vec<_>>(),
+            vec![(0, 0, 4), (0, 8, 5), (8, 0, 6), (8, 8, 7)],
+            "ASM loc_10F2A maps a 16x16 `$224` sprite in Mega Drive column-major tile order"
+        );
     }
 
     #[test]
@@ -8797,6 +9357,7 @@ mod tests {
                 friendly: true,
                 ..ActiveProjectileSnapshot::default()
             }],
+            prize_diamond_hud_flights_loc_fe3e: vec![(84, 96, 499)],
             ..NativeTraceFrame::default()
         };
         let previous_trace = NativeTraceFrame {
@@ -8828,6 +9389,7 @@ mod tests {
                 animation_elapsed_frames: 6,
                 ..ActiveProjectileSnapshot::default()
             }],
+            prize_diamond_hud_flights_loc_fe3e: vec![(80, 96, 500)],
             ..NativeTraceFrame::default()
         };
 
@@ -8844,6 +9406,88 @@ mod tests {
         assert_eq!(
             render_trace.active_projectile_details, previous_trace.active_projectile_details,
             "ASM Mode_Level loc_901 presents previous typed projectile sprite details"
+        );
+        assert_eq!(
+            render_trace.prize_diamond_hud_flights_loc_fe3e,
+            previous_trace.prize_diamond_hud_flights_loc_fe3e,
+            "ASM Mode_Level loc_901 transfers the prior PrizeDiamondCollected_Init Sprite_Table entry"
+        );
+        assert!(
+            render_trace.prize_diamond_hud_flight_transferred_loc_fe3e,
+            "renderer must distinguish a transferred `$86F2` entry from the creation-frame source"
+        );
+    }
+
+    #[test]
+    fn prize_diamond_loc_10396_latches_only_post_initial_resident_sprite() {
+        let previous_trace = NativeTraceFrame {
+            floating_items: vec![(80, 96, 499, 0), (112, 96, 799, 3)],
+            ..NativeTraceFrame::default()
+        };
+        let mut render_trace = NativeTraceFrame {
+            floating_items: vec![(80, 98, 498, 0), (112, 98, 798, 3)],
+            ..NativeTraceFrame::default()
+        };
+
+        latch_previous_sprite_sources_loc_901(&mut render_trace, &previous_trace);
+
+        assert_eq!(
+            render_trace.floating_items,
+            vec![(80, 96, 499, 0), (112, 98, 798, 3)],
+            "ASM Mode_Level loc_901 latches resident PrizeDiamond_Init loc_10396, while sub_10CB0 helmet DMA presentation stays current"
+        );
+
+        let initial = NativeTraceFrame {
+            floating_items: vec![(80, 96, PRIZE_DIAMOND_INITIAL_LIFETIME, 0)],
+            ..NativeTraceFrame::default()
+        };
+        let mut first_active = NativeTraceFrame {
+            floating_items: vec![(80, 96, PRIZE_DIAMOND_INITIAL_LIFETIME - 1, 0)],
+            ..NativeTraceFrame::default()
+        };
+        latch_previous_sprite_sources_loc_901(&mut first_active, &initial);
+        assert_eq!(
+            first_active.floating_items,
+            vec![(80, 96, PRIZE_DIAMOND_INITIAL_LIFETIME - 1, 0)],
+            "ASM PrizeDiamond_Init loc_10396 keeps the first post-allocation source current"
+        );
+
+        let mut collected = NativeTraceFrame::default();
+        latch_previous_sprite_sources_loc_901(&mut collected, &previous_trace);
+        assert_eq!(
+            collected.floating_items,
+            vec![(80, 96, 499, 0), (112, 96, 799, 3)],
+            "ASM Mode_Level loc_901 transfers PrizeDiamond_Init loc_10404's final Sprite_Table entry after collection deletes its live worker"
+        );
+        assert_eq!(
+            collected.floating_items_transferred_loc_901, previous_trace.floating_items,
+            "ASM Mode_Level loc_901 marks only the transferred prize entries for retained SAT ordering"
+        );
+    }
+
+    #[test]
+    fn mode_level_loc_901_retains_only_terminating_prize_flash_sprite() {
+        let previous_trace = NativeTraceFrame {
+            prize_block_spawn_flashes: vec![(72, 568, 1)],
+            ..NativeTraceFrame::default()
+        };
+        let mut terminated = NativeTraceFrame::default();
+        latch_previous_sprite_sources_loc_901(&mut terminated, &previous_trace);
+        assert_eq!(
+            terminated.prize_block_spawn_flashes,
+            vec![(72, 568, 1)],
+            "ASM Mode_Level loc_901 transfers loc_102B8's final `$2EA` Sprite_Table entry after the worker deletes"
+        );
+
+        let mut next_page = NativeTraceFrame {
+            prize_block_spawn_flashes: vec![(72, 568, 2)],
+            ..NativeTraceFrame::default()
+        };
+        latch_previous_sprite_sources_loc_901(&mut next_page, &previous_trace);
+        assert_eq!(
+            next_page.prize_block_spawn_flashes,
+            vec![(72, 568, 2)],
+            "ASM stru_102DE page transitions stay on the calibrated live flash clock"
         );
     }
 
@@ -10581,6 +11225,27 @@ mod tests {
     fn floating_prize_diamond_visibility_and_frame_timing_follow_loc_10396_103b2() {
         use wildside_core::terrain::PrizeContent;
 
+        assert_eq!(
+            floating_prize_display_y_loc_104ae(PrizeContent::Cyclone, 576, 799),
+            576,
+            "ASM Mode_Level/loc_104AE: the first $1388 subpixel fall has not crossed an integer pixel"
+        );
+        assert_eq!(
+            floating_prize_display_y_loc_104ae(PrizeContent::Cyclone, 577, 795),
+            576,
+            "ASM Mode_Level transfers the prior Sprite_Table before loc_104AE's fifth gravity step crosses a pixel"
+        );
+        assert_eq!(
+            floating_prize_display_y_loc_104ae(PrizeContent::Cyclone, 584, 786),
+            582,
+            "ASM Mode_Level/sub_10C38: late gravity steps can cross two pixels, both retained by the displayed Sprite_Table"
+        );
+        assert_eq!(
+            floating_prize_display_y_loc_104ae(PrizeContent::Clock, 577, 795),
+            577,
+            "ASM PrizeClock_Init uses its own falling-worker presentation path"
+        );
+
         assert!(
             floating_prize_sprite_visible_loc_103b2(PrizeContent::Diamond, 0x00C9),
             "ASM PrizeDiamond_Init loc_10396 keeps the normal diamond script visible before the $00C8 blink switch"
@@ -10602,8 +11267,8 @@ mod tests {
             "non-diamond prize scripts do not use the loc_103B2 null-frame blink table"
         );
         assert!(
-            floating_prize_sprite_visible_loc_103b2(PrizeContent::Clock, 0x00C5),
-            "non-diamond prize scripts must not enter the diamond-only loc_103B2 blink guard"
+            !floating_prize_sprite_visible_loc_103b2(PrizeContent::Clock, 0x00C5),
+            "ASM stru_10C1E keeps its independent six-tick null frame rather than using diamond loc_103B2 parity"
         );
         assert!(
             !floating_prize_sprite_visible_loc_103b2(PrizeContent::Diamond, 0x00C4),
@@ -10611,54 +11276,80 @@ mod tests {
         );
 
         assert_eq!(
-            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x01F4, 99, 3, 4),
+            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x01F4, 3, 4),
             0,
             "ASM PrizeDiamond_Init loc_10396 uses local remaining-frame time, not global frame index"
         );
         assert_eq!(
-            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x01EB, 0, 3, 4),
+            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x01EB, 3, 4),
             3,
             "ASM PrizeDiamond_Init loc_10396 advances the normal diamond frame every frame_duration ticks"
         );
         assert_eq!(
-            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x01EB, 0, 4, 5),
+            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x01EB, 4, 5),
             2,
             "ASM PrizeDiamond_Init loc_10396 divides elapsed ticks by frame_duration before wrapping normal diamond frames"
         );
         assert_eq!(
-            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x00C8, 99, 3, 4),
+            floating_diamond_frame_index_from_resident_page_loc_5d4a(Some(12), 3, 4),
+            3,
+            "ASM sub_5D4A indexes four-byte `off_7B0AC` pointers: selector `$C` chooses the fourth `$6F2` resident page"
+        );
+        assert_eq!(
+            floating_diamond_frame_index_from_resident_page_loc_5d4a(None, 3, 4),
+            3,
+            "asset-only traces without a resident DMA page retain the local script fallback"
+        );
+        assert_eq!(
+            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x00C8, 3, 4),
             0,
             "ASM PrizeDiamond_Init loc_103B2 restarts visible/null blink frame selection at d3=$00C8"
         );
         assert_eq!(
-            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x00C8, 99, 7, 5),
+            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x00C8, 7, 5),
             0,
             "ASM PrizeDiamond_Init loc_103B2 owns the exact d3=$00C8 boundary instead of the normal loc_10396 script"
         );
         assert_eq!(
-            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x00BC, 0, 3, 4),
+            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x00BC, 3, 4),
             2,
             "ASM PrizeDiamond_Init loc_103B2 advances visible diamond frames every two script slots"
         );
         assert_eq!(
-            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x00BE, 0, 3, 4),
+            floating_prize_frame_index_loc_10396(PrizeContent::Diamond, 0x00BE, 3, 4),
             1,
             "ASM PrizeDiamond_Init loc_103B2 divides by frame_duration*2 for visible/null pairs"
         );
         assert_eq!(
-            floating_prize_frame_index_loc_10396(PrizeContent::Clock, 0, 12, 3, 4),
+            floating_prize_frame_index_loc_10396(PrizeContent::Clock, 0, 3, 4),
             0,
-            "ordinary prize visuals use global trace frame timing"
+            "ASM PrizeClock_Init loc_FF4E keeps its static initial script on an object-local cursor"
         );
         assert_eq!(
-            floating_prize_frame_index_loc_10396(PrizeContent::Clock, 0, 14, 5, 6),
-            2,
-            "ordinary prize visuals divide the global trace frame by frame_duration before wrapping"
+            floating_prize_frame_index_loc_10396(PrizeContent::Clock, 0, 5, 6),
+            0,
+            "ordinary prize visuals never inherit global frame-index phase"
         );
         assert_eq!(
-            floating_prize_frame_index_loc_10396(PrizeContent::Clock, 0, 12, 3, 0),
+            floating_prize_frame_index_loc_10396(PrizeContent::Clock, 0, 3, 0),
             0,
             "empty visual families keep the renderer in bounds"
+        );
+        assert!(
+            floating_prize_sprite_visible_loc_103b2(PrizeContent::Clock, 0x012C),
+            "ASM PrizeClock_Init loc_FF4E enters stru_10C1E on its visible first frame"
+        );
+        assert!(
+            floating_prize_sprite_visible_loc_103b2(PrizeContent::Clock, 0x0127),
+            "ASM GfxObject_Animate loc_1158 keeps stru_10C1E visible for all six ticks"
+        );
+        assert!(
+            !floating_prize_sprite_visible_loc_103b2(PrizeContent::Clock, 0x0126),
+            "ASM stru_10C1E switches to its null six-tick entry after the visible run"
+        );
+        assert!(
+            floating_prize_sprite_visible_loc_103b2(PrizeContent::Clock, 0x0120),
+            "ASM stru_10C1E rewinds through off_1176 after its null entry"
         );
     }
 
@@ -11557,8 +12248,8 @@ mod tests {
                 .iter()
                 .map(|tile| tile.tile.tile_index)
                 .collect::<Vec<_>>(),
-            vec![0x009, 0x00A, 0x00B, 0x00C],
-            "ASM stru_101B6 remaining=28 selects live VRAM copy slot `$229`"
+            vec![0x000, 0x001, 0x002, 0x003],
+            "ASM stru_101B6 remaining=28 selects the resident `$220` page (one-tick DMA offset), per the sibling wobble-frame test and oracle frame 1023"
         );
         assert_eq!(
             tiles
@@ -11612,6 +12303,15 @@ mod tests {
             "ASM sub_1007A loc_10120 -> Hibernate_UntilAnimFinished keeps the final `$229` copied page at the settled +2px position"
         );
 
+        trace.prize_block_worker_tails_sub_1007a[0].2 = 4;
+        commands.clear();
+        push_prize_block_wobble_overrides_sub_1007a(&mut commands, &trace, &visuals, None);
+        assert_eq!(
+            commands.len(),
+            1,
+            "ASM sub_1007A still exposes the final Sprite_Table mapping at tail remaining=4"
+        );
+
         trace.prize_block_worker_tails_sub_1007a[0].2 = 2;
         commands.clear();
         push_prize_block_wobble_overrides_sub_1007a(&mut commands, &trace, &visuals, None);
@@ -11619,6 +12319,14 @@ mod tests {
             commands.len(),
             1,
             "ASM sub_1007A retains the final sprite for tail remaining=2"
+        );
+
+        trace.floating_items = vec![(40, 48, PRIZE_DIAMOND_INITIAL_LIFETIME, 0x00)];
+        commands.clear();
+        push_prize_block_wobble_overrides_sub_1007a(&mut commands, &trace, &visuals, None);
+        assert!(
+            commands.is_empty(),
+            "ASM sub_1007A → PrizeDiamond_Init reuses the final GfxObject slot on the diamond's first wake"
         );
 
         trace.prize_block_worker_tails_sub_1007a[0].2 = 1;
@@ -11635,12 +12343,12 @@ mod tests {
         let visuals = sample_level_visuals(0x300);
         let cases = [
             (23, 0x02CF),
-            (22, 0x02CF),
-            (21, 0x02D8),
-            (16, 0x02D8),
-            (15, 0x02E1),
-            (6, 0x02E1),
-            (5, 0x02EA),
+            (20, 0x02CF),
+            (19, 0x02D8),
+            (14, 0x02D8),
+            (13, 0x02E1),
+            (4, 0x02E1),
+            (3, 0x02EA),
             (1, 0x02EA),
         ];
 
@@ -11664,43 +12372,44 @@ mod tests {
 
         let short_sheet = sample_level_visuals(usize::from(0x02EA - BLOCK_TILE_VRAM_BASE + 8));
         assert!(
-            prize_block_spawn_flash_frame_loc_102b8(&short_sheet, 5).is_none(),
-            "24x24 frame needs all nine tiles from the final `$2EA` base"
+            prize_block_spawn_flash_frame_loc_102b8(&short_sheet, 3).is_none(),
+            "remaining 3 => script_elapsed 20 selects the final `$2EA` base, whose 24x24 frame needs all nine tiles"
         );
     }
 
     #[test]
-    fn helmet_prize_hides_during_spawn_flash_dma_window_sub_10cb0() {
+    fn helmet_prize_hides_only_before_first_presented_flash_page_loc_102b8() {
         use wildside_core::terrain::PrizeContent;
-        // remaining 23 => elapsed 2: inside the first three stru_102DE frames.
-        let early_flash = [(72, 568, 23)];
-        // remaining 5 => elapsed 20: final 4-frame burst, art now presentable.
-        let final_burst = [(72, 568, 5)];
+        // remaining 24 => elapsed 1: loc_102B8 still presents the prior P.
+        let pre_presentation = [(72, 568, 24)];
+        // remaining 23 => elapsed 2: first stru_102DE page. Oracle SAT #0D
+        // remains behind the palette-0 flash and is visible through holes.
+        let first_flash_page = [(72, 568, 23)];
 
         assert!(
             super::helmet_prize_hidden_during_spawn_flash_dma_sub_10cb0(
                 PrizeContent::RedStealth,
                 72,
                 576,
-                &early_flash,
+                &pre_presentation,
             ),
-            "ASM sub_10CB0 DMA'd helmet art has no presentable page during the early flash"
+            "ASM loc_102B8 has not presented its first flash page yet"
         );
         assert!(
             !super::helmet_prize_hidden_during_spawn_flash_dma_sub_10cb0(
                 PrizeContent::RedStealth,
                 72,
                 576,
-                &final_burst,
+                &first_flash_page,
             ),
-            "the helmet becomes visible once stru_102DE reaches its final 4-frame burst"
+            "oracle frame 1023 exposes PrizeHelmet* through loc_102B8 transparency"
         );
         assert!(
             !super::helmet_prize_hidden_during_spawn_flash_dma_sub_10cb0(
                 PrizeContent::Diamond,
                 72,
                 576,
-                &early_flash,
+                &first_flash_page,
             ),
             "PrizeDiamond_Init art is resident ($12=0) and displays immediately"
         );
@@ -11709,7 +12418,7 @@ mod tests {
                 PrizeContent::RedStealth,
                 80,
                 576,
-                &early_flash,
+                &first_flash_page,
             ),
             "an unrelated helmet prize at another column must remain visible"
         );
@@ -11720,15 +12429,19 @@ mod tests {
         let visuals = sample_level_visuals(0x300);
         let mut commands = Vec::new();
 
+        // remaining 25/24 still present the prior P (loc_102B8 guard); the
+        // first presented flash page `$2CF` is remaining 23.
         assert!(push_prize_block_spawn_flash_loc_102b8(
             &mut commands,
             &visuals,
             64,
             72,
-            25
+            23
         ));
-        let DrawCommand::Sprite { x, y, tiles, .. } = commands.single() else {
-            panic!("ASM loc_102B8 should emit one flash sprite");
+        // loc_102B8 is now a source-ordered SAT entry ($2001, right after
+        // Kid's $2000 GfxObject), so it emits a SatSprite, not a plain Sprite.
+        let DrawCommand::SatSprite { x, y, tiles, .. } = commands.single() else {
+            panic!("ASM loc_102B8 should emit one flash SAT sprite");
         };
         assert_eq!((*x, *y), (64 - 0x0C, 72 - 0x0C));
         assert_eq!(tiles.len(), 9);
@@ -11740,7 +12453,7 @@ mod tests {
             &short_sheet,
             64,
             72,
-            25
+            23
         ));
         assert!(commands.is_empty());
     }
@@ -11974,8 +12687,8 @@ mod tests {
                 .iter()
                 .map(|tile| tile.tile.tile_index)
                 .collect::<Vec<_>>(),
-            vec![0x008, 0x009, 0x00A, 0x00B],
-            "ASM sub_1007A/stru_101B6 uses copied `$220/$229` VRAM slots; native draws the copied `$E102` source quad"
+            vec![0x000, 0x001, 0x002, 0x003],
+            "ASM sub_1007A/stru_101B6 draws the remaining=28 resident `$220` wobble page, not the `$E102` source-cell quad"
         );
 
         let rewritten_grid = wildside_core::terrain::BlockGrid::from_level_layout(
@@ -12001,8 +12714,8 @@ mod tests {
                 .iter()
                 .map(|tile| tile.tile.tile_index)
                 .collect::<Vec<_>>(),
-            vec![0x008, 0x009, 0x00A, 0x00B],
-            "ASM sub_1007A/stru_101B6 ignores the `$6F00` low byte for wobble sprite art"
+            vec![0x000, 0x001, 0x002, 0x003],
+            "ASM sub_1007A/stru_101B6 ignores the `$6F00` low byte and draws the remaining=28 resident `$220` wobble page"
         );
 
         let shifted_trace = NativeTraceFrame {
