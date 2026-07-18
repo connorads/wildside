@@ -2405,6 +2405,20 @@ to frame 1683 (1 px). Gameplay, player/camera, RNG, and enemy parity remain
 exact with the same 24 oracle limitations. `verify-slice-fast` passes and the
 full RGB ratchet is updated. #406 remains open at frame 1683.
 
+Rejected 2026-07-18 (blanket transferred prize-wobble SAT): oracle pixel
+provenance at frame 1683 shows an earlier `$229` `sub_1007A` wobble sprite
+owning `(203,58)` ahead of the later `$2CF` `loc_102B8` flash. Promoting wobble
+workers with `remaining<=29` to `DrawCommand::SatSprite` makes frames
+1680..1690 exact when the first two creation samples remain ordinary. Full
+route evidence rejects the rule: exact frames fall 26,371 -> 26,352, changed
+pixels rise 3,621,062 -> 3,622,941, and the first mismatch moves backwards
+from frame 1683 to frame 1368 (27 px). Frame 1368 has one lone
+`remaining=29` wobble and no flash, proving the current mixed scene list still
+lacks the complete source ordering needed for a general promotion. Reverted.
+Do not retry a countdown-only or blanket wobble SAT rule; capture the complete
+transferred Sprite_Table source or constrain arbitration from source-proven
+counterpart ordering first.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

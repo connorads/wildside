@@ -17,7 +17,11 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 - Full RGB improves to 26,371 exact / 11,388 divergent / 3,621,062 changed
   pixels. First mismatch advances from frame 1526 to frame 1683 (1 pixel);
   gameplay, player/camera, RNG, and enemy frontiers remain exact.
-- Next: attribute the one-pixel frame-1683 residue.
+- Frame 1683 is a `$229` wobble/`$2CF` flash arbitration pixel. A blanket
+  transferred-wobble SAT promotion fixes 1680..1690 but regresses the full
+  route to frame 1368 and loses 19 exact frames; it is reverted.
+- Next: represent the complete transferred wobble Sprite_Table source before
+  changing this family again.
 
 ---
 
