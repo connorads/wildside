@@ -147,6 +147,7 @@ mod tests {
             vdp_pixel_samples: Vec::new(),
             vdp_fifo_commits: Vec::new(),
             vdp_fifo_enqueues: Vec::new(),
+            m68k_pc_trace: Vec::new(),
             settle_trace: Vec::new(),
         }
     }

@@ -35,6 +35,7 @@ pub(crate) struct OracleRunOptions {
     pub(crate) vdp_pixel_samples: Option<String>,
     pub(crate) vdp_fifo_commit_frames: Option<String>,
     pub(crate) vdp_fifo_commit_address_range: Option<String>,
+    pub(crate) m68k_pc_trace: Option<String>,
     pub(crate) capture_cpu_state: bool,
     pub(crate) capture_settle_trace: bool,
     pub(crate) capture_rng_stream: bool,
@@ -114,6 +115,8 @@ pub struct OracleManifest {
     #[serde(default)]
     pub vdp_fifo_enqueues: Vec<OracleVdpFifoCommitRow>,
     #[serde(default)]
+    pub m68k_pc_trace: Vec<OracleM68kPcTraceRow>,
+    #[serde(default)]
     pub settle_trace: Vec<OracleSettleTraceRow>,
 }
 
@@ -148,6 +151,22 @@ pub struct OracleVdpFifoCommit {
     pub m68k_pc: u32,
     #[serde(default)]
     pub m68k_cycles: u64,
+}
+
+/// One selected 68000 instruction boundary observed before execution.
+///
+/// Registers let object-coroutine traces identify the resumed object through
+/// A5 without enabling an unbounded whole-CPU instruction journal.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct OracleM68kPcTraceRow {
+    pub frame: usize,
+    pub pc: u32,
+    pub m68k_cycles_before_instruction: u64,
+    pub scanline: u16,
+    pub pixel: u16,
+    pub data_registers: [u32; 8],
+    pub address_registers: [u32; 7],
+    pub status_register: u16,
 }
 
 #[derive(Debug, Clone, serde::Serialize, Deserialize)]
@@ -333,6 +352,7 @@ pub fn ensure_oracles(repo_root: &Path) -> Result<OracleEnvironment> {
     checkout_repo(&jgenesis_dir, JGENESIS_URL, JGENESIS_COMMIT)?;
     patch_jgenesis_cpu_registers(&jgenesis_dir)?;
     patch_jgenesis_fifo_commit_trace(&jgenesis_dir)?;
+    patch_jgenesis_m68k_pc_trace(&jgenesis_dir)?;
 
     let helper_dir = oracle_root.join("jgenesis-helper");
     write_helper_project(&helper_dir, repo_root, &jgenesis_dir)?;
@@ -449,6 +469,9 @@ pub fn run_jgenesis_capture_dynamic_with_options(
     if let Some(ref address_range) = options.vdp_fifo_commit_address_range {
         cmd.arg("--vdp-fifo-commit-address-range")
             .arg(address_range);
+    }
+    if let Some(ref pcs) = options.m68k_pc_trace {
+        cmd.arg("--m68k-pc-trace").arg(pcs);
     }
     if options.capture_cpu_state {
         cmd.arg("--capture-cpu-state");
@@ -832,6 +855,86 @@ fn patch_jgenesis_fifo_commit_trace(jgenesis_dir: &Path) -> Result<()> {
         debug.insert_str(
             final_brace,
             "    /// Cumulative M68K cycles executed since emulator reset.\n    #[must_use]\n    pub fn wildside_m68k_cycle_counter(&self) -> u64 {\n        self.0.wildside_m68k_cycle_counter\n    }\n\n",
+        );
+        fs::write(&debug_rs, &debug)
+            .with_context(|| format!("failed to write patched {}", debug_rs.display()))?;
+    }
+
+    Ok(())
+}
+
+/// Add a bounded instruction-boundary journal to the pinned jgenesis oracle.
+///
+/// Sampling in the helper before `tick` is incorrect because a tick can spend
+/// pending bus-wait cycles without executing the reported PC. This seam records
+/// only in the `execute_instruction` branch and snapshots the VDP beam at that
+/// exact instruction boundary.
+fn patch_jgenesis_m68k_pc_trace(jgenesis_dir: &Path) -> Result<()> {
+    let api_rs = jgenesis_dir.join("backend/genesis-core/src/api.rs");
+    let mut api = fs::read_to_string(&api_rs)
+        .with_context(|| format!("failed to read {}", api_rs.display()))?;
+    if !api.contains("WildsideM68kPcTraceHit") {
+        api = replace_jgenesis_source(
+            &api,
+            "#[derive(Debug, Encode, Decode, PartialClone)]\npub struct GenesisEmulator {\n",
+            "#[derive(Debug, Clone, Encode, Decode)]\npub struct WildsideM68kPcTraceHit {\n    pub pc: u32,\n    pub m68k_cycles_before_instruction: u64,\n    pub scanline: u16,\n    pub pixel: u16,\n    pub data_registers: [u32; 8],\n    pub address_registers: [u32; 7],\n    pub status_register: u16,\n}\n\n#[derive(Debug, Encode, Decode, PartialClone)]\npub struct GenesisEmulator {\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "    wildside_m68k_cycle_counter: u64,\n",
+            "    wildside_m68k_cycle_counter: u64,\n    wildside_m68k_pc_trace_targets: Vec<u32>,\n    wildside_m68k_pc_trace_hits: Vec<WildsideM68kPcTraceHit>,\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "            wildside_m68k_cycle_counter: 0,\n",
+            "            wildside_m68k_cycle_counter: 0,\n            wildside_m68k_pc_trace_targets: Vec::new(),\n            wildside_m68k_pc_trace_hits: Vec::new(),\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "        let mut bus = new_main_bus!(self, m68k_reset: false);\n        let m68k_pc = self.m68k.pc();\n        bus.vdp.set_wildside_m68k_context(m68k_pc, self.wildside_m68k_cycle_counter);\n        let m68k_wait = bus.cycles.m68k_wait_cpu_cycles != 0;\n        let m68k_cycles = if m68k_wait {\n            bus.cycles.take_m68k_wait_cpu_cycles()\n        } else {\n            self.m68k.execute_instruction(&mut bus)\n        };\n",
+            "        let m68k_pc = self.m68k.pc();\n        let trace_registers = self\n            .wildside_m68k_pc_trace_targets\n            .binary_search(&m68k_pc)\n            .is_ok()\n            .then(|| {\n                (\n                    self.m68k.data_registers(),\n                    self.m68k.address_registers(),\n                    self.m68k.status_register(),\n                )\n            });\n        let mut bus = new_main_bus!(self, m68k_reset: false);\n        bus.vdp.set_wildside_m68k_context(m68k_pc, self.wildside_m68k_cycle_counter);\n        let m68k_wait = bus.cycles.m68k_wait_cpu_cycles != 0;\n        let m68k_cycles = if m68k_wait {\n            bus.cycles.take_m68k_wait_cpu_cycles()\n        } else {\n            if let Some((data_registers, address_registers, status_register)) = trace_registers {\n                let (scanline, pixel) = bus.vdp.wildside_beam_position();\n                self.wildside_m68k_pc_trace_hits.push(WildsideM68kPcTraceHit {\n                    pc: m68k_pc,\n                    m68k_cycles_before_instruction: self.wildside_m68k_cycle_counter,\n                    scanline,\n                    pixel,\n                    data_registers,\n                    address_registers,\n                    status_register,\n                });\n            }\n            self.m68k.execute_instruction(&mut bus)\n        };\n",
+            &api_rs,
+        )?;
+        fs::write(&api_rs, &api)
+            .with_context(|| format!("failed to write patched {}", api_rs.display()))?;
+    }
+
+    let vdp_rs = jgenesis_dir.join("backend/genesis-core/src/vdp.rs");
+    let mut vdp = fs::read_to_string(&vdp_rs)
+        .with_context(|| format!("failed to read {}", vdp_rs.display()))?;
+    if !vdp.contains("wildside_beam_position") {
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "    #[inline]\n    #[must_use]\n    pub fn scanline_mclk(&self) -> u64 {\n",
+            "    #[inline]\n    #[must_use]\n    pub fn wildside_beam_position(&self) -> (u16, u16) {\n        (self.state.scanline, self.state.pixel)\n    }\n\n    #[inline]\n    #[must_use]\n    pub fn scanline_mclk(&self) -> u64 {\n",
+            &vdp_rs,
+        )?;
+        fs::write(&vdp_rs, &vdp)
+            .with_context(|| format!("failed to write patched {}", vdp_rs.display()))?;
+    }
+
+    let debug_rs = jgenesis_dir.join("backend/genesis-core/src/api/debug.rs");
+    let mut debug = fs::read_to_string(&debug_rs)
+        .with_context(|| format!("failed to read {}", debug_rs.display()))?;
+    if !debug.contains("set_wildside_m68k_pc_trace_targets") {
+        debug = replace_jgenesis_source(
+            &debug,
+            "use crate::GenesisEmulator;\n",
+            "use crate::GenesisEmulator;\nuse crate::api::WildsideM68kPcTraceHit;\n",
+            &debug_rs,
+        )?;
+        let final_brace = debug.rfind('}').ok_or_else(|| {
+            anyhow!(
+                "could not find debug API closing brace in {}",
+                debug_rs.display()
+            )
+        })?;
+        debug.insert_str(
+            final_brace,
+            "    pub fn set_wildside_m68k_pc_trace_targets(&mut self, mut targets: Vec<u32>) {\n        targets.sort_unstable();\n        targets.dedup();\n        self.0.wildside_m68k_pc_trace_targets = targets;\n        self.0.wildside_m68k_pc_trace_hits.clear();\n    }\n\n    pub fn drain_wildside_m68k_pc_trace(&mut self) -> Vec<WildsideM68kPcTraceHit> {\n        std::mem::take(&mut self.0.wildside_m68k_pc_trace_hits)\n    }\n\n",
         );
         fs::write(&debug_rs, &debug)
             .with_context(|| format!("failed to write patched {}", debug_rs.display()))?;
@@ -1295,9 +1398,7 @@ mod tests {
                     "target": "vram",
                     "address": 0xDD40,
                     "word": 0x1234,
-                    "byte_size": 2,
-                    "m68k_pc": 0x080C,
-                    "m68k_cycles": 42
+                    "byte_size": 2
                 }]
             }],
             "vdp_fifo_enqueues": [{
@@ -1308,7 +1409,9 @@ mod tests {
                     "target": "vram",
                     "address": 0xDD40,
                     "word": 0xA000,
-                    "byte_size": 2
+                    "byte_size": 2,
+                    "m68k_pc": 0x080C,
+                    "m68k_cycles": 42
                 }]
             }]
         }))
@@ -1317,6 +1420,53 @@ mod tests {
         assert_eq!(manifest.vdp_fifo_commits[0].commits[0].address, 0xDD40);
         assert_eq!(manifest.vdp_fifo_enqueues[0].commits[0].pixel, 34);
         assert_eq!(manifest.vdp_fifo_enqueues[0].commits[0].m68k_pc, 0x080C);
+    }
+
+    #[test]
+    fn helper_exposes_bounded_m68k_pc_trace_rows() {
+        assert!(
+            HELPER_TEMPLATE.contains("--m68k-pc-trace")
+                && HELPER_TEMPLATE.contains("drain_wildside_m68k_pc_trace")
+                && HELPER_TEMPLATE.contains("address_registers: hit.address_registers"),
+            "selected-PC tracing must remain bounded and retain A5 object identity"
+        );
+
+        let manifest: OracleManifest = serde_json::from_value(serde_json::json!({
+            "sample_rate": 44100,
+            "audio_path": "audio.wav",
+            "frames": [],
+            "states": [],
+            "m68k_pc_trace": [{
+                "frame": 1697,
+                "pc": 0xE12,
+                "m68k_cycles_before_instruction": 217211500,
+                "scanline": 224,
+                "pixel": 96,
+                "data_registers": [0, 1, 2, 3, 4, 5, 6, 7],
+                "address_registers": [8, 9, 10, 11, 12, 13, 14],
+                "status_register": 0x2700
+            }]
+        }))
+        .expect("manifest should parse selected-PC rows");
+        assert_eq!(manifest.m68k_pc_trace[0].frame, 1697);
+        assert_eq!(manifest.m68k_pc_trace[0].pc, 0xE12);
+        assert_eq!(manifest.m68k_pc_trace[0].scanline, 224);
+        assert_eq!(manifest.m68k_pc_trace[0].address_registers[5], 13);
+    }
+
+    #[test]
+    fn selected_pc_patch_records_only_real_instruction_boundaries() {
+        let source = include_str!("oracle.rs");
+        assert!(
+            source.contains(
+                "let m68k_cycles = if m68k_wait {\\n            bus.cycles.take_m68k_wait_cpu_cycles()\\n        } else {\\n            if let Some((data_registers, address_registers, status_register)) = trace_registers"
+            ),
+            "PC hits must be journalled inside the instruction branch, never during pending wait ticks"
+        );
+        assert!(
+            source.contains("let (scanline, pixel) = bus.vdp.wildside_beam_position();"),
+            "each instruction hit must retain the simultaneous VDP beam position"
+        );
     }
 
     #[test]

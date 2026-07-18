@@ -161,6 +161,18 @@ struct OracleVdpFifoCommit {
 }
 
 #[derive(Debug, Serialize)]
+struct OracleM68kPcTraceRow {
+    frame: usize,
+    pc: u32,
+    m68k_cycles_before_instruction: u64,
+    scanline: u16,
+    pixel: u16,
+    data_registers: [u32; 8],
+    address_registers: [u32; 7],
+    status_register: u16,
+}
+
+#[derive(Debug, Serialize)]
 struct OracleSettleTraceRow {
     phase: &'static str,
     step: usize,
@@ -247,6 +259,23 @@ fn parse_frame_list(spec: &str) -> Result<Vec<usize>> {
         .collect()
 }
 
+fn parse_m68k_pc_list(spec: &str) -> Result<Vec<u32>> {
+    if spec.is_empty() {
+        return Ok(Vec::new());
+    }
+    spec.split(',')
+        .map(|value| {
+            let value = value.trim();
+            let digits = value
+                .strip_prefix("0x")
+                .or_else(|| value.strip_prefix("0X"))
+                .unwrap_or(value);
+            u32::from_str_radix(digits, 16)
+                .with_context(|| format!("invalid M68K program counter: {value}"))
+        })
+        .collect()
+}
+
 /// Inclusive VDP byte-address filter for a FIFO journal. The VDP exposes
 /// word-aligned addresses, but the inclusive bounds deliberately accept any
 /// byte value so a caller can isolate an exact DMA destination span.
@@ -287,6 +316,8 @@ struct OracleManifest {
     vdp_fifo_commits: Vec<OracleVdpFifoCommitRow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     vdp_fifo_enqueues: Vec<OracleVdpFifoCommitRow>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    m68k_pc_trace: Vec<OracleM68kPcTraceRow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     settle_trace: Vec<OracleSettleTraceRow>,
 }
@@ -648,6 +679,7 @@ fn main() -> Result<()> {
     let mut vdp_pixel_samples_spec = String::new();
     let mut vdp_fifo_commit_frames_spec = String::new();
     let mut vdp_fifo_commit_address_range_spec = String::new();
+    let mut m68k_pc_trace_spec = String::new();
     let mut capture_cpu_state = false;
     let mut capture_settle_trace = false;
     let mut capture_rng_stream = false;
@@ -668,6 +700,7 @@ fn main() -> Result<()> {
             "--vdp-pixel-samples" => vdp_pixel_samples_spec = args.next().unwrap_or_default(),
             "--vdp-fifo-commit-frames" => vdp_fifo_commit_frames_spec = args.next().unwrap_or_default(),
             "--vdp-fifo-commit-address-range" => vdp_fifo_commit_address_range_spec = args.next().unwrap_or_default(),
+            "--m68k-pc-trace" => m68k_pc_trace_spec = args.next().unwrap_or_default(),
             "--capture-cpu-state" => capture_cpu_state = true,
             "--capture-settle-trace" => capture_settle_trace = true,
             "--capture-rng-stream" => capture_rng_stream = true,
@@ -689,12 +722,13 @@ fn main() -> Result<()> {
     let vdp_pixel_samples = parse_vdp_pixel_samples(&vdp_pixel_samples_spec)?;
     let vdp_fifo_commit_frames = parse_frame_list(&vdp_fifo_commit_frames_spec)?;
     let vdp_fifo_commit_address_range = parse_vdp_fifo_commit_address_range(&vdp_fifo_commit_address_range_spec)?;
+    let m68k_pc_trace = parse_m68k_pc_list(&m68k_pc_trace_spec)?;
 
     let rom = fs::read(&rom_path)
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     match mode {
         OutputMode::Capture => {
-            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, &vdp_fifo_commit_frames, vdp_fifo_commit_address_range, capture_cpu_state, capture_settle_trace, capture_rng_stream)?;
+            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, &vdp_fifo_commit_frames, vdp_fifo_commit_address_range, &m68k_pc_trace, capture_cpu_state, capture_settle_trace, capture_rng_stream)?;
         }
         OutputMode::EnemyLayoutTrace => {
             run_enemy_layout_trace(&rom, &resolved)?;
@@ -764,7 +798,7 @@ fn resolve_scenario(
     }
 }
 
-fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], vdp_fifo_commit_frames: &[usize], vdp_fifo_commit_address_range: Option<(u32, u32)>, capture_cpu_state: bool, capture_settle_trace: bool, capture_rng_stream: bool) -> Result<()> {
+fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], vdp_fifo_commit_frames: &[usize], vdp_fifo_commit_address_range: Option<(u32, u32)>, m68k_pc_trace: &[u32], capture_cpu_state: bool, capture_settle_trace: bool, capture_rng_stream: bool) -> Result<()> {
     let mut checkpoint_index = 0usize;
     let mut save_writer = NullSaveWriter;
     let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
@@ -782,6 +816,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     let mut all_vdp_pixel_samples: Vec<OracleVdpPixelSampleRow> = Vec::new();
     let mut all_vdp_fifo_commits: Vec<OracleVdpFifoCommitRow> = Vec::new();
     let mut all_vdp_fifo_enqueues: Vec<OracleVdpFifoCommitRow> = Vec::new();
+    let mut all_m68k_pc_trace: Vec<OracleM68kPcTraceRow> = Vec::new();
     let mut settle_trace: Vec<OracleSettleTraceRow> = Vec::new();
 
     // Pre-warp: boot to level 0, then advance to target level.
@@ -823,6 +858,9 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     }
     // Ignore boot/warp activity. Each retained row is exactly one scenario frame.
     let _ = emulator.debug().drain_wildside_fifo_commits();
+    emulator
+        .debug()
+        .set_wildside_m68k_pc_trace_targets(m68k_pc_trace.to_vec());
 
     while frame_index < resolved.frame_count {
         let pre_frame_eol_vdp_pixel_samples_debug = resolved
@@ -841,6 +879,21 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
             if emulator.tick(&mut renderer, &mut audio, &inputs, &mut save_writer)? ==
                 TickEffect::FrameRendered
             {
+                let pc_trace_hits = emulator.debug().drain_wildside_m68k_pc_trace();
+                if skip_frames_before.is_none_or(|skip| frame_index >= skip) {
+                    all_m68k_pc_trace.extend(pc_trace_hits.into_iter().map(|hit| {
+                        OracleM68kPcTraceRow {
+                            frame: frame_index,
+                            pc: hit.pc,
+                            m68k_cycles_before_instruction: hit.m68k_cycles_before_instruction,
+                            scanline: hit.scanline,
+                            pixel: hit.pixel,
+                            data_registers: hit.data_registers,
+                            address_registers: hit.address_registers,
+                            status_register: hit.status_register,
+                        }
+                    }));
+                }
                 if resolved.playtest_form.is_some() {
                     clear_probe_transform_residue(&mut emulator);
                 }
@@ -1050,6 +1103,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         vdp_pixel_samples: all_vdp_pixel_samples,
         vdp_fifo_commits: all_vdp_fifo_commits,
         vdp_fifo_enqueues: all_vdp_fifo_enqueues,
+        m68k_pc_trace: all_m68k_pc_trace,
         settle_trace,
     };
     println!("{}", serde_json::to_string_pretty(&manifest)?);

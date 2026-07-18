@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#409 instruction-boundary cycle trace)
+
+- `oracle-probe --m68k-pc-trace` captures selected real instruction starts
+  with cumulative cycles, VDP beam position, registers, and SR. The backend
+  journal excludes pending wait ticks and the helper drains it per frame.
+- Frames 1697/1703/1709 all take exactly 220 cycles from `sub_44DC` entry to
+  the life upload enqueue.
+- Their `Execute_Objects sub_E12` intervals are 27,434 / 22,466 / 14,034
+  cycles. Direct coroutine hits place the variance in resumed prize/Kid paths,
+  not the fixed Mode_Level shell.
+- Native still emits no HUD timings. Next expose exact continuation/path state
+  for the source scheduler; aggregate object counts are not a safe substitute.
+
+---
+
 ## 2026-07-18 handoff (#409 HUD per-word raster seam)
 
 - `HudRasterUploadTimingSub44DC` carries a proven previous page and first H40

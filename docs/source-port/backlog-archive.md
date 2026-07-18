@@ -306,6 +306,20 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-18: `oracle-probe --m68k-pc-trace` now journals only selected
+real 68000 instruction starts in the pinned jgenesis backend. Each row retains
+the cumulative pre-instruction cycle, simultaneous VDP scanline/pixel, all
+data/address registers, and SR; helper-side pre-`tick` sampling was rejected
+because pending bus waits can report a PC without executing it. A focused
+frames-1688..1710 capture has no duplicate `(frame, PC, cycle)` wait artefacts.
+At frames 1697/1703/1709, `sub_44DC` entry to the life `$4620` enqueue is
+exactly 220 cycles each. The variable interval is `Mode_Level`'s
+`Execute_Objects sub_E12`: 27,434 / 22,466 / 14,034 cycles respectively.
+`sub_1007A`/`loc_102B8`/`loc_10396` hits show that the existing aggregate
+worker counts are insufficient because coroutine continuations and Kid
+collision paths differ. Next type those resumed source paths; do not fit
+counts or route frames to the measured cycles.
+
 Progress 2026-07-18: the renderer now consumes a compact typed
 `HudRasterUploadTimingSub44DC` only when a source-derived scheduler supplies
 one. The command fixes target/length, the record carries the frame-start page

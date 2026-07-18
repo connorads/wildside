@@ -1233,6 +1233,9 @@ enum Commands {
         /// Inclusive VDP FIFO address range to retain (e.g. 0xDD40-0xDF3F).
         #[arg(long)]
         vdp_fifo_commit_address_range: Option<String>,
+        /// Selected hexadecimal M68K PCs to trace before execution (e.g. 0x74A,0xE12,0x44DC).
+        #[arg(long)]
+        m68k_pc_trace: Option<String>,
         /// Conditional filter: only show frames matching predicate (e.g. "0xFF2502>=0")
         /// Multiple --when flags are ANDed. Ops: =, !=, <, >, <=, >=
         #[arg(long)]
@@ -2655,6 +2658,7 @@ fn main() -> Result<()> {
             vdp_pixel_samples,
             vdp_fifo_commit_frames,
             vdp_fifo_commit_address_range,
+            m68k_pc_trace,
             when,
             capture_cpu_state,
             capture_settle_trace,
@@ -2705,6 +2709,7 @@ fn main() -> Result<()> {
                 vdp_pixel_samples: vdp_pixel_samples.clone(),
                 vdp_fifo_commit_frames: vdp_fifo_commit_frames.clone(),
                 vdp_fifo_commit_address_range: vdp_fifo_commit_address_range.clone(),
+                m68k_pc_trace: m68k_pc_trace.clone(),
                 capture_cpu_state,
                 capture_settle_trace,
                 capture_rng_stream: false,
@@ -2899,6 +2904,13 @@ fn main() -> Result<()> {
                     row.frame,
                     serde_json::to_string(&row.commits)?
                 );
+            }
+            for row in oracle_manifest
+                .m68k_pc_trace
+                .iter()
+                .filter(|row| (start..=end).contains(&row.frame))
+            {
+                println!("m68k_pc_trace={}", serde_json::to_string(row)?);
             }
 
             // Also output checkpoint states for the range
