@@ -588,6 +588,8 @@ pub(crate) struct KidFlipFollowOnStages {
     pub(crate) after_jump_gravity: KidFlipFollowOnStageState,
     pub(crate) after_floor: KidFlipFollowOnStageState,
     pub(crate) after_wall: KidFlipFollowOnStageState,
+    /// ASM `sub_A4EE` returned through `loc_A532` before the per-axis probes.
+    pub(crate) gfx_object_collision_clear: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -1687,6 +1689,88 @@ pub struct ModeLevelFloatingPrizeWork {
     pub collision_latched: bool,
 }
 
+/// Horizontal branch executed by ASM `sub_B084` in the airborne Kid loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelAirborneHorizontalPath {
+    /// ASM `loc_B0E2 -> loc_B118`.
+    RightHeldAcceleration,
+    /// ASM `loc_B0FE -> loc_B10E -> loc_B118`.
+    NeutralNegativeBrake,
+    Unclassified {
+        x_velocity_before: i32,
+        x_velocity_after: i32,
+    },
+}
+
+/// Vertical-motion branch executed by ASM `sub_B168`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelAirborneVerticalPath {
+    /// `loc_B214 -> loc_B23A -> loc_B246`, then the Cyclone path falls
+    /// through into the first `sub_B270` call before `sub_A4EE`.
+    CycloneFlyingNoCPress {
+        acceleration_after: i16,
+        y_velocity_after: i32,
+    },
+    Unclassified,
+}
+
+/// Vertical collision continuation after ASM `sub_902A`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelVerticalCollisionPath {
+    /// Zero return falls through to ASM `loc_A762`.
+    Clear,
+    /// Negative return takes ASM `loc_A8F6 -> loc_A762`.
+    Ceiling,
+    /// Non-negative return takes the landing dispatch at ASM `loc_A8F6`.
+    Landing,
+    Unclassified,
+}
+
+/// Horizontal collision continuation after ASM `sub_8F26`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelWallCollisionPath {
+    /// Zero return falls through to ASM `loc_A76A`.
+    Clear,
+    Unclassified,
+}
+
+/// Airborne action dispatch after ASM `loc_A76A`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelAirborneActionPath {
+    /// Neither B nor C is pressed, so ASM reaches `loc_A8D6`.
+    NoButtons,
+    Unclassified,
+}
+
+/// Source path for the ordinary airborne Kid coroutine resumed at `loc_A73A`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelNormalPhysicsPath {
+    pub horizontal: ModeLevelAirborneHorizontalPath,
+    pub vertical: ModeLevelAirborneVerticalPath,
+    /// Reaching the per-axis collision probes proves `sub_A4EE` returned
+    /// through `loc_A532` instead of a compound slope/object handoff.
+    pub gfx_object_collision_clear: bool,
+    pub vertical_collision: ModeLevelVerticalCollisionPath,
+    pub wall_collision: ModeLevelWallCollisionPath,
+    pub airborne_action: ModeLevelAirborneActionPath,
+    /// The no-action join calls `sub_B270` a second time before `loc_A6F8`.
+    pub second_cyclone_visual: bool,
+}
+
+/// Player callback actually executed during ASM `Execute_Objects sub_E12`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelPlayerExecutionPath {
+    /// Ordinary airborne coroutine resumed at ASM `loc_A73A`.
+    NormalPhysics(ModeLevelNormalPhysicsPath),
+    Unclassified,
+}
+
 /// Typed workload facts for ASM `Execute_Objects sub_E12`.
 ///
 /// `unclassified_runtime_transient_workers` prevents a future cycle scheduler
@@ -1714,6 +1798,8 @@ pub struct ModeLevelExecuteObjectsWork {
     pub prize_block_flash_paths_sub_1066: Vec<ModeLevelPrizeAnimationWorkSub1066>,
     #[serde(default)]
     pub floating_prize_paths: Vec<ModeLevelFloatingPrizeWork>,
+    #[serde(default)]
+    pub executed_player_path: Option<ModeLevelPlayerExecutionPath>,
 }
 
 /// Typed, source-ordered observation at the `Mode_Level -> sub_44DC` boundary.

@@ -306,6 +306,20 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-18: the Mode_Level ledger now completes its entry-time
+workload with the Kid coroutine branches actually executed by the native
+physics pass. The published Cyclone route records `sub_B084` Right
+acceleration at frame 1697 and neutral negative braking at frames 1703/1709;
+all three record the no-C `loc_B214 -> loc_B23A -> loc_B246` flight path and
+both `sub_B270` calls. Frame 1697 uniquely records the negative
+`sub_902A -> loc_A8F6 -> loc_A762` ceiling continuation, while frames
+1703/1709 fall through directly to `loc_A762`. The source path agrees
+one-for-one with the oracle PC journal. Oracle cycles from `loc_A73A` to the
+Kid hibernate are 9,636 / 4,220 / 4,404 respectively, so the ceiling path
+explains most of 1697's extra Kid work but identical top-level paths at
+1703/1709 still differ by 184 cycles. Next decompose the nested object
+collision/traversal and worker paths before assigning scheduler costs.
+
 Progress 2026-07-18: the entry-time workload now carries typed prize
 coroutine continuations rather than counts alone. `sub_1007A` wobble workers
 map their remaining counter to the exact post-hibernate PCs `$100E2`,

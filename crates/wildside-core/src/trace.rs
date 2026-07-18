@@ -402,6 +402,41 @@ fn prize_block_wobble_resume_sub_1007a(remaining: u8) -> PrizeBlockWobbleResumeS
     }
 }
 
+fn mode_level_airborne_horizontal_path(
+    x_velocity_before: i32,
+    x_velocity_after: i32,
+) -> ModeLevelAirborneHorizontalPath {
+    // ASM sub_B084 (kid.asm:13921-13989): the published Cyclone route either
+    // adds the $2B00 right-held acceleration at loc_B0E2 or adds the fixed
+    // $400 brake to a negative neutral velocity at loc_B10E.
+    match x_velocity_after.wrapping_sub(x_velocity_before) {
+        0x2B00 => ModeLevelAirborneHorizontalPath::RightHeldAcceleration,
+        0x0400 if x_velocity_before < 0 && x_velocity_after <= 0 => {
+            ModeLevelAirborneHorizontalPath::NeutralNegativeBrake
+        }
+        _ => ModeLevelAirborneHorizontalPath::Unclassified {
+            x_velocity_before,
+            x_velocity_after,
+        },
+    }
+}
+
+fn mode_level_vertical_collision_path(
+    ceiling_hit: bool,
+    landed: bool,
+    y_velocity_before_collision: i32,
+) -> ModeLevelVerticalCollisionPath {
+    // ASM loc_A75A/loc_A8F6 (kid.asm:13064-13192): zero falls through to
+    // loc_A762, a negative collision result clears the airborne transient
+    // flags and rejoins there, and a non-negative result enters landing.
+    match (ceiling_hit, landed, y_velocity_before_collision) {
+        (false, false, _) => ModeLevelVerticalCollisionPath::Clear,
+        (true, false, velocity) if velocity < 0 => ModeLevelVerticalCollisionPath::Ceiling,
+        (_, true, velocity) if velocity >= 0 => ModeLevelVerticalCollisionPath::Landing,
+        _ => ModeLevelVerticalCollisionPath::Unclassified,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1408,6 +1443,7 @@ mod tests {
                         first_row_grace: false,
                         collision_latched: false,
                     }],
+                    executed_player_path: None,
                 },
             }),
             "ASM Mode_Level (kid.asm:901) fixes the phases before sub_44DC, while Execute_Objects sub_E12 resumes each linked prize coroutine"
@@ -1443,6 +1479,110 @@ mod tests {
                 "remaining={remaining}"
             );
         }
+    }
+
+    #[test]
+    fn published_cyclone_route_maps_velocity_changes_to_exact_sub_b084_paths() {
+        // ASM sub_B084 (kid.asm:13921-13989): Right adds Cyclone's $2B00
+        // airborne acceleration; neutral negative velocity takes loc_B0FE and
+        // loc_B10E to add the fixed $400 brake.
+        assert_eq!(
+            mode_level_airborne_horizontal_path(-0x0002_0800, -0x0001_DD00),
+            ModeLevelAirborneHorizontalPath::RightHeldAcceleration
+        );
+        assert_eq!(
+            mode_level_airborne_horizontal_path(-0x0001_0600, -0x0001_0200),
+            ModeLevelAirborneHorizontalPath::NeutralNegativeBrake
+        );
+    }
+
+    #[test]
+    fn published_cyclone_route_maps_ceiling_and_clear_sub_902a_paths() {
+        // ASM loc_A75A/loc_A8F6 (kid.asm:13064-13192): an ascending ceiling
+        // collision returns negative and rejoins at loc_A762; no vertical
+        // collision falls through directly to loc_A762.
+        assert_eq!(
+            mode_level_vertical_collision_path(true, false, -0x0A00),
+            ModeLevelVerticalCollisionPath::Ceiling
+        );
+        assert_eq!(
+            mode_level_vertical_collision_path(false, false, 0x2000),
+            ModeLevelVerticalCollisionPath::Clear
+        );
+    }
+
+    #[test]
+    fn mode_level_ledger_completes_frame_1697_cyclone_source_path() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.current_form = PlayerForm::Cyclone;
+        runtime.helmet.cyclone_flying = true;
+        runtime.helmet.cyclone_y_accel = -0x0A00;
+        runtime.last_kid_frame_motion_branch = KidFrameMotionBranch::NormalPhysics;
+        let entry = KidFlipFollowOnStageState {
+            x_velocity: -0x0002_0800,
+            y_velocity: -0x0A00,
+            on_ground: false,
+            wall_cling_direction: None,
+        };
+        let after_motion = KidFlipFollowOnStageState {
+            x_velocity: -0x0001_DD00,
+            ..entry
+        };
+        let after_ceiling = KidFlipFollowOnStageState {
+            y_velocity: 0,
+            ..after_motion
+        };
+        runtime.last_kid_frame_kid_flip_follow_on_probe = Some(KidFlipFollowOnProbe {
+            branch: KidFlipBranchSelection::NoWallPath,
+            motion_branch: KidFrameMotionBranch::NormalPhysics,
+            post_motion_mutator: KidFramePostMotionMutator::None,
+            wall_hit_after_floor: false,
+            stages: KidFlipFollowOnStages {
+                entry,
+                after_press_away: entry,
+                after_jump_gravity: after_motion,
+                after_floor: after_ceiling,
+                after_wall: after_ceiling,
+                gfx_object_collision_clear: true,
+            },
+        });
+        runtime.last_kid_frame_kid_flip_branch_probe = Some(KidFlipBranchProbe {
+            wall_scan_hit: false,
+            b_pressed: false,
+            c_pressed: false,
+            helmet_id: PlayerForm::Cyclone.helmet_id(),
+            facing: Some(Direction::Right),
+            on_ground_before: false,
+            on_ground_after: false,
+            branch: KidFlipBranchSelection::NoWallPath,
+            wall_probe: None,
+        });
+        runtime.mode_level_work_before_hud_sub_44dc =
+            Some(runtime.observe_mode_level_work_before_hud_sub_44dc());
+
+        runtime.complete_mode_level_player_execution_path_before_hud_sub_44dc();
+
+        assert_eq!(
+            runtime
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .and_then(|ledger| ledger.execute_objects.executed_player_path),
+            Some(ModeLevelPlayerExecutionPath::NormalPhysics(
+                ModeLevelNormalPhysicsPath {
+                    horizontal: ModeLevelAirborneHorizontalPath::RightHeldAcceleration,
+                    vertical: ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress {
+                        acceleration_after: -0x0A00,
+                        y_velocity_after: -0x0A00,
+                    },
+                    gfx_object_collision_clear: true,
+                    vertical_collision: ModeLevelVerticalCollisionPath::Ceiling,
+                    wall_collision: ModeLevelWallCollisionPath::Clear,
+                    airborne_action: ModeLevelAirborneActionPath::NoButtons,
+                    second_cyclone_visual: true,
+                }
+            ))
+        );
     }
 
     #[test]
@@ -3977,6 +4117,7 @@ mod tests {
                         on_ground: true,
                         wall_cling_direction: None,
                     },
+                    gfx_object_collision_clear: true,
                 },
             });
             if has_rubber_worker {
@@ -4060,6 +4201,7 @@ mod tests {
                     on_ground: true,
                     wall_cling_direction: None,
                 },
+                gfx_object_collision_clear: true,
             },
         });
 
@@ -4136,6 +4278,7 @@ mod tests {
                     on_ground: true,
                     wall_cling_direction: None,
                 },
+                gfx_object_collision_clear: true,
             },
         });
 
@@ -8317,7 +8460,83 @@ impl NativeRuntime {
                 prize_block_tail_paths_sub_1066,
                 prize_block_flash_paths_sub_1066,
                 floating_prize_paths,
+                executed_player_path: None,
             },
+        }
+    }
+
+    fn observe_mode_level_player_execution_path(&self) -> ModeLevelPlayerExecutionPath {
+        if self.last_kid_frame_motion_branch != KidFrameMotionBranch::NormalPhysics {
+            return ModeLevelPlayerExecutionPath::Unclassified;
+        }
+        let Some(follow_on) = self.last_kid_frame_kid_flip_follow_on_probe else {
+            return ModeLevelPlayerExecutionPath::Unclassified;
+        };
+        let Some(action) = self.last_kid_frame_kid_flip_branch_probe else {
+            return ModeLevelPlayerExecutionPath::Unclassified;
+        };
+        let stages = follow_on.stages;
+        let horizontal = mode_level_airborne_horizontal_path(
+            stages.after_press_away.x_velocity,
+            stages.after_jump_gravity.x_velocity,
+        );
+        let vertical = if self.progression.current_form == PlayerForm::Cyclone
+            && self.helmet.cyclone_flying
+            && !action.c_pressed
+        {
+            // ASM sub_B168 loc_B214 (kid.asm:14091-14126): no consumed C edge
+            // takes loc_B23A, stores the acceleration at loc_B246, clamps the
+            // resulting velocity, then falls through into sub_B270.
+            ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress {
+                acceleration_after: self.helmet.cyclone_y_accel,
+                y_velocity_after: stages.after_jump_gravity.y_velocity,
+            }
+        } else {
+            ModeLevelAirborneVerticalPath::Unclassified
+        };
+        let landed = !stages.after_jump_gravity.on_ground && stages.after_floor.on_ground;
+        let ceiling_hit = stages.after_jump_gravity.y_velocity < 0
+            && stages.after_floor.y_velocity == 0
+            && !stages.after_floor.on_ground;
+        let vertical_collision = mode_level_vertical_collision_path(
+            ceiling_hit,
+            landed,
+            stages.after_jump_gravity.y_velocity,
+        );
+        let wall_collision =
+            if !follow_on.wall_hit_after_floor && stages.after_floor == stages.after_wall {
+                ModeLevelWallCollisionPath::Clear
+            } else {
+                ModeLevelWallCollisionPath::Unclassified
+            };
+        let airborne_action = if !action.b_pressed && !action.c_pressed {
+            // ASM loc_A7B4/loc_A7F8 (kid.asm:13199-13287): neither button
+            // reaches loc_A8D6, whose sub_B270 call precedes loc_A6F8.
+            ModeLevelAirborneActionPath::NoButtons
+        } else {
+            ModeLevelAirborneActionPath::Unclassified
+        };
+
+        ModeLevelPlayerExecutionPath::NormalPhysics(ModeLevelNormalPhysicsPath {
+            horizontal,
+            vertical,
+            gfx_object_collision_clear: stages.gfx_object_collision_clear,
+            vertical_collision,
+            wall_collision,
+            airborne_action,
+            second_cyclone_visual: self.progression.current_form == PlayerForm::Cyclone
+                && self.helmet.cyclone_flying
+                && matches!(airborne_action, ModeLevelAirborneActionPath::NoButtons),
+        })
+    }
+
+    pub(crate) fn complete_mode_level_player_execution_path_before_hud_sub_44dc(&mut self) {
+        if self.mode_level_work_before_hud_sub_44dc.is_none() {
+            return;
+        }
+        let executed_player_path = self.observe_mode_level_player_execution_path();
+        if let Some(ledger) = self.mode_level_work_before_hud_sub_44dc.as_mut() {
+            ledger.execute_objects.executed_player_path = Some(executed_player_path);
         }
     }
 

@@ -3854,6 +3854,11 @@ impl NativeRuntime {
                     // path is hibernating outside refresh_opening_slice.
                     self.step_island_shore_cycle_loc_1202a();
                 }
+                // ASM Execute_Objects sub_E12 has now resumed the Kid
+                // coroutine. Complete the entry-time Mode_Level ledger with
+                // the source branches actually taken this frame, before
+                // loc_80C continues to enemy loading and sub_44DC.
+                self.complete_mode_level_player_execution_path_before_hud_sub_44dc();
                 self.manage_enemy_loading_after_execute_objects_loc_80c();
                 self.load_debug_level_entry_enemies_after_player_loc_80c();
             }

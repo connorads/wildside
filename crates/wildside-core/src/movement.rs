@@ -3151,6 +3151,7 @@ impl OpeningSliceState {
                     after_jump_gravity: entry_stage,
                     after_floor: entry_stage,
                     after_wall: entry_stage,
+                    gfx_object_collision_clear: false,
                 };
 
                 if on_ground_before
@@ -3790,6 +3791,8 @@ impl OpeningSliceState {
                         allow_asm_faithful_solid_touch_snap,
                     )
                 };
+                kid_flip_follow_on_stages.gfx_object_collision_clear =
+                    !compound_slope_recontact_loc_a4ee && !direct_compound_landing_loc_a4ee;
                 // ASM loc_AD7C/loc_AD98/loc_ADAC dispatch (kid.asm:13580-13600)
                 // branches on d7 = the RESULT of sub_902A (kid.asm:10437), NOT on
                 // Current_Helmet. sub_902A returns d7 ∈ {-1,0,1,2}: 1 = floor while
@@ -4936,6 +4939,7 @@ impl OpeningSliceState {
             after_jump_gravity: stage,
             after_floor: stage,
             after_wall: stage,
+            gfx_object_collision_clear: false,
         });
         self.kid_jump_gravity_probe = Some(KidJumpGravityProbe {
             branch: KidJumpGravityBranch::AirborneCustomGravity,

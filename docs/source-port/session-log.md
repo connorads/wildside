@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#409 typed Kid execution path)
+
+- The Mode_Level workload now records the executed normal-physics source
+  path after the Kid coroutine runs, with explicit unclassified fallbacks.
+- Frames 1697/1703/1709 match the oracle PC journal: Right acceleration plus
+  the `loc_A8F6` ceiling continuation at 1697, neutral braking plus clear
+  `sub_902A` continuations at 1703/1709, and the same no-C Cyclone flight and
+  two `sub_B270` calls throughout.
+- Oracle `loc_A73A`-to-hibernate spans are 9,636 / 4,220 / 4,404 cycles.
+  The remaining 184-cycle difference between the same top-level 1703/1709
+  path requires nested collision/traversal or hardware-wait decomposition.
+- NEXT: type those nested workloads, then schedule the HUD FIFO from source
+  paths rather than route frames or aggregate counts.
+
+---
+
 ## 2026-07-18 handoff (#409 typed prize continuations)
 
 - Each live `sub_1007A` wobble worker now names its exact `$100E2..$10128`

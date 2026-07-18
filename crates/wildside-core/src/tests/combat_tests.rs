@@ -21786,6 +21786,7 @@ mod chunk_03 {
                     on_ground: true,
                     wall_cling_direction: None,
                 },
+                gfx_object_collision_clear: true,
             },
         });
 
