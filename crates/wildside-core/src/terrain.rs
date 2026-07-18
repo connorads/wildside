@@ -589,7 +589,7 @@ pub(crate) fn insert_blank_top_rows_terrain_bytes_loc_141AA(
 // ---------------------------------------------------------------------------
 
 /// Prize content from bits 0-3 of the Block List prize entry's last byte.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum PrizeContent {
     Diamond,
     Points10000,

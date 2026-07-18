@@ -387,6 +387,21 @@ fn prize_helmet_form(content: terrain::PrizeContent) -> Option<PlayerForm> {
     }
 }
 
+fn prize_block_wobble_resume_sub_1007a(remaining: u8) -> PrizeBlockWobbleResumeSub1007A {
+    // ASM sub_1007A (kid.asm:21345-21435): each JSR to
+    // Hibernate_Object_1Frame saves the following instruction in `4(a5)`.
+    // The six/six/five/five/four/five inclusive DBF groups correspond to the
+    // native 31-frame remaining counter after the allocation pass.
+    match remaining {
+        0..=5 => PrizeBlockWobbleResumeSub1007A::AfterLoc10120At10128,
+        6..=9 => PrizeBlockWobbleResumeSub1007A::AfterLoc10112At1011A,
+        10..=14 => PrizeBlockWobbleResumeSub1007A::AfterLoc10104At1010C,
+        15..=19 => PrizeBlockWobbleResumeSub1007A::AfterLoc100F6At100Fe,
+        20..=25 => PrizeBlockWobbleResumeSub1007A::AfterLoc100E8At100F0,
+        _ => PrizeBlockWobbleResumeSub1007A::AfterLoc100DaAt100E2,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1374,10 +1389,60 @@ mod tests {
                     active_platform_workers: 0,
                     palette_rotation_worker_loc_11f96: 0,
                     unclassified_runtime_transient_workers: 0,
+                    prize_block_wobble_paths_sub_1007a: vec![ModeLevelPrizeBlockWobbleWork {
+                        resume: PrizeBlockWobbleResumeSub1007A::AfterLoc100DaAt100E2,
+                        remaining: 31,
+                        content: Some(terrain::PrizeContent::Diamond),
+                        deleted_tile: false,
+                    }],
+                    prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeAnimationWorkSub1066 {
+                        remaining: 1
+                    },],
+                    prize_block_flash_paths_sub_1066: vec![ModeLevelPrizeAnimationWorkSub1066 {
+                        remaining: 4
+                    },],
+                    floating_prize_paths: vec![ModeLevelFloatingPrizeWork {
+                        content: terrain::PrizeContent::Diamond,
+                        remaining: 0x01F4,
+                        spawn_delay: 0,
+                        first_row_grace: false,
+                        collision_latched: false,
+                    }],
                 },
             }),
             "ASM Mode_Level (kid.asm:901) fixes the phases before sub_44DC, while Execute_Objects sub_E12 resumes each linked prize coroutine"
         );
+    }
+
+    #[test]
+    fn sub_1007a_remaining_counter_maps_to_exact_hibernate_resume_groups() {
+        use PrizeBlockWobbleResumeSub1007A::{
+            AfterLoc100DaAt100E2, AfterLoc100E8At100F0, AfterLoc100F6At100Fe, AfterLoc10104At1010C,
+            AfterLoc10112At1011A, AfterLoc10120At10128,
+        };
+
+        // ASM sub_1007A (kid.asm:21345-21435): each inclusive DBF loop
+        // resumes at the instruction after its Hibernate_Object_1Frame JSR.
+        for (remaining, expected) in [
+            (31, AfterLoc100DaAt100E2),
+            (26, AfterLoc100DaAt100E2),
+            (25, AfterLoc100E8At100F0),
+            (20, AfterLoc100E8At100F0),
+            (19, AfterLoc100F6At100Fe),
+            (15, AfterLoc100F6At100Fe),
+            (14, AfterLoc10104At1010C),
+            (10, AfterLoc10104At1010C),
+            (9, AfterLoc10112At1011A),
+            (6, AfterLoc10112At1011A),
+            (5, AfterLoc10120At10128),
+            (1, AfterLoc10120At10128),
+        ] {
+            assert_eq!(
+                prize_block_wobble_resume_sub_1007a(remaining),
+                expected,
+                "remaining={remaining}"
+            );
+        }
     }
 
     #[test]
@@ -8121,7 +8186,7 @@ impl NativeRuntime {
         let active_objects = self.active_objects();
         let (linked_object_count, _) =
             self.object_counts_from_roster(&active_objects, camera_state.x_pos, camera_state.y_pos);
-        let (linked_non_transient_object_count, _) = self
+        let (roster_without_runtime_transient_count, _) = self
             .object_counts_from_roster_without_runtime_transients(
                 &active_objects,
                 camera_state.x_pos,
@@ -8172,8 +8237,48 @@ impl NativeRuntime {
             .saturating_add(prize_block_worker_tails_sub_1007a)
             .saturating_add(prize_block_flash_workers_loc_102b8)
             .saturating_add(floating_prize_workers);
-        let linked_runtime_transient_workers =
-            linked_object_count.saturating_sub(linked_non_transient_object_count);
+        let linked_non_transient_object_count =
+            linked_object_count.saturating_sub(classified_runtime_transient_workers);
+        let unclassified_runtime_transient_workers = linked_object_count
+            .saturating_sub(roster_without_runtime_transient_count)
+            .saturating_sub(classified_runtime_transient_workers);
+        let prize_block_wobble_paths_sub_1007a = self
+            .block_bounces
+            .iter()
+            .filter(|bounce| bounce.kind == BlockBounceKind::Prize)
+            .map(|bounce| ModeLevelPrizeBlockWobbleWork {
+                resume: prize_block_wobble_resume_sub_1007a(bounce.remaining),
+                remaining: bounce.remaining,
+                content: bounce.prize_content,
+                deleted_tile: bounce.prize_deleted_tile,
+            })
+            .collect();
+        let prize_block_tail_paths_sub_1066 = self
+            .visible_prize_block_worker_tails()
+            .into_iter()
+            .map(|tail| ModeLevelPrizeAnimationWorkSub1066 {
+                remaining: tail.remaining,
+            })
+            .collect();
+        let prize_block_flash_paths_sub_1066 = self
+            .prize_block_spawn_flashes
+            .iter()
+            .map(|flash| ModeLevelPrizeAnimationWorkSub1066 {
+                remaining: flash.remaining,
+            })
+            .collect();
+        let floating_prize_paths = self
+            .floating_items
+            .iter()
+            .filter(|item| !item.collected)
+            .map(|item| ModeLevelFloatingPrizeWork {
+                content: item.content,
+                remaining: item.remaining,
+                spawn_delay: item.spawn_delay,
+                first_row_grace: item.first_row_grace,
+                collision_latched: item.collision_latched,
+            })
+            .collect();
         let mut phases = vec![
             ModeLevelPreHudPhase::TransferSpriteAndKidToVram,
             ModeLevelPreHudPhase::PaletteToVram,
@@ -8207,8 +8312,11 @@ impl NativeRuntime {
                 active_enemy_workers,
                 active_platform_workers,
                 palette_rotation_worker_loc_11f96,
-                unclassified_runtime_transient_workers: linked_runtime_transient_workers
-                    .saturating_sub(classified_runtime_transient_workers),
+                unclassified_runtime_transient_workers,
+                prize_block_wobble_paths_sub_1007a,
+                prize_block_tail_paths_sub_1066,
+                prize_block_flash_paths_sub_1066,
+                floating_prize_paths,
             },
         }
     }
@@ -12515,12 +12623,12 @@ impl NativeRuntime {
             .saturating_add(tar_monster_linked_gfx_workers)
     }
 
-    fn count_visible_prize_block_worker_tails(&self) -> usize {
+    fn visible_prize_block_worker_tails(&self) -> Vec<&PrizeBlockWorkerTail> {
         if self.prize_block_worker_tails.is_empty() {
-            return 0;
+            return Vec::new();
         }
         let Some(player) = self.current_player_state() else {
-            return self.prize_block_worker_tails.len();
+            return self.prize_block_worker_tails.iter().collect();
         };
         self.prize_block_worker_tails
             .iter()
@@ -12568,7 +12676,11 @@ impl NativeRuntime {
                 // replace only their matching stale worker count.
                 !suppressed_by_own_distant_diamond && !suppressed_by_own_non_diamond_prize
             })
-            .count()
+            .collect()
+    }
+
+    fn count_visible_prize_block_worker_tails(&self) -> usize {
+        self.visible_prize_block_worker_tails().len()
     }
 
     fn death_respawn_bootstrap_elapsed_frames(&self) -> Option<usize> {

@@ -306,6 +306,20 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-18: the entry-time workload now carries typed prize
+coroutine continuations rather than counts alone. `sub_1007A` wobble workers
+map their remaining counter to the exact post-hibernate PCs `$100E2`,
+`$100F0`, `$100FE`, `$1010C`, `$1011A`, and `$10128`; tail and
+`loc_102B8` flash animation workers retain their `sub_1066` countdown, and
+floating prizes retain content/countdown/fall/collision state. The natural
+published route exactly cross-checks the oracle PC/A5 journal: frame 1697 has
+`100F0/100FE/1010C/1011A`, frame 1703 has
+`100E2/100FE/1010C/1011A`, and frame 1709 has
+`100F0/1010C/1011A/10128`; the typed tail+flash counts also equal the
+observed `sub_1066` hits. The non-transient aggregate is now the actual
+linked count minus classified transient workers (4 at all three frames).
+Next type the Kid branch sequence before assigning costs.
+
 Progress 2026-07-18: `oracle-probe --m68k-pc-trace` now journals only selected
 real 68000 instruction starts in the pinned jgenesis backend. Each row retains
 the cumulative pre-instruction cycle, simultaneous VDP scanline/pixel, all

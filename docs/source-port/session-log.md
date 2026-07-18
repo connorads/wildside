@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#409 typed prize continuations)
+
+- Each live `sub_1007A` wobble worker now names its exact `$100E2..$10128`
+  resume label and remaining counter; `sub_1066` tail/flash and floating-prize
+  states are typed alongside it.
+- Frames 1697, 1703, and 1709 reproduce the oracle PC/A5 continuation sets
+  exactly, including 3/4/3 shared `sub_1066` animation wakes.
+- The entry-time non-transient aggregate is 4 at all three frames after
+  classified prize workers are removed from the 14/16/16 linked totals.
+- The timing vector remains empty. Next type the Kid source branch sequence,
+  then schedule these paths rather than aggregate counts.
+
+---
+
 ## 2026-07-18 handoff (#409 instruction-boundary cycle trace)
 
 - `oracle-probe --m68k-pc-trace` captures selected real instruction starts

@@ -1647,6 +1647,46 @@ pub enum ModeLevelPreHudPhase {
     SubF096,
 }
 
+/// Resume point for one live ASM `sub_1007A` prize-block wobble coroutine.
+///
+/// The ROM stores the address after each one-frame hibernate in `4(a5)`.
+/// Keeping the label typed avoids treating all live wobble workers as equal
+/// work when a `dbf` phase transition can execute on the same wake.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PrizeBlockWobbleResumeSub1007A {
+    AfterLoc100DaAt100E2,
+    AfterLoc100E8At100F0,
+    AfterLoc100F6At100Fe,
+    AfterLoc10104At1010C,
+    AfterLoc10112At1011A,
+    AfterLoc10120At10128,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelPrizeBlockWobbleWork {
+    pub resume: PrizeBlockWobbleResumeSub1007A,
+    pub remaining: u8,
+    pub content: Option<terrain::PrizeContent>,
+    pub deleted_tile: bool,
+}
+
+/// One animation coroutine resumed through ASM `sub_1066`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelPrizeAnimationWorkSub1066 {
+    pub remaining: u8,
+}
+
+/// One live falling-prize coroutine after its one-frame hibernate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelFloatingPrizeWork {
+    pub content: terrain::PrizeContent,
+    pub remaining: u16,
+    pub spawn_delay: u16,
+    pub first_row_grace: bool,
+    pub collision_latched: bool,
+}
+
 /// Typed workload facts for ASM `Execute_Objects sub_E12`.
 ///
 /// `unclassified_runtime_transient_workers` prevents a future cycle scheduler
@@ -1666,6 +1706,14 @@ pub struct ModeLevelExecuteObjectsWork {
     pub active_platform_workers: u16,
     pub palette_rotation_worker_loc_11f96: u16,
     pub unclassified_runtime_transient_workers: u16,
+    #[serde(default)]
+    pub prize_block_wobble_paths_sub_1007a: Vec<ModeLevelPrizeBlockWobbleWork>,
+    #[serde(default)]
+    pub prize_block_tail_paths_sub_1066: Vec<ModeLevelPrizeAnimationWorkSub1066>,
+    #[serde(default)]
+    pub prize_block_flash_paths_sub_1066: Vec<ModeLevelPrizeAnimationWorkSub1066>,
+    #[serde(default)]
+    pub floating_prize_paths: Vec<ModeLevelFloatingPrizeWork>,
 }
 
 /// Typed, source-ordered observation at the `Mode_Level -> sub_44DC` boundary.
