@@ -2369,6 +2369,26 @@ through 1434. The existing target produces the smaller transferred-entry
 residue. Reverted; identify the actual object producer before altering this
 shared mirror.
 
+Progress 2026-07-18 (collected-diamond replacement SAT order):
+`PrizeDiamond_Init loc_10404` copies the collected diamond coordinates into
+`PrizeDiamondCollected_Init loc_FE3E` and deletes the old worker. Native was
+retaining that deleted `PrizeDiamond_Init` presentation source alongside the
+new HUD-flight source. It now emits the replacement once, preserves
+`loc_FE3E`'s high-priority `$86F2` mapping from the creation pass, and defers
+that typed SAT entry behind the earlier `loc_102B8` flash so first-opaque
+sprite arbitration follows the source order. An ASM-cited regression pins the
+single replacement and low-flash/high-diamond ordering.
+
+Frames 1407..1411 are pixel-exact. Full TAS improves from 26,368 to 26,369
+exact frames, 11,391 to 11,390 divergent frames, and 3,627,338 to 3,626,834
+changed pixel instances. The first mismatch advances from frame 1408 (84 px)
+to frame 1526 (481 px). All 37,759 player/camera and gameplay checkpoints,
+all 37,743 post-`Init_RNG` frames, and the enemy frontier remain exact; the
+24 collected-worker object-count differences remain evidence-backed oracle
+limitations. `verify-slice-fast` passes. `verify-tas-full` produced the
+ratchet improvement and the baseline was updated. #406 remains open at frame
+1526.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

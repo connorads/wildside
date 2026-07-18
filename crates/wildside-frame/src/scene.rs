@@ -7833,6 +7833,7 @@ fn build_game_scene_filtered(
             );
         }
 
+        let mut deferred_collected_diamond_commands = Vec::new();
         // Floating prize items: small coloured shape rising upward
         for (x_px, y_px, remaining, content_id, is_collected_diamond_flight) in trace
             .floating_items
@@ -7855,6 +7856,29 @@ fn build_game_scene_filtered(
             let transferred_from_previous_sprite_table = trace
                 .floating_items_transferred_loc_901
                 .contains(&(x_px, y_px, remaining, content_id));
+            let replaces_transferred_diamond_loc_10404 = content
+                == wildside_core::terrain::PrizeContent::Diamond
+                && trace.floating_items_transferred_loc_901.iter().any(
+                    |&(previous_x, previous_y, _, previous_content_id)| {
+                        previous_content_id == content_id
+                            && previous_x == x_px
+                            && previous_y.abs_diff(y_px) <= 1
+                    },
+                )
+                && trace.prize_diamond_hud_flights_loc_fe3e.iter().any(
+                    |&(replacement_x, replacement_y, replacement_remaining)| {
+                        replacement_remaining == PRIZE_DIAMOND_INITIAL_LIFETIME
+                            && replacement_x == x_px
+                            && replacement_y.abs_diff(y_px) <= 1
+                    },
+                );
+            if !is_collected_diamond_flight && replaces_transferred_diamond_loc_10404 {
+                // ASM PrizeDiamond_Init loc_10404 copies the collected
+                // diamond's coordinates into PrizeDiamondCollected_Init and
+                // deletes the old worker. Do not retain the deleted source
+                // alongside its immediately presentable replacement.
+                continue;
+            }
             if content == wildside_core::terrain::PrizeContent::Diamond
                 && remaining == PRIZE_DIAMOND_INITIAL_LIFETIME
                 && !is_collected_diamond_flight
@@ -7925,12 +7949,10 @@ fn build_game_scene_filtered(
                     let facing = Direction::Right;
                     let (draw_x, draw_y) = sprite_draw_position(frame, fx, fy, facing);
                     let mut tiles = build_sprite_tiles(frame, facing, 0);
-                    if is_collected_diamond_flight
-                        && trace.prize_diamond_hud_flight_transferred_loc_fe3e
-                    {
+                    if is_collected_diamond_flight {
                         // ASM PrizeDiamondCollected_Init loc_FE3E supplies
-                        // `unk_E0E66` as high-priority SAT word `$86F2` only
-                        // after the preceding Sprite_Table has transferred.
+                        // `unk_E0E66` as high-priority SAT word `$86F2` from
+                        // its creation pass onward.
                         for tile in &mut tiles {
                             tile.tile.priority = true;
                         }
@@ -7942,29 +7964,33 @@ fn build_game_scene_filtered(
                     // During loc_119D8's resident gameplay fade, the retained
                     // VDP Sprite_Table keeps its first opaque pixel; live
                     // gameplay otherwise builds the later prize entry here.
-                    commands.push(
-                        if is_collected_diamond_flight
-                            && trace.prize_diamond_hud_flight_transferred_loc_fe3e
-                            || retained_demo_sprite_table
-                            || transferred_from_previous_sprite_table
-                        {
-                            DrawCommand::SatSprite {
-                                x: draw_x,
-                                y: draw_y,
-                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
-                                palette: Arc::new(prize_visuals.palette.clone()),
-                                tiles,
-                            }
-                        } else {
-                            DrawCommand::Sprite {
-                                x: draw_x,
-                                y: draw_y,
-                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
-                                palette: Arc::new(prize_visuals.palette.clone()),
-                                tiles,
-                            }
-                        },
-                    );
+                    let command = if is_collected_diamond_flight
+                        || retained_demo_sprite_table
+                        || transferred_from_previous_sprite_table
+                    {
+                        DrawCommand::SatSprite {
+                            x: draw_x,
+                            y: draw_y,
+                            tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                            palette: Arc::new(prize_visuals.palette.clone()),
+                            tiles,
+                        }
+                    } else {
+                        DrawCommand::Sprite {
+                            x: draw_x,
+                            y: draw_y,
+                            tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                            palette: Arc::new(prize_visuals.palette.clone()),
+                            tiles,
+                        }
+                    };
+                    if is_collected_diamond_flight
+                        && !trace.prize_diamond_hud_flight_transferred_loc_fe3e
+                    {
+                        deferred_collected_diamond_commands.push(command);
+                    } else {
+                        commands.push(command);
+                    }
                     continue;
                 }
             }
@@ -8021,6 +8047,7 @@ fn build_game_scene_filtered(
                 remaining,
             );
         }
+        commands.extend(deferred_collected_diamond_commands);
 
         if trace.heady_metal_death_splits.is_empty() {
             // Enemy death effect: only HeadyMetal spawns one. ASM
@@ -9462,6 +9489,54 @@ mod tests {
         assert_eq!(
             collected.floating_items_transferred_loc_901, previous_trace.floating_items,
             "ASM Mode_Level loc_901 marks only the transferred prize entries for retained SAT ordering"
+        );
+    }
+
+    #[test]
+    fn collected_diamond_loc_10404_replaces_transferred_source_once() {
+        let visuals = sample_level_visuals(0x300);
+        let previous_trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            floating_items: vec![(360, 226, 492, 0)],
+            ..NativeTraceFrame::default()
+        };
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            prize_diamond_hud_flights_loc_fe3e: vec![(360, 227, 500)],
+            prize_block_spawn_flashes: vec![(360, 216, 15)],
+            ..NativeTraceFrame::default()
+        };
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
+
+        let scene = build_game_scene_filtered(
+            &render_trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+        );
+
+        let [
+            DrawCommand::SatSprite {
+                tiles: flash_tiles, ..
+            },
+            DrawCommand::SatSprite {
+                tiles: diamond_tiles,
+                ..
+            },
+        ] = scene.commands.as_slice()
+        else {
+            panic!(
+                "ASM loc_10404 replaces the collected source once and submits it after loc_102B8"
+            );
+        };
+        assert!(
+            flash_tiles.iter().all(|tile| !tile.tile.priority),
+            "ASM loc_102B8 supplies the earlier low-priority SAT entry"
+        );
+        assert!(
+            diamond_tiles.iter().all(|tile| tile.tile.priority),
+            "ASM PrizeDiamondCollected_Init loc_FE3E sets the replacement mapping's VDP priority bit"
         );
     }
 

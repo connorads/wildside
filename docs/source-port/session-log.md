@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#406 collected-diamond replacement SAT order)
+
+- `PrizeDiamond_Init loc_10404` deletes the collected source as it allocates
+  `PrizeDiamondCollected_Init loc_FE3E`; native no longer renders both sources
+  during that hand-off.
+- The creation-pass replacement keeps the ASM `$86F2` high-priority attribute
+  but is deferred behind the earlier `loc_102B8` flash in the typed SAT stream.
+  Frames 1407..1411 are pixel-exact.
+- Full RGB improves to 26,369 exact / 11,390 divergent / 3,626,834 changed
+  pixels. First mismatch advances from frame 1408 to frame 1526 (481 pixels);
+  gameplay, player/camera, RNG, and enemy frontiers remain exact.
+- Next: diagnose frame 1526 with the typed Kid mapping and SAT-order probes.
+
+---
+
 ## 2026-07-18 handoff (deferred WIP landed: sub_44B0 + #409/#406 instrumentation)
 
 - Landed the deferred working-tree WIP as six commits: `sub_44B0` Load_InGame
