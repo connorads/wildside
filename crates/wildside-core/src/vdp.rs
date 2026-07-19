@@ -2914,6 +2914,89 @@ pub struct ModeLevelRasterSeedVintAssertion {
     pub beam: H40BeamPosition,
 }
 
+/// Hardware state at the first ASM `WaitForVint $93E` poll instruction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WaitForVintPollSeedNoZ80 {
+    pub first_poll_beam: H40BeamPosition,
+    pub refresh_phase: M68kRefreshPhase,
+}
+
+/// Run the `$93E/$942` poll until VINT without asynchronous Z80 bus access.
+///
+/// This is deliberately fail-closed to the no-Z80 path. A general scheduler
+/// must merge ordered Z80 68k-bus accesses before calling the VINT transition.
+pub fn wait_for_vint_sample_without_z80_bus_access(
+    seed: WaitForVintPollSeedNoZ80,
+    assertion: ModeLevelRasterSeedVintAssertion,
+) -> Option<crate::WaitForVintInterruptSample> {
+    #[derive(Clone, Copy)]
+    enum PollPc {
+        TestLoc93e,
+        BranchLoc942,
+    }
+
+    const FRAME_MCLK: u32 = MCLK_CYCLES_PER_SCANLINE * NTSC_SCANLINES_PER_FRAME as u32;
+    const INTERRUPT_ENTRY_RAW_CYCLES: u32 = 10 + 44;
+    const MAX_POLL_INSTRUCTIONS_PER_FRAME: usize = 100_000;
+
+    let poll_start = u32::from(seed.first_poll_beam.scanline) * MCLK_CYCLES_PER_SCANLINE
+        + u32::from(seed.first_poll_beam.scanline_mclk);
+    let assertion_at = u32::from(assertion.beam.scanline) * MCLK_CYCLES_PER_SCANLINE
+        + u32::from(assertion.beam.scanline_mclk);
+    let assertion_offset = assertion_at
+        .checked_add(FRAME_MCLK)?
+        .checked_sub(poll_start)?
+        % FRAME_MCLK;
+
+    let mut elapsed_mclk = 0_u32;
+    let mut phase = seed.refresh_phase;
+    let mut pc = PollPc::TestLoc93e;
+    for _ in 0..MAX_POLL_INSTRUCTIONS_PER_FRAME {
+        if elapsed_mclk >= assertion_offset {
+            let resume = match pc {
+                PollPc::TestLoc93e => crate::WaitForVintResumePath::PollTestLoc93e,
+                PollPc::BranchLoc942 => crate::WaitForVintResumePath::StaleBranchLoc942,
+            };
+            let interrupt_entry =
+                phase.advance_rom(M68kCycleCount::from_raw(INTERRUPT_ENTRY_RAW_CYCLES));
+            let after_handler_entry = interrupt_entry
+                .phase_after
+                .advance_rom(crate::wait_for_vint_source_cycles_to_mode_level(resume));
+            return Some(crate::WaitForVintInterruptSample {
+                mclk_until_interrupt_sample: elapsed_mclk.checked_sub(assertion_offset)?,
+                interrupt_entry_refresh_wait_events: u16::try_from(interrupt_entry.refresh_events)
+                    .ok()?,
+                resume,
+                arbitration_after_handler_entry: crate::WaitForVintArbitration {
+                    refresh_wait_events: u16::try_from(after_handler_entry.refresh_events).ok()?,
+                    z80_68k_bus_steals: 0,
+                },
+            });
+        }
+
+        // ASM WaitForVint: TST.B abs.w is 12 raw cycles; the taken BEQ.S is
+        // 10. Pending refresh waits retry the same scheduler PC, which
+        // `advance_rom` represents in the elapsed result.
+        let raw_cycles = match pc {
+            PollPc::TestLoc93e => 12,
+            PollPc::BranchLoc942 => 10,
+        };
+        let advance = phase.advance_rom(M68kCycleCount::from_raw(raw_cycles));
+        elapsed_mclk = elapsed_mclk.checked_add(
+            advance
+                .elapsed
+                .get()
+                .checked_mul(MCLK_CYCLES_PER_M68K_CYCLE)?,
+        )?;
+        phase = advance.phase_after;
+        pc = match pc {
+            PollPc::TestLoc93e => PollPc::BranchLoc942,
+            PollPc::BranchLoc942 => PollPc::TestLoc93e,
+        };
+    }
+    None
+}
+
 /// Derive the `Mode_Level $7C8` beam from a VINT assertion and sampled poll state.
 pub fn mode_level_raster_seed_mode_entry_from_vint_assertion(
     seed: ModeLevelRasterSeedVintAssertion,
@@ -5085,6 +5168,62 @@ fn load_saxman_art(source: &dyn AssetSource, rel: &std::path::Path) -> Result<Ve
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn no_z80_wait_for_vint_poll_reproduces_frontier_samples() {
+        for (
+            first_poll_scanline,
+            first_poll_mclk,
+            refresh_phase,
+            expected_sample_mclk,
+            expected_resume,
+            expected_interrupt_refresh,
+            expected_handler_refresh,
+        ) in [
+            (
+                107,
+                442,
+                78,
+                0,
+                crate::WaitForVintResumePath::PollTestLoc93e,
+                1,
+                1,
+            ),
+            (
+                105,
+                1_008,
+                104,
+                82,
+                crate::WaitForVintResumePath::StaleBranchLoc942,
+                0,
+                1,
+            ),
+        ] {
+            let sample = wait_for_vint_sample_without_z80_bus_access(
+                WaitForVintPollSeedNoZ80 {
+                    first_poll_beam: H40BeamPosition::new(first_poll_scanline, first_poll_mclk)
+                        .expect("bounded first WaitForVint $93E beam"),
+                    refresh_phase: M68kRefreshPhase::new(refresh_phase)
+                        .expect("bounded jgenesis refresh phase"),
+                },
+                ModeLevelRasterSeedVintAssertion {
+                    beam: H40BeamPosition::new(224, 16).expect("H40 VINT assertion"),
+                },
+            )
+            .expect("no-Z80 WaitForVint path reaches VINT in one frame");
+            assert_eq!(sample.mclk_until_interrupt_sample, expected_sample_mclk);
+            assert_eq!(sample.resume, expected_resume);
+            assert_eq!(
+                sample.interrupt_entry_refresh_wait_events,
+                expected_interrupt_refresh
+            );
+            assert_eq!(
+                sample.arbitration_after_handler_entry.refresh_wait_events,
+                expected_handler_refresh
+            );
+            assert_eq!(sample.arbitration_after_handler_entry.z80_68k_bus_steals, 0);
+        }
+    }
 
     #[test]
     fn vint_sample_state_derives_frontier_mode_entry_beams() {
