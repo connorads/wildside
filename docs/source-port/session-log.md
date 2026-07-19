@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 second title decoder)
+
+- Correction: the exact 2,016-word upload is `Load_TitleArt`'s first VRAM
+  transfer, not the final `sub_1B2A4` transfer.
+- Oracle reaches the second transfer's `loc_14300` at cycle 9,246,105 and
+  `loc_14314` at 9,251,793 with 96 words, returning at 9,256,826.
+- Free-running GEMS remains exact through `loc_14300`, then misses only
+  across the 5,688-cycle `Decompress_Chunk`: PC/SP `$023F/$1A0A` versus
+  oracle `$02AA/$1A08`; divider, T-wait, wait and access parity agree.
+- NEXT: derive the decoder's source-command instruction visitor and use the
+  instruction-batched GEMS API. Do not represent it as one fixed interval or
+  a fitted bank-collision ledger.
+
 ## 2026-07-19 handoff (#409 exact title transfer)
 
 - Commit `0e8a5d1` generalises `DecompressToVRAM loc_14314` across VINT and

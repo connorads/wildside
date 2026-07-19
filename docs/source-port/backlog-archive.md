@@ -333,6 +333,21 @@ compose that source workload from the return to frame 72, then continue to
 the frame-1709 `loc_892` bridge. Do not reinvestigate the transfer or replace
 post-return ownership with free-running Z80 time.
 
+Correction 2026-07-19: selected-PC source pointers identify the 2,016-word
+upload as the first `Load_TitleArt` transfer, not the final `sub_1B2A4`
+transfer. After its exact cycle-9,245,822 return, oracle enters the second
+transfer's `loc_14300` at cycle 9,246,105, then `loc_14314` at 9,251,793
+with `d3=$005F` for 96 words, and returns at 9,256,826. Free-running GEMS
+matches the complete oracle checkpoint at `loc_14300`: PC `$02A5`, divider
+12, T-wait 5, even access parity, IX/IY/SP `$1A20/$15A8/$1A00`. It then
+misses the `loc_14314` checkpoint across the 5,688-cycle `Decompress_Chunk`
+span: native PC/SP `$023F/$1A0A` versus oracle `$02AA/$1A08`, while divider
+0, T-wait 9, wait 0, and even parity agree. This isolates instruction-boundary
+bank-wait deferral inside the decoder, not post-transfer FIFO ownership.
+NEXT: derive a source-command instruction visitor for this decoder span and
+feed each instruction to the existing 68000-instruction GEMS API. A single
+fixed interval or fitted collision ledger is rejected.
+
 Progress 2026-07-19: native and oracle Z80 instruction journals from the exact
 frame-71 checkpoint to frame 72 identify the first causal divergence. After
 discarding one native boundary before the shared checkpoint, the first 733
