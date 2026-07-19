@@ -306,6 +306,38 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: native and oracle Z80 instruction journals from the exact
+frame-71 checkpoint to frame 72 identify the first causal divergence. After
+discarding one native boundary before the shared checkpoint, the first 733
+instruction boundaries agree. Both machines then reach the banked GEMS
+`LDIR` at Z80 PC `$0273`, but oracle's following boundary is 180 master clocks
+later. M68K-side oracle instrumentation proves that the banked read asserted
+Z80 halt while `vdp_owns_bus=true` and the 68000 was retrying PC `$014316`,
+inside `DecompressToVRAM loc_14314`. Native advances the same Z80 instruction
+stream without the title loader's FIFO-owned intervals.
+
+A selected-PC probe derives the source boundary rather than fitting the
+delay. This final `sub_1B2A4` upload enters `loc_14314` at absolute 68000
+cycle 9,161,190, beam 148:408, refresh phase 101, with `d3=$07DF`, so the
+inclusive DBF loop writes 2,016 words. Scanline 224 interrupts the loop at
+cycle 9,197,856: jgenesis records the 10-cycle interrupt sample and 44-cycle
+autovector entry against resume PC `$014314`, followed by `V_Int`; the upload
+reaches `tst.w d0` at cycle 9,245,792. The observed 87 Z80-halt collisions are
+diagnostic evidence, not an implementation ledger.
+
+Architecture decision: generalise the existing raster/FIFO implementation
+behind `load_in_game_platform_art_transfer_cursor_loc_14314_with_hardware`,
+then compose an instruction-boundary VINT and persistent GEMS callback for
+the title upload. A route-specific list of the 87 observed collision cycles
+is rejected because it would encode the published route instead of
+`loc_14314` and VDP ownership. The current scheduler cannot be applied
+unchanged because its Load_InGame transfers do not cross VINT. Commit
+`fdcba3d35` also fixes the durable oracle patch template to capture IY rather
+than the misspelled `it` register, so fresh bootstrap checkouts retain the
+typed `[IX,IY,SP]` checkpoint. NEXT: add the generic VINT-aware transfer
+scheduler and prove that the full frame-71-to-72 persistent replay remains
+exact after the title upload.
+
 Progress 2026-07-19: commit `6e0234010` corrects three independently
 source-backed hardware boundaries. The GEMS timing engine now retains the
 jgenesis-visible YM scheduler phase modulo master/42 separately from the raw

@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 title `loc_14314` ownership)
+
+- Native and oracle Z80 journals agree for 733 instruction boundaries after
+  the exact frame-71 checkpoint. The first causal miss is GEMS banked `LDIR`
+  PC `$0273`: oracle gains 180 master clocks because the read collides with
+  VDP ownership while the 68000 retries `DecompressToVRAM loc_14314`.
+- The transfer enters at absolute 68000 cycle 9,161,190, beam 148:408,
+  refresh phase 101, with `d3=$07DF` for 2,016 inclusive DBF writes.
+- VINT interrupts the loop at cycle 9,197,856; the transfer reaches
+  `tst.w d0` at cycle 9,245,792. The existing Load_InGame wrapper therefore
+  cannot be reused unchanged.
+- Replaying the 87 observed bank-read collisions as route constants is
+  rejected. Generalise the raster/FIFO scheduler and compose its
+  instruction-boundary VINT with persistent GEMS instead.
+- Commit `fdcba3d35` fixes fresh oracle bootstrap capture of GEMS IY.
+- NEXT: implement the generic VINT-aware `loc_14314` transfer scheduler and
+  make the complete frame-71-to-72 persistent replay exact.
+
 ## 2026-07-19 handoff (#409 Z80 interrupt boundary)
 
 - Commit `6e0234010` samples GEMS IM1 INT before the next opcode, separates
