@@ -614,6 +614,12 @@ fn prize_object_execution_order_sub_e12(
                 .prize_block_tail_paths_sub_1066
                 .iter()
                 .enumerate()
+                .filter(|(_, work)| {
+                    !matches!(
+                        work.state,
+                        ModeLevelPrizeBlockTailState::DeletedWorkerOverlap { .. }
+                    )
+                })
                 .map(|(index, work)| {
                     (
                         prize_tail_allocation_age(work),
@@ -2302,10 +2308,19 @@ mod tests {
                 tail_gfx_category4_delete_rank_loc_1106: 11,
             })
         );
+        frame_1697.prize_block_tail_paths_sub_1066[0].list_work =
+            mode_level_prize_tail_list_work(&frame_1697, 0, true);
+        for (work, path) in frame_1697.floating_prize_paths.iter_mut().zip([
+            ModeLevelFloatingPrizeFallPathLoc103B2::BlockedCurrentRow,
+            ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallSameRow,
+            ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallSameRow,
+        ]) {
+            work.fall_path_loc_103b2 = Some(path);
+        }
 
         // Natural frame 1703 has one more live `$1FFF` prize and one more
         // existing GfxObject. No Kid-side allocation precedes the completion.
-        let frame_1703 = prize_tail_rank_fixture(
+        let mut frame_1703 = prize_tail_rank_fixture(
             16,
             16,
             &[7, 13, 19, 26],
@@ -2324,6 +2339,16 @@ mod tests {
                 tail_gfx_category4_delete_rank_loc_1106: 12,
             })
         );
+        frame_1703.prize_block_tail_paths_sub_1066[0].list_work =
+            mode_level_prize_tail_list_work(&frame_1703, 0, false);
+        for (work, path) in frame_1703.floating_prize_paths.iter_mut().zip([
+            ModeLevelFloatingPrizeFallPathLoc103B2::BlockedCurrentRow,
+            ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallSameRow,
+            ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallSameRow,
+            ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallSameRow,
+        ]) {
+            work.fall_path_loc_103b2 = Some(path);
+        }
         assert_eq!(
             prize_object_execution_order_sub_e12(&frame_1697),
             Some(vec![
@@ -2361,6 +2386,24 @@ mod tests {
             ]),
             "ASM loc_DE0 order around Kid matches the frame 1703 oracle A5 journal"
         );
+        let typed_prize_cycles = |execute: &ModeLevelExecuteObjectsWork| {
+            prize_object_execution_order_sub_e12(execute)
+                .expect("source-ordered callbacks")
+                .into_iter()
+                .filter(|callback| *callback != ModeLevelPrizeObjectExecutionSubE12::Player)
+                .map(|callback| {
+                    crate::prize_object_cycles_sub_e12(execute, callback)
+                        .expect("typed callback cycles")
+                        .get()
+                })
+                .sum::<u32>()
+        };
+        assert_eq!(
+            typed_prize_cycles(&frame_1697),
+            14_562,
+            "nominal source cycles exclude Kid, fixed workers, RNG, and VDP stalls"
+        );
+        assert_eq!(typed_prize_cycles(&frame_1703), 15_028);
     }
 
     #[test]
