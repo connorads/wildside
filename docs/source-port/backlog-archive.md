@@ -306,6 +306,33 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: commit `0e8a5d1` generalises the
+`DecompressToVRAM loc_14314` raster/FIFO scheduler across VBlank and exposes
+each ownership interval to persistent GEMS. The scheduler samples VINT after
+the loop's DBF instruction, enqueues the VDP-port MOVE before draining a
+simultaneous GEMS wait, distinguishes continuously elapsed time from one
+already-timed 68000 instruction, and freezes a collided Z80 instruction's
+remaining T cycles until VDP ownership ends.
+
+The permanent real-ROM regression reconstructs the 2,016-word title upload
+from the exact PC `$0793`, IX/IY/SP `$1B80/$0009/$1A20` entry state. It pins
+the first FIFO halt at cycle 9,161,360, VINT autovector entry at 9,197,868,
+the first post-VINT FIFO-owned GEMS collision at 9,216,149, and transfer
+return at absolute 68000 cycle 9,245,822. The route consumes 38,532 FIFO
+retry cycles and 1,320 external wait cycles; all 1,803 post-IRQ Z80
+instruction boundaries agree with oracle through the return, whose GEMS
+state is PC `$0273`, divider 4, T-wait 3, wait 0, odd access parity, both
+IFFs set, and no halt.
+
+`mise run verify-slice-fast` and `mise run verify-tas-full` pass. The full
+37,759-frame state frontier remains exact and the visual ratchet remains
+26,382 exact / 11,377 divergent / 3,620,978 changed pixels. A discarded
+frame-72 assertion free-ran GEMS across later 68000/VDP work after the exact
+transfer return, so it was not valid evidence against the scheduler. NEXT:
+compose that source workload from the return to frame 72, then continue to
+the frame-1709 `loc_892` bridge. Do not reinvestigate the transfer or replace
+post-return ownership with free-running Z80 time.
+
 Progress 2026-07-19: native and oracle Z80 instruction journals from the exact
 frame-71 checkpoint to frame 72 identify the first causal divergence. After
 discarding one native boundary before the shared checkpoint, the first 733

@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 exact title transfer)
+
+- Commit `0e8a5d1` generalises `DecompressToVRAM loc_14314` across VINT and
+  supplies its FIFO ownership intervals to persistent GEMS.
+- The 2,016-word title upload is exact through return cycle 9,245,822:
+  38,532 FIFO retry cycles, 1,320 external wait cycles, and all 1,803
+  post-IRQ Z80 instruction boundaries match oracle.
+- The post-RTS GEMS state is exact at PC `$0273`, divider 4, T-wait 3,
+  wait 0, odd access parity, both IFFs set, and no halt.
+- `mise run verify-slice-fast` and `mise run verify-tas-full` pass; the full
+  visual baseline remains 26,382 exact / 11,377 divergent / 3,620,978
+  changed pixels.
+- NEXT: compose the source workload after the transfer return through frame
+  72, then continue to the frame-1709 `loc_892` bridge. Do not free-run GEMS
+  across the missing 68000/VDP work.
+
 ## 2026-07-19 handoff (#409 title `loc_14314` ownership)
 
 - Native and oracle Z80 journals agree for 733 instruction boundaries after
