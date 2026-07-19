@@ -2921,12 +2921,23 @@ pub struct WaitForVintPollSeedNoZ80 {
     pub refresh_phase: M68kRefreshPhase,
 }
 
-/// Run the `$93E/$942` poll until VINT without asynchronous Z80 bus access.
-///
-/// This is deliberately fail-closed to the no-Z80 path. A general scheduler
-/// must merge ordered Z80 68k-bus accesses before calling the VINT transition.
-pub fn wait_for_vint_sample_without_z80_bus_access(
-    seed: WaitForVintPollSeedNoZ80,
+/// Hardware state and ordered asynchronous Z80 68k-bus accesses at the first
+/// ASM `WaitForVint $93E` poll instruction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WaitForVintPollSeed<'a> {
+    pub first_poll_beam: H40BeamPosition,
+    pub refresh_phase: M68kRefreshPhase,
+    /// Event-generation offsets in 68000 cycles from the first `$93E`.
+    ///
+    /// Each event occurs after the current 68000 scheduler tick and adds an
+    /// 11-cycle wait to the following tick. Offsets must be strictly ordered.
+    pub z80_68k_bus_access_offsets: &'a [M68kCycleCount],
+}
+
+/// Run the `$93E/$942` poll while merging ordered asynchronous Z80 accesses
+/// to the 68k bus.
+pub fn wait_for_vint_sample_with_z80_bus_accesses(
+    seed: WaitForVintPollSeed<'_>,
     assertion: ModeLevelRasterSeedVintAssertion,
 ) -> Option<crate::WaitForVintInterruptSample> {
     #[derive(Clone, Copy)]
@@ -2937,7 +2948,15 @@ pub fn wait_for_vint_sample_without_z80_bus_access(
 
     const FRAME_MCLK: u32 = MCLK_CYCLES_PER_SCANLINE * NTSC_SCANLINES_PER_FRAME as u32;
     const INTERRUPT_ENTRY_RAW_CYCLES: u32 = 10 + 44;
-    const MAX_POLL_INSTRUCTIONS_PER_FRAME: usize = 100_000;
+    const MAX_SCHEDULER_TICKS_PER_FRAME: usize = 200_000;
+
+    if seed
+        .z80_68k_bus_access_offsets
+        .windows(2)
+        .any(|pair| pair[0].get() >= pair[1].get())
+    {
+        return None;
+    }
 
     let poll_start = u32::from(seed.first_poll_beam.scanline) * MCLK_CYCLES_PER_SCANLINE
         + u32::from(seed.first_poll_beam.scanline_mclk);
@@ -2948,11 +2967,44 @@ pub fn wait_for_vint_sample_without_z80_bus_access(
         .checked_sub(poll_start)?
         % FRAME_MCLK;
 
-    let mut elapsed_mclk = 0_u32;
+    let mut elapsed_cycles = 0_u32;
     let mut phase = seed.refresh_phase;
     let mut pc = PollPc::TestLoc93e;
-    for _ in 0..MAX_POLL_INSTRUCTIONS_PER_FRAME {
+    let mut pending_wait_cycles = 0_u32;
+    let mut next_z80_access = 0_usize;
+
+    for _ in 0..MAX_SCHEDULER_TICKS_PER_FRAME {
+        if pending_wait_cycles != 0 {
+            // jgenesis timing.rs `record_68k_instruction`: a pending wait
+            // advances the refresh counter but cannot enqueue another
+            // refresh. A refresh wait and Z80 steal can therefore be
+            // processed together as one 13-cycle scheduler tick.
+            let wait = phase.advance_external_wait(M68kCycleCount::from_raw(pending_wait_cycles));
+            elapsed_cycles = elapsed_cycles.checked_add(wait.elapsed.get())?;
+            phase = wait.phase_after;
+            pending_wait_cycles = 0;
+
+            while let Some(event) = seed.z80_68k_bus_access_offsets.get(next_z80_access) {
+                if event.get() > elapsed_cycles {
+                    break;
+                }
+                if event.get() != elapsed_cycles {
+                    return None;
+                }
+                pending_wait_cycles = pending_wait_cycles.checked_add(11)?;
+                next_z80_access += 1;
+            }
+            continue;
+        }
+
+        let elapsed_mclk = elapsed_cycles.checked_mul(MCLK_CYCLES_PER_M68K_CYCLE)?;
         if elapsed_mclk >= assertion_offset {
+            // This contract covers bus accesses generated during the poll.
+            // A schedule continuing into interrupt entry needs a wider typed
+            // boundary so post-assertion events cannot be silently dropped.
+            if next_z80_access != seed.z80_68k_bus_access_offsets.len() {
+                return None;
+            }
             let resume = match pc {
                 PollPc::TestLoc93e => crate::WaitForVintResumePath::PollTestLoc93e,
                 PollPc::BranchLoc942 => crate::WaitForVintResumePath::StaleBranchLoc942,
@@ -2974,27 +3026,57 @@ pub fn wait_for_vint_sample_without_z80_bus_access(
             });
         }
 
-        // ASM WaitForVint: TST.B abs.w is 12 raw cycles; the taken BEQ.S is
-        // 10. Pending refresh waits retry the same scheduler PC, which
-        // `advance_rom` represents in the elapsed result.
+        // ASM WaitForVint: TST.B abs.w is 12 raw cycles; taken BEQ.S is 10.
         let raw_cycles = match pc {
             PollPc::TestLoc93e => 12,
             PollPc::BranchLoc942 => 10,
         };
-        let advance = phase.advance_rom(M68kCycleCount::from_raw(raw_cycles));
-        elapsed_mclk = elapsed_mclk.checked_add(
-            advance
-                .elapsed
-                .get()
-                .checked_mul(MCLK_CYCLES_PER_M68K_CYCLE)?,
-        )?;
-        phase = advance.phase_after;
+        let phase_after_raw = u32::from(phase.get()).checked_add(raw_cycles)?;
+        if phase_after_raw >= 128 {
+            pending_wait_cycles = pending_wait_cycles.checked_add(2)?;
+        }
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed_cycles = elapsed_cycles.checked_add(raw_cycles)?;
         pc = match pc {
             PollPc::TestLoc93e => PollPc::BranchLoc942,
             PollPc::BranchLoc942 => PollPc::TestLoc93e,
         };
+
+        // jgenesis ticks the Z80 after the completed 68000 scheduler tick.
+        // Banked reads generated there add their wait to the next tick.
+        while let Some(event) = seed.z80_68k_bus_access_offsets.get(next_z80_access) {
+            if event.get() > elapsed_cycles {
+                break;
+            }
+            if event.get() != elapsed_cycles {
+                return None;
+            }
+            pending_wait_cycles = pending_wait_cycles.checked_add(11)?;
+            next_z80_access += 1;
+        }
     }
     None
+}
+
+/// Run the `$93E/$942` poll until VINT without asynchronous Z80 bus access.
+///
+/// This is deliberately fail-closed to the no-Z80 path. A general scheduler
+/// must merge ordered Z80 68k-bus accesses before calling the VINT transition.
+pub fn wait_for_vint_sample_without_z80_bus_access(
+    seed: WaitForVintPollSeedNoZ80,
+    assertion: ModeLevelRasterSeedVintAssertion,
+) -> Option<crate::WaitForVintInterruptSample> {
+    wait_for_vint_sample_with_z80_bus_accesses(
+        WaitForVintPollSeed {
+            first_poll_beam: seed.first_poll_beam,
+            refresh_phase: seed.refresh_phase,
+            z80_68k_bus_access_offsets: &[],
+        },
+        assertion,
+    )
 }
 
 /// Derive the `Mode_Level $7C8` beam from a VINT assertion and sampled poll state.
@@ -5223,6 +5305,76 @@ mod tests {
             );
             assert_eq!(sample.arbitration_after_handler_entry.z80_68k_bus_steals, 0);
         }
+    }
+
+    #[test]
+    fn gems_banked_reads_interleave_with_wait_for_vint_poll() {
+        // jgenesis helper frame 1696: GEMS `$01FB..$028A` copies ROM
+        // `$EF23A..$EF2B9` into Z80 RAM `$1F00..$1F7F`. These are the 128
+        // banked-read scheduler offsets from the first WaitForVint `$93E`
+        // instruction, after removing `$93A sf V_Int_Done`'s 16 cycles.
+        const ACCESS_OFFSETS_FROM_FIRST_LOC_93E: [u32; 128] = [
+            10_816, 10_861, 10_916, 10_973, 11_028, 11_071, 11_908, 11_963, 12_010, 12_065, 12_122,
+            12_165, 13_104, 13_149, 13_204, 13_249, 13_304, 13_359, 14_242, 14_287, 14_342, 14_397,
+            14_452, 14_497, 15_380, 15_435, 15_480, 15_535, 15_592, 15_637, 16_520, 16_575, 16_630,
+            16_685, 16_730, 16_785, 17_668, 17_713, 17_770, 17_825, 17_868, 17_925, 18_852, 18_909,
+            18_954, 19_009, 19_064, 19_119, 19_990, 20_045, 20_102, 20_147, 20_204, 20_259, 21_142,
+            21_185, 21_240, 21_295, 21_342, 21_397, 22_280, 22_335, 22_378, 22_433, 22_490, 22_535,
+            23_462, 23_519, 23_574, 23_629, 23_674, 23_729, 24_612, 24_657, 24_714, 24_769, 24_812,
+            24_867, 25_750, 25_805, 25_852, 25_907, 25_964, 26_007, 26_890, 26_945, 27_000, 27_045,
+            27_102, 27_157, 28_040, 28_083, 28_140, 28_185, 28_240, 28_297, 29_180, 29_223, 29_280,
+            29_335, 29_380, 29_435, 30_362, 30_417, 30_474, 30_517, 30_574, 30_629, 31_502, 31_557,
+            31_612, 31_667, 31_712, 31_767, 32_650, 32_695, 32_752, 32_807, 32_852, 32_907, 33_790,
+            33_845, 33_892, 33_947, 34_002, 34_047, 34_974, 35_031,
+        ];
+        let offsets = ACCESS_OFFSETS_FROM_FIRST_LOC_93E.map(M68kCycleCount::from_raw);
+
+        let sample = wait_for_vint_sample_with_z80_bus_accesses(
+            WaitForVintPollSeed {
+                first_poll_beam: H40BeamPosition::new(99, 1_190)
+                    .expect("bounded first WaitForVint beam"),
+                refresh_phase: M68kRefreshPhase::new(56).expect("bounded refresh phase"),
+                z80_68k_bus_access_offsets: &offsets,
+            },
+            ModeLevelRasterSeedVintAssertion {
+                beam: H40BeamPosition::new(224, 16).expect("H40 VINT assertion"),
+            },
+        )
+        .expect("typed GEMS banked-copy schedule reaches VINT");
+
+        assert_eq!(
+            sample,
+            crate::WaitForVintInterruptSample {
+                mclk_until_interrupt_sample: 58,
+                interrupt_entry_refresh_wait_events: 0,
+                resume: crate::WaitForVintResumePath::StaleBranchLoc942,
+                arbitration_after_handler_entry: crate::WaitForVintArbitration {
+                    refresh_wait_events: 2,
+                    z80_68k_bus_steals: 0,
+                },
+            },
+            "ASM WaitForVint `$93E/$942` plus GEMS `$0273/$0285` banked reads"
+        );
+    }
+
+    #[test]
+    fn wait_for_vint_z80_schedule_rejects_non_monotonic_offsets() {
+        let offsets = [M68kCycleCount::from_raw(100), M68kCycleCount::from_raw(100)];
+        assert_eq!(
+            wait_for_vint_sample_with_z80_bus_accesses(
+                WaitForVintPollSeed {
+                    first_poll_beam: H40BeamPosition::new(107, 442)
+                        .expect("bounded first WaitForVint beam"),
+                    refresh_phase: M68kRefreshPhase::new(78).expect("bounded refresh phase"),
+                    z80_68k_bus_access_offsets: &offsets,
+                },
+                ModeLevelRasterSeedVintAssertion {
+                    beam: H40BeamPosition::new(224, 16).expect("H40 VINT assertion"),
+                },
+            ),
+            None,
+            "ordered Z80 scheduler events must be strictly monotonic"
+        );
     }
 
     #[test]
