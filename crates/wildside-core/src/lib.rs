@@ -120,7 +120,7 @@ pub use mode_level_timing::{
     mode_level_vblank_elapsed_cycles_before_sub_e12,
     mode_level_vblank_source_cycles_before_sub_e12, player_callback_cycles_loc_a73a,
     post_execute_elapsed_cycles_before_sub_44dc, post_execute_raw_cycles_before_sub_44dc,
-    prize_object_cycles_sub_e12, prize_tail_finish_cycles_sub_1007a,
+    prize_object_cycles_sub_e12, prize_tail_finish_cycles_sub_1007a, read_joypad_raw_cycles,
     wait_for_vint_elapsed_cycles_to_mode_level,
     wait_for_vint_mclk_from_vint_assertion_to_mode_level,
     wait_for_vint_source_cycles_to_mode_level,

@@ -224,11 +224,14 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             let ledger = runtime
                 .mode_level_work_after_hud_sub_44dc()
                 .expect("published helper should take the natural loc_80C path");
+            let read_joypad_raw_cycles = read_joypad_raw_cycles(ledger.read_joypad_work)
+                .expect("published helper should classify Demo ReadJoypad");
             observed.push((
                 frame_index,
                 ledger.phases.clone(),
                 ledger.enemy_loading_path,
                 ledger.read_joypad_work,
+                read_joypad_raw_cycles.get(),
                 ledger.enemy_loading_initial_pass_complete,
                 ledger.linked_gfx_object_count,
                 ledger.active_platform_object_count,
@@ -240,7 +243,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
         observed
             .iter()
             .map(
-                |(_, phases, enemy_path, joypad_path, loader_complete, _, _)| (
+                |(_, phases, enemy_path, joypad_path, _, loader_complete, _, _)| (
                     phases,
                     *enemy_path,
                     *joypad_path,
@@ -288,10 +291,16 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
     assert_eq!(
         observed
             .iter()
-            .map(|(frame, _, _, _, _, gfx_count, platforms)| { (*frame, *gfx_count, *platforms) })
+            .map(|(frame, _, _, _, raw_cycles, _, gfx_count, platforms)| {
+                (*frame, *raw_cycles, *gfx_count, *platforms)
+            })
             .collect::<Vec<_>>(),
-        vec![(1_697, 16, 0), (1_703, 17, 0), (1_709, 16, 0)],
-        "ASM GfxObjects_MoveAndAnimate/Make_SpritesFromGfxObjects and platform-list work",
+        vec![
+            (1_697, 1_234, 16, 0),
+            (1_703, 1_234, 17, 0),
+            (1_709, 1_234, 16, 0),
+        ],
+        "ASM ReadJoypad and linked GfxObject/platform work",
     );
 }
 

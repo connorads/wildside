@@ -5,7 +5,7 @@ use crate::{
     ModeLevelFloatingPrizeFallPathLoc103B2, ModeLevelInputWorkerPathLoc7452,
     ModeLevelKidGfxTerrainCollision, ModeLevelPlayerExecutionPath, ModeLevelPreHudWorkLedger,
     ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
-    ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
+    ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork, ModeLevelReadJoypadWork,
     ModeLevelRubberContactEffectLoc10DA4, ModeLevelVerticalCollisionPath,
     ModeLevelWallCollisionPath,
 };
@@ -1234,6 +1234,30 @@ pub fn hud_life_icon_only_raw_cycles_sub_44dc(
     Some(M68kCycleCount::from_raw(1_350))
 }
 
+/// Raw CPU work for ASM `ReadJoypad` (`kid.asm`) inside `Mode_Level`.
+///
+/// Refresh and the external waits in `sub_914`/`sub_924` are deliberately
+/// excluded. Controller and incomplete Demo observations remain fail-closed.
+pub fn read_joypad_raw_cycles(work: ModeLevelReadJoypadWork) -> Option<M68kCycleCount> {
+    let ModeLevelReadJoypadWork::DemoPlaybackLocC22(Some(demo)) = work else {
+        return None;
+    };
+    let advances_keypress_pointer = demo.counter_before_increment & 1 != 0;
+    if advances_keypress_pointer != demo.advances_keypress_pointer {
+        return None;
+    }
+
+    // ASM ReadJoypad loc_B70..loc_C9C: the shared Demo path costs 1,198
+    // raw cycles. At loc_C40, a post-increment even counter takes the
+    // 36-cycle loc_C44 pointer-update path before the shared loc_C4E edge
+    // update. Selected-PC oracle traces pin both source paths independently.
+    Some(M68kCycleCount::from_raw(if advances_keypress_pointer {
+        1_234
+    } else {
+        1_198
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1803,6 +1827,42 @@ mod tests {
             ]),
             None,
             "unclassified multi-upload paths must remain fail-closed",
+        );
+    }
+
+    #[test]
+    fn demo_read_joypad_raw_cost_follows_loc_c40_pointer_branch() {
+        let demo = |counter_before_increment, advances_keypress_pointer| {
+            ModeLevelReadJoypadWork::DemoPlaybackLocC22(Some(
+                crate::ModeLevelDemoReadJoypadWorkLocC22 {
+                    counter_before_increment,
+                    advances_keypress_pointer,
+                },
+            ))
+        };
+
+        assert_eq!(
+            read_joypad_raw_cycles(demo(723, true)),
+            Some(M68kCycleCount::from_raw(1_234)),
+            "ASM ReadJoypad loc_C40 falls through to the pointer update",
+        );
+        assert_eq!(
+            read_joypad_raw_cycles(demo(724, false)),
+            Some(M68kCycleCount::from_raw(1_198)),
+            "ASM ReadJoypad loc_C40 branches directly to loc_C4E",
+        );
+        assert_eq!(
+            read_joypad_raw_cycles(demo(723, false)),
+            None,
+            "inconsistent loc_C22 observations must remain fail-closed",
+        );
+        assert_eq!(
+            read_joypad_raw_cycles(ModeLevelReadJoypadWork::DemoPlaybackLocC22(None)),
+            None,
+        );
+        assert_eq!(
+            read_joypad_raw_cycles(ModeLevelReadJoypadWork::FirstControllerLocB8c),
+            None,
         );
     }
 
