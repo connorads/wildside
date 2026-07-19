@@ -23,7 +23,7 @@ fn cached_any_percent_demo_runtime_and_script() -> Option<(NativeRuntime, Vec<u8
 }
 
 #[test]
-fn published_tas_frame_1697_seed_drives_life_icon_raster_timing_sub_e12() {
+fn published_tas_frame_1697_mode_entry_drives_life_icon_raster_timing_sub_e12() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;
     };
@@ -31,12 +31,34 @@ fn published_tas_frame_1697_seed_drives_life_icon_raster_timing_sub_e12() {
 
     for (frame_index, mask) in script.iter().copied().enumerate().take(1698) {
         if frame_index == 1697 {
-            // Bounded jgenesis PC trace: helper frame 1696 reaches sub_E12 at
-            // CPU cycle 217216218, beam 242:$07FE, refresh phase 88.
-            runtime.seed_mode_level_raster_sub_e12(vdp::ModeLevelRasterSeedSubE12 {
-                beam: vdp::H40BeamPosition::new(242, 2_046).expect("bounded H40 beam"),
-                refresh_phase: M68kRefreshPhase::new(88).expect("bounded refresh phase"),
-            });
+            // Bounded jgenesis PC trace: helper frame 1696 reaches Mode_Level
+            // $7C8 at CPU cycle 217207372, beam 224:$0694. The final H-scroll
+            // DMA at loc_30104 resets the refresh phase before sub_E12.
+            assert!(runtime.seed_mode_level_raster_mode_entry(
+                vdp::ModeLevelRasterSeedModeEntry {
+                    beam: vdp::H40BeamPosition::new(224, 1_684).expect("bounded H40 beam"),
+                },
+                ModeLevelVblankWorkBeforeSubE12 {
+                    dynamic_art_tiles_loc_ad4: [16, 4],
+                    palette_dma_sub_970: true,
+                    scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
+                    foreground_custom_queue_entries_sub_1596: 0,
+                    foreground_cell_queue_entries_sub_1596: 0,
+                    paused_sub_6874: false,
+                    hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
+                },
+                ModeLevelVblankArbitrationBeforeSubE12 {
+                    vdp_bus_halt_cycles: 3_383,
+                    vdp_pending_wait_cycles: 2_002,
+                    refresh_wait_cycles: 46,
+                    refresh_suffix_after_final_vdp_ownership:
+                        ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership {
+                            raw_cycles_before_pending_wait: 16,
+                            pending_wait_cycles: 60,
+                            raw_cycles_after_pending_wait: 1_146,
+                        },
+                },
+            ));
         }
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
         if frame_index == 1697 {

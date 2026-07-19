@@ -2888,6 +2888,25 @@ pub struct ModeLevelRasterSeedSubE12 {
     pub refresh_phase: M68kRefreshPhase,
 }
 
+/// Explicit hardware boundary at ASM `Mode_Level $7C8`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelRasterSeedModeEntry {
+    pub beam: H40BeamPosition,
+}
+
+/// Advance a typed natural `Mode_Level` VBlank path to `sub_E12`.
+pub fn mode_level_raster_seed_sub_e12_from_mode_entry(
+    seed: ModeLevelRasterSeedModeEntry,
+    work: crate::ModeLevelVblankWorkBeforeSubE12,
+    arbitration: crate::ModeLevelVblankArbitrationBeforeSubE12,
+) -> Option<ModeLevelRasterSeedSubE12> {
+    let advance = crate::mode_level_vblank_advance_before_sub_e12(work, arbitration)?;
+    Some(ModeLevelRasterSeedSubE12 {
+        beam: seed.beam.advance_m68k_cycles(advance.elapsed),
+        refresh_phase: advance.phase_after,
+    })
+}
+
 /// Derive the life-icon FIFO timing from a seeded `sub_E12` boundary and the
 /// source-typed remainder of `Mode_Level`.
 pub fn life_icon_raster_timing_from_sub_e12(

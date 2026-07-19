@@ -132,6 +132,18 @@ pub struct ModeLevelVblankArbitrationBeforeSubE12 {
     pub vdp_pending_wait_cycles: u32,
     /// Already-pending ROM refresh waits processed before `sub_E12`.
     pub refresh_wait_cycles: u32,
+    /// Fixed source/pending-wait suffix after the final VDP-owned CPU
+    /// re-entry resets jgenesis's refresh counter.
+    pub refresh_suffix_after_final_vdp_ownership:
+        ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership,
+}
+
+/// Ordered work after the final VDP-owned re-entry before `sub_E12`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership {
+    pub raw_cycles_before_pending_wait: u32,
+    pub pending_wait_cycles: u32,
+    pub raw_cycles_after_pending_wait: u32,
 }
 
 /// Saved-PC path resumed by ASM `V_Int $488` before `WaitForVint` returns.
@@ -218,6 +230,54 @@ pub fn mode_level_vblank_elapsed_cycles_before_sub_e12(
         .checked_add(arbitration.vdp_pending_wait_cycles)?
         .checked_add(arbitration.refresh_wait_cycles)?;
     Some(M68kCycleCount::from_raw(elapsed))
+}
+
+/// Advance the natural VBlank path through the final H-scroll DMA reset.
+///
+/// jgenesis `timing.rs::record_68k_instruction` resets its approximate
+/// refresh counter whenever the VDP owns the 68k bus. The final such reset is
+/// ASM `loc_30104`; no earlier Mode-entry refresh phase survives it.
+pub fn mode_level_vblank_advance_before_sub_e12(
+    work: ModeLevelVblankWorkBeforeSubE12,
+    arbitration: ModeLevelVblankArbitrationBeforeSubE12,
+) -> Option<M68kRefreshAdvance> {
+    let elapsed = mode_level_vblank_elapsed_cycles_before_sub_e12(work, arbitration)?;
+    if arbitration.vdp_bus_halt_cycles == 0 {
+        return None;
+    }
+
+    let suffix = arbitration.refresh_suffix_after_final_vdp_ownership;
+    let before = M68kRefreshPhase::new(0)?.advance_rom(M68kCycleCount::from_raw(
+        suffix.raw_cycles_before_pending_wait,
+    ));
+    let pending = before
+        .phase_after
+        .advance_external_wait(M68kCycleCount::from_raw(suffix.pending_wait_cycles));
+    let after = pending.phase_after.advance_rom(M68kCycleCount::from_raw(
+        suffix.raw_cycles_after_pending_wait,
+    ));
+    let suffix_elapsed = before
+        .elapsed
+        .get()
+        .checked_add(pending.elapsed.get())?
+        .checked_add(after.elapsed.get())?;
+    let suffix_refresh_cycles = before
+        .refresh_events
+        .checked_add(after.refresh_events)?
+        .checked_mul(2)?;
+    if !arbitration.refresh_wait_cycles.is_multiple_of(2)
+        || suffix_elapsed > elapsed.get()
+        || suffix.pending_wait_cycles > arbitration.vdp_pending_wait_cycles
+        || suffix_refresh_cycles > arbitration.refresh_wait_cycles
+    {
+        return None;
+    }
+
+    Some(M68kRefreshAdvance {
+        elapsed,
+        phase_after: after.phase_after,
+        refresh_events: arbitration.refresh_wait_cycles / 2,
+    })
 }
 
 /// Raw cycles from the finished-animation wake at ASM loc_1066 through the next
@@ -649,6 +709,17 @@ mod tests {
         }
     }
 
+    fn published_refresh_suffix_after_final_vdp_ownership()
+    -> ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership {
+        ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership {
+            // ASM loc_30104: the resumable command write takes 16 raw cycles,
+            // its pending VDP wait takes 60, then 1,146 raw cycles reach E12.
+            raw_cycles_before_pending_wait: 16,
+            pending_wait_cycles: 60,
+            raw_cycles_after_pending_wait: 1_146,
+        }
+    }
+
     #[test]
     fn mode_level_vblank_separates_source_work_from_vdp_arbitration() {
         let work = published_natural_vblank_work();
@@ -664,6 +735,8 @@ mod tests {
                     vdp_bus_halt_cycles: 3_383,
                     vdp_pending_wait_cycles: 2_002,
                     refresh_wait_cycles: 46,
+                    refresh_suffix_after_final_vdp_ownership:
+                        published_refresh_suffix_after_final_vdp_ownership(),
                 },
                 8_846,
             ),
@@ -672,6 +745,8 @@ mod tests {
                     vdp_bus_halt_cycles: 3_380,
                     vdp_pending_wait_cycles: 2_002,
                     refresh_wait_cycles: 46,
+                    refresh_suffix_after_final_vdp_ownership:
+                        published_refresh_suffix_after_final_vdp_ownership(),
                 },
                 8_843,
             ),
@@ -680,6 +755,8 @@ mod tests {
                     vdp_bus_halt_cycles: 3_384,
                     vdp_pending_wait_cycles: 2_002,
                     refresh_wait_cycles: 48,
+                    refresh_suffix_after_final_vdp_ownership:
+                        published_refresh_suffix_after_final_vdp_ownership(),
                 },
                 8_849,
             ),
@@ -689,6 +766,31 @@ mod tests {
                     .map(M68kCycleCount::get),
                 Some(expected),
                 "published frames 1697/1703/1709"
+            );
+        }
+    }
+
+    #[test]
+    fn final_hscroll_dma_reset_drives_the_sub_e12_refresh_phase() {
+        for (vdp_bus_halt_cycles, refresh_wait_cycles, expected_elapsed) in
+            [(3_383, 46, 8_846), (3_380, 46, 8_843), (3_384, 48, 8_849)]
+        {
+            let advance = mode_level_vblank_advance_before_sub_e12(
+                published_natural_vblank_work(),
+                ModeLevelVblankArbitrationBeforeSubE12 {
+                    vdp_bus_halt_cycles,
+                    vdp_pending_wait_cycles: 2_002,
+                    refresh_wait_cycles,
+                    refresh_suffix_after_final_vdp_ownership:
+                        published_refresh_suffix_after_final_vdp_ownership(),
+                },
+            )
+            .expect("ASM loc_30104 final VDP ownership has a typed suffix");
+            assert_eq!(advance.elapsed.get(), expected_elapsed);
+            assert_eq!(
+                advance.phase_after.get(),
+                88,
+                "ASM loc_30104 -> Execute_Objects sub_E12 resets then advances the counter"
             );
         }
     }
