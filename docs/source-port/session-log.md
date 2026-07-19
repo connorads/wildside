@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 power-on Z80 timeline)
+
+- Commit `3b546c8` separates power-on scanline-zero timing from native
+  VBlank-relative timing and starts the former with Z80 reset asserted.
+- `sub_E13DA` releases power-on reset before BUSREQ; RESET and BUSREQ now
+  take effect at instruction boundaries in four-T-cycle slots.
+- The full frame-14/30/68 StopMusic plus frame-70 Ice replay reaches the
+  oracle frame-70 queue boundary exactly: PC `$0047`, divider 2, T-wait 5,
+  even access parity.
+- The next miss is between frames 70 and 139. At frame 139 native/oracle PCs
+  are `$02AE/$02B5`; at `$11A0E` they are `$02A5/$0793`, with one RAM byte
+  differing at `$1A1E=$96/$CB`.
+- `mise run verify-slice-fast`, the commit hook, and all 177 wildside-frame
+  audio tests pass.
+- NEXT: journal banked reads and YM/DAC accesses over frames 70..139 and find
+  the first access divergence before changing the scheduler.
+
 ## 2026-07-19 handoff (#409 persistent title GEMS replay)
 
 - Commit `3157d8b` source-positions frame 139 `StopMusic $E14C8` and pins the

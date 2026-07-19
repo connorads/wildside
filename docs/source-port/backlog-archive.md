@@ -306,6 +306,26 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: commit `3b546c8` models the power-on GEMS history rather
+than fitting the final title phase. Absolute master clock zero now means VDP
+scanline 0 and starts with Z80 reset asserted; the existing native-frame
+origin still begins at VBlank scanline 224. `sub_E13DA` releases that
+power-on reset before `Stop_z80`, and RESET/BUSREQ are sampled after the
+current Z80 instruction in four-T-cycle slots, matching jgenesis.
+
+The real-ROM replay of frame-14/30/68 `StopMusic $E14C8` and frame-70 Ice
+`sub_E151C` now reaches the frame-70 queue entry exactly: PC `$0047`, master
+divider 2, T-wait 5, and even bank-access parity. The first remaining measured
+miss is before frame-139 StopMusic, where native is PC `$02AE`, divider 1,
+T-wait 0, odd parity against oracle PC `$02B5`, divider 7, T-wait 0, odd
+parity. At `Load_InGame $11A0E`, native has the correct `$0E8000` bank, even
+parity, and YM phase 0, but PC `$02A5` against `$0793`, divider/T-wait `0/2`
+against `6/4`, and one RAM difference at `$1A1E=$96/$CB`. NEXT: capture the
+banked-read and YM/DAC access journals between frames 70 and 139 and locate
+the first access divergence. Do not fit frame 139 or `$11A0E`. `mise run
+verify-slice-fast`, the commit hook, and all 177 wildside-frame audio tests
+pass.
+
 Progress 2026-07-19: commit `3157d8b` adds an absolute-entry adapter for
 `StopMusic $E14C8` and pins the title Ice `sub_E151C` scheduler to its oracle
 control offsets. Frame 139 enters at cycle 17,789,000 / refresh phase 32; the
