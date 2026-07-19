@@ -128,7 +128,7 @@ pub use mode_level_timing::{
     prize_tail_finish_cycles_sub_1007a, read_joypad_raw_cycles,
     shooter_kid_collision_raw_cycles_sub_219c, shooter_projectile_collision_raw_cycles_sub_226a,
     shooter_support_collision_raw_cycles_sub_1f52, terrain_effects_raw_cycles_sub_5e02,
-    wait_for_vint_elapsed_cycles_to_mode_level,
+    terrain_special_scan_raw_cycles_sub_1fa2, wait_for_vint_elapsed_cycles_to_mode_level,
     wait_for_vint_mclk_from_vint_assertion_to_mode_level,
     wait_for_vint_source_cycles_to_mode_level,
 };

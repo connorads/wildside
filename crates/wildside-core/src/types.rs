@@ -2251,6 +2251,21 @@ pub struct ModeLevelKidProjectileCollisionWorkSub1D76 {
     pub diamond_power_object_count: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelTerrainSpecialCollisionSub1FA2 {
+    Solid,
+    Spikes,
+}
+
+/// Inclusive terrain-cell walk consumed by ASM `sub_1FA2`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelTerrainSpecialScanSub1FA2 {
+    pub bounds: ModeLevelKidGfxTerrainScanBounds,
+    pub tile_iterations: u16,
+    pub first_special_collision: Option<ModeLevelTerrainSpecialCollisionSub1FA2>,
+}
+
 /// Typed observation after ASM `sub_44DC` on the natural `loc_80C -> loc_892`
 /// path.
 ///
@@ -2274,6 +2289,7 @@ pub struct ModeLevelPostHudWorkLedger {
     pub block_debris_work_sub_2a4c: ModeLevelBlockDebrisWorkSub2A4C,
     pub diamond_power_compile_work_sub_3f798: ModeLevelDiamondPowerCompileWorkSub3F798,
     pub kid_projectile_collision_work_sub_1d76: ModeLevelKidProjectileCollisionWorkSub1D76,
+    pub terrain_special_scan_sub_1fa2: Option<ModeLevelTerrainSpecialScanSub1FA2>,
 }
 
 /// Frame-local HUD art DMA command emitted by ASM `sub_44DC` (kid.asm).

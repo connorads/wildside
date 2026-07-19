@@ -107,8 +107,6 @@ labels:
   - loc_1DBE
   - loc_1DCC
   - loc_1FB2
-  - loc_1FEE
-  - loc_1FF2
   - loc_200C
   - loc_2010
   - loc_201C
@@ -196,5 +194,4 @@ labels:
   - loc_FFE
   - sub_144DA
   - sub_14582
-  - sub_1FA2
   - sub_96E8

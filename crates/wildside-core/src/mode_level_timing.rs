@@ -11,7 +11,7 @@ use crate::{
     ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
     ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork, ModeLevelReadJoypadWork,
     ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
-    ModeLevelVerticalCollisionPath, ModeLevelWallCollisionPath,
+    ModeLevelTerrainSpecialScanSub1FA2, ModeLevelVerticalCollisionPath, ModeLevelWallCollisionPath,
 };
 
 /// Raw Motorola 68000 instruction cycles, excluding refresh and bus waits.
@@ -1394,6 +1394,36 @@ pub fn kid_projectile_collision_raw_cycles_sub_1d76(
     Some(M68kCycleCount::from_raw(126))
 }
 
+/// Raw routine-body cost for ASM special-terrain scan `sub_1FA2`.
+pub fn terrain_special_scan_raw_cycles_sub_1fa2(
+    work: ModeLevelTerrainSpecialScanSub1FA2,
+) -> Option<M68kCycleCount> {
+    if work.first_special_collision.is_some() {
+        return None;
+    }
+    let rows = work
+        .bounds
+        .bottom_row
+        .checked_sub(work.bounds.top_row)?
+        .checked_add(1)?;
+    let columns = work
+        .bounds
+        .right_col
+        .checked_sub(work.bounds.left_col)?
+        .checked_add(1)?;
+    if work.tile_iterations != rows.checked_mul(columns)? {
+        return None;
+    }
+
+    // ASM loc_1FEE..loc_2008: each clear cell costs 46 raw cycles except the
+    // final DBF iteration in each row (+4); each completed row advances the
+    // layout pointer and row DBF. The fixed setup/return costs 294 cycles.
+    let loop_cycles = u32::from(rows)
+        .checked_mul(46_u32.checked_mul(u32::from(columns))?.checked_add(38)?)?
+        .checked_add(4)?;
+    Some(M68kCycleCount::from_raw(294_u32.checked_add(loop_cycles)?))
+}
+
 /// Raw routine-body cost for ASM shooter-support collision scan `sub_1F52`.
 pub fn shooter_support_collision_raw_cycles_sub_1f52(
     work: ModeLevelShooterCollisionWork,
@@ -1552,6 +1582,35 @@ mod tests {
                     ..empty
                 },
             ),
+            None
+        );
+    }
+
+    #[test]
+    fn clear_special_terrain_scan_derives_inclusive_cell_walk() {
+        let scan = |bottom_row| ModeLevelTerrainSpecialScanSub1FA2 {
+            bounds: crate::ModeLevelKidGfxTerrainScanBounds {
+                left_col: 10,
+                right_col: 11,
+                top_row: 20,
+                bottom_row,
+            },
+            tile_iterations: (bottom_row - 20 + 1) * 2,
+            first_special_collision: None,
+        };
+        assert_eq!(
+            terrain_special_scan_raw_cycles_sub_1fa2(scan(21)),
+            Some(M68kCycleCount::from_raw(558))
+        );
+        assert_eq!(
+            terrain_special_scan_raw_cycles_sub_1fa2(scan(22)),
+            Some(M68kCycleCount::from_raw(688))
+        );
+        assert_eq!(
+            terrain_special_scan_raw_cycles_sub_1fa2(ModeLevelTerrainSpecialScanSub1FA2 {
+                tile_iterations: 3,
+                ..scan(21)
+            }),
             None
         );
     }

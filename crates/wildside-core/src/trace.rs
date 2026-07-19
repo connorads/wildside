@@ -912,6 +912,37 @@ fn mode_level_kid_gfx_terrain_scan(
     }
 }
 
+fn mode_level_terrain_special_scan_sub_1fa2(
+    grid: &terrain::BlockGrid,
+    bounds: ModeLevelKidGfxTerrainScanBounds,
+) -> ModeLevelTerrainSpecialScanSub1FA2 {
+    // ASM sub_1FA2 loc_1FEE/loc_1FF2: scan the inclusive Kid-hitbox cell
+    // rectangle row-major until collision nibble `$6000` or `$7000`.
+    let mut tile_iterations = 0_u16;
+    for row in bounds.top_row..=bounds.bottom_row {
+        for col in bounds.left_col..=bounds.right_col {
+            tile_iterations = tile_iterations.saturating_add(1);
+            let first_special_collision = match grid.raw_word_at(col, row) & 0x7000 {
+                0x6000 => Some(ModeLevelTerrainSpecialCollisionSub1FA2::Solid),
+                0x7000 => Some(ModeLevelTerrainSpecialCollisionSub1FA2::Spikes),
+                _ => None,
+            };
+            if first_special_collision.is_some() {
+                return ModeLevelTerrainSpecialScanSub1FA2 {
+                    bounds,
+                    tile_iterations,
+                    first_special_collision,
+                };
+            }
+        }
+    }
+    ModeLevelTerrainSpecialScanSub1FA2 {
+        bounds,
+        tile_iterations,
+        first_special_collision: None,
+    }
+}
+
 fn mode_level_ceiling_scan_sub_914a(
     cells: [Option<(u16, u16, u16)>; 4],
     rubber_worker_count_before: u16,
@@ -9693,6 +9724,18 @@ impl NativeRuntime {
         } else {
             ModeLevelEnemyLoadingPath::LayoutWalkLoc3682c
         };
+        let terrain_special_scan_sub_1fa2 = self.opening_slice.as_ref().and_then(|slice| {
+            let bounds = self.player_collision_bounds(slice.player);
+            let bounds = ModeLevelKidGfxTerrainScanBounds {
+                left_col: u16::try_from(bounds.left >> 4).ok()?,
+                right_col: u16::try_from(bounds.right >> 4).ok()?,
+                top_row: u16::try_from(bounds.top >> 4).ok()?,
+                bottom_row: u16::try_from(bounds.bottom >> 4).ok()?,
+            };
+            self.block_grid
+                .as_ref()
+                .map(|grid| mode_level_terrain_special_scan_sub_1fa2(grid, bounds))
+        });
 
         ModeLevelPostHudWorkLedger {
             phases: vec![
@@ -9774,6 +9817,7 @@ impl NativeRuntime {
                     .try_into()
                     .expect("Diamond Power object list fits the ROM u16 count"),
             },
+            terrain_special_scan_sub_1fa2,
         }
     }
 

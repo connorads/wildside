@@ -221,6 +221,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
     let mut observed_block_debris_work = Vec::new();
     let mut observed_diamond_power_compile_work = Vec::new();
     let mut observed_kid_projectile_collision_work = Vec::new();
+    let mut observed_terrain_special_scan = Vec::new();
 
     for (frame_index, mask) in script.iter().copied().enumerate().take(1_710) {
         runtime.step_frame(FrameInput::from_mask(mask));
@@ -239,6 +240,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                 .push((frame_index, ledger.diamond_power_compile_work_sub_3f798));
             observed_kid_projectile_collision_work
                 .push((frame_index, ledger.kid_projectile_collision_work_sub_1d76));
+            observed_terrain_special_scan.push((frame_index, ledger.terrain_special_scan_sub_1fa2));
             observed.push((
                 frame_index,
                 ledger.phases.clone(),
@@ -551,6 +553,28 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             ),
         ],
         "ASM sub_1D76 two empty sub_1D84 object-list paths",
+    );
+    assert_eq!(
+        observed_terrain_special_scan
+            .iter()
+            .map(|(frame, scan)| {
+                let scan = scan.expect("published helper should expose sub_1FA2 terrain scan");
+                (
+                    *frame,
+                    scan.bounds.right_col - scan.bounds.left_col + 1,
+                    scan.bounds.bottom_row - scan.bounds.top_row + 1,
+                    scan.tile_iterations,
+                    scan.first_special_collision,
+                    terrain_special_scan_raw_cycles_sub_1fa2(scan).map(M68kCycleCount::get),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![
+            (1_697, 2, 2, 4, None, Some(558)),
+            (1_703, 2, 2, 4, None, Some(558)),
+            (1_709, 2, 3, 6, None, Some(688)),
+        ],
+        "ASM sub_1FA2 inclusive clear terrain-cell walks",
     );
 }
 
