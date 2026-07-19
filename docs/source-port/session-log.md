@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 third title decoder frontier)
+
+- `Decompress_Chunk sub_13684` starts with a 34,893-byte low-word window
+  from `$FFFF77B2` to `$FFFFFFFF`, not a 256-byte output window. A
+  cache-independent 300-literal regression pins this ASM-derived boundary.
+- Oracle places `byte_2DEBF` at `loc_14300` cycle 9,257,076, its 1,728-word
+  transfer entry at 9,359,779, and return at 9,453,430.
+- The current visitor selects 10,822 decoder instructions against 10,737
+  in an exhaustive oracle PC trace. The 85-instruction excess precedes
+  VINT composition; speculative VINT wiring was discarded.
+- NEXT: reconcile the long-asset Saxman lanes against `sub_13684`, then
+  source-schedule the third transfer. Do not fit the instruction excess.
+
 ## 2026-07-19 handoff (#409 source-scheduled second title transfer)
 
 - `byte_2D71A` is the 33-byte compressed Wild Side intro background. Its

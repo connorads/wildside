@@ -306,6 +306,23 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: `DecompressToVRAM`'s initial `Decompress_Chunk`
+window is the low-word distance from `Decompression_Buffer=$FFFF77B2` to
+`a3=$FFFFFFFF`, or 34,893 bytes. The earlier 256-byte assumption did not
+come from ASM. A cache-independent 300-literal regression now proves the
+visitor does not invent an early flush.
+
+The next `sub_1B850` asset, `byte_2DEBF`
+(`Wild_Side_door_and_inside.bin`), provides the new narrow frontier.
+Selected-PC oracle traces place its `loc_14300` entry at cycle 9,257,076,
+its 1,728-word `loc_14314` transfer entry at 9,359,779, and its return at
+9,453,430. The current source visitor reports 10,822 decoder instructions;
+an exhaustive oracle PC trace of `Decompress_Chunk sub_13684` reports
+10,737 over the same asset. The 85-instruction excess is present before
+VINT composition, so a speculative VINT scheduler was discarded. NEXT:
+compare the long-asset token lanes to the exact ASM branches and correct
+that source visitor before extending persistent GEMS.
+
 Progress 2026-07-19: the second `Load_TitleArt` transfer is source-scheduled
 through its cycle-9,256,826 return. `sub_1B850` passes `byte_2D71A`
 (`Background_for_intro_(Wild_Side).bin`, 33 compressed bytes) to

@@ -1,4 +1,4 @@
-use anyhow::{Result, ensure};
+use anyhow::Result;
 use wildside_data::{SaxmanTokenKind, saxman_tokens};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -7,6 +7,12 @@ pub struct DecompressChunkTimingSub13684 {
     pub raw_cycles: u32,
     pub output_bytes: u16,
 }
+
+// ASM sub_142CC loads Decompression_Buffer ($FFFF77B2), while
+// DecompressToVRAM sets a3=-1. Decompress_Chunk compares the low words after
+// each reference, so the initial call can emit this many bytes before it
+// returns to preserve the final $800-byte history window.
+const INITIAL_WINDOW_BYTES: u16 = 0xFFFF - 0x77B2;
 
 fn emit(cycles: &[u32], visit: &mut impl FnMut(u32), timing: &mut DecompressChunkTimingSub13684) {
     for &cycles in cycles {
@@ -196,7 +202,8 @@ fn emit_long_reference(
 /// This follows the Saxman control stream rather than treating the decoder as
 /// a fixed elapsed span, so colocated hardware can insert waits at the same
 /// instruction boundaries as the ROM. The initial call starts with `d2=0` and
-/// the standard 256-byte output window used by `DecompressToVRAM loc_14300`.
+/// the `$77B2..$FFFF` initial output window used by
+/// `DecompressToVRAM loc_14300`.
 pub fn visit_initial_decompress_chunk_instructions_sub_13684(
     data: &[u8],
     mut visit: impl FnMut(u32),
@@ -230,7 +237,7 @@ pub fn visit_initial_decompress_chunk_instructions_sub_13684(
                     .output_bytes
                     .checked_add(count)
                     .expect("one decoder window fits u16");
-                let finished = timing.output_bytes >= 256;
+                let finished = timing.output_bytes >= INITIAL_WINDOW_BYTES;
                 emit_short_reference(count, finished, &mut visit, &mut timing);
                 if finished {
                     break;
@@ -241,7 +248,7 @@ pub fn visit_initial_decompress_chunk_instructions_sub_13684(
                     .output_bytes
                     .checked_add(count)
                     .expect("one decoder window fits u16");
-                let finished = timing.output_bytes >= 256;
+                let finished = timing.output_bytes >= INITIAL_WINDOW_BYTES;
                 if emit_long_reference(lane, kind, finished, &mut visit, &mut timing) || finished {
                     break;
                 }
@@ -257,10 +264,6 @@ pub fn visit_initial_decompress_chunk_instructions_sub_13684(
         }
     }
 
-    ensure!(
-        timing.output_bytes <= 256,
-        "initial Decompress_Chunk output crossed its 256-byte window"
-    );
     Ok(timing)
 }
 
@@ -300,5 +303,28 @@ mod tests {
             0xD2BB_29AE,
             "full selected-PC oracle trace from sub_13684 entry to RTS",
         );
+    }
+
+    #[test]
+    fn initial_sub_13684_call_does_not_flush_at_256_output_bytes() {
+        // ASM sub_142CC/DecompressToVRAM loc_14300 starts a2 at $FFFF77B2
+        // and a3 at $FFFFFFFF. The low-word comparison in loc_13724 and its
+        // lane equivalents therefore does not return at 256 bytes.
+        let mut control_bits = vec![1_u8; 300];
+        control_bits.extend([0, 1, 0, 0, 0, 1, 1]);
+        let mut control_bytes = vec![0_u8; control_bits.len().div_ceil(8)];
+        for (index, bit) in control_bits.into_iter().enumerate() {
+            control_bytes[index / 8] |= bit << (7 - index % 8);
+        }
+        let mut compressed = Vec::with_capacity(2 + control_bytes.len() + 302);
+        compressed.extend_from_slice(&(control_bytes.len() as u16).to_be_bytes());
+        compressed.extend_from_slice(&control_bytes);
+        compressed.extend((0_u8..=255).cycle().take(300));
+        compressed.extend([0, 0]);
+
+        let timing = visit_initial_decompress_chunk_instructions_sub_13684(&compressed, |_| {})
+            .expect("300-byte stream remains inside the initial WRAM window");
+
+        assert_eq!(timing.output_bytes, 300);
     }
 }
