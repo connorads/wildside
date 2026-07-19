@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 live tail and life FIFO span)
+
+- The live `Mode_Level loc_892` WRAM state now derives exact raw tail totals
+  for all three target helpers. Demo 2 begins this tail on recording frame 65
+  while the authoritative HUD timer remains held until frame 72.
+- A carried raster cursor reaches `sub_44DC` at the exact target beams and
+  refresh phases. The fail-closed life-only path derives 1,350 raw cycles and
+  all 64 visible VRAM commits, ending at 49:380, 39:330, and 22:92.
+- `mise run verify-slice-fast` is green through the live-tail and cursor
+  commits; focused life-HUD tests, core clippy, and the commit hook are green
+  after `87a95f436`.
+- NEXT: model the FIFO-aware CPU exit, then type the source-ordered post-HUD
+  workload through `loc_892`; retain a persistent GEMS CPU checkpoint before
+  scheduling the frame-1697 refill.
+
+---
+
 ## 2026-07-19 handoff (#409 Mode tail and GEMS poll arbitration)
 
 - `Mode_Level loc_892 -> WaitForVint $93E` is now a fail-closed typed ledger.

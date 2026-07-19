@@ -306,6 +306,20 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: commits `3e843e5a9`, `31550de7c`,
+`d5fc9d0e5`, and `4a0bd489f` persist the live `Mode_Level loc_892`
+WRAM tail and derive the exact 12,852/13,080/12,310 raw-cycle helper
+totals from it. Commit `9db8723ee` separates Demo 2's recording-specific
+`loc_892` start on frame 65 from the authoritative HUD timer hold through
+frame 72. Commit `6d3b65b76` carries the exact pre-HUD raster cursor to
+`sub_44DC`: 42:1294 phase 64, 32:765 phase 116, and 14:2431 phase 110.
+Commit `87a95f436` fail-closed classifies the life-icon-only path as 1,350
+raw cycles and derives all 64 visible VRAM word commits, with final commits
+at 49:380, 39:330, and 22:92. The remaining bridge requires FIFO-aware CPU
+exit timing, a typed source-ordered post-HUD workload through `loc_892`, and
+a persistent GEMS CPU checkpoint; measured route totals are not sufficient
+state.
+
 Progress 2026-07-19: the natural `Mode_Level loc_892 -> WaitForVint $93E`
 tail is now source-typed rather than inferred from its elapsed total.
 `sub_30194` takes the unchanged camera-tile path; `loc_3038A` derives its
