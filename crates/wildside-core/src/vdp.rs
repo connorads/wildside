@@ -2904,9 +2904,9 @@ pub struct ModeLevelRasterSeedSubE12 {
 
 /// CPU/beam scheduler state at a classified point in `Mode_Level`.
 ///
-/// The current cursor is valid through the VDP-idle interval ending at
-/// `sub_44DC` entry. A cursor crossing HUD port writes must additionally carry
-/// FIFO state; that wider transition deliberately remains fail-closed.
+/// The current cursor is valid through VDP-idle intervals. Classified
+/// transitions which cross port writes must schedule their FIFO ownership
+/// explicitly.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ModeLevelCpuRasterCursor {
     pub beam: H40BeamPosition,
@@ -3243,6 +3243,128 @@ pub fn life_icon_fifo_commit_positions_loc_4586(
             pixel: H40_VRAM_FIFO_ACCESS_PIXELS[slot % H40_VRAM_FIFO_ACCESS_PIXELS.len()],
         }
     }))
+}
+
+fn h40_mclk_after_pixel(pixel: u16) -> Option<u16> {
+    (0..MCLK_CYCLES_PER_SCANLINE as u16).find(|&mclk| h40_scanline_mclk_to_pixel(mclk) > pixel)
+}
+
+fn life_icon_last_pending_enqueue_cursor_loc_44d4(
+    entry: ModeLevelCpuRasterCursor,
+) -> Option<ModeLevelCpuRasterCursor> {
+    let first = life_icon_first_commit_loc_4586(entry.beam, entry.refresh_phase);
+    let first_slot = H40_VRAM_FIFO_ACCESS_PIXELS
+        .iter()
+        .position(|&pixel| pixel == first.pixel)?;
+
+    // ASM sub_44D0 emits 64 words into a four-entry FIFO. The final pending
+    // word enters on the access slot seven slots before its visible commit:
+    // three older words each retain their second VRAM slot, then the final
+    // word consumes its first. Since visible commits are two slots apart,
+    // this is first + 2*63 - 7.
+    let enqueue_slot = first_slot.checked_add(2 * 63)?.checked_sub(7)?;
+    let enqueue_scanline = first
+        .scanline
+        .wrapping_add((enqueue_slot / H40_VRAM_FIFO_ACCESS_PIXELS.len()) as u16)
+        % NTSC_SCANLINES_PER_FRAME;
+    let enqueue_pixel =
+        H40_VRAM_FIFO_ACCESS_PIXELS[enqueue_slot % H40_VRAM_FIFO_ACCESS_PIXELS.len()];
+    let enqueue_after_pixel_mclk = u32::from(h40_mclk_after_pixel(enqueue_pixel)?);
+
+    let frame_mclk = MCLK_CYCLES_PER_SCANLINE * u32::from(NTSC_SCANLINES_PER_FRAME);
+    let entry_mclk = u32::from(entry.beam.scanline) * MCLK_CYCLES_PER_SCANLINE
+        + u32::from(entry.beam.scanline_mclk);
+    let enqueue_after_pixel =
+        u32::from(enqueue_scanline) * MCLK_CYCLES_PER_SCANLINE + enqueue_after_pixel_mclk;
+    let forward_mclk = enqueue_after_pixel
+        .checked_add(frame_mclk)?
+        .checked_sub(entry_mclk)?
+        % frame_mclk;
+
+    // VDP slots are processed when a 68000 tick advances beyond the access
+    // pixel. The returned cursor is immediately before that final one-cycle
+    // halted tick; the tick itself empties the pending-write queue.
+    let cycles_before_final_halt = forward_mclk
+        .checked_add(6)?
+        .checked_div(7)?
+        .checked_sub(1)?;
+    Some(ModeLevelCpuRasterCursor {
+        beam: entry
+            .beam
+            .advance_m68k_cycles(M68kCycleCount::from_raw(cycles_before_final_halt)),
+        // Every preceding halted tick resets jgenesis' refresh counter.
+        refresh_phase: M68kRefreshPhase::new(0).expect("zero is a valid refresh phase"),
+    })
+}
+
+/// Advance the classified life-icon-only `sub_44DC` path through FIFO stalls
+/// to the following `Manage_EnemyLoading` call.
+///
+/// Z80 offsets are generation times in 68000 cycles from the final pending
+/// FIFO enqueue cursor. They must coincide with an instruction boundary; the
+/// resulting 11-cycle bus steals are merged with any pending refresh wait.
+pub fn life_icon_cpu_raster_cursor_after_sub_44dc(
+    entry: ModeLevelCpuRasterCursor,
+    commands: &[crate::HudDmaEventSub44DC],
+    z80_68k_bus_access_offsets: &[M68kCycleCount],
+) -> Option<ModeLevelCpuRasterCursor> {
+    crate::mode_level_timing::hud_life_icon_only_raw_cycles_sub_44dc(commands)?;
+    if z80_68k_bus_access_offsets
+        .windows(2)
+        .any(|pair| pair[0].get() >= pair[1].get())
+    {
+        return None;
+    }
+
+    let pending_enqueue = life_icon_last_pending_enqueue_cursor_loc_44d4(entry)?;
+    let mut elapsed = 1_u32;
+    let mut phase = M68kRefreshPhase::new(0).expect("zero is a valid refresh phase");
+    let mut next_z80_access = 0_usize;
+
+    // ASM loc_44D4 final DBF, sub_44D0 RTS, three skipped HUD sections,
+    // `$FA5C` store, and outer RTS. The initial one-cycle tick above is the
+    // final VDP-halted retry at loc_44D6.
+    const TRAILING_INSTRUCTIONS: [u32; 19] = [
+        14, 16, 12, 12, 4, 4, 10, 12, 12, 4, 4, 10, 12, 12, 4, 4, 10, 12, 16,
+    ];
+
+    for raw_cycles in TRAILING_INSTRUCTIONS {
+        let phase_after_raw = u32::from(phase.get()).checked_add(raw_cycles)?;
+        let mut pending_wait_cycles: u32 = if phase_after_raw >= 128 { 2 } else { 0 };
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(raw_cycles)?;
+
+        while let Some(event) = z80_68k_bus_access_offsets.get(next_z80_access) {
+            if event.get() > elapsed {
+                break;
+            }
+            if event.get() != elapsed {
+                return None;
+            }
+            pending_wait_cycles = pending_wait_cycles.checked_add(11)?;
+            next_z80_access += 1;
+        }
+
+        if pending_wait_cycles != 0 {
+            let wait = phase.advance_external_wait(M68kCycleCount::from_raw(pending_wait_cycles));
+            elapsed = elapsed.checked_add(wait.elapsed.get())?;
+            phase = wait.phase_after;
+        }
+    }
+
+    if next_z80_access != z80_68k_bus_access_offsets.len() {
+        return None;
+    }
+
+    Some(ModeLevelCpuRasterCursor {
+        beam: pending_enqueue
+            .beam
+            .advance_m68k_cycles(M68kCycleCount::from_raw(elapsed)),
+        refresh_phase: phase,
+    })
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -5508,6 +5630,78 @@ mod tests {
             assert_eq!((commits[0].scanline, commits[0].pixel), expected_first,);
             assert_eq!((commits[63].scanline, commits[63].pixel), expected_last,);
         }
+    }
+
+    #[test]
+    fn life_icon_fifo_exit_matches_all_three_helper_boundaries_loc_44d4() {
+        struct Case {
+            entry: (u16, u16, u8),
+            z80_offsets: &'static [u32],
+            exit: (u16, u16, u8),
+        }
+
+        let command = [crate::HudDmaEventSub44DC::LifeIcon {
+            frame_table_byte_offset: 4,
+        }];
+        let cases = [
+            Case {
+                entry: (42, 1_294, 64),
+                z80_offsets: &[],
+                exit: (49, 3_072, 58),
+            },
+            Case {
+                entry: (32, 765, 116),
+                z80_offsets: &[],
+                exit: (39, 2_690, 58),
+            },
+            Case {
+                entry: (14, 2_431, 110),
+                z80_offsets: &[43, 96, 151, 192],
+                exit: (22, 838, 102),
+            },
+        ];
+
+        for case in cases {
+            let z80_offsets = case
+                .z80_offsets
+                .iter()
+                .copied()
+                .map(M68kCycleCount::from_raw)
+                .collect::<Vec<_>>();
+            let exit = life_icon_cpu_raster_cursor_after_sub_44dc(
+                ModeLevelCpuRasterCursor {
+                    beam: H40BeamPosition::new(case.entry.0, case.entry.1)
+                        .expect("bounded sub_44DC entry"),
+                    refresh_phase: M68kRefreshPhase::new(case.entry.2)
+                        .expect("bounded entry phase"),
+                },
+                &command,
+                &z80_offsets,
+            )
+            .expect("classified life-icon FIFO exit");
+            assert_eq!(exit.beam.scanline(), case.exit.0);
+            assert_eq!(exit.beam.scanline_mclk(), case.exit.1);
+            assert_eq!(exit.refresh_phase.get(), case.exit.2);
+        }
+
+        let entry = ModeLevelCpuRasterCursor {
+            beam: H40BeamPosition::new(42, 1_294).expect("bounded sub_44DC entry"),
+            refresh_phase: M68kRefreshPhase::new(64).expect("bounded entry phase"),
+        };
+        assert_eq!(
+            life_icon_cpu_raster_cursor_after_sub_44dc(entry, &[], &[]),
+            None,
+            "unclassified HUD command lists remain fail-closed"
+        );
+        assert_eq!(
+            life_icon_cpu_raster_cursor_after_sub_44dc(
+                entry,
+                &command,
+                &[M68kCycleCount::from_raw(96), M68kCycleCount::from_raw(43),],
+            ),
+            None,
+            "GEMS offsets must be source ordered"
+        );
     }
 
     fn empty_intro_data() -> IntroSub1B850Data {
