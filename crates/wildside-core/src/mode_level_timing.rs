@@ -243,6 +243,73 @@ pub fn load_in_game_stop_music_tail_advance(
     }
 }
 
+/// Co-schedule the `Load_InGame $11A12..$11A24` source tail with hardware.
+///
+/// ASM GEMS `XFER68K` can queue an 11-cycle 68000 wait after any completed
+/// source instruction. The wait belongs to the next scheduler tick and may
+/// itself let the Z80 generate another bank access, so this visitor drains
+/// the chain before executing the following 68000 instruction.
+pub fn load_in_game_stop_music_tail_advance_with_scheduler(
+    mut phase: M68kRefreshPhase,
+    timer_path: LoadInGameTimerBonusPath,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+    let mut valid = true;
+    visit_load_in_game_stop_music_tail_instructions(timer_path, |instruction_cycles| {
+        if !valid {
+            return;
+        }
+
+        let phase_after_raw = u32::from(phase.get()) + instruction_cycles;
+        let refresh_wait = if phase_after_raw >= 128 { 2 } else { 0 };
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = if let Some(elapsed) = elapsed.checked_add(instruction_cycles) {
+            elapsed
+        } else {
+            valid = false;
+            return;
+        };
+
+        let Some(generated_wait) = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))
+        else {
+            valid = false;
+            return;
+        };
+        let Some(mut pending_wait) = generated_wait.get().checked_add(refresh_wait) else {
+            valid = false;
+            return;
+        };
+        if refresh_wait != 0 {
+            refresh_events += 1;
+        }
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = if let Some(elapsed) = elapsed.checked_add(pending_wait) {
+                elapsed
+            } else {
+                valid = false;
+                return;
+            };
+            let Some(generated_wait) = advance_hardware(wait) else {
+                valid = false;
+                return;
+            };
+            pending_wait = generated_wait.get();
+        }
+    });
+    valid.then_some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
+}
+
 fn visit_load_in_game_stop_music_tail_instructions(
     timer_path: LoadInGameTimerBonusPath,
     mut visit: impl FnMut(u32),
@@ -4043,6 +4110,48 @@ mod tests {
         assert_eq!(advance.elapsed, M68kCycleCount::from_raw(3_228));
         assert_eq!(advance.refresh_events, 26);
         assert_eq!(advance.phase_after, M68kRefreshPhase::new(14).unwrap());
+    }
+
+    #[test]
+    fn load_in_game_tail_drains_gems_waits_before_the_next_instruction_e14c8() {
+        // ASM Load_InGame $11A12..$11A24 and GEMS XFER68K $0285: a banked
+        // read generated after the first JSR delays the next source
+        // instruction, and a second read generated during that wait chains.
+        let mut intervals = Vec::new();
+        let advance = load_in_game_stop_music_tail_advance_with_scheduler(
+            M68kRefreshPhase::new(114).expect("trace phase"),
+            LoadInGameTimerBonusPath::Initialise,
+            |cycles| {
+                intervals.push(cycles);
+                Some(M68kCycleCount::from_raw(match intervals.len() {
+                    1 => 11,
+                    2 => 7,
+                    _ => 0,
+                }))
+            },
+        )
+        .expect("bounded Load_InGame tail");
+
+        assert_eq!(
+            &intervals[..4],
+            &[
+                M68kCycleCount::from_raw(18),
+                M68kCycleCount::from_raw(13),
+                M68kCycleCount::from_raw(7),
+                M68kCycleCount::from_raw(10),
+            ],
+            "the first 11-cycle GEMS wait combines with the pending two-cycle refresh, then its chained wait completes before the next 10-cycle instruction",
+        );
+        assert_eq!(
+            advance.elapsed.get(),
+            load_in_game_stop_music_tail_raw_cycles(LoadInGameTimerBonusPath::Initialise).get()
+                + 18
+                + advance.refresh_events * 2,
+        );
+        assert_eq!(
+            advance.phase_after.get(),
+            u8::try_from((114 + advance.elapsed.get()) % 128).unwrap(),
+        );
     }
 
     #[test]

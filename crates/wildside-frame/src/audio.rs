@@ -12,7 +12,8 @@ use wildside_core::{GameMode, LevelId, NativeSoundCommand, NativeTraceFrame};
 #[cfg(feature = "audio")]
 use wildside_core::{
     GemsQueueCommandAdvance, GemsQueueCommandPath, GemsStopMusicElapsedTiming, HudDmaEventSub44DC,
-    M68kCycleCount, M68kRefreshPhase, vdp::ModeLevelCpuRasterCursor,
+    LoadInGameTimerBonusPath, M68kCycleCount, M68kRefreshPhase,
+    vdp::{LoadInGameCpuRasterCursor, ModeLevelCpuRasterCursor},
 };
 #[cfg(feature = "audio")]
 use wildside_data::AssetSource;
@@ -642,6 +643,36 @@ pub fn apply_native_bgm_command(
             Some(bgm)
         }
     }
+}
+
+/// Advance the final pre-`StopMusic` `Load_InGame` source instructions.
+///
+/// The timing engine must already be positioned at `Load_InGame $11A12`.
+/// Each Z80 bank access is drained as a 68000 wait before the next source
+/// instruction, preserving the hardware ordering through `StopMusic $E14C8`.
+#[cfg(feature = "audio")]
+pub fn apply_gems_load_in_game_stop_music_tail(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    timer_path: LoadInGameTimerBonusPath,
+) -> Option<LoadInGameCpuRasterCursor> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    let advance = wildside_core::load_in_game_stop_music_tail_advance_with_scheduler(
+        entry.refresh_phase,
+        timer_path,
+        |cycles| {
+            audio.advance_ntsc_master_clocks(u64::from(cycles.get()) * 7);
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )?;
+    Some(LoadInGameCpuRasterCursor {
+        beam: entry.beam.advance_m68k_cycles(advance.elapsed),
+        refresh_phase: advance.phase_after,
+    })
 }
 
 /// Execute an already-positioned ASM `StopMusic` schedule on the persistent
@@ -1649,6 +1680,44 @@ mod tests {
         assert!(advance.banked_68k_reads.is_empty());
         assert_eq!(engine.master_clock(), entry_master_clock + 229_570 * 7);
         engine.start_sequence(3);
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn load_in_game_tail_adapter_reaches_stop_music_e14c8_with_halted_z80() {
+        let entry = wildside_core::vdp::LoadInGameCpuRasterCursor {
+            beam: wildside_core::vdp::H40BeamPosition::new(250, 1_222)
+                .expect("Load_InGame tail entry beam"),
+            refresh_phase: wildside_core::M68kRefreshPhase::new(114)
+                .expect("Load_InGame tail entry phase"),
+        };
+        let expected = wildside_core::vdp::load_in_game_stop_music_cursor_from_sub_28fc(
+            entry,
+            wildside_core::LoadInGameTimerBonusPath::Initialise,
+        );
+        let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+        let master_clock_before = engine.master_clock();
+
+        let actual = apply_gems_load_in_game_stop_music_tail(
+            &mut engine,
+            entry,
+            wildside_core::LoadInGameTimerBonusPath::Initialise,
+        )
+        .expect("halted Z80 generates no bank waits");
+
+        assert_eq!(actual, expected);
+        assert_eq!(
+            engine.master_clock() - master_clock_before,
+            u64::from(
+                wildside_core::load_in_game_stop_music_tail_advance(
+                    entry.refresh_phase,
+                    wildside_core::LoadInGameTimerBonusPath::Initialise,
+                )
+                .elapsed
+                .get()
+            ) * 7,
+            "ASM Load_InGame $11A12..$11A24 clocks GEMS through every source and refresh interval",
+        );
     }
 
     #[cfg(feature = "audio")]
