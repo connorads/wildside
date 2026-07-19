@@ -3000,6 +3000,14 @@ pub struct EnigmaDecoderAdvance {
     pub external_wait_cycles: M68kCycleCount,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TitleIntroSourceAdvance {
+    pub cursor: LoadInGameCpuRasterCursor,
+    pub timing: crate::intro_timing::IntroSourceTiming,
+    pub refresh_events: u32,
+    pub external_wait_cycles: M68kCycleCount,
+}
+
 /// Load_InGame name retained for the platform initialisation boundary.
 pub type LoadInGamePlatformArtTransferAdvance = DecompressToVramTransferAdvance;
 
@@ -3465,6 +3473,51 @@ pub fn enigma_decoder_cursor_with_scheduler(
         timing,
         refresh_events,
         vint_serviced,
+        external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
+    })
+}
+
+/// Co-schedule `Load_IntroSequence1`'s post-`sub_1B850` controller allocation.
+pub fn title_intro_controller_allocation_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+    let mut refresh_events = 0_u32;
+    let mut external_wait_cycles = 0_u32;
+    let mut scheduling_failed = false;
+
+    let timing =
+        crate::intro_timing::visit_load_intro_sequence1_controller_allocation(|raw_cycles| {
+            if scheduling_failed {
+                return;
+            }
+            let Some(generated_wait) = advance_decompress_source_instruction_with_interval_kind(
+                raw_cycles,
+                &mut fifo,
+                &mut phase,
+                &mut refresh_events,
+                &mut advance_hardware,
+            ) else {
+                scheduling_failed = true;
+                return;
+            };
+            external_wait_cycles = external_wait_cycles
+                .checked_add(generated_wait)
+                .expect("title controller allocation wait count fits u32");
+        });
+    if scheduling_failed {
+        return None;
+    }
+
+    Some(TitleIntroSourceAdvance {
+        cursor: LoadInGameCpuRasterCursor {
+            beam: fifo.beam,
+            refresh_phase: phase,
+        },
+        timing,
+        refresh_events,
         external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
     })
 }

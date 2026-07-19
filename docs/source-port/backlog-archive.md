@@ -306,6 +306,19 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: `Load_IntroSequence1` is source-scheduled from
+`sub_1B850`'s return through its controller-allocation RTS. Its empty-list
+`Allocate_ObjectSlot sub_DAC` path retains all 81 instruction boundaries and
+1,020 raw cycles; the persistent timeline adds eight refresh events and no
+GEMS bank wait. Native completes at cycle 10,273,916 versus oracle
+10,277,067, preserving exactly the inherited 3,151-cycle offset and proving
+the allocation itself introduces no missing hardware contention. NEXT:
+source-schedule the outer object-execution handoff into `sub_1B8F4`, then
+continue through `sub_1C54A`, `sub_1C4EA`, the text-worker allocation, and
+the `sub_1C204` entry. `verify-slice-fast` and `verify-tas-full` are green;
+the 37,759-frame pixel baseline remains 26,382 exact / 11,377 divergent /
+3,620,978 changed pixels.
+
 Progress 2026-07-19: `sub_1B850` is source-scheduled through its final RTS.
 `wildside-data::enigma_trace` exposes the semantic `loc_134EA` command,
 rolling-refill, flag-bit, and `sub_13588` packet paths; `wildside-core` turns

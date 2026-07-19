@@ -17,7 +17,7 @@ use wildside_core::{
     vdp::{
         DecompressToVramTransferAdvance, LoadInGameCpuRasterCursor,
         LoadInGamePlatformInitialisationAdvance, LoadInGamePlatformRefreshLedger,
-        LoadInGamePlatformVintEvent, ModeLevelCpuRasterCursor,
+        LoadInGamePlatformVintEvent, ModeLevelCpuRasterCursor, TitleIntroSourceAdvance,
     },
 };
 #[cfg(feature = "audio")]
@@ -889,6 +889,36 @@ pub fn apply_gems_title_intro_repeated_rows(
                 u64::from(cycles.get()) * 7,
                 vdp_owns_bus,
             );
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
+/// Clock `Load_IntroSequence1`'s controller allocation after `sub_1B850`.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_intro_controller_allocation(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_intro_controller_allocation_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            if source_instruction {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            }
             Some(M68kCycleCount::from_raw(
                 audio.take_pending_m68k_wait_cycles(),
             ))
@@ -2675,6 +2705,23 @@ mod tests {
         // Oracle sub_1B850 RTS completes at 10,276,031; the same documented
         // GEMS defect leaves the hardware-faithful path 3,151 cycles earlier.
         assert_eq!(engine.master_clock(), 10_272_880 * 7);
+
+        let controller =
+            apply_gems_title_intro_controller_allocation(&mut engine, repeated_rows.cursor)
+                .expect("source-positioned Load_IntroSequence1 controller allocation");
+        assert_eq!(
+            controller.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 81,
+                raw_cycles: M68kCycleCount::from_raw(1_020),
+            },
+        );
+        assert_eq!(controller.refresh_events, 8);
+        assert_eq!(controller.external_wait_cycles.get(), 0);
+        // Oracle Load_IntroSequence1 RTS completes at 10,277,067. The
+        // established GEMS defect leaves the hardware-faithful path at the
+        // same 3,151-cycle offset inherited from sub_1B850.
+        assert_eq!(engine.master_clock(), 10_273_916 * 7);
     }
 
     #[cfg(feature = "audio")]

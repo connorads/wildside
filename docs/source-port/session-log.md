@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 title controller allocation)
+
+- `Load_IntroSequence1` is source-scheduled from `sub_1B850`'s return
+  through the controller-allocation RTS.
+- Empty-list `Allocate_ObjectSlot sub_DAC` executes 81 instructions / 1,020
+  raw cycles with eight refresh events and no GEMS wait. Native completes at
+  cycle 10,273,916 versus oracle 10,277,067, preserving the inherited
+  3,151-cycle offset exactly.
+- Both required gates are green; the 37,759-frame pixel baseline remains
+  26,382 exact / 11,377 divergent / 3,620,978 changed pixels.
+- NEXT: source-schedule the outer object-execution handoff into `sub_1B8F4`,
+  then its GfxObject, palette, text-worker, and fade-shell setup.
+
 ## 2026-07-19 handoff (#409 complete sub_1B850 tail)
 
 - `sub_1B850` is source-scheduled end-to-end: five Saxman uploads, both

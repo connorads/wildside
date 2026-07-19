@@ -7,6 +7,7 @@ pub(crate) mod enemies;
 pub mod enigma_timing;
 mod gfx_animation;
 mod helmets;
+pub mod intro_timing;
 mod level;
 mod mode_level_timing;
 mod movement;
