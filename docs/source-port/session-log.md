@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 fourth title asset)
+
+- `byte_261D7` has three explicit Saxman chunks: 4,096, 2,048, and
+  1,024 bytes. Both flushes retain `$800` history via `loc_1432C` and
+  resume saved lane 4.
+- Decoder workloads are 16,810/140,228, 8,812/72,476, and 3,965/33,704
+  instructions/raw cycles. A counted VINT tracker services four interrupts
+  across the multi-frame asset and re-arms only after frame wrap.
+- Native transfer entries are 9,599,482, 9,801,627, and 9,897,155; final
+  return is 9,924,774. Small signed oracle offsets remain attributable to
+  the established undocumented-X/Y GEMS defect.
+- NEXT: source-schedule `ArtComp_1DA86_LettersNumbers` from cycle 9,924,774,
+  then continue the title workload towards frame 1709.
+
 ## 2026-07-19 handoff (#409 third title transfer)
 
 - The apparent 85-instruction decoder excess was a truncated probe ending

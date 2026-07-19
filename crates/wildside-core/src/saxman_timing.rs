@@ -8,11 +8,24 @@ pub struct DecompressChunkTimingSub13684 {
     pub output_bytes: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DecompressChunkResumeSub13684 {
+    pub token_index: u16,
+    pub next_lane: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DecompressChunkVisitSub13684 {
+    pub timing: DecompressChunkTimingSub13684,
+    pub resume: Option<DecompressChunkResumeSub13684>,
+}
+
 // ASM sub_142CC loads Decompression_Buffer ($FFFF77B2), while
 // DecompressToVRAM sets a3=-1. Decompress_Chunk compares the low words after
 // each reference, so the initial call can emit this many bytes before it
 // returns to preserve the final $800-byte history window.
 const INITIAL_WINDOW_BYTES: u16 = 0xFFFF - 0x77B2;
+const RESUMED_WINDOW_BYTES: u16 = 0xFFFF - 0x7FB2;
 
 fn emit(cycles: &[u32], visit: &mut impl FnMut(u32), timing: &mut DecompressChunkTimingSub13684) {
     for &cycles in cycles {
@@ -201,18 +214,43 @@ fn emit_long_reference(
     false
 }
 
-/// Visit the source instruction lengths for the initial ASM
-/// `Decompress_Chunk sub_13684` call.
+fn emit_entry_sub_13684(
+    resume: Option<DecompressChunkResumeSub13684>,
+    visit: &mut impl FnMut(u32),
+    timing: &mut DecompressChunkTimingSub13684,
+) {
+    // ASM Decompress_Chunk sub_13684: initialise d0/d4-d7, then dispatch d2
+    // to the saved bit lane. Initial d2=0 and a resumed lane 0 both fall
+    // through all seven comparisons into Decompress_BitPos0.
+    emit(&[4, 8, 4, 4, 4], visit, timing);
+    let resume_tag = resume.map_or(0, |resume| {
+        if resume.next_lane == 0 {
+            8
+        } else {
+            8 - resume.next_lane
+        }
+    });
+    for comparison in 1..=7 {
+        emit(&[4], visit, timing);
+        if resume_tag == comparison {
+            emit(&[10], visit, timing);
+            return;
+        }
+        emit(&[12], visit, timing);
+    }
+}
+
+/// Visit one initial or resumed ASM `Decompress_Chunk sub_13684` call.
 ///
 /// This follows the Saxman control stream rather than treating the decoder as
 /// a fixed elapsed span, so colocated hardware can insert waits at the same
-/// instruction boundaries as the ROM. The initial call starts with `d2=0` and
-/// the `$77B2..$FFFF` initial output window used by
-/// `DecompressToVRAM loc_14300`.
-pub fn visit_initial_decompress_chunk_instructions_sub_13684(
+/// instruction boundaries as the ROM. A resume starts after
+/// `DecompressToVRAM loc_1432C` has retained the final `$800` history bytes.
+pub fn visit_decompress_chunk_instructions_sub_13684(
     data: &[u8],
+    resume: Option<DecompressChunkResumeSub13684>,
     mut visit: impl FnMut(u32),
-) -> Result<DecompressChunkTimingSub13684> {
+) -> Result<DecompressChunkVisitSub13684> {
     let tokens = saxman_tokens(data)?;
     let mut timing = DecompressChunkTimingSub13684 {
         instruction_count: 0,
@@ -220,17 +258,15 @@ pub fn visit_initial_decompress_chunk_instructions_sub_13684(
         output_bytes: 0,
     };
 
-    // ASM Decompress_Chunk sub_13684: initialise d0/d4-d7, then reject all
-    // seven saved-lane resume tags before entering Decompress_BitPos0.
-    emit(
-        &[
-            4, 8, 4, 4, 4, 4, 12, 4, 12, 4, 12, 4, 12, 4, 12, 4, 12, 4, 12,
-        ],
-        &mut visit,
-        &mut timing,
-    );
+    emit_entry_sub_13684(resume, &mut visit, &mut timing);
+    let start_token = resume.map_or(0, |resume| usize::from(resume.token_index));
+    let window_bytes = if resume.is_some() {
+        RESUMED_WINDOW_BYTES
+    } else {
+        INITIAL_WINDOW_BYTES
+    };
 
-    for token in tokens {
+    for (token_index, token) in tokens.iter().copied().enumerate().skip(start_token) {
         let lane = token.bit_position % 8;
         emit_mode_dispatch(lane, token.kind, &mut visit, &mut timing);
         match token.kind {
@@ -242,10 +278,22 @@ pub fn visit_initial_decompress_chunk_instructions_sub_13684(
                     .output_bytes
                     .checked_add(count)
                     .expect("one decoder window fits u16");
-                let finished = timing.output_bytes >= INITIAL_WINDOW_BYTES;
+                let finished = timing.output_bytes >= window_bytes;
                 emit_short_reference(count, finished, &mut visit, &mut timing);
                 if finished {
-                    break;
+                    let next =
+                        tokens
+                            .get(token_index + 1)
+                            .map(|next| DecompressChunkResumeSub13684 {
+                                token_index: u16::try_from(token_index + 1)
+                                    .expect("Saxman token count fits u16"),
+                                next_lane: u8::try_from(next.bit_position % 8)
+                                    .expect("bit lane fits u8"),
+                            });
+                    return Ok(DecompressChunkVisitSub13684 {
+                        timing,
+                        resume: next,
+                    });
                 }
             }
             kind @ SaxmanTokenKind::LongReference { count, .. } => {
@@ -253,23 +301,65 @@ pub fn visit_initial_decompress_chunk_instructions_sub_13684(
                     .output_bytes
                     .checked_add(count)
                     .expect("one decoder window fits u16");
-                let finished = timing.output_bytes >= INITIAL_WINDOW_BYTES;
-                if emit_long_reference(lane, kind, finished, &mut visit, &mut timing) || finished {
-                    break;
+                let finished = timing.output_bytes >= window_bytes;
+                if emit_long_reference(lane, kind, finished, &mut visit, &mut timing) {
+                    return Ok(DecompressChunkVisitSub13684 {
+                        timing,
+                        resume: None,
+                    });
+                }
+                if finished {
+                    let next =
+                        tokens
+                            .get(token_index + 1)
+                            .map(|next| DecompressChunkResumeSub13684 {
+                                token_index: u16::try_from(token_index + 1)
+                                    .expect("Saxman token count fits u16"),
+                                next_lane: u8::try_from(next.bit_position % 8)
+                                    .expect("bit lane fits u8"),
+                            });
+                    return Ok(DecompressChunkVisitSub13684 {
+                        timing,
+                        resume: next,
+                    });
                 }
             }
             kind @ SaxmanTokenKind::Flush { .. } => {
                 emit_long_reference(lane, kind, false, &mut visit, &mut timing);
-                break;
+                let next = tokens
+                    .get(token_index + 1)
+                    .map(|next| DecompressChunkResumeSub13684 {
+                        token_index: u16::try_from(token_index + 1)
+                            .expect("Saxman token count fits u16"),
+                        next_lane: u8::try_from(next.bit_position % 8).expect("bit lane fits u8"),
+                    });
+                return Ok(DecompressChunkVisitSub13684 {
+                    timing,
+                    resume: next,
+                });
             }
             SaxmanTokenKind::End => {
                 emit_long_reference(lane, SaxmanTokenKind::End, false, &mut visit, &mut timing);
-                break;
+                return Ok(DecompressChunkVisitSub13684 {
+                    timing,
+                    resume: None,
+                });
             }
         }
     }
 
-    Ok(timing)
+    Ok(DecompressChunkVisitSub13684 {
+        timing,
+        resume: None,
+    })
+}
+
+/// Visit the initial ASM `Decompress_Chunk sub_13684` call.
+pub fn visit_initial_decompress_chunk_instructions_sub_13684(
+    data: &[u8],
+    visit: impl FnMut(u32),
+) -> Result<DecompressChunkTimingSub13684> {
+    Ok(visit_decompress_chunk_instructions_sub_13684(data, None, visit)?.timing)
 }
 
 #[cfg(test)]
@@ -352,5 +442,37 @@ mod tests {
         assert_eq!(cycles, [4, 10, 12, 10]);
         assert_eq!(timing.instruction_count, 4);
         assert_eq!(timing.raw_cycles, 36);
+    }
+
+    #[test]
+    fn explicit_flush_resumes_saved_lane_after_loc_1432c() {
+        // First token: extended-count flush 01:000:11 with count byte 1.
+        // The next literal begins in lane 7, followed by an end token.
+        let control_bits = [0_u8, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1];
+        let mut control_bytes = vec![0_u8; control_bits.len().div_ceil(8)];
+        for (index, bit) in control_bits.into_iter().enumerate() {
+            control_bytes[index / 8] |= bit << (7 - index % 8);
+        }
+        let mut compressed = Vec::new();
+        compressed.extend_from_slice(&(control_bytes.len() as u16).to_be_bytes());
+        compressed.extend_from_slice(&control_bytes);
+        compressed.extend([0, 1, 0xAA, 0, 0]);
+
+        let first = visit_decompress_chunk_instructions_sub_13684(&compressed, None, |_| {})
+            .expect("first explicit-flush chunk");
+        assert_eq!(first.timing.output_bytes, 0);
+        assert_eq!(
+            first.resume,
+            Some(DecompressChunkResumeSub13684 {
+                token_index: 1,
+                next_lane: 7,
+            }),
+        );
+
+        let second =
+            visit_decompress_chunk_instructions_sub_13684(&compressed, first.resume, |_| {})
+                .expect("ASM loc_1432C resumed chunk");
+        assert_eq!(second.timing.output_bytes, 1);
+        assert_eq!(second.resume, None);
     }
 }

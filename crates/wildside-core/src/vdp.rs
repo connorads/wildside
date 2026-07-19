@@ -2969,9 +2969,16 @@ pub struct DecompressToVramTransferAdvance {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DecompressToVramTransferExit {
+    Return,
+    CompactAndResume,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DecompressToVramDecoderAdvance {
     pub cursor: LoadInGameCpuRasterCursor,
     pub timing: crate::saxman_timing::DecompressChunkTimingSub13684,
+    pub resume: Option<crate::saxman_timing::DecompressChunkResumeSub13684>,
     pub refresh_events: u32,
     pub vint_serviced: bool,
     pub external_wait_cycles: M68kCycleCount,
@@ -3227,14 +3234,36 @@ fn drain_decompress_to_vram_wait(
     Some(())
 }
 
+#[derive(Debug, Clone, Copy)]
+struct DecompressToVramVintTracker {
+    remaining: u8,
+    armed: bool,
+}
+
+impl DecompressToVramVintTracker {
+    fn new(remaining: u8) -> Self {
+        Self {
+            remaining,
+            armed: true,
+        }
+    }
+
+    fn rearm_after_frame_wrap(&mut self, scanline: u16) {
+        if !self.armed && scanline < 224 {
+            self.armed = true;
+        }
+    }
+}
+
 fn service_decompress_to_vram_vint_if_pending(
-    vint_pending: &mut bool,
+    vint: &mut DecompressToVramVintTracker,
     fifo: &mut PlatformArtFifoScheduler,
     phase: &mut M68kRefreshPhase,
     refresh_events: &mut u32,
     advance_hardware: &mut dyn FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
 ) -> Option<bool> {
-    if !*vint_pending || fifo.beam.scanline < 224 {
+    vint.rearm_after_frame_wrap(fifo.beam.scanline);
+    if vint.remaining == 0 || !vint.armed || fifo.beam.scanline < 224 {
         return Some(false);
     }
 
@@ -3251,12 +3280,13 @@ fn service_decompress_to_vram_vint_if_pending(
             advance_hardware,
         )?;
     }
-    *vint_pending = false;
+    vint.remaining -= 1;
+    vint.armed = false;
     Some(true)
 }
 
 /// Co-schedule ASM `DecompressToVRAM loc_14300` through the first
-/// `loc_14314` transfer entry, servicing one pending VINT when requested.
+/// `loc_14314` transfer entry, servicing the requested recurring VINT count.
 ///
 /// The callback sees the 22-cycle call prelude, every instruction selected by
 /// the Saxman source stream in `Decompress_Chunk sub_13684`, and the 36-cycle
@@ -3265,7 +3295,8 @@ fn service_decompress_to_vram_vint_if_pending(
 pub fn decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     compressed: &[u8],
-    mut vint_pending: bool,
+    resume: Option<crate::saxman_timing::DecompressChunkResumeSub13684>,
+    vint_count: u8,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<DecompressToVramDecoderAdvance> {
     let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
@@ -3274,18 +3305,21 @@ pub fn decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
     let mut external_wait_cycles = 0_u32;
     let mut scheduling_failed = false;
     let mut vint_serviced = false;
+    let mut vint = DecompressToVramVintTracker::new(vint_count);
 
     let mut advance_instruction = |raw_cycles: u32| {
         if scheduling_failed {
             return;
         }
         let mut source_cycles = [0_u32; 5];
-        let source_count = if vint_pending && fifo.beam.scanline >= 224 {
+        vint.rearm_after_frame_wrap(fifo.beam.scanline);
+        let source_count = if vint.remaining != 0 && vint.armed && fifo.beam.scanline >= 224 {
             // ASM V_Int $488: the interrupted source PC first accounts for
             // the 44-cycle exception entry, then ADDQ/ST/RTE execute before
             // the same decoder instruction is retried.
             source_cycles = [44, 24, 16, 20, raw_cycles];
-            vint_pending = false;
+            vint.remaining -= 1;
+            vint.armed = false;
             vint_serviced = true;
             5
         } else {
@@ -3315,8 +3349,9 @@ pub fn decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
     for raw_cycles in [4, 18] {
         advance_instruction(raw_cycles);
     }
-    let timing = crate::saxman_timing::visit_initial_decompress_chunk_instructions_sub_13684(
+    let visit = crate::saxman_timing::visit_decompress_chunk_instructions_sub_13684(
         compressed,
+        resume,
         &mut advance_instruction,
     )
     .ok()?;
@@ -3333,7 +3368,8 @@ pub fn decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
             beam: fifo.beam,
             refresh_phase: phase,
         },
-        timing,
+        timing: visit.timing,
+        resume: visit.resume,
         refresh_events,
         vint_serviced,
         external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
@@ -3416,26 +3452,29 @@ pub fn load_in_game_platform_art_transfer_cursor_loc_14314_with_hardware(
     decompress_to_vram_transfer_cursor_loc_14314_with_hardware(
         entry,
         output_words,
-        false,
+        0,
+        DecompressToVramTransferExit::Return,
         advance_hardware,
     )
 }
 
 /// Advance a generic `DecompressToVRAM loc_14314` transfer.
 ///
-/// When `vint_pending` is true, scanline 224 services the level-6 interrupt
-/// at the next instruction boundary while the same FIFO and hardware
-/// timelines continue to advance.
+/// Each requested VINT is serviced at the first instruction boundary after
+/// scanline 224, then re-armed only after the next frame wrap while the same
+/// FIFO and hardware timelines continue to advance.
 pub fn decompress_to_vram_transfer_cursor_loc_14314_with_hardware(
     entry: LoadInGameCpuRasterCursor,
     output_words: u16,
-    vint_pending: bool,
+    vint_count: u8,
+    exit: DecompressToVramTransferExit,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<()>,
 ) -> Option<DecompressToVramTransferAdvance> {
     decompress_to_vram_transfer_cursor_loc_14314_with_scheduler(
         entry,
         output_words,
-        vint_pending,
+        vint_count,
+        exit,
         |cycles, vdp_owns_bus| {
             advance_hardware(cycles, vdp_owns_bus)?;
             Some(M68kCycleCount::from_raw(0))
@@ -3451,7 +3490,8 @@ pub fn decompress_to_vram_transfer_cursor_loc_14314_with_hardware(
 pub fn decompress_to_vram_transfer_cursor_loc_14314_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     output_words: u16,
-    mut vint_pending: bool,
+    vint_count: u8,
+    exit: DecompressToVramTransferExit,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
 ) -> Option<DecompressToVramTransferAdvance> {
     if output_words == 0 {
@@ -3463,10 +3503,11 @@ pub fn decompress_to_vram_transfer_cursor_loc_14314_with_scheduler(
     let mut refresh_events = 0_u32;
     let mut fifo_halted_ticks = 0_u32;
     let mut vint_serviced = false;
+    let mut vint = DecompressToVramVintTracker::new(vint_count);
 
     for word_index in 0..output_words {
         vint_serviced |= service_decompress_to_vram_vint_if_pending(
-            &mut vint_pending,
+            &mut vint,
             &mut fifo,
             &mut phase,
             &mut refresh_events,
@@ -3516,24 +3557,62 @@ pub fn decompress_to_vram_transfer_cursor_loc_14314_with_scheduler(
         )?;
     }
 
-    // ASM loc_14318..return_14334: tst.w d0; beq.s; rts.
     let mut pending_external_wait_cycles = M68kCycleCount::from_raw(0);
-    for (instruction_index, raw_cycles) in [4, 10, 16].into_iter().enumerate() {
-        vint_serviced |= service_decompress_to_vram_vint_if_pending(
-            &mut vint_pending,
-            &mut fifo,
-            &mut phase,
-            &mut refresh_events,
-            &mut advance_hardware,
-        )?;
-        pending_external_wait_cycles = advance_decompress_to_vram_source_instruction(
-            raw_cycles,
-            &mut fifo,
-            &mut phase,
-            &mut refresh_events,
-            instruction_index != 2,
-            &mut advance_hardware,
-        )?;
+    match exit {
+        DecompressToVramTransferExit::Return => {
+            // ASM loc_14318..return_14334: tst.w d0; beq.s; rts.
+            for (instruction_index, raw_cycles) in [4, 10, 16].into_iter().enumerate() {
+                vint_serviced |= service_decompress_to_vram_vint_if_pending(
+                    &mut vint,
+                    &mut fifo,
+                    &mut phase,
+                    &mut refresh_events,
+                    &mut advance_hardware,
+                )?;
+                pending_external_wait_cycles = advance_decompress_to_vram_source_instruction(
+                    raw_cycles,
+                    &mut fifo,
+                    &mut phase,
+                    &mut refresh_events,
+                    instruction_index != 2,
+                    &mut advance_hardware,
+                )?;
+            }
+        }
+        DecompressToVramTransferExit::CompactAndResume => {
+            // ASM loc_14318..loc_1432C: reject the final return, retain the
+            // last $800 history bytes, then branch back to loc_14300.
+            for raw_cycles in [4, 8, 12, 8, 8] {
+                advance_decompress_to_vram_source_instruction(
+                    raw_cycles,
+                    &mut fifo,
+                    &mut phase,
+                    &mut refresh_events,
+                    true,
+                    &mut advance_hardware,
+                )?;
+            }
+            for copy_index in 0..512 {
+                for raw_cycles in [20, if copy_index == 511 { 14 } else { 10 }] {
+                    advance_decompress_to_vram_source_instruction(
+                        raw_cycles,
+                        &mut fifo,
+                        &mut phase,
+                        &mut refresh_events,
+                        true,
+                        &mut advance_hardware,
+                    )?;
+                }
+            }
+            advance_decompress_to_vram_source_instruction(
+                10,
+                &mut fifo,
+                &mut phase,
+                &mut refresh_events,
+                true,
+                &mut advance_hardware,
+            )?;
+        }
     }
 
     Some(LoadInGamePlatformArtTransferAdvance {
@@ -6447,7 +6526,8 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(101).unwrap(),
             },
             2_016,
-            true,
+            1,
+            DecompressToVramTransferExit::Return,
             |_, _| Some(()),
         )
         .expect("title transfer schedule");

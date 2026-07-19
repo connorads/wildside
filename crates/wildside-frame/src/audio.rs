@@ -746,7 +746,8 @@ pub fn apply_gems_decompress_to_vram_transfer_loc_14314(
     audio: &mut GemsMasterClockTimingEngine,
     entry: LoadInGameCpuRasterCursor,
     output_words: u16,
-    vint_pending: bool,
+    vint_count: u8,
+    exit: wildside_core::vdp::DecompressToVramTransferExit,
 ) -> Option<DecompressToVramTransferAdvance> {
     if audio.pending_m68k_wait_cycles() != 0 {
         return None;
@@ -754,7 +755,8 @@ pub fn apply_gems_decompress_to_vram_transfer_loc_14314(
     wildside_core::vdp::decompress_to_vram_transfer_cursor_loc_14314_with_scheduler(
         entry,
         output_words,
-        vint_pending,
+        vint_count,
+        exit,
         |cycles, vdp_owns_bus| {
             audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
                 u64::from(cycles.get()) * 7,
@@ -768,13 +770,14 @@ pub fn apply_gems_decompress_to_vram_transfer_loc_14314(
 }
 
 /// Clock ASM `DecompressToVRAM loc_14300` through its first transfer entry,
-/// servicing one pending VINT when requested.
+/// servicing the requested recurring VINT count.
 #[cfg(feature = "audio")]
 pub fn apply_gems_decompress_to_vram_decoder_loc_14300(
     audio: &mut GemsMasterClockTimingEngine,
     entry: LoadInGameCpuRasterCursor,
     compressed: &[u8],
-    vint_pending: bool,
+    resume: Option<wildside_core::saxman_timing::DecompressChunkResumeSub13684>,
+    vint_count: u8,
 ) -> Option<wildside_core::vdp::DecompressToVramDecoderAdvance> {
     if audio.pending_m68k_wait_cycles() != 0 {
         return None;
@@ -782,7 +785,8 @@ pub fn apply_gems_decompress_to_vram_decoder_loc_14300(
     wildside_core::vdp::decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
         entry,
         compressed,
-        vint_pending,
+        resume,
+        vint_count,
         |cycles, vdp_owns_bus, source_instruction| {
             if source_instruction {
                 audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
@@ -2091,7 +2095,7 @@ mod tests {
 
     #[cfg(feature = "audio")]
     #[test]
-    fn intro_decompress_to_vram_reaches_third_transfer_hardware_phase() {
+    fn intro_decompress_to_vram_reaches_fourth_transfer_hardware_phase() {
         let rom = std::fs::read(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../.cache/upstream/kid-chameleon-disasm/kid.bin"),
@@ -2164,7 +2168,8 @@ mod tests {
                     refresh_phase: M68kRefreshPhase::new(101).unwrap(),
                 },
                 2_016,
-                true,
+                1,
+                wildside_core::vdp::DecompressToVramTransferExit::Return,
                 |cycles, vdp_owns_bus| {
                     if vdp_owns_bus && first_fifo_halt_cycle.is_none() {
                         first_fifo_halt_cycle =
@@ -2242,7 +2247,8 @@ mod tests {
             &mut engine,
             setup.cursor,
             &compressed,
-            false,
+            None,
+            0,
         )
         .expect("source-positioned Wild Side decoder");
         assert_eq!(decoder.timing.output_bytes, 192);
@@ -2269,7 +2275,8 @@ mod tests {
             &mut engine,
             decoder.cursor,
             96,
-            false,
+            0,
+            wildside_core::vdp::DecompressToVramTransferExit::Return,
         )
         .expect("byte_2D71A 96-word transfer");
         assert!(!second_transfer.vint_serviced);
@@ -2295,7 +2302,8 @@ mod tests {
             &mut engine,
             setup.cursor,
             &compressed,
-            true,
+            None,
+            1,
         )
         .expect("source-positioned Wild Side door decoder");
         assert_eq!(decoder.timing.output_bytes, 3_456);
@@ -2313,13 +2321,143 @@ mod tests {
             &mut engine,
             decoder.cursor,
             1_728,
-            false,
+            0,
+            wildside_core::vdp::DecompressToVramTransferExit::Return,
         )
         .expect("byte_2DEBF 1,728-word transfer");
         assert!(!third_transfer.vint_serviced);
         // The 32-cycle decoder shift changes FIFO collision phase and the
         // hardware-faithful transfer recovers 30 cycles by its return.
         assert_eq!(engine.master_clock(), 9_453_428 * 7);
+
+        // ASM sub_1B850 $1B87C passes byte_261D7 (the kids hanging around
+        // Wild Side) to DecompressToVRAM.
+        let setup = apply_gems_decompress_to_vram_setup_sub_142cc(
+            &mut engine,
+            third_transfer.cursor,
+            &[8, 12, 20, 10],
+        )
+        .expect("source-positioned fourth DecompressToVRAM setup");
+        assert_eq!(engine.master_clock(), 9_453_656 * 7);
+
+        let compressed = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                "../../.cache/upstream/kid-chameleon-disasm/scenes/artcomp/Kids_hanging_around_Wild_Side.bin",
+            ),
+        )
+        .expect("bootstrapped byte_261D7");
+        let decoder = apply_gems_decompress_to_vram_decoder_loc_14300(
+            &mut engine,
+            setup.cursor,
+            &compressed,
+            None,
+            2,
+        )
+        .expect("source-positioned kids-hanging decoder chunk 1");
+        assert_eq!(
+            decoder.timing,
+            wildside_core::saxman_timing::DecompressChunkTimingSub13684 {
+                instruction_count: 16_810,
+                raw_cycles: 140_228,
+                output_bytes: 4_096,
+            },
+        );
+        assert_eq!(
+            decoder.resume,
+            Some(
+                wildside_core::saxman_timing::DecompressChunkResumeSub13684 {
+                    token_index: 1_240,
+                    next_lane: 4,
+                },
+            ),
+        );
+        assert!(decoder.vint_serviced);
+        assert_eq!(decoder.refresh_events, 1_126);
+        assert_eq!(decoder.external_wait_cycles.get(), 3_080);
+        assert_eq!(engine.master_clock(), 9_599_482 * 7);
+
+        let transfer = apply_gems_decompress_to_vram_transfer_loc_14314(
+            &mut engine,
+            decoder.cursor,
+            2_048,
+            1,
+            wildside_core::vdp::DecompressToVramTransferExit::CompactAndResume,
+        )
+        .expect("byte_261D7 chunk 1 transfer and loc_1432C compaction");
+        assert!(transfer.vint_serviced);
+        assert_eq!(engine.master_clock(), 9_726_517 * 7);
+
+        let decoder = apply_gems_decompress_to_vram_decoder_loc_14300(
+            &mut engine,
+            transfer.cursor,
+            &compressed,
+            decoder.resume,
+            0,
+        )
+        .expect("source-positioned kids-hanging decoder chunk 2");
+        assert_eq!(
+            decoder.timing,
+            wildside_core::saxman_timing::DecompressChunkTimingSub13684 {
+                instruction_count: 8_812,
+                raw_cycles: 72_476,
+                output_bytes: 2_048,
+            },
+        );
+        assert_eq!(
+            decoder.resume,
+            Some(
+                wildside_core::saxman_timing::DecompressChunkResumeSub13684 {
+                    token_index: 1_886,
+                    next_lane: 4,
+                },
+            ),
+        );
+        assert_eq!(decoder.refresh_events, 584);
+        assert_eq!(decoder.external_wait_cycles.get(), 1_408);
+        assert_eq!(engine.master_clock(), 9_801_627 * 7);
+
+        let transfer = apply_gems_decompress_to_vram_transfer_loc_14314(
+            &mut engine,
+            decoder.cursor,
+            1_024,
+            1,
+            wildside_core::vdp::DecompressToVramTransferExit::CompactAndResume,
+        )
+        .expect("byte_261D7 chunk 2 transfer and loc_1432C compaction");
+        assert!(transfer.vint_serviced);
+        assert_eq!(engine.master_clock(), 9_861_599 * 7);
+
+        let decoder = apply_gems_decompress_to_vram_decoder_loc_14300(
+            &mut engine,
+            transfer.cursor,
+            &compressed,
+            decoder.resume,
+            0,
+        )
+        .expect("source-positioned kids-hanging decoder chunk 3");
+        assert_eq!(
+            decoder.timing,
+            wildside_core::saxman_timing::DecompressChunkTimingSub13684 {
+                instruction_count: 3_965,
+                raw_cycles: 33_704,
+                output_bytes: 1_024,
+            },
+        );
+        assert_eq!(decoder.resume, None);
+        assert_eq!(decoder.refresh_events, 259);
+        assert_eq!(decoder.external_wait_cycles.get(), 1_276);
+        assert_eq!(engine.master_clock(), 9_897_155 * 7);
+
+        let transfer = apply_gems_decompress_to_vram_transfer_loc_14314(
+            &mut engine,
+            decoder.cursor,
+            512,
+            0,
+            wildside_core::vdp::DecompressToVramTransferExit::Return,
+        )
+        .expect("byte_261D7 final 512-word transfer");
+        assert!(!transfer.vint_serviced);
+        assert_eq!(engine.master_clock(), 9_924_774 * 7);
     }
 
     #[cfg(feature = "audio")]

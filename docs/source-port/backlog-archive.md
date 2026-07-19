@@ -306,6 +306,25 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: `byte_261D7`
+(`Kids_hanging_around_Wild_Side.bin`) is source-scheduled through its final
+return. Unlike the first three assets, its Saxman stream explicitly flushes
+twice. `DecompressToVRAM loc_1432C` retains the last `$800` history bytes and
+resumes saved lane 4 after each 4,096- and 2,048-byte chunk; the final chunk
+emits 1,024 bytes. The three decoder workloads are respectively
+16,810/140,228, 8,812/72,476, and 3,965/33,704 instructions/raw cycles.
+
+The combined decoder/transfer span crosses four frame interrupts. A counted
+VINT tracker now re-arms only after scanline wrap, preventing both the old
+one-shot omission and same-VBlank double service. Native transfer entries
+are cycles 9,599,482, 9,801,627, and 9,897,155; the two compacted resume
+entries are 9,726,517 and 9,861,599; final return is 9,924,774. Oracle's
+matching boundaries are 9,599,497, 9,801,635, 9,897,177, 9,726,549,
+9,861,590, and 9,924,760. These small signed offsets follow the established
+jgenesis undocumented-X/Y `SUB` defect through GEMS/FIFO phase rather than
+missing 68000 source work. NEXT: source-schedule
+`ArtComp_1DA86_LettersNumbers` from the fourth return.
+
 Progress 2026-07-19: the apparent 85-instruction `byte_2DEBF`
 decoder excess was a probe error: its exhaustive PC range ended at `$13A74`
 and omitted the lane-7 tail through `$13AA2`. The comparison nevertheless
