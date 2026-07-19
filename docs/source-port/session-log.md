@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 empty Kid-projectile collision passes)
+
+- The post-HUD ledger now carries live Kid-projectile GfxObject and Diamond
+  Power object counts for `sub_1D76`.
+- Both lists are empty on frames 1697/1703/1709. ASM plus full selected-PC
+  traces derive the two-pass wrapper as 126 raw cycles.
+- Non-empty collision walks fail closed. The following `sub_1FA2` costs
+  558/558/688 on the helpers and needs a typed terrain-cell walk.
+- `mise run verify-slice-fast` is green after `d654793ee`.
+- NEXT: type `sub_1FA2` or remaining per-GfxObject work, or persist the GEMS
+  CPU checkpoint, then bridge the FIFO-aware HUD exit through `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 empty Diamond Power compiler)
 
 - Native now retains the exact buffered Diamond Power entry count before

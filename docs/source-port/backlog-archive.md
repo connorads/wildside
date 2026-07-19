@@ -403,6 +403,17 @@ fail-closed; direct Diamond Power sprites are deliberately separate state.
 `mise run verify-slice-fast` is green with 6,954 core tests, 15 CLI tests,
 clippy, coverage guards, and all TAS recordings passing.
 
+Progress 2026-07-19: commit `d654793ee` types the two object lists consumed
+by `sub_1D76`: live Kid-projectile GfxObjects and Diamond Power objects.
+Both successor lists are empty on frames 1697/1703/1709. Full selected-PC
+traces independently show both `sub_1D84` calls return after their first
+link load, for a 126-raw-cycle wrapper. Non-empty collision walks remain
+fail-closed. The following `sub_1FA2` is not constant: its target traces are
+558/558/688 raw cycles because frame 1709 scans more terrain cells, so it
+needs a typed tile walk. `mise run verify-slice-fast` is green with 6,955
+core tests, 15 CLI tests, clippy, coverage guards, and all TAS recordings
+passing.
+
 Deferred 2026-07-19: source review found that normal layout walks set
 `$FFFFFB51` at `Manage_EnemyLoading loc_36968`. A trial correcting the native
 normal loader broke nine synthetic contact tests whose fixtures assume the
