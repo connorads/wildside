@@ -3,7 +3,10 @@
 
 mod gems_timing;
 
-pub use gems_timing::{GemsBanked68kRead, GemsMasterClockAdvance, GemsMasterClockTimingEngine};
+pub use gems_timing::{
+    GemsBanked68kRead, GemsMasterClockAdvance, GemsMasterClockTimingEngine, GemsStopMusicControl,
+    GemsStopMusicQueueTransaction,
+};
 
 use anyhow::{Result, ensure};
 use r68k_emu::cpu::{ConfiguredCore, Cycles};

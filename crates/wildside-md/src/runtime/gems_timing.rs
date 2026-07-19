@@ -35,6 +35,30 @@ pub struct GemsMasterClockAdvance {
     pub pending_m68k_wait_cycles: u32,
 }
 
+/// One of the six separately arbitrated GEMS initialisation writes in ASM
+/// `StopMusic -> sub_E149C/sub_E14AC`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GemsStopMusicQueueTransaction {
+    CommandMarker,
+    DataPointersCommand,
+    PatchPointer,
+    EnvelopePointer,
+    SequencePointer,
+    SamplePointer,
+}
+
+/// Hardware-visible stages of ASM `StopMusic` (`$E14C8..$E150E`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GemsStopMusicControl {
+    BeginDriverCopy,
+    AssertReset,
+    ReleaseDriverBus,
+    ReleaseReset,
+    BeginQueueTransaction,
+    WriteQueue(GemsStopMusicQueueTransaction),
+    ReleaseQueueBus,
+}
+
 struct GemsTimingBus {
     ram: RefCell<Vec<u8>>,
     virtual_rom: Vec<u8>,
@@ -336,26 +360,119 @@ impl GemsMasterClockTimingEngine {
     }
 
     pub fn stop_music(&mut self) {
-        self.reload_driver();
-        self.init();
+        self.apply_stop_music_control(GemsStopMusicControl::BeginDriverCopy);
+        self.apply_stop_music_control(GemsStopMusicControl::AssertReset);
+        self.apply_stop_music_control(GemsStopMusicControl::ReleaseDriverBus);
+        self.apply_stop_music_control(GemsStopMusicControl::ReleaseReset);
+        for transaction in [
+            GemsStopMusicQueueTransaction::CommandMarker,
+            GemsStopMusicQueueTransaction::DataPointersCommand,
+            GemsStopMusicQueueTransaction::PatchPointer,
+            GemsStopMusicQueueTransaction::EnvelopePointer,
+            GemsStopMusicQueueTransaction::SequencePointer,
+            GemsStopMusicQueueTransaction::SamplePointer,
+        ] {
+            self.apply_stop_music_control(GemsStopMusicControl::BeginQueueTransaction);
+            self.apply_stop_music_control(GemsStopMusicControl::WriteQueue(transaction));
+            self.apply_stop_music_control(GemsStopMusicControl::ReleaseQueueBus);
+        }
     }
 
     pub fn reload_driver(&mut self) {
+        self.copy_driver_ram();
+        self.z80.io.ym2612_shadow.get_mut().reset();
+        self.z80.reset();
+        self.z80_t_cycles_wait = 0;
+        self.pending_banked_reads.clear();
+    }
+
+    /// Apply one source-positioned control event while the caller advances the
+    /// intervening master clocks.
+    pub fn apply_stop_music_control(&mut self, control: GemsStopMusicControl) {
+        match control {
+            GemsStopMusicControl::BeginDriverCopy => {
+                assert!(
+                    !self.busreq && !self.reset,
+                    "StopMusic driver copy must begin from a running Z80"
+                );
+                self.set_z80_control(true, false);
+                self.copy_driver_ram();
+            }
+            GemsStopMusicControl::AssertReset => {
+                assert!(
+                    self.busreq && !self.reset,
+                    "StopMusic reset is asserted while the driver-copy bus window is held"
+                );
+                self.set_z80_control(true, true);
+            }
+            GemsStopMusicControl::ReleaseDriverBus => {
+                assert!(
+                    self.busreq && self.reset,
+                    "StopMusic releases the driver-copy bus while reset remains asserted"
+                );
+                self.set_z80_control(false, true);
+            }
+            GemsStopMusicControl::ReleaseReset => {
+                assert!(
+                    !self.busreq && self.reset,
+                    "StopMusic releases reset after releasing the driver-copy bus"
+                );
+                self.set_z80_control(false, false);
+            }
+            GemsStopMusicControl::BeginQueueTransaction => {
+                assert!(
+                    !self.busreq && !self.reset,
+                    "StopMusic queue transaction must begin from a running Z80"
+                );
+                self.set_z80_control(true, false);
+            }
+            GemsStopMusicControl::WriteQueue(transaction) => {
+                assert!(
+                    self.busreq && !self.reset,
+                    "StopMusic writes each queue transaction while holding the Z80 bus"
+                );
+                match transaction {
+                    GemsStopMusicQueueTransaction::CommandMarker => self.queue_byte(0xFF),
+                    GemsStopMusicQueueTransaction::DataPointersCommand => self.queue_byte(0x0B),
+                    GemsStopMusicQueueTransaction::PatchPointer => {
+                        self.queue_24bit_addr(GEMS_PATCH_ADDR);
+                    }
+                    GemsStopMusicQueueTransaction::EnvelopePointer => {
+                        self.queue_24bit_addr(GEMS_ENVELOPE_ADDR);
+                    }
+                    GemsStopMusicQueueTransaction::SequencePointer => {
+                        self.queue_24bit_addr(GEMS_SEQUENCE_ADDR);
+                    }
+                    GemsStopMusicQueueTransaction::SamplePointer => {
+                        self.queue_24bit_addr(GEMS_SAMPLE_ADDR);
+                        self.initialised = true;
+                    }
+                }
+            }
+            GemsStopMusicControl::ReleaseQueueBus => {
+                assert!(
+                    self.busreq && !self.reset,
+                    "StopMusic releases the bus after each queue transaction"
+                );
+                self.set_z80_control(false, false);
+            }
+        }
+    }
+
+    fn copy_driver_ram(&mut self) {
         let copy_len = self.driver.len().min(Z80_RAM_LEN);
         {
             let ram = self.z80.io.ram.get_mut();
             ram.fill(0);
             ram[..copy_len].copy_from_slice(&self.driver[..copy_len]);
         }
-        self.z80.io.ym2612_shadow.get_mut().reset();
-        self.z80.reset();
-        self.z80_t_cycles_wait = 0;
-        self.pending_banked_reads.clear();
         self.initialised = false;
     }
 
     pub fn set_z80_control(&mut self, busreq: bool, reset: bool) {
         if reset && !self.reset {
+            // ASM sub_E1416 asserts Mega Drive Z80 reset, which also resets YM2612.
+            self.z80.io.ym2612_shadow.get_mut().reset();
             self.z80.reset();
             self.z80_t_cycles_wait = 0;
         }
@@ -578,6 +695,68 @@ mod tests {
             engine.z80.io.bank_address, 0x0001_8000,
             "Z80 reset does not itself rewrite the Mega Drive bank register",
         );
+    }
+
+    #[test]
+    fn stop_music_control_events_hold_z80_across_copy_reset_and_queue_windows_e14c8() {
+        let driver = [0x00, 0xC3, 0x00, 0x00];
+        let mut engine = GemsMasterClockTimingEngine::new(&driver, vec![]);
+        engine.z80.io.ram.get_mut().fill(0xA5);
+
+        engine.apply_stop_music_control(GemsStopMusicControl::BeginDriverCopy);
+        assert!(engine.busreq);
+        assert!(!engine.reset);
+        assert_eq!(&engine.z80.io.ram.borrow()[..4], &driver);
+        assert!(
+            engine.z80.io.ram.borrow()[4..]
+                .iter()
+                .all(|&byte| byte == 0)
+        );
+        let held_pc = engine.z80_pc();
+        engine.advance_master_clocks(150, false, false);
+        assert_eq!(engine.z80_pc(), held_pc);
+
+        engine.apply_stop_music_control(GemsStopMusicControl::AssertReset);
+        engine.apply_stop_music_control(GemsStopMusicControl::ReleaseDriverBus);
+        engine.advance_master_clocks(150, false, false);
+        assert_eq!(engine.z80_pc(), 0, "ASM sub_E1416 keeps reset asserted");
+        engine.apply_stop_music_control(GemsStopMusicControl::ReleaseReset);
+
+        for transaction in [
+            GemsStopMusicQueueTransaction::CommandMarker,
+            GemsStopMusicQueueTransaction::DataPointersCommand,
+            GemsStopMusicQueueTransaction::PatchPointer,
+            GemsStopMusicQueueTransaction::EnvelopePointer,
+            GemsStopMusicQueueTransaction::SequencePointer,
+            GemsStopMusicQueueTransaction::SamplePointer,
+        ] {
+            engine.apply_stop_music_control(GemsStopMusicControl::BeginQueueTransaction);
+            engine.apply_stop_music_control(GemsStopMusicControl::WriteQueue(transaction));
+            engine.apply_stop_music_control(GemsStopMusicControl::ReleaseQueueBus);
+        }
+
+        let ram = engine.z80.io.ram.borrow();
+        assert_eq!(
+            &ram[usize::from(GEMS_QUEUE_ADDR)..usize::from(GEMS_QUEUE_ADDR) + 14],
+            &[
+                0xFF,
+                0x0B,
+                GEMS_PATCH_ADDR as u8,
+                (GEMS_PATCH_ADDR >> 8) as u8,
+                (GEMS_PATCH_ADDR >> 16) as u8,
+                GEMS_ENVELOPE_ADDR as u8,
+                (GEMS_ENVELOPE_ADDR >> 8) as u8,
+                (GEMS_ENVELOPE_ADDR >> 16) as u8,
+                GEMS_SEQUENCE_ADDR as u8,
+                (GEMS_SEQUENCE_ADDR >> 8) as u8,
+                (GEMS_SEQUENCE_ADDR >> 16) as u8,
+                GEMS_SAMPLE_ADDR as u8,
+                (GEMS_SAMPLE_ADDR >> 8) as u8,
+                (GEMS_SAMPLE_ADDR >> 16) as u8,
+            ],
+            "ASM sub_E149C/sub_E14AC queue FF 0B and four low-to-high pointers"
+        );
+        assert!(engine.initialised);
     }
 
     #[test]

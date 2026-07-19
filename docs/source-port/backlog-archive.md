@@ -369,6 +369,18 @@ routine. The frame-867 regression recomposes the measured 229,570 cycles from
 two-cycle refresh waits. This is aggregate elapsed evidence, not yet the
 event-positioned shell required to drive the persistent Z80 machine.
 
+Progress 2026-07-19: the persistent GEMS machine now exposes independently
+clockable `GemsStopMusicControl` events for the `sub_E13DA` driver-copy bus
+window, `sub_E1416` reset assertion/release, and all six
+`sub_E149C/sub_E14AC` queue transactions. The machine holds the Z80 while
+each window is open, copies/clears RAM without prematurely resetting CPU
+state, resets both Z80 and YM2612 on the source reset edge, and queues
+`FF 0B` plus the four low-to-high pointers only while BUSREQ is asserted.
+The old instantaneous `stop_music()` is now a compatibility composition of
+those events. The frame shell can therefore advance real master clocks
+between them once their elapsed offsets are derived; that positioning remains
+the next slice.
+
 Progress 2026-07-19: commit `7afa08b27` schedules the classified life-icon-only
 `sub_44DC` path through its four-entry VRAM FIFO and the trailing `loc_44D4`
 instruction stream to the following `Manage_EnemyLoading` call. The final
