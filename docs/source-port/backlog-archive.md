@@ -306,6 +306,28 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: the natural `Mode_Level loc_892 -> WaitForVint $93E`
+tail is now source-typed rather than inferred from its elapsed total.
+`sub_30194` takes the unchanged camera-tile path; `loc_3038A` derives its
+cost from all 19 old/new `Horiz_Scroll_Data` comparisons, aligned/no-ripple
+ShiftLayers, the 29-entry `sub_30744` sign scan, and cached-row `sub_307D8`;
+both palette masks are clear at `sub_14C0`. Raw totals
+12,852/13,080/12,310 plus 102/104/97 refresh events yield elapsed
+13,056/13,288/12,504 and first-poll phases 56/78/104 for helpers
+1696/1702/1708. Streaming, ripple, busy, alternate-format and active-palette
+paths fail closed. Frame 1697's 128 asynchronous Z80 steals are independently
+identified as GEMS `$01FB..$028A` copying ROM `$EF23A..$EF2B9` to Z80 RAM
+`$1F00..$1F7F` through 21 six-byte `$0273` LDIR chunks and a final two-byte
+`$0285` LDIR. An ordered scheduler interleaver preserves the ten
+refresh-plus-steal 13-cycle coalescences, reproduces the 58-master-clock VINT
+sample delay and stale `$942` resume, and leaves helpers 1702/1708 on their
+zero-steal paths. `mise run verify-slice-fast` is green after commits
+`56193e90b` and `db1b7079d`. Production remains deliberately unseeded:
+persist `$F82C/$F82E`, `$FAA8`, the 19 prior scroll words and shared palette
+masks, bridge `sub_44DC` to `loc_892`, and add a real GEMS CPU checkpoint
+before emitting these events. Queued sounds or a fitted steal count are not
+sufficient state.
+
 Progress 2026-07-19: `V_Int $488 -> Mode_Level $7C8` now has two typed
 source paths: 162 cycles when the exception-stack return PC is the hot poll
 `$93E`, or 172 when saved PC `$942` takes one stale branch before re-reading

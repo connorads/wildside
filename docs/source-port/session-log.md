@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 Mode tail and GEMS poll arbitration)
+
+- `Mode_Level loc_892 -> WaitForVint $93E` is now a fail-closed typed ledger.
+  The three helpers derive 12,852/13,080/12,310 raw cycles, 102/104/97
+  refresh events, and exact first-poll phases 56/78/104.
+- Frame 1697's 128 Z80 steals are a GEMS 128-byte banked sample refill through
+  `$0273/$0285`, not a periodic sound tax. Ordered event interleaving derives
+  the 58-master-clock VINT delay and stale `$942` saved-PC path; the no-Z80
+  helpers remain exact.
+- `mise run verify-slice-fast` is green after `56193e90b` and `db1b7079d`.
+  Production timing remains unseeded, so the full RGB baseline is unchanged.
+- NEXT: persist canonical F82C/F82E, FAA8, 19 prior scroll words and shared
+  palette masks; bridge `$44DC -> loc_892`; add a persistent GEMS checkpoint.
+  Do not infer audio arbitration from queued sounds, counts, or route frames.
+
+---
+
 ## 2026-07-19 handoff (#409 Mode-entry raster boundary)
 
 - `V_Int $488 -> Mode_Level $7C8` is 162 source cycles when the saved PC is
