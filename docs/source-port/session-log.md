@@ -23,9 +23,11 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 - The platform loader now captures its pre-advance branch: all helpers wrap
   the terminator, reject the first record at the right edge, miss `sub_2728`,
   and derive 428 raw cycles.
+- Clear `MurderWall_flag` derives the `sub_5E02 -> return_5F68` body as
+  38 raw cycles on all three helpers.
 - `mise run verify-slice-fast` is green after `6768b20`, `1e00b9b94`, and
-  `f61162d4f`; it remains green after `c36351acf` and `256295e2a`.
-- NEXT: type the variable Gfx animation/collision/terrain branches and
+  `f61162d4f`; it remains green through `593fa045b`.
+- NEXT: type the variable Gfx animation/collision branches and
   persistent GEMS CPU checkpoint, then bridge FIFO-aware `sub_44DC` exit
   through `loc_892`.
 

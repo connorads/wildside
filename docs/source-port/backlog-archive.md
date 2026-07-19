@@ -368,6 +368,14 @@ elapsed 434/445/456 varies only through refresh and 11-cycle GEMS bus steals.
 Other range, existing-slot, and allocation branches remain fail-closed.
 `mise run verify-slice-fast` is green.
 
+Progress 2026-07-19: commit `593fa045b` types the existing native murder-wall
+state into the post-HUD ledger. `MurderWall_flag` is clear on all three
+helpers, so `sub_5E02` executes only the 12-cycle test, 10-cycle taken branch,
+and 16-cycle `return_5F68`: 38 raw cycles. Selected-PC traces independently
+confirm the same three instructions at frames 1697/1703/1709. Active
+murder-wall collision and sprite paths remain fail-closed.
+`mise run verify-slice-fast` is green.
+
 Deferred 2026-07-19: source review found that normal layout walks set
 `$FFFFFB51` at `Manage_EnemyLoading loc_36968`. A trial correcting the native
 normal loader broke nine synthetic contact tests whose fixtures assume the
