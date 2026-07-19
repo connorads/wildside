@@ -546,6 +546,21 @@ fn player_spawned_prize_block_initial_sub_1007a(
     })
 }
 
+fn player_prize_wobble_list_work_loc_1002e(
+    execute: &ModeLevelExecuteObjectsWork,
+) -> Option<ModeLevelPrizeWobbleListWorkLoc1002E> {
+    execute
+        .player_spawned_prize_block_initial_sub_1007a
+        .as_ref()?;
+    // ASM loc_1002E -> sub_E02: `$2001` follows the priority-1 timer,
+    // `$1FFF` prizes, and `$2000` Kid Object. Its category-4 GfxObject inserts
+    // after every equal key already linked at Execute_Objects entry.
+    Some(ModeLevelPrizeWobbleListWorkLoc1002E {
+        object_insert_rank_loc_de0: execute.floating_prize_workers.checked_add(2)?,
+        gfx_insert_rank_loc_fd4: execute.linked_gfx_object_count,
+    })
+}
+
 fn prize_object_execution_order_sub_e12(
     execute: &ModeLevelExecuteObjectsWork,
 ) -> Option<Vec<ModeLevelPrizeObjectExecutionSubE12>> {
@@ -2011,6 +2026,7 @@ mod tests {
                         deleted_tile: false,
                     }],
                     player_spawned_prize_block_initial_sub_1007a: None,
+                    player_prize_wobble_list_work_loc_1002e: None,
                     prize_object_execution_order_sub_e12: None,
                     prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeBlockTailWork {
                         cell_x: 0x0A,
@@ -2251,6 +2267,7 @@ mod tests {
                 })
                 .collect(),
             player_spawned_prize_block_initial_sub_1007a: None,
+            player_prize_wobble_list_work_loc_1002e: None,
             prize_object_execution_order_sub_e12: None,
             prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeBlockTailWork {
                 cell_x: 31,
@@ -2296,6 +2313,8 @@ mod tests {
                 path: ModeLevelPrizeBlockInitialPathSub1007A::Prize,
                 content: Some(terrain::PrizeContent::Diamond),
             });
+        frame_1697.player_prize_wobble_list_work_loc_1002e =
+            player_prize_wobble_list_work_loc_1002e(&frame_1697);
         assert_eq!(
             mode_level_prize_tail_list_work(&frame_1697, 0, true),
             Some(ModeLevelPrizeTailListWork {
@@ -2404,6 +2423,15 @@ mod tests {
             "nominal source cycles exclude Kid, fixed workers, RNG, and VDP stalls"
         );
         assert_eq!(typed_prize_cycles(&frame_1703), 15_028);
+        assert_eq!(
+            frame_1697.player_prize_wobble_list_work_loc_1002e,
+            Some(ModeLevelPrizeWobbleListWorkLoc1002E {
+                object_insert_rank_loc_de0: 5,
+                gfx_insert_rank_loc_fd4: 14,
+            }),
+            "bounded frame 1697 loc_DE0/loc_FD4 journal"
+        );
+        assert_eq!(frame_1703.player_prize_wobble_list_work_loc_1002e, None);
     }
 
     #[test]
@@ -9589,6 +9617,7 @@ impl NativeRuntime {
                 cyclone_visual_accumulator_before,
                 prize_block_wobble_paths_sub_1007a,
                 player_spawned_prize_block_initial_sub_1007a: None,
+                player_prize_wobble_list_work_loc_1002e: None,
                 prize_object_execution_order_sub_e12: None,
                 prize_block_tail_paths_sub_1066,
                 prize_block_flash_paths_sub_1066,
@@ -9738,6 +9767,10 @@ impl NativeRuntime {
                     Some(&executed_player_path),
                     &self.block_bounces,
                 );
+            ledger
+                .execute_objects
+                .player_prize_wobble_list_work_loc_1002e =
+                player_prize_wobble_list_work_loc_1002e(&ledger.execute_objects);
             ledger.execute_objects.executed_player_path = Some(executed_player_path);
             ledger.execute_objects.player_gfx_terrain_scan = player_gfx_terrain_scan;
             complete_prize_tail_list_work(&mut ledger.execute_objects);

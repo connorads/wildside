@@ -1683,6 +1683,13 @@ pub struct ModeLevelPrizeBlockInitialWorkSub1007A {
     pub content: Option<terrain::PrizeContent>,
 }
 
+/// Linked-list traversal ranks for Kid's same-pass ASM loc_1002E allocation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelPrizeWobbleListWorkLoc1002E {
+    pub object_insert_rank_loc_de0: u16,
+    pub gfx_insert_rank_loc_fd4: u16,
+}
+
 /// Work executed after a one-frame hibernate in ASM `sub_1007A`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -2011,6 +2018,8 @@ pub struct ModeLevelExecuteObjectsWork {
     #[serde(default)]
     pub player_spawned_prize_block_initial_sub_1007a:
         Option<ModeLevelPrizeBlockInitialWorkSub1007A>,
+    #[serde(default)]
+    pub player_prize_wobble_list_work_loc_1002e: Option<ModeLevelPrizeWobbleListWorkLoc1002E>,
     /// `None` means allocation-age ties could not be resolved from source
     /// ordering. This slice deliberately excludes unrelated fixed/enemy
     /// callbacks while preserving every prize callback around Kid.

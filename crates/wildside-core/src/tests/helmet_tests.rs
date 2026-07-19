@@ -9434,6 +9434,27 @@ mod chunk_08 {
                 .as_ref()
                 .expect("Mode_Level work ledger")
                 .execute_objects
+                .player_prize_wobble_list_work_loc_1002e,
+            Some(ModeLevelPrizeWobbleListWorkLoc1002E {
+                object_insert_rank_loc_de0: 5,
+                gfx_insert_rank_loc_fd4: 14,
+            })
+        );
+        assert_eq!(
+            frames[1]
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .expect("Mode_Level work ledger")
+                .execute_objects
+                .player_prize_wobble_list_work_loc_1002e,
+            None
+        );
+        assert_eq!(
+            frames[0]
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .expect("Mode_Level work ledger")
+                .execute_objects
                 .prize_object_execution_order_sub_e12
                 .as_ref()
                 .expect("source-ordered prize callbacks")
