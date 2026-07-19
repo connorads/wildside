@@ -14995,6 +14995,13 @@ PlatformScript_361C:   ; relative offset: 001A\n\
                 .previous_scroll_words(),
             "ASM loc_3001E preloads Horiz_Scroll_Data from the destination camera and cleared Time_Frames",
         );
+
+        runtime.advance_mode_level_tail_loc_892();
+        assert_eq!(runtime.time_frames_loc_3038a, 1);
+        assert!(
+            runtime.mode_level_tail_work_loc_892().is_some(),
+            "the live runtime should gather the destination header/profile and classify the first loc_892 transaction",
+        );
     }
 
     /// ASM loc_D5D2 (kid.asm:16732): `tst.b (NoPrize_Bonus_Flag).w; bne.w

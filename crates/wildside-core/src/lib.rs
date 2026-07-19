@@ -272,6 +272,7 @@ pub struct NativeRuntime {
     frame_index: usize,
     time_frames_loc_3038a: u16,
     mode_level_tail_state_loc_892: ModeLevelTailStateLoc892,
+    mode_level_tail_work_loc_892: Option<ModeLevelTailWorkLoc892>,
     boot_state: BootState,
     trace_input: FrameInput,
     prior_input: FrameInput,
@@ -1324,6 +1325,7 @@ impl NativeRuntime {
             frame_index: 0,
             time_frames_loc_3038a: 0,
             mode_level_tail_state_loc_892: ModeLevelTailStateLoc892::power_on_zero(),
+            mode_level_tail_work_loc_892: None,
             boot_state: BootState::SegaScreen { elapsed: 0 },
             trace_input: FrameInput::default(),
             prior_input: FrameInput::default(),
@@ -1691,6 +1693,55 @@ impl NativeRuntime {
             (camera.y_pos >> 16) as u16,
             self.time_frames_loc_3038a,
         );
+    }
+
+    pub(crate) fn advance_mode_level_tail_loc_892(&mut self) {
+        let Some((width_screens, background_theme)) = self
+            .level_header(self.current_level)
+            .map(|header| (header.width_screens, u16::from(header.background_theme)))
+        else {
+            self.mode_level_tail_work_loc_892 = None;
+            return;
+        };
+        let Some(bgscroll) = self
+            .resource_level_record(self.current_level)
+            .and_then(|record| record.bgscroll_metadata.clone())
+        else {
+            self.mode_level_tail_work_loc_892 = None;
+            return;
+        };
+        let camera = self
+            .opening_slice
+            .map_or_else(|| self.current_camera_state(), |slice| slice.camera);
+        let level_width_tiles = u16::from(width_screens).wrapping_mul(40);
+        let (mut background_width, _) = background_dimensions_loc_11B40(level_width_tiles, 0);
+        let background_format_nonzero = matches!(background_theme, 3 | 5 | 7 | 9);
+        if background_format_nonzero {
+            background_width = 0x0040;
+        }
+
+        let advance =
+            self.mode_level_tail_state_loc_892
+                .advance_loc_892(ModeLevelTailInputsLoc892 {
+                    camera_x_pos: (camera.x_pos >> 16) as u16,
+                    camera_y_pos: (camera.y_pos >> 16) as u16,
+                    time_frames_before_loc_3038a: self.time_frames_loc_3038a,
+                    game_mode_zero: self.game_mode().as_disassembly_value() == 0,
+                    special_effect_4: self.weather.weather_type == 4,
+                    background_width,
+                    background_format_nonzero,
+                    background_no_scroll: false,
+                    background_theme,
+                    bgscroll_profile: &bgscroll.layer_speeds,
+                    bgscroll_has_terminator: bgscroll.has_terminator,
+                });
+        self.mode_level_tail_state_loc_892 = advance.next_state;
+        self.time_frames_loc_3038a = advance.next_time_frames;
+        self.mode_level_tail_work_loc_892 = advance.work;
+    }
+
+    pub fn mode_level_tail_work_loc_892(&self) -> Option<ModeLevelTailWorkLoc892> {
+        self.mode_level_tail_work_loc_892
     }
 
     /// Seed the hardware beam and refresh state at the next live ASM
@@ -3354,6 +3405,7 @@ impl NativeRuntime {
         self.hud_dma_events_sub_44dc.clear();
         self.hud_raster_upload_timings_sub_44dc.clear();
         self.mode_level_work_before_hud_sub_44dc = None;
+        self.mode_level_tail_work_loc_892 = None;
         // ASM loc_12098/loc_12110/loc_12188 DMA requests are emitted by one
         // Execute_Objects pass. Do not retain them across frames whose object
         // pass skips the shore worker, including transformation hibernation.
@@ -4099,7 +4151,7 @@ impl NativeRuntime {
             // The demo Load_InGame bootstrap similarly reaches this tail only
             // from DEMO_MODE_LEVEL_TAIL_START_FRAME. The loc_7E90 cleanup
             // frame returns to the suspended outer pass and reaches it normally.
-            self.time_frames_loc_3038a = self.time_frames_loc_3038a.wrapping_add(1);
+            self.advance_mode_level_tail_loc_892();
         }
         let trace = self.trace_frame();
         if self.demo_post_transform_trace_velocity_hold_frames > 0 {
