@@ -187,7 +187,7 @@ pub struct OracleGemsCheckpoint {
     pub z80_main_registers: [u16; 4],
     /// `[AF', BC', DE', HL']`.
     pub z80_alternate_registers: [u16; 4],
-    /// `[IX, IT, SP]`.
+    /// `[IX, IY, SP]`.
     pub z80_index_registers: [u16; 3],
     pub audio_ram: Vec<u8>,
     pub bank_number: u32,
@@ -1062,7 +1062,7 @@ fn patch_jgenesis_gems_checkpoint(jgenesis_dir: &Path) -> Result<()> {
         z80 = replace_jgenesis_source(
             &z80,
             "    #[must_use]\n    pub fn wildside_gems_checkpoint(&self) -> (u32, bool, u8, bool, bool, bool, bool) {\n        let interrupt_mode = match self.registers.interrupt_mode {\n            InterruptMode::Mode0 => 0,\n            InterruptMode::Mode1 => 1,\n            InterruptMode::Mode2 => 2,\n        };\n        (\n            self.t_cycles_wait,\n            self.stalled,\n            interrupt_mode,\n            self.registers.interrupt_delay,\n            self.registers.halted,\n            self.registers.iff1,\n            self.registers.iff2,\n        )\n    }\n",
-            "    #[must_use]\n    pub fn wildside_gems_checkpoint(\n        &self,\n    ) -> ([u16; 4], [u16; 4], [u16; 3], u32, bool, u8, bool, bool, bool, bool) {\n        let interrupt_mode = match self.registers.interrupt_mode {\n            InterruptMode::Mode0 => 0,\n            InterruptMode::Mode1 => 1,\n            InterruptMode::Mode2 => 2,\n        };\n        let z80_main_registers = [\n            u16::from_be_bytes([self.registers.a, self.registers.f.into()]),\n            u16::from_be_bytes([self.registers.b, self.registers.c]),\n            u16::from_be_bytes([self.registers.d, self.registers.e]),\n            u16::from_be_bytes([self.registers.h, self.registers.l]),\n        ];\n        let z80_alternate_registers = [\n            u16::from_be_bytes([self.registers.ap, self.registers.fp.into()]),\n            u16::from_be_bytes([self.registers.bp, self.registers.cp]),\n            u16::from_be_bytes([self.registers.dp, self.registers.ep]),\n            u16::from_be_bytes([self.registers.hp, self.registers.lp]),\n        ];\n        let z80_index_registers = [self.registers.ix, self.registers.it, self.registers.sp];\n        (\n            z80_main_registers,\n            z80_alternate_registers,\n            z80_index_registers,\n            self.t_cycles_wait,\n            self.stalled,\n            interrupt_mode,\n            self.registers.interrupt_delay,\n            self.registers.halted,\n            self.registers.iff1,\n            self.registers.iff2,\n        )\n    }\n",
+            "    #[must_use]\n    pub fn wildside_gems_checkpoint(\n        &self,\n    ) -> ([u16; 4], [u16; 4], [u16; 3], u32, bool, u8, bool, bool, bool, bool) {\n        let interrupt_mode = match self.registers.interrupt_mode {\n            InterruptMode::Mode0 => 0,\n            InterruptMode::Mode1 => 1,\n            InterruptMode::Mode2 => 2,\n        };\n        let z80_main_registers = [\n            u16::from_be_bytes([self.registers.a, self.registers.f.into()]),\n            u16::from_be_bytes([self.registers.b, self.registers.c]),\n            u16::from_be_bytes([self.registers.d, self.registers.e]),\n            u16::from_be_bytes([self.registers.h, self.registers.l]),\n        ];\n        let z80_alternate_registers = [\n            u16::from_be_bytes([self.registers.ap, self.registers.fp.into()]),\n            u16::from_be_bytes([self.registers.bp, self.registers.cp]),\n            u16::from_be_bytes([self.registers.dp, self.registers.ep]),\n            u16::from_be_bytes([self.registers.hp, self.registers.lp]),\n        ];\n        let z80_index_registers = [self.registers.ix, self.registers.iy, self.registers.sp];\n        (\n            z80_main_registers,\n            z80_alternate_registers,\n            z80_index_registers,\n            self.t_cycles_wait,\n            self.stalled,\n            interrupt_mode,\n            self.registers.interrupt_delay,\n            self.registers.halted,\n            self.registers.iff1,\n            self.registers.iff2,\n        )\n    }\n",
             &z80_rs,
         )?;
         fs::write(&z80_rs, &z80)
@@ -1720,6 +1720,13 @@ mod tests {
                 && HELPER_TEMPLATE.contains("set_wildside_capture_gems_state")
                 && HELPER_TEMPLATE.contains("audio_ram: checkpoint.audio_ram"),
             "full 8 KiB GEMS checkpoints must remain opt-in and tied to selected PC rows"
+        );
+        let source = include_str!("oracle.rs");
+        assert!(
+            source.contains(
+                "z80_index_registers = [self.registers.ix, self.registers.iy, self.registers.sp]"
+            ),
+            "a fresh oracle patch must capture the Z80 IY register",
         );
     }
 
