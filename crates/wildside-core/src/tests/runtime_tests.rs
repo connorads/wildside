@@ -218,6 +218,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
     ];
     let mut observed = Vec::new();
     let mut observed_shooter_work = Vec::new();
+    let mut observed_block_debris_work = Vec::new();
 
     for (frame_index, mask) in script.iter().copied().enumerate().take(1_710) {
         runtime.step_frame(FrameInput::from_mask(mask));
@@ -231,6 +232,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                 manage_enemy_loading_raw_cycles(ledger.enemy_loading_path)
                     .expect("published helper should classify Demo enemy loading");
             observed_shooter_work.push((frame_index, ledger.shooter_collision_work));
+            observed_block_debris_work.push((frame_index, ledger.block_debris_work_sub_2a4c));
             observed.push((
                 frame_index,
                 ledger.phases.clone(),
@@ -438,6 +440,40 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             ),
         ],
         "ASM sub_1F52/sub_219C/sub_226A null-sentinel collision paths",
+    );
+    assert_eq!(
+        observed_block_debris_work
+            .iter()
+            .map(|(frame, work)| (
+                *frame,
+                *work,
+                block_debris_sprites_raw_cycles_sub_2a4c(*work).map(M68kCycleCount::get),
+            ))
+            .collect::<Vec<_>>(),
+        vec![
+            (
+                1_697,
+                ModeLevelBlockDebrisWorkSub2A4C {
+                    active_slot_count: 0,
+                },
+                Some(408),
+            ),
+            (
+                1_703,
+                ModeLevelBlockDebrisWorkSub2A4C {
+                    active_slot_count: 0,
+                },
+                Some(408),
+            ),
+            (
+                1_709,
+                ModeLevelBlockDebrisWorkSub2A4C {
+                    active_slot_count: 0,
+                },
+                Some(408),
+            ),
+        ],
+        "ASM sub_2A4C six inactive scratch-slot paths",
     );
 }
 

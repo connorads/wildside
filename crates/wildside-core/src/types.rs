@@ -2232,6 +2232,12 @@ pub struct ModeLevelShooterCollisionWork {
     pub active_moving_objects: u16,
 }
 
+/// Fixed scratch-debris slots consumed by ASM `sub_2A4C`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelBlockDebrisWorkSub2A4C {
+    pub active_slot_count: u8,
+}
+
 /// Typed observation after ASM `sub_44DC` on the natural `loc_80C -> loc_892`
 /// path.
 ///
@@ -2252,6 +2258,7 @@ pub struct ModeLevelPostHudWorkLedger {
     pub platform_loader_work: Option<ModeLevelPlatformLoaderWorkLoc2744>,
     pub platform_work: ModeLevelPlatformWork,
     pub shooter_collision_work: ModeLevelShooterCollisionWork,
+    pub block_debris_work_sub_2a4c: ModeLevelBlockDebrisWorkSub2A4C,
 }
 
 /// Frame-local HUD art DMA command emitted by ASM `sub_44DC` (kid.asm).

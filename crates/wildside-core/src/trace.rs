@@ -9744,6 +9744,13 @@ impl NativeRuntime {
                     .try_into()
                     .expect("ShooterObject list fits the ROM u16 count"),
             },
+            block_debris_work_sub_2a4c: ModeLevelBlockDebrisWorkSub2A4C {
+                active_slot_count: self
+                    .block_debris_swarms
+                    .len()
+                    .try_into()
+                    .expect("sub_2A4C scratch queue fits its six fixed slots"),
+            },
         }
     }
 

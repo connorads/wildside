@@ -1,14 +1,14 @@
 use crate::{
     HudDmaEventSub44DC, ModeLevelAirborneActionPath, ModeLevelAirborneHorizontalPath,
-    ModeLevelAirborneVerticalPath, ModeLevelCeilingScanReturn, ModeLevelDamageFlashWaitLocBc44,
-    ModeLevelDemoExitWaitLoc119E0, ModeLevelEnemyLoadingPath, ModeLevelExecuteObjectsWork,
-    ModeLevelFloatingPrizeFallPathLoc103B2, ModeLevelInputWorkerPathLoc7452,
-    ModeLevelKidGfxTerrainCollision, ModeLevelPlatformLoaderExistingSlotSub2728,
-    ModeLevelPlatformLoaderRangeLoc2762, ModeLevelPlatformLoaderWorkLoc2744, ModeLevelPlatformWork,
-    ModeLevelPlayerExecutionPath, ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake,
-    ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
-    ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork, ModeLevelReadJoypadWork,
-    ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
+    ModeLevelAirborneVerticalPath, ModeLevelBlockDebrisWorkSub2A4C, ModeLevelCeilingScanReturn,
+    ModeLevelDamageFlashWaitLocBc44, ModeLevelDemoExitWaitLoc119E0, ModeLevelEnemyLoadingPath,
+    ModeLevelExecuteObjectsWork, ModeLevelFloatingPrizeFallPathLoc103B2,
+    ModeLevelInputWorkerPathLoc7452, ModeLevelKidGfxTerrainCollision,
+    ModeLevelPlatformLoaderExistingSlotSub2728, ModeLevelPlatformLoaderRangeLoc2762,
+    ModeLevelPlatformLoaderWorkLoc2744, ModeLevelPlatformWork, ModeLevelPlayerExecutionPath,
+    ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState,
+    ModeLevelPrizeBlockWobbleWake, ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
+    ModeLevelReadJoypadWork, ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
     ModeLevelVerticalCollisionPath, ModeLevelWallCollisionPath,
 };
 
@@ -1353,6 +1353,19 @@ pub fn terrain_effects_raw_cycles_sub_5e02(murder_wall_active: bool) -> Option<M
     Some(M68kCycleCount::from_raw(38))
 }
 
+/// Raw routine-body cost for ASM block-debris sprite compilation `sub_2A4C`.
+pub fn block_debris_sprites_raw_cycles_sub_2a4c(
+    work: ModeLevelBlockDebrisWorkSub2A4C,
+) -> Option<M68kCycleCount> {
+    if work.active_slot_count != 0 {
+        return None;
+    }
+
+    // ASM sub_2A4C loc_2A56/loc_2BA6: each of the six fixed scratch slots
+    // has a clear active byte, so every slot takes the skip-and-advance path.
+    Some(M68kCycleCount::from_raw(408))
+}
+
 /// Raw routine-body cost for ASM shooter-support collision scan `sub_1F52`.
 pub fn shooter_support_collision_raw_cycles_sub_1f52(
     work: ModeLevelShooterCollisionWork,
@@ -1445,6 +1458,22 @@ mod tests {
         assert_eq!(shooter_kid_collision_raw_cycles_sub_219c(moving), None);
         assert_eq!(
             shooter_projectile_collision_raw_cycles_sub_226a(moving),
+            None
+        );
+    }
+
+    #[test]
+    fn inactive_block_debris_slots_take_fixed_six_slot_scan() {
+        assert_eq!(
+            block_debris_sprites_raw_cycles_sub_2a4c(ModeLevelBlockDebrisWorkSub2A4C {
+                active_slot_count: 0,
+            }),
+            Some(M68kCycleCount::from_raw(408))
+        );
+        assert_eq!(
+            block_debris_sprites_raw_cycles_sub_2a4c(ModeLevelBlockDebrisWorkSub2A4C {
+                active_slot_count: 1,
+            }),
             None
         );
     }
