@@ -18821,6 +18821,18 @@ pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offse
 }
 
 impl NativeRuntime {
+    /// ASM Load_InGame loc_11FD2/loc_12004 (kid.asm): queue the level-entry BGM.
+    pub(crate) fn queue_level_start_music_loc_11fd2(&mut self, level_id: LevelId) {
+        let Some(header) = self.level_header(level_id) else {
+            return;
+        };
+        let music = select_level_start_music_loc_11FD2(
+            header.murder_wall_flags != 0,
+            u16::from(header.level_theme),
+        );
+        self.played_bgm_ids.push(music.sound_id as u8);
+    }
+
     pub(crate) fn theme_palette_words<const N: usize>(
         &self,
         relative_path: &str,
@@ -19825,16 +19837,7 @@ impl NativeRuntime {
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
         self.init_post_load_object_routine_loc_11f96(level_id);
-        if let Some(header) = self.level_header(level_id) {
-            // ASM Load_InGame loc_11FD2/loc_12004 (kid.asm:24183-24196):
-            // after post-load effects, queue bgm_Murderwall when the header
-            // flag is set, otherwise index the foreground-theme BGM table.
-            let music = select_level_start_music_loc_11FD2(
-                header.murder_wall_flags != 0,
-                u16::from(header.level_theme),
-            );
-            self.played_bgm_ids.push(music.sound_id as u8);
-        }
+        self.queue_level_start_music_loc_11fd2(level_id);
         self.level_timer = LevelTimer::new();
         self.hud_timer_sprite_seconds_loc_bee8 = LEVEL_TIMER_START_SECONDS;
         self.time_frames_loc_3038a = 0;

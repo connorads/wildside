@@ -3099,6 +3099,19 @@ mod chunk_02 {
     }
 
     #[test]
+    fn begin_demo_gameplay_queues_level_bgm_from_loc_11fd2() {
+        let mut runtime = NativeRuntime::new(manifest());
+
+        runtime.begin_demo_gameplay(LevelId(0));
+
+        assert_eq!(
+            runtime.trace_frame().played_bgm_ids,
+            vec![0x07],
+            "ASM Load_DemoPlay enters Load_InGame and reaches loc_11FD2/loc_12004; demo bootstrap should queue the fixture's bgm_Cave=$07"
+        );
+    }
+
+    #[test]
     fn begin_level_entry_queues_murderwall_bgm_before_theme_lookup_loc_11fd2() {
         let mut assets = manifest();
         let header = assets.levels[0]

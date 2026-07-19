@@ -6340,6 +6340,9 @@ impl NativeRuntime {
         // ASM Load_DemoPlay -> Load_InGame loc_11FB0 allocates loc_1202A for
         // Island backgrounds on demo entry just as it does on normal entry.
         self.init_post_load_object_routine_loc_11f96(level_id);
+        // ASM Load_DemoPlay enters Load_InGame and reaches loc_11FD2/loc_12004
+        // after the shared post-load initialisers.
+        self.queue_level_start_music_loc_11fd2(level_id);
         self.level_timer = LevelTimer::new();
         // ASM Load_DemoPlay -> Load_InGame enters sub_8E0's loc_8FE HUD tail
         // before the demo bootstrap first exposes gameplay. Init_SpriteAttr_HUD

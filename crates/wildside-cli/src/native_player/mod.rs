@@ -1036,7 +1036,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         let mut queued_bgm_start_this_frame = false;
         let mut suppress_sfx_this_frame = false;
         let (next_bgm_cue, bgm_command) =
-            native_bgm_state_after_trace(manifest, &trace, active_bgm_cue);
+            native_bgm_state_after_trace_delta(manifest, Some(&prev_trace), &trace, active_bgm_cue);
         if let Some(command) = bgm_command
             && let Some(recorder) = recorder.as_mut()
         {

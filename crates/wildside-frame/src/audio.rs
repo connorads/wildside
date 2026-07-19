@@ -145,7 +145,14 @@ pub enum NativeBgmPlaybackCommand {
 }
 
 pub fn native_bgm_cue_for_trace(trace: &NativeTraceFrame) -> Option<NativeBgmCue> {
-    match (trace.game_mode, trace.played_bgm_ids.last().copied()) {
+    native_bgm_cue_for_trace_with_event(trace, trace.played_bgm_ids.last().copied())
+}
+
+fn native_bgm_cue_for_trace_with_event(
+    trace: &NativeTraceFrame,
+    queued_bgm: Option<u8>,
+) -> Option<NativeBgmCue> {
+    match (trace.game_mode, queued_bgm) {
         // ASM Score_Board loc_C238 (kid.asm:15812): core queues the exact
         // `bgm_Score_Board` command once the EOL path reaches the BGM frame.
         (GameMode::InGame | GameMode::DemoPlay, Some(gems_bgm::SCORE_BOARD))
@@ -197,7 +204,59 @@ pub fn native_bgm_state_after_trace(
     trace: &NativeTraceFrame,
     active_bgm_cue: Option<NativeBgmCue>,
 ) -> (Option<NativeBgmCue>, Option<NativeBgmPlaybackCommand>) {
-    let Some(cue) = native_bgm_cue_for_trace(trace) else {
+    native_bgm_state_after_trace_delta(manifest, None, trace, active_bgm_cue)
+}
+
+pub fn native_bgm_state_after_trace_delta(
+    manifest: &AssetManifest,
+    previous_trace: Option<&NativeTraceFrame>,
+    trace: &NativeTraceFrame,
+    active_bgm_cue: Option<NativeBgmCue>,
+) -> (Option<NativeBgmCue>, Option<NativeBgmPlaybackCommand>) {
+    let queued_bgm = previous_trace.map_or_else(
+        || trace.played_bgm_ids.last().copied(),
+        |previous| {
+            if trace.played_bgm_ids.len() >= previous.played_bgm_ids.len() {
+                trace.played_bgm_ids[previous.played_bgm_ids.len()..]
+                    .last()
+                    .copied()
+            } else {
+                trace.played_bgm_ids.last().copied()
+            }
+        },
+    );
+    let level_changed_during_loader = previous_trace.is_some_and(|previous| {
+        matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
+            && previous.current_level != trace.current_level
+    });
+    if queued_bgm.is_none() && level_changed_during_loader {
+        if active_bgm_cue == Some(NativeBgmCue::StoppedForTransition) {
+            return (active_bgm_cue, None);
+        }
+        // ASM Load_DemoPlay -> Load_InGame (kid.asm:23623-23629) changes
+        // Current_LevelID at the loader boundary which reaches StopMusic,
+        // before the later loc_11FD2/loc_12004 PlaySound call.
+        return (
+            Some(NativeBgmCue::StoppedForTransition),
+            Some(NativeBgmPlaybackCommand::StopMusic),
+        );
+    }
+    if queued_bgm.is_none()
+        && active_bgm_cue == Some(NativeBgmCue::StoppedForTransition)
+        && matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
+    {
+        return (active_bgm_cue, None);
+    }
+    if queued_bgm.is_none()
+        && previous_trace.is_some()
+        && matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
+    {
+        // Keep the cue selected by the most recent explicit PlaySound event.
+        // Falling back to `Level(level_id)` here would make the next frame
+        // appear to change cue type and reset GEMS a second time.
+        return (active_bgm_cue, None);
+    }
+    let Some(cue) = native_bgm_cue_for_trace_with_event(trace, queued_bgm) else {
         if active_bgm_cue == Some(NativeBgmCue::StoppedForTransition) {
             return (active_bgm_cue, None);
         }
@@ -242,6 +301,28 @@ pub fn native_bgm_state_after_trace(
         }
         return (active_bgm_cue, None);
     };
+    if queued_bgm.is_none() {
+        match (active_bgm_cue, cue) {
+            (Some(NativeBgmCue::Level(active_level)), NativeBgmCue::Level(next_level))
+                if active_level != next_level =>
+            {
+                // ASM Load_InGame (kid.asm:23623-23629) runs StopMusic before
+                // level loading, while loc_12004 queues the new BGM only after
+                // the loading-card wait. A level-ID change is therefore a
+                // reset boundary, never evidence that PlaySound already ran.
+                return (
+                    Some(NativeBgmCue::StoppedForTransition),
+                    Some(NativeBgmPlaybackCommand::StopMusic),
+                );
+            }
+            (Some(NativeBgmCue::StoppedForTransition), NativeBgmCue::Level(_)) => {
+                // Wait for the explicit `played_bgm_ids` event emitted by
+                // loc_12004 instead of replaying the inferred level theme.
+                return (active_bgm_cue, None);
+            }
+            _ => {}
+        }
+    }
     if Some(cue) == active_bgm_cue {
         return (active_bgm_cue, None);
     }
@@ -283,7 +364,7 @@ pub fn native_audio_events_for_trace_with_initial_bgm(
     for (frame_index, trace) in trace_frames.iter().enumerate() {
         let active_before = active_bgm_cue;
         let (next_bgm_cue, bgm_command) =
-            native_bgm_state_after_trace(manifest, trace, active_bgm_cue);
+            native_bgm_state_after_trace_delta(manifest, prev_trace, trace, active_bgm_cue);
         if let Some(command) = bgm_command {
             events.push(format_native_bgm_event(
                 frame_index,
@@ -384,8 +465,12 @@ impl NativeAudioDirector {
         trace: &NativeTraceFrame,
         audio: &mut impl NativeAudioSink,
     ) -> bool {
-        let (next_bgm_cue, bgm_command) =
-            native_bgm_state_after_trace(manifest, trace, self.active_bgm_cue);
+        let (next_bgm_cue, bgm_command) = native_bgm_state_after_trace_delta(
+            manifest,
+            self.prev_trace.as_ref(),
+            trace,
+            self.active_bgm_cue,
+        );
         let mut queued_bgm_start_this_frame = false;
         let mut suppress_sfx_this_frame = false;
         if let Some(command) = bgm_command {
@@ -1278,6 +1363,88 @@ mod tests {
         assert_eq!(
             settled_audio_initial_bgm_id(&manifest, Some(NativeBgmCue::StoppedForTransition)),
             None
+        );
+    }
+
+    #[test]
+    fn level_change_waits_for_explicit_loc_12004_bgm_after_stop_music() {
+        let manifest = test_manifest();
+        let mut next_level = trace(GameMode::DemoPlay);
+        next_level.current_level = LevelId(27);
+
+        let (stopped, reset) = native_bgm_state_after_trace(
+            &manifest,
+            &next_level,
+            Some(NativeBgmCue::Level(LevelId(0))),
+        );
+        assert_eq!(stopped, Some(NativeBgmCue::StoppedForTransition));
+        assert_eq!(reset, Some(NativeBgmPlaybackCommand::StopMusic));
+
+        assert_eq!(
+            native_bgm_state_after_trace(&manifest, &next_level, stopped),
+            (Some(NativeBgmCue::StoppedForTransition), None),
+            "ASM Load_InGame waits between StopMusic and loc_12004"
+        );
+
+        next_level.played_bgm_ids.push(gems_bgm::SKY);
+        assert_eq!(
+            native_bgm_state_after_trace(&manifest, &next_level, stopped),
+            (
+                Some(NativeBgmCue::CoreQueued(gems_bgm::SKY)),
+                Some(NativeBgmPlaybackCommand::Start(gems_bgm::SKY)),
+            ),
+            "ASM loc_12004's j_PlaySound call is the authoritative start event"
+        );
+    }
+
+    #[test]
+    fn demo_entry_treats_only_new_loc_12004_bgm_ids_as_queue_events() {
+        let manifest = test_manifest();
+        let mut title = trace(GameMode::TitleScreen);
+        title.played_bgm_ids.push(gems_bgm::SKY);
+        let mut demo_loader = trace(GameMode::DemoPlay);
+        demo_loader.played_bgm_ids.push(gems_bgm::SKY);
+
+        let (stopped, reset) = native_bgm_state_after_trace_delta(
+            &manifest,
+            Some(&title),
+            &demo_loader,
+            Some(NativeBgmCue::TitleShell),
+        );
+        assert_eq!(stopped, Some(NativeBgmCue::TitleShell));
+        assert_eq!(reset, None);
+
+        let mut level_switched = demo_loader.clone();
+        level_switched.current_level = LevelId(27);
+        let (stopped, reset) = native_bgm_state_after_trace_delta(
+            &manifest,
+            Some(&demo_loader),
+            &level_switched,
+            stopped,
+        );
+        assert_eq!(stopped, Some(NativeBgmCue::StoppedForTransition));
+        assert_eq!(
+            reset,
+            Some(NativeBgmPlaybackCommand::StopMusic),
+            "ASM Load_DemoPlay -> Load_InGame reaches StopMusic at the Current_LevelID switch before loc_12004"
+        );
+
+        let mut queued = level_switched.clone();
+        queued.played_bgm_ids.push(gems_bgm::SKY);
+        assert_eq!(
+            native_bgm_state_after_trace_delta(&manifest, Some(&level_switched), &queued, stopped,),
+            (
+                Some(NativeBgmCue::CoreQueued(gems_bgm::SKY)),
+                Some(NativeBgmPlaybackCommand::Start(gems_bgm::SKY)),
+            ),
+            "ASM loc_12004's new trace event starts the demo BGM after the reset gap"
+        );
+
+        let active = Some(NativeBgmCue::CoreQueued(gems_bgm::SKY));
+        assert_eq!(
+            native_bgm_state_after_trace_delta(&manifest, Some(&queued), &queued, active),
+            (active, None),
+            "the cumulative loc_12004 event must not reset GEMS again on the following frame"
         );
     }
 
