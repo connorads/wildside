@@ -1,7 +1,7 @@
 use crate::{
     HudDmaEventSub44DC, ModeLevelAirborneActionPath, ModeLevelAirborneHorizontalPath,
     ModeLevelAirborneVerticalPath, ModeLevelCeilingScanReturn, ModeLevelDamageFlashWaitLocBc44,
-    ModeLevelDemoExitWaitLoc119E0, ModeLevelExecuteObjectsWork,
+    ModeLevelDemoExitWaitLoc119E0, ModeLevelEnemyLoadingPath, ModeLevelExecuteObjectsWork,
     ModeLevelFloatingPrizeFallPathLoc103B2, ModeLevelInputWorkerPathLoc7452,
     ModeLevelKidGfxTerrainCollision, ModeLevelPlayerExecutionPath, ModeLevelPreHudWorkLedger,
     ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
@@ -1258,6 +1258,22 @@ pub fn read_joypad_raw_cycles(work: ModeLevelReadJoypadWork) -> Option<M68kCycle
     }))
 }
 
+/// Raw routine-body cost for ASM `Manage_EnemyLoading` (`kid.asm`).
+///
+/// The `Mode_Level loc_80C` caller and `j_Manage_EnemyLoading` jump-table
+/// shell are excluded. Layout walks remain fail-closed until their cursor and
+/// enemy-status branches are typed.
+pub fn manage_enemy_loading_raw_cycles(path: ModeLevelEnemyLoadingPath) -> Option<M68kCycleCount> {
+    match path {
+        // ASM Manage_EnemyLoading loc_36814 -> return_3682A: Demo mode
+        // passes the FB6A and Game_Mode tests, then rejects non-Knights Isle.
+        ModeLevelEnemyLoadingPath::DemoNonKnightsReturnLoc3682a => {
+            Some(M68kCycleCount::from_raw(84))
+        }
+        ModeLevelEnemyLoadingPath::LayoutWalkLoc3682c => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1863,6 +1879,22 @@ mod tests {
         assert_eq!(
             read_joypad_raw_cycles(ModeLevelReadJoypadWork::FirstControllerLocB8c),
             None,
+        );
+    }
+
+    #[test]
+    fn demo_enemy_loader_early_return_has_source_derived_raw_cost_loc_36814() {
+        assert_eq!(
+            manage_enemy_loading_raw_cycles(
+                ModeLevelEnemyLoadingPath::DemoNonKnightsReturnLoc3682a,
+            ),
+            Some(M68kCycleCount::from_raw(84)),
+            "ASM Manage_EnemyLoading loc_36814 -> return_3682A",
+        );
+        assert_eq!(
+            manage_enemy_loading_raw_cycles(ModeLevelEnemyLoadingPath::LayoutWalkLoc3682c),
+            None,
+            "variable layout walks must remain fail-closed",
         );
     }
 

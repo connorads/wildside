@@ -226,10 +226,14 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                 .expect("published helper should take the natural loc_80C path");
             let read_joypad_raw_cycles = read_joypad_raw_cycles(ledger.read_joypad_work)
                 .expect("published helper should classify Demo ReadJoypad");
+            let enemy_loading_raw_cycles =
+                manage_enemy_loading_raw_cycles(ledger.enemy_loading_path)
+                    .expect("published helper should classify Demo enemy loading");
             observed.push((
                 frame_index,
                 ledger.phases.clone(),
                 ledger.enemy_loading_path,
+                enemy_loading_raw_cycles.get(),
                 ledger.read_joypad_work,
                 read_joypad_raw_cycles.get(),
                 ledger.enemy_loading_initial_pass_complete,
@@ -243,7 +247,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
         observed
             .iter()
             .map(
-                |(_, phases, enemy_path, joypad_path, _, loader_complete, _, _)| (
+                |(_, phases, enemy_path, _, joypad_path, _, loader_complete, _, _)| (
                     phases,
                     *enemy_path,
                     *joypad_path,
@@ -291,16 +295,18 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
     assert_eq!(
         observed
             .iter()
-            .map(|(frame, _, _, _, raw_cycles, _, gfx_count, platforms)| {
-                (*frame, *raw_cycles, *gfx_count, *platforms)
-            })
+            .map(
+                |(frame, _, _, enemy_raw, _, joypad_raw, _, gfx_count, platforms)| {
+                    (*frame, *enemy_raw, *joypad_raw, *gfx_count, *platforms)
+                },
+            )
             .collect::<Vec<_>>(),
         vec![
-            (1_697, 1_234, 16, 0),
-            (1_703, 1_234, 17, 0),
-            (1_709, 1_234, 16, 0),
+            (1_697, 84, 1_234, 16, 0),
+            (1_703, 84, 1_234, 17, 0),
+            (1_709, 84, 1_234, 16, 0),
         ],
-        "ASM ReadJoypad and linked GfxObject/platform work",
+        "ASM enemy loading, ReadJoypad, and linked GfxObject/platform work",
     );
 }
 
