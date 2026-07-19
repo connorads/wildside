@@ -1747,6 +1747,22 @@ pub struct ModeLevelPrizeBlockFlashWork {
     pub wake: ModeLevelPrizeAnimationWake,
 }
 
+/// Terrain/fall branch taken by one diamond prize wake at ASM `loc_103B2`.
+///
+/// The grace variants execute the second `Level_Layout` probe one row below
+/// the current cell. Falling then either keeps `d0`'s aligned row or reaches
+/// `loc_10402` after advancing `a2`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelFloatingPrizeFallPathLoc103B2 {
+    DirectFallSameRow,
+    DirectFallAdvanceRow,
+    GraceProbeFallSameRow,
+    GraceProbeFallAdvanceRow,
+    BlockedCurrentRow,
+    BlockedGraceProbe,
+}
+
 /// One live falling-prize coroutine after its one-frame hibernate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelFloatingPrizeWork {
@@ -1755,6 +1771,10 @@ pub struct ModeLevelFloatingPrizeWork {
     pub spawn_delay: u16,
     pub first_row_grace: bool,
     pub collision_latched: bool,
+    /// `None` means native has no level grid from which to prove the two
+    /// `Level_Layout` probes.
+    #[serde(default)]
+    pub fall_path_loc_103b2: Option<ModeLevelFloatingPrizeFallPathLoc103B2>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

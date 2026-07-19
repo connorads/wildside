@@ -306,6 +306,18 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-18: each live falling diamond in the pre-HUD ledger now
+classifies the exact `PrizeDiamond_Init loc_103B2..loc_10402` wake path:
+current-row direct fall, grace-probe fall, or blocked, each split again by
+whether gravity advances the aligned layout row. This is the missing source
+distinction behind the bounded callbacks spanning roughly 580-700 cycles;
+`first_row_grace` alone could not select the instruction path. The natural
+frame-1697 ledger records one blocked-current-row diamond and two
+grace-probe/same-row falls; frame 1703 adds one direct/same-row fall. Next
+construct the source-ordered callback sequence and sum these typed branches
+with the Kid, wobble, tail, flash, allocator, and dispatcher costs before
+assigning any FIFO slot.
+
 Progress 2026-07-18: the finishing `sub_1007A` completion now carries all
 seven zero-based linked-list traversal ranks. Native derives them from
 `loc_DE0`'s selector ordering/equal-selector LIFO rule, `loc_FD4`'s

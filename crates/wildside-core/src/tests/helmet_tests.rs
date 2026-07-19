@@ -9363,6 +9363,17 @@ mod chunk_08 {
                 .iter()
                 .find_map(|tail| tail.list_work)
         };
+        let floating_fall_paths = |frame: &NativeTraceFrame| {
+            frame
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .expect("Mode_Level work ledger")
+                .execute_objects
+                .floating_prize_paths
+                .iter()
+                .map(|prize| prize.fall_path_loc_103b2)
+                .collect::<Vec<_>>()
+        };
 
         // ASM Allocate_ObjectSlot loc_DE0, Allocate_GfxObjectSlot loc_FD4,
         // Deallocate_ObjectSlot loc_EA2, and Deallocate_GfxObject
@@ -9391,6 +9402,26 @@ mod chunk_08 {
                 tail_gfx_delete_rank_loc_10ba: 5,
                 tail_gfx_category4_delete_rank_loc_1106: 12,
             })
+        );
+        // ASM PrizeDiamond_Init loc_103B2..loc_10402: the parallel prize
+        // records also preserve whether this wake stops at the current solid
+        // row, falls directly, or uses the one-row grace probe.
+        assert_eq!(
+            floating_fall_paths(&frames[0]),
+            vec![
+                Some(ModeLevelFloatingPrizeFallPathLoc103B2::BlockedCurrentRow),
+                Some(ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallSameRow),
+                Some(ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallSameRow),
+            ]
+        );
+        assert_eq!(
+            floating_fall_paths(&frames[1]),
+            vec![
+                Some(ModeLevelFloatingPrizeFallPathLoc103B2::BlockedCurrentRow),
+                Some(ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallSameRow),
+                Some(ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallSameRow),
+                Some(ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallSameRow),
+            ]
         );
     }
 

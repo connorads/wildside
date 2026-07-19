@@ -470,6 +470,40 @@ fn floating_prize_allocation_age(work: ModeLevelFloatingPrizeWork) -> u16 {
     NativeRuntime::floating_item_lifetime(work.content).saturating_sub(work.remaining)
 }
 
+fn floating_prize_fall_path_loc_103b2(
+    item: &FloatingItem,
+    current_collision: terrain::CollisionKind,
+    below_collision: terrain::CollisionKind,
+) -> ModeLevelFloatingPrizeFallPathLoc103B2 {
+    let passable = |collision| {
+        matches!(
+            collision,
+            terrain::CollisionKind::Empty | terrain::CollisionKind::HiddenBlock
+        )
+    };
+    let used_grace_probe = if passable(current_collision) {
+        false
+    } else if !item.first_row_grace {
+        return ModeLevelFloatingPrizeFallPathLoc103B2::BlockedCurrentRow;
+    } else if passable(below_collision) {
+        true
+    } else {
+        return ModeLevelFloatingPrizeFallPathLoc103B2::BlockedGraceProbe;
+    };
+
+    // ASM loc_103DE (kid.asm:21648): gravity is added before y_pos, then
+    // loc_103F6 compares the new aligned row with `d0`.
+    let next_y_velocity = item.y_velocity.saturating_add(0x1388);
+    let next_y_pos = item.y_pos.saturating_add(i64::from(next_y_velocity));
+    let crosses_row = ((next_y_pos >> 16) as i32 & !0xF) != ((item.y_pos >> 16) as i32 & !0xF);
+    match (used_grace_probe, crosses_row) {
+        (false, false) => ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallSameRow,
+        (false, true) => ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallAdvanceRow,
+        (true, false) => ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallSameRow,
+        (true, true) => ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallAdvanceRow,
+    }
+}
+
 fn player_allocates_prize_wobble_before_tails(path: Option<&ModeLevelPlayerExecutionPath>) -> bool {
     let Some(ModeLevelPlayerExecutionPath::NormalPhysics(path)) = path else {
         return false;
@@ -1854,6 +1888,7 @@ mod tests {
                         spawn_delay: 0,
                         first_row_grace: false,
                         collision_latched: false,
+                        fall_path_loc_103b2: None,
                     }],
                     executed_player_path: None,
                 },
@@ -1957,6 +1992,87 @@ mod tests {
         );
     }
 
+    #[test]
+    fn floating_prize_work_types_loc_103b2_layout_and_row_branches() {
+        let item = FloatingItem {
+            x_pos: 0,
+            y_pos: 0x0040_0000,
+            y_velocity: 0,
+            remaining: 0x01F4,
+            spawn_delay: 0,
+            level_col: 0,
+            level_row: 4,
+            first_row_grace: false,
+            content: terrain::PrizeContent::Diamond,
+            collected: false,
+            collision_latched: false,
+        };
+        assert_eq!(
+            floating_prize_fall_path_loc_103b2(
+                &item,
+                terrain::CollisionKind::Empty,
+                terrain::CollisionKind::Solid,
+            ),
+            ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallSameRow,
+            "ASM loc_103B2 branches directly to loc_103DE on an open current row"
+        );
+        assert_eq!(
+            floating_prize_fall_path_loc_103b2(
+                &FloatingItem {
+                    y_pos: 0x004F_0000,
+                    y_velocity: 0x0001_0000,
+                    ..item.clone()
+                },
+                terrain::CollisionKind::HiddenBlock,
+                terrain::CollisionKind::Solid,
+            ),
+            ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallAdvanceRow,
+            "ASM loc_103F6 reaches loc_10402 when gravity crosses the aligned row"
+        );
+        assert_eq!(
+            floating_prize_fall_path_loc_103b2(
+                &item,
+                terrain::CollisionKind::Solid,
+                terrain::CollisionKind::Empty,
+            ),
+            ModeLevelFloatingPrizeFallPathLoc103B2::BlockedCurrentRow
+        );
+
+        let grace = FloatingItem {
+            first_row_grace: true,
+            ..item
+        };
+        assert_eq!(
+            floating_prize_fall_path_loc_103b2(
+                &grace,
+                terrain::CollisionKind::Solid,
+                terrain::CollisionKind::Empty,
+            ),
+            ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallSameRow,
+            "ASM loc_103B2 bit-$10 path probes one row below before falling"
+        );
+        assert_eq!(
+            floating_prize_fall_path_loc_103b2(
+                &FloatingItem {
+                    y_pos: 0x004F_0000,
+                    y_velocity: 0x0001_0000,
+                    ..grace.clone()
+                },
+                terrain::CollisionKind::Solid,
+                terrain::CollisionKind::Empty,
+            ),
+            ModeLevelFloatingPrizeFallPathLoc103B2::GraceProbeFallAdvanceRow
+        );
+        assert_eq!(
+            floating_prize_fall_path_loc_103b2(
+                &grace,
+                terrain::CollisionKind::Solid,
+                terrain::CollisionKind::Solid,
+            ),
+            ModeLevelFloatingPrizeFallPathLoc103B2::BlockedGraceProbe
+        );
+    }
+
     fn prize_tail_rank_fixture(
         linked_object_count: u16,
         linked_gfx_object_count: u16,
@@ -2015,6 +2131,7 @@ mod tests {
                     spawn_delay: 0,
                     first_row_grace: false,
                     collision_latched: false,
+                    fall_path_loc_103b2: None,
                 })
                 .collect(),
             executed_player_path: None,
@@ -9188,12 +9305,23 @@ impl NativeRuntime {
             .floating_items
             .iter()
             .filter(|item| !item.collected)
-            .map(|item| ModeLevelFloatingPrizeWork {
-                content: item.content,
-                remaining: item.remaining,
-                spawn_delay: item.spawn_delay,
-                first_row_grace: item.first_row_grace,
-                collision_latched: item.collision_latched,
+            .map(|item| {
+                let fall_path_loc_103b2 = self.block_grid.as_ref().map(|grid| {
+                    floating_prize_fall_path_loc_103b2(
+                        item,
+                        grid.cell_at(item.level_col, item.level_row).collision,
+                        grid.cell_at(item.level_col, item.level_row.saturating_add(1))
+                            .collision,
+                    )
+                });
+                ModeLevelFloatingPrizeWork {
+                    content: item.content,
+                    remaining: item.remaining,
+                    spawn_delay: item.spawn_delay,
+                    first_row_grace: item.first_row_grace,
+                    collision_latched: item.collision_latched,
+                    fall_path_loc_103b2,
+                }
             })
             .collect();
         let mut phases = vec![

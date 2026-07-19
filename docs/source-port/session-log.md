@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#409 typed floating-prize fall branches)
+
+- Added all six `PrizeDiamond_Init loc_103B2..loc_10402` current-row,
+  grace-probe, blocked, and aligned-row-advance paths to the pre-HUD ledger.
+- Natural frame 1697 is blocked plus two grace/same-row callbacks; frame 1703
+  adds one direct/same-row callback.
+- NEXT: derive linked execution order, sum source branch costs, and schedule
+  the existing frame-1697 life upload at its H40 FIFO slot.
+
+---
+
 ## 2026-07-18 handoff (#409 typed linked-list ranks)
 
 - Completing prize tails now carry their flash/prize Object and Gfx insertion
