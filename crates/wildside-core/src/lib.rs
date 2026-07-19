@@ -3798,8 +3798,10 @@ impl NativeRuntime {
             || (self.demo_gameplay_active() && self.opening_slice.is_some());
         if matches!(
             self.boot_state,
-            BootState::DemoPlay { frame_counter, .. }
-                if frame_counter >= demo::DEMO_MODE_LEVEL_TAIL_START_FRAME
+            BootState::DemoPlay {
+                frame_counter,
+                ..
+            } if frame_counter >= demo::DEMO_HUD_TIMER_TAIL_START_FRAME
         ) && gameplay_slice_active
             && !transform_hibernating_at_frame_start
         {
@@ -4137,8 +4139,11 @@ impl NativeRuntime {
 
         let demo_mode_level_tail_hibernating = matches!(
             self.boot_state,
-            BootState::DemoPlay { frame_counter, .. }
-                if frame_counter < demo::DEMO_MODE_LEVEL_TAIL_START_FRAME
+            BootState::DemoPlay {
+                frame_counter,
+                use_demo_2,
+                ..
+            } if frame_counter < demo::mode_level_tail_start_frame(use_demo_2)
         );
         if self.game_mode().as_disassembly_value() != 0
             && !demo_mode_level_tail_hibernating
@@ -4148,9 +4153,9 @@ impl NativeRuntime {
             // Execute_Objects pass returns. Kid_Transform loc_7CBE/loc_7D22
             // instead waits inside sub_8E0, so those VBlanks transfer the
             // existing scroll/HUD buffers without incrementing Time_Frames.
-            // The demo Load_InGame bootstrap similarly reaches this tail only
-            // from DEMO_MODE_LEVEL_TAIL_START_FRAME. The loc_7E90 cleanup
-            // frame returns to the suspended outer pass and reaches it normally.
+            // The two Load_DemoPlay paths reach this tail on their independently
+            // measured startup frames. The loc_7E90 cleanup frame returns to
+            // the suspended outer pass and reaches it normally.
             self.advance_mode_level_tail_loc_892();
         }
         let trace = self.trace_frame();

@@ -167,6 +167,42 @@ fn published_tas_no_z80_polls_drive_frames_1703_and_1709_life_icon_timing() {
 }
 
 #[test]
+fn published_tas_helpers_1696_1702_1708_derive_live_mode_tail_work() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut observed = Vec::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_709) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if matches!(frame_index, 1_696 | 1_702 | 1_708) {
+            let work = runtime
+                .mode_level_tail_work_loc_892()
+                .expect("published natural Mode_Level tail should classify");
+            observed.push((
+                frame_index,
+                work.background_loc_3038a
+                    .piece_rows_sub_30744
+                    .rendered_nonnegative_entries,
+                mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(&work)
+                    .expect("published helper tail has no external waits")
+                    .get(),
+            ));
+        }
+    }
+
+    assert_eq!(
+        observed,
+        vec![
+            (1_696, 29, 12_852),
+            (1_702, 29, 13_080),
+            (1_708, 22, 12_310),
+        ],
+        "ASM loc_892 live state should reproduce the oracle helper ledgers",
+    );
+}
+
+#[test]
 fn published_tas_demo_bootstrap_presents_hud_timer_before_authoritative_timer_tail() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;
