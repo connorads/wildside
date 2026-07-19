@@ -306,6 +306,28 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: commit `6e0234010` corrects three independently
+source-backed hardware boundaries. The GEMS timing engine now retains the
+jgenesis-visible YM scheduler phase modulo master/42 separately from the raw
+master/7 clock passed to the YM shadow; maskable IM1 INT is serviced before
+the next opcode instead of after it; and the `sub_E13DA` driver copy starts
+only after the Stop_z80 BUSACK poll completes. Permanent regressions pin the
+IM1 return address, both YM dividers, and BUSREQ/BUSACK copy ordering.
+
+The frame-70 Ice `sub_E151C` entry remains exact including SP `$1A1A`. At the
+frame-70 VINT checkpoint native/oracle agree on PC `$003C`, divider 6, odd
+access parity, YM phase 28, and bank `$0E0000`; native T-wait is 4 against 15,
+SP is `$1A1C` against `$1A1E`, and RAM differs only at `$003E`, `$1A1C`, and
+`$1A1D`. Frame 71 then converges completely: PC `$003C`, divider 7, T-wait
+11, odd parity, YM phase 14, bank `$0E0000`, IX `$1B80`, IY `$0009`, SP
+`$1A1C`, and all 8 KiB RAM exact. Frame 72 is the first post-convergence miss:
+native/oracle PC `$003C/$0038`, divider `12/14`, T-wait `6/5`, and even/odd
+access parity. NEXT: journal instruction boundaries and banked reads between
+the exact frame-71 checkpoint and frame 72; do not resume the former
+frame-70..139 search. `mise run verify-slice-fast`, the commit hook, and the
+full 37,759-frame `mise run verify-tas-full` pass with the unchanged
+26,382-exact visual baseline.
+
 Progress 2026-07-19: commit `3b546c8` models the power-on GEMS history rather
 than fitting the final title phase. Absolute master clock zero now means VDP
 scanline 0 and starts with Z80 reset asserted; the existing native-frame
@@ -412,7 +434,7 @@ through the same persistent engine, then join the new tail adapter and timed
 `StopMusic`.
 
 Correction 2026-07-19: commit `5cbad4684` extends opt-in oracle GEMS
-checkpoints with `[AF,BC,DE,HL]`, `[AF',BC',DE',HL']`, and `[IX,IT,SP]`.
+checkpoints with `[AF,BC,DE,HL]`, `[AF',BC',DE',HL']`, and `[IX,IY,SP]`.
 Reproducing the checkpoint exposed a cross-route comparison in the preceding
 handoff: `/tmp/issue409-gems-checkpoint.log` is
 `any-percent-published` frame 1709, while the scratch native replay used

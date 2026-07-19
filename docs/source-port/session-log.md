@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 Z80 interrupt boundary)
+
+- Commit `6e0234010` samples GEMS IM1 INT before the next opcode, separates
+  the master/7 YM input clock from the scheduler's master/42 phase, and waits
+  for `sub_E13DA` BUSACK before copying the StopMusic driver.
+- The frame-70 Ice queue entry remains exact, including SP `$1A1A`. At the
+  frame-70 VINT checkpoint only three interrupt-stack RAM bytes differ.
+- Frame 71 is fully exact: PC, divider, T-wait, access parity, YM phase, bank,
+  IX/IY/SP, and all 8 KiB of Z80 RAM match the oracle.
+- Frame 72 is the first post-convergence miss: native/oracle PC `$003C/$0038`,
+  divider `12/14`, T-wait `6/5`, and even/odd bank-access parity.
+- `mise run verify-slice-fast`, the commit hook, and `mise run
+  verify-tas-full` pass. The full pixel baseline remains 26,382 exact /
+  11,377 divergent / 3,620,978 changed pixels.
+- NEXT: compare instruction boundaries and banked reads only between the exact
+  frame-71 checkpoint and frame 72.
+
 ## 2026-07-19 handoff (#409 power-on Z80 timeline)
 
 - Commit `3b546c8` separates power-on scanline-zero timing from native
