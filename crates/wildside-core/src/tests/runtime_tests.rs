@@ -219,6 +219,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
     let mut observed = Vec::new();
     let mut observed_shooter_work = Vec::new();
     let mut observed_block_debris_work = Vec::new();
+    let mut observed_diamond_power_compile_work = Vec::new();
 
     for (frame_index, mask) in script.iter().copied().enumerate().take(1_710) {
         runtime.step_frame(FrameInput::from_mask(mask));
@@ -233,6 +234,8 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                     .expect("published helper should classify Demo enemy loading");
             observed_shooter_work.push((frame_index, ledger.shooter_collision_work));
             observed_block_debris_work.push((frame_index, ledger.block_debris_work_sub_2a4c));
+            observed_diamond_power_compile_work
+                .push((frame_index, ledger.diamond_power_compile_work_sub_3f798));
             observed.push((
                 frame_index,
                 ledger.phases.clone(),
@@ -474,6 +477,40 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             ),
         ],
         "ASM sub_2A4C six inactive scratch-slot paths",
+    );
+    assert_eq!(
+        observed_diamond_power_compile_work
+            .iter()
+            .map(|(frame, work)| (
+                *frame,
+                *work,
+                diamond_power_compile_sprites_raw_cycles_sub_3f798(*work).map(M68kCycleCount::get),
+            ))
+            .collect::<Vec<_>>(),
+        vec![
+            (
+                1_697,
+                ModeLevelDiamondPowerCompileWorkSub3F798 {
+                    buffered_entry_count: 0,
+                },
+                Some(56),
+            ),
+            (
+                1_703,
+                ModeLevelDiamondPowerCompileWorkSub3F798 {
+                    buffered_entry_count: 0,
+                },
+                Some(56),
+            ),
+            (
+                1_709,
+                ModeLevelDiamondPowerCompileWorkSub3F798 {
+                    buffered_entry_count: 0,
+                },
+                Some(56),
+            ),
+        ],
+        "ASM DiamondPower_CompileSprites empty-buffer path",
     );
 }
 

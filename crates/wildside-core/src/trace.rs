@@ -9751,6 +9751,10 @@ impl NativeRuntime {
                     .try_into()
                     .expect("sub_2A4C scratch queue fits its six fixed slots"),
             },
+            diamond_power_compile_work_sub_3f798: ModeLevelDiamondPowerCompileWorkSub3F798 {
+                buffered_entry_count: self
+                    .diamond_power_buffered_sprite_count_before_compile_sub_3f798,
+            },
         }
     }
 

@@ -2238,6 +2238,12 @@ pub struct ModeLevelBlockDebrisWorkSub2A4C {
     pub active_slot_count: u8,
 }
 
+/// Buffered entries consumed by ASM `DiamondPower_CompileSprites`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelDiamondPowerCompileWorkSub3F798 {
+    pub buffered_entry_count: u8,
+}
+
 /// Typed observation after ASM `sub_44DC` on the natural `loc_80C -> loc_892`
 /// path.
 ///
@@ -2259,6 +2265,7 @@ pub struct ModeLevelPostHudWorkLedger {
     pub platform_work: ModeLevelPlatformWork,
     pub shooter_collision_work: ModeLevelShooterCollisionWork,
     pub block_debris_work_sub_2a4c: ModeLevelBlockDebrisWorkSub2A4C,
+    pub diamond_power_compile_work_sub_3f798: ModeLevelDiamondPowerCompileWorkSub3F798,
 }
 
 /// Frame-local HUD art DMA command emitted by ASM `sub_44DC` (kid.asm).

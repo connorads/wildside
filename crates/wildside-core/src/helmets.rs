@@ -1485,6 +1485,7 @@ impl NativeRuntime {
         // DP sprite start before the per-power main routine can append entries.
         self.diamond_power_sprites.clear();
         self.diamond_power_sprite_buffer_sub_3f798.clear();
+        self.diamond_power_buffered_sprite_count_before_compile_sub_3f798 = 0;
         self.diamond_power_number_sprites_sub_3f798 = 0;
     }
 
@@ -1529,6 +1530,11 @@ impl NativeRuntime {
     }
 
     fn compile_buffered_diamond_power_sprites_sub_3f798(&mut self) {
+        self.diamond_power_buffered_sprite_count_before_compile_sub_3f798 = self
+            .diamond_power_sprite_buffer_sub_3f798
+            .len()
+            .try_into()
+            .expect("Diamond Power sprite buffer fits its ROM u8 count");
         let (compiled, number_sprites) = diamond_power_compile_sprites_sub_3F798(
             &self.diamond_power_sprite_buffer_sub_3f798,
             self.diamond_power_number_sprites_sub_3f798,

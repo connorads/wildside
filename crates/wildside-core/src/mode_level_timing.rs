@@ -1,7 +1,8 @@
 use crate::{
     HudDmaEventSub44DC, ModeLevelAirborneActionPath, ModeLevelAirborneHorizontalPath,
     ModeLevelAirborneVerticalPath, ModeLevelBlockDebrisWorkSub2A4C, ModeLevelCeilingScanReturn,
-    ModeLevelDamageFlashWaitLocBc44, ModeLevelDemoExitWaitLoc119E0, ModeLevelEnemyLoadingPath,
+    ModeLevelDamageFlashWaitLocBc44, ModeLevelDemoExitWaitLoc119E0,
+    ModeLevelDiamondPowerCompileWorkSub3F798, ModeLevelEnemyLoadingPath,
     ModeLevelExecuteObjectsWork, ModeLevelFloatingPrizeFallPathLoc103B2,
     ModeLevelInputWorkerPathLoc7452, ModeLevelKidGfxTerrainCollision,
     ModeLevelPlatformLoaderExistingSlotSub2728, ModeLevelPlatformLoaderRangeLoc2762,
@@ -1366,6 +1367,19 @@ pub fn block_debris_sprites_raw_cycles_sub_2a4c(
     Some(M68kCycleCount::from_raw(408))
 }
 
+/// Raw routine-body cost for ASM `DiamondPower_CompileSprites` (`sub_3F798`).
+pub fn diamond_power_compile_sprites_raw_cycles_sub_3f798(
+    work: ModeLevelDiamondPowerCompileWorkSub3F798,
+) -> Option<M68kCycleCount> {
+    if work.buffered_entry_count != 0 {
+        return None;
+    }
+
+    // ASM sub_3F798: the buffer end pointer equals `$FFFFF5C2`, so the
+    // initial comparison branches directly to return_3F7CE.
+    Some(M68kCycleCount::from_raw(56))
+}
+
 /// Raw routine-body cost for ASM shooter-support collision scan `sub_1F52`.
 pub fn shooter_support_collision_raw_cycles_sub_1f52(
     work: ModeLevelShooterCollisionWork,
@@ -1474,6 +1488,26 @@ mod tests {
             block_debris_sprites_raw_cycles_sub_2a4c(ModeLevelBlockDebrisWorkSub2A4C {
                 active_slot_count: 1,
             }),
+            None
+        );
+    }
+
+    #[test]
+    fn empty_diamond_power_sprite_buffer_takes_early_return() {
+        assert_eq!(
+            diamond_power_compile_sprites_raw_cycles_sub_3f798(
+                ModeLevelDiamondPowerCompileWorkSub3F798 {
+                    buffered_entry_count: 0,
+                },
+            ),
+            Some(M68kCycleCount::from_raw(56))
+        );
+        assert_eq!(
+            diamond_power_compile_sprites_raw_cycles_sub_3f798(
+                ModeLevelDiamondPowerCompileWorkSub3F798 {
+                    buffered_entry_count: 1,
+                },
+            ),
             None
         );
     }
