@@ -2180,6 +2180,15 @@ pub enum ModeLevelEnemyLoadingPath {
     LayoutWalkLoc3682c,
 }
 
+/// Platform-list workload shared by the post-HUD Mode_Level platform phases.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelPlatformWork {
+    /// ASM `$FFFFFA64`: freezes scripted execution and collision scanning.
+    pub frozen_fa64: bool,
+    /// Linked list consumed by the execute, collision, and sprite passes.
+    pub active_object_count: u16,
+}
+
 /// Typed observation after ASM `sub_44DC` on the natural `loc_80C -> loc_892`
 /// path.
 ///
@@ -2195,8 +2204,7 @@ pub struct ModeLevelPostHudWorkLedger {
     /// Linked list consumed by both `GfxObjects_MoveAndAnimate` and
     /// `Make_SpritesFromGfxObjects`.
     pub linked_gfx_object_count: u16,
-    /// Linked platform list consumed by the three platform routines.
-    pub active_platform_object_count: u16,
+    pub platform_work: ModeLevelPlatformWork,
 }
 
 /// Frame-local HUD art DMA command emitted by ASM `sub_44DC` (kid.asm).

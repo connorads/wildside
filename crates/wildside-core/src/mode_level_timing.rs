@@ -3,10 +3,10 @@ use crate::{
     ModeLevelAirborneVerticalPath, ModeLevelCeilingScanReturn, ModeLevelDamageFlashWaitLocBc44,
     ModeLevelDemoExitWaitLoc119E0, ModeLevelEnemyLoadingPath, ModeLevelExecuteObjectsWork,
     ModeLevelFloatingPrizeFallPathLoc103B2, ModeLevelInputWorkerPathLoc7452,
-    ModeLevelKidGfxTerrainCollision, ModeLevelPlayerExecutionPath, ModeLevelPreHudWorkLedger,
-    ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
-    ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork, ModeLevelReadJoypadWork,
-    ModeLevelRubberContactEffectLoc10DA4, ModeLevelVerticalCollisionPath,
+    ModeLevelKidGfxTerrainCollision, ModeLevelPlatformWork, ModeLevelPlayerExecutionPath,
+    ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState,
+    ModeLevelPrizeBlockWobbleWake, ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
+    ModeLevelReadJoypadWork, ModeLevelRubberContactEffectLoc10DA4, ModeLevelVerticalCollisionPath,
     ModeLevelWallCollisionPath,
 };
 
@@ -1274,6 +1274,53 @@ pub fn manage_enemy_loading_raw_cycles(path: ModeLevelEnemyLoadingPath) -> Optio
     }
 }
 
+/// Raw routine-body cost for ASM `Execute_ScriptedPlatforms` (`sub_23EA`).
+pub fn execute_scripted_platforms_raw_cycles_sub_23ea(
+    work: ModeLevelPlatformWork,
+) -> Option<M68kCycleCount> {
+    if work.frozen_fa64 {
+        // ASM sub_23EA: `$FA64` takes the first branch to return_2442.
+        return Some(M68kCycleCount::from_raw(38));
+    }
+    if work.active_object_count != 0 {
+        return None;
+    }
+
+    // ASM loc_23F2 -> Execute_ScriptedPlatforms_Loop: the sentinel's null
+    // link branches directly to return_2442.
+    Some(M68kCycleCount::from_raw(70))
+}
+
+/// Raw routine-body cost for ASM `Platforms_CheckCollision` (`sub_2574`).
+pub fn platforms_check_collision_raw_cycles_sub_2574(
+    work: ModeLevelPlatformWork,
+) -> Option<M68kCycleCount> {
+    if work.frozen_fa64 {
+        // ASM sub_2574: non-zero `$FA64` skips the saved-register frame.
+        return Some(M68kCycleCount::from_raw(40));
+    }
+    if work.active_object_count != 0 {
+        return None;
+    }
+
+    // ASM loc_257E -> loc_25A0 -> loc_2720: save the collision register set,
+    // initialise scratch/hitbox state, observe the null sentinel, then restore.
+    Some(M68kCycleCount::from_raw(352))
+}
+
+/// Raw routine-body cost for ASM `Make_SpritesFromPlatforms` (`sub_2444`).
+pub fn make_sprites_from_platforms_raw_cycles_sub_2444(
+    work: ModeLevelPlatformWork,
+) -> Option<M68kCycleCount> {
+    if work.active_object_count != 0 {
+        return None;
+    }
+
+    // ASM loc_244C -> loc_256E: the null sentinel stores the unchanged next
+    // sprite pointer and returns. `$FA64` does not gate this routine.
+    Some(M68kCycleCount::from_raw(78))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1895,6 +1942,60 @@ mod tests {
             manage_enemy_loading_raw_cycles(ModeLevelEnemyLoadingPath::LayoutWalkLoc3682c),
             None,
             "variable layout walks must remain fail-closed",
+        );
+    }
+
+    #[test]
+    fn empty_platform_list_has_source_derived_post_hud_raw_costs() {
+        let live_empty = ModeLevelPlatformWork {
+            frozen_fa64: false,
+            active_object_count: 0,
+        };
+        assert_eq!(
+            execute_scripted_platforms_raw_cycles_sub_23ea(live_empty),
+            Some(M68kCycleCount::from_raw(70)),
+            "ASM Execute_ScriptedPlatforms loc_23F2 null sentinel",
+        );
+        assert_eq!(
+            platforms_check_collision_raw_cycles_sub_2574(live_empty),
+            Some(M68kCycleCount::from_raw(352)),
+            "ASM Platforms_CheckCollision loc_25A0 null sentinel",
+        );
+        assert_eq!(
+            make_sprites_from_platforms_raw_cycles_sub_2444(live_empty),
+            Some(M68kCycleCount::from_raw(78)),
+            "ASM Make_SpritesFromPlatforms loc_244C null sentinel",
+        );
+
+        let frozen = ModeLevelPlatformWork {
+            frozen_fa64: true,
+            active_object_count: 3,
+        };
+        assert_eq!(
+            execute_scripted_platforms_raw_cycles_sub_23ea(frozen),
+            Some(M68kCycleCount::from_raw(38)),
+        );
+        assert_eq!(
+            platforms_check_collision_raw_cycles_sub_2574(frozen),
+            Some(M68kCycleCount::from_raw(40)),
+        );
+        assert_eq!(
+            make_sprites_from_platforms_raw_cycles_sub_2444(frozen),
+            None,
+            "ASM sub_2444 still walks the list while `$FA64` is set",
+        );
+
+        let live_nonempty = ModeLevelPlatformWork {
+            frozen_fa64: false,
+            active_object_count: 1,
+        };
+        assert_eq!(
+            execute_scripted_platforms_raw_cycles_sub_23ea(live_nonempty),
+            None,
+        );
+        assert_eq!(
+            platforms_check_collision_raw_cycles_sub_2574(live_nonempty),
+            None,
         );
     }
 
