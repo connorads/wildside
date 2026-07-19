@@ -2189,6 +2189,39 @@ pub struct ModeLevelPlatformWork {
     pub active_object_count: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelPlatformLoaderRangeLoc2762 {
+    InRange,
+    OutOfRangeLeft,
+    OutOfRangeRight,
+    OutOfRangeTop,
+    OutOfRangeBottom,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelPlatformLoaderExistingSlotSub2728 {
+    Missing,
+    Scripted,
+    Special,
+}
+
+/// One ASM `Manage_PlatformLoading` (`loc_2744`) invocation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelPlatformLoaderWorkLoc2744 {
+    NoLayoutReturn,
+    KidMissing {
+        wrapped_to_start: bool,
+    },
+    Placement {
+        wrapped_to_start: bool,
+        range: ModeLevelPlatformLoaderRangeLoc2762,
+        existing_slot: ModeLevelPlatformLoaderExistingSlotSub2728,
+    },
+}
+
 /// Typed observation after ASM `sub_44DC` on the natural `loc_80C -> loc_892`
 /// path.
 ///
@@ -2204,6 +2237,7 @@ pub struct ModeLevelPostHudWorkLedger {
     /// Linked list consumed by both `GfxObjects_MoveAndAnimate` and
     /// `Make_SpritesFromGfxObjects`.
     pub linked_gfx_object_count: u16,
+    pub platform_loader_work: Option<ModeLevelPlatformLoaderWorkLoc2744>,
     pub platform_work: ModeLevelPlatformWork,
 }
 

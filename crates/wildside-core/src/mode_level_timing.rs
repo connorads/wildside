@@ -3,10 +3,12 @@ use crate::{
     ModeLevelAirborneVerticalPath, ModeLevelCeilingScanReturn, ModeLevelDamageFlashWaitLocBc44,
     ModeLevelDemoExitWaitLoc119E0, ModeLevelEnemyLoadingPath, ModeLevelExecuteObjectsWork,
     ModeLevelFloatingPrizeFallPathLoc103B2, ModeLevelInputWorkerPathLoc7452,
-    ModeLevelKidGfxTerrainCollision, ModeLevelPlatformWork, ModeLevelPlayerExecutionPath,
-    ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState,
-    ModeLevelPrizeBlockWobbleWake, ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
-    ModeLevelReadJoypadWork, ModeLevelRubberContactEffectLoc10DA4, ModeLevelVerticalCollisionPath,
+    ModeLevelKidGfxTerrainCollision, ModeLevelPlatformLoaderExistingSlotSub2728,
+    ModeLevelPlatformLoaderRangeLoc2762, ModeLevelPlatformLoaderWorkLoc2744, ModeLevelPlatformWork,
+    ModeLevelPlayerExecutionPath, ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake,
+    ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
+    ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork, ModeLevelReadJoypadWork,
+    ModeLevelRubberContactEffectLoc10DA4, ModeLevelVerticalCollisionPath,
     ModeLevelWallCollisionPath,
 };
 
@@ -1321,6 +1323,25 @@ pub fn make_sprites_from_platforms_raw_cycles_sub_2444(
     Some(M68kCycleCount::from_raw(78))
 }
 
+/// Raw routine-body cost for classified ASM `Manage_PlatformLoading`
+/// (`loc_2744`) work.
+pub fn manage_platform_loading_raw_cycles_loc_2744(
+    work: ModeLevelPlatformLoaderWorkLoc2744,
+) -> Option<M68kCycleCount> {
+    match work {
+        // ASM loc_2744 first consumes the `$FFFF` terminator and retries from
+        // offset zero. The first record then fails the right-edge test at
+        // loc_2788; sub_2728 observes a null active-list sentinel.
+        ModeLevelPlatformLoaderWorkLoc2744::Placement {
+            wrapped_to_start: true,
+            range: ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight,
+            existing_slot: ModeLevelPlatformLoaderExistingSlotSub2728::Missing,
+        } => Some(M68kCycleCount::from_raw(428)),
+        ModeLevelPlatformLoaderWorkLoc2744::NoLayoutReturn => Some(M68kCycleCount::from_raw(42)),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1996,6 +2017,37 @@ mod tests {
         assert_eq!(
             platforms_check_collision_raw_cycles_sub_2574(live_nonempty),
             None,
+        );
+    }
+
+    #[test]
+    fn wrapped_right_rejected_platform_loader_has_source_derived_raw_cost_loc_2744() {
+        let work = ModeLevelPlatformLoaderWorkLoc2744::Placement {
+            wrapped_to_start: true,
+            range: ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight,
+            existing_slot: ModeLevelPlatformLoaderExistingSlotSub2728::Missing,
+        };
+        assert_eq!(
+            manage_platform_loading_raw_cycles_loc_2744(work),
+            Some(M68kCycleCount::from_raw(428)),
+            "ASM loc_2744 terminator retry -> loc_2788 -> sub_2728 miss",
+        );
+        assert_eq!(
+            manage_platform_loading_raw_cycles_loc_2744(
+                ModeLevelPlatformLoaderWorkLoc2744::NoLayoutReturn,
+            ),
+            Some(M68kCycleCount::from_raw(42)),
+        );
+        assert_eq!(
+            manage_platform_loading_raw_cycles_loc_2744(
+                ModeLevelPlatformLoaderWorkLoc2744::Placement {
+                    wrapped_to_start: false,
+                    range: ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight,
+                    existing_slot: ModeLevelPlatformLoaderExistingSlotSub2728::Missing,
+                },
+            ),
+            None,
+            "the non-wrapped source path has a distinct cost",
         );
     }
 

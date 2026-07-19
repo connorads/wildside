@@ -117,7 +117,7 @@ pub use mode_level_timing::{
     execute_objects_raw_cycles_sub_e12, execute_objects_setup_cycles_sub_e12,
     execute_scripted_platforms_raw_cycles_sub_23ea, input_worker_cycles_loc_7452,
     make_sprites_from_platforms_raw_cycles_sub_2444, manage_enemy_loading_raw_cycles,
-    mode_level_tail_advance_to_wait_for_vint_loc_892,
+    manage_platform_loading_raw_cycles_loc_2744, mode_level_tail_advance_to_wait_for_vint_loc_892,
     mode_level_tail_raw_cycles_to_wait_for_vint_loc_892, mode_level_vblank_advance_before_sub_e12,
     mode_level_vblank_elapsed_cycles_before_sub_e12,
     mode_level_vblank_source_cycles_before_sub_e12, platforms_check_collision_raw_cycles_sub_2574,
@@ -639,6 +639,9 @@ pub struct NativeRuntime {
     mode_level_work_before_hud_sub_44dc: Option<ModeLevelPreHudWorkLedger>,
     /// Source-ordered workload after the live `sub_44DC` HUD pass.
     mode_level_work_after_hud_sub_44dc: Option<ModeLevelPostHudWorkLedger>,
+    /// Frame-local ASM `Manage_PlatformLoading loc_2744` branch, captured
+    /// before native advances the platform-layout cursor.
+    mode_level_platform_loader_work_loc_2744: Option<ModeLevelPlatformLoaderWorkLoc2744>,
     /// Frame-local ASM `ReadJoypad loc_C22` demo-stream branch, captured before
     /// native advances the persistent Demo counter.
     demo_read_joypad_work_loc_c22: Option<ModeLevelDemoReadJoypadWorkLocC22>,
@@ -1512,6 +1515,7 @@ impl NativeRuntime {
             mode_level_hud_raw_cycles_sub_44dc: None,
             mode_level_work_before_hud_sub_44dc: None,
             mode_level_work_after_hud_sub_44dc: None,
+            mode_level_platform_loader_work_loc_2744: None,
             demo_read_joypad_work_loc_c22: None,
             gameplay_hud_vram_state: vdp::GameplayHudVramState::initialised_from_sub_44b0(),
             // Oracle Demo 1 bootstrap frames expose ArtUnc_4692 page 2 before
@@ -3436,6 +3440,7 @@ impl NativeRuntime {
         self.mode_level_hud_raw_cycles_sub_44dc = None;
         self.mode_level_work_before_hud_sub_44dc = None;
         self.mode_level_work_after_hud_sub_44dc = None;
+        self.mode_level_platform_loader_work_loc_2744 = None;
         self.demo_read_joypad_work_loc_c22 = None;
         self.mode_level_tail_work_loc_892 = None;
         // ASM loc_12098/loc_12110/loc_12188 DMA requests are emitted by one

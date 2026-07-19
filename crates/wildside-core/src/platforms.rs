@@ -962,6 +962,56 @@ pub(crate) fn platform_loader_cursor_step_loc_2744(
     }
 }
 
+pub(crate) fn platform_loader_work_loc_2744(
+    layout: &PlatformLayout,
+    loader: PlatformLoaderState,
+    window: ActivationWindow,
+    kid_present: bool,
+) -> ModeLevelPlatformLoaderWorkLoc2744 {
+    if layout.placements.is_empty() {
+        return ModeLevelPlatformLoaderWorkLoc2744::NoLayoutReturn;
+    }
+
+    let cursor = platform_loader_cursor_step_loc_2744(layout.placements.len(), loader.offset_words);
+    if !kid_present {
+        return ModeLevelPlatformLoaderWorkLoc2744::KidMissing {
+            wrapped_to_start: cursor.wrapped_to_start,
+        };
+    }
+    let placement_index = cursor
+        .current_index
+        .expect("non-empty platform layout has a current record");
+    let placement = &layout.placements[placement_index];
+    let range = if platform_buffer_edge_px_loc_2762(placement.buffer_left) > window.x_max {
+        ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeLeft
+    } else if platform_buffer_edge_px_loc_2762(placement.buffer_right) < window.x_min {
+        ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight
+    } else if platform_buffer_edge_px_loc_2762(placement.buffer_top) > window.y_max {
+        ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeTop
+    } else if platform_buffer_edge_px_loc_2762(placement.buffer_bottom) < window.y_min {
+        ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeBottom
+    } else {
+        ModeLevelPlatformLoaderRangeLoc2762::InRange
+    };
+    let existing_slot = if loader
+        .slot_model
+        .find_slot_by_layout_offset_sub_2728(cursor.current_offset_words)
+        .is_none()
+    {
+        ModeLevelPlatformLoaderExistingSlotSub2728::Missing
+    } else if platform_placement_is_special_loc_2836(placement) {
+        ModeLevelPlatformLoaderExistingSlotSub2728::Special
+    } else {
+        ModeLevelPlatformLoaderExistingSlotSub2728::Scripted
+    };
+
+    ModeLevelPlatformLoaderWorkLoc2744::Placement {
+        wrapped_to_start: cursor.wrapped_to_start,
+        range,
+        existing_slot,
+    }
+}
+
 #[allow(non_snake_case)]
 pub(crate) fn platform_loader_offset_for_index_loc_286E(layout_index: usize) -> u16 {
     // ASM loc_286E (kid.asm:4785): each processed platform-layout record is

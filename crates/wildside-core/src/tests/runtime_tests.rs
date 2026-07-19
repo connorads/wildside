@@ -238,6 +238,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                 read_joypad_raw_cycles.get(),
                 ledger.enemy_loading_initial_pass_complete,
                 ledger.linked_gfx_object_count,
+                ledger.platform_loader_work,
                 ledger.platform_work,
             ));
         }
@@ -247,7 +248,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
         observed
             .iter()
             .map(
-                |(_, phases, enemy_path, _, joypad_path, _, loader_complete, _, _)| (
+                |(_, phases, enemy_path, _, joypad_path, _, loader_complete, _, _, _)| (
                     phases,
                     *enemy_path,
                     *joypad_path,
@@ -296,12 +297,27 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
         observed
             .iter()
             .map(
-                |(frame, _, _, enemy_raw, _, joypad_raw, _, gfx_count, platform_work)| {
+                |(
+                    frame,
+                    _,
+                    _,
+                    enemy_raw,
+                    _,
+                    joypad_raw,
+                    _,
+                    gfx_count,
+                    platform_loader_work,
+                    platform_work,
+                )| {
                     (
                         *frame,
                         *enemy_raw,
                         *joypad_raw,
                         *gfx_count,
+                        *platform_loader_work,
+                        platform_loader_work
+                            .and_then(manage_platform_loading_raw_cycles_loc_2744)
+                            .map(M68kCycleCount::get),
                         platform_work.active_object_count,
                         execute_scripted_platforms_raw_cycles_sub_23ea(*platform_work)
                             .map(M68kCycleCount::get),
@@ -314,9 +330,54 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             )
             .collect::<Vec<_>>(),
         vec![
-            (1_697, 84, 1_234, 16, 0, Some(70), Some(352), Some(78)),
-            (1_703, 84, 1_234, 17, 0, Some(70), Some(352), Some(78)),
-            (1_709, 84, 1_234, 16, 0, Some(70), Some(352), Some(78)),
+            (
+                1_697,
+                84,
+                1_234,
+                16,
+                Some(ModeLevelPlatformLoaderWorkLoc2744::Placement {
+                    wrapped_to_start: true,
+                    range: ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight,
+                    existing_slot: ModeLevelPlatformLoaderExistingSlotSub2728::Missing,
+                }),
+                Some(428),
+                0,
+                Some(70),
+                Some(352),
+                Some(78),
+            ),
+            (
+                1_703,
+                84,
+                1_234,
+                17,
+                Some(ModeLevelPlatformLoaderWorkLoc2744::Placement {
+                    wrapped_to_start: true,
+                    range: ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight,
+                    existing_slot: ModeLevelPlatformLoaderExistingSlotSub2728::Missing,
+                }),
+                Some(428),
+                0,
+                Some(70),
+                Some(352),
+                Some(78),
+            ),
+            (
+                1_709,
+                84,
+                1_234,
+                16,
+                Some(ModeLevelPlatformLoaderWorkLoc2744::Placement {
+                    wrapped_to_start: true,
+                    range: ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight,
+                    existing_slot: ModeLevelPlatformLoaderExistingSlotSub2728::Missing,
+                }),
+                Some(428),
+                0,
+                Some(70),
+                Some(352),
+                Some(78),
+            ),
         ],
         "ASM enemy loading, ReadJoypad, and linked GfxObject/platform work",
     );

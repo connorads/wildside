@@ -13138,6 +13138,12 @@ impl NativeRuntime {
                 y_max: player_y_px,
             };
             let mut objects = slice.objects;
+            self.mode_level_platform_loader_work_loc_2744 = Some(platform_loader_work_loc_2744(
+                platform_layout,
+                objects.platform_loader,
+                platform_window,
+                true,
+            ));
             objects
                 .platform_loader
                 .advance_to_window(platform_layout, platform_window);
