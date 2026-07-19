@@ -9341,6 +9341,60 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_demo_prize_tail_linked_list_ranks_match_allocator_journal() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+
+        let mut frames = Vec::new();
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_704) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if frame_index == 1_697 || frame_index == 1_703 {
+                frames.push(trace);
+            }
+        }
+        let completion_list_work = |frame: &NativeTraceFrame| {
+            frame
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .expect("Mode_Level work ledger")
+                .execute_objects
+                .prize_block_tail_paths_sub_1066
+                .iter()
+                .find_map(|tail| tail.list_work)
+        };
+
+        // ASM Allocate_ObjectSlot loc_DE0, Allocate_GfxObjectSlot loc_FD4,
+        // Deallocate_ObjectSlot loc_EA2, and Deallocate_GfxObject
+        // loc_10BA/loc_1106: these source-derived ranks match the independent
+        // bounded oracle linked-list journal.
+        assert_eq!(
+            completion_list_work(&frames[0]),
+            Some(ModeLevelPrizeTailListWork {
+                flash_object_insert_rank_loc_de0: 5,
+                flash_gfx_insert_rank_loc_fd4: 15,
+                prize_object_insert_rank_loc_de0: 1,
+                prize_gfx_insert_rank_loc_fd4: 16,
+                tail_object_delete_rank_loc_ea2: 14,
+                tail_gfx_delete_rank_loc_10ba: 5,
+                tail_gfx_category4_delete_rank_loc_1106: 11,
+            })
+        );
+        assert_eq!(
+            completion_list_work(&frames[1]),
+            Some(ModeLevelPrizeTailListWork {
+                flash_object_insert_rank_loc_de0: 6,
+                flash_gfx_insert_rank_loc_fd4: 16,
+                prize_object_insert_rank_loc_de0: 1,
+                prize_gfx_insert_rank_loc_fd4: 17,
+                tail_object_delete_rank_loc_ea2: 15,
+                tail_gfx_delete_rank_loc_10ba: 5,
+                tail_gfx_category4_delete_rank_loc_1106: 12,
+            })
+        );
+    }
+
+    #[test]
     fn published_demo_exposes_cyclone_prize_before_later_diamonds() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

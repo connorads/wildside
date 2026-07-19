@@ -447,6 +447,198 @@ fn prize_block_flash_wake_loc_102b8(remaining: u8) -> ModeLevelPrizeAnimationWak
     }
 }
 
+fn prize_wobble_allocation_age(remaining: u8) -> u16 {
+    u16::from(31_u8.saturating_sub(remaining))
+}
+
+fn prize_tail_allocation_age(work: &ModeLevelPrizeBlockTailWork) -> u16 {
+    let initial_tail = NativeRuntime::PRIZE_BLOCK_WORKER_TAIL_FRAMES.saturating_add(u8::from(
+        work.content == Some(terrain::PrizeContent::Diamond),
+    ));
+    31 + u16::from(initial_tail.saturating_sub(match work.state {
+        ModeLevelPrizeBlockTailState::FinishSpawnPrizeAndDelete => initial_tail,
+        ModeLevelPrizeBlockTailState::DeletedWorkerOverlap { remaining }
+        | ModeLevelPrizeBlockTailState::UnclassifiedAnimationWait { remaining } => remaining,
+    }))
+}
+
+fn prize_flash_allocation_age(remaining: u8) -> u16 {
+    u16::from(NativeRuntime::PRIZE_BLOCK_SPAWN_FLASH_FRAMES.saturating_sub(remaining))
+}
+
+fn floating_prize_allocation_age(work: ModeLevelFloatingPrizeWork) -> u16 {
+    NativeRuntime::floating_item_lifetime(work.content).saturating_sub(work.remaining)
+}
+
+fn player_allocates_prize_wobble_before_tails(path: Option<&ModeLevelPlayerExecutionPath>) -> bool {
+    let Some(ModeLevelPlayerExecutionPath::NormalPhysics(path)) = path else {
+        return false;
+    };
+    let Some(scan) = &path.ceiling_scan_sub_914a else {
+        return false;
+    };
+    scan.first_hit_col.is_some_and(|first_hit_col| {
+        scan.visits.iter().any(|visit| {
+            visit.col == first_hit_col
+                && visit.has_block
+                // ASM off_BB80[1] / loc_1002E: block type 1 allocates the
+                // new `$2001` sub_1007A Object/GfxObject pair.
+                && visit.block_type == Some(1)
+        })
+    })
+}
+
+fn mode_level_prize_tail_list_work(
+    execute: &ModeLevelExecuteObjectsWork,
+    target_tail_index: usize,
+    player_allocates_prize_wobble: bool,
+) -> Option<ModeLevelPrizeTailListWork> {
+    let target = execute
+        .prize_block_tail_paths_sub_1066
+        .get(target_tail_index)?;
+    if target.state != ModeLevelPrizeBlockTailState::FinishSpawnPrizeAndDelete
+        || execute
+            .prize_block_tail_paths_sub_1066
+            .iter()
+            .filter(|tail| tail.state == ModeLevelPrizeBlockTailState::FinishSpawnPrizeAndDelete)
+            .count()
+            != 1
+        || execute.active_enemy_workers != 0
+        || execute.active_platform_workers != 0
+        || execute.unclassified_runtime_transient_workers != 0
+        || execute.rubber_block_skin_workers_sub_10de4 != 0
+        || execute.player == ModeLevelPlayerWorkBeforeHud::Absent
+        || execute.linked_non_transient_object_count != 4
+        || execute
+            .prize_block_flash_paths_sub_1066
+            .iter()
+            .any(|flash| flash.wake != ModeLevelPrizeAnimationWake::Hibernate)
+        || execute
+            .floating_prize_paths
+            .iter()
+            .any(|prize| prize.collision_latched || prize.remaining <= 1 || prize.spawn_delay != 0)
+    {
+        return None;
+    }
+
+    let entry_equal_workers = execute.prize_block_wobble_paths_sub_1007a.len()
+        + execute.prize_block_tail_paths_sub_1066.len()
+        + execute.prize_block_flash_paths_sub_1066.len();
+    if usize::from(execute.prize_block_wobble_workers_sub_1007a)
+        != execute.prize_block_wobble_paths_sub_1007a.len()
+        || usize::from(execute.prize_block_worker_tails_sub_1007a)
+            != execute.prize_block_tail_paths_sub_1066.len()
+        || usize::from(execute.prize_block_flash_workers_loc_102b8)
+            != execute.prize_block_flash_paths_sub_1066.len()
+        || usize::from(execute.floating_prize_workers) != execute.floating_prize_paths.len()
+    {
+        return None;
+    }
+
+    let target_age = prize_tail_allocation_age(target);
+    let equal_worker_ages = execute
+        .prize_block_wobble_paths_sub_1007a
+        .iter()
+        .map(|work| prize_wobble_allocation_age(work.remaining))
+        .chain(
+            execute
+                .prize_block_tail_paths_sub_1066
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| *index != target_tail_index)
+                .map(|(_, work)| prize_tail_allocation_age(work)),
+        )
+        .chain(
+            execute
+                .prize_block_flash_paths_sub_1066
+                .iter()
+                .map(|work| prize_flash_allocation_age(work.remaining)),
+        )
+        .collect::<Vec<_>>();
+    let floating_prize_ages = execute
+        .floating_prize_paths
+        .iter()
+        .copied()
+        .map(floating_prize_allocation_age)
+        .collect::<Vec<_>>();
+    // Native does not yet retain within-frame allocation serials across its
+    // parallel worker vectors. Refuse equal-age ambiguity rather than invent
+    // an order which loc_DE0/loc_FD4 would resolve from allocation sequence.
+    if equal_worker_ages
+        .iter()
+        .chain(&floating_prize_ages)
+        .any(|&age| age == target_age)
+    {
+        return None;
+    }
+
+    let newer_equal_workers = equal_worker_ages
+        .iter()
+        .filter(|&&age| age < target_age)
+        .count();
+    let older_prize_gfx_workers = equal_worker_ages
+        .iter()
+        .chain(&floating_prize_ages)
+        .filter(|&&age| age > target_age)
+        .count();
+    let prize_gfx_workers = entry_equal_workers + floating_prize_ages.len();
+    // ASM sub_7196 creates Kid's `$0201` projectile slot and `$0200` body
+    // slot before every ordinary `$00FF` GfxObject. With the remaining
+    // taxonomy proven complete above, every non-prize GfxObject is an older
+    // predecessor of the target in loc_FD4's main-list order.
+    let older_non_prize_standard_gfx =
+        usize::from(execute.linked_gfx_object_count).checked_sub(prize_gfx_workers)?;
+    let tail_gfx_delete_rank = older_non_prize_standard_gfx + older_prize_gfx_workers;
+
+    // ASM sub_7196 also creates the priority-1 clock/timer Object. With no
+    // untyped, enemy, or platform workers, the only selectors below `$2001`
+    // are that timer, live `$1FFF` prizes, and Kid at `$2000`.
+    let flash_object_insert_rank = 2 + execute.floating_prize_paths.len();
+    let player_wobble_count = usize::from(player_allocates_prize_wobble);
+    let tail_object_delete_rank = flash_object_insert_rank
+        + 1 // the newly inserted `$1FFF` prize
+        + newer_equal_workers
+        + player_wobble_count
+        + 1; // the newly inserted `$2001` flash
+    let flash_gfx_insert_rank = usize::from(execute.linked_gfx_object_count) + player_wobble_count;
+    let prize_gfx_insert_rank = flash_gfx_insert_rank + 1;
+    let gfx_count_at_delete = prize_gfx_insert_rank + 1;
+    let tail_gfx_category4_delete_rank =
+        gfx_count_at_delete.checked_sub(tail_gfx_delete_rank + 1)?;
+
+    Some(ModeLevelPrizeTailListWork {
+        flash_object_insert_rank_loc_de0: u16::try_from(flash_object_insert_rank).ok()?,
+        flash_gfx_insert_rank_loc_fd4: u16::try_from(flash_gfx_insert_rank).ok()?,
+        prize_object_insert_rank_loc_de0: 1,
+        prize_gfx_insert_rank_loc_fd4: u16::try_from(prize_gfx_insert_rank).ok()?,
+        tail_object_delete_rank_loc_ea2: u16::try_from(tail_object_delete_rank).ok()?,
+        tail_gfx_delete_rank_loc_10ba: u16::try_from(tail_gfx_delete_rank).ok()?,
+        tail_gfx_category4_delete_rank_loc_1106: u16::try_from(tail_gfx_category4_delete_rank)
+            .ok()?,
+    })
+}
+
+fn complete_prize_tail_list_work(execute: &mut ModeLevelExecuteObjectsWork) {
+    let player_allocates_prize_wobble =
+        player_allocates_prize_wobble_before_tails(execute.executed_player_path.as_ref());
+    let list_work = (0..execute.prize_block_tail_paths_sub_1066.len())
+        .map(|target_tail_index| {
+            mode_level_prize_tail_list_work(
+                execute,
+                target_tail_index,
+                player_allocates_prize_wobble,
+            )
+        })
+        .collect::<Vec<_>>();
+    for (tail, list_work) in execute
+        .prize_block_tail_paths_sub_1066
+        .iter_mut()
+        .zip(list_work)
+    {
+        tail.list_work = list_work;
+    }
+}
+
 fn mode_level_airborne_horizontal_path(
     x_velocity_before: i32,
     x_velocity_after: i32,
@@ -1621,6 +1813,7 @@ mod tests {
                 ],
                 execute_objects: ModeLevelExecuteObjectsWork {
                     linked_object_count: 6,
+                    linked_gfx_object_count: 7,
                     linked_non_transient_object_count: 2,
                     player: ModeLevelPlayerWorkBeforeHud::Absent,
                     prize_block_wobble_workers_sub_1007a: 1,
@@ -1647,6 +1840,7 @@ mod tests {
                         cell_y: 0x0C,
                         content: Some(terrain::PrizeContent::Diamond),
                         state: ModeLevelPrizeBlockTailState::DeletedWorkerOverlap { remaining: 1 },
+                        list_work: None,
                     }],
                     prize_block_flash_paths_sub_1066: vec![ModeLevelPrizeBlockFlashWork {
                         x_px: 0x00A8,
@@ -1760,6 +1954,114 @@ mod tests {
         assert_eq!(
             prize_block_flash_wake_loc_102b8(1),
             ModeLevelPrizeAnimationWake::FinishAndDelete
+        );
+    }
+
+    fn prize_tail_rank_fixture(
+        linked_object_count: u16,
+        linked_gfx_object_count: u16,
+        wobble_remaining: &[u8],
+        flash_remaining: &[u8],
+        floating_remaining: &[u16],
+    ) -> ModeLevelExecuteObjectsWork {
+        ModeLevelExecuteObjectsWork {
+            linked_object_count,
+            linked_gfx_object_count,
+            linked_non_transient_object_count: 4,
+            player: ModeLevelPlayerWorkBeforeHud::Moving,
+            prize_block_wobble_workers_sub_1007a: wobble_remaining.len() as u16,
+            prize_block_worker_tails_sub_1007a: 1,
+            prize_block_flash_workers_loc_102b8: flash_remaining.len() as u16,
+            floating_prize_workers: floating_remaining.len() as u16,
+            rubber_block_skin_workers_sub_10de4: 0,
+            active_enemy_workers: 0,
+            active_platform_workers: 0,
+            palette_rotation_worker_loc_11f96: 1,
+            unclassified_runtime_transient_workers: 0,
+            player_entry_position: None,
+            player_gfx_terrain_scan: None,
+            cyclone_visual_accumulator_before: None,
+            prize_block_wobble_paths_sub_1007a: wobble_remaining
+                .iter()
+                .map(|&remaining| ModeLevelPrizeBlockWobbleWork {
+                    resume: prize_block_wobble_resume_sub_1007a(remaining),
+                    wake: prize_block_wobble_wake_sub_1007a(remaining),
+                    remaining,
+                    content: Some(terrain::PrizeContent::Diamond),
+                    deleted_tile: false,
+                })
+                .collect(),
+            prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeBlockTailWork {
+                cell_x: 31,
+                cell_y: 4,
+                content: Some(terrain::PrizeContent::Diamond),
+                state: ModeLevelPrizeBlockTailState::FinishSpawnPrizeAndDelete,
+                list_work: None,
+            }],
+            prize_block_flash_paths_sub_1066: flash_remaining
+                .iter()
+                .map(|&remaining| ModeLevelPrizeBlockFlashWork {
+                    x_px: 0,
+                    y_px: 0,
+                    remaining,
+                    wake: ModeLevelPrizeAnimationWake::Hibernate,
+                })
+                .collect(),
+            floating_prize_paths: floating_remaining
+                .iter()
+                .map(|&remaining| ModeLevelFloatingPrizeWork {
+                    content: terrain::PrizeContent::Diamond,
+                    remaining,
+                    spawn_delay: 0,
+                    first_row_grace: false,
+                    collision_latched: false,
+                })
+                .collect(),
+            executed_player_path: None,
+        }
+    }
+
+    #[test]
+    fn prize_tail_list_ranks_follow_loc_de0_fd4_ea2_10ba_and_1106() {
+        // Natural frame 1697 entry: four younger wobble workers, two younger
+        // flashes, three `$1FFF` prizes, and Kid allocates one more wobble
+        // before this completion. The bounded oracle list journal independently
+        // observes all seven ranks.
+        let frame_1697 =
+            prize_tail_rank_fixture(14, 14, &[6, 13, 19, 25], &[9, 19], &[299, 485, 495]);
+        assert_eq!(
+            mode_level_prize_tail_list_work(&frame_1697, 0, true),
+            Some(ModeLevelPrizeTailListWork {
+                flash_object_insert_rank_loc_de0: 5,
+                flash_gfx_insert_rank_loc_fd4: 15,
+                prize_object_insert_rank_loc_de0: 1,
+                prize_gfx_insert_rank_loc_fd4: 16,
+                tail_object_delete_rank_loc_ea2: 14,
+                tail_gfx_delete_rank_loc_10ba: 5,
+                tail_gfx_category4_delete_rank_loc_1106: 11,
+            })
+        );
+
+        // Natural frame 1703 has one more live `$1FFF` prize and one more
+        // existing GfxObject. No Kid-side allocation precedes the completion.
+        let frame_1703 = prize_tail_rank_fixture(
+            16,
+            16,
+            &[7, 13, 19, 26],
+            &[3, 13, 20],
+            &[293, 479, 489, 496],
+        );
+        assert_eq!(
+            mode_level_prize_tail_list_work(&frame_1703, 0, false),
+            Some(ModeLevelPrizeTailListWork {
+                flash_object_insert_rank_loc_de0: 6,
+                flash_gfx_insert_rank_loc_fd4: 16,
+                prize_object_insert_rank_loc_de0: 1,
+                prize_gfx_insert_rank_loc_fd4: 17,
+                tail_object_delete_rank_loc_ea2: 15,
+                tail_gfx_delete_rank_loc_10ba: 5,
+                tail_gfx_category4_delete_rank_loc_1106: 12,
+            })
         );
     }
 
@@ -8780,7 +9082,7 @@ impl NativeRuntime {
         let player_state = self.current_player_state();
         let camera_state = self.current_camera_state();
         let active_objects = self.active_objects();
-        let (linked_object_count, _) =
+        let (linked_object_count, linked_gfx_object_count) =
             self.object_counts_from_roster(&active_objects, camera_state.x_pos, camera_state.y_pos);
         let (roster_without_runtime_transient_count, _) = self
             .object_counts_from_roster_without_runtime_transients(
@@ -8869,6 +9171,7 @@ impl NativeRuntime {
                 cell_y: tail.cell_y,
                 content: tail.content,
                 state: prize_block_tail_state_sub_1007a(tail.content, tail.remaining),
+                list_work: None,
             })
             .collect();
         let prize_block_flash_paths_sub_1066 = self
@@ -8917,6 +9220,7 @@ impl NativeRuntime {
             phases,
             execute_objects: ModeLevelExecuteObjectsWork {
                 linked_object_count,
+                linked_gfx_object_count,
                 linked_non_transient_object_count,
                 player,
                 prize_block_wobble_workers_sub_1007a,
@@ -9075,6 +9379,7 @@ impl NativeRuntime {
         if let Some(ledger) = self.mode_level_work_before_hud_sub_44dc.as_mut() {
             ledger.execute_objects.executed_player_path = Some(executed_player_path);
             ledger.execute_objects.player_gfx_terrain_scan = player_gfx_terrain_scan;
+            complete_prize_tail_list_work(&mut ledger.execute_objects);
         }
     }
 

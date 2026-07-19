@@ -1773,7 +1773,7 @@ impl NativeRuntime {
         }
     }
 
-    fn floating_item_lifetime(content: terrain::PrizeContent) -> u16 {
+    pub(crate) fn floating_item_lifetime(content: terrain::PrizeContent) -> u16 {
         match content {
             terrain::PrizeContent::Diamond => Self::PRIZE_DIAMOND_LIFETIME_FRAMES,
             // ASM sub_10C78 seeds d3 with $0001_0320 for the shared

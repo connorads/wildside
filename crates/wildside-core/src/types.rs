@@ -1709,12 +1709,34 @@ pub enum ModeLevelPrizeBlockTailState {
     UnclassifiedAnimationWait { remaining: u8 },
 }
 
+/// Linked-list traversal ranks for the completing ASM `sub_1007A` worker.
+///
+/// Ranks are zero-based: they equal the number of existing nodes visited
+/// before insertion or deletion. `Allocate_ObjectSlot loc_DE0` inserts before
+/// equal selectors, while `Allocate_GfxObjectSlot loc_FD4` inserts after equal
+/// keys. `Deallocate_GfxObject loc_1106` also walks the category-4 auxiliary
+/// chain after unlinking the main GfxObject list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelPrizeTailListWork {
+    pub flash_object_insert_rank_loc_de0: u16,
+    pub flash_gfx_insert_rank_loc_fd4: u16,
+    pub prize_object_insert_rank_loc_de0: u16,
+    pub prize_gfx_insert_rank_loc_fd4: u16,
+    pub tail_object_delete_rank_loc_ea2: u16,
+    pub tail_gfx_delete_rank_loc_10ba: u16,
+    pub tail_gfx_category4_delete_rank_loc_1106: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelPrizeBlockTailWork {
     pub cell_x: u16,
     pub cell_y: u16,
     pub content: Option<terrain::PrizeContent>,
     pub state: ModeLevelPrizeBlockTailState,
+    /// `None` means the typed worker taxonomy cannot yet prove every node
+    /// which participates in the three linked lists.
+    #[serde(default)]
+    pub list_work: Option<ModeLevelPrizeTailListWork>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1915,6 +1937,7 @@ pub enum ModeLevelPlayerExecutionPath {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelExecuteObjectsWork {
     pub linked_object_count: u16,
+    pub linked_gfx_object_count: u16,
     pub linked_non_transient_object_count: u16,
     pub player: ModeLevelPlayerWorkBeforeHud,
     pub prize_block_wobble_workers_sub_1007a: u16,

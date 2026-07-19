@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#409 typed linked-list ranks)
+
+- Completing prize tails now carry their flash/prize Object and Gfx insertion
+  ranks plus Object, main-Gfx, and category-4 Gfx deletion ranks.
+- Frames 1697/1703 match the oracle linked-list journal exactly. The fifth
+  one-node delta is `loc_1106`'s auxiliary category-4 chain, completing the
+  measured 270-cycle explanation.
+- NEXT: turn the fully typed source paths into pure 68k cycle work, then assign
+  the frame-1697 life upload's first FIFO commit.
+
+---
+
 ## 2026-07-18 handoff (#409 typed ceiling scan)
 
 - The player workload now records every pre-mutation `sub_914A` cell and its

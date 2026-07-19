@@ -306,6 +306,21 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-18: the finishing `sub_1007A` completion now carries all
+seven zero-based linked-list traversal ranks. Native derives them from
+`loc_DE0`'s selector ordering/equal-selector LIFO rule, `loc_FD4`'s
+Gfx-key/equal-key FIFO rule, the complete prize-worker taxonomy, and
+allocation ages; ambiguous or incomplete taxonomies return no list work.
+The cache-backed natural route matches the independent bounded oracle journal:
+frame 1697 has flash Object/Gfx insert ranks 5/15, prize ranks 1/16, tail
+Object/main-Gfx/category-4 delete ranks 14/5/11; frame 1703 has
+6/16, 1/17, and 15/5/12. The former unexplained 54 cycles are
+`Deallocate_GfxObject loc_1106` walking one extra category-4 auxiliary-chain
+predecessor, not the unchanged `loc_10BA` main-list rank. The five one-node
+increases plus the 2-cycle completion-entry difference exactly sum to the
+measured 270-cycle callback delta. Next convert the typed paths to pure cycle
+work and schedule the life upload.
+
 Progress 2026-07-18: frame 1697's `sub_914A` ceiling pass now carries the
 complete pre-mutation Level_Layout row, including collision, block flag/type,
 skin, first hit, return path, and the `loc_10DA4` sound/worker-cap outcome.
