@@ -2029,6 +2029,9 @@ mod tests {
                     player_spawned_prize_block_initial_sub_1007a: None,
                     player_prize_wobble_list_work_loc_1002e: None,
                     prize_object_execution_order_sub_e12: None,
+                    damage_flash_wait_loc_bc44: Some(ModeLevelDamageFlashWaitLocBc44::AwaitDamage,),
+                    demo_exit_wait_loc_119e0: None,
+                    input_worker_loc_7452: None,
                     prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeBlockTailWork {
                         cell_x: 0x0A,
                         cell_y: 0x0C,
@@ -2271,6 +2274,9 @@ mod tests {
             player_spawned_prize_block_initial_sub_1007a: None,
             player_prize_wobble_list_work_loc_1002e: None,
             prize_object_execution_order_sub_e12: None,
+            damage_flash_wait_loc_bc44: None,
+            demo_exit_wait_loc_119e0: None,
+            input_worker_loc_7452: None,
             prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeBlockTailWork {
                 cell_x: 31,
                 cell_y: 4,
@@ -2421,10 +2427,10 @@ mod tests {
         };
         assert_eq!(
             typed_prize_cycles(&frame_1697),
-            14_562,
-            "nominal source cycles exclude Kid, fixed workers, RNG, and VDP stalls"
+            14_362,
+            "raw source cycles exclude Kid, fixed workers, RNG, refresh, and VDP stalls"
         );
-        assert_eq!(typed_prize_cycles(&frame_1703), 15_028);
+        assert_eq!(typed_prize_cycles(&frame_1703), 14_826);
         assert_eq!(
             frame_1697.player_prize_wobble_list_work_loc_1002e,
             Some(ModeLevelPrizeWobbleListWorkLoc1002E {
@@ -2588,6 +2594,7 @@ mod tests {
             stages: KidFlipFollowOnStages {
                 entry,
                 after_press_away: entry,
+                cyclone_acceleration_before_sub_b168: Some(-0x0E00),
                 after_jump_gravity: after_motion,
                 after_floor: after_ceiling,
                 after_wall: after_ceiling,
@@ -2622,6 +2629,7 @@ mod tests {
                     vertical: ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress {
                         acceleration_after: -0x0A00,
                         y_velocity_after: -0x0A00,
+                        capped_acceleration_to_0x1200: false,
                     },
                     gfx_object_collision_clear: true,
                     vertical_collision: ModeLevelVerticalCollisionPath::Ceiling,
@@ -5222,6 +5230,7 @@ mod tests {
                         on_ground: true,
                         wall_cling_direction: None,
                     },
+                    cyclone_acceleration_before_sub_b168: None,
                     after_jump_gravity: KidFlipFollowOnStageState {
                         x_velocity: 0x0006_0000,
                         y_velocity: 0,
@@ -5307,6 +5316,7 @@ mod tests {
                     on_ground: true,
                     wall_cling_direction: None,
                 },
+                cyclone_acceleration_before_sub_b168: None,
                 after_jump_gravity: KidFlipFollowOnStageState {
                     x_velocity: 0x0002_0000,
                     y_velocity: 0,
@@ -5385,6 +5395,7 @@ mod tests {
                     on_ground: true,
                     wall_cling_direction: None,
                 },
+                cyclone_acceleration_before_sub_b168: None,
                 after_jump_gravity: KidFlipFollowOnStageState {
                     x_velocity: -0x0000_b000,
                     y_velocity: 0,
@@ -9622,6 +9633,21 @@ impl NativeRuntime {
                 player_spawned_prize_block_initial_sub_1007a: None,
                 player_prize_wobble_list_work_loc_1002e: None,
                 prize_object_execution_order_sub_e12: None,
+                damage_flash_wait_loc_bc44: (!self.just_received_damage
+                    && self.death_shell_snapshot.is_none())
+                .then_some(ModeLevelDamageFlashWaitLocBc44::AwaitDamage),
+                demo_exit_wait_loc_119e0: matches!(self.boot_state, BootState::DemoPlay { .. })
+                    .then(|| {
+                        if self.trace_input.start && !self.previous_input.start {
+                            ModeLevelDemoExitWaitLoc119E0::ExitDemoStart
+                        } else {
+                            ModeLevelDemoExitWaitLoc119E0::HibernateNoStart
+                        }
+                    }),
+                input_worker_loc_7452: (matches!(self.boot_state, BootState::DemoPlay { .. })
+                    && self.trace_input == FrameInput::default()
+                    && self.hundred_k_trip_timer == 0)
+                    .then_some(ModeLevelInputWorkerPathLoc7452::DemoIdleNoInputTimerClear),
                 prize_block_tail_paths_sub_1066,
                 prize_block_flash_paths_sub_1066,
                 floating_prize_paths,
@@ -9659,6 +9685,11 @@ impl NativeRuntime {
             ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress {
                 acceleration_after: self.helmet.cyclone_y_accel,
                 y_velocity_after: stages.after_jump_gravity.y_velocity,
+                capped_acceleration_to_0x1200: stages
+                    .cyclone_acceleration_before_sub_b168
+                    .is_some_and(|before| {
+                        before.wrapping_add(CYCLONE_ACCEL_GRAVITY) > CYCLONE_ACCEL_MAX_DESCENT
+                    }),
             }
         } else {
             ModeLevelAirborneVerticalPath::Unclassified

@@ -9397,8 +9397,125 @@ mod chunk_08 {
                 )
                 .map(M68kCycleCount::get))
                 .collect::<Vec<_>>(),
-            vec![Some(9_636), Some(4_220), Some(4_394)],
-            "bounded loc_A73A traces; frame 1709 has a separate 10-cycle bus residue"
+            vec![Some(9_482), Some(4_154), Some(4_336)],
+            "raw loc_A73A traces exclude refresh and frame-1697 PlaySound waits"
+        );
+        assert_eq!(
+            frames
+                .iter()
+                .map(|frame| {
+                    frame
+                        .mode_level_work_before_hud_sub_44dc
+                        .as_ref()
+                        .expect("Mode_Level work ledger")
+                        .execute_objects
+                        .damage_flash_wait_loc_bc44
+                })
+                .collect::<Vec<_>>(),
+            vec![
+                Some(ModeLevelDamageFlashWaitLocBc44::AwaitDamage),
+                Some(ModeLevelDamageFlashWaitLocBc44::AwaitDamage),
+                Some(ModeLevelDamageFlashWaitLocBc44::AwaitDamage),
+            ],
+            "ASM loc_BC44 sees both the death-freeze and damage latches clear"
+        );
+        assert_eq!(
+            frames
+                .iter()
+                .map(|frame| {
+                    frame
+                        .mode_level_work_before_hud_sub_44dc
+                        .as_ref()
+                        .expect("Mode_Level work ledger")
+                        .execute_objects
+                        .demo_exit_wait_loc_119e0
+                })
+                .collect::<Vec<_>>(),
+            vec![
+                Some(ModeLevelDemoExitWaitLoc119E0::HibernateNoStart),
+                Some(ModeLevelDemoExitWaitLoc119E0::HibernateNoStart),
+                Some(ModeLevelDemoExitWaitLoc119E0::HibernateNoStart),
+            ],
+            "ASM loc_119E0 sees no Ctrl_1_Pressed Start edge"
+        );
+        assert_eq!(
+            frames
+                .iter()
+                .map(|frame| {
+                    frame
+                        .mode_level_work_before_hud_sub_44dc
+                        .as_ref()
+                        .expect("Mode_Level work ledger")
+                        .execute_objects
+                        .input_worker_loc_7452
+                })
+                .collect::<Vec<_>>(),
+            vec![
+                Some(ModeLevelInputWorkerPathLoc7452::DemoIdleNoInputTimerClear),
+                Some(ModeLevelInputWorkerPathLoc7452::DemoIdleNoInputTimerClear),
+                Some(ModeLevelInputWorkerPathLoc7452::DemoIdleNoInputTimerClear),
+            ],
+            "ASM loc_7452 runs the clear-timer idle-demo path"
+        );
+        assert_eq!(
+            frames
+                .iter()
+                .map(|frame| {
+                    execute_objects_raw_cycles_sub_e12(
+                        &frame
+                            .mode_level_work_before_hud_sub_44dc
+                            .as_ref()
+                            .expect("Mode_Level work ledger")
+                            .execute_objects,
+                    )
+                    .map(M68kCycleCount::get)
+                })
+                .collect::<Vec<_>>(),
+            vec![Some(27_002), Some(22_114), Some(13_814)],
+            "raw source composition exactly closes each bounded Execute_Objects interval"
+        );
+        assert_eq!(
+            execute_objects_external_waits_sub_e12(
+                &frames[0]
+                    .mode_level_work_before_hud_sub_44dc
+                    .as_ref()
+                    .expect("Mode_Level work ledger")
+                    .execute_objects,
+            )
+            .expect("typed external waits")
+            .into_iter()
+            .map(|event| event.raw_offset.get())
+            .collect::<Vec<_>>(),
+            vec![8_118, 8_178, 8_204, 8_224, 8_288, 8_308],
+            "ASM loc_1002E PlaySound positions all six Z80 bus waits"
+        );
+        assert_eq!(
+            frames
+                .iter()
+                .map(|frame| {
+                    execute_objects_elapsed_cycles_sub_e12(
+                        &frame
+                            .mode_level_work_before_hud_sub_44dc
+                            .as_ref()
+                            .expect("Mode_Level work ledger")
+                            .execute_objects,
+                        M68kRefreshPhase::new(88).expect("bounded entry phase"),
+                    )
+                    .map(|advance| {
+                        (
+                            advance.elapsed.get(),
+                            advance.refresh_events,
+                            advance.phase_after.get(),
+                        )
+                    })
+                })
+                .collect::<Vec<_>>(),
+            vec![
+                Some((27_436, 214, 4)),
+                Some((22_466, 176, 26)),
+                Some((14_034, 110, 42)),
+            ],
+            "raw callbacks, refresh recurrence, and PlaySound waits close sub_E12"
         );
 
         // ASM Allocate_ObjectSlot loc_DE0, Allocate_GfxObjectSlot loc_FD4,

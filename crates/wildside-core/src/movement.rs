@@ -3148,6 +3148,7 @@ impl OpeningSliceState {
                 let mut kid_flip_follow_on_stages = KidFlipFollowOnStages {
                     entry: entry_stage,
                     after_press_away: entry_stage,
+                    cyclone_acceleration_before_sub_b168: None,
                     after_jump_gravity: entry_stage,
                     after_floor: entry_stage,
                     after_wall: entry_stage,
@@ -4938,6 +4939,7 @@ impl OpeningSliceState {
         self.kid_flip_follow_on_stages = Some(KidFlipFollowOnStages {
             entry: stage,
             after_press_away: stage,
+            cyclone_acceleration_before_sub_b168: None,
             after_jump_gravity: stage,
             after_floor: stage,
             after_wall: stage,

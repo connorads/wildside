@@ -585,6 +585,8 @@ pub(crate) struct KidFlipFollowOnStageState {
 pub(crate) struct KidFlipFollowOnStages {
     pub(crate) entry: KidFlipFollowOnStageState,
     pub(crate) after_press_away: KidFlipFollowOnStageState,
+    /// Acceleration before ASM `sub_B168` applies its `$400` gravity step.
+    pub(crate) cyclone_acceleration_before_sub_b168: Option<i16>,
     pub(crate) after_jump_gravity: KidFlipFollowOnStageState,
     pub(crate) after_floor: KidFlipFollowOnStageState,
     pub(crate) after_wall: KidFlipFollowOnStageState,
@@ -1914,6 +1916,7 @@ pub enum ModeLevelAirborneVerticalPath {
     CycloneFlyingNoCPress {
         acceleration_after: i16,
         y_velocity_after: i32,
+        capped_acceleration_to_0x1200: bool,
     },
     Unclassified,
 }
@@ -1983,6 +1986,33 @@ pub enum ModeLevelPlayerExecutionPath {
     Unclassified,
 }
 
+/// Source path for the fixed damage-flash worker resumed at ASM `loc_BC44`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelDamageFlashWaitLocBc44 {
+    /// `$FFFFFA64=0` and `Just_received_damage=0` return to `loc_BC40`.
+    AwaitDamage,
+    DeathFreeze,
+    BeginDamageFlash,
+}
+
+/// Source path for the fixed demo-exit worker resumed at ASM `loc_119E0`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelDemoExitWaitLoc119E0 {
+    /// `Ctrl_1_Pressed` has no Start edge, so the worker hibernates again.
+    HibernateNoStart,
+    ExitDemoStart,
+}
+
+/// Source path for the fixed input/pause worker resumed at ASM `loc_7452`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelInputWorkerPathLoc7452 {
+    /// Attract demo, idle controller, clear hundred-k timer, and no Start edge.
+    DemoIdleNoInputTimerClear,
+}
+
 /// Typed workload facts for ASM `Execute_Objects sub_E12`.
 ///
 /// `unclassified_runtime_transient_workers` prevents a future cycle scheduler
@@ -2029,6 +2059,15 @@ pub struct ModeLevelExecuteObjectsWork {
     /// callbacks while preserving every prize callback around Kid.
     #[serde(default)]
     pub prize_object_execution_order_sub_e12: Option<Vec<ModeLevelPrizeObjectExecutionSubE12>>,
+    /// Fixed `$FFFC` damage-flash worker allocated by ASM `sub_7196`.
+    #[serde(default)]
+    pub damage_flash_wait_loc_bc44: Option<ModeLevelDamageFlashWaitLocBc44>,
+    /// Fixed `$FFFF` controller worker allocated by ASM `Load_DemoPlay`.
+    #[serde(default)]
+    pub demo_exit_wait_loc_119e0: Option<ModeLevelDemoExitWaitLoc119E0>,
+    /// Fixed priority-1 input/pause worker allocated by ASM `sub_7196`.
+    #[serde(default)]
+    pub input_worker_loc_7452: Option<ModeLevelInputWorkerPathLoc7452>,
     #[serde(default)]
     pub prize_block_tail_paths_sub_1066: Vec<ModeLevelPrizeBlockTailWork>,
     #[serde(default)]

@@ -103,8 +103,12 @@ pub use level::{
     shared_vram_art_decompresses_loc_11EFA,
 };
 pub use mode_level_timing::{
-    M68kCycleCount, execute_objects_setup_cycles_sub_e12, player_callback_cycles_loc_a73a,
-    prize_object_cycles_sub_e12, prize_tail_finish_cycles_sub_1007a,
+    M68kCycleCount, M68kExternalWaitEvent, M68kRefreshAdvance, M68kRefreshPhase,
+    damage_flash_wait_cycles_loc_bc44, demo_exit_wait_cycles_loc_119e0,
+    execute_objects_elapsed_cycles_sub_e12, execute_objects_external_waits_sub_e12,
+    execute_objects_raw_cycles_sub_e12, execute_objects_setup_cycles_sub_e12,
+    input_worker_cycles_loc_7452, player_callback_cycles_loc_a73a, prize_object_cycles_sub_e12,
+    prize_tail_finish_cycles_sub_1007a,
 };
 pub use platforms::{
     PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C, PlatformSpriteEmitLoc2548,
@@ -4944,6 +4948,9 @@ impl NativeRuntime {
             slice.player,
         );
         let player_before_cyclone_flight = slice.player;
+        let cyclone_acceleration_before_sub_b168 =
+            (self.progression.current_form == PlayerForm::Cyclone && self.helmet.cyclone_flying)
+                .then_some(self.helmet.cyclone_y_accel);
         self.step_cyclone_flight(&mut slice, input);
         self.note_kid_pre_physics_mutator(
             KidFramePrePhysicsMutator::CycloneFlight,
@@ -5617,6 +5624,9 @@ impl NativeRuntime {
             // ASM kid_flip (loc_ACB0): Cyclone flight activation from C press
             // runs AFTER physics so flight takes effect next frame.
             self.step_cyclone_activation(&slice, input);
+            if let Some(stages) = slice.kid_flip_follow_on_stages.as_mut() {
+                stages.cyclone_acceleration_before_sub_b168 = cyclone_acceleration_before_sub_b168;
+            }
             self.note_kid_flip_branch_probe(
                 input,
                 player_before_iron_knight_climb,

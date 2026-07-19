@@ -21768,6 +21768,7 @@ mod chunk_03 {
                     on_ground: true,
                     wall_cling_direction: None,
                 },
+                cyclone_acceleration_before_sub_b168: None,
                 after_jump_gravity: KidFlipFollowOnStageState {
                     x_velocity: 0,
                     y_velocity: 0,
