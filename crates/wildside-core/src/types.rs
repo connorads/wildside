@@ -2251,6 +2251,28 @@ pub struct ModeLevelKidProjectileCollisionWorkSub1D76 {
     pub diamond_power_object_count: u16,
 }
 
+/// One special GfxObject chain consumed by the post-HUD collision passes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelGfxCollisionListWork {
+    Empty,
+    NonEmptyOrUnclassified,
+}
+
+/// Special GfxObject chains consumed by ASM `GfxObjects_Collision` and
+/// `GfxObjects_CollisionKid`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelGfxCollisionWork {
+    /// Sentinel passed as `$FFFFF866`, whose successor is the kind-1
+    /// Kid-projectile chain at `$FFFFF86A`.
+    pub kid_projectile_list_f866: ModeLevelGfxCollisionListWork,
+    /// Sentinel passed as `$FFFFF86A`, whose successor is the kind-2 chain at
+    /// `$FFFFF86E`.
+    pub object_kind_two_list_f86a: ModeLevelGfxCollisionListWork,
+    /// ROM `KidIsInvulnerable` byte sampled by the `loc_1D00` epilogue.
+    pub kid_is_invulnerable: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelTerrainSpecialCollisionSub1FA2 {
@@ -2289,6 +2311,7 @@ pub struct ModeLevelPostHudWorkLedger {
     pub block_debris_work_sub_2a4c: ModeLevelBlockDebrisWorkSub2A4C,
     pub diamond_power_compile_work_sub_3f798: ModeLevelDiamondPowerCompileWorkSub3F798,
     pub kid_projectile_collision_work_sub_1d76: ModeLevelKidProjectileCollisionWorkSub1D76,
+    pub gfx_collision_work: ModeLevelGfxCollisionWork,
     pub terrain_special_scan_sub_1fa2: Option<ModeLevelTerrainSpecialScanSub1FA2>,
 }
 

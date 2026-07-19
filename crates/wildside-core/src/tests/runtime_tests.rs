@@ -221,6 +221,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
     let mut observed_block_debris_work = Vec::new();
     let mut observed_diamond_power_compile_work = Vec::new();
     let mut observed_kid_projectile_collision_work = Vec::new();
+    let mut observed_gfx_collision_work = Vec::new();
     let mut observed_terrain_special_scan = Vec::new();
 
     for (frame_index, mask) in script.iter().copied().enumerate().take(1_710) {
@@ -240,6 +241,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                 .push((frame_index, ledger.diamond_power_compile_work_sub_3f798));
             observed_kid_projectile_collision_work
                 .push((frame_index, ledger.kid_projectile_collision_work_sub_1d76));
+            observed_gfx_collision_work.push((frame_index, ledger.gfx_collision_work));
             observed_terrain_special_scan.push((frame_index, ledger.terrain_special_scan_sub_1fa2));
             observed.push((
                 frame_index,
@@ -553,6 +555,48 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             ),
         ],
         "ASM sub_1D76 two empty sub_1D84 object-list paths",
+    );
+    assert_eq!(
+        observed_gfx_collision_work
+            .iter()
+            .map(|(frame, work)| {
+                (
+                    *frame,
+                    *work,
+                    gfx_objects_collision_raw_cycles_sub_16f0(work.object_kind_two_list_f86a)
+                        .map(M68kCycleCount::get),
+                    gfx_objects_collision_raw_cycles_sub_16f0(work.kid_projectile_list_f866)
+                        .map(M68kCycleCount::get),
+                    gfx_objects_collision_kid_raw_cycles_sub_1b76(
+                        work.kid_projectile_list_f866,
+                        *work,
+                    )
+                    .map(M68kCycleCount::get),
+                    gfx_objects_collision_kid_raw_cycles_sub_1b76(
+                        work.object_kind_two_list_f86a,
+                        *work,
+                    )
+                    .map(M68kCycleCount::get),
+                )
+            })
+            .collect::<Vec<_>>(),
+        [1_697, 1_703, 1_709]
+            .map(|frame| {
+                (
+                    frame,
+                    ModeLevelGfxCollisionWork {
+                        kid_projectile_list_f866: ModeLevelGfxCollisionListWork::Empty,
+                        object_kind_two_list_f86a: ModeLevelGfxCollisionListWork::Empty,
+                        kid_is_invulnerable: false,
+                    },
+                    Some(330),
+                    Some(330),
+                    Some(166),
+                    Some(166),
+                )
+            })
+            .to_vec(),
+        "ASM sub_16F0/sub_1B76 null special-chain paths at `$F86A` and `$F866`",
     );
     assert_eq!(
         observed_terrain_special_scan

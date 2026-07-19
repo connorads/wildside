@@ -4,13 +4,13 @@ use crate::{
     ModeLevelDamageFlashWaitLocBc44, ModeLevelDemoExitWaitLoc119E0,
     ModeLevelDiamondPowerCompileWorkSub3F798, ModeLevelEnemyLoadingPath,
     ModeLevelExecuteObjectsWork, ModeLevelFloatingPrizeFallPathLoc103B2,
-    ModeLevelInputWorkerPathLoc7452, ModeLevelKidGfxTerrainCollision,
-    ModeLevelKidProjectileCollisionWorkSub1D76, ModeLevelPlatformLoaderExistingSlotSub2728,
-    ModeLevelPlatformLoaderRangeLoc2762, ModeLevelPlatformLoaderWorkLoc2744, ModeLevelPlatformWork,
-    ModeLevelPlayerExecutionPath, ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake,
-    ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
-    ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork, ModeLevelReadJoypadWork,
-    ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
+    ModeLevelGfxCollisionListWork, ModeLevelGfxCollisionWork, ModeLevelInputWorkerPathLoc7452,
+    ModeLevelKidGfxTerrainCollision, ModeLevelKidProjectileCollisionWorkSub1D76,
+    ModeLevelPlatformLoaderExistingSlotSub2728, ModeLevelPlatformLoaderRangeLoc2762,
+    ModeLevelPlatformLoaderWorkLoc2744, ModeLevelPlatformWork, ModeLevelPlayerExecutionPath,
+    ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState,
+    ModeLevelPrizeBlockWobbleWake, ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
+    ModeLevelReadJoypadWork, ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
     ModeLevelTerrainSpecialScanSub1FA2, ModeLevelVerticalCollisionPath, ModeLevelWallCollisionPath,
 };
 
@@ -1394,6 +1394,35 @@ pub fn kid_projectile_collision_raw_cycles_sub_1d76(
     Some(M68kCycleCount::from_raw(126))
 }
 
+/// Raw routine-body cost for an empty ASM `GfxObjects_Collision` (`sub_16F0`)
+/// special-chain pass.
+pub fn gfx_objects_collision_raw_cycles_sub_16f0(
+    list: ModeLevelGfxCollisionListWork,
+) -> Option<M68kCycleCount> {
+    if list != ModeLevelGfxCollisionListWork::Empty {
+        return None;
+    }
+
+    // ASM sub_16F0 loc_16FC/loc_17BE: save all registers, observe a null
+    // successor in `4(a2)`, restore the frame, and return.
+    Some(M68kCycleCount::from_raw(330))
+}
+
+/// Raw routine-body cost for an empty ASM `GfxObjects_CollisionKid`
+/// (`sub_1B76`) special-chain pass.
+pub fn gfx_objects_collision_kid_raw_cycles_sub_1b76(
+    list: ModeLevelGfxCollisionListWork,
+    work: ModeLevelGfxCollisionWork,
+) -> Option<M68kCycleCount> {
+    if list != ModeLevelGfxCollisionListWork::Empty || work.kid_is_invulnerable {
+        return None;
+    }
+
+    // ASM sub_1B76 loc_1B94/loc_1D00: load the Kid hitbox, observe a null
+    // successor in `4(a2)`, then take the clear KidIsInvulnerable return.
+    Some(M68kCycleCount::from_raw(166))
+}
+
 /// Raw routine-body cost for ASM special-terrain scan `sub_1FA2`.
 pub fn terrain_special_scan_raw_cycles_sub_1fa2(
     work: ModeLevelTerrainSpecialScanSub1FA2,
@@ -1583,6 +1612,44 @@ mod tests {
                 },
             ),
             None
+        );
+    }
+
+    #[test]
+    fn empty_special_gfx_lists_take_source_derived_collision_returns() {
+        let work = ModeLevelGfxCollisionWork {
+            kid_projectile_list_f866: ModeLevelGfxCollisionListWork::Empty,
+            object_kind_two_list_f86a: ModeLevelGfxCollisionListWork::Empty,
+            kid_is_invulnerable: false,
+        };
+        assert_eq!(
+            gfx_objects_collision_raw_cycles_sub_16f0(work.kid_projectile_list_f866),
+            Some(M68kCycleCount::from_raw(330))
+        );
+        assert_eq!(
+            gfx_objects_collision_kid_raw_cycles_sub_1b76(work.object_kind_two_list_f86a, work,),
+            Some(M68kCycleCount::from_raw(166))
+        );
+
+        let unclassified = ModeLevelGfxCollisionListWork::NonEmptyOrUnclassified;
+        assert_eq!(
+            gfx_objects_collision_raw_cycles_sub_16f0(unclassified),
+            None
+        );
+        assert_eq!(
+            gfx_objects_collision_kid_raw_cycles_sub_1b76(unclassified, work),
+            None
+        );
+        assert_eq!(
+            gfx_objects_collision_kid_raw_cycles_sub_1b76(
+                ModeLevelGfxCollisionListWork::Empty,
+                ModeLevelGfxCollisionWork {
+                    kid_is_invulnerable: true,
+                    ..work
+                },
+            ),
+            None,
+            "the invulnerable loc_1D00 tail depends on live collision words",
         );
     }
 

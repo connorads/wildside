@@ -9710,6 +9710,10 @@ impl NativeRuntime {
             .count()
             .try_into()
             .expect("platform Object list fits the ROM u16 count");
+        let active_enemy_object_count = active_objects
+            .iter()
+            .filter(|object| matches!(object.kind, NativeObjectKind::Enemy { .. }))
+            .count();
         let read_joypad_work = if matches!(self.boot_state, BootState::DemoPlay { .. }) {
             ModeLevelReadJoypadWork::DemoPlaybackLocC22(self.demo_read_joypad_work_loc_c22)
         } else if self.options_two_player_two_controllers && self.current_player_index != 0 {
@@ -9816,6 +9820,28 @@ impl NativeRuntime {
                     .len()
                     .try_into()
                     .expect("Diamond Power object list fits the ROM u16 count"),
+            },
+            gfx_collision_work: ModeLevelGfxCollisionWork {
+                kid_projectile_list_f866: if self.projectiles.iter().any(|projectile| {
+                    projectile.friendly
+                        && (projectile.lifetime != 0
+                            || projectile.kind == EnemyProjectileKind::ManiaxeAxe)
+                }) {
+                    ModeLevelGfxCollisionListWork::NonEmptyOrUnclassified
+                } else {
+                    ModeLevelGfxCollisionListWork::Empty
+                },
+                // ASM Allocate_GfxObjectSlot loc_F9C links kind-2 graphics
+                // behind the `$FFFFF86A` sentinel. With no live enemy Object
+                // workers the natural gameplay path has no such base or
+                // child graphics; live enemy chains remain deliberately
+                // unclassified because one Object may own several slots.
+                object_kind_two_list_f86a: if active_enemy_object_count == 0 {
+                    ModeLevelGfxCollisionListWork::Empty
+                } else {
+                    ModeLevelGfxCollisionListWork::NonEmptyOrUnclassified
+                },
+                kid_is_invulnerable: self.kid_is_invulnerable,
             },
             terrain_special_scan_sub_1fa2,
         }
