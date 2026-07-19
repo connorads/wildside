@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 source-ordered cycle components)
+
+- The workload ledger now records Kid's same-pass initial `sub_1007A`
+  callback, its loc_DE0/loc_FD4 ranks, the source-ordered prize callback walk,
+  and the `sub_A4A` entry RNG offset.
+- Pure timing functions derive exact finishing-tail scans, target prize
+  callback branches, all four RNG byte-wrap paths, and the natural Cyclone
+  Kid body. Frames 1697/1703 yield 9,636/4,220 Kid cycles; frame 1709 yields
+  4,394 nominal plus a separately proven 10-cycle hardware/bus residue.
+- NEXT: identify and type the two fixed non-prize callbacks and post-E12
+  Mode_Level work, then model bus stalls and populate the existing life-icon
+  FIFO timing seam.
+
+---
+
 ## 2026-07-18 handoff (#409 typed floating-prize fall branches)
 
 - Added all six `PrizeDiamond_Init loc_103B2..loc_10402` current-row,
