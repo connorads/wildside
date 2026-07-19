@@ -31,6 +31,7 @@ mod tas_pixel_baseline;
 mod tas_pixels;
 mod verify;
 mod view_tas;
+mod visual_triage;
 
 use verify::*;
 
@@ -1087,6 +1088,35 @@ enum Commands {
         /// this path (requires --compare-pixels; not supported with --bisect)
         #[arg(long)]
         pixel_mismatch_report: Option<PathBuf>,
+    },
+    /// Cluster a TAS pixel-mismatch corpus by root cause: replay the route,
+    /// sample per-pixel draw provenance at each divergent frame, and rank
+    /// signatures (divergence class + layer + command kind + palette line).
+    VisualTriage {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Path to the DynamicScenario JSON the mismatch report was built
+        /// from (e.g. .cache/tas-verify/<slug>/scenario.json)
+        #[arg(long)]
+        scenario: PathBuf,
+        /// Pixel mismatch report from verify-tas --pixel-mismatch-report
+        /// (default: .cache/tas-verify/<slug>/mismatch-report.json)
+        #[arg(long)]
+        mismatch_report: Option<PathBuf>,
+        /// Only triage divergent frames from this frame onwards
+        #[arg(long)]
+        frame_start: Option<usize>,
+        /// Only triage divergent frames before this frame
+        #[arg(long)]
+        frame_end: Option<usize>,
+        /// Clusters to print and write diff composites for
+        #[arg(long, default_value_t = 20)]
+        top: usize,
+        /// Regenerate the cached oracle PNG captures before triaging
+        #[arg(long, default_value_t = false)]
+        rerun_oracle: bool,
     },
     /// Side-by-side native vs oracle comparison for TAS debugging.
     TasDiff {
@@ -2535,6 +2565,32 @@ fn main() -> Result<()> {
                     pixel_mismatch_report.as_deref(),
                 )?;
             }
+        }
+        Commands::VisualTriage {
+            rom,
+            dir,
+            scenario,
+            mismatch_report,
+            frame_start,
+            frame_end,
+            top,
+            rerun_oracle,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            visual_triage::run_visual_triage(
+                &repo_root,
+                &rom_path,
+                &manifest,
+                &scenario,
+                mismatch_report.as_deref(),
+                frame_start,
+                frame_end,
+                top,
+                rerun_oracle,
+            )?;
         }
         Commands::TasDiff {
             rom,

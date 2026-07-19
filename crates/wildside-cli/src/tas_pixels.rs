@@ -545,7 +545,6 @@ fn render_source_port_frame(
 /// from. `None` on the VDP path (Sega/intro/title screens render real VDP
 /// pixels, not a `Scene`). Provenance sampling must use this scene — not a
 /// rebuilt one — so it attributes exactly the pixels that were diffed.
-#[allow(dead_code)] // consumed by visual-triage (next commit)
 pub(crate) fn render_source_port_frame_with_scene(
     runtime: &NativeRuntime,
     previous_trace: &NativeTraceFrame,

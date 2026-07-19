@@ -13,6 +13,14 @@ catalogue of every command — it drifts. Instead, ask the binary and the task r
 - `mise run verify-tas <scenario.json>` and `mise run verify-tas-full` — TAS/oracle
   replay; run after gameplay-affecting commits.
 
+## Divergence triage
+
+`wildside visual-triage --scenario .cache/tas-verify/<slug>/scenario.json` clusters a
+pixel-mismatch corpus (from `verify-tas --compare-pixels --pixel-mismatch-report`) by
+root cause — divergence class + renderer layer + draw-command kind + palette line —
+writing a ranked report and per-cluster diff composites under
+`.cache/visual-triage-runs/`. See `wildside visual-triage --help`.
+
 ## Dev / oracle setup
 
 The native runtime, asset extraction, and the emulator oracle are wired through mise:

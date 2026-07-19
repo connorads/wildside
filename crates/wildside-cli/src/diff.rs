@@ -83,7 +83,6 @@ pub(crate) fn pixel_mismatch_bbox(a: &[u8], b: &[u8], width: usize) -> Option<(u
 /// Coordinates of every mismatching pixel between two RGB24 buffers, in
 /// row-major order. Same walk as [`pixel_mismatch_bbox`], so the count of
 /// returned coordinates equals its mismatch count.
-#[allow(dead_code)] // consumed by visual-triage (next commit)
 pub(crate) fn changed_pixel_coords(a: &[u8], b: &[u8], width: usize) -> Vec<(usize, usize)> {
     a.chunks_exact(3)
         .zip(b.chunks_exact(3))
@@ -98,7 +97,6 @@ pub(crate) fn changed_pixel_coords(a: &[u8], b: &[u8], width: usize) -> Vec<(usi
 /// Picks `coords[i * len / max]` for `i in 0..max`, so samples spread evenly
 /// across the input order (row-major for `changed_pixel_coords`) and the same
 /// input always yields the same selection.
-#[allow(dead_code)] // consumed by visual-triage (next commit)
 pub(crate) fn subsample_deterministic(
     coords: &[(usize, usize)],
     max: usize,
