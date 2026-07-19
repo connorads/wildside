@@ -9723,6 +9723,7 @@ impl NativeRuntime {
             read_joypad_work,
             enemy_loading_initial_pass_complete: self.enemy_loading_initial_pass_complete,
             linked_gfx_object_count,
+            murder_wall_active_sub_5e02: self.murder_wall.is_some(),
             platform_loader_work: self.mode_level_platform_loader_work_loc_2744,
             platform_work: ModeLevelPlatformWork {
                 frozen_fa64: matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),

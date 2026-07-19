@@ -238,6 +238,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                 read_joypad_raw_cycles.get(),
                 ledger.enemy_loading_initial_pass_complete,
                 ledger.linked_gfx_object_count,
+                ledger.murder_wall_active_sub_5e02,
                 ledger.platform_loader_work,
                 ledger.platform_work,
             ));
@@ -248,7 +249,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
         observed
             .iter()
             .map(
-                |(_, phases, enemy_path, _, joypad_path, _, loader_complete, _, _, _)| (
+                |(_, phases, enemy_path, _, joypad_path, _, loader_complete, _, _, _, _)| (
                     phases,
                     *enemy_path,
                     *joypad_path,
@@ -306,6 +307,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                     joypad_raw,
                     _,
                     gfx_count,
+                    murder_wall_active,
                     platform_loader_work,
                     platform_work,
                 )| {
@@ -314,6 +316,9 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                         *enemy_raw,
                         *joypad_raw,
                         *gfx_count,
+                        *murder_wall_active,
+                        terrain_effects_raw_cycles_sub_5e02(*murder_wall_active)
+                            .map(M68kCycleCount::get),
                         *platform_loader_work,
                         platform_loader_work
                             .and_then(manage_platform_loading_raw_cycles_loc_2744)
@@ -335,6 +340,8 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                 84,
                 1_234,
                 16,
+                false,
+                Some(38),
                 Some(ModeLevelPlatformLoaderWorkLoc2744::Placement {
                     wrapped_to_start: true,
                     range: ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight,
@@ -351,6 +358,8 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                 84,
                 1_234,
                 17,
+                false,
+                Some(38),
                 Some(ModeLevelPlatformLoaderWorkLoc2744::Placement {
                     wrapped_to_start: true,
                     range: ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight,
@@ -367,6 +376,8 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                 84,
                 1_234,
                 16,
+                false,
+                Some(38),
                 Some(ModeLevelPlatformLoaderWorkLoc2744::Placement {
                     wrapped_to_start: true,
                     range: ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight,

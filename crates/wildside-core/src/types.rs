@@ -2237,6 +2237,8 @@ pub struct ModeLevelPostHudWorkLedger {
     /// Linked list consumed by both `GfxObjects_MoveAndAnimate` and
     /// `Make_SpritesFromGfxObjects`.
     pub linked_gfx_object_count: u16,
+    /// ASM `MurderWall_flag` sampled by `sub_5E02`.
+    pub murder_wall_active_sub_5e02: bool,
     pub platform_loader_work: Option<ModeLevelPlatformLoaderWorkLoc2744>,
     pub platform_work: ModeLevelPlatformWork,
 }

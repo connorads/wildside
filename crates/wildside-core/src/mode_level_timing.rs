@@ -1342,6 +1342,17 @@ pub fn manage_platform_loading_raw_cycles_loc_2744(
     }
 }
 
+/// Raw routine-body cost for ASM murder-wall sprite work in `sub_5E02`.
+pub fn terrain_effects_raw_cycles_sub_5e02(murder_wall_active: bool) -> Option<M68kCycleCount> {
+    if murder_wall_active {
+        return None;
+    }
+
+    // ASM sub_5E02: clear MurderWall_flag takes the first branch directly to
+    // return_5F68 without touching Kid or the sprite table.
+    Some(M68kCycleCount::from_raw(38))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2048,6 +2059,20 @@ mod tests {
             ),
             None,
             "the non-wrapped source path has a distinct cost",
+        );
+    }
+
+    #[test]
+    fn inactive_murder_wall_has_source_derived_raw_cost_sub_5e02() {
+        assert_eq!(
+            terrain_effects_raw_cycles_sub_5e02(false),
+            Some(M68kCycleCount::from_raw(38)),
+            "ASM sub_5E02 -> return_5F68",
+        );
+        assert_eq!(
+            terrain_effects_raw_cycles_sub_5e02(true),
+            None,
+            "active murder-wall collision and sprite branches remain fail-closed",
         );
     }
 
