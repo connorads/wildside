@@ -451,8 +451,18 @@ struct GemsStopMusicClock<'a> {
     phase: M68kRefreshPhase,
     refresh_wait_events: u32,
     z80_ram_accesses: u32,
-    vint_source_offsets: &'a [M68kCycleCount],
-    next_vint: usize,
+    vint_schedule: GemsStopMusicVintSchedule<'a>,
+}
+
+enum GemsStopMusicVintSchedule<'a> {
+    Explicit {
+        source_offsets: &'a [M68kCycleCount],
+        next: usize,
+    },
+    Absolute {
+        entry_master_clock: u64,
+        next_assertion_master_clock: u64,
+    },
 }
 
 impl GemsStopMusicClock<'_> {
@@ -479,9 +489,31 @@ impl GemsStopMusicClock<'_> {
     }
 
     fn inject_vint_before_source_instruction(&mut self) -> Option<()> {
-        while let Some(offset) = self.vint_source_offsets.get(self.next_vint) {
-            if offset.get() != self.raw_cycles {
-                return (offset.get() > self.raw_cycles).then_some(());
+        loop {
+            let inject = match &self.vint_schedule {
+                GemsStopMusicVintSchedule::Explicit {
+                    source_offsets,
+                    next,
+                } => {
+                    let Some(offset) = source_offsets.get(*next) else {
+                        return Some(());
+                    };
+                    if offset.get() != self.raw_cycles {
+                        return (offset.get() > self.raw_cycles).then_some(());
+                    }
+                    true
+                }
+                GemsStopMusicVintSchedule::Absolute {
+                    entry_master_clock,
+                    next_assertion_master_clock,
+                } => {
+                    let current_master_clock = entry_master_clock
+                        .checked_add(u64::from(self.elapsed_cycles).checked_mul(7)?)?;
+                    current_master_clock >= *next_assertion_master_clock
+                }
+            };
+            if !inject {
+                return Some(());
             }
             // jgenesis samples the pending interrupt for 10 cycles. ASM V_Int
             // $488 then takes 44 to enter and 60 for ADDQ.L/ST/RTE.
@@ -490,9 +522,27 @@ impl GemsStopMusicClock<'_> {
             self.hardware_work(28)?;
             self.hardware_work(12)?;
             self.hardware_work(20)?;
-            self.next_vint += 1;
+            match &mut self.vint_schedule {
+                GemsStopMusicVintSchedule::Explicit { next, .. } => *next += 1,
+                GemsStopMusicVintSchedule::Absolute {
+                    next_assertion_master_clock,
+                    ..
+                } => {
+                    *next_assertion_master_clock =
+                        next_assertion_master_clock.checked_add(3_420 * 262)?;
+                }
+            }
         }
-        Some(())
+    }
+
+    fn consumed_explicit_vints(&self) -> bool {
+        match self.vint_schedule {
+            GemsStopMusicVintSchedule::Explicit {
+                source_offsets,
+                next,
+            } => next == source_offsets.len(),
+            GemsStopMusicVintSchedule::Absolute { .. } => true,
+        }
     }
 
     fn hardware_work(&mut self, raw_cycles: u32) -> Option<()> {
@@ -544,6 +594,63 @@ pub fn gems_stop_music_elapsed_timing(
     {
         return None;
     }
+    gems_stop_music_elapsed_timing_with_vint_schedule(
+        polls,
+        phase_before,
+        GemsStopMusicVintSchedule::Explicit {
+            source_offsets: vint_source_offsets,
+            next: 0,
+        },
+    )
+}
+
+/// Position ASM `StopMusic` VINT work from its absolute 68000 entry counter.
+///
+/// The Mega Drive VDP asserts the level-6 interrupt at H40 scanline 224,
+/// master-clock 16. The 68000 samples that pending interrupt at the next
+/// source instruction boundary, so no route-specific raw instruction offset
+/// is needed. Callers must use the explicit-offset API with no events while
+/// the status-register interrupt mask rejects level 6.
+pub fn gems_stop_music_elapsed_timing_from_absolute_entry(
+    polls: GemsStopMusicBusAckPolls,
+    phase_before: M68kRefreshPhase,
+    absolute_entry_cycles: M68kCycleCount,
+) -> Option<GemsStopMusicElapsedTiming> {
+    const MCLK_PER_M68K_CYCLE: u64 = 7;
+    const MCLK_PER_SCANLINE: u64 = 3_420;
+    const NTSC_SCANLINES_PER_FRAME: u64 = 262;
+    const VINT_ASSERTION_SCANLINE: u64 = 224;
+    const VINT_ASSERTION_SCANLINE_MCLK: u64 = 16;
+
+    let entry_master_clock =
+        u64::from(absolute_entry_cycles.get()).checked_mul(MCLK_PER_M68K_CYCLE)?;
+    let frame_master_clocks = MCLK_PER_SCANLINE.checked_mul(NTSC_SCANLINES_PER_FRAME)?;
+    let assertion_in_frame = VINT_ASSERTION_SCANLINE
+        .checked_mul(MCLK_PER_SCANLINE)?
+        .checked_add(VINT_ASSERTION_SCANLINE_MCLK)?;
+    let entry_in_frame = entry_master_clock % frame_master_clocks;
+    let until_assertion = if entry_in_frame < assertion_in_frame {
+        assertion_in_frame - entry_in_frame
+    } else {
+        frame_master_clocks - entry_in_frame + assertion_in_frame
+    };
+    let next_assertion_master_clock = entry_master_clock.checked_add(until_assertion)?;
+
+    gems_stop_music_elapsed_timing_with_vint_schedule(
+        polls,
+        phase_before,
+        GemsStopMusicVintSchedule::Absolute {
+            entry_master_clock,
+            next_assertion_master_clock,
+        },
+    )
+}
+
+fn gems_stop_music_elapsed_timing_with_vint_schedule(
+    polls: GemsStopMusicBusAckPolls,
+    phase_before: M68kRefreshPhase,
+    vint_schedule: GemsStopMusicVintSchedule<'_>,
+) -> Option<GemsStopMusicElapsedTiming> {
     let source = gems_stop_music_timing(polls)?;
     let mut clock = GemsStopMusicClock {
         raw_cycles: 0,
@@ -552,8 +659,7 @@ pub fn gems_stop_music_elapsed_timing(
         phase: phase_before,
         refresh_wait_events: 0,
         z80_ram_accesses: 0,
-        vint_source_offsets,
-        next_vint: 0,
+        vint_schedule,
     };
     let mut bus_windows = [GemsStopMusicElapsedBusWindow {
         request_complete_elapsed_offset: M68kCycleCount::from_raw(0),
@@ -649,7 +755,7 @@ pub fn gems_stop_music_elapsed_timing(
     clock.source_instructions(&[12, 16])?;
 
     if clock.raw_cycles != source.raw_cycles.get()
-        || clock.next_vint != vint_source_offsets.len()
+        || !clock.consumed_explicit_vints()
         || clock.z80_ram_accesses
             != source
                 .bus_windows
@@ -2415,6 +2521,56 @@ mod tests {
             .is_none(),
             "VINT must be injected at a real StopMusic instruction boundary"
         );
+    }
+
+    #[test]
+    fn stop_music_absolute_entry_derives_frame_867_vint_boundary_e14c8() {
+        let elapsed = gems_stop_music_elapsed_timing_from_absolute_entry(
+            GemsStopMusicBusAckPolls {
+                driver_copy_sub_e13da: 1,
+                queue_transactions_sub_e143a: [1; 6],
+            },
+            M68kRefreshPhase::new(14).expect("trace entry phase"),
+            M68kCycleCount::from_raw(110_975_266),
+        )
+        .expect("absolute frame-867 entry reaches VINT on a source boundary");
+
+        assert_eq!(elapsed.elapsed_cycles.get(), 229_570);
+        assert_eq!(elapsed.refresh_wait_events, 1_507);
+        assert_eq!(elapsed.phase_after.get(), 80);
+        assert_eq!(
+            elapsed.bus_windows.map(|window| (
+                window.request_complete_elapsed_offset.get(),
+                window.release_complete_elapsed_offset.get(),
+            )),
+            [
+                (104, 226_048),
+                (226_282, 226_459),
+                (226_729, 226_904),
+                (227_178, 227_545),
+                (227_819, 228_186),
+                (228_460, 228_827),
+                (229_101, 229_468),
+            ],
+            "absolute NTSC VINT cadence must reproduce the selected-PC frame-867 schedule"
+        );
+    }
+
+    #[test]
+    fn stop_music_absolute_entry_derives_two_vints_for_frame_30_call_e14c8() {
+        let elapsed = gems_stop_music_elapsed_timing_from_absolute_entry(
+            GemsStopMusicBusAckPolls {
+                driver_copy_sub_e13da: 1,
+                queue_transactions_sub_e143a: [1; 6],
+            },
+            M68kRefreshPhase::new(72).expect("selected-PC refresh counter"),
+            M68kCycleCount::from_raw(3_868_666),
+        )
+        .expect("frame-30 call crosses two accepted scanline-224 assertions");
+
+        assert_eq!(elapsed.elapsed_cycles.get(), 229_682);
+        assert_eq!(elapsed.refresh_wait_events, 1_506);
+        assert_eq!(elapsed.phase_after.get(), 122);
     }
 
     fn published_natural_vblank_work() -> ModeLevelVblankWorkBeforeSubE12 {
