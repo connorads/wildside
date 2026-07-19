@@ -11,8 +11,9 @@
 use wildside_core::{GameMode, LevelId, NativeSoundCommand, NativeTraceFrame};
 #[cfg(feature = "audio")]
 use wildside_core::{
-    GemsQueueCommandAdvance, GemsQueueCommandPath, GemsStopMusicElapsedTiming, HudDmaEventSub44DC,
-    LoadInGameTimerBonusPath, M68kCycleCount, M68kRefreshPhase,
+    GemsQueueCommandAdvance, GemsQueueCommandPath, GemsStopMusicBusAckPolls,
+    GemsStopMusicElapsedTiming, HudDmaEventSub44DC, LoadInGameTimerBonusPath, M68kCycleCount,
+    M68kRefreshPhase,
     vdp::{
         LoadInGameCpuRasterCursor, LoadInGamePlatformInitialisationAdvance,
         LoadInGamePlatformRefreshLedger, LoadInGamePlatformVintEvent, ModeLevelCpuRasterCursor,
@@ -801,6 +802,37 @@ pub fn apply_timed_gems_stop_music(
         banked_68k_reads: reads,
         pending_m68k_wait_cycles: audio.pending_m68k_wait_cycles(),
     }
+}
+
+/// Derive and execute a source-positioned `StopMusic $E14C8` call.
+///
+/// The timing engine must already be on the same NTSC raster position as the
+/// absolute 68000 entry counter. This keeps VINT derivation engine-level while
+/// rejecting callers that try to apply the schedule at a different beam.
+#[cfg(feature = "audio")]
+pub fn apply_timed_gems_stop_music_from_absolute_entry(
+    audio: &mut GemsMasterClockTimingEngine,
+    polls: GemsStopMusicBusAckPolls,
+    phase_before: M68kRefreshPhase,
+    absolute_entry_cycles: M68kCycleCount,
+) -> Option<(GemsStopMusicElapsedTiming, GemsMasterClockAdvance)> {
+    const MCLK_PER_M68K_CYCLE: u64 = 7;
+    const NTSC_FRAME_MASTER_CLOCKS: u64 = 3_420 * 262;
+
+    let absolute_entry_master_clock =
+        u64::from(absolute_entry_cycles.get()).checked_mul(MCLK_PER_M68K_CYCLE)?;
+    if audio.master_clock() % NTSC_FRAME_MASTER_CLOCKS
+        != absolute_entry_master_clock % NTSC_FRAME_MASTER_CLOCKS
+    {
+        return None;
+    }
+    let timing = wildside_core::gems_stop_music_elapsed_timing_from_absolute_entry(
+        polls,
+        phase_before,
+        absolute_entry_cycles,
+    )?;
+    let advance = apply_timed_gems_stop_music(audio, timing);
+    Some((timing, advance))
 }
 
 /// Co-schedule GEMS banked reads with the life-icon-only ASM `sub_44DC` path.
@@ -1796,6 +1828,38 @@ mod tests {
 
     #[cfg(feature = "audio")]
     #[test]
+    fn timed_title_stop_music_matches_frame_139_absolute_schedule_e14c8() {
+        // ASM sub_1C246 -> loc_1C264 -> StopMusic $E14C8. Selected-PC
+        // tracing enters at absolute cycle 17,789,000 / phase 32 and reaches
+        // the final RTS at +229,558 before its 16-cycle completion.
+        let absolute_entry = M68kCycleCount::from_raw(17_789_000);
+        let entry_master_clock = u64::from(absolute_entry.get()) * 7;
+        let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+        engine.advance_ntsc_master_clocks(entry_master_clock % (3_420 * 262));
+
+        let (timing, advance) = apply_timed_gems_stop_music_from_absolute_entry(
+            &mut engine,
+            wildside_core::GemsStopMusicBusAckPolls {
+                driver_copy_sub_e13da: 1,
+                queue_transactions_sub_e143a: [1; 6],
+            },
+            M68kRefreshPhase::new(32).expect("frame-139 selected-PC phase"),
+            absolute_entry,
+        )
+        .expect("frame-139 title StopMusic schedule");
+
+        assert_eq!(timing.elapsed_cycles, M68kCycleCount::from_raw(229_574));
+        assert_eq!(timing.refresh_wait_events, 1_509);
+        assert_eq!(timing.phase_after, M68kRefreshPhase::new(102).unwrap());
+        assert!(advance.banked_68k_reads.is_empty());
+        assert_eq!(
+            engine.master_clock() % (3_420 * 262),
+            (entry_master_clock + 229_574 * 7) % (3_420 * 262),
+        );
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
     fn load_in_game_tail_adapter_reaches_stop_music_e14c8_with_halted_z80() {
         let entry = wildside_core::vdp::LoadInGameCpuRasterCursor {
             beam: wildside_core::vdp::H40BeamPosition::new(243, 2_563)
@@ -1901,12 +1965,16 @@ mod tests {
         let advance = apply_timed_gems_queue_command(
             &mut engine,
             GemsQueueCommandPath::StartOrStopSequenceSubE151c,
-            M68kRefreshPhase::new(28).expect("frame-899 selected-PC phase"),
-            Some(GemsQueueCommand::StartSequence(2)),
+            M68kRefreshPhase::new(48).expect("frame-171 selected-PC phase"),
+            Some(GemsQueueCommand::StartSequence(gems_bgm::ICE)),
         )
-        .expect("ASM sub_E151C command schedule");
+        .expect("ASM Load_TitleScreen -> sub_E151C command schedule");
 
+        assert_eq!(advance.queue_bus_request_complete.get(), 162);
+        assert_eq!(advance.queue_write_complete.get(), 424);
+        assert_eq!(advance.queue_bus_release_complete.get(), 444);
         assert_eq!(advance.elapsed.get(), 518);
+        assert_eq!(advance.phase_after, M68kRefreshPhase::new(54).unwrap());
         assert_eq!(engine.master_clock(), entry_master_clock + 518 * 7);
         assert_eq!(engine.pending_m68k_wait_cycles(), 0);
     }
