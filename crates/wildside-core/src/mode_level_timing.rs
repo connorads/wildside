@@ -14,6 +14,10 @@ use crate::{
 pub struct M68kCycleCount(u32);
 
 impl M68kCycleCount {
+    pub const fn from_raw(cycles: u32) -> Self {
+        Self(cycles)
+    }
+
     pub const fn get(self) -> u32 {
         self.0
     }

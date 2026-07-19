@@ -21,6 +21,7 @@ use crate::constants::{
     INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES, INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES,
     TIMEOUT_RESTART_INTRO_SEQUENCE_5_VDP_VISIBLE_ELAPSED_LOC_1BA28, TITLE_ATTRACT_LOCK_FRAMES,
 };
+use crate::{M68kCycleCount, M68kRefreshPhase};
 
 /// Gameplay-owned VRAM state for HUD DMA operations.
 ///
@@ -2828,6 +2829,123 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_4_RASTER_ELAPSED: usize =
 const H40_VRAM_FIFO_ACCESS_PIXELS: [u16; 18] = [
     12, 28, 44, 76, 92, 108, 140, 156, 172, 204, 220, 236, 268, 284, 300, 330, 332, 380,
 ];
+const MCLK_CYCLES_PER_SCANLINE: u32 = 3_420;
+const MCLK_CYCLES_PER_M68K_CYCLE: u32 = 7;
+const NTSC_SCANLINES_PER_FRAME: u16 = 262;
+
+/// Exact H40 beam position, retaining the master-clock sub-pixel phase that a
+/// scanline/pixel pair discards.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct H40BeamPosition {
+    scanline: u16,
+    scanline_mclk: u16,
+}
+
+impl H40BeamPosition {
+    pub const fn new(scanline: u16, scanline_mclk: u16) -> Option<Self> {
+        if scanline < NTSC_SCANLINES_PER_FRAME && scanline_mclk < MCLK_CYCLES_PER_SCANLINE as u16 {
+            Some(Self {
+                scanline,
+                scanline_mclk,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub const fn scanline(self) -> u16 {
+        self.scanline
+    }
+
+    pub const fn scanline_mclk(self) -> u16 {
+        self.scanline_mclk
+    }
+
+    #[must_use]
+    pub fn advance_m68k_cycles(self, cycles: M68kCycleCount) -> Self {
+        let mclk = u32::from(self.scanline_mclk)
+            + cycles
+                .get()
+                .checked_mul(MCLK_CYCLES_PER_M68K_CYCLE)
+                .expect("bounded HUD timing must fit u32 master clocks");
+        Self {
+            scanline: self
+                .scanline
+                .wrapping_add((mclk / MCLK_CYCLES_PER_SCANLINE) as u16)
+                % NTSC_SCANLINES_PER_FRAME,
+            scanline_mclk: (mclk % MCLK_CYCLES_PER_SCANLINE) as u16,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct H40FifoCommitPosition {
+    pub scanline: u16,
+    pub pixel: u16,
+}
+
+fn h40_scanline_mclk_to_pixel(scanline_mclk: u16) -> u16 {
+    // jgenesis VDP `scanline_mclk_to_pixel_h40`: H40 uses mclk/8 outside
+    // HSYNC, with the documented 8/10/9/10 divider pattern during HSYNC.
+    const INTERNAL_H_JUMP: u16 = 0x1C9 - 0x16D;
+    const HSYNC_START_MCLK: u16 = (0x1CC - INTERNAL_H_JUMP) * 8;
+    const HSYNC_PATTERN_MCLK: u16 = 8 + 7 * 10 + 2 * 9 + 7 * 10;
+    const HSYNC_END_MCLK: u16 = HSYNC_START_MCLK + 2 * HSYNC_PATTERN_MCLK;
+
+    if scanline_mclk < HSYNC_START_MCLK {
+        return scanline_mclk / 8;
+    }
+    if scanline_mclk < HSYNC_END_MCLK {
+        let hsync_mclk = scanline_mclk - HSYNC_START_MCLK;
+        let pattern_mclk = hsync_mclk % HSYNC_PATTERN_MCLK;
+        let pattern_pixel = match pattern_mclk {
+            0..=7 => 0,
+            8..=77 => 1 + (pattern_mclk - 8) / 10,
+            78..=95 => 8 + (pattern_mclk - 78) / 9,
+            96..=165 => 10 + (pattern_mclk - 96) / 10,
+            _ => unreachable!("HSYNC pattern remainder stays below 166"),
+        };
+        return if hsync_mclk < HSYNC_PATTERN_MCLK {
+            0x1CC - INTERNAL_H_JUMP + pattern_pixel
+        } else {
+            0x1CC - INTERNAL_H_JUMP + 17 + pattern_pixel
+        };
+    }
+    0x1CC - INTERNAL_H_JUMP + 34 + (scanline_mclk - HSYNC_END_MCLK) / 8
+}
+
+/// First FIFO-committed word of ASM `loc_4586 -> sub_44D0`.
+///
+/// The target path has an empty FIFO at `sub_44DC` entry. The first MOVE.L
+/// completes after the life-script branch and places two words into the FIFO;
+/// the first word commits at the next H40 VRAM access slot.
+pub fn life_icon_first_commit_loc_4586(
+    entry_beam: H40BeamPosition,
+    entry_refresh_phase: M68kRefreshPhase,
+) -> H40FifoCommitPosition {
+    // ASM sub_44DC loc_4546..loc_44D4 (kid.asm:5592-5541): 236 raw cycles
+    // reach completion of the first MOVE.L data-port write on this branch.
+    let first_write = entry_refresh_phase.advance_rom(M68kCycleCount::from_raw(236));
+    let arrival = entry_beam.advance_m68k_cycles(first_write.elapsed);
+    let arrival_pixel = h40_scanline_mclk_to_pixel(arrival.scanline_mclk);
+    let (first_commit_scanline, first_commit_pixel) = H40_VRAM_FIFO_ACCESS_PIXELS
+        .iter()
+        .copied()
+        .find(|&pixel| pixel > arrival_pixel)
+        .map_or_else(
+            || {
+                (
+                    arrival.scanline.wrapping_add(1) % NTSC_SCANLINES_PER_FRAME,
+                    H40_VRAM_FIFO_ACCESS_PIXELS[0],
+                )
+            },
+            |pixel| (arrival.scanline, pixel),
+        );
+    H40FifoCommitPosition {
+        scanline: first_commit_scanline,
+        pixel: first_commit_pixel,
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 struct IntroSequence5RasterUpload {
@@ -4880,6 +4998,29 @@ fn load_saxman_art(source: &dyn AssetSource, rel: &std::path::Path) -> Result<Ve
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn life_icon_first_commit_follows_h40_fifo_slots_loc_4586() {
+        // ASM sub_44DC/loc_4586 and jgenesis H40 traces. The master-clock
+        // positions preserve the sub-pixel phase hidden by the corresponding
+        // entry pixels 161, 95, and 303.
+        let cases = [
+            (42, 1_295, 64, (42, 380)),
+            (32, 761, 116, (32, 330)),
+            (14, 2_429, 110, (15, 92)),
+        ];
+        for (entry_scanline, entry_mclk, refresh_phase, expected) in cases {
+            let commit = life_icon_first_commit_loc_4586(
+                H40BeamPosition::new(entry_scanline, entry_mclk).expect("bounded H40 beam"),
+                M68kRefreshPhase::new(refresh_phase).expect("bounded refresh phase"),
+            );
+            assert_eq!(
+                (commit.scanline, commit.pixel),
+                expected,
+                "236 raw cycles, two refresh waits, and the next H40 VRAM slot"
+            );
+        }
+    }
 
     fn empty_intro_data() -> IntroSub1B850Data {
         IntroSub1B850Data {
