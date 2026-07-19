@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 platform-art hardware timeline)
+
+- Commit `80893ee58` clocks persistent GEMS through the exact
+  `Initialize_Platforms $11A0E..$11A12` hardware schedule.
+- Full selected-PC accounting is 38,604 source + 546 refresh + 104 VINT +
+  5,999 VDP-owned FIFO cycles = 45,253 cycles. Entry is beam 151:432 /
+  refresh phase 116; exit is 243:2563 / phase 114.
+- The correct published route generates no 11-cycle GEMS bank wait during
+  this call. The scheduler rejects waits arising inside aggregate decoder
+  spans until an instruction visitor can position them.
+- The composed coarse-native replay is already wrong at platform entry:
+  821,425 unconsumed waits, PC `$02A5` against oracle `$03D2`, 275 RAM
+  differences, and wrong bank/divider/YM phases.
+- `mise run verify-slice-fast` and the commit hook are green: TAS frontier,
+  strict Clippy, 6,980 core tests, and 15 timing regressions pass.
+- NEXT: trace backwards from `$11A0E` to the preceding title/demo audio reset
+  or command boundary; correct the persistent GEMS seed before replaying
+  `sub_44DC -> loc_892`.
+
 ## 2026-07-19 handoff (#409 instruction-boundary Load_InGame tail)
 
 - Correct published-route evidence is already divergent before `StopMusic`:

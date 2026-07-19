@@ -306,6 +306,30 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: commit `80893ee58` gives
+`Initialize_Platforms sub_231C` a chronological hardware callback and clocks
+persistent GEMS through its exact published-route schedule. Full selected-PC
+accounting from `Load_InGame $11A0E` to `$11A12` is 38,604 source cycles,
+273 two-cycle refresh waits, a 104-cycle VINT, and 5,999 one-cycle
+VDP-owned `loc_14314` FIFO retries: 45,253 cycles total. Correct absolute
+entry state is beam 151:432 / refresh phase 116; the exit is beam 243:2563 /
+phase 114, and `StopMusic $E14C8` is beam 250:1219 / VBlank cursor 90,139.
+The oracle generates no 11-cycle GEMS bank wait during the platform call.
+The adapter therefore rejects any bank wait generated inside an aggregate
+decoder span until an instruction visitor can place it.
+
+The composed real-route experiment fails that guard immediately because its
+coarse native GEMS seed was already wrong at `$11A0E`: it generates 821,425
+unconsumed waits through the platform call, has PC `$02A5` against oracle
+`$03D2`, 275 RAM differences, phases `5/13/0` against `13/2/7`, and bank
+`$0E0000` against `$0E8000`. This moves the remaining root cause before
+`Initialize_Platforms`; do not refine its decoder timing to absorb that
+upstream state error. NEXT: trace backwards to the preceding title/demo audio
+reset or command boundary, establish the first correct persistent checkpoint,
+then run the platform, tail, timed StopMusic, and `sub_44DC -> loc_892`
+composition. `mise run verify-slice-fast` and the commit hook are green:
+strict Clippy, TAS frontier, 6,980 core tests, and 15 timing regressions pass.
+
 Progress 2026-07-19: commit `38d23e6` adds an instruction-boundary
 `Load_InGame $11A12..$11A24` scheduler and persistent-GEMS adapter. It clocks
 each real source instruction, merges a generated bank wait with any pending
