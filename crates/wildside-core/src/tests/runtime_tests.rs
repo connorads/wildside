@@ -217,6 +217,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
         ModeLevelPostHudPhase::MakeSpritesFromPlatforms,
     ];
     let mut observed = Vec::new();
+    let mut observed_shooter_work = Vec::new();
 
     for (frame_index, mask) in script.iter().copied().enumerate().take(1_710) {
         runtime.step_frame(FrameInput::from_mask(mask));
@@ -229,6 +230,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             let enemy_loading_raw_cycles =
                 manage_enemy_loading_raw_cycles(ledger.enemy_loading_path)
                     .expect("published helper should classify Demo enemy loading");
+            observed_shooter_work.push((frame_index, ledger.shooter_collision_work));
             observed.push((
                 frame_index,
                 ledger.phases.clone(),
@@ -391,6 +393,51 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             ),
         ],
         "ASM enemy loading, ReadJoypad, and linked GfxObject/platform work",
+    );
+    assert_eq!(
+        observed_shooter_work
+            .iter()
+            .map(|(frame, work)| (
+                *frame,
+                *work,
+                shooter_support_collision_raw_cycles_sub_1f52(*work).map(M68kCycleCount::get),
+                shooter_kid_collision_raw_cycles_sub_219c(*work).map(M68kCycleCount::get),
+                shooter_projectile_collision_raw_cycles_sub_226a(*work).map(M68kCycleCount::get),
+            ))
+            .collect::<Vec<_>>(),
+        vec![
+            (
+                1_697,
+                ModeLevelShooterCollisionWork {
+                    active_support_slots: 0,
+                    active_moving_objects: 0,
+                },
+                Some(50),
+                Some(290),
+                Some(46),
+            ),
+            (
+                1_703,
+                ModeLevelShooterCollisionWork {
+                    active_support_slots: 0,
+                    active_moving_objects: 0,
+                },
+                Some(50),
+                Some(290),
+                Some(46),
+            ),
+            (
+                1_709,
+                ModeLevelShooterCollisionWork {
+                    active_support_slots: 0,
+                    active_moving_objects: 0,
+                },
+                Some(50),
+                Some(290),
+                Some(46),
+            ),
+        ],
+        "ASM sub_1F52/sub_219C/sub_226A null-sentinel collision paths",
     );
 }
 

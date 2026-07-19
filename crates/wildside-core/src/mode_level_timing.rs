@@ -8,8 +8,8 @@ use crate::{
     ModeLevelPlayerExecutionPath, ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake,
     ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
     ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork, ModeLevelReadJoypadWork,
-    ModeLevelRubberContactEffectLoc10DA4, ModeLevelVerticalCollisionPath,
-    ModeLevelWallCollisionPath,
+    ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
+    ModeLevelVerticalCollisionPath, ModeLevelWallCollisionPath,
 };
 
 /// Raw Motorola 68000 instruction cycles, excluding refresh and bus waits.
@@ -1353,6 +1353,45 @@ pub fn terrain_effects_raw_cycles_sub_5e02(murder_wall_active: bool) -> Option<M
     Some(M68kCycleCount::from_raw(38))
 }
 
+/// Raw routine-body cost for ASM shooter-support collision scan `sub_1F52`.
+pub fn shooter_support_collision_raw_cycles_sub_1f52(
+    work: ModeLevelShooterCollisionWork,
+) -> Option<M68kCycleCount> {
+    if work.active_support_slots != 0 {
+        return None;
+    }
+
+    // ASM sub_1F52 loc_1F56: the first support-rectangle word is the null
+    // sentinel, so the scan branches directly to return_1F8C.
+    Some(M68kCycleCount::from_raw(50))
+}
+
+/// Raw routine-body cost for ASM Kid-versus-shooter scan `sub_219C`.
+pub fn shooter_kid_collision_raw_cycles_sub_219c(
+    work: ModeLevelShooterCollisionWork,
+) -> Option<M68kCycleCount> {
+    if work.active_moving_objects != 0 {
+        return None;
+    }
+
+    // ASM sub_219C loc_21B8: save/load the Kid hitbox, observe the null
+    // ShooterObject link, restore the register set, and return.
+    Some(M68kCycleCount::from_raw(290))
+}
+
+/// Raw routine-body cost for ASM shooter-versus-Kid-projectile scan `sub_226A`.
+pub fn shooter_projectile_collision_raw_cycles_sub_226a(
+    work: ModeLevelShooterCollisionWork,
+) -> Option<M68kCycleCount> {
+    if work.active_moving_objects != 0 {
+        return None;
+    }
+
+    // ASM sub_226A loc_226E: the first ShooterObject link is the null
+    // sentinel, so no Kid-projectile list state is read before return_231A.
+    Some(M68kCycleCount::from_raw(46))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1367,6 +1406,47 @@ mod tests {
             paused_sub_6874: false,
             hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
         }
+    }
+
+    #[test]
+    fn empty_shooter_collision_lists_take_null_sentinel_paths() {
+        let work = ModeLevelShooterCollisionWork {
+            active_support_slots: 0,
+            active_moving_objects: 0,
+        };
+
+        assert_eq!(
+            shooter_support_collision_raw_cycles_sub_1f52(work),
+            Some(M68kCycleCount::from_raw(50))
+        );
+        assert_eq!(
+            shooter_kid_collision_raw_cycles_sub_219c(work),
+            Some(M68kCycleCount::from_raw(290))
+        );
+        assert_eq!(
+            shooter_projectile_collision_raw_cycles_sub_226a(work),
+            Some(M68kCycleCount::from_raw(46))
+        );
+    }
+
+    #[test]
+    fn nonempty_shooter_collision_lists_fail_closed() {
+        assert_eq!(
+            shooter_support_collision_raw_cycles_sub_1f52(ModeLevelShooterCollisionWork {
+                active_support_slots: 1,
+                active_moving_objects: 0,
+            }),
+            None
+        );
+        let moving = ModeLevelShooterCollisionWork {
+            active_support_slots: 0,
+            active_moving_objects: 1,
+        };
+        assert_eq!(shooter_kid_collision_raw_cycles_sub_219c(moving), None);
+        assert_eq!(
+            shooter_projectile_collision_raw_cycles_sub_226a(moving),
+            None
+        );
     }
 
     fn published_refresh_suffix_after_final_vdp_ownership()

@@ -2222,6 +2222,16 @@ pub enum ModeLevelPlatformLoaderWorkLoc2744 {
     },
 }
 
+/// Shooter-owned lists consumed by the three global collision scans between
+/// ASM `Platforms_CheckCollision` and the final GfxObject collision passes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelShooterCollisionWork {
+    /// Active block slots whose `sub_F568` rectangles feed `sub_1F52`.
+    pub active_support_slots: u16,
+    /// Moving ShooterObject slots consumed by `sub_219C` and `sub_226A`.
+    pub active_moving_objects: u16,
+}
+
 /// Typed observation after ASM `sub_44DC` on the natural `loc_80C -> loc_892`
 /// path.
 ///
@@ -2241,6 +2251,7 @@ pub struct ModeLevelPostHudWorkLedger {
     pub murder_wall_active_sub_5e02: bool,
     pub platform_loader_work: Option<ModeLevelPlatformLoaderWorkLoc2744>,
     pub platform_work: ModeLevelPlatformWork,
+    pub shooter_collision_work: ModeLevelShooterCollisionWork,
 }
 
 /// Frame-local HUD art DMA command emitted by ASM `sub_44DC` (kid.asm).

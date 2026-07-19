@@ -9729,6 +9729,21 @@ impl NativeRuntime {
                 frozen_fa64: matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),
                 active_object_count: active_platform_object_count,
             },
+            shooter_collision_work: ModeLevelShooterCollisionWork {
+                active_support_slots: self
+                    .block_state
+                    .shooter_blocks
+                    .len()
+                    .try_into()
+                    .expect("ShooterBlock support list fits the ROM u16 count"),
+                active_moving_objects: self
+                    .projectiles
+                    .iter()
+                    .filter(|projectile| projectile.kind == EnemyProjectileKind::ShooterBlock)
+                    .count()
+                    .try_into()
+                    .expect("ShooterObject list fits the ROM u16 count"),
+            },
         }
     }
 
