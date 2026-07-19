@@ -178,6 +178,111 @@ pub enum ModeLevelTailShiftDataSlotLoc30452 {
     OldLessThanNew { width_subtractions: u16 },
 }
 
+/// Canonical `4(a0)` words for the 19 ASM `Horiz_Scroll_Data` slots.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelTailShiftDataStateLoc30452 {
+    previous_scroll_words: [u16; 19],
+}
+
+/// Pure state transition for ASM `BackgroundScroll_ComputeShiftData`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelTailShiftDataAdvanceLoc30452 {
+    pub work: [ModeLevelTailShiftDataSlotLoc30452; 19],
+    pub next_state: ModeLevelTailShiftDataStateLoc30452,
+}
+
+impl ModeLevelTailShiftDataStateLoc30452 {
+    pub const fn from_previous_scroll_words(previous_scroll_words: [u16; 19]) -> Self {
+        Self {
+            previous_scroll_words,
+        }
+    }
+
+    /// Seed the words written by the Load_InGame preload at ASM `loc_3001E`.
+    pub fn from_preload_loc_3001e(camera_x_pos: u16, time_frames: u16) -> Self {
+        Self::from_camera_and_time_loc_30452(camera_x_pos, time_frames)
+    }
+
+    /// Build the words written by one ASM `BackgroundScroll_ComputeShiftData`.
+    pub fn from_camera_and_time_loc_30452(camera_x_pos: u16, time_frames: u16) -> Self {
+        Self {
+            previous_scroll_words: shift_data_words_loc_30452(camera_x_pos, time_frames),
+        }
+    }
+
+    pub const fn previous_scroll_words(&self) -> &[u16; 19] {
+        &self.previous_scroll_words
+    }
+
+    /// Run both ASM `loc_30452` loops and return the next cached words.
+    pub fn advance_loc_30452(
+        self,
+        camera_x_pos: u16,
+        time_frames: u16,
+        background_width: u16,
+    ) -> Option<ModeLevelTailShiftDataAdvanceLoc30452> {
+        let background_width = i16::try_from(background_width).ok()?;
+        if background_width <= 0 {
+            return None;
+        }
+
+        let next_words = shift_data_words_loc_30452(camera_x_pos, time_frames);
+        let mut work = [ModeLevelTailShiftDataSlotLoc30452::Unchanged; 19];
+        for slot_index in 0..19 {
+            let previous = self.previous_scroll_words[slot_index];
+            let next = next_words[slot_index];
+            let (previous_comparison, next_comparison) = if slot_index < 2 {
+                (previous >> 3, next >> 3)
+            } else {
+                (previous, next)
+            };
+            if previous_comparison == next_comparison {
+                continue;
+            }
+
+            work[slot_index] = if (previous_comparison as i16) > (next_comparison as i16) {
+                ModeLevelTailShiftDataSlotLoc30452::OldGreaterThanNew
+            } else {
+                // ASM loc_304C2: rightward/new-greater work starts at the
+                // newly exposed viewport edge, then repeatedly subtracts
+                // Background_width until the row fits.
+                let mut row = (next as i16 >> 3).wrapping_add(0x0028);
+                let mut width_subtractions = 0_u16;
+                while background_width <= row {
+                    row = row.wrapping_sub(background_width);
+                    width_subtractions = width_subtractions.wrapping_add(1);
+                }
+                ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew { width_subtractions }
+            };
+        }
+
+        Some(ModeLevelTailShiftDataAdvanceLoc30452 {
+            work,
+            next_state: Self {
+                previous_scroll_words: next_words,
+            },
+        })
+    }
+}
+
+fn shift_data_words_loc_30452(camera_x_pos: u16, time_frames: u16) -> [u16; 19] {
+    let camera_tile = camera_x_pos >> 3;
+    let mut words = [0_u16; 19];
+    words[0] = time_frames.wrapping_add(camera_tile);
+    words[1] = (time_frames >> 1).wrapping_add(camera_tile);
+
+    // ASM loc_3048C/loc_304A8: `d5` starts at zero. Each loop exposes its
+    // high word with SWAP, stores it, restores the accumulator ordering, then
+    // adds sign-extended `Camera_X_pos << 12`.
+    let phase_step = (i32::from(camera_x_pos as i16) as u32).wrapping_shl(12);
+    let mut phase = 0_u32;
+    for word in &mut words[2..] {
+        *word = (phase >> 16) as u16;
+        phase = phase.wrapping_add(phase_step);
+    }
+    words
+}
+
 /// ASM `BackgroundScroll_ComputeShiftLayers` source path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModeLevelTailShiftLayersWork {
@@ -1154,6 +1259,167 @@ mod tests {
             None,
             "ASM sub_30194 streaming branches require ordered mapping and VDP work"
         );
+    }
+
+    #[test]
+    fn shift_data_state_loc_30452_seeds_the_load_ingame_preload_words() {
+        let state = ModeLevelTailShiftDataStateLoc30452::from_preload_loc_3001e(0x0121, 0);
+
+        assert_eq!(
+            state.previous_scroll_words(),
+            &[
+                0x0024, 0x0024, 0x0000, 0x0012, 0x0024, 0x0036, 0x0048, 0x005A, 0x006C, 0x007E,
+                0x0090, 0x00A2, 0x00B4, 0x00C6, 0x00D8, 0x00EA, 0x00FC, 0x010E, 0x0121,
+            ],
+            "ASM loc_3001E -> BackgroundScroll_ComputeShiftData seeds both time layers and the 17 fixed-point camera layers",
+        );
+    }
+
+    #[test]
+    fn shift_data_state_loc_30452_classifies_both_compare_loops_and_persists_new_words() {
+        let state = ModeLevelTailShiftDataStateLoc30452::from_previous_scroll_words([
+            0x0018, 0x0001, 0x0000, 0x0000, 0x0002, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+            0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+        ]);
+
+        let advance = state
+            .advance_loc_30452(0x0010, 0, 2)
+            .expect("ASM sub_304B4 accepts a positive background width");
+
+        assert_eq!(
+            advance.work[0],
+            ModeLevelTailShiftDataSlotLoc30452::OldGreaterThanNew,
+            "the first two slots compare logical tile columns",
+        );
+        assert_eq!(
+            advance.work[1],
+            ModeLevelTailShiftDataSlotLoc30452::Unchanged,
+            "different pixel words in the same first-loop tile column skip sub_304B4",
+        );
+        assert_eq!(
+            advance.work[3],
+            ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew {
+                width_subtractions: 20,
+            },
+            "the second loop compares exact words and retains every loc_304C2 width subtraction",
+        );
+        assert_eq!(
+            advance.work[4],
+            ModeLevelTailShiftDataSlotLoc30452::Unchanged
+        );
+        assert_eq!(
+            advance.next_state.previous_scroll_words()[3],
+            1,
+            "the canonical state persists the new fixed-point layer word",
+        );
+    }
+
+    #[test]
+    fn shift_data_state_loc_30452_reproduces_the_three_published_oracle_vectors() {
+        for (time_frames, camera_x_pos, expected) in [
+            (
+                0x02D3,
+                0x0121,
+                [
+                    0x02F7, 0x018D, 0x0000, 0x0012, 0x0024, 0x0036, 0x0048, 0x005A, 0x006C, 0x007E,
+                    0x0090, 0x00A2, 0x00B4, 0x00C6, 0x00D8, 0x00EA, 0x00FC, 0x010E, 0x0121,
+                ],
+            ),
+            (
+                0x02D9,
+                0x0115,
+                [
+                    0x02FB, 0x018E, 0x0000, 0x0011, 0x0022, 0x0033, 0x0045, 0x0056, 0x0067, 0x0079,
+                    0x008A, 0x009B, 0x00AD, 0x00BE, 0x00CF, 0x00E1, 0x00F2, 0x0103, 0x0115,
+                ],
+            ),
+            (
+                0x02DF,
+                0x010B,
+                [
+                    0x0300, 0x0190, 0x0000, 0x0010, 0x0021, 0x0032, 0x0042, 0x0053, 0x0064, 0x0074,
+                    0x0085, 0x0096, 0x00A6, 0x00B7, 0x00C8, 0x00D8, 0x00E9, 0x00FA, 0x010B,
+                ],
+            ),
+        ] {
+            assert_eq!(
+                ModeLevelTailShiftDataStateLoc30452::from_camera_and_time_loc_30452(
+                    camera_x_pos,
+                    time_frames,
+                )
+                .previous_scroll_words(),
+                &expected,
+                "ASM loc_30452/loc_3048C register words from oracle helpers 1696/1702/1708",
+            );
+        }
+    }
+
+    #[test]
+    fn shift_data_state_loc_30452_reproduces_the_three_published_branch_counts() {
+        let cases = [
+            (
+                [
+                    0x02F6, 0x018D, 0x0000, 0x0012, 0x0024, 0x0036, 0x0048, 0x005A, 0x006D, 0x007F,
+                    0x0091, 0x00A3, 0x00B5, 0x00C8, 0x00DA, 0x00EC, 0x00FE, 0x0110, 0x0123,
+                ],
+                0x02D3,
+                0x0121,
+                11,
+                None,
+            ),
+            (
+                [
+                    0x02FA, 0x018E, 0x0000, 0x0011, 0x0022, 0x0034, 0x0045, 0x0057, 0x0068, 0x007A,
+                    0x008B, 0x009C, 0x00AE, 0x00BF, 0x00D1, 0x00E2, 0x00F4, 0x0105, 0x0117,
+                ],
+                0x02D9,
+                0x0115,
+                13,
+                None,
+            ),
+            (
+                [
+                    0x02FF, 0x0190, 0x0000, 0x0010, 0x0021, 0x0032, 0x0043, 0x0053, 0x0064, 0x0075,
+                    0x0086, 0x0096, 0x00A7, 0x00B8, 0x00C9, 0x00D9, 0x00EA, 0x00FB, 0x010C,
+                ],
+                0x02DF,
+                0x010B,
+                10,
+                Some((0, 1)),
+            ),
+        ];
+
+        for (previous, time_frames, camera_x_pos, expected_old_greater, expected_old_less) in cases
+        {
+            let advance = ModeLevelTailShiftDataStateLoc30452::from_previous_scroll_words(previous)
+                .advance_loc_30452(camera_x_pos, time_frames, 0x005A)
+                .expect("oracle Background_width is positive");
+            assert_eq!(
+                advance
+                    .work
+                    .iter()
+                    .filter(|work| {
+                        matches!(work, ModeLevelTailShiftDataSlotLoc30452::OldGreaterThanNew)
+                    })
+                    .count(),
+                expected_old_greater,
+                "ASM loc_304D8 branch count from oracle helpers 1696/1702/1708",
+            );
+            assert_eq!(
+                advance.work.iter().enumerate().find_map(|(index, work)| {
+                    if let ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew {
+                        width_subtractions,
+                    } = work
+                    {
+                        Some((index, *width_subtractions))
+                    } else {
+                        None
+                    }
+                }),
+                expected_old_less,
+                "ASM loc_304C2 branch and width-loop count from oracle helpers 1696/1702/1708",
+            );
+        }
     }
 
     #[test]
