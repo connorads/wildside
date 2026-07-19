@@ -530,6 +530,29 @@ fn mode_level_kid_gfx_terrain_scan(
     }
 }
 
+fn mode_level_cyclone_visual_step(
+    accumulator_before: u16,
+    acceleration: i16,
+) -> ModeLevelCycloneVisualStep {
+    // ASM sub_B270 loc_B2A0 (kid.asm:14154-14175): derive the phase delta
+    // from Cyclone_YAcceleration, add it to `$FFFFF8F0`, and conditionally
+    // execute `subi.w #$300` before selecting the spin mapping.
+    let mut phase_delta = (0i16).wrapping_sub(acceleration).wrapping_add(0x2000) as u16;
+    phase_delta = phase_delta.wrapping_shl(2) >> 8;
+    let sum = accumulator_before.wrapping_add(phase_delta);
+    let wrapped = sum >= 0x0300;
+    ModeLevelCycloneVisualStep {
+        accumulator_before,
+        phase_delta,
+        accumulator_after: if wrapped {
+            sum.wrapping_sub(0x0300)
+        } else {
+            sum
+        },
+        wrapped,
+    }
+}
+
 fn mode_level_vertical_collision_path(
     ceiling_hit: bool,
     landed: bool,
@@ -1535,6 +1558,7 @@ mod tests {
                     unclassified_runtime_transient_workers: 0,
                     player_entry_position: None,
                     player_gfx_terrain_scan: None,
+                    cyclone_visual_accumulator_before: None,
                     prize_block_wobble_paths_sub_1007a: vec![ModeLevelPrizeBlockWobbleWork {
                         resume: PrizeBlockWobbleResumeSub1007A::AfterLoc100DaAt100E2,
                         wake: ModeLevelPrizeBlockWobbleWake::ContinuePhase,
@@ -1853,9 +1877,34 @@ mod tests {
                     vertical_collision: ModeLevelVerticalCollisionPath::Ceiling,
                     wall_collision: ModeLevelWallCollisionPath::Clear,
                     airborne_action: ModeLevelAirborneActionPath::NoButtons,
-                    second_cyclone_visual: true,
+                    cyclone_visual_steps: None,
                 }
             ))
+        );
+    }
+
+    #[test]
+    fn cyclone_visual_step_types_accumulator_wrap_work() {
+        // ASM sub_B270 loc_B2A0/loc_B2CA (kid.asm:14154-14175): frame 1703
+        // adds $48 without wrapping; frame 1709 adds $38 and executes the
+        // extra `subi.w #$300` before storing $22.
+        assert_eq!(
+            mode_level_cyclone_visual_step(0x002A, 0x0E00),
+            ModeLevelCycloneVisualStep {
+                accumulator_before: 0x002A,
+                phase_delta: 0x0048,
+                accumulator_after: 0x0072,
+                wrapped: false,
+            }
+        );
+        assert_eq!(
+            mode_level_cyclone_visual_step(0x02EA, 0x1200),
+            ModeLevelCycloneVisualStep {
+                accumulator_before: 0x02EA,
+                phase_delta: 0x0038,
+                accumulator_after: 0x0022,
+                wrapped: true,
+            }
         );
     }
 
@@ -8631,6 +8680,10 @@ impl NativeRuntime {
             x_pos: state.x_pos,
             y_pos: state.y_pos,
         });
+        let cyclone_visual_accumulator_before = self
+            .opening_slice
+            .as_ref()
+            .map(|slice| slice.walk_visual_accumulator);
         let prize_block_wobble_workers_sub_1007a = self
             .block_bounces
             .iter()
@@ -8743,6 +8796,7 @@ impl NativeRuntime {
                 unclassified_runtime_transient_workers,
                 player_entry_position,
                 player_gfx_terrain_scan: None,
+                cyclone_visual_accumulator_before,
                 prize_block_wobble_paths_sub_1007a,
                 prize_block_tail_paths_sub_1066,
                 prize_block_flash_paths_sub_1066,
@@ -8752,7 +8806,10 @@ impl NativeRuntime {
         }
     }
 
-    fn observe_mode_level_player_execution_path(&self) -> ModeLevelPlayerExecutionPath {
+    fn observe_mode_level_player_execution_path(
+        &self,
+        cyclone_visual_accumulator_before: Option<u16>,
+    ) -> ModeLevelPlayerExecutionPath {
         if self.last_kid_frame_motion_branch != KidFrameMotionBranch::NormalPhysics {
             return ModeLevelPlayerExecutionPath::Unclassified;
         }
@@ -8803,6 +8860,22 @@ impl NativeRuntime {
         } else {
             ModeLevelAirborneActionPath::Unclassified
         };
+        let cyclone_visual_steps = if self.progression.current_form == PlayerForm::Cyclone
+            && self.helmet.cyclone_flying
+            && matches!(airborne_action, ModeLevelAirborneActionPath::NoButtons)
+        {
+            cyclone_visual_accumulator_before.map(|accumulator_before| {
+                let first =
+                    mode_level_cyclone_visual_step(accumulator_before, self.helmet.cyclone_y_accel);
+                let second = mode_level_cyclone_visual_step(
+                    first.accumulator_after,
+                    self.helmet.cyclone_y_accel,
+                );
+                [first, second]
+            })
+        } else {
+            None
+        };
 
         ModeLevelPlayerExecutionPath::NormalPhysics(ModeLevelNormalPhysicsPath {
             horizontal,
@@ -8811,9 +8884,7 @@ impl NativeRuntime {
             vertical_collision,
             wall_collision,
             airborne_action,
-            second_cyclone_visual: self.progression.current_form == PlayerForm::Cyclone
-                && self.helmet.cyclone_flying
-                && matches!(airborne_action, ModeLevelAirborneActionPath::NoButtons),
+            cyclone_visual_steps,
         })
     }
 
@@ -8821,7 +8892,12 @@ impl NativeRuntime {
         if self.mode_level_work_before_hud_sub_44dc.is_none() {
             return;
         }
-        let executed_player_path = self.observe_mode_level_player_execution_path();
+        let cyclone_visual_accumulator_before = self
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .and_then(|ledger| ledger.execute_objects.cyclone_visual_accumulator_before);
+        let executed_player_path =
+            self.observe_mode_level_player_execution_path(cyclone_visual_accumulator_before);
         let player_gfx_terrain_scan = self
             .mode_level_work_before_hud_sub_44dc
             .as_ref()

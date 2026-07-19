@@ -1821,6 +1821,14 @@ pub enum ModeLevelAirborneActionPath {
     Unclassified,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelCycloneVisualStep {
+    pub accumulator_before: u16,
+    pub phase_delta: u16,
+    pub accumulator_after: u16,
+    pub wrapped: bool,
+}
+
 /// Source path for the ordinary airborne Kid coroutine resumed at `loc_A73A`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelNormalPhysicsPath {
@@ -1832,8 +1840,9 @@ pub struct ModeLevelNormalPhysicsPath {
     pub vertical_collision: ModeLevelVerticalCollisionPath,
     pub wall_collision: ModeLevelWallCollisionPath,
     pub airborne_action: ModeLevelAirborneActionPath,
-    /// The no-action join calls `sub_B270` a second time before `loc_A6F8`.
-    pub second_cyclone_visual: bool,
+    /// ASM `sub_B168` falls into the first `sub_B270`; the no-action join
+    /// calls it a second time before `loc_A6F8`.
+    pub cyclone_visual_steps: Option<[ModeLevelCycloneVisualStep; 2]>,
 }
 
 /// Player callback actually executed during ASM `Execute_Objects sub_E12`.
@@ -1868,6 +1877,8 @@ pub struct ModeLevelExecuteObjectsWork {
     pub player_entry_position: Option<ModeLevelPlayerPosition>,
     #[serde(default)]
     pub player_gfx_terrain_scan: Option<ModeLevelKidGfxTerrainScan>,
+    #[serde(default)]
+    pub cyclone_visual_accumulator_before: Option<u16>,
     #[serde(default)]
     pub prize_block_wobble_paths_sub_1007a: Vec<ModeLevelPrizeBlockWobbleWork>,
     #[serde(default)]

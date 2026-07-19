@@ -306,6 +306,18 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-18: both Cyclone `sub_B270` calls now retain their
+`$FFFFF8F0` input, source-derived phase delta, output, and `$300` wrap branch.
+Fresh route values match the oracle journal and final native accumulator:
+frame 1703 runs `$2A + $48 -> $72`, then `$72 + $48 -> $BA`, with no wrap;
+frame 1709 runs `$2EA + $38 -> $22` with wrap, then `$22 + $38 -> $5A`.
+The first wrap executes the extra 10-cycle `subi.w #$300`. The other 10
+cycles in the former 184-cycle Kid delta occur before/around `sub_B270`
+despite identical source branches, so they are hardware/bus timing rather
+than another missing gameplay path. Kid source-path decomposition is now
+complete for the three target frames; next type frame 1697's `sub_914A`
+ceiling scan and linked allocator/deallocator ranks.
+
 Progress 2026-07-18: `sub_A4EE -> GfxObjects_Collision` now carries the
 entry Kid position, exact inclusive form hitbox cell bounds after applying
 post-gravity velocity, tile iterations to the first collision dispatch, and

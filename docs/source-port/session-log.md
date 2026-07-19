@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#409 Cyclone visual wrap path)
+
+- Both `sub_B270` calls now carry accumulator input/delta/output and whether
+  the `$300` wrap subtraction executes.
+- Frame 1709's first call wraps `$2EA + $38 -> $22`, adding 10 source cycles;
+  frame 1703's `$2A + $48 -> $72` does not. The remaining 10-cycle Kid
+  residue occurs on instruction-identical work and belongs to bus timing.
+- NEXT: type frame 1697's two-cell `sub_914A` scan, rubber-sound branch, and
+  ordered object/Gfx insertion/deletion ranks.
+
+---
+
 ## 2026-07-18 handoff (#409 typed Kid Gfx terrain scan)
 
 - The player workload now records entry position and the exact
