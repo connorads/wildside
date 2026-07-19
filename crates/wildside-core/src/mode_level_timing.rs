@@ -3,8 +3,8 @@ use crate::{
     ModeLevelCeilingScanReturn, ModeLevelDamageFlashWaitLocBc44, ModeLevelDemoExitWaitLoc119E0,
     ModeLevelExecuteObjectsWork, ModeLevelFloatingPrizeFallPathLoc103B2,
     ModeLevelInputWorkerPathLoc7452, ModeLevelKidGfxTerrainCollision, ModeLevelPlayerExecutionPath,
-    ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
-    ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
+    ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState,
+    ModeLevelPrizeBlockWobbleWake, ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
     ModeLevelRubberContactEffectLoc10DA4, ModeLevelVerticalCollisionPath,
     ModeLevelWallCollisionPath,
 };
@@ -240,9 +240,10 @@ pub fn demo_exit_wait_cycles_loc_119e0(
 /// Raw E1E-to-E1E cycles for the fixed input/pause callback.
 pub fn input_worker_cycles_loc_7452(path: ModeLevelInputWorkerPathLoc7452) -> M68kCycleCount {
     match path {
-        // ASM loc_7452..loc_74B0 (kid.asm:7586-7625): the clear timer, idle
-        // controller, demo-mode, and clear Start path totals 636 raw cycles.
-        ModeLevelInputWorkerPathLoc7452::DemoIdleNoInputTimerClear => M68kCycleCount(636),
+        // ASM loc_7452..loc_74B0 (kid.asm:7586-7625): the clear timer,
+        // Left-clear controller, demo-mode, and clear Start path totals 636
+        // raw cycles. Right alone takes the same first-test branch.
+        ModeLevelInputWorkerPathLoc7452::DemoNoLeftNoStartTimerClear => M68kCycleCount(636),
     }
 }
 
@@ -431,31 +432,71 @@ pub fn execute_objects_elapsed_cycles_sub_e12(
 ) -> Option<M68kRefreshAdvance> {
     let raw_total = execute_objects_raw_cycles_sub_e12(execute)?.get();
     let events = execute_objects_external_waits_sub_e12(execute)?;
-    let mut raw_cursor = 0;
-    let mut phase = phase_before;
-    let mut elapsed = 0_u32;
-    let mut refresh_events = 0_u32;
-
+    let raw = phase_before.advance_rom(M68kCycleCount(raw_total));
+    let mut elapsed = raw.elapsed.get();
+    let mut phase = raw.phase_after;
+    // jgenesis timing.rs `record_68k_instruction`: a pending bus wait advances
+    // `m68k_refresh_counter` but `m68k_wait` suppresses a new refresh enqueue.
+    // Aggregate those non-refresh waits after solving the ROM instruction
+    // stream; their source offsets remain available above for raster work.
     for event in events {
-        let event_offset = event.raw_offset.get();
-        let segment = event_offset.checked_sub(raw_cursor)?;
-        let advance = phase.advance_rom(M68kCycleCount(segment));
-        elapsed = elapsed.checked_add(advance.elapsed.get())?;
-        refresh_events = refresh_events.checked_add(advance.refresh_events)?;
-        phase = advance.phase_after;
-
         let wait = phase.advance_external_wait(event.cycles);
         elapsed = elapsed.checked_add(wait.elapsed.get())?;
         phase = wait.phase_after;
-        raw_cursor = event_offset;
+    }
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount(elapsed),
+        phase_after: phase,
+        refresh_events: raw.refresh_events,
+    })
+}
+
+/// Complete raw CPU cost from the return of ASM `sub_21F8` through the entry
+/// of `sub_44DC` for the typed natural Mode_Level path.
+pub fn post_execute_raw_cycles_before_sub_44dc(
+    ledger: &ModeLevelPreHudWorkLedger,
+) -> Option<M68kCycleCount> {
+    let post = &ledger.post_execute;
+    let scan = post.evanescent_scan_loc_eae4?;
+    let shooter = post.shooter_scan_sub_f096?;
+    if post.active_evanescent_slots_before_sub_dfb0 != 0
+        || scan.found_evanescent_block
+        || post.active_shooter_slots_before_sub_f7e0 != 0
+        || post.level_special_effects_sub_6034 > 1
+        || !shooter.cached_col_matches
+        || !shooter.cached_row_matches
+        || shooter.active_shooter_slots_before != 0
+    {
+        return None;
     }
 
-    let tail = phase.advance_rom(M68kCycleCount(raw_total.checked_sub(raw_cursor)?));
-    Some(M68kRefreshAdvance {
-        elapsed: M68kCycleCount(elapsed.checked_add(tail.elapsed.get())?),
-        phase_after: tail.phase_after,
-        refresh_events: refresh_events.checked_add(tail.refresh_events)?,
-    })
+    // ASM sub_DFB0 (kid.asm:17317) and loc_EAE4 (kid.asm:18858):
+    // 994 raw cycles surround the inclusive row/column scan. Each row costs
+    // 38 plus 40 per cell; a bit-15 non-type-$A cell adds the loc_E23A
+    // 30-cycle branch before scanning continues.
+    let sub_dfb0 = 994_u32
+        .checked_add(
+            u32::from(scan.row_count)
+                .checked_mul(38_u32.checked_add(40_u32.checked_mul(u32::from(scan.col_count))?)?)?,
+        )?
+        .checked_add(
+            30_u32.checked_mul(u32::from(scan.flagged_non_evanescent_cells_before_exit))?,
+        )?;
+
+    // ASM Mode_Level loc_7F4..loc_80C: the exact natural path outside
+    // sub_DFB0 is 1,240 raw cycles: sub_21F8, DiamondPower_Run, sub_F7E0,
+    // sub_6034, sub_F096, and their call/return shells.
+    Some(M68kCycleCount(1_240_u32.checked_add(sub_dfb0)?))
+}
+
+/// Advance the typed post-Execute path through the Genesis refresh recurrence.
+///
+/// This interval performs no external or VDP accesses before `sub_44DC`.
+pub fn post_execute_elapsed_cycles_before_sub_44dc(
+    ledger: &ModeLevelPreHudWorkLedger,
+    phase_before: M68kRefreshPhase,
+) -> Option<M68kRefreshAdvance> {
+    Some(phase_before.advance_rom(post_execute_raw_cycles_before_sub_44dc(ledger)?))
 }
 
 #[cfg(test)]

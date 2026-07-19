@@ -2055,6 +2055,7 @@ mod tests {
                     }],
                     executed_player_path: None,
                 },
+                post_execute: ModeLevelPostExecuteWork::default(),
             }),
             "ASM Mode_Level (kid.asm:901) fixes the phases before sub_44DC, while Execute_Objects sub_E12 resumes each linked prize coroutine"
         );
@@ -9645,13 +9646,22 @@ impl NativeRuntime {
                         }
                     }),
                 input_worker_loc_7452: (matches!(self.boot_state, BootState::DemoPlay { .. })
-                    && self.trace_input == FrameInput::default()
-                    && self.hundred_k_trip_timer == 0)
-                    .then_some(ModeLevelInputWorkerPathLoc7452::DemoIdleNoInputTimerClear),
+                    && self.hundred_k_trip_timer == 0
+                    && !self.trace_input.left
+                    && (!self.trace_input.start || self.previous_input.start))
+                    .then_some(ModeLevelInputWorkerPathLoc7452::DemoNoLeftNoStartTimerClear),
                 prize_block_tail_paths_sub_1066,
                 prize_block_flash_paths_sub_1066,
                 floating_prize_paths,
                 executed_player_path: None,
+            },
+            post_execute: ModeLevelPostExecuteWork {
+                active_evanescent_slots_before_sub_dfb0: self.block_state.evanescent_blocks.len()
+                    as u16,
+                evanescent_scan_loc_eae4: None,
+                active_shooter_slots_before_sub_f7e0: self.block_state.shooter_blocks.len() as u16,
+                level_special_effects_sub_6034: self.weather.weather_type,
+                shooter_scan_sub_f096: None,
             },
         }
     }

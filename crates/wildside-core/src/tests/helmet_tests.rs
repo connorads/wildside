@@ -9451,9 +9451,9 @@ mod chunk_08 {
                 })
                 .collect::<Vec<_>>(),
             vec![
-                Some(ModeLevelInputWorkerPathLoc7452::DemoIdleNoInputTimerClear),
-                Some(ModeLevelInputWorkerPathLoc7452::DemoIdleNoInputTimerClear),
-                Some(ModeLevelInputWorkerPathLoc7452::DemoIdleNoInputTimerClear),
+                Some(ModeLevelInputWorkerPathLoc7452::DemoNoLeftNoStartTimerClear),
+                Some(ModeLevelInputWorkerPathLoc7452::DemoNoLeftNoStartTimerClear),
+                Some(ModeLevelInputWorkerPathLoc7452::DemoNoLeftNoStartTimerClear),
             ],
             "ASM loc_7452 runs the clear-timer idle-demo path"
         );
@@ -9516,6 +9516,50 @@ mod chunk_08 {
                 Some((14_034, 110, 42)),
             ],
             "raw callbacks, refresh recurrence, and PlaySound waits close sub_E12"
+        );
+        assert_eq!(
+            frames
+                .iter()
+                .map(|frame| {
+                    post_execute_raw_cycles_before_sub_44dc(
+                        frame
+                            .mode_level_work_before_hud_sub_44dc
+                            .as_ref()
+                            .expect("Mode_Level work ledger"),
+                    )
+                    .map(M68kCycleCount::get)
+                })
+                .collect::<Vec<_>>(),
+            vec![Some(2_706), Some(2_736), Some(2_588)],
+            "ASM sub_21F8 through sub_F096 closes from typed scan work"
+        );
+        assert_eq!(
+            frames
+                .iter()
+                .zip([4, 26, 42])
+                .map(|(frame, phase)| {
+                    post_execute_elapsed_cycles_before_sub_44dc(
+                        frame
+                            .mode_level_work_before_hud_sub_44dc
+                            .as_ref()
+                            .expect("Mode_Level work ledger"),
+                        M68kRefreshPhase::new(phase).expect("bounded Execute_Objects exit phase"),
+                    )
+                    .map(|advance| {
+                        (
+                            advance.elapsed.get(),
+                            advance.refresh_events,
+                            advance.phase_after.get(),
+                        )
+                    })
+                })
+                .collect::<Vec<_>>(),
+            vec![
+                Some((2_748, 21, 64)),
+                Some((2_778, 21, 116)),
+                Some((2_628, 20, 110)),
+            ],
+            "post-object raw work and refresh recurrence close the sub_44DC entry phase"
         );
 
         // ASM Allocate_ObjectSlot loc_DE0, Allocate_GfxObjectSlot loc_FD4,

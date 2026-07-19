@@ -2009,8 +2009,8 @@ pub enum ModeLevelDemoExitWaitLoc119E0 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelInputWorkerPathLoc7452 {
-    /// Attract demo, idle controller, clear hundred-k timer, and no Start edge.
-    DemoIdleNoInputTimerClear,
+    /// Attract demo, Left clear, hundred-k timer clear, and no Start edge.
+    DemoNoLeftNoStartTimerClear,
 }
 
 /// Typed workload facts for ASM `Execute_Objects sub_E12`.
@@ -2078,6 +2078,38 @@ pub struct ModeLevelExecuteObjectsWork {
     pub executed_player_path: Option<ModeLevelPlayerExecutionPath>,
 }
 
+/// Inclusive Kid hitbox scan performed by ASM `sub_DFB0 -> loc_EAE4`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelEvanescentScanWorkLocEae4 {
+    pub row_count: u16,
+    pub col_count: u16,
+    pub flagged_non_evanescent_cells_before_exit: u16,
+    pub found_evanescent_block: bool,
+}
+
+/// Entry facts for ASM `sub_F096`, before its cached coordinates are updated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelShooterScanWorkSubF096 {
+    pub cached_col_matches: bool,
+    pub cached_row_matches: bool,
+    pub active_shooter_slots_before: u16,
+}
+
+/// Source observations from the `sub_21F8 -> sub_44DC` Mode_Level tail.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct ModeLevelPostExecuteWork {
+    /// Active evanescent slots seen by ASM `sub_DFB0 -> sub_E49A`.
+    pub active_evanescent_slots_before_sub_dfb0: u16,
+    #[serde(default)]
+    pub evanescent_scan_loc_eae4: Option<ModeLevelEvanescentScanWorkLocEae4>,
+    /// Active shooter slots ticked by ASM `sub_F7E0 -> sub_F730`.
+    pub active_shooter_slots_before_sub_f7e0: u16,
+    /// `Level_Special_Effects` consumed by ASM `sub_6034`.
+    pub level_special_effects_sub_6034: u8,
+    #[serde(default)]
+    pub shooter_scan_sub_f096: Option<ModeLevelShooterScanWorkSubF096>,
+}
+
 /// Typed, source-ordered observation at the `Mode_Level -> sub_44DC` boundary.
 ///
 /// This value is intentionally not a cycle count. It is the input contract for
@@ -2086,6 +2118,8 @@ pub struct ModeLevelExecuteObjectsWork {
 pub struct ModeLevelPreHudWorkLedger {
     pub phases: Vec<ModeLevelPreHudPhase>,
     pub execute_objects: ModeLevelExecuteObjectsWork,
+    #[serde(default)]
+    pub post_execute: ModeLevelPostExecuteWork,
 }
 
 /// Frame-local HUD art DMA command emitted by ASM `sub_44DC` (kid.asm).

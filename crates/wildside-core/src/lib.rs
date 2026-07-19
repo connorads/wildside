@@ -107,8 +107,9 @@ pub use mode_level_timing::{
     damage_flash_wait_cycles_loc_bc44, demo_exit_wait_cycles_loc_119e0,
     execute_objects_elapsed_cycles_sub_e12, execute_objects_external_waits_sub_e12,
     execute_objects_raw_cycles_sub_e12, execute_objects_setup_cycles_sub_e12,
-    input_worker_cycles_loc_7452, player_callback_cycles_loc_a73a, prize_object_cycles_sub_e12,
-    prize_tail_finish_cycles_sub_1007a,
+    input_worker_cycles_loc_7452, player_callback_cycles_loc_a73a,
+    post_execute_elapsed_cycles_before_sub_44dc, post_execute_raw_cycles_before_sub_44dc,
+    prize_object_cycles_sub_e12, prize_tail_finish_cycles_sub_1007a,
 };
 pub use platforms::{
     PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C, PlatformSpriteEmitLoc2548,

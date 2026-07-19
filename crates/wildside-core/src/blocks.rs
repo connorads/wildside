@@ -2474,6 +2474,10 @@ impl NativeRuntime {
         // ASM loc_EAE4 -> loc_EB72 scans Kid's expanded hitbox for the first
         // bit-15 type-$A block. The trigger is body contact, not just standing
         // on the cell; Highwater Pass' first evanescent shooters depend on this.
+        if let Some(ledger) = self.mode_level_work_before_hud_sub_44dc.as_mut() {
+            ledger.post_execute.active_evanescent_slots_before_sub_dfb0 =
+                self.block_state.evanescent_blocks.len() as u16;
+        }
         let pending_bullets = self
             .block_state
             .evanescent_blocks
@@ -2495,20 +2499,20 @@ impl NativeRuntime {
         }
 
         let collision_half_width = self.evanescent_hitbox_half_width_loc_EAE4();
-        let trigger = self
-            .block_grid
-            .as_ref()
-            .and_then(|grid| {
-                Self::evanescent_hitbox_trigger_loc_EAE4(slice, grid, collision_half_width)
-            })
-            .filter(|(col, row, _)| {
-                !self
-                    .block_state
-                    .evanescent_blocks
-                    .iter()
-                    .any(|entry| entry.col == *col && entry.row == *row)
-                    && self.block_state.has_free_evanescent_slot()
-            });
+        let (trigger, scan_work) = self.block_grid.as_ref().map_or((None, None), |grid| {
+            Self::evanescent_hitbox_trigger_loc_EAE4(slice, grid, collision_half_width)
+        });
+        if let Some(ledger) = self.mode_level_work_before_hud_sub_44dc.as_mut() {
+            ledger.post_execute.evanescent_scan_loc_eae4 = scan_work;
+        }
+        let trigger = trigger.filter(|(col, row, _)| {
+            !self
+                .block_state
+                .evanescent_blocks
+                .iter()
+                .any(|entry| entry.col == *col && entry.row == *row)
+                && self.block_state.has_free_evanescent_slot()
+        });
 
         if let Some((col, row, skin)) = trigger {
             self.trigger_evanescent_block_loc_EB72(col, row, skin);
@@ -2844,19 +2848,30 @@ impl NativeRuntime {
         slice: &OpeningSliceState,
         grid: &terrain::BlockGrid,
         collision_half_width: i32,
-    ) -> Option<(u16, u16, u8)> {
-        let grid_width_pixels = u16::try_from(grid.width_pixels()).ok()?;
-        let grid_height_pixels = u16::try_from(grid.height_pixels()).ok()?;
+    ) -> (
+        Option<(u16, u16, u8)>,
+        Option<ModeLevelEvanescentScanWorkLocEae4>,
+    ) {
+        let Some(grid_width_pixels) = u16::try_from(grid.width_pixels()).ok() else {
+            return (None, None);
+        };
+        let Some(grid_height_pixels) = u16::try_from(grid.height_pixels()).ok() else {
+            return (None, None);
+        };
         let level_width_pixels = slice.level_bounds.width_pixels.min(grid_width_pixels);
         let level_height_pixels = slice.level_bounds.height_pixels.min(grid_height_pixels);
         if level_width_pixels == 0 || level_height_pixels == 0 {
-            return None;
+            return (None, None);
         }
 
         let x_px = (slice.player.x_pos >> 16) as i32;
         let foot_y_px = (slice.player.y_pos >> 16) as i32;
-        let kid_hitbox_top = u16::try_from((foot_y_px - PLAYER_HEIGHT).max(0)).ok()?;
-        let kid_hitbox_bottom = u16::try_from(foot_y_px.max(0)).ok()?;
+        let Some(kid_hitbox_top) = u16::try_from((foot_y_px - PLAYER_HEIGHT).max(0)).ok() else {
+            return (None, None);
+        };
+        let Some(kid_hitbox_bottom) = u16::try_from(foot_y_px.max(0)).ok() else {
+            return (None, None);
+        };
         let expanded_top = kid_hitbox_top.saturating_sub(1);
         let expanded_bottom = crate::level::evanescent_bullet_bottom_clamp_loc_EAF8(
             kid_hitbox_bottom,
@@ -2864,12 +2879,17 @@ impl NativeRuntime {
         )
         .bottom_px;
         if expanded_bottom < expanded_top {
-            return None;
+            return (None, None);
         }
         // ASM loc_EAE4 scans `Kid_hitbox_left/right`, whose horizontal half-width
         // comes from sub_B41C/unk_B408 for the current helmet form.
-        let kid_hitbox_left = u16::try_from((x_px - collision_half_width).max(0)).ok()?;
-        let kid_hitbox_right = u16::try_from((x_px + collision_half_width).max(0)).ok()?;
+        let Some(kid_hitbox_left) = u16::try_from((x_px - collision_half_width).max(0)).ok() else {
+            return (None, None);
+        };
+        let Some(kid_hitbox_right) = u16::try_from((x_px + collision_half_width).max(0)).ok()
+        else {
+            return (None, None);
+        };
         let expanded_left = kid_hitbox_left.saturating_sub(1);
         let expanded_right = crate::level::evanescent_bullet_right_clamp_loc_EB2A(
             kid_hitbox_right,
@@ -2877,7 +2897,7 @@ impl NativeRuntime {
         )
         .right_px;
         if expanded_right < expanded_left {
-            return None;
+            return (None, None);
         }
 
         let scan = crate::level::evanescent_bullet_hitbox_scan_loc_EAE4(
@@ -2897,12 +2917,36 @@ impl NativeRuntime {
             row_dbf_counter,
             left_col,
             col_dbf_counter,
-            found_evanescent_block: true,
+            found_evanescent_block,
             ..
         } = scan
         else {
-            return None;
+            return (None, None);
         };
+        let row_count = row_dbf_counter.saturating_add(1);
+        let col_count = col_dbf_counter.saturating_add(1);
+        let mut flagged_non_evanescent_cells_before_exit = 0_u16;
+        'rows: for row in top_row..top_row.saturating_add(row_count) {
+            for col in left_col..left_col.saturating_add(col_count) {
+                let cell = grid.cell_at(col, row);
+                if cell.has_block {
+                    if cell.block_type == terrain::BlockType::Evanescent {
+                        break 'rows;
+                    }
+                    flagged_non_evanescent_cells_before_exit =
+                        flagged_non_evanescent_cells_before_exit.saturating_add(1);
+                }
+            }
+        }
+        let work = ModeLevelEvanescentScanWorkLocEae4 {
+            row_count,
+            col_count,
+            flagged_non_evanescent_cells_before_exit,
+            found_evanescent_block,
+        };
+        if !found_evanescent_block {
+            return (None, Some(work));
+        }
         // ASM loc_EB72 (kid.asm:18922): recover the matched layout address
         // after the EAE4 scan triggers so the block coordinates drive reveal.
         let hit = crate::level::evanescent_bullet_scan_rows_loc_EB48(
@@ -2911,9 +2955,12 @@ impl NativeRuntime {
             row_dbf_counter,
             left_col,
             col_dbf_counter,
-        )?;
+        );
+        let Some(hit) = hit else {
+            return (None, Some(work));
+        };
         let skin = grid.cell_at(hit.col, hit.row).skin;
-        Some((hit.col, hit.row, skin))
+        (Some((hit.col, hit.row, skin)), Some(work))
     }
 
     #[allow(non_snake_case)]
@@ -3555,6 +3602,10 @@ impl NativeRuntime {
         if self.block_grid.is_none() {
             return;
         }
+        if let Some(ledger) = self.mode_level_work_before_hud_sub_44dc.as_mut() {
+            ledger.post_execute.active_shooter_slots_before_sub_f7e0 =
+                self.block_state.shooter_blocks.len() as u16;
+        }
 
         let kid_block_col = ((slice.player.x_pos >> 16) >> 4) as i16;
         let kid_block_row = ((slice.player.y_pos >> 16) >> 4) as i16;
@@ -3569,6 +3620,13 @@ impl NativeRuntime {
         };
         let previous_col = self.block_state.shooter_last_scanned_col;
         let previous_row = self.block_state.shooter_last_scanned_row;
+        if let Some(ledger) = self.mode_level_work_before_hud_sub_44dc.as_mut() {
+            ledger.post_execute.shooter_scan_sub_f096 = Some(ModeLevelShooterScanWorkSubF096 {
+                cached_col_matches: previous_col == kid_block_col,
+                cached_row_matches: previous_row == kid_block_row,
+                active_shooter_slots_before: self.block_state.shooter_blocks.len() as u16,
+            });
+        }
 
         let mut freed_cells = Vec::new();
         {
