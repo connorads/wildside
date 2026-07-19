@@ -183,6 +183,12 @@ pub struct OracleM68kPcTraceRow {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct OracleGemsCheckpoint {
     pub z80_pc: u16,
+    /// `[AF, BC, DE, HL]`.
+    pub z80_main_registers: [u16; 4],
+    /// `[AF', BC', DE', HL']`.
+    pub z80_alternate_registers: [u16; 4],
+    /// `[IX, IT, SP]`.
+    pub z80_index_registers: [u16; 3],
     pub audio_ram: Vec<u8>,
     pub bank_number: u32,
     pub bank_current_bit: u8,
@@ -1052,6 +1058,16 @@ fn patch_jgenesis_gems_checkpoint(jgenesis_dir: &Path) -> Result<()> {
         fs::write(&z80_rs, &z80)
             .with_context(|| format!("failed to write patched {}", z80_rs.display()))?;
     }
+    if !z80.contains("z80_alternate_registers") {
+        z80 = replace_jgenesis_source(
+            &z80,
+            "    #[must_use]\n    pub fn wildside_gems_checkpoint(&self) -> (u32, bool, u8, bool, bool, bool, bool) {\n        let interrupt_mode = match self.registers.interrupt_mode {\n            InterruptMode::Mode0 => 0,\n            InterruptMode::Mode1 => 1,\n            InterruptMode::Mode2 => 2,\n        };\n        (\n            self.t_cycles_wait,\n            self.stalled,\n            interrupt_mode,\n            self.registers.interrupt_delay,\n            self.registers.halted,\n            self.registers.iff1,\n            self.registers.iff2,\n        )\n    }\n",
+            "    #[must_use]\n    pub fn wildside_gems_checkpoint(\n        &self,\n    ) -> ([u16; 4], [u16; 4], [u16; 3], u32, bool, u8, bool, bool, bool, bool) {\n        let interrupt_mode = match self.registers.interrupt_mode {\n            InterruptMode::Mode0 => 0,\n            InterruptMode::Mode1 => 1,\n            InterruptMode::Mode2 => 2,\n        };\n        let z80_main_registers = [\n            u16::from_be_bytes([self.registers.a, self.registers.f.into()]),\n            u16::from_be_bytes([self.registers.b, self.registers.c]),\n            u16::from_be_bytes([self.registers.d, self.registers.e]),\n            u16::from_be_bytes([self.registers.h, self.registers.l]),\n        ];\n        let z80_alternate_registers = [\n            u16::from_be_bytes([self.registers.ap, self.registers.fp.into()]),\n            u16::from_be_bytes([self.registers.bp, self.registers.cp]),\n            u16::from_be_bytes([self.registers.dp, self.registers.ep]),\n            u16::from_be_bytes([self.registers.hp, self.registers.lp]),\n        ];\n        let z80_index_registers = [self.registers.ix, self.registers.it, self.registers.sp];\n        (\n            z80_main_registers,\n            z80_alternate_registers,\n            z80_index_registers,\n            self.t_cycles_wait,\n            self.stalled,\n            interrupt_mode,\n            self.registers.interrupt_delay,\n            self.registers.halted,\n            self.registers.iff1,\n            self.registers.iff2,\n        )\n    }\n",
+            &z80_rs,
+        )?;
+        fs::write(&z80_rs, &z80)
+            .with_context(|| format!("failed to write patched {}", z80_rs.display()))?;
+    }
 
     let api_rs = jgenesis_dir.join("backend/genesis-core/src/api.rs");
     let mut api = fs::read_to_string(&api_rs)
@@ -1091,6 +1107,28 @@ fn patch_jgenesis_gems_checkpoint(jgenesis_dir: &Path) -> Result<()> {
             &api,
             "                status_register,\n            });\n",
             "                status_register,\n                gems_checkpoint,\n            });\n",
+            &api_rs,
+        )?;
+        fs::write(&api_rs, &api)
+            .with_context(|| format!("failed to write patched {}", api_rs.display()))?;
+    }
+    if !api.contains("z80_alternate_registers") {
+        api = replace_jgenesis_source(
+            &api,
+            "pub struct WildsideGemsCheckpoint {\n    pub z80_pc: u16,\n",
+            "pub struct WildsideGemsCheckpoint {\n    pub z80_pc: u16,\n    pub z80_main_registers: [u16; 4],\n    pub z80_alternate_registers: [u16; 4],\n    pub z80_index_registers: [u16; 3],\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "            let (\n                z80_t_cycles_wait,\n",
+            "            let (\n                z80_main_registers,\n                z80_alternate_registers,\n                z80_index_registers,\n                z80_t_cycles_wait,\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "            WildsideGemsCheckpoint {\n                z80_pc: self.z80.pc(),\n",
+            "            WildsideGemsCheckpoint {\n                z80_pc: self.z80.pc(),\n                z80_main_registers,\n                z80_alternate_registers,\n                z80_index_registers,\n",
             &api_rs,
         )?;
         fs::write(&api_rs, &api)
@@ -1629,6 +1667,9 @@ mod tests {
                 "status_register": 0x2700,
                 "gems_checkpoint": {
                     "z80_pc": 0x02AA,
+                    "z80_main_registers": [0x0102, 0x0304, 0x0506, 0x0708],
+                    "z80_alternate_registers": [0x1112, 0x1314, 0x1516, 0x1718],
+                    "z80_index_registers": [0x2122, 0x2324, 0x2526],
                     "audio_ram": [1, 2],
                     "bank_number": 29,
                     "bank_current_bit": 0,
@@ -1665,6 +1706,9 @@ mod tests {
             .as_ref()
             .expect("opt-in GEMS checkpoint");
         assert_eq!(checkpoint.z80_pc, 0x02AA);
+        assert_eq!(checkpoint.z80_main_registers[2], 0x0506);
+        assert_eq!(checkpoint.z80_alternate_registers[2], 0x1516);
+        assert_eq!(checkpoint.z80_index_registers[2], 0x2526);
         assert_eq!(checkpoint.audio_ram, [1, 2]);
         assert_eq!(checkpoint.bank_number, 29);
     }

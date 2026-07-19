@@ -179,6 +179,9 @@ struct OracleM68kPcTraceRow {
 #[derive(Debug, Serialize)]
 struct OracleGemsCheckpoint {
     z80_pc: u16,
+    z80_main_registers: [u16; 4],
+    z80_alternate_registers: [u16; 4],
+    z80_index_registers: [u16; 3],
     audio_ram: Vec<u8>,
     bank_number: u32,
     bank_current_bit: u8,
@@ -927,6 +930,9 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                             status_register: hit.status_register,
                             gems_checkpoint: hit.gems_checkpoint.map(|checkpoint| OracleGemsCheckpoint {
                                 z80_pc: checkpoint.z80_pc,
+                                z80_main_registers: checkpoint.z80_main_registers,
+                                z80_alternate_registers: checkpoint.z80_alternate_registers,
+                                z80_index_registers: checkpoint.z80_index_registers,
                                 audio_ram: checkpoint.audio_ram,
                                 bank_number: checkpoint.bank_number,
                                 bank_current_bit: checkpoint.bank_current_bit,
