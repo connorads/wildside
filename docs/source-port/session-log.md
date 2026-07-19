@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 fifth title asset)
+
+- All five `sub_1B850` Saxman uploads now run on one persistent GEMS/VDP
+  timeline.
+- `ArtComp_1DA86_LettersNumbers` emits 1,440 bytes through 6,230
+  instructions / 51,386 raw cycles, with one VINT, 406 refresh events, and
+  1,408 GEMS waits.
+- Native enters the 720-word transfer at cycle 9,978,770 and returns at
+  10,010,491; oracle is 14 and 39 cycles later due to its established Z80
+  flag defect.
+- NEXT: source-schedule the two Enigma tilemaps and VDP row writes which
+  complete `sub_1B850`, then continue towards frame 1709.
+
 ## 2026-07-19 handoff (#409 fourth title asset)
 
 - `byte_261D7` has three explicit Saxman chunks: 4,096, 2,048, and

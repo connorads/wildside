@@ -306,6 +306,17 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: all five `sub_1B850` Saxman uploads now share one
+persistent hardware-faithful timeline. The final
+`ArtComp_1DA86_LettersNumbers` stream emits 1,440 bytes through 6,230
+instructions / 51,386 raw cycles, with 406 refresh events, 1,408 GEMS wait
+cycles, and one VINT. Native reaches its 720-word transfer at cycle
+9,978,770 and returns at 10,010,491; oracle reaches those boundaries at
+9,978,784 and 10,010,530. The signed offsets remain the expected downstream
+effect of jgenesis's established undocumented-X/Y `SUB` defect, not missing
+68000 source work. NEXT: source-schedule the two Enigma tilemaps and their
+VDP row writes which complete `sub_1B850`.
+
 Progress 2026-07-19: `byte_261D7`
 (`Kids_hanging_around_Wild_Side.bin`) is source-scheduled through its final
 return. Unlike the first three assets, its Saxman stream explicitly flushes

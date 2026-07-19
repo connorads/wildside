@@ -2095,7 +2095,7 @@ mod tests {
 
     #[cfg(feature = "audio")]
     #[test]
-    fn intro_decompress_to_vram_reaches_fourth_transfer_hardware_phase() {
+    fn intro_decompress_to_vram_reaches_all_sub_1b850_transfers() {
         let rom = std::fs::read(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../.cache/upstream/kid-chameleon-disasm/kid.bin"),
@@ -2458,6 +2458,55 @@ mod tests {
         .expect("byte_261D7 final 512-word transfer");
         assert!(!transfer.vint_serviced);
         assert_eq!(engine.master_clock(), 9_924_774 * 7);
+
+        // ASM sub_1B850 $1B88A passes ArtComp_1DA86_LettersNumbers to the
+        // final DecompressToVRAM call in the title-art batch.
+        let setup = apply_gems_decompress_to_vram_setup_sub_142cc(
+            &mut engine,
+            transfer.cursor,
+            &[8, 12, 20, 10],
+        )
+        .expect("source-positioned fifth DecompressToVRAM setup");
+        assert_eq!(engine.master_clock(), 9_925_002 * 7);
+
+        let compressed = std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "../../.cache/upstream/kid-chameleon-disasm/scenes/artcomp/Intro_text_letters.bin",
+        ))
+        .expect("bootstrapped ArtComp_1DA86_LettersNumbers");
+        let decoder = apply_gems_decompress_to_vram_decoder_loc_14300(
+            &mut engine,
+            setup.cursor,
+            &compressed,
+            None,
+            1,
+        )
+        .expect("source-positioned intro-letters decoder");
+        assert_eq!(
+            decoder.timing,
+            wildside_core::saxman_timing::DecompressChunkTimingSub13684 {
+                instruction_count: 6_230,
+                raw_cycles: 51_386,
+                output_bytes: 1_440,
+            },
+        );
+        assert_eq!(decoder.resume, None);
+        assert!(decoder.vint_serviced);
+        assert_eq!(decoder.refresh_events, 406);
+        assert_eq!(decoder.external_wait_cycles.get(), 1_408);
+        assert_eq!(engine.master_clock(), 9_978_770 * 7);
+
+        let transfer = apply_gems_decompress_to_vram_transfer_loc_14314(
+            &mut engine,
+            decoder.cursor,
+            720,
+            0,
+            wildside_core::vdp::DecompressToVramTransferExit::Return,
+        )
+        .expect("ArtComp_1DA86_LettersNumbers 720-word transfer");
+        assert!(!transfer.vint_serviced);
+        // The established oracle Z80 flag defect leaves the hardware-faithful
+        // GEMS/FIFO schedule 39 cycles earlier at the batch return.
+        assert_eq!(engine.master_clock(), 10_010_491 * 7);
     }
 
     #[cfg(feature = "audio")]
