@@ -1,6 +1,10 @@
 //! Mega Drive machine emulation: 68k (r68k) + Z80 + YM2612 (ymfm) + PSG bus
 //! model, the probe/trace runtime, and the standalone GEMS audio engine.
 
+mod gems_timing;
+
+pub use gems_timing::{GemsBanked68kRead, GemsMasterClockAdvance, GemsMasterClockTimingEngine};
+
 use anyhow::{Result, ensure};
 use r68k_emu::cpu::{ConfiguredCore, Cycles};
 use r68k_emu::interrupts::AutoInterruptController;

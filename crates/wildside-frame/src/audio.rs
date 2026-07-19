@@ -13,7 +13,7 @@ use wildside_core::{GameMode, LevelId, NativeSoundCommand, NativeTraceFrame};
 use wildside_data::AssetSource;
 use wildside_data::{AssetManifest, LevelHeader, resource_level_record};
 #[cfg(feature = "audio")]
-use wildside_md::GemsAudioEngine;
+use wildside_md::{GemsAudioEngine, GemsMasterClockTimingEngine};
 
 pub const AUDIO_SAMPLE_RATE: u32 = 44_100;
 pub const AUDIO_FRAME_RATE_HZ: u32 = 60;
@@ -402,6 +402,11 @@ impl NativeAudioDirector {
             bgm_command,
             trace_audio_commands.len(),
         ) {
+            if audio.requires_continuous_clock() {
+                audio.step_frame();
+                self.prev_trace = Some(trace.clone());
+                return true;
+            }
             self.prev_trace = Some(trace.clone());
             return false;
         }
@@ -439,6 +444,10 @@ pub trait NativeAudioSink {
     fn set_music_speed(&mut self, speed: u8);
     fn step_frame(&mut self);
     fn generate_samples(&mut self, sample_count: usize) -> Vec<f32>;
+
+    fn requires_continuous_clock(&self) -> bool {
+        false
+    }
 }
 
 #[cfg(feature = "audio")]
@@ -465,6 +474,37 @@ impl NativeAudioSink for GemsAudioEngine {
 
     fn generate_samples(&mut self, sample_count: usize) -> Vec<f32> {
         GemsAudioEngine::generate_samples(self, sample_count)
+    }
+}
+
+#[cfg(feature = "audio")]
+impl NativeAudioSink for GemsMasterClockTimingEngine {
+    fn start_sequence(&mut self, sound_id: u8) {
+        GemsMasterClockTimingEngine::start_sequence(self, sound_id);
+    }
+
+    fn stop_sequence(&mut self, sound_id: u8) {
+        GemsMasterClockTimingEngine::stop_sequence(self, sound_id);
+    }
+
+    fn stop_music(&mut self) {
+        GemsMasterClockTimingEngine::stop_music(self);
+    }
+
+    fn set_music_speed(&mut self, speed: u8) {
+        GemsMasterClockTimingEngine::set_music_speed(self, speed);
+    }
+
+    fn step_frame(&mut self) {
+        GemsMasterClockTimingEngine::advance_ntsc_frame(self);
+    }
+
+    fn generate_samples(&mut self, sample_count: usize) -> Vec<f32> {
+        vec![0.0; sample_count * 2]
+    }
+
+    fn requires_continuous_clock(&self) -> bool {
+        true
     }
 }
 
@@ -967,6 +1007,7 @@ mod tests {
     #[derive(Default)]
     struct RecordingAudioSink {
         actions: Vec<RecordingAudioAction>,
+        continuous_clock: bool,
     }
 
     impl NativeAudioSink for RecordingAudioSink {
@@ -997,6 +1038,10 @@ mod tests {
             self.actions
                 .push(RecordingAudioAction::GenerateSamples(sample_count));
             vec![sample_count as f32; sample_count * 2]
+        }
+
+        fn requires_continuous_clock(&self) -> bool {
+            self.continuous_clock
         }
     }
 
@@ -1212,6 +1257,24 @@ mod tests {
             0
         ));
         assert!(native_audio_frame_needs_driver_step(None, None, None, 1));
+    }
+
+    #[test]
+    fn timing_sink_clocks_through_silent_title_card_loc_1ab26() {
+        let manifest = test_manifest();
+        let transition = trace(GameMode::LevelTransition);
+        let mut sink = RecordingAudioSink {
+            continuous_clock: true,
+            ..RecordingAudioSink::default()
+        };
+        let mut director = NativeAudioDirector::new();
+
+        assert!(director.step(&manifest, &transition, &mut sink));
+        assert_eq!(
+            sink.actions,
+            vec![RecordingAudioAction::StepFrame],
+            "persistent GEMS timing state must advance while the audible mixer emits silence",
+        );
     }
 
     #[test]
