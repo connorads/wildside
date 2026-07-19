@@ -394,6 +394,15 @@ fixed-point fragments branch on lead/tail visibility and mutate the sprite
 table. `mise run verify-slice-fast` is green with 6,953 core tests, 15 CLI
 tests, clippy, coverage guards, and all TAS recordings passing.
 
+Progress 2026-07-19: commit `3953de407` preserves the exact buffered Diamond
+Power sprite-entry count before native compiles and clears it. All three
+helpers have zero buffered entries. Full selected-PC traces independently
+show `DiamondPower_CompileSprites sub_3F798` compare `$FFFFF5C2` with the
+unchanged buffer end and return in 56 raw cycles. Buffered-entry loops remain
+fail-closed; direct Diamond Power sprites are deliberately separate state.
+`mise run verify-slice-fast` is green with 6,954 core tests, 15 CLI tests,
+clippy, coverage guards, and all TAS recordings passing.
+
 Deferred 2026-07-19: source review found that normal layout walks set
 `$FFFFFB51` at `Manage_EnemyLoading loc_36968`. A trial correcting the native
 normal loader broke nine synthetic contact tests whose fixtures assume the

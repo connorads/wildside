@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 empty Diamond Power compiler)
+
+- Native now retains the exact buffered Diamond Power entry count before
+  compilation instead of inferring it from active-power or output sprites.
+- Frames 1697/1703/1709 have no buffered entries. ASM plus full selected-PC
+  traces derive the identical 56-raw-cycle `sub_3F798` early return.
+- Buffered loops stay fail-closed. `mise run verify-slice-fast` is green after
+  `3953de407`.
+- NEXT: type remaining per-GfxObject work or persist the GEMS CPU checkpoint,
+  then bridge the FIFO-aware `sub_44DC` exit through `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 inactive debris scan)
 
 - The post-HUD ledger now carries the active count from native's six-slot
