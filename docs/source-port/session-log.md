@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 raw ReadJoypad timing)
+
+- Selected-PC oracle rows now expose both cumulative time and the current
+  instruction's raw cost. This corrects the earlier `$B70 -> loc_C22`
+  arithmetic from 1,040 to 908 elapsed cycles.
+- The full Demo path is 1,234 raw cycles when `loc_C40` advances
+  `Demo_Keypress_Ptr`, or 1,198 when it branches directly to `loc_C4E`.
+  Frames 1697/1703/1709 all derive 1,234 from their typed counters.
+- `mise run verify-slice-fast` is green after `6768b20` and `1e00b9b94`.
+- NEXT: type the variable Gfx animation/collision/platform branches and
+  persistent GEMS CPU checkpoint, then bridge FIFO-aware `sub_44DC` exit
+  through `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 post-HUD work and Demo ReadJoypad)
 
 - The natural post-HUD path now records all 22 source phases through

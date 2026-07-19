@@ -316,11 +316,22 @@ constant. Native's choreography counter maps through the existing Demo-2
 timeout offset to oracle `$FBC2` values 723/729/735 before increment; all
 three are odd, so the increment is even and advances `Demo_Keypress_Ptr`.
 Oracle PC traces independently show the same `$B70 -> $C22` source branch
-and 1,040 elapsed cycles before `loc_C22`; later variation includes
-`sub_914/sub_924` Z80 arbitration and cannot be a fixed ReadJoypad cost.
+and 908 elapsed cycles before `loc_C22`; later variation includes
+`sub_914/sub_924` Z80 arbitration and cannot be a fixed elapsed ReadJoypad cost.
 `mise run verify-slice-fast` is green after both commits. Next type the
 variable Gfx animation/collision/platform work and persist the GEMS CPU
 checkpoint before bridging the FIFO-aware HUD exit to `loc_892`.
+
+Progress 2026-07-19: commit `6768b20` adds the emulator-reported instruction
+cost to selected-PC oracle rows, separating raw 68000 work from cumulative
+refresh and external waits. Full instruction traces prove that the three
+target `$B70 -> loc_C9C` paths each execute 105 instructions for 1,234 raw
+cycles; their elapsed spans to the following `sub_5E02` entry are
+1,292/1,338/1,325 because waits vary. Adjacent frames that skip the
+`loc_C44` demo-pointer update are independently stable at 1,198 raw cycles.
+Commit `1e00b9b94` derives both costs from the typed `loc_C22` counter branch,
+fails closed on inconsistent or unobserved work, and pins the three target
+helpers at 1,234. `mise run verify-slice-fast` is green.
 
 Deferred 2026-07-19: source review found that normal layout walks set
 `$FFFFFB51` at `Manage_EnemyLoading loc_36968`. A trial correcting the native
