@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 inactive debris scan)
+
+- The post-HUD ledger now carries the active count from native's six-slot
+  scratch-debris queue.
+- Frames 1697/1703/1709 have all six slots inactive. ASM plus full selected-PC
+  traces derive the identical `sub_2A4C` 408-raw-cycle scan.
+- Active debris stays fail-closed until per-fragment visibility paths are
+  typed. `mise run verify-slice-fast` is green after `957550a72`.
+- NEXT: type another source-complete post-HUD branch or persist the GEMS CPU
+  checkpoint, then bridge the FIFO-aware `sub_44DC` exit through `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 empty shooter collision scans)
 
 - The post-HUD ledger now carries active shooter support slots and moving

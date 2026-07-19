@@ -386,6 +386,14 @@ per-rectangle, Kid-hitbox, and Kid-projectile collision branches need more
 state. `mise run verify-slice-fast` is green with 6,952 core tests, 15 CLI
 tests, clippy, coverage guards, and all TAS recordings passing.
 
+Progress 2026-07-19: commit `957550a72` types the fixed scratch-debris queue
+consumed by `sub_2A4C`. All six slots are inactive on frames 1697/1703/1709,
+and full selected-PC traces independently show the identical 43-instruction,
+408-raw-cycle scan. Active slots remain fail-closed because their five
+fixed-point fragments branch on lead/tail visibility and mutate the sprite
+table. `mise run verify-slice-fast` is green with 6,953 core tests, 15 CLI
+tests, clippy, coverage guards, and all TAS recordings passing.
+
 Deferred 2026-07-19: source review found that normal layout walks set
 `$FFFFFB51` at `Manage_EnemyLoading loc_36968`. A trial correcting the native
 normal loader broke nine synthetic contact tests whose fixtures assume the
