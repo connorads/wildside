@@ -414,6 +414,16 @@ needs a typed tile walk. `mise run verify-slice-fast` is green with 6,955
 core tests, 15 CLI tests, clippy, coverage guards, and all TAS recordings
 passing.
 
+Progress 2026-07-19: commit `04fda57b8` types `sub_1FA2` from the live
+current-form Kid hitbox and raw Level_Layout collision words. The helpers
+derive clear row-major walks of 2x2, 2x2, and 2x3 cells. The source loop
+formula reproduces the independent selected-PC totals exactly:
+558/558/688 raw cycles. Solid/spike dispatch remains fail-closed. Production
+citations move `sub_1FA2`, `loc_1FEE`, and `loc_1FF2` out of test-only debt,
+shrinking the ratchet baseline from 193 to 190. `mise run verify-slice-fast`
+is green with 6,956 core tests, 15 CLI tests, clippy, coverage guards, and all
+TAS recordings passing.
+
 Deferred 2026-07-19: source review found that normal layout walks set
 `$FFFFFB51` at `Manage_EnemyLoading loc_36968`. A trial correcting the native
 normal loader broke nine synthetic contact tests whose fixtures assume the

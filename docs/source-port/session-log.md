@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 clear special-terrain scans)
+
+- `sub_1FA2` now derives its inclusive row-major Level_Layout walk from the
+  live current-form Kid hitbox and raw collision words.
+- Frames 1697/1703/1709 classify as clear 2x2, 2x2, and 2x3 scans, exactly
+  reproducing the oracle's 558/558/688 raw cycles.
+- Solid/spike dispatch stays fail-closed. Three labels move from test-only to
+  production ASM coverage, shrinking the debt baseline 193 -> 190.
+- `mise run verify-slice-fast` is green after `04fda57b8`.
+- NEXT: type per-GfxObject animation/collision/sprite work or persist the GEMS
+  CPU checkpoint, then bridge the FIFO-aware HUD exit through `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 empty Kid-projectile collision passes)
 
 - The post-HUD ledger now carries live Kid-projectile GfxObject and Diamond
