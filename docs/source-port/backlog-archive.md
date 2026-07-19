@@ -306,6 +306,24 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: the apparent 85-instruction `byte_2DEBF`
+decoder excess was a probe error: its exhaustive PC range ended at `$13A74`
+and omitted the lane-7 tail through `$13AA2`. The comparison nevertheless
+exposed one real visitor omission. ASM `loc_13A9E` branches back to
+`Decompress_BitPos0` after every lane-7 literal; the source scheduler lacked
+that 10-cycle instruction. A direct regression now pins `[4,10,12,10]` for
+that lane.
+
+The corrected third decoder selects 10,831 instructions / 98,874 raw cycles,
+services `V_Int $488`, and reaches its 1,728-word transfer at native cycle
+9,359,747 after 789 refresh events and 2,057 GEMS wait cycles. Oracle reaches
+the same source PC at 9,359,779 because the already-established jgenesis
+undocumented-X/Y `SUB` defect requests 32 additional waits. The shifted FIFO
+phase recovers 30 cycles during the transfer: native returns at 9,453,428,
+oracle at 9,453,430. The native values remain hardware-faithful rather than
+fitting the defective oracle Z80. NEXT: source-schedule `byte_261D7` from
+this third-transfer return.
+
 Progress 2026-07-19: `DecompressToVRAM`'s initial `Decompress_Chunk`
 window is the low-word distance from `Decompression_Buffer=$FFFF77B2` to
 `a3=$FFFFFFFF`, or 34,893 bytes. The earlier 256-byte assumption did not
@@ -316,12 +334,8 @@ The next `sub_1B850` asset, `byte_2DEBF`
 (`Wild_Side_door_and_inside.bin`), provides the new narrow frontier.
 Selected-PC oracle traces place its `loc_14300` entry at cycle 9,257,076,
 its 1,728-word `loc_14314` transfer entry at 9,359,779, and its return at
-9,453,430. The current source visitor reports 10,822 decoder instructions;
-an exhaustive oracle PC trace of `Decompress_Chunk sub_13684` reports
-10,737 over the same asset. The 85-instruction excess is present before
-VINT composition, so a speculative VINT scheduler was discarded. NEXT:
-compare the long-asset token lanes to the exact ASM branches and correct
-that source visitor before extending persistent GEMS.
+9,453,430. An initial truncated PC range falsely suggested an
+85-instruction excess; the later progress entry corrects that diagnosis.
 
 Progress 2026-07-19: the second `Load_TitleArt` transfer is source-scheduled
 through its cycle-9,256,826 return. `sub_1B850` passes `byte_2D71A`

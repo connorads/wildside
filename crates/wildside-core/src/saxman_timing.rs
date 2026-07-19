@@ -38,6 +38,11 @@ fn emit_mode_dispatch(
     emit(&[4], visit, timing);
     if matches!(kind, SaxmanTokenKind::Literal { .. }) {
         emit(&[10, 12], visit, timing);
+        if lane == 7 {
+            // ASM loc_13A9E: the last unrolled lane branches back to
+            // Decompress_BitPos0 after copying its literal.
+            emit(&[10], visit, timing);
+        }
         return;
     }
     emit(&[8], visit, timing);
@@ -326,5 +331,26 @@ mod tests {
             .expect("300-byte stream remains inside the initial WRAM window");
 
         assert_eq!(timing.output_bytes, 300);
+    }
+
+    #[test]
+    fn lane_seven_literal_branches_to_decompress_bit_pos_zero_loc_13a9e() {
+        let mut timing = DecompressChunkTimingSub13684 {
+            instruction_count: 0,
+            raw_cycles: 0,
+            output_bytes: 0,
+        };
+        let mut cycles = Vec::new();
+
+        emit_mode_dispatch(
+            7,
+            SaxmanTokenKind::Literal { value: 0 },
+            &mut |raw| cycles.push(raw),
+            &mut timing,
+        );
+
+        assert_eq!(cycles, [4, 10, 12, 10]);
+        assert_eq!(timing.instruction_count, 4);
+        assert_eq!(timing.raw_cycles, 36);
     }
 }

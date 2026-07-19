@@ -2973,6 +2973,7 @@ pub struct DecompressToVramDecoderAdvance {
     pub cursor: LoadInGameCpuRasterCursor,
     pub timing: crate::saxman_timing::DecompressChunkTimingSub13684,
     pub refresh_events: u32,
+    pub vint_serviced: bool,
     pub external_wait_cycles: M68kCycleCount,
 }
 
@@ -3255,7 +3256,7 @@ fn service_decompress_to_vram_vint_if_pending(
 }
 
 /// Co-schedule ASM `DecompressToVRAM loc_14300` through the first
-/// `loc_14314` transfer entry.
+/// `loc_14314` transfer entry, servicing one pending VINT when requested.
 ///
 /// The callback sees the 22-cycle call prelude, every instruction selected by
 /// the Saxman source stream in `Decompress_Chunk sub_13684`, and the 36-cycle
@@ -3264,6 +3265,7 @@ fn service_decompress_to_vram_vint_if_pending(
 pub fn decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     compressed: &[u8],
+    mut vint_pending: bool,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<DecompressToVramDecoderAdvance> {
     let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
@@ -3271,25 +3273,41 @@ pub fn decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
     let mut refresh_events = 0_u32;
     let mut external_wait_cycles = 0_u32;
     let mut scheduling_failed = false;
+    let mut vint_serviced = false;
 
     let mut advance_instruction = |raw_cycles: u32| {
         if scheduling_failed {
             return;
         }
-        let generated_wait = advance_decompress_source_instruction_with_interval_kind(
-            raw_cycles,
-            &mut fifo,
-            &mut phase,
-            &mut refresh_events,
-            &mut advance_hardware,
-        );
-        match generated_wait {
-            Some(generated_wait) => {
+        let mut source_cycles = [0_u32; 5];
+        let source_count = if vint_pending && fifo.beam.scanline >= 224 {
+            // ASM V_Int $488: the interrupted source PC first accounts for
+            // the 44-cycle exception entry, then ADDQ/ST/RTE execute before
+            // the same decoder instruction is retried.
+            source_cycles = [44, 24, 16, 20, raw_cycles];
+            vint_pending = false;
+            vint_serviced = true;
+            5
+        } else {
+            source_cycles[0] = raw_cycles;
+            1
+        };
+        for &cycles in &source_cycles[..source_count] {
+            let generated_wait = advance_decompress_source_instruction_with_interval_kind(
+                cycles,
+                &mut fifo,
+                &mut phase,
+                &mut refresh_events,
+                &mut advance_hardware,
+            );
+            if let Some(generated_wait) = generated_wait {
                 external_wait_cycles = external_wait_cycles
                     .checked_add(generated_wait)
                     .expect("decoder wait count fits u32");
+            } else {
+                scheduling_failed = true;
+                return;
             }
-            None => scheduling_failed = true,
         }
     };
 
@@ -3317,6 +3335,7 @@ pub fn decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
         },
         timing,
         refresh_events,
+        vint_serviced,
         external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
     })
 }

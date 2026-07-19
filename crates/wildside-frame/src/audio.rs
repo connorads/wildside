@@ -767,12 +767,14 @@ pub fn apply_gems_decompress_to_vram_transfer_loc_14314(
     )
 }
 
-/// Clock ASM `DecompressToVRAM loc_14300` through its first transfer entry.
+/// Clock ASM `DecompressToVRAM loc_14300` through its first transfer entry,
+/// servicing one pending VINT when requested.
 #[cfg(feature = "audio")]
 pub fn apply_gems_decompress_to_vram_decoder_loc_14300(
     audio: &mut GemsMasterClockTimingEngine,
     entry: LoadInGameCpuRasterCursor,
     compressed: &[u8],
+    vint_pending: bool,
 ) -> Option<wildside_core::vdp::DecompressToVramDecoderAdvance> {
     if audio.pending_m68k_wait_cycles() != 0 {
         return None;
@@ -780,6 +782,7 @@ pub fn apply_gems_decompress_to_vram_decoder_loc_14300(
     wildside_core::vdp::decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
         entry,
         compressed,
+        vint_pending,
         |cycles, vdp_owns_bus, source_instruction| {
             if source_instruction {
                 audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
@@ -2088,7 +2091,7 @@ mod tests {
 
     #[cfg(feature = "audio")]
     #[test]
-    fn intro_decompress_to_vram_reaches_second_transfer_oracle_z80_phase() {
+    fn intro_decompress_to_vram_reaches_third_transfer_hardware_phase() {
         let rom = std::fs::read(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../.cache/upstream/kid-chameleon-disasm/kid.bin"),
@@ -2235,9 +2238,13 @@ mod tests {
             ),
         )
         .expect("bootstrapped byte_2D71A");
-        let decoder =
-            apply_gems_decompress_to_vram_decoder_loc_14300(&mut engine, setup.cursor, &compressed)
-                .expect("source-positioned Wild Side decoder");
+        let decoder = apply_gems_decompress_to_vram_decoder_loc_14300(
+            &mut engine,
+            setup.cursor,
+            &compressed,
+            false,
+        )
+        .expect("source-positioned Wild Side decoder");
         assert_eq!(decoder.timing.output_bytes, 192);
         assert_eq!(decoder.timing.instruction_count, 576);
         assert_eq!(decoder.timing.raw_cycles, 5_390);
@@ -2267,6 +2274,52 @@ mod tests {
         .expect("byte_2D71A 96-word transfer");
         assert!(!second_transfer.vint_serviced);
         assert_eq!(engine.master_clock(), 9_256_826 * 7);
+
+        // ASM sub_1B850 $1B86E passes byte_2DEBF (the Wild Side door and
+        // inside art) to the same DecompressToVRAM source path.
+        let setup = apply_gems_decompress_to_vram_setup_sub_142cc(
+            &mut engine,
+            second_transfer.cursor,
+            &[8, 12, 20, 10],
+        )
+        .expect("source-positioned third DecompressToVRAM setup");
+        assert_eq!(engine.master_clock(), 9_257_076 * 7);
+
+        let compressed = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                "../../.cache/upstream/kid-chameleon-disasm/scenes/artcomp/Wild_Side_door_and_inside.bin",
+            ),
+        )
+        .expect("bootstrapped byte_2DEBF");
+        let decoder = apply_gems_decompress_to_vram_decoder_loc_14300(
+            &mut engine,
+            setup.cursor,
+            &compressed,
+            true,
+        )
+        .expect("source-positioned Wild Side door decoder");
+        assert_eq!(decoder.timing.output_bytes, 3_456);
+        assert_eq!(decoder.timing.instruction_count, 10_831);
+        assert_eq!(decoder.timing.raw_cycles, 98_874);
+        assert!(decoder.vint_serviced);
+        assert_eq!(decoder.refresh_events, 789);
+        assert_eq!(decoder.external_wait_cycles.get(), 2_057);
+        // ORACLE LIMITATION: the jgenesis undocumented-X/Y SUB defect
+        // established above makes GEMS request 32 more 68000 wait cycles
+        // over this decoder. Source instructions, refresh, and VINT agree.
+        assert_eq!(engine.master_clock(), 9_359_747 * 7);
+
+        let third_transfer = apply_gems_decompress_to_vram_transfer_loc_14314(
+            &mut engine,
+            decoder.cursor,
+            1_728,
+            false,
+        )
+        .expect("byte_2DEBF 1,728-word transfer");
+        assert!(!third_transfer.vint_serviced);
+        // The 32-cycle decoder shift changes FIFO collision phase and the
+        // hardware-faithful transfer recovers 30 cycles by its return.
+        assert_eq!(engine.master_clock(), 9_453_428 * 7);
     }
 
     #[cfg(feature = "audio")]

@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 third title transfer)
+
+- The apparent 85-instruction decoder excess was a truncated probe ending
+  before the lane-7 tail. ASM `loc_13A9E` did expose one real omission: a
+  10-cycle branch after each lane-7 literal.
+- Corrected `byte_2DEBF`: 10,831 instructions / 98,874 raw cycles, VINT
+  serviced at `$488`, 789 refresh events, and 2,057 native GEMS waits.
+- Native reaches the 1,728-word transfer at cycle 9,359,747 and returns at
+  9,453,428. Oracle is 32 cycles later at entry and two at return due to its
+  established undocumented-X/Y `SUB` defect changing GEMS/FIFO wait phase.
+- NEXT: source-schedule `byte_261D7` from the third-transfer return, then
+  continue persistent GEMS towards frame 1709.
+
 ## 2026-07-19 handoff (#409 third title decoder frontier)
 
 - `Decompress_Chunk sub_13684` starts with a 34,893-byte low-word window
@@ -14,11 +27,8 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   cache-independent 300-literal regression pins this ASM-derived boundary.
 - Oracle places `byte_2DEBF` at `loc_14300` cycle 9,257,076, its 1,728-word
   transfer entry at 9,359,779, and return at 9,453,430.
-- The current visitor selects 10,822 decoder instructions against 10,737
-  in an exhaustive oracle PC trace. The 85-instruction excess precedes
-  VINT composition; speculative VINT wiring was discarded.
-- NEXT: reconcile the long-asset Saxman lanes against `sub_13684`, then
-  source-schedule the third transfer. Do not fit the instruction excess.
+- A truncated PC range initially suggested an 85-instruction visitor excess.
+  The newer handoff corrects that diagnosis.
 
 ## 2026-07-19 handoff (#409 source-scheduled second title transfer)
 
