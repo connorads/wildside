@@ -306,6 +306,43 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: commit `7afa08b27` schedules the classified life-icon-only
+`sub_44DC` path through its four-entry VRAM FIFO and the trailing `loc_44D4`
+instruction stream to the following `Manage_EnemyLoading` call. The final
+pending word enters seven H40 access slots before its visible commit. Frames
+1697/1703/1709 span 3,674/3,695/3,681 elapsed cycles from `sub_44DC` entry and
+exit at beam/refresh 49:3072/58, 39:2690/58, and 22:838/102. The first two
+tails have no Z80 arbitration. Frame 1709 has four 11-cycle GEMS steals at
+offsets 43/96/151/192 from the final pending enqueue, explaining its 44-cycle
+excess. The FIFO and CPU scheduler is source- and hardware-derived; those four
+offsets remain bounded oracle inputs until a persistent native GEMS checkpoint
+produces them. Unclassified HUD lists and invalid event boundaries fail closed.
+`mise run verify-slice-fast` is green with 6,958 core tests, 15 CLI tests,
+Clippy, and all configured TAS recordings.
+
+Architecture finding 2026-07-19: the post-FIFO steals come from GEMS
+`FILLDACFIFO -> XFER68K`: driver `$01FB`, repeating six-byte banked `LDIR` at
+`$0273`, and final `LDIR` at `$0285`. A command queue or register-only
+checkpoint cannot produce their timing. GEMS self-modifies `DACME` and
+`FILLDACFIFO`, while the first and later reads depend on the residual Z80
+instruction wait, carried 15-master-clock divider, alternating 49/50-mclk
+bank-wait phase, VDP bus ownership, bank/mailbox signals, and IRQ state.
+Persist the complete Z80 CPU state, 8 KiB audio RAM, bus state, and scheduler
+phase behind a timing port which emits ordered banked-read events. Do not reuse
+`GemsAudioEngine` unchanged: it batches 59,659 Z80 cycles per frame and exposes
+neither bank-read events nor 68000-relative phase. A guarded `$0273/$0285`
+micro-engine remains a possible smaller slice only if it hard-fails outside a
+fully typed transfer/checkpoint state; never persist route/frame offsets.
+
+Probe finding 2026-07-19: full selected-PC traces of the remaining
+`lea ($FFFFF86E).w,a2 -> GfxObjects_CollisionKid sub_1B76` invocation traverse
+14/15/14 live nodes on frames 1697/1703/1709. Their complete source streams
+take 2,574/2,780/2,718 raw cycles and 2,616/3,022/2,958 elapsed cycles.
+Node count alone is insufficient: branch/sub-box work varies by frame. The
+next implementation must type each node's `$3D`, `$22`, `$16`, position,
+velocity, collision-size list, and Kid overlap inputs rather than fit one cost
+per node.
+
 Progress 2026-07-19: commit `60c66b4c1` adds a read-only
 `ModeLevelPostHudWorkLedger` for the exact 22 source phases after `sub_44DC`
 through `Make_SpritesFromPlatforms`. The three target helpers all take

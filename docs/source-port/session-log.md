@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 FIFO-aware life-icon exit)
+
+- The typed life-icon-only `sub_44DC` transition now schedules the four-entry
+  VRAM FIFO and trailing `loc_44D4` instruction stream to the following
+  `Manage_EnemyLoading` call.
+- Frames 1697/1703/1709 exit at beam/refresh 49:3072/58, 39:2690/58, and
+  22:838/102. Their full entry-to-exit spans are 3,674/3,695/3,681 cycles.
+- Frame 1709 injects four bounded GEMS bus steals at offsets 43/96/151/192
+  from the final pending enqueue; the other helpers inject none.
+- Driver review rejects command-derived and register-only GEMS checkpoints:
+  the timing port must retain complete Z80 state, self-modifying 8 KiB RAM,
+  bus/mailbox/IRQ state, and carried master-clock scheduler phase.
+- A full selected-PC probe narrows the non-empty `$F86E` Kid collision walk to
+  14/15/14 nodes and 2,574/2,780/2,718 raw cycles. Per-node collision state,
+  not count multiplication, is the missing input.
+- `mise run verify-slice-fast` is green after `7afa08b27`.
+- NEXT: type the `$F86E` per-node collision inputs, or introduce the
+  master-clocked GEMS timing port before bridging through `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 empty special Gfx collision chains)
 
 - Selected-PC traces distinguish the post-HUD collision calls by their `a2`
