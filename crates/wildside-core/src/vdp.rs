@@ -2878,6 +2878,43 @@ impl H40BeamPosition {
     }
 }
 
+/// Explicit hardware boundary at ASM `Execute_Objects sub_E12`.
+///
+/// This is a seed, not a frame selector: callers must obtain it from a
+/// persistent CPU/VDP scheduler or a bounded hardware checkpoint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelRasterSeedSubE12 {
+    pub beam: H40BeamPosition,
+    pub refresh_phase: M68kRefreshPhase,
+}
+
+/// Derive the life-icon FIFO timing from a seeded `sub_E12` boundary and the
+/// source-typed remainder of `Mode_Level`.
+pub fn life_icon_raster_timing_from_sub_e12(
+    seed: ModeLevelRasterSeedSubE12,
+    ledger: &crate::ModeLevelPreHudWorkLedger,
+    command: crate::HudDmaEventSub44DC,
+    previous_frame_table_byte_offset: u8,
+) -> Option<crate::HudRasterUploadTimingSub44DC> {
+    if !matches!(command, crate::HudDmaEventSub44DC::LifeIcon { .. }) {
+        return None;
+    }
+    let execute =
+        crate::execute_objects_elapsed_cycles_sub_e12(&ledger.execute_objects, seed.refresh_phase)?;
+    let post = crate::post_execute_elapsed_cycles_before_sub_44dc(ledger, execute.phase_after)?;
+    let entry_beam = seed
+        .beam
+        .advance_m68k_cycles(execute.elapsed)
+        .advance_m68k_cycles(post.elapsed);
+    let first_commit = life_icon_first_commit_loc_4586(entry_beam, post.phase_after);
+    Some(crate::HudRasterUploadTimingSub44DC {
+        command,
+        previous_frame_table_byte_offset,
+        first_commit_scanline: first_commit.scanline,
+        first_commit_pixel: first_commit.pixel,
+    })
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct H40FifoCommitPosition {
     pub scanline: u16,

@@ -23,6 +23,42 @@ fn cached_any_percent_demo_runtime_and_script() -> Option<(NativeRuntime, Vec<u8
 }
 
 #[test]
+fn published_tas_frame_1697_seed_drives_life_icon_raster_timing_sub_e12() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut frame_1697 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1698) {
+        if frame_index == 1697 {
+            // Bounded jgenesis PC trace: helper frame 1696 reaches sub_E12 at
+            // CPU cycle 217216218, beam 242:$07FE, refresh phase 88.
+            runtime.seed_mode_level_raster_sub_e12(vdp::ModeLevelRasterSeedSubE12 {
+                beam: vdp::H40BeamPosition::new(242, 2_046).expect("bounded H40 beam"),
+                refresh_phase: M68kRefreshPhase::new(88).expect("bounded refresh phase"),
+            });
+        }
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1697 {
+            frame_1697 = Some(trace.hud_raster_upload_timings_sub_44dc);
+        }
+    }
+
+    assert_eq!(
+        frame_1697,
+        Some(vec![HudRasterUploadTimingSub44DC {
+            command: HudDmaEventSub44DC::LifeIcon {
+                frame_table_byte_offset: 4,
+            },
+            previous_frame_table_byte_offset: 0,
+            first_commit_scanline: 42,
+            first_commit_pixel: 380,
+        }]),
+        "ASM sub_44DC loc_4586 first commits after visible line 42"
+    );
+}
+
+#[test]
 fn published_tas_demo_bootstrap_presents_hud_timer_before_authoritative_timer_tail() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;

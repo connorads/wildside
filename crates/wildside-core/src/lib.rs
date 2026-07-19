@@ -610,6 +610,10 @@ pub struct NativeRuntime {
     /// resulting resident VRAM pages, so a later raster scheduler can decide
     /// their visible scanout position from Mode_Level workload.
     hud_dma_events_sub_44dc: Vec<HudDmaEventSub44DC>,
+    /// Raster placements derived from an explicit CPU/VDP boundary seed.
+    hud_raster_upload_timings_sub_44dc: Vec<HudRasterUploadTimingSub44DC>,
+    /// One-shot hardware boundary for the next live `Execute_Objects sub_E12`.
+    mode_level_raster_seed_sub_e12: Option<vdp::ModeLevelRasterSeedSubE12>,
     /// Source-ordered workload captured immediately before the live
     /// `Execute_Objects sub_E12` pass mutates any linked worker.
     mode_level_work_before_hud_sub_44dc: Option<ModeLevelPreHudWorkLedger>,
@@ -1475,6 +1479,8 @@ impl NativeRuntime {
             pending_demo_timer_tick_result_loc_be82: None,
             hud_animation_state: boot::HudAnimationStateSub44DC::initialised_from_sub_44_b0(),
             hud_dma_events_sub_44dc: Vec::new(),
+            hud_raster_upload_timings_sub_44dc: Vec::new(),
+            mode_level_raster_seed_sub_e12: None,
             mode_level_work_before_hud_sub_44dc: None,
             gameplay_hud_vram_state: vdp::GameplayHudVramState::initialised_from_sub_44b0(),
             // Oracle Demo 1 bootstrap frames expose ArtUnc_4692 page 2 before
@@ -1652,6 +1658,16 @@ impl NativeRuntime {
             slice.camera.y_pos = u32::from(y_px) << 16;
         }
         self.prime_probe_camera_enemy_loading_loc_31f8e_368a8();
+    }
+
+    /// Seed the hardware beam and refresh state at the next live ASM
+    /// `Execute_Objects sub_E12` boundary.
+    ///
+    /// The seed is consumed once the corresponding Mode_Level pass reaches
+    /// `sub_44DC`. It exists for hardware checkpoints and a future persistent
+    /// scheduler; normal gameplay does not invent a value.
+    pub fn seed_mode_level_raster_sub_e12(&mut self, seed: vdp::ModeLevelRasterSeedSubE12) {
+        self.mode_level_raster_seed_sub_e12 = Some(seed);
     }
 
     pub fn set_playtest_form(&mut self, form: PlayerForm) {
@@ -3254,6 +3270,7 @@ impl NativeRuntime {
             self.object_pass_hibernating_for_transform_loc_7e90();
         self.pending_demo_timer_tick_result_loc_be82 = None;
         self.hud_dma_events_sub_44dc.clear();
+        self.hud_raster_upload_timings_sub_44dc.clear();
         self.mode_level_work_before_hud_sub_44dc = None;
         // ASM loc_12098/loc_12110/loc_12188 DMA requests are emitted by one
         // Execute_Objects pass. Do not retain them across frames whose object
@@ -3912,6 +3929,7 @@ impl NativeRuntime {
             // frame is sampled. Kid_Transform loc_7CBE/loc_7D22 waits in
             // sub_8E0 instead of returning to this outer pass, preserving the
             // resident `$DD40` page through the hibernating VBlanks.
+            let previous_life_page = self.hud_life_icon_vram_page_loc_4586;
             let step = boot::step_hud_animation_sub_44DC(self.hud_animation_state);
             self.hud_animation_state = step.next_state;
             if let Some(coin_upload) = step.coin_upload {
@@ -3962,6 +3980,25 @@ impl NativeRuntime {
             // extra lives.
             self.progression.number_lives =
                 boot::hud_lives_clamp_loc_BF2A(self.progression.number_lives);
+
+            if let (Some(seed), Some(ledger)) = (
+                self.mode_level_raster_seed_sub_e12.take(),
+                self.mode_level_work_before_hud_sub_44dc.as_ref(),
+            ) {
+                self.hud_raster_upload_timings_sub_44dc.extend(
+                    self.hud_dma_events_sub_44dc
+                        .iter()
+                        .copied()
+                        .filter_map(|command| {
+                            vdp::life_icon_raster_timing_from_sub_e12(
+                                seed,
+                                ledger,
+                                command,
+                                previous_life_page,
+                            )
+                        }),
+                );
+            }
         }
 
         let demo_mode_level_tail_hibernating = matches!(
