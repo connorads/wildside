@@ -7,6 +7,7 @@ use crate::{
     ModeLevelGfxCollisionKidListWorkSub1B76, ModeLevelGfxCollisionKidNodeWorkSub1B76,
     ModeLevelGfxCollisionListWork, ModeLevelGfxCollisionWork,
     ModeLevelGfxMoveAnimateNodeWorkSub1444, ModeLevelGfxMoveAnimateWorkSub1444,
+    ModeLevelGfxSpriteNodeWorkSub1492, ModeLevelGfxSpriteWorkSub1492,
     ModeLevelInputWorkerPathLoc7452, ModeLevelKidGfxTerrainCollision,
     ModeLevelKidProjectileCollisionWorkSub1D76, ModeLevelPlatformLoaderExistingSlotSub2728,
     ModeLevelPlatformLoaderRangeLoc2762, ModeLevelPlatformLoaderWorkLoc2744, ModeLevelPlatformWork,
@@ -1600,6 +1601,36 @@ pub fn gfx_objects_move_and_animate_raw_cycles_sub_1444(
     raw_cycles.checked_add(42).map(M68kCycleCount::from_raw)
 }
 
+/// Raw routine-body cost for ASM `Make_SpritesFromGfxObjects sub_1492`.
+pub fn make_sprites_from_gfx_objects_raw_cycles_sub_1492(
+    work: &ModeLevelGfxSpriteWorkSub1492,
+) -> Option<M68kCycleCount> {
+    let ModeLevelGfxSpriteWorkSub1492::Classified { nodes } = work else {
+        return None;
+    };
+
+    // ASM sub_1492 has 126 cycles outside its live-node iterations:
+    // setup, the final null successor at loc_14A4, queue terminator, and RTS.
+    let raw_cycles = nodes.iter().try_fold(126_u32, |cycles, node| {
+        let node_cycles = match node {
+            // ASM sub_1492 -> j_Make_SpriteFromGfxObject -> sub_11B6:
+            // `$13(a3)` is clear and returns through return_129C.
+            ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear => 120,
+            // ASM loc_11E4 rejects the mapped object below the viewport
+            // before any sub_13C0 sprite entry is emitted.
+            ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled => 268,
+            // ASM loc_129E -> sub_13C0 emits one normal-orientation 16x16
+            // mapping entry before the zero terminator.
+            ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingle16x16Normal => 926,
+            // ASM loc_129E -> sub_13C0 emits two normal-orientation mapping
+            // entries before the zero terminator.
+            ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal => 1_330,
+        };
+        cycles.checked_add(node_cycles)
+    })?;
+    Some(M68kCycleCount::from_raw(raw_cycles))
+}
+
 /// Raw routine-body cost for ASM special-terrain scan `sub_1FA2`.
 pub fn terrain_special_scan_raw_cycles_sub_1fa2(
     work: ModeLevelTerrainSpecialScanSub1FA2,
@@ -1905,6 +1936,39 @@ mod tests {
                 gfx_objects_move_and_animate_raw_cycles_sub_1444(&work),
                 Some(M68kCycleCount::from_raw(expected)),
                 "ASM sub_1444 oracle frames 1697/1703/1709",
+            );
+        }
+    }
+
+    #[test]
+    fn gfx_sprite_builder_sums_each_source_branch_sub_1492() {
+        let work = |visible_single_count, hidden_count| {
+            let mut nodes = vec![
+                ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear,
+                ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal,
+                ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
+                ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
+            ];
+            nodes.extend(std::iter::repeat_n(
+                ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingle16x16Normal,
+                visible_single_count,
+            ));
+            nodes.extend(std::iter::repeat_n(
+                ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear,
+                hidden_count,
+            ));
+            ModeLevelGfxSpriteWorkSub1492::Classified { nodes }
+        };
+
+        for (work, expected) in [
+            (work(10, 2), 11_612),
+            (work(11, 2), 12_538),
+            (work(12, 0), 13_224),
+        ] {
+            assert_eq!(
+                make_sprites_from_gfx_objects_raw_cycles_sub_1492(&work),
+                Some(M68kCycleCount::from_raw(expected)),
+                "ASM sub_1492 oracle frames 1697/1703/1709",
             );
         }
     }

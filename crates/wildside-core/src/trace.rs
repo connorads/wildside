@@ -221,6 +221,76 @@ fn mode_level_gfx_move_animate_work_sub_1444(
     ModeLevelGfxMoveAnimateWorkSub1444::Classified { nodes }
 }
 
+fn mode_level_gfx_sprite_work_sub_1492(
+    runtime: &NativeRuntime,
+    linked_gfx_object_count: u16,
+) -> ModeLevelGfxSpriteWorkSub1492 {
+    // ASM sub_7196 leaves these four persistent gameplay GfxObjects in the
+    // target shell. The selected-PC oracle streams distinguish their exact
+    // sub_11B6 paths: hidden, two-entry mapping, then two vertical rejects.
+    let mut nodes = vec![
+        ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear,
+        ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal,
+        ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
+        ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
+    ];
+
+    for tail in runtime.visible_prize_block_worker_tails() {
+        let node = match prize_block_tail_state_sub_1007a(tail.content, tail.remaining) {
+            // ASM loc_1066's callback has installed the prize mapping before
+            // the Object worker releases its overlapping GfxObject.
+            ModeLevelPrizeBlockTailState::FinishSpawnPrizeAndDelete => {
+                ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingle16x16Normal
+            }
+            // The short deleted-worker overlap retains the linked slot while
+            // its visibility flag at `$13(a3)` is clear.
+            ModeLevelPrizeBlockTailState::DeletedWorkerOverlap { .. } => {
+                ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear
+            }
+            ModeLevelPrizeBlockTailState::UnclassifiedAnimationWait { .. } => {
+                return ModeLevelGfxSpriteWorkSub1492::Unclassified;
+            }
+        };
+        nodes.push(node);
+    }
+
+    // ASM stru_101B6 mappings are one normal-orientation 16x16 entry.
+    nodes.extend(
+        runtime
+            .block_bounces
+            .iter()
+            .filter(|bounce| bounce.kind == BlockBounceKind::Prize)
+            .map(|_| ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingle16x16Normal),
+    );
+    for flash in &runtime.prize_block_spawn_flashes {
+        if flash.remaining == 0 || flash.remaining > NativeRuntime::PRIZE_BLOCK_SPAWN_FLASH_FRAMES {
+            return ModeLevelGfxSpriteWorkSub1492::Unclassified;
+        }
+        nodes.push(
+            if flash.remaining == NativeRuntime::PRIZE_BLOCK_SPAWN_FLASH_FRAMES {
+                // ASM loc_102B8 links the slot before Init_Animation sets
+                // `$13(a3)`, so its allocation frame takes return_129C.
+                ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear
+            } else {
+                ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingle16x16Normal
+            },
+        );
+    }
+    for item in runtime.floating_items.iter().filter(|item| !item.collected) {
+        // ASM PrizeDiamond_Init loc_10396 changes to blinking mappings at
+        // `$C8`; their zero-frame entries need a separate typed source path.
+        if item.content != terrain::PrizeContent::Diamond || item.remaining <= 0x00C8 {
+            return ModeLevelGfxSpriteWorkSub1492::Unclassified;
+        }
+        nodes.push(ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingle16x16Normal);
+    }
+
+    if nodes.len() != usize::from(linked_gfx_object_count) {
+        return ModeLevelGfxSpriteWorkSub1492::Unclassified;
+    }
+    ModeLevelGfxSpriteWorkSub1492::Classified { nodes }
+}
+
 fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind {
     if projectile.kind == EnemyProjectileKind::FireDemonDeathTrail {
         return ActiveProjectileKind::FireDemonDeathTrail;
@@ -9967,6 +10037,10 @@ impl NativeRuntime {
                     .expect("Diamond Power object list fits the ROM u16 count"),
             },
             gfx_move_animate_work_sub_1444: mode_level_gfx_move_animate_work_sub_1444(
+                self,
+                linked_gfx_object_count,
+            ),
+            gfx_sprite_work_sub_1492: mode_level_gfx_sprite_work_sub_1492(
                 self,
                 linked_gfx_object_count,
             ),

@@ -2311,6 +2311,27 @@ pub enum ModeLevelGfxMoveAnimateWorkSub1444 {
     Unclassified,
 }
 
+/// One GfxObject source branch consumed by ASM
+/// `Make_SpriteFromGfxObject sub_11B6`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelGfxSpriteNodeWorkSub1492 {
+    HiddenFlagClear,
+    VerticallyCulled,
+    VisibleSingle16x16Normal,
+    VisibleTwoSpriteNormal,
+}
+
+/// Per-node work for ASM `Make_SpritesFromGfxObjects sub_1492`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelGfxSpriteWorkSub1492 {
+    Classified {
+        nodes: Vec<ModeLevelGfxSpriteNodeWorkSub1492>,
+    },
+    Unclassified,
+}
+
 /// Special GfxObject chains consumed by ASM `GfxObjects_Collision` and
 /// `GfxObjects_CollisionKid`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -2367,6 +2388,7 @@ pub struct ModeLevelPostHudWorkLedger {
     pub diamond_power_compile_work_sub_3f798: ModeLevelDiamondPowerCompileWorkSub3F798,
     pub kid_projectile_collision_work_sub_1d76: ModeLevelKidProjectileCollisionWorkSub1D76,
     pub gfx_move_animate_work_sub_1444: ModeLevelGfxMoveAnimateWorkSub1444,
+    pub gfx_sprite_work_sub_1492: ModeLevelGfxSpriteWorkSub1492,
     pub gfx_collision_work: ModeLevelGfxCollisionWork,
     pub terrain_special_scan_sub_1fa2: Option<ModeLevelTerrainSpecialScanSub1FA2>,
 }

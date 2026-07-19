@@ -255,6 +255,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
     let mut observed_diamond_power_compile_work = Vec::new();
     let mut observed_kid_projectile_collision_work = Vec::new();
     let mut observed_gfx_move_animate_work = Vec::new();
+    let mut observed_gfx_sprite_work = Vec::new();
     let mut observed_gfx_collision_work = Vec::new();
     let mut observed_terrain_special_scan = Vec::new();
 
@@ -277,6 +278,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                 .push((frame_index, ledger.kid_projectile_collision_work_sub_1d76));
             observed_gfx_move_animate_work
                 .push((frame_index, ledger.gfx_move_animate_work_sub_1444.clone()));
+            observed_gfx_sprite_work.push((frame_index, ledger.gfx_sprite_work_sub_1492.clone()));
             observed_gfx_collision_work.push((frame_index, ledger.gfx_collision_work.clone()));
             observed_terrain_special_scan.push((frame_index, ledger.terrain_special_scan_sub_1fa2));
             observed.push((
@@ -606,6 +608,21 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             (1_709, Some(4_594)),
         ],
         "ASM sub_1444 derives every stationary prize-worker animation script state",
+    );
+    assert_eq!(
+        observed_gfx_sprite_work
+            .iter()
+            .map(|(frame, work)| (
+                *frame,
+                make_sprites_from_gfx_objects_raw_cycles_sub_1492(work).map(M68kCycleCount::get),
+            ))
+            .collect::<Vec<_>>(),
+        vec![
+            (1_697, Some(11_612)),
+            (1_703, Some(12_538)),
+            (1_709, Some(13_224)),
+        ],
+        "ASM sub_1492 derives each visible, culled, and hidden linked GfxObject path",
     );
     assert_eq!(
         observed_gfx_collision_work
