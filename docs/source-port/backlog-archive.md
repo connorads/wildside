@@ -328,6 +328,21 @@ M68K bus/reset/queue hand-off needed to seed the persistent machine. Next
 derive that typed boundary or import a complete checkpoint before consuming
 the four post-FIFO steals.
 
+Root-cause refinement 2026-07-19: oracle selected-PC traces bound
+`StopMusic $E14C8..$E150E` at 229,438..229,676 M68K cycles across six cold,
+title, level-load, and demo-exit calls. That is roughly 1.79 NTSC frames, not
+an instantaneous driver reset. ASM `sub_E13DA` holds the Z80 bus while copying
+`GEMS_Sounddriver` and clearing the rest of 8 KiB RAM, `sub_E1416` toggles
+reset, and each `sub_E149C/sub_E14AC` pointer-queue write acquires and releases
+the bus again through `sub_E143A/loc_E1470`. The timing sink currently reloads
+RAM, resets the CPU, and queues all pointers without advancing time or
+asserting those bus windows, allowing almost two frames of spurious Z80 work
+at every music transition. Do not replace this with one fitted continuous
+229,5xx-cycle halt: the source has distinct copy/reset/queue windows and the
+observed total varies with bus acknowledgement and refresh. The next
+implementation slice must schedule those typed windows at the actual
+intra-frame `StopMusic` boundary.
+
 Progress 2026-07-19: commit `7afa08b27` schedules the classified life-icon-only
 `sub_44DC` path through its four-entry VRAM FIFO and the trailing `loc_44D4`
 instruction stream to the following `Manage_EnemyLoading` call. The final

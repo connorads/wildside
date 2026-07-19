@@ -24,14 +24,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   commands do not preserve the ROM's intra-frame Z80 bus/reset and command
   queue hand-off, so they cannot yet supply the four post-FIFO steals at
   offsets 43/96/151/192.
+- Selected-PC traces of six calls bound `StopMusic $E14C8..$E150E` at
+  229,438..229,676 M68K cycles. Native timing currently makes the driver copy,
+  Z80 reset, and pointer queue instantaneous, allowing roughly 1.79 frames of
+  spurious Z80 work per music transition. Model the distinct ASM bus windows;
+  do not fit one continuous pause to the observed total.
 - The commit hook's full `verify-slice-fast` gate and `verify-tas-full` are
   green; all 37,759 CRC/gameplay/enemy/RNG checks match and the pixel baseline
   remains 26,382 exact / 11,377 divergent / 3,620,978 changed. A separate full
   `wildside-md` run still has the pre-existing
   `sprite_line_scan_keeps_a_zeroed_loc_b42_terminator_offscreen` failure,
   reproduced unchanged in a detached clean-HEAD worktree.
-- NEXT: derive an exact typed command/bus boundary or complete GEMS machine
-  checkpoint, then feed its ordered reads through `sub_44DC` and the
+- NEXT: schedule `sub_E13DA`, `sub_E1416`, and
+  `sub_E143A/loc_E1470` bus/reset windows at the actual `StopMusic` command
+  boundary, then feed the resulting ordered reads through `sub_44DC` and the
   post-HUD ledger to `loc_892`.
 
 ---
