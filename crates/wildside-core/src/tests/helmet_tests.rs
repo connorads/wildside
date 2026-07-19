@@ -9428,6 +9428,32 @@ mod chunk_08 {
                 .player_spawned_prize_block_initial_sub_1007a,
             None
         );
+        assert_eq!(
+            frames[0]
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .expect("Mode_Level work ledger")
+                .execute_objects
+                .prize_object_execution_order_sub_e12
+                .as_ref()
+                .expect("source-ordered prize callbacks")
+                .len(),
+            12,
+            "three prizes, Kid, same-pass wobble, and seven entry `$2001` workers"
+        );
+        assert_eq!(
+            frames[1]
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .expect("Mode_Level work ledger")
+                .execute_objects
+                .prize_object_execution_order_sub_e12
+                .as_ref()
+                .expect("source-ordered prize callbacks")
+                .len(),
+            13,
+            "four prizes, Kid, and eight entry `$2001` workers"
+        );
         // ASM PrizeDiamond_Init loc_103B2..loc_10402: the parallel prize
         // records also preserve whether this wake stops at the current solid
         // row, falls directly, or uses the one-row grace probe.

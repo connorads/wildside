@@ -1792,6 +1792,19 @@ pub struct ModeLevelFloatingPrizeWork {
     pub fall_path_loc_103b2: Option<ModeLevelFloatingPrizeFallPathLoc103B2>,
 }
 
+/// Source order for the prize-related callbacks in one ASM `Execute_Objects`
+/// linked-list walk. Indices address the corresponding typed work vectors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelPrizeObjectExecutionSubE12 {
+    FloatingPrize { index: u16 },
+    Player,
+    PlayerSpawnedInitialSub1007A,
+    FlashLoc102B8 { index: u16 },
+    WobbleSub1007A { index: u16 },
+    TailSub1007A { index: u16 },
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelPlayerPosition {
     pub x_pos: u32,
@@ -1998,6 +2011,11 @@ pub struct ModeLevelExecuteObjectsWork {
     #[serde(default)]
     pub player_spawned_prize_block_initial_sub_1007a:
         Option<ModeLevelPrizeBlockInitialWorkSub1007A>,
+    /// `None` means allocation-age ties could not be resolved from source
+    /// ordering. This slice deliberately excludes unrelated fixed/enemy
+    /// callbacks while preserving every prize callback around Kid.
+    #[serde(default)]
+    pub prize_object_execution_order_sub_e12: Option<Vec<ModeLevelPrizeObjectExecutionSubE12>>,
     #[serde(default)]
     pub prize_block_tail_paths_sub_1066: Vec<ModeLevelPrizeBlockTailWork>,
     #[serde(default)]

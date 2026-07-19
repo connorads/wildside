@@ -546,6 +546,117 @@ fn player_spawned_prize_block_initial_sub_1007a(
     })
 }
 
+fn prize_object_execution_order_sub_e12(
+    execute: &ModeLevelExecuteObjectsWork,
+) -> Option<Vec<ModeLevelPrizeObjectExecutionSubE12>> {
+    if execute.player == ModeLevelPlayerWorkBeforeHud::Absent
+        || usize::from(execute.floating_prize_workers) != execute.floating_prize_paths.len()
+        || usize::from(execute.prize_block_wobble_workers_sub_1007a)
+            != execute.prize_block_wobble_paths_sub_1007a.len()
+        || usize::from(execute.prize_block_worker_tails_sub_1007a)
+            != execute.prize_block_tail_paths_sub_1066.len()
+        || usize::from(execute.prize_block_flash_workers_loc_102b8)
+            != execute.prize_block_flash_paths_sub_1066.len()
+    {
+        return None;
+    }
+
+    let mut floating = execute
+        .floating_prize_paths
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(index, work)| (floating_prize_allocation_age(work), index))
+        .collect::<Vec<_>>();
+    floating.sort_unstable_by_key(|&(age, index)| (age, std::cmp::Reverse(index)));
+    if floating.windows(2).any(|pair| pair[0].0 == pair[1].0) {
+        return None;
+    }
+
+    // ASM loc_DE0 inserts before equal `$2001` selectors. A flash created by
+    // a completing tail runs after Kid has created a wobble in that source
+    // frame, so the later flash precedes the wobble when their ages tie.
+    const FLASH_TIE_ORDER: u8 = 0;
+    const WOBBLE_TIE_ORDER: u8 = 1;
+    const TAIL_TIE_ORDER: u8 = 2;
+    let mut equal_workers = execute
+        .prize_block_flash_paths_sub_1066
+        .iter()
+        .enumerate()
+        .map(|(index, work)| {
+            (
+                prize_flash_allocation_age(work.remaining),
+                FLASH_TIE_ORDER,
+                index,
+                ModeLevelPrizeObjectExecutionSubE12::FlashLoc102B8 {
+                    index: index as u16,
+                },
+            )
+        })
+        .chain(
+            execute
+                .prize_block_wobble_paths_sub_1007a
+                .iter()
+                .enumerate()
+                .map(|(index, work)| {
+                    (
+                        prize_wobble_allocation_age(work.remaining),
+                        WOBBLE_TIE_ORDER,
+                        index,
+                        ModeLevelPrizeObjectExecutionSubE12::WobbleSub1007A {
+                            index: index as u16,
+                        },
+                    )
+                }),
+        )
+        .chain(
+            execute
+                .prize_block_tail_paths_sub_1066
+                .iter()
+                .enumerate()
+                .map(|(index, work)| {
+                    (
+                        prize_tail_allocation_age(work),
+                        TAIL_TIE_ORDER,
+                        index,
+                        ModeLevelPrizeObjectExecutionSubE12::TailSub1007A {
+                            index: index as u16,
+                        },
+                    )
+                }),
+        )
+        .collect::<Vec<_>>();
+    equal_workers.sort_unstable_by_key(|&(age, tie_order, index, _)| {
+        (age, tie_order, std::cmp::Reverse(index))
+    });
+    if equal_workers.windows(2).any(|pair| {
+        pair[0].0 == pair[1].0
+            && (pair[0].1 == pair[1].1
+                || pair[0].1 == TAIL_TIE_ORDER
+                || pair[1].1 == TAIL_TIE_ORDER)
+    }) {
+        return None;
+    }
+
+    let mut order = floating
+        .into_iter()
+        .map(
+            |(_, index)| ModeLevelPrizeObjectExecutionSubE12::FloatingPrize {
+                index: index as u16,
+            },
+        )
+        .collect::<Vec<_>>();
+    order.push(ModeLevelPrizeObjectExecutionSubE12::Player);
+    if execute
+        .player_spawned_prize_block_initial_sub_1007a
+        .is_some()
+    {
+        order.push(ModeLevelPrizeObjectExecutionSubE12::PlayerSpawnedInitialSub1007A);
+    }
+    order.extend(equal_workers.into_iter().map(|(_, _, _, work)| work));
+    Some(order)
+}
+
 fn mode_level_prize_tail_list_work(
     execute: &ModeLevelExecuteObjectsWork,
     target_tail_index: usize,
@@ -1894,6 +2005,7 @@ mod tests {
                         deleted_tile: false,
                     }],
                     player_spawned_prize_block_initial_sub_1007a: None,
+                    prize_object_execution_order_sub_e12: None,
                     prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeBlockTailWork {
                         cell_x: 0x0A,
                         cell_y: 0x0C,
@@ -2133,6 +2245,7 @@ mod tests {
                 })
                 .collect(),
             player_spawned_prize_block_initial_sub_1007a: None,
+            prize_object_execution_order_sub_e12: None,
             prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeBlockTailWork {
                 cell_x: 31,
                 cell_y: 4,
@@ -2170,8 +2283,13 @@ mod tests {
         // flashes, three `$1FFF` prizes, and Kid allocates one more wobble
         // before this completion. The bounded oracle list journal independently
         // observes all seven ranks.
-        let frame_1697 =
+        let mut frame_1697 =
             prize_tail_rank_fixture(14, 14, &[6, 13, 19, 25], &[9, 19], &[299, 485, 495]);
+        frame_1697.player_spawned_prize_block_initial_sub_1007a =
+            Some(ModeLevelPrizeBlockInitialWorkSub1007A {
+                path: ModeLevelPrizeBlockInitialPathSub1007A::Prize,
+                content: Some(terrain::PrizeContent::Diamond),
+            });
         assert_eq!(
             mode_level_prize_tail_list_work(&frame_1697, 0, true),
             Some(ModeLevelPrizeTailListWork {
@@ -2205,6 +2323,43 @@ mod tests {
                 tail_gfx_delete_rank_loc_10ba: 5,
                 tail_gfx_category4_delete_rank_loc_1106: 12,
             })
+        );
+        assert_eq!(
+            prize_object_execution_order_sub_e12(&frame_1697),
+            Some(vec![
+                ModeLevelPrizeObjectExecutionSubE12::FloatingPrize { index: 2 },
+                ModeLevelPrizeObjectExecutionSubE12::FloatingPrize { index: 1 },
+                ModeLevelPrizeObjectExecutionSubE12::FloatingPrize { index: 0 },
+                ModeLevelPrizeObjectExecutionSubE12::Player,
+                ModeLevelPrizeObjectExecutionSubE12::PlayerSpawnedInitialSub1007A,
+                ModeLevelPrizeObjectExecutionSubE12::FlashLoc102B8 { index: 1 },
+                ModeLevelPrizeObjectExecutionSubE12::WobbleSub1007A { index: 3 },
+                ModeLevelPrizeObjectExecutionSubE12::WobbleSub1007A { index: 2 },
+                ModeLevelPrizeObjectExecutionSubE12::FlashLoc102B8 { index: 0 },
+                ModeLevelPrizeObjectExecutionSubE12::WobbleSub1007A { index: 1 },
+                ModeLevelPrizeObjectExecutionSubE12::WobbleSub1007A { index: 0 },
+                ModeLevelPrizeObjectExecutionSubE12::TailSub1007A { index: 0 },
+            ]),
+            "ASM loc_DE0 order around Kid matches the frame 1697 oracle A5 journal"
+        );
+        assert_eq!(
+            prize_object_execution_order_sub_e12(&frame_1703),
+            Some(vec![
+                ModeLevelPrizeObjectExecutionSubE12::FloatingPrize { index: 3 },
+                ModeLevelPrizeObjectExecutionSubE12::FloatingPrize { index: 2 },
+                ModeLevelPrizeObjectExecutionSubE12::FloatingPrize { index: 1 },
+                ModeLevelPrizeObjectExecutionSubE12::FloatingPrize { index: 0 },
+                ModeLevelPrizeObjectExecutionSubE12::Player,
+                ModeLevelPrizeObjectExecutionSubE12::FlashLoc102B8 { index: 2 },
+                ModeLevelPrizeObjectExecutionSubE12::WobbleSub1007A { index: 3 },
+                ModeLevelPrizeObjectExecutionSubE12::FlashLoc102B8 { index: 1 },
+                ModeLevelPrizeObjectExecutionSubE12::WobbleSub1007A { index: 2 },
+                ModeLevelPrizeObjectExecutionSubE12::WobbleSub1007A { index: 1 },
+                ModeLevelPrizeObjectExecutionSubE12::FlashLoc102B8 { index: 0 },
+                ModeLevelPrizeObjectExecutionSubE12::WobbleSub1007A { index: 0 },
+                ModeLevelPrizeObjectExecutionSubE12::TailSub1007A { index: 0 },
+            ]),
+            "ASM loc_DE0 order around Kid matches the frame 1703 oracle A5 journal"
         );
     }
 
@@ -9391,6 +9546,7 @@ impl NativeRuntime {
                 cyclone_visual_accumulator_before,
                 prize_block_wobble_paths_sub_1007a,
                 player_spawned_prize_block_initial_sub_1007a: None,
+                prize_object_execution_order_sub_e12: None,
                 prize_block_tail_paths_sub_1066,
                 prize_block_flash_paths_sub_1066,
                 floating_prize_paths,
@@ -9542,6 +9698,8 @@ impl NativeRuntime {
             ledger.execute_objects.executed_player_path = Some(executed_player_path);
             ledger.execute_objects.player_gfx_terrain_scan = player_gfx_terrain_scan;
             complete_prize_tail_list_work(&mut ledger.execute_objects);
+            ledger.execute_objects.prize_object_execution_order_sub_e12 =
+                prize_object_execution_order_sub_e12(&ledger.execute_objects);
         }
     }
 
