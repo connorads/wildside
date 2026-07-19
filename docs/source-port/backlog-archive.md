@@ -320,6 +320,36 @@ produces them. Unclassified HUD lists and invalid event boundaries fail closed.
 `mise run verify-slice-fast` is green with 6,958 core tests, 15 CLI tests,
 Clippy, and all configured TAS recordings.
 
+Progress 2026-07-19: commit `8d52bb862` introduces a persistent
+`GemsMasterClockTimingEngine` rather than extending the frame-batched audible
+engine. It retains the complete Z80 core, self-modifying 8 KiB RAM, bank
+register, bus/reset controls, IRQ state, master-clock divider remainder,
+outstanding bank wait, and alternating 49/50-master-clock access phase. Banked
+68000 reads emit in order at Z80 instruction boundaries and queue the
+hardware-derived 11-cycle 68000 scheduler wait; the chronological path also
+consumes a newly-created wait inside one long interval. The timing sink clocks
+through silent title-card/transition frames without changing the existing
+audible sink.
+
+The first implementation attempt linked jgenesis' Z80 core directly. The
+pre-commit dependency gate rejected it: that repository is GPL-3.0, its git
+crates provide no accepted manifest licence metadata, and `jgenesis-common`
+pulled the unmaintained bincode advisory. The landed implementation reuses the
+repo's existing MIT Z80 core and adds no dependency-policy exception.
+`crossbeam-epoch` independently updates to 0.9.20 in `19685d81b` for
+RUSTSEC-2026-0204.
+
+Five timing regressions cover persistent CPU/RAM state, alternating waits,
+chronological long intervals, exact frame clocks, driver reload, and VDP-owned
+bus arbitration. All 17 frame-audio tests, dependency audit, workspace Clippy,
+configured TAS recordings, 6,961 core tests, and 15 CLI tests pass. A
+reset-to-route command replay remains displaced: the target transfer begins
+around native frame 1693 and ends around 1694, while the oracle helper reaches
+it at frame 1696. This disproves trace-command scheduling as a sufficient
+checkpoint and must not become a fitted three-frame offset. Remaining #409 work
+is exact route checkpoint/replay seeding, native production of frame 1709's
+four bank steals, and the final typed bridge through `loc_892`.
+
 Architecture finding 2026-07-19: the post-FIFO steals come from GEMS
 `FILLDACFIFO -> XFER68K`: driver `$01FB`, repeating six-byte banked `LDIR` at
 `$0273`, and final `LDIR` at `$0285`. A command queue or register-only

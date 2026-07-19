@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 persistent GEMS timing machine)
+
+- Commit `8d52bb862` persists the complete GEMS Z80 core, self-modifying 8 KiB
+  RAM, bank/bus state, IRQ/control signals, divider remainder, and alternating
+  49/50-master-clock bank-wait phase.
+- Banked 68000 reads now emit at Z80 instruction boundaries, queue the
+  hardware-derived 11-cycle 68000 wait, and retain chronological waits even
+  inside one long scheduler interval. Timing-only audio advances through
+  otherwise silent native frames.
+- A direct jgenesis Z80 dependency was rejected by the dependency gate because
+  it is GPL-3.0 and pulled unlicensed/unmaintained transitive crates. The
+  implementation uses the repo's existing MIT Z80 core without policy
+  exceptions. `crossbeam-epoch` independently moved to 0.9.20 for
+  RUSTSEC-2026-0204 in `19685d81b`.
+- Five timing tests, 17 frame-audio tests, dependency audit, workspace Clippy,
+  all configured TAS recordings, 6,961 core tests, and 15 CLI tests are green.
+- Reset-to-route command replay starts the target transfer around native frames
+  1693-1694, while the oracle reaches it at frame 1696. Do not fit a frame
+  shift; derive exact route checkpoint/replay seeding before consuming the
+  four frame-1709 steals and bridging through `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 Gfx sprite construction)
 
 - Full selected-PC traces reduce all 16/17/16 linked GfxObjects through
