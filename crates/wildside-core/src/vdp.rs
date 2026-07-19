@@ -3014,7 +3014,7 @@ struct PlatformArtFifoEntry {
 struct PlatformArtFifoScheduler {
     beam: H40BeamPosition,
     entries: std::collections::VecDeque<PlatformArtFifoEntry>,
-    pending_write: bool,
+    pending_words: u8,
 }
 
 impl PlatformArtFifoScheduler {
@@ -3022,13 +3022,16 @@ impl PlatformArtFifoScheduler {
         Self {
             beam,
             entries: std::collections::VecDeque::with_capacity(4),
-            pending_write: false,
+            pending_words: 0,
         }
     }
 
     fn push_word(&mut self) {
         if self.entries.len() == 4 {
-            self.pending_write = true;
+            self.pending_words = self
+                .pending_words
+                .checked_add(1)
+                .expect("VDP pending-word count stays bounded");
         } else {
             self.entries.push_back(PlatformArtFifoEntry {
                 latency: 3,
@@ -3092,12 +3095,12 @@ impl PlatformArtFifoScheduler {
                     front.first_vram_slot = false;
                 } else {
                     self.entries.pop_front();
-                    if self.pending_write {
+                    if self.pending_words != 0 {
                         self.entries.push_back(PlatformArtFifoEntry {
                             latency: 3,
                             first_vram_slot: true,
                         });
-                        self.pending_write = false;
+                        self.pending_words -= 1;
                     }
                 }
             }
@@ -3145,7 +3148,7 @@ pub fn load_in_game_platform_art_transfer_cursor_loc_14314(
         advance_instruction(12, &mut fifo, &mut phase, &mut refresh_events);
         fifo.push_word();
 
-        while fifo.pending_write {
+        while fifo.pending_words != 0 {
             fifo.advance_m68k_cycles(M68kCycleCount::from_raw(1));
             fifo_halted_ticks = fifo_halted_ticks.checked_add(1)?;
             // jgenesis `record_68k_instruction`: VDP ownership resets the
@@ -3714,6 +3717,125 @@ fn life_icon_last_pending_enqueue_cursor_loc_44d4(
             .advance_m68k_cycles(M68kCycleCount::from_raw(cycles_before_final_halt)),
         // Every preceding halted tick resets jgenesis' refresh counter.
         refresh_phase: M68kRefreshPhase::new(0).expect("zero is a valid refresh phase"),
+    })
+}
+
+fn advance_life_icon_non_vdp_interval(
+    fifo: &mut PlatformArtFifoScheduler,
+    cycles: M68kCycleCount,
+    advance_hardware: &mut impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<M68kCycleCount> {
+    fifo.advance_m68k_cycles(cycles);
+    advance_hardware(cycles, false)
+}
+
+fn advance_life_icon_source_instruction(
+    fifo: &mut PlatformArtFifoScheduler,
+    phase: &mut M68kRefreshPhase,
+    raw_cycles: u32,
+    advance_hardware: &mut impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<()> {
+    let phase_after_raw = u32::from(phase.get()).checked_add(raw_cycles)?;
+    let refresh_wait_cycles = if phase_after_raw >= 128 { 2 } else { 0 };
+    *phase = M68kRefreshPhase::new(
+        u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+    )
+    .expect("refresh phase remains below 128");
+
+    let mut pending_wait = advance_life_icon_non_vdp_interval(
+        fifo,
+        M68kCycleCount::from_raw(raw_cycles),
+        advance_hardware,
+    )?
+    .get()
+    .checked_add(refresh_wait_cycles)?;
+    while pending_wait != 0 {
+        let wait = M68kCycleCount::from_raw(pending_wait);
+        *phase = phase.advance_external_wait(wait).phase_after;
+        pending_wait = advance_life_icon_non_vdp_interval(fifo, wait, advance_hardware)?.get();
+    }
+    Some(())
+}
+
+fn drain_life_icon_pending_fifo_words(
+    fifo: &mut PlatformArtFifoScheduler,
+    phase: &mut M68kRefreshPhase,
+    advance_hardware: &mut impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<()> {
+    while fifo.pending_words != 0 {
+        let tick = M68kCycleCount::from_raw(1);
+        fifo.advance_m68k_cycles(tick);
+        if advance_hardware(tick, true)?.get() != 0 {
+            return None;
+        }
+        // jgenesis `record_68k_instruction` resets the approximate refresh
+        // counter on every tick where the VDP owns the 68000 bus.
+        *phase = M68kRefreshPhase::new(0).expect("zero is a valid refresh phase");
+    }
+    Some(())
+}
+
+/// Co-schedule the life-icon-only `sub_44DC` path with asynchronous hardware.
+///
+/// The callback advances one chronological 68000 interval and returns newly
+/// queued external CPU-wait cycles. `vdp_owns_bus` is true only for FIFO-full
+/// retry ticks; hardware accesses during those ticks must not return a CPU
+/// wait. This is the port used by a persistent GEMS machine to replace
+/// route-specific Z80-access offsets.
+pub fn life_icon_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+    entry: ModeLevelCpuRasterCursor,
+    commands: &[crate::HudDmaEventSub44DC],
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<ModeLevelCpuRasterCursor> {
+    crate::mode_level_timing::hud_life_icon_only_raw_cycles_sub_44dc(commands)?;
+
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+
+    // ASM sub_44DC -> loc_4586 -> sub_44D0, through completion of the first
+    // loc_44D4 MOVE.L. The life-icon-only branch skips the coin upload.
+    const PRELUDE_THROUGH_FIRST_MOVE: [u32; 23] = [
+        12, 4, 4, 10, 12, 12, 4, 4, 12, 12, 4, 4, 12, 12, 8, 10, 8, 4, 22, 20, 18, 8, 20,
+    ];
+    debug_assert_eq!(PRELUDE_THROUGH_FIRST_MOVE.into_iter().sum::<u32>(), 236);
+    for raw_cycles in PRELUDE_THROUGH_FIRST_MOVE {
+        advance_life_icon_source_instruction(
+            &mut fifo,
+            &mut phase,
+            raw_cycles,
+            &mut advance_hardware,
+        )?;
+    }
+    fifo.push_word();
+    fifo.push_word();
+    drain_life_icon_pending_fifo_words(&mut fifo, &mut phase, &mut advance_hardware)?;
+
+    // ASM loc_44D4: the remaining 31 MOVE.L writes each place two words into
+    // the four-entry FIFO. Taken DBFs precede writes 2..32; the final DBF and
+    // the routine/section epilogue follow the final enqueue.
+    for _ in 1..32 {
+        advance_life_icon_source_instruction(&mut fifo, &mut phase, 10, &mut advance_hardware)?;
+        advance_life_icon_source_instruction(&mut fifo, &mut phase, 20, &mut advance_hardware)?;
+        fifo.push_word();
+        fifo.push_word();
+        drain_life_icon_pending_fifo_words(&mut fifo, &mut phase, &mut advance_hardware)?;
+    }
+
+    const TRAILING_INSTRUCTIONS: [u32; 19] = [
+        14, 16, 12, 12, 4, 4, 10, 12, 12, 4, 4, 10, 12, 12, 4, 4, 10, 12, 16,
+    ];
+    for raw_cycles in TRAILING_INSTRUCTIONS {
+        advance_life_icon_source_instruction(
+            &mut fifo,
+            &mut phase,
+            raw_cycles,
+            &mut advance_hardware,
+        )?;
+    }
+
+    Some(ModeLevelCpuRasterCursor {
+        beam: fifo.beam,
+        refresh_phase: phase,
     })
 }
 
@@ -6245,6 +6367,53 @@ mod tests {
             ),
             None,
             "GEMS offsets must be source ordered"
+        );
+    }
+
+    #[test]
+    fn life_icon_chronological_scheduler_merges_generated_gems_waits_loc_44d4() {
+        let entry = ModeLevelCpuRasterCursor {
+            beam: H40BeamPosition::new(14, 2_431).expect("bounded sub_44DC entry"),
+            refresh_phase: M68kRefreshPhase::new(110).expect("oracle refresh phase"),
+        };
+        let command = [crate::HudDmaEventSub44DC::LifeIcon {
+            frame_table_byte_offset: 4,
+        }];
+        // The selected-PC offsets are relative to the final pending enqueue,
+        // 3,450 cycles after this exact `sub_44DC` entry.
+        let event_offsets = [3_493_u32, 3_546, 3_601, 3_642];
+        let mut elapsed = 0_u32;
+        let mut next_event = 0_usize;
+
+        let exit = life_icon_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+            entry,
+            &command,
+            |cycles: M68kCycleCount, vdp_owns_bus| {
+                elapsed = elapsed.checked_add(cycles.get())?;
+                let mut wait_cycles = 0_u32;
+                while event_offsets
+                    .get(next_event)
+                    .is_some_and(|&offset| offset <= elapsed)
+                {
+                    if event_offsets[next_event] != elapsed || vdp_owns_bus {
+                        return None;
+                    }
+                    wait_cycles = wait_cycles.checked_add(11)?;
+                    next_event += 1;
+                }
+                Some(M68kCycleCount::from_raw(wait_cycles))
+            },
+        )
+        .expect("typed chronological scheduler");
+
+        assert_eq!(next_event, event_offsets.len());
+        assert_eq!(
+            exit,
+            ModeLevelCpuRasterCursor {
+                beam: H40BeamPosition::new(22, 838).expect("oracle loc_80C beam"),
+                refresh_phase: M68kRefreshPhase::new(102).expect("oracle exit phase"),
+            },
+            "ASM sub_44DC FIFO ownership and GEMS waits must share one chronological scheduler"
         );
     }
 

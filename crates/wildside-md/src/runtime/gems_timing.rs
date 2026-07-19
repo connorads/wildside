@@ -59,6 +59,21 @@ pub enum GemsStopMusicControl {
     ReleaseQueueBus,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GemsQueueCommand {
+    StartSequence(u8),
+    StopSequence(u8),
+    MusicSpeedPrefix(u8),
+    MusicSpeedCommit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GemsQueueCommandControl {
+    BeginQueueBus,
+    WriteQueueBytes(GemsQueueCommand),
+    ReleaseQueueBus,
+}
+
 struct GemsTimingBus {
     ram: RefCell<Vec<u8>>,
     virtual_rom: Vec<u8>,
@@ -204,6 +219,15 @@ impl GemsMasterClockTimingEngine {
 
     pub const fn pending_m68k_wait_cycles(&self) -> u32 {
         self.pending_m68k_wait_cycles
+    }
+
+    /// Drain CPU wait cycles queued by banked Z80 reads without advancing time.
+    ///
+    /// A shared 68000/VDP scheduler uses this to merge the wait with refresh
+    /// work at the next instruction boundary before clocking that combined
+    /// interval back through the GEMS machine.
+    pub fn take_pending_m68k_wait_cycles(&mut self) -> u32 {
+        std::mem::take(&mut self.pending_m68k_wait_cycles)
     }
 
     pub fn z80_pc(&self) -> u16 {
@@ -476,6 +500,58 @@ impl GemsMasterClockTimingEngine {
         }
     }
 
+    /// Apply one source-positioned GEMS queue-command control event.
+    pub fn apply_queue_command_control(&mut self, control: GemsQueueCommandControl) {
+        match control {
+            GemsQueueCommandControl::BeginQueueBus => {
+                assert!(
+                    !self.busreq && !self.reset,
+                    "GEMS command transaction must begin from a running Z80"
+                );
+                self.set_z80_control(true, false);
+            }
+            GemsQueueCommandControl::WriteQueueBytes(command) => {
+                assert!(
+                    self.busreq && !self.reset,
+                    "GEMS command bytes are written while holding the Z80 bus"
+                );
+                assert!(
+                    self.initialised,
+                    "GEMS command transaction requires StopMusic pointer initialisation"
+                );
+                match command {
+                    GemsQueueCommand::StartSequence(sound_id) => {
+                        for byte in [0xFF, 0x10, sound_id] {
+                            self.queue_byte(byte);
+                        }
+                    }
+                    GemsQueueCommand::StopSequence(sound_id) => {
+                        for byte in [0xFF, 0x12, sound_id] {
+                            self.queue_byte(byte);
+                        }
+                    }
+                    GemsQueueCommand::MusicSpeedPrefix(speed) => {
+                        for byte in [0xFF, 0x05, speed] {
+                            self.queue_byte(byte);
+                        }
+                    }
+                    GemsQueueCommand::MusicSpeedCommit => {
+                        for byte in [0xFF, 0x0D] {
+                            self.queue_byte(byte);
+                        }
+                    }
+                }
+            }
+            GemsQueueCommandControl::ReleaseQueueBus => {
+                assert!(
+                    self.busreq && !self.reset,
+                    "GEMS command releases a held Z80 bus"
+                );
+                self.set_z80_control(false, false);
+            }
+        }
+    }
+
     fn copy_driver_ram(&mut self) {
         let copy_len = self.driver.len().min(Z80_RAM_LEN);
         {
@@ -598,6 +674,25 @@ mod tests {
         assert!(
             !engine.z80_odd_access,
             "two bank reads must retain the alternating 49/50-master-clock phase",
+        );
+    }
+
+    #[test]
+    fn pending_m68k_wait_can_be_drained_for_shared_cpu_scheduler() {
+        // LD A,($8000); HALT
+        let mut rom = vec![0; 0x8001];
+        rom[0] = 0x5A;
+        let mut engine = GemsMasterClockTimingEngine::new(&[0x3A, 0x00, 0x80, 0x76], rom);
+
+        engine.advance_master_clocks(15, false, false);
+        let master_clock_before_drain = engine.master_clock();
+
+        assert_eq!(engine.take_pending_m68k_wait_cycles(), 11);
+        assert_eq!(engine.take_pending_m68k_wait_cycles(), 0);
+        assert_eq!(
+            engine.master_clock(),
+            master_clock_before_drain,
+            "the outer CPU scheduler owns the drained interval"
         );
     }
 
@@ -802,6 +897,28 @@ mod tests {
             "ASM sub_E149C/sub_E14AC queue FF 0B and four low-to-high pointers"
         );
         assert!(engine.initialised);
+    }
+
+    #[test]
+    fn queue_command_controls_hold_z80_and_write_asm_command_bytes() {
+        let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+        engine.initialised = true;
+
+        engine.apply_queue_command_control(GemsQueueCommandControl::BeginQueueBus);
+        let held_pc = engine.z80_pc();
+        engine.advance_master_clocks(150, false, false);
+        assert_eq!(engine.z80_pc(), held_pc);
+        engine.apply_queue_command_control(GemsQueueCommandControl::WriteQueueBytes(
+            GemsQueueCommand::StartSequence(0x17),
+        ));
+        engine.apply_queue_command_control(GemsQueueCommandControl::ReleaseQueueBus);
+
+        assert_eq!(
+            &engine.z80.io.ram.borrow()
+                [usize::from(GEMS_QUEUE_ADDR)..usize::from(GEMS_QUEUE_ADDR) + 3],
+            &[0xFF, 0x10, 0x17],
+            "ASM sub_E151C queues command marker, start-sequence byte, and id"
+        );
     }
 
     #[test]

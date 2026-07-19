@@ -444,6 +444,202 @@ pub struct GemsStopMusicElapsedTiming {
     pub refresh_wait_events: u32,
 }
 
+/// Source wrapper used by one GEMS queue command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GemsQueueCommandPath {
+    /// ASM `sub_E151C`, shared by `PlaySound` and `PlaySound2`.
+    StartOrStopSequenceSubE151c,
+    /// ASM `sub_E1546 -> sub_E1552`: `$05 <speed>`.
+    MusicSpeedPrefixSubE1546,
+    /// ASM `sub_E1568`: `$0D`.
+    MusicSpeedCommitSubE1568,
+    /// ASM `sub_E133C -> loc_E1576`: acquire and release without queue data.
+    OpenCloseSubE1576,
+}
+
+/// Hardware-visible control boundary in one GEMS queue command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GemsQueueCommandControl {
+    BeginQueueBus,
+    WriteQueueBytes,
+    ReleaseQueueBus,
+}
+
+/// Chronological result of one GEMS queue-command source path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GemsQueueCommandAdvance {
+    pub elapsed: M68kCycleCount,
+    pub phase_after: M68kRefreshPhase,
+    pub queue_bus_request_complete: M68kCycleCount,
+    pub queue_write_complete: M68kCycleCount,
+    pub queue_bus_release_complete: M68kCycleCount,
+}
+
+struct GemsQueueCommandClock {
+    elapsed: u32,
+    phase: M68kRefreshPhase,
+    bus_owned: bool,
+}
+
+impl GemsQueueCommandClock {
+    fn instruction(
+        &mut self,
+        raw_cycles: u32,
+        z80_ram_access: bool,
+        advance_hardware: &mut impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+    ) -> Option<()> {
+        let phase_after_raw = u32::from(self.phase.get()).checked_add(raw_cycles)?;
+        let refresh_wait = if phase_after_raw >= 128 { 2 } else { 0 };
+        self.phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        self.elapsed = self.elapsed.checked_add(raw_cycles)?;
+
+        let generated_wait =
+            advance_hardware(M68kCycleCount::from_raw(raw_cycles), self.bus_owned)?.get();
+        let mut pending_wait = generated_wait
+            .checked_add(refresh_wait)?
+            .checked_add(u32::from(z80_ram_access))?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            self.phase = self.phase.advance_external_wait(wait).phase_after;
+            self.elapsed = self.elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait, self.bus_owned)?.get();
+        }
+        Some(())
+    }
+
+    fn instructions(
+        &mut self,
+        instructions: &[u32],
+        advance_hardware: &mut impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+    ) -> Option<()> {
+        for &cycles in instructions {
+            self.instruction(cycles, false, advance_hardware)?;
+        }
+        Some(())
+    }
+}
+
+/// Co-schedule one ASM GEMS queue command with asynchronous hardware waits.
+///
+/// The hardware callback advances each real interval and returns newly queued
+/// 68000 wait cycles, allowing banked Z80 reads before BUSREQ to delay the
+/// source instruction stream. Control events are emitted only after their
+/// defining instruction and pending waits complete.
+pub fn gems_queue_command_advance_with_scheduler(
+    path: GemsQueueCommandPath,
+    phase_before: M68kRefreshPhase,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+    mut apply_control: impl FnMut(GemsQueueCommandControl),
+) -> Option<GemsQueueCommandAdvance> {
+    let mut clock = GemsQueueCommandClock {
+        elapsed: 0,
+        phase: phase_before,
+        bus_owned: false,
+    };
+
+    if path == GemsQueueCommandPath::MusicSpeedPrefixSubE1546 {
+        // ASM sub_E1546 wrapper through entry to sub_E1552.
+        clock.instructions(&[12, 12, 18], &mut advance_hardware)?;
+    }
+
+    // ASM sub_E151C/sub_E1552/sub_E1568 -> sub_E143A, through completion of
+    // the `$A11100` BUSREQ write.
+    clock.instructions(
+        &[18, 12, 16, 24, 14, 12, 12, 12, 20, 20],
+        &mut advance_hardware,
+    )?;
+    clock.bus_owned = true;
+    let queue_bus_request_complete = M68kCycleCount::from_raw(clock.elapsed);
+    apply_control(GemsQueueCommandControl::BeginQueueBus);
+
+    // ASM loc_E1460 one-poll BUSACK path, queue-pointer read, and return into
+    // the command-specific writer.
+    for (cycles, access) in [(20, false), (8, false), (8, true), (4, false), (16, false)] {
+        clock.instruction(cycles, access, &mut advance_hardware)?;
+    }
+
+    match path {
+        GemsQueueCommandPath::StartOrStopSequenceSubE151c
+        | GemsQueueCommandPath::MusicSpeedPrefixSubE1546 => {
+            // ASM sub_E151C/sub_E1552 -> sub_E1482 -> sub_E148E writes
+            // `FF,<command>`, then the argument and its pointer update.
+            if path == GemsQueueCommandPath::MusicSpeedPrefixSubE1546 {
+                // ASM sub_E1552 branches through loc_E1522.
+                clock.instructions(&[4, 10, 18], &mut advance_hardware)?;
+            } else {
+                clock.instructions(&[4, 18], &mut advance_hardware)?;
+            }
+            for (cycles, access) in [
+                (18, true),
+                (4, false),
+                (8, false),
+                (14, true),
+                (4, false),
+                (8, false),
+                (8, true),
+                (16, false),
+                (16, false),
+                (18, false),
+                (14, true),
+                (4, false),
+                (8, false),
+                (8, true),
+                (16, false),
+                (10, false),
+            ] {
+                clock.instruction(cycles, access, &mut advance_hardware)?;
+            }
+        }
+        GemsQueueCommandPath::MusicSpeedCommitSubE1568 => {
+            // ASM sub_E1568 writes only `FF,$0D`.
+            clock.instructions(&[4, 18], &mut advance_hardware)?;
+            for (cycles, access) in [
+                (18, true),
+                (4, false),
+                (8, false),
+                (14, true),
+                (4, false),
+                (8, false),
+                (8, true),
+                (16, false),
+                (10, false),
+            ] {
+                clock.instruction(cycles, access, &mut advance_hardware)?;
+            }
+        }
+        GemsQueueCommandPath::OpenCloseSubE1576 => {
+            // ASM loc_E1576 returns from sub_E143A directly to loc_E1470.
+            clock.instruction(10, false, &mut advance_hardware)?;
+        }
+    }
+    let queue_write_complete = M68kCycleCount::from_raw(clock.elapsed);
+    if path != GemsQueueCommandPath::OpenCloseSubE1576 {
+        apply_control(GemsQueueCommandControl::WriteQueueBytes);
+    }
+
+    clock.instruction(20, false, &mut advance_hardware)?;
+    clock.bus_owned = false;
+    let queue_bus_release_complete = M68kCycleCount::from_raw(clock.elapsed);
+    apply_control(GemsQueueCommandControl::ReleaseQueueBus);
+    clock.instructions(&[16, 28, 12, 16], &mut advance_hardware)?;
+
+    if path == GemsQueueCommandPath::MusicSpeedPrefixSubE1546 {
+        // Return from sub_E1552, then restore the wrapper's saved registers.
+        clock.instructions(&[12, 12, 16], &mut advance_hardware)?;
+    }
+
+    Some(GemsQueueCommandAdvance {
+        elapsed: M68kCycleCount::from_raw(clock.elapsed),
+        phase_after: clock.phase,
+        queue_bus_request_complete,
+        queue_write_complete,
+        queue_bus_release_complete,
+    })
+}
+
 struct GemsStopMusicClock<'a> {
     raw_cycles: u32,
     elapsed_cycles: u32,
@@ -2571,6 +2767,131 @@ mod tests {
         assert_eq!(elapsed.elapsed_cycles.get(), 229_682);
         assert_eq!(elapsed.refresh_wait_events, 1_506);
         assert_eq!(elapsed.phase_after.get(), 122);
+    }
+
+    #[test]
+    fn gems_start_sequence_scheduler_matches_frame_899_selected_pcs_sub_e151c() {
+        let mut controls = Vec::new();
+        let advance = gems_queue_command_advance_with_scheduler(
+            GemsQueueCommandPath::StartOrStopSequenceSubE151c,
+            M68kRefreshPhase::new(28).expect("selected-PC refresh phase"),
+            |_, _| Some(M68kCycleCount::from_raw(0)),
+            |control| controls.push(control),
+        )
+        .expect("ASM sub_E151C one-poll path");
+
+        assert_eq!(
+            (
+                advance.queue_bus_request_complete.get(),
+                advance.queue_write_complete.get(),
+                advance.queue_bus_release_complete.get(),
+                advance.elapsed.get(),
+                advance.phase_after.get(),
+            ),
+            (162, 424, 444, 518, 34),
+            "selected PCs E151C/E1460/E1470/E1478 and final E1480 RTS"
+        );
+        assert_eq!(
+            controls,
+            vec![
+                GemsQueueCommandControl::BeginQueueBus,
+                GemsQueueCommandControl::WriteQueueBytes,
+                GemsQueueCommandControl::ReleaseQueueBus,
+            ]
+        );
+    }
+
+    #[test]
+    fn gems_start_sequence_scheduler_merges_pre_bus_external_wait_sub_e151c() {
+        let mut inject_wait = true;
+        let advance = gems_queue_command_advance_with_scheduler(
+            GemsQueueCommandPath::StartOrStopSequenceSubE151c,
+            M68kRefreshPhase::new(82).expect("frame-1669 selected-PC phase"),
+            |_, bus_owned| {
+                if inject_wait && !bus_owned {
+                    inject_wait = false;
+                    Some(M68kCycleCount::from_raw(20))
+                } else {
+                    Some(M68kCycleCount::from_raw(0))
+                }
+            },
+            |_| {},
+        )
+        .expect("external scheduler work delays BUSREQ");
+
+        assert_eq!(advance.queue_bus_request_complete.get(), 184);
+        assert_eq!(advance.queue_write_complete.get(), 446);
+    }
+
+    #[test]
+    fn gems_music_speed_schedulers_match_frame_1128_selected_pcs() {
+        let prefix = gems_queue_command_advance_with_scheduler(
+            GemsQueueCommandPath::MusicSpeedPrefixSubE1546,
+            M68kRefreshPhase::new(98).expect("sub_E1546 selected-PC phase"),
+            |_, _| Some(M68kCycleCount::from_raw(0)),
+            |_| {},
+        )
+        .expect("ASM sub_E1546/sub_E1552 path");
+        let commit = gems_queue_command_advance_with_scheduler(
+            GemsQueueCommandPath::MusicSpeedCommitSubE1568,
+            M68kRefreshPhase::new(100).expect("sub_E1568 selected-PC phase"),
+            |_, _| Some(M68kCycleCount::from_raw(0)),
+            |_| {},
+        )
+        .expect("ASM sub_E1568 path");
+
+        assert_eq!(
+            (
+                prefix.queue_bus_request_complete.get(),
+                prefix.queue_write_complete.get(),
+                prefix.queue_bus_release_complete.get(),
+                prefix.elapsed.get(),
+            ),
+            (206, 478, 498, 612),
+            "selected PCs E1546/E1460/E1470/E1478 and wrapper return"
+        );
+        assert_eq!(
+            (
+                commit.queue_bus_request_complete.get(),
+                commit.queue_write_complete.get(),
+                commit.queue_bus_release_complete.get(),
+                commit.elapsed.get(),
+            ),
+            (164, 338, 358, 432),
+            "selected PCs E1568/E1460/E1470/E1478 and final RTS"
+        );
+    }
+
+    #[test]
+    fn gems_open_close_scheduler_matches_load_ingame_sub_e1576() {
+        let mut controls = Vec::new();
+        let advance = gems_queue_command_advance_with_scheduler(
+            GemsQueueCommandPath::OpenCloseSubE1576,
+            M68kRefreshPhase::new(4).expect("frame-868 selected-PC phase"),
+            |_, _| Some(M68kCycleCount::from_raw(0)),
+            |control| controls.push(control),
+        )
+        .expect("ASM sub_E133C/loc_E1576 path");
+
+        assert_eq!(
+            (
+                advance.queue_bus_request_complete.get(),
+                advance.queue_write_complete.get(),
+                advance.queue_bus_release_complete.get(),
+                advance.elapsed.get(),
+                advance.phase_after.get(),
+            ),
+            (162, 229, 249, 323, 71),
+            "selected PCs E1576/E1460/E1470/E1478 and final E1480 RTS"
+        );
+        assert_eq!(
+            controls,
+            vec![
+                GemsQueueCommandControl::BeginQueueBus,
+                GemsQueueCommandControl::ReleaseQueueBus,
+            ],
+            "ASM loc_E1576 does not write queue bytes"
+        );
     }
 
     fn published_natural_vblank_work() -> ModeLevelVblankWorkBeforeSubE12 {

@@ -10,14 +10,17 @@
 
 use wildside_core::{GameMode, LevelId, NativeSoundCommand, NativeTraceFrame};
 #[cfg(feature = "audio")]
-use wildside_core::{GemsStopMusicElapsedTiming, M68kCycleCount};
+use wildside_core::{
+    GemsQueueCommandAdvance, GemsQueueCommandPath, GemsStopMusicElapsedTiming, HudDmaEventSub44DC,
+    M68kCycleCount, M68kRefreshPhase, vdp::ModeLevelCpuRasterCursor,
+};
 #[cfg(feature = "audio")]
 use wildside_data::AssetSource;
 use wildside_data::{AssetManifest, LevelHeader, resource_level_record};
 #[cfg(feature = "audio")]
 use wildside_md::{
-    GemsAudioEngine, GemsMasterClockAdvance, GemsMasterClockTimingEngine, GemsStopMusicControl,
-    GemsStopMusicQueueTransaction,
+    GemsAudioEngine, GemsMasterClockAdvance, GemsMasterClockTimingEngine, GemsQueueCommand,
+    GemsQueueCommandControl, GemsStopMusicControl, GemsStopMusicQueueTransaction,
 };
 
 pub const AUDIO_SAMPLE_RATE: u32 = 44_100;
@@ -611,6 +614,77 @@ pub fn apply_timed_gems_stop_music(
         banked_68k_reads: reads,
         pending_m68k_wait_cycles: audio.pending_m68k_wait_cycles(),
     }
+}
+
+/// Co-schedule GEMS banked reads with the life-icon-only ASM `sub_44DC` path.
+///
+/// The timing engine must already be positioned at the supplied CPU cursor.
+/// Core owns the source instructions, refresh recurrence, and VDP FIFO
+/// ownership; this adapter advances the persistent Z80 for each interval and
+/// returns its newly generated 68000 wait to the next scheduler tick.
+#[cfg(feature = "audio")]
+pub fn apply_gems_life_icon_schedule_sub_44dc(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: ModeLevelCpuRasterCursor,
+    commands: &[HudDmaEventSub44DC],
+) -> Option<ModeLevelCpuRasterCursor> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::life_icon_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+        entry,
+        commands,
+        |cycles, vdp_owns_bus| {
+            audio.advance_master_clocks(u64::from(cycles.get()) * 7, false, vdp_owns_bus);
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
+/// Execute one ASM-positioned GEMS queue command on the persistent machine.
+#[cfg(feature = "audio")]
+pub fn apply_timed_gems_queue_command(
+    audio: &mut GemsMasterClockTimingEngine,
+    path: GemsQueueCommandPath,
+    phase_before: M68kRefreshPhase,
+    command: Option<GemsQueueCommand>,
+) -> Option<GemsQueueCommandAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    if (path == GemsQueueCommandPath::OpenCloseSubE1576) != command.is_none() {
+        return None;
+    }
+    let audio = std::cell::RefCell::new(audio);
+    wildside_core::gems_queue_command_advance_with_scheduler(
+        path,
+        phase_before,
+        |cycles, vdp_owns_bus| {
+            let mut audio = audio.borrow_mut();
+            audio.advance_master_clocks(u64::from(cycles.get()) * 7, false, vdp_owns_bus);
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+        |control| {
+            let control = match control {
+                wildside_core::GemsQueueCommandControl::BeginQueueBus => {
+                    GemsQueueCommandControl::BeginQueueBus
+                }
+                wildside_core::GemsQueueCommandControl::WriteQueueBytes => {
+                    GemsQueueCommandControl::WriteQueueBytes(
+                        command.expect("validated queue-writing command"),
+                    )
+                }
+                wildside_core::GemsQueueCommandControl::ReleaseQueueBus => {
+                    GemsQueueCommandControl::ReleaseQueueBus
+                }
+            };
+            audio.borrow_mut().apply_queue_command_control(control);
+        },
+    )
 }
 
 pub fn native_bgm_command_flushes_queued_audio(command: NativeBgmPlaybackCommand) -> bool {
@@ -1408,6 +1482,50 @@ mod tests {
         assert!(advance.banked_68k_reads.is_empty());
         assert_eq!(engine.master_clock(), entry_master_clock + 229_570 * 7);
         engine.start_sequence(3);
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn gems_life_icon_adapter_matches_no_read_fifo_schedule_sub_44dc() {
+        let entry = wildside_core::vdp::ModeLevelCpuRasterCursor {
+            beam: wildside_core::vdp::H40BeamPosition::new(32, 765)
+                .expect("frame-1703 sub_44DC beam"),
+            refresh_phase: wildside_core::M68kRefreshPhase::new(116)
+                .expect("frame-1703 refresh phase"),
+        };
+        let commands = [HudDmaEventSub44DC::LifeIcon {
+            frame_table_byte_offset: 8,
+        }];
+        let expected =
+            wildside_core::vdp::life_icon_cpu_raster_cursor_after_sub_44dc(entry, &commands, &[])
+                .expect("no-GEMS reference schedule");
+        let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+
+        let actual = apply_gems_life_icon_schedule_sub_44dc(&mut engine, entry, &commands)
+            .expect("HALT-only GEMS engine adds no bank waits");
+
+        assert_eq!(actual, expected);
+        assert!(engine.take_banked_68k_reads().is_empty());
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn timed_gems_start_sequence_matches_sub_e151c_source_schedule() {
+        let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+        engine.stop_music();
+        let entry_master_clock = engine.master_clock();
+
+        let advance = apply_timed_gems_queue_command(
+            &mut engine,
+            GemsQueueCommandPath::StartOrStopSequenceSubE151c,
+            M68kRefreshPhase::new(28).expect("frame-899 selected-PC phase"),
+            Some(GemsQueueCommand::StartSequence(2)),
+        )
+        .expect("ASM sub_E151C command schedule");
+
+        assert_eq!(advance.elapsed.get(), 518);
+        assert_eq!(engine.master_clock(), entry_master_clock + 518 * 7);
+        assert_eq!(engine.pending_m68k_wait_cycles(), 0);
     }
 
     #[test]

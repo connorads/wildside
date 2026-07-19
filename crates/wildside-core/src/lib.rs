@@ -103,6 +103,7 @@ pub use level::{
     shared_vram_art_decompresses_loc_11EFA,
 };
 pub use mode_level_timing::{
+    GemsQueueCommandAdvance, GemsQueueCommandControl, GemsQueueCommandPath,
     GemsStopMusicArbitration, GemsStopMusicBusAckPolls, GemsStopMusicBusWindow,
     GemsStopMusicElapsedBusWindow, GemsStopMusicElapsedTiming, GemsStopMusicTiming,
     GenesisMclkCount, LoadInGamePlatformArtSourceWorkload,
@@ -120,9 +121,10 @@ pub use mode_level_timing::{
     demo_exit_wait_cycles_loc_119e0, diamond_power_compile_sprites_raw_cycles_sub_3f798,
     execute_objects_elapsed_cycles_sub_e12, execute_objects_external_waits_sub_e12,
     execute_objects_raw_cycles_sub_e12, execute_objects_setup_cycles_sub_e12,
-    execute_scripted_platforms_raw_cycles_sub_23ea, gems_stop_music_elapsed_cycles,
-    gems_stop_music_elapsed_timing, gems_stop_music_elapsed_timing_from_absolute_entry,
-    gems_stop_music_timing, gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76,
+    execute_scripted_platforms_raw_cycles_sub_23ea, gems_queue_command_advance_with_scheduler,
+    gems_stop_music_elapsed_cycles, gems_stop_music_elapsed_timing,
+    gems_stop_music_elapsed_timing_from_absolute_entry, gems_stop_music_timing,
+    gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76,
     gfx_objects_collision_kid_raw_cycles_sub_1b76, gfx_objects_collision_raw_cycles_sub_16f0,
     gfx_objects_move_and_animate_raw_cycles_sub_1444, input_worker_cycles_loc_7452,
     kid_projectile_collision_raw_cycles_sub_1d76,

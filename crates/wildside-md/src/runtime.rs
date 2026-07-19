@@ -4,8 +4,8 @@
 mod gems_timing;
 
 pub use gems_timing::{
-    GemsBanked68kRead, GemsMasterClockAdvance, GemsMasterClockTimingEngine, GemsStopMusicControl,
-    GemsStopMusicQueueTransaction,
+    GemsBanked68kRead, GemsMasterClockAdvance, GemsMasterClockTimingEngine, GemsQueueCommand,
+    GemsQueueCommandControl, GemsStopMusicControl, GemsStopMusicQueueTransaction,
 };
 
 use anyhow::{Result, ensure};
