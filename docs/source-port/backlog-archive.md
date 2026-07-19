@@ -345,18 +345,19 @@ intra-frame `StopMusic` boundary.
 
 Correction 2026-07-19: the first complete selected-PC trace also disproves
 the initial interpretation of its 218,270-cycle instruction sum. At scanline
-224, the trace records a 44-cycle interrupt entry against resume PC `$E1402`,
-then omits the 60 raw cycles in `V_Int $488` because those PCs were outside
-the selector. The following 62-cycle gap is therefore `V_Int` plus its
-two-cycle refresh wait, not a VDP-owned halt. Pure uninterrupted `StopMusic`
-is 218,226 raw cycles; every bus/reset/release offset after that interrupt is
-44 cycles earlier than the first table. The same call has 8,226 one-cycle
-68000-to-Z80-RAM waits and 1,506 refresh events, then 104 raw interrupt cycles:
-`218,226 + 8,226 + 3,012 + 104 + 2 = 229,570`. jgenesis exposes BUSACK
-immediately as `BUSREQ && !RESET`, explaining the one-poll loops. Rejected:
-an instruction-boundary BUSACK delay or a route-intrinsic 62-cycle VDP halt.
-The scheduler must inject VINT according to the call's beam position rather
-than bake one frame's interrupt into the source routine.
+224, jgenesis records a 10-cycle interrupt-sampling step and a 44-cycle
+autovector entry against resume PC `$E1402`, then omits the 60 raw cycles in
+`V_Int $488` because those PCs were outside the selector. The following
+62-cycle gap is therefore `V_Int` plus its two-cycle refresh wait, not a
+VDP-owned halt. Pure uninterrupted `StopMusic` is 218,216 raw cycles; every
+bus/reset/release offset after that interrupt is 54 cycles earlier than the
+first table. The same call has 8,226 one-cycle 68000-to-Z80-RAM waits and
+1,506 source/entry refresh events, then 114 raw interrupt cycles and the
+handler refresh: `218,216 + 8,226 + 3,012 + 114 + 2 = 229,570`. jgenesis
+exposes BUSACK immediately as `BUSREQ && !RESET`, explaining the one-poll
+loops. Rejected: an instruction-boundary BUSACK delay or a route-intrinsic
+62-cycle VDP halt. The scheduler must inject VINT according to the call's beam
+position rather than bake one frame's interrupt into the source routine.
 
 Progress 2026-07-19: the corrected StopMusic model now carries the exact
 68000-to-Z80-RAM workload per source bus window:
@@ -365,7 +366,7 @@ and `loc_E1406` clear; each queue window reads `$A00036`, then writes one or
 three data bytes and the updated pointer through `sub_E148E`. A typed
 `GemsStopMusicArbitration` keeps VINT and refresh counts outside the source
 routine. The frame-867 regression recomposes the measured 229,570 cycles from
-218,226 source cycles, 8,226 Z80-RAM waits, one 104-cycle VINT, and 1,507
+218,216 source cycles, 8,226 Z80-RAM waits, one 114-cycle VINT, and 1,507
 two-cycle refresh waits. This is aggregate elapsed evidence, not yet the
 event-positioned shell required to drive the persistent Z80 machine.
 
@@ -380,6 +381,20 @@ The old instantaneous `stop_music()` is now a compatibility composition of
 those events. The frame shell can therefore advance real master clocks
 between them once their elapsed offsets are derived; that positioning remains
 the next slice.
+
+Progress 2026-07-19: an instruction/event scheduler now positions those
+controls without fitting route totals. Starting from frame 867's measured
+refresh phase 14 and injecting VINT at pure-source boundary 108,848, it
+reproduces all seven elapsed bus windows, reset edges 225,744/226,070, 1,507
+refresh events, final phase 80, and return at 229,570 cycles. The model
+explicitly clocks the 10-cycle jgenesis interrupt sample, 44-cycle autovector
+entry, and `V_Int`'s 28/12/20-cycle ADDQ/ST/RTE instructions. Control writes
+are timestamped at instruction completion before a newly queued refresh wait;
+this is why the driver BUSREQ release is 226,048 even though the following
+reset-release instruction starts after its two-cycle wait. Non-boundary VINT
+offsets fail closed. Remaining: map the route's StopMusic entry beam into the
+persistent GEMS master-clock cursor, consume this schedule there, then replay
+the frame-1709 transfer through `loc_892`.
 
 Progress 2026-07-19: commit `7afa08b27` schedules the classified life-icon-only
 `sub_44DC` path through its four-entry VRAM FIFO and the trailing `loc_44D4`

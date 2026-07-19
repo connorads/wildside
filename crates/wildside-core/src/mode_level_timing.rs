@@ -167,13 +167,13 @@ pub fn gems_stop_music_timing(polls: GemsStopMusicBusAckPolls) -> Option<GemsSto
     // These offsets come from the uninterrupted one-poll instruction stream;
     // only the explicit bus-ack loops can extend its raw source schedule.
     const BASE_WINDOWS: [(u32, u32); 7] = [
-        (104, 214_794),
-        (215_024, 215_194),
-        (215_460, 215_630),
-        (215_900, 216_254),
-        (216_524, 216_878),
-        (217_148, 217_502),
-        (217_772, 218_126),
+        (104, 214_784),
+        (215_014, 215_184),
+        (215_450, 215_620),
+        (215_890, 216_244),
+        (216_514, 216_868),
+        (217_138, 217_492),
+        (217_762, 218_116),
     ];
     const EXTRA_POLL_RAW_CYCLES: u32 = 30;
 
@@ -208,13 +208,13 @@ pub fn gems_stop_music_timing(polls: GemsStopMusicBusAckPolls) -> Option<GemsSto
     let driver_poll_extra = u32::from(polls.driver_copy_sub_e13da.checked_sub(1)?)
         .checked_mul(EXTRA_POLL_RAW_CYCLES)?;
     Some(GemsStopMusicTiming {
-        raw_cycles: M68kCycleCount::from_raw(218_226_u32.checked_add(prior_extra)?),
+        raw_cycles: M68kCycleCount::from_raw(218_216_u32.checked_add(prior_extra)?),
         bus_windows: windows,
         reset_assert_complete_raw_offset: M68kCycleCount::from_raw(
-            214_494_u32.checked_add(driver_poll_extra)?,
+            214_484_u32.checked_add(driver_poll_extra)?,
         ),
         reset_release_complete_raw_offset: M68kCycleCount::from_raw(
-            214_814_u32.checked_add(driver_poll_extra)?,
+            214_804_u32.checked_add(driver_poll_extra)?,
         ),
     })
 }
@@ -224,9 +224,9 @@ pub fn gems_stop_music_elapsed_cycles(
     timing: GemsStopMusicTiming,
     arbitration: GemsStopMusicArbitration,
 ) -> Option<M68kCycleCount> {
-    // ASM V_Int $488: 44 raw cycles enter the level-6 autovector, then
-    // ADDQ.L/ST/RTE cost 60 before the interrupted StopMusic instruction resumes.
-    const VINT_RAW_CYCLES: u32 = 44 + 60;
+    // jgenesis samples a pending interrupt for 10 cycles, then ASM V_Int $488
+    // takes 44 raw cycles to enter the level-6 autovector and 60 for ADDQ.L/ST/RTE.
+    const VINT_RAW_CYCLES: u32 = 10 + 44 + 60;
 
     let z80_ram_waits = timing
         .bus_windows
@@ -244,6 +244,249 @@ pub fn gems_stop_music_elapsed_cycles(
             .checked_add(vint_raw_cycles)?
             .checked_add(refresh_wait_cycles)?,
     ))
+}
+
+/// One source bus window positioned on the elapsed 68000 timeline.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GemsStopMusicElapsedBusWindow {
+    pub request_complete_elapsed_offset: M68kCycleCount,
+    pub release_complete_elapsed_offset: M68kCycleCount,
+}
+
+/// Event-positioned execution of ASM `StopMusic`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GemsStopMusicElapsedTiming {
+    pub elapsed_cycles: M68kCycleCount,
+    pub bus_windows: [GemsStopMusicElapsedBusWindow; 7],
+    pub reset_assert_complete_elapsed_offset: M68kCycleCount,
+    pub reset_release_complete_elapsed_offset: M68kCycleCount,
+    pub phase_after: M68kRefreshPhase,
+    pub refresh_wait_events: u32,
+}
+
+struct GemsStopMusicClock<'a> {
+    raw_cycles: u32,
+    elapsed_cycles: u32,
+    last_source_instruction_completion_elapsed: u32,
+    phase: M68kRefreshPhase,
+    refresh_wait_events: u32,
+    z80_ram_accesses: u32,
+    vint_source_offsets: &'a [M68kCycleCount],
+    next_vint: usize,
+}
+
+impl GemsStopMusicClock<'_> {
+    fn source_instruction(&mut self, raw_cycles: u32, z80_ram_access: bool) -> Option<()> {
+        self.inject_vint_before_source_instruction()?;
+        let advance = self.phase.advance_rom(M68kCycleCount::from_raw(raw_cycles));
+        self.raw_cycles = self.raw_cycles.checked_add(raw_cycles)?;
+        self.last_source_instruction_completion_elapsed =
+            self.elapsed_cycles.checked_add(raw_cycles)?;
+        self.elapsed_cycles = self.elapsed_cycles.checked_add(advance.elapsed.get())?;
+        self.phase = advance.phase_after;
+        self.refresh_wait_events = self
+            .refresh_wait_events
+            .checked_add(advance.refresh_events)?;
+        if z80_ram_access {
+            let wait = self
+                .phase
+                .advance_external_wait(M68kCycleCount::from_raw(1));
+            self.elapsed_cycles = self.elapsed_cycles.checked_add(1)?;
+            self.phase = wait.phase_after;
+            self.z80_ram_accesses = self.z80_ram_accesses.checked_add(1)?;
+        }
+        Some(())
+    }
+
+    fn inject_vint_before_source_instruction(&mut self) -> Option<()> {
+        while let Some(offset) = self.vint_source_offsets.get(self.next_vint) {
+            if offset.get() != self.raw_cycles {
+                return (offset.get() > self.raw_cycles).then_some(());
+            }
+            // jgenesis samples the pending interrupt for 10 cycles. ASM V_Int
+            // $488 then takes 44 to enter and 60 for ADDQ.L/ST/RTE.
+            self.hardware_work(10)?;
+            self.hardware_work(44)?;
+            self.hardware_work(28)?;
+            self.hardware_work(12)?;
+            self.hardware_work(20)?;
+            self.next_vint += 1;
+        }
+        Some(())
+    }
+
+    fn hardware_work(&mut self, raw_cycles: u32) -> Option<()> {
+        let advance = self.phase.advance_rom(M68kCycleCount::from_raw(raw_cycles));
+        self.elapsed_cycles = self.elapsed_cycles.checked_add(advance.elapsed.get())?;
+        self.phase = advance.phase_after;
+        self.refresh_wait_events = self
+            .refresh_wait_events
+            .checked_add(advance.refresh_events)?;
+        Some(())
+    }
+
+    fn source_instructions(&mut self, instructions: &[u32]) -> Option<()> {
+        for &cycles in instructions {
+            self.source_instruction(cycles, false)?;
+        }
+        Some(())
+    }
+
+    fn poll_bus_ack(&mut self, polls: u16) -> Option<()> {
+        for poll in 0..polls {
+            self.source_instruction(20, false)?;
+            self.source_instruction(if poll + 1 == polls { 8 } else { 10 }, false)?;
+        }
+        Some(())
+    }
+
+    fn queue_byte_write_sub_e148e(&mut self) -> Option<()> {
+        // ASM sub_E148E writes the data byte and then the updated queue pointer.
+        self.source_instruction(14, true)?;
+        self.source_instructions(&[4, 8])?;
+        self.source_instruction(8, true)?;
+        self.source_instruction(16, false)
+    }
+}
+
+/// Position source control events after refresh, Z80-RAM waits, and VINT work.
+///
+/// VINT offsets are raw `StopMusic` instruction boundaries. They do not move
+/// the source offsets, but their entry/handler work advances elapsed time.
+pub fn gems_stop_music_elapsed_timing(
+    polls: GemsStopMusicBusAckPolls,
+    phase_before: M68kRefreshPhase,
+    vint_source_offsets: &[M68kCycleCount],
+) -> Option<GemsStopMusicElapsedTiming> {
+    if vint_source_offsets
+        .windows(2)
+        .any(|pair| pair[0].get() >= pair[1].get())
+    {
+        return None;
+    }
+    let source = gems_stop_music_timing(polls)?;
+    let mut clock = GemsStopMusicClock {
+        raw_cycles: 0,
+        elapsed_cycles: 0,
+        last_source_instruction_completion_elapsed: 0,
+        phase: phase_before,
+        refresh_wait_events: 0,
+        z80_ram_accesses: 0,
+        vint_source_offsets,
+        next_vint: 0,
+    };
+    let mut bus_windows = [GemsStopMusicElapsedBusWindow {
+        request_complete_elapsed_offset: M68kCycleCount::from_raw(0),
+        release_complete_elapsed_offset: M68kCycleCount::from_raw(0),
+    }; 7];
+
+    // ASM StopMusic -> sub_E13DA -> Stop_z80, through the BUSREQ write.
+    clock.source_instructions(&[16, 18, 12, 20, 18, 20])?;
+    if clock.raw_cycles != source.bus_windows[0].request_complete_raw_offset.get() {
+        return None;
+    }
+    bus_windows[0].request_complete_elapsed_offset =
+        M68kCycleCount::from_raw(clock.last_source_instruction_completion_elapsed);
+    clock.poll_bus_ack(polls.driver_copy_sub_e13da)?;
+    clock.source_instructions(&[16, 12, 12, 4, 8, 4, 12])?;
+
+    // ASM loc_E1400 copies 5,764 driver bytes.
+    for index in 0..5_764 {
+        clock.source_instruction(12, true)?;
+        clock.source_instruction(if index == 5_763 { 14 } else { 10 }, false)?;
+    }
+    // ASM loc_E1406 clears the remaining 2,428 bytes of Z80 RAM.
+    for index in 0..2_428 {
+        clock.source_instruction(12, true)?;
+        clock.source_instruction(14, false)?;
+        clock.source_instruction(if index == 2_427 { 8 } else { 10 }, false)?;
+    }
+
+    // ASM sub_E1416 asserts reset, delays, releases BUSREQ, then reset.
+    clock.source_instructions(&[12, 16, 18, 20])?;
+    if clock.raw_cycles != source.reset_assert_complete_raw_offset.get() {
+        return None;
+    }
+    let reset_assert_complete_elapsed_offset =
+        M68kCycleCount::from_raw(clock.last_source_instruction_completion_elapsed);
+    clock.source_instruction(12, false)?;
+    for index in 0..15 {
+        clock.source_instruction(8, false)?;
+        clock.source_instruction(if index == 14 { 8 } else { 10 }, false)?;
+    }
+    clock.source_instruction(20, false)?;
+    if clock.raw_cycles != source.bus_windows[0].release_complete_raw_offset.get() {
+        return None;
+    }
+    bus_windows[0].release_complete_elapsed_offset =
+        M68kCycleCount::from_raw(clock.last_source_instruction_completion_elapsed);
+    clock.source_instruction(20, false)?;
+    if clock.raw_cycles != source.reset_release_complete_raw_offset.get() {
+        return None;
+    }
+    let reset_release_complete_elapsed_offset =
+        M68kCycleCount::from_raw(clock.last_source_instruction_completion_elapsed);
+    clock.source_instruction(16, false)?;
+
+    for transaction in 0..6 {
+        if transaction < 2 {
+            clock.source_instructions(&[4, 12, 18, 18])?;
+        } else {
+            clock.source_instructions(&[20, 18, 18])?;
+        }
+        // ASM sub_E143A through the BUSREQ write and loc_E1460 poll.
+        clock.source_instructions(&[12, 16, 24, 14, 12, 12, 12, 20, 20])?;
+        let window = transaction + 1;
+        if clock.raw_cycles != source.bus_windows[window].request_complete_raw_offset.get() {
+            return None;
+        }
+        bus_windows[window].request_complete_elapsed_offset =
+            M68kCycleCount::from_raw(clock.last_source_instruction_completion_elapsed);
+        clock.poll_bus_ack(polls.queue_transactions_sub_e143a[transaction])?;
+        clock.source_instruction(8, true)?;
+        clock.source_instructions(&[4, 16])?;
+
+        if transaction < 2 {
+            clock.source_instructions(&[16, 18])?;
+            clock.queue_byte_write_sub_e148e()?;
+        } else {
+            clock.source_instructions(&[16, 18])?;
+            clock.queue_byte_write_sub_e148e()?;
+            clock.source_instructions(&[24, 18])?;
+            clock.queue_byte_write_sub_e148e()?;
+            clock.source_instructions(&[24, 18])?;
+            clock.queue_byte_write_sub_e148e()?;
+        }
+        clock.source_instruction(10, false)?;
+        clock.source_instruction(20, false)?;
+        if clock.raw_cycles != source.bus_windows[window].release_complete_raw_offset.get() {
+            return None;
+        }
+        bus_windows[window].release_complete_elapsed_offset =
+            M68kCycleCount::from_raw(clock.last_source_instruction_completion_elapsed);
+        clock.source_instructions(&[16, 28, 12, 16])?;
+    }
+    clock.source_instructions(&[12, 16])?;
+
+    if clock.raw_cycles != source.raw_cycles.get()
+        || clock.next_vint != vint_source_offsets.len()
+        || clock.z80_ram_accesses
+            != source
+                .bus_windows
+                .iter()
+                .map(|window| u32::from(window.m68k_z80_ram_accesses))
+                .sum::<u32>()
+    {
+        return None;
+    }
+    Some(GemsStopMusicElapsedTiming {
+        elapsed_cycles: M68kCycleCount::from_raw(clock.elapsed_cycles),
+        bus_windows,
+        reset_assert_complete_elapsed_offset,
+        reset_release_complete_elapsed_offset,
+        phase_after: clock.phase,
+        refresh_wait_events: clock.refresh_wait_events,
+    })
 }
 
 /// Source branches taken before ASM `Mode_Level` reaches `Execute_Objects`.
@@ -1845,20 +2088,20 @@ mod tests {
         })
         .expect("ASM Stop_z80/sub_E143A poll at least once");
 
-        assert_eq!(timing.raw_cycles.get(), 218_226);
+        assert_eq!(timing.raw_cycles.get(), 218_216);
         assert_eq!(
             timing.bus_windows.map(|window| (
                 window.request_complete_raw_offset.get(),
                 window.release_complete_raw_offset.get(),
             )),
             [
-                (104, 214_794),
-                (215_024, 215_194),
-                (215_460, 215_630),
-                (215_900, 216_254),
-                (216_524, 216_878),
-                (217_148, 217_502),
-                (217_772, 218_126),
+                (104, 214_784),
+                (215_014, 215_184),
+                (215_450, 215_620),
+                (215_890, 216_244),
+                (216_514, 216_868),
+                (217_138, 217_492),
+                (217_762, 218_116),
             ],
             "ASM sub_E13DA owns the bus for the driver copy, then each sub_E149C/sub_E14AC call reacquires it separately"
         );
@@ -1874,7 +2117,7 @@ mod tests {
                 timing.reset_assert_complete_raw_offset.get(),
                 timing.reset_release_complete_raw_offset.get(),
             ),
-            (214_494, 214_814),
+            (214_484, 214_804),
             "ASM sub_E1416 resets the Z80 before releasing the copy window"
         );
     }
@@ -1887,7 +2130,7 @@ mod tests {
         })
         .expect("positive poll counts");
 
-        assert_eq!(timing.raw_cycles.get(), 218_316);
+        assert_eq!(timing.raw_cycles.get(), 218_306);
         assert_eq!(
             (
                 timing.bus_windows[0].request_complete_raw_offset.get(),
@@ -1898,7 +2141,7 @@ mod tests {
                 timing.bus_windows[2].release_complete_raw_offset.get(),
                 timing.bus_windows[3].request_complete_raw_offset.get(),
             ),
-            (104, 214_824, 215_054, 215_224, 215_490, 215_720, 215_990,),
+            (104, 214_814, 215_044, 215_214, 215_480, 215_710, 215_980,),
             "ASM Stop_z80/sub_E143A bus-poll repeats add 30 raw cycles without moving the already-completed bus request"
         );
         assert_eq!(
@@ -1906,7 +2149,7 @@ mod tests {
                 timing.reset_assert_complete_raw_offset.get(),
                 timing.reset_release_complete_raw_offset.get(),
             ),
-            (214_524, 214_844)
+            (214_514, 214_834)
         );
         assert_eq!(
             gems_stop_music_timing(GemsStopMusicBusAckPolls {
@@ -1938,6 +2181,59 @@ mod tests {
             .get(),
             229_570,
             "the frame-867 trace is pure StopMusic plus 8,226 Z80-RAM waits, V_Int entry/handler, and 1,507 refresh waits"
+        );
+    }
+
+    #[test]
+    fn stop_music_event_schedule_injects_vint_without_moving_source_offsets_e14c8() {
+        let elapsed = gems_stop_music_elapsed_timing(
+            GemsStopMusicBusAckPolls {
+                driver_copy_sub_e13da: 1,
+                queue_transactions_sub_e143a: [1; 6],
+            },
+            M68kRefreshPhase::new(14).expect("trace entry phase"),
+            &[M68kCycleCount::from_raw(108_848)],
+        )
+        .expect("frame-867 VINT falls on a StopMusic instruction boundary");
+
+        assert_eq!(elapsed.elapsed_cycles.get(), 229_570);
+        assert_eq!(elapsed.refresh_wait_events, 1_507);
+        assert_eq!(elapsed.phase_after.get(), 80);
+        assert_eq!(
+            elapsed.bus_windows.map(|window| (
+                window.request_complete_elapsed_offset.get(),
+                window.release_complete_elapsed_offset.get(),
+            )),
+            [
+                (104, 226_048),
+                (226_282, 226_459),
+                (226_729, 226_904),
+                (227_178, 227_545),
+                (227_819, 228_186),
+                (228_460, 228_827),
+                (229_101, 229_468),
+            ],
+            "ASM sub_E13DA/sub_E143A windows retain VINT, refresh, and Z80-RAM waits on the elapsed timeline"
+        );
+        assert_eq!(
+            (
+                elapsed.reset_assert_complete_elapsed_offset.get(),
+                elapsed.reset_release_complete_elapsed_offset.get(),
+            ),
+            (225_744, 226_070),
+            "ASM sub_E1416 reset edges bracket the driver-bus release"
+        );
+        assert!(
+            gems_stop_music_elapsed_timing(
+                GemsStopMusicBusAckPolls {
+                    driver_copy_sub_e13da: 1,
+                    queue_transactions_sub_e143a: [1; 6],
+                },
+                M68kRefreshPhase::new(14).expect("trace entry phase"),
+                &[M68kCycleCount::from_raw(108_849)],
+            )
+            .is_none(),
+            "VINT must be injected at a real StopMusic instruction boundary"
         );
     }
 
