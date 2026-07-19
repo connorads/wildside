@@ -9679,12 +9679,12 @@ impl NativeRuntime {
             .count()
             .try_into()
             .expect("platform Object list fits the ROM u16 count");
-        let read_joypad_path = if matches!(self.boot_state, BootState::DemoPlay { .. }) {
-            ModeLevelReadJoypadPath::DemoPlaybackLocC22
+        let read_joypad_work = if matches!(self.boot_state, BootState::DemoPlay { .. }) {
+            ModeLevelReadJoypadWork::DemoPlaybackLocC22(self.demo_read_joypad_work_loc_c22)
         } else if self.options_two_player_two_controllers && self.current_player_index != 0 {
-            ModeLevelReadJoypadPath::SecondControllerLocB98
+            ModeLevelReadJoypadWork::SecondControllerLocB98
         } else {
-            ModeLevelReadJoypadPath::FirstControllerLocB8c
+            ModeLevelReadJoypadWork::FirstControllerLocB8c
         };
         let enemy_loading_path = if matches!(self.boot_state, BootState::DemoPlay { .. })
             && self.current_level != LevelId(demo::DEMO_1_LEVEL)
@@ -9720,7 +9720,7 @@ impl NativeRuntime {
                 ModeLevelPostHudPhase::MakeSpritesFromPlatforms,
             ],
             enemy_loading_path,
-            read_joypad_path,
+            read_joypad_work,
             enemy_loading_initial_pass_complete: self.enemy_loading_initial_pass_complete,
             linked_gfx_object_count,
             active_platform_object_count,

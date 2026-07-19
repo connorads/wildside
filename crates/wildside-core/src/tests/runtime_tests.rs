@@ -228,7 +228,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                 frame_index,
                 ledger.phases.clone(),
                 ledger.enemy_loading_path,
-                ledger.read_joypad_path,
+                ledger.read_joypad_work,
                 ledger.enemy_loading_initial_pass_complete,
                 ledger.linked_gfx_object_count,
                 ledger.active_platform_object_count,
@@ -252,12 +252,38 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             (
                 &expected_phases,
                 ModeLevelEnemyLoadingPath::DemoNonKnightsReturnLoc3682a,
-                ModeLevelReadJoypadPath::DemoPlaybackLocC22,
+                ModeLevelReadJoypadWork::DemoPlaybackLocC22(Some(
+                    ModeLevelDemoReadJoypadWorkLocC22 {
+                        counter_before_increment: 723,
+                        advances_keypress_pointer: true,
+                    },
+                )),
                 false,
-            );
-            3
+            ),
+            (
+                &expected_phases,
+                ModeLevelEnemyLoadingPath::DemoNonKnightsReturnLoc3682a,
+                ModeLevelReadJoypadWork::DemoPlaybackLocC22(Some(
+                    ModeLevelDemoReadJoypadWorkLocC22 {
+                        counter_before_increment: 729,
+                        advances_keypress_pointer: true,
+                    },
+                )),
+                false,
+            ),
+            (
+                &expected_phases,
+                ModeLevelEnemyLoadingPath::DemoNonKnightsReturnLoc3682a,
+                ModeLevelReadJoypadWork::DemoPlaybackLocC22(Some(
+                    ModeLevelDemoReadJoypadWorkLocC22 {
+                        counter_before_increment: 735,
+                        advances_keypress_pointer: true,
+                    },
+                )),
+                false,
+            ),
         ],
-        "ASM Mode_Level loc_80C..loc_892 source order and controller path",
+        "ASM Mode_Level loc_80C..loc_892 source order and ReadJoypad loc_C22 work",
     );
     assert_eq!(
         observed

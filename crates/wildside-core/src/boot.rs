@@ -5807,6 +5807,24 @@ impl NativeRuntime {
         }
     }
 
+    /// ASM `ReadJoypad loc_C22` (kid.asm): classify the stored demo counter
+    /// before its increment and the following `Demo_Keypress_Ptr` branch.
+    fn demo_read_joypad_work_loc_c22(
+        frame_counter: u16,
+        use_demo_2: bool,
+    ) -> ModeLevelDemoReadJoypadWorkLocC22 {
+        // Native's startup choreography counter is sampled at frame entry.
+        // `demo_timeout_counter` maps it to the post-increment `$FFFFFBC2`
+        // value; the post-HUD loc_C22 observation needs the preceding value.
+        let counter_before_increment =
+            Self::demo_timeout_counter(frame_counter, use_demo_2).saturating_sub(1);
+        ModeLevelDemoReadJoypadWorkLocC22 {
+            counter_before_increment,
+            // ASM: addq.w #1,d7; andi.w #1,d7; bne.s loc_C4E.
+            advances_keypress_pointer: counter_before_increment & 1 != 0,
+        }
+    }
+
     fn demo_auto_timeout_reached(&self, frame_counter: u16, use_demo_2: bool) -> bool {
         if !use_demo_2 && self.demo_uses_intro_sequence_6_timeout_return_velocity_sample {
             // ASM ReadJoypad loc_C0A (kid.asm:1379) owns the demo timeout
@@ -6804,6 +6822,10 @@ impl NativeRuntime {
             self.begin_demo_gameplay(level_id);
         }
         if frame_counter + 1 < gameplay_start_frame {
+            self.demo_read_joypad_work_loc_c22 = Some(Self::demo_read_joypad_work_loc_c22(
+                frame_counter,
+                use_demo_2,
+            ));
             if let BootState::DemoPlay { frame_counter, .. } = &mut self.boot_state {
                 *frame_counter += 1;
             }
@@ -6827,6 +6849,11 @@ impl NativeRuntime {
         // separately in update_demo_transform_parity().
         if self.progression.pending_form.is_none() && self.progression.form_change_flash_frames == 0
         {
+            let playback_frame = frame_counter - (gameplay_start_frame - 1);
+            self.demo_read_joypad_work_loc_c22 = Some(Self::demo_read_joypad_work_loc_c22(
+                frame_counter,
+                use_demo_2,
+            ));
             self.demo_buffered_input = Some(demo_input);
             // Advance data pointer every 2 frames (ASM: `andi.w #1,d7; bne`)
             if let BootState::DemoPlay {
@@ -6835,7 +6862,6 @@ impl NativeRuntime {
                 ..
             } = &mut self.boot_state
             {
-                let playback_frame = *frame_counter - (gameplay_start_frame - 1);
                 *frame_counter += 1;
                 if playback_frame % 2 == 1 {
                     *data_index += 1;

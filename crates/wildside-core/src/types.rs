@@ -2154,13 +2154,22 @@ pub enum ModeLevelPostHudPhase {
     MakeSpritesFromPlatforms,
 }
 
-/// Controller branch selected by ASM `ReadJoypad` inside `Mode_Level`.
+/// ASM `ReadJoypad loc_C22` demo-stream work inside `Mode_Level`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelDemoReadJoypadWorkLocC22 {
+    /// Demo frame counter `$FFFFFBC2` before `addq.w #1,d7`.
+    pub counter_before_increment: u16,
+    /// Whether the post-increment even counter advances `Demo_Keypress_Ptr`.
+    pub advances_keypress_pointer: bool,
+}
+
+/// Controller work selected by ASM `ReadJoypad` inside `Mode_Level`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ModeLevelReadJoypadPath {
+pub enum ModeLevelReadJoypadWork {
     FirstControllerLocB8c,
     SecondControllerLocB98,
-    DemoPlaybackLocC22,
+    DemoPlaybackLocC22(Option<ModeLevelDemoReadJoypadWorkLocC22>),
 }
 
 /// Branch selected by ASM `Manage_EnemyLoading` at `loc_36814`.
@@ -2180,7 +2189,7 @@ pub enum ModeLevelEnemyLoadingPath {
 pub struct ModeLevelPostHudWorkLedger {
     pub phases: Vec<ModeLevelPostHudPhase>,
     pub enemy_loading_path: ModeLevelEnemyLoadingPath,
-    pub read_joypad_path: ModeLevelReadJoypadPath,
+    pub read_joypad_work: ModeLevelReadJoypadWork,
     /// ASM `$FFFFFB51` after the selected `Manage_EnemyLoading` path.
     pub enemy_loading_initial_pass_complete: bool,
     /// Linked list consumed by both `GfxObjects_MoveAndAnimate` and
