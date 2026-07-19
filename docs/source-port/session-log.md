@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 Mode-entry raster boundary)
+
+- `V_Int $488 -> Mode_Level $7C8` is 162 source cycles when the saved PC is
+  `$93E`, or 172 when stale `$942` loops once, plus 2-cycle refresh events
+  and 11-cycle Z80 68k-bus steals.
+- The final VDP-owned re-entry is H-scroll DMA `loc_30104`, not either earlier
+  dynamic-art `$B30` run. Its ordered 1,240-cycle suffix resets and advances
+  the jgenesis refresh counter to phase 88 on all three targets.
+- A typed Mode-entry beam now derives the exact `$E12` seed and production
+  frame-1697 life commit 42:380. Full TAS remains 26,382 exact / 11,377
+  divergent with no authoritative state differences.
+- Normal gameplay still has no automatic boundary. NEXT: persist the
+  WaitForVint poll instruction, interrupt recognition, pending-wait cause,
+  and Z80 bus-access schedule; do not use a route/frame lookup.
+
+---
+
 ## 2026-07-19 handoff (#409 explicit E12 raster boundary)
 
 - The natural `$7C8 -> sub_E12` path is 3,415 source cycles on all three

@@ -306,6 +306,25 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: `V_Int $488 -> Mode_Level $7C8` now has two typed
+source paths: 162 cycles when the exception-stack return PC is the hot poll
+`$93E`, or 172 when saved PC `$942` takes one stale branch before re-reading
+`V_Int_Done`. Processed refresh events add two cycles each and asynchronous
+Z80 68k-bus steals add eleven. The natural VBlank transition now starts from
+an explicit Mode-entry beam rather than injecting `$E12` directly. The final
+VDP-owned CPU re-entry is H-scroll DMA `loc_30104`; the earlier `$B30`
+sprite/dynamic-art runs are not the final reset. From the correct reset the
+ordered suffix is 16 raw cycles, 60 pending VDP-wait cycles, then 1,146 raw
+cycles plus 18 refresh cycles. It reaches `$E12` after 1,240 cycles with the
+directly sampled jgenesis refresh counter at 88 on frames 1697/1703/1709.
+The cache-backed production regression derives frame 1697's life first
+commit 42:380 from the Mode-entry beam. `mise run verify-tas-full` remains
+26,382 exact / 11,377 divergent / 3,620,978 changed pixels, with zero
+authoritative gameplay, enemy, or RNG differences. Normal gameplay remains
+deliberately unseeded. Next carry the WaitForVint poll instruction boundary,
+interrupt state, pending-wait cause, and Z80 bus-access schedule so it can
+produce the Mode-entry beam without a route lookup.
+
 Progress 2026-07-19: instruction-level oracle accounting separates the
 natural `Mode_Level $7C8 -> Execute_Objects sub_E12` interval into 3,415
 source cycles, VDP-owned CPU halt re-entries, 2,002 processed pending VDP
