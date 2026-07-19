@@ -203,6 +203,28 @@ pub struct ModeLevelTailStateLoc892 {
     background_upload_busy_fb49: u8,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelTailInputsLoc892<'a> {
+    pub camera_x_pos: u16,
+    pub camera_y_pos: u16,
+    pub time_frames_before_loc_3038a: u16,
+    pub game_mode_zero: bool,
+    pub special_effect_4: bool,
+    pub background_width: u16,
+    pub background_format_nonzero: bool,
+    pub background_no_scroll: bool,
+    pub background_theme: u16,
+    pub bgscroll_profile: &'a [u8],
+    pub bgscroll_has_terminator: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelTailAdvanceLoc892 {
+    pub next_state: ModeLevelTailStateLoc892,
+    pub next_time_frames: u16,
+    pub work: Option<ModeLevelTailWorkLoc892>,
+}
+
 impl ModeLevelTailStateLoc892 {
     /// ASM `GameProgram loc_5FE/loc_604` and `loc_720` clear these WRAM words.
     pub const fn power_on_zero() -> Self {
@@ -254,6 +276,132 @@ impl ModeLevelTailStateLoc892 {
 
     pub const fn background_upload_busy_fb49(&self) -> u8 {
         self.background_upload_busy_fb49
+    }
+
+    /// Gather/decide transition for ASM `Mode_Level loc_892`.
+    pub fn advance_loc_892(
+        self,
+        inputs: ModeLevelTailInputsLoc892<'_>,
+    ) -> ModeLevelTailAdvanceLoc892 {
+        let mut next_state = self;
+        let camera_stripe_sub_30194 = if (self.camera_x_latch_f82c >> 3)
+            == (inputs.camera_x_pos >> 3)
+            && ((self.camera_y_latch_f82e as i16) >> 3) == ((inputs.camera_y_pos as i16) >> 3)
+        {
+            ModeLevelTailCameraStripeSub30194::BothTileAxesUnchanged
+        } else {
+            ModeLevelTailCameraStripeSub30194::Streaming
+        };
+        // ASM sub_30194 loc_302E8 updates both latches after either axis path.
+        next_state.camera_x_latch_f82c = inputs.camera_x_pos;
+        next_state.camera_y_latch_f82e = inputs.camera_y_pos;
+
+        let palette_sub_14c0 =
+            if self.pending_palette_0_mask_f888 == 0 && self.pending_palette_1_mask_f88c == 0 {
+                ModeLevelTailPaletteWorkSub14C0::Inactive
+            } else {
+                ModeLevelTailPaletteWorkSub14C0::Active
+            };
+        // ASM sub_14C0 consumes both shared masks before returning.
+        next_state.pending_palette_0_mask_f888 = 0;
+        next_state.pending_palette_1_mask_f88c = 0;
+
+        if inputs.special_effect_4 {
+            return ModeLevelTailAdvanceLoc892 {
+                next_state,
+                next_time_frames: inputs.time_frames_before_loc_3038a,
+                work: None,
+            };
+        }
+
+        let next_time_frames = if inputs.game_mode_zero {
+            inputs.time_frames_before_loc_3038a
+        } else {
+            inputs.time_frames_before_loc_3038a.wrapping_add(1)
+        };
+        let Some(shift_advance) = self.shift_data_loc_30452.advance_loc_30452(
+            inputs.camera_x_pos,
+            next_time_frames,
+            inputs.background_width,
+        ) else {
+            return ModeLevelTailAdvanceLoc892 {
+                next_state,
+                next_time_frames,
+                work: None,
+            };
+        };
+        next_state.shift_data_loc_30452 = shift_advance.next_state;
+
+        let shift_layers = if !inputs.background_no_scroll
+            && (inputs.camera_y_pos >> 2).is_multiple_of(8)
+            && !matches!(inputs.background_theme, 5 | 9)
+        {
+            ModeLevelTailShiftLayersWork::NormalAlignedNoRipple { full_rows: 28 }
+        } else {
+            ModeLevelTailShiftLayersWork::Other
+        };
+
+        let background_upload_busy_fb49 = self.background_upload_busy_fb49 != 0;
+        let mut piece_rows_sub_30744 = ModeLevelTailPieceRowsSub30744 {
+            entries_before_sentinel: 0,
+            rendered_nonnegative_entries: 0,
+        };
+        let mut piece_refresh_sub_307d8 = ModeLevelTailPieceRefreshSub307D8::Streaming;
+        let mut profile_classified = true;
+        if !background_upload_busy_fb49 && !inputs.background_format_nonzero {
+            let camera_row = usize::from(inputs.camera_y_pos >> 5);
+            for row in 0..29_usize {
+                let profile_index = camera_row + row;
+                let Some(&selector) = inputs.bgscroll_profile.get(profile_index) else {
+                    if !inputs.bgscroll_has_terminator {
+                        profile_classified = false;
+                    }
+                    break;
+                };
+                if selector == 0xFF {
+                    break;
+                }
+                if !selector.is_multiple_of(8) || usize::from(selector / 8) >= 19 {
+                    profile_classified = false;
+                    break;
+                }
+                piece_rows_sub_30744.entries_before_sentinel += 1;
+                if shift_advance.work[usize::from(selector / 8)]
+                    != ModeLevelTailShiftDataSlotLoc30452::Unchanged
+                {
+                    piece_rows_sub_30744.rendered_nonnegative_entries += 1;
+                }
+            }
+
+            let current_row = (inputs.camera_y_pos as i16) >> 5;
+            piece_refresh_sub_307d8 = if self.background_row_latch_faa8 == current_row {
+                ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged
+            } else {
+                ModeLevelTailPieceRefreshSub307D8::Streaming
+            };
+            next_state.background_row_latch_faa8 = current_row;
+        }
+
+        let work = profile_classified.then_some(ModeLevelTailWorkLoc892 {
+            camera_stripe_sub_30194,
+            background_loc_3038a: ModeLevelTailBackgroundWorkLoc3038A {
+                special_effect_4: false,
+                game_mode_zero: inputs.game_mode_zero,
+                background_upload_busy_fb49,
+                background_format_nonzero: inputs.background_format_nonzero,
+                shift_data_slots_loc_30452: shift_advance.work,
+                shift_layers,
+                piece_rows_sub_30744,
+                piece_refresh_sub_307d8,
+            },
+            palette_sub_14c0,
+        });
+
+        ModeLevelTailAdvanceLoc892 {
+            next_state,
+            next_time_frames,
+            work,
+        }
     }
 }
 
@@ -1530,6 +1678,89 @@ mod tests {
         );
         assert_eq!(state.pending_palette_masks_f888_f88c(), (0, 0));
         assert_eq!(state.background_upload_busy_fb49(), 0);
+    }
+
+    #[test]
+    fn mode_level_tail_state_loc_892_derives_the_three_published_work_ledgers() {
+        let profile = [
+            0x60, 0x60, 0x50, 0x50, 0x50, 0x70, 0x70, 0x40, 0x40, 0x40, 0x60, 0x60, 0x60, 0x60,
+            0x60, 0x60, 0x40, 0x40, 0x40, 0x40, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x70, 0x70,
+            0x70,
+        ];
+        let cases = [
+            (
+                [
+                    0x02F6, 0x018D, 0x0000, 0x0012, 0x0024, 0x0036, 0x0048, 0x005A, 0x006D, 0x007F,
+                    0x0091, 0x00A3, 0x00B5, 0x00C8, 0x00DA, 0x00EC, 0x00FE, 0x0110, 0x0123,
+                ],
+                0x02D2,
+                0x0121,
+                29,
+                12_852,
+            ),
+            (
+                [
+                    0x02FA, 0x018E, 0x0000, 0x0011, 0x0022, 0x0034, 0x0045, 0x0057, 0x0068, 0x007A,
+                    0x008B, 0x009C, 0x00AE, 0x00BF, 0x00D1, 0x00E2, 0x00F4, 0x0105, 0x0117,
+                ],
+                0x02D8,
+                0x0115,
+                29,
+                13_080,
+            ),
+            (
+                [
+                    0x02FF, 0x0190, 0x0000, 0x0010, 0x0021, 0x0032, 0x0043, 0x0053, 0x0064, 0x0075,
+                    0x0086, 0x0096, 0x00A7, 0x00B8, 0x00C9, 0x00D9, 0x00EA, 0x00FB, 0x010C,
+                ],
+                0x02DE,
+                0x010B,
+                22,
+                12_310,
+            ),
+        ];
+
+        for (previous, time_frames, camera_x_pos, rendered_rows, raw_cycles) in cases {
+            let state = ModeLevelTailStateLoc892 {
+                camera_x_latch_f82c: camera_x_pos,
+                camera_y_latch_f82e: 0,
+                background_row_latch_faa8: 0,
+                shift_data_loc_30452:
+                    ModeLevelTailShiftDataStateLoc30452::from_previous_scroll_words(previous),
+                pending_palette_0_mask_f888: 0,
+                pending_palette_1_mask_f88c: 0,
+                background_upload_busy_fb49: 0,
+            };
+            let advance = state.advance_loc_892(ModeLevelTailInputsLoc892 {
+                camera_x_pos,
+                camera_y_pos: 0,
+                time_frames_before_loc_3038a: time_frames,
+                game_mode_zero: false,
+                special_effect_4: false,
+                background_width: 0x005A,
+                background_format_nonzero: false,
+                background_no_scroll: false,
+                background_theme: 1,
+                bgscroll_profile: &profile,
+                bgscroll_has_terminator: true,
+            });
+            let work = advance.work.expect("published target tail is classified");
+
+            assert_eq!(
+                work.background_loc_3038a
+                    .piece_rows_sub_30744
+                    .rendered_nonnegative_entries,
+                rendered_rows,
+                "ASM sub_30744 resource-$27 profile multiplicities select changed slots",
+            );
+            assert_eq!(
+                mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(&work)
+                    .expect("published target has no external tail wait")
+                    .get(),
+                raw_cycles,
+            );
+            assert_eq!(advance.next_time_frames, time_frames + 1);
+        }
     }
 
     #[test]
