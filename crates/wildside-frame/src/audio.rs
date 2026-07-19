@@ -13,7 +13,10 @@ use wildside_core::{GameMode, LevelId, NativeSoundCommand, NativeTraceFrame};
 use wildside_core::{
     GemsQueueCommandAdvance, GemsQueueCommandPath, GemsStopMusicElapsedTiming, HudDmaEventSub44DC,
     LoadInGameTimerBonusPath, M68kCycleCount, M68kRefreshPhase,
-    vdp::{LoadInGameCpuRasterCursor, ModeLevelCpuRasterCursor},
+    vdp::{
+        LoadInGameCpuRasterCursor, LoadInGamePlatformInitialisationAdvance,
+        LoadInGamePlatformRefreshLedger, LoadInGamePlatformVintEvent, ModeLevelCpuRasterCursor,
+    },
 };
 #[cfg(feature = "audio")]
 use wildside_data::AssetSource;
@@ -673,6 +676,49 @@ pub fn apply_gems_load_in_game_stop_music_tail(
         beam: entry.beam.advance_m68k_cycles(advance.elapsed),
         refresh_phase: advance.phase_after,
     })
+}
+
+/// Clock persistent GEMS through `Initialize_Platforms sub_231C`.
+///
+/// Decoder/source spans and the exact `loc_14314` FIFO timeline share the
+/// CPU/raster schedule. The adapter rejects an unowned interval which
+/// generates a 68000 bank wait; those paths require a decoder instruction
+/// visitor before their next source instruction can be positioned safely.
+#[cfg(feature = "audio")]
+pub fn apply_gems_load_in_game_platform_initialisation(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    vint: Option<LoadInGamePlatformVintEvent>,
+    refresh: LoadInGamePlatformRefreshLedger,
+) -> Option<LoadInGamePlatformInitialisationAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::load_in_game_platform_initialisation_cursor_from_entry_with_hardware(
+        entry,
+        vint,
+        refresh,
+        |cycles, vdp_owns_bus| {
+            let advance = audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                u64::from(cycles.get()) * 7,
+                vdp_owns_bus,
+            );
+            (advance.pending_m68k_wait_cycles == 0).then_some(())
+        },
+    )
+}
+
+/// Clock `Load_InGame $11A0E..$11A24` up to `StopMusic $E14C8`.
+#[cfg(feature = "audio")]
+pub fn apply_gems_load_in_game_to_stop_music_entry(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    vint: Option<LoadInGamePlatformVintEvent>,
+    refresh: LoadInGamePlatformRefreshLedger,
+    timer_path: LoadInGameTimerBonusPath,
+) -> Option<LoadInGameCpuRasterCursor> {
+    let platforms = apply_gems_load_in_game_platform_initialisation(audio, entry, vint, refresh)?;
+    apply_gems_load_in_game_stop_music_tail(audio, platforms.cursor, timer_path)
 }
 
 /// Execute an already-positioned ASM `StopMusic` schedule on the persistent
@@ -1625,15 +1671,16 @@ mod tests {
         .expect("frame-867 StopMusic schedule");
         let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
         let load_in_game_cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
-            beam: wildside_core::vdp::H40BeamPosition::new(151, 428)
-                .expect("Load_InGame call beam"),
-            refresh_phase: wildside_core::M68kRefreshPhase::new(44)
+            beam: wildside_core::vdp::H40BeamPosition::new(151, 432)
+                .expect("published-route Load_InGame absolute-cycle beam"),
+            refresh_phase: wildside_core::M68kRefreshPhase::new(116)
                 .expect("Load_InGame refresh phase"),
         };
         let load_in_game_frame_cursor =
             wildside_core::vdp::ntsc_vblank_cursor_from_h40_beam(load_in_game_cursor.beam);
         engine.advance_ntsc_master_clocks(u64::from(load_in_game_frame_cursor.get()));
-        let platforms = wildside_core::vdp::load_in_game_platform_initialisation_cursor_from_entry(
+        let entry_cursor = apply_gems_load_in_game_to_stop_music_entry(
+            &mut engine,
             load_in_game_cursor,
             Some(wildside_core::vdp::LoadInGamePlatformVintEvent {
                 vertical_decoder_raw_offset: M68kCycleCount::from_raw(9_424),
@@ -1648,24 +1695,13 @@ mod tests {
                 vertical_decoder_after_vint: 40,
                 epilogue: 0,
             },
+            wildside_core::LoadInGameTimerBonusPath::Initialise,
         )
-        .expect("frame-866 platform-art schedule");
-        engine.advance_ntsc_master_clocks(u64::from(platforms.elapsed.get()) * 7);
+        .expect("published-route Load_InGame to StopMusic schedule");
         assert_eq!(
-            engine.master_clock() % (3_420 * 262),
-            u64::from(
-                wildside_core::vdp::ntsc_vblank_cursor_from_h40_beam(platforms.cursor.beam).get()
-            )
-        );
-
-        let tail = wildside_core::load_in_game_stop_music_tail_advance(
-            platforms.cursor.refresh_phase,
-            wildside_core::LoadInGameTimerBonusPath::Initialise,
-        );
-        engine.advance_ntsc_master_clocks(u64::from(tail.elapsed.get()) * 7);
-        let entry_cursor = wildside_core::vdp::load_in_game_stop_music_cursor_from_sub_28fc(
-            platforms.cursor,
-            wildside_core::LoadInGameTimerBonusPath::Initialise,
+            entry_cursor.beam,
+            wildside_core::vdp::H40BeamPosition::new(250, 1_219)
+                .expect("oracle StopMusic absolute-cycle beam"),
         );
         assert_eq!(
             engine.master_clock() % (3_420 * 262),
@@ -1686,8 +1722,8 @@ mod tests {
     #[test]
     fn load_in_game_tail_adapter_reaches_stop_music_e14c8_with_halted_z80() {
         let entry = wildside_core::vdp::LoadInGameCpuRasterCursor {
-            beam: wildside_core::vdp::H40BeamPosition::new(250, 1_222)
-                .expect("Load_InGame tail entry beam"),
+            beam: wildside_core::vdp::H40BeamPosition::new(243, 2_563)
+                .expect("published-route Load_InGame tail entry beam"),
             refresh_phase: wildside_core::M68kRefreshPhase::new(114)
                 .expect("Load_InGame tail entry phase"),
         };
@@ -1718,6 +1754,41 @@ mod tests {
             ) * 7,
             "ASM Load_InGame $11A12..$11A24 clocks GEMS through every source and refresh interval",
         );
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn platform_adapter_rejects_unpositioned_decoder_gems_waits() {
+        // ASM Initialize_Platforms sub_231C -> Decompress_Chunk and GEMS
+        // XFER68K $0285: fixed decoder spans cannot place a generated 68000
+        // wait until their instruction visitor exists.
+        let driver = [0x3A, 0x00, 0x80, 0xC3, 0x00, 0x00];
+        let mut engine = GemsMasterClockTimingEngine::new(&driver, vec![0; 0x8001]);
+        let advance = apply_gems_load_in_game_platform_initialisation(
+            &mut engine,
+            wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::H40BeamPosition::new(151, 432)
+                    .expect("published-route entry beam"),
+                refresh_phase: wildside_core::M68kRefreshPhase::new(116)
+                    .expect("published-route entry phase"),
+            },
+            Some(wildside_core::vdp::LoadInGamePlatformVintEvent {
+                vertical_decoder_raw_offset: M68kCycleCount::from_raw(9_424),
+            }),
+            wildside_core::vdp::LoadInGamePlatformRefreshLedger {
+                prelude: 7,
+                horizontal_decoder: 115,
+                between_uploads: 0,
+                vertical_decoder_before_vint: 75,
+                vint_exception: 0,
+                vint_handler: 1,
+                vertical_decoder_after_vint: 40,
+                epilogue: 0,
+            },
+        );
+
+        assert!(advance.is_none());
+        assert_ne!(engine.pending_m68k_wait_cycles(), 0);
     }
 
     #[cfg(feature = "audio")]

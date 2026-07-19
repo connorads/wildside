@@ -321,7 +321,19 @@ impl GemsMasterClockTimingEngine {
 
     /// Advance an arbitrary interval on the persistent VBlank-to-VBlank NTSC
     /// timeline, splitting it where the VDP changes the Z80 interrupt line.
-    pub fn advance_ntsc_master_clocks(&mut self, mut master_clocks: u64) -> GemsMasterClockAdvance {
+    pub fn advance_ntsc_master_clocks(&mut self, master_clocks: u64) -> GemsMasterClockAdvance {
+        self.advance_ntsc_master_clocks_with_vdp_ownership(master_clocks, false)
+    }
+
+    /// Advance an NTSC interval with constant VDP ownership of the 68000 bus.
+    ///
+    /// `loc_14314` FIFO retries use this for their one-cycle halted ticks.
+    /// Z80 interrupt edges still follow the scanline-224 VBlank timeline.
+    pub fn advance_ntsc_master_clocks_with_vdp_ownership(
+        &mut self,
+        mut master_clocks: u64,
+        vdp_owns_bus: bool,
+    ) -> GemsMasterClockAdvance {
         const MASTER_CLOCKS_PER_FRAME: u64 =
             MASTER_CLOCKS_PER_SCANLINE * NTSC_SCANLINES_PER_FRAME as u64;
         let mut reads = Vec::new();
@@ -337,7 +349,7 @@ impl GemsMasterClockTimingEngine {
                 self.advance_continuous_master_clocks(
                     elapsed,
                     vdp_scanline == NTSC_ACTIVE_SCANLINES,
-                    false,
+                    vdp_owns_bus,
                 )
                 .banked_68k_reads,
             );
@@ -855,6 +867,25 @@ mod tests {
         assert_eq!(split_reads, whole_reads);
         assert_eq!(split.master_clock(), whole.master_clock());
         assert_eq!(split.z80_pc(), whole.z80_pc());
+    }
+
+    #[test]
+    fn ntsc_vdp_owned_interval_halts_banked_z80_without_68000_wait() {
+        // GEMS XFER68K $0273/$0285 during ASM loc_14314: jgenesis records
+        // the bank read but halts the Z80 instead of stalling the 68000 while
+        // the VDP owns the bus.
+        let driver = [0x3A, 0x00, 0x80, 0xC3, 0x00, 0x00];
+        let mut rom = vec![0; 0x8001];
+        rom[0] = 0x5A;
+        let mut engine = GemsMasterClockTimingEngine::new(&driver, rom);
+
+        let owned = engine.advance_ntsc_master_clocks_with_vdp_ownership(1_000, true);
+
+        assert!(!owned.banked_68k_reads.is_empty());
+        assert_eq!(owned.pending_m68k_wait_cycles, 0);
+        assert!(engine.checkpoint().z80_halt);
+        engine.advance_ntsc_master_clocks_with_vdp_ownership(15, false);
+        assert!(!engine.checkpoint().z80_halt);
     }
 
     #[test]
