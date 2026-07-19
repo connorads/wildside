@@ -1709,6 +1709,21 @@ impl NativeRuntime {
         self.seed_mode_level_raster_mode_entry(mode_entry, work, arbitration)
     }
 
+    /// Seed the first ASM `WaitForVint $93E` poll on a path with no
+    /// asynchronous Z80 access to the 68k bus.
+    pub fn seed_mode_level_raster_wait_for_vint_poll_no_z80(
+        &mut self,
+        poll: vdp::WaitForVintPollSeedNoZ80,
+        assertion: vdp::ModeLevelRasterSeedVintAssertion,
+        work: ModeLevelVblankWorkBeforeSubE12,
+        arbitration: ModeLevelVblankArbitrationBeforeSubE12,
+    ) -> bool {
+        let Some(sample) = vdp::wait_for_vint_sample_without_z80_bus_access(poll, assertion) else {
+            return false;
+        };
+        self.seed_mode_level_raster_vint_assertion(assertion, sample, work, arbitration)
+    }
+
     pub fn set_playtest_form(&mut self, form: PlayerForm) {
         self.progression.current_form = form;
         self.progression.number_hitpoints = form.max_hitpoints();

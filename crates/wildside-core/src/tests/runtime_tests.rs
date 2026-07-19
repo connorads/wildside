@@ -22,6 +22,35 @@ fn cached_any_percent_demo_runtime_and_script() -> Option<(NativeRuntime, Vec<u8
     cached_tas_runtime_and_script("kc_any_percent_2024")
 }
 
+fn published_natural_vblank_work() -> ModeLevelVblankWorkBeforeSubE12 {
+    ModeLevelVblankWorkBeforeSubE12 {
+        dynamic_art_tiles_loc_ad4: [16, 4],
+        palette_dma_sub_970: true,
+        scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
+        foreground_custom_queue_entries_sub_1596: 0,
+        foreground_cell_queue_entries_sub_1596: 0,
+        paused_sub_6874: false,
+        hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
+    }
+}
+
+fn published_vblank_arbitration(
+    vdp_bus_halt_cycles: u32,
+    refresh_wait_cycles: u32,
+) -> ModeLevelVblankArbitrationBeforeSubE12 {
+    ModeLevelVblankArbitrationBeforeSubE12 {
+        vdp_bus_halt_cycles,
+        vdp_pending_wait_cycles: 2_002,
+        refresh_wait_cycles,
+        refresh_suffix_after_final_vdp_ownership:
+            ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership {
+                raw_cycles_before_pending_wait: 16,
+                pending_wait_cycles: 60,
+                raw_cycles_after_pending_wait: 1_146,
+            },
+    }
+}
+
 #[test]
 fn published_tas_frame_1697_vint_sample_drives_life_icon_raster_timing_sub_e12() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
@@ -47,26 +76,8 @@ fn published_tas_frame_1697_vint_sample_drives_life_icon_raster_timing_sub_e12()
                         z80_68k_bus_steals: 0,
                     },
                 },
-                ModeLevelVblankWorkBeforeSubE12 {
-                    dynamic_art_tiles_loc_ad4: [16, 4],
-                    palette_dma_sub_970: true,
-                    scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
-                    foreground_custom_queue_entries_sub_1596: 0,
-                    foreground_cell_queue_entries_sub_1596: 0,
-                    paused_sub_6874: false,
-                    hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
-                },
-                ModeLevelVblankArbitrationBeforeSubE12 {
-                    vdp_bus_halt_cycles: 3_383,
-                    vdp_pending_wait_cycles: 2_002,
-                    refresh_wait_cycles: 46,
-                    refresh_suffix_after_final_vdp_ownership:
-                        ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership {
-                            raw_cycles_before_pending_wait: 16,
-                            pending_wait_cycles: 60,
-                            raw_cycles_after_pending_wait: 1_146,
-                        },
-                },
+                published_natural_vblank_work(),
+                published_vblank_arbitration(3_383, 46),
             ));
         }
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
@@ -86,6 +97,72 @@ fn published_tas_frame_1697_vint_sample_drives_life_icon_raster_timing_sub_e12()
             first_commit_pixel: 380,
         }]),
         "ASM sub_44DC loc_4586 first commits after visible line 42"
+    );
+}
+
+#[test]
+fn published_tas_no_z80_polls_drive_frames_1703_and_1709_life_icon_timing() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut timings = Vec::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1710) {
+        let poll = match frame_index {
+            1_703 => Some((107, 442, 78, 3_380, 46)),
+            1_709 => Some((105, 1_008, 104, 3_384, 48)),
+            _ => None,
+        };
+        if let Some((scanline, scanline_mclk, refresh_phase, halt_cycles, refresh_cycles)) = poll {
+            assert!(
+                runtime.seed_mode_level_raster_wait_for_vint_poll_no_z80(
+                    vdp::WaitForVintPollSeedNoZ80 {
+                        first_poll_beam: vdp::H40BeamPosition::new(scanline, scanline_mclk)
+                            .expect("bounded first WaitForVint $93E beam"),
+                        refresh_phase: M68kRefreshPhase::new(refresh_phase)
+                            .expect("bounded jgenesis refresh phase"),
+                    },
+                    vdp::ModeLevelRasterSeedVintAssertion {
+                        beam: vdp::H40BeamPosition::new(224, 16).expect("H40 VINT assertion"),
+                    },
+                    published_natural_vblank_work(),
+                    published_vblank_arbitration(halt_cycles, refresh_cycles),
+                )
+            );
+        }
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if matches!(frame_index, 1_703 | 1_709) {
+            timings.push((frame_index, trace.hud_raster_upload_timings_sub_44dc));
+        }
+    }
+
+    assert_eq!(
+        timings,
+        vec![
+            (
+                1_703,
+                vec![HudRasterUploadTimingSub44DC {
+                    command: HudDmaEventSub44DC::LifeIcon {
+                        frame_table_byte_offset: 8,
+                    },
+                    previous_frame_table_byte_offset: 4,
+                    first_commit_scanline: 32,
+                    first_commit_pixel: 330,
+                }],
+            ),
+            (
+                1_709,
+                vec![HudRasterUploadTimingSub44DC {
+                    command: HudDmaEventSub44DC::LifeIcon {
+                        frame_table_byte_offset: 4,
+                    },
+                    previous_frame_table_byte_offset: 8,
+                    first_commit_scanline: 15,
+                    first_commit_pixel: 92,
+                }],
+            ),
+        ],
+        "ASM WaitForVint -> Mode_Level -> sub_44DC loc_4586"
     );
 }
 
