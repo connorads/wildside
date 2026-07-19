@@ -306,6 +306,21 @@ mask the render.
 
 ### #409
 
+Correction 2026-07-19: commit `5cbad4684` extends opt-in oracle GEMS
+checkpoints with `[AF,BC,DE,HL]`, `[AF',BC',DE',HL']`, and `[IX,IT,SP]`.
+Reproducing the checkpoint exposed a cross-route comparison in the preceding
+handoff: `/tmp/issue409-gems-checkpoint.log` is
+`any-percent-published` frame 1709, while the scratch native replay used
+`issue409-current-bgm-probe3`, whose scenario is `kc_any_percent_2024`.
+The apparent shared PC `$02AA`, 68-byte RAM delta, and equal
+`DACFIFOWPTR=$02`/`E'=$07` predicate are therefore invalid comparisons.
+Fresh current-HEAD `any-percent-published` evidence has oracle PC `$02AA`,
+registers `AF/BC/DE/HL=$7054/$1527/$1F08/$4000`,
+`AF'/BC'/DE'/HL'=$8090/$1001/$0027/$18CA`, and
+`IX/IY/SP=$1C60/$4000/$1A1A`; coarse native replay at the same frame cursor is
+instead at PC `$1237`. Keep the register extension, but derive and compare
+route state only from the published scenario before attempting `sub_44DC`.
+
 Progress 2026-07-19: commits `64b7c6994`, `d7591f17b`, `b3107de2e`,
 `16757e0a1`, `1a158760f`, and `995720e05` add the source-derived
 Load_InGame/StopMusic cursor, platform-art schedule, absolute VINT
