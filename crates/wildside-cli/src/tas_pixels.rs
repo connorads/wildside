@@ -5,9 +5,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::diff::BBox;
 use crate::native_player::{
-    NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene, load_session_assets,
-    render_native_vdp_rgb, render_scene, render_trace_with_vdp_latched_state_and_resident,
-    render_vdp_trace_overlay,
+    LayerSpan, NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, Scene, build_scene_with_layers,
+    load_session_assets, render_native_vdp_rgb, render_scene,
+    render_trace_with_vdp_latched_state_and_resident, render_vdp_trace_overlay,
 };
 use crate::oracle::{OracleFrame, OracleManifest};
 use crate::scenarios::{
@@ -136,7 +136,7 @@ fn cluster_key(mismatch: &TasPixelFrameMismatch) -> String {
 }
 
 /// Collapse sorted frame indices into inclusive consecutive ranges.
-fn collapse_frame_ranges(sorted_indices: &[usize]) -> Vec<[usize; 2]> {
+pub(crate) fn collapse_frame_ranges(sorted_indices: &[usize]) -> Vec<[usize; 2]> {
     let mut ranges: Vec<[usize; 2]> = Vec::new();
     for &index in sorted_indices {
         match ranges.last_mut() {
@@ -538,6 +538,21 @@ fn render_source_port_frame(
     level_visuals: &NativeLevelVisuals,
     block_grid: Option<&BlockGrid>,
 ) -> Vec<u8> {
+    render_source_port_frame_with_scene(runtime, previous_trace, trace, level_visuals, block_grid).0
+}
+
+/// [`render_source_port_frame`] plus the scene and layer spans the RGB came
+/// from. `None` on the VDP path (Sega/intro/title screens render real VDP
+/// pixels, not a `Scene`). Provenance sampling must use this scene — not a
+/// rebuilt one — so it attributes exactly the pixels that were diffed.
+#[allow(dead_code)] // consumed by visual-triage (next commit)
+pub(crate) fn render_source_port_frame_with_scene(
+    runtime: &NativeRuntime,
+    previous_trace: &NativeTraceFrame,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    block_grid: Option<&BlockGrid>,
+) -> (Vec<u8>, Option<(Scene, Vec<LayerSpan>)>) {
     let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
     let render_trace = render_trace_with_vdp_latched_state_and_resident(
         trace,
@@ -547,11 +562,13 @@ fn render_source_port_frame(
     if let Some(vdp) = runtime.vdp_state() {
         render_native_vdp_rgb(vdp, &mut rgb);
         render_vdp_trace_overlay(&render_trace, level_visuals, &mut rgb);
+        (rgb, None)
     } else {
-        let scene = build_scene(&render_trace, false, Some(level_visuals), block_grid);
+        let (scene, spans) =
+            build_scene_with_layers(&render_trace, false, Some(level_visuals), block_grid);
         render_scene(&scene, &mut rgb);
+        (rgb, Some((scene, spans)))
     }
-    rgb
 }
 
 fn load_oracle_rgb(frame: &OracleFrame) -> Result<Vec<u8>> {

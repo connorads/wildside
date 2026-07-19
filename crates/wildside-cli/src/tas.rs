@@ -478,7 +478,7 @@ fn cold_boot_advisory(scenario: &DynamicScenario) -> Option<String> {
     })
 }
 
-fn run_tas_oracle(
+pub(crate) fn run_tas_oracle(
     env: &crate::oracle::OracleEnvironment,
     rom_path: &Path,
     scenario_file: &Path,

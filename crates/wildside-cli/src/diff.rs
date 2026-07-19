@@ -3,10 +3,10 @@
 /// Produces a 3-panel composite: [native | oracle | amplified_diff]
 /// with text annotations showing MAE, level ID, and checkpoint label.
 use font8x8::UnicodeFonts;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Inclusive pixel-space bounding box of a mismatch region.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct BBox {
     pub(crate) min_x: usize,
     pub(crate) min_y: usize,
@@ -78,6 +78,35 @@ pub(crate) fn pixel_mismatch_bbox(a: &[u8], b: &[u8], width: usize) -> Option<(u
         bbox = Some(bbox.map_or(pixel, |existing| existing.union(&pixel)));
     }
     bbox.map(|bbox| (count, bbox))
+}
+
+/// Coordinates of every mismatching pixel between two RGB24 buffers, in
+/// row-major order. Same walk as [`pixel_mismatch_bbox`], so the count of
+/// returned coordinates equals its mismatch count.
+#[allow(dead_code)] // consumed by visual-triage (next commit)
+pub(crate) fn changed_pixel_coords(a: &[u8], b: &[u8], width: usize) -> Vec<(usize, usize)> {
+    a.chunks_exact(3)
+        .zip(b.chunks_exact(3))
+        .enumerate()
+        .filter(|(_, (pa, pb))| pa != pb)
+        .map(|(index, _)| (index % width, index / width))
+        .collect()
+}
+
+/// Deterministic even-stride subsample of at most `max` coordinates.
+///
+/// Picks `coords[i * len / max]` for `i in 0..max`, so samples spread evenly
+/// across the input order (row-major for `changed_pixel_coords`) and the same
+/// input always yields the same selection.
+#[allow(dead_code)] // consumed by visual-triage (next commit)
+pub(crate) fn subsample_deterministic(
+    coords: &[(usize, usize)],
+    max: usize,
+) -> std::collections::BTreeSet<(usize, usize)> {
+    if coords.len() <= max {
+        return coords.iter().copied().collect();
+    }
+    (0..max).map(|i| coords[i * coords.len() / max]).collect()
 }
 
 /// Generate a 3-panel composite RGB image: [native | oracle | amplified_diff].
@@ -267,6 +296,67 @@ mod tests {
                 max_x: 7,
                 max_y: 3
             }
+        );
+    }
+
+    #[test]
+    fn changed_pixel_coords_lists_row_major_mismatches() {
+        // 4x2 frame with mismatches at (1,0), (3,0), (0,1), (2,1).
+        let mut a = vec![0u8; 4 * 2 * 3];
+        let b = vec![0u8; 4 * 2 * 3];
+        for pixel in [1usize, 3, 4, 6] {
+            a[pixel * 3] = 200;
+        }
+        assert_eq!(
+            changed_pixel_coords(&a, &b, 4),
+            vec![(1, 0), (3, 0), (0, 1), (2, 1)]
+        );
+        assert_eq!(changed_pixel_coords(&b, &b, 4), Vec::new());
+    }
+
+    #[test]
+    fn changed_pixel_coords_count_matches_pixel_mismatch_count() {
+        let mut a = vec![0u8; 8 * 4 * 3];
+        let b = vec![0u8; 8 * 4 * 3];
+        for pixel in [0usize, 7, 12, 25, 31] {
+            a[pixel * 3 + 2] = 9;
+        }
+        assert_eq!(
+            changed_pixel_coords(&a, &b, 8).len(),
+            pixel_mismatch_count(&a, &b)
+        );
+    }
+
+    #[test]
+    fn subsample_keeps_everything_at_or_under_the_cap() {
+        let coords = vec![(0, 0), (1, 0), (2, 0)];
+        assert_eq!(
+            subsample_deterministic(&coords, 3),
+            coords.iter().copied().collect()
+        );
+        assert_eq!(
+            subsample_deterministic(&coords, 8),
+            coords.iter().copied().collect()
+        );
+        assert!(subsample_deterministic(&[], 4).is_empty());
+        assert!(subsample_deterministic(&coords, 0).is_empty());
+    }
+
+    #[test]
+    fn subsample_takes_even_strides_over_the_cap() {
+        // 8 coords, cap 4 -> indices 0*8/4=0, 1*8/4=2, 2*8/4=4, 3*8/4=6.
+        let coords: Vec<(usize, usize)> = (0..8).map(|x| (x, 0)).collect();
+        let sampled = subsample_deterministic(&coords, 4);
+        assert_eq!(
+            sampled.into_iter().collect::<Vec<_>>(),
+            vec![(0, 0), (2, 0), (4, 0), (6, 0)]
+        );
+        // Non-divisible stride: 5 coords, cap 2 -> indices 0, 2.
+        let coords: Vec<(usize, usize)> = (0..5).map(|x| (x, 1)).collect();
+        let sampled = subsample_deterministic(&coords, 2);
+        assert_eq!(
+            sampled.into_iter().collect::<Vec<_>>(),
+            vec![(0, 1), (2, 1)]
         );
     }
 
