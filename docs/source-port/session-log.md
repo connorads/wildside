@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 exact E12-to-HUD timing)
+
+- Execute Objects now composes raw callbacks, six pending Z80 waits, and
+  refresh stalls exactly: 27,436/22,466/14,034 elapsed cycles on frames
+  1697/1703/1709.
+- Typed evanescent and shooter scan facts close the post-object tail at
+  2,748/2,778/2,628 elapsed cycles and place `sub_44DC` refresh phase at
+  64/116/110.
+- The direct-write H40 scheduler retains master-clock sub-pixel phase and
+  derives life first-commit slots 42:380, 32:330, and 15:92.
+- Full-route PC evidence proves `mclk=7*cpu_cycles`; the missing production
+  input is cumulative CPU time across WaitForVint IRQ recognition and Z80
+  arbitration. NEXT: introduce an explicit `$E12` master-clock seed boundary
+  or persist that scheduler state. Do not replace it with a frame lookup or
+  fixed cadence.
+
+---
+
 ## 2026-07-19 handoff (#409 source-ordered cycle components)
 
 - The workload ledger now records Kid's same-pass initial `sub_1007A`
