@@ -9666,6 +9666,67 @@ impl NativeRuntime {
         }
     }
 
+    /// Gather the live workload after ASM `sub_44DC` and before the natural
+    /// `Mode_Level loc_80C -> loc_892` tail.
+    pub(crate) fn observe_mode_level_work_after_hud_sub_44dc(&self) -> ModeLevelPostHudWorkLedger {
+        let camera = self.current_camera_state();
+        let active_objects = self.active_objects();
+        let (_, linked_gfx_object_count) =
+            self.object_counts_from_roster(&active_objects, camera.x_pos, camera.y_pos);
+        let active_platform_object_count = active_objects
+            .iter()
+            .filter(|object| matches!(object.kind, NativeObjectKind::Platform { .. }))
+            .count()
+            .try_into()
+            .expect("platform Object list fits the ROM u16 count");
+        let read_joypad_path = if matches!(self.boot_state, BootState::DemoPlay { .. }) {
+            ModeLevelReadJoypadPath::DemoPlaybackLocC22
+        } else if self.options_two_player_two_controllers && self.current_player_index != 0 {
+            ModeLevelReadJoypadPath::SecondControllerLocB98
+        } else {
+            ModeLevelReadJoypadPath::FirstControllerLocB8c
+        };
+        let enemy_loading_path = if matches!(self.boot_state, BootState::DemoPlay { .. })
+            && self.current_level != LevelId(demo::DEMO_1_LEVEL)
+        {
+            ModeLevelEnemyLoadingPath::DemoNonKnightsReturnLoc3682a
+        } else {
+            ModeLevelEnemyLoadingPath::LayoutWalkLoc3682c
+        };
+
+        ModeLevelPostHudWorkLedger {
+            phases: vec![
+                ModeLevelPostHudPhase::ManageEnemyLoading,
+                ModeLevelPostHudPhase::GfxObjectsMoveAndAnimate,
+                ModeLevelPostHudPhase::ReadJoypad,
+                ModeLevelPostHudPhase::TerrainEffectsSub5e02,
+                ModeLevelPostHudPhase::ManagePlatformLoading,
+                ModeLevelPostHudPhase::ExecuteScriptedPlatforms,
+                ModeLevelPostHudPhase::PlatformsCheckCollision,
+                ModeLevelPostHudPhase::GfxObjectsCollisionF86a,
+                ModeLevelPostHudPhase::GfxObjectsCollisionKidProjectile,
+                ModeLevelPostHudPhase::LatchDamageState,
+                ModeLevelPostHudPhase::GfxObjectsCollisionKidProjectileAgainstKid,
+                ModeLevelPostHudPhase::CollisionSub1f52,
+                ModeLevelPostHudPhase::CollisionSub219c,
+                ModeLevelPostHudPhase::CollisionSub226a,
+                ModeLevelPostHudPhase::GfxObjectsCollisionKidF86a,
+                ModeLevelPostHudPhase::GfxObjectsCollisionKidF86e,
+                ModeLevelPostHudPhase::CollisionSub1d76,
+                ModeLevelPostHudPhase::CollisionSub1fa2,
+                ModeLevelPostHudPhase::PostCollisionSub2a4c,
+                ModeLevelPostHudPhase::MakeSpritesFromGfxObjects,
+                ModeLevelPostHudPhase::DiamondPowerCompileSprites,
+                ModeLevelPostHudPhase::MakeSpritesFromPlatforms,
+            ],
+            enemy_loading_path,
+            read_joypad_path,
+            enemy_loading_initial_pass_complete: self.enemy_loading_initial_pass_complete,
+            linked_gfx_object_count,
+            active_platform_object_count,
+        }
+    }
+
     fn observe_mode_level_player_execution_path(
         &self,
         cyclone_visual_accumulator_before: Option<u16>,

@@ -188,6 +188,88 @@ fn published_tas_no_z80_polls_drive_frames_1703_and_1709_life_icon_timing() {
 }
 
 #[test]
+fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let expected_phases = vec![
+        ModeLevelPostHudPhase::ManageEnemyLoading,
+        ModeLevelPostHudPhase::GfxObjectsMoveAndAnimate,
+        ModeLevelPostHudPhase::ReadJoypad,
+        ModeLevelPostHudPhase::TerrainEffectsSub5e02,
+        ModeLevelPostHudPhase::ManagePlatformLoading,
+        ModeLevelPostHudPhase::ExecuteScriptedPlatforms,
+        ModeLevelPostHudPhase::PlatformsCheckCollision,
+        ModeLevelPostHudPhase::GfxObjectsCollisionF86a,
+        ModeLevelPostHudPhase::GfxObjectsCollisionKidProjectile,
+        ModeLevelPostHudPhase::LatchDamageState,
+        ModeLevelPostHudPhase::GfxObjectsCollisionKidProjectileAgainstKid,
+        ModeLevelPostHudPhase::CollisionSub1f52,
+        ModeLevelPostHudPhase::CollisionSub219c,
+        ModeLevelPostHudPhase::CollisionSub226a,
+        ModeLevelPostHudPhase::GfxObjectsCollisionKidF86a,
+        ModeLevelPostHudPhase::GfxObjectsCollisionKidF86e,
+        ModeLevelPostHudPhase::CollisionSub1d76,
+        ModeLevelPostHudPhase::CollisionSub1fa2,
+        ModeLevelPostHudPhase::PostCollisionSub2a4c,
+        ModeLevelPostHudPhase::MakeSpritesFromGfxObjects,
+        ModeLevelPostHudPhase::DiamondPowerCompileSprites,
+        ModeLevelPostHudPhase::MakeSpritesFromPlatforms,
+    ];
+    let mut observed = Vec::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_710) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if matches!(frame_index, 1_697 | 1_703 | 1_709) {
+            let ledger = runtime
+                .mode_level_work_after_hud_sub_44dc()
+                .expect("published helper should take the natural loc_80C path");
+            observed.push((
+                frame_index,
+                ledger.phases.clone(),
+                ledger.enemy_loading_path,
+                ledger.read_joypad_path,
+                ledger.enemy_loading_initial_pass_complete,
+                ledger.linked_gfx_object_count,
+                ledger.active_platform_object_count,
+            ));
+        }
+    }
+
+    assert_eq!(
+        observed
+            .iter()
+            .map(
+                |(_, phases, enemy_path, joypad_path, loader_complete, _, _)| (
+                    phases,
+                    *enemy_path,
+                    *joypad_path,
+                    *loader_complete,
+                )
+            )
+            .collect::<Vec<_>>(),
+        vec![
+            (
+                &expected_phases,
+                ModeLevelEnemyLoadingPath::DemoNonKnightsReturnLoc3682a,
+                ModeLevelReadJoypadPath::DemoPlaybackLocC22,
+                false,
+            );
+            3
+        ],
+        "ASM Mode_Level loc_80C..loc_892 source order and controller path",
+    );
+    assert_eq!(
+        observed
+            .iter()
+            .map(|(frame, _, _, _, _, gfx_count, platforms)| { (*frame, *gfx_count, *platforms) })
+            .collect::<Vec<_>>(),
+        vec![(1_697, 16, 0), (1_703, 17, 0), (1_709, 16, 0)],
+        "ASM GfxObjects_MoveAndAnimate/Make_SpritesFromGfxObjects and platform-list work",
+    );
+}
+
+#[test]
 fn published_tas_helpers_1696_1702_1708_derive_live_mode_tail_work() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;

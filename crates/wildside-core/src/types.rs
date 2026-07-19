@@ -2122,6 +2122,74 @@ pub struct ModeLevelPreHudWorkLedger {
     pub post_execute: ModeLevelPostExecuteWork,
 }
 
+/// Source-ordered fixed phases after ASM `Mode_Level -> sub_44DC` returns
+/// (kid.asm:923-954).
+///
+/// Repeated collision calls remain distinct variants because their list head
+/// and target differ even when they enter the same routine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelPostHudPhase {
+    ManageEnemyLoading,
+    GfxObjectsMoveAndAnimate,
+    ReadJoypad,
+    TerrainEffectsSub5e02,
+    ManagePlatformLoading,
+    ExecuteScriptedPlatforms,
+    PlatformsCheckCollision,
+    GfxObjectsCollisionF86a,
+    GfxObjectsCollisionKidProjectile,
+    LatchDamageState,
+    GfxObjectsCollisionKidProjectileAgainstKid,
+    CollisionSub1f52,
+    CollisionSub219c,
+    CollisionSub226a,
+    GfxObjectsCollisionKidF86a,
+    GfxObjectsCollisionKidF86e,
+    CollisionSub1d76,
+    CollisionSub1fa2,
+    PostCollisionSub2a4c,
+    MakeSpritesFromGfxObjects,
+    DiamondPowerCompileSprites,
+    MakeSpritesFromPlatforms,
+}
+
+/// Controller branch selected by ASM `ReadJoypad` inside `Mode_Level`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelReadJoypadPath {
+    FirstControllerLocB8c,
+    SecondControllerLocB98,
+    DemoPlaybackLocC22,
+}
+
+/// Branch selected by ASM `Manage_EnemyLoading` at `loc_36814`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelEnemyLoadingPath {
+    DemoNonKnightsReturnLoc3682a,
+    LayoutWalkLoc3682c,
+}
+
+/// Typed observation after ASM `sub_44DC` on the natural `loc_80C -> loc_892`
+/// path.
+///
+/// This is workload state, not a cycle estimate. Later timing code must type
+/// each branch before converting the ledger to raw cycles or VDP arbitration.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelPostHudWorkLedger {
+    pub phases: Vec<ModeLevelPostHudPhase>,
+    pub enemy_loading_path: ModeLevelEnemyLoadingPath,
+    pub read_joypad_path: ModeLevelReadJoypadPath,
+    /// ASM `$FFFFFB51` after the selected `Manage_EnemyLoading` path.
+    pub enemy_loading_initial_pass_complete: bool,
+    /// Linked list consumed by both `GfxObjects_MoveAndAnimate` and
+    /// `Make_SpritesFromGfxObjects`.
+    pub linked_gfx_object_count: u16,
+    /// Linked platform list consumed by the three platform routines.
+    pub active_platform_object_count: u16,
+}
+
 /// Frame-local HUD art DMA command emitted by ASM `sub_44DC` (kid.asm).
 ///
 /// The destination and transfer length are fixed by the ROM routine, so the

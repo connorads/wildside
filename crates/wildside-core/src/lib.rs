@@ -634,6 +634,8 @@ pub struct NativeRuntime {
     /// Source-ordered workload captured immediately before the live
     /// `Execute_Objects sub_E12` pass mutates any linked worker.
     mode_level_work_before_hud_sub_44dc: Option<ModeLevelPreHudWorkLedger>,
+    /// Source-ordered workload after the live `sub_44DC` HUD pass.
+    mode_level_work_after_hud_sub_44dc: Option<ModeLevelPostHudWorkLedger>,
     /// The selected `off_7B0AC` page last transferred by ASM sub_5D4A to
     /// HUD-diamond VRAM `$DD40`; presentation timing is modelled separately.
     gameplay_hud_vram_state: vdp::GameplayHudVramState,
@@ -1503,6 +1505,7 @@ impl NativeRuntime {
             mode_level_cpu_raster_cursor_sub_44dc: None,
             mode_level_hud_raw_cycles_sub_44dc: None,
             mode_level_work_before_hud_sub_44dc: None,
+            mode_level_work_after_hud_sub_44dc: None,
             gameplay_hud_vram_state: vdp::GameplayHudVramState::initialised_from_sub_44b0(),
             // Oracle Demo 1 bootstrap frames expose ArtUnc_4692 page 2 before
             // the first loc_4586 life-icon upload occurs.
@@ -1756,6 +1759,10 @@ impl NativeRuntime {
 
     pub fn mode_level_hud_raw_cycles_sub_44dc(&self) -> Option<M68kCycleCount> {
         self.mode_level_hud_raw_cycles_sub_44dc
+    }
+
+    pub fn mode_level_work_after_hud_sub_44dc(&self) -> Option<&ModeLevelPostHudWorkLedger> {
+        self.mode_level_work_after_hud_sub_44dc.as_ref()
     }
 
     /// Seed the hardware beam and refresh state at the next live ASM
@@ -3421,6 +3428,7 @@ impl NativeRuntime {
         self.mode_level_cpu_raster_cursor_sub_44dc = None;
         self.mode_level_hud_raw_cycles_sub_44dc = None;
         self.mode_level_work_before_hud_sub_44dc = None;
+        self.mode_level_work_after_hud_sub_44dc = None;
         self.mode_level_tail_work_loc_892 = None;
         // ASM loc_12098/loc_12110/loc_12188 DMA requests are emitted by one
         // Execute_Objects pass. Do not retain them across frames whose object
@@ -4157,6 +4165,8 @@ impl NativeRuntime {
                         }),
                 );
             }
+            self.mode_level_work_after_hud_sub_44dc =
+                Some(self.observe_mode_level_work_after_hud_sub_44dc());
         }
 
         let demo_mode_level_tail_hibernating = matches!(
