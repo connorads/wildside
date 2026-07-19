@@ -3221,6 +3221,30 @@ pub fn life_icon_first_commit_loc_4586(
     }
 }
 
+/// All 64 visible VRAM-word commits from `loc_4586 -> sub_44D0`.
+///
+/// Once the first word commits, the 32-longword copy keeps the four-entry FIFO
+/// fed. A VRAM word occupies two H40 access slots, so successive visible word
+/// commits are two slots apart.
+pub fn life_icon_fifo_commit_positions_loc_4586(
+    entry: ModeLevelCpuRasterCursor,
+) -> Option<[H40FifoCommitPosition; 64]> {
+    let first = life_icon_first_commit_loc_4586(entry.beam, entry.refresh_phase);
+    let first_slot = H40_VRAM_FIFO_ACCESS_PIXELS
+        .iter()
+        .position(|&pixel| pixel == first.pixel)?;
+    Some(core::array::from_fn(|word_index| {
+        let slot = first_slot + 2 * word_index;
+        H40FifoCommitPosition {
+            scanline: first
+                .scanline
+                .wrapping_add((slot / H40_VRAM_FIFO_ACCESS_PIXELS.len()) as u16)
+                % NTSC_SCANLINES_PER_FRAME,
+            pixel: H40_VRAM_FIFO_ACCESS_PIXELS[slot % H40_VRAM_FIFO_ACCESS_PIXELS.len()],
+        }
+    }))
+}
+
 #[derive(Debug, Clone, Copy)]
 struct IntroSequence5RasterUpload {
     previous_frame_index: u16,
@@ -5465,6 +5489,24 @@ mod tests {
                 expected,
                 "236 raw cycles, two refresh waits, and the next H40 VRAM slot"
             );
+        }
+    }
+
+    #[test]
+    fn life_icon_fifo_commit_train_matches_all_three_helper_boundaries_loc_4586() {
+        for (entry_scanline, entry_mclk, refresh_phase, expected_first, expected_last) in [
+            (42, 1_294, 64, (42, 380), (49, 380)),
+            (32, 765, 116, (32, 330), (39, 330)),
+            (14, 2_431, 110, (15, 92), (22, 92)),
+        ] {
+            let commits = life_icon_fifo_commit_positions_loc_4586(ModeLevelCpuRasterCursor {
+                beam: H40BeamPosition::new(entry_scanline, entry_mclk)
+                    .expect("bounded sub_44DC beam"),
+                refresh_phase: M68kRefreshPhase::new(refresh_phase).expect("bounded refresh phase"),
+            })
+            .expect("life upload first commit must be an H40 access slot");
+            assert_eq!((commits[0].scanline, commits[0].pixel), expected_first,);
+            assert_eq!((commits[63].scanline, commits[63].pixel), expected_last,);
         }
     }
 

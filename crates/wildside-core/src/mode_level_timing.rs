@@ -1,10 +1,11 @@
 use crate::{
-    ModeLevelAirborneActionPath, ModeLevelAirborneHorizontalPath, ModeLevelAirborneVerticalPath,
-    ModeLevelCeilingScanReturn, ModeLevelDamageFlashWaitLocBc44, ModeLevelDemoExitWaitLoc119E0,
-    ModeLevelExecuteObjectsWork, ModeLevelFloatingPrizeFallPathLoc103B2,
-    ModeLevelInputWorkerPathLoc7452, ModeLevelKidGfxTerrainCollision, ModeLevelPlayerExecutionPath,
-    ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState,
-    ModeLevelPrizeBlockWobbleWake, ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
+    HudDmaEventSub44DC, ModeLevelAirborneActionPath, ModeLevelAirborneHorizontalPath,
+    ModeLevelAirborneVerticalPath, ModeLevelCeilingScanReturn, ModeLevelDamageFlashWaitLocBc44,
+    ModeLevelDemoExitWaitLoc119E0, ModeLevelExecuteObjectsWork,
+    ModeLevelFloatingPrizeFallPathLoc103B2, ModeLevelInputWorkerPathLoc7452,
+    ModeLevelKidGfxTerrainCollision, ModeLevelPlayerExecutionPath, ModeLevelPreHudWorkLedger,
+    ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
+    ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
     ModeLevelRubberContactEffectLoc10DA4, ModeLevelVerticalCollisionPath,
     ModeLevelWallCollisionPath,
 };
@@ -1214,6 +1215,25 @@ pub fn post_execute_elapsed_cycles_before_sub_44dc(
     Some(phase_before.advance_rom(post_execute_raw_cycles_before_sub_44dc(ledger)?))
 }
 
+/// Raw CPU work for the classified life-icon-only `sub_44DC` path.
+///
+/// FIFO and refresh stalls are deliberately excluded. Other HUD command
+/// combinations remain unclassified until their distinct ROM branches and
+/// DMA ownership are typed.
+pub fn hud_life_icon_only_raw_cycles_sub_44dc(
+    commands: &[HudDmaEventSub44DC],
+) -> Option<M68kCycleCount> {
+    if !matches!(commands, [HudDmaEventSub44DC::LifeIcon { .. }]) {
+        return None;
+    }
+
+    // ASM sub_44DC (kid.asm): 236 raw cycles reach completion of the first
+    // loc_44D4 MOVE.L. The remaining 31 MOVE.L/taken-DBF pairs cost 930,
+    // followed by final DBF 14, sub_44D0 RTS 16, three 42-cycle skipped HUD
+    // sections, final store 12, and outer RTS 16.
+    Some(M68kCycleCount::from_raw(1_350))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1761,6 +1781,29 @@ mod tests {
             );
             assert_eq!(advance.next_time_frames, time_frames + 1);
         }
+    }
+
+    #[test]
+    fn life_icon_only_hud_path_has_source_derived_raw_cost_sub_44dc() {
+        let life = HudDmaEventSub44DC::LifeIcon {
+            frame_table_byte_offset: 4,
+        };
+        assert_eq!(
+            hud_life_icon_only_raw_cycles_sub_44dc(&[life]),
+            Some(M68kCycleCount::from_raw(1_350)),
+            "ASM sub_44DC loc_4586 -> sub_44D0 life-only path",
+        );
+        assert_eq!(hud_life_icon_only_raw_cycles_sub_44dc(&[]), None);
+        assert_eq!(
+            hud_life_icon_only_raw_cycles_sub_44dc(&[
+                life,
+                HudDmaEventSub44DC::Clock {
+                    frame_table_byte_offset: 8,
+                },
+            ]),
+            None,
+            "unclassified multi-upload paths must remain fail-closed",
+        );
     }
 
     #[test]
