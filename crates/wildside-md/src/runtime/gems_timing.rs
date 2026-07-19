@@ -9,10 +9,11 @@ use z80::{Z80, Z80_io};
 
 const M68K_DIVIDER: u64 = 7;
 const Z80_DIVIDER: u64 = 15;
-// Ym2612Shadow accepts raw 7.67 MHz input clocks. jgenesis' YM core consumes
-// an internally prescaled tick every 42 master clocks; copying that divider
-// here under-clocks this shadow by six. Mega Drive YM input is master / 7.
-const YM2612_DIVIDER: u64 = 7;
+// Ym2612Shadow accepts raw 7.67 MHz input clocks (master / 7), while the
+// jgenesis machine scheduler retains its externally visible YM tick phase
+// modulo 42 master clocks. These are distinct clocks.
+const YM2612_INPUT_DIVIDER: u64 = 7;
+const YM2612_SCHEDULER_DIVIDER: u64 = 7 * 6;
 const MASTER_CLOCKS_PER_SCANLINE: u64 = 3_420;
 const NTSC_SCANLINES_PER_FRAME: u16 = 262;
 const NTSC_ACTIVE_SCANLINES: u16 = 224;
@@ -53,6 +54,8 @@ pub enum GemsNtscTimelineOrigin {
 pub struct GemsTimingCheckpoint {
     pub master_clock: u64,
     pub z80_pc: u16,
+    /// `[IX, IY, SP]`, matching the oracle checkpoint order.
+    pub z80_index_registers: [u16; 3],
     pub audio_ram: Vec<u8>,
     pub bank_address: u32,
     pub z80_mclk_counter: u64,
@@ -90,7 +93,8 @@ pub enum GemsStopMusicQueueTransaction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GemsStopMusicControl {
     ReleaseDriverReset,
-    BeginDriverCopy,
+    BeginDriverBus,
+    CopyDriver,
     AssertReset,
     ReleaseDriverBus,
     ReleaseReset,
@@ -213,6 +217,7 @@ pub struct GemsMasterClockTimingEngine {
     z80_wait_mclk_cycles: u64,
     z80_odd_access: bool,
     ym2612_mclk_counter: u64,
+    ym2612_input_mclk_counter: u64,
     z80_halt: bool,
     vdp_owns_bus: bool,
     busreq: bool,
@@ -248,6 +253,7 @@ impl GemsMasterClockTimingEngine {
             z80_wait_mclk_cycles: 0,
             z80_odd_access: false,
             ym2612_mclk_counter: 0,
+            ym2612_input_mclk_counter: 0,
             z80_halt: false,
             vdp_owns_bus: false,
             busreq: false,
@@ -313,6 +319,7 @@ impl GemsMasterClockTimingEngine {
         GemsTimingCheckpoint {
             master_clock: self.master_clock,
             z80_pc: self.z80.pc,
+            z80_index_registers: [self.z80.ix, self.z80.iy, self.z80.sp],
             audio_ram: self.z80.io.ram.borrow().clone(),
             bank_address: self.z80.io.bank_address,
             z80_mclk_counter: self.z80_mclk_counter,
@@ -457,7 +464,7 @@ impl GemsMasterClockTimingEngine {
                 } else {
                     self.z80.io.current_master_clock.set(self.master_clock);
                     let reads_before = self.z80.io.banked_reads.borrow().len();
-                    let elapsed = self.z80.step();
+                    let elapsed = self.step_z80_instruction();
                     self.z80_t_cycles_wait = elapsed.saturating_sub(1);
                     let access_count = self.z80.io.banked_reads.borrow().len() - reads_before;
                     for _ in 0..access_count {
@@ -532,7 +539,8 @@ impl GemsMasterClockTimingEngine {
 
     pub fn stop_music(&mut self) {
         self.apply_stop_music_control(GemsStopMusicControl::ReleaseDriverReset);
-        self.apply_stop_music_control(GemsStopMusicControl::BeginDriverCopy);
+        self.apply_stop_music_control(GemsStopMusicControl::BeginDriverBus);
+        self.apply_stop_music_control(GemsStopMusicControl::CopyDriver);
         self.apply_stop_music_control(GemsStopMusicControl::AssertReset);
         self.apply_stop_music_control(GemsStopMusicControl::ReleaseDriverBus);
         self.apply_stop_music_control(GemsStopMusicControl::ReleaseReset);
@@ -569,12 +577,18 @@ impl GemsMasterClockTimingEngine {
                 );
                 self.set_z80_control(false, false);
             }
-            GemsStopMusicControl::BeginDriverCopy => {
+            GemsStopMusicControl::BeginDriverBus => {
                 assert!(
                     !self.busreq && !self.reset,
-                    "StopMusic driver copy must begin from a running Z80"
+                    "StopMusic driver bus request must begin from a running Z80"
                 );
                 self.set_z80_control(true, false);
+            }
+            GemsStopMusicControl::CopyDriver => {
+                assert!(
+                    self.busreq && !self.reset,
+                    "StopMusic copies the driver only after the Z80 acknowledges BUSREQ"
+                );
                 self.copy_driver_ram();
             }
             GemsStopMusicControl::AssertReset => {
@@ -735,14 +749,48 @@ impl GemsMasterClockTimingEngine {
         }
     }
 
+    fn step_z80_instruction(&mut self) -> u32 {
+        if self.z80.irq_pending != 0 && self.z80.iff1 && self.z80.iff_delay == 0 {
+            assert_eq!(
+                self.z80.interrupt_mode, 1,
+                "Kid GEMS enables IM1 before accepting a maskable interrupt"
+            );
+            self.z80.halted = false;
+            self.z80.iff1 = false;
+            self.z80.iff2 = false;
+            self.z80.r = (self.z80.r.wrapping_add(1) & 0x7F) | (self.z80.r & 0x80);
+            let return_pc = self.z80.pc;
+            self.z80.sp = self.z80.sp.wrapping_sub(1);
+            self.z80.io.write_byte(self.z80.sp, (return_pc >> 8) as u8);
+            self.z80.sp = self.z80.sp.wrapping_sub(1);
+            self.z80.io.write_byte(self.z80.sp, return_pc as u8);
+            self.z80.pc = 0x0038;
+            return 13;
+        }
+
+        // The `z80` crate polls IRQ after executing an opcode. Mega Drive
+        // hardware and jgenesis poll at the next instruction boundary, so the
+        // wrapper owns IRQ service and hides the level from the core step.
+        let irq_asserted = self.z80.irq_pending != 0;
+        let irq_data = self.z80.irq_data;
+        self.z80.clr_irq();
+        let elapsed = self.z80.step();
+        if irq_asserted {
+            self.z80.assert_irq(irq_data);
+        }
+        elapsed
+    }
+
     fn advance_clock_counters(&mut self, master_clocks: u64) {
         self.master_clock = self.master_clock.wrapping_add(master_clocks);
         self.ym2612_mclk_counter = self.ym2612_mclk_counter.wrapping_add(master_clocks);
+        self.ym2612_input_mclk_counter = self.ym2612_input_mclk_counter.wrapping_add(master_clocks);
     }
 
     fn advance_ym2612(&mut self) {
-        let ym_ticks = self.ym2612_mclk_counter / YM2612_DIVIDER;
-        self.ym2612_mclk_counter %= YM2612_DIVIDER;
+        self.ym2612_mclk_counter %= YM2612_SCHEDULER_DIVIDER;
+        let ym_ticks = self.ym2612_input_mclk_counter / YM2612_INPUT_DIVIDER;
+        self.ym2612_input_mclk_counter %= YM2612_INPUT_DIVIDER;
         self.z80
             .io
             .ym2612_shadow
@@ -994,6 +1042,7 @@ mod tests {
             .status_decay_clocks_remaining = 10;
 
         engine.advance_master_clocks(6, false, false);
+        assert_eq!(engine.checkpoint().ym2612_mclk_counter, 6);
         assert_eq!(
             engine
                 .z80
@@ -1004,6 +1053,7 @@ mod tests {
             10,
         );
         engine.advance_master_clocks(1, false, false);
+        assert_eq!(engine.checkpoint().ym2612_mclk_counter, 7);
         assert_eq!(
             engine
                 .z80
@@ -1012,6 +1062,39 @@ mod tests {
                 .borrow()
                 .status_decay_clocks_remaining,
             9,
+        );
+        engine.advance_master_clocks(35, false, false);
+        assert_eq!(
+            engine.checkpoint().ym2612_mclk_counter,
+            0,
+            "jgenesis retains the YM scheduler phase modulo master/42",
+        );
+    }
+
+    #[test]
+    fn gems_im1_vector_0038_preempts_next_opcode_at_instruction_boundary() {
+        // GEMS vector $0038 stores the interrupted SP before RETI. The Z80
+        // samples INT before the next opcode, so that opcode's address is the
+        // return address pushed by the IM1 service.
+        let mut driver = vec![0; 0x40];
+        driver[0x10] = 0x00;
+        driver[0x38..0x3E].copy_from_slice(&[0xED, 0x73, 0x3E, 0x00, 0xED, 0x4D]);
+        let mut engine = GemsMasterClockTimingEngine::new(&driver, vec![]);
+        engine.z80.pc = 0x0010;
+        engine.z80.sp = 0x0100;
+        engine.z80.interrupt_mode = 1;
+        engine.z80.iff1 = true;
+        engine.z80.iff2 = true;
+
+        engine.advance_master_clocks(15, true, false);
+
+        let checkpoint = engine.checkpoint();
+        assert_eq!(checkpoint.z80_pc, 0x0038);
+        assert_eq!(checkpoint.z80_index_registers[2], 0x00FE);
+        assert_eq!(
+            &checkpoint.audio_ram[0x00FE..=0x00FF],
+            &[0x10, 0x00],
+            "INT preempts the NOP at $0010 instead of pushing $0011 afterwards",
         );
     }
 
@@ -1043,11 +1126,24 @@ mod tests {
     fn stop_music_control_events_hold_z80_across_copy_reset_and_queue_windows_e14c8() {
         let driver = [0x00, 0xC3, 0x00, 0x00];
         let mut engine = GemsMasterClockTimingEngine::new(&driver, vec![]);
+        engine.advance_master_clocks(15, false, false);
+        assert_eq!(engine.z80_pc(), 1);
         engine.z80.io.ram.get_mut().fill(0xA5);
 
-        engine.apply_stop_music_control(GemsStopMusicControl::BeginDriverCopy);
+        engine.apply_stop_music_control(GemsStopMusicControl::BeginDriverBus);
         assert!(engine.busreq);
         assert!(!engine.reset);
+        assert!(
+            engine.z80.io.ram.borrow().iter().all(|&byte| byte == 0xA5),
+            "BUSREQ write precedes both BUSACK and the first driver copy"
+        );
+        engine.advance_master_clocks(60, false, false);
+        assert_eq!(
+            engine.z80_pc(),
+            1,
+            "the in-flight Z80 instruction completes before BUSACK"
+        );
+        engine.apply_stop_music_control(GemsStopMusicControl::CopyDriver);
         assert_eq!(&engine.z80.io.ram.borrow()[..4], &driver);
         assert!(
             engine.z80.io.ram.borrow()[4..]

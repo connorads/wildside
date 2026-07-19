@@ -775,7 +775,9 @@ pub fn apply_timed_gems_stop_music(
     advance_to(timing.driver_reset_release_complete_elapsed_offset, audio);
     audio.apply_stop_music_control(GemsStopMusicControl::ReleaseDriverReset);
     advance_to(driver.request_complete_elapsed_offset, audio);
-    audio.apply_stop_music_control(GemsStopMusicControl::BeginDriverCopy);
+    audio.apply_stop_music_control(GemsStopMusicControl::BeginDriverBus);
+    advance_to(driver.ack_complete_elapsed_offset, audio);
+    audio.apply_stop_music_control(GemsStopMusicControl::CopyDriver);
     advance_to(timing.reset_assert_complete_elapsed_offset, audio);
     audio.apply_stop_music_control(GemsStopMusicControl::AssertReset);
     advance_to(driver.release_complete_elapsed_offset, audio);

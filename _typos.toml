@@ -35,3 +35,5 @@ ratatui = "ratatui"
 
 # Hardware/audio terms
 nd = "nd"
+IY = "IY"
+iy = "iy"

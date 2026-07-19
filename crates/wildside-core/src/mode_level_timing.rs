@@ -497,6 +497,7 @@ pub fn gems_stop_music_elapsed_cycles(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GemsStopMusicElapsedBusWindow {
     pub request_complete_elapsed_offset: M68kCycleCount,
+    pub ack_complete_elapsed_offset: M68kCycleCount,
     pub release_complete_elapsed_offset: M68kCycleCount,
 }
 
@@ -927,6 +928,7 @@ fn gems_stop_music_elapsed_timing_with_vint_schedule(
     };
     let mut bus_windows = [GemsStopMusicElapsedBusWindow {
         request_complete_elapsed_offset: M68kCycleCount::from_raw(0),
+        ack_complete_elapsed_offset: M68kCycleCount::from_raw(0),
         release_complete_elapsed_offset: M68kCycleCount::from_raw(0),
     }; 7];
 
@@ -942,6 +944,8 @@ fn gems_stop_music_elapsed_timing_with_vint_schedule(
     bus_windows[0].request_complete_elapsed_offset =
         M68kCycleCount::from_raw(clock.last_source_instruction_completion_elapsed);
     clock.poll_bus_ack(polls.driver_copy_sub_e13da)?;
+    bus_windows[0].ack_complete_elapsed_offset =
+        M68kCycleCount::from_raw(clock.last_source_instruction_completion_elapsed);
     clock.source_instructions(&[16, 12, 12, 4, 8, 4, 12])?;
 
     // ASM loc_E1400 copies 5,764 driver bytes.
@@ -997,6 +1001,8 @@ fn gems_stop_music_elapsed_timing_with_vint_schedule(
         bus_windows[window].request_complete_elapsed_offset =
             M68kCycleCount::from_raw(clock.last_source_instruction_completion_elapsed);
         clock.poll_bus_ack(polls.queue_transactions_sub_e143a[transaction])?;
+        bus_windows[window].ack_complete_elapsed_offset =
+            M68kCycleCount::from_raw(clock.last_source_instruction_completion_elapsed);
         clock.source_instruction(8, true)?;
         clock.source_instructions(&[4, 16])?;
 
