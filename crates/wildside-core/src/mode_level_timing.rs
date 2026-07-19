@@ -5,11 +5,12 @@ use crate::{
     ModeLevelDiamondPowerCompileWorkSub3F798, ModeLevelEnemyLoadingPath,
     ModeLevelExecuteObjectsWork, ModeLevelFloatingPrizeFallPathLoc103B2,
     ModeLevelInputWorkerPathLoc7452, ModeLevelKidGfxTerrainCollision,
-    ModeLevelPlatformLoaderExistingSlotSub2728, ModeLevelPlatformLoaderRangeLoc2762,
-    ModeLevelPlatformLoaderWorkLoc2744, ModeLevelPlatformWork, ModeLevelPlayerExecutionPath,
-    ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState,
-    ModeLevelPrizeBlockWobbleWake, ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
-    ModeLevelReadJoypadWork, ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
+    ModeLevelKidProjectileCollisionWorkSub1D76, ModeLevelPlatformLoaderExistingSlotSub2728,
+    ModeLevelPlatformLoaderRangeLoc2762, ModeLevelPlatformLoaderWorkLoc2744, ModeLevelPlatformWork,
+    ModeLevelPlayerExecutionPath, ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake,
+    ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
+    ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork, ModeLevelReadJoypadWork,
+    ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
     ModeLevelVerticalCollisionPath, ModeLevelWallCollisionPath,
 };
 
@@ -1380,6 +1381,19 @@ pub fn diamond_power_compile_sprites_raw_cycles_sub_3f798(
     Some(M68kCycleCount::from_raw(56))
 }
 
+/// Raw routine-body cost for ASM Kid-projectile collision wrapper `sub_1D76`.
+pub fn kid_projectile_collision_raw_cycles_sub_1d76(
+    work: ModeLevelKidProjectileCollisionWorkSub1D76,
+) -> Option<M68kCycleCount> {
+    if work.kid_projectile_object_count != 0 || work.diamond_power_object_count != 0 {
+        return None;
+    }
+
+    // ASM sub_1D76/sub_1D84: both `$FFFFF862` and `$FFFFF5A0` sentinels
+    // have clear successor links, so each pass returns after its first load.
+    Some(M68kCycleCount::from_raw(126))
+}
+
 /// Raw routine-body cost for ASM shooter-support collision scan `sub_1F52`.
 pub fn shooter_support_collision_raw_cycles_sub_1f52(
     work: ModeLevelShooterCollisionWork,
@@ -1506,6 +1520,36 @@ mod tests {
             diamond_power_compile_sprites_raw_cycles_sub_3f798(
                 ModeLevelDiamondPowerCompileWorkSub3F798 {
                     buffered_entry_count: 1,
+                },
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn empty_kid_projectile_collision_lists_take_two_early_returns() {
+        let empty = ModeLevelKidProjectileCollisionWorkSub1D76 {
+            kid_projectile_object_count: 0,
+            diamond_power_object_count: 0,
+        };
+        assert_eq!(
+            kid_projectile_collision_raw_cycles_sub_1d76(empty),
+            Some(M68kCycleCount::from_raw(126))
+        );
+        assert_eq!(
+            kid_projectile_collision_raw_cycles_sub_1d76(
+                ModeLevelKidProjectileCollisionWorkSub1D76 {
+                    kid_projectile_object_count: 1,
+                    ..empty
+                },
+            ),
+            None
+        );
+        assert_eq!(
+            kid_projectile_collision_raw_cycles_sub_1d76(
+                ModeLevelKidProjectileCollisionWorkSub1D76 {
+                    diamond_power_object_count: 1,
+                    ..empty
                 },
             ),
             None

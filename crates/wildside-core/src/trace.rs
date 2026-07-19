@@ -9755,6 +9755,25 @@ impl NativeRuntime {
                 buffered_entry_count: self
                     .diamond_power_buffered_sprite_count_before_compile_sub_3f798,
             },
+            kid_projectile_collision_work_sub_1d76: ModeLevelKidProjectileCollisionWorkSub1D76 {
+                kid_projectile_object_count: self
+                    .projectiles
+                    .iter()
+                    .filter(|projectile| {
+                        projectile.friendly
+                            && (projectile.lifetime != 0
+                                || projectile.kind == EnemyProjectileKind::ManiaxeAxe)
+                    })
+                    .count()
+                    .try_into()
+                    .expect("Kid-projectile GfxObject list fits the ROM u16 count"),
+                diamond_power_object_count: self
+                    .diamond_power_object_lists
+                    .active_slots
+                    .len()
+                    .try_into()
+                    .expect("Diamond Power object list fits the ROM u16 count"),
+            },
         }
     }
 

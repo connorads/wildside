@@ -220,6 +220,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
     let mut observed_shooter_work = Vec::new();
     let mut observed_block_debris_work = Vec::new();
     let mut observed_diamond_power_compile_work = Vec::new();
+    let mut observed_kid_projectile_collision_work = Vec::new();
 
     for (frame_index, mask) in script.iter().copied().enumerate().take(1_710) {
         runtime.step_frame(FrameInput::from_mask(mask));
@@ -236,6 +237,8 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             observed_block_debris_work.push((frame_index, ledger.block_debris_work_sub_2a4c));
             observed_diamond_power_compile_work
                 .push((frame_index, ledger.diamond_power_compile_work_sub_3f798));
+            observed_kid_projectile_collision_work
+                .push((frame_index, ledger.kid_projectile_collision_work_sub_1d76));
             observed.push((
                 frame_index,
                 ledger.phases.clone(),
@@ -511,6 +514,43 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             ),
         ],
         "ASM DiamondPower_CompileSprites empty-buffer path",
+    );
+    assert_eq!(
+        observed_kid_projectile_collision_work
+            .iter()
+            .map(|(frame, work)| (
+                *frame,
+                *work,
+                kid_projectile_collision_raw_cycles_sub_1d76(*work).map(M68kCycleCount::get),
+            ))
+            .collect::<Vec<_>>(),
+        vec![
+            (
+                1_697,
+                ModeLevelKidProjectileCollisionWorkSub1D76 {
+                    kid_projectile_object_count: 0,
+                    diamond_power_object_count: 0,
+                },
+                Some(126),
+            ),
+            (
+                1_703,
+                ModeLevelKidProjectileCollisionWorkSub1D76 {
+                    kid_projectile_object_count: 0,
+                    diamond_power_object_count: 0,
+                },
+                Some(126),
+            ),
+            (
+                1_709,
+                ModeLevelKidProjectileCollisionWorkSub1D76 {
+                    kid_projectile_object_count: 0,
+                    diamond_power_object_count: 0,
+                },
+                Some(126),
+            ),
+        ],
+        "ASM sub_1D76 two empty sub_1D84 object-list paths",
     );
 }
 

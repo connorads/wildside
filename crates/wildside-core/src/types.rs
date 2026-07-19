@@ -2244,6 +2244,13 @@ pub struct ModeLevelDiamondPowerCompileWorkSub3F798 {
     pub buffered_entry_count: u8,
 }
 
+/// Object lists consumed by ASM `sub_1D76` through its two `sub_1D84` passes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelKidProjectileCollisionWorkSub1D76 {
+    pub kid_projectile_object_count: u16,
+    pub diamond_power_object_count: u16,
+}
+
 /// Typed observation after ASM `sub_44DC` on the natural `loc_80C -> loc_892`
 /// path.
 ///
@@ -2266,6 +2273,7 @@ pub struct ModeLevelPostHudWorkLedger {
     pub shooter_collision_work: ModeLevelShooterCollisionWork,
     pub block_debris_work_sub_2a4c: ModeLevelBlockDebrisWorkSub2A4C,
     pub diamond_power_compile_work_sub_3f798: ModeLevelDiamondPowerCompileWorkSub3F798,
+    pub kid_projectile_collision_work_sub_1d76: ModeLevelKidProjectileCollisionWorkSub1D76,
 }
 
 /// Frame-local HUD art DMA command emitted by ASM `sub_44DC` (kid.asm).
