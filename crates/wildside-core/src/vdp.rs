@@ -2909,8 +2909,13 @@ pub fn h40_beam_from_absolute_m68k_cycles(cycles: M68kCycleCount) -> H40BeamPosi
 pub fn ntsc_vblank_cursor_from_absolute_m68k_cycles(
     cycles: M68kCycleCount,
 ) -> crate::GenesisMclkCount {
+    ntsc_vblank_cursor_from_h40_beam(h40_beam_from_absolute_m68k_cycles(cycles))
+}
+
+/// Master-clock cursor for an H40 beam relative to the VBlank-to-VBlank
+/// scanline-224 origin.
+pub fn ntsc_vblank_cursor_from_h40_beam(beam: H40BeamPosition) -> crate::GenesisMclkCount {
     const VBLANK_SCANLINE: u32 = 224;
-    let beam = h40_beam_from_absolute_m68k_cycles(cycles);
     let frame_mclk = MCLK_CYCLES_PER_SCANLINE * u32::from(NTSC_SCANLINES_PER_FRAME);
     let absolute_mclk =
         u32::from(beam.scanline) * MCLK_CYCLES_PER_SCANLINE + u32::from(beam.scanline_mclk);
@@ -2944,6 +2949,26 @@ pub struct ModeLevelRasterSeedSubE12 {
 pub struct ModeLevelCpuRasterCursor {
     pub beam: H40BeamPosition,
     pub refresh_phase: M68kRefreshPhase,
+}
+
+/// CPU/beam scheduler state at ASM `Load_InGame` source boundaries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LoadInGameCpuRasterCursor {
+    pub beam: H40BeamPosition,
+    pub refresh_phase: M68kRefreshPhase,
+}
+
+/// Advance the source tail from `Load_InGame`'s `j_sub_28FC` call at `$11A12`
+/// to the first instruction of `StopMusic $E14C8`.
+pub fn load_in_game_stop_music_cursor_from_sub_28fc(
+    cursor: LoadInGameCpuRasterCursor,
+    timer_path: crate::LoadInGameTimerBonusPath,
+) -> LoadInGameCpuRasterCursor {
+    let advance = crate::load_in_game_stop_music_tail_advance(cursor.refresh_phase, timer_path);
+    LoadInGameCpuRasterCursor {
+        beam: cursor.beam.advance_m68k_cycles(advance.elapsed),
+        refresh_phase: advance.phase_after,
+    }
 }
 
 /// Explicit hardware boundary at ASM `Mode_Level $7C8`.
@@ -5466,6 +5491,23 @@ mod tests {
             90_142,
             "the persistent GEMS frame cursor starts at VDP scanline 224"
         );
+    }
+
+    #[test]
+    fn load_in_game_tail_positions_stop_music_from_sub_28fc_cursor() {
+        // ASM Load_InGame $11A12..$11A24 (kid.asm): the active timer path
+        // reaches StopMusic $E14C8 after the complete sub_28FC/sub_44B0/
+        // Init_Timer_and_Bonus_Flags source tail.
+        let cursor = load_in_game_stop_music_cursor_from_sub_28fc(
+            LoadInGameCpuRasterCursor {
+                beam: H40BeamPosition::new(243, 2_566).expect("oracle call beam"),
+                refresh_phase: M68kRefreshPhase::new(114).expect("oracle refresh phase"),
+            },
+            crate::LoadInGameTimerBonusPath::Initialise,
+        );
+
+        assert_eq!(cursor.beam, H40BeamPosition::new(250, 1_222).unwrap());
+        assert_eq!(cursor.refresh_phase, M68kRefreshPhase::new(14).unwrap());
     }
 
     #[test]

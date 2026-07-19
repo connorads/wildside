@@ -106,6 +106,106 @@ pub struct M68kRefreshAdvance {
     pub refresh_events: u32,
 }
 
+/// Source branch through ASM `Init_Timer_and_Bonus_Flags` during
+/// `Load_InGame`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LoadInGameTimerBonusPath {
+    /// `$FFFFFC36` is set, so the timer and bonus flags are initialised.
+    Initialise,
+    /// `$FFFFFC36` is clear, so the routine branches directly to its return.
+    ReturnAlreadyInitialised,
+}
+
+/// Raw source work from the `j_sub_28FC` call at `Load_InGame $11A12` to
+/// `StopMusic $E14C8`.
+///
+/// ASM `Load_InGame $11A12..$11A24` calls the fixed `sub_28FC` 123-longword
+/// clear, `sub_44B0`, the selected `Init_Timer_and_Bonus_Flags` branch, and
+/// finally the `j_StopMusic` thunk. Refresh and external hardware waits remain
+/// scheduler work.
+pub fn load_in_game_stop_music_tail_raw_cycles(
+    timer_path: LoadInGameTimerBonusPath,
+) -> M68kCycleCount {
+    let mut raw_cycles = 0_u32;
+    visit_load_in_game_stop_music_tail_instructions(timer_path, |instruction_cycles| {
+        raw_cycles = raw_cycles
+            .checked_add(instruction_cycles)
+            .expect("Load_InGame tail fits u32 cycles");
+    });
+    M68kCycleCount::from_raw(raw_cycles)
+}
+
+/// Advance refresh scheduling across each real instruction in the
+/// `Load_InGame $11A12..$11A24` tail.
+///
+/// Refresh is sampled between instructions, so advancing only the aggregate
+/// raw total can miss a wait queued at an instruction boundary.
+pub fn load_in_game_stop_music_tail_advance(
+    mut phase: M68kRefreshPhase,
+    timer_path: LoadInGameTimerBonusPath,
+) -> M68kRefreshAdvance {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+    visit_load_in_game_stop_music_tail_instructions(timer_path, |instruction_cycles| {
+        let advance = phase.advance_rom(M68kCycleCount::from_raw(instruction_cycles));
+        elapsed = elapsed
+            .checked_add(advance.elapsed.get())
+            .expect("Load_InGame tail fits u32 cycles");
+        refresh_events = refresh_events
+            .checked_add(advance.refresh_events)
+            .expect("Load_InGame refresh count fits u32");
+        phase = advance.phase_after;
+    });
+    M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    }
+}
+
+fn visit_load_in_game_stop_music_tail_instructions(
+    timer_path: LoadInGameTimerBonusPath,
+    mut visit: impl FnMut(u32),
+) {
+    // ASM Load_InGame $11A12 -> j_sub_28FC -> sub_28FC.
+    for cycles in [18, 10, 8, 8, 4] {
+        visit(cycles);
+    }
+    for iteration in 0..123 {
+        visit(12); // move.l d6,(a0)+
+        visit(if iteration == 122 { 14 } else { 10 }); // dbf d7,loc_2906
+    }
+    for cycles in [8, 12, 16, 16, 16] {
+        visit(cycles);
+    }
+
+    // ASM Load_InGame $11A16 -> j_sub_44B0 -> sub_44B0.
+    for cycles in [18, 10, 16, 16, 16, 16, 16, 16] {
+        visit(cycles);
+    }
+
+    // ASM Load_InGame $11A1A -> Init_Timer_and_Bonus_Flags.
+    for cycles in [18, 10, 12] {
+        visit(cycles);
+    }
+    match timer_path {
+        LoadInGameTimerBonusPath::Initialise => {
+            visit(12); // beq.w not taken
+            for _ in 0..8 {
+                visit(16);
+            }
+        }
+        LoadInGameTimerBonusPath::ReturnAlreadyInitialised => {
+            visit(10); // beq.w taken
+        }
+    }
+    visit(16); // rts
+
+    // ASM Load_InGame $11A1E -> j_StopMusic -> StopMusic $E14C8.
+    visit(20);
+    visit(10);
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct M68kExternalWaitEvent {
     /// Raw CPU offset from ASM `sub_E12` entry.
@@ -3361,5 +3461,30 @@ mod tests {
         assert_eq!(advance.elapsed.get(), 6);
         assert_eq!(advance.refresh_events, 0);
         assert_eq!(advance.phase_after.get(), 5);
+    }
+
+    #[test]
+    fn load_in_game_tail_derives_source_cycles_to_stop_music_e14c8() {
+        // ASM Load_InGame $11A12..$11A24 (kid.asm): j_sub_28FC clears 123
+        // longwords, sub_44B0 seeds five HUD timers, the active
+        // Init_Timer_and_Bonus_Flags path clears its timer/bonus state, and
+        // j_StopMusic enters StopMusic at $E14C8.
+        assert_eq!(
+            load_in_game_stop_music_tail_raw_cycles(LoadInGameTimerBonusPath::Initialise),
+            M68kCycleCount::from_raw(3_176),
+        );
+        assert_eq!(
+            load_in_game_stop_music_tail_raw_cycles(
+                LoadInGameTimerBonusPath::ReturnAlreadyInitialised,
+            ),
+            M68kCycleCount::from_raw(3_046),
+        );
+        let advance = load_in_game_stop_music_tail_advance(
+            M68kRefreshPhase::new(114).expect("trace phase"),
+            LoadInGameTimerBonusPath::Initialise,
+        );
+        assert_eq!(advance.elapsed, M68kCycleCount::from_raw(3_228));
+        assert_eq!(advance.refresh_events, 26);
+        assert_eq!(advance.phase_after, M68kRefreshPhase::new(14).unwrap());
     }
 }
