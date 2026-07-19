@@ -343,6 +343,21 @@ observed total varies with bus acknowledgement and refresh. The next
 implementation slice must schedule those typed windows at the actual
 intra-frame `StopMusic` boundary.
 
+Correction 2026-07-19: the first complete selected-PC trace also disproves
+the initial interpretation of its 218,270-cycle instruction sum. At scanline
+224, the trace records a 44-cycle interrupt entry against resume PC `$E1402`,
+then omits the 60 raw cycles in `V_Int $488` because those PCs were outside
+the selector. The following 62-cycle gap is therefore `V_Int` plus its
+two-cycle refresh wait, not a VDP-owned halt. Pure uninterrupted `StopMusic`
+is 218,226 raw cycles; every bus/reset/release offset after that interrupt is
+44 cycles earlier than the first table. The same call has 8,226 one-cycle
+68000-to-Z80-RAM waits and 1,506 refresh events, then 104 raw interrupt cycles:
+`218,226 + 8,226 + 3,012 + 104 + 2 = 229,570`. jgenesis exposes BUSACK
+immediately as `BUSREQ && !RESET`, explaining the one-poll loops. Rejected:
+an instruction-boundary BUSACK delay or a route-intrinsic 62-cycle VDP halt.
+The scheduler must inject VINT according to the call's beam position rather
+than bake one frame's interrupt into the source routine.
+
 Progress 2026-07-19: commit `7afa08b27` schedules the classified life-icon-only
 `sub_44DC` path through its four-entry VRAM FIFO and the trailing `loc_44D4`
 instruction stream to the following `Manage_EnemyLoading` call. The final

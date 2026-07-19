@@ -141,8 +141,8 @@ pub struct GemsStopMusicTiming {
 ///
 /// `Stop_z80` and `sub_E143A loc_E1460` each execute at least one `$A11100`
 /// poll. Every additional taken `btst/bne` iteration adds 30 raw 68000 cycles;
-/// refresh, VDP halts, and the Z80 instruction-boundary grant remain external
-/// waits for the hardware scheduler.
+/// VINT pre-emption, refresh, and 68000 accesses to Z80 RAM remain external
+/// work for the hardware scheduler.
 pub fn gems_stop_music_timing(polls: GemsStopMusicBusAckPolls) -> Option<GemsStopMusicTiming> {
     let poll_counts = core::array::from_fn::<_, 7, _>(|index| {
         if index == 0 {
@@ -156,16 +156,16 @@ pub fn gems_stop_music_timing(polls: GemsStopMusicBusAckPolls) -> Option<GemsSto
     }
 
     // ASM StopMusic $E14C8, sub_E13DA, sub_E1416, sub_E149C/sub_E14AC.
-    // These offsets come from the complete one-poll instruction stream; only
-    // the explicit bus-ack loops can extend it.
+    // These offsets come from the uninterrupted one-poll instruction stream;
+    // only the explicit bus-ack loops can extend its raw source schedule.
     const BASE_WINDOWS: [(u32, u32); 7] = [
-        (104, 214_838),
-        (215_068, 215_238),
-        (215_504, 215_674),
-        (215_944, 216_298),
-        (216_568, 216_922),
-        (217_192, 217_546),
-        (217_816, 218_170),
+        (104, 214_794),
+        (215_024, 215_194),
+        (215_460, 215_630),
+        (215_900, 216_254),
+        (216_524, 216_878),
+        (217_148, 217_502),
+        (217_772, 218_126),
     ];
     const EXTRA_POLL_RAW_CYCLES: u32 = 30;
 
@@ -195,13 +195,13 @@ pub fn gems_stop_music_timing(polls: GemsStopMusicBusAckPolls) -> Option<GemsSto
     let driver_poll_extra = u32::from(polls.driver_copy_sub_e13da.checked_sub(1)?)
         .checked_mul(EXTRA_POLL_RAW_CYCLES)?;
     Some(GemsStopMusicTiming {
-        raw_cycles: M68kCycleCount::from_raw(218_270_u32.checked_add(prior_extra)?),
+        raw_cycles: M68kCycleCount::from_raw(218_226_u32.checked_add(prior_extra)?),
         bus_windows: windows,
         reset_assert_complete_raw_offset: M68kCycleCount::from_raw(
-            214_538_u32.checked_add(driver_poll_extra)?,
+            214_494_u32.checked_add(driver_poll_extra)?,
         ),
         reset_release_complete_raw_offset: M68kCycleCount::from_raw(
-            214_858_u32.checked_add(driver_poll_extra)?,
+            214_814_u32.checked_add(driver_poll_extra)?,
         ),
     })
 }
@@ -1805,20 +1805,20 @@ mod tests {
         })
         .expect("ASM Stop_z80/sub_E143A poll at least once");
 
-        assert_eq!(timing.raw_cycles.get(), 218_270);
+        assert_eq!(timing.raw_cycles.get(), 218_226);
         assert_eq!(
             timing.bus_windows.map(|window| (
                 window.request_complete_raw_offset.get(),
                 window.release_complete_raw_offset.get(),
             )),
             [
-                (104, 214_838),
-                (215_068, 215_238),
-                (215_504, 215_674),
-                (215_944, 216_298),
-                (216_568, 216_922),
-                (217_192, 217_546),
-                (217_816, 218_170),
+                (104, 214_794),
+                (215_024, 215_194),
+                (215_460, 215_630),
+                (215_900, 216_254),
+                (216_524, 216_878),
+                (217_148, 217_502),
+                (217_772, 218_126),
             ],
             "ASM sub_E13DA owns the bus for the driver copy, then each sub_E149C/sub_E14AC call reacquires it separately"
         );
@@ -1827,7 +1827,7 @@ mod tests {
                 timing.reset_assert_complete_raw_offset.get(),
                 timing.reset_release_complete_raw_offset.get(),
             ),
-            (214_538, 214_858),
+            (214_494, 214_814),
             "ASM sub_E1416 resets the Z80 before releasing the copy window"
         );
     }
@@ -1840,7 +1840,7 @@ mod tests {
         })
         .expect("positive poll counts");
 
-        assert_eq!(timing.raw_cycles.get(), 218_360);
+        assert_eq!(timing.raw_cycles.get(), 218_316);
         assert_eq!(
             (
                 timing.bus_windows[0].request_complete_raw_offset.get(),
@@ -1851,7 +1851,7 @@ mod tests {
                 timing.bus_windows[2].release_complete_raw_offset.get(),
                 timing.bus_windows[3].request_complete_raw_offset.get(),
             ),
-            (104, 214_868, 215_098, 215_268, 215_534, 215_764, 216_034,),
+            (104, 214_824, 215_054, 215_224, 215_490, 215_720, 215_990,),
             "ASM Stop_z80/sub_E143A bus-poll repeats add 30 raw cycles without moving the already-completed bus request"
         );
         assert_eq!(
@@ -1859,7 +1859,7 @@ mod tests {
                 timing.reset_assert_complete_raw_offset.get(),
                 timing.reset_release_complete_raw_offset.get(),
             ),
-            (214_568, 214_888)
+            (214_524, 214_844)
         );
         assert_eq!(
             gems_stop_music_timing(GemsStopMusicBusAckPolls {
