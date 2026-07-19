@@ -274,7 +274,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                 .push((frame_index, ledger.diamond_power_compile_work_sub_3f798));
             observed_kid_projectile_collision_work
                 .push((frame_index, ledger.kid_projectile_collision_work_sub_1d76));
-            observed_gfx_collision_work.push((frame_index, ledger.gfx_collision_work));
+            observed_gfx_collision_work.push((frame_index, ledger.gfx_collision_work.clone()));
             observed_terrain_special_scan.push((frame_index, ledger.terrain_special_scan_sub_1fa2));
             observed.push((
                 frame_index,
@@ -595,41 +595,64 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             .map(|(frame, work)| {
                 (
                     *frame,
-                    *work,
+                    work.kid_projectile_list_f866,
+                    work.object_kind_two_list_f86a,
+                    work.kid_is_invulnerable,
                     gfx_objects_collision_raw_cycles_sub_16f0(work.object_kind_two_list_f86a)
                         .map(M68kCycleCount::get),
                     gfx_objects_collision_raw_cycles_sub_16f0(work.kid_projectile_list_f866)
                         .map(M68kCycleCount::get),
                     gfx_objects_collision_kid_raw_cycles_sub_1b76(
                         work.kid_projectile_list_f866,
-                        *work,
+                        work,
                     )
                     .map(M68kCycleCount::get),
                     gfx_objects_collision_kid_raw_cycles_sub_1b76(
                         work.object_kind_two_list_f86a,
-                        *work,
+                        work,
                     )
                     .map(M68kCycleCount::get),
+                    gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76(work)
+                        .map(M68kCycleCount::get),
                 )
             })
             .collect::<Vec<_>>(),
-        [1_697, 1_703, 1_709]
-            .map(|frame| {
-                (
-                    frame,
-                    ModeLevelGfxCollisionWork {
-                        kid_projectile_list_f866: ModeLevelGfxCollisionListWork::Empty,
-                        object_kind_two_list_f86a: ModeLevelGfxCollisionListWork::Empty,
-                        kid_is_invulnerable: false,
-                    },
-                    Some(330),
-                    Some(330),
-                    Some(166),
-                    Some(166),
-                )
-            })
-            .to_vec(),
-        "ASM sub_16F0/sub_1B76 null special-chain paths at `$F86A` and `$F866`",
+        vec![
+            (
+                1_697,
+                ModeLevelGfxCollisionListWork::Empty,
+                ModeLevelGfxCollisionListWork::Empty,
+                false,
+                Some(330),
+                Some(330),
+                Some(166),
+                Some(166),
+                Some(2_574),
+            ),
+            (
+                1_703,
+                ModeLevelGfxCollisionListWork::Empty,
+                ModeLevelGfxCollisionListWork::Empty,
+                false,
+                Some(330),
+                Some(330),
+                Some(166),
+                Some(166),
+                Some(2_780),
+            ),
+            (
+                1_709,
+                ModeLevelGfxCollisionListWork::Empty,
+                ModeLevelGfxCollisionListWork::Empty,
+                false,
+                Some(330),
+                Some(330),
+                Some(166),
+                Some(166),
+                Some(2_718),
+            ),
+        ],
+        "ASM sub_16F0/sub_1B76 selected-PC paths, including live `$F86E` nodes",
     );
     assert_eq!(
         observed_terrain_special_scan

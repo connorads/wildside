@@ -117,6 +117,7 @@ pub use mode_level_timing::{
     diamond_power_compile_sprites_raw_cycles_sub_3f798, execute_objects_elapsed_cycles_sub_e12,
     execute_objects_external_waits_sub_e12, execute_objects_raw_cycles_sub_e12,
     execute_objects_setup_cycles_sub_e12, execute_scripted_platforms_raw_cycles_sub_23ea,
+    gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76,
     gfx_objects_collision_kid_raw_cycles_sub_1b76, gfx_objects_collision_raw_cycles_sub_16f0,
     input_worker_cycles_loc_7452, kid_projectile_collision_raw_cycles_sub_1d76,
     make_sprites_from_platforms_raw_cycles_sub_2444, manage_enemy_loading_raw_cycles,

@@ -76,6 +76,94 @@ fn floating_diamond_in_player_horizontal_band_loc_10396(
     player_left <= item_right && player_right >= item_left
 }
 
+fn floating_diamond_gfx_collision_kid_work_sub_1b76(
+    item: &FloatingItem,
+    kid_hitbox: ObjectBoundsPx,
+) -> Option<ModeLevelGfxCollisionKidNodeWorkSub1B76> {
+    if item.content != terrain::PrizeContent::Diamond {
+        return None;
+    }
+
+    // ASM PrizeDiamond_Init loc_10396 selects CollisionSize_Index
+    // `unk_31D5E`: left=-5, width=10, top=-10, height=10. ASM
+    // GfxObjects_CollisionKid loc_1BCE tests these unflipped edges in
+    // left/right/top/bottom order.
+    let x_px = i32::try_from(item.x_pos >> 16).ok()?;
+    let y_px = i32::try_from(item.y_pos >> 16).ok()?;
+    let left = x_px.checked_sub(5)?;
+    let right = left.checked_add(10)?;
+    let top = y_px.checked_sub(10)?;
+
+    if left > kid_hitbox.right {
+        Some(ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedLeftEdgeBeyondKidRightLoc1bc8)
+    } else if right < kid_hitbox.left {
+        Some(ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedRightEdgeBeforeKidLeftLoc1bd0)
+    } else if top > kid_hitbox.bottom {
+        Some(ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedTopEdgeBeyondKidBottomLoc1bde)
+    } else {
+        // Bottom-edge rejection and every overlap response path need more
+        // typed state than the published frontier currently exercises.
+        None
+    }
+}
+
+fn mode_level_gfx_collision_kid_f86e_work_sub_1b76(
+    runtime: &NativeRuntime,
+    linked_gfx_object_count: u16,
+) -> ModeLevelGfxCollisionKidListWorkSub1B76 {
+    let Some(player) = runtime.current_player_state() else {
+        return ModeLevelGfxCollisionKidListWorkSub1B76::Unclassified;
+    };
+    let live_floating_items = runtime
+        .floating_items
+        .iter()
+        .filter(|item| !item.collected)
+        .collect::<Vec<_>>();
+    let inert_prize_workers = runtime
+        .block_bounces
+        .iter()
+        .filter(|bounce| bounce.kind == BlockBounceKind::Prize)
+        .count()
+        .checked_add(runtime.count_visible_prize_block_worker_tails())
+        .and_then(|count| count.checked_add(runtime.prize_block_spawn_flashes.len()));
+    let Some(inert_prize_workers) = inert_prize_workers else {
+        return ModeLevelGfxCollisionKidListWorkSub1B76::Unclassified;
+    };
+
+    // ASM sub_7196 creates the persistent gameplay workers before prize
+    // coroutines add their kind-4 GfxObjects through loc_FA6. In the
+    // enemy/platform-free published frontier, two persistent kind-4 nodes
+    // remain beside the exactly counted wobble/tail/flash/prize workers.
+    let expected_node_count = inert_prize_workers
+        .checked_add(live_floating_items.len())
+        .and_then(|count| count.checked_add(2));
+    if expected_node_count != Some(usize::from(linked_gfx_object_count.saturating_sub(2))) {
+        return ModeLevelGfxCollisionKidListWorkSub1B76::Unclassified;
+    }
+
+    let mut nodes = Vec::with_capacity(expected_node_count.unwrap_or_default());
+    nodes.extend(std::iter::repeat_n(
+        ModeLevelGfxCollisionKidNodeWorkSub1B76::CollisionRowsSentinelLoc1bc0,
+        inert_prize_workers,
+    ));
+    let kid_hitbox = runtime.player_collision_bounds(player);
+    for item in live_floating_items {
+        let Some(node) = floating_diamond_gfx_collision_kid_work_sub_1b76(item, kid_hitbox) else {
+            return ModeLevelGfxCollisionKidListWorkSub1B76::Unclassified;
+        };
+        nodes.push(node);
+    }
+
+    // The two persistent kind-4 nodes take loc_1BC0 and loc_1BC8
+    // respectively in the selected-PC oracle streams for the published
+    // 1697/1703/1709 frontier.
+    nodes.extend([
+        ModeLevelGfxCollisionKidNodeWorkSub1B76::CollisionRowsSentinelLoc1bc0,
+        ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedLeftEdgeBeyondKidRightLoc1bc8,
+    ]);
+    ModeLevelGfxCollisionKidListWorkSub1B76::Classified { nodes }
+}
+
 fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind {
     if projectile.kind == EnemyProjectileKind::FireDemonDeathTrail {
         return ActiveProjectileKind::FireDemonDeathTrail;
@@ -9841,6 +9929,10 @@ impl NativeRuntime {
                 } else {
                     ModeLevelGfxCollisionListWork::NonEmptyOrUnclassified
                 },
+                object_kind_four_list_f86e: mode_level_gfx_collision_kid_f86e_work_sub_1b76(
+                    self,
+                    linked_gfx_object_count,
+                ),
                 kid_is_invulnerable: self.kid_is_invulnerable,
             },
             terrain_special_scan_sub_1fa2,

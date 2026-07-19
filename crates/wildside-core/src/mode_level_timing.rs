@@ -4,6 +4,7 @@ use crate::{
     ModeLevelDamageFlashWaitLocBc44, ModeLevelDemoExitWaitLoc119E0,
     ModeLevelDiamondPowerCompileWorkSub3F798, ModeLevelEnemyLoadingPath,
     ModeLevelExecuteObjectsWork, ModeLevelFloatingPrizeFallPathLoc103B2,
+    ModeLevelGfxCollisionKidListWorkSub1B76, ModeLevelGfxCollisionKidNodeWorkSub1B76,
     ModeLevelGfxCollisionListWork, ModeLevelGfxCollisionWork, ModeLevelInputWorkerPathLoc7452,
     ModeLevelKidGfxTerrainCollision, ModeLevelKidProjectileCollisionWorkSub1D76,
     ModeLevelPlatformLoaderExistingSlotSub2728, ModeLevelPlatformLoaderRangeLoc2762,
@@ -1412,7 +1413,7 @@ pub fn gfx_objects_collision_raw_cycles_sub_16f0(
 /// (`sub_1B76`) special-chain pass.
 pub fn gfx_objects_collision_kid_raw_cycles_sub_1b76(
     list: ModeLevelGfxCollisionListWork,
-    work: ModeLevelGfxCollisionWork,
+    work: &ModeLevelGfxCollisionWork,
 ) -> Option<M68kCycleCount> {
     if list != ModeLevelGfxCollisionListWork::Empty || work.kid_is_invulnerable {
         return None;
@@ -1421,6 +1422,44 @@ pub fn gfx_objects_collision_kid_raw_cycles_sub_1b76(
     // ASM sub_1B76 loc_1B94/loc_1D00: load the Kid hitbox, observe a null
     // successor in `4(a2)`, then take the clear KidIsInvulnerable return.
     Some(M68kCycleCount::from_raw(166))
+}
+
+/// Raw routine-body cost for the kind-4 `$FFFFF86E` pass through ASM
+/// `GfxObjects_CollisionKid` (`sub_1B76`).
+pub fn gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76(
+    work: &ModeLevelGfxCollisionWork,
+) -> Option<M68kCycleCount> {
+    if work.kid_is_invulnerable {
+        return None;
+    }
+    let ModeLevelGfxCollisionKidListWorkSub1B76::Classified { nodes } =
+        &work.object_kind_four_list_f86e
+    else {
+        return None;
+    };
+
+    // ASM sub_1B76 entry through loc_1B94 is 94 cycles. Each node cost
+    // includes loc_1B94's successor load and the complete rejecting sub-box
+    // path back to that loop. The final null successor plus clear
+    // KidIsInvulnerable epilogue at loc_1D00 costs 72 cycles.
+    let raw_cycles = nodes.iter().try_fold(94_u32, |cycles, node| {
+        let node_cycles = match node {
+            // ASM loc_1B94 -> loc_1BC0: first CollisionSize word is zero.
+            ModeLevelGfxCollisionKidNodeWorkSub1B76::CollisionRowsSentinelLoc1bc0 => 156,
+            // ASM loc_1B94 -> loc_1BC8 -> loc_1BC0: reject the first box on
+            // its left edge, then read the zero terminator.
+            ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedLeftEdgeBeyondKidRightLoc1bc8 => 206,
+            // ASM loc_1B94 -> loc_1BD0 -> loc_1BC0: reject the first box on
+            // its right edge, then read the zero terminator.
+            ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedRightEdgeBeforeKidLeftLoc1bd0 => 230,
+            // ASM loc_1B94 -> loc_1BDE -> loc_1BC0: reject the first box on
+            // its top edge, then read the zero terminator.
+            ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedTopEdgeBeyondKidBottomLoc1bde => 274,
+        };
+        cycles.checked_add(node_cycles)
+    })?;
+
+    raw_cycles.checked_add(72).map(M68kCycleCount::from_raw)
 }
 
 /// Raw routine-body cost for ASM special-terrain scan `sub_1FA2`.
@@ -1620,6 +1659,7 @@ mod tests {
         let work = ModeLevelGfxCollisionWork {
             kid_projectile_list_f866: ModeLevelGfxCollisionListWork::Empty,
             object_kind_two_list_f86a: ModeLevelGfxCollisionListWork::Empty,
+            object_kind_four_list_f86e: ModeLevelGfxCollisionKidListWorkSub1B76::Unclassified,
             kid_is_invulnerable: false,
         };
         assert_eq!(
@@ -1627,7 +1667,7 @@ mod tests {
             Some(M68kCycleCount::from_raw(330))
         );
         assert_eq!(
-            gfx_objects_collision_kid_raw_cycles_sub_1b76(work.object_kind_two_list_f86a, work,),
+            gfx_objects_collision_kid_raw_cycles_sub_1b76(work.object_kind_two_list_f86a, &work,),
             Some(M68kCycleCount::from_raw(166))
         );
 
@@ -1637,20 +1677,63 @@ mod tests {
             None
         );
         assert_eq!(
-            gfx_objects_collision_kid_raw_cycles_sub_1b76(unclassified, work),
+            gfx_objects_collision_kid_raw_cycles_sub_1b76(unclassified, &work),
             None
         );
         assert_eq!(
             gfx_objects_collision_kid_raw_cycles_sub_1b76(
                 ModeLevelGfxCollisionListWork::Empty,
-                ModeLevelGfxCollisionWork {
+                &ModeLevelGfxCollisionWork {
                     kid_is_invulnerable: true,
-                    ..work
+                    ..work.clone()
                 },
             ),
             None,
             "the invulnerable loc_1D00 tail depends on live collision words",
         );
+    }
+
+    #[test]
+    fn f86e_collision_walk_sums_each_oracle_observed_node_path_sub_1b76() {
+        let work = |sentinels, misses_right, misses_left, misses_bottom| {
+            let mut nodes = Vec::new();
+            nodes.extend(std::iter::repeat_n(
+                ModeLevelGfxCollisionKidNodeWorkSub1B76::CollisionRowsSentinelLoc1bc0,
+                sentinels,
+            ));
+            nodes.extend(std::iter::repeat_n(
+                ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedLeftEdgeBeyondKidRightLoc1bc8,
+                misses_right,
+            ));
+            nodes.extend(std::iter::repeat_n(
+                ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedRightEdgeBeforeKidLeftLoc1bd0,
+                misses_left,
+            ));
+            nodes.extend(std::iter::repeat_n(
+                ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedTopEdgeBeyondKidBottomLoc1bde,
+                misses_bottom,
+            ));
+            ModeLevelGfxCollisionWork {
+                kid_projectile_list_f866: ModeLevelGfxCollisionListWork::Empty,
+                object_kind_two_list_f86a: ModeLevelGfxCollisionListWork::Empty,
+                object_kind_four_list_f86e: ModeLevelGfxCollisionKidListWorkSub1B76::Classified {
+                    nodes,
+                },
+                kid_is_invulnerable: false,
+            }
+        };
+
+        for (work, expected) in [
+            (work(10, 3, 1, 0), 2_574),
+            (work(10, 4, 1, 0), 2_780),
+            (work(8, 5, 0, 1), 2_718),
+        ] {
+            assert_eq!(
+                gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76(&work),
+                Some(M68kCycleCount::from_raw(expected)),
+                "ASM sub_1B76 oracle frames 1697/1703/1709",
+            );
+        }
     }
 
     #[test]

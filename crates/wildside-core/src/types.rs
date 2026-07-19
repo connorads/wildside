@@ -2259,9 +2259,37 @@ pub enum ModeLevelGfxCollisionListWork {
     NonEmptyOrUnclassified,
 }
 
+/// One collision-free GfxObject path through ASM `GfxObjects_CollisionKid`.
+///
+/// Each variant names the first branch that rejects the node. Collision
+/// response paths remain unclassified until their mutable writeback state is
+/// represented too.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelGfxCollisionKidNodeWorkSub1B76 {
+    /// ASM `loc_1BC0`: the first CollisionSize word is the zero sentinel.
+    CollisionRowsSentinelLoc1bc0,
+    /// ASM `loc_1BC8`: unflipped box left edge is beyond Kid's right edge.
+    UnflippedLeftEdgeBeyondKidRightLoc1bc8,
+    /// ASM `loc_1BD0`: unflipped box right edge is before Kid's left edge.
+    UnflippedRightEdgeBeforeKidLeftLoc1bd0,
+    /// ASM `loc_1BDE`: unflipped box top edge is beyond Kid's bottom edge.
+    UnflippedTopEdgeBeyondKidBottomLoc1bde,
+}
+
+/// Per-node work for the kind-4 chain behind sentinel `$FFFFF86E`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelGfxCollisionKidListWorkSub1B76 {
+    Classified {
+        nodes: Vec<ModeLevelGfxCollisionKidNodeWorkSub1B76>,
+    },
+    Unclassified,
+}
+
 /// Special GfxObject chains consumed by ASM `GfxObjects_Collision` and
 /// `GfxObjects_CollisionKid`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelGfxCollisionWork {
     /// Sentinel passed as `$FFFFF866`, whose successor is the kind-1
     /// Kid-projectile chain at `$FFFFF86A`.
@@ -2269,6 +2297,9 @@ pub struct ModeLevelGfxCollisionWork {
     /// Sentinel passed as `$FFFFF86A`, whose successor is the kind-2 chain at
     /// `$FFFFF86E`.
     pub object_kind_two_list_f86a: ModeLevelGfxCollisionListWork,
+    /// Sentinel `$FFFFF86E`, whose successor is the kind-4 chain at
+    /// `$FFFFF872`.
+    pub object_kind_four_list_f86e: ModeLevelGfxCollisionKidListWorkSub1B76,
     /// ROM `KidIsInvulnerable` byte sampled by the `loc_1D00` epilogue.
     pub kid_is_invulnerable: bool,
 }
