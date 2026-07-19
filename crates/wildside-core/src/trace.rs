@@ -522,6 +522,30 @@ fn player_allocates_prize_wobble_before_tails(path: Option<&ModeLevelPlayerExecu
     })
 }
 
+fn player_spawned_prize_block_initial_sub_1007a(
+    path: Option<&ModeLevelPlayerExecutionPath>,
+    block_bounces: &[BlockBounceAnim],
+) -> Option<ModeLevelPrizeBlockInitialWorkSub1007A> {
+    if !player_allocates_prize_wobble_before_tails(path) {
+        return None;
+    }
+    let bounce = block_bounces.iter().rev().find(|bounce| {
+        bounce.kind == BlockBounceKind::Prize
+            && bounce.remaining == bounce.initial_duration
+            && bounce.initial_duration == 31
+    })?;
+    Some(ModeLevelPrizeBlockInitialWorkSub1007A {
+        // ASM sub_1007A (kid.asm:21345-21475): byte 1 of the selected
+        // Level_Layout word branches to the reveal-only loc_101D8 script.
+        path: if bounce.prize_deleted_tile {
+            ModeLevelPrizeBlockInitialPathSub1007A::RevealOnlyLoc101D8
+        } else {
+            ModeLevelPrizeBlockInitialPathSub1007A::Prize
+        },
+        content: bounce.prize_content,
+    })
+}
+
 fn mode_level_prize_tail_list_work(
     execute: &ModeLevelExecuteObjectsWork,
     target_tail_index: usize,
@@ -1869,6 +1893,7 @@ mod tests {
                         content: Some(terrain::PrizeContent::Diamond),
                         deleted_tile: false,
                     }],
+                    player_spawned_prize_block_initial_sub_1007a: None,
                     prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeBlockTailWork {
                         cell_x: 0x0A,
                         cell_y: 0x0C,
@@ -2107,6 +2132,7 @@ mod tests {
                     deleted_tile: false,
                 })
                 .collect(),
+            player_spawned_prize_block_initial_sub_1007a: None,
             prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeBlockTailWork {
                 cell_x: 31,
                 cell_y: 4,
@@ -9364,6 +9390,7 @@ impl NativeRuntime {
                 player_gfx_terrain_scan: None,
                 cyclone_visual_accumulator_before,
                 prize_block_wobble_paths_sub_1007a,
+                player_spawned_prize_block_initial_sub_1007a: None,
                 prize_block_tail_paths_sub_1066,
                 prize_block_flash_paths_sub_1066,
                 floating_prize_paths,
@@ -9505,6 +9532,13 @@ impl NativeRuntime {
                     .map(|grid| mode_level_kid_gfx_terrain_scan(grid, bounds))
             });
         if let Some(ledger) = self.mode_level_work_before_hud_sub_44dc.as_mut() {
+            ledger
+                .execute_objects
+                .player_spawned_prize_block_initial_sub_1007a =
+                player_spawned_prize_block_initial_sub_1007a(
+                    Some(&executed_player_path),
+                    &self.block_bounces,
+                );
             ledger.execute_objects.executed_player_path = Some(executed_player_path);
             ledger.execute_objects.player_gfx_terrain_scan = player_gfx_terrain_scan;
             complete_prize_tail_list_work(&mut ledger.execute_objects);

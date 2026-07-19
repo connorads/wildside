@@ -1668,6 +1668,21 @@ pub enum PrizeBlockWobbleResumeSub1007A {
     AfterLoc10120At10128,
 }
 
+/// Initial branch taken by a prize-block worker allocated during Kid's
+/// callback in the same ASM `Execute_Objects` pass.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelPrizeBlockInitialPathSub1007A {
+    Prize,
+    RevealOnlyLoc101D8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelPrizeBlockInitialWorkSub1007A {
+    pub path: ModeLevelPrizeBlockInitialPathSub1007A,
+    pub content: Option<terrain::PrizeContent>,
+}
+
 /// Work executed after a one-frame hibernate in ASM `sub_1007A`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1977,6 +1992,12 @@ pub struct ModeLevelExecuteObjectsWork {
     pub cyclone_visual_accumulator_before: Option<u16>,
     #[serde(default)]
     pub prize_block_wobble_paths_sub_1007a: Vec<ModeLevelPrizeBlockWobbleWork>,
+    /// Kid can insert a new `$2001` worker after the entry roster was
+    /// observed. ASM loc_E1E reaches that worker later in the same linked-list
+    /// walk when its selector lies after Kid's `$2000` slot.
+    #[serde(default)]
+    pub player_spawned_prize_block_initial_sub_1007a:
+        Option<ModeLevelPrizeBlockInitialWorkSub1007A>,
     #[serde(default)]
     pub prize_block_tail_paths_sub_1066: Vec<ModeLevelPrizeBlockTailWork>,
     #[serde(default)]

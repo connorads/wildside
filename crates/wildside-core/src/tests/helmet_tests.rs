@@ -9403,6 +9403,31 @@ mod chunk_08 {
                 tail_gfx_category4_delete_rank_loc_1106: 12,
             })
         );
+        // ASM sub_914A -> off_BB80[1] allocates a `$2001` sub_1007A
+        // worker during Kid's callback. Its priority places it after Kid in
+        // the same loc_E1E walk, so it is execution work but not entry-roster
+        // work. Frame 1703 has no corresponding insertion.
+        assert_eq!(
+            frames[0]
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .expect("Mode_Level work ledger")
+                .execute_objects
+                .player_spawned_prize_block_initial_sub_1007a,
+            Some(ModeLevelPrizeBlockInitialWorkSub1007A {
+                path: ModeLevelPrizeBlockInitialPathSub1007A::Prize,
+                content: Some(terrain::PrizeContent::Diamond),
+            })
+        );
+        assert_eq!(
+            frames[1]
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .expect("Mode_Level work ledger")
+                .execute_objects
+                .player_spawned_prize_block_initial_sub_1007a,
+            None
+        );
         // ASM PrizeDiamond_Init loc_103B2..loc_10402: the parallel prize
         // records also preserve whether this wake stops at the current solid
         // row, falls directly, or uses the one-row grace probe.
