@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 instruction-boundary Load_InGame tail)
+
+- Correct published-route evidence is already divergent before `StopMusic`:
+  native Z80 PC `$145E`, 275 RAM bytes, phases and bank differ from oracle
+  `$03D2` at VBlank frame/cursor 868/90,139.
+- The coarse reset reconverges RAM to three differing bytes by `sub_E151C`,
+  but PC, bank and divider/YM phases remain wrong.
+- Commit `38d23e6` co-schedules every `Load_InGame $11A12..$11A24`
+  instruction with persistent GEMS and drains chained 68000 bank waits before
+  the next source instruction.
+- `mise run verify-slice-fast` is green: TAS frontier, strict Clippy, 6,979
+  core tests and 15 CLI regressions pass.
+- NEXT: give `Initialize_Platforms $11A0E..$11A12` the same persistent
+  hardware callback, then join it to the tail and timed `StopMusic`.
+
 ## 2026-07-19 handoff (#409 exact GEMS checkpoint boundary)
 
 - Added selected-PC oracle capture of full GEMS/Z80 state and a native

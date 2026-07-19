@@ -306,6 +306,23 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: commit `38d23e6` adds an instruction-boundary
+`Load_InGame $11A12..$11A24` scheduler and persistent-GEMS adapter. It clocks
+each real source instruction, merges a generated bank wait with any pending
+refresh wait, and drains waits generated during that wait before executing
+the next instruction. Fresh `any-percent-published` checkpoints also move the
+known divergence earlier than the reset: immediately before oracle
+`StopMusic $E14C8` at VBlank frame/cursor 868/90,139, coarse native is at Z80
+PC `$145E` against oracle `$03D2`, has 275 differing RAM bytes, phases
+`12/14/0` against `13/2/7` (divider/wait/YM), and bank `$0E0000` against
+`$0E8000`. Immediately before `sub_E151C` at frame/cursor 900/484,261, the
+instantaneous native reset has reduced RAM debt to three bytes, but PC
+`$0C28` still differs from `$02CE` and the bank and phases remain wrong. This
+proves the reset strongly reconverges RAM but does not excuse frame-batched
+control timing. NEXT: co-schedule `Initialize_Platforms $11A0E..$11A12`
+through the same persistent engine, then join the new tail adapter and timed
+`StopMusic`.
+
 Correction 2026-07-19: commit `5cbad4684` extends opt-in oracle GEMS
 checkpoints with `[AF,BC,DE,HL]`, `[AF',BC',DE',HL']`, and `[IX,IT,SP]`.
 Reproducing the checkpoint exposed a cross-route comparison in the preceding
