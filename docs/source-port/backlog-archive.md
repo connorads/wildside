@@ -306,6 +306,30 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: commit `60c66b4c1` adds a read-only
+`ModeLevelPostHudWorkLedger` for the exact 22 source phases after `sub_44DC`
+through `Make_SpritesFromPlatforms`. The three target helpers all take
+`Manage_EnemyLoading loc_36814 -> loc_3682A`, leave `$FB51` clear, and have
+linked GfxObject/platform counts 16/0, 17/0, and 16/0. Commit `e4a98200a`
+types the Demo `ReadJoypad loc_C22` work rather than assigning an elapsed
+constant. Native's choreography counter maps through the existing Demo-2
+timeout offset to oracle `$FBC2` values 723/729/735 before increment; all
+three are odd, so the increment is even and advances `Demo_Keypress_Ptr`.
+Oracle PC traces independently show the same `$B70 -> $C22` source branch
+and 1,040 elapsed cycles before `loc_C22`; later variation includes
+`sub_914/sub_924` Z80 arbitration and cannot be a fixed ReadJoypad cost.
+`mise run verify-slice-fast` is green after both commits. Next type the
+variable Gfx animation/collision/platform work and persist the GEMS CPU
+checkpoint before bridging the FIFO-aware HUD exit to `loc_892`.
+
+Deferred 2026-07-19: source review found that normal layout walks set
+`$FFFFFB51` at `Manage_EnemyLoading loc_36968`. A trial correcting the native
+normal loader broke nine synthetic contact tests whose fixtures assume the
+old initial-pass state, while the #409 Demo-2 targets take the earlier
+`loc_3682A` return and correctly keep the latch clear. The trial was reverted.
+Treat the normal-loader latch and its fixtures as separate loader debt; do not
+fold it into the route-timing scheduler.
+
 Progress 2026-07-19: commits `3e843e5a9`, `31550de7c`,
 `d5fc9d0e5`, and `4a0bd489f` persist the live `Mode_Level loc_892`
 WRAM tail and derive the exact 12,852/13,080/12,310 raw-cycle helper

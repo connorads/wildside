@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 post-HUD work and Demo ReadJoypad)
+
+- The natural post-HUD path now records all 22 source phases through
+  `Make_SpritesFromPlatforms`, including the Demo-2 enemy-loader early return,
+  `$FB51`, linked GfxObject count, and platform count.
+- `ReadJoypad loc_C22` now carries oracle `$FBC2` before increment and the
+  keypress-pointer branch. Frames 1697/1703/1709 are 723/729/735 and all
+  advance; elapsed after `loc_C22` remains subject to Z80 arbitration.
+- `mise run verify-slice-fast` is green after `60c66b4c1` and `e4a98200a`.
+  The normal-loader `loc_36968` latch discrepancy is documented separately
+  after its nine-fixture trial was reverted.
+- NEXT: type Gfx animation and remaining collision/platform branches, persist
+  a real GEMS CPU checkpoint, then schedule the FIFO-aware `sub_44DC` exit
+  through `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 live tail and life FIFO span)
 
 - The live `Mode_Level loc_892` WRAM state now derives exact raw tail totals
