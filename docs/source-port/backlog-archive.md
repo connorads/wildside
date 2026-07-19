@@ -342,6 +342,23 @@ routine-body cost. Layout walks stay fail-closed until their cursor and
 enemy-status branches are typed. All three target helpers derive 84 and
 `mise run verify-slice-fast` is green.
 
+Progress 2026-07-19: commit `c36351acf` replaces the loose platform count
+with typed `$FA64` plus linked-list workload. ASM and full selected-PC traces
+agree on the target helpers' three empty-list routine bodies:
+`Execute_ScriptedPlatforms sub_23EA` is 70 raw cycles,
+`Platforms_CheckCollision sub_2574` is 352, and
+`Make_SpritesFromPlatforms sub_2444` is 78. Frames 1697/1703/1709 all derive
+the same three values from a clear `$FA64` and zero active platform slots.
+Frozen execute/collision paths derive separately; non-empty walks remain
+fail-closed. `mise run verify-slice-fast` is green.
+
+Rejected 2026-07-19: do not derive `GfxObjects_MoveAndAnimate sub_1444` from
+`linked_gfx_object_count`. Each worker independently branches on global
+freeze, `is_moved`, `is_animated`, `animation_timer`, the next script byte,
+and the `loc_1158` dispatch. Native's exported roster count does not preserve
+that per-GfxObject script state, so a count multiplier would be a fitted route
+total. Type those worker observations before assigning a cost.
+
 Deferred 2026-07-19: source review found that normal layout walks set
 `$FFFFFB51` at `Manage_EnemyLoading loc_36968`. A trial correcting the native
 normal loader broke nine synthetic contact tests whose fixtures assume the

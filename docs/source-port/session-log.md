@@ -17,8 +17,11 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   Frames 1697/1703/1709 all derive 1,234 from their typed counters.
 - The preceding Demo-2 `Manage_EnemyLoading loc_36814 -> return_3682A`
   body is 84 raw cycles on all three helpers; layout walks remain fail-closed.
+- Typed `$FA64` and the empty platform list derive post-HUD execute,
+  collision, and sprite bodies as 70/352/78 raw cycles on all three helpers.
+  Gfx move/animation stays fail-closed until per-worker script state exists.
 - `mise run verify-slice-fast` is green after `6768b20`, `1e00b9b94`, and
-  `f61162d4f`.
+  `f61162d4f`; it remains green after `c36351acf`.
 - NEXT: type the variable Gfx animation/collision/platform branches and
   persistent GEMS CPU checkpoint, then bridge FIFO-aware `sub_44DC` exit
   through `loc_892`.
