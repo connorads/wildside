@@ -103,18 +103,21 @@ pub use level::{
     shared_vram_art_decompresses_loc_11EFA,
 };
 pub use mode_level_timing::{
-    M68kCycleCount, M68kExternalWaitEvent, M68kRefreshAdvance, M68kRefreshPhase,
+    GenesisMclkCount, M68kCycleCount, M68kExternalWaitEvent, M68kRefreshAdvance, M68kRefreshPhase,
     ModeLevelHudBuildPath, ModeLevelScrollTransferPath, ModeLevelVblankArbitrationBeforeSubE12,
     ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership, ModeLevelVblankWorkBeforeSubE12,
-    WaitForVintArbitration, WaitForVintResumePath, damage_flash_wait_cycles_loc_bc44,
-    demo_exit_wait_cycles_loc_119e0, execute_objects_elapsed_cycles_sub_e12,
-    execute_objects_external_waits_sub_e12, execute_objects_raw_cycles_sub_e12,
-    execute_objects_setup_cycles_sub_e12, input_worker_cycles_loc_7452,
-    mode_level_vblank_advance_before_sub_e12, mode_level_vblank_elapsed_cycles_before_sub_e12,
+    WaitForVintArbitration, WaitForVintInterruptSample, WaitForVintResumePath,
+    damage_flash_wait_cycles_loc_bc44, demo_exit_wait_cycles_loc_119e0,
+    execute_objects_elapsed_cycles_sub_e12, execute_objects_external_waits_sub_e12,
+    execute_objects_raw_cycles_sub_e12, execute_objects_setup_cycles_sub_e12,
+    input_worker_cycles_loc_7452, mode_level_vblank_advance_before_sub_e12,
+    mode_level_vblank_elapsed_cycles_before_sub_e12,
     mode_level_vblank_source_cycles_before_sub_e12, player_callback_cycles_loc_a73a,
     post_execute_elapsed_cycles_before_sub_44dc, post_execute_raw_cycles_before_sub_44dc,
     prize_object_cycles_sub_e12, prize_tail_finish_cycles_sub_1007a,
-    wait_for_vint_elapsed_cycles_to_mode_level, wait_for_vint_source_cycles_to_mode_level,
+    wait_for_vint_elapsed_cycles_to_mode_level,
+    wait_for_vint_mclk_from_vint_assertion_to_mode_level,
+    wait_for_vint_source_cycles_to_mode_level,
 };
 pub use platforms::{
     PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C, PlatformSpriteEmitLoc2548,
@@ -1687,6 +1690,23 @@ impl NativeRuntime {
         };
         self.mode_level_raster_seed_sub_e12 = Some(seed);
         true
+    }
+
+    /// Seed the VDP VINT assertion boundary and advance the sampled
+    /// `WaitForVint -> V_Int -> MainGameLoop -> Mode_Level` path.
+    pub fn seed_mode_level_raster_vint_assertion(
+        &mut self,
+        seed: vdp::ModeLevelRasterSeedVintAssertion,
+        sample: WaitForVintInterruptSample,
+        work: ModeLevelVblankWorkBeforeSubE12,
+        arbitration: ModeLevelVblankArbitrationBeforeSubE12,
+    ) -> bool {
+        let Some(mode_entry) =
+            vdp::mode_level_raster_seed_mode_entry_from_vint_assertion(seed, sample)
+        else {
+            return false;
+        };
+        self.seed_mode_level_raster_mode_entry(mode_entry, work, arbitration)
     }
 
     pub fn set_playtest_form(&mut self, form: PlayerForm) {

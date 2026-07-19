@@ -23,6 +23,20 @@ impl M68kCycleCount {
     }
 }
 
+/// Mega Drive master-clock cycles.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GenesisMclkCount(u32);
+
+impl GenesisMclkCount {
+    pub const fn from_raw(cycles: u32) -> Self {
+        Self(cycles)
+    }
+
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+}
+
 /// Genesis 68000 memory-refresh phase, modulo the 128-cycle refresh interval.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct M68kRefreshPhase(u8);
@@ -162,6 +176,21 @@ pub struct WaitForVintArbitration {
     pub z80_68k_bus_steals: u16,
 }
 
+/// Instruction-boundary state when VINT becomes sampleable in `WaitForVint`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WaitForVintInterruptSample {
+    /// Master clocks from VDP VINT assertion to the next 68k interrupt sample.
+    ///
+    /// This retains the partial instruction phase that an integer CPU-cycle
+    /// count cannot represent.
+    pub mclk_until_interrupt_sample: u32,
+    /// Refresh waits processed during interrupt recognition/autovector entry,
+    /// before ASM `V_Int $488`.
+    pub interrupt_entry_refresh_wait_events: u16,
+    pub resume: WaitForVintResumePath,
+    pub arbitration_after_handler_entry: WaitForVintArbitration,
+}
+
 /// Raw source cycles from entry to ASM `V_Int $488` through `Mode_Level $7C8`.
 pub const fn wait_for_vint_source_cycles_to_mode_level(
     resume: WaitForVintResumePath,
@@ -189,6 +218,32 @@ pub fn wait_for_vint_elapsed_cycles_to_mode_level(
         .checked_add(u32::from(arbitration.refresh_wait_events).checked_mul(2)?)?
         .checked_add(u32::from(arbitration.z80_68k_bus_steals).checked_mul(11)?)?;
     Some(M68kCycleCount::from_raw(elapsed))
+}
+
+/// Elapsed master clocks from VDP VINT assertion through `Mode_Level $7C8`.
+pub fn wait_for_vint_mclk_from_vint_assertion_to_mode_level(
+    sample: WaitForVintInterruptSample,
+) -> Option<GenesisMclkCount> {
+    // jgenesis samples the pending interrupt for 10 cycles, then performs a
+    // 44-cycle autovector acknowledge/stack/vector sequence before ASM V_Int
+    // $488. The fractional instruction residue before sampling is already in
+    // master clocks and must not be rounded to a 68k cycle.
+    const INTERRUPT_ENTRY_CYCLES: u32 = 10 + 44;
+    const MCLK_PER_M68K_CYCLE: u32 = 7;
+
+    let after_handler_entry = wait_for_vint_elapsed_cycles_to_mode_level(
+        sample.resume,
+        sample.arbitration_after_handler_entry,
+    )?;
+    let interrupt_entry_refresh_cycles =
+        u32::from(sample.interrupt_entry_refresh_wait_events).checked_mul(2)?;
+    let cpu_cycles = INTERRUPT_ENTRY_CYCLES
+        .checked_add(interrupt_entry_refresh_cycles)?
+        .checked_add(after_handler_entry.get())?;
+    let elapsed = sample
+        .mclk_until_interrupt_sample
+        .checked_add(cpu_cycles.checked_mul(MCLK_PER_M68K_CYCLE)?)?;
+    Some(GenesisMclkCount::from_raw(elapsed))
 }
 
 /// Raw source cycles from ASM `Mode_Level $7C8` to `Execute_Objects sub_E12`.
@@ -837,6 +892,38 @@ mod tests {
                     .map(M68kCycleCount::get),
                 Some(expected),
                 "ASM V_Int $488 -> Mode_Level $7C8"
+            );
+        }
+    }
+
+    #[test]
+    fn vint_assertion_to_mode_level_retains_partial_instruction_mclk() {
+        for (
+            sample_mclk,
+            interrupt_refresh_wait_events,
+            resume,
+            handler_refresh_wait_events,
+            expected_mclk,
+        ) in [
+            (58, 0, WaitForVintResumePath::StaleBranchLoc942, 2, 1_668),
+            (0, 1, WaitForVintResumePath::PollTestLoc93e, 1, 1_540),
+            (82, 0, WaitForVintResumePath::StaleBranchLoc942, 1, 1_678),
+        ] {
+            let elapsed =
+                wait_for_vint_mclk_from_vint_assertion_to_mode_level(WaitForVintInterruptSample {
+                    mclk_until_interrupt_sample: sample_mclk,
+                    interrupt_entry_refresh_wait_events: interrupt_refresh_wait_events,
+                    resume,
+                    arbitration_after_handler_entry: WaitForVintArbitration {
+                        refresh_wait_events: handler_refresh_wait_events,
+                        z80_68k_bus_steals: 0,
+                    },
+                })
+                .expect("bounded VINT sample and ASM $488 -> $7C8 path");
+            assert_eq!(
+                elapsed.get(),
+                expected_mclk,
+                "helper frames 1696/1702/1708 produce native 1697/1703/1709"
             );
         }
     }

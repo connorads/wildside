@@ -2862,6 +2862,20 @@ impl H40BeamPosition {
     }
 
     #[must_use]
+    pub fn advance_mclk(self, cycles: crate::GenesisMclkCount) -> Self {
+        let mclk = u32::from(self.scanline_mclk)
+            .checked_add(cycles.get())
+            .expect("bounded raster timing must fit u32 master clocks");
+        Self {
+            scanline: self
+                .scanline
+                .wrapping_add((mclk / MCLK_CYCLES_PER_SCANLINE) as u16)
+                % NTSC_SCANLINES_PER_FRAME,
+            scanline_mclk: (mclk % MCLK_CYCLES_PER_SCANLINE) as u16,
+        }
+    }
+
+    #[must_use]
     pub fn advance_m68k_cycles(self, cycles: M68kCycleCount) -> Self {
         let mclk = u32::from(self.scanline_mclk)
             + cycles
@@ -2892,6 +2906,23 @@ pub struct ModeLevelRasterSeedSubE12 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ModeLevelRasterSeedModeEntry {
     pub beam: H40BeamPosition,
+}
+
+/// VDP boundary where VINT asserts before `WaitForVint` resumes the main loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelRasterSeedVintAssertion {
+    pub beam: H40BeamPosition,
+}
+
+/// Derive the `Mode_Level $7C8` beam from a VINT assertion and sampled poll state.
+pub fn mode_level_raster_seed_mode_entry_from_vint_assertion(
+    seed: ModeLevelRasterSeedVintAssertion,
+    sample: crate::WaitForVintInterruptSample,
+) -> Option<ModeLevelRasterSeedModeEntry> {
+    let elapsed = crate::wait_for_vint_mclk_from_vint_assertion_to_mode_level(sample)?;
+    Some(ModeLevelRasterSeedModeEntry {
+        beam: seed.beam.advance_mclk(elapsed),
+    })
 }
 
 /// Advance a typed natural `Mode_Level` VBlank path to `sub_E12`.
@@ -5054,6 +5085,52 @@ fn load_saxman_art(source: &dyn AssetSource, rel: &std::path::Path) -> Result<Ve
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn vint_sample_state_derives_frontier_mode_entry_beams() {
+        for (
+            sample_mclk,
+            interrupt_refresh_wait_events,
+            resume,
+            handler_refresh_wait_events,
+            expected_scanline_mclk,
+        ) in [
+            (
+                58,
+                0,
+                crate::WaitForVintResumePath::StaleBranchLoc942,
+                2,
+                1_684,
+            ),
+            (0, 1, crate::WaitForVintResumePath::PollTestLoc93e, 1, 1_556),
+            (
+                82,
+                0,
+                crate::WaitForVintResumePath::StaleBranchLoc942,
+                1,
+                1_694,
+            ),
+        ] {
+            let mode = mode_level_raster_seed_mode_entry_from_vint_assertion(
+                ModeLevelRasterSeedVintAssertion {
+                    // jgenesis H40 VINT assertion: scanline 224, h_mclk 16.
+                    beam: H40BeamPosition::new(224, 16).expect("H40 VINT beam"),
+                },
+                crate::WaitForVintInterruptSample {
+                    mclk_until_interrupt_sample: sample_mclk,
+                    interrupt_entry_refresh_wait_events: interrupt_refresh_wait_events,
+                    resume,
+                    arbitration_after_handler_entry: crate::WaitForVintArbitration {
+                        refresh_wait_events: handler_refresh_wait_events,
+                        z80_68k_bus_steals: 0,
+                    },
+                },
+            )
+            .expect("ASM WaitForVint/V_Int/MainGameLoop path");
+            assert_eq!(mode.beam.scanline(), 224);
+            assert_eq!(mode.beam.scanline_mclk(), expected_scanline_mclk);
+        }
+    }
 
     #[test]
     fn life_icon_first_commit_follows_h40_fifo_slots_loc_4586() {

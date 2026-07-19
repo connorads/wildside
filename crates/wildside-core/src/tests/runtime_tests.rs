@@ -23,7 +23,7 @@ fn cached_any_percent_demo_runtime_and_script() -> Option<(NativeRuntime, Vec<u8
 }
 
 #[test]
-fn published_tas_frame_1697_mode_entry_drives_life_icon_raster_timing_sub_e12() {
+fn published_tas_frame_1697_vint_sample_drives_life_icon_raster_timing_sub_e12() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;
     };
@@ -31,12 +31,21 @@ fn published_tas_frame_1697_mode_entry_drives_life_icon_raster_timing_sub_e12() 
 
     for (frame_index, mask) in script.iter().copied().enumerate().take(1698) {
         if frame_index == 1697 {
-            // Bounded jgenesis PC trace: helper frame 1696 reaches Mode_Level
-            // $7C8 at CPU cycle 217207372, beam 224:$0694. The final H-scroll
-            // DMA at loc_30104 resets the refresh phase before sub_E12.
-            assert!(runtime.seed_mode_level_raster_mode_entry(
-                vdp::ModeLevelRasterSeedModeEntry {
-                    beam: vdp::H40BeamPosition::new(224, 1_684).expect("bounded H40 beam"),
+            // Bounded jgenesis trace: helper frame 1696 samples VINT 58 mclk
+            // after scanline 224 h_mclk 16, resumes WaitForVint at stale
+            // `$942`, then reaches Mode_Level `$7C8` at h_mclk 1684.
+            assert!(runtime.seed_mode_level_raster_vint_assertion(
+                vdp::ModeLevelRasterSeedVintAssertion {
+                    beam: vdp::H40BeamPosition::new(224, 16).expect("H40 VINT beam"),
+                },
+                WaitForVintInterruptSample {
+                    mclk_until_interrupt_sample: 58,
+                    interrupt_entry_refresh_wait_events: 0,
+                    resume: WaitForVintResumePath::StaleBranchLoc942,
+                    arbitration_after_handler_entry: WaitForVintArbitration {
+                        refresh_wait_events: 2,
+                        z80_68k_bus_steals: 0,
+                    },
                 },
                 ModeLevelVblankWorkBeforeSubE12 {
                     dynamic_art_tiles_loc_ad4: [16, 4],
