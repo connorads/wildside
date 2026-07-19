@@ -1,7 +1,11 @@
 use crate::{
-    ModeLevelExecuteObjectsWork, ModeLevelFloatingPrizeFallPathLoc103B2,
-    ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
-    ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
+    ModeLevelAirborneActionPath, ModeLevelAirborneHorizontalPath, ModeLevelAirborneVerticalPath,
+    ModeLevelCeilingScanReturn, ModeLevelExecuteObjectsWork,
+    ModeLevelFloatingPrizeFallPathLoc103B2, ModeLevelKidGfxTerrainCollision,
+    ModeLevelPlayerExecutionPath, ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState,
+    ModeLevelPrizeBlockWobbleWake, ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
+    ModeLevelRubberContactEffectLoc10DA4, ModeLevelVerticalCollisionPath,
+    ModeLevelWallCollisionPath,
 };
 
 /// Motorola 68000 execution time, excluding VDP bus stalls.
@@ -61,6 +65,81 @@ pub fn execute_objects_setup_cycles_sub_e12(rng_offset_before: u16) -> Option<M6
         }
     }
     Some(M68kCycleCount(cycles))
+}
+
+/// Nominal cycles from the ordinary airborne Kid resume at ASM loc_A73A
+/// through its `Hibernate_Object_1Frame sub_E76` entry.
+///
+/// This intentionally accepts the whole Execute_Objects ledger because the
+/// Gfx terrain scan and same-pass prize allocation are sibling observations
+/// of the player path. Untyped sibling branches return `None`.
+pub fn player_callback_cycles_loc_a73a(
+    execute: &ModeLevelExecuteObjectsWork,
+) -> Option<M68kCycleCount> {
+    let ModeLevelPlayerExecutionPath::NormalPhysics(path) =
+        execute.executed_player_path.as_ref()?
+    else {
+        return None;
+    };
+    if !path.gfx_object_collision_clear
+        || !matches!(
+            path.vertical,
+            ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. }
+        )
+        || !matches!(path.wall_collision, ModeLevelWallCollisionPath::Clear)
+        || !matches!(path.airborne_action, ModeLevelAirborneActionPath::NoButtons)
+    {
+        return None;
+    }
+
+    // ASM loc_A73A, sub_B084, sub_B168, sub_A4EE, sub_902A/sub_8F26,
+    // sub_B270, and loc_A8D6 share this fixed natural-route spine.
+    let mut cycles = 3_892_i32;
+    cycles += match path.horizontal {
+        ModeLevelAirborneHorizontalPath::NeutralNegativeBrake => 0,
+        ModeLevelAirborneHorizontalPath::RightHeldAcceleration => -12,
+        ModeLevelAirborneHorizontalPath::Unclassified { .. } => return None,
+    };
+
+    let gfx_scan = execute.player_gfx_terrain_scan?;
+    cycles += 82 * i32::from(gfx_scan.tile_iterations);
+    cycles += match gfx_scan.first_collision {
+        None => 0,
+        Some(ModeLevelKidGfxTerrainCollision::Solid) => 192,
+        Some(
+            ModeLevelKidGfxTerrainCollision::SlopeUp | ModeLevelKidGfxTerrainCollision::SlopeDown,
+        ) => return None,
+    };
+    cycles += 10
+        * i32::try_from(
+            path.cyclone_visual_steps
+                .into_iter()
+                .flatten()
+                .filter(|step| step.wrapped)
+                .count(),
+        )
+        .ok()?;
+
+    match (&path.vertical_collision, &path.ceiling_scan_sub_914a) {
+        (ModeLevelVerticalCollisionPath::Clear, None) => {}
+        (ModeLevelVerticalCollisionPath::Ceiling, Some(scan))
+            if scan.visits.len() == 2
+                && scan.return_path == ModeLevelCeilingScanReturn::Hit
+                && scan.first_hit_col.is_some()
+                && scan.visits.iter().any(|visit| {
+                    Some(visit.col) == scan.first_hit_col
+                        && visit.block_type == Some(1)
+                        && visit.rubber_effect == ModeLevelRubberContactEffectLoc10DA4::None
+                }) =>
+        {
+            let list = execute.player_prize_wobble_list_work_loc_1002e?;
+            cycles += 4_456
+                + 54 * i32::from(list.object_insert_rank_loc_de0 + list.gfx_insert_rank_loc_fd4);
+        }
+        _ => return None,
+    }
+
+    Some(M68kCycleCount(u32::try_from(cycles).ok()?))
 }
 
 /// Nominal 68000 cycles for one typed prize callback, measured from its

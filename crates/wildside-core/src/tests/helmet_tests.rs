@@ -9385,6 +9385,21 @@ mod chunk_08 {
             vec![Some(0xFFEC), Some(0xFFCD), Some(0xFFE5)],
             "ASM sub_A4A entry offsets select four, zero, and four tap-wrap branches"
         );
+        assert_eq!(
+            frames
+                .iter()
+                .map(|frame| player_callback_cycles_loc_a73a(
+                    &frame
+                        .mode_level_work_before_hud_sub_44dc
+                        .as_ref()
+                        .expect("Mode_Level work ledger")
+                        .execute_objects
+                )
+                .map(M68kCycleCount::get))
+                .collect::<Vec<_>>(),
+            vec![Some(9_636), Some(4_220), Some(4_394)],
+            "bounded loc_A73A traces; frame 1709 has a separate 10-cycle bus residue"
+        );
 
         // ASM Allocate_ObjectSlot loc_DE0, Allocate_GfxObjectSlot loc_FD4,
         // Deallocate_ObjectSlot loc_EA2, and Deallocate_GfxObject
