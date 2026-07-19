@@ -20,9 +20,12 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 - Typed `$FA64` and the empty platform list derive post-HUD execute,
   collision, and sprite bodies as 70/352/78 raw cycles on all three helpers.
   Gfx move/animation stays fail-closed until per-worker script state exists.
+- The platform loader now captures its pre-advance branch: all helpers wrap
+  the terminator, reject the first record at the right edge, miss `sub_2728`,
+  and derive 428 raw cycles.
 - `mise run verify-slice-fast` is green after `6768b20`, `1e00b9b94`, and
-  `f61162d4f`; it remains green after `c36351acf`.
-- NEXT: type the variable Gfx animation/collision/platform branches and
+  `f61162d4f`; it remains green after `c36351acf` and `256295e2a`.
+- NEXT: type the variable Gfx animation/collision/terrain branches and
   persistent GEMS CPU checkpoint, then bridge FIFO-aware `sub_44DC` exit
   through `loc_892`.
 

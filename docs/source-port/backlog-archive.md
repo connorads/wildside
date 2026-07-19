@@ -359,6 +359,15 @@ and the `loc_1158` dispatch. Native's exported roster count does not preserve
 that per-GfxObject script state, so a count multiplier would be a fitted route
 total. Type those worker observations before assigning a cost.
 
+Progress 2026-07-19: commit `256295e2a` captures
+`Manage_PlatformLoading loc_2744` before native advances its cursor. All three
+helpers consume the layout terminator, wrap to offset zero, reject the first
+record at the `loc_2788` right edge, and find no existing slot in `sub_2728`.
+The full instruction stream is 428 raw cycles on frames 1697/1703/1709;
+elapsed 434/445/456 varies only through refresh and 11-cycle GEMS bus steals.
+Other range, existing-slot, and allocation branches remain fail-closed.
+`mise run verify-slice-fast` is green.
+
 Deferred 2026-07-19: source review found that normal layout walks set
 `$FFFFFB51` at `Manage_EnemyLoading loc_36968`. A trial correcting the native
 normal loader broke nine synthetic contact tests whose fixtures assume the
