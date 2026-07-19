@@ -134,6 +134,51 @@ pub struct ModeLevelVblankArbitrationBeforeSubE12 {
     pub refresh_wait_cycles: u32,
 }
 
+/// Saved-PC path resumed by ASM `V_Int $488` before `WaitForVint` returns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WaitForVintResumePath {
+    /// Saved PC `$93E`: re-read `V_Int_Done`, then the branch at `$942` falls through.
+    PollTestLoc93e,
+    /// Saved PC `$942`: take one stale branch before re-reading `V_Int_Done`.
+    StaleBranchLoc942,
+}
+
+/// Hardware arbitration after entry to ASM `V_Int $488` and before `Mode_Level $7C8`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WaitForVintArbitration {
+    pub refresh_wait_events: u16,
+    pub z80_68k_bus_steals: u16,
+}
+
+/// Raw source cycles from entry to ASM `V_Int $488` through `Mode_Level $7C8`.
+pub const fn wait_for_vint_source_cycles_to_mode_level(
+    resume: WaitForVintResumePath,
+) -> M68kCycleCount {
+    // ASM V_Int $488: ADDQ.L + ST + RTE costs 60. WaitForVint $93E-$954
+    // costs 42 when the saved PC re-reads the flag, or 52 when the saved PC
+    // executes the stale BEQ once. MainLoop $738-$752 then costs 60 through
+    // the GameModesArray dispatch and level-mode branch.
+    let cycles = match resume {
+        WaitForVintResumePath::PollTestLoc93e => 162,
+        WaitForVintResumePath::StaleBranchLoc942 => 172,
+    };
+    M68kCycleCount::from_raw(cycles)
+}
+
+/// Elapsed cycles from ASM `V_Int $488` through `Mode_Level $7C8`.
+pub fn wait_for_vint_elapsed_cycles_to_mode_level(
+    resume: WaitForVintResumePath,
+    arbitration: WaitForVintArbitration,
+) -> Option<M68kCycleCount> {
+    // jgenesis charges two cycles per ROM refresh and eleven per asynchronous
+    // Z80 ownership of the 68k bus on this source path.
+    let elapsed = wait_for_vint_source_cycles_to_mode_level(resume)
+        .get()
+        .checked_add(u32::from(arbitration.refresh_wait_events).checked_mul(2)?)?
+        .checked_add(u32::from(arbitration.z80_68k_bus_steals).checked_mul(11)?)?;
+    Some(M68kCycleCount::from_raw(elapsed))
+}
+
 /// Raw source cycles from ASM `Mode_Level $7C8` to `Execute_Objects sub_E12`.
 ///
 /// The currently typed path is the natural published-gameplay path. Returning
@@ -655,6 +700,43 @@ mod tests {
             ..published_natural_vblank_work()
         };
         assert_eq!(mode_level_vblank_source_cycles_before_sub_e12(work), None);
+    }
+
+    #[test]
+    fn wait_for_vint_elapsed_cycles_preserve_saved_pc_and_bus_arbitration() {
+        for (resume, arbitration, expected) in [
+            (
+                WaitForVintResumePath::PollTestLoc93e,
+                WaitForVintArbitration {
+                    refresh_wait_events: 1,
+                    z80_68k_bus_steals: 0,
+                },
+                164,
+            ),
+            (
+                WaitForVintResumePath::StaleBranchLoc942,
+                WaitForVintArbitration {
+                    refresh_wait_events: 1,
+                    z80_68k_bus_steals: 0,
+                },
+                174,
+            ),
+            (
+                WaitForVintResumePath::PollTestLoc93e,
+                WaitForVintArbitration {
+                    refresh_wait_events: 0,
+                    z80_68k_bus_steals: 3,
+                },
+                195,
+            ),
+        ] {
+            assert_eq!(
+                wait_for_vint_elapsed_cycles_to_mode_level(resume, arbitration)
+                    .map(M68kCycleCount::get),
+                Some(expected),
+                "ASM V_Int $488 -> Mode_Level $7C8"
+            );
+        }
     }
 
     #[test]
