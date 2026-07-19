@@ -306,6 +306,29 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: a backwards published-route selected-PC trace finds the
+pre-platform audio controls at StopMusic frames 14/30/68/139, Ice PlaySound
+frames 70/171, and `Load_InGame $11A0E` frame 868. The last title reset enters
+`StopMusic $E14C8` at absolute 68000 cycle 17,789,000, beam 254:800,
+refresh phase 32; `Load_TitleScreen -> sub_E151C` starts Ice at cycle
+21,961,598, beam 148:2184, phase 48. Native previously inferred one unchanged
+TitleShell cue across the IntroSequence1 -> TitleScreen transition, so it
+omitted the frame-139 reset and had no chance to reproduce the later
+persistent state.
+
+Commit `fdc811fe2` uses the existing source-port shell phase instead of a
+route frame: title elapsed 0 emits StopMusic, elapsed 1..31 retains
+`StoppedForTransition`, and elapsed 32 emits the Ice start command. The
+regression cites `sub_1C246 -> loc_1C264 -> loc_6E2`,
+`StopMusic $E14C8`, and `Load_TitleScreen -> sub_E151C`. This restores the
+source command gap but still uses the frame-level sink's instantaneous
+controls. NEXT: execute the frame-139 reset and frame-171 queue command with
+their existing instruction schedulers at the measured absolute boundaries,
+then compare the persistent checkpoint at `$11A0E`. `mise run
+verify-slice-fast` and the commit hook are green: strict Clippy, TAS frontier,
+6,980 core tests, 15 timing regressions, and all 176 wildside-frame tests
+pass.
+
 Progress 2026-07-19: commit `80893ee58` gives
 `Initialize_Platforms sub_231C` a chronological hardware callback and clocks
 persistent GEMS through its exact published-route schedule. Full selected-PC

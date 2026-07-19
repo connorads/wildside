@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 title rebuild audio boundary)
+
+- Backwards selected-PC tracing finds StopMusic at frames 14/30/68/139 and
+  Ice PlaySound at 70/171 before `Load_InGame $11A0E` on frame 868.
+- The final reset enters `$E14C8` at absolute cycle 17,789,000 / refresh
+  phase 32; the final Ice command enters `$E151C` at 21,961,598 / phase 48.
+- Native omitted the frame-139 reset because IntroSequence1 and TitleScreen
+  were inferred as one unchanged TitleShell cue.
+- Commit `fdc811fe2` emits StopMusic at title elapsed 0, preserves the
+  blocking reset gap, and starts Ice at `Load_TitleScreen` elapsed 32.
+- `mise run verify-slice-fast` and the commit hook are green: strict Clippy,
+  TAS frontier, 6,980 core tests, 15 timing regressions, and all 176
+  wildside-frame tests pass.
+- NEXT: run the frame-139 StopMusic and frame-171 queue through their exact
+  persistent-engine schedulers, then compare `$11A0E` again.
+
 ## 2026-07-19 handoff (#409 platform-art hardware timeline)
 
 - Commit `80893ee58` clocks persistent GEMS through the exact
