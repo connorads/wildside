@@ -306,6 +306,43 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: the second `Load_TitleArt` transfer is source-scheduled
+through its cycle-9,256,826 return. `sub_1B850` passes `byte_2D71A`
+(`Background_for_intro_(Wild_Side).bin`, 33 compressed bytes) to
+`DecompressToVRAM`; it decodes 192 bytes, then uploads 96 words. A generic
+`Decompress_Chunk sub_13684` visitor derives the complete selected path from
+Saxman tokens: 576 instructions, 5,390 raw cycles, and cycle-stream CRC32
+`D2BB29AE`. Including the `loc_14300` call/result setup gives 5,448 raw
+cycles. Forty-three refresh events and 154 instruction-boundary GEMS waits
+add 240 cycles, reaching oracle `loc_14314` exactly at 9,251,793 without a
+fitted span.
+
+The earlier diagnosis of a missed decoder bank-wait boundary was incomplete.
+All 68000 source-instruction starts match oracle, and native/oracle public
+GEMS state remains exact through the decoder RTS at 9,251,741. The first
+hidden difference instead occurs during the preceding transfer at cycle
+9,161,735: GEMS `LD A,($076D); SUB 1` at `$07B0..$07B4`, with A=0, produces
+AF `$FFBB` natively versus `$FF93` in jgenesis. The MIT `z80` core follows
+real undocumented Z80 behaviour by copying X/Y from result bits 5/3.
+jgenesis `cpu/z80-emu/src/core/instructions/arithmetic.rs::subtract`
+preserves the previous X/Y fields. GEMS later serialises AF through its
+stack, so the difference becomes visible at the second transfer boundary
+(native PC `$02AE`, oracle `$02AA`) despite exact 68000 timing.
+`The Undocumented Z80 Documented` and the Z80 flag-affection reference both
+confirm that ordinary `SUB` copies these result bits. This checkpoint is
+therefore an evidence-backed oracle limitation, not a native CPU bug. The
+previously rejected direct-jgenesis dependency remains rejected for
+GPL/licence metadata/advisory reasons, and the hardware-faithful MIT core
+must not be patched to imitate this oracle defect.
+
+Focused Saxman, decoder timing, and transfer integration checks pass.
+`verify-slice-fast` and `verify-tas-full` are green: all 37,759 player/camera
+CRC, typed gameplay, enemy, RNG, and rendered-pixel frames retain the
+26,382-exact / 11,377-divergent pixel baseline. NEXT: carry the persistent
+post-title GEMS machine into frame 1709, derive the four bank steals at
+offsets 43/96/151/192, and bridge the existing `sub_44DC` workload to
+`loc_892`.
+
 Progress 2026-07-19: commit `0e8a5d1` generalises the
 `DecompressToVRAM loc_14314` raster/FIFO scheduler across VBlank and exposes
 each ownership interval to persistent GEMS. The scheduler samples VINT after
@@ -342,11 +379,11 @@ matches the complete oracle checkpoint at `loc_14300`: PC `$02A5`, divider
 12, T-wait 5, even access parity, IX/IY/SP `$1A20/$15A8/$1A00`. It then
 misses the `loc_14314` checkpoint across the 5,688-cycle `Decompress_Chunk`
 span: native PC/SP `$023F/$1A0A` versus oracle `$02AA/$1A08`, while divider
-0, T-wait 9, wait 0, and even parity agree. This isolates instruction-boundary
-bank-wait deferral inside the decoder, not post-transfer FIFO ownership.
-NEXT: derive a source-command instruction visitor for this decoder span and
-feed each instruction to the existing 68000-instruction GEMS API. A single
-fixed interval or fitted collision ledger is rejected.
+0, T-wait 9, wait 0, and even parity agree. This was the working hypothesis
+before the source-command visitor proved every decoder instruction boundary
+exact. The hidden-register trace above supersedes it with the jgenesis
+undocumented-flag limitation. A single fixed interval or fitted collision
+ledger remains rejected.
 
 Progress 2026-07-19: native and oracle Z80 instruction journals from the exact
 frame-71 checkpoint to frame 72 identify the first causal divergence. After

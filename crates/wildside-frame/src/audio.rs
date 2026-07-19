@@ -767,6 +767,70 @@ pub fn apply_gems_decompress_to_vram_transfer_loc_14314(
     )
 }
 
+/// Clock ASM `DecompressToVRAM loc_14300` through its first transfer entry.
+#[cfg(feature = "audio")]
+pub fn apply_gems_decompress_to_vram_decoder_loc_14300(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    compressed: &[u8],
+) -> Option<wildside_core::vdp::DecompressToVramDecoderAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
+        entry,
+        compressed,
+        |cycles, vdp_owns_bus, source_instruction| {
+            if source_instruction {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
+/// Clock a caller and ASM `sub_142CC` up to `DecompressToVRAM loc_14300`.
+#[cfg(feature = "audio")]
+pub fn apply_gems_decompress_to_vram_setup_sub_142cc(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    caller_instruction_cycles: &[u32],
+) -> Option<wildside_core::vdp::DecompressToVramSetupAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::decompress_to_vram_setup_cursor_sub_142cc_with_scheduler(
+        entry,
+        caller_instruction_cycles,
+        |cycles, vdp_owns_bus, source_instruction| {
+            if source_instruction {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
 /// Clock `Load_InGame $11A0E..$11A24` up to `StopMusic $E14C8`.
 #[cfg(feature = "audio")]
 pub fn apply_gems_load_in_game_to_stop_music_entry(
@@ -2024,7 +2088,7 @@ mod tests {
 
     #[cfg(feature = "audio")]
     #[test]
-    fn title_loc_14314_fifo_ownership_reaches_oracle_return_z80_phase() {
+    fn intro_decompress_to_vram_reaches_second_transfer_oracle_z80_phase() {
         let rom = std::fs::read(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../.cache/upstream/kid-chameleon-disasm/kid.bin"),
@@ -2142,6 +2206,67 @@ mod tests {
         assert!(return_checkpoint.z80_iff1);
         assert!(return_checkpoint.z80_iff2);
         assert!(!return_checkpoint.z80_halt);
+
+        // ASM sub_1B850 continues through four row uploads, then passes
+        // byte_2D71A (the Wild Side intro background) to DecompressToVRAM.
+        let setup = apply_gems_decompress_to_vram_setup_sub_142cc(
+            &mut engine,
+            transfer.cursor,
+            &[
+                // ASM sub_1B850 $1B860: move.w/lea/jsr; jump stub.
+                8, 12, 20, 10,
+            ],
+        )
+        .expect("source-positioned second DecompressToVRAM setup");
+        assert_eq!(setup.refresh_events, 2);
+        assert_eq!(setup.external_wait_cycles.get(), 55);
+        assert_eq!(engine.master_clock(), 9_246_105 * 7);
+        let decoder_entry = engine.checkpoint();
+        assert_eq!(decoder_entry.z80_pc, 0x02A5);
+        assert_eq!(decoder_entry.z80_mclk_counter, 12);
+        assert_eq!(decoder_entry.z80_t_cycles_wait, 5);
+        assert_eq!(decoder_entry.z80_wait_mclk_cycles, 0);
+        assert_eq!(decoder_entry.z80_index_registers, [0x1A20, 0x15A8, 0x1A00]);
+        assert!(!decoder_entry.z80_odd_access);
+
+        let compressed = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                "../../.cache/upstream/kid-chameleon-disasm/scenes/artcomp/Background_for_intro_(Wild_Side).bin",
+            ),
+        )
+        .expect("bootstrapped byte_2D71A");
+        let decoder =
+            apply_gems_decompress_to_vram_decoder_loc_14300(&mut engine, setup.cursor, &compressed)
+                .expect("source-positioned Wild Side decoder");
+        assert_eq!(decoder.timing.output_bytes, 192);
+        assert_eq!(decoder.timing.instruction_count, 576);
+        assert_eq!(decoder.timing.raw_cycles, 5_390);
+        assert_eq!(decoder.refresh_events, 43);
+        assert_eq!(decoder.external_wait_cycles.get(), 154);
+        assert_eq!(engine.master_clock(), 9_251_793 * 7);
+
+        let transfer_entry = engine.checkpoint();
+        // ORACLE LIMITATION: jgenesis preserves the previous undocumented X/Y
+        // flag bits for GEMS `SUB 1` at $07B3. Real Z80 hardware, and the MIT
+        // core used here, copy bits 5/3 from the $FF result. GEMS later
+        // serialises AF through its stack, leaving the oracle at PC $02AA
+        // while hardware-faithful execution reaches $02AE at this boundary.
+        assert_eq!(transfer_entry.z80_pc, 0x02AE);
+        assert_eq!(transfer_entry.z80_mclk_counter, 0);
+        assert_eq!(transfer_entry.z80_t_cycles_wait, 1);
+        assert_eq!(transfer_entry.z80_wait_mclk_cycles, 0);
+        assert_eq!(transfer_entry.z80_index_registers[2], 0x1A08);
+        assert!(!transfer_entry.z80_odd_access);
+
+        let second_transfer = apply_gems_decompress_to_vram_transfer_loc_14314(
+            &mut engine,
+            decoder.cursor,
+            96,
+            false,
+        )
+        .expect("byte_2D71A 96-word transfer");
+        assert!(!second_transfer.vint_serviced);
+        assert_eq!(engine.master_clock(), 9_256_826 * 7);
     }
 
     #[cfg(feature = "audio")]

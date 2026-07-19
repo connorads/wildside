@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 source-scheduled second title transfer)
+
+- `byte_2D71A` is the 33-byte compressed Wild Side intro background. Its
+  `sub_13684` path decodes 192 bytes through 576 instructions / 5,390 raw
+  cycles; the full instruction stream is CRC-pinned at `D2BB29AE`.
+- Source scheduling reaches `loc_14314` at cycle 9,251,793 after 43 refresh
+  events and 154 GEMS waits, then completes the 96-word transfer at
+  9,256,826.
+- The residual Z80 PC difference is an oracle limitation, not a missed wait:
+  jgenesis preserves undocumented X/Y flags after GEMS `SUB 1`, contrary to
+  real Z80 result-bit behaviour. Do not patch the MIT core to imitate it.
+- NEXT: carry this persistent title GEMS state to frame 1709, derive the four
+  bank steals at offsets 43/96/151/192, and bridge `sub_44DC` to `loc_892`.
+
 ## 2026-07-19 handoff (#409 second title decoder)
 
 - Correction: the exact 2,016-word upload is `Load_TitleArt`'s first VRAM

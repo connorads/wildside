@@ -2968,6 +2968,21 @@ pub struct DecompressToVramTransferAdvance {
     pub pending_external_wait_cycles: M68kCycleCount,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DecompressToVramDecoderAdvance {
+    pub cursor: LoadInGameCpuRasterCursor,
+    pub timing: crate::saxman_timing::DecompressChunkTimingSub13684,
+    pub refresh_events: u32,
+    pub external_wait_cycles: M68kCycleCount,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DecompressToVramSetupAdvance {
+    pub cursor: LoadInGameCpuRasterCursor,
+    pub refresh_events: u32,
+    pub external_wait_cycles: M68kCycleCount,
+}
+
 /// Load_InGame name retained for the platform initialisation boundary.
 pub type LoadInGamePlatformArtTransferAdvance = DecompressToVramTransferAdvance;
 
@@ -3160,6 +3175,36 @@ fn advance_decompress_to_vram_source_instruction(
     Some(M68kCycleCount::from_raw(0))
 }
 
+fn advance_decompress_source_instruction_with_interval_kind(
+    raw_cycles: u32,
+    fifo: &mut PlatformArtFifoScheduler,
+    phase: &mut M68kRefreshPhase,
+    refresh_events: &mut u32,
+    advance_hardware: &mut dyn FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<u32> {
+    let phase_after_raw = u32::from(phase.get()).checked_add(raw_cycles)?;
+    let refresh_wait_cycles = if phase_after_raw >= 128 { 2 } else { 0 };
+    *phase = M68kRefreshPhase::new(
+        u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+    )
+    .expect("refresh phase remains below 128");
+    *refresh_events = refresh_events.checked_add(refresh_wait_cycles / 2)?;
+
+    let raw = M68kCycleCount::from_raw(raw_cycles);
+    fifo.advance_m68k_cycles(raw);
+    let mut generated_wait_cycles = advance_hardware(raw, false, true)?.get();
+    let mut pending_wait = generated_wait_cycles.checked_add(refresh_wait_cycles)?;
+    while pending_wait != 0 {
+        let wait = M68kCycleCount::from_raw(pending_wait);
+        fifo.advance_m68k_cycles(wait);
+        *phase = phase.advance_external_wait(wait).phase_after;
+        let chained_wait = advance_hardware(wait, false, false)?.get();
+        generated_wait_cycles = generated_wait_cycles.checked_add(chained_wait)?;
+        pending_wait = chained_wait;
+    }
+    Some(generated_wait_cycles)
+}
+
 fn drain_decompress_to_vram_wait(
     mut pending_wait: M68kCycleCount,
     fifo: &mut PlatformArtFifoScheduler,
@@ -3207,6 +3252,119 @@ fn service_decompress_to_vram_vint_if_pending(
     }
     *vint_pending = false;
     Some(true)
+}
+
+/// Co-schedule ASM `DecompressToVRAM loc_14300` through the first
+/// `loc_14314` transfer entry.
+///
+/// The callback sees the 22-cycle call prelude, every instruction selected by
+/// the Saxman source stream in `Decompress_Chunk sub_13684`, and the 36-cycle
+/// result-size setup. It returns newly queued external 68000 waits, which are
+/// drained at the current instruction boundary.
+pub fn decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    compressed: &[u8],
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<DecompressToVramDecoderAdvance> {
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+    let mut refresh_events = 0_u32;
+    let mut external_wait_cycles = 0_u32;
+    let mut scheduling_failed = false;
+
+    let mut advance_instruction = |raw_cycles: u32| {
+        if scheduling_failed {
+            return;
+        }
+        let generated_wait = advance_decompress_source_instruction_with_interval_kind(
+            raw_cycles,
+            &mut fifo,
+            &mut phase,
+            &mut refresh_events,
+            &mut advance_hardware,
+        );
+        match generated_wait {
+            Some(generated_wait) => {
+                external_wait_cycles = external_wait_cycles
+                    .checked_add(generated_wait)
+                    .expect("decoder wait count fits u32");
+            }
+            None => scheduling_failed = true,
+        }
+    };
+
+    // ASM loc_14300: move.l a2,a4; bsr.w Decompress_Chunk.
+    for raw_cycles in [4, 18] {
+        advance_instruction(raw_cycles);
+    }
+    let timing = crate::saxman_timing::visit_initial_decompress_chunk_instructions_sub_13684(
+        compressed,
+        &mut advance_instruction,
+    )
+    .ok()?;
+    // ASM loc_14308..loc_14312: derive inclusive word count in d3.
+    for raw_cycles in [12, 4, 8, 8, 4] {
+        advance_instruction(raw_cycles);
+    }
+    if scheduling_failed {
+        return None;
+    }
+
+    Some(DecompressToVramDecoderAdvance {
+        cursor: LoadInGameCpuRasterCursor {
+            beam: fifo.beam,
+            refresh_phase: phase,
+        },
+        timing,
+        refresh_events,
+        external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
+    })
+}
+
+/// Co-schedule a caller and ASM `sub_142CC` up to `loc_14300`.
+///
+/// `caller_instruction_cycles` ends at the jump stub which enters
+/// `DecompressToVRAM`; the fixed tail starts with `bsr.s sub_142CC`, executes
+/// its setup body, then runs the `moveq/movea` pair before `loc_14300`.
+pub fn decompress_to_vram_setup_cursor_sub_142cc_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    caller_instruction_cycles: &[u32],
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<DecompressToVramSetupAdvance> {
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+    let mut refresh_events = 0_u32;
+    let mut external_wait_cycles = 0_u32;
+
+    for &raw_cycles in caller_instruction_cycles.iter().chain(
+        [
+            // ASM DecompressToVRAM $142FA: bsr.s sub_142CC.
+            18, // ASM sub_142CC $142CC..$142F8.
+            4, 10, 8, 8, 8, 4, 4, 16, 8, 22, 8, 12, 12, 4, 4, 16,
+            // ASM DecompressToVRAM $142FC..$142FE.
+            4, 4,
+        ]
+        .iter(),
+    ) {
+        external_wait_cycles = external_wait_cycles.checked_add(
+            advance_decompress_source_instruction_with_interval_kind(
+                raw_cycles,
+                &mut fifo,
+                &mut phase,
+                &mut refresh_events,
+                &mut advance_hardware,
+            )?,
+        )?;
+    }
+
+    Some(DecompressToVramSetupAdvance {
+        cursor: LoadInGameCpuRasterCursor {
+            beam: fifo.beam,
+            refresh_phase: phase,
+        },
+        refresh_events,
+        external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
+    })
 }
 
 /// Advance the inclusive DBF transfer at ASM `loc_14314`.

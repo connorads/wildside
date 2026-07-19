@@ -12,6 +12,7 @@ mod movement;
 pub mod physics;
 mod platforms;
 mod projectiles;
+pub mod saxman_timing;
 mod scenario;
 pub mod terrain;
 mod trace;

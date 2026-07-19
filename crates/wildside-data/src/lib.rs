@@ -296,6 +296,21 @@ pub struct DecompressToVramSetupSub142CC {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SaxmanToken {
+    pub bit_position: usize,
+    pub kind: SaxmanTokenKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SaxmanTokenKind {
+    Literal { value: u8 },
+    ShortReference { distance: u16, count: u16 },
+    LongReference { distance: u16, count: u16 },
+    Flush { count: u8 },
+    End,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PaletteWordOverlaySub1C820 {
     pub destination_word_offset: u16,
     pub words: [u16; 5],
@@ -4568,6 +4583,29 @@ fn write_word_preview_png(path: &Path, bytes: &[u8], width_words: usize) -> Resu
 }
 
 pub fn decode_saxman(data: &[u8]) -> Result<Vec<u8>> {
+    let tokens = saxman_tokens(data)?;
+    let mut output = Vec::new();
+    for token in tokens {
+        match token.kind {
+            SaxmanTokenKind::Literal { value } => output.push(value),
+            SaxmanTokenKind::ShortReference { distance, count }
+            | SaxmanTokenKind::LongReference { distance, count } => {
+                let distance = usize::from(distance);
+                let count = usize::from(count);
+                if distance == 0 {
+                    write_zero_fill(&mut output, count.saturating_sub(1));
+                } else {
+                    copy_from_output(&mut output, distance, count)?;
+                }
+            }
+            SaxmanTokenKind::Flush { .. } => {}
+            SaxmanTokenKind::End => break,
+        }
+    }
+    Ok(output)
+}
+
+pub fn saxman_tokens(data: &[u8]) -> Result<Vec<SaxmanToken>> {
     if data.len() < 4 {
         bail!("Saxman payload is too short");
     }
@@ -4582,22 +4620,30 @@ pub fn decode_saxman(data: &[u8]) -> Result<Vec<u8>> {
 
     let mut bits = BitReader::new(&data[2..input_offset]);
     let mut input_position = input_offset;
-    let mut output = Vec::new();
+    let mut tokens = Vec::new();
 
     loop {
+        let bit_position = bits.bit_index;
         if bits.read_bit()? == 1 {
-            output.push(read_input_byte(data, &mut input_position)?);
+            tokens.push(SaxmanToken {
+                bit_position,
+                kind: SaxmanTokenKind::Literal {
+                    value: read_input_byte(data, &mut input_position)?,
+                },
+            });
             continue;
         }
 
         if bits.read_bit()? == 0 {
             let count = usize::from(bits.read_bit()?) + 2;
             let distance = usize::from(read_input_byte(data, &mut input_position)?);
-            if distance == 0 {
-                write_zero_fill(&mut output, count.saturating_sub(1));
-            } else {
-                copy_from_output(&mut output, distance, count)?;
-            }
+            tokens.push(SaxmanToken {
+                bit_position,
+                kind: SaxmanTokenKind::ShortReference {
+                    distance: u16::try_from(distance).expect("short distance fits u16"),
+                    count: u16::try_from(count).expect("short count fits u16"),
+                },
+            });
             continue;
         }
 
@@ -4610,21 +4656,33 @@ pub fn decode_saxman(data: &[u8]) -> Result<Vec<u8>> {
             usize::from(count_code) + 3
         };
         if count_code == 0b11 && count == 0 {
+            tokens.push(SaxmanToken {
+                bit_position,
+                kind: SaxmanTokenKind::End,
+            });
             break;
         }
         if count_code == 0b11 && count < 6 {
+            tokens.push(SaxmanToken {
+                bit_position,
+                kind: SaxmanTokenKind::Flush {
+                    count: u8::try_from(count).expect("extended count byte fits u8"),
+                },
+            });
             continue;
         }
 
         let distance = low_distance + (high_distance << 8);
-        if distance == 0 {
-            write_zero_fill(&mut output, count.saturating_sub(1));
-        } else {
-            copy_from_output(&mut output, distance, count)?;
-        }
+        tokens.push(SaxmanToken {
+            bit_position,
+            kind: SaxmanTokenKind::LongReference {
+                distance: u16::try_from(distance).expect("11-bit distance fits u16"),
+                count: u16::try_from(count).expect("extended count byte fits u16"),
+            },
+        });
     }
 
-    Ok(output)
+    Ok(tokens)
 }
 
 pub fn decode_enigma(data: &[u8], base_tile_word: u16) -> Result<Vec<u16>> {
@@ -6580,6 +6638,64 @@ BackgroundLayout_0E:  dc.w    $8000
     fn saxman_fixture_decodes_to_expected_bytes() {
         let decoded = decode_saxman(SAXMAN_FIXTURE).expect("fixture should decode");
         assert_eq!(decoded, b"ABCD");
+    }
+
+    #[test]
+    fn wild_side_intro_saxman_tokens_follow_decompress_chunk_sub_13684() {
+        // ASM sub_1B850 passes byte_2D71A to DecompressToVRAM, whose
+        // Decompress_Chunk sub_13684 dispatch depends on the source bit lane.
+        const WILD_SIDE_BACKGROUND: &[u8] = &[
+            0x00, 0x09, 0xD1, 0xCA, 0x34, 0x72, 0x8D, 0x1A, 0x34, 0x68, 0xC0, 0x33, 0x33, 0x01,
+            0x1E, 0x22, 0x01, 0x08, 0x28, 0x01, 0x0C, 0x11, 0x01, 0x08, 0x28, 0x01, 0x1C, 0x58,
+            0x10, 0x01, 0x10, 0x00, 0x00,
+        ];
+
+        let tokens = saxman_tokens(WILD_SIDE_BACKGROUND).expect("valid Saxman stream");
+        let shape = tokens
+            .iter()
+            .map(|token| {
+                (
+                    token.bit_position,
+                    match token.kind {
+                        SaxmanTokenKind::Literal { .. } => ("literal", 1),
+                        SaxmanTokenKind::ShortReference { count, .. } => {
+                            ("short", usize::from(count))
+                        }
+                        SaxmanTokenKind::LongReference { count, .. } => {
+                            ("long", usize::from(count))
+                        }
+                        SaxmanTokenKind::Flush { count } => ("flush", usize::from(count)),
+                        SaxmanTokenKind::End => ("end", 0),
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            shape,
+            [
+                (0, ("literal", 1)),
+                (1, ("literal", 1)),
+                (2, ("long", 30)),
+                (9, ("literal", 1)),
+                (10, ("short", 3)),
+                (13, ("long", 40)),
+                (20, ("long", 12)),
+                (27, ("literal", 1)),
+                (28, ("short", 3)),
+                (31, ("long", 40)),
+                (38, ("long", 28)),
+                (45, ("long", 16)),
+                (52, ("long", 16)),
+                (59, ("end", 0)),
+            ],
+        );
+        assert_eq!(
+            decode_saxman(WILD_SIDE_BACKGROUND)
+                .expect("valid Saxman stream")
+                .len(),
+            192,
+        );
     }
 
     /// ASM `LoadBlockLayout`/`loc_132A6` (kid.asm:25557). `level/block/05.bin`
