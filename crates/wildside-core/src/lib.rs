@@ -7,6 +7,7 @@ pub(crate) mod enemies;
 mod gfx_animation;
 mod helmets;
 mod level;
+mod mode_level_timing;
 mod movement;
 pub mod physics;
 mod platforms;
@@ -101,6 +102,7 @@ pub use level::{
     juggernaut_skull_art_dma_loop_loc_129E8, juggernaut_star_art_dma_loop_loc_129FC,
     shared_vram_art_decompresses_loc_11EFA,
 };
+pub use mode_level_timing::{M68kCycleCount, prize_tail_finish_cycles_sub_1007a};
 pub use platforms::{
     PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C, PlatformSpriteEmitLoc2548,
     PlatformSpriteEntryLoc2548, PlatformSpriteStripLoc24CC, PlatformSpriteStripLoc24F0,
