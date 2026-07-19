@@ -1236,6 +1236,9 @@ enum Commands {
         /// Selected hexadecimal M68K PCs to trace before execution (e.g. 0x74A,0xE12,0x44DC).
         #[arg(long)]
         m68k_pc_trace: Option<String>,
+        /// Attach GEMS audio-RAM and timing checkpoints to selected M68K PC rows.
+        #[arg(long, default_value_t = false)]
+        capture_gems_state: bool,
         /// Conditional filter: only show frames matching predicate (e.g. "0xFF2502>=0")
         /// Multiple --when flags are ANDed. Ops: =, !=, <, >, <=, >=
         #[arg(long)]
@@ -2659,6 +2662,7 @@ fn main() -> Result<()> {
             vdp_fifo_commit_frames,
             vdp_fifo_commit_address_range,
             m68k_pc_trace,
+            capture_gems_state,
             when,
             capture_cpu_state,
             capture_settle_trace,
@@ -2710,6 +2714,7 @@ fn main() -> Result<()> {
                 vdp_fifo_commit_frames: vdp_fifo_commit_frames.clone(),
                 vdp_fifo_commit_address_range: vdp_fifo_commit_address_range.clone(),
                 m68k_pc_trace: m68k_pc_trace.clone(),
+                capture_gems_state,
                 capture_cpu_state,
                 capture_settle_trace,
                 capture_rng_stream: false,

@@ -36,6 +36,7 @@ pub(crate) struct OracleRunOptions {
     pub(crate) vdp_fifo_commit_frames: Option<String>,
     pub(crate) vdp_fifo_commit_address_range: Option<String>,
     pub(crate) m68k_pc_trace: Option<String>,
+    pub(crate) capture_gems_state: bool,
     pub(crate) capture_cpu_state: bool,
     pub(crate) capture_settle_trace: bool,
     pub(crate) capture_rng_stream: bool,
@@ -174,6 +175,32 @@ pub struct OracleM68kPcTraceRow {
     pub data_registers: [u32; 8],
     pub address_registers: [u32; 7],
     pub status_register: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gems_checkpoint: Option<OracleGemsCheckpoint>,
+}
+
+/// Persistent GEMS state sampled at the same boundary as a selected 68000 PC.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct OracleGemsCheckpoint {
+    pub z80_pc: u16,
+    pub audio_ram: Vec<u8>,
+    pub bank_number: u32,
+    pub bank_current_bit: u8,
+    pub z80_mclk_counter: u64,
+    pub z80_t_cycles_wait: u32,
+    pub z80_wait_mclk_cycles: u64,
+    pub z80_odd_access: bool,
+    pub ym2612_mclk_counter: u64,
+    pub z80_halt: bool,
+    pub vdp_owns_bus: bool,
+    pub z80_busreq: bool,
+    pub z80_reset: bool,
+    pub z80_stalled: bool,
+    pub z80_interrupt_mode: u8,
+    pub z80_interrupt_delay: bool,
+    pub z80_halted: bool,
+    pub z80_iff1: bool,
+    pub z80_iff2: bool,
 }
 
 #[derive(Debug, Clone, serde::Serialize, Deserialize)]
@@ -360,6 +387,7 @@ pub fn ensure_oracles(repo_root: &Path) -> Result<OracleEnvironment> {
     patch_jgenesis_cpu_registers(&jgenesis_dir)?;
     patch_jgenesis_fifo_commit_trace(&jgenesis_dir)?;
     patch_jgenesis_m68k_pc_trace(&jgenesis_dir)?;
+    patch_jgenesis_gems_checkpoint(&jgenesis_dir)?;
 
     let helper_dir = oracle_root.join("jgenesis-helper");
     write_helper_project(&helper_dir, repo_root, &jgenesis_dir)?;
@@ -479,6 +507,9 @@ pub fn run_jgenesis_capture_dynamic_with_options(
     }
     if let Some(ref pcs) = options.m68k_pc_trace {
         cmd.arg("--m68k-pc-trace").arg(pcs);
+    }
+    if options.capture_gems_state {
+        cmd.arg("--capture-gems-state");
     }
     if options.capture_cpu_state {
         cmd.arg("--capture-cpu-state");
@@ -980,6 +1011,105 @@ fn patch_jgenesis_m68k_pc_trace(jgenesis_dir: &Path) -> Result<()> {
         debug.insert_str(
             final_brace,
             "    pub fn set_wildside_m68k_pc_trace_targets(&mut self, mut targets: Vec<u32>) {\n        targets.sort_unstable();\n        targets.dedup();\n        self.0.wildside_m68k_pc_trace_targets = targets;\n        self.0.wildside_m68k_pc_trace_hits.clear();\n    }\n\n    pub fn drain_wildside_m68k_pc_trace(&mut self) -> Vec<WildsideM68kPcTraceHit> {\n        std::mem::take(&mut self.0.wildside_m68k_pc_trace_hits)\n    }\n\n",
+        );
+        fs::write(&debug_rs, &debug)
+            .with_context(|| format!("failed to write patched {}", debug_rs.display()))?;
+    }
+
+    Ok(())
+}
+
+/// Attach an opt-in GEMS timing checkpoint to bounded selected-PC rows.
+///
+/// This deliberately patches debug-only seams in the pinned oracle instead of
+/// inferring driver state from later banked reads. GEMS self-modifies all 8 KiB
+/// of Z80 RAM, so the full image is part of the checkpoint.
+fn patch_jgenesis_gems_checkpoint(jgenesis_dir: &Path) -> Result<()> {
+    let memory_rs = jgenesis_dir.join("backend/genesis-core/src/memory.rs");
+    let mut memory = fs::read_to_string(&memory_rs)
+        .with_context(|| format!("failed to read {}", memory_rs.display()))?;
+    if !memory.contains("wildside_gems_checkpoint") {
+        memory = replace_jgenesis_source(
+            &memory,
+            "    pub fn debug_audio_ram_view(&mut self) -> impl DebugMemoryView {\n        DebugBytesView(self.audio_ram.as_mut_slice())\n    }\n",
+            "    pub fn debug_audio_ram_view(&mut self) -> impl DebugMemoryView {\n        DebugBytesView(self.audio_ram.as_mut_slice())\n    }\n\n    pub(crate) fn wildside_gems_checkpoint(&self) -> (Vec<u8>, u32, u8, bool, bool) {\n        (\n            self.audio_ram.to_vec(),\n            self.z80_bank_register.bank_number,\n            self.z80_bank_register.current_bit,\n            self.signals.z80_busreq,\n            self.signals.z80_reset,\n        )\n    }\n",
+            &memory_rs,
+        )?;
+        fs::write(&memory_rs, &memory)
+            .with_context(|| format!("failed to write patched {}", memory_rs.display()))?;
+    }
+
+    let z80_rs = jgenesis_dir.join("cpu/z80-emu/src/core.rs");
+    let mut z80 = fs::read_to_string(&z80_rs)
+        .with_context(|| format!("failed to read {}", z80_rs.display()))?;
+    if !z80.contains("wildside_gems_checkpoint") {
+        z80 = replace_jgenesis_source(
+            &z80,
+            "    pub fn set_pc(&mut self, pc: u16) {\n        self.registers.pc = pc;\n    }\n",
+            "    pub fn set_pc(&mut self, pc: u16) {\n        self.registers.pc = pc;\n    }\n\n    #[must_use]\n    pub fn wildside_gems_checkpoint(&self) -> (u32, bool, u8, bool, bool, bool, bool) {\n        let interrupt_mode = match self.registers.interrupt_mode {\n            InterruptMode::Mode0 => 0,\n            InterruptMode::Mode1 => 1,\n            InterruptMode::Mode2 => 2,\n        };\n        (\n            self.t_cycles_wait,\n            self.stalled,\n            interrupt_mode,\n            self.registers.interrupt_delay,\n            self.registers.halted,\n            self.registers.iff1,\n            self.registers.iff2,\n        )\n    }\n",
+            &z80_rs,
+        )?;
+        fs::write(&z80_rs, &z80)
+            .with_context(|| format!("failed to write patched {}", z80_rs.display()))?;
+    }
+
+    let api_rs = jgenesis_dir.join("backend/genesis-core/src/api.rs");
+    let mut api = fs::read_to_string(&api_rs)
+        .with_context(|| format!("failed to read {}", api_rs.display()))?;
+    if !api.contains("WildsideGemsCheckpoint") {
+        api = replace_jgenesis_source(
+            &api,
+            "#[derive(Debug, Clone, Encode, Decode)]\npub struct WildsideM68kPcTraceHit {\n",
+            "#[derive(Debug, Clone, Encode, Decode)]\npub struct WildsideGemsCheckpoint {\n    pub z80_pc: u16,\n    pub audio_ram: Vec<u8>,\n    pub bank_number: u32,\n    pub bank_current_bit: u8,\n    pub z80_mclk_counter: u64,\n    pub z80_t_cycles_wait: u32,\n    pub z80_wait_mclk_cycles: u64,\n    pub z80_odd_access: bool,\n    pub ym2612_mclk_counter: u64,\n    pub z80_halt: bool,\n    pub vdp_owns_bus: bool,\n    pub z80_busreq: bool,\n    pub z80_reset: bool,\n    pub z80_stalled: bool,\n    pub z80_interrupt_mode: u8,\n    pub z80_interrupt_delay: bool,\n    pub z80_halted: bool,\n    pub z80_iff1: bool,\n    pub z80_iff2: bool,\n}\n\n#[derive(Debug, Clone, Encode, Decode)]\npub struct WildsideM68kPcTraceHit {\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "    pub status_register: u16,\n}\n\n#[derive(Debug, Encode, Decode, PartialClone)]\npub struct GenesisEmulator {\n",
+            "    pub status_register: u16,\n    pub gems_checkpoint: Option<WildsideGemsCheckpoint>,\n}\n\n#[derive(Debug, Encode, Decode, PartialClone)]\npub struct GenesisEmulator {\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "    wildside_m68k_pc_trace_hits: Vec<WildsideM68kPcTraceHit>,\n",
+            "    wildside_m68k_pc_trace_hits: Vec<WildsideM68kPcTraceHit>,\n    wildside_capture_gems_state: bool,\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "            wildside_m68k_pc_trace_hits: Vec::new(),\n",
+            "            wildside_m68k_pc_trace_hits: Vec::new(),\n            wildside_capture_gems_state: false,\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "        let mut bus = new_main_bus!(self, m68k_reset: false);\n        bus.vdp.set_wildside_m68k_context(m68k_pc, self.wildside_m68k_cycle_counter);\n",
+            "        let gems_checkpoint = (trace_registers.is_some() && self.wildside_capture_gems_state).then(|| {\n            let (audio_ram, bank_number, bank_current_bit, z80_busreq, z80_reset) =\n                self.memory.wildside_gems_checkpoint();\n            let (\n                z80_t_cycles_wait,\n                z80_stalled,\n                z80_interrupt_mode,\n                z80_interrupt_delay,\n                z80_halted,\n                z80_iff1,\n                z80_iff2,\n            ) = self.z80.wildside_gems_checkpoint();\n            WildsideGemsCheckpoint {\n                z80_pc: self.z80.pc(),\n                audio_ram,\n                bank_number,\n                bank_current_bit,\n                z80_mclk_counter: self.cycles.z80_mclk_counter,\n                z80_t_cycles_wait,\n                z80_wait_mclk_cycles: self.cycles.z80_wait_mclk_cycles,\n                z80_odd_access: self.cycles.z80_odd_access,\n                ym2612_mclk_counter: self.cycles.ym2612_mclk_counter,\n                z80_halt: self.cycles.z80_halt,\n                vdp_owns_bus: self.cycles.vdp_owns_bus,\n                z80_busreq,\n                z80_reset,\n                z80_stalled,\n                z80_interrupt_mode,\n                z80_interrupt_delay,\n                z80_halted,\n                z80_iff1,\n                z80_iff2,\n            }\n        });\n        let mut bus = new_main_bus!(self, m68k_reset: false);\n        bus.vdp.set_wildside_m68k_context(m68k_pc, self.wildside_m68k_cycle_counter);\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "                status_register,\n            });\n",
+            "                status_register,\n                gems_checkpoint,\n            });\n",
+            &api_rs,
+        )?;
+        fs::write(&api_rs, &api)
+            .with_context(|| format!("failed to write patched {}", api_rs.display()))?;
+    }
+
+    let debug_rs = jgenesis_dir.join("backend/genesis-core/src/api/debug.rs");
+    let mut debug = fs::read_to_string(&debug_rs)
+        .with_context(|| format!("failed to read {}", debug_rs.display()))?;
+    if !debug.contains("set_wildside_capture_gems_state") {
+        let final_brace = debug.rfind('}').ok_or_else(|| {
+            anyhow!(
+                "could not find debug API closing brace in {}",
+                debug_rs.display()
+            )
+        })?;
+        debug.insert_str(
+            final_brace,
+            "    pub fn set_wildside_capture_gems_state(&mut self, capture: bool) {\n        self.0.wildside_capture_gems_state = capture;\n    }\n\n",
         );
         fs::write(&debug_rs, &debug)
             .with_context(|| format!("failed to write patched {}", debug_rs.display()))?;
@@ -1496,7 +1626,28 @@ mod tests {
                 "pixel": 96,
                 "data_registers": [0, 1, 2, 3, 4, 5, 6, 7],
                 "address_registers": [8, 9, 10, 11, 12, 13, 14],
-                "status_register": 0x2700
+                "status_register": 0x2700,
+                "gems_checkpoint": {
+                    "z80_pc": 0x02AA,
+                    "audio_ram": [1, 2],
+                    "bank_number": 29,
+                    "bank_current_bit": 0,
+                    "z80_mclk_counter": 10,
+                    "z80_t_cycles_wait": 9,
+                    "z80_wait_mclk_cycles": 0,
+                    "z80_odd_access": false,
+                    "ym2612_mclk_counter": 7,
+                    "z80_halt": false,
+                    "vdp_owns_bus": false,
+                    "z80_busreq": false,
+                    "z80_reset": false,
+                    "z80_stalled": false,
+                    "z80_interrupt_mode": 1,
+                    "z80_interrupt_delay": false,
+                    "z80_halted": false,
+                    "z80_iff1": false,
+                    "z80_iff2": false
+                }
             }]
         }))
         .expect("manifest should parse selected-PC rows");
@@ -1509,6 +1660,23 @@ mod tests {
         assert_eq!(manifest.m68k_pc_trace[0].m68k_cycles_for_instruction, 16);
         assert_eq!(manifest.m68k_pc_trace[0].scanline, 224);
         assert_eq!(manifest.m68k_pc_trace[0].address_registers[5], 13);
+        let checkpoint = manifest.m68k_pc_trace[0]
+            .gems_checkpoint
+            .as_ref()
+            .expect("opt-in GEMS checkpoint");
+        assert_eq!(checkpoint.z80_pc, 0x02AA);
+        assert_eq!(checkpoint.audio_ram, [1, 2]);
+        assert_eq!(checkpoint.bank_number, 29);
+    }
+
+    #[test]
+    fn helper_gates_gems_checkpoints_behind_explicit_capture() {
+        assert!(
+            HELPER_TEMPLATE.contains("--capture-gems-state")
+                && HELPER_TEMPLATE.contains("set_wildside_capture_gems_state")
+                && HELPER_TEMPLATE.contains("audio_ram: checkpoint.audio_ram"),
+            "full 8 KiB GEMS checkpoints must remain opt-in and tied to selected PC rows"
+        );
     }
 
     #[test]

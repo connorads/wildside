@@ -172,6 +172,31 @@ struct OracleM68kPcTraceRow {
     data_registers: [u32; 8],
     address_registers: [u32; 7],
     status_register: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    gems_checkpoint: Option<OracleGemsCheckpoint>,
+}
+
+#[derive(Debug, Serialize)]
+struct OracleGemsCheckpoint {
+    z80_pc: u16,
+    audio_ram: Vec<u8>,
+    bank_number: u32,
+    bank_current_bit: u8,
+    z80_mclk_counter: u64,
+    z80_t_cycles_wait: u32,
+    z80_wait_mclk_cycles: u64,
+    z80_odd_access: bool,
+    ym2612_mclk_counter: u64,
+    z80_halt: bool,
+    vdp_owns_bus: bool,
+    z80_busreq: bool,
+    z80_reset: bool,
+    z80_stalled: bool,
+    z80_interrupt_mode: u8,
+    z80_interrupt_delay: bool,
+    z80_halted: bool,
+    z80_iff1: bool,
+    z80_iff2: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -682,6 +707,7 @@ fn main() -> Result<()> {
     let mut vdp_fifo_commit_frames_spec = String::new();
     let mut vdp_fifo_commit_address_range_spec = String::new();
     let mut m68k_pc_trace_spec = String::new();
+    let mut capture_gems_state = false;
     let mut capture_cpu_state = false;
     let mut capture_settle_trace = false;
     let mut capture_rng_stream = false;
@@ -703,6 +729,7 @@ fn main() -> Result<()> {
             "--vdp-fifo-commit-frames" => vdp_fifo_commit_frames_spec = args.next().unwrap_or_default(),
             "--vdp-fifo-commit-address-range" => vdp_fifo_commit_address_range_spec = args.next().unwrap_or_default(),
             "--m68k-pc-trace" => m68k_pc_trace_spec = args.next().unwrap_or_default(),
+            "--capture-gems-state" => capture_gems_state = true,
             "--capture-cpu-state" => capture_cpu_state = true,
             "--capture-settle-trace" => capture_settle_trace = true,
             "--capture-rng-stream" => capture_rng_stream = true,
@@ -730,7 +757,7 @@ fn main() -> Result<()> {
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     match mode {
         OutputMode::Capture => {
-            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, &vdp_fifo_commit_frames, vdp_fifo_commit_address_range, &m68k_pc_trace, capture_cpu_state, capture_settle_trace, capture_rng_stream)?;
+            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, &vdp_fifo_commit_frames, vdp_fifo_commit_address_range, &m68k_pc_trace, capture_gems_state, capture_cpu_state, capture_settle_trace, capture_rng_stream)?;
         }
         OutputMode::EnemyLayoutTrace => {
             run_enemy_layout_trace(&rom, &resolved)?;
@@ -800,7 +827,7 @@ fn resolve_scenario(
     }
 }
 
-fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], vdp_fifo_commit_frames: &[usize], vdp_fifo_commit_address_range: Option<(u32, u32)>, m68k_pc_trace: &[u32], capture_cpu_state: bool, capture_settle_trace: bool, capture_rng_stream: bool) -> Result<()> {
+fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], vdp_fifo_commit_frames: &[usize], vdp_fifo_commit_address_range: Option<(u32, u32)>, m68k_pc_trace: &[u32], capture_gems_state: bool, capture_cpu_state: bool, capture_settle_trace: bool, capture_rng_stream: bool) -> Result<()> {
     let mut checkpoint_index = 0usize;
     let mut save_writer = NullSaveWriter;
     let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
@@ -863,6 +890,9 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     emulator
         .debug()
         .set_wildside_m68k_pc_trace_targets(m68k_pc_trace.to_vec());
+    emulator
+        .debug()
+        .set_wildside_capture_gems_state(capture_gems_state);
 
     while frame_index < resolved.frame_count {
         let pre_frame_eol_vdp_pixel_samples_debug = resolved
@@ -895,6 +925,27 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                             data_registers: hit.data_registers,
                             address_registers: hit.address_registers,
                             status_register: hit.status_register,
+                            gems_checkpoint: hit.gems_checkpoint.map(|checkpoint| OracleGemsCheckpoint {
+                                z80_pc: checkpoint.z80_pc,
+                                audio_ram: checkpoint.audio_ram,
+                                bank_number: checkpoint.bank_number,
+                                bank_current_bit: checkpoint.bank_current_bit,
+                                z80_mclk_counter: checkpoint.z80_mclk_counter,
+                                z80_t_cycles_wait: checkpoint.z80_t_cycles_wait,
+                                z80_wait_mclk_cycles: checkpoint.z80_wait_mclk_cycles,
+                                z80_odd_access: checkpoint.z80_odd_access,
+                                ym2612_mclk_counter: checkpoint.ym2612_mclk_counter,
+                                z80_halt: checkpoint.z80_halt,
+                                vdp_owns_bus: checkpoint.vdp_owns_bus,
+                                z80_busreq: checkpoint.z80_busreq,
+                                z80_reset: checkpoint.z80_reset,
+                                z80_stalled: checkpoint.z80_stalled,
+                                z80_interrupt_mode: checkpoint.z80_interrupt_mode,
+                                z80_interrupt_delay: checkpoint.z80_interrupt_delay,
+                                z80_halted: checkpoint.z80_halted,
+                                z80_iff1: checkpoint.z80_iff1,
+                                z80_iff2: checkpoint.z80_iff2,
+                            }),
                         }
                     }));
                 }

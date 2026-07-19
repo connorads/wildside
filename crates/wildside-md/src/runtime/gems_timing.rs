@@ -35,6 +35,36 @@ pub struct GemsMasterClockAdvance {
     pub pending_m68k_wait_cycles: u32,
 }
 
+/// Native GEMS timing checkpoint at a 68000 scheduling boundary.
+///
+/// The self-modifying audio RAM is deliberately retained in full: equal PCs
+/// and divider phases are insufficient when the driver has patched its own
+/// sequence, envelope, and DAC worker state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GemsTimingCheckpoint {
+    pub master_clock: u64,
+    pub z80_pc: u16,
+    pub audio_ram: Vec<u8>,
+    pub bank_address: u32,
+    pub z80_mclk_counter: u64,
+    pub z80_t_cycles_wait: u32,
+    pub z80_wait_mclk_cycles: u64,
+    pub z80_odd_access: bool,
+    pub ym2612_mclk_counter: u64,
+    pub ym2612_last_status_read: u8,
+    pub ym2612_status_decay_clocks_remaining: u32,
+    pub z80_halt: bool,
+    pub vdp_owns_bus: bool,
+    pub busreq: bool,
+    pub reset: bool,
+    pub pending_m68k_wait_cycles: u32,
+    pub z80_interrupt_mode: u8,
+    pub z80_irq_pending: u8,
+    pub z80_halted: bool,
+    pub z80_iff1: bool,
+    pub z80_iff2: bool,
+}
+
 /// One of the six separately arbitrated GEMS initialisation writes in ASM
 /// `StopMusic -> sub_E149C/sub_E14AC`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -232,6 +262,35 @@ impl GemsMasterClockTimingEngine {
 
     pub fn z80_pc(&self) -> u16 {
         self.z80.pc
+    }
+
+    /// Snapshot the persistent GEMS machine without advancing it.
+    #[must_use]
+    pub fn checkpoint(&self) -> GemsTimingCheckpoint {
+        let ym2612 = self.z80.io.ym2612_shadow.borrow();
+        GemsTimingCheckpoint {
+            master_clock: self.master_clock,
+            z80_pc: self.z80.pc,
+            audio_ram: self.z80.io.ram.borrow().clone(),
+            bank_address: self.z80.io.bank_address,
+            z80_mclk_counter: self.z80_mclk_counter,
+            z80_t_cycles_wait: self.z80_t_cycles_wait,
+            z80_wait_mclk_cycles: self.z80_wait_mclk_cycles,
+            z80_odd_access: self.z80_odd_access,
+            ym2612_mclk_counter: self.ym2612_mclk_counter,
+            ym2612_last_status_read: ym2612.last_status_read,
+            ym2612_status_decay_clocks_remaining: ym2612.status_decay_clocks_remaining,
+            z80_halt: self.z80_halt,
+            vdp_owns_bus: self.vdp_owns_bus,
+            busreq: self.busreq,
+            reset: self.reset,
+            pending_m68k_wait_cycles: self.pending_m68k_wait_cycles,
+            z80_interrupt_mode: self.z80.interrupt_mode,
+            z80_irq_pending: self.z80.irq_pending,
+            z80_halted: self.z80.halted,
+            z80_iff1: self.z80.iff1,
+            z80_iff2: self.z80.iff2,
+        }
     }
 
     /// Advance an already-accounted hardware interval.
@@ -632,6 +691,26 @@ impl GemsMasterClockTimingEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn checkpoint_retains_self_modifying_gems_state_and_scheduler_phase() {
+        let driver = [0x00, 0x76];
+        let mut engine = GemsMasterClockTimingEngine::new(&driver, vec![]);
+        engine.z80.io.ram.borrow_mut()[0x1FFF] = 0xA5;
+        engine.z80.io.bank_address = 0x0180_0000;
+        engine.advance_master_clocks(14, false, false);
+
+        let checkpoint = engine.checkpoint();
+
+        assert_eq!(checkpoint.master_clock, 14);
+        assert_eq!(checkpoint.z80_pc, 0);
+        assert_eq!(checkpoint.audio_ram.len(), Z80_RAM_LEN);
+        assert_eq!(&checkpoint.audio_ram[..2], &driver);
+        assert_eq!(checkpoint.audio_ram[0x1FFF], 0xA5);
+        assert_eq!(checkpoint.bank_address, 0x0180_0000);
+        assert_eq!(checkpoint.z80_mclk_counter, 14);
+        assert_eq!(checkpoint.ym2612_mclk_counter, 0);
+    }
 
     #[test]
     fn banked_reads_persist_cpu_ram_and_alternating_wait_phase() {
