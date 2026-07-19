@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 Gfx move/animation scripts)
+
+- Full instruction traces show 16/17/16 stationary nodes through
+  `GfxObjects_MoveAndAnimate sub_1444`; variation comes solely from each
+  `GfxObject_Animate sub_113E` script state.
+- Wobble `stru_101B6`, flash `stru_102DE`, and diamond `stru_10D6E` ages now
+  derive inactive, countdown, countdown-to-one, normal-dispatch, and
+  signed-backstep dispatch paths.
+- Frames 1697/1703/1709 reproduce 4,500/4,894/4,594 raw cycles. Hidden worker
+  families, blinking diamonds, and the unobserved stop dispatch fail closed.
+- `mise run verify-slice-fast` is green after `64d465c60`: 6,960 core tests,
+  15 CLI tests, workspace Clippy, all TAS recordings, and ASM test-only debt
+  189 -> 188.
+- NEXT: type `Make_SpritesFromGfxObjects`, then introduce the complete
+  master-clocked GEMS timing checkpoint and bridge the post-HUD ledger through
+  `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 per-node F86E Kid collision walk)
 
 - Full selected-PC traces reduce every live `$F86E` node at frames

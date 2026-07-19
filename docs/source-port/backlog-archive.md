@@ -409,6 +409,20 @@ and the `loc_1158` dispatch. Native's exported roster count does not preserve
 that per-GfxObject script state, so a count multiplier would be a fitted route
 total. Type those worker observations before assigning a cost.
 
+Progress 2026-07-19: commit `64d465c60` replaces that rejected count model
+with typed per-worker animation sources. Full instruction traces prove all
+16/17/16 target nodes are stationary. Their costs vary through
+`GfxObject_Animate sub_113E`: inactive, timer countdown, countdown-to-one,
+normal `sub_1194` dispatch, or `sub_11AC` signed backstep followed by normal
+dispatch. Allocation age advances the exact ROM scripts - wobble
+`stru_101B6`, flash `stru_102DE`, and floating-diamond `stru_10D6E` - while
+four persistent nodes and the visible `loc_1066` tail stay unanimated.
+Frames 1697/1703/1709 derive 4,500/4,894/4,594 raw cycles. Unexplained workers,
+post-`$C8` blinking diamonds, and the unobserved stop dispatch fail closed.
+`mise run verify-slice-fast` is green with 6,960 core tests, 15 CLI tests,
+workspace Clippy, all configured TAS recordings, and ASM test-only debt
+reduced 189 -> 188. Next type `Make_SpritesFromGfxObjects sub_1492`.
+
 Progress 2026-07-19: commit `256295e2a` captures
 `Manage_PlatformLoading loc_2744` before native advances its cursor. All three
 helpers consume the layout terminator, wrap to offset zero, reject the first
