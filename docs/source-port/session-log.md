@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 complete sub_1B850 tail)
+
+- `sub_1B850` is source-scheduled end-to-end: five Saxman uploads, both
+  Enigma maps, the 40x28 plane-A blit, and 28 full-width plane-B rows.
+- `unk_2FDE0` emits 1,120 words through 13,848 instructions / 119,798 raw
+  cycles; `unk_2FDCE` emits 28 through 504 / 4,672.
+- Native completes the final RTS at cycle 10,272,880 versus oracle
+  10,276,031. Exact source traces show the offset comes from the established
+  jgenesis Z80 flag defect accumulating extra GEMS waits and shifting FIFO
+  phase.
+- NEXT: source-schedule `Load_IntroSequence1`'s post-load object allocation
+  and `sub_1B8F4`, then continue towards frame 1709.
+
 ## 2026-07-19 handoff (#409 fifth title asset)
 
 - All five `sub_1B850` Saxman uploads now run on one persistent GEMS/VDP

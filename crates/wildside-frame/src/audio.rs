@@ -806,6 +806,96 @@ pub fn apply_gems_decompress_to_vram_decoder_loc_14300(
     )
 }
 
+/// Clock one source-ordered ASM `EniDec` call on the persistent GEMS timeline.
+#[cfg(feature = "audio")]
+pub fn apply_gems_enigma_decoder(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    caller_instruction_cycles: &[u32],
+    compressed: &[u8],
+    base_tile_word: u16,
+    source_address: u32,
+    vint_count: u8,
+) -> Option<wildside_core::vdp::EnigmaDecoderAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::enigma_decoder_cursor_with_scheduler(
+        entry,
+        caller_instruction_cycles,
+        compressed,
+        base_tile_word,
+        source_address,
+        vint_count,
+        |cycles, vdp_owns_bus, source_instruction| {
+            if source_instruction {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
+/// Clock sub_1B850's 40x28 `sub_1C5D0` plane-A blit.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_intro_plane_a_blit(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    vint_count: u8,
+) -> Option<wildside_core::vdp::DecompressToVramTransferAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_intro_plane_a_blit_with_scheduler(
+        entry,
+        vint_count,
+        |cycles, vdp_owns_bus| {
+            audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                u64::from(cycles.get()) * 7,
+                vdp_owns_bus,
+            );
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
+/// Clock sub_1B850's 28 full-width repeated plane-B rows.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_intro_repeated_rows(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    vint_count: u8,
+) -> Option<wildside_core::vdp::DecompressToVramTransferAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_intro_repeated_rows_with_scheduler(
+        entry,
+        vint_count,
+        |cycles, vdp_owns_bus| {
+            audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                u64::from(cycles.get()) * 7,
+                vdp_owns_bus,
+            );
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
 /// Clock a caller and ASM `sub_142CC` up to `DecompressToVRAM loc_14300`.
 #[cfg(feature = "audio")]
 pub fn apply_gems_decompress_to_vram_setup_sub_142cc(
@@ -2507,6 +2597,84 @@ mod tests {
         // The established oracle Z80 flag defect leaves the hardware-faithful
         // GEMS/FIFO schedule 39 cycles earlier at the batch return.
         assert_eq!(engine.master_clock(), 10_010_491 * 7);
+
+        // ASM sub_1B850 $1B89E decodes unk_2FDE0 with base tile $80BC.
+        let compressed =
+            std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                "../../.cache/upstream/kid-chameleon-disasm/scenes/mapeni/intro1_wildside.bin",
+            ))
+            .expect("bootstrapped unk_2FDE0");
+        let enigma = apply_gems_enigma_decoder(
+            &mut engine,
+            transfer.cursor,
+            &[8, 12, 12, 4, 20, 10],
+            &compressed,
+            0x80BC,
+            0x2FDE0,
+            1,
+        )
+        .expect("source-positioned intro plane-A EniDec");
+        assert_eq!(
+            enigma.timing,
+            wildside_core::enigma_timing::EnigmaTiming {
+                instruction_count: 13_848,
+                raw_cycles: 119_798,
+                output_words: 1_120,
+            },
+        );
+        assert!(enigma.vint_serviced);
+        assert_eq!(enigma.refresh_events, 948);
+        assert_eq!(enigma.external_wait_cycles.get(), 1_408);
+        // Oracle loc_13586 returns at 10,136,554. Its established
+        // undocumented-X/Y SUB defect requests 2,752 more GEMS bank-wait
+        // cycles in this long VDP-idle decode; the 39-cycle prior offset
+        // therefore grows to 2,791 cycles here.
+        assert_eq!(engine.master_clock(), 10_133_763 * 7);
+
+        let plane_a = apply_gems_title_intro_plane_a_blit(&mut engine, enigma.cursor, 0)
+            .expect("source-positioned sub_1C5D0 plane-A blit");
+        assert!(!plane_a.vint_serviced);
+        assert_eq!(plane_a.refresh_events, 4);
+        assert_eq!(plane_a.fifo_halted_ticks.get(), 33_894);
+        assert_eq!(engine.master_clock(), 10_194_570 * 7);
+
+        // ASM sub_1B850 $1B8C2 decodes unk_2FDCE with base tile $413A.
+        let compressed = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../.cache/upstream/kid-chameleon-disasm/scenes/mapeni/2FDCE.bin"),
+        )
+        .expect("bootstrapped unk_2FDCE");
+        let enigma = apply_gems_enigma_decoder(
+            &mut engine,
+            plane_a.cursor,
+            &[8, 12, 12, 4, 20, 10],
+            &compressed,
+            0x413A,
+            0x2FDCE,
+            0,
+        )
+        .expect("source-positioned repeated-row EniDec");
+        assert_eq!(
+            enigma.timing,
+            wildside_core::enigma_timing::EnigmaTiming {
+                instruction_count: 504,
+                raw_cycles: 4_672,
+                output_words: 28,
+            },
+        );
+        assert!(!enigma.vint_serviced);
+        assert_eq!(enigma.refresh_events, 38);
+        assert_eq!(enigma.external_wait_cycles.get(), 0);
+        assert_eq!(engine.master_clock(), 10_199_384 * 7);
+
+        let repeated_rows = apply_gems_title_intro_repeated_rows(&mut engine, enigma.cursor, 1)
+            .expect("source-positioned repeated plane-B rows");
+        assert!(repeated_rows.vint_serviced);
+        assert_eq!(repeated_rows.refresh_events, 140);
+        assert_eq!(repeated_rows.fifo_halted_ticks.get(), 31_916);
+        // Oracle sub_1B850 RTS completes at 10,276,031; the same documented
+        // GEMS defect leaves the hardware-faithful path 3,151 cycles earlier.
+        assert_eq!(engine.master_clock(), 10_272_880 * 7);
     }
 
     #[cfg(feature = "audio")]

@@ -4778,6 +4778,114 @@ pub fn decode_enigma(data: &[u8], base_tile_word: u16) -> Result<Vec<u16>> {
     Ok(output)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnigmaInlinePacketPath {
+    WithinBufferedWord { rolling_refill: bool },
+    ExactWordBoundary,
+    CrossesWordBoundary,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EnigmaInlineValueTrace {
+    pub enabled_flag_mask: u8,
+    pub set_flag_word: u16,
+    pub bits_before_packet: u16,
+    pub packet_length: u8,
+    pub path: EnigmaInlinePacketPath,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnigmaCommandTrace {
+    pub command: u8,
+    pub dbf_counter: u8,
+    pub bits_before_prefix: u16,
+    pub prefix_bits: u8,
+    pub prefix_rolling_refill: bool,
+    pub inline_values: Vec<EnigmaInlineValueTrace>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EnigmaTrace {
+    pub packet_length: u8,
+    pub flag_mask: u8,
+    pub commands: Vec<EnigmaCommandTrace>,
+    pub terminator_bits_remaining: u16,
+    pub terminator_next_input_offset: u16,
+}
+
+/// Parse the semantic command path taken by ASM `EniDec`.
+///
+/// ASM `EniDec`/`loc_134EA`/`sub_13588` (kid.asm:25835-26061) makes its
+/// timing decisions from command-prefix refills, enabled flag bits, and the
+/// inline packet's position relative to the rolling 16-bit buffer. Exposing
+/// those source-level decisions keeps consumers from duplicating the Enigma
+/// decoder merely to schedule its instructions.
+pub fn enigma_trace(data: &[u8], base_tile_word: u16) -> Result<EnigmaTrace> {
+    let header = parse_enigma_header_eni_dec(data, base_tile_word)?;
+    let mut padded_bitstream = header.bitstream.to_vec();
+    padded_bitstream.extend_from_slice(&[0; 2]);
+    let mut bits = EnigmaBitReader::new(&padded_bitstream);
+    bits.refill_word_sub_13618()?;
+    let mut commands = Vec::new();
+
+    let (terminator_bits_remaining, terminator_next_input_offset) = loop {
+        let bits_before_prefix = bits.bits_remaining_d6;
+        let (command, count) = bits.read_prefix_eni_dec()?;
+        let prefix_bits = if command < 4 { 6_u8 } else { 7_u8 };
+        let prefix_rolling_refill = bits_before_prefix.wrapping_sub(u16::from(prefix_bits)) < 9;
+        let inline_count = match command {
+            4..=6 => 1,
+            7 if count != 0x0F => count + 1,
+            _ => 0,
+        };
+        let mut inline_values = Vec::with_capacity(inline_count);
+        for _ in 0..inline_count {
+            let set_flag_word = read_enigma_flags(&mut bits, header.flag_mask)?;
+            let bits_before_packet = bits.bits_remaining_d6;
+            let path = match usize::from(bits_before_packet).cmp(&header.packet_length) {
+                std::cmp::Ordering::Greater => EnigmaInlinePacketPath::WithinBufferedWord {
+                    rolling_refill: bits_before_packet.wrapping_sub(header.packet_length as u16)
+                        < 9,
+                },
+                std::cmp::Ordering::Equal => EnigmaInlinePacketPath::ExactWordBoundary,
+                std::cmp::Ordering::Less => EnigmaInlinePacketPath::CrossesWordBoundary,
+            };
+            let _ = bits.read_inline_packet_sub_13588(header.packet_length)?;
+            inline_values.push(EnigmaInlineValueTrace {
+                enabled_flag_mask: header.flag_mask,
+                set_flag_word,
+                bits_before_packet,
+                packet_length: u8::try_from(header.packet_length)
+                    .expect("validated Enigma packet length fits u8"),
+                path,
+            });
+        }
+        commands.push(EnigmaCommandTrace {
+            command: u8::try_from(command).expect("three-bit command fits u8"),
+            dbf_counter: u8::try_from(count).expect("four-bit counter fits u8"),
+            bits_before_prefix,
+            prefix_bits,
+            prefix_rolling_refill,
+            inline_values,
+        });
+        if command == 7 && count == 0x0F {
+            break (
+                bits.bits_remaining_d6,
+                u16::try_from(6 + bits.input_position).expect("Enigma source offset fits u16"),
+            );
+        }
+    };
+
+    Ok(EnigmaTrace {
+        packet_length: u8::try_from(header.packet_length)
+            .expect("validated Enigma packet length fits u8"),
+        flag_mask: header.flag_mask,
+        commands,
+        terminator_bits_remaining,
+        terminator_next_input_offset,
+    })
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlockLayoutDecodeWordsLoc1354E {
     ReturnViaLoc13570 { rewound_input_addr: u16 },

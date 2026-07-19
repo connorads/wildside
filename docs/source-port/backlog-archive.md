@@ -306,6 +306,28 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: `sub_1B850` is source-scheduled through its final RTS.
+`wildside-data::enigma_trace` exposes the semantic `loc_134EA` command,
+rolling-refill, flag-bit, and `sub_13588` packet paths; `wildside-core` turns
+those decisions into the exact 68000 instruction stream while the frame
+adapter couples it to persistent GEMS. The selected-PC trace exposed two
+initially omitted probe targets - the common-run branch at `$13524` and odd
+input-alignment ADDQ at `$13580` - after adding them, the source sequence is
+exact instruction-for-instruction.
+
+`unk_2FDE0` emits 1,120 words through 13,848 instructions / 119,798 raw
+cycles, with one VINT, 948 refresh events, and 1,408 native GEMS wait cycles;
+native returns at 10,133,763 versus oracle 10,136,554. The 40x28
+`sub_1C5D0` blit then incurs 33,894 FIFO-halted ticks and returns at
+10,194,570. `unk_2FDCE` emits 28 words through 504 instructions / 4,672 raw
+cycles, returning at 10,199,384. Finally `loc_1B8E4`/`loc_1B8E6` writes
+1,792 words across 28 full-width plane-B rows, services one VINT, incurs
+31,916 FIFO-halted ticks, and completes `sub_1B850` at 10,272,880. Oracle
+completes at 10,276,031; the signed offset is the downstream result of its
+established undocumented-X/Y `SUB` defect accumulating extra GEMS waits and
+changing FIFO phase, not missing 68000 source work. NEXT: continue through
+`Load_IntroSequence1`'s object allocation and `sub_1B8F4`.
+
 Progress 2026-07-19: all five `sub_1B850` Saxman uploads now share one
 persistent hardware-faithful timeline. The final
 `ArtComp_1DA86_LettersNumbers` stream emits 1,440 bytes through 6,230

@@ -2991,6 +2991,15 @@ pub struct DecompressToVramSetupAdvance {
     pub external_wait_cycles: M68kCycleCount,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EnigmaDecoderAdvance {
+    pub cursor: LoadInGameCpuRasterCursor,
+    pub timing: crate::enigma_timing::EnigmaTiming,
+    pub refresh_events: u32,
+    pub vint_serviced: bool,
+    pub external_wait_cycles: M68kCycleCount,
+}
+
 /// Load_InGame name retained for the platform initialisation boundary.
 pub type LoadInGamePlatformArtTransferAdvance = DecompressToVramTransferAdvance;
 
@@ -3376,6 +3385,90 @@ pub fn decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
     })
 }
 
+/// Co-schedule one ASM `EniDec` call with its source-level caller setup.
+///
+/// `caller_instruction_cycles` ends at the `j_EniDec` jump stub. The Enigma
+/// command visitor then supplies every instruction through `loc_13582` and
+/// the final RTS, while this shell owns refresh, recurring VINT, and external
+/// GEMS waits.
+pub fn enigma_decoder_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    caller_instruction_cycles: &[u32],
+    compressed: &[u8],
+    base_tile_word: u16,
+    source_address: u32,
+    vint_count: u8,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<EnigmaDecoderAdvance> {
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+    let mut refresh_events = 0_u32;
+    let mut external_wait_cycles = 0_u32;
+    let mut scheduling_failed = false;
+    let mut vint_serviced = false;
+    let mut vint = DecompressToVramVintTracker::new(vint_count);
+
+    let mut advance_instruction = |raw_cycles: u32| {
+        if scheduling_failed {
+            return;
+        }
+        let mut source_cycles = [0_u32; 5];
+        vint.rearm_after_frame_wrap(fifo.beam.scanline);
+        let source_count = if vint.remaining != 0 && vint.armed && fifo.beam.scanline >= 224 {
+            // ASM V_Int $488: exception entry, ADDQ/ST/RTE, then retry the
+            // interrupted EniDec source instruction.
+            source_cycles = [44, 24, 16, 20, raw_cycles];
+            vint.remaining -= 1;
+            vint.armed = false;
+            vint_serviced = true;
+            5
+        } else {
+            source_cycles[0] = raw_cycles;
+            1
+        };
+        for &cycles in &source_cycles[..source_count] {
+            let Some(generated_wait) = advance_decompress_source_instruction_with_interval_kind(
+                cycles,
+                &mut fifo,
+                &mut phase,
+                &mut refresh_events,
+                &mut advance_hardware,
+            ) else {
+                scheduling_failed = true;
+                return;
+            };
+            external_wait_cycles = external_wait_cycles
+                .checked_add(generated_wait)
+                .expect("Enigma wait count fits u32");
+        }
+    };
+
+    for &raw_cycles in caller_instruction_cycles {
+        advance_instruction(raw_cycles);
+    }
+    let timing = crate::enigma_timing::visit_enigma_instructions(
+        compressed,
+        base_tile_word,
+        source_address,
+        &mut advance_instruction,
+    )
+    .ok()?;
+    if scheduling_failed {
+        return None;
+    }
+
+    Some(EnigmaDecoderAdvance {
+        cursor: LoadInGameCpuRasterCursor {
+            beam: fifo.beam,
+            refresh_phase: phase,
+        },
+        timing,
+        refresh_events,
+        vint_serviced,
+        external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
+    })
+}
+
 /// Co-schedule a caller and ASM `sub_142CC` up to `loc_14300`.
 ///
 /// `caller_instruction_cycles` ends at the jump stub which enters
@@ -3625,6 +3718,159 @@ pub fn decompress_to_vram_transfer_cursor_loc_14314_with_scheduler(
         vint_serviced,
         pending_external_wait_cycles,
     })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TitleIntroVdpSourceEvent {
+    Instruction(u32),
+    DataWord,
+}
+
+fn schedule_title_intro_vdp_events(
+    entry: LoadInGameCpuRasterCursor,
+    events: &[TitleIntroVdpSourceEvent],
+    vint_count: u8,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<DecompressToVramTransferAdvance> {
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+    let mut refresh_events = 0_u32;
+    let mut fifo_halted_ticks = 0_u32;
+    let mut vint_serviced = false;
+    let mut vint = DecompressToVramVintTracker::new(vint_count);
+
+    for event in events {
+        vint_serviced |= service_decompress_to_vram_vint_if_pending(
+            &mut vint,
+            &mut fifo,
+            &mut phase,
+            &mut refresh_events,
+            &mut advance_hardware,
+        )?;
+        let raw_cycles = match event {
+            TitleIntroVdpSourceEvent::Instruction(raw_cycles) => *raw_cycles,
+            TitleIntroVdpSourceEvent::DataWord => 12,
+        };
+        let pending_wait = advance_decompress_to_vram_source_instruction(
+            raw_cycles,
+            &mut fifo,
+            &mut phase,
+            &mut refresh_events,
+            !matches!(event, TitleIntroVdpSourceEvent::DataWord),
+            &mut advance_hardware,
+        )?;
+        if !matches!(event, TitleIntroVdpSourceEvent::DataWord) {
+            continue;
+        }
+
+        fifo.push_word();
+        drain_decompress_to_vram_wait(pending_wait, &mut fifo, &mut phase, &mut advance_hardware)?;
+        while fifo.pending_words != 0 {
+            let halt = M68kCycleCount::from_raw(1);
+            fifo.advance_m68k_cycles(halt);
+            if advance_hardware(halt, true)?.get() != 0 {
+                return None;
+            }
+            fifo_halted_ticks = fifo_halted_ticks.checked_add(1)?;
+            phase = M68kRefreshPhase::new(0).expect("zero is a valid refresh phase");
+        }
+    }
+
+    Some(DecompressToVramTransferAdvance {
+        cursor: LoadInGameCpuRasterCursor {
+            beam: fifo.beam,
+            refresh_phase: phase,
+        },
+        fifo_halted_ticks: M68kCycleCount::from_raw(fifo_halted_ticks),
+        refresh_events,
+        vint_serviced,
+        pending_external_wait_cycles: M68kCycleCount::from_raw(0),
+    })
+}
+
+/// Co-schedule sub_1B850's 40x28 plane-A blit through ASM `sub_1C5D0`.
+pub fn title_intro_plane_a_blit_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    vint_count: u8,
+    advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<DecompressToVramTransferAdvance> {
+    let mut events = Vec::with_capacity(2_400);
+    // ASM sub_1B850 $1B8B0..$1B8C2: four MOVEQ instructions and BSR.
+    events.extend(
+        [4, 4, 4, 4, 18]
+            .into_iter()
+            .map(TitleIntroVdpSourceEvent::Instruction),
+    );
+    // ASM sub_1C5D0 (kid.asm:31341-31352): save registers and derive the
+    // first plane-A control word before the nested row loops.
+    events.extend(
+        [40, 4, 20, 4, 4, 8, 4, 4, 4, 4]
+            .into_iter()
+            .map(TitleIntroVdpSourceEvent::Instruction),
+    );
+    for row in 0..28 {
+        events.extend(
+            [4, 16, 16]
+                .into_iter()
+                .map(TitleIntroVdpSourceEvent::Instruction),
+        );
+        for column in 0..40 {
+            events.push(TitleIntroVdpSourceEvent::DataWord);
+            events.push(TitleIntroVdpSourceEvent::Instruction(if column == 39 {
+                14
+            } else {
+                10
+            }));
+        }
+        events.push(TitleIntroVdpSourceEvent::Instruction(if row == 27 {
+            14
+        } else {
+            10
+        }));
+    }
+    // ASM sub_1C5D0 $1C5FE..$1C604: restore registers and return.
+    events.extend(
+        [44, 16]
+            .into_iter()
+            .map(TitleIntroVdpSourceEvent::Instruction),
+    );
+
+    schedule_title_intro_vdp_events(entry, &events, vint_count, advance_hardware)
+}
+
+/// Co-schedule sub_1B850's 28 full-width repeated plane-B rows.
+pub fn title_intro_repeated_rows_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    vint_count: u8,
+    advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<DecompressToVramTransferAdvance> {
+    let mut events = Vec::with_capacity(3_700);
+    // ASM sub_1B850 $1B8DA..loc_1B8E4: set VRAM $E000 and seed d0=$1B.
+    events.extend(
+        [20, 4]
+            .into_iter()
+            .map(TitleIntroVdpSourceEvent::Instruction),
+    );
+    for row in 0..28 {
+        events.push(TitleIntroVdpSourceEvent::Instruction(4));
+        for column in 0..64 {
+            events.push(TitleIntroVdpSourceEvent::DataWord);
+            events.push(TitleIntroVdpSourceEvent::Instruction(if column == 63 {
+                14
+            } else {
+                10
+            }));
+        }
+        events.push(TitleIntroVdpSourceEvent::Instruction(8));
+        events.push(TitleIntroVdpSourceEvent::Instruction(if row == 27 {
+            14
+        } else {
+            10
+        }));
+    }
+    events.push(TitleIntroVdpSourceEvent::Instruction(16));
+
+    schedule_title_intro_vdp_events(entry, &events, vint_count, advance_hardware)
 }
 
 /// Advance ASM `Load_InGame $11A0E -> Initialize_Platforms -> $11A12`.
