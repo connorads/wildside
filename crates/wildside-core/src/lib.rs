@@ -627,6 +627,8 @@ pub struct NativeRuntime {
     hud_raster_upload_timings_sub_44dc: Vec<HudRasterUploadTimingSub44DC>,
     /// One-shot hardware boundary for the next live `Execute_Objects sub_E12`.
     mode_level_raster_seed_sub_e12: Option<vdp::ModeLevelRasterSeedSubE12>,
+    /// Classified CPU/beam boundary at ASM `sub_44DC` entry.
+    mode_level_cpu_raster_cursor_sub_44dc: Option<vdp::ModeLevelCpuRasterCursor>,
     /// Source-ordered workload captured immediately before the live
     /// `Execute_Objects sub_E12` pass mutates any linked worker.
     mode_level_work_before_hud_sub_44dc: Option<ModeLevelPreHudWorkLedger>,
@@ -1496,6 +1498,7 @@ impl NativeRuntime {
             hud_dma_events_sub_44dc: Vec::new(),
             hud_raster_upload_timings_sub_44dc: Vec::new(),
             mode_level_raster_seed_sub_e12: None,
+            mode_level_cpu_raster_cursor_sub_44dc: None,
             mode_level_work_before_hud_sub_44dc: None,
             gameplay_hud_vram_state: vdp::GameplayHudVramState::initialised_from_sub_44b0(),
             // Oracle Demo 1 bootstrap frames expose ArtUnc_4692 page 2 before
@@ -1742,6 +1745,10 @@ impl NativeRuntime {
 
     pub fn mode_level_tail_work_loc_892(&self) -> Option<ModeLevelTailWorkLoc892> {
         self.mode_level_tail_work_loc_892
+    }
+
+    pub fn mode_level_cpu_raster_cursor_sub_44dc(&self) -> Option<vdp::ModeLevelCpuRasterCursor> {
+        self.mode_level_cpu_raster_cursor_sub_44dc
     }
 
     /// Seed the hardware beam and refresh state at the next live ASM
@@ -3404,6 +3411,7 @@ impl NativeRuntime {
         self.pending_demo_timer_tick_result_loc_be82 = None;
         self.hud_dma_events_sub_44dc.clear();
         self.hud_raster_upload_timings_sub_44dc.clear();
+        self.mode_level_cpu_raster_cursor_sub_44dc = None;
         self.mode_level_work_before_hud_sub_44dc = None;
         self.mode_level_tail_work_loc_892 = None;
         // ASM loc_12098/loc_12110/loc_12188 DMA requests are emitted by one
@@ -4121,6 +4129,8 @@ impl NativeRuntime {
                 self.mode_level_raster_seed_sub_e12.take(),
                 self.mode_level_work_before_hud_sub_44dc.as_ref(),
             ) {
+                self.mode_level_cpu_raster_cursor_sub_44dc =
+                    vdp::mode_level_cpu_raster_cursor_sub_44dc(seed, ledger);
                 self.hud_raster_upload_timings_sub_44dc.extend(
                     self.hud_dma_events_sub_44dc
                         .iter()

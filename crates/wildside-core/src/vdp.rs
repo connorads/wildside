@@ -2902,6 +2902,17 @@ pub struct ModeLevelRasterSeedSubE12 {
     pub refresh_phase: M68kRefreshPhase,
 }
 
+/// CPU/beam scheduler state at a classified point in `Mode_Level`.
+///
+/// The current cursor is valid through the VDP-idle interval ending at
+/// `sub_44DC` entry. A cursor crossing HUD port writes must additionally carry
+/// FIFO state; that wider transition deliberately remains fail-closed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelCpuRasterCursor {
+    pub beam: H40BeamPosition,
+    pub refresh_phase: M68kRefreshPhase,
+}
+
 /// Explicit hardware boundary at ASM `Mode_Level $7C8`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ModeLevelRasterSeedModeEntry {
@@ -3103,6 +3114,23 @@ pub fn mode_level_raster_seed_sub_e12_from_mode_entry(
     })
 }
 
+/// Advance the source-typed, VDP-idle interval from `sub_E12` to `sub_44DC`.
+pub fn mode_level_cpu_raster_cursor_sub_44dc(
+    seed: ModeLevelRasterSeedSubE12,
+    ledger: &crate::ModeLevelPreHudWorkLedger,
+) -> Option<ModeLevelCpuRasterCursor> {
+    let execute =
+        crate::execute_objects_elapsed_cycles_sub_e12(&ledger.execute_objects, seed.refresh_phase)?;
+    let post = crate::post_execute_elapsed_cycles_before_sub_44dc(ledger, execute.phase_after)?;
+    Some(ModeLevelCpuRasterCursor {
+        beam: seed
+            .beam
+            .advance_m68k_cycles(execute.elapsed)
+            .advance_m68k_cycles(post.elapsed),
+        refresh_phase: post.phase_after,
+    })
+}
+
 /// Derive the life-icon FIFO timing from a seeded `sub_E12` boundary and the
 /// source-typed remainder of `Mode_Level`.
 pub fn life_icon_raster_timing_from_sub_e12(
@@ -3114,14 +3142,8 @@ pub fn life_icon_raster_timing_from_sub_e12(
     if !matches!(command, crate::HudDmaEventSub44DC::LifeIcon { .. }) {
         return None;
     }
-    let execute =
-        crate::execute_objects_elapsed_cycles_sub_e12(&ledger.execute_objects, seed.refresh_phase)?;
-    let post = crate::post_execute_elapsed_cycles_before_sub_44dc(ledger, execute.phase_after)?;
-    let entry_beam = seed
-        .beam
-        .advance_m68k_cycles(execute.elapsed)
-        .advance_m68k_cycles(post.elapsed);
-    let first_commit = life_icon_first_commit_loc_4586(entry_beam, post.phase_after);
+    let cursor = mode_level_cpu_raster_cursor_sub_44dc(seed, ledger)?;
+    let first_commit = life_icon_first_commit_loc_4586(cursor.beam, cursor.refresh_phase);
     Some(crate::HudRasterUploadTimingSub44DC {
         command,
         previous_frame_table_byte_offset,

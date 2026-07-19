@@ -82,20 +82,29 @@ fn published_tas_frame_1697_vint_sample_drives_life_icon_raster_timing_sub_e12()
         }
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
         if frame_index == 1697 {
-            frame_1697 = Some(trace.hud_raster_upload_timings_sub_44dc);
+            frame_1697 = Some((
+                trace.hud_raster_upload_timings_sub_44dc,
+                runtime.mode_level_cpu_raster_cursor_sub_44dc(),
+            ));
         }
     }
 
     assert_eq!(
         frame_1697,
-        Some(vec![HudRasterUploadTimingSub44DC {
-            command: HudDmaEventSub44DC::LifeIcon {
-                frame_table_byte_offset: 4,
-            },
-            previous_frame_table_byte_offset: 0,
-            first_commit_scanline: 42,
-            first_commit_pixel: 380,
-        }]),
+        Some((
+            vec![HudRasterUploadTimingSub44DC {
+                command: HudDmaEventSub44DC::LifeIcon {
+                    frame_table_byte_offset: 4,
+                },
+                previous_frame_table_byte_offset: 0,
+                first_commit_scanline: 42,
+                first_commit_pixel: 380,
+            }],
+            Some(vdp::ModeLevelCpuRasterCursor {
+                beam: vdp::H40BeamPosition::new(42, 1_294).expect("typed sub_44DC beam"),
+                refresh_phase: M68kRefreshPhase::new(64).expect("oracle refresh phase"),
+            }),
+        )),
         "ASM sub_44DC loc_4586 first commits after visible line 42"
     );
 }
@@ -132,7 +141,11 @@ fn published_tas_no_z80_polls_drive_frames_1703_and_1709_life_icon_timing() {
         }
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
         if matches!(frame_index, 1_703 | 1_709) {
-            timings.push((frame_index, trace.hud_raster_upload_timings_sub_44dc));
+            timings.push((
+                frame_index,
+                trace.hud_raster_upload_timings_sub_44dc,
+                runtime.mode_level_cpu_raster_cursor_sub_44dc(),
+            ));
         }
     }
 
@@ -149,6 +162,10 @@ fn published_tas_no_z80_polls_drive_frames_1703_and_1709_life_icon_timing() {
                     first_commit_scanline: 32,
                     first_commit_pixel: 330,
                 }],
+                Some(vdp::ModeLevelCpuRasterCursor {
+                    beam: vdp::H40BeamPosition::new(32, 765).expect("typed sub_44DC beam"),
+                    refresh_phase: M68kRefreshPhase::new(116).expect("oracle refresh phase"),
+                }),
             ),
             (
                 1_709,
@@ -160,6 +177,10 @@ fn published_tas_no_z80_polls_drive_frames_1703_and_1709_life_icon_timing() {
                     first_commit_scanline: 15,
                     first_commit_pixel: 92,
                 }],
+                Some(vdp::ModeLevelCpuRasterCursor {
+                    beam: vdp::H40BeamPosition::new(14, 2_431).expect("typed sub_44DC beam"),
+                    refresh_phase: M68kRefreshPhase::new(110).expect("oracle refresh phase"),
+                }),
             ),
         ],
         "ASM WaitForVint -> Mode_Level -> sub_44DC loc_4586"
