@@ -162,6 +162,10 @@ pub struct OracleM68kPcTraceRow {
     pub frame: usize,
     pub pc: u32,
     pub m68k_cycles_before_instruction: u64,
+    /// Cycles returned by the selected instruction itself, excluding later
+    /// pending refresh, VDP, and Z80 bus waits at the same PC.
+    #[serde(default)]
+    pub m68k_cycles_for_instruction: u32,
     pub scanline: u16,
     pub pixel: u16,
     pub data_registers: [u32; 8],
@@ -877,7 +881,7 @@ fn patch_jgenesis_m68k_pc_trace(jgenesis_dir: &Path) -> Result<()> {
         api = replace_jgenesis_source(
             &api,
             "#[derive(Debug, Encode, Decode, PartialClone)]\npub struct GenesisEmulator {\n",
-            "#[derive(Debug, Clone, Encode, Decode)]\npub struct WildsideM68kPcTraceHit {\n    pub pc: u32,\n    pub m68k_cycles_before_instruction: u64,\n    pub scanline: u16,\n    pub pixel: u16,\n    pub data_registers: [u32; 8],\n    pub address_registers: [u32; 7],\n    pub status_register: u16,\n}\n\n#[derive(Debug, Encode, Decode, PartialClone)]\npub struct GenesisEmulator {\n",
+            "#[derive(Debug, Clone, Encode, Decode)]\npub struct WildsideM68kPcTraceHit {\n    pub pc: u32,\n    pub m68k_cycles_before_instruction: u64,\n    pub m68k_cycles_for_instruction: u32,\n    pub scanline: u16,\n    pub pixel: u16,\n    pub data_registers: [u32; 8],\n    pub address_registers: [u32; 7],\n    pub status_register: u16,\n}\n\n#[derive(Debug, Encode, Decode, PartialClone)]\npub struct GenesisEmulator {\n",
             &api_rs,
         )?;
         api = replace_jgenesis_source(
@@ -895,11 +899,27 @@ fn patch_jgenesis_m68k_pc_trace(jgenesis_dir: &Path) -> Result<()> {
         api = replace_jgenesis_source(
             &api,
             "        let mut bus = new_main_bus!(self, m68k_reset: false);\n        let m68k_pc = self.m68k.pc();\n        bus.vdp.set_wildside_m68k_context(m68k_pc, self.wildside_m68k_cycle_counter);\n        let m68k_wait = bus.cycles.m68k_wait_cpu_cycles != 0;\n        let m68k_cycles = if m68k_wait {\n            bus.cycles.take_m68k_wait_cpu_cycles()\n        } else {\n            self.m68k.execute_instruction(&mut bus)\n        };\n",
-            "        let m68k_pc = self.m68k.pc();\n        let trace_registers = self\n            .wildside_m68k_pc_trace_targets\n            .binary_search(&m68k_pc)\n            .is_ok()\n            .then(|| {\n                (\n                    self.m68k.data_registers(),\n                    self.m68k.address_registers(),\n                    self.m68k.status_register(),\n                )\n            });\n        let mut bus = new_main_bus!(self, m68k_reset: false);\n        bus.vdp.set_wildside_m68k_context(m68k_pc, self.wildside_m68k_cycle_counter);\n        let m68k_wait = bus.cycles.m68k_wait_cpu_cycles != 0;\n        let m68k_cycles = if m68k_wait {\n            bus.cycles.take_m68k_wait_cpu_cycles()\n        } else {\n            if let Some((data_registers, address_registers, status_register)) = trace_registers {\n                let (scanline, pixel) = bus.vdp.wildside_beam_position();\n                self.wildside_m68k_pc_trace_hits.push(WildsideM68kPcTraceHit {\n                    pc: m68k_pc,\n                    m68k_cycles_before_instruction: self.wildside_m68k_cycle_counter,\n                    scanline,\n                    pixel,\n                    data_registers,\n                    address_registers,\n                    status_register,\n                });\n            }\n            self.m68k.execute_instruction(&mut bus)\n        };\n",
+            "        let m68k_pc = self.m68k.pc();\n        let trace_registers = self\n            .wildside_m68k_pc_trace_targets\n            .binary_search(&m68k_pc)\n            .is_ok()\n            .then(|| {\n                (\n                    self.m68k.data_registers(),\n                    self.m68k.address_registers(),\n                    self.m68k.status_register(),\n                )\n            });\n        let mut bus = new_main_bus!(self, m68k_reset: false);\n        bus.vdp.set_wildside_m68k_context(m68k_pc, self.wildside_m68k_cycle_counter);\n        let m68k_wait = bus.cycles.m68k_wait_cpu_cycles != 0;\n        let m68k_cycles = if m68k_wait {\n            bus.cycles.take_m68k_wait_cpu_cycles()\n        } else if let Some((data_registers, address_registers, status_register)) = trace_registers {\n            let (scanline, pixel) = bus.vdp.wildside_beam_position();\n            let m68k_cycles_for_instruction = self.m68k.execute_instruction(&mut bus);\n            self.wildside_m68k_pc_trace_hits.push(WildsideM68kPcTraceHit {\n                pc: m68k_pc,\n                m68k_cycles_before_instruction: self.wildside_m68k_cycle_counter,\n                m68k_cycles_for_instruction,\n                scanline,\n                pixel,\n                data_registers,\n                address_registers,\n                status_register,\n            });\n            m68k_cycles_for_instruction\n        } else {\n            self.m68k.execute_instruction(&mut bus)\n        };\n",
             &api_rs,
         )?;
         fs::write(&api_rs, &api)
             .with_context(|| format!("failed to write patched {}", api_rs.display()))?;
+    }
+    if !api.contains("m68k_cycles_for_instruction") {
+        api = replace_jgenesis_source(
+            &api,
+            "    pub m68k_cycles_before_instruction: u64,\n    pub scanline: u16,\n",
+            "    pub m68k_cycles_before_instruction: u64,\n    pub m68k_cycles_for_instruction: u32,\n    pub scanline: u16,\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "        let m68k_cycles = if m68k_wait {\n            bus.cycles.take_m68k_wait_cpu_cycles()\n        } else {\n            if let Some((data_registers, address_registers, status_register)) = trace_registers {\n                let (scanline, pixel) = bus.vdp.wildside_beam_position();\n                self.wildside_m68k_pc_trace_hits.push(WildsideM68kPcTraceHit {\n                    pc: m68k_pc,\n                    m68k_cycles_before_instruction: self.wildside_m68k_cycle_counter,\n                    scanline,\n                    pixel,\n                    data_registers,\n                    address_registers,\n                    status_register,\n                });\n            }\n            self.m68k.execute_instruction(&mut bus)\n        };\n",
+            "        let m68k_cycles = if m68k_wait {\n            bus.cycles.take_m68k_wait_cpu_cycles()\n        } else if let Some((data_registers, address_registers, status_register)) = trace_registers {\n            let (scanline, pixel) = bus.vdp.wildside_beam_position();\n            let m68k_cycles_for_instruction = self.m68k.execute_instruction(&mut bus);\n            self.wildside_m68k_pc_trace_hits.push(WildsideM68kPcTraceHit {\n                pc: m68k_pc,\n                m68k_cycles_before_instruction: self.wildside_m68k_cycle_counter,\n                m68k_cycles_for_instruction,\n                scanline,\n                pixel,\n                data_registers,\n                address_registers,\n                status_register,\n            });\n            m68k_cycles_for_instruction\n        } else {\n            self.m68k.execute_instruction(&mut bus)\n        };\n",
+            &api_rs,
+        )?;
+        fs::write(&api_rs, &api)
+            .with_context(|| format!("failed to update patched {}", api_rs.display()))?;
     }
 
     let vdp_rs = jgenesis_dir.join("backend/genesis-core/src/vdp.rs");
@@ -1427,8 +1447,10 @@ mod tests {
         assert!(
             HELPER_TEMPLATE.contains("--m68k-pc-trace")
                 && HELPER_TEMPLATE.contains("drain_wildside_m68k_pc_trace")
+                && HELPER_TEMPLATE
+                    .contains("m68k_cycles_for_instruction: hit.m68k_cycles_for_instruction")
                 && HELPER_TEMPLATE.contains("address_registers: hit.address_registers"),
-            "selected-PC tracing must remain bounded and retain A5 object identity"
+            "selected-PC tracing must remain bounded and separate instruction work from waits"
         );
 
         let manifest: OracleManifest = serde_json::from_value(serde_json::json!({
@@ -1440,6 +1462,7 @@ mod tests {
                 "frame": 1697,
                 "pc": 0xE12,
                 "m68k_cycles_before_instruction": 217211500,
+                "m68k_cycles_for_instruction": 16,
                 "scanline": 224,
                 "pixel": 96,
                 "data_registers": [0, 1, 2, 3, 4, 5, 6, 7],
@@ -1450,6 +1473,7 @@ mod tests {
         .expect("manifest should parse selected-PC rows");
         assert_eq!(manifest.m68k_pc_trace[0].frame, 1697);
         assert_eq!(manifest.m68k_pc_trace[0].pc, 0xE12);
+        assert_eq!(manifest.m68k_pc_trace[0].m68k_cycles_for_instruction, 16);
         assert_eq!(manifest.m68k_pc_trace[0].scanline, 224);
         assert_eq!(manifest.m68k_pc_trace[0].address_registers[5], 13);
     }
@@ -1459,7 +1483,7 @@ mod tests {
         let source = include_str!("oracle.rs");
         assert!(
             source.contains(
-                "let m68k_cycles = if m68k_wait {\\n            bus.cycles.take_m68k_wait_cpu_cycles()\\n        } else {\\n            if let Some((data_registers, address_registers, status_register)) = trace_registers"
+                "let m68k_cycles = if m68k_wait {\\n            bus.cycles.take_m68k_wait_cpu_cycles()\\n        } else if let Some((data_registers, address_registers, status_register)) = trace_registers"
             ),
             "PC hits must be journalled inside the instruction branch, never during pending wait ticks"
         );
