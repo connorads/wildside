@@ -3152,6 +3152,7 @@ impl OpeningSliceState {
                     after_floor: entry_stage,
                     after_wall: entry_stage,
                     gfx_object_collision_clear: false,
+                    ceiling_scan_cells_sub_914a: [None; 4],
                 };
 
                 if on_ground_before
@@ -3720,14 +3721,15 @@ impl OpeningSliceState {
                 let mut compound_slope_recontact_loc_a4ee = false;
                 let mut direct_compound_landing_loc_a4ee = false;
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
-                    self.apply_ceiling_collision_for_physics_step(
-                        Some(grid),
-                        block_list,
-                        form,
-                        collision_hw,
-                        deferred_prize_ceiling_cells,
-                        custom_gravity,
-                    );
+                    kid_flip_follow_on_stages.ceiling_scan_cells_sub_914a = self
+                        .apply_ceiling_collision_for_physics_step(
+                            Some(grid),
+                            block_list,
+                            form,
+                            collision_hw,
+                            deferred_prize_ceiling_cells,
+                            custom_gravity,
+                        );
                     match self.try_compound_slope_recontact_loc_a4ee(grid, form, collision_hw) {
                         Some(CompoundRecontactLocA4ee::Slope(collision)) => {
                             compound_slope_recontact_loc_a4ee = true;
@@ -4940,6 +4942,7 @@ impl OpeningSliceState {
             after_floor: stage,
             after_wall: stage,
             gfx_object_collision_clear: false,
+            ceiling_scan_cells_sub_914a: [None; 4],
         });
         self.kid_jump_gravity_probe = Some(KidJumpGravityProbe {
             branch: KidJumpGravityBranch::AirborneCustomGravity,
@@ -6350,7 +6353,7 @@ impl OpeningSliceState {
         form: PlayerForm,
         collision_hw: i32,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
-    ) {
+    ) -> [Option<(u16, u16, u16)>; 4] {
         self.apply_ceiling_collision_inner(
             block_grid,
             block_list,
@@ -6358,7 +6361,7 @@ impl OpeningSliceState {
             collision_hw,
             deferred_prize_ceiling_cells,
             false,
-        );
+        )
     }
 
     pub(crate) fn apply_ceiling_collision_skycutter_on_board(
@@ -6368,7 +6371,7 @@ impl OpeningSliceState {
         form: PlayerForm,
         collision_hw: i32,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
-    ) {
+    ) -> [Option<(u16, u16, u16)>; 4] {
         self.apply_ceiling_collision_inner(
             block_grid,
             block_list,
@@ -6376,7 +6379,7 @@ impl OpeningSliceState {
             collision_hw,
             deferred_prize_ceiling_cells,
             true,
-        );
+        )
     }
 
     fn apply_ceiling_collision_for_physics_step(
@@ -6387,7 +6390,7 @@ impl OpeningSliceState {
         collision_hw: i32,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
         custom_gravity: bool,
-    ) {
+    ) -> [Option<(u16, u16, u16)>; 4] {
         if form == PlayerForm::Skycutter && custom_gravity {
             self.apply_ceiling_collision_skycutter_on_board(
                 block_grid,
@@ -6395,7 +6398,7 @@ impl OpeningSliceState {
                 form,
                 collision_hw,
                 deferred_prize_ceiling_cells,
-            );
+            )
         } else {
             self.apply_ceiling_collision(
                 block_grid,
@@ -6403,7 +6406,7 @@ impl OpeningSliceState {
                 form,
                 collision_hw,
                 deferred_prize_ceiling_cells,
-            );
+            )
         }
     }
 
@@ -6415,10 +6418,13 @@ impl OpeningSliceState {
         collision_hw: i32,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
         skycutter_on_board: bool,
-    ) {
-        let Some(grid) = block_grid else { return };
+    ) -> [Option<(u16, u16, u16)>; 4] {
+        let mut ceiling_scan_cells_sub_914a = [None; 4];
+        let Some(grid) = block_grid else {
+            return ceiling_scan_cells_sub_914a;
+        };
         if self.player.y_velocity >= 0 {
-            return;
+            return ceiling_scan_cells_sub_914a;
         }
         let incoming_y_velocity = self.player.y_velocity;
 
@@ -6444,7 +6450,7 @@ impl OpeningSliceState {
         let top_edge_old = old_y_px - collision_height;
         let distance_to_tile = top_edge_old & 0xF;
         if upward_displacement <= distance_to_tile {
-            return;
+            return ceiling_scan_cells_sub_914a;
         }
 
         let x_px = (self.player.x_pos >> 16) as i32;
@@ -6460,8 +6466,22 @@ impl OpeningSliceState {
         // runtime shell mirrors the `$FFFFFA69` helmet latch.
         let probe = terrain::probe_ceiling(grid, x_px, y_px, collision_hw, collision_height);
         let above_level_top = y_px - collision_height < 0;
+        let top_y = y_px - collision_height;
+        if top_y >= 0 {
+            let left_col = ((x_px - collision_hw).max(0) / 16) as u16;
+            let right_col = ((x_px + collision_hw).max(0) / 16) as u16;
+            for (index, col) in (left_col..=right_col).enumerate() {
+                debug_assert!(
+                    index < ceiling_scan_cells_sub_914a.len(),
+                    "ASM sub_914A form span should cross at most four cells",
+                );
+                if let Some(slot) = ceiling_scan_cells_sub_914a.get_mut(index) {
+                    let row = (top_y / 16) as u16;
+                    *slot = Some((col, row, grid.cell_at(col, row).to_word()));
+                }
+            }
+        }
         if let Some(ref mut trace) = self.physics_trace {
-            let top_y = y_px - collision_height;
             let (cell_x, cell_y, cell) = if probe.hit || top_y < 0 {
                 (probe.cell_x, probe.cell_y, probe.cell)
             } else {
@@ -6850,6 +6870,7 @@ impl OpeningSliceState {
                 0
             };
         }
+        ceiling_scan_cells_sub_914a
     }
 
     pub(crate) fn apply_floor_collision(

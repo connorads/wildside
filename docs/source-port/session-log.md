@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#409 typed ceiling scan)
+
+- The player workload now records every pre-mutation `sub_914A` cell and its
+  hit, block, skin, rubber-effect, and return-path consequences.
+- Native and oracle agree at frame 1697: `$E102`, then `$6F00`, ordinary hit,
+  no `loc_91F6`, and `$FB5A=0`. This rejects the earlier claimed rubber
+  sound/allocation.
+- NEXT: type the finishing tail's two Object/Gfx insertion ranks and its
+  deallocation rank, then feed the proven paths into the cycle/FIFO scheduler.
+
+---
+
 ## 2026-07-18 handoff (#409 Cyclone visual wrap path)
 
 - Both `sub_B270` calls now carry accumulator input/delta/output and whether

@@ -21787,6 +21787,7 @@ mod chunk_03 {
                     wall_cling_direction: None,
                 },
                 gfx_object_collision_clear: true,
+                ceiling_scan_cells_sub_914a: [None; 4],
             },
         });
 

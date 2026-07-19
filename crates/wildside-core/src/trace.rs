@@ -530,6 +530,81 @@ fn mode_level_kid_gfx_terrain_scan(
     }
 }
 
+fn mode_level_ceiling_scan_sub_914a(
+    cells: [Option<(u16, u16, u16)>; 4],
+    rubber_worker_count_before: u16,
+) -> Option<ModeLevelCeilingScanSub914A> {
+    let mut cells = cells.into_iter().flatten().peekable();
+    let (left_col, row, _) = *cells.peek()?;
+    let mut right_col = left_col;
+    let mut worker_count = rubber_worker_count_before;
+    let mut first_hit_col = None;
+    let mut rubber_contact = false;
+    let visits = cells
+        .map(|(col, cell_row, word)| {
+            debug_assert_eq!(cell_row, row);
+            right_col = col;
+            let cell = terrain::Cell::from_be_bytes((word >> 8) as u8, word as u8);
+            let collision = match cell.collision {
+                terrain::CollisionKind::Empty => ModeLevelCeilingScanCollision::Empty,
+                terrain::CollisionKind::HiddenBlock => ModeLevelCeilingScanCollision::HiddenBlock,
+                terrain::CollisionKind::SlopeUp => ModeLevelCeilingScanCollision::SlopeUp,
+                terrain::CollisionKind::SlopeDown => ModeLevelCeilingScanCollision::SlopeDown,
+                terrain::CollisionKind::Solid => ModeLevelCeilingScanCollision::Solid,
+                terrain::CollisionKind::Spikes => ModeLevelCeilingScanCollision::Spikes,
+            };
+            let hit = matches!(
+                cell.collision,
+                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+            );
+            if hit && first_hit_col.is_none() {
+                first_hit_col = Some(col);
+            }
+            // ASM sub_914A loc_91C0 (kid.asm:10607-10633): only a hit cell
+            // whose block flag survives bclr #15 and whose type is six calls
+            // loc_10DA4. That routine plays sound before applying its ten
+            // live-worker cap and incrementing $FFFFFB5A.
+            let rubber_effect =
+                if hit && cell.has_block && cell.block_type == terrain::BlockType::Rubber {
+                    rubber_contact = true;
+                    if worker_count < 10 {
+                        worker_count += 1;
+                        ModeLevelRubberContactEffectLoc10DA4::PlaySoundAndAllocate {
+                            worker_count_after: worker_count,
+                        }
+                    } else {
+                        ModeLevelRubberContactEffectLoc10DA4::PlaySoundWorkerCapReached
+                    }
+                } else {
+                    ModeLevelRubberContactEffectLoc10DA4::None
+                };
+            ModeLevelCeilingScanVisitSub9188 {
+                col,
+                collision,
+                has_block: cell.has_block,
+                block_type: cell.has_block.then_some(cell.block_type as u8),
+                skin: cell.skin,
+                rubber_effect,
+            }
+        })
+        .collect();
+    let return_path = if rubber_contact {
+        ModeLevelCeilingScanReturn::RubberBounce
+    } else if first_hit_col.is_some() {
+        ModeLevelCeilingScanReturn::Hit
+    } else {
+        ModeLevelCeilingScanReturn::Clear
+    };
+    Some(ModeLevelCeilingScanSub914A {
+        left_col,
+        right_col,
+        row,
+        visits,
+        first_hit_col,
+        return_path,
+    })
+}
+
 fn mode_level_cyclone_visual_step(
     accumulator_before: u16,
     acceleration: i16,
@@ -1559,6 +1634,7 @@ mod tests {
                     player_entry_position: None,
                     player_gfx_terrain_scan: None,
                     cyclone_visual_accumulator_before: None,
+                    rubber_block_skin_workers_sub_10de4: 0,
                     prize_block_wobble_paths_sub_1007a: vec![ModeLevelPrizeBlockWobbleWork {
                         resume: PrizeBlockWobbleResumeSub1007A::AfterLoc100DaAt100E2,
                         wake: ModeLevelPrizeBlockWobbleWake::ContinuePhase,
@@ -1843,6 +1919,7 @@ mod tests {
                 after_floor: after_ceiling,
                 after_wall: after_ceiling,
                 gfx_object_collision_clear: true,
+                ceiling_scan_cells_sub_914a: [None; 4],
             },
         });
         runtime.last_kid_frame_kid_flip_branch_probe = Some(KidFlipBranchProbe {
@@ -1865,7 +1942,7 @@ mod tests {
             runtime
                 .mode_level_work_before_hud_sub_44dc
                 .as_ref()
-                .and_then(|ledger| ledger.execute_objects.executed_player_path),
+                .and_then(|ledger| ledger.execute_objects.executed_player_path.clone()),
             Some(ModeLevelPlayerExecutionPath::NormalPhysics(
                 ModeLevelNormalPhysicsPath {
                     horizontal: ModeLevelAirborneHorizontalPath::RightHeldAcceleration,
@@ -1878,6 +1955,7 @@ mod tests {
                     wall_collision: ModeLevelWallCollisionPath::Clear,
                     airborne_action: ModeLevelAirborneActionPath::NoButtons,
                     cyclone_visual_steps: None,
+                    ceiling_scan_sub_914a: None,
                 }
             ))
         );
@@ -1905,6 +1983,55 @@ mod tests {
                 accumulator_after: 0x0022,
                 wrapped: true,
             }
+        );
+    }
+
+    #[test]
+    fn ceiling_scan_types_every_sub_914a_cell_and_rubber_allocation_gate() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 40], 4, 5);
+        grid.set_cell_at(1, 3, terrain::Cell::from_be_bytes(0x60, 0x22));
+        grid.set_cell_at(2, 3, terrain::Cell::from_be_bytes(0xE6, 0x0C));
+        let cells = [
+            Some((1, 3, grid.cell_at(1, 3).to_word())),
+            Some((2, 3, grid.cell_at(2, 3).to_word())),
+            None,
+            None,
+        ];
+
+        assert_eq!(
+            mode_level_ceiling_scan_sub_914a(cells, 9),
+            Some(ModeLevelCeilingScanSub914A {
+                left_col: 1,
+                right_col: 2,
+                row: 3,
+                visits: vec![
+                    ModeLevelCeilingScanVisitSub9188 {
+                        col: 1,
+                        collision: ModeLevelCeilingScanCollision::Solid,
+                        has_block: false,
+                        block_type: None,
+                        skin: 0x22,
+                        rubber_effect: ModeLevelRubberContactEffectLoc10DA4::None,
+                    },
+                    ModeLevelCeilingScanVisitSub9188 {
+                        col: 2,
+                        collision: ModeLevelCeilingScanCollision::Solid,
+                        has_block: true,
+                        block_type: Some(6),
+                        skin: 0x0C,
+                        rubber_effect: ModeLevelRubberContactEffectLoc10DA4::PlaySoundAndAllocate {
+                            worker_count_after: 10,
+                        },
+                    },
+                ],
+                first_hit_col: Some(1),
+                return_path: ModeLevelCeilingScanReturn::RubberBounce,
+            })
+        );
+        assert_eq!(
+            mode_level_ceiling_scan_sub_914a(cells, 10).unwrap().visits[1].rubber_effect,
+            ModeLevelRubberContactEffectLoc10DA4::PlaySoundWorkerCapReached,
+            "ASM loc_10DA4 plays sound before `$FFFFFB5A >= 10` suppresses Allocate_ObjectSlot",
         );
     }
 
@@ -4441,6 +4568,7 @@ mod tests {
                         wall_cling_direction: None,
                     },
                     gfx_object_collision_clear: true,
+                    ceiling_scan_cells_sub_914a: [None; 4],
                 },
             });
             if has_rubber_worker {
@@ -4525,6 +4653,7 @@ mod tests {
                     wall_cling_direction: None,
                 },
                 gfx_object_collision_clear: true,
+                ceiling_scan_cells_sub_914a: [None; 4],
             },
         });
 
@@ -4602,6 +4731,7 @@ mod tests {
                     wall_cling_direction: None,
                 },
                 gfx_object_collision_clear: true,
+                ceiling_scan_cells_sub_914a: [None; 4],
             },
         });
 
@@ -8697,6 +8827,8 @@ impl NativeRuntime {
             .iter()
             .filter(|item| !item.collected)
             .count() as u16;
+        let rubber_block_skin_workers_sub_10de4 =
+            self.block_state.rubber_block_animations.len() as u16;
         // ASM Load_InGame loc_11F96/loc_11FB0 allocates an Object-only
         // palette coroutine for Mountain, Cave, and Island themes.
         let palette_rotation_worker_loc_11f96 =
@@ -8710,7 +8842,8 @@ impl NativeRuntime {
         let classified_runtime_transient_workers = prize_block_wobble_workers_sub_1007a
             .saturating_add(prize_block_worker_tails_sub_1007a)
             .saturating_add(prize_block_flash_workers_loc_102b8)
-            .saturating_add(floating_prize_workers);
+            .saturating_add(floating_prize_workers)
+            .saturating_add(rubber_block_skin_workers_sub_10de4);
         let linked_non_transient_object_count =
             linked_object_count.saturating_sub(classified_runtime_transient_workers);
         let unclassified_runtime_transient_workers = linked_object_count
@@ -8790,6 +8923,7 @@ impl NativeRuntime {
                 prize_block_worker_tails_sub_1007a,
                 prize_block_flash_workers_loc_102b8,
                 floating_prize_workers,
+                rubber_block_skin_workers_sub_10de4,
                 active_enemy_workers,
                 active_platform_workers,
                 palette_rotation_worker_loc_11f96,
@@ -8809,6 +8943,7 @@ impl NativeRuntime {
     fn observe_mode_level_player_execution_path(
         &self,
         cyclone_visual_accumulator_before: Option<u16>,
+        ceiling_scan_sub_914a: Option<ModeLevelCeilingScanSub914A>,
     ) -> ModeLevelPlayerExecutionPath {
         if self.last_kid_frame_motion_branch != KidFrameMotionBranch::NormalPhysics {
             return ModeLevelPlayerExecutionPath::Unclassified;
@@ -8885,6 +9020,12 @@ impl NativeRuntime {
             wall_collision,
             airborne_action,
             cyclone_visual_steps,
+            ceiling_scan_sub_914a: matches!(
+                vertical_collision,
+                ModeLevelVerticalCollisionPath::Ceiling
+            )
+            .then_some(ceiling_scan_sub_914a)
+            .flatten(),
         })
     }
 
@@ -8896,8 +9037,23 @@ impl NativeRuntime {
             .mode_level_work_before_hud_sub_44dc
             .as_ref()
             .and_then(|ledger| ledger.execute_objects.cyclone_visual_accumulator_before);
-        let executed_player_path =
-            self.observe_mode_level_player_execution_path(cyclone_visual_accumulator_before);
+        let ceiling_scan_sub_914a =
+            self.mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .and_then(|ledger| {
+                    let cells = self
+                        .last_kid_frame_kid_flip_follow_on_probe?
+                        .stages
+                        .ceiling_scan_cells_sub_914a;
+                    mode_level_ceiling_scan_sub_914a(
+                        cells,
+                        ledger.execute_objects.rubber_block_skin_workers_sub_10de4,
+                    )
+                });
+        let executed_player_path = self.observe_mode_level_player_execution_path(
+            cyclone_visual_accumulator_before,
+            ceiling_scan_sub_914a,
+        );
         let player_gfx_terrain_scan = self
             .mode_level_work_before_hud_sub_44dc
             .as_ref()

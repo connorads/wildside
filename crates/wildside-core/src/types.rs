@@ -590,6 +590,9 @@ pub(crate) struct KidFlipFollowOnStages {
     pub(crate) after_wall: KidFlipFollowOnStageState,
     /// ASM `sub_A4EE` returned through `loc_A532` before the per-axis probes.
     pub(crate) gfx_object_collision_clear: bool,
+    /// Exact pre-mutation Level_Layout words visited by ASM `sub_914A`.
+    /// Juggernaut's 47px-wide span is the maximum and crosses at most 4 cells.
+    pub(crate) ceiling_scan_cells_sub_914a: [Option<(u16, u16, u16)>; 4],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -1763,6 +1766,54 @@ pub struct ModeLevelKidGfxTerrainScan {
     pub first_collision: Option<ModeLevelKidGfxTerrainCollision>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelCeilingScanCollision {
+    Empty,
+    HiddenBlock,
+    SlopeUp,
+    SlopeDown,
+    Solid,
+    Spikes,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelRubberContactEffectLoc10DA4 {
+    None,
+    PlaySoundAndAllocate { worker_count_after: u16 },
+    PlaySoundWorkerCapReached,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelCeilingScanVisitSub9188 {
+    pub col: u16,
+    pub collision: ModeLevelCeilingScanCollision,
+    pub has_block: bool,
+    pub block_type: Option<u8>,
+    pub skin: u8,
+    pub rubber_effect: ModeLevelRubberContactEffectLoc10DA4,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelCeilingScanReturn {
+    Clear,
+    Hit,
+    RubberBounce,
+}
+
+/// Full-width ceiling row visited by ASM `sub_914A`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelCeilingScanSub914A {
+    pub left_col: u16,
+    pub right_col: u16,
+    pub row: u16,
+    pub visits: Vec<ModeLevelCeilingScanVisitSub9188>,
+    pub first_hit_col: Option<u16>,
+    pub return_path: ModeLevelCeilingScanReturn,
+}
+
 /// Horizontal branch executed by ASM `sub_B084` in the airborne Kid loop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1830,7 +1881,7 @@ pub struct ModeLevelCycloneVisualStep {
 }
 
 /// Source path for the ordinary airborne Kid coroutine resumed at `loc_A73A`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelNormalPhysicsPath {
     pub horizontal: ModeLevelAirborneHorizontalPath,
     pub vertical: ModeLevelAirborneVerticalPath,
@@ -1843,10 +1894,11 @@ pub struct ModeLevelNormalPhysicsPath {
     /// ASM `sub_B168` falls into the first `sub_B270`; the no-action join
     /// calls it a second time before `loc_A6F8`.
     pub cyclone_visual_steps: Option<[ModeLevelCycloneVisualStep; 2]>,
+    pub ceiling_scan_sub_914a: Option<ModeLevelCeilingScanSub914A>,
 }
 
 /// Player callback actually executed during ASM `Execute_Objects sub_E12`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelPlayerExecutionPath {
     /// Ordinary airborne coroutine resumed at ASM `loc_A73A`.
@@ -1869,6 +1921,7 @@ pub struct ModeLevelExecuteObjectsWork {
     pub prize_block_worker_tails_sub_1007a: u16,
     pub prize_block_flash_workers_loc_102b8: u16,
     pub floating_prize_workers: u16,
+    pub rubber_block_skin_workers_sub_10de4: u16,
     pub active_enemy_workers: u16,
     pub active_platform_workers: u16,
     pub palette_rotation_worker_loc_11f96: u16,

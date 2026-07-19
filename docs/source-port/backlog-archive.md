@@ -306,6 +306,19 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-18: frame 1697's `sub_914A` ceiling pass now carries the
+complete pre-mutation Level_Layout row, including collision, block flag/type,
+skin, first hit, return path, and the `loc_10DA4` sound/worker-cap outcome.
+Native visits `(26,4)=$E102` then `(27,4)=$6F00`, returns an ordinary hit, and
+has zero live `sub_10DE4` workers. A fresh bounded oracle trace agrees:
+`loc_9188` and `loc_91C0` each execute twice, both visits reach `loc_91C8`
+with bit 15 clear, neither reaches the type-6 compare/`loc_91F6`, and
+`$FFFFFB5A` remains zero. This rejects the earlier journal interpretation
+that frame 1697 played Rubber sound or allocated a rubber worker. The only
+new allocations in the frame are the finishing prize tail's flash and prize
+GfxObjects. Next type their actual Object/Gfx insertion ranks and the tail
+deallocation rank before building the cycle/FIFO scheduler.
+
 Progress 2026-07-18: both Cyclone `sub_B270` calls now retain their
 `$FFFFF8F0` input, source-derived phase delta, output, and `$300` wrap branch.
 Fresh route values match the oracle journal and final native accumulator:
