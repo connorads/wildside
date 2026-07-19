@@ -424,6 +424,20 @@ shrinking the ratchet baseline from 193 to 190. `mise run verify-slice-fast`
 is green with 6,956 core tests, 15 CLI tests, clippy, coverage guards, and all
 TAS recordings passing.
 
+Progress 2026-07-19: commit `654eb0ae4` types the special GfxObject chains
+passed to `GfxObjects_Collision sub_16F0` and `GfxObjects_CollisionKid
+sub_1B76`. Full selected-PC traces distinguish each invocation by `a2`:
+the `$F86A` and `$F866` terrain passes both take the null-link
+`loc_16FC -> loc_17BE` body for 330 raw cycles, while the `$F866` and `$F86A`
+Kid passes take the null-link plus clear-`KidIsInvulnerable` epilogue for 166
+raw cycles. Native records both list states explicitly; live kind-2 chains,
+non-empty Kid-projectile chains, and invulnerable epilogues remain
+fail-closed. The following `$F86E` Kid pass is non-empty on the helpers and
+stays outside this unit. Production coverage moves `loc_17BE` out of
+test-only debt, shrinking the ratchet baseline 190 -> 189.
+`mise run verify-slice-fast` is green with 6,957 core tests, 15 CLI tests,
+clippy, coverage guards, and all TAS recordings passing.
+
 Deferred 2026-07-19: source review found that normal layout walks set
 `$FFFFFB51` at `Manage_EnemyLoading loc_36968`. A trial correcting the native
 normal loader broke nine synthetic contact tests whose fixtures assume the

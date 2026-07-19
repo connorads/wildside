@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 empty special Gfx collision chains)
+
+- Selected-PC traces distinguish the post-HUD collision calls by their `a2`
+  sentinels. `$F86A` and `$F866` are empty for both terrain passes, exactly
+  330 raw cycles each.
+- The matching Kid collision passes are also empty and take the
+  clear-`KidIsInvulnerable` epilogue, exactly 166 raw cycles each.
+- Live chains and invulnerable epilogues fail closed. The non-empty `$F86E`
+  Kid collision walk remains a separate per-GfxObject frontier.
+- `loc_17BE` moves from test-only to production coverage; debt is 189.
+- `mise run verify-slice-fast` is green after `654eb0ae4`.
+- NEXT: type the non-empty `$F86E` Kid collision walk, other per-GfxObject
+  animation/sprite work, or persist the GEMS CPU checkpoint, then bridge the
+  FIFO-aware HUD exit through `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 clear special-terrain scans)
 
 - `sub_1FA2` now derives its inclusive row-major Level_Layout walk from the
