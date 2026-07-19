@@ -90,6 +90,91 @@ pub struct M68kExternalWaitEvent {
     pub cycles: M68kCycleCount,
 }
 
+/// Source branches taken before ASM `Mode_Level` reaches `Execute_Objects`.
+///
+/// VDP arbitration is deliberately excluded: the same ROM path can spend a
+/// different number of cycles halted behind the VDP on adjacent frames.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelVblankWorkBeforeSubE12 {
+    /// Tile lengths read by `Transfer_SpriteAndKidToVRAM loc_AD4`.
+    pub dynamic_art_tiles_loc_ad4: [u16; 2],
+    pub palette_dma_sub_970: bool,
+    pub scroll_path: ModeLevelScrollTransferPath,
+    pub foreground_custom_queue_entries_sub_1596: u16,
+    pub foreground_cell_queue_entries_sub_1596: u16,
+    pub paused_sub_6874: bool,
+    pub hud_path_sub_bdc0: ModeLevelHudBuildPath,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModeLevelScrollTransferPath {
+    /// ASM `loc_300BA`: two VSRAM words then the `$380`-word H-scroll DMA.
+    NormalLoc300ba,
+    StormLoc30110,
+    SpecialLoc30158,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModeLevelHudBuildPath {
+    /// ASM `loc_BE20 -> loc_BE0C -> loc_BE34 -> loc_BE4C`, with no timer
+    /// rollover and unchanged lives/diamond counters.
+    LocBe20ThenLocBe4cNoCounterUpdates,
+    Other,
+}
+
+/// Hardware arbitration elapsed while the source path is otherwise fixed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelVblankArbitrationBeforeSubE12 {
+    /// One-cycle CPU re-entries while jgenesis reports that the VDP owns the
+    /// 68k bus during memory-to-VDP DMA.
+    pub vdp_bus_halt_cycles: u32,
+    /// Already-pending VDP wait cycles processed outside CPU instructions.
+    pub vdp_pending_wait_cycles: u32,
+    /// Already-pending ROM refresh waits processed before `sub_E12`.
+    pub refresh_wait_cycles: u32,
+}
+
+/// Raw source cycles from ASM `Mode_Level $7C8` to `Execute_Objects sub_E12`.
+///
+/// The currently typed path is the natural published-gameplay path. Returning
+/// `None` for another branch prevents its VDP delay from being mistaken for
+/// source work.
+pub fn mode_level_vblank_source_cycles_before_sub_e12(
+    work: ModeLevelVblankWorkBeforeSubE12,
+) -> Option<M68kCycleCount> {
+    if work.dynamic_art_tiles_loc_ad4 != [16, 4]
+        || !work.palette_dma_sub_970
+        || work.scroll_path != ModeLevelScrollTransferPath::NormalLoc300ba
+        || work.foreground_custom_queue_entries_sub_1596 != 0
+        || work.foreground_cell_queue_entries_sub_1596 != 0
+        || work.paused_sub_6874
+        || work.hud_path_sub_bdc0 != ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates
+    {
+        return None;
+    }
+
+    // ASM Mode_Level (kid.asm:901-908), with branches in sub_A5C, sub_970,
+    // loc_300BA, sub_1596, sub_6874, and sub_BDC0. Instruction-level oracle
+    // accounting confirms the identical path costs 3,415 raw cycles on all
+    // three published target frames. VDP-owned one-cycle scheduler re-entries
+    // are excluded and represented by the arbitration value below.
+    Some(M68kCycleCount::from_raw(3_415))
+}
+
+/// Elapsed cycles for the typed Mode_Level VBlank path, including hardware
+/// arbitration already processed before `Execute_Objects sub_E12`.
+pub fn mode_level_vblank_elapsed_cycles_before_sub_e12(
+    work: ModeLevelVblankWorkBeforeSubE12,
+    arbitration: ModeLevelVblankArbitrationBeforeSubE12,
+) -> Option<M68kCycleCount> {
+    let elapsed = mode_level_vblank_source_cycles_before_sub_e12(work)?
+        .get()
+        .checked_add(arbitration.vdp_bus_halt_cycles)?
+        .checked_add(arbitration.vdp_pending_wait_cycles)?
+        .checked_add(arbitration.refresh_wait_cycles)?;
+    Some(M68kCycleCount::from_raw(elapsed))
+}
+
 /// Raw cycles from the finished-animation wake at ASM loc_1066 through the next
 /// `Execute_Objects` loc_E1E dispatch.
 pub fn prize_tail_finish_cycles_sub_1007a(work: ModeLevelPrizeTailListWork) -> M68kCycleCount {
@@ -506,6 +591,71 @@ pub fn post_execute_elapsed_cycles_before_sub_44dc(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn published_natural_vblank_work() -> ModeLevelVblankWorkBeforeSubE12 {
+        ModeLevelVblankWorkBeforeSubE12 {
+            dynamic_art_tiles_loc_ad4: [16, 4],
+            palette_dma_sub_970: true,
+            scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
+            foreground_custom_queue_entries_sub_1596: 0,
+            foreground_cell_queue_entries_sub_1596: 0,
+            paused_sub_6874: false,
+            hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
+        }
+    }
+
+    #[test]
+    fn mode_level_vblank_separates_source_work_from_vdp_arbitration() {
+        let work = published_natural_vblank_work();
+        assert_eq!(
+            mode_level_vblank_source_cycles_before_sub_e12(work).map(M68kCycleCount::get),
+            Some(3_415),
+            "ASM Mode_Level $7C8 -> Execute_Objects sub_E12 source path"
+        );
+
+        for (arbitration, expected) in [
+            (
+                ModeLevelVblankArbitrationBeforeSubE12 {
+                    vdp_bus_halt_cycles: 3_383,
+                    vdp_pending_wait_cycles: 2_002,
+                    refresh_wait_cycles: 46,
+                },
+                8_846,
+            ),
+            (
+                ModeLevelVblankArbitrationBeforeSubE12 {
+                    vdp_bus_halt_cycles: 3_380,
+                    vdp_pending_wait_cycles: 2_002,
+                    refresh_wait_cycles: 46,
+                },
+                8_843,
+            ),
+            (
+                ModeLevelVblankArbitrationBeforeSubE12 {
+                    vdp_bus_halt_cycles: 3_384,
+                    vdp_pending_wait_cycles: 2_002,
+                    refresh_wait_cycles: 48,
+                },
+                8_849,
+            ),
+        ] {
+            assert_eq!(
+                mode_level_vblank_elapsed_cycles_before_sub_e12(work, arbitration)
+                    .map(M68kCycleCount::get),
+                Some(expected),
+                "published frames 1697/1703/1709"
+            );
+        }
+    }
+
+    #[test]
+    fn mode_level_vblank_rejects_untyped_source_branches() {
+        let work = ModeLevelVblankWorkBeforeSubE12 {
+            scroll_path: ModeLevelScrollTransferPath::StormLoc30110,
+            ..published_natural_vblank_work()
+        };
+        assert_eq!(mode_level_vblank_source_cycles_before_sub_e12(work), None);
+    }
 
     #[test]
     fn prize_tail_finish_cycles_follow_all_five_asm_list_walks_sub_1007a() {

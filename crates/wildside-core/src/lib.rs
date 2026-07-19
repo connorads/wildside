@@ -104,10 +104,13 @@ pub use level::{
 };
 pub use mode_level_timing::{
     M68kCycleCount, M68kExternalWaitEvent, M68kRefreshAdvance, M68kRefreshPhase,
-    damage_flash_wait_cycles_loc_bc44, demo_exit_wait_cycles_loc_119e0,
-    execute_objects_elapsed_cycles_sub_e12, execute_objects_external_waits_sub_e12,
-    execute_objects_raw_cycles_sub_e12, execute_objects_setup_cycles_sub_e12,
-    input_worker_cycles_loc_7452, player_callback_cycles_loc_a73a,
+    ModeLevelHudBuildPath, ModeLevelScrollTransferPath, ModeLevelVblankArbitrationBeforeSubE12,
+    ModeLevelVblankWorkBeforeSubE12, damage_flash_wait_cycles_loc_bc44,
+    demo_exit_wait_cycles_loc_119e0, execute_objects_elapsed_cycles_sub_e12,
+    execute_objects_external_waits_sub_e12, execute_objects_raw_cycles_sub_e12,
+    execute_objects_setup_cycles_sub_e12, input_worker_cycles_loc_7452,
+    mode_level_vblank_elapsed_cycles_before_sub_e12,
+    mode_level_vblank_source_cycles_before_sub_e12, player_callback_cycles_loc_a73a,
     post_execute_elapsed_cycles_before_sub_44dc, post_execute_raw_cycles_before_sub_44dc,
     prize_object_cycles_sub_e12, prize_tail_finish_cycles_sub_1007a,
 };
