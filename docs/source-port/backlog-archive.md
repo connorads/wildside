@@ -358,6 +358,17 @@ an instruction-boundary BUSACK delay or a route-intrinsic 62-cycle VDP halt.
 The scheduler must inject VINT according to the call's beam position rather
 than bake one frame's interrupt into the source routine.
 
+Progress 2026-07-19: the corrected StopMusic model now carries the exact
+68000-to-Z80-RAM workload per source bus window:
+`[8192, 3, 3, 7, 7, 7, 7]`. The first window is the complete `loc_E1400` copy
+and `loc_E1406` clear; each queue window reads `$A00036`, then writes one or
+three data bytes and the updated pointer through `sub_E148E`. A typed
+`GemsStopMusicArbitration` keeps VINT and refresh counts outside the source
+routine. The frame-867 regression recomposes the measured 229,570 cycles from
+218,226 source cycles, 8,226 Z80-RAM waits, one 104-cycle VINT, and 1,507
+two-cycle refresh waits. This is aggregate elapsed evidence, not yet the
+event-positioned shell required to drive the persistent Z80 machine.
+
 Progress 2026-07-19: commit `7afa08b27` schedules the classified life-icon-only
 `sub_44DC` path through its four-entry VRAM FIFO and the trailing `loc_44D4`
 instruction stream to the following `Manage_EnemyLoading` call. The final

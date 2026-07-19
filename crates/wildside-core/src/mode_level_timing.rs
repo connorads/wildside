@@ -118,6 +118,7 @@ pub struct M68kExternalWaitEvent {
 pub struct GemsStopMusicBusWindow {
     pub request_complete_raw_offset: M68kCycleCount,
     pub release_complete_raw_offset: M68kCycleCount,
+    pub m68k_z80_ram_accesses: u16,
 }
 
 /// Source branches at the seven Z80 bus-acquisition loops in ASM
@@ -135,6 +136,13 @@ pub struct GemsStopMusicTiming {
     pub bus_windows: [GemsStopMusicBusWindow; 7],
     pub reset_assert_complete_raw_offset: M68kCycleCount,
     pub reset_release_complete_raw_offset: M68kCycleCount,
+}
+
+/// Hardware work interleaved with one ASM `StopMusic` call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GemsStopMusicArbitration {
+    pub vint_interrupts: u16,
+    pub refresh_wait_events: u16,
 }
 
 /// Derive ASM `StopMusic`'s raw CPU schedule without fitting elapsed route time.
@@ -173,7 +181,11 @@ pub fn gems_stop_music_timing(polls: GemsStopMusicBusAckPolls) -> Option<GemsSto
     let mut windows = [GemsStopMusicBusWindow {
         request_complete_raw_offset: M68kCycleCount::from_raw(0),
         release_complete_raw_offset: M68kCycleCount::from_raw(0),
+        m68k_z80_ram_accesses: 0,
     }; 7];
+    // ASM loc_E1400/loc_E1406 fill all 8 KiB; each sub_E143A/sub_E148E
+    // transaction reads the queue pointer, then writes data and pointer bytes.
+    const M68K_Z80_RAM_ACCESSES: [u16; 7] = [8_192, 3, 3, 7, 7, 7, 7];
     for (index, ((base_request, base_release), poll_count)) in
         BASE_WINDOWS.into_iter().zip(poll_counts).enumerate()
     {
@@ -188,6 +200,7 @@ pub fn gems_stop_music_timing(polls: GemsStopMusicBusAckPolls) -> Option<GemsSto
                     .checked_add(prior_extra)?
                     .checked_add(current_extra)?,
             ),
+            m68k_z80_ram_accesses: M68K_Z80_RAM_ACCESSES[index],
         };
         prior_extra = prior_extra.checked_add(current_extra)?;
     }
@@ -204,6 +217,33 @@ pub fn gems_stop_music_timing(polls: GemsStopMusicBusAckPolls) -> Option<GemsSto
             214_814_u32.checked_add(driver_poll_extra)?,
         ),
     })
+}
+
+/// Elapsed 68000 cycles for ASM `StopMusic`, with hardware arbitration explicit.
+pub fn gems_stop_music_elapsed_cycles(
+    timing: GemsStopMusicTiming,
+    arbitration: GemsStopMusicArbitration,
+) -> Option<M68kCycleCount> {
+    // ASM V_Int $488: 44 raw cycles enter the level-6 autovector, then
+    // ADDQ.L/ST/RTE cost 60 before the interrupted StopMusic instruction resumes.
+    const VINT_RAW_CYCLES: u32 = 44 + 60;
+
+    let z80_ram_waits = timing
+        .bus_windows
+        .into_iter()
+        .try_fold(0_u32, |total, window| {
+            total.checked_add(u32::from(window.m68k_z80_ram_accesses))
+        })?;
+    let vint_raw_cycles = u32::from(arbitration.vint_interrupts).checked_mul(VINT_RAW_CYCLES)?;
+    let refresh_wait_cycles = u32::from(arbitration.refresh_wait_events).checked_mul(2)?;
+    Some(M68kCycleCount::from_raw(
+        timing
+            .raw_cycles
+            .get()
+            .checked_add(z80_ram_waits)?
+            .checked_add(vint_raw_cycles)?
+            .checked_add(refresh_wait_cycles)?,
+    ))
 }
 
 /// Source branches taken before ASM `Mode_Level` reaches `Execute_Objects`.
@@ -1823,6 +1863,13 @@ mod tests {
             "ASM sub_E13DA owns the bus for the driver copy, then each sub_E149C/sub_E14AC call reacquires it separately"
         );
         assert_eq!(
+            timing
+                .bus_windows
+                .map(|window| window.m68k_z80_ram_accesses),
+            [8_192, 3, 3, 7, 7, 7, 7],
+            "ASM loc_E1400/loc_E1406 fill 8 KiB, then sub_E143A/sub_E148E read the queue pointer and write each byte plus its updated pointer"
+        );
+        assert_eq!(
             (
                 timing.reset_assert_complete_raw_offset.get(),
                 timing.reset_release_complete_raw_offset.get(),
@@ -1868,6 +1915,29 @@ mod tests {
             }),
             None,
             "ASM Stop_z80 always samples bus acknowledgement at least once"
+        );
+    }
+
+    #[test]
+    fn stop_music_elapsed_cost_keeps_vint_and_refresh_arbitration_explicit_e14c8() {
+        let timing = gems_stop_music_timing(GemsStopMusicBusAckPolls {
+            driver_copy_sub_e13da: 1,
+            queue_transactions_sub_e143a: [1; 6],
+        })
+        .expect("one-poll oracle path");
+
+        assert_eq!(
+            gems_stop_music_elapsed_cycles(
+                timing,
+                GemsStopMusicArbitration {
+                    vint_interrupts: 1,
+                    refresh_wait_events: 1_507,
+                },
+            )
+            .expect("bounded elapsed timing")
+            .get(),
+            229_570,
+            "the frame-867 trace is pure StopMusic plus 8,226 Z80-RAM waits, V_Int entry/handler, and 1,507 refresh waits"
         );
     }
 
