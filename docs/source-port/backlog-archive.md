@@ -376,6 +376,16 @@ confirm the same three instructions at frames 1697/1703/1709. Active
 murder-wall collision and sprite paths remain fail-closed.
 `mise run verify-slice-fast` is green.
 
+Progress 2026-07-19: commit `b27a160ac` types the shooter-owned support and
+moving-object lists consumed by the three intervening global collision
+scans. Frames 1697/1703/1709 have no active support slots or moving
+ShooterObjects. Full selected-PC traces independently prove the corresponding
+null-sentinel bodies: `sub_1F52` is 50 raw cycles, `sub_219C` is 290, and
+`sub_226A` is 46. Non-empty scans remain fail-closed because their
+per-rectangle, Kid-hitbox, and Kid-projectile collision branches need more
+state. `mise run verify-slice-fast` is green with 6,952 core tests, 15 CLI
+tests, clippy, coverage guards, and all TAS recordings passing.
+
 Deferred 2026-07-19: source review found that normal layout walks set
 `$FFFFFB51` at `Manage_EnemyLoading loc_36968`. A trial correcting the native
 normal loader broke nine synthetic contact tests whose fixtures assume the

@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 empty shooter collision scans)
+
+- The post-HUD ledger now carries active shooter support slots and moving
+  ShooterObjects rather than inferring collision work from unrelated Gfx
+  counts.
+- Frames 1697/1703/1709 have both lists empty. ASM plus full selected-PC
+  traces derive `sub_1F52`, `sub_219C`, and `sub_226A` as 50/290/46 raw
+  cycles on each helper.
+- Non-empty scans fail closed until their per-entry collision branches are
+  typed. `mise run verify-slice-fast` is green after `b27a160ac`.
+- NEXT: type another source-complete post-HUD branch or persist the GEMS CPU
+  checkpoint, then bridge the FIFO-aware `sub_44DC` exit through `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 raw ReadJoypad timing)
 
 - Selected-PC oracle rows now expose both cumulative time and the current
