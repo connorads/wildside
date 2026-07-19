@@ -306,6 +306,28 @@ mask the render.
 
 ### #409
 
+Correction and progress 2026-07-19: fresh current-HEAD trace
+`.cache/recordings/issue409-current-route-trace` rejects the stale two-frame
+prize-sound hypothesis below. Its manifest records `5329943f2`; native
+block-hit commands occur on frames 1646/1656/1663/1669/1676/1682/1688/1695,
+exactly matching the oracle's selected-PC `loc_1002E` calls. The earlier
+1648..1697 native list came from
+`.cache/recordings/issue406-published-shore-trace`, whose manifest records old
+commit `5aa41af92`. Do not move the collision or sound boundary.
+
+Commit `5230550` corrects the persistent timing sink's frame contract.
+`NativeAudioDirector::step` advances VBlank-to-VBlank, and ASM `WaitForVint`
+hands control to `V_Int` at scanline 224, but `advance_ntsc_frame` previously
+started at visible scanline 0 and delayed the one-scanline Z80 interrupt until
+late in the tick. Advancing scanlines 224..261 then 0..223 moves the complete
+GEMS `$01FB..$028A` copy of ROM `$EF23A..$EF2B9` from timing frame 1710 onto
+the correct frame 1709 without a fitted shift. An interrupt-sensitive Z80
+regression pins that scanline-224 boundary. The copy still occurs at the wrong
+within-frame phase, proving that frame-batched trace commands omit the exact
+M68K bus/reset/queue hand-off needed to seed the persistent machine. Next
+derive that typed boundary or import a complete checkpoint before consuming
+the four post-FIFO steals.
+
 Progress 2026-07-19: commit `7afa08b27` schedules the classified life-icon-only
 `sub_44DC` path through its four-entry VRAM FIFO and the trailing `loc_44D4`
 instruction stream to the following `Manage_EnemyLoading` call. The final

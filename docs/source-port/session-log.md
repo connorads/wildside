@@ -7,6 +7,35 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 VBlank frame calibration)
+
+- Fresh trace `.cache/recordings/issue409-current-route-trace` is from current
+  commit `5329943f2`; its eight prize-block `$0D` commands exactly match
+  oracle `loc_1002E` on frames 1646..1695. The prior two-frame claim used a
+  trace recorded at old commit `5aa41af92`; do not alter collision or sound
+  timing.
+- Commit `5230550` starts each persistent GEMS timing tick at scanline 224,
+  matching ASM `WaitForVint -> V_Int` and the audio director's
+  VBlank-to-VBlank contract.
+- The target `FILLDACFIFO -> XFER68K` copy of ROM `$EF23A..$EF2B9` now occurs
+  on frame 1709 rather than 1710, with no fitted frame shift. A Z80
+  interrupt-sensitive regression pins the boundary.
+- The transfer remains at the wrong within-frame phase. Frame-batched trace
+  commands do not preserve the ROM's intra-frame Z80 bus/reset and command
+  queue hand-off, so they cannot yet supply the four post-FIFO steals at
+  offsets 43/96/151/192.
+- The commit hook's full `verify-slice-fast` gate and `verify-tas-full` are
+  green; all 37,759 CRC/gameplay/enemy/RNG checks match and the pixel baseline
+  remains 26,382 exact / 11,377 divergent / 3,620,978 changed. A separate full
+  `wildside-md` run still has the pre-existing
+  `sprite_line_scan_keeps_a_zeroed_loc_b42_terminator_offscreen` failure,
+  reproduced unchanged in a detached clean-HEAD worktree.
+- NEXT: derive an exact typed command/bus boundary or complete GEMS machine
+  checkpoint, then feed its ordered reads through `sub_44DC` and the
+  post-HUD ledger to `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 raw YM clock and command frontier)
 
 - Commit `b2a610100` clocks native `Ym2612Shadow` at its raw master/7 input
