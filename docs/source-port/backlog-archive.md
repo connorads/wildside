@@ -306,6 +306,15 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-18: every typed `sub_1007A` wobble continuation now states
+whether its resumed `dbf` stays in the phase, expires into the next phase, or
+expires into `Hibernate_UntilAnimFinished`. Fresh route evidence matches the
+instruction journal: frame 1697 expires at `$1011A`, frame 1703 at `$100E2`,
+and frame 1709 expires at `$100F0` while `$10128` begins the animation wait.
+Oracle callback spans separate these as 54-56, 62-64, and 96 cycles
+respectively. The remaining scheduler blocker is object/Gfx order and dynamic
+list/bus scans, not wobble branch ambiguity.
+
 Progress 2026-07-18: the prize animation ledger now separates live
 `Hibernate_UntilAnimFinished loc_1066` callbacks from native's post-deletion
 overlap records. A tail carries its cell/content and is either the

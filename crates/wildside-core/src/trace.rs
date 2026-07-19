@@ -402,6 +402,18 @@ fn prize_block_wobble_resume_sub_1007a(remaining: u8) -> PrizeBlockWobbleResumeS
     }
 }
 
+fn prize_block_wobble_wake_sub_1007a(remaining: u8) -> ModeLevelPrizeBlockWobbleWake {
+    // ASM sub_1007A (kid.asm:21372-21407): DBF expiry runs the next moveq and
+    // its first displacement before hibernating. Expiry in the last group
+    // instead enters Hibernate_UntilAnimFinished.
+    match remaining {
+        1 => ModeLevelPrizeBlockWobbleWake::BeginAnimationWait,
+        6 | 10 | 15 | 20 | 26 => ModeLevelPrizeBlockWobbleWake::BeginNextPhase,
+        2..=31 => ModeLevelPrizeBlockWobbleWake::ContinuePhase,
+        _ => ModeLevelPrizeBlockWobbleWake::Unclassified { remaining },
+    }
+}
+
 fn prize_block_tail_state_sub_1007a(
     content: Option<terrain::PrizeContent>,
     remaining: u8,
@@ -1459,6 +1471,7 @@ mod tests {
                     unclassified_runtime_transient_workers: 0,
                     prize_block_wobble_paths_sub_1007a: vec![ModeLevelPrizeBlockWobbleWork {
                         resume: PrizeBlockWobbleResumeSub1007A::AfterLoc100DaAt100E2,
+                        wake: ModeLevelPrizeBlockWobbleWake::ContinuePhase,
                         remaining: 31,
                         content: Some(terrain::PrizeContent::Diamond),
                         deleted_tile: false,
@@ -1518,6 +1531,31 @@ mod tests {
                 "remaining={remaining}"
             );
         }
+    }
+
+    #[test]
+    fn sub_1007a_remaining_counter_types_dbf_and_animation_wait_boundaries() {
+        // ASM sub_1007A (kid.asm:21372-21407): the lowest remaining value in
+        // each DBF group executes the next phase's moveq/body on the same
+        // wake; the final group enters Hibernate_UntilAnimFinished.
+        for remaining in [31, 25, 19, 14, 9, 5] {
+            assert_eq!(
+                prize_block_wobble_wake_sub_1007a(remaining),
+                ModeLevelPrizeBlockWobbleWake::ContinuePhase,
+                "remaining={remaining}"
+            );
+        }
+        for remaining in [26, 20, 15, 10, 6] {
+            assert_eq!(
+                prize_block_wobble_wake_sub_1007a(remaining),
+                ModeLevelPrizeBlockWobbleWake::BeginNextPhase,
+                "remaining={remaining}"
+            );
+        }
+        assert_eq!(
+            prize_block_wobble_wake_sub_1007a(1),
+            ModeLevelPrizeBlockWobbleWake::BeginAnimationWait
+        );
     }
 
     #[test]
@@ -8469,6 +8507,7 @@ impl NativeRuntime {
             .filter(|bounce| bounce.kind == BlockBounceKind::Prize)
             .map(|bounce| ModeLevelPrizeBlockWobbleWork {
                 resume: prize_block_wobble_resume_sub_1007a(bounce.remaining),
+                wake: prize_block_wobble_wake_sub_1007a(bounce.remaining),
                 remaining: bounce.remaining,
                 content: bounce.prize_content,
                 deleted_tile: bounce.prize_deleted_tile,

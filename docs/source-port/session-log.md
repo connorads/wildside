@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#409 typed wobble wake work)
+
+- Each `sub_1007A` continuation now names same-phase, next-phase, or final
+  animation-wait work rather than leaving `dbf` expiry implicit.
+- The fresh route matches the oracle PCs/registers at frames 1697/1703/1709;
+  corresponding callback classes measure 54-56, 62-64, and 96 cycles.
+- NEXT: type the actual linked object/Gfx order and allocation/deallocation
+  scan ranks. Wobble callback cost no longer needs a route lookup.
+
+---
+
 ## 2026-07-18 handoff (#409 live prize animation wakes)
 
 - Prize tail work now distinguishes the real finished-animation callback from

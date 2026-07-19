@@ -1665,9 +1665,20 @@ pub enum PrizeBlockWobbleResumeSub1007A {
     AfterLoc10120At10128,
 }
 
+/// Work executed after a one-frame hibernate in ASM `sub_1007A`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelPrizeBlockWobbleWake {
+    ContinuePhase,
+    BeginNextPhase,
+    BeginAnimationWait,
+    Unclassified { remaining: u8 },
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelPrizeBlockWobbleWork {
     pub resume: PrizeBlockWobbleResumeSub1007A,
+    pub wake: ModeLevelPrizeBlockWobbleWake,
     pub remaining: u8,
     pub content: Option<terrain::PrizeContent>,
     pub deleted_tile: bool,
