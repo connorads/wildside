@@ -306,6 +306,17 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: the outer intro loader return is source-scheduled from
+`LoadGameModeData $72C` through `MainGameLoop $738` and `WaitForVint $93A`
+to the first `loc_93E` flag poll. The four instructions contribute 70 raw
+cycles, one refresh event, and no GEMS wait. Native reaches the poll at cycle
+10,273,988 versus oracle 10,277,139, preserving exactly the inherited
+3,151-cycle offset. NEXT: source-schedule the blocking poll, VINT, and
+`Mode_Standard` prefix through `Execute_Objects sub_E12 -> sub_1B8F4`;
+retain the VDP DMA ownership intervals rather than free-running GEMS across
+the frame. Both required gates are green; the pixel baseline remains 26,382
+exact / 11,377 divergent / 3,620,978 changed pixels.
+
 Progress 2026-07-19: `Load_IntroSequence1` is source-scheduled from
 `sub_1B850`'s return through its controller-allocation RTS. Its empty-list
 `Allocate_ObjectSlot sub_DAC` path retains all 81 instruction boundaries and

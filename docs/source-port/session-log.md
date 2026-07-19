@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 first WaitForVint poll)
+
+- The outer intro loader return is source-scheduled through
+  `LoadGameModeData $72C`, `MainGameLoop $738`, and `WaitForVint $93A` to
+  the first `loc_93E` flag poll.
+- Four instructions / 70 raw cycles add one refresh event and no GEMS wait.
+  Native reaches the poll at cycle 10,273,988 versus oracle 10,277,139,
+  preserving the inherited 3,151-cycle offset exactly.
+- Both required gates are green; the pixel baseline remains 26,382 exact /
+  11,377 divergent / 3,620,978 changed pixels.
+- NEXT: source-schedule the blocking poll, VINT, and `Mode_Standard` prefix
+  through `Execute_Objects sub_E12 -> sub_1B8F4`, retaining VDP DMA
+  ownership intervals across the frame boundary.
+
 ## 2026-07-19 handoff (#409 title controller allocation)
 
 - `Load_IntroSequence1` is source-scheduled from `sub_1B850`'s return

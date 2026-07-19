@@ -43,6 +43,35 @@ pub fn visit_load_intro_sequence1_controller_allocation(
     timing
 }
 
+/// Visit the outer loader return through the first `WaitForVint` flag poll.
+///
+/// ASM `LoadGameModeData` $72C returns from `Load_IntroSequence1`, clears
+/// `$FFFF0280`, and returns to `MainGameLoop` $738. The loop then calls
+/// `WaitForVint` $93A and clears its completion flag before `loc_93E`.
+pub fn visit_intro_controller_to_wait_for_vint_poll(
+    mut visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+
+    // ASM LoadGameModeData $72C, MainGameLoop $738, WaitForVint $93A.
+    for cycles in [20, 16, 18, 16] {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("intro handoff timing fits u32"),
+        );
+    }
+
+    timing
+}
+
 /// Visit `Allocate_ObjectSlot sub_DAC` with an empty execution list.
 fn visit_empty_list_allocate_object_slot_instructions(visit: &mut impl FnMut(u32)) {
     // ASM sub_DAC $DAC..$DC0: save registers, pop the free slot and prepare
@@ -86,5 +115,21 @@ mod tests {
             &cycles[cycles.len() - 8..],
             &[16, 10, 28, 16, 44, 16, 24, 16]
         );
+    }
+
+    #[test]
+    fn intro_controller_return_reaches_wait_for_vint_poll_in_source_order() {
+        let mut cycles = Vec::new();
+        let timing = visit_intro_controller_to_wait_for_vint_poll(|cycle| cycles.push(cycle));
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 4,
+                raw_cycles: M68kCycleCount::from_raw(70),
+            },
+            "ASM LoadGameModeData $72C through WaitForVint $93A must retain the frame-handoff boundaries",
+        );
+        assert_eq!(cycles, [20, 16, 18, 16]);
     }
 }

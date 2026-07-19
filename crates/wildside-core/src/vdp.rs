@@ -3522,6 +3522,50 @@ pub fn title_intro_controller_allocation_cursor_with_scheduler(
     })
 }
 
+/// Co-schedule the intro loader return through the first `WaitForVint` poll.
+pub fn title_intro_wait_for_vint_poll_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+    let mut refresh_events = 0_u32;
+    let mut external_wait_cycles = 0_u32;
+    let mut scheduling_failed = false;
+
+    let timing = crate::intro_timing::visit_intro_controller_to_wait_for_vint_poll(|raw_cycles| {
+        if scheduling_failed {
+            return;
+        }
+        let Some(generated_wait) = advance_decompress_source_instruction_with_interval_kind(
+            raw_cycles,
+            &mut fifo,
+            &mut phase,
+            &mut refresh_events,
+            &mut advance_hardware,
+        ) else {
+            scheduling_failed = true;
+            return;
+        };
+        external_wait_cycles = external_wait_cycles
+            .checked_add(generated_wait)
+            .expect("title frame-handoff wait count fits u32");
+    });
+    if scheduling_failed {
+        return None;
+    }
+
+    Some(TitleIntroSourceAdvance {
+        cursor: LoadInGameCpuRasterCursor {
+            beam: fifo.beam,
+            refresh_phase: phase,
+        },
+        timing,
+        refresh_events,
+        external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
+    })
+}
+
 /// Co-schedule a caller and ASM `sub_142CC` up to `loc_14300`.
 ///
 /// `caller_instruction_cycles` ends at the jump stub which enters

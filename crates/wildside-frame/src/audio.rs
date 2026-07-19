@@ -926,6 +926,36 @@ pub fn apply_gems_title_intro_controller_allocation(
     )
 }
 
+/// Clock the intro loader return through the first `WaitForVint` flag poll.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_intro_wait_for_vint_poll(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_intro_wait_for_vint_poll_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            if source_instruction {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
 /// Clock a caller and ASM `sub_142CC` up to `DecompressToVRAM loc_14300`.
 #[cfg(feature = "audio")]
 pub fn apply_gems_decompress_to_vram_setup_sub_142cc(
@@ -2722,6 +2752,21 @@ mod tests {
         // established GEMS defect leaves the hardware-faithful path at the
         // same 3,151-cycle offset inherited from sub_1B850.
         assert_eq!(engine.master_clock(), 10_273_916 * 7);
+
+        let poll = apply_gems_title_intro_wait_for_vint_poll(&mut engine, controller.cursor)
+            .expect("source-positioned first WaitForVint poll");
+        assert_eq!(
+            poll.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 4,
+                raw_cycles: M68kCycleCount::from_raw(70),
+            },
+        );
+        assert_eq!(poll.refresh_events, 1);
+        assert_eq!(poll.external_wait_cycles.get(), 0);
+        // Oracle loc_93E begins at 10,277,139. The exact 72-cycle elapsed
+        // path retains the inherited 3,151-cycle GEMS offset.
+        assert_eq!(engine.master_clock(), 10_273_988 * 7);
     }
 
     #[cfg(feature = "audio")]
