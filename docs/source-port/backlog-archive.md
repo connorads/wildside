@@ -333,6 +333,15 @@ Commit `1e00b9b94` derives both costs from the typed `loc_C22` counter branch,
 fails closed on inconsistent or unobserved work, and pins the three target
 helpers at 1,234. `mise run verify-slice-fast` is green.
 
+Progress 2026-07-19: commit `f61162d4f` derives the Demo-2
+`Manage_EnemyLoading loc_36814 -> return_3682A` routine body as 84 raw cycles.
+Selected-PC traces confirm the exact path: `$FB6A` clear, `Game_Mode == $10`,
+and non-Knights Isle take the final return. The 20-cycle Mode caller and
+10-cycle `j_Manage_EnemyLoading` shell remain explicitly outside the
+routine-body cost. Layout walks stay fail-closed until their cursor and
+enemy-status branches are typed. All three target helpers derive 84 and
+`mise run verify-slice-fast` is green.
+
 Deferred 2026-07-19: source review found that normal layout walks set
 `$FFFFFB51` at `Manage_EnemyLoading loc_36968`. A trial correcting the native
 normal loader broke nine synthetic contact tests whose fixtures assume the
