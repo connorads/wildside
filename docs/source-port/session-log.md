@@ -7,6 +7,34 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 exact GEMS checkpoint boundary)
+
+- Added selected-PC oracle capture of full GEMS/Z80 state and a native
+  checkpoint with the same reachable fields.
+- Co-scheduled persistent GEMS time with the existing CPU/VDP life-icon
+  scheduler, while preserving generated 68000 bank waits for the next
+  instruction boundary.
+- Fixed DemoPlay's missing `Load_InGame loc_11FD2/loc_12004` BGM event.
+  Cumulative BGM trace history is now consumed as deltas: StopMusic occurs at
+  the frame-866 level-ID boundary and BGM 2 is queued at frame 900.
+- Corrected the scratch comparison epoch from oracle scanline 0 to the
+  timing engine's scanline-224 VBlank origin. StopMusic, BGM, and target
+  `sub_44DC` map to frame/cursor 866/90,142, 900/484,261, and 1708/180,271.
+- At the corrected target, coarse replay matches oracle Z80 PC `$02AA` and
+  bank `$0E8000`; 68 RAM bytes and divider/YM phases remain different. The
+  `$1F00` transfer buffer already matches.
+- Rejected uninterrupted advancement between timed StopMusic and BGM: it
+  leaves 824,021 generated 68000 waits unconsumed. The loader must process
+  them instruction by instruction.
+- Commits: `64b7c6994`, `d7591f17b`, `b3107de2e`, `16757e0a1`,
+  `1a158760f`, `995720e05`, `2cecdc605`.
+- `mise run verify-slice-fast` and all commit hooks pass. NEXT: persist the
+  native 68000/raster cursor across the intervening Load_InGame workload,
+  consume GEMS waits at real instruction boundaries, then regenerate the four
+  frame-1709 steals and bridge `sub_44DC -> loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 positioned StopMusic control schedule)
 
 - Corrected the complete selected-PC trace twice as progressively narrower

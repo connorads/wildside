@@ -306,6 +306,40 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: commits `64b7c6994`, `d7591f17b`, `b3107de2e`,
+`16757e0a1`, `1a158760f`, and `995720e05` add the source-derived
+Load_InGame/StopMusic cursor, platform-art schedule, absolute VINT
+positioning, selected-PC refresh/GEMS checkpoints, and chronological
+CPU/VDP/GEMS adapter. The opt-in oracle checkpoint retains the full 8 KiB
+self-modifying Z80 RAM plus PC, bank, divider/wait, YM, bus/reset, and IRQ
+state. Commit `2cecdc605` fixes the missing `Load_DemoPlay -> Load_InGame`
+`loc_11FD2/loc_12004` BGM event and treats cumulative trace BGM IDs as
+per-frame deltas. The current route now retains title music through the early
+DemoPlay loader, reaches StopMusic at the frame-866 `Current_LevelID`
+boundary, and queues BGM 2 at frame 900.
+
+Checkpoint correction 2026-07-19: scratch comparisons originally applied the
+oracle's scanline-0 absolute clock directly to a timing engine whose epoch is
+VBlank scanline 224. Subtracting `224 * 3420 = 766080` master clocks maps the
+three selected-PC boundaries consistently: StopMusic `$E14C8` is VBlank
+frame 866 cursor 90,142; BGM `sub_E151C` is frame 900 cursor 484,261; target
+`sub_44DC` is frame 1708 cursor 180,271. With that correction and the
+source-correct BGM event boundaries, coarse native replay at `sub_44DC`
+matches oracle Z80 PC `$02AA` and bank `$0E8000`; 68/8192 RAM bytes plus the
+Z80/YM divider phases still differ. The remaining RAM differences are driver
+variables and command/sequence state; the `$1F00` transfer buffer is already
+equal.
+
+Rejected 2026-07-19: do not execute the exact timed StopMusic and BGM adapters
+with one uninterrupted master-clock advance across the intervening
+Load_InGame work. That experiment accumulated 824,021 unconsumed 68000 wait
+cycles from GEMS bank reads before `sub_E151C`, moved the bank backwards, and
+worsened the checkpoint. The real 68000 processes each wait at an instruction
+boundary while continuing the loader. NEXT: persist the engine-level
+instruction/raster cursor across that source workload and co-schedule every
+generated wait before using the already-timed command adapters; then feed the
+resulting frame-1709 reads through `sub_44DC -> loc_892`.
+
 Correction and progress 2026-07-19: fresh current-HEAD trace
 `.cache/recordings/issue409-current-route-trace` rejects the stale two-frame
 prize-sound hypothesis below. Its manifest records `5329943f2`; native
