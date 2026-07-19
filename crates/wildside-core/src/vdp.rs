@@ -2892,6 +2892,39 @@ impl H40BeamPosition {
     }
 }
 
+/// Convert an absolute elapsed 68000-cycle count into the NTSC H40 beam.
+pub fn h40_beam_from_absolute_m68k_cycles(cycles: M68kCycleCount) -> H40BeamPosition {
+    const MCLK_PER_M68K_CYCLE: u64 = 7;
+    let frame_mclk = u64::from(MCLK_CYCLES_PER_SCANLINE) * u64::from(NTSC_SCANLINES_PER_FRAME);
+    let beam_mclk = u64::from(cycles.get()) * MCLK_PER_M68K_CYCLE % frame_mclk;
+    H40BeamPosition {
+        scanline: u16::try_from(beam_mclk / u64::from(MCLK_CYCLES_PER_SCANLINE))
+            .expect("NTSC scanline fits u16"),
+        scanline_mclk: u16::try_from(beam_mclk % u64::from(MCLK_CYCLES_PER_SCANLINE))
+            .expect("H40 scanline master clock fits u16"),
+    }
+}
+
+/// Master-clock cursor relative to the VBlank-to-VBlank scanline-224 origin.
+pub fn ntsc_vblank_cursor_from_absolute_m68k_cycles(
+    cycles: M68kCycleCount,
+) -> crate::GenesisMclkCount {
+    const VBLANK_SCANLINE: u32 = 224;
+    let beam = h40_beam_from_absolute_m68k_cycles(cycles);
+    let frame_mclk = MCLK_CYCLES_PER_SCANLINE * u32::from(NTSC_SCANLINES_PER_FRAME);
+    let absolute_mclk =
+        u32::from(beam.scanline) * MCLK_CYCLES_PER_SCANLINE + u32::from(beam.scanline_mclk);
+    let vblank_origin_mclk = VBLANK_SCANLINE * MCLK_CYCLES_PER_SCANLINE;
+    crate::GenesisMclkCount::from_raw(
+        absolute_mclk
+            .checked_add(frame_mclk)
+            .expect("one bounded NTSC frame fits u32")
+            .checked_sub(vblank_origin_mclk)
+            .expect("VBlank origin is within the NTSC frame")
+            % frame_mclk,
+    )
+}
+
 /// Explicit hardware boundary at ASM `Execute_Objects sub_E12`.
 ///
 /// This is a seed, not a frame selector: callers must obtain it from a
@@ -5418,6 +5451,22 @@ fn load_saxman_art(source: &dyn AssetSource, rel: &std::path::Path) -> Result<Ve
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn absolute_m68k_clock_resolves_stop_music_entry_beam_e14c8() {
+        let cycles = M68kCycleCount::from_raw(110_975_266);
+
+        assert_eq!(
+            h40_beam_from_absolute_m68k_cycles(cycles),
+            H40BeamPosition::new(250, 1_222).expect("bounded oracle beam"),
+            "oracle StopMusic $E14C8 reports scanline 250, H40 pixel 152"
+        );
+        assert_eq!(
+            ntsc_vblank_cursor_from_absolute_m68k_cycles(cycles).get(),
+            90_142,
+            "the persistent GEMS frame cursor starts at VDP scanline 224"
+        );
+    }
 
     #[test]
     fn no_z80_wait_for_vint_poll_reproduces_frontier_samples() {

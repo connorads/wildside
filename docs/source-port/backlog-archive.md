@@ -407,6 +407,16 @@ cursor must first be aligned to the actual StopMusic entry beam (scanline 250
 for the traced call), otherwise a correct relative schedule would still be
 shifted to the trace-frame boundary.
 
+Progress 2026-07-19: the frame-867 absolute instruction counter resolves that
+entry without a pixel fit. `110975266 * 7 mod (3420 * 262)` is scanline 250,
+line master-clock 1222, which independently maps to the trace's H40 pixel 152.
+Relative to the persistent engine's scanline-224 origin, the entry cursor is
+90,142 master clocks. Generic core helpers now convert an absolute elapsed
+M68K count to both H40 beam and VBlank-relative cursor, and the timed adapter
+regression advances to 90,142 before executing the 229,570-cycle schedule.
+The remaining production boundary is deriving the absolute M68K count from
+native gameplay state rather than importing the oracle checkpoint.
+
 Progress 2026-07-19: commit `7afa08b27` schedules the classified life-icon-only
 `sub_44DC` path through its four-entry VRAM FIFO and the trailing `loc_44D4`
 instruction stream to the following `Manage_EnemyLoading` call. The final

@@ -1352,11 +1352,18 @@ mod tests {
         )
         .expect("frame-867 StopMusic schedule");
         let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+        let entry_cursor = wildside_core::vdp::ntsc_vblank_cursor_from_absolute_m68k_cycles(
+            M68kCycleCount::from_raw(110_975_266),
+        );
+        engine.advance_ntsc_master_clocks(u64::from(entry_cursor.get()));
 
         let advance = apply_timed_gems_stop_music(&mut engine, timing);
 
         assert!(advance.banked_68k_reads.is_empty());
-        assert_eq!(engine.master_clock(), 229_570 * 7);
+        assert_eq!(
+            engine.master_clock(),
+            u64::from(entry_cursor.get()) + 229_570 * 7
+        );
         engine.start_sequence(3);
     }
 
