@@ -116,6 +116,86 @@ pub enum LoadInGameTimerBonusPath {
     ReturnAlreadyInitialised,
 }
 
+/// Pure 68000 source work for one fixed platform-art upload in ASM
+/// `Initialize_Platforms -> DecompressToVRAM`.
+///
+/// Hardware refresh, VINT entry/handler work, and VDP FIFO stalls are excluded
+/// so the raster scheduler can position those effects independently.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LoadInGamePlatformArtSourceWorkload {
+    pub decoder: M68kCycleCount,
+    pub transfer: M68kCycleCount,
+    pub output_words: u16,
+}
+
+impl LoadInGamePlatformArtSourceWorkload {
+    pub const fn raw_cycles(self) -> M68kCycleCount {
+        M68kCycleCount::from_raw(self.decoder.get() + self.transfer.get())
+    }
+}
+
+/// Source-ordered workload before `Load_InGame $11A12`.
+///
+/// ASM `Initialize_Platforms sub_231C` initialises the 17-slot platform pool,
+/// resolves the map-order platform layout, then uploads the fixed horizontal
+/// and vertical platform-art resources through `DecompressToVRAM`. The two
+/// compressed streams both emit 384 bytes, but take different decoder branches.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LoadInGamePlatformInitialisationSourceWorkload {
+    pub prelude_through_first_decompress_entry: M68kCycleCount,
+    pub horizontal_art: LoadInGamePlatformArtSourceWorkload,
+    pub between_art_uploads: M68kCycleCount,
+    pub vertical_art: LoadInGamePlatformArtSourceWorkload,
+    pub epilogue: M68kCycleCount,
+}
+
+impl LoadInGamePlatformInitialisationSourceWorkload {
+    pub const fn raw_cycles(self) -> M68kCycleCount {
+        M68kCycleCount::from_raw(
+            self.prelude_through_first_decompress_entry.get()
+                + self.horizontal_art.raw_cycles().get()
+                + self.between_art_uploads.get()
+                + self.vertical_art.raw_cycles().get()
+                + self.epilogue.get(),
+        )
+    }
+}
+
+/// Pure source workload from `Load_InGame $11A0E` to `$11A12`.
+///
+/// The decoder totals follow the real branch sequence through
+/// `Decompress_Chunk sub_13684`; the common transfer total covers
+/// `loc_14300..return_14334`, including all 192 `loc_14314` word writes.
+/// External FIFO waits and the VINT crossed by the vertical decode are not
+/// folded into these values.
+pub const fn load_in_game_platform_initialisation_source_workload()
+-> LoadInGamePlatformInitialisationSourceWorkload {
+    let transfer = M68kCycleCount::from_raw(4_258);
+    LoadInGamePlatformInitialisationSourceWorkload {
+        // ASM Load_InGame $11A0E, j_Initialize_Platforms, sub_231C,
+        // Get_PlatformLayoutAddress sub_2366, j_DecompressToVRAM, and the
+        // first `bsr.s sub_142CC`.
+        prelude_through_first_decompress_entry: M68kCycleCount::from_raw(910),
+        horizontal_art: LoadInGamePlatformArtSourceWorkload {
+            // ASM Decompress_Chunk sub_13684 over Horizontal_platform.bin.
+            decoder: M68kCycleCount::from_raw(14_570),
+            transfer,
+            output_words: 192,
+        },
+        // ASM return_14334 -> Load_InGame's second j_DecompressToVRAM ->
+        // `bsr.s sub_142CC`.
+        between_art_uploads: M68kCycleCount::from_raw(64),
+        vertical_art: LoadInGamePlatformArtSourceWorkload {
+            // ASM Decompress_Chunk sub_13684 over Vertical_platform.bin.
+            decoder: M68kCycleCount::from_raw(14_528),
+            transfer,
+            output_words: 192,
+        },
+        // ASM return_14334 -> Initialize_Platforms RTS.
+        epilogue: M68kCycleCount::from_raw(16),
+    }
+}
+
 /// Raw source work from the `j_sub_28FC` call at `Load_InGame $11A12` to
 /// `StopMusic $E14C8`.
 ///
@@ -3486,5 +3566,25 @@ mod tests {
         assert_eq!(advance.elapsed, M68kCycleCount::from_raw(3_228));
         assert_eq!(advance.refresh_events, 26);
         assert_eq!(advance.phase_after, M68kRefreshPhase::new(14).unwrap());
+    }
+
+    #[test]
+    fn initialize_platforms_source_workload_excludes_fifo_and_vint_waits() {
+        let workload = load_in_game_platform_initialisation_source_workload();
+
+        assert_eq!(workload.horizontal_art.output_words, 192);
+        assert_eq!(workload.vertical_art.output_words, 192);
+        assert_eq!(workload.horizontal_art.decoder.get(), 14_570);
+        assert_eq!(workload.vertical_art.decoder.get(), 14_528);
+        assert_eq!(workload.horizontal_art.transfer.get(), 4_258);
+        assert_eq!(workload.vertical_art.transfer.get(), 4_258);
+        assert_eq!(
+            workload.raw_cycles().get(),
+            38_604,
+            "ASM Initialize_Platforms sub_231C -> Decompress_Chunk sub_13684 -> \
+             loc_14314 contributes 38,604 pure source cycles; the frame-866 \
+             hardware ledger adds a separate 104-cycle VINT, 546 refresh \
+             cycles, and 6,000 FIFO-halted ticks"
+        );
     }
 }

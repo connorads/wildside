@@ -2958,6 +2958,368 @@ pub struct LoadInGameCpuRasterCursor {
     pub refresh_phase: M68kRefreshPhase,
 }
 
+/// CPU/raster result of one ASM `loc_14314` 192-word platform-art transfer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LoadInGamePlatformArtTransferAdvance {
+    pub cursor: LoadInGameCpuRasterCursor,
+    pub fifo_halted_ticks: M68kCycleCount,
+    pub refresh_events: u32,
+}
+
+/// VINT position within the vertical platform-art decoder's pure source work.
+///
+/// The CPU scheduler supplies this instruction-boundary offset when scanline
+/// 224 asserts during `Decompress_Chunk sub_13684`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LoadInGamePlatformVintEvent {
+    pub vertical_decoder_raw_offset: M68kCycleCount,
+}
+
+/// Instruction-boundary refresh ledger for the non-transfer source spans in
+/// ASM `Initialize_Platforms`.
+///
+/// `loc_14314` transfer refreshes are derived internally because that loop is
+/// already visited instruction by instruction. The branch-heavy
+/// `Decompress_Chunk` spans remain explicit until their compressed-command
+/// visitor supplies the same counts directly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LoadInGamePlatformRefreshLedger {
+    pub prelude: u16,
+    pub horizontal_decoder: u16,
+    pub between_uploads: u16,
+    pub vertical_decoder_before_vint: u16,
+    pub vint_exception: u16,
+    pub vint_handler: u16,
+    pub vertical_decoder_after_vint: u16,
+    pub epilogue: u16,
+}
+
+/// CPU/raster result from `Load_InGame $11A0E` through `$11A12`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LoadInGamePlatformInitialisationAdvance {
+    pub cursor: LoadInGameCpuRasterCursor,
+    pub elapsed: M68kCycleCount,
+    pub horizontal_fifo_halted_ticks: M68kCycleCount,
+    pub vertical_fifo_halted_ticks: M68kCycleCount,
+    pub refresh_events: u32,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PlatformArtFifoEntry {
+    latency: u8,
+    first_vram_slot: bool,
+}
+
+#[derive(Debug)]
+struct PlatformArtFifoScheduler {
+    beam: H40BeamPosition,
+    entries: std::collections::VecDeque<PlatformArtFifoEntry>,
+    pending_write: bool,
+}
+
+impl PlatformArtFifoScheduler {
+    fn new(beam: H40BeamPosition) -> Self {
+        Self {
+            beam,
+            entries: std::collections::VecDeque::with_capacity(4),
+            pending_write: false,
+        }
+    }
+
+    fn push_word(&mut self) {
+        if self.entries.len() == 4 {
+            self.pending_write = true;
+        } else {
+            self.entries.push_back(PlatformArtFifoEntry {
+                latency: 3,
+                first_vram_slot: true,
+            });
+        }
+    }
+
+    fn advance_m68k_cycles(&mut self, cycles: M68kCycleCount) {
+        for _ in 0..cycles.get().saturating_mul(MCLK_CYCLES_PER_M68K_CYCLE) {
+            let previous_scanline = self.beam.scanline;
+            let previous_pixel = h40_scanline_mclk_to_pixel(self.beam.scanline_mclk);
+            self.beam = self.beam.advance_mclk(crate::GenesisMclkCount::from_raw(1));
+            if self.beam.scanline != previous_scanline {
+                continue;
+            }
+            let current_pixel = h40_scanline_mclk_to_pixel(self.beam.scanline_mclk);
+            if current_pixel == previous_pixel {
+                continue;
+            }
+            debug_assert_eq!(
+                current_pixel,
+                previous_pixel + 1,
+                "H40 pixel clock advances one pixel at a time"
+            );
+            let pixel = previous_pixel;
+            if !pixel.is_multiple_of(2) || pixel > 418 {
+                continue;
+            }
+            let slot = pixel / 2;
+            let refresh = matches!(slot, 26 | 58 | 90 | 122 | 154 | 204);
+            let blank = self.beam.scanline >= 224;
+            let access = if blank {
+                !refresh
+            } else {
+                matches!(
+                    slot,
+                    6 | 14
+                        | 22
+                        | 38
+                        | 46
+                        | 54
+                        | 70
+                        | 78
+                        | 86
+                        | 102
+                        | 110
+                        | 118
+                        | 134
+                        | 142
+                        | 150
+                        | 165
+                        | 166
+                        | 190
+                )
+            };
+
+            if access && self.entries.front().is_some_and(|entry| entry.latency == 0) {
+                let front = self.entries.front_mut().expect("front checked above");
+                if front.first_vram_slot {
+                    front.first_vram_slot = false;
+                } else {
+                    self.entries.pop_front();
+                    if self.pending_write {
+                        self.entries.push_back(PlatformArtFifoEntry {
+                            latency: 3,
+                            first_vram_slot: true,
+                        });
+                        self.pending_write = false;
+                    }
+                }
+            }
+
+            if !refresh {
+                for entry in &mut self.entries {
+                    entry.latency = entry.latency.saturating_sub(1);
+                }
+            }
+        }
+    }
+}
+
+/// Advance the inclusive DBF transfer at ASM `loc_14314`.
+///
+/// The scheduler mirrors the four-entry jgenesis FIFO used as the oracle:
+/// each VRAM word needs two access slots and three slots of initial latency.
+/// A write made while the FIFO is full stalls subsequent 68000 execution one
+/// cycle at a time; those VDP-owned ticks reset the refresh counter.
+pub fn load_in_game_platform_art_transfer_cursor_loc_14314(
+    entry: LoadInGameCpuRasterCursor,
+    output_words: u16,
+) -> Option<LoadInGamePlatformArtTransferAdvance> {
+    if output_words == 0 {
+        return None;
+    }
+
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+    let mut refresh_events = 0_u32;
+    let mut fifo_halted_ticks = 0_u32;
+
+    let advance_instruction = |raw_cycles: u32,
+                               fifo: &mut PlatformArtFifoScheduler,
+                               phase: &mut M68kRefreshPhase,
+                               refresh_events: &mut u32| {
+        let advance = phase.advance_rom(M68kCycleCount::from_raw(raw_cycles));
+        fifo.advance_m68k_cycles(advance.elapsed);
+        *phase = advance.phase_after;
+        *refresh_events += advance.refresh_events;
+    };
+
+    for word_index in 0..output_words {
+        // ASM loc_14314: move.w (a4)+,(a6)
+        advance_instruction(12, &mut fifo, &mut phase, &mut refresh_events);
+        fifo.push_word();
+
+        while fifo.pending_write {
+            fifo.advance_m68k_cycles(M68kCycleCount::from_raw(1));
+            fifo_halted_ticks = fifo_halted_ticks.checked_add(1)?;
+            // jgenesis `record_68k_instruction`: VDP ownership resets the
+            // approximate 68000 refresh counter on every halted tick.
+            phase = M68kRefreshPhase::new(0).expect("zero is a valid refresh phase");
+        }
+
+        // ASM loc_14314: DBF d3,loc_14314.
+        advance_instruction(
+            if word_index + 1 == output_words {
+                14
+            } else {
+                10
+            },
+            &mut fifo,
+            &mut phase,
+            &mut refresh_events,
+        );
+    }
+
+    // ASM loc_14318..return_14334: tst.w d0; beq.s; rts.
+    for raw_cycles in [4, 10, 16] {
+        advance_instruction(raw_cycles, &mut fifo, &mut phase, &mut refresh_events);
+    }
+
+    Some(LoadInGamePlatformArtTransferAdvance {
+        cursor: LoadInGameCpuRasterCursor {
+            beam: fifo.beam,
+            refresh_phase: phase,
+        },
+        fifo_halted_ticks: M68kCycleCount::from_raw(fifo_halted_ticks),
+        refresh_events,
+    })
+}
+
+/// Advance ASM `Load_InGame $11A0E -> Initialize_Platforms -> $11A12`.
+///
+/// Source work comes from
+/// [`crate::load_in_game_platform_initialisation_source_workload`]. Both
+/// `loc_14314` transfers use raster-driven FIFO scheduling. VINT remains an
+/// explicit hardware event because it may interrupt a different decoder
+/// instruction when the caller supplies a different persistent raster seed.
+pub fn load_in_game_platform_initialisation_cursor_from_entry(
+    entry: LoadInGameCpuRasterCursor,
+    vint: Option<LoadInGamePlatformVintEvent>,
+    refresh: LoadInGamePlatformRefreshLedger,
+) -> Option<LoadInGamePlatformInitialisationAdvance> {
+    let workload = crate::load_in_game_platform_initialisation_source_workload();
+    let mut cursor = entry;
+    let mut refresh_events = 0_u32;
+
+    let advance_source_span = |cursor: &mut LoadInGameCpuRasterCursor,
+                               raw: M68kCycleCount,
+                               span_refresh_events: u16,
+                               refresh_events: &mut u32| {
+        let refresh_cycles = u32::from(span_refresh_events).checked_mul(2)?;
+        let elapsed = raw.get().checked_add(refresh_cycles)?;
+        cursor.beam = cursor
+            .beam
+            .advance_m68k_cycles(M68kCycleCount::from_raw(elapsed));
+        cursor.refresh_phase = M68kRefreshPhase::new(
+            u8::try_from((u32::from(cursor.refresh_phase.get()) + elapsed) % 128)
+                .expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        *refresh_events = refresh_events.checked_add(u32::from(span_refresh_events))?;
+        Some(())
+    };
+
+    advance_source_span(
+        &mut cursor,
+        workload.prelude_through_first_decompress_entry,
+        refresh.prelude,
+        &mut refresh_events,
+    )?;
+    advance_source_span(
+        &mut cursor,
+        workload.horizontal_art.decoder,
+        refresh.horizontal_decoder,
+        &mut refresh_events,
+    )?;
+    let horizontal = load_in_game_platform_art_transfer_cursor_loc_14314(
+        cursor,
+        workload.horizontal_art.output_words,
+    )?;
+    cursor = horizontal.cursor;
+    refresh_events = refresh_events.checked_add(horizontal.refresh_events)?;
+
+    advance_source_span(
+        &mut cursor,
+        workload.between_art_uploads,
+        refresh.between_uploads,
+        &mut refresh_events,
+    )?;
+
+    if let Some(vint) = vint {
+        let prefix = vint.vertical_decoder_raw_offset;
+        let suffix = workload
+            .vertical_art
+            .decoder
+            .get()
+            .checked_sub(prefix.get())
+            .map(M68kCycleCount::from_raw)?;
+        advance_source_span(
+            &mut cursor,
+            prefix,
+            refresh.vertical_decoder_before_vint,
+            &mut refresh_events,
+        )?;
+        // Genesis VINT exception entry and the Kid handler path crossed by
+        // Decompress_Chunk. ASM VInt $390..$3A2 returns after 60 source cycles.
+        advance_source_span(
+            &mut cursor,
+            M68kCycleCount::from_raw(44),
+            refresh.vint_exception,
+            &mut refresh_events,
+        )?;
+        advance_source_span(
+            &mut cursor,
+            M68kCycleCount::from_raw(60),
+            refresh.vint_handler,
+            &mut refresh_events,
+        )?;
+        advance_source_span(
+            &mut cursor,
+            suffix,
+            refresh.vertical_decoder_after_vint,
+            &mut refresh_events,
+        )?;
+    } else {
+        advance_source_span(
+            &mut cursor,
+            workload.vertical_art.decoder,
+            refresh.vertical_decoder_before_vint,
+            &mut refresh_events,
+        )?;
+        if refresh.vint_exception != 0
+            || refresh.vint_handler != 0
+            || refresh.vertical_decoder_after_vint != 0
+        {
+            return None;
+        }
+    }
+
+    let vertical = load_in_game_platform_art_transfer_cursor_loc_14314(
+        cursor,
+        workload.vertical_art.output_words,
+    )?;
+    cursor = vertical.cursor;
+    refresh_events = refresh_events.checked_add(vertical.refresh_events)?;
+    advance_source_span(
+        &mut cursor,
+        workload.epilogue,
+        refresh.epilogue,
+        &mut refresh_events,
+    )?;
+    let vint_cycles = if vint.is_some() { 104 } else { 0 };
+    let elapsed = workload
+        .raw_cycles()
+        .get()
+        .checked_add(vint_cycles)?
+        .checked_add(refresh_events.checked_mul(2)?)?
+        .checked_add(horizontal.fifo_halted_ticks.get())?
+        .checked_add(vertical.fifo_halted_ticks.get())?;
+
+    Some(LoadInGamePlatformInitialisationAdvance {
+        cursor,
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        horizontal_fifo_halted_ticks: horizontal.fifo_halted_ticks,
+        vertical_fifo_halted_ticks: vertical.fifo_halted_ticks,
+        refresh_events,
+    })
+}
+
 /// Advance the source tail from `Load_InGame`'s `j_sub_28FC` call at `$11A12`
 /// to the first instruction of `StopMusic $E14C8`.
 pub fn load_in_game_stop_music_cursor_from_sub_28fc(
@@ -5508,6 +5870,97 @@ mod tests {
 
         assert_eq!(cursor.beam, H40BeamPosition::new(250, 1_222).unwrap());
         assert_eq!(cursor.refresh_phase, M68kRefreshPhase::new(14).unwrap());
+    }
+
+    #[test]
+    fn platform_art_loc_14314_fifo_stalls_only_during_active_display() {
+        let active = load_in_game_platform_art_transfer_cursor_loc_14314(
+            LoadInGameCpuRasterCursor {
+                // ASM Initialize_Platforms sub_231C -> DecompressToVRAM
+                // loc_14314 first horizontal-art word on the current route.
+                beam: H40BeamPosition::new(183, 1_056).expect("oracle beam"),
+                refresh_phase: M68kRefreshPhase::new(24).expect("oracle refresh phase"),
+            },
+            192,
+        )
+        .expect("non-empty inclusive DBF transfer");
+        assert_eq!(active.fifo_halted_ticks, M68kCycleCount::from_raw(6_000));
+        assert_eq!(active.refresh_events, 1);
+        assert_eq!(
+            active.cursor.beam,
+            H40BeamPosition::new(204, 1_056).expect("oracle beam")
+        );
+        assert_eq!(
+            active.cursor.refresh_phase,
+            M68kRefreshPhase::new(44).unwrap()
+        );
+
+        let vblank = load_in_game_platform_art_transfer_cursor_loc_14314(
+            LoadInGameCpuRasterCursor {
+                // ASM Initialize_Platforms' vertical-art loc_14314 begins
+                // after VBlank, where blank-line FIFO bandwidth is ample.
+                beam: H40BeamPosition::new(234, 2_952).expect("oracle beam"),
+                refresh_phase: M68kRefreshPhase::new(124).expect("oracle refresh phase"),
+            },
+            192,
+        )
+        .expect("non-empty inclusive DBF transfer");
+        assert_eq!(vblank.fifo_halted_ticks, M68kCycleCount::from_raw(0));
+        assert_eq!(vblank.refresh_events, 34);
+        assert_eq!(
+            vblank.cursor.beam,
+            H40BeamPosition::new(243, 2_454).expect("oracle beam")
+        );
+        assert_eq!(
+            vblank.cursor.refresh_phase,
+            M68kRefreshPhase::new(98).unwrap()
+        );
+    }
+
+    #[test]
+    fn initialize_platforms_positions_sub_28fc_from_load_in_game_entry() {
+        let advance = load_in_game_platform_initialisation_cursor_from_entry(
+            LoadInGameCpuRasterCursor {
+                // ASM Load_InGame $11A0E selected-PC boundary.
+                beam: H40BeamPosition::new(151, 428).expect("oracle beam"),
+                refresh_phase: M68kRefreshPhase::new(44).expect("oracle refresh phase"),
+            },
+            Some(LoadInGamePlatformVintEvent {
+                // ASM Decompress_Chunk sub_13684: the scanline-224 VINT
+                // interrupts the vertical stream after 9,424 source cycles.
+                vertical_decoder_raw_offset: M68kCycleCount::from_raw(9_424),
+            }),
+            LoadInGamePlatformRefreshLedger {
+                prelude: 7,
+                horizontal_decoder: 115,
+                between_uploads: 0,
+                vertical_decoder_before_vint: 75,
+                vint_exception: 0,
+                vint_handler: 1,
+                vertical_decoder_after_vint: 40,
+                epilogue: 0,
+            },
+        )
+        .expect("bounded platform initialisation schedule");
+
+        assert_eq!(
+            advance.horizontal_fifo_halted_ticks,
+            M68kCycleCount::from_raw(6_000)
+        );
+        assert_eq!(
+            advance.vertical_fifo_halted_ticks,
+            M68kCycleCount::from_raw(0)
+        );
+        assert_eq!(advance.refresh_events, 273);
+        assert_eq!(advance.elapsed, M68kCycleCount::from_raw(45_254));
+        assert_eq!(
+            advance.cursor.beam,
+            H40BeamPosition::new(243, 2_566).expect("oracle sub_28FC beam")
+        );
+        assert_eq!(
+            advance.cursor.refresh_phase,
+            M68kRefreshPhase::new(114).unwrap()
+        );
     }
 
     #[test]

@@ -1352,39 +1352,61 @@ mod tests {
         )
         .expect("frame-867 StopMusic schedule");
         let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
-        let sub_28fc_cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
-            beam: wildside_core::vdp::H40BeamPosition::new(243, 2_566).expect("sub_28FC call beam"),
-            refresh_phase: wildside_core::M68kRefreshPhase::new(114)
-                .expect("sub_28FC refresh phase"),
+        let load_in_game_cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
+            beam: wildside_core::vdp::H40BeamPosition::new(151, 428)
+                .expect("Load_InGame call beam"),
+            refresh_phase: wildside_core::M68kRefreshPhase::new(44)
+                .expect("Load_InGame refresh phase"),
         };
-        let sub_28fc_frame_cursor =
-            wildside_core::vdp::ntsc_vblank_cursor_from_h40_beam(sub_28fc_cursor.beam);
-        engine.advance_ntsc_master_clocks(u64::from(sub_28fc_frame_cursor.get()));
+        let load_in_game_frame_cursor =
+            wildside_core::vdp::ntsc_vblank_cursor_from_h40_beam(load_in_game_cursor.beam);
+        engine.advance_ntsc_master_clocks(u64::from(load_in_game_frame_cursor.get()));
+        let platforms = wildside_core::vdp::load_in_game_platform_initialisation_cursor_from_entry(
+            load_in_game_cursor,
+            Some(wildside_core::vdp::LoadInGamePlatformVintEvent {
+                vertical_decoder_raw_offset: M68kCycleCount::from_raw(9_424),
+            }),
+            wildside_core::vdp::LoadInGamePlatformRefreshLedger {
+                prelude: 7,
+                horizontal_decoder: 115,
+                between_uploads: 0,
+                vertical_decoder_before_vint: 75,
+                vint_exception: 0,
+                vint_handler: 1,
+                vertical_decoder_after_vint: 40,
+                epilogue: 0,
+            },
+        )
+        .expect("frame-866 platform-art schedule");
+        engine.advance_ntsc_master_clocks(u64::from(platforms.elapsed.get()) * 7);
+        assert_eq!(
+            engine.master_clock() % (3_420 * 262),
+            u64::from(
+                wildside_core::vdp::ntsc_vblank_cursor_from_h40_beam(platforms.cursor.beam).get()
+            )
+        );
+
         let tail = wildside_core::load_in_game_stop_music_tail_advance(
-            sub_28fc_cursor.refresh_phase,
+            platforms.cursor.refresh_phase,
             wildside_core::LoadInGameTimerBonusPath::Initialise,
         );
         engine.advance_ntsc_master_clocks(u64::from(tail.elapsed.get()) * 7);
         let entry_cursor = wildside_core::vdp::load_in_game_stop_music_cursor_from_sub_28fc(
-            sub_28fc_cursor,
+            platforms.cursor,
             wildside_core::LoadInGameTimerBonusPath::Initialise,
         );
         assert_eq!(
-            engine.master_clock(),
+            engine.master_clock() % (3_420 * 262),
             u64::from(
                 wildside_core::vdp::ntsc_vblank_cursor_from_h40_beam(entry_cursor.beam).get()
             )
         );
 
+        let entry_master_clock = engine.master_clock();
         let advance = apply_timed_gems_stop_music(&mut engine, timing);
 
         assert!(advance.banked_68k_reads.is_empty());
-        assert_eq!(
-            engine.master_clock(),
-            u64::from(
-                wildside_core::vdp::ntsc_vblank_cursor_from_h40_beam(entry_cursor.beam).get()
-            ) + 229_570 * 7
-        );
+        assert_eq!(engine.master_clock(), entry_master_clock + 229_570 * 7);
         engine.start_sequence(3);
     }
 
