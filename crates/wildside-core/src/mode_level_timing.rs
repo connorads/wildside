@@ -505,6 +505,7 @@ pub struct GemsStopMusicElapsedBusWindow {
 pub struct GemsStopMusicElapsedTiming {
     pub elapsed_cycles: M68kCycleCount,
     pub bus_windows: [GemsStopMusicElapsedBusWindow; 7],
+    pub driver_reset_release_complete_elapsed_offset: M68kCycleCount,
     pub reset_assert_complete_elapsed_offset: M68kCycleCount,
     pub reset_release_complete_elapsed_offset: M68kCycleCount,
     pub phase_after: M68kRefreshPhase,
@@ -929,8 +930,12 @@ fn gems_stop_music_elapsed_timing_with_vint_schedule(
         release_complete_elapsed_offset: M68kCycleCount::from_raw(0),
     }; 7];
 
-    // ASM StopMusic -> sub_E13DA -> Stop_z80, through the BUSREQ write.
-    clock.source_instructions(&[16, 18, 12, 20, 18, 20])?;
+    // ASM StopMusic -> sub_E13DA first releases power-on reset, then enters
+    // Stop_z80 and writes BUSREQ.
+    clock.source_instructions(&[16, 18, 12, 20])?;
+    let driver_reset_release_complete_elapsed_offset =
+        M68kCycleCount::from_raw(clock.last_source_instruction_completion_elapsed);
+    clock.source_instructions(&[18, 20])?;
     if clock.raw_cycles != source.bus_windows[0].request_complete_raw_offset.get() {
         return None;
     }
@@ -1031,6 +1036,7 @@ fn gems_stop_music_elapsed_timing_with_vint_schedule(
     Some(GemsStopMusicElapsedTiming {
         elapsed_cycles: M68kCycleCount::from_raw(clock.elapsed_cycles),
         bus_windows,
+        driver_reset_release_complete_elapsed_offset,
         reset_assert_complete_elapsed_offset,
         reset_release_complete_elapsed_offset,
         phase_after: clock.phase,
@@ -2834,6 +2840,29 @@ mod tests {
         assert_eq!(elapsed.elapsed_cycles.get(), 229_682);
         assert_eq!(elapsed.refresh_wait_events, 1_506);
         assert_eq!(elapsed.phase_after.get(), 122);
+    }
+
+    #[test]
+    fn power_on_stop_music_releases_reset_with_masked_vints_e14c8() {
+        // ASM StopMusic -> sub_E13DA releases power-on Z80 reset before
+        // Stop_z80. Frame 14 has SR=$2700, so both crossed VINT assertions are
+        // masked rather than injected into the source schedule.
+        let elapsed = gems_stop_music_elapsed_timing(
+            GemsStopMusicBusAckPolls {
+                driver_copy_sub_e13da: 1,
+                queue_transactions_sub_e143a: [1; 6],
+            },
+            M68kRefreshPhase::new(46).expect("frame-14 selected-PC phase"),
+            &[],
+        )
+        .expect("power-on StopMusic schedule");
+
+        assert_eq!(elapsed.elapsed_cycles.get(), 229_454);
+        assert_eq!(
+            elapsed.driver_reset_release_complete_elapsed_offset.get(),
+            66,
+            "ASM sub_E13DA reset-release write completes before Stop_z80 BUSREQ"
+        );
     }
 
     #[test]

@@ -24,8 +24,8 @@ use wildside_data::AssetSource;
 use wildside_data::{AssetManifest, LevelHeader, resource_level_record};
 #[cfg(feature = "audio")]
 use wildside_md::{
-    GemsAudioEngine, GemsMasterClockAdvance, GemsMasterClockTimingEngine, GemsQueueCommand,
-    GemsQueueCommandControl, GemsStopMusicControl, GemsStopMusicQueueTransaction,
+    GemsAudioEngine, GemsMasterClockAdvance, GemsMasterClockTimingEngine, GemsNtscTimelineOrigin,
+    GemsQueueCommand, GemsQueueCommandControl, GemsStopMusicControl, GemsStopMusicQueueTransaction,
 };
 
 pub const AUDIO_SAMPLE_RATE: u32 = 44_100;
@@ -772,6 +772,8 @@ pub fn apply_timed_gems_stop_music(
     };
 
     let driver = timing.bus_windows[0];
+    advance_to(timing.driver_reset_release_complete_elapsed_offset, audio);
+    audio.apply_stop_music_control(GemsStopMusicControl::ReleaseDriverReset);
     advance_to(driver.request_complete_elapsed_offset, audio);
     audio.apply_stop_music_control(GemsStopMusicControl::BeginDriverCopy);
     advance_to(timing.reset_assert_complete_elapsed_offset, audio);
@@ -819,6 +821,9 @@ pub fn apply_timed_gems_stop_music_from_absolute_entry(
     const MCLK_PER_M68K_CYCLE: u64 = 7;
     const NTSC_FRAME_MASTER_CLOCKS: u64 = 3_420 * 262;
 
+    if audio.ntsc_timeline_origin() != GemsNtscTimelineOrigin::PowerOnScanlineZero {
+        return None;
+    }
     let absolute_entry_master_clock =
         u64::from(absolute_entry_cycles.get()).checked_mul(MCLK_PER_M68K_CYCLE)?;
     if audio.master_clock() % NTSC_FRAME_MASTER_CLOCKS
@@ -1834,8 +1839,30 @@ mod tests {
         // the final RTS at +229,558 before its 16-cycle completion.
         let absolute_entry = M68kCycleCount::from_raw(17_789_000);
         let entry_master_clock = u64::from(absolute_entry.get()) * 7;
-        let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
-        engine.advance_ntsc_master_clocks(entry_master_clock % (3_420 * 262));
+        let mut frame_relative_engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+        assert!(
+            apply_timed_gems_stop_music_from_absolute_entry(
+                &mut frame_relative_engine,
+                wildside_core::GemsStopMusicBusAckPolls {
+                    driver_copy_sub_e13da: 1,
+                    queue_transactions_sub_e143a: [1; 6],
+                },
+                M68kRefreshPhase::new(32).expect("frame-139 selected-PC phase"),
+                absolute_entry,
+            )
+            .is_none(),
+            "absolute schedules require a power-on raster origin"
+        );
+        let mut engine = GemsMasterClockTimingEngine::new_with_ntsc_timeline_origin(
+            &[0x76],
+            vec![],
+            GemsNtscTimelineOrigin::PowerOnScanlineZero,
+        );
+        engine.advance_ntsc_master_clocks(entry_master_clock);
+        assert!(
+            engine.checkpoint().reset,
+            "absolute power-on timeline starts with the Z80 reset asserted"
+        );
 
         let (timing, advance) = apply_timed_gems_stop_music_from_absolute_entry(
             &mut engine,
@@ -1849,9 +1876,14 @@ mod tests {
         .expect("frame-139 title StopMusic schedule");
 
         assert_eq!(timing.elapsed_cycles, M68kCycleCount::from_raw(229_574));
+        assert_eq!(
+            timing.driver_reset_release_complete_elapsed_offset,
+            M68kCycleCount::from_raw(66),
+        );
         assert_eq!(timing.refresh_wait_events, 1_509);
         assert_eq!(timing.phase_after, M68kRefreshPhase::new(102).unwrap());
         assert!(advance.banked_68k_reads.is_empty());
+        assert!(!engine.checkpoint().reset);
         assert_eq!(
             engine.master_clock() % (3_420 * 262),
             (entry_master_clock + 229_574 * 7) % (3_420 * 262),

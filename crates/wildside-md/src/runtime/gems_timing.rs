@@ -35,6 +35,15 @@ pub struct GemsMasterClockAdvance {
     pub pending_m68k_wait_cycles: u32,
 }
 
+/// Raster origin used to derive the Mega Drive Z80 VBlank interrupt line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GemsNtscTimelineOrigin {
+    /// Native trace/audio frames begin on VDP scanline 224.
+    VblankFrameBoundary,
+    /// Oracle absolute master clocks begin on VDP scanline 0.
+    PowerOnScanlineZero,
+}
+
 /// Native GEMS timing checkpoint at a 68000 scheduling boundary.
 ///
 /// The self-modifying audio RAM is deliberately retained in full: equal PCs
@@ -80,6 +89,7 @@ pub enum GemsStopMusicQueueTransaction {
 /// Hardware-visible stages of ASM `StopMusic` (`$E14C8..$E150E`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GemsStopMusicControl {
+    ReleaseDriverReset,
     BeginDriverCopy,
     AssertReset,
     ReleaseDriverBus,
@@ -196,6 +206,7 @@ impl Z80_io for GemsTimingBus {
 pub struct GemsMasterClockTimingEngine {
     z80: Z80<GemsTimingBus>,
     driver: Vec<u8>,
+    ntsc_timeline_origin: GemsNtscTimelineOrigin,
     master_clock: u64,
     z80_mclk_counter: u64,
     z80_t_cycles_wait: u32,
@@ -213,11 +224,24 @@ pub struct GemsMasterClockTimingEngine {
 
 impl GemsMasterClockTimingEngine {
     pub fn new(driver: &[u8], virtual_rom: Vec<u8>) -> Self {
+        Self::new_with_ntsc_timeline_origin(
+            driver,
+            virtual_rom,
+            GemsNtscTimelineOrigin::VblankFrameBoundary,
+        )
+    }
+
+    pub fn new_with_ntsc_timeline_origin(
+        driver: &[u8],
+        virtual_rom: Vec<u8>,
+        ntsc_timeline_origin: GemsNtscTimelineOrigin,
+    ) -> Self {
         let mut z80 = Z80::new(GemsTimingBus::new(driver, virtual_rom));
         z80.reset();
         Self {
             z80,
             driver: driver.to_vec(),
+            ntsc_timeline_origin,
             master_clock: 0,
             z80_mclk_counter: 0,
             z80_t_cycles_wait: 0,
@@ -227,7 +251,7 @@ impl GemsMasterClockTimingEngine {
             z80_halt: false,
             vdp_owns_bus: false,
             busreq: false,
-            reset: false,
+            reset: ntsc_timeline_origin == GemsNtscTimelineOrigin::PowerOnScanlineZero,
             pending_m68k_wait_cycles: 0,
             pending_banked_reads: Vec::new(),
             initialised: false,
@@ -235,16 +259,34 @@ impl GemsMasterClockTimingEngine {
     }
 
     pub fn from_kid_rom(rom: &[u8]) -> Result<Self> {
+        Self::from_kid_rom_with_ntsc_timeline_origin(
+            rom,
+            GemsNtscTimelineOrigin::VblankFrameBoundary,
+        )
+    }
+
+    pub fn from_kid_rom_with_ntsc_timeline_origin(
+        rom: &[u8],
+        ntsc_timeline_origin: GemsNtscTimelineOrigin,
+    ) -> Result<Self> {
         ensure!(
             rom.len() >= GEMS_DRIVER_END_ADDR as usize,
             "ROM is too small for Kid Chameleon GEMS driver"
         );
         let driver = &rom[GEMS_DRIVER_ADDR as usize..GEMS_DRIVER_END_ADDR as usize];
-        Ok(Self::new(driver, rom.to_vec()))
+        Ok(Self::new_with_ntsc_timeline_origin(
+            driver,
+            rom.to_vec(),
+            ntsc_timeline_origin,
+        ))
     }
 
     pub const fn master_clock(&self) -> u64 {
         self.master_clock
+    }
+
+    pub const fn ntsc_timeline_origin(&self) -> GemsNtscTimelineOrigin {
+        self.ntsc_timeline_origin
     }
 
     pub const fn pending_m68k_wait_cycles(&self) -> u32 {
@@ -344,7 +386,12 @@ impl GemsMasterClockTimingEngine {
             let scanline_mclk = frame_mclk % MASTER_CLOCKS_PER_SCANLINE;
             let until_next_scanline = MASTER_CLOCKS_PER_SCANLINE - scanline_mclk;
             let elapsed = master_clocks.min(until_next_scanline);
-            let vdp_scanline = (NTSC_ACTIVE_SCANLINES + frame_scanline) % NTSC_SCANLINES_PER_FRAME;
+            let vdp_scanline = match self.ntsc_timeline_origin {
+                GemsNtscTimelineOrigin::VblankFrameBoundary => {
+                    (NTSC_ACTIVE_SCANLINES + frame_scanline) % NTSC_SCANLINES_PER_FRAME
+                }
+                GemsNtscTimelineOrigin::PowerOnScanlineZero => frame_scanline,
+            };
             reads.extend(
                 self.advance_continuous_master_clocks(
                     elapsed,
@@ -396,14 +443,26 @@ impl GemsMasterClockTimingEngine {
             self.z80_mclk_counter = 0;
             if self.z80_t_cycles_wait != 0 {
                 self.z80_t_cycles_wait -= 1;
-            } else if !self.z80_halt && !self.busreq && !self.reset {
-                self.z80.io.current_master_clock.set(self.master_clock);
-                let reads_before = self.z80.io.banked_reads.borrow().len();
-                let elapsed = self.z80.step();
-                self.z80_t_cycles_wait = elapsed.saturating_sub(1);
-                let access_count = self.z80.io.banked_reads.borrow().len() - reads_before;
-                for _ in 0..access_count {
-                    self.record_z80_68k_bus_access();
+            } else if !self.z80_halt {
+                if self.reset {
+                    // jgenesis `Z80::execute_instruction`: RESET is sampled
+                    // only at an instruction boundary and occupies the normal
+                    // four-T-cycle minimum slot.
+                    self.z80.reset();
+                    self.z80_t_cycles_wait = 3;
+                } else if self.busreq {
+                    // jgenesis BUSREQ completes the current instruction, then
+                    // returns four-cycle stalled slots until the bus releases.
+                    self.z80_t_cycles_wait = 3;
+                } else {
+                    self.z80.io.current_master_clock.set(self.master_clock);
+                    let reads_before = self.z80.io.banked_reads.borrow().len();
+                    let elapsed = self.z80.step();
+                    self.z80_t_cycles_wait = elapsed.saturating_sub(1);
+                    let access_count = self.z80.io.banked_reads.borrow().len() - reads_before;
+                    for _ in 0..access_count {
+                        self.record_z80_68k_bus_access();
+                    }
                 }
             }
         }
@@ -472,6 +531,7 @@ impl GemsMasterClockTimingEngine {
     }
 
     pub fn stop_music(&mut self) {
+        self.apply_stop_music_control(GemsStopMusicControl::ReleaseDriverReset);
         self.apply_stop_music_control(GemsStopMusicControl::BeginDriverCopy);
         self.apply_stop_music_control(GemsStopMusicControl::AssertReset);
         self.apply_stop_music_control(GemsStopMusicControl::ReleaseDriverBus);
@@ -502,6 +562,13 @@ impl GemsMasterClockTimingEngine {
     /// intervening master clocks.
     pub fn apply_stop_music_control(&mut self, control: GemsStopMusicControl) {
         match control {
+            GemsStopMusicControl::ReleaseDriverReset => {
+                assert!(
+                    !self.busreq,
+                    "StopMusic releases power-on reset before requesting the Z80 bus"
+                );
+                self.set_z80_control(false, false);
+            }
             GemsStopMusicControl::BeginDriverCopy => {
                 assert!(
                     !self.busreq && !self.reset,
@@ -637,8 +704,6 @@ impl GemsMasterClockTimingEngine {
         if reset && !self.reset {
             // ASM sub_E1416 asserts Mega Drive Z80 reset, which also resets YM2612.
             self.z80.io.ym2612_shadow.get_mut().reset();
-            self.z80.reset();
-            self.z80_t_cycles_wait = 0;
         }
         self.busreq = busreq;
         self.reset = reset;
@@ -827,6 +892,33 @@ mod tests {
             advance.banked_68k_reads[0].master_clock < MASTER_CLOCKS_PER_SCANLINE,
             "the Z80 must service the scanline-224 interrupt at the trace/audio frame boundary"
         );
+    }
+
+    #[test]
+    fn power_on_timeline_asserts_z80_interrupt_on_vdp_scanline_224() {
+        // jgenesis `Vdp::z80_interrupt_line`: an absolute power-on master
+        // clock reaches the low INT line only at VDP scanline 224.
+        let mut driver = vec![0; 0x3D];
+        driver[..4].copy_from_slice(&[0xFB, 0x00, 0x76, 0x76]); // EI; NOP; HALT
+        driver[0x38..0x3D].copy_from_slice(&[0x3A, 0x00, 0x80, 0x76, 0x76]);
+        let mut rom = vec![0; 0x8001];
+        rom[0] = 0x5A;
+        let mut engine = GemsMasterClockTimingEngine::new_with_ntsc_timeline_origin(
+            &driver,
+            rom,
+            GemsNtscTimelineOrigin::PowerOnScanlineZero,
+        );
+        assert!(engine.checkpoint().reset);
+        engine.set_z80_control(false, false);
+
+        let advance = engine.advance_ntsc_frame();
+        let read = advance
+            .banked_68k_reads
+            .first()
+            .expect("scanline-224 interrupt handler bank read");
+
+        assert!(read.master_clock >= 224 * MASTER_CLOCKS_PER_SCANLINE);
+        assert!(read.master_clock < 225 * MASTER_CLOCKS_PER_SCANLINE);
     }
 
     #[test]
@@ -1029,6 +1121,29 @@ mod tests {
             &[0xFF, 0x10, 0x17],
             "ASM sub_E151C queues command marker, start-sequence byte, and id"
         );
+    }
+
+    #[test]
+    fn reset_and_busreq_are_sampled_in_four_t_cycle_slots() {
+        // jgenesis `Z80::tick`: the current instruction finishes before
+        // BUSREQ stalls, while RESET is sampled only when the next instruction
+        // would begin. Both states then occupy four-T-cycle minimum slots.
+        let mut engine = GemsMasterClockTimingEngine::new(&[0x00, 0x00, 0x76], vec![]);
+        engine.advance_master_clocks(15, false, false);
+        assert_eq!(engine.z80_pc(), 1);
+        assert_eq!(engine.checkpoint().z80_t_cycles_wait, 3);
+
+        engine.set_z80_control(true, false);
+        engine.advance_master_clocks(45, false, false);
+        assert_eq!(engine.z80_pc(), 1);
+        assert_eq!(engine.checkpoint().z80_t_cycles_wait, 0);
+        engine.advance_master_clocks(15, false, false);
+        assert_eq!(engine.checkpoint().z80_t_cycles_wait, 3);
+
+        engine.set_z80_control(false, true);
+        engine.advance_master_clocks(60, false, false);
+        assert_eq!(engine.z80_pc(), 0);
+        assert_eq!(engine.checkpoint().z80_t_cycles_wait, 3);
     }
 
     #[test]
