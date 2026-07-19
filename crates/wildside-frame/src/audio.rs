@@ -15,8 +15,9 @@ use wildside_core::{
     GemsStopMusicElapsedTiming, HudDmaEventSub44DC, LoadInGameTimerBonusPath, M68kCycleCount,
     M68kRefreshPhase,
     vdp::{
-        LoadInGameCpuRasterCursor, LoadInGamePlatformInitialisationAdvance,
-        LoadInGamePlatformRefreshLedger, LoadInGamePlatformVintEvent, ModeLevelCpuRasterCursor,
+        DecompressToVramTransferAdvance, LoadInGameCpuRasterCursor,
+        LoadInGamePlatformInitialisationAdvance, LoadInGamePlatformRefreshLedger,
+        LoadInGamePlatformVintEvent, ModeLevelCpuRasterCursor,
     },
 };
 #[cfg(feature = "audio")]
@@ -730,6 +731,38 @@ pub fn apply_gems_load_in_game_platform_initialisation(
                 vdp_owns_bus,
             );
             (advance.pending_m68k_wait_cycles == 0).then_some(())
+        },
+    )
+}
+
+/// Clock one generic ASM `DecompressToVRAM loc_14314` FIFO transfer.
+///
+/// Core owns the source instructions, refresh, optional instruction-boundary
+/// VINT and VDP FIFO. Persistent GEMS returns each newly generated external
+/// 68000 wait to the scheduler while banked reads that collide with VDP
+/// ownership halt the Z80 instead.
+#[cfg(feature = "audio")]
+pub fn apply_gems_decompress_to_vram_transfer_loc_14314(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    output_words: u16,
+    vint_pending: bool,
+) -> Option<DecompressToVramTransferAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::decompress_to_vram_transfer_cursor_loc_14314_with_scheduler(
+        entry,
+        output_words,
+        vint_pending,
+        |cycles, vdp_owns_bus| {
+            audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                u64::from(cycles.get()) * 7,
+                vdp_owns_bus,
+            );
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
         },
     )
 }
@@ -1987,6 +2020,128 @@ mod tests {
 
         assert_eq!(actual, expected);
         assert!(engine.take_banked_68k_reads().is_empty());
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn title_loc_14314_fifo_ownership_reaches_oracle_return_z80_phase() {
+        let rom = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../.cache/upstream/kid-chameleon-disasm/kid.bin"),
+        )
+        .expect("bootstrapped Kid ROM");
+        let mut engine = GemsMasterClockTimingEngine::from_kid_rom_with_ntsc_timeline_origin(
+            &rom,
+            GemsNtscTimelineOrigin::PowerOnScanlineZero,
+        )
+        .expect("Kid GEMS driver");
+        let polls = GemsStopMusicBusAckPolls {
+            driver_copy_sub_e13da: 1,
+            queue_transactions_sub_e143a: [1; 6],
+        };
+
+        // ASM StopMusic $E14C8 on the three pre-title shell resets.
+        for (entry, phase) in [(1_886_313_u32, 46_u8), (3_868_666, 72), (8_776_957, 124)] {
+            engine.advance_ntsc_master_clocks(u64::from(entry) * 7 - engine.master_clock());
+            let _ = engine.take_pending_m68k_wait_cycles();
+            apply_timed_gems_stop_music_from_absolute_entry(
+                &mut engine,
+                polls,
+                M68kRefreshPhase::new(phase).unwrap(),
+                M68kCycleCount::from_raw(entry),
+            )
+            .expect("source-positioned StopMusic");
+        }
+
+        // ASM Load_TitleScreen -> PlaySound -> sub_E151C queues bgm_Ice.
+        engine.advance_ntsc_master_clocks(9_006_731 * 7 - engine.master_clock());
+        let _ = engine.take_pending_m68k_wait_cycles();
+        apply_timed_gems_queue_command(
+            &mut engine,
+            GemsQueueCommandPath::StartOrStopSequenceSubE151c,
+            M68kRefreshPhase::new(10).unwrap(),
+            Some(GemsQueueCommand::StartSequence(gems_bgm::ICE)),
+        )
+        .expect("title Ice queue command");
+
+        let transfer_entry_cycles = M68kCycleCount::from_raw(9_161_190);
+        engine.advance_ntsc_master_clocks(
+            u64::from(transfer_entry_cycles.get()) * 7 - engine.master_clock(),
+        );
+        let _ = engine.take_pending_m68k_wait_cycles();
+        let entry_checkpoint = engine.checkpoint();
+        assert_eq!(entry_checkpoint.z80_pc, 0x0793);
+        assert_eq!(entry_checkpoint.z80_mclk_counter, 8);
+        assert_eq!(entry_checkpoint.z80_t_cycles_wait, 4);
+        assert_eq!(
+            entry_checkpoint.z80_index_registers,
+            [0x1B80, 0x0009, 0x1A20]
+        );
+        assert_eq!(entry_checkpoint.bank_address, 0x000E_0000);
+        assert!(entry_checkpoint.z80_odd_access);
+        assert!(entry_checkpoint.z80_iff1);
+        assert!(entry_checkpoint.z80_iff2);
+        let mut scheduler_elapsed = 0_u32;
+        let mut first_fifo_halt_cycle = None;
+        let mut first_oracle_collision_is_fifo_halted = false;
+        let mut vint_autovector_cycle = None;
+        let mut external_wait_cycles = 0_u32;
+        let transfer =
+            wildside_core::vdp::decompress_to_vram_transfer_cursor_loc_14314_with_scheduler(
+                LoadInGameCpuRasterCursor {
+                    // ASM sub_1B2A4 -> DecompressToVRAM loc_14314, selected-PC
+                    // oracle frame 71: d3=$07DF means 2,016 inclusive writes.
+                    beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                        transfer_entry_cycles,
+                    ),
+                    refresh_phase: M68kRefreshPhase::new(101).unwrap(),
+                },
+                2_016,
+                true,
+                |cycles, vdp_owns_bus| {
+                    if vdp_owns_bus && first_fifo_halt_cycle.is_none() {
+                        first_fifo_halt_cycle =
+                            Some(transfer_entry_cycles.get() + scheduler_elapsed);
+                    }
+                    if vdp_owns_bus && transfer_entry_cycles.get() + scheduler_elapsed == 9_216_149
+                    {
+                        first_oracle_collision_is_fifo_halted = true;
+                    }
+                    if cycles.get() == 44 {
+                        vint_autovector_cycle =
+                            Some(transfer_entry_cycles.get() + scheduler_elapsed);
+                    }
+                    engine.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                        u64::from(cycles.get()) * 7,
+                        vdp_owns_bus,
+                    );
+                    scheduler_elapsed += cycles.get();
+                    let pending = engine.take_pending_m68k_wait_cycles();
+                    external_wait_cycles += pending;
+                    Some(M68kCycleCount::from_raw(pending))
+                },
+            )
+            .expect("title loc_14314 transfer");
+        assert!(transfer.vint_serviced);
+        assert_eq!(first_fifo_halt_cycle, Some(9_161_360));
+        assert!(first_oracle_collision_is_fifo_halted);
+        assert_eq!(vint_autovector_cycle, Some(9_197_868));
+        assert_eq!(
+            engine.master_clock(),
+            9_245_822 * 7,
+            "ASM return_14334 master-clock boundary",
+        );
+        assert_eq!(external_wait_cycles, 1_320);
+        assert_eq!(transfer.fifo_halted_ticks.get(), 38_532);
+        let return_checkpoint = engine.checkpoint();
+        assert_eq!(return_checkpoint.z80_pc, 0x0273);
+        assert_eq!(return_checkpoint.z80_mclk_counter, 4);
+        assert_eq!(return_checkpoint.z80_t_cycles_wait, 3);
+        assert_eq!(return_checkpoint.z80_wait_mclk_cycles, 0);
+        assert!(return_checkpoint.z80_odd_access);
+        assert!(return_checkpoint.z80_iff1);
+        assert!(return_checkpoint.z80_iff2);
+        assert!(!return_checkpoint.z80_halt);
     }
 
     #[cfg(feature = "audio")]

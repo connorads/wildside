@@ -353,7 +353,28 @@ impl GemsMasterClockTimingEngine {
         interrupt_low: bool,
         vdp_owns_bus: bool,
     ) -> GemsMasterClockAdvance {
-        self.advance_continuous_master_clocks(master_clocks, interrupt_low, vdp_owns_bus)
+        self.advance_continuous_master_clocks(master_clocks, interrupt_low, vdp_owns_bus, None)
+    }
+
+    /// Advance one already-timed 68000 instruction.
+    ///
+    /// A Z80 bank wait raised at this instruction's closing boundary cannot
+    /// consume clocks that elapsed before the access. The following
+    /// instruction interval consumes it. ASM GEMS `XFER68K $0273/$0285`
+    /// reaches this path while `DecompressToVRAM loc_14314` feeds the FIFO.
+    pub fn advance_m68k_instruction_master_clocks(
+        &mut self,
+        master_clocks: u64,
+        interrupt_low: bool,
+        vdp_owns_bus: bool,
+    ) -> GemsMasterClockAdvance {
+        let mut consumable_z80_wait_mclk_cycles = self.z80_wait_mclk_cycles;
+        self.advance_continuous_master_clocks(
+            master_clocks,
+            interrupt_low,
+            vdp_owns_bus,
+            Some(&mut consumable_z80_wait_mclk_cycles),
+        )
     }
 
     /// Advance one exact VBlank-to-VBlank 262-scanline NTSC frame.
@@ -380,8 +401,34 @@ impl GemsMasterClockTimingEngine {
     /// Z80 interrupt edges still follow the scanline-224 VBlank timeline.
     pub fn advance_ntsc_master_clocks_with_vdp_ownership(
         &mut self,
+        master_clocks: u64,
+        vdp_owns_bus: bool,
+    ) -> GemsMasterClockAdvance {
+        self.advance_ntsc_master_clocks_with_vdp_ownership_inner(master_clocks, vdp_owns_bus, None)
+    }
+
+    /// Advance one 68000 instruction while deriving Z80 INT from NTSC raster.
+    ///
+    /// A bank wait generated at this instruction's closing boundary remains
+    /// pending for the following instruction.
+    pub fn advance_ntsc_m68k_instruction_with_vdp_ownership(
+        &mut self,
+        master_clocks: u64,
+        vdp_owns_bus: bool,
+    ) -> GemsMasterClockAdvance {
+        let mut consumable_z80_wait_mclk_cycles = self.z80_wait_mclk_cycles;
+        self.advance_ntsc_master_clocks_with_vdp_ownership_inner(
+            master_clocks,
+            vdp_owns_bus,
+            Some(&mut consumable_z80_wait_mclk_cycles),
+        )
+    }
+
+    fn advance_ntsc_master_clocks_with_vdp_ownership_inner(
+        &mut self,
         mut master_clocks: u64,
         vdp_owns_bus: bool,
+        mut consumable_z80_wait_mclk_cycles: Option<&mut u64>,
     ) -> GemsMasterClockAdvance {
         const MASTER_CLOCKS_PER_FRAME: u64 =
             MASTER_CLOCKS_PER_SCANLINE * NTSC_SCANLINES_PER_FRAME as u64;
@@ -404,6 +451,7 @@ impl GemsMasterClockTimingEngine {
                     elapsed,
                     vdp_scanline == NTSC_ACTIVE_SCANLINES,
                     vdp_owns_bus,
+                    consumable_z80_wait_mclk_cycles.as_deref_mut(),
                 )
                 .banked_68k_reads,
             );
@@ -420,6 +468,7 @@ impl GemsMasterClockTimingEngine {
         mut master_clocks: u64,
         interrupt_low: bool,
         vdp_owns_bus: bool,
+        mut consumable_z80_wait_mclk_cycles: Option<&mut u64>,
     ) -> GemsMasterClockAdvance {
         if interrupt_low {
             self.z80.assert_irq(0xFF);
@@ -429,10 +478,17 @@ impl GemsMasterClockTimingEngine {
         self.vdp_owns_bus = vdp_owns_bus;
         self.z80_halt &= vdp_owns_bus;
         while master_clocks != 0 {
-            if !vdp_owns_bus && self.z80_wait_mclk_cycles != 0 {
-                let elapsed = master_clocks.min(self.z80_wait_mclk_cycles);
+            let consumable_wait = consumable_z80_wait_mclk_cycles
+                .as_deref()
+                .copied()
+                .unwrap_or(self.z80_wait_mclk_cycles);
+            if !vdp_owns_bus && consumable_wait != 0 {
+                let elapsed = master_clocks.min(consumable_wait);
                 self.advance_clock_counters(elapsed);
                 self.z80_wait_mclk_cycles -= elapsed;
+                if let Some(consumable) = consumable_z80_wait_mclk_cycles.as_deref_mut() {
+                    *consumable -= elapsed;
+                }
                 master_clocks -= elapsed;
                 continue;
             }
@@ -448,28 +504,31 @@ impl GemsMasterClockTimingEngine {
             self.advance_clock_counters(clocks_to_tick);
             master_clocks -= clocks_to_tick;
             self.z80_mclk_counter = 0;
-            if self.z80_t_cycles_wait != 0 {
+            if self.z80_halt {
+                // jgenesis stops ticking the Z80 entirely after a banked
+                // 68000 access collides with VDP ownership. The current
+                // instruction's remaining T cycles resume only after the
+                // FIFO/DMA releases the bus.
+            } else if self.z80_t_cycles_wait != 0 {
                 self.z80_t_cycles_wait -= 1;
-            } else if !self.z80_halt {
-                if self.reset {
-                    // jgenesis `Z80::execute_instruction`: RESET is sampled
-                    // only at an instruction boundary and occupies the normal
-                    // four-T-cycle minimum slot.
-                    self.z80.reset();
-                    self.z80_t_cycles_wait = 3;
-                } else if self.busreq {
-                    // jgenesis BUSREQ completes the current instruction, then
-                    // returns four-cycle stalled slots until the bus releases.
-                    self.z80_t_cycles_wait = 3;
-                } else {
-                    self.z80.io.current_master_clock.set(self.master_clock);
-                    let reads_before = self.z80.io.banked_reads.borrow().len();
-                    let elapsed = self.step_z80_instruction();
-                    self.z80_t_cycles_wait = elapsed.saturating_sub(1);
-                    let access_count = self.z80.io.banked_reads.borrow().len() - reads_before;
-                    for _ in 0..access_count {
-                        self.record_z80_68k_bus_access();
-                    }
+            } else if self.reset {
+                // jgenesis `Z80::execute_instruction`: RESET is sampled
+                // only at an instruction boundary and occupies the normal
+                // four-T-cycle minimum slot.
+                self.z80.reset();
+                self.z80_t_cycles_wait = 3;
+            } else if self.busreq {
+                // jgenesis BUSREQ completes the current instruction, then
+                // returns four-cycle stalled slots until the bus releases.
+                self.z80_t_cycles_wait = 3;
+            } else {
+                self.z80.io.current_master_clock.set(self.master_clock);
+                let reads_before = self.z80.io.banked_reads.borrow().len();
+                let elapsed = self.step_z80_instruction();
+                self.z80_t_cycles_wait = elapsed.saturating_sub(1);
+                let access_count = self.z80.io.banked_reads.borrow().len() - reads_before;
+                for _ in 0..access_count {
+                    self.record_z80_68k_bus_access();
                 }
             }
         }
@@ -834,7 +893,7 @@ mod tests {
         assert_eq!(checkpoint.audio_ram[0x1FFF], 0xA5);
         assert_eq!(checkpoint.bank_address, 0x0180_0000);
         assert_eq!(checkpoint.z80_mclk_counter, 14);
-        assert_eq!(checkpoint.ym2612_mclk_counter, 0);
+        assert_eq!(checkpoint.ym2612_mclk_counter, 14);
     }
 
     #[test]
@@ -921,6 +980,29 @@ mod tests {
     }
 
     #[test]
+    fn m68k_instruction_defers_bank_wait_generated_inside_its_interval() {
+        // GEMS XFER68K $0273/$0285: jgenesis records the complete 68000
+        // instruction before ticking the Z80. A bank wait raised during that
+        // catch-up cannot consume clocks from the instruction that preceded
+        // the access.
+        let driver = [0x3A, 0x00, 0x80, 0xC3, 0x00, 0x00];
+        let mut rom = vec![0; 0x8001];
+        rom[0] = 0x5A;
+        let mut instruction = GemsMasterClockTimingEngine::new(&driver, rom.clone());
+        let mut continuous = GemsMasterClockTimingEngine::new(&driver, rom);
+
+        instruction.advance_m68k_instruction_master_clocks(84, false, false);
+        continuous.advance_master_clocks(84, false, false);
+
+        assert_eq!(instruction.checkpoint().z80_wait_mclk_cycles, 49);
+        assert_eq!(continuous.checkpoint().z80_wait_mclk_cycles, 0);
+        assert_ne!(
+            instruction.checkpoint().z80_t_cycles_wait,
+            continuous.checkpoint().z80_t_cycles_wait,
+        );
+    }
+
+    #[test]
     fn ntsc_frame_begins_with_the_z80_vblank_interrupt_scanline() {
         // Mega Drive VDP `z80_interrupt_line`: INT is low only on scanline
         // 224. ASM WaitForVint hands the trace frame to V_Int on that same
@@ -932,6 +1014,7 @@ mod tests {
         let mut rom = vec![0; 0x8001];
         rom[0] = 0x5A;
         let mut engine = GemsMasterClockTimingEngine::new(&driver, rom);
+        engine.z80.interrupt_mode = 1;
 
         let advance = engine.advance_ntsc_frame();
 
@@ -956,6 +1039,7 @@ mod tests {
             rom,
             GemsNtscTimelineOrigin::PowerOnScanlineZero,
         );
+        engine.z80.interrupt_mode = 1;
         assert!(engine.checkpoint().reset);
         engine.set_z80_control(false, false);
 
@@ -990,6 +1074,8 @@ mod tests {
         rom[0] = 0x5A;
         let mut whole = GemsMasterClockTimingEngine::new(&driver, rom.clone());
         let mut split = GemsMasterClockTimingEngine::new(&driver, rom);
+        whole.z80.interrupt_mode = 1;
+        split.z80.interrupt_mode = 1;
         let frame_mclk = MASTER_CLOCKS_PER_SCANLINE * u64::from(NTSC_SCANLINES_PER_FRAME);
 
         let whole_reads = whole
@@ -1255,8 +1341,13 @@ mod tests {
         assert!(engine.z80_halt);
 
         let halted_pc = engine.z80_pc();
+        let halted_t_cycles = engine.z80_t_cycles_wait;
         engine.advance_master_clocks(60, false, true);
         assert_eq!(engine.z80_pc(), halted_pc);
+        assert_eq!(
+            engine.z80_t_cycles_wait, halted_t_cycles,
+            "VDP ownership freezes the current GEMS instruction, not only its PC",
+        );
         engine.advance_master_clocks(60, false, false);
         assert!(!engine.z80_halt);
     }

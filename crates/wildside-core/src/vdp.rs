@@ -2958,13 +2958,18 @@ pub struct LoadInGameCpuRasterCursor {
     pub refresh_phase: M68kRefreshPhase,
 }
 
-/// CPU/raster result of one ASM `loc_14314` 192-word platform-art transfer.
+/// CPU/raster result of one ASM `DecompressToVRAM loc_14314` transfer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LoadInGamePlatformArtTransferAdvance {
+pub struct DecompressToVramTransferAdvance {
     pub cursor: LoadInGameCpuRasterCursor,
     pub fifo_halted_ticks: M68kCycleCount,
     pub refresh_events: u32,
+    pub vint_serviced: bool,
+    pub pending_external_wait_cycles: M68kCycleCount,
 }
+
+/// Load_InGame name retained for the platform initialisation boundary.
+pub type LoadInGamePlatformArtTransferAdvance = DecompressToVramTransferAdvance;
 
 /// VINT position within the vertical platform-art decoder's pure source work.
 ///
@@ -3017,6 +3022,14 @@ struct PlatformArtFifoScheduler {
     pending_words: u8,
 }
 
+fn h40_in_vblank_at_access_slot(scanline: u16, pixel: u16) -> bool {
+    // jgenesis VDP HBlankStart latches VBlank after the active scanline 223
+    // access at pixel 330, then clears it at the same point on scanline 260.
+    matches!(scanline, 224..=259)
+        || (scanline == 223 && pixel >= 332)
+        || (scanline == 260 && pixel < 332)
+}
+
 impl PlatformArtFifoScheduler {
     fn new(beam: H40BeamPosition) -> Self {
         Self {
@@ -3063,7 +3076,7 @@ impl PlatformArtFifoScheduler {
             }
             let slot = pixel / 2;
             let refresh = matches!(slot, 26 | 58 | 90 | 122 | 154 | 204);
-            let blank = self.beam.scanline >= 224;
+            let blank = h40_in_vblank_at_access_slot(self.beam.scanline, pixel);
             let access = if blank {
                 !refresh
             } else {
@@ -3114,6 +3127,88 @@ impl PlatformArtFifoScheduler {
     }
 }
 
+fn advance_decompress_to_vram_source_instruction(
+    raw_cycles: u32,
+    fifo: &mut PlatformArtFifoScheduler,
+    phase: &mut M68kRefreshPhase,
+    refresh_events: &mut u32,
+    drain_generated_wait: bool,
+    advance_hardware: &mut dyn FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<M68kCycleCount> {
+    let phase_after_raw = u32::from(phase.get()).checked_add(raw_cycles)?;
+    let refresh_wait_cycles = if phase_after_raw >= 128 { 2 } else { 0 };
+    *phase = M68kRefreshPhase::new(
+        u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+    )
+    .expect("refresh phase remains below 128");
+    *refresh_events = refresh_events.checked_add(refresh_wait_cycles / 2)?;
+
+    let raw = M68kCycleCount::from_raw(raw_cycles);
+    fifo.advance_m68k_cycles(raw);
+    let mut pending_wait = advance_hardware(raw, false)?
+        .get()
+        .checked_add(refresh_wait_cycles)?;
+    if !drain_generated_wait {
+        return Some(M68kCycleCount::from_raw(pending_wait));
+    }
+    while pending_wait != 0 {
+        let wait = M68kCycleCount::from_raw(pending_wait);
+        fifo.advance_m68k_cycles(wait);
+        *phase = phase.advance_external_wait(wait).phase_after;
+        pending_wait = advance_hardware(wait, false)?.get();
+    }
+    Some(M68kCycleCount::from_raw(0))
+}
+
+fn drain_decompress_to_vram_wait(
+    mut pending_wait: M68kCycleCount,
+    fifo: &mut PlatformArtFifoScheduler,
+    phase: &mut M68kRefreshPhase,
+    advance_hardware: &mut dyn FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<()> {
+    while pending_wait.get() != 0 {
+        // jgenesis evaluates `should_halt_cpu` after the VDP-port MOVE has
+        // enqueued its word. A simultaneous GEMS wait therefore inherits
+        // FIFO ownership for the complete 68000 wait instruction.
+        let vdp_owns_bus = fifo.pending_words != 0;
+        fifo.advance_m68k_cycles(pending_wait);
+        *phase = phase.advance_external_wait(pending_wait).phase_after;
+        pending_wait = advance_hardware(pending_wait, vdp_owns_bus)?;
+        if vdp_owns_bus && pending_wait.get() != 0 {
+            return None;
+        }
+    }
+    Some(())
+}
+
+fn service_decompress_to_vram_vint_if_pending(
+    vint_pending: &mut bool,
+    fifo: &mut PlatformArtFifoScheduler,
+    phase: &mut M68kRefreshPhase,
+    refresh_events: &mut u32,
+    advance_hardware: &mut dyn FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<bool> {
+    if !*vint_pending || fifo.beam.scanline < 224 {
+        return Some(false);
+    }
+
+    // jgenesis instruction timing at ASM loc_14314: sample the level-6
+    // interrupt before the next opcode, enter the autovector, then execute
+    // V_Int $390..$3A2 (ADDQ/ST/RTE).
+    for raw_cycles in [10, 44, 28, 12, 20] {
+        advance_decompress_to_vram_source_instruction(
+            raw_cycles,
+            fifo,
+            phase,
+            refresh_events,
+            true,
+            advance_hardware,
+        )?;
+    }
+    *vint_pending = false;
+    Some(true)
+}
+
 /// Advance the inclusive DBF transfer at ASM `loc_14314`.
 ///
 /// The scheduler mirrors the four-entry jgenesis FIFO used as the oracle:
@@ -3139,8 +3234,49 @@ pub fn load_in_game_platform_art_transfer_cursor_loc_14314(
 pub fn load_in_game_platform_art_transfer_cursor_loc_14314_with_hardware(
     entry: LoadInGameCpuRasterCursor,
     output_words: u16,
-    mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<()>,
+    advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<()>,
 ) -> Option<LoadInGamePlatformArtTransferAdvance> {
+    decompress_to_vram_transfer_cursor_loc_14314_with_hardware(
+        entry,
+        output_words,
+        false,
+        advance_hardware,
+    )
+}
+
+/// Advance a generic `DecompressToVRAM loc_14314` transfer.
+///
+/// When `vint_pending` is true, scanline 224 services the level-6 interrupt
+/// at the next instruction boundary while the same FIFO and hardware
+/// timelines continue to advance.
+pub fn decompress_to_vram_transfer_cursor_loc_14314_with_hardware(
+    entry: LoadInGameCpuRasterCursor,
+    output_words: u16,
+    vint_pending: bool,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<()>,
+) -> Option<DecompressToVramTransferAdvance> {
+    decompress_to_vram_transfer_cursor_loc_14314_with_scheduler(
+        entry,
+        output_words,
+        vint_pending,
+        |cycles, vdp_owns_bus| {
+            advance_hardware(cycles, vdp_owns_bus)?;
+            Some(M68kCycleCount::from_raw(0))
+        },
+    )
+}
+
+/// Co-schedule a generic `DecompressToVRAM loc_14314` transfer.
+///
+/// The callback returns newly queued external 68000 wait cycles. A callback
+/// must return zero while `vdp_owns_bus` is true because the competing
+/// hardware access is halted instead of delaying the 68000.
+pub fn decompress_to_vram_transfer_cursor_loc_14314_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    output_words: u16,
+    mut vint_pending: bool,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<DecompressToVramTransferAdvance> {
     if output_words == 0 {
         return None;
     }
@@ -3149,36 +3285,39 @@ pub fn load_in_game_platform_art_transfer_cursor_loc_14314_with_hardware(
     let mut phase = entry.refresh_phase;
     let mut refresh_events = 0_u32;
     let mut fifo_halted_ticks = 0_u32;
-
-    let advance_instruction =
-        |raw_cycles: u32,
-         fifo: &mut PlatformArtFifoScheduler,
-         phase: &mut M68kRefreshPhase,
-         refresh_events: &mut u32,
-         advance_hardware: &mut dyn FnMut(M68kCycleCount, bool) -> Option<()>| {
-            let advance = phase.advance_rom(M68kCycleCount::from_raw(raw_cycles));
-            fifo.advance_m68k_cycles(advance.elapsed);
-            advance_hardware(advance.elapsed, false)?;
-            *phase = advance.phase_after;
-            *refresh_events += advance.refresh_events;
-            Some(())
-        };
+    let mut vint_serviced = false;
 
     for word_index in 0..output_words {
-        // ASM loc_14314: move.w (a4)+,(a6)
-        advance_instruction(
-            12,
+        vint_serviced |= service_decompress_to_vram_vint_if_pending(
+            &mut vint_pending,
             &mut fifo,
             &mut phase,
             &mut refresh_events,
             &mut advance_hardware,
         )?;
+        // ASM loc_14314: move.w (a4)+,(a6)
+        let generated_wait = advance_decompress_to_vram_source_instruction(
+            12,
+            &mut fifo,
+            &mut phase,
+            &mut refresh_events,
+            false,
+            &mut advance_hardware,
+        )?;
         fifo.push_word();
+        drain_decompress_to_vram_wait(
+            generated_wait,
+            &mut fifo,
+            &mut phase,
+            &mut advance_hardware,
+        )?;
 
         while fifo.pending_words != 0 {
             let halt = M68kCycleCount::from_raw(1);
             fifo.advance_m68k_cycles(halt);
-            advance_hardware(halt, true)?;
+            if advance_hardware(halt, true)?.get() != 0 {
+                return None;
+            }
             fifo_halted_ticks = fifo_halted_ticks.checked_add(1)?;
             // jgenesis `record_68k_instruction`: VDP ownership resets the
             // approximate 68000 refresh counter on every halted tick.
@@ -3186,7 +3325,7 @@ pub fn load_in_game_platform_art_transfer_cursor_loc_14314_with_hardware(
         }
 
         // ASM loc_14314: DBF d3,loc_14314.
-        advance_instruction(
+        advance_decompress_to_vram_source_instruction(
             if word_index + 1 == output_words {
                 14
             } else {
@@ -3195,17 +3334,27 @@ pub fn load_in_game_platform_art_transfer_cursor_loc_14314_with_hardware(
             &mut fifo,
             &mut phase,
             &mut refresh_events,
+            true,
             &mut advance_hardware,
         )?;
     }
 
     // ASM loc_14318..return_14334: tst.w d0; beq.s; rts.
-    for raw_cycles in [4, 10, 16] {
-        advance_instruction(
+    let mut pending_external_wait_cycles = M68kCycleCount::from_raw(0);
+    for (instruction_index, raw_cycles) in [4, 10, 16].into_iter().enumerate() {
+        vint_serviced |= service_decompress_to_vram_vint_if_pending(
+            &mut vint_pending,
+            &mut fifo,
+            &mut phase,
+            &mut refresh_events,
+            &mut advance_hardware,
+        )?;
+        pending_external_wait_cycles = advance_decompress_to_vram_source_instruction(
             raw_cycles,
             &mut fifo,
             &mut phase,
             &mut refresh_events,
+            instruction_index != 2,
             &mut advance_hardware,
         )?;
     }
@@ -3217,6 +3366,8 @@ pub fn load_in_game_platform_art_transfer_cursor_loc_14314_with_hardware(
         },
         fifo_halted_ticks: M68kCycleCount::from_raw(fifo_halted_ticks),
         refresh_events,
+        vint_serviced,
+        pending_external_wait_cycles,
     })
 }
 
@@ -6106,6 +6257,36 @@ mod tests {
             vblank.cursor.refresh_phase,
             M68kRefreshPhase::new(98).unwrap()
         );
+    }
+
+    #[test]
+    fn title_decompress_loc_14314_services_vint_inside_fifo_transfer() {
+        let entry_cycles = M68kCycleCount::from_raw(9_161_190);
+        let advance = decompress_to_vram_transfer_cursor_loc_14314_with_hardware(
+            LoadInGameCpuRasterCursor {
+                // ASM sub_1B2A4 -> DecompressToVRAM loc_14314 on the
+                // published title route, selected-PC oracle frame 71.
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(101).unwrap(),
+            },
+            2_016,
+            true,
+            |_, _| Some(()),
+        )
+        .expect("title transfer schedule");
+
+        assert_eq!(advance.refresh_events, 143);
+        assert_eq!(advance.fifo_halted_ticks.get(), 38_709);
+        assert_eq!(
+            advance.cursor.beam,
+            h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(9_244_685)),
+            "ASM loc_14314 should reach return_14334 after the in-loop VINT and FIFO stalls when no external bus waits occur",
+        );
+        assert_eq!(
+            advance.cursor.refresh_phase,
+            M68kRefreshPhase::new(44).unwrap()
+        );
+        assert!(advance.vint_serviced);
     }
 
     #[test]
