@@ -417,6 +417,12 @@ regression advances to 90,142 before executing the 229,570-cycle schedule.
 The remaining production boundary is deriving the absolute M68K count from
 native gameplay state rather than importing the oracle checkpoint.
 
+Verification 2026-07-19: every coherent timing/control commit passed the
+`verify-slice-fast` hook. Final `verify-tas-full` is green with all 37,759
+player/camera, typed gameplay, enemy-frontier and rendered-frame checks, all
+37,743 post-`Init_RNG` frames, and the unchanged pixel baseline of 26,382
+exact / 11,377 divergent / 3,620,978 changed pixels.
+
 Progress 2026-07-19: commit `7afa08b27` schedules the classified life-icon-only
 `sub_44DC` path through its four-entry VRAM FIFO and the trailing `loc_44D4`
 instruction stream to the following `Manage_EnemyLoading` call. The final

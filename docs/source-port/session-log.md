@@ -7,6 +7,38 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 positioned StopMusic control schedule)
+
+- Corrected the complete selected-PC trace twice as progressively narrower
+  tests exposed hidden interrupt work. Pure uninterrupted `StopMusic` is
+  218,216 raw cycles. jgenesis logs a 10-cycle interrupt sample and 44-cycle
+  autovector entry against resume PC `$E1402`, while the selector omits
+  `V_Int`'s 60-cycle body. The old 62-cycle “VDP halt” interpretation is
+  rejected.
+- The source schedule now types seven BUSREQ windows with Z80-RAM access
+  counts `[8192,3,3,7,7,7,7]`. At frame 867 refresh phase 14, VINT boundary
+  108,848 produces all measured control offsets, 1,507 refresh events, final
+  phase 80, and 229,570 elapsed cycles.
+- `GemsMasterClockTimingEngine` exposes staged driver-copy, reset, and queue
+  controls and can advance arbitrary NTSC intervals while deriving the
+  scanline-224 Z80 interrupt. `wildside-frame` consumes the elapsed schedule
+  as exact master-clock segments.
+- Absolute oracle cycle 110,975,266 maps arithmetically to beam 250:1222,
+  matching trace pixel 152, and to VBlank-relative cursor 90,142. This is a
+  bounded checkpoint, not permission for a route constant.
+- Commits: `3f235a2e7`, `91fc1913b`, `65e15f882`, `68225f24e`,
+  `ad0ed0c29`, `c61524bd6`. Every commit hook passed `verify-slice-fast`.
+- Final `verify-tas-full` is green: all 37,759 player/camera, gameplay,
+  enemy-frontier and rendered-frame checks pass; RNG matches on all 37,743
+  post-init frames; pixels remain 26,382 exact / 11,377 divergent /
+  3,620,978 changed.
+- NEXT: native owns frame-local raster seeds but no cumulative 68000 cursor.
+  Add that engine-level cursor and pass the real StopMusic command boundary to
+  the timed adapter. Then regenerate frame-1709 GEMS reads and bridge the four
+  post-FIFO steals through `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 VBlank frame calibration)
 
 - Fresh trace `.cache/recordings/issue409-current-route-trace` is from current
