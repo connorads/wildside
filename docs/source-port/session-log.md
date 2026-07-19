@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 Gfx sprite construction)
+
+- Full selected-PC traces reduce all 16/17/16 linked GfxObjects through
+  `Make_SpritesFromGfxObjects sub_1492` to visibility-clear, vertical-cull,
+  one-entry, or two-entry source paths.
+- Prize-tail, wobble, flash-allocation, and floating-diamond state derives
+  11,612/12,538/13,224 raw cycles at frames 1697/1703/1709; unsupported worker
+  families and blinking diamonds fail closed.
+- `mise run verify-slice-fast` is green after `30fa9c422`: 6,961 core tests,
+  15 CLI tests, workspace Clippy, all TAS recordings, and 188 test-only ASM
+  labels. `mise run verify-tas-full` is green across all 37,759 frames.
+- NEXT: persist the complete master-clocked GEMS CPU/RAM/bus/scheduler
+  checkpoint, derive frame 1709's steals natively, and bridge the post-HUD
+  ledger through `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 Gfx move/animation scripts)
 
 - Full instruction traces show 16/17/16 stationary nodes through

@@ -423,6 +423,22 @@ post-`$C8` blinking diamonds, and the unobserved stop dispatch fail closed.
 workspace Clippy, all configured TAS recordings, and ASM test-only debt
 reduced 189 -> 188. Next type `Make_SpritesFromGfxObjects sub_1492`.
 
+Progress 2026-07-19: commit `30fa9c422` types every target branch through
+`Make_SpritesFromGfxObjects sub_1492`. A full selected-PC instruction trace
+reduces the 16/17/16 linked nodes to four source paths through
+`Make_SpriteFromGfxObject sub_11B6`: visibility clear, vertical cull, one
+normal 16x16 mapping entry, or two normal mapping entries. The ledger derives
+those paths from the four persistent gameplay nodes plus the exact prize-tail,
+wobble, flash-allocation, and floating-diamond states; unexplained node
+families and post-`$C8` blinking diamonds fail closed. Frames
+1697/1703/1709 reproduce 11,612/12,538/13,224 raw cycles. The red-first pure
+test and published-cache regression pass. `mise run verify-slice-fast` is
+green with 6,961 core tests, 15 CLI tests, workspace Clippy, all configured
+TAS recordings, and 188 test-only ASM labels. `mise run verify-tas-full` is
+also green across all 37,759 frames with the exact existing pixel baseline.
+Every non-GEMS post-HUD routine is now typed; next persist the complete
+master-clocked GEMS checkpoint and bridge through `loc_892`.
+
 Progress 2026-07-19: commit `256295e2a` captures
 `Manage_PlatformLoading loc_2744` before native advances its cursor. All three
 helpers consume the layout terminator, wrap to offset zero, reject the first
