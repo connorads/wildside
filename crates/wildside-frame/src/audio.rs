@@ -31,6 +31,11 @@ pub const AUDIO_SAMPLE_RATE: u32 = 44_100;
 pub const AUDIO_FRAME_RATE_HZ: u32 = 60;
 pub const AUDIO_SAMPLES_PER_FRAME: usize = 735;
 
+// ASM sub_1C246 -> loc_1C264 -> loc_6E2 blocks inside the title rebuild.
+// Published-route selected PCs place StopMusic $E14C8 at title elapsed 0 and
+// Load_TitleScreen's PlaySound/sub_E151C at elapsed 32.
+const TITLE_SCREEN_PLAY_SOUND_ELAPSED_SUB_E151C: usize = 32;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AudioSampleClock {
     sample_rate: u32,
@@ -233,6 +238,26 @@ pub fn native_bgm_state_after_trace_delta(
         matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
             && previous.current_level != trace.current_level
     });
+    let title_screen_elapsed = (trace.game_mode == GameMode::TitleScreen
+        && trace.boot_phase.as_deref() == Some("title_screen"))
+    .then_some(trace.boot_phase_elapsed)
+    .flatten();
+    if title_screen_elapsed == Some(0)
+        && previous_trace.is_some_and(|previous| previous.game_mode != GameMode::TitleScreen)
+    {
+        // ASM sub_1C246 -> loc_1C264 -> loc_6E2 reaches StopMusic before
+        // Load_TitleScreen spends 32 outer frames rebuilding title VDP state.
+        return (
+            Some(NativeBgmCue::StoppedForTransition),
+            Some(NativeBgmPlaybackCommand::StopMusic),
+        );
+    }
+    if active_bgm_cue == Some(NativeBgmCue::StoppedForTransition)
+        && title_screen_elapsed
+            .is_some_and(|elapsed| elapsed < TITLE_SCREEN_PLAY_SOUND_ELAPSED_SUB_E151C)
+    {
+        return (active_bgm_cue, None);
+    }
     if queued_bgm.is_none() && level_changed_during_loader {
         if active_bgm_cue == Some(NativeBgmCue::StoppedForTransition) {
             return (active_bgm_cue, None);
@@ -1471,6 +1496,57 @@ mod tests {
                 Some(NativeBgmPlaybackCommand::Start(gems_bgm::SKY)),
             ),
             "ASM loc_12004's j_PlaySound call is the authoritative start event"
+        );
+    }
+
+    #[test]
+    fn intro_return_holds_title_bgm_until_load_title_screen_play_sound() {
+        // ASM sub_1C246 -> loc_1C264 enters the blocking title rebuild:
+        // StopMusic $E14C8 runs on published frame 139, while
+        // Load_TitleScreen -> PlaySound/sub_E151C runs at title elapsed 32.
+        let manifest = test_manifest();
+        let mut intro = trace(GameMode::IntroSequence1);
+        intro.boot_phase = Some(String::from("intro_sequence_1"));
+        intro.boot_phase_elapsed = Some(102);
+        let mut title_entry = trace(GameMode::TitleScreen);
+        title_entry.boot_phase = Some(String::from("title_screen"));
+        title_entry.boot_phase_elapsed = Some(0);
+
+        let (stopped, reset) = native_bgm_state_after_trace_delta(
+            &manifest,
+            Some(&intro),
+            &title_entry,
+            Some(NativeBgmCue::TitleShell),
+        );
+        assert_eq!(stopped, Some(NativeBgmCue::StoppedForTransition));
+        assert_eq!(reset, Some(NativeBgmPlaybackCommand::StopMusic));
+
+        let mut title_loading = title_entry.clone();
+        title_loading.boot_phase_elapsed = Some(31);
+        assert_eq!(
+            native_bgm_state_after_trace_delta(
+                &manifest,
+                Some(&title_entry),
+                &title_loading,
+                stopped,
+            ),
+            (stopped, None),
+            "the blocking Load_TitleScreen workload must remain silent before PlaySound",
+        );
+
+        let mut title_play_sound = title_loading.clone();
+        title_play_sound.boot_phase_elapsed = Some(32);
+        assert_eq!(
+            native_bgm_state_after_trace_delta(
+                &manifest,
+                Some(&title_loading),
+                &title_play_sound,
+                stopped,
+            ),
+            (
+                Some(NativeBgmCue::TitleShell),
+                Some(NativeBgmPlaybackCommand::Start(gems_bgm::ICE)),
+            ),
         );
     }
 
