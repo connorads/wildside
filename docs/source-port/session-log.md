@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 explicit E12 raster boundary)
+
+- The natural `$7C8 -> sub_E12` path is 3,415 source cycles on all three
+  targets. Adjacent-frame variation is isolated to VDP bus-halt cycles,
+  2,002 pending VDP waits, and processed refresh waits.
+- A one-shot beam/refresh seed at `sub_E12` now advances through the exact
+  object and post-object ledgers, schedules `loc_4586`, and reaches the
+  production HUD trace. Cache-backed frame 1697 emits first commit 42:380.
+- Normal gameplay deliberately emits no raster timing without a hardware
+  seed. NEXT: persist Mode-entry beam, refresh phase, and VDP arbitration
+  across `WaitForVint`; do not replace them with a route-frame lookup.
+
+---
+
 ## 2026-07-19 handoff (#409 exact E12-to-HUD timing)
 
 - Execute Objects now composes raw callbacks, six pending Z80 waits, and

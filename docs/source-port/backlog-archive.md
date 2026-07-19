@@ -306,6 +306,23 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: instruction-level oracle accounting separates the
+natural `Mode_Level $7C8 -> Execute_Objects sub_E12` interval into 3,415
+source cycles, VDP-owned CPU halt re-entries, 2,002 processed pending VDP
+waits, and processed ROM-refresh waits. The source path is identical on
+frames 1697/1703/1709: dynamic-art descriptors are 16 and 4 tiles, palette
+DMA is active, scroll takes `loc_300BA`, both `sub_1596` queues are empty,
+`sub_6874` returns unpaused, and HUD construction takes
+`loc_BE20 -> loc_BE4C`. Typed arbitration inputs reproduce elapsed totals
+8,846/8,843/8,849 without misclassifying emulator halt re-entries as ROM
+work. An explicit one-shot `sub_E12` beam/refresh seed now advances through
+the exact object and post-object ledgers, emits `HudRasterUploadTimingSub44DC`
+into the production trace, and drives the existing HUD compositor.
+Cache-backed published frame 1697 proves the complete boundary at first
+life-icon commit 42:380. Normal gameplay still supplies no seed, so the
+change cannot become a frame or workload selector. Next persist Mode-entry
+beam, refresh, and VDP arbitration across `WaitForVint`.
+
 Progress 2026-07-18: each live falling diamond in the pre-HUD ledger now
 classifies the exact `PrizeDiamond_Init loc_103B2..loc_10402` wake path:
 current-row direct fall, grace-probe fall, or blocked, each split again by
