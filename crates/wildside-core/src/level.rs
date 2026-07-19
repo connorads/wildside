@@ -19045,6 +19045,7 @@ impl NativeRuntime {
         self.level_timer = LevelTimer::new();
         self.hud_timer_sprite_seconds_loc_bee8 = LEVEL_TIMER_START_SECONDS;
         self.time_frames_loc_3038a = 0;
+        self.reset_and_preload_mode_level_tail_loc_720_2ffe8();
         self.level_damage_taken = false;
         self.level_prize_collected = false;
         self.level_speed_bonus_awarded = false;
@@ -19207,6 +19208,7 @@ impl NativeRuntime {
         self.level_timer = LevelTimer::new();
         self.hud_timer_sprite_seconds_loc_bee8 = LEVEL_TIMER_START_SECONDS;
         self.time_frames_loc_3038a = 0;
+        self.reset_and_preload_mode_level_tail_loc_720_2ffe8();
         self.level_damage_taken = false;
         self.level_prize_collected = false;
         self.level_speed_bonus_awarded = false;
@@ -19433,6 +19435,7 @@ impl NativeRuntime {
         self.level_timer = LevelTimer::new();
         self.hud_timer_sprite_seconds_loc_bee8 = LEVEL_TIMER_START_SECONDS;
         self.time_frames_loc_3038a = 0;
+        self.reset_and_preload_mode_level_tail_loc_720_2ffe8();
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
         self.progression.invulnerable_frames = 0;
@@ -19835,6 +19838,7 @@ impl NativeRuntime {
         self.level_timer = LevelTimer::new();
         self.hud_timer_sprite_seconds_loc_bee8 = LEVEL_TIMER_START_SECONDS;
         self.time_frames_loc_3038a = 0;
+        self.reset_and_preload_mode_level_tail_loc_720_2ffe8();
         self.level_damage_taken = false;
         self.level_prize_collected = false;
         self.level_speed_bonus_awarded = false;
@@ -19948,6 +19952,7 @@ impl NativeRuntime {
         self.level_timer = LevelTimer::new();
         self.hud_timer_sprite_seconds_loc_bee8 = LEVEL_TIMER_START_SECONDS;
         self.time_frames_loc_3038a = 0;
+        self.reset_and_preload_mode_level_tail_loc_720_2ffe8();
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
         self.paused = false;

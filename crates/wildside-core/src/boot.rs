@@ -6330,6 +6330,7 @@ impl NativeRuntime {
         let _ = self.tick_level_timer_hud_loc_be82();
         self.demo_hud_timer_presentation_loc_be82 = Some(self.level_timer);
         self.time_frames_loc_3038a = 0;
+        self.reset_and_preload_mode_level_tail_loc_720_2ffe8();
         self.level_damage_taken = false;
         self.level_prize_collected = false;
         self.level_speed_bonus_awarded = false;
@@ -8226,6 +8227,7 @@ impl NativeRuntime {
             // resume tail. Init_Timer_and_Bonus_Flags clears Time_Frames after
             // the visible/fade/preload shell, not at the native resume setup.
             self.time_frames_loc_3038a = 0;
+            self.rebase_mode_level_tail_after_external_override_loc_2ffe8();
         }
     }
 

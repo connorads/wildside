@@ -14969,6 +14969,34 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
     }
 
+    #[test]
+    fn debug_warp_rebuilds_mode_level_tail_history_loc_720_2ffe8() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels_and_playable_spawn(3));
+        runtime.warp_to_level(LevelId(1));
+        let camera = runtime
+            .opening_slice
+            .expect("debug warp installs the physical gameplay slice")
+            .camera;
+        let camera_words = ((camera.x_pos >> 16) as u16, (camera.y_pos >> 16) as u16);
+
+        assert_eq!(
+            runtime
+                .mode_level_tail_state_loc_892
+                .camera_latches_f82c_f82e(),
+            camera_words,
+            "ASM loc_720 -> loc_2FFE8 clears and rebuilds the scroll camera latches on Load_InGame",
+        );
+        assert_eq!(
+            runtime
+                .mode_level_tail_state_loc_892
+                .shift_data_loc_30452()
+                .previous_scroll_words(),
+            ModeLevelTailShiftDataStateLoc30452::from_preload_loc_3001e(camera_words.0, 0)
+                .previous_scroll_words(),
+            "ASM loc_3001E preloads Horiz_Scroll_Data from the destination camera and cleared Time_Frames",
+        );
+    }
+
     /// ASM loc_D5D2 (kid.asm:16732): `tst.b (NoPrize_Bonus_Flag).w; bne.w
     /// loc_D60E`; flag zero falls through and allocates a 5000-point
     /// "No Prize" bonus before continuing to the path-bonus branch.

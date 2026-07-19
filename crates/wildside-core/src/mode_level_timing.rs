@@ -191,6 +191,72 @@ pub struct ModeLevelTailShiftDataAdvanceLoc30452 {
     pub next_state: ModeLevelTailShiftDataStateLoc30452,
 }
 
+/// Canonical WRAM state consumed by ASM `Mode_Level loc_892`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelTailStateLoc892 {
+    camera_x_latch_f82c: u16,
+    camera_y_latch_f82e: u16,
+    background_row_latch_faa8: i16,
+    shift_data_loc_30452: ModeLevelTailShiftDataStateLoc30452,
+    pending_palette_0_mask_f888: u32,
+    pending_palette_1_mask_f88c: u32,
+    background_upload_busy_fb49: u8,
+}
+
+impl ModeLevelTailStateLoc892 {
+    /// ASM `GameProgram loc_5FE/loc_604` and `loc_720` clear these WRAM words.
+    pub const fn power_on_zero() -> Self {
+        Self {
+            camera_x_latch_f82c: 0,
+            camera_y_latch_f82e: 0,
+            background_row_latch_faa8: 0,
+            shift_data_loc_30452: ModeLevelTailShiftDataStateLoc30452::from_previous_scroll_words(
+                [0; 19],
+            ),
+            pending_palette_0_mask_f888: 0,
+            pending_palette_1_mask_f88c: 0,
+            background_upload_busy_fb49: 0,
+        }
+    }
+
+    /// ASM `loc_720`: clear the shared gameplay RAM range through `$FBC0`.
+    pub fn clear_loc_720(&mut self) {
+        *self = Self::power_on_zero();
+    }
+
+    /// ASM `loc_2FFE8`: latch camera/row state and run the initial ShiftData pass.
+    pub fn preload_loc_2ffe8(&mut self, camera_x_pos: u16, camera_y_pos: u16, time_frames: u16) {
+        self.camera_x_latch_f82c = camera_x_pos;
+        self.camera_y_latch_f82e = camera_y_pos;
+        self.background_row_latch_faa8 = (camera_y_pos as i16) >> 5;
+        self.shift_data_loc_30452 =
+            ModeLevelTailShiftDataStateLoc30452::from_preload_loc_3001e(camera_x_pos, time_frames);
+    }
+
+    pub const fn camera_latches_f82c_f82e(&self) -> (u16, u16) {
+        (self.camera_x_latch_f82c, self.camera_y_latch_f82e)
+    }
+
+    pub const fn background_row_latch_faa8(&self) -> i16 {
+        self.background_row_latch_faa8
+    }
+
+    pub const fn shift_data_loc_30452(&self) -> &ModeLevelTailShiftDataStateLoc30452 {
+        &self.shift_data_loc_30452
+    }
+
+    pub const fn pending_palette_masks_f888_f88c(&self) -> (u32, u32) {
+        (
+            self.pending_palette_0_mask_f888,
+            self.pending_palette_1_mask_f88c,
+        )
+    }
+
+    pub const fn background_upload_busy_fb49(&self) -> u8 {
+        self.background_upload_busy_fb49
+    }
+}
+
 impl ModeLevelTailShiftDataStateLoc30452 {
     pub const fn from_previous_scroll_words(previous_scroll_words: [u16; 19]) -> Self {
         Self {
@@ -330,7 +396,7 @@ pub struct ModeLevelTailWorkLoc892 {
 pub struct ModeLevelTailBackgroundWorkLoc3038A {
     pub special_effect_4: bool,
     pub game_mode_zero: bool,
-    pub paused_fb49: bool,
+    pub background_upload_busy_fb49: bool,
     pub background_format_nonzero: bool,
     pub shift_data_slots_loc_30452: [ModeLevelTailShiftDataSlotLoc30452; 19],
     pub shift_layers: ModeLevelTailShiftLayersWork,
@@ -355,7 +421,7 @@ pub fn mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(
     let background = &work.background_loc_3038a;
     if background.special_effect_4
         || background.game_mode_zero
-        || background.paused_fb49
+        || background.background_upload_busy_fb49
         || background.background_format_nonzero
         || background.shift_layers
             != (ModeLevelTailShiftLayersWork::NormalAlignedNoRipple { full_rows: 28 })
@@ -1200,7 +1266,7 @@ mod tests {
                 background_loc_3038a: ModeLevelTailBackgroundWorkLoc3038A {
                     special_effect_4: false,
                     game_mode_zero: false,
-                    paused_fb49: false,
+                    background_upload_busy_fb49: false,
                     background_format_nonzero: false,
                     shift_data_slots_loc_30452: shift_data_slots,
                     shift_layers: ModeLevelTailShiftLayersWork::NormalAlignedNoRipple {
@@ -1241,7 +1307,7 @@ mod tests {
             background_loc_3038a: ModeLevelTailBackgroundWorkLoc3038A {
                 special_effect_4: false,
                 game_mode_zero: false,
-                paused_fb49: false,
+                background_upload_busy_fb49: false,
                 background_format_nonzero: false,
                 shift_data_slots_loc_30452: [ModeLevelTailShiftDataSlotLoc30452::Unchanged; 19],
                 shift_layers: ModeLevelTailShiftLayersWork::NormalAlignedNoRipple { full_rows: 28 },
@@ -1420,6 +1486,50 @@ mod tests {
                 "ASM loc_304C2 branch and width-loop count from oracle helpers 1696/1702/1708",
             );
         }
+    }
+
+    #[test]
+    fn mode_level_tail_state_loc_720_clears_every_shared_wram_owner() {
+        let mut state = ModeLevelTailStateLoc892 {
+            camera_x_latch_f82c: 1,
+            camera_y_latch_f82e: 2,
+            background_row_latch_faa8: 3,
+            shift_data_loc_30452: ModeLevelTailShiftDataStateLoc30452::from_previous_scroll_words(
+                [4; 19],
+            ),
+            pending_palette_0_mask_f888: 5,
+            pending_palette_1_mask_f88c: 6,
+            background_upload_busy_fb49: 7,
+        };
+
+        state.clear_loc_720();
+
+        assert_eq!(
+            state,
+            ModeLevelTailStateLoc892::power_on_zero(),
+            "ASM loc_720 clears F82C/F82E, F888/F88C, FAA8, FB49 and Horiz_Scroll_Data",
+        );
+    }
+
+    #[test]
+    fn mode_level_tail_state_loc_2ffe8_preloads_camera_row_and_shift_history() {
+        let mut state = ModeLevelTailStateLoc892::power_on_zero();
+
+        state.preload_loc_2ffe8(0x0121, 0x0240, 0);
+
+        assert_eq!(state.camera_latches_f82c_f82e(), (0x0121, 0x0240));
+        assert_eq!(
+            state.background_row_latch_faa8(),
+            0x0012,
+            "ASM sub_307D8 leaves FAA8 at current Camera_Y_pos>>5",
+        );
+        assert_eq!(
+            state.shift_data_loc_30452().previous_scroll_words()[18],
+            0x0121,
+            "ASM loc_3001E runs BackgroundScroll_ComputeShiftData during preload",
+        );
+        assert_eq!(state.pending_palette_masks_f888_f88c(), (0, 0));
+        assert_eq!(state.background_upload_busy_fb49(), 0);
     }
 
     #[test]

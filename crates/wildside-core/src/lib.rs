@@ -108,10 +108,11 @@ pub use mode_level_timing::{
     ModeLevelTailCameraStripeSub30194, ModeLevelTailPaletteWorkSub14C0,
     ModeLevelTailPieceRefreshSub307D8, ModeLevelTailPieceRowsSub30744,
     ModeLevelTailShiftDataAdvanceLoc30452, ModeLevelTailShiftDataSlotLoc30452,
-    ModeLevelTailShiftDataStateLoc30452, ModeLevelTailShiftLayersWork, ModeLevelTailWorkLoc892,
-    ModeLevelVblankArbitrationBeforeSubE12, ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership,
-    ModeLevelVblankWorkBeforeSubE12, WaitForVintArbitration, WaitForVintInterruptSample,
-    WaitForVintResumePath, damage_flash_wait_cycles_loc_bc44, demo_exit_wait_cycles_loc_119e0,
+    ModeLevelTailShiftDataStateLoc30452, ModeLevelTailShiftLayersWork, ModeLevelTailStateLoc892,
+    ModeLevelTailWorkLoc892, ModeLevelVblankArbitrationBeforeSubE12,
+    ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership, ModeLevelVblankWorkBeforeSubE12,
+    WaitForVintArbitration, WaitForVintInterruptSample, WaitForVintResumePath,
+    damage_flash_wait_cycles_loc_bc44, demo_exit_wait_cycles_loc_119e0,
     execute_objects_elapsed_cycles_sub_e12, execute_objects_external_waits_sub_e12,
     execute_objects_raw_cycles_sub_e12, execute_objects_setup_cycles_sub_e12,
     input_worker_cycles_loc_7452, mode_level_tail_advance_to_wait_for_vint_loc_892,
@@ -270,6 +271,7 @@ pub struct NativeRuntime {
     assets_source: Arc<dyn AssetSource>,
     frame_index: usize,
     time_frames_loc_3038a: u16,
+    mode_level_tail_state_loc_892: ModeLevelTailStateLoc892,
     boot_state: BootState,
     trace_input: FrameInput,
     prior_input: FrameInput,
@@ -1321,6 +1323,7 @@ impl NativeRuntime {
             assets_source,
             frame_index: 0,
             time_frames_loc_3038a: 0,
+            mode_level_tail_state_loc_892: ModeLevelTailStateLoc892::power_on_zero(),
             boot_state: BootState::SegaScreen { elapsed: 0 },
             trace_input: FrameInput::default(),
             prior_input: FrameInput::default(),
@@ -1667,7 +1670,27 @@ impl NativeRuntime {
             slice.camera.x_pos = u32::from(x_px) << 16;
             slice.camera.y_pos = u32::from(y_px) << 16;
         }
+        self.rebase_mode_level_tail_after_external_override_loc_2ffe8();
         self.prime_probe_camera_enemy_loading_loc_31f8e_368a8();
+    }
+
+    pub(crate) fn reset_and_preload_mode_level_tail_loc_720_2ffe8(&mut self) {
+        self.mode_level_tail_state_loc_892.clear_loc_720();
+        self.rebase_mode_level_tail_after_external_override_loc_2ffe8();
+    }
+
+    pub(crate) fn rebase_mode_level_tail_after_external_override_loc_2ffe8(&mut self) {
+        // Load_InGame preloads from the physical Camera_X/Y words. Trace
+        // presentation may temporarily substitute cleared respawn/title-card
+        // camera state, so prefer the resident gameplay slice when present.
+        let camera = self
+            .opening_slice
+            .map_or_else(|| self.current_camera_state(), |slice| slice.camera);
+        self.mode_level_tail_state_loc_892.preload_loc_2ffe8(
+            (camera.x_pos >> 16) as u16,
+            (camera.y_pos >> 16) as u16,
+            self.time_frames_loc_3038a,
+        );
     }
 
     /// Seed the hardware beam and refresh state at the next live ASM

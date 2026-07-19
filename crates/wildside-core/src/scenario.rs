@@ -295,6 +295,7 @@ impl NativeRuntime {
         self.progression.invulnerable_frames = 0;
         self.allow_pausing = true;
         self.allow_pausing_fade_frames = 17;
+        self.rebase_mode_level_tail_after_external_override_loc_2ffe8();
         self.refresh_active_roster();
         self.trace_frame()
     }
@@ -417,6 +418,7 @@ impl NativeRuntime {
         // after collapsing the hidden settle window, so reseed the loc_BEE8
         // sprite-table value at the same boundary.
         self.hud_timer_sprite_seconds_loc_bee8 = self.level_timer.seconds;
+        self.rebase_mode_level_tail_after_external_override_loc_2ffe8();
         let extra_ghost_block_ticks = recording_oracle_warp_extra_ghost_block_ticks(level_id);
         if extra_ghost_block_ticks != 0 {
             // ASM loc_124A6 seeds ghost-block descriptors and sub_F730 ticks
