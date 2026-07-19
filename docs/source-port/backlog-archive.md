@@ -339,9 +339,22 @@ Probe finding 2026-07-19: full selected-PC traces of the remaining
 14/15/14 live nodes on frames 1697/1703/1709. Their complete source streams
 take 2,574/2,780/2,718 raw cycles and 2,616/3,022/2,958 elapsed cycles.
 Node count alone is insufficient: branch/sub-box work varies by frame. The
-next implementation must type each node's `$3D`, `$22`, `$16`, position,
-velocity, collision-size list, and Kid overlap inputs rather than fit one cost
-per node.
+implementation must type each node's branch work rather than fit one cost per
+node.
+
+Progress 2026-07-19: commit `1e11b9854` classifies the live `$F86E` chain from
+the exact prize-worker taxonomy and floating-diamond `unk_31D5E` geometry.
+Frames 1697/1703/1709 contain 10/10/8 zero CollisionSize sentinels,
+3/4/5 first-box left-edge rejections, 1/1/0 right-edge rejections, and 0/0/1
+top-edge rejection. The pure `sub_1B76` scheduler sums the 94-cycle prologue,
+each complete node path, and the 72-cycle null-successor epilogue to reproduce
+2,574/2,780/2,718 raw cycles. Unsupported prize types, bottom-edge/overlap
+paths, unexplained chain counts, and invulnerable epilogues fail closed.
+`mise run verify-slice-fast` is green with 6,959 core tests, 15 CLI tests,
+workspace Clippy, and all configured TAS recordings. Remaining #409 work is
+`GfxObjects_MoveAndAnimate`, `Make_SpritesFromGfxObjects`, and the persistent
+master-clocked GEMS checkpoint before the post-HUD ledger can advance through
+`loc_892`.
 
 Progress 2026-07-19: commit `60c66b4c1` adds a read-only
 `ModeLevelPostHudWorkLedger` for the exact 22 source phases after `sub_44DC`

@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 per-node F86E Kid collision walk)
+
+- Full selected-PC traces reduce every live `$F86E` node at frames
+  1697/1703/1709 to a zero CollisionSize sentinel or first-box
+  left/right/top rejection; no overlap response path runs.
+- The typed ledger derives 14/15/14 nodes from prize-worker counts, live
+  diamond geometry, and the two persistent gameplay nodes.
+- The pure scheduler reproduces 2,574/2,780/2,718 raw cycles. Unsupported
+  prizes, bottom-edge/overlap paths, unexplained counts, and invulnerability
+  fail closed.
+- `mise run verify-slice-fast` is green after `1e11b9854`: 6,959 core tests,
+  15 CLI tests, workspace Clippy, and all configured TAS recordings.
+- NEXT: type `GfxObjects_MoveAndAnimate` and `Make_SpritesFromGfxObjects`, or
+  introduce the complete master-clocked GEMS timing checkpoint before bridging
+  the post-HUD ledger through `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 FIFO-aware life-icon exit)
 
 - The typed life-icon-only `sub_44DC` transition now schedules the four-entry
