@@ -113,6 +113,99 @@ pub struct M68kExternalWaitEvent {
     pub cycles: M68kCycleCount,
 }
 
+/// One interval where ASM `StopMusic` has requested the Z80 bus.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GemsStopMusicBusWindow {
+    pub request_complete_raw_offset: M68kCycleCount,
+    pub release_complete_raw_offset: M68kCycleCount,
+}
+
+/// Source branches at the seven Z80 bus-acquisition loops in ASM
+/// `StopMusic -> sub_E13DA/sub_E149C/sub_E14AC` (kid.asm).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GemsStopMusicBusAckPolls {
+    pub driver_copy_sub_e13da: u16,
+    pub queue_transactions_sub_e143a: [u16; 6],
+}
+
+/// Source-ordered control schedule for ASM `StopMusic` (`$E14C8..$E150E`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GemsStopMusicTiming {
+    pub raw_cycles: M68kCycleCount,
+    pub bus_windows: [GemsStopMusicBusWindow; 7],
+    pub reset_assert_complete_raw_offset: M68kCycleCount,
+    pub reset_release_complete_raw_offset: M68kCycleCount,
+}
+
+/// Derive ASM `StopMusic`'s raw CPU schedule without fitting elapsed route time.
+///
+/// `Stop_z80` and `sub_E143A loc_E1460` each execute at least one `$A11100`
+/// poll. Every additional taken `btst/bne` iteration adds 30 raw 68000 cycles;
+/// refresh, VDP halts, and the Z80 instruction-boundary grant remain external
+/// waits for the hardware scheduler.
+pub fn gems_stop_music_timing(polls: GemsStopMusicBusAckPolls) -> Option<GemsStopMusicTiming> {
+    let poll_counts = core::array::from_fn::<_, 7, _>(|index| {
+        if index == 0 {
+            polls.driver_copy_sub_e13da
+        } else {
+            polls.queue_transactions_sub_e143a[index - 1]
+        }
+    });
+    if poll_counts.contains(&0) {
+        return None;
+    }
+
+    // ASM StopMusic $E14C8, sub_E13DA, sub_E1416, sub_E149C/sub_E14AC.
+    // These offsets come from the complete one-poll instruction stream; only
+    // the explicit bus-ack loops can extend it.
+    const BASE_WINDOWS: [(u32, u32); 7] = [
+        (104, 214_838),
+        (215_068, 215_238),
+        (215_504, 215_674),
+        (215_944, 216_298),
+        (216_568, 216_922),
+        (217_192, 217_546),
+        (217_816, 218_170),
+    ];
+    const EXTRA_POLL_RAW_CYCLES: u32 = 30;
+
+    let mut prior_extra = 0_u32;
+    let mut windows = [GemsStopMusicBusWindow {
+        request_complete_raw_offset: M68kCycleCount::from_raw(0),
+        release_complete_raw_offset: M68kCycleCount::from_raw(0),
+    }; 7];
+    for (index, ((base_request, base_release), poll_count)) in
+        BASE_WINDOWS.into_iter().zip(poll_counts).enumerate()
+    {
+        let current_extra =
+            u32::from(poll_count.checked_sub(1)?).checked_mul(EXTRA_POLL_RAW_CYCLES)?;
+        windows[index] = GemsStopMusicBusWindow {
+            request_complete_raw_offset: M68kCycleCount::from_raw(
+                base_request.checked_add(prior_extra)?,
+            ),
+            release_complete_raw_offset: M68kCycleCount::from_raw(
+                base_release
+                    .checked_add(prior_extra)?
+                    .checked_add(current_extra)?,
+            ),
+        };
+        prior_extra = prior_extra.checked_add(current_extra)?;
+    }
+
+    let driver_poll_extra = u32::from(polls.driver_copy_sub_e13da.checked_sub(1)?)
+        .checked_mul(EXTRA_POLL_RAW_CYCLES)?;
+    Some(GemsStopMusicTiming {
+        raw_cycles: M68kCycleCount::from_raw(218_270_u32.checked_add(prior_extra)?),
+        bus_windows: windows,
+        reset_assert_complete_raw_offset: M68kCycleCount::from_raw(
+            214_538_u32.checked_add(driver_poll_extra)?,
+        ),
+        reset_release_complete_raw_offset: M68kCycleCount::from_raw(
+            214_858_u32.checked_add(driver_poll_extra)?,
+        ),
+    })
+}
+
 /// Source branches taken before ASM `Mode_Level` reaches `Execute_Objects`.
 ///
 /// VDP arbitration is deliberately excluded: the same ROM path can spend a
@@ -1703,6 +1796,80 @@ pub fn shooter_projectile_collision_raw_cycles_sub_226a(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stop_music_source_schedule_tracks_each_z80_bus_window_e14c8() {
+        let timing = gems_stop_music_timing(GemsStopMusicBusAckPolls {
+            driver_copy_sub_e13da: 1,
+            queue_transactions_sub_e143a: [1; 6],
+        })
+        .expect("ASM Stop_z80/sub_E143A poll at least once");
+
+        assert_eq!(timing.raw_cycles.get(), 218_270);
+        assert_eq!(
+            timing.bus_windows.map(|window| (
+                window.request_complete_raw_offset.get(),
+                window.release_complete_raw_offset.get(),
+            )),
+            [
+                (104, 214_838),
+                (215_068, 215_238),
+                (215_504, 215_674),
+                (215_944, 216_298),
+                (216_568, 216_922),
+                (217_192, 217_546),
+                (217_816, 218_170),
+            ],
+            "ASM sub_E13DA owns the bus for the driver copy, then each sub_E149C/sub_E14AC call reacquires it separately"
+        );
+        assert_eq!(
+            (
+                timing.reset_assert_complete_raw_offset.get(),
+                timing.reset_release_complete_raw_offset.get(),
+            ),
+            (214_538, 214_858),
+            "ASM sub_E1416 resets the Z80 before releasing the copy window"
+        );
+    }
+
+    #[test]
+    fn stop_music_bus_ack_loops_extend_only_the_current_and_later_windows() {
+        let timing = gems_stop_music_timing(GemsStopMusicBusAckPolls {
+            driver_copy_sub_e13da: 2,
+            queue_transactions_sub_e143a: [1, 3, 1, 1, 1, 1],
+        })
+        .expect("positive poll counts");
+
+        assert_eq!(timing.raw_cycles.get(), 218_360);
+        assert_eq!(
+            (
+                timing.bus_windows[0].request_complete_raw_offset.get(),
+                timing.bus_windows[0].release_complete_raw_offset.get(),
+                timing.bus_windows[1].request_complete_raw_offset.get(),
+                timing.bus_windows[1].release_complete_raw_offset.get(),
+                timing.bus_windows[2].request_complete_raw_offset.get(),
+                timing.bus_windows[2].release_complete_raw_offset.get(),
+                timing.bus_windows[3].request_complete_raw_offset.get(),
+            ),
+            (104, 214_868, 215_098, 215_268, 215_534, 215_764, 216_034,),
+            "ASM Stop_z80/sub_E143A bus-poll repeats add 30 raw cycles without moving the already-completed bus request"
+        );
+        assert_eq!(
+            (
+                timing.reset_assert_complete_raw_offset.get(),
+                timing.reset_release_complete_raw_offset.get(),
+            ),
+            (214_568, 214_888)
+        );
+        assert_eq!(
+            gems_stop_music_timing(GemsStopMusicBusAckPolls {
+                driver_copy_sub_e13da: 0,
+                queue_transactions_sub_e143a: [1; 6],
+            }),
+            None,
+            "ASM Stop_z80 always samples bus acknowledgement at least once"
+        );
+    }
 
     fn published_natural_vblank_work() -> ModeLevelVblankWorkBeforeSubE12 {
         ModeLevelVblankWorkBeforeSubE12 {
