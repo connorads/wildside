@@ -306,6 +306,20 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-18: the prize animation ledger now separates live
+`Hibernate_UntilAnimFinished loc_1066` callbacks from native's post-deletion
+overlap records. A tail carries its cell/content and is either the
+`sub_1007A` wake that creates the flash+prize and deletes itself, an explicit
+deleted-worker overlap, or unclassified. A flash carries position/countdown
+and either hibernates or finishes+deletes. The fresh published route classifies
+frames 1697/1703 as the two real tail completions and frame 1709 as no entry
+tail callback; all target flash wakes hibernate. Oracle continuation-to-next
+object spans show those completions cost 8,886 / 9,156 cycles because
+allocation/deallocation scans differ, so no fixed completion cost is safe.
+Next build a source-ordered runnable-object ledger with list ranks and branch
+facts; parallel category vectors and stale overlap counts cannot drive the
+scheduler.
+
 Progress 2026-07-18: the Mode_Level ledger now completes its entry-time
 workload with the Kid coroutine branches actually executed by the native
 physics pass. The published Cyclone route records `sub_B084` Right

@@ -402,6 +402,39 @@ fn prize_block_wobble_resume_sub_1007a(remaining: u8) -> PrizeBlockWobbleResumeS
     }
 }
 
+fn prize_block_tail_state_sub_1007a(
+    content: Option<terrain::PrizeContent>,
+    remaining: u8,
+) -> ModeLevelPrizeBlockTailState {
+    // ASM sub_1007A (kid.asm:21407-21435): once the animation flag wakes
+    // Hibernate_UntilAnimFinished, the worker creates the flash and prize and
+    // deletes itself. Native's source-backed overlap is four frames for a
+    // diamond and three for every shared prize path; only the initial value
+    // represents that live completion callback.
+    let completion_remaining = NativeRuntime::PRIZE_BLOCK_WORKER_TAIL_FRAMES
+        .saturating_add(u8::from(content == Some(terrain::PrizeContent::Diamond)));
+    match remaining.cmp(&completion_remaining) {
+        std::cmp::Ordering::Equal => ModeLevelPrizeBlockTailState::FinishSpawnPrizeAndDelete,
+        std::cmp::Ordering::Less => {
+            ModeLevelPrizeBlockTailState::DeletedWorkerOverlap { remaining }
+        }
+        std::cmp::Ordering::Greater => {
+            ModeLevelPrizeBlockTailState::UnclassifiedAnimationWait { remaining }
+        }
+    }
+}
+
+fn prize_block_flash_wake_loc_102b8(remaining: u8) -> ModeLevelPrizeAnimationWake {
+    // ASM loc_102B8 (kid.asm:21545-21551): the native flash countdown reaches
+    // one on the wake where animation completion returns and deletes the
+    // object; earlier wakes re-enter Hibernate_Object_1Frame.
+    if remaining == 1 {
+        ModeLevelPrizeAnimationWake::FinishAndDelete
+    } else {
+        ModeLevelPrizeAnimationWake::Hibernate
+    }
+}
+
 fn mode_level_airborne_horizontal_path(
     x_velocity_before: i32,
     x_velocity_after: i32,
@@ -1430,12 +1463,18 @@ mod tests {
                         content: Some(terrain::PrizeContent::Diamond),
                         deleted_tile: false,
                     }],
-                    prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeAnimationWorkSub1066 {
-                        remaining: 1
-                    },],
-                    prize_block_flash_paths_sub_1066: vec![ModeLevelPrizeAnimationWorkSub1066 {
-                        remaining: 4
-                    },],
+                    prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeBlockTailWork {
+                        cell_x: 0x0A,
+                        cell_y: 0x0C,
+                        content: Some(terrain::PrizeContent::Diamond),
+                        state: ModeLevelPrizeBlockTailState::DeletedWorkerOverlap { remaining: 1 },
+                    }],
+                    prize_block_flash_paths_sub_1066: vec![ModeLevelPrizeBlockFlashWork {
+                        x_px: 0x00A8,
+                        y_px: 0x00B0,
+                        remaining: 4,
+                        wake: ModeLevelPrizeAnimationWake::Hibernate,
+                    }],
                     floating_prize_paths: vec![ModeLevelFloatingPrizeWork {
                         content: terrain::PrizeContent::Diamond,
                         remaining: 0x01F4,
@@ -1479,6 +1518,45 @@ mod tests {
                 "remaining={remaining}"
             );
         }
+    }
+
+    #[test]
+    fn prize_animation_work_distinguishes_live_wakes_from_deleted_overlap() {
+        // ASM sub_1007A (kid.asm:21407-21435): the first animation wake after
+        // the wobble creates the flash and prize, then deletes the worker.
+        // Native keeps a short render/count overlap after that deletion.
+        assert_eq!(
+            prize_block_tail_state_sub_1007a(
+                Some(terrain::PrizeContent::Diamond),
+                NativeRuntime::PRIZE_BLOCK_WORKER_TAIL_FRAMES + 1,
+            ),
+            ModeLevelPrizeBlockTailState::FinishSpawnPrizeAndDelete
+        );
+        assert_eq!(
+            prize_block_tail_state_sub_1007a(
+                Some(terrain::PrizeContent::Diamond),
+                NativeRuntime::PRIZE_BLOCK_WORKER_TAIL_FRAMES,
+            ),
+            ModeLevelPrizeBlockTailState::DeletedWorkerOverlap { remaining: 3 }
+        );
+        assert_eq!(
+            prize_block_tail_state_sub_1007a(
+                Some(terrain::PrizeContent::Points10000),
+                NativeRuntime::PRIZE_BLOCK_WORKER_TAIL_FRAMES,
+            ),
+            ModeLevelPrizeBlockTailState::FinishSpawnPrizeAndDelete
+        );
+
+        // ASM loc_102B8 (kid.asm:21545-21551): each flash wake either
+        // hibernates again or observes animation completion and deletes.
+        assert_eq!(
+            prize_block_flash_wake_loc_102b8(2),
+            ModeLevelPrizeAnimationWake::Hibernate
+        );
+        assert_eq!(
+            prize_block_flash_wake_loc_102b8(1),
+            ModeLevelPrizeAnimationWake::FinishAndDelete
+        );
     }
 
     #[test]
@@ -8399,15 +8477,21 @@ impl NativeRuntime {
         let prize_block_tail_paths_sub_1066 = self
             .visible_prize_block_worker_tails()
             .into_iter()
-            .map(|tail| ModeLevelPrizeAnimationWorkSub1066 {
-                remaining: tail.remaining,
+            .map(|tail| ModeLevelPrizeBlockTailWork {
+                cell_x: tail.cell_x,
+                cell_y: tail.cell_y,
+                content: tail.content,
+                state: prize_block_tail_state_sub_1007a(tail.content, tail.remaining),
             })
             .collect();
         let prize_block_flash_paths_sub_1066 = self
             .prize_block_spawn_flashes
             .iter()
-            .map(|flash| ModeLevelPrizeAnimationWorkSub1066 {
+            .map(|flash| ModeLevelPrizeBlockFlashWork {
+                x_px: flash.x_px,
+                y_px: flash.y_px,
                 remaining: flash.remaining,
+                wake: prize_block_flash_wake_loc_102b8(flash.remaining),
             })
             .collect();
         let floating_prize_paths = self

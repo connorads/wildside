@@ -1673,10 +1673,42 @@ pub struct ModeLevelPrizeBlockWobbleWork {
     pub deleted_tile: bool,
 }
 
-/// One animation coroutine resumed through ASM `sub_1066`.
+/// Whether an ASM `Hibernate_UntilAnimFinished loc_1066` wake yields or
+/// returns to the caller's completion path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ModeLevelPrizeAnimationWorkSub1066 {
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelPrizeAnimationWake {
+    Hibernate,
+    FinishAndDelete,
+}
+
+/// Native state represented by one post-wobble prize-block tail.
+///
+/// ASM `sub_1007A` deletes the worker on its first finished-animation wake.
+/// Native retains a short overlap afterwards to reproduce the ROM's visible
+/// object/Gfx accounting without pretending the deleted coroutine runs again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelPrizeBlockTailState {
+    FinishSpawnPrizeAndDelete,
+    DeletedWorkerOverlap { remaining: u8 },
+    UnclassifiedAnimationWait { remaining: u8 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelPrizeBlockTailWork {
+    pub cell_x: u16,
+    pub cell_y: u16,
+    pub content: Option<terrain::PrizeContent>,
+    pub state: ModeLevelPrizeBlockTailState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelPrizeBlockFlashWork {
+    pub x_px: u16,
+    pub y_px: u16,
     pub remaining: u8,
+    pub wake: ModeLevelPrizeAnimationWake,
 }
 
 /// One live falling-prize coroutine after its one-frame hibernate.
@@ -1793,9 +1825,9 @@ pub struct ModeLevelExecuteObjectsWork {
     #[serde(default)]
     pub prize_block_wobble_paths_sub_1007a: Vec<ModeLevelPrizeBlockWobbleWork>,
     #[serde(default)]
-    pub prize_block_tail_paths_sub_1066: Vec<ModeLevelPrizeAnimationWorkSub1066>,
+    pub prize_block_tail_paths_sub_1066: Vec<ModeLevelPrizeBlockTailWork>,
     #[serde(default)]
-    pub prize_block_flash_paths_sub_1066: Vec<ModeLevelPrizeAnimationWorkSub1066>,
+    pub prize_block_flash_paths_sub_1066: Vec<ModeLevelPrizeBlockFlashWork>,
     #[serde(default)]
     pub floating_prize_paths: Vec<ModeLevelFloatingPrizeWork>,
     #[serde(default)]

@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#409 live prize animation wakes)
+
+- Prize tail work now distinguishes the real finished-animation callback from
+  native's post-deletion count/render overlap; flash work names hibernate
+  versus finish+delete and retains position.
+- Fresh route evidence marks frames 1697/1703 as real tail completion paths
+  and frame 1709 as no entry tail callback. All target flash wakes hibernate.
+- Tail completion spans differ by 270 cycles because linked allocation and
+  deletion scans differ. NEXT: type the actual source-ordered runnable object
+  list, branch outcomes, and scan ranks before assigning cycle costs.
+
+---
+
 ## 2026-07-18 handoff (#409 typed Kid execution path)
 
 - The Mode_Level workload now records the executed normal-physics source
