@@ -2002,6 +2002,7 @@ mod tests {
                     ModeLevelPreHudPhase::SubF096,
                 ],
                 execute_objects: ModeLevelExecuteObjectsWork {
+                    rng_offset_before_sub_e12: Some(0xFFC9),
                     linked_object_count: 6,
                     linked_gfx_object_count: 7,
                     linked_non_transient_object_count: 2,
@@ -2240,6 +2241,7 @@ mod tests {
         floating_remaining: &[u16],
     ) -> ModeLevelExecuteObjectsWork {
         ModeLevelExecuteObjectsWork {
+            rng_offset_before_sub_e12: None,
             linked_object_count,
             linked_gfx_object_count,
             linked_non_transient_object_count: 4,
@@ -9599,6 +9601,7 @@ impl NativeRuntime {
         ModeLevelPreHudWorkLedger {
             phases,
             execute_objects: ModeLevelExecuteObjectsWork {
+                rng_offset_before_sub_e12: Some(self.rom_random.offset_word()),
                 linked_object_count,
                 linked_gfx_object_count,
                 linked_non_transient_object_count,

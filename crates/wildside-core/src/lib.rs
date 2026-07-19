@@ -103,7 +103,8 @@ pub use level::{
     shared_vram_art_decompresses_loc_11EFA,
 };
 pub use mode_level_timing::{
-    M68kCycleCount, prize_object_cycles_sub_e12, prize_tail_finish_cycles_sub_1007a,
+    M68kCycleCount, execute_objects_setup_cycles_sub_e12, prize_object_cycles_sub_e12,
+    prize_tail_finish_cycles_sub_1007a,
 };
 pub use platforms::{
     PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C, PlatformSpriteEmitLoc2548,

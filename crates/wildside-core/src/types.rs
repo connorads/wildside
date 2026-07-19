@@ -1991,6 +1991,10 @@ pub enum ModeLevelPlayerExecutionPath {
 /// separate because enemy/platform callbacks need their own later expansion.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelExecuteObjectsWork {
+    /// ASM `Get_RandomNumber_long sub_A4A` entry offset. Four byte draws can
+    /// take different wrap branches before loc_E1E.
+    #[serde(default)]
+    pub rng_offset_before_sub_e12: Option<u16>,
     pub linked_object_count: u16,
     pub linked_gfx_object_count: u16,
     pub linked_non_transient_object_count: u16,

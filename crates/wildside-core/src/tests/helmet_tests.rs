@@ -9347,9 +9347,9 @@ mod chunk_08 {
         };
 
         let mut frames = Vec::new();
-        for (frame_index, mask) in script.iter().copied().enumerate().take(1_704) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_710) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
-            if frame_index == 1_697 || frame_index == 1_703 {
+            if frame_index == 1_697 || frame_index == 1_703 || frame_index == 1_709 {
                 frames.push(trace);
             }
         }
@@ -9374,6 +9374,17 @@ mod chunk_08 {
                 .map(|prize| prize.fall_path_loc_103b2)
                 .collect::<Vec<_>>()
         };
+        assert_eq!(
+            frames
+                .iter()
+                .map(|frame| frame
+                    .mode_level_work_before_hud_sub_44dc
+                    .as_ref()
+                    .and_then(|ledger| ledger.execute_objects.rng_offset_before_sub_e12))
+                .collect::<Vec<_>>(),
+            vec![Some(0xFFEC), Some(0xFFCD), Some(0xFFE5)],
+            "ASM sub_A4A entry offsets select four, zero, and four tap-wrap branches"
+        );
 
         // ASM Allocate_ObjectSlot loc_DE0, Allocate_GfxObjectSlot loc_FD4,
         // Deallocate_ObjectSlot loc_EA2, and Deallocate_GfxObject

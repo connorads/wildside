@@ -40,6 +40,29 @@ pub fn prize_tail_finish_cycles_sub_1007a(work: ModeLevelPrizeTailListWork) -> M
     M68kCycleCount(FIXED_PATH_CYCLES + LIST_NODE_CYCLES * visited_nodes)
 }
 
+/// Cycles from ASM `Execute_Objects sub_E12` through the first loc_E1E list
+/// read, including all four `Get_RandomNumber_byte sub_9FE` calls.
+pub fn execute_objects_setup_cycles_sub_e12(rng_offset_before: u16) -> Option<M68kCycleCount> {
+    if !crate::RomRandomFrameState::offset_is_initialised(rng_offset_before) {
+        return None;
+    }
+    // The no-wrap sub_A4A path costs 1,106 cycles. In sub_9FE, resetting
+    // offset -1 to -55 adds two cycles; wrapping the +$1F tap adds six.
+    let mut cycles = 1_106;
+    let mut offset = rng_offset_before as i16;
+    for _ in 0..4 {
+        offset += 1;
+        if offset == 0 {
+            offset = -55;
+            cycles += 2;
+        }
+        if offset >= -31 {
+            cycles += 6;
+        }
+    }
+    Some(M68kCycleCount(cycles))
+}
+
 /// Nominal 68000 cycles for one typed prize callback, measured from its
 /// `Execute_Objects` loc_E1E list read through the following loc_E1E read.
 ///
@@ -159,5 +182,38 @@ mod tests {
             9_156,
             "bounded oracle: frame 1703 loc_1066 -> next loc_E1E"
         );
+    }
+
+    #[test]
+    fn execute_objects_rng_setup_cycles_follow_sub_9fe_wrap_branches() {
+        assert_eq!(
+            execute_objects_setup_cycles_sub_e12(0xFFCD)
+                .expect("initialised -51 offset")
+                .get(),
+            1_106,
+            "frame 1703 takes no tap-wrap branches"
+        );
+        assert_eq!(
+            execute_objects_setup_cycles_sub_e12(0xFFEC)
+                .expect("initialised -20 offset")
+                .get(),
+            1_130,
+            "frame 1697 takes four +$1F tap-wrap branches"
+        );
+        assert_eq!(
+            execute_objects_setup_cycles_sub_e12(0xFFE5)
+                .expect("initialised -27 offset")
+                .get(),
+            1_130,
+            "frame 1709 takes four +$1F tap-wrap branches"
+        );
+        assert_eq!(
+            execute_objects_setup_cycles_sub_e12(0xFFFF)
+                .expect("initialised -1 offset")
+                .get(),
+            1_108,
+            "offset-ring reset costs two cycles and suppresses the tap wrap"
+        );
+        assert_eq!(execute_objects_setup_cycles_sub_e12(0), None);
     }
 }
