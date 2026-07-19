@@ -9,7 +9,10 @@ use z80::{Z80, Z80_io};
 
 const M68K_DIVIDER: u64 = 7;
 const Z80_DIVIDER: u64 = 15;
-const YM2612_DIVIDER: u64 = 42;
+// Ym2612Shadow accepts raw 7.67 MHz input clocks. jgenesis' YM core consumes
+// an internally prescaled tick every 42 master clocks; copying that divider
+// here under-clocks this shadow by six. Mega Drive YM input is master / 7.
+const YM2612_DIVIDER: u64 = 7;
 const MASTER_CLOCKS_PER_SCANLINE: u64 = 3_420;
 const NTSC_SCANLINES_PER_FRAME: u16 = 262;
 const NTSC_ACTIVE_SCANLINES: u16 = 224;
@@ -489,6 +492,41 @@ mod tests {
             MASTER_CLOCKS_PER_SCANLINE * u64::from(NTSC_SCANLINES_PER_FRAME),
         );
         assert_eq!(engine.z80_mclk_counter, 0);
+    }
+
+    #[test]
+    fn ym_shadow_uses_raw_master_divider_seven_for_gems_filldacfifo() {
+        // GEMS FILLDACFIFO ($01FB) is paced by YM status/timer state.
+        // Ym2612Shadow::advance_clocks accepts the raw master/7 input clock,
+        // not jgenesis' internally prescaled master/42 YM tick.
+        let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+        engine
+            .z80
+            .io
+            .ym2612_shadow
+            .get_mut()
+            .status_decay_clocks_remaining = 10;
+
+        engine.advance_master_clocks(6, false, false);
+        assert_eq!(
+            engine
+                .z80
+                .io
+                .ym2612_shadow
+                .borrow()
+                .status_decay_clocks_remaining,
+            10,
+        );
+        engine.advance_master_clocks(1, false, false);
+        assert_eq!(
+            engine
+                .z80
+                .io
+                .ym2612_shadow
+                .borrow()
+                .status_decay_clocks_remaining,
+            9,
+        );
     }
 
     #[test]
