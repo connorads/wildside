@@ -813,6 +813,120 @@ impl LayerFilter {
     }
 }
 
+/// Renderer layer a gameplay draw command was emitted by. Mirrors the
+/// [`LayerFilter`] gates in `build_game_scene_filtered`; `Oracle` marks
+/// oracle-only divergence pixels (no native command wrote them) and `Unknown`
+/// covers commands pushed outside any gated block (title-card glyph overlay,
+/// warp tint, palette fade) plus non-gameplay scenes, which have no gates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SceneLayer {
+    Background,
+    Terrain,
+    BlockOverrides,
+    Platforms,
+    Enemies,
+    Player,
+    Effects,
+    EolScore,
+    Hud,
+    Oracle,
+    Unknown,
+}
+
+impl SceneLayer {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SceneLayer::Background => "background",
+            SceneLayer::Terrain => "terrain",
+            SceneLayer::BlockOverrides => "block_overrides",
+            SceneLayer::Platforms => "platforms",
+            SceneLayer::Enemies => "enemies",
+            SceneLayer::Player => "player",
+            SceneLayer::Effects => "effects",
+            SceneLayer::EolScore => "eol_score",
+            SceneLayer::Hud => "hud",
+            SceneLayer::Oracle => "oracle",
+            SceneLayer::Unknown => "unknown",
+        }
+    }
+}
+
+/// Contiguous run of scene command indices emitted by one layer. A layer may
+/// own multiple spans: terrain and block-override gates run twice, and the
+/// block-destroy effect commands splice in ahead of the player span.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LayerSpan {
+    pub layer: SceneLayer,
+    pub range: std::ops::Range<usize>,
+}
+
+/// Layer that emitted `command_index`, per the recorded spans. Spans partition
+/// the command list, so a miss (empty spans from a non-gameplay scene, or an
+/// out-of-range index) is `Unknown`.
+pub fn layer_for_command_index(spans: &[LayerSpan], command_index: usize) -> SceneLayer {
+    spans
+        .iter()
+        .find(|span| span.range.contains(&command_index))
+        .map_or(SceneLayer::Unknown, |span| span.layer)
+}
+
+/// Per-command layer tags accumulated while building a gameplay scene.
+///
+/// `mark` tags every command pushed since the previous synchronisation point,
+/// so it must run at the end of each gated block; structural mutations of the
+/// command list (the block-destroy splice, the pause-menu retain) are mirrored
+/// here so tags stay index-aligned with commands.
+struct LayerTags(Vec<SceneLayer>);
+
+impl LayerTags {
+    fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    /// Tag all commands from the last synchronised index up to `command_count`.
+    fn mark(&mut self, layer: SceneLayer, command_count: usize) {
+        debug_assert!(self.0.len() <= command_count);
+        self.0.resize(command_count, layer);
+    }
+
+    /// Mirror a `commands.splice(at..at, ...)` insertion of `count` commands.
+    fn mirror_splice(&mut self, at: usize, layer: SceneLayer, count: usize) {
+        debug_assert!(at <= self.0.len());
+        self.0.splice(at..at, std::iter::repeat_n(layer, count));
+    }
+
+    /// Mirror a `commands.retain(...)` where `hidden[i]` marks removed entries.
+    fn mirror_retain(&mut self, hidden: &[bool]) {
+        debug_assert_eq!(self.0.len(), hidden.len());
+        let mut index = 0;
+        self.0.retain(|_| {
+            let keep = !hidden[index];
+            index += 1;
+            keep
+        });
+    }
+
+    /// Compress tags into contiguous spans covering `[0, command_count)`;
+    /// commands past the last `mark` (the ungated tail) become `Unknown`.
+    fn into_spans(mut self, command_count: usize) -> Vec<LayerSpan> {
+        self.mark(SceneLayer::Unknown, command_count);
+        let mut spans: Vec<LayerSpan> = Vec::new();
+        for (index, layer) in self.0.into_iter().enumerate() {
+            match spans.last_mut() {
+                Some(span) if span.layer == layer && span.range.end == index => {
+                    span.range.end = index + 1;
+                }
+                _ => spans.push(LayerSpan {
+                    layer,
+                    range: index..index + 1,
+                }),
+            }
+        }
+        spans
+    }
+}
+
 fn player_damage_flash_white_phase_loc_bc56(trace: &NativeTraceFrame) -> bool {
     if !trace.just_received_damage || trace.invulnerable_frames == 0 {
         return false;
@@ -1091,6 +1205,24 @@ pub fn build_scene(
     block_grid: Option<&BlockGrid>,
 ) -> Scene {
     build_scene_filtered(
+        trace,
+        debug_overlay_visible,
+        level_visuals,
+        block_grid,
+        LayerFilter::default(),
+    )
+}
+
+/// [`build_scene`] plus the per-command [`LayerSpan`]s recorded while building
+/// a gameplay scene. Non-gameplay scenes have no layer gates, so their span
+/// list is empty and every command attributes as [`SceneLayer::Unknown`].
+pub fn build_scene_with_layers(
+    trace: &NativeTraceFrame,
+    debug_overlay_visible: bool,
+    level_visuals: Option<&NativeLevelVisuals>,
+    block_grid: Option<&BlockGrid>,
+) -> (Scene, Vec<LayerSpan>) {
+    build_scene_filtered_with_layers(
         trace,
         debug_overlay_visible,
         level_visuals,
@@ -1491,6 +1623,25 @@ pub fn build_scene_filtered(
     block_grid: Option<&BlockGrid>,
     filter: LayerFilter,
 ) -> Scene {
+    build_scene_filtered_with_layers(
+        trace,
+        debug_overlay_visible,
+        level_visuals,
+        block_grid,
+        filter,
+    )
+    .0
+}
+
+/// [`build_scene_filtered`] plus recorded [`LayerSpan`]s; see
+/// [`build_scene_with_layers`] for the span semantics.
+pub fn build_scene_filtered_with_layers(
+    trace: &NativeTraceFrame,
+    debug_overlay_visible: bool,
+    level_visuals: Option<&NativeLevelVisuals>,
+    block_grid: Option<&BlockGrid>,
+    filter: LayerFilter,
+) -> (Scene, Vec<LayerSpan>) {
     match trace.game_mode {
         GameMode::InGame | GameMode::DemoPlay => build_game_scene_filtered(
             trace,
@@ -1499,10 +1650,10 @@ pub fn build_scene_filtered(
             block_grid,
             filter,
         ),
-        GameMode::LevelTransition => build_transition_scene(trace, level_visuals),
-        GameMode::OptionsMenu => build_options_scene(trace),
-        GameMode::EndingSequence => build_ending_scene(trace),
-        _ => build_status_scene(trace, debug_overlay_visible),
+        GameMode::LevelTransition => (build_transition_scene(trace, level_visuals), Vec::new()),
+        GameMode::OptionsMenu => (build_options_scene(trace), Vec::new()),
+        GameMode::EndingSequence => (build_ending_scene(trace), Vec::new()),
+        _ => (build_status_scene(trace, debug_overlay_visible), Vec::new()),
     }
 }
 
@@ -5390,20 +5541,22 @@ fn pause_menu_tile_with_live_cursor_loc_6b0e(
     tile
 }
 
+/// ASM loc_68AC-loc_68C0: sub_6874 scans the hardware sprite table and
+/// clears the Y word for sprites whose masked first pattern tile overlaps
+/// the pause-menu art upload range `$676..=$68E`.
+fn pause_menu_sprite_overwritten_sub_6874(command: &DrawCommand) -> bool {
+    let DrawCommand::Sprite { tiles, .. } = command else {
+        return false;
+    };
+    let Some(first_tile) = tiles.first() else {
+        return false;
+    };
+    let masked_tile = first_tile.tile.tile_index & 0x07FF;
+    (0x0676..=0x068E).contains(&masked_tile)
+}
+
 pub fn hide_pause_menu_overwritten_sprite_commands_sub_6874(commands: &mut Vec<DrawCommand>) {
-    // ASM loc_68AC-loc_68C0: sub_6874 scans the hardware sprite table and
-    // clears the Y word for sprites whose masked first pattern tile overlaps
-    // the pause-menu art upload range `$676..=$68E`.
-    commands.retain(|command| {
-        let DrawCommand::Sprite { tiles, .. } = command else {
-            return true;
-        };
-        let Some(first_tile) = tiles.first() else {
-            return true;
-        };
-        let masked_tile = first_tile.tile.tile_index & 0x07FF;
-        !(0x0676..=0x068E).contains(&masked_tile)
-    });
+    commands.retain(|command| !pause_menu_sprite_overwritten_sub_6874(command));
 }
 
 // Forest water ripple table from ASM: BackgroundScroll_ForestWaterRippleData
@@ -6803,7 +6956,7 @@ fn build_game_scene_filtered(
     level_visuals: &NativeLevelVisuals,
     block_grid: Option<&BlockGrid>,
     filter: LayerFilter,
-) -> Scene {
+) -> (Scene, Vec<LayerSpan>) {
     let eol_hologram_visible = trace.level_complete
         && trace.level_complete_elapsed_frames
             >= wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE;
@@ -6813,6 +6966,7 @@ fn build_game_scene_filtered(
         background_colour(level_visuals)
     };
     let mut commands = Vec::new();
+    let mut layer_tags = LayerTags::new();
 
     if eol_hologram_visible && filter.background {
         push_eol_hologram_room(&mut commands, trace, level_visuals);
@@ -6827,11 +6981,14 @@ fn build_game_scene_filtered(
             push_background_tiles(&mut commands, trace, level_visuals);
         }
     }
+    layer_tags.mark(SceneLayer::Background, commands.len());
     if filter.terrain {
         push_level_layout_terrain(&mut commands, trace, level_visuals, block_grid);
+        layer_tags.mark(SceneLayer::Terrain, commands.len());
     }
     if filter.block_overrides {
         push_block_grid_overrides(&mut commands, trace, level_visuals, block_grid);
+        layer_tags.mark(SceneLayer::BlockOverrides, commands.len());
     }
     if filter.terrain {
         push_special_effect_unknown_foreground_plane_loc_14e42(&mut commands, trace, level_visuals);
@@ -6839,6 +6996,7 @@ fn build_game_scene_filtered(
     if eol_hologram_visible && filter.terrain {
         push_eol_foreground_reveal_tiles(&mut commands, trace, level_visuals, block_grid);
     }
+    layer_tags.mark(SceneLayer::Terrain, commands.len());
     if !eol_hologram_visible && filter.platforms {
         for object in trace.active_objects.iter().filter(|object| {
             matches!(
@@ -6850,6 +7008,7 @@ fn build_game_scene_filtered(
                 push_platform_tiles(&mut commands, object, trace, level_visuals, kind);
             }
         }
+        layer_tags.mark(SceneLayer::Platforms, commands.len());
     }
     if !eol_hologram_visible && filter.enemies {
         for object in trace
@@ -6912,6 +7071,7 @@ fn build_game_scene_filtered(
                 boss_eye_object_mapping_index_loc_37abc(object).unwrap_or_default(),
             );
         }
+        layer_tags.mark(SceneLayer::Enemies, commands.len());
     }
     // The worker trace is compiled later, but this established compositor path
     // keeps its current presentation latch separate from Kid's source-backed
@@ -6952,6 +7112,7 @@ fn build_game_scene_filtered(
                 priority_override,
             );
         }
+        layer_tags.mark(SceneLayer::Player, commands.len());
     }
     if filter.block_overrides {
         // ASM Allocate_GfxObjectSlot loc_FD4 sorts Kid's `$2000` GfxObject
@@ -6964,6 +7125,7 @@ fn build_game_scene_filtered(
             level_visuals,
             block_grid,
         );
+        layer_tags.mark(SceneLayer::BlockOverrides, commands.len());
     }
 
     if !eol_hologram_visible && filter.effects {
@@ -7818,6 +7980,11 @@ fn build_game_scene_filtered(
                 });
             }
         }
+        layer_tags.mirror_splice(
+            block_destroy_sprite_insert_at,
+            SceneLayer::Effects,
+            block_destroy_commands.len(),
+        );
         commands.splice(
             block_destroy_sprite_insert_at..block_destroy_sprite_insert_at,
             block_destroy_commands,
@@ -8072,6 +8239,7 @@ fn build_game_scene_filtered(
         } else {
             push_heady_metal_death_split_pieces(&mut commands, trace, level_visuals);
         }
+        layer_tags.mark(SceneLayer::Effects, commands.len());
     }
 
     if !eol_hologram_visible && filter.hud {
@@ -8086,6 +8254,7 @@ fn build_game_scene_filtered(
             height: 48,
         });
         push_game_hud(&mut commands, trace, level_visuals);
+        layer_tags.mark(SceneLayer::Hud, commands.len());
     }
 
     // Level Complete overlay. ASM `loc_D55E` onwards (kid.asm:16670-16800)
@@ -8097,11 +8266,16 @@ fn build_game_scene_filtered(
     if trace.level_complete && filter.eol_score {
         if let Some(eol_score) = &level_visuals.eol_score {
             push_eol_score_overlay(&mut commands, trace, eol_score);
-            return Scene {
-                background,
-                commands,
-                pause_palette_darken: trace.paused,
-            };
+            layer_tags.mark(SceneLayer::EolScore, commands.len());
+            let spans = layer_tags.into_spans(commands.len());
+            return (
+                Scene {
+                    background,
+                    commands,
+                    pause_palette_darken: trace.paused,
+                },
+                spans,
+            );
         }
         let text_y = (FRAME_HEIGHT as i32) / 2 - 40;
         let mut line_y = text_y + 22;
@@ -8154,6 +8328,7 @@ fn build_game_scene_filtered(
         let score_line = format!("SCORE: {}", trace.score);
         let score_x = (FRAME_WIDTH as i32 - score_line.len() as i32 * 8) / 2;
         commands.push(text(score_x, line_y, &score_line, [255, 255, 255], 1));
+        layer_tags.mark(SceneLayer::EolScore, commands.len());
     }
 
     // Game Over / Continue overlay
@@ -8169,14 +8344,24 @@ fn build_game_scene_filtered(
             let text_y = (FRAME_HEIGHT as i32) / 2 - 8;
             commands.push(text(text_x, text_y, go_text, [255, 80, 80], 2));
         }
+        layer_tags.mark(SceneLayer::EolScore, commands.len());
     }
 
     // Pause overlay
     if trace.paused && filter.hud {
+        // Defensive sync so the hidden mask below is index-aligned with the
+        // tag list before mirroring the retain.
+        layer_tags.mark(SceneLayer::Unknown, commands.len());
+        let hidden: Vec<bool> = commands
+            .iter()
+            .map(pause_menu_sprite_overwritten_sub_6874)
+            .collect();
+        layer_tags.mirror_retain(&hidden);
         hide_pause_menu_overwritten_sprite_commands_sub_6874(&mut commands);
         if !push_pause_menu_tilemap_loc_69d2(&mut commands, trace, level_visuals) {
             push_pause_menu_text_loc_69d2(&mut commands, trace);
         }
+        layer_tags.mark(SceneLayer::Hud, commands.len());
     }
 
     // Level complete overlay
@@ -8216,6 +8401,7 @@ fn build_game_scene_filtered(
             [255, 255, 200],
             1,
         ));
+        layer_tags.mark(SceneLayer::Hud, commands.len());
     }
 
     if debug_overlay_visible && filter.hud {
@@ -8294,6 +8480,7 @@ fn build_game_scene_filtered(
                 }
             }
         }
+        layer_tags.mark(SceneLayer::Hud, commands.len());
     }
 
     // #349: ASM lose_life (kid.asm:14763) -> Game_Mode 8 -> Load_TitleCard
@@ -8307,11 +8494,15 @@ fn build_game_scene_filtered(
     push_teleport_warp_tint_loc_bcf6(&mut commands, trace);
     push_level_entry_palette_fade_sub_73d0(&mut commands, trace);
 
-    Scene {
-        background,
-        commands,
-        pause_palette_darken: trace.paused,
-    }
+    let spans = layer_tags.into_spans(commands.len());
+    (
+        Scene {
+            background,
+            commands,
+            pause_palette_darken: trace.paused,
+        },
+        spans,
+    )
 }
 
 fn boss_eye_object_mapping_index_loc_37abc(object: &NativeObjectSnapshot) -> Option<u8> {
@@ -9518,7 +9709,8 @@ mod tests {
             &visuals,
             None,
             LayerFilter::solo("effects"),
-        );
+        )
+        .0;
 
         let [
             DrawCommand::SatSprite {
@@ -11195,7 +11387,8 @@ mod tests {
         };
 
         let scene =
-            build_game_scene_filtered(&trace, false, &visuals, None, LayerFilter::solo("enemies"));
+            build_game_scene_filtered(&trace, false, &visuals, None, LayerFilter::solo("enemies"))
+                .0;
         let rects = scene_rects(&scene.commands);
 
         assert_eq!(
@@ -11285,7 +11478,8 @@ mod tests {
         };
 
         let scene =
-            build_game_scene_filtered(&trace, false, &visuals, None, LayerFilter::solo("effects"));
+            build_game_scene_filtered(&trace, false, &visuals, None, LayerFilter::solo("effects"))
+                .0;
         let rects = scene_rects(&scene.commands);
 
         assert_eq!(
@@ -12397,7 +12591,8 @@ mod tests {
                 eol_score: false,
                 hud: false,
             },
-        );
+        )
+        .0;
         let sat_positions = scene
             .commands
             .iter()
@@ -12699,7 +12894,8 @@ mod tests {
                 eol_score: false,
                 hud: false,
             },
-        );
+        )
+        .0;
 
         let DrawCommand::Sprite {
             x,
@@ -14101,5 +14297,143 @@ mod tests {
             .iter()
             .map(|colour| colour.raw_word)
             .collect()
+    }
+
+    #[test]
+    fn layer_tags_compress_marks_and_mirror_structural_mutations() {
+        let mut tags = LayerTags::new();
+        tags.mark(SceneLayer::Background, 2);
+        tags.mark(SceneLayer::Terrain, 3);
+        tags.mark(SceneLayer::Player, 5);
+        // Two effects commands splice in ahead of the player commands.
+        tags.mirror_splice(3, SceneLayer::Effects, 2);
+        // The pause retain drops the second background command and the first
+        // player command.
+        tags.mirror_retain(&[false, true, false, false, false, true, false]);
+        let spans = tags.into_spans(6);
+
+        assert_eq!(
+            spans,
+            vec![
+                LayerSpan {
+                    layer: SceneLayer::Background,
+                    range: 0..1
+                },
+                LayerSpan {
+                    layer: SceneLayer::Terrain,
+                    range: 1..2
+                },
+                LayerSpan {
+                    layer: SceneLayer::Effects,
+                    range: 2..4
+                },
+                LayerSpan {
+                    layer: SceneLayer::Player,
+                    range: 4..5
+                },
+                LayerSpan {
+                    layer: SceneLayer::Unknown,
+                    range: 5..6
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn layer_for_command_index_resolves_spans_and_defaults_unknown() {
+        let spans = vec![
+            LayerSpan {
+                layer: SceneLayer::Enemies,
+                range: 0..2,
+            },
+            LayerSpan {
+                layer: SceneLayer::Hud,
+                range: 2..3,
+            },
+        ];
+        assert_eq!(layer_for_command_index(&spans, 0), SceneLayer::Enemies);
+        assert_eq!(layer_for_command_index(&spans, 1), SceneLayer::Enemies);
+        assert_eq!(layer_for_command_index(&spans, 2), SceneLayer::Hud);
+        assert_eq!(layer_for_command_index(&spans, 3), SceneLayer::Unknown);
+        assert_eq!(layer_for_command_index(&[], 0), SceneLayer::Unknown);
+    }
+
+    #[test]
+    fn gameplay_scene_layer_spans_partition_commands_and_name_gated_layers() {
+        let visuals = sample_level_visuals(1);
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            game_mode_value: GameMode::InGame.as_disassembly_value(),
+            active_objects: vec![NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x0C },
+                x_pos: 0x0040_0000,
+                y_pos: 0x0060_0000,
+                ..sample_object_snapshot()
+            }],
+            // Non-zero warp colour appends an ungated Tint after the gates.
+            teleport_warp_colour: 0x0EEE,
+            ..NativeTraceFrame::default()
+        };
+
+        let (scene, spans) = build_scene_with_layers(&trace, false, Some(&visuals), None);
+
+        // Spans partition [0, commands.len()) contiguously.
+        let mut expected_start = 0usize;
+        for span in &spans {
+            assert_eq!(span.range.start, expected_start);
+            assert!(span.range.end > span.range.start);
+            expected_start = span.range.end;
+        }
+        assert_eq!(expected_start, scene.commands.len());
+
+        // The unloaded 0x0C family renders the degraded ENEMY_COLOUR rect
+        // inside the enemies gate.
+        let enemy_rect = scene
+            .commands
+            .iter()
+            .position(
+                |command| matches!(command, DrawCommand::Rect { colour, .. } if *colour == ENEMY_COLOUR),
+            )
+            .expect("enemy fallback rect");
+        assert_eq!(
+            layer_for_command_index(&spans, enemy_rect),
+            SceneLayer::Enemies
+        );
+
+        // The HUD gate always emits its ClearPriorityRect first.
+        let hud_clear = scene
+            .commands
+            .iter()
+            .position(|command| matches!(command, DrawCommand::ClearPriorityRect { .. }))
+            .expect("HUD clear-priority rect");
+        assert_eq!(layer_for_command_index(&spans, hud_clear), SceneLayer::Hud);
+
+        // The trailing warp tint is pushed outside every gate.
+        let tint = scene
+            .commands
+            .iter()
+            .position(|command| matches!(command, DrawCommand::Tint { .. }))
+            .expect("teleport warp tint");
+        assert_eq!(layer_for_command_index(&spans, tint), SceneLayer::Unknown);
+
+        // The span-recording path must not perturb the rendered scene.
+        assert_eq!(
+            scene,
+            build_scene(&trace, false, Some(&visuals), None),
+            "build_scene and build_scene_with_layers must stay byte-identical"
+        );
+    }
+
+    #[test]
+    fn non_gameplay_scene_has_empty_layer_spans() {
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::TitleScreen,
+            game_mode_value: GameMode::TitleScreen.as_disassembly_value(),
+            ..NativeTraceFrame::default()
+        };
+        let (scene, spans) = build_scene_with_layers(&trace, false, None, None);
+        assert!(spans.is_empty());
+        assert!(!scene.commands.is_empty());
+        assert_eq!(layer_for_command_index(&spans, 0), SceneLayer::Unknown);
     }
 }
