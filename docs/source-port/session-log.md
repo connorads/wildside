@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 raw YM clock and command frontier)
+
+- Commit `b2a610100` clocks native `Ym2612Shadow` at its raw master/7 input
+  rate instead of jgenesis' internally prescaled master/42 tick.
+- The regression cites GEMS `FILLDACFIFO ($01FB)`. Correct pacing restores
+  dense six-byte transfers and reduces refill gaps from roughly 39,000 master
+  clocks to roughly 5,000-7,000.
+- Discard the prior native-1693/1694 versus oracle-1696 claim: it came from the
+  under-clocked timing model and is not route-seeding evidence.
+- Oracle `loc_1002E` selected-PC traces queue `$0D` on frames
+  1646/1656/1663/1669/1676/1682/1688/1695. Native's corresponding
+  `blocks_hit_this_frame` signal is consistently two frames later. Derive the
+  command from the initial hit boundary without moving the already-exact
+  wobble worker.
+- `mise run verify-slice-fast` is green: workspace Clippy, backlog/ASM/debug
+  audits, all configured TAS recordings, 6,961 core tests, and 15 CLI tests.
+- `mise run verify-tas-full` is green across all 37,759 frames; pixels remain
+  26,382 exact / 11,377 divergent / 3,620,978 changed.
+- NEXT: correct the source-derived prize-hit sound boundary, derive frame
+  1709's four GEMS steals, then bridge the typed ledger through `loc_892`.
+
+---
+
 ## 2026-07-19 handoff (#409 persistent GEMS timing machine)
 
 - Commit `8d52bb862` persists the complete GEMS Z80 core, self-modifying 8 KiB

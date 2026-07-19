@@ -350,6 +350,33 @@ checkpoint and must not become a fitted three-frame offset. Remaining #409 work
 is exact route checkpoint/replay seeding, native production of frame 1709's
 four bank steals, and the final typed bridge through `loc_892`.
 
+Correction 2026-07-19: commit `b2a610100` fixes the timing machine's YM clock
+boundary. Native `Ym2612Shadow::advance_clocks` accepts raw 7.67 MHz input
+clocks, so it must advance at master/7; jgenesis' master/42 divider feeds a YM
+core with an additional internal divide-by-six and under-clocked the native
+shadow when copied here. A regression tied to GEMS `FILLDACFIFO ($01FB)` proves
+that six master clocks leave the shadow unchanged and the seventh advances it.
+The correction shrinks six-byte FIFO refill gaps from roughly 39,000 master
+clocks to the source-consistent roughly 5,000-7,000 range and restores dense
+transfers around the target route. The earlier native-frame displacement was
+measured through the under-clocked model and is discarded, not compensated by
+a fitted shift.
+
+Oracle selected-PC traces provide the next route boundary: `loc_1002E` calls
+`PlaySoundEffect($0D)` on frames 1646, 1656, 1663, 1669, 1676, 1682, 1688, and
+1695. The corresponding native `blocks_hit_this_frame` events occur on frames
+1648, 1658, 1665, 1671, 1678, 1684, 1690, and 1697. Native currently derives
+the sound heuristically from that flag, two frames after the ROM command.
+Investigate the initial block-hit boundary separately from the wobble worker:
+its visual allocation/order already produces exact frames and must not be
+shifted to repair audio timing. After that, reproduce frame 1709's four bank
+steals from the persistent machine and bridge the typed ledger through
+`loc_892`. `mise run verify-slice-fast` is green after `b2a610100` with
+workspace Clippy, all configured TAS recordings, 6,961 core tests, and 15 CLI
+tests. `mise run verify-tas-full` is also green across all 37,759 frames, with
+the unchanged pixel ratchet of 26,382 exact / 11,377 divergent / 3,620,978
+changed pixels.
+
 Architecture finding 2026-07-19: the post-FIFO steals come from GEMS
 `FILLDACFIFO -> XFER68K`: driver `$01FB`, repeating six-byte banked `LDIR` at
 `$0273`, and final `LDIR` at `$0285`. A command queue or register-only
