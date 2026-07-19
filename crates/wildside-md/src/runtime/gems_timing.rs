@@ -200,15 +200,20 @@ impl GemsMasterClockTimingEngine {
         self.advance_continuous_master_clocks(master_clocks, interrupt_low, vdp_owns_bus)
     }
 
-    /// Advance one exact 262-scanline NTSC frame with the Z80 VINT line low
-    /// only during scanline 224, as on the Mega Drive VDP.
+    /// Advance one exact VBlank-to-VBlank 262-scanline NTSC frame.
+    ///
+    /// ASM `WaitForVint` hands the game frame to `V_Int` at scanline 224, so
+    /// the trace/audio frame boundary begins with the one scanline where the
+    /// Mega Drive VDP drives the Z80 INT line low. The remaining VBlank
+    /// scanlines, visible scanlines 0..223, then lead back to the next VBlank.
     pub fn advance_ntsc_frame(&mut self) -> GemsMasterClockAdvance {
         let mut reads = Vec::new();
-        for scanline in 0..NTSC_SCANLINES_PER_FRAME {
+        for frame_scanline in 0..NTSC_SCANLINES_PER_FRAME {
+            let vdp_scanline = (NTSC_ACTIVE_SCANLINES + frame_scanline) % NTSC_SCANLINES_PER_FRAME;
             reads.extend(
                 self.advance_continuous_master_clocks(
                     MASTER_CLOCKS_PER_SCANLINE,
-                    scanline == NTSC_ACTIVE_SCANLINES,
+                    vdp_scanline == NTSC_ACTIVE_SCANLINES,
                     false,
                 )
                 .banked_68k_reads,
@@ -480,6 +485,28 @@ mod tests {
                 "the access wait must elapse before the next Z80 instruction boundary",
             );
         }
+    }
+
+    #[test]
+    fn ntsc_frame_begins_with_the_z80_vblank_interrupt_scanline() {
+        // Mega Drive VDP `z80_interrupt_line`: INT is low only on scanline
+        // 224. ASM WaitForVint hands the trace frame to V_Int on that same
+        // boundary, so a frame-clocked GEMS sink must expose the interrupt
+        // before advancing the remaining VBlank and visible scanlines.
+        let mut driver = vec![0; 0x3D];
+        driver[..4].copy_from_slice(&[0xFB, 0x00, 0x76, 0x76]); // EI; NOP; HALT
+        driver[0x38..0x3D].copy_from_slice(&[0x3A, 0x00, 0x80, 0x76, 0x76]);
+        let mut rom = vec![0; 0x8001];
+        rom[0] = 0x5A;
+        let mut engine = GemsMasterClockTimingEngine::new(&driver, rom);
+
+        let advance = engine.advance_ntsc_frame();
+
+        assert_eq!(advance.banked_68k_reads.len(), 1);
+        assert!(
+            advance.banked_68k_reads[0].master_clock < MASTER_CLOCKS_PER_SCANLINE,
+            "the Z80 must service the scanline-224 interrupt at the trace/audio frame boundary"
+        );
     }
 
     #[test]
