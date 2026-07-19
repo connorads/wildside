@@ -2287,6 +2287,30 @@ pub enum ModeLevelGfxCollisionKidListWorkSub1B76 {
     Unclassified,
 }
 
+/// One stationary GfxObject animation source consumed by ASM `sub_1444`.
+///
+/// The target prize workers update their positions in their Object
+/// coroutines, so `GfxObject_Move sub_1120` sees `is_moved=0`. Their
+/// allocation age determines the exact `GfxObject_Animate sub_113E` state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelGfxMoveAnimateNodeWorkSub1444 {
+    StationaryUnanimated,
+    PrizeWobble { allocation_age: u16 },
+    PrizeFlash { allocation_age: u16 },
+    FloatingDiamond { allocation_age: u16 },
+}
+
+/// Per-node work for ASM `GfxObjects_MoveAndAnimate sub_1444`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelGfxMoveAnimateWorkSub1444 {
+    Classified {
+        nodes: Vec<ModeLevelGfxMoveAnimateNodeWorkSub1444>,
+    },
+    Unclassified,
+}
+
 /// Special GfxObject chains consumed by ASM `GfxObjects_Collision` and
 /// `GfxObjects_CollisionKid`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -2342,6 +2366,7 @@ pub struct ModeLevelPostHudWorkLedger {
     pub block_debris_work_sub_2a4c: ModeLevelBlockDebrisWorkSub2A4C,
     pub diamond_power_compile_work_sub_3f798: ModeLevelDiamondPowerCompileWorkSub3F798,
     pub kid_projectile_collision_work_sub_1d76: ModeLevelKidProjectileCollisionWorkSub1D76,
+    pub gfx_move_animate_work_sub_1444: ModeLevelGfxMoveAnimateWorkSub1444,
     pub gfx_collision_work: ModeLevelGfxCollisionWork,
     pub terrain_special_scan_sub_1fa2: Option<ModeLevelTerrainSpecialScanSub1FA2>,
 }

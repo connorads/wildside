@@ -164,6 +164,63 @@ fn mode_level_gfx_collision_kid_f86e_work_sub_1b76(
     ModeLevelGfxCollisionKidListWorkSub1B76::Classified { nodes }
 }
 
+fn mode_level_gfx_move_animate_work_sub_1444(
+    runtime: &NativeRuntime,
+    linked_gfx_object_count: u16,
+) -> ModeLevelGfxMoveAnimateWorkSub1444 {
+    // ASM sub_7196 leaves four persistent stationary GfxObjects in the
+    // target gameplay shell. The remaining target nodes are exactly the
+    // prize workers below; the final count check rejects any hidden family.
+    let mut nodes = vec![ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated; 4];
+
+    let tails = runtime.visible_prize_block_worker_tails();
+    for tail in tails {
+        if matches!(
+            prize_block_tail_state_sub_1007a(tail.content, tail.remaining),
+            ModeLevelPrizeBlockTailState::UnclassifiedAnimationWait { .. }
+        ) {
+            return ModeLevelGfxMoveAnimateWorkSub1444::Unclassified;
+        }
+        // ASM loc_1066 leaves this Gfx node stationary and unanimated both
+        // on the completion callback sampled by frame 1709 and during the
+        // short count-visible overlap sampled by frames 1697/1703.
+        nodes.push(ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated);
+    }
+
+    nodes.extend(
+        runtime
+            .block_bounces
+            .iter()
+            .filter(|bounce| bounce.kind == BlockBounceKind::Prize)
+            .map(
+                |bounce| ModeLevelGfxMoveAnimateNodeWorkSub1444::PrizeWobble {
+                    allocation_age: u16::from(31_u8.saturating_sub(bounce.remaining)),
+                },
+            ),
+    );
+    nodes.extend(runtime.prize_block_spawn_flashes.iter().map(|flash| {
+        ModeLevelGfxMoveAnimateNodeWorkSub1444::PrizeFlash {
+            allocation_age: prize_flash_allocation_age(flash.remaining),
+        }
+    }));
+    for item in runtime.floating_items.iter().filter(|item| !item.collected) {
+        // ASM PrizeDiamond_Init loc_10396 swaps to blinking stru_10D80 at
+        // `$C8`; its zero-frame sprite entries need a separate typed script.
+        if item.content != terrain::PrizeContent::Diamond || item.remaining <= 0x00C8 {
+            return ModeLevelGfxMoveAnimateWorkSub1444::Unclassified;
+        }
+        nodes.push(ModeLevelGfxMoveAnimateNodeWorkSub1444::FloatingDiamond {
+            allocation_age: NativeRuntime::floating_item_lifetime(item.content)
+                .saturating_sub(item.remaining),
+        });
+    }
+
+    if nodes.len() != usize::from(linked_gfx_object_count) {
+        return ModeLevelGfxMoveAnimateWorkSub1444::Unclassified;
+    }
+    ModeLevelGfxMoveAnimateWorkSub1444::Classified { nodes }
+}
+
 fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind {
     if projectile.kind == EnemyProjectileKind::FireDemonDeathTrail {
         return ActiveProjectileKind::FireDemonDeathTrail;
@@ -9909,6 +9966,10 @@ impl NativeRuntime {
                     .try_into()
                     .expect("Diamond Power object list fits the ROM u16 count"),
             },
+            gfx_move_animate_work_sub_1444: mode_level_gfx_move_animate_work_sub_1444(
+                self,
+                linked_gfx_object_count,
+            ),
             gfx_collision_work: ModeLevelGfxCollisionWork {
                 kid_projectile_list_f866: if self.projectiles.iter().any(|projectile| {
                     projectile.friendly

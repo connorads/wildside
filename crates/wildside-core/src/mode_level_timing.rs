@@ -5,13 +5,15 @@ use crate::{
     ModeLevelDiamondPowerCompileWorkSub3F798, ModeLevelEnemyLoadingPath,
     ModeLevelExecuteObjectsWork, ModeLevelFloatingPrizeFallPathLoc103B2,
     ModeLevelGfxCollisionKidListWorkSub1B76, ModeLevelGfxCollisionKidNodeWorkSub1B76,
-    ModeLevelGfxCollisionListWork, ModeLevelGfxCollisionWork, ModeLevelInputWorkerPathLoc7452,
-    ModeLevelKidGfxTerrainCollision, ModeLevelKidProjectileCollisionWorkSub1D76,
-    ModeLevelPlatformLoaderExistingSlotSub2728, ModeLevelPlatformLoaderRangeLoc2762,
-    ModeLevelPlatformLoaderWorkLoc2744, ModeLevelPlatformWork, ModeLevelPlayerExecutionPath,
-    ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState,
-    ModeLevelPrizeBlockWobbleWake, ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
-    ModeLevelReadJoypadWork, ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
+    ModeLevelGfxCollisionListWork, ModeLevelGfxCollisionWork,
+    ModeLevelGfxMoveAnimateNodeWorkSub1444, ModeLevelGfxMoveAnimateWorkSub1444,
+    ModeLevelInputWorkerPathLoc7452, ModeLevelKidGfxTerrainCollision,
+    ModeLevelKidProjectileCollisionWorkSub1D76, ModeLevelPlatformLoaderExistingSlotSub2728,
+    ModeLevelPlatformLoaderRangeLoc2762, ModeLevelPlatformLoaderWorkLoc2744, ModeLevelPlatformWork,
+    ModeLevelPlayerExecutionPath, ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake,
+    ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
+    ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork, ModeLevelReadJoypadWork,
+    ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
     ModeLevelTerrainSpecialScanSub1FA2, ModeLevelVerticalCollisionPath, ModeLevelWallCollisionPath,
 };
 
@@ -1462,6 +1464,142 @@ pub fn gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76(
     raw_cycles.checked_add(72).map(M68kCycleCount::from_raw)
 }
 
+/// Raw routine-body cost for ASM `GfxObjects_MoveAndAnimate sub_1444`.
+pub fn gfx_objects_move_and_animate_raw_cycles_sub_1444(
+    work: &ModeLevelGfxMoveAnimateWorkSub1444,
+) -> Option<M68kCycleCount> {
+    let ModeLevelGfxMoveAnimateWorkSub1444::Classified { nodes } = work else {
+        return None;
+    };
+
+    #[derive(Clone, Copy)]
+    enum AnimationBranch {
+        Inactive,
+        Countdown,
+        CountdownToOne,
+        DispatchNormal,
+        DispatchBackThenNormal,
+        DispatchStop,
+    }
+
+    fn non_looping_animation_branch(
+        durations: &[u16],
+        target_tick: u16,
+    ) -> Option<AnimationBranch> {
+        let mut timer = 1_u16;
+        let mut frame_index = 0_usize;
+        let mut active = true;
+        let mut branch = AnimationBranch::Inactive;
+
+        for _ in 0..=target_tick {
+            if !active {
+                branch = AnimationBranch::Inactive;
+                continue;
+            }
+            timer = timer.checked_sub(1)?;
+            if timer != 0 {
+                branch = if timer == 1 {
+                    AnimationBranch::CountdownToOne
+                } else {
+                    AnimationBranch::Countdown
+                };
+                continue;
+            }
+            let Some(&duration) = durations.get(frame_index) else {
+                active = false;
+                timer = 1;
+                branch = AnimationBranch::DispatchStop;
+                continue;
+            };
+            timer = duration;
+            frame_index += 1;
+            branch = AnimationBranch::DispatchNormal;
+        }
+
+        Some(branch)
+    }
+
+    fn looping_diamond_animation_branch(target_tick: u16) -> Option<AnimationBranch> {
+        const DURATIONS: [u16; 4] = [3; 4];
+        let mut timer = 1_u16;
+        let mut frame_index = 0_usize;
+        let mut branch = AnimationBranch::Inactive;
+
+        for _ in 0..=target_tick {
+            timer = timer.checked_sub(1)?;
+            if timer != 0 {
+                branch = if timer == 1 {
+                    AnimationBranch::CountdownToOne
+                } else {
+                    AnimationBranch::Countdown
+                };
+                continue;
+            }
+            let looped = frame_index == DURATIONS.len();
+            if looped {
+                frame_index = 0;
+            }
+            timer = DURATIONS[frame_index];
+            frame_index += 1;
+            branch = if looped {
+                AnimationBranch::DispatchBackThenNormal
+            } else {
+                AnimationBranch::DispatchNormal
+            };
+        }
+
+        Some(branch)
+    }
+
+    let raw_cycles = nodes.iter().try_fold(28_u32, |cycles, node| {
+        let branch = match *node {
+            ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated => {
+                AnimationBranch::Inactive
+            }
+            ModeLevelGfxMoveAnimateNodeWorkSub1444::PrizeWobble { allocation_age } => {
+                // ASM stru_101B6: eight non-looping three-tick frames.
+                non_looping_animation_branch(&[3; 8], allocation_age)?
+            }
+            ModeLevelGfxMoveAnimateNodeWorkSub1444::PrizeFlash { allocation_age } => {
+                // ASM loc_102B8 is allocated after its Object-list insertion
+                // point, so age zero has not run Init_Animation yet.
+                if allocation_age == 0 {
+                    AnimationBranch::Inactive
+                } else {
+                    // ASM stru_102DE: four non-looping frames with these
+                    // exact animation_timer reloads.
+                    non_looping_animation_branch(&[4, 6, 10, 4], allocation_age - 1)?
+                }
+            }
+            ModeLevelGfxMoveAnimateNodeWorkSub1444::FloatingDiamond { allocation_age } => {
+                // ASM stru_10D6E: four three-tick frames followed by the
+                // loc_11AC signed-backstep dispatch.
+                looping_diamond_animation_branch(allocation_age)?
+            }
+        };
+        let node_cycles = match branch {
+            // ASM loc_144E, sub_1120 and sub_113E: stationary node with
+            // is_animated clear.
+            AnimationBranch::Inactive => 218,
+            // ASM loc_114C -> loc_1166 -> loc_1172.
+            AnimationBranch::Countdown => 284,
+            // ASM loc_1166 tests the next nonzero script opcode.
+            AnimationBranch::CountdownToOne => 298,
+            // ASM loc_1158 -> sub_1194, including j_nullsub_2/nullsub_2.
+            AnimationBranch::DispatchNormal => 458,
+            // ASM loc_1158 -> sub_11AC -> loc_1158 -> sub_1194.
+            AnimationBranch::DispatchBackThenNormal => 554,
+            // The target frontier never reaches the loc_1182 stop dispatch;
+            // keep that mutable flag transition unclassified.
+            AnimationBranch::DispatchStop => return None,
+        };
+        cycles.checked_add(node_cycles)
+    })?;
+
+    // ASM return_1460: the final null successor loop and RTS cost 42 cycles.
+    raw_cycles.checked_add(42).map(M68kCycleCount::from_raw)
+}
+
 /// Raw routine-body cost for ASM special-terrain scan `sub_1FA2`.
 pub fn terrain_special_scan_raw_cycles_sub_1fa2(
     work: ModeLevelTerrainSpecialScanSub1FA2,
@@ -1732,6 +1870,41 @@ mod tests {
                 gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76(&work),
                 Some(M68kCycleCount::from_raw(expected)),
                 "ASM sub_1B76 oracle frames 1697/1703/1709",
+            );
+        }
+    }
+
+    #[test]
+    fn gfx_move_animate_sums_each_prize_worker_script_state_sub_1444() {
+        let work = |wobbles: &[u16], flashes: &[u16], diamonds: &[u16]| {
+            let mut nodes = vec![ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated; 5];
+            nodes.extend(wobbles.iter().map(|&allocation_age| {
+                ModeLevelGfxMoveAnimateNodeWorkSub1444::PrizeWobble { allocation_age }
+            }));
+            nodes.extend(flashes.iter().map(|&allocation_age| {
+                ModeLevelGfxMoveAnimateNodeWorkSub1444::PrizeFlash { allocation_age }
+            }));
+            nodes.extend(diamonds.iter().map(|&allocation_age| {
+                ModeLevelGfxMoveAnimateNodeWorkSub1444::FloatingDiamond { allocation_age }
+            }));
+            ModeLevelGfxMoveAnimateWorkSub1444::Classified { nodes }
+        };
+
+        for (work, expected) in [
+            (work(&[26, 19, 13, 7, 0], &[17, 7, 0], &[202, 16, 6]), 4_500),
+            (
+                work(&[25, 19, 13, 6], &[23, 13, 6, 0], &[208, 22, 12, 5]),
+                4_894,
+            ),
+            (
+                work(&[25, 19, 12], &[19, 12, 6], &[214, 28, 18, 11, 5]),
+                4_594,
+            ),
+        ] {
+            assert_eq!(
+                gfx_objects_move_and_animate_raw_cycles_sub_1444(&work),
+                Some(M68kCycleCount::from_raw(expected)),
+                "ASM sub_1444 oracle frames 1697/1703/1709",
             );
         }
     }
