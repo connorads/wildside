@@ -231,17 +231,34 @@ impl GemsMasterClockTimingEngine {
     /// Mega Drive VDP drives the Z80 INT line low. The remaining VBlank
     /// scanlines, visible scanlines 0..223, then lead back to the next VBlank.
     pub fn advance_ntsc_frame(&mut self) -> GemsMasterClockAdvance {
+        self.advance_ntsc_master_clocks(
+            MASTER_CLOCKS_PER_SCANLINE * u64::from(NTSC_SCANLINES_PER_FRAME),
+        )
+    }
+
+    /// Advance an arbitrary interval on the persistent VBlank-to-VBlank NTSC
+    /// timeline, splitting it where the VDP changes the Z80 interrupt line.
+    pub fn advance_ntsc_master_clocks(&mut self, mut master_clocks: u64) -> GemsMasterClockAdvance {
+        const MASTER_CLOCKS_PER_FRAME: u64 =
+            MASTER_CLOCKS_PER_SCANLINE * NTSC_SCANLINES_PER_FRAME as u64;
         let mut reads = Vec::new();
-        for frame_scanline in 0..NTSC_SCANLINES_PER_FRAME {
+        while master_clocks != 0 {
+            let frame_mclk = self.master_clock % MASTER_CLOCKS_PER_FRAME;
+            let frame_scanline = u16::try_from(frame_mclk / MASTER_CLOCKS_PER_SCANLINE)
+                .expect("NTSC frame scanline fits u16");
+            let scanline_mclk = frame_mclk % MASTER_CLOCKS_PER_SCANLINE;
+            let until_next_scanline = MASTER_CLOCKS_PER_SCANLINE - scanline_mclk;
+            let elapsed = master_clocks.min(until_next_scanline);
             let vdp_scanline = (NTSC_ACTIVE_SCANLINES + frame_scanline) % NTSC_SCANLINES_PER_FRAME;
             reads.extend(
                 self.advance_continuous_master_clocks(
-                    MASTER_CLOCKS_PER_SCANLINE,
+                    elapsed,
                     vdp_scanline == NTSC_ACTIVE_SCANLINES,
                     false,
                 )
                 .banked_68k_reads,
             );
+            master_clocks -= elapsed;
         }
         GemsMasterClockAdvance {
             banked_68k_reads: reads,
@@ -636,6 +653,34 @@ mod tests {
             MASTER_CLOCKS_PER_SCANLINE * u64::from(NTSC_SCANLINES_PER_FRAME),
         );
         assert_eq!(engine.z80_mclk_counter, 0);
+    }
+
+    #[test]
+    fn arbitrary_ntsc_advance_retains_vblank_interrupt_and_scanline_cursor() {
+        let mut driver = vec![0; 0x3D];
+        driver[..4].copy_from_slice(&[0xFB, 0x00, 0x76, 0x76]);
+        driver[0x38..0x3D].copy_from_slice(&[0x3A, 0x00, 0x80, 0x76, 0x76]);
+        let mut rom = vec![0; 0x8001];
+        rom[0] = 0x5A;
+        let mut whole = GemsMasterClockTimingEngine::new(&driver, rom.clone());
+        let mut split = GemsMasterClockTimingEngine::new(&driver, rom);
+        let frame_mclk = MASTER_CLOCKS_PER_SCANLINE * u64::from(NTSC_SCANLINES_PER_FRAME);
+
+        let whole_reads = whole
+            .advance_ntsc_master_clocks(frame_mclk)
+            .banked_68k_reads;
+        let mut split_reads = split
+            .advance_ntsc_master_clocks(MASTER_CLOCKS_PER_SCANLINE / 2)
+            .banked_68k_reads;
+        split_reads.extend(
+            split
+                .advance_ntsc_master_clocks(frame_mclk - MASTER_CLOCKS_PER_SCANLINE / 2)
+                .banked_68k_reads,
+        );
+
+        assert_eq!(split_reads, whole_reads);
+        assert_eq!(split.master_clock(), whole.master_clock());
+        assert_eq!(split.z80_pc(), whole.z80_pc());
     }
 
     #[test]

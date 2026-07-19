@@ -396,6 +396,17 @@ offsets fail closed. Remaining: map the route's StopMusic entry beam into the
 persistent GEMS master-clock cursor, consume this schedule there, then replay
 the frame-1709 transfer through `loc_892`.
 
+Progress 2026-07-19: `GemsMasterClockTimingEngine` can now advance arbitrary
+intervals on its persistent VBlank-to-VBlank NTSC cursor, splitting at
+scanlines so the Z80 interrupt remains low only on VDP scanline 224.
+`wildside-frame` translates a `GemsStopMusicElapsedTiming` into exact
+master-clock advances and the staged MD controls; the frame-867 regression
+executes all seven windows and finishes at `229570 * 7` master clocks. This
+adapter is not wired into `NativeAudioDirector::stop_music` yet: its engine
+cursor must first be aligned to the actual StopMusic entry beam (scanline 250
+for the traced call), otherwise a correct relative schedule would still be
+shifted to the trace-frame boundary.
+
 Progress 2026-07-19: commit `7afa08b27` schedules the classified life-icon-only
 `sub_44DC` path through its four-entry VRAM FIFO and the trailing `loc_44D4`
 instruction stream to the following `Manage_EnemyLoading` call. The final

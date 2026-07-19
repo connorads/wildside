@@ -10,10 +10,15 @@
 
 use wildside_core::{GameMode, LevelId, NativeSoundCommand, NativeTraceFrame};
 #[cfg(feature = "audio")]
+use wildside_core::{GemsStopMusicElapsedTiming, M68kCycleCount};
+#[cfg(feature = "audio")]
 use wildside_data::AssetSource;
 use wildside_data::{AssetManifest, LevelHeader, resource_level_record};
 #[cfg(feature = "audio")]
-use wildside_md::{GemsAudioEngine, GemsMasterClockTimingEngine};
+use wildside_md::{
+    GemsAudioEngine, GemsMasterClockAdvance, GemsMasterClockTimingEngine, GemsStopMusicControl,
+    GemsStopMusicQueueTransaction,
+};
 
 pub const AUDIO_SAMPLE_RATE: u32 = 44_100;
 pub const AUDIO_FRAME_RATE_HZ: u32 = 60;
@@ -548,6 +553,63 @@ pub fn apply_native_bgm_command(
             audio.stop_music();
             Some(bgm)
         }
+    }
+}
+
+/// Execute an already-positioned ASM `StopMusic` schedule on the persistent
+/// master-clocked GEMS machine.
+#[cfg(feature = "audio")]
+pub fn apply_timed_gems_stop_music(
+    audio: &mut GemsMasterClockTimingEngine,
+    timing: GemsStopMusicElapsedTiming,
+) -> GemsMasterClockAdvance {
+    const MCLK_PER_M68K_CYCLE: u64 = 7;
+
+    let mut cursor = M68kCycleCount::from_raw(0);
+    let mut reads = Vec::new();
+    let mut advance_to = |target: M68kCycleCount, audio: &mut GemsMasterClockTimingEngine| {
+        let cycles = target
+            .get()
+            .checked_sub(cursor.get())
+            .expect("StopMusic control events stay ordered");
+        reads.extend(
+            audio
+                .advance_ntsc_master_clocks(u64::from(cycles) * MCLK_PER_M68K_CYCLE)
+                .banked_68k_reads,
+        );
+        cursor = target;
+    };
+
+    let driver = timing.bus_windows[0];
+    advance_to(driver.request_complete_elapsed_offset, audio);
+    audio.apply_stop_music_control(GemsStopMusicControl::BeginDriverCopy);
+    advance_to(timing.reset_assert_complete_elapsed_offset, audio);
+    audio.apply_stop_music_control(GemsStopMusicControl::AssertReset);
+    advance_to(driver.release_complete_elapsed_offset, audio);
+    audio.apply_stop_music_control(GemsStopMusicControl::ReleaseDriverBus);
+    advance_to(timing.reset_release_complete_elapsed_offset, audio);
+    audio.apply_stop_music_control(GemsStopMusicControl::ReleaseReset);
+
+    let transactions = [
+        GemsStopMusicQueueTransaction::CommandMarker,
+        GemsStopMusicQueueTransaction::DataPointersCommand,
+        GemsStopMusicQueueTransaction::PatchPointer,
+        GemsStopMusicQueueTransaction::EnvelopePointer,
+        GemsStopMusicQueueTransaction::SequencePointer,
+        GemsStopMusicQueueTransaction::SamplePointer,
+    ];
+    for (window, transaction) in timing.bus_windows[1..].iter().zip(transactions) {
+        advance_to(window.request_complete_elapsed_offset, audio);
+        audio.apply_stop_music_control(GemsStopMusicControl::BeginQueueTransaction);
+        advance_to(window.release_complete_elapsed_offset, audio);
+        audio.apply_stop_music_control(GemsStopMusicControl::WriteQueue(transaction));
+        audio.apply_stop_music_control(GemsStopMusicControl::ReleaseQueueBus);
+    }
+    advance_to(timing.elapsed_cycles, audio);
+
+    GemsMasterClockAdvance {
+        banked_68k_reads: reads,
+        pending_m68k_wait_cycles: audio.pending_m68k_wait_cycles(),
     }
 }
 
@@ -1275,6 +1337,27 @@ mod tests {
             vec![RecordingAudioAction::StepFrame],
             "persistent GEMS timing state must advance while the audible mixer emits silence",
         );
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn timed_stop_music_drives_each_e14c8_control_window_on_master_clock() {
+        let timing = wildside_core::gems_stop_music_elapsed_timing(
+            wildside_core::GemsStopMusicBusAckPolls {
+                driver_copy_sub_e13da: 1,
+                queue_transactions_sub_e143a: [1; 6],
+            },
+            wildside_core::M68kRefreshPhase::new(14).expect("trace entry phase"),
+            &[M68kCycleCount::from_raw(108_848)],
+        )
+        .expect("frame-867 StopMusic schedule");
+        let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+
+        let advance = apply_timed_gems_stop_music(&mut engine, timing);
+
+        assert!(advance.banked_68k_reads.is_empty());
+        assert_eq!(engine.master_clock(), 229_570 * 7);
+        engine.start_sequence(3);
     }
 
     #[test]
