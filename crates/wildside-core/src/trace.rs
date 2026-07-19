@@ -466,6 +466,70 @@ fn mode_level_airborne_horizontal_path(
     }
 }
 
+fn mode_level_kid_gfx_terrain_scan_bounds(
+    entry: ModeLevelPlayerPosition,
+    x_velocity: i32,
+    y_velocity: i32,
+    form: PlayerForm,
+) -> Option<ModeLevelKidGfxTerrainScanBounds> {
+    // ASM sub_A4EE (kid.asm:12867-12883) temporarily applies both 16.16
+    // velocities before GfxObjects_Collision loc_173E rounds Kid's inclusive
+    // collision box to 16px cells.
+    let moved_x_fp = i64::from(entry.x_pos) + i64::from(x_velocity);
+    let moved_y_fp = i64::from(entry.y_pos) + i64::from(y_velocity);
+    let moved_x_px = i32::try_from(moved_x_fp >> 16).ok()?;
+    let moved_y_px = i32::try_from(moved_y_fp >> 16).ok()?;
+    let left_px = moved_x_px.checked_sub(form.half_width())?;
+    let right_px = moved_x_px.checked_add(form.half_width())?;
+    let top_px = moved_y_px.checked_sub(crate::constants::PLAYER_HEIGHT)?;
+    if left_px < 0 || top_px < 0 || right_px < left_px || moved_y_px < top_px {
+        return None;
+    }
+    Some(ModeLevelKidGfxTerrainScanBounds {
+        left_col: u16::try_from(left_px >> 4).ok()?,
+        right_col: u16::try_from(right_px >> 4).ok()?,
+        top_row: u16::try_from(top_px >> 4).ok()?,
+        bottom_row: u16::try_from(moved_y_px >> 4).ok()?,
+    })
+}
+
+fn mode_level_kid_gfx_terrain_scan(
+    grid: &terrain::BlockGrid,
+    bounds: ModeLevelKidGfxTerrainScanBounds,
+) -> ModeLevelKidGfxTerrainScan {
+    // ASM GfxObjects_Collision loc_1792/loc_1796 (kid.asm:2905-2932) scans
+    // rows top-to-bottom and columns left-to-right. Spikes are explicitly
+    // ignored at loc_17C6; slope and solid cells dispatch specialised paths.
+    let mut tile_iterations = 0_u16;
+    for row in bounds.top_row..=bounds.bottom_row {
+        for col in bounds.left_col..=bounds.right_col {
+            tile_iterations = tile_iterations.saturating_add(1);
+            let first_collision = match grid.cell_at(col, row).collision {
+                terrain::CollisionKind::SlopeUp => Some(ModeLevelKidGfxTerrainCollision::SlopeUp),
+                terrain::CollisionKind::SlopeDown => {
+                    Some(ModeLevelKidGfxTerrainCollision::SlopeDown)
+                }
+                terrain::CollisionKind::Solid => Some(ModeLevelKidGfxTerrainCollision::Solid),
+                terrain::CollisionKind::Empty
+                | terrain::CollisionKind::HiddenBlock
+                | terrain::CollisionKind::Spikes => None,
+            };
+            if first_collision.is_some() {
+                return ModeLevelKidGfxTerrainScan {
+                    bounds,
+                    tile_iterations,
+                    first_collision,
+                };
+            }
+        }
+    }
+    ModeLevelKidGfxTerrainScan {
+        bounds,
+        tile_iterations,
+        first_collision: None,
+    }
+}
+
 fn mode_level_vertical_collision_path(
     ceiling_hit: bool,
     landed: bool,
@@ -1469,6 +1533,8 @@ mod tests {
                     active_platform_workers: 0,
                     palette_rotation_worker_loc_11f96: 0,
                     unclassified_runtime_transient_workers: 0,
+                    player_entry_position: None,
+                    player_gfx_terrain_scan: None,
                     prize_block_wobble_paths_sub_1007a: vec![ModeLevelPrizeBlockWobbleWork {
                         resume: PrizeBlockWobbleResumeSub1007A::AfterLoc100DaAt100E2,
                         wake: ModeLevelPrizeBlockWobbleWake::ContinuePhase,
@@ -1609,6 +1675,98 @@ mod tests {
         assert_eq!(
             mode_level_airborne_horizontal_path(-0x0001_0600, -0x0001_0200),
             ModeLevelAirborneHorizontalPath::NeutralNegativeBrake
+        );
+    }
+
+    #[test]
+    fn published_cyclone_route_maps_sub_a4ee_tile_scan_bounds() {
+        // ASM sub_A4EE -> GfxObjects_Collision loc_173E/loc_1792
+        // (kid.asm:2863-2909): move by the post-gravity velocity, then scan
+        // Kid's form-width x PLAYER_HEIGHT box in inclusive 16px cells.
+        assert_eq!(
+            mode_level_kid_gfx_terrain_scan_bounds(
+                ModeLevelPlayerPosition {
+                    x_pos: 0x01AF_7100,
+                    y_pos: 0x006F_0000,
+                },
+                -0x0001_DD00,
+                -0x0000_0A00,
+                PlayerForm::Cyclone,
+            ),
+            Some(ModeLevelKidGfxTerrainScanBounds {
+                left_col: 26,
+                right_col: 27,
+                top_row: 4,
+                bottom_row: 6,
+            })
+        );
+        assert_eq!(
+            mode_level_kid_gfx_terrain_scan_bounds(
+                ModeLevelPlayerPosition {
+                    x_pos: 0x01A6_C800,
+                    y_pos: 0x006F_1C00,
+                },
+                -0x0001_0200,
+                0x0000_2000,
+                PlayerForm::Cyclone,
+            ),
+            Some(ModeLevelKidGfxTerrainScanBounds {
+                left_col: 25,
+                right_col: 26,
+                top_row: 5,
+                bottom_row: 6,
+            })
+        );
+        assert_eq!(
+            mode_level_kid_gfx_terrain_scan_bounds(
+                ModeLevelPlayerPosition {
+                    x_pos: 0x01A0_F800,
+                    y_pos: 0x0070_EA00,
+                },
+                -0x0000_EA00,
+                0x0000_8C00,
+                PlayerForm::Cyclone,
+            ),
+            Some(ModeLevelKidGfxTerrainScanBounds {
+                left_col: 25,
+                right_col: 26,
+                top_row: 5,
+                bottom_row: 7,
+            })
+        );
+    }
+
+    #[test]
+    fn gfx_terrain_scan_counts_clear_cells_and_ignores_spikes() {
+        let bounds = ModeLevelKidGfxTerrainScanBounds {
+            left_col: 0,
+            right_col: 1,
+            top_row: 0,
+            bottom_row: 2,
+        };
+        let clear = terrain::BlockGrid::from_level_layout(&[0; 12], 2, 3);
+        assert_eq!(
+            mode_level_kid_gfx_terrain_scan(&clear, bounds),
+            ModeLevelKidGfxTerrainScan {
+                bounds,
+                tile_iterations: 6,
+                first_collision: None,
+            }
+        );
+
+        let spikes_then_solid = terrain::BlockGrid::from_level_layout(
+            &[0x70, 0, 0x60, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            2,
+            3,
+        );
+        assert_eq!(
+            mode_level_kid_gfx_terrain_scan(&spikes_then_solid, bounds),
+            ModeLevelKidGfxTerrainScan {
+                bounds,
+                tile_iterations: 2,
+                first_collision: Some(ModeLevelKidGfxTerrainCollision::Solid),
+            },
+            "ASM loc_17C6 ignores spikes and reaches the following solid cell"
         );
     }
 
@@ -8469,6 +8627,10 @@ impl NativeRuntime {
             }
             Some(_) => ModeLevelPlayerWorkBeforeHud::Stationary,
         };
+        let player_entry_position = player_state.map(|state| ModeLevelPlayerPosition {
+            x_pos: state.x_pos,
+            y_pos: state.y_pos,
+        });
         let prize_block_wobble_workers_sub_1007a = self
             .block_bounces
             .iter()
@@ -8579,6 +8741,8 @@ impl NativeRuntime {
                 active_platform_workers,
                 palette_rotation_worker_loc_11f96,
                 unclassified_runtime_transient_workers,
+                player_entry_position,
+                player_gfx_terrain_scan: None,
                 prize_block_wobble_paths_sub_1007a,
                 prize_block_tail_paths_sub_1066,
                 prize_block_flash_paths_sub_1066,
@@ -8658,8 +8822,27 @@ impl NativeRuntime {
             return;
         }
         let executed_player_path = self.observe_mode_level_player_execution_path();
+        let player_gfx_terrain_scan = self
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .and_then(|ledger| ledger.execute_objects.player_entry_position)
+            .and_then(|entry| {
+                let stages = self.last_kid_frame_kid_flip_follow_on_probe?.stages;
+                mode_level_kid_gfx_terrain_scan_bounds(
+                    entry,
+                    stages.after_jump_gravity.x_velocity,
+                    stages.after_jump_gravity.y_velocity,
+                    self.progression.current_form,
+                )
+            })
+            .and_then(|bounds| {
+                self.block_grid
+                    .as_ref()
+                    .map(|grid| mode_level_kid_gfx_terrain_scan(grid, bounds))
+            });
         if let Some(ledger) = self.mode_level_work_before_hud_sub_44dc.as_mut() {
             ledger.execute_objects.executed_player_path = Some(executed_player_path);
+            ledger.execute_objects.player_gfx_terrain_scan = player_gfx_terrain_scan;
         }
     }
 

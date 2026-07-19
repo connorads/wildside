@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-18 handoff (#409 typed Kid Gfx terrain scan)
+
+- The player workload now records entry position and the exact
+  `sub_A4EE -> GfxObjects_Collision` cell bounds, iterations, and first
+  collision dispatch.
+- Native and oracle agree at the frontier: frame 1697 is one cell then Solid;
+  frame 1703 is four clear cells; frame 1709 is six clear cells. Those extra
+  two cells explain 164 of the remaining 184-cycle Kid delta.
+- NEXT: isolate the final 20 Kid cycles, type frame 1697's two-cell ceiling
+  scan, then model ordered object/Gfx insertion and deletion ranks.
+
+---
+
 ## 2026-07-18 handoff (#409 typed wobble wake work)
 
 - Each `sub_1007A` continuation now names same-phase, next-phase, or final

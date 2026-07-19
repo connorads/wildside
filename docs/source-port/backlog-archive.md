@@ -306,6 +306,18 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-18: `sub_A4EE -> GfxObjects_Collision` now carries the
+entry Kid position, exact inclusive form hitbox cell bounds after applying
+post-gravity velocity, tile iterations to the first collision dispatch, and
+its collision class. The fresh native route matches every oracle
+`loc_1792/loc_1796/loc_17C6` hit: frame 1697 visits one cell then dispatches
+Solid; frame 1703 clears 2x2=4 cells; frame 1709 clears 2x3=6. The
+`GfxObjects_Collision` entry-to-`sub_902A` intervals are 1,186 / 1,240 /
+1,404 cycles, so the extra two clear cells explain 164 of the outstanding
+184-cycle 1703/1709 Kid difference. Next isolate the remaining visual/camera
+tail and type frame 1697's two-cell `sub_914A` ceiling scan plus dynamic
+object/Gfx insertion/deletion ranks.
+
 Progress 2026-07-18: every typed `sub_1007A` wobble continuation now states
 whether its resumed `dbf` stays in the phase, expires into the next phase, or
 expires into `Hibernate_UntilAnimFinished`. Fresh route evidence matches the

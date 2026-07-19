@@ -1732,6 +1732,37 @@ pub struct ModeLevelFloatingPrizeWork {
     pub collision_latched: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelPlayerPosition {
+    pub x_pos: u32,
+    pub y_pos: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelKidGfxTerrainScanBounds {
+    pub left_col: u16,
+    pub right_col: u16,
+    pub top_row: u16,
+    pub bottom_row: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelKidGfxTerrainCollision {
+    SlopeUp,
+    SlopeDown,
+    Solid,
+}
+
+/// Terrain cells visited before the first collision dispatch in ASM
+/// `GfxObjects_Collision`, or the complete clear scan when none dispatches.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelKidGfxTerrainScan {
+    pub bounds: ModeLevelKidGfxTerrainScanBounds,
+    pub tile_iterations: u16,
+    pub first_collision: Option<ModeLevelKidGfxTerrainCollision>,
+}
+
 /// Horizontal branch executed by ASM `sub_B084` in the airborne Kid loop.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1833,6 +1864,10 @@ pub struct ModeLevelExecuteObjectsWork {
     pub active_platform_workers: u16,
     pub palette_rotation_worker_loc_11f96: u16,
     pub unclassified_runtime_transient_workers: u16,
+    #[serde(default)]
+    pub player_entry_position: Option<ModeLevelPlayerPosition>,
+    #[serde(default)]
+    pub player_gfx_terrain_scan: Option<ModeLevelKidGfxTerrainScan>,
     #[serde(default)]
     pub prize_block_wobble_paths_sub_1007a: Vec<ModeLevelPrizeBlockWobbleWork>,
     #[serde(default)]
