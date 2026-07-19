@@ -306,6 +306,27 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-19: commit `3157d8b` adds an absolute-entry adapter for
+`StopMusic $E14C8` and pins the title Ice `sub_E151C` scheduler to its oracle
+control offsets. Frame 139 enters at cycle 17,789,000 / refresh phase 32; the
+reset takes 229,574 cycles, crosses 1,509 refresh events, and exits at phase
+102. Frame 171 enters at 21,961,598 / phase 48; its bus request, queue write,
+and release complete at +162/+424/+444, with the final RTS completing at +518
+and phase 54.
+
+An absolute persistent-engine replay from that final reset through the Ice
+command to `Load_InGame $11A0E` at cycle 111,182,796 now has the correct
+`$0E8000` bank and only one differing audio-RAM byte:
+`$1A1E=$B0` native against `$CB` oracle. Native PC `$07B0` remains ahead of
+oracle `$0793`; divider/T-cycle phases are `5/8` against `6/4`, and alternating
+bank-access parity is inverted. This is a large convergence from the coarse
+275-byte seed, but not equality. `StopMusic` resets the Z80 and YM state while
+leaving the free-running Z80 divider and bank-access parity intact. NEXT:
+source-position the preceding frame-14/30/68 StopMusic calls and frame-70 Ice
+queue command, then repeat the `$11A0E` comparison. Do not turn the residual
+into a fitted checkpoint seed. `mise run verify-slice-fast`, all 177
+wildside-frame tests, strict Clippy, and the commit hook pass.
+
 Progress 2026-07-19: a backwards published-route selected-PC trace finds the
 pre-platform audio controls at StopMusic frames 14/30/68/139, Ice PlaySound
 frames 70/171, and `Load_InGame $11A0E` frame 868. The last title reset enters

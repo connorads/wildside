@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-19 handoff (#409 persistent title GEMS replay)
+
+- Commit `3157d8b` source-positions frame 139 `StopMusic $E14C8` and pins the
+  frame-171 Ice `sub_E151C` bus/write/release schedule.
+- Replaying those controls to `$11A0E` reaches the correct `$0E8000` bank and
+  differs in only audio RAM `$1A1E`, but PC and Z80 scheduler phase still miss.
+- `StopMusic` preserves the free-running divider and alternating bank-access
+  parity, so the preceding audio history remains causally relevant.
+- `mise run verify-slice-fast`, all 177 wildside-frame tests, strict Clippy,
+  and the commit hook pass.
+- NEXT: trace and schedule frame-14/30/68 StopMusic plus frame-70 Ice, then
+  compare the full persistent chain at `$11A0E`.
+
 ## 2026-07-19 handoff (#409 title rebuild audio boundary)
 
 - Backwards selected-PC tracing finds StopMusic at frames 14/30/68/139 and
