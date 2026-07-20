@@ -1,7 +1,9 @@
+mod census;
 mod frames;
 mod gameplay;
 mod release_gate;
 
+pub(crate) use census::run_sweep_census;
 pub(crate) use frames::{
     capture_frames, capture_scenario_frames, diagnose_frame, dump_enemy_sheet, golden_capture,
     golden_diff,

@@ -954,6 +954,26 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         golden_diff: bool,
     },
+    /// Classify sweep-blocking differences by enemy family: join the blocking
+    /// (authoritative/accumulation/rng) state diffs of a sweep report onto
+    /// per-level enemy rosters, rank families by overrepresentation in
+    /// failing levels, and write the census to .cache/audit/sweep-census.json.
+    SweepCensus {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Sweep run id under .cache/sweep-runs (default: the latest symlink,
+        /// else the highest numeric run with a report.json)
+        #[arg(long)]
+        run: Option<String>,
+        /// Output JSON path (default: .cache/audit/sweep-census.json)
+        #[arg(long)]
+        output: Option<PathBuf>,
+        /// Skip the ROM/asset roster join (field histogram only, no ROM needed)
+        #[arg(long, default_value_t = false)]
+        no_roster: bool,
+    },
     /// Run the canonical release gate for a completion target.
     ReleaseGate {
         #[arg(long)]
@@ -2366,6 +2386,32 @@ fn main() -> Result<()> {
                     &repo_root, &rom_path, &manifest, &level_ids, tier, &options,
                 )?;
             }
+        }
+        Commands::SweepCensus {
+            rom,
+            dir,
+            run,
+            output,
+            no_roster,
+        } => {
+            let repo_root = current_dir()?;
+            let manifest = if no_roster {
+                None
+            } else {
+                let rom_path = resolve_rom_path(&repo_root, rom)?;
+                let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+                Some(prepare_generated_assets(
+                    &repo_root,
+                    &rom_path,
+                    &upstream_dir,
+                )?)
+            };
+            sweep::run_sweep_census(
+                &repo_root,
+                manifest.as_ref(),
+                run.as_deref(),
+                output.as_deref(),
+            )?;
         }
         Commands::ReleaseGate {
             rom,
