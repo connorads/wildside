@@ -475,23 +475,26 @@ mod tests {
         let source = include_str!("../../wildside-core/src/blocks.rs");
         let contexts = RustSourceContexts::analyse(source);
 
+        // Locate anchors by content, not by hardcoded line number: blocks.rs
+        // grows and drift silently rotted this test (#417). Each needle is
+        // unique in blocks.rs and lands in the region the assertion checks.
         assert_eq!(
-            contexts.context_for_line(267),
+            contexts.context_for_line(line_of(source, "struct ShooterHorizontalSpriteCellLocF808")),
             RustCodeContext::Test,
             "early #[cfg(test)] helper is test-only"
         );
         assert_eq!(
-            contexts.context_for_line(1692),
+            contexts.context_for_line(line_of(source, "fn deleted_tile_wobble_y_deltas_loc_10200")),
             RustCodeContext::Production,
             "production citation after early gated helper must not be swallowed"
         );
         assert_eq!(
-            contexts.context_for_line(4675),
+            contexts.context_for_line(line_of(source, "Some(CollisionSizeEntrySub21F8 {")),
             RustCodeContext::Production,
             "late production citation before mod tests remains production"
         );
         assert_eq!(
-            contexts.context_for_line(5700),
+            contexts.context_for_line(line_of(source, "fn runtime_for_block_tests")),
             RustCodeContext::Test,
             "citation inside #[cfg(test)] mod tests is test-only"
         );
