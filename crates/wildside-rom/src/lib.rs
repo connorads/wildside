@@ -8,6 +8,35 @@ const HEADER_OFFSET: usize = 0x100;
 const HEADER_LENGTH: usize = 0x100;
 const KNOWN_SHA1: &str = "28b904000b2863b6760531807760b571f1a5fc1d";
 
+/// Exact, raw big-endian Kid Chameleon ROM accepted by the browser extractor.
+///
+/// Construction is deliberately limited to [`verify_canonical_rom_bytes`], so
+/// extraction code cannot accidentally accept header-compatible hacks or
+/// copier-interleaved formats.
+#[derive(Clone, PartialEq, Eq)]
+pub struct CanonicalKidRom {
+    bytes: Vec<u8>,
+}
+
+impl fmt::Debug for CanonicalKidRom {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CanonicalKidRom")
+            .field("size", &self.bytes.len())
+            .field("sha1", &KNOWN_SHA1)
+            .finish_non_exhaustive()
+    }
+}
+
+impl CanonicalKidRom {
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.bytes
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedRom {
     pub path: PathBuf,
@@ -53,6 +82,11 @@ pub enum RomError {
     TooSmall,
     #[error("ROM header does not look like Kid Chameleon")]
     UnexpectedHeader,
+    #[error("unsupported ROM: expected canonical Kid Chameleon SHA-1 {expected}, got {actual}")]
+    UnsupportedCanonicalRom {
+        expected: &'static str,
+        actual: String,
+    },
 }
 
 pub fn default_rom_candidates(repo_root: &Path) -> Vec<PathBuf> {
@@ -99,6 +133,23 @@ pub fn verify_rom(path: &Path) -> Result<VerifiedRom, RomError> {
 
 pub fn known_sha1() -> &'static str {
     KNOWN_SHA1
+}
+
+/// Verify an in-memory ROM for extraction in the public browser build.
+///
+/// V1 accepts only the canonical raw big-endian dump. Copier headers, SMD
+/// deinterleaving and ROM hacks remain outside this boundary.
+pub fn verify_canonical_rom_bytes(bytes: &[u8]) -> Result<CanonicalKidRom, RomError> {
+    let actual = hex_sha1(bytes);
+    if actual != KNOWN_SHA1 {
+        return Err(RomError::UnsupportedCanonicalRom {
+            expected: KNOWN_SHA1,
+            actual,
+        });
+    }
+    Ok(CanonicalKidRom {
+        bytes: bytes.to_vec(),
+    })
 }
 
 fn parse_header(bytes: &[u8]) -> Result<RomHeader, RomError> {
@@ -257,6 +308,34 @@ mod tests {
     #[test]
     fn known_sha1_exports_the_canonical_rom_hash() {
         assert_eq!(known_sha1(), KNOWN_SHA1);
+    }
+
+    #[test]
+    fn canonical_byte_verifier_rejects_header_compatible_noncanonical_rom() {
+        let rom = make_test_rom();
+
+        let error = verify_canonical_rom_bytes(&rom).expect_err("fixture is not canonical");
+
+        assert!(matches!(
+            error,
+            RomError::UnsupportedCanonicalRom {
+                expected: KNOWN_SHA1,
+                ..
+            }
+        ));
+        assert!(error.to_string().contains(&hex_sha1(&rom)));
+    }
+
+    #[test]
+    fn canonical_rom_debug_does_not_dump_rom_bytes() {
+        let rom = CanonicalKidRom {
+            bytes: vec![0x12, 0x34],
+        };
+
+        let debug = format!("{rom:?}");
+
+        assert!(debug.contains("size: 2"));
+        assert!(!debug.contains("[18, 52]"));
     }
 
     #[test]

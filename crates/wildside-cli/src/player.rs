@@ -1427,6 +1427,13 @@ fn error_view_from_rom_error(
                     .collect()
             },
         },
+        RomError::UnsupportedCanonicalRom { expected, actual } => ErrorView {
+            title: String::from("Unsupported ROM"),
+            lines: vec![
+                format!("Expected SHA-1: {expected}"),
+                format!("Actual SHA-1: {actual}"),
+            ],
+        },
     }
 }
 
