@@ -1000,19 +1000,54 @@ pub fn apply_gems_title_mode_standard_do_nothing(
     wildside_core::vdp::title_mode_standard_do_nothing_cursor_with_scheduler(
         entry,
         |cycles, vdp_owns_bus, source_instruction| {
-            if source_instruction {
-                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
-                    u64::from(cycles.get()) * 7,
-                    vdp_owns_bus,
-                );
-            } else {
-                audio.advance_ntsc_master_clocks_with_vdp_ownership(
-                    u64::from(cycles.get()) * 7,
-                    vdp_owns_bus,
-                );
-            }
-            Some(M68kCycleCount::from_raw(
-                audio.take_pending_m68k_wait_cycles(),
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
+#[cfg(feature = "audio")]
+fn apply_gems_title_source_hardware_interval(
+    audio: &mut GemsMasterClockTimingEngine,
+    cycles: M68kCycleCount,
+    vdp_owns_bus: bool,
+    source_instruction: bool,
+) -> M68kCycleCount {
+    if source_instruction {
+        audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+            u64::from(cycles.get()) * 7,
+            vdp_owns_bus,
+        );
+    } else {
+        audio.advance_ntsc_master_clocks_with_vdp_ownership(
+            u64::from(cycles.get()) * 7,
+            vdp_owns_bus,
+        );
+    }
+    M68kCycleCount::from_raw(audio.take_pending_m68k_wait_cycles())
+}
+
+/// Clock the title's empty foreground-update queues through `sub_1596`.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_mode_standard_empty_foreground_queues(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_mode_standard_empty_foreground_queues_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
             ))
         },
     )
@@ -3022,6 +3057,27 @@ mod tests {
             engine.master_clock(),
             10_362_058 * 7,
             "title scroll-data ledger: {scroll:?}",
+        );
+
+        let foreground_queues =
+            apply_gems_title_mode_standard_empty_foreground_queues(&mut engine, scroll.cursor)
+                .expect("source-positioned Mode_Standard sub_1596");
+        assert_eq!(
+            foreground_queues.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 9,
+                raw_cycles: M68kCycleCount::from_raw(142),
+            },
+        );
+        assert_eq!(foreground_queues.refresh_events, 1);
+        assert_eq!(foreground_queues.external_wait_cycles.get(), 0);
+        // Oracle reaches the following Execute_Objects call at 10,362,260.
+        // One refresh event makes the source interval exactly 144 cycles, so
+        // the inherited 58-cycle GEMS-phase residue remains unchanged.
+        assert_eq!(
+            engine.master_clock(),
+            10_362_202 * 7,
+            "title empty-foreground-queue ledger: {foreground_queues:?}",
         );
     }
 

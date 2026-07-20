@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 title empty foreground queues)
+
+- The title `sub_1596` state has both foreground next-slot pointers zero.
+  Nine instructions / 142 raw cycles skip both VDP drains and reset both
+  producer pointers through `loc_1686`.
+- One refresh event makes the interval exactly 144 cycles. Native reaches
+  the `Execute_Objects sub_E12` call at 10,362,202 versus oracle 10,362,260,
+  preserving the inherited 58-cycle GEMS-phase residue.
+- NEXT: schedule `Execute_Objects sub_E12 -> sub_1B8F4`, then the remaining
+  `Mode_Standard` calls.
+
+---
+
 ## 2026-07-20 handoff (#409 title scroll-data DMA)
 
 - `Transfer_ScrollDataToVRAM $3009A` now retains the verified title

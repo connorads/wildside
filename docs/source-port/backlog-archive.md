@@ -600,6 +600,16 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: the title's empty foreground queues now carry a
+source-scheduled `sub_1596` path. Both next-slot pointers are zero, so its
+nine instructions / 142 raw cycles take the branches to `loc_1686`, skip all
+VDP writes, and reset both producer pointers. One derived refresh event makes
+the interval exactly 144 cycles, matching the narrow oracle interval without
+a fitted constant. Native reaches the following `Execute_Objects sub_E12`
+call at cycle 10,362,202 versus oracle 10,362,260, preserving the inherited
+58-cycle GEMS-phase residue. NEXT: source-schedule `Execute_Objects sub_E12
+-> sub_1B8F4`, then continue through the remaining `Mode_Standard` calls.
+
 Progress 2026-07-20: `Transfer_ScrollDataToVRAM $3009A` is now
 source-scheduled through the verified title `loc_300BA` path. The visitor
 retains 42 instructions / 610 raw cycles, both camera-derived VSRAM FIFO

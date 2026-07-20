@@ -3765,13 +3765,37 @@ pub fn title_mode_standard_do_nothing_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| crate::intro_timing::visit_mode_standard_do_nothing(visit),
+        &mut advance_hardware,
+    )
+}
+
+/// Co-schedule the title's empty `sub_1596` foreground-update queues.
+pub fn title_mode_standard_empty_foreground_queues_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| crate::intro_timing::visit_mode_standard_empty_foreground_queues_sub_1596(visit),
+        &mut advance_hardware,
+    )
+}
+
+fn title_source_routine_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    visit_timing: impl FnOnce(&mut dyn FnMut(u32)) -> crate::intro_timing::IntroSourceTiming,
+    advance_hardware: &mut dyn FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
     let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
     let mut phase = entry.refresh_phase;
     let mut refresh_events = 0_u32;
     let mut external_wait_cycles = 0_u32;
     let mut scheduling_failed = false;
 
-    let timing = crate::intro_timing::visit_mode_standard_do_nothing(|raw_cycles| {
+    let timing = visit_timing(&mut |raw_cycles| {
         if scheduling_failed {
             return;
         }
@@ -3780,14 +3804,14 @@ pub fn title_mode_standard_do_nothing_cursor_with_scheduler(
             &mut fifo,
             &mut phase,
             &mut refresh_events,
-            &mut advance_hardware,
+            advance_hardware,
         ) else {
             scheduling_failed = true;
             return;
         };
         external_wait_cycles = external_wait_cycles
             .checked_add(generated_wait)
-            .expect("Mode_Standard delay wait count fits u32");
+            .expect("title source-routine wait count fits u32");
     });
     if scheduling_failed {
         return None;

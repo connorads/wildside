@@ -108,6 +108,31 @@ pub fn visit_mode_standard_do_nothing(mut visit: impl FnMut(u32)) -> IntroSource
     timing
 }
 
+/// Visit the title's empty foreground-update queues through `sub_1596`.
+///
+/// Both next-slot pointers are zero at this title boundary, so the source
+/// skips both VDP writers and resets the producer pointers at `loc_1686`.
+pub fn visit_mode_standard_empty_foreground_queues_sub_1596(
+    mut visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    for cycles in [18, 8, 12, 10, 12, 10, 28, 28, 16] {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("empty sub_1596 source timing fits u32"),
+        );
+    }
+    timing
+}
+
 /// Destination selected by a 68000-to-VDP DMA command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryToVdpDmaTarget {
@@ -426,6 +451,23 @@ mod tests {
         );
         assert_eq!(&cycles[..3], &[18, 8, 8]);
         assert_eq!(&cycles[cycles.len() - 3..], &[14, 8, 16]);
+    }
+
+    #[test]
+    fn mode_standard_sub_1596_retains_empty_queue_epilogue() {
+        let mut cycles = Vec::new();
+        let timing =
+            visit_mode_standard_empty_foreground_queues_sub_1596(|cycle| cycles.push(cycle));
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 9,
+                raw_cycles: M68kCycleCount::from_raw(142),
+            },
+            "ASM sub_1596 title path must skip both drains and reset both next-slot pointers",
+        );
+        assert_eq!(cycles, [18, 8, 12, 10, 12, 10, 28, 28, 16]);
     }
 
     #[test]
