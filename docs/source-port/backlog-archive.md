@@ -600,6 +600,27 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: `Palette_to_VRAM $970` is now source-scheduled from
+the `Mode_Standard $77E` call through both Z80 arbitration thunks and its
+64-word CRAM DMA. The typed visitor retains 22 instructions / 362 raw cycles,
+asserts BUSREQ only after `Stop_z80 $E13BC` writes `$A11100`, starts DMA only
+after the second VDP command word, and releases BUSREQ at `Start_z80 $E13D0`.
+Source inspection corrected the proposed acknowledgement model: pinned
+jgenesis `Signals::z80_busack` is immediately `BUSREQ && !RESET`; its Z80
+core separately finishes the current instruction before entering four-cycle
+stalled slots.
+
+The reusable memory-to-VDP scheduler follows jgenesis slot ordering: decrement
+the 8-slot DMA latency, skip reads after refresh slots, enqueue before FIFO
+pop, and release the 68000 when the final word enters the FIFO. At the oracle
+caller beam it reproduces 163 halted ticks and returns to `$782` at cycle
+10,357,004 with refresh phase 92 exactly. The hardware-faithful lane enters
+five cycles earlier, naturally needs 168 ticks to the final enqueue slot, and
+returns at 10,356,956 versus oracle 10,356,959. The prior five-cycle residue
+therefore shrinks to three without a route constant. NEXT: reuse the typed
+DMA ownership window for `Transfer_SpriteAndKidToVRAM $A5C`, then schedule
+`Transfer_ScrollDataToVRAM`, `sub_1596`, and `Execute_Objects sub_E12`.
+
 Progress 2026-07-20: the first title `WaitForVint $93E/$942` is now
 source-scheduled on the persistent GEMS/VDP timeline through interrupt
 recognition, `V_Int $488`, the stale saved-PC branch, and `Mode_Standard

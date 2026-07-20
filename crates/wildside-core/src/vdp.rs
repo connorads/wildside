@@ -3068,11 +3068,19 @@ struct PlatformArtFifoEntry {
     first_vram_slot: bool,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct MemoryToVdpDma {
+    words_remaining: u16,
+    latency: u8,
+    target: crate::intro_timing::MemoryToVdpDmaTarget,
+}
+
 #[derive(Debug)]
 struct PlatformArtFifoScheduler {
     beam: H40BeamPosition,
     entries: std::collections::VecDeque<PlatformArtFifoEntry>,
     pending_words: u8,
+    memory_dma: Option<MemoryToVdpDma>,
 }
 
 fn h40_in_vblank_at_access_slot(scanline: u16, pixel: u16) -> bool {
@@ -3089,10 +3097,15 @@ impl PlatformArtFifoScheduler {
             beam,
             entries: std::collections::VecDeque::with_capacity(4),
             pending_words: 0,
+            memory_dma: None,
         }
     }
 
     fn push_word(&mut self) {
+        self.push_word_with_latency(3, true);
+    }
+
+    fn push_word_with_latency(&mut self, latency: u8, first_vram_slot: bool) {
         if self.entries.len() == 4 {
             self.pending_words = self
                 .pending_words
@@ -3100,10 +3113,28 @@ impl PlatformArtFifoScheduler {
                 .expect("VDP pending-word count stays bounded");
         } else {
             self.entries.push_back(PlatformArtFifoEntry {
-                latency: 3,
-                first_vram_slot: true,
+                latency,
+                first_vram_slot,
             });
         }
+    }
+
+    fn begin_memory_dma(&mut self, words: u16, target: crate::intro_timing::MemoryToVdpDmaTarget) {
+        assert_ne!(words, 0, "zero-length VDP DMA means 65,536 words");
+        assert!(self.memory_dma.is_none(), "VDP DMA cannot overlap");
+        self.memory_dma = Some(MemoryToVdpDma {
+            words_remaining: words,
+            latency: match target {
+                crate::intro_timing::MemoryToVdpDmaTarget::Vsram => 5,
+                crate::intro_timing::MemoryToVdpDmaTarget::Vram
+                | crate::intro_timing::MemoryToVdpDmaTarget::Cram => 8,
+            },
+            target,
+        });
+    }
+
+    fn memory_dma_active(&self) -> bool {
+        self.memory_dma.is_some()
     }
 
     fn advance_m68k_cycles(&mut self, cycles: M68kCycleCount) {
@@ -3155,6 +3186,29 @@ impl PlatformArtFifoScheduler {
                 )
             };
 
+            if !refresh {
+                let previous_refresh =
+                    slot != 0 && matches!(slot - 1, 26 | 58 | 90 | 122 | 154 | 204);
+                let fifo_full = self.entries.len() == 4;
+                if let Some(dma) = &mut self.memory_dma {
+                    dma.latency = dma.latency.saturating_sub(1);
+                    if !fifo_full && !previous_refresh {
+                        let latency = dma.latency.max(3);
+                        let first_vram_slot =
+                            matches!(dma.target, crate::intro_timing::MemoryToVdpDmaTarget::Vram);
+                        dma.words_remaining -= 1;
+                        let complete = dma.words_remaining == 0;
+                        self.entries.push_back(PlatformArtFifoEntry {
+                            latency,
+                            first_vram_slot,
+                        });
+                        if complete {
+                            self.memory_dma = None;
+                        }
+                    }
+                }
+            }
+
             if access && self.entries.front().is_some_and(|entry| entry.latency == 0) {
                 let front = self.entries.front_mut().expect("front checked above");
                 if front.first_vram_slot {
@@ -3178,6 +3232,27 @@ impl PlatformArtFifoScheduler {
             }
         }
     }
+}
+
+/// Hardware action emitted while scheduling `Palette_to_VRAM`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TitlePaletteHardwareEvent {
+    Advance {
+        cycles: M68kCycleCount,
+        vdp_owns_bus: bool,
+        source_instruction: bool,
+    },
+    SetZ80BusRequest(bool),
+}
+
+/// CPU/raster result from `Palette_to_VRAM $970` through its RTS.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TitlePaletteToVramAdvance {
+    pub cursor: LoadInGameCpuRasterCursor,
+    pub timing: crate::intro_timing::IntroSourceTiming,
+    pub refresh_events: u32,
+    pub external_wait_cycles: M68kCycleCount,
+    pub dma_halt_cycles: M68kCycleCount,
 }
 
 fn advance_decompress_to_vram_source_instruction(
@@ -3723,6 +3798,96 @@ pub fn title_mode_standard_do_nothing_cursor_with_scheduler(
         timing,
         refresh_events,
         external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
+    })
+}
+
+/// Co-schedule the first title `Palette_to_VRAM` call.
+pub fn title_mode_standard_palette_to_vram_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(TitlePaletteHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitlePaletteToVramAdvance> {
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+    let mut refresh_events = 0_u32;
+    let mut external_wait_cycles = 0_u32;
+    let mut dma_halt_cycles = 0_u32;
+    let mut scheduling_failed = false;
+
+    let timing = crate::intro_timing::visit_mode_standard_palette_to_vram(|event| {
+        if scheduling_failed {
+            return;
+        }
+        match event {
+            crate::intro_timing::PaletteToVramTimingEvent::Instruction(raw_cycles) => {
+                let mut advance = |cycles, vdp_owns_bus, source_instruction| {
+                    advance_hardware(TitlePaletteHardwareEvent::Advance {
+                        cycles,
+                        vdp_owns_bus,
+                        source_instruction,
+                    })
+                };
+                let Some(generated_wait) = advance_decompress_source_instruction_with_interval_kind(
+                    raw_cycles,
+                    &mut fifo,
+                    &mut phase,
+                    &mut refresh_events,
+                    &mut advance,
+                ) else {
+                    scheduling_failed = true;
+                    return;
+                };
+                external_wait_cycles = external_wait_cycles
+                    .checked_add(generated_wait)
+                    .expect("Palette_to_VRAM external waits fit u32");
+            }
+            crate::intro_timing::PaletteToVramTimingEvent::SetZ80BusRequest(requested) => {
+                if advance_hardware(TitlePaletteHardwareEvent::SetZ80BusRequest(requested))
+                    .is_none_or(|wait| wait.get() != 0)
+                {
+                    scheduling_failed = true;
+                }
+            }
+            crate::intro_timing::PaletteToVramTimingEvent::BeginMemoryDma { words, target } => {
+                fifo.begin_memory_dma(words, target);
+                while fifo.memory_dma_active() {
+                    let tick = M68kCycleCount::from_raw(1);
+                    fifo.advance_m68k_cycles(tick);
+                    let Some(wait) = advance_hardware(TitlePaletteHardwareEvent::Advance {
+                        cycles: tick,
+                        vdp_owns_bus: true,
+                        source_instruction: false,
+                    }) else {
+                        scheduling_failed = true;
+                        return;
+                    };
+                    if wait.get() != 0 {
+                        scheduling_failed = true;
+                        return;
+                    }
+                    dma_halt_cycles = dma_halt_cycles
+                        .checked_add(1)
+                        .expect("Palette_to_VRAM DMA halt fits u32");
+                    // Pinned jgenesis resets the 68000 refresh counter while
+                    // `Vdp::should_halt_cpu` owns the bus. The counter remains
+                    // zero until normal instruction execution resumes.
+                    phase = M68kRefreshPhase::new(0).expect("zero is a valid refresh phase");
+                }
+            }
+        }
+    });
+    if scheduling_failed {
+        return None;
+    }
+
+    Some(TitlePaletteToVramAdvance {
+        cursor: LoadInGameCpuRasterCursor {
+            beam: fifo.beam,
+            refresh_phase: phase,
+        },
+        timing,
+        refresh_events,
+        external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
+        dma_halt_cycles: M68kCycleCount::from_raw(dma_halt_cycles),
     })
 }
 
@@ -6986,6 +7151,53 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(46).unwrap(),
             },
             "oracle frame 80 reaches Mode_Standard $77A at cycle 10,350,137",
+        );
+    }
+
+    #[test]
+    fn title_palette_dma_reaches_oracle_caller_boundary() {
+        let entry_cycles = M68kCycleCount::from_raw(10_356_475);
+        let mut bus_requested = false;
+        let advance = title_mode_standard_palette_to_vram_cursor_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                // ASM Mode_Standard $77E immediately before BSR.W
+                // Palette_to_VRAM on oracle frame 81.
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(22).unwrap(),
+            },
+            |event| {
+                match event {
+                    TitlePaletteHardwareEvent::Advance {
+                        vdp_owns_bus,
+                        source_instruction,
+                        ..
+                    } => {
+                        if vdp_owns_bus {
+                            assert!(bus_requested, "CRAM DMA runs while Stop_z80 owns BUSREQ");
+                            assert!(!source_instruction, "DMA halt ticks are not instructions");
+                        }
+                    }
+                    TitlePaletteHardwareEvent::SetZ80BusRequest(requested) => {
+                        bus_requested = requested;
+                    }
+                }
+                Some(M68kCycleCount::from_raw(0))
+            },
+        )
+        .expect("ASM Palette_to_VRAM CRAM DMA path");
+
+        assert!(!bus_requested, "Start_z80 releases BUSREQ before returning");
+        assert_eq!(advance.timing.raw_cycles.get(), 362);
+        assert_eq!(advance.refresh_events, 2);
+        assert_eq!(advance.external_wait_cycles.get(), 0);
+        assert_eq!(advance.dma_halt_cycles.get(), 163);
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(10_357_004)),
+                refresh_phase: M68kRefreshPhase::new(92).unwrap(),
+            },
+            "oracle frame 81 returns to Mode_Standard $782 at cycle 10,357,004",
         );
     }
 

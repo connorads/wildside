@@ -18,7 +18,7 @@ use wildside_core::{
         DecompressToVramTransferAdvance, LoadInGameCpuRasterCursor,
         LoadInGamePlatformInitialisationAdvance, LoadInGamePlatformRefreshLedger,
         LoadInGamePlatformVintEvent, ModeLevelCpuRasterCursor, TitleIntroSourceAdvance,
-        TitleWaitForVintAdvance,
+        TitlePaletteHardwareEvent, TitlePaletteToVramAdvance, TitleWaitForVintAdvance,
     },
 };
 #[cfg(feature = "audio")]
@@ -1015,6 +1015,45 @@ pub fn apply_gems_title_mode_standard_do_nothing(
             ))
         },
     )
+}
+
+/// Clock the first title `Mode_Standard -> Palette_to_VRAM` upload.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_mode_standard_palette_to_vram(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitlePaletteToVramAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_mode_standard_palette_to_vram_cursor_with_scheduler(entry, |event| {
+        match event {
+            TitlePaletteHardwareEvent::Advance {
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            } => {
+                if source_instruction {
+                    audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                        u64::from(cycles.get()) * 7,
+                        vdp_owns_bus,
+                    );
+                } else {
+                    audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                        u64::from(cycles.get()) * 7,
+                        vdp_owns_bus,
+                    );
+                }
+                Some(M68kCycleCount::from_raw(
+                    audio.take_pending_m68k_wait_cycles(),
+                ))
+            }
+            TitlePaletteHardwareEvent::SetZ80BusRequest(requested) => {
+                audio.set_z80_control(requested, false);
+                Some(M68kCycleCount::from_raw(0))
+            }
+        }
+    })
 }
 
 /// Clock a caller and ASM `sub_142CC` up to `DecompressToVRAM loc_14300`.
@@ -2871,6 +2910,32 @@ mod tests {
         assert_eq!(engine.master_clock(), 10_356_422 * 7);
         assert_eq!(do_nothing.refresh_events, 50);
         assert_eq!(do_nothing.external_wait_cycles.get(), 0);
+
+        let palette =
+            apply_gems_title_mode_standard_palette_to_vram(&mut engine, do_nothing.cursor)
+                .expect("source-positioned Mode_Standard Palette_to_VRAM");
+        assert_eq!(
+            palette.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 22,
+                raw_cycles: M68kCycleCount::from_raw(362),
+            },
+        );
+        // The hardware-faithful lane enters five cycles earlier than the
+        // oracle boundary, so the same 64-word CRAM DMA needs five more
+        // halted ticks to reach its final enqueue slot.
+        assert_eq!(palette.dma_halt_cycles.get(), 168);
+        assert_eq!(palette.external_wait_cycles.get(), 0);
+        assert_eq!(engine.pending_m68k_wait_cycles(), 0);
+        assert!(
+            !engine.checkpoint().busreq,
+            "ASM Start_z80 releases BUSREQ before Palette_to_VRAM returns",
+        );
+        assert_eq!(
+            engine.master_clock(),
+            10_356_956 * 7,
+            "title Palette_to_VRAM ledger: {palette:?}",
+        );
     }
 
     #[cfg(feature = "audio")]

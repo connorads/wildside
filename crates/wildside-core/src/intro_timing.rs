@@ -108,6 +108,88 @@ pub fn visit_mode_standard_do_nothing(mut visit: impl FnMut(u32)) -> IntroSource
     timing
 }
 
+/// Destination selected by a 68000-to-VDP DMA command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemoryToVdpDmaTarget {
+    Vram,
+    Cram,
+    Vsram,
+}
+
+/// Source-positioned event within `Palette_to_VRAM`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaletteToVramTimingEvent {
+    Instruction(u32),
+    SetZ80BusRequest(bool),
+    BeginMemoryDma {
+        words: u16,
+        target: MemoryToVdpDmaTarget,
+    },
+}
+
+/// Visit `Mode_Standard`'s first `Palette_to_VRAM` call from caller `$77E`.
+///
+/// ASM `Palette_to_VRAM $970`, `Stop_z80 $E13BC`, and `Start_z80 $E13D0`
+/// retain their instruction boundaries. BUSREQ side effects occur after the
+/// corresponding register write, while the CRAM DMA begins after the second
+/// VDP command word.
+pub fn visit_mode_standard_palette_to_vram(
+    mut visit: impl FnMut(PaletteToVramTimingEvent),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(PaletteToVramTimingEvent),
+                timing: &mut IntroSourceTiming,
+                cycles: u32| {
+        visit(PaletteToVramTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("Palette_to_VRAM source timing fits u32"),
+        );
+    };
+
+    // ASM Mode_Standard $77E and Palette_to_VRAM $970: BSR, flag test,
+    // fall-through branch and Stop_z80 JSR.
+    for cycles in [18, 12, 8, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    // ASM j_Stop_z80 $E1304 -> BranchTo_Stop_z80 -> Stop_z80 $E13BC.
+    for cycles in [10, 10, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(PaletteToVramTimingEvent::SetZ80BusRequest(true));
+    for cycles in [20, 8, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    // ASM dma68kToVDP Palette_Buffer,$0000,$80,CRAM.
+    for cycles in [24, 24, 16, 24, 20, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(PaletteToVramTimingEvent::BeginMemoryDma {
+        words: 0x40,
+        target: MemoryToVdpDmaTarget::Cram,
+    });
+
+    // ASM j_Start_z80 $E1308 -> BranchTo_Start_z80 -> Start_z80 $E13D0.
+    for cycles in [20, 10, 10, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(PaletteToVramTimingEvent::SetZ80BusRequest(false));
+    // Start_z80 RTS, then Palette_to_VRAM RTS.
+    for cycles in [16, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    timing
+}
+
 /// Visit `Allocate_ObjectSlot sub_DAC` with an empty execution list.
 fn visit_empty_list_allocate_object_slot_instructions(visit: &mut impl FnMut(u32)) {
     // ASM sub_DAC $DAC..$DC0: save registers, pop the free slot and prepare
@@ -184,5 +266,35 @@ mod tests {
         );
         assert_eq!(&cycles[..3], &[18, 8, 8]);
         assert_eq!(&cycles[cycles.len() - 3..], &[14, 8, 16]);
+    }
+
+    #[test]
+    fn palette_to_vram_retains_bus_and_dma_boundaries() {
+        let mut events = Vec::new();
+        let timing = visit_mode_standard_palette_to_vram(|event| events.push(event));
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 22,
+                raw_cycles: M68kCycleCount::from_raw(362),
+            },
+            "ASM Palette_to_VRAM $970 must retain its Stop_z80, CRAM DMA and Start_z80 boundaries",
+        );
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| !matches!(event, PaletteToVramTimingEvent::Instruction(_)))
+                .copied()
+                .collect::<Vec<_>>(),
+            [
+                PaletteToVramTimingEvent::SetZ80BusRequest(true),
+                PaletteToVramTimingEvent::BeginMemoryDma {
+                    words: 0x40,
+                    target: MemoryToVdpDmaTarget::Cram,
+                },
+                PaletteToVramTimingEvent::SetZ80BusRequest(false),
+            ],
+        );
     }
 }

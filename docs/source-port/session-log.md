@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 title palette DMA)
+
+- `Palette_to_VRAM $970` now retains 22 instruction boundaries / 362 raw
+  cycles, the `Stop_z80` and `Start_z80` BUSREQ writes, and the 64-word CRAM
+  DMA start after the second VDP command word.
+- Pinned jgenesis exposes BUSACK immediately as `BUSREQ && !RESET`; the Z80
+  execution core independently finishes its current instruction before
+  stalling.
+- The reusable memory-to-VDP scheduler reproduces the oracle-beam transfer's
+  163 halted ticks and cycle-10,357,004 return exactly. The five-cycle-early
+  hardware lane needs 168 ticks and returns only three cycles early at
+  10,356,956 versus oracle 10,356,959.
+- NEXT: reuse the DMA scheduler for `Transfer_SpriteAndKidToVRAM $A5C`, then
+  schedule scroll DMA, `sub_1596`, and `Execute_Objects sub_E12 -> sub_1B8F4`.
+
+---
+
 ## 2026-07-20 handoff (#409 title VINT and standard delay)
 
 - The first title `WaitForVint $93E/$942` now blocks on the persistent
