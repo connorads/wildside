@@ -45,12 +45,20 @@ Desktop builds run on SDL2. Development and oracle setup (system SDL2 deps, asse
 extraction, disassembly, emulator) is wired through `mise run bootstrap-*` and
 `mise run oracle-setup`; skip it if you just want to play.
 
-The web build runs via `mise run web-serve` — it builds the wasm module, packs the
-bundle, and serves it on loopback (http://127.0.0.1:8321) with the COOP/COEP headers
-`web/serve.py` sets, so the page is cross-origin isolated (required for the
-SharedArrayBuffer audio ring). Audio starts on first key/click, since an
-`AudioContext` only runs after a user gesture. `?level=N` warps straight into a
-level; the console exposes `window.wildside` / `window.wildsideAudio` for probing.
+The web build runs via `mise run web-worker-dev`. It builds a host-neutral static
+package in `web/dist` and serves it locally through Cloudflare Workers Static
+Assets with the COOP/COEP headers required by the SharedArrayBuffer audio ring.
+The default package contains no ROM or derived game bundle: the browser asks for a
+user-owned canonical ROM, verifies it, and extracts the runtime assets locally in a
+Web Worker. Remembering the ROM is opt-in and uses browser-private storage.
+
+`web/config.json` selects picker, ROM URL, or prebuilt-bundle URL mode; examples
+live under `web/configs/`. URL modes can fall back to the local picker. Audio starts
+on first key/click because an `AudioContext` requires a user gesture. `?level=N`
+warps straight into a level; the console exposes `window.wildside`,
+`window.wildsideAudio`, and `window.wildsideAssetWorker` for probing. Local Worker
+readiness is configured, but this repository does not create or deploy a remote
+Cloudflare Worker.
 
 ## Quick start
 

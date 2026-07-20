@@ -14,6 +14,8 @@ typos = "1"
 # ymfm-sys needs zig's clang + bundled wasm32-wasi libc++ to compile the C++
 # for the web build (#20); see crates/ymfm-sys/build.rs.
 zig = "0.14"
+node = "24"
+"npm:wrangler" = "4.110.0"
 
 [tasks.fmt]
 run = "cargo fmt --all"
@@ -410,11 +412,13 @@ description = "Run cargo-mutants against a single wildside-core source file (FIL
 
 [tasks.web-bundle]
 run = "cargo run -p wildside-cli -- pack-web-bundle"
-description = "Pack the extracted generated bundle into web/bundle.wsbndl for the browser build (#21; private delivery per #16)"
+description = "Pack the audited runtime catalogue into web/bundle.wsbndl for explicit bundle-url packages"
 
 [tasks.web-build]
 run = """
 sh -ec '
+TMPDIR=${TMPDIR:-/tmp}
+export TMPDIR
 cargo build --release -p wildside-web --target wasm32-unknown-unknown
 wasm-bindgen --target web --no-typescript --out-dir web/pkg \
   target/wasm32-unknown-unknown/release/wildside_web.wasm
@@ -422,18 +426,40 @@ wasm-bindgen --target web --no-typescript --out-dir web/pkg \
 """
 description = "Build the wasm module + JS bindings into web/pkg (#19)"
 
-[tasks.web-serve]
+[tasks.web-package]
 depends = ["web-build"]
-# Loopback only; expose via `tsp up` if Tailnet access is wanted. The bundle
-# ships derived assets, so never funnel this publicly (#16 decision).
-# serve.py adds the COOP/COEP headers SharedArrayBuffer needs (audio, #20/#23).
+run = "python3 scripts/package_web.py --config web/config.json --output web/dist"
+description = "Build host-neutral picker-mode static package in web/dist (no ROM or derived bundle)"
+
+[tasks.web-worker-dev]
+depends = ["web-package"]
+run = "wrangler dev"
+description = "Serve web/dist through Cloudflare Workers Static Assets locally"
+
+[tasks.verify-web-fast]
+depends = ["web-package"]
 run = """
 sh -ec '
-[ -f web/bundle.wsbndl ] || cargo run -p wildside-cli -- pack-web-bundle
-python3 web/serve.py 8321
+cargo test -p wildside-rom -p wildside-data -p wildside-web
+node --check web/main.js
+node --check web/asset-worker.js
+if find web/dist -type f \\( -name "*.bin" -o -name "*.md" -o -name "*.rom" -o -name "*.wsbndl" \\) | grep -q .; then
+  echo "default picker-mode package contains game data"
+  exit 1
+fi
 '
 """
-description = "Serve the playable web build on http://127.0.0.1:8321 with COOP/COEP (builds wasm + packs bundle if missing)"
+description = "Manual fast web gate: Rust boundaries, fresh wasm/package build, JS syntax, and no game data in default dist"
+
+[tasks.verify-web-local]
+depends = ["web-package"]
+run = "scripts/verify_web_local.sh"
+description = "Manual local Worker + Playwright journeys (requires canonical ROM and installed Playwright Chromium)"
+
+[tasks.web-serve]
+depends = ["web-package"]
+run = "wrangler dev"
+description = "Compatibility alias for web-worker-dev"
 
 [tasks.clean-build]
 run = "cargo clean"

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "kind": "rom-url",
+    "url": "./kid.bin",
+    "fallback": "user-rom"
+  }
+}

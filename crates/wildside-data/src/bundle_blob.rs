@@ -523,9 +523,17 @@ mod tests {
             return;
         }
 
-        assert_eq!(
-            extract_runtime_bundle(&rom).expect("extract from canonical ROM"),
-            pack_runtime_bundle_blob(&root).expect("pack generated runtime bundle")
+        let extracted = extract_runtime_bundle(&rom).expect("extract from canonical ROM");
+        let packed = pack_runtime_bundle_blob(&root).expect("pack generated runtime bundle");
+        let first_difference = extracted
+            .iter()
+            .zip(&packed)
+            .position(|(extracted, packed)| extracted != packed);
+        assert!(
+            extracted == packed,
+            "runtime bundles differ: extracted={} bytes, packed={} bytes, first difference={first_difference:?}",
+            extracted.len(),
+            packed.len()
         );
     }
 

@@ -28,16 +28,56 @@
       }
       #status {
         min-height: 1.2em;
+        max-width: min(92vw, 48rem);
+        text-align: center;
       }
       #keys {
         color: #888;
         font-size: 0.8rem;
+      }
+      #rom-panel {
+        max-width: min(92vw, 38rem);
+        padding: 1rem;
+        border: 1px solid #555;
+        background: #181818;
+      }
+      #rom-panel p {
+        margin-top: 0;
+      }
+      #rom-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      #forget-rom {
+        color: #aaa;
+        background: transparent;
+        border: 1px solid #555;
+        padding: 0.35rem 0.55rem;
+      }
+      [hidden] {
+        display: none !important;
       }
     </style>
   </head>
   <body>
     <canvas id="screen" width="320" height="224"></canvas>
     <div id="status">loading…</div>
+    <section id="rom-panel" aria-label="Game ROM" hidden>
+      <p>
+        Choose your legally obtained, raw Kid Chameleon ROM. It stays in this
+        browser and is never uploaded.
+      </p>
+      <div id="rom-actions">
+        <input id="rom-file" type="file" accept=".bin,.md,application/octet-stream" />
+        <label>
+          <input id="remember-rom" type="checkbox" />
+          Remember on this device
+        </label>
+      </div>
+    </section>
+    <button id="forget-rom" type="button">Forget saved ROM</button>
     <div id="keys">
       arrows/WASD move · Z/space = B (jump) · X = C · C/shift = A · enter = start
     </div>

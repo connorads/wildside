@@ -4,6 +4,11 @@
 # Generated web-build artefacts; the bundle ships derived ROM assets (private-only, #16)
 /web/bundle.wsbndl
 /web/pkg/
+/web/dist/
+/.wrangler/
+/web/config.local.json
+/web/*.rom
+/web/kid.bin
 # playwright-cli session artefacts (browser smoke-testing the web build)
 /.playwright-cli/
 /kid.bin

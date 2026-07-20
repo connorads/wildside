@@ -292,13 +292,11 @@ cargo mutants -p wildside-core -f <file>.rs -j 4 -- --lib -- --skip demo_ --skip
 **TMPDIR in agent shells**: Codex/Claude Code launch without launchd's per-user
 `TMPDIR`. On macOS an *unset* `TMPDIR` is harmless — Rust's `env::temp_dir()`
 resolves `/var/folders/.../T/` — so `cargo test` and the pre-commit gate need no
-`TMPDIR` export. The only failure is `cargo-mutants` (isolated `build.rs` builds
-choke when `TMPDIR` is set-but-empty → Rust returns `""`); the `mutants-file`
-task already defaults it. Do not add per-commit `export TMPDIR=/tmp`.
-Exception outside this repo's control: build-wrap (machine-level,
-`~/.cargo/config.toml`) hard-requires `TMPDIR` whenever a wrapped `build.rs`
-actually reruns (cold worktree, `cargo clean`, dep bump); the cargo `[env]`
-default in that same file supplies it, so no repo-side export is needed.
+`TMPDIR` export. Two task boundaries need a default: `cargo-mutants` runs
+isolated `build.rs` builds, and the wasm build can rerun a wrapped dependency
+`build.rs`; both fail when the wrapper receives an empty path. `mutants-file`
+and `web-build` default `TMPDIR` to `/tmp` themselves. Do not add a blanket
+per-commit export or change ordinary Cargo commands.
 
 **Lessons learned:**
 - Proptest properties (bounded, converges) are too loose to catch sign/direction mutations; pair them with exact-value unit tests

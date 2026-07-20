@@ -5,6 +5,10 @@ import init, { WildsideGame } from "./pkg/wildside_web.js";
 const STATUS = document.getElementById("status");
 const CANVAS = document.getElementById("screen");
 const CTX = CANVAS.getContext("2d");
+const ROM_PANEL = document.getElementById("rom-panel");
+const ROM_INPUT = document.getElementById("rom-file");
+const REMEMBER_ROM = document.getElementById("remember-rom");
+const FORGET_ROM = document.getElementById("forget-rom");
 
 // Mirrors FrameInput::from_mask (wildside-core types.rs): Up/Down/Left/Right/
 // B/C/A/Start = bits 0..7, and the native SDL shell's key bindings
@@ -65,12 +69,70 @@ function gamepadMask() {
   return mask;
 }
 
-async function fetchBytes(url, label) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`${label}: HTTP ${response.status}`);
-  }
-  return new Uint8Array(await response.arrayBuffer());
+function loadAssetBundle() {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker("./asset-worker.js", { type: "module" });
+    let gameReady = false;
+    const showPicker = (previousError) => {
+      ROM_PANEL.hidden = false;
+      STATUS.textContent = previousError
+        ? `${previousError.message} Choose your ROM to continue.`
+        : "Choose your legally obtained Kid Chameleon ROM.";
+    };
+
+    worker.addEventListener("message", (event) => {
+      const response = event.data;
+      switch (response?.type) {
+        case "progress":
+          STATUS.textContent = response.message;
+          break;
+        case "needs-rom":
+          showPicker(response.previousError);
+          break;
+        case "ready":
+          gameReady = true;
+          ROM_PANEL.hidden = true;
+          resolve(response.bundle);
+          break;
+        case "forgot":
+          STATUS.textContent = "Remembered ROM removed.";
+          if (!gameReady) showPicker();
+          break;
+        case "error":
+          reject(new Error(`${response.error.kind}: ${response.error.message}`));
+          worker.terminate();
+          break;
+      }
+    });
+
+    ROM_INPUT.addEventListener("change", async () => {
+      const file = ROM_INPUT.files?.[0];
+      if (!file) return;
+      ROM_INPUT.disabled = true;
+      try {
+        const bytes = await file.arrayBuffer();
+        worker.postMessage(
+          {
+            type: "import-rom",
+            bytes,
+            remember: REMEMBER_ROM.checked,
+          },
+          [bytes],
+        );
+      } finally {
+        ROM_INPUT.disabled = false;
+        ROM_INPUT.value = "";
+      }
+    });
+    FORGET_ROM.addEventListener("click", () => {
+      worker.postMessage({ type: "forget-rom" });
+    });
+    worker.postMessage({
+      type: "bootstrap",
+      configUrl: new URL("./config.json", location.href).href,
+    });
+    window.wildsideAssetWorker = worker;
+  });
 }
 
 // --- Audio (#20): wasm GEMS samples → SAB ring → AudioWorklet. ---
@@ -87,8 +149,8 @@ async function enableAudio(game) {
   audioUnavailable = true; // latched off during async setup; cleared on success
   if (!crossOriginIsolated) {
     console.warn(
-      "audio disabled: page is not cross-origin isolated — serve with " +
-        "COOP/COEP headers (mise run web-serve / web/serve.py)",
+      "audio disabled: page is not cross-origin isolated - serve with " +
+        "COOP/COEP headers (mise run web-worker-dev)",
     );
     return;
   }
@@ -141,9 +203,8 @@ function pushAudioFrame(wasm, game) {
 }
 
 async function main() {
-  const wasm = await init();
-  STATUS.textContent = "fetching asset bundle…";
-  const bundle = await fetchBytes("bundle.wsbndl", "bundle.wsbndl");
+  STATUS.textContent = "Loading game data…";
+  const [wasm, bundle] = await Promise.all([init(), loadAssetBundle()]);
 
   STATUS.textContent = "booting…";
   // No ?level= boots the real attract flow (Sega logo → intro → title menu);

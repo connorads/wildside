@@ -30,6 +30,14 @@ The native runtime, asset extraction, and the emulator oracle are wired through 
 
 ## Web build
 
-`mise run web-serve` builds the wasm module, packs the bundle, and serves it on
-http://127.0.0.1:8321 via `web/serve.py`, which sets the COOP/COEP headers the
-audio ring needs (cross-origin isolation).
+`mise run web-worker-dev` builds the wasm module and host-neutral picker-mode
+package, then serves `web/dist` through Cloudflare Workers Static Assets. No ROM
+or derived bundle is copied by default. `mise run verify-web-fast` checks the
+Rust/wasm/package boundaries; `mise run verify-web-local` runs the local Worker
+and Playwright journeys when a canonical ROM and Playwright Chromium are
+available.
+
+`scripts/package_web.py --config <path> --output <dir> [--copy-source <path>]`
+packages another tracked config. `--copy-source` is always explicit and validates
+the source as the canonical ROM or a `WSBNDL01` bundle before copying it to the
+config's relative URL.

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "kind": "bundle-url",
+    "url": "./bundle.wsbndl",
+    "fallback": "user-rom"
+  }
+}
