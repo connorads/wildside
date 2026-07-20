@@ -88,25 +88,25 @@ struct VerifyTasReport {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Classification {
+pub(crate) enum Classification {
     Match,
     Improvement,
     Regression,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum MetricDirection {
+pub(crate) enum MetricDirection {
     Better,
     Same,
     Worse,
 }
 
 #[derive(Debug, Clone)]
-struct MetricRow {
-    name: &'static str,
-    expected: String,
-    actual: String,
-    direction: MetricDirection,
+pub(crate) struct MetricRow {
+    pub(crate) name: &'static str,
+    pub(crate) expected: String,
+    pub(crate) actual: String,
+    pub(crate) direction: MetricDirection,
 }
 
 fn direction_marker(direction: MetricDirection) -> &'static str {
@@ -117,7 +117,7 @@ fn direction_marker(direction: MetricDirection) -> &'static str {
     }
 }
 
-fn metric_higher_better(name: &'static str, expected: u64, actual: u64) -> MetricRow {
+pub(crate) fn metric_higher_better(name: &'static str, expected: u64, actual: u64) -> MetricRow {
     MetricRow {
         name,
         expected: expected.to_string(),
@@ -130,7 +130,7 @@ fn metric_higher_better(name: &'static str, expected: u64, actual: u64) -> Metri
     }
 }
 
-fn metric_lower_better(name: &'static str, expected: u64, actual: u64) -> MetricRow {
+pub(crate) fn metric_lower_better(name: &'static str, expected: u64, actual: u64) -> MetricRow {
     MetricRow {
         name,
         expected: expected.to_string(),
@@ -140,6 +140,28 @@ fn metric_lower_better(name: &'static str, expected: u64, actual: u64) -> Metric
             std::cmp::Ordering::Equal => MetricDirection::Same,
             std::cmp::Ordering::Greater => MetricDirection::Worse,
         },
+    }
+}
+
+/// Pareto classification shared by the ratchet gates: the caller supplies
+/// baseline equality (Match detection) and the ranked metric rows. Evidence
+/// fields such as digests are deliberately NOT metrics — a pure reshuffle of
+/// the same totals cannot count as an improvement. Mixed win/lose trades
+/// classify as Regression.
+pub(crate) fn pareto_classification(baseline_matches: bool, rows: &[MetricRow]) -> Classification {
+    if baseline_matches {
+        return Classification::Match;
+    }
+    let any_worse = rows
+        .iter()
+        .any(|row| row.direction == MetricDirection::Worse);
+    let any_better = rows
+        .iter()
+        .any(|row| row.direction == MetricDirection::Better);
+    if !any_worse && any_better {
+        Classification::Improvement
+    } else {
+        Classification::Regression
     }
 }
 
@@ -214,21 +236,7 @@ fn classify(expected: &PixelBaseline, actual: &PixelBaseline) -> (Classification
             false,
         ),
     ];
-    let classification = if expected == actual {
-        Classification::Match
-    } else {
-        let any_worse = rows
-            .iter()
-            .any(|row| row.direction == MetricDirection::Worse);
-        let any_better = rows
-            .iter()
-            .any(|row| row.direction == MetricDirection::Better);
-        if !any_worse && any_better {
-            Classification::Improvement
-        } else {
-            Classification::Regression
-        }
-    };
+    let classification = pareto_classification(expected == actual, &rows);
     (classification, rows)
 }
 
@@ -275,7 +283,7 @@ fn load_report_pixels(report_path: &Path) -> Result<ReportPixelComparison> {
     })
 }
 
-fn frontier_recording<'a>(
+pub(crate) fn frontier_recording<'a>(
     frontier: &'a serde_json::Value,
     frontier_path: &Path,
     slug: &str,
@@ -344,7 +352,7 @@ fn match_brace(text: &str, open: usize) -> Result<usize> {
 
 /// Re-indent pretty JSON (2-space, first line unindented) so nested lines sit
 /// under a key at `indent`.
-fn reindent(pretty: &str, indent: &str) -> String {
+pub(crate) fn reindent(pretty: &str, indent: &str) -> String {
     let mut out = String::new();
     for (index, line) in pretty.lines().enumerate() {
         if index > 0 {
@@ -356,16 +364,21 @@ fn reindent(pretty: &str, indent: &str) -> String {
     out
 }
 
-/// Splice `actual` into the slug's `full_expected_pixel_comparison` block,
-/// leaving every other byte of the frontier file untouched. Deliberately NOT
-/// a `serde_json::Value` round-trip: without the `preserve_order` feature that
+/// Splice a serialised baseline into the slug's `block_key` block, leaving
+/// every other byte of the frontier file untouched. Deliberately NOT a
+/// `serde_json::Value` round-trip: without the `preserve_order` feature that
 /// would alphabetise the whole file.
-fn splice_pixel_baseline(original: &str, slug: &str, actual: &PixelBaseline) -> Result<String> {
+pub(crate) fn splice_recording_block(
+    original: &str,
+    slug: &str,
+    block_key: &str,
+    actual: &impl Serialize,
+) -> Result<String> {
     let slug_key = format!("\"{slug}\"");
     let slug_pos = original
         .find(&slug_key)
         .with_context(|| format!("frontier file has no {slug_key} key"))?;
-    let key = format!("\"{FRONTIER_PIXEL_KEY}\"");
+    let key = format!("\"{block_key}\"");
     let key_pos = original[slug_pos..]
         .find(&key)
         .map(|offset| slug_pos + offset)
@@ -389,7 +402,11 @@ fn splice_pixel_baseline(original: &str, slug: &str, actual: &PixelBaseline) -> 
     ))
 }
 
-fn print_metric_table(rows: &[MetricRow]) {
+fn splice_pixel_baseline(original: &str, slug: &str, actual: &PixelBaseline) -> Result<String> {
+    splice_recording_block(original, slug, FRONTIER_PIXEL_KEY, actual)
+}
+
+pub(crate) fn print_metric_table(rows: &[MetricRow]) {
     for row in rows {
         println!(
             "  {:<22} {:>10} -> {:>10}  [{}]",
