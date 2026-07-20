@@ -600,6 +600,19 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: the persistent title timeline reaches the second frame's
+return to `Mode_Standard $794`. The source-exact prelude reuses `Do_Nothing`,
+the CRAM/SAT/scroll DMA paths, and empty `sub_1596` queues. `Execute_Objects`
+then consumes observed RNG offset `$FFD1`, dispatches the equal-priority text
+worker first into `loc_1C7A0`, hibernates it before drawing, and advances the
+controller's `sub_1C204` fade state to `$0010` before its `loc_1C21E`
+hibernate. The block retains 159 instructions / 2,040 raw cycles. Oracle's
+`$790->$794` interval crosses seventeen refreshes plus 132 GEMS waits; native
+crosses sixteen with no waits and reaches 10,492,282 versus oracle
+10,492,563, increasing the explained residue to 281 cycles. NEXT: schedule
+the second frame tail through `$7A4`, then the third VINT and text-worker
+delay command.
+
 Progress 2026-07-20: the persistent title timeline crosses the first frame's
 `Mode_Standard $7A4` return, `MainGameLoop $744/$738`, the next
 `WaitForVint $93A`, second VINT, and next `Mode_Standard $77A` entry. The

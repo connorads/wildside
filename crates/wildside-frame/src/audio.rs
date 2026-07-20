@@ -1099,6 +1099,30 @@ pub fn apply_gems_title_execute_objects_to_intro_controller(
     )
 }
 
+/// Clock the second title text-worker and controller dispatches.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_second_execute_objects(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_second_execute_objects_cursor_with_scheduler(
+        entry,
+        rng_offset_before,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock initial `sub_1B8F4` work through the `sub_1C4EA` palette copy.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_intro_controller_prompt_gfx_to_palette(
@@ -3529,6 +3553,69 @@ mod tests {
             engine.master_clock(),
             10_478_144 * 7,
             "title second WaitForVint ledger: {next_mode_standard:?}",
+        );
+
+        let second_do_nothing =
+            apply_gems_title_mode_standard_do_nothing(&mut engine, next_mode_standard.cursor)
+                .expect("source-positioned second title Do_Nothing");
+        let second_palette =
+            apply_gems_title_mode_standard_palette_to_vram(&mut engine, second_do_nothing.cursor)
+                .expect("source-positioned second title Palette_to_VRAM");
+        let second_sprite_and_kid = apply_gems_title_mode_standard_sprite_and_kid_to_vram(
+            &mut engine,
+            second_palette.cursor,
+        )
+        .expect("source-positioned second title sprite/Kid transfer");
+        let second_scroll = apply_gems_title_mode_standard_scroll_data_to_vram(
+            &mut engine,
+            second_sprite_and_kid.cursor,
+        )
+        .expect("source-positioned second title scroll transfer");
+        let second_queues = apply_gems_title_mode_standard_empty_foreground_queues(
+            &mut engine,
+            second_scroll.cursor,
+        )
+        .expect("source-positioned second title empty foreground queues");
+        let second_execute =
+            apply_gems_title_second_execute_objects(&mut engine, second_queues.cursor, 0xFFD1)
+                .expect("source-positioned second title text-worker frame");
+        assert_eq!(second_do_nothing.timing.instruction_count, 618);
+        assert_eq!(second_do_nothing.timing.raw_cycles.get(), 6_192);
+        assert_eq!(second_do_nothing.refresh_events, 50);
+        assert_eq!(second_do_nothing.external_wait_cycles.get(), 0);
+        assert_eq!(second_palette.timing.raw_cycles.get(), 362);
+        assert_eq!(second_palette.refresh_events, 2);
+        assert_eq!(second_palette.dma_halt_cycles.get(), 165);
+        assert_eq!(second_palette.external_wait_cycles.get(), 0);
+        assert_eq!(second_sprite_and_kid.timing.raw_cycles.get(), 796);
+        assert_eq!(second_sprite_and_kid.refresh_events, 6);
+        assert_eq!(second_sprite_and_kid.dma_halt_cycles.get(), 1_531);
+        assert_eq!(second_sprite_and_kid.external_wait_cycles.get(), 0);
+        assert_eq!(second_scroll.timing.raw_cycles.get(), 610);
+        assert_eq!(second_scroll.refresh_events, 5);
+        assert_eq!(second_scroll.dma_halt_cycles.get(), 2_140);
+        assert_eq!(second_scroll.external_wait_cycles.get(), 0);
+        assert_eq!(second_queues.timing.raw_cycles.get(), 142);
+        assert_eq!(second_queues.refresh_events, 1);
+        assert_eq!(second_queues.external_wait_cycles.get(), 0);
+        assert_eq!(
+            second_execute.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 159,
+                raw_cycles: M68kCycleCount::from_raw(2_040),
+            },
+        );
+        assert_eq!(second_execute.refresh_events, 16);
+        assert_eq!(second_execute.external_wait_cycles.get(), 0);
+        // Oracle enters Execute_Objects at $790 on cycle 10,490,357 and
+        // returns to $794 on 10,492,563. The interval is the same 2,040
+        // source cycles, seventeen refreshes, and 132 GEMS waits. Native's
+        // established GEMS phase defect emits no waits and crosses sixteen
+        // refreshes, increasing the explained residue to 281 cycles.
+        assert_eq!(
+            engine.master_clock(),
+            10_492_282 * 7,
+            "title second text-worker ledger: {second_execute:?}",
         );
     }
 

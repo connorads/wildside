@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 second title text-worker frame)
+
+- The persistent timeline reaches the second frame's return to
+  `Mode_Standard $794` after the source-exact VDP prelude.
+- `Execute_Objects` consumes RNG offset `$FFD1`, runs the equal-priority text
+  worker first into `loc_1C7A0`, hibernates it before drawing, then advances
+  the controller fade state to `$0010` and hibernates it at `loc_1C21E`.
+- The block is 159 instructions / 2,040 raw cycles. Native reaches
+  10,492,282 versus oracle 10,492,563; the 281-cycle residue consists of one
+  refresh and 132 GEMS waits omitted by the established phase defect.
+- NEXT: schedule the second frame tail through `$7A4`, then the third VINT
+  and text-worker delay command.
+
+---
+
 ## 2026-07-20 handoff (#409 second title VINT)
 
 - The persistent timeline now crosses `$7A4 -> $744 -> $738 -> WaitForVint

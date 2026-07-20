@@ -162,34 +162,14 @@ pub fn visit_mode_standard_empty_foreground_queues_sub_1596(
     timing
 }
 
-/// Visit the first title `Execute_Objects` call up to `sub_1B8F4`.
-///
-/// The title RNG offset is already initialised and the sole controller object
-/// is awake with Samurai haze clear. The visitor retains all four
-/// `Get_RandomNumber_byte sub_9FE` branch decisions before the list dispatch.
-pub fn visit_title_execute_objects_to_intro_controller_sub_1b8f4(
+fn visit_title_execute_objects_setup(
     rng_offset_before: u16,
-    mut visit: impl FnMut(u32),
-) -> Option<IntroSourceTiming> {
+    emit: &mut dyn FnMut(u32),
+) -> Option<()> {
     if !crate::RomRandomFrameState::offset_is_initialised(rng_offset_before) {
         return None;
     }
-    let mut timing = IntroSourceTiming {
-        instruction_count: 0,
-        raw_cycles: M68kCycleCount::from_raw(0),
-    };
     let mut offset = rng_offset_before as i16;
-    let mut emit = |cycles: u32| {
-        visit(cycles);
-        timing.instruction_count += 1;
-        timing.raw_cycles = M68kCycleCount::from_raw(
-            timing
-                .raw_cycles
-                .get()
-                .checked_add(cycles)
-                .expect("title Execute_Objects source timing fits u32"),
-        );
-    };
 
     let mut visit_byte = |emit: &mut dyn FnMut(u32)| {
         // ASM Get_RandomNumber_byte sub_9FE. The two conditional paths are
@@ -240,19 +220,103 @@ pub fn visit_title_execute_objects_to_intro_controller_sub_1b8f4(
     for cycles in [18, 18, 10, 18, 10] {
         emit(cycles);
     }
-    visit_word(&mut emit);
+    visit_word(emit);
     for cycles in [12, 18, 10] {
         emit(cycles);
     }
-    visit_word(&mut emit);
+    visit_word(emit);
     // sub_A4A epilogue, then Execute_Objects saves its caller stack and loads
     // the object-list head address before loc_E1E.
     for cycles in [16, 16, 12, 12] {
         emit(cycles);
     }
 
+    Some(())
+}
+
+/// Visit the first title `Execute_Objects` call up to `sub_1B8F4`.
+///
+/// The title RNG offset is already initialised and the sole controller object
+/// is awake with Samurai haze clear. The visitor retains all four
+/// `Get_RandomNumber_byte sub_9FE` branch decisions before the list dispatch.
+pub fn visit_title_execute_objects_to_intro_controller_sub_1b8f4(
+    rng_offset_before: u16,
+    mut visit: impl FnMut(u32),
+) -> Option<IntroSourceTiming> {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title Execute_Objects source timing fits u32"),
+        );
+    };
+
+    visit_title_execute_objects_setup(rng_offset_before, &mut emit)?;
+
     // ASM loc_E1E -> loc_E3E: the sole controller is live and awake.
     for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
+        emit(cycles);
+    }
+
+    Some(timing)
+}
+
+/// Visit the second title `Execute_Objects` call through both hibernations.
+///
+/// The equal-priority text worker is first in the execution list. It enters
+/// `loc_1C7A0` and hibernates before drawing; the controller then advances
+/// `sub_1C204` by one fade step and hibernates at `loc_1C21E`.
+pub fn visit_title_second_execute_objects(
+    rng_offset_before: u16,
+    mut visit: impl FnMut(u32),
+) -> Option<IntroSourceTiming> {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("second title Execute_Objects timing fits u32"),
+        );
+    };
+
+    visit_title_execute_objects_setup(rng_offset_before, &mut emit)?;
+    // ASM loc_E1E dispatches the live text worker into loc_1C7A0.
+    for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
+        emit(cycles);
+    }
+    // ASM loc_1C7A0 loads IntroText1's coordinates and hibernates once
+    // through the j_Hibernate_Object_1Frame thunk and sub_E76.
+    for cycles in [12, 8, 8, 8, 4, 18, 10, 16, 24, 16, 76, 16, 10] {
+        emit(cycles);
+    }
+    // ASM loc_E1E dispatches the controller from its one-frame hibernation.
+    for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
+        emit(cycles);
+    }
+    // ASM loc_1C222 calls sub_1C246 with no Start edge, advances fade state
+    // to $0010, marks both dirty masks, and hibernates at loc_1C21E.
+    for cycles in [
+        18, 16, 8, 16, 16, 8, 4, 16, 16, 10, 18, 10, 16, 24, 16, 76, 16, 10,
+    ] {
+        emit(cycles);
+    }
+    // The controller has no successor; loc_E58 restores the caller stack.
+    for cycles in [12, 10, 16, 16] {
         emit(cycles);
     }
 
@@ -1042,6 +1106,27 @@ mod tests {
             [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16],
             "ASM loc_E1E dispatches the sole awake controller into sub_1B8F4",
         );
+    }
+
+    #[test]
+    fn second_title_execute_objects_hibernates_text_worker_then_controller() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_second_execute_objects(0xFFD1, |cycle| cycles.push(cycle))
+            .expect("frame-82 title RNG offset is initialised");
+
+        assert_eq!(timing.instruction_count, 159);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(2_040));
+        assert_eq!(
+            crate::mode_level_timing::execute_objects_setup_cycles_sub_e12(0xFFD1),
+            Some(M68kCycleCount::from_raw(1_088)),
+            "ASM sub_E12 setup aggregate independently checks the second-frame RNG prefix",
+        );
+        assert_eq!(
+            cycles.iter().filter(|&&cycle| cycle == 76).count(),
+            2,
+            "ASM loc_1C7A0 and loc_1C21E each pack eight coroutine registers once",
+        );
+        assert_eq!(&cycles[cycles.len() - 4..], &[12, 10, 16, 16]);
     }
 
     #[test]
