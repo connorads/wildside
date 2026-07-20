@@ -3828,6 +3828,18 @@ pub fn title_mode_standard_sprite_and_kid_to_vram_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule the title `Transfer_ScrollDataToVRAM` call.
+pub fn title_mode_standard_scroll_data_to_vram_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        |visit| crate::intro_timing::visit_mode_standard_scroll_data_to_vram(visit),
+        &mut advance_hardware,
+    )
+}
+
 fn title_memory_dma_routine_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     visit_timing: impl FnOnce(
@@ -3875,6 +3887,12 @@ fn title_memory_dma_routine_cursor_with_scheduler(
                 {
                     scheduling_failed = true;
                 }
+            }
+            crate::intro_timing::MemoryDmaTimingEvent::WriteVdpWord { target } => {
+                fifo.push_word_with_latency(
+                    3,
+                    matches!(target, crate::intro_timing::MemoryToVdpDmaTarget::Vram),
+                );
             }
             crate::intro_timing::MemoryDmaTimingEvent::BeginMemoryDma { words, target } => {
                 fifo.begin_memory_dma(words, target);

@@ -5732,9 +5732,9 @@ mod chunk_01 {
                 second_vsram_word: 0x0049,
                 dma_source_addr: 0xFFFF_7432,
                 dma_vram_word_addr: 0x1400,
-                dma_word_count: 0x0380,
+                dma_word_count: 0x01C0,
             },
-            "ASM loc_300D2 should write the shared-tail `d0` into the second VSRAM slot, then DMA `Horiz_Scroll_Buffer` to `vdpComm($1400,VRAM,WRITE)` for `$380` words after stopping the Z80",
+            "ASM loc_300D2 should write the shared-tail `d0` into the second VSRAM slot, then DMA `$380` bytes from `Horiz_Scroll_Buffer` to `vdpComm($1400,VRAM,WRITE)` after stopping the Z80",
         );
     }
 }

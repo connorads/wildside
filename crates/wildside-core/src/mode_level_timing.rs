@@ -1068,7 +1068,7 @@ pub struct ModeLevelVblankWorkBeforeSubE12 {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ModeLevelScrollTransferPath {
-    /// ASM `loc_300BA`: two VSRAM words then the `$380`-word H-scroll DMA.
+    /// ASM `loc_300BA`: two VSRAM words then the `$380`-byte H-scroll DMA.
     NormalLoc300ba,
     StormLoc30110,
     SpecialLoc30158,

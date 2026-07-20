@@ -600,6 +600,23 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: `Transfer_ScrollDataToVRAM $3009A` is now
+source-scheduled through the verified title `loc_300BA` path. The visitor
+retains 42 instructions / 610 raw cycles, both camera-derived VSRAM FIFO
+writes, the direct Z80 bus hold, the repeated `Start_z80` through `sub_924`,
+and the horizontal-scroll DMA. Reading `dma68kToVDP` corrected an older unit
+error: its `$380` argument is bytes, so the VDP word count is `$1C0`, not
+`$380`; the existing typed DMA-tail regression now carries the source value.
+
+The shared scheduler derives 2,143 DMA-halted ticks, five refresh events, and
+no hardware-faithful GEMS wait. Native returns to `Mode_Standard $78C` at
+cycle 10,362,058 versus narrow-oracle 10,362,116. Thirty cycles of that
+residue entered at `$786`; the additional 28 occur outside BUSREQ ownership,
+where the established jgenesis undocumented-X/Y SUB defect changes live GEMS
+instruction phase. NEXT: source-schedule the title empty-queue `sub_1596`
+path, then `Execute_Objects sub_E12 -> sub_1B8F4`; do not fit the measured
+144/3,056-cycle intervals.
+
 Progress 2026-07-20: `Transfer_SpriteAndKidToVRAM $A5C` is now
 source-scheduled for the verified title state. The typed visitor takes the
 live `Addr_NextSpriteSlot` path, retains 55 instructions / 796 raw cycles,

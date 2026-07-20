@@ -15305,7 +15305,7 @@ pub(crate) fn transfer_scroll_data_dma_tail_loc_300D2(
         second_vsram_word,
         dma_source_addr: 0xFFFF_7432,
         dma_vram_word_addr: 0x1400,
-        dma_word_count: 0x0380,
+        dma_word_count: 0x01C0,
     }
 }
 

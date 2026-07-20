@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 title scroll-data DMA)
+
+- `Transfer_ScrollDataToVRAM $3009A` now retains the verified title
+  `loc_300BA` path's 42 instructions / 610 raw cycles, two VSRAM writes,
+  Z80 bus hold, and 448-word horizontal-scroll VRAM DMA.
+- Source inspection corrects the old `$380`-word description:
+  `dma68kToVDP` takes bytes, so `$380` programs `$1C0` VDP words.
+- The scheduler derives 2,143 halted ticks and five refresh events. Native
+  returns at 10,362,058 versus narrow-oracle 10,362,116; 30 cycles entered at
+  `$786`, and the incremental 28-cycle GEMS-phase residue is outside BUSREQ.
+- NEXT: schedule the title empty-queue `sub_1596` path, then
+  `Execute_Objects sub_E12 -> sub_1B8F4`.
+
+---
+
 ## 2026-07-20 handoff (#409 title sprite/Kid DMA)
 
 - `Transfer_SpriteAndKidToVRAM $A5C` now retains the verified title path's

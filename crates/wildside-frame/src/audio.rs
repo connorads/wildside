@@ -1028,33 +1028,39 @@ pub fn apply_gems_title_mode_standard_palette_to_vram(
         return None;
     }
     wildside_core::vdp::title_mode_standard_palette_to_vram_cursor_with_scheduler(entry, |event| {
-        match event {
-            TitlePaletteHardwareEvent::Advance {
-                cycles,
-                vdp_owns_bus,
-                source_instruction,
-            } => {
-                if source_instruction {
-                    audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
-                        u64::from(cycles.get()) * 7,
-                        vdp_owns_bus,
-                    );
-                } else {
-                    audio.advance_ntsc_master_clocks_with_vdp_ownership(
-                        u64::from(cycles.get()) * 7,
-                        vdp_owns_bus,
-                    );
-                }
-                Some(M68kCycleCount::from_raw(
-                    audio.take_pending_m68k_wait_cycles(),
-                ))
-            }
-            TitlePaletteHardwareEvent::SetZ80BusRequest(requested) => {
-                audio.set_z80_control(requested, false);
-                Some(M68kCycleCount::from_raw(0))
-            }
-        }
+        Some(apply_gems_title_memory_dma_hardware_event(audio, event))
     })
+}
+
+#[cfg(feature = "audio")]
+fn apply_gems_title_memory_dma_hardware_event(
+    audio: &mut GemsMasterClockTimingEngine,
+    event: TitlePaletteHardwareEvent,
+) -> M68kCycleCount {
+    match event {
+        TitlePaletteHardwareEvent::Advance {
+            cycles,
+            vdp_owns_bus,
+            source_instruction,
+        } => {
+            if source_instruction {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            }
+            M68kCycleCount::from_raw(audio.take_pending_m68k_wait_cycles())
+        }
+        TitlePaletteHardwareEvent::SetZ80BusRequest(requested) => {
+            audio.set_z80_control(requested, false);
+            M68kCycleCount::from_raw(0)
+        }
+    }
 }
 
 /// Clock the title `Mode_Standard -> Transfer_SpriteAndKidToVRAM` upload.
@@ -1068,32 +1074,22 @@ pub fn apply_gems_title_mode_standard_sprite_and_kid_to_vram(
     }
     wildside_core::vdp::title_mode_standard_sprite_and_kid_to_vram_cursor_with_scheduler(
         entry,
-        |event| match event {
-            TitlePaletteHardwareEvent::Advance {
-                cycles,
-                vdp_owns_bus,
-                source_instruction,
-            } => {
-                if source_instruction {
-                    audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
-                        u64::from(cycles.get()) * 7,
-                        vdp_owns_bus,
-                    );
-                } else {
-                    audio.advance_ntsc_master_clocks_with_vdp_ownership(
-                        u64::from(cycles.get()) * 7,
-                        vdp_owns_bus,
-                    );
-                }
-                Some(M68kCycleCount::from_raw(
-                    audio.take_pending_m68k_wait_cycles(),
-                ))
-            }
-            TitlePaletteHardwareEvent::SetZ80BusRequest(requested) => {
-                audio.set_z80_control(requested, false);
-                Some(M68kCycleCount::from_raw(0))
-            }
-        },
+        |event| Some(apply_gems_title_memory_dma_hardware_event(audio, event)),
+    )
+}
+
+/// Clock the title `Mode_Standard -> Transfer_ScrollDataToVRAM` upload.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_mode_standard_scroll_data_to_vram(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleMemoryDmaAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_mode_standard_scroll_data_to_vram_cursor_with_scheduler(
+        entry,
+        |event| Some(apply_gems_title_memory_dma_hardware_event(audio, event)),
     )
 }
 
@@ -3000,6 +2996,33 @@ mod tests {
         // earlier: oracle's established GEMS flag defect changes the Z80
         // phase and contributes waits outside both BUSREQ-held windows.
         assert_eq!(engine.master_clock(), 10_359_295 * 7);
+
+        let scroll =
+            apply_gems_title_mode_standard_scroll_data_to_vram(&mut engine, sprite_and_kid.cursor)
+                .expect("source-positioned Mode_Standard scroll-data transfer");
+        assert_eq!(
+            scroll.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 42,
+                raw_cycles: M68kCycleCount::from_raw(610),
+            },
+        );
+        assert_eq!(scroll.dma_halt_cycles.get(), 2_143);
+        assert_eq!(scroll.refresh_events, 5);
+        assert_eq!(scroll.external_wait_cycles.get(), 0);
+        assert!(
+            !engine.checkpoint().busreq,
+            "ASM sub_924 releases BUSREQ after the horizontal-scroll DMA",
+        );
+        // Oracle returns to Mode_Standard $78C at 10,362,116. Native reaches
+        // the same source boundary 58 cycles earlier: 30 were inherited at
+        // $786, while the established GEMS X/Y SUB phase defect contributes
+        // another 28 cycles of oracle-only waits outside BUSREQ ownership.
+        assert_eq!(
+            engine.master_clock(),
+            10_362_058 * 7,
+            "title scroll-data ledger: {scroll:?}",
+        );
     }
 
     #[cfg(feature = "audio")]

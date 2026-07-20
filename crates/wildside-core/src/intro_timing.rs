@@ -121,6 +121,9 @@ pub enum MemoryToVdpDmaTarget {
 pub enum MemoryDmaTimingEvent {
     Instruction(u32),
     SetZ80BusRequest(bool),
+    WriteVdpWord {
+        target: MemoryToVdpDmaTarget,
+    },
     BeginMemoryDma {
         words: u16,
         target: MemoryToVdpDmaTarget,
@@ -268,6 +271,85 @@ pub fn visit_mode_standard_sprite_and_kid_to_vram(
     timing
 }
 
+/// Visit the title path through `Transfer_ScrollDataToVRAM`.
+///
+/// The title has `Level_Special_Effects <= 1` and a clear background
+/// no-scroll flag. It therefore takes `loc_300BA`, writes the camera-derived
+/// VSRAM pair, and performs the `$380`-byte horizontal-scroll VRAM DMA.
+pub fn visit_mode_standard_scroll_data_to_vram(
+    mut visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                timing: &mut IntroSourceTiming,
+                cycles: u32| {
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("scroll-data transfer source timing fits u32"),
+        );
+    };
+
+    // ASM Mode_Standard $786; Transfer_ScrollDataToVRAM $3009A takes the
+    // title's BLE to loc_300BA and the clear Background_NoScrollFlag branch.
+    for cycles in [20, 12, 4, 10, 12, 20, 8] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::WriteVdpWord {
+        target: MemoryToVdpDmaTarget::Vsram,
+    });
+    for cycles in [10, 8, 10, 8] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::WriteVdpWord {
+        target: MemoryToVdpDmaTarget::Vsram,
+    });
+    emit(&mut visit, &mut timing, 20);
+    // ASM j_Stop_z80 $E1304 -> BranchTo_Stop_z80 -> Stop_z80 $E13BC.
+    for cycles in [10, 10, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(true));
+    for cycles in [20, 8, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    // ASM dma68kToVDP Horiz_Scroll_Buffer,$1400,$380,VRAM. The macro's
+    // length is bytes and programs half that value into the VDP word count.
+    for cycles in [24, 24, 16, 24, 20, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::BeginMemoryDma {
+        words: 0x1C0,
+        target: MemoryToVdpDmaTarget::Vram,
+    });
+
+    // ASM direct Start_z80 after the DMA.
+    for cycles in [20, 10, 10, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(false));
+    emit(&mut visit, &mut timing, 16);
+
+    // ASM j_sub_924 -> sub_924 takes the non-positive counter path and calls
+    // Start_z80 once more before both routines return.
+    for cycles in [18, 10, 12, 8, 12, 12, 20, 10, 10, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(false));
+    for cycles in [16, 16, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    timing
+}
+
 /// Visit `Allocate_ObjectSlot sub_DAC` with an empty execution list.
 fn visit_empty_list_allocate_object_slot_instructions(visit: &mut impl FnMut(u32)) {
     // ASM sub_DAC $DAC..$DC0: save registers, pop the free slot and prepare
@@ -400,6 +482,38 @@ mod tests {
                 MemoryDmaTimingEvent::SetZ80BusRequest(false),
             ],
             "ASM sub_A5C title path brackets both Z80 stops around one sprite DMA",
+        );
+    }
+
+    #[test]
+    fn scroll_data_transfer_retains_vsram_dma_and_nested_start_path() {
+        let mut events = Vec::new();
+        let timing = visit_mode_standard_scroll_data_to_vram(|event| events.push(event));
+
+        assert_eq!(timing.instruction_count, 42);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(610));
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| !matches!(event, MemoryDmaTimingEvent::Instruction(_)))
+                .copied()
+                .collect::<Vec<_>>(),
+            [
+                MemoryDmaTimingEvent::WriteVdpWord {
+                    target: MemoryToVdpDmaTarget::Vsram,
+                },
+                MemoryDmaTimingEvent::WriteVdpWord {
+                    target: MemoryToVdpDmaTarget::Vsram,
+                },
+                MemoryDmaTimingEvent::SetZ80BusRequest(true),
+                MemoryDmaTimingEvent::BeginMemoryDma {
+                    words: 0x1C0,
+                    target: MemoryToVdpDmaTarget::Vram,
+                },
+                MemoryDmaTimingEvent::SetZ80BusRequest(false),
+                MemoryDmaTimingEvent::SetZ80BusRequest(false),
+            ],
+            "ASM loc_300D2 brackets the byte-sized $380 DMA and sub_924 repeats Start_z80",
         );
     }
 }
