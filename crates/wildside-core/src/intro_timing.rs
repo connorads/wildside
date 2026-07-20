@@ -72,6 +72,35 @@ pub fn visit_intro_controller_to_wait_for_vint_poll(
     timing
 }
 
+/// Visit a completed title frame through the next `WaitForVint` flag poll.
+///
+/// ASM `Mode_Standard` $7A4 returns to `MainGameLoop` $744, branches to
+/// $738, and calls `WaitForVint` $93A. The visitor stops after clearing
+/// `V_Int_Done`, immediately before the first $93E poll instruction.
+pub fn visit_title_frame_return_to_wait_for_vint_poll(
+    mut visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+
+    // ASM Mode_Standard $7A4, MainGameLoop $744/$738, WaitForVint $93A.
+    for cycles in [16, 10, 18, 16] {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title frame handoff timing fits u32"),
+        );
+    }
+
+    timing
+}
+
 /// Visit `Mode_Standard` entry through completion of `Do_Nothing`.
 ///
 /// ASM `Mode_Standard` $77A calls `Do_Nothing` $956, whose DBF delay runs
@@ -941,6 +970,22 @@ mod tests {
             "ASM LoadGameModeData $72C through WaitForVint $93A must retain the frame-handoff boundaries",
         );
         assert_eq!(cycles, [20, 16, 18, 16]);
+    }
+
+    #[test]
+    fn title_frame_return_reaches_next_wait_for_vint_poll_in_source_order() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_frame_return_to_wait_for_vint_poll(|cycle| cycles.push(cycle));
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 4,
+                raw_cycles: M68kCycleCount::from_raw(60),
+            },
+            "ASM Mode_Standard $7A4 through WaitForVint $93A must retain the next-frame handoff boundaries",
+        );
+        assert_eq!(cycles, [16, 10, 18, 16]);
     }
 
     #[test]

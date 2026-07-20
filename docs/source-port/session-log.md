@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 second title VINT)
+
+- The persistent timeline now crosses `$7A4 -> $744 -> $738 -> WaitForVint
+  $93A`, the second VINT, and the next `Mode_Standard $77A` entry.
+- The poll retains 7,585 scheduler ticks, 83,508 raw cycles, 662 refreshes,
+  and 1,408 GEMS waits. Oracle reaches `$77A` at 10,478,128; the established
+  GEMS phase defect leaves native's saved PC at `$942` and arrives 16 cycles
+  later.
+- NEXT: schedule the second frame's `Do_Nothing`, empty VDP queues, and first
+  text-worker dispatch.
+
+---
+
 ## 2026-07-20 handoff (#409 first title frame complete)
 
 - The final `sub_14C0` block retains 2,413 instructions / 19,848 raw cycles,

@@ -600,6 +600,18 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: the persistent title timeline crosses the first frame's
+`Mode_Standard $7A4` return, `MainGameLoop $744/$738`, the next
+`WaitForVint $93A`, second VINT, and next `Mode_Standard $77A` entry. The
+four-instruction handoff retains 60 raw cycles and one native refresh. The
+blocking poll retains 7,585 scheduler ticks, 83,508 raw cycles, 662 refresh
+events, and 1,408 derived GEMS waits. Oracle's VINT begins at `$488` on
+10,477,964, resumes at `$93E`, and reaches `$77A` on 10,478,128. The
+established jgenesis undocumented-X/Y SUB phase defect instead leaves
+native's saved PC at `$942` and reaches `$77A` sixteen cycles later. NEXT:
+schedule the second frame's `Do_Nothing`, empty VDP queues, and first
+text-worker dispatch.
+
 Progress 2026-07-20: the first title frame is source-scheduled end-to-end
 through the `Mode_Standard $7A4` RTS. The final `sub_14C0` block builds all
 15 signed interpolation steps and processes both `$FFFFFFFF` dirty masks

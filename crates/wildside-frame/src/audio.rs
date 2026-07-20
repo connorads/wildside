@@ -958,6 +958,28 @@ pub fn apply_gems_title_intro_wait_for_vint_poll(
     )
 }
 
+/// Clock a completed title frame through the next `WaitForVint` flag poll.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_frame_return_to_wait_for_vint_poll(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_frame_return_to_wait_for_vint_poll_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock the blocking title frame wait through `Mode_Standard` entry.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_wait_for_vint_to_mode_standard(
@@ -3462,6 +3484,51 @@ mod tests {
             engine.master_clock(),
             10_391_842 * 7,
             "title first palette-interpolation ledger: {palette_interpolation:?}",
+        );
+
+        let next_poll = apply_gems_title_frame_return_to_wait_for_vint_poll(
+            &mut engine,
+            palette_interpolation.cursor,
+        )
+        .expect("source-positioned second title WaitForVint poll");
+        assert_eq!(
+            next_poll.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 4,
+                raw_cycles: M68kCycleCount::from_raw(60),
+            },
+        );
+        assert_eq!(next_poll.refresh_events, 1);
+        assert_eq!(next_poll.external_wait_cycles.get(), 0);
+        // Oracle reaches the next WaitForVint $93E poll at 10,392,064.
+        assert_eq!(
+            engine.master_clock(),
+            10_391_904 * 7,
+            "title second WaitForVint poll ledger: {next_poll:?}",
+        );
+
+        let next_mode_standard =
+            apply_gems_title_wait_for_vint_to_mode_standard(&mut engine, next_poll.cursor)
+                .expect("source-positioned second title WaitForVint/V_Int path");
+        assert_eq!(
+            next_mode_standard.resume,
+            wildside_core::WaitForVintResumePath::StaleBranchLoc942,
+            "the established GEMS phase defect leaves $942 as the native saved PC",
+        );
+        assert_eq!(next_mode_standard.scheduler_tick_count, 7_585);
+        assert_eq!(next_mode_standard.raw_cycles.get(), 83_508);
+        assert_eq!(next_mode_standard.refresh_events, 662);
+        assert_eq!(next_mode_standard.post_assertion_refresh_events, 1);
+        assert_eq!(next_mode_standard.external_wait_cycles.get(), 1_408);
+        // Oracle's second title VINT begins at $488 on cycle 10,477,964,
+        // resumes at $93E, and reaches Mode_Standard $77A at 10,478,128.
+        // ORACLE LIMITATION: the established jgenesis undocumented-X/Y SUB
+        // defect shifts GEMS' instruction phase; native instead saves $942
+        // and reaches Mode_Standard sixteen cycles later.
+        assert_eq!(
+            engine.master_clock(),
+            10_478_144 * 7,
+            "title second WaitForVint ledger: {next_mode_standard:?}",
         );
     }
 

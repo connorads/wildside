@@ -3657,6 +3657,18 @@ pub fn title_intro_wait_for_vint_poll_cursor_with_scheduler(
     })
 }
 
+/// Co-schedule a completed title frame through the next `WaitForVint` poll.
+pub fn title_frame_return_to_wait_for_vint_poll_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| Some(crate::intro_timing::visit_title_frame_return_to_wait_for_vint_poll(visit)),
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule the blocking title `WaitForVint` poll through
 /// `Mode_Standard` entry.
 ///
