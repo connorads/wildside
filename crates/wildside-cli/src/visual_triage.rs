@@ -538,7 +538,15 @@ pub(crate) fn run_visual_triage(
         let env = crate::oracle::ensure_oracles(repo_root)?;
         std::fs::create_dir_all(&oracle_dir)?;
         let scenario_file = run_dir.join("scenario.json");
-        crate::tas::run_tas_oracle(&env, rom_path, &scenario_file, &oracle_dir, None, false)?;
+        crate::tas::run_tas_oracle(
+            &env,
+            rom_path,
+            &scenario_file,
+            &oracle_dir,
+            None,
+            false,
+            false,
+        )?;
     }
     let oracle_pngs = oracle_png_index(&oracle_dir)?;
     let mut missing_oracle = divergent

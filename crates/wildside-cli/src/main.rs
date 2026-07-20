@@ -27,6 +27,7 @@ mod scenarios;
 mod sweep;
 mod tas;
 mod tas_diff;
+mod tas_gems;
 mod tas_pixel_baseline;
 mod tas_pixels;
 mod verify;
@@ -1084,6 +1085,10 @@ enum Commands {
         /// Render and compare native/oracle RGB pixels at every requested checkpoint
         #[arg(long, default_value_t = false)]
         compare_pixels: bool,
+        /// Compare per-frame GEMS/Z80 timing signatures across the whole run
+        /// (`gems_frame_signature_v1`)
+        #[arg(long, default_value_t = false)]
+        compare_gems: bool,
         /// Write a standalone per-frame pixel-mismatch + cluster report JSON to
         /// this path (requires --compare-pixels; not supported with --bisect)
         #[arg(long)]
@@ -2524,6 +2529,7 @@ fn main() -> Result<()> {
             frontier_kind,
             include_rng,
             compare_pixels,
+            compare_gems,
             pixel_mismatch_report,
         } => {
             let repo_root = current_dir()?;
@@ -2536,6 +2542,9 @@ fn main() -> Result<()> {
             if bisect {
                 if compare_pixels {
                     bail!("--compare-pixels is not supported with --bisect");
+                }
+                if compare_gems {
+                    bail!("--compare-gems is not supported with --bisect");
                 }
                 if pixel_mismatch_report.is_some() {
                     bail!("--pixel-mismatch-report is not supported with --bisect");
@@ -2562,6 +2571,7 @@ fn main() -> Result<()> {
                     frontier_kind,
                     include_rng,
                     compare_pixels,
+                    compare_gems,
                     pixel_mismatch_report.as_deref(),
                 )?;
             }

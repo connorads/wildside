@@ -485,6 +485,7 @@ pub(crate) fn run_tas_oracle(
     oracle_dir: &Path,
     skip_frames_before: Option<usize>,
     capture_rng_stream: bool,
+    capture_gems_frame_signature: bool,
 ) -> Result<crate::oracle::OracleManifest> {
     crate::oracle::run_jgenesis_capture_dynamic_with_options(
         env,
@@ -493,6 +494,7 @@ pub(crate) fn run_tas_oracle(
         oracle_dir,
         &crate::oracle::OracleRunOptions {
             skip_frames_before,
+            capture_gems_frame_signature,
             capture_rng_stream,
             ..crate::oracle::OracleRunOptions::default()
         },
@@ -510,6 +512,7 @@ pub fn verify_tas(
     frontier_kind: crate::sweep::FrontierKind,
     include_rng: bool,
     compare_pixels: bool,
+    compare_gems: bool,
     pixel_mismatch_report: Option<&Path>,
 ) -> Result<()> {
     let scenario_json = std::fs::read_to_string(scenario_path)
@@ -566,6 +569,14 @@ pub fn verify_tas(
         .then(|| extract_native_rng_frame_stream(&native_trace))
         .transpose()?
         .unwrap_or_default();
+    let native_gems_signatures = compare_gems
+        .then(|| -> Result<_> {
+            let rom = std::fs::read(rom_path)
+                .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+            crate::tas_gems::extract_native_gems_frame_signatures(&rom, manifest, &native_trace)
+        })
+        .transpose()?
+        .unwrap_or_default();
 
     let mut native_states =
         crate::sweep::extract_checkpoint_states(&native_trace, &scenario.checkpoints);
@@ -613,6 +624,7 @@ pub fn verify_tas(
         &oracle_dir,
         None,
         include_rng,
+        compare_gems,
     )?;
     let (pixel_comparison, pixel_mismatch_detail) = match compare_pixels
         .then(|| {
@@ -691,6 +703,16 @@ pub fn verify_tas(
                 comparison.compared_frames, comparison.start_frame,
             ),
         }
+    }
+    let gems_frame_comparison = compare_gems.then(|| {
+        crate::tas_gems::compare_gems_frame_signatures(
+            &native_gems_signatures,
+            &oracle.gems_frame_signatures,
+            start,
+        )
+    });
+    if let Some(comparison) = &gems_frame_comparison {
+        println!("  GEMS: {}", comparison.console_summary());
     }
 
     // Compare
@@ -861,6 +883,13 @@ pub fn verify_tas(
         },
         "rng_divergence_digest": rng_divergence_digest,
         "rng_frame_comparison": rng_frame_report,
+        "gems_frame_comparison": gems_frame_comparison.as_ref().map(|comparison| {
+            comparison.report_json(
+                end.saturating_sub(start),
+                native_gems_signatures.len().min(end).saturating_sub(start),
+                oracle.gems_frame_signatures.len().min(end).saturating_sub(start),
+            )
+        }),
         "first_authoritative_diff": first_authoritative_diff,
         "enemy_frontier": enemy_frontier_report,
         "pixel_comparison": pixel_comparison,
