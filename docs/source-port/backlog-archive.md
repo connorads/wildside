@@ -600,6 +600,15 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: `sub_1C4EA` is source-scheduled through entry to the
+text-worker `Allocate_ObjectSlot sub_DAC`. Its 109 instructions / 1,202 raw
+cycles retain all 51 inclusive `Pal_1C28A` word copies, return to
+`sub_1B8F4`, and set allocation priority `$FFFF`. Oracle crosses nine
+refresh boundaries; native's earlier phase crosses ten, reaching cycle
+10,365,698 versus oracle 10,365,808 and recovering the previous two-cycle
+phase residue. NEXT: schedule the non-empty-list `sub_DAC` path, text-worker
+fields, and `sub_1C204 -> loc_1C21E` first hibernation.
+
 Progress 2026-07-20: initial `sub_1B8F4 -> sub_1C54A` prompt allocation is
 source-scheduled through entry to `sub_1C4EA`. Its 74 instructions / 964 raw
 cycles retain the category-zero `Allocate_GfxObjectSlot sub_F6E` path, all

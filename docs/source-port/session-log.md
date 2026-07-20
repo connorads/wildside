@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 title intro palette copy)
+
+- `sub_1C4EA` now retains 109 instructions / 1,202 raw cycles through all 51
+  `Pal_1C28A` copies and entry to the text-worker `sub_DAC` allocation.
+- Oracle crosses nine refresh boundaries; native crosses ten because of its
+  earlier phase and reaches 10,365,698 versus 10,365,808.
+- NEXT: schedule non-empty-list `sub_DAC`, text-worker fields, and the first
+  `sub_1C204 -> loc_1C21E` hibernation.
+
+---
+
 ## 2026-07-20 handoff (#409 title prompt GfxObject)
 
 - `sub_1B8F4 -> sub_1C54A` now retains 74 instructions / 964 raw cycles

@@ -1099,6 +1099,28 @@ pub fn apply_gems_title_intro_controller_prompt_gfx_to_palette(
     )
 }
 
+/// Clock `sub_1C4EA` through the text-worker object allocation entry.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_intro_palette_copy_to_text_object(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_intro_palette_copy_to_text_object_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock the first title `Mode_Standard -> Palette_to_VRAM` upload.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_mode_standard_palette_to_vram(
@@ -3170,6 +3192,26 @@ mod tests {
             engine.master_clock(),
             10_364_476 * 7,
             "title prompt-GfxObject ledger: {prompt_gfx:?}",
+        );
+
+        let palette_copy =
+            apply_gems_title_intro_palette_copy_to_text_object(&mut engine, prompt_gfx.cursor)
+                .expect("source-positioned sub_1C4EA palette copy");
+        assert_eq!(
+            palette_copy.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 109,
+                raw_cycles: M68kCycleCount::from_raw(1_202),
+            },
+        );
+        assert_eq!(palette_copy.refresh_events, 10);
+        assert_eq!(palette_copy.external_wait_cycles.get(), 0);
+        // Oracle enters sub_DAC at 10,365,808 after nine refresh events.
+        // Native's earlier phase crosses ten and recovers two residue cycles.
+        assert_eq!(
+            engine.master_clock(),
+            10_365_698 * 7,
+            "title palette-copy ledger: {palette_copy:?}",
         );
     }
 

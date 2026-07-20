@@ -279,6 +279,43 @@ pub fn visit_title_intro_controller_prompt_gfx_to_sub_1c4ea(
     timing
 }
 
+/// Visit `sub_1C4EA` through entry to the text-worker `sub_DAC` allocation.
+pub fn visit_title_intro_palette_copy_to_text_object_allocation(
+    mut visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title palette-copy timing fits u32"),
+        );
+    };
+
+    // ASM sub_1C4EA copies Pal_1C28A's inclusive $32+1 words.
+    for cycles in [12, 8, 4] {
+        emit(cycles);
+    }
+    for index in 0..=0x32 {
+        emit(12);
+        emit(if index == 0x32 { 14 } else { 10 });
+    }
+    // Return to sub_1B8F4, select insertion priority $FFFF, and enter sub_DAC
+    // through the j_Allocate_ObjectSlot jump stub.
+    for cycles in [16, 8, 18, 10] {
+        emit(cycles);
+    }
+
+    timing
+}
+
 /// Destination selected by a 68000-to-VDP DMA command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryToVdpDmaTarget {
@@ -656,6 +693,23 @@ mod tests {
             &[6, 16, 16, 16, 16, 16, 16, 16, 18],
             "ASM sub_1C54A initialises the prompt then calls sub_1C4EA",
         );
+    }
+
+    #[test]
+    fn title_intro_palette_copy_retains_all_51_words_before_text_allocation() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_intro_palette_copy_to_text_object_allocation(|cycle| {
+            cycles.push(cycle);
+        });
+
+        assert_eq!(timing.instruction_count, 109);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(1_202));
+        assert_eq!(
+            cycles.iter().filter(|&&cycle| cycle == 12).count(),
+            52,
+            "ASM sub_1C4EA retains its setup plus all 51 palette-word copies",
+        );
+        assert_eq!(&cycles[cycles.len() - 4..], &[16, 8, 18, 10]);
     }
 
     #[test]
