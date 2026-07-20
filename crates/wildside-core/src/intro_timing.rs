@@ -323,6 +323,62 @@ pub fn visit_title_second_execute_objects(
     Some(timing)
 }
 
+/// Visit the third title `Execute_Objects` call through both hibernations.
+///
+/// The text worker resumes at `loc_1C7B2`, consumes IntroText1's initial
+/// `$FE,$20` delay command, and hibernates without emitting a glyph. The
+/// controller then advances `sub_1C204` to fade step `$0020` and hibernates.
+pub fn visit_title_third_execute_objects(
+    rng_offset_before: u16,
+    mut visit: impl FnMut(u32),
+) -> Option<IntroSourceTiming> {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("third title Execute_Objects timing fits u32"),
+        );
+    };
+
+    visit_title_execute_objects_setup(rng_offset_before, &mut emit)?;
+    // ASM loc_E1E dispatches the live text worker at saved PC loc_1C7B2.
+    for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
+        emit(cycles);
+    }
+    // ASM loc_1C7B2 completes the one-frame countdown, recognises `$FE`,
+    // loads delay `$20`, and hibernates again through sub_E76.
+    for cycles in [
+        4, 8, 4, 8, 8, 10, 8, 10, 8, 8, 8, 10, 18, 10, 16, 24, 16, 76, 16, 10,
+    ] {
+        emit(cycles);
+    }
+    // ASM loc_E1E dispatches the controller from its one-frame hibernation.
+    for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
+        emit(cycles);
+    }
+    // ASM loc_1C222 calls sub_1C246 with no Start edge, advances fade state
+    // to $0020, marks both dirty masks, and hibernates at loc_1C21E.
+    for cycles in [
+        18, 16, 8, 16, 16, 8, 4, 16, 16, 10, 18, 10, 16, 24, 16, 76, 16, 10,
+    ] {
+        emit(cycles);
+    }
+    // The controller has no successor; loc_E58 restores the caller stack.
+    for cycles in [12, 10, 16, 16] {
+        emit(cycles);
+    }
+
+    Some(timing)
+}
+
 /// Visit initial `sub_1B8F4` work through entry to `sub_1C4EA`.
 ///
 /// The first title controller allocates the fixed Wild Side prompt GfxObject
@@ -1125,6 +1181,27 @@ mod tests {
             cycles.iter().filter(|&&cycle| cycle == 76).count(),
             2,
             "ASM loc_1C7A0 and loc_1C21E each pack eight coroutine registers once",
+        );
+        assert_eq!(&cycles[cycles.len() - 4..], &[12, 10, 16, 16]);
+    }
+
+    #[test]
+    fn third_title_execute_objects_consumes_initial_text_delay_command() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_third_execute_objects(0xFFD5, |cycle| cycles.push(cycle))
+            .expect("frame-83 title RNG offset is initialised");
+
+        assert_eq!(timing.instruction_count, 166);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(2_094));
+        assert_eq!(
+            crate::mode_level_timing::execute_objects_setup_cycles_sub_e12(0xFFD5),
+            Some(M68kCycleCount::from_raw(1_088)),
+            "ASM sub_E12 setup aggregate independently checks the third-frame RNG prefix",
+        );
+        assert_eq!(
+            cycles.iter().filter(|&&cycle| cycle == 76).count(),
+            2,
+            "ASM loc_1C7AE and loc_1C21E each pack eight coroutine registers once",
         );
         assert_eq!(&cycles[cycles.len() - 4..], &[12, 10, 16, 16]);
     }

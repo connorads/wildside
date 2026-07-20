@@ -1123,6 +1123,30 @@ pub fn apply_gems_title_second_execute_objects(
     )
 }
 
+/// Clock the third title text-delay and controller dispatches.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_third_execute_objects(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_third_execute_objects_cursor_with_scheduler(
+        entry,
+        rng_offset_before,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock initial `sub_1B8F4` work through the `sub_1C4EA` palette copy.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_intro_controller_prompt_gfx_to_palette(
@@ -3616,6 +3640,106 @@ mod tests {
             engine.master_clock(),
             10_492_282 * 7,
             "title second text-worker ledger: {second_execute:?}",
+        );
+
+        let second_gfx =
+            apply_gems_title_first_gfx_object_move_and_animate(&mut engine, second_execute.cursor)
+                .expect("source-positioned second title GfxObject pass");
+        let second_joypad = apply_gems_title_first_read_joypad(&mut engine, second_gfx.cursor)
+            .expect("source-positioned second title ReadJoypad");
+        let second_sprites =
+            apply_gems_title_first_make_sprites_from_gfx_objects(&mut engine, second_joypad.cursor)
+                .expect("source-positioned second title sprite construction");
+        let second_interpolation =
+            apply_gems_title_first_palette_interpolation(&mut engine, second_sprites.cursor)
+                .expect("source-positioned second title palette interpolation");
+        let third_poll = apply_gems_title_frame_return_to_wait_for_vint_poll(
+            &mut engine,
+            second_interpolation.cursor,
+        )
+        .expect("source-positioned third title WaitForVint poll");
+        let third_mode_standard =
+            apply_gems_title_wait_for_vint_to_mode_standard(&mut engine, third_poll.cursor)
+                .expect("source-positioned third title WaitForVint/V_Int path");
+        let third_do_nothing =
+            apply_gems_title_mode_standard_do_nothing(&mut engine, third_mode_standard.cursor)
+                .expect("source-positioned third title Do_Nothing");
+        let third_palette =
+            apply_gems_title_mode_standard_palette_to_vram(&mut engine, third_do_nothing.cursor)
+                .expect("source-positioned third title Palette_to_VRAM");
+        let third_sprite_and_kid = apply_gems_title_mode_standard_sprite_and_kid_to_vram(
+            &mut engine,
+            third_palette.cursor,
+        )
+        .expect("source-positioned third title sprite/Kid transfer");
+        let third_scroll = apply_gems_title_mode_standard_scroll_data_to_vram(
+            &mut engine,
+            third_sprite_and_kid.cursor,
+        )
+        .expect("source-positioned third title scroll transfer");
+        let third_queues = apply_gems_title_mode_standard_empty_foreground_queues(
+            &mut engine,
+            third_scroll.cursor,
+        )
+        .expect("source-positioned third title empty foreground queues");
+        let third_execute =
+            apply_gems_title_third_execute_objects(&mut engine, third_queues.cursor, 0xFFD5)
+                .expect("source-positioned third title text-delay frame");
+        assert_eq!(second_gfx.timing.raw_cycles.get(), 306);
+        assert_eq!(second_gfx.refresh_events, 2);
+        assert_eq!(second_gfx.external_wait_cycles.get(), 0);
+        assert_eq!(second_joypad.timing.raw_cycles.get(), 1_130);
+        assert_eq!(second_joypad.refresh_events, 9);
+        assert_eq!(second_joypad.external_wait_cycles.get(), 0);
+        assert_eq!(second_sprites.timing.raw_cycles.get(), 1_892);
+        assert_eq!(second_sprites.refresh_events, 15);
+        assert_eq!(second_sprites.external_wait_cycles.get(), 0);
+        assert_eq!(second_interpolation.timing.raw_cycles.get(), 19_848);
+        assert_eq!(second_interpolation.refresh_events, 158);
+        assert_eq!(second_interpolation.external_wait_cycles.get(), 0);
+        assert_eq!(third_poll.timing.raw_cycles.get(), 60);
+        assert_eq!(third_poll.refresh_events, 0);
+        assert_eq!(third_poll.external_wait_cycles.get(), 0);
+        assert_eq!(
+            third_mode_standard.resume,
+            wildside_core::WaitForVintResumePath::StaleBranchLoc942,
+        );
+        assert_eq!(third_mode_standard.scheduler_tick_count, 7_819);
+        assert_eq!(third_mode_standard.raw_cycles.get(), 86_082);
+        assert_eq!(third_mode_standard.refresh_events, 681);
+        assert_eq!(third_mode_standard.post_assertion_refresh_events, 1);
+        assert_eq!(third_mode_standard.external_wait_cycles.get(), 2_816);
+        assert_eq!(third_do_nothing.timing.raw_cycles.get(), 6_192);
+        assert_eq!(third_do_nothing.refresh_events, 50);
+        assert_eq!(third_palette.timing.raw_cycles.get(), 362);
+        assert_eq!(third_palette.refresh_events, 2);
+        assert_eq!(third_palette.dma_halt_cycles.get(), 166);
+        assert_eq!(third_sprite_and_kid.timing.raw_cycles.get(), 796);
+        assert_eq!(third_sprite_and_kid.refresh_events, 6);
+        assert_eq!(third_sprite_and_kid.dma_halt_cycles.get(), 1_531);
+        assert_eq!(third_scroll.timing.raw_cycles.get(), 610);
+        assert_eq!(third_scroll.refresh_events, 5);
+        assert_eq!(third_scroll.dma_halt_cycles.get(), 2_141);
+        assert_eq!(third_queues.timing.raw_cycles.get(), 142);
+        assert_eq!(third_queues.refresh_events, 1);
+        assert_eq!(
+            third_execute.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 166,
+                raw_cycles: M68kCycleCount::from_raw(2_094),
+            },
+        );
+        assert_eq!(third_execute.refresh_events, 16);
+        assert_eq!(third_execute.external_wait_cycles.get(), 0);
+        // Oracle enters the third Execute_Objects at $790 on cycle
+        // 10,618,420 and returns to $794 on 10,620,676. The `$FE,$20`
+        // delay path is 2,094 source cycles, seventeen refreshes, and 128
+        // GEMS waits. Native crosses sixteen refreshes with no waits, so the
+        // explained residue grows from 206 to 336 cycles at this boundary.
+        assert_eq!(
+            engine.master_clock(),
+            10_620_340 * 7,
+            "title third text-delay ledger: {third_execute:?}",
         );
     }
 

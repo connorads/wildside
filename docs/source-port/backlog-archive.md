@@ -600,6 +600,19 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the persistent title timeline closes the second frame,
+crosses the third `MainGameLoop -> WaitForVint -> V_Int` boundary, replays the
+source-exact VDP prelude, and returns from the third `Execute_Objects` at
+`Mode_Standard $794`. The worker consumes observed RNG offset `$FFD5`, resumes
+at `loc_1C7B2`, recognises IntroText1's `$FE,$20` delay command, and hibernates
+without emitting a glyph; the controller advances `sub_1C204` to fade step
+`$0020`. The object block retains 166 instructions / 2,094 raw cycles. Oracle's
+`$790->$794` interval crosses seventeen refreshes plus 128 GEMS waits; native
+crosses sixteen with no waits and reaches 10,620,340 versus oracle 10,620,676,
+increasing the explained residue to 336 cycles. NEXT: generalise and schedule
+the remaining `$20` delay countdown frames, then the first glyph-emission
+frame.
+
 Progress 2026-07-20: the persistent title timeline reaches the second frame's
 return to `Mode_Standard $794`. The source-exact prelude reuses `Do_Nothing`,
 the CRAM/SAT/scroll DMA paths, and empty `sub_1596` queues. `Execute_Objects`

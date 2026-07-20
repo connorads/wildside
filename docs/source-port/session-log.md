@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 third title text-delay frame)
+
+- The persistent timeline closes the second frame, crosses the third VINT,
+  replays the VDP prelude, and returns from `Execute_Objects` at `$794`.
+- The worker resumes at `loc_1C7B2`, consumes IntroText1's `$FE,$20` delay
+  command without drawing, and hibernates; the controller fade reaches `$0020`.
+- The object block is 166 instructions / 2,094 raw cycles. Native reaches
+  10,620,340 versus oracle 10,620,676; one refresh and 128 missing GEMS waits
+  grow the explained residue to 336 cycles.
+- NEXT: generalise the remaining `$20` countdown frames, then schedule the
+  first glyph-emission frame.
+
+---
+
 ## 2026-07-20 handoff (#409 second title text-worker frame)
 
 - The persistent timeline reaches the second frame's return to
