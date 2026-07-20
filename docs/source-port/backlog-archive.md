@@ -600,6 +600,14 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: the first title `Make_SpritesFromGfxObjects sub_1492`
+call is source-scheduled from `$79C` through return at `$7A0`. The sole
+normal-oriented 62x47 prompt mapping emits four `sub_13C0` SAT entries - two
+32x32 then two 32x16 - across 187 instructions / 1,892 raw cycles. Oracle
+crosses twenty refresh boundaries and returns at 10,371,842; native crosses
+fifteen and returns at 10,371,680, increasing the explained GEMS residue to
+162 cycles. NEXT: schedule `sub_14C0` and the frame RTS.
+
 Progress 2026-07-20: the first title `ReadJoypad` call is source-scheduled
 from `$798` through return at `$79C`. The first-controller, non-demo path
 retains 93 instructions / 1,130 raw cycles, both hardware-port reads, default

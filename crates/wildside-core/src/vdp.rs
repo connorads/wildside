@@ -3872,6 +3872,18 @@ pub fn title_first_gfx_object_move_and_animate_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule the first title `Make_SpritesFromGfxObjects` call through `$7A0`.
+pub fn title_first_make_sprites_from_gfx_objects_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| Some(crate::intro_timing::visit_title_first_make_sprites_from_gfx_objects(visit)),
+        &mut advance_hardware,
+    )
+}
+
 fn title_source_routine_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     visit_timing: impl FnOnce(&mut dyn FnMut(u32)) -> Option<crate::intro_timing::IntroSourceTiming>,

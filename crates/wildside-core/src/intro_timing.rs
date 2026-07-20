@@ -559,6 +559,44 @@ pub fn visit_title_first_read_joypad(
     timing
 }
 
+/// Visit the first title `Make_SpritesFromGfxObjects sub_1492` call.
+///
+/// The sole prompt GfxObject is visible, normal-oriented, and maps a 62x47
+/// image into four SAT entries: two 32x32 entries followed by two 32x16
+/// entries. The instruction journal retains all four `sub_13C0` calls through
+/// return to `Mode_Standard $7A0`.
+pub fn visit_title_first_make_sprites_from_gfx_objects(
+    mut visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    const INSTRUCTION_CYCLES: [u32; 187] = [
+        18, 16, 16, 16, 8, 16, 8, 4, 18, 16, 12, 12, 12, 12, 18, 12, 4, 12, 12, 12, 8, 12, 10, 4,
+        8, 12, 8, 12, 12, 12, 8, 12, 8, 12, 16, 4, 12, 12, 16, 10, 12, 8, 8, 12, 10, 12, 12, 10,
+        12, 12, 10, 8, 4, 4, 8, 8, 4, 4, 8, 8, 8, 4, 4, 8, 4, 4, 4, 8, 4, 18, 12, 12, 12, 16, 20,
+        12, 8, 20, 4, 12, 4, 14, 4, 16, 8, 16, 4, 4, 10, 4, 10, 4, 8, 8, 4, 4, 8, 8, 18, 12, 12,
+        12, 16, 20, 12, 8, 20, 4, 12, 4, 14, 4, 16, 8, 16, 4, 4, 10, 4, 10, 4, 8, 8, 4, 8, 4, 4,
+        12, 8, 4, 18, 12, 12, 12, 16, 20, 12, 8, 20, 4, 12, 4, 14, 4, 16, 8, 16, 4, 4, 10, 4, 10,
+        4, 8, 8, 4, 4, 4, 8, 4, 12, 4, 18, 12, 12, 12, 16, 20, 12, 8, 20, 4, 12, 4, 14, 4, 16, 8,
+        16, 16, 10, 16, 10, 16, 16, 12, 16,
+    ];
+
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    for cycles in INSTRUCTION_CYCLES {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title sprite-construction timing fits u32"),
+        );
+    }
+    timing
+}
+
 /// Visit `Mode_Standard`'s first `Palette_to_VRAM` call from caller `$77E`.
 ///
 /// ASM `Palette_to_VRAM $970`, `Stop_z80 $E13BC`, and `Start_z80 $E13D0`
@@ -1000,6 +1038,25 @@ mod tests {
                 .count(),
             2,
             "ASM sub_914/sub_924 retain Stop_z80 and Start_z80 writes",
+        );
+    }
+
+    #[test]
+    fn title_first_prompt_emits_four_sprite_entries() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_first_make_sprites_from_gfx_objects(|cycle| cycles.push(cycle));
+
+        assert_eq!(timing.instruction_count, 187);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(1_892));
+        assert_eq!(
+            cycles
+                .windows(16)
+                .filter(|window| {
+                    *window == [12, 12, 12, 16, 20, 12, 8, 20, 4, 12, 4, 14, 4, 16, 8, 16]
+                })
+                .count(),
+            4,
+            "ASM sub_13C0 emits four entries for the 62x47 prompt mapping",
         );
     }
 

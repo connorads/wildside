@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 first title sprite construction)
+
+- The first title `Make_SpritesFromGfxObjects sub_1492` call retains 187
+  instructions / 1,892 raw cycles and four `sub_13C0` entries for the 62x47
+  prompt mapping through `Mode_Standard $7A0`.
+- Oracle returns at 10,371,842 after twenty refreshes; native returns at
+  10,371,680 after fifteen, increasing the residue to 162 cycles.
+- NEXT: schedule `sub_14C0` and frame RTS, then the next VINT.
+
+---
+
 ## 2026-07-20 handoff (#409 first title ReadJoypad)
 
 - The first-controller, non-demo `ReadJoypad` path retains 93 instructions /

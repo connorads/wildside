@@ -1276,6 +1276,28 @@ pub fn apply_gems_title_first_read_joypad(
     })
 }
 
+/// Clock the first title `Make_SpritesFromGfxObjects` call through `$7A0`.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_first_make_sprites_from_gfx_objects(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_first_make_sprites_from_gfx_objects_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock a caller and ASM `sub_142CC` up to `DecompressToVRAM loc_14300`.
 #[cfg(feature = "audio")]
 pub fn apply_gems_decompress_to_vram_setup_sub_142cc(
@@ -3377,6 +3399,27 @@ mod tests {
             engine.master_clock(),
             10_369_758 * 7,
             "title first ReadJoypad ledger: {read_joypad:?}",
+        );
+
+        let make_sprites =
+            apply_gems_title_first_make_sprites_from_gfx_objects(&mut engine, read_joypad.cursor)
+                .expect("source-positioned first title sprite construction");
+        assert_eq!(
+            make_sprites.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 187,
+                raw_cycles: M68kCycleCount::from_raw(1_892),
+            },
+        );
+        assert_eq!(make_sprites.refresh_events, 15);
+        assert_eq!(make_sprites.external_wait_cycles.get(), 0);
+        // Oracle returns to Mode_Standard $7A0 at 10,371,842 after twenty
+        // refresh events. Native crosses fifteen from its different phase,
+        // increasing the explained residue from 152 to 162 cycles.
+        assert_eq!(
+            engine.master_clock(),
+            10_371_680 * 7,
+            "title first sprite-construction ledger: {make_sprites:?}",
         );
     }
 
