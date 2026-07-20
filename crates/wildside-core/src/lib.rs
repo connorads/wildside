@@ -65,6 +65,7 @@ pub use combat::{
     HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266, heady_metal_piece_sprite_index_sub_37A22,
     speed_bonus_threshold_loc_d660, time_bonus_loc_d56e,
 };
+pub use enemies::layout_object_family_name;
 pub use level::{
     BackgroundArtPermutationLoc11E8A, BackgroundChunkCopiedTileLoc12884,
     BackgroundChunkCopyLoc12884, BackgroundFollowupArtPermutationLoc11EC4,

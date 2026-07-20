@@ -3219,6 +3219,16 @@ impl EnemyFamily {
     }
 }
 
+/// Human-readable enemy family name for a layout object, e.g. `"Tank"` or
+/// `"Unknown(18)"`. Public bridge for tooling (sweep census) that joins
+/// per-level enemy rosters to sweep results; keeps `EnemyFamily` private.
+pub fn layout_object_family_name(enemy_type_slots: &[u16], object: &EnemyLayoutObject) -> String {
+    format!(
+        "{:?}",
+        EnemyFamily::from_layout_object(enemy_type_slots, object)
+    )
+}
+
 #[cfg(test)]
 pub(crate) fn build_enemy_roster(
     layout: &EnemyLayout,
@@ -10348,6 +10358,31 @@ pub(crate) mod test_fixtures {
 mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
+
+    #[test]
+    fn layout_object_family_name_resolves_direct_slot_and_unknown_ids() {
+        let object = |object_type: u8| EnemyLayoutObject {
+            object_type,
+            flags: 0,
+            hit_points_plus_one: 1,
+            x: 0,
+            y: 0,
+        };
+        // Direct ID (bit 7 clear): resolved_enemy_id passes it through.
+        assert_eq!(layout_object_family_name(&[], &object(0x0A)), "Tank");
+        // Slot-indirect ID (bit 7 set): resolved via the header slot table.
+        assert_eq!(
+            layout_object_family_name(&[0x8005], &object(0x80)),
+            "TarMonster"
+        );
+        // Unmapped resolved ID keeps the raw value visible for census output.
+        assert_eq!(layout_object_family_name(&[], &object(0x21)), "Unknown(33)");
+        // Empty slot (0xFFFF) falls back to the raw object type.
+        assert_eq!(
+            layout_object_family_name(&[0xFFFF], &object(0x80)),
+            "Unknown(128)"
+        );
+    }
 
     #[test]
     fn goat_snapshot_hides_grounded_shared_walker_patrol_speed_loc_3cc52() {
