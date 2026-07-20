@@ -1517,6 +1517,8 @@ dependencies = [
  "serde_json",
  "sha1",
  "tempfile",
+ "thiserror",
+ "wildside-rom",
 ]
 
 [[package]]
@@ -1574,6 +1576,7 @@ dependencies = [
  "wildside-frame",
  "wildside-md",
  "wildside-render",
+ "wildside-rom",
 ]
 
 [[package]]

@@ -14,6 +14,16 @@ use sha1::{Digest, Sha1};
 use wasm_bindgen::prelude::*;
 use wildside_frame::{FRAME_HEIGHT, FRAME_WIDTH};
 
+/// Verify a user-supplied canonical ROM and extract the deterministic runtime
+/// bundle. The browser calls this inside its dedicated asset Web Worker.
+#[wasm_bindgen]
+pub fn extract_runtime_bundle_from_rom(rom: &[u8]) -> Result<Vec<u8>, JsError> {
+    let rom = wildside_rom::verify_canonical_rom_bytes(rom)
+        .map_err(|error| JsError::new(&error.to_string()))?;
+    wildside_data::extract_runtime_bundle(&rom)
+        .map_err(|error| JsError::new(&format!("runtime asset extraction failed: {error}")))
+}
+
 /// One playable game instance bound to a fetched asset bundle.
 #[wasm_bindgen]
 pub struct WildsideGame {
@@ -106,26 +116,33 @@ mod tests {
 
     use wildside_data::{manifest_path, pack_bundle_blob};
 
-    fn cached_bundle_blob() -> Option<Vec<u8>> {
-        let repo_root = match std::env::var("KID_REPO_ROOT") {
+    fn repo_root() -> PathBuf {
+        match std::env::var("KID_REPO_ROOT") {
             Ok(root) if !root.is_empty() => PathBuf::from(root),
             _ => PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                 .parent()
                 .and_then(std::path::Path::parent)
                 .expect("wildside-web crate should live under <repo>/crates/wildside-web")
                 .to_path_buf(),
-        };
-        let generated = repo_root.join(".cache/generated");
+        }
+    }
+
+    fn cached_bundle_root() -> Option<PathBuf> {
+        let generated = repo_root().join(".cache/generated");
         for entry in std::fs::read_dir(generated).ok()?.flatten() {
             let path = entry.path();
             if manifest_path(&path).is_file() {
-                return Some(pack_bundle_blob(&path).expect("pack cached web bundle"));
+                return Some(path);
             }
         }
         eprintln!(
             "skipping cache-backed wasm boundary test: no generated bundle in .cache/generated"
         );
         None
+    }
+
+    fn cached_bundle_blob() -> Option<Vec<u8>> {
+        Some(pack_bundle_blob(&cached_bundle_root()?).expect("pack cached web bundle"))
     }
 
     fn cached_game(level: Option<u8>) -> Option<WildsideGame> {
@@ -166,6 +183,22 @@ mod tests {
         );
         assert_eq!(game.frame_len(), FRAME_RGBA_LEN);
         assert_eq!(game.frame_ptr(), game.session.rgba_frame().as_ptr());
+    }
+
+    #[test]
+    fn wasm_extractor_boundary_matches_native_runtime_bundle() {
+        let Some(root) = cached_bundle_root() else {
+            return;
+        };
+        let rom_path = repo_root().join(".cache/upstream/kid-chameleon-disasm/kid.bin");
+        let Ok(rom) = std::fs::read(rom_path) else {
+            return;
+        };
+
+        assert_eq!(
+            extract_runtime_bundle_from_rom(&rom).expect("extract canonical ROM"),
+            wildside_data::pack_runtime_bundle_blob(&root).expect("pack runtime bundle")
+        );
     }
 
     #[test]

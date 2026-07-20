@@ -27,7 +27,7 @@ use wildside_core::{
 };
 use wildside_data::{
     AssetFile, AssetManifest, AssetSource, DecodedAssetFile, EnemyLayout, FsAssetSource,
-    decode_enigma, decode_saxman, ensure_generated_bundle_contract_with_source,
+    decode_enigma, decode_saxman, ensure_runtime_bundle_contract_with_source,
     load_level_asset_bundle_with_source, resource_level_id, resource_level_record,
 };
 
@@ -254,7 +254,7 @@ pub fn load_level_visuals_with_source(
     level_id: u8,
     source: &dyn AssetSource,
 ) -> Result<NativeLevelVisuals> {
-    ensure_generated_bundle_contract_with_source(manifest, source)?;
+    ensure_runtime_bundle_contract_with_source(manifest, source)?;
     let level_bundle = load_level_asset_bundle_with_source(manifest, level_id, source)?;
     let resource_level_id = resource_level_id(manifest, level_id);
     let header = level_bundle

@@ -14,6 +14,9 @@ mod level_layout;
 
 pub use asset_source::{AssetSource, FsAssetSource, InMemoryAssetSource, RecordingAssetSource};
 pub use bundle_blob::{BundleAssetSource, pack_bundle_blob, pack_runtime_bundle_blob};
+pub use bundle_blob::{
+    RuntimeAssetExtractionError, build_runtime_extractor_inputs, extract_runtime_bundle,
+};
 
 const COPIED_DIRECTORIES: &[&str] = &[
     "code/enemy",
@@ -1054,6 +1057,33 @@ pub fn ensure_generated_bundle_contract(manifest: &AssetManifest) -> Result<()> 
 /// through an injected [`AssetSource`] — required on wasm, where the manifest's
 /// `output_root` does not exist as a filesystem path.
 pub fn ensure_generated_bundle_contract_with_source(
+    manifest: &AssetManifest,
+    source: &dyn AssetSource,
+) -> Result<()> {
+    ensure_runtime_bundle_contract_with_source(manifest, source)?;
+    for decoded in &manifest.decoded_levels {
+        let preview_files = [
+            (&decoded.foreground, "foreground"),
+            (&decoded.block, "block"),
+            (&decoded.background, "background"),
+        ];
+        for (asset, label) in preview_files {
+            let preview_path = Path::new(&asset.preview_png_path);
+            if !source.exists(preview_path) {
+                bail!(
+                    "decoded {label} preview is missing: {}",
+                    preview_path.display()
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Validate only files consumed by the runtime, excluding development PNG
+/// previews. Browser bundles use this contract; generated native bundles keep
+/// the stronger [`ensure_generated_bundle_contract_with_source`] contract.
+pub fn ensure_runtime_bundle_contract_with_source(
     manifest: &AssetManifest,
     source: &dyn AssetSource,
 ) -> Result<()> {
@@ -4532,15 +4562,8 @@ fn validate_decoded_asset_file(
     label: &str,
 ) -> Result<()> {
     let asset_path = Path::new(&asset.relative_path);
-    let preview_path = Path::new(&asset.preview_png_path);
     if !source.exists(asset_path) {
         bail!("decoded {label} asset is missing: {}", asset_path.display());
-    }
-    if !source.exists(preview_path) {
-        bail!(
-            "decoded {label} preview is missing: {}",
-            preview_path.display()
-        );
     }
     let bytes = source
         .read(asset_path)

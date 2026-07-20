@@ -22,11 +22,178 @@
 //! Entries are sorted by path so packing the same bundle twice is
 //! byte-identical (the deploy story diffs blobs by hash).
 
-use crate::{AssetSource, InMemoryAssetSource, runtime_asset_catalogue};
+use crate::{AssetManifest, AssetSource, InMemoryAssetSource, runtime_asset_catalogue};
 use anyhow::{Context, Result, bail, ensure};
+use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
+use wildside_rom::CanonicalKidRom;
 
 const BLOB_MAGIC: &[u8; 8] = b"WSBNDL01";
+
+#[derive(Debug, Error)]
+pub enum RuntimeAssetExtractionError {
+    #[error("invalid embedded runtime extraction recipe: {0}")]
+    InvalidRecipe(String),
+    #[error("runtime extraction recipe is missing source asset {0}")]
+    MissingSource(String),
+    #[error(transparent)]
+    Bundle(#[from] anyhow::Error),
+}
+
+/// Extract the deterministic browser runtime bundle from a verified canonical
+/// ROM entirely in memory.
+pub fn extract_runtime_bundle(
+    rom: &CanonicalKidRom,
+) -> std::result::Result<Vec<u8>, RuntimeAssetExtractionError> {
+    let mut entries = extract_rom_slice_entries(rom.as_bytes())?;
+    let manifest_bytes = include_bytes!("../runtime-manifest.json").to_vec();
+    let manifest: AssetManifest = serde_json::from_slice(&manifest_bytes)
+        .map_err(|error| RuntimeAssetExtractionError::InvalidRecipe(error.to_string()))?;
+
+    for decoded in &manifest.decoded_levels {
+        let level = manifest
+            .levels
+            .iter()
+            .find(|level| level.level_id == decoded.level_id)
+            .ok_or_else(|| {
+                RuntimeAssetExtractionError::InvalidRecipe(format!(
+                    "decoded level 0x{:02X} has no level record",
+                    decoded.level_id
+                ))
+            })?;
+        let foreground_path =
+            level_source_path(level.resources.foreground.as_deref(), "foreground")?;
+        let block_path = level_source_path(level.resources.block.as_deref(), "block")?;
+        let background_path =
+            level_source_path(level.resources.background.as_deref(), "background")?;
+        let foreground_encoded = entries.get(&foreground_path).ok_or_else(|| {
+            RuntimeAssetExtractionError::MissingSource(foreground_path.display().to_string())
+        })?;
+        let foreground = crate::decode_saxman(foreground_encoded)?;
+        let block = entries.get(&block_path).cloned().ok_or_else(|| {
+            RuntimeAssetExtractionError::MissingSource(block_path.display().to_string())
+        })?;
+        let background = entries.get(&background_path).cloned().ok_or_else(|| {
+            RuntimeAssetExtractionError::MissingSource(background_path.display().to_string())
+        })?;
+        entries.insert(PathBuf::from(&decoded.foreground.relative_path), foreground);
+        entries.insert(PathBuf::from(&decoded.block.relative_path), block);
+        entries.insert(PathBuf::from(&decoded.background.relative_path), background);
+    }
+    entries.insert(PathBuf::from("asset-manifest.json"), manifest_bytes);
+    pack_entries(entries.into_iter().collect()).map_err(Into::into)
+}
+
+fn level_source_path(
+    relative: Option<&str>,
+    family: &str,
+) -> std::result::Result<PathBuf, RuntimeAssetExtractionError> {
+    relative
+        .map(|path| Path::new("level").join(path))
+        .ok_or_else(|| {
+            RuntimeAssetExtractionError::InvalidRecipe(format!(
+                "decoded level is missing its {family} source path"
+            ))
+        })
+}
+
+fn extract_rom_slice_entries(
+    rom: &[u8],
+) -> std::result::Result<BTreeMap<PathBuf, Vec<u8>>, RuntimeAssetExtractionError> {
+    let mut entries = BTreeMap::new();
+    for (line_index, line) in include_str!("../runtime-rom-assets.txt")
+        .lines()
+        .enumerate()
+    {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let parts = line.splitn(3, ' ').collect::<Vec<_>>();
+        if parts.len() != 3 {
+            return Err(RuntimeAssetExtractionError::InvalidRecipe(format!(
+                "line {} does not have offset, length and path",
+                line_index + 1
+            )));
+        }
+        let offset = usize::from_str_radix(parts[0], 16).map_err(|error| {
+            RuntimeAssetExtractionError::InvalidRecipe(format!(
+                "line {} has invalid offset: {error}",
+                line_index + 1
+            ))
+        })?;
+        let length = usize::from_str_radix(parts[1], 16).map_err(|error| {
+            RuntimeAssetExtractionError::InvalidRecipe(format!(
+                "line {} has invalid length: {error}",
+                line_index + 1
+            ))
+        })?;
+        let end = offset.checked_add(length).ok_or_else(|| {
+            RuntimeAssetExtractionError::InvalidRecipe(format!(
+                "line {} slice length overflows",
+                line_index + 1
+            ))
+        })?;
+        let bytes = rom.get(offset..end).ok_or_else(|| {
+            RuntimeAssetExtractionError::InvalidRecipe(format!(
+                "line {} slice {offset:#x}..{end:#x} exceeds ROM",
+                line_index + 1
+            ))
+        })?;
+        entries.insert(PathBuf::from(parts[2]), bytes.to_vec());
+    }
+    Ok(entries)
+}
+
+/// Derive checked extractor inputs from a canonical generated bundle.
+///
+/// This is a maintainer/update surface, not part of browser extraction.
+pub fn build_runtime_extractor_inputs(
+    root: &Path,
+    rom: &CanonicalKidRom,
+) -> Result<(String, Vec<u8>)> {
+    let manifest = std::fs::read(root.join("asset-manifest.json")).with_context(|| {
+        format!(
+            "failed to read {}",
+            root.join("asset-manifest.json").display()
+        )
+    })?;
+    let manifest = runtime_manifest_bytes(&manifest)?;
+    let mut recipe = String::from(
+        "# Canonical ROM offset, byte length, and runtime bundle path.\n\
+         # Generated from exact byte matches; keep sorted by path.\n",
+    );
+    for relative in runtime_asset_catalogue()
+        .into_iter()
+        .filter(|relative| runtime_pack_path(relative))
+        .filter(|relative| relative != Path::new("asset-manifest.json"))
+        .filter(|relative| !relative.starts_with("decoded"))
+        .filter(|relative| root.join(relative).is_file())
+    {
+        let bytes = std::fs::read(root.join(&relative))
+            .with_context(|| format!("failed to read {}", root.join(&relative).display()))?;
+        let offset = rom
+            .as_bytes()
+            .windows(bytes.len())
+            .position(|window| window == bytes)
+            .with_context(|| {
+                format!(
+                    "runtime asset {} is not an exact canonical ROM slice",
+                    relative.display()
+                )
+            })?;
+        writeln!(
+            recipe,
+            "{offset:06x} {:06x} {}",
+            bytes.len(),
+            relative.display()
+        )
+        .expect("writing to String cannot fail");
+    }
+    Ok((recipe, manifest))
+}
 
 /// Serialise every file under `root` (a bundle `output_root`) into a single
 /// blob. Native-only in practice (walks the filesystem); the inverse of
@@ -44,33 +211,96 @@ pub fn pack_bundle_blob(root: &Path) -> Result<Vec<u8>> {
 pub fn pack_runtime_bundle_blob(root: &Path) -> Result<Vec<u8>> {
     let paths = runtime_asset_catalogue()
         .into_iter()
+        .filter(|relative| runtime_pack_path(relative))
         .filter(|relative| root.join(relative).is_file())
-        .collect();
-    pack_selected_paths(root, paths)
+        .collect::<Vec<_>>();
+    let mut entries = read_selected_entries(root, paths)?;
+    let manifest_entry = entries
+        .iter_mut()
+        .find(|(path, _)| path == Path::new("asset-manifest.json"))
+        .context("runtime catalogue has no asset-manifest.json")?;
+    manifest_entry.1 = runtime_manifest_bytes(&manifest_entry.1)?;
+    pack_entries(entries)
 }
 
 fn pack_selected_paths(root: &Path, mut paths: Vec<PathBuf>) -> Result<Vec<u8>> {
-    ensure!(
-        !paths.is_empty(),
-        "bundle root {} contains no files to pack",
-        root.display()
-    );
-    // Sorted by relative path for deterministic output.
     paths.sort();
+    pack_entries(read_selected_entries(root, paths)?)
+}
+
+fn read_selected_entries(root: &Path, paths: Vec<PathBuf>) -> Result<Vec<(PathBuf, Vec<u8>)>> {
+    paths
+        .into_iter()
+        .map(|relative| {
+            let bytes = std::fs::read(root.join(&relative))
+                .with_context(|| format!("failed to read {}", root.join(&relative).display()))?;
+            Ok((relative, bytes))
+        })
+        .collect()
+}
+
+fn pack_entries(mut entries: Vec<(PathBuf, Vec<u8>)>) -> Result<Vec<u8>> {
+    ensure!(
+        !entries.is_empty(),
+        "cannot pack a bundle with no asset entries"
+    );
+    entries.sort_by(|left, right| left.0.cmp(&right.0));
 
     let mut blob = Vec::new();
     blob.extend_from_slice(BLOB_MAGIC);
-    blob.extend_from_slice(&(paths.len() as u32).to_le_bytes());
-    for rel in &paths {
+    blob.extend_from_slice(&(entries.len() as u32).to_le_bytes());
+    for (rel, bytes) in &entries {
         let key = blob_key(rel)?;
-        let bytes = std::fs::read(root.join(rel))
-            .with_context(|| format!("failed to read {}", root.join(rel).display()))?;
         blob.extend_from_slice(&(key.len() as u32).to_le_bytes());
         blob.extend_from_slice(key.as_bytes());
         blob.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
-        blob.extend_from_slice(&bytes);
+        blob.extend_from_slice(bytes);
     }
     Ok(blob)
+}
+
+fn runtime_pack_path(relative: &Path) -> bool {
+    let value = relative.to_string_lossy();
+    !value.ends_with(".png")
+        && !value.starts_with("level-layout/")
+        && value != "level/background_includes.asm"
+        && value != "level/mapheader_definitions.asm"
+        && value != "level/platform_scripts.asm"
+        && !(value.starts_with("level/platform/") && value.ends_with(".asm"))
+}
+
+fn runtime_manifest_bytes(bytes: &[u8]) -> Result<Vec<u8>> {
+    let mut manifest: AssetManifest =
+        serde_json::from_slice(bytes).context("failed to parse generated asset manifest")?;
+    manifest.source_root = PathBuf::new();
+    manifest.output_root = PathBuf::new();
+    for level in &mut manifest.levels {
+        level.resources.platform_script = None;
+        level
+            .resource_paths
+            .retain(|path| !path.starts_with("platform/"));
+    }
+    let catalogue = runtime_asset_catalogue();
+    manifest.enemy_sources.clear();
+    manifest.theme_assets.retain(|asset| {
+        catalogue.contains(&PathBuf::from(format!("theme/{}", asset.relative_path)))
+    });
+    manifest.scene_assets.retain(|asset| {
+        catalogue.contains(&PathBuf::from(format!("scenes/{}", asset.relative_path)))
+    });
+    manifest.animation_assets.retain(|asset| {
+        catalogue.contains(&PathBuf::from(format!(
+            "ingame/anim/{}",
+            asset.relative_path
+        )))
+    });
+    manifest.sound_assets.retain(|asset| {
+        catalogue.contains(&PathBuf::from(format!("sound/{}", asset.relative_path)))
+    });
+    manifest.ingame_assets.retain(|asset| {
+        catalogue.contains(&PathBuf::from(format!("ingame/{}", asset.relative_path)))
+    });
+    serde_json::to_vec(&manifest).context("failed to serialise runtime asset manifest")
 }
 
 /// Bundle-relative key with `/` separators regardless of host platform, so a
@@ -194,6 +424,7 @@ fn read_entry(bytes: &[u8]) -> Result<(&str, &[u8], &[u8])> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wildside_rom::verify_canonical_rom_bytes;
 
     fn packed_fixture() -> (tempfile::TempDir, Vec<u8>) {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -205,6 +436,21 @@ mod tests {
         std::fs::write(root.join("level/platform_scripts.asm"), b"; asm").expect("write");
         let blob = pack_bundle_blob(root).expect("pack");
         (dir, blob)
+    }
+
+    fn canonical_generated_fixture() -> Option<(PathBuf, CanonicalKidRom)> {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent()?.parent()?;
+        let root = repo_root
+            .join(".cache/generated")
+            .join(wildside_rom::known_sha1());
+        let rom_path = repo_root.join(".cache/upstream/kid-chameleon-disasm/kid.bin");
+        if !root.join("asset-manifest.json").is_file() || !rom_path.is_file() {
+            eprintln!("skipping runtime extractor parity: canonical generated cache is absent");
+            return None;
+        }
+        let bytes = std::fs::read(rom_path).ok()?;
+        let rom = verify_canonical_rom_bytes(&bytes).expect("cached ROM should be canonical");
+        Some((root, rom))
     }
 
     #[test]
@@ -254,6 +500,33 @@ mod tests {
         assert!(source.exists(Path::new("asset-manifest.json")));
         assert!(source.exists(Path::new("scenes/artcomp/Sega_Logo.bin")));
         assert!(!source.exists(Path::new("level/platform_scripts.asm")));
+    }
+
+    #[test]
+    fn canonical_rom_extractor_matches_native_runtime_pack_byte_for_byte() {
+        let Some((root, rom)) = canonical_generated_fixture() else {
+            return;
+        };
+        let (recipe, manifest) =
+            build_runtime_extractor_inputs(&root, &rom).expect("derive extractor inputs");
+        if std::env::var_os("WILDSIDE_UPDATE_RUNTIME_EXTRACTOR").is_some() {
+            std::fs::write(
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("runtime-rom-assets.txt"),
+                recipe,
+            )
+            .expect("write ROM extraction recipe");
+            std::fs::write(
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("runtime-manifest.json"),
+                manifest,
+            )
+            .expect("write runtime manifest");
+            return;
+        }
+
+        assert_eq!(
+            extract_runtime_bundle(&rom).expect("extract from canonical ROM"),
+            pack_runtime_bundle_blob(&root).expect("pack generated runtime bundle")
+        );
     }
 
     #[test]

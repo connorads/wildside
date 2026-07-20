@@ -28,3 +28,4 @@ wildside-frame = { path = "../wildside-frame", features = ["audio"] }
 # renderer; the machine-emulation `audio` feature arrives via frame/audio.
 wildside-md = { path = "../wildside-md", default-features = false }
 wildside-render = { path = "../wildside-render" }
+wildside-rom = { path = "../wildside-rom" }
