@@ -11,6 +11,224 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #418
+
+Opened and closed 2026-07-20 (census ownership). The 106 blocking differences in
+canonical sweep run `1783914264` (47/69 pass, 22 failing levels) had no
+attribution: `StateDiff` names only global fields, so nothing tied a blocker to
+an enemy family. Two-part fix: (1) `sweep-census` subcommand (mise
+`sweep-census`; artefact `.cache/audit/sweep-census.json`) mechanically joins
+blocking diffs (authoritative/accumulation/rng) onto per-level enemy-family
+rosters via the new `wildside_core::layout_object_family_name` bridge, and ranks
+families by Laplace-smoothed overrepresentation in failing vs passing levels;
+(2) a 22-agent read-only attribution pass (one per failing level: blocking
+diffs + roster + checkpoint/diff PNGs + family ASM + native family module)
+returned per-level verdicts, synthesised into clusters #419-#433.
+
+Cluster table (level: blockers, confidence):
+
+| Row | Suspect | Levels (blockers) | Confidence |
+|---|---|---|---|
+| #419 | Goat | 0x38 (4), 0x60 (10), 0x63 (2) | high (0x60), medium |
+| #420 | Driller | 0x55 (16), 0x68 (3) | high (0x68), medium |
+| #421 | Scorpion | 0x61 (6), 0x62 (4) | high (0x61), medium |
+| #422 | UFO beam workers | 0x30 (3), 0x48 (4) | high (0x30), medium |
+| #423 | Ninja | 0x56 (5) | medium (family certain: sole roster) |
+| #424 | MiniHoppingSkull dormant slots | 0x44 (2), 0x65 (2) | medium, exact +5/+1 match |
+| #425 | SpinningTwins leading spawn | 0x47 (4) | high |
+| #426 | Hand floor-scan delete | 0x59 (4) | high |
+| #427 | Tornado RNG flight | 0x50 (2) | high |
+| #428 | TarMonster burst child (#403 residual) | 0x64 (2) | high, root-caused |
+| #429 | Kid warp-settle wall nudge | 0x29 (4) | high, root-caused |
+| #430 | Kid vertical settle phase | 0x52 (7) | medium |
+| #431 | Murder-wall settle | 0x21 (2) | medium |
+| #432 | 0x42 high-skin decode (#330 residual) | 0x42 (4) | medium |
+| #433 | Leftover 0x41 classification | 0x41 (12) | high |
+| (#301 owns) | HeadyMetal composite | 0x33 (4) | high — NOT re-rowed, blocked #301 lists `Enemy20_HeadyMetal_Init loc_39247` worker-table/composite lifecycle |
+
+Sums to 106. Census smoke checks: blocking total 106, failing levels 22,
+per-level counts match the report (0x55=16, 0x41=12, 0x60=10), TarMonster near
+the bottom of the suspect ratio table (0.62) as expected post-#402/#403.
+
+Method notes: (a) levels without an enemy layout resource (0x41, 0x52) carry an
+EMPTY roster — a real "not enemy-related" signal — distinct from a failed bundle
+load, which excludes a level from the family table. (b) One agent claimed the
+census mis-rostered 0x62 by reading raw `level/enemy/62.bin`; verified wrong —
+logical 0x62 maps to resource 0x7D (`inspect-level --level 62`: Scorpion x3,
+Drips x2, Armadillo x3), matching the census. Its behavioural evidence (oracle
+Kid damaged on the spawn row, native untouched) still stands and re-attributes
+to Scorpion (nearest enemy to spawn at 136,95), folded into #421 at medium.
+(c) The family overrepresentation ratio is a suspect ranker, not proof; every
+cluster row still requires probe-before-code per the loop protocol.
+
+Common facts for #419-#433: evidence source `sweep:1783914264` + census +
+attribution agents; native repro reproduced (idle scenario); oracle repro
+status authoritative; minimum gate `fast-slice`.
+
+### #419
+
+Goat (0x38/0x60/0x63, 16 blockers). 0x60 (Goat-only roster, high): at
+level_settle oracle Kid has just_received_damage=true, hitpoints 1, +1 object,
+native false/2/-; idle_tail is pure cascade (native warps to the ELSEWHERE card
+0x0008 vs InGame 0x000c and loses a life). Contact surface: Goat.asm contact
+dispatch `loc_3CB14`/`loc_3CB38` recoil/`loc_3CB76` Berzerker, tracking
+`loc_3CC52`; prior churn #057/#315/#331/#308. 0x38 (medium): pure count deficit
+(-1 object, -2 gfx, MAE 0.0 — off-screen lifecycle). 0x63 (medium): +2 oracle
+gfx = exactly the 2 roster Goats visible in oracle PNGs, native draws neither;
+number_objects equal, so live slots match but two enemies never enter a drawn
+state.
+
+### #420
+
+Driller (0x55/0x68, 19 blockers — largest cluster). 0x55 (Driller-only roster
+x8): native Kid frozen at spawn, oracle Kid shows the golden Micromax transform
+shimmer (helmet 9, currently_transforming, just_received_damage) with a Driller
+beside him; count deltas (objects 4v7, gfx 5v12) match missing Drillers plus
+tread/drill children (`loc_3BD74` spawns two children at parent ±$18). Caveat:
+the Micromax transform is a prize interaction, so a prize/physics upstream
+trigger is not fully excluded. 0x68 (Driller-only x7, high): counts only
+(objects 6v8, gfx 7v15/13) — the Driller hidden-block/smash worker signature
+(`sub_10EDA`, `loc_10F2A` hibernate); archive #385/#387 tie 0x68 to Driller
+worker count parity (native `driller.rs` `loc_3BE78`/`loc_3BE60` refcount).
+
+### #421
+
+Scorpion (0x61/0x62, 10 blockers). 0x61 (high): native missing ~2 objects/~3
+gfx; Scorpion.asm init allocates a linked tail/stinger gfx child
+(`loc_3DC86`), so one missing scorpion drops 1 object + 2 gfx. diff PNG lights
+up exactly on the two coil clusters; oracle Kid stung (`loc_3DCB0` dispatch,
+sting `loc_3DDEE`) and knocked back, native Kid untouched. 0x62 (medium,
+re-attributed from an agent misread — see #418 note b): oracle Kid damaged and
+moving from the spawn row (HP 1→0), native Kid frozen/undamaged; Scorpions sit
+on the spawn row at 136,95 (Kid start 32,80). #331's fixed candidate covered
+the RockTank wall-turn, not these levels.
+
+### #422
+
+UFO beam workers (0x30/0x48, 7 blockers). 0x30 (high): oracle Kid hit by the
+RNG-gated beam (`Enemy0F_UFO_ChkShoot`/`ChkLoadBeam` → `Enemy0F_UFOBeam_Init`,
+beam sets has_kid_collision) and knocked off the bridge (hitpoints 0 vs 1, kid
+x/y displaced); native Kid stands intact. 0x48 (medium): stable -1
+object/-1 gfx; archive #290 already pinned this frontier ("oracle also owns
+four UFO parents plus live `Enemy0F_UFOBeam_Init` children while native owns
+no/fewer beam children"); residual Drips child-lifecycle divergence noted there
+keeps this medium.
+
+### #423
+
+Ninja (0x56, 5 blockers). Roster is Ninja x4 exclusively, so family is certain;
+mechanism is not. Native Kid takes a fatal hit on idle (lives 3→2, respawn HP
+2) and sits mid-LevelTransition at idle_tail (0x0008, black frame) while oracle
+Kid survives exactly one hit (HP 1, InGame). Native holds ~5 extra
+Ninja-lineage objects (9v4 / gfx 8v5) — extra throws/undead Ninjas are the
+plausible source of the extra fatal hit. Archive: hitpoints de-masking
+(backlog-archive.md:13506) surfaced exactly this class; #315 holds prior Ninja
+cadence/contact/i-frame work.
+
+### #424
+
+MiniHoppingSkull dormant controllers (0x44/0x65, 4 blockers).
+`Enemy1C_MiniHoppingSkull_Init` (`loc_3E9C8`) hibernates in the `loc_3E9D0`
+proximity loop and defers `Load_GfxObjectSlot` until Kid is near, so far-but-
+in-window skulls exist as GfxObject-less live slots. 0x44: number_objects +5
+oracle with gfx EQUAL — Object-only slots, exactly the dormant-skull signature
+(roster MiniHoppingSkull x17; Dragon/DragonWalking excluded — their inits load
+gfx immediately). 0x65 (MiniHoppingSkull-only roster): stable +1 object, no
+other field diverges, divergent object off-screen. Native
+`mini_hopping_skull.rs` models the active hop lifecycle but not the dormant
+wait (archive #315 `loc_3EA88..loc_3F146` compression, #229 prior count
+mismatches).
+
+### #425
+
+SpinningTwins leading spawn (0x47, 4 blockers). Oracle owns exactly one extra
+AI object carrying TWO GfxObjects (4/6 vs 3/4) at both checkpoints — the
+`Enemy14_SpinningTwins_Init` fingerprint (body `j_Load_GfxObjectSlot` plus
+linked twin `j_Allocate_GfxObjectSlot_a1`); Hand is +1/+1 and Driller +1/+3,
+so neither fits. No on-screen enemy (MAE 0.1); nearest layout object is the
+SpinningTwins at x=744. Native fails to allocate the leading off-screen
+SpinningTwins into a live slot. (0x47 is also #329's aliased-warp level, but
+that row is foreground-render, distinct from these object counts.)
+
+### #426
+
+Hand floor-scan deletion (0x59, 4 blockers). Roster 100% Hand (x5). Native +1
+object/+1 gfx at both checkpoints = one whole surviving Hand (Hand init loads
+one object + one gfx). ASM `loc_32AFE` floor-scan feeds `loc_32AA2`
+`j_Delete_CurrentObject` when a Hand has no ground; native models it via
+`HandTerrainScanLoc32AFE` (hand.rs edge/wall detection) — a scan mismatch keeps
+one Hand alive that oracle deletes.
+
+### #427
+
+Tornado RNG flight (0x50, 2 blockers). Only diff: number_hitpoints 2v1 at BOTH
+checkpoints — oracle Kid grazed exactly once during settle; positions, camera,
+counts all match. Roster Tornado x5; diff PNG shows one tornado at a divergent
+position/phase. Native `tornado.rs` RNG/pattern flight (ASM `loc_35908`, UFO
+`unk_35344` patterns) is timing-sensitive; small drift makes native miss idle
+Kid. No open row owned this symptom.
+
+### #428
+
+TarMonster burst child (0x64, 2 blockers) — root-caused residual of #403,
+which named it explicitly against this very report: "the child that the oracle
+clamps to x=2 with colid_leftwall at frame 288 and deletes at 289 is deleted
+by native at frame 286" (`loc_3263C` burst child). At idle_tail native has
+already freed the slot oracle still holds (9v10 objects, 12v13 gfx);
+level_settle is near-clean. Fix is aligning the wall-clamped child's deletion
+frame.
+
+### #429
+
+Kid warp-settle wall nudge (0x29, 4 blockers) — root-caused. kid_x_pos native
+0x02A0 vs oracle 0x02A5 (5px) with camera exactly 156px behind in both engines
+(pure cascade). The respawn path already models the oracle-verified wall-nudge
+to x=$02A50000 (#037/#049; guard
+`respawn_settle_level_29_matches_oracle_wall_nudged_spawn_x` passes, gate
+green), but the sweep's idle warp-settle path lands 5px left — the warp/initial
+entry path misses the wall-overlap resolution the respawn slice applies.
+
+### #430
+
+Kid vertical settle phase (0x52, 7 blockers, empty roster — zero enemies,
+static `PlatformScript_Nothing` only). kid_y_vel at level_settle is native
+-1.75px/f (up) vs oracle +1.75px/f (down): equal magnitude, opposite sign — a
+spawn-drop landing one frame out of phase. kid_y never reconciles (native
+pinned 342, oracle bobs 344→337); camera_y tracks 4px; the number_objects
+5/3→3/5 swap is a slot-activation phase shift from the differing camera_y
+revealing prize blocks, not a distinct object set.
+
+### #431
+
+Murder-wall settle (0x21, 2 blockers). murder_wall_x native ≈ -19.6px vs oracle
+≈ +4.2px (~24px lag) and camera_x 0 vs 4px — the wall never pushed the camera.
+Native surface: `step_murder_wall` (weather.rs) with
+`forward_murder_wall_camera_push_loc_7346` and `init_murder_wall` seeding from
+camera_x. Wall error is causal; camera_x is the downstream push. Archive
+#266/#294/#335 cover the same subsystem on other levels; none owns 0x21.
+
+### #432
+
+0x42 high-skin decode (4 blockers) — the residual #330 already names
+("unrelated level 0x42 city high-skin collision residual"). kid_y_pos native
+351 vs oracle 367: exactly 16px = one tile, static from level_settle, no
+object diffs; PNGs show Kid resting one tile high on the lamppost platform.
+Suspect: city skin blank-top-row/high-skin collision-terrain decode
+(`sub_140F6` / `Load_LevelData loc_15A0` family) offsetting the collision
+surface one row.
+
+### #433
+
+Leftover level 0x41 classification (12 blockers). Roster empty; native
+`load_level_visuals` deliberately skips 0x41 for missing foreground data
+(#329: "0x41 still skips (no foreground)"), stalling in LevelTransition
+(game_mode 0x0008, black frames), while the jgenesis oracle reads
+adjacent/garbage RAM and reaches a settled InGame state. Every field diff is
+downstream of comparing an unentered native level against oracle-played
+garbage. Needs an evidence-backed sweep classification (`oracle_limitation`
+with citation, or a decision to load the level) rather than 12 standing
+authoritative blockers that verify nothing.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed
@@ -16468,6 +16686,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 418 | [x] | P2 | verification | Sweep-blocker census: `sweep-census` tool + 22-agent attribution classify all 106 blocking diffs of run 1783914264 into owned clusters #419-#433 (0x33 stays with #301). | Census regenerable via `mise run sweep-census`; cluster table + method notes in archive #418. |
 | 415 | [x] | P1 | platforms/enemy | Hoverboard Beach totem platform/carry divergence is absent in the integrated published-TAS state and enemy projections. | 37,759 state/enemy checkpoints exact; frame 7918 roster matches. See archive #415. |
 | 405 | [x] | P2 | verification | TAS reports and gates name the CRC projection and state that it proves neither pixels nor whole state. | Projection contract ratcheted. See archive #405. |
 | 404 | [x] | P2 | verification | Published TAS comparison directly checks `Current_player` and ROM `Two_player_flag` every frame. | 37,759 typed checkpoints exact. See archive #404. |

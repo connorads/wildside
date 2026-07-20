@@ -230,6 +230,7 @@ diff composites, and per-layer diagnostics.
 - `cargo run -p wildside-cli -- capture-frames --level XX --frames N,N,N --output .cache/debug/`
 - `cargo run -p wildside-cli -- diagnose-frame --level XX --frame N --output .cache/debug/ --save-layers`
 - `cargo run -p wildside-cli -- sweep --levels 0-104 --tier state` (full oracle comparison)
+- `cargo run -p wildside-cli -- sweep-census [--run ID]` (classify a sweep run's blocking diffs by enemy family; writes `.cache/audit/sweep-census.json`; `mise run sweep-census`)
 - `cargo run -p wildside-cli -- diagnose-level XX` (deep single-level analysis)
 - See "First commands" for `asm-coverage` discovery, JSON, ratchet, and update commands.
 

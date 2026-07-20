@@ -7,6 +7,36 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#418 sweep-blocker census: 106 blockers attributed)
+
+- Built the `sweep-census` subcommand (mise `sweep-census`, artefact
+  `.cache/audit/sweep-census.json`): filters a sweep report's state diffs to
+  blocking categories (authoritative/accumulation/rng), joins every level onto
+  its enemy-layout family roster via the new public
+  `wildside_core::layout_object_family_name` bridge, and ranks families by
+  Laplace-smoothed overrepresentation in failing vs passing levels. Levels
+  without an enemy layout resource (0x41, 0x52) carry an *empty* roster — a
+  real "not enemy-related" signal — distinct from a failed bundle load.
+- Ran it against canonical run `1783914264` (sanity: 106 blocking, 22 failing
+  levels, 0x55=16/0x41=12/0x60=10, TarMonster ratio near-bottom post-#402/#403),
+  then fanned out 22 read-only attribution agents (one per failing level:
+  blocking diffs + roster + checkpoint/diff PNGs + family ASM + native module).
+  All 22 returned typed verdicts; one mis-read (0x62 raw `enemy/62.bin` instead
+  of the mapped resource 0x7D) was caught and re-attributed to Scorpion.
+- Landed clusters as rows #419-#433: P1 enemy clusters Goat (16 blockers),
+  Driller (19), Scorpion (10), UFO beam workers (7), Ninja (5); P2 singles
+  MiniHoppingSkull dormant slots, SpinningTwins leading spawn, Hand floor-scan
+  delete, Tornado RNG graze, TarMonster burst-child (#403 residual,
+  root-caused); Kid physics 0x29 (root-caused: warp path misses the respawn
+  path's wall nudge) and 0x52; murder-wall 0x21; 0x42 high-skin decode (#330's
+  named residual); leftover 0x41 sweep classification (12 blockers comparing
+  garbage). 0x33 HeadyMetal stays with blocked #301. Full evidence per `#NNN`
+  in `backlog-archive.md`; #418 archived with the cluster table.
+- NEXT: `mise run project-status` — the ready lane now holds root-caused
+  #428/#429; the P1 enemy clusters are the highest-leverage gameplay fixes.
+
+---
+
 ## 2026-07-20 handoff (#417 ungated wildside-cli suite: gate + triage)
 
 - `cargo test -p wildside-cli --no-fail-fast` had **55 committed failures** on
