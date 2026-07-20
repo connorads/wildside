@@ -3008,6 +3008,19 @@ pub struct TitleIntroSourceAdvance {
     pub external_wait_cycles: M68kCycleCount,
 }
 
+/// Persistent hardware result from the first title `WaitForVint` poll to
+/// `Mode_Standard` entry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TitleWaitForVintAdvance {
+    pub cursor: LoadInGameCpuRasterCursor,
+    pub resume: crate::WaitForVintResumePath,
+    pub scheduler_tick_count: u32,
+    pub raw_cycles: M68kCycleCount,
+    pub refresh_events: u32,
+    pub post_assertion_refresh_events: u32,
+    pub external_wait_cycles: M68kCycleCount,
+}
+
 /// Load_InGame name retained for the platform initialisation boundary.
 pub type LoadInGamePlatformArtTransferAdvance = DecompressToVramTransferAdvance;
 
@@ -3550,6 +3563,153 @@ pub fn title_intro_wait_for_vint_poll_cursor_with_scheduler(
         external_wait_cycles = external_wait_cycles
             .checked_add(generated_wait)
             .expect("title frame-handoff wait count fits u32");
+    });
+    if scheduling_failed {
+        return None;
+    }
+
+    Some(TitleIntroSourceAdvance {
+        cursor: LoadInGameCpuRasterCursor {
+            beam: fifo.beam,
+            refresh_phase: phase,
+        },
+        timing,
+        refresh_events,
+        external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
+    })
+}
+
+/// Co-schedule the blocking title `WaitForVint` poll through
+/// `Mode_Standard` entry.
+///
+/// ASM `WaitForVint` $93E/$942 remains on the persistent GEMS/VDP timeline
+/// until VINT asserts at H40 scanline 224, h_mclk 16. The interrupted PC,
+/// exception entry, `V_Int` $488, resumed wait tail, and `MainGameLoop`
+/// dispatch are all retained as separate scheduler ticks.
+pub fn title_wait_for_vint_to_mode_standard_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleWaitForVintAdvance> {
+    #[derive(Clone, Copy)]
+    enum PollPc {
+        TestLoc93e,
+        BranchLoc942,
+    }
+
+    const MAX_SCHEDULER_TICKS_PER_FRAME: usize = 200_000;
+
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+    let mut refresh_events = 0_u32;
+    let mut external_wait_cycles = 0_u32;
+    let mut scheduler_tick_count = 0_u32;
+    let mut raw_cycles = 0_u32;
+    let mut pc = PollPc::TestLoc93e;
+
+    let mut advance_tick = |cycles: u32,
+                            fifo: &mut PlatformArtFifoScheduler,
+                            phase: &mut M68kRefreshPhase,
+                            refresh_events: &mut u32|
+     -> Option<()> {
+        let generated_wait = advance_decompress_source_instruction_with_interval_kind(
+            cycles,
+            fifo,
+            phase,
+            refresh_events,
+            &mut advance_hardware,
+        )?;
+        external_wait_cycles = external_wait_cycles.checked_add(generated_wait)?;
+        scheduler_tick_count = scheduler_tick_count.checked_add(1)?;
+        raw_cycles = raw_cycles.checked_add(cycles)?;
+        Some(())
+    };
+
+    let mut reached_vint = false;
+    for _ in 0..MAX_SCHEDULER_TICKS_PER_FRAME {
+        reached_vint = fifo.beam.scanline > 224
+            || (fifo.beam.scanline == 224 && fifo.beam.scanline_mclk >= 16);
+        if reached_vint {
+            break;
+        }
+
+        // ASM WaitForVint $93E/$942: TST.B abs.w; taken BEQ.S.
+        let cycles = match pc {
+            PollPc::TestLoc93e => 12,
+            PollPc::BranchLoc942 => 10,
+        };
+        advance_tick(cycles, &mut fifo, &mut phase, &mut refresh_events)?;
+        pc = match pc {
+            PollPc::TestLoc93e => PollPc::BranchLoc942,
+            PollPc::BranchLoc942 => PollPc::TestLoc93e,
+        };
+    }
+    if !reached_vint {
+        return None;
+    }
+
+    let resume = match pc {
+        PollPc::TestLoc93e => crate::WaitForVintResumePath::PollTestLoc93e,
+        PollPc::BranchLoc942 => crate::WaitForVintResumePath::StaleBranchLoc942,
+    };
+    let refresh_events_at_assertion = refresh_events;
+
+    // jgenesis samples the pending level-6 interrupt for 10 cycles, performs
+    // the 44-cycle autovector entry, then executes ASM V_Int $488.
+    for cycles in [10, 44, 24, 16, 20] {
+        advance_tick(cycles, &mut fifo, &mut phase, &mut refresh_events)?;
+    }
+    if resume == crate::WaitForVintResumePath::StaleBranchLoc942 {
+        // ASM $942: the saved condition codes take one stale branch.
+        advance_tick(10, &mut fifo, &mut phase, &mut refresh_events)?;
+    }
+    // ASM WaitForVint $93E..$954, MainGameLoop $73C/$740, and the
+    // GameModesArray branch to Mode_Standard $77A.
+    for cycles in [12, 8, 12, 12, 16, 12, 20, 10] {
+        advance_tick(cycles, &mut fifo, &mut phase, &mut refresh_events)?;
+    }
+
+    Some(TitleWaitForVintAdvance {
+        cursor: LoadInGameCpuRasterCursor {
+            beam: fifo.beam,
+            refresh_phase: phase,
+        },
+        resume,
+        scheduler_tick_count,
+        raw_cycles: M68kCycleCount::from_raw(raw_cycles),
+        refresh_events,
+        post_assertion_refresh_events: refresh_events.checked_sub(refresh_events_at_assertion)?,
+        external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
+    })
+}
+
+/// Co-schedule `Mode_Standard -> Do_Nothing` on the title hardware timeline.
+pub fn title_mode_standard_do_nothing_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+    let mut refresh_events = 0_u32;
+    let mut external_wait_cycles = 0_u32;
+    let mut scheduling_failed = false;
+
+    let timing = crate::intro_timing::visit_mode_standard_do_nothing(|raw_cycles| {
+        if scheduling_failed {
+            return;
+        }
+        let Some(generated_wait) = advance_decompress_source_instruction_with_interval_kind(
+            raw_cycles,
+            &mut fifo,
+            &mut phase,
+            &mut refresh_events,
+            &mut advance_hardware,
+        ) else {
+            scheduling_failed = true;
+            return;
+        };
+        external_wait_cycles = external_wait_cycles
+            .checked_add(generated_wait)
+            .expect("Mode_Standard delay wait count fits u32");
     });
     if scheduling_failed {
         return None;
@@ -6793,6 +6953,39 @@ mod tests {
             ntsc_vblank_cursor_from_absolute_m68k_cycles(cycles).get(),
             90_139,
             "the persistent GEMS frame cursor starts at VDP scanline 224"
+        );
+    }
+
+    #[test]
+    fn title_wait_for_vint_reaches_oracle_mode_standard_boundary() {
+        let entry_cycles = M68kCycleCount::from_raw(10_349_895);
+        let advance = title_wait_for_vint_to_mode_standard_cursor_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                // ASM WaitForVint $93E on oracle frame 80, immediately
+                // before the final TST/BEQ pair crosses VINT assertion.
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(60).unwrap(),
+            },
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("ASM WaitForVint/V_Int/Mode_Standard path");
+
+        assert_eq!(
+            advance.resume,
+            crate::WaitForVintResumePath::StaleBranchLoc942
+        );
+        assert_eq!(advance.scheduler_tick_count, 15);
+        assert_eq!(advance.raw_cycles.get(), 238);
+        assert_eq!(advance.refresh_events, 2);
+        assert_eq!(advance.post_assertion_refresh_events, 2);
+        assert_eq!(advance.external_wait_cycles.get(), 0);
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(10_350_137)),
+                refresh_phase: M68kRefreshPhase::new(46).unwrap(),
+            },
+            "oracle frame 80 reaches Mode_Standard $77A at cycle 10,350,137",
         );
     }
 

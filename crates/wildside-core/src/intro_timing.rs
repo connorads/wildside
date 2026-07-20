@@ -72,6 +72,42 @@ pub fn visit_intro_controller_to_wait_for_vint_poll(
     timing
 }
 
+/// Visit `Mode_Standard` entry through completion of `Do_Nothing`.
+///
+/// ASM `Mode_Standard` $77A calls `Do_Nothing` $956, whose DBF delay runs
+/// 612 taken iterations and one terminal iteration before returning.
+pub fn visit_mode_standard_do_nothing(mut visit: impl FnMut(u32)) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("Mode_Standard source timing fits u32"),
+        );
+    };
+
+    // ASM Mode_Standard $77A: BSR.W Do_Nothing; save d0 and load DBF count.
+    for cycles in [18, 8, 8] {
+        emit(cycles);
+    }
+    for iteration in 0..=612 {
+        emit(if iteration == 612 { 14 } else { 10 });
+    }
+    // ASM Do_Nothing $960: restore d0 and return to $77E.
+    for cycles in [8, 16] {
+        emit(cycles);
+    }
+
+    timing
+}
+
 /// Visit `Allocate_ObjectSlot sub_DAC` with an empty execution list.
 fn visit_empty_list_allocate_object_slot_instructions(visit: &mut impl FnMut(u32)) {
     // ASM sub_DAC $DAC..$DC0: save registers, pop the free slot and prepare
@@ -131,5 +167,22 @@ mod tests {
             "ASM LoadGameModeData $72C through WaitForVint $93A must retain the frame-handoff boundaries",
         );
         assert_eq!(cycles, [20, 16, 18, 16]);
+    }
+
+    #[test]
+    fn mode_standard_do_nothing_retains_dbf_instruction_boundaries() {
+        let mut cycles = Vec::new();
+        let timing = visit_mode_standard_do_nothing(|cycle| cycles.push(cycle));
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 618,
+                raw_cycles: M68kCycleCount::from_raw(6_192),
+            },
+            "ASM Mode_Standard $77A -> Do_Nothing $956 must retain every DBF boundary",
+        );
+        assert_eq!(&cycles[..3], &[18, 8, 8]);
+        assert_eq!(&cycles[cycles.len() - 3..], &[14, 8, 16]);
     }
 }

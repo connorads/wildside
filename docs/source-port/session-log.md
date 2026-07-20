@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 title VINT and standard delay)
+
+- The first title `WaitForVint $93E/$942` now blocks on the persistent
+  GEMS/VDP timeline through interrupt recognition, `V_Int $488`, its stale
+  saved-PC branch, and `Mode_Standard $77A`.
+- An oracle-seeded regression reaches cycle 10,350,137, scanline 224 mclk
+  1,679, and refresh phase 46 exactly. The documented jgenesis GEMS flag
+  defect shifts the hardware-faithful interrupt boundary from mclk 69 to 41,
+  leaving seven cycles of the inherited 3,151-cycle deficit.
+- `Do_Nothing $956` retains 618 instruction boundaries / 6,192 raw cycles.
+  Its 50 refresh events reduce the persistent residue to five cycles:
+  native 10,356,422 versus oracle 10,356,427.
+- NEXT: model `Palette_to_VRAM $970` with typed Z80 BUSREQ acknowledgement
+  and memory-to-VDP DMA ownership, then continue the measured standard prefix
+  through sprite/Kid DMA, scroll DMA, `sub_1596`, and `sub_E12`.
+
+---
+
 ## 2026-07-20 handoff (#429 Level 0x29 spawn overlap parity)
 
 - Reproduced Level 0x29 at Kid/camera `$02A00000/$02040000` versus oracle

@@ -18,6 +18,7 @@ use wildside_core::{
         DecompressToVramTransferAdvance, LoadInGameCpuRasterCursor,
         LoadInGamePlatformInitialisationAdvance, LoadInGamePlatformRefreshLedger,
         LoadInGamePlatformVintEvent, ModeLevelCpuRasterCursor, TitleIntroSourceAdvance,
+        TitleWaitForVintAdvance,
     },
 };
 #[cfg(feature = "audio")]
@@ -936,6 +937,66 @@ pub fn apply_gems_title_intro_wait_for_vint_poll(
         return None;
     }
     wildside_core::vdp::title_intro_wait_for_vint_poll_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            if source_instruction {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
+/// Clock the blocking title frame wait through `Mode_Standard` entry.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_wait_for_vint_to_mode_standard(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleWaitForVintAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_wait_for_vint_to_mode_standard_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            if source_instruction {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
+/// Clock the first title `Mode_Standard -> Do_Nothing` delay.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_mode_standard_do_nothing(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_mode_standard_do_nothing_cursor_with_scheduler(
         entry,
         |cycles, vdp_owns_bus, source_instruction| {
             if source_instruction {
@@ -2767,6 +2828,49 @@ mod tests {
         // Oracle loc_93E begins at 10,277,139. The exact 72-cycle elapsed
         // path retains the inherited 3,151-cycle GEMS offset.
         assert_eq!(engine.master_clock(), 10_273_988 * 7);
+
+        let mode_standard =
+            apply_gems_title_wait_for_vint_to_mode_standard(&mut engine, poll.cursor)
+                .expect("source-positioned WaitForVint/V_Int/Mode_Standard entry");
+        assert_eq!(
+            mode_standard.resume,
+            wildside_core::WaitForVintResumePath::StaleBranchLoc942,
+            "ASM WaitForVint $942 is the saved PC when title-frame VINT asserts",
+        );
+        assert_eq!(mode_standard.refresh_events, 585);
+        assert_eq!(mode_standard.external_wait_cycles.get(), 1_408);
+        // Oracle V_Int $488 begins at 10,349,961 and Mode_Standard $77A
+        // begins at 10,350,137.
+        //
+        // ORACLE LIMITATION: the established jgenesis undocumented-X/Y SUB
+        // defect shifts GEMS' 68000 instruction phase. The blocking poll
+        // absorbs 3,144 of the inherited 3,151-cycle loader deficit, but
+        // hardware-faithful execution samples VINT at H40 mclk 41 rather
+        // than oracle mclk 69 and reaches Mode_Standard seven cycles early.
+        assert_eq!(
+            engine.master_clock(),
+            10_350_130 * 7,
+            "title WaitForVint ledger: {mode_standard:?}",
+        );
+        assert_eq!(mode_standard.post_assertion_refresh_events, 1);
+
+        let do_nothing =
+            apply_gems_title_mode_standard_do_nothing(&mut engine, mode_standard.cursor)
+                .expect("source-positioned Mode_Standard Do_Nothing");
+        assert_eq!(
+            do_nothing.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 618,
+                raw_cycles: M68kCycleCount::from_raw(6_192),
+            },
+        );
+        // Oracle resumes Mode_Standard at $77E on cycle 10,356,427.
+        // ORACLE LIMITATION: the carried hardware-faithful refresh phase
+        // adds one event, reducing the documented residue from seven to
+        // five cycles at this boundary.
+        assert_eq!(engine.master_clock(), 10_356_422 * 7);
+        assert_eq!(do_nothing.refresh_events, 50);
+        assert_eq!(do_nothing.external_wait_cycles.get(), 0);
     }
 
     #[cfg(feature = "audio")]

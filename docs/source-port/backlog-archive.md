@@ -600,6 +600,23 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: the first title `WaitForVint $93E/$942` is now
+source-scheduled on the persistent GEMS/VDP timeline through interrupt
+recognition, `V_Int $488`, the stale saved-PC branch, and `Mode_Standard
+$77A`. The pure oracle-seeded regression reaches cycle 10,350,137, beam
+scanline 224 mclk 1,679, and refresh phase 46 exactly. On the
+hardware-faithful GEMS lane, the established jgenesis undocumented-X/Y SUB
+defect changes the first eligible interrupt boundary from oracle mclk 69 to
+mclk 41: the blocking poll absorbs 3,144 of the inherited 3,151-cycle
+loader deficit and reaches `Mode_Standard` seven cycles early. `Do_Nothing
+$956` retains all 618 boundaries and 6,192 raw cycles; its extra carried
+refresh reduces the residue to five cycles at native 10,356,422 versus
+oracle 10,356,427. NEXT: expose typed Z80 BUSREQ acknowledgement and
+memory-to-VDP DMA ownership for `Palette_to_VRAM $970`; oracle call-boundary
+intervals are 532 palette, 2,366 sprite/Kid, 2,791 scroll, 144 `sub_1596`,
+and 18 for the final `sub_E12` call, but these are cross-checks, not fitted
+costs.
+
 Progress 2026-07-19: the outer intro loader return is source-scheduled from
 `LoadGameModeData $72C` through `MainGameLoop $738` and `WaitForVint $93A`
 to the first `loc_93E` flag poll. The four instructions contribute 70 raw
