@@ -11,6 +11,58 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #417
+
+Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed
+failures** on clean `main`, deterministic (identical membership across repeated
+runs; libtest emits them alphabetically sorted). They rotted silently: the
+canonical gate `verify-slice-fast` runs only `wildside-core --lib` +
+`wildside-cli gameplay_regression_*`, and there is **no CI** (`.github/` does not
+exist). The full `cargo test --workspace` (`mise run test`) is manual-only, so
+nothing caught regressions in `native_player`, `inspect`, `sweep`, or
+`rust_source_context`.
+
+Not asset-environment artefacts: the representative failures use fully synthetic
+fixtures (`sample_level_visuals`, hand-built traces) with no ROM/asset/global
+dependency, and the one asset-touching test reads a fresh, correct-version (v10,
+126-level) bundle. These are genuine regressions and brittle tests. The 24
+genuinely asset-gated tests are already `#[ignore]`'d and don't run.
+
+Root-cause breakdown (55):
+
+| Cluster | Count | Cause | Disposition |
+|---|---|---|---|
+| `native_player` sprite-frame selection | ~32 | Frame/pose signatures collapse to stuck constants (recurring `Some(18)` = IronKnight `jump_fall`, even for base-form idle) | grandfather → triage |
+| `native_player` position/lifecycle "other" | ~10 | Mixed scene-builder regressions (object placement `None`, etc.) | grandfather → triage |
+| `native_player` audio-transition | 6 | GEMS BGM-stop sequencing (`StoppedForTransition` vs `Level(..)`/`Start(7)`) | grandfather → triage |
+| `native_player` render-pixel | 4 | Priority/reveal pixel diffs | grandfather → triage |
+| `inspect` 0x20 block list | 1 | `load_inspect_block_list` returns `None` for later levels despite fresh bundle | grandfather → triage |
+| `sweep::frames` demo-return latch | 1 | Pinned frame SHA1 drifted (render change never re-baselined) | cheap fix (verify-tas-full first) |
+| `rust_source_context` | 1 | Brittle hardcoded line numbers into `blocks.rs` (grew to 7941 lines) | cheap fix |
+
+Strategy: gate first, then triage. `scripts/failing_test_ratchet.py` +
+`docs/source-port/failing-test-baseline.yaml` pin the named failure set at a
+downward-only baseline (wired as the hk `failing-test-ratchet` step, mirroring
+`dead-code-ratchet`; a new failure outside the set blocks the commit, a fix
+`--update`-shrinks the baseline). The two cheap fixes land immediately
+(`rust_source_context` de-brittled to content lookups; `sweep::frames`
+re-baselined only after a green `verify-tas-full` confirms the current native
+render at frame 1837 is gate-accepted, since that frame is inside the
+`any-percent-published` `--compare-pixels` range 0..37759 feeding
+`tas-pixel-baseline`), shrinking the baseline to 53.
+
+The remaining 53 (52 `native_player` + 1 `inspect`) are deferred triage: each
+cluster needs a test-vs-production verdict. Some may be tests written ahead of
+implementation → `#[ignore]` with a re-derivation note per AGENTS.md; others are
+real engine-level regressions to fix (bsnes rule: fix at engine level, never
+per-level). Remove a test from the baseline in the same commit that fixes it.
+
+Evidence source: `cargo test -p wildside-cli` on clean `main` (authoritative for
+test status). Native repro: reproduced. Minimum gate: `failing-test-ratchet` +
+`verify-slice-fast`.
+
+---
+
 ### #415
 
 Resolved 2026-07-17 without a platform or carry-loop change. The current

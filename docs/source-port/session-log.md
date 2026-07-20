@@ -7,6 +7,34 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#417 ungated wildside-cli suite: gate + triage)
+
+- `cargo test -p wildside-cli --no-fail-fast` had **55 committed failures** on
+  clean `main`, deterministic across runs. Root cause: the canonical gate
+  `verify-slice-fast` runs only `wildside-core --lib` + `wildside-cli
+  gameplay_regression_*`, and there is no CI (`.github/` absent), so
+  `native_player`/`inspect`/`sweep`/`rust_source_context` rotted silently. Not
+  asset-environment artefacts: representative failures use synthetic fixtures;
+  the present bundle is fresh (v10, 126 levels).
+- Gate first, then triage. Added `scripts/failing_test_ratchet.py` +
+  `docs/source-port/failing-test-baseline.yaml` (named-set, downward-only, own
+  hk `failing-test-ratchet` step mirroring `dead-code-ratchet`; skips when
+  `.cache/generated/*` is absent). A failure outside the set blocks the commit;
+  a fix `--update`-shrinks the baseline.
+- Landed the two cheap fixes: `rust_source_context` now locates its `blocks.rs`
+  anchors by content via `line_of()` (line numbers had drifted as the file grew
+  to 7941 lines); `sweep::frames` frame-1837 render-latch SHA re-baselined to
+  `98998a32…` — safe because that frame is inside the `any-percent-published`
+  `--compare-pixels` 0..37759 range feeding `tas-pixel-baseline`, and
+  `verify-tas-full` is green. Baseline shrank 55 -> 53.
+- NEXT: triage the remaining 53 (52 `native_player` + 1 `inspect`) as #417 loop
+  items — each cluster needs a test-vs-production verdict. Recurring
+  `native_player` symptom: frame/pose signatures collapse to stuck constants
+  (`Some(18)` = IronKnight `jump_fall` even for base-form idle). Remove a test
+  from the baseline in the same commit that fixes it.
+
+---
+
 ## 2026-07-20 handoff (#409/#416 GEMS route parity pass)
 
 - Industrialised GEMS/Z80 audio-timing verification: `gems_frame_signature_v1`

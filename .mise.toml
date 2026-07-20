@@ -129,6 +129,10 @@ description = "Fail if any new ASM label becomes test-only debt outside the revi
 run = "python3 scripts/dead_code_ratchet.py"
 description = "#32 scoreboard: fail if #[cfg_attr(not(test), allow(dead_code))] count exceeds the baseline (downward-only ratchet)"
 
+[tasks.failing-test-ratchet]
+run = "python3 scripts/failing_test_ratchet.py"
+description = "Downward-only ratchet: fail if any wildside-cli test fails outside the reviewed baseline (skips when generated assets are absent)"
+
 [tasks.completion-audit]
 run = "cargo run -q -p wildside-cli -- project-status --fail-on-human-blockers"
 description = "Fail until all source-port validation/repro blockers ([?]/[b] rows) are resolved by a human playtest"

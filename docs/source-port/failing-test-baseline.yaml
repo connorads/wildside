@@ -1,0 +1,71 @@
+# Failing-test ratchet baseline for the ungated `wildside-cli` suite (#417).
+#
+# Downward-only: this is the reviewed set of `cargo test -p wildside-cli` tests
+# known to fail on `main`. `scripts/failing_test_ratchet.py` fails the commit if
+# any test fails outside this set (a new regression), and `--update` (the hk
+# `failing-test-ratchet` fix step) drops tests as they are fixed. The set only
+# shrinks; it must never grow.
+#
+# These are grandfathered rot from an ungated suite (#417), NOT accepted
+# behaviour. Remove a test here in the SAME commit that fixes it (or `#[ignore]`s
+# it with a re-derivation note per AGENTS.md). Triage each cluster in #417.
+#
+# libtest emits the `failures:` summary alphabetically sorted, so this list is
+# diff-stable when re-seeded.
+version: 1
+tests:
+  - inspect::tests::generated_later_level_block_lists_include_helmet_prize_entries
+  - native_player::tests::block_destroy_effect_uses_sub_292e_rom_debris_tiles
+  - native_player::tests::build_game_scene_emits_player_sprite_tiles_for_idle_walk_jump_and_fall
+  - native_player::tests::build_scene_animates_floating_diamond_from_local_loc_10396_countdown
+  - native_player::tests::build_scene_draws_circle_of_doom_sprites_from_hud_diamond_rom_tiles
+  - native_player::tests::build_scene_draws_floating_diamond_with_rom_sprite_art
+  - native_player::tests::build_scene_draws_floating_special_icons_with_rom_art
+  - native_player::tests::build_scene_draws_live_prize_block_wobble_from_block_skin_not_terrain
+  - native_player::tests::build_scene_draws_prize_block_wobble_sprite_on_source_frame
+  - native_player::tests::chunked_plane_b_overlay_samples_hscrolled_vdp_column_loc_3050a
+  - native_player::tests::chunked_settled_row_history_replays_loc_30452_columns_into_alias_source_loc_30744
+  - native_player::tests::cold_boot_demo_prize_wobble_draws_at_live_camera_latch_sub_1007a
+  - native_player::tests::cyclone_flight_uses_spin_frame_sub_b270_loc_b2a0
+  - native_player::tests::falling_block_debris_uses_sub_2a4c_rom_tile_after_destroy_handoff
+  - native_player::tests::first_transform_frame_latches_previous_player_visual_state_loc_7c40
+  - native_player::tests::game_hud_diamond_icon_prefers_traced_sub_44dc_offset
+  - native_player::tests::game_scene_places_native_objects_relative_to_camera
+  - native_player::tests::gameplay_render_uses_previous_hud_diamond_page_latch_loc_45ee
+  - native_player::tests::grounded_cyclone_keeps_walk_table_when_not_flying_loc_9600
+  - native_player::tests::grounded_red_stealth_swing_ignores_stale_airborne_slash_counter_loc_76b0_78e8
+  - native_player::tests::iron_knight_attach_hibernate_preserves_pre_sub_a3bc_pose_loc_a276
+  - native_player::tests::iron_knight_resume_climb_uses_sub_a3bc_pose_after_attach_loc_a330
+  - native_player::tests::kid_slope_frame_bank_follows_loc_a13a_fa26_canonical_direction
+  - native_player::tests::kid_slope_frame_phase_uses_walk_visual_accumulator_loc_a13a
+  - native_player::tests::kid_slope_render_flip_accounts_for_predrawn_loc_a13a_banks
+  - native_player::tests::level_complete_handoff_keeps_kid_above_priority_terrain_for_first_frame_loc_c070
+  - native_player::tests::level_complete_reveal_foreground_overrides_priority_hologram_pixels_loc_c21e
+  - native_player::tests::live_level_change_direct_target_refreshes_runtime_block_grid_and_title_card
+  - native_player::tests::live_prize_block_scenario_renders_sub_1007a_wobble_sprite_not_terrain
+  - native_player::tests::loc_7cd0_cyclone_transform_uses_kid_palette_for_old_kid_walk_frame
+  - native_player::tests::loc_b7fa_death_tumble_renderer_uses_engine_position_without_extra_offset
+  - native_player::tests::loc_bc34_damage_flash_keeps_player_visible_and_marks_white_phase
+  - native_player::tests::loc_bc56_damage_flash_mid_cycle_matches_issue289_oracle_samples
+  - native_player::tests::native_scene_builder_uses_asset_backed_commands_for_visible_level1_families
+  - native_player::tests::play_native_cold_load_ingame_stopmusic_suppresses_stale_tank_sfx_issue339
+  - native_player::tests::play_native_death_respawn_stops_level_bgm_before_loader_restart
+  - native_player::tests::play_native_eol_transition_stops_even_after_cue_tracker_cleared
+  - native_player::tests::play_native_eol_transition_stops_scoreboard_before_next_level_bgm
+  - native_player::tests::play_native_title_start_stops_shell_before_level_music
+  - native_player::tests::player_form_change_prefers_transform_sprite_over_placeholder_flash
+  - native_player::tests::player_form_uses_iron_knight_sprite_art_when_helmet_equipped
+  - native_player::tests::prize_block_spawn_flash_uses_loc_102b8_stru_102de_tiles_above_block
+  - native_player::tests::prize_block_wobble_draws_shifted_copied_tile_sub_1007a_issue324
+  - native_player::tests::prize_block_wobble_reuses_base_copy_when_second_slot_is_neighbour_art_sub_1007a
+  - native_player::tests::red_stealth_on_slope_selects_rom_tilted_frame_off_a23c
+  - native_player::tests::red_stealth_slope_frame_phase_uses_walk_visual_accumulator_loc_a13a
+  - native_player::tests::red_stealth_slope_render_flip_accounts_for_predrawn_loc_a13a_banks
+  - native_player::tests::red_stealth_sword_timer_selects_air_slash_rom_frame_sub_b270
+  - native_player::tests::red_stealth_sword_timer_selects_ground_slash_rom_frame_loc_76b0_stru_8b3c
+  - native_player::tests::red_stealth_zero_velocity_slope_still_selects_loc_a13a_frame
+  - native_player::tests::scripted_recording_audio_events_follow_trace_mode_and_sfx_transitions
+  - native_player::tests::transform_hibernate_suppresses_hp_pips_loc_bdc0
+  - native_player::tests::wall_grab_pullup_cooldown_renders_stru_8bb4_rollover_frames
+  - rust_source_context::tests::classifies_blocks_rs_inline_cfg_test_without_swallowing_production
+  - sweep::frames::tests::capture_scenario_frame_uses_published_demo_return_render_latch

@@ -63,6 +63,18 @@ hooks {
                 check = "python3 scripts/dead_code_ratchet.py"
                 fix = "python3 scripts/dead_code_ratchet.py --update"
             }
+            // #417: the ungated wildside-cli suite may only ever shrink its
+            // failing-test set. Own step (not in verify-slice-fast). Mirrors
+            // dead-code-ratchet: check_first = false so the fix always runs and
+            // a fixed test re-stages the shrunk baseline; the fix modifies a
+            // different file than its glob reads, so `stage` names it explicitly.
+            ["failing-test-ratchet"] {
+                glob = List("crates/**/*.rs", "docs/source-port/failing-test-baseline.yaml")
+                stage = List("docs/source-port/failing-test-baseline.yaml")
+                check_first = false
+                check = "python3 scripts/failing_test_ratchet.py"
+                fix = "python3 scripts/failing_test_ratchet.py --update"
+            }
             ["verify-slice-fast"] {
                 glob = List(
                     "crates/**/*.rs",
