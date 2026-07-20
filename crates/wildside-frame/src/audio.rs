@@ -1077,6 +1077,28 @@ pub fn apply_gems_title_execute_objects_to_intro_controller(
     )
 }
 
+/// Clock initial `sub_1B8F4` work through the `sub_1C4EA` palette copy.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_intro_controller_prompt_gfx_to_palette(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_intro_controller_prompt_gfx_to_palette_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock the first title `Mode_Standard -> Palette_to_VRAM` upload.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_mode_standard_palette_to_vram(
@@ -3127,6 +3149,27 @@ mod tests {
             engine.master_clock(),
             10_363_498 * 7,
             "title Execute_Objects dispatch ledger: {execute:?}",
+        );
+
+        let prompt_gfx =
+            apply_gems_title_intro_controller_prompt_gfx_to_palette(&mut engine, execute.cursor)
+                .expect("source-positioned sub_1B8F4 prompt allocation");
+        assert_eq!(
+            prompt_gfx.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 74,
+                raw_cycles: M68kCycleCount::from_raw(964),
+            },
+        );
+        assert_eq!(prompt_gfx.refresh_events, 7);
+        assert_eq!(prompt_gfx.external_wait_cycles.get(), 0);
+        // Oracle enters sub_1C4EA at 10,364,588 after eight refresh events.
+        // Native's earlier entry phase crosses seven refresh boundaries, so
+        // the inherited residue grows by two cycles without missing source.
+        assert_eq!(
+            engine.master_clock(),
+            10_364_476 * 7,
+            "title prompt-GfxObject ledger: {prompt_gfx:?}",
         );
     }
 

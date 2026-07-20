@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 title prompt GfxObject)
+
+- `sub_1B8F4 -> sub_1C54A` now retains 74 instructions / 964 raw cycles
+  through the category-zero GfxObject allocation, all 19 clear iterations,
+  empty-list insertion and six prompt-field writes.
+- Oracle crosses eight refresh boundaries before `sub_1C4EA`; native's
+  earlier phase crosses seven and reaches 10,364,476 versus 10,364,588.
+- NEXT: schedule `sub_1C4EA`, text-worker `sub_DAC`, and the first
+  `sub_1C204 -> loc_1C21E` hibernation.
+
+---
+
 ## 2026-07-20 handoff (#409 title object dispatch)
 
 - The first title `Execute_Objects sub_E12` call now retains 112 instructions

@@ -3804,6 +3804,20 @@ pub fn title_execute_objects_to_intro_controller_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule initial `sub_1B8F4` work through `sub_1C4EA` entry.
+pub fn title_intro_controller_prompt_gfx_to_palette_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| {
+            Some(crate::intro_timing::visit_title_intro_controller_prompt_gfx_to_sub_1c4ea(visit))
+        },
+        &mut advance_hardware,
+    )
+}
+
 fn title_source_routine_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     visit_timing: impl FnOnce(&mut dyn FnMut(u32)) -> Option<crate::intro_timing::IntroSourceTiming>,

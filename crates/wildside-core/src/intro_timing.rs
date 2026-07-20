@@ -230,6 +230,55 @@ pub fn visit_title_execute_objects_to_intro_controller_sub_1b8f4(
     Some(timing)
 }
 
+/// Visit initial `sub_1B8F4` work through entry to `sub_1C4EA`.
+///
+/// The first title controller allocates the fixed Wild Side prompt GfxObject
+/// into an empty execution list before requesting the intro palette copy.
+pub fn visit_title_intro_controller_prompt_gfx_to_sub_1c4ea(
+    mut visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title prompt GfxObject timing fits u32"),
+        );
+    };
+
+    // ASM sub_1B8F4 -> sub_1C54A -> j_Allocate_GfxObjectSlot_a1.
+    for cycles in [18, 12, 18, 10, 6, 18] {
+        emit(cycles);
+    }
+    // ASM Allocate_GfxObjectSlot sub_F6E setup and 19-longword clear.
+    for cycles in [40, 4, 16, 28, 4, 4, 8] {
+        emit(cycles);
+    }
+    for index in 0..19 {
+        emit(12);
+        emit(if index == 18 { 14 } else { 10 });
+    }
+    // Category zero skips the dedicated category heads. The global GfxObject
+    // execution list is empty, so loc_FD4 falls straight through loc_FE6.
+    for cycles in [12, 10, 4, 12, 16, 16, 8, 12, 16, 10, 28, 16, 44, 16] {
+        emit(cycles);
+    }
+    // Restore a1, return to sub_1C54A, initialise its six visible fields, and
+    // return to sub_1B8F4's BSR.W sub_1C4EA.
+    for cycles in [6, 16, 16, 16, 16, 16, 16, 16, 18] {
+        emit(cycles);
+    }
+
+    timing
+}
+
 /// Destination selected by a 68000-to-VDP DMA command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryToVdpDmaTarget {
@@ -586,6 +635,26 @@ mod tests {
             cycles[cycles.len() - 12..],
             [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16],
             "ASM loc_E1E dispatches the sole awake controller into sub_1B8F4",
+        );
+    }
+
+    #[test]
+    fn title_intro_controller_allocates_prompt_gfx_before_palette_copy() {
+        let mut cycles = Vec::new();
+        let timing =
+            visit_title_intro_controller_prompt_gfx_to_sub_1c4ea(|cycle| cycles.push(cycle));
+
+        assert_eq!(timing.instruction_count, 74);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(964));
+        assert_eq!(
+            cycles.iter().filter(|&&cycle| cycle == 12).count(),
+            23,
+            "ASM sub_F6E retains all 19 clear writes plus its surrounding 12-cycle operations",
+        );
+        assert_eq!(
+            &cycles[cycles.len() - 9..],
+            &[6, 16, 16, 16, 16, 16, 16, 16, 18],
+            "ASM sub_1C54A initialises the prompt then calls sub_1C4EA",
         );
     }
 

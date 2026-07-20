@@ -600,6 +600,17 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: initial `sub_1B8F4 -> sub_1C54A` prompt allocation is
+source-scheduled through entry to `sub_1C4EA`. Its 74 instructions / 964 raw
+cycles retain the category-zero `Allocate_GfxObjectSlot sub_F6E` path, all
+19 longword-clear iterations, empty global-list insertion, and the six
+prompt GfxObject field writes. Oracle crosses eight refresh boundaries in
+the interval. Native's earlier phase crosses seven, reaching cycle
+10,364,476 versus oracle 10,364,588; this explains the extra two-cycle
+residue without a fitted correction. NEXT: schedule `sub_1C4EA`, the text
+worker's `Allocate_ObjectSlot sub_DAC`, and `sub_1C204 -> loc_1C21E` first
+hibernate, then return through `Execute_Objects`.
+
 Progress 2026-07-20: the first title `Execute_Objects sub_E12` dispatch is
 now source-scheduled into `sub_1B8F4`. The visitor starts from the observed
 RNG offset `$FFCD`, retains all four `Get_RandomNumber_byte sub_9FE` branch
