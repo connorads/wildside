@@ -600,6 +600,23 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: the first title `Execute_Objects sub_E12` dispatch is
+now source-scheduled into `sub_1B8F4`. The visitor starts from the observed
+RNG offset `$FFCD`, retains all four `Get_RandomNumber_byte sub_9FE` branch
+decisions, and takes the sole live, awake controller through
+`loc_E1E -> loc_E3E`. The complete handoff is 112 instructions / 1,276 raw
+cycles; the existing independent `execute_objects_setup_cycles_sub_e12`
+aggregate confirms the RNG prefix is 1,088 of those cycles.
+
+The selected-PC oracle interval from `$790` to `sub_1B8F4` consists exactly
+of 1,276 source cycles, ten refresh events, and 52 GEMS waits. Native derives
+the source and refresh work but its established undocumented-X/Y SUB phase
+defect omits those waits, reaching cycle 10,363,498 versus oracle
+10,363,608. The prior 58-cycle residue therefore grows to 110 for a traced
+reason, not a fitted constant. NEXT: schedule initial `sub_1B8F4` work
+through `sub_1C54A`, `sub_1C4EA`, allocation and the first `sub_1C204`
+hibernate, then return through `Execute_Objects`.
+
 Progress 2026-07-20: the title's empty foreground queues now carry a
 source-scheduled `sub_1596` path. Both next-slot pointers are zero, so its
 nine instructions / 142 raw cycles take the branches to `loc_1686`, skip all

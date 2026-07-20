@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 title object dispatch)
+
+- The first title `Execute_Objects sub_E12` call now retains 112 instructions
+  / 1,276 raw cycles through four `sub_9FE` RNG-byte calls and the sole live,
+  awake controller dispatch into `sub_1B8F4`.
+- The oracle `$790 -> sub_1B8F4` interval is exactly 1,276 source + 20 refresh
+  + 52 GEMS wait cycles. Native reaches 10,363,498 versus 10,363,608; its
+  residue grows from 58 to 110 solely because of the known GEMS phase defect.
+- NEXT: schedule initial `sub_1B8F4` work through `sub_1C54A`, `sub_1C4EA`,
+  allocation and the first `sub_1C204` hibernation.
+
+---
+
 ## 2026-07-20 handoff (#409 title empty foreground queues)
 
 - The title `sub_1596` state has both foreground next-slot pointers zero.

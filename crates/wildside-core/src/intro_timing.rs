@@ -133,6 +133,103 @@ pub fn visit_mode_standard_empty_foreground_queues_sub_1596(
     timing
 }
 
+/// Visit the first title `Execute_Objects` call up to `sub_1B8F4`.
+///
+/// The title RNG offset is already initialised and the sole controller object
+/// is awake with Samurai haze clear. The visitor retains all four
+/// `Get_RandomNumber_byte sub_9FE` branch decisions before the list dispatch.
+pub fn visit_title_execute_objects_to_intro_controller_sub_1b8f4(
+    rng_offset_before: u16,
+    mut visit: impl FnMut(u32),
+) -> Option<IntroSourceTiming> {
+    if !crate::RomRandomFrameState::offset_is_initialised(rng_offset_before) {
+        return None;
+    }
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut offset = rng_offset_before as i16;
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title Execute_Objects source timing fits u32"),
+        );
+    };
+
+    let mut visit_byte = |emit: &mut dyn FnMut(u32)| {
+        // ASM Get_RandomNumber_byte sub_9FE. The two conditional paths are
+        // derived from the live ring offset, not from an elapsed-cycle fit.
+        for cycles in [12, 12, 8, 12, 4] {
+            emit(cycles);
+        }
+        offset += 1;
+        if offset == 0 {
+            for cycles in [8, 4] {
+                emit(cycles);
+            }
+            offset = -55;
+        } else {
+            emit(10);
+        }
+        for cycles in [12, 12, 8] {
+            emit(cycles);
+        }
+        if offset >= -31 {
+            for cycles in [8, 8] {
+                emit(cycles);
+            }
+            offset -= 55;
+        } else {
+            emit(10);
+        }
+        for cycles in [12, 4, 8, 8, 8, 12, 12, 16] {
+            emit(cycles);
+        }
+    };
+    let mut visit_word = |emit: &mut dyn FnMut(u32)| {
+        for cycles in [18, 10] {
+            emit(cycles);
+        }
+        visit_byte(emit);
+        for cycles in [12, 18, 10] {
+            emit(cycles);
+        }
+        visit_byte(emit);
+        for cycles in [12, 12, 16] {
+            emit(cycles);
+        }
+    };
+
+    // ASM Mode_Standard $790, Execute_Objects sub_E12, and the
+    // j_Get_RandomNumber_long/Get_RandomNumber_long sub_A4A shells.
+    for cycles in [18, 18, 10, 18, 10] {
+        emit(cycles);
+    }
+    visit_word(&mut emit);
+    for cycles in [12, 18, 10] {
+        emit(cycles);
+    }
+    visit_word(&mut emit);
+    // sub_A4A epilogue, then Execute_Objects saves its caller stack and loads
+    // the object-list head address before loc_E1E.
+    for cycles in [16, 16, 12, 12] {
+        emit(cycles);
+    }
+
+    // ASM loc_E1E -> loc_E3E: the sole controller is live and awake.
+    for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
+        emit(cycles);
+    }
+
+    Some(timing)
+}
+
 /// Destination selected by a 68000-to-VDP DMA command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryToVdpDmaTarget {
@@ -468,6 +565,28 @@ mod tests {
             "ASM sub_1596 title path must skip both drains and reset both next-slot pointers",
         );
         assert_eq!(cycles, [18, 8, 12, 10, 12, 10, 28, 28, 16]);
+    }
+
+    #[test]
+    fn title_execute_objects_retains_rng_and_single_controller_dispatch() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_execute_objects_to_intro_controller_sub_1b8f4(0xFFCD, |cycle| {
+            cycles.push(cycle);
+        })
+        .expect("frame-81 title RNG offset is initialised");
+
+        assert_eq!(timing.instruction_count, 112);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(1_276));
+        assert_eq!(
+            crate::mode_level_timing::execute_objects_setup_cycles_sub_e12(0xFFCD),
+            Some(M68kCycleCount::from_raw(1_088)),
+            "ASM sub_E12 setup aggregate independently checks the instruction visitor",
+        );
+        assert_eq!(
+            cycles[cycles.len() - 12..],
+            [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16],
+            "ASM loc_E1E dispatches the sole awake controller into sub_1B8F4",
+        );
     }
 
     #[test]

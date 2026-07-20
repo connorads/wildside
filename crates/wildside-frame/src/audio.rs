@@ -1053,6 +1053,30 @@ pub fn apply_gems_title_mode_standard_empty_foreground_queues(
     )
 }
 
+/// Clock the first title object dispatch into `sub_1B8F4`.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_execute_objects_to_intro_controller(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_execute_objects_to_intro_controller_cursor_with_scheduler(
+        entry,
+        rng_offset_before,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock the first title `Mode_Standard -> Palette_to_VRAM` upload.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_mode_standard_palette_to_vram(
@@ -3078,6 +3102,31 @@ mod tests {
             engine.master_clock(),
             10_362_202 * 7,
             "title empty-foreground-queue ledger: {foreground_queues:?}",
+        );
+
+        let execute = apply_gems_title_execute_objects_to_intro_controller(
+            &mut engine,
+            foreground_queues.cursor,
+            0xFFCD,
+        )
+        .expect("source-positioned title Execute_Objects dispatch");
+        assert_eq!(
+            execute.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 112,
+                raw_cycles: M68kCycleCount::from_raw(1_276),
+            },
+        );
+        assert_eq!(execute.refresh_events, 10);
+        assert_eq!(execute.external_wait_cycles.get(), 0);
+        // Oracle enters sub_1B8F4 at 10,363,608. Its interval consists of
+        // 1,276 source cycles, 20 refresh cycles, and 52 GEMS waits. Native's
+        // established X/Y SUB phase defect omits those waits, increasing the
+        // inherited residue from 58 to 110 cycles without missing source work.
+        assert_eq!(
+            engine.master_clock(),
+            10_363_498 * 7,
+            "title Execute_Objects dispatch ledger: {execute:?}",
         );
     }
 

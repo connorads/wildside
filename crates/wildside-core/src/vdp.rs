@@ -3767,7 +3767,7 @@ pub fn title_mode_standard_do_nothing_cursor_with_scheduler(
 ) -> Option<TitleIntroSourceAdvance> {
     title_source_routine_cursor_with_scheduler(
         entry,
-        |visit| crate::intro_timing::visit_mode_standard_do_nothing(visit),
+        |visit| Some(crate::intro_timing::visit_mode_standard_do_nothing(visit)),
         &mut advance_hardware,
     )
 }
@@ -3779,14 +3779,34 @@ pub fn title_mode_standard_empty_foreground_queues_cursor_with_scheduler(
 ) -> Option<TitleIntroSourceAdvance> {
     title_source_routine_cursor_with_scheduler(
         entry,
-        |visit| crate::intro_timing::visit_mode_standard_empty_foreground_queues_sub_1596(visit),
+        |visit| {
+            Some(crate::intro_timing::visit_mode_standard_empty_foreground_queues_sub_1596(visit))
+        },
+        &mut advance_hardware,
+    )
+}
+
+/// Co-schedule the first title `Execute_Objects` dispatch into `sub_1B8F4`.
+pub fn title_execute_objects_to_intro_controller_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| {
+            crate::intro_timing::visit_title_execute_objects_to_intro_controller_sub_1b8f4(
+                rng_offset_before,
+                visit,
+            )
+        },
         &mut advance_hardware,
     )
 }
 
 fn title_source_routine_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
-    visit_timing: impl FnOnce(&mut dyn FnMut(u32)) -> crate::intro_timing::IntroSourceTiming,
+    visit_timing: impl FnOnce(&mut dyn FnMut(u32)) -> Option<crate::intro_timing::IntroSourceTiming>,
     advance_hardware: &mut dyn FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<TitleIntroSourceAdvance> {
     let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
@@ -3812,7 +3832,7 @@ fn title_source_routine_cursor_with_scheduler(
         external_wait_cycles = external_wait_cycles
             .checked_add(generated_wait)
             .expect("title source-routine wait count fits u32");
-    });
+    })?;
     if scheduling_failed {
         return None;
     }
