@@ -3836,6 +3836,18 @@ pub fn title_intro_palette_copy_to_text_object_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule the text-worker allocation through `sub_1C204` entry.
+pub fn title_text_object_allocation_to_fade_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| Some(crate::intro_timing::visit_title_text_object_allocation_to_fade(visit)),
+        &mut advance_hardware,
+    )
+}
+
 fn title_source_routine_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     visit_timing: impl FnOnce(&mut dyn FnMut(u32)) -> Option<crate::intro_timing::IntroSourceTiming>,

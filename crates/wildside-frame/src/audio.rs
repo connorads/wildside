@@ -1121,6 +1121,28 @@ pub fn apply_gems_title_intro_palette_copy_to_text_object(
     )
 }
 
+/// Clock the title text-worker allocation through `sub_1C204` entry.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_text_object_allocation_to_fade(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_text_object_allocation_to_fade_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock the first title `Mode_Standard -> Palette_to_VRAM` upload.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_mode_standard_palette_to_vram(
@@ -3212,6 +3234,27 @@ mod tests {
             engine.master_clock(),
             10_365_698 * 7,
             "title palette-copy ledger: {palette_copy:?}",
+        );
+
+        let text_object =
+            apply_gems_title_text_object_allocation_to_fade(&mut engine, palette_copy.cursor)
+                .expect("source-positioned title text-object allocation");
+        assert_eq!(
+            text_object.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 85,
+                raw_cycles: M68kCycleCount::from_raw(1_064),
+            },
+        );
+        assert_eq!(text_object.refresh_events, 8);
+        assert_eq!(text_object.external_wait_cycles.get(), 0);
+        // Oracle enters sub_1C204 at 10,366,890 after nine refresh events.
+        // Native crosses eight from its different phase, increasing the
+        // explained residue to 112 cycles.
+        assert_eq!(
+            engine.master_clock(),
+            10_366_778 * 7,
+            "title text-object allocation ledger: {text_object:?}",
         );
     }
 

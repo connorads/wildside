@@ -316,6 +316,52 @@ pub fn visit_title_intro_palette_copy_to_text_object_allocation(
     timing
 }
 
+/// Visit the title text-worker `sub_DAC` allocation through `sub_1C204`.
+///
+/// The controller already occupies the Object list. Priority `$FFFF` compares
+/// equal, so the new text worker is inserted after one `loc_DE0` iteration.
+pub fn visit_title_text_object_allocation_to_fade(mut visit: impl FnMut(u32)) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title text-object allocation timing fits u32"),
+        );
+    };
+
+    // ASM Allocate_ObjectSlot sub_DAC setup and 29-longword clear.
+    for cycles in [40, 4, 16, 28, 4, 4, 8] {
+        emit(cycles);
+    }
+    for index in 0..29 {
+        emit(12);
+        emit(if index == 28 { 14 } else { 10 });
+    }
+    for cycles in [16, 16, 16, 8, 12] {
+        emit(cycles);
+    }
+    // ASM loc_DE0 visits the existing controller once. Equal priorities do
+    // not take BHI, then loc_DF2 links the worker after it.
+    for cycles in [16, 8, 4, 4, 12, 8, 4, 28, 16, 44, 16] {
+        emit(cycles);
+    }
+    // ASM sub_1B8F4 initialises code/text/continuation pointers and enters
+    // the shared fade routine sub_1C204.
+    for cycles in [24, 24, 24, 18] {
+        emit(cycles);
+    }
+
+    timing
+}
+
 /// Destination selected by a 68000-to-VDP DMA command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryToVdpDmaTarget {
@@ -710,6 +756,21 @@ mod tests {
             "ASM sub_1C4EA retains its setup plus all 51 palette-word copies",
         );
         assert_eq!(&cycles[cycles.len() - 4..], &[16, 8, 18, 10]);
+    }
+
+    #[test]
+    fn title_text_object_allocation_walks_the_existing_controller_once() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_text_object_allocation_to_fade(|cycle| cycles.push(cycle));
+
+        assert_eq!(timing.instruction_count, 85);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(1_064));
+        assert_eq!(
+            &cycles[70..81],
+            &[16, 8, 4, 4, 12, 8, 4, 28, 16, 44, 16],
+            "ASM loc_DE0 performs one equal-priority insertion-list visit",
+        );
+        assert_eq!(&cycles[cycles.len() - 4..], &[24, 24, 24, 18]);
     }
 
     #[test]

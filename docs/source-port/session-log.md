@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 title text Object)
+
+- The non-empty text-worker `sub_DAC` path now retains 85 instructions /
+  1,064 raw cycles, all 29 clear iterations, one equal-priority controller
+  list visit, insertion and three 24-cycle pointer writes.
+- Oracle crosses nine refresh boundaries before `sub_1C204`; native crosses
+  eight and reaches 10,366,778 versus 10,366,890.
+- NEXT: schedule the `sub_1C204` palette clear, first hibernation and
+  `Execute_Objects` return.
+
+---
+
 ## 2026-07-20 handoff (#409 title intro palette copy)
 
 - `sub_1C4EA` now retains 109 instructions / 1,202 raw cycles through all 51

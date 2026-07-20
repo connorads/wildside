@@ -600,6 +600,16 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: the title text-worker `Allocate_ObjectSlot sub_DAC`
+path is source-scheduled through entry to `sub_1C204`. Its 85 instructions /
+1,064 raw cycles retain all 29 clear iterations, one equal-priority
+`loc_DE0` list visit past the existing controller, insertion, and the three
+24-cycle code/text/continuation pointer writes. Oracle crosses nine refresh
+boundaries; native crosses eight and reaches cycle 10,366,778 versus oracle
+10,366,890, increasing the explained residue to 112 cycles. NEXT: schedule
+`sub_1C204` through its 64-word palette clear, first `loc_1C21E`
+hibernation, and return through `Execute_Objects`.
+
 Progress 2026-07-20: `sub_1C4EA` is source-scheduled through entry to the
 text-worker `Allocate_ObjectSlot sub_DAC`. Its 109 instructions / 1,202 raw
 cycles retain all 51 inclusive `Pal_1C28A` word copies, return to
