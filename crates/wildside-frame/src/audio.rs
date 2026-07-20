@@ -18,7 +18,8 @@ use wildside_core::{
         DecompressToVramTransferAdvance, LoadInGameCpuRasterCursor,
         LoadInGamePlatformInitialisationAdvance, LoadInGamePlatformRefreshLedger,
         LoadInGamePlatformVintEvent, ModeLevelCpuRasterCursor, TitleIntroSourceAdvance,
-        TitlePaletteHardwareEvent, TitlePaletteToVramAdvance, TitleWaitForVintAdvance,
+        TitleMemoryDmaAdvance, TitlePaletteHardwareEvent, TitlePaletteToVramAdvance,
+        TitleWaitForVintAdvance,
     },
 };
 #[cfg(feature = "audio")]
@@ -1054,6 +1055,46 @@ pub fn apply_gems_title_mode_standard_palette_to_vram(
             }
         }
     })
+}
+
+/// Clock the title `Mode_Standard -> Transfer_SpriteAndKidToVRAM` upload.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_mode_standard_sprite_and_kid_to_vram(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleMemoryDmaAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_mode_standard_sprite_and_kid_to_vram_cursor_with_scheduler(
+        entry,
+        |event| match event {
+            TitlePaletteHardwareEvent::Advance {
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            } => {
+                if source_instruction {
+                    audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                        u64::from(cycles.get()) * 7,
+                        vdp_owns_bus,
+                    );
+                } else {
+                    audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                        u64::from(cycles.get()) * 7,
+                        vdp_owns_bus,
+                    );
+                }
+                Some(M68kCycleCount::from_raw(
+                    audio.take_pending_m68k_wait_cycles(),
+                ))
+            }
+            TitlePaletteHardwareEvent::SetZ80BusRequest(requested) => {
+                audio.set_z80_control(requested, false);
+                Some(M68kCycleCount::from_raw(0))
+            }
+        },
+    )
 }
 
 /// Clock a caller and ASM `sub_142CC` up to `DecompressToVRAM loc_14300`.
@@ -2936,6 +2977,29 @@ mod tests {
             10_356_956 * 7,
             "title Palette_to_VRAM ledger: {palette:?}",
         );
+
+        let sprite_and_kid =
+            apply_gems_title_mode_standard_sprite_and_kid_to_vram(&mut engine, palette.cursor)
+                .expect("source-positioned Mode_Standard sprite/Kid transfer");
+        assert_eq!(
+            sprite_and_kid.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 55,
+                raw_cycles: M68kCycleCount::from_raw(796),
+            },
+        );
+        assert_eq!(sprite_and_kid.dma_halt_cycles.get(), 1_531);
+        assert_eq!(sprite_and_kid.external_wait_cycles.get(), 0);
+        assert_eq!(sprite_and_kid.refresh_events, 6);
+        assert!(
+            !engine.checkpoint().busreq,
+            "ASM loc_B36 releases the second Z80 bus request",
+        );
+        // Oracle returns to Mode_Standard $786 at 10,359,325 in the narrow
+        // selected-PC trace. The hardware-faithful lane returns 30 cycles
+        // earlier: oracle's established GEMS flag defect changes the Z80
+        // phase and contributes waits outside both BUSREQ-held windows.
+        assert_eq!(engine.master_clock(), 10_359_295 * 7);
     }
 
     #[cfg(feature = "audio")]

@@ -116,9 +116,9 @@ pub enum MemoryToVdpDmaTarget {
     Vsram,
 }
 
-/// Source-positioned event within `Palette_to_VRAM`.
+/// Source-positioned event within a routine that arbitrates Z80 and VDP DMA.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PaletteToVramTimingEvent {
+pub enum MemoryDmaTimingEvent {
     Instruction(u32),
     SetZ80BusRequest(bool),
     BeginMemoryDma {
@@ -134,16 +134,16 @@ pub enum PaletteToVramTimingEvent {
 /// corresponding register write, while the CRAM DMA begins after the second
 /// VDP command word.
 pub fn visit_mode_standard_palette_to_vram(
-    mut visit: impl FnMut(PaletteToVramTimingEvent),
+    mut visit: impl FnMut(MemoryDmaTimingEvent),
 ) -> IntroSourceTiming {
     let mut timing = IntroSourceTiming {
         instruction_count: 0,
         raw_cycles: M68kCycleCount::from_raw(0),
     };
-    let emit = |visit: &mut dyn FnMut(PaletteToVramTimingEvent),
+    let emit = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
                 timing: &mut IntroSourceTiming,
                 cycles: u32| {
-        visit(PaletteToVramTimingEvent::Instruction(cycles));
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
         timing.instruction_count += 1;
         timing.raw_cycles = M68kCycleCount::from_raw(
             timing
@@ -163,7 +163,7 @@ pub fn visit_mode_standard_palette_to_vram(
     for cycles in [10, 10, 20] {
         emit(&mut visit, &mut timing, cycles);
     }
-    visit(PaletteToVramTimingEvent::SetZ80BusRequest(true));
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(true));
     for cycles in [20, 8, 16] {
         emit(&mut visit, &mut timing, cycles);
     }
@@ -172,7 +172,7 @@ pub fn visit_mode_standard_palette_to_vram(
     for cycles in [24, 24, 16, 24, 20, 20] {
         emit(&mut visit, &mut timing, cycles);
     }
-    visit(PaletteToVramTimingEvent::BeginMemoryDma {
+    visit(MemoryDmaTimingEvent::BeginMemoryDma {
         words: 0x40,
         target: MemoryToVdpDmaTarget::Cram,
     });
@@ -181,9 +181,87 @@ pub fn visit_mode_standard_palette_to_vram(
     for cycles in [20, 10, 10, 20] {
         emit(&mut visit, &mut timing, cycles);
     }
-    visit(PaletteToVramTimingEvent::SetZ80BusRequest(false));
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(false));
     // Start_z80 RTS, then Palette_to_VRAM RTS.
     for cycles in [16, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    timing
+}
+
+/// Visit the title path through `Transfer_SpriteAndKidToVRAM`.
+///
+/// The title has a live sprite-table pointer, `$FB49` clear, and a zero first
+/// Kid-art length at `$FF0500`. It therefore performs the fixed 320-word
+/// Sprite_Table DMA, skips the Kid-art DMA loop at `loc_AD4`, then resets the
+/// two producer pointers through `sub_B52`.
+pub fn visit_mode_standard_sprite_and_kid_to_vram(
+    mut visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                timing: &mut IntroSourceTiming,
+                cycles: u32| {
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("sprite/Kid transfer source timing fits u32"),
+        );
+    };
+
+    // ASM Mode_Standard $782; sub_A5C $A5C..$A6C live-pointer path.
+    for cycles in [18, 16, 14, 12, 4, 18] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    // ASM loc_A70 -> Stop_z80.
+    for cycles in [20, 10, 10, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(true));
+    for cycles in [20, 8, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    // ASM dma68kToVDP Sprite_Table,$1000,$280,VRAM.
+    for cycles in [24, 24, 16, 24, 20, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::BeginMemoryDma {
+        words: 0x140,
+        target: MemoryToVdpDmaTarget::Vram,
+    });
+
+    // Start_z80 immediately followed by a second Stop_z80.
+    for cycles in [20, 10, 10, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(false));
+    for cycles in [16, 20, 10, 10, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(true));
+    for cycles in [20, 8, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    // ASM $AAC..loc_B36: clear title Kid list and take zero-length exit.
+    for cycles in [12, 12, 16, 4, 10, 12, 4, 12, 8, 8, 10] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    // ASM loc_B36 -> Start_z80.
+    for cycles in [20, 10, 10, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(false));
+    // Start_z80 RTS; JSR.W sub_B52 and its pointer-reset body; outer RTS.
+    for cycles in [16, 18, 12, 12, 16, 12, 16, 16, 16] {
         emit(&mut visit, &mut timing, cycles);
     }
 
@@ -284,17 +362,44 @@ mod tests {
         assert_eq!(
             events
                 .iter()
-                .filter(|event| !matches!(event, PaletteToVramTimingEvent::Instruction(_)))
+                .filter(|event| !matches!(event, MemoryDmaTimingEvent::Instruction(_)))
                 .copied()
                 .collect::<Vec<_>>(),
             [
-                PaletteToVramTimingEvent::SetZ80BusRequest(true),
-                PaletteToVramTimingEvent::BeginMemoryDma {
+                MemoryDmaTimingEvent::SetZ80BusRequest(true),
+                MemoryDmaTimingEvent::BeginMemoryDma {
                     words: 0x40,
                     target: MemoryToVdpDmaTarget::Cram,
                 },
-                PaletteToVramTimingEvent::SetZ80BusRequest(false),
+                MemoryDmaTimingEvent::SetZ80BusRequest(false),
             ],
+        );
+    }
+
+    #[test]
+    fn sprite_and_kid_transfer_retains_dma_and_zero_list_path() {
+        let mut events = Vec::new();
+        let timing = visit_mode_standard_sprite_and_kid_to_vram(|event| events.push(event));
+
+        assert_eq!(timing.instruction_count, 55);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(796));
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| !matches!(event, MemoryDmaTimingEvent::Instruction(_)))
+                .copied()
+                .collect::<Vec<_>>(),
+            [
+                MemoryDmaTimingEvent::SetZ80BusRequest(true),
+                MemoryDmaTimingEvent::BeginMemoryDma {
+                    words: 0x140,
+                    target: MemoryToVdpDmaTarget::Vram,
+                },
+                MemoryDmaTimingEvent::SetZ80BusRequest(false),
+                MemoryDmaTimingEvent::SetZ80BusRequest(true),
+                MemoryDmaTimingEvent::SetZ80BusRequest(false),
+            ],
+            "ASM sub_A5C title path brackets both Z80 stops around one sprite DMA",
         );
     }
 }

@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 title sprite/Kid DMA)
+
+- `Transfer_SpriteAndKidToVRAM $A5C` now retains the verified title path's
+  55 instructions / 796 raw cycles, two independent Z80 bus holds, and one
+  fixed 320-word Sprite_Table VRAM DMA.
+- `$FB49` is clear and `$FF0500` begins with a zero Kid-art length, so the
+  source takes `loc_AD4 -> loc_B36` without another DMA, then `sub_B52`
+  resets both producer pointers.
+- The shared DMA scheduler derives 1,531 halted ticks and six refresh events.
+  Native returns at 10,359,295 versus narrow-oracle 10,359,325; the remaining
+  GEMS-phase residue lies outside both BUSREQ-held windows.
+- NEXT: schedule scroll DMA, `sub_1596`, and `Execute_Objects sub_E12 ->
+  sub_1B8F4`.
+
+---
+
 ## 2026-07-20 handoff (#409 title palette DMA)
 
 - `Palette_to_VRAM $970` now retains 22 instruction boundaries / 362 raw

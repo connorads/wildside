@@ -600,6 +600,24 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: `Transfer_SpriteAndKidToVRAM $A5C` is now
+source-scheduled for the verified title state. The typed visitor takes the
+live `Addr_NextSpriteSlot` path, retains 55 instructions / 796 raw cycles,
+brackets both `Stop_z80` calls independently, and starts the fixed 320-word
+Sprite_Table VRAM DMA only after its second command word. `$FB49` is clear
+and the first Kid-art length at `$FF0500` is zero, so `loc_AD4` takes the
+source exit without inventing a Kid-art DMA before `sub_B52` resets both
+producer pointers.
+
+The shared memory-to-VDP scheduler derives 1,531 DMA-halted ticks, six refresh
+events, and no hardware-faithful GEMS wait while the two BUSREQ windows cover
+the transfer. Native returns to `Mode_Standard $786` at cycle 10,359,295;
+the narrow oracle trace returns at 10,359,325. The 30-cycle residue is outside
+both bus-held windows, where the established jgenesis undocumented-X/Y SUB
+defect changes live GEMS instruction phase and wait generation. NEXT:
+source-schedule `Transfer_ScrollDataToVRAM`, `sub_1596`, and `Execute_Objects
+sub_E12 -> sub_1B8F4`; do not fit the measured scroll interval.
+
 Progress 2026-07-20: `Palette_to_VRAM $970` is now source-scheduled from
 the `Mode_Standard $77E` call through both Z80 arbitration thunks and its
 64-word CRAM DMA. The typed visitor retains 22 instructions / 362 raw cycles,

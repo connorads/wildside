@@ -3234,9 +3234,9 @@ impl PlatformArtFifoScheduler {
     }
 }
 
-/// Hardware action emitted while scheduling `Palette_to_VRAM`.
+/// Hardware action emitted while scheduling a title memory-DMA routine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TitlePaletteHardwareEvent {
+pub enum TitleMemoryDmaHardwareEvent {
     Advance {
         cycles: M68kCycleCount,
         vdp_owns_bus: bool,
@@ -3245,15 +3245,18 @@ pub enum TitlePaletteHardwareEvent {
     SetZ80BusRequest(bool),
 }
 
-/// CPU/raster result from `Palette_to_VRAM $970` through its RTS.
+/// CPU/raster result from one title memory-DMA routine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TitlePaletteToVramAdvance {
+pub struct TitleMemoryDmaAdvance {
     pub cursor: LoadInGameCpuRasterCursor,
     pub timing: crate::intro_timing::IntroSourceTiming,
     pub refresh_events: u32,
     pub external_wait_cycles: M68kCycleCount,
     pub dma_halt_cycles: M68kCycleCount,
 }
+
+pub type TitlePaletteHardwareEvent = TitleMemoryDmaHardwareEvent;
+pub type TitlePaletteToVramAdvance = TitleMemoryDmaAdvance;
 
 fn advance_decompress_to_vram_source_instruction(
     raw_cycles: u32,
@@ -3806,6 +3809,32 @@ pub fn title_mode_standard_palette_to_vram_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     mut advance_hardware: impl FnMut(TitlePaletteHardwareEvent) -> Option<M68kCycleCount>,
 ) -> Option<TitlePaletteToVramAdvance> {
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        |visit| crate::intro_timing::visit_mode_standard_palette_to_vram(visit),
+        &mut advance_hardware,
+    )
+}
+
+/// Co-schedule the title `Transfer_SpriteAndKidToVRAM` call.
+pub fn title_mode_standard_sprite_and_kid_to_vram_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        |visit| crate::intro_timing::visit_mode_standard_sprite_and_kid_to_vram(visit),
+        &mut advance_hardware,
+    )
+}
+
+fn title_memory_dma_routine_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    visit_timing: impl FnOnce(
+        &mut dyn FnMut(crate::intro_timing::MemoryDmaTimingEvent),
+    ) -> crate::intro_timing::IntroSourceTiming,
+    advance_hardware: &mut dyn FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
     let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
     let mut phase = entry.refresh_phase;
     let mut refresh_events = 0_u32;
@@ -3813,14 +3842,14 @@ pub fn title_mode_standard_palette_to_vram_cursor_with_scheduler(
     let mut dma_halt_cycles = 0_u32;
     let mut scheduling_failed = false;
 
-    let timing = crate::intro_timing::visit_mode_standard_palette_to_vram(|event| {
+    let timing = visit_timing(&mut |event| {
         if scheduling_failed {
             return;
         }
         match event {
-            crate::intro_timing::PaletteToVramTimingEvent::Instruction(raw_cycles) => {
+            crate::intro_timing::MemoryDmaTimingEvent::Instruction(raw_cycles) => {
                 let mut advance = |cycles, vdp_owns_bus, source_instruction| {
-                    advance_hardware(TitlePaletteHardwareEvent::Advance {
+                    advance_hardware(TitleMemoryDmaHardwareEvent::Advance {
                         cycles,
                         vdp_owns_bus,
                         source_instruction,
@@ -3840,19 +3869,19 @@ pub fn title_mode_standard_palette_to_vram_cursor_with_scheduler(
                     .checked_add(generated_wait)
                     .expect("Palette_to_VRAM external waits fit u32");
             }
-            crate::intro_timing::PaletteToVramTimingEvent::SetZ80BusRequest(requested) => {
-                if advance_hardware(TitlePaletteHardwareEvent::SetZ80BusRequest(requested))
+            crate::intro_timing::MemoryDmaTimingEvent::SetZ80BusRequest(requested) => {
+                if advance_hardware(TitleMemoryDmaHardwareEvent::SetZ80BusRequest(requested))
                     .is_none_or(|wait| wait.get() != 0)
                 {
                     scheduling_failed = true;
                 }
             }
-            crate::intro_timing::PaletteToVramTimingEvent::BeginMemoryDma { words, target } => {
+            crate::intro_timing::MemoryDmaTimingEvent::BeginMemoryDma { words, target } => {
                 fifo.begin_memory_dma(words, target);
                 while fifo.memory_dma_active() {
                     let tick = M68kCycleCount::from_raw(1);
                     fifo.advance_m68k_cycles(tick);
-                    let Some(wait) = advance_hardware(TitlePaletteHardwareEvent::Advance {
+                    let Some(wait) = advance_hardware(TitleMemoryDmaHardwareEvent::Advance {
                         cycles: tick,
                         vdp_owns_bus: true,
                         source_instruction: false,
@@ -3866,7 +3895,7 @@ pub fn title_mode_standard_palette_to_vram_cursor_with_scheduler(
                     }
                     dma_halt_cycles = dma_halt_cycles
                         .checked_add(1)
-                        .expect("Palette_to_VRAM DMA halt fits u32");
+                        .expect("title memory-DMA halt fits u32");
                     // Pinned jgenesis resets the 68000 refresh counter while
                     // `Vdp::should_halt_cpu` owns the bus. The counter remains
                     // zero until normal instruction execution resumes.
@@ -3879,7 +3908,7 @@ pub fn title_mode_standard_palette_to_vram_cursor_with_scheduler(
         return None;
     }
 
-    Some(TitlePaletteToVramAdvance {
+    Some(TitleMemoryDmaAdvance {
         cursor: LoadInGameCpuRasterCursor {
             beam: fifo.beam,
             refresh_phase: phase,
