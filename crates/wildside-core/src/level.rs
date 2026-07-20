@@ -4566,10 +4566,7 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
     };
 
     // ASM loc_11C7E main dispatch loop.
-    loop {
-        let Some(type_word) = read(&mut pos) else {
-            break;
-        };
+    while let Some(type_word) = read(&mut pos) {
         if type_word == 0xFFFF {
             break;
         }

@@ -2507,8 +2507,7 @@ fn warm_oracle_cache(
     // Group levels into batches for parallel oracle runs.
     // Oracle processes are I/O-heavy (emulator), so parallelism helps.
     let batch_size = std::thread::available_parallelism()
-        .map(std::num::NonZero::get)
-        .unwrap_or(4)
+        .map_or(4, std::num::NonZero::get)
         .min(8); // cap at 8 to avoid thrashing
 
     for chunk in levels.chunks(batch_size) {

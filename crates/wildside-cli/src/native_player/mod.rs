@@ -21204,13 +21204,13 @@ mod tests {
         diagnostics.record_queued_frame(AUDIO_SAMPLES_PER_FRAME * 2, 0);
         diagnostics.record_queue_prime();
         diagnostics.record_queue_resume();
-        diagnostics.record_frame_timing(Duration::from_micros(12_000), FRAME_TIME);
+        diagnostics.record_frame_timing(Duration::from_millis(12), FRAME_TIME);
         diagnostics.record_generated_frame(AUDIO_SAMPLES_PER_FRAME * 2);
         diagnostics.record_backlog_frame(2);
         diagnostics.record_backlog_full_frame(2);
         diagnostics.record_queue_clear();
         diagnostics.record_queue_prime();
-        diagnostics.record_frame_timing(Duration::from_micros(20_000), FRAME_TIME);
+        diagnostics.record_frame_timing(Duration::from_millis(20), FRAME_TIME);
 
         let lines = diagnostics.into_lines();
         assert!(

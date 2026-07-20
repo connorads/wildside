@@ -667,7 +667,7 @@ pub fn verify_tas(
                 .len()
                 .min(oracle.frame_crcs.len())
                 .saturating_sub(start);
-            println!("  player/camera CRC: all {compared_frames} frames match in {start}..{end}",);
+            println!("  player/camera CRC: all {compared_frames} frames match in {start}..{end}");
         }
         mismatch
     } else {

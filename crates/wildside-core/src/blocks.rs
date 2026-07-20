@@ -4440,10 +4440,11 @@ impl NativeRuntime {
             if let Some((entry, reveal)) = hidden_entry
                 .filter(|entry| entry.block_type == 0x04)
                 .and_then(|entry| {
-                    self.block_list
-                        .as_ref()
-                        .and_then(|list| list.hidden_block_reveal_sub_E3C6(entry))
-                        .map(|reveal| (entry, reveal))
+                    Some(entry).zip(
+                        self.block_list
+                            .as_ref()
+                            .and_then(|list| list.hidden_block_reveal_sub_E3C6(entry)),
+                    )
                 })
             {
                 // ASM loc_E19E/loc_E1BC (kid.asm:17588,17603): type-$04

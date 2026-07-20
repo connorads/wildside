@@ -16550,7 +16550,7 @@ mod chunk_12 {
             0,
         );
 
-        assert!(slice.player.on_ground, "loc_A984: Kid should land on floor",);
+        assert!(slice.player.on_ground, "loc_A984: Kid should land on floor");
         assert_eq!(
             slice.player.x_velocity, 0,
             "loc_A984: x_vel should remain zero (standing-still path via sub_78E8 + loc_75D4)",
@@ -25847,7 +25847,7 @@ mod chunk_12 {
         ];
         for &(d7, expected_nz) in cases {
             let nz = d7 != 0; // tst.w d7 sets Z when d7==0
-            assert_eq!(nz, expected_nz, "loc_B51E: d7={d7} → NZ={expected_nz}",);
+            assert_eq!(nz, expected_nz, "loc_B51E: d7={d7} → NZ={expected_nz}");
         }
     }
 

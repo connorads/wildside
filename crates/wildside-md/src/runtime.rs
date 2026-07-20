@@ -1690,10 +1690,8 @@ impl Z80Bus {
                 }
             }
             2 => shared.ym2612_port_latches[1] = Some(0x0100 + u16::from(value)),
-            3 => {
-                if shared.ym2612_port_latches[1] == Some(0x0128) {
-                    shared.ym2612_key_on_count = shared.ym2612_key_on_count.saturating_add(1);
-                }
+            3 if shared.ym2612_port_latches[1] == Some(0x0128) => {
+                shared.ym2612_key_on_count = shared.ym2612_key_on_count.saturating_add(1);
             }
             _ => {}
         }
@@ -1921,10 +1919,7 @@ impl AudioMixer {
     }
 
     fn apply_events_up_to(&mut self, z80_cycles: u64) {
-        loop {
-            let Some(event) = self.pending_events.front().copied() else {
-                break;
-            };
+        while let Some(event) = self.pending_events.front().copied() {
             if event.z80_cycles() > z80_cycles {
                 break;
             }

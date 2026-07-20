@@ -2956,8 +2956,8 @@ impl ActiveEnemy {
                 // at `$3A(a5)` synced to the parent before collision dispatch.
                 let attachment = scorpion_tail_sync_loc_3dc86(self.x_pos, self.y_pos, self.facing);
                 (
-                    u32::from(attachment.x_word as u16) << 16,
-                    u32::from(attachment.y_word as u16) << 16,
+                    u32::from(attachment.x_word) << 16,
+                    u32::from(attachment.y_word) << 16,
                     0,
                     Some(self.facing),
                 )

@@ -26156,7 +26156,7 @@ mod chunk_10 {
             "ASM loc_3C00C: move.l #$FFFF8000,$26(a4)",
         );
         let secondary = result.secondary.expect("Driller must have secondary");
-        assert_eq!(secondary.y_pos, 0x00B0, "ASM loc_3C00C: move.w d5,$1E(a2)",);
+        assert_eq!(secondary.y_pos, 0x00B0, "ASM loc_3C00C: move.w d5,$1E(a2)");
         assert_eq!(
             secondary.x_velocity, 0x8000,
             "ASM loc_3C00C: move.l #$8000,$26(a2)",
@@ -34767,8 +34767,7 @@ mod native_level_terrain_decoder {
                 .join("collision")
                 .join(filename),
         )
-        .map(|t| t.len())
-        .unwrap_or(256)
+        .map_or(256, |t| t.len())
     }
 
     /// `theme_collision_table_loc_11C36` reads the FULL ROM contiguous region:
