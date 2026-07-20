@@ -391,6 +391,11 @@ sh -ec '
 FILE=${FILE:?usage: FILE=<module.rs> mise run mutants-file}
 STEM=${FILE%.rs}
 OUTPUT=${OUTPUT:-.cache/mutants/${STEM}}
+# Stripped agent shells (Codex, Claude Code) launch without launchd's TMPDIR.
+# cargo-mutants copies the tree to a scratch dir and runs dependency build.rs
+# there; an empty TMPDIR makes Rust env::temp_dir() return "" and those builds
+# fail. Force a valid dir. Only defaults when unset/empty; a real TMPDIR is
+# left untouched.
 TMPDIR=${TMPDIR:-/tmp}
 export TMPDIR
 rm -rf "$OUTPUT/mutants.out" "$OUTPUT/mutants.out.old"
