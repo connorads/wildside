@@ -81,6 +81,14 @@
           "changed_pixels": 2387
         }
       },
+      "full_expected_gems_frame_comparison": {
+        "compared_frames": 37759,
+        "mismatch_count": 37759,
+        "oracle_limitation_count": 0,
+        "advisory_only_frames": 0,
+        "mismatch_digest": "b233b35aefd107dbad059de270a79802b5a70eb8",
+        "first_mismatch_frame": 0
+      },
       "status": "verified"
     },
     "issue305_fast_action_gameplay_probe": {
