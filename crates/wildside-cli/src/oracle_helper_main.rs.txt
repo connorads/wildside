@@ -339,6 +339,8 @@ struct OracleManifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     frame_rng_states: Vec<Option<wildside_core::RomRandomFrameState>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    gems_frame_signatures: Vec<Option<wildside_core::GemsFrameSignature>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     memory_watches: Vec<HashMap<String, i64>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     vdp_pixel_samples: Vec<OracleVdpPixelSampleRow>,
@@ -711,6 +713,7 @@ fn main() -> Result<()> {
     let mut vdp_fifo_commit_address_range_spec = String::new();
     let mut m68k_pc_trace_spec = String::new();
     let mut capture_gems_state = false;
+    let mut capture_gems_frame_signature = false;
     let mut capture_cpu_state = false;
     let mut capture_settle_trace = false;
     let mut capture_rng_stream = false;
@@ -733,6 +736,7 @@ fn main() -> Result<()> {
             "--vdp-fifo-commit-address-range" => vdp_fifo_commit_address_range_spec = args.next().unwrap_or_default(),
             "--m68k-pc-trace" => m68k_pc_trace_spec = args.next().unwrap_or_default(),
             "--capture-gems-state" => capture_gems_state = true,
+            "--capture-gems-frame-signature" => capture_gems_frame_signature = true,
             "--capture-cpu-state" => capture_cpu_state = true,
             "--capture-settle-trace" => capture_settle_trace = true,
             "--capture-rng-stream" => capture_rng_stream = true,
@@ -760,7 +764,7 @@ fn main() -> Result<()> {
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     match mode {
         OutputMode::Capture => {
-            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, &vdp_fifo_commit_frames, vdp_fifo_commit_address_range, &m68k_pc_trace, capture_gems_state, capture_cpu_state, capture_settle_trace, capture_rng_stream)?;
+            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, &vdp_fifo_commit_frames, vdp_fifo_commit_address_range, &m68k_pc_trace, capture_gems_state, capture_gems_frame_signature, capture_cpu_state, capture_settle_trace, capture_rng_stream)?;
         }
         OutputMode::EnemyLayoutTrace => {
             run_enemy_layout_trace(&rom, &resolved)?;
@@ -830,7 +834,7 @@ fn resolve_scenario(
     }
 }
 
-fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], vdp_fifo_commit_frames: &[usize], vdp_fifo_commit_address_range: Option<(u32, u32)>, m68k_pc_trace: &[u32], capture_gems_state: bool, capture_cpu_state: bool, capture_settle_trace: bool, capture_rng_stream: bool) -> Result<()> {
+fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], vdp_fifo_commit_frames: &[usize], vdp_fifo_commit_address_range: Option<(u32, u32)>, m68k_pc_trace: &[u32], capture_gems_state: bool, capture_gems_frame_signature: bool, capture_cpu_state: bool, capture_settle_trace: bool, capture_rng_stream: bool) -> Result<()> {
     let mut checkpoint_index = 0usize;
     let mut save_writer = NullSaveWriter;
     let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
@@ -844,6 +848,10 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     let mut frame_rng_states = capture_rng_stream
         .then(|| Vec::with_capacity(resolved.frame_count))
         .unwrap_or_default();
+    let mut gems_frame_signatures: Vec<Option<wildside_core::GemsFrameSignature>> =
+        capture_gems_frame_signature
+            .then(|| Vec::with_capacity(resolved.frame_count))
+            .unwrap_or_default();
     let mut all_memory_watches: Vec<HashMap<String, i64>> = Vec::new();
     let mut all_vdp_pixel_samples: Vec<OracleVdpPixelSampleRow> = Vec::new();
     let mut all_vdp_fifo_commits: Vec<OracleVdpFifoCommitRow> = Vec::new();
@@ -1081,6 +1089,37 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                     // player_1_level_id excluded: demo-mode timing artefact.
                     frame_crcs.push(crc_hasher.finalize());
 
+                    // Per-frame GEMS/Z80 signature at the same FrameRendered
+                    // boundary as frame_crcs: the VDP has just entered
+                    // scanline 232 (VBlank start 224 + 8 bottom-border
+                    // lines), quantised to the end of the 68000 instruction
+                    // quantum that crossed it. The 8 KiB driver RAM never
+                    // leaves the helper — only its CRC32 does.
+                    if capture_gems_frame_signature {
+                        let checkpoint = emulator.debug().wildside_gems_checkpoint_now();
+                        let pending_m68k_wait_cycles =
+                            emulator.debug().wildside_m68k_wait_cpu_cycles();
+                        let mut ram_crc = crc32fast::Hasher::new();
+                        ram_crc.update(&checkpoint.audio_ram);
+                        gems_frame_signatures.push(Some(wildside_core::GemsFrameSignature {
+                            audio_ram_crc32: ram_crc.finalize(),
+                            bank_address: checkpoint.bank_number << 15,
+                            z80_pc: checkpoint.z80_pc,
+                            z80_mclk_counter: checkpoint.z80_mclk_counter,
+                            z80_wait_mclk_cycles: checkpoint.z80_wait_mclk_cycles,
+                            pending_m68k_wait_cycles,
+                            ym2612_mclk_counter: checkpoint.ym2612_mclk_counter,
+                            status_bits: wildside_core::GemsFrameSignature::pack_status_bits(
+                                checkpoint.z80_halt,
+                                checkpoint.z80_busreq,
+                                checkpoint.z80_reset,
+                                checkpoint.vdp_owns_bus,
+                                checkpoint.z80_iff1,
+                                checkpoint.z80_halted,
+                            ),
+                        }));
+                    }
+
                     // Memory watches: read requested addresses from WRAM
                     if !memory_watches.is_empty() {
                         let mut watch_map = HashMap::new();
@@ -1160,6 +1199,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         states: captured_states,
         frame_crcs,
         frame_rng_states,
+        gems_frame_signatures,
         memory_watches: all_memory_watches,
         vdp_pixel_samples: all_vdp_pixel_samples,
         vdp_fifo_commits: all_vdp_fifo_commits,

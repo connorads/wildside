@@ -37,6 +37,7 @@ pub(crate) struct OracleRunOptions {
     pub(crate) vdp_fifo_commit_address_range: Option<String>,
     pub(crate) m68k_pc_trace: Option<String>,
     pub(crate) capture_gems_state: bool,
+    pub(crate) capture_gems_frame_signature: bool,
     pub(crate) capture_cpu_state: bool,
     pub(crate) capture_settle_trace: bool,
     pub(crate) capture_rng_stream: bool,
@@ -107,6 +108,8 @@ pub struct OracleManifest {
     pub frame_crcs: Vec<u32>,
     #[serde(default)]
     pub frame_rng_states: Vec<Option<wildside_core::RomRandomFrameState>>,
+    #[serde(default)]
+    pub gems_frame_signatures: Vec<Option<wildside_core::GemsFrameSignature>>,
     #[serde(default)]
     pub memory_watches: Vec<HashMap<String, i64>>,
     #[serde(default)]
@@ -516,6 +519,9 @@ pub fn run_jgenesis_capture_dynamic_with_options(
     }
     if options.capture_gems_state {
         cmd.arg("--capture-gems-state");
+    }
+    if options.capture_gems_frame_signature {
+        cmd.arg("--capture-gems-frame-signature");
     }
     if options.capture_cpu_state {
         cmd.arg("--capture-cpu-state");
@@ -1152,6 +1158,72 @@ fn patch_jgenesis_gems_checkpoint(jgenesis_dir: &Path) -> Result<()> {
         fs::write(&debug_rs, &debug)
             .with_context(|| format!("failed to write patched {}", debug_rs.display()))?;
     }
+    if !debug.contains("wildside_gems_checkpoint_now") {
+        let final_brace = debug.rfind('}').ok_or_else(|| {
+            anyhow!(
+                "could not find debug API closing brace in {}",
+                debug_rs.display()
+            )
+        })?;
+        debug.insert_str(
+            final_brace,
+            r"    /// GEMS/Z80 machine state at the current 68000 instruction boundary.
+    ///
+    /// Unlike the selected-PC journal, this is callable on demand — the
+    /// per-frame route signature samples it right after `FrameRendered`.
+    #[must_use]
+    pub fn wildside_gems_checkpoint_now(&self) -> crate::api::WildsideGemsCheckpoint {
+        let (audio_ram, bank_number, bank_current_bit, z80_busreq, z80_reset) =
+            self.0.memory.wildside_gems_checkpoint();
+        let (
+            z80_main_registers,
+            z80_alternate_registers,
+            z80_index_registers,
+            z80_t_cycles_wait,
+            z80_stalled,
+            z80_interrupt_mode,
+            z80_interrupt_delay,
+            z80_halted,
+            z80_iff1,
+            z80_iff2,
+        ) = self.0.z80.wildside_gems_checkpoint();
+        crate::api::WildsideGemsCheckpoint {
+            z80_pc: self.0.z80.pc(),
+            z80_main_registers,
+            z80_alternate_registers,
+            z80_index_registers,
+            audio_ram,
+            bank_number,
+            bank_current_bit,
+            z80_mclk_counter: self.0.cycles.z80_mclk_counter,
+            z80_t_cycles_wait,
+            z80_wait_mclk_cycles: self.0.cycles.z80_wait_mclk_cycles,
+            z80_odd_access: self.0.cycles.z80_odd_access,
+            ym2612_mclk_counter: self.0.cycles.ym2612_mclk_counter,
+            z80_halt: self.0.cycles.z80_halt,
+            vdp_owns_bus: self.0.cycles.vdp_owns_bus,
+            z80_busreq,
+            z80_reset,
+            z80_stalled,
+            z80_interrupt_mode,
+            z80_interrupt_delay,
+            z80_halted,
+            z80_iff1,
+            z80_iff2,
+        }
+    }
+
+    /// 68000 wait cycles queued by Z80 banked reads, pending at this boundary.
+    #[must_use]
+    pub fn wildside_m68k_wait_cpu_cycles(&self) -> u32 {
+        self.0.cycles.m68k_wait_cpu_cycles
+    }
+
+",
+        );
+        fs::write(&debug_rs, &debug)
+            .with_context(|| format!("failed to write patched {}", debug_rs.display()))?;
+    }
 
     Ok(())
 }
@@ -1742,6 +1814,63 @@ mod tests {
         assert!(
             source.contains("let (scanline, pixel) = bus.vdp.wildside_beam_position();"),
             "each instruction hit must retain the simultaneous VDP beam position"
+        );
+    }
+
+    #[test]
+    fn helper_gates_per_frame_gems_signature_behind_explicit_capture() {
+        assert!(
+            HELPER_TEMPLATE.contains("--capture-gems-frame-signature")
+                && HELPER_TEMPLATE.contains("wildside_gems_checkpoint_now")
+                && HELPER_TEMPLATE.contains("wildside_m68k_wait_cpu_cycles")
+                && HELPER_TEMPLATE.contains("ram_crc.update(&checkpoint.audio_ram);")
+                && HELPER_TEMPLATE.contains("bank_address: checkpoint.bank_number << 15,"),
+            "per-frame GEMS signatures must stay opt-in, CRC the 8 KiB driver RAM \
+             helper-side, and map the bank register to a 68000 base address"
+        );
+        let source = include_str!("oracle.rs");
+        assert!(
+            source.contains("pub fn wildside_gems_checkpoint_now"),
+            "a fresh oracle patch must expose the on-demand GEMS checkpoint accessor",
+        );
+        assert!(
+            source.contains("pub fn wildside_m68k_wait_cpu_cycles"),
+            "a fresh oracle patch must expose the pending 68000 wait accessor",
+        );
+    }
+
+    #[test]
+    fn oracle_manifest_deserialises_per_frame_gems_signatures() {
+        let manifest: OracleManifest = serde_json::from_value(serde_json::json!({
+            "sample_rate": 44100,
+            "audio_path": "audio.wav",
+            "frames": [],
+            "states": [],
+            "gems_frame_signatures": [null, {
+                "audio_ram_crc32": 0x89AB_CDEFu32,
+                "bank_address": 0x000E_0000,
+                "z80_pc": 0x02AA,
+                "z80_mclk_counter": 8,
+                "z80_wait_mclk_cycles": 49,
+                "pending_m68k_wait_cycles": 11,
+                "ym2612_mclk_counter": 18,
+                "status_bits": 0x30,
+            }],
+        }))
+        .expect("manifest should parse per-frame GEMS signatures");
+
+        assert_eq!(manifest.gems_frame_signatures.len(), 2);
+        assert_eq!(manifest.gems_frame_signatures[0], None);
+        let signature = manifest.gems_frame_signatures[1].expect("captured frame");
+        assert_eq!(signature.audio_ram_crc32, 0x89AB_CDEF);
+        assert_eq!(signature.bank_address, 0x000E_0000);
+        assert_eq!(signature.z80_pc, 0x02AA);
+        assert_eq!(signature.z80_wait_mclk_cycles, 49);
+        assert_eq!(signature.pending_m68k_wait_cycles, 11);
+        assert_eq!(
+            signature.status_bits,
+            wildside_core::GemsFrameSignature::STATUS_IFF1
+                | wildside_core::GemsFrameSignature::STATUS_HALTED,
         );
     }
 

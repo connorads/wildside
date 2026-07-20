@@ -886,6 +886,7 @@ mod tests {
             states: Vec::new(),
             frame_crcs,
             frame_rng_states: Vec::new(),
+            gems_frame_signatures: Vec::new(),
             memory_watches: Vec::new(),
             vdp_pixel_samples: Vec::new(),
             vdp_fifo_commits: Vec::new(),

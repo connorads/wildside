@@ -3168,6 +3168,87 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
+/// Name of the per-frame GEMS/Z80 audio-timing projection compared
+/// native-vs-oracle across a whole TAS route.
+pub const GEMS_FRAME_SIGNATURE_PROJECTION_NAME: &str = "gems_frame_signature_v1";
+
+/// Per-frame GEMS driver state signature (`gems_frame_signature_v1`).
+///
+/// Sampling instant: the oracle helper samples immediately after jgenesis
+/// reports `TickEffect::FrameRendered`. In the pinned jgenesis, that fires
+/// when the VDP enters scanline 232 — `rendered_lines_per_frame() (243) -
+/// top_border (11)`, i.e. VBlank start at scanline 224 plus the 8-line NTSC
+/// bottom border — quantised to the end of the 68000 instruction quantum that
+/// crossed the line. The native extractor therefore samples its persistent
+/// GEMS timing engine 8 scanlines (8 x 3,420 master clocks, jgenesis
+/// `NTSC_BOTTOM_BORDER`) past the scanline-224 VBlank frame boundary. Both
+/// offsets are sourced from the pinned VDP raster geometry, never fitted.
+///
+/// The oracle's residual sub-instruction quantisation cannot be reproduced
+/// without a full 68000, so the two divider phase remainders
+/// (`z80_mclk_counter`, `ym2612_mclk_counter`) are captured but advisory:
+/// the oracle re-samples them at a 68000 instruction boundary and they carry
+/// that boundary's jitter on every frame. All other fields compare strictly.
+///
+/// The self-modifying 8 KiB driver RAM enters only as a CRC32 — raw RAM never
+/// leaves the oracle helper. Deliberately not proven by this projection:
+/// YM2612 register writes, sample-level audio, and intra-frame event ordering.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GemsFrameSignature {
+    /// CRC32 of the full 8 KiB self-modifying GEMS driver RAM.
+    pub audio_ram_crc32: u32,
+    /// Mega Drive Z80 bank register as a 68000 base address (`bank << 15`).
+    pub bank_address: u32,
+    /// Z80 program counter. Strict, but a residual limited to the documented
+    /// jgenesis undocumented-X/Y-flag `SUB` divergence reclassifies as an
+    /// oracle limitation (see `wildside-frame/src/audio.rs`).
+    pub z80_pc: u16,
+    /// Pending master clocks not yet consumed by the Z80 divider (mod 15).
+    /// Advisory: carries the oracle's 68000 instruction-boundary jitter.
+    pub z80_mclk_counter: u64,
+    /// Outstanding banked-access wait (49/50 master-clock ledger remainder).
+    pub z80_wait_mclk_cycles: u64,
+    /// 68000 wait cycles queued by Z80 banked reads (`#409` bank steals).
+    pub pending_m68k_wait_cycles: u32,
+    /// Pending master clocks in the YM2612 scheduler phase (mod 42).
+    /// Advisory: carries the oracle's 68000 instruction-boundary jitter.
+    pub ym2612_mclk_counter: u64,
+    /// Packed machine flags; see the `STATUS_*` bit constants.
+    pub status_bits: u8,
+}
+
+impl GemsFrameSignature {
+    /// Z80 halted by a banked access colliding with VDP bus ownership.
+    pub const STATUS_BUS_HALT: u8 = 1 << 0;
+    /// 68000 BUSREQ holds the Z80 bus.
+    pub const STATUS_BUSREQ: u8 = 1 << 1;
+    /// Z80 RESET line asserted.
+    pub const STATUS_RESET: u8 = 1 << 2;
+    /// VDP owns the 68000 bus (DMA / pending FIFO writes).
+    pub const STATUS_VDP_OWNS_BUS: u8 = 1 << 3;
+    /// Z80 maskable interrupts enabled (IFF1).
+    pub const STATUS_IFF1: u8 = 1 << 4;
+    /// Z80 executed HALT and awaits the VBlank interrupt.
+    pub const STATUS_HALTED: u8 = 1 << 5;
+
+    #[must_use]
+    pub fn pack_status_bits(
+        bus_halt: bool,
+        busreq: bool,
+        reset: bool,
+        vdp_owns_bus: bool,
+        iff1: bool,
+        halted: bool,
+    ) -> u8 {
+        (u8::from(bus_halt) * Self::STATUS_BUS_HALT)
+            | (u8::from(busreq) * Self::STATUS_BUSREQ)
+            | (u8::from(reset) * Self::STATUS_RESET)
+            | (u8::from(vdp_owns_bus) * Self::STATUS_VDP_OWNS_BUS)
+            | (u8::from(iff1) * Self::STATUS_IFF1)
+            | (u8::from(halted) * Self::STATUS_HALTED)
+    }
+}
+
 impl NativeTraceFrame {
     pub const PLAYER_CAMERA_CRC_PROJECTION_NAME: &'static str = "player_camera_progression_v1";
     pub const PLAYER_CAMERA_CRC_FIELDS: &'static [&'static str] = &[
@@ -5536,6 +5617,45 @@ mod tests {
         assert_eq!(NativeTraceFrame::PLAYER_CAMERA_CRC_FIELDS.len(), 11);
         assert!(!NativeTraceFrame::PLAYER_CAMERA_CRC_FIELDS.contains(&"two_player"));
         assert!(!NativeTraceFrame::PLAYER_CAMERA_CRC_FIELDS.contains(&"pixels"));
+    }
+
+    #[test]
+    fn gems_frame_signature_packs_documented_status_bits() {
+        assert_eq!(
+            GEMS_FRAME_SIGNATURE_PROJECTION_NAME,
+            "gems_frame_signature_v1"
+        );
+        assert_eq!(
+            GemsFrameSignature::pack_status_bits(false, false, false, false, false, false),
+            0
+        );
+        assert_eq!(
+            GemsFrameSignature::pack_status_bits(true, true, true, true, true, true),
+            0x3F
+        );
+        assert_eq!(
+            GemsFrameSignature::pack_status_bits(false, false, false, false, true, true),
+            GemsFrameSignature::STATUS_IFF1 | GemsFrameSignature::STATUS_HALTED
+        );
+        assert_eq!(
+            GemsFrameSignature::pack_status_bits(true, false, false, true, false, false),
+            GemsFrameSignature::STATUS_BUS_HALT | GemsFrameSignature::STATUS_VDP_OWNS_BUS
+        );
+
+        let signature = GemsFrameSignature {
+            audio_ram_crc32: 0x1234_5678,
+            bank_address: 0x000E_0000,
+            z80_pc: 0x0793,
+            z80_mclk_counter: 8,
+            z80_wait_mclk_cycles: 0,
+            pending_m68k_wait_cycles: 0,
+            ym2612_mclk_counter: 18,
+            status_bits: GemsFrameSignature::STATUS_IFF1,
+        };
+        let round_trip: GemsFrameSignature =
+            serde_json::from_value(serde_json::to_value(signature).expect("serialise"))
+                .expect("deserialise");
+        assert_eq!(round_trip, signature);
     }
 
     #[test]

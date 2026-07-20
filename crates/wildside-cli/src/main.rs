@@ -2771,6 +2771,7 @@ fn main() -> Result<()> {
                 vdp_fifo_commit_address_range: vdp_fifo_commit_address_range.clone(),
                 m68k_pc_trace: m68k_pc_trace.clone(),
                 capture_gems_state,
+                capture_gems_frame_signature: false,
                 capture_cpu_state,
                 capture_settle_trace,
                 capture_rng_stream: false,
