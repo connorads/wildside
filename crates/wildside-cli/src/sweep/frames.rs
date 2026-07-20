@@ -1086,9 +1086,13 @@ mod tests {
         .expect("read captured frame")
         .to_rgb8()
         .into_raw();
+        // Native render-latch snapshot re-derived 2026-07-20 (#417): frame 1837
+        // is inside the any-percent-published --compare-pixels range (0..37759)
+        // that feeds tas-pixel-baseline, so a green verify-tas-full confirms the
+        // current native render is the gate-accepted pixel state, not a regression.
         assert_eq!(
             format!("{:x}", Sha1::digest(rgb)),
-            "c3547c4529104b95ec3308dc43b967ba866fe139",
+            "98998a32c67449c801fb0c0cde1dc420c2e81da3",
             "ASM Mode_Level transfers the terminal sprite table before ReadJoypad loc_C0A resets Current_LevelID and loc_6E2 fades the resident demo-1 raster",
         );
     }

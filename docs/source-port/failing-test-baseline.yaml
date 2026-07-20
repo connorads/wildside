@@ -67,4 +67,3 @@ tests:
   - native_player::tests::scripted_recording_audio_events_follow_trace_mode_and_sfx_transitions
   - native_player::tests::transform_hibernate_suppresses_hp_pips_loc_bdc0
   - native_player::tests::wall_grab_pullup_cooldown_renders_stru_8bb4_rollover_frames
-  - sweep::frames::tests::capture_scenario_frame_uses_published_demo_return_render_latch
