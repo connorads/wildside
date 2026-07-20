@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409/#416 GEMS route parity pass)
+
+- Industrialised GEMS/Z80 audio-timing verification: `gems_frame_signature_v1`
+  compares a typed per-frame driver signature (audio-RAM CRC32, bank address,
+  Z80 PC, wait ledgers, pending 68000 wait, machine flags) native-vs-oracle
+  across the whole published route, reported like the RNG pass, ratcheted by
+  `tas-gems-baseline` in `verify-tas-full`, and bisectable with
+  `--frontier-kind gems`.
+- Sampling instant pinned against the pinned jgenesis: `FrameRendered` fires
+  at scanline 232 (VBlank 224 + 8 bottom-border lines), quantised to a 68000
+  instruction boundary. The native extractor samples 8 scanlines past each
+  VBlank frame boundary; the two divider phase remainders are advisory
+  because the oracle's instruction-boundary jitter shifts them every frame.
+- Seeded baseline: 37,759/37,759 frames mismatch, first at frame 0
+  (`audio_ram_crc32,z80_pc,status_bits`) — the route replayer's cold-start
+  model and boundary-time command injection differ by construction from the
+  real boot; `coverage.modelled_frames` is declared 0. Unknown audio debt is
+  now a measured, ratcheted number (#416); pixel/CRC/RNG baselines unchanged.
+- Also: satisfied the new Rust 1.96 clippy lints workspace-wide (gate was
+  red on main after the toolchain bump).
+- NEXT for the pass: model the boot cold-start (driver copy at the first
+  `StopMusic`, Z80 reset until then) to move `first_mismatch_frame` off 0;
+  #409's hand-derived title lane continues per its own NOW entry.
+
 ## 2026-07-19 handoff (#409 first WaitForVint poll)
 
 - The outer intro loader return is source-scheduled through

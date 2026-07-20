@@ -453,6 +453,95 @@ From RTS netcode experience, common causes of state divergence:
 
 ---
 
+## GEMS/Z80 Audio-Timing Parity (`gems_frame_signature_v1`)
+
+The audio analogue of the framewise CRC and pixel passes: a per-frame GEMS
+driver state signature compared native-vs-oracle across the whole published
+TAS route, reported in `report.json` (`gems_frame_comparison`), ratcheted by
+`tas-gems-baseline`, and bisectable with `--frontier-kind gems`. It
+industrialises what was previously artisanal — hand-derived cycle ledgers per
+title-screen transfer in `wildside-frame/src/audio.rs` — and turns unknown
+audio-timing debt past the hand-derived frontier into a measured, ratcheted
+baseline. The monotonically advancing `first_mismatch_frame` is #409's
+progress metric.
+
+### Signature contract
+
+Per frame, both sides emit a `wildside_core::GemsFrameSignature`:
+
+| Field | Comparison | Notes |
+|-------|------------|-------|
+| `audio_ram_crc32` | strict | CRC32 of the full self-modifying 8 KiB driver RAM; raw RAM never leaves the oracle helper |
+| `bank_address` | strict | Z80 bank register as 68000 base address (`bank << 15`); #409 bank steals surface here |
+| `z80_pc` | strict + limitation predicate | see the X/Y-flag case below |
+| `z80_wait_mclk_cycles` | strict | outstanding 49/50-master-clock banked-access wait |
+| `pending_m68k_wait_cycles` | strict | 68000 wait queued at the boundary (Z80 bank steals; oracle-side also VDP stalls) |
+| `status_bits` | strict | packed bus-halt / BUSREQ / RESET / VDP-owns-bus / IFF1 / HALTED |
+| `z80_mclk_counter` | advisory | Z80 divider phase remainder (mod 15) |
+| `ym2612_mclk_counter` | advisory | YM2612 scheduler phase remainder (mod 42) |
+
+Deliberately not proven by this projection (declared in the report):
+YM2612 register writes, sample-level audio, and intra-frame event ordering.
+
+### Sampling instant
+
+Pinned against the pinned jgenesis, never fitted:
+
+- The oracle helper samples immediately after `TickEffect::FrameRendered`,
+  which fires when the VDP enters scanline 232 —
+  `rendered_lines_per_frame() (243) - top_border (11)`, i.e. VBlank start at
+  scanline 224 plus the 8-line NTSC bottom border — quantised to the end of
+  the 68000 instruction quantum that crossed the line.
+- The native extractor drives the trace→command audio replayer
+  (`NativeAudioDirector`) with the persistent `GemsMasterClockTimingEngine`
+  as the sink and samples 8 scanlines past each VBlank frame boundary, so
+  both sides sample the same raster line while the native timeline still
+  advances exactly 262 scanlines per frame.
+- The oracle's residual sub-instruction quantisation cannot be reproduced
+  without a full 68000. That jitter shifts the divider phase remainders on
+  every frame regardless of model quality, which is why `z80_mclk_counter`
+  and `ym2612_mclk_counter` are captured and reported but advisory. A
+  fixed-offset divergence appearing in *strict* fields still means the
+  instants differ — fix the instant, never subtract a constant.
+
+### Coverage semantics
+
+The report declares `coverage.modelled_frames`: the edge up to which the
+native per-frame GEMS timeline is *defended* as faithful. It is 0 in v1 —
+the continuous route replayer applies trace-delta commands at frame
+boundaries and advances whole frames, and is not defended at per-frame
+signature granularity anywhere; the title-sequence lane is validated only at
+hand-derived instruction checkpoints. Signatures past the edge are still
+emitted and compared so divergence is measured, not hidden — but never
+claimed as modelled. Known unmodelled-by-construction debt includes the
+cold-start driver state (the route replayer boots with the driver loaded and
+running; the real machine copies it at the first `StopMusic`), command
+injection at frame boundaries rather than true mid-frame queue writes, and
+every 68000↔Z80 interaction (bank steals, FIFO/DMA bus collisions) outside
+the hand-derived adapters.
+
+### Oracle limitation: undocumented X/Y flags
+
+jgenesis preserves the previous undocumented X/Y flag bits for GEMS `SUB 1`
+at `$07B3`; real Z80 hardware (and the native core) copy bits 5/3 from the
+`$FF` result. GEMS serialises AF through its stack, leaving the oracle at PC
+`$02AA` where hardware-faithful execution reaches `$02AE`. A per-frame
+residual reclassifies as `oracle_limitation` only when every other strict
+field is byte-equal and the PC pair is exactly that documented case;
+anything broader stays authoritative.
+
+### Gates
+
+- `verify-tas --compare-gems` computes and reports the comparison.
+- `tas-gems-baseline` ratchets `full_expected_gems_frame_comparison` in
+  `tests/tas_frontier.json` (Match / Improvement exit 3 / Regression exit 1;
+  ranked metrics: `mismatch_count` lower, `first_mismatch_frame` later).
+  Wired into `verify-tas-full`, never `verify-slice-fast`.
+- `verify-tas --bisect --frontier-kind gems` localises the first signature
+  mismatch from one full run (per-frame data needs no binary search).
+
+---
+
 ## Frame-Level Bisection
 
 Binary search within a level to find the exact frame where divergence begins. O(log N) vs O(N) sequential scan.
