@@ -107,7 +107,7 @@ use wildside_core::{
     NativeTraceFrame, PlayerForm, run_script,
 };
 use wildside_data::{
-    AssetManifest, find_enemy_definition, load_level_asset_bundle, pack_bundle_blob,
+    AssetManifest, find_enemy_definition, load_level_asset_bundle, pack_runtime_bundle_blob,
     resource_level_id,
 };
 use wildside_md::{
@@ -2126,7 +2126,7 @@ fn main() -> Result<()> {
             let rom_path = resolve_rom_path(&repo_root, rom)?;
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
-            let blob = pack_bundle_blob(&manifest.output_root)?;
+            let blob = pack_runtime_bundle_blob(&manifest.output_root)?;
             if let Some(parent) = output.parent() {
                 fs::create_dir_all(parent)
                     .with_context(|| format!("failed to create {}", parent.display()))?;

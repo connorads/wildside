@@ -12,8 +12,8 @@ mod asset_source;
 mod bundle_blob;
 mod level_layout;
 
-pub use asset_source::{AssetSource, FsAssetSource, InMemoryAssetSource};
-pub use bundle_blob::{BundleAssetSource, pack_bundle_blob};
+pub use asset_source::{AssetSource, FsAssetSource, InMemoryAssetSource, RecordingAssetSource};
+pub use bundle_blob::{BundleAssetSource, pack_bundle_blob, pack_runtime_bundle_blob};
 
 const COPIED_DIRECTORIES: &[&str] = &[
     "code/enemy",
@@ -40,6 +40,21 @@ const ENIGMA_BIT_MASKS: [u16; 16] = [
     0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F, 0x00FF, 0x01FF, 0x03FF, 0x07FF, 0x0FFF,
     0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF,
 ];
+
+/// Observable asset paths required by the browser runtime.
+///
+/// The catalogue includes existence queries as well as successful reads, so a
+/// runtime bundle packer copies only entries that exist in the generated
+/// source bundle. The web session audit ratchets this list across attract,
+/// audio and every valid logical level slot.
+pub fn runtime_asset_catalogue() -> BTreeSet<PathBuf> {
+    include_str!("../runtime-assets.txt")
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(PathBuf::from)
+        .collect()
+}
 
 fn decoded_level_output_dir(level_id: u8) -> String {
     format!("decoded/level/{level_id:02x}")

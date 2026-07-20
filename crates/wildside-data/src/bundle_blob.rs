@@ -22,7 +22,7 @@
 //! Entries are sorted by path so packing the same bundle twice is
 //! byte-identical (the deploy story diffs blobs by hash).
 
-use crate::{AssetSource, InMemoryAssetSource};
+use crate::{AssetSource, InMemoryAssetSource, runtime_asset_catalogue};
 use anyhow::{Context, Result, bail, ensure};
 use std::path::{Path, PathBuf};
 
@@ -34,6 +34,22 @@ const BLOB_MAGIC: &[u8; 8] = b"WSBNDL01";
 pub fn pack_bundle_blob(root: &Path) -> Result<Vec<u8>> {
     let mut paths = Vec::new();
     collect_files(root, root, &mut paths)?;
+    pack_selected_paths(root, paths)
+}
+
+/// Serialise the checked browser runtime catalogue from a generated bundle.
+///
+/// Catalogue entries that are only negative [`AssetSource::exists`] queries
+/// are absent from the source and remain absent from the blob.
+pub fn pack_runtime_bundle_blob(root: &Path) -> Result<Vec<u8>> {
+    let paths = runtime_asset_catalogue()
+        .into_iter()
+        .filter(|relative| root.join(relative).is_file())
+        .collect();
+    pack_selected_paths(root, paths)
+}
+
+fn pack_selected_paths(root: &Path, mut paths: Vec<PathBuf>) -> Result<Vec<u8>> {
     ensure!(
         !paths.is_empty(),
         "bundle root {} contains no files to pack",
@@ -219,6 +235,25 @@ mod tests {
     fn packing_is_deterministic() {
         let (dir, blob) = packed_fixture();
         assert_eq!(blob, pack_bundle_blob(dir.path()).expect("repack"));
+    }
+
+    #[test]
+    fn selected_packing_omits_unlisted_files_and_stays_deterministic() {
+        let (dir, _blob) = packed_fixture();
+        let paths = vec![
+            PathBuf::from("scenes/artcomp/Sega_Logo.bin"),
+            PathBuf::from("asset-manifest.json"),
+        ];
+
+        let first = pack_selected_paths(dir.path(), paths.clone()).expect("pack selected");
+        let second = pack_selected_paths(dir.path(), paths).expect("repack selected");
+        let source = BundleAssetSource::from_blob(&first).expect("parse");
+
+        assert_eq!(first, second);
+        assert_eq!(source.len(), 2);
+        assert!(source.exists(Path::new("asset-manifest.json")));
+        assert!(source.exists(Path::new("scenes/artcomp/Sega_Logo.bin")));
+        assert!(!source.exists(Path::new("level/platform_scripts.asm")));
     }
 
     #[test]

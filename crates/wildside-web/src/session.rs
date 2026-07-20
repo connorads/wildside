@@ -264,7 +264,10 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    use wildside_data::{FsAssetSource, manifest_path};
+    use wildside_data::{
+        FsAssetSource, RecordingAssetSource, manifest_path, pack_runtime_bundle_blob,
+        runtime_asset_catalogue,
+    };
 
     /// Locate a cached generated bundle root (any ROM sha1), honouring the
     /// `KID_REPO_ROOT` override the cache-backed integration tests use.
@@ -307,6 +310,74 @@ mod tests {
     }
 
     #[test]
+    fn runtime_asset_catalogue_covers_attract_audio_and_every_level_boot() {
+        let Some(root) = cached_generated_root() else {
+            return;
+        };
+        let recorder = RecordingAssetSource::new(Arc::new(FsAssetSource::new(root.clone())));
+        let source: Arc<dyn AssetSource> = Arc::new(recorder.clone());
+
+        let mut attract =
+            WebSession::from_source(source.clone(), None).expect("attract session should boot");
+        attract
+            .enable_audio(48_000)
+            .expect("canonical bundle should contain GEMS sound banks");
+        attract.step(0);
+        let mut requested = recorder.requested_paths();
+
+        let mut booted_levels = 0;
+        for level in 0..126 {
+            let level_recorder =
+                RecordingAssetSource::new(Arc::new(FsAssetSource::new(root.clone())));
+            let level_source: Arc<dyn AssetSource> = Arc::new(level_recorder.clone());
+            if let Ok(mut session) = WebSession::from_source(level_source, Some(level)) {
+                session.step(0);
+                requested.extend(level_recorder.requested_paths());
+                booted_levels += 1;
+            }
+        }
+        assert_eq!(
+            booted_levels, 125,
+            "all canonical logical slots except the invalid 0x41 entry should boot"
+        );
+
+        if std::env::var_os("WILDSIDE_UPDATE_RUNTIME_ASSETS").is_some() {
+            let mut contents = String::from(
+                "# Generated from observable AssetSource requests made while booting the attract\n\
+                 # flow with audio and all 125 valid logical level slots. Keep sorted.\n",
+            );
+            for path in &requested {
+                contents.push_str(&path.to_string_lossy());
+                contents.push('\n');
+            }
+            std::fs::write(
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("../wildside-data/runtime-assets.txt"),
+                contents,
+            )
+            .expect("runtime asset catalogue should write");
+            return;
+        }
+
+        let catalogue = runtime_asset_catalogue();
+        let missing = requested.difference(&catalogue).collect::<Vec<_>>();
+        let unrequested = catalogue.difference(&requested).collect::<Vec<_>>();
+        assert!(
+            missing.is_empty() && unrequested.is_empty(),
+            "runtime asset catalogue drifted\nmissing:\n{}\nunrequested:\n{}",
+            missing
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join("\n"),
+            unrequested
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
+    }
+
+    #[test]
     fn cached_session_audio_enable_generates_latest_device_rate_samples() {
         let Some(mut session) = cached_session(Some(0)) else {
             return;
@@ -328,6 +399,22 @@ mod tests {
             800 * 2,
             "ASM Load_InGame (kid.asm:23623-23629) web audio should drive the shared GEMS director and 48kHz sample clock for one 60Hz frame"
         );
+    }
+
+    #[test]
+    fn cached_runtime_catalogue_bundle_boots_attract_level_and_audio() {
+        let Some(root) = cached_generated_root() else {
+            return;
+        };
+        let blob = pack_runtime_bundle_blob(&root).expect("pack runtime catalogue");
+        let mut attract = WebSession::from_bundle_blob(&blob, None).expect("boot attract");
+        attract.enable_audio(48_000).expect("enable audio");
+        attract.step(0);
+        assert_eq!(attract.audio_samples().len(), 800 * 2);
+
+        let mut level = WebSession::from_bundle_blob(&blob, Some(0)).expect("boot level 0");
+        level.step(0);
+        assert!(level.rgb_frame().iter().any(|byte| *byte != 0));
     }
 
     #[test]

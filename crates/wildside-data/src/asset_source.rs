@@ -11,8 +11,9 @@
 //! [`InMemoryAssetSource`] backs tests now and a fetched-bundle adapter later.
 
 use anyhow::{Context, Result};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 /// Read-only byte source for generated-bundle assets, resolved relative to a
 /// bundle root (`AssetManifest::output_root`).
@@ -111,6 +112,52 @@ impl AssetSource for InMemoryAssetSource {
     }
 }
 
+/// [`AssetSource`] decorator that records every read/existence query.
+///
+/// The web asset audit uses this around a real bundle source to derive and
+/// ratchet the minimal runtime catalogue. Recording is observational only:
+/// results and errors come directly from the wrapped source.
+#[derive(Debug, Clone)]
+pub struct RecordingAssetSource {
+    inner: Arc<dyn AssetSource>,
+    requested: Arc<Mutex<BTreeSet<PathBuf>>>,
+}
+
+impl RecordingAssetSource {
+    pub fn new(inner: Arc<dyn AssetSource>) -> Self {
+        Self {
+            inner,
+            requested: Arc::new(Mutex::new(BTreeSet::new())),
+        }
+    }
+
+    pub fn requested_paths(&self) -> BTreeSet<PathBuf> {
+        self.requested
+            .lock()
+            .expect("recording asset source mutex poisoned")
+            .clone()
+    }
+
+    fn record(&self, rel: &Path) {
+        self.requested
+            .lock()
+            .expect("recording asset source mutex poisoned")
+            .insert(rel.to_path_buf());
+    }
+}
+
+impl AssetSource for RecordingAssetSource {
+    fn read(&self, rel: &Path) -> Result<Vec<u8>> {
+        self.record(rel);
+        self.inner.read(rel)
+    }
+
+    fn exists(&self, rel: &Path) -> bool {
+        self.record(rel);
+        self.inner.exists(rel)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -165,6 +212,25 @@ mod tests {
         assert_eq!(
             source.read(rel).expect("read replaced asset"),
             b"replacement"
+        );
+    }
+
+    #[test]
+    fn recording_source_observes_reads_and_exists_without_changing_results() {
+        let mut files = InMemoryAssetSource::new();
+        files.insert("present.bin", b"bytes".to_vec());
+        let source = RecordingAssetSource::new(Arc::new(files));
+
+        assert!(source.exists(Path::new("present.bin")));
+        assert!(!source.exists(Path::new("missing.bin")));
+        assert_eq!(
+            source.read(Path::new("present.bin")).expect("read"),
+            b"bytes"
+        );
+        assert!(source.read(Path::new("missing.bin")).is_err());
+        assert_eq!(
+            source.requested_paths(),
+            BTreeSet::from([PathBuf::from("missing.bin"), PathBuf::from("present.bin"),])
         );
     }
 }
