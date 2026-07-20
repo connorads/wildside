@@ -1291,6 +1291,77 @@ pub fn bisect_tas(
         scenario.slug, frontier_kind
     );
 
+    if matches!(frontier_kind, crate::sweep::FrontierKind::Gems) {
+        // Per-frame GEMS signatures make binary search unnecessary: one full
+        // run yields the exact first mismatch frame, like the CRC fast path.
+        println!("  computing native GEMS frame signatures ({end} frames)...");
+        let gems_scenario = DynamicScenario {
+            slug: scenario.slug.clone(),
+            script: scenario.script[..end.min(scenario.script.len())].to_vec(),
+            frame_count: end,
+            checkpoints: Vec::new(),
+            start_position: scenario.start_position,
+            start_velocity: scenario.start_velocity,
+            camera_position: scenario.camera_position,
+            playtest_form: scenario.playtest_form,
+            initial_diamond_count: scenario.initial_diamond_count,
+            initial_lives: scenario.initial_lives,
+            warp_to_level: scenario.warp_to_level,
+            settle_oracle_warp: scenario.settle_oracle_warp,
+        };
+        let native_trace = run_native_dynamic_scenario(
+            manifest.clone(),
+            &gems_scenario,
+            NativeDynamicRunOptions::default(),
+        )?;
+        let rom = std::fs::read(rom_path)
+            .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+        let native_signatures =
+            crate::tas_gems::extract_native_gems_frame_signatures(&rom, manifest, &native_trace)?;
+
+        println!("  running oracle for GEMS signature comparison ({end} frames)...");
+        let gems_scenario = crc_oracle_scenario(gems_scenario, end);
+        let run_dir = repo_root
+            .join(".cache/tas-verify")
+            .join(&scenario.slug)
+            .join("bisect");
+        std::fs::create_dir_all(&run_dir)?;
+        let scenario_file = run_dir.join("scenario.json");
+        std::fs::write(&scenario_file, serde_json::to_vec_pretty(&gems_scenario)?)?;
+        let env = crate::oracle::ensure_oracles(repo_root)?;
+        let oracle_dir = run_dir.join("oracle");
+        std::fs::create_dir_all(&oracle_dir)?;
+        let oracle = run_tas_oracle(
+            &env,
+            rom_path,
+            &scenario_file,
+            &oracle_dir,
+            None,
+            false,
+            true,
+        )?;
+
+        let comparison = crate::tas_gems::compare_gems_frame_signatures(
+            &native_signatures,
+            &oracle.gems_frame_signatures,
+            start,
+        );
+        println!();
+        match &comparison.first_mismatch {
+            Some(first) => {
+                println!(
+                    "  RESULT: first GEMS signature mismatch at frame {} ({})",
+                    first.frame_index,
+                    first.diverging_fields.join(","),
+                );
+                println!("    native: {:?}", first.native);
+                println!("    oracle: {:?}", first.oracle);
+            }
+            None => println!("  PASS: {}", comparison.console_summary()),
+        }
+        return Ok(());
+    }
+
     if matches!(frontier_kind, crate::sweep::FrontierKind::Gameplay)
         && scenario.camera_position.is_none()
         && !include_rng

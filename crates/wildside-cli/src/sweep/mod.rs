@@ -83,6 +83,11 @@ pub(crate) const ADVISORY_FIELDS: &[&str] = &[];
 pub(crate) enum FrontierKind {
     Gameplay,
     Enemy,
+    /// GEMS/Z80 audio-timing frontier: bisection keys on the first
+    /// `gems_frame_signature_v1` mismatch (like `first_crc_mismatch` for
+    /// gameplay). Deliberately does NOT reshape checkpoint field-sets —
+    /// state comparison under this kind uses the default (non-enemy) fields.
+    Gems,
 }
 
 /// Position tolerance in FP16.16 units. 6px = 0x0006_0000 accommodates the ±5px

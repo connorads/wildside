@@ -4386,6 +4386,7 @@ fn frontier_kind_arg(kind: sweep::FrontierKind) -> &'static str {
     match kind {
         sweep::FrontierKind::Gameplay => "gameplay",
         sweep::FrontierKind::Enemy => "enemy",
+        sweep::FrontierKind::Gems => "gems",
     }
 }
 
@@ -8506,6 +8507,7 @@ AddrTbl_LevelNames:
             frontier_kind_arg(crate::sweep::FrontierKind::Gameplay),
             "gameplay"
         );
+        assert_eq!(frontier_kind_arg(crate::sweep::FrontierKind::Gems), "gems");
     }
 
     #[test]
