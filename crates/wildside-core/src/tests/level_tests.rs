@@ -5989,6 +5989,27 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level29_recording_warp_resolves_spawn_wall_overlap_loc_75c0() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let trace = ScriptRunner::new(manifest)
+            .warp_to_level(0x29)
+            .settle_recording_warp()
+            .run(&[0; 360], 360);
+
+        for frame_index in [0, 359] {
+            let frame = &trace[frame_index];
+            assert_eq!(
+                (frame.kid_x_pos, frame.camera_x_pos),
+                (Some(0x02A5_0000), 0x0209_0000),
+                "frame {frame_index}: ASM loc_75C0 calls sub_7B30 before the first loc_75D4 hibernate, clearing the Level 0x29 spawn wall overlap before camera convergence",
+            );
+        }
+    }
+
+    #[test]
     fn spawn_probe_inspection_uses_header_pixels_and_span_right_edge() {
         let mut manifest = manifest_with_playable_spawn();
         let header = manifest.levels[0]

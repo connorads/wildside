@@ -19482,6 +19482,14 @@ impl NativeRuntime {
         self.debug_level_entry_suppresses_title_card_live_handoff = true;
         self.recorded_title_card_handoff_delay = true;
         let mut opening_slice = self.level_respawn_slice(level_id);
+        if let Some(grid) = self.block_grid.as_ref() {
+            // ASM loc_75C0 (kid.asm:7700) calls sub_7B30 on the raw header
+            // pose before loc_75D4's camera tick and first hibernate. The
+            // debug title-card path intentionally settles under live gravity,
+            // so apply only that source-ordered spawn overlap correction here
+            // rather than replacing the lifecycle with a floor-snapped slice.
+            Self::resolve_spawn_wall_overlap(&mut opening_slice, grid);
+        }
         // ASM loc_75D4 (kid.asm:7707): the spawn coroutine runs `sub_71E4`
         // once against the fresh header pose before its first hibernate. The
         // live gravity settle that follows only runs post-collision follows,

@@ -196,6 +196,22 @@ to x=$02A50000 (#037/#049; guard
 green), but the sweep's idle warp-settle path lands 5px left — the warp/initial
 entry path misses the wall-overlap resolution the respawn slice applies.
 
+Resolved 2026-07-20. The recording-oracle debug level-skip path deliberately
+kept the raw header pose so Kid could settle under live gravity, but omitted
+the source-ordered `loc_75C0 -> sub_7B30` spawn-overlap correction before
+`loc_75D4`'s first camera tick and hibernate. `begin_debug_level_entry_loc_74e0`
+now applies the shared engine-level overlap resolver without replacing the
+live title-shell lifecycle with a synthetic floor snap.
+
+The new cache-backed recording-warp regression failed at native
+Kid/camera `$02A00000/$02040000` and passes at oracle
+`$02A50000/$02090000` for frames 0 and 359. Existing respawn and bidirectional
+wall-overlap guards remain green. Fresh Level 0x29 state report `1784577500`
+passes both checkpoints with zero differences. Frame report `1784577515`
+reduces the whole-scene shift from 40,822 changed pixels / MAE 34.0 to 1,072 /
+MAE 1.6; the inspected residue is the existing right-edge background seam and
+HUD diamond rendering debt, not Kid/camera state.
+
 ### #430
 
 Kid vertical settle phase (0x52, 7 blockers, empty roster — zero enemies,
@@ -16694,6 +16710,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 429 | [x] | P2 | kid-physics | Debug title-card level entry runs `loc_75C0` spawn-wall overlap correction before live gravity settle and camera follow. | Level 0x29 report `1784577500` state-exact; frame shift removed in `1784577515`; focused guards green. See archive #429. |
 | 428 | [-] | P2 | enemy | Historical census attributed Level 0x64's pre-#403 Tar burst-child lifetime residual after #403 had already corrected it. | Fresh report `1784577126`: Level 0x64 passes state sweep; cache-backed 360-frame schedule regression green. See archive #428. |
 | 418 | [x] | P2 | verification | Sweep-blocker census: `sweep-census` tool + 22-agent attribution classify all 106 blocking diffs of run 1783914264 into owned clusters #419-#433 (0x33 stays with #301). | Census regenerable via `mise run sweep-census`; cluster table + method notes in archive #418. |
 | 415 | [x] | P1 | platforms/enemy | Hoverboard Beach totem platform/carry divergence is absent in the integrated published-TAS state and enemy projections. | 37,759 state/enemy checkpoints exact; frame 7918 roster matches. See archive #415. |

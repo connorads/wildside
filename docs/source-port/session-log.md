@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#429 Level 0x29 spawn overlap parity)
+
+- Reproduced Level 0x29 at Kid/camera `$02A00000/$02040000` versus oracle
+  `$02A50000/$02090000`; pre-fix report `1784577379` had four authoritative
+  differences and a 40,822-pixel whole-scene shift.
+- The recording-oracle debug title-card path preserved the raw header/gravity
+  lifecycle but skipped ASM `loc_75C0 -> sub_7B30` before `loc_75D4`.
+  `begin_debug_level_entry_loc_74e0` now applies the shared spawn-overlap
+  resolver before the leading camera tick. A cache-backed recording regression
+  went red then green; existing respawn and bidirectional overlap guards pass.
+- Fresh state report `1784577500` passes Level 0x29. Frame report `1784577515`
+  drops the visual delta to 1,072 pixels / MAE 1.6; inspection leaves only the
+  existing right-edge background seam and HUD diamond residue. NEXT:
+  `mise run project-status`; no root-caused ready row remains, so take its top
+  open risk.
+
+---
+
 ## 2026-07-20 handoff (#428 stale TarMonster census residual)
 
 - `mise run project-status` selected root-caused #428, but its evidence came
