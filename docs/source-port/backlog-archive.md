@@ -178,6 +178,14 @@ already freed the slot oracle still holds (9v10 objects, 12v13 gfx);
 level_settle is near-clean. Fix is aligning the wall-clamped child's deletion
 frame.
 
+Closed `[-]` 2026-07-20 as stale census attribution, not a current bug. The
+canonical census read historical sweep report `1783914264`; #403's later
+`loc_3263C` collision-fraction correction already moved the wall-clamped child
+deletion to oracle frame 289. The cache-backed 360-frame Level 0x64 regression
+passes on current HEAD, including Object/Gfx transitions at frames 288/289, and
+fresh state sweep report `1784577126` passes Level 0x64 with no blocking
+difference. No gameplay patch is warranted.
+
 ### #429
 
 Kid warp-settle wall nudge (0x29, 4 blockers) — root-caused. kid_x_pos native
@@ -16686,6 +16694,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 428 | [-] | P2 | enemy | Historical census attributed Level 0x64's pre-#403 Tar burst-child lifetime residual after #403 had already corrected it. | Fresh report `1784577126`: Level 0x64 passes state sweep; cache-backed 360-frame schedule regression green. See archive #428. |
 | 418 | [x] | P2 | verification | Sweep-blocker census: `sweep-census` tool + 22-agent attribution classify all 106 blocking diffs of run 1783914264 into owned clusters #419-#433 (0x33 stays with #301). | Census regenerable via `mise run sweep-census`; cluster table + method notes in archive #418. |
 | 415 | [x] | P1 | platforms/enemy | Hoverboard Beach totem platform/carry divergence is absent in the integrated published-TAS state and enemy projections. | 37,759 state/enemy checkpoints exact; frame 7918 roster matches. See archive #415. |
 | 405 | [x] | P2 | verification | TAS reports and gates name the CRC projection and state that it proves neither pixels nor whole state. | Projection contract ratcheted. See archive #405. |

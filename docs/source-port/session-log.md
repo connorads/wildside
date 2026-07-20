@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#428 stale TarMonster census residual)
+
+- `mise run project-status` selected root-caused #428, but its evidence came
+  from historical sweep `1783914264`, while the later #403 fix already aligned
+  `loc_3263C` burst-child collision cleanup with the oracle.
+- Re-read `Tar_Monster.asm` `loc_325E6` through `loc_326DC`. The checked-in
+  cache-backed Level 0x64 regression passes its complete 360-frame Object/Gfx
+  schedule, including the oracle frame-289 deletion.
+- Fresh state sweep report `1784577126` passes Level 0x64. Closed #428 `[-]`
+  without gameplay churn. NEXT: `mise run project-status`; #429 is the remaining
+  root-caused ready item.
+
+---
+
 ## 2026-07-20 handoff (#418 sweep-blocker census: 106 blockers attributed)
 
 - Built the `sweep-census` subcommand (mise `sweep-census`, artefact
