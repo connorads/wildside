@@ -1298,6 +1298,28 @@ pub fn apply_gems_title_first_make_sprites_from_gfx_objects(
     )
 }
 
+/// Clock the first title `sub_14C0` interpolation through frame RTS.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_first_palette_interpolation(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_first_palette_interpolation_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock a caller and ASM `sub_142CC` up to `DecompressToVRAM loc_14300`.
 #[cfg(feature = "audio")]
 pub fn apply_gems_decompress_to_vram_setup_sub_142cc(
@@ -3420,6 +3442,26 @@ mod tests {
             engine.master_clock(),
             10_371_680 * 7,
             "title first sprite-construction ledger: {make_sprites:?}",
+        );
+
+        let palette_interpolation =
+            apply_gems_title_first_palette_interpolation(&mut engine, make_sprites.cursor)
+                .expect("source-positioned first title palette interpolation");
+        assert_eq!(
+            palette_interpolation.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 2_413,
+                raw_cycles: M68kCycleCount::from_raw(19_848),
+            },
+        );
+        assert_eq!(palette_interpolation.refresh_events, 157);
+        assert_eq!(palette_interpolation.external_wait_cycles.get(), 0);
+        // Oracle reaches the Mode_Standard RTS at $7A4 on cycle 10,392,004
+        // after 157 refresh events.
+        assert_eq!(
+            engine.master_clock(),
+            10_391_842 * 7,
+            "title first palette-interpolation ledger: {palette_interpolation:?}",
         );
     }
 

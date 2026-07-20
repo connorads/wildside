@@ -3884,6 +3884,18 @@ pub fn title_first_make_sprites_from_gfx_objects_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule the first title `sub_14C0` interpolation through frame RTS.
+pub fn title_first_palette_interpolation_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| Some(crate::intro_timing::visit_title_first_palette_interpolation(visit)),
+        &mut advance_hardware,
+    )
+}
+
 fn title_source_routine_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     visit_timing: impl FnOnce(&mut dyn FnMut(u32)) -> Option<crate::intro_timing::IntroSourceTiming>,

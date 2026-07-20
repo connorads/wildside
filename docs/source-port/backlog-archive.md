@@ -600,6 +600,15 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: the first title frame is source-scheduled end-to-end
+through the `Mode_Standard $7A4` RTS. The final `sub_14C0` block builds all
+15 signed interpolation steps and processes both `$FFFFFFFF` dirty masks
+through two full 32-colour `sub_1536` passes, retaining 2,413 instructions /
+19,848 raw cycles. Both lanes cross 157 refresh boundaries; native reaches
+10,391,842 versus oracle 10,392,004, preserving the explained 162-cycle GEMS
+residue. NEXT: schedule the next MainGameLoop/WaitForVint/VINT and first
+text-worker frame.
+
 Progress 2026-07-20: the first title `Make_SpritesFromGfxObjects sub_1492`
 call is source-scheduled from `$79C` through return at `$7A0`. The sole
 normal-oriented 62x47 prompt mapping emits four `sub_13C0` SAT entries - two

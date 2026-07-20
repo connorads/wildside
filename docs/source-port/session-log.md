@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 first title frame complete)
+
+- The final `sub_14C0` block retains 2,413 instructions / 19,848 raw cycles,
+  all 15 interpolation steps, and two full 32-colour `sub_1536` passes.
+- Both lanes cross 157 refresh boundaries. Native reaches the `$7A4` RTS at
+  10,391,842 versus oracle 10,392,004, preserving the 162-cycle residue.
+- NEXT: schedule the next MainGameLoop/WaitForVint/VINT and text-worker frame.
+
+---
+
 ## 2026-07-20 handoff (#409 first title sprite construction)
 
 - The first title `Make_SpritesFromGfxObjects sub_1492` call retains 187

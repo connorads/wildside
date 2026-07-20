@@ -597,6 +597,71 @@ pub fn visit_title_first_make_sprites_from_gfx_objects(
     timing
 }
 
+/// Visit the first title `sub_14C0` palette interpolation through frame RTS.
+///
+/// Both 32-bit dirty masks are `$FFFFFFFF` after `sub_1C204`, so the routine
+/// builds all 15 signed interpolation steps and runs the full 32-colour
+/// `sub_1536` body for both palette halves before returning to `$7A4`.
+pub fn visit_title_first_palette_interpolation(mut visit: impl FnMut(u32)) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title palette-interpolation timing fits u32"),
+        );
+    };
+
+    // ASM Mode_Standard $7A0 and sub_14C0 setup through loc_14EE.
+    for cycles in [18, 16, 16, 8, 10, 12, 12, 16, 4, 4, 14, 16, 8, 4, 4] {
+        emit(cycles);
+    }
+    // ASM loc_14EE writes 15 inclusive signed interpolation steps.
+    for index in 0..15 {
+        for cycles in [8, 4, 8, 4] {
+            emit(cycles);
+        }
+        emit(if index == 14 { 14 } else { 10 });
+    }
+    for cycles in [4, 12, 12, 12, 4, 8, 24, 18] {
+        emit(cycles);
+    }
+
+    let emit_full_palette_half = |emit: &mut dyn FnMut(u32)| {
+        // ASM sub_1536: every dirty-mask bit is set, so all 32 colours take
+        // loc_1546 rather than the loc_158E two-byte skip.
+        emit(4);
+        const COLOUR_BODY: [u32; 35] = [
+            8, 8, 8, 8, 6, 8, 4, 4, 4, 4, 4, 8, 14, 4, 4, 14, 4, 4, 14, 4, 4, 4, 8, 14, 14, 4, 14,
+            14, 4, 8, 14, 14, 4, 22, 8,
+        ];
+        for colour in 0..32 {
+            for cycles in COLOUR_BODY {
+                emit(cycles);
+            }
+            emit(if colour == 31 { 14 } else { 10 });
+        }
+        emit(16);
+    };
+    emit_full_palette_half(&mut emit);
+
+    // ASM loc_1518 selects and clears the second dirty mask before falling
+    // through loc_1534 into the second full sub_1536 pass.
+    for cycles in [12, 12, 12, 8, 12, 10, 20] {
+        emit(cycles);
+    }
+    emit_full_palette_half(&mut emit);
+
+    timing
+}
+
 /// Visit `Mode_Standard`'s first `Palette_to_VRAM` call from caller `$77E`.
 ///
 /// ASM `Palette_to_VRAM $970`, `Stop_z80 $E13BC`, and `Start_z80 $E13D0`
@@ -1057,6 +1122,20 @@ mod tests {
                 .count(),
             4,
             "ASM sub_13C0 emits four entries for the 62x47 prompt mapping",
+        );
+    }
+
+    #[test]
+    fn title_first_palette_interpolation_processes_both_full_dirty_masks() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_first_palette_interpolation(|cycle| cycles.push(cycle));
+
+        assert_eq!(timing.instruction_count, 2_413);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(19_848));
+        assert_eq!(
+            cycles.iter().filter(|&&cycle| cycle == 22).count(),
+            64,
+            "ASM sub_1536 writes all 64 colours across both dirty masks",
         );
     }
 
