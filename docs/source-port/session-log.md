@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 first title controller frame)
+
+- `sub_1C204` through `Mode_Standard $794` now retains 149 instructions /
+  1,496 raw cycles, all 64 palette clears, the first controller hibernation,
+  76-cycle register save and null-successor Execute exit.
+- Both lanes cross twelve refresh boundaries. Native returns at 10,368,298
+  versus oracle 10,368,410, preserving the explained 112-cycle residue.
+- NEXT: schedule the remaining `Mode_Standard` calls through RTS, then the
+  next VINT and first text-worker frame.
+
+---
+
 ## 2026-07-20 handoff (#409 title text Object)
 
 - The non-empty text-worker `sub_DAC` path now retains 85 instructions /

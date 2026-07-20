@@ -362,6 +362,56 @@ pub fn visit_title_text_object_allocation_to_fade(mut visit: impl FnMut(u32)) ->
     timing
 }
 
+/// Visit the first `sub_1C204` palette clear through return to `$794`.
+///
+/// After clearing 64 palette words, the controller hibernates for one frame.
+/// Its successor remains null because the equal-priority text worker was
+/// inserted before it, so `loc_E1E` exits `Execute_Objects` immediately.
+pub fn visit_title_first_fade_hibernate_to_mode_standard(
+    mut visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title first-fade timing fits u32"),
+        );
+    };
+
+    // ASM sub_1C204 setup and inclusive 64-word Palette_Buffer_3 clear.
+    for cycles in [4, 12, 12] {
+        emit(cycles);
+    }
+    for index in 0..=0x3F {
+        emit(8);
+        emit(if index == 0x3F { 14 } else { 10 });
+    }
+    // Reset fade state, mark both dirty ranges, and enter the first hibernate.
+    for cycles in [16, 10, 4, 16, 16, 10, 18, 10] {
+        emit(cycles);
+    }
+    // ASM Hibernate_Object_1Frame sub_E76 saves the controller coroutine and
+    // all eight packed registers before resuming the execution-list walk.
+    for cycles in [16, 24, 16, 76, 16, 10] {
+        emit(cycles);
+    }
+    // The current controller has no successor; loc_E58 restores the caller
+    // stack and returns to Mode_Standard $794.
+    for cycles in [12, 10, 16, 16] {
+        emit(cycles);
+    }
+
+    timing
+}
+
 /// Destination selected by a 68000-to-VDP DMA command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryToVdpDmaTarget {
@@ -771,6 +821,25 @@ mod tests {
             "ASM loc_DE0 performs one equal-priority insertion-list visit",
         );
         assert_eq!(&cycles[cycles.len() - 4..], &[24, 24, 24, 18]);
+    }
+
+    #[test]
+    fn title_first_fade_hibernates_controller_then_exits_execute_objects() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_first_fade_hibernate_to_mode_standard(|cycle| cycles.push(cycle));
+
+        assert_eq!(timing.instruction_count, 149);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(1_496));
+        assert_eq!(
+            cycles.iter().filter(|&&cycle| cycle == 8).count(),
+            64,
+            "ASM sub_1C204 retains every Palette_Buffer_3 clear write",
+        );
+        assert_eq!(
+            &cycles[cycles.len() - 10..],
+            &[16, 24, 16, 76, 16, 10, 12, 10, 16, 16],
+            "ASM sub_E76 saves the controller then loc_E1E exits through loc_E58",
+        );
     }
 
     #[test]

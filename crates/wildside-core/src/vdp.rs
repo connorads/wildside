@@ -3848,6 +3848,18 @@ pub fn title_text_object_allocation_to_fade_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule the first `sub_1C204` hibernation through `$794`.
+pub fn title_first_fade_hibernate_to_mode_standard_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| Some(crate::intro_timing::visit_title_first_fade_hibernate_to_mode_standard(visit)),
+        &mut advance_hardware,
+    )
+}
+
 fn title_source_routine_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     visit_timing: impl FnOnce(&mut dyn FnMut(u32)) -> Option<crate::intro_timing::IntroSourceTiming>,

@@ -600,6 +600,17 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: the first title controller frame is source-scheduled
+through `sub_1C204`, `Hibernate_Object_1Frame sub_E76`, and return to
+`Mode_Standard $794`. This final block retains 149 instructions / 1,496 raw
+cycles, all 64 Palette_Buffer_3 clears, dirty-range setup, the 76-cycle
+eight-register coroutine save, and the controller's null-successor
+`loc_E1E -> loc_E58` exit. Both lanes cross twelve refresh boundaries.
+Native returns at cycle 10,368,298 versus oracle 10,368,410, preserving the
+explained 112-cycle residue. NEXT: schedule the remaining title
+`Mode_Standard` calls through RTS, then the next VINT and first text-worker
+frame.
+
 Progress 2026-07-20: the title text-worker `Allocate_ObjectSlot sub_DAC`
 path is source-scheduled through entry to `sub_1C204`. Its 85 instructions /
 1,064 raw cycles retain all 29 clear iterations, one equal-priority

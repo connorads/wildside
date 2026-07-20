@@ -1143,6 +1143,28 @@ pub fn apply_gems_title_text_object_allocation_to_fade(
     )
 }
 
+/// Clock the first `sub_1C204` hibernation through `$794`.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_first_fade_hibernate_to_mode_standard(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_first_fade_hibernate_to_mode_standard_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock the first title `Mode_Standard -> Palette_to_VRAM` upload.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_mode_standard_palette_to_vram(
@@ -3255,6 +3277,26 @@ mod tests {
             engine.master_clock(),
             10_366_778 * 7,
             "title text-object allocation ledger: {text_object:?}",
+        );
+
+        let first_hibernate =
+            apply_gems_title_first_fade_hibernate_to_mode_standard(&mut engine, text_object.cursor)
+                .expect("source-positioned first sub_1C204 hibernation");
+        assert_eq!(
+            first_hibernate.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 149,
+                raw_cycles: M68kCycleCount::from_raw(1_496),
+            },
+        );
+        assert_eq!(first_hibernate.refresh_events, 12);
+        assert_eq!(first_hibernate.external_wait_cycles.get(), 0);
+        // Oracle returns to Mode_Standard $794 at 10,368,410. Both lanes
+        // cross twelve refresh boundaries, preserving the 112-cycle residue.
+        assert_eq!(
+            engine.master_clock(),
+            10_368_298 * 7,
+            "title first-fade hibernation ledger: {first_hibernate:?}",
         );
     }
 
