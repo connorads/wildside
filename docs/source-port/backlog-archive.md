@@ -600,6 +600,15 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: the first title `GfxObjects_MoveAndAnimate sub_1444`
+call is source-scheduled through return to `Mode_Standard $798`. The sole
+prompt GfxObject takes the stationary `GfxObject_Move sub_1120` and
+unanimated `GfxObject_Animate sub_113E` paths, retaining all 25 instructions
+and 306 raw cycles. Oracle crosses two refresh boundaries and returns at
+cycle 10,368,720; native crosses three and returns at 10,368,610, narrowing
+the explained residue from 112 to 110 cycles. NEXT: schedule `ReadJoypad`,
+`Make_SpritesFromGfxObjects`, `sub_14C0`, and the frame RTS.
+
 Progress 2026-07-20: the first title controller frame is source-scheduled
 through `sub_1C204`, `Hibernate_Object_1Frame sub_E76`, and return to
 `Mode_Standard $794`. This final block retains 149 instructions / 1,496 raw

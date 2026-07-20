@@ -412,6 +412,50 @@ pub fn visit_title_first_fade_hibernate_to_mode_standard(
     timing
 }
 
+/// Visit the first title `GfxObjects_MoveAndAnimate sub_1444` call.
+///
+/// The list contains one stationary, unanimated prompt GfxObject. Samurai
+/// haze is clear, so both movement and animation take their inactive paths
+/// before the final null successor returns to `Mode_Standard $798`.
+pub fn visit_title_first_gfx_object_move_and_animate(
+    mut visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title GfxObject timing fits u32"),
+        );
+    };
+
+    // ASM Mode_Standard $794 and sub_1444 through the first live node.
+    for cycles in [18, 12, 8, 8, 16, 8, 4, 18] {
+        emit(cycles);
+    }
+    // ASM GfxObject_Move sub_1120: is_moved is clear.
+    for cycles in [12, 8, 12, 10, 16] {
+        emit(cycles);
+    }
+    // ASM GfxObject_Animate sub_113E: is_animated is clear.
+    for cycles in [18, 12, 12, 12, 12, 10, 12, 16] {
+        emit(cycles);
+    }
+    // ASM loc_144E observes the null successor and returns to $798.
+    for cycles in [10, 16, 10, 16] {
+        emit(cycles);
+    }
+
+    timing
+}
+
 /// Destination selected by a 68000-to-VDP DMA command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryToVdpDmaTarget {
@@ -839,6 +883,25 @@ mod tests {
             &cycles[cycles.len() - 10..],
             &[16, 24, 16, 76, 16, 10, 12, 10, 16, 16],
             "ASM sub_E76 saves the controller then loc_E1E exits through loc_E58",
+        );
+    }
+
+    #[test]
+    fn title_first_gfx_object_takes_stationary_unanimated_paths() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_first_gfx_object_move_and_animate(|cycle| cycles.push(cycle));
+
+        assert_eq!(timing.instruction_count, 25);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(306));
+        assert_eq!(
+            &cycles[8..13],
+            &[12, 8, 12, 10, 16],
+            "ASM GfxObject_Move sub_1120 returns with is_moved clear",
+        );
+        assert_eq!(
+            &cycles[13..21],
+            &[18, 12, 12, 12, 12, 10, 12, 16],
+            "ASM GfxObject_Animate sub_113E returns with is_animated clear",
         );
     }
 

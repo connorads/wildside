@@ -1165,6 +1165,28 @@ pub fn apply_gems_title_first_fade_hibernate_to_mode_standard(
     )
 }
 
+/// Clock the first title `GfxObjects_MoveAndAnimate` call through `$798`.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_first_gfx_object_move_and_animate(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_first_gfx_object_move_and_animate_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock the first title `Mode_Standard -> Palette_to_VRAM` upload.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_mode_standard_palette_to_vram(
@@ -3297,6 +3319,27 @@ mod tests {
             engine.master_clock(),
             10_368_298 * 7,
             "title first-fade hibernation ledger: {first_hibernate:?}",
+        );
+
+        let gfx_move_animate =
+            apply_gems_title_first_gfx_object_move_and_animate(&mut engine, first_hibernate.cursor)
+                .expect("source-positioned first title GfxObject pass");
+        assert_eq!(
+            gfx_move_animate.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 25,
+                raw_cycles: M68kCycleCount::from_raw(306),
+            },
+        );
+        assert_eq!(gfx_move_animate.refresh_events, 3);
+        assert_eq!(gfx_move_animate.external_wait_cycles.get(), 0);
+        // Oracle returns to Mode_Standard $798 at 10,368,720 after two
+        // refresh events. Native crosses three from its different phase,
+        // narrowing the explained residue from 112 to 110 cycles.
+        assert_eq!(
+            engine.master_clock(),
+            10_368_610 * 7,
+            "title first GfxObject pass ledger: {gfx_move_animate:?}",
         );
     }
 

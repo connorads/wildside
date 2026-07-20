@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 first title GfxObject pass)
+
+- The first title `GfxObjects_MoveAndAnimate sub_1444` call retains 25
+  instructions / 306 raw cycles for one stationary, unanimated prompt
+  GfxObject and returns to `Mode_Standard $798`.
+- Oracle crosses two refresh boundaries and returns at 10,368,720; native
+  crosses three and returns at 10,368,610, narrowing the residue to 110 cycles.
+- NEXT: schedule `ReadJoypad`, sprite construction, `sub_14C0`, and frame RTS.
+
+---
+
 ## 2026-07-20 handoff (#409 first title controller frame)
 
 - `sub_1C204` through `Mode_Standard $794` now retains 149 instructions /
