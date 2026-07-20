@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-20 handoff (#409 first title ReadJoypad)
+
+- The first-controller, non-demo `ReadJoypad` path retains 93 instructions /
+  1,130 raw cycles, both port reads, default ABC permutation, edge updates,
+  and both BUSREQ edges through `Mode_Standard $79C`.
+- Oracle returns at 10,369,910 after ten refreshes and two 20-cycle GEMS
+  gaps; native returns at 10,369,758 after nine refreshes and no waits.
+- NEXT: schedule sprite construction, `sub_14C0`, and frame RTS.
+
+---
+
 ## 2026-07-20 handoff (#409 first title GfxObject pass)
 
 - The first title `GfxObjects_MoveAndAnimate sub_1444` call retains 25

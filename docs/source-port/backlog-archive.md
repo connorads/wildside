@@ -600,6 +600,15 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-20: the first title `ReadJoypad` call is source-scheduled
+from `$798` through return at `$79C`. The first-controller, non-demo path
+retains 93 instructions / 1,130 raw cycles, both hardware-port reads, default
+ABC permutation, held/pressed edge updates, and the `sub_914`/`sub_924`
+BUSREQ edges. Oracle crosses ten refresh boundaries plus two 20-cycle GEMS
+phase gaps and returns at 10,369,910. Native crosses nine with no external
+waits and returns at 10,369,758, increasing the explained GEMS residue to 152
+cycles. NEXT: schedule `Make_SpritesFromGfxObjects`, `sub_14C0`, and frame RTS.
+
 Progress 2026-07-20: the first title `GfxObjects_MoveAndAnimate sub_1444`
 call is source-scheduled through return to `Mode_Standard $798`. The sole
 prompt GfxObject takes the stationary `GfxObject_Move sub_1120` and

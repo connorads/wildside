@@ -3952,6 +3952,18 @@ pub fn title_mode_standard_scroll_data_to_vram_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule the first title `ReadJoypad` call through `$79C`.
+pub fn title_first_read_joypad_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        |visit| crate::intro_timing::visit_title_first_read_joypad(visit),
+        &mut advance_hardware,
+    )
+}
+
 fn title_memory_dma_routine_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     visit_timing: impl FnOnce(

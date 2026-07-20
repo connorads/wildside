@@ -1262,6 +1262,20 @@ pub fn apply_gems_title_mode_standard_scroll_data_to_vram(
     )
 }
 
+/// Clock the first title `ReadJoypad` call through `$79C`.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_first_read_joypad(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleMemoryDmaAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_first_read_joypad_cursor_with_scheduler(entry, |event| {
+        Some(apply_gems_title_memory_dma_hardware_event(audio, event))
+    })
+}
+
 /// Clock a caller and ASM `sub_142CC` up to `DecompressToVRAM loc_14300`.
 #[cfg(feature = "audio")]
 pub fn apply_gems_decompress_to_vram_setup_sub_142cc(
@@ -3340,6 +3354,29 @@ mod tests {
             engine.master_clock(),
             10_368_610 * 7,
             "title first GfxObject pass ledger: {gfx_move_animate:?}",
+        );
+
+        let read_joypad = apply_gems_title_first_read_joypad(&mut engine, gfx_move_animate.cursor)
+            .expect("source-positioned first title ReadJoypad");
+        assert_eq!(
+            read_joypad.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 93,
+                raw_cycles: M68kCycleCount::from_raw(1_130),
+            },
+        );
+        assert_eq!(read_joypad.dma_halt_cycles.get(), 0);
+        assert_eq!(read_joypad.refresh_events, 9);
+        assert_eq!(read_joypad.external_wait_cycles.get(), 0);
+        // Oracle returns to Mode_Standard $79C at 10,369,910. This interval
+        // has 1,130 source cycles, ten refresh events, and two 20-cycle Z80
+        // phase gaps. Native crosses nine refresh boundaries and its
+        // established GEMS divergence produces no external wait, increasing
+        // the explained residue to 152 cycles.
+        assert_eq!(
+            engine.master_clock(),
+            10_369_758 * 7,
+            "title first ReadJoypad ledger: {read_joypad:?}",
         );
     }
 

@@ -478,6 +478,87 @@ pub enum MemoryDmaTimingEvent {
     },
 }
 
+/// Visit the first title `ReadJoypad` call from `$798` through `$79C`.
+///
+/// The first-controller, non-demo path reads both hardware ports with the
+/// default ABC mapping. `sub_914` and `sub_924` bracket those reads with Z80
+/// BUSREQ ownership, whose side effects are retained at their source writes.
+pub fn visit_title_first_read_joypad(
+    mut visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                timing: &mut IntroSourceTiming,
+                cycles: u32| {
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title ReadJoypad timing fits u32"),
+        );
+    };
+    let emit_all = |cycles: &[u32],
+                    visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                    timing: &mut IntroSourceTiming| {
+        for &cycle in cycles {
+            emit(visit, timing, cycle);
+        }
+    };
+
+    // ASM $798, ReadJoypad loc_B6C -> sub_914, and Stop_z80 entry.
+    emit_all(
+        &[18, 12, 10, 20, 20, 12, 10, 18, 10, 16, 16, 20],
+        &mut visit,
+        &mut timing,
+    );
+    emit(&mut visit, &mut timing, 20);
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(true));
+    emit_all(&[20, 8, 16], &mut visit, &mut timing);
+
+    // First hardware port and default Permute_ABCButtons return.
+    emit_all(&[16, 12, 18], &mut visit, &mut timing);
+    emit_all(
+        &[12, 4, 4, 8, 10, 8, 12, 4, 4, 8, 8, 4, 4, 16],
+        &mut visit,
+        &mut timing,
+    );
+    emit(&mut visit, &mut timing, 18);
+    emit_all(&[12, 12, 12, 10, 16], &mut visit, &mut timing);
+    emit_all(&[12, 4, 12, 18], &mut visit, &mut timing);
+
+    // Second hardware port and default Permute_ABCButtons return.
+    emit_all(
+        &[12, 4, 4, 8, 10, 8, 12, 4, 4, 8, 8, 4, 4, 16],
+        &mut visit,
+        &mut timing,
+    );
+    emit(&mut visit, &mut timing, 18);
+    emit_all(&[12, 12, 12, 10, 16], &mut visit, &mut timing);
+
+    // ASM sub_924 reaches Start_z80 and releases BUSREQ.
+    emit_all(&[12, 18, 10, 16, 8, 16, 16, 20], &mut visit, &mut timing);
+    emit(&mut visit, &mut timing, 20);
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(false));
+    emit_all(&[16, 16, 12, 10], &mut visit, &mut timing);
+
+    // ASM loc_C4E updates held/pressed edges and loc_C9C selects player one.
+    emit_all(
+        &[
+            12, 12, 4, 12, 16, 20, 12, 12, 4, 12, 16, 20, 12, 10, 20, 20, 16,
+        ],
+        &mut visit,
+        &mut timing,
+    );
+
+    timing
+}
+
 /// Visit `Mode_Standard`'s first `Palette_to_VRAM` call from caller `$77E`.
 ///
 /// ASM `Palette_to_VRAM $970`, `Stop_z80 $E13BC`, and `Start_z80 $E13D0`
@@ -902,6 +983,23 @@ mod tests {
             &cycles[13..21],
             &[18, 12, 12, 12, 12, 10, 12, 16],
             "ASM GfxObject_Animate sub_113E returns with is_animated clear",
+        );
+    }
+
+    #[test]
+    fn title_first_read_joypad_retains_both_bus_request_edges() {
+        let mut events = Vec::new();
+        let timing = visit_title_first_read_joypad(|event| events.push(event));
+
+        assert_eq!(timing.instruction_count, 93);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(1_130));
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, MemoryDmaTimingEvent::SetZ80BusRequest(_)))
+                .count(),
+            2,
+            "ASM sub_914/sub_924 retain Stop_z80 and Start_z80 writes",
         );
     }
 
