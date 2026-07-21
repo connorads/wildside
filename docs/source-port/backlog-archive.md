@@ -802,6 +802,14 @@ are exact. Coverage advances 172 -> 173, with 144 evidence-backed oracle
 limitations and 29 advisory frames. NEXT: resume at frame 173 inside
 byte_26E3D's second `sub_1B2A4` Saxman decoder.
 
+Progress 2026-07-21: the retained first-upload cursor returns to `$1B2B4` and
+selected-PC tracing pins byte_26E3D's `loc_14300` entry at cycle 22,169,873.
+The source decoder crosses VINT and checkpoints frame 173 inside its first
+4 KiB chunk. Raw audio RAM differs only at saved-SP byte `$003E` and active
+VBLINT stack byte `$1A1C`; bank, waits, and flags are exact. Coverage advances
+173 -> 174, with 145 evidence-backed oracle limitations and 29 advisory
+frames. NEXT: upload the retained chunk through `loc_14314` from frame 174.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

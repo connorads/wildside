@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 second title-art decoder)
+
+- Defended GEMS coverage advances to frames 0..173; the frontier is frame 174
+  in byte_26E3D's first `loc_14314` transfer.
+- The retained first-upload cursor reaches the second `sub_1B2A4` call and
+  checkpoints inside its first 4 KiB decoder chunk after VINT.
+- Raw audio RAM confines frame 173 to the established saved-SP and active-stack
+  IRQ residue; bank, waits, and flags are exact.
+- NEXT: upload the retained chunk from frame 174.
+
 ## 2026-07-21 handoff (#416 first title-art upload)
 
 - Defended GEMS coverage advances to frames 0..172; the frontier is frame 173
