@@ -705,6 +705,16 @@ gameplay, RNG, and enemy baselines remain fixed. NEXT: retain the fifth
 
 ---
 
+Progress 2026-07-21: the retained title cursor carries the fourth complete
+`Mode_Standard` palette/VRAM/object pass and twelve ordinary text-delay
+iterations through frame 96. Raw native/oracle RAM proves every residual on
+frames 84..96 is the documented IRQ phase class; the remaining strict fields
+are exact at their source-scheduled checkpoints. Defended coverage advances
+84 -> 97, GEMS mismatches fall 37,675 -> 37,662, 68 evidence-backed oracle
+limitations and 29 advisory frames are recorded, and the first authoritative
+frontier moves to frame 97's intro-controller fade exit. Full pixel, gameplay,
+RNG, and enemy baselines remain fixed. NEXT: retain the controller fade exit.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

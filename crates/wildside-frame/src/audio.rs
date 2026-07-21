@@ -1854,6 +1854,46 @@ pub fn apply_gems_title_ordinary_delay_frame(
     )
 }
 
+/// Clock one complete ordinary title frame while sampling its raster instant.
+///
+/// The title's `FrameRendered` boundary falls inside the repeated
+/// `Mode_Standard -> Do_Nothing` call. The surrounding calls still complete
+/// so the returned cursor can source-schedule the following frame.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_ordinary_delay_frame_with_checkpoint(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    text_delay_before: u8,
+    controller_fade_before: u16,
+    checkpoint_master_clock: u64,
+) -> Option<(TitleIntroSourceAdvance, GemsTimingCheckpoint)> {
+    let gfx = apply_gems_title_first_gfx_object_move_and_animate(audio, entry)?;
+    let joypad = apply_gems_title_first_read_joypad(audio, gfx.cursor)?;
+    let sprites = apply_gems_title_first_make_sprites_from_gfx_objects(audio, joypad.cursor)?;
+    let interpolation = apply_gems_title_first_palette_interpolation(audio, sprites.cursor)?;
+    let poll = apply_gems_title_frame_return_to_wait_for_vint_poll(audio, interpolation.cursor)?;
+    let mode_standard = apply_gems_title_wait_for_vint_to_mode_standard(audio, poll.cursor)?;
+    let (do_nothing, checkpoint) = apply_gems_title_mode_standard_do_nothing_with_checkpoint(
+        audio,
+        mode_standard.cursor,
+        checkpoint_master_clock,
+    )?;
+    let palette = apply_gems_title_mode_standard_palette_to_vram(audio, do_nothing.cursor)?;
+    let sprite_and_kid =
+        apply_gems_title_mode_standard_sprite_and_kid_to_vram(audio, palette.cursor)?;
+    let scroll = apply_gems_title_mode_standard_scroll_data_to_vram(audio, sprite_and_kid.cursor)?;
+    let queues = apply_gems_title_mode_standard_empty_foreground_queues(audio, scroll.cursor)?;
+    let advance = apply_gems_title_text_delay_fade_execute_objects(
+        audio,
+        queues.cursor,
+        rng_offset_before,
+        text_delay_before,
+        controller_fade_before,
+    )?;
+    Some((advance, checkpoint))
+}
+
 /// Clock frame 98 through the title controller's `$0110` fade exit.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_controller_fade_exit_frame(

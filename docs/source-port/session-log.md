@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 ordinary intro text-delay loop)
+
+- Defended GEMS coverage advances to frames 0..96; the authoritative frontier
+  is frame 97 in the intro controller fade exit.
+- The fourth complete palette/VRAM/object pass and twelve ordinary text-delay
+  iterations retain one source cursor across every `FrameRendered` boundary.
+- Raw RAM proves frames 84..96 are either strict-exact or differ only by the
+  documented IRQ phase residue; no coarse signature fitting is involved.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,662, with 68 evidence-backed oracle limitations and 29 advisory frames.
+- NEXT: carry the controller fade exit from frame 97.
+
 ## 2026-07-21 handoff (#416 third complete intro title-frame pass)
 
 - Defended GEMS coverage advances to frames 0..83; the authoritative frontier
