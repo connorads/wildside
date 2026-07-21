@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 second title-art upload)
+
+- Defended GEMS coverage advances to frames 0..174; the frontier is frame 175
+  in byte_26E3D's compacted decoder resume.
+- The first 4 KiB chunk completes its 2,048-word `loc_14314` upload after VINT
+  and retains the compact-and-resume cursor.
+- Raw audio RAM confines frame 174 to one active-stack IRQ residue; bank,
+  waits, and flags are exact.
+- NEXT: resume the compacted decoder from frame 175.
+
 ## 2026-07-21 handoff (#416 second title-art decoder)
 
 - Defended GEMS coverage advances to frames 0..173; the frontier is frame 174

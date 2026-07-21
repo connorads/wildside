@@ -507,7 +507,7 @@ Pinned against the pinned jgenesis, never fitted:
 ### Coverage semantics
 
 The report declares `coverage.modelled_frames`: the edge up to which the
-native per-frame GEMS timeline is *defended* as faithful. It is 174: frames
+native per-frame GEMS timeline is *defended* as faithful. It is 175: frames
 0..137 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
 power-on clears, the blank-display Sega-logo upload, and the first outer
 `Mode_Standard` DMA/VINT pass plus three local `loc_12E6C` iterations, the
@@ -556,8 +556,10 @@ PlaySound`, and the `loc_1B258` VRAM fill. Frame 172 carries byte_2A756 through
 at active VBLINT stack byte `$1A1C`, with bank, waits, and flags exact. Frame
 173 then carries byte_26E3D through its first 4 KiB decoder chunk; raw
 RAM differs only at saved-SP byte `$003E` and active-stack byte `$1A1C`, with
-bank, waits, and flags exact. The first unmodelled boundary is frame 174 in
-that chunk's `loc_14314` transfer.
+bank, waits, and flags exact. Frame 174 uploads that 4 KiB chunk through
+`loc_14314`; raw RAM differs only at active-stack byte `$1A1C`, with bank,
+waits, and flags exact. The first unmodelled boundary is frame 175 in the
+compacted decoder resume.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.

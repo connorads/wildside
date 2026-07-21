@@ -810,6 +810,14 @@ VBLINT stack byte `$1A1C`; bank, waits, and flags are exact. Coverage advances
 173 -> 174, with 145 evidence-backed oracle limitations and 29 advisory
 frames. NEXT: upload the retained chunk through `loc_14314` from frame 174.
 
+Progress 2026-07-21: selected-PC tracing pins byte_26E3D's first `loc_14314`
+entry at cycle 22,295,068. The source transfer uploads all 2,048 words,
+services VINT, checkpoints frame 174 inside the FIFO-paced loop, and retains
+the compact-and-resume cursor. Raw audio RAM differs only at active VBLINT
+stack byte `$1A1C`; bank, waits, and flags are exact. Coverage advances 174 ->
+175, with 146 evidence-backed oracle limitations and 29 advisory frames.
+NEXT: resume the compacted byte_26E3D decoder at frame 175.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

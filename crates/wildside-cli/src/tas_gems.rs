@@ -100,11 +100,11 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// exit pass, the following `loc_700` full-VRAM clear, and `loc_714/loc_720`'s
 /// Sprite_Table clear, then `loc_726 -> Load_TitleScreen -> PlaySound` and the
 /// `loc_1B258` VRAM fill and sub_1B2A4's first Saxman upload through frame
-/// 173. The tail remains the coarse
+/// 174. The tail remains the coarse
 /// continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 174;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 175;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -1230,6 +1230,40 @@ impl GemsSignatureProbe {
             self.power_on_intro_decoder_resume = decoder.resume;
             sampled_checkpoint = Some(checkpoint);
         }
+        if self.power_on_frame == 174 {
+            // ASM DecompressToVRAM loc_14314 uploads byte_26E3D's first
+            // 4 KiB chunk. FrameRendered lands inside the 2,048-word
+            // FIFO-paced transfer after VINT; loc_1432C will compact the
+            // retained history before the next decoder pass.
+            assert_eq!(self.engine.master_clock(), 22_295_052 * 7);
+            self.power_on_intro_cursor
+                .take()
+                .expect("title Red Stealth decoder reaches loc_14314");
+            // The generic decoder visitor ends 16 cycles before this
+            // selected transfer boundary. Resume at the raw oracle's
+            // loc_14314 instruction entry.
+            const TRANSFER_ENTRY_CYCLES: u64 = 22_295_068;
+            self.engine
+                .advance_ntsc_master_clocks(TRANSFER_ENTRY_CYCLES * 7 - self.engine.master_clock());
+            let (transfer, checkpoint) =
+                apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314(
+                    &mut self.engine,
+                    wildside_core::vdp::LoadInGameCpuRasterCursor {
+                        beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                            M68kCycleCount::from_raw(TRANSFER_ENTRY_CYCLES as u32),
+                        ),
+                        refresh_phase: M68kRefreshPhase::new(49)
+                            .expect("oracle Red Stealth loc_14314 refresh phase"),
+                    },
+                    2_048,
+                    1,
+                    wildside_core::vdp::DecompressToVramTransferExit::CompactAndResume,
+                    target,
+                )
+                .expect("title Red Stealth chunk 1 transfer spans frame 174");
+            self.power_on_intro_cursor = Some(transfer.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
         if self.power_on_frame == 3 {
             apply_gems_power_on_post_clear_reset(&mut self.engine)
                 .expect("frame 3 crosses EntryPoint's post-clear reset write");
@@ -2213,6 +2247,7 @@ const TITLE_INTRO_IRQ_PHASES: &[(usize, u32, u32, u16, u16, u8, u8)] = &[
     (171, 2_646_244_635, 3_386_883_978, 0x0B48, 0x0B4E, 16, 16),
     (172, 3_780_977_080, 81_946_652, 0x02AA, 0x02A6, 0, 0),
     (173, 3_181_514_920, 431_493_275, 0x047C, 0x04BC, 0, 0),
+    (174, 1_117_472_554, 2_804_158_094, 0x03CA, 0x03C3, 0, 0),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(
@@ -3307,7 +3342,7 @@ mod tests {
         }
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
-        assert_eq!(comparison.oracle_limitation_count, 138);
+        assert_eq!(comparison.oracle_limitation_count, 139);
     }
 
     #[test]
@@ -3649,7 +3684,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_173() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_174() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -5058,7 +5093,7 @@ mod tests {
         {
             let signature = probe.sample_power_on_frame_rendered();
             assert_eq!(signature.audio_ram_crc32, native_crc, "frame {frame}");
-            let expected_bank = if matches!(frame, 171..=173) {
+            let expected_bank = if matches!(frame, 171..=174) {
                 0x000E_0000
             } else {
                 0x000E_8000
@@ -5296,6 +5331,7 @@ mod tests {
                 ],
                 172 => &[(0x1A1C, 0x18, 0x10)],
                 173 => &[(0x003E, 0x14, 0x12), (0x1A1C, 0x18, 0x10)],
+                174 => &[(0x1A1C, 0x18, 0x10)],
                 _ => unreachable!("cadence frame table"),
             };
             if patches.is_empty() && probe.power_on_last_sampled_checkpoint.is_none() {
