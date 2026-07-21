@@ -507,19 +507,19 @@ Pinned against the pinned jgenesis, never fitted:
 ### Coverage semantics
 
 The report declares `coverage.modelled_frames`: the edge up to which the
-native per-frame GEMS timeline is *defended* as faithful. It is 51: frames
-0..50 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
+native per-frame GEMS timeline is *defended* as faithful. It is 52: frames
+0..51 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
 power-on clears, the blank-display Sega-logo upload, and the first outer
 `Mode_Standard` DMA/VINT pass plus three local `loc_12E6C` iterations, the
-Start exit, and the first thirteen `Pal_FadeOut loc_28C6` palette uploads. A
+Start exit, and the first fourteen `Pal_FadeOut loc_28C6` palette uploads. A
 resumable cursor preserves the two `FrameRendered` samples inside
 `sub_E13DA`, materialising each `loc_E1400` driver byte and `loc_E1406` clear
 when its M68K write instruction starts, including the active one-cycle Z80-RAM
-wait. Frames 16, 19, 20, 22, 25, 28, 30, and 33..50 each have one strict residual from the
+wait. Frames 16, 19, 20, 22, 25, 28, 30, and 33..51 each have one strict residual from the
 documented jgenesis X/Y-flag limitation below. Signatures past the edge are
 still emitted by the coarse
 continuous route replayer and compared so divergence is measured, not hidden,
-but never claimed as modelled. The first unmodelled boundary is frame 51 in
+but never claimed as modelled. The first unmodelled boundary is frame 52 in
 the continuing `Pal_FadeOut` loop.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
@@ -548,6 +548,8 @@ Frame 48 differs only at saved-SP `$003E`, `SBPTACC` `$076C`, and PC phase.
 Frame 49 differs only at `SBPTACC` `$076C` and PC phase.
 Frame 50 differs only at `SBPTACC` `$076C/$076D`, stack byte `$1A1E`, and PC
 phase.
+Frame 51 differs only at `SBPTACC` `$076C/$076D`, stack bytes `$1A1E/$1A1F`,
+and PC phase.
 Later,
 `SUB 1` at `$07B3` leaves the oracle at `$02AA` where hardware reaches `$02AE`.
 A residual reclassifies as `oracle_limitation` only for those exact frame/CRC
