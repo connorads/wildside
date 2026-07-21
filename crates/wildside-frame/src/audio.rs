@@ -5055,6 +5055,7 @@ mod tests {
         assert_eq!(ice.phase_after, M68kRefreshPhase::new(54).unwrap());
         assert_eq!(engine.master_clock(), 21_962_116 * 7);
 
+        let _ = engine.take_banked_68k_reads();
         let fill = apply_gems_title_load_screen_vram_fill_to_sub_1b2a4(
             &mut engine,
             LoadInGameCpuRasterCursor {
@@ -5065,6 +5066,10 @@ mod tests {
             },
         )
         .expect("PlaySound return and loc_1B258 VRAM fill");
+        let fill_reads = engine.take_banked_68k_reads();
+        assert_eq!(fill_reads.len(), 248);
+        assert_eq!(fill_reads[0].master_clock, 153_758_848);
+        assert_eq!(fill_reads[247].master_clock, 154_335_060);
         assert_eq!(fill.timing.instruction_count, 4_102);
         assert_eq!(fill.timing.raw_cycles.get(), 45_150);
         assert_eq!(fill.vint_events, 1);

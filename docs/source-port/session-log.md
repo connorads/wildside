@@ -15,7 +15,9 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   `sub_1B2A4` at 22,048,390 / phase 32.
 - Oracle reaches the same phase at 22,048,445; its selected-PC census records
   39,174 FIFO stalls plus the 44-cycle autovector entry.
-- NEXT: journal banked reads across the fill and explain the 55-cycle residual.
+- The native fill journal pins 248 banked reads, from absolute master clock
+  153,758,848 through 154,335,060.
+- NEXT: add the matching oracle journal and compare collision classification.
 
 ---
 

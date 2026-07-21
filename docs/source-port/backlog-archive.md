@@ -611,6 +611,14 @@ records 39,174 one-cycle FIFO stalls and the 44-cycle autovector entry. The
 banked reads across the fill and account for the residual before scheduling
 `sub_1B2A4`.
 
+Follow-up 2026-07-21: the native regression now retains the complete fill's
+bank-read count and endpoints: 248 accesses from absolute master clock
+153,758,848 through 154,335,060. The remaining discriminator is oracle-side
+collision classification - whether each read lands under VDP ownership and
+halts Z80 or outside ownership and queues an 11-cycle 68000 wait. NEXT: expose
+that ordered oracle journal rather than infer five missing waits from the net
+55-cycle residue.
+
 Progress 2026-07-21: the title restart reaches and completes its frame-171 Ice
 queue exactly. `loc_726` now source-schedules `Initialize_ObjectSlots`,
 `Initialize_GfxObjectSlots`, `sub_8A4`, the `LoadGameModeData` indexed dispatch,
