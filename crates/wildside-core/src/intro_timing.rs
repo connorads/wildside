@@ -783,6 +783,59 @@ pub fn visit_title_intro_sequence1_glyph_start_to_stop_music(
     Some(timing)
 }
 
+/// Visit the frame-139 `StopMusic` return through the first fade `WaitForVint` call.
+///
+/// ASM `loc_1C274 -> j_loc_6E2 -> loc_6E2 -> Pal_FadeOut` resets the stack,
+/// disables the two plane registers, copies both resident palette halves,
+/// seeds the 64-word fade target, and reaches `loc_28C6 -> WaitForVint`.
+pub fn visit_title_stop_music_return_to_first_fade_wait(
+    mut visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title-return fade setup timing fits u32"),
+        );
+    };
+
+    // ASM loc_1C274 -> j_loc_6E2 -> loc_6E2 -> Pal_FadeOut.
+    for cycles in [10, 10, 8, 16, 16, 12, 8, 18] {
+        emit(cycles);
+    }
+    // ASM Pal_FadeOut -> loc_28A6 copies 32 longwords.
+    for cycles in [4, 12, 12] {
+        emit(cycles);
+    }
+    for index in 0..32 {
+        emit(20);
+        emit(if index == 31 { 14 } else { 10 });
+    }
+    // ASM loc_28B8 fills 64 fade-target words from `$FFFFFBCC`.
+    for cycles in [4, 12, 12] {
+        emit(cycles);
+    }
+    for index in 0..64 {
+        emit(8);
+        emit(if index == 63 { 14 } else { 10 });
+    }
+    // ASM loc_28BE -> loc_28DE seeds the fade counter and both dirty masks,
+    // then loc_28C6 calls WaitForVint.
+    for cycles in [16, 10, 4, 16, 16, 10, 18] {
+        emit(cycles);
+    }
+
+    timing
+}
+
 /// Visit frame 115's first `T` glyph and controller-wait dispatches.
 pub fn visit_title_first_glyph_execute_objects(
     rng_offset_before: u16,
@@ -1793,6 +1846,28 @@ mod tests {
             visit_title_intro_sequence1_glyph_start_to_stop_music(0xFFD9, 0x103, b'N', 1, |_| {},)
                 .is_none(),
             "a non-terminal intro counter takes sub_1C278's shorter branch",
+        );
+    }
+
+    #[test]
+    fn title_stop_music_return_initialises_fade_before_waiting() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_stop_music_return_to_first_fade_wait(|cycle| cycles.push(cycle));
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 213,
+                raw_cycles: M68kCycleCount::from_raw(2_364),
+            },
+            "ASM loc_1C274 -> loc_6E2 -> Pal_FadeOut -> loc_28C6",
+        );
+        assert_eq!(cycles.iter().filter(|&&cycle| cycle == 20).count(), 32);
+        assert_eq!(cycles.iter().filter(|&&cycle| cycle == 8).count(), 66);
+        assert_eq!(
+            cycles.iter().filter(|&&cycle| cycle == 14).count(),
+            2,
+            "both DBF loops retain their terminal instruction timing",
         );
     }
 

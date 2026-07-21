@@ -600,6 +600,17 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the persistent title-return timeline reaches
+`Pal_FadeOut`'s first `WaitForVint`. From the native frame-139 reset exit,
+`loc_1C274 -> j_loc_6E2` resets SP, disables both planes, and calls
+`Pal_FadeOut`; its setup copies 32 palette longwords, fills 64 fade-target
+words, seeds `$FFFFF876=$0100`, and marks both palette halves dirty. The
+source block is 213 instructions / 2,364 raw cycles plus 19 refresh events,
+reaching `loc_28C6 -> WaitForVint` at native 18,020,703 / phase 84 versus
+oracle 18,020,976, preserving the known 273-cycle undocumented-flag
+limitation without fitted waits. NEXT: generalise the wait scheduler for a
+`loc_28CA` return, then schedule the first fade iteration.
+
 Correction 2026-07-21: the 273-cycle frame-139 `StopMusic` entry difference
 is not missing native work. The earlier hidden-register trace already proves
 the first causal split is jgenesis preserving stale undocumented Z80 X/Y

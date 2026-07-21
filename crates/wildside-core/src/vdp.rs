@@ -3972,6 +3972,18 @@ pub fn title_intro_sequence1_glyph_start_to_stop_music_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule the title `StopMusic` return through the first fade wait.
+pub fn title_stop_music_return_to_first_fade_wait_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| Some(crate::intro_timing::visit_title_stop_music_return_to_first_fade_wait(visit)),
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule initial `sub_1B8F4` work through `sub_1C4EA` entry.
 pub fn title_intro_controller_prompt_gfx_to_palette_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,

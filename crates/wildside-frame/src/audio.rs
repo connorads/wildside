@@ -1313,6 +1313,28 @@ pub fn apply_gems_title_intro_sequence1_glyph_start_to_stop_music(
     )
 }
 
+/// Clock the title `StopMusic` return through `Pal_FadeOut`'s first wait.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_stop_music_return_to_first_fade_wait(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_stop_music_return_to_first_fade_wait_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 #[cfg(feature = "audio")]
 fn apply_gems_title_frame_to_execute_objects(
     audio: &mut GemsMasterClockTimingEngine,
@@ -4500,6 +4522,30 @@ mod tests {
             engine.master_clock(),
             18_018_301 * 7,
             "hardware-faithful frame-139 StopMusic exit",
+        );
+
+        let fade_wait = apply_gems_title_stop_music_return_to_first_fade_wait(
+            &mut engine,
+            LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                    M68kCycleCount::from_raw(18_018_301),
+                ),
+                refresh_phase: native_stop_timing.phase_after,
+            },
+        )
+        .expect("source-positioned loc_6E2 Pal_FadeOut setup");
+        assert_eq!(fade_wait.timing.instruction_count, 213);
+        assert_eq!(fade_wait.timing.raw_cycles.get(), 2_364);
+        assert_eq!(fade_wait.refresh_events, 19);
+        assert_eq!(fade_wait.external_wait_cycles.get(), 0);
+        assert_eq!(
+            fade_wait.cursor.refresh_phase,
+            M68kRefreshPhase::new(84).unwrap()
+        );
+        assert_eq!(
+            engine.master_clock(),
+            18_020_703 * 7,
+            "loc_6E2 -> Pal_FadeOut -> first WaitForVint ledger: {fade_wait:?}",
         );
     }
 

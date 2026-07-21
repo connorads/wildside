@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 first title-return fade wait)
+
+- `loc_1C274 -> j_loc_6E2 -> Pal_FadeOut` is source-scheduled from the native
+  frame-139 reset exit.
+- The 213-instruction / 2,364-cycle setup copies both palette halves, seeds
+  the fade target/counter/dirty masks, and crosses 19 refresh events.
+- Native reaches `loc_28C6 -> WaitForVint` at 18,020,703 / phase 84, exactly
+  273 cycles before oracle as expected from the documented limitation.
+- NEXT: make `WaitForVint` return to `loc_28CA`, then schedule one fade step.
+
+---
+
 ## 2026-07-21 handoff (#409 hardware-faithful frame-139 reset)
 
 - The 273-cycle `StopMusic` entry difference is the already-proven jgenesis
