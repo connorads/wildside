@@ -53,7 +53,8 @@ use wildside_frame::{
     apply_gems_title_mode_standard_scroll_data_to_vram,
     apply_gems_title_mode_standard_sprite_and_kid_to_vram,
     apply_gems_title_ordinary_delay_frame_with_checkpoint, apply_gems_title_palette_to_vram_call,
-    apply_gems_title_second_execute_objects, apply_gems_title_text_delay_fade_execute_objects,
+    apply_gems_title_post_fade_wait_frame_with_checkpoint, apply_gems_title_second_execute_objects,
+    apply_gems_title_text_delay_fade_execute_objects,
     apply_gems_title_text_object_allocation_to_fade, apply_gems_title_third_execute_objects,
     apply_gems_title_wait_for_vint_to_mode_standard, apply_timed_gems_queue_command, gems_bgm,
 };
@@ -69,7 +70,7 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 
 /// Frames of the route whose native per-frame GEMS timeline is defended as
-/// faithful. Frames 0..97 replay ASM `EntryPoint`'s power-on Z80 bootstrap
+/// faithful. Frames 0..113 replay ASM `EntryPoint`'s power-on Z80 bootstrap
 /// through the first outer `Mode_Standard` pass, three Sega-screen local
 /// palette/VINT/controller iterations, and the Start transition into the
 /// sixteen `Pal_FadeOut` loop palette uploads, the `loc_28EA` exit pass, and
@@ -79,11 +80,11 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// first two `sub_1B850 -> DecompressToVRAM loc_14300/loc_14314` decodes and
 /// transfers, then the third through fifth decoders, compacting transfers,
 /// both Enigma plane decoders, four complete title `Mode_Standard` passes,
-/// twelve ordinary text-delay iterations, and the controller fade exit. The tail remains the
-/// coarse continuous route replayer (trace-delta commands at frame boundaries
+/// twelve ordinary text-delay iterations, the controller fade exit, and all
+/// sixteen post-fade controller-wait frames. The tail remains the coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 98;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 114;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -737,6 +738,44 @@ impl GemsSignatureProbe {
                 .expect("source-positioned controller fade exit spans frame 97");
             assert_eq!(self.engine.master_clock(), 12_540_356 * 7);
             self.power_on_intro_cursor = Some(controller_exit.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if let Some((rng_offset, text_delay, controller_wait, end_cycle)) =
+            match self.power_on_frame {
+                98 => Some((0xFFDE, 0x11, 0x12B, 12_668_292)),
+                99 => Some((0xFFE2, 0x10, 0x12A, 12_796_296)),
+                100 => Some((0xFFE6, 0x0F, 0x129, 12_924_301)),
+                101 => Some((0xFFEA, 0x0E, 0x128, 13_052_318)),
+                102 => Some((0xFFEE, 0x0D, 0x127, 13_180_320)),
+                103 => Some((0xFFF2, 0x0C, 0x126, 13_308_323)),
+                104 => Some((0xFFF6, 0x0B, 0x125, 13_436_326)),
+                105 => Some((0xFFFA, 0x0A, 0x124, 13_564_330)),
+                106 => Some((0xFFFE, 0x09, 0x123, 13_692_333)),
+                107 => Some((0xFFCB, 0x08, 0x122, 13_820_347)),
+                108 => Some((0xFFCF, 0x07, 0x121, 13_948_343)),
+                109 => Some((0xFFD3, 0x06, 0x120, 14_076_358)),
+                110 => Some((0xFFD7, 0x05, 0x11F, 14_204_355)),
+                111 => Some((0xFFDB, 0x04, 0x11E, 14_332_370)),
+                112 => Some((0xFFDF, 0x03, 0x11D, 14_460_372)),
+                113 => Some((0xFFE3, 0x02, 0x11C, 14_588_376)),
+                _ => None,
+            }
+        {
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("post-fade title frame retains its source cursor");
+            let (advance, checkpoint) = apply_gems_title_post_fade_wait_frame_with_checkpoint(
+                &mut self.engine,
+                cursor,
+                rng_offset,
+                text_delay,
+                controller_wait,
+                target,
+            )
+            .expect("source-positioned post-fade title frame spans FrameRendered");
+            assert_eq!(self.engine.master_clock(), end_cycle * 7);
+            self.power_on_intro_cursor = Some(advance.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
         if self.power_on_frame == 3 {
@@ -1838,6 +1877,32 @@ fn gems_divergence_matches_documented_oracle_limitation(
             | (96, 3_745_748_184, 429_347_414, 0x07B0, 0x005A, 16, 0)
             | (97, 2_263_164_565, 1_914_519_229, 0x0B4B, 0x07B0, 16, 16)
     );
+    let title_post_fade_irq_phase = matches!(diverging, ["z80_pc"] | ["audio_ram_crc32", "z80_pc"])
+        && matches!(
+            (
+                frame_index,
+                native.audio_ram_crc32,
+                oracle.audio_ram_crc32,
+                native.z80_pc,
+                oracle.z80_pc
+            ),
+            (98, 4_079_684_447, 575_133_136, 0x0B55, 0x07BA)
+                | (99, 291_676_994, 2_053_396_830, 0x02A5, 0x0B48)
+                | (100, 302_445_591, 761_646_234, 0x0B51, 0x02A5)
+                | (101, 1_053_325_838, 3_310_584_651, 0x0168, 0x01C8)
+                | (102, 145_552_272, 1_960_903_249, 0x01C4, 0x0173)
+                | (103, 3_524_911_585, 3_992_792_891, 0x019F, 0x02A5)
+                | (104, 3_224_911_865, 2_022_510_576, 0x01BB, 0x0164)
+                | (105, 2_039_725_464, 2_372_642_224, 0x0B4E, 0x02A5)
+                | (106, 1_918_857_395, 244_676_389, 0x07B0, 0x01BB)
+                | (107, 3_764_576_859, 2_748_046_656, 0x07B5, 0x01CF)
+                | (108, 2_975_697_440, 3_440_409_569, 0x01C1, 0x0187)
+                | (109, 2_100_171_002, 31_725_420, 0x07B5, 0x01CE)
+                | (110, 1_307_300_333, 1_307_300_333, 0x01BB, 0x016F)
+                | (111, 3_086_964_188, 3_078_136_715, 0x0173, 0x02A5)
+                | (112, 2_510_442_431, 3_171_438_136, 0x07A9, 0x01BD)
+                | (113, 209_029_567, 209_029_567, 0x01B7, 0x016F)
+        );
     irq_saved_sp
         || later_pc
         || sega_screen_phase
@@ -1851,6 +1916,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
         || mode_standard_entry_irq_phase
         || title_frame_irq_phase
         || title_ordinary_irq_phase
+        || title_post_fade_irq_phase
 }
 
 fn update_gems_frame_digest(hasher: &mut Sha1, signature: Option<&GemsFrameSignature>) {
@@ -2646,6 +2712,39 @@ mod tests {
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 62);
+
+        for (native_crc, native_pc, oracle_crc, oracle_pc) in [
+            (4_079_684_447, 0x0B55, 575_133_136, 0x07BA),
+            (291_676_994, 0x02A5, 2_053_396_830, 0x0B48),
+            (302_445_591, 0x0B51, 761_646_234, 0x02A5),
+            (1_053_325_838, 0x0168, 3_310_584_651, 0x01C8),
+            (145_552_272, 0x01C4, 1_960_903_249, 0x0173),
+            (3_524_911_585, 0x019F, 3_992_792_891, 0x02A5),
+            (3_224_911_865, 0x01BB, 2_022_510_576, 0x0164),
+            (2_039_725_464, 0x0B4E, 2_372_642_224, 0x02A5),
+            (1_918_857_395, 0x07B0, 244_676_389, 0x01BB),
+            (3_764_576_859, 0x07B5, 2_748_046_656, 0x01CF),
+            (2_975_697_440, 0x01C1, 3_440_409_569, 0x0187),
+            (2_100_171_002, 0x07B5, 31_725_420, 0x01CE),
+            (1_307_300_333, 0x01BB, 1_307_300_333, 0x016F),
+            (3_086_964_188, 0x0173, 3_078_136_715, 0x02A5),
+            (2_510_442_431, 0x07A9, 3_171_438_136, 0x01BD),
+            (209_029_567, 0x01B7, 209_029_567, 0x016F),
+        ] {
+            let mut native_signature = signature(native_pc);
+            native_signature.audio_ram_crc32 = native_crc;
+            native_signature.bank_address = 0x000E_8000;
+            native_signature.status_bits = GemsFrameSignature::STATUS_IFF1;
+            let mut oracle_signature = signature(oracle_pc);
+            oracle_signature.audio_ram_crc32 = oracle_crc;
+            oracle_signature.bank_address = 0x000E_8000;
+            oracle_signature.status_bits = GemsFrameSignature::STATUS_IFF1;
+            native.push(Some(native_signature));
+            oracle.push(Some(oracle_signature));
+        }
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 78);
     }
 
     #[test]
@@ -2981,7 +3080,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_97() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_113() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -4173,5 +4272,193 @@ mod tests {
         let mut crc = crc32fast::Hasher::new();
         crc.update(&oracle_ram);
         assert_eq!(crc.finalize(), 1_914_519_229);
+
+        // ORACLE LIMITATION: the post-fade wait retains only the same saved
+        // SP, tick accumulator and active-stack IRQ phase. Frames 110/113
+        // have byte-identical RAM; their sampled PCs are derivative phase.
+        let expected: &[(usize, u32, u16, u32, u16, &[(usize, u8, u8)])] = &[
+            (
+                98,
+                4_079_684_447,
+                0x0B55,
+                575_133_136,
+                0x07BA,
+                &[
+                    (0x1A1C, 0x4B, 0xA9),
+                    (0x1A1D, 0x0B, 0x07),
+                    (0x1A1E, 0xBD, 0xB0),
+                ],
+            ),
+            (
+                99,
+                291_676_994,
+                0x02A5,
+                2_053_396_830,
+                0x0B48,
+                &[(0x1A1C, 0x4B, 0xA9), (0x1A1D, 0x0B, 0x07)],
+            ),
+            (
+                100,
+                302_445_591,
+                0x0B51,
+                761_646_234,
+                0x02A5,
+                &[(0x003E, 0x1C, 0x1E)],
+            ),
+            (
+                101,
+                1_053_325_838,
+                0x0168,
+                3_310_584_651,
+                0x01C8,
+                &[
+                    (0x0034, 0x01, 0x00),
+                    (0x1A1A, 0xCE, 0x6B),
+                    (0x1A1B, 0x00, 0x01),
+                ],
+            ),
+            (
+                102,
+                145_552_272,
+                0x01C4,
+                1_960_903_249,
+                0x0173,
+                &[(0x0034, 0x00, 0x01), (0x003E, 0x1C, 0x1E)],
+            ),
+            (
+                103,
+                3_524_911_585,
+                0x019F,
+                3_992_792_891,
+                0x02A5,
+                &[
+                    (0x0034, 0x01, 0x00),
+                    (0x003E, 0x1E, 0x1C),
+                    (0x1A1A, 0x6B, 0xD2),
+                    (0x1A1E, 0x00, 0xB0),
+                    (0x1A1F, 0x01, 0x07),
+                ],
+            ),
+            (
+                104,
+                3_224_911_865,
+                0x01BB,
+                2_022_510_576,
+                0x0164,
+                &[(0x1A1A, 0x6B, 0xCE), (0x1A1B, 0x01, 0x00)],
+            ),
+            (
+                105,
+                2_039_725_464,
+                0x0B4E,
+                2_372_642_224,
+                0x02A5,
+                &[
+                    (0x076D, 0x00, 0x01),
+                    (0x1A1C, 0x4B, 0xA9),
+                    (0x1A1D, 0x0B, 0x07),
+                    (0x1A1E, 0xBD, 0xB0),
+                ],
+            ),
+            (
+                106,
+                1_918_857_395,
+                0x07B0,
+                244_676_389,
+                0x01BB,
+                &[
+                    (0x003E, 0x1C, 0x1E),
+                    (0x1A1A, 0xD2, 0x6B),
+                    (0x1A1E, 0xB0, 0x00),
+                    (0x1A1F, 0x07, 0x01),
+                ],
+            ),
+            (
+                107,
+                3_764_576_859,
+                0x07B5,
+                2_748_046_656,
+                0x01CF,
+                &[
+                    (0x1A1A, 0xD2, 0x6B),
+                    (0x1A1E, 0xB0, 0x00),
+                    (0x1A1F, 0x07, 0x01),
+                ],
+            ),
+            (
+                108,
+                2_975_697_440,
+                0x01C1,
+                3_440_409_569,
+                0x0187,
+                &[(0x0034, 0x00, 0x01), (0x003E, 0x1C, 0x1E)],
+            ),
+            (
+                109,
+                2_100_171_002,
+                0x07B5,
+                31_725_420,
+                0x01CE,
+                &[
+                    (0x003E, 0x1E, 0x1C),
+                    (0x1A1A, 0xD2, 0x6B),
+                    (0x1A1E, 0xB0, 0x00),
+                    (0x1A1F, 0x07, 0x01),
+                ],
+            ),
+            (110, 1_307_300_333, 0x01BB, 1_307_300_333, 0x016F, &[]),
+            (
+                111,
+                3_086_964_188,
+                0x0173,
+                3_078_136_715,
+                0x02A5,
+                &[
+                    (0x0034, 0x01, 0x00),
+                    (0x1A1A, 0x6B, 0xD2),
+                    (0x1A1E, 0x00, 0xB0),
+                    (0x1A1F, 0x01, 0x07),
+                ],
+            ),
+            (
+                112,
+                2_510_442_431,
+                0x07A9,
+                3_171_438_136,
+                0x01BD,
+                &[
+                    (0x0034, 0x00, 0x01),
+                    (0x003E, 0x1E, 0x1C),
+                    (0x1A1A, 0xD2, 0x6B),
+                ],
+            ),
+            (113, 209_029_567, 0x01B7, 209_029_567, 0x016F, &[]),
+        ];
+        for &(frame, native_crc, native_pc, oracle_crc, _oracle_pc, patches) in expected {
+            let signature = probe.sample_power_on_frame_rendered();
+            assert_eq!(signature.audio_ram_crc32, native_crc, "frame {frame}");
+            assert_eq!(signature.bank_address, 0x000E_8000, "frame {frame}");
+            assert_eq!(signature.z80_pc, native_pc, "frame {frame}");
+            assert_eq!(signature.z80_wait_mclk_cycles, 0, "frame {frame}");
+            assert_eq!(signature.pending_m68k_wait_cycles, 0, "frame {frame}");
+            assert_eq!(
+                signature.status_bits,
+                GemsFrameSignature::STATUS_IFF1,
+                "frame {frame}"
+            );
+            let mut oracle_ram = probe
+                .power_on_last_sampled_checkpoint
+                .as_ref()
+                .expect("post-fade native checkpoint")
+                .audio_ram
+                .clone();
+            for &(index, native, oracle) in patches {
+                assert_eq!(oracle_ram[index], native, "frame {frame} RAM ${index:04X}");
+                oracle_ram[index] = oracle;
+            }
+            let mut crc = crc32fast::Hasher::new();
+            crc.update(&oracle_ram);
+            assert_eq!(crc.finalize(), oracle_crc, "oracle frame {frame}");
+        }
     }
 }

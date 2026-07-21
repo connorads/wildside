@@ -723,6 +723,14 @@ X/Y phase. Defended coverage advances 97 -> 98, GEMS mismatches fall 37,662 ->
 controller-wait loop. Full non-audio baselines remain fixed. NEXT: retain the
 post-fade wait.
 
+Progress 2026-07-21: the retained title cursor carries all sixteen post-fade
+controller-wait frames from `$012B` through `$011C`. Exact native-to-oracle RAM
+transformations prove every residual is the established IRQ phase; frames 110
+and 113 have byte-identical RAM. Defended coverage advances 98 -> 114, GEMS
+mismatches fall 37,661 -> 37,645, and the first authoritative frontier moves
+to frame 114 at IntroText1's first glyph. Full non-audio baselines remain fixed.
+NEXT: retain the first glyph.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

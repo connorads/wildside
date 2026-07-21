@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 post-fade controller-wait loop)
+
+- Defended GEMS coverage advances to frames 0..113; the authoritative frontier
+  is frame 114 at IntroText1's first glyph.
+- All sixteen `$012B..$011C` post-fade controller-wait frames retain one source
+  cursor across their `Mode_Standard` and `Execute_Objects` paths.
+- Exact raw-RAM transformations prove the residuals are the documented IRQ
+  phase; frames 110 and 113 have byte-identical RAM.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,645, with 85 evidence-backed oracle limitations and 29 advisory frames.
+- NEXT: carry IntroText1's first glyph from frame 114.
+
 ## 2026-07-21 handoff (#416 intro controller fade exit)
 
 - Defended GEMS coverage advances to frames 0..97; the authoritative frontier
