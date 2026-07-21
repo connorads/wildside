@@ -842,6 +842,13 @@ flags are exact. Coverage advances 177 -> 178 with 148 evidence-backed
 limitations and 30 advisory frames. Oracle PC `$14316` places frame 178 in
 the following upload. NEXT: continue the repeated chunk path.
 
+Progress 2026-07-21: frame 178 repeats byte_26E3D's retained chunk path and
+checkpoints inside `loc_14314`. Raw audio RAM differs only at active-stack byte
+`$1A1A` (`$CE` native, `$76` oracle); bank `$E8000`, waits, and flags are
+exact, while PC `$02A7`/`$02A5` is derivative IRQ phase. Coverage advances
+178 -> 179 with 149 evidence-backed limitations and 30 advisory frames.
+Oracle PC `$14314` keeps frame 179 in the following upload. NEXT: continue it.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed
