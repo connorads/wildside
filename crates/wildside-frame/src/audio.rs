@@ -4239,6 +4239,99 @@ mod tests {
             14_972_676 * 7,
             "frame-117 H-glyph ledger: {second_glyph:?}",
         );
+
+        let mut cadence_cursor = second_glyph.cursor;
+        for (
+            frame,
+            rng_offset,
+            controller_wait,
+            glyph,
+            instructions,
+            raw,
+            native_return,
+            oracle_return,
+        ) in [
+            (118, 0xFFF3, 0x118, None, 152, 1_960, 15_100_404, 15_100_678),
+            (
+                119,
+                0xFFF7,
+                0x117,
+                Some(b'E'),
+                184,
+                2_232,
+                15_228_678,
+                15_228_976,
+            ),
+            (120, 0xFFFB, 0x116, None, 152, 1_960, 15_356_408, 15_356_696),
+            (
+                121,
+                0xFFFF,
+                0x115,
+                Some(b'R'),
+                184,
+                2_228,
+                15_484_695,
+                15_484_977,
+            ),
+            (122, 0xFFCC, 0x114, None, 151, 1_954, 15_612_418, 15_612_695),
+            (
+                123,
+                0xFFD0,
+                0x113,
+                Some(b'E'),
+                183,
+                2_226,
+                15_740_704,
+                15_740_989,
+            ),
+            (124, 0xFFD4, 0x112, None, 151, 1_954, 15_868_427, 15_868_707),
+            (
+                125,
+                0xFFD8,
+                0x111,
+                Some(b' '),
+                183,
+                2_226,
+                15_996_707,
+                15_996_987,
+            ),
+        ] {
+            let advance = if let Some(glyph) = glyph {
+                apply_gems_title_ordinary_glyph_frame(
+                    &mut engine,
+                    cadence_cursor,
+                    rng_offset,
+                    controller_wait,
+                    glyph,
+                )
+            } else {
+                apply_gems_title_post_fade_wait_frame(
+                    &mut engine,
+                    cadence_cursor,
+                    rng_offset,
+                    2,
+                    controller_wait,
+                )
+            }
+            .unwrap_or_else(|| panic!("source-positioned title cadence frame {frame}"));
+            cadence_cursor = advance.cursor;
+            assert_eq!(
+                advance.timing.instruction_count, instructions,
+                "frame {frame}"
+            );
+            assert_eq!(advance.timing.raw_cycles.get(), raw, "frame {frame}");
+            assert_eq!(
+                advance.refresh_events,
+                if glyph.is_some() { 17 } else { 15 }
+            );
+            assert_eq!(advance.external_wait_cycles.get(), 0);
+            assert_eq!(
+                engine.master_clock(),
+                native_return * 7,
+                "title cadence frame {frame}; oracle `$794` is {oracle_return} ({}-cycle residue)",
+                oracle_return - native_return,
+            );
+        }
     }
 
     #[cfg(feature = "audio")]

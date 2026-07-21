@@ -553,7 +553,7 @@ pub fn visit_title_ordinary_glyph_execute_objects(
 ) -> Option<IntroSourceTiming> {
     if controller_wait_before == 0
         || controller_wait_before > 0x12B
-        || !(b'A'..=b'l').contains(&glyph)
+        || (glyph != b' ' && !(b'A'..=b'l').contains(&glyph))
     {
         return None;
     }
@@ -1573,6 +1573,14 @@ mod tests {
         assert!(
             visit_title_ordinary_glyph_execute_objects(0xFFEF, 0x119, 0xFD, |_| {}).is_none(),
             "line breaks take the control-byte parser path",
+        );
+        assert_eq!(
+            visit_title_ordinary_glyph_execute_objects(0xFFD8, 0x111, b' ', |_| {}),
+            Some(IntroSourceTiming {
+                instruction_count: 183,
+                raw_cycles: M68kCycleCount::from_raw(2_226),
+            }),
+            "ORIGINAL_QUIRK: frame 125's space skips the `$6D` substitution",
         );
     }
 

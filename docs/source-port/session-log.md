@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 first-space original quirk)
+
+- Frames 118-124 replay the ordinary two-frame glyph cadence, including the
+  exact frame-121 `$FFFF` RNG setup boundary.
+- Frame 125 proves `cmp.b (off_20).w` does not recognise a space: `$20-$41`
+  wraps to `$DF`, which `sub_1C7F6` uses as the tile offset.
+- The frame is 183 instructions / 2,226 raw cycles and returns at 15,996,707
+  versus oracle 15,996,987, a 280-cycle explained residue.
+- NEXT: schedule the remaining first-line glyphs through the `$FD` line break.
+
+---
+
 ## 2026-07-21 handoff (#409 ordinary title glyph cadence)
 
 - Frame 116 takes the 152-instruction / 1,960-cycle glyph-delay path and

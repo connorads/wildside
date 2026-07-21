@@ -600,6 +600,16 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the persistent title timeline reaches IntroText1's first
+space on frame 125. Frames 118-124 replay the ordinary two-frame cadence and
+frame 121's `$FFFF` RNG boundary exactly. Oracle proves the ROM's erroneous
+`cmp.b (off_20).w` does not recognise the space: `loc_1C7E0` branches,
+`$20-$41` wraps to `$DF`, and `sub_1C7F6` writes that derived tile. Frame 125
+retains 183 instructions / 2,226 raw cycles and returns natively at
+15,996,707 versus oracle 15,996,987, leaving a 280-cycle explained residue.
+NEXT: schedule the remaining first-line glyphs through the `$FD` line-break
+parser path.
+
 Progress 2026-07-21: the persistent title timeline generalises the two-frame
 ordinary-glyph cadence. Frame 116 takes the 152-instruction / 1,960-cycle
 delay path and returns natively at 14,844,383 versus oracle 14,844,683. Frame
