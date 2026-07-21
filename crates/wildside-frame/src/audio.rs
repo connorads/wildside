@@ -1201,6 +1201,34 @@ pub fn apply_gems_title_controller_fade_exit_execute_objects(
     )
 }
 
+/// Clock an ordinary post-fade title text/controller wait dispatch.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_post_fade_wait_execute_objects(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    text_delay_before: u8,
+    controller_wait_before: u16,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_post_fade_wait_execute_objects_cursor_with_scheduler(
+        entry,
+        rng_offset_before,
+        text_delay_before,
+        controller_wait_before,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 #[cfg(feature = "audio")]
 fn apply_gems_title_frame_to_execute_objects(
     audio: &mut GemsMasterClockTimingEngine,
@@ -1257,6 +1285,25 @@ pub fn apply_gems_title_controller_fade_exit_frame(
         execute_entry,
         rng_offset_before,
         text_delay_before,
+    )
+}
+
+/// Clock one complete post-fade title text/controller wait frame.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_post_fade_wait_frame(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    text_delay_before: u8,
+    controller_wait_before: u16,
+) -> Option<TitleIntroSourceAdvance> {
+    let execute_entry = apply_gems_title_frame_to_execute_objects(audio, entry)?;
+    apply_gems_title_post_fade_wait_execute_objects(
+        audio,
+        execute_entry,
+        rng_offset_before,
+        text_delay_before,
+        controller_wait_before,
     )
 }
 
@@ -3995,6 +4042,54 @@ mod tests {
             12_540_349 * 7,
             "title controller fade-exit ledger: {controller_exit:?}",
         );
+
+        let mut post_fade_cursor = controller_exit.cursor;
+        // Oracle `$790/$794` traces pin every post-fade countdown frame. The
+        // text delay reaches one after frame 114; frame 115 is the distinct
+        // terminal path that emits IntroText1's first `T` glyph.
+        for (frame, rng_offset, delay, controller_wait, native_return, oracle_return) in [
+            (99, 0xFFDE, 0x11, 0x12B, 12_668_297, 12_668_576),
+            (100, 0xFFE2, 0x10, 0x12A, 12_796_296, 12_796_591),
+            (101, 0xFFE6, 0x0F, 0x129, 12_924_297, 12_924_599),
+            (102, 0xFFEA, 0x0E, 0x128, 13_052_312, 13_052_589),
+            (103, 0xFFEE, 0x0D, 0x127, 13_180_311, 13_180_602),
+            (104, 0xFFF2, 0x0C, 0x126, 13_308_326, 13_308_614),
+            (105, 0xFFF6, 0x0B, 0x125, 13_436_325, 13_436_622),
+            (106, 0xFFFA, 0x0A, 0x124, 13_564_326, 13_564_612),
+            (107, 0xFFFE, 0x09, 0x123, 13_692_343, 13_692_606),
+            (108, 0xFFCB, 0x08, 0x122, 13_820_336, 13_820_615),
+            (109, 0xFFCF, 0x07, 0x121, 13_948_346, 13_948_621),
+            (110, 0xFFD3, 0x06, 0x120, 14_076_354, 14_076_627),
+            (111, 0xFFD7, 0x05, 0x11F, 14_204_351, 14_204_614),
+            (112, 0xFFDB, 0x04, 0x11E, 14_332_363, 14_332_622),
+            (113, 0xFFDF, 0x03, 0x11D, 14_460_377, 14_460_648),
+            (114, 0xFFE3, 0x02, 0x11C, 14_588_376, 14_588_660),
+        ] {
+            let advance = apply_gems_title_post_fade_wait_frame(
+                &mut engine,
+                post_fade_cursor,
+                rng_offset,
+                delay,
+                controller_wait,
+            )
+            .unwrap_or_else(|| panic!("source-positioned post-fade title frame {frame}"));
+            post_fade_cursor = advance.cursor;
+            let (instruction_count, raw_cycles) = if rng_offset >= 0xFFDD {
+                (152, 1_960)
+            } else {
+                (151, 1_954)
+            };
+            assert_eq!(advance.timing.instruction_count, instruction_count);
+            assert_eq!(advance.timing.raw_cycles.get(), raw_cycles);
+            assert_eq!(advance.refresh_events, 15, "title frame {frame}");
+            assert_eq!(advance.external_wait_cycles.get(), 0, "title frame {frame}");
+            assert_eq!(
+                engine.master_clock(),
+                native_return * 7,
+                "post-fade title frame {frame}; oracle returns at {oracle_return} ({}-cycle residue)",
+                oracle_return - native_return,
+            );
+        }
     }
 
     #[cfg(feature = "audio")]

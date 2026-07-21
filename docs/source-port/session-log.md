@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 post-fade title countdown)
+
+- Frames 99-114 now source-schedule the text delay alongside the controller's
+  `loc_1B928` Start poll, non-terminal DBF, and `loc_1B924` hibernation.
+- The object block is 152 instructions / 1,960 raw cycles before the frame-107
+  RNG wrap, 151 / 1,954 immediately after it, then 152 / 1,960 from frame 113.
+- Every `$794` return is oracle-pinned. Frame 114 reaches 14,588,376 versus
+  14,588,660, a 284-cycle explained residue.
+- Frame 115 is the proven terminal-delay path and emits the first `T` through
+  `sub_1C7F6`; implement that next, then continue the two-frame glyph cadence.
+
+---
+
 ## 2026-07-21 handoff (#409 title controller fade exit)
 
 - Frame 98 advances the controller `$0100->$0110`, takes `loc_1C240`, and

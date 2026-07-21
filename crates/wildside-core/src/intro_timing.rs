@@ -497,6 +497,50 @@ pub fn visit_title_controller_fade_exit_execute_objects(
     Some(timing)
 }
 
+/// Visit an ordinary post-fade title text-delay/controller-wait frame.
+///
+/// The text worker takes its non-terminal `loc_1C7B2 -> loc_1C7AE` path. The
+/// controller resumes at `loc_1B928`, polls Start through `sub_1C246`, takes
+/// the non-terminal `dbf` back to `loc_1B924`, and hibernates for one frame.
+pub fn visit_title_post_fade_wait_execute_objects(
+    rng_offset_before: u16,
+    text_delay_before: u8,
+    controller_wait_before: u16,
+    mut visit: impl FnMut(u32),
+) -> Option<IntroSourceTiming> {
+    if controller_wait_before == 0 || controller_wait_before > 0x12B {
+        return None;
+    }
+
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title post-fade wait timing fits u32"),
+        );
+    };
+
+    visit_title_text_delay_execute_objects_prefix(rng_offset_before, text_delay_before, &mut emit)?;
+    // ASM loc_1B928 -> sub_1C246 sees no Start edge; the non-terminal DBF
+    // returns to loc_1B924 and hibernates through sub_E76.
+    for cycles in [18, 16, 8, 16, 10, 18, 10, 16, 24, 16, 76, 16, 10] {
+        emit(cycles);
+    }
+    for cycles in [12, 10, 16, 16] {
+        emit(cycles);
+    }
+
+    Some(timing)
+}
+
 /// Visit initial `sub_1B8F4` work through entry to `sub_1C4EA`.
 ///
 /// The first title controller allocates the fixed Wild Side prompt GfxObject
@@ -1393,6 +1437,33 @@ mod tests {
         assert!(
             visit_title_controller_fade_exit_execute_objects(0xFFDA, 1, |_| {}).is_none(),
             "terminal text delay takes the command/glyph parser instead",
+        );
+    }
+
+    #[test]
+    fn title_post_fade_wait_hibernates_text_and_controller() {
+        let before_wrap = visit_title_post_fade_wait_execute_objects(0xFFFE, 9, 0x123, |_| {})
+            .expect("frame-107 final RNG-ring word");
+        let after_wrap = visit_title_post_fade_wait_execute_objects(0xFFCB, 8, 0x122, |_| {})
+            .expect("frame-108 wrapped RNG-ring word");
+
+        assert_eq!(
+            before_wrap,
+            IntroSourceTiming {
+                instruction_count: 152,
+                raw_cycles: M68kCycleCount::from_raw(1_960),
+            },
+        );
+        assert_eq!(
+            after_wrap,
+            IntroSourceTiming {
+                instruction_count: 151,
+                raw_cycles: M68kCycleCount::from_raw(1_954),
+            },
+        );
+        assert!(
+            visit_title_post_fade_wait_execute_objects(0xFFCB, 8, 0, |_| {}).is_none(),
+            "terminal controller DBF takes the scene-transition path",
         );
     }
 

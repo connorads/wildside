@@ -600,6 +600,17 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the persistent title timeline source-schedules the
+post-fade IntroText1 countdown through frame 114. The text worker decrements
+through `loc_1C7B2`; the controller resumes at `loc_1B928`, polls Start, takes
+the non-terminal DBF, and hibernates at `loc_1B924`. Frames 99-107 retain 152
+instructions / 1,960 raw cycles, frames 108-112 retain 151 / 1,954 after the
+`$FFFE->$FFCB` RNG wrap, and frames 113-114 return to 152 / 1,960. Every `$794`
+return is pinned to the oracle trace; frame 114 reaches 14,588,376 versus
+oracle 14,588,660, leaving a 284-cycle explained residue. The terminal-delay
+trace proves frame 115 emits IntroText1's first `T` through `sub_1C7F6`. NEXT:
+implement that glyph frame, then continue its two-frame glyph cadence.
+
 Progress 2026-07-21: the persistent title timeline reaches frame 98's
 controller fade exit. The text worker still decrements and hibernates; the
 controller advances `$0100->$0110`, takes `loc_1C240`, jumps through its
