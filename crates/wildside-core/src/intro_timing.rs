@@ -1,5 +1,8 @@
 use crate::M68kCycleCount;
 
+/// ASM sub_1C246 (kid.asm): `bclr #7,(Ctrl_1_Pressed).w` selected-PC trace cost.
+const TITLE_CONTROLLER_START_POLL_CYCLES: u32 = 20;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct IntroSourceTiming {
     pub instruction_count: u32,
@@ -311,7 +314,24 @@ pub fn visit_title_second_execute_objects(
     // ASM loc_1C222 calls sub_1C246 with no Start edge, advances fade state
     // to $0010, marks both dirty masks, and hibernates at loc_1C21E.
     for cycles in [
-        18, 16, 8, 16, 16, 8, 4, 16, 16, 10, 18, 10, 16, 24, 16, 76, 16, 10,
+        18,
+        TITLE_CONTROLLER_START_POLL_CYCLES,
+        8,
+        16,
+        16,
+        8,
+        4,
+        16,
+        16,
+        10,
+        18,
+        10,
+        16,
+        24,
+        16,
+        76,
+        16,
+        10,
     ] {
         emit(cycles);
     }
@@ -367,7 +387,24 @@ pub fn visit_title_third_execute_objects(
     // ASM loc_1C222 calls sub_1C246 with no Start edge, advances fade state
     // to $0020, marks both dirty masks, and hibernates at loc_1C21E.
     for cycles in [
-        18, 16, 8, 16, 16, 8, 4, 16, 16, 10, 18, 10, 16, 24, 16, 76, 16, 10,
+        18,
+        TITLE_CONTROLLER_START_POLL_CYCLES,
+        8,
+        16,
+        16,
+        8,
+        4,
+        16,
+        16,
+        10,
+        18,
+        10,
+        16,
+        24,
+        16,
+        76,
+        16,
+        10,
     ] {
         emit(cycles);
     }
@@ -418,7 +455,24 @@ pub fn visit_title_text_delay_fade_execute_objects(
     // ASM loc_1C222 calls sub_1C246 with no Start edge, advances the fade by
     // `$10`, marks both dirty masks, and hibernates at loc_1C21E.
     for cycles in [
-        18, 16, 8, 16, 16, 8, 4, 16, 16, 10, 18, 10, 16, 24, 16, 76, 16, 10,
+        18,
+        TITLE_CONTROLLER_START_POLL_CYCLES,
+        8,
+        16,
+        16,
+        8,
+        4,
+        16,
+        16,
+        10,
+        18,
+        10,
+        16,
+        24,
+        16,
+        76,
+        16,
+        10,
     ] {
         emit(cycles);
     }
@@ -486,7 +540,24 @@ pub fn visit_title_controller_fade_exit_execute_objects(
     // ASM loc_1C222 -> loc_1C240 advances `$0100->$0110`, then the stored
     // loc_1B920 continuation loads `$012B` and hibernates at loc_1B924.
     for cycles in [
-        18, 16, 8, 16, 16, 16, 10, 16, 8, 8, 18, 10, 16, 24, 16, 76, 16, 10,
+        18,
+        TITLE_CONTROLLER_START_POLL_CYCLES,
+        8,
+        16,
+        16,
+        16,
+        10,
+        16,
+        8,
+        8,
+        18,
+        10,
+        16,
+        24,
+        16,
+        76,
+        16,
+        10,
     ] {
         emit(cycles);
     }
@@ -531,7 +602,21 @@ pub fn visit_title_post_fade_wait_execute_objects(
     visit_title_text_delay_execute_objects_prefix(rng_offset_before, text_delay_before, &mut emit)?;
     // ASM loc_1B928 -> sub_1C246 sees no Start edge; the non-terminal DBF
     // returns to loc_1B924 and hibernates through sub_E76.
-    for cycles in [18, 16, 8, 16, 10, 18, 10, 16, 24, 16, 76, 16, 10] {
+    for cycles in [
+        18,
+        TITLE_CONTROLLER_START_POLL_CYCLES,
+        8,
+        16,
+        10,
+        18,
+        10,
+        16,
+        24,
+        16,
+        76,
+        16,
+        10,
+    ] {
         emit(cycles);
     }
     for cycles in [12, 10, 16, 16] {
@@ -595,7 +680,21 @@ pub fn visit_title_ordinary_glyph_execute_objects(
     for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
         emit(cycles);
     }
-    for cycles in [18, 16, 8, 16, 10, 18, 10, 16, 24, 16, 76, 16, 10] {
+    for cycles in [
+        18,
+        TITLE_CONTROLLER_START_POLL_CYCLES,
+        8,
+        16,
+        10,
+        18,
+        10,
+        16,
+        24,
+        16,
+        76,
+        16,
+        10,
+    ] {
         emit(cycles);
     }
     for cycles in [12, 10, 16, 16] {
@@ -1411,7 +1510,7 @@ mod tests {
             .expect("frame-82 title RNG offset is initialised");
 
         assert_eq!(timing.instruction_count, 159);
-        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(2_040));
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(2_044));
         assert_eq!(
             crate::mode_level_timing::execute_objects_setup_cycles_sub_e12(0xFFD1),
             Some(M68kCycleCount::from_raw(1_088)),
@@ -1432,7 +1531,7 @@ mod tests {
             .expect("frame-83 title RNG offset is initialised");
 
         assert_eq!(timing.instruction_count, 166);
-        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(2_094));
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(2_098));
         assert_eq!(
             crate::mode_level_timing::execute_objects_setup_cycles_sub_e12(0xFFD5),
             Some(M68kCycleCount::from_raw(1_088)),
@@ -1455,7 +1554,7 @@ mod tests {
         .expect("frame-84 ordinary text-delay state");
 
         assert_eq!(timing.instruction_count, 156);
-        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(2_014));
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(2_018));
         assert_eq!(
             cycles.iter().filter(|&&cycle| cycle == 76).count(),
             2,
@@ -1478,7 +1577,7 @@ mod tests {
             before_wrap,
             IntroSourceTiming {
                 instruction_count: 157,
-                raw_cycles: M68kCycleCount::from_raw(2_020),
+                raw_cycles: M68kCycleCount::from_raw(2_024),
             },
             "ASM sub_E12 takes the extra pre-wrap RNG offset instruction",
         );
@@ -1486,7 +1585,7 @@ mod tests {
             after_wrap,
             IntroSourceTiming {
                 instruction_count: 156,
-                raw_cycles: M68kCycleCount::from_raw(2_014),
+                raw_cycles: M68kCycleCount::from_raw(2_018),
             },
             "ASM sub_E12 resumes the short setup after `$FFFD->$FFCA`",
         );
@@ -1504,7 +1603,7 @@ mod tests {
             timing,
             IntroSourceTiming {
                 instruction_count: 156,
-                raw_cycles: M68kCycleCount::from_raw(2_018),
+                raw_cycles: M68kCycleCount::from_raw(2_022),
             },
         );
         assert_eq!(
@@ -1529,14 +1628,14 @@ mod tests {
             before_wrap,
             IntroSourceTiming {
                 instruction_count: 152,
-                raw_cycles: M68kCycleCount::from_raw(1_960),
+                raw_cycles: M68kCycleCount::from_raw(1_964),
             },
         );
         assert_eq!(
             after_wrap,
             IntroSourceTiming {
                 instruction_count: 151,
-                raw_cycles: M68kCycleCount::from_raw(1_954),
+                raw_cycles: M68kCycleCount::from_raw(1_958),
             },
         );
         assert!(
@@ -1557,7 +1656,7 @@ mod tests {
             timing,
             IntroSourceTiming {
                 instruction_count: 184,
-                raw_cycles: M68kCycleCount::from_raw(2_232),
+                raw_cycles: M68kCycleCount::from_raw(2_236),
             },
         );
         assert_eq!(
@@ -1578,7 +1677,7 @@ mod tests {
             visit_title_ordinary_glyph_execute_objects(0xFFD8, 0x111, b' ', |_| {}),
             Some(IntroSourceTiming {
                 instruction_count: 183,
-                raw_cycles: M68kCycleCount::from_raw(2_226),
+                raw_cycles: M68kCycleCount::from_raw(2_230),
             }),
             "ORIGINAL_QUIRK: frame 125's space skips the `$6D` substitution",
         );

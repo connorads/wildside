@@ -3876,19 +3876,19 @@ mod tests {
             second_execute.timing,
             wildside_core::intro_timing::IntroSourceTiming {
                 instruction_count: 159,
-                raw_cycles: M68kCycleCount::from_raw(2_040),
+                raw_cycles: M68kCycleCount::from_raw(2_044),
             },
         );
         assert_eq!(second_execute.refresh_events, 16);
         assert_eq!(second_execute.external_wait_cycles.get(), 0);
         // Oracle enters Execute_Objects at $790 on cycle 10,490,357 and
-        // returns to $794 on 10,492,563. The interval is the same 2,040
+        // returns to $794 on 10,492,563. The interval is 2,044
         // source cycles, seventeen refreshes, and 132 GEMS waits. Native's
         // established GEMS phase defect emits no waits and crosses sixteen
-        // refreshes, increasing the explained residue to 281 cycles.
+        // refreshes, leaving a 277-cycle residue.
         assert_eq!(
             engine.master_clock(),
-            10_492_282 * 7,
+            10_492_286 * 7,
             "title second text-worker ledger: {second_execute:?}",
         );
 
@@ -3954,41 +3954,41 @@ mod tests {
             third_mode_standard.resume,
             wildside_core::WaitForVintResumePath::StaleBranchLoc942,
         );
-        assert_eq!(third_mode_standard.scheduler_tick_count, 7_819);
-        assert_eq!(third_mode_standard.raw_cycles.get(), 86_082);
-        assert_eq!(third_mode_standard.refresh_events, 681);
+        assert_eq!(third_mode_standard.scheduler_tick_count, 7_817);
+        assert_eq!(third_mode_standard.raw_cycles.get(), 86_060);
+        assert_eq!(third_mode_standard.refresh_events, 687);
         assert_eq!(third_mode_standard.post_assertion_refresh_events, 1);
         assert_eq!(third_mode_standard.external_wait_cycles.get(), 2_816);
         assert_eq!(third_do_nothing.timing.raw_cycles.get(), 6_192);
         assert_eq!(third_do_nothing.refresh_events, 50);
         assert_eq!(third_palette.timing.raw_cycles.get(), 362);
         assert_eq!(third_palette.refresh_events, 2);
-        assert_eq!(third_palette.dma_halt_cycles.get(), 166);
+        assert_eq!(third_palette.dma_halt_cycles.get(), 168);
         assert_eq!(third_sprite_and_kid.timing.raw_cycles.get(), 796);
         assert_eq!(third_sprite_and_kid.refresh_events, 6);
-        assert_eq!(third_sprite_and_kid.dma_halt_cycles.get(), 1_531);
+        assert_eq!(third_sprite_and_kid.dma_halt_cycles.get(), 1_530);
         assert_eq!(third_scroll.timing.raw_cycles.get(), 610);
         assert_eq!(third_scroll.refresh_events, 5);
-        assert_eq!(third_scroll.dma_halt_cycles.get(), 2_141);
+        assert_eq!(third_scroll.dma_halt_cycles.get(), 2_143);
         assert_eq!(third_queues.timing.raw_cycles.get(), 142);
         assert_eq!(third_queues.refresh_events, 1);
         assert_eq!(
             third_execute.timing,
             wildside_core::intro_timing::IntroSourceTiming {
                 instruction_count: 166,
-                raw_cycles: M68kCycleCount::from_raw(2_094),
+                raw_cycles: M68kCycleCount::from_raw(2_098),
             },
         );
         assert_eq!(third_execute.refresh_events, 16);
         assert_eq!(third_execute.external_wait_cycles.get(), 0);
         // Oracle enters the third Execute_Objects at $790 on cycle
         // 10,618,420 and returns to $794 on 10,620,676. The `$FE,$20`
-        // delay path is 2,094 source cycles, seventeen refreshes, and 128
+        // delay path is 2,098 source cycles, seventeen refreshes, and 128
         // GEMS waits. Native crosses sixteen refreshes with no waits, so the
-        // explained residue grows from 206 to 336 cycles at this boundary.
+        // explained residue is 335 cycles at this boundary.
         assert_eq!(
             engine.master_clock(),
-            10_620_340 * 7,
+            10_620_341 * 7,
             "title third text-delay ledger: {third_execute:?}",
         );
 
@@ -4044,18 +4044,18 @@ mod tests {
             fourth_execute.timing,
             wildside_core::intro_timing::IntroSourceTiming {
                 instruction_count: 156,
-                raw_cycles: M68kCycleCount::from_raw(2_014),
+                raw_cycles: M68kCycleCount::from_raw(2_018),
             },
         );
         assert_eq!(fourth_execute.refresh_events, 16);
         assert_eq!(fourth_execute.external_wait_cycles.get(), 0);
         // Oracle frame 84 enters Execute_Objects at $790 on cycle
         // 10,746,382 and returns to $794 on 10,748,558. Native enters
-        // 259 cycles early and runs the same 2,014 source cycles plus sixteen
+        // Native runs the same 2,018 source cycles plus sixteen
         // refreshes, while the oracle accrues another 34 GEMS wait cycles.
         assert_eq!(
             engine.master_clock(),
-            10_748_265 * 7,
+            10_748_269 * 7,
             "title ordinary text-delay ledger: {fourth_execute:?}",
         );
 
@@ -4066,19 +4066,19 @@ mod tests {
         // same two hibernations and no native GEMS waits, while the complete
         // frame ledger retains the measured 279-436-cycle oracle residue.
         for (frame, rng_offset, delay, fade, native_return, oracle_return) in [
-            (85, 0xFFDD, 0x1F, 0x30, 10_876_277, 10_876_558),
-            (86, 0xFFE1, 0x1E, 0x40, 11_004_283, 11_004_593),
-            (87, 0xFFE5, 0x1D, 0x50, 11_132_279, 11_132_588),
-            (88, 0xFFE9, 0x1C, 0x60, 11_260_294, 11_260_607),
-            (89, 0xFFED, 0x1B, 0x70, 11_388_583, 11_389_019),
-            (90, 0xFFF1, 0x1A, 0x80, 11_516_308, 11_516_618),
-            (91, 0xFFF5, 0x19, 0x90, 11_644_311, 11_644_610),
-            (92, 0xFFF9, 0x18, 0xA0, 11_772_310, 11_772_616),
-            (93, 0xFFFD, 0x17, 0xB0, 11_900_323, 11_900_623),
-            (94, 0xFFCA, 0x16, 0xC0, 12_028_325, 12_028_615),
-            (95, 0xFFCE, 0x15, 0xD0, 12_156_328, 12_156_623),
-            (96, 0xFFD2, 0x14, 0xE0, 12_284_334, 12_284_613),
-            (97, 0xFFD6, 0x13, 0xF0, 12_412_340, 12_412_623),
+            (85, 0xFFDD, 0x1F, 0x30, 10_876_276, 10_876_558),
+            (86, 0xFFE1, 0x1E, 0x40, 11_004_280, 11_004_593),
+            (87, 0xFFE5, 0x1D, 0x50, 11_132_286, 11_132_588),
+            (88, 0xFFE9, 0x1C, 0x60, 11_260_289, 11_260_607),
+            (89, 0xFFED, 0x1B, 0x70, 11_388_593, 11_389_019),
+            (90, 0xFFF1, 0x1A, 0x80, 11_516_310, 11_516_618),
+            (91, 0xFFF5, 0x19, 0x90, 11_644_306, 11_644_610),
+            (92, 0xFFF9, 0x18, 0xA0, 11_772_323, 11_772_616),
+            (93, 0xFFFD, 0x17, 0xB0, 11_900_320, 11_900_623),
+            (94, 0xFFCA, 0x16, 0xC0, 12_028_329, 12_028_615),
+            (95, 0xFFCE, 0x15, 0xD0, 12_156_334, 12_156_623),
+            (96, 0xFFD2, 0x14, 0xE0, 12_284_340, 12_284_613),
+            (97, 0xFFD6, 0x13, 0xF0, 12_412_346, 12_412_623),
         ] {
             let advance = apply_gems_title_ordinary_delay_frame(
                 &mut engine,
@@ -4092,12 +4092,12 @@ mod tests {
             let expected_timing = if rng_offset >= 0xFFDD {
                 wildside_core::intro_timing::IntroSourceTiming {
                     instruction_count: 157,
-                    raw_cycles: M68kCycleCount::from_raw(2_020),
+                    raw_cycles: M68kCycleCount::from_raw(2_024),
                 }
             } else {
                 wildside_core::intro_timing::IntroSourceTiming {
                     instruction_count: 156,
-                    raw_cycles: M68kCycleCount::from_raw(2_014),
+                    raw_cycles: M68kCycleCount::from_raw(2_018),
                 }
             };
             assert_eq!(advance.timing, expected_timing, "title frame {frame}");
@@ -4118,7 +4118,7 @@ mod tests {
             controller_exit.timing,
             wildside_core::intro_timing::IntroSourceTiming {
                 instruction_count: 156,
-                raw_cycles: M68kCycleCount::from_raw(2_018),
+                raw_cycles: M68kCycleCount::from_raw(2_022),
             },
         );
         assert_eq!(controller_exit.refresh_events, 16);
@@ -4129,7 +4129,7 @@ mod tests {
         // and omits the oracle's final 18 GEMS wait cycles.
         assert_eq!(
             engine.master_clock(),
-            12_540_349 * 7,
+            12_540_356 * 7,
             "title controller fade-exit ledger: {controller_exit:?}",
         );
 
@@ -4138,21 +4138,21 @@ mod tests {
         // text delay reaches one after frame 114; frame 115 is the distinct
         // terminal path that emits IntroText1's first `T` glyph.
         for (frame, rng_offset, delay, controller_wait, native_return, oracle_return) in [
-            (99, 0xFFDE, 0x11, 0x12B, 12_668_297, 12_668_576),
+            (99, 0xFFDE, 0x11, 0x12B, 12_668_292, 12_668_576),
             (100, 0xFFE2, 0x10, 0x12A, 12_796_296, 12_796_591),
-            (101, 0xFFE6, 0x0F, 0x129, 12_924_297, 12_924_599),
-            (102, 0xFFEA, 0x0E, 0x128, 13_052_312, 13_052_589),
-            (103, 0xFFEE, 0x0D, 0x127, 13_180_311, 13_180_602),
-            (104, 0xFFF2, 0x0C, 0x126, 13_308_326, 13_308_614),
-            (105, 0xFFF6, 0x0B, 0x125, 13_436_325, 13_436_622),
-            (106, 0xFFFA, 0x0A, 0x124, 13_564_326, 13_564_612),
-            (107, 0xFFFE, 0x09, 0x123, 13_692_343, 13_692_606),
-            (108, 0xFFCB, 0x08, 0x122, 13_820_336, 13_820_615),
-            (109, 0xFFCF, 0x07, 0x121, 13_948_346, 13_948_621),
-            (110, 0xFFD3, 0x06, 0x120, 14_076_354, 14_076_627),
-            (111, 0xFFD7, 0x05, 0x11F, 14_204_351, 14_204_614),
-            (112, 0xFFDB, 0x04, 0x11E, 14_332_363, 14_332_622),
-            (113, 0xFFDF, 0x03, 0x11D, 14_460_377, 14_460_648),
+            (101, 0xFFE6, 0x0F, 0x129, 12_924_301, 12_924_599),
+            (102, 0xFFEA, 0x0E, 0x128, 13_052_318, 13_052_589),
+            (103, 0xFFEE, 0x0D, 0x127, 13_180_320, 13_180_602),
+            (104, 0xFFF2, 0x0C, 0x126, 13_308_323, 13_308_614),
+            (105, 0xFFF6, 0x0B, 0x125, 13_436_326, 13_436_622),
+            (106, 0xFFFA, 0x0A, 0x124, 13_564_330, 13_564_612),
+            (107, 0xFFFE, 0x09, 0x123, 13_692_333, 13_692_606),
+            (108, 0xFFCB, 0x08, 0x122, 13_820_347, 13_820_615),
+            (109, 0xFFCF, 0x07, 0x121, 13_948_343, 13_948_621),
+            (110, 0xFFD3, 0x06, 0x120, 14_076_358, 14_076_627),
+            (111, 0xFFD7, 0x05, 0x11F, 14_204_355, 14_204_614),
+            (112, 0xFFDB, 0x04, 0x11E, 14_332_370, 14_332_622),
+            (113, 0xFFDF, 0x03, 0x11D, 14_460_372, 14_460_648),
             (114, 0xFFE3, 0x02, 0x11C, 14_588_376, 14_588_660),
         ] {
             let advance = apply_gems_title_post_fade_wait_frame(
@@ -4165,9 +4165,9 @@ mod tests {
             .unwrap_or_else(|| panic!("source-positioned post-fade title frame {frame}"));
             post_fade_cursor = advance.cursor;
             let (instruction_count, raw_cycles) = if rng_offset >= 0xFFDD {
-                (152, 1_960)
+                (152, 1_964)
             } else {
-                (151, 1_954)
+                (151, 1_958)
             };
             assert_eq!(advance.timing.instruction_count, instruction_count);
             assert_eq!(advance.timing.raw_cycles.get(), raw_cycles);
@@ -4188,7 +4188,7 @@ mod tests {
             first_glyph.timing,
             wildside_core::intro_timing::IntroSourceTiming {
                 instruction_count: 184,
-                raw_cycles: M68kCycleCount::from_raw(2_232),
+                raw_cycles: M68kCycleCount::from_raw(2_236),
             },
         );
         assert_eq!(first_glyph.refresh_events, 17);
@@ -4196,10 +4196,10 @@ mod tests {
         // Oracle frame 115 enters `$790` on 14,714,552, reaches the `T`
         // parser at `loc_1C7D2` on 14,715,986 and `sub_1C7F6` on 14,716,052,
         // then returns at `$794` on 14,716,958.
-        // Native enters 267 cycles early and omits 38 GEMS wait cycles.
+        // Native omits the oracle's GEMS waits and returns 301 cycles early.
         assert_eq!(
             engine.master_clock(),
-            14_716_653 * 7,
+            14_716_657 * 7,
             "title first-glyph ledger: {first_glyph:?}",
         );
 
@@ -4212,12 +4212,12 @@ mod tests {
         )
         .expect("source-positioned frame-116 glyph delay");
         assert_eq!(first_glyph_delay.timing.instruction_count, 152);
-        assert_eq!(first_glyph_delay.timing.raw_cycles.get(), 1_960);
+        assert_eq!(first_glyph_delay.timing.raw_cycles.get(), 1_964);
         assert_eq!(first_glyph_delay.refresh_events, 15);
         assert_eq!(first_glyph_delay.external_wait_cycles.get(), 0);
         assert_eq!(
             engine.master_clock(),
-            14_844_383 * 7,
+            14_844_392 * 7,
             "frame-116 glyph-delay ledger; oracle `$794` is 14,844,683",
         );
         let second_glyph = apply_gems_title_ordinary_glyph_frame(
@@ -4229,14 +4229,14 @@ mod tests {
         )
         .expect("source-positioned frame-117 H glyph");
         assert_eq!(second_glyph.timing.instruction_count, 184);
-        assert_eq!(second_glyph.timing.raw_cycles.get(), 2_232);
+        assert_eq!(second_glyph.timing.raw_cycles.get(), 2_236);
         assert_eq!(second_glyph.refresh_events, 17);
         assert_eq!(second_glyph.external_wait_cycles.get(), 0);
         // Oracle frame 117 parses `H` at loc_1C7D2 on 14,972,007, enters
         // sub_1C7F6 on 14,972,073, and returns at `$794` on 14,972,979.
         assert_eq!(
             engine.master_clock(),
-            14_972_676 * 7,
+            14_972_671 * 7,
             "frame-117 H-glyph ledger: {second_glyph:?}",
         );
 
@@ -4251,48 +4251,48 @@ mod tests {
             native_return,
             oracle_return,
         ) in [
-            (118, 0xFFF3, 0x118, None, 152, 1_960, 15_100_404, 15_100_678),
+            (118, 0xFFF3, 0x118, None, 152, 1_964, 15_100_405, 15_100_678),
             (
                 119,
                 0xFFF7,
                 0x117,
                 Some(b'E'),
                 184,
-                2_232,
-                15_228_678,
+                2_236,
+                15_228_682,
                 15_228_976,
             ),
-            (120, 0xFFFB, 0x116, None, 152, 1_960, 15_356_408, 15_356_696),
+            (120, 0xFFFB, 0x116, None, 152, 1_964, 15_356_417, 15_356_696),
             (
                 121,
                 0xFFFF,
                 0x115,
                 Some(b'R'),
                 184,
-                2_228,
-                15_484_695,
+                2_232,
+                15_484_692,
                 15_484_977,
             ),
-            (122, 0xFFCC, 0x114, None, 151, 1_954, 15_612_418, 15_612_695),
+            (122, 0xFFCC, 0x114, None, 151, 1_958, 15_612_420, 15_612_695),
             (
                 123,
                 0xFFD0,
                 0x113,
                 Some(b'E'),
                 183,
-                2_226,
-                15_740_704,
+                2_230,
+                15_740_708,
                 15_740_989,
             ),
-            (124, 0xFFD4, 0x112, None, 151, 1_954, 15_868_427, 15_868_707),
+            (124, 0xFFD4, 0x112, None, 151, 1_958, 15_868_436, 15_868_707),
             (
                 125,
                 0xFFD8,
                 0x111,
                 Some(b' '),
                 183,
-                2_226,
-                15_996_707,
+                2_230,
+                15_996_720,
                 15_996_987,
             ),
         ] {

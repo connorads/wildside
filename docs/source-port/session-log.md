@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 corrected title controller poll)
+
+- Direct jgenesis tracing proves `sub_1C246`'s
+  `bclr #7,(Ctrl_1_Pressed).w` costs 20 cycles, not 16.
+- All controller-poll visitors and their complete VINT/DMA title ledgers use
+  the corrected source cost; frame 125 now returns at 15,996,720 versus oracle
+  15,996,987.
+- Oracle returns through `$794` until frame 138. Start is pressed on frame 139
+  after the `N` glyph and branches through `sub_1C246` towards `StopMusic`.
+- NEXT: schedule frames 126-138, then derive the frame-139 Start transition.
+
+---
+
 ## 2026-07-21 handoff (#409 first-space original quirk)
 
 - Frames 118-124 replay the ordinary two-frame glyph cadence, including the

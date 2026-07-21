@@ -600,6 +600,18 @@ mask the render.
 
 ### #409
 
+Correction 2026-07-21: direct jgenesis tracing at `sub_1C246` shows
+`bclr #7,(Ctrl_1_Pressed).w` consumes 20 source cycles, superseding the
+16-cycle assumption in the earlier title ledgers below. All six controller-poll
+visitors now use the traced cost. The four-cycle correction changes raster phase,
+so the complete title test re-measures the consequent VINT refresh and DMA halt
+counts rather than adding a constant to later clocks. Frame 125 is therefore 183
+instructions / 2,230 raw cycles and returns natively at 15,996,720 versus oracle
+15,996,987, leaving a 267-cycle residue. A broad oracle probe shows ordinary
+`$794` returns through frame 138; Start is pressed on frame 139 after the `N`
+glyph, `sub_1C246` takes its Start branch, and RNG freezes at `$FFDD`. NEXT:
+schedule frames 126-138, then source-schedule frame 139 through `StopMusic`.
+
 Progress 2026-07-21: the persistent title timeline reaches IntroText1's first
 space on frame 125. Frames 118-124 replay the ordinary two-frame cadence and
 frame 121's `$FFFF` RNG boundary exactly. Oracle proves the ROM's erroneous
