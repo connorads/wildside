@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 first complete fade body)
+
+- Caller-neutral schedules cover `Do_Nothing`, CRAM DMA, and the full-dirty
+  `sub_14C0` interpolation from `Pal_FadeOut loc_28C6`.
+- Native reaches the next `$93E` poll at 18,057,544 / phase 14 with no GEMS
+  wait; oracle reaches 18,057,523 / the same phase.
+- The body retains 618 delay instructions, 173 DMA-halt cycles, and all 2,413
+  palette-interpolation instructions.
+- NEXT: schedule the remaining fade iterations, final negative step, and
+  `loc_700` VRAM clear.
+
+---
+
 ## 2026-07-21 handoff (#409 first fade VINT return)
 
 - `WaitForVint` now shares its poll/VINT core while selecting either the

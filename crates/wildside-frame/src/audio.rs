@@ -1062,6 +1062,28 @@ pub fn apply_gems_title_mode_standard_do_nothing(
     )
 }
 
+/// Clock a title-path `Do_Nothing` call.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_do_nothing_call(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_do_nothing_call_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 #[cfg(feature = "audio")]
 fn apply_gems_title_source_hardware_interval(
     audio: &mut GemsMasterClockTimingEngine,
@@ -1624,6 +1646,20 @@ pub fn apply_gems_title_mode_standard_palette_to_vram(
     })
 }
 
+/// Clock a title-path `Palette_to_VRAM` upload.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_palette_to_vram_call(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitlePaletteToVramAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_palette_to_vram_call_cursor_with_scheduler(entry, |event| {
+        Some(apply_gems_title_memory_dma_hardware_event(audio, event))
+    })
+}
+
 #[cfg(feature = "audio")]
 fn apply_gems_title_memory_dma_hardware_event(
     audio: &mut GemsMasterClockTimingEngine,
@@ -1731,6 +1767,50 @@ pub fn apply_gems_title_first_palette_interpolation(
         return None;
     }
     wildside_core::vdp::title_first_palette_interpolation_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
+/// Clock a full-dirty-mask title-path `sub_14C0` interpolation call.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_full_palette_interpolation_call(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_full_palette_interpolation_call_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
+/// Clock the first `Pal_FadeOut` decrement through the next VINT poll.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_palette_fade_first_decrement_to_next_wait_poll(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_palette_fade_first_decrement_to_next_wait_poll_cursor_with_scheduler(
         entry,
         |cycles, vdp_owns_bus, source_instruction| {
             Some(apply_gems_title_source_hardware_interval(
@@ -4598,6 +4678,75 @@ mod tests {
             engine.master_clock(),
             18_030_439 * 7,
             "first Pal_FadeOut WaitForVint return: {fade_vint:?}",
+        );
+
+        let fade_delay = apply_gems_title_do_nothing_call(&mut engine, fade_vint.cursor)
+            .expect("first Pal_FadeOut Do_Nothing call");
+        assert_eq!(fade_delay.timing.instruction_count, 618);
+        assert_eq!(fade_delay.timing.raw_cycles.get(), 6_192);
+        assert_eq!(fade_delay.refresh_events, 49);
+        assert_eq!(fade_delay.external_wait_cycles.get(), 0);
+        assert_eq!(
+            fade_delay.cursor.refresh_phase,
+            M68kRefreshPhase::new(110).unwrap()
+        );
+        assert_eq!(
+            engine.master_clock(),
+            18_036_729 * 7,
+            "first Pal_FadeOut Do_Nothing return; oracle loc_28CE is 18,036,710",
+        );
+
+        let fade_dma = apply_gems_title_palette_to_vram_call(&mut engine, fade_delay.cursor)
+            .expect("first Pal_FadeOut Palette_to_VRAM call");
+        assert_eq!(fade_dma.timing.instruction_count, 22);
+        assert_eq!(fade_dma.timing.raw_cycles.get(), 362);
+        assert_eq!(fade_dma.refresh_events, 3);
+        assert_eq!(fade_dma.external_wait_cycles.get(), 0);
+        assert_eq!(fade_dma.dma_halt_cycles.get(), 173);
+        assert_eq!(
+            fade_dma.cursor.refresh_phase,
+            M68kRefreshPhase::new(92).unwrap()
+        );
+        assert_eq!(
+            engine.master_clock(),
+            18_037_270 * 7,
+            "first Pal_FadeOut palette DMA return; oracle loc_28D2 is 18,037,249",
+        );
+
+        let fade_interpolation =
+            apply_gems_title_full_palette_interpolation_call(&mut engine, fade_dma.cursor)
+                .expect("first Pal_FadeOut sub_14C0 call");
+        assert_eq!(fade_interpolation.timing.instruction_count, 2_413);
+        assert_eq!(fade_interpolation.timing.raw_cycles.get(), 19_848);
+        assert_eq!(fade_interpolation.refresh_events, 158);
+        assert_eq!(fade_interpolation.external_wait_cycles.get(), 0);
+        assert_eq!(
+            fade_interpolation.cursor.refresh_phase,
+            M68kRefreshPhase::new(32).unwrap()
+        );
+        assert_eq!(
+            engine.master_clock(),
+            18_057_434 * 7,
+            "first Pal_FadeOut sub_14C0 return; oracle loc_28D6 is 18,057,413",
+        );
+
+        let next_fade_wait = apply_gems_title_palette_fade_first_decrement_to_next_wait_poll(
+            &mut engine,
+            fade_interpolation.cursor,
+        )
+        .expect("first Pal_FadeOut decrement to next VINT poll");
+        assert_eq!(next_fade_wait.timing.instruction_count, 8);
+        assert_eq!(next_fade_wait.timing.raw_cycles.get(), 108);
+        assert_eq!(next_fade_wait.refresh_events, 1);
+        assert_eq!(next_fade_wait.external_wait_cycles.get(), 0);
+        assert_eq!(
+            next_fade_wait.cursor.refresh_phase,
+            M68kRefreshPhase::new(14).unwrap()
+        );
+        assert_eq!(
+            engine.master_clock(),
+            18_057_544 * 7,
+            "next Pal_FadeOut WaitForVint poll; oracle first $93E is 18,057,523",
         );
     }
 

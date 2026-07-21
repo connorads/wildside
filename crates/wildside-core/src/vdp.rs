@@ -3795,16 +3795,24 @@ pub fn title_wait_for_vint_to_subroutine_return_cursor_with_scheduler(
     title_wait_for_vint_cursor_with_scheduler(entry, false, advance_hardware)
 }
 
-/// Co-schedule `Mode_Standard -> Do_Nothing` on the title hardware timeline.
-pub fn title_mode_standard_do_nothing_cursor_with_scheduler(
+/// Co-schedule a `Do_Nothing` call on the title hardware timeline.
+pub fn title_do_nothing_call_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<TitleIntroSourceAdvance> {
     title_source_routine_cursor_with_scheduler(
         entry,
-        |visit| Some(crate::intro_timing::visit_mode_standard_do_nothing(visit)),
+        |visit| Some(crate::intro_timing::visit_do_nothing_call(visit)),
         &mut advance_hardware,
     )
+}
+
+/// Co-schedule `Mode_Standard -> Do_Nothing` on the title hardware timeline.
+pub fn title_mode_standard_do_nothing_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_do_nothing_call_cursor_with_scheduler(entry, advance_hardware)
 }
 
 /// Co-schedule the title's empty `sub_1596` foreground-update queues.
@@ -4087,14 +4095,40 @@ pub fn title_first_make_sprites_from_gfx_objects_cursor_with_scheduler(
     )
 }
 
-/// Co-schedule the first title `sub_14C0` interpolation through frame RTS.
-pub fn title_first_palette_interpolation_cursor_with_scheduler(
+/// Co-schedule a full-dirty-mask `sub_14C0` interpolation call.
+pub fn title_full_palette_interpolation_call_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<TitleIntroSourceAdvance> {
     title_source_routine_cursor_with_scheduler(
         entry,
-        |visit| Some(crate::intro_timing::visit_title_first_palette_interpolation(visit)),
+        |visit| {
+            Some(crate::intro_timing::visit_full_palette_interpolation_call(
+                visit,
+            ))
+        },
+        &mut advance_hardware,
+    )
+}
+
+/// Co-schedule the first title `sub_14C0` interpolation through frame RTS.
+pub fn title_first_palette_interpolation_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_full_palette_interpolation_call_cursor_with_scheduler(entry, advance_hardware)
+}
+
+/// Co-schedule the first fade decrement through the next `WaitForVint` poll.
+pub fn title_palette_fade_first_decrement_to_next_wait_poll_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| {
+            Some(crate::intro_timing::visit_palette_fade_first_decrement_to_next_wait_poll(visit))
+        },
         &mut advance_hardware,
     )
 }
@@ -4143,16 +4177,24 @@ fn title_source_routine_cursor_with_scheduler(
     })
 }
 
-/// Co-schedule the first title `Palette_to_VRAM` call.
-pub fn title_mode_standard_palette_to_vram_cursor_with_scheduler(
+/// Co-schedule a title-path `Palette_to_VRAM` call.
+pub fn title_palette_to_vram_call_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     mut advance_hardware: impl FnMut(TitlePaletteHardwareEvent) -> Option<M68kCycleCount>,
 ) -> Option<TitlePaletteToVramAdvance> {
     title_memory_dma_routine_cursor_with_scheduler(
         entry,
-        |visit| crate::intro_timing::visit_mode_standard_palette_to_vram(visit),
+        |visit| crate::intro_timing::visit_palette_to_vram_call(visit),
         &mut advance_hardware,
     )
+}
+
+/// Co-schedule the first title `Palette_to_VRAM` call.
+pub fn title_mode_standard_palette_to_vram_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    advance_hardware: impl FnMut(TitlePaletteHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitlePaletteToVramAdvance> {
+    title_palette_to_vram_call_cursor_with_scheduler(entry, advance_hardware)
 }
 
 /// Co-schedule the title `Transfer_SpriteAndKidToVRAM` call.

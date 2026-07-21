@@ -104,11 +104,12 @@ pub fn visit_title_frame_return_to_wait_for_vint_poll(
     timing
 }
 
-/// Visit `Mode_Standard` entry through completion of `Do_Nothing`.
+/// Visit a `BSR.W Do_Nothing` call through its return.
 ///
-/// ASM `Mode_Standard` $77A calls `Do_Nothing` $956, whose DBF delay runs
-/// 612 taken iterations and one terminal iteration before returning.
-pub fn visit_mode_standard_do_nothing(mut visit: impl FnMut(u32)) -> IntroSourceTiming {
+/// ASM `Do_Nothing` $956 runs 612 taken DBF iterations and one terminal
+/// iteration before returning. Callers include `Mode_Standard` $77A and
+/// `Pal_FadeOut loc_28C6` $28CA.
+pub fn visit_do_nothing_call(mut visit: impl FnMut(u32)) -> IntroSourceTiming {
     let mut timing = IntroSourceTiming {
         instruction_count: 0,
         raw_cycles: M68kCycleCount::from_raw(0),
@@ -121,23 +122,29 @@ pub fn visit_mode_standard_do_nothing(mut visit: impl FnMut(u32)) -> IntroSource
                 .raw_cycles
                 .get()
                 .checked_add(cycles)
-                .expect("Mode_Standard source timing fits u32"),
+                .expect("Do_Nothing source timing fits u32"),
         );
     };
 
-    // ASM Mode_Standard $77A: BSR.W Do_Nothing; save d0 and load DBF count.
+    // ASM Mode_Standard $77A / Pal_FadeOut $28CA: BSR.W Do_Nothing;
+    // save d0 and load the DBF count.
     for cycles in [18, 8, 8] {
         emit(cycles);
     }
     for iteration in 0..=612 {
         emit(if iteration == 612 { 14 } else { 10 });
     }
-    // ASM Do_Nothing $960: restore d0 and return to $77E.
+    // ASM Do_Nothing $960: restore d0 and return to the caller.
     for cycles in [8, 16] {
         emit(cycles);
     }
 
     timing
+}
+
+/// Visit `Mode_Standard` $77A through completion of `Do_Nothing`.
+pub fn visit_mode_standard_do_nothing(visit: impl FnMut(u32)) -> IntroSourceTiming {
+    visit_do_nothing_call(visit)
 }
 
 /// Visit the title's empty foreground-update queues through `sub_1596`.
@@ -1218,12 +1225,13 @@ pub fn visit_title_first_make_sprites_from_gfx_objects(
     timing
 }
 
-/// Visit the first title `sub_14C0` palette interpolation through frame RTS.
+/// Visit a full-dirty-mask `BSR.W sub_14C0` palette interpolation call.
 ///
 /// Both 32-bit dirty masks are `$FFFFFFFF` after `sub_1C204`, so the routine
 /// builds all 15 signed interpolation steps and runs the full 32-colour
-/// `sub_1536` body for both palette halves before returning to `$7A4`.
-pub fn visit_title_first_palette_interpolation(mut visit: impl FnMut(u32)) -> IntroSourceTiming {
+/// `sub_1536` body for both palette halves before returning. The title's first
+/// frame and every `Pal_FadeOut loc_28C6` step share this path.
+pub fn visit_full_palette_interpolation_call(mut visit: impl FnMut(u32)) -> IntroSourceTiming {
     let mut timing = IntroSourceTiming {
         instruction_count: 0,
         raw_cycles: M68kCycleCount::from_raw(0),
@@ -1240,7 +1248,8 @@ pub fn visit_title_first_palette_interpolation(mut visit: impl FnMut(u32)) -> In
         );
     };
 
-    // ASM Mode_Standard $7A0 and sub_14C0 setup through loc_14EE.
+    // ASM Mode_Standard $7A0 / Pal_FadeOut $28D2 and sub_14C0 setup through
+    // loc_14EE.
     for cycles in [18, 16, 16, 8, 10, 12, 12, 16, 4, 4, 14, 16, 8, 4, 4] {
         emit(cycles);
     }
@@ -1283,13 +1292,18 @@ pub fn visit_title_first_palette_interpolation(mut visit: impl FnMut(u32)) -> In
     timing
 }
 
-/// Visit `Mode_Standard`'s first `Palette_to_VRAM` call from caller `$77E`.
+/// Visit the first title `sub_14C0` interpolation through frame RTS.
+pub fn visit_title_first_palette_interpolation(visit: impl FnMut(u32)) -> IntroSourceTiming {
+    visit_full_palette_interpolation_call(visit)
+}
+
+/// Visit a `BSR.W Palette_to_VRAM` call through its return.
 ///
 /// ASM `Palette_to_VRAM $970`, `Stop_z80 $E13BC`, and `Start_z80 $E13D0`
 /// retain their instruction boundaries. BUSREQ side effects occur after the
 /// corresponding register write, while the CRAM DMA begins after the second
 /// VDP command word.
-pub fn visit_mode_standard_palette_to_vram(
+pub fn visit_palette_to_vram_call(
     mut visit: impl FnMut(MemoryDmaTimingEvent),
 ) -> IntroSourceTiming {
     let mut timing = IntroSourceTiming {
@@ -1310,8 +1324,8 @@ pub fn visit_mode_standard_palette_to_vram(
         );
     };
 
-    // ASM Mode_Standard $77E and Palette_to_VRAM $970: BSR, flag test,
-    // fall-through branch and Stop_z80 JSR.
+    // ASM Mode_Standard $77E / Pal_FadeOut $28CE and Palette_to_VRAM $970:
+    // BSR, flag test, fall-through branch and Stop_z80 JSR.
     for cycles in [18, 12, 8, 20] {
         emit(&mut visit, &mut timing, cycles);
     }
@@ -1341,6 +1355,44 @@ pub fn visit_mode_standard_palette_to_vram(
     // Start_z80 RTS, then Palette_to_VRAM RTS.
     for cycles in [16, 16] {
         emit(&mut visit, &mut timing, cycles);
+    }
+
+    timing
+}
+
+/// Visit `Mode_Standard`'s first `Palette_to_VRAM` call from caller `$77E`.
+pub fn visit_mode_standard_palette_to_vram(
+    visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    visit_palette_to_vram_call(visit)
+}
+
+/// Visit the first `Pal_FadeOut` decrement and loop back to the next VINT poll.
+///
+/// ASM `loc_28C6` returns from `sub_14C0` at $28D6, decrements fade progress
+/// from `$0100` to `$00F0`, takes the non-negative path through `loc_28DE`,
+/// seeds both dirty masks, branches to `loc_28C6`, calls `WaitForVint`, and
+/// clears `V_Int_Done`. The visitor stops immediately before the first $93E
+/// poll instruction.
+pub fn visit_palette_fade_first_decrement_to_next_wait_poll(
+    mut visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+
+    // ASM Pal_FadeOut $28D6..$28C6 and WaitForVint $93A.
+    for cycles in [20, 8, 4, 16, 16, 10, 18, 16] {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("palette-fade loop timing fits u32"),
+        );
     }
 
     timing
@@ -2010,6 +2062,23 @@ mod tests {
             64,
             "ASM sub_1536 writes all 64 colours across both dirty masks",
         );
+    }
+
+    #[test]
+    fn palette_fade_first_decrement_reaches_next_wait_poll_in_source_order() {
+        let mut cycles = Vec::new();
+        let timing =
+            visit_palette_fade_first_decrement_to_next_wait_poll(|cycle| cycles.push(cycle));
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 8,
+                raw_cycles: M68kCycleCount::from_raw(108),
+            },
+            "ASM Pal_FadeOut $28D6..$28C6 and WaitForVint $93A retain the first non-negative fade loop",
+        );
+        assert_eq!(cycles, [20, 8, 4, 16, 16, 10, 18, 16]);
     }
 
     #[test]

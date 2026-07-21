@@ -600,6 +600,21 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the persistent timeline now covers the first complete
+`Pal_FadeOut loc_28C6` body. Caller-neutral visitors reuse the ROM's identical
+`BSR.W Do_Nothing`, `BSR.W Palette_to_VRAM`, and full-dirty-mask
+`BSR.W sub_14C0` paths rather than duplicating their ledgers. Native returns
+from `Do_Nothing` at 18,036,729 after 618 instructions / 6,192 raw cycles / 49
+refreshes, 19 cycles after oracle `loc_28CE` 18,036,710. The CRAM upload adds
+362 raw cycles, 173 DMA-halt cycles, and three refreshes; native reaches
+`loc_28D2` at 18,037,270 versus oracle 18,037,249. `sub_14C0` visits all 2,413
+instructions / 19,848 raw cycles / 158 refreshes and returns at 18,057,434
+versus oracle `loc_28D6` 18,057,413. The `$0100 -> $00F0` decrement, dirty-mask
+reset, loop branch, and next `WaitForVint` setup reach `$93E` at native
+18,057,544 / phase 14 versus oracle 18,057,523 / phase 14, with no GEMS wait.
+NEXT: schedule the remaining fade iterations, final negative step, and
+`loc_700` VRAM clear.
+
 Progress 2026-07-21: the blocking `WaitForVint` scheduler now separates its
 shared poll/VINT body from its return target. The title loop retains the
 existing `MainGameLoop -> Mode_Standard` tail; `Pal_FadeOut` returns directly
