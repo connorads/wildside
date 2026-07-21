@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 first running-driver IRQ)
+
+- `gems_frame_signature_v1` now defends frames 0..16 and
+  `coverage.modelled_frames` advances from 16 to 17.
+- The source/FIFO cursor carries `loc_700/loc_70E` across frame 16 after exact
+  `sub_914/sub_924` BUSREQ completion boundaries.
+- GEMS `CP B` at `$01E2` proves a jgenesis X/Y-flag limitation: native/hardware
+  AF `$029B`, oracle `$0293`; only the IRQ saved-SP byte differs.
+- Full TAS keeps pixel/gameplay/enemy/RNG baselines green; GEMS mismatches fall
+  37,743 -> 37,742 and the first authoritative mismatch moves 16 -> 17.
+- NEXT: continue the long `loc_700` clear from frame 17.
+
+---
+
 ## 2026-07-21 handoff (#416 progressive StopMusic copy)
 
 - `gems_frame_signature_v1` now defends frames 0..15; every strict field

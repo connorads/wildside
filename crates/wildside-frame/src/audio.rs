@@ -1741,6 +1741,93 @@ pub fn apply_gems_title_loc_700_vram_clear(
     })
 }
 
+/// Pauseable hardware schedule for ASM `loc_700/loc_70E`'s full-VRAM clear.
+///
+/// The existing title scheduler derives every source, refresh, VINT, and FIFO
+/// interval. This cursor retains that schedule so an oracle `FrameRendered`
+/// sample can stop inside the long clear without discarding VDP ownership.
+#[cfg(feature = "audio")]
+pub struct TimedGemsTitleLoc700Cursor {
+    current_master_clock: u64,
+    intervals: Vec<(u64, bool)>,
+    next_interval: usize,
+    interval_elapsed_mclk: u64,
+}
+
+#[cfg(feature = "audio")]
+impl TimedGemsTitleLoc700Cursor {
+    const MCLK_PER_M68K_CYCLE: u64 = 7;
+
+    pub fn new(entry: LoadInGameCpuRasterCursor, entry_master_clock: u64) -> Option<Self> {
+        let mut intervals: Vec<(u64, bool)> = Vec::new();
+        let advance =
+            wildside_core::vdp::title_loc_700_vram_clear_cursor_with_scheduler(entry, |event| {
+                let TitlePaletteHardwareEvent::Advance {
+                    cycles,
+                    vdp_owns_bus,
+                    ..
+                } = event
+                else {
+                    return None;
+                };
+                let mclk = u64::from(cycles.get()) * Self::MCLK_PER_M68K_CYCLE;
+                if let Some((previous_mclk, previous_ownership)) = intervals.last_mut()
+                    && *previous_ownership == vdp_owns_bus
+                {
+                    *previous_mclk = previous_mclk.checked_add(mclk)?;
+                } else {
+                    intervals.push((mclk, vdp_owns_bus));
+                }
+                Some(M68kCycleCount::from_raw(0))
+            })?;
+        if advance.external_wait_cycles.get() != 0 {
+            return None;
+        }
+        Some(Self {
+            current_master_clock: entry_master_clock,
+            intervals,
+            next_interval: 0,
+            interval_elapsed_mclk: 0,
+        })
+    }
+
+    pub fn advance_to_master_clock(
+        &mut self,
+        audio: &mut GemsMasterClockTimingEngine,
+        target_master_clock: u64,
+    ) -> Option<GemsMasterClockAdvance> {
+        if audio.master_clock() != self.current_master_clock
+            || target_master_clock < self.current_master_clock
+        {
+            return None;
+        }
+        let mut reads = Vec::new();
+        while self.current_master_clock < target_master_clock {
+            let (interval_mclk, vdp_owns_bus) = *self.intervals.get(self.next_interval)?;
+            let remaining_interval = interval_mclk.checked_sub(self.interval_elapsed_mclk)?;
+            let elapsed = remaining_interval.min(target_master_clock - self.current_master_clock);
+            reads.extend(
+                audio
+                    .advance_ntsc_master_clocks_with_vdp_ownership(elapsed, vdp_owns_bus)
+                    .banked_68k_reads,
+            );
+            if audio.pending_m68k_wait_cycles() != 0 {
+                return None;
+            }
+            self.current_master_clock += elapsed;
+            self.interval_elapsed_mclk += elapsed;
+            if self.interval_elapsed_mclk == interval_mclk {
+                self.next_interval += 1;
+                self.interval_elapsed_mclk = 0;
+            }
+        }
+        Some(GemsMasterClockAdvance {
+            banked_68k_reads: reads,
+            pending_m68k_wait_cycles: 0,
+        })
+    }
+}
+
 /// Clock the `loc_714/loc_720` Sprite_Table clear.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_loc_714_sprite_table_clear(
@@ -3190,7 +3277,12 @@ mod tests {
             &[M68kCycleCount::from_raw(108_848)],
         )
         .expect("frame-867 StopMusic schedule");
-        let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+        let rom = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../.cache/upstream/kid-chameleon-disasm/kid.bin"),
+        )
+        .expect("bootstrapped Kid ROM");
+        let mut engine = GemsMasterClockTimingEngine::from_kid_rom(&rom).expect("Kid GEMS driver");
         let load_in_game_cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
             beam: wildside_core::vdp::H40BeamPosition::new(151, 432)
                 .expect("published-route Load_InGame absolute-cycle beam"),
@@ -3261,11 +3353,16 @@ mod tests {
             .is_none(),
             "absolute schedules require a power-on raster origin"
         );
-        let mut engine = GemsMasterClockTimingEngine::new_with_ntsc_timeline_origin(
-            &[0x76],
-            vec![],
+        let rom = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../.cache/upstream/kid-chameleon-disasm/kid.bin"),
+        )
+        .expect("bootstrapped Kid ROM");
+        let mut engine = GemsMasterClockTimingEngine::from_kid_rom_with_ntsc_timeline_origin(
+            &rom,
             GemsNtscTimelineOrigin::PowerOnScanlineZero,
-        );
+        )
+        .expect("Kid GEMS driver");
         engine.advance_ntsc_master_clocks(entry_master_clock);
         assert!(
             engine.checkpoint().reset,
@@ -3313,7 +3410,11 @@ mod tests {
                 GemsNtscTimelineOrigin::PowerOnScanlineZero,
             )
             .expect("Kid GEMS driver");
-            engine.advance_ntsc_master_clocks(entry_cycles * 7);
+            apply_gems_power_on_z80_startup(&mut engine, &rom)
+                .expect("fresh engine accepts the EntryPoint startup schedule");
+            apply_gems_power_on_post_clear_reset(&mut engine)
+                .expect("first StopMusic follows EntryPoint's post-clear reset");
+            engine.advance_ntsc_master_clocks(entry_cycles * 7 - engine.master_clock());
             let timing = wildside_core::gems_stop_music_elapsed_timing(
                 wildside_core::GemsStopMusicBusAckPolls {
                     driver_copy_sub_e13da: 1,
@@ -3362,6 +3463,51 @@ mod tests {
             ),
             (847_668_694, 65, [0, 0, 6_686], 13, 13, false, 7, true, true,),
             "oracle selected-PC checkpoint at ASM StopMusic $E150C"
+        );
+        for (absolute_cycle, oracle_pc) in [
+            (2_115_785_u64, 67_u16),
+            (2_115_829, 71),
+            (2_115_885, 89),
+            (2_116_001, 1_952),
+            (2_116_079, 677),
+            (2_116_123, 1_971),
+        ] {
+            let checkpoint = checkpoint_at(absolute_cycle - entry_cycles);
+            assert_eq!(
+                checkpoint.z80_pc, oracle_pc,
+                "oracle selected-PC cycle {absolute_cycle}"
+            );
+        }
+        let checkpoint = checkpoint_at(2_116_123 - entry_cycles);
+        assert_eq!(
+            (
+                checkpoint.z80_pc,
+                checkpoint.z80_index_registers,
+                checkpoint.z80_mclk_counter,
+                checkpoint.z80_t_cycles_wait,
+            ),
+            (1_971, [0, 0, 6_688], 1, 9),
+            "oracle Init_RNG selected-PC checkpoint"
+        );
+        let checkpoint = checkpoint_at(2_117_835 - entry_cycles);
+        assert_eq!(
+            (
+                checkpoint.z80_pc,
+                checkpoint.z80_mclk_counter,
+                checkpoint.z80_t_cycles_wait,
+            ),
+            (2_288, 0, 6),
+            "oracle sub_6E24 selected-PC checkpoint"
+        );
+        let checkpoint = checkpoint_at(2_117_935 - entry_cycles);
+        assert_eq!(
+            (
+                checkpoint.z80_pc,
+                checkpoint.z80_mclk_counter,
+                checkpoint.z80_t_cycles_wait,
+            ),
+            (469, 10, 6),
+            "oracle Stop_z80 $E13BC selected-PC checkpoint"
         );
     }
 

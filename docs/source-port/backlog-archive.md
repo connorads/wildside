@@ -282,6 +282,21 @@ cursor to the second `StopMusic` call. Full-route verification reduces the
 GEMS mismatch count from 37,745 to 37,743 and advances the first mismatch from
 14 to 16; gameplay, enemy, RNG, and pixel baselines remain unchanged.
 
+Progress 2026-07-21: route-wide GEMS coverage advances from 16 to 17 defended
+frames. Selected-PC tracing pins the short `sub_914/Stop_z80 $E13BC` and
+`sub_924/Start_z80 $E13D0` BUSREQ writes at their instruction-completion
+boundaries, then enters `loc_700` at cycle 2,118,345 with beam `143:2715` and
+refresh phase 14. A resumable cursor carries the complete `loc_700/loc_70E`
+source, refresh, and FIFO-ownership schedule across `FrameRendered`. Native
+matches oracle PC, SP, divider, T-state, flags, and all but one RAM byte on
+frame 16. The byte is an evidence-backed oracle limitation: GEMS `CP B` at Z80
+`$01E2` yields hardware/native AF `$029B` but jgenesis `$0293`, shifting the
+first IRQ so its `LD ($003E),SP` stores `$1C` rather than oracle `$1E`. The
+hardware-correct MIT Z80 core remains unchanged. Full TAS verification keeps
+pixel/gameplay/enemy/RNG baselines green, reduces GEMS mismatches 37,743 ->
+37,742, records one oracle limitation, and moves the first authoritative
+mismatch 16 -> 17. NEXT: continue `loc_700` from frame 17.
+
 ---
 
 ### #417

@@ -678,10 +678,6 @@ impl GemsMasterClockTimingEngine {
                     "StopMusic releases reset after releasing the driver-copy bus"
                 );
                 self.set_z80_control(false, false);
-                // ASM sub_E1416's RESET deassertion retains the current Z80
-                // T-state before normal opcode countdown resumes. Selected-PC
-                // checkpoints at $E143A/$E150C expose that state explicitly.
-                self.z80_t_cycles_wait = self.z80_t_cycles_wait.saturating_add(1);
             }
             GemsStopMusicControl::BeginQueueTransaction => {
                 assert!(

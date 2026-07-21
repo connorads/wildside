@@ -507,29 +507,30 @@ Pinned against the pinned jgenesis, never fitted:
 ### Coverage semantics
 
 The report declares `coverage.modelled_frames`: the edge up to which the
-native per-frame GEMS timeline is *defended* as faithful. It is 16: frames
-0..15 replay `EntryPoint` and the first source-positioned `StopMusic`. A
+native per-frame GEMS timeline is *defended* as faithful. It is 17: frames
+0..16 replay `EntryPoint`, the first source-positioned `StopMusic`, the brief
+`sub_914/sub_924` BUSREQ window, and `loc_700`'s FIFO-owned VRAM clear. A
 resumable cursor preserves the two `FrameRendered` samples inside
 `sub_E13DA`, materialising each `loc_E1400` driver byte and `loc_E1406` clear
 when its M68K write instruction starts, including the active one-cycle Z80-RAM
-wait. All strict fields match oracle; divider phases are advisory for the
-sampling reason above. Signatures past the edge are still emitted by the coarse
+wait. Frame 16's sole strict residual is the documented jgenesis X/Y-flag
+limitation below. Signatures past the edge are still emitted by the coarse
 continuous route replayer and compared so divergence is measured, not hidden,
-but never claimed as modelled. The first unmodelled boundary is frame 16's
-running driver after its first VBlank/IRQ.
+but never claimed as modelled. The first unmodelled boundary is frame 17.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.
 
 ### Oracle limitation: undocumented X/Y flags
 
-jgenesis preserves the previous undocumented X/Y flag bits for GEMS `SUB 1`
-at `$07B3`; real Z80 hardware (and the native core) copy bits 5/3 from the
-`$FF` result. GEMS serialises AF through its stack, leaving the oracle at PC
-`$02AA` where hardware-faithful execution reaches `$02AE`. A per-frame
-residual reclassifies as `oracle_limitation` only when every other strict
-field is byte-equal and the PC pair is exactly that documented case;
-anything broader stays authoritative.
+jgenesis preserves previous undocumented X/Y flag bits for subtract-family
+instructions; real Z80 hardware (and the native core) copy bits 5/3 from the
+result. GEMS `CP B` at `$01E2` first exposes this on frame 16: the flag split
+shifts the first IRQ boundary and changes only `$003E`'s saved-SP byte. Later,
+`SUB 1` at `$07B3` leaves the oracle at `$02AA` where hardware reaches `$02AE`.
+A residual reclassifies as `oracle_limitation` only for those exact frame/CRC
+or PC pairs when every other strict field is byte-equal; anything broader
+stays authoritative.
 
 ### Gates
 
