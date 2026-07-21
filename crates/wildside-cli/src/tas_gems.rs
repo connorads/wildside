@@ -45,14 +45,14 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 
 /// Frames of the route whose native per-frame GEMS timeline is defended as
-/// faithful. Frames 0..45 replay ASM `EntryPoint`'s power-on Z80 bootstrap
+/// faithful. Frames 0..46 replay ASM `EntryPoint`'s power-on Z80 bootstrap
 /// through the first outer `Mode_Standard` pass, three Sega-screen local
 /// palette/VINT/controller iterations, and the Start transition into the
-/// first eight `Pal_FadeOut` palette uploads. The tail remains the
+/// first nine `Pal_FadeOut` palette uploads. The tail remains the
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 46;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 47;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -557,6 +557,7 @@ impl GemsSignatureProbe {
             43 => Some((5_492_165, 935, 70)),
             44 => Some((5_620_169, 923, 70)),
             45 => Some((5_748_174, 918, 70)),
+            46 => Some((5_876_178, 113, 70)),
             _ => None,
         } {
             // ASM loc_12EDE -> loc_6E2 -> Pal_FadeOut loc_28C6. After
@@ -734,7 +735,8 @@ fn advisory_fields_diverge(native: &GemsFrameSignature, oracle: &GemsFrameSignat
 /// and `$003F` plus the transient PC/IFF phase. Frame 43 differs only at
 /// `SBPTACC` `$076C` plus PC phase; frame 44 carries the same one-byte
 /// accumulator residual into a later PC phase. Frame 45 carries both
-/// `SBPTACC` bytes and one active stack byte.
+/// `SBPTACC` bytes and one active stack byte. Frame 46 carries both
+/// accumulator bytes and two active stack bytes.
 /// Later `SUB 1` at $07B3 leaves the oracle at PC $02AA where hardware reaches
 /// $02AE. Every other strict field must be byte-equal.
 fn gems_divergence_matches_documented_z80_xy_flag_case(
@@ -794,6 +796,7 @@ fn gems_divergence_matches_documented_z80_xy_flag_case(
                 | (43, 25_501_463, 3_170_344_611, 0x0B50, 0x0B48)
                 | (44, 2_622_433_153, 25_501_463, 0x0B57, 0x02A5)
                 | (45, 2_864_186_863, 1_756_839_849, 0x07CE, 0x07B7)
+                | (46, 2_287_093_956, 3_041_102_513, 0x07B3, 0x07A9)
         );
     let sega_fade_irq_edge = diverging == ["audio_ram_crc32", "z80_pc", "status_bits"]
         && frame_index == 42
@@ -1155,6 +1158,16 @@ mod tests {
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 13);
+
+        let mut native_frame_46 = signature(0x07B3);
+        native_frame_46.audio_ram_crc32 = 2_287_093_956;
+        let mut oracle_frame_46 = signature(0x07A9);
+        oracle_frame_46.audio_ram_crc32 = 3_041_102_513;
+        native.push(Some(native_frame_46));
+        oracle.push(Some(oracle_frame_46));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 14);
     }
 
     #[test]
@@ -1457,7 +1470,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_45() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_46() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -1766,5 +1779,25 @@ mod tests {
         let mut crc = crc32fast::Hasher::new();
         crc.update(&oracle_ram);
         assert_eq!(crc.finalize(), 1_756_839_849);
+
+        let frame_46 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_46.audio_ram_crc32, 2_287_093_956);
+        assert_eq!(frame_46.bank_address, 0);
+        assert_eq!(frame_46.z80_pc, 0x07B3);
+        assert_eq!(frame_46.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_46.status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        // ORACLE LIMITATION: the ninth Pal_FadeOut palette transaction
+        // differs only in the carried CHECKTICK accumulator and active stack.
+        let mut oracle_ram = probe.engine.checkpoint().audio_ram;
+        assert_eq!(oracle_ram[0x076C], 0xC0);
+        assert_eq!(oracle_ram[0x076D], 0x01);
+        assert_eq!(&oracle_ram[0x1A1E..0x1A20], &[0xB0, 0x07]);
+        oracle_ram[0x076C] = 0xF4;
+        oracle_ram[0x076D] = 0x00;
+        oracle_ram[0x1A1E..0x1A20].copy_from_slice(&[0x00, 0x01]);
+        let mut crc = crc32fast::Hasher::new();
+        crc.update(&oracle_ram);
+        assert_eq!(crc.finalize(), 3_041_102_513);
     }
 }
