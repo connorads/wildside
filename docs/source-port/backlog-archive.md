@@ -309,6 +309,18 @@ limitations, and moves the first authoritative mismatch 17 -> 25. The
 `loc_700` cursor ends before frame 25. NEXT: schedule `loc_714/loc_720` and the
 following initialisers.
 
+Progress 2026-07-21: route-wide GEMS coverage advances from 25 to 30 defended
+frames. The retained hardware cursor now exposes its exact end beam, refresh
+phase, and master clock, then continues through the complete
+`loc_714/loc_720` Sprite_Table clear. Frames 26, 27, and 29 match every strict
+signature field. Frames 25 and 28 differ only at audio RAM `$003E`, the same
+raw-RAM-confirmed saved-SP consequence as frames 16/19/20/22. The first
+unmodelled boundary is frame 30 after `loc_720`, at `loc_726`'s object/gfx
+initialisers and `Load_TitleScreen`. NEXT: retain that source schedule through
+the title loader. Full TAS verification keeps pixel/gameplay/enemy/RNG
+baselines green, reduces GEMS mismatches 37,734 -> 37,729, records six total
+oracle limitations, and moves the first authoritative mismatch 25 -> 30.
+
 ---
 
 ### #417

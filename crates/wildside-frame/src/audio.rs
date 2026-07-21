@@ -1749,6 +1749,8 @@ pub fn apply_gems_title_loc_700_vram_clear(
 #[cfg(feature = "audio")]
 pub struct TimedGemsTitleLoc700Cursor {
     current_master_clock: u64,
+    end_master_clock: u64,
+    end_cursor: LoadInGameCpuRasterCursor,
     intervals: Vec<(u64, bool)>,
     next_interval: usize,
     interval_elapsed_mclk: u64,
@@ -1759,36 +1761,75 @@ impl TimedGemsTitleLoc700Cursor {
     const MCLK_PER_M68K_CYCLE: u64 = 7;
 
     pub fn new(entry: LoadInGameCpuRasterCursor, entry_master_clock: u64) -> Option<Self> {
+        Self::new_with_scheduler(entry, entry_master_clock, |entry, advance_hardware| {
+            wildside_core::vdp::title_loc_700_vram_clear_cursor_with_scheduler(
+                entry,
+                advance_hardware,
+            )
+        })
+    }
+
+    /// Continue at ASM `loc_714/loc_720` after the full-VRAM clear.
+    pub fn new_loc_714(entry: LoadInGameCpuRasterCursor, entry_master_clock: u64) -> Option<Self> {
+        Self::new_with_scheduler(entry, entry_master_clock, |entry, advance_hardware| {
+            wildside_core::vdp::title_loc_714_sprite_table_clear_cursor_with_scheduler(
+                entry,
+                advance_hardware,
+            )
+        })
+    }
+
+    fn new_with_scheduler(
+        entry: LoadInGameCpuRasterCursor,
+        entry_master_clock: u64,
+        schedule: impl FnOnce(
+            LoadInGameCpuRasterCursor,
+            &mut dyn FnMut(TitlePaletteHardwareEvent) -> Option<M68kCycleCount>,
+        ) -> Option<TitleMemoryDmaAdvance>,
+    ) -> Option<Self> {
         let mut intervals: Vec<(u64, bool)> = Vec::new();
-        let advance =
-            wildside_core::vdp::title_loc_700_vram_clear_cursor_with_scheduler(entry, |event| {
-                let TitlePaletteHardwareEvent::Advance {
-                    cycles,
-                    vdp_owns_bus,
-                    ..
-                } = event
-                else {
-                    return None;
-                };
-                let mclk = u64::from(cycles.get()) * Self::MCLK_PER_M68K_CYCLE;
-                if let Some((previous_mclk, previous_ownership)) = intervals.last_mut()
-                    && *previous_ownership == vdp_owns_bus
-                {
-                    *previous_mclk = previous_mclk.checked_add(mclk)?;
-                } else {
-                    intervals.push((mclk, vdp_owns_bus));
-                }
-                Some(M68kCycleCount::from_raw(0))
-            })?;
+        let mut advance_hardware = |event| {
+            let TitlePaletteHardwareEvent::Advance {
+                cycles,
+                vdp_owns_bus,
+                ..
+            } = event
+            else {
+                return None;
+            };
+            let mclk = u64::from(cycles.get()) * Self::MCLK_PER_M68K_CYCLE;
+            if let Some((previous_mclk, previous_ownership)) = intervals.last_mut()
+                && *previous_ownership == vdp_owns_bus
+            {
+                *previous_mclk = previous_mclk.checked_add(mclk)?;
+            } else {
+                intervals.push((mclk, vdp_owns_bus));
+            }
+            Some(M68kCycleCount::from_raw(0))
+        };
+        let advance = schedule(entry, &mut advance_hardware)?;
         if advance.external_wait_cycles.get() != 0 {
             return None;
         }
+        let duration = intervals
+            .iter()
+            .try_fold(0_u64, |total, (mclk, _)| total.checked_add(*mclk))?;
         Some(Self {
             current_master_clock: entry_master_clock,
+            end_master_clock: entry_master_clock.checked_add(duration)?,
+            end_cursor: advance.cursor,
             intervals,
             next_interval: 0,
             interval_elapsed_mclk: 0,
         })
+    }
+
+    pub fn end_master_clock(&self) -> u64 {
+        self.end_master_clock
+    }
+
+    pub fn end_cursor(&self) -> LoadInGameCpuRasterCursor {
+        self.end_cursor
     }
 
     pub fn advance_to_master_clock(

@@ -38,13 +38,13 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 
 /// Frames of the route whose native per-frame GEMS timeline is defended as
-/// faithful. Frames 0..24 replay ASM `EntryPoint`'s power-on Z80 bootstrap,
+/// faithful. Frames 0..29 replay ASM `EntryPoint`'s power-on Z80 bootstrap,
 /// post-clear reset, and the progressive first `StopMusic` driver copy
 /// through frame 15. The tail remains the
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 25;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 30;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -235,6 +235,27 @@ impl GemsSignatureProbe {
                 .expect("ASM loc_700 hardware schedule"),
             );
         }
+        if self.power_on_frame == 25 {
+            // ASM loc_70E's final DBF falls through to loc_714/loc_720. Both
+            // schedules are derived from the same retained beam/refresh
+            // cursor, so the frame-25 sample can stop inside the Sprite_Table
+            // clear without losing VINT ownership intervals.
+            let mut vram_clear = self
+                .power_on_vram_clear
+                .take()
+                .expect("loc_700 cursor reaches loc_714");
+            let loc_714_master_clock = vram_clear.end_master_clock();
+            vram_clear
+                .advance_to_master_clock(&mut self.engine, loc_714_master_clock)
+                .expect("loc_700 cursor reaches its exact end");
+            self.power_on_vram_clear = Some(
+                TimedGemsTitleLoc700Cursor::new_loc_714(
+                    vram_clear.end_cursor(),
+                    loc_714_master_clock,
+                )
+                .expect("ASM loc_714 hardware schedule"),
+            );
+        }
         if let Some(cursor) = &mut self.power_on_vram_clear {
             cursor
                 .advance_to_master_clock(&mut self.engine, target)
@@ -376,9 +397,9 @@ fn advisory_fields_diverge(native: &GemsFrameSignature, oracle: &GemsFrameSignat
 /// subtract-family instructions, while hardware and the native core copy
 /// bits 5/3 from the result. Two exact consequences are classified here:
 /// GEMS `CP B` at $01E2 shifts IRQ boundaries and their `$003E` saved-SP byte
-/// on frames 16, 19, 20, and 22; later `SUB 1` at $07B3 leaves the oracle at
-/// PC $02AA where hardware reaches $02AE. Every other strict field must be
-/// byte-equal.
+/// on frames 16, 19, 20, 22, 25, and 28; later `SUB 1` at $07B3 leaves the
+/// oracle at PC $02AA where hardware reaches $02AE. Every other strict field
+/// must be byte-equal.
 fn gems_divergence_matches_documented_z80_xy_flag_case(
     frame_index: usize,
     native: &GemsFrameSignature,
@@ -398,6 +419,8 @@ fn gems_divergence_matches_documented_z80_xy_flag_case(
                 | (19, 1_005_120_388, 76_272_393, 0x07A9, 0x07A9)
                 | (20, 3_170_182_089, 2_207_652_676, 0x0C2B, 0x0C2B)
                 | (22, 2_567_830_830, 2_792_277_411, 0x01D2, 0x01D2)
+                | (25, 1_512_120_546, 1_698_830_447, 0x02A5, 0x02A5)
+                | (28, 2_310_471_849, 3_067_361_316, 0x01CF, 0x01CF)
         );
     let later_pc = diverging == ["z80_pc"] && native.z80_pc == 0x02AE && oracle.z80_pc == 0x02AA;
     irq_saved_sp || later_pc
@@ -714,6 +737,42 @@ mod tests {
     }
 
     #[test]
+    fn frame_25_saved_sp_crc_is_the_documented_xy_flag_oracle_limitation() {
+        let mut native = signature(0x02A5);
+        native.audio_ram_crc32 = 1_512_120_546;
+        let mut oracle = native;
+        oracle.audio_ram_crc32 = 1_698_830_447;
+        let mut native_frames = vec![None; 25];
+        native_frames.push(Some(native));
+        let mut oracle_frames = vec![None; 25];
+        oracle_frames.push(Some(oracle));
+
+        let comparison = compare_gems_frame_signatures(&native_frames, &oracle_frames, 0);
+
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 1);
+        assert_eq!(comparison.first_mismatch, None);
+    }
+
+    #[test]
+    fn frame_28_saved_sp_crc_is_the_documented_xy_flag_oracle_limitation() {
+        let mut native = signature(0x01CF);
+        native.audio_ram_crc32 = 2_310_471_849;
+        let mut oracle = native;
+        oracle.audio_ram_crc32 = 3_067_361_316;
+        let mut native_frames = vec![None; 28];
+        native_frames.push(Some(native));
+        let mut oracle_frames = vec![None; 28];
+        oracle_frames.push(Some(oracle));
+
+        let comparison = compare_gems_frame_signatures(&native_frames, &oracle_frames, 0);
+
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 1);
+        assert_eq!(comparison.first_mismatch, None);
+    }
+
+    #[test]
     fn advisory_divider_phase_jitter_never_gates_but_is_counted() {
         let mut jittered = signature(0x0793);
         jittered.z80_mclk_counter = 11;
@@ -865,7 +924,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_stop_music_and_loc_700_through_frame_24() {
+    fn power_on_probe_matches_title_clears_through_frame_29() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -875,7 +934,7 @@ mod tests {
         )
         .expect("bootstrapped Kid ROM");
         let mut probe = GemsSignatureProbe::from_kid_rom_power_on(&rom).expect("power-on probe");
-        let signatures: Vec<_> = (0..25)
+        let signatures: Vec<_> = (0..30)
             .map(|_| probe.sample_power_on_frame_rendered())
             .collect();
         assert_eq!(signatures[14].audio_ram_crc32, 687_583_812);
@@ -938,5 +997,30 @@ mod tests {
         assert_eq!(signatures[24].audio_ram_crc32, 1_700_834_292);
         assert_eq!(signatures[24].pending_m68k_wait_cycles, 0);
         assert_eq!(signatures[24].status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        assert_eq!(signatures[25].z80_pc, 677);
+        assert_eq!(signatures[25].audio_ram_crc32, 1_512_120_546);
+        assert_eq!(signatures[25].pending_m68k_wait_cycles, 0);
+        assert_eq!(signatures[25].status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        assert_eq!(signatures[26].z80_pc, 1_978);
+        assert_eq!(signatures[26].audio_ram_crc32, 1_424_556_566);
+        assert_eq!(signatures[26].pending_m68k_wait_cycles, 0);
+        assert_eq!(signatures[26].status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        assert_eq!(signatures[27].z80_pc, 2_903);
+        assert_eq!(signatures[27].audio_ram_crc32, 3_170_344_611);
+        assert_eq!(signatures[27].pending_m68k_wait_cycles, 0);
+        assert_eq!(signatures[27].status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        assert_eq!(signatures[28].z80_pc, 463);
+        assert_eq!(signatures[28].audio_ram_crc32, 2_310_471_849);
+        assert_eq!(signatures[28].pending_m68k_wait_cycles, 0);
+        assert_eq!(signatures[28].status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        assert_eq!(signatures[29].z80_pc, 1_975);
+        assert_eq!(signatures[29].audio_ram_crc32, 1_756_839_849);
+        assert_eq!(signatures[29].pending_m68k_wait_cycles, 0);
+        assert_eq!(signatures[29].status_bits, GemsFrameSignature::STATUS_IFF1);
     }
 }
