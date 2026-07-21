@@ -4133,6 +4133,56 @@ pub fn title_palette_fade_first_decrement_to_next_wait_poll_cursor_with_schedule
     )
 }
 
+/// Co-schedule the negative fade decrement through the final VINT poll.
+pub fn title_palette_fade_negative_decrement_to_final_wait_poll_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| {
+            Some(
+                crate::intro_timing::visit_palette_fade_negative_decrement_to_final_wait_poll(
+                    visit,
+                ),
+            )
+        },
+        &mut advance_hardware,
+    )
+}
+
+/// Co-schedule a clean-dirty-mask `sub_14C0` call.
+pub fn title_clean_palette_interpolation_call_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| {
+            Some(crate::intro_timing::visit_clean_palette_interpolation_call(
+                visit,
+            ))
+        },
+        &mut advance_hardware,
+    )
+}
+
+/// Co-schedule the `Pal_FadeOut` return and caller clear through `loc_700`.
+pub fn title_palette_fade_return_to_loc_700_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| {
+            Some(crate::intro_timing::visit_palette_fade_return_to_loc_700(
+                visit,
+            ))
+        },
+        &mut advance_hardware,
+    )
+}
+
 fn title_source_routine_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     visit_timing: impl FnOnce(&mut dyn FnMut(u32)) -> Option<crate::intro_timing::IntroSourceTiming>,

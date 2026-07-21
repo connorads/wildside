@@ -1823,6 +1823,72 @@ pub fn apply_gems_title_palette_fade_first_decrement_to_next_wait_poll(
     )
 }
 
+/// Clock the negative `Pal_FadeOut` decrement through its final VINT poll.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_palette_fade_negative_decrement_to_final_wait_poll(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_palette_fade_negative_decrement_to_final_wait_poll_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
+/// Clock a clean-dirty-mask title-path `sub_14C0` early return.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_clean_palette_interpolation_call(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_clean_palette_interpolation_call_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
+/// Clock the `Pal_FadeOut` return and caller clear through `loc_700`.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_palette_fade_return_to_loc_700(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_palette_fade_return_to_loc_700_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock a caller and ASM `sub_142CC` up to `DecompressToVRAM loc_14300`.
 #[cfg(feature = "audio")]
 pub fn apply_gems_decompress_to_vram_setup_sub_142cc(
@@ -4747,6 +4813,112 @@ mod tests {
             engine.master_clock(),
             18_057_544 * 7,
             "next Pal_FadeOut WaitForVint poll; oracle first $93E is 18,057,523",
+        );
+
+        let mut fade_poll_cursor = next_fade_wait.cursor;
+        let mut fade_body_boundaries = Vec::new();
+        for iteration in 2..=17 {
+            let wait =
+                apply_gems_title_wait_for_vint_to_subroutine_return(&mut engine, fade_poll_cursor)
+                    .unwrap_or_else(|| panic!("Pal_FadeOut iteration {iteration} WaitForVint"));
+            let wait_clock = engine.master_clock() / 7;
+            let delay = apply_gems_title_do_nothing_call(&mut engine, wait.cursor)
+                .unwrap_or_else(|| panic!("Pal_FadeOut iteration {iteration} Do_Nothing"));
+            let delay_clock = engine.master_clock() / 7;
+            let dma = apply_gems_title_palette_to_vram_call(&mut engine, delay.cursor)
+                .unwrap_or_else(|| panic!("Pal_FadeOut iteration {iteration} palette DMA"));
+            let dma_clock = engine.master_clock() / 7;
+            let interpolation =
+                apply_gems_title_full_palette_interpolation_call(&mut engine, dma.cursor)
+                    .unwrap_or_else(|| panic!("Pal_FadeOut iteration {iteration} interpolation"));
+            assert_eq!(delay.timing.instruction_count, 618);
+            assert_eq!(delay.timing.raw_cycles.get(), 6_192);
+            assert_eq!(interpolation.timing.instruction_count, 2_413);
+            assert_eq!(interpolation.timing.raw_cycles.get(), 19_848);
+            assert_eq!(
+                interpolation.cursor.refresh_phase,
+                M68kRefreshPhase::new(32).unwrap(),
+                "Pal_FadeOut iteration {iteration} sub_14C0 phase",
+            );
+            let interpolation_clock = engine.master_clock() / 7;
+            let next_poll = if iteration == 17 {
+                apply_gems_title_palette_fade_negative_decrement_to_final_wait_poll(
+                    &mut engine,
+                    interpolation.cursor,
+                )
+            } else {
+                apply_gems_title_palette_fade_first_decrement_to_next_wait_poll(
+                    &mut engine,
+                    interpolation.cursor,
+                )
+            }
+            .unwrap_or_else(|| panic!("Pal_FadeOut iteration {iteration} loop branch"));
+            let poll_clock = engine.master_clock() / 7;
+            fade_body_boundaries.push((
+                wait_clock,
+                delay_clock,
+                dma_clock,
+                interpolation_clock,
+                poll_clock,
+            ));
+            fade_poll_cursor = next_poll.cursor;
+        }
+        assert_eq!(
+            fade_body_boundaries,
+            [
+                (18_158_426, 18_164_716, 18_165_255, 18_185_419, 18_185_529),
+                (18_286_433, 18_292_723, 18_293_260, 18_313_424, 18_313_534),
+                (18_414_438, 18_420_728, 18_421_266, 18_441_430, 18_441_540),
+                (18_542_444, 18_548_734, 18_549_272, 18_569_436, 18_569_546),
+                (18_670_450, 18_676_740, 18_677_278, 18_697_442, 18_697_552),
+                (18_798_456, 18_804_746, 18_805_286, 18_825_450, 18_825_560),
+                (18_926_464, 18_932_754, 18_933_294, 18_953_458, 18_953_568),
+                (19_054_472, 19_060_762, 19_061_302, 19_081_466, 19_081_576),
+                (19_182_480, 19_188_770, 19_189_310, 19_209_474, 19_209_584),
+                (19_310_488, 19_316_778, 19_317_318, 19_337_482, 19_337_592),
+                (19_438_496, 19_444_786, 19_445_326, 19_465_490, 19_465_600),
+                (19_566_504, 19_572_794, 19_573_334, 19_593_498, 19_593_608),
+                (19_694_512, 19_700_802, 19_701_342, 19_721_506, 19_721_616),
+                (19_822_520, 19_828_810, 19_829_350, 19_849_514, 19_849_624),
+                (19_950_506, 19_956_796, 19_957_335, 19_977_499, 19_977_609),
+                (20_078_513, 20_084_803, 20_085_340, 20_105_504, 20_105_568),
+            ],
+            "ASM Pal_FadeOut loc_28C6 repeats 15 non-negative steps before the final negative iteration",
+        );
+
+        let final_wait =
+            apply_gems_title_wait_for_vint_to_subroutine_return(&mut engine, fade_poll_cursor)
+                .expect("Pal_FadeOut final WaitForVint");
+        assert_eq!(engine.master_clock(), 20_206_518 * 7);
+        let final_delay = apply_gems_title_do_nothing_call(&mut engine, final_wait.cursor)
+            .expect("Pal_FadeOut final Do_Nothing");
+        assert_eq!(engine.master_clock(), 20_212_808 * 7);
+        let final_dma = apply_gems_title_palette_to_vram_call(&mut engine, final_delay.cursor)
+            .expect("Pal_FadeOut final Palette_to_VRAM");
+        assert_eq!(engine.master_clock(), 20_213_346 * 7);
+        let final_interpolation =
+            apply_gems_title_clean_palette_interpolation_call(&mut engine, final_dma.cursor)
+                .expect("Pal_FadeOut final clean-mask sub_14C0");
+        assert_eq!(final_interpolation.timing.instruction_count, 6);
+        assert_eq!(final_interpolation.timing.raw_cycles.get(), 82);
+        assert_eq!(engine.master_clock(), 20_213_430 * 7);
+        let fade_return = apply_gems_title_palette_fade_return_to_loc_700(
+            &mut engine,
+            final_interpolation.cursor,
+        )
+        .expect("Pal_FadeOut return to loc_700");
+        assert_eq!(fade_return.timing.instruction_count, 2);
+        assert_eq!(fade_return.timing.raw_cycles.get(), 32);
+        assert_eq!(fade_return.refresh_events, 0);
+        assert_eq!(fade_return.external_wait_cycles.get(), 0);
+        assert_eq!(
+            fade_return.cursor.refresh_phase,
+            M68kRefreshPhase::new(80).unwrap()
+        );
+        assert_eq!(
+            engine.master_clock(),
+            20_213_462 * 7,
+            "Pal_FadeOut loc_700 boundary; oracle reaches 20,213,464 / phase 80",
         );
     }
 

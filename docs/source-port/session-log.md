@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 complete title fade)
+
+- The persistent timeline composes all 17 full-dirty `Pal_FadeOut` bodies,
+  including the final negative branch and clean-mask `sub_14C0` tail.
+- Native reaches `loc_700` at 20,213,462 / phase 80 with no GEMS wait; oracle
+  reaches 20,213,464 / the same phase.
+- Repeated-body selected-PC residues remain within 16 cycles and converge to
+  two cycles at the handoff.
+- NEXT: schedule the 16,384-longword VRAM clear and following Sprite_Table
+  clear.
+
+---
+
 ## 2026-07-21 handoff (#409 first complete fade body)
 
 - Caller-neutral schedules cover `Do_Nothing`, CRAM DMA, and the full-dirty

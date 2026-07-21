@@ -600,6 +600,17 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the title timeline now completes `Pal_FadeOut`. It
+composes the proven wait, delay, CRAM DMA, and full-dirty `sub_14C0` schedules
+for all 17 bodies: 15 further non-negative iterations after the first, then
+the `$0000->$FFF0` negative branch to `loc_28EA`. The final wait and upload
+call `sub_14C0` with both dirty masks clear, taking its six-instruction /
+82-cycle early return. `Pal_FadeOut` RTS plus `loc_6E2`'s `$FBCC` clear reaches
+`loc_700` at native 20,213,462 / phase 80 versus oracle 20,213,464 / phase 80,
+with no GEMS wait. The repeated selected-PC residues stay within 16 cycles and
+converge to two cycles at the handoff. NEXT: schedule the 16,384-longword
+`loc_700/loc_70E` VRAM clear and following Sprite_Table clear.
+
 Progress 2026-07-21: the persistent timeline now covers the first complete
 `Pal_FadeOut loc_28C6` body. Caller-neutral visitors reuse the ROM's identical
 `BSR.W Do_Nothing`, `BSR.W Palette_to_VRAM`, and full-dirty-mask

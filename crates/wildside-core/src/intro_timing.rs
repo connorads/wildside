@@ -1398,6 +1398,74 @@ pub fn visit_palette_fade_first_decrement_to_next_wait_poll(
     timing
 }
 
+/// Visit the negative `Pal_FadeOut` decrement through its final VINT poll.
+///
+/// ASM `loc_28C6` returns from the seventeenth full `sub_14C0` call at $28D6,
+/// decrements progress from `$0000` to `$FFF0`, takes `bmi.s loc_28EA`, calls
+/// `WaitForVint`, and clears `V_Int_Done`. The visitor stops immediately
+/// before the first $93E poll instruction.
+pub fn visit_palette_fade_negative_decrement_to_final_wait_poll(
+    mut visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+
+    // ASM Pal_FadeOut $28D6/$28DC/$28EA and WaitForVint $93A.
+    for cycles in [20, 10, 18, 16] {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("negative palette-fade timing fits u32"),
+        );
+    }
+
+    timing
+}
+
+/// Visit a clean-dirty-mask `BSR.W sub_14C0` call through its early return.
+///
+/// After the negative fade step, both masks have already been consumed. ASM
+/// `sub_14C0` therefore ORs two zero longwords, does not take `loc_14CE`, and
+/// returns directly to its caller.
+pub fn visit_clean_palette_interpolation_call(mut visit: impl FnMut(u32)) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+
+    // ASM Pal_FadeOut $28F6 and sub_14C0 $14C0..$14CC.
+    for cycles in [18, 16, 16, 8, 8, 16] {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("clean palette-interpolation timing fits u32"),
+        );
+    }
+
+    timing
+}
+
+/// Visit the `Pal_FadeOut` return and caller clear through `loc_700`.
+pub fn visit_palette_fade_return_to_loc_700(mut visit: impl FnMut(u32)) -> IntroSourceTiming {
+    // ASM Pal_FadeOut $28FA: RTS; loc_6E2 $6FC: CLR.W $FFFFFBCC.
+    visit(16);
+    visit(16);
+    IntroSourceTiming {
+        instruction_count: 2,
+        raw_cycles: M68kCycleCount::from_raw(32),
+    }
+}
+
 /// Visit the title path through `Transfer_SpriteAndKidToVRAM`.
 ///
 /// The title has a live sprite-table pointer, `$FB49` clear, and a zero first
@@ -2079,6 +2147,29 @@ mod tests {
             "ASM Pal_FadeOut $28D6..$28C6 and WaitForVint $93A retain the first non-negative fade loop",
         );
         assert_eq!(cycles, [20, 8, 4, 16, 16, 10, 18, 16]);
+    }
+
+    #[test]
+    fn palette_fade_negative_and_clean_tail_reach_loc_700_in_source_order() {
+        let mut negative_cycles = Vec::new();
+        let negative = visit_palette_fade_negative_decrement_to_final_wait_poll(|cycle| {
+            negative_cycles.push(cycle);
+        });
+        assert_eq!(negative.instruction_count, 4);
+        assert_eq!(negative.raw_cycles, M68kCycleCount::from_raw(64));
+        assert_eq!(negative_cycles, [20, 10, 18, 16]);
+
+        let mut clean_cycles = Vec::new();
+        let clean = visit_clean_palette_interpolation_call(|cycle| clean_cycles.push(cycle));
+        assert_eq!(clean.instruction_count, 6);
+        assert_eq!(clean.raw_cycles, M68kCycleCount::from_raw(82));
+        assert_eq!(clean_cycles, [18, 16, 16, 8, 8, 16]);
+
+        let mut return_cycles = Vec::new();
+        let fade_return = visit_palette_fade_return_to_loc_700(|cycle| return_cycles.push(cycle));
+        assert_eq!(fade_return.instruction_count, 2);
+        assert_eq!(fade_return.raw_cycles, M68kCycleCount::from_raw(32));
+        assert_eq!(return_cycles, [16, 16]);
     }
 
     #[test]
