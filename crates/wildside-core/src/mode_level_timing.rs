@@ -502,7 +502,7 @@ pub struct GemsStopMusicElapsedBusWindow {
 }
 
 /// Event-positioned execution of ASM `StopMusic`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GemsStopMusicElapsedTiming {
     pub elapsed_cycles: M68kCycleCount,
     pub bus_windows: [GemsStopMusicElapsedBusWindow; 7],
@@ -511,6 +511,34 @@ pub struct GemsStopMusicElapsedTiming {
     pub reset_release_complete_elapsed_offset: M68kCycleCount,
     pub phase_after: M68kRefreshPhase,
     pub refresh_wait_events: u32,
+    pub driver_reset_release_elapsed_offset: M68kCycleCount,
+    pub driver_bus_request_elapsed_offset: M68kCycleCount,
+    pub reset_assert_elapsed_offset: M68kCycleCount,
+    driver_copy_write_elapsed_offsets: Vec<M68kCycleCount>,
+    driver_clear_write_elapsed_offsets: Vec<M68kCycleCount>,
+    driver_ram_access_pending_ranges: Vec<(M68kCycleCount, M68kCycleCount)>,
+}
+
+impl GemsStopMusicElapsedTiming {
+    /// Bytes made visible when ASM `loc_E1400` starts its write instruction.
+    pub fn driver_copy_bytes_visible(&self, elapsed: M68kCycleCount) -> usize {
+        self.driver_copy_write_elapsed_offsets
+            .partition_point(|offset| offset.get() <= elapsed.get())
+    }
+
+    /// Bytes made visible when ASM `loc_E1406` starts its clear instruction.
+    pub fn driver_clear_bytes_visible(&self, elapsed: M68kCycleCount) -> usize {
+        self.driver_clear_write_elapsed_offsets
+            .partition_point(|offset| offset.get() <= elapsed.get())
+    }
+
+    /// Whether a sampled M68K instruction quantum still carries the Z80-RAM
+    /// access wait raised by `loc_E1400`/`loc_E1406`.
+    pub fn driver_ram_access_wait_pending(&self, elapsed: M68kCycleCount) -> bool {
+        self.driver_ram_access_pending_ranges
+            .iter()
+            .any(|(start, end)| start.get() <= elapsed.get() && elapsed.get() < end.get())
+    }
 }
 
 /// Source wrapper used by one GEMS queue command.
@@ -713,6 +741,7 @@ struct GemsStopMusicClock<'a> {
     raw_cycles: u32,
     elapsed_cycles: u32,
     last_source_instruction_completion_elapsed: u32,
+    last_source_instruction_start_elapsed: u32,
     phase: M68kRefreshPhase,
     refresh_wait_events: u32,
     z80_ram_accesses: u32,
@@ -733,6 +762,7 @@ enum GemsStopMusicVintSchedule<'a> {
 impl GemsStopMusicClock<'_> {
     fn source_instruction(&mut self, raw_cycles: u32, z80_ram_access: bool) -> Option<()> {
         self.inject_vint_before_source_instruction()?;
+        self.last_source_instruction_start_elapsed = self.elapsed_cycles;
         let advance = self.phase.advance_rom(M68kCycleCount::from_raw(raw_cycles));
         self.raw_cycles = self.raw_cycles.checked_add(raw_cycles)?;
         self.last_source_instruction_completion_elapsed =
@@ -921,6 +951,7 @@ fn gems_stop_music_elapsed_timing_with_vint_schedule(
         raw_cycles: 0,
         elapsed_cycles: 0,
         last_source_instruction_completion_elapsed: 0,
+        last_source_instruction_start_elapsed: 0,
         phase: phase_before,
         refresh_wait_events: 0,
         z80_ram_accesses: 0,
@@ -931,13 +962,20 @@ fn gems_stop_music_elapsed_timing_with_vint_schedule(
         ack_complete_elapsed_offset: M68kCycleCount::from_raw(0),
         release_complete_elapsed_offset: M68kCycleCount::from_raw(0),
     }; 7];
+    let mut driver_copy_write_elapsed_offsets = Vec::with_capacity(5_764);
+    let mut driver_clear_write_elapsed_offsets = Vec::with_capacity(2_428);
+    let mut driver_ram_access_pending_ranges = Vec::with_capacity(8_192);
 
     // ASM StopMusic -> sub_E13DA first releases power-on reset, then enters
     // Stop_z80 and writes BUSREQ.
     clock.source_instructions(&[16, 18, 12, 20])?;
+    let driver_reset_release_elapsed_offset =
+        M68kCycleCount::from_raw(clock.last_source_instruction_start_elapsed);
     let driver_reset_release_complete_elapsed_offset =
         M68kCycleCount::from_raw(clock.last_source_instruction_completion_elapsed);
     clock.source_instructions(&[18, 20])?;
+    let driver_bus_request_elapsed_offset =
+        M68kCycleCount::from_raw(clock.last_source_instruction_start_elapsed);
     if clock.raw_cycles != source.bus_windows[0].request_complete_raw_offset.get() {
         return None;
     }
@@ -951,17 +989,33 @@ fn gems_stop_music_elapsed_timing_with_vint_schedule(
     // ASM loc_E1400 copies 5,764 driver bytes.
     for index in 0..5_764 {
         clock.source_instruction(12, true)?;
+        driver_copy_write_elapsed_offsets.push(M68kCycleCount::from_raw(
+            clock.last_source_instruction_start_elapsed,
+        ));
+        driver_ram_access_pending_ranges.push((
+            M68kCycleCount::from_raw(clock.last_source_instruction_start_elapsed),
+            M68kCycleCount::from_raw(clock.elapsed_cycles),
+        ));
         clock.source_instruction(if index == 5_763 { 14 } else { 10 }, false)?;
     }
     // ASM loc_E1406 clears the remaining 2,428 bytes of Z80 RAM.
     for index in 0..2_428 {
         clock.source_instruction(12, true)?;
+        driver_clear_write_elapsed_offsets.push(M68kCycleCount::from_raw(
+            clock.last_source_instruction_start_elapsed,
+        ));
+        driver_ram_access_pending_ranges.push((
+            M68kCycleCount::from_raw(clock.last_source_instruction_start_elapsed),
+            M68kCycleCount::from_raw(clock.elapsed_cycles),
+        ));
         clock.source_instruction(14, false)?;
         clock.source_instruction(if index == 2_427 { 8 } else { 10 }, false)?;
     }
 
     // ASM sub_E1416 asserts reset, delays, releases BUSREQ, then reset.
     clock.source_instructions(&[12, 16, 18, 20])?;
+    let reset_assert_elapsed_offset =
+        M68kCycleCount::from_raw(clock.last_source_instruction_start_elapsed);
     if clock.raw_cycles != source.reset_assert_complete_raw_offset.get() {
         return None;
     }
@@ -1047,6 +1101,12 @@ fn gems_stop_music_elapsed_timing_with_vint_schedule(
         reset_release_complete_elapsed_offset,
         phase_after: clock.phase,
         refresh_wait_events: clock.refresh_wait_events,
+        driver_reset_release_elapsed_offset,
+        driver_bus_request_elapsed_offset,
+        reset_assert_elapsed_offset,
+        driver_copy_write_elapsed_offsets,
+        driver_clear_write_elapsed_offsets,
+        driver_ram_access_pending_ranges,
     })
 }
 
@@ -2868,6 +2928,30 @@ mod tests {
             elapsed.driver_reset_release_complete_elapsed_offset.get(),
             66,
             "ASM sub_E13DA reset-release write completes before Stop_z80 BUSREQ"
+        );
+        assert_eq!(
+            (
+                elapsed.driver_copy_bytes_visible(M68kCycleCount::from_raw(19_115)),
+                elapsed.driver_clear_bytes_visible(M68kCycleCount::from_raw(19_115)),
+            ),
+            (813, 0),
+            "oracle frame 14 observes ASM loc_E1400's write when its instruction starts"
+        );
+        assert!(
+            elapsed.driver_ram_access_wait_pending(M68kCycleCount::from_raw(19_115)),
+            "oracle frame 14 retains the active Z80-RAM access wait"
+        );
+        assert_eq!(
+            (
+                elapsed.driver_copy_bytes_visible(M68kCycleCount::from_raw(147_121)),
+                elapsed.driver_clear_bytes_visible(M68kCycleCount::from_raw(147_121)),
+            ),
+            (5_764, 340),
+            "oracle frame 15 samples after ASM loc_E1406's 340th clear"
+        );
+        assert!(
+            !elapsed.driver_ram_access_wait_pending(M68kCycleCount::from_raw(147_121)),
+            "oracle frame 15 samples after its preceding Z80-RAM access wait"
         );
     }
 

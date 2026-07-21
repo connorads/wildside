@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 progressive StopMusic copy)
+
+- `gems_frame_signature_v1` now defends frames 0..15; every strict field
+  matches oracle and `coverage.modelled_frames` advances from 14 to 16.
+- The resumable `StopMusic` cursor source-schedules all `loc_E1400` driver
+  writes and `loc_E1406` clears while retaining mid-copy frame samples.
+- Frame 14 observes 813 driver bytes and one active M68K Z80-RAM wait; frame
+  15 observes all 5,764 driver bytes and 340 of 2,428 tail clears.
+- Selected-PC checkpoints at `$E143A/$E150C` pin byte-identical audio RAM,
+  Z80 PC/register state, divider phase, flags, and remaining T-state.
+- NEXT: trace frame 16's first running-driver VBlank/IRQ, then continue to the
+  second power-on `StopMusic` call without regressing frames 0..15.
+
+---
+
 ## 2026-07-21 handoff (#416 power-on GEMS route parity)
 
 - `gems_frame_signature_v1` now defends frames 0..13: every strict field

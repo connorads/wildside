@@ -308,6 +308,14 @@ impl GemsMasterClockTimingEngine {
         std::mem::take(&mut self.pending_m68k_wait_cycles)
     }
 
+    /// Set the wait ledger owned by an externally source-scheduled 68000
+    /// Z80-RAM access. The caller must hold BUSREQ so no Z80 banked read can
+    /// contribute an independent wait at the same instant.
+    pub fn set_source_scheduled_m68k_wait_cycles(&mut self, cycles: u32) {
+        assert!(self.busreq, "source-scheduled Z80-RAM waits require BUSREQ");
+        self.pending_m68k_wait_cycles = cycles;
+    }
+
     pub fn z80_pc(&self) -> u16 {
         self.z80.pc
     }
@@ -670,6 +678,10 @@ impl GemsMasterClockTimingEngine {
                     "StopMusic releases reset after releasing the driver-copy bus"
                 );
                 self.set_z80_control(false, false);
+                // ASM sub_E1416's RESET deassertion retains the current Z80
+                // T-state before normal opcode countdown resumes. Selected-PC
+                // checkpoints at $E143A/$E150C expose that state explicitly.
+                self.z80_t_cycles_wait = self.z80_t_cycles_wait.saturating_add(1);
             }
             GemsStopMusicControl::BeginQueueTransaction => {
                 assert!(
@@ -770,6 +782,25 @@ impl GemsMasterClockTimingEngine {
             ram.fill(0);
             ram[..copy_len].copy_from_slice(&self.driver[..copy_len]);
         }
+        self.initialised = false;
+    }
+
+    /// Materialise the completed prefix of ASM `sub_E13DA`'s progressive
+    /// `$A00000..$A01FFF` driver copy while the 68000 owns the Z80 bus.
+    pub fn apply_stop_music_driver_copy_progress(
+        &mut self,
+        copied_driver_bytes: usize,
+        cleared_tail_bytes: usize,
+    ) {
+        assert!(
+            self.busreq && !self.reset,
+            "StopMusic driver bytes are written only while the acknowledged bus is held"
+        );
+        assert!(copied_driver_bytes <= self.driver.len());
+        assert!(self.driver.len() + cleared_tail_bytes <= Z80_RAM_LEN);
+        let ram = self.z80.io.ram.get_mut();
+        ram[..copied_driver_bytes].copy_from_slice(&self.driver[..copied_driver_bytes]);
+        ram[self.driver.len()..self.driver.len() + cleared_tail_bytes].fill(0);
         self.initialised = false;
     }
 

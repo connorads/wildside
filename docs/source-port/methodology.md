@@ -507,14 +507,16 @@ Pinned against the pinned jgenesis, never fitted:
 ### Coverage semantics
 
 The report declares `coverage.modelled_frames`: the edge up to which the
-native per-frame GEMS timeline is *defended* as faithful. It is 14: frames
-0..13 replay `EntryPoint`'s `$04F6..$050A` BUSREQ/reset sequence, the 38-byte
-`Z80StartupCodeBegin` copy, and `$0532` post-main-RAM-clear reset on the
-absolute raster timeline. All strict fields match oracle; divider phases are
-advisory for the sampling reason above. Signatures past the edge are still
-emitted by the coarse continuous route replayer and compared so divergence is
-measured, not hidden, but never claimed as modelled. The first unmodelled
-boundary is frame 14's source-positioned `StopMusic -> sub_E13DA` driver copy.
+native per-frame GEMS timeline is *defended* as faithful. It is 16: frames
+0..15 replay `EntryPoint` and the first source-positioned `StopMusic`. A
+resumable cursor preserves the two `FrameRendered` samples inside
+`sub_E13DA`, materialising each `loc_E1400` driver byte and `loc_E1406` clear
+when its M68K write instruction starts, including the active one-cycle Z80-RAM
+wait. All strict fields match oracle; divider phases are advisory for the
+sampling reason above. Signatures past the edge are still emitted by the coarse
+continuous route replayer and compared so divergence is measured, not hidden,
+but never claimed as modelled. The first unmodelled boundary is frame 16's
+running driver after its first VBlank/IRQ.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.

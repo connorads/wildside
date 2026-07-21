@@ -2069,62 +2069,149 @@ pub fn apply_gems_load_in_game_to_stop_music_entry(
 /// Execute an already-positioned ASM `StopMusic` schedule on the persistent
 /// master-clocked GEMS machine.
 #[cfg(feature = "audio")]
+pub struct TimedGemsStopMusicCursor {
+    timing: GemsStopMusicElapsedTiming,
+    entry_master_clock: u64,
+    current_master_clock: u64,
+    controls: Vec<(M68kCycleCount, GemsStopMusicControl)>,
+    next_control: usize,
+}
+
+#[cfg(feature = "audio")]
+impl TimedGemsStopMusicCursor {
+    const MCLK_PER_M68K_CYCLE: u64 = 7;
+
+    pub fn new(timing: GemsStopMusicElapsedTiming, entry_master_clock: u64) -> Self {
+        let driver = timing.bus_windows[0];
+        let mut controls = vec![
+            (
+                timing.driver_reset_release_elapsed_offset,
+                GemsStopMusicControl::ReleaseDriverReset,
+            ),
+            (
+                timing.driver_bus_request_elapsed_offset,
+                GemsStopMusicControl::BeginDriverBus,
+            ),
+            (
+                timing.reset_assert_elapsed_offset,
+                GemsStopMusicControl::AssertReset,
+            ),
+            (
+                driver.release_complete_elapsed_offset,
+                GemsStopMusicControl::ReleaseDriverBus,
+            ),
+            (
+                timing.reset_release_complete_elapsed_offset,
+                GemsStopMusicControl::ReleaseReset,
+            ),
+        ];
+        let transactions = [
+            GemsStopMusicQueueTransaction::CommandMarker,
+            GemsStopMusicQueueTransaction::DataPointersCommand,
+            GemsStopMusicQueueTransaction::PatchPointer,
+            GemsStopMusicQueueTransaction::EnvelopePointer,
+            GemsStopMusicQueueTransaction::SequencePointer,
+            GemsStopMusicQueueTransaction::SamplePointer,
+        ];
+        for (window, transaction) in timing.bus_windows[1..].iter().zip(transactions) {
+            controls.extend([
+                (
+                    window.request_complete_elapsed_offset,
+                    GemsStopMusicControl::BeginQueueTransaction,
+                ),
+                (
+                    window.release_complete_elapsed_offset,
+                    GemsStopMusicControl::WriteQueue(transaction),
+                ),
+                (
+                    window.release_complete_elapsed_offset,
+                    GemsStopMusicControl::ReleaseQueueBus,
+                ),
+            ]);
+        }
+        controls.sort_by_key(|(offset, _)| offset.get());
+        Self {
+            timing,
+            entry_master_clock,
+            current_master_clock: entry_master_clock,
+            controls,
+            next_control: 0,
+        }
+    }
+
+    /// Advance a source-positioned `StopMusic` call, pausing safely at an
+    /// arbitrary master-clock sample such as oracle `FrameRendered`.
+    pub fn advance_to_master_clock(
+        &mut self,
+        audio: &mut GemsMasterClockTimingEngine,
+        target_master_clock: u64,
+    ) -> Option<GemsMasterClockAdvance> {
+        if audio.master_clock() != self.current_master_clock
+            || target_master_clock < self.current_master_clock
+        {
+            return None;
+        }
+        let mut reads = Vec::new();
+        while let Some((offset, control)) = self.controls.get(self.next_control).copied() {
+            let event_master_clock = self
+                .entry_master_clock
+                .checked_add(u64::from(offset.get()).checked_mul(Self::MCLK_PER_M68K_CYCLE)?)?;
+            if event_master_clock > target_master_clock {
+                break;
+            }
+            if control == GemsStopMusicControl::AssertReset {
+                audio.set_source_scheduled_m68k_wait_cycles(0);
+                audio.apply_stop_music_driver_copy_progress(5_764, 2_428);
+            }
+            reads.extend(
+                audio
+                    .advance_ntsc_master_clocks(event_master_clock - self.current_master_clock)
+                    .banked_68k_reads,
+            );
+            self.current_master_clock = event_master_clock;
+            audio.apply_stop_music_control(control);
+            self.next_control += 1;
+        }
+
+        if self.next_control >= 2 && self.next_control < 3 {
+            let elapsed_cycles = ((target_master_clock - self.entry_master_clock)
+                / Self::MCLK_PER_M68K_CYCLE)
+                .min(u64::from(self.timing.elapsed_cycles.get()));
+            let elapsed = M68kCycleCount::from_raw(u32::try_from(elapsed_cycles).ok()?);
+            audio.apply_stop_music_driver_copy_progress(
+                self.timing.driver_copy_bytes_visible(elapsed),
+                self.timing.driver_clear_bytes_visible(elapsed),
+            );
+            audio.set_source_scheduled_m68k_wait_cycles(u32::from(
+                self.timing.driver_ram_access_wait_pending(elapsed),
+            ));
+        }
+        reads.extend(
+            audio
+                .advance_ntsc_master_clocks(target_master_clock - self.current_master_clock)
+                .banked_68k_reads,
+        );
+        self.current_master_clock = target_master_clock;
+        Some(GemsMasterClockAdvance {
+            banked_68k_reads: reads,
+            pending_m68k_wait_cycles: audio.pending_m68k_wait_cycles(),
+        })
+    }
+}
+
+/// Execute an already-positioned ASM `StopMusic` schedule on the persistent
+/// master-clocked GEMS machine.
+#[cfg(feature = "audio")]
 pub fn apply_timed_gems_stop_music(
     audio: &mut GemsMasterClockTimingEngine,
     timing: GemsStopMusicElapsedTiming,
 ) -> GemsMasterClockAdvance {
     const MCLK_PER_M68K_CYCLE: u64 = 7;
-
-    let mut cursor = M68kCycleCount::from_raw(0);
-    let mut reads = Vec::new();
-    let mut advance_to = |target: M68kCycleCount, audio: &mut GemsMasterClockTimingEngine| {
-        let cycles = target
-            .get()
-            .checked_sub(cursor.get())
-            .expect("StopMusic control events stay ordered");
-        reads.extend(
-            audio
-                .advance_ntsc_master_clocks(u64::from(cycles) * MCLK_PER_M68K_CYCLE)
-                .banked_68k_reads,
-        );
-        cursor = target;
-    };
-
-    let driver = timing.bus_windows[0];
-    advance_to(timing.driver_reset_release_complete_elapsed_offset, audio);
-    audio.apply_stop_music_control(GemsStopMusicControl::ReleaseDriverReset);
-    advance_to(driver.request_complete_elapsed_offset, audio);
-    audio.apply_stop_music_control(GemsStopMusicControl::BeginDriverBus);
-    advance_to(driver.ack_complete_elapsed_offset, audio);
-    audio.apply_stop_music_control(GemsStopMusicControl::CopyDriver);
-    advance_to(timing.reset_assert_complete_elapsed_offset, audio);
-    audio.apply_stop_music_control(GemsStopMusicControl::AssertReset);
-    advance_to(driver.release_complete_elapsed_offset, audio);
-    audio.apply_stop_music_control(GemsStopMusicControl::ReleaseDriverBus);
-    advance_to(timing.reset_release_complete_elapsed_offset, audio);
-    audio.apply_stop_music_control(GemsStopMusicControl::ReleaseReset);
-
-    let transactions = [
-        GemsStopMusicQueueTransaction::CommandMarker,
-        GemsStopMusicQueueTransaction::DataPointersCommand,
-        GemsStopMusicQueueTransaction::PatchPointer,
-        GemsStopMusicQueueTransaction::EnvelopePointer,
-        GemsStopMusicQueueTransaction::SequencePointer,
-        GemsStopMusicQueueTransaction::SamplePointer,
-    ];
-    for (window, transaction) in timing.bus_windows[1..].iter().zip(transactions) {
-        advance_to(window.request_complete_elapsed_offset, audio);
-        audio.apply_stop_music_control(GemsStopMusicControl::BeginQueueTransaction);
-        advance_to(window.release_complete_elapsed_offset, audio);
-        audio.apply_stop_music_control(GemsStopMusicControl::WriteQueue(transaction));
-        audio.apply_stop_music_control(GemsStopMusicControl::ReleaseQueueBus);
-    }
-    advance_to(timing.elapsed_cycles, audio);
-
-    GemsMasterClockAdvance {
-        banked_68k_reads: reads,
-        pending_m68k_wait_cycles: audio.pending_m68k_wait_cycles(),
-    }
+    let target =
+        audio.master_clock() + u64::from(timing.elapsed_cycles.get()) * MCLK_PER_M68K_CYCLE;
+    TimedGemsStopMusicCursor::new(timing, audio.master_clock())
+        .advance_to_master_clock(audio, target)
+        .expect("fresh StopMusic cursor starts on the timing engine's master clock")
 }
 
 /// Derive and execute a source-positioned `StopMusic $E14C8` call.
@@ -2157,7 +2244,7 @@ pub fn apply_timed_gems_stop_music_from_absolute_entry(
         phase_before,
         absolute_entry_cycles,
     )?;
-    let advance = apply_timed_gems_stop_music(audio, timing);
+    let advance = apply_timed_gems_stop_music(audio, timing.clone());
     Some((timing, advance))
 }
 
@@ -3208,6 +3295,73 @@ mod tests {
         assert_eq!(
             engine.master_clock() % (3_420 * 262),
             (entry_master_clock + 229_574 * 7) % (3_420 * 262),
+        );
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn power_on_stop_music_selected_pc_checkpoint_e150c() {
+        let rom = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../.cache/upstream/kid-chameleon-disasm/kid.bin"),
+        )
+        .expect("bootstrapped Kid ROM");
+        let entry_cycles = 1_886_313_u64;
+        let checkpoint_at = |elapsed_cycles: u64| {
+            let mut engine = GemsMasterClockTimingEngine::from_kid_rom_with_ntsc_timeline_origin(
+                &rom,
+                GemsNtscTimelineOrigin::PowerOnScanlineZero,
+            )
+            .expect("Kid GEMS driver");
+            engine.advance_ntsc_master_clocks(entry_cycles * 7);
+            let timing = wildside_core::gems_stop_music_elapsed_timing(
+                wildside_core::GemsStopMusicBusAckPolls {
+                    driver_copy_sub_e13da: 1,
+                    queue_transactions_sub_e143a: [1; 6],
+                },
+                M68kRefreshPhase::new(46).unwrap(),
+                &[],
+            )
+            .unwrap();
+            TimedGemsStopMusicCursor::new(timing, entry_cycles * 7)
+                .advance_to_master_clock(&mut engine, (entry_cycles + elapsed_cycles) * 7)
+                .unwrap();
+            engine.checkpoint()
+        };
+        let checkpoint = checkpoint_at(226_024);
+        assert_eq!(
+            (
+                checkpoint.z80_pc,
+                checkpoint.z80_mclk_counter,
+                checkpoint.z80_t_cycles_wait,
+                checkpoint.busreq,
+                checkpoint.reset,
+            ),
+            (1_902, 4, 2, false, false),
+            "oracle selected-PC checkpoint at ASM sub_E143A"
+        );
+        let checkpoint = checkpoint_at(229_426);
+        let crc = checkpoint.audio_ram.iter().fold(!0_u32, |mut crc, byte| {
+            crc ^= u32::from(*byte);
+            for _ in 0..8 {
+                crc = (crc >> 1) ^ (0xEDB8_8320 & 0_u32.wrapping_sub(crc & 1));
+            }
+            crc
+        }) ^ !0_u32;
+        assert_eq!(
+            (
+                crc,
+                checkpoint.z80_pc,
+                checkpoint.z80_index_registers,
+                checkpoint.z80_mclk_counter,
+                checkpoint.z80_t_cycles_wait,
+                checkpoint.z80_odd_access,
+                checkpoint.ym2612_mclk_counter,
+                checkpoint.z80_iff1,
+                checkpoint.z80_iff2,
+            ),
+            (847_668_694, 65, [0, 0, 6_686], 13, 13, false, 7, true, true,),
+            "oracle selected-PC checkpoint at ASM StopMusic $E150C"
         );
     }
 

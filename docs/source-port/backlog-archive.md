@@ -267,6 +267,21 @@ frame 3's reset state. The first authoritative mismatch moves to frame 14's
 first `StopMusic -> sub_E13DA` driver copy. NEXT: source-schedule that reset
 transaction while retaining per-frame samples through its multi-frame span.
 
+Progress 2026-07-21: route-wide GEMS coverage advances from 14 to 16 defended
+frames. The `StopMusic` timing result now exposes the instruction-start
+visibility of all 5,764 `loc_E1400` driver writes and 2,428 `loc_E1406` clears,
+plus the short active Z80-RAM wait interval. A resumable frame-layer cursor
+drains those source events only up to each absolute `FrameRendered` target.
+Oracle selected-PC evidence pins frame 14 at 813 visible driver bytes with one
+pending M68K wait, frame 15 at the complete driver plus 340 cleared tail bytes,
+and `$E143A/$E150C` with byte-identical RAM, PC, register, divider, and T-state
+checkpoints. Frames 0..15 now match every strict signature field. The next
+authoritative boundary is frame 16, after the newly running driver accepts its
+first VBlank/IRQ; investigate that Z80 interrupt path before extending the
+cursor to the second `StopMusic` call. Full-route verification reduces the
+GEMS mismatch count from 37,745 to 37,743 and advances the first mismatch from
+14 to 16; gameplay, enemy, RNG, and pixel baselines remain unchanged.
+
 ---
 
 ### #417

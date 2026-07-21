@@ -19,11 +19,14 @@
 
 use anyhow::Result;
 use sha1::{Digest, Sha1};
-use wildside_core::{GemsFrameSignature, NativeTraceFrame};
+use wildside_core::{
+    GemsFrameSignature, GemsStopMusicBusAckPolls, M68kRefreshPhase, NativeTraceFrame,
+    gems_stop_music_elapsed_timing,
+};
 use wildside_data::AssetManifest;
 use wildside_frame::{
-    NativeAudioDirector, NativeAudioSink, apply_gems_power_on_post_clear_reset,
-    apply_gems_power_on_z80_startup,
+    NativeAudioDirector, NativeAudioSink, TimedGemsStopMusicCursor,
+    apply_gems_power_on_post_clear_reset, apply_gems_power_on_z80_startup,
 };
 use wildside_md::{GemsMasterClockTimingEngine, GemsNtscTimelineOrigin, GemsTimingCheckpoint};
 
@@ -35,12 +38,13 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 
 /// Frames of the route whose native per-frame GEMS timeline is defended as
-/// faithful. Frames 0..14 replay ASM `EntryPoint`'s power-on Z80 bootstrap and
-/// post-clear reset on the absolute raster timeline. The tail remains the
+/// faithful. Frames 0..16 replay ASM `EntryPoint`'s power-on Z80 bootstrap,
+/// post-clear reset, and the progressive first `StopMusic` driver copy
+/// through frame 15. The tail remains the
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 14;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 16;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -95,6 +99,7 @@ struct GemsSignatureProbe {
     engine: GemsMasterClockTimingEngine,
     skew_outstanding: bool,
     power_on_frame: usize,
+    power_on_stop_music: Option<TimedGemsStopMusicCursor>,
 }
 
 impl GemsSignatureProbe {
@@ -109,6 +114,7 @@ impl GemsSignatureProbe {
             engine,
             skew_outstanding: false,
             power_on_frame: 0,
+            power_on_stop_music: None,
         })
     }
 
@@ -117,6 +123,7 @@ impl GemsSignatureProbe {
             engine: GemsMasterClockTimingEngine::from_kid_rom(rom)?,
             skew_outstanding: false,
             power_on_frame: 0,
+            power_on_stop_music: None,
         })
     }
 
@@ -130,8 +137,33 @@ impl GemsSignatureProbe {
             apply_gems_power_on_post_clear_reset(&mut self.engine)
                 .expect("frame 3 crosses EntryPoint's post-clear reset write");
         }
-        self.engine
-            .advance_ntsc_master_clocks(target - self.engine.master_clock());
+        if self.power_on_frame == 14 {
+            // ASM StopMusic $E14C8 enters at the selected-PC cycle below with
+            // SR=$2708, so VINT stays masked throughout this first call.
+            const ENTRY_CYCLES: u32 = 1_886_313;
+            let entry_master_clock = u64::from(ENTRY_CYCLES) * 7;
+            self.engine
+                .advance_ntsc_master_clocks(entry_master_clock - self.engine.master_clock());
+            let timing = gems_stop_music_elapsed_timing(
+                GemsStopMusicBusAckPolls {
+                    driver_copy_sub_e13da: 1,
+                    queue_transactions_sub_e143a: [1; 6],
+                },
+                M68kRefreshPhase::new(46).expect("selected-PC refresh phase"),
+                &[],
+            )
+            .expect("masked first StopMusic source schedule");
+            self.power_on_stop_music =
+                Some(TimedGemsStopMusicCursor::new(timing, entry_master_clock));
+        }
+        if let Some(cursor) = &mut self.power_on_stop_music {
+            cursor
+                .advance_to_master_clock(&mut self.engine, target)
+                .expect("power-on StopMusic cursor advances monotonically");
+        } else {
+            self.engine
+                .advance_ntsc_master_clocks(target - self.engine.master_clock());
+        }
         self.power_on_frame += 1;
         signature_from_checkpoint(&self.engine.checkpoint())
     }
@@ -575,6 +607,7 @@ mod tests {
             engine: GemsMasterClockTimingEngine::new(&[0x76], vec![]),
             skew_outstanding: false,
             power_on_frame: 0,
+            power_on_stop_music: None,
         };
 
         probe.step_frame();
@@ -604,6 +637,7 @@ mod tests {
             engine: GemsMasterClockTimingEngine::new(&[0x76], vec![]),
             skew_outstanding: false,
             power_on_frame: 0,
+            power_on_stop_music: None,
         };
         probe.step_frame();
         let signature = probe.sample_at_frame_rendered();
@@ -638,6 +672,7 @@ mod tests {
             engine,
             skew_outstanding: false,
             power_on_frame: 0,
+            power_on_stop_music: None,
         };
 
         let frame_zero = probe.sample_power_on_frame_rendered();
@@ -651,5 +686,36 @@ mod tests {
         assert_eq!(frame_three.audio_ram_crc32, 3_532_775_288);
         assert_eq!(frame_three.z80_pc, 0);
         assert_eq!(frame_three.status_bits, GemsFrameSignature::STATUS_RESET);
+    }
+
+    #[test]
+    fn power_on_probe_matches_progressive_stop_music_copy_on_frames_14_and_15() {
+        // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406. The expected
+        // signatures are oracle FrameRendered samples on the published route.
+        let rom = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../.cache/upstream/kid-chameleon-disasm/kid.bin"),
+        )
+        .expect("bootstrapped Kid ROM");
+        let mut probe = GemsSignatureProbe::from_kid_rom_power_on(&rom).expect("power-on probe");
+        let signatures: Vec<_> = (0..16)
+            .map(|_| probe.sample_power_on_frame_rendered())
+            .collect();
+
+        assert_eq!(signatures[14].audio_ram_crc32, 687_583_812);
+        assert_eq!(signatures[14].z80_pc, 0);
+        assert_eq!(signatures[14].pending_m68k_wait_cycles, 1);
+        assert_eq!(
+            signatures[14].status_bits,
+            GemsFrameSignature::STATUS_BUSREQ
+        );
+
+        assert_eq!(signatures[15].audio_ram_crc32, 2_882_818_897);
+        assert_eq!(signatures[15].z80_pc, 0);
+        assert_eq!(signatures[15].pending_m68k_wait_cycles, 0);
+        assert_eq!(
+            signatures[15].status_bits,
+            GemsFrameSignature::STATUS_BUSREQ
+        );
     }
 }
