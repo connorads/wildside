@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 complete title Sprite_Table clear)
+
+- Defended GEMS coverage advances to frames 0..170; the frontier is frame 171
+  after `loc_720`, entering `loc_726` and the next intro loader.
+- The retained VDP cursor supplies the exact end beam and refresh state for the
+  complete `loc_714/loc_720` Sprite_Table clear.
+- Exact raw-RAM transformations confine frames 167..170 to the established IRQ
+  phase; waits and bank state are exact.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,588, with 142 evidence-backed oracle limitations and 29 advisory frames.
+- NEXT: retain the `loc_726` initialisers and next `StopMusic` boundary.
+
 ## 2026-07-21 handoff (#416 complete title fade and VRAM clear)
 
 - Defended GEMS coverage advances to frames 0..166; the frontier is frame 167

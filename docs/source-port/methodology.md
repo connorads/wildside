@@ -549,8 +549,9 @@ stack bytes. Frames 115..138 retain only the same raw-RAM-proven IRQ phase.
 Frame 139's RAM, bus wait, and flags are exact inside `StopMusic`; only the
 derivative PC phase differs. Frames 140..166 retain only raw-RAM-proven IRQ
 phase across the `StopMusic` return, every `Pal_FadeOut loc_28C6/loc_28EA`
-iteration, and the following `loc_700` full-VRAM clear. The first unmodelled
-boundary is frame 167 at the `loc_700` to `loc_714/loc_720` clear transition.
+iteration, the following `loc_700` full-VRAM clear, and the complete
+`loc_714/loc_720` Sprite_Table clear. The first unmodelled boundary is frame
+171 after `loc_720`, entering `loc_726` and the next intro loader.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.

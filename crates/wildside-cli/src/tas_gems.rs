@@ -95,12 +95,12 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// glyph/delay cadence through the final `N`, the Start transition, and the
 /// first sampled `StopMusic` bus window, its return, and the first two
 /// `Pal_FadeOut` iterations, all remaining fade iterations, the `loc_28EA`
-/// exit pass, and the following `loc_700` full-VRAM clear through frame 166.
-/// The tail remains the coarse
+/// exit pass, the following `loc_700` full-VRAM clear, and `loc_714/loc_720`'s
+/// Sprite_Table clear through frame 170. The tail remains the coarse
 /// continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 167;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 171;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -1045,6 +1045,26 @@ impl GemsSignatureProbe {
             self.power_on_vram_clear = Some(
                 TimedGemsTitleLoc700Cursor::new(fade_return.cursor, self.engine.master_clock())
                     .expect("ASM loc_700 hardware schedule"),
+            );
+        }
+        if self.power_on_frame == 167 {
+            // ASM loc_70E's final DBF falls through to loc_714/loc_720. The
+            // retained full-VRAM cursor supplies the exact beam and refresh
+            // state for the following Sprite_Table clear.
+            let mut vram_clear = self
+                .power_on_vram_clear
+                .take()
+                .expect("post-title loc_700 cursor reaches loc_714");
+            let loc_714_master_clock = vram_clear.end_master_clock();
+            vram_clear
+                .advance_to_master_clock(&mut self.engine, loc_714_master_clock)
+                .expect("post-title loc_700 cursor reaches its exact end");
+            self.power_on_vram_clear = Some(
+                TimedGemsTitleLoc700Cursor::new_loc_714(
+                    vram_clear.end_cursor(),
+                    loc_714_master_clock,
+                )
+                .expect("ASM loc_714 hardware schedule"),
             );
         }
         if self.power_on_frame == 3 {
@@ -2023,6 +2043,10 @@ const TITLE_INTRO_IRQ_PHASES: &[(usize, u32, u32, u16, u16, u8, u8)] = &[
     (164, 4_004_060_831, 3_459_361_100, 0x07D3, 0x02A5, 16, 16),
     (165, 235_061_801, 1_694_775_349, 0x0B53, 0x0B44, 16, 16),
     (166, 3_693_023_013, 394_538_880, 0x02A5, 0x0B48, 16, 16),
+    (167, 3_515_125_193, 842_160_828, 0x0B4E, 0x02A5, 16, 16),
+    (168, 2_474_961_934, 1_122_513_537, 0x0B4E, 0x07BA, 16, 16),
+    (169, 142_417_332, 1_279_722_141, 0x07AD, 0x0796, 16, 16),
+    (170, 3_781_191_802, 3_724_759_287, 0x0B4B, 0x0B48, 16, 16),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(
@@ -3117,7 +3141,7 @@ mod tests {
         }
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
-        assert_eq!(comparison.oracle_limitation_count, 131);
+        assert_eq!(comparison.oracle_limitation_count, 135);
     }
 
     #[test]
@@ -3453,7 +3477,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_166() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_170() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -5070,6 +5094,24 @@ mod tests {
                     (0x1A1D, 0x07, 0x0B),
                     (0x1A1E, 0xB0, 0xBD),
                 ],
+                167 => &[
+                    (0x076D, 0x00, 0x01),
+                    (0x1A1C, 0x4B, 0xA9),
+                    (0x1A1D, 0x0B, 0x07),
+                    (0x1A1E, 0xBD, 0x00),
+                    (0x1A1F, 0x07, 0x01),
+                ],
+                168 => &[
+                    (0x1A1C, 0x4B, 0xA9),
+                    (0x1A1D, 0x0B, 0x07),
+                    (0x1A1E, 0xBD, 0xB0),
+                ],
+                169 => &[
+                    (0x003E, 0x1C, 0x1E),
+                    (0x1A1E, 0x00, 0x96),
+                    (0x1A1F, 0x01, 0x07),
+                ],
+                170 => &[(0x003E, 0x1E, 0x1C)],
                 _ => unreachable!("cadence frame table"),
             };
             if patches.is_empty() && probe.power_on_last_sampled_checkpoint.is_none() {

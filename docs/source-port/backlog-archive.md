@@ -774,6 +774,15 @@ limitations and 29 advisory frames. The first frontier is frame 167 at the
 `loc_700` to `loc_714/loc_720` transition. NEXT: carry the retained clear
 cursor into the Sprite_Table clear.
 
+Progress 2026-07-21: the retained post-title `loc_700` cursor reaches its exact
+source-derived end beam and refresh state, then continues through the complete
+`loc_714/loc_720` Sprite_Table clear. Exact raw-RAM transformations confine
+frames 167..170 to the established IRQ phase bytes; waits and bank state are
+exact. Coverage advances 167 -> 171, GEMS mismatches fall 37,592 -> 37,588,
+with 142 evidence-backed oracle limitations and 29 advisory frames. The first
+frontier is frame 171 after `loc_720`, entering `loc_726` and the next intro
+loader. NEXT: retain the initialisers and next `StopMusic` boundary.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed
