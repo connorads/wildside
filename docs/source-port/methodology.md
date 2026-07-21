@@ -507,8 +507,8 @@ Pinned against the pinned jgenesis, never fitted:
 ### Coverage semantics
 
 The report declares `coverage.modelled_frames`: the edge up to which the
-native per-frame GEMS timeline is *defended* as faithful. It is 114: frames
-0..113 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
+native per-frame GEMS timeline is *defended* as faithful. It is 115: frames
+0..114 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
 power-on clears, the blank-display Sega-logo upload, and the first outer
 `Mode_Standard` DMA/VINT pass plus three local `loc_12E6C` iterations, the
 Start exit, all sixteen `Pal_FadeOut loc_28C6` loop uploads, and the
@@ -519,7 +519,7 @@ spans, all four following `loc_714/loc_720` Sprite_Table clear spans, and
 uploads, intro-letters decoder, both Enigma streams, and the plane-A/plane-B
 blits, then four complete intro `Mode_Standard` palette/VRAM/object passes and
 twelve ordinary text-delay iterations, the controller fade exit, and all
-sixteen post-fade controller-wait frames. A
+sixteen post-fade controller-wait frames and IntroText1's first glyph. A
 resumable cursor preserves the two `FrameRendered` samples inside
 `sub_E13DA`, materialising each `loc_E1400` driver byte and `loc_E1406` clear
 when its M68K write instruction starts, including the active one-cycle Z80-RAM
@@ -543,8 +543,8 @@ strict-field exact or differ only by raw-RAM-proven IRQ phase residue from the
 same X/Y limitation. Frame 97's raw RAM differs only at `SBPTACC` and three
 active VBLINT stack bytes from that same phase. The first unmodelled boundary
 Frames 98..113 retain only the same raw-RAM-proven IRQ phase; frames 110 and
-113 have byte-identical RAM. The first unmodelled boundary is frame 114 at
-IntroText1's first glyph.
+113 have byte-identical RAM. Frame 114 differs only in three active VBLINT
+stack bytes. The first unmodelled boundary is frame 115 in the glyph delay.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.

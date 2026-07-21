@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 IntroText1 first glyph)
+
+- Defended GEMS coverage advances to frames 0..114; the authoritative frontier
+  is frame 115 in the first-glyph delay.
+- The terminal text delay follows `loc_1C7D2 -> sub_1C7F6` and emits the first
+  `T` while retaining the frame checkpoint in `Do_Nothing`.
+- Frame 114 raw RAM differs only in three active VBLINT stack bytes from the
+  documented IRQ phase.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,644, with 86 evidence-backed oracle limitations and 29 advisory frames.
+- NEXT: carry the alternating IntroText1 glyph/delay cadence from frame 115.
+
 ## 2026-07-21 handoff (#416 post-fade controller-wait loop)
 
 - Defended GEMS coverage advances to frames 0..113; the authoritative frontier

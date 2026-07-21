@@ -39,6 +39,7 @@ use wildside_frame::{
     apply_gems_title_execute_objects_to_intro_controller,
     apply_gems_title_first_fade_hibernate_to_mode_standard,
     apply_gems_title_first_gfx_object_move_and_animate,
+    apply_gems_title_first_glyph_frame_with_checkpoint,
     apply_gems_title_first_make_sprites_from_gfx_objects,
     apply_gems_title_first_palette_interpolation, apply_gems_title_first_read_joypad,
     apply_gems_title_frame_return_to_wait_for_vint_poll,
@@ -70,7 +71,7 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 
 /// Frames of the route whose native per-frame GEMS timeline is defended as
-/// faithful. Frames 0..113 replay ASM `EntryPoint`'s power-on Z80 bootstrap
+/// faithful. Frames 0..114 replay ASM `EntryPoint`'s power-on Z80 bootstrap
 /// through the first outer `Mode_Standard` pass, three Sega-screen local
 /// palette/VINT/controller iterations, and the Start transition into the
 /// sixteen `Pal_FadeOut` loop palette uploads, the `loc_28EA` exit pass, and
@@ -81,10 +82,10 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// transfers, then the third through fifth decoders, compacting transfers,
 /// both Enigma plane decoders, four complete title `Mode_Standard` passes,
 /// twelve ordinary text-delay iterations, the controller fade exit, and all
-/// sixteen post-fade controller-wait frames. The tail remains the coarse continuous route replayer (trace-delta commands at frame boundaries
+/// sixteen post-fade controller-wait frames and IntroText1's first glyph. The tail remains the coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 114;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 115;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -776,6 +777,25 @@ impl GemsSignatureProbe {
             .expect("source-positioned post-fade title frame spans FrameRendered");
             assert_eq!(self.engine.master_clock(), end_cycle * 7);
             self.power_on_intro_cursor = Some(advance.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 114 {
+            // ASM IntroText1's terminal delay emits its first `T` glyph while
+            // the FrameRendered sample remains in the preceding Do_Nothing.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("post-fade wait reaches IntroText1 first glyph");
+            let (first_glyph, checkpoint) = apply_gems_title_first_glyph_frame_with_checkpoint(
+                &mut self.engine,
+                cursor,
+                0xFFE7,
+                0x11B,
+                target,
+            )
+            .expect("source-positioned first glyph spans frame 114");
+            assert_eq!(self.engine.master_clock(), 14_716_657 * 7);
+            self.power_on_intro_cursor = Some(first_glyph.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
         if self.power_on_frame == 3 {
@@ -1902,6 +1922,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
                 | (111, 3_086_964_188, 3_078_136_715, 0x0173, 0x02A5)
                 | (112, 2_510_442_431, 3_171_438_136, 0x07A9, 0x01BD)
                 | (113, 209_029_567, 209_029_567, 0x01B7, 0x016F)
+                | (114, 841_059_514, 1_904_784_289, 0x07B3, 0x01CE)
         );
     irq_saved_sp
         || later_pc
@@ -2745,6 +2766,20 @@ mod tests {
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 78);
+
+        let mut native_frame_114 = signature(0x07B3);
+        native_frame_114.audio_ram_crc32 = 841_059_514;
+        native_frame_114.bank_address = 0x000E_8000;
+        native_frame_114.status_bits = GemsFrameSignature::STATUS_IFF1;
+        let mut oracle_frame_114 = signature(0x01CE);
+        oracle_frame_114.audio_ram_crc32 = 1_904_784_289;
+        oracle_frame_114.bank_address = 0x000E_8000;
+        oracle_frame_114.status_bits = GemsFrameSignature::STATUS_IFF1;
+        native.push(Some(native_frame_114));
+        oracle.push(Some(oracle_frame_114));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 79);
     }
 
     #[test]
@@ -3080,7 +3115,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_113() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_114() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -4460,5 +4495,27 @@ mod tests {
             crc.update(&oracle_ram);
             assert_eq!(crc.finalize(), oracle_crc, "oracle frame {frame}");
         }
+        let frame_114 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_114.audio_ram_crc32, 841_059_514);
+        assert_eq!(frame_114.bank_address, 0x000E_8000);
+        assert_eq!(frame_114.z80_pc, 0x07B3);
+        assert_eq!(frame_114.z80_wait_mclk_cycles, 0);
+        assert_eq!(frame_114.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_114.status_bits, GemsFrameSignature::STATUS_IFF1);
+        let mut oracle_ram = probe
+            .power_on_last_sampled_checkpoint
+            .as_ref()
+            .expect("frame 114 native checkpoint")
+            .audio_ram
+            .clone();
+        assert_eq!(oracle_ram[0x1A1A], 0xD2);
+        assert_eq!(oracle_ram[0x1A1E], 0xB0);
+        assert_eq!(oracle_ram[0x1A1F], 0x07);
+        oracle_ram[0x1A1A] = 0x6B;
+        oracle_ram[0x1A1E] = 0x00;
+        oracle_ram[0x1A1F] = 0x01;
+        let mut crc = crc32fast::Hasher::new();
+        crc.update(&oracle_ram);
+        assert_eq!(crc.finalize(), 1_904_784_289);
     }
 }

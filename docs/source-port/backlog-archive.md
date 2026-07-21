@@ -731,6 +731,13 @@ mismatches fall 37,661 -> 37,645, and the first authoritative frontier moves
 to frame 114 at IntroText1's first glyph. Full non-audio baselines remain fixed.
 NEXT: retain the first glyph.
 
+Progress 2026-07-21: IntroText1's terminal delay follows `loc_1C7D2 ->
+sub_1C7F6` and emits its first `T`. Frame 114 raw RAM differs only in three
+active VBLINT stack bytes from the established IRQ phase. Defended coverage
+advances 114 -> 115, GEMS mismatches fall 37,645 -> 37,644, and the first
+authoritative frontier moves to frame 115's glyph delay. Full non-audio
+baselines remain fixed. NEXT: retain the alternating glyph/delay cadence.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed
