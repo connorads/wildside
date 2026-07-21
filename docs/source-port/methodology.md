@@ -507,8 +507,8 @@ Pinned against the pinned jgenesis, never fitted:
 ### Coverage semantics
 
 The report declares `coverage.modelled_frames`: the edge up to which the
-native per-frame GEMS timeline is *defended* as faithful. It is 83: frames
-0..82 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
+native per-frame GEMS timeline is *defended* as faithful. It is 84: frames
+0..83 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
 power-on clears, the blank-display Sega-logo upload, and the first outer
 `Mode_Standard` DMA/VINT pass plus three local `loc_12E6C` iterations, the
 Start exit, all sixteen `Pal_FadeOut loc_28C6` loop uploads, and the
@@ -517,8 +517,8 @@ spans, all four following `loc_714/loc_720` Sprite_Table clear spans, and
 `loc_726`'s restart initialisers through `Load_IntroSequence1`'s first
 `StopMusic`, `PlaySound`, and `sub_1B850` through the kids-hanging compacting
 uploads, intro-letters decoder, both Enigma streams, and the plane-A/plane-B
-blits, then the first two complete intro `Mode_Standard` palette/VRAM/object
-passes, the third `WaitForVint`/VINT, and its following `Do_Nothing`. A
+blits, then the first three complete intro `Mode_Standard` palette/VRAM/object
+passes, the fourth `WaitForVint`/VINT, and its following `Do_Nothing`. A
 resumable cursor preserves the two `FrameRendered` samples inside
 `sub_E13DA`, materialising each `loc_E1400` driver byte and `loc_E1406` clear
 when its M68K write instruction starts, including the active one-cycle Z80-RAM
@@ -535,8 +535,10 @@ in five active-stack bytes and PC phase. Frame 80 differs only at active-stack
 byte `$1A1A`; its PC and two-cycle wait are derivative of the carried X/Y and
 approximate-refresh phase. Frame 81 is strict-field exact. Frame 82 differs
 only at saved SP `$003E` and active-stack `$1A14`; its three-byte PC phase is
-the derivative X/Y-flag consequence. The first unmodelled boundary is frame
-83 in the next title-frame pass.
+the derivative X/Y-flag consequence. Frame 83 is RAM/bank/PC/flags exact; its
+two-cycle wait is solely jgenesis's source-documented approximate refresh
+counter at the quantised instruction boundary. The first unmodelled boundary
+is frame 84 in the next title-frame pass.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.

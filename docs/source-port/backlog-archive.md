@@ -673,6 +673,15 @@ mismatches fall 37,677 -> 37,676, and evidence-backed oracle limitations rise
 to 54. Full pixel, gameplay, RNG, and enemy baselines remain fixed. NEXT:
 carry the third title-frame pass through the fourth `WaitForVint`/VINT.
 
+Progress 2026-07-21: the retained cursor carries the complete third intro
+title-frame pass through the fourth `WaitForVint`/VINT and following
+`Do_Nothing`. Frame 83 is RAM/bank/PC/flags exact; its sole two-cycle pending
+wait is jgenesis's source-documented approximate refresh counter at the
+quantised instruction boundary. Defended coverage advances 83 -> 84, GEMS
+mismatches fall 37,676 -> 37,675, and evidence-backed oracle limitations rise
+to 55. Full pixel, gameplay, RNG, and enemy baselines remain fixed. NEXT:
+carry the fourth pass, then the ordinary text-delay frames.
+
 Progress 2026-07-21: the fifth `Pal_FadeOut loc_28C6` palette upload is
 source-scheduled from cycle 5,364,160, beam 237:940, refresh phase 70. Frame
 42 native/oracle CRCs are `2240045277`/`2240142489` and PCs are

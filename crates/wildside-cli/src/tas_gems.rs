@@ -52,7 +52,8 @@ use wildside_frame::{
     apply_gems_title_mode_standard_scroll_data_to_vram,
     apply_gems_title_mode_standard_sprite_and_kid_to_vram, apply_gems_title_palette_to_vram_call,
     apply_gems_title_second_execute_objects, apply_gems_title_text_object_allocation_to_fade,
-    apply_gems_title_wait_for_vint_to_mode_standard, apply_timed_gems_queue_command, gems_bgm,
+    apply_gems_title_third_execute_objects, apply_gems_title_wait_for_vint_to_mode_standard,
+    apply_timed_gems_queue_command, gems_bgm,
 };
 use wildside_md::{
     GemsMasterClockTimingEngine, GemsNtscTimelineOrigin, GemsQueueCommand, GemsTimingCheckpoint,
@@ -80,7 +81,7 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 83;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 84;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -566,6 +567,68 @@ impl GemsSignatureProbe {
                 )
                 .expect("source-positioned third Do_Nothing spans frame 82");
             assert_eq!(self.engine.master_clock(), 10_612_432 * 7);
+            self.power_on_intro_cursor = Some(do_nothing.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 83 {
+            // ASM Mode_Standard completes its third title-frame pass and
+            // returns through the fourth WaitForVint/VINT. FrameRendered
+            // lands inside the following Do_Nothing call.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("third Mode_Standard Do_Nothing reaches Palette_to_VRAM");
+            let palette = apply_gems_title_mode_standard_palette_to_vram(&mut self.engine, cursor)
+                .expect("source-positioned third title Palette_to_VRAM");
+            let sprite_and_kid = apply_gems_title_mode_standard_sprite_and_kid_to_vram(
+                &mut self.engine,
+                palette.cursor,
+            )
+            .expect("source-positioned third title sprite/Kid transfer");
+            let scroll = apply_gems_title_mode_standard_scroll_data_to_vram(
+                &mut self.engine,
+                sprite_and_kid.cursor,
+            )
+            .expect("source-positioned third title scroll transfer");
+            let queues = apply_gems_title_mode_standard_empty_foreground_queues(
+                &mut self.engine,
+                scroll.cursor,
+            )
+            .expect("source-positioned third title empty foreground queues");
+            let execute =
+                apply_gems_title_third_execute_objects(&mut self.engine, queues.cursor, 0xFFD5)
+                    .expect("source-positioned third title text-delay frame");
+            assert_eq!(self.engine.master_clock(), 10_620_341 * 7);
+            let gfx = apply_gems_title_first_gfx_object_move_and_animate(
+                &mut self.engine,
+                execute.cursor,
+            )
+            .expect("source-positioned third title GfxObject pass");
+            let joypad = apply_gems_title_first_read_joypad(&mut self.engine, gfx.cursor)
+                .expect("source-positioned third title ReadJoypad");
+            let sprites = apply_gems_title_first_make_sprites_from_gfx_objects(
+                &mut self.engine,
+                joypad.cursor,
+            )
+            .expect("source-positioned third title sprite construction");
+            let interpolation =
+                apply_gems_title_first_palette_interpolation(&mut self.engine, sprites.cursor)
+                    .expect("source-positioned third title palette interpolation");
+            let poll = apply_gems_title_frame_return_to_wait_for_vint_poll(
+                &mut self.engine,
+                interpolation.cursor,
+            )
+            .expect("source-positioned fourth title WaitForVint poll");
+            let mode_standard =
+                apply_gems_title_wait_for_vint_to_mode_standard(&mut self.engine, poll.cursor)
+                    .expect("source-positioned fourth WaitForVint/V_Int path");
+            let (do_nothing, checkpoint) =
+                apply_gems_title_mode_standard_do_nothing_with_checkpoint(
+                    &mut self.engine,
+                    mode_standard.cursor,
+                    target,
+                )
+                .expect("source-positioned fourth Do_Nothing spans frame 83");
             self.power_on_intro_cursor = Some(do_nothing.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
@@ -1601,13 +1664,19 @@ fn gems_divergence_matches_documented_oracle_limitation(
         && native.pending_m68k_wait_cycles == 0
         && oracle.pending_m68k_wait_cycles == 2;
     let approximate_refresh_wait = diverging == ["pending_m68k_wait_cycles"]
-        && frame_index == 78
-        && native.audio_ram_crc32 == 3_752_308_961
-        && oracle.audio_ram_crc32 == 3_752_308_961
-        && native.z80_pc == 0x02AA
-        && oracle.z80_pc == 0x02AA
-        && native.pending_m68k_wait_cycles == 0
-        && oracle.pending_m68k_wait_cycles == 2;
+        && matches!(
+            (
+                frame_index,
+                native.audio_ram_crc32,
+                oracle.audio_ram_crc32,
+                native.z80_pc,
+                oracle.z80_pc,
+                native.pending_m68k_wait_cycles,
+                oracle.pending_m68k_wait_cycles,
+            ),
+            (78, 3_752_308_961, 3_752_308_961, 0x02AA, 0x02AA, 0, 2)
+                | (83, 12_725_625, 12_725_625, 0x02AA, 0x02AA, 0, 2)
+        );
     let repeated_rows_irq_phase = diverging == ["audio_ram_crc32", "z80_pc"]
         && frame_index == 79
         && native.audio_ram_crc32 == 1_697_645_776
@@ -2380,6 +2449,18 @@ mod tests {
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 47);
+
+        let mut native_frame_83 = signature(0x02AA);
+        native_frame_83.audio_ram_crc32 = 12_725_625;
+        native_frame_83.bank_address = 0x000E_8000;
+        native_frame_83.status_bits = GemsFrameSignature::STATUS_IFF1;
+        let mut oracle_frame_83 = native_frame_83;
+        oracle_frame_83.pending_m68k_wait_cycles = 2;
+        native.push(Some(native_frame_83));
+        oracle.push(Some(oracle_frame_83));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 48);
     }
 
     #[test]
@@ -2715,7 +2796,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_82() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_83() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -3729,5 +3810,13 @@ mod tests {
         let mut crc = crc32fast::Hasher::new();
         crc.update(&oracle_ram);
         assert_eq!(crc.finalize(), 2_905_033_788);
+
+        let frame_83 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_83.audio_ram_crc32, 12_725_625);
+        assert_eq!(frame_83.bank_address, 0x000E_8000);
+        assert_eq!(frame_83.z80_pc, 0x02AA);
+        assert_eq!(frame_83.z80_wait_mclk_cycles, 0);
+        assert_eq!(frame_83.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_83.status_bits, GemsFrameSignature::STATUS_IFF1);
     }
 }
