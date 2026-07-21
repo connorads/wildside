@@ -715,6 +715,14 @@ limitations and 29 advisory frames are recorded, and the first authoritative
 frontier moves to frame 97's intro-controller fade exit. Full pixel, gameplay,
 RNG, and enemy baselines remain fixed. NEXT: retain the controller fade exit.
 
+Progress 2026-07-21: the retained title cursor takes the intro controller's
+`$0110` fade-exit branch and seeds its `$012C` post-fade wait. Frame 97 raw RAM
+differs only at `SBPTACC` and three active VBLINT stack bytes from the known
+X/Y phase. Defended coverage advances 97 -> 98, GEMS mismatches fall 37,662 ->
+37,661, and the first authoritative frontier moves to frame 98's post-fade
+controller-wait loop. Full non-audio baselines remain fixed. NEXT: retain the
+post-fade wait.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

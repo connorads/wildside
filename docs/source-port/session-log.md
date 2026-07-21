@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 intro controller fade exit)
+
+- Defended GEMS coverage advances to frames 0..97; the authoritative frontier
+  is frame 98 in the post-fade controller-wait loop.
+- The `$0110` controller fade-exit branch and `$012C` wait seed retain the
+  source cursor across the frame-97 `Do_Nothing` checkpoint.
+- Raw RAM limits frame 97 to `SBPTACC` plus three active VBLINT stack bytes,
+  all derivative of the documented X/Y phase.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,661, with 69 evidence-backed oracle limitations and 29 advisory frames.
+- NEXT: carry the post-fade controller-wait loop from frame 98.
+
 ## 2026-07-21 handoff (#416 ordinary intro text-delay loop)
 
 - Defended GEMS coverage advances to frames 0..96; the authoritative frontier
