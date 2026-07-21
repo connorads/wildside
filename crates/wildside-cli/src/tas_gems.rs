@@ -33,7 +33,7 @@ use wildside_frame::{
     apply_gems_title_mode_standard_empty_foreground_queues,
     apply_gems_title_mode_standard_palette_to_vram,
     apply_gems_title_mode_standard_scroll_data_to_vram,
-    apply_gems_title_mode_standard_sprite_and_kid_to_vram,
+    apply_gems_title_mode_standard_sprite_and_kid_to_vram, apply_gems_title_palette_to_vram_call,
 };
 use wildside_md::{GemsMasterClockTimingEngine, GemsNtscTimelineOrigin, GemsTimingCheckpoint};
 
@@ -45,13 +45,13 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 
 /// Frames of the route whose native per-frame GEMS timeline is defended as
-/// faithful. Frames 0..33 replay ASM `EntryPoint`'s power-on Z80 bootstrap
-/// through the first outer `Mode_Standard` pass and Sega-screen controller
-/// VINT. The tail remains the
+/// faithful. Frames 0..36 replay ASM `EntryPoint`'s power-on Z80 bootstrap
+/// through the first outer `Mode_Standard` pass and three Sega-screen local
+/// palette/VINT/controller iterations. The tail remains the
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 34;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 37;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -444,6 +444,108 @@ impl GemsSignatureProbe {
             );
             self.engine.set_z80_control(false, false);
         }
+        if self.power_on_frame == 34 {
+            // ASM Load_SegaScreen loc_12E6C's first local pass reaches its
+            // j_Palette_to_VRAM call immediately after frame 33's sample.
+            // The generic call journal begins at the effective BSR boundary,
+            // 18 cycles before Palette_to_VRAM $970.
+            const PALETTE_CALL_CYCLES: u64 = 4_341_351;
+            self.engine
+                .advance_ntsc_master_clocks(PALETTE_CALL_CYCLES * 7 - self.engine.master_clock());
+            let entry = wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::H40BeamPosition::new(239, 2_757)
+                    .expect("oracle second Palette_to_VRAM caller beam"),
+                refresh_phase: M68kRefreshPhase::new(10)
+                    .expect("oracle second Palette_to_VRAM caller refresh phase"),
+            };
+            apply_gems_title_palette_to_vram_call(&mut self.engine, entry)
+                .expect("ASM loc_12E6C uploads Palette_Buffer");
+            // ASM j_Palette_to_VRAM's absolute jump veneer returns through
+            // the local JSR boundary rather than Mode_Standard's BSR.
+            self.engine.advance_ntsc_master_clocks(18 * 7);
+            assert_eq!(
+                self.engine.master_clock() / 7,
+                4_341_898,
+                "oracle loc_12E6C loop boundary",
+            );
+
+            // The next WaitForVint resumes into ReadJoypad. Selected-PC
+            // tracing pins the sub_914/sub_924 register-write completions.
+            const READ_JOYPAD_BUS_REQUEST_CYCLES: u64 = 4_462_064;
+            const READ_JOYPAD_BUS_RELEASE_CYCLES: u64 = 4_462_740;
+            self.engine.advance_ntsc_master_clocks(
+                READ_JOYPAD_BUS_REQUEST_CYCLES * 7 - self.engine.master_clock(),
+            );
+            self.engine.set_z80_control(true, false);
+            self.engine.advance_ntsc_master_clocks(
+                READ_JOYPAD_BUS_RELEASE_CYCLES * 7 - self.engine.master_clock(),
+            );
+            self.engine.set_z80_control(false, false);
+        }
+        if self.power_on_frame == 35 {
+            // ASM Load_SegaScreen loc_12E6C's second local iteration repeats
+            // the palette upload and controller BUSREQ window one VINT later.
+            const PALETTE_CALL_CYCLES: u64 = 4_469_370;
+            self.engine
+                .advance_ntsc_master_clocks(PALETTE_CALL_CYCLES * 7 - self.engine.master_clock());
+            let entry = wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::H40BeamPosition::new(239, 2_850)
+                    .expect("oracle third Palette_to_VRAM caller beam"),
+                refresh_phase: M68kRefreshPhase::new(94)
+                    .expect("oracle third Palette_to_VRAM caller refresh phase"),
+            };
+            apply_gems_title_palette_to_vram_call(&mut self.engine, entry)
+                .expect("ASM loc_12E6C uploads Palette_Buffer again");
+            self.engine.advance_ntsc_master_clocks(18 * 7);
+            assert_eq!(
+                self.engine.master_clock() / 7,
+                4_469_920,
+                "oracle second loc_12E6C loop boundary",
+            );
+
+            const READ_JOYPAD_BUS_REQUEST_CYCLES: u64 = 4_590_064;
+            const READ_JOYPAD_BUS_RELEASE_CYCLES: u64 = 4_590_738;
+            self.engine.advance_ntsc_master_clocks(
+                READ_JOYPAD_BUS_REQUEST_CYCLES * 7 - self.engine.master_clock(),
+            );
+            self.engine.set_z80_control(true, false);
+            self.engine.advance_ntsc_master_clocks(
+                READ_JOYPAD_BUS_RELEASE_CYCLES * 7 - self.engine.master_clock(),
+            );
+            self.engine.set_z80_control(false, false);
+        }
+        if self.power_on_frame == 36 {
+            // ASM Load_SegaScreen loc_12E6C's third local iteration repeats
+            // the same palette/VINT/controller hardware path.
+            const PALETTE_CALL_CYCLES: u64 = 4_597_370;
+            self.engine
+                .advance_ntsc_master_clocks(PALETTE_CALL_CYCLES * 7 - self.engine.master_clock());
+            let entry = wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::H40BeamPosition::new(239, 2_810)
+                    .expect("oracle fourth Palette_to_VRAM caller beam"),
+                refresh_phase: M68kRefreshPhase::new(72)
+                    .expect("oracle fourth Palette_to_VRAM caller refresh phase"),
+            };
+            apply_gems_title_palette_to_vram_call(&mut self.engine, entry)
+                .expect("ASM loc_12E6C uploads Palette_Buffer a third time");
+            self.engine.advance_ntsc_master_clocks(18 * 7);
+            assert_eq!(
+                self.engine.master_clock() / 7,
+                4_597_918,
+                "oracle third loc_12E6C loop boundary",
+            );
+
+            const READ_JOYPAD_BUS_REQUEST_CYCLES: u64 = 4_718_062;
+            const READ_JOYPAD_BUS_RELEASE_CYCLES: u64 = 4_718_736;
+            self.engine.advance_ntsc_master_clocks(
+                READ_JOYPAD_BUS_REQUEST_CYCLES * 7 - self.engine.master_clock(),
+            );
+            self.engine.set_z80_control(true, false);
+            self.engine.advance_ntsc_master_clocks(
+                READ_JOYPAD_BUS_RELEASE_CYCLES * 7 - self.engine.master_clock(),
+            );
+            self.engine.set_z80_control(false, false);
+        }
         if let Some(cursor) = &mut self.power_on_vram_clear {
             cursor
                 .advance_to_master_clock(&mut self.engine, target)
@@ -589,7 +691,10 @@ fn advisory_fields_diverge(native: &GemsFrameSignature, oracle: &GemsFrameSignat
 /// directly on the Z80 stack at `$1A1C` during the second StopMusic call.
 /// Frame 33 first agrees at Palette_to_VRAM/Transfer_SpriteAndKidToVRAM, then
 /// the defect changes a scroll-DMA BUSREQ acknowledgement by two Z80 T-cycles;
-/// after loc_12E6C's long VINT wait this is a PC-only phase residual.
+/// after loc_12E6C's long VINT wait this is a PC-only phase residual. Frame 34
+/// carries that hardware-correct phase through an otherwise exact local
+/// palette/VINT/controller pass. Frame 36 crosses the next IRQ boundary and
+/// differs only in PC phase and the same `$003E` saved-SP byte.
 /// Later `SUB 1` at $07B3 leaves the oracle at PC $02AA where hardware reaches
 /// $02AE. Every other strict field must be byte-equal.
 fn gems_divergence_matches_documented_z80_xy_flag_case(
@@ -617,10 +722,17 @@ fn gems_divergence_matches_documented_z80_xy_flag_case(
         );
     let later_pc = diverging == ["z80_pc"] && native.z80_pc == 0x02AE && oracle.z80_pc == 0x02AA;
     let sega_screen_phase = diverging == ["z80_pc"]
-        && frame_index == 33
-        && native.z80_pc == 0x01B7
-        && oracle.z80_pc == 0x019F;
-    irq_saved_sp || later_pc || sega_screen_phase
+        && matches!(
+            (frame_index, native.z80_pc, oracle.z80_pc),
+            (33, 0x01B7, 0x019F) | (34, 0x019F, 0x018B) | (35, 0x018B, 0x0173)
+        );
+    let sega_screen_irq_saved_sp = diverging == ["audio_ram_crc32", "z80_pc"]
+        && frame_index == 36
+        && native.audio_ram_crc32 == 4_159_266_001
+        && oracle.audio_ram_crc32 == 3_364_512_860
+        && native.z80_pc == 0x0173
+        && oracle.z80_pc == 0x016F;
+    irq_saved_sp || later_pc || sega_screen_phase || sega_screen_irq_saved_sp
 }
 
 fn update_gems_frame_digest(hasher: &mut Sha1, signature: Option<&GemsFrameSignature>) {
@@ -857,6 +969,24 @@ mod tests {
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 1);
         assert_eq!(comparison.first_mismatch, None);
+
+        native.push(Some(signature(0x019F)));
+        oracle.push(Some(signature(0x018B)));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 2);
+
+        native.push(Some(signature(0x018B)));
+        oracle.push(Some(signature(0x0173)));
+        let mut native_frame_36 = signature(0x0173);
+        native_frame_36.audio_ram_crc32 = 4_159_266_001;
+        let mut oracle_frame_36 = signature(0x016F);
+        oracle_frame_36.audio_ram_crc32 = 3_364_512_860;
+        native.push(Some(native_frame_36));
+        oracle.push(Some(oracle_frame_36));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 4);
     }
 
     #[test]
@@ -1159,7 +1289,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_33() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_36() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -1169,7 +1299,7 @@ mod tests {
         )
         .expect("bootstrapped Kid ROM");
         let mut probe = GemsSignatureProbe::from_kid_rom_power_on(&rom).expect("power-on probe");
-        let signatures: Vec<_> = (0..34)
+        let signatures: Vec<_> = (0..37)
             .map(|_| probe.sample_power_on_frame_rendered())
             .collect();
         assert_eq!(signatures[14].audio_ram_crc32, 687_583_812);
@@ -1283,5 +1413,29 @@ mod tests {
         assert_eq!(signatures[33].audio_ram_crc32, 1_442_419_946);
         assert_eq!(signatures[33].pending_m68k_wait_cycles, 0);
         assert_eq!(signatures[33].status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        assert_eq!(signatures[34].z80_pc, 0x019F);
+        assert_eq!(signatures[34].audio_ram_crc32, 1_763_598_709);
+        assert_eq!(signatures[34].pending_m68k_wait_cycles, 0);
+        assert_eq!(signatures[34].status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        assert_eq!(signatures[35].z80_pc, 0x018B);
+        assert_eq!(signatures[35].audio_ram_crc32, 1_863_261_122);
+        assert_eq!(signatures[35].pending_m68k_wait_cycles, 0);
+        assert_eq!(signatures[35].status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        assert_eq!(signatures[36].z80_pc, 0x0173);
+        assert_eq!(signatures[36].audio_ram_crc32, 4_159_266_001);
+        assert_eq!(signatures[36].pending_m68k_wait_cycles, 0);
+        assert_eq!(signatures[36].status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        // ORACLE LIMITATION: the only frame-36 RAM difference is the known
+        // IRQ saved-SP byte at $003E, hardware/native $1C versus oracle $1E.
+        let mut oracle_ram = probe.engine.checkpoint().audio_ram;
+        assert_eq!(oracle_ram[0x003E], 0x1C);
+        oracle_ram[0x003E] = 0x1E;
+        let mut crc = crc32fast::Hasher::new();
+        crc.update(&oracle_ram);
+        assert_eq!(crc.finalize(), 3_364_512_860);
     }
 }

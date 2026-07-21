@@ -360,6 +360,17 @@ authoritative mismatch moves to frame 34 in the second `loc_12E6C` pass. Full
 TAS verification keeps pixel/gameplay/enemy/RNG baselines fixed, reduces GEMS
 mismatches 37,726 -> 37,725, and records eight total oracle limitations.
 
+Progress 2026-07-21: GEMS coverage advances again from 34 to 37 defended
+frames by retaining three repeated local `Load_SegaScreen loc_12E6C`
+palette/VINT/controller passes. Frames 34 and 35 have only the carried
+hardware-correct PC phase residual. Frame 36 crosses the next IRQ boundary;
+raw-RAM derivation proves its CRC difference is solely saved-SP byte `$003E`
+(`$1C` native/hardware versus `$1E` jgenesis), alongside the same PC phase.
+The first authoritative mismatch is frame 37, where the loader leaves this
+repeated path. Full TAS verification keeps pixel/gameplay/enemy/RNG baselines
+fixed, reduces GEMS mismatches 37,725 -> 37,722, and records eleven total
+oracle limitations.
+
 ---
 
 ### #417

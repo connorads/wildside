@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 repeated Sega-screen passes)
+
+- Defended GEMS coverage advances to frames 0..36; the authoritative frontier
+  is frame 37 where `Load_SegaScreen` changes path.
+- Three local `loc_12E6C` palette/VINT/controller iterations are retained.
+- Frames 34/35 are PC-phase-only oracle limitations; frame 36 also differs
+  only at the known `$003E` saved-SP byte, proven by raw-RAM CRC derivation.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,722.
+- NEXT: trace the frame-37 transition out of the repeated `loc_12E6C` path.
+
+---
+
 ## 2026-07-21 handoff (#416 first Sega-screen outer pass)
 
 - Defended GEMS coverage advances to frames 0..33; the authoritative frontier

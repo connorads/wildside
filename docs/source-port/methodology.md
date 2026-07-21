@@ -507,19 +507,19 @@ Pinned against the pinned jgenesis, never fitted:
 ### Coverage semantics
 
 The report declares `coverage.modelled_frames`: the edge up to which the
-native per-frame GEMS timeline is *defended* as faithful. It is 34: frames
-0..33 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
+native per-frame GEMS timeline is *defended* as faithful. It is 37: frames
+0..36 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
 power-on clears, the blank-display Sega-logo upload, and the first outer
-`Mode_Standard` DMA/VINT pass. A
+`Mode_Standard` DMA/VINT pass plus three local `loc_12E6C` iterations. A
 resumable cursor preserves the two `FrameRendered` samples inside
 `sub_E13DA`, materialising each `loc_E1400` driver byte and `loc_E1406` clear
 when its M68K write instruction starts, including the active one-cycle Z80-RAM
-wait. Frames 16, 19, 20, 22, 25, 28, 30, and 33 each have one strict residual from the
+wait. Frames 16, 19, 20, 22, 25, 28, 30, and 33..36 each have one strict residual from the
 documented jgenesis X/Y-flag limitation below. Signatures past the edge are
 still emitted by the coarse
 continuous route replayer and compared so divergence is measured, not hidden,
-but never claimed as modelled. The first unmodelled boundary is frame 34, in
-the second `Load_SegaScreen loc_12E6C` VINT/palette pass.
+but never claimed as modelled. The first unmodelled boundary is frame 37,
+where `Load_SegaScreen` leaves the repeated `loc_12E6C` path.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.
