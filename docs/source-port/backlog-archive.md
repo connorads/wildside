@@ -600,6 +600,17 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the persistent title timeline emits IntroText1's first
+`T` on frame 115. The terminal delay enters the parser, preserves the original
+`cmp.b (off_20).w` quirk, and runs `sub_1C7F6` to derive the plane command/tile
+before loading the two-frame glyph delay; the controller retains its
+post-fade `loc_1B928` DBF wait. The block is 184 instructions / 2,232 raw
+cycles. Oracle enters `$790` on 14,714,552, reaches `loc_1C7D2`/`sub_1C7F6` on
+14,715,986/14,716,052, and returns at `$794` on 14,716,958. Native reaches
+14,716,653; the 305-cycle explained residue is its 267-cycle early entry plus
+38 unmodelled GEMS waits. NEXT: generalise the two-frame glyph cadence and
+schedule the rest of the first text line.
+
 Progress 2026-07-21: the persistent title timeline source-schedules the
 post-fade IntroText1 countdown through frame 114. The text worker decrements
 through `loc_1C7B2`; the controller resumes at `loc_1B928`, polls Start, takes

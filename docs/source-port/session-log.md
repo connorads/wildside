@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 first IntroText1 glyph)
+
+- Frame 115 takes the terminal delay, parses `T`, preserves the ROM's
+  `cmp.b (off_20).w` quirk, and runs `sub_1C7F6` before loading delay two.
+- The controller retains its post-fade DBF wait; the combined block is 184
+  instructions / 2,232 raw cycles.
+- Native returns at `$794` on 14,716,653 versus oracle 14,716,958. The
+  305-cycle residue is the 267-cycle early entry plus 38 missing GEMS waits.
+- NEXT: generalise the two-frame glyph cadence and schedule the rest of the
+  first text line.
+
+---
+
 ## 2026-07-21 handoff (#409 post-fade title countdown)
 
 - Frames 99-114 now source-schedule the text delay alongside the controller's

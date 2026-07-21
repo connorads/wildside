@@ -541,6 +541,66 @@ pub fn visit_title_post_fade_wait_execute_objects(
     Some(timing)
 }
 
+/// Visit frame 115's first IntroText1 glyph and controller-wait dispatches.
+///
+/// The text delay reaches zero, the parser consumes `T`, and `sub_1C7F6`
+/// writes its plane command/tile before loading the two-frame glyph delay.
+pub fn visit_title_first_glyph_execute_objects(
+    rng_offset_before: u16,
+    controller_wait_before: u16,
+    mut visit: impl FnMut(u32),
+) -> Option<IntroSourceTiming> {
+    if controller_wait_before == 0 || controller_wait_before > 0x12B {
+        return None;
+    }
+
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title first-glyph timing fits u32"),
+        );
+    };
+
+    visit_title_execute_objects_setup(rng_offset_before, &mut emit)?;
+    for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
+        emit(cycles);
+    }
+    // ASM loc_1C7B2 -> loc_1C7E6 consumes `T`. ORIGINAL_QUIRK: loc_1C7DC
+    // compares against byte `(off_20).w`, not immediate `#$20`; `T` takes
+    // the ordinary non-space branch either way.
+    for cycles in [4, 8, 4, 8, 8, 10, 8, 10, 8, 10, 12, 10, 8, 18] {
+        emit(cycles);
+    }
+    // ASM sub_1C7F6 derives the plane command and writes tile `$6813` for
+    // `T`, then loc_1C7E6 loads IntroText1's two-frame glyph delay.
+    for cycles in [
+        4, 20, 4, 4, 8, 4, 8, 8, 4, 10, 8, 4, 12, 8, 8, 16, 4, 8, 8, 10, 18, 10, 16, 24, 16, 76,
+        16, 10,
+    ] {
+        emit(cycles);
+    }
+    for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
+        emit(cycles);
+    }
+    for cycles in [18, 16, 8, 16, 10, 18, 10, 16, 24, 16, 76, 16, 10] {
+        emit(cycles);
+    }
+    for cycles in [12, 10, 16, 16] {
+        emit(cycles);
+    }
+
+    Some(timing)
+}
+
 /// Visit initial `sub_1B8F4` work through entry to `sub_1C4EA`.
 ///
 /// The first title controller allocates the fixed Wild Side prompt GfxObject
@@ -1464,6 +1524,28 @@ mod tests {
         assert!(
             visit_title_post_fade_wait_execute_objects(0xFFCB, 8, 0, |_| {}).is_none(),
             "terminal controller DBF takes the scene-transition path",
+        );
+    }
+
+    #[test]
+    fn title_first_glyph_writes_t_and_loads_two_frame_delay() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_first_glyph_execute_objects(0xFFE7, 0x11B, |cycle| {
+            cycles.push(cycle);
+        })
+        .expect("frame-115 first glyph state");
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 184,
+                raw_cycles: M68kCycleCount::from_raw(2_232),
+            },
+        );
+        assert_eq!(
+            cycles.iter().filter(|&&cycle| cycle == 76).count(),
+            2,
+            "ASM loc_1C7AE and loc_1B924 hibernate both live objects",
         );
     }
 

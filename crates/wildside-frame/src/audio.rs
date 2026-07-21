@@ -1229,6 +1229,32 @@ pub fn apply_gems_title_post_fade_wait_execute_objects(
     )
 }
 
+/// Clock frame 115's first title glyph and controller-wait dispatches.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_first_glyph_execute_objects(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    controller_wait_before: u16,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_first_glyph_execute_objects_cursor_with_scheduler(
+        entry,
+        rng_offset_before,
+        controller_wait_before,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 #[cfg(feature = "audio")]
 fn apply_gems_title_frame_to_execute_objects(
     audio: &mut GemsMasterClockTimingEngine,
@@ -1303,6 +1329,23 @@ pub fn apply_gems_title_post_fade_wait_frame(
         execute_entry,
         rng_offset_before,
         text_delay_before,
+        controller_wait_before,
+    )
+}
+
+/// Clock frame 115 through IntroText1's first `T` glyph.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_first_glyph_frame(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    controller_wait_before: u16,
+) -> Option<TitleIntroSourceAdvance> {
+    let execute_entry = apply_gems_title_frame_to_execute_objects(audio, entry)?;
+    apply_gems_title_first_glyph_execute_objects(
+        audio,
+        execute_entry,
+        rng_offset_before,
         controller_wait_before,
     )
 }
@@ -4090,6 +4133,28 @@ mod tests {
                 oracle_return - native_return,
             );
         }
+
+        let first_glyph =
+            apply_gems_title_first_glyph_frame(&mut engine, post_fade_cursor, 0xFFE7, 0x11B)
+                .expect("source-positioned frame-115 first title glyph");
+        assert_eq!(
+            first_glyph.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 184,
+                raw_cycles: M68kCycleCount::from_raw(2_232),
+            },
+        );
+        assert_eq!(first_glyph.refresh_events, 17);
+        assert_eq!(first_glyph.external_wait_cycles.get(), 0);
+        // Oracle frame 115 enters `$790` on 14,714,552, reaches the `T`
+        // parser at `loc_1C7D2` on 14,715,986 and `sub_1C7F6` on 14,716,052,
+        // then returns at `$794` on 14,716,958.
+        // Native enters 267 cycles early and omits 38 GEMS wait cycles.
+        assert_eq!(
+            engine.master_clock(),
+            14_716_653 * 7,
+            "title first-glyph ledger: {first_glyph:?}",
+        );
     }
 
     #[cfg(feature = "audio")]
