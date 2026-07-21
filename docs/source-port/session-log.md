@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 complete post-fade full-VRAM clear)
+
+- Defended GEMS coverage advances to frames 0..63; the authoritative frontier
+  is frame 64 at the post-fade `loc_714/loc_720` Sprite_Table clear.
+- Frames 59..63 complete all eight `loc_700` spans. Their byte-level residuals
+  remain limited to saved SP, `SBPTACC`, active stack, and one shifted VBLINT
+  edge; bank and waits are exact. Selected-PC tracing places `loc_714` at
+  cycle 8,181,559, beam 239:375, refresh phase 54.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,695, with 38 evidence-backed X/Y-flag oracle limitations.
+- NEXT: retain the `loc_714/loc_720` Sprite_Table clear from frame 64.
+
+---
+
 ## 2026-07-21 handoff (#416 third post-fade clear span)
 
 - Defended GEMS coverage advances to frames 0..58; the authoritative frontier

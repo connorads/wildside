@@ -567,6 +567,18 @@ coverage advances 58 -> 59, GEMS mismatches fall 37,701 -> 37,700, and 33
 exact oracle limitations are recorded. Full non-audio baselines remain fixed.
 NEXT: continue the post-fade clear cursor through frame 59.
 
+Progress 2026-07-21: selected-PC tracing proves the post-fade full-VRAM
+`loc_700/loc_70E` clear remains active through frame 63 and reaches `loc_714`
+at cycle 8,181,559, beam 239:375, refresh phase 54 during frame 64. The retained
+cursor carries frames 59..63 without a fitted boundary. Raw RAM residuals are
+complete and remain confined to saved-SP `$003E/$003F`, `SBPTACC` `$076C`,
+and active stack `$1A1C..$1A1E`; frame 61 alone samples opposite sides of the
+shifted VBLINT boundary and also differs in PC/IFF phase. Bank and wait fields
+are exact throughout. Defended coverage advances 59 -> 64, GEMS mismatches
+fall 37,700 -> 37,695, and 38 exact oracle limitations are recorded. Full
+pixel, gameplay, RNG, and enemy baselines remain fixed. NEXT: retain the
+`loc_714/loc_720` Sprite_Table clear from frame 64.
+
 Progress 2026-07-21: the fifth `Pal_FadeOut loc_28C6` palette upload is
 source-scheduled from cycle 5,364,160, beam 237:940, refresh phase 70. Frame
 42 native/oracle CRCs are `2240045277`/`2240142489` and PCs are
