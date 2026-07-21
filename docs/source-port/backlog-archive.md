@@ -762,6 +762,18 @@ patches reduce both residuals to the established IRQ phase. Coverage advances
 140 -> 142, GEMS mismatches fall 37,619 -> 37,617, and the first frontier is
 frame 142's next fade iteration. NEXT: carry the one-frame fade cadence.
 
+Progress 2026-07-21: one retained source cursor carries every remaining
+`Pal_FadeOut loc_28C6` palette DMA/interpolation iteration, the negative
+decrement into `loc_28EA`, its final wait/DMA/clean interpolation, and the
+return through `loc_6E2` into `loc_700`. A resumable VDP cursor then preserves
+the full-VRAM clear's source, refresh, FIFO, and VINT ownership through frame
+166. Exact raw-RAM transformations confine frames 142..166 to the established
+GEMS IRQ phase bytes; waits and bank state are exact. Coverage advances 142 ->
+167, GEMS mismatches fall 37,617 -> 37,592, with 138 evidence-backed oracle
+limitations and 29 advisory frames. The first frontier is frame 167 at the
+`loc_700` to `loc_714/loc_720` transition. NEXT: carry the retained clear
+cursor into the Sprite_Table clear.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

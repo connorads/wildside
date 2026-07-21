@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 complete title fade and VRAM clear)
+
+- Defended GEMS coverage advances to frames 0..166; the frontier is frame 167
+  at the `loc_700` to `loc_714/loc_720` clear transition.
+- One retained source cursor carries every remaining `Pal_FadeOut` iteration,
+  the `loc_28EA` exit pass, and the following full-VRAM clear.
+- Exact raw-RAM transformations confine frames 142..166 to the established IRQ
+  phase; waits and bank state are exact.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,592, with 138 evidence-backed oracle limitations and 29 advisory frames.
+- NEXT: carry the retained clear cursor into the Sprite_Table clear at frame
+  167.
+
 ## 2026-07-21 handoff (#416 title fade entry)
 
 - Defended GEMS coverage advances to frames 0..141; the frontier is frame 142

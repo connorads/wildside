@@ -547,9 +547,10 @@ same raw-RAM-proven IRQ phase; frames 110 and
 113 have byte-identical RAM. Frame 114 differs only in three active VBLINT
 stack bytes. Frames 115..138 retain only the same raw-RAM-proven IRQ phase.
 Frame 139's RAM, bus wait, and flags are exact inside `StopMusic`; only the
-derivative PC phase differs. Frames 140..141 retain only raw-RAM-proven IRQ
-phase across the `StopMusic` return and first two `Pal_FadeOut` iterations.
-The first unmodelled boundary is frame 142 in the next fade iteration.
+derivative PC phase differs. Frames 140..166 retain only raw-RAM-proven IRQ
+phase across the `StopMusic` return, every `Pal_FadeOut loc_28C6/loc_28EA`
+iteration, and the following `loc_700` full-VRAM clear. The first unmodelled
+boundary is frame 167 at the `loc_700` to `loc_714/loc_720` clear transition.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.

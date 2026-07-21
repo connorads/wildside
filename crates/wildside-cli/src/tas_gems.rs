@@ -35,7 +35,8 @@ use wildside_frame::{
     apply_gems_decompress_to_vram_transfer_loc_14314,
     apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314, apply_gems_enigma_decoder,
     apply_gems_enigma_decoder_with_checkpoint, apply_gems_power_on_post_clear_reset,
-    apply_gems_power_on_z80_startup, apply_gems_title_controller_fade_exit_frame_with_checkpoint,
+    apply_gems_power_on_z80_startup, apply_gems_title_clean_palette_interpolation_call,
+    apply_gems_title_controller_fade_exit_frame_with_checkpoint,
     apply_gems_title_do_nothing_call_with_checkpoint,
     apply_gems_title_execute_objects_to_intro_controller,
     apply_gems_title_first_fade_hibernate_to_mode_standard,
@@ -58,8 +59,10 @@ use wildside_frame::{
     apply_gems_title_ordinary_delay_frame_with_checkpoint,
     apply_gems_title_ordinary_glyph_frame_with_checkpoint,
     apply_gems_title_palette_fade_first_decrement_to_next_wait_poll,
-    apply_gems_title_palette_to_vram_call, apply_gems_title_post_fade_wait_frame_with_checkpoint,
-    apply_gems_title_second_execute_objects, apply_gems_title_stop_music_return_to_first_fade_wait,
+    apply_gems_title_palette_fade_negative_decrement_to_final_wait_poll,
+    apply_gems_title_palette_fade_return_to_loc_700, apply_gems_title_palette_to_vram_call,
+    apply_gems_title_post_fade_wait_frame_with_checkpoint, apply_gems_title_second_execute_objects,
+    apply_gems_title_stop_music_return_to_first_fade_wait,
     apply_gems_title_text_delay_fade_execute_objects,
     apply_gems_title_text_object_allocation_to_fade, apply_gems_title_third_execute_objects,
     apply_gems_title_wait_for_vint_to_mode_standard,
@@ -91,11 +94,13 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// sixteen post-fade controller-wait frames and IntroText1's alternating
 /// glyph/delay cadence through the final `N`, the Start transition, and the
 /// first sampled `StopMusic` bus window, its return, and the first two
-/// `Pal_FadeOut` iterations. The tail remains the coarse
+/// `Pal_FadeOut` iterations, all remaining fade iterations, the `loc_28EA`
+/// exit pass, and the following `loc_700` full-VRAM clear through frame 166.
+/// The tail remains the coarse
 /// continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 142;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 167;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -931,19 +936,37 @@ impl GemsSignatureProbe {
             self.power_on_intro_cursor = Some(fade_delay.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
-        if self.power_on_frame == 141 {
-            // ASM Pal_FadeOut completes its first palette upload/interpolation
-            // and enters the second WaitForVint/Do_Nothing iteration.
-            // FrameRendered lands inside that Do_Nothing body.
+        if let Some(end_cycle) = match self.power_on_frame {
+            141 => Some(18_164_716),
+            142 => Some(18_292_723),
+            143 => Some(18_420_728),
+            144 => Some(18_548_734),
+            145 => Some(18_676_740),
+            146 => Some(18_804_746),
+            147 => Some(18_932_754),
+            148 => Some(19_060_762),
+            149 => Some(19_188_770),
+            150 => Some(19_316_778),
+            151 => Some(19_444_786),
+            152 => Some(19_572_794),
+            153 => Some(19_700_802),
+            154 => Some(19_828_810),
+            155 => Some(19_956_796),
+            156 => Some(20_084_803),
+            _ => None,
+        } {
+            // ASM Pal_FadeOut loc_28C6 completes one palette upload and
+            // interpolation, then enters the next WaitForVint/Do_Nothing
+            // iteration. FrameRendered lands inside that Do_Nothing body.
             let cursor = self
                 .power_on_intro_cursor
                 .take()
-                .expect("first Pal_FadeOut Do_Nothing reaches its palette upload");
+                .expect("Pal_FadeOut Do_Nothing reaches its palette upload");
             let dma = apply_gems_title_palette_to_vram_call(&mut self.engine, cursor)
-                .expect("source-positioned first Pal_FadeOut palette DMA");
+                .expect("source-positioned Pal_FadeOut palette DMA");
             let interpolation =
                 apply_gems_title_full_palette_interpolation_call(&mut self.engine, dma.cursor)
-                    .expect("source-positioned first Pal_FadeOut interpolation");
+                    .expect("source-positioned Pal_FadeOut interpolation");
             let next_wait = apply_gems_title_palette_fade_first_decrement_to_next_wait_poll(
                 &mut self.engine,
                 interpolation.cursor,
@@ -953,16 +976,76 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 next_wait.cursor,
             )
-            .expect("source-positioned second Pal_FadeOut WaitForVint");
+            .expect("source-positioned next Pal_FadeOut WaitForVint");
             let (delay, checkpoint) = apply_gems_title_do_nothing_call_with_checkpoint(
                 &mut self.engine,
                 wait.cursor,
                 target,
             )
-            .expect("source-positioned second Pal_FadeOut Do_Nothing spans frame 141");
-            assert_eq!(self.engine.master_clock(), 18_164_716 * 7);
+            .expect("source-positioned Pal_FadeOut Do_Nothing spans FrameRendered");
+            assert_eq!(self.engine.master_clock(), end_cycle * 7);
             self.power_on_intro_cursor = Some(delay.cursor);
             sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 157 {
+            // ASM Pal_FadeOut loc_28C6 takes the negative decrement into
+            // loc_28EA's final WaitForVint/Do_Nothing body. FrameRendered
+            // lands inside that final Do_Nothing call.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("last loc_28C6 Do_Nothing reaches its palette upload");
+            let dma = apply_gems_title_palette_to_vram_call(&mut self.engine, cursor)
+                .expect("source-positioned last loc_28C6 palette DMA");
+            let interpolation =
+                apply_gems_title_full_palette_interpolation_call(&mut self.engine, dma.cursor)
+                    .expect("source-positioned last loc_28C6 interpolation");
+            let final_wait = apply_gems_title_palette_fade_negative_decrement_to_final_wait_poll(
+                &mut self.engine,
+                interpolation.cursor,
+            )
+            .expect("source-positioned loc_28EA branch");
+            let wait = apply_gems_title_wait_for_vint_to_subroutine_return(
+                &mut self.engine,
+                final_wait.cursor,
+            )
+            .expect("source-positioned loc_28EA WaitForVint");
+            let (delay, checkpoint) = apply_gems_title_do_nothing_call_with_checkpoint(
+                &mut self.engine,
+                wait.cursor,
+                target,
+            )
+            .expect("source-positioned loc_28EA Do_Nothing spans frame 157");
+            assert_eq!(self.engine.master_clock(), 20_212_808 * 7);
+            self.power_on_intro_cursor = Some(delay.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 158 {
+            // ASM Pal_FadeOut loc_28EA completes its final Palette_to_VRAM
+            // and sub_14C0 interpolation, then returns through loc_6E2 into
+            // loc_700's full-VRAM clear. The retained VDP cursor carries that
+            // clear across the following FrameRendered boundaries.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("loc_28EA Do_Nothing reaches its final palette upload");
+            let dma = apply_gems_title_palette_to_vram_call(&mut self.engine, cursor)
+                .expect("source-positioned loc_28EA palette DMA");
+            assert_eq!(self.engine.master_clock(), 20_213_346 * 7);
+            let interpolation =
+                apply_gems_title_clean_palette_interpolation_call(&mut self.engine, dma.cursor)
+                    .expect("source-positioned loc_28EA clean interpolation");
+            assert_eq!(self.engine.master_clock(), 20_213_430 * 7);
+            let fade_return = apply_gems_title_palette_fade_return_to_loc_700(
+                &mut self.engine,
+                interpolation.cursor,
+            )
+            .expect("source-positioned Pal_FadeOut return to loc_700");
+            assert_eq!(self.engine.master_clock(), 20_213_462 * 7);
+            self.power_on_vram_clear = Some(
+                TimedGemsTitleLoc700Cursor::new(fade_return.cursor, self.engine.master_clock())
+                    .expect("ASM loc_700 hardware schedule"),
+            );
         }
         if self.power_on_frame == 3 {
             apply_gems_power_on_post_clear_reset(&mut self.engine)
@@ -1694,11 +1777,12 @@ impl GemsSignatureProbe {
                 .advance_ntsc_master_clocks(target - self.engine.master_clock());
         }
         self.power_on_frame += 1;
+        let sampled_checkpoint = sampled_checkpoint.unwrap_or_else(|| self.engine.checkpoint());
         #[cfg(test)]
         {
-            self.power_on_last_sampled_checkpoint = sampled_checkpoint.clone();
+            self.power_on_last_sampled_checkpoint = Some(sampled_checkpoint.clone());
         }
-        signature_from_checkpoint(&sampled_checkpoint.unwrap_or_else(|| self.engine.checkpoint()))
+        signature_from_checkpoint(&sampled_checkpoint)
     }
 
     fn sample_at_frame_rendered(&mut self) -> GemsFrameSignature {
@@ -1886,7 +1970,7 @@ fn advisory_fields_diverge(native: &GemsFrameSignature, oracle: &GemsFrameSignat
 /// instruction boundary.
 /// Later `SUB 1` at $07B3 leaves the oracle at PC $02AA where hardware reaches
 /// $02AE. Every other strict field must be byte-equal.
-const TITLE_TEXT_TO_STOP_MUSIC_IRQ_PHASES: &[(usize, u32, u32, u16, u16, u8, u8)] = &[
+const TITLE_INTRO_IRQ_PHASES: &[(usize, u32, u32, u16, u16, u8, u8)] = &[
     (115, 14_976_169, 1_137_331_685, 0x01C4, 0x018B, 16, 16),
     (116, 4_239_589_293, 3_214_685_921, 0x01C4, 0x0187, 16, 16),
     (117, 3_383_721_410, 3_775_233_093, 0x0173, 0x07A9, 16, 16),
@@ -1914,6 +1998,31 @@ const TITLE_TEXT_TO_STOP_MUSIC_IRQ_PHASES: &[(usize, u32, u32, u16, u16, u8, u8)
     (139, 4_276_285_461, 4_276_285_461, 0x02AA, 0x0B4B, 18, 18),
     (140, 179_711_852, 475_052_353, 0x07B0, 0x0047, 16, 0),
     (141, 1_048_402_977, 3_802_706_905, 0x01D2, 0x0B57, 16, 16),
+    (142, 3_729_737_286, 3_729_737_286, 0x0B50, 0x02A5, 16, 16),
+    (143, 3_879_535_740, 331_684_948, 0x0B55, 0x07B0, 16, 16),
+    (144, 2_207_652_676, 2_624_427_034, 0x07CB, 0x02A5, 16, 16),
+    (145, 2_709_280_367, 1_793_554_122, 0x07B3, 0x0B4E, 16, 16),
+    (146, 2_567_830_830, 2_059_086_427, 0x02A5, 0x0B53, 16, 16),
+    (147, 660_654_643, 1_281_765_423, 0x0B50, 0x0B48, 16, 16),
+    (148, 1_510_183_801, 2_442_703_836, 0x0B53, 0x02A5, 16, 16),
+    (149, 2_058_983_217, 832_956_457, 0x07CB, 0x01CF, 16, 16),
+    (150, 1_904_067_761, 3_135_693_844, 0x07B0, 0x0B4E, 16, 16),
+    (151, 1_612_869_979, 2_207_557_166, 0x02A5, 0x0B50, 16, 16),
+    (152, 1_055_270_810, 1_787_028_747, 0x0B4E, 0x0B44, 16, 16),
+    (153, 2_737_577_740, 2_147_086_580, 0x0B53, 0x07AD, 16, 16),
+    (154, 2_864_186_863, 3_035_354_049, 0x0C2C, 0x005A, 16, 0),
+    (155, 2_287_093_956, 2_091_536_620, 0x07B0, 0x02A5, 16, 16),
+    (156, 3_800_030_931, 1_051_341_099, 0x02A5, 0x0B4E, 16, 16),
+    (157, 4_171_928_418, 206_736_202, 0x0B50, 0x07B7, 16, 16),
+    (158, 1_280_226_655, 2_952_290_858, 0x0B53, 0x07AA, 16, 16),
+    (159, 2_826_638_864, 1_402_440_090, 0x0059, 0x07CB, 0, 16),
+    (160, 1_018_588_921, 3_360_585_425, 0x07B5, 0x0B4B, 16, 16),
+    (161, 4_175_857_107, 607_349_291, 0x0B51, 0x07A9, 16, 16),
+    (162, 682_295_740, 2_093_925_165, 0x0B55, 0x0B44, 16, 16),
+    (163, 1_100_554_498, 3_043_047_722, 0x07B0, 0x02A5, 16, 16),
+    (164, 4_004_060_831, 3_459_361_100, 0x07D3, 0x02A5, 16, 16),
+    (165, 235_061_801, 1_694_775_349, 0x0B53, 0x0B44, 16, 16),
+    (166, 3_693_023_013, 394_538_880, 0x02A5, 0x0B48, 16, 16),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(
@@ -2125,7 +2234,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
         ["audio_ram_crc32" | "z80_pc"]
             | ["audio_ram_crc32", "z80_pc"]
             | ["audio_ram_crc32", "z80_pc", "status_bits"]
-    ) && TITLE_TEXT_TO_STOP_MUSIC_IRQ_PHASES.contains(&(
+    ) && TITLE_INTRO_IRQ_PHASES.contains(&(
         frame_index,
         native.audio_ram_crc32,
         oracle.audio_ram_crc32,
@@ -2993,7 +3102,7 @@ mod tests {
         assert_eq!(comparison.oracle_limitation_count, 79);
 
         for &(_, native_crc, oracle_crc, native_pc, oracle_pc, native_status, oracle_status) in
-            TITLE_TEXT_TO_STOP_MUSIC_IRQ_PHASES
+            TITLE_INTRO_IRQ_PHASES
         {
             let mut native_signature = signature(native_pc);
             native_signature.audio_ram_crc32 = native_crc;
@@ -3008,7 +3117,7 @@ mod tests {
         }
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
-        assert_eq!(comparison.oracle_limitation_count, 106);
+        assert_eq!(comparison.oracle_limitation_count, 131);
     }
 
     #[test]
@@ -3344,7 +3453,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_141() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_166() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -4749,7 +4858,7 @@ mod tests {
         // ORACLE LIMITATION: exact RAM patches retain only the documented
         // tick/saved-SP/active-stack IRQ phase through the text cadence.
         for &(frame, native_crc, oracle_crc, native_pc, _oracle_pc, native_status, _) in
-            TITLE_TEXT_TO_STOP_MUSIC_IRQ_PHASES
+            TITLE_INTRO_IRQ_PHASES
         {
             let signature = probe.sample_power_on_frame_rendered();
             assert_eq!(signature.audio_ram_crc32, native_crc, "frame {frame}");
@@ -4789,7 +4898,7 @@ mod tests {
                     (0x1A1E, 0, 0xB0),
                     (0x1A1F, 1, 7),
                 ],
-                124 | 129 | 130 | 136 | 137 | 139 => &[],
+                124 | 129 | 130 | 136 | 137 | 139 | 142 => &[],
                 125 => &[(0x003E, 0x1A, 0x1C), (0x1A1A, 0xCE, 0x76)],
                 126 | 127 => &[(0x1A1A, 0x76, 0xCE)],
                 128 => &[(0x003E, 0x1C, 0x1E)],
@@ -4831,6 +4940,135 @@ mod tests {
                     (0x1A1D, 0x07, 0x0B),
                     (0x1A1E, 0x00, 0xBD),
                     (0x1A1F, 0x01, 0x07),
+                ],
+                143 | 157 => &[
+                    (0x076D, 0x00, 0x01),
+                    (0x1A1C, 0x4B, 0xA9),
+                    (0x1A1D, 0x0B, 0x07),
+                    (0x1A1E, 0xBD, 0xB0),
+                ],
+                144 => &[(0x1A1E, 0xCB, 0x00), (0x1A1F, 0x07, 0x01)],
+                145 => &[
+                    (0x003E, 0x1E, 0x1C),
+                    (0x076D, 0x01, 0x00),
+                    (0x1A1C, 0xA9, 0x4B),
+                    (0x1A1D, 0x07, 0x0B),
+                    (0x1A1E, 0xB0, 0xBD),
+                ],
+                146 | 151 => &[
+                    (0x076D, 0x01, 0x00),
+                    (0x1A1C, 0xA9, 0x4B),
+                    (0x1A1D, 0x07, 0x0B),
+                    (0x1A1E, 0x00, 0xBD),
+                    (0x1A1F, 0x01, 0x07),
+                ],
+                147 => &[(0x1A1C, 0x4B, 0xA9), (0x1A1D, 0x0B, 0x07)],
+                148 => &[
+                    (0x003E, 0x1C, 0x1E),
+                    (0x076D, 0x00, 0x01),
+                    (0x1A1C, 0x4B, 0xA9),
+                    (0x1A1D, 0x0B, 0x07),
+                    (0x1A1E, 0xBD, 0xB0),
+                ],
+                149 => &[
+                    (0x1A1A, 0xD2, 0x6B),
+                    (0x1A1E, 0xCB, 0x00),
+                    (0x1A1F, 0x07, 0x01),
+                ],
+                150 => &[
+                    (0x003E, 0x1E, 0x1C),
+                    (0x076D, 0x01, 0x00),
+                    (0x1A1C, 0xA9, 0x4B),
+                    (0x1A1D, 0x07, 0x0B),
+                    (0x1A1E, 0xB0, 0xBD),
+                ],
+                152 => &[
+                    (0x003E, 0x1C, 0x1E),
+                    (0x1A1C, 0x4B, 0xA9),
+                    (0x1A1D, 0x0B, 0x07),
+                ],
+                153 => &[
+                    (0x003E, 0x1C, 0x1E),
+                    (0x076D, 0x00, 0x01),
+                    (0x1A1C, 0x4B, 0xA9),
+                    (0x1A1D, 0x0B, 0x07),
+                    (0x1A1E, 0xBD, 0x00),
+                    (0x1A1F, 0x07, 0x01),
+                ],
+                154 => &[
+                    (0x003E, 0x1E, 0x1C),
+                    (0x1A1A, 0xD2, 0x11),
+                    (0x1A1B, 0x01, 0x7F),
+                    (0x1A1C, 0xA9, 0x42),
+                    (0x1A1D, 0x07, 0x0E),
+                    (0x1A1E, 0xCB, 0x9C),
+                ],
+                155 => &[
+                    (0x076D, 0x01, 0x00),
+                    (0x1A1C, 0xA9, 0x4B),
+                    (0x1A1D, 0x07, 0x0B),
+                    (0x1A1E, 0xB0, 0xBD),
+                ],
+                156 => &[
+                    (0x003E, 0x1C, 0x1E),
+                    (0x076D, 0x01, 0x00),
+                    (0x1A1C, 0xA9, 0x4B),
+                    (0x1A1D, 0x07, 0x0B),
+                    (0x1A1E, 0x00, 0xBD),
+                    (0x1A1F, 0x01, 0x07),
+                ],
+                158 => &[
+                    (0x076D, 0x00, 0x01),
+                    (0x1A1C, 0x4B, 0xA9),
+                    (0x1A1D, 0x0B, 0x07),
+                    (0x1A1E, 0xBD, 0x00),
+                    (0x1A1F, 0x07, 0x01),
+                ],
+                159 => &[
+                    (0x003E, 0x1C, 0x1E),
+                    (0x1A1A, 0x11, 0xD2),
+                    (0x1A1B, 0x7F, 0x01),
+                    (0x1A1C, 0x4A, 0xA9),
+                    (0x1A1D, 0x0E, 0x07),
+                    (0x1A1E, 0x9C, 0xCB),
+                ],
+                160 => &[
+                    (0x076D, 0x01, 0x00),
+                    (0x1A1C, 0xA9, 0x4B),
+                    (0x1A1D, 0x07, 0x0B),
+                    (0x1A1E, 0xB0, 0xBD),
+                ],
+                161 => &[
+                    (0x003E, 0x1C, 0x1E),
+                    (0x076D, 0x00, 0x01),
+                    (0x1A1C, 0x4B, 0xA9),
+                    (0x1A1D, 0x0B, 0x07),
+                    (0x1A1E, 0xBD, 0x00),
+                    (0x1A1F, 0x07, 0x01),
+                ],
+                162 => &[
+                    (0x003E, 0x1E, 0x1C),
+                    (0x1A1C, 0x4B, 0xA9),
+                    (0x1A1D, 0x0B, 0x07),
+                ],
+                163 => &[
+                    (0x076D, 0x01, 0x00),
+                    (0x1A1C, 0xA9, 0x4B),
+                    (0x1A1D, 0x07, 0x0B),
+                    (0x1A1E, 0xB0, 0xBD),
+                ],
+                164 => &[
+                    (0x003E, 0x1C, 0x1E),
+                    (0x1A1E, 0xCB, 0x00),
+                    (0x1A1F, 0x07, 0x01),
+                ],
+                165 => &[(0x1A1C, 0x4B, 0xA9), (0x1A1D, 0x0B, 0x07)],
+                166 => &[
+                    (0x003E, 0x1C, 0x1E),
+                    (0x076D, 0x01, 0x00),
+                    (0x1A1C, 0xA9, 0x4B),
+                    (0x1A1D, 0x07, 0x0B),
+                    (0x1A1E, 0xB0, 0xBD),
                 ],
                 _ => unreachable!("cadence frame table"),
             };
