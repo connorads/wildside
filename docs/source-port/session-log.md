@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 IntroText1 glyph cadence)
+
+- Defended GEMS coverage advances to frames 0..137; the authoritative frontier
+  is frame 138 in the final `N`/Start-to-`StopMusic` transition.
+- The 23 alternating delay/glyph frames retain one source cursor and emit
+  `HERE WAS A ` through `loc_1C7D2 -> sub_1C7F6`.
+- Exact raw-RAM transformations prove every residual is the documented IRQ
+  phase; several frames have byte-identical RAM and differ only in sampled PC.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,621, with 109 evidence-backed oracle limitations and 29 advisory frames.
+- NEXT: carry the final `N` and Start-to-`StopMusic` transition from frame 138.
+
 ## 2026-07-21 handoff (#416 IntroText1 first glyph)
 
 - Defended GEMS coverage advances to frames 0..114; the authoritative frontier

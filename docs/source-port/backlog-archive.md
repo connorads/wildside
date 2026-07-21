@@ -738,6 +738,14 @@ advances 114 -> 115, GEMS mismatches fall 37,645 -> 37,644, and the first
 authoritative frontier moves to frame 115's glyph delay. Full non-audio
 baselines remain fixed. NEXT: retain the alternating glyph/delay cadence.
 
+Progress 2026-07-21: the retained title cursor carries 23 alternating
+IntroText1 delay/glyph frames and emits `HERE WAS A ` through `loc_1C7D2 ->
+sub_1C7F6`. Exact native-to-oracle RAM transformations prove every residual is
+the established IRQ phase; several frames have byte-identical RAM. Defended
+coverage advances 115 -> 138, GEMS mismatches fall 37,644 -> 37,621, and the
+first authoritative frontier moves to frame 138's final `N`/Start-to-StopMusic
+transition. Full non-audio baselines remain fixed. NEXT: retain that transition.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

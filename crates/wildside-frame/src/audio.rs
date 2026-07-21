@@ -2055,6 +2055,31 @@ pub fn apply_gems_title_ordinary_glyph_frame(
     )
 }
 
+/// Clock one ordinary title glyph frame while sampling its raster instant.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_ordinary_glyph_frame_with_checkpoint(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    controller_wait_before: u16,
+    glyph: u8,
+    checkpoint_master_clock: u64,
+) -> Option<(TitleIntroSourceAdvance, GemsTimingCheckpoint)> {
+    let (execute_entry, checkpoint) = apply_gems_title_frame_to_execute_objects_with_checkpoint(
+        audio,
+        entry,
+        checkpoint_master_clock,
+    )?;
+    let advance = apply_gems_title_ordinary_glyph_execute_objects(
+        audio,
+        execute_entry,
+        rng_offset_before,
+        controller_wait_before,
+        glyph,
+    )?;
+    Some((advance, checkpoint))
+}
+
 /// Clock frame 139 through IntroSequence1's `N` glyph and Start transition.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_intro_sequence1_start_frame_to_stop_music(
