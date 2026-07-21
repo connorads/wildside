@@ -1772,11 +1772,28 @@ impl TimedGemsTitleLoc700Cursor {
     /// Continue at ASM `loc_714/loc_720` after the full-VRAM clear.
     pub fn new_loc_714(entry: LoadInGameCpuRasterCursor, entry_master_clock: u64) -> Option<Self> {
         Self::new_with_scheduler(entry, entry_master_clock, |entry, advance_hardware| {
-            wildside_core::vdp::title_loc_714_sprite_table_clear_cursor_with_scheduler(
+            wildside_core::vdp::power_on_loc_714_sprite_table_clear_cursor_with_scheduler(
                 entry,
                 advance_hardware,
             )
         })
+    }
+
+    /// Continue at power-on ASM `loc_726 -> Load_SegaScreen -> StopMusic`.
+    pub fn new_power_on_restart_initialisers(
+        entry: LoadInGameCpuRasterCursor,
+        entry_master_clock: u64,
+    ) -> Option<Self> {
+        let mut intervals: Vec<(u64, bool)> = Vec::new();
+        let advance =
+            wildside_core::vdp::power_on_restart_initialisers_to_stop_music_cursor_with_scheduler(
+                entry,
+                |cycles, vdp_owns_bus, _| Self::push_interval(&mut intervals, cycles, vdp_owns_bus),
+            )?;
+        if advance.external_wait_cycles.get() != 0 {
+            return None;
+        }
+        Self::from_intervals(entry_master_clock, advance.cursor, intervals)
     }
 
     fn new_with_scheduler(
@@ -1797,27 +1814,43 @@ impl TimedGemsTitleLoc700Cursor {
             else {
                 return None;
             };
-            let mclk = u64::from(cycles.get()) * Self::MCLK_PER_M68K_CYCLE;
-            if let Some((previous_mclk, previous_ownership)) = intervals.last_mut()
-                && *previous_ownership == vdp_owns_bus
-            {
-                *previous_mclk = previous_mclk.checked_add(mclk)?;
-            } else {
-                intervals.push((mclk, vdp_owns_bus));
-            }
-            Some(M68kCycleCount::from_raw(0))
+            Self::push_interval(&mut intervals, cycles, vdp_owns_bus)
         };
         let advance = schedule(entry, &mut advance_hardware)?;
         if advance.external_wait_cycles.get() != 0 {
             return None;
         }
+        Self::from_intervals(entry_master_clock, advance.cursor, intervals)
+    }
+
+    fn push_interval(
+        intervals: &mut Vec<(u64, bool)>,
+        cycles: M68kCycleCount,
+        vdp_owns_bus: bool,
+    ) -> Option<M68kCycleCount> {
+        let mclk = u64::from(cycles.get()) * Self::MCLK_PER_M68K_CYCLE;
+        if let Some((previous_mclk, previous_ownership)) = intervals.last_mut()
+            && *previous_ownership == vdp_owns_bus
+        {
+            *previous_mclk = previous_mclk.checked_add(mclk)?;
+        } else {
+            intervals.push((mclk, vdp_owns_bus));
+        }
+        Some(M68kCycleCount::from_raw(0))
+    }
+
+    fn from_intervals(
+        entry_master_clock: u64,
+        end_cursor: LoadInGameCpuRasterCursor,
+        intervals: Vec<(u64, bool)>,
+    ) -> Option<Self> {
         let duration = intervals
             .iter()
             .try_fold(0_u64, |total, (mclk, _)| total.checked_add(*mclk))?;
         Some(Self {
             current_master_clock: entry_master_clock,
             end_master_clock: entry_master_clock.checked_add(duration)?,
-            end_cursor: advance.cursor,
+            end_cursor,
             intervals,
             next_interval: 0,
             interval_elapsed_mclk: 0,
@@ -2213,15 +2246,15 @@ impl TimedGemsStopMusicCursor {
         let driver = timing.bus_windows[0];
         let mut controls = vec![
             (
-                timing.driver_reset_release_elapsed_offset,
+                timing.driver_reset_release_complete_elapsed_offset,
                 GemsStopMusicControl::ReleaseDriverReset,
             ),
             (
-                timing.driver_bus_request_elapsed_offset,
+                timing.bus_windows[0].request_complete_elapsed_offset,
                 GemsStopMusicControl::BeginDriverBus,
             ),
             (
-                timing.reset_assert_elapsed_offset,
+                timing.reset_assert_complete_elapsed_offset,
                 GemsStopMusicControl::AssertReset,
             ),
             (

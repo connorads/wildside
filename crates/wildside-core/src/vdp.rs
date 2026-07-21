@@ -4197,6 +4197,18 @@ pub fn title_restart_initialisers_to_play_sound_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule power-on `loc_726` through `Load_SegaScreen -> StopMusic`.
+pub fn power_on_restart_initialisers_to_stop_music_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| Some(crate::intro_timing::visit_power_on_restart_initialisers_to_stop_music(visit)),
+        &mut advance_hardware,
+    )
+}
+
 fn title_source_routine_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     visit_timing: impl FnOnce(&mut dyn FnMut(u32)) -> Option<crate::intro_timing::IntroSourceTiming>,
@@ -4277,6 +4289,24 @@ pub fn title_loc_714_sprite_table_clear_cursor_with_scheduler(
     title_memory_dma_routine_cursor_with_scheduler(
         entry,
         4,
+        false,
+        |visit| crate::intro_timing::visit_loc_714_sprite_table_clear(visit),
+        &mut advance_hardware,
+    )
+}
+
+/// Co-schedule power-on `loc_714/loc_720`, which crosses five VINTs.
+///
+/// The later title-restart path above crosses four. Oracle selected-PC tracing
+/// pins the power-on fifth handler after frame 29: its 114 source cycles plus
+/// one refresh advance the `loc_726` boundary by 116 cycles.
+pub fn power_on_loc_714_sprite_table_clear_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        5,
         false,
         |visit| crate::intro_timing::visit_loc_714_sprite_table_clear(visit),
         &mut advance_hardware,

@@ -1558,14 +1558,24 @@ pub fn visit_loc_714_sprite_table_clear(
 }
 
 /// Visit the title-restart setup from `loc_726` to `sub_E151C`.
-///
+pub fn visit_title_restart_initialisers_to_play_sound(visit: impl FnMut(u32)) -> IntroSourceTiming {
+    visit_restart_initialisers_to_dispatch(visit, &[20, 10, 12, 18, 16, 8, 20, 10, 12, 12, 18])
+}
+
+/// Visit power-on `loc_726` through `Load_SegaScreen`'s second `StopMusic`.
+pub fn visit_power_on_restart_initialisers_to_stop_music(
+    visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    visit_restart_initialisers_to_dispatch(visit, &[20, 10, 12, 18, 16, 20, 10])
+}
+
 /// ASM `loc_726` calls `Initialize_ObjectSlots`,
 /// `Initialize_GfxObjectSlots`, and `sub_8A4`, then dispatches the current
-/// game mode through `LoadGameModeData`. The published title-return path
-/// selects `Load_TitleScreen`; this visitor stops before the first
-/// `sub_E151C` instruction which queues `bgm_Ice`.
-pub fn visit_title_restart_initialisers_to_play_sound(
+/// game mode through `LoadGameModeData`. `dispatch_tail` selects the branch
+/// from that shared setup to the caller's next observable routine.
+fn visit_restart_initialisers_to_dispatch(
     mut visit: impl FnMut(u32),
+    dispatch_tail: &[u32],
 ) -> IntroSourceTiming {
     let mut timing = IntroSourceTiming {
         instruction_count: 0,
@@ -1636,9 +1646,9 @@ pub fn visit_title_restart_initialisers_to_play_sound(
     }
     emit(&mut visit, &mut timing, 16);
 
-    // ASM loc_732 -> j_LoadGameModeData -> Load_TitleScreen -> j_PlaySound
-    // -> PlaySound. The indexed GameLoadArray read costs 18 cycles.
-    for cycles in [20, 10, 12, 18, 16, 8, 20, 10, 12, 12, 18] {
+    // ASM loc_732 -> j_LoadGameModeData. The indexed GameLoadArray read costs
+    // 18 cycles; the remaining source instructions select the requested load.
+    for &cycles in dispatch_tail {
         emit(&mut visit, &mut timing, cycles);
     }
 

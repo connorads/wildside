@@ -321,6 +321,21 @@ the title loader. Full TAS verification keeps pixel/gameplay/enemy/RNG
 baselines green, reduces GEMS mismatches 37,734 -> 37,729, records six total
 oracle limitations, and moves the first authoritative mismatch 25 -> 30.
 
+Progress 2026-07-21: route-wide GEMS coverage advances from 30 to 33 defended
+frames. ASM corrects the frame-30 branch hypothesis: power-on `Game_Mode=0`,
+so `loc_726 -> LoadGameModeData` selects `Load_SegaScreen`, not
+`Load_TitleScreen`. Oracle tracing finds a fifth VINT during power-on
+`loc_714`; its 114 source cycles plus one refresh explain the exact 116-cycle
+boundary gap. The second `StopMusic` asserts BUSREQ at the M68K write's
+completion, allowing the observed ten final Z80 T-states, and its absolute
+raster schedule includes the crossing VINT. Frames 31 and 32 are strict-exact.
+Frame 30 differs only at Z80 stack byte `$1A1C` (`$4A` native/hardware vs
+`$42` jgenesis), the direct stale-X/Y flag consequence. NEXT: retain the
+`Load_SegaScreen -> DecompressToVRAM` hardware schedule from frame 33. Full
+TAS verification keeps pixel/gameplay/enemy/RNG baselines green, reduces GEMS
+mismatches 37,729 -> 37,726, records seven total oracle limitations, and
+moves the first authoritative mismatch 30 -> 33.
+
 ---
 
 ### #417

@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 Sega-screen `StopMusic`)
+
+- `gems_frame_signature_v1` now defends frames 0..32 and
+  `coverage.modelled_frames` advances from 30 to 33.
+- Power-on `Game_Mode=0` selects `Load_SegaScreen`; the prior title-loader
+  hypothesis at this boundary was wrong.
+- A fifth power-on `loc_714` VINT supplies the exact missing 116 cycles, and
+  BUSREQ now changes at its M68K write-completion boundary.
+- The second `StopMusic` includes its crossing VINT; frames 31/32 are
+  strict-exact, while frame 30 differs only at the X/Y-affected stack byte.
+- Full TAS keeps pixel/gameplay/enemy/RNG baselines green; GEMS mismatches fall
+  37,729 -> 37,726 and the first authoritative mismatch moves 30 -> 33.
+- NEXT: retain `Load_SegaScreen -> DecompressToVRAM` from frame 33.
+
+---
+
 ## 2026-07-21 handoff (#416 complete `loc_714` clear)
 
 - `gems_frame_signature_v1` now defends frames 0..29 and
