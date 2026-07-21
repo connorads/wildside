@@ -386,6 +386,15 @@ frontiers fixed, reduces GEMS mismatches 37,722 -> 37,720, records 13 oracle
 limitations, and moves the first authoritative mismatch to frame 39. NEXT:
 retain the next `Pal_FadeOut loc_28C6` body.
 
+Progress 2026-07-21: the second `Pal_FadeOut loc_28C6` palette upload reuses
+the source scheduler from cycle 4,980,124, beam 237:808, refresh phase 70.
+Frame 39 native/oracle CRCs are `402911934`/`660654643` and PCs are
+`$0B51`/`$0B4B`; raw RAM differs only at `$003E`, while bank, waits, and flags
+are exact. Defended coverage advances 39 -> 40, GEMS mismatches fall
+37,720 -> 37,719, 14 exact X/Y-flag limitations are recorded, and the first
+authoritative frontier moves to frame 40. Pixel/gameplay/RNG/enemy baselines
+remain fixed. NEXT: retain the third `Pal_FadeOut` body.
+
 ---
 
 ### #417

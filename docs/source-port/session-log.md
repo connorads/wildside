@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 second palette fade)
+
+- Defended GEMS coverage advances to frames 0..39; the authoritative frontier
+  is frame 40 in the continuing `Pal_FadeOut loc_28C6` loop.
+- The second fade palette upload is source-scheduled from cycle 4,980,124.
+  Frame 39 RAM differs only at `$003E`; bank, waits, and flags are exact.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,719, with 14 evidence-backed X/Y-flag oracle limitations.
+- NEXT: retain the third `Pal_FadeOut` body through frame 40.
+
+---
+
 ## 2026-07-21 handoff (#416 Sega exit and first palette fade)
 
 - Defended GEMS coverage advances to frames 0..38; the authoritative frontier

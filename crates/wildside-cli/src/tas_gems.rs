@@ -45,14 +45,14 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 
 /// Frames of the route whose native per-frame GEMS timeline is defended as
-/// faithful. Frames 0..38 replay ASM `EntryPoint`'s power-on Z80 bootstrap
+/// faithful. Frames 0..39 replay ASM `EntryPoint`'s power-on Z80 bootstrap
 /// through the first outer `Mode_Standard` pass, three Sega-screen local
 /// palette/VINT/controller iterations, and the Start transition into the
-/// first `Pal_FadeOut` palette upload. The tail remains the
+/// first two `Pal_FadeOut` palette uploads. The tail remains the
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 39;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 40;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -547,19 +547,23 @@ impl GemsSignatureProbe {
             );
             self.engine.set_z80_control(false, false);
         }
-        if self.power_on_frame == 38 {
+        if matches!(self.power_on_frame, 38 | 39) {
             // ASM loc_12EDE -> loc_6E2 -> Pal_FadeOut loc_28C6. After
-            // frame 37 samples inside Do_Nothing, the first fade iteration
-            // uploads Palette_Buffer through Palette_to_VRAM. The source
+            // frame 37 samples inside Do_Nothing, each fade iteration uploads
+            // Palette_Buffer through Palette_to_VRAM. The source
             // scheduler begins at the effective BSR boundary, 18 cycles
             // before the oracle's $970 selected-PC row.
-            const PALETTE_CALL_CYCLES: u64 = 4_852_120;
+            let (palette_call_cycles, scanline_mclk, refresh_phase) = if self.power_on_frame == 38 {
+                (4_852_120, 820, 104)
+            } else {
+                (4_980_124, 808, 70)
+            };
             self.engine
-                .advance_ntsc_master_clocks(PALETTE_CALL_CYCLES * 7 - self.engine.master_clock());
+                .advance_ntsc_master_clocks(palette_call_cycles * 7 - self.engine.master_clock());
             let entry = wildside_core::vdp::LoadInGameCpuRasterCursor {
-                beam: wildside_core::vdp::H40BeamPosition::new(237, 820)
+                beam: wildside_core::vdp::H40BeamPosition::new(237, scanline_mclk)
                     .expect("oracle Pal_FadeOut Palette_to_VRAM caller beam"),
-                refresh_phase: M68kRefreshPhase::new(104)
+                refresh_phase: M68kRefreshPhase::new(refresh_phase)
                     .expect("oracle Pal_FadeOut Palette_to_VRAM caller refresh phase"),
             };
             apply_gems_title_palette_to_vram_call(&mut self.engine, entry)
@@ -717,8 +721,8 @@ fn advisory_fields_diverge(native: &GemsFrameSignature, oracle: &GemsFrameSignat
 /// ASM loc_12EDE -> loc_6E2 -> Pal_FadeOut loc_28C6 samples that phase while
 /// the oracle is in GEMS `CHECKTICK` and native is entering `VBLINT`; only
 /// `SBPTACC+1` at $076D and four active stack bytes differ. Frame 38's first
-/// Pal_FadeOut palette upload is byte-exact apart from `$003E`, with the same
-/// transient PC phase still visible.
+/// first two Pal_FadeOut palette uploads are byte-exact apart from `$003E`,
+/// with the same transient PC phase still visible.
 /// Later `SUB 1` at $07B3 leaves the oracle at PC $02AA where hardware reaches
 /// $02AE. Every other strict field must be byte-equal.
 fn gems_divergence_matches_documented_z80_xy_flag_case(
@@ -763,11 +767,17 @@ fn gems_divergence_matches_documented_z80_xy_flag_case(
         && native.z80_pc == 0x02A5
         && oracle.z80_pc == 0x0B57;
     let sega_fade_irq_phase = diverging == ["audio_ram_crc32", "z80_pc"]
-        && frame_index == 38
-        && native.audio_ram_crc32 == 2_059_086_427
-        && oracle.audio_ram_crc32 == 1_171_788_502
-        && native.z80_pc == 0x0B4E
-        && oracle.z80_pc == 0x02A5;
+        && matches!(
+            (
+                frame_index,
+                native.audio_ram_crc32,
+                oracle.audio_ram_crc32,
+                native.z80_pc,
+                oracle.z80_pc,
+            ),
+            (38, 2_059_086_427, 1_171_788_502, 0x0B4E, 0x02A5)
+                | (39, 402_911_934, 660_654_643, 0x0B51, 0x0B4B)
+        );
     irq_saved_sp
         || later_pc
         || sega_screen_phase
@@ -1048,6 +1058,16 @@ mod tests {
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 6);
+
+        let mut native_frame_39 = signature(0x0B51);
+        native_frame_39.audio_ram_crc32 = 402_911_934;
+        let mut oracle_frame_39 = signature(0x0B4B);
+        oracle_frame_39.audio_ram_crc32 = 660_654_643;
+        native.push(Some(native_frame_39));
+        oracle.push(Some(oracle_frame_39));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 7);
     }
 
     #[test]
@@ -1350,7 +1370,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_38() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_39() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -1534,5 +1554,21 @@ mod tests {
         let mut crc = crc32fast::Hasher::new();
         crc.update(&oracle_ram);
         assert_eq!(crc.finalize(), 1_171_788_502);
+
+        let frame_39 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_39.audio_ram_crc32, 402_911_934);
+        assert_eq!(frame_39.bank_address, 0);
+        assert_eq!(frame_39.z80_pc, 0x0B51);
+        assert_eq!(frame_39.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_39.status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        // ORACLE LIMITATION: the second Pal_FadeOut palette transaction has
+        // the same one-byte VBLINT saved-SP residual as frame 38.
+        let mut oracle_ram = probe.engine.checkpoint().audio_ram;
+        assert_eq!(oracle_ram[0x003E], 0x1C);
+        oracle_ram[0x003E] = 0x1E;
+        let mut crc = crc32fast::Hasher::new();
+        crc.update(&oracle_ram);
+        assert_eq!(crc.finalize(), 660_654_643);
     }
 }
