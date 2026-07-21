@@ -432,6 +432,46 @@ impl GemsMasterClockTimingEngine {
         )
     }
 
+    /// Advance one 68000 instruction and capture an exact checkpoint inside it.
+    ///
+    /// The same opening Z80 bank-wait budget is shared by both halves, so a
+    /// bank read raised before the checkpoint remains pending for the next
+    /// 68000 instruction exactly as it does in the unsplit path.
+    pub fn advance_ntsc_m68k_instruction_with_checkpoint(
+        &mut self,
+        master_clocks: u64,
+        vdp_owns_bus: bool,
+        checkpoint_offset: u64,
+    ) -> Option<(GemsMasterClockAdvance, GemsTimingCheckpoint)> {
+        if checkpoint_offset > master_clocks {
+            return None;
+        }
+        let mut consumable_z80_wait_mclk_cycles = self.z80_wait_mclk_cycles;
+        let mut reads = self
+            .advance_ntsc_master_clocks_with_vdp_ownership_inner(
+                checkpoint_offset,
+                vdp_owns_bus,
+                Some(&mut consumable_z80_wait_mclk_cycles),
+            )
+            .banked_68k_reads;
+        let checkpoint = self.checkpoint();
+        reads.extend(
+            self.advance_ntsc_master_clocks_with_vdp_ownership_inner(
+                master_clocks - checkpoint_offset,
+                vdp_owns_bus,
+                Some(&mut consumable_z80_wait_mclk_cycles),
+            )
+            .banked_68k_reads,
+        );
+        Some((
+            GemsMasterClockAdvance {
+                banked_68k_reads: reads,
+                pending_m68k_wait_cycles: self.pending_m68k_wait_cycles,
+            },
+            checkpoint,
+        ))
+    }
+
     fn advance_ntsc_master_clocks_with_vdp_ownership_inner(
         &mut self,
         mut master_clocks: u64,
@@ -1396,5 +1436,23 @@ mod tests {
         );
         engine.advance_master_clocks(60, false, false);
         assert!(!engine.z80_halt);
+    }
+
+    #[test]
+    fn checkpoint_split_preserves_one_m68k_instruction_bank_wait_semantics() {
+        let driver = [0x3A, 0x00, 0x80, 0x76];
+        let mut rom = vec![0; 0x8001];
+        rom[0] = 0x5A;
+        let mut unsplit = GemsMasterClockTimingEngine::new(&driver, rom.clone());
+        let mut split = GemsMasterClockTimingEngine::new(&driver, rom);
+
+        let expected = unsplit.advance_ntsc_m68k_instruction_with_vdp_ownership(105, false);
+        let (actual, checkpoint) = split
+            .advance_ntsc_m68k_instruction_with_checkpoint(105, false, 37)
+            .expect("checkpoint falls inside the instruction");
+
+        assert_eq!(checkpoint.master_clock, 37);
+        assert_eq!(actual, expected);
+        assert_eq!(split.checkpoint(), unsplit.checkpoint());
     }
 }

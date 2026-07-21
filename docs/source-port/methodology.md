@@ -507,25 +507,25 @@ Pinned against the pinned jgenesis, never fitted:
 ### Coverage semantics
 
 The report declares `coverage.modelled_frames`: the edge up to which the
-native per-frame GEMS timeline is *defended* as faithful. It is 70: frames
-0..69 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
+native per-frame GEMS timeline is *defended* as faithful. It is 74: frames
+0..73 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
 power-on clears, the blank-display Sega-logo upload, and the first outer
 `Mode_Standard` DMA/VINT pass plus three local `loc_12E6C` iterations, the
 Start exit, all sixteen `Pal_FadeOut loc_28C6` loop uploads, and the
 complete `loc_28EA` exit pass, all eight post-fade `loc_700` full-VRAM clear
 spans, all four following `loc_714/loc_720` Sprite_Table clear spans, and
 `loc_726`'s restart initialisers through `Load_IntroSequence1`'s first
-`StopMusic`. A
+`StopMusic`, `PlaySound`, and `sub_1B850`'s first four compressed-art paths. A
 resumable cursor preserves the two `FrameRendered` samples inside
 `sub_E13DA`, materialising each `loc_E1400` driver byte and `loc_E1406` clear
 when its M68K write instruction starts, including the active one-cycle Z80-RAM
-wait. Frames 16, 19, 20, 22, 25, 28, 30, and 33..69 each have one strict residual from the
+wait. Frames 16, 19, 20, 22, 25, 28, 30, 33..70, 72, and 73 each have one strict residual from the
 documented jgenesis X/Y-flag limitation below. Signatures past the edge are
 still emitted by the coarse
 continuous route replayer and compared so divergence is measured, not hidden,
-but never claimed as modelled. The first unmodelled boundary is frame 70 after
-the IntroSequence1 `StopMusic`, at the following `PlaySound` and `sub_1B850`
-loader.
+but never claimed as modelled. The first unmodelled boundary is frame 74 later
+inside byte_261D7's first 4 KiB Saxman chunk, which spans two FrameRendered
+samples and therefore needs multiple retained checkpoints from one decoder.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.
@@ -582,6 +582,8 @@ opposite direction and differs at saved-SP `$003E`, `SBPTACC` `$076C`, stack
 Frame 68 differs only at `SBPTACC` `$076C`, stack byte `$1A1C`, and PC phase;
 bank, BUSREQ, and its pending wait are exact. Frame 69 differs only at stack
 byte `$1A1C` and PC phase, with the same exact BUSREQ wait.
+Frame 70 differs only at saved-SP byte `$003E`; frame 71 is strict-field exact.
+Frames 72/73 differ only at active stack byte `$1A1C` and PC phase.
 Later,
 `SUB 1` at `$07B3` leaves the oracle at `$02AA` where hardware reaches `$02AE`.
 A residual reclassifies as `oracle_limitation` only for those exact frame/CRC

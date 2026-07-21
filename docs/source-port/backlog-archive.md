@@ -605,6 +605,22 @@ are recorded. Full pixel, gameplay, RNG, and enemy baselines remain fixed.
 NEXT: continue from the traced `$E150C` return at cycle 9,006,621 through
 `PlaySound` at cycle 9,006,731, then source-schedule `sub_1B850`.
 
+Progress 2026-07-21: selected-PC tracing pins `PlaySound/sub_E151C` at cycle
+9,006,731, `sub_1B850` at 9,007,307, its first `sub_142CC` at 9,007,377, and
+`loc_14300` at 9,007,535. The timing engine can now capture an exact instant
+inside one 68000 instruction without consuming a newly raised Z80 bank wait
+until the following instruction. Source-positioned Saxman/FIFO schedules
+carry the first arcade decode and 2,016-word upload, the short background
+decode/upload, the door-and-inside decode/upload, and the first 4 KiB
+kids-hanging chunk through frames 70..73. Frame 71 is strict-field exact;
+frames 70, 72, and 73 differ only at one raw-RAM saved-SP/active-stack byte
+plus PC phase where applicable, all exact consequences of the documented
+jgenesis X/Y-flag limitation. Defended coverage advances 70 -> 74, GEMS
+mismatches fall 37,689 -> 37,685, and 47 exact oracle limitations are
+recorded. Full pixel, gameplay, RNG, and enemy baselines remain fixed. NEXT:
+retain both frame 73 and frame 74 checkpoints from byte_261D7's cycle
+9,453,656..9,599,482 decoder, then continue its compacting transfer.
+
 Progress 2026-07-21: the fifth `Pal_FadeOut loc_28C6` palette upload is
 source-scheduled from cycle 5,364,160, beam 237:940, refresh phase 70. Frame
 42 native/oracle CRCs are `2240045277`/`2240142489` and PCs are

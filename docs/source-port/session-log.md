@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 first `sub_1B850` art batch)
+
+- Defended GEMS coverage advances to frames 0..73; the authoritative frontier
+  is frame 74 inside byte_261D7's first 4 KiB Saxman chunk.
+- Source-positioned `PlaySound`, decoders, VINTs, bank waits, and FIFO uploads
+  make frame 71 strict-field exact. Frames 70/72/73 retain only the documented
+  one-byte X/Y-flag residue and corresponding PC phase where applicable.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,685, with 47 evidence-backed X/Y-flag oracle limitations and 27
+  advisory-only divider-phase frames.
+- NEXT: retain multiple FrameRendered checkpoints from byte_261D7's cycle
+  9,453,656..9,599,482 decoder, then continue its compacting transfer.
+
 ## 2026-07-21 handoff (#416 IntroSequence1 `StopMusic`)
 
 - Defended GEMS coverage advances to frames 0..69; the authoritative frontier

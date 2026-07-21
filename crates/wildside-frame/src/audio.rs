@@ -29,6 +29,7 @@ use wildside_data::{AssetManifest, LevelHeader, resource_level_record};
 use wildside_md::{
     GemsAudioEngine, GemsMasterClockAdvance, GemsMasterClockTimingEngine, GemsNtscTimelineOrigin,
     GemsQueueCommand, GemsQueueCommandControl, GemsStopMusicControl, GemsStopMusicQueueTransaction,
+    GemsTimingCheckpoint,
 };
 
 pub const AUDIO_SAMPLE_RATE: u32 = 44_100;
@@ -838,6 +839,51 @@ pub fn apply_gems_decompress_to_vram_transfer_loc_14314(
     )
 }
 
+/// Clock `DecompressToVRAM loc_14314` while sampling one exact raster instant.
+#[cfg(feature = "audio")]
+pub fn apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    output_words: u16,
+    vint_count: u8,
+    exit: wildside_core::vdp::DecompressToVramTransferExit,
+    checkpoint_master_clock: u64,
+) -> Option<(DecompressToVramTransferAdvance, GemsTimingCheckpoint)> {
+    if audio.pending_m68k_wait_cycles() != 0 || checkpoint_master_clock < audio.master_clock() {
+        return None;
+    }
+    let mut checkpoint = None;
+    let advance = wildside_core::vdp::decompress_to_vram_transfer_cursor_loc_14314_with_scheduler(
+        entry,
+        output_words,
+        vint_count,
+        exit,
+        |cycles, vdp_owns_bus| {
+            let interval_master_clocks = u64::from(cycles.get()) * 7;
+            let interval_start = audio.master_clock();
+            let interval_end = interval_start.checked_add(interval_master_clocks)?;
+            if checkpoint.is_none() && checkpoint_master_clock <= interval_end {
+                let offset = checkpoint_master_clock.checked_sub(interval_start)?;
+                let (_, captured) = audio.advance_ntsc_m68k_instruction_with_checkpoint(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                    offset,
+                )?;
+                checkpoint = Some(captured);
+            } else {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )?;
+    Some((advance, checkpoint?))
+}
+
 /// Clock ASM `DecompressToVRAM loc_14314` with VDP display disabled.
 ///
 /// `Load_SegaScreen` sets register 1 to `$8134`, giving the FIFO enough
@@ -905,6 +951,74 @@ pub fn apply_gems_decompress_to_vram_decoder_loc_14300(
             ))
         },
     )
+}
+
+/// Clock `DecompressToVRAM loc_14300` while sampling one exact raster instant.
+///
+/// ASM `sub_1B850`'s first Saxman decode spans `FrameRendered`, so the caller
+/// must retain the source-instruction bank-wait semantics while observing the
+/// GEMS machine part-way through the synchronous decoder.
+#[cfg(feature = "audio")]
+pub fn apply_gems_decompress_to_vram_decoder_with_checkpoint_loc_14300(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    compressed: &[u8],
+    resume: Option<wildside_core::saxman_timing::DecompressChunkResumeSub13684>,
+    vint_count: u8,
+    checkpoint_master_clock: u64,
+) -> Option<(
+    wildside_core::vdp::DecompressToVramDecoderAdvance,
+    GemsTimingCheckpoint,
+)> {
+    if audio.pending_m68k_wait_cycles() != 0 || checkpoint_master_clock < audio.master_clock() {
+        return None;
+    }
+    let mut checkpoint = None;
+    let advance = wildside_core::vdp::decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
+        entry,
+        compressed,
+        resume,
+        vint_count,
+        |cycles, vdp_owns_bus, source_instruction| {
+            let interval_master_clocks = u64::from(cycles.get()) * 7;
+            let interval_start = audio.master_clock();
+            let interval_end = interval_start.checked_add(interval_master_clocks)?;
+            if checkpoint.is_none() && checkpoint_master_clock <= interval_end {
+                let offset = checkpoint_master_clock.checked_sub(interval_start)?;
+                let captured = if source_instruction {
+                    let (_, captured) = audio.advance_ntsc_m68k_instruction_with_checkpoint(
+                        interval_master_clocks,
+                        vdp_owns_bus,
+                        offset,
+                    )?;
+                    captured
+                } else {
+                    audio.advance_ntsc_master_clocks_with_vdp_ownership(offset, vdp_owns_bus);
+                    let captured = audio.checkpoint();
+                    audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                        interval_master_clocks - offset,
+                        vdp_owns_bus,
+                    );
+                    captured
+                };
+                checkpoint = Some(captured);
+            } else if source_instruction {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                );
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )?;
+    Some((advance, checkpoint?))
 }
 
 /// Clock one source-ordered ASM `EniDec` call on the persistent GEMS timeline.
