@@ -818,6 +818,14 @@ stack byte `$1A1C`; bank, waits, and flags are exact. Coverage advances 174 ->
 175, with 146 evidence-backed oracle limitations and 29 advisory frames.
 NEXT: resume the compacted byte_26E3D decoder at frame 175.
 
+Progress 2026-07-21: the retained compact-and-resume cursor decodes the next
+byte_26E3D chunk, enters its second `loc_14314` upload, services VINT, and
+checkpoints frame 175 inside the FIFO-paced transfer. Audio RAM CRC
+`$EB39E86B`, bank `$E8000`, Z80 PC `$02AD`, waits, and flags all match oracle;
+only divider phase is advisory. Coverage advances 175 -> 176 with the same 146
+evidence-backed limitations and 30 advisory frames. Oracle PC `$14316` places
+frame 176 inside the retained upload. NEXT: continue `loc_14314` from frame 176.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

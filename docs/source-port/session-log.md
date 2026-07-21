@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 resumed title-art upload)
+
+- Defended GEMS coverage advances to frames 0..175; the frontier is frame 176
+  inside byte_26E3D's second `loc_14314` upload.
+- The compact-and-resume cursor decodes the next chunk and retains its
+  FIFO-paced transfer across VINT.
+- Frame 175 is strict-field exact for audio RAM, bank, PC, waits, and flags;
+  divider phase alone remains advisory.
+- NEXT: continue the retained upload from frame 176.
+
 ## 2026-07-21 handoff (#416 second title-art upload)
 
 - Defended GEMS coverage advances to frames 0..174; the frontier is frame 175
