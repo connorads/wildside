@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 ordinary countdown through RNG wrap)
+
+- A reusable complete title frame now composes the source-derived frame tail,
+  VINT, VDP prelude, and ordinary text/controller `Execute_Objects` pass.
+- Frames 85-93 retain 157 instructions / 2,020 raw cycles; frame 93 consumes
+  `$FFFD`, then frames 94-97 retain 156 / 2,014 after `sub_E12` wraps to
+  `$FFCA`.
+- Every native `$794` return is pinned to the oracle. Frame 97 reaches
+  12,412,340 versus 12,412,623, a 283-cycle explained residue.
+- NEXT: derive frame 98's `$0110` controller exit, then schedule the
+  controller-free delay frames to the first glyph emission.
+
+---
+
 ## 2026-07-21 handoff (#409 ordinary title delay frame)
 
 - The persistent timeline closes frame 84 through the ordinary IntroText1

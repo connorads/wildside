@@ -1292,6 +1292,27 @@ mod tests {
             visit_title_text_delay_fade_execute_objects(0xFFD9, 0x20, 0x100, |_| {}).is_none(),
             "fade `$100` takes the controller exit after its next increment",
         );
+
+        let before_wrap = visit_title_text_delay_fade_execute_objects(0xFFFD, 0x17, 0xB0, |_| {})
+            .expect("frame-93 final RNG-ring word");
+        let after_wrap = visit_title_text_delay_fade_execute_objects(0xFFCA, 0x16, 0xC0, |_| {})
+            .expect("frame-94 wrapped RNG-ring word");
+        assert_eq!(
+            before_wrap,
+            IntroSourceTiming {
+                instruction_count: 157,
+                raw_cycles: M68kCycleCount::from_raw(2_020),
+            },
+            "ASM sub_E12 takes the extra pre-wrap RNG offset instruction",
+        );
+        assert_eq!(
+            after_wrap,
+            IntroSourceTiming {
+                instruction_count: 156,
+                raw_cycles: M68kCycleCount::from_raw(2_014),
+            },
+            "ASM sub_E12 resumes the short setup after `$FFFD->$FFCA`",
+        );
     }
 
     #[test]

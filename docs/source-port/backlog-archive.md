@@ -600,6 +600,17 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the persistent title timeline source-schedules every
+ordinary IntroText1 delay/fade frame through frame 97. A reusable complete
+frame composes `Mode_Standard $794->$7A4`, `MainGameLoop`, `WaitForVint`/VINT,
+and the next `$77A->$794` pass. Frames 85-93 retain 157 instructions / 2,020
+raw cycles in `Execute_Objects`; frame 93 consumes RNG offset `$FFFD`, then
+frames 94-97 retain 156 / 2,014 after the `sub_E12` ring wraps to `$FFCA`.
+Every native `$794` return is pinned to the oracle trace; frame 97 reaches
+12,412,340 versus oracle 12,412,623, leaving a 283-cycle explained residue.
+NEXT: derive frame 98's `$0110` controller exit/deletion path, then schedule
+the controller-free delay frames to the first glyph emission.
+
 Progress 2026-07-21: the persistent title timeline closes frame 84's ordinary
 IntroText1 delay/fade pass. The parameterised worker resumes at `loc_1C7B2`,
 decrements a non-terminal delay, takes the direct `loc_1C7AE` hibernation path,

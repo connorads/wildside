@@ -1175,6 +1175,39 @@ pub fn apply_gems_title_text_delay_fade_execute_objects(
     )
 }
 
+/// Clock one complete ordinary title text-delay/controller-fade frame.
+///
+/// ASM `Mode_Standard $794->$7A4`, `MainGameLoop $744`, `WaitForVint $93A`,
+/// VINT, and the next `Mode_Standard $77A->$794` form the repeated frame loop.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_ordinary_delay_frame(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    text_delay_before: u8,
+    controller_fade_before: u16,
+) -> Option<TitleIntroSourceAdvance> {
+    let gfx = apply_gems_title_first_gfx_object_move_and_animate(audio, entry)?;
+    let joypad = apply_gems_title_first_read_joypad(audio, gfx.cursor)?;
+    let sprites = apply_gems_title_first_make_sprites_from_gfx_objects(audio, joypad.cursor)?;
+    let interpolation = apply_gems_title_first_palette_interpolation(audio, sprites.cursor)?;
+    let poll = apply_gems_title_frame_return_to_wait_for_vint_poll(audio, interpolation.cursor)?;
+    let mode_standard = apply_gems_title_wait_for_vint_to_mode_standard(audio, poll.cursor)?;
+    let do_nothing = apply_gems_title_mode_standard_do_nothing(audio, mode_standard.cursor)?;
+    let palette = apply_gems_title_mode_standard_palette_to_vram(audio, do_nothing.cursor)?;
+    let sprite_and_kid =
+        apply_gems_title_mode_standard_sprite_and_kid_to_vram(audio, palette.cursor)?;
+    let scroll = apply_gems_title_mode_standard_scroll_data_to_vram(audio, sprite_and_kid.cursor)?;
+    let queues = apply_gems_title_mode_standard_empty_foreground_queues(audio, scroll.cursor)?;
+    apply_gems_title_text_delay_fade_execute_objects(
+        audio,
+        queues.cursor,
+        rng_offset_before,
+        text_delay_before,
+        controller_fade_before,
+    )
+}
+
 /// Clock initial `sub_1B8F4` work through the `sub_1C4EA` palette copy.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_intro_controller_prompt_gfx_to_palette(
@@ -3836,6 +3869,58 @@ mod tests {
             10_748_265 * 7,
             "title ordinary text-delay ledger: {fourth_execute:?}",
         );
+
+        let mut ordinary_cursor = fourth_execute.cursor;
+        // Oracle watches frame 85-97 at `$790/$794`, fade `$FFF876`, and RNG
+        // offset `$FFFC12`. Frame 93 consumes the final ring word at `$FFFD`;
+        // frame 94 resumes at `$FFCA`. Every Execute_Objects interval has the
+        // same two hibernations and no native GEMS waits, while the complete
+        // frame ledger retains the measured 279-436-cycle oracle residue.
+        for (frame, rng_offset, delay, fade, native_return, oracle_return) in [
+            (85, 0xFFDD, 0x1F, 0x30, 10_876_277, 10_876_558),
+            (86, 0xFFE1, 0x1E, 0x40, 11_004_283, 11_004_593),
+            (87, 0xFFE5, 0x1D, 0x50, 11_132_279, 11_132_588),
+            (88, 0xFFE9, 0x1C, 0x60, 11_260_294, 11_260_607),
+            (89, 0xFFED, 0x1B, 0x70, 11_388_583, 11_389_019),
+            (90, 0xFFF1, 0x1A, 0x80, 11_516_308, 11_516_618),
+            (91, 0xFFF5, 0x19, 0x90, 11_644_311, 11_644_610),
+            (92, 0xFFF9, 0x18, 0xA0, 11_772_310, 11_772_616),
+            (93, 0xFFFD, 0x17, 0xB0, 11_900_323, 11_900_623),
+            (94, 0xFFCA, 0x16, 0xC0, 12_028_325, 12_028_615),
+            (95, 0xFFCE, 0x15, 0xD0, 12_156_328, 12_156_623),
+            (96, 0xFFD2, 0x14, 0xE0, 12_284_334, 12_284_613),
+            (97, 0xFFD6, 0x13, 0xF0, 12_412_340, 12_412_623),
+        ] {
+            let advance = apply_gems_title_ordinary_delay_frame(
+                &mut engine,
+                ordinary_cursor,
+                rng_offset,
+                delay,
+                fade,
+            )
+            .unwrap_or_else(|| panic!("source-positioned ordinary title frame {frame}"));
+            ordinary_cursor = advance.cursor;
+            let expected_timing = if rng_offset >= 0xFFDD {
+                wildside_core::intro_timing::IntroSourceTiming {
+                    instruction_count: 157,
+                    raw_cycles: M68kCycleCount::from_raw(2_020),
+                }
+            } else {
+                wildside_core::intro_timing::IntroSourceTiming {
+                    instruction_count: 156,
+                    raw_cycles: M68kCycleCount::from_raw(2_014),
+                }
+            };
+            assert_eq!(advance.timing, expected_timing, "title frame {frame}");
+            assert_eq!(advance.refresh_events, 16, "title frame {frame}");
+            assert_eq!(advance.external_wait_cycles.get(), 0, "title frame {frame}");
+            assert_eq!(
+                engine.master_clock(),
+                native_return * 7,
+                "title frame {frame} ledger; oracle returns at {oracle_return} ({}-cycle residue)",
+                oracle_return - native_return,
+            );
+        }
     }
 
     #[cfg(feature = "audio")]
