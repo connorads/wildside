@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 compacting intro-art tail)
+
+- Defended GEMS coverage advances to frames 0..77; the authoritative frontier
+  is frame 78 after the intro-letters decoder.
+- Multi-checkpoint instruction sampling preserves byte_261D7's single source
+  stream across frames 73/74. The remaining compacting uploads and decoder
+  chunks are source-scheduled through the fifth decoder.
+- Frame 75 is strict-field exact. Frame 77's sole raw-RAM difference is saved
+  SP `$003E`; the oracle's derivative XFER68K phase exposes a two-cycle wait.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,681, with 50 evidence-backed X/Y-flag oracle limitations and 28
+  advisory-only divider-phase frames.
+- NEXT: continue the 720-word intro-letters upload, `unk_2FDE0` EniDec, and
+  `sub_1C5D0` plane-A blit from cycle 9,978,770.
+
 ## 2026-07-21 handoff (#416 first `sub_1B850` art batch)
 
 - Defended GEMS coverage advances to frames 0..73; the authoritative frontier

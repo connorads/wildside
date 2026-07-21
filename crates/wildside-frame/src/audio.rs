@@ -970,10 +970,41 @@ pub fn apply_gems_decompress_to_vram_decoder_with_checkpoint_loc_14300(
     wildside_core::vdp::DecompressToVramDecoderAdvance,
     GemsTimingCheckpoint,
 )> {
-    if audio.pending_m68k_wait_cycles() != 0 || checkpoint_master_clock < audio.master_clock() {
+    let (advance, mut checkpoints) =
+        apply_gems_decompress_to_vram_decoder_with_checkpoints_loc_14300(
+            audio,
+            entry,
+            compressed,
+            resume,
+            vint_count,
+            &[checkpoint_master_clock],
+        )?;
+    Some((advance, checkpoints.pop()?))
+}
+
+/// Clock `DecompressToVRAM loc_14300` while sampling ordered raster instants.
+#[cfg(feature = "audio")]
+pub fn apply_gems_decompress_to_vram_decoder_with_checkpoints_loc_14300(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    compressed: &[u8],
+    resume: Option<wildside_core::saxman_timing::DecompressChunkResumeSub13684>,
+    vint_count: u8,
+    checkpoint_master_clocks: &[u64],
+) -> Option<(
+    wildside_core::vdp::DecompressToVramDecoderAdvance,
+    Vec<GemsTimingCheckpoint>,
+)> {
+    if audio.pending_m68k_wait_cycles() != 0
+        || !checkpoint_master_clocks.is_sorted()
+        || checkpoint_master_clocks
+            .first()
+            .is_some_and(|checkpoint| *checkpoint < audio.master_clock())
+    {
         return None;
     }
-    let mut checkpoint = None;
+    let mut checkpoints = Vec::with_capacity(checkpoint_master_clocks.len());
+    let mut checkpoint_index = 0;
     let advance = wildside_core::vdp::decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
         entry,
         compressed,
@@ -983,25 +1014,41 @@ pub fn apply_gems_decompress_to_vram_decoder_with_checkpoint_loc_14300(
             let interval_master_clocks = u64::from(cycles.get()) * 7;
             let interval_start = audio.master_clock();
             let interval_end = interval_start.checked_add(interval_master_clocks)?;
-            if checkpoint.is_none() && checkpoint_master_clock <= interval_end {
-                let offset = checkpoint_master_clock.checked_sub(interval_start)?;
-                let captured = if source_instruction {
-                    let (_, captured) = audio.advance_ntsc_m68k_instruction_with_checkpoint(
+            let interval_checkpoint_start = checkpoint_index;
+            while checkpoint_index < checkpoint_master_clocks.len()
+                && checkpoint_master_clocks[checkpoint_index] <= interval_end
+            {
+                checkpoint_index += 1;
+            }
+            let interval_checkpoints =
+                &checkpoint_master_clocks[interval_checkpoint_start..checkpoint_index];
+            if !interval_checkpoints.is_empty() {
+                if source_instruction {
+                    let offsets = interval_checkpoints
+                        .iter()
+                        .map(|checkpoint| checkpoint.checked_sub(interval_start))
+                        .collect::<Option<Vec<_>>>()?;
+                    let (_, captured) = audio.advance_ntsc_m68k_instruction_with_checkpoints(
                         interval_master_clocks,
                         vdp_owns_bus,
-                        offset,
+                        &offsets,
                     )?;
-                    captured
+                    checkpoints.extend(captured);
                 } else {
-                    audio.advance_ntsc_master_clocks_with_vdp_ownership(offset, vdp_owns_bus);
-                    let captured = audio.checkpoint();
+                    let mut previous_clock = interval_start;
+                    for checkpoint in interval_checkpoints {
+                        audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                            checkpoint.checked_sub(previous_clock)?,
+                            vdp_owns_bus,
+                        );
+                        checkpoints.push(audio.checkpoint());
+                        previous_clock = *checkpoint;
+                    }
                     audio.advance_ntsc_master_clocks_with_vdp_ownership(
-                        interval_master_clocks - offset,
+                        interval_end.checked_sub(previous_clock)?,
                         vdp_owns_bus,
                     );
-                    captured
-                };
-                checkpoint = Some(captured);
+                }
             } else if source_instruction {
                 audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
                     interval_master_clocks,
@@ -1018,7 +1065,7 @@ pub fn apply_gems_decompress_to_vram_decoder_with_checkpoint_loc_14300(
             ))
         },
     )?;
-    Some((advance, checkpoint?))
+    (checkpoint_index == checkpoint_master_clocks.len()).then_some((advance, checkpoints))
 }
 
 /// Clock one source-ordered ASM `EniDec` call on the persistent GEMS timeline.

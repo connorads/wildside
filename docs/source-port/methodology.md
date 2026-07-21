@@ -507,25 +507,27 @@ Pinned against the pinned jgenesis, never fitted:
 ### Coverage semantics
 
 The report declares `coverage.modelled_frames`: the edge up to which the
-native per-frame GEMS timeline is *defended* as faithful. It is 74: frames
-0..73 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
+native per-frame GEMS timeline is *defended* as faithful. It is 78: frames
+0..77 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
 power-on clears, the blank-display Sega-logo upload, and the first outer
 `Mode_Standard` DMA/VINT pass plus three local `loc_12E6C` iterations, the
 Start exit, all sixteen `Pal_FadeOut loc_28C6` loop uploads, and the
 complete `loc_28EA` exit pass, all eight post-fade `loc_700` full-VRAM clear
 spans, all four following `loc_714/loc_720` Sprite_Table clear spans, and
 `loc_726`'s restart initialisers through `Load_IntroSequence1`'s first
-`StopMusic`, `PlaySound`, and `sub_1B850`'s first four compressed-art paths. A
+`StopMusic`, `PlaySound`, and `sub_1B850` through the kids-hanging compacting
+uploads and intro-letters decoder. A
 resumable cursor preserves the two `FrameRendered` samples inside
 `sub_E13DA`, materialising each `loc_E1400` driver byte and `loc_E1406` clear
 when its M68K write instruction starts, including the active one-cycle Z80-RAM
-wait. Frames 16, 19, 20, 22, 25, 28, 30, 33..70, 72, and 73 each have one strict residual from the
+wait. Frames 16, 19, 20, 22, 25, 28, 30, 33..70, 72..74, 76, and 77 have strict residuals from the
 documented jgenesis X/Y-flag limitation below. Signatures past the edge are
 still emitted by the coarse
 continuous route replayer and compared so divergence is measured, not hidden,
-but never claimed as modelled. The first unmodelled boundary is frame 74 later
-inside byte_261D7's first 4 KiB Saxman chunk, which spans two FrameRendered
-samples and therefore needs multiple retained checkpoints from one decoder.
+but never claimed as modelled. Frame 75 is strict-field exact. Frame 77's raw
+RAM differs only at saved-SP byte `$003E`; jgenesis's derivative XFER68K phase
+also exposes a two-cycle pending wait. The first unmodelled boundary is frame
+78 after the intro-letters decoder.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.

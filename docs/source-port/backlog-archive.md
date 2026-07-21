@@ -621,6 +621,18 @@ recorded. Full pixel, gameplay, RNG, and enemy baselines remain fixed. NEXT:
 retain both frame 73 and frame 74 checkpoints from byte_261D7's cycle
 9,453,656..9,599,482 decoder, then continue its compacting transfer.
 
+Progress 2026-07-21: one source instruction stream now retains multiple
+ordered raster checkpoints without consuming a newly raised Z80 bank wait.
+This carries byte_261D7's first decoder across frames 73/74, both compacting
+uploads, its remaining decoder chunks, and the intro-letters decoder through
+frame 77. Frame 75 is strict-field exact. Frame 77 raw RAM differs only at
+saved-SP byte `$003E`; jgenesis's documented X/Y defect puts its PC inside
+XFER68K and exposes the derivative two-cycle pending wait. Defended coverage
+advances 74 -> 78, GEMS mismatches fall 37,685 -> 37,681, and 50 exact oracle
+limitations are recorded. Full pixel, gameplay, RNG, and enemy baselines
+remain fixed. NEXT: continue the 720-word intro-letters upload from cycle
+9,978,770, then source-schedule `unk_2FDE0` EniDec and `sub_1C5D0`.
+
 Progress 2026-07-21: the fifth `Pal_FadeOut loc_28C6` palette upload is
 source-scheduled from cycle 5,364,160, beam 237:940, refresh phase 70. Frame
 42 native/oracle CRCs are `2240045277`/`2240142489` and PCs are

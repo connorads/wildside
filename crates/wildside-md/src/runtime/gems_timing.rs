@@ -443,21 +443,47 @@ impl GemsMasterClockTimingEngine {
         vdp_owns_bus: bool,
         checkpoint_offset: u64,
     ) -> Option<(GemsMasterClockAdvance, GemsTimingCheckpoint)> {
-        if checkpoint_offset > master_clocks {
+        let (advance, mut checkpoints) = self.advance_ntsc_m68k_instruction_with_checkpoints(
+            master_clocks,
+            vdp_owns_bus,
+            &[checkpoint_offset],
+        )?;
+        Some((advance, checkpoints.pop()?))
+    }
+
+    /// Advance one 68000 instruction and capture ordered checkpoints inside it.
+    ///
+    /// All segments share the instruction's opening Z80 bank-wait budget.
+    pub fn advance_ntsc_m68k_instruction_with_checkpoints(
+        &mut self,
+        master_clocks: u64,
+        vdp_owns_bus: bool,
+        checkpoint_offsets: &[u64],
+    ) -> Option<(GemsMasterClockAdvance, Vec<GemsTimingCheckpoint>)> {
+        if checkpoint_offsets.last().copied().unwrap_or(0) > master_clocks
+            || !checkpoint_offsets.is_sorted()
+        {
             return None;
         }
         let mut consumable_z80_wait_mclk_cycles = self.z80_wait_mclk_cycles;
-        let mut reads = self
-            .advance_ntsc_master_clocks_with_vdp_ownership_inner(
-                checkpoint_offset,
-                vdp_owns_bus,
-                Some(&mut consumable_z80_wait_mclk_cycles),
-            )
-            .banked_68k_reads;
-        let checkpoint = self.checkpoint();
+        let mut reads = Vec::new();
+        let mut checkpoints = Vec::with_capacity(checkpoint_offsets.len());
+        let mut previous_offset = 0;
+        for &checkpoint_offset in checkpoint_offsets {
+            reads.extend(
+                self.advance_ntsc_master_clocks_with_vdp_ownership_inner(
+                    checkpoint_offset - previous_offset,
+                    vdp_owns_bus,
+                    Some(&mut consumable_z80_wait_mclk_cycles),
+                )
+                .banked_68k_reads,
+            );
+            checkpoints.push(self.checkpoint());
+            previous_offset = checkpoint_offset;
+        }
         reads.extend(
             self.advance_ntsc_master_clocks_with_vdp_ownership_inner(
-                master_clocks - checkpoint_offset,
+                master_clocks - previous_offset,
                 vdp_owns_bus,
                 Some(&mut consumable_z80_wait_mclk_cycles),
             )
@@ -468,7 +494,7 @@ impl GemsMasterClockTimingEngine {
                 banked_68k_reads: reads,
                 pending_m68k_wait_cycles: self.pending_m68k_wait_cycles,
             },
-            checkpoint,
+            checkpoints,
         ))
     }
 
@@ -1444,7 +1470,8 @@ mod tests {
         let mut rom = vec![0; 0x8001];
         rom[0] = 0x5A;
         let mut unsplit = GemsMasterClockTimingEngine::new(&driver, rom.clone());
-        let mut split = GemsMasterClockTimingEngine::new(&driver, rom);
+        let mut split = GemsMasterClockTimingEngine::new(&driver, rom.clone());
+        let mut multi_split = GemsMasterClockTimingEngine::new(&driver, rom);
 
         let expected = unsplit.advance_ntsc_m68k_instruction_with_vdp_ownership(105, false);
         let (actual, checkpoint) = split
@@ -1454,5 +1481,18 @@ mod tests {
         assert_eq!(checkpoint.master_clock, 37);
         assert_eq!(actual, expected);
         assert_eq!(split.checkpoint(), unsplit.checkpoint());
+
+        let (multi_actual, checkpoints) = multi_split
+            .advance_ntsc_m68k_instruction_with_checkpoints(105, false, &[19, 37, 88])
+            .expect("ordered checkpoints fall inside the instruction");
+        assert_eq!(
+            checkpoints
+                .iter()
+                .map(|checkpoint| checkpoint.master_clock)
+                .collect::<Vec<_>>(),
+            [19, 37, 88],
+        );
+        assert_eq!(multi_actual, expected);
+        assert_eq!(multi_split.checkpoint(), unsplit.checkpoint());
     }
 }
