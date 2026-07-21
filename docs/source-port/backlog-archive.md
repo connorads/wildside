@@ -755,6 +755,13 @@ PC phase. Defended coverage advances 138 -> 140, GEMS mismatches fall
 `StopMusic` return into `Pal_FadeOut`. Full non-audio baselines remain fixed.
 NEXT: retain the return and fade loop.
 
+Progress 2026-07-21: the retained `StopMusic` cursor returns through
+`sub_1C246` into `Pal_FadeOut`; source-scheduled WaitForVint, Do_Nothing,
+palette DMA, and interpolation work defend frames 140..141. Exact raw-RAM
+patches reduce both residuals to the established IRQ phase. Coverage advances
+140 -> 142, GEMS mismatches fall 37,619 -> 37,617, and the first frontier is
+frame 142's next fade iteration. NEXT: carry the one-frame fade cadence.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

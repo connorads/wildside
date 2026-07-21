@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 title fade entry)
+
+- Defended GEMS coverage advances to frames 0..141; the frontier is frame 142
+  in the next `Pal_FadeOut` iteration.
+- The retained title `StopMusic` cursor returns through `sub_1C246`; frames 140
+  and 141 cover the first two fade waits, delays, DMA, and interpolation work.
+- Raw RAM proves both residuals are the established IRQ phase.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,617, with 113 evidence-backed oracle limitations and 29 advisory frames.
+- NEXT: carry the one-frame fade cadence from frame 142.
+
 ## 2026-07-21 handoff (#416 final glyph and StopMusic entry)
 
 - Defended GEMS coverage advances to frames 0..139; the authoritative frontier

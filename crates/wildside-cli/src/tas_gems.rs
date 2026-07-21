@@ -36,6 +36,7 @@ use wildside_frame::{
     apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314, apply_gems_enigma_decoder,
     apply_gems_enigma_decoder_with_checkpoint, apply_gems_power_on_post_clear_reset,
     apply_gems_power_on_z80_startup, apply_gems_title_controller_fade_exit_frame_with_checkpoint,
+    apply_gems_title_do_nothing_call_with_checkpoint,
     apply_gems_title_execute_objects_to_intro_controller,
     apply_gems_title_first_fade_hibernate_to_mode_standard,
     apply_gems_title_first_gfx_object_move_and_animate,
@@ -43,7 +44,7 @@ use wildside_frame::{
     apply_gems_title_first_make_sprites_from_gfx_objects,
     apply_gems_title_first_palette_interpolation, apply_gems_title_first_read_joypad,
     apply_gems_title_frame_return_to_wait_for_vint_poll,
-    apply_gems_title_intro_controller_allocation,
+    apply_gems_title_full_palette_interpolation_call, apply_gems_title_intro_controller_allocation,
     apply_gems_title_intro_controller_prompt_gfx_to_palette,
     apply_gems_title_intro_palette_copy_to_text_object, apply_gems_title_intro_plane_a_blit,
     apply_gems_title_intro_repeated_rows_with_checkpoint,
@@ -55,11 +56,14 @@ use wildside_frame::{
     apply_gems_title_mode_standard_scroll_data_to_vram,
     apply_gems_title_mode_standard_sprite_and_kid_to_vram,
     apply_gems_title_ordinary_delay_frame_with_checkpoint,
-    apply_gems_title_ordinary_glyph_frame_with_checkpoint, apply_gems_title_palette_to_vram_call,
-    apply_gems_title_post_fade_wait_frame_with_checkpoint, apply_gems_title_second_execute_objects,
+    apply_gems_title_ordinary_glyph_frame_with_checkpoint,
+    apply_gems_title_palette_fade_first_decrement_to_next_wait_poll,
+    apply_gems_title_palette_to_vram_call, apply_gems_title_post_fade_wait_frame_with_checkpoint,
+    apply_gems_title_second_execute_objects, apply_gems_title_stop_music_return_to_first_fade_wait,
     apply_gems_title_text_delay_fade_execute_objects,
     apply_gems_title_text_object_allocation_to_fade, apply_gems_title_third_execute_objects,
-    apply_gems_title_wait_for_vint_to_mode_standard, apply_timed_gems_queue_command, gems_bgm,
+    apply_gems_title_wait_for_vint_to_mode_standard,
+    apply_gems_title_wait_for_vint_to_subroutine_return, apply_timed_gems_queue_command, gems_bgm,
 };
 use wildside_md::{
     GemsMasterClockTimingEngine, GemsNtscTimelineOrigin, GemsQueueCommand, GemsTimingCheckpoint,
@@ -73,7 +77,7 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 
 /// Frames of the route whose native per-frame GEMS timeline is defended as
-/// faithful. Frames 0..139 replay ASM `EntryPoint`'s power-on Z80 bootstrap
+/// faithful. Frames 0..141 replay ASM `EntryPoint`'s power-on Z80 bootstrap
 /// through the first outer `Mode_Standard` pass, three Sega-screen local
 /// palette/VINT/controller iterations, and the Start transition into the
 /// sixteen `Pal_FadeOut` loop palette uploads, the `loc_28EA` exit pass, and
@@ -86,11 +90,12 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// twelve ordinary text-delay iterations, the controller fade exit, and all
 /// sixteen post-fade controller-wait frames and IntroText1's alternating
 /// glyph/delay cadence through the final `N`, the Start transition, and the
-/// first sampled `StopMusic` bus window. The tail remains the coarse
+/// first sampled `StopMusic` bus window, its return, and the first two
+/// `Pal_FadeOut` iterations. The tail remains the coarse
 /// continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 140;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 142;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -887,6 +892,76 @@ impl GemsSignatureProbe {
             )
             .expect("hardware-faithful title StopMusic source schedule");
             self.power_on_stop_music = Some(TimedGemsStopMusicCursor::new(timing, 17_788_727 * 7));
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 140 {
+            // ASM StopMusic returns to sub_1C246, which enters Pal_FadeOut's
+            // first WaitForVint and Do_Nothing calls. FrameRendered lands
+            // inside that Do_Nothing body.
+            let mut stop_music = self
+                .power_on_stop_music
+                .take()
+                .expect("title StopMusic reaches its source-derived return");
+            stop_music
+                .advance_to_master_clock(&mut self.engine, 18_018_301 * 7)
+                .expect("title StopMusic reaches its exact return");
+            let fade_wait = apply_gems_title_stop_music_return_to_first_fade_wait(
+                &mut self.engine,
+                wildside_core::vdp::LoadInGameCpuRasterCursor {
+                    beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                        M68kCycleCount::from_raw(18_018_301),
+                    ),
+                    refresh_phase: M68kRefreshPhase::new(114)
+                        .expect("title StopMusic return refresh phase"),
+                },
+            )
+            .expect("source-positioned first Pal_FadeOut wait");
+            let fade_vint = apply_gems_title_wait_for_vint_to_subroutine_return(
+                &mut self.engine,
+                fade_wait.cursor,
+            )
+            .expect("source-positioned first Pal_FadeOut WaitForVint");
+            let (fade_delay, checkpoint) = apply_gems_title_do_nothing_call_with_checkpoint(
+                &mut self.engine,
+                fade_vint.cursor,
+                target,
+            )
+            .expect("source-positioned first Pal_FadeOut Do_Nothing spans frame 140");
+            assert_eq!(self.engine.master_clock(), 18_036_729 * 7);
+            self.power_on_intro_cursor = Some(fade_delay.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 141 {
+            // ASM Pal_FadeOut completes its first palette upload/interpolation
+            // and enters the second WaitForVint/Do_Nothing iteration.
+            // FrameRendered lands inside that Do_Nothing body.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("first Pal_FadeOut Do_Nothing reaches its palette upload");
+            let dma = apply_gems_title_palette_to_vram_call(&mut self.engine, cursor)
+                .expect("source-positioned first Pal_FadeOut palette DMA");
+            let interpolation =
+                apply_gems_title_full_palette_interpolation_call(&mut self.engine, dma.cursor)
+                    .expect("source-positioned first Pal_FadeOut interpolation");
+            let next_wait = apply_gems_title_palette_fade_first_decrement_to_next_wait_poll(
+                &mut self.engine,
+                interpolation.cursor,
+            )
+            .expect("source-positioned Pal_FadeOut decrement");
+            let wait = apply_gems_title_wait_for_vint_to_subroutine_return(
+                &mut self.engine,
+                next_wait.cursor,
+            )
+            .expect("source-positioned second Pal_FadeOut WaitForVint");
+            let (delay, checkpoint) = apply_gems_title_do_nothing_call_with_checkpoint(
+                &mut self.engine,
+                wait.cursor,
+                target,
+            )
+            .expect("source-positioned second Pal_FadeOut Do_Nothing spans frame 141");
+            assert_eq!(self.engine.master_clock(), 18_164_716 * 7);
+            self.power_on_intro_cursor = Some(delay.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
         if self.power_on_frame == 3 {
@@ -1837,6 +1912,8 @@ const TITLE_TEXT_TO_STOP_MUSIC_IRQ_PHASES: &[(usize, u32, u32, u16, u16, u8, u8)
     (137, 3_937_990_347, 3_937_990_347, 0x02B0, 0x02AA, 0, 0),
     (138, 2_666_304_966, 1_237_502_876, 0x02B7, 0x02AF, 16, 16),
     (139, 4_276_285_461, 4_276_285_461, 0x02AA, 0x0B4B, 18, 18),
+    (140, 179_711_852, 475_052_353, 0x07B0, 0x0047, 16, 0),
+    (141, 1_048_402_977, 3_802_706_905, 0x01D2, 0x0B57, 16, 16),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(
@@ -2045,7 +2122,9 @@ fn gems_divergence_matches_documented_oracle_limitation(
         );
     let title_text_cadence_irq_phase = matches!(
         diverging,
-        ["audio_ram_crc32" | "z80_pc"] | ["audio_ram_crc32", "z80_pc"]
+        ["audio_ram_crc32" | "z80_pc"]
+            | ["audio_ram_crc32", "z80_pc"]
+            | ["audio_ram_crc32", "z80_pc", "status_bits"]
     ) && TITLE_TEXT_TO_STOP_MUSIC_IRQ_PHASES.contains(&(
         frame_index,
         native.audio_ram_crc32,
@@ -2929,7 +3008,7 @@ mod tests {
         }
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
-        assert_eq!(comparison.oracle_limitation_count, 104);
+        assert_eq!(comparison.oracle_limitation_count, 106);
     }
 
     #[test]
@@ -3265,7 +3344,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_139() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_141() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -4737,6 +4816,22 @@ mod tests {
                     (0x1A1A, 0xCE, 0x76),
                 ],
                 138 => &[(0x1A1A, 0x76, 0xCE)],
+                140 => &[
+                    (0x003E, 0x1E, 0x1C),
+                    (0x1A1A, 0xD2, 0x11),
+                    (0x1A1B, 0x01, 0x7F),
+                    (0x1A1C, 0xA9, 0x42),
+                    (0x1A1D, 0x07, 0x0E),
+                    (0x1A1E, 0xB0, 0x9C),
+                ],
+                141 => &[
+                    (0x003E, 0x1C, 0x1E),
+                    (0x076D, 0x01, 0x00),
+                    (0x1A1C, 0xA9, 0x4B),
+                    (0x1A1D, 0x07, 0x0B),
+                    (0x1A1E, 0x00, 0xBD),
+                    (0x1A1F, 0x01, 0x07),
+                ],
                 _ => unreachable!("cadence frame table"),
             };
             if patches.is_empty() && probe.power_on_last_sampled_checkpoint.is_none() {
