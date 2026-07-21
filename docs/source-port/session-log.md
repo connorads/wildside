@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 third post-fade clear span)
+
+- Defended GEMS coverage advances to frames 0..58; the authoritative frontier
+  is frame 59 in the continuing post-fade `loc_700` clear.
+- The retained clear cursor needs no new timing boundary. Frame 58 RAM differs
+  only at saved-SP `$003E`, `SBPTACC` `$076C`, and stack `$1A1E/$1A1F`;
+  bank, waits, and flags are exact.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,700, with 33 evidence-backed X/Y-flag oracle limitations.
+- NEXT: continue the resumable clear cursor through frame 59.
+
+---
+
 ## 2026-07-21 handoff (#416 second post-fade clear span)
 
 - Defended GEMS coverage advances to frames 0..57; the authoritative frontier

@@ -558,6 +558,15 @@ byte are exact. Defended coverage advances 57 -> 58, GEMS mismatches fall
 gameplay, RNG, and enemy baselines remain fixed. NEXT: continue the post-fade
 clear cursor through frame 58.
 
+Progress 2026-07-21: the retained second `loc_700` cursor carries a third
+full-VRAM clear span through frame 58 without a new timing boundary.
+Native/oracle CRCs are `223437361`/`3816568744` and PCs are `$02A5`/`$07B0`;
+raw RAM differs only at saved-SP `$003E`, `SBPTACC` `$076C`, and stack
+`$1A1E/$1A1F`. Bank, waits, flags, and every other byte are exact. Defended
+coverage advances 58 -> 59, GEMS mismatches fall 37,701 -> 37,700, and 33
+exact oracle limitations are recorded. Full non-audio baselines remain fixed.
+NEXT: continue the post-fade clear cursor through frame 59.
+
 Progress 2026-07-21: the fifth `Pal_FadeOut loc_28C6` palette upload is
 source-scheduled from cycle 5,364,160, beam 237:940, refresh phase 70. Frame
 42 native/oracle CRCs are `2240045277`/`2240142489` and PCs are
