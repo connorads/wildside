@@ -793,6 +793,15 @@ waits, and flags are exact. Coverage advances 171 -> 172, GEMS mismatches fall
 37,588 -> 37,587, with 143 evidence-backed oracle limitations and 29 advisory
 frames. NEXT: carry `sub_1B2A4` and `Load_TitleArt` from frame 172.
 
+Progress 2026-07-21: selected-PC tracing pins `sub_1B2A4` at cycle 22,048,445,
+`loc_14300` at 22,048,673, and `loc_14314` at 22,126,157. The source schedule
+decodes byte_2A756 to 2,496 bytes and checkpoints inside its 1,248-word
+FIFO-paced upload after VINT. Raw 8 KiB audio RAM differs only at active
+VBLINT stack byte `$1A1C` (`$18` native, `$10` oracle); bank, waits, and flags
+are exact. Coverage advances 172 -> 173, with 144 evidence-backed oracle
+limitations and 29 advisory frames. NEXT: resume at frame 173 inside
+byte_26E3D's second `sub_1B2A4` Saxman decoder.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

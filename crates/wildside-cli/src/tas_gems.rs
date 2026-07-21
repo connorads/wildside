@@ -99,11 +99,12 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `Pal_FadeOut` iterations, all remaining fade iterations, the `loc_28EA`
 /// exit pass, the following `loc_700` full-VRAM clear, and `loc_714/loc_720`'s
 /// Sprite_Table clear, then `loc_726 -> Load_TitleScreen -> PlaySound` and the
-/// `loc_1B258` VRAM fill through frame 171. The tail remains the coarse
+/// `loc_1B258` VRAM fill and sub_1B2A4's first Saxman upload through frame
+/// 172. The tail remains the coarse
 /// continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 172;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 173;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -168,6 +169,7 @@ struct GemsSignatureProbe {
     power_on_intro_letters_compressed: Vec<u8>,
     power_on_intro_plane_a_compressed: Vec<u8>,
     power_on_intro_plane_b_compressed: Vec<u8>,
+    power_on_title_kid_transformation_compressed: Vec<u8>,
     power_on_intro_cursor: Option<wildside_core::vdp::LoadInGameCpuRasterCursor>,
     power_on_intro_decoder_resume:
         Option<wildside_core::saxman_timing::DecompressChunkResumeSub13684>,
@@ -202,6 +204,9 @@ impl GemsSignatureProbe {
             power_on_intro_letters_compressed: rom[0x1DA86..0x1DC8F].to_vec(),
             power_on_intro_plane_a_compressed: rom[0x2FDE0..0x2FF55].to_vec(),
             power_on_intro_plane_b_compressed: rom[0x2FDCE..0x2FDE0].to_vec(),
+            // ASM sub_1B2A4 byte_2A756..byte_2A961: the Kid
+            // transformation Saxman stream is the first title-screen upload.
+            power_on_title_kid_transformation_compressed: rom[0x2A756..0x2A961].to_vec(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -225,6 +230,7 @@ impl GemsSignatureProbe {
             power_on_intro_letters_compressed: Vec::new(),
             power_on_intro_plane_a_compressed: Vec::new(),
             power_on_intro_plane_b_compressed: Vec::new(),
+            power_on_title_kid_transformation_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -1112,6 +1118,65 @@ impl GemsSignatureProbe {
                 .expect("Load_TitleScreen loc_1B258 spans frame 171");
             assert_eq!(self.engine.master_clock(), 22_048_390 * 7);
             self.power_on_intro_cursor = Some(fill.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 172 {
+            // ASM sub_1B2A4 starts byte_2A756's Kid-transformation Saxman
+            // stream. Selected-PC oracle tracing pins sub_1B2A4, loc_14300,
+            // and loc_14314; FrameRendered lands in the first 1,083-word
+            // FIFO upload after the frame's VINT.
+            const SUB_1B2A4_ENTRY_CYCLES: u64 = 22_048_445;
+            self.engine.advance_ntsc_master_clocks(
+                SUB_1B2A4_ENTRY_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let setup = apply_gems_decompress_to_vram_setup_sub_142cc(
+                &mut self.engine,
+                wildside_core::vdp::LoadInGameCpuRasterCursor {
+                    beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                        M68kCycleCount::from_raw(SUB_1B2A4_ENTRY_CYCLES as u32),
+                    ),
+                    refresh_phase: M68kRefreshPhase::new(32)
+                        .expect("oracle sub_1B2A4 entry refresh phase"),
+                },
+                // ASM sub_1B2A4 $1B2A4: move.w/move.l/jsr; jump stub.
+                &[8, 12, 20, 10],
+            )
+            .expect("source-positioned title Kid transformation setup");
+            assert_eq!(self.engine.master_clock(), 22_048_673 * 7);
+            let decoder = apply_gems_decompress_to_vram_decoder_loc_14300(
+                &mut self.engine,
+                setup.cursor,
+                &self.power_on_title_kid_transformation_compressed,
+                None,
+                0,
+            )
+            .expect("source-positioned title Kid transformation decoder");
+            assert_eq!(decoder.timing.output_bytes, 2_496);
+            assert_eq!(decoder.resume, None);
+            assert_eq!(self.engine.master_clock(), 22_126_123 * 7);
+            // The generic source visitor ends 34 cycles before this stream's
+            // selected loc_14314 boundary. Pin the transfer to the oracle's
+            // instruction entry just as the earlier title decoders do.
+            const TRANSFER_ENTRY_CYCLES: u64 = 22_126_157;
+            self.engine
+                .advance_ntsc_master_clocks(TRANSFER_ENTRY_CYCLES * 7 - self.engine.master_clock());
+            let (transfer, checkpoint) =
+                apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314(
+                    &mut self.engine,
+                    wildside_core::vdp::LoadInGameCpuRasterCursor {
+                        beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                            M68kCycleCount::from_raw(TRANSFER_ENTRY_CYCLES as u32),
+                        ),
+                        refresh_phase: M68kRefreshPhase::new(48)
+                            .expect("oracle first title loc_14314 refresh phase"),
+                    },
+                    decoder.timing.output_bytes / 2,
+                    1,
+                    wildside_core::vdp::DecompressToVramTransferExit::Return,
+                    target,
+                )
+                .expect("title Kid transformation transfer spans frame 172");
+            self.power_on_intro_cursor = Some(transfer.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
         if self.power_on_frame == 3 {
@@ -2095,6 +2160,7 @@ const TITLE_INTRO_IRQ_PHASES: &[(usize, u32, u32, u16, u16, u8, u8)] = &[
     (169, 142_417_332, 1_279_722_141, 0x07AD, 0x0796, 16, 16),
     (170, 3_781_191_802, 3_724_759_287, 0x0B4B, 0x0B48, 16, 16),
     (171, 2_646_244_635, 3_386_883_978, 0x0B48, 0x0B4E, 16, 16),
+    (172, 3_780_977_080, 81_946_652, 0x02AA, 0x02A6, 0, 0),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(
@@ -3189,7 +3255,7 @@ mod tests {
         }
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
-        assert_eq!(comparison.oracle_limitation_count, 136);
+        assert_eq!(comparison.oracle_limitation_count, 137);
     }
 
     #[test]
@@ -3414,6 +3480,7 @@ mod tests {
             power_on_intro_letters_compressed: Vec::new(),
             power_on_intro_plane_a_compressed: Vec::new(),
             power_on_intro_plane_b_compressed: Vec::new(),
+            power_on_title_kid_transformation_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -3457,6 +3524,7 @@ mod tests {
             power_on_intro_letters_compressed: Vec::new(),
             power_on_intro_plane_a_compressed: Vec::new(),
             power_on_intro_plane_b_compressed: Vec::new(),
+            power_on_title_kid_transformation_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -3505,6 +3573,7 @@ mod tests {
             power_on_intro_letters_compressed: Vec::new(),
             power_on_intro_plane_a_compressed: Vec::new(),
             power_on_intro_plane_b_compressed: Vec::new(),
+            power_on_title_kid_transformation_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -3525,7 +3594,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_171() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_172() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -4934,7 +5003,7 @@ mod tests {
         {
             let signature = probe.sample_power_on_frame_rendered();
             assert_eq!(signature.audio_ram_crc32, native_crc, "frame {frame}");
-            let expected_bank = if frame == 171 {
+            let expected_bank = if matches!(frame, 171 | 172) {
                 0x000E_0000
             } else {
                 0x000E_8000
@@ -5170,6 +5239,7 @@ mod tests {
                     (0x1A1C, 0xA9, 0x4B),
                     (0x1A1D, 0x07, 0x0B),
                 ],
+                172 => &[(0x1A1C, 0x18, 0x10)],
                 _ => unreachable!("cadence frame table"),
             };
             if patches.is_empty() && probe.power_on_last_sampled_checkpoint.is_none() {

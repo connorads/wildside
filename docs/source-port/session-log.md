@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 first title-art upload)
+
+- Defended GEMS coverage advances to frames 0..172; the frontier is frame 173
+  in byte_26E3D's second `sub_1B2A4` Saxman decoder.
+- Selected-PC tracing pins the first decoder and `loc_14314` upload boundaries;
+  byte_2A756 expands to 2,496 bytes and completes its 1,248-word upload.
+- Raw audio RAM confines frame 172 to one established active-stack IRQ-phase
+  byte; bank, waits, and flags are exact.
+- NEXT: carry the retained transfer cursor into byte_26E3D from frame 173.
+
 ## 2026-07-21 handoff (#416 title-screen Ice command and VRAM fill)
 
 - Defended GEMS coverage advances to frames 0..171; the frontier is frame 172
