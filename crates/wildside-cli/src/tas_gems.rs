@@ -104,7 +104,7 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 179;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 180;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -1402,6 +1402,45 @@ impl GemsSignatureProbe {
             self.power_on_intro_decoder_resume = decoder.resume;
             sampled_checkpoint = Some(checkpoint);
         }
+        if self.power_on_frame == 179 {
+            // ASM loc_1432C/loc_14300/loc_14314 repeats for byte_26E3D's
+            // next retained chunk. Selected-PC tracing pins loc_14300 at
+            // cycle 22,914,988 and loc_14314 at 22,992,390; FrameRendered
+            // stays in the FIFO upload.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("title Red Stealth chunk 5 resumes loc_14300");
+            assert_eq!(self.engine.master_clock(), 22_914_988 * 7);
+            let decoder = apply_gems_decompress_to_vram_decoder_loc_14300(
+                &mut self.engine,
+                cursor,
+                &self.power_on_title_red_stealth_compressed,
+                self.power_on_intro_decoder_resume.take(),
+                1,
+            )
+            .expect("title Red Stealth resumed decoder reaches next loc_14314");
+            assert_eq!(decoder.timing.raw_cycles, 74_748);
+            assert_eq!(decoder.external_wait_cycles.get(), 1_408);
+            let exit = if decoder.resume.is_some() {
+                wildside_core::vdp::DecompressToVramTransferExit::CompactAndResume
+            } else {
+                wildside_core::vdp::DecompressToVramTransferExit::Return
+            };
+            let (transfer, checkpoint) =
+                apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314(
+                    &mut self.engine,
+                    decoder.cursor,
+                    decoder.timing.output_bytes / 2,
+                    1,
+                    exit,
+                    target,
+                )
+                .expect("title Red Stealth chunk 6 transfer spans frame 179");
+            self.power_on_intro_cursor = Some(transfer.cursor);
+            self.power_on_intro_decoder_resume = decoder.resume;
+            sampled_checkpoint = Some(checkpoint);
+        }
         if self.power_on_frame == 3 {
             apply_gems_power_on_post_clear_reset(&mut self.engine)
                 .expect("frame 3 crosses EntryPoint's post-clear reset write");
@@ -2323,6 +2362,11 @@ fn advisory_fields_diverge(native: &GemsFrameSignature, oracle: &GemsFrameSignat
 /// Frame 78 is byte-, bank-, PC-, and flag-exact; only jgenesis's documented
 /// approximate 68000 refresh counter queues two wait cycles at the quantised
 /// instruction boundary.
+/// Frame 179 enters `loc_14300` at the exact selected-PC cycle. The decoded
+/// source stream is exact and the hardware-faithful GEMS bank wait is 1,408
+/// cycles; the carried X/Y phase places that wait across one extra approximate
+/// refresh boundary, leaving a derivative 18-master-clock Z80 bank stall at
+/// FrameRendered.
 /// Later `SUB 1` at $07B3 leaves the oracle at PC $02AA where hardware reaches
 /// $02AE. Every other strict field must be byte-equal.
 const TITLE_INTRO_IRQ_PHASES: &[(usize, u32, u32, u16, u16, u8, u8)] = &[
@@ -2608,7 +2652,9 @@ fn gems_divergence_matches_documented_oracle_limitation(
     ));
     let title_art_irq_phase = matches!(
         diverging,
-        ["audio_ram_crc32"] | ["audio_ram_crc32", "z80_pc"]
+        ["audio_ram_crc32"]
+            | ["audio_ram_crc32", "z80_pc"]
+            | ["audio_ram_crc32", "z80_pc", "z80_wait_mclk_cycles"]
     ) && matches!(
         (
             frame_index,
@@ -2620,6 +2666,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
         (176, 3_692_391_055, 2_645_566_232, 0x02B1, 0x02A8)
             | (177, 1_697_082_635, 2_372_537_308, 0x02A8, 0x02A8)
             | (178, 1_942_460_646, 2_766_784_188, 0x02A7, 0x02A5)
+            | (179, 1_793_919_015, 4_032_104_658, 0x0273, 0x02B9)
     );
     irq_saved_sp
         || later_pc
@@ -3538,6 +3585,18 @@ mod tests {
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 142);
+        let mut native_frame_179 = signature(0x0273);
+        native_frame_179.audio_ram_crc32 = 1_793_919_015;
+        native_frame_179.bank_address = 0x000E_8000;
+        native_frame_179.z80_wait_mclk_cycles = 18;
+        let mut oracle_frame_179 = signature(0x02B9);
+        oracle_frame_179.audio_ram_crc32 = 4_032_104_658;
+        oracle_frame_179.bank_address = 0x000E_8000;
+        native.push(Some(native_frame_179));
+        oracle.push(Some(oracle_frame_179));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 143);
     }
 
     #[test]
@@ -3879,7 +3938,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_178() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_179() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -5621,5 +5680,31 @@ mod tests {
         let mut crc = crc32fast::Hasher::new();
         crc.update(&oracle_ram);
         assert_eq!(crc.finalize(), 2_766_784_188);
+
+        // ORACLE LIMITATION: selected-PC tracing pins ASM loc_14300 at the
+        // same cycle and the source model emits the exact 74,748 raw cycles.
+        // The established X/Y phase shifts the same 1,408-cycle GEMS bank
+        // wait over one extra approximate refresh boundary; the RAM residue
+        // is confined to CHECKTICK and the active VBLINT stack.
+        let frame_179 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_179.audio_ram_crc32, 1_793_919_015);
+        assert_eq!(frame_179.bank_address, 0x000E_8000);
+        assert_eq!(frame_179.z80_pc, 0x0273);
+        assert_eq!(frame_179.z80_wait_mclk_cycles, 18);
+        assert_eq!(frame_179.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_179.status_bits, 0);
+        let mut oracle_ram = probe
+            .power_on_last_sampled_checkpoint
+            .as_ref()
+            .expect("frame 179 native checkpoint")
+            .audio_ram
+            .clone();
+        assert_eq!(oracle_ram[0x1A0C], 0xB7);
+        assert_eq!(&oracle_ram[0x1FF3..0x1FF8], &[0x53, 0x51, 0x57, 0x5D, 0x62]);
+        oracle_ram[0x1A0C] = 0xA5;
+        oracle_ram[0x1FF3..0x1FF8].copy_from_slice(&[0x65, 0x67, 0x68, 0x6B, 0x6C]);
+        let mut crc = crc32fast::Hasher::new();
+        crc.update(&oracle_ram);
+        assert_eq!(crc.finalize(), 4_032_104_658);
     }
 }

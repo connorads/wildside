@@ -849,6 +849,16 @@ exact, while PC `$02A7`/`$02A5` is derivative IRQ phase. Coverage advances
 178 -> 179 with 149 evidence-backed limitations and 30 advisory frames.
 Oracle PC `$14314` keeps frame 179 in the following upload. NEXT: continue it.
 
+Progress 2026-07-21: frame 179 enters `loc_14300` at the selected-PC oracle
+cycle 22,914,988, emits the exact 74,748 raw decoder cycles and the same
+1,408-cycle GEMS bank wait, then checkpoints inside `loc_14314`. The carried
+jgenesis X/Y/IRQ phase places that wait over one extra approximate refresh
+boundary: raw RAM differs only at `CHECKTICK` `$1A0C` and five active VBLINT
+stack bytes `$1FF3..$1FF7`; PC `$0273`/`$02B9` and native's 18-master-clock
+bank stall are derivative. Coverage advances 179 -> 180 with 150
+evidence-backed limitations and 30 advisory frames. Oracle PC `$14316` keeps
+frame 180 inside the following upload. NEXT: continue the repeated chunk path.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

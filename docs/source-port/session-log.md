@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 sixth title-art upload chunk)
+
+- Defended GEMS coverage advances to frames 0..179; the frontier is frame 180
+  at oracle PC `$14316` inside byte_26E3D's following `loc_14314` upload.
+- Frame 179 enters `loc_14300` at the exact oracle cycle with exact raw source
+  timing; only the established flag/IRQ phase and its derivative bank stall
+  remain.
+- NEXT: continue the repeated compact/decode/upload path from frame 180.
+
 ## 2026-07-21 handoff (#416 fifth title-art upload chunk)
 
 - Defended GEMS coverage advances to frames 0..178; the frontier is frame 179
