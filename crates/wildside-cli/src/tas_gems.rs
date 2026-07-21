@@ -35,14 +35,23 @@ use wildside_frame::{
     apply_gems_decompress_to_vram_transfer_loc_14314,
     apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314, apply_gems_enigma_decoder,
     apply_gems_enigma_decoder_with_checkpoint, apply_gems_power_on_post_clear_reset,
-    apply_gems_power_on_z80_startup, apply_gems_title_intro_controller_allocation,
-    apply_gems_title_intro_plane_a_blit, apply_gems_title_intro_repeated_rows_with_checkpoint,
+    apply_gems_power_on_z80_startup, apply_gems_title_execute_objects_to_intro_controller,
+    apply_gems_title_first_fade_hibernate_to_mode_standard,
+    apply_gems_title_first_gfx_object_move_and_animate,
+    apply_gems_title_first_make_sprites_from_gfx_objects,
+    apply_gems_title_first_palette_interpolation, apply_gems_title_first_read_joypad,
+    apply_gems_title_frame_return_to_wait_for_vint_poll,
+    apply_gems_title_intro_controller_allocation,
+    apply_gems_title_intro_controller_prompt_gfx_to_palette,
+    apply_gems_title_intro_palette_copy_to_text_object, apply_gems_title_intro_plane_a_blit,
+    apply_gems_title_intro_repeated_rows_with_checkpoint,
     apply_gems_title_intro_wait_for_vint_poll,
     apply_gems_title_mode_standard_do_nothing_with_checkpoint,
     apply_gems_title_mode_standard_empty_foreground_queues,
     apply_gems_title_mode_standard_palette_to_vram,
     apply_gems_title_mode_standard_scroll_data_to_vram,
     apply_gems_title_mode_standard_sprite_and_kid_to_vram, apply_gems_title_palette_to_vram_call,
+    apply_gems_title_text_object_allocation_to_fade,
     apply_gems_title_wait_for_vint_to_mode_standard, apply_timed_gems_queue_command, gems_bgm,
 };
 use wildside_md::{
@@ -57,7 +66,7 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 
 /// Frames of the route whose native per-frame GEMS timeline is defended as
-/// faithful. Frames 0..80 replay ASM `EntryPoint`'s power-on Z80 bootstrap
+/// faithful. Frames 0..81 replay ASM `EntryPoint`'s power-on Z80 bootstrap
 /// through the first outer `Mode_Standard` pass, three Sega-screen local
 /// palette/VINT/controller iterations, and the Start transition into the
 /// sixteen `Pal_FadeOut` loop palette uploads, the `loc_28EA` exit pass, and
@@ -65,11 +74,13 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `loc_714/loc_720` Sprite_Table clear spans, then `loc_726`'s restart
 /// initialisers into `Load_IntroSequence1 -> StopMusic -> PlaySound`, then the
 /// first two `sub_1B850 -> DecompressToVRAM loc_14300/loc_14314` decodes and
-/// transfers, then the third through fifth decoders, compacting transfers, and first Enigma decoder through frame 78. The tail remains the
+/// transfers, then the third through fifth decoders, compacting transfers,
+/// both Enigma plane decoders, and the first complete title `Mode_Standard`
+/// pass into the second `Do_Nothing`. The tail remains the
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 81;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 82;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -405,6 +416,92 @@ impl GemsSignatureProbe {
                 )
                 .expect("source-positioned Mode_Standard Do_Nothing spans frame 80");
             assert_eq!(self.engine.master_clock(), 10_356_422 * 7);
+            self.power_on_intro_cursor = Some(do_nothing.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 81 {
+            // ASM Mode_Standard completes its first palette/VRAM/object pass,
+            // returns through WaitForVint, and enters the second Do_Nothing.
+            // FrameRendered lands inside that second call.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("first Mode_Standard Do_Nothing reaches Palette_to_VRAM");
+            let palette = apply_gems_title_mode_standard_palette_to_vram(&mut self.engine, cursor)
+                .expect("source-positioned first title Palette_to_VRAM");
+            let sprite_and_kid = apply_gems_title_mode_standard_sprite_and_kid_to_vram(
+                &mut self.engine,
+                palette.cursor,
+            )
+            .expect("source-positioned first title sprite/Kid transfer");
+            let scroll = apply_gems_title_mode_standard_scroll_data_to_vram(
+                &mut self.engine,
+                sprite_and_kid.cursor,
+            )
+            .expect("source-positioned first title scroll transfer");
+            let queues = apply_gems_title_mode_standard_empty_foreground_queues(
+                &mut self.engine,
+                scroll.cursor,
+            )
+            .expect("source-positioned first title empty foreground queues");
+            let execute = apply_gems_title_execute_objects_to_intro_controller(
+                &mut self.engine,
+                queues.cursor,
+                0xFFCD,
+            )
+            .expect("source-positioned first title Execute_Objects dispatch");
+            let prompt_gfx = apply_gems_title_intro_controller_prompt_gfx_to_palette(
+                &mut self.engine,
+                execute.cursor,
+            )
+            .expect("source-positioned title prompt allocation");
+            let palette_copy = apply_gems_title_intro_palette_copy_to_text_object(
+                &mut self.engine,
+                prompt_gfx.cursor,
+            )
+            .expect("source-positioned title palette copy");
+            let text_object = apply_gems_title_text_object_allocation_to_fade(
+                &mut self.engine,
+                palette_copy.cursor,
+            )
+            .expect("source-positioned title text-object allocation");
+            let hibernate = apply_gems_title_first_fade_hibernate_to_mode_standard(
+                &mut self.engine,
+                text_object.cursor,
+            )
+            .expect("source-positioned first title hibernation");
+            let gfx = apply_gems_title_first_gfx_object_move_and_animate(
+                &mut self.engine,
+                hibernate.cursor,
+            )
+            .expect("source-positioned first title GfxObject pass");
+            let joypad = apply_gems_title_first_read_joypad(&mut self.engine, gfx.cursor)
+                .expect("source-positioned first title ReadJoypad");
+            let sprites = apply_gems_title_first_make_sprites_from_gfx_objects(
+                &mut self.engine,
+                joypad.cursor,
+            )
+            .expect("source-positioned first title sprite construction");
+            let interpolation =
+                apply_gems_title_first_palette_interpolation(&mut self.engine, sprites.cursor)
+                    .expect("source-positioned first title palette interpolation");
+            let poll = apply_gems_title_frame_return_to_wait_for_vint_poll(
+                &mut self.engine,
+                interpolation.cursor,
+            )
+            .expect("source-positioned second title WaitForVint poll");
+            let mode_standard =
+                apply_gems_title_wait_for_vint_to_mode_standard(&mut self.engine, poll.cursor)
+                    .expect("source-positioned second WaitForVint/V_Int path");
+            assert_eq!(self.engine.master_clock(), 10_478_144 * 7);
+            let (do_nothing, checkpoint) =
+                apply_gems_title_mode_standard_do_nothing_with_checkpoint(
+                    &mut self.engine,
+                    mode_standard.cursor,
+                    target,
+                )
+                .expect("source-positioned second Do_Nothing spans frame 81");
+            assert_eq!(self.engine.master_clock(), 10_484_436 * 7);
             self.power_on_intro_cursor = Some(do_nothing.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
@@ -2531,7 +2628,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_80() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_81() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -3512,5 +3609,13 @@ mod tests {
         let mut crc = crc32fast::Hasher::new();
         crc.update(&oracle_ram);
         assert_eq!(crc.finalize(), 2_543_959_575);
+
+        let frame_81 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_81.audio_ram_crc32, 2_154_698_807);
+        assert_eq!(frame_81.bank_address, 0x000E_8000);
+        assert_eq!(frame_81.z80_pc, 0x00D1);
+        assert_eq!(frame_81.z80_wait_mclk_cycles, 0);
+        assert_eq!(frame_81.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_81.status_bits, GemsFrameSignature::STATUS_IFF1);
     }
 }

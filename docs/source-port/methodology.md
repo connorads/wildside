@@ -507,8 +507,8 @@ Pinned against the pinned jgenesis, never fitted:
 ### Coverage semantics
 
 The report declares `coverage.modelled_frames`: the edge up to which the
-native per-frame GEMS timeline is *defended* as faithful. It is 81: frames
-0..80 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
+native per-frame GEMS timeline is *defended* as faithful. It is 82: frames
+0..81 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
 power-on clears, the blank-display Sega-logo upload, and the first outer
 `Mode_Standard` DMA/VINT pass plus three local `loc_12E6C` iterations, the
 Start exit, all sixteen `Pal_FadeOut loc_28C6` loop uploads, and the
@@ -517,7 +517,8 @@ spans, all four following `loc_714/loc_720` Sprite_Table clear spans, and
 `loc_726`'s restart initialisers through `Load_IntroSequence1`'s first
 `StopMusic`, `PlaySound`, and `sub_1B850` through the kids-hanging compacting
 uploads, intro-letters decoder, both Enigma streams, and the plane-A/plane-B
-blits, and the first `WaitForVint` transition into `Mode_Standard`. A
+blits, then the first complete intro `Mode_Standard` palette/VRAM/object pass,
+the second `WaitForVint`/VINT, and its following `Do_Nothing`. A
 resumable cursor preserves the two `FrameRendered` samples inside
 `sub_E13DA`, materialising each `loc_E1400` driver byte and `loc_E1406` clear
 when its M68K write instruction starts, including the active one-cycle Z80-RAM
@@ -532,8 +533,8 @@ jgenesis's source-documented approximate refresh counter alone queues a
 two-cycle wait at its quantised instruction boundary. Frame 79 differs only
 in five active-stack bytes and PC phase. Frame 80 differs only at active-stack
 byte `$1A1A`; its PC and two-cycle wait are derivative of the carried X/Y and
-approximate-refresh phase. The first unmodelled boundary is frame 81 later in
-the `Mode_Standard` pass.
+approximate-refresh phase. Frame 81 is strict-field exact. The first
+unmodelled boundary is frame 82 in the next title-frame pass.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.

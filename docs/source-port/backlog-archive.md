@@ -653,6 +653,17 @@ mismatches fall 37,679 -> 37,678, and 53 exact oracle limitations are
 recorded. Full pixel, gameplay, RNG, and enemy baselines remain fixed. NEXT:
 continue palette, scroll, sprite/Kid, and empty foreground queues.
 
+Progress 2026-07-21: the retained cursor now carries the complete first intro
+title-frame pass: palette, sprite/Kid, scroll, empty foreground queues,
+controller/text-object dispatch, animation, joypad, sprite construction,
+palette interpolation, and the second `WaitForVint`/VINT. Frame 81 lands
+inside the following `Do_Nothing` and matches every strict oracle field; only
+the instruction-boundary divider phase is advisory. Defended coverage
+advances 81 -> 82 and GEMS mismatches fall 37,678 -> 37,677 with the same 53
+evidence-backed oracle limitations. Full pixel, gameplay, RNG, and enemy
+baselines remain fixed. NEXT: carry the second title-frame pass through the
+third `WaitForVint`/VINT.
+
 Progress 2026-07-21: the fifth `Pal_FadeOut loc_28C6` palette upload is
 source-scheduled from cycle 5,364,160, beam 237:940, refresh phase 70. Frame
 42 native/oracle CRCs are `2240045277`/`2240142489` and PCs are

@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 first complete intro title-frame pass)
+
+- Defended GEMS coverage advances to frames 0..81; the authoritative frontier
+  is frame 82 in the next title-frame pass.
+- The first palette, sprite/Kid, scroll, foreground queues, object dispatch,
+  controller workers, animation, interpolation, and next VINT are retained.
+- Frame 81 is strict-field exact; only divider phase is advisory.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,677, with 53 evidence-backed oracle limitations and 29 advisory frames.
+- NEXT: carry the second title-frame pass through its third VINT.
+
 ## 2026-07-21 handoff (#416 first intro `Mode_Standard` entry)
 
 - Defended GEMS coverage advances to frames 0..80; the authoritative frontier
