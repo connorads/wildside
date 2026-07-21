@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 fade exit wait)
+
+- Defended GEMS coverage advances to frames 0..54; the authoritative frontier
+  is frame 55's final `Pal_FadeOut loc_28EA` palette upload.
+- Frame 54 adds no bus transaction. Its RAM differs only at `SBPTACC`
+  `$076C/$076D` and stack `$1A1C..$1A1E`; bank, waits, and flags are exact.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,704, with 29 evidence-backed X/Y-flag oracle limitations.
+- NEXT: source-schedule the final exit upload and retain the return path.
+
+---
+
 ## 2026-07-21 handoff (#416 final palette fade)
 
 - Defended GEMS coverage advances to frames 0..53; the authoritative frontier

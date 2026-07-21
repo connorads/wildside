@@ -519,6 +519,16 @@ recorded, and the first authoritative frontier reaches frame 54's
 `loc_28EA` fade exit. Full pixel, gameplay, RNG, and enemy baselines remain
 fixed. NEXT: source-schedule the post-fade control path.
 
+Progress 2026-07-21: frame 54 is the `Pal_FadeOut loc_28EA` exit wait, not a
+palette transaction. Free-running source time gives native/oracle CRCs
+`1100554498`/`682295740` and PCs `$07B3`/`$02A5`; raw RAM differs only at
+`SBPTACC` `$076C/$076D` and active stack `$1A1C..$1A1E`. Bank, waits, flags,
+and every other byte are exact. Defended coverage advances 54 -> 55, GEMS
+mismatches fall 37,705 -> 37,704, 29 exact oracle limitations are recorded,
+and the frontier moves to frame 55's final `loc_28EA` palette upload. Full
+pixel, gameplay, RNG, and enemy baselines remain fixed. NEXT: source-schedule
+that upload and follow the return path.
+
 Progress 2026-07-21: the fifth `Pal_FadeOut loc_28C6` palette upload is
 source-scheduled from cycle 5,364,160, beam 237:940, refresh phase 70. Frame
 42 native/oracle CRCs are `2240045277`/`2240142489` and PCs are
