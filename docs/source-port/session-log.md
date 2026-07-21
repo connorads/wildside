@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 thirteenth palette fade)
+
+- Defended GEMS coverage advances to frames 0..50; the authoritative frontier
+  is frame 51 in the continuing `Pal_FadeOut loc_28C6` loop.
+- The thirteenth fade palette upload is source-scheduled from cycle 6,388,198.
+  Frame 50 RAM differs only at `SBPTACC` `$076C/$076D` and stack byte `$1A1E`;
+  bank, waits, and flags are exact.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,708, with 25 evidence-backed X/Y-flag oracle limitations.
+- NEXT: retain the fourteenth fade body through frame 51.
+
+---
+
 ## 2026-07-21 handoff (#416 twelfth palette fade)
 
 - Defended GEMS coverage advances to frames 0..49; the authoritative frontier
