@@ -600,6 +600,17 @@ mask the render.
 
 ### #409
 
+Correction 2026-07-21: the 273-cycle frame-139 `StopMusic` entry difference
+is not missing native work. The earlier hidden-register trace already proves
+the first causal split is jgenesis preserving stale undocumented Z80 X/Y
+flags after `SUB`, while native copies result bits as documented hardware
+does. Manufacturing oracle bank waits is therefore rejected. The persistent
+timeline now runs `StopMusic` from its native beam/phase instead: the reset
+retains its source-derived 229,574-cycle duration and 1,509 refresh events,
+releases at native cycle 18,018,301 / phase 114, and leaves reset deasserted
+with no pending bank wait. NEXT: source-schedule `loc_6E2 -> Load_TitleScreen`
+to the existing frame-171 Ice queue scheduler.
+
 Progress 2026-07-21: the persistent title timeline reaches frame 139's
 `StopMusic $E14C8` entry. Frames 126-138 complete IntroText1's published
 `WAS A` cadence, including spaces and the `$FFFC->$FFC9` RNG-ring wrap; every
@@ -610,8 +621,8 @@ pins all 17 transition instructions: the cold sequence counter wraps 2 -> 0,
 `Game_Mode` becomes `$2C`, and the `j_StopMusic` thunk enters `$E14C8` at
 17,789,000 / refresh phase 32. The source path is 183 instructions / 2,166
 raw cycles; native reaches the same boundary at 17,788,727 / phase 44, 273
-cycles early with zero GEMS waits. NEXT: derive the missing title bank waits,
-then join this persistent path to the existing absolute StopMusic scheduler.
+cycles early with zero GEMS waits. This entry was initially treated as a
+missing-wait frontier; the correction above supersedes that interpretation.
 
 Correction 2026-07-21: direct jgenesis tracing at `sub_1C246` shows
 `bclr #7,(Ctrl_1_Pressed).w` consumes 20 source cycles, superseding the

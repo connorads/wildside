@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 hardware-faithful frame-139 reset)
+
+- The 273-cycle `StopMusic` entry difference is the already-proven jgenesis
+  undocumented-flag limitation, not missing native bank waits.
+- The persistent route runs `StopMusic` from native cycle 17,788,727 / phase
+  44 without fitting time to the oracle boundary.
+- The reset retains 229,574 source cycles and 1,509 refresh events, exits at
+  18,018,301 / phase 114, deasserts reset, and leaves no pending bank wait.
+- NEXT: source-schedule `loc_6E2 -> Load_TitleScreen` to frame 171's Ice queue.
+
+---
+
 ## 2026-07-21 handoff (#409 frame-139 Start transition)
 
 - Frames 126-138 complete IntroText1's published `WAS A` cadence with every

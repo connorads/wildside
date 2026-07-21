@@ -4466,12 +4466,40 @@ mod tests {
         assert_eq!(start_transition.external_wait_cycles.get(), 0);
         // Oracle frame 139 enters Execute_Objects at 17,786,682, reaches
         // sub_1C246 at 17,788,766, and enters StopMusic at 17,789,000.
-        // Native reaches the same source boundary 273 cycles early because
-        // the divergent title GEMS state still emits none of the oracle waits.
+        // Native reaches the same source boundary 273 cycles early. #409's
+        // hidden-register trace attributes the Z80 phase split to jgenesis
+        // preserving stale undocumented X/Y flags after `SUB`; native follows
+        // documented hardware and therefore must not manufacture oracle waits.
         assert_eq!(
             engine.master_clock(),
             17_788_727 * 7,
             "frame-139 Start-to-StopMusic ledger: {start_transition:?}",
+        );
+
+        let (native_stop_timing, native_stop_advance) =
+            apply_timed_gems_stop_music_from_absolute_entry(
+                &mut engine,
+                polls,
+                start_transition.cursor.refresh_phase,
+                M68kCycleCount::from_raw(17_788_727),
+            )
+            .expect("hardware-faithful frame-139 StopMusic schedule");
+        assert_eq!(
+            native_stop_timing.elapsed_cycles,
+            M68kCycleCount::from_raw(229_574),
+        );
+        assert_eq!(native_stop_timing.refresh_wait_events, 1_509);
+        assert_eq!(
+            native_stop_timing.phase_after,
+            M68kRefreshPhase::new(114).unwrap()
+        );
+        assert!(native_stop_advance.banked_68k_reads.is_empty());
+        assert_eq!(native_stop_advance.pending_m68k_wait_cycles, 0);
+        assert!(!engine.checkpoint().reset);
+        assert_eq!(
+            engine.master_clock(),
+            18_018_301 * 7,
+            "hardware-faithful frame-139 StopMusic exit",
         );
     }
 
