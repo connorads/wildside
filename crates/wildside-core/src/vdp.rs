@@ -4647,6 +4647,46 @@ pub fn decompress_to_vram_transfer_cursor_loc_14314_with_scheduler(
     output_words: u16,
     vint_count: u8,
     exit: DecompressToVramTransferExit,
+    advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<DecompressToVramTransferAdvance> {
+    decompress_to_vram_transfer_cursor_loc_14314_with_display_mode_scheduler(
+        entry,
+        output_words,
+        vint_count,
+        exit,
+        true,
+        advance_hardware,
+    )
+}
+
+/// Co-schedule `DecompressToVRAM loc_14314` while VDP display is disabled.
+///
+/// ASM `Load_SegaScreen` writes register 1 as `$8134` before uploading its
+/// logo. The blanked VDP drains each word before the next 22-cycle
+/// `move.w`/`dbf` pair, so the 68000 never waits on a full FIFO.
+pub fn decompress_to_vram_transfer_display_disabled_cursor_loc_14314_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    output_words: u16,
+    vint_count: u8,
+    exit: DecompressToVramTransferExit,
+    advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<DecompressToVramTransferAdvance> {
+    decompress_to_vram_transfer_cursor_loc_14314_with_display_mode_scheduler(
+        entry,
+        output_words,
+        vint_count,
+        exit,
+        false,
+        advance_hardware,
+    )
+}
+
+fn decompress_to_vram_transfer_cursor_loc_14314_with_display_mode_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    output_words: u16,
+    vint_count: u8,
+    exit: DecompressToVramTransferExit,
+    display_enabled: bool,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
 ) -> Option<DecompressToVramTransferAdvance> {
     if output_words == 0 {
@@ -4677,7 +4717,9 @@ pub fn decompress_to_vram_transfer_cursor_loc_14314_with_scheduler(
             false,
             &mut advance_hardware,
         )?;
-        fifo.push_word();
+        if display_enabled {
+            fifo.push_word();
+        }
         drain_decompress_to_vram_wait(
             generated_wait,
             &mut fifo,
@@ -7900,6 +7942,35 @@ mod tests {
         assert_eq!(
             vblank.cursor.refresh_phase,
             M68kRefreshPhase::new(98).unwrap()
+        );
+    }
+
+    #[test]
+    fn sega_logo_loc_14314_uses_display_disabled_fifo_bandwidth() {
+        let advance = decompress_to_vram_transfer_display_disabled_cursor_loc_14314_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                // ASM Load_SegaScreen $12DDA writes VDP register 1 as
+                // $8134 before DecompressToVRAM loc_14314. Selected-PC
+                // oracle tracing pins the first transfer at cycle
+                // 4,161,724 and return at cycle 4,178,922.
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(4_161_724)),
+                refresh_phase: M68kRefreshPhase::new(10).unwrap(),
+            },
+            768,
+            0,
+            DecompressToVramTransferExit::Return,
+            |_, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("display-disabled Sega logo transfer schedule");
+
+        assert_eq!(advance.fifo_halted_ticks, M68kCycleCount::from_raw(0));
+        assert_eq!(
+            advance.cursor.beam,
+            h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(4_178_922)),
+        );
+        assert_eq!(
+            advance.cursor.refresh_phase,
+            M68kRefreshPhase::new(56).unwrap()
         );
     }
 

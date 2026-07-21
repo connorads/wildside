@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 Sega-logo decompression)
+
+- ASM `Load_SegaScreen` disables display with `$8134` before the Sega-logo
+  `DecompressToVRAM` call.
+- The decoder reaches `loc_14314` at cycle 4,161,724; its 768-word blanked
+  transfer has zero FIFO stalls and returns exactly at cycle 4,178,922.
+- The active-display transfer model was 24,336 cycles late and now has an
+  explicit display-disabled scheduler mode plus regression coverage.
+- Defended GEMS coverage remains frames 0..32. A provisional generic title
+  palette bridge did not match frame 33 and was discarded.
+- NEXT: source-schedule `loc_12DFE` through `loc_12E48`, then derive the first
+  `Palette_to_VRAM` BUSREQ/DMA state at frame 33.
+
+---
+
 ## 2026-07-21 handoff (#416 Sega-screen `StopMusic`)
 
 - `gems_frame_signature_v1` now defends frames 0..32 and

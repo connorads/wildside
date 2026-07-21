@@ -518,7 +518,8 @@ documented jgenesis X/Y-flag limitation below. Signatures past the edge are
 still emitted by the coarse
 continuous route replayer and compared so divergence is measured, not hidden,
 but never claimed as modelled. The first unmodelled boundary is frame 33,
-after the second `StopMusic`, inside `Load_SegaScreen -> DecompressToVRAM`.
+after the exact blank-display `Load_SegaScreen -> DecompressToVRAM` upload,
+at the first `Palette_to_VRAM` arbitration path.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.

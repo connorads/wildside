@@ -838,6 +838,38 @@ pub fn apply_gems_decompress_to_vram_transfer_loc_14314(
     )
 }
 
+/// Clock ASM `DecompressToVRAM loc_14314` with VDP display disabled.
+///
+/// `Load_SegaScreen` sets register 1 to `$8134`, giving the FIFO enough
+/// blanking bandwidth that its logo upload does not halt the 68000.
+#[cfg(feature = "audio")]
+pub fn apply_gems_decompress_to_vram_transfer_display_disabled_loc_14314(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    output_words: u16,
+    vint_count: u8,
+    exit: wildside_core::vdp::DecompressToVramTransferExit,
+) -> Option<DecompressToVramTransferAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::decompress_to_vram_transfer_display_disabled_cursor_loc_14314_with_scheduler(
+        entry,
+        output_words,
+        vint_count,
+        exit,
+        |cycles, vdp_owns_bus| {
+            audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                u64::from(cycles.get()) * 7,
+                vdp_owns_bus,
+            );
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
 /// Clock ASM `DecompressToVRAM loc_14300` through its first transfer entry,
 /// servicing the requested recurring VINT count.
 #[cfg(feature = "audio")]

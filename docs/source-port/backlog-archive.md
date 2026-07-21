@@ -336,6 +336,17 @@ TAS verification keeps pixel/gameplay/enemy/RNG baselines green, reduces GEMS
 mismatches 37,729 -> 37,726, records seven total oracle limitations, and
 moves the first authoritative mismatch 30 -> 33.
 
+Progress 2026-07-21: `Load_SegaScreen`'s Sega-logo Saxman decoder is now
+source-scheduled from the second `StopMusic` return. Oracle selected-PC
+tracing pins `loc_14300` at cycle 4,098,616, the first 768-word transfer at
+4,161,724, and `return_14334` at 4,178,922. The existing active-display FIFO
+scheduler was 24,336 cycles late because ASM writes VDP register 1 as `$8134`
+before this upload; the new display-disabled mode has zero FIFO halt ticks and
+lands on the exact return beam/refresh cursor. Defended coverage remains
+frames 0..32: frame 33 next crosses `loc_12DFE`, `loc_12E48`, and the first
+`Palette_to_VRAM` BUSREQ/DMA path. A provisional title-path palette adapter
+did not reproduce oracle GEMS state and was rejected rather than ratcheted.
+
 ---
 
 ### #417

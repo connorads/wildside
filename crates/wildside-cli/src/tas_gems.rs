@@ -27,6 +27,8 @@ use wildside_core::{
 use wildside_data::AssetManifest;
 use wildside_frame::{
     NativeAudioDirector, NativeAudioSink, TimedGemsStopMusicCursor, TimedGemsTitleLoc700Cursor,
+    apply_gems_decompress_to_vram_decoder_loc_14300, apply_gems_decompress_to_vram_setup_sub_142cc,
+    apply_gems_decompress_to_vram_transfer_display_disabled_loc_14314,
     apply_gems_power_on_post_clear_reset, apply_gems_power_on_z80_startup,
 };
 use wildside_md::{GemsMasterClockTimingEngine, GemsNtscTimelineOrigin, GemsTimingCheckpoint};
@@ -102,6 +104,7 @@ struct GemsSignatureProbe {
     power_on_frame: usize,
     power_on_stop_music: Option<TimedGemsStopMusicCursor>,
     power_on_vram_clear: Option<TimedGemsTitleLoc700Cursor>,
+    power_on_sega_logo_compressed: Vec<u8>,
 }
 
 impl GemsSignatureProbe {
@@ -118,6 +121,9 @@ impl GemsSignatureProbe {
             power_on_frame: 0,
             power_on_stop_music: None,
             power_on_vram_clear: None,
+            // ASM ArtComp_12F30_Sega (runtime-rom-assets.txt): the source
+            // stream is $36E bytes beginning at ROM $12F30.
+            power_on_sega_logo_compressed: rom[0x12F30..0x1329E].to_vec(),
         })
     }
 
@@ -128,6 +134,7 @@ impl GemsSignatureProbe {
             power_on_frame: 0,
             power_on_stop_music: None,
             power_on_vram_clear: None,
+            power_on_sega_logo_compressed: Vec::new(),
         })
     }
 
@@ -297,6 +304,77 @@ impl GemsSignatureProbe {
                 timing,
                 stop_music_entry_master_clock,
             ));
+        }
+        if self.power_on_frame == 32 {
+            // ASM Load_SegaScreen $12DD6..$12DEC -> DecompressToVRAM
+            // sub_142CC/loc_14300/loc_14314. Selected-PC oracle tracing pins
+            // the post-StopMusic caller entry and the completed 781-word
+            // Sega-logo transfer on this frame.
+            const STOP_MUSIC_RETURN_CYCLES: u64 = 4_098_348;
+            let mut stop_music = self
+                .power_on_stop_music
+                .take()
+                .expect("second StopMusic reaches Load_SegaScreen caller");
+            stop_music
+                .advance_to_master_clock(&mut self.engine, STOP_MUSIC_RETURN_CYCLES * 7)
+                .expect("second StopMusic reaches its exact return");
+            let entry = wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::H40BeamPosition::new(4, 1_476)
+                    .expect("oracle post-StopMusic beam"),
+                refresh_phase: M68kRefreshPhase::new(122)
+                    .expect("oracle post-StopMusic refresh phase"),
+            };
+            let setup = apply_gems_decompress_to_vram_setup_sub_142cc(
+                &mut self.engine,
+                entry,
+                &[16, 16, 8, 8, 18],
+            )
+            .expect("ASM Load_SegaScreen reaches loc_14300");
+            // The setup cursor retains sub_142CC's final 24-cycle VDP hold;
+            // the decoder drains it before executing loc_14300.
+            let decoder = apply_gems_decompress_to_vram_decoder_loc_14300(
+                &mut self.engine,
+                setup.cursor,
+                &self.power_on_sega_logo_compressed,
+                None,
+                0,
+            )
+            .expect("ASM loc_14300 decodes the Sega logo");
+            assert_eq!(decoder.timing.output_bytes, 1_536, "oracle Sega logo bytes");
+            assert_eq!(
+                self.engine.master_clock() / 7,
+                4_161_724,
+                "oracle loc_14314 cycle"
+            );
+            assert_eq!(
+                decoder.cursor.beam.scanline(),
+                134,
+                "oracle transfer scanline"
+            );
+            assert_eq!(
+                decoder.cursor.beam.scanline_mclk(),
+                508,
+                "oracle transfer mclk"
+            );
+            let transfer = apply_gems_decompress_to_vram_transfer_display_disabled_loc_14314(
+                &mut self.engine,
+                decoder.cursor,
+                decoder.timing.output_bytes / 2,
+                0,
+                wildside_core::vdp::DecompressToVramTransferExit::Return,
+            )
+            .expect("ASM loc_14314 uploads the Sega logo");
+            assert_eq!(
+                self.engine.master_clock() / 7,
+                4_178_922,
+                "oracle DecompressToVRAM return cycle"
+            );
+            assert_eq!(
+                transfer.cursor.beam.scanline(),
+                169,
+                "oracle return scanline"
+            );
+            assert_eq!(self.engine.z80_pc(), 1_992, "oracle return Z80 PC");
         }
         if let Some(cursor) = &mut self.power_on_vram_clear {
             cursor
@@ -903,6 +981,7 @@ mod tests {
             power_on_frame: 0,
             power_on_stop_music: None,
             power_on_vram_clear: None,
+            power_on_sega_logo_compressed: Vec::new(),
         };
 
         probe.step_frame();
@@ -934,6 +1013,7 @@ mod tests {
             power_on_frame: 0,
             power_on_stop_music: None,
             power_on_vram_clear: None,
+            power_on_sega_logo_compressed: Vec::new(),
         };
         probe.step_frame();
         let signature = probe.sample_at_frame_rendered();
@@ -970,6 +1050,7 @@ mod tests {
             power_on_frame: 0,
             power_on_stop_music: None,
             power_on_vram_clear: None,
+            power_on_sega_logo_compressed: Vec::new(),
         };
 
         let frame_zero = probe.sample_power_on_frame_rendered();
