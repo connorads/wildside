@@ -371,6 +371,21 @@ repeated path. Full TAS verification keeps pixel/gameplay/enemy/RNG baselines
 fixed, reduces GEMS mismatches 37,725 -> 37,722, and records eleven total
 oracle limitations.
 
+Progress 2026-07-21: GEMS coverage advances from 37 to 39 defended frames.
+An opt-in `oracle-probe --capture-gems-state` manifest field now exports raw
+per-frame 8 KiB GEMS RAM without bloating normal signature-only TAS runs.
+Frame 37, after Start takes `loc_12EDE -> loc_6E2 -> Pal_FadeOut loc_28C6`,
+differs only at `SBPTACC+1` `$076D` and stack bytes `$1A1C..$1A1F`; native and
+oracle CRCs are `2303828415`/`1793554122`. Frame 38 source-schedules the first
+fade `Palette_to_VRAM` call from cycle 4,852,120, beam 237:820, refresh phase
+104. Its RAM is byte-exact except the established `$003E` saved-SP byte
+(`$1C` native/hardware versus `$1E` jgenesis), with native/oracle CRCs
+`2059086427`/`1171788502`; bank, waits, and flags match. Full TAS keeps the
+26,382-exact / 11,377-divergent pixel baseline and all gameplay/RNG/enemy
+frontiers fixed, reduces GEMS mismatches 37,722 -> 37,720, records 13 oracle
+limitations, and moves the first authoritative mismatch to frame 39. NEXT:
+retain the next `Pal_FadeOut loc_28C6` body.
+
 ---
 
 ### #417

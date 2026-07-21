@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 Sega exit and first palette fade)
+
+- Defended GEMS coverage advances to frames 0..38; the authoritative frontier
+  is frame 39 in the continuing `Pal_FadeOut loc_28C6` loop.
+- Opt-in oracle-probe raw GEMS RAM localises frame 37 to `SBPTACC+1` `$076D`
+  and four active stack bytes. Frame 38 differs only at saved-SP byte `$003E`.
+- The first fade `Palette_to_VRAM` call is source-scheduled from its BSR
+  boundary and matches bank, waits, flags, and all other RAM.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,720, with 13 evidence-backed X/Y-flag oracle limitations.
+- NEXT: retain the next `Pal_FadeOut` body through frame 39.
+
+---
+
 ## 2026-07-21 handoff (#416 repeated Sega-screen passes)
 
 - Defended GEMS coverage advances to frames 0..36; the authoritative frontier

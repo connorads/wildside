@@ -507,19 +507,20 @@ Pinned against the pinned jgenesis, never fitted:
 ### Coverage semantics
 
 The report declares `coverage.modelled_frames`: the edge up to which the
-native per-frame GEMS timeline is *defended* as faithful. It is 37: frames
-0..36 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
+native per-frame GEMS timeline is *defended* as faithful. It is 39: frames
+0..38 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
 power-on clears, the blank-display Sega-logo upload, and the first outer
-`Mode_Standard` DMA/VINT pass plus three local `loc_12E6C` iterations. A
+`Mode_Standard` DMA/VINT pass plus three local `loc_12E6C` iterations, the
+Start exit, and the first `Pal_FadeOut loc_28C6` palette upload. A
 resumable cursor preserves the two `FrameRendered` samples inside
 `sub_E13DA`, materialising each `loc_E1400` driver byte and `loc_E1406` clear
 when its M68K write instruction starts, including the active one-cycle Z80-RAM
-wait. Frames 16, 19, 20, 22, 25, 28, 30, and 33..36 each have one strict residual from the
+wait. Frames 16, 19, 20, 22, 25, 28, 30, and 33..38 each have one strict residual from the
 documented jgenesis X/Y-flag limitation below. Signatures past the edge are
 still emitted by the coarse
 continuous route replayer and compared so divergence is measured, not hidden,
-but never claimed as modelled. The first unmodelled boundary is frame 37,
-where `Load_SegaScreen` leaves the repeated `loc_12E6C` path.
+but never claimed as modelled. The first unmodelled boundary is frame 39 in
+the continuing `Pal_FadeOut` loop.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.
@@ -531,7 +532,9 @@ instructions; real Z80 hardware (and the native core) copy bits 5/3 from the
 result. GEMS `CP B` at `$01E2` first exposes this on frame 16: the flag split
 shifts IRQ boundaries and changes only `$003E`'s saved-SP byte on frames 16,
 19, 20, 22, 25, and 28. Frame 30 catches the same stale flag directly at
-stack byte `$1A1C`. Later,
+stack byte `$1A1C`. Frame 37 catches the carried phase in `CHECKTICK/VBLINT`
+at `$076D` and `$1A1C..$1A1F`; frame 38 retains only `$003E` plus PC phase.
+Later,
 `SUB 1` at `$07B3` leaves the oracle at `$02AA` where hardware reaches `$02AE`.
 A residual reclassifies as `oracle_limitation` only for those exact frame/CRC
 or PC pairs when every other strict field is byte-equal; anything broader

@@ -110,6 +110,10 @@ pub struct OracleManifest {
     pub frame_rng_states: Vec<Option<wildside_core::RomRandomFrameState>>,
     #[serde(default)]
     pub gems_frame_signatures: Vec<Option<wildside_core::GemsFrameSignature>>,
+    /// Raw 8 KiB GEMS RAM at each `FrameRendered` boundary, populated only by
+    /// the explicit `oracle-probe --capture-gems-state` diagnostic path.
+    #[serde(default)]
+    pub gems_frame_audio_ram: Vec<Option<Vec<u8>>>,
     #[serde(default)]
     pub memory_watches: Vec<HashMap<String, i64>>,
     #[serde(default)]
@@ -1828,6 +1832,12 @@ mod tests {
             "per-frame GEMS signatures must stay opt-in, CRC the 8 KiB driver RAM \
              helper-side, and map the bank register to a 68000 base address"
         );
+        assert!(
+            HELPER_TEMPLATE.contains("if capture_gems_state {")
+                && HELPER_TEMPLATE
+                    .contains("gems_frame_audio_ram.push(Some(checkpoint.audio_ram.clone()))"),
+            "raw per-frame GEMS RAM must stay behind --capture-gems-state",
+        );
         let source = include_str!("oracle.rs");
         assert!(
             source.contains("pub fn wildside_gems_checkpoint_now"),
@@ -1856,10 +1866,15 @@ mod tests {
                 "ym2612_mclk_counter": 18,
                 "status_bits": 0x30,
             }],
+            "gems_frame_audio_ram": [null, [0x12, 0x34]],
         }))
         .expect("manifest should parse per-frame GEMS signatures");
 
         assert_eq!(manifest.gems_frame_signatures.len(), 2);
+        assert_eq!(
+            manifest.gems_frame_audio_ram,
+            vec![None, Some(vec![0x12, 0x34])]
+        );
         assert_eq!(manifest.gems_frame_signatures[0], None);
         let signature = manifest.gems_frame_signatures[1].expect("captured frame");
         assert_eq!(signature.audio_ram_crc32, 0x89AB_CDEF);
