@@ -467,6 +467,16 @@ oracle limitations are recorded, and the first authoritative frontier moves
 to frame 49. Full pixel, gameplay, RNG, and enemy baselines remain fixed.
 NEXT: retain the twelfth fade body.
 
+Progress 2026-07-21: the twelfth `Pal_FadeOut loc_28C6` palette upload is
+source-scheduled from cycle 6,260,193, beam 237:111, refresh phase 70. Frame
+49 native/oracle CRCs are `1280226655`/`4171928418` and PCs are
+`$0B48`/`$0B4B`; raw RAM differs only at `SBPTACC` `$076C`, while bank, waits,
+flags, and every other byte are exact. Defended coverage advances 49 -> 50,
+GEMS mismatches fall 37,710 -> 37,709, 24 exact oracle limitations are
+recorded, and the first authoritative frontier moves to frame 50. Full pixel,
+gameplay, RNG, and enemy baselines remain fixed. NEXT: retain the thirteenth
+fade body.
+
 Progress 2026-07-21: the fifth `Pal_FadeOut loc_28C6` palette upload is
 source-scheduled from cycle 5,364,160, beam 237:940, refresh phase 70. Frame
 42 native/oracle CRCs are `2240045277`/`2240142489` and PCs are
