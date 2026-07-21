@@ -600,6 +600,18 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the restart clear is exact through `loc_726`.
+`loc_700/loc_70E` source-schedules all 16,384 longword writes as 32,768 VRAM
+FIFO words, including 788,624 FIFO-halt ticks, 1,274 refresh events, and nine
+recurring VINTs; native and oracle both reach `loc_714` at 21,366,148 / phase
+54. `loc_714/loc_720` then clears all 32,225 Sprite_Table words over 64,453
+instructions / 580,078 raw cycles, 4,607 refreshes, and four VINTs; both reach
+`loc_726` at 21,955,896 / phase 106. The scheduler explicitly starts these
+loops VINT-disarmed because their entry frame's interrupt was already
+acknowledged; starting armed double-counted the entry VINT and missed the final
+real one. NEXT: schedule both slot initialisers, `sub_8A4`, and
+`Load_TitleScreen` to the frame-171 Ice queue.
+
 Progress 2026-07-21: the title timeline now completes `Pal_FadeOut`. It
 composes the proven wait, delay, CRAM DMA, and full-dirty `sub_14C0` schedules
 for all 17 bodies: 15 further non-negative iterations after the first, then

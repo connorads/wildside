@@ -1660,6 +1660,34 @@ pub fn apply_gems_title_palette_to_vram_call(
     })
 }
 
+/// Clock the `loc_700/loc_70E` CPU-driven full-VRAM clear.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_loc_700_vram_clear(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleMemoryDmaAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_loc_700_vram_clear_cursor_with_scheduler(entry, |event| {
+        Some(apply_gems_title_memory_dma_hardware_event(audio, event))
+    })
+}
+
+/// Clock the `loc_714/loc_720` Sprite_Table clear.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_loc_714_sprite_table_clear(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleMemoryDmaAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_loc_714_sprite_table_clear_cursor_with_scheduler(entry, |event| {
+        Some(apply_gems_title_memory_dma_hardware_event(audio, event))
+    })
+}
+
 #[cfg(feature = "audio")]
 fn apply_gems_title_memory_dma_hardware_event(
     audio: &mut GemsMasterClockTimingEngine,
@@ -4919,6 +4947,45 @@ mod tests {
             engine.master_clock(),
             20_213_462 * 7,
             "Pal_FadeOut loc_700 boundary; oracle reaches 20,213,464 / phase 80",
+        );
+
+        let vram_clear = apply_gems_title_loc_700_vram_clear(&mut engine, fade_return.cursor)
+            .expect("loc_700/loc_70E full-VRAM clear");
+        assert_eq!(vram_clear.timing.instruction_count, 32_771);
+        assert_eq!(vram_clear.timing.raw_cycles.get(), 360_488);
+        assert_eq!(vram_clear.refresh_events, 1_274);
+        assert_eq!(vram_clear.external_wait_cycles.get(), 0);
+        assert_eq!(vram_clear.fifo_halt_cycles.get(), 788_624);
+        assert_eq!(vram_clear.dma_halt_cycles.get(), 0);
+        assert_eq!(vram_clear.vint_events, 9);
+        assert_eq!(
+            vram_clear.cursor.refresh_phase,
+            M68kRefreshPhase::new(54).unwrap()
+        );
+        assert_eq!(
+            engine.master_clock(),
+            21_366_148 * 7,
+            "loc_714 boundary; oracle reaches 21,366,148 / phase 54",
+        );
+
+        let sprite_table_clear =
+            apply_gems_title_loc_714_sprite_table_clear(&mut engine, vram_clear.cursor)
+                .expect("loc_714/loc_720 Sprite_Table clear");
+        assert_eq!(sprite_table_clear.timing.instruction_count, 64_453);
+        assert_eq!(sprite_table_clear.timing.raw_cycles.get(), 580_078);
+        assert_eq!(sprite_table_clear.refresh_events, 4_607);
+        assert_eq!(sprite_table_clear.external_wait_cycles.get(), 0);
+        assert_eq!(sprite_table_clear.fifo_halt_cycles.get(), 0);
+        assert_eq!(sprite_table_clear.dma_halt_cycles.get(), 0);
+        assert_eq!(sprite_table_clear.vint_events, 4);
+        assert_eq!(
+            sprite_table_clear.cursor.refresh_phase,
+            M68kRefreshPhase::new(106).unwrap()
+        );
+        assert_eq!(
+            engine.master_clock(),
+            21_955_896 * 7,
+            "loc_726 boundary exactly matches oracle selected-PC timing and refresh phase",
         );
     }
 

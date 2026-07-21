@@ -3252,7 +3252,9 @@ pub struct TitleMemoryDmaAdvance {
     pub timing: crate::intro_timing::IntroSourceTiming,
     pub refresh_events: u32,
     pub external_wait_cycles: M68kCycleCount,
+    pub fifo_halt_cycles: M68kCycleCount,
     pub dma_halt_cycles: M68kCycleCount,
+    pub vint_events: u8,
 }
 
 pub type TitlePaletteHardwareEvent = TitleMemoryDmaHardwareEvent;
@@ -4234,7 +4236,37 @@ pub fn title_palette_to_vram_call_cursor_with_scheduler(
 ) -> Option<TitlePaletteToVramAdvance> {
     title_memory_dma_routine_cursor_with_scheduler(
         entry,
+        0,
+        true,
         |visit| crate::intro_timing::visit_palette_to_vram_call(visit),
+        &mut advance_hardware,
+    )
+}
+
+/// Co-schedule the `loc_700/loc_70E` CPU-driven full-VRAM clear.
+pub fn title_loc_700_vram_clear_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        9,
+        false,
+        |visit| crate::intro_timing::visit_loc_700_vram_clear(visit),
+        &mut advance_hardware,
+    )
+}
+
+/// Co-schedule the `loc_714/loc_720` Sprite_Table clear.
+pub fn title_loc_714_sprite_table_clear_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        4,
+        false,
+        |visit| crate::intro_timing::visit_loc_714_sprite_table_clear(visit),
         &mut advance_hardware,
     )
 }
@@ -4254,6 +4286,8 @@ pub fn title_mode_standard_sprite_and_kid_to_vram_cursor_with_scheduler(
 ) -> Option<TitleMemoryDmaAdvance> {
     title_memory_dma_routine_cursor_with_scheduler(
         entry,
+        0,
+        true,
         |visit| crate::intro_timing::visit_mode_standard_sprite_and_kid_to_vram(visit),
         &mut advance_hardware,
     )
@@ -4266,6 +4300,8 @@ pub fn title_mode_standard_scroll_data_to_vram_cursor_with_scheduler(
 ) -> Option<TitleMemoryDmaAdvance> {
     title_memory_dma_routine_cursor_with_scheduler(
         entry,
+        0,
+        true,
         |visit| crate::intro_timing::visit_mode_standard_scroll_data_to_vram(visit),
         &mut advance_hardware,
     )
@@ -4278,6 +4314,8 @@ pub fn title_first_read_joypad_cursor_with_scheduler(
 ) -> Option<TitleMemoryDmaAdvance> {
     title_memory_dma_routine_cursor_with_scheduler(
         entry,
+        0,
+        true,
         |visit| crate::intro_timing::visit_title_first_read_joypad(visit),
         &mut advance_hardware,
     )
@@ -4285,6 +4323,8 @@ pub fn title_first_read_joypad_cursor_with_scheduler(
 
 fn title_memory_dma_routine_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
+    vint_count: u8,
+    vint_initially_armed: bool,
     visit_timing: impl FnOnce(
         &mut dyn FnMut(crate::intro_timing::MemoryDmaTimingEvent),
     ) -> crate::intro_timing::IntroSourceTiming,
@@ -4294,7 +4334,10 @@ fn title_memory_dma_routine_cursor_with_scheduler(
     let mut phase = entry.refresh_phase;
     let mut refresh_events = 0_u32;
     let mut external_wait_cycles = 0_u32;
+    let mut fifo_halt_cycles = 0_u32;
     let mut dma_halt_cycles = 0_u32;
+    let mut vint = DecompressToVramVintTracker::new(vint_count);
+    vint.armed = vint_initially_armed;
     let mut scheduling_failed = false;
 
     let timing = visit_timing(&mut |event| {
@@ -4303,6 +4346,35 @@ fn title_memory_dma_routine_cursor_with_scheduler(
         }
         match event {
             crate::intro_timing::MemoryDmaTimingEvent::Instruction(raw_cycles) => {
+                vint.rearm_after_frame_wrap(fifo.beam.scanline);
+                if vint.remaining != 0 && vint.armed && fifo.beam.scanline >= 224 {
+                    for vint_cycles in [10, 44, 28, 12, 20] {
+                        let mut advance = |cycles, vdp_owns_bus, source_instruction| {
+                            advance_hardware(TitleMemoryDmaHardwareEvent::Advance {
+                                cycles,
+                                vdp_owns_bus,
+                                source_instruction,
+                            })
+                        };
+                        let Some(generated_wait) =
+                            advance_decompress_source_instruction_with_interval_kind(
+                                vint_cycles,
+                                &mut fifo,
+                                &mut phase,
+                                &mut refresh_events,
+                                &mut advance,
+                            )
+                        else {
+                            scheduling_failed = true;
+                            return;
+                        };
+                        external_wait_cycles = external_wait_cycles
+                            .checked_add(generated_wait)
+                            .expect("title VINT external waits fit u32");
+                    }
+                    vint.remaining -= 1;
+                    vint.armed = false;
+                }
                 let mut advance = |cycles, vdp_owns_bus, source_instruction| {
                     advance_hardware(TitleMemoryDmaHardwareEvent::Advance {
                         cycles,
@@ -4336,6 +4408,26 @@ fn title_memory_dma_routine_cursor_with_scheduler(
                     3,
                     matches!(target, crate::intro_timing::MemoryToVdpDmaTarget::Vram),
                 );
+                while fifo.pending_words != 0 {
+                    let halt = M68kCycleCount::from_raw(1);
+                    fifo.advance_m68k_cycles(halt);
+                    if advance_hardware(TitleMemoryDmaHardwareEvent::Advance {
+                        cycles: halt,
+                        vdp_owns_bus: true,
+                        source_instruction: false,
+                    })
+                    .is_none_or(|wait| wait.get() != 0)
+                    {
+                        scheduling_failed = true;
+                        return;
+                    }
+                    fifo_halt_cycles = fifo_halt_cycles
+                        .checked_add(1)
+                        .expect("title FIFO halt fits u32");
+                    // Pinned jgenesis resets the approximate refresh counter
+                    // on every tick where VDP FIFO backpressure owns the CPU.
+                    phase = M68kRefreshPhase::new(0).expect("zero is a valid refresh phase");
+                }
             }
             crate::intro_timing::MemoryDmaTimingEvent::BeginMemoryDma { words, target } => {
                 fifo.begin_memory_dma(words, target);
@@ -4377,7 +4469,9 @@ fn title_memory_dma_routine_cursor_with_scheduler(
         timing,
         refresh_events,
         external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
+        fifo_halt_cycles: M68kCycleCount::from_raw(fifo_halt_cycles),
         dma_halt_cycles: M68kCycleCount::from_raw(dma_halt_cycles),
+        vint_events: vint_count - vint.remaining,
     })
 }
 

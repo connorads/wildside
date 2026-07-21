@@ -1466,6 +1466,97 @@ pub fn visit_palette_fade_return_to_loc_700(mut visit: impl FnMut(u32)) -> Intro
     }
 }
 
+/// Visit the complete `loc_700/loc_70E` CPU-driven VRAM clear.
+///
+/// ASM `loc_700` selects VRAM address zero and seeds `d0=$3FFF`, `d1=0`.
+/// `loc_70E` then writes 16,384 zero longwords to the VDP data port. Each
+/// longword occupies two FIFO words; the caller must schedule both writes so
+/// FIFO backpressure remains visible to the 68000 and GEMS clocks. The visitor
+/// stops at `loc_714`, before the Sprite_Table clear setup.
+pub fn visit_loc_700_vram_clear(mut visit: impl FnMut(MemoryDmaTimingEvent)) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                timing: &mut IntroSourceTiming,
+                cycles: u32| {
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("loc_700 VRAM-clear timing fits u32"),
+        );
+    };
+
+    // ASM loc_700: VDP command, DBF count, and zero longword.
+    for cycles in [24, 8, 4] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for iteration in 0..0x4000 {
+        // ASM loc_70E: MOVE.L d1,(a6) enqueues two consecutive VRAM words.
+        emit(&mut visit, &mut timing, 12);
+        visit(MemoryDmaTimingEvent::WriteVdpWord {
+            target: MemoryToVdpDmaTarget::Vram,
+        });
+        visit(MemoryDmaTimingEvent::WriteVdpWord {
+            target: MemoryToVdpDmaTarget::Vram,
+        });
+        emit(
+            &mut visit,
+            &mut timing,
+            if iteration == 0x3FFF { 14 } else { 10 },
+        );
+    }
+
+    timing
+}
+
+/// Visit the complete `loc_714/loc_720` Sprite_Table clear.
+///
+/// ASM loads `a0=Sprite_Table`, seeds `d0=$7DE0`, and clears 32,225 words
+/// with an inclusive DBF loop. The visitor stops at $726 before
+/// `Initialize_ObjectSlots`.
+pub fn visit_loc_714_sprite_table_clear(
+    mut visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                timing: &mut IntroSourceTiming,
+                cycles: u32| {
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("loc_714 Sprite_Table-clear timing fits u32"),
+        );
+    };
+
+    // ASM loc_714: LEA Sprite_Table,a0; MOVE.W #$7DE0,d0; MOVEQ #0,d1.
+    for cycles in [12, 8, 4] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for iteration in 0..0x7DE1 {
+        emit(&mut visit, &mut timing, 8);
+        emit(
+            &mut visit,
+            &mut timing,
+            if iteration == 0x7DE0 { 14 } else { 10 },
+        );
+    }
+
+    timing
+}
+
 /// Visit the title path through `Transfer_SpriteAndKidToVRAM`.
 ///
 /// The title has a live sprite-table pointer, `$FB49` clear, and a zero first
@@ -2170,6 +2261,38 @@ mod tests {
         assert_eq!(fade_return.instruction_count, 2);
         assert_eq!(fade_return.raw_cycles, M68kCycleCount::from_raw(32));
         assert_eq!(return_cycles, [16, 16]);
+    }
+
+    #[test]
+    fn loc_700_and_loc_714_clear_full_vram_and_sprite_table_ranges() {
+        let mut vram_events = Vec::new();
+        let vram = visit_loc_700_vram_clear(|event| vram_events.push(event));
+        assert_eq!(vram.instruction_count, 32_771);
+        assert_eq!(vram.raw_cycles, M68kCycleCount::from_raw(360_488));
+        assert_eq!(
+            vram_events
+                .iter()
+                .filter(|event| matches!(
+                    event,
+                    MemoryDmaTimingEvent::WriteVdpWord {
+                        target: MemoryToVdpDmaTarget::Vram
+                    }
+                ))
+                .count(),
+            32_768,
+            "ASM loc_70E writes 16,384 longwords as 32,768 FIFO words",
+        );
+
+        let mut sprite_events = Vec::new();
+        let sprite = visit_loc_714_sprite_table_clear(|event| sprite_events.push(event));
+        assert_eq!(sprite.instruction_count, 64_453);
+        assert_eq!(sprite.raw_cycles, M68kCycleCount::from_raw(580_078));
+        assert!(
+            sprite_events
+                .iter()
+                .all(|event| matches!(event, MemoryDmaTimingEvent::Instruction(_))),
+            "ASM loc_720 clears 68000 RAM and never touches the VDP FIFO",
+        );
     }
 
     #[test]

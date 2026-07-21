@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 restart clears exact)
+
+- `loc_700/loc_70E` schedules 32,768 VRAM FIFO words, 788,624 halt ticks,
+  1,274 refreshes, and nine VINTs; `loc_714` is exact at 21,366,148 / phase 54.
+- `loc_714/loc_720` schedules 32,225 RAM words, 4,607 refreshes, and four
+  VINTs; `loc_726` is exact at 21,955,896 / phase 106.
+- Both loops begin VINT-disarmed because their entry-frame interrupt was
+  already acknowledged.
+- NEXT: schedule both slot initialisers, `sub_8A4`, and `Load_TitleScreen` to
+  the frame-171 Ice queue.
+
+---
+
 ## 2026-07-21 handoff (#409 complete title fade)
 
 - The persistent timeline composes all 17 full-dirty `Pal_FadeOut` bodies,
