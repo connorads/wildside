@@ -539,6 +539,16 @@ byte are exact. Defended coverage advances 55 -> 56, GEMS mismatches fall
 moves past the complete fade to frame 56. Full pixel, gameplay, RNG, and enemy
 baselines remain fixed. NEXT: trace the caller's post-fade path.
 
+Progress 2026-07-21: after the fade returns, `loc_6E2` enters the second
+`loc_700` full-VRAM clear at cycle 7,028,876, beam 238:251, refresh phase 80.
+The existing resumable hardware cursor carries its first span through frame
+56. Native/oracle CRCs are `1694775349`/`2316023397` and PCs are
+`$0B44`/`$02A5`; raw RAM differs only at `SBPTACC` `$076C` and stack byte
+`$1A1E`. Bank, waits, flags, and every other byte are exact. Defended coverage
+advances 56 -> 57, GEMS mismatches fall 37,703 -> 37,702, and 31 exact oracle
+limitations are recorded. Full non-audio baselines remain fixed. NEXT:
+continue the post-fade clear cursor.
+
 Progress 2026-07-21: the fifth `Pal_FadeOut loc_28C6` palette upload is
 source-scheduled from cycle 5,364,160, beam 237:940, refresh phase 70. Frame
 42 native/oracle CRCs are `2240045277`/`2240142489` and PCs are
