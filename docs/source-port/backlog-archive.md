@@ -253,6 +253,22 @@ garbage. Needs an evidence-backed sweep classification (`oracle_limitation`
 with citation, or a decision to load the level) rather than 12 standing
 authoritative blockers that verify nothing.
 
+### #416
+
+Progress 2026-07-21: route-wide GEMS coverage advances from 0 to 14 defended
+frames. Oracle selected-PC tracing pins `EntryPoint`'s power-on control writes:
+BUSREQ/reset boundaries at `$04F6/$04F8/$0506/$0508/$050A`, the 38-byte
+`Z80StartupCodeBegin $0574..$0599` copy, and the post-`ClrRAMLoop` `$0532`
+reset completion at absolute 68000 cycle 369,444. The native absolute-raster
+probe now matches every strict `gems_frame_signature_v1` field on frames
+0..13; the divider phases alone carry the documented instruction-boundary
+jitter. A permanent regression pins frame 0's startup RAM CRC/PC/status and
+frame 3's reset state. The first authoritative mismatch moves to frame 14's
+first `StopMusic -> sub_E13DA` driver copy. NEXT: source-schedule that reset
+transaction while retaining per-frame samples through its multi-frame span.
+
+---
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

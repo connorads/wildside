@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 power-on GEMS route parity)
+
+- `gems_frame_signature_v1` now defends frames 0..13: every strict field
+  matches oracle and `coverage.modelled_frames` advances from 0 to 14.
+- The absolute-raster probe replays `EntryPoint`'s `$04F6..$050A` BUSREQ/reset
+  sequence, copies `Z80StartupCodeBegin`, and reasserts reset at `$0532` after
+  the main-RAM clear.
+- The first route-wide GEMS mismatch moves from frame 0 to frame 14, the first
+  `StopMusic -> sub_E13DA` driver-copy transaction.
+- NEXT: source-schedule the multi-frame frame-14 reset without skipping the
+  intervening `FrameRendered` samples.
+
+---
+
 ## 2026-07-21 handoff (#409 title VRAM fill frontier)
 
 - `Load_TitleScreen loc_1B258` now schedules all 2,048 FIFO words, 4,102

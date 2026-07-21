@@ -40,6 +40,73 @@ pub const AUDIO_SAMPLES_PER_FRAME: usize = 735;
 // Load_TitleScreen's PlaySound/sub_E151C at elapsed 32.
 const TITLE_SCREEN_PLAY_SOUND_ELAPSED_SUB_E151C: usize = 32;
 
+// ASM EntryPoint Z80InitLoop $0500 copies the 38-byte bootstrap from ROM
+// `Z80StartupCodeBegin $0574..$0599`. Selected-PC tracing pins the hardware
+// control writes at the closing boundaries of $04F6/$04F8/$0506/$0508/$050A.
+const Z80_STARTUP_CODE_ROM_RANGE: std::ops::Range<usize> = 0x0574..0x059A;
+const POWER_ON_BUSREQ_ASSERT_COMPLETE_M68K_CYCLES: u64 = 964;
+const POWER_ON_RESET_RELEASE_COMPLETE_M68K_CYCLES: u64 = 972;
+const POWER_ON_RESET_ASSERT_COMPLETE_M68K_CYCLES: u64 = 1_892;
+const POWER_ON_BUSREQ_RELEASE_COMPLETE_M68K_CYCLES: u64 = 1_900;
+const POWER_ON_FINAL_RESET_RELEASE_COMPLETE_M68K_CYCLES: u64 = 1_908;
+const POWER_ON_POST_CLEAR_RESET_ASSERT_COMPLETE_M68K_CYCLES: u64 = 369_444;
+
+/// Replay the ROM's power-on Z80 bootstrap through `EntryPoint $04F6..$050A`.
+///
+/// The engine starts at master clock zero with reset asserted. This adapter
+/// replaces its ordinary synthetic driver preload with power-on-zeroed RAM,
+/// retains the source-positioned BUSREQ/reset windows, and copies
+/// `Z80StartupCodeBegin`; subsequent clocks execute the real bootstrap until
+/// `StopMusic -> sub_E13DA` replaces it with GEMS.
+#[cfg(feature = "audio")]
+pub fn apply_gems_power_on_z80_startup(
+    audio: &mut GemsMasterClockTimingEngine,
+    rom: &[u8],
+) -> Option<()> {
+    const MCLK_PER_M68K_CYCLE: u64 = 7;
+    if audio.ntsc_timeline_origin() != GemsNtscTimelineOrigin::PowerOnScanlineZero
+        || audio.master_clock() != 0
+    {
+        return None;
+    }
+    let startup_code = rom.get(Z80_STARTUP_CODE_ROM_RANGE)?;
+    let advance_to = |m68k_cycles: u64, audio: &mut GemsMasterClockTimingEngine| {
+        audio.advance_ntsc_master_clocks(m68k_cycles * MCLK_PER_M68K_CYCLE - audio.master_clock());
+    };
+
+    advance_to(POWER_ON_BUSREQ_ASSERT_COMPLETE_M68K_CYCLES, audio);
+    audio.set_z80_control(true, true);
+    advance_to(POWER_ON_RESET_RELEASE_COMPLETE_M68K_CYCLES, audio);
+    audio.set_z80_control(true, false);
+    audio.copy_power_on_startup_ram(startup_code);
+    advance_to(POWER_ON_RESET_ASSERT_COMPLETE_M68K_CYCLES, audio);
+    audio.set_z80_control(true, true);
+    advance_to(POWER_ON_BUSREQ_RELEASE_COMPLETE_M68K_CYCLES, audio);
+    audio.set_z80_control(false, true);
+    advance_to(POWER_ON_FINAL_RESET_RELEASE_COMPLETE_M68K_CYCLES, audio);
+    audio.set_z80_control(false, false);
+    Some(())
+}
+
+/// Assert Z80 reset after the power-on main-RAM clear.
+///
+/// ASM `EntryPoint ClrRAMLoop -> $0532` completes this write at absolute
+/// 68000 cycle 369,444, after frame 2's `FrameRendered` sample. The line stays
+/// asserted until the first `StopMusic -> sub_E13DA` call.
+#[cfg(feature = "audio")]
+pub fn apply_gems_power_on_post_clear_reset(audio: &mut GemsMasterClockTimingEngine) -> Option<()> {
+    const MCLK_PER_M68K_CYCLE: u64 = 7;
+    let target = POWER_ON_POST_CLEAR_RESET_ASSERT_COMPLETE_M68K_CYCLES * MCLK_PER_M68K_CYCLE;
+    if audio.ntsc_timeline_origin() != GemsNtscTimelineOrigin::PowerOnScanlineZero
+        || audio.master_clock() > target
+    {
+        return None;
+    }
+    audio.advance_ntsc_master_clocks(target - audio.master_clock());
+    audio.set_z80_control(false, true);
+    Some(())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AudioSampleClock {
     sample_rate: u32,

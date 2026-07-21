@@ -21,8 +21,11 @@ use anyhow::Result;
 use sha1::{Digest, Sha1};
 use wildside_core::{GemsFrameSignature, NativeTraceFrame};
 use wildside_data::AssetManifest;
-use wildside_frame::{NativeAudioDirector, NativeAudioSink};
-use wildside_md::{GemsMasterClockTimingEngine, GemsTimingCheckpoint};
+use wildside_frame::{
+    NativeAudioDirector, NativeAudioSink, apply_gems_power_on_post_clear_reset,
+    apply_gems_power_on_z80_startup,
+};
+use wildside_md::{GemsMasterClockTimingEngine, GemsNtscTimelineOrigin, GemsTimingCheckpoint};
 
 const MASTER_CLOCKS_PER_SCANLINE: u64 = 3_420;
 const NTSC_SCANLINES_PER_FRAME: u64 = 262;
@@ -32,14 +35,12 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 
 /// Frames of the route whose native per-frame GEMS timeline is defended as
-/// faithful. Zero: the continuous route replayer (trace-delta commands applied
-/// at frame boundaries + whole-frame advances) is not yet defended at
-/// per-frame signature granularity anywhere — the title-sequence lane is
-/// validated only at hand-derived instruction checkpoints
-/// (`wildside-frame/src/audio.rs`), not at every `FrameRendered` boundary.
-/// Everything this comparison reports is measured audio-timing debt, never
-/// claimed parity. Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 0;
+/// faithful. Frames 0..14 replay ASM `EntryPoint`'s power-on Z80 bootstrap and
+/// post-clear reset on the absolute raster timeline. The tail remains the
+/// coarse continuous route replayer (trace-delta commands at frame boundaries
+/// plus whole-frame advances) and is measured debt, never claimed parity.
+/// Raise only with per-frame evidence from a seeded run.
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 14;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -93,14 +94,46 @@ fn signature_from_checkpoint(checkpoint: &GemsTimingCheckpoint) -> GemsFrameSign
 struct GemsSignatureProbe {
     engine: GemsMasterClockTimingEngine,
     skew_outstanding: bool,
+    power_on_frame: usize,
 }
 
 impl GemsSignatureProbe {
-    fn from_kid_rom(rom: &[u8]) -> Result<Self> {
+    fn from_kid_rom_power_on(rom: &[u8]) -> Result<Self> {
+        let mut engine = GemsMasterClockTimingEngine::from_kid_rom_with_ntsc_timeline_origin(
+            rom,
+            GemsNtscTimelineOrigin::PowerOnScanlineZero,
+        )?;
+        apply_gems_power_on_z80_startup(&mut engine, rom)
+            .expect("fresh power-on GEMS engine accepts EntryPoint startup schedule");
+        Ok(Self {
+            engine,
+            skew_outstanding: false,
+            power_on_frame: 0,
+        })
+    }
+
+    fn from_kid_rom_coarse(rom: &[u8]) -> Result<Self> {
         Ok(Self {
             engine: GemsMasterClockTimingEngine::from_kid_rom(rom)?,
             skew_outstanding: false,
+            power_on_frame: 0,
         })
+    }
+
+    fn sample_power_on_frame_rendered(&mut self) -> GemsFrameSignature {
+        // jgenesis FrameRendered fires at scanline 232. Absolute power-on
+        // clocks therefore sample frame N at N*262+232 scanlines.
+        let target = (self.power_on_frame as u64 * NTSC_SCANLINES_PER_FRAME
+            + (NTSC_SCANLINES_PER_FRAME - 30))
+            * MASTER_CLOCKS_PER_SCANLINE;
+        if self.power_on_frame == 3 {
+            apply_gems_power_on_post_clear_reset(&mut self.engine)
+                .expect("frame 3 crosses EntryPoint's post-clear reset write");
+        }
+        self.engine
+            .advance_ntsc_master_clocks(target - self.engine.master_clock());
+        self.power_on_frame += 1;
+        signature_from_checkpoint(&self.engine.checkpoint())
     }
 
     fn sample_at_frame_rendered(&mut self) -> GemsFrameSignature {
@@ -159,13 +192,20 @@ pub(crate) fn extract_native_gems_frame_signatures(
     manifest: &AssetManifest,
     trace: &[NativeTraceFrame],
 ) -> Result<Vec<Option<GemsFrameSignature>>> {
-    let mut probe = GemsSignatureProbe::from_kid_rom(rom)?;
+    let mut power_on_probe = GemsSignatureProbe::from_kid_rom_power_on(rom)?;
+    let mut coarse_probe = GemsSignatureProbe::from_kid_rom_coarse(rom)?;
     let mut director = NativeAudioDirector::new();
     Ok(trace
         .iter()
-        .map(|frame| {
-            director.step(manifest, frame, &mut probe);
-            Some(probe.sample_at_frame_rendered())
+        .enumerate()
+        .map(|(frame_index, frame)| {
+            director.step(manifest, frame, &mut coarse_probe);
+            let coarse_signature = coarse_probe.sample_at_frame_rendered();
+            if frame_index < GEMS_MODELLED_ROUTE_FRAMES {
+                Some(power_on_probe.sample_power_on_frame_rendered())
+            } else {
+                Some(coarse_signature)
+            }
         })
         .collect())
 }
@@ -534,6 +574,7 @@ mod tests {
         let mut probe = GemsSignatureProbe {
             engine: GemsMasterClockTimingEngine::new(&[0x76], vec![]),
             skew_outstanding: false,
+            power_on_frame: 0,
         };
 
         probe.step_frame();
@@ -562,6 +603,7 @@ mod tests {
         let mut probe = GemsSignatureProbe {
             engine: GemsMasterClockTimingEngine::new(&[0x76], vec![]),
             skew_outstanding: false,
+            power_on_frame: 0,
         };
         probe.step_frame();
         let signature = probe.sample_at_frame_rendered();
@@ -572,5 +614,42 @@ mod tests {
         );
         assert_eq!(signature.status_bits & GemsFrameSignature::STATUS_IFF1, 0);
         assert_eq!(signature.z80_pc, 1);
+    }
+
+    #[test]
+    fn power_on_probe_matches_entrypoint_z80_bootstrap_at_frames_zero_and_three() {
+        // ASM EntryPoint Z80InitLoop $0500 copies Z80StartupCodeBegin; $0532
+        // reasserts reset after ClrRAMLoop. These strict fields come from the
+        // published-route oracle's FrameRendered samples, not fitted phases.
+        const STARTUP: [u8; 38] = [
+            0xAF, 0x01, 0xD9, 0x1F, 0x11, 0x27, 0x00, 0x21, 0x26, 0x00, 0xF9, 0x77, 0xED, 0xB0,
+            0xDD, 0xE1, 0xFD, 0xE1, 0xED, 0x47, 0xED, 0x4F, 0xD1, 0xE1, 0xF1, 0x08, 0xD9, 0xC1,
+            0xD1, 0xE1, 0xF1, 0xF9, 0xF3, 0xED, 0x56, 0x36, 0xE9, 0xE9,
+        ];
+        let mut rom = vec![0; 0x059A];
+        rom[0x0574..0x059A].copy_from_slice(&STARTUP);
+        let mut engine = GemsMasterClockTimingEngine::new_with_ntsc_timeline_origin(
+            &[0x76],
+            vec![],
+            GemsNtscTimelineOrigin::PowerOnScanlineZero,
+        );
+        apply_gems_power_on_z80_startup(&mut engine, &rom).expect("source startup schedule");
+        let mut probe = GemsSignatureProbe {
+            engine,
+            skew_outstanding: false,
+            power_on_frame: 0,
+        };
+
+        let frame_zero = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_zero.audio_ram_crc32, 2_155_335_881);
+        assert_eq!(frame_zero.z80_pc, 0x000C);
+        assert_eq!(frame_zero.status_bits, 0);
+
+        probe.sample_power_on_frame_rendered();
+        probe.sample_power_on_frame_rendered();
+        let frame_three = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_three.audio_ram_crc32, 3_532_775_288);
+        assert_eq!(frame_three.z80_pc, 0);
+        assert_eq!(frame_three.status_bits, GemsFrameSignature::STATUS_RESET);
     }
 }

@@ -507,18 +507,17 @@ Pinned against the pinned jgenesis, never fitted:
 ### Coverage semantics
 
 The report declares `coverage.modelled_frames`: the edge up to which the
-native per-frame GEMS timeline is *defended* as faithful. It is 0 in v1 —
-the continuous route replayer applies trace-delta commands at frame
-boundaries and advances whole frames, and is not defended at per-frame
-signature granularity anywhere; the title-sequence lane is validated only at
-hand-derived instruction checkpoints. Signatures past the edge are still
-emitted and compared so divergence is measured, not hidden — but never
-claimed as modelled. Known unmodelled-by-construction debt includes the
-cold-start driver state (the route replayer boots with the driver loaded and
-running; the real machine copies it at the first `StopMusic`), command
-injection at frame boundaries rather than true mid-frame queue writes, and
-every 68000↔Z80 interaction (bank steals, FIFO/DMA bus collisions) outside
-the hand-derived adapters.
+native per-frame GEMS timeline is *defended* as faithful. It is 14: frames
+0..13 replay `EntryPoint`'s `$04F6..$050A` BUSREQ/reset sequence, the 38-byte
+`Z80StartupCodeBegin` copy, and `$0532` post-main-RAM-clear reset on the
+absolute raster timeline. All strict fields match oracle; divider phases are
+advisory for the sampling reason above. Signatures past the edge are still
+emitted by the coarse continuous route replayer and compared so divergence is
+measured, not hidden, but never claimed as modelled. The first unmodelled
+boundary is frame 14's source-positioned `StopMusic -> sub_E13DA` driver copy.
+Later debt includes command injection at frame boundaries rather than true
+mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
+FIFO/DMA bus collisions) outside the hand-derived adapters.
 
 ### Oracle limitation: undocumented X/Y flags
 

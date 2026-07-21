@@ -782,6 +782,25 @@ impl GemsMasterClockTimingEngine {
         self.reset = reset;
     }
 
+    /// Copy the ROM's short power-on Z80 bootstrap while the 68000 owns the
+    /// Z80 bus. ASM `EntryPoint Z80InitLoop $0500` writes the bytes labelled
+    /// `Z80StartupCodeBegin`; the later `StopMusic -> sub_E13DA` replaces
+    /// them with the GEMS driver.
+    pub fn copy_power_on_startup_ram(&mut self, startup_code: &[u8]) {
+        assert!(
+            self.ntsc_timeline_origin == GemsNtscTimelineOrigin::PowerOnScanlineZero,
+            "power-on startup code requires the absolute raster origin"
+        );
+        assert!(
+            self.busreq,
+            "EntryPoint copies Z80 startup code only while BUSREQ is held"
+        );
+        let copy_len = startup_code.len().min(Z80_RAM_LEN);
+        let ram = self.z80.io.ram.get_mut();
+        ram.fill(0);
+        ram[..copy_len].copy_from_slice(&startup_code[..copy_len]);
+    }
+
     fn ensure_initialised(&mut self) {
         self.init();
     }
