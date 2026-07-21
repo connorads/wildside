@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 second complete intro title-frame pass)
+
+- Defended GEMS coverage advances to frames 0..82; the authoritative frontier
+  is frame 83 in the next title-frame pass.
+- The second palette/VRAM/object pass and third `WaitForVint`/VINT are retained.
+- Frame 82 raw RAM differs only at saved SP `$003E` and active stack `$1A14`;
+  its three-byte PC phase is derivative of the documented X/Y limitation.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,676, with 54 evidence-backed oracle limitations and 29 advisory frames.
+- NEXT: carry the third title-frame pass through its fourth VINT.
+
 ## 2026-07-21 handoff (#416 first complete intro title-frame pass)
 
 - Defended GEMS coverage advances to frames 0..81; the authoritative frontier
