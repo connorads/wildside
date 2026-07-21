@@ -591,6 +591,20 @@ throughout. Selected-PC tracing places `loc_726` at cycle 8,771,307, beam
 are recorded. Full pixel, gameplay, RNG, and enemy baselines remain fixed.
 NEXT: retain `loc_726`'s restart initialisers and `LoadGameModeData`.
 
+Progress 2026-07-21: ASM proves post-fade `loc_720` falls through `loc_726`,
+whose object, gfx-object, and VDP initialisers retain the same instruction
+shape as the power-on path until `Game_Mode=$0004` selects
+`Load_IntroSequence1`. Selected-PC tracing pins `loc_726` at cycle 8,771,307
+and its first `StopMusic` at cycle 8,776,957, refresh phase 124. A retained
+source cursor carries both frame 68 and frame 69 inside that `StopMusic`.
+Their banks, BUSREQ state, and pending M68K waits are exact; raw RAM differs
+only at `$076C/$1A1C` on frame 68 and `$1A1C` on frame 69, exact consequences
+of the documented jgenesis X/Y-flag limitation. Defended coverage advances 68
+-> 70, GEMS mismatches fall 37,691 -> 37,689, and 44 exact oracle limitations
+are recorded. Full pixel, gameplay, RNG, and enemy baselines remain fixed.
+NEXT: continue from the traced `$E150C` return at cycle 9,006,621 through
+`PlaySound` at cycle 9,006,731, then source-schedule `sub_1B850`.
+
 Progress 2026-07-21: the fifth `Pal_FadeOut loc_28C6` palette upload is
 source-scheduled from cycle 5,364,160, beam 237:940, refresh phase 70. Frame
 42 native/oracle CRCs are `2240045277`/`2240142489` and PCs are

@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 IntroSequence1 `StopMusic`)
+
+- Defended GEMS coverage advances to frames 0..69; the authoritative frontier
+  is frame 70 after `Load_IntroSequence1`'s first `StopMusic`.
+- Selected-PC tracing pins `loc_726` at cycle 8,771,307 and `StopMusic` at
+  cycle 8,776,957, refresh phase 124. Frames 68/69 agree on bank, BUSREQ, and
+  its pending wait; their raw-RAM residuals are the documented X/Y-flag carry.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,689, with 44 evidence-backed X/Y-flag oracle limitations.
+- NEXT: continue from `$E150C` at cycle 9,006,621 through `PlaySound` at
+  cycle 9,006,731, refresh phase 10, then source-schedule `sub_1B850`.
+
 ## 2026-07-21 handoff (#416 complete post-fade Sprite_Table clear)
 
 - Defended GEMS coverage advances to frames 0..67; the authoritative frontier

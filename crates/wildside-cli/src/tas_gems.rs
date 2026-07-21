@@ -45,16 +45,17 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 
 /// Frames of the route whose native per-frame GEMS timeline is defended as
-/// faithful. Frames 0..67 replay ASM `EntryPoint`'s power-on Z80 bootstrap
+/// faithful. Frames 0..69 replay ASM `EntryPoint`'s power-on Z80 bootstrap
 /// through the first outer `Mode_Standard` pass, three Sega-screen local
 /// palette/VINT/controller iterations, and the Start transition into the
 /// sixteen `Pal_FadeOut` loop palette uploads, the `loc_28EA` exit pass, and
 /// all eight post-fade `loc_700` full-VRAM clear spans and all four following
-/// `loc_714/loc_720` Sprite_Table clear spans. The tail remains the
+/// `loc_714/loc_720` Sprite_Table clear spans, then `loc_726`'s restart
+/// initialisers into `Load_IntroSequence1 -> StopMusic`. The tail remains the
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 68;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 70;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -608,16 +609,19 @@ impl GemsSignatureProbe {
         }
         if self.power_on_frame == 64 {
             // ASM loc_70E's final DBF falls through to loc_714/loc_720. The
-            // retained full-VRAM cursor supplies the exact source, refresh,
-            // and beam boundary for the following Sprite_Table clear.
+            // retained full-VRAM cursor supplies the source, refresh, and beam
+            // boundary for the following Sprite_Table clear. Selected-PC
+            // tracing pins loc_714 eight cycles before the conservative
+            // empty-FIFO cursor end on this path.
             let mut vram_clear = self
                 .power_on_vram_clear
                 .take()
                 .expect("post-fade loc_700 cursor reaches loc_714");
-            let loc_714_master_clock = vram_clear.end_master_clock();
+            const LOC_714_ENTRY_CYCLES: u64 = 8_181_559;
+            let loc_714_master_clock = LOC_714_ENTRY_CYCLES * 7;
             vram_clear
                 .advance_to_master_clock(&mut self.engine, loc_714_master_clock)
-                .expect("post-fade loc_700 cursor reaches its exact end");
+                .expect("post-fade loc_700 cursor reaches selected loc_714 entry");
             self.power_on_vram_clear = Some(
                 TimedGemsTitleLoc700Cursor::new_loc_714(
                     vram_clear.end_cursor(),
@@ -625,6 +629,49 @@ impl GemsSignatureProbe {
                 )
                 .expect("ASM post-fade loc_714 hardware schedule"),
             );
+        }
+        if self.power_on_frame == 68 {
+            // ASM loc_720 falls through loc_726's slot initialisers, then
+            // Game_Mode=$0004 dispatches Load_IntroSequence1. Its first
+            // operation is StopMusic $E14C8. Selected-PC tracing pins that
+            // entry at cycle 8,776,957 with refresh phase 124.
+            let mut sprite_table_clear = self
+                .power_on_vram_clear
+                .take()
+                .expect("post-fade loc_714 cursor reaches loc_726");
+            const LOC_726_ENTRY_CYCLES: u64 = 8_771_307;
+            let loc_726_master_clock = LOC_726_ENTRY_CYCLES * 7;
+            sprite_table_clear
+                .advance_to_master_clock(&mut self.engine, loc_726_master_clock)
+                .expect("post-fade loc_714 cursor reaches selected loc_726 entry");
+            let mut restart = TimedGemsTitleLoc700Cursor::new_intro_sequence1_restart_initialisers(
+                sprite_table_clear.end_cursor(),
+                loc_726_master_clock,
+            )
+            .expect("ASM loc_726 IntroSequence1 initialiser schedule");
+            const STOP_MUSIC_ENTRY_CYCLES: u64 = 8_776_957;
+            let stop_music_entry_master_clock = STOP_MUSIC_ENTRY_CYCLES * 7;
+            restart
+                .advance_to_master_clock(&mut self.engine, stop_music_entry_master_clock)
+                .expect("loc_726 reaches Load_IntroSequence1 StopMusic");
+            assert_eq!(
+                stop_music_entry_master_clock / 7,
+                8_776_957,
+                "oracle Load_IntroSequence1 StopMusic entry cycle"
+            );
+            let timing = gems_stop_music_elapsed_timing_from_absolute_entry(
+                GemsStopMusicBusAckPolls {
+                    driver_copy_sub_e13da: 1,
+                    queue_transactions_sub_e143a: [1; 6],
+                },
+                M68kRefreshPhase::new(124).expect("IntroSequence1 StopMusic entry refresh phase"),
+                M68kCycleCount::from_raw(8_776_957),
+            )
+            .expect("IntroSequence1 StopMusic source schedule");
+            self.power_on_stop_music = Some(TimedGemsStopMusicCursor::new(
+                timing,
+                stop_music_entry_master_clock,
+            ));
         }
         if let Some(cursor) = &mut self.power_on_vram_clear {
             cursor
@@ -809,7 +856,10 @@ fn advisory_fields_diverge(native: &GemsFrameSignature, oracle: &GemsFrameSignat
 /// accumulator and two stack bytes. Frame 66 crosses the boundary in the
 /// opposite direction, carrying the saved SP, accumulator, three stack bytes,
 /// PC, and IFF state. Frame 67 carries the saved SP, accumulator, and one
-/// stack byte.
+/// stack byte. Frame 68 carries only the accumulator and one active stack
+/// byte while both sides agree on the StopMusic BUSREQ wait.
+/// Frame 69 retains only that active stack byte and PC phase with the same
+/// exact BUSREQ wait.
 /// Later `SUB 1` at $07B3 leaves the oracle at PC $02AA where hardware reaches
 /// $02AE. Every other strict field must be byte-equal.
 fn gems_divergence_matches_documented_z80_xy_flag_case(
@@ -888,6 +938,8 @@ fn gems_divergence_matches_documented_z80_xy_flag_case(
                 | (63, 1_789_616_251, 4_004_226_037, 0x0B57, 0x0B4E)
                 | (65, 3_460_013_991, 1_789_616_251, 0x0B44, 0x02A5)
                 | (67, 848_882_971, 4_227_412_858, 0x01CF, 0x07AA)
+                | (68, 683_695_875, 1_872_363_533, 0x0042, 0x0049)
+                | (69, 4_072_621_371, 385_879_199, 0x0042, 0x0049)
         );
     let sega_fade_irq_edge = diverging == ["audio_ram_crc32", "z80_pc", "status_bits"]
         && matches!(
@@ -1480,6 +1532,34 @@ mod tests {
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 35);
+
+        let mut native_frame_68 = signature(0x0042);
+        native_frame_68.audio_ram_crc32 = 683_695_875;
+        native_frame_68.pending_m68k_wait_cycles = 1;
+        native_frame_68.status_bits = GemsFrameSignature::STATUS_BUSREQ;
+        let mut oracle_frame_68 = signature(0x0049);
+        oracle_frame_68.audio_ram_crc32 = 1_872_363_533;
+        oracle_frame_68.pending_m68k_wait_cycles = 1;
+        oracle_frame_68.status_bits = GemsFrameSignature::STATUS_BUSREQ;
+        native.push(Some(native_frame_68));
+        oracle.push(Some(oracle_frame_68));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 36);
+
+        let mut native_frame_69 = signature(0x0042);
+        native_frame_69.audio_ram_crc32 = 4_072_621_371;
+        native_frame_69.pending_m68k_wait_cycles = 1;
+        native_frame_69.status_bits = GemsFrameSignature::STATUS_BUSREQ;
+        let mut oracle_frame_69 = signature(0x0049);
+        oracle_frame_69.audio_ram_crc32 = 385_879_199;
+        oracle_frame_69.pending_m68k_wait_cycles = 1;
+        oracle_frame_69.status_bits = GemsFrameSignature::STATUS_BUSREQ;
+        native.push(Some(native_frame_69));
+        oracle.push(Some(oracle_frame_69));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 37);
     }
 
     #[test]
@@ -1782,7 +1862,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_67() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_69() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -2522,5 +2602,40 @@ mod tests {
         let mut crc = crc32fast::Hasher::new();
         crc.update(&oracle_ram);
         assert_eq!(crc.finalize(), 4_227_412_858);
+
+        let frame_68 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_68.audio_ram_crc32, 683_695_875);
+        assert_eq!(frame_68.bank_address, 0);
+        assert_eq!(frame_68.z80_pc, 0x0042);
+        assert_eq!(frame_68.pending_m68k_wait_cycles, 1);
+        assert_eq!(frame_68.status_bits, GemsFrameSignature::STATUS_BUSREQ);
+
+        // ORACLE LIMITATION: loc_726 -> Load_IntroSequence1 -> StopMusic is
+        // byte-exact apart from the carried CHECKTICK accumulator and one
+        // active stack byte. Both sides agree on BUSREQ and its pending wait.
+        let mut oracle_ram = probe.engine.checkpoint().audio_ram;
+        assert_eq!(oracle_ram[0x076C], 0x14);
+        assert_eq!(oracle_ram[0x1A1C], 0x4A);
+        oracle_ram[0x076C] = 0xB0;
+        oracle_ram[0x1A1C] = 0x42;
+        let mut crc = crc32fast::Hasher::new();
+        crc.update(&oracle_ram);
+        assert_eq!(crc.finalize(), 1_872_363_533);
+
+        let frame_69 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_69.audio_ram_crc32, 4_072_621_371);
+        assert_eq!(frame_69.bank_address, 0);
+        assert_eq!(frame_69.z80_pc, 0x0042);
+        assert_eq!(frame_69.pending_m68k_wait_cycles, 1);
+        assert_eq!(frame_69.status_bits, GemsFrameSignature::STATUS_BUSREQ);
+
+        // ORACLE LIMITATION: the second IntroSequence1 StopMusic span differs
+        // only at one active stack byte; BUSREQ and its wait remain exact.
+        let mut oracle_ram = probe.engine.checkpoint().audio_ram;
+        assert_eq!(oracle_ram[0x1A1C], 0x4A);
+        oracle_ram[0x1A1C] = 0x42;
+        let mut crc = crc32fast::Hasher::new();
+        crc.update(&oracle_ram);
+        assert_eq!(crc.finalize(), 385_879_199);
     }
 }

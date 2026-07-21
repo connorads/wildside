@@ -1828,6 +1828,16 @@ impl TimedGemsTitleLoc700Cursor {
         Self::from_intervals(entry_master_clock, advance.cursor, intervals)
     }
 
+    /// Continue at ASM `loc_726` through `Load_IntroSequence1 -> StopMusic`.
+    pub fn new_intro_sequence1_restart_initialisers(
+        entry: LoadInGameCpuRasterCursor,
+        entry_master_clock: u64,
+    ) -> Option<Self> {
+        // Game modes 0 and 4 share the same instruction shape through their
+        // first StopMusic call; only the selected GameLoadArray target differs.
+        Self::new_power_on_restart_initialisers(entry, entry_master_clock)
+    }
+
     fn new_with_scheduler(
         entry: LoadInGameCpuRasterCursor,
         entry_master_clock: u64,
