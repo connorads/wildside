@@ -1688,6 +1688,28 @@ pub fn apply_gems_title_loc_714_sprite_table_clear(
     })
 }
 
+/// Clock the title restart from `loc_726` to the Ice `sub_E151C` entry.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_restart_initialisers_to_play_sound(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_restart_initialisers_to_play_sound_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 #[cfg(feature = "audio")]
 fn apply_gems_title_memory_dma_hardware_event(
     audio: &mut GemsMasterClockTimingEngine,
@@ -4987,6 +5009,36 @@ mod tests {
             21_955_896 * 7,
             "loc_726 boundary exactly matches oracle selected-PC timing and refresh phase",
         );
+
+        let title_restart = apply_gems_title_restart_initialisers_to_play_sound(
+            &mut engine,
+            sprite_table_clear.cursor,
+        )
+        .expect("loc_726 through Load_TitleScreen Ice command entry");
+        assert_eq!(title_restart.timing.instruction_count, 562);
+        assert_eq!(title_restart.timing.raw_cycles.get(), 5_612);
+        assert_eq!(title_restart.refresh_events, 45);
+        assert_eq!(title_restart.external_wait_cycles.get(), 0);
+        assert_eq!(
+            title_restart.cursor.refresh_phase,
+            M68kRefreshPhase::new(48).unwrap()
+        );
+        assert_eq!(
+            engine.master_clock(),
+            21_961_598 * 7,
+            "Load_TitleScreen -> sub_E151C entry exactly matches frame-171 oracle timing",
+        );
+
+        let ice = apply_timed_gems_queue_command(
+            &mut engine,
+            GemsQueueCommandPath::StartOrStopSequenceSubE151c,
+            title_restart.cursor.refresh_phase,
+            Some(GemsQueueCommand::StartSequence(gems_bgm::ICE)),
+        )
+        .expect("ASM Load_TitleScreen -> sub_E151C queues bgm_Ice");
+        assert_eq!(ice.elapsed.get(), 518);
+        assert_eq!(ice.phase_after, M68kRefreshPhase::new(54).unwrap());
+        assert_eq!(engine.master_clock(), 21_962_116 * 7);
     }
 
     #[cfg(feature = "audio")]

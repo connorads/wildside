@@ -1557,6 +1557,94 @@ pub fn visit_loc_714_sprite_table_clear(
     timing
 }
 
+/// Visit the title-restart setup from `loc_726` to `sub_E151C`.
+///
+/// ASM `loc_726` calls `Initialize_ObjectSlots`,
+/// `Initialize_GfxObjectSlots`, and `sub_8A4`, then dispatches the current
+/// game mode through `LoadGameModeData`. The published title-return path
+/// selects `Load_TitleScreen`; this visitor stops before the first
+/// `sub_E151C` instruction which queues `bgm_Ice`.
+pub fn visit_title_restart_initialisers_to_play_sound(
+    mut visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(u32), timing: &mut IntroSourceTiming, cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title restart initialiser timing fits u32"),
+        );
+    };
+
+    // ASM loc_726: BSR.W Initialize_ObjectSlots.
+    emit(&mut visit, &mut timing, 18);
+    for cycles in [12, 16, 4] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for iteration in 0..49 {
+        for cycles in [8, 16, 4] {
+            emit(&mut visit, &mut timing, cycles);
+        }
+        emit(
+            &mut visit,
+            &mut timing,
+            if iteration == 48 { 14 } else { 10 },
+        );
+    }
+    for cycles in [24, 8, 20, 16, 16, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    // ASM loc_72A: BSR.W Initialize_GfxObjectSlots.
+    emit(&mut visit, &mut timing, 18);
+    for cycles in [12, 16, 4] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for iteration in 0..76 {
+        for cycles in [8, 16, 4] {
+            emit(&mut visit, &mut timing, cycles);
+        }
+        emit(
+            &mut visit,
+            &mut timing,
+            if iteration == 75 { 14 } else { 10 },
+        );
+    }
+    for cycles in [24, 24, 16, 24, 24, 24, 24, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    // ASM loc_72E/sub_8A4: copy the active player's eleven state words.
+    emit(&mut visit, &mut timing, 18);
+    for cycles in [8, 12, 10, 4, 8] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for iteration in 0..11 {
+        emit(&mut visit, &mut timing, 12);
+        emit(
+            &mut visit,
+            &mut timing,
+            if iteration == 10 { 14 } else { 10 },
+        );
+    }
+    emit(&mut visit, &mut timing, 16);
+
+    // ASM loc_732 -> j_LoadGameModeData -> Load_TitleScreen -> j_PlaySound
+    // -> PlaySound. The indexed GameLoadArray read costs 18 cycles.
+    for cycles in [20, 10, 12, 18, 16, 8, 20, 10, 12, 12, 18] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    timing
+}
+
 /// Visit the title path through `Transfer_SpriteAndKidToVRAM`.
 ///
 /// The title has a live sprite-table pointer, `$FB49` clear, and a zero first
@@ -2292,6 +2380,21 @@ mod tests {
                 .iter()
                 .all(|event| matches!(event, MemoryDmaTimingEvent::Instruction(_))),
             "ASM loc_720 clears 68000 RAM and never touches the VDP FIFO",
+        );
+    }
+
+    #[test]
+    fn title_restart_initialisers_reach_ice_play_sound_in_source_order() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_restart_initialisers_to_play_sound(|cycle| cycles.push(cycle));
+
+        assert_eq!(timing.instruction_count, 562);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(5_612));
+        assert_eq!(cycles.len(), 562);
+        assert_eq!(&cycles[..4], &[18, 12, 16, 4]);
+        assert_eq!(
+            &cycles[cycles.len() - 11..],
+            &[20, 10, 12, 18, 16, 8, 20, 10, 12, 12, 18],
         );
     }
 

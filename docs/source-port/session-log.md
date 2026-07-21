@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 title Ice queue exact)
+
+- `loc_726` source-schedules both slot initialisers, `sub_8A4`, and the
+  `LoadGameModeData -> Load_TitleScreen -> PlaySound` dispatch.
+- The path is 562 instructions / 5,612 raw cycles with 45 refreshes and no
+  GEMS bank wait; `sub_E151C` is exact at 21,961,598 / phase 48.
+- The Ice queue transaction completes at 21,962,116 / phase 54.
+- NEXT: schedule the `loc_1B258` 2,048-word VRAM fill and `sub_1B2A4` upload.
+
+---
+
 ## 2026-07-21 handoff (#409 restart clears exact)
 
 - `loc_700/loc_70E` schedules 32,768 VRAM FIFO words, 788,624 halt ticks,

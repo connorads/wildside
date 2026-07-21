@@ -600,6 +600,15 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the title restart reaches and completes its frame-171 Ice
+queue exactly. `loc_726` now source-schedules `Initialize_ObjectSlots`,
+`Initialize_GfxObjectSlots`, `sub_8A4`, the `LoadGameModeData` indexed dispatch,
+and `Load_TitleScreen -> PlaySound`. The 562-instruction / 5,612-raw-cycle path
+crosses 45 refresh events without a GEMS bank wait and reaches `sub_E151C` at
+the oracle's 21,961,598 / phase 48 boundary. The existing source-timed queue
+transaction completes at 21,962,116 / phase 54. NEXT: schedule the following
+`loc_1B258` 2,048-word VRAM fill and `sub_1B2A4` upload.
+
 Progress 2026-07-21: the restart clear is exact through `loc_726`.
 `loc_700/loc_70E` source-schedules all 16,384 longword writes as 32,768 VRAM
 FIFO words, including 788,624 FIFO-halt ticks, 1,274 refresh events, and nine
