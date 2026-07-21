@@ -600,6 +600,15 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the persistent title timeline generalises the two-frame
+ordinary-glyph cadence. Frame 116 takes the 152-instruction / 1,960-cycle
+delay path and returns natively at 14,844,383 versus oracle 14,844,683. Frame
+117 parses `H` at `loc_1C7D2`, enters `sub_1C7F6`, loads the next two-frame
+delay, and retains the controller DBF path across 184 instructions / 2,232 raw
+cycles; native returns at 14,972,676 versus oracle 14,972,979. NEXT: probe
+frame 125's space against the ROM's erroneous `(off_20).w` comparison, then
+schedule ordinary glyphs through the first line break.
+
 Progress 2026-07-21: the persistent title timeline emits IntroText1's first
 `T` on frame 115. The terminal delay enters the parser, preserves the original
 `cmp.b (off_20).w` quirk, and runs `sub_1C7F6` to derive the plane command/tile

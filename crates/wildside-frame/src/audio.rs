@@ -1255,6 +1255,34 @@ pub fn apply_gems_title_first_glyph_execute_objects(
     )
 }
 
+/// Clock an ordinary title glyph and controller-wait dispatches.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_ordinary_glyph_execute_objects(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    controller_wait_before: u16,
+    glyph: u8,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_ordinary_glyph_execute_objects_cursor_with_scheduler(
+        entry,
+        rng_offset_before,
+        controller_wait_before,
+        glyph,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 #[cfg(feature = "audio")]
 fn apply_gems_title_frame_to_execute_objects(
     audio: &mut GemsMasterClockTimingEngine,
@@ -1347,6 +1375,25 @@ pub fn apply_gems_title_first_glyph_frame(
         execute_entry,
         rng_offset_before,
         controller_wait_before,
+    )
+}
+
+/// Clock one complete ordinary title glyph frame.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_ordinary_glyph_frame(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    controller_wait_before: u16,
+    glyph: u8,
+) -> Option<TitleIntroSourceAdvance> {
+    let execute_entry = apply_gems_title_frame_to_execute_objects(audio, entry)?;
+    apply_gems_title_ordinary_glyph_execute_objects(
+        audio,
+        execute_entry,
+        rng_offset_before,
+        controller_wait_before,
+        glyph,
     )
 }
 
@@ -4154,6 +4201,43 @@ mod tests {
             engine.master_clock(),
             14_716_653 * 7,
             "title first-glyph ledger: {first_glyph:?}",
+        );
+
+        let first_glyph_delay = apply_gems_title_post_fade_wait_frame(
+            &mut engine,
+            first_glyph.cursor,
+            0xFFEB,
+            2,
+            0x11A,
+        )
+        .expect("source-positioned frame-116 glyph delay");
+        assert_eq!(first_glyph_delay.timing.instruction_count, 152);
+        assert_eq!(first_glyph_delay.timing.raw_cycles.get(), 1_960);
+        assert_eq!(first_glyph_delay.refresh_events, 15);
+        assert_eq!(first_glyph_delay.external_wait_cycles.get(), 0);
+        assert_eq!(
+            engine.master_clock(),
+            14_844_383 * 7,
+            "frame-116 glyph-delay ledger; oracle `$794` is 14,844,683",
+        );
+        let second_glyph = apply_gems_title_ordinary_glyph_frame(
+            &mut engine,
+            first_glyph_delay.cursor,
+            0xFFEF,
+            0x119,
+            b'H',
+        )
+        .expect("source-positioned frame-117 H glyph");
+        assert_eq!(second_glyph.timing.instruction_count, 184);
+        assert_eq!(second_glyph.timing.raw_cycles.get(), 2_232);
+        assert_eq!(second_glyph.refresh_events, 17);
+        assert_eq!(second_glyph.external_wait_cycles.get(), 0);
+        // Oracle frame 117 parses `H` at loc_1C7D2 on 14,972,007, enters
+        // sub_1C7F6 on 14,972,073, and returns at `$794` on 14,972,979.
+        assert_eq!(
+            engine.master_clock(),
+            14_972_676 * 7,
+            "frame-117 H-glyph ledger: {second_glyph:?}",
         );
     }
 

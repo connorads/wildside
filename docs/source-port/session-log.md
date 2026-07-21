@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 ordinary title glyph cadence)
+
+- Frame 116 takes the 152-instruction / 1,960-cycle glyph-delay path and
+  returns at 14,844,383 versus oracle 14,844,683.
+- Frame 117 parses `H` through the reusable 184-instruction / 2,232-cycle
+  `sub_1C7F6` path and returns at 14,972,676 versus oracle 14,972,979.
+- NEXT: probe frame 125's space against the erroneous `(off_20).w`
+  comparison, then schedule ordinary glyphs through the first line break.
+
+---
+
 ## 2026-07-21 handoff (#409 first IntroText1 glyph)
 
 - Frame 115 takes the terminal delay, parses `T`, preserves the ROM's
