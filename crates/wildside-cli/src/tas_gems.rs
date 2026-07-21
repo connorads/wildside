@@ -33,8 +33,10 @@ use wildside_frame::{
     apply_gems_decompress_to_vram_setup_sub_142cc,
     apply_gems_decompress_to_vram_transfer_display_disabled_loc_14314,
     apply_gems_decompress_to_vram_transfer_loc_14314,
-    apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314,
-    apply_gems_power_on_post_clear_reset, apply_gems_power_on_z80_startup,
+    apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314, apply_gems_enigma_decoder,
+    apply_gems_enigma_decoder_with_checkpoint, apply_gems_power_on_post_clear_reset,
+    apply_gems_power_on_z80_startup, apply_gems_title_intro_plane_a_blit,
+    apply_gems_title_intro_repeated_rows_with_checkpoint,
     apply_gems_title_mode_standard_empty_foreground_queues,
     apply_gems_title_mode_standard_palette_to_vram,
     apply_gems_title_mode_standard_scroll_data_to_vram,
@@ -53,7 +55,7 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 
 /// Frames of the route whose native per-frame GEMS timeline is defended as
-/// faithful. Frames 0..77 replay ASM `EntryPoint`'s power-on Z80 bootstrap
+/// faithful. Frames 0..79 replay ASM `EntryPoint`'s power-on Z80 bootstrap
 /// through the first outer `Mode_Standard` pass, three Sega-screen local
 /// palette/VINT/controller iterations, and the Start transition into the
 /// sixteen `Pal_FadeOut` loop palette uploads, the `loc_28EA` exit pass, and
@@ -61,11 +63,11 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `loc_714/loc_720` Sprite_Table clear spans, then `loc_726`'s restart
 /// initialisers into `Load_IntroSequence1 -> StopMusic -> PlaySound`, then the
 /// first two `sub_1B850 -> DecompressToVRAM loc_14300/loc_14314` decodes and
-/// transfers, then the third through fifth decoders and compacting transfers through frame 77. The tail remains the
+/// transfers, then the third through fifth decoders, compacting transfers, and first Enigma decoder through frame 78. The tail remains the
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 78;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 80;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -128,6 +130,8 @@ struct GemsSignatureProbe {
     power_on_intro_door_compressed: Vec<u8>,
     power_on_intro_kids_compressed: Vec<u8>,
     power_on_intro_letters_compressed: Vec<u8>,
+    power_on_intro_plane_a_compressed: Vec<u8>,
+    power_on_intro_plane_b_compressed: Vec<u8>,
     power_on_intro_cursor: Option<wildside_core::vdp::LoadInGameCpuRasterCursor>,
     power_on_intro_decoder_resume:
         Option<wildside_core::saxman_timing::DecompressChunkResumeSub13684>,
@@ -160,6 +164,8 @@ impl GemsSignatureProbe {
             power_on_intro_door_compressed: rom[0x2DEBF..0x2E153].to_vec(),
             power_on_intro_kids_compressed: rom[0x261D7..0x26E3D].to_vec(),
             power_on_intro_letters_compressed: rom[0x1DA86..0x1DC8F].to_vec(),
+            power_on_intro_plane_a_compressed: rom[0x2FDE0..0x2FF55].to_vec(),
+            power_on_intro_plane_b_compressed: rom[0x2FDCE..0x2FDE0].to_vec(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -181,6 +187,8 @@ impl GemsSignatureProbe {
             power_on_intro_door_compressed: Vec::new(),
             power_on_intro_kids_compressed: Vec::new(),
             power_on_intro_letters_compressed: Vec::new(),
+            power_on_intro_plane_a_compressed: Vec::new(),
+            power_on_intro_plane_b_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -300,6 +308,72 @@ impl GemsSignatureProbe {
             assert_eq!(decoder.timing.output_bytes, 1_440);
             assert_eq!(self.engine.master_clock(), 9_978_770 * 7);
             self.power_on_intro_cursor = Some(decoder.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 78 {
+            // ASM sub_1B850 completes ArtComp_1DA86_LettersNumbers, then
+            // decodes unk_2FDE0 with base tile $80BC. FrameRendered lands
+            // inside EniDec before sub_1C5D0's plane-A blit.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("intro-letters decoder reaches loc_14314");
+            let transfer = apply_gems_decompress_to_vram_transfer_loc_14314(
+                &mut self.engine,
+                cursor,
+                720,
+                0,
+                wildside_core::vdp::DecompressToVramTransferExit::Return,
+            )
+            .expect("source-positioned intro-letters transfer");
+            assert_eq!(self.engine.master_clock(), 10_010_491 * 7);
+            let (enigma, checkpoint) = apply_gems_enigma_decoder_with_checkpoint(
+                &mut self.engine,
+                transfer.cursor,
+                &[8, 12, 12, 4, 20, 10],
+                &self.power_on_intro_plane_a_compressed,
+                0x80BC,
+                0x2FDE0,
+                1,
+                target,
+            )
+            .expect("source-positioned intro plane-A EniDec spans frame 78");
+            assert_eq!(enigma.timing.output_words, 1_120);
+            assert_eq!(self.engine.master_clock(), 10_133_763 * 7);
+            self.power_on_intro_cursor = Some(enigma.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 79 {
+            // ASM sub_1C5D0 blits unk_2FDE0 to plane A, then sub_1B850
+            // decodes unk_2FDCE and repeats its 28-word row across plane B.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("intro plane-A EniDec reaches sub_1C5D0");
+            let plane_a = apply_gems_title_intro_plane_a_blit(&mut self.engine, cursor, 0)
+                .expect("source-positioned sub_1C5D0 plane-A blit");
+            assert_eq!(self.engine.master_clock(), 10_194_570 * 7);
+            let enigma = apply_gems_enigma_decoder(
+                &mut self.engine,
+                plane_a.cursor,
+                &[8, 12, 12, 4, 20, 10],
+                &self.power_on_intro_plane_b_compressed,
+                0x413A,
+                0x2FDCE,
+                0,
+            )
+            .expect("source-positioned repeated-row EniDec");
+            assert_eq!(enigma.timing.output_words, 28);
+            assert_eq!(self.engine.master_clock(), 10_199_384 * 7);
+            let (repeated_rows, checkpoint) = apply_gems_title_intro_repeated_rows_with_checkpoint(
+                &mut self.engine,
+                enigma.cursor,
+                1,
+                target,
+            )
+            .expect("source-positioned repeated plane-B rows span frame 79");
+            assert_eq!(self.engine.master_clock(), 10_272_880 * 7);
+            self.power_on_intro_cursor = Some(repeated_rows.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
         if self.power_on_frame == 3 {
@@ -1219,9 +1293,12 @@ fn advisory_fields_diverge(native: &GemsFrameSignature, oracle: &GemsFrameSignat
 /// second compacting transfer; frame 75 is strict-field exact.
 /// Frame 77's oracle PC is inside XFER68K, so the same flag defect additionally exposes its
 /// derivative two-cycle pending wait; raw RAM differs only at VBLINT's saved-SP byte.
+/// Frame 78 is byte-, bank-, PC-, and flag-exact; only jgenesis's documented
+/// approximate 68000 refresh counter queues two wait cycles at the quantised
+/// instruction boundary.
 /// Later `SUB 1` at $07B3 leaves the oracle at PC $02AA where hardware reaches
 /// $02AE. Every other strict field must be byte-equal.
-fn gems_divergence_matches_documented_z80_xy_flag_case(
+fn gems_divergence_matches_documented_oracle_limitation(
     frame_index: usize,
     native: &GemsFrameSignature,
     oracle: &GemsFrameSignature,
@@ -1330,6 +1407,20 @@ fn gems_divergence_matches_documented_z80_xy_flag_case(
         && oracle.z80_pc == 0x02B3
         && native.pending_m68k_wait_cycles == 0
         && oracle.pending_m68k_wait_cycles == 2;
+    let approximate_refresh_wait = diverging == ["pending_m68k_wait_cycles"]
+        && frame_index == 78
+        && native.audio_ram_crc32 == 3_752_308_961
+        && oracle.audio_ram_crc32 == 3_752_308_961
+        && native.z80_pc == 0x02AA
+        && oracle.z80_pc == 0x02AA
+        && native.pending_m68k_wait_cycles == 0
+        && oracle.pending_m68k_wait_cycles == 2;
+    let repeated_rows_irq_phase = diverging == ["audio_ram_crc32", "z80_pc"]
+        && frame_index == 79
+        && native.audio_ram_crc32 == 1_697_645_776
+        && oracle.audio_ram_crc32 == 2_669_845_625
+        && native.z80_pc == 0x0273
+        && oracle.z80_pc == 0x02A6;
     irq_saved_sp
         || later_pc
         || sega_screen_phase
@@ -1338,6 +1429,8 @@ fn gems_divergence_matches_documented_z80_xy_flag_case(
         || sega_fade_irq_phase
         || sega_fade_irq_edge
         || intro_letters_irq_phase
+        || approximate_refresh_wait
+        || repeated_rows_irq_phase
 }
 
 fn update_gems_frame_digest(hasher: &mut Sha1, signature: Option<&GemsFrameSignature>) {
@@ -1394,7 +1487,7 @@ pub(crate) fn compare_gems_frame_signatures(
                     }
                     continue;
                 }
-                if gems_divergence_matches_documented_z80_xy_flag_case(
+                if gems_divergence_matches_documented_oracle_limitation(
                     frame_index,
                     native,
                     oracle,
@@ -1469,7 +1562,7 @@ impl GemsFrameComparison {
     pub(crate) fn console_summary(&self) -> String {
         match &self.first_mismatch {
             Some(first) => format!(
-                "{} mismatches across {} compared frames ({} X/Y-flag oracle limitations, {} advisory-only); first at frame {} ({})",
+                "{} mismatches across {} compared frames ({} evidence-backed oracle limitations, {} advisory-only); first at frame {} ({})",
                 self.mismatch_count,
                 self.compared_frames,
                 self.oracle_limitation_count,
@@ -1478,7 +1571,7 @@ impl GemsFrameComparison {
                 first.diverging_fields.join(","),
             ),
             None => format!(
-                "all {} compared frames match ({} X/Y-flag oracle limitations, {} advisory-only)",
+                "all {} compared frames match ({} evidence-backed oracle limitations, {} advisory-only)",
                 self.compared_frames, self.oracle_limitation_count, self.advisory_only_frames,
             ),
         }
@@ -2022,6 +2115,30 @@ mod tests {
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 43);
+
+        let mut native_frame_78 = signature(0x02AA);
+        native_frame_78.audio_ram_crc32 = 3_752_308_961;
+        native_frame_78.bank_address = 0x000E_8000;
+        native_frame_78.status_bits = GemsFrameSignature::STATUS_IFF1;
+        let mut oracle_frame_78 = native_frame_78;
+        oracle_frame_78.pending_m68k_wait_cycles = 2;
+        native.push(Some(native_frame_78));
+        oracle.push(Some(oracle_frame_78));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 44);
+
+        let mut native_frame_79 = signature(0x0273);
+        native_frame_79.audio_ram_crc32 = 1_697_645_776;
+        native_frame_79.bank_address = 0x000E_8000;
+        let mut oracle_frame_79 = signature(0x02A6);
+        oracle_frame_79.audio_ram_crc32 = 2_669_845_625;
+        oracle_frame_79.bank_address = 0x000E_8000;
+        native.push(Some(native_frame_79));
+        oracle.push(Some(oracle_frame_79));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 45);
     }
 
     #[test]
@@ -2244,6 +2361,8 @@ mod tests {
             power_on_intro_door_compressed: Vec::new(),
             power_on_intro_kids_compressed: Vec::new(),
             power_on_intro_letters_compressed: Vec::new(),
+            power_on_intro_plane_a_compressed: Vec::new(),
+            power_on_intro_plane_b_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -2285,6 +2404,8 @@ mod tests {
             power_on_intro_door_compressed: Vec::new(),
             power_on_intro_kids_compressed: Vec::new(),
             power_on_intro_letters_compressed: Vec::new(),
+            power_on_intro_plane_a_compressed: Vec::new(),
+            power_on_intro_plane_b_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -2331,6 +2452,8 @@ mod tests {
             power_on_intro_door_compressed: Vec::new(),
             power_on_intro_kids_compressed: Vec::new(),
             power_on_intro_letters_compressed: Vec::new(),
+            power_on_intro_plane_a_compressed: Vec::new(),
+            power_on_intro_plane_b_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -2351,7 +2474,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_77() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_79() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -3280,5 +3403,35 @@ mod tests {
         let mut crc = crc32fast::Hasher::new();
         crc.update(&oracle_ram);
         assert_eq!(crc.finalize(), 1_531_360_789);
+
+        let frame_78 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_78.audio_ram_crc32, 3_752_308_961);
+        assert_eq!(frame_78.bank_address, 0x000E_8000);
+        assert_eq!(frame_78.z80_pc, 0x02AA);
+        assert_eq!(frame_78.z80_wait_mclk_cycles, 0);
+        assert_eq!(frame_78.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_78.status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        let frame_79 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_79.audio_ram_crc32, 1_697_645_776);
+        assert_eq!(frame_79.bank_address, 0x000E_8000);
+        assert_eq!(frame_79.z80_pc, 0x0273);
+        assert_eq!(frame_79.z80_wait_mclk_cycles, 0);
+        assert_eq!(frame_79.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_79.status_bits, 0);
+
+        // ORACLE LIMITATION: the documented X/Y flag phase leaves only five
+        // active-stack bytes different during the repeated plane-B rows.
+        let mut oracle_ram = probe
+            .power_on_last_sampled_checkpoint
+            .as_ref()
+            .expect("captured frame 79 checkpoint")
+            .audio_ram
+            .clone();
+        assert_eq!(&oracle_ram[0x1FEC..0x1FF1], &[0x5D, 0x5E, 0x60, 0x60, 0x5F]);
+        oracle_ram[0x1FEC..0x1FF1].copy_from_slice(&[0x65, 0x5A, 0x59, 0x5D, 0x5B]);
+        let mut crc = crc32fast::Hasher::new();
+        crc.update(&oracle_ram);
+        assert_eq!(crc.finalize(), 2_669_845_625);
     }
 }

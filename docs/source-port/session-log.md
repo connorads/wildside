@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 Enigma and plane blits)
+
+- Defended GEMS coverage advances to frames 0..79; the authoritative frontier
+  is frame 80 after the first title `WaitForVint` transition.
+- The intro-letters upload, both Enigma streams, plane-A blit, and repeated
+  plane-B rows are source-scheduled from cycles 9,978,770..10,272,880.
+- Frame 78 is RAM/bank/PC/flag exact; only jgenesis's documented approximate
+  refresh counter queues two cycles. Frame 79 differs in five stack bytes.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,679, with 52 evidence-backed oracle limitations and 28 advisory frames.
+- NEXT: carry the retained cursor through controller allocation and the first
+  `WaitForVint` transition into `Mode_Standard`.
+
 ## 2026-07-21 handoff (#416 compacting intro-art tail)
 
 - Defended GEMS coverage advances to frames 0..77; the authoritative frontier

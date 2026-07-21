@@ -507,8 +507,8 @@ Pinned against the pinned jgenesis, never fitted:
 ### Coverage semantics
 
 The report declares `coverage.modelled_frames`: the edge up to which the
-native per-frame GEMS timeline is *defended* as faithful. It is 78: frames
-0..77 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
+native per-frame GEMS timeline is *defended* as faithful. It is 80: frames
+0..79 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
 power-on clears, the blank-display Sega-logo upload, and the first outer
 `Mode_Standard` DMA/VINT pass plus three local `loc_12E6C` iterations, the
 Start exit, all sixteen `Pal_FadeOut loc_28C6` loop uploads, and the
@@ -516,18 +516,22 @@ complete `loc_28EA` exit pass, all eight post-fade `loc_700` full-VRAM clear
 spans, all four following `loc_714/loc_720` Sprite_Table clear spans, and
 `loc_726`'s restart initialisers through `Load_IntroSequence1`'s first
 `StopMusic`, `PlaySound`, and `sub_1B850` through the kids-hanging compacting
-uploads and intro-letters decoder. A
+uploads, intro-letters decoder, both Enigma streams, and the plane-A/plane-B
+blits. A
 resumable cursor preserves the two `FrameRendered` samples inside
 `sub_E13DA`, materialising each `loc_E1400` driver byte and `loc_E1406` clear
 when its M68K write instruction starts, including the active one-cycle Z80-RAM
-wait. Frames 16, 19, 20, 22, 25, 28, 30, 33..70, 72..74, 76, and 77 have strict residuals from the
+wait. Frames 16, 19, 20, 22, 25, 28, 30, 33..70, 72..74, 76, 77, and 79 have strict residuals from the
 documented jgenesis X/Y-flag limitation below. Signatures past the edge are
 still emitted by the coarse
 continuous route replayer and compared so divergence is measured, not hidden,
 but never claimed as modelled. Frame 75 is strict-field exact. Frame 77's raw
 RAM differs only at saved-SP byte `$003E`; jgenesis's derivative XFER68K phase
-also exposes a two-cycle pending wait. The first unmodelled boundary is frame
-78 after the intro-letters decoder.
+also exposes a two-cycle pending wait. Frame 78 is RAM/bank/PC/flag exact;
+jgenesis's source-documented approximate refresh counter alone queues a
+two-cycle wait at its quantised instruction boundary. Frame 79 differs only
+in five active-stack bytes and PC phase. The first unmodelled boundary is
+frame 80 after the first title `WaitForVint` transition.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.

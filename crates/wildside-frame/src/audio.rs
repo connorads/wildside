@@ -1108,6 +1108,75 @@ pub fn apply_gems_enigma_decoder(
     )
 }
 
+/// Clock one source-ordered ASM `EniDec` call while sampling a raster instant.
+#[cfg(feature = "audio")]
+#[allow(clippy::too_many_arguments)]
+pub fn apply_gems_enigma_decoder_with_checkpoint(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    caller_instruction_cycles: &[u32],
+    compressed: &[u8],
+    base_tile_word: u16,
+    source_address: u32,
+    vint_count: u8,
+    checkpoint_master_clock: u64,
+) -> Option<(
+    wildside_core::vdp::EnigmaDecoderAdvance,
+    GemsTimingCheckpoint,
+)> {
+    if audio.pending_m68k_wait_cycles() != 0 || checkpoint_master_clock < audio.master_clock() {
+        return None;
+    }
+    let mut checkpoint = None;
+    let advance = wildside_core::vdp::enigma_decoder_cursor_with_scheduler(
+        entry,
+        caller_instruction_cycles,
+        compressed,
+        base_tile_word,
+        source_address,
+        vint_count,
+        |cycles, vdp_owns_bus, source_instruction| {
+            let interval_master_clocks = u64::from(cycles.get()) * 7;
+            let interval_start = audio.master_clock();
+            let interval_end = interval_start.checked_add(interval_master_clocks)?;
+            if checkpoint.is_none() && checkpoint_master_clock <= interval_end {
+                let offset = checkpoint_master_clock.checked_sub(interval_start)?;
+                let captured = if source_instruction {
+                    let (_, captured) = audio.advance_ntsc_m68k_instruction_with_checkpoint(
+                        interval_master_clocks,
+                        vdp_owns_bus,
+                        offset,
+                    )?;
+                    captured
+                } else {
+                    audio.advance_ntsc_master_clocks_with_vdp_ownership(offset, vdp_owns_bus);
+                    let captured = audio.checkpoint();
+                    audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                        interval_master_clocks - offset,
+                        vdp_owns_bus,
+                    );
+                    captured
+                };
+                checkpoint = Some(captured);
+            } else if source_instruction {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                );
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )?;
+    Some((advance, checkpoint?))
+}
+
 /// Clock sub_1B850's 40x28 `sub_1C5D0` plane-A blit.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_intro_plane_a_blit(
@@ -1156,6 +1225,47 @@ pub fn apply_gems_title_intro_repeated_rows(
             ))
         },
     )
+}
+
+/// Clock the repeated plane-B rows while sampling one exact raster instant.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_intro_repeated_rows_with_checkpoint(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    vint_count: u8,
+    checkpoint_master_clock: u64,
+) -> Option<(DecompressToVramTransferAdvance, GemsTimingCheckpoint)> {
+    if audio.pending_m68k_wait_cycles() != 0 || checkpoint_master_clock < audio.master_clock() {
+        return None;
+    }
+    let mut checkpoint = None;
+    let advance = wildside_core::vdp::title_intro_repeated_rows_with_scheduler(
+        entry,
+        vint_count,
+        |cycles, vdp_owns_bus| {
+            let interval_master_clocks = u64::from(cycles.get()) * 7;
+            let interval_start = audio.master_clock();
+            let interval_end = interval_start.checked_add(interval_master_clocks)?;
+            if checkpoint.is_none() && checkpoint_master_clock <= interval_end {
+                let offset = checkpoint_master_clock.checked_sub(interval_start)?;
+                let (_, captured) = audio.advance_ntsc_m68k_instruction_with_checkpoint(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                    offset,
+                )?;
+                checkpoint = Some(captured);
+            } else {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )?;
+    Some((advance, checkpoint?))
 }
 
 /// Clock `Load_IntroSequence1`'s controller allocation after `sub_1B850`.

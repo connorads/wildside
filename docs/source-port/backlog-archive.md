@@ -633,6 +633,17 @@ limitations are recorded. Full pixel, gameplay, RNG, and enemy baselines
 remain fixed. NEXT: continue the 720-word intro-letters upload from cycle
 9,978,770, then source-schedule `unk_2FDE0` EniDec and `sub_1C5D0`.
 
+Progress 2026-07-21: the 720-word intro-letters upload, `unk_2FDE0` EniDec,
+`sub_1C5D0` plane-A blit, short `unk_2FDCE` EniDec, and repeated plane-B rows
+are source-scheduled through frame 79. Frame 78 agrees on RAM, bank, PC, and
+flags; its sole two-cycle wait is jgenesis's source-documented approximate
+68000 refresh counter at the quantised frame boundary. Frame 79 raw RAM
+differs only across active-stack `$1FEC..$1FF0` plus the corresponding PC
+phase. Defended coverage advances 78 -> 80, GEMS mismatches fall 37,681 ->
+37,679, and 52 exact oracle limitations are recorded. Full pixel, gameplay,
+RNG, and enemy baselines remain fixed. NEXT: continue through controller
+allocation and the first `WaitForVint` transition into `Mode_Standard`.
+
 Progress 2026-07-21: the fifth `Pal_FadeOut loc_28C6` palette upload is
 source-scheduled from cycle 5,364,160, beam 237:940, refresh phase 70. Frame
 42 native/oracle CRCs are `2240045277`/`2240142489` and PCs are
