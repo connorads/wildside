@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 first intro `Mode_Standard` entry)
+
+- Defended GEMS coverage advances to frames 0..80; the authoritative frontier
+  is frame 81 later in the first intro `Mode_Standard` pass.
+- Controller allocation, `WaitForVint`/VINT, and `Do_Nothing` are retained.
+- Frame 80 raw RAM differs only at `$1A1A`; PC/wait phase is derivative.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,678, with 53 evidence-backed oracle limitations and 28 advisory frames.
+- NEXT: continue palette, scroll, sprite/Kid, and empty foreground queues.
+
 ## 2026-07-21 handoff (#416 Enigma and plane blits)
 
 - Defended GEMS coverage advances to frames 0..79; the authoritative frontier

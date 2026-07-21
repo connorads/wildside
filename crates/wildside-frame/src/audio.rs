@@ -1432,6 +1432,61 @@ pub fn apply_gems_title_mode_standard_do_nothing(
     )
 }
 
+/// Clock `Mode_Standard`'s `Do_Nothing` call while sampling a raster instant.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_mode_standard_do_nothing_with_checkpoint(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    checkpoint_master_clock: u64,
+) -> Option<(TitleIntroSourceAdvance, GemsTimingCheckpoint)> {
+    if audio.pending_m68k_wait_cycles() != 0 || checkpoint_master_clock < audio.master_clock() {
+        return None;
+    }
+    let mut checkpoint = None;
+    let advance = wildside_core::vdp::title_mode_standard_do_nothing_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            let interval_master_clocks = u64::from(cycles.get()) * 7;
+            let interval_start = audio.master_clock();
+            let interval_end = interval_start.checked_add(interval_master_clocks)?;
+            if checkpoint.is_none() && checkpoint_master_clock <= interval_end {
+                let offset = checkpoint_master_clock.checked_sub(interval_start)?;
+                let captured = if source_instruction {
+                    let (_, captured) = audio.advance_ntsc_m68k_instruction_with_checkpoint(
+                        interval_master_clocks,
+                        vdp_owns_bus,
+                        offset,
+                    )?;
+                    captured
+                } else {
+                    audio.advance_ntsc_master_clocks_with_vdp_ownership(offset, vdp_owns_bus);
+                    let captured = audio.checkpoint();
+                    audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                        interval_master_clocks - offset,
+                        vdp_owns_bus,
+                    );
+                    captured
+                };
+                checkpoint = Some(captured);
+            } else if source_instruction {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                );
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )?;
+    Some((advance, checkpoint?))
+}
+
 /// Clock a title-path `Do_Nothing` call.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_do_nothing_call(

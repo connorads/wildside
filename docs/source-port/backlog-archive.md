@@ -644,6 +644,15 @@ phase. Defended coverage advances 78 -> 80, GEMS mismatches fall 37,681 ->
 RNG, and enemy baselines remain fixed. NEXT: continue through controller
 allocation and the first `WaitForVint` transition into `Mode_Standard`.
 
+Progress 2026-07-21: the retained cursor now carries controller allocation,
+the first `WaitForVint` poll/VINT, and `Mode_Standard`'s `Do_Nothing` through
+frame 80. Raw oracle RAM differs only at active-stack byte `$1A1A`; the PC
+and two-cycle wait are derivative of the already documented X/Y and
+approximate-refresh phase. Defended coverage advances 80 -> 81, GEMS
+mismatches fall 37,679 -> 37,678, and 53 exact oracle limitations are
+recorded. Full pixel, gameplay, RNG, and enemy baselines remain fixed. NEXT:
+continue palette, scroll, sprite/Kid, and empty foreground queues.
+
 Progress 2026-07-21: the fifth `Pal_FadeOut loc_28C6` palette upload is
 source-scheduled from cycle 5,364,160, beam 237:940, refresh phase 70. Frame
 42 native/oracle CRCs are `2240045277`/`2240142489` and PCs are

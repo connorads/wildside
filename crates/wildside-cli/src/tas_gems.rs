@@ -35,13 +35,15 @@ use wildside_frame::{
     apply_gems_decompress_to_vram_transfer_loc_14314,
     apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314, apply_gems_enigma_decoder,
     apply_gems_enigma_decoder_with_checkpoint, apply_gems_power_on_post_clear_reset,
-    apply_gems_power_on_z80_startup, apply_gems_title_intro_plane_a_blit,
-    apply_gems_title_intro_repeated_rows_with_checkpoint,
+    apply_gems_power_on_z80_startup, apply_gems_title_intro_controller_allocation,
+    apply_gems_title_intro_plane_a_blit, apply_gems_title_intro_repeated_rows_with_checkpoint,
+    apply_gems_title_intro_wait_for_vint_poll,
+    apply_gems_title_mode_standard_do_nothing_with_checkpoint,
     apply_gems_title_mode_standard_empty_foreground_queues,
     apply_gems_title_mode_standard_palette_to_vram,
     apply_gems_title_mode_standard_scroll_data_to_vram,
     apply_gems_title_mode_standard_sprite_and_kid_to_vram, apply_gems_title_palette_to_vram_call,
-    apply_timed_gems_queue_command, gems_bgm,
+    apply_gems_title_wait_for_vint_to_mode_standard, apply_timed_gems_queue_command, gems_bgm,
 };
 use wildside_md::{
     GemsMasterClockTimingEngine, GemsNtscTimelineOrigin, GemsQueueCommand, GemsTimingCheckpoint,
@@ -55,7 +57,7 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 
 /// Frames of the route whose native per-frame GEMS timeline is defended as
-/// faithful. Frames 0..79 replay ASM `EntryPoint`'s power-on Z80 bootstrap
+/// faithful. Frames 0..80 replay ASM `EntryPoint`'s power-on Z80 bootstrap
 /// through the first outer `Mode_Standard` pass, three Sega-screen local
 /// palette/VINT/controller iterations, and the Start transition into the
 /// sixteen `Pal_FadeOut` loop palette uploads, the `loc_28EA` exit pass, and
@@ -67,7 +69,7 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 80;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 81;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -374,6 +376,36 @@ impl GemsSignatureProbe {
             .expect("source-positioned repeated plane-B rows span frame 79");
             assert_eq!(self.engine.master_clock(), 10_272_880 * 7);
             self.power_on_intro_cursor = Some(repeated_rows.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 80 {
+            // ASM Load_IntroSequence1 allocates its controller, polls
+            // WaitForVint, services V_Int, and enters Mode_Standard. The
+            // sample lands inside its first Do_Nothing call.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("repeated plane-B rows return to Load_IntroSequence1");
+            let controller = apply_gems_title_intro_controller_allocation(&mut self.engine, cursor)
+                .expect("source-positioned intro controller allocation");
+            assert_eq!(self.engine.master_clock(), 10_273_916 * 7);
+            let poll =
+                apply_gems_title_intro_wait_for_vint_poll(&mut self.engine, controller.cursor)
+                    .expect("source-positioned first WaitForVint poll");
+            assert_eq!(self.engine.master_clock(), 10_273_988 * 7);
+            let mode_standard =
+                apply_gems_title_wait_for_vint_to_mode_standard(&mut self.engine, poll.cursor)
+                    .expect("source-positioned WaitForVint/V_Int/Mode_Standard entry");
+            assert_eq!(self.engine.master_clock(), 10_350_130 * 7);
+            let (do_nothing, checkpoint) =
+                apply_gems_title_mode_standard_do_nothing_with_checkpoint(
+                    &mut self.engine,
+                    mode_standard.cursor,
+                    target,
+                )
+                .expect("source-positioned Mode_Standard Do_Nothing spans frame 80");
+            assert_eq!(self.engine.master_clock(), 10_356_422 * 7);
+            self.power_on_intro_cursor = Some(do_nothing.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
         if self.power_on_frame == 3 {
@@ -1421,6 +1453,15 @@ fn gems_divergence_matches_documented_oracle_limitation(
         && oracle.audio_ram_crc32 == 2_669_845_625
         && native.z80_pc == 0x0273
         && oracle.z80_pc == 0x02A6;
+    let mode_standard_entry_irq_phase = diverging
+        == ["audio_ram_crc32", "z80_pc", "pending_m68k_wait_cycles"]
+        && frame_index == 80
+        && native.audio_ram_crc32 == 1_083_170_893
+        && oracle.audio_ram_crc32 == 2_543_959_575
+        && native.z80_pc == 0x02A5
+        && oracle.z80_pc == 0x00AF
+        && native.pending_m68k_wait_cycles == 0
+        && oracle.pending_m68k_wait_cycles == 2;
     irq_saved_sp
         || later_pc
         || sega_screen_phase
@@ -1431,6 +1472,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
         || intro_letters_irq_phase
         || approximate_refresh_wait
         || repeated_rows_irq_phase
+        || mode_standard_entry_irq_phase
 }
 
 fn update_gems_frame_digest(hasher: &mut Sha1, signature: Option<&GemsFrameSignature>) {
@@ -2139,6 +2181,21 @@ mod tests {
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 45);
+
+        let mut native_frame_80 = signature(0x02A5);
+        native_frame_80.audio_ram_crc32 = 1_083_170_893;
+        native_frame_80.bank_address = 0x000E_8000;
+        native_frame_80.status_bits = GemsFrameSignature::STATUS_IFF1;
+        let mut oracle_frame_80 = signature(0x00AF);
+        oracle_frame_80.audio_ram_crc32 = 2_543_959_575;
+        oracle_frame_80.bank_address = 0x000E_8000;
+        oracle_frame_80.pending_m68k_wait_cycles = 2;
+        oracle_frame_80.status_bits = GemsFrameSignature::STATUS_IFF1;
+        native.push(Some(native_frame_80));
+        oracle.push(Some(oracle_frame_80));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 46);
     }
 
     #[test]
@@ -2474,7 +2531,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_79() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_80() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -3433,5 +3490,27 @@ mod tests {
         let mut crc = crc32fast::Hasher::new();
         crc.update(&oracle_ram);
         assert_eq!(crc.finalize(), 2_669_845_625);
+
+        let frame_80 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_80.audio_ram_crc32, 1_083_170_893);
+        assert_eq!(frame_80.bank_address, 0x000E_8000);
+        assert_eq!(frame_80.z80_pc, 0x02A5);
+        assert_eq!(frame_80.z80_wait_mclk_cycles, 0);
+        assert_eq!(frame_80.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_80.status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        // ORACLE LIMITATION: the carried X/Y and approximate-refresh phase
+        // leaves only one active-stack byte different after WaitForVint.
+        let mut oracle_ram = probe
+            .power_on_last_sampled_checkpoint
+            .as_ref()
+            .expect("captured frame 80 checkpoint")
+            .audio_ram
+            .clone();
+        assert_eq!(oracle_ram[0x1A1A], 0xCE);
+        oracle_ram[0x1A1A] = 0x76;
+        let mut crc = crc32fast::Hasher::new();
+        crc.update(&oracle_ram);
+        assert_eq!(crc.finalize(), 2_543_959_575);
     }
 }
