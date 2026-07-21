@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 complete `loc_700` clear)
+
+- `gems_frame_signature_v1` now defends frames 0..24 and
+  `coverage.modelled_frames` advances from 17 to 25.
+- The resumable source/FIFO cursor carries the complete `loc_700/loc_70E`
+  clear; frames 17, 18, 21, 23, and 24 are strict-exact.
+- Frames 19, 20, and 22 repeat only the raw-RAM-confirmed `$003E` saved-SP
+  consequence of jgenesis's stale Z80 X/Y flags, for four total limitations.
+- Full TAS keeps pixel/gameplay/enemy/RNG baselines green; GEMS mismatches fall
+  37,742 -> 37,734 and the first authoritative mismatch moves 17 -> 25.
+- NEXT: schedule `loc_714/loc_720` and the following initialisers from frame 25.
+
+---
+
 ## 2026-07-21 handoff (#416 first running-driver IRQ)
 
 - `gems_frame_signature_v1` now defends frames 0..16 and

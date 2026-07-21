@@ -297,6 +297,18 @@ pixel/gameplay/enemy/RNG baselines green, reduces GEMS mismatches 37,743 ->
 37,742, records one oracle limitation, and moves the first authoritative
 mismatch 16 -> 17. NEXT: continue `loc_700` from frame 17.
 
+Progress 2026-07-21: route-wide GEMS coverage advances from 17 to 25 defended
+frames. The resumable `loc_700/loc_70E` cursor carries the remaining source,
+refresh, and FIFO-ownership schedule byte-exactly through frame 24. Frames 17,
+18, 21, 23, and 24 match every strict signature field. Frames 19, 20, and 22
+differ only at audio RAM `$003E`, the same raw-RAM-confirmed saved-SP
+consequence as frame 16; every other byte, PC, bank, wait ledger, and flag is
+exact. Full TAS verification keeps pixel/gameplay/enemy/RNG baselines green,
+reduces GEMS mismatches 37,742 -> 37,734, records four total oracle
+limitations, and moves the first authoritative mismatch 17 -> 25. The
+`loc_700` cursor ends before frame 25. NEXT: schedule `loc_714/loc_720` and the
+following initialisers.
+
 ---
 
 ### #417
