@@ -600,6 +600,19 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the persistent title timeline closes frame 84's ordinary
+IntroText1 delay/fade pass. The parameterised worker resumes at `loc_1C7B2`,
+decrements a non-terminal delay, takes the direct `loc_1C7AE` hibernation path,
+and emits no glyph; the controller's `sub_1C204` path advances `$0020->$0030`,
+marks both dirty masks, and hibernates. The object block is 156 instructions /
+2,014 raw cycles. Oracle enters `$790` on cycle 10,746,382 and returns at `$794`
+on 10,748,558; native reaches 10,748,265, retaining a 293-cycle explained
+residue from its 259-cycle early entry plus 34 unmodelled GEMS waits. An oracle
+watch across frames 84-99 places the RNG-ring wrap on frame 93
+(`$FFFD->$FFCA`) and the controller's `$0110` exit on frame 98. NEXT: schedule
+the reusable ordinary frames through the RNG wrap, derive the exit path, then
+reach the first glyph-emission frame.
+
 Progress 2026-07-21: the persistent title timeline closes the second frame,
 crosses the third `MainGameLoop -> WaitForVint -> V_Int` boundary, replays the
 source-exact VDP prelude, and returns from the third `Execute_Objects` at

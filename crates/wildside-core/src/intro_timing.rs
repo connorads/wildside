@@ -379,6 +379,69 @@ pub fn visit_title_third_execute_objects(
     Some(timing)
 }
 
+/// Visit an ordinary title text-delay frame while the controller still fades.
+///
+/// The worker resumes with a delay greater than one, decrements it, and takes
+/// `loc_1C7B2 -> loc_1C7AE` directly back to hibernation. The controller's
+/// `sub_1C204` fade value must still be at most `$00F0`, so adding `$10`
+/// retains the dirty-mask-and-hibernate path rather than exiting at `$0110`.
+pub fn visit_title_text_delay_fade_execute_objects(
+    rng_offset_before: u16,
+    text_delay_before: u8,
+    controller_fade_before: u16,
+    mut visit: impl FnMut(u32),
+) -> Option<IntroSourceTiming> {
+    if text_delay_before <= 1
+        || !(0x20..=0xF0).contains(&controller_fade_before)
+        || !controller_fade_before.is_multiple_of(0x10)
+    {
+        return None;
+    }
+
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title text-delay fade timing fits u32"),
+        );
+    };
+
+    visit_title_execute_objects_setup(rng_offset_before, &mut emit)?;
+    // ASM loc_E1E dispatches the live text worker at saved PC loc_1C7B2.
+    for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
+        emit(cycles);
+    }
+    // ASM loc_1C7B2 decrements the non-terminal delay and takes BNE directly
+    // to loc_1C7AE, then hibernates through the thunk and sub_E76.
+    for cycles in [4, 10, 18, 10, 16, 24, 16, 76, 16, 10] {
+        emit(cycles);
+    }
+    // ASM loc_E1E dispatches the controller from its one-frame hibernation.
+    for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
+        emit(cycles);
+    }
+    // ASM loc_1C222 calls sub_1C246 with no Start edge, advances the fade by
+    // `$10`, marks both dirty masks, and hibernates at loc_1C21E.
+    for cycles in [
+        18, 16, 8, 16, 16, 8, 4, 16, 16, 10, 18, 10, 16, 24, 16, 76, 16, 10,
+    ] {
+        emit(cycles);
+    }
+    for cycles in [12, 10, 16, 16] {
+        emit(cycles);
+    }
+
+    Some(timing)
+}
+
 /// Visit initial `sub_1B8F4` work through entry to `sub_1C4EA`.
 ///
 /// The first title controller allocates the fixed Wild Side prompt GfxObject
@@ -1204,6 +1267,31 @@ mod tests {
             "ASM loc_1C7AE and loc_1C21E each pack eight coroutine registers once",
         );
         assert_eq!(&cycles[cycles.len() - 4..], &[12, 10, 16, 16]);
+    }
+
+    #[test]
+    fn ordinary_title_text_delay_frame_hibernates_both_objects() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_text_delay_fade_execute_objects(0xFFD9, 0x20, 0x20, |cycle| {
+            cycles.push(cycle);
+        })
+        .expect("frame-84 ordinary text-delay state");
+
+        assert_eq!(timing.instruction_count, 156);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(2_014));
+        assert_eq!(
+            cycles.iter().filter(|&&cycle| cycle == 76).count(),
+            2,
+            "ASM loc_1C7AE and loc_1C21E each pack eight coroutine registers once",
+        );
+        assert!(
+            visit_title_text_delay_fade_execute_objects(0xFFD9, 1, 0x20, |_| {}).is_none(),
+            "terminal text delay takes the command/glyph parser instead",
+        );
+        assert!(
+            visit_title_text_delay_fade_execute_objects(0xFFD9, 0x20, 0x100, |_| {}).is_none(),
+            "fade `$100` takes the controller exit after its next increment",
+        );
     }
 
     #[test]

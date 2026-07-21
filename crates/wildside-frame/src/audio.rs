@@ -1147,6 +1147,34 @@ pub fn apply_gems_title_third_execute_objects(
     )
 }
 
+/// Clock an ordinary title text-delay/controller-fade frame.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_text_delay_fade_execute_objects(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    text_delay_before: u8,
+    controller_fade_before: u16,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_text_delay_fade_execute_objects_cursor_with_scheduler(
+        entry,
+        rng_offset_before,
+        text_delay_before,
+        controller_fade_before,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock initial `sub_1B8F4` work through the `sub_1C4EA` palette copy.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_intro_controller_prompt_gfx_to_palette(
@@ -3740,6 +3768,73 @@ mod tests {
             engine.master_clock(),
             10_620_340 * 7,
             "title third text-delay ledger: {third_execute:?}",
+        );
+
+        let fourth_gfx =
+            apply_gems_title_first_gfx_object_move_and_animate(&mut engine, third_execute.cursor)
+                .expect("source-positioned third title GfxObject pass");
+        let fourth_joypad = apply_gems_title_first_read_joypad(&mut engine, fourth_gfx.cursor)
+            .expect("source-positioned third title ReadJoypad");
+        let fourth_sprites =
+            apply_gems_title_first_make_sprites_from_gfx_objects(&mut engine, fourth_joypad.cursor)
+                .expect("source-positioned third title sprite construction");
+        let fourth_interpolation =
+            apply_gems_title_first_palette_interpolation(&mut engine, fourth_sprites.cursor)
+                .expect("source-positioned third title palette interpolation");
+        let fourth_poll = apply_gems_title_frame_return_to_wait_for_vint_poll(
+            &mut engine,
+            fourth_interpolation.cursor,
+        )
+        .expect("source-positioned fourth title WaitForVint poll");
+        let fourth_mode_standard =
+            apply_gems_title_wait_for_vint_to_mode_standard(&mut engine, fourth_poll.cursor)
+                .expect("source-positioned fourth title WaitForVint/V_Int path");
+        let fourth_do_nothing =
+            apply_gems_title_mode_standard_do_nothing(&mut engine, fourth_mode_standard.cursor)
+                .expect("source-positioned fourth title Do_Nothing");
+        let fourth_palette =
+            apply_gems_title_mode_standard_palette_to_vram(&mut engine, fourth_do_nothing.cursor)
+                .expect("source-positioned fourth title Palette_to_VRAM");
+        let fourth_sprite_and_kid = apply_gems_title_mode_standard_sprite_and_kid_to_vram(
+            &mut engine,
+            fourth_palette.cursor,
+        )
+        .expect("source-positioned fourth title sprite/Kid transfer");
+        let fourth_scroll = apply_gems_title_mode_standard_scroll_data_to_vram(
+            &mut engine,
+            fourth_sprite_and_kid.cursor,
+        )
+        .expect("source-positioned fourth title scroll transfer");
+        let fourth_queues = apply_gems_title_mode_standard_empty_foreground_queues(
+            &mut engine,
+            fourth_scroll.cursor,
+        )
+        .expect("source-positioned fourth title empty foreground queues");
+        let fourth_execute = apply_gems_title_text_delay_fade_execute_objects(
+            &mut engine,
+            fourth_queues.cursor,
+            0xFFD9,
+            0x20,
+            0x20,
+        )
+        .expect("source-positioned fourth title ordinary text-delay frame");
+        assert_eq!(
+            fourth_execute.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 156,
+                raw_cycles: M68kCycleCount::from_raw(2_014),
+            },
+        );
+        assert_eq!(fourth_execute.refresh_events, 16);
+        assert_eq!(fourth_execute.external_wait_cycles.get(), 0);
+        // Oracle frame 84 enters Execute_Objects at $790 on cycle
+        // 10,746,382 and returns to $794 on 10,748,558. Native enters
+        // 259 cycles early and runs the same 2,014 source cycles plus sixteen
+        // refreshes, while the oracle accrues another 34 GEMS wait cycles.
+        assert_eq!(
+            engine.master_clock(),
+            10_748_265 * 7,
+            "title ordinary text-delay ledger: {fourth_execute:?}",
         );
     }
 

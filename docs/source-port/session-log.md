@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 ordinary title delay frame)
+
+- The persistent timeline closes frame 84 through the ordinary IntroText1
+  delay/fade `Execute_Objects` pass.
+- The reusable path is 156 instructions / 2,014 raw cycles: the text worker
+  decrements and hibernates without a glyph while the controller advances
+  `$0020->$0030` and marks both dirty masks.
+- Native reaches 10,748,265 versus oracle 10,748,558. Its 293-cycle residue is
+  the 259-cycle early entry plus 34 GEMS waits absent from native scheduling.
+- Oracle watches locate the RNG-ring wrap on frame 93 and the controller's
+  `$0110` exit on frame 98.
+- NEXT: schedule ordinary frames through the wrap, derive the controller exit,
+  then reach the first glyph-emission frame.
+
+---
+
 ## 2026-07-21 handoff (#409 third title text-delay frame)
 
 - The persistent timeline closes the second frame, crosses the third VINT,

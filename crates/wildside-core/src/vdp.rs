@@ -3842,6 +3842,28 @@ pub fn title_third_execute_objects_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule an ordinary title text-delay/controller-fade frame.
+pub fn title_text_delay_fade_execute_objects_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    text_delay_before: u8,
+    controller_fade_before: u16,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| {
+            crate::intro_timing::visit_title_text_delay_fade_execute_objects(
+                rng_offset_before,
+                text_delay_before,
+                controller_fade_before,
+                visit,
+            )
+        },
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule initial `sub_1B8F4` work through `sub_1C4EA` entry.
 pub fn title_intro_controller_prompt_gfx_to_palette_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
