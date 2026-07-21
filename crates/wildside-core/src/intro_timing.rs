@@ -1645,6 +1645,55 @@ pub fn visit_title_restart_initialisers_to_play_sound(
     timing
 }
 
+/// Visit the Ice command return and `Load_TitleScreen` VRAM fill.
+///
+/// ASM `sub_E151C` has already returned to `PlaySound`. Its three-instruction
+/// epilogue returns to `Load_TitleScreen`, which selects VRAM zero and writes
+/// 2,048 copies of `$20BC` at `loc_1B258`. The visitor includes the following
+/// `BSR.W sub_1B2A4` and stops at that routine's entry.
+pub fn visit_title_load_screen_vram_fill_to_sub_1b2a4(
+    mut visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                timing: &mut IntroSourceTiming,
+                cycles: u32| {
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title-screen VRAM-fill timing fits u32"),
+        );
+    };
+
+    // ASM PlaySound $E1516..$E151A, then Load_TitleScreen setup.
+    for cycles in [12, 12, 16, 24, 8] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for iteration in 0..0x800 {
+        // ASM loc_1B258: MOVE.W #$20BC,(a6) enqueues one VRAM word.
+        emit(&mut visit, &mut timing, 12);
+        visit(MemoryDmaTimingEvent::WriteVdpWord {
+            target: MemoryToVdpDmaTarget::Vram,
+        });
+        emit(
+            &mut visit,
+            &mut timing,
+            if iteration == 0x7FF { 14 } else { 10 },
+        );
+    }
+    // ASM $1B25C: BSR.W sub_1B2A4.
+    emit(&mut visit, &mut timing, 18);
+
+    timing
+}
+
 /// Visit the title path through `Transfer_SpriteAndKidToVRAM`.
 ///
 /// The title has a live sprite-table pointer, `$FB49` clear, and a zero first
@@ -2395,6 +2444,28 @@ mod tests {
         assert_eq!(
             &cycles[cycles.len() - 11..],
             &[20, 10, 12, 18, 16, 8, 20, 10, 12, 12, 18],
+        );
+    }
+
+    #[test]
+    fn title_load_screen_fill_writes_2048_vram_words_before_sub_1b2a4() {
+        let mut events = Vec::new();
+        let timing = visit_title_load_screen_vram_fill_to_sub_1b2a4(|event| events.push(event));
+
+        assert_eq!(timing.instruction_count, 4_102);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(45_150));
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(
+                    event,
+                    MemoryDmaTimingEvent::WriteVdpWord {
+                        target: MemoryToVdpDmaTarget::Vram
+                    }
+                ))
+                .count(),
+            2_048,
+            "ASM loc_1B258 writes the inclusive d0=$07FF VRAM range",
         );
     }
 

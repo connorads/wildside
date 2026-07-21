@@ -600,6 +600,17 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: `Load_TitleScreen loc_1B258` is source-scheduled through
+the `sub_1B2A4` entry without fitting its remaining divergence. The path after
+the Ice transaction contains 4,102 instructions / 45,150 raw cycles, 2,048
+VRAM FIFO writes, one VINT, 39,181 native FIFO-halt ticks, and 1,551 persistent
+GEMS wait cycles. Native reaches `sub_1B2A4` at 22,048,390 / phase 32, while
+oracle reaches it at 22,048,445 / the same phase. Oracle selected-PC census
+records 39,174 one-cycle FIFO stalls and the 44-cycle autovector entry. The
+55-cycle residual is retained as evidence, not added as a delay. NEXT: journal
+banked reads across the fill and account for the residual before scheduling
+`sub_1B2A4`.
+
 Progress 2026-07-21: the title restart reaches and completes its frame-171 Ice
 queue exactly. `loc_726` now source-schedules `Initialize_ObjectSlots`,
 `Initialize_GfxObjectSlots`, `sub_8A4`, the `LoadGameModeData` indexed dispatch,

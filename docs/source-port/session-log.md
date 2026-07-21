@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 title VRAM fill frontier)
+
+- `Load_TitleScreen loc_1B258` now schedules all 2,048 FIFO words, 4,102
+  instructions / 45,150 raw cycles, and its crossing VINT.
+- Native contributes 39,181 FIFO-halt ticks and 1,551 GEMS waits, reaching
+  `sub_1B2A4` at 22,048,390 / phase 32.
+- Oracle reaches the same phase at 22,048,445; its selected-PC census records
+  39,174 FIFO stalls plus the 44-cycle autovector entry.
+- NEXT: journal banked reads across the fill and explain the 55-cycle residual.
+
+---
+
 ## 2026-07-21 handoff (#409 title Ice queue exact)
 
 - `loc_726` source-schedules both slot initialisers, `sub_8A4`, and the

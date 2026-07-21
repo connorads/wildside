@@ -1688,6 +1688,21 @@ pub fn apply_gems_title_loc_714_sprite_table_clear(
     })
 }
 
+/// Clock the Ice return and `loc_1B258` fill through `sub_1B2A4` entry.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_load_screen_vram_fill_to_sub_1b2a4(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleMemoryDmaAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_load_screen_vram_fill_to_sub_1b2a4_cursor_with_scheduler(
+        entry,
+        |event| Some(apply_gems_title_memory_dma_hardware_event(audio, event)),
+    )
+}
+
 /// Clock the title restart from `loc_726` to the Ice `sub_E151C` entry.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_restart_initialisers_to_play_sound(
@@ -5039,6 +5054,31 @@ mod tests {
         assert_eq!(ice.elapsed.get(), 518);
         assert_eq!(ice.phase_after, M68kRefreshPhase::new(54).unwrap());
         assert_eq!(engine.master_clock(), 21_962_116 * 7);
+
+        let fill = apply_gems_title_load_screen_vram_fill_to_sub_1b2a4(
+            &mut engine,
+            LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                    M68kCycleCount::from_raw(21_962_116),
+                ),
+                refresh_phase: ice.phase_after,
+            },
+        )
+        .expect("PlaySound return and loc_1B258 VRAM fill");
+        assert_eq!(fill.timing.instruction_count, 4_102);
+        assert_eq!(fill.timing.raw_cycles.get(), 45_150);
+        assert_eq!(fill.vint_events, 1);
+        assert_eq!(fill.external_wait_cycles.get(), 1_551);
+        assert_eq!(fill.fifo_halt_cycles.get(), 39_181);
+        assert_eq!(
+            fill.cursor.refresh_phase,
+            M68kRefreshPhase::new(32).unwrap()
+        );
+        assert_eq!(
+            engine.master_clock(),
+            22_048_390 * 7,
+            "native reaches sub_1B2A4 55 cycles before the 22,048,445 oracle boundary",
+        );
     }
 
     #[cfg(feature = "audio")]
