@@ -1283,6 +1283,36 @@ pub fn apply_gems_title_ordinary_glyph_execute_objects(
     )
 }
 
+/// Clock IntroSequence1's glyph/Start path through `StopMusic $E14C8`.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_intro_sequence1_glyph_start_to_stop_music(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    controller_wait_before: u16,
+    glyph: u8,
+    intro_sequence_counter_before: u8,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_intro_sequence1_glyph_start_to_stop_music_cursor_with_scheduler(
+        entry,
+        rng_offset_before,
+        controller_wait_before,
+        glyph,
+        intro_sequence_counter_before,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 #[cfg(feature = "audio")]
 fn apply_gems_title_frame_to_execute_objects(
     audio: &mut GemsMasterClockTimingEngine,
@@ -1394,6 +1424,27 @@ pub fn apply_gems_title_ordinary_glyph_frame(
         rng_offset_before,
         controller_wait_before,
         glyph,
+    )
+}
+
+/// Clock frame 139 through IntroSequence1's `N` glyph and Start transition.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_intro_sequence1_start_frame_to_stop_music(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    controller_wait_before: u16,
+    glyph: u8,
+    intro_sequence_counter_before: u8,
+) -> Option<TitleIntroSourceAdvance> {
+    let execute_entry = apply_gems_title_frame_to_execute_objects(audio, entry)?;
+    apply_gems_title_intro_sequence1_glyph_start_to_stop_music(
+        audio,
+        execute_entry,
+        rng_offset_before,
+        controller_wait_before,
+        glyph,
+        intro_sequence_counter_before,
     )
 }
 
@@ -4295,6 +4346,73 @@ mod tests {
                 15_996_720,
                 15_996_987,
             ),
+            (126, 0xFFDC, 0x110, None, 151, 1_958, 16_124_450, 16_124_718),
+            (
+                127,
+                0xFFE0,
+                0x10F,
+                Some(b'W'),
+                184,
+                2_236,
+                16_252_726,
+                16_253_034,
+            ),
+            (128, 0xFFE4, 0x10E, None, 152, 1_964, 16_380_467, 16_380_751),
+            (
+                129,
+                0xFFE8,
+                0x10D,
+                Some(b'A'),
+                184,
+                2_236,
+                16_508_746,
+                16_509_045,
+            ),
+            (130, 0xFFEC, 0x10C, None, 152, 1_964, 16_636_474, 16_636_749),
+            (
+                131,
+                0xFFF0,
+                0x10B,
+                Some(b'S'),
+                184,
+                2_236,
+                16_764_751,
+                16_765_056,
+            ),
+            (132, 0xFFF4, 0x10A, None, 152, 1_964, 16_892_490, 16_892_797),
+            (
+                133,
+                0xFFF8,
+                0x109,
+                Some(b' '),
+                184,
+                2_236,
+                17_020_772,
+                17_021_068,
+            ),
+            (134, 0xFFFC, 0x108, None, 152, 1_964, 17_148_492, 17_148_784),
+            (
+                135,
+                0xFFC9,
+                0x107,
+                Some(b'A'),
+                183,
+                2_230,
+                17_276_770,
+                17_277_044,
+            ),
+            (136, 0xFFCD, 0x106, None, 151, 1_958, 17_404_495, 17_404_766),
+            (
+                137,
+                0xFFD1,
+                0x105,
+                Some(b' '),
+                183,
+                2_230,
+                17_532_786,
+                17_533_069,
+            ),
+            (138, 0xFFD5, 0x104, None, 151, 1_958, 17_660_731, 17_660_992),
         ] {
             let advance = if let Some(glyph) = glyph {
                 apply_gems_title_ordinary_glyph_frame(
@@ -4332,6 +4450,29 @@ mod tests {
                 oracle_return - native_return,
             );
         }
+
+        let start_transition = apply_gems_title_intro_sequence1_start_frame_to_stop_music(
+            &mut engine,
+            cadence_cursor,
+            0xFFD9,
+            0x103,
+            b'N',
+            2,
+        )
+        .expect("source-positioned frame-139 Start transition");
+        assert_eq!(start_transition.timing.instruction_count, 183);
+        assert_eq!(start_transition.timing.raw_cycles.get(), 2_166);
+        assert_eq!(start_transition.refresh_events, 17);
+        assert_eq!(start_transition.external_wait_cycles.get(), 0);
+        // Oracle frame 139 enters Execute_Objects at 17,786,682, reaches
+        // sub_1C246 at 17,788,766, and enters StopMusic at 17,789,000.
+        // Native reaches the same source boundary 273 cycles early because
+        // the divergent title GEMS state still emits none of the oracle waits.
+        assert_eq!(
+            engine.master_clock(),
+            17_788_727 * 7,
+            "frame-139 Start-to-StopMusic ledger: {start_transition:?}",
+        );
     }
 
     #[cfg(feature = "audio")]

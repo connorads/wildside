@@ -3948,6 +3948,30 @@ pub fn title_ordinary_glyph_execute_objects_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule IntroSequence1's glyph/Start path through `StopMusic $E14C8`.
+pub fn title_intro_sequence1_glyph_start_to_stop_music_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    controller_wait_before: u16,
+    glyph: u8,
+    intro_sequence_counter_before: u8,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| {
+            crate::intro_timing::visit_title_intro_sequence1_glyph_start_to_stop_music(
+                rng_offset_before,
+                controller_wait_before,
+                glyph,
+                intro_sequence_counter_before,
+                visit,
+            )
+        },
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule initial `sub_1B8F4` work through `sub_1C4EA` entry.
 pub fn title_intro_controller_prompt_gfx_to_palette_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,

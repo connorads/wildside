@@ -600,6 +600,19 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the persistent title timeline reaches frame 139's
+`StopMusic $E14C8` entry. Frames 126-138 complete IntroText1's published
+`WAS A` cadence, including spaces and the `$FFFC->$FFC9` RNG-ring wrap; every
+ordinary `$794` return is pinned to oracle, with frame 138 natively at
+17,660,731 versus 17,660,992. Frame 139 emits `N`, then the Start edge takes
+`loc_1B928 -> sub_1C246 -> sub_1C278 -> loc_1C264`. Direct selected-PC tracing
+pins all 17 transition instructions: the cold sequence counter wraps 2 -> 0,
+`Game_Mode` becomes `$2C`, and the `j_StopMusic` thunk enters `$E14C8` at
+17,789,000 / refresh phase 32. The source path is 183 instructions / 2,166
+raw cycles; native reaches the same boundary at 17,788,727 / phase 44, 273
+cycles early with zero GEMS waits. NEXT: derive the missing title bank waits,
+then join this persistent path to the existing absolute StopMusic scheduler.
+
 Correction 2026-07-21: direct jgenesis tracing at `sub_1C246` shows
 `bclr #7,(Ctrl_1_Pressed).w` consumes 20 source cycles, superseding the
 16-cycle assumption in the earlier title ledgers below. All six controller-poll

@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 frame-139 Start transition)
+
+- Frames 126-138 complete IntroText1's published `WAS A` cadence with every
+  `$794` return pinned to oracle.
+- Frame 139 emits `N`, consumes Start through `sub_1C246`, wraps the cold intro
+  counter through `sub_1C278`, and enters `StopMusic $E14C8`.
+- The selected-PC path is 183 instructions / 2,166 raw cycles. Native reaches
+  the entry at 17,788,727 versus oracle 17,789,000, 273 cycles early because
+  its divergent title GEMS state emits no bank waits.
+- NEXT: model those missing title waits, then join the persistent route to the
+  existing absolute frame-139 StopMusic scheduler.
+
+---
+
 ## 2026-07-21 handoff (#409 corrected title controller poll)
 
 - Direct jgenesis tracing proves `sub_1C246`'s

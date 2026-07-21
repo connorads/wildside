@@ -626,6 +626,37 @@ pub fn visit_title_post_fade_wait_execute_objects(
     Some(timing)
 }
 
+fn visit_title_ordinary_glyph_text_dispatch(
+    rng_offset_before: u16,
+    glyph: u8,
+    emit: &mut impl FnMut(u32),
+) -> Option<()> {
+    if glyph != b' ' && !(b'A'..=b'l').contains(&glyph) {
+        return None;
+    }
+
+    visit_title_execute_objects_setup(rng_offset_before, &mut *emit)?;
+    for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
+        emit(cycles);
+    }
+    // ASM loc_1C7B2 -> loc_1C7E6 consumes an ordinary glyph.
+    // ORIGINAL_QUIRK: loc_1C7DC compares against byte `(off_20).w`, not
+    // immediate `#$20`; title glyph bytes take the ordinary branch here.
+    for cycles in [4, 8, 4, 8, 8, 10, 8, 10, 8, 10, 12, 10, 8, 18] {
+        emit(cycles);
+    }
+    // ASM sub_1C7F6 derives the plane command/tile, then loc_1C7E6 loads
+    // IntroText1's two-frame glyph delay.
+    for cycles in [
+        4, 20, 4, 4, 8, 4, 8, 8, 4, 10, 8, 4, 12, 8, 8, 16, 4, 8, 8, 10, 18, 10, 16, 24, 16, 76,
+        16, 10,
+    ] {
+        emit(cycles);
+    }
+
+    Some(())
+}
+
 /// Visit an ordinary IntroText1 glyph and controller-wait dispatches.
 ///
 /// The text delay reaches zero, the parser consumes the glyph, and `sub_1C7F6`
@@ -636,10 +667,7 @@ pub fn visit_title_ordinary_glyph_execute_objects(
     glyph: u8,
     mut visit: impl FnMut(u32),
 ) -> Option<IntroSourceTiming> {
-    if controller_wait_before == 0
-        || controller_wait_before > 0x12B
-        || (glyph != b' ' && !(b'A'..=b'l').contains(&glyph))
-    {
+    if controller_wait_before == 0 || controller_wait_before > 0x12B {
         return None;
     }
 
@@ -659,24 +687,7 @@ pub fn visit_title_ordinary_glyph_execute_objects(
         );
     };
 
-    visit_title_execute_objects_setup(rng_offset_before, &mut emit)?;
-    for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
-        emit(cycles);
-    }
-    // ASM loc_1C7B2 -> loc_1C7E6 consumes an ordinary glyph.
-    // ORIGINAL_QUIRK: loc_1C7DC compares against byte `(off_20).w`, not
-    // immediate `#$20`; title glyph bytes take the ordinary branch here.
-    for cycles in [4, 8, 4, 8, 8, 10, 8, 10, 8, 10, 12, 10, 8, 18] {
-        emit(cycles);
-    }
-    // ASM sub_1C7F6 derives the plane command/tile, then loc_1C7E6 loads
-    // IntroText1's two-frame glyph delay.
-    for cycles in [
-        4, 20, 4, 4, 8, 4, 8, 8, 4, 10, 8, 4, 12, 8, 8, 16, 4, 8, 8, 10, 18, 10, 16, 24, 16, 76,
-        16, 10,
-    ] {
-        emit(cycles);
-    }
+    visit_title_ordinary_glyph_text_dispatch(rng_offset_before, glyph, &mut emit)?;
     for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
         emit(cycles);
     }
@@ -698,6 +709,74 @@ pub fn visit_title_ordinary_glyph_execute_objects(
         emit(cycles);
     }
     for cycles in [12, 10, 16, 16] {
+        emit(cycles);
+    }
+
+    Some(timing)
+}
+
+/// Visit IntroSequence1's glyph frame through the Start-driven `StopMusic` entry.
+///
+/// ASM `loc_1C7B2 -> sub_1C7F6` emits the glyph, then `loc_1B928 ->
+/// sub_1C246 -> sub_1C278 -> loc_1C264` consumes Start, wraps the cold intro
+/// sequence counter from 2 to 0, selects `Game_Mode=$2C`, and calls
+/// `j_StopMusic`. The final 10-cycle thunk jump ends at `StopMusic $E14C8`.
+pub fn visit_title_intro_sequence1_glyph_start_to_stop_music(
+    rng_offset_before: u16,
+    controller_wait_before: u16,
+    glyph: u8,
+    intro_sequence_counter_before: u8,
+    mut visit: impl FnMut(u32),
+) -> Option<IntroSourceTiming> {
+    if controller_wait_before == 0
+        || controller_wait_before > 0x12B
+        || intro_sequence_counter_before != 2
+    {
+        return None;
+    }
+
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title Start transition timing fits u32"),
+        );
+    };
+
+    visit_title_ordinary_glyph_text_dispatch(rng_offset_before, glyph, &mut emit)?;
+    // ASM loc_E1E dispatches the waiting controller into loc_1B928.
+    for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
+        emit(cycles);
+    }
+    // ASM loc_1B928 -> sub_1C246 -> sub_1C278 -> loc_1C264. Frame-139
+    // selected-PC tracing pins every instruction through StopMusic $E14C8.
+    for cycles in [
+        18,
+        TITLE_CONTROLLER_START_POLL_CYCLES,
+        10,
+        16,
+        8,
+        16,
+        8,
+        18,
+        16,
+        16,
+        8,
+        16,
+        16,
+        16,
+        16,
+        20,
+        10,
+    ] {
         emit(cycles);
     }
 
@@ -1679,7 +1758,41 @@ mod tests {
                 instruction_count: 183,
                 raw_cycles: M68kCycleCount::from_raw(2_230),
             }),
-            "ORIGINAL_QUIRK: frame 125's space skips the `$6D` substitution",
+            "ORIGINAL_QUIRK: frame 125's space stays on the ordinary parser path",
+        );
+    }
+
+    #[test]
+    fn title_intro_sequence1_start_reaches_stop_music_after_n_glyph() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_intro_sequence1_glyph_start_to_stop_music(
+            0xFFD9,
+            0x103,
+            b'N',
+            2,
+            |cycle| cycles.push(cycle),
+        )
+        .expect("frame-139 IntroSequence1 Start transition");
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 183,
+                raw_cycles: M68kCycleCount::from_raw(2_166),
+            },
+            "ASM loc_1C7B2 -> sub_1C246 -> sub_1C278 -> StopMusic $E14C8",
+        );
+        assert_eq!(
+            &cycles[cycles.len() - 17..],
+            &[
+                18, 20, 10, 16, 8, 16, 8, 18, 16, 16, 8, 16, 16, 16, 16, 20, 10
+            ],
+            "frame-139 selected PCs pin every Start-path instruction",
+        );
+        assert!(
+            visit_title_intro_sequence1_glyph_start_to_stop_music(0xFFD9, 0x103, b'N', 1, |_| {},)
+                .is_none(),
+            "a non-terminal intro counter takes sub_1C278's shorter branch",
         );
     }
 
