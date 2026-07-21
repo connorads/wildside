@@ -1175,18 +1175,37 @@ pub fn apply_gems_title_text_delay_fade_execute_objects(
     )
 }
 
-/// Clock one complete ordinary title text-delay/controller-fade frame.
-///
-/// ASM `Mode_Standard $794->$7A4`, `MainGameLoop $744`, `WaitForVint $93A`,
-/// VINT, and the next `Mode_Standard $77A->$794` form the repeated frame loop.
+/// Clock frame 98's title text delay and controller fade exit.
 #[cfg(feature = "audio")]
-pub fn apply_gems_title_ordinary_delay_frame(
+pub fn apply_gems_title_controller_fade_exit_execute_objects(
     audio: &mut GemsMasterClockTimingEngine,
     entry: LoadInGameCpuRasterCursor,
     rng_offset_before: u16,
     text_delay_before: u8,
-    controller_fade_before: u16,
 ) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_controller_fade_exit_execute_objects_cursor_with_scheduler(
+        entry,
+        rng_offset_before,
+        text_delay_before,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
+#[cfg(feature = "audio")]
+fn apply_gems_title_frame_to_execute_objects(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<LoadInGameCpuRasterCursor> {
     let gfx = apply_gems_title_first_gfx_object_move_and_animate(audio, entry)?;
     let joypad = apply_gems_title_first_read_joypad(audio, gfx.cursor)?;
     let sprites = apply_gems_title_first_make_sprites_from_gfx_objects(audio, joypad.cursor)?;
@@ -1199,12 +1218,45 @@ pub fn apply_gems_title_ordinary_delay_frame(
         apply_gems_title_mode_standard_sprite_and_kid_to_vram(audio, palette.cursor)?;
     let scroll = apply_gems_title_mode_standard_scroll_data_to_vram(audio, sprite_and_kid.cursor)?;
     let queues = apply_gems_title_mode_standard_empty_foreground_queues(audio, scroll.cursor)?;
+    Some(queues.cursor)
+}
+
+/// Clock one complete ordinary title text-delay/controller-fade frame.
+///
+/// ASM `Mode_Standard $794->$7A4`, `MainGameLoop $744`, `WaitForVint $93A`,
+/// VINT, and the next `Mode_Standard $77A->$794` form the repeated frame loop.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_ordinary_delay_frame(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    text_delay_before: u8,
+    controller_fade_before: u16,
+) -> Option<TitleIntroSourceAdvance> {
+    let execute_entry = apply_gems_title_frame_to_execute_objects(audio, entry)?;
     apply_gems_title_text_delay_fade_execute_objects(
         audio,
-        queues.cursor,
+        execute_entry,
         rng_offset_before,
         text_delay_before,
         controller_fade_before,
+    )
+}
+
+/// Clock frame 98 through the title controller's `$0110` fade exit.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_controller_fade_exit_frame(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    text_delay_before: u8,
+) -> Option<TitleIntroSourceAdvance> {
+    let execute_entry = apply_gems_title_frame_to_execute_objects(audio, entry)?;
+    apply_gems_title_controller_fade_exit_execute_objects(
+        audio,
+        execute_entry,
+        rng_offset_before,
+        text_delay_before,
     )
 }
 
@@ -3921,6 +3973,28 @@ mod tests {
                 oracle_return - native_return,
             );
         }
+
+        let controller_exit =
+            apply_gems_title_controller_fade_exit_frame(&mut engine, ordinary_cursor, 0xFFDA, 0x12)
+                .expect("source-positioned frame-98 controller fade exit");
+        assert_eq!(
+            controller_exit.timing,
+            wildside_core::intro_timing::IntroSourceTiming {
+                instruction_count: 156,
+                raw_cycles: M68kCycleCount::from_raw(2_018),
+            },
+        );
+        assert_eq!(controller_exit.refresh_events, 16);
+        assert_eq!(controller_exit.external_wait_cycles.get(), 0);
+        // Oracle frame 98 enters `$790` on 12,538,462, reaches the taken
+        // `loc_1C240`/`loc_1B920` continuation on 12,540,348/12,540,374,
+        // and returns at `$794` on 12,540,626. Native enters 259 cycles early
+        // and omits the oracle's final 18 GEMS wait cycles.
+        assert_eq!(
+            engine.master_clock(),
+            12_540_349 * 7,
+            "title controller fade-exit ledger: {controller_exit:?}",
+        );
     }
 
     #[cfg(feature = "audio")]

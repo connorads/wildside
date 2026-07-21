@@ -600,6 +600,17 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the persistent title timeline reaches frame 98's
+controller fade exit. The text worker still decrements and hibernates; the
+controller advances `$0100->$0110`, takes `loc_1C240`, jumps through its
+`$44(a5)` continuation to `loc_1B920`, loads the `$012B` post-fade delay, and
+hibernates at `loc_1B924`. The block is 156 instructions / 2,018 raw cycles.
+Oracle enters `$790` on 12,538,462, reaches `loc_1C240`/`loc_1B920` on
+12,540,348/12,540,374, and returns at `$794` on 12,540,626. Native reaches
+12,540,349; its 277-cycle residue is the 259-cycle early entry plus 18
+unmodelled GEMS waits. NEXT: derive the controller's post-fade wait plus
+text-delay frame, then continue to IntroText1's first glyph emission.
+
 Progress 2026-07-21: the persistent title timeline source-schedules every
 ordinary IntroText1 delay/fade frame through frame 97. A reusable complete
 frame composes `Mode_Standard $794->$7A4`, `MainGameLoop`, `WaitForVint`/VINT,

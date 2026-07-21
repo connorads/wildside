@@ -414,7 +414,31 @@ pub fn visit_title_text_delay_fade_execute_objects(
         );
     };
 
-    visit_title_execute_objects_setup(rng_offset_before, &mut emit)?;
+    visit_title_text_delay_execute_objects_prefix(rng_offset_before, text_delay_before, &mut emit)?;
+    // ASM loc_1C222 calls sub_1C246 with no Start edge, advances the fade by
+    // `$10`, marks both dirty masks, and hibernates at loc_1C21E.
+    for cycles in [
+        18, 16, 8, 16, 16, 8, 4, 16, 16, 10, 18, 10, 16, 24, 16, 76, 16, 10,
+    ] {
+        emit(cycles);
+    }
+    for cycles in [12, 10, 16, 16] {
+        emit(cycles);
+    }
+
+    Some(timing)
+}
+
+fn visit_title_text_delay_execute_objects_prefix(
+    rng_offset_before: u16,
+    text_delay_before: u8,
+    emit: &mut impl FnMut(u32),
+) -> Option<()> {
+    if text_delay_before <= 1 {
+        return None;
+    }
+
+    visit_title_execute_objects_setup(rng_offset_before, emit)?;
     // ASM loc_E1E dispatches the live text worker at saved PC loc_1C7B2.
     for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
         emit(cycles);
@@ -428,10 +452,41 @@ pub fn visit_title_text_delay_fade_execute_objects(
     for cycles in [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16] {
         emit(cycles);
     }
-    // ASM loc_1C222 calls sub_1C246 with no Start edge, advances the fade by
-    // `$10`, marks both dirty masks, and hibernates at loc_1C21E.
+
+    Some(())
+}
+
+/// Visit frame 98's title text delay and controller fade-exit dispatches.
+///
+/// The text worker still takes `loc_1C7B2 -> loc_1C7AE`. The controller
+/// advances `$0100->$0110`, takes `loc_1C240`, jumps through its `$44(a5)`
+/// continuation to `loc_1B920`, loads the post-fade delay, and hibernates.
+pub fn visit_title_controller_fade_exit_execute_objects(
+    rng_offset_before: u16,
+    text_delay_before: u8,
+    mut visit: impl FnMut(u32),
+) -> Option<IntroSourceTiming> {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title controller fade-exit timing fits u32"),
+        );
+    };
+
+    visit_title_text_delay_execute_objects_prefix(rng_offset_before, text_delay_before, &mut emit)?;
+    // ASM loc_1C222 -> loc_1C240 advances `$0100->$0110`, then the stored
+    // loc_1B920 continuation loads `$012B` and hibernates at loc_1B924.
     for cycles in [
-        18, 16, 8, 16, 16, 8, 4, 16, 16, 10, 18, 10, 16, 24, 16, 76, 16, 10,
+        18, 16, 8, 16, 16, 16, 10, 16, 8, 8, 18, 10, 16, 24, 16, 76, 16, 10,
     ] {
         emit(cycles);
     }
@@ -1312,6 +1367,32 @@ mod tests {
                 raw_cycles: M68kCycleCount::from_raw(2_014),
             },
             "ASM sub_E12 resumes the short setup after `$FFFD->$FFCA`",
+        );
+    }
+
+    #[test]
+    fn title_controller_exits_fade_into_post_fade_delay() {
+        let mut cycles = Vec::new();
+        let timing = visit_title_controller_fade_exit_execute_objects(0xFFDA, 0x12, |cycle| {
+            cycles.push(cycle);
+        })
+        .expect("frame-98 controller fade-exit state");
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 156,
+                raw_cycles: M68kCycleCount::from_raw(2_018),
+            },
+        );
+        assert_eq!(
+            cycles.iter().filter(|&&cycle| cycle == 76).count(),
+            2,
+            "ASM loc_1C7AE and loc_1B924 each hibernate one object",
+        );
+        assert!(
+            visit_title_controller_fade_exit_execute_objects(0xFFDA, 1, |_| {}).is_none(),
+            "terminal text delay takes the command/glyph parser instead",
         );
     }
 

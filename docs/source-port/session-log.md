@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 title controller fade exit)
+
+- Frame 98 advances the controller `$0100->$0110`, takes `loc_1C240`, and
+  jumps through its continuation to the `$012B` post-fade wait at `loc_1B920`.
+- The text worker still decrements and hibernates; the combined object block
+  is 156 instructions / 2,018 raw cycles.
+- Native returns at `$794` on 12,540,349 versus oracle 12,540,626. The
+  277-cycle residue is the 259-cycle early entry plus 18 missing GEMS waits.
+- NEXT: derive the controller's post-fade wait plus text-delay frame, then
+  continue to IntroText1's first glyph emission.
+
+---
+
 ## 2026-07-21 handoff (#409 ordinary countdown through RNG wrap)
 
 - A reusable complete title frame now composes the source-derived frame tail,
