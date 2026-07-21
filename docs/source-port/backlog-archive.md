@@ -579,6 +579,18 @@ fall 37,700 -> 37,695, and 38 exact oracle limitations are recorded. Full
 pixel, gameplay, RNG, and enemy baselines remain fixed. NEXT: retain the
 `loc_714/loc_720` Sprite_Table clear from frame 64.
 
+Progress 2026-07-21: the retained post-fade cursor transitions at the exact
+`loc_714` boundary and carries the complete `loc_714/loc_720` Sprite_Table
+clear through frames 64..67. Raw RAM residuals remain confined to saved-SP
+`$003E/$003F`, `SBPTACC` `$076C/$076D`, and active stack `$1A1A..$1A1F`;
+frames 64 and 66 sample opposite sides of shifted VBLINT boundaries and also
+carry exact PC/IFF phase differences. Bank and wait fields are exact
+throughout. Selected-PC tracing places `loc_726` at cycle 8,771,307, beam
+136:406, refresh phase 106 during frame 68. Defended coverage advances 64 ->
+68, GEMS mismatches fall 37,695 -> 37,691, and 42 exact oracle limitations
+are recorded. Full pixel, gameplay, RNG, and enemy baselines remain fixed.
+NEXT: retain `loc_726`'s restart initialisers and `LoadGameModeData`.
+
 Progress 2026-07-21: the fifth `Pal_FadeOut loc_28C6` palette upload is
 source-scheduled from cycle 5,364,160, beam 237:940, refresh phase 70. Frame
 42 native/oracle CRCs are `2240045277`/`2240142489` and PCs are
