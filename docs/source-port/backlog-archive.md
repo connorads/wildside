@@ -834,6 +834,14 @@ native, `$1C` oracle); bank `$E8000`, waits, and flags are exact, while PC
 147 evidence-backed limitations and 30 advisory frames. Oracle PC `$14316`
 places frame 177 inside the next upload. NEXT: continue the repeated chunk path.
 
+Progress 2026-07-21: frame 177 repeats byte_26E3D's retained compact/decode/
+upload path and checkpoints inside `loc_14314`. Raw audio RAM differs only at
+saved-SP byte `$003E` (`$1E` native, `$1C` oracle) and active-stack byte
+`$1A1A` (`$76` native, `$CE` oracle); bank `$E8000`, PC `$02A8`, waits, and
+flags are exact. Coverage advances 177 -> 178 with 148 evidence-backed
+limitations and 30 advisory frames. Oracle PC `$14316` places frame 178 in
+the following upload. NEXT: continue the repeated chunk path.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed
