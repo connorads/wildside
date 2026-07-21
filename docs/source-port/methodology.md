@@ -542,11 +542,13 @@ two-cycle wait is solely jgenesis's source-documented approximate refresh
 counter at the quantised instruction boundary. Frames 84..96 are either
 strict-field exact or differ only by raw-RAM-proven IRQ phase residue from the
 same X/Y limitation. Frame 97's raw RAM differs only at `SBPTACC` and three
-active VBLINT stack bytes from that same phase. The first unmodelled boundary
-Frames 98..113 retain only the same raw-RAM-proven IRQ phase; frames 110 and
+active VBLINT stack bytes from that same phase. Frames 98..113 retain only the
+same raw-RAM-proven IRQ phase; frames 110 and
 113 have byte-identical RAM. Frame 114 differs only in three active VBLINT
-stack bytes. Frames 115..137 retain only the same raw-RAM-proven IRQ phase.
-The first unmodelled boundary is frame 138 in the final `N`/Start transition.
+stack bytes. Frames 115..138 retain only the same raw-RAM-proven IRQ phase.
+Frame 139's RAM, bus wait, and flags are exact inside `StopMusic`; only the
+derivative PC phase differs. The first unmodelled boundary is frame 140 after
+`StopMusic` returns into `Pal_FadeOut`.
 Later debt includes command injection at frame boundaries rather than true
 mid-frame queue writes and every 68000↔Z80 interaction (bank steals,
 FIFO/DMA bus collisions) outside the hand-derived adapters.

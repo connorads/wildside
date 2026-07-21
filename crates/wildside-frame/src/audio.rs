@@ -2101,6 +2101,34 @@ pub fn apply_gems_title_intro_sequence1_start_frame_to_stop_music(
     )
 }
 
+/// Clock frame 139 through IntroSequence1's `N` glyph and Start transition
+/// while sampling its raster instant.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_intro_sequence1_start_frame_to_stop_music_with_checkpoint(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    controller_wait_before: u16,
+    glyph: u8,
+    intro_sequence_counter_before: u8,
+    checkpoint_master_clock: u64,
+) -> Option<(TitleIntroSourceAdvance, GemsTimingCheckpoint)> {
+    let (execute_entry, checkpoint) = apply_gems_title_frame_to_execute_objects_with_checkpoint(
+        audio,
+        entry,
+        checkpoint_master_clock,
+    )?;
+    let advance = apply_gems_title_intro_sequence1_glyph_start_to_stop_music(
+        audio,
+        execute_entry,
+        rng_offset_before,
+        controller_wait_before,
+        glyph,
+        intro_sequence_counter_before,
+    )?;
+    Some((advance, checkpoint))
+}
+
 /// Clock initial `sub_1B8F4` work through the `sub_1C4EA` palette copy.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_intro_controller_prompt_gfx_to_palette(

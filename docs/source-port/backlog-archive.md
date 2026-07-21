@@ -746,6 +746,15 @@ coverage advances 115 -> 138, GEMS mismatches fall 37,644 -> 37,621, and the
 first authoritative frontier moves to frame 138's final `N`/Start-to-StopMusic
 transition. Full non-audio baselines remain fixed. NEXT: retain that transition.
 
+Progress 2026-07-21: IntroText1 emits the final `N`, `sub_1C246` advances
+IntroSequence1, and the retained source schedule enters the hardware-faithful
+`StopMusic` bus window. Frame 138 differs only at active stack byte `$1A1A`
+plus PC phase; frame 139 has exact RAM, wait, and flags with only the derivative
+PC phase. Defended coverage advances 138 -> 140, GEMS mismatches fall
+37,621 -> 37,619, and the first authoritative frontier moves to frame 140's
+`StopMusic` return into `Pal_FadeOut`. Full non-audio baselines remain fixed.
+NEXT: retain the return and fade loop.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 final glyph and StopMusic entry)
+
+- Defended GEMS coverage advances to frames 0..139; the authoritative frontier
+  is frame 140 after `StopMusic` returns into `Pal_FadeOut`.
+- IntroText1 emits the final `N`; `sub_1C246` advances IntroSequence1 and enters
+  the source-scheduled title `StopMusic` bus window.
+- Frame 138 differs only by established IRQ stack/PC phase. Frame 139 has exact
+  RAM, wait, and flags, with only the derivative PC phase classified.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,619, with 111 evidence-backed oracle limitations and 29 advisory frames.
+- NEXT: carry the `StopMusic` return into `Pal_FadeOut` from frame 140.
+
 ## 2026-07-21 handoff (#416 IntroText1 glyph cadence)
 
 - Defended GEMS coverage advances to frames 0..137; the authoritative frontier

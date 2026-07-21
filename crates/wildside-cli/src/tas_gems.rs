@@ -47,6 +47,7 @@ use wildside_frame::{
     apply_gems_title_intro_controller_prompt_gfx_to_palette,
     apply_gems_title_intro_palette_copy_to_text_object, apply_gems_title_intro_plane_a_blit,
     apply_gems_title_intro_repeated_rows_with_checkpoint,
+    apply_gems_title_intro_sequence1_start_frame_to_stop_music_with_checkpoint,
     apply_gems_title_intro_wait_for_vint_poll,
     apply_gems_title_mode_standard_do_nothing_with_checkpoint,
     apply_gems_title_mode_standard_empty_foreground_queues,
@@ -72,7 +73,7 @@ const NTSC_SCANLINES_PER_FRAME: u64 = 262;
 const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 
 /// Frames of the route whose native per-frame GEMS timeline is defended as
-/// faithful. Frames 0..137 replay ASM `EntryPoint`'s power-on Z80 bootstrap
+/// faithful. Frames 0..139 replay ASM `EntryPoint`'s power-on Z80 bootstrap
 /// through the first outer `Mode_Standard` pass, three Sega-screen local
 /// palette/VINT/controller iterations, and the Start transition into the
 /// sixteen `Pal_FadeOut` loop palette uploads, the `loc_28EA` exit pass, and
@@ -84,10 +85,12 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// both Enigma plane decoders, four complete title `Mode_Standard` passes,
 /// twelve ordinary text-delay iterations, the controller fade exit, and all
 /// sixteen post-fade controller-wait frames and IntroText1's alternating
-/// glyph/delay cadence through `A `. The tail remains the coarse continuous route replayer (trace-delta commands at frame boundaries
+/// glyph/delay cadence through the final `N`, the Start transition, and the
+/// first sampled `StopMusic` bus window. The tail remains the coarse
+/// continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 138;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 140;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -852,6 +855,38 @@ impl GemsSignatureProbe {
             .expect("source-positioned IntroText1 cadence spans FrameRendered");
             assert_eq!(self.engine.master_clock(), end_cycle * 7);
             self.power_on_intro_cursor = Some(advance.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 138 {
+            // ASM IntroText1 emits its final `N`, then sub_1C246 advances
+            // IntroSequence1 and enters StopMusic. FrameRendered remains in
+            // the preceding Mode_Standard pass.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("IntroText1 cadence reaches its final glyph");
+            let (advance, checkpoint) =
+                apply_gems_title_intro_sequence1_start_frame_to_stop_music_with_checkpoint(
+                    &mut self.engine,
+                    cursor,
+                    0xFFD9,
+                    0x103,
+                    b'N',
+                    2,
+                    target,
+                )
+                .expect("source-positioned final glyph spans frame 138");
+            assert_eq!(self.engine.master_clock(), 17_788_727 * 7);
+            let timing = gems_stop_music_elapsed_timing_from_absolute_entry(
+                GemsStopMusicBusAckPolls {
+                    driver_copy_sub_e13da: 1,
+                    queue_transactions_sub_e143a: [1; 6],
+                },
+                advance.cursor.refresh_phase,
+                M68kCycleCount::from_raw(17_788_727),
+            )
+            .expect("hardware-faithful title StopMusic source schedule");
+            self.power_on_stop_music = Some(TimedGemsStopMusicCursor::new(timing, 17_788_727 * 7));
             sampled_checkpoint = Some(checkpoint);
         }
         if self.power_on_frame == 3 {
@@ -1776,7 +1811,7 @@ fn advisory_fields_diverge(native: &GemsFrameSignature, oracle: &GemsFrameSignat
 /// instruction boundary.
 /// Later `SUB 1` at $07B3 leaves the oracle at PC $02AA where hardware reaches
 /// $02AE. Every other strict field must be byte-equal.
-const TITLE_TEXT_CADENCE_IRQ_PHASES: &[(usize, u32, u32, u16, u16, u8, u8)] = &[
+const TITLE_TEXT_TO_STOP_MUSIC_IRQ_PHASES: &[(usize, u32, u32, u16, u16, u8, u8)] = &[
     (115, 14_976_169, 1_137_331_685, 0x01C4, 0x018B, 16, 16),
     (116, 4_239_589_293, 3_214_685_921, 0x01C4, 0x0187, 16, 16),
     (117, 3_383_721_410, 3_775_233_093, 0x0173, 0x07A9, 16, 16),
@@ -1800,6 +1835,8 @@ const TITLE_TEXT_CADENCE_IRQ_PHASES: &[(usize, u32, u32, u16, u16, u8, u8)] = &[
     (135, 3_947_389_422, 1_816_474_160, 0x02AA, 0x02AA, 16, 16),
     (136, 2_773_052_866, 2_773_052_866, 0x02A8, 0x00AF, 16, 16),
     (137, 3_937_990_347, 3_937_990_347, 0x02B0, 0x02AA, 0, 0),
+    (138, 2_666_304_966, 1_237_502_876, 0x02B7, 0x02AF, 16, 16),
+    (139, 4_276_285_461, 4_276_285_461, 0x02AA, 0x0B4B, 18, 18),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(
@@ -2009,7 +2046,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
     let title_text_cadence_irq_phase = matches!(
         diverging,
         ["audio_ram_crc32" | "z80_pc"] | ["audio_ram_crc32", "z80_pc"]
-    ) && TITLE_TEXT_CADENCE_IRQ_PHASES.contains(&(
+    ) && TITLE_TEXT_TO_STOP_MUSIC_IRQ_PHASES.contains(&(
         frame_index,
         native.audio_ram_crc32,
         oracle.audio_ram_crc32,
@@ -2877,7 +2914,7 @@ mod tests {
         assert_eq!(comparison.oracle_limitation_count, 79);
 
         for &(_, native_crc, oracle_crc, native_pc, oracle_pc, native_status, oracle_status) in
-            TITLE_TEXT_CADENCE_IRQ_PHASES
+            TITLE_TEXT_TO_STOP_MUSIC_IRQ_PHASES
         {
             let mut native_signature = signature(native_pc);
             native_signature.audio_ram_crc32 = native_crc;
@@ -2892,7 +2929,7 @@ mod tests {
         }
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
-        assert_eq!(comparison.oracle_limitation_count, 102);
+        assert_eq!(comparison.oracle_limitation_count, 104);
     }
 
     #[test]
@@ -3228,7 +3265,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_137() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_139() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -4633,14 +4670,18 @@ mod tests {
         // ORACLE LIMITATION: exact RAM patches retain only the documented
         // tick/saved-SP/active-stack IRQ phase through the text cadence.
         for &(frame, native_crc, oracle_crc, native_pc, _oracle_pc, native_status, _) in
-            TITLE_TEXT_CADENCE_IRQ_PHASES
+            TITLE_TEXT_TO_STOP_MUSIC_IRQ_PHASES
         {
             let signature = probe.sample_power_on_frame_rendered();
             assert_eq!(signature.audio_ram_crc32, native_crc, "frame {frame}");
             assert_eq!(signature.bank_address, 0x000E_8000, "frame {frame}");
             assert_eq!(signature.z80_pc, native_pc, "frame {frame}");
             assert_eq!(signature.z80_wait_mclk_cycles, 0, "frame {frame}");
-            assert_eq!(signature.pending_m68k_wait_cycles, 0, "frame {frame}");
+            assert_eq!(
+                signature.pending_m68k_wait_cycles,
+                u32::from(frame == 139),
+                "frame {frame}"
+            );
             assert_eq!(signature.status_bits, native_status, "frame {frame}");
             let patches: &[(usize, u8, u8)] = match frame {
                 115 | 116 => &[(0x0034, 0, 1)],
@@ -4669,7 +4710,7 @@ mod tests {
                     (0x1A1E, 0, 0xB0),
                     (0x1A1F, 1, 7),
                 ],
-                124 | 129 | 130 | 136 | 137 => &[],
+                124 | 129 | 130 | 136 | 137 | 139 => &[],
                 125 => &[(0x003E, 0x1A, 0x1C), (0x1A1A, 0xCE, 0x76)],
                 126 | 127 => &[(0x1A1A, 0x76, 0xCE)],
                 128 => &[(0x003E, 0x1C, 0x1E)],
@@ -4695,8 +4736,13 @@ mod tests {
                     (0x1A0D, 0x15, 0x02),
                     (0x1A1A, 0xCE, 0x76),
                 ],
+                138 => &[(0x1A1A, 0x76, 0xCE)],
                 _ => unreachable!("cadence frame table"),
             };
+            if patches.is_empty() && probe.power_on_last_sampled_checkpoint.is_none() {
+                assert_eq!(native_crc, oracle_crc, "frame {frame}");
+                continue;
+            }
             let mut oracle_ram = probe
                 .power_on_last_sampled_checkpoint
                 .as_ref()
