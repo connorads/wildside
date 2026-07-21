@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 first Sega-screen outer pass)
+
+- Defended GEMS coverage advances to frames 0..33; the authoritative frontier
+  is frame 34 in the second `loc_12E6C` pass.
+- Frame 33 source-schedules the first outer `Mode_Standard` palette, SAT/Kid,
+  scroll, empty-queue, VINT, and controller BUSREQ paths.
+- Oracle and native agree exactly at `$77E`/`$782`; the later PC-only residual
+  is the documented jgenesis stale-X/Y phase consequence.
+- Full TAS keeps all non-audio baselines fixed and reduces GEMS mismatches to
+  37,725.
+- NEXT: retain the second `loc_12E6C` VINT/palette pass at frame 34.
+
+---
+
 ## 2026-07-21 handoff (#416 Sega-logo decompression)
 
 - ASM `Load_SegaScreen` disables display with `$8134` before the Sega-logo

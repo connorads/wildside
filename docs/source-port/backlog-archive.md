@@ -347,6 +347,19 @@ frames 0..32: frame 33 next crosses `loc_12DFE`, `loc_12E48`, and the first
 `Palette_to_VRAM` BUSREQ/DMA path. A provisional title-path palette adapter
 did not reproduce oracle GEMS state and was rejected rather than ratcheted.
 
+Progress 2026-07-21: route-wide GEMS coverage advances from 33 to 34 defended
+frames. The apparent frame-33 `Palette_to_VRAM -> $A5C` jump is the first
+outer `Mode_Standard` pass after `Load_SegaScreen loc_12E48` returns. Existing
+source schedulers now retain its palette, SAT/Kid, scroll, and empty-queue DMA
+paths plus the `loc_12E64/loc_12E6C` VINT and controller BUSREQ window.
+Selected-PC GEMS checkpoints are exact at `$77E` and `$782`; jgenesis's stale
+X/Y flags first change the scroll-DMA acknowledgement by two Z80 T-cycles,
+leaving frame 33 with only the evidence-bounded `$01B7` versus `$019F` PC
+phase residual while audio RAM, bank, waits, and flags match. The first
+authoritative mismatch moves to frame 34 in the second `loc_12E6C` pass. Full
+TAS verification keeps pixel/gameplay/enemy/RNG baselines fixed, reduces GEMS
+mismatches 37,726 -> 37,725, and records eight total oracle limitations.
+
 ---
 
 ### #417
