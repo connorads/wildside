@@ -16,8 +16,12 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 - Oracle reaches the same phase at 22,048,445; its selected-PC census records
   39,174 FIFO stalls plus the 44-cycle autovector entry.
 - The native fill journal pins 248 banked reads, from absolute master clock
-  153,758,848 through 154,335,060.
-- NEXT: add the matching oracle journal and compare collision classification.
+  153,758,848 through 154,335,060. Consecutive oracle loop-PC rows recover 147
+  non-collision waits: 142 11-cycle gaps and five 11+2 refresh gaps.
+- Native has 141 such waits; its state is already divergent at `loc_726`
+  (Z80 PC `$0799/$02A5`), so a local fill delay is rejected.
+- NEXT: trace back to the frame-139 X/Y-flag split and define its narrow
+  oracle-limitation boundary.
 
 ---
 

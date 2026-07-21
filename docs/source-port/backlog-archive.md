@@ -619,6 +619,19 @@ halts Z80 or outside ownership and queues an 11-cycle 68000 wait. NEXT: expose
 that ordered oracle journal rather than infer five missing waits from the net
 55-cycle residue.
 
+Correction 2026-07-21: no new oracle hook is required. Selecting both
+`loc_1B258` loop PCs makes every source instruction boundary consecutive, so
+the gaps recover the complete hidden-wait ledger: 142 gaps of 11 cycles, five
+of 13 cycles (one bank wait plus refresh), 131 refresh-only gaps of two cycles,
+and the single 62-cycle interrupt-body gap. Oracle therefore takes 147
+non-collision bank waits against native's 141. Native also has seven more FIFO
+ticks and three more refresh events; those offsets leave the measured 55-cycle
+lead. The local-delay hypothesis is rejected because persistent state already
+differs before the fill: at `loc_726`, native/oracle Z80 PCs are `$0799/$02A5`,
+and at `sub_E151C` they are `$02A5/$02CE`. The next investigation returns to
+the evidence-backed frame-139 undocumented X/Y-flag split; do not compensate
+inside `loc_1B258`.
+
 Progress 2026-07-21: the title restart reaches and completes its frame-171 Ice
 queue exactly. `loc_726` now source-schedules `Initialize_ObjectSlots`,
 `Initialize_GfxObjectSlots`, `sub_8A4`, the `LoadGameModeData` indexed dispatch,
