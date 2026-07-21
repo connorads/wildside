@@ -51,6 +51,7 @@ use wildside_frame::{
     apply_gems_title_intro_repeated_rows_with_checkpoint,
     apply_gems_title_intro_sequence1_start_frame_to_stop_music_with_checkpoint,
     apply_gems_title_intro_wait_for_vint_poll,
+    apply_gems_title_load_screen_vram_fill_to_sub_1b2a4_with_checkpoint,
     apply_gems_title_mode_standard_do_nothing_with_checkpoint,
     apply_gems_title_mode_standard_empty_foreground_queues,
     apply_gems_title_mode_standard_palette_to_vram,
@@ -61,7 +62,8 @@ use wildside_frame::{
     apply_gems_title_palette_fade_first_decrement_to_next_wait_poll,
     apply_gems_title_palette_fade_negative_decrement_to_final_wait_poll,
     apply_gems_title_palette_fade_return_to_loc_700, apply_gems_title_palette_to_vram_call,
-    apply_gems_title_post_fade_wait_frame_with_checkpoint, apply_gems_title_second_execute_objects,
+    apply_gems_title_post_fade_wait_frame_with_checkpoint,
+    apply_gems_title_restart_initialisers_to_play_sound, apply_gems_title_second_execute_objects,
     apply_gems_title_stop_music_return_to_first_fade_wait,
     apply_gems_title_text_delay_fade_execute_objects,
     apply_gems_title_text_object_allocation_to_fade, apply_gems_title_third_execute_objects,
@@ -96,11 +98,12 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// first sampled `StopMusic` bus window, its return, and the first two
 /// `Pal_FadeOut` iterations, all remaining fade iterations, the `loc_28EA`
 /// exit pass, the following `loc_700` full-VRAM clear, and `loc_714/loc_720`'s
-/// Sprite_Table clear through frame 170. The tail remains the coarse
+/// Sprite_Table clear, then `loc_726 -> Load_TitleScreen -> PlaySound` and the
+/// `loc_1B258` VRAM fill through frame 171. The tail remains the coarse
 /// continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 171;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 172;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -1066,6 +1069,50 @@ impl GemsSignatureProbe {
                 )
                 .expect("ASM loc_714 hardware schedule"),
             );
+        }
+        if self.power_on_frame == 171 {
+            // ASM loc_720 falls through loc_726's slot initialisers, then the
+            // route's Game_Mode=$002C dispatches Load_TitleScreen. It queues
+            // bgm_Ice through sub_E151C and fills VRAM at loc_1B258;
+            // FrameRendered lands inside that FIFO-paced fill.
+            let mut sprite_table_clear = self
+                .power_on_vram_clear
+                .take()
+                .expect("post-title loc_714 cursor reaches loc_726");
+            let loc_726_master_clock = sprite_table_clear.end_master_clock();
+            sprite_table_clear
+                .advance_to_master_clock(&mut self.engine, loc_726_master_clock)
+                .expect("post-title loc_714 cursor reaches its exact end");
+            assert_eq!(self.engine.master_clock(), 21_955_896 * 7);
+            let title_restart = apply_gems_title_restart_initialisers_to_play_sound(
+                &mut self.engine,
+                sprite_table_clear.end_cursor(),
+            )
+            .expect("loc_726 reaches Load_TitleScreen PlaySound");
+            assert_eq!(self.engine.master_clock(), 21_961_598 * 7);
+            let ice = apply_timed_gems_queue_command(
+                &mut self.engine,
+                GemsQueueCommandPath::StartOrStopSequenceSubE151c,
+                title_restart.cursor.refresh_phase,
+                Some(GemsQueueCommand::StartSequence(gems_bgm::ICE)),
+            )
+            .expect("ASM Load_TitleScreen queues bgm_Ice");
+            assert_eq!(self.engine.master_clock(), 21_962_116 * 7);
+            let (fill, checkpoint) =
+                apply_gems_title_load_screen_vram_fill_to_sub_1b2a4_with_checkpoint(
+                    &mut self.engine,
+                    wildside_core::vdp::LoadInGameCpuRasterCursor {
+                        beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                            M68kCycleCount::from_raw(21_962_116),
+                        ),
+                        refresh_phase: ice.phase_after,
+                    },
+                    target,
+                )
+                .expect("Load_TitleScreen loc_1B258 spans frame 171");
+            assert_eq!(self.engine.master_clock(), 22_048_390 * 7);
+            self.power_on_intro_cursor = Some(fill.cursor);
+            sampled_checkpoint = Some(checkpoint);
         }
         if self.power_on_frame == 3 {
             apply_gems_power_on_post_clear_reset(&mut self.engine)
@@ -2047,6 +2094,7 @@ const TITLE_INTRO_IRQ_PHASES: &[(usize, u32, u32, u16, u16, u8, u8)] = &[
     (168, 2_474_961_934, 1_122_513_537, 0x0B4E, 0x07BA, 16, 16),
     (169, 142_417_332, 1_279_722_141, 0x07AD, 0x0796, 16, 16),
     (170, 3_781_191_802, 3_724_759_287, 0x0B4B, 0x0B48, 16, 16),
+    (171, 2_646_244_635, 3_386_883_978, 0x0B48, 0x0B4E, 16, 16),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(
@@ -3141,7 +3189,7 @@ mod tests {
         }
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
-        assert_eq!(comparison.oracle_limitation_count, 135);
+        assert_eq!(comparison.oracle_limitation_count, 136);
     }
 
     #[test]
@@ -3477,7 +3525,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_170() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_171() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -4886,7 +4934,12 @@ mod tests {
         {
             let signature = probe.sample_power_on_frame_rendered();
             assert_eq!(signature.audio_ram_crc32, native_crc, "frame {frame}");
-            assert_eq!(signature.bank_address, 0x000E_8000, "frame {frame}");
+            let expected_bank = if frame == 171 {
+                0x000E_0000
+            } else {
+                0x000E_8000
+            };
+            assert_eq!(signature.bank_address, expected_bank, "frame {frame}");
             assert_eq!(signature.z80_pc, native_pc, "frame {frame}");
             assert_eq!(signature.z80_wait_mclk_cycles, 0, "frame {frame}");
             assert_eq!(
@@ -5112,6 +5165,11 @@ mod tests {
                     (0x1A1F, 0x01, 0x07),
                 ],
                 170 => &[(0x003E, 0x1E, 0x1C)],
+                171 => &[
+                    (0x003E, 0x1E, 0x1C),
+                    (0x1A1C, 0xA9, 0x4B),
+                    (0x1A1D, 0x07, 0x0B),
+                ],
                 _ => unreachable!("cadence frame table"),
             };
             if patches.is_empty() && probe.power_on_last_sampled_checkpoint.is_none() {

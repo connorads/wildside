@@ -783,6 +783,16 @@ with 142 evidence-backed oracle limitations and 29 advisory frames. The first
 frontier is frame 171 after `loc_720`, entering `loc_726` and the next intro
 loader. NEXT: retain the initialisers and next `StopMusic` boundary.
 
+Progress 2026-07-21: oracle selected-PC tracing rejects the IntroSequence2
+hypothesis from the previous handoff. The route has `Game_Mode=$002C`, so
+`loc_726` dispatches `Load_TitleScreen`; frame 171 reaches `$1B25C` after the
+`loc_1B258` fill. The source schedule now retains the slot initialisers,
+queues `bgm_Ice` through `sub_E151C`, and checkpoints inside the FIFO-paced
+fill. Raw RAM differs only at saved SP and two active-stack IRQ bytes; bank,
+waits, and flags are exact. Coverage advances 171 -> 172, GEMS mismatches fall
+37,588 -> 37,587, with 143 evidence-backed oracle limitations and 29 advisory
+frames. NEXT: carry `sub_1B2A4` and `Load_TitleArt` from frame 172.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

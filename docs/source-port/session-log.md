@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 title-screen Ice command and VRAM fill)
+
+- Defended GEMS coverage advances to frames 0..171; the frontier is frame 172
+  in `sub_1B2A4`/`Load_TitleArt`.
+- Oracle tracing corrects the prior handoff: `Game_Mode=$002C` dispatches
+  `Load_TitleScreen`, not IntroSequence2.
+- The source schedule queues `bgm_Ice` through `sub_E151C` and checkpoints
+  inside the FIFO-paced `loc_1B258` fill.
+- Full TAS keeps non-audio baselines fixed and reduces GEMS mismatches to
+  37,587, with 143 evidence-backed oracle limitations and 29 advisory frames.
+- NEXT: carry `sub_1B2A4` and the title-art loader from frame 172.
+
 ## 2026-07-21 handoff (#416 complete title Sprite_Table clear)
 
 - Defended GEMS coverage advances to frames 0..170; the frontier is frame 171
