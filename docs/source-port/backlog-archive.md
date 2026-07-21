@@ -826,6 +826,14 @@ only divider phase is advisory. Coverage advances 175 -> 176 with the same 146
 evidence-backed limitations and 30 advisory frames. Oracle PC `$14316` places
 frame 176 inside the retained upload. NEXT: continue `loc_14314` from frame 176.
 
+Progress 2026-07-21: frame 176 repeats byte_26E3D's `loc_1432C -> loc_14300 ->
+loc_14314` compact/decode/upload path and checkpoints inside the FIFO-paced
+transfer. Raw 8 KiB audio RAM differs only at saved-SP byte `$003E` (`$1A`
+native, `$1C` oracle); bank `$E8000`, waits, and flags are exact, while PC
+`$02B1`/`$02A8` is derivative IRQ phase. Coverage advances 176 -> 177 with
+147 evidence-backed limitations and 30 advisory frames. Oracle PC `$14316`
+places frame 177 inside the next upload. NEXT: continue the repeated chunk path.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

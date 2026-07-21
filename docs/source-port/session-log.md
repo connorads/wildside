@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 repeated title-art upload)
+
+- Defended GEMS coverage advances to frames 0..176; the frontier is frame 177
+  inside byte_26E3D's next `loc_14314` upload.
+- Frame 176 repeats the retained `loc_1432C -> loc_14300 -> loc_14314` path.
+- Raw audio RAM differs only at saved-SP byte `$003E`; bank, waits, and flags
+  are exact, and the PC residual is derivative IRQ phase.
+- NEXT: continue the repeated compact/decode/upload path from frame 177.
+
 ## 2026-07-21 handoff (#416 resumed title-art upload)
 
 - Defended GEMS coverage advances to frames 0..175; the frontier is frame 176
