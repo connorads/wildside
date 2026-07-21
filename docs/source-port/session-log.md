@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#409 first fade VINT return)
+
+- `WaitForVint` now shares its poll/VINT core while selecting either the
+  existing `Mode_Standard` tail or a direct subroutine return.
+- `Pal_FadeOut` reaches its first poll at 18,020,719 / phase 100 and returns
+  to `loc_28CA` at 18,030,439 / phase 92 after 864 ticks and 76 refreshes.
+- Oracle returns at 18,030,420; the known Z80 phase limitation changes the
+  poll-resume parity across the common VINT boundary.
+- NEXT: schedule `Do_Nothing`, palette DMA, and the first `sub_14C0` step.
+
+---
+
 ## 2026-07-21 handoff (#409 first title-return fade wait)
 
 - `loc_1C274 -> j_loc_6E2 -> Pal_FadeOut` is source-scheduled from the native

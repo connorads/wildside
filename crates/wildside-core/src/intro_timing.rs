@@ -783,11 +783,12 @@ pub fn visit_title_intro_sequence1_glyph_start_to_stop_music(
     Some(timing)
 }
 
-/// Visit the frame-139 `StopMusic` return through the first fade `WaitForVint` call.
+/// Visit the frame-139 `StopMusic` return through the first fade wait poll.
 ///
 /// ASM `loc_1C274 -> j_loc_6E2 -> loc_6E2 -> Pal_FadeOut` resets the stack,
 /// disables the two plane registers, copies both resident palette halves,
-/// seeds the 64-word fade target, and reaches `loc_28C6 -> WaitForVint`.
+/// seeds the 64-word fade target, calls `loc_28C6 -> WaitForVint`, and clears
+/// `V_Int_Done` immediately before the first `$93E` poll.
 pub fn visit_title_stop_music_return_to_first_fade_wait(
     mut visit: impl FnMut(u32),
 ) -> IntroSourceTiming {
@@ -828,8 +829,8 @@ pub fn visit_title_stop_music_return_to_first_fade_wait(
         emit(if index == 63 { 14 } else { 10 });
     }
     // ASM loc_28BE -> loc_28DE seeds the fade counter and both dirty masks,
-    // then loc_28C6 calls WaitForVint.
-    for cycles in [16, 10, 4, 16, 16, 10, 18] {
+    // then loc_28C6 calls WaitForVint and clears its completion flag.
+    for cycles in [16, 10, 4, 16, 16, 10, 18, 16] {
         emit(cycles);
     }
 
@@ -1857,8 +1858,8 @@ mod tests {
         assert_eq!(
             timing,
             IntroSourceTiming {
-                instruction_count: 213,
-                raw_cycles: M68kCycleCount::from_raw(2_364),
+                instruction_count: 214,
+                raw_cycles: M68kCycleCount::from_raw(2_380),
             },
             "ASM loc_1C274 -> loc_6E2 -> Pal_FadeOut -> loc_28C6",
         );

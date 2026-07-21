@@ -1010,6 +1010,36 @@ pub fn apply_gems_title_wait_for_vint_to_mode_standard(
     )
 }
 
+/// Clock a blocking `WaitForVint` through its subroutine return.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_wait_for_vint_to_subroutine_return(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleWaitForVintAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_wait_for_vint_to_subroutine_return_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            if source_instruction {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
 /// Clock the first title `Mode_Standard -> Do_Nothing` delay.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_mode_standard_do_nothing(
@@ -1313,7 +1343,7 @@ pub fn apply_gems_title_intro_sequence1_glyph_start_to_stop_music(
     )
 }
 
-/// Clock the title `StopMusic` return through `Pal_FadeOut`'s first wait.
+/// Clock the title `StopMusic` return through `Pal_FadeOut`'s first wait poll.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_stop_music_return_to_first_fade_wait(
     audio: &mut GemsMasterClockTimingEngine,
@@ -4534,18 +4564,40 @@ mod tests {
             },
         )
         .expect("source-positioned loc_6E2 Pal_FadeOut setup");
-        assert_eq!(fade_wait.timing.instruction_count, 213);
-        assert_eq!(fade_wait.timing.raw_cycles.get(), 2_364);
+        assert_eq!(fade_wait.timing.instruction_count, 214);
+        assert_eq!(fade_wait.timing.raw_cycles.get(), 2_380);
         assert_eq!(fade_wait.refresh_events, 19);
         assert_eq!(fade_wait.external_wait_cycles.get(), 0);
         assert_eq!(
             fade_wait.cursor.refresh_phase,
-            M68kRefreshPhase::new(84).unwrap()
+            M68kRefreshPhase::new(100).unwrap()
         );
         assert_eq!(
             engine.master_clock(),
-            18_020_703 * 7,
+            18_020_719 * 7,
             "loc_6E2 -> Pal_FadeOut -> first WaitForVint ledger: {fade_wait:?}",
+        );
+
+        let fade_vint =
+            apply_gems_title_wait_for_vint_to_subroutine_return(&mut engine, fade_wait.cursor)
+                .expect("first Pal_FadeOut WaitForVint return");
+        assert_eq!(
+            fade_vint.resume,
+            wildside_core::WaitForVintResumePath::StaleBranchLoc942,
+        );
+        assert_eq!(fade_vint.scheduler_tick_count, 864);
+        assert_eq!(fade_vint.raw_cycles.get(), 9_568);
+        assert_eq!(fade_vint.refresh_events, 76);
+        assert_eq!(fade_vint.post_assertion_refresh_events, 1);
+        assert_eq!(fade_vint.external_wait_cycles.get(), 0);
+        assert_eq!(
+            fade_vint.cursor.refresh_phase,
+            M68kRefreshPhase::new(92).unwrap()
+        );
+        assert_eq!(
+            engine.master_clock(),
+            18_030_439 * 7,
+            "first Pal_FadeOut WaitForVint return: {fade_vint:?}",
         );
     }
 

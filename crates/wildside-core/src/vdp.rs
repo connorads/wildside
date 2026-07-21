@@ -3676,8 +3676,9 @@ pub fn title_frame_return_to_wait_for_vint_poll_cursor_with_scheduler(
 /// until VINT asserts at H40 scanline 224, h_mclk 16. The interrupted PC,
 /// exception entry, `V_Int` $488, resumed wait tail, and `MainGameLoop`
 /// dispatch are all retained as separate scheduler ticks.
-pub fn title_wait_for_vint_to_mode_standard_cursor_with_scheduler(
+fn title_wait_for_vint_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
+    return_to_mode_standard: bool,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<TitleWaitForVintAdvance> {
     #[derive(Clone, Copy)]
@@ -3752,10 +3753,16 @@ pub fn title_wait_for_vint_to_mode_standard_cursor_with_scheduler(
         // ASM $942: the saved condition codes take one stale branch.
         advance_tick(10, &mut fifo, &mut phase, &mut refresh_events)?;
     }
-    // ASM WaitForVint $93E..$954, MainGameLoop $73C/$740, and the
-    // GameModesArray branch to Mode_Standard $77A.
-    for cycles in [12, 8, 12, 12, 16, 12, 20, 10] {
+    // ASM WaitForVint $93E..$954 returns to its caller.
+    for cycles in [12, 8, 12, 12, 16] {
         advance_tick(cycles, &mut fifo, &mut phase, &mut refresh_events)?;
+    }
+    if return_to_mode_standard {
+        // ASM MainGameLoop $73C/$740 and GameModesArray branch to
+        // Mode_Standard $77A.
+        for cycles in [12, 20, 10] {
+            advance_tick(cycles, &mut fifo, &mut phase, &mut refresh_events)?;
+        }
     }
 
     Some(TitleWaitForVintAdvance {
@@ -3770,6 +3777,22 @@ pub fn title_wait_for_vint_to_mode_standard_cursor_with_scheduler(
         post_assertion_refresh_events: refresh_events.checked_sub(refresh_events_at_assertion)?,
         external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
     })
+}
+
+/// Co-schedule the blocking title wait through `Mode_Standard` entry.
+pub fn title_wait_for_vint_to_mode_standard_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleWaitForVintAdvance> {
+    title_wait_for_vint_cursor_with_scheduler(entry, true, advance_hardware)
+}
+
+/// Co-schedule a blocking `WaitForVint` through its subroutine return.
+pub fn title_wait_for_vint_to_subroutine_return_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleWaitForVintAdvance> {
+    title_wait_for_vint_cursor_with_scheduler(entry, false, advance_hardware)
 }
 
 /// Co-schedule `Mode_Standard -> Do_Nothing` on the title hardware timeline.
@@ -3972,7 +3995,7 @@ pub fn title_intro_sequence1_glyph_start_to_stop_music_cursor_with_scheduler(
     )
 }
 
-/// Co-schedule the title `StopMusic` return through the first fade wait.
+/// Co-schedule the title `StopMusic` return through the first fade wait poll.
 pub fn title_stop_music_return_to_first_fade_wait_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,

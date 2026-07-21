@@ -600,16 +600,25 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-21: the blocking `WaitForVint` scheduler now separates its
+shared poll/VINT body from its return target. The title loop retains the
+existing `MainGameLoop -> Mode_Standard` tail; `Pal_FadeOut` returns directly
+to `loc_28CA`. Its setup boundary now includes `sf (V_Int_Done)` and reaches
+the first `$93E` poll at native 18,020,719 / phase 100 after 214 instructions
+/ 2,380 raw cycles. The native wait takes the stale `$942` resume and returns
+at 18,030,439 / phase 92 after 864 scheduler ticks, 9,568 raw cycles, and 76
+refreshes, with no GEMS wait. Oracle reaches `loc_28CA` at 18,030,420; the
+known hardware-faithful Z80 phase split changes poll parity across the fixed
+VINT boundary. NEXT: schedule `Do_Nothing`, palette DMA, and `sub_14C0`.
+
 Progress 2026-07-21: the persistent title-return timeline reaches
 `Pal_FadeOut`'s first `WaitForVint`. From the native frame-139 reset exit,
 `loc_1C274 -> j_loc_6E2` resets SP, disables both planes, and calls
 `Pal_FadeOut`; its setup copies 32 palette longwords, fills 64 fade-target
 words, seeds `$FFFFF876=$0100`, and marks both palette halves dirty. The
-source block is 213 instructions / 2,364 raw cycles plus 19 refresh events,
-reaching `loc_28C6 -> WaitForVint` at native 18,020,703 / phase 84 versus
-oracle 18,020,976, preserving the known 273-cycle undocumented-flag
-limitation without fitted waits. NEXT: generalise the wait scheduler for a
-`loc_28CA` return, then schedule the first fade iteration.
+source block reaches the `loc_28C6 -> WaitForVint` call. The progress entry
+above supersedes this call-boundary ledger with the reusable first-poll and
+subroutine-return boundaries.
 
 Correction 2026-07-21: the 273-cycle frame-139 `StopMusic` entry difference
 is not missing native work. The earlier hidden-register trace already proves
