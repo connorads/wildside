@@ -255,6 +255,18 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 390 to 414
+defended frames, reaching the 218th fresh-title object pass. The shared ASM
+`loc_1B6A2 -> sub_1B71A` schedule remains unchanged; all twenty-four strict
+residues are pinned, including frame 410's native 32-master-clock Z80 bank
+stall. The focused comparison is green with 379 evidence-backed limitations,
+35 advisory-only frames, and exact gameplay/enemy checkpoints. The full route
+lowers GEMS mismatches from 37,369 to 37,345 and moves the frontier to frame
+414; gameplay, enemy, RNG, and pixel evidence remain unchanged.
+`verify-slice-fast` and `verify-tas-full` pass. NEXT: continue the persistent
+title timeline until its source branch changes, then connect its carried
+checkpoint to #409.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 366 to 390
 defended frames, reaching the 194th fresh-title object pass. The next
 twenty-four passes stay inside ASM `loc_1B6A2 -> sub_1B71A` and reuse the

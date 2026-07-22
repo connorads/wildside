@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 413)
+
+- Defended GEMS coverage advances to frames 0..413; the frontier is frame 414
+  inside the next `Do_Nothing`.
+- Twenty-four further passes reuse ASM `loc_1B6A2 -> sub_1B71A`; exact tuples
+  include frame 410's native 32-master-clock bank stall.
+- The focused 414-frame pass is green with 379 evidence-backed limitations
+  and 35 advisory-only frames; gameplay and enemy checkpoints remain exact.
+- Full-route GEMS mismatches fall from 37,369 to 37,345; gameplay, enemy, RNG,
+  and pixel evidence remain unchanged.
+- `verify-slice-fast` and `verify-tas-full` pass.
+- NEXT: continue the persistent title timeline until its source branch
+  changes, then connect its carried checkpoint to #409.
+
 ## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 389)
 
 - Defended GEMS coverage advances to frames 0..389; the frontier is frame 390
