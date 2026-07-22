@@ -1437,6 +1437,29 @@ pub fn apply_gems_title_intro_controller_allocation(
     )
 }
 
+/// Clock `Load_TitleScreen`'s three object allocations through the first
+/// `WaitForVint` poll.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_screen_allocations_to_wait_for_vint_poll(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_screen_allocations_to_wait_for_vint_poll_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock the intro loader return through the first `WaitForVint` flag poll.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_intro_wait_for_vint_poll(

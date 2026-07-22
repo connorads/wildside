@@ -68,8 +68,9 @@ use wildside_frame::{
     apply_gems_title_palette_fade_negative_decrement_to_final_wait_poll,
     apply_gems_title_palette_fade_return_to_loc_700, apply_gems_title_palette_to_vram_call,
     apply_gems_title_post_fade_wait_frame_with_checkpoint,
-    apply_gems_title_restart_initialisers_to_play_sound, apply_gems_title_second_execute_objects,
-    apply_gems_title_stop_music_return_to_first_fade_wait,
+    apply_gems_title_restart_initialisers_to_play_sound,
+    apply_gems_title_screen_allocations_to_wait_for_vint_poll,
+    apply_gems_title_second_execute_objects, apply_gems_title_stop_music_return_to_first_fade_wait,
     apply_gems_title_text_delay_fade_execute_objects,
     apply_gems_title_text_object_allocation_to_fade, apply_gems_title_third_execute_objects,
     apply_gems_title_wait_for_vint_to_mode_standard,
@@ -110,7 +111,7 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 195;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 196;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -1691,6 +1692,33 @@ impl GemsSignatureProbe {
             )
             .expect("sub_1B532 repeated rows span frame 194");
             self.power_on_intro_cursor = Some(rows.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 195 {
+            // ASM Load_TitleScreen allocates its three equal-priority title
+            // objects, returns through LoadGameModeData, and blocks in the
+            // first MainGameLoop WaitForVint. FrameRendered lands inside
+            // Mode_Standard's following Do_Nothing delay.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("sub_1B532 repeated rows return to Load_TitleScreen");
+            let allocations =
+                apply_gems_title_screen_allocations_to_wait_for_vint_poll(&mut self.engine, cursor)
+                    .expect("Load_TitleScreen allocations reach the first WaitForVint poll");
+            let mode_standard = apply_gems_title_wait_for_vint_to_mode_standard(
+                &mut self.engine,
+                allocations.cursor,
+            )
+            .expect("first title WaitForVint reaches Mode_Standard");
+            let (do_nothing, checkpoint) =
+                apply_gems_title_mode_standard_do_nothing_with_checkpoint(
+                    &mut self.engine,
+                    mode_standard.cursor,
+                    target,
+                )
+                .expect("first title Do_Nothing spans frame 195");
+            self.power_on_intro_cursor = Some(do_nothing.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
         if self.power_on_frame == 174 {
@@ -3338,6 +3366,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
             (191, 2_688_490_122, 2_688_490_122, 0x0B4B, 0x0B48)
                 | (192, 1_093_595_112, 1_093_595_112, 0x0B57, 0x0B53)
                 | (194, 2_618_709_067, 2_618_709_067, 0x07B7, 0x07B3)
+                | (195, 2_286_118_706, 2_286_118_706, 0x07CE, 0x0C2C)
         );
     irq_saved_sp
         || title_art_dac_fifo_irq_phase
@@ -4813,7 +4842,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_194() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_195() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -6909,5 +6938,13 @@ mod tests {
         assert_eq!(frame_194.pending_m68k_wait_cycles, 0);
         assert_eq!(frame_194.ym2612_mclk_counter, 36);
         assert_eq!(frame_194.status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        let frame_195 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_195.audio_ram_crc32, 2_286_118_706);
+        assert_eq!(frame_195.bank_address, 0x000E_8000);
+        assert_eq!(frame_195.z80_pc, 0x07CE);
+        assert_eq!(frame_195.z80_wait_mclk_cycles, 0);
+        assert_eq!(frame_195.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_195.status_bits, GemsFrameSignature::STATUS_IFF1);
     }
 }

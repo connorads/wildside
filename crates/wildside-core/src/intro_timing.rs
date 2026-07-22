@@ -75,6 +75,69 @@ pub fn visit_intro_controller_to_wait_for_vint_poll(
     timing
 }
 
+/// Visit `Load_TitleScreen`'s three object allocations through the first
+/// `WaitForVint` poll.
+///
+/// ASM `Load_TitleScreen` installs the menu, KID-text, and CHAMELEON-text
+/// objects at equal priority. The first allocation sees an empty list; each
+/// later allocation compares equal with the current head and inserts before
+/// it after one `loc_DE0` iteration.
+pub fn visit_title_screen_allocations_to_wait_for_vint_poll(
+    mut visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title-screen allocation timing fits u32"),
+        );
+    };
+
+    for allocation in 0..3 {
+        // ASM Load_TitleScreen: move.w #$FFFF,a0; jsr thunk.
+        for cycles in [8, 18, 10] {
+            emit(cycles);
+        }
+        if allocation == 0 {
+            visit_empty_list_allocate_object_slot_instructions(&mut emit);
+        } else {
+            // ASM sub_DAC setup, 29-longword clear, and fixed fields.
+            for cycles in [40, 4, 16, 28, 4, 4, 8] {
+                emit(cycles);
+            }
+            for index in 0..29 {
+                emit(12);
+                emit(if index == 28 { 14 } else { 10 });
+            }
+            for cycles in [16, 16, 16, 8, 12] {
+                emit(cycles);
+            }
+            // ASM loc_DE0: compare equal with the current list head, link
+            // the new slot before it, restore registers, and return.
+            for cycles in [16, 8, 4, 4, 12, 8, 4, 28, 16, 44, 16] {
+                emit(cycles);
+            }
+        }
+        // Install this object's code pointer.
+        emit(24);
+    }
+
+    // Return through LoadGameModeData and enter WaitForVint's first poll.
+    for cycles in [16, 20, 16, 18, 16] {
+        emit(cycles);
+    }
+
+    timing
+}
+
 /// Visit a completed title frame through the next `WaitForVint` flag poll.
 ///
 /// ASM `Mode_Standard` $7A4 returns to `MainGameLoop` $744, branches to

@@ -7,16 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
-## 2026-07-22 handoff (#416 final title-screen uploads)
+## 2026-07-22 handoff (#416 first post-load title frame)
 
-- Defended GEMS coverage advances to frames 0..194; the frontier is frame 195
-  at oracle PC `$095C` inside `Do_Nothing`.
-- Frame 194 finishes both remaining direct art uploads, `sub_1BF24`'s selected
-  character map, and `sub_1B532`'s repeated Plane-B title rows.
-- RAM, bank, waits, and flags are exact. The sole PC residue is one
-  instruction and follows the advisory divider phase.
-- NEXT: source-schedule the post-`Load_TitleScreen` allocation/fade shell
-  through frame 195.
+- Defended GEMS coverage advances to frames 0..195; the frontier is frame 196
+  at oracle PC `$095C` inside the next `Do_Nothing`.
+- Frames 194/195 finish the title uploads, allocate all three title objects,
+  and enter the first post-load `Mode_Standard` pass.
+- RAM, bank, waits, and flags are exact; PC residues follow advisory divider
+  phase.
+- NEXT: source-schedule the intervening first title `Mode_Standard` pass and
+  object cadence.
 
 ## 2026-07-22 handoff (#416 first two direct title-art uploads)
 

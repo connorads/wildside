@@ -3657,6 +3657,21 @@ pub fn title_intro_controller_allocation_cursor_with_scheduler(
     })
 }
 
+/// Co-schedule `Load_TitleScreen`'s three object allocations through the
+/// first `WaitForVint` poll.
+pub fn title_screen_allocations_to_wait_for_vint_poll_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| {
+            Some(crate::intro_timing::visit_title_screen_allocations_to_wait_for_vint_poll(visit))
+        },
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule the intro loader return through the first `WaitForVint` poll.
 pub fn title_intro_wait_for_vint_poll_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,

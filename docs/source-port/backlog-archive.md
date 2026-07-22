@@ -255,6 +255,17 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 195 to 196
+defended frames. Frame 195 source-schedules `Load_TitleScreen`'s three
+equal-priority `sub_DAC` allocations, the `LoadGameModeData` return, the first
+blocking `WaitForVint`, and `Mode_Standard -> Do_Nothing`. The focused pass
+matches all 196 compared frames with 166 evidence-backed oracle limitations
+and 30 advisory-only divider phases. Frame 195 is exact for RAM, bank, waits,
+and flags; its PC residue is derivative instruction phase. The frontier moves
+to frame 196 at `$095C` inside the next `Do_Nothing`; the full gate lowers
+route-wide mismatches from 37,564 to 37,563 with pixels unchanged. NEXT: source-schedule
+the intervening first title `Mode_Standard` pass and object cadence.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 194 to 195
 defended frames. Frame 194 completes byte_26036's 784-word title-menu upload,
 decodes and uploads byte_2A479's 384-word sparkles, then source-schedules
