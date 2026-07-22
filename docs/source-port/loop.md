@@ -18,7 +18,10 @@ The whole loop. The backlog is sharded by reader:
 
    Do not eyeball the table for "the top row": order in the file is not priority,
    `project-status` is. If `ready` and the risk lists are empty, use the
-   proactive-verification fallback below.
+   proactive-verification fallback below. The NOW "Current work" bullet is the next
+   action, so it must not steer below `project-status`'s top open priority (e.g. name a
+   P2 while a P1 is open); `backlog-lint` enforces this. Other NOW bullets are
+   state/context and may mention any priority.
 2. **Check history before forming a hypothesis:** `grep -n '#NNN'
    docs/source-port/backlog-archive.md` and `git log --oneline --grep '#NNN'`.
    Dead ends and rejected hypotheses live there; do not retry them.

@@ -121,9 +121,10 @@ fn parse_rows(contents: &str, lane: BacklogLane) -> Vec<LintRow> {
     rows
 }
 
-/// Length of the `## NOW` block plus preamble. Measured to the table header, falling back
-/// to the next section heading or EOF so an empty open queue (no table) is still valid.
-fn now_block_len(backlog: &str) -> Option<usize> {
+/// Line range `[start, end)` of the `## NOW` block plus preamble. `start` is the `## NOW`
+/// heading; `end` is the table header, next section heading, or EOF (so an empty open queue
+/// with no table still resolves).
+fn now_block_range(backlog: &str) -> Option<(usize, usize)> {
     let lines: Vec<&str> = backlog.lines().collect();
     let start = lines
         .iter()
@@ -134,7 +135,79 @@ fn now_block_len(backlog: &str) -> Option<usize> {
         .skip(start + 1)
         .find(|(_, l)| l.starts_with("| # | Status") || l.starts_with("## "))
         .map_or(lines.len(), |(i, _)| i);
-    Some(end.saturating_sub(start))
+    Some((start, end))
+}
+
+/// Length of the `## NOW` block plus preamble.
+fn now_block_len(backlog: &str) -> Option<usize> {
+    now_block_range(backlog).map(|(start, end)| end.saturating_sub(start))
+}
+
+/// The `## NOW` "Current work" bullet text, if present. This bullet names the next action,
+/// so the steer lint checks it against `project-status` priority; other NOW bullets are
+/// state/context and may mention any priority.
+fn now_current_work_bullet(backlog: &str) -> Option<String> {
+    let (start, end) = now_block_range(backlog)?;
+    backlog
+        .lines()
+        .take(end)
+        .skip(start)
+        .find(|l| l.trim_start().starts_with("- **Current work:**"))
+        .map(|l| l.trim().to_owned())
+}
+
+/// Extract `#NNN` issue ids from free text (the digits after each `#`).
+fn extract_issue_ids(text: &str) -> Vec<String> {
+    let bytes = text.as_bytes();
+    let mut ids = Vec::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'#' {
+            let mut j = i + 1;
+            while j < bytes.len() && bytes[j].is_ascii_digit() {
+                j += 1;
+            }
+            if j > i + 1 {
+                ids.push(text[i + 1..j].to_owned());
+            }
+            i = j;
+        } else {
+            i += 1;
+        }
+    }
+    ids
+}
+
+/// The NOW "Current work" bullet is the loop's next action, so it must not steer below
+/// `project-status`'s top open priority. Fail if it names an open item whose priority is
+/// strictly worse than the best open priority across the live lanes; other NOW bullets are
+/// state/context and are exempt. Returns one problem per offending citation.
+fn now_steer_problems(repo_root: &Path, backlog: &str) -> Result<Vec<String>> {
+    let Some(bullet) = now_current_work_bullet(backlog) else {
+        return Ok(Vec::new());
+    };
+    let cited: BTreeSet<String> = extract_issue_ids(&bullet).into_iter().collect();
+    if cited.is_empty() {
+        return Ok(Vec::new());
+    }
+    let open = crate::project_status::open_row_priorities(repo_root)?;
+    let Some(best) = open
+        .iter()
+        .min_by_key(|(_, priority)| crate::project_status::priority_rank(priority))
+    else {
+        return Ok(Vec::new());
+    };
+    let best_rank = crate::project_status::priority_rank(&best.1);
+    let best_label = best.1.clone();
+    let mut problems = Vec::new();
+    for (id, priority) in &open {
+        if cited.contains(id) && crate::project_status::priority_rank(priority) > best_rank {
+            problems.push(format!(
+                "NOW 'Current work' steers to #{id} ({priority}) while open {best_label} items exist; let `mise run project-status` select — see loop.md"
+            ));
+        }
+    }
+    Ok(problems)
 }
 
 /// Flag any `| NNN | ... |` data row that is not exactly the lane shape. An empty cell
@@ -253,6 +326,7 @@ pub(crate) fn run_backlog_lint(repo_root: &Path) -> Result<()> {
                 .to_owned(),
         );
     }
+    problems.extend(now_steer_problems(repo_root, &backlog)?);
 
     collect_malformed_rows(&backlog, BacklogLane::Open, &mut problems);
     collect_malformed_rows(&awaiting, BacklogLane::AwaitingHuman, &mut problems);
@@ -679,6 +753,76 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    /// A NOW block whose Current work bullet is `current_work`, over an open queue with a
+    /// P1 (#200) and a P2 (#201). The P1 is the best open priority.
+    fn backlog_with_current_work(current_work: &str) -> String {
+        format!(
+            "## NOW\n\
+             \n\
+             {current_work}\n\
+             \n\
+             | # | Status | Pri | System | Summary | Verify |\n\
+             |-----|--------|-----|--------|---------|--------|\n\
+             | 200 | [ ] | P1 | player | a bug | verify |\n\
+             | 201 | [~] | P2 | render | another | verify |\n"
+        )
+    }
+
+    #[test]
+    fn now_current_work_steering_to_subpriority_open_item_fails() {
+        // Current work naming the open P2 #201 while open P1 #200 exists is the silent
+        // re-latch the lint must catch.
+        let dir = TempDir::new().expect("temp");
+        write(
+            &dir,
+            BACKLOG_PATH,
+            &backlog_with_current_work("- **Current work:** continue the #201 grind next."),
+        );
+        let err = lint_err(&dir);
+        assert!(err.contains("hygiene problem"));
+        let backlog = fs::read_to_string(dir.path().join(BACKLOG_PATH)).expect("read");
+        let problems = now_steer_problems(dir.path(), &backlog).expect("steer");
+        assert_eq!(problems.len(), 1);
+        assert!(
+            problems[0].contains("#201 (P2)") && problems[0].contains("open P1 items exist"),
+            "{}",
+            problems[0]
+        );
+    }
+
+    #[test]
+    fn now_current_work_aligned_with_top_priority_is_ok() {
+        // Current work naming the best open priority (#200 P1) is fine; a separate
+        // state/context bullet may still mention the lower-priority #201.
+        let dir = TempDir::new().expect("temp");
+        write(
+            &dir,
+            BACKLOG_PATH,
+            &backlog_with_current_work(
+                "- **GEMS lane:** #201 is P2 measured debt, not a per-session pick.\n\
+                 - **Current work:** take #200 next per project-status.",
+            ),
+        );
+        run_backlog_lint(dir.path()).expect("aligned current work lints clean");
+        let backlog = fs::read_to_string(dir.path().join(BACKLOG_PATH)).expect("read");
+        assert!(
+            now_steer_problems(dir.path(), &backlog)
+                .expect("steer")
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn now_steer_ignores_bullet_without_issue_ids() {
+        let dir = TempDir::new().expect("temp");
+        write(
+            &dir,
+            BACKLOG_PATH,
+            &backlog_with_current_work("- **Current work:** take project-status's top item."),
+        );
+        run_backlog_lint(dir.path()).expect("id-free current work is fine");
     }
 
     #[test]

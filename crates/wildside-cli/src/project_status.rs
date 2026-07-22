@@ -193,6 +193,49 @@ fn load_gate_signal(repo_root: &Path, gate_name: &str) -> GateSignal {
     }
 }
 
+/// Rank a backlog priority; lower is more urgent (P0=0 … P3=3, unknown last).
+///
+/// Shared by project-status selection ordering and the backlog NOW-steer lint so both
+/// agree on what "higher priority" means.
+pub(crate) fn priority_rank(priority: &str) -> u8 {
+    match priority {
+        "P0" => 0,
+        "P1" => 1,
+        "P2" => 2,
+        _ => 3,
+    }
+}
+
+/// Every open (`[ ]`/`[~]`) row across the live lanes as `(id, priority)`.
+///
+/// This is the same row scan project-status selects from, exposed for the backlog lint so
+/// the NOW "Current work" bullet can be checked against the real selectable set rather than
+/// a duplicated parser.
+pub(crate) fn open_row_priorities(repo_root: &Path) -> Result<Vec<(String, String)>> {
+    let contents = read_live_lanes(repo_root)?;
+    let mut rows = Vec::new();
+    for line in contents.lines() {
+        if !line.starts_with('|') {
+            continue;
+        }
+        let columns = line
+            .split('|')
+            .map(str::trim)
+            .filter(|column| !column.is_empty())
+            .collect::<Vec<_>>();
+        if columns.len() < 5 {
+            continue;
+        }
+        let status = columns[1];
+        let priority = columns[2];
+        if !matches!(status, "[ ]" | "[~]") || !matches!(priority, "P0" | "P1" | "P2" | "P3") {
+            continue;
+        }
+        rows.push((columns[0].to_owned(), priority.to_owned()));
+    }
+    Ok(rows)
+}
+
 fn classify_backlog_focus(system: &str, summary: &str) -> BacklogFocus {
     let system = system.to_ascii_lowercase();
     let summary = summary.to_ascii_lowercase();
@@ -256,14 +299,6 @@ fn load_top_open_items(
         });
     }
     items.sort_by(|left, right| {
-        fn priority_rank(priority: &str) -> u8 {
-            match priority {
-                "P0" => 0,
-                "P1" => 1,
-                "P2" => 2,
-                _ => 3,
-            }
-        }
         priority_rank(&left.priority)
             .cmp(&priority_rank(&right.priority))
             .then_with(|| left.id.cmp(&right.id))
@@ -303,14 +338,6 @@ fn load_ready_to_implement_items(repo_root: &Path, limit: usize) -> Result<Vec<B
         });
     }
     items.sort_by(|left, right| {
-        fn priority_rank(priority: &str) -> u8 {
-            match priority {
-                "P0" => 0,
-                "P1" => 1,
-                "P2" => 2,
-                _ => 3,
-            }
-        }
         priority_rank(&left.priority)
             .cmp(&priority_rank(&right.priority))
             .then_with(|| left.id.cmp(&right.id))
