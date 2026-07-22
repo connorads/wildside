@@ -255,6 +255,22 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 187 to 190
+defended frames. The apparent frame-187 checkpoint-adapter failure was a
+timing symptom, not an adapter defect. ASM `loc_1440A` executes
+`lsl.w #8,d6`; the oracle selected-PC journal measures that instruction at 22
+cycles, while native charged 8. The corrected `8,14,22,8,14,8,10` loop aligns
+the repeated transfer and `loc_14430` compaction entries and removes the
+spurious CHECKTICK differences from frames 184..186. A core regression pins
+the eight-bit shift cost. Frames 187..189 then retain two more `$800` Saxman
+chunks and two 1,024-word remap transfers. Exhaustive raw-RAM comparison
+confines their residuals to the established X/Y-driven saved-SP, CHECKTICK,
+and two DAC FIFO bytes; bank, waits, and flags match. The focused pass matches
+all 190 compared frames with 160 evidence-backed oracle limitations and 30
+advisory-only divider phases. The first authoritative frontier moves to frame
+190 at oracle PC `$136DC` inside the next resumed decoder. NEXT: continue that
+retained decoder.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 185 to 187 defended
 frames. Frame 185 resumes the retained `DecompressToRAM loc_143EA` Saxman
 cursor and emits the next `$800` bytes. Frame 186 completes the corresponding

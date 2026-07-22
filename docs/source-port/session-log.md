@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 loc_1440A shift timing)
+
+- Defended GEMS coverage advances to frames 0..189; the frontier is frame 190
+  at oracle PC `$136DC` inside the next resumed Saxman decoder.
+- Oracle instruction tracing proves `loc_1440A`'s `lsl.w #8,d6` costs 22
+  cycles, not 8. Correcting the 14-cycle undercount aligns the repeated
+  transfer/compaction chain and removes CHECKTICK drift at frames 184..186.
+- Frames 187..189 retain the next two decoders and two 1,024-word transfers;
+  exhaustive raw-RAM residuals are confined to the established X/Y-driven
+  saved-SP, CHECKTICK, and two DAC FIFO bytes.
+- NEXT: continue the retained decoder from frame 190 `$136DC`.
+
 ## 2026-07-22 handoff (#416 second Load_TitleArt chunk)
 
 - Defended GEMS coverage advances to frames 0..186; the frontier is frame 187

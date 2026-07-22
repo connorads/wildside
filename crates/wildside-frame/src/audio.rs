@@ -1044,6 +1044,35 @@ pub fn apply_gems_decompress_to_ram_decoder_with_checkpoint_loc_143ea(
     Some((advance, checkpoint?))
 }
 
+/// Clock one complete ASM `DecompressToRAM loc_1440A` remapped-word transfer.
+#[cfg(feature = "audio")]
+pub fn apply_gems_decompress_to_ram_transfer_loc_1440a(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    output_words: u16,
+    vint_count: u8,
+    exit: wildside_core::vdp::DecompressToVramTransferExit,
+) -> Option<DecompressToVramTransferAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::decompress_to_ram_transfer_cursor_loc_1440a_with_scheduler(
+        entry,
+        output_words,
+        vint_count,
+        exit,
+        |cycles, vdp_owns_bus| {
+            audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                u64::from(cycles.get()) * 7,
+                vdp_owns_bus,
+            );
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
 /// Clock `DecompressToRAM loc_1440A` while sampling one exact raster instant.
 #[cfg(feature = "audio")]
 pub fn apply_gems_decompress_to_ram_transfer_with_checkpoint_loc_1440a(

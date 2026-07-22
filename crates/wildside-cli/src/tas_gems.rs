@@ -28,6 +28,7 @@ use wildside_data::AssetManifest;
 use wildside_frame::{
     NativeAudioDirector, NativeAudioSink, TimedGemsStopMusicCursor, TimedGemsTitleLoc700Cursor,
     apply_gems_decompress_to_ram_decoder_with_checkpoint_loc_143ea,
+    apply_gems_decompress_to_ram_transfer_loc_1440a,
     apply_gems_decompress_to_ram_transfer_with_checkpoint_loc_1440a,
     apply_gems_decompress_to_vram_decoder_loc_14300,
     apply_gems_decompress_to_vram_decoder_with_checkpoint_loc_14300,
@@ -107,7 +108,7 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 187;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 190;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -1330,6 +1331,96 @@ impl GemsSignatureProbe {
                     target,
                 )
                 .expect("resumed Load_TitleArt remapped transfer spans frame 186");
+            self.power_on_intro_cursor = Some(transfer.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 187 {
+            // ASM loc_14430 returns to loc_143EA after the second retained
+            // history compaction. FrameRendered lands at $139CC inside the
+            // next resumed Saxman decoder.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("second remapped transfer returns to loc_143EA");
+            let resume = self
+                .power_on_intro_decoder_resume
+                .take()
+                .expect("Load_TitleArt stream retains another Saxman cursor");
+            let (decoder, checkpoint) =
+                apply_gems_decompress_to_ram_decoder_with_checkpoint_loc_143ea(
+                    &mut self.engine,
+                    cursor,
+                    &self.power_on_title_art_first_compressed,
+                    Some(resume),
+                    1,
+                    target,
+                )
+                .expect("third Load_TitleArt decoder spans frame 187");
+            assert_eq!(
+                decoder.timing.output_bytes, 0x0800,
+                "ASM resumed byte_22080 chunk emits the retained-history span"
+            );
+            self.power_on_intro_cursor = Some(decoder.cursor);
+            self.power_on_intro_decoder_resume = decoder.resume;
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 188 {
+            // ASM loc_1440A completes the third retained chunk, loc_14430
+            // compacts its history, and FrameRendered lands at $13780 inside
+            // the following loc_143EA decoder.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("third decoder reaches loc_1440A");
+            let transfer = apply_gems_decompress_to_ram_transfer_loc_1440a(
+                &mut self.engine,
+                cursor,
+                0x0400,
+                1,
+                wildside_core::vdp::DecompressToVramTransferExit::CompactAndResume,
+            )
+            .expect("third Load_TitleArt remapped transfer resumes loc_143EA");
+            let resume = self
+                .power_on_intro_decoder_resume
+                .take()
+                .expect("Load_TitleArt stream retains a fourth Saxman cursor");
+            let (decoder, checkpoint) =
+                apply_gems_decompress_to_ram_decoder_with_checkpoint_loc_143ea(
+                    &mut self.engine,
+                    transfer.cursor,
+                    &self.power_on_title_art_first_compressed,
+                    Some(resume),
+                    1,
+                    target,
+                )
+                .expect("fourth Load_TitleArt decoder spans frame 188");
+            assert_eq!(decoder.timing.output_bytes, 0x0800);
+            self.power_on_intro_cursor = Some(decoder.cursor);
+            self.power_on_intro_decoder_resume = decoder.resume;
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 189 {
+            // ASM loc_1440A streams the fourth retained `$800`-byte chunk;
+            // FrameRendered lands at $1440C inside its 1,024-word pass.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("fourth decoder reaches loc_1440A");
+            let exit = if self.power_on_intro_decoder_resume.is_some() {
+                wildside_core::vdp::DecompressToVramTransferExit::CompactAndResume
+            } else {
+                wildside_core::vdp::DecompressToVramTransferExit::Return
+            };
+            let (transfer, checkpoint) =
+                apply_gems_decompress_to_ram_transfer_with_checkpoint_loc_1440a(
+                    &mut self.engine,
+                    cursor,
+                    0x0400,
+                    1,
+                    exit,
+                    target,
+                )
+                .expect("fourth Load_TitleArt remapped transfer spans frame 189");
             self.power_on_intro_cursor = Some(transfer.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
@@ -2737,6 +2828,12 @@ fn gems_divergence_matches_documented_oracle_limitation(
                 | (30, 3_477_867_654, 720_586_018, 0x07AD, 0x07AD)
                 | (70, 1_104_534_506, 2_125_914_983, 0x02A5, 0x02A5)
         );
+    let title_art_dac_fifo_irq_phase = diverging == ["audio_ram_crc32"]
+        && frame_index == 187
+        && native.audio_ram_crc32 == 1_067_592_448
+        && oracle.audio_ram_crc32 == 588_961_408
+        && native.z80_pc == 0x0273
+        && oracle.z80_pc == 0x0273;
     let later_pc = diverging == ["z80_pc"] && native.z80_pc == 0x02AE && oracle.z80_pc == 0x02AA;
     let sega_screen_phase = diverging == ["z80_pc"]
         && matches!(
@@ -2952,11 +3049,14 @@ fn gems_divergence_matches_documented_oracle_limitation(
             | (181, 1_480_418_900, 1_627_207_511, 0x02AA, 0x02A8)
             | (182, 646_632_576, 4_127_712_084, 0x02A8, 0x02AA)
             | (183, 2_646_539_865, 2_585_630_679, 0x02A5, 0x009A)
-            | (184, 1_468_454_047, 3_202_487_883, 0x02BC, 0x02B3)
-            | (185, 2_395_381_097, 1_738_694_589, 0x02B4, 0x02AF)
-            | (186, 743_699_361, 3_308_728_693, 0x02AA, 0x02AA)
+            | (184, 2_172_726_982, 3_202_487_883, 0x02B8, 0x02B3)
+            | (185, 1_489_069_872, 1_738_694_589, 0x02B4, 0x02AF)
+            | (186, 4_199_811_576, 3_308_728_693, 0x02AA, 0x02AA)
+            | (188, 3_157_323_680, 4_079_717_181, 0x00AF, 0x007D)
+            | (189, 3_457_482_715, 2_165_283_654, 0x00CE, 0x02B7)
     );
     irq_saved_sp
+        || title_art_dac_fifo_irq_phase
         || later_pc
         || sega_screen_phase
         || sega_screen_irq_saved_sp
@@ -3937,8 +4037,8 @@ mod tests {
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 147);
-        let mut native_frame_184 = signature(0x02BC);
-        native_frame_184.audio_ram_crc32 = 1_468_454_047;
+        let mut native_frame_184 = signature(0x02B8);
+        native_frame_184.audio_ram_crc32 = 2_172_726_982;
         native_frame_184.bank_address = 0x000E_8000;
         let mut oracle_frame_184 = signature(0x02B3);
         oracle_frame_184.audio_ram_crc32 = 3_202_487_883;
@@ -3949,7 +4049,7 @@ mod tests {
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 148);
         let mut native_frame_185 = signature(0x02B4);
-        native_frame_185.audio_ram_crc32 = 2_395_381_097;
+        native_frame_185.audio_ram_crc32 = 1_489_069_872;
         native_frame_185.bank_address = 0x000E_8000;
         native_frame_185.status_bits = GemsFrameSignature::STATUS_IFF1;
         let mut oracle_frame_185 = signature(0x02AF);
@@ -3962,7 +4062,7 @@ mod tests {
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 149);
         let mut native_frame_186 = signature(0x02AA);
-        native_frame_186.audio_ram_crc32 = 743_699_361;
+        native_frame_186.audio_ram_crc32 = 4_199_811_576;
         native_frame_186.bank_address = 0x000E_8000;
         native_frame_186.status_bits = GemsFrameSignature::STATUS_IFF1;
         let mut oracle_frame_186 = signature(0x02AA);
@@ -3974,6 +4074,43 @@ mod tests {
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 150);
+        let mut native_frame_187 = signature(0x0273);
+        native_frame_187.audio_ram_crc32 = 1_067_592_448;
+        native_frame_187.bank_address = 0x000E_8000;
+        let mut oracle_frame_187 = signature(0x0273);
+        oracle_frame_187.audio_ram_crc32 = 588_961_408;
+        oracle_frame_187.bank_address = 0x000E_8000;
+        native.push(Some(native_frame_187));
+        oracle.push(Some(oracle_frame_187));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 151);
+        let mut native_frame_188 = signature(0x00AF);
+        native_frame_188.audio_ram_crc32 = 3_157_323_680;
+        native_frame_188.bank_address = 0x000E_8000;
+        native_frame_188.status_bits = GemsFrameSignature::STATUS_IFF1;
+        let mut oracle_frame_188 = signature(0x007D);
+        oracle_frame_188.audio_ram_crc32 = 4_079_717_181;
+        oracle_frame_188.bank_address = 0x000E_8000;
+        oracle_frame_188.status_bits = GemsFrameSignature::STATUS_IFF1;
+        native.push(Some(native_frame_188));
+        oracle.push(Some(oracle_frame_188));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 152);
+        let mut native_frame_189 = signature(0x00CE);
+        native_frame_189.audio_ram_crc32 = 3_457_482_715;
+        native_frame_189.bank_address = 0x000E_8000;
+        native_frame_189.status_bits = GemsFrameSignature::STATUS_IFF1;
+        let mut oracle_frame_189 = signature(0x02B7);
+        oracle_frame_189.audio_ram_crc32 = 2_165_283_654;
+        oracle_frame_189.bank_address = 0x000E_8000;
+        oracle_frame_189.status_bits = GemsFrameSignature::STATUS_IFF1;
+        native.push(Some(native_frame_189));
+        oracle.push(Some(oracle_frame_189));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 153);
     }
 
     #[test]
@@ -4324,7 +4461,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_186() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_189() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -6197,11 +6334,11 @@ mod tests {
 
         // ORACLE LIMITATION: ASM loc_1440A reaches the exact remapped-word
         // loop with bank, waits, and flags equal. Raw RAM differs only in the
-        // established saved-SP byte and CHECKTICK phase; PC is derivative.
+        // established saved-SP byte; PC is derivative.
         let frame_184 = probe.sample_power_on_frame_rendered();
-        assert_eq!(frame_184.audio_ram_crc32, 1_468_454_047);
+        assert_eq!(frame_184.audio_ram_crc32, 2_172_726_982);
         assert_eq!(frame_184.bank_address, 0x000E_8000);
-        assert_eq!(frame_184.z80_pc, 0x02BC);
+        assert_eq!(frame_184.z80_pc, 0x02B8);
         assert_eq!(frame_184.z80_wait_mclk_cycles, 0);
         assert_eq!(frame_184.pending_m68k_wait_cycles, 0);
         assert_eq!(frame_184.status_bits, 0);
@@ -6212,18 +6349,16 @@ mod tests {
             .audio_ram
             .clone();
         assert_eq!(oracle_ram[0x003E], 0x0C);
-        assert_eq!(oracle_ram[0x1A0C], 0xA7);
         oracle_ram[0x003E] = 0x0E;
-        oracle_ram[0x1A0C] = 0xA5;
         let mut crc = crc32fast::Hasher::new();
         crc.update(&oracle_ram);
         assert_eq!(crc.finalize(), 3_202_487_883);
 
         // ORACLE LIMITATION: the resumed loc_143EA decoder matches bank,
-        // waits, and flags. Raw RAM again differs only at the saved-SP byte
-        // and CHECKTICK, both inherited from the established IRQ phase.
+        // waits, and flags. Raw RAM differs only at the saved-SP byte
+        // inherited from the established IRQ phase.
         let frame_185 = probe.sample_power_on_frame_rendered();
-        assert_eq!(frame_185.audio_ram_crc32, 2_395_381_097);
+        assert_eq!(frame_185.audio_ram_crc32, 1_489_069_872);
         assert_eq!(frame_185.bank_address, 0x000E_8000);
         assert_eq!(frame_185.z80_pc, 0x02B4);
         assert_eq!(frame_185.z80_wait_mclk_cycles, 0);
@@ -6236,18 +6371,16 @@ mod tests {
             .audio_ram
             .clone();
         assert_eq!(oracle_ram[0x003E], 0x1E);
-        assert_eq!(oracle_ram[0x1A0C], 0xA7);
         oracle_ram[0x003E] = 0x1C;
-        oracle_ram[0x1A0C] = 0xA5;
         let mut crc = crc32fast::Hasher::new();
         crc.update(&oracle_ram);
         assert_eq!(crc.finalize(), 1_738_694_589);
 
         // ORACLE LIMITATION: the resumed loc_1440A pass is strict-field exact
-        // apart from the raw-RAM CRC. The same saved-SP and CHECKTICK bytes
-        // are the complete difference.
+        // apart from the raw-RAM CRC. The saved-SP byte is the complete
+        // difference.
         let frame_186 = probe.sample_power_on_frame_rendered();
-        assert_eq!(frame_186.audio_ram_crc32, 743_699_361);
+        assert_eq!(frame_186.audio_ram_crc32, 4_199_811_576);
         assert_eq!(frame_186.bank_address, 0x000E_8000);
         assert_eq!(frame_186.z80_pc, 0x02AA);
         assert_eq!(frame_186.z80_wait_mclk_cycles, 0);
@@ -6260,11 +6393,86 @@ mod tests {
             .audio_ram
             .clone();
         assert_eq!(oracle_ram[0x003E], 0x1E);
-        assert_eq!(oracle_ram[0x1A0C], 0xA7);
         oracle_ram[0x003E] = 0x1C;
-        oracle_ram[0x1A0C] = 0xA5;
         let mut crc = crc32fast::Hasher::new();
         crc.update(&oracle_ram);
         assert_eq!(crc.finalize(), 3_308_728_693);
+
+        // ORACLE LIMITATION: the third retained loc_143EA decoder matches
+        // bank, PC, waits, and flags. The hardware-correct X/Y split carries
+        // through saved SP, CHECKTICK, and two DAC FIFO bytes.
+        let frame_187 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_187.audio_ram_crc32, 1_067_592_448);
+        assert_eq!(frame_187.bank_address, 0x000E_8000);
+        assert_eq!(frame_187.z80_pc, 0x0273);
+        assert_eq!(frame_187.z80_wait_mclk_cycles, 0);
+        assert_eq!(frame_187.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_187.status_bits, 0);
+        let mut oracle_ram = probe
+            .power_on_last_sampled_checkpoint
+            .as_ref()
+            .expect("frame 187 native checkpoint")
+            .audio_ram
+            .clone();
+        assert_eq!(oracle_ram[0x003E], 0x0E);
+        assert_eq!(oracle_ram[0x1A0C], 0x92);
+        assert_eq!(oracle_ram[0x1A0D], 0x15);
+        assert_eq!(oracle_ram[0x1F6D], 0x8D);
+        assert_eq!(oracle_ram[0x1F6E], 0x8C);
+        oracle_ram[0x003E] = 0x0C;
+        oracle_ram[0x1A0C] = 0xB9;
+        oracle_ram[0x1A0D] = 0x02;
+        oracle_ram[0x1F6D] = 0x93;
+        oracle_ram[0x1F6E] = 0x93;
+        let mut crc = crc32fast::Hasher::new();
+        crc.update(&oracle_ram);
+        assert_eq!(crc.finalize(), 588_961_408);
+
+        // ORACLE LIMITATION: the fourth retained loc_143EA decoder matches
+        // bank, waits, and flags. Raw RAM differs only in CHECKTICK; PC is
+        // the derivative IRQ phase.
+        let frame_188 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_188.audio_ram_crc32, 3_157_323_680);
+        assert_eq!(frame_188.bank_address, 0x000E_8000);
+        assert_eq!(frame_188.z80_pc, 0x00AF);
+        assert_eq!(frame_188.z80_wait_mclk_cycles, 0);
+        assert_eq!(frame_188.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_188.status_bits, GemsFrameSignature::STATUS_IFF1);
+        let mut oracle_ram = probe
+            .power_on_last_sampled_checkpoint
+            .as_ref()
+            .expect("frame 188 native checkpoint")
+            .audio_ram
+            .clone();
+        assert_eq!(oracle_ram[0x1A0C], 0x92);
+        assert_eq!(oracle_ram[0x1A0D], 0x15);
+        oracle_ram[0x1A0C] = 0xB9;
+        oracle_ram[0x1A0D] = 0x02;
+        let mut crc = crc32fast::Hasher::new();
+        crc.update(&oracle_ram);
+        assert_eq!(crc.finalize(), 4_079_717_181);
+
+        // ORACLE LIMITATION: the fourth loc_1440A pass matches bank, waits,
+        // and flags. Raw RAM differs only in CHECKTICK; PC is derivative.
+        let frame_189 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_189.audio_ram_crc32, 3_457_482_715);
+        assert_eq!(frame_189.bank_address, 0x000E_8000);
+        assert_eq!(frame_189.z80_pc, 0x00CE);
+        assert_eq!(frame_189.z80_wait_mclk_cycles, 0);
+        assert_eq!(frame_189.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_189.status_bits, GemsFrameSignature::STATUS_IFF1);
+        let mut oracle_ram = probe
+            .power_on_last_sampled_checkpoint
+            .as_ref()
+            .expect("frame 189 native checkpoint")
+            .audio_ram
+            .clone();
+        assert_eq!(oracle_ram[0x1A0C], 0x92);
+        assert_eq!(oracle_ram[0x1A0D], 0x15);
+        oracle_ram[0x1A0C] = 0xB9;
+        oracle_ram[0x1A0D] = 0x02;
+        let mut crc = crc32fast::Hasher::new();
+        crc.update(&oracle_ram);
+        assert_eq!(crc.finalize(), 2_165_283_654);
     }
 }

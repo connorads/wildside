@@ -4743,7 +4743,7 @@ pub fn decompress_to_ram_transfer_cursor_loc_1440a_with_scheduler(
     for word_index in 0..output_words {
         // ASM loc_1440A (kid.asm): two byte reads, two indexed permutation
         // lookups, the high-byte shift, one VDP data-port write, then DBF.
-        for raw_cycles in [8, 14, 8, 8, 14] {
+        for raw_cycles in [8, 14, 22, 8, 14] {
             vint_serviced |= service_decompress_to_vram_vint_if_pending(
                 &mut vint,
                 &mut fifo,
@@ -8221,6 +8221,30 @@ mod tests {
             M68kRefreshPhase::new(44).unwrap()
         );
         assert!(advance.vint_serviced);
+    }
+
+    #[test]
+    fn title_decompress_to_ram_loc_1440a_clocks_eight_bit_shift() {
+        // ASM loc_1440A (kid.asm): `lsl.w #8,d6` costs 6 + 2n = 22 cycles
+        // on the 68000. This is materially longer than a one-bit shift.
+        let mut source_cycles = Vec::new();
+        decompress_to_ram_transfer_cursor_loc_1440a_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: H40BeamPosition::new(0, 0).unwrap(),
+                refresh_phase: M68kRefreshPhase::new(0).unwrap(),
+            },
+            1,
+            0,
+            DecompressToVramTransferExit::Return,
+            |cycles, vdp_owns_bus| {
+                assert!(!vdp_owns_bus);
+                source_cycles.push(cycles.get());
+                Some(M68kCycleCount::from_raw(0))
+            },
+        )
+        .expect("one loc_1440A word");
+
+        assert_eq!(&source_cycles[..7], &[8, 14, 22, 8, 14, 8, 14]);
     }
 
     #[test]
