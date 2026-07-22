@@ -255,6 +255,21 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 219 to 221
+defended frames. Frames 219 and 220 source-schedule the twenty-fourth and
+twenty-fifth fresh-title `Mode_Standard` passes. Chameleon resumes `loc_1B6A2`,
+advances `d3` from 22 through 24, repeats `unk_2E728`, then selects
+`unk_2E77A` through `sub_1B71A`; the four-byte RNG cadence wraps from `$FFFE`
+to `$FFCB/$FFCF`. Native/oracle audio RAM CRCs are byte-exact at
+`2219859620` and `901457119`. Frame 219 samples PC `$02A5/$07AA`; frame 220
+samples PC `$01A3/$01BB` with native/oracle pending waits `0/2`, both recurring
+instruction-boundary phases. Bank and IFF1 match throughout. The focused
+222-frame pass leaves only frame 221 authoritative, with 191 evidence-backed
+limitations and 30 advisory-only frames. The full route lowers GEMS mismatches
+from 37,540 to 37,538 and moves the frontier to frame 221; pixels remain
+26,382 exact / 11,377 divergent / 3,620,978 changed. NEXT: source-schedule the
+twenty-sixth fresh-title object pass.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 217 to 219
 defended frames. Frames 217 and 218 source-schedule the twenty-second and
 twenty-third fresh-title `Mode_Standard` passes. Chameleon resumes `loc_1B6A2`,

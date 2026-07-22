@@ -114,12 +114,12 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `loc_1B258` VRAM fill and `sub_1B2A4`'s title-art uploads, title map,
 /// palette, all four `Load_TitleArt` streams, `sub_1BF24`'s selected
 /// character map, `sub_1B532`'s title-text rows, title allocations, and the
-/// first twenty-three fresh-title object passes through frame 218, including
+/// first twenty-five fresh-title object passes through frame 220, including
 /// `sub_1B71A`'s first three Enigma maps and plane-A uploads. The tail remains the
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 219;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 221;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -3501,6 +3501,160 @@ impl GemsSignatureProbe {
             self.power_on_intro_cursor = Some(do_nothing.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
+        if self.power_on_frame == 219 {
+            // ASM Obj_TitleTextChameleon loc_1B6A2 resumes the twenty-fourth
+            // fresh-title pass. sub_1B71A advances d3 from 22 to 23, whose
+            // masked off_1B70A index remains unk_2E728.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("twenty-fourth fresh-title Do_Nothing reaches Palette_to_VRAM");
+            let palette = apply_gems_title_mode_standard_palette_to_vram(&mut self.engine, cursor)
+                .expect("frame-219 fresh-title Palette_to_VRAM");
+            let sprite_and_kid = apply_gems_title_mode_standard_sprite_and_kid_to_vram(
+                &mut self.engine,
+                palette.cursor,
+            )
+            .expect("frame-219 fresh-title sprite/Kid transfer");
+            let scroll = apply_gems_title_mode_standard_scroll_data_to_vram(
+                &mut self.engine,
+                sprite_and_kid.cursor,
+            )
+            .expect("frame-219 fresh-title scroll transfer");
+            let queues = apply_gems_title_mode_standard_empty_foreground_queues(
+                &mut self.engine,
+                scroll.cursor,
+            )
+            .expect("frame-219 fresh-title empty foreground queues");
+            let execute = apply_gems_fresh_title_prompt_chameleon_execute_objects_to_enigma(
+                &mut self.engine,
+                queues.cursor,
+                0xFFCB,
+            )
+            .expect("frame-219 object pass reaches sub_1B71A");
+            let chameleon_map = apply_gems_enigma_decoder(
+                &mut self.engine,
+                execute.cursor,
+                &[4, 4, 8, 18, 8, 12, 4, 10, 8, 12, 4, 20, 10],
+                &self.power_on_title_second_chameleon_frame_compressed,
+                0x433B,
+                0x2E728,
+                0,
+            )
+            .expect("sub_1B71A repeats its second-table CHAMELEON frame");
+            let upload = apply_gems_fresh_title_chameleon_upload_to_execute_return(
+                &mut self.engine,
+                chameleon_map.cursor,
+            )
+            .expect("sub_1B71A repeats its second-table CHAMELEON upload");
+            let gfx =
+                apply_gems_title_first_gfx_object_move_and_animate(&mut self.engine, upload.cursor)
+                    .expect("frame-219 GfxObject pass");
+            let joypad = apply_gems_title_first_read_joypad(&mut self.engine, gfx.cursor)
+                .expect("frame-219 ReadJoypad");
+            let sprites = apply_gems_title_first_make_sprites_from_gfx_objects(
+                &mut self.engine,
+                joypad.cursor,
+            )
+            .expect("frame-219 sprite construction");
+            let interpolation =
+                apply_gems_title_first_palette_interpolation(&mut self.engine, sprites.cursor)
+                    .expect("frame-219 palette interpolation");
+            let poll = apply_gems_title_frame_return_to_wait_for_vint_poll(
+                &mut self.engine,
+                interpolation.cursor,
+            )
+            .expect("frame-219 WaitForVint poll");
+            let mode_standard =
+                apply_gems_title_wait_for_vint_to_mode_standard(&mut self.engine, poll.cursor)
+                    .expect("frame-219 WaitForVint/V_Int path");
+            let (do_nothing, checkpoint) =
+                apply_gems_title_mode_standard_do_nothing_with_checkpoint(
+                    &mut self.engine,
+                    mode_standard.cursor,
+                    target,
+                )
+                .expect("fresh-title twenty-fifth Do_Nothing spans frame 219");
+            self.power_on_intro_cursor = Some(do_nothing.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 220 {
+            // ASM Obj_TitleTextChameleon loc_1B6A2 resumes the twenty-fifth
+            // fresh-title pass. sub_1B71A advances d3 from 23 to 24, whose
+            // masked off_1B70A index selects unk_2E77A.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("twenty-fifth fresh-title Do_Nothing reaches Palette_to_VRAM");
+            let palette = apply_gems_title_mode_standard_palette_to_vram(&mut self.engine, cursor)
+                .expect("frame-220 fresh-title Palette_to_VRAM");
+            let sprite_and_kid = apply_gems_title_mode_standard_sprite_and_kid_to_vram(
+                &mut self.engine,
+                palette.cursor,
+            )
+            .expect("frame-220 fresh-title sprite/Kid transfer");
+            let scroll = apply_gems_title_mode_standard_scroll_data_to_vram(
+                &mut self.engine,
+                sprite_and_kid.cursor,
+            )
+            .expect("frame-220 fresh-title scroll transfer");
+            let queues = apply_gems_title_mode_standard_empty_foreground_queues(
+                &mut self.engine,
+                scroll.cursor,
+            )
+            .expect("frame-220 fresh-title empty foreground queues");
+            let execute = apply_gems_fresh_title_prompt_chameleon_execute_objects_to_enigma(
+                &mut self.engine,
+                queues.cursor,
+                0xFFCF,
+            )
+            .expect("frame-220 object pass reaches sub_1B71A");
+            let chameleon_map = apply_gems_enigma_decoder(
+                &mut self.engine,
+                execute.cursor,
+                &[4, 4, 8, 18, 8, 12, 4, 10, 8, 12, 4, 20, 10],
+                &self.power_on_title_third_chameleon_frame_compressed,
+                0x433B,
+                0x2E77A,
+                0,
+            )
+            .expect("sub_1B71A selects its third-table CHAMELEON frame");
+            let upload = apply_gems_fresh_title_chameleon_upload_to_execute_return(
+                &mut self.engine,
+                chameleon_map.cursor,
+            )
+            .expect("sub_1B71A selects its third-table CHAMELEON upload");
+            let gfx =
+                apply_gems_title_first_gfx_object_move_and_animate(&mut self.engine, upload.cursor)
+                    .expect("frame-220 GfxObject pass");
+            let joypad = apply_gems_title_first_read_joypad(&mut self.engine, gfx.cursor)
+                .expect("frame-220 ReadJoypad");
+            let sprites = apply_gems_title_first_make_sprites_from_gfx_objects(
+                &mut self.engine,
+                joypad.cursor,
+            )
+            .expect("frame-220 sprite construction");
+            let interpolation =
+                apply_gems_title_first_palette_interpolation(&mut self.engine, sprites.cursor)
+                    .expect("frame-220 palette interpolation");
+            let poll = apply_gems_title_frame_return_to_wait_for_vint_poll(
+                &mut self.engine,
+                interpolation.cursor,
+            )
+            .expect("frame-220 WaitForVint poll");
+            let mode_standard =
+                apply_gems_title_wait_for_vint_to_mode_standard(&mut self.engine, poll.cursor)
+                    .expect("frame-220 WaitForVint/V_Int path");
+            let (do_nothing, checkpoint) =
+                apply_gems_title_mode_standard_do_nothing_with_checkpoint(
+                    &mut self.engine,
+                    mode_standard.cursor,
+                    target,
+                )
+                .expect("fresh-title twenty-sixth Do_Nothing spans frame 220");
+            self.power_on_intro_cursor = Some(do_nothing.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
         if self.power_on_frame == 174 {
             // ASM DecompressToVRAM loc_14314 uploads byte_26E3D's first
             // 4 KiB chunk. FrameRendered lands inside the 2,048-word
@@ -5371,6 +5525,27 @@ fn gems_divergence_matches_documented_oracle_limitation(
         && oracle.pending_m68k_wait_cycles == 0
         && native.status_bits == GemsFrameSignature::STATUS_IFF1
         && oracle.status_bits == GemsFrameSignature::STATUS_IFF1;
+    let fresh_title_twenty_fourth_pass_pc_phase = diverging == ["z80_pc"]
+        && frame_index == 219
+        && native.audio_ram_crc32 == 2_219_859_620
+        && oracle.audio_ram_crc32 == 2_219_859_620
+        && native.z80_pc == 0x02A5
+        && oracle.z80_pc == 0x07AA
+        && native.pending_m68k_wait_cycles == 0
+        && oracle.pending_m68k_wait_cycles == 0
+        && native.status_bits == GemsFrameSignature::STATUS_IFF1
+        && oracle.status_bits == GemsFrameSignature::STATUS_IFF1;
+    let fresh_title_twenty_fifth_pass_irq_edge = diverging
+        == ["z80_pc", "pending_m68k_wait_cycles"]
+        && frame_index == 220
+        && native.audio_ram_crc32 == 901_457_119
+        && oracle.audio_ram_crc32 == 901_457_119
+        && native.z80_pc == 0x01A3
+        && oracle.z80_pc == 0x01BB
+        && native.pending_m68k_wait_cycles == 0
+        && oracle.pending_m68k_wait_cycles == 2
+        && native.status_bits == GemsFrameSignature::STATUS_IFF1
+        && oracle.status_bits == GemsFrameSignature::STATUS_IFF1;
     irq_saved_sp
         || title_art_dac_fifo_irq_phase
         || later_pc
@@ -5412,6 +5587,8 @@ fn gems_divergence_matches_documented_oracle_limitation(
         || fresh_title_twenty_first_pass_irq_phase
         || fresh_title_twenty_second_pass_irq_phase
         || fresh_title_twenty_third_pass_irq_phase
+        || fresh_title_twenty_fourth_pass_pc_phase
+        || fresh_title_twenty_fifth_pass_irq_edge
 }
 
 fn update_gems_frame_digest(hasher: &mut Sha1, signature: Option<&GemsFrameSignature>) {
@@ -6877,7 +7054,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_218() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_220() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -9296,5 +9473,25 @@ mod tests {
         assert_eq!(frame_218.pending_m68k_wait_cycles, 0);
         assert_eq!(frame_218.ym2612_mclk_counter, 30);
         assert_eq!(frame_218.status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        let frame_219 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_219.audio_ram_crc32, 2_219_859_620);
+        assert_eq!(frame_219.bank_address, 0x000E_8000);
+        assert_eq!(frame_219.z80_pc, 0x02A5);
+        assert_eq!(frame_219.z80_mclk_counter, 3);
+        assert_eq!(frame_219.z80_wait_mclk_cycles, 0);
+        assert_eq!(frame_219.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_219.ym2612_mclk_counter, 0);
+        assert_eq!(frame_219.status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        let frame_220 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_220.audio_ram_crc32, 901_457_119);
+        assert_eq!(frame_220.bank_address, 0x000E_8000);
+        assert_eq!(frame_220.z80_pc, 0x01A3);
+        assert_eq!(frame_220.z80_mclk_counter, 3);
+        assert_eq!(frame_220.z80_wait_mclk_cycles, 0);
+        assert_eq!(frame_220.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_220.ym2612_mclk_counter, 12);
+        assert_eq!(frame_220.status_bits, GemsFrameSignature::STATUS_IFF1);
     }
 }
