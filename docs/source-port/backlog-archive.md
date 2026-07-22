@@ -255,6 +255,18 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 293 to 317
+defended frames, reaching the 121st fresh-title object pass. The shared
+`loc_1B6A2 -> sub_1B71A` scheduler carries another twenty-four passes with no
+new imperative branch; frame 294 is strict-field exact and differs only in
+advisory divider phase. Exact residue records pin every strict native/oracle
+field across the batch. The focused 318-frame pass leaves only frame 317
+authoritative, with 282 evidence-backed limitations and 35 advisory-only
+frames. The full route lowers GEMS mismatches from 37,466 to 37,442 and moves
+the frontier to frame 317; pixels remain 26,382 exact / 11,377 divergent /
+3,620,978 changed. NEXT: extend the ordinary title scheduler from the 122nd
+object pass.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 269 to 293
 defended frames, reaching the ninety-seventh fresh-title object pass. Exact
 residue evidence now pins frame 291's shared GEMS bank transition from `$E8000`

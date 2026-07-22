@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 316)
+
+- Defended GEMS coverage advances to frames 0..316; the frontier is frame 317
+  inside the next `Do_Nothing`.
+- Another twenty-four shared-scheduler passes reach the 121st title object
+  pass; frame 294 is strict-field exact with advisory divider jitter only.
+- Full-route GEMS mismatches fall from 37,466 to 37,442; gameplay, enemy, RNG,
+  and pixel evidence remain unchanged.
+- NEXT: extend the ordinary title scheduler from the 122nd object pass.
+
 ## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 292)
 
 - Defended GEMS coverage advances to frames 0..292; the frontier is frame 293
