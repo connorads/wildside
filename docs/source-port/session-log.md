@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 second fresh-title object pass)
+
+- Defended GEMS coverage advances to frames 0..197; the frontier is frame 198
+  at oracle PC `$095C` inside the next `Do_Nothing`.
+- Frame 197 resumes SegaText and the prompt, decodes Chameleon's first
+  `unk_2E706` map, and FIFO-paces all seven plane-A rows.
+- Audio RAM, bank, waits, and flags are exact; only the transient Z80 PC
+  differs at the advisory instruction boundary.
+- NEXT: continue from SegaText's first glyph, Chameleon's next animation map,
+  and the existing prompt/Kid/Menu hibernations.
+
 ## 2026-07-22 handoff (#416 first fresh-title object pass)
 
 - Defended GEMS coverage advances to frames 0..196; the frontier is frame 197

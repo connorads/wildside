@@ -255,6 +255,23 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 197 to 198
+defended frames. Frame 197 source-schedules the second fresh-title
+`Mode_Standard` pass: SegaText initialises its copyright string, the prompt
+allocates its priority-$0200 GfxObject ahead of Kid's priority-$01FF entry,
+and Chameleon resumes `loc_1B6A6`. `sub_1B71A` decodes `unk_2E706` with base
+tile `$433B`, then FIFO-paces seven filler words plus 21 first-row and six by
+29 later-row map words before Kid is skipped and Menu hibernates. Selected-PC
+tracing also corrects every awake `loc_E1E` dispatch by 12 raw cycles: the
+frame-196 visitor is 413 instructions / 5,468 raw cycles. Frame 197 is exact
+for audio RAM, bank, waits, and flags; only the transient Z80 PC differs at
+the advisory divider boundary. The focused 198-frame pass is green with 168
+evidence-backed oracle limitations and 30 advisory-only frames. The full
+route lowers GEMS mismatches from 37,562 to 37,561 and moves the frontier to
+frame 198 `$095C`; pixels remain 26,382 exact / 11,377 divergent / 3,620,978
+changed. NEXT: continue the fresh-title object cadence from SegaText's first
+glyph and Chameleon's next animation map.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 196 to 197
 defended frames. Frame 196 source-schedules the first fresh-title
 `Mode_Standard` pass: the equal-priority objects execute in ROM list order
@@ -262,7 +279,7 @@ defended frames. Frame 196 source-schedules the first fresh-title
 the first GfxObject and Menu inserts its two Object children before the frame
 returns through `WaitForVint`. Selected-PC oracle traces correct the awake
 dispatch to 16-cycle `subq.w` and 80-cycle register unpack, and pin the whole
-visitor at 413 instructions / 5,432 raw cycles. Exhaustive raw GEMS RAM differs
+visitor at 413 instructions / 5,468 raw cycles. Exhaustive raw GEMS RAM differs
 only at the IRQ active-stack byte `$003E` (native `$1E`, oracle `$1C`); bank,
 waits, and flags match and PC is derivative IRQ phase. The focused pass matches
 all 197 frames with 167 evidence-backed oracle limitations and 30 advisory-only

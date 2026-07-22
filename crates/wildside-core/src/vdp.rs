@@ -3921,6 +3921,24 @@ pub fn fresh_title_first_execute_objects_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule frame 197's fresh-title object prefix through `sub_1B71A`.
+pub fn fresh_title_second_execute_objects_to_chameleon_enigma_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| {
+            crate::intro_timing::visit_fresh_title_second_execute_objects_to_chameleon_enigma(
+                rng_offset_before,
+                visit,
+            )
+        },
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule the second title text-worker and controller dispatches.
 pub fn title_second_execute_objects_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
@@ -4425,6 +4443,22 @@ pub fn title_character_map_to_chameleon_enigma_cursor_with_scheduler(
         0,
         true,
         |visit| crate::intro_timing::visit_title_character_map_to_chameleon_enigma(visit),
+        &mut advance_hardware,
+    )
+}
+
+/// Co-schedule `sub_1B71A`'s frame-197 CHAMELEON rows and object-pass tail.
+pub fn fresh_title_second_chameleon_upload_to_execute_return_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        0,
+        false,
+        |visit| {
+            crate::intro_timing::visit_fresh_title_second_chameleon_upload_to_execute_return(visit)
+        },
         &mut advance_hardware,
     )
 }

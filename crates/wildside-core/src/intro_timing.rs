@@ -369,7 +369,10 @@ pub fn visit_fresh_title_first_execute_objects(
         );
     };
     let dispatch = |emit: &mut dyn FnMut(u32)| {
-        for cycles in [12, 8, 4, 8, 10, 16, 8, 12, 80, 12, 24, 16] {
+        // ASM loc_E1E..loc_E56. Selected-PC tracing includes the absolute
+        // object-field/current-object accesses and full eight-register
+        // MOVEM costs; all three objects take this awake path.
+        for cycles in [12, 8, 4, 12, 10, 16, 8, 16, 80, 16, 24, 16] {
             emit(cycles);
         }
     };
@@ -438,6 +441,180 @@ pub fn visit_fresh_title_first_execute_objects(
     }
 
     Some(timing)
+}
+
+/// Visit frame 197's fresh-title `Execute_Objects` prefix through `sub_1B71A`.
+///
+/// ASM `loc_E1E` first resumes the Sega copyright worker, then initialises the
+/// menu prompt's category-zero GfxObject before resuming Chameleon. The visit
+/// includes Chameleon's `BSR.W sub_1B71A` and stops at that routine's entry.
+pub fn visit_fresh_title_second_execute_objects_to_chameleon_enigma(
+    rng_offset_before: u16,
+    mut visit: impl FnMut(u32),
+) -> Option<IntroSourceTiming> {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("fresh-title second Execute_Objects prefix fits u32"),
+        );
+    };
+    let dispatch = |emit: &mut dyn FnMut(u32)| {
+        // ASM loc_E1E..loc_E56: awake object dispatch.
+        for cycles in [12, 8, 4, 12, 10, 16, 8, 16, 80, 16, 24, 16] {
+            emit(cycles);
+        }
+    };
+    let hibernate_one = |emit: &mut dyn FnMut(u32)| {
+        // Jump-table call plus Hibernate_Object_1Frame sub_E76.
+        for cycles in [18, 10, 16, 24, 16, 76, 16, 10] {
+            emit(cycles);
+        }
+    };
+
+    visit_title_execute_objects_setup(rng_offset_before, &mut emit)?;
+
+    // ASM loc_1C7A0 initialises the Sega copyright worker's text pointers,
+    // then loc_1C7AE yields for one frame before drawing its first glyph.
+    dispatch(&mut emit);
+    for cycles in [16, 8, 8, 8, 4] {
+        emit(cycles);
+    }
+    hibernate_one(&mut emit);
+
+    // ASM loc_1BB10 enters Load_GfxObjectSlot sub_F5E. The new priority-$0200
+    // entry sorts before Kid's existing priority-$01FF entry.
+    dispatch(&mut emit);
+    for cycles in [12, 18, 10, 18, 40, 4, 16, 28, 4, 4, 8] {
+        emit(cycles);
+    }
+    for index in 0..19 {
+        emit(12);
+        emit(if index == 18 { 14 } else { 10 });
+    }
+    for cycles in [
+        12, 10, 4, 12, 16, 16, 8, 12, 16, 8, 4, 4, 12, 8, 4, 28, 16, 44, 16, 16, 16,
+    ] {
+        emit(cycles);
+    }
+    // ASM loc_1BB1A..loc_1BB4C initialises the prompt sprite and yields.
+    for cycles in [16, 16, 16, 16, 16, 8, 12, 10, 12, 4, 12] {
+        emit(cycles);
+    }
+    hibernate_one(&mut emit);
+
+    // Chameleon resumes after its frame-196 hibernation at loc_1B6A6.
+    dispatch(&mut emit);
+    emit(18);
+
+    Some(timing)
+}
+
+/// Visit `sub_1B71A` after `EniDec` through frame 197's object-pass return.
+///
+/// The first CHAMELEON row emits 21 decoded words; the remaining six emit 29
+/// words. Since `d2=0`, every row also writes the `$00BC` leading filler.
+pub fn visit_fresh_title_second_chameleon_upload_to_execute_return(
+    mut visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                timing: &mut IntroSourceTiming,
+                cycles: u32| {
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("fresh-title Chameleon upload timing fits u32"),
+        );
+    };
+    let emit_hibernate_one = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                              timing: &mut IntroSourceTiming| {
+        for cycles in [18, 10, 16, 24, 16, 76, 16, 10] {
+            emit(visit, timing, cycles);
+        }
+    };
+
+    // ASM sub_1B71A loc_1B746..loc_1B76A constructs the plane-A VDP command.
+    for cycles in [4, 4, 4, 4, 10, 4, 20, 4, 4, 8, 4, 4, 4, 4] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for row in 0..7 {
+        // ASM loc_1B76C's first-row width cap; later rows branch at $1B772.
+        if row == 0 {
+            for cycles in [4, 8, 8, 4, 8, 8, 8, 4] {
+                emit(&mut visit, &mut timing, cycles);
+            }
+        } else {
+            for cycles in [4, 8, 10] {
+                emit(&mut visit, &mut timing, cycles);
+            }
+        }
+        // ASM loc_1B780 writes one filler tile before each decoded row.
+        for cycles in [4, 8, 16, 16, 12] {
+            emit(&mut visit, &mut timing, cycles);
+        }
+        visit(MemoryDmaTimingEvent::WriteVdpWord {
+            target: MemoryToVdpDmaTarget::Vram,
+        });
+        for cycles in [16, 10, 16, 4] {
+            emit(&mut visit, &mut timing, cycles);
+        }
+        let words = if row == 0 { 21 } else { 29 };
+        for word in 0..words {
+            emit(&mut visit, &mut timing, 12);
+            visit(MemoryDmaTimingEvent::WriteVdpWord {
+                target: MemoryToVdpDmaTarget::Vram,
+            });
+            emit(
+                &mut visit,
+                &mut timing,
+                if word + 1 == words { 14 } else { 10 },
+            );
+        }
+        emit(&mut visit, &mut timing, 8);
+        emit(&mut visit, &mut timing, if row == 6 { 14 } else { 10 });
+    }
+    // Return from sub_1B71A, loop to loc_1B6A2, and yield Chameleon.
+    emit(&mut visit, &mut timing, 16);
+    emit(&mut visit, &mut timing, 10);
+    emit_hibernate_one(&mut visit, &mut timing);
+
+    // ASM loc_E1E skips Kid while its 30-frame Hibernate_Object counter is
+    // non-zero, then dispatches the awake menu coroutine.
+    for cycles in [12, 8, 4, 12, 10, 16, 10] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for cycles in [12, 8, 4, 12, 10, 16, 8, 16, 80, 16, 24, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    // ASM loc_1BAF6 consumes no Start press, decrements 640 to 639, clears
+    // Ctrl_Pressed at loc_1BAEE, and yields for another frame.
+    for cycles in [20, 8, 10, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    emit_hibernate_one(&mut visit, &mut timing);
+
+    // The menu is the final list entry; loc_E58 returns to Mode_Standard.
+    for cycles in [12, 10, 16, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    timing
 }
 
 /// Visit the second title `Execute_Objects` call through both hibernations.
@@ -2354,11 +2531,62 @@ mod tests {
             .expect("frame-196 title RNG offset is initialised");
 
         assert_eq!(timing.instruction_count, 413);
-        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(5_432));
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(5_468));
         assert_eq!(
             cycles.iter().filter(|&&cycle| cycle == 76).count(),
             3,
             "ASM sub_E76 hibernates Chameleon, Kid, and Menu once each",
+        );
+    }
+
+    #[test]
+    fn fresh_title_second_execute_objects_reaches_chameleon_enigma_in_rom_order() {
+        let mut cycles = Vec::new();
+        let timing =
+            visit_fresh_title_second_execute_objects_to_chameleon_enigma(0xFFE1, |cycle| {
+                cycles.push(cycle);
+            })
+            .expect("frame-197 title RNG offset is initialised");
+
+        assert_eq!(
+            crate::mode_level_timing::execute_objects_setup_cycles_sub_e12(0xFFE1),
+            Some(M68kCycleCount::from_raw(1_112)),
+            "ASM sub_E12 setup independently checks the frame-197 RNG prefix",
+        );
+        assert_eq!(cycles.iter().filter(|&&cycle| cycle == 76).count(), 2);
+        assert_eq!(cycles.last(), Some(&18), "ASM loc_1B6A6 calls sub_1B71A");
+        assert_eq!(timing.instruction_count, cycles.len() as u32);
+    }
+
+    #[test]
+    fn fresh_title_chameleon_upload_writes_seven_fillers_and_195_map_words() {
+        let mut events = Vec::new();
+        let timing = visit_fresh_title_second_chameleon_upload_to_execute_return(|event| {
+            events.push(event);
+        });
+
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, MemoryDmaTimingEvent::WriteVdpWord { .. }))
+                .count(),
+            202,
+            "ASM sub_1B71A writes 7 fillers + 21 first-row + 6*29 later-row words",
+        );
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, MemoryDmaTimingEvent::Instruction(76)))
+                .count(),
+            2,
+            "ASM sub_E76 hibernates Chameleon and Menu after the upload",
+        );
+        assert_eq!(
+            timing.instruction_count,
+            events
+                .iter()
+                .filter(|event| matches!(event, MemoryDmaTimingEvent::Instruction(_)))
+                .count() as u32,
         );
     }
 
