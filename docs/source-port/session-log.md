@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 292)
+
+- Defended GEMS coverage advances to frames 0..292; the frontier is frame 293
+  inside the next `Do_Nothing`.
+- Another twenty-four shared-scheduler passes reach the ninety-seventh title
+  object pass; frame 291 pins the shared `$E0000` GEMS bank transition.
+- Exact residue records defend all strict fields; gameplay, enemy, and RNG
+  checkpoints remain exact.
+- NEXT: extend the ordinary title scheduler from the ninety-eighth object pass.
+
 ## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 268)
 
 - Defended GEMS coverage advances to frames 0..268; the frontier is frame 269

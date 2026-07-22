@@ -114,12 +114,12 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `loc_1B258` VRAM fill and `sub_1B2A4`'s title-art uploads, title map,
 /// palette, all four `Load_TitleArt` streams, `sub_1BF24`'s selected
 /// character map, `sub_1B532`'s title-text rows, title allocations, and the
-/// first seventy-three fresh-title object passes through frame 268, including
+/// first ninety-seven fresh-title object passes through frame 292, including
 /// `sub_1B71A`'s first three Enigma maps and plane-A uploads. The tail remains the
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 269;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 293;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -5822,6 +5822,318 @@ const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
         native_status: 16,
         oracle_status: 16,
     },
+    FreshTitleIrqResidue {
+        frame: 269,
+        native_crc: 3_474_208_069,
+        oracle_crc: 3_009_004_676,
+        native_pc: 0x01C1,
+        oracle_pc: 0x016F,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 2,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 270,
+        native_crc: 1_656_346_576,
+        oracle_crc: 1_970_335_450,
+        native_pc: 0x02A5,
+        oracle_pc: 0x01A3,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 2,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 271,
+        native_crc: 963_269_012,
+        oracle_crc: 2_059_628_175,
+        native_pc: 0x07B5,
+        oracle_pc: 0x01C1,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 2,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 272,
+        native_crc: 494_263_457,
+        oracle_crc: 903_863_590,
+        native_pc: 0x019F,
+        oracle_pc: 0x07A9,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 273,
+        native_crc: 721_556_120,
+        oracle_crc: 1_747_770_324,
+        native_pc: 0x019F,
+        oracle_pc: 0x01CF,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 274,
+        native_crc: 2_509_691_158,
+        oracle_crc: 2_859_603_916,
+        native_pc: 0x07B0,
+        oracle_pc: 0x01A3,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 275,
+        native_crc: 495_279_833,
+        oracle_crc: 1_632_590_159,
+        native_pc: 0x01C4,
+        oracle_pc: 0x02A5,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 276,
+        native_crc: 3_794_226_464,
+        oracle_crc: 3_389_700_848,
+        native_pc: 0x02A5,
+        oracle_pc: 0x07B3,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 277,
+        native_crc: 924_078_311,
+        oracle_crc: 149_986_877,
+        native_pc: 0x07B3,
+        oracle_pc: 0x018B,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 278,
+        native_crc: 2_911_216_270,
+        oracle_crc: 4_004_211_650,
+        native_pc: 0x018B,
+        oracle_pc: 0x01C1,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 279,
+        native_crc: 1_964_463_193,
+        oracle_crc: 1_650_039_556,
+        native_pc: 0x07AD,
+        oracle_pc: 0x07C8,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 280,
+        native_crc: 1_968_224_424,
+        oracle_crc: 1_244_889_125,
+        native_pc: 0x01C1,
+        oracle_pc: 0x01CA,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 281,
+        native_crc: 2_305_023_331,
+        oracle_crc: 2_467_550_494,
+        native_pc: 0x07BA,
+        oracle_pc: 0x016B,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 282,
+        native_crc: 3_230_832_219,
+        oracle_crc: 2_210_160_407,
+        native_pc: 0x01C1,
+        oracle_pc: 0x01BD,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 283,
+        native_crc: 1_407_415_276,
+        oracle_crc: 1_407_415_276,
+        native_pc: 0x01CF,
+        oracle_pc: 0x01CF,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 284,
+        native_crc: 650_157_381,
+        oracle_crc: 1_296_323_982,
+        native_pc: 0x02A5,
+        oracle_pc: 0x01CF,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 2,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 285,
+        native_crc: 118_209_116,
+        oracle_crc: 118_209_116,
+        native_pc: 0x07B3,
+        oracle_pc: 0x07B0,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 2,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 286,
+        native_crc: 61_301_439,
+        oracle_crc: 61_301_439,
+        native_pc: 0x07B3,
+        oracle_pc: 0x07B0,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 2,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 287,
+        native_crc: 1_051_020_292,
+        oracle_crc: 1_051_020_292,
+        native_pc: 0x07B3,
+        oracle_pc: 0x07B0,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 2,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 288,
+        native_crc: 1_188_004_474,
+        oracle_crc: 2_041_363_191,
+        native_pc: 0x0B57,
+        oracle_pc: 0x0B53,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 289,
+        native_crc: 4_212_937_789,
+        oracle_crc: 4_212_937_789,
+        native_pc: 0x0047,
+        oracle_pc: 0x0047,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 0,
+        oracle_status: 0,
+    },
+    FreshTitleIrqResidue {
+        frame: 290,
+        native_crc: 697_600_540,
+        oracle_crc: 385_331_857,
+        native_pc: 0x07AA,
+        oracle_pc: 0x07AD,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 291,
+        native_crc: 1_035_500_443,
+        oracle_crc: 1_035_500_443,
+        native_pc: 0x009A,
+        oracle_pc: 0x0079,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 292,
+        native_crc: 4_082_071_440,
+        oracle_crc: 4_202_965_239,
+        native_pc: 0x02B3,
+        oracle_pc: 0x02A8,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 0,
+        oracle_status: 0,
+    },
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(
@@ -5834,10 +6146,15 @@ fn gems_divergence_matches_documented_oracle_limitation(
         .iter()
         .find(|residue| residue.frame == frame_index)
         .is_some_and(|residue| {
+            let expected_bank = if residue.frame == 291 {
+                0x000E_0000
+            } else {
+                0x000E_8000
+            };
             native.audio_ram_crc32 == residue.native_crc
                 && oracle.audio_ram_crc32 == residue.oracle_crc
-                && native.bank_address == 0x000E_8000
-                && oracle.bank_address == 0x000E_8000
+                && native.bank_address == expected_bank
+                && oracle.bank_address == expected_bank
                 && native.z80_pc == residue.native_pc
                 && oracle.z80_pc == residue.oracle_pc
                 && native.z80_wait_mclk_cycles == residue.native_z80_wait
@@ -7902,7 +8219,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_268() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_292() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -10342,7 +10659,7 @@ mod tests {
         assert_eq!(frame_220.ym2612_mclk_counter, 12);
         assert_eq!(frame_220.status_bits, GemsFrameSignature::STATUS_IFF1);
 
-        for _ in 221..=268 {
+        for _ in 221..=292 {
             probe.sample_power_on_frame_rendered();
         }
     }
