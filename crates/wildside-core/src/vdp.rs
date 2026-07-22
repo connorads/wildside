@@ -4485,6 +4485,30 @@ pub fn fresh_title_third_execute_objects_to_chameleon_enigma_cursor_with_schedul
     )
 }
 
+/// Co-schedule frame 199's prompt and Chameleon prefix to `sub_1B71A`.
+pub fn fresh_title_fourth_execute_objects_to_chameleon_enigma_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    if !crate::RomRandomFrameState::offset_is_initialised(rng_offset_before) {
+        return None;
+    }
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        0,
+        false,
+        |visit| {
+            crate::intro_timing::visit_fresh_title_fourth_execute_objects_to_chameleon_enigma(
+                rng_offset_before,
+                visit,
+            )
+            .expect("validated fresh-title frame-199 RNG offset")
+        },
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule the first title `Palette_to_VRAM` call.
 pub fn title_mode_standard_palette_to_vram_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,

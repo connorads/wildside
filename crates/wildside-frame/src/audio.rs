@@ -2778,6 +2778,23 @@ pub fn apply_gems_fresh_title_third_execute_objects_to_chameleon_enigma(
     )
 }
 
+/// Clock frame 199's prompt and Chameleon prefix through `sub_1B71A`.
+#[cfg(feature = "audio")]
+pub fn apply_gems_fresh_title_fourth_execute_objects_to_chameleon_enigma(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+) -> Option<TitleMemoryDmaAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::fresh_title_fourth_execute_objects_to_chameleon_enigma_cursor_with_scheduler(
+        entry,
+        rng_offset_before,
+        |event| Some(apply_gems_title_memory_dma_hardware_event(audio, event)),
+    )
+}
+
 /// Clock the Ice return and `loc_1B258` fill while sampling one raster instant.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_load_screen_vram_fill_to_sub_1b2a4_with_checkpoint(

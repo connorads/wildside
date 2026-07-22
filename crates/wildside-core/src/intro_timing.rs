@@ -609,6 +609,61 @@ pub fn visit_fresh_title_third_execute_objects_to_chameleon_enigma(
     Some(timing)
 }
 
+/// Visit frame 199's fresh-title object pass through `sub_1B71A`.
+///
+/// ASM `loc_E1E` starts at the prompt after SegaText deleted itself on the
+/// preceding pass. The prompt resumes at `loc_1BB50` and hibernates, then
+/// Chameleon resumes at `loc_1B6A6` and calls `sub_1B71A` with `d3=3`.
+pub fn visit_fresh_title_fourth_execute_objects_to_chameleon_enigma(
+    rng_offset_before: u16,
+    mut visit: impl FnMut(MemoryDmaTimingEvent),
+) -> Option<IntroSourceTiming> {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                timing: &mut IntroSourceTiming,
+                cycles: u32| {
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("fresh-title fourth Execute_Objects prefix fits u32"),
+        );
+    };
+    let dispatch = |visit: &mut dyn FnMut(MemoryDmaTimingEvent), timing: &mut IntroSourceTiming| {
+        // ASM loc_E1E..loc_E56: awake object dispatch.
+        for cycles in [12, 8, 4, 12, 10, 16, 8, 16, 80, 16, 24, 16] {
+            emit(visit, timing, cycles);
+        }
+    };
+
+    visit_title_execute_objects_setup(rng_offset_before, &mut |cycles| {
+        emit(&mut visit, &mut timing, cycles);
+    })?;
+
+    // ASM loc_1BB50 completes the prompt coroutine's x-position pass and
+    // hibernates through sub_E76.
+    dispatch(&mut visit, &mut timing);
+    for cycles in [10, 8, 12, 10, 12, 4, 12] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for cycles in [18, 10, 16, 24, 16, 76, 16, 10] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    // ASM loc_1B6A6 increments the retained animation cursor and calls
+    // sub_1B71A. With d3=3, `andi.w #$C,d0` still selects unk_2E706.
+    dispatch(&mut visit, &mut timing);
+    emit(&mut visit, &mut timing, 18);
+
+    Some(timing)
+}
+
 /// Visit `sub_1B71A` after `EniDec` through a fresh-title object-pass return.
 ///
 /// The first CHAMELEON row emits 21 decoded words; the remaining six emit 29
@@ -2710,6 +2765,33 @@ mod tests {
             Some(&MemoryDmaTimingEvent::Instruction(18)),
             "ASM loc_1B6A6 calls sub_1B71A",
         );
+        assert_eq!(
+            timing.instruction_count,
+            events
+                .iter()
+                .filter(|event| matches!(event, MemoryDmaTimingEvent::Instruction(_)))
+                .count() as u32,
+        );
+    }
+
+    #[test]
+    fn fresh_title_fourth_execute_objects_starts_with_prompt_then_reaches_chameleon() {
+        let mut events = Vec::new();
+        let timing =
+            visit_fresh_title_fourth_execute_objects_to_chameleon_enigma(0xFFE9, |event| {
+                events.push(event);
+            })
+            .expect("frame-199 title RNG offset is initialised");
+
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, MemoryDmaTimingEvent::WriteVdpWord { .. }))
+                .count(),
+            0,
+            "ASM loc_1BB50 and loc_1B6A6 perform no VDP writes before sub_1B71A",
+        );
+        assert_eq!(events.last(), Some(&MemoryDmaTimingEvent::Instruction(18)));
         assert_eq!(
             timing.instruction_count,
             events
