@@ -255,6 +255,18 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 414 to 510
+defended frames, reaching the 314th fresh-title object pass. All ninety-six
+passes remain in ASM `loc_1B6A2 -> sub_1B71A` on the shared `$E8000` bank.
+A compact constructor keeps every exact strict tuple explicit while removing
+repeated field labels; waits at frames 416, 485, and 491 are pinned. The
+focused comparison is green with 475 evidence-backed limitations, 35
+advisory-only frames, and exact gameplay/enemy checkpoints. The full route
+lowers GEMS mismatches from 37,345 to 37,249 and moves the frontier to frame
+510; gameplay, enemy, RNG, and pixel evidence remain unchanged.
+`verify-slice-fast` and `verify-tas-full` pass. NEXT: continue to the next
+source branch, then connect the carried GEMS checkpoint to #409.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 390 to 414
 defended frames, reaching the 218th fresh-title object pass. The shared ASM
 `loc_1B6A2 -> sub_1B71A` schedule remains unchanged; all twenty-four strict

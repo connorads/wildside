@@ -114,12 +114,12 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `loc_1B258` VRAM fill and `sub_1B2A4`'s title-art uploads, title map,
 /// palette, all four `Load_TitleArt` streams, `sub_1BF24`'s selected
 /// character map, `sub_1B532`'s title-text rows, title allocations, and the
-/// first 218 fresh-title object passes through frame 413, including
+/// first 314 fresh-title object passes through frame 509, including
 /// `sub_1B71A`'s first three Enigma maps and plane-A uploads. The tail remains the
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 414;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 510;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -5193,10 +5193,36 @@ struct FreshTitleIrqResidue {
     oracle_status: u8,
 }
 
+macro_rules! fresh_title_irq_residue {
+    (
+        $frame:literal,
+        $native_crc:literal, $oracle_crc:literal,
+        $native_pc:literal, $oracle_pc:literal,
+        $native_z80_wait:literal, $oracle_z80_wait:literal,
+        $native_m68k_wait:literal, $oracle_m68k_wait:literal,
+        $native_status:literal, $oracle_status:literal
+    ) => {
+        FreshTitleIrqResidue {
+            frame: $frame,
+            native_crc: $native_crc,
+            oracle_crc: $oracle_crc,
+            native_pc: $native_pc,
+            oracle_pc: $oracle_pc,
+            native_z80_wait: $native_z80_wait,
+            oracle_z80_wait: $oracle_z80_wait,
+            native_m68k_wait: $native_m68k_wait,
+            oracle_m68k_wait: $oracle_m68k_wait,
+            native_status: $native_status,
+            oracle_status: $oracle_status,
+        }
+    };
+}
+
 /// Exact FrameRendered residues after source-scheduling ASM
 /// `Obj_TitleTextChameleon loc_1B6A2 -> sub_1B71A`. These are the continuing
 /// consequences of the documented jgenesis Z80 X/Y-flag defect; every strict
 /// field is pinned so a new divergence cannot hide behind the classification.
+#[rustfmt::skip]
 const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
     FreshTitleIrqResidue {
         frame: 221,
@@ -7707,6 +7733,102 @@ const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
         native_status: 0,
         oracle_status: 0,
     },
+    fresh_title_irq_residue!(414, 1041484408, 2449690150, 0x02B1, 0x02AA, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(415, 1515840635, 2929337469, 0x02AA, 0x02A8, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(416, 1087543094, 790057447, 0x0273, 0x0271, 24, 0, 0, 0, 0, 0),
+    fresh_title_irq_residue!(417, 1062315269, 3913126946, 0x009C, 0x0079, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(418, 3860487948, 2373433889, 0x02BA, 0x02B1, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(419, 3913460367, 966293344, 0x0275, 0x0273, 0, 0, 0, 0, 0, 0),
+    fresh_title_irq_residue!(420, 4133501183, 1461141231, 0x02A8, 0x02AA, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(421, 3332655905, 1500682940, 0x02A5, 0x009C, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(422, 3442037407, 2164535653, 0x02BA, 0x02B4, 0, 0, 0, 0, 0, 0),
+    fresh_title_irq_residue!(423, 101577521, 2653332245, 0x02B4, 0x02AF, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(424, 468489370, 2264990390, 0x0B57, 0x02A8, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(425, 1104107987, 1792710584, 0x0B55, 0x0273, 0, 0, 0, 0, 16, 0),
+    fresh_title_irq_residue!(426, 2042008810, 2661093019, 0x01CF, 0x007D, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(427, 459053038, 2898113449, 0x02A5, 0x01CF, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(428, 2653932123, 3040297467, 0x07B7, 0x02A5, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(429, 2930991182, 92050300, 0x0B48, 0x07B0, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(430, 2697550904, 863068222, 0x0B4E, 0x07B0, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(431, 3526634950, 30484591, 0x0B50, 0x0B48, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(432, 655772388, 3317013074, 0x02A5, 0x02A5, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(433, 1515419308, 2697550904, 0x0B50, 0x02A5, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(434, 1032416035, 3981907275, 0x0B55, 0x0B4B, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(435, 2403353474, 2094520979, 0x01CF, 0x07D3, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(436, 1437887958, 1697664545, 0x0163, 0x0B4E, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(437, 1834867673, 48911278, 0x016F, 0x0B53, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(438, 3926030638, 940663985, 0x016F, 0x0B53, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(439, 423209247, 1792496987, 0x01C8, 0x00FD, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(440, 1567017377, 1843015054, 0x0B4E, 0x07B0, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(441, 1755017882, 1842639274, 0x02A5, 0x0165, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(442, 3311273964, 1511481427, 0x01BD, 0x01B7, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(443, 1301315877, 1644556588, 0x02A5, 0x0B4E, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(444, 3926590980, 2136099728, 0x01C4, 0x02A5, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(445, 3050932410, 4198317921, 0x07B3, 0x018B, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(446, 3874493149, 238665278, 0x01B7, 0x01CA, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(447, 3711109082, 2837827400, 0x0173, 0x018B, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(448, 1523792863, 4134582177, 0x01D2, 0x01CF, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(449, 363930727, 3874493149, 0x01B7, 0x016F, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(450, 3897293959, 3719623053, 0x07BA, 0x02A5, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(451, 1275433063, 1920547416, 0x01CC, 0x01BD, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(452, 3090206617, 363930727, 0x02A5, 0x016F, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(453, 648940630, 2390099259, 0x016F, 0x01CC, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(454, 2483012981, 810049958, 0x01D2, 0x016F, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(455, 3778489959, 2278818115, 0x01A3, 0x01B7, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(456, 4196256391, 1524891031, 0x01C1, 0x01C6, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(457, 1582993410, 2218196095, 0x016F, 0x0187, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(458, 3470925651, 4143847277, 0x02A7, 0x02A5, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(459, 123053389, 2442723916, 0x0162, 0x07AA, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(460, 4132128373, 1582993410, 0x02BC, 0x01BD, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(461, 1844714623, 2403817156, 0x02AD, 0x02A8, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(462, 1259923937, 3497786135, 0x02A8, 0x02AA, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(463, 3950510638, 4132128373, 0x02A5, 0x0165, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(464, 3587201953, 1844714623, 0x0079, 0x02BA, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(465, 4145501349, 180199542, 0x02B7, 0x02B0, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(466, 1612006784, 2866629561, 0x02A8, 0x02AA, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(467, 2960965126, 3587201953, 0x02AA, 0x02AA, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(468, 2662288037, 4145501349, 0x07A6, 0x007D, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(469, 4134435151, 2287477591, 0x0079, 0x02B8, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(470, 2342386154, 2401207947, 0x02AF, 0x02A8, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(471, 3023300167, 1359435131, 0x0273, 0x0068, 0, 0, 0, 0, 0, 16),
+    fresh_title_irq_residue!(472, 1970945187, 120880225, 0x02A8, 0x00AD, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(473, 1730160446, 1168426057, 0x0160, 0x00D1, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(474, 3509144870, 2691457866, 0x02A5, 0x02AA, 0, 0, 0, 0, 0, 0),
+    fresh_title_irq_residue!(475, 430720221, 1243153454, 0x02AA, 0x02AA, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(476, 1404047737, 434525732, 0x02A8, 0x02AA, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(477, 3287135226, 3267437994, 0x00AF, 0x07A0, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(478, 1163806682, 1901008986, 0x0079, 0x02BD, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(479, 4004266803, 70284659, 0x02B7, 0x02AF, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(480, 3104782718, 3285712198, 0x02A8, 0x02AA, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(481, 719062448, 2905173937, 0x0439, 0x02AA, 0, 0, 0, 0, 0, 16),
+    fresh_title_irq_residue!(482, 2485547580, 3522508034, 0x026D, 0x0160, 0, 0, 0, 0, 0, 16),
+    fresh_title_irq_residue!(483, 4151759956, 1304251449, 0x0079, 0x02B9, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(484, 3303994341, 2820188660, 0x02B2, 0x0464, 0, 0, 0, 0, 16, 0),
+    fresh_title_irq_residue!(485, 2890878317, 3584990698, 0x0273, 0x0273, 7, 49, 0, 11, 0, 0),
+    fresh_title_irq_residue!(486, 3453511578, 2715751517, 0x02A8, 0x02A5, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(487, 2925868384, 2904820577, 0x0162, 0x00D1, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(488, 2108082263, 316764568, 0x02B9, 0x02A7, 0, 0, 0, 0, 0, 0),
+    fresh_title_irq_residue!(489, 538112304, 2752683806, 0x02AA, 0x02A8, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(490, 1376925434, 4174181737, 0x02AA, 0x02A7, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(491, 2468937781, 3679429666, 0x0273, 0x0165, 27, 0, 0, 0, 0, 16),
+    fresh_title_irq_residue!(492, 2583729100, 3361708007, 0x007D, 0x02BB, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(493, 3795797518, 752109536, 0x02B8, 0x02AD, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(494, 1091217710, 2509607672, 0x02A5, 0x02A8, 0, 0, 0, 2, 0, 16),
+    fresh_title_irq_residue!(495, 1632459301, 2583729100, 0x0273, 0x02AA, 0, 0, 0, 0, 0, 16),
+    fresh_title_irq_residue!(496, 509511287, 890312788, 0x00AF, 0x0160, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(497, 1010172652, 2980641914, 0x0076, 0x02B8, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(498, 3006312851, 265083980, 0x02AA, 0x0275, 0, 0, 0, 0, 0, 0),
+    fresh_title_irq_residue!(499, 2892442717, 194154330, 0x0173, 0x02A8, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(500, 2970205292, 704252865, 0x01D2, 0x02A6, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(501, 2343168335, 976219176, 0x01B7, 0x02B7, 0, 0, 0, 0, 16, 0),
+    fresh_title_irq_residue!(502, 3984916289, 4203080764, 0x07AB, 0x01C8, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(503, 2473639397, 3003944011, 0x07B0, 0x0173, 0, 0, 0, 0, 0, 16),
+    fresh_title_irq_residue!(504, 3459102847, 2309806440, 0x01A3, 0x02A5, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(505, 1235646630, 4018261862, 0x07BA, 0x0173, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(506, 3614881470, 3109668438, 0x01A3, 0x01BD, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(507, 1594427481, 917948866, 0x019F, 0x01CF, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(508, 1839270564, 3825565576, 0x02A5, 0x07B0, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(509, 809345441, 978815031, 0x016B, 0x01C8, 0, 0, 0, 2, 16, 16),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(
