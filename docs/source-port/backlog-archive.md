@@ -859,6 +859,17 @@ bank stall are derivative. Coverage advances 179 -> 180 with 150
 evidence-backed limitations and 30 advisory frames. Oracle PC `$14316` keeps
 frame 180 inside the following upload. NEXT: continue the repeated chunk path.
 
+Progress 2026-07-21: frame 180 repeats byte_26E3D's compact/decode/upload
+path and checkpoints inside `loc_14314`. Selected-PC tracing places native
+`loc_14300` 44 cycles after oracle and `loc_14314` 40 cycles after oracle;
+the exact 81,658-cycle decoder with the same 1,408-cycle GEMS wait recovers
+four cycles. Raw RAM differs only at saved-SP `$003E`, `CHECKTICK` `$1A0C`,
+and active-stack `$1A1A`; bank, waits, and flags are exact, while PC
+`$02B8`/`$02B2` is derivative. Coverage advances 180 -> 181 with 151
+evidence-backed limitations and 30 advisory frames. Oracle PC `$13A34`
+places frame 181 inside the following Saxman decoder. NEXT: trace the new
+`sub_1B2A4` asset hand-off; byte_26E3D's repeated upload has completed.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 seventh title-art upload chunk)
+
+- Defended GEMS coverage advances to frames 0..180; the frontier is frame 181
+  at oracle PC `$13A34` inside the following Saxman decoder.
+- Frame 180 retains exact raw decoder and GEMS-wait timing; its selected-PC
+  phase residue recovers four cycles and changes only three phase-owned bytes.
+- NEXT: trace the new `sub_1B2A4` asset hand-off rather than repeating the
+  completed byte_26E3D upload.
+
 ## 2026-07-21 handoff (#416 sixth title-art upload chunk)
 
 - Defended GEMS coverage advances to frames 0..179; the frontier is frame 180
