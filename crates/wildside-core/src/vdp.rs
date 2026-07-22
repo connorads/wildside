@@ -4327,6 +4327,21 @@ pub fn title_load_screen_vram_fill_to_sub_1b2a4_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule `sub_1B2A4`'s title-map tail through the first
+/// `Load_TitleArt -> DecompressToRAM` permutation table.
+pub fn title_map_to_load_art_palette_permutation_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        1,
+        true,
+        |visit| crate::intro_timing::visit_title_map_to_load_art_palette_permutation(visit),
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule the first title `Palette_to_VRAM` call.
 pub fn title_mode_standard_palette_to_vram_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,

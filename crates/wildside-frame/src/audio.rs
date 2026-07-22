@@ -2598,6 +2598,61 @@ pub fn apply_gems_title_load_screen_vram_fill_to_sub_1b2a4_with_checkpoint(
     Some((advance, checkpoint?))
 }
 
+/// Clock `sub_1B2A4`'s title-map tail through the first `Load_TitleArt`
+/// `DecompressToRAM` permutation table while sampling one raster instant.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_map_to_load_art_palette_permutation_with_checkpoint(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    checkpoint_master_clock: u64,
+) -> Option<(TitleMemoryDmaAdvance, GemsTimingCheckpoint)> {
+    if audio.pending_m68k_wait_cycles() != 0 || checkpoint_master_clock < audio.master_clock() {
+        return None;
+    }
+    let mut checkpoint = None;
+    let advance =
+        wildside_core::vdp::title_map_to_load_art_palette_permutation_cursor_with_scheduler(
+            entry,
+            |event| {
+                let TitlePaletteHardwareEvent::Advance {
+                    cycles,
+                    vdp_owns_bus,
+                    source_instruction,
+                } = event
+                else {
+                    return Some(apply_gems_title_memory_dma_hardware_event(audio, event));
+                };
+                let interval_master_clocks = u64::from(cycles.get()) * 7;
+                let interval_start = audio.master_clock();
+                let interval_end = interval_start.checked_add(interval_master_clocks)?;
+                if checkpoint.is_none() && checkpoint_master_clock <= interval_end {
+                    let offset = checkpoint_master_clock.checked_sub(interval_start)?;
+                    if source_instruction {
+                        let (_, captured) = audio.advance_ntsc_m68k_instruction_with_checkpoint(
+                            interval_master_clocks,
+                            vdp_owns_bus,
+                            offset,
+                        )?;
+                        checkpoint = Some(captured);
+                    } else {
+                        audio.advance_ntsc_master_clocks_with_vdp_ownership(offset, vdp_owns_bus);
+                        checkpoint = Some(audio.checkpoint());
+                        audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                            interval_master_clocks - offset,
+                            vdp_owns_bus,
+                        );
+                    }
+                } else {
+                    return Some(apply_gems_title_memory_dma_hardware_event(audio, event));
+                }
+                Some(M68kCycleCount::from_raw(
+                    audio.take_pending_m68k_wait_cycles(),
+                ))
+            },
+        )?;
+    Some((advance, checkpoint?))
+}
+
 /// Clock the title restart from `loc_726` to the Ice `sub_E151C` entry.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_restart_initialisers_to_play_sound(

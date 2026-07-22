@@ -882,6 +882,17 @@ places frame 182 inside `Load_TitleArt`'s first `DecompressToRAM`. NEXT:
 finish the retained letters decoder/upload and trace the intervening title-map
 work into that palette-permutation path.
 
+Progress 2026-07-21: frame 182 finishes the retained letters upload, decodes
+`unk_2F7D0`, writes the 32-word `loc_1B322` title map, copies all 51
+`loc_1C4BE` palette words, and enters `Load_TitleArt -> DecompressToRAM`.
+The source schedule constructs all sixteen 16-byte `loc_143CC/loc_143CE`
+permutation rows and samples at oracle PC `$143D8`. Raw RAM differs only at
+`CHECKTICK` `$1A0C`; bank, waits, and flags are exact, while PC
+`$02A8`/`$02AA` is derivative IRQ phase. Coverage advances 182 -> 183 with
+153 evidence-backed limitations and 30 advisory frames. Oracle PC `$136BC`
+places frame 183 inside byte_22080's Saxman decoder. NEXT: continue the first
+`Load_TitleArt` `DecompressToRAM` from the completed permutation table.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

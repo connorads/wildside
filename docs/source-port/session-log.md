@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 title map and Load_TitleArt entry)
+
+- Defended GEMS coverage advances to frames 0..182; the frontier is frame 183
+  at oracle PC `$136BC` inside byte_22080's Saxman decoder.
+- Frame 182 completes the title map and palette work, then constructs all
+  sixteen `loc_143CC/loc_143CE` permutation rows.
+- NEXT: continue the first `Load_TitleArt` `DecompressToRAM` decoder from the
+  completed permutation table.
+
 ## 2026-07-21 handoff (#416 title background and letters hand-off)
 
 - Defended GEMS coverage advances to frames 0..181; the frontier is frame 182

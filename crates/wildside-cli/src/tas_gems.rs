@@ -52,6 +52,7 @@ use wildside_frame::{
     apply_gems_title_intro_sequence1_start_frame_to_stop_music_with_checkpoint,
     apply_gems_title_intro_wait_for_vint_poll,
     apply_gems_title_load_screen_vram_fill_to_sub_1b2a4_with_checkpoint,
+    apply_gems_title_map_to_load_art_palette_permutation_with_checkpoint,
     apply_gems_title_mode_standard_do_nothing_with_checkpoint,
     apply_gems_title_mode_standard_empty_foreground_queues,
     apply_gems_title_mode_standard_palette_to_vram,
@@ -99,12 +100,12 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `Pal_FadeOut` iterations, all remaining fade iterations, the `loc_28EA`
 /// exit pass, the following `loc_700` full-VRAM clear, and `loc_714/loc_720`'s
 /// Sprite_Table clear, then `loc_726 -> Load_TitleScreen -> PlaySound` and the
-/// `loc_1B258` VRAM fill and `sub_1B2A4`'s title-art uploads through frame
-/// 178. The tail remains the coarse
+/// `loc_1B258` VRAM fill and `sub_1B2A4`'s title-art uploads, title map,
+/// palette, and first `Load_TitleArt` permutation through frame 182. The tail remains the coarse
 /// continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 182;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 183;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -172,6 +173,7 @@ struct GemsSignatureProbe {
     power_on_title_kid_transformation_compressed: Vec<u8>,
     power_on_title_red_stealth_compressed: Vec<u8>,
     power_on_title_background_compressed: Vec<u8>,
+    power_on_title_plane_map_compressed: Vec<u8>,
     power_on_intro_cursor: Option<wildside_core::vdp::LoadInGameCpuRasterCursor>,
     power_on_intro_decoder_resume:
         Option<wildside_core::saxman_timing::DecompressChunkResumeSub13684>,
@@ -215,6 +217,9 @@ impl GemsSignatureProbe {
             // ASM sub_1B2A4 byte_2A961..byte_2A992: the compact title
             // background follows the selected transformation upload.
             power_on_title_background_compressed: rom[0x2A961..0x2A992].to_vec(),
+            // ASM sub_1B2A4 unk_2F7D0..unk_2F840: title map decoded by
+            // EniDec immediately after ArtComp_1DA86_LettersNumbers.
+            power_on_title_plane_map_compressed: rom[0x2F7D0..0x2F840].to_vec(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -241,6 +246,7 @@ impl GemsSignatureProbe {
             power_on_title_kid_transformation_compressed: Vec::new(),
             power_on_title_red_stealth_compressed: Vec::new(),
             power_on_title_background_compressed: Vec::new(),
+            power_on_title_plane_map_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -1561,6 +1567,43 @@ impl GemsSignatureProbe {
             self.power_on_intro_decoder_resume = letters.resume;
             sampled_checkpoint = Some(checkpoint);
         }
+        if self.power_on_frame == 182 {
+            // ASM sub_1B2A4 completes ArtComp_1DA86_LettersNumbers, decodes
+            // unk_2F7D0, uploads loc_1B322, copies the loc_1C4BE palette, and
+            // enters Load_TitleArt's first DecompressToRAM. FrameRendered
+            // lands at loc_143D8 inside the permutation-table setup.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("title letters decoder reaches loc_14314");
+            let letters = apply_gems_decompress_to_vram_transfer_loc_14314(
+                &mut self.engine,
+                cursor,
+                720,
+                0,
+                wildside_core::vdp::DecompressToVramTransferExit::Return,
+            )
+            .expect("title letters transfer returns to sub_1B2A4");
+            let title_map = apply_gems_enigma_decoder(
+                &mut self.engine,
+                letters.cursor,
+                &[8, 12, 12, 4, 20, 10],
+                &self.power_on_title_plane_map_compressed,
+                0x20C1,
+                0x2F7D0,
+                0,
+            )
+            .expect("sub_1B2A4 decodes unk_2F7D0");
+            let (palette, checkpoint) =
+                apply_gems_title_map_to_load_art_palette_permutation_with_checkpoint(
+                    &mut self.engine,
+                    title_map.cursor,
+                    target,
+                )
+                .expect("Load_TitleArt permutation spans frame 182");
+            self.power_on_intro_cursor = Some(palette.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
         if self.power_on_frame == 3 {
             apply_gems_power_on_post_clear_reset(&mut self.engine)
                 .expect("frame 3 crosses EntryPoint's post-clear reset write");
@@ -2793,6 +2836,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
             | (179, 1_793_919_015, 4_032_104_658, 0x0273, 0x02B9)
             | (180, 1_461_374_802, 1_876_598_353, 0x02B8, 0x02B2)
             | (181, 1_480_418_900, 1_627_207_511, 0x02AA, 0x02A8)
+            | (182, 646_632_576, 4_127_712_084, 0x02A8, 0x02AA)
     );
     irq_saved_sp
         || later_pc
@@ -3749,6 +3793,19 @@ mod tests {
         let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
         assert_eq!(comparison.mismatch_count, 0);
         assert_eq!(comparison.oracle_limitation_count, 145);
+        let mut native_frame_182 = signature(0x02A8);
+        native_frame_182.audio_ram_crc32 = 646_632_576;
+        native_frame_182.bank_address = 0x000E_8000;
+        native_frame_182.status_bits = GemsFrameSignature::STATUS_IFF1;
+        let mut oracle_frame_182 = signature(0x02AA);
+        oracle_frame_182.audio_ram_crc32 = 4_127_712_084;
+        oracle_frame_182.bank_address = 0x000E_8000;
+        oracle_frame_182.status_bits = GemsFrameSignature::STATUS_IFF1;
+        native.push(Some(native_frame_182));
+        oracle.push(Some(oracle_frame_182));
+        let comparison = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 146);
     }
 
     #[test]
@@ -3976,6 +4033,7 @@ mod tests {
             power_on_title_kid_transformation_compressed: Vec::new(),
             power_on_title_red_stealth_compressed: Vec::new(),
             power_on_title_background_compressed: Vec::new(),
+            power_on_title_plane_map_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -4022,6 +4080,7 @@ mod tests {
             power_on_title_kid_transformation_compressed: Vec::new(),
             power_on_title_red_stealth_compressed: Vec::new(),
             power_on_title_background_compressed: Vec::new(),
+            power_on_title_plane_map_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -4073,6 +4132,7 @@ mod tests {
             power_on_title_kid_transformation_compressed: Vec::new(),
             power_on_title_red_stealth_compressed: Vec::new(),
             power_on_title_background_compressed: Vec::new(),
+            power_on_title_plane_map_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -4093,7 +4153,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_181() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_182() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -5915,5 +5975,28 @@ mod tests {
         let mut crc = crc32fast::Hasher::new();
         crc.update(&oracle_ram);
         assert_eq!(crc.finalize(), 1_627_207_511);
+
+        // ORACLE LIMITATION: ASM sub_1B2A4 -> loc_1B322 -> loc_1C4B2 and
+        // Load_TitleArt -> loc_143CC/loc_143CE reach the exact frame-182
+        // routine with bank, waits, and flags equal. Only CHECKTICK retains
+        // the established hardware-correct X/Y/IRQ phase; PC is derivative.
+        let frame_182 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_182.audio_ram_crc32, 646_632_576);
+        assert_eq!(frame_182.bank_address, 0x000E_8000);
+        assert_eq!(frame_182.z80_pc, 0x02A8);
+        assert_eq!(frame_182.z80_wait_mclk_cycles, 0);
+        assert_eq!(frame_182.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_182.status_bits, GemsFrameSignature::STATUS_IFF1);
+        let mut oracle_ram = probe
+            .power_on_last_sampled_checkpoint
+            .as_ref()
+            .expect("frame 182 native checkpoint")
+            .audio_ram
+            .clone();
+        assert_eq!(oracle_ram[0x1A0C], 0xB7);
+        oracle_ram[0x1A0C] = 0xA5;
+        let mut crc = crc32fast::Hasher::new();
+        crc.update(&oracle_ram);
+        assert_eq!(crc.finalize(), 4_127_712_084);
     }
 }

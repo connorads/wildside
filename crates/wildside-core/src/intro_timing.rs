@@ -1704,6 +1704,90 @@ pub fn visit_title_load_screen_vram_fill_to_sub_1b2a4(
     timing
 }
 
+/// Visit the title-map upload and first `Load_TitleArt` palette permutation.
+///
+/// ASM `sub_1B2A4` resumes after the `unk_2F7D0` `EniDec`, writes the
+/// 32-word `loc_1B322` map, copies the 51-word title palette at `loc_1C4BE`,
+/// and enters `Load_TitleArt -> DecompressToRAM`. The visitor stops at
+/// `loc_143EA`, after `loc_143CC/loc_143CE` has built all 16 permutation rows.
+pub fn visit_title_map_to_load_art_palette_permutation(
+    mut visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                timing: &mut IntroSourceTiming,
+                cycles: u32| {
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title-art palette timing fits u32"),
+        );
+    };
+
+    // ASM sub_1B2A4 after EniDec: select VRAM $F000 and seed loc_1B322.
+    for cycles in [20, 8, 4] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for iteration in 0..32 {
+        emit(&mut visit, &mut timing, 12);
+        visit(MemoryDmaTimingEvent::WriteVdpWord {
+            target: MemoryToVdpDmaTarget::Vram,
+        });
+        emit(
+            &mut visit,
+            &mut timing,
+            if iteration == 31 { 14 } else { 10 },
+        );
+    }
+
+    // ASM loc_1B322 -> loc_1C4B2 copies 51 palette words, returns from
+    // sub_1B2A4, and calls Load_TitleArt's first DecompressToRAM.
+    for cycles in [12, 12, 8, 4] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for iteration in 0..51 {
+        emit(&mut visit, &mut timing, 12);
+        emit(
+            &mut visit,
+            &mut timing,
+            if iteration == 50 { 14 } else { 10 },
+        );
+    }
+    for cycles in [12, 10, 16, 18, 8, 12, 8, 20, 10] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    // ASM DecompressToRAM -> sub_142CC, followed by the palette-table setup.
+    for cycles in [
+        18, 4, 10, 8, 8, 8, 4, 4, 16, 8, 22, 8, 12, 12, 4, 4, 16, 8, 4,
+    ] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    // ASM loc_143CC/loc_143CE builds a 16x16 packed-nibble lookup table.
+    for row in 0..16 {
+        emit(&mut visit, &mut timing, 4);
+        for column in 0..16 {
+            for cycles in [14, 8, 14, 8, 4, 8] {
+                emit(&mut visit, &mut timing, cycles);
+            }
+            emit(&mut visit, &mut timing, if column == 15 { 8 } else { 10 });
+        }
+        for cycles in [4, 8, if row == 15 { 8 } else { 10 }] {
+            emit(&mut visit, &mut timing, cycles);
+        }
+    }
+
+    timing
+}
+
 /// Visit the title path through `Transfer_SpriteAndKidToVRAM`.
 ///
 /// The title has a live sprite-table pointer, `$FB49` clear, and a zero first
@@ -2565,6 +2649,23 @@ mod tests {
                 MemoryDmaTimingEvent::SetZ80BusRequest(false),
             ],
             "ASM loc_300D2 brackets the byte-sized $380 DMA and sub_924 repeats Start_z80",
+        );
+    }
+
+    #[test]
+    fn title_map_tail_reaches_load_art_after_exact_map_and_permutation_loops() {
+        let mut events = Vec::new();
+        let timing = visit_title_map_to_load_art_palette_permutation(|event| events.push(event));
+
+        assert_eq!(timing.instruction_count, 2_057);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(19_472));
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, MemoryDmaTimingEvent::WriteVdpWord { .. }))
+                .count(),
+            32,
+            "ASM loc_1B322 uploads exactly 32 title-map words before loc_1C4B2",
         );
     }
 }
