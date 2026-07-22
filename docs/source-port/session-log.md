@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 title background and letters hand-off)
+
+- Defended GEMS coverage advances to frames 0..181; the frontier is frame 182
+  at oracle PC `$143D8` inside `Load_TitleArt`'s first `DecompressToRAM`.
+- Frame 181 finishes byte_26E3D, uploads byte_2A961, and enters the letters
+  decoder; both completed decoder spans match oracle cycle-for-cycle.
+- NEXT: finish the retained letters decoder/upload and intervening title-map
+  work before modelling the palette-permutation path.
+
 ## 2026-07-21 handoff (#416 seventh title-art upload chunk)
 
 - Defended GEMS coverage advances to frames 0..180; the frontier is frame 181

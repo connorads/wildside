@@ -870,6 +870,18 @@ evidence-backed limitations and 30 advisory frames. Oracle PC `$13A34`
 places frame 181 inside the following Saxman decoder. NEXT: trace the new
 `sub_1B2A4` asset hand-off; byte_26E3D's repeated upload has completed.
 
+Progress 2026-07-21: frame 181 finishes byte_26E3D, uploads byte_2A961, and
+enters ArtComp_1DA86_LettersNumbers. Selected-PC traces show the completed
+Red Stealth and background `loc_14300..loc_14314` decoder spans are each
+cycle-exact; the native entry offsets are carried hardware-correct X/Y/IRQ
+phase. Raw RAM differs only at saved-SP `$003E`, `CHECKTICK` `$1A0C`, and
+active-stack `$1A1A`; bank, waits, and flags are exact, while PC
+`$02AA`/`$02A8` is derivative. Coverage advances 181 -> 182 with 152
+evidence-backed limitations and 30 advisory frames. Oracle PC `$143D8`
+places frame 182 inside `Load_TitleArt`'s first `DecompressToRAM`. NEXT:
+finish the retained letters decoder/upload and trace the intervening title-map
+work into that palette-permutation path.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed
