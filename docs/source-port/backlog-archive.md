@@ -255,6 +255,21 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 185 to 187 defended
+frames. Frame 185 resumes the retained `DecompressToRAM loc_143EA` Saxman
+cursor and emits the next `$800` bytes. Frame 186 completes the corresponding
+1,024-word `loc_1440A` remap transfer and `loc_14430` history compaction. Both
+checkpoints match bank, waits, and flags; exhaustive raw-RAM comparison differs
+only at saved-SP `$003E` (`$1E/$1C`) and CHECKTICK `$1A0C` (`$A7/$A5`). The
+focused pass matches all 187 compared frames with 157 evidence-backed oracle
+limitations and 30 advisory-only divider phases. The first authoritative
+frontier moves to frame 187 at oracle PC `$139CC` inside the next resumed
+decoder. A direct third call to the one-checkpoint RAM-decoder adapter returned
+no checkpoint despite a target beyond the entry master clock and an empty
+pending-wait ledger; this boundary must be narrowed rather than bypassed.
+NEXT: make the decoder adapter retain a checkpoint that lands within this
+source interval, with a regression for the boundary.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 184 to 185
 defended frames. ASM `DecompressToRAM loc_1440A` is now source-scheduled as
 the exact `8,14,8,8,14,8,10` instruction loop, including VDP FIFO ownership,

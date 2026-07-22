@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 second Load_TitleArt chunk)
+
+- Defended GEMS coverage advances to frames 0..186; the frontier is frame 187
+  at oracle PC `$139CC` inside the next resumed Saxman decoder.
+- Frame 185 resumes `loc_143EA`; frame 186 completes its 1,024-word
+  `loc_1440A` remap transfer and `loc_14430` compaction. Both raw-RAM residuals
+  are limited to the established `$003E/$1A0C` IRQ-phase bytes.
+- NEXT: narrow why the one-checkpoint RAM-decoder adapter rejects frame 187's
+  mid-decoder checkpoint despite a valid entry clock and empty wait ledger.
+
 ## 2026-07-22 handoff (#416 first Load_TitleArt remap transfer)
 
 - Defended GEMS coverage advances to frames 0..184; the frontier is frame 185
