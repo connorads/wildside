@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 389)
+
+- Defended GEMS coverage advances to frames 0..389; the frontier is frame 390
+  inside the next `Do_Nothing`.
+- Twenty-four further passes reuse the pure ASM `loc_1B6A2 -> sub_1B71A`
+  decision and shared timing shell; exact tuples include frame 372's BUSREQ
+  wait residue.
+- The focused 390-frame pass is green with 355 evidence-backed limitations
+  and 35 advisory-only frames; gameplay and enemy checkpoints remain exact.
+- Full-route GEMS mismatches fall from 37,393 to 37,369; gameplay, enemy, RNG,
+  and pixel evidence remain unchanged.
+- `verify-slice-fast` and `verify-tas-full` pass.
+- This P2 timeline is active only because its carried GEMS state is a direct
+  prerequisite for #409's post-HUD raster composition.
+- NEXT: extend from frame 390 until the source branch changes, then connect
+  the persistent checkpoint to #409.
+
 ## 2026-07-22 handoff (#409 post-HUD raw workload to `loc_892`)
 
 - The exact 22-phase ledger derives 24,024/25,550/26,004 raw cycles from

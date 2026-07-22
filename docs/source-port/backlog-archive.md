@@ -255,6 +255,21 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 366 to 390
+defended frames, reaching the 194th fresh-title object pass. The next
+twenty-four passes stay inside ASM `loc_1B6A2 -> sub_1B71A` and reuse the
+existing pure decision plus hardware-timing shell. Exact strict-field records
+pin every continuing IRQ residue, including frame 372's 50-master-clock Z80
+bank wait and 11-cycle pending 68000 wait. The focused 390-frame comparison is
+green with 355 evidence-backed limitations and 35 advisory-only frames;
+gameplay and enemy checkpoints are exact. The full route lowers GEMS
+mismatches from 37,393 to 37,369 and moves the frontier to frame 390; all
+37,759 gameplay/enemy checks, all 37,743 post-Init_RNG frames, and the pixel
+baseline retain their prior result. `verify-slice-fast` and
+`verify-tas-full` pass. NEXT: continue the persistent title
+timeline because its carried GEMS state directly supplies #409's missing
+external-arbitration input; stop this route when the source branch changes.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 342 to 366
 defended frames, reaching the 170th fresh-title object pass. Twenty-four
 further passes reuse the pure ASM `loc_1B6A2 -> sub_1B71A` decision and shared
