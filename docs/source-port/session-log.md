@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 sixth fresh-title object pass)
+
+- Defended GEMS coverage advances to frames 0..201; the frontier is frame 202
+  inside the next `Do_Nothing`.
+- Frame 201 starts with the prompt, then Chameleon advances `d3` from 4 to 5,
+  repeats `unk_2E728`, and FIFO-paces all seven map rows; Kid sleeps and Menu
+  decrements.
+- Exhaustive raw-RAM residue is confined to `SBPTACC+1` and three active-stack
+  bytes `$1A1C..$1A1E`; bank, waits, and flags match.
+- NEXT: source-schedule the seventh fresh-title prompt/Chameleon/Kid/Menu pass.
+
 ## 2026-07-22 handoff (#416 fifth fresh-title object pass)
 
 - Defended GEMS coverage advances to frames 0..200; the frontier is frame 201
