@@ -255,6 +255,18 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 245 to 269
+defended frames. The shared `loc_1B6A2 -> sub_1B71A` scheduler carries the next
+twenty-four ordinary title passes without another imperative path, reaching the
+seventy-third fresh-title object pass at frame 268. Exact residue records pin
+all strict native/oracle fields across the batch, including frame 257's
+49-master-clock bank-wait edge and frame 261's byte-exact RAM with a PC-only
+phase. The focused 270-frame pass leaves only frame 269 authoritative, with 237
+evidence-backed limitations and 32 advisory-only frames. The full route lowers
+GEMS mismatches from 37,514 to 37,490 and moves the frontier to frame 269;
+pixels remain 26,382 exact / 11,377 divergent / 3,620,978 changed. NEXT: extend
+the ordinary title scheduler from the seventy-fourth object pass.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 221 to 245
 defended frames. The ordinary title cadence is now a functional-core decision:
 `fresh_title_chameleon_pass` derives ASM `loc_1B6A2 -> sub_1B71A`'s `d3`, signed

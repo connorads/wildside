@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 268)
+
+- Defended GEMS coverage advances to frames 0..268; the frontier is frame 269
+  inside the next `Do_Nothing`.
+- The shared ASM-derived scheduler covers another twenty-four object passes,
+  reaching the seventy-third fresh-title pass without a parallel code path.
+- Exact residue records pin every strict native/oracle field through the batch;
+  gameplay, enemy, and RNG checkpoints remain exact.
+- NEXT: extend the ordinary title scheduler from the seventy-fourth object pass.
+
 ## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 244)
 
 - Defended GEMS coverage advances to frames 0..244; the frontier is frame 245
