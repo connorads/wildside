@@ -518,11 +518,102 @@ pub fn visit_fresh_title_second_execute_objects_to_chameleon_enigma(
     Some(timing)
 }
 
-/// Visit `sub_1B71A` after `EniDec` through frame 197's object-pass return.
+/// Visit frame 198's fresh-title object pass through `sub_1B71A`.
+///
+/// ASM `loc_1C7B2` drains SegaText's zero-delay copyright string in one pass,
+/// writing eleven glyphs before `Delete_CurrentObject sub_F1A`. The prompt
+/// and Chameleon then resume from their saved coroutine positions. The visit
+/// includes Chameleon's `BSR.W sub_1B71A` and stops at that routine's entry.
+pub fn visit_fresh_title_third_execute_objects_to_chameleon_enigma(
+    rng_offset_before: u16,
+    mut visit: impl FnMut(MemoryDmaTimingEvent),
+) -> Option<IntroSourceTiming> {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                timing: &mut IntroSourceTiming,
+                cycles: u32| {
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("fresh-title third Execute_Objects prefix fits u32"),
+        );
+    };
+    let dispatch = |visit: &mut dyn FnMut(MemoryDmaTimingEvent), timing: &mut IntroSourceTiming| {
+        // ASM loc_E1E..loc_E56: awake object dispatch.
+        for cycles in [12, 8, 4, 12, 10, 16, 8, 16, 80, 16, 24, 16] {
+            emit(visit, timing, cycles);
+        }
+    };
+    let hibernate_one = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                         timing: &mut IntroSourceTiming| {
+        for cycles in [18, 10, 16, 24, 16, 76, 16, 10] {
+            emit(visit, timing, cycles);
+        }
+    };
+
+    visit_title_execute_objects_setup(rng_offset_before, &mut |cycles| {
+        emit(&mut visit, &mut timing, cycles);
+    })?;
+
+    // SegaText resumes after loc_1C7AE's one-frame hibernation. Its delay is
+    // zero, so all eleven copyright glyphs reach sub_1C7F6 this pass.
+    dispatch(&mut visit, &mut timing);
+    for cycles in [4, 8] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for _ in 0..11 {
+        for cycles in [4, 8, 8, 10, 8, 10, 8, 10, 12, 10, 8, 18] {
+            emit(&mut visit, &mut timing, cycles);
+        }
+        // ASM sub_1C7F6 computes one plane-A command and tile word.
+        for cycles in [4, 20, 4, 4, 8, 4, 8, 8, 4, 10, 8, 4, 16, 12, 8] {
+            emit(&mut visit, &mut timing, cycles);
+        }
+        visit(MemoryDmaTimingEvent::WriteVdpWord {
+            target: MemoryToVdpDmaTarget::Vram,
+        });
+        emit(&mut visit, &mut timing, 16);
+        for cycles in [4, 12, 10] {
+            emit(&mut visit, &mut timing, cycles);
+        }
+    }
+    // ASM loc_1C7B6 sees `$FF`, then Delete_CurrentObject removes SegaText
+    // from the head of the Object list and branches back to loc_E1E.
+    for cycles in [4, 8, 8, 8, 10, 10] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for cycles in [
+        16, 18, 32, 8, 16, 8, 6, 10, 28, 28, 16, 16, 16, 10, 16, 10, 16, 10, 4, 36, 16, 10,
+    ] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    // The prompt resumes at loc_1BB50, recomputes x=268, and hibernates.
+    dispatch(&mut visit, &mut timing);
+    for cycles in [10, 8, 12, 10, 12, 4, 12] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    hibernate_one(&mut visit, &mut timing);
+
+    // Chameleon resumes at loc_1B6A6 with d3=1 and calls sub_1B71A again.
+    dispatch(&mut visit, &mut timing);
+    emit(&mut visit, &mut timing, 18);
+
+    Some(timing)
+}
+
+/// Visit `sub_1B71A` after `EniDec` through a fresh-title object-pass return.
 ///
 /// The first CHAMELEON row emits 21 decoded words; the remaining six emit 29
 /// words. Since `d2=0`, every row also writes the `$00BC` leading filler.
-pub fn visit_fresh_title_second_chameleon_upload_to_execute_return(
+pub fn visit_fresh_title_chameleon_upload_to_execute_return(
     mut visit: impl FnMut(MemoryDmaTimingEvent),
 ) -> IntroSourceTiming {
     let mut timing = IntroSourceTiming {
@@ -2561,7 +2652,7 @@ mod tests {
     #[test]
     fn fresh_title_chameleon_upload_writes_seven_fillers_and_195_map_words() {
         let mut events = Vec::new();
-        let timing = visit_fresh_title_second_chameleon_upload_to_execute_return(|event| {
+        let timing = visit_fresh_title_chameleon_upload_to_execute_return(|event| {
             events.push(event);
         });
 
@@ -2580,6 +2671,44 @@ mod tests {
                 .count(),
             2,
             "ASM sub_E76 hibernates Chameleon and Menu after the upload",
+        );
+        assert_eq!(
+            timing.instruction_count,
+            events
+                .iter()
+                .filter(|event| matches!(event, MemoryDmaTimingEvent::Instruction(_)))
+                .count() as u32,
+        );
+    }
+
+    #[test]
+    fn fresh_title_third_execute_objects_writes_all_sega_glyphs_then_reaches_chameleon() {
+        let mut events = Vec::new();
+        let timing = visit_fresh_title_third_execute_objects_to_chameleon_enigma(0xFFE5, |event| {
+            events.push(event);
+        })
+        .expect("frame-198 title RNG offset is initialised");
+
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, MemoryDmaTimingEvent::WriteVdpWord { .. }))
+                .count(),
+            11,
+            "ASM loc_1C7B6/sub_1C7F6 drains the complete copyright string",
+        );
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, MemoryDmaTimingEvent::Instruction(76)))
+                .count(),
+            1,
+            "ASM sub_E76 hibernates only the prompt before sub_1B71A",
+        );
+        assert_eq!(
+            events.last(),
+            Some(&MemoryDmaTimingEvent::Instruction(18)),
+            "ASM loc_1B6A6 calls sub_1B71A",
         );
         assert_eq!(
             timing.instruction_count,

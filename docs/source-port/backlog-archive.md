@@ -255,6 +255,22 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 198 to 199
+defended frames. Frame 198 source-schedules the third fresh-title
+`Mode_Standard` pass: SegaText writes all eleven zero-delay copyright glyphs
+through `sub_1C7F6`, consumes its `$FF` terminator, and deletes itself through
+`sub_F1A`; the prompt hibernates and Chameleon resumes `loc_1B6A6`, repeats
+`unk_2E706`, and FIFO-paces its seven plane-A rows. Exhaustive raw-RAM
+comparison differs only at VBLINT saved-SP `$003E`, `SBPTACC+1` `$076D`, and
+four active-stack bytes `$1A1C..$1A1F`; substituting the oracle's six values
+reproduces CRC `522040486` exactly. Bank, waits, and flags match; PC is the
+derivative IRQ phase. The focused 199-frame pass is green with 169
+evidence-backed oracle limitations and 30 advisory-only frames. The full route
+lowers GEMS mismatches from 37,561 to 37,560 and moves the frontier to frame
+199 `$095C`; pixels remain 26,382 exact / 11,377 divergent / 3,620,978 changed.
+NEXT: source-schedule the fourth fresh-title object pass after SegaText's
+deletion, including prompt/Chameleon/Kid/Menu cadence.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 197 to 198
 defended frames. Frame 197 source-schedules the second fresh-title
 `Mode_Standard` pass: SegaText initialises its copyright string, the prompt

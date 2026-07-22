@@ -4448,7 +4448,7 @@ pub fn title_character_map_to_chameleon_enigma_cursor_with_scheduler(
 }
 
 /// Co-schedule `sub_1B71A`'s frame-197 CHAMELEON rows and object-pass tail.
-pub fn fresh_title_second_chameleon_upload_to_execute_return_cursor_with_scheduler(
+pub fn fresh_title_chameleon_upload_to_execute_return_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
 ) -> Option<TitleMemoryDmaAdvance> {
@@ -4456,8 +4456,30 @@ pub fn fresh_title_second_chameleon_upload_to_execute_return_cursor_with_schedul
         entry,
         0,
         false,
+        |visit| crate::intro_timing::visit_fresh_title_chameleon_upload_to_execute_return(visit),
+        &mut advance_hardware,
+    )
+}
+
+/// Co-schedule frame 198's SegaText glyphs and object prefix to `sub_1B71A`.
+pub fn fresh_title_third_execute_objects_to_chameleon_enigma_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    if !crate::RomRandomFrameState::offset_is_initialised(rng_offset_before) {
+        return None;
+    }
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        0,
+        false,
         |visit| {
-            crate::intro_timing::visit_fresh_title_second_chameleon_upload_to_execute_return(visit)
+            crate::intro_timing::visit_fresh_title_third_execute_objects_to_chameleon_enigma(
+                rng_offset_before,
+                visit,
+            )
+            .expect("validated fresh-title frame-198 RNG offset")
         },
         &mut advance_hardware,
     )

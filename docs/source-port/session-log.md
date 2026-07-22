@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 third fresh-title object pass)
+
+- Defended GEMS coverage advances to frames 0..198; the frontier is frame 199
+  at oracle PC `$095C` inside the next `Do_Nothing`.
+- Frame 198 drains SegaText's eleven copyright glyphs and deletes the worker,
+  hibernates the prompt, and repeats Chameleon's map plus seven plane-A rows.
+- Exhaustive raw-RAM residue is confined to the established saved-SP,
+  `SBPTACC+1`, and four active-stack bytes; bank, waits, and flags match.
+- NEXT: source-schedule the fourth fresh-title pass after SegaText deletion,
+  including prompt/Chameleon/Kid/Menu cadence.
+
 ## 2026-07-22 handoff (#416 second fresh-title object pass)
 
 - Defended GEMS coverage advances to frames 0..197; the frontier is frame 198
