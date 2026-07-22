@@ -255,6 +255,22 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 196 to 197
+defended frames. Frame 196 source-schedules the first fresh-title
+`Mode_Standard` pass: the equal-priority objects execute in ROM list order
+`Obj_TitleTextChameleon -> Obj_TitleTextKid -> Obj_TitleMenu`; Kid allocates
+the first GfxObject and Menu inserts its two Object children before the frame
+returns through `WaitForVint`. Selected-PC oracle traces correct the awake
+dispatch to 16-cycle `subq.w` and 80-cycle register unpack, and pin the whole
+visitor at 413 instructions / 5,432 raw cycles. Exhaustive raw GEMS RAM differs
+only at the IRQ active-stack byte `$003E` (native `$1E`, oracle `$1C`); bank,
+waits, and flags match and PC is derivative IRQ phase. The focused pass matches
+all 197 frames with 167 evidence-backed oracle limitations and 30 advisory-only
+divider phases. The full route lowers mismatches from 37,563 to 37,562 and
+moves the frontier to frame 197 `$095C`; pixels remain 26,382 exact / 11,377
+divergent / 3,620,978 changed. NEXT: source-schedule the second fresh-title
+object pass in SegaText -> prompt -> Chameleon -> Kid -> Menu order.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 195 to 196
 defended frames. Frame 195 source-schedules `Load_TitleScreen`'s three
 equal-priority `sub_DAC` allocations, the `LoadGameModeData` return, the first

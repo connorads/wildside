@@ -342,6 +342,104 @@ pub fn visit_title_execute_objects_to_intro_controller_sub_1b8f4(
     Some(timing)
 }
 
+/// Visit the first fresh-title `Execute_Objects` pass.
+///
+/// ASM `Load_TitleScreen` leaves equal-priority objects ordered as
+/// `Obj_TitleTextChameleon`, `Obj_TitleTextKid`, then `Obj_TitleMenu`.
+/// Selected-PC oracle tracing confirms that order on the first post-loader
+/// pass. Each object initialises and hibernates; the Kid allocates the first
+/// GfxObject and the menu allocates two child Objects before yielding.
+pub fn visit_fresh_title_first_execute_objects(
+    rng_offset_before: u16,
+    mut visit: impl FnMut(u32),
+) -> Option<IntroSourceTiming> {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("fresh-title Execute_Objects timing fits u32"),
+        );
+    };
+    let dispatch = |emit: &mut dyn FnMut(u32)| {
+        for cycles in [12, 8, 4, 8, 10, 16, 8, 12, 80, 12, 24, 16] {
+            emit(cycles);
+        }
+    };
+    let hibernate_one = |emit: &mut dyn FnMut(u32)| {
+        for cycles in [18, 10, 16, 24, 16, 76, 16, 10] {
+            emit(cycles);
+        }
+    };
+    let allocate_object_before_equal_head = |emit: &mut dyn FnMut(u32)| {
+        for cycles in [8, 18, 10, 40, 4, 16, 28, 4, 4, 8] {
+            emit(cycles);
+        }
+        for index in 0..29 {
+            emit(12);
+            emit(if index == 28 { 14 } else { 10 });
+        }
+        for cycles in [16, 16, 16, 8, 12, 16, 8, 4, 4, 12, 8, 4, 28, 16, 44, 16] {
+            emit(cycles);
+        }
+    };
+
+    visit_title_execute_objects_setup(rng_offset_before, &mut emit)?;
+
+    // ASM loc_E1E -> Obj_TitleTextChameleon sub_1B6A0.
+    dispatch(&mut emit);
+    emit(4);
+    hibernate_one(&mut emit);
+
+    // ASM loc_E1E -> Obj_TitleTextKid sub_1B5BC. Its category-zero,
+    // priority-$01FF GfxObject is the first entry in the GfxObject list.
+    dispatch(&mut emit);
+    for cycles in [12, 18, 10, 18, 40, 4, 16, 28, 4, 4, 8] {
+        emit(cycles);
+    }
+    for index in 0..19 {
+        emit(12);
+        emit(if index == 18 { 14 } else { 10 });
+    }
+    for cycles in [12, 10, 4, 12, 16, 16, 8, 12, 16, 10, 28, 16, 44, 16] {
+        emit(cycles);
+    }
+    // Return through Load_GfxObjectSlot, initialise the title KID sprite,
+    // and enter the 30-frame Hibernate_Object call.
+    for cycles in [16, 16, 16, 10, 16, 16, 16, 16, 8, 16, 12, 18, 10] {
+        emit(cycles);
+    }
+    for cycles in [16, 24, 16, 76, 16, 10] {
+        emit(cycles);
+    }
+
+    // ASM loc_E1E -> Obj_TitleMenu loc_1BAC2. Both equal-priority children
+    // insert before the current list head and are not visited this pass.
+    dispatch(&mut emit);
+    allocate_object_before_equal_head(&mut emit);
+    emit(24);
+    allocate_object_before_equal_head(&mut emit);
+    for cycles in [24, 24, 8, 12] {
+        emit(cycles);
+    }
+    hibernate_one(&mut emit);
+
+    // Obj_TitleMenu is the final original-list object; loc_E58 returns to
+    // Mode_Standard after its hibernation.
+    for cycles in [12, 10, 16, 16] {
+        emit(cycles);
+    }
+
+    Some(timing)
+}
+
 /// Visit the second title `Execute_Objects` call through both hibernations.
 ///
 /// The equal-priority text worker is first in the execution list. It enters
@@ -2246,6 +2344,21 @@ mod tests {
             cycles[cycles.len() - 12..],
             [12, 8, 4, 8, 10, 12, 8, 12, 44, 12, 24, 16],
             "ASM loc_E1E dispatches the sole awake controller into sub_1B8F4",
+        );
+    }
+
+    #[test]
+    fn fresh_title_first_execute_objects_initialises_three_objects_in_rom_order() {
+        let mut cycles = Vec::new();
+        let timing = visit_fresh_title_first_execute_objects(0xFFDD, |cycle| cycles.push(cycle))
+            .expect("frame-196 title RNG offset is initialised");
+
+        assert_eq!(timing.instruction_count, 413);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(5_432));
+        assert_eq!(
+            cycles.iter().filter(|&&cycle| cycle == 76).count(),
+            3,
+            "ASM sub_E76 hibernates Chameleon, Kid, and Menu once each",
         );
     }
 

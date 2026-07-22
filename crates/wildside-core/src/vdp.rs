@@ -3906,6 +3906,21 @@ pub fn title_execute_objects_to_intro_controller_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule the first fresh-title `Execute_Objects` pass.
+pub fn fresh_title_first_execute_objects_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| {
+            crate::intro_timing::visit_fresh_title_first_execute_objects(rng_offset_before, visit)
+        },
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule the second title text-worker and controller dispatches.
 pub fn title_second_execute_objects_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,

@@ -1793,6 +1793,30 @@ pub fn apply_gems_title_execute_objects_to_intro_controller(
     )
 }
 
+/// Clock the first fresh-title object initialisation pass.
+#[cfg(feature = "audio")]
+pub fn apply_gems_fresh_title_first_execute_objects(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    rng_offset_before: u16,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::fresh_title_first_execute_objects_cursor_with_scheduler(
+        entry,
+        rng_offset_before,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock the second title text-worker and controller dispatches.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_second_execute_objects(

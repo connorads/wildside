@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 first fresh-title object pass)
+
+- Defended GEMS coverage advances to frames 0..196; the frontier is frame 197
+  at oracle PC `$095C` inside the next `Do_Nothing`.
+- Frame 196 executes Chameleon, Kid, and Menu in ROM list order; Kid allocates
+  the first GfxObject and Menu inserts the prompt and SegaText children.
+- Exhaustive raw GEMS RAM differs only at IRQ active-stack byte `$003E`; bank,
+  waits, and flags match, and PC is derivative IRQ phase.
+- NEXT: source-schedule the second fresh-title pass in SegaText -> prompt ->
+  Chameleon -> Kid -> Menu order.
+
 ## 2026-07-22 handoff (#416 first post-load title frame)
 
 - Defended GEMS coverage advances to frames 0..195; the frontier is frame 196
