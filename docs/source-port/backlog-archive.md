@@ -255,6 +255,17 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 318 to 342
+defended frames, reaching the 146th fresh-title object pass. One focused run
+captured all twenty-four strict native/oracle tuples while the shared ASM
+`loc_1B6A2 -> sub_1B71A` scheduler executed every pass; no new imperative
+branch or permissive matcher was added. The focused 342-frame comparison is
+green with 307 evidence-backed limitations and 35 advisory-only frames.
+The full route lowers GEMS mismatches from 37,441 to 37,417 and moves the
+frontier to frame 342; gameplay, enemy, RNG, and pixel evidence remain
+unchanged. NEXT: extend the ordinary title scheduler from frame 342 until its
+source branch changes.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 317 to 318
 defended frames. Frame 317 is the 122nd fresh-title object pass through the
 shared ASM `loc_1B6A2 -> sub_1B71A` scheduler. Before the extension it fell

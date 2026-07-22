@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 341)
+
+- Defended GEMS coverage advances to frames 0..341; the frontier is frame 342
+  inside the next `Do_Nothing`.
+- One focused comparison pins all twenty-four new strict-field residue tuples
+  while the shared `loc_1B6A2 -> sub_1B71A` scheduler runs unchanged.
+- The focused 342-frame pass is green with 307 evidence-backed limitations
+  and 35 advisory-only frames.
+- Full-route GEMS mismatches fall from 37,441 to 37,417; gameplay, enemy, RNG,
+  and pixel evidence remain unchanged.
+- NEXT: extend the ordinary title scheduler from frame 342 until its source
+  branch changes.
+
 ## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 317)
 
 - Defended GEMS coverage advances to frames 0..317; the frontier is frame 318
