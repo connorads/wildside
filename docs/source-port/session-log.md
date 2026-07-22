@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#409 post-HUD raw workload to `loc_892`)
+
+- The exact 22-phase ledger derives 24,024/25,550/26,004 raw cycles from
+  `$810` to `loc_892` on published frames 1697/1703/1709.
+- Oracle selected-PC elapsed spans are 24,454/27,210/27,830 cycles, but they
+  include external arbitration beyond source work and refresh.
+- A red frame-1703 integration probe reaches scanline 92 / phase 30 with
+  refresh alone; oracle `loc_892` is scanline 95 / phase 4, a 1,254-cycle
+  shortfall. The no-steal aggregate hypothesis is rejected.
+- Reordered or unsupported workload fails closed, and the phase API warns
+  that aggregate routine spans do not locate an asynchronous intra-routine
+  wait.
+- `mise run verify-slice-fast` passes with 7,031 core tests and every
+  configured TAS frontier green.
+- NEXT: classify waits between every post-HUD phase boundary, then compose
+  the FIFO-aware HUD exit through the persistent GEMS checkpoint.
+
 ## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 365)
 
 - Defended GEMS coverage advances to frames 0..365; the frontier is frame 366

@@ -1690,6 +1690,32 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-22: the complete non-GEMS `Mode_Level $810 -> loc_892`
+source workload is typed and independently pinned to oracle selected-PC
+traces. The 22-phase ledger derives 24,024/25,550/26,004 raw cycles on
+published frames 1697/1703/1709. Reordered or unclassified ledgers fail
+closed, and the public phase schedule retains ROM order without claiming
+instruction-level wait placement inside a routine. `mise run
+verify-slice-fast` is green with 7,031 core tests and all configured TAS
+frontiers.
+
+Correction 2026-07-22: the selected-PC elapsed spans are
+24,454/27,210/27,830 cycles, but their residue above raw work is not pure
+refresh. A red frame-1703 integration probe advanced the phase schedule with
+refresh alone and reached scanline 92 / phase 30; oracle `loc_892` is
+scanline 95 / phase 4, leaving 1,254 elapsed cycles of untyped external
+arbitration. This agrees with the existing `ReadJoypad sub_914/sub_924`
+warning and rejects the proposed no-steal aggregate bridge. NEXT: split the
+selected-PC trace at every phase boundary, classify external waits per
+routine, then compose the FIFO-aware `sub_44DC` exit without fitting the net
+residue.
+
+Correction 2026-07-22: the exhaustive `$810..$892` caller-PC trace reports
+the two inline instruction costs directly. Memory `sf ($FA75).w` is 16 raw
+cycles, not 12, and `tst.b ($FB49).w` is 12, not 8. The corrected aggregate
+totals above include both four-cycle adjustments; the earlier
+24,016/25,542/25,996 values are discarded.
+
 Progress 2026-07-21: `Load_TitleScreen loc_1B258` is source-scheduled through
 the `sub_1B2A4` entry without fitting its remaining divergence. The path after
 the Ice transaction contains 4,102 instructions / 45,150 raw cycles, 2,048

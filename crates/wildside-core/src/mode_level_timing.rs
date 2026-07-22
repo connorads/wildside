@@ -11,10 +11,10 @@ use crate::{
     ModeLevelInputWorkerPathLoc7452, ModeLevelKidGfxTerrainCollision,
     ModeLevelKidProjectileCollisionWorkSub1D76, ModeLevelPlatformLoaderExistingSlotSub2728,
     ModeLevelPlatformLoaderRangeLoc2762, ModeLevelPlatformLoaderWorkLoc2744, ModeLevelPlatformWork,
-    ModeLevelPlayerExecutionPath, ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake,
-    ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
-    ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork, ModeLevelReadJoypadWork,
-    ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
+    ModeLevelPlayerExecutionPath, ModeLevelPostHudPhase, ModeLevelPostHudWorkLedger,
+    ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState,
+    ModeLevelPrizeBlockWobbleWake, ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
+    ModeLevelReadJoypadWork, ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
     ModeLevelTerrainSpecialScanSub1FA2, ModeLevelVerticalCollisionPath, ModeLevelWallCollisionPath,
 };
 
@@ -2695,6 +2695,163 @@ pub fn shooter_projectile_collision_raw_cycles_sub_226a(
     // ASM sub_226A loc_226E: the first ShooterObject link is the null
     // sentinel, so no Kid-projectile list state is read before return_231A.
     Some(M68kCycleCount::from_raw(46))
+}
+
+/// Source-ordered raw-cycle spans after ASM `sub_44DC` returns at `$810`
+/// through the `loc_892` join point.
+///
+/// Each entry includes its `Mode_Level` call or inline shell. Refresh and
+/// asynchronous GEMS waits remain excluded. The phase granularity preserves
+/// the ROM order for a later instruction-boundary timing adapter; it is not
+/// itself fine enough to place an asynchronous wait inside a routine body.
+pub fn mode_level_post_hud_phase_raw_cycles_to_loc_892(
+    ledger: &ModeLevelPostHudWorkLedger,
+) -> Option<[M68kCycleCount; 22]> {
+    const PHASES: [ModeLevelPostHudPhase; 22] = [
+        ModeLevelPostHudPhase::ManageEnemyLoading,
+        ModeLevelPostHudPhase::GfxObjectsMoveAndAnimate,
+        ModeLevelPostHudPhase::ReadJoypad,
+        ModeLevelPostHudPhase::TerrainEffectsSub5e02,
+        ModeLevelPostHudPhase::ManagePlatformLoading,
+        ModeLevelPostHudPhase::ExecuteScriptedPlatforms,
+        ModeLevelPostHudPhase::PlatformsCheckCollision,
+        ModeLevelPostHudPhase::GfxObjectsCollisionF86a,
+        ModeLevelPostHudPhase::GfxObjectsCollisionKidProjectile,
+        ModeLevelPostHudPhase::LatchDamageState,
+        ModeLevelPostHudPhase::GfxObjectsCollisionKidProjectileAgainstKid,
+        ModeLevelPostHudPhase::CollisionSub1f52,
+        ModeLevelPostHudPhase::CollisionSub219c,
+        ModeLevelPostHudPhase::CollisionSub226a,
+        ModeLevelPostHudPhase::GfxObjectsCollisionKidF86a,
+        ModeLevelPostHudPhase::GfxObjectsCollisionKidF86e,
+        ModeLevelPostHudPhase::CollisionSub1d76,
+        ModeLevelPostHudPhase::CollisionSub1fa2,
+        ModeLevelPostHudPhase::PostCollisionSub2a4c,
+        ModeLevelPostHudPhase::MakeSpritesFromGfxObjects,
+        ModeLevelPostHudPhase::DiamondPowerCompileSprites,
+        ModeLevelPostHudPhase::MakeSpritesFromPlatforms,
+    ];
+    if ledger.phases.as_slice() != PHASES {
+        return None;
+    }
+
+    let with_shell = |body: M68kCycleCount, shell: u32| {
+        body.get().checked_add(shell).map(M68kCycleCount::from_raw)
+    };
+    let collision = &ledger.gfx_collision_work;
+    Some([
+        // ASM loc_810: JSR abs.l plus j_Manage_EnemyLoading's JMP (PC).
+        with_shell(
+            manage_enemy_loading_raw_cycles(ledger.enemy_loading_path)?,
+            30,
+        )?,
+        with_shell(
+            gfx_objects_move_and_animate_raw_cycles_sub_1444(
+                &ledger.gfx_move_animate_work_sub_1444,
+            )?,
+            18,
+        )?,
+        // ASM loc_81A: JSR abs.w plus j_ReadJoypad's JMP (PC).
+        with_shell(read_joypad_raw_cycles(ledger.read_joypad_work)?, 28)?,
+        with_shell(
+            terrain_effects_raw_cycles_sub_5e02(ledger.murder_wall_active_sub_5e02)?,
+            18,
+        )?,
+        with_shell(
+            manage_platform_loading_raw_cycles_loc_2744(ledger.platform_loader_work?)?,
+            18,
+        )?,
+        with_shell(
+            execute_scripted_platforms_raw_cycles_sub_23ea(ledger.platform_work)?,
+            18,
+        )?,
+        with_shell(
+            platforms_check_collision_raw_cycles_sub_2574(ledger.platform_work)?,
+            18,
+        )?,
+        // ASM loc_832/loc_83A: LEA abs.w plus BSR.w.
+        with_shell(
+            gfx_objects_collision_raw_cycles_sub_16f0(collision.object_kind_two_list_f86a)?,
+            26,
+        )?,
+        with_shell(
+            gfx_objects_collision_raw_cycles_sub_16f0(collision.kid_projectile_list_f866)?,
+            26,
+        )?,
+        // ASM loc_83E..loc_84A: two 20-cycle memory-to-memory MOVE.B
+        // instructions and the 16-cycle memory Scc.
+        M68kCycleCount::from_raw(56),
+        with_shell(
+            gfx_objects_collision_kid_raw_cycles_sub_1b76(
+                collision.kid_projectile_list_f866,
+                collision,
+            )?,
+            26,
+        )?,
+        with_shell(
+            shooter_support_collision_raw_cycles_sub_1f52(ledger.shooter_collision_work)?,
+            18,
+        )?,
+        with_shell(
+            shooter_kid_collision_raw_cycles_sub_219c(ledger.shooter_collision_work)?,
+            18,
+        )?,
+        with_shell(
+            shooter_projectile_collision_raw_cycles_sub_226a(ledger.shooter_collision_work)?,
+            18,
+        )?,
+        with_shell(
+            gfx_objects_collision_kid_raw_cycles_sub_1b76(
+                collision.object_kind_two_list_f86a,
+                collision,
+            )?,
+            26,
+        )?,
+        with_shell(
+            gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76(collision)?,
+            26,
+        )?,
+        with_shell(
+            kid_projectile_collision_raw_cycles_sub_1d76(
+                ledger.kid_projectile_collision_work_sub_1d76,
+            )?,
+            18,
+        )?,
+        with_shell(
+            terrain_special_scan_raw_cycles_sub_1fa2(ledger.terrain_special_scan_sub_1fa2?)?,
+            18,
+        )?,
+        with_shell(
+            block_debris_sprites_raw_cycles_sub_2a4c(ledger.block_debris_work_sub_2a4c)?,
+            18,
+        )?,
+        with_shell(
+            make_sprites_from_gfx_objects_raw_cycles_sub_1492(&ledger.gfx_sprite_work_sub_1492)?,
+            18,
+        )?,
+        // ASM loc_882: 12-cycle TST, BNE fall-through, JSR abs.l, and
+        // wrapper JMP.
+        with_shell(
+            diamond_power_compile_sprites_raw_cycles_sub_3f798(
+                ledger.diamond_power_compile_work_sub_3f798,
+            )?,
+            50,
+        )?,
+        with_shell(
+            make_sprites_from_platforms_raw_cycles_sub_2444(ledger.platform_work)?,
+            18,
+        )?,
+    ])
+}
+
+/// Total non-GEMS source work from ASM `$810` to `loc_892`.
+pub fn mode_level_post_hud_raw_cycles_to_loc_892(
+    ledger: &ModeLevelPostHudWorkLedger,
+) -> Option<M68kCycleCount> {
+    mode_level_post_hud_phase_raw_cycles_to_loc_892(ledger)?
+        .into_iter()
+        .try_fold(0_u32, |total, cycles| total.checked_add(cycles.get()))
+        .map(M68kCycleCount::from_raw)
 }
 
 #[cfg(test)]

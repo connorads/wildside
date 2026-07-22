@@ -258,6 +258,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
     let mut observed_gfx_sprite_work = Vec::new();
     let mut observed_gfx_collision_work = Vec::new();
     let mut observed_terrain_special_scan = Vec::new();
+    let mut observed_raw_cycles_to_loc_892 = Vec::new();
 
     for (frame_index, mask) in script.iter().copied().enumerate().take(1_710) {
         runtime.step_frame(FrameInput::from_mask(mask));
@@ -265,6 +266,15 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             let ledger = runtime
                 .mode_level_work_after_hud_sub_44dc()
                 .expect("published helper should take the natural loc_80C path");
+            if frame_index == 1_697 {
+                let mut reordered = ledger.clone();
+                reordered.phases.swap(0, 1);
+                assert_eq!(
+                    mode_level_post_hud_raw_cycles_to_loc_892(&reordered),
+                    None,
+                    "a post-HUD ledger outside ASM source order must fail closed",
+                );
+            }
             let read_joypad_raw_cycles = read_joypad_raw_cycles(ledger.read_joypad_work)
                 .expect("published helper should classify Demo ReadJoypad");
             let enemy_loading_raw_cycles =
@@ -281,6 +291,12 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             observed_gfx_sprite_work.push((frame_index, ledger.gfx_sprite_work_sub_1492.clone()));
             observed_gfx_collision_work.push((frame_index, ledger.gfx_collision_work.clone()));
             observed_terrain_special_scan.push((frame_index, ledger.terrain_special_scan_sub_1fa2));
+            observed_raw_cycles_to_loc_892.push((
+                frame_index,
+                mode_level_post_hud_raw_cycles_to_loc_892(ledger)
+                    .expect("published helper should classify the complete post-HUD path")
+                    .get(),
+            ));
             observed.push((
                 frame_index,
                 ledger.phases.clone(),
@@ -297,6 +313,11 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
         }
     }
 
+    assert_eq!(
+        observed_raw_cycles_to_loc_892,
+        vec![(1_697, 24_024), (1_703, 25_550), (1_709, 26_004)],
+        "ASM Mode_Level loc_810 -> loc_892 selected-PC source spans",
+    );
     assert_eq!(
         observed
             .iter()
