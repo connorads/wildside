@@ -2792,6 +2792,22 @@ pub fn apply_gems_title_map_to_load_art_palette_permutation_with_checkpoint(
     Some((advance, checkpoint?))
 }
 
+/// Clock `sub_1BF24`'s character-map staging/upload through the following
+/// `sub_1B532 -> EniDec` entry.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_character_map_to_chameleon_enigma(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleMemoryDmaAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_character_map_to_chameleon_enigma_cursor_with_scheduler(
+        entry,
+        |event| Some(apply_gems_title_memory_dma_hardware_event(audio, event)),
+    )
+}
+
 /// Clock the title restart from `loc_726` to the Ice `sub_E151C` entry.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_restart_initialisers_to_play_sound(

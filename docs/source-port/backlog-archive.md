@@ -255,6 +255,21 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 194 to 195
+defended frames. Frame 194 completes byte_26036's 784-word title-menu upload,
+decodes and uploads byte_2A479's 384-word sparkles, then source-schedules
+`sub_1BF24`'s frame-7 Red Stealth map staging and 18x20 `sub_1C5D0` upload.
+It continues through `sub_1B532`'s 16-word clear and `unk_2F840` decode into
+the 28x64 repeated Plane-B upload. The focused pass matches all 195 compared
+frames with 165 evidence-backed oracle limitations and 30 advisory-only
+divider phases. Frame 194 is exact for RAM, bank, waits, and flags; PC differs
+by one instruction alongside the advisory divider phase. The first
+authoritative frontier moves to frame 195 at oracle PC `$095C` inside
+`Do_Nothing`. The full gate lowers route-wide mismatches from 37,565 to
+37,564 while pixels remain at their existing exact baseline. NEXT:
+source-schedule the post-`Load_TitleScreen`
+allocation/fade shell through that boundary.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 192 to 194
 defended frames. Frame 192 completes byte_22080's final `$180`-word remap,
 source-schedules Load_TitleArt `$1B586..j_DecompressToVRAM`, and enters

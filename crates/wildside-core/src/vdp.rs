@@ -4384,6 +4384,21 @@ pub fn title_map_to_load_art_palette_permutation_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule `sub_1BF24`'s selected character-map tail through the
+/// `sub_1B532` Enigma entry.
+pub fn title_character_map_to_chameleon_enigma_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        0,
+        true,
+        |visit| crate::intro_timing::visit_title_character_map_to_chameleon_enigma(visit),
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule the first title `Palette_to_VRAM` call.
 pub fn title_mode_standard_palette_to_vram_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,

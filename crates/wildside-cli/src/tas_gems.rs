@@ -38,7 +38,8 @@ use wildside_frame::{
     apply_gems_decompress_to_vram_transfer_loc_14314,
     apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314, apply_gems_enigma_decoder,
     apply_gems_enigma_decoder_with_checkpoint, apply_gems_power_on_post_clear_reset,
-    apply_gems_power_on_z80_startup, apply_gems_title_clean_palette_interpolation_call,
+    apply_gems_power_on_z80_startup, apply_gems_title_character_map_to_chameleon_enigma,
+    apply_gems_title_clean_palette_interpolation_call,
     apply_gems_title_controller_fade_exit_frame_with_checkpoint,
     apply_gems_title_do_nothing_call_with_checkpoint,
     apply_gems_title_execute_objects_to_intro_controller,
@@ -104,12 +105,12 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// exit pass, the following `loc_700` full-VRAM clear, and `loc_714/loc_720`'s
 /// Sprite_Table clear, then `loc_726 -> Load_TitleScreen -> PlaySound` and the
 /// `loc_1B258` VRAM fill and `sub_1B2A4`'s title-art uploads, title map,
-/// palette, and the first `Load_TitleArt` RAM stream into byte_24985's
-/// following VRAM decoder through frame 192. The tail remains the coarse
+/// palette, all four `Load_TitleArt` streams, `sub_1BF24`'s selected
+/// character map, and `sub_1B532`'s title-text rows through frame 194. The tail remains the coarse
 /// continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 194;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 195;
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -181,6 +182,9 @@ struct GemsSignatureProbe {
     power_on_title_art_first_compressed: Vec<u8>,
     power_on_title_art_second_compressed: Vec<u8>,
     power_on_title_art_third_compressed: Vec<u8>,
+    power_on_title_art_fourth_compressed: Vec<u8>,
+    power_on_title_character_map_compressed: Vec<u8>,
+    power_on_title_chameleon_map_compressed: Vec<u8>,
     power_on_intro_cursor: Option<wildside_core::vdp::LoadInGameCpuRasterCursor>,
     power_on_intro_decoder_resume:
         Option<wildside_core::saxman_timing::DecompressChunkResumeSub13684>,
@@ -236,6 +240,13 @@ impl GemsSignatureProbe {
             // ASM Load_TitleArt byte_26036..byte_261D7: the title-menu
             // stream follows the KID title upload.
             power_on_title_art_third_compressed: rom[0x26036..0x261D7].to_vec(),
+            // ASM Load_TitleArt byte_2A479..ArtUnc_2A4D6: the title
+            // sparkles are the final direct DecompressToVRAM stream.
+            power_on_title_art_fourth_compressed: rom[0x2A479..0x2A4D6].to_vec(),
+            // ASM sub_1BF24 frame 7 selects the final Red Stealth map.
+            power_on_title_character_map_compressed: rom[0x2EF2C..0x2EF92].to_vec(),
+            // ASM sub_1B532 decodes the repeated CHAMELEON row words.
+            power_on_title_chameleon_map_compressed: rom[0x2F840..0x2F856].to_vec(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -266,6 +277,9 @@ impl GemsSignatureProbe {
             power_on_title_art_first_compressed: Vec::new(),
             power_on_title_art_second_compressed: Vec::new(),
             power_on_title_art_third_compressed: Vec::new(),
+            power_on_title_art_fourth_compressed: Vec::new(),
+            power_on_title_character_map_compressed: Vec::new(),
+            power_on_title_chameleon_map_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -1592,6 +1606,91 @@ impl GemsSignatureProbe {
                 )
                 .expect("byte_26036 transfer spans frame 193");
             self.power_on_intro_cursor = Some(transfer.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 194 {
+            // ASM Load_TitleArt finishes with byte_2A479, then its caller
+            // selects Red Stealth map frame 7 in sub_1BF24. That map is
+            // staged and uploaded through sub_1C5D0 before sub_1B532 decodes
+            // unk_2F840. FrameRendered lands in loc_1B568's second repeated
+            // plane-B row.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("byte_26036 transfer returns to Load_TitleArt");
+            let setup = apply_gems_decompress_to_vram_setup_sub_142cc(
+                &mut self.engine,
+                cursor,
+                // ASM Load_TitleArt $1B5A2: move.w/move.l/jsr; jump stub.
+                &[8, 12, 20, 10],
+            )
+            .expect("Load_TitleArt reaches byte_2A479 loc_14300");
+            // The established undocumented-X/Y SUB defect leaves the
+            // hardware-correct GEMS path 2,548 cycles ahead of jgenesis at
+            // this source boundary.
+            assert_eq!(self.engine.master_clock() / 7, 24_828_453);
+            let decoder = apply_gems_decompress_to_vram_decoder_loc_14300(
+                &mut self.engine,
+                setup.cursor,
+                &self.power_on_title_art_fourth_compressed,
+                None,
+                0,
+            )
+            .expect("byte_2A479 decoder reaches loc_14314");
+            assert_eq!(self.engine.master_clock() / 7, 24_848_611);
+            assert_eq!(decoder.timing.output_bytes, 0x0300);
+            assert!(decoder.resume.is_none());
+            let sparkles = apply_gems_decompress_to_vram_transfer_loc_14314(
+                &mut self.engine,
+                decoder.cursor,
+                0x0180,
+                0,
+                wildside_core::vdp::DecompressToVramTransferExit::Return,
+            )
+            .expect("byte_2A479 transfer returns to Load_TitleArt");
+
+            let character_map = apply_gems_enigma_decoder(
+                &mut self.engine,
+                sparkles.cursor,
+                // ASM Load_TitleArt RTS; Load_TitleScreen moveq/bsr; then
+                // sub_1BF24's region-zero selector and EniDec caller.
+                &[
+                    16, 4, 18, 40, 4, 8, 8, 10, 46, 8, 8, 8, 4, 8, 8, 12, 12, 20, 10,
+                ],
+                &self.power_on_title_character_map_compressed,
+                0x210F,
+                0x2EF2C,
+                0,
+            )
+            .expect("sub_1BF24 decodes the selected Red Stealth map");
+            assert_eq!(self.engine.master_clock() / 7, 24_899_308);
+            let chameleon_entry = apply_gems_title_character_map_to_chameleon_enigma(
+                &mut self.engine,
+                character_map.cursor,
+            )
+            .expect("sub_1BF24 uploads the map and reaches sub_1B532 EniDec");
+            // Oracle reaches the same EniDec entry at 24,938,312; the
+            // established GEMS flag defect and its derivative bank waits
+            // leave the hardware-correct path 3,485 cycles earlier here.
+            assert_eq!(self.engine.master_clock() / 7, 24_934_827);
+            let chameleon_map = apply_gems_enigma_decoder(
+                &mut self.engine,
+                chameleon_entry.cursor,
+                &[],
+                &self.power_on_title_chameleon_map_compressed,
+                0x0331,
+                0x2F840,
+                1,
+            )
+            .expect("sub_1B532 decodes unk_2F840");
+            let (rows, checkpoint) = apply_gems_title_intro_repeated_rows_with_checkpoint(
+                &mut self.engine,
+                chameleon_map.cursor,
+                0,
+                target,
+            )
+            .expect("sub_1B532 repeated rows span frame 194");
+            self.power_on_intro_cursor = Some(rows.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
         if self.power_on_frame == 174 {
@@ -3238,6 +3337,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
             ),
             (191, 2_688_490_122, 2_688_490_122, 0x0B4B, 0x0B48)
                 | (192, 1_093_595_112, 1_093_595_112, 0x0B57, 0x0B53)
+                | (194, 2_618_709_067, 2_618_709_067, 0x07B7, 0x07B3)
         );
     irq_saved_sp
         || title_art_dac_fifo_irq_phase
@@ -4579,6 +4679,9 @@ mod tests {
             power_on_title_art_first_compressed: Vec::new(),
             power_on_title_art_second_compressed: Vec::new(),
             power_on_title_art_third_compressed: Vec::new(),
+            power_on_title_art_fourth_compressed: Vec::new(),
+            power_on_title_character_map_compressed: Vec::new(),
+            power_on_title_chameleon_map_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -4629,6 +4732,9 @@ mod tests {
             power_on_title_art_first_compressed: Vec::new(),
             power_on_title_art_second_compressed: Vec::new(),
             power_on_title_art_third_compressed: Vec::new(),
+            power_on_title_art_fourth_compressed: Vec::new(),
+            power_on_title_character_map_compressed: Vec::new(),
+            power_on_title_chameleon_map_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -4684,6 +4790,9 @@ mod tests {
             power_on_title_art_first_compressed: Vec::new(),
             power_on_title_art_second_compressed: Vec::new(),
             power_on_title_art_third_compressed: Vec::new(),
+            power_on_title_art_fourth_compressed: Vec::new(),
+            power_on_title_character_map_compressed: Vec::new(),
+            power_on_title_chameleon_map_compressed: Vec::new(),
             power_on_intro_cursor: None,
             power_on_intro_decoder_resume: None,
             power_on_intro_next_checkpoint: None,
@@ -4704,7 +4813,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_193() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_194() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -6787,5 +6896,18 @@ mod tests {
         let mut crc = crc32fast::Hasher::new();
         crc.update(&oracle_ram);
         assert_eq!(crc.finalize(), 1_949_550_577);
+
+        // ORACLE LIMITATION: ASM sub_1B532 loc_1B568 is exact for RAM, bank,
+        // waits, and flags. PC differs by one instruction with the advisory
+        // divider phase at FrameRendered.
+        let frame_194 = probe.sample_power_on_frame_rendered();
+        assert_eq!(frame_194.audio_ram_crc32, 2_618_709_067);
+        assert_eq!(frame_194.bank_address, 0x000E_8000);
+        assert_eq!(frame_194.z80_pc, 0x07B7);
+        assert_eq!(frame_194.z80_mclk_counter, 3);
+        assert_eq!(frame_194.z80_wait_mclk_cycles, 0);
+        assert_eq!(frame_194.pending_m68k_wait_cycles, 0);
+        assert_eq!(frame_194.ym2612_mclk_counter, 36);
+        assert_eq!(frame_194.status_bits, GemsFrameSignature::STATUS_IFF1);
     }
 }

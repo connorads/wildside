@@ -1788,6 +1788,114 @@ pub fn visit_title_map_to_load_art_palette_permutation(
     timing
 }
 
+/// Visit `sub_1BF24` after its Enigma decode through `sub_1B532`'s decode.
+///
+/// ASM `sub_1BF24` (`kid.asm`) clears the 18x20 staging map, copies the
+/// selected width from `Decompression_Buffer`, and uploads it through
+/// `sub_1C5D0`. The caller then enters `sub_1B532`, clears 16 VRAM words at
+/// `$1780`, and calls `EniDec` for `unk_2F840`. This visitor stops at that
+/// decoder's entry.
+pub fn visit_title_character_map_to_chameleon_enigma(
+    mut visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                timing: &mut IntroSourceTiming,
+                cycles: u32| {
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title character-map timing fits u32"),
+        );
+    };
+
+    // ASM sub_1BF24 loc_1BF62..loc_1BF70: clear 360 staging words.
+    for cycles in [8, 12, 8] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for iteration in 0..360 {
+        emit(&mut visit, &mut timing, 8);
+        emit(
+            &mut visit,
+            &mut timing,
+            if iteration == 359 { 14 } else { 10 },
+        );
+    }
+
+    // ASM loc_1BF78..loc_1BF8A: copy the selected 17-word Red Stealth row
+    // into each of the 20 staging rows.
+    for cycles in [12, 12, 4] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for row in 0..20 {
+        for cycles in [8, 4, 4] {
+            emit(&mut visit, &mut timing, cycles);
+        }
+        for column in 0..17 {
+            emit(&mut visit, &mut timing, 12);
+            emit(&mut visit, &mut timing, if column == 16 { 14 } else { 10 });
+        }
+        emit(&mut visit, &mut timing, 8);
+        emit(&mut visit, &mut timing, if row == 19 { 14 } else { 10 });
+    }
+
+    // ASM sub_1BF24 $1BF94..$1BFA6 and sub_1C5D0: upload 18x20 words at
+    // plane-A cell (21,1), then restore both register frames and return.
+    for cycles in [12, 4, 4, 4, 4, 18, 40, 4, 20, 4, 4, 8, 4, 4, 4, 4] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for row in 0..20 {
+        for cycles in [4, 16, 16] {
+            emit(&mut visit, &mut timing, cycles);
+        }
+        for column in 0..18 {
+            emit(&mut visit, &mut timing, 12);
+            visit(MemoryDmaTimingEvent::WriteVdpWord {
+                target: MemoryToVdpDmaTarget::Vram,
+            });
+            emit(&mut visit, &mut timing, if column == 17 { 14 } else { 10 });
+        }
+        emit(&mut visit, &mut timing, if row == 19 { 14 } else { 10 });
+    }
+    for cycles in [44, 16, 44, 16, 18] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    // ASM sub_1B532 loc_1B532..loc_1B53E: clear eight longwords at VRAM
+    // `$1780`; each MOVE.L contributes two FIFO words.
+    for cycles in [20, 4, 4] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for iteration in 0..8 {
+        emit(&mut visit, &mut timing, 12);
+        for _ in 0..2 {
+            visit(MemoryDmaTimingEvent::WriteVdpWord {
+                target: MemoryToVdpDmaTarget::Vram,
+            });
+        }
+        emit(
+            &mut visit,
+            &mut timing,
+            if iteration == 7 { 14 } else { 10 },
+        );
+    }
+
+    // ASM sub_1B532 $1B542..$1B560: prepare unk_2F840 and take the jump
+    // stub into EniDec.
+    for cycles in [8, 12, 12, 4, 20, 10] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    timing
+}
+
 /// Visit the title path through `Transfer_SpriteAndKidToVRAM`.
 ///
 /// The title has a live sprite-table pointer, `$FB49` clear, and a zero first
@@ -2560,6 +2668,28 @@ mod tests {
                 .count(),
             2_048,
             "ASM loc_1B258 writes the inclusive d0=$07FF VRAM range",
+        );
+    }
+
+    #[test]
+    fn title_character_map_tail_writes_sub_1c5d0_and_sub_1b532_words() {
+        let mut events = Vec::new();
+        let timing = visit_title_character_map_to_chameleon_enigma(|event| events.push(event));
+
+        assert_eq!(timing.instruction_count, 2_352);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(24_262));
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(
+                    event,
+                    MemoryDmaTimingEvent::WriteVdpWord {
+                        target: MemoryToVdpDmaTarget::Vram
+                    }
+                ))
+                .count(),
+            376,
+            "ASM sub_1C5D0 writes 18x20 words and sub_1B532 clears 16 words",
         );
     }
 

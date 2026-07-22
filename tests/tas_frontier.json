@@ -83,11 +83,11 @@
       },
       "full_expected_gems_frame_comparison": {
         "compared_frames": 37759,
-        "mismatch_count": 37565,
-        "oracle_limitation_count": 164,
+        "mismatch_count": 37564,
+        "oracle_limitation_count": 165,
         "advisory_only_frames": 30,
-        "mismatch_digest": "104a2b155f9cfeb760a5873fc11efb563a1a57fb",
-        "first_mismatch_frame": 194
+        "mismatch_digest": "14a40299c7e5c1809ec86eec19ca72b991cc77cd",
+        "first_mismatch_frame": 195
       },
       "status": "verified"
     },
