@@ -255,6 +255,22 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 221 to 245
+defended frames. The ordinary title cadence is now a functional-core decision:
+`fresh_title_chameleon_pass` derives ASM `loc_1B6A2 -> sub_1B71A`'s `d3`, signed
+55-byte RNG-ring offset, and `off_1B70A` map; one imperative shell performs the
+palette, object, Enigma, plane-A, GfxObject, controller, sprite, VINT, and
+`Do_Nothing` schedule. Frames 221..244 cover three complete Chameleon map cycles
+and two RNG wraps, reaching the forty-ninth fresh-title object pass. A typed
+exact-residue table pins every strict native/oracle field across the continuing
+jgenesis IRQ phase, including frame 237's 49-master-clock bank-wait edge and
+frame 240's opposite IFF phase; two byte/PC-exact frames remain advisory-only.
+The focused 246-frame pass leaves only frame 245 authoritative, with 213
+evidence-backed limitations and 32 advisory-only frames. The full route lowers
+GEMS mismatches from 37,538 to 37,514 and moves the frontier to frame 245;
+pixels remain 26,382 exact / 11,377 divergent / 3,620,978 changed. NEXT: extend
+the ordinary title scheduler from the fiftieth object pass.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 219 to 221
 defended frames. Frames 219 and 220 source-schedule the twenty-fourth and
 twenty-fifth fresh-title `Mode_Standard` passes. Chameleon resumes `loc_1B6A2`,

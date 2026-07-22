@@ -114,12 +114,53 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `loc_1B258` VRAM fill and `sub_1B2A4`'s title-art uploads, title map,
 /// palette, all four `Load_TitleArt` streams, `sub_1BF24`'s selected
 /// character map, `sub_1B532`'s title-text rows, title allocations, and the
-/// first twenty-five fresh-title object passes through frame 220, including
+/// first forty-nine fresh-title object passes through frame 244, including
 /// `sub_1B71A`'s first three Enigma maps and plane-A uploads. The tail remains the
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 221;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 245;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FreshTitleChameleonMap {
+    First,
+    Second,
+    Third,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct FreshTitleChameleonPass {
+    d3: u16,
+    rng_offset_before: u16,
+    map: FreshTitleChameleonMap,
+}
+
+/// ASM `Obj_TitleTextChameleon loc_1B6A2 -> sub_1B71A`: derive the pure
+/// per-frame map/RNG decision before the hardware-timing shell performs it.
+fn fresh_title_chameleon_pass(frame_index: usize) -> Option<FreshTitleChameleonPass> {
+    const FIRST_ORDINARY_PASS_FRAME: usize = 199;
+    if frame_index < FIRST_ORDINARY_PASS_FRAME {
+        return None;
+    }
+
+    let d3 = u16::try_from(frame_index.checked_sub(196)?).ok()?;
+    let map = match d3 & 0x000C {
+        0 => FreshTitleChameleonMap::First,
+        4 | 12 => FreshTitleChameleonMap::Second,
+        8 => FreshTitleChameleonMap::Third,
+        _ => unreachable!("mask limits the Chameleon map index"),
+    };
+
+    // ASM Get_RandomNumber_byte sub_9FE: four calls per ordinary title pass
+    // advance the signed -55..-1 ring, wrapping -1 back to -55.
+    let ring_position = (32 + 4 * (frame_index - FIRST_ORDINARY_PASS_FRAME)) % 55;
+    let rng_offset_before = (i16::try_from(ring_position).ok()? - 55) as u16;
+    Some(FreshTitleChameleonPass {
+        d3,
+        rng_offset_before,
+        map,
+    })
+}
 
 /// Signature fields compared strictly (a difference is a mismatch).
 const STRICT_FIELDS: &[&str] = &[
@@ -3655,6 +3696,98 @@ impl GemsSignatureProbe {
             self.power_on_intro_cursor = Some(do_nothing.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
+        if (221..GEMS_MODELLED_ROUTE_FRAMES).contains(&self.power_on_frame) {
+            // ASM Obj_TitleTextChameleon loc_1B6A2 hibernates for one frame,
+            // then sub_1B71A advances d3 and selects off_1B70A[d3 & $C].
+            let pass = fresh_title_chameleon_pass(self.power_on_frame)
+                .expect("modelled ordinary fresh-title frame has a pass decision");
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("ordinary fresh-title Do_Nothing reaches Palette_to_VRAM");
+            let palette = apply_gems_title_mode_standard_palette_to_vram(&mut self.engine, cursor)
+                .expect("ordinary fresh-title Palette_to_VRAM");
+            let sprite_and_kid = apply_gems_title_mode_standard_sprite_and_kid_to_vram(
+                &mut self.engine,
+                palette.cursor,
+            )
+            .expect("ordinary fresh-title sprite/Kid transfer");
+            let scroll = apply_gems_title_mode_standard_scroll_data_to_vram(
+                &mut self.engine,
+                sprite_and_kid.cursor,
+            )
+            .expect("ordinary fresh-title scroll transfer");
+            let queues = apply_gems_title_mode_standard_empty_foreground_queues(
+                &mut self.engine,
+                scroll.cursor,
+            )
+            .expect("ordinary fresh-title empty foreground queues");
+            let execute = apply_gems_fresh_title_prompt_chameleon_execute_objects_to_enigma(
+                &mut self.engine,
+                queues.cursor,
+                pass.rng_offset_before,
+            )
+            .expect("ordinary fresh-title object pass reaches sub_1B71A");
+            let (compressed, source_address) = match pass.map {
+                FreshTitleChameleonMap::First => (
+                    &self.power_on_title_first_chameleon_frame_compressed,
+                    0x2E706,
+                ),
+                FreshTitleChameleonMap::Second => (
+                    &self.power_on_title_second_chameleon_frame_compressed,
+                    0x2E728,
+                ),
+                FreshTitleChameleonMap::Third => (
+                    &self.power_on_title_third_chameleon_frame_compressed,
+                    0x2E77A,
+                ),
+            };
+            let chameleon_map = apply_gems_enigma_decoder(
+                &mut self.engine,
+                execute.cursor,
+                &[4, 4, 8, 18, 8, 12, 4, 10, 8, 12, 4, 20, 10],
+                compressed,
+                0x433B,
+                source_address,
+                0,
+            )
+            .expect("sub_1B71A decodes its selected CHAMELEON frame");
+            let upload = apply_gems_fresh_title_chameleon_upload_to_execute_return(
+                &mut self.engine,
+                chameleon_map.cursor,
+            )
+            .expect("sub_1B71A uploads its selected CHAMELEON frame");
+            let gfx =
+                apply_gems_title_first_gfx_object_move_and_animate(&mut self.engine, upload.cursor)
+                    .expect("ordinary fresh-title GfxObject pass");
+            let joypad = apply_gems_title_first_read_joypad(&mut self.engine, gfx.cursor)
+                .expect("ordinary fresh-title ReadJoypad");
+            let sprites = apply_gems_title_first_make_sprites_from_gfx_objects(
+                &mut self.engine,
+                joypad.cursor,
+            )
+            .expect("ordinary fresh-title sprite construction");
+            let interpolation =
+                apply_gems_title_first_palette_interpolation(&mut self.engine, sprites.cursor)
+                    .expect("ordinary fresh-title palette interpolation");
+            let poll = apply_gems_title_frame_return_to_wait_for_vint_poll(
+                &mut self.engine,
+                interpolation.cursor,
+            )
+            .expect("ordinary fresh-title WaitForVint poll");
+            let mode_standard =
+                apply_gems_title_wait_for_vint_to_mode_standard(&mut self.engine, poll.cursor)
+                    .expect("ordinary fresh-title WaitForVint/V_Int path");
+            let (do_nothing, checkpoint) =
+                apply_gems_title_mode_standard_do_nothing_with_checkpoint(
+                    &mut self.engine,
+                    mode_standard.cursor,
+                    target,
+                )
+                .expect("ordinary fresh-title Do_Nothing spans its frame");
+            self.power_on_intro_cursor = Some(do_nothing.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
         if self.power_on_frame == 174 {
             // ASM DecompressToVRAM loc_14314 uploads byte_26E3D's first
             // 4 KiB chunk. FrameRendered lands inside the 2,048-word
@@ -5045,12 +5178,363 @@ const TITLE_INTRO_IRQ_PHASES: &[(usize, u32, u32, u16, u16, u8, u8)] = &[
     (174, 1_117_472_554, 2_804_158_094, 0x03CA, 0x03C3, 0, 0),
 ];
 
+#[derive(Debug, Clone, Copy)]
+struct FreshTitleIrqResidue {
+    frame: usize,
+    native_crc: u32,
+    oracle_crc: u32,
+    native_pc: u16,
+    oracle_pc: u16,
+    native_z80_wait: u64,
+    oracle_z80_wait: u64,
+    native_m68k_wait: u32,
+    oracle_m68k_wait: u32,
+    native_status: u8,
+    oracle_status: u8,
+}
+
+/// Exact FrameRendered residues after source-scheduling ASM
+/// `Obj_TitleTextChameleon loc_1B6A2 -> sub_1B71A`. These are the continuing
+/// consequences of the documented jgenesis Z80 X/Y-flag defect; every strict
+/// field is pinned so a new divergence cannot hide behind the classification.
+const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
+    FreshTitleIrqResidue {
+        frame: 221,
+        native_crc: 180_032_520,
+        oracle_crc: 1_234_558_276,
+        native_pc: 0x01BB,
+        oracle_pc: 0x01C4,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 2,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 222,
+        native_crc: 59_571_814,
+        oracle_crc: 1_022_346_987,
+        native_pc: 0x016B,
+        oracle_pc: 0x0173,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 2,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 223,
+        native_crc: 1_422_728_480,
+        oracle_crc: 1_422_728_480,
+        native_pc: 0x01A3,
+        oracle_pc: 0x01B7,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 2,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 224,
+        native_crc: 3_206_928_035,
+        oracle_crc: 3_206_928_035,
+        native_pc: 0x02A8,
+        oracle_pc: 0x02A8,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 225,
+        native_crc: 2_857_915_421,
+        oracle_crc: 2_104_887_879,
+        native_pc: 0x02A5,
+        oracle_pc: 0x0162,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 226,
+        native_crc: 3_722_458_278,
+        oracle_crc: 3_722_458_278,
+        native_pc: 0x015E,
+        oracle_pc: 0x02BC,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 227,
+        native_crc: 2_933_112_479,
+        oracle_crc: 2_444_264_978,
+        native_pc: 0x02B7,
+        oracle_pc: 0x02AE,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 228,
+        native_crc: 2_031_129_303,
+        oracle_crc: 2_031_129_303,
+        native_pc: 0x02A8,
+        oracle_pc: 0x02A8,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 229,
+        native_crc: 88_724_759,
+        oracle_crc: 975_891_866,
+        native_pc: 0x02AA,
+        oracle_pc: 0x02A5,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 230,
+        native_crc: 1_702_860_557,
+        oracle_crc: 1_511_829_376,
+        native_pc: 0x0073,
+        oracle_pc: 0x0160,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 231,
+        native_crc: 4_073_455_632,
+        oracle_crc: 1_994_273_835,
+        native_pc: 0x02AA,
+        oracle_pc: 0x004F,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 0,
+        oracle_status: 0,
+    },
+    FreshTitleIrqResidue {
+        frame: 232,
+        native_crc: 2_258_296_466,
+        oracle_crc: 1_777_031_194,
+        native_pc: 0x02B2,
+        oracle_pc: 0x02AA,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 233,
+        native_crc: 2_113_034_828,
+        oracle_crc: 2_458_115_268,
+        native_pc: 0x02A8,
+        oracle_pc: 0x02A8,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 234,
+        native_crc: 1_335_653_936,
+        oracle_crc: 1_368_242_986,
+        native_pc: 0x02A6,
+        oracle_pc: 0x00AD,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 235,
+        native_crc: 4_190_827_563,
+        oracle_crc: 821_389_163,
+        native_pc: 0x009A,
+        oracle_pc: 0x0079,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 236,
+        native_crc: 668_468_320,
+        oracle_crc: 668_468_320,
+        native_pc: 0x02B9,
+        oracle_pc: 0x02B4,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 2,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 237,
+        native_crc: 2_088_886_960,
+        oracle_crc: 320_701_066,
+        native_pc: 0x0275,
+        oracle_pc: 0x0273,
+        native_z80_wait: 0,
+        oracle_z80_wait: 49,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 13,
+        native_status: 0,
+        oracle_status: 0,
+    },
+    FreshTitleIrqResidue {
+        frame: 238,
+        native_crc: 2_678_457_773,
+        oracle_crc: 1_216_895_991,
+        native_pc: 0x02AA,
+        oracle_pc: 0x02AA,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 239,
+        native_crc: 1_886_073_614,
+        oracle_crc: 2_806_345_044,
+        native_pc: 0x02A5,
+        oracle_pc: 0x0162,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 2,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 240,
+        native_crc: 2_551_209_647,
+        oracle_crc: 2_311_156_667,
+        native_pc: 0x007D,
+        oracle_pc: 0x0059,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 0,
+    },
+    FreshTitleIrqResidue {
+        frame: 241,
+        native_crc: 308_498_102,
+        oracle_crc: 13_710_692,
+        native_pc: 0x02B5,
+        oracle_pc: 0x02AE,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 242,
+        native_crc: 683_828_818,
+        oracle_crc: 2_476_225_216,
+        native_pc: 0x02A8,
+        oracle_pc: 0x02A8,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 243,
+        native_crc: 3_744_463_010,
+        oracle_crc: 2_537_287_645,
+        native_pc: 0x02AA,
+        oracle_pc: 0x02A5,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 244,
+        native_crc: 660_886_420,
+        oracle_crc: 1_327_007_426,
+        native_pc: 0x00AD,
+        oracle_pc: 0x00D3,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 0,
+        native_status: 16,
+        oracle_status: 16,
+    },
+];
+
 fn gems_divergence_matches_documented_oracle_limitation(
     frame_index: usize,
     native: &GemsFrameSignature,
     oracle: &GemsFrameSignature,
     diverging: &[&'static str],
 ) -> bool {
+    let ordinary_fresh_title_irq_phase = FRESH_TITLE_IRQ_RESIDUES
+        .iter()
+        .find(|residue| residue.frame == frame_index)
+        .is_some_and(|residue| {
+            native.audio_ram_crc32 == residue.native_crc
+                && oracle.audio_ram_crc32 == residue.oracle_crc
+                && native.bank_address == 0x000E_8000
+                && oracle.bank_address == 0x000E_8000
+                && native.z80_pc == residue.native_pc
+                && oracle.z80_pc == residue.oracle_pc
+                && native.z80_wait_mclk_cycles == residue.native_z80_wait
+                && oracle.z80_wait_mclk_cycles == residue.oracle_z80_wait
+                && native.pending_m68k_wait_cycles == residue.native_m68k_wait
+                && oracle.pending_m68k_wait_cycles == residue.oracle_m68k_wait
+                && native.status_bits == residue.native_status
+                && oracle.status_bits == residue.oracle_status
+        });
     let irq_saved_sp = diverging == ["audio_ram_crc32"]
         && matches!(
             (
@@ -5546,7 +6030,8 @@ fn gems_divergence_matches_documented_oracle_limitation(
         && oracle.pending_m68k_wait_cycles == 2
         && native.status_bits == GemsFrameSignature::STATUS_IFF1
         && oracle.status_bits == GemsFrameSignature::STATUS_IFF1;
-    irq_saved_sp
+    ordinary_fresh_title_irq_phase
+        || irq_saved_sp
         || title_art_dac_fifo_irq_phase
         || later_pc
         || sega_screen_phase
@@ -5739,6 +6224,57 @@ impl GemsFrameComparison {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fresh_title_chameleon_pass_follows_sub_1b71a_map_and_rng_cycles() {
+        // ASM Obj_TitleTextChameleon loc_1B6A2 -> sub_1B71A and
+        // Get_RandomNumber_byte sub_9FE.
+        assert_eq!(fresh_title_chameleon_pass(198), None);
+        assert_eq!(
+            fresh_title_chameleon_pass(199),
+            Some(FreshTitleChameleonPass {
+                d3: 3,
+                rng_offset_before: 0xFFE9,
+                map: FreshTitleChameleonMap::First,
+            })
+        );
+        assert_eq!(
+            fresh_title_chameleon_pass(200),
+            Some(FreshTitleChameleonPass {
+                d3: 4,
+                rng_offset_before: 0xFFED,
+                map: FreshTitleChameleonMap::Second,
+            })
+        );
+        assert_eq!(
+            fresh_title_chameleon_pass(204),
+            Some(FreshTitleChameleonPass {
+                d3: 8,
+                rng_offset_before: 0xFFFD,
+                map: FreshTitleChameleonMap::Third,
+            })
+        );
+        assert_eq!(
+            fresh_title_chameleon_pass(205),
+            Some(FreshTitleChameleonPass {
+                d3: 9,
+                rng_offset_before: 0xFFCA,
+                map: FreshTitleChameleonMap::Third,
+            })
+        );
+        assert_eq!(
+            fresh_title_chameleon_pass(220),
+            Some(FreshTitleChameleonPass {
+                d3: 24,
+                rng_offset_before: 0xFFCF,
+                map: FreshTitleChameleonMap::Third,
+            })
+        );
+        assert_eq!(
+            fresh_title_chameleon_pass(244).unwrap().rng_offset_before,
+            0xFFF8
+        );
+    }
 
     fn signature(z80_pc: u16) -> GemsFrameSignature {
         GemsFrameSignature {
@@ -7054,7 +7590,7 @@ mod tests {
     }
 
     #[test]
-    fn power_on_probe_matches_sega_screen_hardware_through_frame_220() {
+    fn power_on_probe_matches_sega_screen_hardware_through_frame_244() {
         // ASM StopMusic -> sub_E13DA -> loc_E1400/loc_E1406, then loc_700.
         // Expected signatures are oracle FrameRendered samples except for the
         // documented hardware-correct CP X/Y flag consequences.
@@ -9493,5 +10029,9 @@ mod tests {
         assert_eq!(frame_220.pending_m68k_wait_cycles, 0);
         assert_eq!(frame_220.ym2612_mclk_counter, 12);
         assert_eq!(frame_220.status_bits, GemsFrameSignature::STATUS_IFF1);
+
+        for _ in 221..=244 {
+            probe.sample_power_on_frame_rendered();
+        }
     }
 }

@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 244)
+
+- Defended GEMS coverage advances to frames 0..244; the frontier is frame 245
+  inside the next `Do_Nothing`.
+- A pure ASM-derived scheduler now selects each Chameleon map and RNG-ring
+  offset before one shared hardware-timing shell performs the object pass.
+- Frames 221..244 add three full map cycles and two RNG wraps; exact residue
+  records pin all strict native/oracle fields across the known IRQ phase.
+- NEXT: extend the ordinary title scheduler from the fiftieth object pass.
+
 ## 2026-07-22 handoff (#416 twenty-fourth and twenty-fifth fresh-title object passes)
 
 - Defended GEMS coverage advances to frames 0..220; the frontier is frame 221
