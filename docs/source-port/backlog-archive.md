@@ -255,6 +255,34 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 192 to 194
+defended frames. Frame 192 completes byte_22080's final `$180`-word remap,
+source-schedules Load_TitleArt `$1B586..j_DecompressToVRAM`, and enters
+byte_24985's 2,304-byte decoder. Frame 193 completes that 1,152-word upload,
+source-schedules byte_26036's 1,568-byte decoder, and lands inside its
+784-word title-menu upload at `$14316`. Frame 192 is exact for RAM, bank,
+waits, and flags; frame 193's exhaustive raw-RAM residue is only the
+established active-stack byte at `$003E`. Both PC differences are derivative
+instruction/IRQ phase. The focused pass matches all 194 compared frames with
+164 evidence-backed oracle limitations and 30 advisory-only divider phases.
+The first authoritative frontier moves to frame 194 at oracle PC `$1B56A` in
+`sub_1B532`. NEXT: finish byte_26036's upload, source-schedule byte_2A479 and
+the post-`Load_TitleArt` caller into that routine.
+
+Progress 2026-07-22: route-wide GEMS coverage advances from 190 to 192
+defended frames and completes byte_22080's first `Load_TitleArt`
+`DecompressToRAM` decoder stream. Frame 190 retains the next `$800` Saxman
+chunk. Frame 191 completes its 1,024-word remap, history compaction, and the
+stream's final `$300`-byte decoder chunk; its final `$180`-word remap remains.
+Frame 190's exhaustive raw-RAM residue is confined
+to CHECKTICK. Frame 191 is byte-exact for audio RAM, bank, waits, and flags;
+only PC differs across the advisory divider remainder. The focused pass
+matches all 192 compared frames with 162 evidence-backed oracle limitations
+and 30 advisory-only divider phases. The first authoritative frontier moves
+to frame 192 at oracle PC `$13706` inside byte_24985's following
+`DecompressToVRAM` decoder. NEXT: source-schedule the Load_TitleArt caller from
+the completed final remap into that decoder.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 187 to 190
 defended frames. The apparent frame-187 checkpoint-adapter failure was a
 timing symptom, not an adapter defect. ASM `loc_1440A` executes

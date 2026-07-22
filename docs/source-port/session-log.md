@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 first two direct title-art uploads)
+
+- Defended GEMS coverage advances to frames 0..193; the frontier is frame 194
+  at oracle PC `$1B56A` in `sub_1B532` after the remaining title-art work.
+- Frame 192 completes byte_22080's final remap and enters byte_24985's KID
+  title decoder. Frame 193 completes its 1,152-word upload, decodes byte_26036,
+  and lands inside the following 784-word title-menu upload.
+- Frame 192 is byte-exact apart from PC instruction phase. Frame 193's
+  exhaustive raw-RAM residue is one active-stack byte at `$003E`.
+- NEXT: finish byte_26036's upload, source-schedule byte_2A479 and the
+  post-`Load_TitleArt` path to frame 194 `$1B56A`.
+
+## 2026-07-22 handoff (#416 first Load_TitleArt decoder complete)
+
+- Defended GEMS coverage advances to frames 0..191; the frontier is frame 192
+  at oracle PC `$13706` inside byte_24985's following `DecompressToVRAM`.
+- The first `DecompressToRAM` decoder stream completes after two more `$800`
+  chunks and its final `$300` chunk; the final `$180`-word remap remains.
+- Frames 190/191 differ only by established CHECKTICK or instruction-boundary
+  phase; frame 191 is otherwise byte-exact.
+- NEXT: complete the final remap, source-schedule Load_TitleArt
+  `$1B586..j_DecompressToVRAM`, and enter byte_24985's decoder.
+
 ## 2026-07-22 handoff (#416 loc_1440A shift timing)
 
 - Defended GEMS coverage advances to frames 0..189; the frontier is frame 190
