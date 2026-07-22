@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 twenty-second and twenty-third fresh-title object passes)
+
+- Defended GEMS coverage advances to frames 0..218; the frontier is frame 219
+  inside the next `Do_Nothing`.
+- Frames 217/218 advance Chameleon `d3` from 20 through 22 and repeat the
+  ROM-backed `unk_2E728` stream with RNG offsets `$FFFA/$FFFE`.
+- Bank, native waits, and IFF1 match; exact CRC/PC residues are the recurring
+  instruction-boundary IRQ phase.
+- NEXT: source-schedule the twenty-fourth fresh-title prompt/Chameleon/Kid/Menu pass.
+
 ## 2026-07-22 handoff (#416 twentieth and twenty-first fresh-title object passes)
 
 - Defended GEMS coverage advances to frames 0..216; the frontier is frame 217
