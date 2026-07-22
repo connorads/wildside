@@ -3407,6 +3407,47 @@ pub fn decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
     compressed: &[u8],
     resume: Option<crate::saxman_timing::DecompressChunkResumeSub13684>,
     vint_count: u8,
+    advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<DecompressToVramDecoderAdvance> {
+    decompress_saxman_decoder_cursor_with_scheduler(
+        entry,
+        compressed,
+        resume,
+        vint_count,
+        &[4, 18],
+        advance_hardware,
+    )
+}
+
+/// Co-schedule ASM `DecompressToRAM loc_143EA` through the first
+/// `loc_1440A` remapped-word transfer entry.
+///
+/// The Saxman body is shared with `loc_14300`; this path adds the two
+/// `moveq/movea` instructions which seed `d0/a3` before the common
+/// `move.l a2,a4; bsr.w Decompress_Chunk` pair.
+pub fn decompress_to_ram_decoder_cursor_loc_143ea_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    compressed: &[u8],
+    resume: Option<crate::saxman_timing::DecompressChunkResumeSub13684>,
+    vint_count: u8,
+    advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<DecompressToVramDecoderAdvance> {
+    decompress_saxman_decoder_cursor_with_scheduler(
+        entry,
+        compressed,
+        resume,
+        vint_count,
+        &[4, 4, 4, 18],
+        advance_hardware,
+    )
+}
+
+fn decompress_saxman_decoder_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    compressed: &[u8],
+    resume: Option<crate::saxman_timing::DecompressChunkResumeSub13684>,
+    vint_count: u8,
+    entry_instruction_cycles: &[u32],
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<DecompressToVramDecoderAdvance> {
     let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
@@ -3455,8 +3496,7 @@ pub fn decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
         }
     };
 
-    // ASM loc_14300: move.l a2,a4; bsr.w Decompress_Chunk.
-    for raw_cycles in [4, 18] {
+    for &raw_cycles in entry_instruction_cycles {
         advance_instruction(raw_cycles);
     }
     let visit = crate::saxman_timing::visit_decompress_chunk_instructions_sub_13684(

@@ -982,6 +982,68 @@ pub fn apply_gems_decompress_to_vram_decoder_with_checkpoint_loc_14300(
     Some((advance, checkpoints.pop()?))
 }
 
+/// Clock `DecompressToRAM loc_143EA` while sampling one raster instant.
+#[cfg(feature = "audio")]
+pub fn apply_gems_decompress_to_ram_decoder_with_checkpoint_loc_143ea(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    compressed: &[u8],
+    resume: Option<wildside_core::saxman_timing::DecompressChunkResumeSub13684>,
+    vint_count: u8,
+    checkpoint_master_clock: u64,
+) -> Option<(
+    wildside_core::vdp::DecompressToVramDecoderAdvance,
+    GemsTimingCheckpoint,
+)> {
+    if audio.pending_m68k_wait_cycles() != 0 || checkpoint_master_clock < audio.master_clock() {
+        return None;
+    }
+    let mut checkpoint = None;
+    let advance = wildside_core::vdp::decompress_to_ram_decoder_cursor_loc_143ea_with_scheduler(
+        entry,
+        compressed,
+        resume,
+        vint_count,
+        |cycles, vdp_owns_bus, source_instruction| {
+            let interval_master_clocks = u64::from(cycles.get()) * 7;
+            let interval_start = audio.master_clock();
+            let interval_end = interval_start.checked_add(interval_master_clocks)?;
+            if checkpoint.is_none() && checkpoint_master_clock <= interval_end {
+                let offset = checkpoint_master_clock.checked_sub(interval_start)?;
+                if source_instruction {
+                    let (_, captured) = audio.advance_ntsc_m68k_instruction_with_checkpoint(
+                        interval_master_clocks,
+                        vdp_owns_bus,
+                        offset,
+                    )?;
+                    checkpoint = Some(captured);
+                } else {
+                    audio.advance_ntsc_master_clocks_with_vdp_ownership(offset, vdp_owns_bus);
+                    checkpoint = Some(audio.checkpoint());
+                    audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                        interval_master_clocks - offset,
+                        vdp_owns_bus,
+                    );
+                }
+            } else if source_instruction {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                );
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )?;
+    Some((advance, checkpoint?))
+}
+
 /// Clock `DecompressToVRAM loc_14300` while sampling ordered raster instants.
 #[cfg(feature = "audio")]
 pub fn apply_gems_decompress_to_vram_decoder_with_checkpoints_loc_14300(

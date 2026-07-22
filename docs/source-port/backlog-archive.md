@@ -893,6 +893,15 @@ permutation rows and samples at oracle PC `$143D8`. Raw RAM differs only at
 places frame 183 inside byte_22080's Saxman decoder. NEXT: continue the first
 `Load_TitleArt` `DecompressToRAM` from the completed permutation table.
 
+Progress 2026-07-21: frame 183 enters `DecompressToRAM loc_143EA` and runs
+byte_22080 through the shared `Decompress_Chunk sub_13684` Saxman core with
+the RAM path's extra `moveq/movea` setup. Oracle PC `$136BC` confirms the
+sampled decoder path. Raw RAM differs only at `CHECKTICK` `$1A0C` and active
+VBLINT stack byte `$1A1A`; bank, waits, and flags are exact. Coverage advances
+183 -> 184 with 154 evidence-backed limitations and 30 advisory frames.
+Oracle PC `$14410` places frame 184 inside the first remapped-word transfer.
+NEXT: continue `loc_1440A` from the completed decoder.
+
 ### #417
 
 Opened 2026-07-20. `cargo test -p wildside-cli --no-fail-fast` has **55 committed

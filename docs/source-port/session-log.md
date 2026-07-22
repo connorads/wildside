@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-21 handoff (#416 first Load_TitleArt decoder)
+
+- Defended GEMS coverage advances to frames 0..183; the frontier is frame 184
+  at oracle PC `$14410` inside the first remapped-word transfer.
+- Frame 183 runs byte_22080 through `DecompressToRAM loc_143EA` and the shared
+  `Decompress_Chunk sub_13684` Saxman core.
+- NEXT: continue `loc_1440A` from the completed decoder.
+
 ## 2026-07-21 handoff (#416 title map and Load_TitleArt entry)
 
 - Defended GEMS coverage advances to frames 0..182; the frontier is frame 183
