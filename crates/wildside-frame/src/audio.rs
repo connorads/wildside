@@ -1044,6 +1044,54 @@ pub fn apply_gems_decompress_to_ram_decoder_with_checkpoint_loc_143ea(
     Some((advance, checkpoint?))
 }
 
+/// Clock `DecompressToRAM loc_1440A` while sampling one exact raster instant.
+#[cfg(feature = "audio")]
+pub fn apply_gems_decompress_to_ram_transfer_with_checkpoint_loc_1440a(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    output_words: u16,
+    vint_count: u8,
+    exit: wildside_core::vdp::DecompressToVramTransferExit,
+    checkpoint_master_clock: u64,
+) -> Option<(
+    wildside_core::vdp::DecompressToVramTransferAdvance,
+    GemsTimingCheckpoint,
+)> {
+    if audio.pending_m68k_wait_cycles() != 0 || checkpoint_master_clock < audio.master_clock() {
+        return None;
+    }
+    let mut checkpoint = None;
+    let advance = wildside_core::vdp::decompress_to_ram_transfer_cursor_loc_1440a_with_scheduler(
+        entry,
+        output_words,
+        vint_count,
+        exit,
+        |cycles, vdp_owns_bus| {
+            let interval_master_clocks = u64::from(cycles.get()) * 7;
+            let interval_start = audio.master_clock();
+            let interval_end = interval_start.checked_add(interval_master_clocks)?;
+            if checkpoint.is_none() && checkpoint_master_clock <= interval_end {
+                let offset = checkpoint_master_clock.checked_sub(interval_start)?;
+                let (_, captured) = audio.advance_ntsc_m68k_instruction_with_checkpoint(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                    offset,
+                )?;
+                checkpoint = Some(captured);
+            } else {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )?;
+    Some((advance, checkpoint?))
+}
+
 /// Clock `DecompressToVRAM loc_14300` while sampling ordered raster instants.
 #[cfg(feature = "audio")]
 pub fn apply_gems_decompress_to_vram_decoder_with_checkpoints_loc_14300(

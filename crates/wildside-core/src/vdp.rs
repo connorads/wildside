@@ -3415,6 +3415,7 @@ pub fn decompress_to_vram_decoder_cursor_loc_14300_with_scheduler(
         resume,
         vint_count,
         &[4, 18],
+        &[12, 4, 8, 8, 4],
         advance_hardware,
     )
 }
@@ -3438,6 +3439,7 @@ pub fn decompress_to_ram_decoder_cursor_loc_143ea_with_scheduler(
         resume,
         vint_count,
         &[4, 4, 4, 18],
+        &[12, 4, 8, 8, 4, 12, 4],
         advance_hardware,
     )
 }
@@ -3448,6 +3450,7 @@ fn decompress_saxman_decoder_cursor_with_scheduler(
     resume: Option<crate::saxman_timing::DecompressChunkResumeSub13684>,
     vint_count: u8,
     entry_instruction_cycles: &[u32],
+    exit_instruction_cycles: &[u32],
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<DecompressToVramDecoderAdvance> {
     let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
@@ -3505,8 +3508,7 @@ fn decompress_saxman_decoder_cursor_with_scheduler(
         &mut advance_instruction,
     )
     .ok()?;
-    // ASM loc_14308..loc_14312: derive inclusive word count in d3.
-    for raw_cycles in [12, 4, 8, 8, 4] {
+    for &raw_cycles in exit_instruction_cycles {
         advance_instruction(raw_cycles);
     }
     if scheduling_failed {
@@ -4712,6 +4714,167 @@ pub fn decompress_to_vram_transfer_cursor_loc_14314_with_scheduler(
         true,
         advance_hardware,
     )
+}
+
+/// Co-schedule ASM `DecompressToRAM loc_1440A`'s remapped-word transfer.
+///
+/// Unlike `loc_14314`, each VDP word is assembled through two indexed palette
+/// lookups before the port write. The FIFO and recurring VINT remain shared
+/// hardware concerns, so every source instruction is visited at its real
+/// boundary before the next lookup or write begins.
+pub fn decompress_to_ram_transfer_cursor_loc_1440a_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    output_words: u16,
+    vint_count: u8,
+    exit: DecompressToVramTransferExit,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<DecompressToVramTransferAdvance> {
+    if output_words == 0 {
+        return None;
+    }
+
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+    let mut refresh_events = 0_u32;
+    let mut fifo_halted_ticks = 0_u32;
+    let mut vint_serviced = false;
+    let mut vint = DecompressToVramVintTracker::new(vint_count);
+
+    for word_index in 0..output_words {
+        // ASM loc_1440A (kid.asm): two byte reads, two indexed permutation
+        // lookups, the high-byte shift, one VDP data-port write, then DBF.
+        for raw_cycles in [8, 14, 8, 8, 14] {
+            vint_serviced |= service_decompress_to_vram_vint_if_pending(
+                &mut vint,
+                &mut fifo,
+                &mut phase,
+                &mut refresh_events,
+                &mut advance_hardware,
+            )?;
+            advance_decompress_to_vram_source_instruction(
+                raw_cycles,
+                &mut fifo,
+                &mut phase,
+                &mut refresh_events,
+                true,
+                &mut advance_hardware,
+            )?;
+        }
+
+        vint_serviced |= service_decompress_to_vram_vint_if_pending(
+            &mut vint,
+            &mut fifo,
+            &mut phase,
+            &mut refresh_events,
+            &mut advance_hardware,
+        )?;
+        let generated_wait = advance_decompress_to_vram_source_instruction(
+            8,
+            &mut fifo,
+            &mut phase,
+            &mut refresh_events,
+            false,
+            &mut advance_hardware,
+        )?;
+        fifo.push_word();
+        drain_decompress_to_vram_wait(
+            generated_wait,
+            &mut fifo,
+            &mut phase,
+            &mut advance_hardware,
+        )?;
+        while fifo.pending_words != 0 {
+            let halt = M68kCycleCount::from_raw(1);
+            fifo.advance_m68k_cycles(halt);
+            if advance_hardware(halt, true)?.get() != 0 {
+                return None;
+            }
+            fifo_halted_ticks = fifo_halted_ticks.checked_add(1)?;
+            phase = M68kRefreshPhase::new(0).expect("zero is a valid refresh phase");
+        }
+
+        vint_serviced |= service_decompress_to_vram_vint_if_pending(
+            &mut vint,
+            &mut fifo,
+            &mut phase,
+            &mut refresh_events,
+            &mut advance_hardware,
+        )?;
+        advance_decompress_to_vram_source_instruction(
+            if word_index + 1 == output_words {
+                14
+            } else {
+                10
+            },
+            &mut fifo,
+            &mut phase,
+            &mut refresh_events,
+            true,
+            &mut advance_hardware,
+        )?;
+    }
+
+    let mut pending_external_wait_cycles = M68kCycleCount::from_raw(0);
+    match exit {
+        DecompressToVramTransferExit::Return => {
+            // ASM loc_14422..return_14438: tst.w d0; beq.s; rts.
+            for (instruction_index, raw_cycles) in [4, 10, 16].into_iter().enumerate() {
+                pending_external_wait_cycles = advance_decompress_to_vram_source_instruction(
+                    raw_cycles,
+                    &mut fifo,
+                    &mut phase,
+                    &mut refresh_events,
+                    instruction_index != 2,
+                    &mut advance_hardware,
+                )?;
+            }
+        }
+        DecompressToVramTransferExit::CompactAndResume => {
+            // ASM loc_14422..loc_14430 retains the upper $800 history bytes
+            // before branching back to the next loc_143EA decode.
+            for raw_cycles in [4, 8, 12, 8, 8] {
+                advance_decompress_to_vram_source_instruction(
+                    raw_cycles,
+                    &mut fifo,
+                    &mut phase,
+                    &mut refresh_events,
+                    true,
+                    &mut advance_hardware,
+                )?;
+            }
+            for copy_index in 0..512 {
+                for raw_cycles in [20, if copy_index == 511 { 14 } else { 10 }] {
+                    advance_decompress_to_vram_source_instruction(
+                        raw_cycles,
+                        &mut fifo,
+                        &mut phase,
+                        &mut refresh_events,
+                        true,
+                        &mut advance_hardware,
+                    )?;
+                }
+            }
+            advance_decompress_to_vram_source_instruction(
+                10,
+                &mut fifo,
+                &mut phase,
+                &mut refresh_events,
+                true,
+                &mut advance_hardware,
+            )?;
+        }
+    }
+
+    Some(DecompressToVramTransferAdvance {
+        cursor: LoadInGameCpuRasterCursor {
+            beam: fifo.beam,
+            refresh_phase: phase,
+        },
+        fifo_halted_ticks: M68kCycleCount::from_raw(fifo_halted_ticks),
+        refresh_events,
+        vint_serviced,
+        pending_external_wait_cycles,
+    })
 }
 
 /// Co-schedule `DecompressToVRAM loc_14314` while VDP display is disabled.

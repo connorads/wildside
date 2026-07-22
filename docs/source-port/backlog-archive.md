@@ -255,6 +255,17 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 184 to 185
+defended frames. ASM `DecompressToRAM loc_1440A` is now source-scheduled as
+the exact `8,14,8,8,14,8,10` instruction loop, including VDP FIFO ownership,
+refresh, GEMS bank waits, and the crossing VINT. The first 2,048-word pass
+then follows `loc_14430`'s 512-longword history compaction. Frame 184 matches
+bank, waits, and flags; raw RAM differs only at saved-SP `$003E` (`$0C/$0E`)
+and CHECKTICK `$1A0C` (`$A7/$A5`), with native/oracle CRCs
+`1468454047/3202487883`. The first authoritative frontier moves to frame 185
+at oracle PC `$138F2` inside the resumed Saxman decoder. NEXT: retain the
+second `loc_143EA` decode from the completed compaction.
+
 Progress 2026-07-21: route-wide GEMS coverage advances from 0 to 14 defended
 frames. Oracle selected-PC tracing pins `EntryPoint`'s power-on control writes:
 BUSREQ/reset boundaries at `$04F6/$04F8/$0506/$0508/$050A`, the 38-byte
