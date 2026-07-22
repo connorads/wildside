@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 365)
+
+- Defended GEMS coverage advances to frames 0..365; the frontier is frame 366
+  inside the next `Do_Nothing`.
+- Twenty-four further passes reuse the pure ASM `loc_1B6A2 -> sub_1B71A`
+  decision and shared timing shell; exact strict-field tuples prevent the
+  known jgenesis IRQ residue from masking new drift.
+- The focused 366-frame pass is green with 331 evidence-backed limitations
+  and 35 advisory-only frames.
+- Full-route GEMS mismatches fall from 37,417 to 37,393; gameplay, enemy, RNG,
+  and pixel evidence remain unchanged, and both full gates pass.
+- NEXT: return to the top P1 selected by `project-status`; #416 remains P2
+  measured debt unless its timeline directly unblocks #409's raster bridge.
+
 ## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 341)
 
 - Defended GEMS coverage advances to frames 0..341; the frontier is frame 342

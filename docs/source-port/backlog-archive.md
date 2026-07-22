@@ -255,6 +255,19 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 342 to 366
+defended frames, reaching the 170th fresh-title object pass. Twenty-four
+further passes reuse the pure ASM `loc_1B6A2 -> sub_1B71A` decision and shared
+hardware-timing shell. A focused capture pins every strict native/oracle tuple;
+bank selection and wait state stay constrained while the documented jgenesis
+IRQ/X-Y-flag residue varies. The focused 366-frame comparison is green with
+331 evidence-backed limitations and 35 advisory-only frames. The full route
+lowers GEMS mismatches from 37,417 to 37,393 and moves the frontier to frame
+366; all 37,759 gameplay, enemy, and pixel checks and all 37,743 post-Init_RNG
+frames retain their prior result. `verify-slice-fast` and `verify-tas-full`
+pass. NEXT: take the top P1; this P2 lane resumes only when it directly feeds
+#409's gameplay raster bridge or no higher-priority work remains.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 318 to 342
 defended frames, reaching the 146th fresh-title object pass. One focused run
 captured all twenty-four strict native/oracle tuples while the shared ASM
