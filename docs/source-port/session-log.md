@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 fifth fresh-title object pass)
+
+- Defended GEMS coverage advances to frames 0..200; the frontier is frame 201
+  at oracle PC `$095C` inside the next `Do_Nothing`.
+- Frame 200 starts with the prompt, then Chameleon advances `d3` from 3 to 4,
+  selects `unk_2E728` for the first time, and FIFO-paces all seven map rows;
+  Kid sleeps and Menu decrements.
+- Exhaustive raw-RAM residue is confined to five active-stack bytes within
+  `$1A1A..$1A1F`; bank and waits match, while PC/flags are derivative IRQ phase.
+- NEXT: source-schedule the sixth fresh-title prompt/Chameleon/Kid/Menu pass.
+
 ## 2026-07-22 handoff (#416 fourth fresh-title object pass)
 
 - Defended GEMS coverage advances to frames 0..199; the frontier is frame 200

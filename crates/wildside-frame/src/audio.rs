@@ -2778,9 +2778,9 @@ pub fn apply_gems_fresh_title_third_execute_objects_to_chameleon_enigma(
     )
 }
 
-/// Clock frame 199's prompt and Chameleon prefix through `sub_1B71A`.
+/// Clock a post-SegaText prompt and Chameleon prefix through `sub_1B71A`.
 #[cfg(feature = "audio")]
-pub fn apply_gems_fresh_title_fourth_execute_objects_to_chameleon_enigma(
+pub fn apply_gems_fresh_title_prompt_chameleon_execute_objects_to_enigma(
     audio: &mut GemsMasterClockTimingEngine,
     entry: LoadInGameCpuRasterCursor,
     rng_offset_before: u16,
@@ -2788,7 +2788,7 @@ pub fn apply_gems_fresh_title_fourth_execute_objects_to_chameleon_enigma(
     if audio.pending_m68k_wait_cycles() != 0 {
         return None;
     }
-    wildside_core::vdp::fresh_title_fourth_execute_objects_to_chameleon_enigma_cursor_with_scheduler(
+    wildside_core::vdp::fresh_title_prompt_chameleon_execute_objects_to_enigma_cursor_with_scheduler(
         entry,
         rng_offset_before,
         |event| Some(apply_gems_title_memory_dma_hardware_event(audio, event)),

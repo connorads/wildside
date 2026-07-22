@@ -609,12 +609,13 @@ pub fn visit_fresh_title_third_execute_objects_to_chameleon_enigma(
     Some(timing)
 }
 
-/// Visit frame 199's fresh-title object pass through `sub_1B71A`.
+/// Visit a post-SegaText fresh-title object pass through `sub_1B71A`.
 ///
 /// ASM `loc_E1E` starts at the prompt after SegaText deleted itself on the
 /// preceding pass. The prompt resumes at `loc_1BB50` and hibernates, then
-/// Chameleon resumes at `loc_1B6A6` and calls `sub_1B71A` with `d3=3`.
-pub fn visit_fresh_title_fourth_execute_objects_to_chameleon_enigma(
+/// Chameleon resumes at `loc_1B6A6`, advances its retained `d3`, and calls
+/// `sub_1B71A`.
+pub fn visit_fresh_title_prompt_chameleon_execute_objects_to_enigma(
     rng_offset_before: u16,
     mut visit: impl FnMut(MemoryDmaTimingEvent),
 ) -> Option<IntroSourceTiming> {
@@ -657,7 +658,7 @@ pub fn visit_fresh_title_fourth_execute_objects_to_chameleon_enigma(
     }
 
     // ASM loc_1B6A6 increments the retained animation cursor and calls
-    // sub_1B71A. With d3=3, `andi.w #$C,d0` still selects unk_2E706.
+    // sub_1B71A; its caller selects the matching off_1B70A stream.
     dispatch(&mut visit, &mut timing);
     emit(&mut visit, &mut timing, 18);
 
@@ -2778,7 +2779,7 @@ mod tests {
     fn fresh_title_fourth_execute_objects_starts_with_prompt_then_reaches_chameleon() {
         let mut events = Vec::new();
         let timing =
-            visit_fresh_title_fourth_execute_objects_to_chameleon_enigma(0xFFE9, |event| {
+            visit_fresh_title_prompt_chameleon_execute_objects_to_enigma(0xFFE9, |event| {
                 events.push(event);
             })
             .expect("frame-199 title RNG offset is initialised");

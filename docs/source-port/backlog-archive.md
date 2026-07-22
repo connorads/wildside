@@ -255,6 +255,22 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 200 to 201
+defended frames. Frame 200 source-schedules the fifth fresh-title
+`Mode_Standard` pass: the prompt hibernates, then Chameleon resumes
+`loc_1B6A6`, advances `d3` from 3 to 4, and `off_1B70A` selects `unk_2E728` for
+the first time. `sub_1B71A` decodes that 82-byte Enigma stream with base tile
+`$433B`, and the existing upload model FIFO-paces all seven plane-A rows while
+Kid sleeps and Menu decrements. The frame consumes RNG offset `$FFED`.
+Exhaustive raw-RAM comparison differs only in five active-stack bytes within
+`$1A1A..$1A1F` (the sixth byte already matches); substituting the oracle slice
+reproduces CRC `3147331592` exactly. Bank and waits match; PC/flags are the
+derivative IRQ phase. The focused 201-frame pass is green with 171
+evidence-backed oracle limitations and 30 advisory-only frames. The full route
+lowers GEMS mismatches from 37,559 to 37,558 and moves the frontier to frame
+201 `$095C`; pixels remain 26,382 exact / 11,377 divergent / 3,620,978 changed.
+NEXT: source-schedule the sixth fresh-title prompt/Chameleon/Kid/Menu pass.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 199 to 200
 defended frames. Frame 199 source-schedules the fourth fresh-title
 `Mode_Standard` pass after SegaText deletion: the prompt resumes at

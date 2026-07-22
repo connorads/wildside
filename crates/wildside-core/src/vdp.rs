@@ -4485,8 +4485,8 @@ pub fn fresh_title_third_execute_objects_to_chameleon_enigma_cursor_with_schedul
     )
 }
 
-/// Co-schedule frame 199's prompt and Chameleon prefix to `sub_1B71A`.
-pub fn fresh_title_fourth_execute_objects_to_chameleon_enigma_cursor_with_scheduler(
+/// Co-schedule a post-SegaText prompt and Chameleon prefix to `sub_1B71A`.
+pub fn fresh_title_prompt_chameleon_execute_objects_to_enigma_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     rng_offset_before: u16,
     mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
@@ -4499,7 +4499,7 @@ pub fn fresh_title_fourth_execute_objects_to_chameleon_enigma_cursor_with_schedu
         0,
         false,
         |visit| {
-            crate::intro_timing::visit_fresh_title_fourth_execute_objects_to_chameleon_enigma(
+            crate::intro_timing::visit_fresh_title_prompt_chameleon_execute_objects_to_enigma(
                 rng_offset_before,
                 visit,
             )
