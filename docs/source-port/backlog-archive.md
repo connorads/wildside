@@ -255,6 +255,19 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: route-wide GEMS coverage advances from 317 to 318
+defended frames. Frame 317 is the 122nd fresh-title object pass through the
+shared ASM `loc_1B6A2 -> sub_1B71A` scheduler. Before the extension it fell
+into the coarse frame replayer and accumulated an impossible 285,340-cycle
+pending 68000 wait; the source schedule clears that debt. Its remaining
+FrameRendered IRQ residue is pinned exactly: native/oracle CRC
+`2473163928/1337758560`, PC `$02A5/$0B48`, and pending wait `0/2`. The focused
+318-frame pass is green with 283 evidence-backed limitations and 35
+advisory-only frames. The full route lowers GEMS mismatches from 37,442 to
+37,441 and moves the frontier to frame 318; gameplay, enemy, RNG, and pixel
+evidence remain unchanged. NEXT: extend the same ordinary title scheduler
+from frame 318 until the source branch changes.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 293 to 317
 defended frames, reaching the 121st fresh-title object pass. The shared
 `loc_1B6A2 -> sub_1B71A` scheduler carries another twenty-four passes with no

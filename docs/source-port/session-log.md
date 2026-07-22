@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 317)
+
+- Defended GEMS coverage advances to frames 0..317; the frontier is frame 318
+  inside the next `Do_Nothing`.
+- The 122nd title object pass uses the shared `loc_1B6A2 -> sub_1B71A`
+  scheduler and removes the coarse replayer's impossible 285,340-cycle wait.
+- The focused 318-frame comparison is green with exact strict-field residue
+  evidence for frame 317.
+- Full-route GEMS mismatches fall from 37,442 to 37,441; other evidence is
+  unchanged.
+- NEXT: extend the ordinary title scheduler from frame 318 until its source
+  branch changes.
+
 ## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 316)
 
 - Defended GEMS coverage advances to frames 0..316; the frontier is frame 317

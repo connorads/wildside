@@ -114,12 +114,12 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `loc_1B258` VRAM fill and `sub_1B2A4`'s title-art uploads, title map,
 /// palette, all four `Load_TitleArt` streams, `sub_1BF24`'s selected
 /// character map, `sub_1B532`'s title-text rows, title allocations, and the
-/// first 121 fresh-title object passes through frame 316, including
+/// first 122 fresh-title object passes through frame 317, including
 /// `sub_1B71A`'s first three Enigma maps and plane-A uploads. The tail remains the
 /// coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 317;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 318;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -6439,6 +6439,19 @@ const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
         oracle_crc: 1_923_934_032,
         native_pc: 0x02A5,
         oracle_pc: 0x0B53,
+        native_z80_wait: 0,
+        oracle_z80_wait: 0,
+        native_m68k_wait: 0,
+        oracle_m68k_wait: 2,
+        native_status: 16,
+        oracle_status: 16,
+    },
+    FreshTitleIrqResidue {
+        frame: 317,
+        native_crc: 2_473_163_928,
+        oracle_crc: 1_337_758_560,
+        native_pc: 0x02A5,
+        oracle_pc: 0x0B48,
         native_z80_wait: 0,
         oracle_z80_wait: 0,
         native_m68k_wait: 0,
