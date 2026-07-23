@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 unaligned shift layers)
+
+- First-pass camera Y `$0298` now selects a typed
+  `BackgroundScroll_ComputeShiftLayers` `(2,27,6)` row split.
+- ASM `loc_3050A/loc_30562/loc_3056A` gives 4,136 raw cycles, 116 above the
+  aligned path; all three existing published aligned totals stay exact.
+- NEXT: type the upward `sub_30194` 21-longword row upload and linear
+  `sub_307D8` 41-word refresh before composing `loc_892` into GEMS.
+
 ## 2026-07-23 handoff (#416 gameplay `WaitForVint`)
 
 - The first gameplay blocking wait is persistent from its `$93E` poll through

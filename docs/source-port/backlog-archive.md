@@ -1889,6 +1889,14 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: the first gameplay pass's unaligned
+`BackgroundScroll_ComputeShiftLayers` path is source-typed. Camera Y `$0298`
+selects phase 6 at `loc_3050A`, producing 2 leading rows, 27 full eight-row
+groups, and 6 trailing rows. The split loops cost 4,136 raw cycles, exactly
+116 more than the aligned 4,020-cycle path; existing aligned published totals
+remain unchanged. NEXT: type the same pass's upward `sub_30194` 21-longword
+row upload and no-wrap `sub_307D8` 41-word background refresh.
+
 Progress 2026-07-23: `WaitForVint` now has a named gameplay scheduler that
 retains every `$93E/$942` poll instruction, VINT recognition, exception
 entry, `V_Int $488`, return path, `MainGameLoop`, and `GameModesArray`

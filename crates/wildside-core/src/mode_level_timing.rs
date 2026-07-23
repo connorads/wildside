@@ -1339,14 +1339,11 @@ impl ModeLevelTailStateLoc892 {
         };
         next_state.shift_data_loc_30452 = shift_advance.next_state;
 
-        let shift_layers = if !inputs.background_no_scroll
-            && (inputs.camera_y_pos >> 2).is_multiple_of(8)
-            && !matches!(inputs.background_theme, 5 | 9)
-        {
-            ModeLevelTailShiftLayersWork::NormalAlignedNoRipple { full_rows: 28 }
-        } else {
-            ModeLevelTailShiftLayersWork::Other
-        };
+        let shift_layers = mode_level_tail_shift_layers_work(
+            inputs.camera_y_pos,
+            inputs.background_no_scroll,
+            inputs.background_theme,
+        );
 
         let background_upload_busy_fb49 = self.background_upload_busy_fb49 != 0;
         let mut piece_rows_sub_30744 = ModeLevelTailPieceRowsSub30744 {
@@ -1511,7 +1508,57 @@ pub enum ModeLevelTailShiftLayersWork {
     NormalAlignedNoRipple {
         full_rows: u8,
     },
+    /// ASM loc_3050A/loc_30562/loc_3056A: split top and bottom partial rows.
+    NormalUnalignedNoRipple {
+        leading_rows: u8,
+        full_rows: u8,
+        trailing_rows: u8,
+    },
     Other,
+}
+
+/// Classify ASM `BackgroundScroll_ComputeShiftLayers` row-loop work.
+pub fn mode_level_tail_shift_layers_work(
+    camera_y_pos: u16,
+    background_no_scroll: bool,
+    background_theme: u16,
+) -> ModeLevelTailShiftLayersWork {
+    if background_no_scroll || matches!(background_theme, 5 | 9) {
+        return ModeLevelTailShiftLayersWork::Other;
+    }
+
+    let row_phase = ((camera_y_pos >> 2) & 7) as u8;
+    if row_phase == 0 {
+        ModeLevelTailShiftLayersWork::NormalAlignedNoRipple { full_rows: 28 }
+    } else {
+        ModeLevelTailShiftLayersWork::NormalUnalignedNoRipple {
+            leading_rows: 8 - row_phase,
+            full_rows: 27,
+            trailing_rows: row_phase,
+        }
+    }
+}
+
+/// Raw source cycles for the classified shift-layer row loops.
+pub fn mode_level_tail_shift_layers_raw_cycles(
+    work: ModeLevelTailShiftLayersWork,
+) -> Option<M68kCycleCount> {
+    match work {
+        ModeLevelTailShiftLayersWork::NormalAlignedNoRipple { full_rows: 28 } => {
+            Some(M68kCycleCount::from_raw(4_020))
+        }
+        ModeLevelTailShiftLayersWork::NormalUnalignedNoRipple {
+            leading_rows,
+            full_rows: 27,
+            trailing_rows,
+        } if leading_rows != 0
+            && trailing_rows != 0
+            && leading_rows.checked_add(trailing_rows) == Some(8) =>
+        {
+            Some(M68kCycleCount::from_raw(4_136))
+        }
+        _ => None,
+    }
 }
 
 /// ASM `sub_30744` piece-row scan work before its `$FF` sentinel.
@@ -1578,8 +1625,6 @@ pub fn mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(
         || background.game_mode_zero
         || background.background_upload_busy_fb49
         || background.background_format_nonzero
-        || background.shift_layers
-            != (ModeLevelTailShiftLayersWork::NormalAlignedNoRipple { full_rows: 28 })
         || background.piece_refresh_sub_307d8
             != ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged
         || background.piece_rows_sub_30744.entries_before_sentinel != 29
@@ -1588,6 +1633,9 @@ pub fn mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(
     {
         return None;
     }
+    let shift_layers_extra = mode_level_tail_shift_layers_raw_cycles(background.shift_layers)?
+        .get()
+        .checked_sub(4_020)?;
 
     // ASM BackgroundScroll_ComputeShiftData: 2,040 covers all 19 unchanged
     // slots. loc_304B4's old>new path adds 114; old<new adds 120 plus 26
@@ -1604,11 +1652,13 @@ pub fn mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(
         shift_data = shift_data.checked_add(extra)?;
     }
 
-    // ASM loc_3038A: the 6,800-cycle fixed spine surrounds ShiftData,
-    // aligned/no-ripple ShiftLayers (4,020), sub_30744's 29-entry scan
-    // (2,360 + 82 per rendered row), and cached-row sub_307D8 (218).
+    // ASM loc_3038A: the 6,800-cycle aligned fixed spine surrounds ShiftData,
+    // ShiftLayers (4,020 aligned; +116 for split partial rows), sub_30744's
+    // 29-entry scan (2,360 + 82 per rendered row), and cached-row sub_307D8
+    // (218).
     let background_cycles = 6_800_u32
         .checked_add(shift_data)?
+        .checked_add(shift_layers_extra)?
         .checked_add(82_u32.checked_mul(u32::from(
             background.piece_rows_sub_30744.rendered_nonnegative_entries,
         ))?)?;
@@ -3778,6 +3828,29 @@ mod tests {
             mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(&work),
             None,
             "ASM sub_30194 streaming branches require ordered mapping and VDP work"
+        );
+    }
+
+    #[test]
+    fn mode_level_tail_shift_layers_classifies_first_gameplay_unaligned_rows() {
+        // ASM BackgroundScroll_ComputeShiftLayers loc_3050A/loc_30562/
+        // loc_3056A: Camera_Y_pos $0298 gives phase 6, so the first gameplay
+        // pass writes 2 leading rows, 27 full eight-row groups, then 6
+        // trailing rows. The two partial loops cost 116 raw cycles more than
+        // the aligned 28-group path.
+        let work = mode_level_tail_shift_layers_work(0x0298, false, 1);
+
+        assert_eq!(
+            work,
+            ModeLevelTailShiftLayersWork::NormalUnalignedNoRipple {
+                leading_rows: 2,
+                full_rows: 27,
+                trailing_rows: 6,
+            }
+        );
+        assert_eq!(
+            mode_level_tail_shift_layers_raw_cycles(work),
+            Some(M68kCycleCount::from_raw(4_136))
         );
     }
 
