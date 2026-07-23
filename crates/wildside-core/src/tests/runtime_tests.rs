@@ -318,6 +318,38 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                     ],
                     "ASM Mode_Level loc_810..loc_892 frame-1697 phase costs must stay source-ordered",
                 );
+                let advance = mode_level_post_hud_advance_to_loc_892_with_scheduler(
+                    M68kRefreshPhase::new(58).expect("oracle frame-1697 loc_810 phase"),
+                    ledger,
+                    |_, _| Some(M68kCycleCount::from_raw(0)),
+                    |_| {},
+                )
+                .expect("published post-HUD path is fully source-scheduled");
+                assert_eq!(advance.elapsed, M68kCycleCount::from_raw(24_454));
+                assert_eq!(advance.refresh_events, 191);
+                assert_eq!(
+                    advance.phase_after,
+                    M68kRefreshPhase::new(64).expect("oracle frame-1697 loc_892 phase"),
+                );
+                assert_eq!(
+                    vdp::mode_level_post_hud_cursor_to_loc_892_with_scheduler(
+                        vdp::ModeLevelCpuRasterCursor {
+                            beam: vdp::H40BeamPosition::new(49, 3_072)
+                                .expect("frame-1697 loc_810 beam"),
+                            refresh_phase: M68kRefreshPhase::new(58)
+                                .expect("frame-1697 loc_810 phase"),
+                        },
+                        ledger,
+                        |_, _| Some(M68kCycleCount::from_raw(0)),
+                        |_| {},
+                    ),
+                    Some(vdp::ModeLevelCpuRasterCursor {
+                        beam: vdp::H40BeamPosition::new(99, 3_250)
+                            .expect("oracle frame-1697 loc_892 beam"),
+                        refresh_phase: M68kRefreshPhase::new(64)
+                            .expect("oracle frame-1697 loc_892 phase"),
+                    }),
+                );
             }
             observed.push((
                 frame_index,

@@ -4382,6 +4382,163 @@ pub fn mode_level_post_hud_raw_cycles_to_loc_892(
         .map(M68kCycleCount::from_raw)
 }
 
+/// Co-schedule all 22 ASM `Mode_Level loc_810 -> loc_892` phases.
+pub fn mode_level_post_hud_advance_to_loc_892_with_scheduler(
+    mut phase: M68kRefreshPhase,
+    ledger: &ModeLevelPostHudWorkLedger,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+    mut apply_read_joypad_control: impl FnMut(ReadJoypadControl),
+) -> Option<M68kRefreshAdvance> {
+    // Validate source order and every typed branch before mutating external
+    // hardware through the instruction callbacks below.
+    mode_level_post_hud_phase_raw_cycles_to_loc_892(ledger)?;
+
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+    macro_rules! apply_phase {
+        ($advance:expr) => {{
+            let advance = $advance?;
+            elapsed = elapsed.checked_add(advance.elapsed.get())?;
+            refresh_events = refresh_events.checked_add(advance.refresh_events)?;
+            phase = advance.phase_after;
+        }};
+    }
+    let collision = &ledger.gfx_collision_work;
+
+    {
+        let mut ordinary_hardware = |cycles| advance_hardware(cycles, false);
+        apply_phase!(manage_enemy_loading_advance_with_scheduler_loc_36814(
+            phase,
+            ledger.enemy_loading_path,
+            &mut ordinary_hardware,
+        ));
+        apply_phase!(
+            gfx_objects_move_and_animate_advance_with_scheduler_sub_1444(
+                phase,
+                &ledger.gfx_move_animate_work_sub_1444,
+                &mut ordinary_hardware,
+            )
+        );
+    }
+    apply_phase!(read_joypad_advance_with_scheduler(
+        phase,
+        ledger.read_joypad_work,
+        &mut advance_hardware,
+        &mut apply_read_joypad_control,
+    ));
+    let mut ordinary_hardware = |cycles| advance_hardware(cycles, false);
+    apply_phase!(terrain_effects_advance_with_scheduler_sub_5e02(
+        phase,
+        ledger.murder_wall_active_sub_5e02,
+        &mut ordinary_hardware,
+    ));
+    apply_phase!(manage_platform_loading_advance_with_scheduler_loc_2744(
+        phase,
+        ledger.platform_loader_work?,
+        &mut ordinary_hardware,
+    ));
+    apply_phase!(execute_scripted_platforms_advance_with_scheduler_sub_23ea(
+        phase,
+        ledger.platform_work,
+        &mut ordinary_hardware,
+    ));
+    apply_phase!(platforms_check_collision_advance_with_scheduler_sub_2574(
+        phase,
+        ledger.platform_work,
+        &mut ordinary_hardware,
+    ));
+    apply_phase!(gfx_objects_collision_advance_with_scheduler_sub_16f0(
+        phase,
+        collision.object_kind_two_list_f86a,
+        &mut ordinary_hardware,
+    ));
+    apply_phase!(gfx_objects_collision_advance_with_scheduler_sub_16f0(
+        phase,
+        collision.kid_projectile_list_f866,
+        &mut ordinary_hardware,
+    ));
+    apply_phase!(mode_level_latch_damage_state_advance_loc_83e(
+        phase,
+        &mut ordinary_hardware,
+    ));
+    apply_phase!(gfx_objects_collision_kid_advance_with_scheduler_sub_1b76(
+        phase,
+        collision.kid_projectile_list_f866,
+        collision,
+        &mut ordinary_hardware,
+    ));
+    apply_phase!(shooter_support_collision_advance_with_scheduler_sub_1f52(
+        phase,
+        ledger.shooter_collision_work,
+        &mut ordinary_hardware,
+    ));
+    apply_phase!(shooter_kid_collision_advance_with_scheduler_sub_219c(
+        phase,
+        ledger.shooter_collision_work,
+        &mut ordinary_hardware,
+    ));
+    apply_phase!(
+        shooter_projectile_collision_advance_with_scheduler_sub_226a(
+            phase,
+            ledger.shooter_collision_work,
+            &mut ordinary_hardware,
+        )
+    );
+    apply_phase!(gfx_objects_collision_kid_advance_with_scheduler_sub_1b76(
+        phase,
+        collision.object_kind_two_list_f86a,
+        collision,
+        &mut ordinary_hardware,
+    ));
+    apply_phase!(
+        gfx_objects_collision_kid_f86e_advance_with_scheduler_sub_1b76(
+            phase,
+            collision,
+            &mut ordinary_hardware,
+        )
+    );
+    apply_phase!(kid_projectile_collision_advance_with_scheduler_sub_1d76(
+        phase,
+        ledger.kid_projectile_collision_work_sub_1d76,
+        &mut ordinary_hardware,
+    ));
+    apply_phase!(terrain_special_scan_advance_with_scheduler_sub_1fa2(
+        phase,
+        ledger.terrain_special_scan_sub_1fa2?,
+        &mut ordinary_hardware,
+    ));
+    apply_phase!(block_debris_sprites_advance_with_scheduler_sub_2a4c(
+        phase,
+        ledger.block_debris_work_sub_2a4c,
+        &mut ordinary_hardware,
+    ));
+    apply_phase!(
+        make_sprites_from_gfx_objects_advance_with_scheduler_sub_1492(
+            phase,
+            &ledger.gfx_sprite_work_sub_1492,
+            &mut ordinary_hardware,
+        )
+    );
+    apply_phase!(
+        diamond_power_compile_sprites_advance_with_scheduler_sub_3f798(
+            phase,
+            ledger.diamond_power_compile_work_sub_3f798,
+            &mut ordinary_hardware,
+        )
+    );
+    apply_phase!(make_sprites_from_platforms_advance_with_scheduler_sub_2444(
+        phase,
+        ledger.platform_work,
+        &mut ordinary_hardware,
+    ));
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

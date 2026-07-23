@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 composed post-HUD timeline)
+
+- All 22 `Mode_Level loc_810 -> loc_892` source schedulers now compose
+  through one persistent-hardware port, including `ReadJoypad` BUSREQ edges.
+- Frame 1697 advances exactly 24,454 elapsed cycles with 191 refresh events,
+  from H40 `(49,3072)` phase 58 to `(99,3250)` phase 64.
+- The pixel frontier remains seven life-icon pixels at x=289..293,
+  y=13..16; that visible fetch precedes the post-HUD span.
+- NEXT: correct the `sub_44DC loc_4586` resident-page/raster boundary, then
+  carry the composed `loc_892` cursor into the next VBlank seed.
+
 ## 2026-07-23 handoff (#409 platform sprite pass)
 
 - The empty `Make_SpritesFromPlatforms sub_2444` pass now preserves every

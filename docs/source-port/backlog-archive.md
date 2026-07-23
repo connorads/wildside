@@ -1889,6 +1889,18 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: all 22 source schedulers now compose through one
+`Mode_Level loc_810 -> loc_892` persistent-hardware port. Frame 1697 advances
+24,454 elapsed cycles with 191 refresh events, from H40 `(49,3072)` phase 58
+to `(99,3250)` phase 64. The GEMS adapter applies `ReadJoypad` BUSREQ edges
+at their source writes and advances every instruction rather than one
+aggregate post-HUD interval. The full route pixel baseline is unchanged:
+frame 1697 still differs by seven life-icon pixels at x=289..293, y=13..16.
+That upload and visible sprite fetch precede `loc_810`, so post-HUD work
+cannot change those pixels in the same frame. NEXT: correct the
+`sub_44DC loc_4586` resident-page/raster boundary, then carry the composed
+`loc_892` cursor into the next VBlank seed.
+
 Progress 2026-07-23: the empty-list
 `Make_SpritesFromPlatforms sub_2444` path is instruction-scheduled from
 `Mode_Level loc_88E`. Its 96 raw cycles and one refresh wait reach exact

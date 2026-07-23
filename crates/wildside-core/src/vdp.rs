@@ -6499,6 +6499,26 @@ pub fn life_icon_cpu_raster_cursor_after_sub_44dc_with_scheduler(
     })
 }
 
+/// Co-schedule the complete ASM `Mode_Level loc_810 -> loc_892` tail after
+/// `sub_44DC` has drained its FIFO writes.
+pub fn mode_level_post_hud_cursor_to_loc_892_with_scheduler(
+    entry: ModeLevelCpuRasterCursor,
+    ledger: &crate::ModeLevelPostHudWorkLedger,
+    advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+    apply_read_joypad_control: impl FnMut(crate::ReadJoypadControl),
+) -> Option<ModeLevelCpuRasterCursor> {
+    let advance = crate::mode_level_post_hud_advance_to_loc_892_with_scheduler(
+        entry.refresh_phase,
+        ledger,
+        advance_hardware,
+        apply_read_joypad_control,
+    )?;
+    Some(ModeLevelCpuRasterCursor {
+        beam: entry.beam.advance_m68k_cycles(advance.elapsed),
+        refresh_phase: advance.phase_after,
+    })
+}
+
 /// Advance the classified life-icon-only `sub_44DC` path through FIFO stalls
 /// to the following `Manage_EnemyLoading` call.
 ///

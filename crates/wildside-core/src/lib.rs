@@ -149,6 +149,7 @@ pub use mode_level_timing::{
     manage_enemy_loading_advance_with_scheduler_loc_36814, manage_enemy_loading_raw_cycles,
     manage_platform_loading_advance_with_scheduler_loc_2744,
     manage_platform_loading_raw_cycles_loc_2744, mode_level_latch_damage_state_advance_loc_83e,
+    mode_level_post_hud_advance_to_loc_892_with_scheduler,
     mode_level_post_hud_phase_raw_cycles_to_loc_892, mode_level_post_hud_raw_cycles_to_loc_892,
     mode_level_tail_advance_to_wait_for_vint_loc_892,
     mode_level_tail_camera_stripe_raw_cycles_sub_30194,

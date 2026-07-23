@@ -13,7 +13,8 @@ use wildside_core::{GameMode, LevelId, NativeSoundCommand, NativeTraceFrame};
 use wildside_core::{
     GemsQueueCommandAdvance, GemsQueueCommandPath, GemsStopMusicBusAckPolls,
     GemsStopMusicElapsedTiming, HudDmaEventSub44DC, LoadInGameTimerBonusPath, M68kCycleCount,
-    M68kRefreshPhase, ModeLevelScrollTransferPath, ModeLevelVblankWorkBeforeSubE12,
+    M68kRefreshPhase, ModeLevelPostHudWorkLedger, ModeLevelScrollTransferPath,
+    ModeLevelVblankWorkBeforeSubE12, ReadJoypadControl,
     vdp::{
         DecompressToVramTransferAdvance, LoadInGameCpuRasterCursor,
         LoadInGamePlatformInitialisationAdvance, LoadInGamePlatformRefreshLedger,
@@ -3711,6 +3712,42 @@ pub fn apply_gems_life_icon_schedule_sub_44dc(
             Some(M68kCycleCount::from_raw(
                 audio.take_pending_m68k_wait_cycles(),
             ))
+        },
+    )
+}
+
+/// Co-schedule the complete gameplay `Mode_Level loc_810 -> loc_892` tail
+/// on the persistent GEMS timeline.
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_post_hud_to_loc_892(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: ModeLevelCpuRasterCursor,
+    ledger: &ModeLevelPostHudWorkLedger,
+) -> Option<ModeLevelCpuRasterCursor> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    let audio = std::cell::RefCell::new(audio);
+    wildside_core::vdp::mode_level_post_hud_cursor_to_loc_892_with_scheduler(
+        entry,
+        ledger,
+        |cycles, source_owns_z80_bus| {
+            let mut audio = audio.borrow_mut();
+            if audio.checkpoint().busreq != source_owns_z80_bus {
+                return None;
+            }
+            audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                u64::from(cycles.get()) * 7,
+                false,
+            );
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+        |control| {
+            audio
+                .borrow_mut()
+                .set_z80_control(matches!(control, ReadJoypadControl::BeginZ80Bus), false);
         },
     )
 }
