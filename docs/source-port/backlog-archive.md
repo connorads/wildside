@@ -13,6 +13,21 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+2026-07-23 Diamond DMA raster consumer: frame 1706 differs only at HUD pixel
+`(296,36)`. Oracle `$DD40..$DF3F` commits start at H40 `18:172` and finish at
+`46:300`; the displayed `$DE88/$DE8A` words commit at `36:268/300`, after the
+line-36 sprite fetch boundary. The old page therefore supplies the top-right
+Diamond row and explains the one old-colour pixel.
+
+The renderer now consumes typed Diamond `HudRasterUploadTimingSub44DC` records.
+It schedules `sub_5D4A` memory DMA separately from `loc_4586` CPU FIFO writes,
+records one completed word per two H40 access slots, and composes old/new
+column-major sprite tiles at the scanline boundary. Focused tests pin the full
+256-word oracle train and the mixed top-right rows. Current published-route
+output is unchanged because the persistent gameplay clock does not yet emit
+the frame-1706 timing record. NEXT: carry the #409 clock through frame 1706
+and feed its first `$DD40` commit into this renderer bridge.
+
 2026-07-23 life-icon visible-page bound: the source-ordered VINT,
 `Mode_Level`, pre-HUD and `sub_44DC loc_4586` ledgers prove earliest FIFO
 commit scanlines 41, 31 and 14 for published frames 1697, 1703 and 1709.

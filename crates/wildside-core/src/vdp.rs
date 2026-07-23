@@ -6974,6 +6974,37 @@ pub fn try_schedule_h40_vram_fifo_word_writes(
     )
 }
 
+/// Schedule VRAM words from a proven first H40 memory-DMA commit position.
+///
+/// ASM `sub_5D4A` starts a VDP memory-to-VRAM DMA rather than filling the
+/// four-word CPU FIFO. Once its latency expires, each word occupies two H40
+/// access slots. This records the completion position once, rather than the
+/// duplicated per-slot representation used by the CPU FIFO renderer.
+pub fn try_schedule_h40_vram_dma_word_writes(
+    writes: &[(u16, u16)],
+    start_scanline: u16,
+    start_pixel: u16,
+) -> Option<Vec<VdpRasterVramWordWrite>> {
+    let start_slot = H40_VRAM_FIFO_ACCESS_PIXELS
+        .iter()
+        .position(|&pixel| pixel == start_pixel)?;
+    Some(
+        writes
+            .iter()
+            .enumerate()
+            .map(|(write_index, &(byte_addr, value))| {
+                let slot = start_slot + 2 * write_index;
+                VdpRasterVramWordWrite {
+                    scanline: start_scanline + (slot / H40_VRAM_FIFO_ACCESS_PIXELS.len()) as u16,
+                    pixel: H40_VRAM_FIFO_ACCESS_PIXELS[slot % H40_VRAM_FIFO_ACCESS_PIXELS.len()],
+                    byte_addr,
+                    value,
+                }
+            })
+            .collect(),
+    )
+}
+
 #[allow(non_snake_case)]
 fn apply_intro_sequence_5_sub_1C034_frame(
     vdp: &mut VdpState,
@@ -9632,6 +9663,35 @@ mod tests {
             assert_eq!((commits[0].scanline, commits[0].pixel), expected_first,);
             assert_eq!((commits[63].scanline, commits[63].pixel), expected_last,);
         }
+    }
+
+    #[test]
+    fn diamond_dma_commit_train_matches_frame_1706_sub_5d4a() {
+        let writes = (0..256_u16)
+            .map(|word_index| (0xDD40 + word_index * 2, word_index))
+            .collect::<Vec<_>>();
+        let commits = try_schedule_h40_vram_dma_word_writes(&writes, 18, 172)
+            .expect("oracle first commit is an H40 access slot");
+
+        assert_eq!(
+            commits.first(),
+            Some(&VdpRasterVramWordWrite {
+                scanline: 18,
+                pixel: 172,
+                byte_addr: 0xDD40,
+                value: 0,
+            })
+        );
+        assert_eq!(
+            commits.last(),
+            Some(&VdpRasterVramWordWrite {
+                scanline: 46,
+                pixel: 300,
+                byte_addr: 0xDF3E,
+                value: 255,
+            }),
+            "ASM sub_44DC loc_4626 -> sub_5D4A commits one DMA word per two H40 access slots"
+        );
     }
 
     #[test]

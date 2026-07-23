@@ -3,7 +3,10 @@ use std::sync::Arc;
 use wildside_core::{
     GameMode, HudDmaEventSub44DC, LevelId, NativeObjectKind, NativeTraceFrame, PlayerForm,
     hitpoint_display_art_dma_loop_loc_12C34,
-    vdp::{VdpRasterVramWordWrite, try_schedule_h40_vram_fifo_word_writes},
+    vdp::{
+        VdpRasterVramWordWrite, try_schedule_h40_vram_dma_word_writes,
+        try_schedule_h40_vram_fifo_word_writes,
+    },
 };
 use wildside_render::{NativeLevelVisuals, TileRef, TileSheet};
 
@@ -282,7 +285,7 @@ pub fn push_hud_icon(
                 trace,
                 level_visuals.floating_prizes.diamond.frames.len(),
             );
-            let tile_sheet = level_visuals
+            let mut tile_sheet = level_visuals
                 .floating_prizes
                 .diamond
                 .frames
@@ -291,6 +294,45 @@ pub fn push_hud_icon(
                     || level_visuals.hud.diamond_tiles.clone(),
                     |frame| frame.tile_sheet.clone(),
                 );
+            if let Some(timing) = trace
+                .hud_raster_upload_timings_sub_44dc
+                .iter()
+                .find(|timing| matches!(timing.command, HudDmaEventSub44DC::Diamond { .. }))
+            {
+                let previous_frame_index = usize::from(timing.previous_frame_table_byte_offset / 4);
+                if let Some(previous_tile_sheet) = level_visuals
+                    .floating_prizes
+                    .diamond
+                    .frames
+                    .get(previous_frame_index)
+                    .map(|frame| &frame.tile_sheet)
+                {
+                    let source_words = (0..timing.command.word_count())
+                        .map(|word_index| {
+                            (
+                                timing
+                                    .command
+                                    .vram_byte_address()
+                                    .wrapping_add(word_index.wrapping_mul(2)),
+                                0,
+                            )
+                        })
+                        .collect::<Vec<_>>();
+                    if let Some(writes) = try_schedule_h40_vram_dma_word_writes(
+                        &source_words,
+                        timing.first_commit_scanline,
+                        timing.first_commit_pixel,
+                    ) {
+                        tile_sheet = hud_diamond_raster_tile_sheet_loc_4626(
+                            previous_tile_sheet,
+                            &tile_sheet,
+                            &writes,
+                            timing.first_commit_scanline,
+                            y,
+                        );
+                    }
+                }
+            }
             let frame = wildside_render::SpriteFrame {
                 origin_x: 0,
                 origin_y: 0,
@@ -314,6 +356,64 @@ pub fn push_hud_icon(
             }
         }
     }
+}
+
+fn hud_diamond_raster_tile_sheet_loc_4626(
+    previous_tile_sheet: &TileSheet,
+    current_tile_sheet: &TileSheet,
+    writes: &[VdpRasterVramWordWrite],
+    upload_start_scanline: u16,
+    sprite_y: i32,
+) -> TileSheet {
+    const DISPLAY_TILE_OFFSET_IN_DMA_PAGE: usize = 0x06F2 - 0x06EA;
+
+    let mut presented = current_tile_sheet.clone();
+    for sprite_tile_offset in 0..4usize {
+        let tile_index = DISPLAY_TILE_OFFSET_IN_DMA_PAGE + sprite_tile_offset;
+        let (Some(previous_tile), Some(current_tile), Some(destination_tile)) = (
+            previous_tile_sheet.tiles.get(tile_index),
+            current_tile_sheet.tiles.get(tile_index),
+            presented.tiles.get_mut(tile_index),
+        ) else {
+            continue;
+        };
+
+        for tile_row in 0..8usize {
+            // ASM sub_44DC loc_4626 -> sub_5D4A writes the 0x200-byte page at
+            // `$DD40`. The HUD's 2x2 sprite begins eight tiles into that page,
+            // and Mega Drive multi-tile sprites store tiles column-major.
+            let screen_scanline = sprite_y + ((sprite_tile_offset % 2) * 8 + tile_row) as i32;
+            for word_in_row in 0..2usize {
+                let page_word = tile_index * 16 + tile_row * 2 + word_in_row;
+                let byte_addr = 0xDD40 + (page_word * 2) as u16;
+                let current_word_visible = screen_scanline >= 0
+                    && writes.iter().any(|write| {
+                        if write.byte_addr != byte_addr {
+                            return false;
+                        }
+                        if upload_start_scanline >= 224 && write.scanline < 262 {
+                            return true;
+                        }
+                        let effective_scanline = if upload_start_scanline >= 224 {
+                            write.scanline.saturating_sub(262)
+                        } else {
+                            write.scanline
+                        };
+                        effective_scanline < screen_scanline as u16
+                            || (effective_scanline == screen_scanline as u16 && write.pixel < 0x01A)
+                    });
+                let source_tile = if current_word_visible {
+                    current_tile
+                } else {
+                    previous_tile
+                };
+                let start_pixel = tile_row * 8 + word_in_row * 4;
+                destination_tile.pixels[start_pixel..start_pixel + 4]
+                    .copy_from_slice(&source_tile.pixels[start_pixel..start_pixel + 4]);
+            }
+        }
+    }
+    presented
 }
 
 fn hud_diamond_animation_frame_index(trace: &NativeTraceFrame, frame_count: usize) -> usize {
@@ -1037,6 +1137,54 @@ mod tests {
                 .iter()
                 .all(|tile| tile.pixels == [1; 64]),
             "the typed loc_4586 timing record must drive the production HUD command"
+        );
+    }
+
+    #[test]
+    fn frame_1706_diamond_dma_keeps_the_old_top_right_rows_loc_4626() {
+        let mut visuals = sample_level_visuals();
+        let previous_sheet = TileSheet {
+            tiles: vec![Tile { pixels: [1; 64] }; 12],
+        };
+        let current_sheet = TileSheet {
+            tiles: vec![Tile { pixels: [2; 64] }; 12],
+        };
+        visuals.floating_prizes.diamond.frames[2].tile_sheet = previous_sheet;
+        visuals.floating_prizes.diamond.frames[3].tile_sheet = current_sheet;
+
+        let mut commands = Vec::new();
+        push_hud_icon(
+            &mut commands,
+            &visuals,
+            "diamond",
+            &NativeTraceFrame {
+                hud_diamond_vram_page_loc_5d4a: Some(12),
+                hud_raster_upload_timings_sub_44dc: vec![HudRasterUploadTimingSub44DC {
+                    command: HudDmaEventSub44DC::Diamond {
+                        frame_table_byte_offset: 12,
+                    },
+                    previous_frame_table_byte_offset: 8,
+                    first_commit_scanline: 18,
+                    first_commit_pixel: 172,
+                }],
+                ..NativeTraceFrame::default()
+            },
+            HUD_DIAMOND_X,
+            HUD_DIAMOND_Y,
+        );
+
+        let DrawCommand::Sprite { tile_sheet, .. } = &commands[0] else {
+            panic!("diamond should use a sprite command");
+        };
+        assert_eq!(
+            &tile_sheet.tiles[10].pixels[16..24],
+            &[1; 8],
+            "oracle frame 1706 commits `$DE88/$DE8A` at scanline 36 after the HUD fetch boundary"
+        );
+        assert_eq!(
+            &tile_sheet.tiles[10].pixels[24..32],
+            &[2; 8],
+            "the next row sees the loc_4626 -> sub_5D4A writes committed on scanline 36"
         );
     }
 

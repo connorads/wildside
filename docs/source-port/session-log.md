@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 Diamond DMA raster consumer)
+
+- Oracle frame 1706 commits `$DD40..$DF3F` from H40 `18:172` through
+  `46:300`.
+- The HUD pixel's `$DE88/$DE8A` words commit at `36:268/300`, after the
+  line-36 sprite fetch, so the old Diamond page supplies that row.
+- The renderer now composes typed Diamond DMA timings at the scanline
+  boundary and focused tests pin the full commit train.
+- Published-route pixels are unchanged because the persistent gameplay clock
+  does not yet emit frame 1706's timing record.
+- NEXT: carry #409 through frame 1706 and feed its first `$DD40` commit into
+  the renderer; frame 1709 remains the life-icon raster debt.
+
 ## 2026-07-23 handoff (#406 terminal flash list order)
 
 - Oracle frame 1705 displays frame 1704's Sprite_Table: terminal `$2EA` is
