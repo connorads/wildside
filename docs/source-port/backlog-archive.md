@@ -255,6 +255,17 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: RAM-only level-layout coverage advances through frame 871.
+After the open/close return, `Load_InGame $11A30` builds its map header and
+layout buffers. Frame 871 samples `Decompress_Chunk loc_13970`; source inspection
+confirms the interval reads ROM and writes RAM without GEMS commands, Z80-bus
+ownership, or VDP access. Frame 872 reaches `loc_11C36`. The focused 872-frame
+comparison is green with 837 evidence-backed limitations and 35 advisory-only
+frames. Full-route GEMS mismatches fall from 36,888 to 36,887 and the frontier
+moves to frame 872; gameplay, enemy, RNG, and pixels remain unchanged.
+`verify-slice-fast` passes; the full gate confirms the monotonic GEMS
+improvement. NEXT: continue the synchronous loader from `loc_11C36`.
+
 Progress 2026-07-23: `Load_InGame` open/close coverage advances through frame
 870. The pauseable `StopMusic` cursor returns to caller `$11A24` at selected
 cycle 111,460,847. The loader enters `sub_E133C -> loc_E1576` at 111,460,899;

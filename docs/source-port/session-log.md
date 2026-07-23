@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 RAM-only map layout)
+
+- Defended GEMS coverage advances to frames 0..871; frame 872 reaches
+  `Load_InGame loc_11C36`.
+- Frame 871 samples `Decompress_Chunk loc_13970`; the path from `$11A30` only
+  reads ROM and writes map-header/layout RAM, with no GEMS, Z80-bus, or VDP
+  ownership change.
+- The focused 872-frame comparison is green with 837 evidence-backed
+  limitations and 35 advisory-only frames.
+- Full-route GEMS mismatches fall from 36,888 to 36,887 and the frontier moves
+  from frame 871 to 872; gameplay, enemy, RNG, and pixel evidence is unchanged.
+- `verify-slice-fast` passes; the full gate confirms the monotonic GEMS gain.
+- NEXT: continue the synchronous loader from `loc_11C36`.
+
 ## 2026-07-23 handoff (#416 Load_InGame open/close)
 
 - Defended GEMS coverage advances to frames 0..870; frame 871 remains in the

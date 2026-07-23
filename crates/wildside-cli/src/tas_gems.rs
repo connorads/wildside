@@ -121,13 +121,14 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `Obj_TitleMenu` timeout and all sixteen non-negative `Pal_FadeOut` iterations,
 /// frame 854's negative decrement, the final clean-mask fade upload, all of
 /// `loc_700`'s VRAM clear, and the following Sprite_Table clear through frame 867.
-/// Frames 868-870 continue through `loc_726 -> Load_DemoPlay`, the hidden
+/// Frames 868-871 continue through `loc_726 -> Load_DemoPlay`, the hidden
 /// controller allocation, `Load_InGame -> Initialize_Platforms`, and into its
-/// `StopMusic` reset and following `sub_E133C -> loc_E1576` open/close call.
+/// `StopMusic` reset, the following `sub_E133C -> loc_E1576` open/close call,
+/// and the RAM-only map-header/layout decompressor.
 /// The tail remains the coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 871;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 872;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -4106,6 +4107,13 @@ impl GemsSignatureProbe {
             .expect("ASM sub_E133C -> loc_E1576 open/close schedule");
             assert_eq!(self.engine.master_clock(), 111_461_222 * 7);
             assert_eq!(open_close.phase_after.get(), 71);
+        }
+        if self.power_on_frame == 871 {
+            // ASM Load_InGame $11A30 reaches Decompress_Chunk and
+            // FrameRendered samples loc_13970. This interval only reads ROM
+            // and writes the map-header/layout buffers in RAM; it neither
+            // commands GEMS nor changes Z80-bus or VDP ownership.
+            assert_eq!(self.engine.master_clock(), 111_478_320 * 7);
         }
         if self.power_on_frame == 174 {
             // ASM DecompressToVRAM loc_14314 uploads byte_26E3D's first
@@ -8511,6 +8519,7 @@ const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
     fresh_title_irq_residue!(868, 2906889959, 3787654350, 0x01C8, 0x01CC, 0, 0, 0, 0, 16, 16),
     fresh_title_irq_residue!(869, 2822579535, 901776353, 0x0044, 0x02A5, 0, 0, 1, 1, 2, 18),
     fresh_title_irq_residue!(870, 179711852, 179711852, 0x07C8, 0x07B3, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(871, 3802706905, 3721104212, 0x0B55, 0x0B50, 0, 0, 0, 0, 16, 16),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(
