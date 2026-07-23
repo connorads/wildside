@@ -129,7 +129,7 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// The tail remains the coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 893;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 902;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -4313,6 +4313,65 @@ impl GemsSignatureProbe {
             self.power_on_intro_next_checkpoint = Some(next_checkpoint);
             sampled_checkpoint = Some(checkpoint);
             let _ = (transfer, hud);
+        }
+        if self.power_on_frame == 893 {
+            // ASM Load_EyclopsBeamArt's ArtComp_12D70 decoder reaches
+            // DecompressToVRAM loc_14314 at selected cycle 114,314,288.
+            // Its 512-word transfer returns before sub_129CE's five direct
+            // 32-longword uploads. FrameRendered lands in Load_InGame
+            // loc_11F4C's following VRAM clear; that tail has no GEMS or
+            // Z80-bus accesses, so the persistent audio machine then runs
+            // continuously to the fixed raster sample.
+            self.power_on_intro_cursor
+                .take()
+                .expect("Eyclops-beam decoder reaches loc_14314");
+            const EYCLOPS_TRANSFER_CYCLES: u64 = 114_314_288;
+            self.engine.advance_ntsc_master_clocks(
+                EYCLOPS_TRANSFER_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let transfer = apply_gems_decompress_to_vram_transfer_loc_14314(
+                &mut self.engine,
+                wildside_core::vdp::LoadInGameCpuRasterCursor {
+                    beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                        M68kCycleCount::from_raw(EYCLOPS_TRANSFER_CYCLES as u32),
+                    ),
+                    refresh_phase: M68kRefreshPhase::new(38)
+                        .expect("oracle Eyclops-beam transfer phase"),
+                },
+                512,
+                0,
+                wildside_core::vdp::DecompressToVramTransferExit::Return,
+            )
+            .expect("Eyclops-beam transfer");
+            assert_eq!(self.engine.master_clock(), 114_341_933 * 7);
+            self.power_on_intro_cursor = Some(transfer.cursor);
+        }
+        if (894..901).contains(&self.power_on_frame) {
+            // ASM Load_InGame loc_11F48..loc_12004 remains in the VRAM clear,
+            // background/enemy initialisers, and their DecompressToVRAM
+            // calls through frame 898. Source inspection and oracle CPU
+            // checkpoints show no GEMS command or Z80 bus/reset access before
+            // j_PlaySound enters sub_E151C in frame 899, so the persistent
+            // audio machine advances continuously to each raster sample.
+            assert!(self.engine.master_clock() <= target);
+        }
+        if self.power_on_frame == 901 {
+            // ASM Load_InGame loc_12004 selects sequence $02 for the route's
+            // foreground theme, then j_PlaySound enters sub_E151C at selected
+            // cycle 115,383,763 with refresh phase 28. The one-poll queue
+            // transaction returns before this frame's raster sample.
+            const PLAY_SOUND_ENTRY_CYCLES: u64 = 115_383_763;
+            self.engine.advance_ntsc_master_clocks(
+                PLAY_SOUND_ENTRY_CYCLES * 7 - self.engine.master_clock(),
+            );
+            apply_timed_gems_queue_command(
+                &mut self.engine,
+                GemsQueueCommandPath::StartOrStopSequenceSubE151c,
+                M68kRefreshPhase::new(28).expect("Load_InGame PlaySound entry phase"),
+                Some(GemsQueueCommand::StartSequence(2)),
+            )
+            .expect("ASM Load_InGame queues its foreground-theme music");
+            assert_eq!(self.engine.master_clock(), 115_384_281 * 7);
         }
         if self.power_on_frame == 174 {
             // ASM DecompressToVRAM loc_14314 uploads byte_26E3D's first
@@ -8740,6 +8799,15 @@ const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
     fresh_title_irq_residue!(890, 3360585425, 3360585425, 0x02A5, 0x0B48, 0, 0, 0, 0, 16, 16),
     fresh_title_irq_residue!(891, 458248870, 1892981357, 0x01D2, 0x01CF, 0, 0, 0, 0, 16, 16),
     fresh_title_irq_residue!(892, 2093925165, 3696433556, 0x0B44, 0x07B7, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(893, 3043047722, 3043047722, 0x0B48, 0x0B55, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(894, 4048720321, 3482972220, 0x02A5, 0x005A, 0, 0, 0, 0, 16, 0),
+    fresh_title_irq_residue!(895, 1516699832, 3315196556, 0x0B44, 0x07B5, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(896, 394538880, 686233357, 0x0B57, 0x0B53, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(897, 1505137271, 3515125193, 0x01CF, 0x0B57, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(898, 1736242214, 1736242214, 0x07B7, 0x07B3, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(899, 1279722141, 394695402, 0x02A5, 0x0793, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(900, 3724759287, 3724759287, 0x0B48, 0x0B53, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(901, 1385341082, 2732024685, 0x07AA, 0x0047, 0, 0, 385, 8, 16, 10),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(
@@ -8758,7 +8826,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
                 641 | 745..=750 => (0x000E_0000, 0x000E_8000),
                 647 | 760..=765 => (0x000E_8000, 0x000E_0000),
                 // Both executions are inside the same bank-load window.
-                291 | 751..=759 => (0x000E_0000, 0x000E_0000),
+                291 | 751..=759 | 901 => (0x000E_0000, 0x000E_0000),
                 _ => (0x000E_8000, 0x000E_8000),
             };
             native.audio_ram_crc32 == residue.native_crc

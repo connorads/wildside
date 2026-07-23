@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 complete `Load_InGame`)
+
+- Defended GEMS coverage advances to frames 0..901; frame 902 is the first
+  gameplay sample after level music starts.
+- The Eyclops transfer ends at cycle 114,341,933. The remaining direct VDP and
+  RAM-only loader tail reaches `loc_12004 -> sub_E151C`, which queues sequence
+  $02 at cycle 115,383,763 and switches to bank `$E0000`.
+- The focused comparison is green with 867 evidence-backed limitations and 35
+  advisory-only frames. Full mismatches fall from 36,866 to 36,857.
+- Gameplay, enemy, RNG, and pixel evidence is unchanged; the fast gate passes.
+- NEXT: model the first gameplay frames after level music starts.
+
 ## 2026-07-23 handoff (#416 block/HUD/Eyclops uploads)
 
 - Defended GEMS coverage advances to frames 0..892; frame 893 is in the

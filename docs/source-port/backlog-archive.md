@@ -255,6 +255,18 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: complete `Load_InGame` coverage advances the defended
+frontier through frame 901. The 512-word Eyclops transfer ends at source-model
+cycle 114,341,933; selected-PC and ASM inspection then prove that frames
+893..900 contain only direct VDP work and RAM initialisers, with no GEMS
+command or Z80 arbitration. `loc_12004 -> j_PlaySound -> sub_E151C` queues
+sequence $02 at cycle 115,383,763 with refresh phase 28 and switches the
+source-modelled bank to `$E0000`. The focused 902-frame comparison is green
+with 867 evidence-backed limitations and 35 advisory-only frames. Full-route
+GEMS mismatches fall from 36,866 to 36,857 and the frontier moves to frame 902;
+gameplay, enemy, RNG, and pixel evidence is unchanged. `verify-slice-fast`
+passes. NEXT: model the first gameplay frames after level music starts.
+
 Progress 2026-07-23: the source-modelled loader advances coverage through frame
 892. ROM-backed Saxman state now carries the block-art resume token through
 1,024-word and 304-word follow-up uploads, then models the 192-word HUD-number
