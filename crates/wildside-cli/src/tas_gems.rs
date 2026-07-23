@@ -129,7 +129,7 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// The tail remains the coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 891;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 893;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -237,6 +237,9 @@ struct GemsSignatureProbe {
     power_on_intro_plane_b_compressed: Vec<u8>,
     power_on_title_kid_transformation_compressed: Vec<u8>,
     power_on_title_red_stealth_compressed: Vec<u8>,
+    power_on_load_in_game_blocks_compressed: Vec<u8>,
+    power_on_load_in_game_hud_numbers_compressed: Vec<u8>,
+    power_on_load_in_game_eyclops_beam_compressed: Vec<u8>,
     power_on_title_background_compressed: Vec<u8>,
     power_on_title_plane_map_compressed: Vec<u8>,
     power_on_title_art_first_compressed: Vec<u8>,
@@ -288,6 +291,13 @@ impl GemsSignatureProbe {
             // ASM sub_1B2A4 byte_26E3D..byte_282C1: region byte zero
             // selects the Red Stealth transformation for the second upload.
             power_on_title_red_stealth_compressed: rom[0x26E3D..0x282C1].to_vec(),
+            // ASM Load_InGame ArtComp_992E4_Blocks..ArtComp_99F34_IngameNumbers:
+            // the first in-game VDP upload decodes this block-art stream.
+            power_on_load_in_game_blocks_compressed: rom[0x992E4..0x99F34].to_vec(),
+            // ASM Load_InGame ArtComp_99F34_IngameNumbers..unk_99FCA.
+            power_on_load_in_game_hud_numbers_compressed: rom[0x99F34..0x99FCA].to_vec(),
+            // ASM Load_EyclopsBeamArt ArtComp_12D70..Load_SegaScreen.
+            power_on_load_in_game_eyclops_beam_compressed: rom[0x12D70..0x12DD0].to_vec(),
             // ASM sub_1B2A4 byte_2A961..byte_2A992: the compact title
             // background follows the selected transformation upload.
             power_on_title_background_compressed: rom[0x2A961..0x2A992].to_vec(),
@@ -341,6 +351,9 @@ impl GemsSignatureProbe {
             power_on_intro_plane_b_compressed: Vec::new(),
             power_on_title_kid_transformation_compressed: Vec::new(),
             power_on_title_red_stealth_compressed: Vec::new(),
+            power_on_load_in_game_blocks_compressed: Vec::new(),
+            power_on_load_in_game_hud_numbers_compressed: Vec::new(),
+            power_on_load_in_game_eyclops_beam_compressed: Vec::new(),
             power_on_title_background_compressed: Vec::new(),
             power_on_title_plane_map_compressed: Vec::new(),
             power_on_title_art_first_compressed: Vec::new(),
@@ -368,6 +381,9 @@ impl GemsSignatureProbe {
             * MASTER_CLOCKS_PER_SCANLINE;
         let mut sampled_checkpoint = None;
         if self.power_on_frame == 74 {
+            sampled_checkpoint = self.power_on_intro_next_checkpoint.take();
+        }
+        if self.power_on_frame == 892 {
             sampled_checkpoint = self.power_on_intro_next_checkpoint.take();
         }
         if self.power_on_frame == 75 {
@@ -4124,11 +4140,43 @@ impl GemsSignatureProbe {
             // cycle 113,991,654, after frame 889's FrameRendered sample.
             assert_eq!(self.engine.master_clock(), 781_244_280);
         }
+        if self.power_on_frame == 889 {
+            // ASM Load_InGame ArtComp_992E4_Blocks reaches DecompressToVRAM
+            // loc_14300 at selected cycle 113,847,374 with refresh phase 47.
+            // FrameRendered lands in this first Saxman decoder after VINT.
+            const DECODER_ENTRY_CYCLES: u64 = 113_847_374;
+            self.engine
+                .advance_ntsc_master_clocks(DECODER_ENTRY_CYCLES * 7 - self.engine.master_clock());
+            let (decoder, checkpoint) =
+                apply_gems_decompress_to_vram_decoder_with_checkpoint_loc_14300(
+                    &mut self.engine,
+                    wildside_core::vdp::LoadInGameCpuRasterCursor {
+                        beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                            M68kCycleCount::from_raw(DECODER_ENTRY_CYCLES as u32),
+                        ),
+                        refresh_phase: M68kRefreshPhase::new(47)
+                            .expect("oracle block-art loc_14300 refresh phase"),
+                    },
+                    &self.power_on_load_in_game_blocks_compressed,
+                    None,
+                    1,
+                    target,
+                )
+                .expect("block-art chunk 1 decoder spans frame 889");
+            assert_eq!(decoder.timing.output_bytes, 4_096);
+            self.power_on_intro_cursor = Some(decoder.cursor);
+            self.power_on_intro_decoder_resume = decoder.resume;
+            sampled_checkpoint = Some(checkpoint);
+        }
         if self.power_on_frame == 890 {
             // ASM Load_InGame DecompressToVRAM loc_14314 begins the first
             // 2,048-word block-art upload at selected cycle 113,991,654 with
             // refresh phase 71. FrameRendered lands inside this FIFO-paced
             // transfer after its instruction-boundary VINT.
+            let _cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("block-art chunk 1 decoder reaches loc_14314");
             const TRANSFER_ENTRY_CYCLES: u64 = 113_991_654;
             self.engine
                 .advance_ntsc_master_clocks(TRANSFER_ENTRY_CYCLES * 7 - self.engine.master_clock());
@@ -4150,6 +4198,121 @@ impl GemsSignatureProbe {
                 .expect("block-art chunk 1 transfer spans frame 890");
             self.power_on_intro_cursor = Some(transfer.cursor);
             sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 891 {
+            // ASM loc_1432C compacts the retained $800-byte Saxman history,
+            // then resumes ArtComp_992E4_Blocks at loc_14300. FrameRendered
+            // lands inside that resumed decoder after VINT.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("block-art chunk 1 compaction resumes loc_14300");
+            let (decoder, checkpoint) =
+                apply_gems_decompress_to_vram_decoder_with_checkpoint_loc_14300(
+                    &mut self.engine,
+                    cursor,
+                    &self.power_on_load_in_game_blocks_compressed,
+                    self.power_on_intro_decoder_resume.take(),
+                    1,
+                    target,
+                )
+                .expect("block-art chunk 2 decoder spans frame 891");
+            assert_eq!(decoder.timing.output_bytes, 2_048);
+            let block_resume = decoder.resume;
+
+            const BLOCK_TRANSFER_2_CYCLES: u64 = 114_168_047;
+            self.engine.advance_ntsc_master_clocks(
+                BLOCK_TRANSFER_2_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let transfer = apply_gems_decompress_to_vram_transfer_loc_14314(
+                &mut self.engine,
+                wildside_core::vdp::LoadInGameCpuRasterCursor {
+                    beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                        M68kCycleCount::from_raw(BLOCK_TRANSFER_2_CYCLES as u32),
+                    ),
+                    refresh_phase: M68kRefreshPhase::new(24)
+                        .expect("oracle block-art chunk 2 transfer phase"),
+                },
+                1_024,
+                0,
+                wildside_core::vdp::DecompressToVramTransferExit::CompactAndResume,
+            )
+            .expect("block-art chunk 2 transfer and compaction");
+            let decoder = apply_gems_decompress_to_vram_decoder_loc_14300(
+                &mut self.engine,
+                transfer.cursor,
+                &self.power_on_load_in_game_blocks_compressed,
+                block_resume,
+                0,
+            )
+            .expect("block-art final decoder");
+            assert_eq!(decoder.timing.output_bytes, 608);
+            assert!(decoder.resume.is_none());
+            let transfer = apply_gems_decompress_to_vram_transfer_loc_14314(
+                &mut self.engine,
+                decoder.cursor,
+                304,
+                0,
+                wildside_core::vdp::DecompressToVramTransferExit::Return,
+            )
+            .expect("block-art final transfer");
+
+            const HUD_DECODER_CYCLES: u64 = 114_263_082;
+            self.engine
+                .advance_ntsc_master_clocks(HUD_DECODER_CYCLES * 7 - self.engine.master_clock());
+            let hud = apply_gems_decompress_to_vram_decoder_loc_14300(
+                &mut self.engine,
+                wildside_core::vdp::LoadInGameCpuRasterCursor {
+                    beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                        M68kCycleCount::from_raw(HUD_DECODER_CYCLES as u32),
+                    ),
+                    refresh_phase: M68kRefreshPhase::new(12)
+                        .expect("oracle HUD-number decoder phase"),
+                },
+                &self.power_on_load_in_game_hud_numbers_compressed,
+                None,
+                0,
+            )
+            .expect("HUD-number decoder");
+            assert_eq!(hud.timing.output_bytes, 384);
+            let hud = apply_gems_decompress_to_vram_transfer_loc_14314(
+                &mut self.engine,
+                hud.cursor,
+                192,
+                0,
+                wildside_core::vdp::DecompressToVramTransferExit::Return,
+            )
+            .expect("HUD-number transfer");
+
+            const EYCLOPS_DECODER_CYCLES: u64 = 114_287_764;
+            self.engine.advance_ntsc_master_clocks(
+                EYCLOPS_DECODER_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let next_target = ((self.power_on_frame + 1) as u64 * NTSC_SCANLINES_PER_FRAME
+                + (NTSC_SCANLINES_PER_FRAME - 30))
+                * MASTER_CLOCKS_PER_SCANLINE;
+            let (eyclops, next_checkpoint) =
+                apply_gems_decompress_to_vram_decoder_with_checkpoint_loc_14300(
+                    &mut self.engine,
+                    wildside_core::vdp::LoadInGameCpuRasterCursor {
+                        beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                            M68kCycleCount::from_raw(EYCLOPS_DECODER_CYCLES as u32),
+                        ),
+                        refresh_phase: M68kRefreshPhase::new(10)
+                            .expect("oracle Eyclops-beam decoder phase"),
+                    },
+                    &self.power_on_load_in_game_eyclops_beam_compressed,
+                    None,
+                    1,
+                    next_target,
+                )
+                .expect("Eyclops-beam decoder spans frame 892");
+            assert_eq!(eyclops.timing.output_bytes, 1_024);
+            self.power_on_intro_cursor = Some(eyclops.cursor);
+            self.power_on_intro_decoder_resume = decoder.resume;
+            self.power_on_intro_next_checkpoint = Some(next_checkpoint);
+            sampled_checkpoint = Some(checkpoint);
+            let _ = (transfer, hud);
         }
         if self.power_on_frame == 174 {
             // ASM DecompressToVRAM loc_14314 uploads byte_26E3D's first
@@ -8575,6 +8738,8 @@ const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
     fresh_title_irq_residue!(888, 2426100391, 2952290858, 0x07A9, 0x02A5, 0, 0, 0, 0, 16, 16),
     fresh_title_irq_residue!(889, 1402440090, 1402440090, 0x0C2C, 0x0C28, 0, 0, 0, 2, 16, 16),
     fresh_title_irq_residue!(890, 3360585425, 3360585425, 0x02A5, 0x0B48, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(891, 458248870, 1892981357, 0x01D2, 0x01CF, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(892, 2093925165, 3696433556, 0x0B44, 0x07B7, 0, 0, 0, 0, 16, 16),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(
@@ -10516,6 +10681,9 @@ mod tests {
             power_on_intro_plane_b_compressed: Vec::new(),
             power_on_title_kid_transformation_compressed: Vec::new(),
             power_on_title_red_stealth_compressed: Vec::new(),
+            power_on_load_in_game_blocks_compressed: Vec::new(),
+            power_on_load_in_game_hud_numbers_compressed: Vec::new(),
+            power_on_load_in_game_eyclops_beam_compressed: Vec::new(),
             power_on_title_background_compressed: Vec::new(),
             power_on_title_plane_map_compressed: Vec::new(),
             power_on_title_art_first_compressed: Vec::new(),
@@ -10572,6 +10740,9 @@ mod tests {
             power_on_intro_plane_b_compressed: Vec::new(),
             power_on_title_kid_transformation_compressed: Vec::new(),
             power_on_title_red_stealth_compressed: Vec::new(),
+            power_on_load_in_game_blocks_compressed: Vec::new(),
+            power_on_load_in_game_hud_numbers_compressed: Vec::new(),
+            power_on_load_in_game_eyclops_beam_compressed: Vec::new(),
             power_on_title_background_compressed: Vec::new(),
             power_on_title_plane_map_compressed: Vec::new(),
             power_on_title_art_first_compressed: Vec::new(),
@@ -10633,6 +10804,9 @@ mod tests {
             power_on_intro_plane_b_compressed: Vec::new(),
             power_on_title_kid_transformation_compressed: Vec::new(),
             power_on_title_red_stealth_compressed: Vec::new(),
+            power_on_load_in_game_blocks_compressed: Vec::new(),
+            power_on_load_in_game_hud_numbers_compressed: Vec::new(),
+            power_on_load_in_game_eyclops_beam_compressed: Vec::new(),
             power_on_title_background_compressed: Vec::new(),
             power_on_title_plane_map_compressed: Vec::new(),
             power_on_title_art_first_compressed: Vec::new(),

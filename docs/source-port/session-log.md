@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 block/HUD/Eyclops uploads)
+
+- Defended GEMS coverage advances to frames 0..892; frame 893 is in the
+  following direct-art loader work.
+- ROM-backed decoder state carries the block-art stream through its 1,024-word
+  and 304-word uploads, then models the 192-word HUD-number upload and the
+  Eyclops-beam decoder.
+- The focused comparison is green with 858 evidence-backed limitations and 35
+  advisory-only frames. Full mismatches fall from 36,868 to 36,866.
+- Gameplay, enemy, RNG, and pixel evidence is unchanged; the fast gate passes.
+- NEXT: finish the Eyclops transfer, direct-art uploads, and VRAM clear.
+
 ## 2026-07-23 handoff (#416 first block-art upload)
 
 - Defended GEMS coverage advances to frames 0..890; frame 891 follows the

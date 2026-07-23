@@ -255,6 +255,17 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: the source-modelled loader advances coverage through frame
+892. ROM-backed Saxman state now carries the block-art resume token through
+1,024-word and 304-word follow-up uploads, then models the 192-word HUD-number
+upload and the Eyclops-beam decoder. Selected-PC tracing pins their
+`loc_14300`/`loc_14314` boundaries; frame 892 lands in the Eyclops decoder at
+`loc_136FE`. The focused 893-frame comparison is green with 858 evidence-backed
+limitations and 35 advisory-only frames. Full-route GEMS mismatches fall from
+36,868 to 36,866 and the frontier moves to frame 893; gameplay, enemy, RNG, and
+pixel evidence is unchanged. `verify-slice-fast` passes. NEXT: model the direct
+art uploads and VRAM clear following the Eyclops transfer.
+
 Progress 2026-07-23: the first block-art VRAM sample advances coverage through
 frame 890. `Load_InGame DecompressToVRAM loc_14314` begins its 2,048-word
 FIFO-paced transfer at selected cycle 113,991,654 with refresh phase 71.
