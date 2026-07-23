@@ -781,6 +781,47 @@ fn published_tas_helpers_1696_1702_1708_derive_live_mode_tail_work() {
 }
 
 #[test]
+fn published_tas_frame_902_derives_first_gameplay_mode_tail_work() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut frame_902 = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(903) {
+        runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 902 {
+            frame_902 = runtime.mode_level_tail_work_loc_892();
+        }
+    }
+
+    let work = frame_902.expect("published frame 902 reaches Mode_Level loc_892");
+    assert_eq!(
+        work.camera_stripe_sub_30194,
+        ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+            ordinary_theme_cells: 20,
+            priority_theme_cells: 0,
+            block_cells: 1,
+        },
+        "ASM sub_30194 loc_30354/loc_3037C: oracle frame 902 uploads 20 ordinary cells and one block cell",
+    );
+    assert_eq!(
+        work.background_loc_3038a.piece_refresh_sub_307d8,
+        ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged,
+        "ASM sub_307D8 loc_3080E -> return_308B4: the first gameplay row is already cached",
+    );
+    assert_eq!(
+        work.palette_sub_14c0,
+        ModeLevelTailPaletteWorkSub14C0::BothMasksFull,
+        "ASM sub_73D0/loc_7414 -> sub_14C0: both first-gameplay palette masks are full",
+    );
+    assert_eq!(
+        mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(&work),
+        Some(M68kCycleCount::from_raw(31_176)),
+        "ASM loc_892 -> WaitForVint $93E: oracle frame 902 has 31,176 raw source cycles",
+    );
+}
+
+#[test]
 fn published_tas_demo_bootstrap_presents_hud_timer_before_authoritative_timer_tail() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;

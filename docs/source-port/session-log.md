@@ -7,16 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
-## 2026-07-23 handoff (#409 first streaming pass)
+## 2026-07-23 handoff (#409 actual first gameplay tail)
 
-- Oracle frame 895 fixes the complete first streaming `loc_892` pass at
-  13,560 raw cycles.
+- The complete frame-902 trace fixes the first gameplay `loc_892` pass at
+  31,176 raw and 33,218 elapsed cycles.
+- `sub_30194` uploads 20 ordinary cells plus one block; `sub_307D8` returns
+  on its cached-row branch; both full palette masks run `sub_1536`.
+- External arbitration is 409 VDP FIFO halts, 478 refresh waits, and 1,155
+  GEMS bus waits.
+- NEXT: reproduce the instruction/FIFO schedule in the persistent GEMS shell.
+
+## 2026-07-23 handoff (#409 preload streaming calls)
+
+- Oracle frame 895 fixes a combined synthetic workload for the final
+  `Load_InGame loc_2FFE8` preload calls at 13,560 raw cycles.
 - `sub_30194` uploads 21 ordinary cells at 2,320 raw cycles plus 386 ordered
   VDP waits.
 - `sub_307D8` copies 41 words at 2,360 raw cycles plus 146 VDP waits, with
   VINT interrupting the copy before it resumes.
-- NEXT: compose those ordered waits and the mid-routine VINT in the persistent
-  gameplay scheduler.
+- These are preload branches, not the first gameplay `loc_892` branches.
 
 ## 2026-07-23 handoff (#409 unaligned shift layers)
 

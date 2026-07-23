@@ -1249,6 +1249,16 @@ pub fn mode_level_tail_camera_stripe_raw_cycles_sub_30194(
             // an oracle instruction trace fixes their complete path cost.
             Some(M68kCycleCount::from_raw(2_320))
         }
+        ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+            ordinary_theme_cells: 20,
+            priority_theme_cells: 0,
+            block_cells: 1,
+        } => {
+            // ASM sub_30194/loc_3037C: oracle frame 902 takes one block
+            // mapping branch after 20 ordinary cells. The complete caller,
+            // jump stub, routine, and return cost 2,312 raw cycles.
+            Some(M68kCycleCount::from_raw(2_312))
+        }
         ModeLevelTailCameraStripeSub30194::StreamingOther => None,
         ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap { .. } => None,
     }
@@ -1336,10 +1346,35 @@ impl ModeLevelTailStateLoc892 {
     }
 
     /// ASM `loc_2FFE8`: latch camera/row state and run the initial ShiftData pass.
-    pub fn preload_loc_2ffe8(&mut self, camera_x_pos: u16, camera_y_pos: u16, time_frames: u16) {
+    pub fn preload_loc_2ffe8(
+        &mut self,
+        camera_x_pos: u16,
+        camera_y_pos: u16,
+        level_height_pixels: u16,
+        time_frames: u16,
+    ) {
         self.camera_x_latch_f82c = camera_x_pos;
         self.camera_y_latch_f82e = camera_y_pos;
-        self.background_row_latch_faa8 = (camera_y_pos as i16) >> 5;
+        // ASM loc_3001E/loc_30054/loc_30066: the lower preload window starts
+        // at d7-$380, may receive the extra -$40 bias, and loses one DBF
+        // iteration when d7+$E0 reaches Level_height_pixels. sub_307D8 leaves
+        // FAA8 at the final visited row before loc_30090 restores d7.
+        let original_y = camera_y_pos as i16;
+        let mut loop_counter = 0x001C_i16;
+        if original_y.wrapping_add(0x00E0) >= level_height_pixels as i16 {
+            loop_counter = loop_counter.wrapping_sub(1);
+        }
+        let mut preload_y = original_y.wrapping_sub(0x0380);
+        if preload_y != i16::from_be_bytes([0xFC, 0x80]) {
+            preload_y = preload_y.wrapping_sub(0x0040);
+            loop_counter = loop_counter.wrapping_add(2);
+        }
+        self.background_row_latch_faa8 =
+            preload_y.wrapping_add(loop_counter.wrapping_mul(0x0020)) >> 5;
+        if original_y == 0 {
+            // ASM loc_3007A/loc_30090: a zero restored d7 clears FAA8.
+            self.background_row_latch_faa8 = 0;
+        }
         self.shift_data_loc_30452 =
             ModeLevelTailShiftDataStateLoc30452::from_preload_loc_3001e(camera_x_pos, time_frames);
     }
@@ -1363,6 +1398,17 @@ impl ModeLevelTailStateLoc892 {
         )
     }
 
+    /// ASM `sub_73D0/loc_7414` and other palette workers write the shared
+    /// `$FFFFF888/$FFFFF88C` masks before `Mode_Level loc_892` consumes them.
+    pub fn set_pending_palette_masks_f888_f88c(
+        &mut self,
+        pending_palette_0_mask: u32,
+        pending_palette_1_mask: u32,
+    ) {
+        self.pending_palette_0_mask_f888 = pending_palette_0_mask;
+        self.pending_palette_1_mask_f88c = pending_palette_1_mask;
+    }
+
     pub const fn background_upload_busy_fb49(&self) -> u8 {
         self.background_upload_busy_fb49
     }
@@ -1384,12 +1430,14 @@ impl ModeLevelTailStateLoc892 {
         next_state.camera_x_latch_f82c = inputs.camera_x_pos;
         next_state.camera_y_latch_f82e = inputs.camera_y_pos;
 
-        let palette_sub_14c0 =
-            if self.pending_palette_0_mask_f888 == 0 && self.pending_palette_1_mask_f88c == 0 {
-                ModeLevelTailPaletteWorkSub14C0::Inactive
-            } else {
-                ModeLevelTailPaletteWorkSub14C0::Active
-            };
+        let palette_sub_14c0 = match (
+            self.pending_palette_0_mask_f888,
+            self.pending_palette_1_mask_f88c,
+        ) {
+            (0, 0) => ModeLevelTailPaletteWorkSub14C0::Inactive,
+            (u32::MAX, u32::MAX) => ModeLevelTailPaletteWorkSub14C0::BothMasksFull,
+            _ => ModeLevelTailPaletteWorkSub14C0::ActiveOther,
+        };
         // ASM sub_14C0 consumes both shared masks before returning.
         next_state.pending_palette_0_mask_f888 = 0;
         next_state.pending_palette_1_mask_f88c = 0;
@@ -1741,7 +1789,24 @@ pub fn mode_level_tail_piece_refresh_raw_cycles_sub_307d8(
 pub enum ModeLevelTailPaletteWorkSub14C0 {
     /// Both pending palette masks `$FFFFF888/$FFFFF88C` are clear.
     Inactive,
-    Active,
+    /// Both masks are `$FFFFFFFF`; ASM `sub_1536` visits all 64 words.
+    BothMasksFull,
+    /// Another non-zero mask combination not yet source-timed.
+    ActiveOther,
+}
+
+/// Raw source cycles for the classified ASM `sub_14C0` call.
+pub fn mode_level_tail_palette_raw_cycles_sub_14c0(
+    work: ModeLevelTailPaletteWorkSub14C0,
+) -> Option<M68kCycleCount> {
+    match work {
+        // ASM loc_892 BSR.W plus sub_14C0's zero-mask return.
+        ModeLevelTailPaletteWorkSub14C0::Inactive => Some(M68kCycleCount::from_raw(82)),
+        // ASM sub_14C0/loc_14CE -> sub_1536 twice. Oracle frame 902 fixes the
+        // complete BSR.W call at 19,848 raw cycles for two full masks.
+        ModeLevelTailPaletteWorkSub14C0::BothMasksFull => Some(M68kCycleCount::from_raw(19_848)),
+        ModeLevelTailPaletteWorkSub14C0::ActiveOther => None,
+    }
 }
 
 /// Source-typed work from ASM `Mode_Level loc_892` to the first
@@ -1770,16 +1835,14 @@ pub struct ModeLevelTailBackgroundWorkLoc3038A {
 /// `WaitForVint $93E` poll.
 ///
 /// Source-verified streaming variants contribute raw instruction cycles here.
-/// Their ordered VDP waits, a VINT inside `sub_307D8`, ripple rows, and active
-/// palette work remain outside this refresh-only calculation.
+/// Their ordered VDP waits, asynchronous GEMS steals, a possible VINT, ripple
+/// rows, and unclassified palette masks remain outside this raw calculation.
 pub fn mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(
     work: &ModeLevelTailWorkLoc892,
 ) -> Option<M68kCycleCount> {
-    if work.palette_sub_14c0 != ModeLevelTailPaletteWorkSub14C0::Inactive {
-        return None;
-    }
     let camera_stripe_cycles =
         mode_level_tail_camera_stripe_raw_cycles_sub_30194(work.camera_stripe_sub_30194)?.get();
+    let palette_cycles = mode_level_tail_palette_raw_cycles_sub_14c0(work.palette_sub_14c0)?.get();
 
     let background = &work.background_loc_3038a;
     if background.special_effect_4
@@ -1827,12 +1890,12 @@ pub fn mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(
             background.piece_rows_sub_30744.rendered_nonnegative_entries,
         ))?)?;
 
-    // ASM loc_892: inactive sub_14C0 call/path is 82, and Mode_Level
-    // return/MainGameLoop/WaitForVint prefix is 60.
+    // ASM loc_892: the classified sub_14C0 call is followed by the
+    // Mode_Level return/MainGameLoop/WaitForVint prefix at 60 raw cycles.
     Some(M68kCycleCount::from_raw(
         camera_stripe_cycles
             .checked_add(background_cycles)?
-            .checked_add(82)?
+            .checked_add(palette_cycles)?
             .checked_add(60)?,
     ))
 }
@@ -4004,7 +4067,7 @@ mod tests {
     }
 
     #[test]
-    fn mode_level_tail_first_gameplay_streaming_work_matches_oracle_instruction_trace() {
+    fn mode_level_tail_preload_streaming_work_matches_frame_895_instruction_trace() {
         let profile = [
             96, 96, 80, 80, 80, 112, 112, 64, 64, 64, 96, 96, 96, 96, 96, 96, 64, 64, 64, 64, 80,
             80, 80, 80, 80, 80, 112, 112, 112, 112, 80, 80, 80, 80, 80, 80, 64, 64, 64, 64, 16, 16,
@@ -4012,7 +4075,7 @@ mod tests {
         ];
         let ordinary_cells = [0x0001_u16; 21];
         let mut state = ModeLevelTailStateLoc892::power_on_zero();
-        state.preload_loc_2ffe8(0, 0x02A0, 0);
+        state.preload_loc_2ffe8(0, 0x02A0, 0x0500, 0);
 
         let advance = state.advance_loc_892(ModeLevelTailInputsLoc892 {
             camera_x_pos: 0,
@@ -4069,6 +4132,69 @@ mod tests {
             ),
             None,
             "frame-895 oracle trace records 386+146 VDP waits and a VINT inside sub_307D8, so refresh-only composition must reject it",
+        );
+    }
+
+    #[test]
+    fn mode_level_tail_first_gameplay_work_matches_frame_902_instruction_trace() {
+        let profile = [
+            96, 96, 80, 80, 80, 112, 112, 64, 64, 64, 96, 96, 96, 96, 96, 96, 64, 64, 64, 64, 80,
+            80, 80, 80, 80, 80, 112, 112, 112, 112, 80, 80, 80, 80, 80, 80, 64, 64, 64, 64, 16, 16,
+            16, 16, 16, 16, 16, 16, 16,
+        ];
+        let mut camera_cells = [0x0001_u16; 21];
+        camera_cells[20] = 0xFFFF;
+        let mut state = ModeLevelTailStateLoc892::power_on_zero();
+        state.preload_loc_2ffe8(0, 0x02A0, 0x0380, 0);
+        state.set_pending_palette_masks_f888_f88c(u32::MAX, u32::MAX);
+
+        let advance = state.advance_loc_892(ModeLevelTailInputsLoc892 {
+            camera_x_pos: 0,
+            camera_y_pos: 0x0298,
+            camera_stripe_cells_sub_30194: Some(&camera_cells),
+            time_frames_before_loc_3038a: 0,
+            game_mode_zero: false,
+            special_effect_4: false,
+            background_width: 90,
+            background_format_nonzero: false,
+            background_no_scroll: false,
+            background_theme: 1,
+            bgscroll_profile: &profile,
+            bgscroll_has_terminator: false,
+        });
+        let work = advance.work.expect("first gameplay pass is source-typed");
+
+        assert_eq!(
+            work.camera_stripe_sub_30194,
+            ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+                ordinary_theme_cells: 20,
+                priority_theme_cells: 0,
+                block_cells: 1,
+            },
+            "ASM sub_30194 loc_30354/loc_3037C: frame-902 oracle trace takes 20 ordinary branches and one block branch",
+        );
+        assert_eq!(
+            work.background_loc_3038a.piece_refresh_sub_307d8,
+            ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged,
+            "ASM sub_307D8 loc_3080E -> return_308B4: frame-902 FAA8 already equals Camera_Y_pos>>5",
+        );
+        assert_eq!(
+            work.palette_sub_14c0,
+            ModeLevelTailPaletteWorkSub14C0::BothMasksFull,
+            "ASM sub_14C0/loc_14CE: frame-902 F888 and F88C are both FFFFFFFF",
+        );
+        assert_eq!(
+            mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(&work),
+            Some(M68kCycleCount::from_raw(31_176)),
+            "ASM loc_892 -> WaitForVint $93E: frame-902 source instructions total 31,176 raw cycles before hardware waits",
+        );
+        assert_eq!(
+            mode_level_tail_advance_to_wait_for_vint_loc_892(
+                M68kRefreshPhase::new(95).expect("oracle loc_892 phase"),
+                &work,
+            ),
+            None,
+            "ASM sub_30194's live VDP writes require ordered FIFO/GEMS arbitration",
         );
     }
 
@@ -4283,7 +4409,7 @@ mod tests {
     fn mode_level_tail_state_loc_2ffe8_preloads_camera_row_and_shift_history() {
         let mut state = ModeLevelTailStateLoc892::power_on_zero();
 
-        state.preload_loc_2ffe8(0x0121, 0x0240, 0);
+        state.preload_loc_2ffe8(0x0121, 0x0240, 0x0500, 0);
 
         assert_eq!(state.camera_latches_f82c_f82e(), (0x0121, 0x0240));
         assert_eq!(

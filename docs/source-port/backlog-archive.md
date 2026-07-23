@@ -1889,16 +1889,26 @@ mask the render.
 
 ### #409
 
-Progress 2026-07-23: oracle frame 895 fixes the first complete streaming
-`loc_892` pass at 13,560 raw source cycles. `sub_30194/loc_301CE` takes the
-unsplit upward path through 21 ordinary theme cells at 2,320 raw cycles, with
-386 separate VDP-wait cycles. `sub_307D8/loc_308A6` takes the zero-wrap,
-zero-width-subtraction 41-word path at 2,360 raw cycles, with 146 separate
-VDP-wait cycles and a VINT before the copy resumes. Both source workloads are
-now typed; untraced cell mixtures and widths remain fail-closed. The
-refresh-only calculator deliberately rejects these streaming variants because
-it cannot represent their ordered hardware ownership. NEXT: retain the two
-VDP-wait sequences and mid-routine VINT in the persistent scheduler.
+Correction 2026-07-23: the frame-895 calls below are the final
+`Load_InGame loc_2FFE8` preload calls, not the first gameplay `loc_892` pass.
+The complete frame-902 PC trace fixes the real pass at 31,176 raw and 33,218
+elapsed cycles. `sub_30194` takes 20 ordinary `loc_30354` cells followed by
+one `loc_3037C` block cell; `sub_307D8` takes the cached `loc_3080E ->
+return_308B4` path; both `$FFFFF888/$FFFFF88C` masks are `$FFFFFFFF`, so
+`sub_14C0` runs `sub_1536` twice. External arbitration is 409 VDP FIFO halt
+cycles, 478 refresh-wait cycles, and 1,155 GEMS bus-wait cycles. Native now
+derives those typed branches and the exact 31,176-cycle raw workload. NEXT:
+source-schedule their instruction boundaries and FIFO writes in the persistent
+GEMS shell.
+
+Progress 2026-07-23: oracle frame 895 fixes the final preload's streaming
+calls. `sub_30194/loc_301CE` takes the unsplit upward path through 21 ordinary
+theme cells at 2,320 raw cycles, with 386 separate VDP-wait cycles.
+`sub_307D8/loc_308A6` takes the zero-wrap, zero-width-subtraction 41-word path
+at 2,360 raw cycles, with 146 separate VDP-wait cycles and a VINT before the
+copy resumes. Their combined synthetic `loc_892` workload is 13,560 raw
+cycles. Both source workloads are typed; untraced cell mixtures and widths
+remain fail-closed.
 
 Progress 2026-07-23: the first gameplay pass's unaligned
 `BackgroundScroll_ComputeShiftLayers` path is source-typed. Camera Y `$0298`

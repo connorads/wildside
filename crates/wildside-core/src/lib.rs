@@ -139,7 +139,7 @@ pub use mode_level_timing::{
     manage_platform_loading_raw_cycles_loc_2744, mode_level_post_hud_phase_raw_cycles_to_loc_892,
     mode_level_post_hud_raw_cycles_to_loc_892, mode_level_tail_advance_to_wait_for_vint_loc_892,
     mode_level_tail_camera_stripe_raw_cycles_sub_30194,
-    mode_level_tail_camera_stripe_work_sub_30194,
+    mode_level_tail_camera_stripe_work_sub_30194, mode_level_tail_palette_raw_cycles_sub_14c0,
     mode_level_tail_piece_refresh_raw_cycles_sub_307d8,
     mode_level_tail_raw_cycles_to_wait_for_vint_loc_892, mode_level_vblank_advance_before_sub_e12,
     mode_level_vblank_elapsed_cycles_before_sub_e12,
@@ -1726,6 +1726,10 @@ impl NativeRuntime {
     pub(crate) fn reset_and_preload_mode_level_tail_loc_720_2ffe8(&mut self) {
         self.mode_level_tail_state_loc_892.clear_loc_720();
         self.rebase_mode_level_tail_after_external_override_loc_2ffe8();
+        // ASM sub_73D0/loc_7414: every Load_InGame path seeds both full
+        // palette masks before the first live Mode_Level loc_892 tail.
+        self.mode_level_tail_state_loc_892
+            .set_pending_palette_masks_f888_f88c(u32::MAX, u32::MAX);
     }
 
     pub(crate) fn rebase_mode_level_tail_after_external_override_loc_2ffe8(&mut self) {
@@ -1735,9 +1739,15 @@ impl NativeRuntime {
         let camera = self
             .opening_slice
             .map_or_else(|| self.current_camera_state(), |slice| slice.camera);
+        let level_height_pixels = self
+            .level_header(self.current_level)
+            .map_or(u16::MAX, |header| {
+                u16::from(header.height_screens).saturating_mul(14 * 16)
+            });
         self.mode_level_tail_state_loc_892.preload_loc_2ffe8(
             (camera.x_pos >> 16) as u16,
             (camera.y_pos >> 16) as u16,
+            level_height_pixels,
             self.time_frames_loc_3038a,
         );
     }
@@ -1810,6 +1820,9 @@ impl NativeRuntime {
                     bgscroll_has_terminator: bgscroll.has_terminator,
                 });
         self.mode_level_tail_state_loc_892 = advance.next_state;
+        // ASM sub_14C0 clears each non-zero shared mask before returning.
+        self.level_entry_pending_palette_0_mask_sub_73d0 = 0;
+        self.level_entry_pending_palette_1_mask_sub_73d0 = 0;
         self.time_frames_loc_3038a = advance.next_time_frames;
         self.mode_level_tail_work_loc_892 = advance.work;
     }
@@ -4702,6 +4715,11 @@ impl NativeRuntime {
         let fade_completed = level::step_fullscreen_palette_fade_sub_73D0(&mut fade);
         self.level_entry_pending_palette_0_mask_sub_73d0 = fade.pending_palette_0_mask;
         self.level_entry_pending_palette_1_mask_sub_73d0 = fade.pending_palette_1_mask;
+        self.mode_level_tail_state_loc_892
+            .set_pending_palette_masks_f888_f88c(
+                fade.pending_palette_0_mask,
+                fade.pending_palette_1_mask,
+            );
         self.level_entry_fade_progress_sub_73d0 = fade.fade_progress;
         self.allow_pausing_fade_frames = self.allow_pausing_fade_frames.saturating_add(1);
         if fade_completed {
@@ -4729,6 +4747,8 @@ impl NativeRuntime {
         // first live InGame refresh has a pending full-palette blend.
         self.level_entry_pending_palette_0_mask_sub_73d0 = u32::MAX;
         self.level_entry_pending_palette_1_mask_sub_73d0 = u32::MAX;
+        self.mode_level_tail_state_loc_892
+            .set_pending_palette_masks_f888_f88c(u32::MAX, u32::MAX);
         self.allow_pausing = fade.allow_pausing;
         self.allow_pausing_fade_frames = 0;
     }
@@ -4737,6 +4757,8 @@ impl NativeRuntime {
         self.level_entry_fade_progress_sub_73d0 = 0;
         self.level_entry_pending_palette_0_mask_sub_73d0 = 0;
         self.level_entry_pending_palette_1_mask_sub_73d0 = 0;
+        self.mode_level_tail_state_loc_892
+            .set_pending_palette_masks_f888_f88c(0, 0);
         self.allow_pausing_fade_frames = 0;
     }
 
