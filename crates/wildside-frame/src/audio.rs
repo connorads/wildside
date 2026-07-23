@@ -1853,6 +1853,31 @@ pub fn apply_gems_title_mode_standard_empty_foreground_queues(
     )
 }
 
+/// Clock the natural gameplay suffix after the H-scroll DMA through the
+/// `Execute_Objects sub_E12` call instruction.
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_vblank_suffix_after_scroll_dma(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    work: ModeLevelVblankWorkBeforeSubE12,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::mode_level_vblank_suffix_after_scroll_dma_cursor_with_scheduler(
+        entry,
+        work,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock the first title object dispatch into `sub_1B8F4`.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_execute_objects_to_intro_controller(
@@ -4285,6 +4310,67 @@ mod tests {
             "pinned jgenesis check_for_long_dma_skip queues an eight-cycle re-entry"
         );
         assert_eq!(engine.pending_m68k_wait_cycles(), 0);
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn mode_level_vblank_suffix_clocks_every_source_instruction() {
+        // ASM Mode_Level $7D6 -> sub_1596 -> sub_6874 -> sub_BDC0 -> $7E2.
+        let entry_cycles = 1_000_u32;
+        let entry_phase = M68kRefreshPhase::new(42).unwrap();
+        let entry = LoadInGameCpuRasterCursor {
+            beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                entry_cycles,
+            )),
+            refresh_phase: entry_phase,
+        };
+        let work = ModeLevelVblankWorkBeforeSubE12 {
+            dynamic_art_tiles_loc_ad4: [16, 4],
+            palette_dma_sub_970: true,
+            scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
+            foreground_custom_queue_entries_sub_1596: 0,
+            foreground_cell_queue_entries_sub_1596: 0,
+            paused_sub_6874: false,
+            hud_path_sub_bdc0:
+                wildside_core::ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
+        };
+        let mut expected_phase = entry_phase;
+        let mut expected_elapsed = 0_u32;
+        wildside_core::intro_timing::visit_mode_level_vblank_suffix_after_scroll_dma(
+            work,
+            |raw_cycles| {
+                let advance = expected_phase.advance_rom(M68kCycleCount::from_raw(raw_cycles));
+                expected_phase = advance.phase_after;
+                expected_elapsed += advance.elapsed.get();
+            },
+        )
+        .expect("published Mode_Level VBlank suffix");
+
+        let mut engine = GemsMasterClockTimingEngine::new_with_ntsc_timeline_origin(
+            &[0x76],
+            vec![],
+            GemsNtscTimelineOrigin::PowerOnScanlineZero,
+        );
+        engine.advance_ntsc_master_clocks(u64::from(entry_cycles) * 7);
+        let advance =
+            apply_gems_mode_level_vblank_suffix_after_scroll_dma(&mut engine, entry, work)
+                .expect("source-scheduled Mode_Level VBlank suffix");
+
+        assert_eq!(advance.timing.instruction_count, 88);
+        assert_eq!(advance.timing.raw_cycles.get(), 914);
+        assert_eq!(advance.refresh_events, 7);
+        assert_eq!(advance.external_wait_cycles.get(), 0);
+        assert_eq!(advance.cursor.refresh_phase, expected_phase);
+        assert_eq!(
+            advance.cursor.beam,
+            entry
+                .beam
+                .advance_m68k_cycles(M68kCycleCount::from_raw(expected_elapsed)),
+        );
+        assert_eq!(
+            engine.master_clock(),
+            u64::from(entry_cycles + expected_elapsed) * 7,
+        );
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]

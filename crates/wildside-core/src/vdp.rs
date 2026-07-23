@@ -4300,6 +4300,20 @@ pub fn title_mode_standard_empty_foreground_queues_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule the natural gameplay suffix after the H-scroll DMA through the
+/// `Execute_Objects sub_E12` call instruction.
+pub fn mode_level_vblank_suffix_after_scroll_dma_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    work: crate::ModeLevelVblankWorkBeforeSubE12,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| crate::intro_timing::visit_mode_level_vblank_suffix_after_scroll_dma(work, visit),
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule the first title `Execute_Objects` dispatch into `sub_1B8F4`.
 pub fn title_execute_objects_to_intro_controller_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,

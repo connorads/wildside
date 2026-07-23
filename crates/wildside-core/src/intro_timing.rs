@@ -235,6 +235,70 @@ pub fn visit_mode_standard_empty_foreground_queues_sub_1596(
     timing
 }
 
+/// Visit the natural gameplay suffix from ASM `Mode_Level $7D6` through the
+/// `Execute_Objects sub_E12` call instruction.
+///
+/// The empty gameplay foreground queues retain their producer-base sentinels,
+/// so `sub_1596` takes the setup path through `loc_15C8` before resetting both
+/// pointers. The remaining typed path is unpaused `sub_6874` and
+/// `Make_SpriteAttr_HUD loc_BE20 -> loc_BE0C -> loc_BE34 -> loc_BE4C`, with
+/// no timer rollover or score/life redraw.
+pub fn visit_mode_level_vblank_suffix_after_scroll_dma(
+    work: crate::ModeLevelVblankWorkBeforeSubE12,
+    mut visit: impl FnMut(u32),
+) -> Option<IntroSourceTiming> {
+    if work.foreground_custom_queue_entries_sub_1596 != 0
+        || work.foreground_cell_queue_entries_sub_1596 != 0
+        || work.paused_sub_6874
+        || work.hud_path_sub_bdc0
+            != crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates
+    {
+        return None;
+    }
+
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("Mode_Level VBlank suffix source timing fits u32"),
+        );
+    };
+
+    // ASM Mode_Level $7D6 and sub_1596 $1596..$168C. The custom queue pointer
+    // equals its empty producer base rather than zero, while the cell queue
+    // takes the direct empty branch.
+    for cycles in [
+        18, 8, 16, 8, 4, 12, 4, 8, 8, 12, 10, 8, 8, 4, 16, 16, 12, 8, 10, 24,
+    ] {
+        emit(cycles);
+    }
+
+    // ASM Mode_Level $7DA and unpaused sub_6874 $6874..$687A.
+    for cycles in [18, 12, 8, 16] {
+        emit(cycles);
+    }
+
+    // ASM Mode_Level $7DE, j_Make_SpriteAttr_HUD $7176, and sub_BDC0 through
+    // $BF80, followed by the $7E2 BSR.W Execute_Objects instruction.
+    for cycles in [
+        18, 10, 12, 16, 12, 8, 12, 12, 12, 12, 4, 14, 12, 8, 12, 10, 8, 4, 8, 4, 4, 10, 8, 12, 8,
+        12, 8, 4, 10, 4, 8, 4, 4, 8, 8, 10, 4, 10, 8, 12, 8, 12, 8, 10, 12, 16, 12, 12, 12, 12, 16,
+        10, 12, 10, 12, 8, 10, 12, 10, 12, 12, 10, 16, 18,
+    ] {
+        emit(cycles);
+    }
+
+    Some(timing)
+}
+
 fn visit_title_execute_objects_setup(
     rng_offset_before: u16,
     emit: &mut dyn FnMut(u32),
@@ -2824,6 +2888,55 @@ mod tests {
             "ASM sub_1596 title path must skip both drains and reset both next-slot pointers",
         );
         assert_eq!(cycles, [18, 8, 12, 10, 12, 10, 28, 28, 16]);
+    }
+
+    #[test]
+    fn mode_level_vblank_suffix_retains_natural_instruction_boundaries() {
+        let work = crate::ModeLevelVblankWorkBeforeSubE12 {
+            dynamic_art_tiles_loc_ad4: [16, 4],
+            palette_dma_sub_970: true,
+            scroll_path: crate::ModeLevelScrollTransferPath::NormalLoc300ba,
+            foreground_custom_queue_entries_sub_1596: 0,
+            foreground_cell_queue_entries_sub_1596: 0,
+            paused_sub_6874: false,
+            hud_path_sub_bdc0: crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
+        };
+        let mut cycles = Vec::new();
+        let timing =
+            visit_mode_level_vblank_suffix_after_scroll_dma(work, |cycle| cycles.push(cycle))
+                .expect("published Mode_Level VBlank suffix");
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 88,
+                raw_cycles: M68kCycleCount::from_raw(914),
+            },
+            "ASM Mode_Level $7D6 -> Execute_Objects sub_E12 retains the frame-1697 oracle path",
+        );
+        assert_eq!(
+            cycles[..20].iter().sum::<u32>(),
+            214,
+            "ASM sub_1596 uses the gameplay producer-base sentinel path",
+        );
+        assert_eq!(
+            cycles[20..24],
+            [18, 12, 8, 16],
+            "ASM sub_6874 takes the unpaused return",
+        );
+        assert_eq!(
+            cycles[24..].iter().sum::<u32>(),
+            646,
+            "ASM sub_BDC0 takes loc_BE20 then loc_BE4C without counter rollover",
+        );
+
+        let mut unsupported = work;
+        unsupported.foreground_custom_queue_entries_sub_1596 = 1;
+        assert_eq!(
+            visit_mode_level_vblank_suffix_after_scroll_dma(unsupported, |_| {}),
+            None,
+            "unclassified gameplay foreground queue work remains fail-closed",
+        );
     }
 
     #[test]

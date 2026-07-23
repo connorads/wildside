@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 VBlank suffix instruction schedule)
+
+- The natural post-scroll VBlank suffix now retains all 88 oracle source
+  instructions and clocks them through the persistent GEMS timeline.
+- Gameplay's empty `sub_1596` path costs 214 raw cycles because its custom
+  queue pointer retains the producer-base sentinel. Unpaused `sub_6874` costs
+  54 and the fixed `sub_BDC0` HUD path through `$7E2` costs 646.
+- NEXT: compose the 914-cycle suffix after the three VDP-owning prefix
+  schedulers, reconcile the aggregate's remaining 157-cycle discrepancy, then
+  carry the resulting cursor through the frame replayer.
+
 ## 2026-07-23 handoff (#409 typed VBlank workload)
 
 - Natural gameplay traces now carry the typed `$7C8 -> sub_E12` VBlank

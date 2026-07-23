@@ -11,6 +11,26 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ---
 
+### #409
+
+2026-07-23 VBlank suffix schedule: selected-PC oracle traces for published
+frames 1697, 1703, and 1709 agree on the same 88-instruction, 914-raw-cycle
+path from `Mode_Level $7D6` through the `Execute_Objects sub_E12` call.
+Gameplay's nominally empty `sub_1596` queues do not reuse the title's
+142-cycle zero-pointer shortcut: the custom queue pointer retains its
+producer-base sentinel, takes `loc_15C8`, and makes the complete foreground
+pass 214 cycles. The following unpaused `sub_6874` pass costs 54 cycles.
+`Make_SpriteAttr_HUD sub_BDC0` takes `loc_BE20 -> loc_BE0C -> loc_BE34 ->
+loc_BE4C`, skips timer rollover and score/life redraw, and costs 646 cycles
+including the `$7DE` jump stub and `$7E2` call instruction. Core now preserves
+every instruction boundary; the frame adapter clocks them through persistent
+GEMS. Focused core/audio tests, `verify-slice-fast`, and `verify-tas-full`
+pass. Full baselines remain 26,382 exact pixel frames, 11,377 divergent,
+3,620,978 changed pixels, and 36,856 GEMS mismatches with first authoritative
+frame 903. The explicit prefix visitors plus this suffix are 157 raw cycles
+short of the older 3,415-cycle aggregate, so composition must reconcile that
+classification before replacing the aggregate seed.
+
 ### #418
 
 Opened and closed 2026-07-20 (census ownership). The 106 blocking differences in
