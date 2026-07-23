@@ -1889,6 +1889,17 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: frame 1697 is now instruction-scheduled through
+`loc_856`. The two empty `GfxObjects_Collision sub_16F0` passes each take 356
+raw cycles; their different starting phases cause two and three refresh waits,
+reaching phases 118 and 96. The three-instruction damage latch takes 56 raw
+cycles plus one refresh and reaches phase 26. The empty projectile-vs-Kid
+`GfxObjects_CollisionKid sub_1B76` pass takes 192 raw cycles plus one refresh
+and reaches phase 92. Selected-PC traces show no GEMS waits across these four
+intervals. Eleven of the 22 post-HUD phases now preserve exact source
+instruction boundaries. NEXT: source-schedule `sub_1F52` from `loc_856`, then
+the empty `sub_219C` and `sub_226A` shooter passes.
+
 Progress 2026-07-23: the next four frame-1697 post-HUD phases are now
 instruction-scheduled. Inactive `sub_5E02` takes 56 raw cycles with no wait
 and reaches `loc_822` phase 118. The 40-instruction wrapped, out-of-range

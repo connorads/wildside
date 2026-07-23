@@ -3107,18 +3107,129 @@ pub fn kid_projectile_collision_raw_cycles_sub_1d76(
     Some(M68kCycleCount::from_raw(126))
 }
 
+fn visit_gfx_objects_collision_instructions_sub_16f0(
+    list: ModeLevelGfxCollisionListWork,
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
+    if list != ModeLevelGfxCollisionListWork::Empty {
+        return None;
+    }
+
+    // ASM Mode_Level loc_82E/loc_836 LEA+BSR, then sub_16F0
+    // loc_16FC/loc_17BE: save all registers, observe a null successor in
+    // `4(a2)`, restore the frame, and return.
+    for cycles in [8, 18, 128, 8, 12, 16, 10, 8, 132, 16] {
+        visit(cycles)?;
+    }
+    Some(())
+}
+
 /// Raw routine-body cost for an empty ASM `GfxObjects_Collision` (`sub_16F0`)
 /// special-chain pass.
 pub fn gfx_objects_collision_raw_cycles_sub_16f0(
     list: ModeLevelGfxCollisionListWork,
 ) -> Option<M68kCycleCount> {
-    if list != ModeLevelGfxCollisionListWork::Empty {
+    let mut raw_cycles = 0_u32;
+    visit_gfx_objects_collision_instructions_sub_16f0(list, |instruction_cycles| {
+        raw_cycles = raw_cycles.checked_add(instruction_cycles)?;
+        Some(())
+    })?;
+    // The visitor includes the Mode_Level 8-cycle LEA and 18-cycle BSR.
+    raw_cycles.checked_sub(26).map(M68kCycleCount::from_raw)
+}
+
+/// Co-schedule either ASM `Mode_Level` empty-list `sub_16F0` call with
+/// asynchronous hardware.
+pub fn gfx_objects_collision_advance_with_scheduler_sub_16f0(
+    mut phase: M68kRefreshPhase,
+    list: ModeLevelGfxCollisionListWork,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    visit_gfx_objects_collision_instructions_sub_16f0(list, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+        Some(())
+    })?;
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
+}
+
+/// Co-schedule ASM `Mode_Level loc_83E..loc_84A` damage-state latching with
+/// asynchronous hardware.
+pub fn mode_level_latch_damage_state_advance_loc_83e(
+    mut phase: M68kRefreshPhase,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    // ASM loc_83E/loc_844 are memory-to-memory MOVE.B instructions and
+    // loc_84A is the memory Scc that clears `$FFFFFA75`.
+    for instruction_cycles in [20, 20, 16] {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+    }
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
+}
+
+fn visit_gfx_objects_collision_kid_instructions_sub_1b76(
+    list: ModeLevelGfxCollisionListWork,
+    work: &ModeLevelGfxCollisionWork,
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
+    if list != ModeLevelGfxCollisionListWork::Empty || work.kid_is_invulnerable {
         return None;
     }
 
-    // ASM sub_16F0 loc_16FC/loc_17BE: save all registers, observe a null
-    // successor in `4(a2)`, restore the frame, and return.
-    Some(M68kCycleCount::from_raw(330))
+    // ASM Mode_Level LEA+BSR, then sub_1B76 loc_1B94/loc_1D00: load the Kid
+    // hitbox, observe a null successor in `4(a2)`, then take the clear
+    // KidIsInvulnerable return.
+    for cycles in [8, 18, 12, 10, 8, 16, 12, 12, 12, 12, 16, 10, 8, 12, 10, 16] {
+        visit(cycles)?;
+    }
+    Some(())
 }
 
 /// Raw routine-body cost for an empty ASM `GfxObjects_CollisionKid`
@@ -3127,13 +3238,52 @@ pub fn gfx_objects_collision_kid_raw_cycles_sub_1b76(
     list: ModeLevelGfxCollisionListWork,
     work: &ModeLevelGfxCollisionWork,
 ) -> Option<M68kCycleCount> {
-    if list != ModeLevelGfxCollisionListWork::Empty || work.kid_is_invulnerable {
-        return None;
-    }
+    let mut raw_cycles = 0_u32;
+    visit_gfx_objects_collision_kid_instructions_sub_1b76(list, work, |instruction_cycles| {
+        raw_cycles = raw_cycles.checked_add(instruction_cycles)?;
+        Some(())
+    })?;
+    // The visitor includes Mode_Level's 8-cycle LEA and 18-cycle BSR.
+    raw_cycles.checked_sub(26).map(M68kCycleCount::from_raw)
+}
 
-    // ASM sub_1B76 loc_1B94/loc_1D00: load the Kid hitbox, observe a null
-    // successor in `4(a2)`, then take the clear KidIsInvulnerable return.
-    Some(M68kCycleCount::from_raw(166))
+/// Co-schedule an ASM `Mode_Level` empty-list `sub_1B76` call with
+/// asynchronous hardware.
+pub fn gfx_objects_collision_kid_advance_with_scheduler_sub_1b76(
+    mut phase: M68kRefreshPhase,
+    list: ModeLevelGfxCollisionListWork,
+    work: &ModeLevelGfxCollisionWork,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    visit_gfx_objects_collision_kid_instructions_sub_1b76(list, work, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+        Some(())
+    })?;
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
 }
 
 /// Raw routine-body cost for the kind-4 `$FFFFF86E` pass through ASM
@@ -4163,6 +4313,56 @@ mod tests {
         assert_eq!(
             gfx_objects_collision_raw_cycles_sub_16f0(work.kid_projectile_list_f866),
             Some(M68kCycleCount::from_raw(330))
+        );
+        let first = gfx_objects_collision_advance_with_scheduler_sub_16f0(
+            M68kRefreshPhase::new(14).expect("frame-1697 loc_82E phase"),
+            work.object_kind_two_list_f86a,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("published empty object-kind-two collision list");
+        assert_eq!(first.elapsed, M68kCycleCount::from_raw(360));
+        assert_eq!(first.refresh_events, 2);
+        assert_eq!(
+            first.phase_after,
+            M68kRefreshPhase::new(118).expect("frame-1697 loc_836 phase"),
+        );
+        let second = gfx_objects_collision_advance_with_scheduler_sub_16f0(
+            first.phase_after,
+            work.kid_projectile_list_f866,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("published empty Kid-projectile collision list");
+        assert_eq!(second.elapsed, M68kCycleCount::from_raw(362));
+        assert_eq!(second.refresh_events, 3);
+        assert_eq!(
+            second.phase_after,
+            M68kRefreshPhase::new(96).expect("frame-1697 loc_83E phase"),
+            "both ASM sub_16F0 calls reach their bounded oracle phases",
+        );
+        let latch = mode_level_latch_damage_state_advance_loc_83e(second.phase_after, |_| {
+            Some(M68kCycleCount::from_raw(0))
+        })
+        .expect("frame-1697 damage-state latch");
+        assert_eq!(latch.elapsed, M68kCycleCount::from_raw(58));
+        assert_eq!(latch.refresh_events, 1);
+        assert_eq!(
+            latch.phase_after,
+            M68kRefreshPhase::new(26).expect("frame-1697 loc_84E phase"),
+            "ASM loc_83E..loc_84A reaches the oracle boundary",
+        );
+        let projectile_vs_kid = gfx_objects_collision_kid_advance_with_scheduler_sub_1b76(
+            latch.phase_after,
+            work.kid_projectile_list_f866,
+            &work,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("published empty Kid-projectile versus Kid list");
+        assert_eq!(projectile_vs_kid.elapsed, M68kCycleCount::from_raw(194));
+        assert_eq!(projectile_vs_kid.refresh_events, 1);
+        assert_eq!(
+            projectile_vs_kid.phase_after,
+            M68kRefreshPhase::new(92).expect("frame-1697 loc_856 phase"),
+            "ASM sub_1B76 empty path reaches the oracle boundary",
         );
         assert_eq!(
             gfx_objects_collision_kid_raw_cycles_sub_1b76(work.object_kind_two_list_f86a, &work,),

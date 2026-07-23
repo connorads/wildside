@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 first collision block)
+
+- Frame 1697 now source-schedules both empty `sub_16F0` passes, the damage
+  latch, and the empty projectile-vs-Kid `sub_1B76` pass.
+- Their 356/356/56/192 raw cycles and 2/3/1/1 refresh waits reproduce all four
+  oracle phase and beam boundaries without GEMS waits.
+- Eleven of 22 post-HUD phases now preserve exact instruction boundaries.
+- NEXT: source-schedule `sub_1F52`, `sub_219C`, and `sub_226A`.
+
 ## 2026-07-23 handoff (#409 platform phases)
 
 - Frame 1697 now source-schedules inactive `sub_5E02`, the wrapped platform
