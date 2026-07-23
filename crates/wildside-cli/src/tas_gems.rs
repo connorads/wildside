@@ -45,6 +45,7 @@ use wildside_frame::{
     apply_gems_fresh_title_prompt_chameleon_execute_objects_to_enigma,
     apply_gems_fresh_title_second_execute_objects_to_chameleon_enigma,
     apply_gems_fresh_title_third_execute_objects_to_chameleon_enigma,
+    apply_gems_mode_level_tail_to_wait_for_vint,
     apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint,
     apply_gems_mode_level_wait_for_vint_to_mode_level, apply_gems_power_on_post_clear_reset,
     apply_gems_power_on_z80_startup, apply_gems_title_character_map_to_chameleon_enigma,
@@ -375,7 +376,15 @@ impl GemsSignatureProbe {
         })
     }
 
+    #[cfg(test)]
     fn sample_power_on_frame_rendered(&mut self) -> GemsFrameSignature {
+        self.sample_power_on_frame_rendered_with_mode_tail(None)
+    }
+
+    fn sample_power_on_frame_rendered_with_mode_tail(
+        &mut self,
+        mode_level_tail_work_loc_892: Option<&wildside_core::ModeLevelTailWorkLoc892>,
+    ) -> GemsFrameSignature {
         // jgenesis FrameRendered fires at scanline 232. Absolute power-on
         // clocks therefore sample frame N at N*262+232 scanlines.
         let target = (self.power_on_frame as u64 * NTSC_SCANLINES_PER_FRAME
@@ -4376,31 +4385,60 @@ impl GemsSignatureProbe {
             assert_eq!(self.engine.master_clock(), 115_384_281 * 7);
         }
         if self.power_on_frame == 902 {
-            // ASM loc_892 returns to MainGameLoop's blocking WaitForVint.
-            // Selected-PC tracing places its first $93E poll at cycle
-            // 115,518,946 with refresh phase 57. The persistent scheduler
-            // derives V_Int, the resumed poll tail, MainGameLoop dispatch,
-            // and Mode_Level $7C8 without a route-time entry constant.
-            const FIRST_WAIT_FOR_VINT_POLL_CYCLES: u64 = 115_518_946;
-            self.engine.advance_ntsc_master_clocks(
-                FIRST_WAIT_FOR_VINT_POLL_CYCLES * 7 - self.engine.master_clock(),
-            );
-            // TODO(fidelity): replace this absolute first-poll handoff with
-            // the source-typed streaming loc_892 tail. The elapsed interval
-            // already includes its serviced waits; discard only the coarse
-            // probe's duplicate unconsumed ledger at the proven $93E boundary.
-            let _ = self.engine.take_pending_m68k_wait_cycles();
-            let mode_level = apply_gems_mode_level_wait_for_vint_to_mode_level(
-                &mut self.engine,
+            let wait_for_vint = if let Some(tail_work) = mode_level_tail_work_loc_892 {
+                // Characterisation path for the source/FIFO/native-GEMS
+                // composition. The native driver takes 40 more bank steals
+                // than jgenesis here, so production keeps the exact oracle
+                // handoff below until that Z80 execution split is resolved.
+                const FIRST_MODE_LEVEL_TAIL_CYCLES: u64 = 115_485_728;
+                self.engine.advance_ntsc_master_clocks(
+                    FIRST_MODE_LEVEL_TAIL_CYCLES * 7 - self.engine.master_clock(),
+                );
+                let _ = self.engine.take_pending_m68k_wait_cycles();
+                let advance = apply_gems_mode_level_tail_to_wait_for_vint(
+                    &mut self.engine,
+                    wildside_core::vdp::LoadInGameCpuRasterCursor {
+                        beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                            M68kCycleCount::from_raw(FIRST_MODE_LEVEL_TAIL_CYCLES as u32),
+                        ),
+                        refresh_phase: M68kRefreshPhase::new(95)
+                            .expect("oracle first gameplay loc_892 phase"),
+                    },
+                    tail_work,
+                )
+                .expect("first gameplay Mode_Level tail reaches WaitForVint");
+                assert_eq!(
+                    (
+                        advance.camera.external_wait_cycles.get(),
+                        advance.background.external_wait_cycles.get(),
+                        advance.palette.external_wait_cycles.get(),
+                    ),
+                    (0, 583, 1_012),
+                );
+                assert_eq!(self.engine.master_clock(), 115_519_378 * 7);
+                assert_eq!(
+                    advance.cursor.refresh_phase,
+                    M68kRefreshPhase::new(105)
+                        .expect("native first gameplay WaitForVint poll phase"),
+                );
+                advance.cursor
+            } else {
+                const FIRST_WAIT_FOR_VINT_POLL_CYCLES: u64 = 115_518_946;
+                self.engine.advance_ntsc_master_clocks(
+                    FIRST_WAIT_FOR_VINT_POLL_CYCLES * 7 - self.engine.master_clock(),
+                );
+                let _ = self.engine.take_pending_m68k_wait_cycles();
                 wildside_core::vdp::LoadInGameCpuRasterCursor {
                     beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
                         M68kCycleCount::from_raw(FIRST_WAIT_FOR_VINT_POLL_CYCLES as u32),
                     ),
                     refresh_phase: M68kRefreshPhase::new(57)
                         .expect("oracle first gameplay WaitForVint poll phase"),
-                },
-            )
-            .expect("first gameplay WaitForVint reaches Mode_Level");
+                }
+            };
+            let mode_level =
+                apply_gems_mode_level_wait_for_vint_to_mode_level(&mut self.engine, wait_for_vint)
+                    .expect("first gameplay WaitForVint reaches Mode_Level");
             let (_, checkpoint) =
                 apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
                     &mut self.engine,
@@ -5609,7 +5647,7 @@ pub(crate) fn extract_native_gems_frame_signatures(
             director.step(manifest, frame, &mut coarse_probe);
             let coarse_signature = coarse_probe.sample_at_frame_rendered();
             if frame_index < GEMS_MODELLED_ROUTE_FRAMES {
-                Some(power_on_probe.sample_power_on_frame_rendered())
+                Some(power_on_probe.sample_power_on_frame_rendered_with_mode_tail(None))
             } else {
                 Some(coarse_signature)
             }
@@ -13439,10 +13477,39 @@ mod tests {
         .expect("bootstrapped Kid ROM");
         let mut probe = GemsSignatureProbe::from_kid_rom_power_on(&rom).expect("power-on probe");
 
-        let frame_902 = (0..=902)
-            .map(|_| probe.sample_power_on_frame_rendered())
-            .last()
-            .expect("frame 902 signature");
+        for _ in 0..902 {
+            probe.sample_power_on_frame_rendered();
+        }
+        let tail_work = wildside_core::ModeLevelTailWorkLoc892 {
+            camera_stripe_sub_30194:
+                wildside_core::ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+                    ordinary_theme_cells: 20,
+                    priority_theme_cells: 0,
+                    block_cells: 1,
+                },
+            background_loc_3038a: wildside_core::ModeLevelTailBackgroundWorkLoc3038A {
+                special_effect_4: false,
+                game_mode_zero: false,
+                background_upload_busy_fb49: false,
+                background_format_nonzero: false,
+                shift_data_slots_loc_30452:
+                    [wildside_core::ModeLevelTailShiftDataSlotLoc30452::Unchanged; 19],
+                shift_layers:
+                    wildside_core::ModeLevelTailShiftLayersWork::NormalUnalignedNoRipple {
+                        leading_rows: 2,
+                        full_rows: 27,
+                        trailing_rows: 6,
+                    },
+                piece_rows_sub_30744: wildside_core::ModeLevelTailPieceRowsSub30744 {
+                    entries_before_sentinel: 29,
+                    rendered_nonnegative_entries: 0,
+                },
+                piece_refresh_sub_307d8:
+                    wildside_core::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged,
+            },
+            palette_sub_14c0: wildside_core::ModeLevelTailPaletteWorkSub14C0::BothMasksFull,
+        };
+        let frame_902 = probe.sample_power_on_frame_rendered_with_mode_tail(Some(&tail_work));
 
         assert_eq!(
             frame_902.pending_m68k_wait_cycles, 0,

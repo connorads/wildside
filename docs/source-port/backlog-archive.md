@@ -1889,14 +1889,21 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: persistent GEMS composition rejects the hoped-for
+first-poll replacement. The exact source/FIFO visitors make native GEMS take
+145 bank steals - 53 during `loc_3038A`, then 92 during the palette tail -
+while the oracle interval contains 105. Native therefore reaches `$93E` at
+cycle 115,519,378 phase 105, 432 cycles after jgenesis cycle 115,518,946 phase
+57, and makes frame 902 newly authoritative-divergent. The composition remains
+a checked characterisation path; production retains the proven oracle poll
+handoff so the GEMS ratchet does not regress. NEXT: find the first differing
+GEMS/Z80 instruction that creates the 40 extra bank steals.
+
 Progress 2026-07-23: both full `sub_1536` palette passes and the
 Mode_Level/MainGameLoop return to the first `$93E` poll are source-scheduled.
 The visitor reproduces 19,908 raw cycles and 158 no-GEMS refresh events. The
 complete three-part tail therefore has 31,176 raw cycles, 409 FIFO halts, and
-474 no-GEMS refresh cycles; persistent GEMS waits must induce two further
-refresh events while adding the traced 1,155 bus-wait cycles. NEXT: compose
-all three visitors into the persistent GEMS shell and remove the absolute
-first-poll boundary.
+474 no-GEMS refresh cycles.
 
 Progress 2026-07-23: the first gameplay `loc_3038A` path now has an exact
 source visitor. Its 19 unchanged shift-data slots, 2/27/6 unaligned shift

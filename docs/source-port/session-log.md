@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 GEMS composition split)
+
+- Exact source/FIFO composition makes native GEMS take 145 bank steals while
+  the jgenesis interval contains 105.
+- Native reaches `$93E` at cycle 115,519,378 phase 105, 432 cycles after the
+  oracle boundary, and would newly diverge at frame 902.
+- The composition is a checked characterisation path. Production keeps the
+  oracle poll handoff, so no GEMS baseline regression lands.
+- NEXT: trace the first differing GEMS/Z80 instruction that creates the 40
+  extra steals.
+
 ## 2026-07-23 handoff (#409 palette source schedule)
 
 - Both full `sub_1536` palette passes and the return to the first `$93E` poll
@@ -14,8 +25,7 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 - They reproduce 19,908 raw cycles and 158 no-GEMS refresh events.
 - The complete tail now has exact source/FIFO visitors for all 31,176 raw
   cycles and 409 FIFO halts.
-- NEXT: compose the three visitors into persistent GEMS timing, which must
-  add 1,155 bus waits and induce two further refresh events.
+- NEXT: compose the three visitors into persistent GEMS timing.
 
 ## 2026-07-23 handoff (#409 background source schedule)
 

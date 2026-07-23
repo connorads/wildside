@@ -1572,6 +1572,59 @@ pub fn apply_gems_mode_level_wait_for_vint_to_mode_level(
     )
 }
 
+/// Clock the first gameplay `Mode_Level loc_892` tail through its initial
+/// blocking `WaitForVint $93E` poll.
+#[cfg(feature = "audio")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelTailGemsAdvance {
+    pub cursor: LoadInGameCpuRasterCursor,
+    pub camera: wildside_core::vdp::ModeLevelTailCameraStripeAdvance,
+    pub background: wildside_core::vdp::ModeLevelTailBackgroundAdvance,
+    pub palette: wildside_core::vdp::ModeLevelTailBackgroundAdvance,
+}
+
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_tail_to_wait_for_vint(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    work: &wildside_core::ModeLevelTailWorkLoc892,
+) -> Option<ModeLevelTailGemsAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    let mut apply_interval = |cycles, vdp_owns_bus, source_instruction| {
+        Some(apply_gems_title_source_hardware_interval(
+            audio,
+            cycles,
+            vdp_owns_bus,
+            source_instruction,
+        ))
+    };
+    let camera = wildside_core::vdp::mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
+        entry,
+        work.camera_stripe_sub_30194,
+        &mut apply_interval,
+    )?;
+    let background =
+        wildside_core::vdp::mode_level_tail_background_cursor_loc_3038a_with_scheduler(
+            camera.cursor,
+            &work.background_loc_3038a,
+            &mut apply_interval,
+        )?;
+    let palette =
+        wildside_core::vdp::mode_level_tail_palette_to_wait_for_vint_cursor_sub_14c0_with_scheduler(
+            background.cursor,
+            work.palette_sub_14c0,
+            &mut apply_interval,
+        )?;
+    Some(ModeLevelTailGemsAdvance {
+        cursor: palette.cursor,
+        camera,
+        background,
+        palette,
+    })
+}
+
 /// Clock a blocking `WaitForVint` through its subroutine return.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_wait_for_vint_to_subroutine_return(
