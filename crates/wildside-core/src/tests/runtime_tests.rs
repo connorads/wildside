@@ -24,7 +24,7 @@ fn cached_any_percent_demo_runtime_and_script() -> Option<(NativeRuntime, Vec<u8
 
 fn published_natural_vblank_work() -> ModeLevelVblankWorkBeforeSubE12 {
     ModeLevelVblankWorkBeforeSubE12 {
-        dynamic_art_tiles_loc_ad4: [16, 4],
+        dynamic_art_tiles_loc_ad4: Some([16, 4, 0, 0, 0, 0]),
         palette_dma_sub_970: true,
         scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
         foreground_custom_queue_entries_sub_1596: 0,
@@ -273,8 +273,11 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             );
             assert_eq!(
                 trace.mode_level_vblank_work_before_sub_e12,
-                Some(published_natural_vblank_work()),
-                "ASM Mode_Level $7C8 VBlank branches must cross the trace boundary",
+                Some(ModeLevelVblankWorkBeforeSubE12 {
+                    dynamic_art_tiles_loc_ad4: None,
+                    ..published_natural_vblank_work()
+                }),
+                "core exposes the VBlank branches and leaves render-owned loc_AD4 art unclassified",
             );
             assert_eq!(
                 trace.mode_level_tail_work_loc_892,

@@ -13,6 +13,23 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+2026-07-23 correction - frame-local dynamic-art queue: the reported
+157-cycle gap below was not a missing fixed source span. The older aggregate
+and explicit visitors were being compared with different `loc_AD4` workloads:
+raw native traces hard-coded the later `[16,4]` Kid art queue onto the first
+gameplay VBlank. Oracle selected-PC traces prove no producer before frame 902,
+one 12-tile entry produced by frame 902 `sub_1492 -> sub_13C0 loc_141A` for
+frame 903, and `[16,4]` on published frames 1697/1703/1709. Core now leaves
+the render-owned queue unclassified. The frame adapter derives up to six
+hardware-sprite tile lengths from the selected ROM mapping and carries them
+to the following `sub_A5C loc_AD4` consumer. Frame 902 consequently agrees
+with oracle on `loc_30104` H-scroll DMA ownership and the pending eight-cycle
+re-entry; only the established GEMS undocumented-X/Y CRC/PC phase remains an
+evidence-backed oracle limitation. `loc_141A` moves out of test-only ASM debt.
+`verify-slice-fast` and `verify-tas-full` pass with unchanged baselines:
+26,382 exact pixel frames, 11,377 divergent, 3,620,978 changed pixels, and
+36,856 GEMS mismatches with first authoritative frame 903.
+
 2026-07-23 VBlank suffix schedule: selected-PC oracle traces for published
 frames 1697, 1703, and 1709 agree on the same 88-instruction, 914-raw-cycle
 path from `Mode_Level $7D6` through the `Execute_Objects sub_E12` call.

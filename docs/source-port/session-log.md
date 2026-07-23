@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 frame-local dynamic-art queue)
+
+- The persistent VBlank replayer now mirrors `sub_1492 -> sub_13C0 loc_141A
+  -> sub_A5C loc_AD4` instead of hard-coding `[16,4]`.
+- Frame 902 consumes an empty queue, frame 903 consumes `[12]`, and the
+  published 1697/1703/1709 checks consume `[16,4]`.
+- The apparent 157-cycle gap was invalid workload, not a missing fixed source
+  span. Frame 902 now agrees with oracle on H-scroll ownership and its pending
+  eight-cycle re-entry.
+- NEXT: compose the 914-cycle suffix after the corrected prefix, then carry
+  the cursor through pre-HUD, HUD, post-HUD and `loc_892`.
+
 ## 2026-07-23 handoff (#409 VBlank suffix instruction schedule)
 
 - The natural post-scroll VBlank suffix now retains all 88 oracle source

@@ -1117,8 +1117,10 @@ fn gems_stop_music_elapsed_timing_with_vint_schedule(
 /// different number of cycles halted behind the VDP on adjacent frames.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelVblankWorkBeforeSubE12 {
-    /// Tile lengths read by `Transfer_SpriteAndKidToVRAM loc_AD4`.
-    pub dynamic_art_tiles_loc_ad4: [u16; 2],
+    /// Tile lengths read by `Transfer_SpriteAndKidToVRAM loc_AD4`. Core
+    /// traces leave this unclassified because the selected mapping dimensions
+    /// belong to the render asset boundary.
+    pub dynamic_art_tiles_loc_ad4: Option<[u16; 6]>,
     pub palette_dma_sub_970: bool,
     pub scroll_path: ModeLevelScrollTransferPath,
     pub foreground_custom_queue_entries_sub_1596: u16,
@@ -2014,7 +2016,7 @@ pub fn wait_for_vint_mclk_from_vint_assertion_to_mode_level(
 pub fn mode_level_vblank_source_cycles_before_sub_e12(
     work: ModeLevelVblankWorkBeforeSubE12,
 ) -> Option<M68kCycleCount> {
-    if work.dynamic_art_tiles_loc_ad4 != [16, 4]
+    if work.dynamic_art_tiles_loc_ad4 != Some([16, 4, 0, 0, 0, 0])
         || !work.palette_dma_sub_970
         || work.scroll_path != ModeLevelScrollTransferPath::NormalLoc300ba
         || work.foreground_custom_queue_entries_sub_1596 != 0
@@ -4926,7 +4928,7 @@ mod tests {
 
     fn published_natural_vblank_work() -> ModeLevelVblankWorkBeforeSubE12 {
         ModeLevelVblankWorkBeforeSubE12 {
-            dynamic_art_tiles_loc_ad4: [16, 4],
+            dynamic_art_tiles_loc_ad4: Some([16, 4, 0, 0, 0, 0]),
             palette_dma_sub_970: true,
             scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
             foreground_custom_queue_entries_sub_1596: 0,

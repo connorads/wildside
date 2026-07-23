@@ -355,6 +355,37 @@ pub fn align_sprite_dimension(px: u16) -> u16 {
     px.div_ceil(8) * 8
 }
 
+/// Derive the Kid-art tile lengths written by ASM `sub_1492 -> sub_13C0
+/// loc_141A` for one selected player mapping.
+///
+/// The ROM emits hardware sprites in 32px-high bands, splitting each band
+/// into 32px-wide chunks. `Transfer_SpriteAndKidToVRAM loc_AD4` consumes the
+/// resulting tile counts on the following `Mode_Level` pass. Six entries
+/// cover the largest player mapping in the Kid ROM: Red Stealth's 47x78
+/// transformation frame.
+pub fn player_frame_dynamic_art_tiles_loc_141a(frame: &wildside_render::SpriteFrame) -> [u16; 6] {
+    let mut tile_lengths = [0_u16; 6];
+    let mut next = 0_usize;
+    let mut remaining_height_px = frame.height_px;
+
+    while remaining_height_px > 0 {
+        let chunk_height_px = align_sprite_dimension(remaining_height_px.min(32));
+        let mut remaining_width_px = frame.width_px;
+        while remaining_width_px > 0 {
+            let chunk_width_px = align_sprite_dimension(remaining_width_px.min(32));
+            let destination = tile_lengths
+                .get_mut(next)
+                .expect("Kid ROM player mappings use at most six hardware sprites");
+            *destination = (chunk_width_px / 8) * (chunk_height_px / 8);
+            next += 1;
+            remaining_width_px = remaining_width_px.saturating_sub(32);
+        }
+        remaining_height_px = remaining_height_px.saturating_sub(32);
+    }
+
+    tile_lengths
+}
+
 pub fn sprite_draw_position(
     frame: &wildside_render::SpriteFrame,
     screen_x: i32,
@@ -707,6 +738,30 @@ pub fn select_player_form_visuals<'a>(
         .get(&trace.current_helmet_id)
         .or_else(|| player_visuals.forms.get(&0))
         .expect("Kid visuals should always be loaded")
+}
+
+/// Select the player art mapping whose hardware-sprite chunks `sub_1492`
+/// writes to the dynamic-art queue at `loc_141A`.
+pub fn select_player_dynamic_art_frame_loc_141a<'a>(
+    trace: &NativeTraceFrame,
+    player_visuals: &'a wildside_render::PlayerVisuals,
+) -> &'a wildside_render::SpriteFrame {
+    if trace.death_windup_elapsed > 0
+        && let Some(frame) = player_visuals
+            .forms
+            .get(&0)
+            .and_then(|visuals| visuals.death.as_ref())
+    {
+        // ASM Death loc_B7FA installs Kid's tumble mapping before the shared
+        // `sub_1492 -> sub_13C0 loc_141A` producer runs.
+        return frame;
+    }
+
+    let form_visuals = select_player_form_visuals(trace, player_visuals);
+    if let Some((frame, _)) = select_player_transform_render(trace, player_visuals, form_visuals) {
+        return frame;
+    }
+    select_player_frame(trace, form_visuals)
 }
 
 /// Resolve the transform frame and palette for one displayed frame.
@@ -2852,6 +2907,31 @@ mod tests {
         assert_eq!(
             sprite_draw_position(&frame, 100, 50, Direction::Left),
             (83, 35)
+        );
+    }
+
+    #[test]
+    fn player_dynamic_art_queue_follows_loc_141a_hardware_sprite_chunks() {
+        let frame = |width_px, height_px| wildside_render::SpriteFrame {
+            width_px,
+            height_px,
+            ..synthetic_player_frame()
+        };
+
+        assert_eq!(
+            player_frame_dynamic_art_tiles_loc_141a(&frame(24, 32)),
+            [12, 0, 0, 0, 0, 0],
+            "ASM sub_1492 -> sub_13C0 loc_141A emits one 3x4-tile Kid chunk",
+        );
+        assert_eq!(
+            player_frame_dynamic_art_tiles_loc_141a(&frame(40, 32)),
+            [16, 4, 0, 0, 0, 0],
+            "ASM loc_141A emits the 32x32 chunk before the 8x32 tail",
+        );
+        assert_eq!(
+            player_frame_dynamic_art_tiles_loc_141a(&frame(40, 40)),
+            [16, 4, 4, 1, 0, 0],
+            "ASM loc_141A preserves band-major order for four chunks",
         );
     }
 

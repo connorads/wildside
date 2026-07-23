@@ -2566,19 +2566,31 @@ pub fn visit_mode_standard_sprite_and_kid_to_vram(
     visit_sprite_and_kid_to_vram(&[], visit)
 }
 
-/// Visit the natural gameplay path through `Transfer_SpriteAndKidToVRAM`.
+/// Visit a classified gameplay path through `Transfer_SpriteAndKidToVRAM`.
 ///
-/// ASM `Mode_Level $7C8` calls `sub_A5C`; the published gameplay workload
-/// uploads 16 and 4 Kid-art tiles after the fixed Sprite_Table DMA.
+/// ASM `Mode_Level $7C8` calls `sub_A5C`; `loc_AD4` consumes the leading
+/// non-zero tile lengths produced by the preceding `sub_1492 -> sub_13C0
+/// loc_141A` pass, then stops at the first zero word. One hardware sprite can
+/// contribute at most 16 tiles (32x32).
 pub fn visit_mode_level_sprite_and_kid_to_vram(
-    dynamic_art_tiles_loc_ad4: [u16; 2],
+    dynamic_art_tiles_loc_ad4: [u16; 6],
     visit: impl FnMut(MemoryDmaTimingEvent),
 ) -> Option<IntroSourceTiming> {
-    if dynamic_art_tiles_loc_ad4 != [16, 4] {
+    let used = dynamic_art_tiles_loc_ad4
+        .iter()
+        .position(|&tiles| tiles == 0)
+        .unwrap_or(dynamic_art_tiles_loc_ad4.len());
+    if dynamic_art_tiles_loc_ad4[..used]
+        .iter()
+        .any(|&tiles| tiles > 16)
+        || dynamic_art_tiles_loc_ad4[used..]
+            .iter()
+            .any(|&tiles| tiles != 0)
+    {
         return None;
     }
     Some(visit_sprite_and_kid_to_vram(
-        &dynamic_art_tiles_loc_ad4,
+        &dynamic_art_tiles_loc_ad4[..used],
         visit,
     ))
 }
@@ -2893,7 +2905,7 @@ mod tests {
     #[test]
     fn mode_level_vblank_suffix_retains_natural_instruction_boundaries() {
         let work = crate::ModeLevelVblankWorkBeforeSubE12 {
-            dynamic_art_tiles_loc_ad4: [16, 4],
+            dynamic_art_tiles_loc_ad4: Some([16, 4, 0, 0, 0, 0]),
             palette_dma_sub_970: true,
             scroll_path: crate::ModeLevelScrollTransferPath::NormalLoc300ba,
             foreground_custom_queue_entries_sub_1596: 0,
@@ -3684,10 +3696,12 @@ mod tests {
     }
 
     #[test]
-    fn mode_level_sprite_and_kid_transfer_visits_both_loc_ad4_dmas() {
+    fn mode_level_sprite_and_kid_transfer_visits_classified_loc_ad4_dmas() {
         let mut events = Vec::new();
-        let timing = visit_mode_level_sprite_and_kid_to_vram([16, 4], |event| events.push(event))
-            .expect("published Mode_Level loc_AD4 workload");
+        let timing = visit_mode_level_sprite_and_kid_to_vram([16, 4, 0, 0, 0, 0], |event| {
+            events.push(event);
+        })
+        .expect("published Mode_Level loc_AD4 workload");
 
         assert_eq!(timing.instruction_count, 131);
         assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(1_372));
@@ -3708,10 +3722,47 @@ mod tests {
             ],
             "ASM sub_A5C/loc_AD4 preserves the Sprite_Table, 16-tile, then 4-tile DMA order",
         );
+
+        let mut first_live_events = Vec::new();
+        let first_live_timing =
+            visit_mode_level_sprite_and_kid_to_vram([12, 0, 0, 0, 0, 0], |event| {
+                first_live_events.push(event);
+            })
+            .expect("first live Kid mapping produces one 12-tile loc_AD4 DMA");
+        assert_eq!(first_live_timing.instruction_count, 93);
         assert_eq!(
-            visit_mode_level_sprite_and_kid_to_vram([16, 3], |_| {}),
+            first_live_events
+                .iter()
+                .filter_map(|event| match event {
+                    MemoryDmaTimingEvent::BeginMemoryDma { words, target } => {
+                        Some((*words, *target))
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>(),
+            [
+                (0x140, MemoryToVdpDmaTarget::Vram),
+                (0x0C0, MemoryToVdpDmaTarget::Vram),
+            ],
+            "ASM sub_1492 -> sub_13C0 loc_141A queues one 12-tile Kid mapping for loc_AD4",
+        );
+
+        let empty = visit_mode_level_sprite_and_kid_to_vram([0; 6], |_| {})
+            .expect("first two gameplay VBlanks consume an empty loc_AD4 queue");
+        assert_eq!(
+            empty,
+            visit_mode_standard_sprite_and_kid_to_vram(|_| {}),
+            "ASM loc_AD4 zero terminator takes the same transfer body as the title path",
+        );
+        assert_eq!(
+            visit_mode_level_sprite_and_kid_to_vram([17, 0, 0, 0, 0, 0], |_| {}),
             None,
-            "unclassified loc_AD4 workloads remain fail-closed",
+            "a loc_AD4 entry larger than one 32x32 hardware sprite remains fail-closed",
+        );
+        assert_eq!(
+            visit_mode_level_sprite_and_kid_to_vram([0, 12, 0, 0, 0, 0], |_| {}),
+            None,
+            "ASM loc_AD4 cannot consume data after its zero terminator",
         );
     }
 

@@ -21,9 +21,8 @@ use anyhow::Result;
 use sha1::{Digest, Sha1};
 use wildside_core::{
     GemsFrameSignature, GemsQueueCommandPath, GemsStopMusicBusAckPolls, M68kCycleCount,
-    M68kRefreshPhase, ModeLevelHudBuildPath, ModeLevelScrollTransferPath,
-    ModeLevelVblankWorkBeforeSubE12, NativeTraceFrame, gems_stop_music_elapsed_timing,
-    gems_stop_music_elapsed_timing_from_absolute_entry,
+    M68kRefreshPhase, ModeLevelVblankWorkBeforeSubE12, NativeTraceFrame,
+    gems_stop_music_elapsed_timing, gems_stop_music_elapsed_timing_from_absolute_entry,
 };
 use wildside_data::AssetManifest;
 use wildside_frame::{
@@ -378,11 +377,12 @@ impl GemsSignatureProbe {
 
     #[cfg(test)]
     fn sample_power_on_frame_rendered(&mut self) -> GemsFrameSignature {
-        self.sample_power_on_frame_rendered_with_mode_tail(None)
+        self.sample_power_on_frame_rendered_with_mode_level_work(None, None)
     }
 
-    fn sample_power_on_frame_rendered_with_mode_tail(
+    fn sample_power_on_frame_rendered_with_mode_level_work(
         &mut self,
+        mode_level_vblank_work_before_sub_e12: Option<ModeLevelVblankWorkBeforeSubE12>,
         mode_level_tail_work_loc_892: Option<&wildside_core::ModeLevelTailWorkLoc892>,
     ) -> GemsFrameSignature {
         // jgenesis FrameRendered fires at scanline 232. Absolute power-on
@@ -4385,6 +4385,13 @@ impl GemsSignatureProbe {
             assert_eq!(self.engine.master_clock(), 115_384_281 * 7);
         }
         if self.power_on_frame == 902 {
+            let mode_level_vblank_work_before_sub_e12 = mode_level_vblank_work_before_sub_e12
+                .expect("first gameplay Mode_Level exposes its VBlank workload");
+            assert_eq!(
+                mode_level_vblank_work_before_sub_e12.dynamic_art_tiles_loc_ad4,
+                Some([0; 6]),
+                "ASM loc_AD4 sees no dynamic-art producer before the first gameplay VBlank",
+            );
             let wait_for_vint = if let Some(tail_work) = mode_level_tail_work_loc_892 {
                 // Characterisation path for the source/FIFO/native-GEMS
                 // composition. The native driver takes 40 more bank steals
@@ -4456,16 +4463,7 @@ impl GemsSignatureProbe {
                 apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
                     &mut self.engine,
                     mode_level.cursor,
-                    ModeLevelVblankWorkBeforeSubE12 {
-                        dynamic_art_tiles_loc_ad4: [16, 4],
-                        palette_dma_sub_970: true,
-                        scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
-                        foreground_custom_queue_entries_sub_1596: 0,
-                        foreground_cell_queue_entries_sub_1596: 0,
-                        paused_sub_6874: false,
-                        hud_path_sub_bdc0:
-                            ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
-                    },
+                    mode_level_vblank_work_before_sub_e12,
                     target,
                 )
                 .expect("source-positioned first gameplay Mode_Level prefix spans frame 902");
@@ -5642,6 +5640,41 @@ impl NativeAudioSink for GemsSignatureProbe {
     }
 }
 
+#[derive(Debug, Default)]
+struct ModeLevelDynamicArtQueueLocAd4 {
+    pending_tile_lengths: [u16; 6],
+}
+
+impl ModeLevelDynamicArtQueueLocAd4 {
+    fn consume_vblank_work(
+        &mut self,
+        frame: &NativeTraceFrame,
+    ) -> Option<ModeLevelVblankWorkBeforeSubE12> {
+        let mut work = frame.mode_level_vblank_work_before_sub_e12?;
+        work.dynamic_art_tiles_loc_ad4 = Some(std::mem::take(&mut self.pending_tile_lengths));
+        Some(work)
+    }
+
+    fn observe_post_hud_producer(
+        &mut self,
+        frame: &NativeTraceFrame,
+        player_visuals: &wildside_render::PlayerVisuals,
+    ) {
+        if frame.mode_level_work_after_hud_sub_44dc.is_none() {
+            return;
+        }
+        // ASM Mode_Level loc_87E -> Make_SpritesFromGfxObjects sub_1492:
+        // the player's dynamic-art mapping writes `$FFFF0500` at loc_141A.
+        // The following VBlank consumes it in sub_A5C loc_AD4.
+        let player_frame = wildside_frame::sprites::select_player_dynamic_art_frame_loc_141a(
+            frame,
+            player_visuals,
+        );
+        self.pending_tile_lengths =
+            wildside_frame::sprites::player_frame_dynamic_art_tiles_loc_141a(player_frame);
+    }
+}
+
 /// Drive the audio replayer over the whole trace with the timing engine as
 /// the sink, sampling one signature per frame at the oracle's
 /// `FrameRendered` raster line.
@@ -5653,23 +5686,36 @@ pub(crate) fn extract_native_gems_frame_signatures(
     let mut power_on_probe = GemsSignatureProbe::from_kid_rom_power_on(rom)?;
     let mut coarse_probe = GemsSignatureProbe::from_kid_rom_coarse(rom)?;
     let mut director = NativeAudioDirector::new();
-    Ok(trace
-        .iter()
-        .enumerate()
-        .map(|(frame_index, frame)| {
-            director.step(manifest, frame, &mut coarse_probe);
-            let coarse_signature = coarse_probe.sample_at_frame_rendered();
-            if frame_index < GEMS_MODELLED_ROUTE_FRAMES {
-                Some(
-                    power_on_probe.sample_power_on_frame_rendered_with_mode_tail(
-                        frame.mode_level_tail_work_loc_892.as_ref(),
-                    ),
-                )
-            } else {
-                Some(coarse_signature)
-            }
-        })
-        .collect())
+    let mut dynamic_art_queue = ModeLevelDynamicArtQueueLocAd4::default();
+    let mut level_visuals = std::collections::HashMap::new();
+    let mut signatures = Vec::with_capacity(trace.len());
+
+    for (frame_index, frame) in trace.iter().enumerate() {
+        director.step(manifest, frame, &mut coarse_probe);
+        let coarse_signature = coarse_probe.sample_at_frame_rendered();
+        let mode_level_vblank_work = dynamic_art_queue.consume_vblank_work(frame);
+        let signature = if frame_index < GEMS_MODELLED_ROUTE_FRAMES {
+            power_on_probe.sample_power_on_frame_rendered_with_mode_level_work(
+                mode_level_vblank_work,
+                frame.mode_level_tail_work_loc_892.as_ref(),
+            )
+        } else {
+            coarse_signature
+        };
+        signatures.push(Some(signature));
+
+        if frame.mode_level_work_after_hud_sub_44dc.is_some() {
+            let visuals = match level_visuals.entry(frame.current_level.0) {
+                std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
+                std::collections::hash_map::Entry::Vacant(entry) => entry.insert(
+                    wildside_render::load_level_visuals(manifest, frame.current_level.0)?,
+                ),
+            };
+            dynamic_art_queue.observe_post_hud_producer(frame, &visuals.player);
+        }
+    }
+
+    Ok(signatures)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -9440,28 +9486,24 @@ fn gems_divergence_matches_documented_oracle_limitation(
         && native.status_bits == GemsFrameSignature::STATUS_IFF1
         && oracle.status_bits == GemsFrameSignature::STATUS_IFF1;
     // ORACLE LIMITATION: the established jgenesis undocumented-X/Y `SUB`
-    // phase makes its GEMS copy loop reach Mode_Level loc_30104's H-scroll
-    // DMA before the hardware-correct Z80. The source-scheduled native prefix
-    // has serviced all bank waits but remains under Stop_z80 BUSREQ.
-    let first_mode_level_prefix_oracle_z80_phase = diverging
-        == [
-            "audio_ram_crc32",
-            "z80_pc",
-            "pending_m68k_wait_cycles",
-            "status_bits",
-        ]
+    // phase leaves the GEMS copy loop at a different Z80 PC when both
+    // machines reach Mode_Level loc_30104's H-scroll DMA. The source-scheduled
+    // native prefix and oracle now agree on BUSREQ, VDP ownership and the
+    // pinned eight-cycle DMA-edge residue.
+    let first_mode_level_prefix_oracle_z80_phase = diverging == ["audio_ram_crc32", "z80_pc"]
         && frame_index == 902
-        && native.audio_ram_crc32 == 626_025_829
+        && native.audio_ram_crc32 == 1_904_935_425
         && oracle.audio_ram_crc32 == 3_008_121_749
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x1302
+        && native.z80_pc == 0x1325
         && oracle.z80_pc == 0x053C
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
-        && native.pending_m68k_wait_cycles == 0
+        && native.pending_m68k_wait_cycles == 8
         && oracle.pending_m68k_wait_cycles == 8
-        && native.status_bits == GemsFrameSignature::STATUS_BUSREQ
+        && native.status_bits
+            == (GemsFrameSignature::STATUS_BUSREQ | GemsFrameSignature::STATUS_VDP_OWNS_BUS)
         && oracle.status_bits
             == (GemsFrameSignature::STATUS_BUSREQ | GemsFrameSignature::STATUS_VDP_OWNS_BUS);
     ordinary_fresh_title_irq_phase
@@ -9659,6 +9701,64 @@ impl GemsFrameComparison {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wildside_core::{ModeLevelHudBuildPath, ModeLevelScrollTransferPath};
+
+    #[test]
+    fn published_tas_player_art_queue_follows_sub_1492_into_next_vblank() {
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        if !manifest_path.exists() {
+            return;
+        }
+        let scenario_path = repo_root.join("tests/data/tas/any-percent-published/scenario.json");
+        let manifest = wildside_data::load_manifest(&manifest_path).expect("cached manifest");
+        let scenario: crate::scenarios::DynamicScenario =
+            serde_json::from_slice(&std::fs::read(scenario_path).expect("published TAS scenario"))
+                .expect("published TAS JSON");
+        let trace = crate::scenarios::run_native_dynamic_scenario(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("published native trace");
+        let visuals = wildside_render::load_level_visuals(&manifest, 0).expect("level 00 visuals");
+        assert!(
+            trace[901].mode_level_work_after_hud_sub_44dc.is_none(),
+            "no sub_1492 producer runs before the first gameplay VBlank",
+        );
+        let mut queue = ModeLevelDynamicArtQueueLocAd4::default();
+        let mut consumed = std::collections::HashMap::new();
+        for (frame_index, frame) in trace.iter().enumerate().take(1_710) {
+            if let Some(work) = queue.consume_vblank_work(frame)
+                && matches!(frame_index, 902 | 903 | 1_697 | 1_703 | 1_709)
+            {
+                consumed.insert(
+                    frame_index,
+                    work.dynamic_art_tiles_loc_ad4
+                        .expect("frame adapter classifies loc_AD4 art"),
+                );
+            }
+            queue.observe_post_hud_producer(frame, &visuals.player);
+        }
+        assert_eq!(
+            consumed.get(&902),
+            Some(&[0; 6]),
+            "ASM loc_AD4 has no prior sub_1492 producer on the first gameplay VBlank",
+        );
+        assert_eq!(
+            consumed.get(&903),
+            Some(&[12, 0, 0, 0, 0, 0]),
+            "ASM sub_1492 -> sub_13C0 loc_141A builds the queue consumed by frame 903 loc_AD4",
+        );
+        for consumer in [1_697, 1_703, 1_709] {
+            assert_eq!(
+                consumed.get(&consumer),
+                Some(&[16, 4, 0, 0, 0, 0]),
+                "ASM loc_141A producer queue feeds loc_AD4 frame {consumer}",
+            );
+        }
+    }
 
     #[test]
     fn fresh_title_chameleon_pass_follows_sub_1b71a_map_and_rng_cycles() {
@@ -10677,10 +10777,12 @@ mod tests {
         // ASM Mode_Level loc_892 -> loc_30104: the source-scheduled tail
         // starts after the proven GEMS $07B0..$07B4 SUB X/Y split and carries
         // that driver-state difference through XFER68K to the H-scroll DMA.
-        let mut native = signature(0x1302);
-        native.audio_ram_crc32 = 626_025_829;
+        let mut native = signature(0x1325);
+        native.audio_ram_crc32 = 1_904_935_425;
         native.bank_address = 0x000E_0000;
-        native.status_bits = GemsFrameSignature::STATUS_BUSREQ;
+        native.pending_m68k_wait_cycles = 8;
+        native.status_bits =
+            GemsFrameSignature::STATUS_BUSREQ | GemsFrameSignature::STATUS_VDP_OWNS_BUS;
         let mut oracle = signature(0x053C);
         oracle.audio_ram_crc32 = 3_008_121_749;
         oracle.bank_address = 0x000E_0000;
@@ -13554,7 +13656,18 @@ mod tests {
             },
             palette_sub_14c0: wildside_core::ModeLevelTailPaletteWorkSub14C0::BothMasksFull,
         };
-        let frame_902 = probe.sample_power_on_frame_rendered_with_mode_tail(Some(&tail_work));
+        let frame_902 = probe.sample_power_on_frame_rendered_with_mode_level_work(
+            Some(ModeLevelVblankWorkBeforeSubE12 {
+                dynamic_art_tiles_loc_ad4: Some([0; 6]),
+                palette_dma_sub_970: true,
+                scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
+                foreground_custom_queue_entries_sub_1596: 0,
+                foreground_cell_queue_entries_sub_1596: 0,
+                paused_sub_6874: false,
+                hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
+            }),
+            Some(&tail_work),
+        );
         let banked_reads = probe.engine.take_banked_68k_reads();
         let tail_reads = banked_reads
             .iter()
@@ -13573,16 +13686,16 @@ mod tests {
                 frame_902.status_bits,
             ),
             (
-                626_025_829,
+                1_904_935_425,
                 0x000E_0000,
-                0x1302,
+                0x1325,
                 9,
                 0,
-                0,
+                8,
                 6,
-                GemsFrameSignature::STATUS_BUSREQ,
+                GemsFrameSignature::STATUS_BUSREQ | GemsFrameSignature::STATUS_VDP_OWNS_BUS,
             ),
-            "source-scheduled tail preserves the exact hardware-correct frame-902 residue",
+            "source-scheduled empty art queue reaches the exact frame-902 H-scroll residue",
         );
         assert_eq!(tail_reads.len(), 145);
         assert_eq!(
@@ -13621,13 +13734,13 @@ mod tests {
         );
 
         assert_eq!(
-            frame_902.pending_m68k_wait_cycles, 0,
-            "ASM Mode_Level prefix must service GEMS waits at source instruction boundaries"
+            frame_902.pending_m68k_wait_cycles, 8,
+            "pinned jgenesis long-DMA edge leaves one pending eight-cycle re-entry"
         );
         assert_eq!(
             frame_902.status_bits,
-            GemsFrameSignature::STATUS_BUSREQ,
-            "hardware-correct GEMS phase remains in the Stop_z80-bracketed prefix"
+            GemsFrameSignature::STATUS_BUSREQ | GemsFrameSignature::STATUS_VDP_OWNS_BUS,
+            "ASM loc_30104 owns the 68000 bus inside the Stop_z80-bracketed prefix"
         );
     }
 }

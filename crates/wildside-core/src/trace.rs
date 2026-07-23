@@ -10689,12 +10689,11 @@ impl NativeRuntime {
                 .mode_level_work_before_hud_sub_44dc
                 .as_ref()
                 .map(|_| crate::ModeLevelVblankWorkBeforeSubE12 {
-                    // ASM Mode_Level $7C8..sub_E12: the source-port gameplay
-                    // shell always uses the two natural dynamic-art lengths,
-                    // palette DMA, normal scroll DMA, empty foreground queues,
-                    // live HUD path, and no pause branch on a frame that
-                    // produced the natural pre-HUD ledger.
-                    dynamic_art_tiles_loc_ad4: [16, 4],
+                    // ASM Mode_Level $7C8..sub_E12: core classifies the
+                    // palette, scroll, foreground, pause and HUD branches.
+                    // The frame boundary resolves loc_AD4 from the selected
+                    // render mapping produced by the preceding sub_1492 pass.
+                    dynamic_art_tiles_loc_ad4: None,
                     palette_dma_sub_970: true,
                     scroll_path: crate::ModeLevelScrollTransferPath::NormalLoc300ba,
                     foreground_custom_queue_entries_sub_1596: 0,

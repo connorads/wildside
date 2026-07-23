@@ -3199,7 +3199,7 @@ pub fn apply_gems_title_mode_standard_sprite_and_kid_to_vram(
 pub fn apply_gems_mode_level_sprite_and_kid_to_vram(
     audio: &mut GemsMasterClockTimingEngine,
     entry: LoadInGameCpuRasterCursor,
-    dynamic_art_tiles_loc_ad4: [u16; 2],
+    dynamic_art_tiles_loc_ad4: [u16; 6],
 ) -> Option<TitleMemoryDmaAdvance> {
     if audio.pending_m68k_wait_cycles() != 0 {
         return None;
@@ -3284,7 +3284,7 @@ pub fn apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
 
     let sprite = wildside_core::vdp::mode_level_sprite_and_kid_to_vram_cursor_with_scheduler(
         entry,
-        work.dynamic_art_tiles_loc_ad4,
+        work.dynamic_art_tiles_loc_ad4?,
         &mut apply_event,
     )?;
     let palette = wildside_core::vdp::title_mode_standard_palette_to_vram_cursor_with_scheduler(
@@ -4279,7 +4279,7 @@ mod tests {
         );
         engine.advance_ntsc_master_clocks(entry_cycles * 7);
         let work = ModeLevelVblankWorkBeforeSubE12 {
-            dynamic_art_tiles_loc_ad4: [16, 4],
+            dynamic_art_tiles_loc_ad4: Some([16, 4, 0, 0, 0, 0]),
             palette_dma_sub_970: true,
             scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
             foreground_custom_queue_entries_sub_1596: 0,
@@ -4325,7 +4325,7 @@ mod tests {
             refresh_phase: entry_phase,
         };
         let work = ModeLevelVblankWorkBeforeSubE12 {
-            dynamic_art_tiles_loc_ad4: [16, 4],
+            dynamic_art_tiles_loc_ad4: Some([16, 4, 0, 0, 0, 0]),
             palette_dma_sub_970: true,
             scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
             foreground_custom_queue_entries_sub_1596: 0,

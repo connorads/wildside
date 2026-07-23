@@ -5018,7 +5018,7 @@ pub fn title_mode_standard_sprite_and_kid_to_vram_cursor_with_scheduler(
 /// Co-schedule the natural gameplay `Transfer_SpriteAndKidToVRAM` call.
 pub fn mode_level_sprite_and_kid_to_vram_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
-    dynamic_art_tiles_loc_ad4: [u16; 2],
+    dynamic_art_tiles_loc_ad4: [u16; 6],
     mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
 ) -> Option<TitleMemoryDmaAdvance> {
     title_memory_dma_routine_cursor_with_scheduler(
