@@ -4373,7 +4373,7 @@ mod tests {
             foreground_cell_queue_entries_sub_1596: 0,
             paused_sub_6874: false,
             hud_path_sub_bdc0:
-                wildside_core::ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
+                wildside_core::ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates,
         };
 
         let (_, checkpoint) = apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
@@ -4419,7 +4419,7 @@ mod tests {
             foreground_cell_queue_entries_sub_1596: 0,
             paused_sub_6874: false,
             hud_path_sub_bdc0:
-                wildside_core::ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
+                wildside_core::ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates,
         };
         let mut expected_phase = entry_phase;
         let mut expected_elapsed = 0_u32;

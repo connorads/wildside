@@ -13,6 +13,17 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+2026-07-23 second gameplay pass: frame 903 now consumes `loc_AD4` tile `$0C`
+from frame 902's retained prefix result. Selected-PC evidence separates a
+461-cycle final H-scroll DMA halt from ROM work and proves that stable life
+and diamond counters skip 14 `sub_BDC0` instructions. The source visitor
+also accepts the frame's 4/27/4 `loc_30562/loc_30592` background split and
+inactive `sub_14C0` palette tail. Native reaches the raster sample with zero
+wait debt and the oracle's bank/status; only the established undocumented-X/Y
+split remains in audio RAM and PC, so frame 903 is an evidence-backed oracle
+limitation. The authoritative GEMS frontier moves to frame 904. NEXT: return
+to frame 1697's life-icon pixel frontier.
+
 2026-07-23 first gameplay post-HUD branches: selected-PC traces now type
 frame 902's live non-wrapped `loc_2744` platform record, the activation hitbox
 collapsed by `sub_21F8 loc_2252`, and all four `sub_1492` GfxObject paths. The

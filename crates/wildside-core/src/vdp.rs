@@ -3440,15 +3440,23 @@ pub struct ModeLevelTailBackgroundAdvance {
 
 /// Co-schedule the frame-902 ASM `loc_898 -> loc_3038A` background pass.
 ///
-/// The accepted path has 19 unchanged shift-data slots, a 2/27/6 unaligned
-/// shift-layer split, 29 skipped piece rows, and a cached `sub_307D8` row.
-/// Other typed paths remain fail-closed until their instruction streams are
-/// fixed by oracle evidence.
+/// The accepted path has 19 unchanged shift-data slots, a normal unaligned
+/// shift-layer split with 27 full rows, 29 skipped piece rows, and a cached
+/// `sub_307D8` row. Other typed paths remain fail-closed until their
+/// instruction streams are fixed by oracle evidence.
 pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     work: &crate::ModeLevelTailBackgroundWorkLoc3038A,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<ModeLevelTailBackgroundAdvance> {
+    let crate::ModeLevelTailShiftLayersWork::NormalUnalignedNoRipple {
+        leading_rows,
+        full_rows,
+        trailing_rows,
+    } = work.shift_layers
+    else {
+        return None;
+    };
     if work.special_effect_4
         || work.game_mode_zero
         || work.background_upload_busy_fb49
@@ -3457,12 +3465,8 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
             .shift_data_slots_loc_30452
             .iter()
             .any(|slot| *slot != crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged)
-        || work.shift_layers
-            != (crate::ModeLevelTailShiftLayersWork::NormalUnalignedNoRipple {
-                leading_rows: 2,
-                full_rows: 27,
-                trailing_rows: 6,
-            })
+        || full_rows != 27
+        || leading_rows.checked_add(trailing_rows) != Some(8)
         || work.piece_rows_sub_30744.entries_before_sentinel != 29
         || work.piece_rows_sub_30744.rendered_nonnegative_entries != 0
         || work.piece_refresh_sub_307d8
@@ -3531,27 +3535,28 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     ];
     advance_all!(&SHIFT_LAYERS_PRELUDE);
 
-    // ASM loc_30562: two leading partial rows.
-    for row in 0..2 {
+    // ASM loc_30562: leading partial rows.
+    for row in 0..leading_rows {
         advance(12)?;
-        advance(if row == 1 { 14 } else { 10 })?;
+        advance(if row + 1 == leading_rows { 14 } else { 10 })?;
     }
     advance(4)?;
 
     // ASM loc_3056A: 27 complete eight-scanline rows.
     const COMPLETE_SHIFT_ROW: [u8; 12] = [8, 14, 4, 12, 12, 12, 12, 12, 12, 12, 12, 10];
-    for row in 0..27 {
+    for row in 0..full_rows {
         for (instruction_index, &cycles) in COMPLETE_SHIFT_ROW.iter().enumerate() {
-            let final_dbf = row == 26 && instruction_index + 1 == COMPLETE_SHIFT_ROW.len();
+            let final_dbf =
+                row + 1 == full_rows && instruction_index + 1 == COMPLETE_SHIFT_ROW.len();
             advance(u32::from(if final_dbf { 14 } else { cycles }))?;
         }
     }
 
-    // ASM loc_3058A setup and six loc_30592 trailing rows.
+    // ASM loc_3058A setup and loc_30592 trailing rows.
     advance_all!(&[4, 8, 8, 14, 4]);
-    for row in 0..6 {
+    for row in 0..trailing_rows {
         advance(12)?;
-        advance(if row == 5 { 14 } else { 10 })?;
+        advance(if row + 1 == trailing_rows { 14 } else { 10 })?;
     }
     // ASM loc_30598: non-Forest, non-Desert return.
     advance_all!(&[12, 8, 8, 8, 12, 16]);
@@ -3598,7 +3603,7 @@ pub fn mode_level_tail_palette_to_wait_for_vint_cursor_sub_14c0_with_scheduler(
     work: crate::ModeLevelTailPaletteWorkSub14C0,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<ModeLevelTailBackgroundAdvance> {
-    if work != crate::ModeLevelTailPaletteWorkSub14C0::BothMasksFull {
+    if work == crate::ModeLevelTailPaletteWorkSub14C0::ActiveOther {
         return None;
     }
 
@@ -3624,6 +3629,21 @@ pub fn mode_level_tail_palette_to_wait_for_vint_cursor_sub_14c0_with_scheduler(
                 advance(u32::from(cycles))?;
             }
         }};
+    }
+
+    if work == crate::ModeLevelTailPaletteWorkSub14C0::Inactive {
+        // ASM loc_89E BSR, sub_14C0's zero-mask return, Mode_Level RTS,
+        // MainGameLoop BRA/BSR, and WaitForVint loc_93A.
+        advance_all!(&[18, 16, 16, 8, 8, 16, 16, 10, 18, 16]);
+        return Some(ModeLevelTailBackgroundAdvance {
+            cursor: LoadInGameCpuRasterCursor {
+                beam: fifo.beam,
+                refresh_phase: phase,
+            },
+            raw_cycles: M68kCycleCount::from_raw(raw_cycles),
+            refresh_events: counters.refresh_events,
+            external_wait_cycles: M68kCycleCount::from_raw(counters.external_wait_cycles),
+        });
     }
 
     // ASM loc_89E BSR and sub_14C0 setup through moveq #$1F,d6.
@@ -8923,6 +8943,53 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(50).expect("no-GEMS $93E phase"),
             },
             "ASM $93E follows 19,908 raw + 316 refresh cycles without GEMS",
+        );
+    }
+
+    #[test]
+    fn second_gameplay_background_and_inactive_palette_match_frame_903_asm_paths() {
+        let background_work = crate::ModeLevelTailBackgroundWorkLoc3038A {
+            special_effect_4: false,
+            game_mode_zero: false,
+            background_upload_busy_fb49: false,
+            background_format_nonzero: false,
+            shift_data_slots_loc_30452: [crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged; 19],
+            shift_layers: crate::ModeLevelTailShiftLayersWork::NormalUnalignedNoRipple {
+                leading_rows: 4,
+                full_rows: 27,
+                trailing_rows: 4,
+            },
+            piece_rows_sub_30744: crate::ModeLevelTailPieceRowsSub30744 {
+                entries_before_sentinel: 29,
+                rendered_nonnegative_entries: 0,
+            },
+            piece_refresh_sub_307d8: crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged,
+        };
+        let background = mode_level_tail_background_cursor_loc_3038a_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_600_286)),
+                refresh_phase: M68kRefreshPhase::new(70).expect("oracle frame-903 loc_3038A phase"),
+            },
+            &background_work,
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("ASM loc_30562/loc_30592 frame-903 4/27/4 split is source-scheduled");
+        assert_eq!(
+            background.raw_cycles.get(),
+            8_956,
+            "ASM loc_3038A: moving two partial rows between the leading and trailing loops preserves raw work",
+        );
+
+        let palette = mode_level_tail_palette_to_wait_for_vint_cursor_sub_14c0_with_scheduler(
+            background.cursor,
+            crate::ModeLevelTailPaletteWorkSub14C0::Inactive,
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("ASM sub_14C0 zero-mask frame-903 tail is source-scheduled");
+        assert_eq!(
+            palette.raw_cycles.get(),
+            142,
+            "ASM loc_89E -> sub_14C0 plus the Mode_Level/MainGameLoop WaitForVint prefix",
         );
     }
 

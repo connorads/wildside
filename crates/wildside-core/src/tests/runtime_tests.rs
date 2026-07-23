@@ -30,7 +30,7 @@ fn published_natural_vblank_work() -> ModeLevelVblankWorkBeforeSubE12 {
         foreground_custom_queue_entries_sub_1596: 0,
         foreground_cell_queue_entries_sub_1596: 0,
         paused_sub_6874: false,
-        hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
+        hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates,
     }
 }
 

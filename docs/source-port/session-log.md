@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 second gameplay pass)
+
+- Frame 903 consumes `loc_AD4` tile `$0C` from frame 902's retained exact
+  prefix result.
+- Selected-PC evidence separates the final 461-cycle H-scroll DMA halt from
+  ROM work and proves the stable-counter `sub_BDC0` instruction path.
+- The persistent tail types the 4/27/4 background split and inactive
+  `sub_14C0` palette path.
+- The remaining audio-RAM/PC split has matching bank, zero wait debt and
+  matching status, so it is the established X/Y oracle limitation.
+- NEXT: return to frame 1697's life-icon pixel frontier; resume GEMS at frame
+  904.
+
 ## 2026-07-23 handoff (#409 first gameplay post-HUD branches)
 
 - Frame 902 now types the live non-wrapped `loc_2744` platform record.

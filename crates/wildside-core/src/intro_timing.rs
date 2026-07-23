@@ -250,8 +250,11 @@ pub fn visit_mode_level_vblank_suffix_after_scroll_dma(
     if work.foreground_custom_queue_entries_sub_1596 != 0
         || work.foreground_cell_queue_entries_sub_1596 != 0
         || work.paused_sub_6874
-        || work.hud_path_sub_bdc0
-            != crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates
+        || !matches!(
+            work.hud_path_sub_bdc0,
+            crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates
+                | crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters
+        )
     {
         return None;
     }
@@ -288,12 +291,25 @@ pub fn visit_mode_level_vblank_suffix_after_scroll_dma(
 
     // ASM Mode_Level $7DE, j_Make_SpriteAttr_HUD $7176, and sub_BDC0 through
     // $BF80, followed by the $7E2 BSR.W Execute_Objects instruction.
-    for cycles in [
+    const INITIAL_COUNTER_UPDATES: &[u8] = &[
         18, 10, 12, 16, 12, 8, 12, 12, 12, 12, 4, 14, 12, 8, 12, 10, 8, 4, 8, 4, 4, 10, 8, 12, 8,
         12, 8, 4, 10, 4, 8, 4, 4, 8, 8, 10, 4, 10, 8, 12, 8, 12, 8, 10, 12, 16, 12, 12, 12, 12, 16,
         10, 12, 10, 12, 8, 10, 12, 10, 12, 12, 10, 16, 18,
-    ] {
-        emit(cycles);
+    ];
+    const STABLE_COUNTERS: &[u8] = &[
+        18, 10, 12, 16, 12, 8, 12, 12, 12, 12, 4, 14, 12, 8, 12, 10, 8, 4, 8, 4, 4, 10, 8, 12, 8,
+        12, 8, 4, 8, 10, 12, 16, 12, 12, 12, 12, 16, 10, 12, 10, 12, 8, 10, 12, 10, 12, 12, 10, 16,
+        18,
+    ];
+    let hud_cycles = match work.hud_path_sub_bdc0 {
+        crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates => {
+            INITIAL_COUNTER_UPDATES
+        }
+        crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters => STABLE_COUNTERS,
+        crate::ModeLevelHudBuildPath::Other => unreachable!("guard rejects other HUD paths"),
+    };
+    for &cycles in hud_cycles {
+        emit(u32::from(cycles));
     }
 
     Some(timing)
@@ -2991,7 +3007,8 @@ mod tests {
             foreground_custom_queue_entries_sub_1596: 0,
             foreground_cell_queue_entries_sub_1596: 0,
             paused_sub_6874: false,
-            hud_path_sub_bdc0: crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
+            hud_path_sub_bdc0:
+                crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates,
         };
         let mut cycles = Vec::new();
         let timing =

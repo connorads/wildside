@@ -1142,9 +1142,12 @@ pub enum ModeLevelScrollTransferPath {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelHudBuildPath {
+    /// ASM `loc_BE20 -> loc_BE0C -> loc_BE34 -> loc_BE4C`, followed by the
+    /// first gameplay pass updating the life and diamond display counters.
+    LocBe20ThenLocBe4cInitialCounterUpdates,
     /// ASM `loc_BE20 -> loc_BE0C -> loc_BE34 -> loc_BE4C`, with no timer
-    /// rollover and unchanged lives/diamond counters.
-    LocBe20ThenLocBe4cNoCounterUpdates,
+    /// rollover and unchanged life and diamond display counters.
+    LocBe20ThenLocBe4cStableCounters,
     Other,
 }
 
@@ -2023,7 +2026,7 @@ pub fn mode_level_vblank_source_cycles_before_sub_e12(
         || work.foreground_custom_queue_entries_sub_1596 != 0
         || work.foreground_cell_queue_entries_sub_1596 != 0
         || work.paused_sub_6874
-        || work.hud_path_sub_bdc0 != ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates
+        || work.hud_path_sub_bdc0 != ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates
     {
         return None;
     }
@@ -5271,7 +5274,7 @@ mod tests {
             foreground_custom_queue_entries_sub_1596: 0,
             foreground_cell_queue_entries_sub_1596: 0,
             paused_sub_6874: false,
-            hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
+            hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates,
         }
     }
 
