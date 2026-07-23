@@ -3846,6 +3846,17 @@ pub fn title_wait_for_vint_to_mode_standard_cursor_with_scheduler(
     title_wait_for_vint_cursor_with_scheduler(entry, true, advance_hardware)
 }
 
+/// Co-schedule the gameplay `WaitForVint` through `Mode_Level` entry.
+///
+/// ASM `WaitForVint $93E -> V_Int $488 -> MainGameLoop $738 ->
+/// GameModesArray -> Mode_Level $7C8`.
+pub fn mode_level_wait_for_vint_to_mode_level_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleWaitForVintAdvance> {
+    title_wait_for_vint_cursor_with_scheduler(entry, true, advance_hardware)
+}
+
 /// Co-schedule a blocking `WaitForVint` through its subroutine return.
 pub fn title_wait_for_vint_to_subroutine_return_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
@@ -8255,6 +8266,30 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(46).unwrap(),
             },
             "oracle frame 80 reaches Mode_Standard $77A at cycle 10,350,137",
+        );
+    }
+
+    #[test]
+    fn gameplay_wait_for_vint_reaches_mode_level_dispatch_boundary() {
+        // ASM WaitForVint $93E -> V_Int $488 -> MainGameLoop $738 ->
+        // GameModesArray -> Mode_Level $7C8. The dispatch cost matches the
+        // existing Mode_Standard path but names the gameplay destination.
+        let entry = LoadInGameCpuRasterCursor {
+            beam: H40BeamPosition::new(118, 978).expect("published first gameplay poll beam"),
+            refresh_phase: M68kRefreshPhase::new(57).expect("published first gameplay poll phase"),
+        };
+        let advance =
+            mode_level_wait_for_vint_to_mode_level_cursor_with_scheduler(entry, |cycles, _, _| {
+                let _ = cycles;
+                Some(M68kCycleCount::from_raw(0))
+            })
+            .expect("blocking gameplay wait reaches Mode_Level");
+
+        assert_eq!(advance.cursor.beam.scanline(), 224);
+        assert_eq!(
+            advance.cursor.beam.scanline_mclk(),
+            1_688,
+            "ASM V_Int and MainGameLoop dispatch retain the exact no-Z80 H40 boundary"
         );
     }
 

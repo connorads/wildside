@@ -46,8 +46,8 @@ use wildside_frame::{
     apply_gems_fresh_title_second_execute_objects_to_chameleon_enigma,
     apply_gems_fresh_title_third_execute_objects_to_chameleon_enigma,
     apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint,
-    apply_gems_power_on_post_clear_reset, apply_gems_power_on_z80_startup,
-    apply_gems_title_character_map_to_chameleon_enigma,
+    apply_gems_mode_level_wait_for_vint_to_mode_level, apply_gems_power_on_post_clear_reset,
+    apply_gems_power_on_z80_startup, apply_gems_title_character_map_to_chameleon_enigma,
     apply_gems_title_clean_palette_interpolation_call,
     apply_gems_title_controller_fade_exit_frame_with_checkpoint,
     apply_gems_title_demo_mode_to_first_fade_wait,
@@ -4376,29 +4376,35 @@ impl GemsSignatureProbe {
             assert_eq!(self.engine.master_clock(), 115_384_281 * 7);
         }
         if self.power_on_frame == 902 {
-            // ASM WaitForVint -> V_Int -> MainGameLoop enters Mode_Level
-            // $7C8 at selected cycle 115,570,823 with refresh phase 94.
-            // sub_A5C, sub_970 and loc_300BA then retain every source
-            // instruction and VDP-ownership interval through loc_30104.
-            const MODE_LEVEL_ENTRY_CYCLES: u64 = 115_570_823;
+            // ASM loc_892 returns to MainGameLoop's blocking WaitForVint.
+            // Selected-PC tracing places its first $93E poll at cycle
+            // 115,518,946 with refresh phase 57. The persistent scheduler
+            // derives V_Int, the resumed poll tail, MainGameLoop dispatch,
+            // and Mode_Level $7C8 without a route-time entry constant.
+            const FIRST_WAIT_FOR_VINT_POLL_CYCLES: u64 = 115_518_946;
             self.engine.advance_ntsc_master_clocks(
-                MODE_LEVEL_ENTRY_CYCLES * 7 - self.engine.master_clock(),
+                FIRST_WAIT_FOR_VINT_POLL_CYCLES * 7 - self.engine.master_clock(),
             );
-            // TODO(fidelity): replace this absolute handoff with the typed
-            // loc_892/WaitForVint scheduler. The elapsed interval already
-            // includes those serviced waits; discard only the coarse probe's
-            // duplicate unconsumed ledger at the proven $7C8 boundary.
+            // TODO(fidelity): replace this absolute first-poll handoff with
+            // the source-typed streaming loc_892 tail. The elapsed interval
+            // already includes its serviced waits; discard only the coarse
+            // probe's duplicate unconsumed ledger at the proven $93E boundary.
             let _ = self.engine.take_pending_m68k_wait_cycles();
+            let mode_level = apply_gems_mode_level_wait_for_vint_to_mode_level(
+                &mut self.engine,
+                wildside_core::vdp::LoadInGameCpuRasterCursor {
+                    beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                        M68kCycleCount::from_raw(FIRST_WAIT_FOR_VINT_POLL_CYCLES as u32),
+                    ),
+                    refresh_phase: M68kRefreshPhase::new(57)
+                        .expect("oracle first gameplay WaitForVint poll phase"),
+                },
+            )
+            .expect("first gameplay WaitForVint reaches Mode_Level");
             let (_, checkpoint) =
                 apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
                     &mut self.engine,
-                    wildside_core::vdp::LoadInGameCpuRasterCursor {
-                        beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
-                            M68kCycleCount::from_raw(MODE_LEVEL_ENTRY_CYCLES as u32),
-                        ),
-                        refresh_phase: M68kRefreshPhase::new(94)
-                            .expect("oracle Mode_Level entry refresh phase"),
-                    },
+                    mode_level.cursor,
                     ModeLevelVblankWorkBeforeSubE12 {
                         dynamic_art_tiles_loc_ad4: [16, 4],
                         palette_dma_sub_970: true,
@@ -9390,11 +9396,11 @@ fn gems_divergence_matches_documented_oracle_limitation(
             "status_bits",
         ]
         && frame_index == 902
-        && native.audio_ram_crc32 == 1_635_621_674
+        && native.audio_ram_crc32 == 626_025_829
         && oracle.audio_ram_crc32 == 3_008_121_749
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x02BE
+        && native.z80_pc == 0x1301
         && oracle.z80_pc == 0x053C
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0

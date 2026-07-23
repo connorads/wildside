@@ -255,6 +255,19 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: the first gameplay blocking wait now runs on the
+persistent hardware timeline from the proven `WaitForVint $93E` poll at
+cycle 115,518,946 / refresh phase 57 through VINT recognition, `V_Int $488`,
+the resumed poll tail, `MainGameLoop`, and `Mode_Level $7C8`. This removes
+the `$7C8` route-time constant. The hardware-correct Z80 schedules one
+additional 11-cycle bank steal relative to pinned jgenesis's established flag
+phase, so frame 902's narrowly classified native CRC/PC residue changes while
+its zero pending wait and BUSREQ state remain. Full counts stay 36,856 GEMS
+mismatches, 868 evidence-backed limitations, and 35 advisory-only frames;
+the first authoritative mismatch remains frame 903. `verify-slice-fast`
+passes 7,034 core tests and `verify-tas-full` is green. NEXT: source-type the
+streaming first-pass `loc_892` workload that precedes the poll.
+
 Progress 2026-07-23: defended GEMS coverage advances through frame 902 and the
 first authoritative mismatch moves to frame 903. The gameplay `sub_A5C`
 visitor retains all 131 source instructions and the fixed Sprite_Table,
@@ -1875,6 +1888,17 @@ strictly live flash art/CRAM residency; do not delay `sub_10C38` motion or
 mask the render.
 
 ### #409
+
+Progress 2026-07-23: `WaitForVint` now has a named gameplay scheduler that
+retains every `$93E/$942` poll instruction, VINT recognition, exception
+entry, `V_Int $488`, return path, `MainGameLoop`, and `GameModesArray`
+dispatch through `Mode_Level $7C8`. The persistent GEMS consumer derives the
+next gameplay VBlank entry instead of jumping to its selected-PC cycle.
+Production remains fail-closed before the first poll: the native workload
+shows streaming `sub_30194`, unaligned `BackgroundScroll_ComputeShiftLayers`,
+and streaming `sub_307D8`, which the existing unchanged/cached `loc_892`
+helper correctly rejects. NEXT: enrich those three domain branches and
+source-schedule them to remove the first-poll route constant.
 
 Progress 2026-07-23: the first persistent consumer now schedules the natural
 `Mode_Level $7C8` VBlank prefix instruction by instruction. `sub_A5C` emits

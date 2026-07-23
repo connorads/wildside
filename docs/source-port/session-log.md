@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 gameplay `WaitForVint`)
+
+- The first gameplay blocking wait is persistent from its `$93E` poll through
+  VINT, `V_Int`, `MainGameLoop`, and `Mode_Level $7C8`.
+- `$7C8` no longer uses a route-time constant. The hardware-correct Z80 adds
+  one 11-cycle bank steal relative to pinned jgenesis's flag phase.
+- Frame 902 remains a narrow oracle limitation with zero native pending wait;
+  the authoritative GEMS frontier stays at frame 903.
+- `verify-slice-fast` passes 7,034 core tests; `verify-tas-full` is green with
+  pixels unchanged at 26,382 exact / 11,377 divergent.
+- NEXT: classify the first pass's streaming `sub_30194`, unaligned shift-layer,
+  and streaming `sub_307D8` work so `loc_892` derives the first `$93E` poll.
+
 ## 2026-07-23 handoff (#416 first gameplay VBlank prefix)
 
 - Defended GEMS coverage advances through frame 902; the authoritative

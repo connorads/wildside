@@ -1542,6 +1542,36 @@ pub fn apply_gems_title_wait_for_vint_to_mode_standard(
     )
 }
 
+/// Clock the gameplay `WaitForVint` through `Mode_Level $7C8` entry.
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_wait_for_vint_to_mode_level(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleWaitForVintAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::mode_level_wait_for_vint_to_mode_level_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            if source_instruction {
+                audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    u64::from(cycles.get()) * 7,
+                    vdp_owns_bus,
+                );
+            }
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
 /// Clock a blocking `WaitForVint` through its subroutine return.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_wait_for_vint_to_subroutine_return(
