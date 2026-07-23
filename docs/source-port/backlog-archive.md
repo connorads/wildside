@@ -13,6 +13,20 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+2026-07-23 first gameplay post-HUD branches: selected-PC traces now type
+frame 902's live non-wrapped `loc_2744` platform record, the activation hitbox
+collapsed by `sub_21F8 loc_2252`, and all four `sub_1492` GfxObject paths. The
+point hitbox makes `sub_1FA2` scan one clear cell in 382 body cycles and 406
+elapsed cycles including the outer call and three refresh waits. The second
+persistent GfxObject remains hidden during `loc_7508`; the four sprite paths
+are hidden, hidden, vertically culled, vertically culled. Isolating the
+diamond found six `$0273` Z80 bank reads that make hardware-faithful native 49
+cycles later than jgenesis. Completing the corrected post-HUD source path then
+reaches `loc_892` 611 cycles early because the established undocumented-X/Y
+Z80 split changes later bank waits. Production retains the exact `loc_892`
+handoff rather than fitting either emulator-specific gap. NEXT: consume frame
+903's `[12]` VBlank from that retained handoff.
+
 2026-07-23 first gameplay prefix exits: a full selected-PC trace replaced the
 approximate `Mode_Level` sprite and scroll instruction arrays. `sub_A5C`
 omitted one `$AAC..loc_AD4` instruction and the outer return after `sub_B52`;

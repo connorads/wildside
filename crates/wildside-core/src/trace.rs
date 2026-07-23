@@ -227,10 +227,21 @@ fn mode_level_gfx_sprite_work_sub_1492(
 ) -> ModeLevelGfxSpriteWorkSub1492 {
     // ASM sub_7196 leaves these four persistent gameplay GfxObjects in the
     // target shell. The selected-PC oracle streams distinguish their exact
-    // sub_11B6 paths: hidden, two-entry mapping, then two vertical rejects.
+    // sub_11B6 paths. The second node remains hidden on the loc_7508 activation
+    // pass, then uses its two-entry mapping on later steady gameplay frames.
+    let second_persistent_node = if runtime
+        .mode_level_work_before_hud_sub_44dc
+        .as_ref()
+        .is_some_and(|ledger| {
+            ledger.execute_objects.player == ModeLevelPlayerWorkBeforeHud::Activation
+        }) {
+        ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear
+    } else {
+        ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal
+    };
     let mut nodes = vec![
         ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear,
-        ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal,
+        second_persistent_node,
         ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
         ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
     ];
@@ -9963,7 +9974,26 @@ impl NativeRuntime {
             ModeLevelEnemyLoadingPath::LayoutWalkLoc3682c
         };
         let terrain_special_scan_sub_1fa2 = self.opening_slice.as_ref().and_then(|slice| {
-            let bounds = self.player_collision_bounds(slice.player);
+            // ASM sub_21F8 loc_2252: the first gameplay activation still has
+            // `$22(a0)=0`, so all four Kid hitbox globals collapse to the
+            // sprite anchor before sub_1FA2 scans them.
+            let bounds = if self
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .is_some_and(|ledger| {
+                    ledger.execute_objects.player == ModeLevelPlayerWorkBeforeHud::Activation
+                }) {
+                let x = i32::try_from(slice.player.x_pos >> 16).ok()?;
+                let y = i32::try_from(slice.player.y_pos >> 16).ok()?;
+                ObjectBoundsPx {
+                    left: x,
+                    right: x,
+                    top: y,
+                    bottom: y,
+                }
+            } else {
+                self.player_collision_bounds(slice.player)
+            };
             let bounds = ModeLevelKidGfxTerrainScanBounds {
                 left_col: u16::try_from(bounds.left >> 4).ok()?,
                 right_col: u16::try_from(bounds.right >> 4).ok()?,

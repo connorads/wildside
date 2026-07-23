@@ -289,6 +289,49 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
 
     for (frame_index, mask) in script.iter().copied().enumerate().take(1_710) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 902 {
+            let ledger = runtime
+                .mode_level_work_after_hud_sub_44dc()
+                .expect("first gameplay frame should expose the loc_80C workload");
+            assert_eq!(
+                ledger.terrain_special_scan_sub_1fa2,
+                Some(ModeLevelTerrainSpecialScanSub1FA2 {
+                    bounds: ModeLevelKidGfxTerrainScanBounds {
+                        left_col: 2,
+                        right_col: 2,
+                        top_row: 45,
+                        bottom_row: 45,
+                    },
+                    tile_iterations: 1,
+                    first_special_collision: None,
+                }),
+                "ASM sub_21F8 loc_2252 collapses the activation-frame hitbox before sub_1FA2",
+            );
+            assert_eq!(
+                mode_level_post_hud_phase_raw_cycles_to_loc_892(ledger)
+                    .expect("first gameplay post-HUD path is classified")[17],
+                M68kCycleCount::from_raw(400),
+                "ASM loc_876 -> sub_1FA2 -> loc_87A scans one point cell",
+            );
+            assert_eq!(
+                ledger.gfx_sprite_work_sub_1492,
+                ModeLevelGfxSpriteWorkSub1492::Classified {
+                    nodes: vec![
+                        ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear,
+                        ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear,
+                        ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
+                        ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
+                    ],
+                },
+                "ASM frame-902 sub_1492 keeps the second persistent node hidden during loc_7508 activation",
+            );
+            assert_eq!(
+                mode_level_post_hud_phase_raw_cycles_to_loc_892(ledger)
+                    .expect("first gameplay post-HUD path is classified")[19],
+                M68kCycleCount::from_raw(936),
+                "ASM loc_87E -> sub_1492 -> loc_882 activation-frame paths",
+            );
+        }
         if matches!(frame_index, 1_697 | 1_703 | 1_709) {
             let ledger = runtime
                 .mode_level_work_after_hud_sub_44dc()
@@ -728,9 +771,9 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             ))
             .collect::<Vec<_>>(),
         vec![
-            (1_697, Some(11_612)),
-            (1_703, Some(12_538)),
-            (1_709, Some(13_224)),
+            (1_697, Some(11_628)),
+            (1_703, Some(12_554)),
+            (1_709, Some(13_240)),
         ],
         "ASM sub_1492 derives each visible, culled, and hidden linked GfxObject path",
     );

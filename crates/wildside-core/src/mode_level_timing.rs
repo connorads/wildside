@@ -3207,6 +3207,22 @@ fn visit_manage_platform_loading_instructions_loc_2744(
             }
             Some(())
         }
+        // ASM loc_2744 -> loc_2762 -> loc_2788 -> loc_2850: the first
+        // gameplay pass starts on a live record, rejects it to Kid's right,
+        // then finds no matching active platform in sub_2728.
+        ModeLevelPlatformLoaderWorkLoc2744::Placement {
+            wrapped_to_start: false,
+            range: ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight,
+            existing_slot: ModeLevelPlatformLoaderExistingSlotSub2728::Missing,
+        } => {
+            for cycles in [
+                18, 16, 12, 4, 12, 12, 8, 10, 16, 12, 4, 12, 4, 12, 16, 4, 12, 4, 12, 16, 4, 10,
+                18, 8, 12, 10, 4, 16, 10, 20, 16,
+            ] {
+                visit(cycles)?;
+            }
+            Some(())
+        }
         ModeLevelPlatformLoaderWorkLoc2744::NoLayoutReturn => {
             // ASM Mode_Level loc_822 BSR and loc_2744's null-layout return.
             for cycles in [18, 16, 10, 16] {
@@ -5883,6 +5899,16 @@ mod tests {
 
     #[test]
     fn clear_special_terrain_scan_derives_inclusive_cell_walk() {
+        let activation = ModeLevelTerrainSpecialScanSub1FA2 {
+            bounds: crate::ModeLevelKidGfxTerrainScanBounds {
+                left_col: 2,
+                right_col: 2,
+                top_row: 45,
+                bottom_row: 45,
+            },
+            tile_iterations: 1,
+            first_special_collision: None,
+        };
         let scan = |bottom_row| ModeLevelTerrainSpecialScanSub1FA2 {
             bounds: crate::ModeLevelKidGfxTerrainScanBounds {
                 left_col: 10,
@@ -5917,6 +5943,18 @@ mod tests {
             )
             .expect("published clear special-terrain scan")
         };
+        assert_eq!(
+            terrain_special_scan_raw_cycles_sub_1fa2(activation),
+            Some(M68kCycleCount::from_raw(382)),
+            "ASM frame-902 sub_21F8 loc_2252 leaves a one-cell activation hitbox",
+        );
+        let frame_902 = schedule(37, activation, &[]);
+        assert_eq!(frame_902.elapsed, M68kCycleCount::from_raw(406));
+        assert_eq!(frame_902.refresh_events, 3);
+        assert_eq!(
+            frame_902.phase_after,
+            M68kRefreshPhase::new(59).expect("frame-902 loc_87A phase"),
+        );
         let frame_1697 = schedule(66, scan(21), &[]);
         assert_eq!(frame_1697.elapsed, M68kCycleCount::from_raw(586));
         assert_eq!(frame_1697.refresh_events, 5);
@@ -6926,16 +6964,28 @@ mod tests {
             "the 40-instruction loc_2744 path reaches the oracle boundary",
         );
 
+        let first_gameplay = ModeLevelPlatformLoaderWorkLoc2744::Placement {
+            wrapped_to_start: false,
+            range: ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight,
+            existing_slot: ModeLevelPlatformLoaderExistingSlotSub2728::Missing,
+        };
         assert_eq!(
-            manage_platform_loading_raw_cycles_loc_2744(
-                ModeLevelPlatformLoaderWorkLoc2744::Placement {
-                    wrapped_to_start: false,
-                    range: ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight,
-                    existing_slot: ModeLevelPlatformLoaderExistingSlotSub2728::Missing,
-                },
+            manage_platform_loading_raw_cycles_loc_2744(first_gameplay),
+            Some(M68kCycleCount::from_raw(326)),
+            "ASM frame-902 loc_2744 starts on the live record and skips the terminator retry",
+        );
+        assert_eq!(
+            manage_platform_loading_advance_with_scheduler_loc_2744(
+                M68kRefreshPhase::new(52).expect("oracle frame-902 loc_822 phase"),
+                first_gameplay,
+                |_| Some(M68kCycleCount::from_raw(0)),
             ),
-            None,
-            "the non-wrapped source path has a distinct cost",
+            Some(M68kRefreshAdvance {
+                elapsed: M68kCycleCount::from_raw(350),
+                phase_after: M68kRefreshPhase::new(18).expect("no-GEMS frame-902 loc_826 phase"),
+                refresh_events: 3,
+            }),
+            "ASM loc_822 -> loc_2744 -> loc_286E selected instructions",
         );
     }
 

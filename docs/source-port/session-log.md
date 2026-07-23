@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 first gameplay post-HUD branches)
+
+- Frame 902 now types the live non-wrapped `loc_2744` platform record.
+- `sub_21F8 loc_2252` collapses the activation hitbox, so `sub_1FA2` scans one
+  cell in the oracle's 406 elapsed cycles.
+- The second persistent `sub_1492` GfxObject remains hidden during activation.
+- Six diamond-phase `$0273` bank reads put hardware-faithful native 49 cycles
+  after jgenesis. Later X/Y-dependent waits put the complete source path 611
+  cycles before jgenesis at `loc_892`.
+- Production retains the exact `loc_892` handoff instead of fitting either
+  emulator-specific gap.
+- NEXT: consume frame 903's `[12]` VBlank, then return to frame 1697's life
+  icon.
+
 ## 2026-07-23 handoff (#409 first gameplay prefix exits)
 
 - Selected-PC-exact gameplay visitors now reach `$7CC` at cycle 115,445,193
