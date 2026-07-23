@@ -248,6 +248,38 @@ fn published_tas_no_z80_polls_drive_frames_1703_and_1709_life_icon_timing() {
 }
 
 #[test]
+fn published_tas_life_icon_upload_lower_bound_separates_late_and_visible_commits() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut observed = Vec::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1710) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if matches!(frame_index, 1_697 | 1_703 | 1_709) {
+            let mut vblank = published_natural_vblank_work();
+            vblank.hud_path_sub_bdc0 = ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters;
+            observed.push((
+                frame_index,
+                vdp::life_icon_earliest_commit_scanline_from_vint_assertion(
+                    vblank,
+                    trace
+                        .mode_level_work_before_hud_sub_44dc
+                        .as_ref()
+                        .expect("published target frame has typed pre-HUD work"),
+                ),
+            ));
+        }
+    }
+
+    assert_eq!(
+        observed,
+        vec![(1_697, Some(41)), (1_703, Some(31)), (1_709, Some(14))],
+        "ASM V_Int -> Mode_Level -> sub_E12 -> sub_44DC loc_4586 conservative lower bound",
+    );
+}
+
+#[test]
 fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;

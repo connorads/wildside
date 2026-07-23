@@ -13,6 +13,19 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+2026-07-23 life-icon visible-page bound: the source-ordered VINT,
+`Mode_Level`, pre-HUD and `sub_44DC loc_4586` ledgers prove earliest FIFO
+commit scanlines 41, 31 and 14 for published frames 1697, 1703 and 1709.
+The HUD ankh occupies scanlines 13..28, so only the first two frames must
+retain the preceding `$4620` page for the whole sprite. The render boundary
+resolves the prior `sub_1492 -> loc_141A` dynamic-art queue and stable
+`sub_BDC0` counter path before applying that proof. Frames 1697 and 1703 are
+exact, frame 905 remains exact, and frame 1709 retains its required mixed-page
+residue. Full RGB improves to 26,384 exact / 11,375 divergent / 3,620,956
+changed pixels; the first mismatch is frame 1705's 24-pixel palette-0 effect.
+NEXT: #406 owns frame 1705; #409 still needs persistent exact FIFO timing for
+frame 1709.
+
 2026-07-23 second gameplay pass: frame 903 now consumes `loc_AD4` tile `$0C`
 from frame 902's retained prefix result. Selected-PC evidence separates a
 461-cycle final H-scroll DMA halt from ROM work and proves that stable life

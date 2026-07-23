@@ -2026,17 +2026,21 @@ pub fn mode_level_vblank_source_cycles_before_sub_e12(
         || work.foreground_custom_queue_entries_sub_1596 != 0
         || work.foreground_cell_queue_entries_sub_1596 != 0
         || work.paused_sub_6874
-        || work.hud_path_sub_bdc0 != ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates
     {
         return None;
     }
 
     // ASM Mode_Level (kid.asm:901-908), with branches in sub_A5C, sub_970,
-    // loc_300BA, sub_1596, sub_6874, and sub_BDC0. Instruction-level oracle
-    // accounting confirms the identical path costs 3,415 raw cycles on all
-    // three published target frames. VDP-owned one-cycle scheduler re-entries
-    // are excluded and represented by the arbitration value below.
-    Some(M68kCycleCount::from_raw(3_415))
+    // loc_300BA, sub_1596, sub_6874, and sub_BDC0. Stable life/diamond
+    // counters skip 110 raw cycles of calc_display_number work after the
+    // first gameplay pass. VDP-owned one-cycle scheduler re-entries are
+    // excluded and represented by the arbitration value below.
+    let raw_cycles = match work.hud_path_sub_bdc0 {
+        ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates => 3_415,
+        ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters => 3_305,
+        ModeLevelHudBuildPath::Other => return None,
+    };
+    Some(M68kCycleCount::from_raw(raw_cycles))
 }
 
 /// Elapsed cycles for the typed Mode_Level VBlank path, including hardware
@@ -6006,6 +6010,15 @@ mod tests {
             mode_level_vblank_source_cycles_before_sub_e12(work).map(M68kCycleCount::get),
             Some(3_415),
             "ASM Mode_Level $7C8 -> Execute_Objects sub_E12 source path"
+        );
+        assert_eq!(
+            mode_level_vblank_source_cycles_before_sub_e12(ModeLevelVblankWorkBeforeSubE12 {
+                hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters,
+                ..work
+            })
+            .map(M68kCycleCount::get),
+            Some(3_305),
+            "ASM sub_BDC0 stable counters skip both calc_display_number paths"
         );
 
         for (arbitration, expected) in [

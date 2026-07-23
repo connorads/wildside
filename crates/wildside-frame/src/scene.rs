@@ -1431,6 +1431,29 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
                 .collect();
         }
     }
+    if trace.hud_raster_upload_timings_sub_44dc.is_empty()
+        && trace
+            .hud_dma_events_sub_44dc
+            .iter()
+            .any(|event| matches!(event, wildside_core::HudDmaEventSub44DC::LifeIcon { .. }))
+        && let Some(previous_trace) = previous_trace
+        && let (Some(vblank_work), Some(pre_hud_work)) = (
+            trace.mode_level_vblank_work_before_sub_e12,
+            trace.mode_level_work_before_hud_sub_44dc.as_ref(),
+        )
+        && wildside_core::vdp::life_icon_earliest_commit_scanline_from_vint_assertion(
+            vblank_work,
+            pre_hud_work,
+        )
+        .is_some_and(|scanline| scanline >= 29)
+    {
+        // ASM V_Int -> Mode_Level -> sub_E12 -> sub_44DC loc_4586. The HUD
+        // ankh occupies scanlines 13..28. If unavoidable source work and VDP
+        // ownership put even the earliest FIFO commit after that interval,
+        // the visible sprite must retain the preceding `$4620` page.
+        render_trace.hud_life_icon_vram_page_loc_4586 =
+            previous_trace.hud_life_icon_vram_page_loc_4586;
+    }
     render_trace
 }
 

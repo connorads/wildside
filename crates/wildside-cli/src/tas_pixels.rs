@@ -553,8 +553,30 @@ pub(crate) fn render_source_port_frame_with_scene(
     block_grid: Option<&BlockGrid>,
 ) -> (Vec<u8>, Option<(Scene, Vec<LayerSpan>)>) {
     let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
+    let mut resolved_trace = trace.clone();
+    if previous_trace.mode_level_work_after_hud_sub_44dc.is_some()
+        && previous_trace.current_level == trace.current_level
+        && let Some(work) = resolved_trace
+            .mode_level_vblank_work_before_sub_e12
+            .as_mut()
+        && work.dynamic_art_tiles_loc_ad4.is_none()
+    {
+        // ASM Mode_Level loc_87E -> sub_1492 -> sub_13C0 loc_141A writes the
+        // player mapping's tile lengths after the HUD pass. The following
+        // VBlank consumes that retained loc_AD4 queue before sub_E12.
+        let player_frame = crate::native_player::select_player_dynamic_art_frame_loc_141a(
+            previous_trace,
+            &level_visuals.player,
+        );
+        work.dynamic_art_tiles_loc_ad4 =
+            Some(crate::native_player::player_frame_dynamic_art_tiles_loc_141a(player_frame));
+        // A preceding complete Mode_Level pass proves this is not the initial
+        // Make_SpriteAttr_HUD counter build.
+        work.hud_path_sub_bdc0 =
+            wildside_core::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters;
+    }
     let render_trace = render_trace_with_vdp_latched_state_and_resident(
-        trace,
+        &resolved_trace,
         Some(previous_trace),
         runtime.source_port_render_trace_snapshot(),
     );

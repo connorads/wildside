@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 life-icon visible-page bound)
+
+- Source-ordered VINT, VBlank and pre-HUD work prove earliest `loc_4586` FIFO
+  commits at scanlines 41, 31 and 14 on frames 1697, 1703 and 1709.
+- The visible ankh ends on scanline 28. Frames 1697 and 1703 retain the
+  preceding `$4620` page and become exact.
+- Frame 1709 remains mixed-page work for the persistent exact FIFO replayer.
+- The 0..1710 replay proves frame 905 stays exact.
+- Full RGB is 26,384 exact / 11,375 divergent / 3,620,956 changed pixels.
+- NEXT: #406 frame 1705's palette-0 effect at tiles `$CA..$CC`; resume #409
+  exact life-icon raster at frame 1709 and GEMS at frame 904.
+
 ## 2026-07-23 handoff (#409 second gameplay pass)
 
 - Frame 903 consumes `loc_AD4` tile `$0C` from frame 902's retained exact
