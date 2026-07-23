@@ -13,6 +13,32 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+2026-07-23 retained first gameplay pre-HUD composition: the persistent probe
+now enters the 914-raw-cycle VBlank suffix at the real selected `loc_7D6`
+boundary, cycle 115,448,043 phase 16. The first source instruction drains the
+442-cycle pending wait left by `loc_30104`, reaches `sub_E12` at cycle
+115,449,413 phase 106, and consumes the
+typed 13,386-raw-cycle first object/post-object ledger through `sub_44DC` at
+cycle 115,463,015, phase 12. The pre-HUD ledger exposes exact elapsed time but
+not every 68000 instruction boundary, so GEMS bank-read requests accumulated
+inside each long span are not treated as individual stalls. The adapter
+advances the Z80 over the oracle-derived elapsed interval and clears that
+unschedulable aggregate debt at the typed exit. This does not raise GEMS
+coverage.
+
+The attempted next composition rejected two false wait values. Continuous
+advancement across the still-unmodelled first VBlank prefix accumulates 385
+cycles of bank-read debt before the suffix; the probe clears it explicitly at
+that selected boundary. A selected-PC trace rejects composing the existing
+prefix adapter: the first `Palette_to_VRAM` call skips its DMA, while the
+trace workload marks it active, and the sprite and scroll adapters miss their
+selected exits by 23 and 33 cycles. More importantly, applying the isolated diamond HUD
+schedule to the retained GEMS state adds 49 live bank-wait cycles and returns
+at cycle 115,477,526 instead of oracle cycle 115,477,477. Production therefore
+keeps the exact `sub_44DC` checkpoint and resumes at the existing `loc_892`
+handoff. NEXT: expose first-prefix and pre-HUD instruction boundaries, then
+locate the exact diamond bank-read instruction before composing frame 903.
+
 2026-07-23 first gameplay pre-HUD path: the frame-902 Object list contains
 five callbacks in selector order: input `loc_7452`, Kid activation `loc_7508`,
 damage `loc_BC34`, palette initialisation `sub_73D0`, and demo exit

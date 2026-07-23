@@ -13,14 +13,14 @@ use wildside_core::{GameMode, LevelId, NativeSoundCommand, NativeTraceFrame};
 use wildside_core::{
     GemsQueueCommandAdvance, GemsQueueCommandPath, GemsStopMusicBusAckPolls,
     GemsStopMusicElapsedTiming, HudDmaEventSub44DC, LoadInGameTimerBonusPath, M68kCycleCount,
-    M68kRefreshPhase, ModeLevelPostHudWorkLedger, ModeLevelScrollTransferPath,
-    ModeLevelVblankWorkBeforeSubE12, ReadJoypadControl,
+    M68kRefreshPhase, ModeLevelPostHudWorkLedger, ModeLevelPreHudWorkLedger,
+    ModeLevelScrollTransferPath, ModeLevelVblankWorkBeforeSubE12, ReadJoypadControl,
     vdp::{
         DecompressToVramTransferAdvance, LoadInGameCpuRasterCursor,
         LoadInGamePlatformInitialisationAdvance, LoadInGamePlatformRefreshLedger,
-        LoadInGamePlatformVintEvent, ModeLevelCpuRasterCursor, TitleIntroSourceAdvance,
-        TitleMemoryDmaAdvance, TitlePaletteHardwareEvent, TitlePaletteToVramAdvance,
-        TitleWaitForVintAdvance,
+        LoadInGamePlatformVintEvent, ModeLevelCpuRasterCursor, ModeLevelRasterSeedSubE12,
+        TitleIntroSourceAdvance, TitleMemoryDmaAdvance, TitlePaletteHardwareEvent,
+        TitlePaletteToVramAdvance, TitleWaitForVintAdvance,
     },
 };
 #[cfg(feature = "audio")]
@@ -1855,27 +1855,95 @@ pub fn apply_gems_title_mode_standard_empty_foreground_queues(
 
 /// Clock the natural gameplay suffix after the H-scroll DMA through the
 /// `Execute_Objects sub_E12` call instruction.
+///
+/// `pending_vdp_wait_after_loc_7d6` carries arbitration already exposed by
+/// the completed `loc_30104` DMA at the first `$7D6` source boundary.
 #[cfg(feature = "audio")]
 pub fn apply_gems_mode_level_vblank_suffix_after_scroll_dma(
     audio: &mut GemsMasterClockTimingEngine,
     entry: LoadInGameCpuRasterCursor,
     work: ModeLevelVblankWorkBeforeSubE12,
+    pending_vdp_wait_after_loc_7d6: M68kCycleCount,
 ) -> Option<TitleIntroSourceAdvance> {
     if audio.pending_m68k_wait_cycles() != 0 {
         return None;
     }
+    let mut first_source_instruction = true;
     wildside_core::vdp::mode_level_vblank_suffix_after_scroll_dma_cursor_with_scheduler(
         entry,
         work,
         |cycles, vdp_owns_bus, source_instruction| {
-            Some(apply_gems_title_source_hardware_interval(
+            let generated_wait = apply_gems_title_source_hardware_interval(
                 audio,
                 cycles,
                 vdp_owns_bus,
                 source_instruction,
-            ))
+            );
+            if source_instruction && first_source_instruction {
+                first_source_instruction = false;
+                Some(M68kCycleCount::from_raw(
+                    generated_wait
+                        .get()
+                        .checked_add(pending_vdp_wait_after_loc_7d6.get())?,
+                ))
+            } else {
+                Some(generated_wait)
+            }
         },
     )
+}
+
+/// Clock the first source-typed gameplay `sub_E12 -> sub_44DC` interval.
+///
+/// The two spans are kept separate at their selected-PC boundaries. The
+/// trace ledger supplies exact elapsed time, including refresh and observed
+/// external waits. Until these long spans expose every source instruction,
+/// live GEMS bank-read requests accumulated inside a span are not usable as
+/// individual 68000 stalls and are cleared at its typed exit.
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_pre_hud_to_sub_44dc(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: ModeLevelRasterSeedSubE12,
+    ledger: &ModeLevelPreHudWorkLedger,
+) -> Option<ModeLevelCpuRasterCursor> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+
+    let mut cursor = ModeLevelCpuRasterCursor {
+        beam: entry.beam,
+        refresh_phase: entry.refresh_phase,
+    };
+    let apply_span = |audio: &mut GemsMasterClockTimingEngine,
+                      cursor: &mut ModeLevelCpuRasterCursor,
+                      raw: M68kCycleCount,
+                      expected: wildside_core::M68kRefreshAdvance|
+     -> Option<()> {
+        let source = cursor.refresh_phase.advance_rom(raw);
+        if source.refresh_events != expected.refresh_events {
+            return None;
+        }
+        audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+            u64::from(expected.elapsed.get()) * 7,
+            false,
+        );
+        let _ = audio.take_pending_m68k_wait_cycles();
+        cursor.beam = cursor.beam.advance_m68k_cycles(expected.elapsed);
+        cursor.refresh_phase = expected.phase_after;
+        Some(())
+    };
+
+    let execute_raw = wildside_core::execute_objects_raw_cycles_sub_e12(&ledger.execute_objects)?;
+    let execute_elapsed = wildside_core::execute_objects_elapsed_cycles_sub_e12(
+        &ledger.execute_objects,
+        cursor.refresh_phase,
+    )?;
+    apply_span(audio, &mut cursor, execute_raw, execute_elapsed)?;
+    let post_execute_raw = wildside_core::post_execute_raw_cycles_before_sub_44dc(ledger)?;
+    let post_execute_elapsed =
+        wildside_core::post_execute_elapsed_cycles_before_sub_44dc(ledger, cursor.refresh_phase)?;
+    apply_span(audio, &mut cursor, post_execute_raw, post_execute_elapsed)?;
+    Some(cursor)
 }
 
 /// Clock the first title object dispatch into `sub_1B8F4`.
@@ -4370,9 +4438,13 @@ mod tests {
             GemsNtscTimelineOrigin::PowerOnScanlineZero,
         );
         engine.advance_ntsc_master_clocks(u64::from(entry_cycles) * 7);
-        let advance =
-            apply_gems_mode_level_vblank_suffix_after_scroll_dma(&mut engine, entry, work)
-                .expect("source-scheduled Mode_Level VBlank suffix");
+        let advance = apply_gems_mode_level_vblank_suffix_after_scroll_dma(
+            &mut engine,
+            entry,
+            work,
+            M68kCycleCount::from_raw(0),
+        )
+        .expect("source-scheduled Mode_Level VBlank suffix");
 
         assert_eq!(advance.timing.instruction_count, 88);
         assert_eq!(advance.timing.raw_cycles.get(), 914);
@@ -4388,6 +4460,37 @@ mod tests {
         assert_eq!(
             engine.master_clock(),
             u64::from(entry_cycles + expected_elapsed) * 7,
+        );
+
+        // Oracle selected-PC trace, published TAS frame 902: loc_7D6 enters
+        // at cycle 115448043 phase 16, and its completed loc_30104 H-scroll
+        // DMA contributes a 442-cycle pending wait before sub_E12 enters at
+        // cycle 115449413 phase 106.
+        let entry_cycles = 115_448_043_u32;
+        let entry = LoadInGameCpuRasterCursor {
+            beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                entry_cycles,
+            )),
+            refresh_phase: M68kRefreshPhase::new(16).unwrap(),
+        };
+        let mut engine = GemsMasterClockTimingEngine::new_with_ntsc_timeline_origin(
+            &[0x76],
+            vec![],
+            GemsNtscTimelineOrigin::PowerOnScanlineZero,
+        );
+        engine.advance_ntsc_master_clocks(u64::from(entry_cycles) * 7);
+        let advance = apply_gems_mode_level_vblank_suffix_after_scroll_dma(
+            &mut engine,
+            entry,
+            work,
+            M68kCycleCount::from_raw(442),
+        )
+        .expect("published first-gameplay suffix drains the completed DMA wait");
+        assert_eq!(engine.master_clock(), 115_449_413 * 7);
+        assert_eq!(advance.external_wait_cycles, M68kCycleCount::from_raw(442));
+        assert_eq!(
+            advance.cursor.refresh_phase,
+            M68kRefreshPhase::new(106).unwrap(),
         );
     }
 

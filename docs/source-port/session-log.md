@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 retained first gameplay pre-HUD)
+
+- The persistent probe composes the VBlank suffix and typed first object pass
+  from the real `loc_7D6` boundary at cycle 115,448,043 through exact
+  `sub_44DC` cycle 115,463,015. The suffix drains the trace-backed 442-cycle
+  pending H-scroll DMA wait.
+- Prefix composition remains debt: frame 902 skips the palette DMA and the
+  current sprite/scroll schedulers miss their selected exits by 23/33 cycles.
+- Long pre-HUD spans still lack per-instruction boundaries, so their aggregate
+  GEMS bank-read debt is cleared only at typed selected-PC exits.
+- Retained diamond scheduling adds 49 cycles absent from the oracle boundary;
+  production resumes at the existing exact `loc_892` handoff.
+- NEXT: type the first VBlank prefix and pre-HUD instruction boundaries, then
+  isolate the diamond bank-read split before defending frame 903.
+
 ## 2026-07-23 handoff (#409 first gameplay pre-HUD)
 
 - Frame 902 now types all five first-dispatch Object callbacks and their
