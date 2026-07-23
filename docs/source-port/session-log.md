@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 block-debris sprite pass)
+
+- The six inactive `sub_2A4C` slots now preserve every source instruction.
+- Frames 1697/1703/1709 reproduce 3/4/3 refresh waits, 0/2/0 GEMS bank
+  steals, and exact `loc_87E` phases 60/56/74.
+- Nineteen of 22 post-HUD phases are now source-scheduled.
+- NEXT: source-schedule `Make_SpritesFromGfxObjects sub_1492` from `loc_87E`.
+
 ## 2026-07-23 handoff (#409 special-terrain scan)
 
 - `sub_1FA2` now preserves every instruction in the published clear 2x2 and

@@ -1889,6 +1889,14 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: the six inactive block-debris slots in `sub_2A4C` are
+now instruction-scheduled from `Mode_Level loc_87A`. Their 426 raw cycles
+including the caller reproduce 3/4/3 refresh waits, 0/2/0 eleven-cycle GEMS
+bank steals, and exact `loc_87E` phases 60/56/74 on frames 1697/1703/1709.
+Nineteen of 22 post-HUD phases now preserve exact source instruction
+boundaries. NEXT: source-schedule `Make_SpritesFromGfxObjects sub_1492` from
+`loc_87E`.
+
 Progress 2026-07-23: the typed clear-terrain `sub_1FA2` walk is now
 instruction-scheduled from `Mode_Level loc_876`. The published 2x2/2x2/2x3
 walks take 576/576/706 raw cycles including the caller, five refresh waits

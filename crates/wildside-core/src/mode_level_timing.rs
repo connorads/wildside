@@ -3068,17 +3068,81 @@ pub fn terrain_effects_advance_with_scheduler_sub_5e02(
     })
 }
 
-/// Raw routine-body cost for ASM block-debris sprite compilation `sub_2A4C`.
-pub fn block_debris_sprites_raw_cycles_sub_2a4c(
+fn visit_block_debris_sprites_instructions_sub_2a4c(
     work: ModeLevelBlockDebrisWorkSub2A4C,
-) -> Option<M68kCycleCount> {
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
     if work.active_slot_count != 0 {
         return None;
     }
 
-    // ASM sub_2A4C loc_2A56/loc_2BA6: each of the six fixed scratch slots
-    // has a clear active byte, so every slot takes the skip-and-advance path.
-    Some(M68kCycleCount::from_raw(408))
+    // ASM Mode_Level loc_87A BSR and sub_2A4C setup through loc_2A56.
+    for cycles in [18, 16, 8] {
+        visit(cycles)?;
+    }
+    for slot in 0..6 {
+        // ASM loc_2A56/loc_2BA6: the active byte is clear, so each fixed
+        // scratch slot takes the skip path. The sixth slot returns instead
+        // of advancing and branching to the next slot.
+        let instruction_cycles: &[u32] = if slot == 5 {
+            &[4, 8, 10, 16, 10, 16]
+        } else {
+            &[4, 8, 10, 16, 8, 8, 10]
+        };
+        for &cycles in instruction_cycles {
+            visit(cycles)?;
+        }
+    }
+    Some(())
+}
+
+/// Raw routine-body cost for ASM block-debris sprite compilation `sub_2A4C`.
+pub fn block_debris_sprites_raw_cycles_sub_2a4c(
+    work: ModeLevelBlockDebrisWorkSub2A4C,
+) -> Option<M68kCycleCount> {
+    let mut raw_cycles = 0_u32;
+    visit_block_debris_sprites_instructions_sub_2a4c(work, |instruction_cycles| {
+        raw_cycles = raw_cycles.checked_add(instruction_cycles)?;
+        Some(())
+    })?;
+    raw_cycles.checked_sub(18).map(M68kCycleCount::from_raw)
+}
+
+/// Co-schedule ASM `Mode_Level loc_87A -> sub_2A4C -> loc_87E` with
+/// asynchronous hardware.
+pub fn block_debris_sprites_advance_with_scheduler_sub_2a4c(
+    mut phase: M68kRefreshPhase,
+    work: ModeLevelBlockDebrisWorkSub2A4C,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    visit_block_debris_sprites_instructions_sub_2a4c(work, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+        Some(())
+    })?;
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
 }
 
 /// Raw routine-body cost for ASM `DiamondPower_CompileSprites` (`sub_3F798`).
@@ -4652,12 +4716,42 @@ mod tests {
 
     #[test]
     fn inactive_block_debris_slots_take_fixed_six_slot_scan() {
+        let work = ModeLevelBlockDebrisWorkSub2A4C {
+            active_slot_count: 0,
+        };
         assert_eq!(
-            block_debris_sprites_raw_cycles_sub_2a4c(ModeLevelBlockDebrisWorkSub2A4C {
-                active_slot_count: 0,
-            }),
+            block_debris_sprites_raw_cycles_sub_2a4c(work),
             Some(M68kCycleCount::from_raw(408))
         );
+        let schedule = |phase, wait_after: &[usize]| {
+            let mut source_instruction_index = 0_usize;
+            block_debris_sprites_advance_with_scheduler_sub_2a4c(
+                M68kRefreshPhase::new(phase).expect("published loc_87A phase"),
+                work,
+                |cycles| {
+                    if cycles.get() < 4 || cycles.get() & 1 != 0 {
+                        return Some(M68kCycleCount::from_raw(0));
+                    }
+                    let wait = u32::from(wait_after.contains(&source_instruction_index)) * 11;
+                    source_instruction_index += 1;
+                    Some(M68kCycleCount::from_raw(wait))
+                },
+            )
+            .expect("published inactive block-debris slots")
+        };
+        for (advance, elapsed, refresh_events, phase_after) in [
+            (schedule(12, &[]), 432, 3, 60),
+            (schedule(112, &[0, 2]), 456, 4, 56),
+            (schedule(26, &[]), 432, 3, 74),
+        ] {
+            assert_eq!(advance.elapsed, M68kCycleCount::from_raw(elapsed));
+            assert_eq!(advance.refresh_events, refresh_events);
+            assert_eq!(
+                advance.phase_after,
+                M68kRefreshPhase::new(phase_after).expect("published loc_87E phase"),
+                "ASM sub_2A4C oracle frames 1697/1703/1709",
+            );
+        }
         assert_eq!(
             block_debris_sprites_raw_cycles_sub_2a4c(ModeLevelBlockDebrisWorkSub2A4C {
                 active_slot_count: 1,
