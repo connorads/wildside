@@ -10686,6 +10686,8 @@ impl NativeRuntime {
             hud_dma_events_sub_44dc: self.hud_dma_events_sub_44dc.clone(),
             hud_raster_upload_timings_sub_44dc: self.hud_raster_upload_timings_sub_44dc.clone(),
             mode_level_work_before_hud_sub_44dc: self.mode_level_work_before_hud_sub_44dc.clone(),
+            mode_level_work_after_hud_sub_44dc: self.mode_level_work_after_hud_sub_44dc.clone(),
+            mode_level_tail_work_loc_892: self.mode_level_tail_work_loc_892,
             berzerker_charging: if hidden_boot_progression {
                 false
             } else {

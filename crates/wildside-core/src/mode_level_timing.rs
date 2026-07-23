@@ -17,6 +17,7 @@ use crate::{
     ModeLevelReadJoypadWork, ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
     ModeLevelTerrainSpecialScanSub1FA2, ModeLevelVerticalCollisionPath, ModeLevelWallCollisionPath,
 };
+use serde::{Deserialize, Serialize};
 
 /// Raw Motorola 68000 instruction cycles, excluding refresh and bus waits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1167,7 +1168,7 @@ pub struct ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership {
 }
 
 /// ASM `sub_30194` branch selected by the current and cached camera tiles.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ModeLevelTailCameraStripeSub30194 {
     /// ASM loc_301B4/loc_30246: neither camera tile axis needs streaming.
     BothTileAxesUnchanged,
@@ -1177,7 +1178,7 @@ pub enum ModeLevelTailCameraStripeSub30194 {
 
 /// One of the 19 cached/new comparisons in ASM
 /// `BackgroundScroll_ComputeShiftData loc_30452/loc_3048C`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ModeLevelTailShiftDataSlotLoc30452 {
     Unchanged,
     OldGreaterThanNew,
@@ -1504,7 +1505,7 @@ fn shift_data_words_loc_30452(camera_x_pos: u16, time_frames: u16) -> [u16; 19] 
 }
 
 /// ASM `BackgroundScroll_ComputeShiftLayers` source path.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ModeLevelTailShiftLayersWork {
     /// ASM loc_3050A/loc_3056A: aligned 8-pixel rows without a theme ripple.
     NormalAlignedNoRipple {
@@ -1514,14 +1515,14 @@ pub enum ModeLevelTailShiftLayersWork {
 }
 
 /// ASM `sub_30744` piece-row scan work before its `$FF` sentinel.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelTailPieceRowsSub30744 {
     pub entries_before_sentinel: u8,
     pub rendered_nonnegative_entries: u8,
 }
 
 /// ASM `sub_307D8` background-piece refresh path.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ModeLevelTailPieceRefreshSub307D8 {
     /// ASM loc_30810 -> loc_308B4: current and cached background rows match.
     CachedRowUnchanged,
@@ -1529,7 +1530,7 @@ pub enum ModeLevelTailPieceRefreshSub307D8 {
 }
 
 /// ASM `sub_14C0` palette work at the end of `Mode_Level`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ModeLevelTailPaletteWorkSub14C0 {
     /// Both pending palette masks `$FFFFF888/$FFFFF88C` are clear.
     Inactive,
@@ -1538,7 +1539,7 @@ pub enum ModeLevelTailPaletteWorkSub14C0 {
 
 /// Source-typed work from ASM `Mode_Level loc_892` to the first
 /// `WaitForVint $93E` poll.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelTailWorkLoc892 {
     pub camera_stripe_sub_30194: ModeLevelTailCameraStripeSub30194,
     pub background_loc_3038a: ModeLevelTailBackgroundWorkLoc3038A,
@@ -1546,7 +1547,7 @@ pub struct ModeLevelTailWorkLoc892 {
 }
 
 /// ASM `loc_3038A` gates and background-scroll work.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelTailBackgroundWorkLoc3038A {
     pub special_effect_4: bool,
     pub game_mode_zero: bool,

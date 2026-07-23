@@ -2720,6 +2720,8 @@ mod tests {
             hud_dma_events_sub_44dc: Vec::new(),
             hud_raster_upload_timings_sub_44dc: Vec::new(),
             mode_level_work_before_hud_sub_44dc: None,
+            mode_level_work_after_hud_sub_44dc: None,
+            mode_level_tail_work_loc_892: None,
             start_press_count: 6,
             boot_phase: None,
             boot_phase_elapsed: None,

@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 first Mode_Level composition boundary)
+
+- Frame 902 spans the first complete `Mode_Level` pass after sequence $02
+  starts. Wall-clock-only GEMS timing falsely accumulates a 4,400-cycle 68000
+  wait there.
+- Selected-PC evidence places `sub_E12`, `sub_44DC`, `loc_810`, `loc_892`, and
+  the following `WaitForVint` loop across the sample.
+- `NativeTraceFrame` now carries the typed post-HUD and `loc_892` workload
+  alongside the existing pre-HUD ledger.
+- The focused regression and `verify-slice-fast` pass with 7,032 core tests.
+- NEXT: service GEMS waits after each source instruction in the typed gameplay
+  schedule; do not fit or mask the 4,400-cycle residue.
+
 ## 2026-07-23 handoff (#416 complete `Load_InGame`)
 
 - Defended GEMS coverage advances to frames 0..901; frame 902 is the first

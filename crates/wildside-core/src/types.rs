@@ -1,3 +1,4 @@
+use crate::mode_level_timing::ModeLevelTailWorkLoc892;
 use crate::physics::{Direction, LevelBounds};
 use crate::platforms::PlatformLoaderSlotModelLoc2744;
 use crate::terrain;
@@ -2578,6 +2579,15 @@ pub struct NativeTraceFrame {
     /// This is absent when the outer Mode_Level pass does not reach sub_44DC.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mode_level_work_before_hud_sub_44dc: Option<ModeLevelPreHudWorkLedger>,
+    /// ASM `Mode_Level loc_80C` workload after `sub_44DC` returns.
+    ///
+    /// This preserves source order for hardware adapters that service
+    /// asynchronous GEMS waits at instruction boundaries.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode_level_work_after_hud_sub_44dc: Option<ModeLevelPostHudWorkLedger>,
+    /// ASM `Mode_Level loc_892` work through the first `WaitForVint` poll.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode_level_tail_work_loc_892: Option<ModeLevelTailWorkLoc892>,
     /// ROM `Berzerker_charging` (`$FFFFFA6E`): set by ASM loc_9564 after the
     /// Berzerker/Cyclone walk accumulator carries.
     #[serde(default)]
@@ -3037,6 +3047,8 @@ impl Default for NativeTraceFrame {
             hud_dma_events_sub_44dc: Vec::new(),
             hud_raster_upload_timings_sub_44dc: Vec::new(),
             mode_level_work_before_hud_sub_44dc: None,
+            mode_level_work_after_hud_sub_44dc: None,
+            mode_level_tail_work_loc_892: None,
             berzerker_charging: false,
             berzerker_charge_pose: false,
             berzerker_walk_pose: false,

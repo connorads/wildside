@@ -261,11 +261,21 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
     let mut observed_raw_cycles_to_loc_892 = Vec::new();
 
     for (frame_index, mask) in script.iter().copied().enumerate().take(1_710) {
-        runtime.step_frame(FrameInput::from_mask(mask));
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
         if matches!(frame_index, 1_697 | 1_703 | 1_709) {
             let ledger = runtime
                 .mode_level_work_after_hud_sub_44dc()
                 .expect("published helper should take the natural loc_80C path");
+            assert_eq!(
+                trace.mode_level_work_after_hud_sub_44dc.as_ref(),
+                Some(ledger),
+                "ASM Mode_Level loc_80C workload must cross the trace boundary",
+            );
+            assert_eq!(
+                trace.mode_level_tail_work_loc_892,
+                runtime.mode_level_tail_work_loc_892(),
+                "ASM Mode_Level loc_892 workload must cross the trace boundary",
+            );
             if frame_index == 1_697 {
                 let mut reordered = ledger.clone();
                 reordered.phases.swap(0, 1);

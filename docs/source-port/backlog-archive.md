@@ -255,6 +255,17 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: frame 902 is the first complete gameplay scheduling
+problem, not a new command. Selected-PC tracing places `MainGameLoop $738` and
+the first `Mode_Level $7C8` in frame 901, then `Execute_Objects sub_E12`,
+`sub_44DC`, `loc_810`, `loc_892`, and the following `WaitForVint` loop across
+frame 902. Advancing GEMS as wall time accumulates a false 4,400-cycle pending
+68000 wait at that sample. The native trace now serialises the existing typed
+post-HUD and `loc_892` workload ledgers so a persistent audio adapter can
+service waits in ROM order. `verify-slice-fast` passes 7,032 core tests and all
+configured TAS slices. NEXT: add the instruction-boundary scheduler for this
+typed first `Mode_Level` pass; do not ratchet the false wait as a limitation.
+
 Progress 2026-07-23: complete `Load_InGame` coverage advances the defended
 frontier through frame 901. The 512-word Eyclops transfer ends at source-model
 cycle 114,341,933; selected-PC and ASM inspection then prove that frames
@@ -1850,6 +1861,15 @@ strictly live flash art/CRAM residency; do not delay `sub_10C38` motion or
 mask the render.
 
 ### #409
+
+Progress 2026-07-23: the hardware-composition boundary is explicit in
+`NativeTraceFrame`. The source-modelled post-`sub_44DC` ledger and `loc_892`
+tail work now travel with the existing pre-HUD ledger, rather than remaining
+private mutable runtime observations. This is the narrow functional-core /
+imperative-shell port needed by both gameplay raster timing and persistent
+GEMS scheduling. The first consumer remains fail-closed until each typed phase
+has a source-instruction schedule; aggregate routine totals are insufficient
+because they would hold a mid-routine Z80 bank access until the phase ends.
 
 Progress 2026-07-22: the complete non-GEMS `Mode_Level $810 -> loc_892`
 source workload is typed and independently pinned to oracle selected-PC
