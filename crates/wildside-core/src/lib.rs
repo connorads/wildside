@@ -361,6 +361,12 @@ pub struct NativeRuntime {
     /// ASM `$FFFFF88C`: pending palette mask for `Palette_Buffer+$40..+$7E`
     /// during the live `sub_73D0` level-entry fullscreen fade.
     level_entry_pending_palette_1_mask_sub_73d0: u32,
+    /// ASM `PaletteToDMA_Flag` `$FFFFF890`: `sub_7196` sets this before the
+    /// first gameplay pass and `sub_73D0` clears it during that object pass.
+    palette_dma_suppressed_f890: bool,
+    /// Frame-start `Palette_to_VRAM $970` branch consumed before this frame's
+    /// `Execute_Objects` pass can mutate `$FFFFF890`.
+    mode_level_palette_dma_sub_970: Option<bool>,
     /// ASM loc_DA4A writes PlayerStart_X/Y and sets `$FFFFFC29` before the
     /// Teleport tail. Load_InGame's loc_11BD2 then preserves those start words
     /// instead of reading the destination level header pair.
@@ -1418,6 +1424,8 @@ impl NativeRuntime {
             level_entry_fade_progress_sub_73d0: 0,
             level_entry_pending_palette_0_mask_sub_73d0: 0,
             level_entry_pending_palette_1_mask_sub_73d0: 0,
+            palette_dma_suppressed_f890: false,
+            mode_level_palette_dma_sub_970: None,
             pending_player_start_override_loc_11bd2: None,
             player_lifecycle: PlayerLifecycle::Alive,
             opening_slice: None,
@@ -3531,6 +3539,7 @@ impl NativeRuntime {
         self.mode_level_platform_loader_work_loc_2744 = None;
         self.demo_read_joypad_work_loc_c22 = None;
         self.mode_level_tail_work_loc_892 = None;
+        self.mode_level_palette_dma_sub_970 = None;
         // ASM loc_12098/loc_12110/loc_12188 DMA requests are emitted by one
         // Execute_Objects pass. Do not retain them across frames whose object
         // pass skips the shore worker, including transformation hibernation.
@@ -3545,6 +3554,9 @@ impl NativeRuntime {
             // ReadJoypad, so a later same-frame mode switch must retain this
             // camera rather than the post-update WRAM camera.
             self.gameplay_vdp_camera_latch_loc_300ba = Some(self.current_camera_state());
+            // ASM Mode_Level $7CC runs before Execute_Objects can wake
+            // sub_73D0 and clear PaletteToDMA_Flag.
+            self.mode_level_palette_dma_sub_970 = Some(!self.palette_dma_suppressed_f890);
         }
         // ASM Mode_Level loc_80C: this trace-only count represents Objects
         // linked by this frame's trailing loc_3691E pass before their next
@@ -4721,6 +4733,9 @@ impl NativeRuntime {
         if self.allow_pausing || !matches!(self.boot_state, BootState::InGame) {
             return;
         }
+        // ASM sub_73D0 $73D0: this is the first instruction in the fade
+        // worker after the preceding Mode_Level palette call.
+        self.palette_dma_suppressed_f890 = false;
         level::apply_pending_palette_fade_sub_14C0(
             self.level_entry_fade_progress_sub_73d0,
             &mut self.level_entry_pending_palette_0_mask_sub_73d0,
@@ -4765,6 +4780,8 @@ impl NativeRuntime {
             self.palette_buffer,
             self.teleport_warp_colour_fbcc,
         );
+        // ASM sub_7196 sets PaletteToDMA_Flag before allocating sub_73D0.
+        self.palette_dma_suppressed_f890 = true;
         self.palette_buffer_2 = fade.palette_buffer_2;
         self.palette_buffer_3 = fade.palette_buffer_3;
         self.level_entry_fade_progress_sub_73d0 = fade.fade_progress;
@@ -4780,6 +4797,7 @@ impl NativeRuntime {
     }
 
     pub(crate) fn clear_level_entry_fade_sub_73d0(&mut self) {
+        self.palette_dma_suppressed_f890 = false;
         self.level_entry_fade_progress_sub_73d0 = 0;
         self.level_entry_pending_palette_0_mask_sub_73d0 = 0;
         self.level_entry_pending_palette_1_mask_sub_73d0 = 0;

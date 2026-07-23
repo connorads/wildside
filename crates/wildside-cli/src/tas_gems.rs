@@ -9572,7 +9572,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
         && oracle.audio_ram_crc32 == 3_008_121_749
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x1325
+        && native.z80_pc == 0x131E
         && oracle.z80_pc == 0x053C
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
@@ -9888,7 +9888,7 @@ mod tests {
             (
                 1_904_935_425,
                 0x000E_0000,
-                0x1325,
+                0x131E,
                 8,
                 GemsFrameSignature::STATUS_BUSREQ | GemsFrameSignature::STATUS_VDP_OWNS_BUS,
             ),
@@ -10913,7 +10913,7 @@ mod tests {
         // ASM Mode_Level loc_892 -> loc_30104: the source-scheduled tail
         // starts after the proven GEMS $07B0..$07B4 SUB X/Y split and carries
         // that driver-state difference through XFER68K to the H-scroll DMA.
-        let mut native = signature(0x1325);
+        let mut native = signature(0x131E);
         native.audio_ram_crc32 = 1_904_935_425;
         native.bank_address = 0x000E_0000;
         native.pending_m68k_wait_cycles = 8;
@@ -13796,7 +13796,9 @@ mod tests {
             ModeLevelGemsFrameWork {
                 vblank_before_sub_e12: ModeLevelVblankWorkBeforeSubE12 {
                     dynamic_art_tiles_loc_ad4: Some([0; 6]),
-                    palette_dma_sub_970: true,
+                    // ASM sub_7196 keeps PaletteToDMA_Flag set until the
+                    // first frame's later sub_73D0 object pass.
+                    palette_dma_sub_970: false,
                     scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
                     foreground_custom_queue_entries_sub_1596: 0,
                     foreground_cell_queue_entries_sub_1596: 0,
@@ -13827,7 +13829,7 @@ mod tests {
             (
                 1_904_935_425,
                 0x000E_0000,
-                0x1325,
+                0x131E,
                 9,
                 0,
                 8,

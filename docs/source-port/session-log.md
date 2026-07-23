@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 first gameplay palette skip)
+
+- Native persists `PaletteToDMA_Flag` across the Demo 2 Load_InGame handoff.
+- Frame 902 takes the exact 56-cycle `$7CC -> Palette_to_VRAM $970 -> $7D0`
+  skip, then `loc_7508/sub_73D0` clears the flag for frame 903.
+- The persistent VBlank scheduler consumes the typed branch. Frame 902 keeps
+  its defended CRC, bank, pending wait and ownership state; the corrected Z80
+  PC phase is `$131E`.
+- NEXT: correct the first sprite and scroll scheduler exits, which remain 23
+  and 33 cycles short, then isolate the first diamond bank-read split.
+
 ## 2026-07-23 handoff (#409 retained first gameplay pre-HUD)
 
 - The persistent probe composes the VBlank suffix and typed first object pass

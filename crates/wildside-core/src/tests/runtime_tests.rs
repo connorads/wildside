@@ -52,6 +52,33 @@ fn published_vblank_arbitration(
 }
 
 #[test]
+fn published_tas_first_gameplay_pass_clears_palette_dma_suppression_sub_73d0() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut observed = Vec::new();
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(904) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if matches!(frame_index, 902 | 903) {
+            observed.push((
+                frame_index,
+                trace
+                    .mode_level_vblank_work_before_sub_e12
+                    .expect("published gameplay frame exposes its VBlank work")
+                    .palette_dma_sub_970,
+            ));
+        }
+    }
+
+    assert_eq!(
+        observed,
+        vec![(902, false), (903, true)],
+        "ASM sub_7196 sets PaletteToDMA_Flag before frame 902; sub_73D0 clears it during that first object pass",
+    );
+}
+
+#[test]
 fn published_tas_frame_1697_vint_sample_drives_life_icon_raster_timing_sub_e12() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;

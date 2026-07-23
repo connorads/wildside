@@ -5001,6 +5001,22 @@ pub fn title_mode_standard_palette_to_vram_cursor_with_scheduler(
     title_palette_to_vram_call_cursor_with_scheduler(entry, advance_hardware)
 }
 
+/// Co-schedule gameplay's active or `PaletteToDMA_Flag`-suppressed
+/// `Palette_to_VRAM` branch.
+pub fn mode_level_palette_to_vram_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    palette_dma_sub_970: bool,
+    mut advance_hardware: impl FnMut(TitlePaletteHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitlePaletteToVramAdvance> {
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        0,
+        true,
+        |visit| crate::intro_timing::visit_mode_level_palette_to_vram(palette_dma_sub_970, visit),
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule the title `Transfer_SpriteAndKidToVRAM` call.
 pub fn title_mode_standard_sprite_and_kid_to_vram_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
@@ -8909,6 +8925,50 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(92).unwrap(),
             },
             "oracle frame 81 returns to Mode_Standard $782 at cycle 10,357,004",
+        );
+    }
+
+    #[test]
+    fn first_gameplay_palette_branch_skips_bus_and_cram_dma() {
+        let entry_cycles = M68kCycleCount::from_raw(1_000);
+        let mut events = Vec::new();
+        let advance = mode_level_palette_to_vram_cursor_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(0).unwrap(),
+            },
+            false,
+            |event| {
+                events.push(event);
+                Some(M68kCycleCount::from_raw(0))
+            },
+        )
+        .expect("ASM PaletteToDMA_Flag skip path");
+
+        assert_eq!(advance.timing.raw_cycles.get(), 56);
+        assert_eq!(advance.timing.instruction_count, 4);
+        assert_eq!(advance.refresh_events, 0);
+        assert_eq!(advance.dma_halt_cycles.get(), 0);
+        assert_eq!(
+            events.len(),
+            4,
+            "ASM $7CC/$970 skip emits only its four source instructions",
+        );
+        assert!(events.iter().all(|event| matches!(
+            event,
+            TitlePaletteHardwareEvent::Advance {
+                vdp_owns_bus: false,
+                source_instruction: true,
+                ..
+            }
+        )));
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(1_056)),
+                refresh_phase: M68kRefreshPhase::new(56).unwrap(),
+            },
+            "ASM Mode_Level $7CC -> $7D0 spans exactly 56 cycles",
         );
     }
 

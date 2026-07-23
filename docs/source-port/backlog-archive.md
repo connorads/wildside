@@ -13,6 +13,20 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+2026-07-23 first gameplay palette branch: native now persists ASM
+`PaletteToDMA_Flag` `$FFFFF890` across the `Load_DemoPlay -> Load_InGame`
+handoff. Frame 902 latches the flag before its Mode_Level pass, takes the
+source-exact 56-cycle `$7CC -> Palette_to_VRAM $970 -> $7D0` skip, and clears
+the flag when the later `loc_7508/sub_73D0` activation pass executes. Frame
+903 and later gameplay take the active CRAM DMA path. The persistent VBlank
+scheduler consumes this typed branch instead of unconditionally running the
+title palette adapter. At frame 902 the corrected prefix retains the defended
+CRC, bank, eight-cycle pending wait and BUSREQ/VDP ownership while its
+hardware-faithful Z80 PC phase moves from `$1325` to `$131E`; the established
+jgenesis X/Y limitation remains narrowly classified. NEXT: correct the
+23-cycle sprite and 33-cycle scroll exit gaps, then isolate the first diamond
+bank-read split.
+
 2026-07-23 retained first gameplay pre-HUD composition: the persistent probe
 now enters the 914-raw-cycle VBlank suffix at the real selected `loc_7D6`
 boundary, cycle 115,448,043 phase 16. The first source instruction drains the

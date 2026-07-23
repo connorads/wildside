@@ -1999,6 +1999,38 @@ pub fn visit_mode_standard_palette_to_vram(
     visit_palette_to_vram_call(visit)
 }
 
+/// Visit gameplay's `Palette_to_VRAM` branch from `Mode_Level $7CC`.
+///
+/// ASM `Palette_to_VRAM $970` skips Stop_z80, the CRAM DMA and Start_z80
+/// while `PaletteToDMA_Flag` is non-zero. `sub_7196` sets the flag before the
+/// first gameplay pass; its `sub_73D0` worker clears it later in that pass.
+pub fn visit_mode_level_palette_to_vram(
+    palette_dma_sub_970: bool,
+    mut visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    if palette_dma_sub_970 {
+        return visit_palette_to_vram_call(visit);
+    }
+
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    // ASM Mode_Level $7CC BSR, Palette_to_VRAM $970 TST/BNE and RTS.
+    for cycles in [18, 12, 10, 16] {
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("Palette_to_VRAM skip timing fits u32"),
+        );
+    }
+    timing
+}
+
 /// Visit the first `Pal_FadeOut` decrement and loop back to the next VINT poll.
 ///
 /// ASM `loc_28C6` returns from `sub_14C0` at $28D6, decrements fade progress
@@ -3665,6 +3697,26 @@ mod tests {
                 },
                 MemoryDmaTimingEvent::SetZ80BusRequest(false),
             ],
+        );
+    }
+
+    #[test]
+    fn mode_level_first_palette_to_vram_skips_dma_while_f890_is_set() {
+        let mut events = Vec::new();
+        let timing = visit_mode_level_palette_to_vram(false, |event| events.push(event));
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 4,
+                raw_cycles: M68kCycleCount::from_raw(56),
+            },
+            "ASM Mode_Level $7CC -> Palette_to_VRAM $970 skips to its RTS while PaletteToDMA_Flag is set",
+        );
+        assert_eq!(
+            events,
+            [18, 12, 10, 16].map(MemoryDmaTimingEvent::Instruction),
+            "the skip path must not emit Z80 BUSREQ or CRAM DMA events",
         );
     }
 

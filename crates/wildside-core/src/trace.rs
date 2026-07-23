@@ -10223,6 +10223,14 @@ impl NativeRuntime {
             cyclone_visual_accumulator_before,
             ceiling_scan_sub_914a,
         );
+        if matches!(
+            &executed_player_path,
+            ModeLevelPlayerExecutionPath::LevelStartActivationLoc7508 { .. }
+        ) {
+            // ASM sub_73D0 $73D0 clears PaletteToDMA_Flag after this frame's
+            // earlier Mode_Level $7CC palette call.
+            self.palette_dma_suppressed_f890 = false;
+        }
         let player_gfx_terrain_scan = self
             .mode_level_work_before_hud_sub_44dc
             .as_ref()
@@ -10752,7 +10760,9 @@ impl NativeRuntime {
                     // The frame boundary resolves loc_AD4 from the selected
                     // render mapping produced by the preceding sub_1492 pass.
                     dynamic_art_tiles_loc_ad4: None,
-                    palette_dma_sub_970: true,
+                    palette_dma_sub_970: self
+                        .mode_level_palette_dma_sub_970
+                        .unwrap_or(!self.palette_dma_suppressed_f890),
                     scroll_path: crate::ModeLevelScrollTransferPath::NormalLoc300ba,
                     foreground_custom_queue_entries_sub_1596: 0,
                     foreground_cell_queue_entries_sub_1596: 0,

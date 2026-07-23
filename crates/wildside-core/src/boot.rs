@@ -6305,6 +6305,12 @@ impl NativeRuntime {
     pub(crate) fn begin_demo_gameplay(&mut self, level_id: LevelId) {
         self.current_level = level_id;
         self.level_start_frame = Some(self.frame_index);
+        // ASM Load_DemoPlay -> Load_InGame -> sub_7196 sets
+        // PaletteToDMA_Flag before this first Mode_Level pass. The opening
+        // slice is allocated during the native frame, after its generic
+        // frame-start VBlank latch has already run.
+        self.palette_dma_suppressed_f890 = true;
+        self.mode_level_palette_dma_sub_970 = Some(false);
         self.reload_block_grid_for_level(level_id);
         let mut opening_slice = self.level_respawn_slice(level_id);
         if self.block_grid.is_some() {
