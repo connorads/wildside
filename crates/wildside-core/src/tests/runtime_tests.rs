@@ -313,7 +313,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                         .expect("published helper should classify every post-HUD phase")
                         .map(M68kCycleCount::get),
                     [
-                        114, 4_518, 1_262, 56, 446, 88, 370, 356, 356, 56, 192, 68, 308, 64, 192,
+                        114, 4_518, 1_294, 56, 446, 88, 370, 356, 356, 56, 192, 68, 308, 64, 192,
                         2_600, 144, 576, 426, 11_630, 106, 96,
                     ],
                     "ASM Mode_Level loc_810..loc_892 frame-1697 phase costs must stay source-ordered",
@@ -337,7 +337,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
 
     assert_eq!(
         observed_raw_cycles_to_loc_892,
-        vec![(1_697, 24_024), (1_703, 25_550), (1_709, 26_004)],
+        vec![(1_697, 24_056), (1_703, 25_582), (1_709, 26_036)],
         "ASM Mode_Level loc_810 -> loc_892 selected-PC source spans",
     );
     assert_eq!(
@@ -433,7 +433,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             (
                 1_697,
                 84,
-                1_234,
+                1_266,
                 16,
                 false,
                 Some(38),
@@ -451,7 +451,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             (
                 1_703,
                 84,
-                1_234,
+                1_266,
                 17,
                 false,
                 Some(38),
@@ -469,7 +469,7 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
             (
                 1_709,
                 84,
-                1_234,
+                1_266,
                 16,
                 false,
                 Some(38),

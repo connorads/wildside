@@ -1889,6 +1889,18 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: `ReadJoypad loc_81A -> loc_81E` is now
+instruction-scheduled across all 110 executed instructions, including the
+`sub_914/sub_924` Z80 BUSREQ ownership interval and both hardware controller
+reads. This corrects the earlier aggregate's 32-cycle raw undercount:
+frame 1697 takes 1,294 raw cycles plus ten two-cycle refresh waits, reaching
+oracle phase 62 and the exact beam boundary after 1,314 elapsed cycles.
+Frame 1703 follows the same 1,294-cycle source path; selected-PC plus GEMS
+state identifies three additional 11-cycle XFER68K `$0273` waits after
+`loc_C74`, `loc_C82`, and `loc_CA2`, outside the BUSREQ interval. The corrected
+22-phase raw totals are 24,056/25,582/26,036 at frames 1697/1703/1709.
+NEXT: source-schedule `sub_5E02 loc_81E -> loc_822`.
+
 Progress 2026-07-23: frame 1697's first two post-HUD phases are now
 instruction-scheduled. `Mode_Level loc_810 -> loc_816` executes nine selected
 instructions for 114 raw cycles, takes one two-cycle refresh wait, and reaches

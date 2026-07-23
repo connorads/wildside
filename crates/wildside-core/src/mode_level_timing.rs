@@ -2525,11 +2525,20 @@ pub fn hud_life_icon_only_raw_cycles_sub_44dc(
     Some(M68kCycleCount::from_raw(1_350))
 }
 
-/// Raw CPU work for ASM `ReadJoypad` (`kid.asm`) inside `Mode_Level`.
-///
-/// Refresh and the external waits in `sub_914`/`sub_924` are deliberately
-/// excluded. Controller and incomplete Demo observations remain fail-closed.
-pub fn read_joypad_raw_cycles(work: ModeLevelReadJoypadWork) -> Option<M68kCycleCount> {
+/// Hardware-visible control boundary in ASM `ReadJoypad`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReadJoypadControl {
+    /// ASM `sub_914 -> Stop_z80`: the `$A11100` BUSREQ write completed.
+    BeginZ80Bus,
+    /// ASM `sub_924 -> Start_z80`: the `$A11100` release write completed.
+    ReleaseZ80Bus,
+}
+
+fn visit_read_joypad_instructions(
+    work: ModeLevelReadJoypadWork,
+    mut visit: impl FnMut(u32) -> Option<()>,
+    mut apply_control: impl FnMut(ReadJoypadControl),
+) -> Option<()> {
     let ModeLevelReadJoypadWork::DemoPlaybackLocC22(Some(demo)) = work else {
         return None;
     };
@@ -2538,15 +2547,133 @@ pub fn read_joypad_raw_cycles(work: ModeLevelReadJoypadWork) -> Option<M68kCycle
         return None;
     }
 
-    // ASM ReadJoypad loc_B70..loc_C9C: the shared Demo path costs 1,198
-    // raw cycles. At loc_C40, a post-increment even counter takes the
-    // 36-cycle loc_C44 pointer-update path before the shared loc_C4E edge
-    // update. Selected-PC oracle traces pin both source paths independently.
-    Some(M68kCycleCount::from_raw(if advances_keypress_pointer {
-        1_234
+    let mut visit_all = |instructions: &[u8]| {
+        for &cycles in instructions {
+            visit(u32::from(cycles))?;
+        }
+        Some(())
+    };
+
+    // ASM Mode_Level loc_81A, j_ReadJoypad, and ReadJoypad loc_B6C..loc_BB6.
+    visit_all(&[18, 10, 12, 10, 20, 20, 12, 10, 18])?;
+
+    // ASM j_sub_914, sub_914, j_Stop_z80, BranchTo_Stop_z80, and the
+    // Stop_z80 BUSREQ write.
+    visit_all(&[10, 16, 16, 20, 10, 10, 20])?;
+    apply_control(ReadJoypadControl::BeginZ80Bus);
+    // ASM Stop_z80 one-poll BUSACK path and the two returning RTS instructions.
+    visit_all(&[20, 8, 16, 16])?;
+
+    const READ_HARDWARE_SUB_CAA: &[u8] = &[12, 4, 4, 8, 10, 8, 12, 4, 4, 8, 8, 4, 4, 16];
+    const PERMUTE_DEMO_SUB_CCE: &[u8] = &[12, 10, 16];
+
+    // ASM loc_BBA..loc_BC4: controller 1 hardware read and Demo-mode
+    // Permute_ABCButtons early return.
+    visit_all(&[12, 18])?;
+    visit_all(READ_HARDWARE_SUB_CAA)?;
+    visit_all(&[18])?;
+    visit_all(PERMUTE_DEMO_SUB_CCE)?;
+
+    // ASM loc_BC8..loc_BD8: controller 2 hardware read and the same
+    // Permute_ABCButtons path.
+    visit_all(&[12, 4, 12, 18])?;
+    visit_all(READ_HARDWARE_SUB_CAA)?;
+    visit_all(&[18])?;
+    visit_all(PERMUTE_DEMO_SUB_CCE)?;
+
+    // ASM loc_BDC..sub_924, through the Start_z80 release write.
+    visit_all(&[12, 18, 10, 16, 8, 16, 16, 20, 10, 10, 20])?;
+    apply_control(ReadJoypadControl::ReleaseZ80Bus);
+    visit_all(&[16, 16])?;
+
+    // ASM loc_BE4..loc_C40: Demo counter and keypress stream.
+    visit_all(&[12, 12, 12, 8, 10, 4, 12, 16, 8, 8, 12, 4, 12, 8])?;
+    if advances_keypress_pointer {
+        // ASM loc_C40 not-taken BNE.w, loc_C44 pointer update, and loc_C4A
+        // branch to the shared edge detector.
+        visit_all(&[12, 8, 16, 10])?;
     } else {
-        1_198
-    }))
+        // ASM loc_C40 taken BNE.w directly to loc_C4E.
+        visit_all(&[10])?;
+    }
+
+    // ASM loc_C4E..loc_C9C and the return to Mode_Level loc_81E.
+    visit_all(&[
+        12, 12, 4, 12, 16, 20, 12, 12, 4, 12, 16, 20, 12, 10, 20, 20, 16,
+    ])
+}
+
+/// Raw CPU work for ASM `ReadJoypad` inside `Mode_Level`.
+///
+/// Refresh and asynchronous GEMS bank waits are excluded. Controller and
+/// incomplete Demo observations remain fail-closed.
+pub fn read_joypad_raw_cycles(work: ModeLevelReadJoypadWork) -> Option<M68kCycleCount> {
+    let mut raw_cycles = 0_u32;
+    visit_read_joypad_instructions(
+        work,
+        |instruction_cycles| {
+            raw_cycles = raw_cycles.checked_add(instruction_cycles)?;
+            Some(())
+        },
+        |_| {},
+    )?;
+    // The visitor includes Mode_Level loc_81A's 18-cycle JSR and the
+    // 10-cycle j_ReadJoypad shell.
+    raw_cycles.checked_sub(28).map(M68kCycleCount::from_raw)
+}
+
+/// Co-schedule ASM `Mode_Level loc_81A -> ReadJoypad -> loc_81E` with
+/// asynchronous hardware.
+///
+/// `advance_hardware` receives whether the source currently owns the Z80 bus.
+/// `apply_control` changes that ownership only after the defining `$A11100`
+/// write and all waits generated before it have completed.
+pub fn read_joypad_advance_with_scheduler(
+    mut phase: M68kRefreshPhase,
+    work: ModeLevelReadJoypadWork,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+    mut apply_control: impl FnMut(ReadJoypadControl),
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+    let bus_owned = std::cell::Cell::new(false);
+
+    visit_read_joypad_instructions(
+        work,
+        |instruction_cycles| {
+            let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+            let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+            phase = M68kRefreshPhase::new(
+                u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+            )
+            .expect("refresh phase remains below 128");
+            elapsed = elapsed.checked_add(instruction_cycles)?;
+
+            let generated_wait = advance_hardware(
+                M68kCycleCount::from_raw(instruction_cycles),
+                bus_owned.get(),
+            )?;
+            let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+            refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+            while pending_wait != 0 {
+                let wait = M68kCycleCount::from_raw(pending_wait);
+                phase = phase.advance_external_wait(wait).phase_after;
+                elapsed = elapsed.checked_add(pending_wait)?;
+                pending_wait = advance_hardware(wait, bus_owned.get())?.get();
+            }
+            Some(())
+        },
+        |control| {
+            bus_owned.set(matches!(control, ReadJoypadControl::BeginZ80Bus));
+            apply_control(control);
+        },
+    )?;
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
 }
 
 /// Raw routine-body cost for ASM `Manage_EnemyLoading` (`kid.asm`).
@@ -4704,12 +4831,12 @@ mod tests {
 
         assert_eq!(
             read_joypad_raw_cycles(demo(723, true)),
-            Some(M68kCycleCount::from_raw(1_234)),
+            Some(M68kCycleCount::from_raw(1_266)),
             "ASM ReadJoypad loc_C40 falls through to the pointer update",
         );
         assert_eq!(
             read_joypad_raw_cycles(demo(724, false)),
-            Some(M68kCycleCount::from_raw(1_198)),
+            Some(M68kCycleCount::from_raw(1_230)),
             "ASM ReadJoypad loc_C40 branches directly to loc_C4E",
         );
         assert_eq!(
@@ -4724,6 +4851,30 @@ mod tests {
         assert_eq!(
             read_joypad_raw_cycles(ModeLevelReadJoypadWork::FirstControllerLocB8c),
             None,
+        );
+
+        let mut controls = Vec::new();
+        let advance = read_joypad_advance_with_scheduler(
+            M68kRefreshPhase::new(28).expect("frame-1697 loc_81A phase"),
+            demo(723, true),
+            |_, _| Some(M68kCycleCount::from_raw(0)),
+            |control| controls.push(control),
+        )
+        .expect("published Demo ReadJoypad path");
+        assert_eq!(
+            controls,
+            [
+                ReadJoypadControl::BeginZ80Bus,
+                ReadJoypadControl::ReleaseZ80Bus,
+            ],
+            "ASM sub_914/sub_924 must bound both controller reads",
+        );
+        assert_eq!(advance.elapsed, M68kCycleCount::from_raw(1_314));
+        assert_eq!(advance.refresh_events, 10);
+        assert_eq!(
+            advance.phase_after,
+            M68kRefreshPhase::new(62).expect("frame-1697 loc_81E phase"),
+            "the 110-instruction source path reaches the bounded oracle phase",
         );
     }
 

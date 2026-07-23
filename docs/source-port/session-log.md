@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 ReadJoypad source schedule)
+
+- `ReadJoypad loc_81A -> loc_81E` now preserves all 110 instruction
+  boundaries and the `sub_914/sub_924` Z80 BUSREQ interval.
+- Frame 1697 takes 1,294 raw cycles plus 10 refresh waits and reaches the
+  exact oracle phase and beam boundary.
+- This corrects the earlier 32-cycle raw undercount. The three checked
+  post-HUD totals are 24,056/25,582/26,036.
+- NEXT: source-schedule `sub_5E02 loc_81E -> loc_822`.
+
 ## 2026-07-23 handoff (#409 first post-HUD phases)
 
 - Frame 1697 now has exact instruction schedules for `loc_810 -> loc_816` and
