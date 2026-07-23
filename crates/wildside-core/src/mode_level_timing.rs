@@ -3604,43 +3604,201 @@ pub fn terrain_special_scan_raw_cycles_sub_1fa2(
     Some(M68kCycleCount::from_raw(294_u32.checked_add(loop_cycles)?))
 }
 
-/// Raw routine-body cost for ASM shooter-support collision scan `sub_1F52`.
-pub fn shooter_support_collision_raw_cycles_sub_1f52(
+fn visit_shooter_support_collision_instructions_sub_1f52(
     work: ModeLevelShooterCollisionWork,
-) -> Option<M68kCycleCount> {
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
     if work.active_support_slots != 0 {
         return None;
     }
 
-    // ASM sub_1F52 loc_1F56: the first support-rectangle word is the null
-    // sentinel, so the scan branches directly to return_1F8C.
-    Some(M68kCycleCount::from_raw(50))
+    // ASM Mode_Level loc_856 BSR, then sub_1F52 loc_1F56: the first
+    // support-rectangle word is the null sentinel, so the scan branches
+    // directly to return_1F8C.
+    for cycles in [18, 8, 8, 8, 10, 16] {
+        visit(cycles)?;
+    }
+    Some(())
+}
+
+/// Raw routine-body cost for ASM shooter-support collision scan `sub_1F52`.
+pub fn shooter_support_collision_raw_cycles_sub_1f52(
+    work: ModeLevelShooterCollisionWork,
+) -> Option<M68kCycleCount> {
+    let mut raw_cycles = 0_u32;
+    visit_shooter_support_collision_instructions_sub_1f52(work, |instruction_cycles| {
+        raw_cycles = raw_cycles.checked_add(instruction_cycles)?;
+        Some(())
+    })?;
+    raw_cycles.checked_sub(18).map(M68kCycleCount::from_raw)
+}
+
+/// Co-schedule ASM `Mode_Level loc_856 -> sub_1F52 -> loc_85A` with
+/// asynchronous hardware.
+pub fn shooter_support_collision_advance_with_scheduler_sub_1f52(
+    mut phase: M68kRefreshPhase,
+    work: ModeLevelShooterCollisionWork,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    visit_shooter_support_collision_instructions_sub_1f52(work, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+        Some(())
+    })?;
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
+}
+
+fn visit_shooter_kid_collision_instructions_sub_219c(
+    work: ModeLevelShooterCollisionWork,
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
+    if work.active_moving_objects != 0 {
+        return None;
+    }
+
+    // ASM Mode_Level loc_85A BSR, then sub_219C loc_21B8: save/load the Kid
+    // hitbox, observe the null ShooterObject link, restore, and return.
+    for cycles in [18, 88, 16, 12, 12, 12, 12, 8, 12, 10, 92, 16] {
+        visit(cycles)?;
+    }
+    Some(())
 }
 
 /// Raw routine-body cost for ASM Kid-versus-shooter scan `sub_219C`.
 pub fn shooter_kid_collision_raw_cycles_sub_219c(
     work: ModeLevelShooterCollisionWork,
 ) -> Option<M68kCycleCount> {
+    let mut raw_cycles = 0_u32;
+    visit_shooter_kid_collision_instructions_sub_219c(work, |instruction_cycles| {
+        raw_cycles = raw_cycles.checked_add(instruction_cycles)?;
+        Some(())
+    })?;
+    raw_cycles.checked_sub(18).map(M68kCycleCount::from_raw)
+}
+
+/// Co-schedule ASM `Mode_Level loc_85A -> sub_219C -> loc_85E` with
+/// asynchronous hardware.
+pub fn shooter_kid_collision_advance_with_scheduler_sub_219c(
+    mut phase: M68kRefreshPhase,
+    work: ModeLevelShooterCollisionWork,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    visit_shooter_kid_collision_instructions_sub_219c(work, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+        Some(())
+    })?;
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
+}
+
+fn visit_shooter_projectile_collision_instructions_sub_226a(
+    work: ModeLevelShooterCollisionWork,
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
     if work.active_moving_objects != 0 {
         return None;
     }
 
-    // ASM sub_219C loc_21B8: save/load the Kid hitbox, observe the null
-    // ShooterObject link, restore the register set, and return.
-    Some(M68kCycleCount::from_raw(290))
+    // ASM Mode_Level loc_85E BSR, then sub_226A loc_226E: the first
+    // ShooterObject link is the null sentinel, so no Kid-projectile list
+    // state is read before return_231A.
+    for cycles in [18, 8, 12, 10, 16] {
+        visit(cycles)?;
+    }
+    Some(())
 }
 
 /// Raw routine-body cost for ASM shooter-versus-Kid-projectile scan `sub_226A`.
 pub fn shooter_projectile_collision_raw_cycles_sub_226a(
     work: ModeLevelShooterCollisionWork,
 ) -> Option<M68kCycleCount> {
-    if work.active_moving_objects != 0 {
-        return None;
-    }
+    let mut raw_cycles = 0_u32;
+    visit_shooter_projectile_collision_instructions_sub_226a(work, |instruction_cycles| {
+        raw_cycles = raw_cycles.checked_add(instruction_cycles)?;
+        Some(())
+    })?;
+    raw_cycles.checked_sub(18).map(M68kCycleCount::from_raw)
+}
 
-    // ASM sub_226A loc_226E: the first ShooterObject link is the null
-    // sentinel, so no Kid-projectile list state is read before return_231A.
-    Some(M68kCycleCount::from_raw(46))
+/// Co-schedule ASM `Mode_Level loc_85E -> sub_226A -> loc_862` with
+/// asynchronous hardware.
+pub fn shooter_projectile_collision_advance_with_scheduler_sub_226a(
+    mut phase: M68kRefreshPhase,
+    work: ModeLevelShooterCollisionWork,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    visit_shooter_projectile_collision_instructions_sub_226a(work, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+        Some(())
+    })?;
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
 }
 
 /// Source-ordered raw-cycle spans after ASM `sub_44DC` returns at `$810`
@@ -4213,6 +4371,46 @@ mod tests {
         assert_eq!(
             shooter_projectile_collision_raw_cycles_sub_226a(work),
             Some(M68kCycleCount::from_raw(46))
+        );
+
+        let support = shooter_support_collision_advance_with_scheduler_sub_1f52(
+            M68kRefreshPhase::new(92).expect("frame-1697 loc_856 phase"),
+            work,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("published empty support rectangle list");
+        assert_eq!(support.elapsed, M68kCycleCount::from_raw(70));
+        assert_eq!(support.refresh_events, 1);
+        assert_eq!(
+            support.phase_after,
+            M68kRefreshPhase::new(34).expect("frame-1697 loc_85A phase"),
+        );
+
+        let kid = shooter_kid_collision_advance_with_scheduler_sub_219c(
+            support.phase_after,
+            work,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("published empty shooter-object list");
+        assert_eq!(kid.elapsed, M68kCycleCount::from_raw(312));
+        assert_eq!(kid.refresh_events, 2);
+        assert_eq!(
+            kid.phase_after,
+            M68kRefreshPhase::new(90).expect("frame-1697 loc_85E phase"),
+        );
+
+        let projectile = shooter_projectile_collision_advance_with_scheduler_sub_226a(
+            kid.phase_after,
+            work,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("published empty shooter-versus-projectile list");
+        assert_eq!(projectile.elapsed, M68kCycleCount::from_raw(66));
+        assert_eq!(projectile.refresh_events, 1);
+        assert_eq!(
+            projectile.phase_after,
+            M68kRefreshPhase::new(28).expect("frame-1697 loc_862 phase"),
+            "all three shooter collision phases reach their oracle boundaries",
         );
     }
 

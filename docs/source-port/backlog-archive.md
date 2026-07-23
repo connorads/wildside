@@ -1889,6 +1889,15 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: the three empty shooter collision phases are now
+instruction-scheduled. `sub_1F52` takes 68 raw cycles plus one refresh and
+reaches `loc_85A` phase 34. `sub_219C` takes 308 raw cycles plus two refreshes
+and reaches `loc_85E` phase 90. `sub_226A` takes 64 raw cycles plus one
+refresh and reaches `loc_862` phase 28. Selected-PC traces show no GEMS waits.
+Fourteen of the 22 post-HUD phases now preserve exact source instruction
+boundaries. NEXT: source-schedule the object-kind-two
+`GfxObjects_CollisionKid sub_1B76` pass from `loc_862`.
+
 Progress 2026-07-23: frame 1697 is now instruction-scheduled through
 `loc_856`. The two empty `GfxObjects_Collision sub_16F0` passes each take 356
 raw cycles; their different starting phases cause two and three refresh waits,

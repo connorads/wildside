@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 shooter collision block)
+
+- Frame 1697 now source-schedules the empty `sub_1F52`, `sub_219C`, and
+  `sub_226A` shooter collision scans.
+- Their 68/308/64 raw cycles and 1/2/1 refresh waits reproduce all three
+  oracle phase and beam boundaries without GEMS waits.
+- Fourteen of 22 post-HUD phases now preserve exact instruction boundaries.
+- NEXT: source-schedule the object-kind-two `sub_1B76` pass from `loc_862`.
+
 ## 2026-07-23 handoff (#409 first collision block)
 
 - Frame 1697 now source-schedules both empty `sub_16F0` passes, the damage
