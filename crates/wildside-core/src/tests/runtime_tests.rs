@@ -307,6 +307,18 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                     .expect("published helper should classify the complete post-HUD path")
                     .get(),
             ));
+            if frame_index == 1_697 {
+                assert_eq!(
+                    mode_level_post_hud_phase_raw_cycles_to_loc_892(ledger)
+                        .expect("published helper should classify every post-HUD phase")
+                        .map(M68kCycleCount::get),
+                    [
+                        114, 4_518, 1_262, 56, 446, 88, 370, 356, 356, 56, 192, 68, 308, 64, 192,
+                        2_600, 144, 576, 426, 11_630, 106, 96,
+                    ],
+                    "ASM Mode_Level loc_810..loc_892 frame-1697 phase costs must stay source-ordered",
+                );
+            }
             observed.push((
                 frame_index,
                 ledger.phases.clone(),

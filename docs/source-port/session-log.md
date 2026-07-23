@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 first post-HUD phases)
+
+- Frame 1697 now has exact instruction schedules for `loc_810 -> loc_816` and
+  `GfxObjects_MoveAndAnimate sub_1444`.
+- Their 114 and 4,518 raw cycles plus 1 and 36 refresh waits reproduce the
+  oracle phase and beam boundaries without GEMS waits.
+- All 22 frame-1697 post-HUD raw phase totals are pinned in source order.
+- NEXT: source-schedule `ReadJoypad loc_B70..loc_C9C`, including
+  `sub_914/sub_924` external arbitration.
+
 ## 2026-07-23 handoff (#409 first gameplay poll derived)
 
 - Bank-read PC tracing proves the 145/105 split predates `loc_892` and descends

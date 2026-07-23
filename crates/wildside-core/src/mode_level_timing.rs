@@ -2565,6 +2565,65 @@ pub fn manage_enemy_loading_raw_cycles(path: ModeLevelEnemyLoadingPath) -> Optio
     }
 }
 
+/// Co-schedule the ASM `Mode_Level loc_810 -> Manage_EnemyLoading
+/// return_3682A` phase with asynchronous hardware.
+///
+/// Each source instruction is retained because a GEMS bank read can queue an
+/// 11-cycle 68000 wait after any completed instruction. Pending refresh and
+/// hardware waits are drained before the next instruction.
+pub fn manage_enemy_loading_advance_with_scheduler_loc_36814(
+    mut phase: M68kRefreshPhase,
+    path: ModeLevelEnemyLoadingPath,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    visit_manage_enemy_loading_instructions_loc_36814(path, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+        Some(())
+    })?;
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
+}
+
+fn visit_manage_enemy_loading_instructions_loc_36814(
+    path: ModeLevelEnemyLoadingPath,
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
+    let ModeLevelEnemyLoadingPath::DemoNonKnightsReturnLoc3682a = path else {
+        return None;
+    };
+
+    // ASM Mode_Level loc_810 JSR, j_Manage_EnemyLoading JMP, then
+    // Manage_EnemyLoading loc_36814 -> return_3682A. Demo mode passes the
+    // `$FB6A` and Game_Mode branches, then rejects non-Knights Isle.
+    for cycles in [20, 10, 12, 8, 16, 8, 16, 8, 16] {
+        visit(cycles)?;
+    }
+    Some(())
+}
+
 /// Raw routine-body cost for ASM `Execute_ScriptedPlatforms` (`sub_23EA`).
 pub fn execute_scripted_platforms_raw_cycles_sub_23ea(
     work: ModeLevelPlatformWork,
@@ -2748,140 +2807,224 @@ pub fn gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76(
     raw_cycles.checked_add(72).map(M68kCycleCount::from_raw)
 }
 
+#[derive(Clone, Copy)]
+enum GfxAnimationBranchSub113E {
+    Inactive,
+    Countdown,
+    CountdownToOne,
+    DispatchNormal,
+    DispatchBackThenNormal,
+    DispatchStop,
+}
+
+fn non_looping_gfx_animation_branch_sub_113e(
+    durations: &[u16],
+    target_tick: u16,
+) -> Option<GfxAnimationBranchSub113E> {
+    let mut timer = 1_u16;
+    let mut frame_index = 0_usize;
+    let mut active = true;
+    let mut branch = GfxAnimationBranchSub113E::Inactive;
+
+    for _ in 0..=target_tick {
+        if !active {
+            branch = GfxAnimationBranchSub113E::Inactive;
+            continue;
+        }
+        timer = timer.checked_sub(1)?;
+        if timer != 0 {
+            branch = if timer == 1 {
+                GfxAnimationBranchSub113E::CountdownToOne
+            } else {
+                GfxAnimationBranchSub113E::Countdown
+            };
+            continue;
+        }
+        let Some(&duration) = durations.get(frame_index) else {
+            active = false;
+            timer = 1;
+            branch = GfxAnimationBranchSub113E::DispatchStop;
+            continue;
+        };
+        timer = duration;
+        frame_index += 1;
+        branch = GfxAnimationBranchSub113E::DispatchNormal;
+    }
+
+    Some(branch)
+}
+
+fn looping_diamond_gfx_animation_branch_sub_113e(
+    target_tick: u16,
+) -> Option<GfxAnimationBranchSub113E> {
+    const DURATIONS: [u16; 4] = [3; 4];
+    let mut timer = 1_u16;
+    let mut frame_index = 0_usize;
+    let mut branch = GfxAnimationBranchSub113E::Inactive;
+
+    for _ in 0..=target_tick {
+        timer = timer.checked_sub(1)?;
+        if timer != 0 {
+            branch = if timer == 1 {
+                GfxAnimationBranchSub113E::CountdownToOne
+            } else {
+                GfxAnimationBranchSub113E::Countdown
+            };
+            continue;
+        }
+        let looped = frame_index == DURATIONS.len();
+        if looped {
+            frame_index = 0;
+        }
+        timer = DURATIONS[frame_index];
+        frame_index += 1;
+        branch = if looped {
+            GfxAnimationBranchSub113E::DispatchBackThenNormal
+        } else {
+            GfxAnimationBranchSub113E::DispatchNormal
+        };
+    }
+
+    Some(branch)
+}
+
+fn gfx_animation_branch_sub_113e(
+    node: ModeLevelGfxMoveAnimateNodeWorkSub1444,
+) -> Option<GfxAnimationBranchSub113E> {
+    match node {
+        ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated => {
+            Some(GfxAnimationBranchSub113E::Inactive)
+        }
+        ModeLevelGfxMoveAnimateNodeWorkSub1444::PrizeWobble { allocation_age } => {
+            // ASM stru_101B6: eight non-looping three-tick frames.
+            non_looping_gfx_animation_branch_sub_113e(&[3; 8], allocation_age)
+        }
+        ModeLevelGfxMoveAnimateNodeWorkSub1444::PrizeFlash { allocation_age } => {
+            // ASM loc_102B8 is allocated after its Object-list insertion
+            // point, so age zero has not run Init_Animation yet.
+            if allocation_age == 0 {
+                Some(GfxAnimationBranchSub113E::Inactive)
+            } else {
+                // ASM stru_102DE: four non-looping frames with these exact
+                // animation_timer reloads.
+                non_looping_gfx_animation_branch_sub_113e(&[4, 6, 10, 4], allocation_age - 1)
+            }
+        }
+        ModeLevelGfxMoveAnimateNodeWorkSub1444::FloatingDiamond { allocation_age } => {
+            // ASM stru_10D6E: four three-tick frames followed by the loc_11AC
+            // signed-backstep dispatch.
+            looping_diamond_gfx_animation_branch_sub_113e(allocation_age)
+        }
+    }
+}
+
+fn visit_gfx_objects_move_and_animate_instructions_sub_1444(
+    work: &ModeLevelGfxMoveAnimateWorkSub1444,
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
+    let ModeLevelGfxMoveAnimateWorkSub1444::Classified { nodes } = work else {
+        return None;
+    };
+    let mut visit_all = |instructions: &[u8]| {
+        for &cycles in instructions {
+            visit(u32::from(cycles))?;
+        }
+        Some(())
+    };
+
+    // ASM Mode_Level loc_816 BSR and sub_1444 through the first loc_144E.
+    visit_all(&[18, 12, 8, 8])?;
+    for &node in nodes {
+        // ASM loc_144E live successor, GfxObject_Move sub_1120, and the
+        // GfxObject_Animate sub_113E call.
+        visit_all(&[16, 8, 4, 18, 12, 8, 12, 10, 16, 18])?;
+        match gfx_animation_branch_sub_113e(node)? {
+            GfxAnimationBranchSub113E::Inactive => {
+                visit_all(&[12, 12, 12, 12, 10, 12, 16])?;
+            }
+            GfxAnimationBranchSub113E::Countdown => {
+                visit_all(&[12, 12, 12, 12, 8, 16, 16, 10, 16, 10, 12, 16])?;
+            }
+            GfxAnimationBranchSub113E::CountdownToOne => {
+                visit_all(&[12, 12, 12, 12, 8, 16, 16, 10, 16, 8, 8, 8, 12, 16])?;
+            }
+            GfxAnimationBranchSub113E::DispatchNormal => {
+                // ASM loc_1158 -> sub_1194, including
+                // j_nullsub_2/nullsub_2.
+                visit_all(&[
+                    12, 12, 12, 12, 8, 16, 16, 8, 4, 8, 4, 4, 26, 16, 4, 8, 12, 8, 12, 18, 10, 16,
+                    16, 10, 16, 10, 12, 16,
+                ])?;
+            }
+            GfxAnimationBranchSub113E::DispatchBackThenNormal => {
+                // ASM loc_1158 -> sub_11AC -> loc_1158, then the normal
+                // sub_1194 dispatch above.
+                visit_all(&[12, 12, 12, 12, 8, 16, 16, 8, 4, 8, 4, 4, 26, 16])?;
+                visit_all(&[8, 4, 4, 8, 10])?;
+                visit_all(&[
+                    4, 8, 4, 4, 26, 16, 4, 8, 12, 8, 12, 18, 10, 16, 16, 10, 16, 10, 12, 16,
+                ])?;
+            }
+            // The target frontier never reaches the loc_1182 stop dispatch;
+            // keep that mutable flag transition unclassified.
+            GfxAnimationBranchSub113E::DispatchStop => return None,
+        }
+        // ASM loc_145E loops to loc_144E.
+        visit_all(&[10])?;
+    }
+    // ASM loc_144E null successor -> return_1460.
+    visit_all(&[16, 10, 16])
+}
+
 /// Raw routine-body cost for ASM `GfxObjects_MoveAndAnimate sub_1444`.
 pub fn gfx_objects_move_and_animate_raw_cycles_sub_1444(
     work: &ModeLevelGfxMoveAnimateWorkSub1444,
 ) -> Option<M68kCycleCount> {
-    let ModeLevelGfxMoveAnimateWorkSub1444::Classified { nodes } = work else {
-        return None;
-    };
+    let mut raw_cycles = 0_u32;
+    visit_gfx_objects_move_and_animate_instructions_sub_1444(work, |cycles| {
+        raw_cycles = raw_cycles.checked_add(cycles)?;
+        Some(())
+    })?;
+    // The visitor includes Mode_Level loc_816's 18-cycle BSR shell.
+    raw_cycles.checked_sub(18).map(M68kCycleCount::from_raw)
+}
 
-    #[derive(Clone, Copy)]
-    enum AnimationBranch {
-        Inactive,
-        Countdown,
-        CountdownToOne,
-        DispatchNormal,
-        DispatchBackThenNormal,
-        DispatchStop,
-    }
+/// Co-schedule ASM `Mode_Level loc_816 -> GfxObjects_MoveAndAnimate
+/// return_1460` with asynchronous hardware.
+pub fn gfx_objects_move_and_animate_advance_with_scheduler_sub_1444(
+    mut phase: M68kRefreshPhase,
+    work: &ModeLevelGfxMoveAnimateWorkSub1444,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
 
-    fn non_looping_animation_branch(
-        durations: &[u16],
-        target_tick: u16,
-    ) -> Option<AnimationBranch> {
-        let mut timer = 1_u16;
-        let mut frame_index = 0_usize;
-        let mut active = true;
-        let mut branch = AnimationBranch::Inactive;
+    visit_gfx_objects_move_and_animate_instructions_sub_1444(work, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
 
-        for _ in 0..=target_tick {
-            if !active {
-                branch = AnimationBranch::Inactive;
-                continue;
-            }
-            timer = timer.checked_sub(1)?;
-            if timer != 0 {
-                branch = if timer == 1 {
-                    AnimationBranch::CountdownToOne
-                } else {
-                    AnimationBranch::Countdown
-                };
-                continue;
-            }
-            let Some(&duration) = durations.get(frame_index) else {
-                active = false;
-                timer = 1;
-                branch = AnimationBranch::DispatchStop;
-                continue;
-            };
-            timer = duration;
-            frame_index += 1;
-            branch = AnimationBranch::DispatchNormal;
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
         }
-
-        Some(branch)
-    }
-
-    fn looping_diamond_animation_branch(target_tick: u16) -> Option<AnimationBranch> {
-        const DURATIONS: [u16; 4] = [3; 4];
-        let mut timer = 1_u16;
-        let mut frame_index = 0_usize;
-        let mut branch = AnimationBranch::Inactive;
-
-        for _ in 0..=target_tick {
-            timer = timer.checked_sub(1)?;
-            if timer != 0 {
-                branch = if timer == 1 {
-                    AnimationBranch::CountdownToOne
-                } else {
-                    AnimationBranch::Countdown
-                };
-                continue;
-            }
-            let looped = frame_index == DURATIONS.len();
-            if looped {
-                frame_index = 0;
-            }
-            timer = DURATIONS[frame_index];
-            frame_index += 1;
-            branch = if looped {
-                AnimationBranch::DispatchBackThenNormal
-            } else {
-                AnimationBranch::DispatchNormal
-            };
-        }
-
-        Some(branch)
-    }
-
-    let raw_cycles = nodes.iter().try_fold(28_u32, |cycles, node| {
-        let branch = match *node {
-            ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated => {
-                AnimationBranch::Inactive
-            }
-            ModeLevelGfxMoveAnimateNodeWorkSub1444::PrizeWobble { allocation_age } => {
-                // ASM stru_101B6: eight non-looping three-tick frames.
-                non_looping_animation_branch(&[3; 8], allocation_age)?
-            }
-            ModeLevelGfxMoveAnimateNodeWorkSub1444::PrizeFlash { allocation_age } => {
-                // ASM loc_102B8 is allocated after its Object-list insertion
-                // point, so age zero has not run Init_Animation yet.
-                if allocation_age == 0 {
-                    AnimationBranch::Inactive
-                } else {
-                    // ASM stru_102DE: four non-looping frames with these
-                    // exact animation_timer reloads.
-                    non_looping_animation_branch(&[4, 6, 10, 4], allocation_age - 1)?
-                }
-            }
-            ModeLevelGfxMoveAnimateNodeWorkSub1444::FloatingDiamond { allocation_age } => {
-                // ASM stru_10D6E: four three-tick frames followed by the
-                // loc_11AC signed-backstep dispatch.
-                looping_diamond_animation_branch(allocation_age)?
-            }
-        };
-        let node_cycles = match branch {
-            // ASM loc_144E, sub_1120 and sub_113E: stationary node with
-            // is_animated clear.
-            AnimationBranch::Inactive => 218,
-            // ASM loc_114C -> loc_1166 -> loc_1172.
-            AnimationBranch::Countdown => 284,
-            // ASM loc_1166 tests the next nonzero script opcode.
-            AnimationBranch::CountdownToOne => 298,
-            // ASM loc_1158 -> sub_1194, including j_nullsub_2/nullsub_2.
-            AnimationBranch::DispatchNormal => 458,
-            // ASM loc_1158 -> sub_11AC -> loc_1158 -> sub_1194.
-            AnimationBranch::DispatchBackThenNormal => 554,
-            // The target frontier never reaches the loc_1182 stop dispatch;
-            // keep that mutable flag transition unclassified.
-            AnimationBranch::DispatchStop => return None,
-        };
-        cycles.checked_add(node_cycles)
+        Some(())
     })?;
 
-    // ASM return_1460: the final null successor loop and RTS cost 42 cycles.
-    raw_cycles.checked_add(42).map(M68kCycleCount::from_raw)
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
 }
 
 /// Raw routine-body cost for ASM `Make_SpritesFromGfxObjects sub_1492`.
@@ -3756,6 +3899,21 @@ mod tests {
                 Some(M68kCycleCount::from_raw(expected)),
                 "ASM sub_1444 oracle frames 1697/1703/1709",
             );
+            if expected == 4_500 {
+                let advance = gfx_objects_move_and_animate_advance_with_scheduler_sub_1444(
+                    M68kRefreshPhase::new(46).expect("frame-1697 loc_816 phase"),
+                    &work,
+                    |_| Some(M68kCycleCount::from_raw(0)),
+                )
+                .expect("frame-1697 classified GfxObject branches");
+                assert_eq!(advance.elapsed, M68kCycleCount::from_raw(4_590));
+                assert_eq!(advance.refresh_events, 36);
+                assert_eq!(
+                    advance.phase_after,
+                    M68kRefreshPhase::new(28).expect("frame-1697 loc_81A phase"),
+                    "ASM sub_1444 instruction stream reaches the bounded oracle boundary",
+                );
+            }
         }
     }
 
@@ -4582,6 +4740,62 @@ mod tests {
             manage_enemy_loading_raw_cycles(ModeLevelEnemyLoadingPath::LayoutWalkLoc3682c),
             None,
             "variable layout walks must remain fail-closed",
+        );
+    }
+
+    #[test]
+    fn demo_enemy_loader_preserves_instruction_boundaries_for_gems_loc_36814() {
+        let path = ModeLevelEnemyLoadingPath::DemoNonKnightsReturnLoc3682a;
+        let mut ordinary_intervals = Vec::new();
+        let ordinary = manage_enemy_loading_advance_with_scheduler_loc_36814(
+            M68kRefreshPhase::new(58).expect("frame-1697 loc_810 phase"),
+            path,
+            |cycles| {
+                ordinary_intervals.push(cycles);
+                Some(M68kCycleCount::from_raw(0))
+            },
+        )
+        .expect("published Demo enemy-loader branch");
+
+        assert_eq!(
+            ordinary_intervals,
+            [20, 10, 12, 8, 16, 8, 2, 16, 8, 16].map(M68kCycleCount::from_raw),
+            "ASM Mode_Level loc_810, j_Manage_EnemyLoading, and loc_36814 instruction order plus its pending refresh wait",
+        );
+        assert_eq!(ordinary.elapsed, M68kCycleCount::from_raw(116));
+        assert_eq!(ordinary.refresh_events, 1);
+        assert_eq!(
+            ordinary.phase_after,
+            M68kRefreshPhase::new(46).expect("frame-1697 loc_816 phase"),
+            "bounded frame-1697 oracle reaches loc_816 after one refresh wait",
+        );
+
+        let mut intervals = Vec::new();
+        let with_gems_wait = manage_enemy_loading_advance_with_scheduler_loc_36814(
+            M68kRefreshPhase::new(58).expect("frame-1697 loc_810 phase"),
+            path,
+            |cycles| {
+                intervals.push(cycles);
+                Some(M68kCycleCount::from_raw(
+                    u32::from(intervals.len() == 1) * 11,
+                ))
+            },
+        )
+        .expect("bounded chained hardware wait");
+        assert_eq!(
+            &intervals[..3],
+            &[
+                M68kCycleCount::from_raw(20),
+                M68kCycleCount::from_raw(11),
+                M68kCycleCount::from_raw(10),
+            ],
+            "a GEMS bank wait generated after loc_810 must drain before the jump-table instruction",
+        );
+        assert_eq!(with_gems_wait.elapsed, M68kCycleCount::from_raw(127));
+        assert_eq!(with_gems_wait.refresh_events, 1);
+        assert_eq!(
+            with_gems_wait.phase_after,
+            M68kRefreshPhase::new(57).expect("shifted loc_816 phase"),
         );
     }
 

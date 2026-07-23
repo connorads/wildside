@@ -1889,6 +1889,18 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: frame 1697's first two post-HUD phases are now
+instruction-scheduled. `Mode_Level loc_810 -> loc_816` executes nine selected
+instructions for 114 raw cycles, takes one two-cycle refresh wait, and reaches
+the oracle phase 46 and beam position with no GEMS wait.
+`GfxObjects_MoveAndAnimate sub_1444` then executes 368 selected instructions
+plus the two `j_nullsub_2/nullsub_2` thunks for 4,518 raw cycles. Its 36
+refresh waits reproduce `loc_81A` phase 28 and the oracle beam exactly, again
+with no GEMS wait. The frame-1697 test pins all 22 source-ordered raw phase
+totals so later phase work cannot silently move between calls. NEXT:
+source-schedule `ReadJoypad loc_B70..loc_C9C`; its `sub_914/sub_924` bus access
+is the first phase with known external-arbitration potential.
+
 Progress 2026-07-23: the first gameplay `$93E` absolute poll handoff is
 removed. Instruction-level bank-read provenance shows the 145-read native
 tail does not first diverge inside `loc_3038A`: at the exact `loc_892` entry,
