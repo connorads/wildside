@@ -121,14 +121,15 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `Obj_TitleMenu` timeout and all sixteen non-negative `Pal_FadeOut` iterations,
 /// frame 854's negative decrement, the final clean-mask fade upload, all of
 /// `loc_700`'s VRAM clear, and the following Sprite_Table clear through frame 867.
-/// Frames 868-871 continue through `loc_726 -> Load_DemoPlay`, the hidden
+/// Frames 868-889 continue through `loc_726 -> Load_DemoPlay`, the hidden
 /// controller allocation, `Load_InGame -> Initialize_Platforms`, and into its
 /// `StopMusic` reset, the following `sub_E133C -> loc_E1576` open/close call,
-/// and the RAM-only map-header/layout decompressor.
+/// and the RAM-only map/layout and theme-art decoder work before the first
+/// `loc_14314` VRAM upload.
 /// The tail remains the coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 872;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 890;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -4114,6 +4115,14 @@ impl GemsSignatureProbe {
             // and writes the map-header/layout buffers in RAM; it neither
             // commands GEMS nor changes Z80-bus or VDP ownership.
             assert_eq!(self.engine.master_clock(), 111_478_320 * 7);
+        }
+        if self.power_on_frame == 872 {
+            // ASM Load_InGame loc_11C36 continues through the block/layout
+            // builders, three DecompressToRAM calls, and the initial
+            // DecompressToVRAM loc_14300 decoder. These frames only read ROM
+            // and write RAM. The first VDP FIFO write is loc_14314 at selected
+            // cycle 113,991,654, after frame 889's FrameRendered sample.
+            assert_eq!(self.engine.master_clock(), 781_244_280);
         }
         if self.power_on_frame == 174 {
             // ASM DecompressToVRAM loc_14314 uploads byte_26E3D's first
@@ -8520,6 +8529,24 @@ const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
     fresh_title_irq_residue!(869, 2822579535, 901776353, 0x0044, 0x02A5, 0, 0, 1, 1, 2, 18),
     fresh_title_irq_residue!(870, 179711852, 179711852, 0x07C8, 0x07B3, 0, 0, 0, 0, 16, 16),
     fresh_title_irq_residue!(871, 3802706905, 3721104212, 0x0B55, 0x0B50, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(872, 3777789643, 3777789643, 0x0B48, 0x0B55, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(873, 331684948, 331684948, 0x07B5, 0x02A5, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(874, 3629615923, 3170182089, 0x02A5, 0x07D2, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(875, 1434734151, 1793554122, 0x0B57, 0x0B51, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(876, 2971667198, 2971667198, 0x07B3, 0x02A5, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(877, 402911934, 660654643, 0x0B4E, 0x0B4B, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(878, 1510183801, 1510183801, 0x0B53, 0x0B4E, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(879, 1299181503, 1698830447, 0x02A5, 0x07AB, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(880, 3135693844, 2240142489, 0x0B4E, 0x02A5, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(881, 3170344611, 2207557166, 0x0B50, 0x0B4E, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(882, 3390980018, 3795044450, 0x02A5, 0x07AA, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(883, 2622433153, 4148813213, 0x0B4B, 0x0B48, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(884, 1217148354, 4004355152, 0x0043, 0x0041, 0, 0, 0, 0, 0, 16),
+    fresh_title_irq_residue!(885, 2692726548, 2669447065, 0x07AB, 0x07A9, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(886, 1051341099, 1792013242, 0x02A5, 0x0B44, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(887, 4171928418, 4171928418, 0x0B4B, 0x02A5, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(888, 2426100391, 2952290858, 0x07A9, 0x02A5, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(889, 1402440090, 1402440090, 0x0C2C, 0x0C28, 0, 0, 0, 2, 16, 16),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(

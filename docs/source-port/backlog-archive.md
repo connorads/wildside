@@ -255,6 +255,17 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: RAM-only loader coverage advances through frame 889.
+Selected-PC tracing places `loc_11C96` in frame 877, `loc_11D42` in frame 878,
+the palette/theme path through `loc_11E60` in frame 879, `loc_11EA2` in frame
+887, and `loc_11EFA -> DecompressToVRAM loc_14300` in frame 889. These map,
+layout, palette, and decoder intervals read ROM and write RAM only. The first
+VDP FIFO write is `loc_14314` at cycle 113,991,654, after frame 889's sample.
+The focused 890-frame comparison is green with 855 evidence-backed limitations
+and 35 advisory-only frames. Full-route GEMS mismatches fall from 36,887 to
+36,869 and the frontier moves to frame 890; other evidence is unchanged.
+`verify-slice-fast` passes. NEXT: model the FIFO-paced `loc_14314` upload.
+
 Progress 2026-07-23: RAM-only level-layout coverage advances through frame 871.
 After the open/close return, `Load_InGame $11A30` builds its map header and
 layout buffers. Frame 871 samples `Decompress_Chunk loc_13970`; source inspection

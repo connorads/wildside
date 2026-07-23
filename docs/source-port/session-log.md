@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 RAM-only theme decoders)
+
+- Defended GEMS coverage advances to frames 0..889; frame 890 is inside the
+  first `Load_InGame loc_14314` VRAM upload.
+- Frames 872..889 cover the remaining layout builders, three `DecompressToRAM`
+  calls, and the initial `DecompressToVRAM loc_14300` decoder. Source inspection
+  proves these intervals have no GEMS, Z80-bus, or VDP ownership change.
+- The first FIFO write is selected cycle 113,991,654. The focused comparison is
+  green with 855 evidence-backed limitations and 35 advisory-only frames.
+- Full-route GEMS mismatches fall from 36,887 to 36,869; gameplay, enemy, RNG,
+  and pixel evidence is unchanged.
+- `verify-slice-fast` passes. NEXT: model the FIFO-paced `loc_14314` upload.
+
 ## 2026-07-23 handoff (#416 RAM-only map layout)
 
 - Defended GEMS coverage advances to frames 0..871; frame 872 reaches
