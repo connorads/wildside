@@ -137,8 +137,8 @@ pub use mode_level_timing::{
     gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76,
     gfx_objects_collision_kid_raw_cycles_sub_1b76, gfx_objects_collision_raw_cycles_sub_16f0,
     gfx_objects_move_and_animate_advance_with_scheduler_sub_1444,
-    gfx_objects_move_and_animate_raw_cycles_sub_1444, input_worker_cycles_loc_7452,
-    kid_projectile_collision_advance_with_scheduler_sub_1d76,
+    gfx_objects_move_and_animate_raw_cycles_sub_1444, hud_diamond_only_raw_cycles_sub_44dc,
+    input_worker_cycles_loc_7452, kid_projectile_collision_advance_with_scheduler_sub_1d76,
     kid_projectile_collision_raw_cycles_sub_1d76,
     load_in_game_platform_initialisation_source_workload, load_in_game_stop_music_tail_advance,
     load_in_game_stop_music_tail_advance_with_scheduler, load_in_game_stop_music_tail_raw_cycles,
@@ -4244,7 +4244,12 @@ impl NativeRuntime {
             self.mode_level_hud_raw_cycles_sub_44dc =
                 mode_level_timing::hud_life_icon_only_raw_cycles_sub_44dc(
                     &self.hud_dma_events_sub_44dc,
-                );
+                )
+                .or_else(|| {
+                    mode_level_timing::hud_diamond_only_raw_cycles_sub_44dc(
+                        &self.hud_dma_events_sub_44dc,
+                    )
+                });
 
             if let (Some(seed), Some(ledger)) = (
                 self.mode_level_raster_seed_sub_e12.take(),

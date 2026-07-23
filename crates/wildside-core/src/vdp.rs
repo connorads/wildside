@@ -6513,6 +6513,35 @@ pub fn life_icon_cpu_raster_cursor_after_sub_44dc_with_scheduler(
     })
 }
 
+/// Co-schedule the diamond-only ASM `sub_44DC -> sub_5D4A` VRAM DMA.
+///
+/// The callback receives source instructions, BUSREQ edges and one-cycle VDP
+/// ownership intervals in chronological order.
+pub fn diamond_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+    entry: ModeLevelCpuRasterCursor,
+    commands: &[crate::HudDmaEventSub44DC],
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<ModeLevelCpuRasterCursor> {
+    crate::mode_level_timing::hud_diamond_only_raw_cycles_sub_44dc(commands)?;
+    let advance = title_memory_dma_routine_cursor_with_scheduler(
+        LoadInGameCpuRasterCursor {
+            beam: entry.beam,
+            refresh_phase: entry.refresh_phase,
+        },
+        0,
+        false,
+        |visit| {
+            crate::mode_level_timing::visit_hud_diamond_only_sub_44dc(commands, visit)
+                .expect("diamond-only command was validated")
+        },
+        &mut advance_hardware,
+    )?;
+    Some(ModeLevelCpuRasterCursor {
+        beam: advance.cursor.beam,
+        refresh_phase: advance.cursor.refresh_phase,
+    })
+}
+
 /// Co-schedule the complete ASM `Mode_Level loc_810 -> loc_892` tail after
 /// `sub_44DC` has drained its FIFO writes.
 pub fn mode_level_post_hud_cursor_to_loc_892_with_scheduler(
@@ -9457,6 +9486,56 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(102).expect("oracle exit phase"),
             },
             "ASM sub_44DC FIFO ownership and GEMS waits must share one chronological scheduler"
+        );
+    }
+
+    #[test]
+    fn diamond_dma_scheduler_reaches_oracle_sub_44dc_return() {
+        let entry = ModeLevelCpuRasterCursor {
+            beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_463_015)),
+            refresh_phase: M68kRefreshPhase::new(12).expect("oracle sub_44DC phase"),
+        };
+        let commands = [crate::HudDmaEventSub44DC::Diamond {
+            frame_table_byte_offset: 4,
+        }];
+        let mut bus_edges = Vec::new();
+        let mut vdp_owned_ticks = 0_u32;
+
+        let exit =
+            diamond_cpu_raster_cursor_after_sub_44dc_with_scheduler(entry, &commands, |event| {
+                match event {
+                    TitleMemoryDmaHardwareEvent::Advance {
+                        cycles,
+                        vdp_owns_bus,
+                        ..
+                    } => {
+                        if vdp_owns_bus {
+                            vdp_owned_ticks = vdp_owned_ticks.checked_add(cycles.get())?;
+                        }
+                    }
+                    TitleMemoryDmaHardwareEvent::SetZ80BusRequest(requested) => {
+                        bus_edges.push(requested);
+                    }
+                }
+                Some(M68kCycleCount::from_raw(0))
+            })
+            .expect("ASM loc_4626 -> sub_5D4A diamond-only schedule");
+
+        assert_eq!(bus_edges, [true, false]);
+        assert_ne!(vdp_owned_ticks, 0, "sub_5D4A performs a 256-word VRAM DMA");
+        assert_eq!(
+            exit,
+            ModeLevelCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_477_477)),
+                refresh_phase: M68kRefreshPhase::new(36).expect("oracle outer RTS phase"),
+            },
+            "selected-PC oracle frame 902 pins the complete diamond DMA return",
+        );
+        assert_eq!(
+            diamond_cpu_raster_cursor_after_sub_44dc_with_scheduler(entry, &[], |_| Some(
+                M68kCycleCount::from_raw(0)
+            ),),
+            None,
         );
     }
 

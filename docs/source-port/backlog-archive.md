@@ -13,6 +13,17 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+2026-07-23 first gameplay diamond HUD DMA: full selected-PC tracing from
+`sub_44DC $44DC` through `loc_4626 -> sub_5D4A` proves a 70-instruction,
+760-raw-cycle diamond-only path. `sub_5D4A` acquires the Z80 bus, programs one
+256-word VRAM DMA to `$DD40`, waits through VDP ownership, releases BUSREQ,
+and returns from the outer HUD routine at oracle cycle 115,477,477 with
+refresh phase 36. Core now preserves every instruction and hardware edge,
+and the frame adapter clocks the same schedule through persistent GEMS.
+Focused source, raster, runtime, and audio tests pass. This isolates the HUD
+part of frame 902; the first Kid activation and post-object path must still
+be source-typed before the persistent route can advance frame 903.
+
 2026-07-23 correction - frame-local dynamic-art queue: the reported
 157-cycle gap below was not a missing fixed source span. The older aggregate
 and explicit visitors were being compared with different `loc_AD4` workloads:

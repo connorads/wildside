@@ -3741,6 +3741,24 @@ pub fn apply_gems_life_icon_schedule_sub_44dc(
     )
 }
 
+/// Co-schedule the diamond-only ASM `sub_44DC -> sub_5D4A` VRAM DMA on the
+/// persistent GEMS timeline.
+#[cfg(feature = "audio")]
+pub fn apply_gems_diamond_schedule_sub_44dc(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: ModeLevelCpuRasterCursor,
+    commands: &[HudDmaEventSub44DC],
+) -> Option<ModeLevelCpuRasterCursor> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::diamond_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+        entry,
+        commands,
+        |event| Some(apply_gems_title_memory_dma_hardware_event(audio, event)),
+    )
+}
+
 /// Co-schedule the complete gameplay `Mode_Level loc_810 -> loc_892` tail
 /// on the persistent GEMS timeline.
 #[cfg(feature = "audio")]
@@ -5129,6 +5147,34 @@ mod tests {
             .expect("HALT-only GEMS engine adds no bank waits");
 
         assert_eq!(actual, expected);
+        assert!(engine.take_banked_68k_reads().is_empty());
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn gems_diamond_adapter_matches_oracle_dma_schedule_sub_5d4a() {
+        let entry = wildside_core::vdp::ModeLevelCpuRasterCursor {
+            beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                115_463_015,
+            )),
+            refresh_phase: wildside_core::M68kRefreshPhase::new(12).expect("oracle sub_44DC phase"),
+        };
+        let commands = [HudDmaEventSub44DC::Diamond {
+            frame_table_byte_offset: 4,
+        }];
+        let expected = wildside_core::vdp::diamond_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+            entry,
+            &commands,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("no-GEMS reference schedule");
+        let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+
+        let actual = apply_gems_diamond_schedule_sub_44dc(&mut engine, entry, &commands)
+            .expect("HALT-only GEMS engine adds no bank waits");
+
+        assert_eq!(actual, expected);
+        assert!(!engine.checkpoint().busreq);
         assert!(engine.take_banked_68k_reads().is_empty());
     }
 

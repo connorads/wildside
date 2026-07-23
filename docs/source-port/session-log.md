@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 first diamond HUD DMA)
+
+- The first gameplay `sub_44DC` pass now preserves all 70 instructions in
+  `loc_4626 -> sub_5D4A`, including BUSREQ and the 256-word `$DD40` VRAM DMA.
+- The isolated scheduler returns at oracle cycle 115,477,477 with refresh
+  phase 36 after 760 raw source cycles.
+- NEXT: source-type `loc_7508`, first-frame `sub_DFB0/sub_F096`, and compose
+  the complete frame-902 continuation into the frame-903 GEMS checkpoint.
+
 ## 2026-07-23 handoff (#409 frame-local dynamic-art queue)
 
 - The persistent VBlank replayer now mirrors `sub_1492 -> sub_13C0 loc_141A

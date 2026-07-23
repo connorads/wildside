@@ -2049,6 +2049,11 @@ mod tests {
             }],
             "ASM sub_44DC loc_4626 emits the frame-local HUD diamond DMA before a raster scheduler assigns its FIFO position"
         );
+        assert_eq!(
+            runtime.mode_level_hud_raw_cycles_sub_44dc(),
+            Some(M68kCycleCount::from_raw(760)),
+            "ASM sub_44DC loc_4626 -> sub_5D4A keeps DMA ownership separate from its 760 raw source cycles",
+        );
         let event = trace.hud_dma_events_sub_44dc[0];
         assert_eq!(event.frame_table_byte_offset(), 4);
         assert_eq!(event.vram_byte_address(), 0xDD40);

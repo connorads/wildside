@@ -2529,6 +2529,96 @@ pub fn hud_life_icon_only_raw_cycles_sub_44dc(
     Some(M68kCycleCount::from_raw(1_350))
 }
 
+/// Raw CPU work for the diamond-only `sub_44DC` path.
+///
+/// The `$200`-byte VRAM DMA and Z80 BUSREQ waits are hardware ownership, not
+/// source cycles. Other HUD command combinations stay unclassified.
+pub fn hud_diamond_only_raw_cycles_sub_44dc(
+    commands: &[HudDmaEventSub44DC],
+) -> Option<M68kCycleCount> {
+    if !matches!(commands, [HudDmaEventSub44DC::Diamond { .. }]) {
+        return None;
+    }
+
+    // ASM sub_44DC loc_45EE -> loc_4626 -> sub_5D4A: the three earlier
+    // animations skip, the diamond timer advances, sub_5D4A programs its
+    // 256-word VRAM DMA, and the flag animation skips.
+    Some(M68kCycleCount::from_raw(760))
+}
+
+/// Visit every source instruction and hardware edge in the diamond-only
+/// `sub_44DC` path.
+///
+/// ASM `loc_4626 -> sub_5D4A` brackets the DMA with Stop_z80/Start_z80. The
+/// DMA begins after the second `$FFFFF800` command word reaches the VDP.
+pub fn visit_hud_diamond_only_sub_44dc(
+    commands: &[HudDmaEventSub44DC],
+    mut visit: impl FnMut(crate::intro_timing::MemoryDmaTimingEvent),
+) -> Option<crate::intro_timing::IntroSourceTiming> {
+    hud_diamond_only_raw_cycles_sub_44dc(commands)?;
+    use crate::intro_timing::{IntroSourceTiming, MemoryDmaTimingEvent, MemoryToVdpDmaTarget};
+
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                timing: &mut IntroSourceTiming,
+                cycles: u32| {
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("diamond HUD source timing fits u32"),
+        );
+    };
+
+    // ASM sub_44DC $44DC..loc_45EE: coin, life and clock timers all skip.
+    for cycles in [12, 4, 4, 10, 12, 12, 4, 4, 10, 12, 12, 4, 4, 10] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    // ASM loc_45EE..loc_462C: the diamond timer reaches frame offset four,
+    // selects that page, and calls sub_5D4A.
+    for cycles in [12, 12, 4, 4, 12, 12, 4, 4, 12, 12, 8, 10, 8, 4, 4, 18] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    // ASM sub_5D4A through Stop_z80's BUSREQ write and acknowledgement.
+    for cycles in [16, 12, 8, 20, 10, 10, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(true));
+    for cycles in [20, 8, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    // ASM sub_5D4A loc_5D5A..loc_5D98: program length, source and the two
+    // destination command words. The final write starts a 256-word VRAM DMA.
+    for cycles in [24, 4, 10, 4, 8, 8, 12, 4, 22, 8, 12, 4, 8, 12, 24, 20, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::BeginMemoryDma {
+        words: 0x100,
+        target: MemoryToVdpDmaTarget::Vram,
+    });
+    // ASM sub_5D4A $5D9E -> Start_z80, then return to sub_44DC. The flag
+    // timer skips and the outer routine returns.
+    for cycles in [20, 10, 10, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(false));
+    for cycles in [16, 16, 12, 12, 4, 4, 10, 12, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    debug_assert_eq!(
+        timing.raw_cycles,
+        hud_diamond_only_raw_cycles_sub_44dc(commands)?
+    );
+    Some(timing)
+}
+
 /// Hardware-visible control boundary in ASM `ReadJoypad`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReadJoypadControl {
@@ -6330,6 +6420,29 @@ mod tests {
             hud_life_icon_only_raw_cycles_sub_44dc(&[
                 life,
                 HudDmaEventSub44DC::Clock {
+                    frame_table_byte_offset: 8,
+                },
+            ]),
+            None,
+            "unclassified multi-upload paths must remain fail-closed",
+        );
+    }
+
+    #[test]
+    fn diamond_only_hud_path_has_source_derived_raw_cost_sub_44dc() {
+        let diamond = HudDmaEventSub44DC::Diamond {
+            frame_table_byte_offset: 4,
+        };
+        assert_eq!(
+            hud_diamond_only_raw_cycles_sub_44dc(&[diamond]),
+            Some(M68kCycleCount::from_raw(760)),
+            "ASM sub_44DC loc_4626 -> sub_5D4A diamond-only path",
+        );
+        assert_eq!(hud_diamond_only_raw_cycles_sub_44dc(&[]), None);
+        assert_eq!(
+            hud_diamond_only_raw_cycles_sub_44dc(&[
+                diamond,
+                HudDmaEventSub44DC::Flag {
                     frame_table_byte_offset: 8,
                 },
             ]),
