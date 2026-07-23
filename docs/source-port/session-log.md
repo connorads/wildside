@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 palette source schedule)
+
+- Both full `sub_1536` palette passes and the return to the first `$93E` poll
+  are scheduled instruction by instruction.
+- They reproduce 19,908 raw cycles and 158 no-GEMS refresh events.
+- The complete tail now has exact source/FIFO visitors for all 31,176 raw
+  cycles and 409 FIFO halts.
+- NEXT: compose the three visitors into persistent GEMS timing, which must
+  add 1,155 bus waits and induce two further refresh events.
+
 ## 2026-07-23 handoff (#409 background source schedule)
 
 - The first gameplay `loc_3038A` path is scheduled instruction by

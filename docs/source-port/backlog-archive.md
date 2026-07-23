@@ -1889,6 +1889,15 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: both full `sub_1536` palette passes and the
+Mode_Level/MainGameLoop return to the first `$93E` poll are source-scheduled.
+The visitor reproduces 19,908 raw cycles and 158 no-GEMS refresh events. The
+complete three-part tail therefore has 31,176 raw cycles, 409 FIFO halts, and
+474 no-GEMS refresh cycles; persistent GEMS waits must induce two further
+refresh events while adding the traced 1,155 bus-wait cycles. NEXT: compose
+all three visitors into the persistent GEMS shell and remove the absolute
+first-poll boundary.
+
 Progress 2026-07-23: the first gameplay `loc_3038A` path now has an exact
 source visitor. Its 19 unchanged shift-data slots, 2/27/6 unaligned shift
 layers, 29 skipped piece rows, and cached `sub_307D8` return reproduce 8,956

@@ -3584,6 +3584,83 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     })
 }
 
+/// Co-schedule both full ASM `sub_1536` palette passes and the return to the
+/// first gameplay `WaitForVint $93E` poll.
+pub fn mode_level_tail_palette_to_wait_for_vint_cursor_sub_14c0_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    work: crate::ModeLevelTailPaletteWorkSub14C0,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<ModeLevelTailBackgroundAdvance> {
+    if work != crate::ModeLevelTailPaletteWorkSub14C0::BothMasksFull {
+        return None;
+    }
+
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+    let mut raw_cycles = 0_u32;
+    let mut counters = ModeLevelTailCameraCounters::default();
+    let mut advance = |cycles: u32| {
+        raw_cycles = raw_cycles.checked_add(cycles)?;
+        advance_mode_level_tail_camera_source_instruction(
+            cycles,
+            0,
+            &mut fifo,
+            &mut phase,
+            &mut counters,
+            &mut advance_hardware,
+        )
+    };
+    macro_rules! advance_all {
+        ($instructions:expr) => {{
+            let instructions: &[u8] = $instructions;
+            for &cycles in instructions {
+                advance(u32::from(cycles))?;
+            }
+        }};
+    }
+
+    // ASM loc_89E BSR and sub_14C0 setup through moveq #$1F,d6.
+    advance_all!(&[18, 16, 16, 8, 10, 12, 12, 16, 4, 4, 14, 16, 8, 4, 4]);
+    // ASM loc_14EE: build the 15-byte interpolation table.
+    for row in 0..15 {
+        advance_all!(&[8, 4, 8, 4]);
+        advance(if row == 14 { 14 } else { 10 })?;
+    }
+    advance_all!(&[4, 12, 12, 12, 4, 8, 24, 18, 4]);
+
+    const FULL_PALETTE_WORD: [u8; 36] = [
+        8, 8, 8, 8, 6, 8, 4, 4, 4, 4, 4, 8, 14, 4, 4, 14, 4, 4, 14, 4, 4, 4, 8, 14, 14, 4, 14, 14,
+        4, 8, 14, 14, 4, 22, 8, 10,
+    ];
+    let advance_full_palette = |advance: &mut dyn FnMut(u32) -> Option<()>| {
+        for word in 0..32 {
+            for (instruction_index, &cycles) in FULL_PALETTE_WORD.iter().enumerate() {
+                let final_dbf = word == 31 && instruction_index + 1 == FULL_PALETTE_WORD.len();
+                advance(u32::from(if final_dbf { 14 } else { cycles }))?;
+            }
+        }
+        Some(())
+    };
+    advance_full_palette(&mut advance)?;
+
+    // ASM first sub_1536 RTS and loc_1518..loc_1536 second-pass setup.
+    advance_all!(&[16, 12, 12, 12, 8, 12, 10, 20, 4]);
+    advance_full_palette(&mut advance)?;
+    // ASM second sub_1536 RTS, Mode_Level RTS, MainGameLoop BRA/BSR, and the
+    // WaitForVint loc_93A instruction immediately before the $93E poll.
+    advance_all!(&[16, 16, 10, 18, 16]);
+
+    Some(ModeLevelTailBackgroundAdvance {
+        cursor: LoadInGameCpuRasterCursor {
+            beam: fifo.beam,
+            refresh_phase: phase,
+        },
+        raw_cycles: M68kCycleCount::from_raw(raw_cycles),
+        refresh_events: counters.refresh_events,
+        external_wait_cycles: M68kCycleCount::from_raw(counters.external_wait_cycles),
+    })
+}
+
 fn advance_decompress_to_vram_source_instruction(
     raw_cycles: u32,
     fifo: &mut PlatformArtFifoScheduler,
@@ -8696,6 +8773,32 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(50).expect("oracle loc_89E phase"),
             },
             "ASM loc_89E follows 8,956 raw + 142 refresh cycles",
+        );
+    }
+
+    #[test]
+    fn first_gameplay_palette_tail_matches_frame_902_instruction_trace() {
+        let entry_cycles = M68kCycleCount::from_raw(115_497_563);
+        let advance = mode_level_tail_palette_to_wait_for_vint_cursor_sub_14c0_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(50).expect("oracle loc_89E phase"),
+            },
+            crate::ModeLevelTailPaletteWorkSub14C0::BothMasksFull,
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("ASM sub_14C0 frame-902 branch is source-scheduled");
+
+        assert_eq!(advance.raw_cycles.get(), 19_908);
+        assert_eq!(advance.refresh_events, 158);
+        assert_eq!(advance.external_wait_cycles.get(), 0);
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_517_787)),
+                refresh_phase: M68kRefreshPhase::new(50).expect("no-GEMS $93E phase"),
+            },
+            "ASM $93E follows 19,908 raw + 316 refresh cycles without GEMS",
         );
     }
 
