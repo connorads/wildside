@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 background source schedule)
+
+- The first gameplay `loc_3038A` path is scheduled instruction by
+  instruction.
+- Its 19 unchanged shift-data slots, 2/27/6 unaligned shift layers, 29
+  skipped piece rows, and cached `sub_307D8` return reproduce 8,956 raw
+  cycles, 71 refresh events, and frame 902's exact `loc_89E` boundary.
+- NEXT: source-schedule both full `sub_1536` palette passes.
+
 ## 2026-07-23 handoff (#409 camera FIFO schedule)
 
 - The first gameplay `sub_30194` branch is scheduled instruction by

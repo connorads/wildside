@@ -3422,6 +3422,168 @@ pub fn mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
     })
 }
 
+/// CPU/raster result from the first gameplay ASM `loc_898 -> loc_3038A`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelTailBackgroundAdvance {
+    pub cursor: LoadInGameCpuRasterCursor,
+    pub raw_cycles: M68kCycleCount,
+    pub refresh_events: u32,
+    pub external_wait_cycles: M68kCycleCount,
+}
+
+/// Co-schedule the frame-902 ASM `loc_898 -> loc_3038A` background pass.
+///
+/// The accepted path has 19 unchanged shift-data slots, a 2/27/6 unaligned
+/// shift-layer split, 29 skipped piece rows, and a cached `sub_307D8` row.
+/// Other typed paths remain fail-closed until their instruction streams are
+/// fixed by oracle evidence.
+pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    work: &crate::ModeLevelTailBackgroundWorkLoc3038A,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<ModeLevelTailBackgroundAdvance> {
+    if work.special_effect_4
+        || work.game_mode_zero
+        || work.background_upload_busy_fb49
+        || work.background_format_nonzero
+        || work
+            .shift_data_slots_loc_30452
+            .iter()
+            .any(|slot| *slot != crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged)
+        || work.shift_layers
+            != (crate::ModeLevelTailShiftLayersWork::NormalUnalignedNoRipple {
+                leading_rows: 2,
+                full_rows: 27,
+                trailing_rows: 6,
+            })
+        || work.piece_rows_sub_30744.entries_before_sentinel != 29
+        || work.piece_rows_sub_30744.rendered_nonnegative_entries != 0
+        || work.piece_refresh_sub_307d8
+            != crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged
+    {
+        return None;
+    }
+
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+    let mut raw_cycles = 0_u32;
+    let mut counters = ModeLevelTailCameraCounters::default();
+    let mut advance = |cycles: u32| {
+        raw_cycles = raw_cycles.checked_add(cycles)?;
+        advance_mode_level_tail_camera_source_instruction(
+            cycles,
+            0,
+            &mut fifo,
+            &mut phase,
+            &mut counters,
+            &mut advance_hardware,
+        )
+    };
+    macro_rules! advance_all {
+        ($instructions:expr) => {{
+            let instructions: &[u8] = $instructions;
+            for &cycles in instructions {
+                advance(u32::from(cycles))?;
+            }
+        }};
+    }
+
+    // ASM loc_898 JSR, j_loc_3038A JMP, and loc_3038A through the
+    // BackgroundScroll_ComputeShiftData call.
+    advance_all!(&[20, 10, 16, 8, 12, 8, 16, 18]);
+
+    // ASM BackgroundScroll_ComputeShiftData prologue and its two loc_30452
+    // unchanged slots.
+    advance_all!(&[12, 12, 12, 12, 4, 4]);
+    const FIRST_UNCHANGED_SLOT: [u8; 16] =
+        [12, 8, 4, 4, 12, 4, 12, 12, 12, 12, 4, 10, 12, 8, 4, 10];
+    for slot_index in 0..2 {
+        for (instruction_index, &cycles) in FIRST_UNCHANGED_SLOT.iter().enumerate() {
+            let final_dbf = slot_index == 1 && instruction_index + 1 == FIRST_UNCHANGED_SLOT.len();
+            advance(u32::from(if final_dbf { 14 } else { cycles }))?;
+        }
+    }
+    advance_all!(&[4, 4, 4, 32, 4]);
+
+    // ASM loc_3048C: 17 unchanged scroll slots.
+    const SCROLL_UNCHANGED_SLOT: [u8; 11] = [4, 12, 12, 12, 4, 10, 12, 8, 4, 8, 10];
+    for slot_index in 0..17 {
+        for (instruction_index, &cycles) in SCROLL_UNCHANGED_SLOT.iter().enumerate() {
+            let final_dbf =
+                slot_index == 16 && instruction_index + 1 == SCROLL_UNCHANGED_SLOT.len();
+            advance(u32::from(if final_dbf { 14 } else { cycles }))?;
+        }
+    }
+    advance(16)?;
+
+    // ASM loc_303A0 BSR, the j_BackgroundScroll_ComputeShiftLayers stub,
+    // and the normal unaligned path through loc_30560.
+    const SHIFT_LAYERS_PRELUDE: [u8; 33] = [
+        18, 12, 10, 12, 4, 20, 20, 12, 14, 4, 4, 4, 18, 12, 12, 4, 16, 8, 4, 4, 4, 12, 4, 4, 10, 4,
+        8, 4, 4, 4, 8, 14, 4,
+    ];
+    advance_all!(&SHIFT_LAYERS_PRELUDE);
+
+    // ASM loc_30562: two leading partial rows.
+    for row in 0..2 {
+        advance(12)?;
+        advance(if row == 1 { 14 } else { 10 })?;
+    }
+    advance(4)?;
+
+    // ASM loc_3056A: 27 complete eight-scanline rows.
+    const COMPLETE_SHIFT_ROW: [u8; 12] = [8, 14, 4, 12, 12, 12, 12, 12, 12, 12, 12, 10];
+    for row in 0..27 {
+        for (instruction_index, &cycles) in COMPLETE_SHIFT_ROW.iter().enumerate() {
+            let final_dbf = row == 26 && instruction_index + 1 == COMPLETE_SHIFT_ROW.len();
+            advance(u32::from(if final_dbf { 14 } else { cycles }))?;
+        }
+    }
+
+    // ASM loc_3058A setup and six loc_30592 trailing rows.
+    advance_all!(&[4, 8, 8, 14, 4]);
+    for row in 0..6 {
+        advance(12)?;
+        advance(if row == 5 { 14 } else { 10 })?;
+    }
+    // ASM loc_30598: non-Forest, non-Desert return.
+    advance_all!(&[12, 8, 8, 8, 12, 16]);
+
+    // ASM loc_303A4 gates and the sub_30744 call/prologue.
+    advance_all!(&[12, 8, 12, 8, 18]);
+    const PIECE_ROWS_PRELUDE: [u8; 25] = [
+        12, 12, 8, 20, 20, 12, 14, 4, 4, 4, 18, 12, 12, 16, 8, 4, 14, 12, 8, 18, 4, 4, 4, 4, 4,
+    ];
+    advance_all!(&PIECE_ROWS_PRELUDE);
+
+    // ASM loc_3079A: 29 negative entries skip rendering.
+    const SKIPPED_PIECE_ROW: [u8; 8] = [8, 8, 8, 18, 8, 8, 4, 10];
+    for row in 0..29 {
+        for (instruction_index, &cycles) in SKIPPED_PIECE_ROW.iter().enumerate() {
+            let final_dbf = row == 28 && instruction_index + 1 == SKIPPED_PIECE_ROW.len();
+            advance(u32::from(if final_dbf { 14 } else { cycles }))?;
+        }
+    }
+    advance(16)?;
+
+    // ASM loc_303B2 BSR and the cached-row sub_307D8 return, followed by
+    // return_303B8.
+    const CACHED_ROW_AND_RETURN: [u8; 19] = [
+        18, 12, 20, 20, 12, 14, 4, 4, 4, 18, 12, 12, 16, 12, 12, 4, 10, 16, 16,
+    ];
+    advance_all!(&CACHED_ROW_AND_RETURN);
+
+    Some(ModeLevelTailBackgroundAdvance {
+        cursor: LoadInGameCpuRasterCursor {
+            beam: fifo.beam,
+            refresh_phase: phase,
+        },
+        raw_cycles: M68kCycleCount::from_raw(raw_cycles),
+        refresh_events: counters.refresh_events,
+        external_wait_cycles: M68kCycleCount::from_raw(counters.external_wait_cycles),
+    })
+}
+
 fn advance_decompress_to_vram_source_instruction(
     raw_cycles: u32,
     fifo: &mut PlatformArtFifoScheduler,
@@ -8489,6 +8651,51 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(40).expect("oracle loc_898 refresh phase"),
             },
             "ASM loc_898 follows 2,312 raw + 409 FIFO + 16 refresh cycles",
+        );
+    }
+
+    #[test]
+    fn first_gameplay_background_pass_matches_frame_902_instruction_trace() {
+        let entry_cycles = M68kCycleCount::from_raw(115_488_465);
+        let work = crate::ModeLevelTailBackgroundWorkLoc3038A {
+            special_effect_4: false,
+            game_mode_zero: false,
+            background_upload_busy_fb49: false,
+            background_format_nonzero: false,
+            shift_data_slots_loc_30452: [crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged; 19],
+            shift_layers: crate::ModeLevelTailShiftLayersWork::NormalUnalignedNoRipple {
+                leading_rows: 2,
+                full_rows: 27,
+                trailing_rows: 6,
+            },
+            piece_rows_sub_30744: crate::ModeLevelTailPieceRowsSub30744 {
+                entries_before_sentinel: 29,
+                rendered_nonnegative_entries: 0,
+            },
+            piece_refresh_sub_307d8: crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged,
+        };
+        let advance = mode_level_tail_background_cursor_loc_3038a_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                // ASM Mode_Level loc_898: oracle frame 902 enters the
+                // background JSR at scanline 55, H40 pixel 381.
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(40).expect("oracle loc_898 phase"),
+            },
+            &work,
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("ASM loc_3038A frame-902 branch is source-scheduled");
+
+        assert_eq!(advance.raw_cycles.get(), 8_956);
+        assert_eq!(advance.refresh_events, 71);
+        assert_eq!(advance.external_wait_cycles.get(), 0);
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_497_563)),
+                refresh_phase: M68kRefreshPhase::new(50).expect("oracle loc_89E phase"),
+            },
+            "ASM loc_89E follows 8,956 raw + 142 refresh cycles",
         );
     }
 

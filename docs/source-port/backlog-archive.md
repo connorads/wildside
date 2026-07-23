@@ -1889,6 +1889,12 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: the first gameplay `loc_3038A` path now has an exact
+source visitor. Its 19 unchanged shift-data slots, 2/27/6 unaligned shift
+layers, 29 skipped piece rows, and cached `sub_307D8` return reproduce 8,956
+raw cycles, 71 refresh events, and frame 902's `loc_89E` beam/phase boundary.
+NEXT: source-schedule the two full `sub_1536` palette passes.
+
 Progress 2026-07-23: the first gameplay `sub_30194` branch now has an
 instruction/FIFO scheduler. Starting at frame 902's `loc_892` cursor it
 reproduces 2,312 raw cycles, all 21 longword writes, the oracle's 391+18 FIFO
