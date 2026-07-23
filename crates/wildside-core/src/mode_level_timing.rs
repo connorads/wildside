@@ -1115,7 +1115,7 @@ fn gems_stop_music_elapsed_timing_with_vint_schedule(
 ///
 /// VDP arbitration is deliberately excluded: the same ROM path can spend a
 /// different number of cycles halted behind the VDP on adjacent frames.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelVblankWorkBeforeSubE12 {
     /// Tile lengths read by `Transfer_SpriteAndKidToVRAM loc_AD4`.
     pub dynamic_art_tiles_loc_ad4: [u16; 2],
@@ -1127,7 +1127,8 @@ pub struct ModeLevelVblankWorkBeforeSubE12 {
     pub hud_path_sub_bdc0: ModeLevelHudBuildPath,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ModeLevelScrollTransferPath {
     /// ASM `loc_300BA`: two VSRAM words then the `$380`-byte H-scroll DMA.
     NormalLoc300ba,
@@ -1135,7 +1136,8 @@ pub enum ModeLevelScrollTransferPath {
     SpecialLoc30158,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ModeLevelHudBuildPath {
     /// ASM `loc_BE20 -> loc_BE0C -> loc_BE34 -> loc_BE4C`, with no timer
     /// rollover and unchanged lives/diamond counters.

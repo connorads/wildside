@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 typed VBlank workload)
+
+- Natural gameplay traces now carry the typed `$7C8 -> sub_E12` VBlank
+  branch ledger beside the pre-HUD, post-HUD and `loc_892` ledgers.
+- Published frames 1697/1703/1709 pin the natural DMA, queue, HUD and pause
+  branches at the trace boundary.
+- NEXT: make the persistent raster replayer consume all four boundaries and
+  emit exact `sub_44DC` timings.
+
 ## 2026-07-23 handoff (#409 life-icon fallback rejected)
 
 - A previous-resident-page fallback made frames 1697/1703 exact and reduced

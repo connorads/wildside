@@ -1,4 +1,4 @@
-use crate::mode_level_timing::ModeLevelTailWorkLoc892;
+use crate::mode_level_timing::{ModeLevelTailWorkLoc892, ModeLevelVblankWorkBeforeSubE12};
 use crate::physics::{Direction, LevelBounds};
 use crate::platforms::PlatformLoaderSlotModelLoc2744;
 use crate::terrain;
@@ -2573,6 +2573,10 @@ pub struct NativeTraceFrame {
     /// concrete first H40 FIFO commit. Empty means timing is not yet proven.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hud_raster_upload_timings_sub_44dc: Vec<HudRasterUploadTimingSub44DC>,
+    /// Source branches from ASM `Mode_Level $7C8` through the VBlank DMA
+    /// prefix before `Execute_Objects sub_E12`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode_level_vblank_work_before_sub_e12: Option<ModeLevelVblankWorkBeforeSubE12>,
     /// ASM `Mode_Level` fixed call order and typed `Execute_Objects sub_E12`
     /// workload observed before this frame's `sub_44DC` commands.
     ///
@@ -3046,6 +3050,7 @@ impl Default for NativeTraceFrame {
             hud_life_icon_vram_page_loc_4586: None,
             hud_dma_events_sub_44dc: Vec::new(),
             hud_raster_upload_timings_sub_44dc: Vec::new(),
+            mode_level_vblank_work_before_sub_e12: None,
             mode_level_work_before_hud_sub_44dc: None,
             mode_level_work_after_hud_sub_44dc: None,
             mode_level_tail_work_loc_892: None,

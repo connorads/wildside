@@ -272,6 +272,11 @@ fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
                 "ASM Mode_Level loc_80C workload must cross the trace boundary",
             );
             assert_eq!(
+                trace.mode_level_vblank_work_before_sub_e12,
+                Some(published_natural_vblank_work()),
+                "ASM Mode_Level $7C8 VBlank branches must cross the trace boundary",
+            );
+            assert_eq!(
                 trace.mode_level_tail_work_loc_892,
                 runtime.mode_level_tail_work_loc_892(),
                 "ASM Mode_Level loc_892 workload must cross the trace boundary",

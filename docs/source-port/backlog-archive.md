@@ -1889,6 +1889,13 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: natural gameplay `NativeTraceFrame` values now carry
+the typed `Mode_Level $7C8 -> sub_E12` VBlank branch ledger. The published
+1697/1703/1709 regression pins `[16,4]` dynamic art, palette DMA, normal
+scroll DMA, empty foreground queues, live HUD and no pause beside the existing
+pre-HUD, post-HUD and `loc_892` ledgers. NEXT: make the persistent raster
+replayer consume all four boundaries and emit exact `sub_44DC` timings.
+
 Rejected 2026-07-23: rendering the previous `AniArt_LifeIcon` page for every
 unseeded `loc_4586` upload is not a safe substitute for the persistent raster
 cursor. It made frames 1697 and 1703 exact and reduced the route total by 299
