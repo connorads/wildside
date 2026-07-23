@@ -1172,8 +1172,86 @@ pub struct ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership {
 pub enum ModeLevelTailCameraStripeSub30194 {
     /// ASM loc_301B4/loc_30246: neither camera tile axis needs streaming.
     BothTileAxesUnchanged,
-    /// One or both axes stream mappings and may write through the VDP.
-    Streaming,
+    /// ASM loc_301CE -> sub_3034A: upward, unsplit 21-longword row upload.
+    UpwardHorizontalNoWrap {
+        ordinary_theme_cells: u8,
+        priority_theme_cells: u8,
+        block_cells: u8,
+    },
+    /// One or both axes use another streaming shape.
+    StreamingOther,
+}
+
+/// Classify ASM `sub_30194` camera-stripe work from tile latches and selected
+/// live `Level_Layout` cells.
+pub fn mode_level_tail_camera_stripe_work_sub_30194(
+    previous_camera_x_pos: u16,
+    previous_camera_y_pos: u16,
+    camera_x_pos: u16,
+    camera_y_pos: u16,
+    horizontal_cells: Option<&[u16]>,
+) -> ModeLevelTailCameraStripeSub30194 {
+    let previous_x_tile = previous_camera_x_pos >> 3;
+    let previous_y_tile = (previous_camera_y_pos as i16) >> 3;
+    let x_tile = camera_x_pos >> 3;
+    let y_tile = (camera_y_pos as i16) >> 3;
+    if previous_x_tile == x_tile && previous_y_tile == y_tile {
+        return ModeLevelTailCameraStripeSub30194::BothTileAxesUnchanged;
+    }
+
+    // ASM loc_301CE/loc_301FE: an upward-only row at plane columns 0..11
+    // emits one unsplit 21-longword sub_3034A pass. Other axis and wrap
+    // combinations remain explicitly unclassified.
+    let plane_cell_column = (x_tile >> 1) & 0x001F;
+    let Some(cells) = horizontal_cells.filter(|cells| cells.len() == 21) else {
+        return ModeLevelTailCameraStripeSub30194::StreamingOther;
+    };
+    if previous_x_tile != x_tile || y_tile >= previous_y_tile || plane_cell_column >= 0x000C {
+        return ModeLevelTailCameraStripeSub30194::StreamingOther;
+    }
+
+    let mut ordinary_theme_cells = 0_u8;
+    let mut priority_theme_cells = 0_u8;
+    let mut block_cells = 0_u8;
+    for &cell in cells {
+        if (cell as i16) < 0 {
+            block_cells += 1;
+        } else if cell & 0x0100 != 0 {
+            priority_theme_cells += 1;
+        } else {
+            ordinary_theme_cells += 1;
+        }
+    }
+
+    ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+        ordinary_theme_cells,
+        priority_theme_cells,
+        block_cells,
+    }
+}
+
+/// Raw source cycles for the classified ASM `sub_30194` call.
+pub fn mode_level_tail_camera_stripe_raw_cycles_sub_30194(
+    work: ModeLevelTailCameraStripeSub30194,
+) -> Option<M68kCycleCount> {
+    match work {
+        ModeLevelTailCameraStripeSub30194::BothTileAxesUnchanged => {
+            Some(M68kCycleCount::from_raw(238))
+        }
+        ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+            ordinary_theme_cells: 21,
+            priority_theme_cells: 0,
+            block_cells: 0,
+        } => {
+            // ASM sub_30194/loc_301CE -> sub_3034A. The fixed unsplit
+            // upward-row spine plus the traced 21 ordinary cells is 2,320
+            // raw cycles. Priority/block mixtures remain unclassified until
+            // an oracle instruction trace fixes their complete path cost.
+            Some(M68kCycleCount::from_raw(2_320))
+        }
+        ModeLevelTailCameraStripeSub30194::StreamingOther => None,
+        ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap { .. } => None,
+    }
 }
 
 /// One of the 19 cached/new comparisons in ASM
@@ -1214,6 +1292,10 @@ pub struct ModeLevelTailStateLoc892 {
 pub struct ModeLevelTailInputsLoc892<'a> {
     pub camera_x_pos: u16,
     pub camera_y_pos: u16,
+    /// Live `Level_Layout` words selected for an unsplit horizontal
+    /// `sub_30194` upload. The imperative shell gathers these from the current
+    /// block grid; the timing core classifies their ASM mapping branches.
+    pub camera_stripe_cells_sub_30194: Option<&'a [u16]>,
     pub time_frames_before_loc_3038a: u16,
     pub game_mode_zero: bool,
     pub special_effect_4: bool,
@@ -1291,14 +1373,13 @@ impl ModeLevelTailStateLoc892 {
         inputs: ModeLevelTailInputsLoc892<'_>,
     ) -> ModeLevelTailAdvanceLoc892 {
         let mut next_state = self;
-        let camera_stripe_sub_30194 = if (self.camera_x_latch_f82c >> 3)
-            == (inputs.camera_x_pos >> 3)
-            && ((self.camera_y_latch_f82e as i16) >> 3) == ((inputs.camera_y_pos as i16) >> 3)
-        {
-            ModeLevelTailCameraStripeSub30194::BothTileAxesUnchanged
-        } else {
-            ModeLevelTailCameraStripeSub30194::Streaming
-        };
+        let camera_stripe_sub_30194 = mode_level_tail_camera_stripe_work_sub_30194(
+            self.camera_x_latch_f82c,
+            self.camera_y_latch_f82e,
+            inputs.camera_x_pos,
+            inputs.camera_y_pos,
+            inputs.camera_stripe_cells_sub_30194,
+        );
         // ASM sub_30194 loc_302E8 updates both latches after either axis path.
         next_state.camera_x_latch_f82c = inputs.camera_x_pos;
         next_state.camera_y_latch_f82e = inputs.camera_y_pos;
@@ -1350,7 +1431,7 @@ impl ModeLevelTailStateLoc892 {
             entries_before_sentinel: 0,
             rendered_nonnegative_entries: 0,
         };
-        let mut piece_refresh_sub_307d8 = ModeLevelTailPieceRefreshSub307D8::Streaming;
+        let mut piece_refresh_sub_307d8 = ModeLevelTailPieceRefreshSub307D8::StreamingOther;
         let mut profile_classified = true;
         if !background_upload_busy_fb49 && !inputs.background_format_nonzero {
             let camera_row = usize::from(inputs.camera_y_pos >> 5);
@@ -1381,7 +1462,13 @@ impl ModeLevelTailStateLoc892 {
             piece_refresh_sub_307d8 = if self.background_row_latch_faa8 == current_row {
                 ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged
             } else {
-                ModeLevelTailPieceRefreshSub307D8::Streaming
+                mode_level_tail_piece_refresh_work_sub_307d8(
+                    current_row,
+                    self.background_row_latch_faa8,
+                    inputs.background_width,
+                    inputs.bgscroll_profile,
+                    &shift_advance.next_state.previous_scroll_words,
+                )
             };
             next_state.background_row_latch_faa8 = current_row;
         }
@@ -1573,7 +1660,80 @@ pub struct ModeLevelTailPieceRowsSub30744 {
 pub enum ModeLevelTailPieceRefreshSub307D8 {
     /// ASM loc_30810 -> loc_308B4: current and cached background rows match.
     CachedRowUnchanged,
-    Streaming,
+    /// ASM loc_3081A -> loc_308A6: the 41-word row crosses neither source nor
+    /// plane-B boundary.
+    LinearNoWrap {
+        width_subtractions: u16,
+        copied_words: u8,
+    },
+    StreamingOther,
+}
+
+fn mode_level_tail_piece_refresh_work_sub_307d8(
+    current_camera_row: i16,
+    cached_camera_row: i16,
+    background_width: u16,
+    bgscroll_profile: &[u8],
+    horiz_scroll_words: &[u16; 19],
+) -> ModeLevelTailPieceRefreshSub307D8 {
+    // ASM sub_307D8 only uses the current row directly while scrolling up.
+    // Downward rows add $1C and remain a separate streaming shape.
+    if cached_camera_row <= current_camera_row || current_camera_row < 0 || background_width == 0 {
+        return ModeLevelTailPieceRefreshSub307D8::StreamingOther;
+    }
+    let Some(&selector) = bgscroll_profile.get(current_camera_row as usize) else {
+        return ModeLevelTailPieceRefreshSub307D8::StreamingOther;
+    };
+    if selector == 0xFF || !selector.is_multiple_of(8) {
+        return ModeLevelTailPieceRefreshSub307D8::StreamingOther;
+    }
+    let Some(&scroll_word) = horiz_scroll_words.get(usize::from(selector / 8)) else {
+        return ModeLevelTailPieceRefreshSub307D8::StreamingOther;
+    };
+
+    // ASM loc_30836 reduces the coarse source column by Background_width.
+    let mut reduced_column = scroll_word >> 3;
+    let mut width_subtractions = 0_u16;
+    while background_width <= reduced_column {
+        reduced_column = reduced_column.wrapping_sub(background_width);
+        width_subtractions = width_subtractions.wrapping_add(1);
+    }
+
+    // ASM loc_30840/loc_3086A: both source and 64-cell plane windows must
+    // contain the full d4=$28 inclusive copy for loc_308A6.
+    let source_wraps = background_width <= reduced_column.wrapping_add(0x0028);
+    let plane_column = (scroll_word >> 3) & 0x003F;
+    let plane_wraps = plane_column.wrapping_add(0x0028) > 0x003F;
+    if source_wraps || plane_wraps {
+        ModeLevelTailPieceRefreshSub307D8::StreamingOther
+    } else {
+        ModeLevelTailPieceRefreshSub307D8::LinearNoWrap {
+            width_subtractions,
+            copied_words: 41,
+        }
+    }
+}
+
+/// Raw source cycles for the classified ASM `sub_307D8` call.
+pub fn mode_level_tail_piece_refresh_raw_cycles_sub_307d8(
+    work: ModeLevelTailPieceRefreshSub307D8,
+) -> Option<M68kCycleCount> {
+    match work {
+        ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged => {
+            Some(M68kCycleCount::from_raw(218))
+        }
+        ModeLevelTailPieceRefreshSub307D8::LinearNoWrap {
+            width_subtractions: 0,
+            copied_words: 41,
+        } => {
+            // ASM sub_307D8/loc_308A6: the traced zero-subtraction linear
+            // copy is 2,360 raw cycles. Other widths remain unclassified
+            // until their complete path is fixed by an oracle trace.
+            Some(M68kCycleCount::from_raw(2_360))
+        }
+        ModeLevelTailPieceRefreshSub307D8::StreamingOther => None,
+        ModeLevelTailPieceRefreshSub307D8::LinearNoWrap { .. } => None,
+    }
 }
 
 /// ASM `sub_14C0` palette work at the end of `Mode_Level`.
@@ -1609,24 +1769,23 @@ pub struct ModeLevelTailBackgroundWorkLoc3038A {
 /// Raw source cycles from ASM `Mode_Level loc_892` to the first
 /// `WaitForVint $93E` poll.
 ///
-/// Streaming camera/background paths, ripple rows, and active palette work
-/// remain unknown because they can introduce ordered VDP waits.
+/// Source-verified streaming variants contribute raw instruction cycles here.
+/// Their ordered VDP waits, a VINT inside `sub_307D8`, ripple rows, and active
+/// palette work remain outside this refresh-only calculation.
 pub fn mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(
     work: &ModeLevelTailWorkLoc892,
 ) -> Option<M68kCycleCount> {
-    if work.camera_stripe_sub_30194 != ModeLevelTailCameraStripeSub30194::BothTileAxesUnchanged
-        || work.palette_sub_14c0 != ModeLevelTailPaletteWorkSub14C0::Inactive
-    {
+    if work.palette_sub_14c0 != ModeLevelTailPaletteWorkSub14C0::Inactive {
         return None;
     }
+    let camera_stripe_cycles =
+        mode_level_tail_camera_stripe_raw_cycles_sub_30194(work.camera_stripe_sub_30194)?.get();
 
     let background = &work.background_loc_3038a;
     if background.special_effect_4
         || background.game_mode_zero
         || background.background_upload_busy_fb49
         || background.background_format_nonzero
-        || background.piece_refresh_sub_307d8
-            != ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged
         || background.piece_rows_sub_30744.entries_before_sentinel != 29
         || background.piece_rows_sub_30744.rendered_nonnegative_entries
             > background.piece_rows_sub_30744.entries_before_sentinel
@@ -1636,6 +1795,10 @@ pub fn mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(
     let shift_layers_extra = mode_level_tail_shift_layers_raw_cycles(background.shift_layers)?
         .get()
         .checked_sub(4_020)?;
+    let piece_refresh_extra =
+        mode_level_tail_piece_refresh_raw_cycles_sub_307d8(background.piece_refresh_sub_307d8)?
+            .get()
+            .checked_sub(218)?;
 
     // ASM BackgroundScroll_ComputeShiftData: 2,040 covers all 19 unchanged
     // slots. loc_304B4's old>new path adds 114; old<new adds 120 plus 26
@@ -1655,19 +1818,19 @@ pub fn mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(
     // ASM loc_3038A: the 6,800-cycle aligned fixed spine surrounds ShiftData,
     // ShiftLayers (4,020 aligned; +116 for split partial rows), sub_30744's
     // 29-entry scan (2,360 + 82 per rendered row), and cached-row sub_307D8
-    // (218).
+    // (218; streaming work is added relative to it).
     let background_cycles = 6_800_u32
         .checked_add(shift_data)?
         .checked_add(shift_layers_extra)?
+        .checked_add(piece_refresh_extra)?
         .checked_add(82_u32.checked_mul(u32::from(
             background.piece_rows_sub_30744.rendered_nonnegative_entries,
         ))?)?;
 
-    // ASM loc_892: sub_30194 call/unchanged path is 238, inactive sub_14C0
-    // call/path is 82, and Mode_Level return/MainGameLoop/WaitForVint prefix
-    // is 60.
+    // ASM loc_892: inactive sub_14C0 call/path is 82, and Mode_Level
+    // return/MainGameLoop/WaitForVint prefix is 60.
     Some(M68kCycleCount::from_raw(
-        238_u32
+        camera_stripe_cycles
             .checked_add(background_cycles)?
             .checked_add(82)?
             .checked_add(60)?,
@@ -1680,6 +1843,15 @@ pub fn mode_level_tail_advance_to_wait_for_vint_loc_892(
     phase: M68kRefreshPhase,
     work: &ModeLevelTailWorkLoc892,
 ) -> Option<M68kRefreshAdvance> {
+    // ASM sub_30194 and sub_307D8 streaming writes can stall on the VDP FIFO
+    // and sub_307D8 can cross VINT. Their ordered arbitration is scheduled by
+    // the persistent hardware shell, not flattened into ROM-refresh time.
+    if work.camera_stripe_sub_30194 != ModeLevelTailCameraStripeSub30194::BothTileAxesUnchanged
+        || work.background_loc_3038a.piece_refresh_sub_307d8
+            != ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged
+    {
+        return None;
+    }
     Some(phase.advance_rom(mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(work)?))
 }
 
@@ -3807,7 +3979,7 @@ mod tests {
     #[test]
     fn mode_level_tail_loc_892_rejects_unclassified_streaming_work() {
         let work = ModeLevelTailWorkLoc892 {
-            camera_stripe_sub_30194: ModeLevelTailCameraStripeSub30194::Streaming,
+            camera_stripe_sub_30194: ModeLevelTailCameraStripeSub30194::StreamingOther,
             background_loc_3038a: ModeLevelTailBackgroundWorkLoc3038A {
                 special_effect_4: false,
                 game_mode_zero: false,
@@ -3828,6 +4000,75 @@ mod tests {
             mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(&work),
             None,
             "ASM sub_30194 streaming branches require ordered mapping and VDP work"
+        );
+    }
+
+    #[test]
+    fn mode_level_tail_first_gameplay_streaming_work_matches_oracle_instruction_trace() {
+        let profile = [
+            96, 96, 80, 80, 80, 112, 112, 64, 64, 64, 96, 96, 96, 96, 96, 96, 64, 64, 64, 64, 80,
+            80, 80, 80, 80, 80, 112, 112, 112, 112, 80, 80, 80, 80, 80, 80, 64, 64, 64, 64, 16, 16,
+            16, 16, 16, 16, 16, 16, 16,
+        ];
+        let ordinary_cells = [0x0001_u16; 21];
+        let mut state = ModeLevelTailStateLoc892::power_on_zero();
+        state.preload_loc_2ffe8(0, 0x02A0, 0);
+
+        let advance = state.advance_loc_892(ModeLevelTailInputsLoc892 {
+            camera_x_pos: 0,
+            camera_y_pos: 0x0298,
+            camera_stripe_cells_sub_30194: Some(&ordinary_cells),
+            time_frames_before_loc_3038a: 0,
+            game_mode_zero: false,
+            special_effect_4: false,
+            background_width: 90,
+            background_format_nonzero: false,
+            background_no_scroll: false,
+            background_theme: 1,
+            bgscroll_profile: &profile,
+            bgscroll_has_terminator: false,
+        });
+        let work = advance.work.expect("first gameplay pass is source-typed");
+
+        assert_eq!(
+            work.camera_stripe_sub_30194,
+            ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+                ordinary_theme_cells: 21,
+                priority_theme_cells: 0,
+                block_cells: 0,
+            },
+            "ASM sub_30194 loc_301CE -> sub_3034A: frame-895 oracle trace takes 21 ordinary mapping branches",
+        );
+        assert_eq!(
+            work.background_loc_3038a.piece_refresh_sub_307d8,
+            ModeLevelTailPieceRefreshSub307D8::LinearNoWrap {
+                width_subtractions: 0,
+                copied_words: 41,
+            },
+            "ASM sub_307D8 loc_3081A -> loc_308A6: row 20, slot 10, and coarse column zero select the linear 41-word copy",
+        );
+        assert_eq!(
+            mode_level_tail_camera_stripe_raw_cycles_sub_30194(work.camera_stripe_sub_30194),
+            Some(M68kCycleCount::from_raw(2_320)),
+        );
+        assert_eq!(
+            mode_level_tail_piece_refresh_raw_cycles_sub_307d8(
+                work.background_loc_3038a.piece_refresh_sub_307d8
+            ),
+            Some(M68kCycleCount::from_raw(2_360)),
+        );
+        assert_eq!(
+            mode_level_tail_raw_cycles_to_wait_for_vint_loc_892(&work),
+            Some(M68kCycleCount::from_raw(13_560)),
+            "ASM loc_892 raw source work includes both streaming calls and the unaligned shift-layer path",
+        );
+        assert_eq!(
+            mode_level_tail_advance_to_wait_for_vint_loc_892(
+                M68kRefreshPhase::new(0).expect("bounded phase"),
+                &work,
+            ),
+            None,
+            "frame-895 oracle trace records 386+146 VDP waits and a VINT inside sub_307D8, so refresh-only composition must reject it",
         );
     }
 
@@ -4113,6 +4354,7 @@ mod tests {
             let advance = state.advance_loc_892(ModeLevelTailInputsLoc892 {
                 camera_x_pos,
                 camera_y_pos: 0,
+                camera_stripe_cells_sub_30194: None,
                 time_frames_before_loc_3038a: time_frames,
                 game_mode_zero: false,
                 special_effect_4: false,

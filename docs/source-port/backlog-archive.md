@@ -1889,6 +1889,17 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: oracle frame 895 fixes the first complete streaming
+`loc_892` pass at 13,560 raw source cycles. `sub_30194/loc_301CE` takes the
+unsplit upward path through 21 ordinary theme cells at 2,320 raw cycles, with
+386 separate VDP-wait cycles. `sub_307D8/loc_308A6` takes the zero-wrap,
+zero-width-subtraction 41-word path at 2,360 raw cycles, with 146 separate
+VDP-wait cycles and a VINT before the copy resumes. Both source workloads are
+now typed; untraced cell mixtures and widths remain fail-closed. The
+refresh-only calculator deliberately rejects these streaming variants because
+it cannot represent their ordered hardware ownership. NEXT: retain the two
+VDP-wait sequences and mid-routine VINT in the persistent scheduler.
+
 Progress 2026-07-23: the first gameplay pass's unaligned
 `BackgroundScroll_ComputeShiftLayers` path is source-typed. Camera Y `$0298`
 selects phase 6 at `loc_3050A`, producing 2 leading rows, 27 full eight-row

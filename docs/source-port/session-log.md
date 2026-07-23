@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 first streaming pass)
+
+- Oracle frame 895 fixes the complete first streaming `loc_892` pass at
+  13,560 raw cycles.
+- `sub_30194` uploads 21 ordinary cells at 2,320 raw cycles plus 386 ordered
+  VDP waits.
+- `sub_307D8` copies 41 words at 2,360 raw cycles plus 146 VDP waits, with
+  VINT interrupting the copy before it resumes.
+- NEXT: compose those ordered waits and the mid-routine VINT in the persistent
+  gameplay scheduler.
+
 ## 2026-07-23 handoff (#409 unaligned shift layers)
 
 - First-pass camera Y `$0298` now selects a typed

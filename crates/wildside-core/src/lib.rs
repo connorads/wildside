@@ -138,6 +138,9 @@ pub use mode_level_timing::{
     make_sprites_from_platforms_raw_cycles_sub_2444, manage_enemy_loading_raw_cycles,
     manage_platform_loading_raw_cycles_loc_2744, mode_level_post_hud_phase_raw_cycles_to_loc_892,
     mode_level_post_hud_raw_cycles_to_loc_892, mode_level_tail_advance_to_wait_for_vint_loc_892,
+    mode_level_tail_camera_stripe_raw_cycles_sub_30194,
+    mode_level_tail_camera_stripe_work_sub_30194,
+    mode_level_tail_piece_refresh_raw_cycles_sub_307d8,
     mode_level_tail_raw_cycles_to_wait_for_vint_loc_892, mode_level_vblank_advance_before_sub_e12,
     mode_level_vblank_elapsed_cycles_before_sub_e12,
     mode_level_vblank_source_cycles_before_sub_e12, platforms_check_collision_raw_cycles_sub_2574,
@@ -1757,6 +1760,32 @@ impl NativeRuntime {
         let camera = self
             .opening_slice
             .map_or_else(|| self.current_camera_state(), |slice| slice.camera);
+        let camera_x_pos = (camera.x_pos >> 16) as u16;
+        let camera_y_pos = (camera.y_pos >> 16) as u16;
+        let (previous_camera_x_pos, previous_camera_y_pos) = self
+            .mode_level_tail_state_loc_892
+            .camera_latches_f82c_f82e();
+        let previous_x_tile = previous_camera_x_pos >> 3;
+        let previous_y_tile = (previous_camera_y_pos as i16) >> 3;
+        let x_tile = camera_x_pos >> 3;
+        let y_tile = (camera_y_pos as i16) >> 3;
+        // ASM sub_30194 loc_301CE: gather the live 21-cell row only for the
+        // upward, unsplit horizontal path. The pure timing core classifies
+        // ordinary, priority, and block mapping branches.
+        let camera_stripe_cells_sub_30194 = self.block_grid.as_ref().and_then(|grid| {
+            let row = u16::try_from(y_tile >> 1).ok()?;
+            let first_column = x_tile >> 1;
+            (previous_x_tile == x_tile
+                && y_tile < previous_y_tile
+                && ((first_column & 0x001F) < 0x000C)
+                && first_column.checked_add(20)? < grid.width_cells
+                && row < grid.height_cells)
+                .then(|| {
+                    (0..21_u16)
+                        .map(|offset| grid.raw_word_at(first_column + offset, row))
+                        .collect::<Vec<_>>()
+                })
+        });
         let level_width_tiles = u16::from(width_screens).wrapping_mul(40);
         let (mut background_width, _) = background_dimensions_loc_11B40(level_width_tiles, 0);
         let background_format_nonzero = matches!(background_theme, 3 | 5 | 7 | 9);
@@ -1767,8 +1796,9 @@ impl NativeRuntime {
         let advance =
             self.mode_level_tail_state_loc_892
                 .advance_loc_892(ModeLevelTailInputsLoc892 {
-                    camera_x_pos: (camera.x_pos >> 16) as u16,
-                    camera_y_pos: (camera.y_pos >> 16) as u16,
+                    camera_x_pos,
+                    camera_y_pos,
+                    camera_stripe_cells_sub_30194: camera_stripe_cells_sub_30194.as_deref(),
                     time_frames_before_loc_3038a: self.time_frames_loc_3038a,
                     game_mode_zero: self.game_mode().as_disassembly_value() == 0,
                     special_effect_4: self.weather.weather_type == 4,
