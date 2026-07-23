@@ -123,6 +123,7 @@ pub use mode_level_timing::{
     ReadJoypadControl, WaitForVintArbitration, WaitForVintInterruptSample, WaitForVintResumePath,
     block_debris_sprites_advance_with_scheduler_sub_2a4c, block_debris_sprites_raw_cycles_sub_2a4c,
     damage_flash_wait_cycles_loc_bc44, demo_exit_wait_cycles_loc_119e0,
+    diamond_power_compile_sprites_advance_with_scheduler_sub_3f798,
     diamond_power_compile_sprites_raw_cycles_sub_3f798, execute_objects_elapsed_cycles_sub_e12,
     execute_objects_external_waits_sub_e12, execute_objects_raw_cycles_sub_e12,
     execute_objects_setup_cycles_sub_e12,

@@ -1889,6 +1889,14 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: the empty-buffer
+`DiamondPower_CompileSprites sub_3F798` path is instruction-scheduled from
+`Mode_Level loc_882`. Its 106 raw cycles and one refresh wait reach exact
+`loc_88E` phases 94/34/58 without GEMS bank steals on frames
+1697/1703/1709. Twenty-one of 22 phases now preserve exact source
+instruction boundaries. NEXT: source-schedule
+`Make_SpritesFromPlatforms sub_2444` from `loc_88E`.
+
 Progress 2026-07-23: `Make_SpritesFromGfxObjects sub_1492` now preserves
 every source instruction from `Mode_Level loc_87E`. Frames 1697/1703/1709
 reproduce 92/98/107 refresh waits, 0/26/44 eleven-cycle GEMS bank steals,

@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 Diamond Power sprite compiler)
+
+- The empty `DiamondPower_CompileSprites sub_3F798` pass now preserves every
+  source instruction from `Mode_Level loc_882`.
+- Its 106 raw cycles and one refresh wait reach exact `loc_88E` phases
+  94/34/58 without GEMS steals on frames 1697/1703/1709.
+- Twenty-one of 22 post-HUD phases are now source-scheduled.
+- NEXT: source-schedule `Make_SpritesFromPlatforms sub_2444` from `loc_88E`.
+
 ## 2026-07-23 handoff (#409 GfxObject sprite pass)
 
 - `Make_SpritesFromGfxObjects sub_1492` now preserves every source
