@@ -1982,6 +1982,10 @@ pub struct ModeLevelNormalPhysicsPath {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelPlayerExecutionPath {
+    /// First level-start activation through ASM `loc_7508`.
+    LevelStartActivationLoc7508 {
+        form: PlayerForm,
+    },
     /// Ordinary airborne coroutine resumed at ASM `loc_A73A`.
     NormalPhysics(ModeLevelNormalPhysicsPath),
     Unclassified,
@@ -1991,6 +1995,8 @@ pub enum ModeLevelPlayerExecutionPath {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelDamageFlashWaitLocBc44 {
+    /// First dispatch enters ASM `loc_BC34` and reaches its initial hibernate.
+    InitialHibernateLocBc34,
     /// `$FFFFFA64=0` and `Just_received_damage=0` return to `loc_BC40`.
     AwaitDamage,
     DeathFreeze,
@@ -2001,6 +2007,8 @@ pub enum ModeLevelDamageFlashWaitLocBc44 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelDemoExitWaitLoc119E0 {
+    /// First dispatch enters ASM `loc_119D8` and reaches its initial hibernate.
+    InitialHibernateLoc119D8,
     /// `Ctrl_1_Pressed` has no Start edge, so the worker hibernates again.
     HibernateNoStart,
     ExitDemoStart,
@@ -2010,8 +2018,20 @@ pub enum ModeLevelDemoExitWaitLoc119E0 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelInputWorkerPathLoc7452 {
+    /// First dispatch enters ASM `loc_7452` and immediately hibernates.
+    InitialHibernate,
     /// Attract demo, Left clear, hundred-k timer clear, and no Start edge.
     DemoNoLeftNoStartTimerClear,
+}
+
+/// Source path for the fixed level-start palette worker allocated by ASM
+/// `sub_7196`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelPaletteFadeWorkerPathSub73D0 {
+    /// First dispatch copies both palette buffers, seeds the fade masks, and
+    /// reaches `loc_7402`'s first hibernate.
+    InitialCopyAndHibernate,
 }
 
 /// Typed workload facts for ASM `Execute_Objects sub_E12`.
@@ -2069,6 +2089,9 @@ pub struct ModeLevelExecuteObjectsWork {
     /// Fixed priority-1 input/pause worker allocated by ASM `sub_7196`.
     #[serde(default)]
     pub input_worker_loc_7452: Option<ModeLevelInputWorkerPathLoc7452>,
+    /// Fixed `$FFFF` palette worker allocated by ASM `sub_7196`.
+    #[serde(default)]
+    pub palette_fade_worker_sub_73d0: Option<ModeLevelPaletteFadeWorkerPathSub73D0>,
     #[serde(default)]
     pub prize_block_tail_paths_sub_1066: Vec<ModeLevelPrizeBlockTailWork>,
     #[serde(default)]

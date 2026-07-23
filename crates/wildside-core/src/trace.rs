@@ -2283,6 +2283,7 @@ mod tests {
                     damage_flash_wait_loc_bc44: Some(ModeLevelDamageFlashWaitLocBc44::AwaitDamage,),
                     demo_exit_wait_loc_119e0: None,
                     input_worker_loc_7452: None,
+                    palette_fade_worker_sub_73d0: None,
                     prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeBlockTailWork {
                         cell_x: 0x0A,
                         cell_y: 0x0C,
@@ -2529,6 +2530,7 @@ mod tests {
             damage_flash_wait_loc_bc44: None,
             demo_exit_wait_loc_119e0: None,
             input_worker_loc_7452: None,
+            palette_fade_worker_sub_73d0: None,
             prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeBlockTailWork {
                 cell_x: 31,
                 cell_y: 4,
@@ -9887,10 +9889,16 @@ impl NativeRuntime {
                 prize_object_execution_order_sub_e12: None,
                 damage_flash_wait_loc_bc44: (!self.just_received_damage
                     && self.death_shell_snapshot.is_none())
-                .then_some(ModeLevelDamageFlashWaitLocBc44::AwaitDamage),
+                .then_some(if player == ModeLevelPlayerWorkBeforeHud::Activation {
+                    ModeLevelDamageFlashWaitLocBc44::InitialHibernateLocBc34
+                } else {
+                    ModeLevelDamageFlashWaitLocBc44::AwaitDamage
+                }),
                 demo_exit_wait_loc_119e0: matches!(self.boot_state, BootState::DemoPlay { .. })
                     .then(|| {
-                        if self.trace_input.start && !self.previous_input.start {
+                        if player == ModeLevelPlayerWorkBeforeHud::Activation {
+                            ModeLevelDemoExitWaitLoc119E0::InitialHibernateLoc119D8
+                        } else if self.trace_input.start && !self.previous_input.start {
                             ModeLevelDemoExitWaitLoc119E0::ExitDemoStart
                         } else {
                             ModeLevelDemoExitWaitLoc119E0::HibernateNoStart
@@ -9900,7 +9908,13 @@ impl NativeRuntime {
                     && self.hundred_k_trip_timer == 0
                     && !self.trace_input.left
                     && (!self.trace_input.start || self.previous_input.start))
-                    .then_some(ModeLevelInputWorkerPathLoc7452::DemoNoLeftNoStartTimerClear),
+                    .then_some(if player == ModeLevelPlayerWorkBeforeHud::Activation {
+                        ModeLevelInputWorkerPathLoc7452::InitialHibernate
+                    } else {
+                        ModeLevelInputWorkerPathLoc7452::DemoNoLeftNoStartTimerClear
+                    }),
+                palette_fade_worker_sub_73d0: (player == ModeLevelPlayerWorkBeforeHud::Activation)
+                    .then_some(ModeLevelPaletteFadeWorkerPathSub73D0::InitialCopyAndHibernate),
                 prize_block_tail_paths_sub_1066,
                 prize_block_flash_paths_sub_1066,
                 floating_prize_paths,
@@ -10084,6 +10098,17 @@ impl NativeRuntime {
         cyclone_visual_accumulator_before: Option<u16>,
         ceiling_scan_sub_914a: Option<ModeLevelCeilingScanSub914A>,
     ) -> ModeLevelPlayerExecutionPath {
+        if self
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .is_some_and(|ledger| {
+                ledger.execute_objects.player == ModeLevelPlayerWorkBeforeHud::Activation
+            })
+        {
+            return ModeLevelPlayerExecutionPath::LevelStartActivationLoc7508 {
+                form: self.progression.current_form,
+            };
+        }
         if self.last_kid_frame_motion_branch != KidFrameMotionBranch::NormalPhysics {
             return ModeLevelPlayerExecutionPath::Unclassified;
         }
@@ -10216,6 +10241,30 @@ impl NativeRuntime {
                     .as_ref()
                     .map(|grid| mode_level_kid_gfx_terrain_scan(grid, bounds))
             });
+        let first_activation_post_scans = matches!(
+            executed_player_path,
+            ModeLevelPlayerExecutionPath::LevelStartActivationLoc7508 { .. }
+        )
+        .then(|| {
+            let slice = self.opening_slice.as_ref()?;
+            let grid = self.block_grid.as_ref()?;
+            let (_, evanescent) = Self::evanescent_hitbox_trigger_loc_EAE4(
+                slice,
+                grid,
+                self.evanescent_hitbox_half_width_loc_EAE4(),
+            );
+            let kid_block_col = ((slice.player.x_pos >> 16) >> 4) as i16;
+            let kid_block_row = ((slice.player.y_pos >> 16) >> 4) as i16;
+            Some((
+                evanescent,
+                ModeLevelShooterScanWorkSubF096 {
+                    cached_col_matches: self.block_state.shooter_last_scanned_col == kid_block_col,
+                    cached_row_matches: self.block_state.shooter_last_scanned_row == kid_block_row,
+                    active_shooter_slots_before: self.block_state.shooter_blocks.len() as u16,
+                },
+            ))
+        })
+        .flatten();
         if let Some(ledger) = self.mode_level_work_before_hud_sub_44dc.as_mut() {
             ledger
                 .execute_objects
@@ -10230,6 +10279,10 @@ impl NativeRuntime {
                 player_prize_wobble_list_work_loc_1002e(&ledger.execute_objects);
             ledger.execute_objects.executed_player_path = Some(executed_player_path);
             ledger.execute_objects.player_gfx_terrain_scan = player_gfx_terrain_scan;
+            if let Some((evanescent, shooter)) = first_activation_post_scans {
+                ledger.post_execute.evanescent_scan_loc_eae4 = evanescent;
+                ledger.post_execute.shooter_scan_sub_f096 = Some(shooter);
+            }
             complete_prize_tail_list_work(&mut ledger.execute_objects);
             ledger.execute_objects.prize_object_execution_order_sub_e12 =
                 prize_object_execution_order_sub_e12(&ledger.execute_objects);

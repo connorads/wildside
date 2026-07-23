@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 first gameplay pre-HUD)
+
+- Frame 902 now types all five first-dispatch Object callbacks and their
+  selector order through `sub_E12`.
+- The post-object ledger exposes the 3x2 no-hit `loc_EAE4` scan and both
+  power-on-cache-miss `sub_F096` strips.
+- The two spans total 13,386 raw cycles plus two GEMS bank waits and close
+  exactly from oracle cycle 115,449,413, phase 106, to `sub_44DC` cycle
+  115,463,015, phase 12.
+- NEXT: compose the retained frame-902 suffix through frame 903's `[12]`
+  dynamic-art VBlank checkpoint.
+
 ## 2026-07-23 handoff (#409 first diamond HUD DMA)
 
 - The first gameplay `sub_44DC` pass now preserves all 70 instructions in

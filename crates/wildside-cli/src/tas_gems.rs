@@ -9722,6 +9722,26 @@ mod tests {
             crate::scenarios::NativeDynamicRunOptions::default(),
         )
         .expect("published native trace");
+        let first_gameplay_execute = &trace[902]
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("first gameplay pre-HUD ledger")
+            .execute_objects;
+        assert_eq!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(first_gameplay_execute),
+            Some(M68kCycleCount::from_raw(10_248)),
+            "ASM sub_E12 -> sub_21F8: published frame 902 exposes the exact first-dispatch callback paths",
+        );
+        assert_eq!(
+            wildside_core::post_execute_raw_cycles_before_sub_44dc(
+                trace[902]
+                    .mode_level_work_before_hud_sub_44dc
+                    .as_ref()
+                    .expect("first gameplay pre-HUD ledger"),
+            ),
+            Some(M68kCycleCount::from_raw(3_138)),
+            "ASM sub_21F8 -> sub_44DC: frame 902 exposes the 3x2 loc_EAE4 scan and both initial sub_F096 strips",
+        );
         let visuals = wildside_render::load_level_visuals(&manifest, 0).expect("level 00 visuals");
         assert!(
             trace[901].mode_level_work_after_hud_sub_44dc.is_none(),

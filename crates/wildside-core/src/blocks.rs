@@ -2836,7 +2836,7 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    fn evanescent_hitbox_half_width_loc_EAE4(&self) -> i32 {
+    pub(crate) fn evanescent_hitbox_half_width_loc_EAE4(&self) -> i32 {
         // ASM loc_EAE4 reads the live `Kid_hitbox_left/right` words. Berzerker
         // charge setup at loc_9564 changes only `addroffset_sprite(a3)` and
         // `Berzerker_charging`; it does not call sub_B41C or widen the hitbox.
@@ -2844,7 +2844,7 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    fn evanescent_hitbox_trigger_loc_EAE4(
+    pub(crate) fn evanescent_hitbox_trigger_loc_EAE4(
         slice: &OpeningSliceState,
         grid: &terrain::BlockGrid,
         collision_half_width: i32,

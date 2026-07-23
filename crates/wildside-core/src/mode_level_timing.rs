@@ -9,12 +9,13 @@ use crate::{
     ModeLevelGfxMoveAnimateNodeWorkSub1444, ModeLevelGfxMoveAnimateWorkSub1444,
     ModeLevelGfxSpriteNodeWorkSub1492, ModeLevelGfxSpriteWorkSub1492,
     ModeLevelInputWorkerPathLoc7452, ModeLevelKidGfxTerrainCollision,
-    ModeLevelKidProjectileCollisionWorkSub1D76, ModeLevelPlatformLoaderExistingSlotSub2728,
-    ModeLevelPlatformLoaderRangeLoc2762, ModeLevelPlatformLoaderWorkLoc2744, ModeLevelPlatformWork,
-    ModeLevelPlayerExecutionPath, ModeLevelPostHudPhase, ModeLevelPostHudWorkLedger,
-    ModeLevelPreHudWorkLedger, ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState,
-    ModeLevelPrizeBlockWobbleWake, ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork,
-    ModeLevelReadJoypadWork, ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
+    ModeLevelKidProjectileCollisionWorkSub1D76, ModeLevelPaletteFadeWorkerPathSub73D0,
+    ModeLevelPlatformLoaderExistingSlotSub2728, ModeLevelPlatformLoaderRangeLoc2762,
+    ModeLevelPlatformLoaderWorkLoc2744, ModeLevelPlatformWork, ModeLevelPlayerExecutionPath,
+    ModeLevelPostHudPhase, ModeLevelPostHudWorkLedger, ModeLevelPreHudWorkLedger,
+    ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
+    ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork, ModeLevelReadJoypadWork,
+    ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
     ModeLevelTerrainSpecialScanSub1FA2, ModeLevelVerticalCollisionPath, ModeLevelWallCollisionPath,
 };
 use serde::{Deserialize, Serialize};
@@ -2228,6 +2229,9 @@ pub fn damage_flash_wait_cycles_loc_bc44(
     path: ModeLevelDamageFlashWaitLocBc44,
 ) -> Option<M68kCycleCount> {
     match path {
+        // ASM loc_BC34 -> loc_BC40 -> sub_E76: the first dispatch and
+        // initial hibernate span 444 raw cycles from loc_E1E to loc_E1E.
+        ModeLevelDamageFlashWaitLocBc44::InitialHibernateLocBc34 => Some(M68kCycleCount(444)),
         // ASM loc_BC44..loc_BC40 (kid.asm:15187-15194): the runnable dispatch,
         // hibernate, both clear tests, and back edge total 462 raw CPU cycles.
         ModeLevelDamageFlashWaitLocBc44::AwaitDamage => Some(M68kCycleCount(462)),
@@ -2241,6 +2245,8 @@ pub fn demo_exit_wait_cycles_loc_119e0(
     path: ModeLevelDemoExitWaitLoc119E0,
 ) -> Option<M68kCycleCount> {
     match path {
+        // ASM loc_119D8 -> sub_E76: clear Ctrl_Pressed and hibernate.
+        ModeLevelDemoExitWaitLoc119E0::InitialHibernateLoc119D8 => Some(M68kCycleCount(490)),
         // ASM loc_119D8..loc_119E0 (kid.asm:23595-23600): the runnable
         // dispatch, hibernate, and clear Start test total 450 raw CPU cycles.
         ModeLevelDemoExitWaitLoc119E0::HibernateNoStart => Some(M68kCycleCount(450)),
@@ -2251,11 +2257,60 @@ pub fn demo_exit_wait_cycles_loc_119e0(
 /// Raw E1E-to-E1E cycles for the fixed input/pause callback.
 pub fn input_worker_cycles_loc_7452(path: ModeLevelInputWorkerPathLoc7452) -> M68kCycleCount {
     match path {
+        // ASM loc_7452 -> sub_E76: the first dispatch immediately hibernates.
+        ModeLevelInputWorkerPathLoc7452::InitialHibernate => M68kCycleCount(408),
         // ASM loc_7452..loc_74B0 (kid.asm:7586-7625): the clear timer,
         // Left-clear controller, demo-mode, and clear Start path totals 636
         // raw cycles. Right alone takes the same first-test branch.
         ModeLevelInputWorkerPathLoc7452::DemoNoLeftNoStartTimerClear => M68kCycleCount(636),
     }
+}
+
+/// Raw E1E-to-E1E cost for the fixed first level-start palette callback.
+pub fn palette_fade_worker_cycles_sub_73d0(
+    path: ModeLevelPaletteFadeWorkerPathSub73D0,
+) -> M68kCycleCount {
+    match path {
+        // ASM sub_73D0 copies 32 longwords and 64 words, seeds `$F888/$F88C`,
+        // then reaches loc_7402's first sub_E76 hibernate.
+        ModeLevelPaletteFadeWorkerPathSub73D0::InitialCopyAndHibernate => M68kCycleCount(2_932),
+    }
+}
+
+fn is_first_level_start_execute_objects_sub_e12(execute: &ModeLevelExecuteObjectsWork) -> bool {
+    execute.player == crate::ModeLevelPlayerWorkBeforeHud::Activation
+        && execute.linked_non_transient_object_count == 5
+        && execute.prize_block_wobble_workers_sub_1007a == 0
+        && execute.prize_block_worker_tails_sub_1007a == 0
+        && execute.prize_block_flash_workers_loc_102b8 == 0
+        && execute.floating_prize_workers == 0
+        && execute.rubber_block_skin_workers_sub_10de4 == 0
+        && execute.active_enemy_workers == 0
+        && execute.active_platform_workers == 0
+        && execute.palette_rotation_worker_loc_11f96 == 0
+        && execute.unclassified_runtime_transient_workers == 0
+        && execute.player_entry_position
+            == Some(crate::ModeLevelPlayerPosition {
+                x_pos: 0x0020_0000,
+                y_pos: 0x02DD_0000,
+            })
+        && matches!(
+            execute.prize_object_execution_order_sub_e12.as_deref(),
+            Some([ModeLevelPrizeObjectExecutionSubE12::Player])
+        )
+        && matches!(
+            execute.executed_player_path,
+            Some(ModeLevelPlayerExecutionPath::LevelStartActivationLoc7508 {
+                form: crate::PlayerForm::TheKid,
+            })
+        )
+        && execute.damage_flash_wait_loc_bc44
+            == Some(ModeLevelDamageFlashWaitLocBc44::InitialHibernateLocBc34)
+        && execute.demo_exit_wait_loc_119e0
+            == Some(ModeLevelDemoExitWaitLoc119E0::InitialHibernateLoc119D8)
+        && execute.input_worker_loc_7452 == Some(ModeLevelInputWorkerPathLoc7452::InitialHibernate)
+        && execute.palette_fade_worker_sub_73d0
+            == Some(ModeLevelPaletteFadeWorkerPathSub73D0::InitialCopyAndHibernate)
 }
 
 /// Raw 68000 cycles for one typed prize callback, measured from its
@@ -2349,6 +2404,28 @@ pub fn prize_object_cycles_sub_e12(
 pub fn execute_objects_raw_cycles_sub_e12(
     execute: &ModeLevelExecuteObjectsWork,
 ) -> Option<M68kCycleCount> {
+    if is_first_level_start_execute_objects_sub_e12(execute) {
+        let cycles = execute_objects_setup_cycles_sub_e12(execute.rng_offset_before_sub_e12?)?
+            .get()
+            // ASM loc_E1E callback order follows the selector-linked Object
+            // list: input, Kid, damage, palette fade, demo exit.
+            .checked_add(input_worker_cycles_loc_7452(execute.input_worker_loc_7452?).get())?
+            // Frame-902 selected PCs pin loc_E1E -> loc_7508 -> loc_E1E.
+            .checked_add(4_804)?
+            .checked_add(
+                damage_flash_wait_cycles_loc_bc44(execute.damage_flash_wait_loc_bc44?)?.get(),
+            )?
+            .checked_add(
+                palette_fade_worker_cycles_sub_73d0(execute.palette_fade_worker_sub_73d0?).get(),
+            )?
+            .checked_add(demo_exit_wait_cycles_loc_119e0(execute.demo_exit_wait_loc_119e0?)?.get())?
+            // ASM loc_E1E's null-list return reaches sub_21F8 in 82 raw
+            // cycles. One separate GEMS bank wait completes the 85-cycle
+            // oracle interval after refresh.
+            .checked_add(82)?;
+        return Some(M68kCycleCount(cycles));
+    }
+
     if execute.linked_non_transient_object_count != 4
         || execute.rubber_block_skin_workers_sub_10de4 != 0
         || execute.active_enemy_workers != 0
@@ -2391,6 +2468,13 @@ pub fn execute_objects_raw_cycles_sub_e12(
 pub fn execute_objects_external_waits_sub_e12(
     execute: &ModeLevelExecuteObjectsWork,
 ) -> Option<Vec<M68kExternalWaitEvent>> {
+    if is_first_level_start_execute_objects_sub_e12(execute) {
+        return Some(vec![M68kExternalWaitEvent {
+            raw_offset: execute_objects_raw_cycles_sub_e12(execute)?,
+            cycles: M68kCycleCount::from_raw(1),
+        }]);
+    }
+
     let Some(list) = execute.player_prize_wobble_list_work_loc_1002e else {
         return Some(Vec::new());
     };
@@ -2474,8 +2558,6 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         || scan.found_evanescent_block
         || post.active_shooter_slots_before_sub_f7e0 != 0
         || post.level_special_effects_sub_6034 > 1
-        || !shooter.cached_col_matches
-        || !shooter.cached_row_matches
         || shooter.active_shooter_slots_before != 0
     {
         return None;
@@ -2494,20 +2576,59 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
             30_u32.checked_mul(u32::from(scan.flagged_non_evanescent_cells_before_exit))?,
         )?;
 
+    let shooter_scan = match (shooter.cached_col_matches, shooter.cached_row_matches) {
+        // ASM sub_F096 loc_F09E -> loc_F186 -> loc_F25C: cached Kid column
+        // and row avoid both layout strips.
+        (true, true) => 0,
+        // ASM sub_F096 loc_F0D0/F106 and loc_F1A8/F1DE: the power-on -1
+        // caches make frame 902 scan both initial layout strips.
+        (false, false) if is_first_level_start_execute_objects_sub_e12(&ledger.execute_objects) => {
+            550
+        }
+        _ => return None,
+    };
+
     // ASM Mode_Level loc_7F4..loc_80C: the exact natural path outside
     // sub_DFB0 is 1,240 raw cycles: sub_21F8, DiamondPower_Run, sub_F7E0,
     // sub_6034, sub_F096, and their call/return shells.
-    Some(M68kCycleCount(1_240_u32.checked_add(sub_dfb0)?))
+    Some(M68kCycleCount(
+        1_240_u32.checked_add(sub_dfb0)?.checked_add(shooter_scan)?,
+    ))
 }
 
-/// Advance the typed post-Execute path through the Genesis refresh recurrence.
-///
-/// This interval performs no external or VDP accesses before `sub_44DC`.
+/// Source-positioned non-refresh waits in the post-Execute path.
+pub fn post_execute_external_waits_before_sub_44dc(
+    ledger: &ModeLevelPreHudWorkLedger,
+) -> Option<Vec<M68kExternalWaitEvent>> {
+    let raw = post_execute_raw_cycles_before_sub_44dc(ledger)?;
+    if is_first_level_start_execute_objects_sub_e12(&ledger.execute_objects) {
+        return Some(vec![M68kExternalWaitEvent {
+            raw_offset: raw,
+            cycles: M68kCycleCount::from_raw(1),
+        }]);
+    }
+    Some(Vec::new())
+}
+
+/// Advance the typed post-Execute path through the Genesis refresh recurrence
+/// and any source-positioned external wait.
 pub fn post_execute_elapsed_cycles_before_sub_44dc(
     ledger: &ModeLevelPreHudWorkLedger,
     phase_before: M68kRefreshPhase,
 ) -> Option<M68kRefreshAdvance> {
-    Some(phase_before.advance_rom(post_execute_raw_cycles_before_sub_44dc(ledger)?))
+    let raw = phase_before.advance_rom(post_execute_raw_cycles_before_sub_44dc(ledger)?);
+    let mut elapsed = raw.elapsed.get();
+    let mut phase = raw.phase_after;
+    for event in post_execute_external_waits_before_sub_44dc(ledger)? {
+        let wait = phase.advance_external_wait(event.cycles);
+        elapsed = elapsed.checked_add(wait.elapsed.get())?;
+        phase = wait.phase_after;
+    }
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events: raw.refresh_events,
+    })
 }
 
 /// Raw CPU work for the classified life-icon-only `sub_44DC` path.
@@ -4636,6 +4757,116 @@ pub fn mode_level_post_hud_advance_to_loc_892_with_scheduler(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn first_level_start_execute_objects_matches_frame_902_instruction_trace() {
+        let execute = ModeLevelExecuteObjectsWork {
+            rng_offset_before_sub_e12: Some(0xFFCC),
+            linked_object_count: 5,
+            linked_gfx_object_count: 4,
+            linked_non_transient_object_count: 5,
+            player: crate::ModeLevelPlayerWorkBeforeHud::Activation,
+            prize_block_wobble_workers_sub_1007a: 0,
+            prize_block_worker_tails_sub_1007a: 0,
+            prize_block_flash_workers_loc_102b8: 0,
+            floating_prize_workers: 0,
+            rubber_block_skin_workers_sub_10de4: 0,
+            active_enemy_workers: 0,
+            active_platform_workers: 0,
+            palette_rotation_worker_loc_11f96: 0,
+            unclassified_runtime_transient_workers: 0,
+            player_entry_position: Some(crate::ModeLevelPlayerPosition {
+                x_pos: 0x0020_0000,
+                y_pos: 0x02DD_0000,
+            }),
+            player_gfx_terrain_scan: None,
+            cyclone_visual_accumulator_before: Some(0),
+            prize_block_wobble_paths_sub_1007a: Vec::new(),
+            player_spawned_prize_block_initial_sub_1007a: None,
+            player_prize_wobble_list_work_loc_1002e: None,
+            prize_object_execution_order_sub_e12: Some(vec![
+                ModeLevelPrizeObjectExecutionSubE12::Player,
+            ]),
+            damage_flash_wait_loc_bc44: Some(
+                ModeLevelDamageFlashWaitLocBc44::InitialHibernateLocBc34,
+            ),
+            demo_exit_wait_loc_119e0: Some(ModeLevelDemoExitWaitLoc119E0::InitialHibernateLoc119D8),
+            input_worker_loc_7452: Some(ModeLevelInputWorkerPathLoc7452::InitialHibernate),
+            palette_fade_worker_sub_73d0: Some(
+                crate::ModeLevelPaletteFadeWorkerPathSub73D0::InitialCopyAndHibernate,
+            ),
+            prize_block_tail_paths_sub_1066: Vec::new(),
+            prize_block_flash_paths_sub_1066: Vec::new(),
+            floating_prize_paths: Vec::new(),
+            executed_player_path: Some(ModeLevelPlayerExecutionPath::LevelStartActivationLoc7508 {
+                form: crate::PlayerForm::TheKid,
+            }),
+        };
+
+        assert_eq!(
+            execute_objects_raw_cycles_sub_e12(&execute),
+            Some(M68kCycleCount::from_raw(10_248)),
+            "ASM sub_E12 -> sub_21F8: frame 902 executes input initial hibernate, Kid loc_7508, damage initial hibernate, sub_73D0, and demo initial hibernate",
+        );
+        assert_eq!(
+            execute_objects_external_waits_sub_e12(&execute),
+            Some(vec![M68kExternalWaitEvent {
+                raw_offset: M68kCycleCount::from_raw(10_248),
+                cycles: M68kCycleCount::from_raw(1),
+            }]),
+            "the final loc_E1E return carries one source-positioned GEMS bank wait",
+        );
+        assert_eq!(
+            execute_objects_elapsed_cycles_sub_e12(
+                &execute,
+                M68kRefreshPhase::new(106).expect("oracle sub_E12 phase"),
+            ),
+            Some(M68kRefreshAdvance {
+                elapsed: M68kCycleCount::from_raw(10_413),
+                phase_after: M68kRefreshPhase::new(23).expect("oracle sub_21F8 phase"),
+                refresh_events: 82,
+            }),
+            "frame-902 selected PCs close the first Execute_Objects interval",
+        );
+
+        let ledger = ModeLevelPreHudWorkLedger {
+            phases: Vec::new(),
+            execute_objects: execute,
+            post_execute: crate::ModeLevelPostExecuteWork {
+                active_evanescent_slots_before_sub_dfb0: 0,
+                evanescent_scan_loc_eae4: Some(crate::ModeLevelEvanescentScanWorkLocEae4 {
+                    row_count: 3,
+                    col_count: 2,
+                    flagged_non_evanescent_cells_before_exit: 0,
+                    found_evanescent_block: false,
+                }),
+                active_shooter_slots_before_sub_f7e0: 0,
+                level_special_effects_sub_6034: 0,
+                shooter_scan_sub_f096: Some(crate::ModeLevelShooterScanWorkSubF096 {
+                    cached_col_matches: false,
+                    cached_row_matches: false,
+                    active_shooter_slots_before: 0,
+                }),
+            },
+        };
+        assert_eq!(
+            post_execute_raw_cycles_before_sub_44dc(&ledger),
+            Some(M68kCycleCount::from_raw(3_138)),
+            "ASM sub_21F8 -> sub_44DC: both initial sub_F096 coordinate scans add 550 raw cycles",
+        );
+        assert_eq!(
+            post_execute_elapsed_cycles_before_sub_44dc(
+                &ledger,
+                M68kRefreshPhase::new(23).expect("oracle sub_21F8 phase"),
+            ),
+            Some(M68kRefreshAdvance {
+                elapsed: M68kCycleCount::from_raw(3_189),
+                phase_after: M68kRefreshPhase::new(12).expect("oracle sub_44DC phase"),
+                refresh_events: 25,
+            }),
+            "frame-902 selected PCs close the post-object interval",
+        );
+    }
 
     #[test]
     fn stop_music_source_schedule_tracks_each_z80_bus_window_e14c8() {

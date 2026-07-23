@@ -13,6 +13,21 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+2026-07-23 first gameplay pre-HUD path: the frame-902 Object list contains
+five callbacks in selector order: input `loc_7452`, Kid activation `loc_7508`,
+damage `loc_BC34`, palette initialisation `sub_73D0`, and demo exit
+`loc_119D8`. Oracle WRAM fixes their slot links and resume addresses; selected
+PCs fix the callback spans at 408, 4,804, 444, 2,932, and 490 raw cycles.
+Together with RNG setup and the null-list return, `sub_E12 -> sub_21F8` is
+10,248 raw cycles plus one GEMS bank wait. Native now emits distinct typed
+initial-hibernate paths instead of misclassifying these callbacks as their
+later steady-state resumes. The following `loc_EAE4` scan covers 3 rows by 2
+columns with no evanescent hit. Power-on shooter caches miss both coordinates,
+so `sub_F096` scans both initial strips and adds 550 raw cycles. The complete
+post-object interval is 3,138 raw cycles plus one GEMS bank wait. From oracle
+`sub_E12` cycle 115,449,413, phase 106, the typed composition reaches
+`sub_44DC` cycle 115,463,015, phase 12 exactly.
+
 2026-07-23 first gameplay diamond HUD DMA: full selected-PC tracing from
 `sub_44DC $44DC` through `loc_4626 -> sub_5D4A` proves a 70-instruction,
 760-raw-cycle diamond-only path. `sub_5D4A` acquires the Z80 bus, programs one
@@ -21,8 +36,8 @@ and returns from the outer HUD routine at oracle cycle 115,477,477 with
 refresh phase 36. Core now preserves every instruction and hardware edge,
 and the frame adapter clocks the same schedule through persistent GEMS.
 Focused source, raster, runtime, and audio tests pass. This isolates the HUD
-part of frame 902; the first Kid activation and post-object path must still
-be source-typed before the persistent route can advance frame 903.
+part of frame 902; the persistent route still needs the complete pre-HUD,
+HUD, post-HUD and `loc_892` composition before it can advance frame 903.
 
 2026-07-23 correction - frame-local dynamic-art queue: the reported
 157-cycle gap below was not a missing fixed source span. The older aggregate
