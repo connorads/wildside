@@ -255,6 +255,20 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-22: the complete ordinary fresh-title loop is source-modelled
+through frame 836. Frames 510..836 are the remaining 327 ASM
+`Obj_TitleTextChameleon loc_1B6A2 -> sub_1B71A` passes before
+`Obj_TitleMenu loc_1BAEA` exhausts its `$280` DBF countdown. Exact tuples pin
+all strict residues and the shifted bank-load boundary: frames 751..759 share
+`$E0000`, while frames 641, 647, 745..750, and 760..765 sample opposite native
+and oracle banks. The focused 837-frame comparison is green with 802
+evidence-backed limitations, 35 advisory-only frames, and exact
+gameplay/enemy checkpoints. The full route lowers GEMS mismatches from 37,249
+to 36,922 and moves the frontier to frame 837; gameplay, enemy, RNG, and pixel
+evidence remain unchanged. `verify-slice-fast` and `verify-tas-full` pass.
+NEXT: source-schedule frame 837's
+`loc_1BB02 -> loc_6E2 -> Load_DemoPlay` transition.
+
 Progress 2026-07-22: route-wide GEMS coverage advances from 414 to 510
 defended frames, reaching the 314th fresh-title object pass. All ninety-six
 passes remain in ASM `loc_1B6A2 -> sub_1B71A` on the shared `$E8000` bank.

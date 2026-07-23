@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-22 handoff (#416 complete ordinary fresh-title loop)
+
+- Defended GEMS coverage advances to frames 0..836; frame 837 is the first
+  demo-transition path through `Obj_TitleMenu loc_1BB02`.
+- Frames 510..836 complete all 641 ordinary ASM `loc_1B6A2 -> sub_1B71A`
+  passes before the parallel `$280` menu countdown expires.
+- Exact tuples pin opposite-side GEMS bank samples at frames 641, 647,
+  745..750, and 760..765 rather than assuming one bank throughout.
+- The focused 837-frame pass is green with 802 evidence-backed limitations
+  and 35 advisory-only frames; gameplay and enemy checkpoints remain exact.
+- Full-route GEMS mismatches fall from 37,249 to 36,922; gameplay, enemy, RNG,
+  and pixel evidence remain unchanged.
+- `verify-slice-fast` and `verify-tas-full` pass.
+- NEXT: source-schedule frame 837's `loc_1BB02 -> loc_6E2 -> Load_DemoPlay`
+  transition.
+
 ## 2026-07-22 handoff (#416 ordinary fresh-title scheduler through frame 509)
 
 - Defended GEMS coverage advances to frames 0..509; the frontier is frame 510
