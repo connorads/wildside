@@ -121,10 +121,13 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `Obj_TitleMenu` timeout and all sixteen non-negative `Pal_FadeOut` iterations,
 /// frame 854's negative decrement, the final clean-mask fade upload, all of
 /// `loc_700`'s VRAM clear, and the following Sprite_Table clear through frame 867.
+/// Frames 868-869 continue through `loc_726 -> Load_DemoPlay`, the hidden
+/// controller allocation, `Load_InGame -> Initialize_Platforms`, and into its
+/// `StopMusic` reset.
 /// The tail remains the coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 868;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 870;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -3975,12 +3978,103 @@ impl GemsSignatureProbe {
                 .advance_to_master_clock(&mut self.engine, loc_714_master_clock)
                 .expect("post-demo-fade loc_700 cursor reaches its exact end");
             self.power_on_vram_clear = Some(
-                TimedGemsTitleLoc700Cursor::new_loc_714(
+                TimedGemsTitleLoc700Cursor::new_demo_timeout_loc_714(
                     vram_clear.end_cursor(),
                     loc_714_master_clock,
                 )
                 .expect("ASM loc_714 hardware schedule"),
             );
+        }
+        if self.power_on_frame == 868 {
+            // ASM loc_720 falls through loc_726's slot initialisers, then
+            // Game_Mode=$0010 dispatches Load_DemoPlay. The hidden loc_119D8
+            // controller is allocated before Load_InGame enters $11A0E.
+            // Selected-PC tracing pins those entries at cycles 111,176,008
+            // and 111,182,796; FrameRendered lands inside Initialize_Platforms.
+            let mut sprite_table_clear = self
+                .power_on_vram_clear
+                .take()
+                .expect("post-demo-fade loc_714 cursor reaches loc_726");
+            const LOC_726_ENTRY_CYCLES: u64 = 111_176_008;
+            let loc_726_master_clock = LOC_726_ENTRY_CYCLES * 7;
+            sprite_table_clear
+                .advance_to_master_clock(&mut self.engine, loc_726_master_clock)
+                .expect("post-demo-fade loc_714 cursor reaches selected loc_726 entry");
+            let mut restart =
+                TimedGemsTitleLoc700Cursor::new_demo_restart_initialisers_to_load_in_game(
+                    sprite_table_clear.end_cursor(),
+                    loc_726_master_clock,
+                )
+                .expect("ASM loc_726 -> Load_DemoPlay initialiser schedule");
+            const LOAD_IN_GAME_ENTRY_CYCLES: u64 = 111_182_796;
+            let load_in_game_entry_master_clock = LOAD_IN_GAME_ENTRY_CYCLES * 7;
+            restart
+                .advance_to_master_clock(&mut self.engine, load_in_game_entry_master_clock)
+                .expect("Load_DemoPlay reaches Load_InGame $11A0E");
+            assert_eq!(restart.end_master_clock(), load_in_game_entry_master_clock);
+            self.power_on_vram_clear = Some(
+                TimedGemsTitleLoc700Cursor::new_load_in_game_platform_initialisation(
+                    restart.end_cursor(),
+                    load_in_game_entry_master_clock,
+                    Some(wildside_core::vdp::LoadInGamePlatformVintEvent {
+                        vertical_decoder_raw_offset: M68kCycleCount::from_raw(9_424),
+                    }),
+                    wildside_core::vdp::LoadInGamePlatformRefreshLedger {
+                        prelude: 7,
+                        horizontal_decoder: 115,
+                        between_uploads: 0,
+                        vertical_decoder_before_vint: 75,
+                        vint_exception: 0,
+                        vint_handler: 1,
+                        vertical_decoder_after_vint: 40,
+                        epilogue: 0,
+                    },
+                )
+                .expect("ASM Load_InGame Initialize_Platforms schedule"),
+            );
+        }
+        if self.power_on_frame == 869 {
+            // ASM Initialize_Platforms returns at $11A12, then Load_InGame's
+            // clear/HUD/timer tail enters StopMusic $E14C8 at selected cycle
+            // 111,231,277 with refresh phase 14. FrameRendered samples inside
+            // that source-modelled reset.
+            let mut platforms = self
+                .power_on_vram_clear
+                .take()
+                .expect("Initialize_Platforms spans frame 868");
+            let platform_end_master_clock = platforms.end_master_clock();
+            platforms
+                .advance_to_master_clock(&mut self.engine, platform_end_master_clock)
+                .expect("Initialize_Platforms reaches Load_InGame $11A12");
+            // Selected-PC tracing places $11A12 eight cycles after the
+            // aggregate platform cursor. This is the final return/refill
+            // interval after Initialize_Platforms, before j_sub_28FC.
+            self.engine.advance_ntsc_master_clocks(8 * 7);
+            let tail_entry = platforms.end_cursor();
+            assert_eq!(tail_entry.refresh_phase.get(), 114);
+            let stop_entry = wildside_frame::apply_gems_load_in_game_stop_music_tail(
+                &mut self.engine,
+                tail_entry,
+                wildside_core::LoadInGameTimerBonusPath::Initialise,
+            )
+            .expect("Load_InGame tail reaches StopMusic $E14C8");
+            const STOP_MUSIC_ENTRY_CYCLES: u64 = 111_231_277;
+            let stop_music_entry_master_clock = STOP_MUSIC_ENTRY_CYCLES * 7;
+            assert_eq!(self.engine.master_clock(), stop_music_entry_master_clock);
+            assert_eq!(stop_entry.refresh_phase.get(), 14);
+            let timing = gems_stop_music_elapsed_timing_from_absolute_entry(
+                GemsStopMusicBusAckPolls {
+                    driver_copy_sub_e13da: 1,
+                    queue_transactions_sub_e143a: [1; 6],
+                },
+                stop_entry.refresh_phase,
+                M68kCycleCount::from_raw(STOP_MUSIC_ENTRY_CYCLES as u32),
+            )
+            .expect("Load_InGame StopMusic source schedule");
+            self.power_on_stop_music = Some(TimedGemsStopMusicCursor::new(
+                timing,
+                stop_music_entry_master_clock,
+            ));
         }
         if self.power_on_frame == 174 {
             // ASM DecompressToVRAM loc_14314 uploads byte_26E3D's first
@@ -8383,6 +8477,8 @@ const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
     fresh_title_irq_residue!(865, 1613843874, 3415870256, 0x0173, 0x0173, 0, 0, 0, 0, 16, 16),
     fresh_title_irq_residue!(866, 3317716783, 1419729342, 0x01CA, 0x07B3, 0, 0, 0, 0, 16, 16),
     fresh_title_irq_residue!(867, 909533902, 2708731624, 0x016F, 0x07A9, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(868, 2906889959, 3787654350, 0x01C8, 0x01CC, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(869, 2822579535, 901776353, 0x0044, 0x02A5, 0, 0, 1, 1, 2, 18),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(

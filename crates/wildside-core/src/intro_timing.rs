@@ -2130,6 +2130,32 @@ pub fn visit_title_restart_initialisers_to_play_sound(visit: impl FnMut(u32)) ->
     visit_restart_initialisers_to_dispatch(visit, &[20, 10, 12, 18, 16, 8, 20, 10, 12, 12, 18])
 }
 
+/// Visit the demo restart from `loc_726` through `Load_DemoPlay` to
+/// `Load_InGame $11A0E`.
+///
+/// ASM `Load_DemoPlay` selects demo 1, allocates the hidden `loc_119D8`
+/// controller into the freshly cleared execution list, then calls
+/// `Load_InGame`. The visitor stops on that routine's first instruction.
+pub fn visit_demo_restart_initialisers_to_load_in_game(
+    visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    let mut dispatch_tail = vec![20, 10, 12, 18, 16];
+    // ASM Load_DemoPlay $11990..loc_119B6: select demo 1 and install its
+    // recording pointer and level ID.
+    // Oracle selected-PC tracing reports 12 base cycles for the taken
+    // `beq.w loc_119B6`, followed by a 20-cycle 68000 refill interval before
+    // the target instruction begins. Keep that source boundary intact.
+    dispatch_tail.extend([16, 12, 8, 16, 32, 16, 12]);
+    // ASM loc_119B6: allocate the hidden controller through the jump thunk.
+    dispatch_tail.extend([8, 18, 10]);
+    visit_empty_list_allocate_object_slot_instructions(&mut |cycles| {
+        dispatch_tail.push(cycles);
+    });
+    // ASM loc_119B6: install loc_119D8, clear $FBC2, and call Load_InGame.
+    dispatch_tail.extend([24, 16, 18]);
+    visit_restart_initialisers_to_dispatch(visit, &dispatch_tail)
+}
+
 /// Visit power-on `loc_726` through `Load_SegaScreen`'s second `StopMusic`.
 pub fn visit_power_on_restart_initialisers_to_stop_music(
     visit: impl FnMut(u32),
@@ -2645,6 +2671,26 @@ fn visit_empty_list_allocate_object_slot_instructions(visit: &mut impl FnMut(u32
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn demo_restart_retains_loc_726_to_load_in_game_boundaries() {
+        let mut cycles = Vec::new();
+        let timing = visit_demo_restart_initialisers_to_load_in_game(|cycle| cycles.push(cycle));
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 645,
+                raw_cycles: M68kCycleCount::from_raw(6_682),
+            },
+            "ASM loc_726 -> Load_DemoPlay -> Load_InGame $11A0E must retain the empty-list loc_119D8 allocation",
+        );
+        assert_eq!(
+            &cycles[551..566],
+            &[20, 10, 12, 18, 16, 16, 12, 8, 16, 32, 16, 12, 8, 18, 10]
+        );
+        assert_eq!(&cycles[cycles.len() - 3..], &[24, 16, 18]);
+    }
 
     #[test]
     fn load_intro_sequence1_controller_allocation_retains_source_boundaries() {

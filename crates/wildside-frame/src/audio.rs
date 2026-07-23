@@ -2584,6 +2584,20 @@ impl TimedGemsTitleLoc700Cursor {
         })
     }
 
+    /// Continue at the demo-timeout ASM `loc_714/loc_720`, where VINT is
+    /// already pending on entry.
+    pub fn new_demo_timeout_loc_714(
+        entry: LoadInGameCpuRasterCursor,
+        entry_master_clock: u64,
+    ) -> Option<Self> {
+        Self::new_with_scheduler(entry, entry_master_clock, |entry, advance_hardware| {
+            wildside_core::vdp::demo_timeout_loc_714_sprite_table_clear_cursor_with_scheduler(
+                entry,
+                advance_hardware,
+            )
+        })
+    }
+
     /// Continue at power-on ASM `loc_726 -> Load_SegaScreen -> StopMusic`.
     pub fn new_power_on_restart_initialisers(
         entry: LoadInGameCpuRasterCursor,
@@ -2609,6 +2623,42 @@ impl TimedGemsTitleLoc700Cursor {
         // Game modes 0 and 4 share the same instruction shape through their
         // first StopMusic call; only the selected GameLoadArray target differs.
         Self::new_power_on_restart_initialisers(entry, entry_master_clock)
+    }
+
+    /// Continue at ASM `loc_726 -> Load_DemoPlay` through `Load_InGame $11A0E`.
+    pub fn new_demo_restart_initialisers_to_load_in_game(
+        entry: LoadInGameCpuRasterCursor,
+        entry_master_clock: u64,
+    ) -> Option<Self> {
+        let mut intervals: Vec<(u64, bool)> = Vec::new();
+        let advance =
+            wildside_core::vdp::demo_restart_initialisers_to_load_in_game_cursor_with_scheduler(
+                entry,
+                |cycles, vdp_owns_bus, _| Self::push_interval(&mut intervals, cycles, vdp_owns_bus),
+            )?;
+        if advance.external_wait_cycles.get() != 0 {
+            return None;
+        }
+        Self::from_intervals(entry_master_clock, advance.cursor, intervals)
+    }
+
+    /// Continue through ASM `Load_InGame $11A0E -> Initialize_Platforms`.
+    pub fn new_load_in_game_platform_initialisation(
+        entry: LoadInGameCpuRasterCursor,
+        entry_master_clock: u64,
+        vint: Option<LoadInGamePlatformVintEvent>,
+        refresh: LoadInGamePlatformRefreshLedger,
+    ) -> Option<Self> {
+        let mut intervals: Vec<(u64, bool)> = Vec::new();
+        let advance = wildside_core::vdp::load_in_game_platform_initialisation_cursor_from_entry_with_hardware(
+            entry,
+            vint,
+            refresh,
+            |cycles, vdp_owns_bus| {
+                Self::push_interval(&mut intervals, cycles, vdp_owns_bus).map(|_| ())
+            },
+        )?;
+        Self::from_intervals(entry_master_clock, advance.cursor, intervals)
     }
 
     fn new_with_scheduler(

@@ -4287,6 +4287,18 @@ pub fn title_restart_initialisers_to_play_sound_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule `loc_726 -> Load_DemoPlay` through `Load_InGame $11A0E`.
+pub fn demo_restart_initialisers_to_load_in_game_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| Some(crate::intro_timing::visit_demo_restart_initialisers_to_load_in_game(visit)),
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule power-on `loc_726` through `Load_SegaScreen -> StopMusic`.
 pub fn power_on_restart_initialisers_to_stop_music_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
@@ -4398,6 +4410,24 @@ pub fn power_on_loc_714_sprite_table_clear_cursor_with_scheduler(
         entry,
         5,
         false,
+        |visit| crate::intro_timing::visit_loc_714_sprite_table_clear(visit),
+        &mut advance_hardware,
+    )
+}
+
+/// Co-schedule the demo-timeout `loc_714/loc_720` Sprite_Table clear.
+///
+/// ASM enters at scanline 240 with interrupt mask 5 after VINT has become
+/// pending, so the first `loc_720` instruction services that pending handler
+/// before the later frame-wrap VINTs.
+pub fn demo_timeout_loc_714_sprite_table_clear_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        5,
+        true,
         |visit| crate::intro_timing::visit_loc_714_sprite_table_clear(visit),
         &mut advance_hardware,
     )

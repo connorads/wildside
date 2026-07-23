@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 demo bootstrap)
+
+- Defended GEMS coverage advances to frames 0..869; frame 870 is the first
+  remaining synchronous `Load_InGame` loader sample after `StopMusic`.
+- `loc_726 -> Load_DemoPlay` now retains the exact hidden `loc_119D8`
+  allocation, word-branch refill, and `$11A0E` entry at cycle 111,182,796.
+- `Initialize_Platforms` retains the pending-entry VINT and FIFO-paced art
+  transfers through `$11A12`; `StopMusic $E14C8` begins at cycle 111,231,277.
+- The focused 870-frame comparison is green with 835 evidence-backed
+  limitations and 35 advisory-only frames.
+- Full-route GEMS mismatches fall from 36,891 to 36,889 and the frontier moves
+  from frame 868 to 870; gameplay, enemy, RNG, and pixel evidence is unchanged.
+- `verify-slice-fast` passes; `verify-tas-full` is green after updating the
+  monotonic GEMS ratchet.
+- NEXT: source-model the remaining synchronous `Load_InGame` loader.
+
 ## 2026-07-23 handoff (#416 post-fade clears)
 
 - Defended GEMS coverage advances to frames 0..867; frame 868 enters

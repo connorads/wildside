@@ -255,6 +255,20 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: demo bootstrap coverage advances through frame 869.
+Selected-PC tracing pins `loc_726` at cycle 111,176,008,
+`Load_DemoPlay loc_119B6` at 111,181,714, `Load_InGame $11A0E` at
+111,182,796, `$11A12` at 111,228,049, and `StopMusic $E14C8` at
+111,231,277. The source visitor retains the hidden `loc_119D8` empty-list
+allocation and the taken-word-branch refill; the pauseable platform cursor
+retains the pending-entry VINT and both FIFO-paced art uploads. The focused
+870-frame comparison is green with 835 evidence-backed limitations and 35
+advisory-only frames. Full-route GEMS mismatches fall from 36,891 to 36,889
+and the frontier moves to frame 870; gameplay, enemy, RNG, and pixels remain
+unchanged. `verify-slice-fast` passes; the full gate is green after the
+monotonic GEMS baseline update. NEXT: continue the synchronous `Load_InGame`
+loader after the reset.
+
 Progress 2026-07-23: post-fade clear coverage advances from frame 855 through
 867. The final `loc_28EA` palette upload takes clean `sub_14C0`, returns to
 `loc_700` at oracle cycle 109,433,456, and retains the source-derived
