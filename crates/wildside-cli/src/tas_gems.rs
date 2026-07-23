@@ -4394,6 +4394,19 @@ impl GemsSignatureProbe {
                 self.engine.advance_ntsc_master_clocks(
                     FIRST_MODE_LEVEL_TAIL_CYCLES * 7 - self.engine.master_clock(),
                 );
+                let entry_checkpoint = self.engine.checkpoint();
+                assert_eq!(
+                    (
+                        entry_checkpoint.z80_pc,
+                        entry_checkpoint.z80_mclk_counter,
+                        entry_checkpoint.z80_t_cycles_wait,
+                        entry_checkpoint.z80_wait_mclk_cycles,
+                        entry_checkpoint.ym2612_mclk_counter,
+                        entry_checkpoint.z80_index_registers,
+                    ),
+                    (0x03BE, 5, 4, 0, 14, [0x1AA0, 0x1AB0, 0x1A16]),
+                    "hardware-correct tail entry; oracle is already at PC $03BF with IX/IY $1A80/$1A90 and SP $1A14",
+                );
                 let _ = self.engine.take_pending_m68k_wait_cycles();
                 let advance = apply_gems_mode_level_tail_to_wait_for_vint(
                     &mut self.engine,
@@ -5647,7 +5660,11 @@ pub(crate) fn extract_native_gems_frame_signatures(
             director.step(manifest, frame, &mut coarse_probe);
             let coarse_signature = coarse_probe.sample_at_frame_rendered();
             if frame_index < GEMS_MODELLED_ROUTE_FRAMES {
-                Some(power_on_probe.sample_power_on_frame_rendered_with_mode_tail(None))
+                Some(
+                    power_on_probe.sample_power_on_frame_rendered_with_mode_tail(
+                        frame.mode_level_tail_work_loc_892.as_ref(),
+                    ),
+                )
             } else {
                 Some(coarse_signature)
             }
@@ -9438,7 +9455,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
         && oracle.audio_ram_crc32 == 3_008_121_749
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x1301
+        && native.z80_pc == 0x1302
         && oracle.z80_pc == 0x053C
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
@@ -10653,6 +10670,33 @@ mod tests {
                 .diverging_fields,
             vec!["bank_address", "z80_pc"],
         );
+    }
+
+    #[test]
+    fn frame_902_source_scheduled_mode_level_tail_is_the_xy_flag_oracle_limitation() {
+        // ASM Mode_Level loc_892 -> loc_30104: the source-scheduled tail
+        // starts after the proven GEMS $07B0..$07B4 SUB X/Y split and carries
+        // that driver-state difference through XFER68K to the H-scroll DMA.
+        let mut native = signature(0x1302);
+        native.audio_ram_crc32 = 626_025_829;
+        native.bank_address = 0x000E_0000;
+        native.status_bits = GemsFrameSignature::STATUS_BUSREQ;
+        let mut oracle = signature(0x053C);
+        oracle.audio_ram_crc32 = 3_008_121_749;
+        oracle.bank_address = 0x000E_0000;
+        oracle.pending_m68k_wait_cycles = 8;
+        oracle.status_bits =
+            GemsFrameSignature::STATUS_BUSREQ | GemsFrameSignature::STATUS_VDP_OWNS_BUS;
+        let mut native_frames = vec![None; 902];
+        native_frames.push(Some(native));
+        let mut oracle_frames = vec![None; 902];
+        oracle_frames.push(Some(oracle));
+
+        let comparison = compare_gems_frame_signatures(&native_frames, &oracle_frames, 0);
+
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 1);
+        assert_eq!(comparison.first_mismatch, None);
     }
 
     #[test]
@@ -13480,6 +13524,7 @@ mod tests {
         for _ in 0..902 {
             probe.sample_power_on_frame_rendered();
         }
+        let _ = probe.engine.take_banked_68k_reads();
         let tail_work = wildside_core::ModeLevelTailWorkLoc892 {
             camera_stripe_sub_30194:
                 wildside_core::ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
@@ -13510,6 +13555,70 @@ mod tests {
             palette_sub_14c0: wildside_core::ModeLevelTailPaletteWorkSub14C0::BothMasksFull,
         };
         let frame_902 = probe.sample_power_on_frame_rendered_with_mode_tail(Some(&tail_work));
+        let banked_reads = probe.engine.take_banked_68k_reads();
+        let tail_reads = banked_reads
+            .iter()
+            .filter(|read| (115_485_728 * 7..=115_519_378 * 7).contains(&read.master_clock))
+            .copied()
+            .collect::<Vec<_>>();
+        assert_eq!(
+            (
+                frame_902.audio_ram_crc32,
+                frame_902.bank_address,
+                frame_902.z80_pc,
+                frame_902.z80_mclk_counter,
+                frame_902.z80_wait_mclk_cycles,
+                frame_902.pending_m68k_wait_cycles,
+                frame_902.ym2612_mclk_counter,
+                frame_902.status_bits,
+            ),
+            (
+                626_025_829,
+                0x000E_0000,
+                0x1302,
+                9,
+                0,
+                0,
+                6,
+                GemsFrameSignature::STATUS_BUSREQ,
+            ),
+            "source-scheduled tail preserves the exact hardware-correct frame-902 residue",
+        );
+        assert_eq!(tail_reads.len(), 145);
+        assert_eq!(
+            tail_reads
+                .iter()
+                .filter(|read| read.z80_pc == 0x0273)
+                .count(),
+            132,
+            "ASM GEMS XFER68K byte-copy reads"
+        );
+        assert_eq!(
+            tail_reads
+                .iter()
+                .filter(|read| read.z80_pc == 0x0285)
+                .count(),
+            13,
+            "ASM GEMS XFER68K block-tail reads"
+        );
+        assert_eq!(
+            (tail_reads.first().copied(), tail_reads.last().copied(),),
+            (
+                Some(wildside_md::GemsBanked68kRead {
+                    master_clock: 808_428_996,
+                    z80_pc: 0x0285,
+                    address: 923_192,
+                    value: 19,
+                }),
+                Some(wildside_md::GemsBanked68kRead {
+                    master_clock: 808_635_309,
+                    z80_pc: 0x0285,
+                    address: 932_702,
+                    value: 81,
+                }),
+            ),
+            "the carried X/Y phase fixes the complete source-tail bank-read envelope",
+        );
 
         assert_eq!(
             frame_902.pending_m68k_wait_cycles, 0,

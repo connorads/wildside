@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 first gameplay poll derived)
+
+- Bank-read PC tracing proves the 145/105 split predates `loc_892` and descends
+  from the established hardware-vs-jgenesis GEMS `$07B0..$07B4` X/Y defect.
+- Production now uses the complete source-scheduled `loc_892 -> $93E` path.
+- Frame 902 remains an exact oracle limitation; both TAS gates retain their
+  pixel and GEMS baselines.
+- NEXT: use the derived gameplay raster to fix frame 1697's seven life-icon
+  pixels.
+
 ## 2026-07-23 handoff (#409 GEMS composition split)
 
 - Exact source/FIFO composition makes native GEMS take 145 bank steals while

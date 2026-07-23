@@ -24,6 +24,8 @@ pub struct GemsBanked68kRead {
     /// Absolute timing-engine master clock at the 68000 instruction boundary
     /// where the Z80 tick executes the read.
     pub master_clock: u64,
+    /// Z80 instruction address that issued the banked read.
+    pub z80_pc: u16,
     pub address: u32,
     pub value: u8,
 }
@@ -124,6 +126,7 @@ struct GemsTimingBus {
     bank_address: u32,
     ym2612_shadow: RefCell<Ym2612Shadow>,
     current_master_clock: Cell<u64>,
+    current_z80_pc: Cell<u16>,
     banked_reads: RefCell<Vec<GemsBanked68kRead>>,
 }
 
@@ -138,6 +141,7 @@ impl GemsTimingBus {
             bank_address: 0,
             ym2612_shadow: RefCell::new(Ym2612Shadow::new()),
             current_master_clock: Cell::new(0),
+            current_z80_pc: Cell::new(0),
             banked_reads: RefCell::new(Vec::new()),
         }
     }
@@ -166,6 +170,7 @@ impl Z80_io for GemsTimingBus {
                     .unwrap_or(0xFF);
                 self.banked_reads.borrow_mut().push(GemsBanked68kRead {
                     master_clock: self.current_master_clock.get(),
+                    z80_pc: self.current_z80_pc.get(),
                     address: banked_address,
                     value,
                 });
@@ -597,6 +602,7 @@ impl GemsMasterClockTimingEngine {
                 self.z80_t_cycles_wait = 3;
             } else {
                 self.z80.io.current_master_clock.set(self.master_clock);
+                self.z80.io.current_z80_pc.set(self.z80.pc);
                 let reads_before = self.z80.io.banked_reads.borrow().len();
                 let elapsed = self.step_z80_instruction();
                 self.z80_t_cycles_wait = elapsed.saturating_sub(1);
@@ -1021,6 +1027,7 @@ mod tests {
             first.banked_68k_reads,
             vec![GemsBanked68kRead {
                 master_clock: 15,
+                z80_pc: 0,
                 address: 0,
                 value: 0x5A,
             }],

@@ -1889,6 +1889,23 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: the first gameplay `$93E` absolute poll handoff is
+removed. Instruction-level bank-read provenance shows the 145-read native
+tail does not first diverge inside `loc_3038A`: at the exact `loc_892` entry,
+native is already at Z80 PC `$03BE`, IX/IY `$1AA0/$1AB0`, SP `$1A16`, while
+jgenesis is at `$03BF`, `$1A80/$1A90`, `$1A14`. This is downstream of the
+already proven GEMS `$07B0..$07B4` `SUB` defect at cycle 9,161,735, where
+jgenesis preserves stale undocumented X/Y flags and hardware copies result
+bits 5/3. The source schedule is therefore the hardware-faithful path, not a
+new native defect. Production now consumes the typed `loc_892` work, and the
+exact frame-902 limitation moves PC `$1301->$1302` while retaining its pinned
+CRC, bank, waits, and flags. The trace pins all 145 reads: 132 at XFER68K
+`$0273`, 13 at `$0285`, including first/last clocks and ROM addresses.
+`verify-slice-fast` and `verify-tas-full` pass unchanged: first authoritative
+GEMS mismatch remains frame 903 and the pixel frontier remains frame 1697.
+NEXT: use the persistent source-derived gameplay raster to resolve frame
+1697's seven life-icon pixels.
+
 Progress 2026-07-23: persistent GEMS composition rejects the hoped-for
 first-poll replacement. The exact source/FIFO visitors make native GEMS take
 145 bank steals - 53 during `loc_3038A`, then 92 during the palette tail -
