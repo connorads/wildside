@@ -2497,6 +2497,30 @@ pub fn visit_title_character_map_to_chameleon_enigma(
 /// Sprite_Table DMA, skips the Kid-art DMA loop at `loc_AD4`, then resets the
 /// two producer pointers through `sub_B52`.
 pub fn visit_mode_standard_sprite_and_kid_to_vram(
+    visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    visit_sprite_and_kid_to_vram(&[], visit)
+}
+
+/// Visit the natural gameplay path through `Transfer_SpriteAndKidToVRAM`.
+///
+/// ASM `Mode_Level $7C8` calls `sub_A5C`; the published gameplay workload
+/// uploads 16 and 4 Kid-art tiles after the fixed Sprite_Table DMA.
+pub fn visit_mode_level_sprite_and_kid_to_vram(
+    dynamic_art_tiles_loc_ad4: [u16; 2],
+    visit: impl FnMut(MemoryDmaTimingEvent),
+) -> Option<IntroSourceTiming> {
+    if dynamic_art_tiles_loc_ad4 != [16, 4] {
+        return None;
+    }
+    Some(visit_sprite_and_kid_to_vram(
+        &dynamic_art_tiles_loc_ad4,
+        visit,
+    ))
+}
+
+fn visit_sprite_and_kid_to_vram(
+    dynamic_art_tiles_loc_ad4: &[u16],
     mut visit: impl FnMut(MemoryDmaTimingEvent),
 ) -> IntroSourceTiming {
     let mut timing = IntroSourceTiming {
@@ -2551,8 +2575,32 @@ pub fn visit_mode_standard_sprite_and_kid_to_vram(
         emit(&mut visit, &mut timing, cycles);
     }
 
-    // ASM $AAC..loc_B36: clear title Kid list and take zero-length exit.
-    for cycles in [12, 12, 16, 4, 10, 12, 4, 12, 8, 8, 10] {
+    // ASM $AAC..loc_AD4: select the default Kid-art list and clear its
+    // terminator before reading the first tile count.
+    for cycles in [12, 12, 16, 4, 10, 12, 4, 12, 8] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    for &tiles in dynamic_art_tiles_loc_ad4 {
+        // ASM loc_AD4..loc_B24: program one uncompressed Kid-art DMA. The
+        // final two control-port writes start the transfer before d2 advances
+        // to the next VRAM destination.
+        const THROUGH_DMA_COMMAND: [u32; 35] = [
+            8, 8, 12, 8, 8, 4, 8, 4, 8, 8, 8, 10, 8, 4, 8, 4, 8, 8, 8, 4, 8, 4, 8, 4, 8, 8, 4, 8,
+            4, 8, 4, 16, 16, 12, 12,
+        ];
+        for cycles in THROUGH_DMA_COMMAND {
+            emit(&mut visit, &mut timing, cycles);
+        }
+        visit(MemoryDmaTimingEvent::BeginMemoryDma {
+            words: tiles * 16,
+            target: MemoryToVdpDmaTarget::Vram,
+        });
+        for cycles in [4, 4, 10] {
+            emit(&mut visit, &mut timing, cycles);
+        }
+    }
+    // ASM loc_AD4: the zero terminator branches to loc_B36.
+    for cycles in [8, 10] {
         emit(&mut visit, &mut timing, cycles);
     }
     // ASM loc_B36 -> Start_z80.
@@ -3519,6 +3567,38 @@ mod tests {
                 MemoryDmaTimingEvent::SetZ80BusRequest(false),
             ],
             "ASM sub_A5C title path brackets both Z80 stops around one sprite DMA",
+        );
+    }
+
+    #[test]
+    fn mode_level_sprite_and_kid_transfer_visits_both_loc_ad4_dmas() {
+        let mut events = Vec::new();
+        let timing = visit_mode_level_sprite_and_kid_to_vram([16, 4], |event| events.push(event))
+            .expect("published Mode_Level loc_AD4 workload");
+
+        assert_eq!(timing.instruction_count, 131);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(1_372));
+        assert_eq!(
+            events
+                .iter()
+                .filter_map(|event| match event {
+                    MemoryDmaTimingEvent::BeginMemoryDma { words, target } => {
+                        Some((*words, *target))
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>(),
+            [
+                (0x140, MemoryToVdpDmaTarget::Vram),
+                (0x100, MemoryToVdpDmaTarget::Vram),
+                (0x040, MemoryToVdpDmaTarget::Vram),
+            ],
+            "ASM sub_A5C/loc_AD4 preserves the Sprite_Table, 16-tile, then 4-tile DMA order",
+        );
+        assert_eq!(
+            visit_mode_level_sprite_and_kid_to_vram([16, 3], |_| {}),
+            None,
+            "unclassified loc_AD4 workloads remain fail-closed",
         );
     }
 

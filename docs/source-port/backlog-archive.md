@@ -255,6 +255,20 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: defended GEMS coverage advances through frame 902 and the
+first authoritative mismatch moves to frame 903. The gameplay `sub_A5C`
+visitor retains all 131 source instructions and the fixed Sprite_Table,
+16-tile and 4-tile DMA order; the persistent adapter then composes the
+existing palette and `loc_300BA` schedulers. Frame 902's false accumulated
+68000 wait falls from 4,400 to zero. Pinned jgenesis reaches `loc_30104`'s
+H-scroll DMA earlier because of its established undocumented-X/Y Z80 flag
+phase; the exact CRC/PC/wait/flag residue is classified narrowly, including
+the long-DMA eight-cycle re-entry. Full-route GEMS mismatches fall 36,857 ->
+36,856 with 868 evidence-backed limitations and 35 advisory-only frames.
+`verify-slice-fast` passes 7,033 core tests. NEXT: replace the absolute `$7C8`
+handoff with the typed `loc_892`/`WaitForVint` scheduler before extending
+frame 903.
+
 Progress 2026-07-23: frame 902 is the first complete gameplay scheduling
 problem, not a new command. Selected-PC tracing places `MainGameLoop $738` and
 the first `Mode_Level $7C8` in frame 901, then `Execute_Objects sub_E12`,
@@ -1861,6 +1875,17 @@ strictly live flash art/CRAM residency; do not delay `sub_10C38` motion or
 mask the render.
 
 ### #409
+
+Progress 2026-07-23: the first persistent consumer now schedules the natural
+`Mode_Level $7C8` VBlank prefix instruction by instruction. `sub_A5C` emits
+the Sprite_Table, 16-tile and 4-tile DMAs in ROM order, then composes the
+existing `sub_970` palette and `loc_300BA` H-scroll schedulers. The frame-902
+regression proves accumulated GEMS bank waits are serviced before the raster
+sample. A separate hardware test preserves pinned jgenesis's eight-cycle
+long-DMA checkpoint when a sample actually lands under VDP ownership. The
+remaining absolute `$7C8` handoff is marked `TODO(fidelity)`; #409 still needs
+the typed `loc_892 -> WaitForVint -> V_Int -> MainGameLoop` schedule before
+this timing can seed the frame-1697 life-icon raster without a route constant.
 
 Progress 2026-07-23: the hardware-composition boundary is explicit in
 `NativeTraceFrame`. The source-modelled post-`sub_44DC` ledger and `loc_892`

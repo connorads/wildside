@@ -13,7 +13,7 @@ use wildside_core::{GameMode, LevelId, NativeSoundCommand, NativeTraceFrame};
 use wildside_core::{
     GemsQueueCommandAdvance, GemsQueueCommandPath, GemsStopMusicBusAckPolls,
     GemsStopMusicElapsedTiming, HudDmaEventSub44DC, LoadInGameTimerBonusPath, M68kCycleCount,
-    M68kRefreshPhase,
+    M68kRefreshPhase, ModeLevelScrollTransferPath, ModeLevelVblankWorkBeforeSubE12,
     vdp::{
         DecompressToVramTransferAdvance, LoadInGameCpuRasterCursor,
         LoadInGamePlatformInitialisationAdvance, LoadInGamePlatformRefreshLedger,
@@ -3084,6 +3084,111 @@ pub fn apply_gems_title_mode_standard_sprite_and_kid_to_vram(
     )
 }
 
+/// Clock the natural gameplay `Mode_Level -> Transfer_SpriteAndKidToVRAM`
+/// upload.
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_sprite_and_kid_to_vram(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    dynamic_art_tiles_loc_ad4: [u16; 2],
+) -> Option<TitleMemoryDmaAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::mode_level_sprite_and_kid_to_vram_cursor_with_scheduler(
+        entry,
+        dynamic_art_tiles_loc_ad4,
+        |event| Some(apply_gems_title_memory_dma_hardware_event(audio, event)),
+    )
+}
+
+/// Clock the natural `Mode_Level $7C8 -> loc_30104` VBlank prefix and capture
+/// a FrameRendered checkpoint inside the final H-scroll DMA.
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    work: ModeLevelVblankWorkBeforeSubE12,
+    checkpoint_master_clock: u64,
+) -> Option<(TitleMemoryDmaAdvance, GemsTimingCheckpoint)> {
+    if audio.pending_m68k_wait_cycles() != 0
+        || checkpoint_master_clock < audio.master_clock()
+        || work.scroll_path != ModeLevelScrollTransferPath::NormalLoc300ba
+    {
+        return None;
+    }
+
+    let mut checkpoint = None;
+    let mut apply_event = |event: TitlePaletteHardwareEvent| {
+        let TitlePaletteHardwareEvent::Advance {
+            cycles,
+            vdp_owns_bus,
+            source_instruction,
+        } = event
+        else {
+            return Some(apply_gems_title_memory_dma_hardware_event(audio, event));
+        };
+        let interval_master_clocks = u64::from(cycles.get()) * 7;
+        let interval_start = audio.master_clock();
+        let interval_end = interval_start.checked_add(interval_master_clocks)?;
+        if checkpoint.is_none() && checkpoint_master_clock <= interval_end {
+            let offset = checkpoint_master_clock.checked_sub(interval_start)?;
+            if source_instruction {
+                let (_, captured) = audio.advance_ntsc_m68k_instruction_with_checkpoint(
+                    interval_master_clocks,
+                    vdp_owns_bus,
+                    offset,
+                )?;
+                checkpoint = Some(captured);
+            } else {
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(offset, vdp_owns_bus);
+                if vdp_owns_bus {
+                    // Pinned jgenesis `check_for_long_dma_skip`: while the
+                    // Z80 has not halted, the next long-DMA scheduler re-entry
+                    // is queued as an eight-cycle 68000 wait.
+                    audio.set_source_scheduled_m68k_wait_cycles(8);
+                }
+                checkpoint = Some(audio.checkpoint());
+                if vdp_owns_bus {
+                    let _ = audio.take_pending_m68k_wait_cycles();
+                }
+                audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                    interval_master_clocks.checked_sub(offset)?,
+                    vdp_owns_bus,
+                );
+            }
+        } else if source_instruction {
+            audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                interval_master_clocks,
+                vdp_owns_bus,
+            );
+        } else {
+            audio.advance_ntsc_master_clocks_with_vdp_ownership(
+                interval_master_clocks,
+                vdp_owns_bus,
+            );
+        }
+        Some(M68kCycleCount::from_raw(
+            audio.take_pending_m68k_wait_cycles(),
+        ))
+    };
+
+    let sprite = wildside_core::vdp::mode_level_sprite_and_kid_to_vram_cursor_with_scheduler(
+        entry,
+        work.dynamic_art_tiles_loc_ad4,
+        &mut apply_event,
+    )?;
+    let palette = wildside_core::vdp::title_mode_standard_palette_to_vram_cursor_with_scheduler(
+        sprite.cursor,
+        &mut apply_event,
+    )?;
+    let scroll = wildside_core::vdp::title_mode_standard_scroll_data_to_vram_cursor_with_scheduler(
+        palette.cursor,
+        &mut apply_event,
+    )?;
+    Some((scroll, checkpoint?))
+}
+
 /// Clock the title `Mode_Standard -> Transfer_ScrollDataToVRAM` upload.
 #[cfg(feature = "audio")]
 pub fn apply_gems_title_mode_standard_scroll_data_to_vram(
@@ -4013,6 +4118,54 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
     use wildside_data::{LevelRecord, LevelResources};
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn mode_level_scroll_dma_checkpoint_exposes_jgenesis_long_dma_wait() {
+        // ASM Mode_Level $7C8 -> sub_A5C -> sub_970 -> loc_300BA. The target
+        // offset is the published frame-902 FrameRendered boundary measured
+        // from the selected `$7C8` entry; it lands inside loc_30104's DMA.
+        let entry_cycles = 1_000_u64;
+        let checkpoint_master_clock = entry_cycles * 7 + 25_759;
+        let mut engine = GemsMasterClockTimingEngine::new_with_ntsc_timeline_origin(
+            &[0x76],
+            vec![],
+            GemsNtscTimelineOrigin::PowerOnScanlineZero,
+        );
+        engine.advance_ntsc_master_clocks(entry_cycles * 7);
+        let work = ModeLevelVblankWorkBeforeSubE12 {
+            dynamic_art_tiles_loc_ad4: [16, 4],
+            palette_dma_sub_970: true,
+            scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
+            foreground_custom_queue_entries_sub_1596: 0,
+            foreground_cell_queue_entries_sub_1596: 0,
+            paused_sub_6874: false,
+            hud_path_sub_bdc0:
+                wildside_core::ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
+        };
+
+        let (_, checkpoint) = apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
+            &mut engine,
+            LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                    M68kCycleCount::from_raw(entry_cycles as u32),
+                ),
+                refresh_phase: M68kRefreshPhase::new(94).unwrap(),
+            },
+            work,
+            checkpoint_master_clock,
+        )
+        .expect("natural Mode_Level prefix spans the frame-902 raster offset");
+
+        assert_eq!(checkpoint.master_clock, checkpoint_master_clock);
+        assert!(checkpoint.vdp_owns_bus, "ASM loc_30104 owns the 68000 bus");
+        assert!(checkpoint.busreq, "ASM Stop_z80 brackets the H-scroll DMA");
+        assert_eq!(
+            checkpoint.pending_m68k_wait_cycles, 8,
+            "pinned jgenesis check_for_long_dma_skip queues an eight-cycle re-entry"
+        );
+        assert_eq!(engine.pending_m68k_wait_cycles(), 0);
+    }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     enum RecordingAudioAction {

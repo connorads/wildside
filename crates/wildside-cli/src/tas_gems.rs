@@ -21,7 +21,8 @@ use anyhow::Result;
 use sha1::{Digest, Sha1};
 use wildside_core::{
     GemsFrameSignature, GemsQueueCommandPath, GemsStopMusicBusAckPolls, M68kCycleCount,
-    M68kRefreshPhase, NativeTraceFrame, gems_stop_music_elapsed_timing,
+    M68kRefreshPhase, ModeLevelHudBuildPath, ModeLevelScrollTransferPath,
+    ModeLevelVblankWorkBeforeSubE12, NativeTraceFrame, gems_stop_music_elapsed_timing,
     gems_stop_music_elapsed_timing_from_absolute_entry,
 };
 use wildside_data::AssetManifest;
@@ -44,6 +45,7 @@ use wildside_frame::{
     apply_gems_fresh_title_prompt_chameleon_execute_objects_to_enigma,
     apply_gems_fresh_title_second_execute_objects_to_chameleon_enigma,
     apply_gems_fresh_title_third_execute_objects_to_chameleon_enigma,
+    apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint,
     apply_gems_power_on_post_clear_reset, apply_gems_power_on_z80_startup,
     apply_gems_title_character_map_to_chameleon_enigma,
     apply_gems_title_clean_palette_interpolation_call,
@@ -129,7 +131,7 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// The tail remains the coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 902;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 903;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -4372,6 +4374,45 @@ impl GemsSignatureProbe {
             )
             .expect("ASM Load_InGame queues its foreground-theme music");
             assert_eq!(self.engine.master_clock(), 115_384_281 * 7);
+        }
+        if self.power_on_frame == 902 {
+            // ASM WaitForVint -> V_Int -> MainGameLoop enters Mode_Level
+            // $7C8 at selected cycle 115,570,823 with refresh phase 94.
+            // sub_A5C, sub_970 and loc_300BA then retain every source
+            // instruction and VDP-ownership interval through loc_30104.
+            const MODE_LEVEL_ENTRY_CYCLES: u64 = 115_570_823;
+            self.engine.advance_ntsc_master_clocks(
+                MODE_LEVEL_ENTRY_CYCLES * 7 - self.engine.master_clock(),
+            );
+            // TODO(fidelity): replace this absolute handoff with the typed
+            // loc_892/WaitForVint scheduler. The elapsed interval already
+            // includes those serviced waits; discard only the coarse probe's
+            // duplicate unconsumed ledger at the proven $7C8 boundary.
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            let (_, checkpoint) =
+                apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
+                    &mut self.engine,
+                    wildside_core::vdp::LoadInGameCpuRasterCursor {
+                        beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                            M68kCycleCount::from_raw(MODE_LEVEL_ENTRY_CYCLES as u32),
+                        ),
+                        refresh_phase: M68kRefreshPhase::new(94)
+                            .expect("oracle Mode_Level entry refresh phase"),
+                    },
+                    ModeLevelVblankWorkBeforeSubE12 {
+                        dynamic_art_tiles_loc_ad4: [16, 4],
+                        palette_dma_sub_970: true,
+                        scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
+                        foreground_custom_queue_entries_sub_1596: 0,
+                        foreground_cell_queue_entries_sub_1596: 0,
+                        paused_sub_6874: false,
+                        hud_path_sub_bdc0:
+                            ModeLevelHudBuildPath::LocBe20ThenLocBe4cNoCounterUpdates,
+                    },
+                    target,
+                )
+                .expect("source-positioned first gameplay Mode_Level prefix spans frame 902");
+            sampled_checkpoint = Some(checkpoint);
         }
         if self.power_on_frame == 174 {
             // ASM DecompressToVRAM loc_14314 uploads byte_26E3D's first
@@ -9337,6 +9378,31 @@ fn gems_divergence_matches_documented_oracle_limitation(
         && oracle.pending_m68k_wait_cycles == 2
         && native.status_bits == GemsFrameSignature::STATUS_IFF1
         && oracle.status_bits == GemsFrameSignature::STATUS_IFF1;
+    // ORACLE LIMITATION: the established jgenesis undocumented-X/Y `SUB`
+    // phase makes its GEMS copy loop reach Mode_Level loc_30104's H-scroll
+    // DMA before the hardware-correct Z80. The source-scheduled native prefix
+    // has serviced all bank waits but remains under Stop_z80 BUSREQ.
+    let first_mode_level_prefix_oracle_z80_phase = diverging
+        == [
+            "audio_ram_crc32",
+            "z80_pc",
+            "pending_m68k_wait_cycles",
+            "status_bits",
+        ]
+        && frame_index == 902
+        && native.audio_ram_crc32 == 1_635_621_674
+        && oracle.audio_ram_crc32 == 3_008_121_749
+        && native.bank_address == 0x000E_0000
+        && oracle.bank_address == 0x000E_0000
+        && native.z80_pc == 0x02BE
+        && oracle.z80_pc == 0x053C
+        && native.z80_wait_mclk_cycles == 0
+        && oracle.z80_wait_mclk_cycles == 0
+        && native.pending_m68k_wait_cycles == 0
+        && oracle.pending_m68k_wait_cycles == 8
+        && native.status_bits == GemsFrameSignature::STATUS_BUSREQ
+        && oracle.status_bits
+            == (GemsFrameSignature::STATUS_BUSREQ | GemsFrameSignature::STATUS_VDP_OWNS_BUS);
     ordinary_fresh_title_irq_phase
         || irq_saved_sp
         || title_art_dac_fifo_irq_phase
@@ -9381,6 +9447,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
         || fresh_title_twenty_third_pass_irq_phase
         || fresh_title_twenty_fourth_pass_pc_phase
         || fresh_title_twenty_fifth_pass_irq_edge
+        || first_mode_level_prefix_oracle_z80_phase
 }
 
 fn update_gems_frame_digest(hasher: &mut Sha1, signature: Option<&GemsFrameSignature>) {
@@ -13349,5 +13416,36 @@ mod tests {
         for _ in 221..=316 {
             probe.sample_power_on_frame_rendered();
         }
+    }
+
+    #[test]
+    fn power_on_probe_services_mode_level_gems_waits_before_frame_902() {
+        // ASM Mode_Level loc_300D2 -> loc_30104: FrameRendered samples the
+        // normal H-scroll DMA while the VDP owns the 68000 bus. GEMS bank
+        // waits raised by the preceding source instructions have already
+        // been serviced. The hardware-correct GEMS phase has not yet reached
+        // the DMA at this raster instant; the oracle's eight-cycle DMA-edge
+        // residue belongs to the established jgenesis Z80 flag limitation.
+        let rom = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../.cache/upstream/kid-chameleon-disasm/kid.bin"),
+        )
+        .expect("bootstrapped Kid ROM");
+        let mut probe = GemsSignatureProbe::from_kid_rom_power_on(&rom).expect("power-on probe");
+
+        let frame_902 = (0..=902)
+            .map(|_| probe.sample_power_on_frame_rendered())
+            .last()
+            .expect("frame 902 signature");
+
+        assert_eq!(
+            frame_902.pending_m68k_wait_cycles, 0,
+            "ASM Mode_Level prefix must service GEMS waits at source instruction boundaries"
+        );
+        assert_eq!(
+            frame_902.status_bits,
+            GemsFrameSignature::STATUS_BUSREQ,
+            "hardware-correct GEMS phase remains in the Stop_z80-bracketed prefix"
+        );
     }
 }

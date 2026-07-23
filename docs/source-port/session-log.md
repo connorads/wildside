@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 first gameplay VBlank prefix)
+
+- Defended GEMS coverage advances through frame 902; the authoritative
+  frontier moves to frame 903.
+- `sub_A5C` retains all 131 source instructions and the Sprite_Table,
+  16-tile, 4-tile DMA order before palette and `loc_300BA`.
+- Frame 902's false pending 68000 wait falls from 4,400 to zero. Its remaining
+  CRC/PC/flag split is the established jgenesis Z80 flag phase; the oracle is
+  already inside `loc_30104`'s H-scroll DMA.
+- Full GEMS mismatches fall 36,857 -> 36,856; the fast gate passes 7,033 core
+  tests.
+- NEXT: replace the absolute `$7C8` handoff with the typed
+  `loc_892 -> WaitForVint -> V_Int -> MainGameLoop` scheduler.
+
 ## 2026-07-23 handoff (#416 first Mode_Level composition boundary)
 
 - Frame 902 spans the first complete `Mode_Level` pass after sequence $02
