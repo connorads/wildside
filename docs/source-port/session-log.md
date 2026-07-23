@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 life-icon fallback rejected)
+
+- A previous-resident-page fallback made frames 1697/1703 exact and reduced
+  route changed pixels by 299.
+- It also regressed 34 exact frames and moved the first mismatch to frame
+  905; frame 1709 retained a 5x2 mixed-page residue. The trial is reverted.
+- NEXT: carry the exact composed raster cursor across VBlank; do not infer
+  whole-frame `loc_4586` page visibility from the animation cursor.
+
 ## 2026-07-23 handoff (#409 composed post-HUD timeline)
 
 - All 22 `Mode_Level loc_810 -> loc_892` source schedulers now compose

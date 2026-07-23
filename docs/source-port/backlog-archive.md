@@ -1889,6 +1889,14 @@ mask the render.
 
 ### #409
 
+Rejected 2026-07-23: rendering the previous `AniArt_LifeIcon` page for every
+unseeded `loc_4586` upload is not a safe substitute for the persistent raster
+cursor. It made frames 1697 and 1703 exact and reduced the route total by 299
+changed pixels, but regressed 34 formerly exact frames and moved the first
+mismatch from 1697 to 905. Frame 1709 also retained a 5x2 mixed-page residue.
+The trial is reverted. Do not infer whole-frame page visibility from the
+animation cursor; carry the exact FIFO commit raster across VBlank.
+
 Progress 2026-07-23: all 22 source schedulers now compose through one
 `Mode_Level loc_810 -> loc_892` persistent-hardware port. Frame 1697 advances
 24,454 elapsed cycles with 191 refresh events, from H40 `(49,3072)` phase 58
