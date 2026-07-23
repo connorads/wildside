@@ -2751,38 +2751,156 @@ fn visit_manage_enemy_loading_instructions_loc_36814(
     Some(())
 }
 
-/// Raw routine-body cost for ASM `Execute_ScriptedPlatforms` (`sub_23EA`).
-pub fn execute_scripted_platforms_raw_cycles_sub_23ea(
+fn visit_execute_scripted_platforms_instructions_sub_23ea(
     work: ModeLevelPlatformWork,
-) -> Option<M68kCycleCount> {
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
     if work.frozen_fa64 {
-        // ASM sub_23EA: `$FA64` takes the first branch to return_2442.
-        return Some(M68kCycleCount::from_raw(38));
+        // ASM Mode_Level loc_826 BSR and sub_23EA: `$FA64` takes the first
+        // branch to return_2442.
+        for cycles in [18, 12, 10, 16] {
+            visit(cycles)?;
+        }
+        return Some(());
     }
     if work.active_object_count != 0 {
         return None;
     }
 
-    // ASM loc_23F2 -> Execute_ScriptedPlatforms_Loop: the sentinel's null
-    // link branches directly to return_2442.
-    Some(M68kCycleCount::from_raw(70))
+    // ASM Mode_Level loc_826 BSR, then loc_23F2 ->
+    // Execute_ScriptedPlatforms_Loop: the sentinel's null link branches
+    // directly to return_2442.
+    for cycles in [18, 12, 12, 8, 12, 10, 16] {
+        visit(cycles)?;
+    }
+    Some(())
+}
+
+/// Raw routine-body cost for ASM `Execute_ScriptedPlatforms` (`sub_23EA`).
+pub fn execute_scripted_platforms_raw_cycles_sub_23ea(
+    work: ModeLevelPlatformWork,
+) -> Option<M68kCycleCount> {
+    let mut raw_cycles = 0_u32;
+    visit_execute_scripted_platforms_instructions_sub_23ea(work, |instruction_cycles| {
+        raw_cycles = raw_cycles.checked_add(instruction_cycles)?;
+        Some(())
+    })?;
+    raw_cycles.checked_sub(18).map(M68kCycleCount::from_raw)
+}
+
+/// Co-schedule ASM `Mode_Level loc_826 -> sub_23EA -> loc_82A` with
+/// asynchronous hardware.
+pub fn execute_scripted_platforms_advance_with_scheduler_sub_23ea(
+    mut phase: M68kRefreshPhase,
+    work: ModeLevelPlatformWork,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    visit_execute_scripted_platforms_instructions_sub_23ea(work, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+        Some(())
+    })?;
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
+}
+
+fn visit_platforms_check_collision_instructions_sub_2574(
+    work: ModeLevelPlatformWork,
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
+    if work.frozen_fa64 {
+        // ASM Mode_Level loc_82A BSR and sub_2574: non-zero `$FA64` skips
+        // the saved-register frame.
+        for cycles in [18, 12, 12, 16] {
+            visit(cycles)?;
+        }
+        return Some(());
+    }
+    if work.active_object_count != 0 {
+        return None;
+    }
+
+    // ASM Mode_Level loc_82A BSR, then loc_257E -> loc_25A0 -> loc_2720:
+    // save the collision register set, initialise scratch/hitbox state,
+    // observe the null sentinel, restore, and return.
+    for cycles in [
+        18, 12, 10, 88, 8, 24, 8, 16, 12, 12, 12, 12, 12, 10, 8, 92, 16,
+    ] {
+        visit(cycles)?;
+    }
+    Some(())
 }
 
 /// Raw routine-body cost for ASM `Platforms_CheckCollision` (`sub_2574`).
 pub fn platforms_check_collision_raw_cycles_sub_2574(
     work: ModeLevelPlatformWork,
 ) -> Option<M68kCycleCount> {
-    if work.frozen_fa64 {
-        // ASM sub_2574: non-zero `$FA64` skips the saved-register frame.
-        return Some(M68kCycleCount::from_raw(40));
-    }
-    if work.active_object_count != 0 {
-        return None;
-    }
+    let mut raw_cycles = 0_u32;
+    visit_platforms_check_collision_instructions_sub_2574(work, |instruction_cycles| {
+        raw_cycles = raw_cycles.checked_add(instruction_cycles)?;
+        Some(())
+    })?;
+    raw_cycles.checked_sub(18).map(M68kCycleCount::from_raw)
+}
 
-    // ASM loc_257E -> loc_25A0 -> loc_2720: save the collision register set,
-    // initialise scratch/hitbox state, observe the null sentinel, then restore.
-    Some(M68kCycleCount::from_raw(352))
+/// Co-schedule ASM `Mode_Level loc_82A -> sub_2574 -> loc_82E` with
+/// asynchronous hardware.
+pub fn platforms_check_collision_advance_with_scheduler_sub_2574(
+    mut phase: M68kRefreshPhase,
+    work: ModeLevelPlatformWork,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    visit_platforms_check_collision_instructions_sub_2574(work, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+        Some(())
+    })?;
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
 }
 
 /// Raw routine-body cost for ASM `Make_SpritesFromPlatforms` (`sub_2444`).
@@ -2798,11 +2916,10 @@ pub fn make_sprites_from_platforms_raw_cycles_sub_2444(
     Some(M68kCycleCount::from_raw(78))
 }
 
-/// Raw routine-body cost for classified ASM `Manage_PlatformLoading`
-/// (`loc_2744`) work.
-pub fn manage_platform_loading_raw_cycles_loc_2744(
+fn visit_manage_platform_loading_instructions_loc_2744(
     work: ModeLevelPlatformLoaderWorkLoc2744,
-) -> Option<M68kCycleCount> {
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
     match work {
         // ASM loc_2744 first consumes the `$FFFF` terminator and retries from
         // offset zero. The first record then fails the right-edge test at
@@ -2811,21 +2928,144 @@ pub fn manage_platform_loading_raw_cycles_loc_2744(
             wrapped_to_start: true,
             range: ModeLevelPlatformLoaderRangeLoc2762::OutOfRangeRight,
             existing_slot: ModeLevelPlatformLoaderExistingSlotSub2728::Missing,
-        } => Some(M68kCycleCount::from_raw(428)),
-        ModeLevelPlatformLoaderWorkLoc2744::NoLayoutReturn => Some(M68kCycleCount::from_raw(42)),
+        } => {
+            // ASM Mode_Level loc_822 BSR followed by the exact selected
+            // loc_2744 -> loc_2762 -> loc_2850 -> sub_2728 -> loc_286E path.
+            for cycles in [
+                18, 16, 12, 4, 12, 12, 8, 12, 16, 10, 16, 12, 4, 12, 12, 8, 10, 16, 12, 4, 12, 4,
+                12, 16, 4, 12, 4, 12, 16, 4, 10, 18, 8, 12, 10, 4, 16, 10, 20, 16,
+            ] {
+                visit(cycles)?;
+            }
+            Some(())
+        }
+        ModeLevelPlatformLoaderWorkLoc2744::NoLayoutReturn => {
+            // ASM Mode_Level loc_822 BSR and loc_2744's null-layout return.
+            for cycles in [18, 16, 10, 16] {
+                visit(cycles)?;
+            }
+            Some(())
+        }
         _ => None,
     }
 }
 
-/// Raw routine-body cost for ASM murder-wall sprite work in `sub_5E02`.
-pub fn terrain_effects_raw_cycles_sub_5e02(murder_wall_active: bool) -> Option<M68kCycleCount> {
+/// Raw routine-body cost for classified ASM `Manage_PlatformLoading`
+/// (`loc_2744`) work.
+pub fn manage_platform_loading_raw_cycles_loc_2744(
+    work: ModeLevelPlatformLoaderWorkLoc2744,
+) -> Option<M68kCycleCount> {
+    let mut raw_cycles = 0_u32;
+    visit_manage_platform_loading_instructions_loc_2744(work, |instruction_cycles| {
+        raw_cycles = raw_cycles.checked_add(instruction_cycles)?;
+        Some(())
+    })?;
+    // The visitor includes Mode_Level loc_822's 18-cycle BSR shell.
+    raw_cycles.checked_sub(18).map(M68kCycleCount::from_raw)
+}
+
+/// Co-schedule ASM `Mode_Level loc_822 -> Manage_PlatformLoading -> loc_826`
+/// with asynchronous hardware.
+pub fn manage_platform_loading_advance_with_scheduler_loc_2744(
+    mut phase: M68kRefreshPhase,
+    work: ModeLevelPlatformLoaderWorkLoc2744,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    visit_manage_platform_loading_instructions_loc_2744(work, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+        Some(())
+    })?;
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
+}
+
+fn visit_terrain_effects_instructions_sub_5e02(
+    murder_wall_active: bool,
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
     if murder_wall_active {
         return None;
     }
 
-    // ASM sub_5E02: clear MurderWall_flag takes the first branch directly to
-    // return_5F68 without touching Kid or the sprite table.
-    Some(M68kCycleCount::from_raw(38))
+    // ASM Mode_Level loc_81E BSR, then sub_5E02: clear MurderWall_flag takes
+    // the first branch directly to return_5F68 without touching Kid or the
+    // sprite table.
+    for cycles in [18, 12, 10, 16] {
+        visit(cycles)?;
+    }
+    Some(())
+}
+
+/// Raw routine-body cost for ASM murder-wall sprite work in `sub_5E02`.
+pub fn terrain_effects_raw_cycles_sub_5e02(murder_wall_active: bool) -> Option<M68kCycleCount> {
+    let mut raw_cycles = 0_u32;
+    visit_terrain_effects_instructions_sub_5e02(murder_wall_active, |instruction_cycles| {
+        raw_cycles = raw_cycles.checked_add(instruction_cycles)?;
+        Some(())
+    })?;
+    // The visitor includes Mode_Level loc_81E's 18-cycle BSR shell.
+    raw_cycles.checked_sub(18).map(M68kCycleCount::from_raw)
+}
+
+/// Co-schedule ASM `Mode_Level loc_81E -> sub_5E02 -> loc_822` with
+/// asynchronous hardware.
+pub fn terrain_effects_advance_with_scheduler_sub_5e02(
+    mut phase: M68kRefreshPhase,
+    murder_wall_active: bool,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    visit_terrain_effects_instructions_sub_5e02(murder_wall_active, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+        Some(())
+    })?;
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
 }
 
 /// Raw routine-body cost for ASM block-debris sprite compilation `sub_2A4C`.
@@ -4961,10 +5201,35 @@ mod tests {
             Some(M68kCycleCount::from_raw(70)),
             "ASM Execute_ScriptedPlatforms loc_23F2 null sentinel",
         );
+        let execute_advance = execute_scripted_platforms_advance_with_scheduler_sub_23ea(
+            M68kRefreshPhase::new(60).expect("frame-1697 loc_826 phase"),
+            live_empty,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("published empty scripted-platform path");
+        assert_eq!(execute_advance.elapsed, M68kCycleCount::from_raw(90));
+        assert_eq!(execute_advance.refresh_events, 1);
+        assert_eq!(
+            execute_advance.phase_after,
+            M68kRefreshPhase::new(22).expect("frame-1697 loc_82A phase"),
+        );
         assert_eq!(
             platforms_check_collision_raw_cycles_sub_2574(live_empty),
             Some(M68kCycleCount::from_raw(352)),
             "ASM Platforms_CheckCollision loc_25A0 null sentinel",
+        );
+        let collision_advance = platforms_check_collision_advance_with_scheduler_sub_2574(
+            execute_advance.phase_after,
+            live_empty,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("published empty platform-collision path");
+        assert_eq!(collision_advance.elapsed, M68kCycleCount::from_raw(376));
+        assert_eq!(collision_advance.refresh_events, 3);
+        assert_eq!(
+            collision_advance.phase_after,
+            M68kRefreshPhase::new(14).expect("frame-1697 loc_82E phase"),
+            "ASM sub_2574 selected path reaches the oracle boundary",
         );
         assert_eq!(
             make_sprites_from_platforms_raw_cycles_sub_2444(live_empty),
@@ -5022,6 +5287,21 @@ mod tests {
             ),
             Some(M68kCycleCount::from_raw(42)),
         );
+
+        let advance = manage_platform_loading_advance_with_scheduler_loc_2744(
+            M68kRefreshPhase::new(118).expect("frame-1697 loc_822 phase"),
+            work,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("published wrapped out-of-range platform path");
+        assert_eq!(advance.elapsed, M68kCycleCount::from_raw(454));
+        assert_eq!(advance.refresh_events, 4);
+        assert_eq!(
+            advance.phase_after,
+            M68kRefreshPhase::new(60).expect("frame-1697 loc_826 phase"),
+            "the 40-instruction loc_2744 path reaches the oracle boundary",
+        );
+
         assert_eq!(
             manage_platform_loading_raw_cycles_loc_2744(
                 ModeLevelPlatformLoaderWorkLoc2744::Placement {
@@ -5046,6 +5326,20 @@ mod tests {
             terrain_effects_raw_cycles_sub_5e02(true),
             None,
             "active murder-wall collision and sprite branches remain fail-closed",
+        );
+
+        let advance = terrain_effects_advance_with_scheduler_sub_5e02(
+            M68kRefreshPhase::new(62).expect("frame-1697 loc_81E phase"),
+            false,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("published inactive murder-wall path");
+        assert_eq!(advance.elapsed, M68kCycleCount::from_raw(56));
+        assert_eq!(advance.refresh_events, 0);
+        assert_eq!(
+            advance.phase_after,
+            M68kRefreshPhase::new(118).expect("frame-1697 loc_822 phase"),
+            "ASM sub_5E02 four-instruction path reaches the oracle boundary",
         );
     }
 

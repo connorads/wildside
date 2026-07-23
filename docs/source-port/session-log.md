@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 platform phases)
+
+- Frame 1697 now source-schedules inactive `sub_5E02`, the wrapped platform
+  loader, the empty scripted-platform walk, and the empty collision walk.
+- Their 56/446/88/370 raw cycles and 0/4/1/3 refresh waits reproduce all four
+  oracle phase and beam boundaries without GEMS waits.
+- Seven of 22 post-HUD phases now preserve exact instruction boundaries.
+- NEXT: source-schedule the first `GfxObjects_Collision sub_16F0` call from
+  `loc_82E`.
+
 ## 2026-07-23 handoff (#409 ReadJoypad source schedule)
 
 - `ReadJoypad loc_81A -> loc_81E` now preserves all 110 instruction

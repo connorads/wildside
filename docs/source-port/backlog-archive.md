@@ -1889,6 +1889,18 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: the next four frame-1697 post-HUD phases are now
+instruction-scheduled. Inactive `sub_5E02` takes 56 raw cycles with no wait
+and reaches `loc_822` phase 118. The 40-instruction wrapped, out-of-range
+`Manage_PlatformLoading loc_2744` path takes 446 raw cycles plus four refresh
+waits and reaches phase 60. Empty `Execute_ScriptedPlatforms sub_23EA` takes
+88 raw cycles plus one refresh and reaches phase 22. Empty
+`Platforms_CheckCollision sub_2574` takes 370 raw cycles plus three refreshes
+and reaches `loc_82E` phase 14. Selected-PC traces show no GEMS waits in any
+of the four intervals. Seven of the 22 post-HUD phases now preserve exact
+source instruction boundaries. NEXT: source-schedule the first
+`GfxObjects_Collision sub_16F0` call from `loc_82E`.
+
 Progress 2026-07-23: `ReadJoypad loc_81A -> loc_81E` is now
 instruction-scheduled across all 110 executed instructions, including the
 `sub_914/sub_924` Z80 BUSREQ ownership interval and both hardware controller
