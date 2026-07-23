@@ -2595,7 +2595,7 @@ pub fn visit_title_character_map_to_chameleon_enigma(
 pub fn visit_mode_standard_sprite_and_kid_to_vram(
     visit: impl FnMut(MemoryDmaTimingEvent),
 ) -> IntroSourceTiming {
-    visit_sprite_and_kid_to_vram(&[], visit)
+    visit_sprite_and_kid_to_vram(&[], false, visit)
 }
 
 /// Visit a classified gameplay path through `Transfer_SpriteAndKidToVRAM`.
@@ -2623,12 +2623,14 @@ pub fn visit_mode_level_sprite_and_kid_to_vram(
     }
     Some(visit_sprite_and_kid_to_vram(
         &dynamic_art_tiles_loc_ad4[..used],
+        true,
         visit,
     ))
 }
 
 fn visit_sprite_and_kid_to_vram(
     dynamic_art_tiles_loc_ad4: &[u16],
+    selected_pc_exact: bool,
     mut visit: impl FnMut(MemoryDmaTimingEvent),
 ) -> IntroSourceTiming {
     let mut timing = IntroSourceTiming {
@@ -2650,7 +2652,14 @@ fn visit_sprite_and_kid_to_vram(
     };
 
     // ASM Mode_Standard $782; sub_A5C $A5C..$A6C live-pointer path.
-    for cycles in [18, 16, 14, 12, 4, 18] {
+    let entry: &[u32] = if selected_pc_exact {
+        &[18, 16, 14, 12, 4, 16]
+    } else {
+        // TODO(fidelity): re-derive the earlier title GEMS chain before
+        // replacing its historical sub_A5C timing approximation.
+        &[18, 16, 14, 12, 4, 18]
+    };
+    for &cycles in entry {
         emit(&mut visit, &mut timing, cycles);
     }
     // ASM loc_A70 -> Stop_z80.
@@ -2685,7 +2694,12 @@ fn visit_sprite_and_kid_to_vram(
 
     // ASM $AAC..loc_AD4: select the default Kid-art list and clear its
     // terminator before reading the first tile count.
-    for cycles in [12, 12, 16, 4, 10, 12, 4, 12, 8] {
+    let default_list: &[u32] = if selected_pc_exact {
+        &[12, 12, 16, 4, 8, 12, 12, 8, 12, 8]
+    } else {
+        &[12, 12, 16, 4, 10, 12, 4, 12, 8]
+    };
+    for &cycles in default_list {
         emit(&mut visit, &mut timing, cycles);
     }
     for &tiles in dynamic_art_tiles_loc_ad4 {
@@ -2717,7 +2731,12 @@ fn visit_sprite_and_kid_to_vram(
     }
     visit(MemoryDmaTimingEvent::SetZ80BusRequest(false));
     // Start_z80 RTS; JSR.W sub_B52 and its pointer-reset body; outer RTS.
-    for cycles in [16, 18, 12, 12, 16, 12, 16, 16, 16] {
+    let reset_and_return: &[u32] = if selected_pc_exact {
+        &[16, 18, 10, 16, 12, 16, 12, 16, 16, 16]
+    } else {
+        &[16, 18, 12, 12, 16, 12, 16, 16, 16]
+    };
+    for &cycles in reset_and_return {
         emit(&mut visit, &mut timing, cycles);
     }
 
@@ -2730,6 +2749,20 @@ fn visit_sprite_and_kid_to_vram(
 /// no-scroll flag. It therefore takes `loc_300BA`, writes the camera-derived
 /// VSRAM pair, and performs the `$380`-byte horizontal-scroll VRAM DMA.
 pub fn visit_mode_standard_scroll_data_to_vram(
+    visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    visit_scroll_data_to_vram(false, visit)
+}
+
+/// Visit gameplay's selected-PC-exact normal scroll transfer.
+pub fn visit_mode_level_scroll_data_to_vram(
+    visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    visit_scroll_data_to_vram(true, visit)
+}
+
+fn visit_scroll_data_to_vram(
+    selected_pc_exact: bool,
     mut visit: impl FnMut(MemoryDmaTimingEvent),
 ) -> IntroSourceTiming {
     let mut timing = IntroSourceTiming {
@@ -2752,13 +2785,23 @@ pub fn visit_mode_standard_scroll_data_to_vram(
 
     // ASM Mode_Standard $786; Transfer_ScrollDataToVRAM $3009A takes the
     // title's BLE to loc_300BA and the clear Background_NoScrollFlag branch.
-    for cycles in [20, 12, 4, 10, 12, 20, 8] {
+    let entry: &[u32] = if selected_pc_exact {
+        &[20, 10, 12, 4, 10, 12, 24]
+    } else {
+        &[20, 12, 4, 10, 12, 20, 8]
+    };
+    for &cycles in entry {
         emit(&mut visit, &mut timing, cycles);
     }
     visit(MemoryDmaTimingEvent::WriteVdpWord {
         target: MemoryToVdpDmaTarget::Vsram,
     });
-    for cycles in [10, 8, 10, 8] {
+    let vsram: &[u32] = if selected_pc_exact {
+        &[8, 10, 12, 10, 8]
+    } else {
+        &[10, 8, 10, 8]
+    };
+    for &cycles in vsram {
         emit(&mut visit, &mut timing, cycles);
     }
     visit(MemoryDmaTimingEvent::WriteVdpWord {
@@ -2792,7 +2835,12 @@ pub fn visit_mode_standard_scroll_data_to_vram(
 
     // ASM j_sub_924 -> sub_924 takes the non-positive counter path and calls
     // Start_z80 once more before both routines return.
-    for cycles in [18, 10, 12, 8, 12, 12, 20, 10, 10, 20] {
+    let nested_start: &[u32] = if selected_pc_exact {
+        &[18, 10, 16, 8, 16, 16, 20, 10, 10, 20]
+    } else {
+        &[18, 10, 12, 8, 12, 12, 20, 10, 10, 20]
+    };
+    for &cycles in nested_start {
         emit(&mut visit, &mut timing, cycles);
     }
     visit(MemoryDmaTimingEvent::SetZ80BusRequest(false));
@@ -3755,8 +3803,8 @@ mod tests {
         })
         .expect("published Mode_Level loc_AD4 workload");
 
-        assert_eq!(timing.instruction_count, 131);
-        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(1_372));
+        assert_eq!(timing.instruction_count, 133);
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(1_398));
         assert_eq!(
             events
                 .iter()
@@ -3781,7 +3829,7 @@ mod tests {
                 first_live_events.push(event);
             })
             .expect("first live Kid mapping produces one 12-tile loc_AD4 DMA");
-        assert_eq!(first_live_timing.instruction_count, 93);
+        assert_eq!(first_live_timing.instruction_count, 95);
         assert_eq!(
             first_live_events
                 .iter()
@@ -3801,11 +3849,8 @@ mod tests {
 
         let empty = visit_mode_level_sprite_and_kid_to_vram([0; 6], |_| {})
             .expect("first two gameplay VBlanks consume an empty loc_AD4 queue");
-        assert_eq!(
-            empty,
-            visit_mode_standard_sprite_and_kid_to_vram(|_| {}),
-            "ASM loc_AD4 zero terminator takes the same transfer body as the title path",
-        );
+        assert_eq!(empty.instruction_count, 57);
+        assert_eq!(empty.raw_cycles, M68kCycleCount::from_raw(822));
         assert_eq!(
             visit_mode_level_sprite_and_kid_to_vram([17, 0, 0, 0, 0, 0], |_| {}),
             None,

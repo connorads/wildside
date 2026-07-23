@@ -9572,7 +9572,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
         && oracle.audio_ram_crc32 == 3_008_121_749
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x131E
+        && native.z80_pc == 0x1321
         && oracle.z80_pc == 0x053C
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
@@ -9888,7 +9888,7 @@ mod tests {
             (
                 1_904_935_425,
                 0x000E_0000,
-                0x131E,
+                0x1321,
                 8,
                 GemsFrameSignature::STATUS_BUSREQ | GemsFrameSignature::STATUS_VDP_OWNS_BUS,
             ),
@@ -10913,7 +10913,7 @@ mod tests {
         // ASM Mode_Level loc_892 -> loc_30104: the source-scheduled tail
         // starts after the proven GEMS $07B0..$07B4 SUB X/Y split and carries
         // that driver-state difference through XFER68K to the H-scroll DMA.
-        let mut native = signature(0x131E);
+        let mut native = signature(0x1321);
         native.audio_ram_crc32 = 1_904_935_425;
         native.bank_address = 0x000E_0000;
         native.pending_m68k_wait_cycles = 8;
@@ -13829,7 +13829,7 @@ mod tests {
             (
                 1_904_935_425,
                 0x000E_0000,
-                0x131E,
+                0x1321,
                 9,
                 0,
                 8,

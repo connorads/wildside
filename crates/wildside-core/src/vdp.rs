@@ -3080,6 +3080,7 @@ struct PlatformArtFifoScheduler {
     beam: H40BeamPosition,
     entries: std::collections::VecDeque<PlatformArtFifoEntry>,
     pending_words: u8,
+    empty_vram_dma_latency: u8,
     memory_dma: Option<MemoryToVdpDma>,
 }
 
@@ -3097,8 +3098,14 @@ impl PlatformArtFifoScheduler {
             beam,
             entries: std::collections::VecDeque::with_capacity(4),
             pending_words: 0,
+            empty_vram_dma_latency: 8,
             memory_dma: None,
         }
+    }
+
+    fn with_empty_vram_dma_latency(mut self, latency: u8) -> Self {
+        self.empty_vram_dma_latency = latency;
+        self
     }
 
     fn push_word(&mut self) {
@@ -3126,8 +3133,8 @@ impl PlatformArtFifoScheduler {
             words_remaining: words,
             latency: match target {
                 crate::intro_timing::MemoryToVdpDmaTarget::Vsram => 5,
-                crate::intro_timing::MemoryToVdpDmaTarget::Vram
-                | crate::intro_timing::MemoryToVdpDmaTarget::Cram => 8,
+                crate::intro_timing::MemoryToVdpDmaTarget::Vram => self.empty_vram_dma_latency,
+                crate::intro_timing::MemoryToVdpDmaTarget::Cram => 8,
             },
             target,
         });
@@ -5037,10 +5044,13 @@ pub fn mode_level_sprite_and_kid_to_vram_cursor_with_scheduler(
     dynamic_art_tiles_loc_ad4: [u16; 6],
     mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
 ) -> Option<TitleMemoryDmaAdvance> {
-    title_memory_dma_routine_cursor_with_scheduler(
+    // ASM sub_A5C frame 902: the selected `$A9A -> $AA0` boundary exposes
+    // jgenesis' seven-slot empty-FIFO VRAM DMA startup.
+    title_memory_dma_routine_cursor_with_scheduler_and_vram_latency(
         entry,
         0,
         true,
+        7,
         |visit| {
             crate::intro_timing::visit_mode_level_sprite_and_kid_to_vram(
                 dynamic_art_tiles_loc_ad4,
@@ -5062,6 +5072,20 @@ pub fn title_mode_standard_scroll_data_to_vram_cursor_with_scheduler(
         0,
         true,
         |visit| crate::intro_timing::visit_mode_standard_scroll_data_to_vram(visit),
+        &mut advance_hardware,
+    )
+}
+
+/// Co-schedule gameplay's selected-PC-exact normal scroll upload.
+pub fn mode_level_scroll_data_to_vram_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        0,
+        true,
+        |visit| crate::intro_timing::visit_mode_level_scroll_data_to_vram(visit),
         &mut advance_hardware,
     )
 }
@@ -5089,7 +5113,28 @@ fn title_memory_dma_routine_cursor_with_scheduler(
     ) -> crate::intro_timing::IntroSourceTiming,
     advance_hardware: &mut dyn FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
 ) -> Option<TitleMemoryDmaAdvance> {
-    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    title_memory_dma_routine_cursor_with_scheduler_and_vram_latency(
+        entry,
+        vint_count,
+        vint_initially_armed,
+        8,
+        visit_timing,
+        advance_hardware,
+    )
+}
+
+fn title_memory_dma_routine_cursor_with_scheduler_and_vram_latency(
+    entry: LoadInGameCpuRasterCursor,
+    vint_count: u8,
+    vint_initially_armed: bool,
+    empty_vram_dma_latency: u8,
+    visit_timing: impl FnOnce(
+        &mut dyn FnMut(crate::intro_timing::MemoryDmaTimingEvent),
+    ) -> crate::intro_timing::IntroSourceTiming,
+    advance_hardware: &mut dyn FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam)
+        .with_empty_vram_dma_latency(empty_vram_dma_latency);
     let mut phase = entry.refresh_phase;
     let mut refresh_events = 0_u32;
     let mut external_wait_cycles = 0_u32;
@@ -8969,6 +9014,58 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(56).unwrap(),
             },
             "ASM Mode_Level $7CC -> $7D0 spans exactly 56 cycles",
+        );
+    }
+
+    #[test]
+    fn first_gameplay_sprite_transfer_reaches_selected_loc_7cc_boundary() {
+        // ASM Mode_Level $7C8 -> sub_A5C -> loc_AD4 -> sub_B52. The
+        // selected frame-902 oracle trace enters $7C8 at cycle 115,442,830
+        // phase 87 and returns to $7CC at cycle 115,445,193 phase 6.
+        let entry_cycles = M68kCycleCount::from_raw(115_442_830);
+        let advance = mode_level_sprite_and_kid_to_vram_cursor_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(87).expect("oracle $7C8 phase"),
+            },
+            [0; 6],
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("first gameplay empty loc_AD4 queue");
+
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_445_193)),
+                refresh_phase: M68kRefreshPhase::new(6).expect("oracle $7CC phase"),
+            },
+            "ASM sub_A5C returns at the selected frame-902 $7CC boundary",
+        );
+    }
+
+    #[test]
+    fn first_gameplay_scroll_transfer_reaches_selected_loc_7d6_boundary() {
+        // ASM Mode_Level $7D0 -> j_Transfer_ScrollDataToVRAM ->
+        // loc_300BA -> sub_924. The selected frame-902 oracle trace enters
+        // $7D0 at cycle 115,445,249 phase 62 and returns to $7D6 at cycle
+        // 115,448,043 phase 16.
+        let entry_cycles = M68kCycleCount::from_raw(115_445_249);
+        let advance = mode_level_scroll_data_to_vram_cursor_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(62).expect("oracle $7D0 phase"),
+            },
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("first gameplay normal loc_300BA scroll path");
+
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_448_043)),
+                refresh_phase: M68kRefreshPhase::new(16).expect("oracle $7D6 phase"),
+            },
+            "ASM loc_300BA returns at the selected frame-902 $7D6 boundary",
         );
     }
 

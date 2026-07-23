@@ -3360,7 +3360,7 @@ pub fn apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
         work.palette_dma_sub_970,
         &mut apply_event,
     )?;
-    let scroll = wildside_core::vdp::title_mode_standard_scroll_data_to_vram_cursor_with_scheduler(
+    let scroll = wildside_core::vdp::mode_level_scroll_data_to_vram_cursor_with_scheduler(
         palette.cursor,
         &mut apply_event,
     )?;

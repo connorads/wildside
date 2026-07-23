@@ -13,6 +13,22 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+2026-07-23 first gameplay prefix exits: a full selected-PC trace replaced the
+approximate `Mode_Level` sprite and scroll instruction arrays. `sub_A5C`
+omitted one `$AAC..loc_AD4` instruction and the outer return after `sub_B52`;
+the scroll path omitted the `$2FFDC` jump wrapper, one VSRAM-path instruction,
+and twelve raw cycles in `sub_924`. The typed gameplay visitors now reach
+`$7CC` at cycle 115,445,193 phase 6 and `$7D6` at cycle 115,448,043 phase 16.
+The empty-FIFO Sprite_Table DMA uses the selected `$A9A -> $AA0` seven-slot
+startup; scroll retains the existing eight-slot startup after its VSRAM
+writes. Frame 902 keeps the defended CRC, bank, pending wait and ownership
+state; its hardware-faithful native Z80 phase advances from `$131E` to
+`$1321` inside the existing narrow X/Y oracle-limitation classification.
+Applying the corrected shared source arrays to the earlier title chain breaks
+a defended frame-71 GEMS boundary, so title retains an explicit
+`TODO(fidelity)` approximation until that chain is re-derived. NEXT: isolate
+the first diamond HUD bank-read split.
+
 2026-07-23 first gameplay palette branch: native now persists ASM
 `PaletteToDMA_Flag` `$FFFFF890` across the `Load_DemoPlay -> Load_InGame`
 handoff. Frame 902 latches the flag before its Mode_Level pass, takes the

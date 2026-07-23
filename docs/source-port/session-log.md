@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 first gameplay prefix exits)
+
+- Selected-PC-exact gameplay visitors now reach `$7CC` at cycle 115,445,193
+  phase 6 and `$7D6` at cycle 115,448,043 phase 16.
+- The source trace found omitted instructions around `loc_AD4`, `sub_B52`,
+  `$2FFDC`, the VSRAM writes, and `sub_924`.
+- Frame 902 retains its defended CRC, bank, wait and ownership state. Its
+  narrow X/Y-limitation Z80 phase moves from `$131E` to `$1321`.
+- The earlier title chain keeps its explicit timing approximation until its
+  defended GEMS boundaries are re-derived.
+- NEXT: isolate the first diamond HUD bank-read split, then compose post-HUD,
+  `loc_892`, and frame 903's `[12]` VBlank.
+
 ## 2026-07-23 handoff (#409 first gameplay palette skip)
 
 - Native persists `PaletteToDMA_Flag` across the Demo 2 Load_InGame handoff.
