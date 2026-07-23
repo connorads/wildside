@@ -121,15 +121,15 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `Obj_TitleMenu` timeout and all sixteen non-negative `Pal_FadeOut` iterations,
 /// frame 854's negative decrement, the final clean-mask fade upload, all of
 /// `loc_700`'s VRAM clear, and the following Sprite_Table clear through frame 867.
-/// Frames 868-889 continue through `loc_726 -> Load_DemoPlay`, the hidden
+/// Frames 868-890 continue through `loc_726 -> Load_DemoPlay`, the hidden
 /// controller allocation, `Load_InGame -> Initialize_Platforms`, and into its
 /// `StopMusic` reset, the following `sub_E133C -> loc_E1576` open/close call,
 /// and the RAM-only map/layout and theme-art decoder work before the first
-/// `loc_14314` VRAM upload.
+/// `loc_14314` VRAM upload, including its first FIFO-paced sample.
 /// The tail remains the coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 890;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 891;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -4123,6 +4123,33 @@ impl GemsSignatureProbe {
             // and write RAM. The first VDP FIFO write is loc_14314 at selected
             // cycle 113,991,654, after frame 889's FrameRendered sample.
             assert_eq!(self.engine.master_clock(), 781_244_280);
+        }
+        if self.power_on_frame == 890 {
+            // ASM Load_InGame DecompressToVRAM loc_14314 begins the first
+            // 2,048-word block-art upload at selected cycle 113,991,654 with
+            // refresh phase 71. FrameRendered lands inside this FIFO-paced
+            // transfer after its instruction-boundary VINT.
+            const TRANSFER_ENTRY_CYCLES: u64 = 113_991_654;
+            self.engine
+                .advance_ntsc_master_clocks(TRANSFER_ENTRY_CYCLES * 7 - self.engine.master_clock());
+            let (transfer, checkpoint) =
+                apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314(
+                    &mut self.engine,
+                    wildside_core::vdp::LoadInGameCpuRasterCursor {
+                        beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                            M68kCycleCount::from_raw(TRANSFER_ENTRY_CYCLES as u32),
+                        ),
+                        refresh_phase: M68kRefreshPhase::new(71)
+                            .expect("oracle block-art loc_14314 refresh phase"),
+                    },
+                    2_048,
+                    1,
+                    wildside_core::vdp::DecompressToVramTransferExit::CompactAndResume,
+                    target,
+                )
+                .expect("block-art chunk 1 transfer spans frame 890");
+            self.power_on_intro_cursor = Some(transfer.cursor);
+            sampled_checkpoint = Some(checkpoint);
         }
         if self.power_on_frame == 174 {
             // ASM DecompressToVRAM loc_14314 uploads byte_26E3D's first
@@ -8547,6 +8574,7 @@ const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
     fresh_title_irq_residue!(887, 4171928418, 4171928418, 0x0B4B, 0x02A5, 0, 0, 0, 0, 16, 16),
     fresh_title_irq_residue!(888, 2426100391, 2952290858, 0x07A9, 0x02A5, 0, 0, 0, 0, 16, 16),
     fresh_title_irq_residue!(889, 1402440090, 1402440090, 0x0C2C, 0x0C28, 0, 0, 0, 2, 16, 16),
+    fresh_title_irq_residue!(890, 3360585425, 3360585425, 0x02A5, 0x0B48, 0, 0, 0, 0, 16, 16),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(

@@ -255,6 +255,16 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: the first block-art VRAM sample advances coverage through
+frame 890. `Load_InGame DecompressToVRAM loc_14314` begins its 2,048-word
+FIFO-paced transfer at selected cycle 113,991,654 with refresh phase 71.
+FrameRendered lands inside the source-modelled transfer after its
+instruction-boundary VINT. The focused 891-frame comparison is green with 856
+evidence-backed limitations and 35 advisory-only frames. Full-route GEMS
+mismatches fall from 36,869 to 36,868 and the frontier moves to frame 891;
+other evidence is unchanged. `verify-slice-fast` passes. NEXT: resume the
+loader after this first upload.
+
 Progress 2026-07-23: RAM-only loader coverage advances through frame 889.
 Selected-PC tracing places `loc_11C96` in frame 877, `loc_11D42` in frame 878,
 the palette/theme path through `loc_11E60` in frame 879, `loc_11EA2` in frame

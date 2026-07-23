@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 first block-art upload)
+
+- Defended GEMS coverage advances to frames 0..890; frame 891 follows the
+  first `Load_InGame DecompressToVRAM` upload.
+- `loc_14314` starts 2,048 FIFO-paced words at cycle 113,991,654, refresh phase
+  71. Frame 890 is sampled inside that source-modelled transfer after VINT.
+- The focused comparison is green with 856 evidence-backed limitations and 35
+  advisory-only frames. Full mismatches fall from 36,869 to 36,868.
+- Gameplay, enemy, RNG, and pixel evidence is unchanged; the fast gate passes.
+- NEXT: resume the loader after the first upload.
+
 ## 2026-07-23 handoff (#416 RAM-only theme decoders)
 
 - Defended GEMS coverage advances to frames 0..889; frame 890 is inside the
