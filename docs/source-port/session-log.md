@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 Kid-projectile collision wrapper)
+
+- `sub_1D76` now preserves every instruction across both empty `sub_1D84`
+  child-list calls.
+- Its 144 raw cycles reach exact phases 66/122/12 with 1/1/2 refresh waits
+  and no GEMS waits on frames 1697/1703/1709.
+- Seventeen of 22 post-HUD phases are now source-scheduled.
+- NEXT: source-schedule the typed terrain walk in `sub_1FA2` from `loc_876`.
+
 ## 2026-07-23 handoff (#409 remaining GfxObject-Kid collisions)
 
 - The empty `$F86A` and live `$F86E` `sub_1B76` calls now preserve every

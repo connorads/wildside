@@ -1889,6 +1889,14 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: the empty-list `sub_1D76` wrapper is now
+instruction-scheduled from `Mode_Level loc_872` through both `sub_1D84`
+calls. Its 144 raw cycles including the caller reproduce phases 48->66,
+104->122, and 120->12 with 1/1/2 refresh waits and no GEMS waits on frames
+1697/1703/1709. Seventeen of 22 post-HUD phases now preserve exact source
+instruction boundaries. NEXT: source-schedule the typed terrain walk in
+`sub_1FA2` from `loc_876`.
+
 Progress 2026-07-23: both remaining `GfxObjects_CollisionKid sub_1B76`
 passes are instruction-scheduled. The empty `$F86A` call advances frame 1697
 from `loc_862` phase 28 to `loc_86A` phase 94 with one refresh wait and no

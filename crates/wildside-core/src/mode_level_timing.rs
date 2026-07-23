@@ -3094,17 +3094,70 @@ pub fn diamond_power_compile_sprites_raw_cycles_sub_3f798(
     Some(M68kCycleCount::from_raw(56))
 }
 
-/// Raw routine-body cost for ASM Kid-projectile collision wrapper `sub_1D76`.
-pub fn kid_projectile_collision_raw_cycles_sub_1d76(
+fn visit_kid_projectile_collision_instructions_sub_1d76(
     work: ModeLevelKidProjectileCollisionWorkSub1D76,
-) -> Option<M68kCycleCount> {
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
     if work.kid_projectile_object_count != 0 || work.diamond_power_object_count != 0 {
         return None;
     }
 
-    // ASM sub_1D76/sub_1D84: both `$FFFFF862` and `$FFFFF5A0` sentinels
-    // have clear successor links, so each pass returns after its first load.
-    Some(M68kCycleCount::from_raw(126))
+    // ASM Mode_Level loc_872 BSR, then sub_1D76/sub_1D84: both `$FFFFF862`
+    // and `$FFFFF5A0` sentinels have clear successor links, so each pass
+    // returns after its first load.
+    for cycles in [18, 8, 4, 18, 16, 10, 16, 8, 4, 16, 10, 16] {
+        visit(cycles)?;
+    }
+    Some(())
+}
+
+/// Raw routine-body cost for ASM Kid-projectile collision wrapper `sub_1D76`.
+pub fn kid_projectile_collision_raw_cycles_sub_1d76(
+    work: ModeLevelKidProjectileCollisionWorkSub1D76,
+) -> Option<M68kCycleCount> {
+    let mut raw_cycles = 0_u32;
+    visit_kid_projectile_collision_instructions_sub_1d76(work, |instruction_cycles| {
+        raw_cycles = raw_cycles.checked_add(instruction_cycles)?;
+        Some(())
+    })?;
+    raw_cycles.checked_sub(18).map(M68kCycleCount::from_raw)
+}
+
+/// Co-schedule ASM `Mode_Level loc_872 -> sub_1D76 -> loc_876` with
+/// asynchronous hardware.
+pub fn kid_projectile_collision_advance_with_scheduler_sub_1d76(
+    mut phase: M68kRefreshPhase,
+    work: ModeLevelKidProjectileCollisionWorkSub1D76,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    visit_kid_projectile_collision_instructions_sub_1d76(work, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+        Some(())
+    })?;
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
 }
 
 fn visit_gfx_objects_collision_instructions_sub_16f0(
@@ -4571,6 +4624,23 @@ mod tests {
             kid_projectile_collision_raw_cycles_sub_1d76(empty),
             Some(M68kCycleCount::from_raw(126))
         );
+        for (phase, elapsed, refresh_events, phase_after) in
+            [(48, 146, 1, 66), (104, 146, 1, 122), (120, 148, 2, 12)]
+        {
+            let advance = kid_projectile_collision_advance_with_scheduler_sub_1d76(
+                M68kRefreshPhase::new(phase).expect("published loc_872 phase"),
+                empty,
+                |_| Some(M68kCycleCount::from_raw(0)),
+            )
+            .expect("published empty Kid-projectile and Diamond Power lists");
+            assert_eq!(advance.elapsed, M68kCycleCount::from_raw(elapsed));
+            assert_eq!(advance.refresh_events, refresh_events);
+            assert_eq!(
+                advance.phase_after,
+                M68kRefreshPhase::new(phase_after).expect("published loc_876 phase"),
+                "ASM sub_1D76 oracle frames 1697/1703/1709",
+            );
+        }
         assert_eq!(
             kid_projectile_collision_raw_cycles_sub_1d76(
                 ModeLevelKidProjectileCollisionWorkSub1D76 {
