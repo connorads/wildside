@@ -121,13 +121,13 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `Obj_TitleMenu` timeout and all sixteen non-negative `Pal_FadeOut` iterations,
 /// frame 854's negative decrement, the final clean-mask fade upload, all of
 /// `loc_700`'s VRAM clear, and the following Sprite_Table clear through frame 867.
-/// Frames 868-869 continue through `loc_726 -> Load_DemoPlay`, the hidden
+/// Frames 868-870 continue through `loc_726 -> Load_DemoPlay`, the hidden
 /// controller allocation, `Load_InGame -> Initialize_Platforms`, and into its
-/// `StopMusic` reset.
+/// `StopMusic` reset and following `sub_E133C -> loc_E1576` open/close call.
 /// The tail remains the coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 870;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 871;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -4075,6 +4075,37 @@ impl GemsSignatureProbe {
                 timing,
                 stop_music_entry_master_clock,
             ));
+        }
+        if self.power_on_frame == 870 {
+            // ASM StopMusic returns to Load_InGame $11A24 at selected cycle
+            // 111,460,847. The loader pushes command $0F and calls sub_E133C;
+            // loc_E1576 enters the open/close queue path at cycle 111,460,899.
+            // No further audio or VDP ownership change precedes FrameRendered.
+            let mut stop_music = self
+                .power_on_stop_music
+                .take()
+                .expect("Load_InGame StopMusic spans frame 869");
+            let stop_music_end_master_clock = stop_music
+                .end_master_clock()
+                .expect("Load_InGame StopMusic end fits u64");
+            stop_music
+                .advance_to_master_clock(&mut self.engine, stop_music_end_master_clock)
+                .expect("StopMusic returns to Load_InGame $11A24");
+            assert_eq!(self.engine.master_clock(), 111_460_847 * 7);
+
+            const OPEN_CLOSE_ENTRY_CYCLES: u64 = 111_460_899;
+            self.engine.advance_ntsc_master_clocks(
+                OPEN_CLOSE_ENTRY_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let open_close = apply_timed_gems_queue_command(
+                &mut self.engine,
+                GemsQueueCommandPath::OpenCloseSubE1576,
+                M68kRefreshPhase::new(4).expect("loc_E1576 refresh phase"),
+                None,
+            )
+            .expect("ASM sub_E133C -> loc_E1576 open/close schedule");
+            assert_eq!(self.engine.master_clock(), 111_461_222 * 7);
+            assert_eq!(open_close.phase_after.get(), 71);
         }
         if self.power_on_frame == 174 {
             // ASM DecompressToVRAM loc_14314 uploads byte_26E3D's first
@@ -8479,6 +8510,7 @@ const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
     fresh_title_irq_residue!(867, 909533902, 2708731624, 0x016F, 0x07A9, 0, 0, 0, 0, 16, 16),
     fresh_title_irq_residue!(868, 2906889959, 3787654350, 0x01C8, 0x01CC, 0, 0, 0, 0, 16, 16),
     fresh_title_irq_residue!(869, 2822579535, 901776353, 0x0044, 0x02A5, 0, 0, 1, 1, 2, 18),
+    fresh_title_irq_residue!(870, 179711852, 179711852, 0x07C8, 0x07B3, 0, 0, 0, 0, 16, 16),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(

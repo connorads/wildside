@@ -255,6 +255,18 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: `Load_InGame` open/close coverage advances through frame
+870. The pauseable `StopMusic` cursor returns to caller `$11A24` at selected
+cycle 111,460,847. The loader enters `sub_E133C -> loc_E1576` at 111,460,899;
+the existing source-timed open/close queue path returns at 111,461,222 with
+refresh phase 71. No further audio or VDP ownership change precedes that
+frame's sample. The focused 871-frame comparison is green with 836
+evidence-backed limitations and 35 advisory-only frames. Full-route GEMS
+mismatches fall from 36,889 to 36,888 and the frontier moves to frame 871;
+gameplay, enemy, RNG, and pixels remain unchanged. `verify-slice-fast` passes;
+the full gate confirms the monotonic GEMS improvement. NEXT: trace the
+remaining synchronous `Load_InGame` work after the open/close call.
+
 Progress 2026-07-23: demo bootstrap coverage advances through frame 869.
 Selected-PC tracing pins `loc_726` at cycle 111,176,008,
 `Load_DemoPlay loc_119B6` at 111,181,714, `Load_InGame $11A0E` at

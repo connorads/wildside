@@ -3385,6 +3385,12 @@ impl TimedGemsStopMusicCursor {
         }
     }
 
+    pub fn end_master_clock(&self) -> Option<u64> {
+        self.entry_master_clock.checked_add(
+            u64::from(self.timing.elapsed_cycles.get()).checked_mul(Self::MCLK_PER_M68K_CYCLE)?,
+        )
+    }
+
     /// Advance a source-positioned `StopMusic` call, pausing safely at an
     /// arbitrary master-clock sample such as oracle `FrameRendered`.
     pub fn advance_to_master_clock(

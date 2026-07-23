@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 Load_InGame open/close)
+
+- Defended GEMS coverage advances to frames 0..870; frame 871 remains in the
+  synchronous `Load_InGame` loader.
+- `StopMusic` returns to `$11A24` at cycle 111,460,847; the following
+  `sub_E133C -> loc_E1576` open/close transaction runs from cycle 111,460,899
+  to 111,461,222 and leaves refresh phase 71.
+- The focused 871-frame comparison is green with 836 evidence-backed
+  limitations and 35 advisory-only frames.
+- Full-route GEMS mismatches fall from 36,889 to 36,888 and the frontier moves
+  from frame 870 to 871; gameplay, enemy, RNG, and pixel evidence is unchanged.
+- `verify-slice-fast` passes; the full gate confirms the monotonic GEMS gain.
+- NEXT: source-model the remaining synchronous `Load_InGame` work after the
+  open/close call.
+
 ## 2026-07-23 handoff (#416 demo bootstrap)
 
 - Defended GEMS coverage advances to frames 0..869; frame 870 is the first
