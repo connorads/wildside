@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#406 terminal flash list order)
+
+- Oracle frame 1705 displays frame 1704's Sprite_Table: terminal `$2EA` is
+  SAT slot 16 before the later `$2E1` flash at slot 20.
+- Native appended the transferred terminal entry, reversing first-opaque
+  priority on 24 pixels. Stable `loc_FD4` insertion makes frame 1705 exact.
+- Full RGB is 26,395 exact / 11,364 divergent / 3,619,948 changed pixels.
+- Gameplay, enemy, RNG and GEMS evidence do not regress.
+- NEXT: #406 frame 1706's one-pixel HUD Diamond residue; #409 frame 1709's
+  mixed life-icon raster; GEMS frame 904.
+
 ## 2026-07-23 handoff (#409 life-icon visible-page bound)
 
 - Source-ordered VINT, VBlank and pre-HUD work prove earliest `loc_4586` FIFO

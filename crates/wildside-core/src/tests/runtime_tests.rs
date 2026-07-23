@@ -280,6 +280,44 @@ fn published_tas_life_icon_upload_lower_bound_separates_late_and_visible_commits
 }
 
 #[test]
+fn published_tas_frame_1705_exposes_loc_102b8_flash_clock() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut observed = Vec::new();
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1707) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if (1_704..=1_705).contains(&frame_index) {
+            observed.push((
+                frame_index,
+                trace.prize_block_spawn_flashes,
+                trace
+                    .floating_items
+                    .into_iter()
+                    .filter(|&(x_px, _, _, content_id)| x_px == 536 && content_id == 0)
+                    .collect::<Vec<_>>(),
+            ));
+        }
+    }
+    assert_eq!(
+        observed,
+        vec![
+            (
+                1_704,
+                vec![(536, 56, 1), (520, 56, 11), (504, 56, 18), (488, 56, 24)],
+                vec![(536, 85, 477, 0)],
+            ),
+            (
+                1_705,
+                vec![(520, 56, 10), (504, 56, 17), (488, 56, 23)],
+                vec![(536, 86, 476, 0)],
+            ),
+        ],
+        "ASM loc_102B8 terminates while PrizeDiamond_Init loc_10396 remains live",
+    );
+}
+
+#[test]
 fn published_tas_helpers_expose_source_ordered_post_hud_work_loc_80c() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;

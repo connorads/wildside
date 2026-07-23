@@ -5909,6 +5909,23 @@ Do not retry a countdown-only or blanket wobble SAT rule; capture the complete
 transferred Sprite_Table source or constrain arbitration from source-proven
 counterpart ordering first.
 
+Progress 2026-07-23 (terminal `loc_102B8` list order): oracle frame 1705
+displays the Sprite_Table built on frame 1704. Its retained `$2EA` entry is
+SAT slot 16, before the later live `$2E1` flash at slot 20. Native retained
+the terminal worker but appended it after every current flash, reversing VDP
+first-opaque arbitration on 24 overlap pixels. The renderer now inserts the
+transferred entry at the head of the flash family, preserving
+`Allocate_GfxObjectSlot loc_FD4`'s stable equal-priority order. A focused
+source test pins terminal-before-later-flash ordering and a cache-backed route
+test pins the `loc_102B8` deletion boundary.
+
+Frame 1705 is exact; frames 1404..1442 remain 39/39 exact. Full TAS improves
+from 26,384 to 26,395 exact frames, 11,375 to 11,364 divergent frames, and
+3,620,956 to 3,619,948 changed pixel instances. First mismatch advances to
+frame 1706's one-pixel HUD Diamond residue. All 37,759 player/camera and
+gameplay checkpoints, all 37,743 post-`Init_RNG` frames, and the enemy frontier
+remain exact; GEMS evidence is unchanged. #406 remains open.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

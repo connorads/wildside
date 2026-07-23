@@ -1512,11 +1512,9 @@ fn latch_previous_sprite_sources_loc_901(
         render_trace.prize_diamond_hud_flight_transferred_loc_fe3e = true;
     }
     // ASM Mode_Level loc_901 transfers the prior Sprite_Table before the
-    // loc_102B8 worker's terminating wake removes its GfxObject. The renderer's
-    // calibrated live flash clock owns normal page transitions, but a trace
-    // no longer contains the worker on this final display VBlank. Retain just
-    // that final `$2EA` entry (remaining=1) until the transfer has presented
-    // it; do not latch earlier pages or their `$2CF/$2D8/$2E1` boundaries.
+    // loc_102B8 worker's terminating wake removes its GfxObject. The retained
+    // `$2EA` entry keeps its earlier loc_FD4 list position before flashes
+    // allocated later; appending it would reverse VDP first-opaque priority.
     for previous_flash in previous_trace
         .prize_block_spawn_flashes
         .iter()
@@ -1526,9 +1524,12 @@ fn latch_previous_sprite_sources_loc_901(
             .prize_block_spawn_flashes
             .iter()
             .any(|&(x_px, y_px, _)| x_px == previous_flash.0 && y_px == previous_flash.1);
-        if !current_has_same_worker {
-            render_trace.prize_block_spawn_flashes.push(*previous_flash);
+        if current_has_same_worker {
+            continue;
         }
+        render_trace
+            .prize_block_spawn_flashes
+            .insert(0, *previous_flash);
     }
 
     // ASM Mode_Level loc_901 transfers the already-built debris sprites.
@@ -9771,6 +9772,17 @@ mod tests {
             terminated.prize_block_spawn_flashes,
             vec![(72, 568, 1)],
             "ASM Mode_Level loc_901 transfers loc_102B8's final `$2EA` Sprite_Table entry after the worker deletes"
+        );
+
+        let mut later_flash = NativeTraceFrame {
+            prize_block_spawn_flashes: vec![(56, 568, 10)],
+            ..NativeTraceFrame::default()
+        };
+        latch_previous_sprite_sources_loc_901(&mut later_flash, &previous_trace);
+        assert_eq!(
+            later_flash.prize_block_spawn_flashes,
+            vec![(72, 568, 1), (56, 568, 10)],
+            "ASM Allocate_GfxObjectSlot loc_FD4 keeps the transferred terminal entry before a later loc_102B8 worker"
         );
 
         let mut next_page = NativeTraceFrame {
