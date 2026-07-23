@@ -3260,6 +3260,168 @@ pub struct TitleMemoryDmaAdvance {
 pub type TitlePaletteHardwareEvent = TitleMemoryDmaHardwareEvent;
 pub type TitlePaletteToVramAdvance = TitleMemoryDmaAdvance;
 
+/// CPU/raster result from the first gameplay ASM `loc_892 -> sub_30194`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelTailCameraStripeAdvance {
+    pub cursor: LoadInGameCpuRasterCursor,
+    pub raw_cycles: M68kCycleCount,
+    pub refresh_events: u32,
+    pub external_wait_cycles: M68kCycleCount,
+    pub fifo_halted_ticks: M68kCycleCount,
+}
+
+#[derive(Debug, Default)]
+struct ModeLevelTailCameraCounters {
+    refresh_events: u32,
+    external_wait_cycles: u32,
+    fifo_halted_ticks: u32,
+}
+
+fn advance_mode_level_tail_camera_source_instruction(
+    raw_cycles: u32,
+    written_words: u8,
+    fifo: &mut PlatformArtFifoScheduler,
+    phase: &mut M68kRefreshPhase,
+    counters: &mut ModeLevelTailCameraCounters,
+    advance_hardware: &mut dyn FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<()> {
+    let phase_after_raw = u32::from(phase.get()).checked_add(raw_cycles)?;
+    let refresh_wait_cycles = if phase_after_raw >= 128 { 2 } else { 0 };
+    *phase = M68kRefreshPhase::new(
+        u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+    )
+    .expect("refresh phase remains below 128");
+    counters.refresh_events = counters
+        .refresh_events
+        .checked_add(refresh_wait_cycles / 2)?;
+
+    let raw = M68kCycleCount::from_raw(raw_cycles);
+    fifo.advance_m68k_cycles(raw);
+    let generated_wait = advance_hardware(raw, false, true)?.get();
+    counters.external_wait_cycles = counters.external_wait_cycles.checked_add(generated_wait)?;
+    let mut pending_wait = generated_wait.checked_add(refresh_wait_cycles)?;
+
+    for _ in 0..written_words {
+        fifo.push_word();
+    }
+
+    while pending_wait != 0 {
+        let wait = M68kCycleCount::from_raw(pending_wait);
+        let vdp_owns_bus = fifo.pending_words != 0;
+        fifo.advance_m68k_cycles(wait);
+        *phase = phase.advance_external_wait(wait).phase_after;
+        let chained_wait = advance_hardware(wait, vdp_owns_bus, false)?.get();
+        if vdp_owns_bus && chained_wait != 0 {
+            return None;
+        }
+        counters.external_wait_cycles = counters.external_wait_cycles.checked_add(chained_wait)?;
+        pending_wait = chained_wait;
+    }
+
+    while fifo.pending_words != 0 {
+        let halt = M68kCycleCount::from_raw(1);
+        fifo.advance_m68k_cycles(halt);
+        if advance_hardware(halt, true, false)?.get() != 0 {
+            return None;
+        }
+        counters.fifo_halted_ticks = counters.fifo_halted_ticks.checked_add(1)?;
+        // jgenesis resets the approximate refresh counter on every VDP-owned
+        // 68000 retry tick.
+        *phase = M68kRefreshPhase::new(0).expect("zero is a valid refresh phase");
+    }
+
+    Some(())
+}
+
+/// Co-schedule the first gameplay ASM `loc_892 -> sub_30194` camera stripe.
+///
+/// The source visitor currently accepts only the frame-902 branch fixed by
+/// the oracle trace: 20 ordinary `loc_30354` cells and one `loc_3037C` block
+/// cell. Each `MOVE.L` enqueues two VDP words before FIFO-full retry ticks and
+/// asynchronous hardware waits are drained at that instruction boundary.
+pub fn mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    work: crate::ModeLevelTailCameraStripeSub30194,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<ModeLevelTailCameraStripeAdvance> {
+    if work
+        != (crate::ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+            ordinary_theme_cells: 20,
+            priority_theme_cells: 0,
+            block_cells: 1,
+        })
+    {
+        return None;
+    }
+
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+    let mut raw_cycles = 0_u32;
+    let mut counters = ModeLevelTailCameraCounters::default();
+    let mut advance = |cycles: u32, written_words: u8| {
+        raw_cycles = raw_cycles.checked_add(cycles)?;
+        advance_mode_level_tail_camera_source_instruction(
+            cycles,
+            written_words,
+            &mut fifo,
+            &mut phase,
+            &mut counters,
+            &mut advance_hardware,
+        )
+    };
+
+    // ASM loc_892 JSR, j_sub_30194 JMP, and sub_30194 through the
+    // `sub_3034A` call and prologue.
+    const PRELUDE: [u8; 49] = [
+        20, 10, 12, 12, 12, 12, 12, 8, 12, 12, 4, 4, 12, 16, 12, 10, 4, 8, 8, 8, 8, 4, 14, 4, 8, 8,
+        8, 8, 8, 8, 4, 4, 10, 4, 8, 20, 4, 4, 4, 8, 4, 8, 8, 16, 12, 4, 18, 8, 12,
+    ];
+    for cycles in PRELUDE {
+        advance(u32::from(cycles), 0)?;
+    }
+
+    const ORDINARY_CELL: [u8; 8] = [8, 8, 6, 8, 4, 12, 26, 10];
+    const BLOCK_CELL: [u8; 6] = [8, 10, 4, 12, 26, 10];
+    for cell_index in 0..21 {
+        let cell = if cell_index == 4 {
+            BLOCK_CELL.as_slice()
+        } else {
+            ORDINARY_CELL.as_slice()
+        };
+        for (instruction_index, &cycles) in cell.iter().enumerate() {
+            let is_move_long = match cell.len() {
+                8 => instruction_index == 6,
+                6 => instruction_index == 4,
+                _ => unreachable!("camera stripe cell path is fixed"),
+            };
+            let is_final_dbf = cell_index == 20 && instruction_index + 1 == cell.len();
+            advance(
+                u32::from(if is_final_dbf { 14 } else { cycles }),
+                if is_move_long { 2 } else { 0 },
+            )?;
+        }
+    }
+    // ASM sub_3034A RTS.
+    advance(16, 0)?;
+
+    // ASM loc_30224..loc_302E8 and sub_30194 RTS.
+    const EPILOGUE: [u8; 13] = [4, 12, 4, 10, 8, 12, 12, 4, 4, 10, 20, 20, 16];
+    for cycles in EPILOGUE {
+        advance(u32::from(cycles), 0)?;
+    }
+
+    Some(ModeLevelTailCameraStripeAdvance {
+        cursor: LoadInGameCpuRasterCursor {
+            beam: fifo.beam,
+            refresh_phase: phase,
+        },
+        raw_cycles: M68kCycleCount::from_raw(raw_cycles),
+        refresh_events: counters.refresh_events,
+        external_wait_cycles: M68kCycleCount::from_raw(counters.external_wait_cycles),
+        fifo_halted_ticks: M68kCycleCount::from_raw(counters.fifo_halted_ticks),
+    })
+}
+
 fn advance_decompress_to_vram_source_instruction(
     raw_cycles: u32,
     fifo: &mut PlatformArtFifoScheduler,
@@ -8290,6 +8452,43 @@ mod tests {
             advance.cursor.beam.scanline_mclk(),
             1_688,
             "ASM V_Int and MainGameLoop dispatch retain the exact no-Z80 H40 boundary"
+        );
+    }
+
+    #[test]
+    fn first_gameplay_camera_stripe_matches_frame_902_fifo_trace() {
+        let entry_cycles = M68kCycleCount::from_raw(115_485_728);
+        let advance = mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                // ASM Mode_Level loc_892: oracle frame 902 enters the camera
+                // stripe JSR at scanline 50, H40 pixel 127.
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(95).expect("oracle loc_892 phase"),
+            },
+            crate::ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+                ordinary_theme_cells: 20,
+                priority_theme_cells: 0,
+                block_cells: 1,
+            },
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("ASM sub_30194 frame-902 branch is source-scheduled");
+
+        assert_eq!(advance.raw_cycles.get(), 2_312);
+        assert_eq!(
+            advance.fifo_halted_ticks.get(),
+            409,
+            "ASM loc_30360/loc_30380: oracle records 391+18 VDP-owned retry ticks",
+        );
+        assert_eq!(advance.refresh_events, 8);
+        assert_eq!(advance.external_wait_cycles.get(), 0);
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_488_465)),
+                refresh_phase: M68kRefreshPhase::new(40).expect("oracle loc_898 refresh phase"),
+            },
+            "ASM loc_898 follows 2,312 raw + 409 FIFO + 16 refresh cycles",
         );
     }
 

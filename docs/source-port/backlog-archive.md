@@ -1889,6 +1889,12 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: the first gameplay `sub_30194` branch now has an
+instruction/FIFO scheduler. Starting at frame 902's `loc_892` cursor it
+reproduces 2,312 raw cycles, all 21 longword writes, the oracle's 391+18 FIFO
+retry ticks, 8 refresh events, and the exact `loc_898` boundary. NEXT:
+source-schedule `loc_3038A` and the two full `sub_1536` palette passes.
+
 Correction 2026-07-23: the frame-895 calls below are the final
 `Load_InGame loc_2FFE8` preload calls, not the first gameplay `loc_892` pass.
 The complete frame-902 PC trace fixes the real pass at 31,176 raw and 33,218

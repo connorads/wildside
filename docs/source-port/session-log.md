@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 camera FIFO schedule)
+
+- The first gameplay `sub_30194` branch is scheduled instruction by
+  instruction from frame 902's `loc_892` cursor.
+- It reproduces 2,312 raw cycles, 391+18 FIFO retry ticks, 8 refresh events,
+  and the exact `loc_898` boundary.
+- NEXT: source-schedule `loc_3038A` and both full `sub_1536` palette passes.
+
 ## 2026-07-23 handoff (#409 actual first gameplay tail)
 
 - The complete frame-902 trace fixes the first gameplay `loc_892` pass at
