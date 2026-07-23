@@ -13,6 +13,20 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+2026-07-23 frame-904 dynamic-art DMA: selected-PC evidence pins the third
+gameplay `sub_A5C` span from `Mode_Level $7C8` at cycle 115,698,837 to `$7CC`
+at 115,702,434. Unlike frame 902's empty `loc_AD4` queue, this pass consumes
+the preceding `sub_1492 -> sub_13C0 loc_141A` 12-tile Kid mapping. The VDP
+scheduler now keeps distinct effective first and following VRAM-DMA startup
+latencies, including the later control-write placement hidden by its
+instruction-granular interface. Focused tests pin both the empty frame-902 and
+12-tile frame-904 boundaries; `verify-slice-fast` passes 7,053 core tests.
+The corrected DMA phase exposes one native 11-cycle bank wait at frame 903's
+raster sample, directly downstream of the already defended GEMS X/Y split;
+the oracle limitation now pins that wait as well as RAM and PC.
+The remaining frame-904 prefix debt is now isolated to active `sub_970`,
+`loc_300BA`, and the divergent GEMS bank-wait stream before `loc_7D6`.
+
 2026-07-23 Diamond DMA raster consumer: frame 1706 differs only at HUD pixel
 `(296,36)`. Oracle `$DD40..$DF3F` commits start at H40 `18:172` and finish at
 `46:300`; the displayed `$DE88/$DE8A` words commit at `36:268/300`, after the

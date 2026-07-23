@@ -9738,9 +9738,11 @@ fn gems_divergence_matches_documented_oracle_limitation(
             == (GemsFrameSignature::STATUS_BUSREQ | GemsFrameSignature::STATUS_VDP_OWNS_BUS);
     // ORACLE LIMITATION: the same established jgenesis undocumented-X/Y
     // split remains visible one frame later after both machines consume
-    // loc_AD4 tile $0C. Source scheduling agrees on bank, zero wait debt and
-    // clear bus/reset status at the frame-903 raster sample.
-    let second_mode_level_prefix_oracle_z80_phase = diverging == ["audio_ram_crc32", "z80_pc"]
+    // loc_AD4 tile $0C. The hardware-exact later DMA startup lets native's
+    // divergent Z80 phase raise one 11-cycle bank wait at the raster sample;
+    // bank and bus/reset status still agree.
+    let second_mode_level_prefix_oracle_z80_phase = diverging
+        == ["audio_ram_crc32", "z80_pc", "pending_m68k_wait_cycles"]
         && frame_index == 903
         && native.audio_ram_crc32 == 1_429_088_040
         && oracle.audio_ram_crc32 == 1_297_045_948
@@ -9750,7 +9752,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
         && oracle.z80_pc == 0x025B
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
-        && native.pending_m68k_wait_cycles == 0
+        && native.pending_m68k_wait_cycles == 11
         && oracle.pending_m68k_wait_cycles == 0
         && native.status_bits == 0
         && oracle.status_bits == 0;
@@ -10090,8 +10092,8 @@ mod tests {
                 frame_903.pending_m68k_wait_cycles,
                 frame_903.status_bits,
             ),
-            (1_429_088_040, 0x000E_0000, 0x0273, 0, 0),
-            "ASM Mode_Level frame 903 retains the exact loc_7D6 handoff and consumes loc_AD4 tile $0C; the defended native GEMS X/Y split remains visible in RAM and PC",
+            (1_429_088_040, 0x000E_0000, 0x0273, 11, 0),
+            "ASM Mode_Level frame 903 consumes loc_AD4 tile $0C; the defended native GEMS X/Y split remains visible in RAM, PC, and one bank wait",
         );
     }
 
@@ -11139,11 +11141,12 @@ mod tests {
     #[test]
     fn frame_903_source_scheduled_mode_level_pass_is_the_xy_flag_oracle_limitation() {
         // ASM Mode_Level loc_7C8 -> loc_892: both machines consume loc_AD4
-        // tile $0C with no wait debt; only the established GEMS SUB X/Y
-        // register split remains in audio RAM and the Z80 PC.
+        // tile $0C; the established GEMS SUB X/Y register split remains in
+        // audio RAM, the Z80 PC, and one native 11-cycle bank wait.
         let mut native = signature(0x0273);
         native.audio_ram_crc32 = 1_429_088_040;
         native.bank_address = 0x000E_0000;
+        native.pending_m68k_wait_cycles = 11;
         native.status_bits = 0;
         let mut oracle = signature(0x025B);
         oracle.audio_ram_crc32 = 1_297_045_948;

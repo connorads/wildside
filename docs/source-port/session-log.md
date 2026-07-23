@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 frame-904 dynamic-art DMA)
+
+- Oracle pins frame 904 `sub_A5C` from `$7C8` cycle 115,698,837 to `$7CC`
+  cycle 115,702,434 with one 12-tile `loc_AD4` upload.
+- The VDP scheduler now distinguishes the first sprite-table DMA startup from
+  later Kid-art DMA startup in the same routine.
+- The corrected phase exposes one 11-cycle frame-903 bank wait downstream of
+  the defended GEMS X/Y split.
+- Focused frame-902 and frame-904 boundaries pass; `verify-slice-fast` passes
+  7,053 core tests.
+- NEXT: resolve frame 904's active palette, normal scroll, and GEMS-wait
+  intervals to reach oracle `loc_7D6` cycle 115,705,788.
+
 ## 2026-07-23 handoff (#409 Diamond DMA raster consumer)
 
 - Oracle frame 1706 commits `$DD40..$DF3F` from H40 `18:172` through

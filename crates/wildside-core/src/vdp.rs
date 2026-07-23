@@ -3081,6 +3081,8 @@ struct PlatformArtFifoScheduler {
     entries: std::collections::VecDeque<PlatformArtFifoEntry>,
     pending_words: u8,
     empty_vram_dma_latency: u8,
+    following_empty_vram_dma_latency: u8,
+    memory_dma_count: u8,
     memory_dma: Option<MemoryToVdpDma>,
 }
 
@@ -3099,12 +3101,19 @@ impl PlatformArtFifoScheduler {
             entries: std::collections::VecDeque::with_capacity(4),
             pending_words: 0,
             empty_vram_dma_latency: 8,
+            following_empty_vram_dma_latency: 8,
+            memory_dma_count: 0,
             memory_dma: None,
         }
     }
 
     fn with_empty_vram_dma_latency(mut self, latency: u8) -> Self {
         self.empty_vram_dma_latency = latency;
+        self
+    }
+
+    fn with_following_empty_vram_dma_latency(mut self, latency: u8) -> Self {
+        self.following_empty_vram_dma_latency = latency;
         self
     }
 
@@ -3129,11 +3138,17 @@ impl PlatformArtFifoScheduler {
     fn begin_memory_dma(&mut self, words: u16, target: crate::intro_timing::MemoryToVdpDmaTarget) {
         assert_ne!(words, 0, "zero-length VDP DMA means 65,536 words");
         assert!(self.memory_dma.is_none(), "VDP DMA cannot overlap");
+        let vram_latency = if self.memory_dma_count == 0 {
+            self.empty_vram_dma_latency
+        } else {
+            self.following_empty_vram_dma_latency
+        };
+        self.memory_dma_count = self.memory_dma_count.saturating_add(1);
         self.memory_dma = Some(MemoryToVdpDma {
             words_remaining: words,
             latency: match target {
                 crate::intro_timing::MemoryToVdpDmaTarget::Vsram => 5,
-                crate::intro_timing::MemoryToVdpDmaTarget::Vram => self.empty_vram_dma_latency,
+                crate::intro_timing::MemoryToVdpDmaTarget::Vram => vram_latency,
                 crate::intro_timing::MemoryToVdpDmaTarget::Cram => 8,
             },
             target,
@@ -5064,13 +5079,16 @@ pub fn mode_level_sprite_and_kid_to_vram_cursor_with_scheduler(
     dynamic_art_tiles_loc_ad4: [u16; 6],
     mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
 ) -> Option<TitleMemoryDmaAdvance> {
-    // ASM sub_A5C frame 902: the selected `$A9A -> $AA0` boundary exposes
-    // jgenesis' seven-slot empty-FIFO VRAM DMA startup.
+    // ASM sub_A5C selected-PC traces expose distinct effective startup
+    // latencies for the first sprite-table DMA and later loc_AD4 DMA. The
+    // latter includes the control-write placement hidden by this
+    // instruction-granular scheduler.
     title_memory_dma_routine_cursor_with_scheduler_and_vram_latency(
         entry,
         0,
         true,
         7,
+        19,
         |visit| {
             crate::intro_timing::visit_mode_level_sprite_and_kid_to_vram(
                 dynamic_art_tiles_loc_ad4,
@@ -5138,6 +5156,7 @@ fn title_memory_dma_routine_cursor_with_scheduler(
         vint_count,
         vint_initially_armed,
         8,
+        8,
         visit_timing,
         advance_hardware,
     )
@@ -5148,13 +5167,15 @@ fn title_memory_dma_routine_cursor_with_scheduler_and_vram_latency(
     vint_count: u8,
     vint_initially_armed: bool,
     empty_vram_dma_latency: u8,
+    following_empty_vram_dma_latency: u8,
     visit_timing: impl FnOnce(
         &mut dyn FnMut(crate::intro_timing::MemoryDmaTimingEvent),
     ) -> crate::intro_timing::IntroSourceTiming,
     advance_hardware: &mut dyn FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
 ) -> Option<TitleMemoryDmaAdvance> {
     let mut fifo = PlatformArtFifoScheduler::new(entry.beam)
-        .with_empty_vram_dma_latency(empty_vram_dma_latency);
+        .with_empty_vram_dma_latency(empty_vram_dma_latency)
+        .with_following_empty_vram_dma_latency(following_empty_vram_dma_latency);
     let mut phase = entry.refresh_phase;
     let mut refresh_events = 0_u32;
     let mut external_wait_cycles = 0_u32;
@@ -9178,6 +9199,33 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(6).expect("oracle $7CC phase"),
             },
             "ASM sub_A5C returns at the selected frame-902 $7CC boundary",
+        );
+    }
+
+    #[test]
+    fn third_gameplay_sprite_transfer_reaches_selected_loc_7cc_boundary() {
+        // ASM Mode_Level $7C8 -> sub_A5C -> loc_AD4 -> sub_B52. The
+        // published route's frame-904 upload enters $7C8 at cycle
+        // 115,698,837, queues one 12-tile player-art DMA at loc_AD4, and
+        // returns to $7CC at cycle 115,702,434.
+        let entry_cycles = M68kCycleCount::from_raw(115_698_837);
+        let advance = mode_level_sprite_and_kid_to_vram_cursor_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(61).expect("oracle $7C8 phase"),
+            },
+            [12, 0, 0, 0, 0, 0],
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("third gameplay 12-tile loc_AD4 queue");
+
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_702_434)),
+                refresh_phase: M68kRefreshPhase::new(118).expect("oracle $7CC phase"),
+            },
+            "ASM sub_A5C returns at the selected frame-904 $7CC boundary",
         );
     }
 
