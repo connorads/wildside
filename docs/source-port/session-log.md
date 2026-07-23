@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 GfxObject sprite pass)
+
+- `Make_SpritesFromGfxObjects sub_1492` now preserves every source
+  instruction, including the previously omitted final 16-cycle `RTS`.
+- Frames 1697/1703/1709 reproduce 92/98/107 refresh waits, 0/26/44 GEMS
+  bank steals, and exact `loc_882` phases 114/54/78.
+- Complete post-HUD raw totals are corrected to 24,072/25,598/26,052.
+- Twenty of 22 post-HUD phases are now source-scheduled.
+- NEXT: source-schedule `DiamondPower_CompileSprites sub_3F798` from
+  `loc_882`.
+
 ## 2026-07-23 handoff (#409 block-debris sprite pass)
 
 - The six inactive `sub_2A4C` slots now preserve every source instruction.

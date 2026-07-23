@@ -1889,6 +1889,15 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: `Make_SpritesFromGfxObjects sub_1492` now preserves
+every source instruction from `Mode_Level loc_87E`. Frames 1697/1703/1709
+reproduce 92/98/107 refresh waits, 0/26/44 eleven-cycle GEMS bank steals,
+and exact `loc_882` phases 114/54/78. The selected-PC trace exposed an
+omitted final 16-cycle `RTS`, correcting the complete post-HUD raw totals
+to 24,072/25,598/26,052. Twenty of 22 phases now preserve exact source
+instruction boundaries. NEXT: source-schedule
+`DiamondPower_CompileSprites sub_3F798` from `loc_882`.
+
 Progress 2026-07-23: the six inactive block-debris slots in `sub_2A4C` are
 now instruction-scheduled from `Mode_Level loc_87A`. Their 426 raw cycles
 including the caller reproduce 3/4/3 refresh waits, 0/2/0 eleven-cycle GEMS

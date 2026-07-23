@@ -3730,34 +3730,104 @@ pub fn gfx_objects_move_and_animate_advance_with_scheduler_sub_1444(
     })
 }
 
-/// Raw routine-body cost for ASM `Make_SpritesFromGfxObjects sub_1492`.
-pub fn make_sprites_from_gfx_objects_raw_cycles_sub_1492(
+fn visit_make_sprites_from_gfx_objects_instructions_sub_1492(
     work: &ModeLevelGfxSpriteWorkSub1492,
-) -> Option<M68kCycleCount> {
+) -> Option<impl Iterator<Item = u32> + '_> {
     let ModeLevelGfxSpriteWorkSub1492::Classified { nodes } = work else {
         return None;
     };
 
-    // ASM sub_1492 has 126 cycles outside its live-node iterations:
-    // setup, the final null successor at loc_14A4, queue terminator, and RTS.
-    let raw_cycles = nodes.iter().try_fold(126_u32, |cycles, node| {
-        let node_cycles = match node {
-            // ASM sub_1492 -> j_Make_SpriteFromGfxObject -> sub_11B6:
-            // `$13(a3)` is clear and returns through return_129C.
-            ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear => 120,
-            // ASM loc_11E4 rejects the mapped object below the viewport
-            // before any sub_13C0 sprite entry is emitted.
-            ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled => 268,
-            // ASM loc_129E -> sub_13C0 emits one normal-orientation 16x16
-            // mapping entry before the zero terminator.
-            ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingle16x16Normal => 926,
-            // ASM loc_129E -> sub_13C0 emits two normal-orientation mapping
-            // entries before the zero terminator.
-            ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal => 1_330,
-        };
-        cycles.checked_add(node_cycles)
-    })?;
-    Some(M68kCycleCount::from_raw(raw_cycles))
+    const SETUP: &[u32] = &[18, 16, 16, 16, 8];
+    const HIDDEN: &[u32] = &[16, 8, 4, 18, 10, 16, 12, 10, 16, 10];
+    const VERTICALLY_CULLED: &[u32] = &[
+        16, 8, 4, 18, 10, 16, 12, 12, 12, 12, 18, 12, 4, 12, 12, 12, 8, 12, 10, 4, 8, 10, 16, 10,
+    ];
+    const VISIBLE_SINGLE: &[u32] = &[
+        16, 8, 4, 18, 10, 16, 12, 12, 12, 12, 18, 12, 4, 12, 12, 12, 8, 12, 10, 4, 8, 12, 8, 12,
+        12, 12, 8, 12, 8, 12, 16, 4, 12, 12, 16, 10, 12, 8, 8, 12, 10, 12, 12, 10, 12, 12, 10, 8,
+        4, 4, 8, 8, 4, 4, 8, 8, 8, 4, 4, 10, 4, 8, 8, 4, 10, 4, 8, 8, 4, 4, 4, 8, 4, 12, 4, 18, 12,
+        12, 12, 16, 20, 12, 8, 20, 4, 12, 4, 14, 4, 16, 8, 16, 16, 10,
+    ];
+    const VISIBLE_TWO: &[u32] = &[
+        16, 8, 4, 18, 10, 16, 12, 12, 12, 12, 18, 12, 4, 12, 12, 12, 10, 12, 4, 8, 12, 8, 12, 12,
+        12, 8, 12, 8, 12, 16, 4, 12, 12, 16, 10, 12, 10, 12, 12, 12, 10, 12, 12, 10, 8, 4, 4, 8, 8,
+        4, 4, 8, 8, 8, 4, 4, 8, 4, 4, 4, 10, 4, 8, 8, 4, 4, 8, 8, 18, 12, 12, 12, 16, 20, 12, 10,
+        20, 4, 12, 4, 14, 4, 16, 16, 8, 12, 16, 8, 8, 16, 4, 4, 10, 4, 10, 4, 8, 8, 4, 10, 4, 8, 8,
+        4, 4, 4, 8, 4, 12, 4, 18, 12, 12, 12, 16, 20, 12, 10, 20, 4, 12, 4, 14, 4, 16, 16, 8, 12,
+        16, 8, 8, 16, 16, 10,
+    ];
+    const TAIL: &[u32] = &[16, 10, 16, 16, 12, 16];
+
+    Some(
+        SETUP
+            .iter()
+            .copied()
+            .chain(nodes.iter().flat_map(|node| {
+                match node {
+                    // ASM sub_1492 -> j_Make_SpriteFromGfxObject -> sub_11B6:
+                    // `$13(a3)` is clear and returns through return_129C.
+                    ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear => HIDDEN,
+                    // ASM loc_11E4 rejects the mapped object below the viewport
+                    // before any sub_13C0 sprite entry is emitted.
+                    ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled => VERTICALLY_CULLED,
+                    // ASM loc_129E -> sub_13C0 emits one normal-orientation 16x16
+                    // mapping entry before the zero terminator.
+                    ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingle16x16Normal => VISIBLE_SINGLE,
+                    // ASM loc_129E -> sub_13C0 emits two normal-orientation mapping
+                    // entries before the zero terminator.
+                    ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal => VISIBLE_TWO,
+                }
+                .iter()
+                .copied()
+            }))
+            // ASM loc_14A4 null successor, queue writeback/terminator, RTS.
+            .chain(TAIL.iter().copied()),
+    )
+}
+
+/// Raw routine-body cost for ASM `Make_SpritesFromGfxObjects sub_1492`.
+pub fn make_sprites_from_gfx_objects_raw_cycles_sub_1492(
+    work: &ModeLevelGfxSpriteWorkSub1492,
+) -> Option<M68kCycleCount> {
+    let raw_cycles = visit_make_sprites_from_gfx_objects_instructions_sub_1492(work)?
+        .try_fold(0_u32, u32::checked_add)?;
+    raw_cycles.checked_sub(18).map(M68kCycleCount::from_raw)
+}
+
+/// Co-schedule ASM `Mode_Level loc_87E -> sub_1492 -> loc_882` with
+/// asynchronous hardware.
+pub fn make_sprites_from_gfx_objects_advance_with_scheduler_sub_1492(
+    mut phase: M68kRefreshPhase,
+    work: &ModeLevelGfxSpriteWorkSub1492,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    for instruction_cycles in visit_make_sprites_from_gfx_objects_instructions_sub_1492(work)? {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+    }
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
 }
 
 fn visit_terrain_special_scan_instructions_sub_1fa2(
@@ -5122,9 +5192,9 @@ mod tests {
         };
 
         for (work, expected) in [
-            (work(10, 2), 11_612),
-            (work(11, 2), 12_538),
-            (work(12, 0), 13_224),
+            (work(10, 2), 11_628),
+            (work(11, 2), 12_554),
+            (work(12, 0), 13_240),
         ] {
             assert_eq!(
                 make_sprites_from_gfx_objects_raw_cycles_sub_1492(&work),
@@ -5132,6 +5202,62 @@ mod tests {
                 "ASM sub_1492 oracle frames 1697/1703/1709",
             );
         }
+
+        let schedule = |phase, work: &ModeLevelGfxSpriteWorkSub1492, wait_after: &[usize]| {
+            let mut source_instruction_index = 0_usize;
+            make_sprites_from_gfx_objects_advance_with_scheduler_sub_1492(
+                M68kRefreshPhase::new(phase).expect("published loc_87E phase"),
+                work,
+                |cycles| {
+                    if cycles.get() < 4 || cycles.get() & 1 != 0 {
+                        return Some(M68kCycleCount::from_raw(0));
+                    }
+                    let wait = u32::from(wait_after.contains(&source_instruction_index)) * 11;
+                    source_instruction_index += 1;
+                    Some(M68kCycleCount::from_raw(wait))
+                },
+            )
+            .expect("published classified GfxObject sprite walk")
+        };
+        let frame_1697_work = work(10, 2);
+        let frame_1697 = schedule(60, &frame_1697_work, &[]);
+        assert_eq!(frame_1697.elapsed, M68kCycleCount::from_raw(11_830));
+        assert_eq!(frame_1697.refresh_events, 92);
+        assert_eq!(
+            frame_1697.phase_after,
+            M68kRefreshPhase::new(114).expect("frame-1697 loc_882 phase"),
+        );
+        let frame_1703_work = work(11, 2);
+        let frame_1703 = schedule(
+            56,
+            &frame_1703_work,
+            &[
+                26, 30, 34, 38, 42, 46, 130, 133, 137, 140, 143, 147, 210, 214, 218, 222, 226, 230,
+                304, 307, 312, 315, 320, 323, 396, 400,
+            ],
+        );
+        assert_eq!(frame_1703.elapsed, M68kCycleCount::from_raw(13_054));
+        assert_eq!(frame_1703.refresh_events, 98);
+        assert_eq!(
+            frame_1703.phase_after,
+            M68kRefreshPhase::new(54).expect("frame-1703 loc_882 phase"),
+        );
+        let frame_1709_work = work(12, 0);
+        let frame_1709 = schedule(
+            74,
+            &frame_1709_work,
+            &[
+                15, 18, 22, 25, 28, 32, 107, 113, 120, 125, 128, 131, 195, 197, 202, 205, 207, 211,
+                288, 291, 295, 298, 301, 305, 385, 389, 392, 395, 399, 402, 479, 482, 485, 489,
+                492, 496, 572, 576, 579, 582, 586, 589, 665, 669,
+            ],
+        );
+        assert_eq!(frame_1709.elapsed, M68kCycleCount::from_raw(13_956));
+        assert_eq!(frame_1709.refresh_events, 107);
+        assert_eq!(
+            frame_1709.phase_after,
+            M68kRefreshPhase::new(78).expect("frame-1709 loc_882 phase"),
+        );
     }
 
     #[test]
