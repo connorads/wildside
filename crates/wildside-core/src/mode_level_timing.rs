@@ -3288,9 +3288,10 @@ pub fn gfx_objects_collision_kid_advance_with_scheduler_sub_1b76(
 
 /// Raw routine-body cost for the kind-4 `$FFFFF86E` pass through ASM
 /// `GfxObjects_CollisionKid` (`sub_1B76`).
-pub fn gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76(
+fn visit_gfx_objects_collision_kid_f86e_instructions_sub_1b76(
     work: &ModeLevelGfxCollisionWork,
-) -> Option<M68kCycleCount> {
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
     if work.kid_is_invulnerable {
         return None;
     }
@@ -3300,28 +3301,96 @@ pub fn gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76(
         return None;
     };
 
-    // ASM sub_1B76 entry through loc_1B94 is 94 cycles. Each node cost
-    // includes loc_1B94's successor load and the complete rejecting sub-box
-    // path back to that loop. The final null successor plus clear
-    // KidIsInvulnerable epilogue at loc_1D00 costs 72 cycles.
-    let raw_cycles = nodes.iter().try_fold(94_u32, |cycles, node| {
-        let node_cycles = match node {
+    // ASM Mode_Level loc_86A LEA+BSR, then sub_1B76 through loc_1B94.
+    for cycles in [8, 18, 12, 10, 8, 16, 12, 12, 12, 12] {
+        visit(cycles)?;
+    }
+
+    for node in nodes {
+        let instruction_cycles: &[u32] = match node {
             // ASM loc_1B94 -> loc_1BC0: first CollisionSize word is zero.
-            ModeLevelGfxCollisionKidNodeWorkSub1B76::CollisionRowsSentinelLoc1bc0 => 156,
+            ModeLevelGfxCollisionKidNodeWorkSub1B76::CollisionRowsSentinelLoc1bc0 => {
+                &[16, 12, 4, 12, 8, 12, 8, 12, 18, 8, 12, 8, 8, 8, 10]
+            }
             // ASM loc_1B94 -> loc_1BC8 -> loc_1BC0: reject the first box on
             // its left edge, then read the zero terminator.
-            ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedLeftEdgeBeyondKidRightLoc1bc8 => 206,
+            ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedLeftEdgeBeyondKidRightLoc1bc8 => &[
+                16, 12, 4, 12, 8, 12, 8, 12, 18, 8, 12, 8, 8, 8, 8, 12, 4, 10, 8, 8, 10,
+            ],
             // ASM loc_1B94 -> loc_1BD0 -> loc_1BC0: reject the first box on
             // its right edge, then read the zero terminator.
-            ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedRightEdgeBeforeKidLeftLoc1bd0 => 230,
+            ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedRightEdgeBeforeKidLeftLoc1bd0 => &[
+                16, 12, 4, 12, 8, 12, 8, 12, 18, 8, 12, 8, 8, 8, 8, 12, 4, 8, 12, 4, 10, 8, 8, 10,
+            ],
             // ASM loc_1B94 -> loc_1BDE -> loc_1BC0: reject the first box on
             // its top edge, then read the zero terminator.
-            ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedTopEdgeBeyondKidBottomLoc1bde => 274,
+            ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedTopEdgeBeyondKidBottomLoc1bde => &[
+                16, 12, 4, 12, 8, 12, 8, 12, 18, 8, 12, 8, 8, 8, 8, 12, 4, 8, 12, 4, 8, 12, 12, 8,
+                4, 10, 8, 8, 10,
+            ],
         };
-        cycles.checked_add(node_cycles)
+        for &cycles in instruction_cycles {
+            visit(cycles)?;
+        }
+    }
+
+    // ASM loc_1B94 null successor, loc_1D00 clear-invulnerability epilogue,
+    // and return to Mode_Level loc_872.
+    for cycles in [16, 10, 8, 12, 10, 16] {
+        visit(cycles)?;
+    }
+    Some(())
+}
+
+/// Raw routine-body cost for the kind-4 `$FFFFF86E` pass through ASM
+/// `GfxObjects_CollisionKid` (`sub_1B76`).
+pub fn gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76(
+    work: &ModeLevelGfxCollisionWork,
+) -> Option<M68kCycleCount> {
+    let mut raw_cycles = 0_u32;
+    visit_gfx_objects_collision_kid_f86e_instructions_sub_1b76(work, |instruction_cycles| {
+        raw_cycles = raw_cycles.checked_add(instruction_cycles)?;
+        Some(())
+    })?;
+    // The visitor includes Mode_Level's 8-cycle LEA and 18-cycle BSR.
+    raw_cycles.checked_sub(26).map(M68kCycleCount::from_raw)
+}
+
+/// Co-schedule ASM `Mode_Level loc_86A -> sub_1B76 -> loc_872` with
+/// asynchronous hardware.
+pub fn gfx_objects_collision_kid_f86e_advance_with_scheduler_sub_1b76(
+    mut phase: M68kRefreshPhase,
+    work: &ModeLevelGfxCollisionWork,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    visit_gfx_objects_collision_kid_f86e_instructions_sub_1b76(work, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+        Some(())
     })?;
 
-    raw_cycles.checked_add(72).map(M68kCycleCount::from_raw)
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
 }
 
 #[derive(Clone, Copy)]
@@ -4412,6 +4481,28 @@ mod tests {
             M68kRefreshPhase::new(28).expect("frame-1697 loc_862 phase"),
             "all three shooter collision phases reach their oracle boundaries",
         );
+        let object_kind_two_vs_kid = gfx_objects_collision_kid_advance_with_scheduler_sub_1b76(
+            projectile.phase_after,
+            ModeLevelGfxCollisionListWork::Empty,
+            &ModeLevelGfxCollisionWork {
+                kid_projectile_list_f866: ModeLevelGfxCollisionListWork::Empty,
+                object_kind_two_list_f86a: ModeLevelGfxCollisionListWork::Empty,
+                object_kind_four_list_f86e: ModeLevelGfxCollisionKidListWorkSub1B76::Unclassified,
+                kid_is_invulnerable: false,
+            },
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("published empty object-kind-two versus Kid list");
+        assert_eq!(
+            object_kind_two_vs_kid.elapsed,
+            M68kCycleCount::from_raw(194)
+        );
+        assert_eq!(object_kind_two_vs_kid.refresh_events, 1);
+        assert_eq!(
+            object_kind_two_vs_kid.phase_after,
+            M68kRefreshPhase::new(94).expect("frame-1697 loc_86A phase"),
+            "ASM loc_862 -> sub_1B76 -> loc_86A reaches the oracle boundary",
+        );
     }
 
     #[test]
@@ -4630,6 +4721,98 @@ mod tests {
                 "ASM sub_1B76 oracle frames 1697/1703/1709",
             );
         }
+
+        let scheduled_work = |node_cycles: &[u32]| {
+            let nodes = node_cycles
+                .iter()
+                .map(|cycles| {
+                    match cycles {
+                    156 => {
+                        ModeLevelGfxCollisionKidNodeWorkSub1B76::CollisionRowsSentinelLoc1bc0
+                    }
+                    206 => ModeLevelGfxCollisionKidNodeWorkSub1B76::
+                        UnflippedLeftEdgeBeyondKidRightLoc1bc8,
+                    230 => ModeLevelGfxCollisionKidNodeWorkSub1B76::
+                        UnflippedRightEdgeBeforeKidLeftLoc1bd0,
+                    274 => ModeLevelGfxCollisionKidNodeWorkSub1B76::
+                        UnflippedTopEdgeBeyondKidBottomLoc1bde,
+                    _ => panic!("unsupported published sub_1B76 node path"),
+                }
+                })
+                .collect();
+            ModeLevelGfxCollisionWork {
+                kid_projectile_list_f866: ModeLevelGfxCollisionListWork::Empty,
+                object_kind_two_list_f86a: ModeLevelGfxCollisionListWork::Empty,
+                object_kind_four_list_f86e: ModeLevelGfxCollisionKidListWorkSub1B76::Classified {
+                    nodes,
+                },
+                kid_is_invulnerable: false,
+            }
+        };
+        let schedule = |phase, work: &ModeLevelGfxCollisionWork, wait_after: &[usize]| {
+            let mut source_instruction_index = 0_usize;
+            gfx_objects_collision_kid_f86e_advance_with_scheduler_sub_1b76(
+                M68kRefreshPhase::new(phase).expect("published loc_86A phase"),
+                work,
+                |cycles| {
+                    // The oracle's XFER68K bank steals are 11-cycle external
+                    // waits. Combined refresh+bank waits are fed back as 13
+                    // cycles and must not advance the source instruction index.
+                    if cycles.get() < 4 || cycles.get() & 1 != 0 {
+                        return Some(M68kCycleCount::from_raw(0));
+                    }
+                    let wait = u32::from(wait_after.contains(&source_instruction_index)) * 11;
+                    source_instruction_index += 1;
+                    Some(M68kCycleCount::from_raw(wait))
+                },
+            )
+            .expect("published classified kind-4 collision walk")
+        };
+
+        let frame_1697 = scheduled_work(&[
+            156, 156, 156, 206, 156, 156, 156, 206, 156, 156, 156, 230, 156, 206,
+        ]);
+        let advance_1697 = schedule(94, &frame_1697, &[]);
+        assert_eq!(advance_1697.elapsed, M68kCycleCount::from_raw(2_642));
+        assert_eq!(advance_1697.refresh_events, 21);
+        assert_eq!(
+            advance_1697.phase_after,
+            M68kRefreshPhase::new(48).expect("frame-1697 loc_872 phase"),
+        );
+
+        let frame_1703 = scheduled_work(&[
+            156, 156, 206, 156, 156, 206, 156, 156, 156, 206, 156, 156, 230, 156, 206,
+        ]);
+        let advance_1703 = schedule(
+            126,
+            &frame_1703,
+            &[
+                57, 61, 65, 69, 73, 77, 147, 150, 155, 158, 163, 166, 239, 242, 247, 250, 254, 257,
+            ],
+        );
+        assert_eq!(advance_1703.elapsed, M68kCycleCount::from_raw(3_050));
+        assert_eq!(advance_1703.refresh_events, 23);
+        assert_eq!(
+            advance_1703.phase_after,
+            M68kRefreshPhase::new(104).expect("frame-1703 loc_872 phase"),
+        );
+
+        let frame_1709 = scheduled_work(&[
+            206, 156, 206, 156, 156, 206, 156, 156, 156, 206, 156, 274, 156, 206,
+        ]);
+        let advance_1709 = schedule(
+            80,
+            &frame_1709,
+            &[
+                46, 50, 54, 58, 62, 67, 137, 141, 144, 148, 153, 156, 234, 237, 242, 246, 249, 253,
+            ],
+        );
+        assert_eq!(advance_1709.elapsed, M68kCycleCount::from_raw(2_984));
+        assert_eq!(advance_1709.refresh_events, 21);
+        assert_eq!(
+            advance_1709.phase_after,
+            M68kRefreshPhase::new(120).expect("frame-1709 loc_872 phase"),
+        );
     }
 
     #[test]

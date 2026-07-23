@@ -131,6 +131,7 @@ pub use mode_level_timing::{
     gems_stop_music_elapsed_timing_from_absolute_entry, gems_stop_music_timing,
     gfx_objects_collision_advance_with_scheduler_sub_16f0,
     gfx_objects_collision_kid_advance_with_scheduler_sub_1b76,
+    gfx_objects_collision_kid_f86e_advance_with_scheduler_sub_1b76,
     gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76,
     gfx_objects_collision_kid_raw_cycles_sub_1b76, gfx_objects_collision_raw_cycles_sub_16f0,
     gfx_objects_move_and_animate_advance_with_scheduler_sub_1444,

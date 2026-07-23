@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 remaining GfxObject-Kid collisions)
+
+- The empty `$F86A` and live `$F86E` `sub_1B76` calls now preserve every
+  source instruction boundary.
+- The live walk reproduces exact frame-1697/1703/1709 refresh counts,
+  0/18/18 GEMS bank steals, and `loc_872` phases 48/104/120.
+- Sixteen of 22 post-HUD phases are now source-scheduled.
+- NEXT: source-schedule the empty-list `sub_1D76` wrapper from `loc_872`.
+
 ## 2026-07-23 handoff (#409 shooter collision block)
 
 - Frame 1697 now source-schedules the empty `sub_1F52`, `sub_219C`, and

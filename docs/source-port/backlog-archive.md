@@ -1889,6 +1889,16 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: both remaining `GfxObjects_CollisionKid sub_1B76`
+passes are instruction-scheduled. The empty `$F86A` call advances frame 1697
+from `loc_862` phase 28 to `loc_86A` phase 94 with one refresh wait and no
+GEMS wait. The live `$F86E` walk preserves the typed node order and every
+instruction in its sentinel, left-, right-, and top-edge rejection paths.
+It reproduces 21/23/21 refresh waits, 0/18/18 eleven-cycle GEMS bank steals,
+and exact `loc_872` phases 48/104/120 on frames 1697/1703/1709. Sixteen of
+22 post-HUD phases now preserve exact source instruction boundaries. NEXT:
+source-schedule the empty-list `sub_1D76` wrapper from `loc_872`.
+
 Progress 2026-07-23: the three empty shooter collision phases are now
 instruction-scheduled. `sub_1F52` takes 68 raw cycles plus one refresh and
 reaches `loc_85A` phase 34. `sub_219C` takes 308 raw cycles plus two refreshes
