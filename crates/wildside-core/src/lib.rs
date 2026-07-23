@@ -144,6 +144,7 @@ pub use mode_level_timing::{
     load_in_game_stop_music_tail_advance_with_scheduler, load_in_game_stop_music_tail_raw_cycles,
     make_sprites_from_gfx_objects_advance_with_scheduler_sub_1492,
     make_sprites_from_gfx_objects_raw_cycles_sub_1492,
+    make_sprites_from_platforms_advance_with_scheduler_sub_2444,
     make_sprites_from_platforms_raw_cycles_sub_2444,
     manage_enemy_loading_advance_with_scheduler_loc_36814, manage_enemy_loading_raw_cycles,
     manage_platform_loading_advance_with_scheduler_loc_2744,

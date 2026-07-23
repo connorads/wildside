@@ -1889,6 +1889,14 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: the empty-list
+`Make_SpritesFromPlatforms sub_2444` path is instruction-scheduled from
+`Mode_Level loc_88E`. Its 96 raw cycles and one refresh wait reach exact
+`loc_892` phases 64/4/28 without GEMS bank steals on frames
+1697/1703/1709. All 22 post-HUD phases now preserve exact source instruction
+boundaries. NEXT: compose them into the persistent runtime timeline and
+measure the frame-1697 pixel frontier.
+
 Progress 2026-07-23: the empty-buffer
 `DiamondPower_CompileSprites sub_3F798` path is instruction-scheduled from
 `Mode_Level loc_882`. Its 106 raw cycles and one refresh wait reach exact

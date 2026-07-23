@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 platform sprite pass)
+
+- The empty `Make_SpritesFromPlatforms sub_2444` pass now preserves every
+  source instruction from `Mode_Level loc_88E`.
+- Its 96 raw cycles and one refresh wait reach exact `loc_892` phases
+  64/4/28 without GEMS steals on frames 1697/1703/1709.
+- All 22 post-HUD phases are now source-scheduled.
+- NEXT: compose the phase schedulers into the persistent runtime timeline
+  and measure frame 1697.
+
 ## 2026-07-23 handoff (#409 Diamond Power sprite compiler)
 
 - The empty `DiamondPower_CompileSprites sub_3F798` pass now preserves every
