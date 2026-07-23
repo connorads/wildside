@@ -4461,6 +4461,34 @@ pub fn fresh_title_chameleon_upload_to_execute_return_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule `sub_1B71A`'s final CHAMELEON rows through the timed-out
+/// title menu at `loc_1BB02`.
+pub fn fresh_title_chameleon_upload_to_demo_mode_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<TitleMemoryDmaAdvance> {
+    title_memory_dma_routine_cursor_with_scheduler(
+        entry,
+        0,
+        false,
+        |visit| crate::intro_timing::visit_fresh_title_chameleon_upload_to_demo_mode(visit),
+        &mut advance_hardware,
+    )
+}
+
+/// Co-schedule `loc_1BB02 -> loc_6E2 -> Pal_FadeOut` through its first VINT
+/// poll.
+pub fn title_demo_mode_to_first_fade_wait_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
+    title_source_routine_cursor_with_scheduler(
+        entry,
+        |visit| Some(crate::intro_timing::visit_title_demo_mode_to_first_fade_wait(visit)),
+        &mut advance_hardware,
+    )
+}
+
 /// Co-schedule frame 198's SegaText glyphs and object prefix to `sub_1B71A`.
 pub fn fresh_title_third_execute_objects_to_chameleon_enigma_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,

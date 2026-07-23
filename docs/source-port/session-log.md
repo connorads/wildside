@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 title timeout and fade loop)
+
+- Defended GEMS coverage advances to frames 0..854; frame 855 is the final
+  `loc_28EA` palette upload and return into `loc_700`.
+- Frame 837 source-models `Obj_TitleMenu loc_1BB02 -> loc_6E2`; direct oracle
+  tracing confirms mature Kid resumes at `loc_1B64C` before menu expiry.
+- Frames 838..853 take the non-negative `Pal_FadeOut loc_28DE` loop and frame
+  854 takes the negative `loc_28EA` branch.
+- The focused 855-frame comparison is green with 820 evidence-backed
+  limitations and 35 advisory-only frames.
+- Full-route GEMS mismatches fall from 36,922 to 36,904 and the frontier moves
+  from frame 837 to 855; gameplay, enemy, RNG, and pixel evidence is unchanged.
+- `verify-slice-fast` and `verify-tas-full` pass after updating the monotonic
+  GEMS ratchet.
+- NEXT: complete frame 855's final fade upload/return and enter `loc_700`.
+
 ## 2026-07-22 handoff (#416 complete ordinary fresh-title loop)
 
 - Defended GEMS coverage advances to frames 0..836; frame 837 is the first

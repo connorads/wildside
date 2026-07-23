@@ -38,6 +38,7 @@ use wildside_frame::{
     apply_gems_decompress_to_vram_transfer_loc_14314,
     apply_gems_decompress_to_vram_transfer_with_checkpoint_loc_14314, apply_gems_enigma_decoder,
     apply_gems_enigma_decoder_with_checkpoint,
+    apply_gems_fresh_title_chameleon_upload_to_demo_mode,
     apply_gems_fresh_title_chameleon_upload_to_execute_return,
     apply_gems_fresh_title_first_execute_objects,
     apply_gems_fresh_title_prompt_chameleon_execute_objects_to_enigma,
@@ -47,6 +48,7 @@ use wildside_frame::{
     apply_gems_title_character_map_to_chameleon_enigma,
     apply_gems_title_clean_palette_interpolation_call,
     apply_gems_title_controller_fade_exit_frame_with_checkpoint,
+    apply_gems_title_demo_mode_to_first_fade_wait,
     apply_gems_title_do_nothing_call_with_checkpoint,
     apply_gems_title_execute_objects_to_intro_controller,
     apply_gems_title_first_fade_hibernate_to_mode_standard,
@@ -115,11 +117,13 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// palette, all four `Load_TitleArt` streams, `sub_1BF24`'s selected
 /// character map, `sub_1B532`'s title-text rows, title allocations, and the
 /// all 641 ordinary fresh-title object passes through frame 836, including
-/// `sub_1B71A`'s first three Enigma maps and plane-A uploads. The tail remains the
-/// coarse continuous route replayer (trace-delta commands at frame boundaries
+/// `sub_1B71A`'s first three Enigma maps and plane-A uploads, then frame 837's
+/// `Obj_TitleMenu` timeout and all sixteen non-negative `Pal_FadeOut` iterations,
+/// then frame 854's negative decrement into the final fade delay. The tail remains
+/// the coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 837;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 855;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -3696,7 +3700,7 @@ impl GemsSignatureProbe {
             self.power_on_intro_cursor = Some(do_nothing.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
-        if (221..GEMS_MODELLED_ROUTE_FRAMES).contains(&self.power_on_frame) {
+        if (221..837).contains(&self.power_on_frame) {
             // ASM Obj_TitleTextChameleon loc_1B6A2 hibernates for one frame,
             // then sub_1B71A advances d3 and selects off_1B70A[d3 & $C].
             let pass = fresh_title_chameleon_pass(self.power_on_frame)
@@ -3786,6 +3790,151 @@ impl GemsSignatureProbe {
                 )
                 .expect("ordinary fresh-title Do_Nothing spans its frame");
             self.power_on_intro_cursor = Some(do_nothing.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 837 {
+            // ASM Obj_TitleMenu loc_1BAEE -> loc_1BB02: the 641st ordinary
+            // title pass performs its CHAMELEON upload, then the menu DBF
+            // expires and jumps through loc_6E2 into Pal_FadeOut. Selected-PC
+            // tracing places loc_1BB02 at cycle 107,161,651 and loc_28C6 at
+            // 107,164,067; FrameRendered lands in the first Do_Nothing call.
+            let pass = fresh_title_chameleon_pass(self.power_on_frame)
+                .expect("final fresh-title frame has a pass decision");
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("final fresh-title Do_Nothing reaches Palette_to_VRAM");
+            let palette = apply_gems_title_mode_standard_palette_to_vram(&mut self.engine, cursor)
+                .expect("final fresh-title Palette_to_VRAM");
+            let sprite_and_kid = apply_gems_title_mode_standard_sprite_and_kid_to_vram(
+                &mut self.engine,
+                palette.cursor,
+            )
+            .expect("final fresh-title sprite/Kid transfer");
+            let scroll = apply_gems_title_mode_standard_scroll_data_to_vram(
+                &mut self.engine,
+                sprite_and_kid.cursor,
+            )
+            .expect("final fresh-title scroll transfer");
+            let queues = apply_gems_title_mode_standard_empty_foreground_queues(
+                &mut self.engine,
+                scroll.cursor,
+            )
+            .expect("final fresh-title empty foreground queues");
+            let execute = apply_gems_fresh_title_prompt_chameleon_execute_objects_to_enigma(
+                &mut self.engine,
+                queues.cursor,
+                pass.rng_offset_before,
+            )
+            .expect("final fresh-title object pass reaches sub_1B71A");
+            let (compressed, source_address) = match pass.map {
+                FreshTitleChameleonMap::First => (
+                    &self.power_on_title_first_chameleon_frame_compressed,
+                    0x2E706,
+                ),
+                FreshTitleChameleonMap::Second => (
+                    &self.power_on_title_second_chameleon_frame_compressed,
+                    0x2E728,
+                ),
+                FreshTitleChameleonMap::Third => (
+                    &self.power_on_title_third_chameleon_frame_compressed,
+                    0x2E77A,
+                ),
+            };
+            let chameleon_map = apply_gems_enigma_decoder(
+                &mut self.engine,
+                execute.cursor,
+                &[4, 4, 8, 18, 8, 12, 4, 10, 8, 12, 4, 20, 10],
+                compressed,
+                0x433B,
+                source_address,
+                0,
+            )
+            .expect("final sub_1B71A decodes its selected CHAMELEON frame");
+            let demo_mode = apply_gems_fresh_title_chameleon_upload_to_demo_mode(
+                &mut self.engine,
+                chameleon_map.cursor,
+            )
+            .expect("title-menu timeout reaches loc_1BB02");
+            let fade_wait =
+                apply_gems_title_demo_mode_to_first_fade_wait(&mut self.engine, demo_mode.cursor)
+                    .expect("title-menu timeout reaches Pal_FadeOut WaitForVint");
+            let fade_vint = apply_gems_title_wait_for_vint_to_subroutine_return(
+                &mut self.engine,
+                fade_wait.cursor,
+            )
+            .expect("demo-transition Pal_FadeOut WaitForVint");
+            let (fade_delay, checkpoint) = apply_gems_title_do_nothing_call_with_checkpoint(
+                &mut self.engine,
+                fade_vint.cursor,
+                target,
+            )
+            .expect("demo-transition Pal_FadeOut Do_Nothing spans frame 837");
+            self.power_on_intro_cursor = Some(fade_delay.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if (838..=853).contains(&self.power_on_frame) {
+            // ASM Pal_FadeOut loc_28C6: upload the current palette, run the
+            // full sub_14C0 interpolation, decrement the non-negative fade
+            // cursor, then block in the next WaitForVint/Do_Nothing pair.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("demo-transition fade delay reaches its palette upload");
+            let dma = apply_gems_title_palette_to_vram_call(&mut self.engine, cursor)
+                .expect("demo-transition Pal_FadeOut palette DMA");
+            let interpolation =
+                apply_gems_title_full_palette_interpolation_call(&mut self.engine, dma.cursor)
+                    .expect("demo-transition Pal_FadeOut interpolation");
+            let next_wait = apply_gems_title_palette_fade_first_decrement_to_next_wait_poll(
+                &mut self.engine,
+                interpolation.cursor,
+            )
+            .expect("demo-transition Pal_FadeOut non-negative decrement");
+            let wait = apply_gems_title_wait_for_vint_to_subroutine_return(
+                &mut self.engine,
+                next_wait.cursor,
+            )
+            .expect("demo-transition Pal_FadeOut next WaitForVint");
+            let (delay, checkpoint) = apply_gems_title_do_nothing_call_with_checkpoint(
+                &mut self.engine,
+                wait.cursor,
+                target,
+            )
+            .expect("demo-transition Pal_FadeOut delay spans FrameRendered");
+            self.power_on_intro_cursor = Some(delay.cursor);
+            sampled_checkpoint = Some(checkpoint);
+        }
+        if self.power_on_frame == 854 {
+            // ASM Pal_FadeOut loc_28D6/loc_28EA: the seventeenth palette
+            // step decrements $0000 to $FFF0 and enters the final
+            // WaitForVint/Do_Nothing body without dirtying either mask.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("last non-negative fade delay reaches its palette upload");
+            let dma = apply_gems_title_palette_to_vram_call(&mut self.engine, cursor)
+                .expect("last demo-transition Pal_FadeOut palette DMA");
+            let interpolation =
+                apply_gems_title_full_palette_interpolation_call(&mut self.engine, dma.cursor)
+                    .expect("last demo-transition Pal_FadeOut interpolation");
+            let final_wait = apply_gems_title_palette_fade_negative_decrement_to_final_wait_poll(
+                &mut self.engine,
+                interpolation.cursor,
+            )
+            .expect("demo-transition Pal_FadeOut negative decrement");
+            let wait = apply_gems_title_wait_for_vint_to_subroutine_return(
+                &mut self.engine,
+                final_wait.cursor,
+            )
+            .expect("demo-transition Pal_FadeOut final WaitForVint");
+            let (delay, checkpoint) = apply_gems_title_do_nothing_call_with_checkpoint(
+                &mut self.engine,
+                wait.cursor,
+                target,
+            )
+            .expect("demo-transition final fade delay spans frame 854");
+            self.power_on_intro_cursor = Some(delay.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
         if self.power_on_frame == 174 {
@@ -5219,9 +5368,11 @@ macro_rules! fresh_title_irq_residue {
 }
 
 /// Exact FrameRendered residues after source-scheduling ASM
-/// `Obj_TitleTextChameleon loc_1B6A2 -> sub_1B71A`. These are the continuing
-/// consequences of the documented jgenesis Z80 X/Y-flag defect; every strict
-/// field is pinned so a new divergence cannot hide behind the classification.
+/// `Obj_TitleTextChameleon loc_1B6A2 -> sub_1B71A` and the following
+/// `Obj_TitleMenu loc_1BB02 -> Pal_FadeOut` transition. These are the
+/// continuing consequences of the documented jgenesis Z80 X/Y-flag defect;
+/// every strict field is pinned so a new divergence cannot hide behind the
+/// classification.
 #[rustfmt::skip]
 const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
     FreshTitleIrqResidue {
@@ -8156,6 +8307,24 @@ const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
     fresh_title_irq_residue!(834, 743571531, 1494504390, 0x124D, 0x02AA, 0, 0, 0, 0, 0, 16),
     fresh_title_irq_residue!(835, 394961280, 246441157, 0x0273, 0x02AA, 0, 0, 0, 0, 0, 16),
     fresh_title_irq_residue!(836, 1019341480, 3141372332, 0x02A8, 0x009C, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(837, 3360717881, 1236533075, 0x0163, 0x00D1, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(838, 4259575201, 3907014041, 0x02B1, 0x02B7, 0, 0, 0, 0, 0, 16),
+    fresh_title_irq_residue!(839, 802658992, 156112355, 0x02AD, 0x02AA, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(840, 1278547737, 1218436521, 0x02AA, 0x02AF, 0, 0, 0, 0, 16, 0),
+    fresh_title_irq_residue!(841, 124384051, 2655478018, 0x02A5, 0x0163, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(842, 3058341696, 939227986, 0x007D, 0x02BA, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(843, 1108203095, 2841643950, 0x02AA, 0x02AD, 0, 0, 0, 0, 0, 16),
+    fresh_title_irq_residue!(844, 86696699, 2977861228, 0x02AA, 0x02A8, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(845, 1071351125, 3433065885, 0x02A8, 0x02A8, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(846, 2249338219, 3783419234, 0x00AD, 0x0278, 0, 0, 0, 0, 16, 0),
+    fresh_title_irq_residue!(847, 1696589928, 730928239, 0x0079, 0x02B7, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(848, 3074383864, 1302081094, 0x02AD, 0x02AA, 0, 0, 0, 0, 0, 16),
+    fresh_title_irq_residue!(849, 1073098749, 1919015272, 0x02AA, 0x02AA, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(850, 1694469194, 701629863, 0x02A6, 0x00AF, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(851, 2985709971, 1969088964, 0x0162, 0x02B7, 0, 0, 0, 0, 16, 0),
+    fresh_title_irq_residue!(852, 4251482774, 2110035053, 0x019F, 0x02B2, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(853, 746844611, 3627765855, 0x01C6, 0x02A8, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(854, 415680484, 2661009201, 0x01D2, 0x02A8, 0, 0, 0, 0, 16, 16),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(

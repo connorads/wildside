@@ -670,6 +670,66 @@ pub fn visit_fresh_title_prompt_chameleon_execute_objects_to_enigma(
 /// The first CHAMELEON row emits 21 decoded words; the remaining six emit 29
 /// words. Since `d2=0`, every row also writes the `$00BC` leading filler.
 pub fn visit_fresh_title_chameleon_upload_to_execute_return(
+    visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    visit_fresh_title_chameleon_upload_to_menu_outcome(false, visit)
+}
+
+/// Visit `sub_1B71A` after `EniDec` through the title-menu timeout at
+/// `loc_1BB02`.
+///
+/// ASM `Obj_TitleMenu loc_1BAEE -> loc_1BB02`: the final DBF falls through
+/// instead of hibernating the menu again.
+pub fn visit_fresh_title_chameleon_upload_to_demo_mode(
+    visit: impl FnMut(MemoryDmaTimingEvent),
+) -> IntroSourceTiming {
+    visit_fresh_title_chameleon_upload_to_menu_outcome(true, visit)
+}
+
+/// Visit `loc_1BB02 -> loc_6E2 -> Pal_FadeOut` through its first VINT poll.
+pub fn visit_title_demo_mode_to_first_fade_wait(mut visit: impl FnMut(u32)) -> IntroSourceTiming {
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let mut emit = |cycles: u32| {
+        visit(cycles);
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("title demo-transition fade setup timing fits u32"),
+        );
+    };
+
+    for cycles in [16, 12, 16, 8, 16, 16, 12, 8, 18] {
+        emit(cycles);
+    }
+    for cycles in [4, 12, 12] {
+        emit(cycles);
+    }
+    for index in 0..32 {
+        emit(20);
+        emit(if index == 31 { 14 } else { 10 });
+    }
+    for cycles in [4, 12, 12] {
+        emit(cycles);
+    }
+    for index in 0..64 {
+        emit(8);
+        emit(if index == 63 { 14 } else { 10 });
+    }
+    for cycles in [16, 10, 4, 16, 16, 10, 18, 16] {
+        emit(cycles);
+    }
+
+    timing
+}
+
+fn visit_fresh_title_chameleon_upload_to_menu_outcome(
+    menu_expires: bool,
     mut visit: impl FnMut(MemoryDmaTimingEvent),
 ) -> IntroSourceTiming {
     let mut timing = IntroSourceTiming {
@@ -741,24 +801,47 @@ pub fn visit_fresh_title_chameleon_upload_to_execute_return(
     emit(&mut visit, &mut timing, 10);
     emit_hibernate_one(&mut visit, &mut timing);
 
-    // ASM loc_E1E skips Kid while its 30-frame Hibernate_Object counter is
-    // non-zero, then dispatches the awake menu coroutine.
-    for cycles in [12, 8, 4, 12, 10, 16, 10] {
-        emit(&mut visit, &mut timing, cycles);
+    if menu_expires {
+        // ASM loc_E1E dispatches the mature Kid coroutine. Its saved PC is
+        // the `bra.s loc_1B64C` after the preceding one-frame hibernate, so
+        // it loops back to the JSR and yields once more before the menu runs.
+        // The frame-837 oracle trace directly confirms this mature path.
+        for cycles in [12, 8, 4, 12, 10, 16, 8, 16, 80, 16, 24, 16] {
+            emit(&mut visit, &mut timing, cycles);
+        }
+        emit(&mut visit, &mut timing, 10);
+        emit_hibernate_one(&mut visit, &mut timing);
+    } else {
+        // TODO(fidelity): model Kid's timed title-animation coroutine from
+        // Obj_TitleTextKid sub_1B5BC instead of retaining the established
+        // ordinary-pass skip approximation.
+        for cycles in [12, 8, 4, 12, 10, 16, 10] {
+            emit(&mut visit, &mut timing, cycles);
+        }
     }
+
+    // ASM loc_E1E dispatches the awake menu coroutine.
     for cycles in [12, 8, 4, 12, 10, 16, 8, 16, 80, 16, 24, 16] {
         emit(&mut visit, &mut timing, cycles);
     }
-    // ASM loc_1BAF6 consumes no Start press, decrements 640 to 639, clears
-    // Ctrl_Pressed at loc_1BAEE, and yields for another frame.
-    for cycles in [20, 8, 10, 16] {
+    // ASM loc_1BAF6 consumes no Start press. Ordinary passes take DBF back
+    // to loc_1BAEE and yield; the last pass falls through loc_1BB02.
+    for cycles in [20, 8] {
         emit(&mut visit, &mut timing, cycles);
     }
-    emit_hibernate_one(&mut visit, &mut timing);
+    if menu_expires {
+        // ASM loc_1BAFA DBF falls through to loc_1BB02.
+        emit(&mut visit, &mut timing, 14);
+    } else {
+        for cycles in [10, 16] {
+            emit(&mut visit, &mut timing, cycles);
+        }
+        emit_hibernate_one(&mut visit, &mut timing);
 
-    // The menu is the final list entry; loc_E58 returns to Mode_Standard.
-    for cycles in [12, 10, 16, 16] {
-        emit(&mut visit, &mut timing, cycles);
+        // The menu is the final list entry; loc_E58 returns to Mode_Standard.
+        for cycles in [12, 10, 16, 16] {
+            emit(&mut visit, &mut timing, cycles);
+        }
     }
 
     timing
@@ -2726,7 +2809,34 @@ mod tests {
                 .filter(|event| matches!(event, MemoryDmaTimingEvent::Instruction(76)))
                 .count(),
             2,
-            "ASM sub_E76 hibernates Chameleon and Menu after the upload",
+            "the ordinary-pass model hibernates Chameleon and Menu after the upload",
+        );
+        assert_eq!(
+            timing.instruction_count,
+            events
+                .iter()
+                .filter(|event| matches!(event, MemoryDmaTimingEvent::Instruction(_)))
+                .count() as u32,
+        );
+    }
+
+    #[test]
+    fn fresh_title_timeout_hibernates_mature_kid_before_menu_falls_through() {
+        let mut events = Vec::new();
+        let timing = visit_fresh_title_chameleon_upload_to_demo_mode(|event| events.push(event));
+
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event, MemoryDmaTimingEvent::Instruction(76)))
+                .count(),
+            2,
+            "ASM loc_1B6A2 and loc_1B64C hibernate Chameleon and Kid, but expired Obj_TitleMenu does not yield",
+        );
+        assert_eq!(
+            events.last(),
+            Some(&MemoryDmaTimingEvent::Instruction(14)),
+            "ASM loc_1BAFA DBF expires into loc_1BB02",
         );
         assert_eq!(
             timing.instruction_count,

@@ -2761,6 +2761,44 @@ pub fn apply_gems_fresh_title_chameleon_upload_to_execute_return(
     )
 }
 
+/// Clock the final title CHAMELEON upload and menu timeout through
+/// `loc_1BB02`.
+#[cfg(feature = "audio")]
+pub fn apply_gems_fresh_title_chameleon_upload_to_demo_mode(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleMemoryDmaAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::fresh_title_chameleon_upload_to_demo_mode_cursor_with_scheduler(
+        entry,
+        |event| Some(apply_gems_title_memory_dma_hardware_event(audio, event)),
+    )
+}
+
+/// Clock `loc_1BB02 -> loc_6E2 -> Pal_FadeOut` through its first VINT poll.
+#[cfg(feature = "audio")]
+pub fn apply_gems_title_demo_mode_to_first_fade_wait(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::title_demo_mode_to_first_fade_wait_cursor_with_scheduler(
+        entry,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock frame 198's SegaText glyphs and object prefix through `sub_1B71A`.
 #[cfg(feature = "audio")]
 pub fn apply_gems_fresh_title_third_execute_objects_to_chameleon_enigma(

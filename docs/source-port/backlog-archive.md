@@ -255,6 +255,20 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: the fresh-title timeout and complete fade loop are
+source-modelled through frame 854. Frame 837 follows `Obj_TitleMenu
+loc_1BAEE -> loc_1BB02 -> loc_6E2`; selected-PC tracing confirms mature Kid
+resumes through `loc_1B64C` before the final menu DBF expires. Frames 838..853
+take `Pal_FadeOut loc_28D6 -> loc_28DE -> loc_28C6`; frame 854 takes the
+negative `loc_28EA` branch. The focused 855-frame comparison is green with
+820 evidence-backed limitations and 35 advisory-only frames. The full route
+lowers GEMS mismatches from 36,922 to 36,904 and moves the frontier to frame
+855; all 37,759 gameplay/enemy checks, all 37,743 RNG frames, and the
+26,382-exact / 11,377-divergent pixel baseline remain unchanged.
+`verify-slice-fast` and `verify-tas-full` pass after the monotonic GEMS
+baseline update. NEXT: complete frame 855's final
+`Palette_to_VRAM`/clean `sub_14C0` return and enter the `loc_700` VRAM clear.
+
 Progress 2026-07-22: the complete ordinary fresh-title loop is source-modelled
 through frame 836. Frames 510..836 are the remaining 327 ASM
 `Obj_TitleTextChameleon loc_1B6A2 -> sub_1B71A` passes before
