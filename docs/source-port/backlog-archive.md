@@ -255,6 +255,19 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: post-fade clear coverage advances from frame 855 through
+867. The final `loc_28EA` palette upload takes clean `sub_14C0`, returns to
+`loc_700` at oracle cycle 109,433,456, and retains the source-derived
+32,768-word VRAM FIFO schedule. Oracle reaches `loc_714` at cycle 110,586,260;
+the same cursor then drives `loc_720`'s Sprite_Table clear through frame 867.
+The focused 868-frame comparison is green with 833 evidence-backed
+limitations and 35 advisory-only frames. The full route lowers GEMS
+mismatches from 36,904 to 36,891 and moves the frontier to frame 868; gameplay,
+enemy, RNG, and pixel evidence remain unchanged. `verify-slice-fast` and
+`verify-tas-full` pass after the monotonic GEMS baseline update.
+NEXT: source-model `loc_726 -> Load_DemoPlay`, first reached at oracle cycle
+111,176,008.
+
 Progress 2026-07-23: the fresh-title timeout and complete fade loop are
 source-modelled through frame 854. Frame 837 follows `Obj_TitleMenu
 loc_1BAEE -> loc_1BB02 -> loc_6E2`; selected-PC tracing confirms mature Kid

@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 post-fade clears)
+
+- Defended GEMS coverage advances to frames 0..867; frame 868 enters
+  `loc_726 -> Load_DemoPlay`.
+- Frame 855 finishes the clean-mask `loc_28EA` palette pass and enters
+  `loc_700`; the retained FIFO cursor carries the 32,768-word VRAM clear.
+- Frame 864 switches at traced `loc_714` cycle 110,586,260 to the
+  Sprite_Table clear, which spans the remaining defended frames.
+- The focused 868-frame comparison is green with 833 evidence-backed
+  limitations and 35 advisory-only frames.
+- Full-route GEMS mismatches fall from 36,904 to 36,891 and the frontier moves
+  from frame 855 to 868; gameplay, enemy, RNG, and pixel evidence is unchanged.
+- `verify-slice-fast` and `verify-tas-full` pass after updating the monotonic
+  GEMS ratchet.
+- NEXT: source-model `loc_726 -> Load_DemoPlay`.
+
 ## 2026-07-23 handoff (#416 title timeout and fade loop)
 
 - Defended GEMS coverage advances to frames 0..854; frame 855 is the final

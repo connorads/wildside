@@ -119,11 +119,12 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// all 641 ordinary fresh-title object passes through frame 836, including
 /// `sub_1B71A`'s first three Enigma maps and plane-A uploads, then frame 837's
 /// `Obj_TitleMenu` timeout and all sixteen non-negative `Pal_FadeOut` iterations,
-/// then frame 854's negative decrement into the final fade delay. The tail remains
-/// the coarse continuous route replayer (trace-delta commands at frame boundaries
+/// frame 854's negative decrement, the final clean-mask fade upload, all of
+/// `loc_700`'s VRAM clear, and the following Sprite_Table clear through frame 867.
+/// The tail remains the coarse continuous route replayer (trace-delta commands at frame boundaries
 /// plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 855;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 868;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -3937,6 +3938,50 @@ impl GemsSignatureProbe {
             self.power_on_intro_cursor = Some(delay.cursor);
             sampled_checkpoint = Some(checkpoint);
         }
+        if self.power_on_frame == 855 {
+            // ASM Pal_FadeOut loc_28EA completes its final palette upload and
+            // clean-mask sub_14C0 call, then returns through loc_6E2 to the
+            // CPU-driven loc_700/loc_70E VRAM clear. Oracle selected-PC
+            // tracing reaches loc_700 at cycle 109,433,456.
+            let cursor = self
+                .power_on_intro_cursor
+                .take()
+                .expect("final fade delay reaches its palette upload");
+            let dma = apply_gems_title_palette_to_vram_call(&mut self.engine, cursor)
+                .expect("final demo-transition palette DMA");
+            let interpolation =
+                apply_gems_title_clean_palette_interpolation_call(&mut self.engine, dma.cursor)
+                    .expect("final demo-transition clean interpolation");
+            let fade_return = apply_gems_title_palette_fade_return_to_loc_700(
+                &mut self.engine,
+                interpolation.cursor,
+            )
+            .expect("final demo-transition fade return reaches loc_700");
+            self.power_on_vram_clear = Some(
+                TimedGemsTitleLoc700Cursor::new(fade_return.cursor, self.engine.master_clock())
+                    .expect("ASM loc_700 hardware schedule"),
+            );
+        }
+        if self.power_on_frame == 864 {
+            // ASM loc_70E's last DBF falls through to loc_714 at oracle cycle
+            // 110,586,260. Retain the exact hardware cursor while the
+            // following loc_720 Sprite_Table clear spans frames 864..867.
+            let mut vram_clear = self
+                .power_on_vram_clear
+                .take()
+                .expect("post-demo-fade loc_700 cursor reaches loc_714");
+            let loc_714_master_clock = vram_clear.end_master_clock();
+            vram_clear
+                .advance_to_master_clock(&mut self.engine, loc_714_master_clock)
+                .expect("post-demo-fade loc_700 cursor reaches its exact end");
+            self.power_on_vram_clear = Some(
+                TimedGemsTitleLoc700Cursor::new_loc_714(
+                    vram_clear.end_cursor(),
+                    loc_714_master_clock,
+                )
+                .expect("ASM loc_714 hardware schedule"),
+            );
+        }
         if self.power_on_frame == 174 {
             // ASM DecompressToVRAM loc_14314 uploads byte_26E3D's first
             // 4 KiB chunk. FrameRendered lands inside the 2,048-word
@@ -5369,10 +5414,10 @@ macro_rules! fresh_title_irq_residue {
 
 /// Exact FrameRendered residues after source-scheduling ASM
 /// `Obj_TitleTextChameleon loc_1B6A2 -> sub_1B71A` and the following
-/// `Obj_TitleMenu loc_1BB02 -> Pal_FadeOut` transition. These are the
-/// continuing consequences of the documented jgenesis Z80 X/Y-flag defect;
-/// every strict field is pinned so a new divergence cannot hide behind the
-/// classification.
+/// `Obj_TitleMenu loc_1BB02 -> Pal_FadeOut` transition and the following
+/// `loc_700/loc_720` clears. These are the continuing consequences of the
+/// documented jgenesis Z80 X/Y-flag defect; every strict field is pinned so
+/// a new divergence cannot hide behind the classification.
 #[rustfmt::skip]
 const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
     FreshTitleIrqResidue {
@@ -8325,6 +8370,19 @@ const FRESH_TITLE_IRQ_RESIDUES: &[FreshTitleIrqResidue] = &[
     fresh_title_irq_residue!(852, 4251482774, 2110035053, 0x019F, 0x02B2, 0, 0, 0, 0, 16, 16),
     fresh_title_irq_residue!(853, 746844611, 3627765855, 0x01C6, 0x02A8, 0, 0, 0, 0, 16, 16),
     fresh_title_irq_residue!(854, 415680484, 2661009201, 0x01D2, 0x02A8, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(855, 2626695711, 4157836035, 0x07B0, 0x0073, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(856, 1807159952, 3016872464, 0x01C6, 0x02BD, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(857, 1275047149, 1531221851, 0x018B, 0x03B7, 0, 0, 0, 0, 16, 0),
+    fresh_title_irq_residue!(858, 3305366916, 3879814059, 0x018B, 0x015E, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(859, 3397265518, 1181019137, 0x07B3, 0x02A5, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(860, 2679069659, 823071594, 0x07A9, 0x01BB, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(861, 4109882279, 2640726986, 0x01CA, 0x016F, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(862, 2084320631, 22024018, 0x01C1, 0x01D2, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(863, 2460901252, 3915621849, 0x07B3, 0x01BB, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(864, 1504564467, 3294638221, 0x01CC, 0x01BB, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(865, 1613843874, 3415870256, 0x0173, 0x0173, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(866, 3317716783, 1419729342, 0x01CA, 0x07B3, 0, 0, 0, 0, 16, 16),
+    fresh_title_irq_residue!(867, 909533902, 2708731624, 0x016F, 0x07A9, 0, 0, 0, 0, 16, 16),
 ];
 
 fn gems_divergence_matches_documented_oracle_limitation(
