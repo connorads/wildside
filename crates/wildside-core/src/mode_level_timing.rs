@@ -3696,10 +3696,10 @@ pub fn make_sprites_from_gfx_objects_raw_cycles_sub_1492(
     Some(M68kCycleCount::from_raw(raw_cycles))
 }
 
-/// Raw routine-body cost for ASM special-terrain scan `sub_1FA2`.
-pub fn terrain_special_scan_raw_cycles_sub_1fa2(
+fn visit_terrain_special_scan_instructions_sub_1fa2(
     work: ModeLevelTerrainSpecialScanSub1FA2,
-) -> Option<M68kCycleCount> {
+    mut visit: impl FnMut(u32) -> Option<()>,
+) -> Option<()> {
     if work.first_special_collision.is_some() {
         return None;
     }
@@ -3717,13 +3717,85 @@ pub fn terrain_special_scan_raw_cycles_sub_1fa2(
         return None;
     }
 
-    // ASM loc_1FEE..loc_2008: each clear cell costs 46 raw cycles except the
-    // final DBF iteration in each row (+4); each completed row advances the
-    // layout pointer and row DBF. The fixed setup/return costs 294 cycles.
-    let loop_cycles = u32::from(rows)
-        .checked_mul(46_u32.checked_mul(u32::from(columns))?.checked_add(38)?)?
-        .checked_add(4)?;
-    Some(M68kCycleCount::from_raw(294_u32.checked_add(loop_cycles)?))
+    // ASM Mode_Level loc_876 BSR and sub_1FA2 setup through loc_1FEC.
+    for cycles in [
+        18, 16, 16, 16, 16, 12, 12, 16, 12, 12, 12, 14, 14, 4, 4, 12, 14, 12, 12, 14, 14, 4, 4, 8,
+    ] {
+        visit(cycles)?;
+    }
+    for row in 0..rows {
+        // ASM loc_1FEE: reset the inclusive horizontal DBF counter and row
+        // pointer before scanning each terrain row.
+        for cycles in [4, 4] {
+            visit(cycles)?;
+        }
+        for column in 0..columns {
+            // ASM loc_1FF2: load and mask one collision word. Clear cells
+            // reject the special dispatch and continue through the DBF.
+            for cycles in [8, 8, 8, 12] {
+                visit(cycles)?;
+            }
+            visit(if column + 1 == columns { 14 } else { 10 })?;
+        }
+        // ASM loc_2004/loc_2008: advance one layout row and continue the
+        // inclusive vertical DBF.
+        visit(16)?;
+        visit(if row + 1 == rows { 14 } else { 10 })?;
+    }
+    // ASM loc_200C: discard the saved Kid position and return to loc_87A.
+    for cycles in [8, 16] {
+        visit(cycles)?;
+    }
+    Some(())
+}
+
+/// Raw routine-body cost for ASM special-terrain scan `sub_1FA2`.
+pub fn terrain_special_scan_raw_cycles_sub_1fa2(
+    work: ModeLevelTerrainSpecialScanSub1FA2,
+) -> Option<M68kCycleCount> {
+    let mut raw_cycles = 0_u32;
+    visit_terrain_special_scan_instructions_sub_1fa2(work, |instruction_cycles| {
+        raw_cycles = raw_cycles.checked_add(instruction_cycles)?;
+        Some(())
+    })?;
+    raw_cycles.checked_sub(18).map(M68kCycleCount::from_raw)
+}
+
+/// Co-schedule ASM `Mode_Level loc_876 -> sub_1FA2 -> loc_87A` with
+/// asynchronous hardware.
+pub fn terrain_special_scan_advance_with_scheduler_sub_1fa2(
+    mut phase: M68kRefreshPhase,
+    work: ModeLevelTerrainSpecialScanSub1FA2,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    visit_terrain_special_scan_instructions_sub_1fa2(work, |instruction_cycles| {
+        let phase_after_raw = u32::from(phase.get()).checked_add(instruction_cycles)?;
+        let refresh_wait = u32::from(phase_after_raw >= 128) * 2;
+        phase = M68kRefreshPhase::new(
+            u8::try_from(phase_after_raw % 128).expect("refresh phase remains below 128"),
+        )
+        .expect("refresh phase remains below 128");
+        elapsed = elapsed.checked_add(instruction_cycles)?;
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(instruction_cycles))?;
+        let mut pending_wait = generated_wait.get().checked_add(refresh_wait)?;
+        refresh_events = refresh_events.checked_add(refresh_wait / 2)?;
+        while pending_wait != 0 {
+            let wait = M68kCycleCount::from_raw(pending_wait);
+            phase = phase.advance_external_wait(wait).phase_after;
+            elapsed = elapsed.checked_add(pending_wait)?;
+            pending_wait = advance_hardware(wait)?.get();
+        }
+        Some(())
+    })?;
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
 }
 
 fn visit_shooter_support_collision_instructions_sub_1f52(
@@ -4987,6 +5059,43 @@ mod tests {
         assert_eq!(
             terrain_special_scan_raw_cycles_sub_1fa2(scan(22)),
             Some(M68kCycleCount::from_raw(688))
+        );
+        let schedule = |phase, work: ModeLevelTerrainSpecialScanSub1FA2, wait_after: &[usize]| {
+            let mut source_instruction_index = 0_usize;
+            terrain_special_scan_advance_with_scheduler_sub_1fa2(
+                M68kRefreshPhase::new(phase).expect("published loc_876 phase"),
+                work,
+                |cycles| {
+                    if cycles.get() < 4 || cycles.get() & 1 != 0 {
+                        return Some(M68kCycleCount::from_raw(0));
+                    }
+                    let wait = u32::from(wait_after.contains(&source_instruction_index)) * 11;
+                    source_instruction_index += 1;
+                    Some(M68kCycleCount::from_raw(wait))
+                },
+            )
+            .expect("published clear special-terrain scan")
+        };
+        let frame_1697 = schedule(66, scan(21), &[]);
+        assert_eq!(frame_1697.elapsed, M68kCycleCount::from_raw(586));
+        assert_eq!(frame_1697.refresh_events, 5);
+        assert_eq!(
+            frame_1697.phase_after,
+            M68kRefreshPhase::new(12).expect("frame-1697 loc_87A phase"),
+        );
+        let frame_1703 = schedule(122, scan(21), &[37, 43, 48, 50]);
+        assert_eq!(frame_1703.elapsed, M68kCycleCount::from_raw(630));
+        assert_eq!(frame_1703.refresh_events, 5);
+        assert_eq!(
+            frame_1703.phase_after,
+            M68kRefreshPhase::new(112).expect("frame-1703 loc_87A phase"),
+        );
+        let frame_1709 = schedule(12, scan(22), &[36, 42, 46, 50, 55, 60]);
+        assert_eq!(frame_1709.elapsed, M68kCycleCount::from_raw(782));
+        assert_eq!(frame_1709.refresh_events, 5);
+        assert_eq!(
+            frame_1709.phase_after,
+            M68kRefreshPhase::new(26).expect("frame-1709 loc_87A phase"),
         );
         assert_eq!(
             terrain_special_scan_raw_cycles_sub_1fa2(ModeLevelTerrainSpecialScanSub1FA2 {

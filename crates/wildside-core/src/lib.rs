@@ -164,8 +164,8 @@ pub use mode_level_timing::{
     shooter_projectile_collision_raw_cycles_sub_226a,
     shooter_support_collision_advance_with_scheduler_sub_1f52,
     shooter_support_collision_raw_cycles_sub_1f52, terrain_effects_advance_with_scheduler_sub_5e02,
-    terrain_effects_raw_cycles_sub_5e02, terrain_special_scan_raw_cycles_sub_1fa2,
-    wait_for_vint_elapsed_cycles_to_mode_level,
+    terrain_effects_raw_cycles_sub_5e02, terrain_special_scan_advance_with_scheduler_sub_1fa2,
+    terrain_special_scan_raw_cycles_sub_1fa2, wait_for_vint_elapsed_cycles_to_mode_level,
     wait_for_vint_mclk_from_vint_assertion_to_mode_level,
     wait_for_vint_source_cycles_to_mode_level,
 };

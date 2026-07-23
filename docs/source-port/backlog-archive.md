@@ -1889,6 +1889,15 @@ mask the render.
 
 ### #409
 
+Progress 2026-07-23: the typed clear-terrain `sub_1FA2` walk is now
+instruction-scheduled from `Mode_Level loc_876`. The published 2x2/2x2/2x3
+walks take 576/576/706 raw cycles including the caller, five refresh waits
+each, and 0/4/6 eleven-cycle GEMS bank steals. They reach the exact `loc_87A`
+phases 12/112/26 on frames 1697/1703/1709. Eighteen of 22 post-HUD phases now
+preserve exact source instruction boundaries. Production coverage moves
+`loc_200C` out of test-only debt, shrinking the ratchet 170 -> 169. NEXT:
+source-schedule the six-slot `sub_2A4C` pass from `loc_87A`.
+
 Progress 2026-07-23: the empty-list `sub_1D76` wrapper is now
 instruction-scheduled from `Mode_Level loc_872` through both `sub_1D84`
 calls. Its 144 raw cycles including the caller reproduce phases 48->66,

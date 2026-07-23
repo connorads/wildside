@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 special-terrain scan)
+
+- `sub_1FA2` now preserves every instruction in the published clear 2x2 and
+  2x3 terrain-cell walks.
+- The three target frames reproduce five refresh waits, 0/4/6 GEMS bank
+  steals, and exact `loc_87A` phases 12/112/26.
+- Eighteen of 22 post-HUD phases are now source-scheduled.
+- NEXT: source-schedule the six-slot `sub_2A4C` pass from `loc_87A`.
+
 ## 2026-07-23 handoff (#409 Kid-projectile collision wrapper)
 
 - `sub_1D76` now preserves every instruction across both empty `sub_1D84`
