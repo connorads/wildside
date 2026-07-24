@@ -456,6 +456,13 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: defended GEMS coverage advances through frame 917 and
+the authoritative frontier moves to frame 918. The sixteenth gameplay pass
+source-schedules the life-icon DMA and blocking VINT. Bank, waits and flags
+match; RAM/PC retain only the established undocumented-X/Y IRQ phase. Full
+counts are 36,841 mismatches, 882 limitations and 36 advisory-only frames.
+`verify-slice-fast` passes 7,057 core tests. NEXT: source-bound frame 918.
+
 Progress 2026-07-23: defended GEMS coverage advances through frame 916 and
 the authoritative frontier moves to frame 917. The fifteenth gameplay pass
 retains one native four-cycle GEMS bank wait that jgenesis suppresses under

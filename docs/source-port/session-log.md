@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 GEMS frame 917)
+
+- Frame 917 source-schedules the life-icon DMA and blocking VINT through the
+  next `$7C8`.
+- Bank, waits and flags match; RAM/PC retain the established X/Y IRQ phase.
+- Full GEMS counts are 36,841 mismatches, 882 limitations and 36
+  advisory-only frames.
+- `verify-slice-fast` passes 7,057 core tests; NEXT is frame 918.
+
 ## 2026-07-23 handoff (#409 GEMS frame 916)
 
 - Frame 916 defends the final grounded-bootstrap hold through the following
