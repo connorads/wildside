@@ -13,6 +13,7 @@ mod cheats;
 mod compare;
 mod diff;
 mod gems_census;
+mod gems_ring;
 mod hypothesis;
 mod inspect;
 mod native_player;
@@ -985,6 +986,19 @@ enum Commands {
         #[arg(long)]
         report: Option<PathBuf>,
         /// Output JSON path (default: .cache/audit/gems-census.json)
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
+    /// Decode the 68k→Z80 GEMS mailbox-ring command stream from an
+    /// oracle-probe --capture-gems-state manifest and print the decoded
+    /// events plus an opcode census (#435). Fails when any frame decodes
+    /// uncleanly (unknown opcode or ring overflow).
+    GemsRingDecode {
+        /// Oracle manifest with per-frame audio-RAM dumps (default:
+        /// .cache/oracle-probe/oracle/manifest.json)
+        #[arg(long)]
+        manifest: Option<PathBuf>,
+        /// Optional JSON dump of the decoded per-frame events
         #[arg(long)]
         output: Option<PathBuf>,
     },
@@ -2405,6 +2419,12 @@ fn main() -> Result<()> {
                     &repo_root, &rom_path, &manifest, &level_ids, tier, &options,
                 )?;
             }
+        }
+        Commands::GemsRingDecode { manifest, output } => {
+            let repo_root = current_dir()?;
+            let manifest_path = manifest
+                .unwrap_or_else(|| repo_root.join(".cache/oracle-probe/oracle/manifest.json"));
+            gems_ring::run_gems_ring_decode(&manifest_path, output.as_deref())?;
         }
         Commands::GemsCensus { report, output } => {
             let repo_root = current_dir()?;
