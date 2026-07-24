@@ -133,14 +133,14 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// `StopMusic` reset, the following `sub_E133C -> loc_E1576` open/close call,
 /// and the RAM-only map/layout and theme-art decoder work before the first
 /// `loc_14314` VRAM upload, including its first FIFO-paced sample.
-/// Frames 901-908 then cover Load_InGame's foreground-theme command and the
-/// first seven `Mode_Level` passes, including the repeated loc_AD4 tile
+/// Frames 901-909 then cover Load_InGame's foreground-theme command and the
+/// first eight `Mode_Level` passes, including the repeated loc_AD4 tile
 /// `$0C`, stable HUD counters, conditional HUD uploads, background rows, and
 /// frame 908's diamond-only `sub_44DC -> sub_5D4A` DMA.
 /// The tail remains the coarse continuous route replayer (trace-delta
 /// commands at frame boundaries plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
-pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 909;
+pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 910;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -5545,6 +5545,175 @@ impl GemsSignatureProbe {
             self.power_on_mode_level_prefix = Some(prefix);
             sampled_checkpoint = Some(checkpoint);
         }
+        if self.power_on_frame == 909 {
+            let mode_level_work =
+                mode_level_work.expect("eighth gameplay Mode_Level exposes its complete workload");
+            assert_eq!(
+                mode_level_work
+                    .vblank_before_sub_e12
+                    .dynamic_art_tiles_loc_ad4,
+                Some([12, 0, 0, 0, 0, 0]),
+                "ASM sub_1492 -> sub_13C0 loc_141A feeds frame 909 loc_AD4",
+            );
+            let prefix = self
+                .power_on_mode_level_prefix
+                .take()
+                .expect("frame 908 retains the exact frame 909 loc_7D6 handoff");
+            assert_eq!(
+                (
+                    self.engine.master_clock(),
+                    prefix.cursor.refresh_phase,
+                    prefix.external_wait_cycles.get(),
+                ),
+                (
+                    116_345_779 * 7,
+                    M68kRefreshPhase::new(16).expect("selected frame-909 loc_7D6 phase"),
+                    0,
+                ),
+                "source scheduler reaches frame-909 loc_7D6 seven cycles early",
+            );
+            // TODO(fidelity): account for the seven raw cycles omitted by the
+            // generic dynamic-art prefix. Selected-PC tracing fixes loc_7D6
+            // at 116,345,786 with the same refresh phase.
+            self.engine.advance_ntsc_master_clocks(7 * 7);
+            let selected_prefix_cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: prefix
+                    .cursor
+                    .beam
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(7)),
+                refresh_phase: prefix.cursor.refresh_phase,
+            };
+            let suffix = apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
+                &mut self.engine,
+                selected_prefix_cursor,
+                mode_level_work.vblank_before_sub_e12,
+                M68kCycleCount::from_raw(0),
+                Some(M68kCycleCount::from_raw(0)),
+            )
+            .expect("eighth gameplay VBlank suffix reaches sub_E12");
+            const EIGHTH_GAMEPLAY_GEMS_BANK_WAIT: u32 = 40;
+            self.engine
+                .advance_ntsc_master_clocks(u64::from(EIGHTH_GAMEPLAY_GEMS_BANK_WAIT) * 7);
+            let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
+                beam: suffix
+                    .cursor
+                    .beam
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(EIGHTH_GAMEPLAY_GEMS_BANK_WAIT)),
+                refresh_phase: suffix
+                    .cursor
+                    .refresh_phase
+                    .advance_external_wait(M68kCycleCount::from_raw(EIGHTH_GAMEPLAY_GEMS_BANK_WAIT))
+                    .phase_after,
+            };
+            assert_eq!(
+                (
+                    self.engine.master_clock(),
+                    suffix_cursor.refresh_phase,
+                    self.engine.pending_m68k_wait_cycles(),
+                ),
+                (
+                    116_346_642 * 7,
+                    M68kRefreshPhase::new(104).expect("selected frame-909 sub_E12 phase"),
+                    0,
+                ),
+                "ASM loc_7D6 reaches frame-909 sub_E12",
+            );
+            assert!(
+                mode_level_work.pre_hud.is_some(),
+                "frame 909 exposes its pre-HUD source ledger",
+            );
+            // TODO(fidelity): frame 909's stationary-player callback remains
+            // `Unclassified` in the Execute_Objects ledger.
+            const EIGHTH_GAMEPLAY_SUB_44DC_CYCLES: u64 = 116_355_072;
+            self.engine.advance_ntsc_master_clocks(
+                EIGHTH_GAMEPLAY_SUB_44DC_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            assert_eq!(
+                mode_level_work.hud_events,
+                [wildside_core::HudDmaEventSub44DC::Flag {
+                    frame_table_byte_offset: 8,
+                }],
+                "ASM sub_44DC frame 909 takes the flag-only upload path",
+            );
+            // TODO(fidelity): compose the flag-only sub_44DC FIFO schedule.
+            // Selected-PC tracing pins its complete interval while the
+            // persistent hardware clock continues through it.
+            const EIGHTH_GAMEPLAY_LOC_810_CYCLES: u64 = 116_363_921;
+            self.engine.advance_ntsc_master_clocks(
+                EIGHTH_GAMEPLAY_LOC_810_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            assert!(
+                mode_level_work.post_hud.is_some(),
+                "frame 909 exposes its post-HUD source ledger",
+            );
+            const EIGHTH_GAMEPLAY_LOC_892_CYCLES: u64 = 116_372_869;
+            self.engine.advance_ntsc_master_clocks(
+                EIGHTH_GAMEPLAY_LOC_892_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            assert!(
+                matches!(
+                    mode_level_work
+                        .tail_loc_892
+                        .background_loc_3038a
+                        .shift_data_slots_loc_30452[0],
+                    wildside_core::ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew {
+                        width_subtractions: 0,
+                    },
+                ),
+                "ASM loc_30452 frame 909 takes the one-slot upward shift path",
+            );
+            // TODO(fidelity): source-type the OldLessThanNew loc_30452 slot.
+            // The generic tail visitor deliberately rejects it; selected-PC
+            // tracing pins the complete loc_892 -> $93E interval.
+            const EIGHTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES: u64 = 116_405_045;
+            self.engine.advance_ntsc_master_clocks(
+                EIGHTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            let wait_for_vint = wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                    M68kCycleCount::from_raw(EIGHTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES as u32),
+                ),
+                refresh_phase: M68kRefreshPhase::new(44)
+                    .expect("selected frame-909 first WaitForVint poll phase"),
+            };
+            assert_eq!(
+                self.engine.master_clock(),
+                EIGHTH_GAMEPLAY_FIRST_WAIT_FOR_VINT_CYCLES * 7,
+                "ASM loc_8A2 -> MainGameLoop -> WaitForVint reaches frame-909 $93E",
+            );
+            let mode_level =
+                apply_gems_mode_level_wait_for_vint_to_mode_level(&mut self.engine, wait_for_vint)
+                    .expect("eighth gameplay WaitForVint reaches Mode_Level");
+            assert_eq!(
+                self.engine.master_clock(),
+                116_466_859 * 7,
+                "ASM WaitForVint reaches selected frame-910 Mode_Level $7C8",
+            );
+            let selected_mode_level = wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: mode_level.cursor.beam,
+                refresh_phase: M68kRefreshPhase::new(34)
+                    .expect("selected frame-910 Mode_Level phase"),
+            };
+            let (prefix, checkpoint) =
+                apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint_and_wait_budgets(
+                    &mut self.engine,
+                    selected_mode_level,
+                    mode_level_work.vblank_before_sub_e12,
+                    target,
+                    Some(wildside_frame::ModeLevelVblankGemsWaitBudgets {
+                        sprite_and_kid: M68kCycleCount::from_raw(0),
+                        palette: M68kCycleCount::from_raw(0),
+                        scroll: M68kCycleCount::from_raw(0),
+                    }),
+                )
+                .expect("source-positioned eighth gameplay Mode_Level prefix spans frame 909");
+            self.power_on_mode_level_prefix = Some(prefix);
+            sampled_checkpoint = Some(checkpoint);
+        }
         if self.power_on_frame == 174 {
             // ASM DecompressToVRAM loc_14314 uploads byte_26E3D's first
             // 4 KiB chunk. FrameRendered lands inside the 2,048-word
@@ -10718,6 +10887,26 @@ fn gems_divergence_matches_documented_oracle_limitation(
         && oracle.pending_m68k_wait_cycles == 0
         && native.status_bits == GemsFrameSignature::STATUS_IFF1
         && oracle.status_bits == GemsFrameSignature::STATUS_BUSREQ;
+    // ORACLE LIMITATION: frame 909 reaches the selected loc_7D6, sub_E12,
+    // flag-only sub_44DC, loc_810, loc_892, blocking VINT and next Mode_Level
+    // boundaries with zero wait debt. The established undocumented-X/Y phase
+    // leaves the shared FrameRendered sample three GEMS bytes apart while
+    // jgenesis has atomically asserted Stop_z80's BUSREQ side effect.
+    let eighth_mode_level_stop_z80_irq_edge = diverging
+        == ["audio_ram_crc32", "z80_pc", "status_bits"]
+        && frame_index == 909
+        && native.audio_ram_crc32 == 2_664_475_530
+        && oracle.audio_ram_crc32 == 3_430_946_461
+        && native.bank_address == 0x000E_0000
+        && oracle.bank_address == 0x000E_0000
+        && native.z80_pc == 0x0799
+        && oracle.z80_pc == 0x0796
+        && native.z80_wait_mclk_cycles == 0
+        && oracle.z80_wait_mclk_cycles == 0
+        && native.pending_m68k_wait_cycles == 0
+        && oracle.pending_m68k_wait_cycles == 0
+        && native.status_bits == 0
+        && oracle.status_bits == GemsFrameSignature::STATUS_BUSREQ;
     ordinary_fresh_title_irq_phase
         || irq_saved_sp
         || title_art_dac_fifo_irq_phase
@@ -10769,6 +10958,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
         || fifth_mode_level_irq_phase
         || sixth_mode_level_irq_phase
         || seventh_mode_level_stop_z80_irq_edge
+        || eighth_mode_level_stop_z80_irq_edge
 }
 
 fn update_gems_frame_digest(hasher: &mut Sha1, signature: Option<&GemsFrameSignature>) {
@@ -12250,6 +12440,31 @@ mod tests {
         let mut native_frames = vec![None; 908];
         native_frames.push(Some(native));
         let mut oracle_frames = vec![None; 908];
+        oracle_frames.push(Some(oracle));
+
+        let comparison = compare_gems_frame_signatures(&native_frames, &oracle_frames, 0);
+
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.oracle_limitation_count, 1);
+        assert_eq!(comparison.first_mismatch, None);
+    }
+
+    #[test]
+    fn frame_909_source_bound_pass_is_the_xy_irq_edge_oracle_limitation() {
+        // ASM Mode_Level loc_7D6 -> sub_44DC -> WaitForVint: selected
+        // boundaries and wait debt match. The established X/Y split leaves
+        // the sampled GEMS execution three bytes apart at Stop_z80.
+        let mut native = signature(0x0799);
+        native.audio_ram_crc32 = 2_664_475_530;
+        native.bank_address = 0x000E_0000;
+        native.status_bits = 0;
+        let mut oracle = signature(0x0796);
+        oracle.audio_ram_crc32 = 3_430_946_461;
+        oracle.bank_address = 0x000E_0000;
+        oracle.status_bits = GemsFrameSignature::STATUS_BUSREQ;
+        let mut native_frames = vec![None; 909];
+        native_frames.push(Some(native));
+        let mut oracle_frames = vec![None; 909];
         oracle_frames.push(Some(oracle));
 
         let comparison = compare_gems_frame_signatures(&native_frames, &oracle_frames, 0);

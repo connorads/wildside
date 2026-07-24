@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 GEMS frame 909)
+
+- Frame 909 source-bounds the eighth gameplay pass through the following
+  blocking VINT; selected boundaries match through the next `$7C8`.
+- Its flag-only HUD path and one `loc_30452` `OldLessThanNew` background slot
+  are pinned; the latter still needs a typed generic visitor stream.
+- Source bounds remove the prior false pending-wait difference.
+- The exact FrameRendered RAM/PC/BUSREQ residue is the established jgenesis
+  undocumented-X/Y instruction edge.
+- Full GEMS counts are 36,849 mismatches, 874 limitations and 36
+  advisory-only frames; NEXT is frame 910.
+
 ## 2026-07-23 handoff (#409 GEMS frame 908)
 
 - Frame 908 source-schedules the seventh gameplay pass through the following

@@ -456,6 +456,18 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: defended GEMS coverage advances through frame 909 and
+the authoritative frontier moves to frame 910. The eighth gameplay pass
+reaches selected `loc_7D6`, `sub_E12`, the flag-only `sub_44DC`, `loc_810`,
+`loc_892`, `$93E`, and the following `$7C8`. Source bounds remove the prior
+false pending 68000 wait. Its tail introduces one `loc_30452`
+`OldLessThanNew` background slot; the fail-closed generic visitor rejects
+that stream, so the exact selected `loc_892 -> $93E` envelope remains marked
+for source typing. The remaining FrameRendered audio-RAM, PC and BUSREQ
+residue is the established jgenesis undocumented-X/Y instruction edge. Full
+counts are 36,849 mismatches, 874 limitations and 36 advisory-only frames.
+`verify-slice-fast` passes 7,057 core tests. NEXT: source-bound frame 910.
+
 Progress 2026-07-23: defended GEMS coverage advances through frame 908 and
 the authoritative frontier moves to frame 909. The seventh gameplay pass
 reaches selected `loc_7D6`, `sub_E12`, `sub_44DC`, `loc_810`, `loc_892`,
