@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 GEMS frame 916)
+
+- Frame 916 defends the final grounded-bootstrap hold through the following
+  blocking VINT and next `$7C8`.
+- Native retains one four-cycle GEMS bank wait suppressed by jgenesis under
+  the established X/Y phase split, then re-aligns at the next boundary.
+- Full GEMS counts are 36,842 mismatches, 881 limitations and 36
+  advisory-only frames.
+- `verify-slice-fast` passes 7,057 core tests; NEXT is frame 917.
+
 ## 2026-07-23 handoff (#409 GEMS frame 915)
 
 - Frame 915 source-bounds the fourteenth gameplay pass through the following

@@ -456,6 +456,14 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: defended GEMS coverage advances through frame 916 and
+the authoritative frontier moves to frame 917. The fifteenth gameplay pass
+retains one native four-cycle GEMS bank wait that jgenesis suppresses under
+the established X/Y phase split, then re-aligns at the next selected source
+boundary. Full counts are 36,842 mismatches, 881 limitations and 36
+advisory-only frames. `verify-slice-fast` passes 7,057 core tests. NEXT:
+source-bound frame 917 and inspect the grounded-run handoff.
+
 Progress 2026-07-23: defended GEMS coverage advances through frame 915 and
 the authoritative frontier moves to frame 916. The fourteenth gameplay pass
 reaches selected `loc_7D6`, `sub_E12`, flag-only `sub_44DC`, `loc_810`,
