@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 GEMS frame 912)
+
+- Frame 912 source-bounds the eleventh gameplay pass through the following
+  blocking VINT; selected boundaries match through the next `$7C8`.
+- Its clock-only HUD path is pinned by selected-PC boundaries; the reusable
+  FIFO adapter remains explicit fidelity debt.
+- Bank and waits match at FrameRendered; the exact RAM/PC/IFF residue is the
+  established jgenesis undocumented-X/Y IRQ phase.
+- Full GEMS counts are 36,846 mismatches, 877 limitations and 36
+  advisory-only frames.
+- `verify-slice-fast` passes 7,057 core tests; NEXT is frame 913.
+
 ## 2026-07-23 handoff (#409 GEMS frame 911)
 
 - Frame 911 source-bounds the tenth gameplay pass through the following
