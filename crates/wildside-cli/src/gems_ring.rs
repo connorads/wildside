@@ -319,6 +319,15 @@ pub(crate) struct GemsCommandComparison {
     /// Genuine divergences (value, ordering, presence, or frame drift > 1).
     pub(crate) mismatch_count: usize,
     pub(crate) first_mismatch: Option<GemsCommandMismatch>,
+    /// The complete genuine-mismatch list (bounded by the command counts,
+    /// which are a few hundred per route): the triage input for #435
+    /// clustering, mirroring the pixel mismatch report's role.
+    pub(crate) mismatches: Vec<GemsCommandMismatch>,
+    /// Both complete decoded streams: alignment-free ground truth for
+    /// triage, since the greedy walk's pairing can cascade after an
+    /// insertion and misattribute later commands.
+    pub(crate) native_commands: Vec<GemsTimedCommand>,
+    pub(crate) oracle_commands: Vec<GemsTimedCommand>,
     pub(crate) mismatch_digest: Option<String>,
     /// StopMusic re-initialisations observed per side (evidence).
     pub(crate) native_reinit_frames: usize,
@@ -477,6 +486,9 @@ pub(crate) fn compare_gems_command_streams(
         reconciled_oracle_earlier,
         mismatch_count: mismatches.len(),
         first_mismatch: mismatches.first().cloned(),
+        mismatches,
+        native_commands: native,
+        oracle_commands: oracle,
         mismatch_digest,
         native_reinit_frames,
         oracle_reinit_frames,
