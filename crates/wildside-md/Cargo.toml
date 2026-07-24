@@ -11,7 +11,7 @@ default = ["audio"]
 # crate is only the pure-Rust software VDP renderer, which the web shell
 # (wasm32-unknown-unknown) uses to draw the Sega/intro/title/level-card
 # screens (#19).
-audio = ["dep:anyhow", "dep:r68k-emu", "dep:thiserror", "dep:ymfm-sys", "dep:z80"]
+audio = ["dep:anyhow", "dep:r68k-emu", "dep:serde", "dep:thiserror", "dep:ymfm-sys", "dep:z80"]
 
 [lints]
 workspace = true
@@ -19,6 +19,7 @@ workspace = true
 [dependencies]
 anyhow = { workspace = true, optional = true }
 r68k-emu = { git = "https://github.com/marhel/r68k", package = "r68k-emu", rev = "9119048282e81c8a2ad89dd4c6e9c24fceebccb1", optional = true }
+serde = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 ymfm-sys = { path = "../ymfm-sys", optional = true }
 z80 = { version = "1.0.2", optional = true }

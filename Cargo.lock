@@ -1540,6 +1540,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "r68k-emu",
+ "serde",
  "thiserror",
  "ymfm-sys",
  "z80",

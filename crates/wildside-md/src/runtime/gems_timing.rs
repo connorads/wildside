@@ -4,6 +4,7 @@ use super::{
     Z80_RAM_LEN,
 };
 use anyhow::{Result, ensure};
+use serde::{Deserialize, Serialize};
 use std::cell::{Cell, RefCell};
 use z80::{Z80, Z80_io};
 
@@ -81,7 +82,7 @@ pub struct GemsTimingCheckpoint {
 
 /// One of the six separately arbitrated GEMS initialisation writes in ASM
 /// `StopMusic -> sub_E149C/sub_E14AC`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GemsStopMusicQueueTransaction {
     CommandMarker,
     DataPointersCommand,
@@ -92,7 +93,7 @@ pub enum GemsStopMusicQueueTransaction {
 }
 
 /// Hardware-visible stages of ASM `StopMusic` (`$E14C8..$E150E`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GemsStopMusicControl {
     ReleaseDriverReset,
     BeginDriverBus,
@@ -105,7 +106,7 @@ pub enum GemsStopMusicControl {
     ReleaseQueueBus,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GemsQueueCommand {
     StartSequence(u8),
     StopSequence(u8),
@@ -113,11 +114,112 @@ pub enum GemsQueueCommand {
     MusicSpeedCommit,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GemsQueueCommandControl {
     BeginQueueBus,
     WriteQueueBytes(GemsQueueCommand),
     ReleaseQueueBus,
+}
+
+/// One recorded call to a mutating [`GemsMasterClockTimingEngine`] public
+/// method, with owned copies of every argument.
+///
+/// The stimulus log is the engine's complete external input surface (#436):
+/// every `&mut self` public method appends exactly one record at its
+/// outermost entry, `&self` accessors never record, and internal
+/// public-to-public delegation is routed through non-recording private
+/// inners so replaying the log applies each mutation exactly once.
+/// Construction is a header (driver + ROM + timeline origin), not a
+/// stimulus. Serde is for archive dumps only; record/replay is in-memory.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GemsStimulus {
+    AdvanceMasterClocks {
+        master_clocks: u64,
+        interrupt_low: bool,
+        vdp_owns_bus: bool,
+    },
+    AdvanceM68kInstructionMasterClocks {
+        master_clocks: u64,
+        interrupt_low: bool,
+        vdp_owns_bus: bool,
+    },
+    AdvanceNtscFrame,
+    AdvanceNtscMasterClocks {
+        master_clocks: u64,
+    },
+    AdvanceNtscMasterClocksWithVdpOwnership {
+        master_clocks: u64,
+        vdp_owns_bus: bool,
+    },
+    AdvanceNtscM68kInstructionWithVdpOwnership {
+        master_clocks: u64,
+        vdp_owns_bus: bool,
+    },
+    AdvanceNtscM68kInstructionWithCheckpoint {
+        master_clocks: u64,
+        vdp_owns_bus: bool,
+        checkpoint_offset: u64,
+    },
+    AdvanceNtscM68kInstructionWithCheckpoints {
+        master_clocks: u64,
+        vdp_owns_bus: bool,
+        checkpoint_offsets: Vec<u64>,
+    },
+    AdvancePendingM68kWait {
+        interrupt_low: bool,
+        vdp_owns_bus: bool,
+    },
+    TakePendingM68kWaitCycles,
+    SetSourceScheduledM68kWaitCycles {
+        cycles: u32,
+    },
+    TakeBanked68kReads,
+    Init,
+    StartSequence {
+        sound_id: u8,
+    },
+    StopSequence {
+        sound_id: u8,
+    },
+    SetMusicSpeed {
+        speed: u8,
+    },
+    StopAllSequences,
+    StopMusic,
+    ReloadDriver,
+    ApplyStopMusicControl {
+        control: GemsStopMusicControl,
+    },
+    ApplyQueueCommandControl {
+        control: GemsQueueCommandControl,
+    },
+    ApplyStopMusicDriverCopyProgress {
+        copied_driver_bytes: usize,
+        cleared_tail_bytes: usize,
+    },
+    SetZ80Control {
+        busreq: bool,
+        reset: bool,
+    },
+    CopyPowerOnStartupRam {
+        startup_code: Vec<u8>,
+    },
+    /// Marker only: pushed by [`GemsMasterClockTimingEngine::record_frame_marker`]
+    /// so a replay harness can sample checkpoints at frame boundaries. Replay
+    /// applies no mutation.
+    FrameBoundary(usize),
+}
+
+/// Return value of replaying one [`GemsStimulus`], mirroring the replayed
+/// public method's own return type so replay outputs can be compared
+/// bit-for-bit against the originals.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GemsStimulusOutput {
+    None,
+    Advance(GemsMasterClockAdvance),
+    AdvanceWithCheckpoints(Option<(GemsMasterClockAdvance, Vec<GemsTimingCheckpoint>)>),
+    PendingM68kWaitCycles(u32),
+    Banked68kReads(Vec<GemsBanked68kRead>),
 }
 
 struct GemsTimingBus {
@@ -230,6 +332,7 @@ pub struct GemsMasterClockTimingEngine {
     pending_m68k_wait_cycles: u32,
     pending_banked_reads: Vec<GemsBanked68kRead>,
     initialised: bool,
+    record: Option<Vec<GemsStimulus>>,
 }
 
 impl GemsMasterClockTimingEngine {
@@ -266,6 +369,7 @@ impl GemsMasterClockTimingEngine {
             pending_m68k_wait_cycles: 0,
             pending_banked_reads: Vec::new(),
             initialised: false,
+            record: None,
         }
     }
 
@@ -310,6 +414,7 @@ impl GemsMasterClockTimingEngine {
     /// work at the next instruction boundary before clocking that combined
     /// interval back through the GEMS machine.
     pub fn take_pending_m68k_wait_cycles(&mut self) -> u32 {
+        self.record_stimulus(|| GemsStimulus::TakePendingM68kWaitCycles);
         std::mem::take(&mut self.pending_m68k_wait_cycles)
     }
 
@@ -317,6 +422,7 @@ impl GemsMasterClockTimingEngine {
     /// Z80-RAM access. The caller must hold BUSREQ so no Z80 banked read can
     /// contribute an independent wait at the same instant.
     pub fn set_source_scheduled_m68k_wait_cycles(&mut self, cycles: u32) {
+        self.record_stimulus(|| GemsStimulus::SetSourceScheduledM68kWaitCycles { cycles });
         assert!(self.busreq, "source-scheduled Z80-RAM waits require BUSREQ");
         self.pending_m68k_wait_cycles = cycles;
     }
@@ -368,6 +474,172 @@ impl GemsMasterClockTimingEngine {
         }
     }
 
+    /// Start appending every mutating public call to the stimulus log.
+    ///
+    /// Recording perturbs no engine state: each push copies only the
+    /// method's own arguments.
+    pub fn enable_recording(&mut self) {
+        self.record = Some(Vec::new());
+    }
+
+    /// Drain the stimulus log and stop recording.
+    pub fn take_recording(&mut self) -> Vec<GemsStimulus> {
+        self.record.take().unwrap_or_default()
+    }
+
+    /// Mark a trace/audio frame boundary in the stimulus log. Pushes only
+    /// while recording; replay treats the marker as a checkpoint-sampling
+    /// point, never a mutation.
+    pub fn record_frame_marker(&mut self, frame: usize) {
+        self.record_stimulus(|| GemsStimulus::FrameBoundary(frame));
+    }
+
+    fn record_stimulus(&mut self, stimulus: impl FnOnce() -> GemsStimulus) {
+        if let Some(record) = self.record.as_mut() {
+            record.push(stimulus());
+        }
+    }
+
+    /// Replay one recorded stimulus through the same public entry point that
+    /// recorded it, returning the replayed method's own return value.
+    pub fn apply_stimulus(&mut self, stimulus: &GemsStimulus) -> GemsStimulusOutput {
+        match stimulus {
+            GemsStimulus::AdvanceMasterClocks {
+                master_clocks,
+                interrupt_low,
+                vdp_owns_bus,
+            } => GemsStimulusOutput::Advance(self.advance_master_clocks(
+                *master_clocks,
+                *interrupt_low,
+                *vdp_owns_bus,
+            )),
+            GemsStimulus::AdvanceM68kInstructionMasterClocks {
+                master_clocks,
+                interrupt_low,
+                vdp_owns_bus,
+            } => GemsStimulusOutput::Advance(self.advance_m68k_instruction_master_clocks(
+                *master_clocks,
+                *interrupt_low,
+                *vdp_owns_bus,
+            )),
+            GemsStimulus::AdvanceNtscFrame => {
+                GemsStimulusOutput::Advance(self.advance_ntsc_frame())
+            }
+            GemsStimulus::AdvanceNtscMasterClocks { master_clocks } => {
+                GemsStimulusOutput::Advance(self.advance_ntsc_master_clocks(*master_clocks))
+            }
+            GemsStimulus::AdvanceNtscMasterClocksWithVdpOwnership {
+                master_clocks,
+                vdp_owns_bus,
+            } => GemsStimulusOutput::Advance(
+                self.advance_ntsc_master_clocks_with_vdp_ownership(*master_clocks, *vdp_owns_bus),
+            ),
+            GemsStimulus::AdvanceNtscM68kInstructionWithVdpOwnership {
+                master_clocks,
+                vdp_owns_bus,
+            } => {
+                GemsStimulusOutput::Advance(self.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                    *master_clocks,
+                    *vdp_owns_bus,
+                ))
+            }
+            GemsStimulus::AdvanceNtscM68kInstructionWithCheckpoint {
+                master_clocks,
+                vdp_owns_bus,
+                checkpoint_offset,
+            } => GemsStimulusOutput::AdvanceWithCheckpoints(
+                self.advance_ntsc_m68k_instruction_with_checkpoint(
+                    *master_clocks,
+                    *vdp_owns_bus,
+                    *checkpoint_offset,
+                )
+                .map(|(advance, checkpoint)| (advance, vec![checkpoint])),
+            ),
+            GemsStimulus::AdvanceNtscM68kInstructionWithCheckpoints {
+                master_clocks,
+                vdp_owns_bus,
+                checkpoint_offsets,
+            } => GemsStimulusOutput::AdvanceWithCheckpoints(
+                self.advance_ntsc_m68k_instruction_with_checkpoints(
+                    *master_clocks,
+                    *vdp_owns_bus,
+                    checkpoint_offsets,
+                ),
+            ),
+            GemsStimulus::AdvancePendingM68kWait {
+                interrupt_low,
+                vdp_owns_bus,
+            } => GemsStimulusOutput::Advance(
+                self.advance_pending_m68k_wait(*interrupt_low, *vdp_owns_bus),
+            ),
+            GemsStimulus::TakePendingM68kWaitCycles => {
+                GemsStimulusOutput::PendingM68kWaitCycles(self.take_pending_m68k_wait_cycles())
+            }
+            GemsStimulus::SetSourceScheduledM68kWaitCycles { cycles } => {
+                self.set_source_scheduled_m68k_wait_cycles(*cycles);
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::TakeBanked68kReads => {
+                GemsStimulusOutput::Banked68kReads(self.take_banked_68k_reads())
+            }
+            GemsStimulus::Init => {
+                self.init();
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::StartSequence { sound_id } => {
+                self.start_sequence(*sound_id);
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::StopSequence { sound_id } => {
+                self.stop_sequence(*sound_id);
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::SetMusicSpeed { speed } => {
+                self.set_music_speed(*speed);
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::StopAllSequences => {
+                self.stop_all_sequences();
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::StopMusic => {
+                self.stop_music();
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::ReloadDriver => {
+                self.reload_driver();
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::ApplyStopMusicControl { control } => {
+                self.apply_stop_music_control(*control);
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::ApplyQueueCommandControl { control } => {
+                self.apply_queue_command_control(*control);
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::ApplyStopMusicDriverCopyProgress {
+                copied_driver_bytes,
+                cleared_tail_bytes,
+            } => {
+                self.apply_stop_music_driver_copy_progress(
+                    *copied_driver_bytes,
+                    *cleared_tail_bytes,
+                );
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::SetZ80Control { busreq, reset } => {
+                self.set_z80_control(*busreq, *reset);
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::CopyPowerOnStartupRam { startup_code } => {
+                self.copy_power_on_startup_ram(startup_code);
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::FrameBoundary(_) => GemsStimulusOutput::None,
+        }
+    }
+
     /// Advance an already-accounted hardware interval.
     ///
     /// `interrupt_low` is the VDP's Z80 INT line sampled before this interval,
@@ -379,6 +651,11 @@ impl GemsMasterClockTimingEngine {
         interrupt_low: bool,
         vdp_owns_bus: bool,
     ) -> GemsMasterClockAdvance {
+        self.record_stimulus(|| GemsStimulus::AdvanceMasterClocks {
+            master_clocks,
+            interrupt_low,
+            vdp_owns_bus,
+        });
         self.advance_continuous_master_clocks(master_clocks, interrupt_low, vdp_owns_bus, None)
     }
 
@@ -394,6 +671,11 @@ impl GemsMasterClockTimingEngine {
         interrupt_low: bool,
         vdp_owns_bus: bool,
     ) -> GemsMasterClockAdvance {
+        self.record_stimulus(|| GemsStimulus::AdvanceM68kInstructionMasterClocks {
+            master_clocks,
+            interrupt_low,
+            vdp_owns_bus,
+        });
         let mut consumable_z80_wait_mclk_cycles = self.z80_wait_mclk_cycles;
         self.advance_continuous_master_clocks(
             master_clocks,
@@ -410,15 +692,19 @@ impl GemsMasterClockTimingEngine {
     /// Mega Drive VDP drives the Z80 INT line low. The remaining VBlank
     /// scanlines, visible scanlines 0..223, then lead back to the next VBlank.
     pub fn advance_ntsc_frame(&mut self) -> GemsMasterClockAdvance {
-        self.advance_ntsc_master_clocks(
+        self.record_stimulus(|| GemsStimulus::AdvanceNtscFrame);
+        self.advance_ntsc_master_clocks_with_vdp_ownership_inner(
             MASTER_CLOCKS_PER_SCANLINE * u64::from(NTSC_SCANLINES_PER_FRAME),
+            false,
+            None,
         )
     }
 
     /// Advance an arbitrary interval on the persistent VBlank-to-VBlank NTSC
     /// timeline, splitting it where the VDP changes the Z80 interrupt line.
     pub fn advance_ntsc_master_clocks(&mut self, master_clocks: u64) -> GemsMasterClockAdvance {
-        self.advance_ntsc_master_clocks_with_vdp_ownership(master_clocks, false)
+        self.record_stimulus(|| GemsStimulus::AdvanceNtscMasterClocks { master_clocks });
+        self.advance_ntsc_master_clocks_with_vdp_ownership_inner(master_clocks, false, None)
     }
 
     /// Advance an NTSC interval with constant VDP ownership of the 68000 bus.
@@ -430,6 +716,10 @@ impl GemsMasterClockTimingEngine {
         master_clocks: u64,
         vdp_owns_bus: bool,
     ) -> GemsMasterClockAdvance {
+        self.record_stimulus(|| GemsStimulus::AdvanceNtscMasterClocksWithVdpOwnership {
+            master_clocks,
+            vdp_owns_bus,
+        });
         self.advance_ntsc_master_clocks_with_vdp_ownership_inner(master_clocks, vdp_owns_bus, None)
     }
 
@@ -442,6 +732,12 @@ impl GemsMasterClockTimingEngine {
         master_clocks: u64,
         vdp_owns_bus: bool,
     ) -> GemsMasterClockAdvance {
+        self.record_stimulus(
+            || GemsStimulus::AdvanceNtscM68kInstructionWithVdpOwnership {
+                master_clocks,
+                vdp_owns_bus,
+            },
+        );
         let mut consumable_z80_wait_mclk_cycles = self.z80_wait_mclk_cycles;
         self.advance_ntsc_master_clocks_with_vdp_ownership_inner(
             master_clocks,
@@ -461,11 +757,17 @@ impl GemsMasterClockTimingEngine {
         vdp_owns_bus: bool,
         checkpoint_offset: u64,
     ) -> Option<(GemsMasterClockAdvance, GemsTimingCheckpoint)> {
-        let (advance, mut checkpoints) = self.advance_ntsc_m68k_instruction_with_checkpoints(
+        self.record_stimulus(|| GemsStimulus::AdvanceNtscM68kInstructionWithCheckpoint {
             master_clocks,
             vdp_owns_bus,
-            &[checkpoint_offset],
-        )?;
+            checkpoint_offset,
+        });
+        let (advance, mut checkpoints) = self
+            .advance_ntsc_m68k_instruction_with_checkpoints_inner(
+                master_clocks,
+                vdp_owns_bus,
+                &[checkpoint_offset],
+            )?;
         Some((advance, checkpoints.pop()?))
     }
 
@@ -473,6 +775,24 @@ impl GemsMasterClockTimingEngine {
     ///
     /// All segments share the instruction's opening Z80 bank-wait budget.
     pub fn advance_ntsc_m68k_instruction_with_checkpoints(
+        &mut self,
+        master_clocks: u64,
+        vdp_owns_bus: bool,
+        checkpoint_offsets: &[u64],
+    ) -> Option<(GemsMasterClockAdvance, Vec<GemsTimingCheckpoint>)> {
+        self.record_stimulus(|| GemsStimulus::AdvanceNtscM68kInstructionWithCheckpoints {
+            master_clocks,
+            vdp_owns_bus,
+            checkpoint_offsets: checkpoint_offsets.to_vec(),
+        });
+        self.advance_ntsc_m68k_instruction_with_checkpoints_inner(
+            master_clocks,
+            vdp_owns_bus,
+            checkpoint_offsets,
+        )
+    }
+
+    fn advance_ntsc_m68k_instruction_with_checkpoints_inner(
         &mut self,
         master_clocks: u64,
         vdp_owns_bus: bool,
@@ -637,6 +957,7 @@ impl GemsMasterClockTimingEngine {
     }
 
     pub fn take_banked_68k_reads(&mut self) -> Vec<GemsBanked68kRead> {
+        self.record_stimulus(|| GemsStimulus::TakeBanked68kReads);
         std::mem::take(&mut self.pending_banked_reads)
     }
 
@@ -644,6 +965,11 @@ impl GemsMasterClockTimingEngine {
     /// time. The timing engine is clocked continuously by its caller, so the
     /// real driver boot and command consumption remain on the game timeline.
     pub fn init(&mut self) {
+        self.record_stimulus(|| GemsStimulus::Init);
+        self.init_inner();
+    }
+
+    fn init_inner(&mut self) {
         if self.initialised {
             return;
         }
@@ -662,6 +988,7 @@ impl GemsMasterClockTimingEngine {
     }
 
     pub fn start_sequence(&mut self, sound_id: u8) {
+        self.record_stimulus(|| GemsStimulus::StartSequence { sound_id });
         self.ensure_initialised();
         self.queue_byte(0xFF);
         self.queue_byte(0x10);
@@ -669,6 +996,7 @@ impl GemsMasterClockTimingEngine {
     }
 
     pub fn stop_sequence(&mut self, sound_id: u8) {
+        self.record_stimulus(|| GemsStimulus::StopSequence { sound_id });
         self.ensure_initialised();
         self.queue_byte(0xFF);
         self.queue_byte(0x12);
@@ -676,6 +1004,7 @@ impl GemsMasterClockTimingEngine {
     }
 
     pub fn set_music_speed(&mut self, speed: u8) {
+        self.record_stimulus(|| GemsStimulus::SetMusicSpeed { speed });
         self.ensure_initialised();
         for byte in [0xFF, 0x05, speed, 0xFF, 0x0D] {
             self.queue_byte(byte);
@@ -683,6 +1012,7 @@ impl GemsMasterClockTimingEngine {
     }
 
     pub fn stop_all_sequences(&mut self) {
+        self.record_stimulus(|| GemsStimulus::StopAllSequences);
         self.ensure_initialised();
         for byte in [0xFF, 0x16, 0xFF] {
             self.queue_byte(byte);
@@ -690,12 +1020,13 @@ impl GemsMasterClockTimingEngine {
     }
 
     pub fn stop_music(&mut self) {
-        self.apply_stop_music_control(GemsStopMusicControl::ReleaseDriverReset);
-        self.apply_stop_music_control(GemsStopMusicControl::BeginDriverBus);
-        self.apply_stop_music_control(GemsStopMusicControl::CopyDriver);
-        self.apply_stop_music_control(GemsStopMusicControl::AssertReset);
-        self.apply_stop_music_control(GemsStopMusicControl::ReleaseDriverBus);
-        self.apply_stop_music_control(GemsStopMusicControl::ReleaseReset);
+        self.record_stimulus(|| GemsStimulus::StopMusic);
+        self.apply_stop_music_control_inner(GemsStopMusicControl::ReleaseDriverReset);
+        self.apply_stop_music_control_inner(GemsStopMusicControl::BeginDriverBus);
+        self.apply_stop_music_control_inner(GemsStopMusicControl::CopyDriver);
+        self.apply_stop_music_control_inner(GemsStopMusicControl::AssertReset);
+        self.apply_stop_music_control_inner(GemsStopMusicControl::ReleaseDriverBus);
+        self.apply_stop_music_control_inner(GemsStopMusicControl::ReleaseReset);
         for transaction in [
             GemsStopMusicQueueTransaction::CommandMarker,
             GemsStopMusicQueueTransaction::DataPointersCommand,
@@ -704,13 +1035,14 @@ impl GemsMasterClockTimingEngine {
             GemsStopMusicQueueTransaction::SequencePointer,
             GemsStopMusicQueueTransaction::SamplePointer,
         ] {
-            self.apply_stop_music_control(GemsStopMusicControl::BeginQueueTransaction);
-            self.apply_stop_music_control(GemsStopMusicControl::WriteQueue(transaction));
-            self.apply_stop_music_control(GemsStopMusicControl::ReleaseQueueBus);
+            self.apply_stop_music_control_inner(GemsStopMusicControl::BeginQueueTransaction);
+            self.apply_stop_music_control_inner(GemsStopMusicControl::WriteQueue(transaction));
+            self.apply_stop_music_control_inner(GemsStopMusicControl::ReleaseQueueBus);
         }
     }
 
     pub fn reload_driver(&mut self) {
+        self.record_stimulus(|| GemsStimulus::ReloadDriver);
         self.copy_driver_ram();
         self.z80.io.ym2612_shadow.get_mut().reset();
         self.z80.reset();
@@ -721,20 +1053,25 @@ impl GemsMasterClockTimingEngine {
     /// Apply one source-positioned control event while the caller advances the
     /// intervening master clocks.
     pub fn apply_stop_music_control(&mut self, control: GemsStopMusicControl) {
+        self.record_stimulus(|| GemsStimulus::ApplyStopMusicControl { control });
+        self.apply_stop_music_control_inner(control);
+    }
+
+    fn apply_stop_music_control_inner(&mut self, control: GemsStopMusicControl) {
         match control {
             GemsStopMusicControl::ReleaseDriverReset => {
                 assert!(
                     !self.busreq,
                     "StopMusic releases power-on reset before requesting the Z80 bus"
                 );
-                self.set_z80_control(false, false);
+                self.set_z80_control_inner(false, false);
             }
             GemsStopMusicControl::BeginDriverBus => {
                 assert!(
                     !self.busreq && !self.reset,
                     "StopMusic driver bus request must begin from a running Z80"
                 );
-                self.set_z80_control(true, false);
+                self.set_z80_control_inner(true, false);
             }
             GemsStopMusicControl::CopyDriver => {
                 assert!(
@@ -748,28 +1085,28 @@ impl GemsMasterClockTimingEngine {
                     self.busreq && !self.reset,
                     "StopMusic reset is asserted while the driver-copy bus window is held"
                 );
-                self.set_z80_control(true, true);
+                self.set_z80_control_inner(true, true);
             }
             GemsStopMusicControl::ReleaseDriverBus => {
                 assert!(
                     self.busreq && self.reset,
                     "StopMusic releases the driver-copy bus while reset remains asserted"
                 );
-                self.set_z80_control(false, true);
+                self.set_z80_control_inner(false, true);
             }
             GemsStopMusicControl::ReleaseReset => {
                 assert!(
                     !self.busreq && self.reset,
                     "StopMusic releases reset after releasing the driver-copy bus"
                 );
-                self.set_z80_control(false, false);
+                self.set_z80_control_inner(false, false);
             }
             GemsStopMusicControl::BeginQueueTransaction => {
                 assert!(
                     !self.busreq && !self.reset,
                     "StopMusic queue transaction must begin from a running Z80"
                 );
-                self.set_z80_control(true, false);
+                self.set_z80_control_inner(true, false);
             }
             GemsStopMusicControl::WriteQueue(transaction) => {
                 assert!(
@@ -799,20 +1136,21 @@ impl GemsMasterClockTimingEngine {
                     self.busreq && !self.reset,
                     "StopMusic releases the bus after each queue transaction"
                 );
-                self.set_z80_control(false, false);
+                self.set_z80_control_inner(false, false);
             }
         }
     }
 
     /// Apply one source-positioned GEMS queue-command control event.
     pub fn apply_queue_command_control(&mut self, control: GemsQueueCommandControl) {
+        self.record_stimulus(|| GemsStimulus::ApplyQueueCommandControl { control });
         match control {
             GemsQueueCommandControl::BeginQueueBus => {
                 assert!(
                     !self.busreq && !self.reset,
                     "GEMS command transaction must begin from a running Z80"
                 );
-                self.set_z80_control(true, false);
+                self.set_z80_control_inner(true, false);
             }
             GemsQueueCommandControl::WriteQueueBytes(command) => {
                 assert!(
@@ -851,7 +1189,7 @@ impl GemsMasterClockTimingEngine {
                     self.busreq && !self.reset,
                     "GEMS command releases a held Z80 bus"
                 );
-                self.set_z80_control(false, false);
+                self.set_z80_control_inner(false, false);
             }
         }
     }
@@ -873,6 +1211,10 @@ impl GemsMasterClockTimingEngine {
         copied_driver_bytes: usize,
         cleared_tail_bytes: usize,
     ) {
+        self.record_stimulus(|| GemsStimulus::ApplyStopMusicDriverCopyProgress {
+            copied_driver_bytes,
+            cleared_tail_bytes,
+        });
         assert!(
             self.busreq && !self.reset,
             "StopMusic driver bytes are written only while the acknowledged bus is held"
@@ -886,6 +1228,11 @@ impl GemsMasterClockTimingEngine {
     }
 
     pub fn set_z80_control(&mut self, busreq: bool, reset: bool) {
+        self.record_stimulus(|| GemsStimulus::SetZ80Control { busreq, reset });
+        self.set_z80_control_inner(busreq, reset);
+    }
+
+    fn set_z80_control_inner(&mut self, busreq: bool, reset: bool) {
         if reset && !self.reset {
             // ASM sub_E1416 asserts Mega Drive Z80 reset, which also resets YM2612.
             self.z80.io.ym2612_shadow.get_mut().reset();
@@ -899,6 +1246,9 @@ impl GemsMasterClockTimingEngine {
     /// `Z80StartupCodeBegin`; the later `StopMusic -> sub_E13DA` replaces
     /// them with the GEMS driver.
     pub fn copy_power_on_startup_ram(&mut self, startup_code: &[u8]) {
+        self.record_stimulus(|| GemsStimulus::CopyPowerOnStartupRam {
+            startup_code: startup_code.to_vec(),
+        });
         assert!(
             self.ntsc_timeline_origin == GemsNtscTimelineOrigin::PowerOnScanlineZero,
             "power-on startup code requires the absolute raster origin"
@@ -914,7 +1264,7 @@ impl GemsMasterClockTimingEngine {
     }
 
     fn ensure_initialised(&mut self) {
-        self.init();
+        self.init_inner();
     }
 
     fn queue_byte(&mut self, value: u8) {
@@ -994,11 +1344,16 @@ impl GemsMasterClockTimingEngine {
         interrupt_low: bool,
         vdp_owns_bus: bool,
     ) -> GemsMasterClockAdvance {
+        self.record_stimulus(|| GemsStimulus::AdvancePendingM68kWait {
+            interrupt_low,
+            vdp_owns_bus,
+        });
         let wait_cycles = std::mem::take(&mut self.pending_m68k_wait_cycles);
-        self.advance_master_clocks(
+        self.advance_continuous_master_clocks(
             u64::from(wait_cycles) * M68K_DIVIDER,
             interrupt_low,
             vdp_owns_bus,
+            None,
         )
     }
 }
@@ -1514,5 +1869,154 @@ mod tests {
         );
         assert_eq!(multi_actual, expected);
         assert_eq!(multi_split.checkpoint(), unsplit.checkpoint());
+    }
+
+    #[test]
+    fn recorded_stimuli_replay_to_identical_state_and_returns() {
+        // LD A,($8000); JP $0000 — keeps banked reads and 68000 waits flowing
+        // so every advance variant exercises real scheduler state.
+        let driver = [0x3A, 0x00, 0x80, 0xC3, 0x00, 0x00];
+        let mut rom = vec![0; 0x8001];
+        rom[0] = 0x5A;
+        let mut engine = GemsMasterClockTimingEngine::new(&driver, rom.clone());
+        engine.enable_recording();
+
+        use GemsStimulusOutput as Out;
+        // vec! evaluates elements left to right, so the engine advances in
+        // exactly this order while the expected replay outputs accumulate.
+        let mut expected = vec![
+            Out::Advance(engine.advance_master_clocks(100, false, false)),
+            Out::PendingM68kWaitCycles(engine.take_pending_m68k_wait_cycles()),
+            Out::Advance(engine.advance_m68k_instruction_master_clocks(84, false, false)),
+            Out::Advance(engine.advance_ntsc_master_clocks(500)),
+            Out::Advance(engine.advance_ntsc_master_clocks_with_vdp_ownership(300, true)),
+            Out::Advance(engine.advance_ntsc_m68k_instruction_with_vdp_ownership(105, false)),
+            Out::AdvanceWithCheckpoints(
+                engine
+                    .advance_ntsc_m68k_instruction_with_checkpoint(105, false, 37)
+                    .map(|(advance, checkpoint)| (advance, vec![checkpoint])),
+            ),
+            Out::AdvanceWithCheckpoints(engine.advance_ntsc_m68k_instruction_with_checkpoints(
+                105,
+                false,
+                &[19, 88],
+            )),
+            Out::Banked68kReads(engine.take_banked_68k_reads()),
+        ];
+        engine.record_frame_marker(1);
+        expected.push(Out::None);
+        engine.stop_music();
+        expected.push(Out::None);
+        for control in [
+            GemsQueueCommandControl::BeginQueueBus,
+            GemsQueueCommandControl::WriteQueueBytes(GemsQueueCommand::StartSequence(0x17)),
+            GemsQueueCommandControl::ReleaseQueueBus,
+        ] {
+            engine.apply_queue_command_control(control);
+            expected.push(Out::None);
+        }
+        engine.set_music_speed(3);
+        expected.push(Out::None);
+        expected.push(Out::Advance(engine.advance_pending_m68k_wait(false, false)));
+        expected.push(Out::Advance(engine.advance_ntsc_frame()));
+        engine.reload_driver();
+        expected.push(Out::None);
+        engine.init();
+        expected.push(Out::None);
+        engine.start_sequence(2);
+        expected.push(Out::None);
+        engine.stop_sequence(2);
+        expected.push(Out::None);
+        engine.stop_all_sequences();
+        expected.push(Out::None);
+        engine.set_z80_control(true, false);
+        expected.push(Out::None);
+        engine.apply_stop_music_driver_copy_progress(2, 4);
+        expected.push(Out::None);
+        engine.apply_stop_music_control(GemsStopMusicControl::ReleaseQueueBus);
+        expected.push(Out::None);
+        expected.push(Out::Advance(engine.advance_master_clocks(50, true, false)));
+
+        let recording = engine.take_recording();
+        assert_eq!(
+            recording.len(),
+            expected.len(),
+            "exactly one record per outermost public call plus the frame marker",
+        );
+
+        let mut replay = GemsMasterClockTimingEngine::new(&driver, rom);
+        let outputs: Vec<_> = recording
+            .iter()
+            .map(|stimulus| replay.apply_stimulus(stimulus))
+            .collect();
+        assert_eq!(outputs, expected);
+        assert_eq!(replay.checkpoint(), engine.checkpoint());
+        assert_eq!(
+            replay.command_ring_snapshot(),
+            engine.command_ring_snapshot()
+        );
+    }
+
+    #[test]
+    fn power_on_record_replay_covers_startup_ram_and_source_scheduled_wait() {
+        let driver = [0x00, 0x76];
+        let mut engine = GemsMasterClockTimingEngine::new_with_ntsc_timeline_origin(
+            &driver,
+            vec![],
+            GemsNtscTimelineOrigin::PowerOnScanlineZero,
+        );
+        engine.enable_recording();
+        engine.set_z80_control(true, true);
+        engine.copy_power_on_startup_ram(&[0xF3, 0x18, 0xFE]);
+        engine.set_source_scheduled_m68k_wait_cycles(11);
+        engine.advance_master_clocks(100, false, false);
+        engine.set_z80_control(false, false);
+        engine.advance_master_clocks(100, false, false);
+
+        let recording = engine.take_recording();
+        let mut replay = GemsMasterClockTimingEngine::new_with_ntsc_timeline_origin(
+            &driver,
+            vec![],
+            GemsNtscTimelineOrigin::PowerOnScanlineZero,
+        );
+        for stimulus in &recording {
+            replay.apply_stimulus(stimulus);
+        }
+        assert_eq!(replay.checkpoint(), engine.checkpoint());
+    }
+
+    #[test]
+    fn stop_music_records_once_at_the_outermost_entry() {
+        let driver = [0x00, 0x76];
+        let mut engine = GemsMasterClockTimingEngine::new(&driver, vec![]);
+        engine.enable_recording();
+        engine.stop_music();
+
+        let recording = engine.take_recording();
+        assert_eq!(
+            recording,
+            vec![GemsStimulus::StopMusic],
+            "internal apply_stop_music_control delegation must not double-record",
+        );
+
+        let mut replay = GemsMasterClockTimingEngine::new(&driver, vec![]);
+        replay.apply_stimulus(&recording[0]);
+        assert_eq!(replay.checkpoint(), engine.checkpoint());
+        assert!(replay.initialised);
+    }
+
+    #[test]
+    fn frame_marker_records_only_while_recording_and_take_stops_recording() {
+        let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+        engine.record_frame_marker(7);
+        engine.enable_recording();
+        engine.record_frame_marker(8);
+        assert_eq!(
+            engine.take_recording(),
+            vec![GemsStimulus::FrameBoundary(8)]
+        );
+
+        engine.advance_master_clocks(15, false, false);
+        assert_eq!(engine.take_recording(), vec![]);
     }
 }
