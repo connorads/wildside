@@ -506,8 +506,16 @@ Pinned against the pinned jgenesis, never fitted:
 
 ### Coverage semantics
 
+**The per-frame signature frontier is frozen (#416).** The modelled span is
+frames 0..922 (`GEMS_MODELLED_ROUTE_FRAMES` in `tas_gems.rs`); it does not
+advance. `tas-gems-baseline` holds it as a regression witness only, and
+audio correctness beyond the span is owned by the command-parity gate (see
+"Command-parity supersession" under Gates). Timing-emergent Z80 state past
+the span is measured debt, never a work queue.
+
 The report declares `coverage.modelled_frames`: the edge up to which the
-native per-frame GEMS timeline is *defended* as faithful. It is 181: frames
+native per-frame GEMS timeline is *defended* as faithful. The narrative
+below records the early modelled span (the first 181 frames) in detail: frames
 0..137 replay `EntryPoint`, both source-positioned `StopMusic` calls, the
 power-on clears, the blank-display Sega-logo upload, and the first outer
 `Mode_Standard` DMA/VINT pass plus three local `loc_12E6C` iterations, the
@@ -644,12 +652,36 @@ stays authoritative.
 ### Gates
 
 - `verify-tas --compare-gems` computes and reports the comparison.
-- `tas-gems-baseline` ratchets `full_expected_gems_frame_comparison` in
-  `tests/tas_frontier.json` (Match / Improvement exit 3 / Regression exit 1;
-  ranked metrics: `mismatch_count` lower, `first_mismatch_frame` later).
-  Wired into `verify-tas-full`, never `verify-slice-fast`.
+- `tas-gems-baseline` holds `full_expected_gems_frame_comparison` in
+  `tests/tas_frontier.json` as a frozen regression witness (Match /
+  Improvement exit 3 / Regression exit 1). Per the #416 freeze the only
+  metric that can rank Better is `mismatch_count` lower;
+  `first_mismatch_frame` is an asymmetric guard — earlier blocks as
+  Regression even when the count dropped, later is never rewarded. Wired
+  into `verify-tas-full`, never `verify-slice-fast`.
 - `verify-tas --bisect --frontier-kind gems` localises the first signature
   mismatch from one full run (per-frame data needs no binary search).
+
+### Command-parity supersession
+
+The authoritative gate for audio correctness is command parity
+(`gems_command_parity_v1`, #435): per-frame ordered equality of the GEMS
+command stream the 68k posts to the Z80-RAM mailbox ring (`$A01A40`, write
+index `0x0036`; kid.asm `sub_E143A`/`sub_E148E`) plus bank writes. GEMS
+decouples audio from 68k timing — the Z80 drains the ring on its own tick —
+so the command stream is the causal boundary of what is audible, and it is
+provable without modelling the 68k master-clock schedule.
+
+`gems_frame_signature_v1` (audio-RAM CRC, Z80 PC, wait ledgers) remains as a
+frozen regression witness over the modelled span (frames 0..922) because it
+pins already-verified timing behaviour bit-exactly — including the replay
+seam safety-net for #436/#437. Its 36,836 authoritative mismatches beyond
+the span are measured timing debt, not an audio-correctness signal: each one
+is timing-emergent Z80 phase that only converges when the 68k's exact
+master-clock schedule is hand-modelled per frame, which the runtime port has
+no 68k to provide. That debt is quantified (census #434) and bounded-span
+replay (#437) validates timing-emergent state where the census says it
+matters. Never mask the counts; never advance the span to reduce them.
 
 ---
 

@@ -454,7 +454,87 @@ garbage. Needs an evidence-backed sweep classification (`oracle_limitation`
 with citation, or a decision to load the level) rather than 12 standing
 authoritative blockers that verify nothing.
 
+### #434
+
+GEMS mismatch census. Opened 2026-07-24 by the #416 freeze decision: dump
+every compared frame's outcome from the full-route
+`gems_frame_signature_v1` comparison — genuine (36,836), oracle-limitation
+(887), and advisory (36) classifications are disjoint (the compare fn skips
+limitation/advisory frames before counting a mismatch) — via a
+`--gems-mismatch-report` corpus, then cluster with a `gems-census`
+subcommand (sorted diverging-field tuple + coarse buckets) into
+`.cache/audit/gems-census.json`. Census shape classes select the bounded
+replay spans for #437.
+
+### #435
+
+GEMS command-parity gate `gems_command_parity_v1` — the superseding audio
+authority per the #416 freeze. Decode the 68k→Z80 mailbox ring (`$A01A40`,
+write index `0x0036`; kid.asm `sub_E143A`/`sub_E148E`) from oracle RAM
+snapshots with a variable-length opcode table (2/3/4/5/14 bytes, kid.asm
+sound subs; gemsplay `GemsPlay.c:1657-1848` cross-reference) and StopMusic
+(0x0B) `sub_E13DA` full-RAM-reinit re-anchoring; project the native stream
+from the command schedule already driving the timing engine
+(`NativeAudioSink` + `apply_timed_gems_queue_command`), NOT
+`played_sound_commands` (cannot represent 0x0B/0x0D). Strict per-frame
+ordered equality with ±1-frame reconciliation for the 8-scanline sampling
+skew (reconciled count is itself a baselined downward-only metric). Staged:
+decoder prototype + opcode census on existing captures first (no template
+edit), then one batched helper-template migration, report-only triage, and
+only then the `tas_gems_command_baseline` gate wired into `verify-tas-full`.
+
+### #436
+
+GEMS trace-replay seam + format probe. Instrument
+`GemsMasterClockTimingEngine` itself with an optional record buffer (no
+call-site wrapping; ~159 sites across `tas_gems.rs` + `wildside-frame`
+audio); record the frozen span's stimuli, re-feed through a fresh engine,
+assert bit-for-bit timing-field reproduction. The frozen #416 signature
+witness must stay bit-identical before/after the seam lands. Go/no-go
+recorded here decides #437.
+
+### #437
+
+Bounded-span timing replay, gated on #436 go. Capture oracle 68k→Z80
+stimulus spans (jgenesis `genesis-core/memory.rs` `apply_byte_write` patch,
+mclk timestamps) — one span per #434 census shape class — replay into the
+engine, compare timing-emergent fields, applying the documented X/Y-flag
+limitation classification where residues match. Timing debt outside spans
+stays measured, per the methodology supersession note.
+
 ### #416
+
+Decision 2026-07-24: the per-frame signature frontier is FROZEN at
+`modelled_frames=923` (frames 0..922 defended; first authoritative mismatch
+frame 923; full counts 36,836 mismatches / 887 limitations / 36 advisory —
+disjoint sets). `gems_frame_signature_v1` is demoted from audio-correctness
+authority to frozen regression witness: `tas-gems-baseline` now ranks
+`mismatch_count` (down) only, and `first_mismatch_frame` is recorded evidence
+whose movement classifies Regression-for-review, so advancing the frontier
+earns nothing. Superseding audio authority: `gems_command_parity_v1` (#435),
+per-frame ordered parity of the 68k→Z80 GEMS mailbox command stream
+(`$A01A40` ring, write index `0x0036`, kid.asm `sub_E143A`/`sub_E148E`).
+
+Why this does not violate "oracle is truth" or the no-masking rule: the
+36,836 are genuinely authoritative divergences and stay counted, visible, and
+ratcheted downward-only — nothing is reclassified or masked. What changes is
+scope: they are timing-emergent Z80 phase (audio-RAM CRC, Z80 PC, wait
+ledgers) that only converges when the 68k's exact master-clock schedule is
+hand-modelled per frame (~18 min/frame across 21 "defend Nth pass" commits;
+36,836 frames ≈ a year of agent time). The runtime port has no 68k, GEMS
+itself decouples the Z80 from 68k timing (mailbox ring drained on the Z80's
+own tick), and no mature source port validates audio via main-CPU cycle
+timing — proven practice is command/register-stream parity (VGM `vgm_cmp`,
+GEMSPlay, pret byte-matching). The command stream is the causal boundary of
+what is audible; beyond it the debt is measured by census (#434) and probed
+by bounded-span replay (#436/#437).
+
+Rejected alternatives: (a) build a general 68k timing model/emulator inside
+the port — duplicates jgenesis, contradicts the source-port goal; (b) stop
+validating audio — the command stream is causally authoritative and cheaply
+provable, so dropping validation would discard real signal; (c) keep
+advancing the frontier per frame — cost is unbounded relative to audible
+correctness gained.
 
 Progress 2026-07-23: defended GEMS coverage advances through frame 922 and
 the authoritative frontier moves to frame 923. The twenty-first gameplay pass
