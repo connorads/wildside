@@ -42,6 +42,22 @@ pub const AUDIO_SAMPLES_PER_FRAME: usize = 735;
 // Load_TitleScreen's PlaySound/sub_E151C at elapsed 32.
 const TITLE_SCREEN_PLAY_SOUND_ELAPSED_SUB_E151C: usize = 32;
 
+// ASM GameProgram (kid.asm:790) posts the first StopMusic driver reload once
+// EntryPoint's power-on clear hands over; ASM Load_SegaScreen (kid.asm:25445)
+// posts the second when the logo loader completes. The published ring decode
+// attributes the GETPTRS `$0B` reposts to frames 16 and 32; the reload's
+// driver copy occupies the preceding frame, so the director enters StopMusic
+// one timer tick earlier (Sega-screen timer 16/32, frames 15/31).
+const SEGA_SCREEN_GAME_PROGRAM_STOP_MUSIC_ELAPSED: usize = 16;
+const SEGA_SCREEN_LOGO_LOADER_STOP_MUSIC_ELAPSED: usize = 32;
+
+// ASM Load_IntroSequence1 (kid.asm:29068) reaches StopMusic + the bgm_Ice
+// PlaySound only after the intro loader hibernation, 33 outer frames past the
+// native shell's IntroSequence1 entry (published ring `$0B` at frame 70 cold,
+// 36272 on the loc_C0A demo-timeout reboot). The TitleShell cue must not
+// queue before that instant.
+const INTRO_SEQUENCE_1_STOP_MUSIC_ELAPSED_LOAD_INTRO_SEQUENCE_1: usize = 33;
+
 // ASM EntryPoint Z80InitLoop $0500 copies the 38-byte bootstrap from ROM
 // `Z80StartupCodeBegin $0574..$0599`. Selected-PC tracing pins the hardware
 // control writes at the closing boundaries of $04F6/$04F8/$0506/$0508/$050A.
@@ -257,6 +273,17 @@ fn native_bgm_cue_for_trace_with_event(
     }
 
     match trace.game_mode {
+        // ASM Load_IntroSequence1 (kid.asm:29068) runs StopMusic + PlaySound
+        // only once its loader hibernation completes; before that instant the
+        // shell's IntroSequence1 frames have no queued cue.
+        GameMode::IntroSequence1
+            if trace.boot_phase.as_deref() == Some("intro_sequence_1")
+                && trace.boot_phase_elapsed.is_some_and(|elapsed| {
+                    elapsed < INTRO_SEQUENCE_1_STOP_MUSIC_ELAPSED_LOAD_INTRO_SEQUENCE_1
+                }) =>
+        {
+            None
+        }
         // ASM Load_IntroSequence1 / Load_TitleScreen both queue `bgm_Ice` via
         // `j_PlaySound`; later intro/title-shell modes inherit that cue. Native
         // may enter those modes directly through manual Start/demo paths, so
@@ -362,10 +389,30 @@ pub fn native_bgm_state_after_trace_delta(
         if active_bgm_cue == Some(NativeBgmCue::StoppedForTransition) {
             return (active_bgm_cue, None);
         }
+        if trace.game_mode == GameMode::SegaScreen
+            && trace.boot_phase.as_deref() == Some("sega_screen")
+            && matches!(
+                trace.boot_phase_elapsed,
+                Some(
+                    SEGA_SCREEN_GAME_PROGRAM_STOP_MUSIC_ELAPSED
+                        | SEGA_SCREEN_LOGO_LOADER_STOP_MUSIC_ELAPSED
+                )
+            )
+            && previous_trace
+                .is_none_or(|previous| previous.boot_phase_elapsed != trace.boot_phase_elapsed)
+        {
+            // ASM GameProgram (kid.asm:790) and Load_SegaScreen (kid.asm:25445)
+            // both run the full StopMusic driver reload during the cold boot,
+            // before any BGM cue exists; the Sega-screen timer edges enter the
+            // reload one frame before its ring-decoded `$0B` instants
+            // (frames 16 and 32).
+            return (None, Some(NativeBgmPlaybackCommand::StopMusic));
+        }
         if trace.game_mode == GameMode::SegaScreen && active_bgm_cue.is_some() {
-            // ASM Load_SegaScreen (kid.asm:25444-25445) runs StopMusic before
-            // loading the Sega logo, so the following Load_IntroSequence1
-            // must be able to queue bgm_Ice again.
+            // ASM loc_C0A (kid.asm:1383) return-to-title and Load_SegaScreen
+            // (kid.asm:25444-25445) run StopMusic before loading the Sega
+            // logo, so the following Load_IntroSequence1 must be able to
+            // queue bgm_Ice again.
             return (None, Some(NativeBgmPlaybackCommand::StopMusic));
         }
         if matches!(
@@ -4819,6 +4866,134 @@ mod tests {
                 Some(NativeBgmCue::TitleShell),
                 Some(NativeBgmPlaybackCommand::Start(gems_bgm::ICE)),
             ),
+        );
+    }
+
+    #[test]
+    fn cold_boot_sega_screen_timer_edges_post_the_rom_driver_reloads() {
+        // ASM GameProgram (kid.asm:790) and Load_SegaScreen (kid.asm:25445)
+        // both run StopMusic with no BGM cue active; the reload enters one
+        // frame before its published ring `$0B` instants at frames 16/32
+        // (Sega-screen timer edges 16/32, director frames 15/31).
+        let manifest = test_manifest();
+        let sega = |elapsed: usize| {
+            let mut sega = trace(GameMode::SegaScreen);
+            sega.boot_phase = Some(String::from("sega_screen"));
+            sega.boot_phase_elapsed = Some(elapsed);
+            sega
+        };
+
+        for elapsed in [
+            SEGA_SCREEN_GAME_PROGRAM_STOP_MUSIC_ELAPSED,
+            SEGA_SCREEN_LOGO_LOADER_STOP_MUSIC_ELAPSED,
+        ] {
+            assert_eq!(
+                native_bgm_state_after_trace_delta(
+                    &manifest,
+                    Some(&sega(elapsed - 1)),
+                    &sega(elapsed),
+                    None,
+                ),
+                (None, Some(NativeBgmPlaybackCommand::StopMusic)),
+                "the timer-{elapsed} edge must reload the driver with no active cue"
+            );
+        }
+
+        assert_eq!(
+            native_bgm_state_after_trace_delta(
+                &manifest,
+                Some(&sega(SEGA_SCREEN_GAME_PROGRAM_STOP_MUSIC_ELAPSED - 2)),
+                &sega(SEGA_SCREEN_GAME_PROGRAM_STOP_MUSIC_ELAPSED - 1),
+                None,
+            ),
+            (None, None),
+            "ordinary Sega-screen frames stay silent between the loader instants"
+        );
+    }
+
+    #[test]
+    fn demo_timeout_shell_reentry_posts_the_loc_c0a_stop_music() {
+        // ASM loc_C0A (kid.asm:1383) clears Current_LevelID and runs StopMusic
+        // when the demo auto-timeout (or the post-ending return) hands the
+        // shell back to Game_Mode 0. The handoff's sega_screen phase exposes
+        // no elapsed counter, so the mode re-entry edge is the anchor.
+        let manifest = test_manifest();
+        let demo = trace(GameMode::DemoPlay);
+        let mut sega_reentry = trace(GameMode::SegaScreen);
+        sega_reentry.boot_phase = Some(String::from("sega_screen"));
+        sega_reentry.boot_phase_elapsed = None;
+
+        assert_eq!(
+            native_bgm_state_after_trace_delta(
+                &manifest,
+                Some(&demo),
+                &sega_reentry,
+                Some(NativeBgmCue::CoreQueued(gems_bgm::SKY)),
+            ),
+            (None, Some(NativeBgmPlaybackCommand::StopMusic)),
+        );
+
+        assert_eq!(
+            native_bgm_state_after_trace_delta(&manifest, Some(&sega_reentry), &sega_reentry, None),
+            (None, None),
+            "the counterless handoff frames after loc_C0A must not repost the reload"
+        );
+    }
+
+    #[test]
+    fn intro_sequence_1_defers_stop_music_to_the_load_intro_loader_instant() {
+        // ASM Load_IntroSequence1 (kid.asm:29068) reaches StopMusic + the
+        // bgm_Ice PlaySound only after the loader hibernation, 33 outer
+        // frames past IntroSequence1 entry (published ring `$0B` + start at
+        // frame 70).
+        let manifest = test_manifest();
+        let intro = |elapsed: usize| {
+            let mut intro = trace(GameMode::IntroSequence1);
+            intro.boot_phase = Some(String::from("intro_sequence_1"));
+            intro.boot_phase_elapsed = Some(elapsed);
+            intro
+        };
+        let mut sega_tail = trace(GameMode::SegaScreen);
+        sega_tail.boot_phase = Some(String::from("sega_screen"));
+        sega_tail.boot_phase_elapsed = Some(174);
+
+        assert_eq!(
+            native_bgm_state_after_trace_delta(&manifest, Some(&sega_tail), &intro(0), None),
+            (None, None),
+            "IntroSequence1 entry precedes the loader's StopMusic instant"
+        );
+        assert_eq!(
+            native_bgm_state_after_trace_delta(&manifest, Some(&intro(0)), &intro(1), None),
+            (None, None),
+        );
+        assert_eq!(
+            native_bgm_state_after_trace_delta(
+                &manifest,
+                Some(&intro(
+                    INTRO_SEQUENCE_1_STOP_MUSIC_ELAPSED_LOAD_INTRO_SEQUENCE_1 - 1
+                )),
+                &intro(INTRO_SEQUENCE_1_STOP_MUSIC_ELAPSED_LOAD_INTRO_SEQUENCE_1),
+                None,
+            ),
+            (
+                Some(NativeBgmCue::TitleShell),
+                Some(NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::ICE)),
+            ),
+        );
+    }
+
+    #[test]
+    fn steady_in_game_frames_never_post_new_driver_reloads() {
+        // Regression guard for the boot/reboot reload branches: an unchanged
+        // InGame frame must not reach StopMusic (over-posting would insert
+        // native-only `0B` commands into the parity stream).
+        let manifest = test_manifest();
+        let in_game = trace(GameMode::InGame);
+        let active = Some(NativeBgmCue::Level(LevelId(0)));
+
+        assert_eq!(
+            native_bgm_state_after_trace_delta(&manifest, Some(&in_game), &in_game, active),
+            (active, None),
         );
     }
 

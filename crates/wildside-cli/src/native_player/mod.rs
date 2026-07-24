@@ -21312,7 +21312,8 @@ mod tests {
     }
 
     #[test]
-    fn play_native_boot_idle_queues_intro_music_on_first_intro_frame() -> anyhow::Result<()> {
+    fn play_native_boot_idle_queues_intro_music_at_the_load_intro_loader_instant()
+    -> anyhow::Result<()> {
         let fixture = ManifestFixture::new()?;
         let mut runtime = NativeRuntime::new(fixture.manifest.clone());
         let mut trace = Vec::new();
@@ -21329,13 +21330,27 @@ mod tests {
         assert_eq!(
             events.first().map(String::as_str),
             Some(
-                "frame=173 mode=IntroSequence1 level=00 active_before=None active_after=Some(TitleShell) command=StopMusicThenStart(3)"
+                "frame=15 mode=SegaScreen level=00 active_before=None active_after=None command=StopMusic"
             ),
-            "ASM Load_IntroSequence1 (kid.asm:29068-29070) is the first native boot frame that should run StopMusic then queue bgm_Ice"
+            "ASM GameProgram (kid.asm:790) runs the first cold-boot StopMusic driver reload"
+        );
+        assert_eq!(
+            events.get(1).map(String::as_str),
+            Some(
+                "frame=31 mode=SegaScreen level=00 active_before=None active_after=None command=StopMusic"
+            ),
+            "ASM Load_SegaScreen (kid.asm:25445) runs the second cold-boot StopMusic driver reload"
+        );
+        assert_eq!(
+            events.get(2).map(String::as_str),
+            Some(
+                "frame=206 mode=IntroSequence1 level=00 active_before=None active_after=Some(TitleShell) command=StopMusicThenStart(3)"
+            ),
+            "ASM Load_IntroSequence1 (kid.asm:29068-29070) runs StopMusic then queues bgm_Ice at the loader instant"
         );
         assert!(
-            events[0].starts_with(&format!("frame={first_intro_frame} ")),
-            "intro BGM should be queued on the first observed IntroSequence1 frame, not later"
+            events[2].starts_with(&format!("frame={} ", first_intro_frame + 33)),
+            "intro BGM should be queued 33 outer frames after the first observed IntroSequence1 frame"
         );
         Ok(())
     }

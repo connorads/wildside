@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-24 handoff (#438 closed: StopMusic driver reloads at the ROM instants)
+
+- Command parity 419→403 mismatches, first mismatch 16→812, exact 40→54.
+  Director now posts the cold-boot GameProgram/Load_SegaScreen reloads on
+  the Sega-screen timer edges (16/32) and defers the IntroSequence1
+  TitleShell cue to the Load_IntroSequence1 loader instant (intro
+  elapsed 33 → `0B`+`10[3]` exact at frame 70); the loc_C0A reboot
+  cluster lands via the existing re-entry branch.
+- Root cause of the residual invisibility: the engine's instantaneous
+  `stop_music()` leaves back-to-back no-traffic reloads byte-identical in
+  the ring — undetectable by design of `GemsRingDecoder`.
+  `GemsSignatureProbe` now splits each reload: wipe controls at the
+  StopMusic instant, GETPTRS repost after the wipe frame's sample
+  (mirrors sub_E13DA's frame-spanning bus occupation).
+- Deliberate baseline updates with evidence in archive #438: command
+  baseline (improvement), skew pins 3/1→4/2 (37551/37552 native-earlier,
+  36273/36272 oracle-earlier), and a digest-only update of the frozen
+  frame-signature witness (counts identical 36,836/923; coarse phase
+  shift inside already-mismatched frames).
+- Residue recorded: reboot `Load_SegaScreen` `0B`@36097 has no trace
+  anchor (handoff hides its timer deliberately); the 8 merged
+  flagpole→level reload pairs are re-attributed to #440.
+
 ## 2026-07-24 handoff (trace-replay harness: #436/#437 closed, #441 opened)
 
 - Phase 4 of the supersession programme: the engine-faithfulness question

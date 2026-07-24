@@ -93,7 +93,7 @@ use wildside_frame::{
 };
 use wildside_md::{
     GemsMasterClockTimingEngine, GemsNtscTimelineOrigin, GemsQueueCommand, GemsStimulus,
-    GemsTimingCheckpoint,
+    GemsStopMusicControl, GemsStopMusicQueueTransaction, GemsTimingCheckpoint,
 };
 
 const MASTER_CLOCKS_PER_SCANLINE: u64 = 3_420;
@@ -246,6 +246,14 @@ pub(crate) fn signature_from_checkpoint(checkpoint: &GemsTimingCheckpoint) -> Ge
 struct GemsSignatureProbe {
     engine: GemsMasterClockTimingEngine,
     skew_outstanding: bool,
+    /// ASM StopMusic (kid.asm:49727): sub_E13DA's driver copy + zero-fill
+    /// hold the Z80 bus across a frame boundary, so the ring exposes the
+    /// wiped state one sample before the GETPTRS `$0B` repost bytes. The
+    /// director-driven reload splits at the same boundary: the wipe applies
+    /// at the StopMusic instant, the queue repost in the following frame's
+    /// window. An instantaneous reload leaves consecutive no-traffic
+    /// reloads byte-identical and invisible to the ring decode.
+    pending_stop_music_repost: Option<StopMusicRepostStage>,
     power_on_frame: usize,
     power_on_stop_music: Option<TimedGemsStopMusicCursor>,
     power_on_vram_clear: Option<TimedGemsTitleLoc700Cursor>,
@@ -308,6 +316,7 @@ impl GemsSignatureProbe {
         Ok(Self {
             engine,
             skew_outstanding: false,
+            pending_stop_music_repost: None,
             power_on_frame: 0,
             power_on_stop_music: None,
             power_on_vram_clear: None,
@@ -377,6 +386,7 @@ impl GemsSignatureProbe {
         Ok(Self {
             engine: GemsMasterClockTimingEngine::from_kid_rom(rom)?,
             skew_outstanding: false,
+            pending_stop_music_repost: None,
             power_on_frame: 0,
             power_on_stop_music: None,
             power_on_vram_clear: None,
@@ -8717,24 +8727,82 @@ impl GemsSignatureProbe {
     }
 }
 
+/// Deferral stage of a split StopMusic reload: the wipe frame's sample must
+/// pass before the GETPTRS repost goes out, so `step_frame` promotes
+/// `ArmedThisFrame` to `DueNextFrame` instead of flushing it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StopMusicRepostStage {
+    ArmedThisFrame,
+    DueNextFrame,
+}
+
+impl GemsSignatureProbe {
+    /// Post the deferred GETPTRS queue transactions of a split StopMusic
+    /// reload (ASM StopMusic loc_E1428..: `$FF $0B` + the four data-table
+    /// pointers) before the next command lands in the ring.
+    fn flush_pending_stop_music_repost(&mut self) {
+        if self.pending_stop_music_repost.take().is_none() {
+            return;
+        }
+        for transaction in [
+            GemsStopMusicQueueTransaction::CommandMarker,
+            GemsStopMusicQueueTransaction::DataPointersCommand,
+            GemsStopMusicQueueTransaction::PatchPointer,
+            GemsStopMusicQueueTransaction::EnvelopePointer,
+            GemsStopMusicQueueTransaction::SequencePointer,
+            GemsStopMusicQueueTransaction::SamplePointer,
+        ] {
+            self.engine
+                .apply_stop_music_control(GemsStopMusicControl::BeginQueueTransaction);
+            self.engine
+                .apply_stop_music_control(GemsStopMusicControl::WriteQueue(transaction));
+            self.engine
+                .apply_stop_music_control(GemsStopMusicControl::ReleaseQueueBus);
+        }
+    }
+}
+
 impl NativeAudioSink for GemsSignatureProbe {
     fn start_sequence(&mut self, sound_id: u8) {
+        self.flush_pending_stop_music_repost();
         self.engine.start_sequence(sound_id);
     }
 
     fn stop_sequence(&mut self, sound_id: u8) {
+        self.flush_pending_stop_music_repost();
         self.engine.stop_sequence(sound_id);
     }
 
     fn stop_music(&mut self) {
-        self.engine.stop_music();
+        self.flush_pending_stop_music_repost();
+        for control in [
+            GemsStopMusicControl::ReleaseDriverReset,
+            GemsStopMusicControl::BeginDriverBus,
+            GemsStopMusicControl::CopyDriver,
+            GemsStopMusicControl::AssertReset,
+            GemsStopMusicControl::ReleaseDriverBus,
+            GemsStopMusicControl::ReleaseReset,
+        ] {
+            self.engine.apply_stop_music_control(control);
+        }
+        self.pending_stop_music_repost = Some(StopMusicRepostStage::ArmedThisFrame);
     }
 
     fn set_music_speed(&mut self, speed: u8) {
+        self.flush_pending_stop_music_repost();
         self.engine.set_music_speed(speed);
     }
 
     fn step_frame(&mut self) {
+        match self.pending_stop_music_repost {
+            Some(StopMusicRepostStage::ArmedThisFrame) => {
+                self.pending_stop_music_repost = Some(StopMusicRepostStage::DueNextFrame);
+            }
+            Some(StopMusicRepostStage::DueNextFrame) => {
+                self.flush_pending_stop_music_repost();
+            }
+            None => {}
+        }
         let scanlines = if std::mem::take(&mut self.skew_outstanding) {
             NTSC_SCANLINES_PER_FRAME - FRAME_RENDERED_SKEW_SCANLINES
         } else {
@@ -15549,6 +15617,7 @@ mod tests {
         let mut probe = GemsSignatureProbe {
             engine: GemsMasterClockTimingEngine::new(&[0x76], vec![]),
             skew_outstanding: false,
+            pending_stop_music_repost: None,
             power_on_frame: 0,
             power_on_stop_music: None,
             power_on_vram_clear: None,
@@ -15609,6 +15678,7 @@ mod tests {
         let mut probe = GemsSignatureProbe {
             engine: GemsMasterClockTimingEngine::new(&[0x76], vec![]),
             skew_outstanding: false,
+            pending_stop_music_repost: None,
             power_on_frame: 0,
             power_on_stop_music: None,
             power_on_vram_clear: None,
@@ -15674,6 +15744,7 @@ mod tests {
         let mut probe = GemsSignatureProbe {
             engine,
             skew_outstanding: false,
+            pending_stop_music_repost: None,
             power_on_frame: 0,
             power_on_stop_music: None,
             power_on_vram_clear: None,

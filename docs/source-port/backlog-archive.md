@@ -584,6 +584,58 @@ initialises the driver once (`ensure_initialised`) and posts reloads only
 on trace-derived BGM changes — 44 native vs 91 oracle reinit frames.
 Native's first `0B` lands at frame 36 vs the ROM's 16.
 
+Resolved 2026-07-24. Two coupled changes:
+
+1. Director scheduling (`native_bgm_state_after_trace_delta`): cold-boot
+   Sega-screen timer edges 16/32 post the GameProgram (kid.asm:790) and
+   Load_SegaScreen (kid.asm:25445) reloads; the IntroSequence1 TitleShell
+   cue is deferred to intro elapsed 33, the Load_IntroSequence1
+   (kid.asm:29068) StopMusic+PlaySound instant. The loc_C0A demo-timeout
+   re-entry (kid.asm:1383) was already modelled by the SegaScreen
+   `active_bgm_cue.is_some()` branch and now lands exact through change 2.
+2. Measurement reload span (`GemsSignatureProbe`): the engine's
+   instantaneous `stop_music()` left back-to-back no-traffic reloads
+   byte-identical in the mailbox ring — `GemsRingDecoder` cannot see a
+   reload whose wipe and identical repost land inside one sample window
+   (this is why the earlier director-only attempt moved 419→418 only:
+   `0B`@32 and the intro `0B` were posted but invisible). The probe now
+   applies the wipe controls at the StopMusic instant and defers the six
+   GETPTRS queue transactions past the wipe frame's sample (two-stage
+   `ArmedThisFrame`→`DueNextFrame`, flushed before the next command so
+   `0B` precedes any same-frame start). This mirrors sub_E13DA's real
+   frame-spanning bus occupation, which is exactly why the oracle ring
+   exposes every reload.
+
+Measured (published route, `gems_command_parity_v1`): mismatch_count
+419→403, first_mismatch 16→812 (a #439 `10[45]` native-only), exact
+40→54, reconciled 4→6, native commands 414→416, reinit frames 44→46 of
+91 (91-frame parity is NOT expected: one oracle reload spans ~8 sampled
+frames, a native one 1-2). Boot stream now exact: `0B`@16/32/70/140 and
+starts `10[3]`@70/171; tail loc_C0A `0B`@36064 and title `0B`@36822
+exact, intro-reboot `0B`+start@36273 and level `0B`@37551 reconciled ±1.
+Pinned skew counts deliberately updated 3/1→4/2: new native-earlier =
+level-entry `0B` 37551 vs 37552 (was a 2-off mismatch), new
+oracle-earlier = reboot intro 36273 vs 36272. The frozen
+`gems_frame_signature_v1` witness needed a digest-only `--update`
+(counts identical 36,836 / first 923 = every non-modelled frame, before
+and after): the coarse engine's phase shifts by the deferred reposts
+inside already-mismatched frames; the modelled 0..922 power-on path is
+untouched.
+
+Dead ends / re-attribution:
+- Reboot `Load_SegaScreen` `0B` at 36097 stays missing (the one #438
+  residue): the demo-timeout handoff deliberately reports
+  `boot_phase_elapsed=None` ("only native scheduling state",
+  boot.rs `boot_phase_elapsed_frames`), so no trace edge anchors
+  re-entry+34, and the offset is not ASM-derived (cold boot uses 16).
+  Posting from a director-side frame counter would be fitting one
+  recording — rejected.
+- The remaining `0B` multiset gap (8 route pairs) is the merged
+  flagpole→level `StopMusicThenStart`: the ROM posts TWO reloads per
+  transition (TouchFlagpole kid.asm:15642 at ~X, Load_InGame
+  kid.asm:23629 at ~X+175), native one between them. Re-attributed to
+  #440's posting-instant/split work; #440's row now names it.
+
 ### #439
 
 Native SFX sound-id divergence, split out of #435's triage. Command
@@ -19377,6 +19429,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 438 | [x] | P2 | audio | Native director posts the ROM's StopMusic driver reloads: cold-boot GameProgram/Load_SegaScreen timer edges, Load_IntroSequence1 loader instant (cue deferred to intro elapsed 33), loc_C0A reboot re-entry; the parity probe splits each reload's wipe and GETPTRS repost across the frame boundary so consecutive reloads stay ring-visible. | Command parity 419→403 mismatches, first 16→812, exact 40→54; boot `0B` stream 16/32/70/140 + starts 70/171 all exact. Residue (reboot `Load_SegaScreen` `0B` 36097, flagpole pairs→#440) in archive #438. |
 | 437 | [x] | P2 | audio | Bounded-span timing replay: `oracle-probe --gems-stimulus-frames` captures the oracle's 68k→Z80 stimulus stream; `gems-span-replay` seeds a fresh engine at the frame-869 reinit and replays 34,135 stimuli over frames 870-2500. | Measured: first strict divergence frame 871 = z80_pc off by one instruction, 2-mclk phase offset, identical RAM/bank/wait/status; shapes bounded, non-compounding; skew-16 sensitivity unchanged. Report `.cache/audit/gems-span-replay-870-2500.json`; discriminator follow-up #441. See archive #437. |
 | 436 | [x] | P2 | audio | GEMS replay seam probe: `GemsStimulus` record buffer inside `GemsMasterClockTimingEngine` (outermost-public-entry rule, no call-site wrapping); `gems-replay-probe` records the frozen span and replays a fresh engine. | GO: 923/923 frames bit-identical full checkpoints from 34,091,643 recorded stimuli; frozen witness bit-identical before/after the seam (verify-tas-full ×2). See archive #436. |
 | 435 | [x] | P1 | audio | Command-parity gate `gems_command_parity_v1`: one `GemsRingDecoder` over both sides' mailbox rings, ordered per-frame comparison with directional ±1 skew reconciliation, `tas-gems-command-baseline` ratchet wired into `verify-tas-full` as the authoritative audio gate. | Honest baseline 419 mismatches / first at 16, fully attributed to native schedule clusters #438-#440; gate Match on baseline. See archive #435. |
