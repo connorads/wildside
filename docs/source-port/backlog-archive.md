@@ -456,6 +456,16 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: defended GEMS coverage advances through frame 914 and
+the authoritative frontier moves to frame 915. The thirteenth gameplay pass
+reaches selected `loc_7D6`, `sub_E12`, diamond-only `sub_44DC`, `loc_810`,
+`loc_892`, `$93E`, and the following `$7C8`. The typed diamond FIFO adapter
+reaches exact `loc_810`; source bounds remove the false pending 68000 wait.
+Bank and waits match at FrameRendered. The remaining audio-RAM, PC and BUSREQ
+residue is the established jgenesis undocumented-X/Y IRQ edge. Full counts
+are 36,844 mismatches, 879 limitations and 36 advisory-only frames.
+`verify-slice-fast` passes 7,057 core tests. NEXT: source-bound frame 915.
+
 Progress 2026-07-23: defended GEMS coverage advances through frame 913 and
 the authoritative frontier moves to frame 914. The twelfth gameplay pass
 reaches selected `loc_7D6`, `sub_E12`, the no-upload `sub_44DC`, `loc_810`,
