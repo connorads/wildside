@@ -1,12 +1,18 @@
-//! Ratchet-aware GEMS/Z80 audio-timing gate for the full published-route TAS
-//! run, cloned from the pixel ratchet (`tas_pixel_baseline`).
+//! Frozen regression witness for GEMS/Z80 audio-timing state on the full
+//! published-route TAS run, cloned from the pixel ratchet
+//! (`tas_pixel_baseline`).
 //!
 //! Compares a `verify-tas --compare-gems` report's `gems_frame_comparison`
 //! block against the slug's `full_expected_gems_frame_comparison` baseline in
 //! `tests/tas_frontier.json`, classifying the delta as Match / Improvement /
-//! Regression. The monotonically advancing `first_mismatch_frame` is #409's
-//! audio-timing progress metric: on improvement the gate fails (exit 3) and
-//! prints the exact `--update` command; `--update` splices only the GEMS
+//! Regression. The per-frame signature frontier is FROZEN (#416): the only
+//! metric that can rank `Better` is `mismatch_count` (down = better).
+//! `first_mismatch_frame` is an asymmetric guard — moving it EARLIER blocks
+//! as Regression (frames inside the defended span regressed) even when the
+//! total count dropped, while moving it later is never rewarded.
+//! Command-level audio correctness is owned by the command-parity gate
+//! (`gems_command_parity_v1`, #435). On improvement the gate fails (exit 3)
+//! and prints the exact `--update` command; `--update` splices only the GEMS
 //! block into the frontier file.
 
 use anyhow::{Context, Result, bail};
@@ -85,19 +91,20 @@ struct VerifyTasReport {
     gems_frame_comparison: Option<ReportGemsComparison>,
 }
 
-/// `None` (no mismatch anywhere) is the best possible first-mismatch frame.
-fn metric_first_mismatch_frame(expected: Option<u64>, actual: Option<u64>) -> MetricRow {
+/// Asymmetric freeze guard (#416): an EARLIER first mismatch means frames
+/// inside the defended span regressed and must block even when the total
+/// mismatch count dropped, but a later first mismatch is never `Better` —
+/// the frozen frontier pays no advancement reward.
+fn metric_first_mismatch_guard(expected: Option<u64>, actual: Option<u64>) -> MetricRow {
     let display =
         |value: Option<u64>| value.map_or_else(|| "none".to_owned(), |frame| frame.to_string());
     let direction = match (expected, actual) {
-        (None, None) => MetricDirection::Same,
-        (Some(_), None) => MetricDirection::Better,
+        // A mismatch appearing where none existed is a regression; a
+        // mismatch vanishing or moving later earns Same (mismatch_count
+        // alone decides Improvement).
         (None, Some(_)) => MetricDirection::Worse,
-        (Some(expected), Some(actual)) => match actual.cmp(&expected) {
-            std::cmp::Ordering::Greater => MetricDirection::Better,
-            std::cmp::Ordering::Equal => MetricDirection::Same,
-            std::cmp::Ordering::Less => MetricDirection::Worse,
-        },
+        (Some(expected), Some(actual)) if actual < expected => MetricDirection::Worse,
+        _ => MetricDirection::Same,
     };
     MetricRow {
         name: "first_mismatch_frame",
@@ -107,11 +114,13 @@ fn metric_first_mismatch_frame(expected: Option<u64>, actual: Option<u64>) -> Me
     }
 }
 
-/// Ranked ratchet metrics: fewer mismatched frames and a later first
-/// mismatch. Digest, limitation, and advisory counts are evidence only —
-/// they participate in Match detection but never rank, so a reshuffle with
-/// identical totals fails as Regression for review rather than passing as an
-/// improvement.
+/// The only metric that can rank `Better` is `mismatch_count` (fewer
+/// mismatched frames). The frontier is frozen (#416): `first_mismatch_frame`
+/// is a guard that can only hold (`Same`) or block (`Worse`), and the
+/// digest, limitation, and advisory counts are evidence that participates in
+/// Match detection but never ranks. A run that only moves the first mismatch
+/// later (or reshuffles content with identical totals) fails as Regression
+/// for review rather than passing as an improvement.
 fn classify(expected: &GemsBaseline, actual: &GemsBaseline) -> (Classification, Vec<MetricRow>) {
     let rows = vec![
         metric_lower_better(
@@ -119,7 +128,7 @@ fn classify(expected: &GemsBaseline, actual: &GemsBaseline) -> (Classification, 
             expected.mismatch_count,
             actual.mismatch_count,
         ),
-        metric_first_mismatch_frame(expected.first_mismatch_frame, actual.first_mismatch_frame),
+        metric_first_mismatch_guard(expected.first_mismatch_frame, actual.first_mismatch_frame),
     ];
     let classification = pareto_classification(expected == actual, &rows);
     (classification, rows)
@@ -254,7 +263,7 @@ pub(crate) fn run_tas_gems_baseline(
         Classification::Improvement => {
             println!("tas-gems-baseline: FAIL — IMPROVEMENT (ratchet not yet updated)");
             println!(
-                "  The GEMS audio-timing frontier moved FORWARD; the committed baseline in {} is stale.",
+                "  GEMS signature mismatch count DROPPED; the committed baseline in {} is stale.",
                 frontier_path.display()
             );
             print_metric_table(&rows);
@@ -331,13 +340,59 @@ mod tests {
     }
 
     #[test]
-    fn classify_later_first_mismatch_with_fewer_mismatches_is_improvement() {
+    fn classify_fewer_mismatches_is_improvement() {
         let mut actual = baseline();
         actual.mismatch_count -= 1_000;
         actual.first_mismatch_frame = Some(1_709);
         actual.mismatch_digest = Some("0000000000000000000000000000000000000000".to_owned());
         let (classification, _) = classify(&baseline(), &actual);
         assert_eq!(classification, Classification::Improvement);
+    }
+
+    #[test]
+    fn classify_later_first_mismatch_alone_is_regression_not_improvement() {
+        // Frontier frozen (#416): advancing first_mismatch_frame without
+        // changing mismatch_count earns Regression-for-review, not the exit-3
+        // Improvement reward the retired per-frame ratchet paid out.
+        let mut actual = baseline();
+        actual.first_mismatch_frame = Some(1_709);
+        let (classification, rows) = classify(&baseline(), &actual);
+        assert_eq!(classification, Classification::Regression);
+        let guard = rows
+            .iter()
+            .find(|row| row.name == "first_mismatch_frame")
+            .expect("guard row present");
+        assert_eq!(
+            guard.direction,
+            MetricDirection::Same,
+            "a later first mismatch must never rank Better"
+        );
+    }
+
+    #[test]
+    fn classify_fewer_mismatches_but_earlier_first_mismatch_is_regression() {
+        // The freeze guard: fixing many late-frame mismatches while breaking
+        // a frame inside the defended span (first mismatch moves EARLIER)
+        // must block as Regression, not be rewarded for the net count drop.
+        let mut expected = baseline();
+        expected.first_mismatch_frame = Some(923);
+        let mut actual = expected.clone();
+        actual.mismatch_count -= 1_000;
+        actual.first_mismatch_frame = Some(400);
+        let (classification, _) = classify(&expected, &actual);
+        assert_eq!(classification, Classification::Regression);
+    }
+
+    #[test]
+    fn classify_new_mismatch_where_none_existed_is_regression() {
+        let mut expected = baseline();
+        expected.mismatch_count = 0;
+        expected.first_mismatch_frame = None;
+        expected.mismatch_digest = None;
+        let mut actual = expected.clone();
+        actual.first_mismatch_frame = Some(10);
+        let (classification, _) = classify(&expected, &actual);
+        assert_eq!(classification, Classification::Regression);
     }
 
     #[test]
@@ -365,9 +420,9 @@ mod tests {
     }
 
     #[test]
-    fn classify_mixed_trade_is_regression() {
-        // First mismatch moved later (better) but total mismatches grew
-        // (worse): mixed win/lose trades are NOT improvements.
+    fn classify_grown_mismatch_count_is_regression() {
+        // A worsened run must still exit 1 even when the (evidence-only)
+        // first mismatch moved later.
         let mut actual = baseline();
         actual.first_mismatch_frame = Some(200);
         actual.mismatch_count += 10;
