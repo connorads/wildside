@@ -89,6 +89,17 @@
         "mismatch_digest": "f07a5e57d839fbec0e691adb8b6bceb48e3b9c3a",
         "first_mismatch_frame": 923
       },
+      "full_expected_gems_command_comparison": {
+        "compared_frames": 37759,
+        "native_command_count": 414,
+        "oracle_command_count": 437,
+        "matched_exact": 40,
+        "reconciled_native_earlier": 3,
+        "reconciled_oracle_earlier": 1,
+        "mismatch_count": 419,
+        "first_mismatch_frame": 16,
+        "mismatch_digest": "ec166cd05c48180bf0551db5167edfd1dc003942"
+      },
       "status": "verified"
     },
     "issue305_fast_action_gameplay_probe": {

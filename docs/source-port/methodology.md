@@ -661,6 +661,19 @@ stays authoritative.
   into `verify-tas-full`, never `verify-slice-fast`.
 - `verify-tas --bisect --frontier-kind gems` localises the first signature
   mismatch from one full run (per-frame data needs no binary search).
+- `verify-tas --compare-gems-commands` computes and reports
+  `gems_command_parity_v1` — the authoritative audio gate (see
+  "Command-parity supersession" below): both sides' mailbox rings decode
+  through the one `GemsRingDecoder` into ordered per-frame command streams.
+- `tas-gems-command-baseline` ratchets
+  `full_expected_gems_command_comparison` in `tests/tas_frontier.json`
+  (Match / Improvement exit 3 / Regression exit 1; ranked metrics:
+  `mismatch_count` lower and `first_mismatch_frame` later — the ratchet is
+  wanted here, unlike the frozen signature witness). The two
+  skew-reconciliation direction counts are pinned exactly as evidence: a
+  one-frame native scheduling shift converts reconciled pairs into exact
+  pairs or flips their direction, so any change classifies
+  Regression-for-review. Wired into `verify-tas-full`.
 
 ### Command-parity supersession
 

@@ -495,6 +495,69 @@ replay spans for #437.
 
 ### #435
 
+Closed 2026-07-24: `tas-gems-command-baseline` wired into `verify-tas-full`
+as the authoritative audio gate, baselined on the attributed honest full
+route: 414 native / 437 oracle commands over 37,759 frames, 40 exact, 4
+skew-reconciled (3 native-earlier / 1 oracle-earlier), 419 mismatches,
+first at frame 16, reinits 44/91. Route opcode vocabulary is {0B, 10, 05,
+0D} — inside the ASM-enumerated set (no stop-loss). Alignment-free
+multiset + drift triage attributes every mismatch to three native
+audio-schedule clusters, opened as #438 (missing StopMusic reinit
+modelling: 11 oracle-only 0B), #439 (wrong/missing SFX id families:
+count-matched pairs 97↔76 ×12, 13↔28 ~×32-39, oracle-only 70×14/119×10,
+native-only 23×4/45×1), and #440 (shared-command posting drift 5–15+
+frames; only 85 exact). The heavy "paired-different sound id" clusters in
+the greedy alignment are cascade artefacts of those insertions — the
+report now ships both full decoded streams so triage never depends on
+the aligner. Ranked gate metrics: mismatch_count ↓, first_mismatch_frame
+↑; skew direction counts pinned exactly (adversarial-review finding: a
+one-frame native shift flips reconciled→exact, which a downward-only
+ratchet would misread as improvement).
+
+Adversarial review also caught, fixed, and regression-tested two decoder
+holes before the gate landed: the reinit repost overlapping a small
+anchor (first hit live at route frame 4967, misread as a ring lap) and
+the silent-drop ambiguity between an index reset and a byte-identical
+wrap ending exactly at position 0 (now a verified-hypothesis path that
+fails loudly via `reset_unverified`). Known symmetric limitation,
+documented: a full reinit+repost landing between two snapshots with
+byte-identical content and index is invisible to ring diffing on either
+side.
+
+Progress 2026-07-24 (decoder + comparison landed, gate not yet wired):
+- Ring decoder validated on real data before any template edit: the
+  pre-existing 924-frame `.cache/oracle-probe` capture decodes with 0
+  unclean frames, census {0B:5, 10:3}, and the stream reads exactly as the
+  documented boot flow (EntryPoint's two StopMusics at 16/30-32, the third
+  + PlaySound(3) at 68-70, title 10[03] at 171, level-entry StopMusic at
+  869-870, level-1 music 10[02] at 901). The decoded $0B pointer triples
+  are the ROM constants unk_E160E/unk_E25EA/unk_E2766/unk_E8716.
+- Capture realities encoded in the decoder (all observed, not assumed):
+  consumed ring bytes never clear; the write index commits per byte so
+  commands can straddle snapshots; StopMusic reinit spans snapshots (index
+  reset with stale ring → zero-fill → constant-byte repost, sometimes
+  wipe+repost in one window).
+- Design deviation from the phase plan, deliberate: the helper emits RAW
+  ring snapshots (GemsFrameRing, 65 bytes/frame riding the signature
+  capture) instead of decoding template-side. One decoder then serves both
+  native and oracle streams, so decoder drift between sides is
+  structurally impossible; gems-ring-decode cross-checks ring-decode
+  against full-RAM decode whenever a manifest has both (green on a fresh
+  251-frame capture with the rebuilt helper).
+- No 68k bank-register write path exists in kid.asm (no $A06000 writes);
+  the Z80 driver banks itself. The comparison therefore covers the command
+  stream only — there are no 68k bank writes to compare, correcting the
+  original plan wording.
+- Native projection samples the COARSE continuous probe's ring (the
+  shipping NativeAudioDirector schedule), never the hand-modelled power-on
+  harness.
+- First honest report-only numbers (kid_chameleon_short_demo): native 6 /
+  oracle 6 commands, 0 exact, 7 mismatches, reinits 1/5; identical
+  StopMusic bytes at native frame 34 vs ROM frame 16. Real signal: the
+  native director initialises the driver once and late, where the ROM
+  reinits at EntryPoint and on each screen transition. Full-route triage
+  next; gate wiring waits until the numbers are attributed.
+
 GEMS command-parity gate `gems_command_parity_v1` — the superseding audio
 authority per the #416 freeze. Decode the 68k→Z80 mailbox ring (`$A01A40`,
 write index `0x0036`; kid.asm `sub_E143A`/`sub_E148E`) from oracle RAM
@@ -509,6 +572,39 @@ skew (reconciled count is itself a baselined downward-only metric). Staged:
 decoder prototype + opcode census on existing captures first (no template
 edit), then one batched helper-template migration, report-only triage, and
 only then the `tas_gems_command_baseline` gate wired into `verify-tas-full`.
+
+### #438
+
+Missing native StopMusic reinit modelling, split out of #435's triage.
+The ROM posts StopMusic (14-byte `0B` + full driver reload, `sub_E13DA`)
+at EntryPoint ×2, Load_IntroSequence1, title entry, level entry, and
+through the ending sequence (oracle-only `0B` at frames 70, 36064, 36097,
+36272, 36822, 37552 among others); the native `NativeAudioDirector`
+initialises the driver once (`ensure_initialised`) and posts reloads only
+on trace-derived BGM changes — 44 native vs 91 oracle reinit frames.
+Native's first `0B` lands at frame 36 vs the ROM's 16.
+
+### #439
+
+Native SFX sound-id divergence, split out of #435's triage. Command
+multiset over the full route: native-only `10[13]`×39, `10[23]`×4,
+`10[45]`×1, `10[97]`×12; oracle-only `10[28]`×32, `10[70]`×14,
+`10[76]`×12, `10[119]`×10. The count-matched pairs (97↔76 exactly ×12;
+13↔28 approximately) point at wrong id mapping for the same game events;
+the unmatched oracle families point at SFX the native trace never
+records. Read the ROM's PlaySound call sites for the affected ids before
+touching the mapping.
+
+### #440
+
+Native SFX posting-instant drift, split out of #435's triage. Shared
+(same opcode+args) commands drift -15..+15+ frames between native and
+oracle attribution; only 85 of ~330 shared commands are exact-frame and
+just 4 within the ±1 sampling-skew window. The native trace-delta
+schedule (`NativeAudioDirector::step` applying a whole frame's commands
+at the frame boundary) is structurally coarser than the ROM's
+mid-frame PlaySound instants; closing #438/#439 first will shrink the
+aligner noise and make per-command drift attribution cleaner.
 
 ### #436
 
@@ -19215,6 +19311,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 435 | [x] | P1 | audio | Command-parity gate `gems_command_parity_v1`: one `GemsRingDecoder` over both sides' mailbox rings, ordered per-frame comparison with directional ±1 skew reconciliation, `tas-gems-command-baseline` ratchet wired into `verify-tas-full` as the authoritative audio gate. | Honest baseline 419 mismatches / first at 16, fully attributed to native schedule clusters #438-#440; gate Match on baseline. See archive #435. |
 | 434 | [x] | P2 | audio | GEMS mismatch census: `--gems-mismatch-report` corpus (every compared frame classified, disjoint) + `gems-census` clustering into `.cache/audit/gems-census.json`. | Full-route corpus reconciles exactly (36,836/887/36); 72 clusters, top 5 genuine shapes cover 94.9%. See archive #434. |
 | 429 | [x] | P2 | kid-physics | Debug title-card level entry runs `loc_75C0` spawn-wall overlap correction before live gravity settle and camera follow. | Level 0x29 report `1784577500` state-exact; frame shift removed in `1784577515`; focused guards green. See archive #429. |
 | 428 | [-] | P2 | enemy | Historical census attributed Level 0x64's pre-#403 Tar burst-child lifetime residual after #403 had already corrected it. | Fresh report `1784577126`: Level 0x64 passes state sweep; cache-backed 360-frame schedule regression green. See archive #428. |
