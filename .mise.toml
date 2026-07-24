@@ -180,6 +180,10 @@ description = "Sweep all 105 levels for native vs oracle parity"
 run = "cargo run --release -p wildside-cli -- sweep-census"
 description = "Classify sweep-blocking diffs by enemy family (writes .cache/audit/sweep-census.json)"
 
+[tasks.gems-census]
+run = "cargo run --release -p wildside-cli -- gems-census"
+description = "Cluster the GEMS mismatch corpus by shape (#434; writes .cache/audit/gems-census.json)"
+
 [tasks.warm-cache]
 run = "cargo run --release -p wildside-cli -- sweep --warm-cache-only"
 description = "Pre-populate oracle cache for all levels (no native comparison)"

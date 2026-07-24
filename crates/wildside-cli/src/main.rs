@@ -12,6 +12,7 @@ mod case;
 mod cheats;
 mod compare;
 mod diff;
+mod gems_census;
 mod hypothesis;
 mod inspect;
 mod native_player;
@@ -973,6 +974,19 @@ enum Commands {
         /// Skip the ROM/asset roster join (field histogram only, no ROM needed)
         #[arg(long, default_value_t = false)]
         no_roster: bool,
+    },
+    /// Cluster the classified GEMS outcome corpus from
+    /// `verify-tas --compare-gems --gems-mismatch-report` by classification,
+    /// diverging-field shape, and bank pair, and write the census to
+    /// .cache/audit/gems-census.json (#434).
+    GemsCensus {
+        /// Corpus report path (default:
+        /// .cache/tas-verify/any-percent-published/gems-mismatch-report.json)
+        #[arg(long)]
+        report: Option<PathBuf>,
+        /// Output JSON path (default: .cache/audit/gems-census.json)
+        #[arg(long)]
+        output: Option<PathBuf>,
     },
     /// Run the canonical release gate for a completion target.
     ReleaseGate {
@@ -2391,6 +2405,15 @@ fn main() -> Result<()> {
                     &repo_root, &rom_path, &manifest, &level_ids, tier, &options,
                 )?;
             }
+        }
+        Commands::GemsCensus { report, output } => {
+            let repo_root = current_dir()?;
+            let report_path = report.unwrap_or_else(|| {
+                repo_root.join(".cache/tas-verify/any-percent-published/gems-mismatch-report.json")
+            });
+            let output_path =
+                output.unwrap_or_else(|| repo_root.join(".cache/audit/gems-census.json"));
+            gems_census::run_gems_census(&report_path, &output_path)?;
         }
         Commands::SweepCensus {
             rom,
