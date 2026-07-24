@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-24 handoff (#416 frontier freeze; #434-#437 opened)
+
+- The per-frame GEMS signature frontier is frozen at frames 0..922 by
+  decision (rationale, fidelity-rule scoping, and rejected alternatives in
+  archive #416): ~18 min/frame across 21 "defend Nth pass" commits against
+  36,836 remaining timing-emergent mismatches is unbounded cost for no
+  audible-correctness gain.
+- `tas-gems-baseline` reworked into a frozen regression witness:
+  `mismatch_count` is the only metric that can rank Better;
+  `first_mismatch_frame` is an asymmetric guard (earlier blocks even when
+  the count drops, later is never rewarded).
+- Superseding audio authority is command parity `gems_command_parity_v1`
+  (#435, P1), with mismatch census #434, replay seam probe #436, and
+  bounded-span replay #437; #434-#436 are session-owned `[~]`.
+- Methodology gains a "Command-parity supersession" subsection; roadmap
+  workstream 4 carries the audio command-parity track.
+
 ## 2026-07-23 handoff (#416 GEMS frame 922)
 
 - Frame 922 source-bounds the no-palette-worker object pass and coin HUD path.
