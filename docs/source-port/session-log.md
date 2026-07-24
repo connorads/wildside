@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 GEMS frame 921)
+
+- Frame 921 source-bounds the no-palette-worker object pass, flag HUD DMA,
+  demo-input pointer advance, unchanged-camera tail, and blocking VINT.
+- Every selected boundary matches through the following `Mode_Level`; bank
+  and waits agree, leaving only the established X/Y IRQ edge.
+- Full GEMS counts are 36,837 mismatches, 886 limitations and 36
+  advisory-only frames.
+- `verify-slice-fast` passes 7,061 core tests; NEXT is frame 922.
+
 ## 2026-07-23 handoff (#416 GEMS frame 920)
 
 - Frame 920 deletes the completed palette worker and source-bounds the
