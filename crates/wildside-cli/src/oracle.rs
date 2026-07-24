@@ -36,6 +36,8 @@ pub(crate) struct OracleRunOptions {
     pub(crate) vdp_fifo_commit_frames: Option<String>,
     pub(crate) vdp_fifo_commit_address_range: Option<String>,
     pub(crate) m68k_pc_trace: Option<String>,
+    /// Frames whose 68k→Z80 stimulus rows are retained (#437 spans).
+    pub(crate) gems_stimulus_frames: Option<String>,
     pub(crate) capture_gems_state: bool,
     pub(crate) capture_gems_frame_signature: bool,
     pub(crate) capture_cpu_state: bool,
@@ -129,6 +131,11 @@ pub struct OracleManifest {
     pub vdp_fifo_enqueues: Vec<OracleVdpFifoCommitRow>,
     #[serde(default)]
     pub m68k_pc_trace: Vec<OracleM68kPcTraceRow>,
+    /// 68k→Z80 stimulus rows (#437): Z80-RAM writes under BUSACK plus
+    /// BUSREQ/RESET control-bit writes, stamped with the cumulative 68000
+    /// cycle counter, captured only for `--gems-stimulus-frames` frames.
+    #[serde(default)]
+    pub gems_stimuli: Vec<OracleGemsStimulusRow>,
     #[serde(default)]
     pub settle_trace: Vec<OracleSettleTraceRow>,
 }
@@ -164,6 +171,24 @@ pub struct OracleVdpFifoCommit {
     pub m68k_pc: u32,
     #[serde(default)]
     pub m68k_cycles: u64,
+}
+
+/// One recorded oracle 68k→Z80 stimulus (#437).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct OracleGemsStimulusRow {
+    pub frame: usize,
+    /// Cumulative 68000 CPU cycles at the writing instruction's opening
+    /// boundary (same stamp as FIFO enqueue rows); ×7 for master clocks.
+    pub m68k_cycle_counter: u64,
+    /// `ram_write` (BUSACK-passing Z80-RAM byte write), `busreq`, or `reset`.
+    pub kind: String,
+    /// Z80 address (`68k address & 0x7FFF`) for `ram_write`; 0 for controls.
+    pub addr: u16,
+    /// Written byte for `ram_write`; the written control bit for
+    /// `busreq`/`reset` (`reset`: 1 = reset asserted).
+    pub value: u8,
+    /// BUSACK state after the write (always true for recorded `ram_write`).
+    pub z80_busack: bool,
 }
 
 /// One selected 68000 instruction boundary observed before execution.
@@ -209,6 +234,10 @@ pub struct OracleGemsCheckpoint {
     pub z80_wait_mclk_cycles: u64,
     pub z80_odd_access: bool,
     pub ym2612_mclk_counter: u64,
+    /// Pending 68000 wait cycles queued by Z80 banked reads at this boundary
+    /// (the native engine's `pending_m68k_wait_cycles` seed).
+    #[serde(default)]
+    pub m68k_wait_cpu_cycles: u32,
     pub z80_halt: bool,
     pub vdp_owns_bus: bool,
     pub z80_busreq: bool,
@@ -406,6 +435,7 @@ pub fn ensure_oracles(repo_root: &Path) -> Result<OracleEnvironment> {
     patch_jgenesis_fifo_commit_trace(&jgenesis_dir)?;
     patch_jgenesis_m68k_pc_trace(&jgenesis_dir)?;
     patch_jgenesis_gems_checkpoint(&jgenesis_dir)?;
+    patch_jgenesis_gems_stimulus_capture(&jgenesis_dir)?;
 
     let helper_dir = oracle_root.join("jgenesis-helper");
     write_helper_project(&helper_dir, repo_root, &jgenesis_dir)?;
@@ -525,6 +555,9 @@ pub fn run_jgenesis_capture_dynamic_with_options(
     }
     if let Some(ref pcs) = options.m68k_pc_trace {
         cmd.arg("--m68k-pc-trace").arg(pcs);
+    }
+    if let Some(ref frames) = options.gems_stimulus_frames {
+        cmd.arg("--gems-stimulus-frames").arg(frames);
     }
     if options.capture_gems_state {
         cmd.arg("--capture-gems-state");
@@ -914,6 +947,139 @@ fn patch_jgenesis_fifo_commit_trace(jgenesis_dir: &Path) -> Result<()> {
         debug.insert_str(
             final_brace,
             "    /// Cumulative M68K cycles executed since emulator reset.\n    #[must_use]\n    pub fn wildside_m68k_cycle_counter(&self) -> u64 {\n        self.0.wildside_m68k_cycle_counter\n    }\n\n",
+        );
+        fs::write(&debug_rs, &debug)
+            .with_context(|| format!("failed to write patched {}", debug_rs.display()))?;
+    }
+
+    Ok(())
+}
+
+/// Record the oracle's 68k→Z80 stimulus stream for bounded-span replay (#437).
+///
+/// The three `MainBus::apply_byte_write` Z80-facing arms (Z80-RAM writes,
+/// BUSREQ `$A11100`, RESET `$A11200`) plus the word-write BUSREQ mirror and
+/// the shared `set_z80_reset` are the ONLY 68k-side inputs the GEMS machine
+/// receives. RAM writes are recorded only when they pass the `z80_busack()`
+/// guard (jgenesis silently drops the rest, so they never reach RAM); control
+/// writes record the post-write busack state. Rows are stamped with the
+/// cumulative `wildside_m68k_cycle_counter` set at the writing instruction's
+/// opening boundary (same discipline as the FIFO enqueue context). Capture is
+/// gated by `set_wildside_capture_gems_stimuli` (default off — zero oracle
+/// behaviour change).
+///
+/// Also extends `WildsideGemsCheckpoint` with `m68k_wait_cpu_cycles` so a
+/// span anchor's replay seed carries the pending 68000 wait ledger.
+fn patch_jgenesis_gems_stimulus_capture(jgenesis_dir: &Path) -> Result<()> {
+    let memory_rs = jgenesis_dir.join("backend/genesis-core/src/memory.rs");
+    let mut memory = fs::read_to_string(&memory_rs)
+        .with_context(|| format!("failed to read {}", memory_rs.display()))?;
+    if !memory.contains("WildsideGemsStimulus") {
+        memory = replace_jgenesis_source(
+            &memory,
+            "use std::mem;\n",
+            "use std::collections::VecDeque;\nuse std::mem;\n",
+            &memory_rs,
+        )?;
+        memory = replace_jgenesis_source(
+            &memory,
+            "#[derive(Debug, Encode, Decode, PartialClone)]\npub struct Memory<Medium> {\n",
+            "#[derive(Debug, Clone, Copy, Encode, Decode)]\npub struct WildsideGemsStimulus {\n    pub m68k_cycle_counter: u64,\n    /// 0 = Z80-RAM byte write under BUSACK, 1 = BUSREQ bit, 2 = RESET bit.\n    pub kind: u8,\n    pub addr: u16,\n    pub value: u8,\n    pub z80_busack: bool,\n}\n\n#[derive(Debug, Encode, Decode, PartialClone)]\npub struct Memory<Medium> {\n",
+            &memory_rs,
+        )?;
+        memory = replace_jgenesis_source(
+            &memory,
+            "    signals: Signals,\n    pub open_bus: u16,\n}\n",
+            "    signals: Signals,\n    pub open_bus: u16,\n    pub wildside_gems_stimuli: VecDeque<WildsideGemsStimulus>,\n    pub wildside_capture_gems_stimuli: bool,\n    pub wildside_m68k_cycle_counter: u64,\n}\n",
+            &memory_rs,
+        )?;
+        memory = replace_jgenesis_source(
+            &memory,
+            "            signals: Signals::default(),\n            open_bus: 0,\n        }\n    }\n",
+            "            signals: Signals::default(),\n            open_bus: 0,\n            wildside_gems_stimuli: VecDeque::new(),\n            wildside_capture_gems_stimuli: false,\n            wildside_m68k_cycle_counter: 0,\n        }\n    }\n",
+            &memory_rs,
+        )?;
+        memory = replace_jgenesis_source(
+            &memory,
+            "                    // For 68k access, $8000-$FFFF mirrors $0000-$7FFF\n                    <Self as z80_emu::BusInterface>::write_memory(\n                        self,\n                        (address & 0x7FFF) as u16,\n                        value,\n                    );\n",
+            "                    if self.memory.wildside_capture_gems_stimuli {\n                        self.memory.wildside_gems_stimuli.push_back(WildsideGemsStimulus {\n                            m68k_cycle_counter: self.memory.wildside_m68k_cycle_counter,\n                            kind: 0,\n                            addr: (address & 0x7FFF) as u16,\n                            value,\n                            z80_busack: true,\n                        });\n                    }\n\n                    // For 68k access, $8000-$FFFF mirrors $0000-$7FFF\n                    <Self as z80_emu::BusInterface>::write_memory(\n                        self,\n                        (address & 0x7FFF) as u16,\n                        value,\n                    );\n",
+            &memory_rs,
+        )?;
+        memory = replace_jgenesis_source(
+            &memory,
+            "                self.memory.signals.z80_busreq = value.bit(0);\n",
+            "                self.memory.signals.z80_busreq = value.bit(0);\n                if self.memory.wildside_capture_gems_stimuli {\n                    self.memory.wildside_gems_stimuli.push_back(WildsideGemsStimulus {\n                        m68k_cycle_counter: self.memory.wildside_m68k_cycle_counter,\n                        kind: 1,\n                        addr: 0,\n                        value: u8::from(value.bit(0)),\n                        z80_busack: self.memory.signals.z80_busack(),\n                    });\n                }\n",
+            &memory_rs,
+        )?;
+        memory = replace_jgenesis_source(
+            &memory,
+            "                self.memory.signals.z80_busreq = value.bit(8);\n",
+            "                self.memory.signals.z80_busreq = value.bit(8);\n                if self.memory.wildside_capture_gems_stimuli {\n                    self.memory.wildside_gems_stimuli.push_back(WildsideGemsStimulus {\n                        m68k_cycle_counter: self.memory.wildside_m68k_cycle_counter,\n                        kind: 1,\n                        addr: 0,\n                        value: u8::from(value.bit(8)),\n                        z80_busack: self.memory.signals.z80_busack(),\n                    });\n                }\n",
+            &memory_rs,
+        )?;
+        memory = replace_jgenesis_source(
+            &memory,
+            "        self.memory.signals.z80_reset = z80_reset;\n        log::trace!(\"Set Z80 RESET to {}\", self.memory.signals.z80_reset);\n",
+            "        self.memory.signals.z80_reset = z80_reset;\n        if self.memory.wildside_capture_gems_stimuli {\n            self.memory.wildside_gems_stimuli.push_back(WildsideGemsStimulus {\n                m68k_cycle_counter: self.memory.wildside_m68k_cycle_counter,\n                kind: 2,\n                addr: 0,\n                value: u8::from(z80_reset),\n                z80_busack: self.memory.signals.z80_busack(),\n            });\n        }\n        log::trace!(\"Set Z80 RESET to {}\", self.memory.signals.z80_reset);\n",
+            &memory_rs,
+        )?;
+        fs::write(&memory_rs, &memory)
+            .with_context(|| format!("failed to write patched {}", memory_rs.display()))?;
+    }
+
+    let api_rs = jgenesis_dir.join("backend/genesis-core/src/api.rs");
+    let mut api = fs::read_to_string(&api_rs)
+        .with_context(|| format!("failed to read {}", api_rs.display()))?;
+    if !api.contains("bus.memory.wildside_m68k_cycle_counter") {
+        api = replace_jgenesis_source(
+            &api,
+            "        bus.vdp.set_wildside_m68k_context(m68k_pc, self.wildside_m68k_cycle_counter);\n",
+            "        bus.vdp.set_wildside_m68k_context(m68k_pc, self.wildside_m68k_cycle_counter);\n        bus.memory.wildside_m68k_cycle_counter = self.wildside_m68k_cycle_counter;\n",
+            &api_rs,
+        )?;
+        fs::write(&api_rs, &api)
+            .with_context(|| format!("failed to write patched {}", api_rs.display()))?;
+    }
+    if !api.contains("pub m68k_wait_cpu_cycles") {
+        api = replace_jgenesis_source(
+            &api,
+            "    pub ym2612_mclk_counter: u64,\n    pub z80_halt: bool,\n",
+            "    pub ym2612_mclk_counter: u64,\n    pub m68k_wait_cpu_cycles: u32,\n    pub z80_halt: bool,\n",
+            &api_rs,
+        )?;
+        api = replace_jgenesis_source(
+            &api,
+            "                ym2612_mclk_counter: self.cycles.ym2612_mclk_counter,\n",
+            "                ym2612_mclk_counter: self.cycles.ym2612_mclk_counter,\n                m68k_wait_cpu_cycles: self.cycles.m68k_wait_cpu_cycles,\n",
+            &api_rs,
+        )?;
+        fs::write(&api_rs, &api)
+            .with_context(|| format!("failed to write patched {}", api_rs.display()))?;
+    }
+
+    let debug_rs = jgenesis_dir.join("backend/genesis-core/src/api/debug.rs");
+    let mut debug = fs::read_to_string(&debug_rs)
+        .with_context(|| format!("failed to read {}", debug_rs.display()))?;
+    if !debug.contains("m68k_wait_cpu_cycles: self.0.cycles.m68k_wait_cpu_cycles") {
+        debug = replace_jgenesis_source(
+            &debug,
+            "            ym2612_mclk_counter: self.0.cycles.ym2612_mclk_counter,\n",
+            "            ym2612_mclk_counter: self.0.cycles.ym2612_mclk_counter,\n            m68k_wait_cpu_cycles: self.0.cycles.m68k_wait_cpu_cycles,\n",
+            &debug_rs,
+        )?;
+        fs::write(&debug_rs, &debug)
+            .with_context(|| format!("failed to write patched {}", debug_rs.display()))?;
+    }
+    if !debug.contains("drain_wildside_gems_stimuli") {
+        let final_brace = debug.rfind('}').ok_or_else(|| {
+            anyhow!(
+                "could not find debug API closing brace in {}",
+                debug_rs.display()
+            )
+        })?;
+        debug.insert_str(
+            final_brace,
+            "    /// Drain recorded 68k\u{2192}Z80 GEMS stimuli (Z80-RAM writes under BUSACK,\n    /// BUSREQ/RESET bit writes) since the last drain.\n    pub fn drain_wildside_gems_stimuli(&mut self) -> Vec<crate::memory::WildsideGemsStimulus> {\n        self.0.memory.wildside_gems_stimuli.drain(..).collect()\n    }\n\n    pub fn set_wildside_capture_gems_stimuli(&mut self, capture: bool) {\n        self.0.memory.wildside_capture_gems_stimuli = capture;\n    }\n\n",
         );
         fs::write(&debug_rs, &debug)
             .with_context(|| format!("failed to write patched {}", debug_rs.display()))?;
@@ -1416,6 +1582,25 @@ mod tests {
             cache_version
                 .bytes()
                 .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        );
+    }
+
+    #[test]
+    fn helper_captures_gems_stimuli_and_wait_seed_for_span_replay() {
+        // #437: the helper must plumb --gems-stimulus-frames into the patched
+        // drain, drain every frame (so retained frames hold exactly their own
+        // stimuli), and carry the pending 68000 wait ledger in the pc-trace
+        // checkpoint so a span anchor's replay seed is complete.
+        assert!(
+            HELPER_TEMPLATE.contains("\"--gems-stimulus-frames\" => gems_stimulus_frames_spec")
+                && HELPER_TEMPLATE.contains("drain_wildside_gems_stimuli()")
+                && HELPER_TEMPLATE.contains("if gems_stimulus_frames.contains(&frame_index)")
+                && HELPER_TEMPLATE.contains("gems_stimuli: all_gems_stimuli,"),
+            "helper template must retain per-frame 68k→Z80 stimulus rows for selected frames",
+        );
+        assert!(
+            HELPER_TEMPLATE.contains("m68k_wait_cpu_cycles: checkpoint.m68k_wait_cpu_cycles,"),
+            "pc-trace GEMS checkpoints must carry the pending 68000 wait ledger",
         );
     }
 

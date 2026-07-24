@@ -1347,6 +1347,10 @@ enum Commands {
         /// Selected hexadecimal M68K PCs to trace before execution (e.g. 0x74A,0xE12,0x44DC).
         #[arg(long)]
         m68k_pc_trace: Option<String>,
+        /// Frames whose 68k→Z80 GEMS stimulus rows (RAM writes under BUSACK,
+        /// BUSREQ/RESET bits, m68k-cycle stamped) are retained (#437 spans).
+        #[arg(long)]
+        gems_stimulus_frames: Option<String>,
         /// Attach GEMS audio-RAM and timing checkpoints to selected M68K PC rows.
         #[arg(long, default_value_t = false)]
         capture_gems_state: bool,
@@ -2921,6 +2925,7 @@ fn main() -> Result<()> {
             vdp_fifo_commit_frames,
             vdp_fifo_commit_address_range,
             m68k_pc_trace,
+            gems_stimulus_frames,
             capture_gems_state,
             when,
             capture_cpu_state,
@@ -2973,6 +2978,7 @@ fn main() -> Result<()> {
                 vdp_fifo_commit_frames: vdp_fifo_commit_frames.clone(),
                 vdp_fifo_commit_address_range: vdp_fifo_commit_address_range.clone(),
                 m68k_pc_trace: m68k_pc_trace.clone(),
+                gems_stimulus_frames: gems_stimulus_frames.clone(),
                 capture_gems_state,
                 // Ring snapshots (#435) ride the signature capture, so gems
                 // state dumps also carry the decoded-command cross-check

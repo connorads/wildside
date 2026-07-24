@@ -129,6 +129,7 @@ pub fn test_hypothesis(
             vdp_fifo_commit_frames: None,
             vdp_fifo_commit_address_range: None,
             m68k_pc_trace: None,
+            gems_stimulus_frames: None,
             capture_gems_state: false,
             capture_gems_frame_signature: false,
             capture_cpu_state: false,

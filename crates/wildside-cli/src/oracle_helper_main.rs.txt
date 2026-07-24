@@ -160,6 +160,18 @@ struct OracleVdpFifoCommit {
     m68k_cycles: u64,
 }
 
+/// One recorded 68k→Z80 stimulus (#437): a Z80-RAM byte write that passed the
+/// BUSACK guard, or a BUSREQ/RESET control-bit write with post-write busack.
+#[derive(Debug, Serialize)]
+struct OracleGemsStimulusRow {
+    frame: usize,
+    m68k_cycle_counter: u64,
+    kind: String,
+    addr: u16,
+    value: u8,
+    z80_busack: bool,
+}
+
 #[derive(Debug, Serialize)]
 struct OracleM68kPcTraceRow {
     frame: usize,
@@ -190,6 +202,7 @@ struct OracleGemsCheckpoint {
     z80_wait_mclk_cycles: u64,
     z80_odd_access: bool,
     ym2612_mclk_counter: u64,
+    m68k_wait_cpu_cycles: u32,
     z80_halt: bool,
     vdp_owns_bus: bool,
     z80_busreq: bool,
@@ -354,6 +367,8 @@ struct OracleManifest {
     vdp_fifo_enqueues: Vec<OracleVdpFifoCommitRow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     m68k_pc_trace: Vec<OracleM68kPcTraceRow>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    gems_stimuli: Vec<OracleGemsStimulusRow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     settle_trace: Vec<OracleSettleTraceRow>,
 }
@@ -716,6 +731,7 @@ fn main() -> Result<()> {
     let mut vdp_fifo_commit_frames_spec = String::new();
     let mut vdp_fifo_commit_address_range_spec = String::new();
     let mut m68k_pc_trace_spec = String::new();
+    let mut gems_stimulus_frames_spec = String::new();
     let mut capture_gems_state = false;
     let mut capture_gems_frame_signature = false;
     let mut capture_cpu_state = false;
@@ -739,6 +755,7 @@ fn main() -> Result<()> {
             "--vdp-fifo-commit-frames" => vdp_fifo_commit_frames_spec = args.next().unwrap_or_default(),
             "--vdp-fifo-commit-address-range" => vdp_fifo_commit_address_range_spec = args.next().unwrap_or_default(),
             "--m68k-pc-trace" => m68k_pc_trace_spec = args.next().unwrap_or_default(),
+            "--gems-stimulus-frames" => gems_stimulus_frames_spec = args.next().unwrap_or_default(),
             "--capture-gems-state" => capture_gems_state = true,
             "--capture-gems-frame-signature" => capture_gems_frame_signature = true,
             "--capture-cpu-state" => capture_cpu_state = true,
@@ -763,12 +780,13 @@ fn main() -> Result<()> {
     let vdp_fifo_commit_frames = parse_frame_list(&vdp_fifo_commit_frames_spec)?;
     let vdp_fifo_commit_address_range = parse_vdp_fifo_commit_address_range(&vdp_fifo_commit_address_range_spec)?;
     let m68k_pc_trace = parse_m68k_pc_list(&m68k_pc_trace_spec)?;
+    let gems_stimulus_frames = parse_frame_list(&gems_stimulus_frames_spec)?;
 
     let rom = fs::read(&rom_path)
         .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
     match mode {
         OutputMode::Capture => {
-            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, &vdp_fifo_commit_frames, vdp_fifo_commit_address_range, &m68k_pc_trace, capture_gems_state, capture_gems_frame_signature, capture_cpu_state, capture_settle_trace, capture_rng_stream)?;
+            run_capture(&rom, &out_dir, &resolved, skip_frames_before, &memory_watches, &wram_dump_frames, &vram_dump_frames, &cram_dump_frames, &vsram_dump_frames, &vdp_pixel_samples, &vdp_fifo_commit_frames, vdp_fifo_commit_address_range, &m68k_pc_trace, &gems_stimulus_frames, capture_gems_state, capture_gems_frame_signature, capture_cpu_state, capture_settle_trace, capture_rng_stream)?;
         }
         OutputMode::EnemyLayoutTrace => {
             run_enemy_layout_trace(&rom, &resolved)?;
@@ -838,7 +856,7 @@ fn resolve_scenario(
     }
 }
 
-fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], vdp_fifo_commit_frames: &[usize], vdp_fifo_commit_address_range: Option<(u32, u32)>, m68k_pc_trace: &[u32], capture_gems_state: bool, capture_gems_frame_signature: bool, capture_cpu_state: bool, capture_settle_trace: bool, capture_rng_stream: bool) -> Result<()> {
+fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_frames_before: Option<usize>, memory_watches: &[MemoryWatch], wram_dump_frames: &[usize], vram_dump_frames: &[usize], cram_dump_frames: &[usize], vsram_dump_frames: &[usize], vdp_pixel_samples: &[VdpPixelSample], vdp_fifo_commit_frames: &[usize], vdp_fifo_commit_address_range: Option<(u32, u32)>, m68k_pc_trace: &[u32], gems_stimulus_frames: &[usize], capture_gems_state: bool, capture_gems_frame_signature: bool, capture_cpu_state: bool, capture_settle_trace: bool, capture_rng_stream: bool) -> Result<()> {
     let mut checkpoint_index = 0usize;
     let mut save_writer = NullSaveWriter;
     let mut emulator = GenesisEmulator::create(rom.to_vec(), genesis_config(), &mut save_writer);
@@ -868,6 +886,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     let mut all_vdp_fifo_commits: Vec<OracleVdpFifoCommitRow> = Vec::new();
     let mut all_vdp_fifo_enqueues: Vec<OracleVdpFifoCommitRow> = Vec::new();
     let mut all_m68k_pc_trace: Vec<OracleM68kPcTraceRow> = Vec::new();
+    let mut all_gems_stimuli: Vec<OracleGemsStimulusRow> = Vec::new();
     let mut settle_trace: Vec<OracleSettleTraceRow> = Vec::new();
 
     // Pre-warp: boot to level 0, then advance to target level.
@@ -915,6 +934,11 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     emulator
         .debug()
         .set_wildside_capture_gems_state(capture_gems_state);
+    emulator
+        .debug()
+        .set_wildside_capture_gems_stimuli(!gems_stimulus_frames.is_empty());
+    // Ignore boot/warp stimuli the same way FIFO commits are ignored above.
+    let _ = emulator.debug().drain_wildside_gems_stimuli();
 
     while frame_index < resolved.frame_count {
         let pre_frame_eol_vdp_pixel_samples_debug = resolved
@@ -960,6 +984,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                                 z80_wait_mclk_cycles: checkpoint.z80_wait_mclk_cycles,
                                 z80_odd_access: checkpoint.z80_odd_access,
                                 ym2612_mclk_counter: checkpoint.ym2612_mclk_counter,
+                                m68k_wait_cpu_cycles: checkpoint.m68k_wait_cpu_cycles,
                                 z80_halt: checkpoint.z80_halt,
                                 vdp_owns_bus: checkpoint.vdp_owns_bus,
                                 z80_busreq: checkpoint.z80_busreq,
@@ -1068,6 +1093,27 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                             m68k_cycle_counter: emulator.debug().wildside_m68k_cycle_counter(),
                             commits: fifo_enqueues,
                         });
+                    }
+                    // 68k→Z80 stimulus rows (#437): drained every frame so a
+                    // retained frame holds exactly that frame's stimuli.
+                    let gems_stimuli_batch = emulator.debug().drain_wildside_gems_stimuli();
+                    if gems_stimulus_frames.contains(&frame_index) {
+                        all_gems_stimuli.extend(gems_stimuli_batch.into_iter().map(|stimulus| {
+                            OracleGemsStimulusRow {
+                                frame: frame_index,
+                                m68k_cycle_counter: stimulus.m68k_cycle_counter,
+                                kind: match stimulus.kind {
+                                    0 => "ram_write",
+                                    1 => "busreq",
+                                    2 => "reset",
+                                    _ => "unknown",
+                                }
+                                .to_string(),
+                                addr: stimulus.addr,
+                                value: stimulus.value,
+                                z80_busack: stimulus.z80_busack,
+                            }
+                        }));
                     }
                     let work_ram = capture_memory(&mut emulator, GenesisMemoryArea::WorkingRam, 0x1_0000);
                     if capture_rng_stream {
@@ -1234,6 +1280,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         vdp_fifo_commits: all_vdp_fifo_commits,
         vdp_fifo_enqueues: all_vdp_fifo_enqueues,
         m68k_pc_trace: all_m68k_pc_trace,
+        gems_stimuli: all_gems_stimuli,
         settle_trace,
     };
     println!("{}", serde_json::to_string_pretty(&manifest)?);
