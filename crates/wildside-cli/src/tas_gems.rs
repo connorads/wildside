@@ -17,7 +17,7 @@
 //! instruction quantum that crossed the line; that residual jitter is why
 //! `z80_mclk_counter` and `ym2612_mclk_counter` are advisory.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use sha1::{Digest, Sha1};
 use wildside_core::{
     GemsFrameSignature, GemsQueueCommandPath, GemsStopMusicBusAckPolls, M68kCycleCount,
@@ -92,7 +92,8 @@ use wildside_frame::{
     apply_gems_title_wait_for_vint_to_subroutine_return, apply_timed_gems_queue_command, gems_bgm,
 };
 use wildside_md::{
-    GemsMasterClockTimingEngine, GemsNtscTimelineOrigin, GemsQueueCommand, GemsTimingCheckpoint,
+    GemsMasterClockTimingEngine, GemsNtscTimelineOrigin, GemsQueueCommand, GemsStimulus,
+    GemsTimingCheckpoint,
 };
 
 const MASTER_CLOCKS_PER_SCANLINE: u64 = 3_420;
@@ -283,10 +284,25 @@ struct GemsSignatureProbe {
 
 impl GemsSignatureProbe {
     fn from_kid_rom_power_on(rom: &[u8]) -> Result<Self> {
+        Self::from_kid_rom_power_on_inner(rom, false)
+    }
+
+    /// Power-on probe with the engine's stimulus recorder armed before the
+    /// EntryPoint startup schedule, so the recorded log opens at the blank
+    /// constructed engine (#436): replaying it needs only the constructor
+    /// header, never a mid-route snapshot.
+    fn from_kid_rom_power_on_recording(rom: &[u8]) -> Result<Self> {
+        Self::from_kid_rom_power_on_inner(rom, true)
+    }
+
+    fn from_kid_rom_power_on_inner(rom: &[u8], record: bool) -> Result<Self> {
         let mut engine = GemsMasterClockTimingEngine::from_kid_rom_with_ntsc_timeline_origin(
             rom,
             GemsNtscTimelineOrigin::PowerOnScanlineZero,
         )?;
+        if record {
+            engine.enable_recording();
+        }
         apply_gems_power_on_z80_startup(&mut engine, rom)
             .expect("fresh power-on GEMS engine accepts EntryPoint startup schedule");
         Ok(Self {
@@ -8794,6 +8810,13 @@ pub(crate) struct NativeGemsFrameExtraction {
     pub(crate) rings: Vec<Option<wildside_core::GemsFrameRing>>,
 }
 
+/// Stimulus log of the frozen power-on span plus the reference checkpoint
+/// sampled immediately before each frame's `FrameBoundary` marker (#436).
+pub(crate) struct GemsReplayRecording {
+    pub(crate) stimuli: Vec<GemsStimulus>,
+    pub(crate) frame_checkpoints: Vec<GemsTimingCheckpoint>,
+}
+
 /// Drive the audio replayer over the whole trace with the timing engine as
 /// the sink, sampling one signature per frame at the oracle's
 /// `FrameRendered` raster line.
@@ -8802,13 +8825,42 @@ pub(crate) fn extract_native_gems_frame_signatures(
     manifest: &AssetManifest,
     trace: &[NativeTraceFrame],
 ) -> Result<NativeGemsFrameExtraction> {
-    let mut power_on_probe = GemsSignatureProbe::from_kid_rom_power_on(rom)?;
+    Ok(extract_native_gems_frame_signatures_inner(rom, manifest, trace, false)?.0)
+}
+
+/// [`extract_native_gems_frame_signatures`] with the power-on engine's
+/// stimulus recorder armed over the modelled span.
+pub(crate) fn extract_native_gems_frame_signatures_with_recording(
+    rom: &[u8],
+    manifest: &AssetManifest,
+    trace: &[NativeTraceFrame],
+) -> Result<(NativeGemsFrameExtraction, GemsReplayRecording)> {
+    let (extraction, recording) =
+        extract_native_gems_frame_signatures_inner(rom, manifest, trace, true)?;
+    Ok((
+        extraction,
+        recording.expect("recording extraction returns the stimulus log"),
+    ))
+}
+
+fn extract_native_gems_frame_signatures_inner(
+    rom: &[u8],
+    manifest: &AssetManifest,
+    trace: &[NativeTraceFrame],
+    record_power_on: bool,
+) -> Result<(NativeGemsFrameExtraction, Option<GemsReplayRecording>)> {
+    let mut power_on_probe = if record_power_on {
+        GemsSignatureProbe::from_kid_rom_power_on_recording(rom)?
+    } else {
+        GemsSignatureProbe::from_kid_rom_power_on(rom)?
+    };
     let mut coarse_probe = GemsSignatureProbe::from_kid_rom_coarse(rom)?;
     let mut director = NativeAudioDirector::new();
     let mut dynamic_art_queue = ModeLevelDynamicArtQueueLocAd4::default();
     let mut level_visuals = std::collections::HashMap::new();
     let mut signatures = Vec::with_capacity(trace.len());
     let mut rings = Vec::with_capacity(trace.len());
+    let mut frame_checkpoints = record_power_on.then(Vec::new);
 
     for (frame_index, frame) in trace.iter().enumerate() {
         director.step(manifest, frame, &mut coarse_probe);
@@ -8832,7 +8884,13 @@ pub(crate) fn extract_native_gems_frame_signatures(
             _ => None,
         };
         let signature = if frame_index < GEMS_MODELLED_ROUTE_FRAMES {
-            power_on_probe.sample_power_on_frame_rendered_with_mode_level_work(mode_level_work)
+            let signature =
+                power_on_probe.sample_power_on_frame_rendered_with_mode_level_work(mode_level_work);
+            if let Some(checkpoints) = frame_checkpoints.as_mut() {
+                checkpoints.push(power_on_probe.engine.checkpoint());
+                power_on_probe.engine.record_frame_marker(frame_index);
+            }
+            signature
         } else {
             coarse_signature
         };
@@ -8849,7 +8907,214 @@ pub(crate) fn extract_native_gems_frame_signatures(
         }
     }
 
-    Ok(NativeGemsFrameExtraction { signatures, rings })
+    let recording = frame_checkpoints.map(|frame_checkpoints| GemsReplayRecording {
+        stimuli: power_on_probe.engine.take_recording(),
+        frame_checkpoints,
+    });
+    Ok((NativeGemsFrameExtraction { signatures, rings }, recording))
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub(crate) struct GemsReplayProbeDivergence {
+    pub(crate) frame_index: usize,
+    pub(crate) diverging_fields: Vec<String>,
+}
+
+/// Probe verdict (#436): GO means every modelled frame's full checkpoint
+/// (8 KiB audio RAM plus every divider/ledger field) replayed bit-identical
+/// from the stimulus log alone, proving the public-method seam is the
+/// engine's complete input surface. Checkpoint equality strictly dominates
+/// the frozen [`GemsFrameSignature`] projection.
+#[derive(Debug, Clone, serde::Serialize)]
+pub(crate) struct GemsReplayProbeReport {
+    pub(crate) modelled_frames: usize,
+    pub(crate) stimulus_count: usize,
+    pub(crate) frames_compared: usize,
+    pub(crate) first_divergence: Option<GemsReplayProbeDivergence>,
+    pub(crate) go: bool,
+}
+
+fn checkpoint_diverging_fields(
+    replayed: &GemsTimingCheckpoint,
+    reference: &GemsTimingCheckpoint,
+) -> Vec<String> {
+    macro_rules! diff_fields {
+        ($fields:ident, $($name:ident),+ $(,)?) => {
+            $(if replayed.$name != reference.$name {
+                $fields.push(stringify!($name).to_string());
+            })+
+        };
+    }
+    let mut fields = Vec::new();
+    diff_fields!(
+        fields,
+        master_clock,
+        z80_pc,
+        z80_index_registers,
+        bank_address,
+        z80_mclk_counter,
+        z80_t_cycles_wait,
+        z80_wait_mclk_cycles,
+        z80_odd_access,
+        ym2612_mclk_counter,
+        ym2612_last_status_read,
+        ym2612_status_decay_clocks_remaining,
+        z80_halt,
+        vdp_owns_bus,
+        busreq,
+        reset,
+        pending_m68k_wait_cycles,
+        z80_interrupt_mode,
+        z80_irq_pending,
+        z80_halted,
+        z80_iff1,
+        z80_iff2,
+    );
+    if replayed.audio_ram != reference.audio_ram {
+        match replayed
+            .audio_ram
+            .iter()
+            .zip(&reference.audio_ram)
+            .position(|(replayed, reference)| replayed != reference)
+        {
+            Some(offset) => fields.push(format!("audio_ram[0x{offset:04X}]")),
+            None => fields.push("audio_ram[len]".to_string()),
+        }
+    }
+    fields
+}
+
+/// Replay a recorded stimulus log into a fresh engine constructed from the
+/// same header, comparing the full checkpoint at every frame marker. Stops at
+/// the first diverging frame to localise it.
+pub(crate) fn replay_gems_recording(
+    rom: &[u8],
+    recording: &GemsReplayRecording,
+) -> Result<GemsReplayProbeReport> {
+    let mut replay = GemsMasterClockTimingEngine::from_kid_rom_with_ntsc_timeline_origin(
+        rom,
+        GemsNtscTimelineOrigin::PowerOnScanlineZero,
+    )?;
+    let mut frames_compared = 0usize;
+    let mut first_divergence = None;
+    for stimulus in &recording.stimuli {
+        match stimulus {
+            GemsStimulus::FrameBoundary(frame) => {
+                let reference = recording
+                    .frame_checkpoints
+                    .get(frames_compared)
+                    .with_context(|| format!("frame marker {frame} has no reference checkpoint"))?;
+                anyhow::ensure!(
+                    *frame == frames_compared,
+                    "frame markers must be sequential: marker {frame} at position {frames_compared}",
+                );
+                let replayed = replay.checkpoint();
+                frames_compared += 1;
+                if replayed != *reference {
+                    first_divergence = Some(GemsReplayProbeDivergence {
+                        frame_index: *frame,
+                        diverging_fields: checkpoint_diverging_fields(&replayed, reference),
+                    });
+                    break;
+                }
+            }
+            stimulus => {
+                replay.apply_stimulus(stimulus);
+            }
+        }
+    }
+    let go = first_divergence.is_none() && frames_compared == recording.frame_checkpoints.len();
+    Ok(GemsReplayProbeReport {
+        modelled_frames: recording.frame_checkpoints.len(),
+        stimulus_count: recording.stimuli.len(),
+        frames_compared,
+        first_divergence,
+        go,
+    })
+}
+
+/// #436 GO/NO-GO deliverable: record the frozen modelled span's engine
+/// stimuli, re-feed a fresh engine, and demand bit-identical per-frame
+/// checkpoints. NO-GO means the seam misses a hidden engine input — a design
+/// bug that blocks #437, never flakiness.
+pub(crate) fn run_gems_replay_probe(
+    repo_root: &std::path::Path,
+    rom_path: &std::path::Path,
+    manifest: &AssetManifest,
+    scenario_path: &std::path::Path,
+    output: Option<&std::path::Path>,
+) -> Result<()> {
+    let scenario_json = std::fs::read_to_string(scenario_path)
+        .with_context(|| format!("failed to read {}", scenario_path.display()))?;
+    let scenario: crate::scenarios::DynamicScenario =
+        serde_json::from_str(&scenario_json).context("invalid scenario JSON")?;
+    let end = GEMS_MODELLED_ROUTE_FRAMES;
+    anyhow::ensure!(
+        scenario.frame_count >= end,
+        "scenario {} has {} frames; the modelled span needs {end}",
+        scenario.slug,
+        scenario.frame_count,
+    );
+    let probe_scenario = crate::scenarios::DynamicScenario {
+        slug: scenario.slug.clone(),
+        script: scenario.script[..end.min(scenario.script.len())].to_vec(),
+        frame_count: end,
+        checkpoints: Vec::new(),
+        start_position: scenario.start_position,
+        start_velocity: scenario.start_velocity,
+        camera_position: scenario.camera_position,
+        playtest_form: scenario.playtest_form,
+        initial_diamond_count: scenario.initial_diamond_count,
+        initial_lives: scenario.initial_lives,
+        warp_to_level: scenario.warp_to_level,
+        settle_oracle_warp: scenario.settle_oracle_warp,
+    };
+    println!("gems-replay-probe: {} (frames 0..{end})", scenario.slug);
+    println!("  running native ({end} frames)...");
+    let native_trace = crate::scenarios::run_native_dynamic_scenario(
+        manifest.clone(),
+        &probe_scenario,
+        crate::scenarios::NativeDynamicRunOptions::default(),
+    )?;
+    let rom = std::fs::read(rom_path)
+        .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+    println!("  recording GEMS stimuli over the modelled span...");
+    let (_, recording) =
+        extract_native_gems_frame_signatures_with_recording(&rom, manifest, &native_trace)?;
+    println!(
+        "  captured {} stimuli, {} frame checkpoints; replaying...",
+        recording.stimuli.len(),
+        recording.frame_checkpoints.len(),
+    );
+    let report = replay_gems_recording(&rom, &recording)?;
+    let output_path = output.map_or_else(
+        || repo_root.join(".cache/audit/gems-replay-probe.json"),
+        std::path::Path::to_path_buf,
+    );
+    if let Some(parent) = output_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&output_path, serde_json::to_vec_pretty(&report)?)?;
+    println!("  report: {}", output_path.display());
+    if report.go {
+        println!(
+            "GO: {} frames replayed bit-identical from {} recorded stimuli",
+            report.frames_compared, report.stimulus_count,
+        );
+        return Ok(());
+    }
+    match &report.first_divergence {
+        Some(divergence) => anyhow::bail!(
+            "NO-GO: first divergence at frame {} in fields [{}]",
+            divergence.frame_index,
+            divergence.diverging_fields.join(", "),
+        ),
+        None => anyhow::bail!(
+            "NO-GO: only {} of {} frames compared",
+            report.frames_compared,
+            report.modelled_frames,
+        ),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -13297,6 +13562,37 @@ impl GemsFrameComparison {
 mod tests {
     use super::*;
     use wildside_core::{ModeLevelHudBuildPath, ModeLevelScrollTransferPath};
+
+    #[test]
+    fn gems_replay_probe_title_prefix_replays_bit_identical() {
+        // #436 fast slice of the probe: the first 40 power-on title frames
+        // cover the EntryPoint startup dance, the first StopMusic bus/reset
+        // windows, and live IRQ servicing. The full-span verdict comes from
+        // the gems-replay-probe subcommand.
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let rom_path = repo_root.join(".cache/upstream/kid-chameleon-disasm/kid.bin");
+        if !rom_path.exists() {
+            return;
+        }
+        let rom = std::fs::read(rom_path).expect("bootstrapped Kid ROM");
+        let mut probe =
+            GemsSignatureProbe::from_kid_rom_power_on_recording(&rom).expect("power-on probe");
+        let mut frame_checkpoints = Vec::new();
+        for frame in 0..40 {
+            probe.sample_power_on_frame_rendered();
+            frame_checkpoints.push(probe.engine.checkpoint());
+            probe.engine.record_frame_marker(frame);
+        }
+        let recording = GemsReplayRecording {
+            stimuli: probe.engine.take_recording(),
+            frame_checkpoints,
+        };
+
+        let report = replay_gems_recording(&rom, &recording).expect("replay");
+
+        assert!(report.go, "first divergence: {:?}", report.first_divergence);
+        assert_eq!(report.frames_compared, 40);
+    }
 
     #[test]
     fn published_tas_player_art_queue_follows_sub_1492_into_next_vblank() {

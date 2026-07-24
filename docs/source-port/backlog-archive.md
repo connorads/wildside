@@ -608,6 +608,30 @@ aligner noise and make per-command drift attribution cleaner.
 
 ### #436
 
+Closed 2026-07-24: **GO.** `gems-replay-probe` (subcommand) records the
+frozen span's 34,091,643 engine stimuli (every mutating public call,
+EntryPoint startup dance included — construction is only a header), re-feeds
+a fresh `GemsMasterClockTimingEngine`, and all 923 modelled frames replay
+with bit-identical FULL checkpoints (8 KiB audio RAM + every
+divider/ledger/flag field — strictly dominating the frozen signature
+projection). Conclusion: the public-method seam is the engine's complete
+input surface (no hidden inputs) and the capture format is sound, so #437's
+bounded-span replay can proceed. Seam design that made this true: one
+record per OUTERMOST public entry, with public-to-public delegation
+(`stop_music`→`apply_stop_music_control`→`set_z80_control`, the NTSC
+advance chain, checkpoint singular→plural, `ensure_initialised`→`init`,
+`advance_pending_m68k_wait`→`advance_master_clocks`) refactored onto
+non-recording private inners; both `take_*` drains record (they zero
+load-bearing state). Frozen witness verified bit-identical with the seam
+landed, recording off, in both the seam commit and this one
+(verify-tas-full: 36,836 first-at-923 / 419 command mismatches
+first-at-16). Practical note for #437: the stimulus volume is ~34M records
+per 923 frames (~37k/frame — the hand-modelled harness advances in fine
+slices), so JSON archival of full-span logs is impractical; record/replay
+stays in-memory (the serde derives are for small bounded dumps only).
+Report artefact: `.cache/audit/gems-replay-probe.json`; fast 40-frame
+slice regression: `gems_replay_probe_title_prefix_replays_bit_identical`.
+
 GEMS trace-replay seam + format probe. Instrument
 `GemsMasterClockTimingEngine` itself with an optional record buffer (no
 call-site wrapping; ~159 sites across `tas_gems.rs` + `wildside-frame`
@@ -19311,6 +19335,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 436 | [x] | P2 | audio | GEMS replay seam probe: `GemsStimulus` record buffer inside `GemsMasterClockTimingEngine` (outermost-public-entry rule, no call-site wrapping); `gems-replay-probe` records the frozen span and replays a fresh engine. | GO: 923/923 frames bit-identical full checkpoints from 34,091,643 recorded stimuli; frozen witness bit-identical before/after the seam (verify-tas-full ×2). See archive #436. |
 | 435 | [x] | P1 | audio | Command-parity gate `gems_command_parity_v1`: one `GemsRingDecoder` over both sides' mailbox rings, ordered per-frame comparison with directional ±1 skew reconciliation, `tas-gems-command-baseline` ratchet wired into `verify-tas-full` as the authoritative audio gate. | Honest baseline 419 mismatches / first at 16, fully attributed to native schedule clusters #438-#440; gate Match on baseline. See archive #435. |
 | 434 | [x] | P2 | audio | GEMS mismatch census: `--gems-mismatch-report` corpus (every compared frame classified, disjoint) + `gems-census` clustering into `.cache/audit/gems-census.json`. | Full-route corpus reconciles exactly (36,836/887/36); 72 clusters, top 5 genuine shapes cover 94.9%. See archive #434. |
 | 429 | [x] | P2 | kid-physics | Debug title-card level entry runs `loc_75C0` spawn-wall overlap correction before live gravity settle and camera follow. | Level 0x29 report `1784577500` state-exact; frame shift removed in `1784577515`; focused guards green. See archive #429. |

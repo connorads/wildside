@@ -1003,6 +1003,23 @@ enum Commands {
         #[arg(long)]
         output: Option<PathBuf>,
     },
+    /// Record the frozen GEMS span's engine stimuli, replay them into a
+    /// fresh engine, and demand bit-identical per-frame checkpoints (#436).
+    /// GO proves the engine's public-method seam is its complete input
+    /// surface; NO-GO names the first diverging frame and fields.
+    GemsReplayProbe {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// TAS scenario driving the span (default:
+        /// tests/data/tas/any-percent-published/scenario.json)
+        #[arg(long)]
+        scenario: Option<PathBuf>,
+        /// Probe report JSON (default: .cache/audit/gems-replay-probe.json)
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
     /// Run the canonical release gate for a completion target.
     ReleaseGate {
         #[arg(long)]
@@ -2450,6 +2467,27 @@ fn main() -> Result<()> {
             let manifest_path = manifest
                 .unwrap_or_else(|| repo_root.join(".cache/oracle-probe/oracle/manifest.json"));
             gems_ring::run_gems_ring_decode(&manifest_path, output.as_deref())?;
+        }
+        Commands::GemsReplayProbe {
+            rom,
+            dir,
+            scenario,
+            output,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            let scenario_path = scenario.unwrap_or_else(|| {
+                repo_root.join("tests/data/tas/any-percent-published/scenario.json")
+            });
+            tas_gems::run_gems_replay_probe(
+                &repo_root,
+                &rom_path,
+                &manifest,
+                &scenario_path,
+                output.as_deref(),
+            )?;
         }
         Commands::GemsCensus { report, output } => {
             let repo_root = current_dir()?;
