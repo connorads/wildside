@@ -119,8 +119,11 @@ fn run_structure(frames: &[usize]) -> (usize, usize) {
 }
 
 /// Pure aggregation core. Fails when the record classes stop reconciling
-/// with the report's own counts — a drifted corpus must not silently
-/// produce a plausible-looking census.
+/// with the report's own counts. Note the independent collector-drift
+/// guard lives in `write_gems_mismatch_report` (corpus classes vs the
+/// comparison's own counters); this check only rejects corrupted or
+/// foreign report files, since a writer-produced report derives both
+/// operands from the same records.
 pub(crate) fn build_gems_census(
     report: &GemsMismatchReport,
     source_report: &str,

@@ -75,11 +75,17 @@ pub(crate) struct GemsRingFrameDecode {
     /// An opcode outside [`gems_command_posted_len`]'s table: the stream
     /// cannot be framed past it. Fail loudly downstream.
     pub(crate) unknown_opcode: Option<u8>,
+    /// An index reset was hypothesised (backwards move to 0 with unchanged
+    /// window bytes) but the following content was neither a wipe nor a
+    /// StopMusic repost — the "reset" may really have been a wrap posting
+    /// byte-identical content ending exactly at position 0, whose command
+    /// would otherwise vanish silently. Fail loudly downstream.
+    pub(crate) reset_unverified: bool,
 }
 
 impl GemsRingFrameDecode {
     pub(crate) fn is_clean(&self) -> bool {
-        !self.queue_overflow && self.unknown_opcode.is_none()
+        !self.queue_overflow && self.unknown_opcode.is_none() && !self.reset_unverified
     }
 }
 
@@ -94,6 +100,10 @@ pub(crate) struct GemsRingDecoder {
     /// end (`sub_E148E` commits the index per byte, so snapshots can catch
     /// partial commands).
     pending: Vec<u8>,
+    /// An index reset was seen with unchanged window bytes; the next
+    /// contentful snapshot must be a wipe or a StopMusic repost to confirm
+    /// it was a genuine `sub_E13DA` reinit and not a byte-identical wrap.
+    reset_awaiting_verification: bool,
 }
 
 impl Default for GemsRingDecoder {
@@ -105,6 +115,7 @@ impl Default for GemsRingDecoder {
             anchor: 0,
             prev_ring: [0; GEMS_RING_LEN],
             pending: Vec::new(),
+            reset_awaiting_verification: false,
         }
     }
 }
@@ -158,10 +169,18 @@ impl GemsRingDecoder {
             .any(|&position| ring[position] != self.prev_ring[position]);
 
         if !outside_changed_positions.is_empty() {
-            let wiped = outside_changed_positions
+            // Reinit hypothesis: sub_E13DA wiped the ring (changed bytes
+            // outside the fresh content are zero) and the repost rewrote
+            // `[0, index)` — which overlaps the OLD window's complement
+            // whenever the previous anchor sat inside the fresh content, so
+            // nonzero changes below `index` are the repost, not a lap. A
+            // repost always begins with the StopMusic posting, so demand
+            // `$FF $0B` at position 0 (or an empty fresh window mid-wipe).
+            let reinit_consistent = outside_changed_positions
                 .iter()
-                .all(|&position| ring[position] == 0);
-            if !wiped {
+                .all(|&position| ring[position] == 0 || position < index)
+                && (index == 0 || (ring[0] == 0xFF && ring[1] == 0x0B));
+            if !reinit_consistent {
                 decode.queue_overflow = true;
                 self.pending.clear();
                 self.anchor = index;
@@ -169,7 +188,9 @@ impl GemsRingDecoder {
                 return decode;
             }
             // sub_E13DA zero-fill: reinit. The repost (constant bytes from
-            // ring position 0) may land in the same snapshot or later.
+            // ring position 0) may land in the same snapshot or later. A
+            // wipe or repost also verifies any pending index-reset.
+            self.reset_awaiting_verification = false;
             decode.ring_reinit = true;
             self.pending.clear();
             self.anchor = 0;
@@ -188,13 +209,31 @@ impl GemsRingDecoder {
         }
 
         if index < self.anchor && index == 0 && !window_changed {
-            // Reinit index-reset with a stale ring (wipe and repost arrive
-            // in later snapshots).
+            // Hypothesised reinit index-reset with a stale ring. From the
+            // snapshot alone this is indistinguishable from a wrap that
+            // posted byte-identical content ending exactly at position 0
+            // (which would silently drop that command), so the next
+            // contentful snapshot must confirm it: a wipe or a `$FF $0B`
+            // repost verifies; anything else flags `reset_unverified`.
             decode.ring_reinit = true;
+            self.reset_awaiting_verification = true;
             self.pending.clear();
             self.anchor = 0;
             self.prev_ring = *ring;
             return decode;
+        }
+
+        if self.reset_awaiting_verification {
+            self.reset_awaiting_verification = false;
+            let is_stop_music_repost =
+                self.anchor == 0 && index >= 2 && ring[0] == 0xFF && ring[1] == 0x0B;
+            if !is_stop_music_repost {
+                decode.reset_unverified = true;
+                self.pending.clear();
+                self.anchor = index;
+                self.prev_ring = *ring;
+                return decode;
+            }
         }
 
         let bytes: Vec<u8> = window.iter().map(|&position| ring[position]).collect();
@@ -265,11 +304,18 @@ pub(crate) struct GemsCommandComparison {
     /// Commands identical on both sides at the identical frame.
     pub(crate) matched_exact: usize,
     /// Commands identical on both sides but attributed to adjacent frames:
-    /// the oracle samples 8 scanlines past the VBlank boundary
-    /// (`FRAME_RENDERED_SKEW_SCANLINES`), so a command posted inside that
-    /// window can attribute to either neighbour. Baselined downward-only —
-    /// growth means real off-by-one scheduling drift.
+    /// both sides sample at the same raster line, but a command posted at
+    /// the boundary instant can quantise to either neighbour. Split by
+    /// direction because the two counts must be pinned EXACTLY by the
+    /// baseline — a real one-frame native scheduling shift converts
+    /// reconciled pairs into exact pairs (or flips their direction), so a
+    /// mere downward-only ratchet would read that regression as an
+    /// improvement.
     pub(crate) reconciled_skew_commands: usize,
+    /// Reconciled pairs where the native attribution is the earlier frame.
+    pub(crate) reconciled_native_earlier: usize,
+    /// Reconciled pairs where the oracle attribution is the earlier frame.
+    pub(crate) reconciled_oracle_earlier: usize,
     /// Genuine divergences (value, ordering, presence, or frame drift > 1).
     pub(crate) mismatch_count: usize,
     pub(crate) first_mismatch: Option<GemsCommandMismatch>,
@@ -295,9 +341,10 @@ pub(crate) fn decode_ring_stream(
         if !decode.is_clean() {
             anyhow::bail!(
                 "{side} GEMS ring stream failed to decode at frame {frame_index} \
-                 (unknown_opcode={:?}, queue_overflow={})",
+                 (unknown_opcode={:?}, queue_overflow={}, reset_unverified={})",
                 decode.unknown_opcode,
-                decode.queue_overflow
+                decode.queue_overflow,
+                decode.reset_unverified
             );
         }
         if decode.ring_reinit {
@@ -334,6 +381,8 @@ pub(crate) fn compare_gems_command_streams(
 
     let mut matched_exact = 0usize;
     let mut reconciled_skew_commands = 0usize;
+    let mut reconciled_native_earlier = 0usize;
+    let mut reconciled_oracle_earlier = 0usize;
     let mut mismatches: Vec<GemsCommandMismatch> = Vec::new();
     let mut i = 0usize;
     let mut j = 0usize;
@@ -344,7 +393,14 @@ pub(crate) fn compare_gems_command_streams(
             let drift = n.frame_index.abs_diff(o.frame_index);
             match drift {
                 0 => matched_exact += 1,
-                1 => reconciled_skew_commands += 1,
+                1 => {
+                    reconciled_skew_commands += 1;
+                    if n.frame_index < o.frame_index {
+                        reconciled_native_earlier += 1;
+                    } else {
+                        reconciled_oracle_earlier += 1;
+                    }
+                }
                 _ => mismatches.push(GemsCommandMismatch {
                     native: Some(n.clone()),
                     oracle: Some(o.clone()),
@@ -417,6 +473,8 @@ pub(crate) fn compare_gems_command_streams(
         oracle_command_count: oracle.len(),
         matched_exact,
         reconciled_skew_commands,
+        reconciled_native_earlier,
+        reconciled_oracle_earlier,
         mismatch_count: mismatches.len(),
         first_mismatch: mismatches.first().cloned(),
         mismatch_digest,
@@ -815,6 +873,85 @@ mod tests {
     }
 
     #[test]
+    fn reinit_repost_overlapping_small_anchor_is_not_overflow() {
+        // Full-route shape that first surfaced at frame 4967: the previous
+        // anchor sits INSIDE the fresh repost content, so nonzero repost
+        // bytes land "outside" the old window. Must classify as reinit.
+        let mut decoder = GemsRingDecoder::default();
+        let mut ring = ring_with(&[]);
+        let index = write(&mut ring, 0, &[0xFF, 0x10, 0x01]);
+        let decode = decoder.decode_frame(&ring, index);
+        assert_eq!(decode.commands.len(), 1);
+
+        let mut repost = ring_with(&[]);
+        let index = write(&mut repost, 0, &STOP_MUSIC);
+        let decode = decoder.decode_frame(&repost, index);
+        assert!(
+            decode.is_clean(),
+            "repost over a small anchor is a reinit, not a lap"
+        );
+        assert!(decode.ring_reinit);
+        assert_eq!(decode.commands.len(), 1);
+        assert_eq!(decode.commands[0].opcode, 0x0B);
+    }
+
+    #[test]
+    fn byte_identical_wrap_to_zero_fails_loudly_without_repost() {
+        // A wrap posting byte-identical content that ends exactly at ring
+        // position 0 is indistinguishable from a reinit index-reset at the
+        // snapshot where it happens; the decoder hypothesises a reset and
+        // demands the next content be a wipe or FF 0B repost. Anything
+        // else must fail loudly instead of silently dropping the command.
+        let mut decoder = GemsRingDecoder::default();
+        let mut ring = ring_with(&[]);
+        let mut index = 0usize;
+        // First lap: 32 pause commands fill the 64-byte ring exactly.
+        for _ in 0..32 {
+            index = write(&mut ring, index, &[0xFF, 0x0C]);
+            let decode = decoder.decode_frame(&ring, index);
+            assert!(decode.is_clean());
+        }
+        assert_eq!(index, 0);
+        // Second lap up to position 62: bytes are identical to the stale
+        // first-lap content, so window_changed stays false throughout.
+        for _ in 0..31 {
+            index = write(&mut ring, index, &[0xFF, 0x0C]);
+            decoder.decode_frame(&ring, index);
+        }
+        assert_eq!(index, 62);
+        // The ambiguous posting: identical bytes ending exactly at 0.
+        index = write(&mut ring, index, &[0xFF, 0x0C]);
+        assert_eq!(index, 0);
+        let decode = decoder.decode_frame(&ring, index);
+        assert!(
+            decode.ring_reinit,
+            "reset hypothesised at the ambiguous snapshot"
+        );
+        // Next content is a plain command, not a wipe/repost: loud failure.
+        index = write(&mut ring, index, &[0xFF, 0x0C]);
+        let decode = decoder.decode_frame(&ring, index);
+        assert!(decode.reset_unverified, "unverified reset must fail loudly");
+        assert!(!decode.is_clean());
+    }
+
+    #[test]
+    fn verified_reset_followed_by_repost_stays_clean() {
+        // The genuine counterpart of the ambiguous case above: after the
+        // index reset the repost arrives, so the hypothesis verifies.
+        let mut decoder = GemsRingDecoder::default();
+        let mut ring = ring_with(&[]);
+        let index = write(&mut ring, 0, &STOP_MUSIC);
+        decoder.decode_frame(&ring, index);
+        let decode = decoder.decode_frame(&ring, 0);
+        assert!(decode.ring_reinit);
+        // Repost identical constants without an intervening wipe snapshot.
+        let decode = decoder.decode_frame(&ring, STOP_MUSIC.len());
+        assert!(decode.is_clean(), "FF 0B repost verifies the reset");
+        assert_eq!(decode.commands.len(), 1);
+        assert_eq!(decode.commands[0].opcode, 0x0B);
+    }
+
+    #[test]
     fn identical_streams_match_exactly() {
         let events: &[(usize, &[u8])] = &[(3, &[0xFF, 0x10, 0x02]), (7, &[0xFF, 0x12, 0x02])];
         let native = rings_from_events(10, events);
@@ -832,7 +969,13 @@ mod tests {
         let skewed = rings_from_events(10, &[(4, &[0xFF, 0x10, 0x02])]);
         let comparison = compare_gems_command_streams(&native, &skewed).expect("clean streams");
         assert_eq!(comparison.reconciled_skew_commands, 1);
+        assert_eq!(comparison.reconciled_native_earlier, 1);
+        assert_eq!(comparison.reconciled_oracle_earlier, 0);
         assert_eq!(comparison.mismatch_count, 0);
+
+        let reversed = compare_gems_command_streams(&skewed, &native).expect("clean streams");
+        assert_eq!(reversed.reconciled_oracle_earlier, 1);
+        assert_eq!(reversed.reconciled_native_earlier, 0);
 
         let far = rings_from_events(10, &[(6, &[0xFF, 0x10, 0x02])]);
         let comparison = compare_gems_command_streams(&native, &far).expect("clean streams");
@@ -872,6 +1015,40 @@ mod tests {
         assert_eq!(comparison.mismatch_count, 1);
         let first = comparison.first_mismatch.expect("mismatch evidence");
         assert!(first.oracle.is_none(), "native-only command");
+    }
+
+    #[test]
+    fn mid_stream_insertions_classify_one_sided_on_both_sides() {
+        // Native has an extra leading command: the lookahead must classify
+        // it native-only and still pair the shared command exactly.
+        let native = rings_from_events(10, &[(2, &[0xFF, 0x10, 0x09]), (5, &[0xFF, 0x12, 0x02])]);
+        let oracle = rings_from_events(10, &[(5, &[0xFF, 0x12, 0x02])]);
+        let comparison = compare_gems_command_streams(&native, &oracle).expect("clean streams");
+        assert_eq!(comparison.matched_exact, 1);
+        assert_eq!(comparison.mismatch_count, 1);
+        let first = comparison.first_mismatch.expect("mismatch evidence");
+        assert_eq!(first.native.expect("native side").frame_index, 2);
+        assert!(first.oracle.is_none());
+
+        // Mirrored: oracle-only insertion mid-stream.
+        let comparison = compare_gems_command_streams(&oracle, &native).expect("clean streams");
+        assert_eq!(comparison.matched_exact, 1);
+        assert_eq!(comparison.mismatch_count, 1);
+        let first = comparison.first_mismatch.expect("mismatch evidence");
+        assert!(first.native.is_none());
+        assert_eq!(first.oracle.expect("oracle side").frame_index, 2);
+    }
+
+    #[test]
+    fn oracle_tail_commands_drain_as_presence_mismatches() {
+        let native = rings_from_events(10, &[(3, &[0xFF, 0x10, 0x02])]);
+        let oracle = rings_from_events(10, &[(3, &[0xFF, 0x10, 0x02]), (7, &[0xFF, 0x12, 0x02])]);
+        let comparison = compare_gems_command_streams(&native, &oracle).expect("clean streams");
+        assert_eq!(comparison.matched_exact, 1);
+        assert_eq!(comparison.mismatch_count, 1);
+        let first = comparison.first_mismatch.expect("mismatch evidence");
+        assert!(first.native.is_none(), "oracle-only tail command");
+        assert_eq!(first.oracle.expect("oracle side").frame_index, 7);
     }
 
     #[test]

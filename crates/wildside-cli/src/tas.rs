@@ -736,12 +736,14 @@ pub fn verify_tas(
         .transpose()?;
     if let Some(comparison) = &gems_command_comparison {
         println!(
-            "  GEMS commands: native {} / oracle {} over {} frames; {} exact, {} skew-reconciled, {} mismatches (reinits {}/{})",
+            "  GEMS commands: native {} / oracle {} over {} frames; {} exact, {} skew-reconciled ({} native-earlier / {} oracle-earlier), {} mismatches (reinits {}/{})",
             comparison.native_command_count,
             comparison.oracle_command_count,
             comparison.compared_frames,
             comparison.matched_exact,
             comparison.reconciled_skew_commands,
+            comparison.reconciled_native_earlier,
+            comparison.reconciled_oracle_earlier,
             comparison.mismatch_count,
             comparison.native_reinit_frames,
             comparison.oracle_reinit_frames,
