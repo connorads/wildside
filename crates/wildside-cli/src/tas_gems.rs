@@ -8691,6 +8691,14 @@ impl GemsSignatureProbe {
         self.skew_outstanding = true;
         signature_from_checkpoint(&self.engine.checkpoint())
     }
+
+    /// Snapshot the engine's 68k→Z80 command mailbox ring at the current
+    /// instant — call directly after [`Self::sample_at_frame_rendered`] so
+    /// native and oracle ring samples share the FrameRendered raster line.
+    fn sample_command_ring(&self) -> wildside_core::GemsFrameRing {
+        let (bytes, write_index) = self.engine.command_ring_snapshot();
+        wildside_core::GemsFrameRing { bytes, write_index }
+    }
 }
 
 impl NativeAudioSink for GemsSignatureProbe {
@@ -8775,6 +8783,17 @@ impl ModeLevelDynamicArtQueueLocAd4 {
     }
 }
 
+/// Per-frame native GEMS extraction: timing signatures plus command-ring
+/// snapshots.
+pub(crate) struct NativeGemsFrameExtraction {
+    pub(crate) signatures: Vec<Option<GemsFrameSignature>>,
+    /// Command-parity ring snapshots (#435), always taken from the COARSE
+    /// continuous probe: the command stream under test is the shipping
+    /// `NativeAudioDirector` schedule, not the hand-modelled power-on
+    /// harness that defends the frozen signature span.
+    pub(crate) rings: Vec<Option<wildside_core::GemsFrameRing>>,
+}
+
 /// Drive the audio replayer over the whole trace with the timing engine as
 /// the sink, sampling one signature per frame at the oracle's
 /// `FrameRendered` raster line.
@@ -8782,17 +8801,19 @@ pub(crate) fn extract_native_gems_frame_signatures(
     rom: &[u8],
     manifest: &AssetManifest,
     trace: &[NativeTraceFrame],
-) -> Result<Vec<Option<GemsFrameSignature>>> {
+) -> Result<NativeGemsFrameExtraction> {
     let mut power_on_probe = GemsSignatureProbe::from_kid_rom_power_on(rom)?;
     let mut coarse_probe = GemsSignatureProbe::from_kid_rom_coarse(rom)?;
     let mut director = NativeAudioDirector::new();
     let mut dynamic_art_queue = ModeLevelDynamicArtQueueLocAd4::default();
     let mut level_visuals = std::collections::HashMap::new();
     let mut signatures = Vec::with_capacity(trace.len());
+    let mut rings = Vec::with_capacity(trace.len());
 
     for (frame_index, frame) in trace.iter().enumerate() {
         director.step(manifest, frame, &mut coarse_probe);
         let coarse_signature = coarse_probe.sample_at_frame_rendered();
+        rings.push(Some(coarse_probe.sample_command_ring()));
         let mode_level_vblank_work = dynamic_art_queue.consume_vblank_work(frame);
         let mode_level_work = match (
             mode_level_vblank_work,
@@ -8828,7 +8849,7 @@ pub(crate) fn extract_native_gems_frame_signatures(
         }
     }
 
-    Ok(signatures)
+    Ok(NativeGemsFrameExtraction { signatures, rings })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]

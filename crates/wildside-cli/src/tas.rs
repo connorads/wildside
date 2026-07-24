@@ -513,6 +513,7 @@ pub fn verify_tas(
     include_rng: bool,
     compare_pixels: bool,
     compare_gems: bool,
+    compare_gems_commands: bool,
     pixel_mismatch_report: Option<&Path>,
     gems_mismatch_report: Option<&Path>,
 ) -> Result<()> {
@@ -570,14 +571,17 @@ pub fn verify_tas(
         .then(|| extract_native_rng_frame_stream(&native_trace))
         .transpose()?
         .unwrap_or_default();
-    let native_gems_signatures = compare_gems
+    let (native_gems_signatures, native_gems_rings) = match compare_gems
         .then(|| -> Result<_> {
             let rom = std::fs::read(rom_path)
                 .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
             crate::tas_gems::extract_native_gems_frame_signatures(&rom, manifest, &native_trace)
         })
         .transpose()?
-        .unwrap_or_default();
+    {
+        Some(extraction) => (extraction.signatures, extraction.rings),
+        None => (Vec::new(), Vec::new()),
+    };
 
     let mut native_states =
         crate::sweep::extract_checkpoint_states(&native_trace, &scenario.checkpoints);
@@ -721,6 +725,42 @@ pub fn verify_tas(
     }
     if let (Some(path), Some(comparison)) = (gems_mismatch_report, &gems_frame_comparison) {
         write_gems_mismatch_report(path, &scenario.slug, comparison, &gems_outcome_corpus)?;
+    }
+    let gems_command_comparison = compare_gems_commands
+        .then(|| {
+            crate::gems_ring::compare_gems_command_streams(
+                &native_gems_rings,
+                &oracle.gems_frame_rings,
+            )
+        })
+        .transpose()?;
+    if let Some(comparison) = &gems_command_comparison {
+        println!(
+            "  GEMS commands: native {} / oracle {} over {} frames; {} exact, {} skew-reconciled, {} mismatches (reinits {}/{})",
+            comparison.native_command_count,
+            comparison.oracle_command_count,
+            comparison.compared_frames,
+            comparison.matched_exact,
+            comparison.reconciled_skew_commands,
+            comparison.mismatch_count,
+            comparison.native_reinit_frames,
+            comparison.oracle_reinit_frames,
+        );
+        if let Some(first) = &comparison.first_mismatch {
+            println!(
+                "    first command mismatch: native {:?} vs oracle {:?}",
+                first.native.as_ref().map(|timed| (
+                    timed.frame_index,
+                    timed.command.opcode,
+                    &timed.command.args
+                )),
+                first.oracle.as_ref().map(|timed| (
+                    timed.frame_index,
+                    timed.command.opcode,
+                    &timed.command.args
+                )),
+            );
+        }
     }
 
     // Compare
@@ -891,6 +931,12 @@ pub fn verify_tas(
         },
         "rng_divergence_digest": rng_divergence_digest,
         "rng_frame_comparison": rng_frame_report,
+        "gems_command_comparison": gems_command_comparison.as_ref().map(|comparison| {
+            serde_json::json!({
+                "projection": crate::gems_ring::GEMS_COMMAND_PARITY_PROJECTION_NAME,
+                "comparison": comparison,
+            })
+        }),
         "gems_frame_comparison": gems_frame_comparison.as_ref().map(|comparison| {
             comparison.report_json(
                 end.saturating_sub(start),
@@ -1384,7 +1430,8 @@ pub fn bisect_tas(
         let rom = std::fs::read(rom_path)
             .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
         let native_signatures =
-            crate::tas_gems::extract_native_gems_frame_signatures(&rom, manifest, &native_trace)?;
+            crate::tas_gems::extract_native_gems_frame_signatures(&rom, manifest, &native_trace)?
+                .signatures;
 
         println!("  running oracle for GEMS signature comparison ({end} frames)...");
         let gems_scenario = crc_oracle_scenario(gems_scenario, end);

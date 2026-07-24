@@ -1138,6 +1138,10 @@ enum Commands {
         /// (`gems_frame_signature_v1`)
         #[arg(long, default_value_t = false)]
         compare_gems: bool,
+        /// Compare the decoded 68k→Z80 GEMS command streams per frame
+        /// (`gems_command_parity_v1`; requires --compare-gems)
+        #[arg(long, default_value_t = false)]
+        compare_gems_commands: bool,
         /// Write a standalone per-frame pixel-mismatch + cluster report JSON to
         /// this path (requires --compare-pixels; not supported with --bisect)
         #[arg(long)]
@@ -2644,6 +2648,7 @@ fn main() -> Result<()> {
             include_rng,
             compare_pixels,
             compare_gems,
+            compare_gems_commands,
             pixel_mismatch_report,
             gems_mismatch_report,
         } => {
@@ -2657,6 +2662,9 @@ fn main() -> Result<()> {
             if gems_mismatch_report.is_some() && !compare_gems {
                 bail!("--gems-mismatch-report requires --compare-gems");
             }
+            if compare_gems_commands && !compare_gems {
+                bail!("--compare-gems-commands requires --compare-gems");
+            }
             if bisect {
                 if compare_pixels {
                     bail!("--compare-pixels is not supported with --bisect");
@@ -2669,6 +2677,9 @@ fn main() -> Result<()> {
                 }
                 if gems_mismatch_report.is_some() {
                     bail!("--gems-mismatch-report is not supported with --bisect");
+                }
+                if compare_gems_commands {
+                    bail!("--compare-gems-commands is not supported with --bisect");
                 }
                 tas::bisect_tas(
                     &repo_root,
@@ -2693,6 +2704,7 @@ fn main() -> Result<()> {
                     include_rng,
                     compare_pixels,
                     compare_gems,
+                    compare_gems_commands,
                     pixel_mismatch_report.as_deref(),
                     gems_mismatch_report.as_deref(),
                 )?;

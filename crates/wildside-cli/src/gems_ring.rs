@@ -236,6 +236,195 @@ impl GemsRingDecoder {
     }
 }
 
+/// Projection name for the command-parity comparison: per-frame ordered
+/// equality of the decoded 68k→Z80 mailbox command stream. Authoritative
+/// audio gate per the #416 supersession decision.
+pub(crate) const GEMS_COMMAND_PARITY_PROJECTION_NAME: &str = "gems_command_parity_v1";
+
+/// One command with the frame its final posted byte landed in.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub(crate) struct GemsTimedCommand {
+    pub(crate) frame_index: usize,
+    pub(crate) command: GemsRingCommand,
+}
+
+/// One genuine command-stream divergence. `native`/`oracle` is `None` for
+/// an insertion on the other side.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub(crate) struct GemsCommandMismatch {
+    pub(crate) native: Option<GemsTimedCommand>,
+    pub(crate) oracle: Option<GemsTimedCommand>,
+}
+
+/// Result of [`compare_gems_command_streams`].
+#[derive(Debug, Clone, serde::Serialize)]
+pub(crate) struct GemsCommandComparison {
+    pub(crate) compared_frames: usize,
+    pub(crate) native_command_count: usize,
+    pub(crate) oracle_command_count: usize,
+    /// Commands identical on both sides at the identical frame.
+    pub(crate) matched_exact: usize,
+    /// Commands identical on both sides but attributed to adjacent frames:
+    /// the oracle samples 8 scanlines past the VBlank boundary
+    /// (`FRAME_RENDERED_SKEW_SCANLINES`), so a command posted inside that
+    /// window can attribute to either neighbour. Baselined downward-only —
+    /// growth means real off-by-one scheduling drift.
+    pub(crate) reconciled_skew_commands: usize,
+    /// Genuine divergences (value, ordering, presence, or frame drift > 1).
+    pub(crate) mismatch_count: usize,
+    pub(crate) first_mismatch: Option<GemsCommandMismatch>,
+    pub(crate) mismatch_digest: Option<String>,
+    /// StopMusic re-initialisations observed per side (evidence).
+    pub(crate) native_reinit_frames: usize,
+    pub(crate) oracle_reinit_frames: usize,
+}
+
+/// Decode one side's ring snapshots into a timed command sequence.
+/// Fails on any unclean frame (unknown opcode / ring overflow): the
+/// comparison must never run over a stream the decoder could not frame.
+pub(crate) fn decode_ring_stream(
+    rings: &[Option<wildside_core::GemsFrameRing>],
+    side: &str,
+) -> anyhow::Result<(Vec<GemsTimedCommand>, usize)> {
+    let mut decoder = GemsRingDecoder::default();
+    let mut commands = Vec::new();
+    let mut reinit_frames = 0usize;
+    for (frame_index, capture) in rings.iter().enumerate() {
+        let Some(capture) = capture else { continue };
+        let decode = decoder.decode_manifest_ring(capture);
+        if !decode.is_clean() {
+            anyhow::bail!(
+                "{side} GEMS ring stream failed to decode at frame {frame_index} \
+                 (unknown_opcode={:?}, queue_overflow={})",
+                decode.unknown_opcode,
+                decode.queue_overflow
+            );
+        }
+        if decode.ring_reinit {
+            reinit_frames += 1;
+        }
+        for command in decode.commands {
+            commands.push(GemsTimedCommand {
+                frame_index,
+                command,
+            });
+        }
+    }
+    Ok((commands, reinit_frames))
+}
+
+/// Strict ordered comparison of the two decoded command sequences with a
+/// ±1-frame reconciliation window for the 8-scanline sampling skew.
+///
+/// Alignment is a greedy two-pointer walk with single-step lookahead for
+/// insertions/deletions: equal commands pair (frame drift 0 = exact, 1 =
+/// reconciled, >1 = genuine mismatch); unequal commands consult one
+/// command of lookahead to classify one side as an insertion before
+/// falling back to a paired value mismatch.
+pub(crate) fn compare_gems_command_streams(
+    native_rings: &[Option<wildside_core::GemsFrameRing>],
+    oracle_rings: &[Option<wildside_core::GemsFrameRing>],
+) -> anyhow::Result<GemsCommandComparison> {
+    use sha1::{Digest, Sha1};
+    let compared_frames = native_rings.len().min(oracle_rings.len());
+    let (native, native_reinit_frames) =
+        decode_ring_stream(&native_rings[..compared_frames], "native")?;
+    let (oracle, oracle_reinit_frames) =
+        decode_ring_stream(&oracle_rings[..compared_frames], "oracle")?;
+
+    let mut matched_exact = 0usize;
+    let mut reconciled_skew_commands = 0usize;
+    let mut mismatches: Vec<GemsCommandMismatch> = Vec::new();
+    let mut i = 0usize;
+    let mut j = 0usize;
+    while i < native.len() && j < oracle.len() {
+        let n = &native[i];
+        let o = &oracle[j];
+        if n.command == o.command {
+            let drift = n.frame_index.abs_diff(o.frame_index);
+            match drift {
+                0 => matched_exact += 1,
+                1 => reconciled_skew_commands += 1,
+                _ => mismatches.push(GemsCommandMismatch {
+                    native: Some(n.clone()),
+                    oracle: Some(o.clone()),
+                }),
+            }
+            i += 1;
+            j += 1;
+            continue;
+        }
+        let native_is_insertion = native
+            .get(i + 1)
+            .is_some_and(|next| next.command == o.command);
+        let oracle_is_insertion = oracle
+            .get(j + 1)
+            .is_some_and(|next| next.command == n.command);
+        if native_is_insertion && !oracle_is_insertion {
+            mismatches.push(GemsCommandMismatch {
+                native: Some(n.clone()),
+                oracle: None,
+            });
+            i += 1;
+        } else if oracle_is_insertion && !native_is_insertion {
+            mismatches.push(GemsCommandMismatch {
+                native: None,
+                oracle: Some(o.clone()),
+            });
+            j += 1;
+        } else {
+            mismatches.push(GemsCommandMismatch {
+                native: Some(n.clone()),
+                oracle: Some(o.clone()),
+            });
+            i += 1;
+            j += 1;
+        }
+    }
+    for n in &native[i..] {
+        mismatches.push(GemsCommandMismatch {
+            native: Some(n.clone()),
+            oracle: None,
+        });
+    }
+    for o in &oracle[j..] {
+        mismatches.push(GemsCommandMismatch {
+            native: None,
+            oracle: Some(o.clone()),
+        });
+    }
+
+    let mismatch_digest = (!mismatches.is_empty()).then(|| {
+        let mut hasher = Sha1::new();
+        for mismatch in &mismatches {
+            for side in [&mismatch.native, &mismatch.oracle] {
+                match side {
+                    Some(timed) => {
+                        hasher.update([1u8, timed.command.opcode]);
+                        hasher.update((timed.frame_index as u64).to_be_bytes());
+                        hasher.update(&timed.command.args);
+                    }
+                    None => hasher.update([0u8]),
+                }
+            }
+        }
+        format!("{:x}", hasher.finalize())
+    });
+
+    Ok(GemsCommandComparison {
+        compared_frames,
+        native_command_count: native.len(),
+        oracle_command_count: oracle.len(),
+        matched_exact,
+        reconciled_skew_commands,
+        mismatch_count: mismatches.len(),
+        first_mismatch: mismatches.first().cloned(),
+        mismatch_digest,
+        native_reinit_frames,
+        oracle_reinit_frames,
+    })
+}
+
 /// Minimal manifest view: only the per-frame audio-RAM dumps and ring
 /// snapshots from `oracle-probe --capture-gems-state` (serde skips the rest
 /// of the manifest, including the heavyweight `m68k_pc_trace`).
@@ -602,6 +791,123 @@ mod tests {
         let decode = decoder.decode_frame(&lapped, 6);
         assert!(decode.queue_overflow);
         assert!(!decode.is_clean());
+    }
+
+    fn rings_from_events(
+        total_frames: usize,
+        events: &[(usize, &[u8])],
+    ) -> Vec<Option<wildside_core::GemsFrameRing>> {
+        let mut ring = [0u8; GEMS_RING_LEN];
+        let mut index = 0usize;
+        let mut out = Vec::with_capacity(total_frames);
+        for frame in 0..total_frames {
+            for &(event_frame, bytes) in events {
+                if event_frame == frame {
+                    index = write(&mut ring, index, bytes);
+                }
+            }
+            out.push(Some(wildside_core::GemsFrameRing {
+                bytes: ring.to_vec(),
+                write_index: index as u8,
+            }));
+        }
+        out
+    }
+
+    #[test]
+    fn identical_streams_match_exactly() {
+        let events: &[(usize, &[u8])] = &[(3, &[0xFF, 0x10, 0x02]), (7, &[0xFF, 0x12, 0x02])];
+        let native = rings_from_events(10, events);
+        let oracle = rings_from_events(10, events);
+        let comparison = compare_gems_command_streams(&native, &oracle).expect("clean streams");
+        assert_eq!(comparison.matched_exact, 2);
+        assert_eq!(comparison.reconciled_skew_commands, 0);
+        assert_eq!(comparison.mismatch_count, 0);
+        assert_eq!(comparison.mismatch_digest, None);
+    }
+
+    #[test]
+    fn one_frame_drift_reconciles_but_two_frames_is_genuine() {
+        let native = rings_from_events(10, &[(3, &[0xFF, 0x10, 0x02])]);
+        let skewed = rings_from_events(10, &[(4, &[0xFF, 0x10, 0x02])]);
+        let comparison = compare_gems_command_streams(&native, &skewed).expect("clean streams");
+        assert_eq!(comparison.reconciled_skew_commands, 1);
+        assert_eq!(comparison.mismatch_count, 0);
+
+        let far = rings_from_events(10, &[(6, &[0xFF, 0x10, 0x02])]);
+        let comparison = compare_gems_command_streams(&native, &far).expect("clean streams");
+        assert_eq!(comparison.reconciled_skew_commands, 0);
+        assert_eq!(comparison.mismatch_count, 1);
+        let first = comparison.first_mismatch.expect("mismatch evidence");
+        assert_eq!(first.native.expect("native side").frame_index, 3);
+        assert_eq!(first.oracle.expect("oracle side").frame_index, 6);
+    }
+
+    #[test]
+    fn value_and_ordering_divergence_are_genuine_mismatches() {
+        let native = rings_from_events(10, &[(3, &[0xFF, 0x10, 0x02])]);
+        let value = rings_from_events(10, &[(3, &[0xFF, 0x10, 0x05])]);
+        let comparison = compare_gems_command_streams(&native, &value).expect("clean streams");
+        assert_eq!(comparison.mismatch_count, 1, "sound-id value mismatch");
+
+        let ordered: &[(usize, &[u8])] = &[(3, &[0xFF, 0x10, 0x02]), (3, &[0xFF, 0x12, 0x07])];
+        let swapped: &[(usize, &[u8])] = &[(3, &[0xFF, 0x12, 0x07]), (3, &[0xFF, 0x10, 0x02])];
+        let comparison = compare_gems_command_streams(
+            &rings_from_events(10, ordered),
+            &rings_from_events(10, swapped),
+        )
+        .expect("clean streams");
+        assert!(
+            comparison.mismatch_count > 0,
+            "same-frame command reordering must not silently pass"
+        );
+    }
+
+    #[test]
+    fn one_sided_command_is_a_presence_mismatch() {
+        let native = rings_from_events(10, &[(3, &[0xFF, 0x10, 0x02]), (5, &[0xFF, 0x12, 0x02])]);
+        let oracle = rings_from_events(10, &[(3, &[0xFF, 0x10, 0x02])]);
+        let comparison = compare_gems_command_streams(&native, &oracle).expect("clean streams");
+        assert_eq!(comparison.matched_exact, 1);
+        assert_eq!(comparison.mismatch_count, 1);
+        let first = comparison.first_mismatch.expect("mismatch evidence");
+        assert!(first.oracle.is_none(), "native-only command");
+    }
+
+    #[test]
+    fn reinit_frames_are_counted_per_side() {
+        // Native initialises once; oracle reinits twice (boot shape).
+        let mut oracle = Vec::new();
+        let mut ring = [0u8; GEMS_RING_LEN];
+        let index = write(&mut ring, 0, &STOP_MUSIC);
+        oracle.push(Some(wildside_core::GemsFrameRing {
+            bytes: ring.to_vec(),
+            write_index: index as u8,
+        }));
+        // Index reset with stale ring, then wipe, then repost.
+        oracle.push(Some(wildside_core::GemsFrameRing {
+            bytes: ring.to_vec(),
+            write_index: 0,
+        }));
+        oracle.push(Some(wildside_core::GemsFrameRing {
+            bytes: vec![0; GEMS_RING_LEN],
+            write_index: 0,
+        }));
+        oracle.push(Some(wildside_core::GemsFrameRing {
+            bytes: ring.to_vec(),
+            write_index: index as u8,
+        }));
+        let (commands, reinits) = decode_ring_stream(&oracle, "oracle").expect("clean");
+        assert_eq!(commands.len(), 2, "both StopMusic postings decode");
+        assert_eq!(reinits, 2, "index-reset and wipe frames count as reinits");
+    }
+
+    #[test]
+    fn unclean_stream_is_a_hard_error() {
+        let rings = rings_from_events(4, &[(1, &[0xFF, 0x1E, 0x00, 0x00])]);
+        let error = compare_gems_command_streams(&rings, &rings_from_events(4, &[]))
+            .expect_err("unknown opcode must not compare");
+        assert!(error.to_string().contains("failed to decode"));
     }
 
     #[test]

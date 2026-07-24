@@ -325,6 +325,19 @@ impl GemsMasterClockTimingEngine {
         self.z80.pc
     }
 
+    /// Snapshot the 68k→Z80 command mailbox ring: the 64 bytes at Z80
+    /// `$1A40` plus the write-index byte at `$0036` (ASM sub_E143A /
+    /// sub_E148E). Raw input to the command-parity decode (#435).
+    #[must_use]
+    pub fn command_ring_snapshot(&self) -> (Vec<u8>, u8) {
+        let ram = self.z80.io.ram.borrow();
+        let base = usize::from(GEMS_QUEUE_ADDR);
+        (
+            ram[base..base + usize::from(GEMS_QUEUE_SIZE)].to_vec(),
+            ram[usize::from(GEMS_QUEUE_PTR_ADDR)],
+        )
+    }
+
     /// Snapshot the persistent GEMS machine without advancing it.
     #[must_use]
     pub fn checkpoint(&self) -> GemsTimingCheckpoint {
