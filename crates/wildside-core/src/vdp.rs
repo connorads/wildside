@@ -3463,14 +3463,15 @@ pub struct ModeLevelTailBackgroundAdvance {
     pub raw_cycles: M68kCycleCount,
     pub refresh_events: u32,
     pub external_wait_cycles: M68kCycleCount,
+    pub fifo_halted_ticks: M68kCycleCount,
 }
 
 /// Co-schedule the frame-902 ASM `loc_898 -> loc_3038A` background pass.
 ///
 /// The accepted path has 19 unchanged shift-data slots, a normal aligned or
-/// unaligned shift-layer pass, 29 skipped piece rows, and a cached
-/// `sub_307D8` row. Other typed paths remain fail-closed until their
-/// instruction streams are fixed by oracle evidence.
+/// unaligned shift-layer pass, 29 skipped piece rows, and either a cached or
+/// zero-wrap linear `sub_307D8` row. Other typed paths remain fail-closed
+/// until their instruction streams are fixed by oracle evidence.
 pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     work: &crate::ModeLevelTailBackgroundWorkLoc3038A,
@@ -3502,21 +3503,27 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
             .any(|slot| *slot != crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged)
         || work.piece_rows_sub_30744.entries_before_sentinel != 29
         || work.piece_rows_sub_30744.rendered_nonnegative_entries != 0
-        || work.piece_refresh_sub_307d8
-            != crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged
     {
         return None;
     }
+    let linear_piece_refresh = match work.piece_refresh_sub_307d8 {
+        crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged => false,
+        crate::ModeLevelTailPieceRefreshSub307D8::LinearNoWrap {
+            width_subtractions: 0,
+            copied_words: 41,
+        } => true,
+        _ => return None,
+    };
 
     let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
     let mut phase = entry.refresh_phase;
     let mut raw_cycles = 0_u32;
     let mut counters = ModeLevelTailCameraCounters::default();
-    let mut advance = |cycles: u32| {
+    let mut advance = |cycles: u32, written_words: u8| {
         raw_cycles = raw_cycles.checked_add(cycles)?;
         advance_mode_level_tail_camera_source_instruction(
             cycles,
-            0,
+            written_words,
             &mut fifo,
             &mut phase,
             &mut counters,
@@ -3527,7 +3534,7 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
         ($instructions:expr) => {{
             let instructions: &[u8] = $instructions;
             for &cycles in instructions {
-                advance(u32::from(cycles))?;
+                advance(u32::from(cycles), 0)?;
             }
         }};
     }
@@ -3544,7 +3551,7 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     for slot_index in 0..2 {
         for (instruction_index, &cycles) in FIRST_UNCHANGED_SLOT.iter().enumerate() {
             let final_dbf = slot_index == 1 && instruction_index + 1 == FIRST_UNCHANGED_SLOT.len();
-            advance(u32::from(if final_dbf { 14 } else { cycles }))?;
+            advance(u32::from(if final_dbf { 14 } else { cycles }), 0)?;
         }
     }
     advance_all!(&[4, 4, 4, 32, 4]);
@@ -3555,10 +3562,10 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
         for (instruction_index, &cycles) in SCROLL_UNCHANGED_SLOT.iter().enumerate() {
             let final_dbf =
                 slot_index == 16 && instruction_index + 1 == SCROLL_UNCHANGED_SLOT.len();
-            advance(u32::from(if final_dbf { 14 } else { cycles }))?;
+            advance(u32::from(if final_dbf { 14 } else { cycles }), 0)?;
         }
     }
-    advance(16)?;
+    advance(16, 0)?;
 
     // ASM loc_303A0 BSR, the j_BackgroundScroll_ComputeShiftLayers stub,
     // and the normal unaligned path through loc_30560.
@@ -3569,16 +3576,16 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     if aligned {
         advance_all!(&SHIFT_LAYERS_PRELUDE[..26]);
         // ASM loc_30550: taken BEQ enters loc_3056A directly.
-        advance(10)?;
+        advance(10, 0)?;
     } else {
         advance_all!(&SHIFT_LAYERS_PRELUDE);
 
         // ASM loc_30562: leading partial rows.
         for row in 0..leading_rows {
-            advance(12)?;
-            advance(if row + 1 == leading_rows { 14 } else { 10 })?;
+            advance(12, 0)?;
+            advance(if row + 1 == leading_rows { 14 } else { 10 }, 0)?;
         }
-        advance(4)?;
+        advance(4, 0)?;
     }
 
     // ASM loc_3056A: 27 complete eight-scanline rows.
@@ -3587,7 +3594,7 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
         for (instruction_index, &cycles) in COMPLETE_SHIFT_ROW.iter().enumerate() {
             let final_dbf =
                 row + 1 == full_rows && instruction_index + 1 == COMPLETE_SHIFT_ROW.len();
-            advance(u32::from(if final_dbf { 14 } else { cycles }))?;
+            advance(u32::from(if final_dbf { 14 } else { cycles }), 0)?;
         }
     }
 
@@ -3598,8 +3605,8 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
         // ASM loc_3058A setup and loc_30592 trailing rows.
         advance_all!(&[4, 8, 8, 14, 4]);
         for row in 0..trailing_rows {
-            advance(12)?;
-            advance(if row + 1 == trailing_rows { 14 } else { 10 })?;
+            advance(12, 0)?;
+            advance(if row + 1 == trailing_rows { 14 } else { 10 }, 0)?;
         }
     }
     // ASM loc_30598: non-Forest, non-Desert return.
@@ -3617,17 +3624,42 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     for row in 0..29 {
         for (instruction_index, &cycles) in SKIPPED_PIECE_ROW.iter().enumerate() {
             let final_dbf = row == 28 && instruction_index + 1 == SKIPPED_PIECE_ROW.len();
-            advance(u32::from(if final_dbf { 14 } else { cycles }))?;
+            advance(u32::from(if final_dbf { 14 } else { cycles }), 0)?;
         }
     }
-    advance(16)?;
+    advance(16, 0)?;
 
-    // ASM loc_303B2 BSR and the cached-row sub_307D8 return, followed by
-    // return_303B8.
-    const CACHED_ROW_AND_RETURN: [u8; 19] = [
-        18, 12, 20, 20, 12, 14, 4, 4, 4, 18, 12, 12, 16, 12, 12, 4, 10, 16, 16,
-    ];
-    advance_all!(&CACHED_ROW_AND_RETURN);
+    // ASM loc_303B0 BSR and sub_307D8's common row-selection prefix.
+    advance(18, 0)?;
+    if linear_piece_refresh {
+        // ASM sub_307D8 -> loc_3081A: selected-PC tracing pins the upward
+        // zero-width-subtraction branch and its exact instruction quanta.
+        advance_all!(&[
+            12, 20, 20, 12, 14, 4, 4, 4, 18, 12, 12, 16, 12, 12, 4, 12, 10,
+        ]);
+        advance_all!(&[4, 4, 14, 8, 12, 8, 14, 12, 4, 6, 10]);
+        advance_all!(&[4, 12, 14, 8, 12, 8, 4, 4, 8, 6, 10]);
+        advance_all!(&[4, 4, 4, 8, 8, 8, 10]);
+        advance_all!(&[8, 4, 20, 8, 8, 4, 8, 12, 4, 8, 4, 8, 4]);
+
+        // ASM loc_308A6: d4=$28 makes this an inclusive 41-word VDP-data
+        // stream. The FIFO scheduler owns every retry tick.
+        for word in 0..41 {
+            advance(4, 0)?;
+            advance(8, 0)?;
+            advance(4, 0)?;
+            advance(18, 1)?;
+            advance(if word == 40 { 14 } else { 10 }, 0)?;
+        }
+        advance(16, 0)?;
+    } else {
+        // ASM sub_307D8 loc_30810 -> return_308B4: cached row unchanged.
+        advance_all!(&[
+            12, 20, 20, 12, 14, 4, 4, 4, 18, 12, 12, 16, 12, 12, 4, 10, 16,
+        ]);
+    }
+    // ASM return_303B8.
+    advance(16, 0)?;
 
     Some(ModeLevelTailBackgroundAdvance {
         cursor: LoadInGameCpuRasterCursor {
@@ -3637,6 +3669,7 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
         raw_cycles: M68kCycleCount::from_raw(raw_cycles),
         refresh_events: counters.refresh_events,
         external_wait_cycles: M68kCycleCount::from_raw(counters.external_wait_cycles),
+        fifo_halted_ticks: M68kCycleCount::from_raw(counters.fifo_halted_ticks),
     })
 }
 
@@ -3687,6 +3720,7 @@ pub fn mode_level_tail_palette_to_wait_for_vint_cursor_sub_14c0_with_scheduler(
             raw_cycles: M68kCycleCount::from_raw(raw_cycles),
             refresh_events: counters.refresh_events,
             external_wait_cycles: M68kCycleCount::from_raw(counters.external_wait_cycles),
+            fifo_halted_ticks: M68kCycleCount::from_raw(counters.fifo_halted_ticks),
         });
     }
 
@@ -3729,6 +3763,7 @@ pub fn mode_level_tail_palette_to_wait_for_vint_cursor_sub_14c0_with_scheduler(
         raw_cycles: M68kCycleCount::from_raw(raw_cycles),
         refresh_events: counters.refresh_events,
         external_wait_cycles: M68kCycleCount::from_raw(counters.external_wait_cycles),
+        fifo_halted_ticks: M68kCycleCount::from_raw(counters.fifo_halted_ticks),
     })
 }
 
@@ -9060,6 +9095,55 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(50).expect("oracle loc_89E phase"),
             },
             "ASM loc_89E follows 8,956 raw + 142 refresh cycles",
+        );
+    }
+
+    #[test]
+    fn fifth_gameplay_linear_background_refresh_matches_frame_906_instruction_trace() {
+        let entry_cycles = M68kCycleCount::from_raw(115_988_506);
+        let work = crate::ModeLevelTailBackgroundWorkLoc3038A {
+            special_effect_4: false,
+            game_mode_zero: false,
+            background_upload_busy_fb49: false,
+            background_format_nonzero: false,
+            shift_data_slots_loc_30452: [crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged; 19],
+            shift_layers: crate::ModeLevelTailShiftLayersWork::NormalUnalignedNoRipple {
+                leading_rows: 2,
+                full_rows: 27,
+                trailing_rows: 6,
+            },
+            piece_rows_sub_30744: crate::ModeLevelTailPieceRowsSub30744 {
+                entries_before_sentinel: 29,
+                rendered_nonnegative_entries: 0,
+            },
+            piece_refresh_sub_307d8: crate::ModeLevelTailPieceRefreshSub307D8::LinearNoWrap {
+                width_subtractions: 0,
+                copied_words: 41,
+            },
+        };
+        let advance = mode_level_tail_background_cursor_loc_3038a_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                // ASM loc_898 -> sub_307D8 loc_308A6: selected-PC tracing
+                // enters the fifth gameplay background pass here.
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(40).expect("oracle loc_898 phase"),
+            },
+            &work,
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("ASM sub_307D8 linear row refresh is source-scheduled");
+
+        assert_eq!(advance.raw_cycles.get(), 11_108);
+        assert_eq!(advance.refresh_events, 82);
+        assert_eq!(advance.fifo_halted_ticks.get(), 226);
+        assert_eq!(advance.external_wait_cycles.get(), 0);
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(116_000_004)),
+                refresh_phase: M68kRefreshPhase::new(8).expect("oracle loc_89E phase"),
+            },
+            "ASM loc_303B0 -> sub_307D8 loc_308A6 follows 11,108 raw + 226 FIFO + 164 refresh cycles",
         );
     }
 

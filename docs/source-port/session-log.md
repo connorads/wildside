@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 GEMS frame 906)
+
+- Frame 906 source-schedules the fifth gameplay pass and carries the
+  persistent clock through the following blocking VINT.
+- ASM `sub_307D8 loc_308A6` now streams 41 words in 11,108 raw cycles with
+  226 VDP-owned retries, reaching oracle `loc_89E` cycle 116,000,004 exactly.
+- Native and oracle reconverge on byte-exact audio RAM, bank, waits and flags
+  at `loc_892`; FrameRendered retains the established jgenesis X/Y IRQ phase.
+- Full GEMS counts are 36,852 mismatches, 871 limitations and 36
+  advisory-only frames.
+- `verify-slice-fast` passes 7,057 core tests; NEXT is frame 907.
+
 ## 2026-07-23 handoff (#409 GEMS frame 905)
 
 - Frame 905 source-schedules the 12-tile VBlank queue, life-icon HUD upload,

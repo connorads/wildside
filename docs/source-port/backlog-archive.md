@@ -456,6 +456,19 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: defended GEMS coverage advances through frame 906 and
+the authoritative frontier moves to frame 907. The persistent background
+scheduler now accepts ASM `sub_307D8 loc_308A6`'s zero-wrap 41-word stream.
+Selected-PC evidence pins 11,108 raw cycles, 82 refresh events and 226
+VDP-owned retry ticks from `loc_898` to exact `loc_89E` cycle 116,000,004.
+The fifth gameplay pass reaches selected `loc_7D6`, `sub_E12`, `sub_44DC`,
+`loc_810`, `loc_892`, `$93E`, and the following `$7C8`. Native and oracle
+reconverge on byte-exact audio RAM, bank, waits and flags at `loc_892`; only
+the established jgenesis undocumented-X/Y IRQ phase remains at FrameRendered.
+Full counts are 36,852 mismatches, 871 limitations and 36 advisory-only
+frames. `verify-slice-fast` passes 7,057 core tests. NEXT: source-bound frame
+907.
+
 Progress 2026-07-23: defended GEMS coverage advances through frame 905 and
 the authoritative frontier moves to frame 906. Frame 905 source-schedules the
 12-tile dynamic-art queue, active palette and scroll transfers, the 28-row
