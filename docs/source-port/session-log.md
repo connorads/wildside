@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 GEMS frame 920)
+
+- Frame 920 deletes the completed palette worker and source-bounds the
+  grounded player, matching shooter cache, Diamond DMA/FIFO interval,
+  unchanged-camera tail, and blocking VINT.
+- The 54-cycle VDP-owned FIFO interval advances the raster beam but retains
+  the CPU refresh phase; every selected boundary then matches.
+- Full GEMS counts are 36,838 mismatches, 885 limitations and 36
+  advisory-only frames.
+- `verify-slice-fast` passes 7,061 core tests; NEXT is frame 921.
+
 ## 2026-07-23 handoff (#416 GEMS frame 919)
 
 - Frame 919 source-bounds the grounded player, steady palette worker,

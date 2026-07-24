@@ -9958,7 +9958,16 @@ impl NativeRuntime {
                 palette_fade_worker_sub_73d0: if player == ModeLevelPlayerWorkBeforeHud::Activation
                 {
                     Some(ModeLevelPaletteFadeWorkerPathSub73D0::InitialCopyAndHibernate)
-                } else if !self.allow_pausing {
+                } else if self
+                    .demo_level_entry_palette_fade_progress_sub_73d0()
+                    .is_some()
+                    || (!matches!(self.boot_state, BootState::DemoPlay { .. })
+                        && !self.allow_pausing)
+                {
+                    // ASM loc_7402 -> loc_7420: DemoPlay owns the fade worker
+                    // outside the ordinary InGame `Allow_Pausing` lifecycle.
+                    // Its source-derived `$F876` progress helper therefore
+                    // decides when the linked Object slot disappears.
                     Some(ModeLevelPaletteFadeWorkerPathSub73D0::AdvanceFadeAndHibernateLoc7402)
                 } else {
                     None

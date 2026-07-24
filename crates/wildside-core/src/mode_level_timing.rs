@@ -2613,15 +2613,22 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
     ) && scan.row_count == 4
         && scan.col_count == 2
         && scan.flagged_non_evanescent_cells_before_exit == 0
-        && shooter.cached_col_before == -1
-        && shooter.cached_row_before == -1
+        && ((shooter.cached_col_before == -1
+            && shooter.cached_row_before == -1
+            && !shooter.cached_col_matches
+            && !shooter.cached_row_matches)
+            || (shooter.cached_col_before == 2
+                && shooter.cached_row_before == 45
+                && shooter.cached_col_matches
+                && shooter.cached_row_matches))
         && shooter.kid_block_col == 2
         && shooter.kid_block_row == 45
         && shooter.new_shooter_slots_registered == 0
     {
         // ASM sub_21F8 -> sub_DFB0/loc_EAE4 -> sub_F096 -> sub_44DC.
-        // Frame 919's selected-PC journal splits this grounded branch into
-        // 480 + 1,362 + 602 raw cycles.
+        // Frames 919-920's selected-PC journals split this grounded branch
+        // into 480 + 1,362 + 602 raw cycles before and after the shooter
+        // position cache begins matching.
         return Some(M68kCycleCount::from_raw(2_444));
     }
 

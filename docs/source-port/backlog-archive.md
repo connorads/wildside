@@ -456,6 +456,17 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: defended GEMS coverage advances through frame 920 and
+the authoritative frontier moves to frame 921. The nineteenth gameplay pass
+types `loc_7402` deleting the completed palette worker, the grounded
+`loc_7606` player route, matching shooter-cache scan, Diamond `sub_5D4A`
+DMA/FIFO interval, unchanged-camera tail, and blocking VINT. Advancing the
+raster beam while retaining the CPU refresh phase across the 54-cycle
+VDP-owned FIFO interval makes every selected boundary exact. Bank, waits and
+flags match; the remaining RAM/PC residue is the established X/Y IRQ phase.
+Full counts are 36,838 mismatches, 885 limitations and 36 advisory-only
+frames. `verify-slice-fast` passes 7,061 core tests. NEXT: frame 921.
+
 Progress 2026-07-23: defended GEMS coverage advances through frame 919 and
 the authoritative frontier moves to frame 920. The eighteenth gameplay pass
 types the grounded `loc_7606` player route, steady `loc_7402` palette worker,

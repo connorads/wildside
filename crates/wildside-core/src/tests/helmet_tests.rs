@@ -9745,6 +9745,57 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_frame_920_drops_completed_palette_worker_before_sub_e12() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let frame = script
+            .iter()
+            .copied()
+            .take(921)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .last()
+            .expect("published frame 920");
+
+        let ledger = frame
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("Mode_Level work ledger");
+        let post_hud = frame
+            .mode_level_work_after_hud_sub_44dc
+            .as_ref()
+            .expect("post-HUD ledger");
+        let execute = &ledger.execute_objects;
+
+        assert_eq!(execute.linked_non_transient_object_count, 4);
+        assert_eq!(
+            execute.palette_fade_worker_sub_73d0, None,
+            "ASM loc_7402 -> loc_7420 deletes the completed fade worker before frame 920's Execute_Objects pass"
+        );
+        assert_eq!(
+            execute_objects_raw_cycles_sub_e12(execute).map(M68kCycleCount::get),
+            Some(5_338),
+            "selected-PC trace pins frame 920 sub_E12 -> sub_21F8 after the palette worker leaves the linked Object list"
+        );
+        assert_eq!(
+            player_callback_cycles_sub_e12(execute).map(M68kCycleCount::get),
+            Some(2_198),
+        );
+        assert_eq!(
+            post_execute_raw_cycles_before_sub_44dc(ledger).map(M68kCycleCount::get),
+            Some(2_444),
+            "selected-PC trace pins the same grounded no-shooter post-Execute span after the cache matches",
+        );
+        assert_eq!(
+            crate::mode_level_timing::mode_level_post_hud_phase_raw_cycles_to_loc_892(post_hud)
+                .expect("typed post-HUD source costs")[19]
+                .get(),
+            1_986,
+            "ASM loc_87E -> sub_1492 -> loc_882 retains four classified GfxObject branches"
+        );
+    }
+
+    #[test]
     fn published_demo_exposes_cyclone_prize_before_later_diamonds() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
