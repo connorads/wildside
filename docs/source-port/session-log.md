@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 GEMS frame 922)
+
+- Frame 922 source-bounds the no-palette-worker object pass and coin HUD path.
+- Selected-PC boundaries retain the untyped coin interval and upward
+  `sub_30194` stripe; every boundary through the following `Mode_Level`
+  matches.
+- Full GEMS counts are 36,836 mismatches, 887 limitations and 36
+  advisory-only frames.
+- `verify-slice-fast` passes 7,061 core tests; NEXT is frame 923.
+
 ## 2026-07-23 handoff (#416 GEMS frame 921)
 
 - Frame 921 source-bounds the no-palette-worker object pass, flag HUD DMA,

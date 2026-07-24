@@ -456,6 +456,16 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: defended GEMS coverage advances through frame 922 and
+the authoritative frontier moves to frame 923. The twenty-first gameplay pass
+types the no-palette-worker object path and coin-only HUD event. Selected-PC
+boundaries retain the untyped coin interval and upward `sub_30194` camera
+stripe without pretending either is generic source work. Every boundary
+through the following `Mode_Level` matches. Bank and waits agree; RAM/PC/IFF1
+retain only the established X/Y IRQ edge. Full counts are 36,836 mismatches,
+887 limitations and 36 advisory-only frames. `verify-slice-fast` passes 7,061
+core tests. NEXT: frame 923.
+
 Progress 2026-07-23: defended GEMS coverage advances through frame 921 and
 the authoritative frontier moves to frame 922. The twentieth gameplay pass
 types the no-palette-worker object path, flag `loc_4680 -> sub_5DA6` HUD event,
