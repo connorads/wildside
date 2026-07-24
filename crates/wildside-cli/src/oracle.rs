@@ -114,6 +114,11 @@ pub struct OracleManifest {
     /// the explicit `oracle-probe --capture-gems-state` diagnostic path.
     #[serde(default)]
     pub gems_frame_audio_ram: Vec<Option<Vec<u8>>>,
+    /// Per-frame 68k→Z80 command mailbox-ring snapshots (64 ring bytes +
+    /// write index), captured with `capture_gems_frame_signature`; the raw
+    /// input to the command-parity decode (`gems_command_parity_v1`, #435).
+    #[serde(default)]
+    pub gems_frame_rings: Vec<Option<wildside_core::GemsFrameRing>>,
     #[serde(default)]
     pub memory_watches: Vec<HashMap<String, i64>>,
     #[serde(default)]
@@ -1837,6 +1842,12 @@ mod tests {
                 && HELPER_TEMPLATE
                     .contains("gems_frame_audio_ram.push(Some(checkpoint.audio_ram.clone()))"),
             "raw per-frame GEMS RAM must stay behind --capture-gems-state",
+        );
+        assert!(
+            HELPER_TEMPLATE.contains("wildside_core::GemsFrameRing::from_audio_ram")
+                && HELPER_TEMPLATE.contains("gems_frame_rings.push(Some("),
+            "per-frame command-ring snapshots (#435) must ride the signature capture \
+             so verify-tas --compare-gems carries them with no extra flags",
         );
         let source = include_str!("oracle.rs");
         assert!(

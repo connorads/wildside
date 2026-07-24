@@ -24,12 +24,10 @@
 //!   pre-reset ring bytes can be byte-identical to the repost because the
 //!   four pointers are constants.
 
-/// Z80 address of the command ring (68k `$A01A40`). ASM sub_E143A (kid.asm).
-pub(crate) const GEMS_RING_BASE: usize = 0x1A40;
-/// Ring length in bytes; the index wraps `& 0x3F`. ASM sub_E148E (kid.asm).
-pub(crate) const GEMS_RING_LEN: usize = 0x40;
-/// Z80 address of the write-index byte (68k `$A00036`). ASM sub_E143A.
-pub(crate) const GEMS_RING_WRITE_INDEX_ADDR: usize = 0x0036;
+pub(crate) use wildside_core::{
+    GEMS_COMMAND_RING_BASE as GEMS_RING_BASE, GEMS_COMMAND_RING_LEN as GEMS_RING_LEN,
+    GEMS_COMMAND_RING_WRITE_INDEX_ADDR as GEMS_RING_WRITE_INDEX_ADDR,
+};
 
 /// Total posted bytes per opcode, marker `$FF` included.
 ///
@@ -112,6 +110,16 @@ impl Default for GemsRingDecoder {
 }
 
 impl GemsRingDecoder {
+    /// Decode one snapshot given a manifest ring capture (#435).
+    pub(crate) fn decode_manifest_ring(
+        &mut self,
+        capture: &wildside_core::GemsFrameRing,
+    ) -> GemsRingFrameDecode {
+        let mut ring = [0u8; GEMS_RING_LEN];
+        ring.copy_from_slice(&capture.bytes);
+        self.decode_frame(&ring, (capture.write_index as usize) % GEMS_RING_LEN)
+    }
+
     /// Decode one snapshot given the full 8 KiB Z80 RAM image.
     pub(crate) fn decode_ram_frame(&mut self, ram: &[u8]) -> GemsRingFrameDecode {
         let mut ring = [0u8; GEMS_RING_LEN];
@@ -228,13 +236,15 @@ impl GemsRingDecoder {
     }
 }
 
-/// Minimal manifest view: only the per-frame audio-RAM dumps from
-/// `oracle-probe --capture-gems-state` (serde skips the rest of the
-/// manifest, including the heavyweight `m68k_pc_trace`).
+/// Minimal manifest view: only the per-frame audio-RAM dumps and ring
+/// snapshots from `oracle-probe --capture-gems-state` (serde skips the rest
+/// of the manifest, including the heavyweight `m68k_pc_trace`).
 #[derive(serde::Deserialize)]
 struct GemsRamManifest {
     #[serde(default)]
     gems_frame_audio_ram: Vec<Option<Vec<u8>>>,
+    #[serde(default)]
+    gems_frame_rings: Vec<Option<wildside_core::GemsFrameRing>>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -287,6 +297,41 @@ pub(crate) fn run_gems_ring_decode(
             frame_index,
             decode,
         });
+    }
+
+    // Cross-check (#435): when the manifest also carries the compact ring
+    // snapshots, decoding them must reproduce the full-RAM decode exactly —
+    // the rings are what full-route verify-tas runs ship instead of 8 KiB
+    // per frame, so any divergence invalidates the compact path.
+    if !manifest.gems_frame_rings.is_empty() && !manifest.gems_frame_audio_ram.is_empty() {
+        let mut ring_decoder = GemsRingDecoder::default();
+        let mut ring_events: Vec<GemsRingFrameEvents> = Vec::new();
+        for (frame_index, capture) in manifest.gems_frame_rings.iter().enumerate() {
+            let Some(capture) = capture else { continue };
+            let decode = ring_decoder.decode_manifest_ring(capture);
+            if decode.commands.is_empty() && decode.is_clean() && !decode.ring_reinit {
+                continue;
+            }
+            ring_events.push(GemsRingFrameEvents {
+                frame_index,
+                decode,
+            });
+        }
+        let matches = ring_events.len() == events.len()
+            && ring_events.iter().zip(events.iter()).all(|(ring, ram)| {
+                ring.frame_index == ram.frame_index && ring.decode == ram.decode
+            });
+        if !matches {
+            anyhow::bail!(
+                "ring-snapshot decode diverges from full-RAM decode ({} vs {} event frames)",
+                ring_events.len(),
+                events.len()
+            );
+        }
+        println!(
+            "  ring-snapshot cross-check: {} event frames match the full-RAM decode",
+            ring_events.len()
+        );
     }
 
     println!(

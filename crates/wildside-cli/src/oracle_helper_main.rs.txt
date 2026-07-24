@@ -343,6 +343,8 @@ struct OracleManifest {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     gems_frame_audio_ram: Vec<Option<Vec<u8>>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    gems_frame_rings: Vec<Option<wildside_core::GemsFrameRing>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     memory_watches: Vec<HashMap<String, i64>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     vdp_pixel_samples: Vec<OracleVdpPixelSampleRow>,
@@ -857,6 +859,10 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     let mut gems_frame_audio_ram: Vec<Option<Vec<u8>>> = capture_gems_state
         .then(|| Vec::with_capacity(resolved.frame_count))
         .unwrap_or_default();
+    let mut gems_frame_rings: Vec<Option<wildside_core::GemsFrameRing>> =
+        capture_gems_frame_signature
+            .then(|| Vec::with_capacity(resolved.frame_count))
+            .unwrap_or_default();
     let mut all_memory_watches: Vec<HashMap<String, i64>> = Vec::new();
     let mut all_vdp_pixel_samples: Vec<OracleVdpPixelSampleRow> = Vec::new();
     let mut all_vdp_fifo_commits: Vec<OracleVdpFifoCommitRow> = Vec::new();
@@ -1104,6 +1110,16 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                     if capture_gems_frame_signature || capture_gems_state {
                         let checkpoint = emulator.debug().wildside_gems_checkpoint_now();
                         if capture_gems_frame_signature {
+                            // Command-parity raw input (#435): the 64-byte
+                            // 68k->Z80 mailbox ring at Z80 $1A40 plus the
+                            // write-index byte at $0036 (ASM sub_E143A /
+                            // sub_E148E). Decoding happens wildside-side so
+                            // one decoder serves both native and oracle.
+                            gems_frame_rings.push(Some(
+                                wildside_core::GemsFrameRing::from_audio_ram(
+                                    &checkpoint.audio_ram,
+                                ),
+                            ));
                             let pending_m68k_wait_cycles =
                                 emulator.debug().wildside_m68k_wait_cpu_cycles();
                             let mut ram_crc = crc32fast::Hasher::new();
@@ -1212,6 +1228,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         frame_rng_states,
         gems_frame_signatures,
         gems_frame_audio_ram,
+        gems_frame_rings,
         memory_watches: all_memory_watches,
         vdp_pixel_samples: all_vdp_pixel_samples,
         vdp_fifo_commits: all_vdp_fifo_commits,

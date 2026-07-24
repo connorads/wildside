@@ -2903,7 +2903,10 @@ fn main() -> Result<()> {
                 vdp_fifo_commit_address_range: vdp_fifo_commit_address_range.clone(),
                 m68k_pc_trace: m68k_pc_trace.clone(),
                 capture_gems_state,
-                capture_gems_frame_signature: false,
+                // Ring snapshots (#435) ride the signature capture, so gems
+                // state dumps also carry the decoded-command cross-check
+                // input.
+                capture_gems_frame_signature: capture_gems_state,
                 capture_cpu_state,
                 capture_settle_trace,
                 capture_rng_stream: false,

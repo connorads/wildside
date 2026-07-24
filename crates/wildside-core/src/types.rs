@@ -3236,6 +3236,41 @@ fn is_false(value: &bool) -> bool {
 /// native-vs-oracle across a whole TAS route.
 pub const GEMS_FRAME_SIGNATURE_PROJECTION_NAME: &str = "gems_frame_signature_v1";
 
+/// Z80 address of the GEMS 68k→Z80 command mailbox ring (68k `$A01A40`).
+/// ASM sub_E143A (kid.asm) loads the ring base into a1.
+pub const GEMS_COMMAND_RING_BASE: usize = 0x1A40;
+/// GEMS command-ring length in bytes; the write index wraps `& 0x3F`.
+/// ASM sub_E148E (kid.asm).
+pub const GEMS_COMMAND_RING_LEN: usize = 0x40;
+/// Z80 address of the ring write-index byte (68k `$A00036`).
+/// ASM sub_E143A (kid.asm) loads it into a0; sub_E148E commits it per byte.
+pub const GEMS_COMMAND_RING_WRITE_INDEX_ADDR: usize = 0x0036;
+
+/// Per-frame snapshot of the GEMS command mailbox ring, sampled at the same
+/// FrameRendered boundary as [`GemsFrameSignature`]. This is the raw input
+/// to the command-parity decode (`gems_command_parity_v1`, #435): 64 ring
+/// bytes plus the write index — the complete 68k-visible posting state.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GemsFrameRing {
+    /// The 64-byte ring window at [`GEMS_COMMAND_RING_BASE`].
+    pub bytes: Vec<u8>,
+    /// The write-index byte at [`GEMS_COMMAND_RING_WRITE_INDEX_ADDR`].
+    pub write_index: u8,
+}
+
+impl GemsFrameRing {
+    /// Extract the ring snapshot from a full 8 KiB Z80 audio-RAM image.
+    #[must_use]
+    pub fn from_audio_ram(audio_ram: &[u8]) -> Self {
+        Self {
+            bytes: audio_ram
+                [GEMS_COMMAND_RING_BASE..GEMS_COMMAND_RING_BASE + GEMS_COMMAND_RING_LEN]
+                .to_vec(),
+            write_index: audio_ram[GEMS_COMMAND_RING_WRITE_INDEX_ADDR],
+        }
+    }
+}
+
 /// Per-frame GEMS driver state signature (`gems_frame_signature_v1`).
 ///
 /// Sampling instant: the oracle helper samples immediately after jgenesis
