@@ -692,9 +692,15 @@ seam safety-net for #436/#437. Its 36,836 authoritative mismatches beyond
 the span are measured timing debt, not an audio-correctness signal: each one
 is timing-emergent Z80 phase that only converges when the 68k's exact
 master-clock schedule is hand-modelled per frame, which the runtime port has
-no 68k to provide. That debt is quantified (census #434) and bounded-span
-replay (#437) validates timing-emergent state where the census says it
-matters. Never mask the counts; never advance the span to reduce them.
+no 68k to provide. That debt is quantified (census #434), the engine's
+public-method seam is proven to be its complete input surface (#436 replay
+probe: 923 frames bit-identical from the stimulus log alone), and bounded-span
+replay (#437) measures the engine under the ORACLE's own captured 68k→Z80
+stimuli: it tracks the oracle to within one Z80 instruction of phase at every
+compared frame (first divergence is a 2-mclk divider offset with identical
+RAM/bank/wait state), so the census shapes are bounded phase/sampling residue,
+not compounding engine defects. Never mask the counts; never advance the span
+to reduce them.
 
 ---
 

@@ -642,6 +642,48 @@ recorded here decides #437.
 
 ### #437
 
+Closed 2026-07-24: bounded-span replay measured. Capture side
+(`oracle-probe --gems-stimulus-frames`, one batched template rebuild): the
+oracle's complete 68k-side GEMS input surface — BUSACK-passing Z80-RAM
+writes, BUSREQ/RESET bit writes — recorded in jgenesis `MainBus` with
+cumulative 68k-cycle stamps; `WildsideGemsCheckpoint` gained
+`m68k_wait_cpu_cycles` so the $E14C8 pc-trace anchor checkpoint carries the
+full replay seed (the remaining scalar, `ym2612_input_mclk_counter`, is
+derivable as `ym2612_mclk_counter % 7`). Replay side (`gems-span-replay`):
+fresh engine + `seed_replay_phase` (reinit-surviving phase scalars only; no
+RAM/register restore — the replayed reinit reproduces those), stimuli
+applied in stamp order, per-frame `FrameRendered` sampling, frozen-witness
+comparison vocabulary.
+
+Measured result (anchor = frame-869 level-entry StopMusic; span 870-2500,
+34,135 stimuli, 1,631 frames; report
+`.cache/audit/gems-span-replay-870-2500.json`): frame 870 (the reinit
+itself) is advisory-only; the FIRST strict divergence, frame 871, is
+`z80_pc` off by exactly ONE Z80 instruction (2897 vs 2896) with IDENTICAL
+audio-RAM CRC, bank, wait ledgers, and status, and a 2-mclk divider-phase
+offset (z80_mclk 9 vs 11, ym 12 vs 14). Thereafter shapes stay small and
+non-compounding: census ram 1,607 / pc 1,525 / pending 412 / status 326 /
+bank 136 / wait 15 of 1,631; 12 advisory-only. The headline: under
+identical stimuli the engine tracks the oracle to within ~one Z80
+instruction of phase at every compared frame — the 36,836-frame route debt
+is NOT wholesale engine defect, but neither is it proven pure 68k-schedule
+unknowns: a bounded residual phase/sampling offset remains, and because the
+driver mutates RAM continuously, a 2-40 mclk sampling-instant difference
+alone can flip the RAM CRC on almost every frame.
+
+Attribution boundaries established: (a) intra-instruction write-landing
+skew is NOT the driver — a `--stamp-skew-cycles 16` sensitivity run is
+materially identical (1,626 vs 1,619 strict); (b) span-replay shapes at the
+census example frames are consistently SMALLER than the full-route shapes
+at the same frames (923/924/1072: `ram+pc` vs the route's
+`ram+pending+status+pc`), i.e. the oracle-true schedule removes part of
+every census class; (c) the remaining candidates are the oracle's
+quantised sampling instant (end of the 68k instruction quantum crossing
+scanline 232, vs the harness's exact-line sample), seed master-clock
+alignment (anchor cycles ×7), and genuine Z80-core cycle-count
+differences — the discriminator experiment is #441. No X/Y-whitelist hits
+appeared in the gameplay span (as predicted; nothing extended).
+
 Bounded-span timing replay, gated on #436 go. Capture oracle 68k→Z80
 stimulus spans (jgenesis `genesis-core/memory.rs` `apply_byte_write` patch,
 mclk timestamps) — one span per #434 census shape class — replay into the
@@ -19335,6 +19377,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 437 | [x] | P2 | audio | Bounded-span timing replay: `oracle-probe --gems-stimulus-frames` captures the oracle's 68k→Z80 stimulus stream; `gems-span-replay` seeds a fresh engine at the frame-869 reinit and replays 34,135 stimuli over frames 870-2500. | Measured: first strict divergence frame 871 = z80_pc off by one instruction, 2-mclk phase offset, identical RAM/bank/wait/status; shapes bounded, non-compounding; skew-16 sensitivity unchanged. Report `.cache/audit/gems-span-replay-870-2500.json`; discriminator follow-up #441. See archive #437. |
 | 436 | [x] | P2 | audio | GEMS replay seam probe: `GemsStimulus` record buffer inside `GemsMasterClockTimingEngine` (outermost-public-entry rule, no call-site wrapping); `gems-replay-probe` records the frozen span and replays a fresh engine. | GO: 923/923 frames bit-identical full checkpoints from 34,091,643 recorded stimuli; frozen witness bit-identical before/after the seam (verify-tas-full ×2). See archive #436. |
 | 435 | [x] | P1 | audio | Command-parity gate `gems_command_parity_v1`: one `GemsRingDecoder` over both sides' mailbox rings, ordered per-frame comparison with directional ±1 skew reconciliation, `tas-gems-command-baseline` ratchet wired into `verify-tas-full` as the authoritative audio gate. | Honest baseline 419 mismatches / first at 16, fully attributed to native schedule clusters #438-#440; gate Match on baseline. See archive #435. |
 | 434 | [x] | P2 | audio | GEMS mismatch census: `--gems-mismatch-report` corpus (every compared frame classified, disjoint) + `gems-census` clustering into `.cache/audit/gems-census.json`. | Full-route corpus reconciles exactly (36,836/887/36); 72 clusters, top 5 genuine shapes cover 94.9%. See archive #434. |

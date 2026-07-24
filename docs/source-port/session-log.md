@@ -7,6 +7,37 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-24 handoff (trace-replay harness: #436/#437 closed, #441 opened)
+
+- Phase 4 of the supersession programme: the engine-faithfulness question
+  the command gate cannot answer.
+- #436 GO: a `GemsStimulus` recording seam inside
+  `GemsMasterClockTimingEngine` (outermost-public-entry rule; internal
+  delegation refactored onto non-recording private inners) records the
+  frozen span's 34,091,643 stimuli; `gems-replay-probe` re-feeds a fresh
+  engine and all 923 modelled frames replay with bit-identical FULL
+  checkpoints. The engine has no hidden inputs; the frozen witness was
+  re-verified bit-identical (verify-tas-full) in both seam commits.
+- #437 measured: `oracle-probe --gems-stimulus-frames` captures the
+  oracle's 68k→Z80 stimulus stream (BUSACK-passing RAM writes,
+  BUSREQ/RESET bits, 68k-cycle stamps; one batched jgenesis template
+  rebuild, checkpoint gains `m68k_wait_cpu_cycles`); `gems-span-replay`
+  seeds a fresh engine at the frame-869 reinit and replays 870-2500.
+  First strict divergence (871) is z80_pc off by ONE instruction with a
+  2-mclk phase offset and identical RAM/bank/wait/status; shapes stay
+  small and non-compounding; a +16-cycle stamp-skew sensitivity run is
+  materially identical. Headline: the engine tracks the oracle within
+  ~one Z80 instruction of phase under identical stimuli — the 36,836
+  debt is bounded residue, not compounding engine defect.
+- #441 opened: discriminate sampling-instant quantisation from true
+  timeline drift by exporting the oracle's per-frame sample mclk and
+  re-sampling the span at those instants.
+- Pre-existing red noted (not audio): wildside-md lib test
+  `sprite_line_scan_keeps_a_zeroed_loc_b42_terminator_offscreen` fails on
+  clean main; outside the verify-slice-fast gate scope.
+- NEXT: #441 discriminator, or take the #438-#440 audio-schedule clusters
+  through the normal loop.
+
 ## 2026-07-24 handoff (command-parity supersession: #434/#435 closed, #438-#440 opened)
 
 - Same-day continuation of the freeze decision: the census (#434) and the
