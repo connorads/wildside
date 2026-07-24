@@ -3082,6 +3082,7 @@ struct PlatformArtFifoScheduler {
     pending_words: u8,
     empty_vram_dma_latency: u8,
     following_empty_vram_dma_latency: u8,
+    empty_cram_dma_latency: u8,
     memory_dma_count: u8,
     memory_dma: Option<MemoryToVdpDma>,
 }
@@ -3102,6 +3103,7 @@ impl PlatformArtFifoScheduler {
             pending_words: 0,
             empty_vram_dma_latency: 8,
             following_empty_vram_dma_latency: 8,
+            empty_cram_dma_latency: 8,
             memory_dma_count: 0,
             memory_dma: None,
         }
@@ -3114,6 +3116,11 @@ impl PlatformArtFifoScheduler {
 
     fn with_following_empty_vram_dma_latency(mut self, latency: u8) -> Self {
         self.following_empty_vram_dma_latency = latency;
+        self
+    }
+
+    fn with_empty_cram_dma_latency(mut self, latency: u8) -> Self {
+        self.empty_cram_dma_latency = latency;
         self
     }
 
@@ -3149,7 +3156,7 @@ impl PlatformArtFifoScheduler {
             latency: match target {
                 crate::intro_timing::MemoryToVdpDmaTarget::Vsram => 5,
                 crate::intro_timing::MemoryToVdpDmaTarget::Vram => vram_latency,
-                crate::intro_timing::MemoryToVdpDmaTarget::Cram => 8,
+                crate::intro_timing::MemoryToVdpDmaTarget::Cram => self.empty_cram_dma_latency,
             },
             target,
         });
@@ -3357,21 +3364,26 @@ fn advance_mode_level_tail_camera_source_instruction(
 
 /// Co-schedule the first gameplay ASM `loc_892 -> sub_30194` camera stripe.
 ///
-/// The source visitor currently accepts only the frame-902 branch fixed by
-/// the oracle trace: 20 ordinary `loc_30354` cells and one `loc_3037C` block
-/// cell. Each `MOVE.L` enqueues two VDP words before FIFO-full retry ticks and
-/// asynchronous hardware waits are drained at that instruction boundary.
+/// The source visitor accepts the published route's 21-cell upward stripe:
+/// either 20 ordinary `loc_30354` cells plus one `loc_3037C` block cell, or
+/// 21 ordinary cells. Each `MOVE.L` enqueues two VDP words before FIFO-full
+/// retry ticks and asynchronous hardware waits drain at that boundary.
 pub fn mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     work: crate::ModeLevelTailCameraStripeSub30194,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<ModeLevelTailCameraStripeAdvance> {
-    if work
-        != (crate::ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
-            ordinary_theme_cells: 20,
-            priority_theme_cells: 0,
-            block_cells: 1,
-        })
+    let crate::ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+        ordinary_theme_cells,
+        priority_theme_cells,
+        block_cells,
+    } = work
+    else {
+        return None;
+    };
+    if priority_theme_cells != 0
+        || ordinary_theme_cells.checked_add(block_cells) != Some(21)
+        || block_cells > 1
     {
         return None;
     }
@@ -3405,7 +3417,7 @@ pub fn mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
     const ORDINARY_CELL: [u8; 8] = [8, 8, 6, 8, 4, 12, 26, 10];
     const BLOCK_CELL: [u8; 6] = [8, 10, 4, 12, 26, 10];
     for cell_index in 0..21 {
-        let cell = if cell_index == 4 {
+        let cell = if block_cells == 1 && cell_index == 4 {
             BLOCK_CELL.as_slice()
         } else {
             ORDINARY_CELL.as_slice()
@@ -5050,10 +5062,15 @@ pub fn mode_level_palette_to_vram_cursor_with_scheduler(
     palette_dma_sub_970: bool,
     mut advance_hardware: impl FnMut(TitlePaletteHardwareEvent) -> Option<M68kCycleCount>,
 ) -> Option<TitlePaletteToVramAdvance> {
-    title_memory_dma_routine_cursor_with_scheduler(
+    title_memory_dma_routine_cursor_with_scheduler_and_vram_latency(
         entry,
         0,
         true,
+        MemoryDmaStartupLatencies {
+            first_vram: 8,
+            following_vram: 8,
+            cram: 7,
+        },
         |visit| crate::intro_timing::visit_mode_level_palette_to_vram(palette_dma_sub_970, visit),
         &mut advance_hardware,
     )
@@ -5087,8 +5104,11 @@ pub fn mode_level_sprite_and_kid_to_vram_cursor_with_scheduler(
         entry,
         0,
         true,
-        7,
-        19,
+        MemoryDmaStartupLatencies {
+            first_vram: 7,
+            following_vram: 19,
+            cram: 8,
+        },
         |visit| {
             crate::intro_timing::visit_mode_level_sprite_and_kid_to_vram(
                 dynamic_art_tiles_loc_ad4,
@@ -5155,27 +5175,41 @@ fn title_memory_dma_routine_cursor_with_scheduler(
         entry,
         vint_count,
         vint_initially_armed,
-        8,
-        8,
+        MemoryDmaStartupLatencies::STANDARD,
         visit_timing,
         advance_hardware,
     )
+}
+
+#[derive(Debug, Clone, Copy)]
+struct MemoryDmaStartupLatencies {
+    first_vram: u8,
+    following_vram: u8,
+    cram: u8,
+}
+
+impl MemoryDmaStartupLatencies {
+    const STANDARD: Self = Self {
+        first_vram: 8,
+        following_vram: 8,
+        cram: 8,
+    };
 }
 
 fn title_memory_dma_routine_cursor_with_scheduler_and_vram_latency(
     entry: LoadInGameCpuRasterCursor,
     vint_count: u8,
     vint_initially_armed: bool,
-    empty_vram_dma_latency: u8,
-    following_empty_vram_dma_latency: u8,
+    latencies: MemoryDmaStartupLatencies,
     visit_timing: impl FnOnce(
         &mut dyn FnMut(crate::intro_timing::MemoryDmaTimingEvent),
     ) -> crate::intro_timing::IntroSourceTiming,
     advance_hardware: &mut dyn FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
 ) -> Option<TitleMemoryDmaAdvance> {
     let mut fifo = PlatformArtFifoScheduler::new(entry.beam)
-        .with_empty_vram_dma_latency(empty_vram_dma_latency)
-        .with_following_empty_vram_dma_latency(following_empty_vram_dma_latency);
+        .with_empty_vram_dma_latency(latencies.first_vram)
+        .with_following_empty_vram_dma_latency(latencies.following_vram)
+        .with_empty_cram_dma_latency(latencies.cram);
     let mut phase = entry.refresh_phase;
     let mut refresh_events = 0_u32;
     let mut external_wait_cycles = 0_u32;
@@ -9226,6 +9260,30 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(118).expect("oracle $7CC phase"),
             },
             "ASM sub_A5C returns at the selected frame-904 $7CC boundary",
+        );
+    }
+
+    #[test]
+    fn third_gameplay_palette_transfer_reaches_selected_loc_7d0_boundary() {
+        // ASM Mode_Level $7CC -> Palette_to_VRAM sub_970. Frame 904 enters
+        // with PaletteToDMA_Flag set and returns at cycle 115,702,966.
+        let advance = mode_level_palette_to_vram_cursor_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_702_434)),
+                refresh_phase: M68kRefreshPhase::new(118).expect("oracle $7CC phase"),
+            },
+            true,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("third gameplay active palette upload");
+
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_702_966)),
+                refresh_phase: M68kRefreshPhase::new(92).expect("oracle $7D0 phase"),
+            },
+            "ASM Palette_to_VRAM returns at the selected frame-904 $7D0 boundary",
         );
     }
 

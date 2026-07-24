@@ -13,6 +13,21 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+2026-07-23 third gameplay pass: persistent GEMS coverage advances through
+frame 904. Source-bound wait budgets prevent the defended native X/Y split
+from extending the sprite, palette, scroll and VBlank-suffix 68000 spans with
+false bank waits. The resulting prefix reaches selected `loc_7D6` cycle
+115,705,788 and `sub_E12` cycle 115,706,644. The pass then retains selected
+boundaries for the still-unclassified player activation span and coin-only
+`sub_44DC`, composes the typed post-HUD ledger, and accepts `sub_30194`'s
+21-ordinary-cell camera stripe. Frame 904 matches audio RAM, bank, waits and
+flags exactly; only native PC `$47` versus oracle `$44` differs within the
+FrameRendered instruction quantum. Full GEMS counts are 36,854 mismatches,
+870 limitations and 35 advisory-only frames; the authoritative frontier is
+frame 905. `verify-slice-fast` passes 7,054 core tests and `verify-tas-full`
+passes all 37,759 route frames with the GEMS ratchet updated. NEXT: extend the
+same source-bounded pass through frame 905.
+
 2026-07-23 frame-904 dynamic-art DMA: selected-PC evidence pins the third
 gameplay `sub_A5C` span from `Mode_Level $7C8` at cycle 115,698,837 to `$7CC`
 at 115,702,434. Unlike frame 902's empty `loc_AD4` queue, this pass consumes
@@ -440,6 +455,15 @@ with citation, or a decision to load the level) rather than 12 standing
 authoritative blockers that verify nothing.
 
 ### #416
+
+Progress 2026-07-23: defended GEMS coverage advances through frame 904 and
+the authoritative frontier moves to frame 905. The persistent adapter now
+bounds waits separately across `sub_A5C`, active `sub_970`, `loc_300BA`, and
+the VBlank suffix, so the established native X/Y split cannot inject waits
+that the selected oracle source boundaries exclude. Frame 904 reaches
+byte-exact audio RAM, bank, waits and flags; its `$47`/`$44` PC difference is
+the sampled Z80 instruction quantum. Full counts are 36,854 mismatches, 870
+limitations and 35 advisory-only frames. NEXT: source-bound frame 905.
 
 Progress 2026-07-23: the first gameplay blocking wait now runs on the
 persistent hardware timeline from the proven `WaitForVint $93E` poll at

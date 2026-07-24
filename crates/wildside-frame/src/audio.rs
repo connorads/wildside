@@ -1865,32 +1865,66 @@ pub fn apply_gems_mode_level_vblank_suffix_after_scroll_dma(
     work: ModeLevelVblankWorkBeforeSubE12,
     pending_vdp_wait_after_loc_7d6: M68kCycleCount,
 ) -> Option<TitleIntroSourceAdvance> {
+    apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
+        audio,
+        entry,
+        work,
+        pending_vdp_wait_after_loc_7d6,
+        None,
+    )
+}
+
+/// Clock the gameplay VBlank suffix with a source-bound GEMS wait budget.
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    work: ModeLevelVblankWorkBeforeSubE12,
+    pending_vdp_wait_after_loc_7d6: M68kCycleCount,
+    gems_wait_budget: Option<M68kCycleCount>,
+) -> Option<TitleIntroSourceAdvance> {
     if audio.pending_m68k_wait_cycles() != 0 {
         return None;
     }
     let mut first_source_instruction = true;
-    wildside_core::vdp::mode_level_vblank_suffix_after_scroll_dma_cursor_with_scheduler(
-        entry,
-        work,
-        |cycles, vdp_owns_bus, source_instruction| {
-            let generated_wait = apply_gems_title_source_hardware_interval(
-                audio,
-                cycles,
-                vdp_owns_bus,
-                source_instruction,
-            );
-            if source_instruction && first_source_instruction {
-                first_source_instruction = false;
-                Some(M68kCycleCount::from_raw(
+    let remaining_wait_budget = std::cell::Cell::new(gems_wait_budget.map(M68kCycleCount::get));
+    let advance =
+        wildside_core::vdp::mode_level_vblank_suffix_after_scroll_dma_cursor_with_scheduler(
+            entry,
+            work,
+            |cycles, vdp_owns_bus, source_instruction| {
+                let generated_wait = apply_gems_title_source_hardware_interval(
+                    audio,
+                    cycles,
+                    vdp_owns_bus,
+                    source_instruction,
+                );
+                let generated_wait = if let Some(remaining) = remaining_wait_budget.get() {
+                    let accepted = generated_wait.get().min(remaining);
+                    remaining_wait_budget.set(Some(remaining - accepted));
+                    M68kCycleCount::from_raw(accepted)
+                } else {
                     generated_wait
-                        .get()
-                        .checked_add(pending_vdp_wait_after_loc_7d6.get())?,
-                ))
-            } else {
-                Some(generated_wait)
-            }
-        },
-    )
+                };
+                if source_instruction && first_source_instruction {
+                    first_source_instruction = false;
+                    Some(M68kCycleCount::from_raw(
+                        generated_wait
+                            .get()
+                            .checked_add(pending_vdp_wait_after_loc_7d6.get())?,
+                    ))
+                } else {
+                    Some(generated_wait)
+                }
+            },
+        )?;
+    if remaining_wait_budget
+        .get()
+        .is_some_and(|remaining| remaining != 0)
+    {
+        return None;
+    }
+    Some(advance)
 }
 
 /// Clock the first source-typed gameplay `sub_E12 -> sub_44DC` interval.
@@ -3288,6 +3322,38 @@ pub fn apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
     work: ModeLevelVblankWorkBeforeSubE12,
     checkpoint_master_clock: u64,
 ) -> Option<(TitleMemoryDmaAdvance, GemsTimingCheckpoint)> {
+    apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint_and_wait_budgets(
+        audio,
+        entry,
+        work,
+        checkpoint_master_clock,
+        None,
+    )
+}
+
+/// Source-bound external-wait budgets for one gameplay VBlank prefix.
+///
+/// This is used when a defended emulator-specific Z80 phase split generates
+/// different bank-read requests from the source route. Each budget limits the
+/// waits that may extend its named 68000 span; excess generated waits are
+/// observed by the persistent GEMS machine but do not move the source cursor.
+#[cfg(feature = "audio")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelVblankGemsWaitBudgets {
+    pub sprite_and_kid: M68kCycleCount,
+    pub palette: M68kCycleCount,
+    pub scroll: M68kCycleCount,
+}
+
+/// Clock a gameplay VBlank prefix with source-bound GEMS wait budgets.
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint_and_wait_budgets(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    work: ModeLevelVblankWorkBeforeSubE12,
+    checkpoint_master_clock: u64,
+    wait_budgets: Option<ModeLevelVblankGemsWaitBudgets>,
+) -> Option<(TitleMemoryDmaAdvance, GemsTimingCheckpoint)> {
     if audio.pending_m68k_wait_cycles() != 0
         || checkpoint_master_clock < audio.master_clock()
         || work.scroll_path != ModeLevelScrollTransferPath::NormalLoc300ba
@@ -3296,6 +3362,7 @@ pub fn apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
     }
 
     let mut checkpoint = None;
+    let remaining_wait_budget = std::cell::Cell::new(None);
     let mut apply_event = |event: TitlePaletteHardwareEvent| {
         let TitlePaletteHardwareEvent::Advance {
             cycles,
@@ -3345,25 +3412,52 @@ pub fn apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
                 vdp_owns_bus,
             );
         }
-        Some(M68kCycleCount::from_raw(
-            audio.take_pending_m68k_wait_cycles(),
-        ))
+        let generated = audio.take_pending_m68k_wait_cycles();
+        let accepted = if let Some(remaining) = remaining_wait_budget.get() {
+            let accepted = generated.min(remaining);
+            remaining_wait_budget.set(Some(remaining - accepted));
+            accepted
+        } else {
+            generated
+        };
+        Some(M68kCycleCount::from_raw(accepted))
     };
 
+    remaining_wait_budget.set(wait_budgets.map(|budgets| budgets.sprite_and_kid.get()));
     let sprite = wildside_core::vdp::mode_level_sprite_and_kid_to_vram_cursor_with_scheduler(
         entry,
         work.dynamic_art_tiles_loc_ad4?,
         &mut apply_event,
     )?;
+    if remaining_wait_budget
+        .get()
+        .is_some_and(|remaining| remaining != 0)
+    {
+        return None;
+    }
+    remaining_wait_budget.set(wait_budgets.map(|budgets| budgets.palette.get()));
     let palette = wildside_core::vdp::mode_level_palette_to_vram_cursor_with_scheduler(
         sprite.cursor,
         work.palette_dma_sub_970,
         &mut apply_event,
     )?;
+    if remaining_wait_budget
+        .get()
+        .is_some_and(|remaining| remaining != 0)
+    {
+        return None;
+    }
+    remaining_wait_budget.set(wait_budgets.map(|budgets| budgets.scroll.get()));
     let scroll = wildside_core::vdp::mode_level_scroll_data_to_vram_cursor_with_scheduler(
         palette.cursor,
         &mut apply_event,
     )?;
+    if remaining_wait_budget
+        .get()
+        .is_some_and(|remaining| remaining != 0)
+    {
+        return None;
+    }
     Some((scroll, checkpoint?))
 }
 

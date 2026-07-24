@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 GEMS frame 904)
+
+- Source-bound wait budgets remove false native X/Y-derived extensions from
+  frame 904's sprite, palette, scroll and VBlank-suffix spans.
+- Selected boundaries now match at `loc_7D6`, `sub_E12`, `sub_44DC`,
+  `loc_810`, and `loc_892`.
+- Frame 904 has exact audio RAM, bank, waits and flags; only the `$47`/`$44`
+  sampled Z80 instruction quantum differs.
+- Full GEMS counts are 36,854 mismatches, 870 limitations and 35
+  advisory-only frames.
+- `verify-slice-fast` and `verify-tas-full` pass; NEXT is frame 905.
+
 ## 2026-07-23 handoff (#409 frame-904 dynamic-art DMA)
 
 - Oracle pins frame 904 `sub_A5C` from `$7C8` cycle 115,698,837 to `$7CC`
