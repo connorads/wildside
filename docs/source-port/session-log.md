@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 GEMS frame 918)
+
+- Frame 918 source-bounds the clock-only HUD path and blocking VINT.
+- Bank and waits match; RAM/PC/BUSREQ+IFF1 retain the established X/Y edge.
+- Full GEMS counts are 36,840 mismatches, 883 limitations and 36
+  advisory-only frames.
+- `verify-slice-fast` passes 7,057 core tests; NEXT is frame 919.
+
 ## 2026-07-23 handoff (#409 GEMS frame 917)
 
 - Frame 917 source-schedules the life-icon DMA and blocking VINT through the
