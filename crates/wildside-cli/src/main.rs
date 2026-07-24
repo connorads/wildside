@@ -1114,6 +1114,11 @@ enum Commands {
         /// this path (requires --compare-pixels; not supported with --bisect)
         #[arg(long)]
         pixel_mismatch_report: Option<PathBuf>,
+        /// Write the full classified GEMS outcome corpus (genuine /
+        /// oracle-limitation / advisory records) JSON to this path
+        /// (requires --compare-gems; not supported with --bisect)
+        #[arg(long)]
+        gems_mismatch_report: Option<PathBuf>,
     },
     /// Cluster a TAS pixel-mismatch corpus by root cause: replay the route,
     /// sample per-pixel draw provenance at each divergent frame, and rank
@@ -2597,6 +2602,7 @@ fn main() -> Result<()> {
             compare_pixels,
             compare_gems,
             pixel_mismatch_report,
+            gems_mismatch_report,
         } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -2604,6 +2610,9 @@ fn main() -> Result<()> {
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             if pixel_mismatch_report.is_some() && !compare_pixels {
                 bail!("--pixel-mismatch-report requires --compare-pixels");
+            }
+            if gems_mismatch_report.is_some() && !compare_gems {
+                bail!("--gems-mismatch-report requires --compare-gems");
             }
             if bisect {
                 if compare_pixels {
@@ -2614,6 +2623,9 @@ fn main() -> Result<()> {
                 }
                 if pixel_mismatch_report.is_some() {
                     bail!("--pixel-mismatch-report is not supported with --bisect");
+                }
+                if gems_mismatch_report.is_some() {
+                    bail!("--gems-mismatch-report is not supported with --bisect");
                 }
                 tas::bisect_tas(
                     &repo_root,
@@ -2639,6 +2651,7 @@ fn main() -> Result<()> {
                     compare_pixels,
                     compare_gems,
                     pixel_mismatch_report.as_deref(),
+                    gems_mismatch_report.as_deref(),
                 )?;
             }
         }

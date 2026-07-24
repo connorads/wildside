@@ -13063,10 +13063,63 @@ fn update_gems_frame_digest(hasher: &mut Sha1, signature: Option<&GemsFrameSigna
     }
 }
 
+/// Classification of one compared frame in the full census corpus (#434).
+/// Mirrors the disjoint counters in [`GemsFrameComparison`]: a frame is
+/// exactly one of genuine (`mismatch_count`), oracle-limitation
+/// (`oracle_limitation_count`), or advisory (`advisory_only_frames`) —
+/// exact-match frames are not recorded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum GemsFrameOutcomeClass {
+    Genuine,
+    OracleLimitation,
+    Advisory,
+}
+
+/// One non-clean compared frame for the census corpus (#434), including the
+/// oracle-limitation and advisory frames the comparison counters skip past.
+#[derive(Debug, Clone, serde::Serialize)]
+pub(crate) struct GemsFrameOutcomeRecord {
+    pub(crate) frame_index: usize,
+    pub(crate) classification: GemsFrameOutcomeClass,
+    /// Strict fields that diverge; advisory divider fields for `Advisory`
+    /// records; `["presence"]` when one side has no sample.
+    pub(crate) diverging_fields: Vec<&'static str>,
+    pub(crate) native: Option<GemsFrameSignature>,
+    pub(crate) oracle: Option<GemsFrameSignature>,
+}
+
+fn advisory_diverging_fields(
+    native: &GemsFrameSignature,
+    oracle: &GemsFrameSignature,
+) -> Vec<&'static str> {
+    let differs = [
+        native.z80_mclk_counter != oracle.z80_mclk_counter,
+        native.ym2612_mclk_counter != oracle.ym2612_mclk_counter,
+    ];
+    ADVISORY_FIELDS
+        .iter()
+        .zip(differs)
+        .filter_map(|(field, differs)| differs.then_some(*field))
+        .collect()
+}
+
 pub(crate) fn compare_gems_frame_signatures(
     native: &[Option<GemsFrameSignature>],
     oracle: &[Option<GemsFrameSignature>],
     range_start: usize,
+) -> GemsFrameComparison {
+    compare_gems_frame_signatures_with_corpus(native, oracle, range_start, None)
+}
+
+/// Identical digest/count semantics to [`compare_gems_frame_signatures`];
+/// when `corpus` is provided, additionally records every non-clean compared
+/// frame (genuine, oracle-limitation, and advisory) for the census (#434).
+pub(crate) fn compare_gems_frame_signatures_with_corpus(
+    native: &[Option<GemsFrameSignature>],
+    oracle: &[Option<GemsFrameSignature>],
+    range_start: usize,
+    mut corpus: Option<&mut Vec<GemsFrameOutcomeRecord>>,
 ) -> GemsFrameComparison {
     let shared_len = native.len().min(oracle.len());
     let start_frame = (range_start.min(shared_len)..shared_len)
@@ -13091,12 +13144,30 @@ pub(crate) fn compare_gems_frame_signatures(
     for frame_index in start..shared_len {
         let native_signature = native[frame_index].as_ref();
         let oracle_signature = oracle[frame_index].as_ref();
+        let record = |corpus: &mut Option<&mut Vec<GemsFrameOutcomeRecord>>,
+                      classification: GemsFrameOutcomeClass,
+                      diverging_fields: Vec<&'static str>| {
+            if let Some(corpus) = corpus.as_deref_mut() {
+                corpus.push(GemsFrameOutcomeRecord {
+                    frame_index,
+                    classification,
+                    diverging_fields,
+                    native: native_signature.copied(),
+                    oracle: oracle_signature.copied(),
+                });
+            }
+        };
         let diverging: Vec<&'static str> = match (native_signature, oracle_signature) {
             (Some(native), Some(oracle)) => {
                 let diverging = strict_diverging_fields(native, oracle);
                 if diverging.is_empty() {
                     if advisory_fields_diverge(native, oracle) {
                         advisory_only_frames += 1;
+                        record(
+                            &mut corpus,
+                            GemsFrameOutcomeClass::Advisory,
+                            advisory_diverging_fields(native, oracle),
+                        );
                     }
                     continue;
                 }
@@ -13107,6 +13178,11 @@ pub(crate) fn compare_gems_frame_signatures(
                     &diverging,
                 ) {
                     oracle_limitation_count += 1;
+                    record(
+                        &mut corpus,
+                        GemsFrameOutcomeClass::OracleLimitation,
+                        diverging,
+                    );
                     continue;
                 }
                 diverging
@@ -13114,6 +13190,11 @@ pub(crate) fn compare_gems_frame_signatures(
             (None, None) => continue,
             _ => vec!["presence"],
         };
+        record(
+            &mut corpus,
+            GemsFrameOutcomeClass::Genuine,
+            diverging.clone(),
+        );
 
         mismatch_count += 1;
         hasher.update((frame_index as u64).to_be_bytes());
@@ -13439,6 +13520,80 @@ mod tests {
             vec!["audio_ram_crc32", "status_bits"]
         );
         assert!(comparison.mismatch_digest.is_some());
+    }
+
+    #[test]
+    fn corpus_records_every_non_clean_frame_and_reconciles_with_counters() {
+        // Frame 0: exact match (no record). Frame 1: genuine strict
+        // mismatch. Frame 2: documented X/Y-flag oracle limitation
+        // ($02AE/$02AA). Frame 3: advisory-only divider divergence.
+        // Frame 4: presence mismatch (oracle sample missing).
+        let mut genuine = signature(0x0793);
+        genuine.audio_ram_crc32 ^= 1;
+        let mut advisory = signature(0x0793);
+        advisory.ym2612_mclk_counter += 6;
+        let native = vec![
+            Some(signature(0x0793)),
+            Some(signature(0x0793)),
+            Some(signature(0x02AE)),
+            Some(signature(0x0793)),
+            Some(signature(0x0793)),
+        ];
+        let oracle = vec![
+            Some(signature(0x0793)),
+            Some(genuine),
+            Some(signature(0x02AA)),
+            Some(advisory),
+            None,
+        ];
+
+        let mut corpus = Vec::new();
+        let with_corpus =
+            compare_gems_frame_signatures_with_corpus(&native, &oracle, 0, Some(&mut corpus));
+        // Note: shared_len stops at the shorter side only when lengths
+        // differ; here both are 5, and a trailing (Some, None) frame is a
+        // presence mismatch.
+        let without = compare_gems_frame_signatures(&native, &oracle, 0);
+        assert_eq!(with_corpus, without, "corpus must not change semantics");
+
+        let class_count = |class: GemsFrameOutcomeClass| {
+            corpus
+                .iter()
+                .filter(|record| record.classification == class)
+                .count()
+        };
+        // Reconciliation invariant: the disjoint corpus classes sum to the
+        // comparison's disjoint counters exactly.
+        assert_eq!(
+            class_count(GemsFrameOutcomeClass::Genuine),
+            with_corpus.mismatch_count
+        );
+        assert_eq!(
+            class_count(GemsFrameOutcomeClass::OracleLimitation),
+            with_corpus.oracle_limitation_count
+        );
+        assert_eq!(
+            class_count(GemsFrameOutcomeClass::Advisory),
+            with_corpus.advisory_only_frames
+        );
+        assert_eq!(corpus.len(), 4, "exact-match frames are not recorded");
+
+        assert_eq!(corpus[0].frame_index, 1);
+        assert_eq!(corpus[0].classification, GemsFrameOutcomeClass::Genuine);
+        assert_eq!(corpus[0].diverging_fields, vec!["audio_ram_crc32"]);
+        assert_eq!(corpus[1].frame_index, 2);
+        assert_eq!(
+            corpus[1].classification,
+            GemsFrameOutcomeClass::OracleLimitation
+        );
+        assert_eq!(corpus[1].diverging_fields, vec!["z80_pc"]);
+        assert_eq!(corpus[2].frame_index, 3);
+        assert_eq!(corpus[2].classification, GemsFrameOutcomeClass::Advisory);
+        assert_eq!(corpus[2].diverging_fields, vec!["ym2612_mclk_counter"]);
+        assert_eq!(corpus[3].frame_index, 4);
+        assert_eq!(corpus[3].classification, GemsFrameOutcomeClass::Genuine);
+        assert_eq!(corpus[3].diverging_fields, vec!["presence"]);
+        assert_eq!(corpus[3].oracle, None);
     }
 
     #[test]

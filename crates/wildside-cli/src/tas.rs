@@ -514,6 +514,7 @@ pub fn verify_tas(
     compare_pixels: bool,
     compare_gems: bool,
     pixel_mismatch_report: Option<&Path>,
+    gems_mismatch_report: Option<&Path>,
 ) -> Result<()> {
     let scenario_json = std::fs::read_to_string(scenario_path)
         .with_context(|| format!("failed to read {}", scenario_path.display()))?;
@@ -704,15 +705,22 @@ pub fn verify_tas(
             ),
         }
     }
+    let mut gems_outcome_corpus = Vec::new();
     let gems_frame_comparison = compare_gems.then(|| {
-        crate::tas_gems::compare_gems_frame_signatures(
+        crate::tas_gems::compare_gems_frame_signatures_with_corpus(
             &native_gems_signatures,
             &oracle.gems_frame_signatures,
             start,
+            gems_mismatch_report
+                .is_some()
+                .then_some(&mut gems_outcome_corpus),
         )
     });
     if let Some(comparison) = &gems_frame_comparison {
         println!("  GEMS: {}", comparison.console_summary());
+    }
+    if let (Some(path), Some(comparison)) = (gems_mismatch_report, &gems_frame_comparison) {
+        write_gems_mismatch_report(path, &scenario.slug, comparison, &gems_outcome_corpus)?;
     }
 
     // Compare
@@ -898,6 +906,65 @@ pub fn verify_tas(
     std::fs::write(&report_path, serde_json::to_vec_pretty(&report)?)?;
     println!("  report: {}", report_path.display());
 
+    Ok(())
+}
+
+/// Write the full classified GEMS outcome corpus (#434). Hard-checks the
+/// reconciliation invariant before writing: the disjoint corpus classes must
+/// sum exactly to the comparison's disjoint counters, or the collector has
+/// drifted from the comparison semantics and the corpus is untrustworthy.
+fn write_gems_mismatch_report(
+    path: &Path,
+    slug: &str,
+    comparison: &crate::tas_gems::GemsFrameComparison,
+    corpus: &[crate::tas_gems::GemsFrameOutcomeRecord],
+) -> Result<()> {
+    use crate::tas_gems::GemsFrameOutcomeClass;
+    let class_count = |class: GemsFrameOutcomeClass| {
+        corpus
+            .iter()
+            .filter(|record| record.classification == class)
+            .count()
+    };
+    let genuine = class_count(GemsFrameOutcomeClass::Genuine);
+    let oracle_limitation = class_count(GemsFrameOutcomeClass::OracleLimitation);
+    let advisory = class_count(GemsFrameOutcomeClass::Advisory);
+    if genuine != comparison.mismatch_count
+        || oracle_limitation != comparison.oracle_limitation_count
+        || advisory != comparison.advisory_only_frames
+    {
+        anyhow::bail!(
+            "GEMS corpus reconciliation failed: corpus {genuine}/{oracle_limitation}/{advisory} \
+             vs comparison {}/{}/{} (genuine/limitation/advisory)",
+            comparison.mismatch_count,
+            comparison.oracle_limitation_count,
+            comparison.advisory_only_frames
+        );
+    }
+    let report = serde_json::json!({
+        "slug": slug,
+        "projection": wildside_core::GEMS_FRAME_SIGNATURE_PROJECTION_NAME,
+        "start_frame": comparison.start_frame,
+        "compared_frames": comparison.compared_frames,
+        "counts": {
+            "genuine": genuine,
+            "oracle_limitation": oracle_limitation,
+            "advisory": advisory,
+        },
+        "records": corpus,
+    });
+    if let Some(parent) = path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+    std::fs::write(path, serde_json::to_vec_pretty(&report)?)
+        .with_context(|| format!("failed to write {}", path.display()))?;
+    println!(
+        "  GEMS mismatch report: {} ({genuine} genuine, {oracle_limitation} limitation, {advisory} advisory records)",
+        path.display()
+    );
     Ok(())
 }
 
