@@ -456,7 +456,34 @@ authoritative blockers that verify nothing.
 
 ### #434
 
-GEMS mismatch census. Opened 2026-07-24 by the #416 freeze decision: dump
+Closed 2026-07-24. Full-route corpus (`verify-tas --compare-gems
+--gems-mismatch-report`, 30 MB in `.cache/tas-verify/any-percent-published/`)
+reconciles exactly with the frozen frontier block: 36,836 genuine + 887
+oracle-limitation + 36 advisory records, disjoint, hard-checked by both the
+report writer and `build_gems_census`. `mise run gems-census` clusters them
+into 72 shapes (47 genuine, 23 limitation, 2 advisory):
+
+- Top 5 genuine shapes cover 94.9% of the debt. #1: `audio_ram_crc32 +
+  pending_m68k_wait_cycles + status_bits + z80_pc` — 19,623 frames, 3,347
+  runs (longest 85), span 923..37589. #2: the same plus `bank_address`
+  with native 0xE8000 vs oracle 0xE0000 — 7,104 frames, 1,327 runs
+  (longest 193). #3: without `status_bits` — 4,561 frames. #4: #2 without
+  `status_bits` — 2,183. #5: without `z80_pc` — 1,490.
+- Every genuine cluster includes `audio_ram_crc32`; there are no presence
+  mismatches. The debt is uniformly RAM-content phase plus derivative
+  PC/wait/status residue — consistent with the #416 diagnosis
+  (timing-emergent Z80 phase, not command-content divergence).
+- Bank pairs diverge in BOTH directions (native ahead and behind across
+  0xE0000/0xE8000/0xF0000/0xF8000/...), i.e. bank-switch phase lag, not
+  wrong bank logic.
+- All 23 oracle-limitation clusters sit inside frames 16..922 — the
+  documented X/Y whitelist inside the defended span; none leak past the
+  frozen edge. Largest: `audio_ram_crc32+z80_pc`, 569 frames, 36..920.
+- Span selection for #437: long phase-locked runs (longest 85/193) mean
+  bounded spans of tens of frames per top shape class are viable; take one
+  span from each of the top 5 genuine shapes.
+
+Opened 2026-07-24 by the #416 freeze decision: dump
 every compared frame's outcome from the full-route
 `gems_frame_signature_v1` comparison — genuine (36,836), oracle-limitation
 (887), and advisory (36) classifications are disjoint (the compare fn skips
@@ -19188,6 +19215,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 434 | [x] | P2 | audio | GEMS mismatch census: `--gems-mismatch-report` corpus (every compared frame classified, disjoint) + `gems-census` clustering into `.cache/audit/gems-census.json`. | Full-route corpus reconciles exactly (36,836/887/36); 72 clusters, top 5 genuine shapes cover 94.9%. See archive #434. |
 | 429 | [x] | P2 | kid-physics | Debug title-card level entry runs `loc_75C0` spawn-wall overlap correction before live gravity settle and camera follow. | Level 0x29 report `1784577500` state-exact; frame shift removed in `1784577515`; focused guards green. See archive #429. |
 | 428 | [-] | P2 | enemy | Historical census attributed Level 0x64's pre-#403 Tar burst-child lifetime residual after #403 had already corrected it. | Fresh report `1784577126`: Level 0x64 passes state sweep; cache-backed 360-frame schedule regression green. See archive #428. |
 | 418 | [x] | P2 | verification | Sweep-blocker census: `sweep-census` tool + 22-agent attribution classify all 106 blocking diffs of run 1783914264 into owned clusters #419-#433 (0x33 stays with #301). | Census regenerable via `mise run sweep-census`; cluster table + method notes in archive #418. |
