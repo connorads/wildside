@@ -456,6 +456,17 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: defended GEMS coverage advances through frame 907 and
+the authoritative frontier moves to frame 908. The sixth gameplay pass
+reaches selected `loc_7D6`, `sub_E12`, `sub_44DC`, `loc_810`, `loc_892`,
+`$93E`, and the following `$7C8`; `sub_44DC` skips every conditional HUD
+upload. Source-bound VBlank and tail scheduling remove frame 907's false
+pending 68000 wait. The remaining audio-RAM, PC and IRQ-state residue is the
+established jgenesis undocumented-X/Y phase and is pinned by exact values.
+Full counts are 36,851 mismatches, 872 limitations and 36 advisory-only
+frames. `verify-slice-fast` passes 7,057 core tests. NEXT: source-bound frame
+908.
+
 Progress 2026-07-23: defended GEMS coverage advances through frame 906 and
 the authoritative frontier moves to frame 907. The persistent background
 scheduler now accepts ASM `sub_307D8 loc_308A6`'s zero-wrap 41-word stream.

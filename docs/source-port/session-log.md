@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 GEMS frame 907)
+
+- Frame 907 source-schedules the sixth gameplay pass through the following
+  blocking VINT; selected boundaries match through the next `$7C8`.
+- `sub_44DC` skips all conditional HUD uploads and source-bound scheduling
+  removes the prior false pending-wait difference.
+- The exact FrameRendered RAM/PC/IRQ residue is the established jgenesis
+  undocumented-X/Y phase.
+- Full GEMS counts are 36,851 mismatches, 872 limitations and 36
+  advisory-only frames.
+- `verify-slice-fast` passes 7,057 core tests; NEXT is frame 908.
+
 ## 2026-07-23 handoff (#409 GEMS frame 906)
 
 - Frame 906 source-schedules the fifth gameplay pass and carries the
