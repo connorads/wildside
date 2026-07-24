@@ -14,6 +14,7 @@ mod compare;
 mod diff;
 mod gems_census;
 mod gems_ring;
+mod gems_span;
 mod hypothesis;
 mod inspect;
 mod native_player;
@@ -1000,6 +1001,36 @@ enum Commands {
         #[arg(long)]
         manifest: Option<PathBuf>,
         /// Optional JSON dump of the decoded per-frame events
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
+    /// Replay a captured ORACLE 68k→Z80 stimulus span into the native GEMS
+    /// timing engine, seeded at a ROM reinit anchor, and compare
+    /// timing-emergent signature fields per frame (#437). Produces a
+    /// measured-debt report — deliberately NOT a CI gate.
+    GemsSpanReplay {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        /// Oracle manifest with gems_stimuli + pc-trace anchor checkpoint +
+        /// per-frame signatures (default: .cache/oracle-probe/oracle/manifest.json)
+        #[arg(long)]
+        manifest: Option<PathBuf>,
+        /// Frame of the ROM reinit whose $E14C8 pc-trace checkpoint seeds
+        /// the replay phases
+        #[arg(long)]
+        anchor_frame: usize,
+        /// First compared frame (must be after the anchor frame)
+        #[arg(long)]
+        frame_start: usize,
+        /// Last compared frame (inclusive)
+        #[arg(long)]
+        frame_end: usize,
+        /// Sensitivity probe: add this many 68k cycles to every stimulus
+        /// stamp (captured stamps are instruction-OPENING; jgenesis lands
+        /// pending writes at instruction close, typically ~16 cycles later)
+        #[arg(long, default_value_t = 0)]
+        stamp_skew_cycles: u64,
+        /// Report JSON (default: .cache/audit/gems-span-replay-<start>-<end>.json)
         #[arg(long)]
         output: Option<PathBuf>,
     },
@@ -2471,6 +2502,30 @@ fn main() -> Result<()> {
             let manifest_path = manifest
                 .unwrap_or_else(|| repo_root.join(".cache/oracle-probe/oracle/manifest.json"));
             gems_ring::run_gems_ring_decode(&manifest_path, output.as_deref())?;
+        }
+        Commands::GemsSpanReplay {
+            rom,
+            manifest,
+            anchor_frame,
+            frame_start,
+            frame_end,
+            stamp_skew_cycles,
+            output,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let manifest_path = manifest
+                .unwrap_or_else(|| repo_root.join(".cache/oracle-probe/oracle/manifest.json"));
+            gems_span::run_gems_span_replay(
+                &repo_root,
+                &rom_path,
+                &manifest_path,
+                anchor_frame,
+                frame_start,
+                frame_end,
+                stamp_skew_cycles,
+                output.as_deref(),
+            )?;
         }
         Commands::GemsReplayProbe {
             rom,

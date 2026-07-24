@@ -204,10 +204,47 @@ pub enum GemsStimulus {
     CopyPowerOnStartupRam {
         startup_code: Vec<u8>,
     },
+    Apply68kZ80RamWrite {
+        z80_addr: u16,
+        value: u8,
+    },
+    Apply68kBusreqBit {
+        busreq: bool,
+    },
+    Apply68kResetBit {
+        reset: bool,
+    },
+    SeedReplayPhase {
+        seed: GemsReplaySeed,
+    },
     /// Marker only: pushed by [`GemsMasterClockTimingEngine::record_frame_marker`]
     /// so a replay harness can sample checkpoints at frame boundaries. Replay
     /// applies no mutation.
     FrameBoundary(usize),
+}
+
+/// Bus/divider phase scalars seeded at a bounded-span replay anchor (#437).
+///
+/// A span anchors at a ROM StopMusic reinit, so Z80 registers, PC, and the
+/// 8 KiB audio RAM are reproduced by replaying the captured reinit stimuli
+/// themselves — the seed carries only the state that survives a Z80 reset:
+/// the absolute master-clock position (INT raster phase), bank register,
+/// divider remainders, wait ledgers, access parity, and bus-control lines.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GemsReplaySeed {
+    pub master_clock: u64,
+    pub bank_address: u32,
+    pub z80_mclk_counter: u64,
+    pub z80_t_cycles_wait: u32,
+    pub z80_wait_mclk_cycles: u64,
+    pub z80_odd_access: bool,
+    pub ym2612_mclk_counter: u64,
+    /// Derivable from the oracle checkpoint as `ym2612_mclk_counter % 7`:
+    /// both native counters reduce at every advance and 7 divides 42.
+    pub ym2612_input_mclk_counter: u64,
+    pub pending_m68k_wait_cycles: u32,
+    pub busreq: bool,
+    pub reset: bool,
 }
 
 /// Return value of replaying one [`GemsStimulus`], mirroring the replayed
@@ -636,8 +673,78 @@ impl GemsMasterClockTimingEngine {
                 self.copy_power_on_startup_ram(startup_code);
                 GemsStimulusOutput::None
             }
+            GemsStimulus::Apply68kZ80RamWrite { z80_addr, value } => {
+                self.apply_68k_z80_ram_write(*z80_addr, *value);
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::Apply68kBusreqBit { busreq } => {
+                self.apply_68k_busreq_bit(*busreq);
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::Apply68kResetBit { reset } => {
+                self.apply_68k_reset_bit(*reset);
+                GemsStimulusOutput::None
+            }
+            GemsStimulus::SeedReplayPhase { seed } => {
+                self.seed_replay_phase(seed);
+                GemsStimulusOutput::None
+            }
             GemsStimulus::FrameBoundary(_) => GemsStimulusOutput::None,
         }
+    }
+
+    /// Apply one captured 68k byte write into the Z80 memory map (#437).
+    ///
+    /// Mirrors jgenesis `MainBus::apply_byte_write` `$A00000..=$A0FFFF`: the
+    /// address is already masked to `& 0x7FFF` capture-side, and the write
+    /// requires BUSACK (BUSREQ held, RESET clear) — the capture records only
+    /// writes that passed that guard, so a failed assert means the replay's
+    /// control-line state has diverged from the oracle's.
+    pub fn apply_68k_z80_ram_write(&mut self, z80_addr: u16, value: u8) {
+        self.record_stimulus(|| GemsStimulus::Apply68kZ80RamWrite { z80_addr, value });
+        assert!(
+            self.busreq && !self.reset,
+            "68k Z80-RAM writes require BUSACK (BUSREQ held, RESET clear)"
+        );
+        assert!(
+            z80_addr < 0x8000,
+            "captured 68k Z80 writes are pre-masked to $0000-$7FFF"
+        );
+        self.z80.io.write_byte(z80_addr, value);
+    }
+
+    /// Apply a captured `$A11100` BUSREQ bit write, preserving the RESET line.
+    pub fn apply_68k_busreq_bit(&mut self, busreq: bool) {
+        self.record_stimulus(|| GemsStimulus::Apply68kBusreqBit { busreq });
+        let reset = self.reset;
+        self.set_z80_control_inner(busreq, reset);
+    }
+
+    /// Apply a captured `$A11200` RESET bit write, preserving the BUSREQ
+    /// line. `reset` is the resulting line state (the capture records the
+    /// post-write state, matching jgenesis `set_z80_reset(!value.bit(0))`).
+    pub fn apply_68k_reset_bit(&mut self, reset: bool) {
+        self.record_stimulus(|| GemsStimulus::Apply68kResetBit { reset });
+        let busreq = self.busreq;
+        self.set_z80_control_inner(busreq, reset);
+    }
+
+    /// Seed the phase scalars for a bounded-span replay anchored at a ROM
+    /// reinit (#437). Replay-only: there is deliberately no RAM or Z80
+    /// register restore — replaying the reinit's own stimuli reproduces
+    /// those, and [`GemsTimingCheckpoint`] is not a complete snapshot.
+    pub fn seed_replay_phase(&mut self, seed: &GemsReplaySeed) {
+        self.record_stimulus(|| GemsStimulus::SeedReplayPhase { seed: seed.clone() });
+        self.master_clock = seed.master_clock;
+        self.z80_mclk_counter = seed.z80_mclk_counter;
+        self.z80_t_cycles_wait = seed.z80_t_cycles_wait;
+        self.z80_wait_mclk_cycles = seed.z80_wait_mclk_cycles;
+        self.z80_odd_access = seed.z80_odd_access;
+        self.ym2612_mclk_counter = seed.ym2612_mclk_counter;
+        self.ym2612_input_mclk_counter = seed.ym2612_input_mclk_counter;
+        self.pending_m68k_wait_cycles = seed.pending_m68k_wait_cycles;
+        self.z80.io.bank_address = seed.bank_address;
+        self.set_z80_control_inner(seed.busreq, seed.reset);
     }
 
     /// Advance an already-accounted hardware interval.
@@ -2003,6 +2110,68 @@ mod tests {
         replay.apply_stimulus(&recording[0]);
         assert_eq!(replay.checkpoint(), engine.checkpoint());
         assert!(replay.initialised);
+    }
+
+    #[test]
+    fn replay_ram_write_lands_under_busack_and_bit_wrappers_preserve_lines() {
+        let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+
+        engine.apply_68k_busreq_bit(true);
+        assert!(engine.busreq);
+        assert!(!engine.reset, "BUSREQ wrapper must not touch RESET");
+        engine.apply_68k_reset_bit(true);
+        assert!(engine.busreq, "RESET wrapper must not touch BUSREQ");
+        assert!(engine.reset);
+        engine.apply_68k_reset_bit(false);
+
+        engine.apply_68k_z80_ram_write(0x1A40, 0xFF);
+        assert_eq!(engine.z80.io.ram.borrow()[0x1A40], 0xFF);
+    }
+
+    #[test]
+    #[should_panic(expected = "BUSACK")]
+    fn replay_ram_write_without_busack_is_a_replay_desync() {
+        let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+        engine.apply_68k_z80_ram_write(0x1A40, 0xFF);
+    }
+
+    #[test]
+    fn seed_replay_phase_round_trips_into_the_checkpoint() {
+        let mut engine = GemsMasterClockTimingEngine::new_with_ntsc_timeline_origin(
+            &[0x76],
+            vec![],
+            GemsNtscTimelineOrigin::PowerOnScanlineZero,
+        );
+        let seed = GemsReplaySeed {
+            master_clock: 111_231_277 * 7,
+            bank_address: 29 << 15,
+            z80_mclk_counter: 13,
+            z80_t_cycles_wait: 2,
+            z80_wait_mclk_cycles: 49,
+            z80_odd_access: true,
+            ym2612_mclk_counter: 7,
+            ym2612_input_mclk_counter: 0,
+            pending_m68k_wait_cycles: 11,
+            busreq: false,
+            reset: false,
+        };
+
+        engine.seed_replay_phase(&seed);
+
+        let checkpoint = engine.checkpoint();
+        assert_eq!(checkpoint.master_clock, seed.master_clock);
+        assert_eq!(checkpoint.bank_address, seed.bank_address);
+        assert_eq!(checkpoint.z80_mclk_counter, seed.z80_mclk_counter);
+        assert_eq!(checkpoint.z80_t_cycles_wait, seed.z80_t_cycles_wait);
+        assert_eq!(checkpoint.z80_wait_mclk_cycles, seed.z80_wait_mclk_cycles);
+        assert_eq!(checkpoint.z80_odd_access, seed.z80_odd_access);
+        assert_eq!(checkpoint.ym2612_mclk_counter, seed.ym2612_mclk_counter);
+        assert_eq!(
+            checkpoint.pending_m68k_wait_cycles,
+            seed.pending_m68k_wait_cycles
+        );
+        assert!(!checkpoint.busreq);
+        assert!(!checkpoint.reset, "seed clears the power-on reset line");
     }
 
     #[test]

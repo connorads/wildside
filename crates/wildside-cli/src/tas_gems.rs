@@ -209,7 +209,7 @@ const STRICT_FIELDS: &[&str] = &[
 /// captured and reported but never gate.
 const ADVISORY_FIELDS: &[&str] = &["z80_mclk_counter", "ym2612_mclk_counter"];
 
-fn signature_from_checkpoint(checkpoint: &GemsTimingCheckpoint) -> GemsFrameSignature {
+pub(crate) fn signature_from_checkpoint(checkpoint: &GemsTimingCheckpoint) -> GemsFrameSignature {
     let mut ram_crc = crc32fast::Hasher::new();
     ram_crc.update(&checkpoint.audio_ram);
     GemsFrameSignature {
@@ -9140,7 +9140,7 @@ pub(crate) struct GemsFrameComparison {
     pub(crate) mismatch_digest: Option<String>,
 }
 
-fn strict_diverging_fields(
+pub(crate) fn strict_diverging_fields(
     native: &GemsFrameSignature,
     oracle: &GemsFrameSignature,
 ) -> Vec<&'static str> {
@@ -9159,7 +9159,10 @@ fn strict_diverging_fields(
         .collect()
 }
 
-fn advisory_fields_diverge(native: &GemsFrameSignature, oracle: &GemsFrameSignature) -> bool {
+pub(crate) fn advisory_fields_diverge(
+    native: &GemsFrameSignature,
+    oracle: &GemsFrameSignature,
+) -> bool {
     native.z80_mclk_counter != oracle.z80_mclk_counter
         || native.ym2612_mclk_counter != oracle.ym2612_mclk_counter
 }

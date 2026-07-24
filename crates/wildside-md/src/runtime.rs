@@ -5,7 +5,7 @@ mod gems_timing;
 
 pub use gems_timing::{
     GemsBanked68kRead, GemsMasterClockAdvance, GemsMasterClockTimingEngine, GemsNtscTimelineOrigin,
-    GemsQueueCommand, GemsQueueCommandControl, GemsStimulus, GemsStimulusOutput,
+    GemsQueueCommand, GemsQueueCommandControl, GemsReplaySeed, GemsStimulus, GemsStimulusOutput,
     GemsStopMusicControl, GemsStopMusicQueueTransaction, GemsTimingCheckpoint,
 };
 
