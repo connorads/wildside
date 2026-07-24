@@ -3625,6 +3625,13 @@ impl NativeRuntime {
                 cached_col_matches: previous_col == kid_block_col,
                 cached_row_matches: previous_row == kid_block_row,
                 active_shooter_slots_before: self.block_state.shooter_blocks.len() as u16,
+                cached_col_before: previous_col,
+                cached_row_before: previous_row,
+                kid_block_col,
+                kid_block_row,
+                level_height_blocks: u16::try_from(max_row.saturating_add(1))
+                    .expect("non-negative block-grid height"),
+                new_shooter_slots_registered: 0,
             });
         }
 
@@ -3814,6 +3821,13 @@ impl NativeRuntime {
             }
         }
 
+        let new_shooter_slots_registered =
+            u16::try_from(pending_entries.len()).expect("shooter slot count fits u16");
+        if let Some(ledger) = self.mode_level_work_before_hud_sub_44dc.as_mut()
+            && let Some(scan) = ledger.post_execute.shooter_scan_sub_f096.as_mut()
+        {
+            scan.new_shooter_slots_registered = new_shooter_slots_registered;
+        }
         self.block_state.shooter_last_scanned_col = kid_block_col;
         self.block_state.shooter_last_scanned_row = kid_block_row;
         self.block_state

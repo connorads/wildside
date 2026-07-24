@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#416 GEMS frame 919)
+
+- Frame 919 source-bounds the grounded player, steady palette worker,
+  single dynamic-art Kid sprite, no-upload HUD path, unchanged-camera tail,
+  and blocking VINT.
+- Every selected gameplay boundary matches through the next `Mode_Level`
+  entry; the RAM/PC/BUSREQ residue is the established X/Y IRQ edge.
+- Full GEMS counts are 36,839 mismatches, 884 limitations and 36
+  advisory-only frames.
+- `verify-slice-fast` passes 7,060 core tests; NEXT is frame 920.
+
 ## 2026-07-23 handoff (#409 GEMS frame 918)
 
 - Frame 918 source-bounds the clock-only HUD path and blocking VINT.

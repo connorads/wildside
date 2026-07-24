@@ -227,23 +227,51 @@ fn mode_level_gfx_sprite_work_sub_1492(
 ) -> ModeLevelGfxSpriteWorkSub1492 {
     // ASM sub_7196 leaves these four persistent gameplay GfxObjects in the
     // target shell. The selected-PC oracle streams distinguish their exact
-    // sub_11B6 paths. The second node remains hidden on the loc_7508 activation
-    // pass, then uses its two-entry mapping on later steady gameplay frames.
-    let second_persistent_node = if runtime
+    // sub_11B6 paths. The second node remains hidden on the loc_7508
+    // activation pass. ASM loc_129E -> sub_13C0 loc_141A emits one 20x32
+    // dynamic-art mapping entry for the grounded stationary Kid on published
+    // frame 919.
+    let grounded_stationary_kid = runtime
         .mode_level_work_before_hud_sub_44dc
         .as_ref()
         .is_some_and(|ledger| {
-            ledger.execute_objects.player == ModeLevelPlayerWorkBeforeHud::Activation
-        }) {
-        ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear
+            matches!(
+                ledger.execute_objects.executed_player_path,
+                Some(
+                    crate::ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 {
+                        form: crate::PlayerForm::TheKid,
+                    }
+                )
+            )
+        });
+    let second_persistent_node = runtime.mode_level_work_before_hud_sub_44dc.as_ref().map_or(
+        ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal,
+        |ledger| {
+            if ledger.execute_objects.player == ModeLevelPlayerWorkBeforeHud::Activation {
+                ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear
+            } else if grounded_stationary_kid {
+                ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt20x32Normal
+            } else {
+                ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal
+            }
+        },
+    );
+    let (first_persistent_node, culled_persistent_node) = if grounded_stationary_kid {
+        (
+            ModeLevelGfxSpriteNodeWorkSub1492::MappingPointerNull,
+            ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+        )
     } else {
-        ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal
+        (
+            ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear,
+            ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
+        )
     };
     let mut nodes = vec![
-        ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear,
+        first_persistent_node,
         second_persistent_node,
-        ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
-        ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
+        culled_persistent_node,
+        culled_persistent_node,
     ];
 
     for tail in runtime.visible_prize_block_worker_tails() {
@@ -2294,7 +2322,9 @@ mod tests {
                     damage_flash_wait_loc_bc44: Some(ModeLevelDamageFlashWaitLocBc44::AwaitDamage,),
                     demo_exit_wait_loc_119e0: None,
                     input_worker_loc_7452: None,
-                    palette_fade_worker_sub_73d0: None,
+                    palette_fade_worker_sub_73d0: Some(
+                        ModeLevelPaletteFadeWorkerPathSub73D0::AdvanceFadeAndHibernateLoc7402,
+                    ),
                     prize_block_tail_paths_sub_1066: vec![ModeLevelPrizeBlockTailWork {
                         cell_x: 0x0A,
                         cell_y: 0x0C,
@@ -8117,6 +8147,7 @@ mod tests {
         runtime.last_kid_frame_grounded_release_probe = Some(KidGroundedReleaseProbe {
             on_ground_before: true,
             held_direction: Some(Direction::Right),
+            down_held: false,
             jump_pressed: false,
             jump_buffer_frames: 0,
             custom_gravity: false,
@@ -9924,8 +9955,14 @@ impl NativeRuntime {
                     } else {
                         ModeLevelInputWorkerPathLoc7452::DemoNoLeftNoStartTimerClear
                     }),
-                palette_fade_worker_sub_73d0: (player == ModeLevelPlayerWorkBeforeHud::Activation)
-                    .then_some(ModeLevelPaletteFadeWorkerPathSub73D0::InitialCopyAndHibernate),
+                palette_fade_worker_sub_73d0: if player == ModeLevelPlayerWorkBeforeHud::Activation
+                {
+                    Some(ModeLevelPaletteFadeWorkerPathSub73D0::InitialCopyAndHibernate)
+                } else if !self.allow_pausing {
+                    Some(ModeLevelPaletteFadeWorkerPathSub73D0::AdvanceFadeAndHibernateLoc7402)
+                } else {
+                    None
+                },
                 prize_block_tail_paths_sub_1066,
                 prize_block_flash_paths_sub_1066,
                 floating_prize_paths,
@@ -10139,13 +10176,43 @@ impl NativeRuntime {
                 form: self.progression.current_form,
             };
         }
+        let action = self.last_kid_frame_kid_flip_branch_probe;
+        let grounded_stationary = self.last_kid_frame_motion_branch
+            == KidFrameMotionBranch::NormalPhysics
+            && self.progression.current_form == PlayerForm::TheKid
+            && self.active_platform_standing_on.is_none()
+            && self.current_player_state().is_some_and(|player| {
+                player.on_ground && player.x_velocity == 0 && player.y_velocity == 0
+            })
+            && self
+                .last_kid_frame_grounded_release_probe
+                .is_some_and(|probe| {
+                    probe.on_ground_before
+                        && probe.held_direction.is_none()
+                        && !probe.down_held
+                        && !probe.jump_pressed
+                        && probe.jump_buffer_frames == 0
+                        && probe.velocity_branch == KidGroundedReleaseVelocityBranch::GroundedHold
+                        && probe.support_col.is_some()
+                        && !probe.release_triggered
+                })
+            && action.is_some_and(|action| !action.b_pressed && !action.c_pressed);
+        if grounded_stationary {
+            // ASM loc_7606..loc_78C6 (kid.asm:7716-7967): standing The Kid
+            // with no controller action and no platform clears both
+            // velocities, probes support through sub_B43A, refreshes the
+            // standing sprite in sub_78E8, and returns to loc_75D4.
+            return ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 {
+                form: self.progression.current_form,
+            };
+        }
         if self.last_kid_frame_motion_branch != KidFrameMotionBranch::NormalPhysics {
             return ModeLevelPlayerExecutionPath::Unclassified;
         }
         let Some(follow_on) = self.last_kid_frame_kid_flip_follow_on_probe else {
             return ModeLevelPlayerExecutionPath::Unclassified;
         };
-        let Some(action) = self.last_kid_frame_kid_flip_branch_probe else {
+        let Some(action) = action else {
             return ModeLevelPlayerExecutionPath::Unclassified;
         };
         let stages = follow_on.stages;
@@ -10299,6 +10366,12 @@ impl NativeRuntime {
                     cached_col_matches: self.block_state.shooter_last_scanned_col == kid_block_col,
                     cached_row_matches: self.block_state.shooter_last_scanned_row == kid_block_row,
                     active_shooter_slots_before: self.block_state.shooter_blocks.len() as u16,
+                    cached_col_before: self.block_state.shooter_last_scanned_col,
+                    cached_row_before: self.block_state.shooter_last_scanned_row,
+                    kid_block_col,
+                    kid_block_row,
+                    level_height_blocks: grid.height_cells,
+                    new_shooter_slots_registered: 0,
                 },
             ))
         })

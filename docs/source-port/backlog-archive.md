@@ -456,6 +456,16 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: defended GEMS coverage advances through frame 919 and
+the authoritative frontier moves to frame 920. The eighteenth gameplay pass
+types the grounded `loc_7606` player route, steady `loc_7402` palette worker,
+single dynamic-art Kid sprite, no-upload HUD path, and unchanged-camera
+`sub_30194` tail. Selected boundaries from `sub_44DC` through the next
+`Mode_Level` entry all match. The remaining RAM/PC/BUSREQ residue is the
+established X/Y IRQ edge. Full counts are 36,839 mismatches, 884 limitations
+and 36 advisory-only frames. `verify-slice-fast` passes 7,060 core tests.
+NEXT: frame 920.
+
 Progress 2026-07-23: defended GEMS coverage advances through frame 918 and
 the authoritative frontier moves to frame 919. The seventeenth gameplay pass
 source-bounds the clock-only HUD path and blocking VINT. Bank and waits match;

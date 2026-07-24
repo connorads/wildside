@@ -2231,6 +2231,27 @@ pub fn player_callback_cycles_loc_a73a(
     Some(M68kCycleCount(u32::try_from(cycles).ok()?))
 }
 
+/// Raw cycles for the typed Kid callback resumed by `Execute_Objects`.
+pub fn player_callback_cycles_sub_e12(
+    execute: &ModeLevelExecuteObjectsWork,
+) -> Option<M68kCycleCount> {
+    match execute.executed_player_path.as_ref()? {
+        ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 {
+            form: crate::PlayerForm::TheKid,
+        } => {
+            // ASM loc_7606 -> loc_78C6 -> sub_B43A -> sub_78E8 -> loc_75D4.
+            // Frame 919's selected-PC journal measures 2,624 raw cycles from
+            // loc_E1E to loc_E1E. The shared runnable dispatch and hibernate
+            // shell contribute 268 + 158 cycles, leaving 2,198 here.
+            Some(M68kCycleCount::from_raw(2_198))
+        }
+        ModeLevelPlayerExecutionPath::NormalPhysics(_) => player_callback_cycles_loc_a73a(execute),
+        ModeLevelPlayerExecutionPath::LevelStartActivationLoc7508 { .. }
+        | ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 { .. }
+        | ModeLevelPlayerExecutionPath::Unclassified => None,
+    }
+}
+
 /// Nominal E1E-to-E1E cycles for the fixed damage-flash callback.
 pub fn damage_flash_wait_cycles_loc_bc44(
     path: ModeLevelDamageFlashWaitLocBc44,
@@ -2281,6 +2302,12 @@ pub fn palette_fade_worker_cycles_sub_73d0(
         // ASM sub_73D0 copies 32 longwords and 64 words, seeds `$F888/$F88C`,
         // then reaches loc_7402's first sub_E76 hibernate.
         ModeLevelPaletteFadeWorkerPathSub73D0::InitialCopyAndHibernate => M68kCycleCount(2_932),
+        // ASM loc_7402..loc_7414 (kid.asm:7547-7557): runnable dispatch,
+        // hibernate, `$F876 += $10`, the <=$100 branch, both -1 mask stores,
+        // and the back edge total 806 raw cycles from loc_E1E to loc_E1E.
+        ModeLevelPaletteFadeWorkerPathSub73D0::AdvanceFadeAndHibernateLoc7402 => {
+            M68kCycleCount(806)
+        }
     }
 }
 
@@ -2454,7 +2481,7 @@ pub fn execute_objects_raw_cycles_sub_e12(
             player_seen = true;
             // Raw loc_E1E -> loc_A73A is 268 cycles; sub_E76 -> next loc_E1E
             // is 158 cycles.
-            cycles = cycles.checked_add(player_callback_cycles_loc_a73a(execute)?.get() + 426)?;
+            cycles = cycles.checked_add(player_callback_cycles_sub_e12(execute)?.get() + 426)?;
         } else {
             cycles = cycles.checked_add(prize_object_cycles_sub_e12(execute, *callback)?.get())?;
         }
@@ -2465,6 +2492,12 @@ pub fn execute_objects_raw_cycles_sub_e12(
     cycles = cycles
         .checked_add(input_worker_cycles_loc_7452(execute.input_worker_loc_7452?).get())?
         .checked_add(damage_flash_wait_cycles_loc_bc44(execute.damage_flash_wait_loc_bc44?)?.get())?
+        .checked_add(
+            execute
+                .palette_fade_worker_sub_73d0
+                .map(palette_fade_worker_cycles_sub_73d0)
+                .map_or(0, M68kCycleCount::get),
+        )?
         .checked_add(demo_exit_wait_cycles_loc_119e0(execute.demo_exit_wait_loc_119e0?)?.get())?
         // ASM loc_E1E's final null-list return through sub_21F8 is 72 raw cycles.
         .checked_add(72)?;
@@ -2570,6 +2603,28 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         return None;
     }
 
+    if matches!(
+        ledger.execute_objects.executed_player_path,
+        Some(
+            ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 {
+                form: crate::PlayerForm::TheKid,
+            }
+        )
+    ) && scan.row_count == 4
+        && scan.col_count == 2
+        && scan.flagged_non_evanescent_cells_before_exit == 0
+        && shooter.cached_col_before == -1
+        && shooter.cached_row_before == -1
+        && shooter.kid_block_col == 2
+        && shooter.kid_block_row == 45
+        && shooter.new_shooter_slots_registered == 0
+    {
+        // ASM sub_21F8 -> sub_DFB0/loc_EAE4 -> sub_F096 -> sub_44DC.
+        // Frame 919's selected-PC journal splits this grounded branch into
+        // 480 + 1,362 + 602 raw cycles.
+        return Some(M68kCycleCount::from_raw(2_444));
+    }
+
     // ASM sub_DFB0 (kid.asm:17317) and loc_EAE4 (kid.asm:18858):
     // 994 raw cycles surround the inclusive row/column scan. Each row costs
     // 38 plus 40 per cell; a bit-15 non-type-$A cell adds the loc_E23A
@@ -2589,7 +2644,15 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         (true, true) => 0,
         // ASM sub_F096 loc_F0D0/F106 and loc_F1A8/F1DE: the power-on -1
         // caches make frame 902 scan both initial layout strips.
-        (false, false) if is_first_level_start_execute_objects_sub_e12(&ledger.execute_objects) => {
+        (false, false)
+            if shooter.cached_col_before == -1
+                && shooter.cached_row_before == -1
+                && shooter.kid_block_col == 2
+                && shooter.kid_block_row >= 5
+                && u16::try_from(shooter.kid_block_row).ok()?.checked_add(2)?
+                    < shooter.level_height_blocks
+                && shooter.new_shooter_slots_registered == 0 =>
+        {
             550
         }
         _ => return None,
@@ -2636,6 +2699,19 @@ pub fn post_execute_elapsed_cycles_before_sub_44dc(
         phase_after: phase,
         refresh_events: raw.refresh_events,
     })
+}
+
+/// Raw CPU work for `sub_44DC` when every HUD animation counter skips.
+pub fn hud_no_upload_raw_cycles_sub_44dc(
+    commands: &[HudDmaEventSub44DC],
+) -> Option<M68kCycleCount> {
+    if !commands.is_empty() {
+        return None;
+    }
+
+    // ASM sub_44DC (kid.asm:5546-5752): five 42-cycle counter-test/store
+    // sections, followed by the outer 16-cycle RTS.
+    Some(M68kCycleCount::from_raw(226))
 }
 
 /// Raw CPU work for the classified life-icon-only `sub_44DC` path.
@@ -4073,14 +4149,25 @@ fn visit_make_sprites_from_gfx_objects_instructions_sub_1492(
 
     const SETUP: &[u32] = &[18, 16, 16, 16, 8];
     const HIDDEN: &[u32] = &[16, 8, 4, 18, 10, 16, 12, 10, 16, 10];
+    const MAPPING_POINTER_NULL: &[u32] = &[16, 8, 4, 18, 10, 16, 12, 12, 12, 12, 18, 10, 16, 10];
     const VERTICALLY_CULLED: &[u32] = &[
         16, 8, 4, 18, 10, 16, 12, 12, 12, 12, 18, 12, 4, 12, 12, 12, 8, 12, 10, 4, 8, 10, 16, 10,
+    ];
+    const VERTICALLY_CULLED_ABOVE_VIEWPORT: &[u32] = &[
+        16, 8, 4, 18, 10, 16, 12, 12, 12, 12, 18, 12, 4, 12, 12, 12, 8, 12, 10, 4, 8, 12, 8, 12,
+        12, 12, 8, 10, 16, 10,
     ];
     const VISIBLE_SINGLE: &[u32] = &[
         16, 8, 4, 18, 10, 16, 12, 12, 12, 12, 18, 12, 4, 12, 12, 12, 8, 12, 10, 4, 8, 12, 8, 12,
         12, 12, 8, 12, 8, 12, 16, 4, 12, 12, 16, 10, 12, 8, 8, 12, 10, 12, 12, 10, 12, 12, 10, 8,
         4, 4, 8, 8, 4, 4, 8, 8, 8, 4, 4, 10, 4, 8, 8, 4, 10, 4, 8, 8, 4, 4, 4, 8, 4, 12, 4, 18, 12,
         12, 12, 16, 20, 12, 8, 20, 4, 12, 4, 14, 4, 16, 8, 16, 16, 10,
+    ];
+    const VISIBLE_SINGLE_DYNAMIC_ART_20X32: &[u32] = &[
+        16, 8, 4, 18, 10, 16, 12, 12, 12, 12, 18, 12, 4, 12, 12, 12, 10, 12, 4, 8, 12, 8, 12, 12,
+        12, 8, 12, 8, 12, 16, 4, 12, 12, 16, 10, 12, 10, 12, 12, 12, 10, 12, 12, 10, 8, 4, 4, 8, 8,
+        4, 4, 8, 8, 8, 4, 4, 8, 4, 4, 4, 10, 4, 8, 8, 4, 4, 8, 8, 18, 12, 12, 12, 16, 20, 12, 10,
+        20, 4, 12, 4, 14, 4, 16, 16, 8, 12, 16, 8, 8, 16, 4, 4, 10, 4, 10, 4, 8, 10, 16, 10,
     ];
     const VISIBLE_TWO: &[u32] = &[
         16, 8, 4, 18, 10, 16, 12, 12, 12, 12, 18, 12, 4, 12, 12, 12, 10, 12, 4, 8, 12, 8, 12, 12,
@@ -4101,12 +4188,25 @@ fn visit_make_sprites_from_gfx_objects_instructions_sub_1492(
                     // ASM sub_1492 -> j_Make_SpriteFromGfxObject -> sub_11B6:
                     // `$13(a3)` is clear and returns through return_129C.
                     ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear => HIDDEN,
+                    // ASM sub_11B6 loc_11D0: `$13(a3)` is set but the selected
+                    // Data_Index mapping pointer is null.
+                    ModeLevelGfxSpriteNodeWorkSub1492::MappingPointerNull => MAPPING_POINTER_NULL,
                     // ASM loc_11E4 rejects the mapped object below the viewport
                     // before any sub_13C0 sprite entry is emitted.
                     ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled => VERTICALLY_CULLED,
+                    // ASM loc_120C rejects the mapped object above the viewport.
+                    ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport => {
+                        VERTICALLY_CULLED_ABOVE_VIEWPORT
+                    }
                     // ASM loc_129E -> sub_13C0 emits one normal-orientation 16x16
                     // mapping entry before the zero terminator.
                     ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingle16x16Normal => VISIBLE_SINGLE,
+                    // ASM loc_129E -> sub_13C0 loc_141A: the grounded Kid's
+                    // 20x32 mapping emits one sprite and appends its dynamic
+                    // art span to the DMA queue.
+                    ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt20x32Normal => {
+                        VISIBLE_SINGLE_DYNAMIC_ART_20X32
+                    }
                     // ASM loc_129E -> sub_13C0 emits two normal-orientation mapping
                     // entries before the zero terminator.
                     ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal => VISIBLE_TWO,
@@ -4869,6 +4969,12 @@ mod tests {
                     cached_col_matches: false,
                     cached_row_matches: false,
                     active_shooter_slots_before: 0,
+                    cached_col_before: -1,
+                    cached_row_before: -1,
+                    kid_block_col: 2,
+                    kid_block_row: 45,
+                    level_height_blocks: 64,
+                    new_shooter_slots_registered: 0,
                 }),
             },
         };
@@ -5902,6 +6008,30 @@ mod tests {
             frame_1709.phase_after,
             M68kRefreshPhase::new(78).expect("frame-1709 loc_882 phase"),
         );
+
+        let grounded_kid = ModeLevelGfxSpriteWorkSub1492::Classified {
+            nodes: vec![
+                ModeLevelGfxSpriteNodeWorkSub1492::MappingPointerNull,
+                ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt20x32Normal,
+                ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+                ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+            ],
+        };
+        let frame_919 = make_sprites_from_gfx_objects_advance_with_scheduler_sub_1492(
+            M68kRefreshPhase::new(34).expect("frame-919 loc_87E phase"),
+            &grounded_kid,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("published grounded-Kid GfxObject sprite walk");
+        assert_eq!(
+            frame_919,
+            M68kRefreshAdvance {
+                elapsed: M68kCycleCount::from_raw(2_018),
+                phase_after: M68kRefreshPhase::new(4).expect("frame-919 loc_882 phase"),
+                refresh_events: 16,
+            },
+            "ASM loc_87E -> sub_1492 -> loc_882 selected-PC instruction journal"
+        );
     }
 
     #[test]
@@ -6710,6 +6840,21 @@ mod tests {
             ]),
             None,
             "unclassified multi-upload paths must remain fail-closed",
+        );
+    }
+
+    #[test]
+    fn no_upload_hud_path_has_source_derived_raw_cost_sub_44dc() {
+        // ASM sub_44DC: five skipped animation-counter sections and RTS.
+        assert_eq!(
+            hud_no_upload_raw_cycles_sub_44dc(&[]),
+            Some(M68kCycleCount::from_raw(226))
+        );
+        assert_eq!(
+            hud_no_upload_raw_cycles_sub_44dc(&[HudDmaEventSub44DC::Clock {
+                frame_table_byte_offset: 4,
+            }]),
+            None
         );
     }
 

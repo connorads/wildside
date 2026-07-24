@@ -9685,6 +9685,66 @@ mod chunk_08 {
     }
 
     #[test]
+    fn published_grounded_route_types_frame_919_loc_7606_callback() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let frame = script
+            .iter()
+            .copied()
+            .take(920)
+            .map(|mask| runtime.step_frame(FrameInput::from_mask(mask)))
+            .last()
+            .expect("published frame 919");
+        let ledger = frame
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("Mode_Level work ledger");
+        let execute = &ledger.execute_objects;
+        let probe = runtime.last_kid_frame_grounded_release_probe;
+        let post_hud_raw =
+            crate::mode_level_timing::mode_level_post_hud_phase_raw_cycles_to_loc_892(
+                frame
+                    .mode_level_work_after_hud_sub_44dc
+                    .as_ref()
+                    .expect("post-HUD ledger"),
+            )
+            .expect("typed post-HUD source costs");
+
+        assert_eq!(
+            execute.executed_player_path,
+            Some(
+                ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 {
+                    form: PlayerForm::TheKid,
+                }
+            ),
+            "ASM loc_7606 -> loc_78C6 -> sub_78E8 -> loc_75D4; motion={:?}, probe={probe:?}, player={:?}",
+            runtime.last_kid_frame_motion_branch,
+            runtime.current_player_state(),
+        );
+        assert_eq!(
+            player_callback_cycles_sub_e12(execute).map(M68kCycleCount::get),
+            Some(2_198),
+            "selected-PC trace pins loc_E1E -> loc_E1E at 2,624 raw cycles; the shared dispatch and hibernate shell cost 426"
+        );
+        assert_eq!(
+            execute_objects_raw_cycles_sub_e12(execute).map(M68kCycleCount::get),
+            Some(6_138),
+            "ASM sub_E12 -> sub_21F8 includes the steady loc_7402 palette worker"
+        );
+        assert_eq!(
+            post_execute_raw_cycles_before_sub_44dc(ledger).map(M68kCycleCount::get),
+            Some(2_444),
+            "ASM sub_21F8 -> sub_DFB0/loc_EAE4 -> sub_F096 -> sub_44DC; ledger={ledger:?}"
+        );
+        assert_eq!(
+            post_hud_raw[19].get(),
+            1_986,
+            "ASM loc_87E -> sub_1492 -> loc_882: selected-PC tracing pins all four persistent GfxObject branches"
+        );
+    }
+
+    #[test]
     fn published_demo_exposes_cyclone_prize_before_later_diamonds() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

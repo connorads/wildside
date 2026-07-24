@@ -3373,6 +3373,40 @@ pub fn mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
     work: crate::ModeLevelTailCameraStripeSub30194,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<ModeLevelTailCameraStripeAdvance> {
+    if work == crate::ModeLevelTailCameraStripeSub30194::BothTileAxesUnchanged {
+        let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+        let mut phase = entry.refresh_phase;
+        let mut raw_cycles = 0_u32;
+        let mut counters = ModeLevelTailCameraCounters::default();
+        // ASM loc_892 -> sub_30194 loc_3023C/loc_302E8: both cached camera
+        // tile axes match, so the routine updates both latches without a VDP
+        // write. Frame 919's selected-PC journal fixes every instruction.
+        const INSTRUCTIONS: [u8; 21] = [
+            20, 10, 12, 12, 12, 12, 12, 8, 12, 12, 4, 4, 10, 12, 12, 4, 4, 10, 20, 20, 16,
+        ];
+        for cycles in INSTRUCTIONS {
+            raw_cycles = raw_cycles.checked_add(u32::from(cycles))?;
+            advance_mode_level_tail_camera_source_instruction(
+                u32::from(cycles),
+                0,
+                &mut fifo,
+                &mut phase,
+                &mut counters,
+                &mut advance_hardware,
+            )?;
+        }
+        return Some(ModeLevelTailCameraStripeAdvance {
+            cursor: LoadInGameCpuRasterCursor {
+                beam: fifo.beam,
+                refresh_phase: phase,
+            },
+            raw_cycles: M68kCycleCount::from_raw(raw_cycles),
+            refresh_events: counters.refresh_events,
+            external_wait_cycles: M68kCycleCount::from_raw(counters.external_wait_cycles),
+            fifo_halted_ticks: M68kCycleCount::from_raw(counters.fifo_halted_ticks),
+        });
+    }
+
     let crate::ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
         ordinary_theme_cells,
         priority_theme_cells,
@@ -9013,6 +9047,33 @@ mod tests {
             advance.cursor.beam.scanline_mclk(),
             1_688,
             "ASM V_Int and MainGameLoop dispatch retain the exact no-Z80 H40 boundary"
+        );
+    }
+
+    #[test]
+    fn unchanged_gameplay_camera_tiles_match_frame_919_source_trace() {
+        let entry_cycles = M68kCycleCount::from_raw(117_644_595);
+        let advance = mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(80).expect("frame-919 loc_892 phase"),
+            },
+            crate::ModeLevelTailCameraStripeSub30194::BothTileAxesUnchanged,
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("frame-919 unchanged camera-tile path");
+
+        assert_eq!(advance.raw_cycles, M68kCycleCount::from_raw(238));
+        assert_eq!(advance.refresh_events, 2);
+        assert_eq!(advance.external_wait_cycles, M68kCycleCount::from_raw(0));
+        assert_eq!(advance.fifo_halted_ticks, M68kCycleCount::from_raw(0));
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(117_644_837)),
+                refresh_phase: M68kRefreshPhase::new(66).expect("frame-919 loc_898 phase"),
+            },
+            "ASM loc_892 -> sub_30194 loc_3023C/loc_302E8"
         );
     }
 

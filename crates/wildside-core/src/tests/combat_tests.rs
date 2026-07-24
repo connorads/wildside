@@ -21436,6 +21436,7 @@ mod chunk_03 {
         runtime.last_kid_frame_grounded_release_probe = Some(KidGroundedReleaseProbe {
             on_ground_before: true,
             held_direction: Some(Direction::Right),
+            down_held: false,
             jump_pressed: false,
             jump_buffer_frames: 0,
             custom_gravity: false,

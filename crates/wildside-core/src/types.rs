@@ -353,6 +353,7 @@ impl KidFramePrePhysicsMutator {
 pub(crate) struct KidGroundedReleaseProbe {
     pub(crate) on_ground_before: bool,
     pub(crate) held_direction: Option<Direction>,
+    pub(crate) down_held: bool,
     pub(crate) jump_pressed: bool,
     pub(crate) jump_buffer_frames: u8,
     pub(crate) custom_gravity: bool,
@@ -1986,6 +1987,11 @@ pub enum ModeLevelPlayerExecutionPath {
     LevelStartActivationLoc7508 {
         form: PlayerForm,
     },
+    /// Standing The Kid resumes after ASM `loc_75D4`'s hibernate and takes
+    /// the no-input, no-platform path from `loc_7606` back to `loc_75D4`.
+    GroundedStationaryNoInputLoc7606 {
+        form: PlayerForm,
+    },
     /// Ordinary airborne coroutine resumed at ASM `loc_A73A`.
     NormalPhysics(ModeLevelNormalPhysicsPath),
     Unclassified,
@@ -2032,6 +2038,9 @@ pub enum ModeLevelPaletteFadeWorkerPathSub73D0 {
     /// First dispatch copies both palette buffers, seeds the fade masks, and
     /// reaches `loc_7402`'s first hibernate.
     InitialCopyAndHibernate,
+    /// Resume after `loc_7402`'s hibernate, advance `$FFFFF876`, retain both
+    /// palette masks, then hibernate again.
+    AdvanceFadeAndHibernateLoc7402,
 }
 
 /// Typed workload facts for ASM `Execute_Objects sub_E12`.
@@ -2112,11 +2121,23 @@ pub struct ModeLevelEvanescentScanWorkLocEae4 {
 }
 
 /// Entry facts for ASM `sub_F096`, before its cached coordinates are updated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct ModeLevelShooterScanWorkSubF096 {
     pub cached_col_matches: bool,
     pub cached_row_matches: bool,
     pub active_shooter_slots_before: u16,
+    #[serde(default)]
+    pub cached_col_before: i16,
+    #[serde(default)]
+    pub cached_row_before: i16,
+    #[serde(default)]
+    pub kid_block_col: i16,
+    #[serde(default)]
+    pub kid_block_row: i16,
+    #[serde(default)]
+    pub level_height_blocks: u16,
+    #[serde(default)]
+    pub new_shooter_slots_registered: u16,
 }
 
 /// Source observations from the `sub_21F8 -> sub_44DC` Mode_Level tail.
@@ -2341,8 +2362,11 @@ pub enum ModeLevelGfxMoveAnimateWorkSub1444 {
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelGfxSpriteNodeWorkSub1492 {
     HiddenFlagClear,
+    MappingPointerNull,
     VerticallyCulled,
+    VerticallyCulledAboveViewport,
     VisibleSingle16x16Normal,
+    VisibleSingleDynamicArt20x32Normal,
     VisibleTwoSpriteNormal,
 }
 
