@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-24 handoff (command-parity supersession: #434/#435 closed, #438-#440 opened)
+
+- Same-day continuation of the freeze decision: the census (#434) and the
+  command-parity gate (#435) both landed and closed.
+- #434: full-route corpus reconciles exactly (36,836/887/36 disjoint);
+  `gems-census` decomposes it into 72 clusters, top 5 genuine shapes cover
+  94.9%, all limitation clusters inside the defended span. Findings and
+  #437 span-selection guidance in archive #434.
+- #435: one `GemsRingDecoder` (ASM sub_E143A/sub_E148E/sub_E13DA semantics,
+  validated on real captures before the single batched template edit)
+  decodes both sides' mailbox rings; `verify-tas --compare-gems-commands`
+  + `tas-gems-command-baseline` are wired into verify-tas-full as the
+  authoritative audio gate, baselined at the attributed honest run (419
+  mismatches, first at frame 16). Adversarial review caught two decoder
+  holes (reinit-repost overlap, silent reset/wrap ambiguity) and the
+  direction-blind skew tell — all fixed and regression-tested.
+- Triage attributes every command mismatch to three native audio-schedule
+  clusters, opened as #438 (missing StopMusic reinits), #439 (wrong or
+  missing SFX id families), #440 (posting-instant drift).
+- NEXT: #436 replay seam probe (then #437 bounded spans), or take the
+  #438-#440 audio clusters through the normal loop.
+
 ## 2026-07-24 handoff (#416 frontier freeze; #434-#437 opened)
 
 - The per-frame GEMS signature frontier is frozen at frames 0..922 by
