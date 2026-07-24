@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 GEMS frame 908)
+
+- Frame 908 source-schedules the seventh gameplay pass through the following
+  blocking VINT; selected boundaries match through the next `$7C8`.
+- The diamond-only `sub_44DC -> sub_5D4A` adapter reaches oracle `loc_810`
+  cycle 116,232,320 and refresh phase 36 exactly.
+- The exact FrameRendered RAM/PC/IRQ/BUSREQ residue is the established
+  jgenesis undocumented-X/Y instruction edge.
+- Full GEMS counts are 36,850 mismatches, 873 limitations and 36
+  advisory-only frames.
+- `verify-slice-fast` passes 7,057 core tests; NEXT is frame 909.
+
 ## 2026-07-23 handoff (#409 GEMS frame 907)
 
 - Frame 907 source-schedules the sixth gameplay pass through the following
