@@ -3467,8 +3467,8 @@ pub struct ModeLevelTailBackgroundAdvance {
 
 /// Co-schedule the frame-902 ASM `loc_898 -> loc_3038A` background pass.
 ///
-/// The accepted path has 19 unchanged shift-data slots, a normal unaligned
-/// shift-layer split with 27 full rows, 29 skipped piece rows, and a cached
+/// The accepted path has 19 unchanged shift-data slots, a normal aligned or
+/// unaligned shift-layer pass, 29 skipped piece rows, and a cached
 /// `sub_307D8` row. Other typed paths remain fail-closed until their
 /// instruction streams are fixed by oracle evidence.
 pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
@@ -3476,13 +3476,21 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     work: &crate::ModeLevelTailBackgroundWorkLoc3038A,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<ModeLevelTailBackgroundAdvance> {
-    let crate::ModeLevelTailShiftLayersWork::NormalUnalignedNoRipple {
-        leading_rows,
-        full_rows,
-        trailing_rows,
-    } = work.shift_layers
-    else {
-        return None;
+    let (leading_rows, full_rows, trailing_rows, aligned) = match work.shift_layers {
+        crate::ModeLevelTailShiftLayersWork::NormalAlignedNoRipple { full_rows: 28 } => {
+            (0, 28, 0, true)
+        }
+        crate::ModeLevelTailShiftLayersWork::NormalUnalignedNoRipple {
+            leading_rows,
+            full_rows: 27,
+            trailing_rows,
+        } if leading_rows != 0
+            && trailing_rows != 0
+            && leading_rows.checked_add(trailing_rows) == Some(8) =>
+        {
+            (leading_rows, 27, trailing_rows, false)
+        }
+        _ => return None,
     };
     if work.special_effect_4
         || work.game_mode_zero
@@ -3492,8 +3500,6 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
             .shift_data_slots_loc_30452
             .iter()
             .any(|slot| *slot != crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged)
-        || full_rows != 27
-        || leading_rows.checked_add(trailing_rows) != Some(8)
         || work.piece_rows_sub_30744.entries_before_sentinel != 29
         || work.piece_rows_sub_30744.rendered_nonnegative_entries != 0
         || work.piece_refresh_sub_307d8
@@ -3560,14 +3566,20 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
         18, 12, 10, 12, 4, 20, 20, 12, 14, 4, 4, 4, 18, 12, 12, 4, 16, 8, 4, 4, 4, 12, 4, 4, 10, 4,
         8, 4, 4, 4, 8, 14, 4,
     ];
-    advance_all!(&SHIFT_LAYERS_PRELUDE);
+    if aligned {
+        advance_all!(&SHIFT_LAYERS_PRELUDE[..26]);
+        // ASM loc_30550: taken BEQ enters loc_3056A directly.
+        advance(10)?;
+    } else {
+        advance_all!(&SHIFT_LAYERS_PRELUDE);
 
-    // ASM loc_30562: leading partial rows.
-    for row in 0..leading_rows {
-        advance(12)?;
-        advance(if row + 1 == leading_rows { 14 } else { 10 })?;
+        // ASM loc_30562: leading partial rows.
+        for row in 0..leading_rows {
+            advance(12)?;
+            advance(if row + 1 == leading_rows { 14 } else { 10 })?;
+        }
+        advance(4)?;
     }
-    advance(4)?;
 
     // ASM loc_3056A: 27 complete eight-scanline rows.
     const COMPLETE_SHIFT_ROW: [u8; 12] = [8, 14, 4, 12, 12, 12, 12, 12, 12, 12, 12, 10];
@@ -3579,11 +3591,16 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
         }
     }
 
-    // ASM loc_3058A setup and loc_30592 trailing rows.
-    advance_all!(&[4, 8, 8, 14, 4]);
-    for row in 0..trailing_rows {
-        advance(12)?;
-        advance(if row + 1 == trailing_rows { 14 } else { 10 })?;
+    if aligned {
+        // ASM loc_3058A: negative d4 takes BMI directly to loc_30598.
+        advance_all!(&[4, 10]);
+    } else {
+        // ASM loc_3058A setup and loc_30592 trailing rows.
+        advance_all!(&[4, 8, 8, 14, 4]);
+        for row in 0..trailing_rows {
+            advance(12)?;
+            advance(if row + 1 == trailing_rows { 14 } else { 10 })?;
+        }
     }
     // ASM loc_30598: non-Forest, non-Desert return.
     advance_all!(&[12, 8, 8, 8, 12, 16]);
@@ -9120,6 +9137,43 @@ mod tests {
     }
 
     #[test]
+    fn fourth_gameplay_aligned_background_matches_frame_905_asm_path() {
+        // ASM loc_30550 -> loc_3056A -> loc_3058A: an aligned camera skips
+        // both partial-row loops, renders 28 full rows, then takes BMI.
+        let work = crate::ModeLevelTailBackgroundWorkLoc3038A {
+            special_effect_4: false,
+            game_mode_zero: false,
+            background_upload_busy_fb49: false,
+            background_format_nonzero: false,
+            shift_data_slots_loc_30452: [crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged; 19],
+            shift_layers: crate::ModeLevelTailShiftLayersWork::NormalAlignedNoRipple {
+                full_rows: 28,
+            },
+            piece_rows_sub_30744: crate::ModeLevelTailPieceRowsSub30744 {
+                entries_before_sentinel: 29,
+                rendered_nonnegative_entries: 0,
+            },
+            piece_refresh_sub_307d8: crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged,
+        };
+        let background = mode_level_tail_background_cursor_loc_3038a_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: H40BeamPosition::new(0, 0).expect("frame start"),
+                refresh_phase: M68kRefreshPhase::new(0).expect("zero phase"),
+            },
+            &work,
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("ASM frame-905 aligned shift-layer path is source-scheduled");
+
+        assert_eq!(
+            background.raw_cycles.get(),
+            8_840,
+            "ASM aligned path is 116 cycles shorter than the split partial-row path",
+        );
+        assert_eq!(background.external_wait_cycles.get(), 0);
+    }
+
+    #[test]
     fn title_palette_dma_reaches_oracle_caller_boundary() {
         let entry_cycles = M68kCycleCount::from_raw(10_356_475);
         let mut bus_requested = false;
@@ -9284,6 +9338,55 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(92).expect("oracle $7D0 phase"),
             },
             "ASM Palette_to_VRAM returns at the selected frame-904 $7D0 boundary",
+        );
+    }
+
+    #[test]
+    fn fourth_gameplay_vblank_transfers_reach_selected_boundaries() {
+        // ASM Mode_Level $7C8 -> sub_A5C -> sub_970 -> loc_300BA. The
+        // published route's frame-905 selected-PC trace pins each return.
+        let sprite = mode_level_sprite_and_kid_to_vram_cursor_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_826_844)),
+                refresh_phase: M68kRefreshPhase::new(64).expect("oracle $7C8 phase"),
+            },
+            [12, 0, 0, 0, 0, 0],
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("fourth gameplay 12-tile loc_AD4 queue");
+        assert_eq!(
+            sprite.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_830_442)),
+                refresh_phase: M68kRefreshPhase::new(118).expect("oracle $7CC phase"),
+            },
+            "ASM sub_A5C returns at the selected frame-905 $7CC boundary",
+        );
+
+        let palette = mode_level_palette_to_vram_cursor_with_scheduler(sprite.cursor, true, |_| {
+            Some(M68kCycleCount::from_raw(0))
+        })
+        .expect("fourth gameplay active palette upload");
+        assert_eq!(
+            palette.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_830_974)),
+                refresh_phase: M68kRefreshPhase::new(92).expect("oracle $7D0 phase"),
+            },
+            "ASM Palette_to_VRAM returns at the selected frame-905 $7D0 boundary",
+        );
+
+        let scroll = mode_level_scroll_data_to_vram_cursor_with_scheduler(palette.cursor, |_| {
+            Some(M68kCycleCount::from_raw(0))
+        })
+        .expect("fourth gameplay normal loc_300BA scroll path");
+        assert_eq!(
+            scroll.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(115_833_774)),
+                refresh_phase: M68kRefreshPhase::new(16).expect("oracle $7D6 phase"),
+            },
+            "ASM loc_300BA returns at the selected frame-905 $7D6 boundary",
         );
     }
 

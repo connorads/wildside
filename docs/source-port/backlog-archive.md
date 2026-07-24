@@ -456,6 +456,18 @@ authoritative blockers that verify nothing.
 
 ### #416
 
+Progress 2026-07-23: defended GEMS coverage advances through frame 905 and
+the authoritative frontier moves to frame 906. Frame 905 source-schedules the
+12-tile dynamic-art queue, active palette and scroll transfers, the 28-row
+aligned `loc_3056A` background path, and the life-icon-only `sub_44DC` upload.
+Selected boundaries match at `loc_7D6`, `sub_E12`, `sub_44DC`, `loc_810`,
+`loc_892`, the first `$93E` poll, and the following `$7C8`. FrameRendered is
+one cycle after selected `Stop_z80 $E13BC`; jgenesis exposes that atomic
+BUSREQ write while the persistent scheduler retains the established Z80
+instruction split. Full counts are 36,853 mismatches, 870 limitations and 36
+advisory-only frames. `verify-slice-fast` passes 7,056 core tests and
+`verify-tas-full` is green. NEXT: source-bound frame 906.
+
 Progress 2026-07-23: defended GEMS coverage advances through frame 904 and
 the authoritative frontier moves to frame 905. The persistent adapter now
 bounds waits separately across `sub_A5C`, active `sub_970`, `loc_300BA`, and

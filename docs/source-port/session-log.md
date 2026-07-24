@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-23 handoff (#409 GEMS frame 905)
+
+- Frame 905 source-schedules the 12-tile VBlank queue, life-icon HUD upload,
+  aligned 28-row background tail, and the next blocking VINT.
+- Selected boundaries match at `loc_7D6`, `sub_E12`, `sub_44DC`, `loc_810`,
+  `loc_892`, `$93E`, and the following `$7C8`.
+- FrameRendered is one cycle after `Stop_z80 $E13BC`; jgenesis exposes the
+  atomic BUSREQ write on top of the retained Z80 instruction split.
+- Full GEMS counts are 36,853 mismatches, 870 limitations and 36
+  advisory-only frames.
+- `verify-slice-fast` and `verify-tas-full` pass; NEXT is frame 906.
+
 ## 2026-07-23 handoff (#409 GEMS frame 904)
 
 - Source-bound wait budgets remove false native X/Y-derived extensions from
