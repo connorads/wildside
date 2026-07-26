@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 persistent clock reaches frame 956)
+
+- Frame 956 retains the typed state-1 `sub_B270 loc_B334` wall-cling path.
+- The callback remains 4,200 raw cycles. The typed prefix accounts for the
+  22-cycle change, so `sub_E12` reaches `loc_7E6` after 7,318 raw and 116
+  refresh waits; the post-object path uses 2,636 raw and 42 waits.
+- The owner reaches frame 956 `sub_44DC` at cycle 122,373,018 phase 104 with
+  no pending wait.
+- NEXT: type frame 957, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-26 handoff (#406 persistent clock reaches frame 955)
 
 - Frame 955 crosses the shared `sub_B270 loc_B334` airborne mapping threshold.

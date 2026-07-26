@@ -4617,6 +4617,16 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-26: the typed state-1 `sub_B270 loc_B334` wall-cling path
+carries frame 956 without another correction. The callback remains 4,200 raw
+cycles. The typed RNG/object prefix accounts for the earlier 22-cycle change,
+so `sub_E12 -> loc_7E6` is 7,318 raw with 116 refresh waits;
+`loc_7E6 -> sub_44DC` remains 2,636 raw with 42 waits. Frame 956 reaches
+`sub_44DC` at cycle 122,373,018, refresh phase 104, with no pending wait.
+
+#406 remains open. NEXT: type frame 957 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-26: frame 955 source-types the shared `sub_B270 loc_B334`
 airborne mapping threshold. The wall-cling geometry is unchanged, but
 `y_vel<<2` has risen above the jump velocity retained in `$FFFFFAAA`, so the
