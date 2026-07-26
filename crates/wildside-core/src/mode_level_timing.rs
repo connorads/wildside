@@ -2215,7 +2215,11 @@ pub fn player_callback_cycles_loc_a73a(
         }
         let mut cycles = match row_count {
             3 => 4_048_i32,
-            2 => 4_148_i32,
+            // ASM loc_AA22 -> sub_A4EE -> sub_902A: frame 952's two-row
+            // clear Gfx scan reaches the next loc_E1E dispatch after 4,592
+            // raw cycles. Removing the 426-cycle scheduler shell, eight-cycle
+            // gravity branch, and one 62-cycle wall row leaves this base.
+            2 => 4_096_i32,
             _ => return None,
         };
         // ASM sub_B168 loc_B1D4: the not-taken B-held branch plus loc_B1E0's

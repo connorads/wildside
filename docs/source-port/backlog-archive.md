@@ -4617,6 +4617,19 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-26: the persistent owner now reaches frame 952 `sub_44DC`
+at cycle 121,861,655, refresh phase 108, with no pending 68000 wait. Frame 952
+retains `loc_AA22`'s released-B `$4000` wall-cling path, but its clear Gfx
+collision bounds shrink from three rows to two. Selected `loc_E1E` dispatches
+measure 4,592 raw cycles including the 426-cycle scheduler shell. The typed
+callback is therefore 4,166 raw: a 4,096-cycle two-row base, the eight-cycle
+`loc_B1E0` gravity branch, and one 62-cycle `sub_AF10 loc_AF5C` wall row.
+The complete `sub_E12 -> loc_7E6` interval is 7,306 raw cycles with 116
+refresh waits; `loc_7E6 -> sub_44DC` remains exact at 3,282 raw and 52 waits.
+
+#406 remains open. NEXT: type frame 953 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-26: the persistent owner now reaches frame 951 `sub_E12`
 at cycle 121,722,882 phase 104 and `sub_44DC` at cycle 121,733,058 phase 40,
 with no pending 68000 wait. The released-B wall-cling pass follows `sub_B168

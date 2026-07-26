@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 persistent clock reaches frame 952)
+
+- Frame 952 retains `loc_AA22`'s released-B `$4000` wall-cling path.
+- Its clear Gfx collision bounds shrink from three rows to two. Selected
+  `loc_E1E` dispatches fix the callback at 4,166 raw cycles: a 4,096-cycle
+  base, eight-cycle gravity branch, and one 62-cycle wall row.
+- `sub_E12` reaches `loc_7E6` after 7,306 raw cycles and 116 refresh waits;
+  the post-object path reaches `sub_44DC` after 3,282 raw and 52 waits.
+- The owner reaches frame 952 `sub_44DC` at cycle 121,861,655 phase 108 with
+  no pending wait.
+- NEXT: type frame 953, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-26 handoff (#406 persistent clock reaches frame 951)
 
 - Frame 951 releases B and takes `sub_B168 loc_B1E0`'s `$4000` gravity while
