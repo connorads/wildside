@@ -1,9 +1,9 @@
 use crate::{
     HudDmaEventSub44DC, ModeLevelAirborneActionPath, ModeLevelAirborneHorizontalPath,
-    ModeLevelAirborneVerticalPath, ModeLevelBlockDebrisWorkSub2A4C, ModeLevelCeilingScanReturn,
-    ModeLevelDamageFlashWaitLocBc44, ModeLevelDemoExitWaitLoc119E0,
-    ModeLevelDiamondPowerCompileWorkSub3F798, ModeLevelEnemyLoadingPath,
-    ModeLevelExecuteObjectsWork, ModeLevelFloatingPrizeFallPathLoc103B2,
+    ModeLevelAirborneVerticalPath, ModeLevelAirborneVisualMappingPathSubB270,
+    ModeLevelBlockDebrisWorkSub2A4C, ModeLevelCeilingScanReturn, ModeLevelDamageFlashWaitLocBc44,
+    ModeLevelDemoExitWaitLoc119E0, ModeLevelDiamondPowerCompileWorkSub3F798,
+    ModeLevelEnemyLoadingPath, ModeLevelExecuteObjectsWork, ModeLevelFloatingPrizeFallPathLoc103B2,
     ModeLevelGfxCollisionKidListWorkSub1B76, ModeLevelGfxCollisionKidNodeWorkSub1B76,
     ModeLevelGfxCollisionListWork, ModeLevelGfxCollisionWork,
     ModeLevelGfxMoveAnimateNodeWorkSub1444, ModeLevelGfxMoveAnimateWorkSub1444,
@@ -2192,6 +2192,7 @@ pub fn player_callback_cycles_loc_a73a(
         gfx_object_collision_clear: true,
         vertical_collision: ModeLevelVerticalCollisionPath::Clear,
         ceiling_scan_sub_914a,
+        airborne_visual_mapping_sub_b270,
     }) = execute.executed_player_path.as_ref()
     {
         let gravity_extra = match vertical {
@@ -2243,6 +2244,13 @@ pub fn player_callback_cycles_loc_a73a(
             }
             Some(_) => return None,
         }
+        cycles += match airborne_visual_mapping_sub_b270 {
+            ModeLevelAirborneVisualMappingPathSubB270::AscendingState0 => 0,
+            // ASM sub_B270 loc_B334: state 1 executes `addq.w #2,a4` and
+            // `bra.w loc_B3A8` after the failed `ble`, adding 20 raw cycles.
+            ModeLevelAirborneVisualMappingPathSubB270::AscendingState1 => 20,
+            _ => return None,
+        };
         // ASM loc_AA22 -> sub_B168 -> sub_A4EE -> sub_902A -> kid_flip ->
         // loc_AD2C -> sub_B270 -> loc_AA22. Frame 944's selected-PC journal
         // measures 4,474 raw cycles between loc_E1E dispatches, leaving a

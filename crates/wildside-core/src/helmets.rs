@@ -7165,12 +7165,12 @@ impl NativeRuntime {
         }
 
         // ASM loc_A466 writes the jump launch y velocity to `$FFFFFAAA`;
-        // sub_B270 loc_B334/loc_B350 reads it as the dynamic fast-fall
-        // threshold for Red Stealth's airborne downward slash.
+        // sub_B270 loc_B334/loc_B350 reads the shared airborne mapping
+        // threshold, whose last state gates Red Stealth's downward slash.
         const RED_STEALTH_AIRBORNE_JUMP_THRESHOLD_FALLBACK_FP: i32 = 0x0001_0000;
         let jump_threshold = self
             .helmet
-            .red_stealth_jump_threshold_y_velocity
+            .airborne_mapping_jump_threshold_y_velocity
             .unwrap_or(RED_STEALTH_AIRBORNE_JUMP_THRESHOLD_FALLBACK_FP);
 
         let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {

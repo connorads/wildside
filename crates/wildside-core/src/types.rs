@@ -1037,9 +1037,9 @@ pub(crate) struct HelmetState {
     /// 12→0 semantics never overlap with this counter's 0→$7F semantics.
     pub(crate) red_stealth_airborne_slash_counter: u8,
     /// ASM loc_A466 stores the current jump launch y velocity in `$FFFFFAAA`.
-    /// Red Stealth's airborne downward slash gate reads that value in
-    /// sub_B270 loc_B334/loc_B350 instead of using a fixed threshold.
-    pub(crate) red_stealth_jump_threshold_y_velocity: Option<i32>,
+    /// The shared sub_B270 loc_B334/loc_B350 airborne mapping dispatch reads
+    /// that value; Red Stealth also uses its last state for the downward slash.
+    pub(crate) airborne_mapping_jump_threshold_y_velocity: Option<i32>,
     pub(crate) eyeclops_beam_active: bool,
     pub(crate) eyeclops_beam_counter: u16,
     pub(crate) eyeclops_beam_hard: bool,
@@ -1935,6 +1935,21 @@ pub enum ModeLevelAirborneVerticalPath {
     Unclassified,
 }
 
+/// Airborne sprite-table branch selected by ASM `sub_B270 loc_B334`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelAirborneVisualMappingPathSubB270 {
+    /// Negative `y_vel<<2` is at or below `$FFFFFAAA`; use table state 0.
+    AscendingState0,
+    /// Negative `y_vel<<2` is above `$FFFFFAAA`; use table state 1.
+    AscendingState1,
+    /// Non-negative `y_vel<<2` is at or below `$FFFFFAAA`; use table state 2.
+    DescendingState2,
+    /// Non-negative `y_vel<<2` is above `$FFFFFAAA`; use table state 3.
+    DescendingState3,
+    Unclassified,
+}
+
 /// Vertical collision continuation after ASM `sub_902A`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -2040,6 +2055,7 @@ pub enum ModeLevelPlayerExecutionPath {
         gfx_object_collision_clear: bool,
         vertical_collision: ModeLevelVerticalCollisionPath,
         ceiling_scan_sub_914a: Option<ModeLevelCeilingScanSub914A>,
+        airborne_visual_mapping_sub_b270: ModeLevelAirborneVisualMappingPathSubB270,
     },
     /// Ordinary airborne coroutine resumed at ASM `loc_A73A`.
     NormalPhysics(ModeLevelNormalPhysicsPath),
@@ -5420,7 +5436,7 @@ mod tests {
             skycutter_flipboard: 17,
             cyclone_flying: true,
             red_stealth_airborne_slash_counter: 0x7F,
-            red_stealth_jump_threshold_y_velocity: Some(-0x70000),
+            airborne_mapping_jump_threshold_y_velocity: Some(-0x70000),
             eyeclops_beam_active: true,
             maniaxe_axe_active: true,
             maniaxe_throw_latch_frames: 9,
@@ -5436,7 +5452,7 @@ mod tests {
         assert_eq!(state.skycutter_flipboard, 0);
         assert!(!state.cyclone_flying);
         assert_eq!(state.red_stealth_airborne_slash_counter, 0);
-        assert_eq!(state.red_stealth_jump_threshold_y_velocity, None);
+        assert_eq!(state.airborne_mapping_jump_threshold_y_velocity, None);
         assert!(!state.eyeclops_beam_active);
         assert!(!state.maniaxe_axe_active);
         assert_eq!(state.maniaxe_throw_latch_frames, 0);

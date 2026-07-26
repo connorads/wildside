@@ -10336,6 +10336,27 @@ impl NativeRuntime {
             // ASM loc_AA22 resumes after Hibernate_Object_1Frame, skipping
             // sub_B084. It runs held-jump gravity, clear Gfx/floor probes,
             // then kid_flip's no-button branch back through loc_AD2C.
+            let airborne_visual_mapping_sub_b270 = self
+                .helmet
+                .airborne_mapping_jump_threshold_y_velocity
+                .map_or(
+                    ModeLevelAirborneVisualMappingPathSubB270::Unclassified,
+                    |jump_threshold| {
+                        let scaled_y_velocity =
+                            stages.after_jump_gravity.y_velocity.wrapping_shl(2);
+                        if scaled_y_velocity < 0 {
+                            if scaled_y_velocity > jump_threshold {
+                                ModeLevelAirborneVisualMappingPathSubB270::AscendingState1
+                            } else {
+                                ModeLevelAirborneVisualMappingPathSubB270::AscendingState0
+                            }
+                        } else if scaled_y_velocity > jump_threshold {
+                            ModeLevelAirborneVisualMappingPathSubB270::DescendingState3
+                        } else {
+                            ModeLevelAirborneVisualMappingPathSubB270::DescendingState2
+                        }
+                    },
+                );
             return ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 {
                 form: self.progression.current_form,
                 side: crate::Direction::Right,
@@ -10349,6 +10370,7 @@ impl NativeRuntime {
                 gfx_object_collision_clear: true,
                 vertical_collision: ModeLevelVerticalCollisionPath::Clear,
                 ceiling_scan_sub_914a,
+                airborne_visual_mapping_sub_b270,
             };
         }
         let grounded_jump_launch = self.last_kid_frame_motion_branch

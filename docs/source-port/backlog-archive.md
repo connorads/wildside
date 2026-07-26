@@ -4617,6 +4617,18 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-26: frame 955 source-types the shared `sub_B270 loc_B334`
+airborne mapping threshold. The wall-cling geometry is unchanged, but
+`y_vel<<2` has risen above the jump velocity retained in `$FFFFFAAA`, so the
+ROM selects mapping state 1 through `addq.w #2,a4; bra.w loc_B3A8`. Those
+instructions add the measured 20 raw cycles. The player callback is 4,200 raw;
+`sub_E12 -> loc_7E6` is 7,340 raw with 118 refresh waits; and
+`loc_7E6 -> sub_44DC` is 2,636 raw with 40 waits. Frame 955 reaches
+`sub_44DC` at cycle 122,245,041, refresh phase 126, with no pending wait.
+
+#406 remains open. NEXT: type frame 956 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-26: frame 954 returns to the existing three-row released-B
 `loc_AA22` wall-cling variant, so the persistent owner advances without a new
 timing correction. The player callback is 4,180 raw cycles. The complete

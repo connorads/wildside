@@ -2475,7 +2475,7 @@ mod chunk_06 {
         rt.boot_state = BootState::InGame;
         rt.progression.current_form = PlayerForm::RedStealth;
         rt.progression.number_hitpoints = PlayerForm::RedStealth.max_hitpoints();
-        rt.helmet.red_stealth_jump_threshold_y_velocity = Some(-0x0004_0000);
+        rt.helmet.airborne_mapping_jump_threshold_y_velocity = Some(-0x0004_0000);
         let bounds = rt.level_bounds(LevelId(0));
         let mut slice = OpeningSliceState::respawn(bounds);
         slice.player.on_ground = false;
@@ -2503,7 +2503,7 @@ mod chunk_06 {
         // sfx_Red_Stealth_attack_down every frame.
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::RedStealth;
-        rt.helmet.red_stealth_jump_threshold_y_velocity = Some(-0x0004_0000);
+        rt.helmet.airborne_mapping_jump_threshold_y_velocity = Some(-0x0004_0000);
         let bounds = rt.level_bounds(LevelId(0));
         let mut slice = OpeningSliceState::respawn(bounds);
         slice.player.on_ground = true;
@@ -2532,7 +2532,7 @@ mod chunk_06 {
         // Because this value is negative for an ordinary jump, sub_B270
         // loc_B350 should enter the downward slash branch even on a gentle
         // positive descent. The old fixed `0x10000` threshold missed this.
-        rt.helmet.red_stealth_jump_threshold_y_velocity = Some(-0x0004_0000);
+        rt.helmet.airborne_mapping_jump_threshold_y_velocity = Some(-0x0004_0000);
         let bounds = rt.level_bounds(LevelId(0));
         let mut slice = OpeningSliceState::respawn(bounds);
         slice.player.on_ground = false;

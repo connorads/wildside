@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 persistent clock reaches frame 955)
+
+- Frame 955 crosses the shared `sub_B270 loc_B334` airborne mapping threshold.
+  The ROM selects state 1 and spends 20 raw cycles on its extra table advance.
+- The callback costs 4,200 raw cycles. `sub_E12` reaches `loc_7E6` after
+  7,340 raw and 118 refresh waits; the post-object path reaches `sub_44DC`
+  after 2,636 raw and 40 waits.
+- The owner reaches frame 955 `sub_44DC` at cycle 122,245,041 phase 126 with
+  no pending wait.
+- NEXT: type frame 956, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-26 handoff (#406 persistent clock reaches frame 954)
 
 - Frame 954 returns to the existing three-row released-B `loc_AA22`
