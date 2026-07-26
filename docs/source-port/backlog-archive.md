@@ -6648,6 +6648,17 @@ frame 926 `sub_E12` at 118,522,734 phase 104 and `sub_44DC` at 118,532,066
 phase 92. NEXT: account for frame 926's measured 17-cycle GEMS arbitration
 residue before frame 927 `sub_E12` at 118,650,747.
 
+Progress 2026-07-26 (Diamond DMA reaches frame 927): frame 926 emits the
+page-4 Diamond HUD command. Routing it through the existing chronological
+`sub_5D4A` memory-DMA scheduler reaches oracle `loc_810` at cycle 118,546,487
+phase 36, then the typed post-HUD, aligned background, and VBlank paths reach
+frame 927 `sub_E12` at 118,650,747 phase 104. The earlier 17-cycle delta was
+therefore DMA/GEMS arbitration already owned by the hardware scheduler, not a
+new source constant. Frame 927's grounded continuation accelerates
+`$7000->$8C00` through `loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A ->
+sub_8F26 -> loc_8BF0` and reaches `sub_44DC` at 118,660,079 phase 92. NEXT:
+classify the later frame-927 boundary and frame 928's changed callback.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

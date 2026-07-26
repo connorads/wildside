@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 Diamond DMA reaches frame 927)
+
+- Frame 926's page-4 Diamond event runs through the chronological `sub_5D4A`
+  memory-DMA scheduler. It reaches `loc_810` at oracle cycle 118,546,487.
+- The persistent owner reaches frame 927 `sub_E12` at cycle 118,650,747 phase
+  104. No fitted 17-cycle residue is needed.
+- Frame 927 resumes `loc_8BF0` walking with a typed `$7000->$8C00`
+  transition and reaches `sub_44DC` at cycle 118,660,079 phase 92.
+- NEXT: classify frame 927's later boundary and frame 928's changed callback.
+
 ## 2026-07-26 handoff (#406 persistent clock reaches frame 926 sub_44DC)
 
 - Frames 925-926 resume grounded walking through `loc_8BF0`, with typed

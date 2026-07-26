@@ -8718,6 +8718,11 @@ impl GemsSignatureProbe {
             ] => {
                 apply_gems_clock_icon_schedule_sub_44dc(&mut self.engine, sub_44dc, work.hud_events)
             }
+            [
+                wildside_core::HudDmaEventSub44DC::Diamond {
+                    frame_table_byte_offset: 4,
+                },
+            ] => apply_gems_diamond_schedule_sub_44dc(&mut self.engine, sub_44dc, work.hud_events),
             _ => None,
         }?;
         let loc_892 = apply_gems_mode_level_post_hud_to_loc_892(
@@ -14225,6 +14230,88 @@ mod tests {
                 0,
             ),
             "ASM frame 926 sub_E12 -> sub_44DC remains source- and hardware-exact",
+        );
+        queue.observe_post_hud_producer(frame_926, &visuals.player);
+        let frame_927 = &trace[927];
+        let frame_927_vblank = queue
+            .consume_vblank_work(frame_927)
+            .expect("frame 927 consumes the retained frame-926 dynamic-art queue");
+        probe
+            .continue_mode_level_after_sub_44dc_to_next_prefix(
+                frame_926_sub_44dc,
+                ModeLevelGemsFrameWork {
+                    vblank_before_sub_e12: frame_926_vblank,
+                    pre_hud: Some(frame_926_pre_hud),
+                    hud_events: &frame_926.hud_dma_events_sub_44dc,
+                    post_hud: frame_926.mode_level_work_after_hud_sub_44dc.as_ref(),
+                    tail_loc_892: frame_926
+                        .mode_level_tail_work_loc_892
+                        .as_ref()
+                        .expect("frame 926 exposes tail work"),
+                },
+                frame_927_vblank,
+            )
+            .expect("typed frame 926 reaches the retained frame-927 VBlank prefix");
+        let frame_927_seed = probe
+            .continue_mode_level_to_sub_e12_after_frozen_span(frame_927_vblank)
+            .expect("persistent hardware owner reaches frame 927 sub_E12");
+        assert_eq!(
+            (
+                probe.engine.master_clock(),
+                frame_927_seed.refresh_phase,
+                probe.power_on_frame,
+            ),
+            (
+                118_650_747 * 7,
+                M68kRefreshPhase::new(104).expect("oracle frame-927 sub_E12 phase"),
+                927,
+            ),
+            "ASM frame 926 Diamond DMA -> loc_892 -> WaitForVint -> frame 927 sub_E12 remains persistent and exact",
+        );
+
+        let frame_927_pre_hud = frame_927
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("frame 927 exposes pre-HUD work");
+        assert_eq!(
+            frame_927_pre_hud.execute_objects.executed_player_path,
+            Some(
+                wildside_core::ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+                    form: wildside_core::PlayerForm::TheKid,
+                    x_velocity_before: 0x0000_7000,
+                    x_velocity_after: 0x0000_8C00,
+                },
+            ),
+            "ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26 -> loc_8BF0",
+        );
+        assert_eq!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(&frame_927_pre_hud.execute_objects,),
+            Some(M68kCycleCount::from_raw(6_724)),
+            "ASM sub_E12 at 118650747 reaches loc_7E6 at 118657579 after 54 refresh waits",
+        );
+        assert_eq!(
+            wildside_core::post_execute_raw_cycles_before_sub_44dc(frame_927_pre_hud),
+            Some(M68kCycleCount::from_raw(2_462)),
+            "ASM loc_7E6 at 118657579 reaches sub_44DC at 118660079 after 19 refresh waits",
+        );
+        let frame_927_sub_44dc = apply_gems_mode_level_pre_hud_to_sub_44dc(
+            &mut probe.engine,
+            frame_927_seed,
+            frame_927_pre_hud,
+        )
+        .expect("persistent hardware owner reaches frame 927 sub_44DC");
+        assert_eq!(
+            (
+                probe.engine.master_clock(),
+                frame_927_sub_44dc.refresh_phase,
+                probe.engine.pending_m68k_wait_cycles(),
+            ),
+            (
+                118_660_079 * 7,
+                M68kRefreshPhase::new(92).expect("oracle frame-927 sub_44DC phase"),
+                0,
+            ),
+            "ASM frame 927 sub_E12 -> sub_44DC remains source- and hardware-exact",
         );
     }
 
