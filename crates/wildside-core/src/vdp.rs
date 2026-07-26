@@ -6843,6 +6843,91 @@ pub fn life_icon_cpu_raster_cursor_after_sub_44dc_with_scheduler(
     })
 }
 
+/// Co-schedule the clock-icon-only `sub_44DC` path with asynchronous hardware.
+pub fn clock_icon_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+    entry: ModeLevelCpuRasterCursor,
+    commands: &[crate::HudDmaEventSub44DC],
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<ModeLevelCpuRasterCursor> {
+    crate::mode_level_timing::hud_clock_icon_only_raw_cycles_sub_44dc(commands)?;
+    let [
+        crate::HudDmaEventSub44DC::Clock {
+            wrapped_to_start, ..
+        },
+    ] = commands
+    else {
+        return None;
+    };
+
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+
+    // ASM sub_44DC skips coin and life, then reaches loc_45B2. The successful
+    // selector continues through loc_45DA and completion of the first
+    // loc_44D4 MOVE.L.
+    const PRELUDE_THROUGH_FIRST_MOVE: [u32; 28] = [
+        12, 4, 4, 10, 12, 12, 4, 4, 10, 12, 12, 4, 4, 12, 12, 4, 4, 12, 12, 8, 10, 8, 4, 22, 20,
+        18, 8, 20,
+    ];
+    debug_assert_eq!(PRELUDE_THROUGH_FIRST_MOVE.into_iter().sum::<u32>(), 278);
+    for raw_cycles in PRELUDE_THROUGH_FIRST_MOVE[..17].iter().copied() {
+        advance_life_icon_source_instruction(
+            &mut fifo,
+            &mut phase,
+            raw_cycles,
+            &mut advance_hardware,
+        )?;
+    }
+    if *wrapped_to_start {
+        // ASM loc_45B2 -> loc_45B2 (kid.asm): failed BPL.W, reset d7, and
+        // repeat the clock selector after the `$FF` terminator.
+        for raw_cycles in [12, 12, 8, 12, 4, 10] {
+            advance_life_icon_source_instruction(
+                &mut fifo,
+                &mut phase,
+                raw_cycles,
+                &mut advance_hardware,
+            )?;
+        }
+    }
+    for raw_cycles in PRELUDE_THROUGH_FIRST_MOVE[17..].iter().copied() {
+        advance_life_icon_source_instruction(
+            &mut fifo,
+            &mut phase,
+            raw_cycles,
+            &mut advance_hardware,
+        )?;
+    }
+    fifo.push_word();
+    fifo.push_word();
+    drain_life_icon_pending_fifo_words(&mut fifo, &mut phase, &mut advance_hardware)?;
+
+    for _ in 1..32 {
+        advance_life_icon_source_instruction(&mut fifo, &mut phase, 10, &mut advance_hardware)?;
+        advance_life_icon_source_instruction(&mut fifo, &mut phase, 20, &mut advance_hardware)?;
+        fifo.push_word();
+        fifo.push_word();
+        drain_life_icon_pending_fifo_words(&mut fifo, &mut phase, &mut advance_hardware)?;
+    }
+
+    // ASM final DBF, sub_44D0 return, skipped diamond/flag counters, stores,
+    // and the outer sub_44DC return.
+    const TRAILING_INSTRUCTIONS: [u32; 14] = [14, 16, 12, 12, 4, 4, 10, 12, 12, 4, 4, 10, 12, 16];
+    for raw_cycles in TRAILING_INSTRUCTIONS {
+        advance_life_icon_source_instruction(
+            &mut fifo,
+            &mut phase,
+            raw_cycles,
+            &mut advance_hardware,
+        )?;
+    }
+
+    Some(ModeLevelCpuRasterCursor {
+        beam: fifo.beam,
+        refresh_phase: phase,
+    })
+}
+
 /// Co-schedule the diamond-only ASM `sub_44DC -> sub_5D4A` VRAM DMA.
 ///
 /// The callback receives source instructions, BUSREQ edges and one-cycle VDP
@@ -10272,6 +10357,32 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(58).expect("frame-923 loc_810 phase"),
             },
             "ASM loc_455E -> loc_4586 -> sub_44D0 reaches oracle loc_810",
+        );
+    }
+
+    #[test]
+    fn clock_icon_chronological_scheduler_matches_frame_924_wrap_loc_45b2() {
+        let entry = ModeLevelCpuRasterCursor {
+            beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(118_276_066)),
+            refresh_phase: M68kRefreshPhase::new(92).expect("frame-924 sub_44DC phase"),
+        };
+        let command = [crate::HudDmaEventSub44DC::Clock {
+            frame_table_byte_offset: 0,
+            wrapped_to_start: true,
+        }];
+        let exit =
+            clock_icon_cpu_raster_cursor_after_sub_44dc_with_scheduler(entry, &command, |_, _| {
+                Some(M68kCycleCount::from_raw(0))
+            })
+            .expect("frame-924 clock sentinel wrap is classified");
+
+        assert_eq!(
+            exit,
+            ModeLevelCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(118_279_143)),
+                refresh_phase: M68kRefreshPhase::new(16).expect("frame-924 loc_810 phase"),
+            },
+            "ASM loc_45B2 -> loc_45DA -> sub_44D0 reaches oracle loc_810",
         );
     }
 

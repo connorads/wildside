@@ -2848,6 +2848,27 @@ pub fn hud_life_icon_only_raw_cycles_sub_44dc(
     ))
 }
 
+/// Raw CPU work for the clock-icon-only `sub_44DC` path.
+pub fn hud_clock_icon_only_raw_cycles_sub_44dc(
+    commands: &[HudDmaEventSub44DC],
+) -> Option<M68kCycleCount> {
+    let [
+        HudDmaEventSub44DC::Clock {
+            wrapped_to_start, ..
+        },
+    ] = commands
+    else {
+        return None;
+    };
+
+    // ASM sub_44DC -> loc_45B2 -> loc_45DA -> sub_44D0 (kid.asm): the
+    // non-wrapping single 128-byte upload has the same 1,350-cycle total as
+    // the life-icon path. A `$FF` selector retry at loc_45B2 adds 58 cycles.
+    Some(M68kCycleCount::from_raw(
+        1_350 + u32::from(*wrapped_to_start) * 58,
+    ))
+}
+
 /// Raw CPU work for the diamond-only `sub_44DC` path.
 ///
 /// The `$200`-byte VRAM DMA and Z80 BUSREQ waits are hardware ownership, not
@@ -7024,10 +7045,33 @@ mod tests {
                 life,
                 HudDmaEventSub44DC::Clock {
                     frame_table_byte_offset: 8,
+                    wrapped_to_start: false,
                 },
             ]),
             None,
             "unclassified multi-upload paths must remain fail-closed",
+        );
+    }
+
+    #[test]
+    fn clock_icon_only_hud_path_has_source_derived_raw_cost_sub_44dc() {
+        let clock = HudDmaEventSub44DC::Clock {
+            frame_table_byte_offset: 4,
+            wrapped_to_start: false,
+        };
+        assert_eq!(
+            hud_clock_icon_only_raw_cycles_sub_44dc(&[clock]),
+            Some(M68kCycleCount::from_raw(1_350)),
+            "ASM loc_45B2 -> loc_45DA -> sub_44D0 clock-only path",
+        );
+        let wrapped_clock = HudDmaEventSub44DC::Clock {
+            frame_table_byte_offset: 0,
+            wrapped_to_start: true,
+        };
+        assert_eq!(
+            hud_clock_icon_only_raw_cycles_sub_44dc(&[wrapped_clock]),
+            Some(M68kCycleCount::from_raw(1_408)),
+            "ASM loc_45B2 repeats the selector after the `$FF` sentinel",
         );
     }
 
@@ -7041,6 +7085,7 @@ mod tests {
         assert_eq!(
             hud_no_upload_raw_cycles_sub_44dc(&[HudDmaEventSub44DC::Clock {
                 frame_table_byte_offset: 4,
+                wrapped_to_start: false,
             }]),
             None
         );

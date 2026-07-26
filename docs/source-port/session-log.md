@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 persistent clock reaches frame 925)
+
+- Frame 924's clock cursor wraps through the `$FF` sentinel at `loc_45B2`,
+  adding the exact 58-cycle selector retry.
+- The chronological `loc_45DA -> sub_44D0` FIFO scheduler reaches oracle
+  `loc_810` at cycle 118,279,143 phase 16.
+- The persistent owner reaches frame 925 `sub_E12` at cycle 118,394,738 phase
+  104 without extending the frozen audio evidence span.
+- NEXT: type frame 925's player callback and continue fail-closed towards
+  frame 1706.
+
 ## 2026-07-26 handoff (#406 frame 924 reaches sub_44DC)
 
 - Frame 924 resumes grounded walking through `loc_8BF0 -> loc_8D72 ->

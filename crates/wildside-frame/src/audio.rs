@@ -4001,6 +4001,28 @@ pub fn apply_gems_life_icon_schedule_sub_44dc(
     )
 }
 
+/// Co-schedule the clock-icon-only ASM `sub_44DC` FIFO path.
+#[cfg(feature = "audio")]
+pub fn apply_gems_clock_icon_schedule_sub_44dc(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: ModeLevelCpuRasterCursor,
+    commands: &[HudDmaEventSub44DC],
+) -> Option<ModeLevelCpuRasterCursor> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::clock_icon_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+        entry,
+        commands,
+        |cycles, vdp_owns_bus| {
+            audio.advance_master_clocks(u64::from(cycles.get()) * 7, false, vdp_owns_bus);
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
 /// Co-schedule the diamond-only ASM `sub_44DC -> sub_5D4A` VRAM DMA on the
 /// persistent GEMS timeline.
 #[cfg(feature = "audio")]

@@ -4206,6 +4206,7 @@ impl NativeRuntime {
             // resident `$DD40` page through the hibernating VBlanks.
             let previous_life_page = self.hud_life_icon_vram_page_loc_4586;
             let previous_life_frame_offset = self.hud_animation_state.life_frame_offset_fb5e;
+            let previous_clock_frame_offset = self.hud_animation_state.clock_frame_offset_fb5f;
             let previous_diamond_page = self
                 .gameplay_hud_vram_state
                 .diamond_frame_table_byte_offset_loc_5d4a();
@@ -4241,6 +4242,10 @@ impl NativeRuntime {
                 self.hud_dma_events_sub_44dc
                     .push(HudDmaEventSub44DC::Clock {
                         frame_table_byte_offset: clock_upload.frame_table_byte_offset,
+                        // ASM loc_45B2 (kid.asm): cursor 6 advances to the
+                        // `$FF` sentinel at 8 and repeats with d7=0.
+                        wrapped_to_start: previous_clock_frame_offset == 6
+                            && self.hud_animation_state.clock_frame_offset_fb5f == 0,
                     });
             }
             if let Some(diamond_upload) = step.diamond_upload {

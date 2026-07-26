@@ -2470,7 +2470,11 @@ pub enum HudDmaEventSub44DC {
         wrapped_to_start: bool,
     },
     /// ASM loc_45DA -> sub_44D0: 0x80 bytes to VRAM `$46A0`.
-    Clock { frame_table_byte_offset: u8 },
+    Clock {
+        frame_table_byte_offset: u8,
+        /// ASM loc_45B2 sees the `$FF` terminator, resets d7, and loops once.
+        wrapped_to_start: bool,
+    },
     /// ASM loc_4626 -> sub_5D4A: 0x200 bytes to VRAM `$DD40`.
     Diamond { frame_table_byte_offset: u8 },
     /// ASM loc_4680 -> sub_5DA6: 0x280 bytes to VRAM `$D340`.
@@ -2489,6 +2493,7 @@ impl HudDmaEventSub44DC {
             }
             | Self::Clock {
                 frame_table_byte_offset,
+                ..
             }
             | Self::Diamond {
                 frame_table_byte_offset,

@@ -6624,6 +6624,16 @@ to oracle `loc_7E6` at cycle 118,273,566, then the existing 2,462-cycle
 post-object path reaches `sub_44DC` at 118,276,066 phase 92. NEXT: schedule
 the clock-art FIFO upload selected at `loc_45DA` and continue to frame 925.
 
+Progress 2026-07-26 (clock FIFO reaches frame 925): frame 924's clock script
+cursor advances from 6 to the `$FF` sentinel at 8. ASM `loc_45B2` repeats the
+selector with d7=0, adding the same verified 58-cycle retry as the life icon.
+The new clock-specific chronological scheduler skips the coin/life sections,
+runs `loc_45DA -> sub_44D0`, and co-schedules all 64 VRAM-word FIFO commits
+with the persistent GEMS machine. It reaches oracle `loc_810` at cycle
+118,279,143 phase 16, then the typed post-HUD/tail/VBlank work reaches frame
+925 `sub_E12` at cycle 118,394,738 phase 104. NEXT: type frame 925's player
+callback and continue fail-closed.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

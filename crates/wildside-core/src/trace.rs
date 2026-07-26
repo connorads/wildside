@@ -2154,6 +2154,7 @@ mod tests {
                 }],
                 &[HudDmaEventSub44DC::Clock {
                     frame_table_byte_offset: 4,
+                    wrapped_to_start: false,
                 }],
             ],
             "ASM sub_44B0 seeds countdowns 1..5; sub_44DC visits coin, life, clock, diamond, then flag on every Mode_Level pass"

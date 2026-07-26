@@ -93,6 +93,7 @@ use wildside_frame::{
 };
 #[cfg(test)]
 use wildside_frame::{
+    apply_gems_clock_icon_schedule_sub_44dc,
     apply_gems_mode_level_tail_to_wait_for_vint_with_wait_budget,
     apply_gems_mode_level_wait_for_vint_to_mode_level_with_wait_budget,
 };
@@ -5128,6 +5129,7 @@ impl GemsSignatureProbe {
                 mode_level_work.hud_events,
                 [wildside_core::HudDmaEventSub44DC::Clock {
                     frame_table_byte_offset: 4,
+                    wrapped_to_start: false,
                 }],
                 "ASM sub_44DC frame 906 takes the clock-only upload path",
             );
@@ -6083,6 +6085,7 @@ impl GemsSignatureProbe {
                 mode_level_work.hud_events,
                 [wildside_core::HudDmaEventSub44DC::Clock {
                     frame_table_byte_offset: 8,
+                    wrapped_to_start: false,
                 }],
                 "ASM sub_44DC frame 912 takes the clock-only upload path",
             );
@@ -6845,6 +6848,7 @@ impl GemsSignatureProbe {
                 work.hud_events,
                 [wildside_core::HudDmaEventSub44DC::Clock {
                     frame_table_byte_offset: 4,
+                    wrapped_to_start: false,
                 }],
                 "ASM sub_44DC frame 918 takes the clock-only upload path",
             );
@@ -8681,17 +8685,28 @@ impl GemsSignatureProbe {
         work: ModeLevelGemsFrameWork<'_>,
         next_vblank_work: ModeLevelVblankWorkBeforeSubE12,
     ) -> Option<()> {
-        if self.power_on_frame < GEMS_MODELLED_ROUTE_FRAMES
-            || work.hud_events
-                != [wildside_core::HudDmaEventSub44DC::LifeIcon {
-                    frame_table_byte_offset: 0,
-                    wrapped_to_start: true,
-                }]
-        {
+        if self.power_on_frame < GEMS_MODELLED_ROUTE_FRAMES {
             return None;
         }
-        let post_hud_entry =
-            apply_gems_life_icon_schedule_sub_44dc(&mut self.engine, sub_44dc, work.hud_events)?;
+        let post_hud_entry = match work.hud_events {
+            [
+                wildside_core::HudDmaEventSub44DC::LifeIcon {
+                    frame_table_byte_offset: 0,
+                    wrapped_to_start: true,
+                },
+            ] => {
+                apply_gems_life_icon_schedule_sub_44dc(&mut self.engine, sub_44dc, work.hud_events)
+            }
+            [
+                wildside_core::HudDmaEventSub44DC::Clock {
+                    frame_table_byte_offset: 0,
+                    wrapped_to_start: true,
+                },
+            ] => {
+                apply_gems_clock_icon_schedule_sub_44dc(&mut self.engine, sub_44dc, work.hud_events)
+            }
+            _ => None,
+        }?;
         let loc_892 = apply_gems_mode_level_post_hud_to_loc_892(
             &mut self.engine,
             post_hud_entry,
@@ -14030,6 +14045,44 @@ mod tests {
                 0,
             ),
             "ASM frame 924 sub_E12 -> sub_44DC remains source- and hardware-exact",
+        );
+
+        queue.observe_post_hud_producer(frame_924, &visuals.player);
+        let frame_925 = &trace[925];
+        let frame_925_vblank = queue
+            .consume_vblank_work(frame_925)
+            .expect("frame 925 consumes the retained frame-924 dynamic-art queue");
+        probe
+            .continue_mode_level_after_sub_44dc_to_next_prefix(
+                frame_924_sub_44dc,
+                ModeLevelGemsFrameWork {
+                    vblank_before_sub_e12: frame_924_vblank,
+                    pre_hud: Some(frame_924_pre_hud),
+                    hud_events: &frame_924.hud_dma_events_sub_44dc,
+                    post_hud: frame_924.mode_level_work_after_hud_sub_44dc.as_ref(),
+                    tail_loc_892: frame_924
+                        .mode_level_tail_work_loc_892
+                        .as_ref()
+                        .expect("frame 924 exposes tail work"),
+                },
+                frame_925_vblank,
+            )
+            .expect("typed frame 924 reaches the retained frame-925 VBlank prefix");
+        let frame_925_seed = probe
+            .continue_mode_level_to_sub_e12_after_frozen_span(frame_925_vblank)
+            .expect("persistent hardware owner reaches frame 925 sub_E12");
+        assert_eq!(
+            (
+                probe.engine.master_clock(),
+                frame_925_seed.refresh_phase,
+                probe.power_on_frame,
+            ),
+            (
+                118_394_738 * 7,
+                M68kRefreshPhase::new(104).expect("oracle frame-925 sub_E12 phase"),
+                925,
+            ),
+            "ASM frame 924 clock FIFO -> loc_892 -> WaitForVint -> frame 925 sub_E12 remains persistent and exact",
         );
     }
 
