@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 Flag DMA reaches frame 928)
+
+- Frame 927's page-20 Flag event follows `loc_4680 -> sub_5DA6` and its
+  320-word VRAM DMA to exact `loc_810` cycle 118,678,046 phase 120.
+- The post-HUD and tail boundaries remain exact through frame 928's VBlank.
+  H40 pixel 210 plus refresh phase `$7C` retains the full eight-slot sprite
+  DMA startup, preserving all earlier selected alignments.
+- Frame 928 reaches `sub_E12` at cycle 118,778,771 phase 104.
+- NEXT: type frame 928's changed player callback and continue towards frame
+  1706.
+
 ## 2026-07-26 handoff (#406 Diamond DMA reaches frame 927)
 
 - Frame 926's page-4 Diamond event runs through the chronological `sub_5D4A`

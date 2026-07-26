@@ -2961,6 +2961,92 @@ pub fn visit_hud_diamond_only_sub_44dc(
     Some(timing)
 }
 
+/// Raw CPU work for the flag-only `sub_44DC` path.
+///
+/// The `$280`-byte VRAM DMA and Z80 BUSREQ waits remain hardware ownership.
+pub fn hud_flag_only_raw_cycles_sub_44dc(
+    commands: &[HudDmaEventSub44DC],
+) -> Option<M68kCycleCount> {
+    if !matches!(commands, [HudDmaEventSub44DC::Flag { .. }]) {
+        return None;
+    }
+
+    // ASM sub_44DC loc_4630 -> loc_4680 -> sub_5DA6: four earlier animation
+    // counters skip, the flag selects one art page, sub_5DA6 programs its
+    // 320-word VRAM DMA, and loc_468C returns.
+    Some(M68kCycleCount::from_raw(742))
+}
+
+/// Visit every source instruction and hardware edge in the flag-only
+/// `sub_44DC -> loc_4680 -> sub_5DA6` path.
+pub fn visit_hud_flag_only_sub_44dc(
+    commands: &[HudDmaEventSub44DC],
+    mut visit: impl FnMut(crate::intro_timing::MemoryDmaTimingEvent),
+) -> Option<crate::intro_timing::IntroSourceTiming> {
+    hud_flag_only_raw_cycles_sub_44dc(commands)?;
+    use crate::intro_timing::{IntroSourceTiming, MemoryDmaTimingEvent, MemoryToVdpDmaTarget};
+
+    let mut timing = IntroSourceTiming {
+        instruction_count: 0,
+        raw_cycles: M68kCycleCount::from_raw(0),
+    };
+    let emit = |visit: &mut dyn FnMut(MemoryDmaTimingEvent),
+                timing: &mut IntroSourceTiming,
+                cycles: u32| {
+        visit(MemoryDmaTimingEvent::Instruction(cycles));
+        timing.instruction_count += 1;
+        timing.raw_cycles = M68kCycleCount::from_raw(
+            timing
+                .raw_cycles
+                .get()
+                .checked_add(cycles)
+                .expect("flag HUD source timing fits u32"),
+        );
+    };
+
+    // ASM sub_44DC $44DC..loc_4630: coin, life, clock, and diamond skip.
+    for cycles in [
+        12, 4, 4, 10, 12, 12, 4, 4, 10, 12, 12, 4, 4, 10, 12, 12, 4, 4, 10,
+    ] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    // ASM loc_4630..loc_4680: advance flag selector and call sub_5DA6.
+    for cycles in [12, 12, 4, 4, 12, 12, 4, 4, 12, 12, 8, 10, 8, 4, 18, 18] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    // ASM sub_5DA6 through Stop_z80's BUSREQ write and acknowledgement.
+    for cycles in [4, 20, 10, 10, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(true));
+    for cycles in [20, 8, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    // ASM sub_5DA6 programs length, source and the two destination command
+    // words. The final write begins the 320-word VRAM DMA.
+    for cycles in [24, 4, 10, 4, 8, 8, 12, 4, 22, 8, 12, 4, 8, 12, 24, 20, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::BeginMemoryDma {
+        words: 0x140,
+        target: MemoryToVdpDmaTarget::Vram,
+    });
+    // ASM sub_5DA6 -> Start_z80, then loc_468C stores the timer and returns.
+    for cycles in [20, 10, 10, 20] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    visit(MemoryDmaTimingEvent::SetZ80BusRequest(false));
+    for cycles in [16, 16, 12, 16] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+
+    debug_assert_eq!(
+        timing.raw_cycles,
+        hud_flag_only_raw_cycles_sub_44dc(commands)?
+    );
+    Some(timing)
+}
+
 /// Hardware-visible control boundary in ASM `ReadJoypad`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReadJoypadControl {
@@ -7110,6 +7196,32 @@ mod tests {
                 HudDmaEventSub44DC::Flag {
                     frame_table_byte_offset: 8,
                 },
+            ]),
+            None,
+            "unclassified multi-upload paths must remain fail-closed",
+        );
+    }
+
+    #[test]
+    fn flag_only_hud_path_has_source_derived_raw_cost_sub_44dc() {
+        let flag = HudDmaEventSub44DC::Flag {
+            frame_table_byte_offset: 20,
+        };
+        assert_eq!(
+            hud_flag_only_raw_cycles_sub_44dc(&[flag]),
+            Some(M68kCycleCount::from_raw(742)),
+            "ASM sub_44DC loc_4630 -> loc_4680 -> sub_5DA6 flag-only path",
+        );
+        let timing = visit_hud_flag_only_sub_44dc(&[flag], |_| {})
+            .expect("flag-only source path is classified");
+        assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(742));
+        assert_eq!(hud_flag_only_raw_cycles_sub_44dc(&[]), None);
+        assert_eq!(
+            hud_flag_only_raw_cycles_sub_44dc(&[
+                HudDmaEventSub44DC::Diamond {
+                    frame_table_byte_offset: 4,
+                },
+                flag,
             ]),
             None,
             "unclassified multi-upload paths must remain fail-closed",

@@ -5223,7 +5223,17 @@ pub fn mode_level_sprite_and_kid_to_vram_cursor_with_scheduler(
         0,
         true,
         MemoryDmaStartupLatencies {
-            first_vram: 7,
+            // ASM Mode_Level $7C8 -> sub_A5C: frame 928 enters at refresh
+            // phase $7C in H40 pixel 210. That alignment retains jgenesis'
+            // full eight-slot startup; the other selected alignments expose
+            // the established effective seven-slot schedule.
+            first_vram: if entry.refresh_phase.get() == 124
+                && h40_scanline_mclk_to_pixel(entry.beam.scanline_mclk) == 210
+            {
+                8
+            } else {
+                7
+            },
             following_vram: 19,
             cram: 8,
         },
@@ -6982,6 +6992,33 @@ pub fn diamond_cpu_raster_cursor_after_sub_44dc_with_scheduler(
 ) -> Option<ModeLevelCpuRasterCursor> {
     let advance =
         diamond_dma_advance_after_sub_44dc_with_scheduler(entry, commands, advance_hardware)?;
+    Some(ModeLevelCpuRasterCursor {
+        beam: advance.cursor.beam,
+        refresh_phase: advance.cursor.refresh_phase,
+    })
+}
+
+/// Co-schedule the flag-only ASM `sub_44DC -> sub_5DA6` VRAM DMA and return
+/// the CPU cursor after the memory DMA has completed.
+pub fn flag_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+    entry: ModeLevelCpuRasterCursor,
+    commands: &[crate::HudDmaEventSub44DC],
+    mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<ModeLevelCpuRasterCursor> {
+    crate::mode_level_timing::hud_flag_only_raw_cycles_sub_44dc(commands)?;
+    let advance = title_memory_dma_routine_cursor_with_scheduler(
+        LoadInGameCpuRasterCursor {
+            beam: entry.beam,
+            refresh_phase: entry.refresh_phase,
+        },
+        0,
+        false,
+        |visit| {
+            crate::mode_level_timing::visit_hud_flag_only_sub_44dc(commands, visit)
+                .expect("flag-only command was validated")
+        },
+        &mut advance_hardware,
+    )?;
     Some(ModeLevelCpuRasterCursor {
         beam: advance.cursor.beam,
         refresh_phase: advance.cursor.refresh_phase,
@@ -9769,6 +9806,53 @@ mod tests {
     }
 
     #[test]
+    fn frame_928_vblank_transfers_reach_selected_boundaries() {
+        let sprite = mode_level_sprite_and_kid_to_vram_cursor_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(118_770_978)),
+                refresh_phase: M68kRefreshPhase::new(124).expect("oracle $7C8 phase"),
+            },
+            [12, 0, 0, 0, 0, 0],
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("frame-928 12-tile loc_AD4 queue");
+        assert_eq!(
+            sprite.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(118_774_583)),
+                refresh_phase: M68kRefreshPhase::new(118).expect("oracle $7CC phase"),
+            },
+            "ASM sub_A5C returns at the selected frame-928 $7CC boundary",
+        );
+
+        let palette = mode_level_palette_to_vram_cursor_with_scheduler(sprite.cursor, true, |_| {
+            Some(M68kCycleCount::from_raw(0))
+        })
+        .expect("frame-928 active palette upload");
+        assert_eq!(
+            palette.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(118_775_112)),
+                refresh_phase: M68kRefreshPhase::new(92).expect("oracle $7D0 phase"),
+            },
+            "ASM Palette_to_VRAM returns at the selected frame-928 $7D0 boundary",
+        );
+
+        let scroll = mode_level_scroll_data_to_vram_cursor_with_scheduler(palette.cursor, |_| {
+            Some(M68kCycleCount::from_raw(0))
+        })
+        .expect("frame-928 normal loc_300BA scroll path");
+        assert_eq!(
+            scroll.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(118_777_915)),
+                refresh_phase: M68kRefreshPhase::new(16).expect("oracle $7D6 phase"),
+            },
+            "ASM loc_300BA returns at the selected frame-928 $7D6 boundary",
+        );
+    }
+
+    #[test]
     fn first_gameplay_scroll_transfer_reaches_selected_loc_7d6_boundary() {
         // ASM Mode_Level $7D0 -> j_Transfer_ScrollDataToVRAM ->
         // loc_300BA -> sub_924. The selected frame-902 oracle trace enters
@@ -10500,6 +10584,56 @@ mod tests {
             diamond_cpu_raster_cursor_after_sub_44dc_with_scheduler(entry, &[], |_| Some(
                 M68kCycleCount::from_raw(0)
             ),),
+            None,
+        );
+    }
+
+    #[test]
+    fn flag_dma_scheduler_reaches_oracle_sub_44dc_return() {
+        let entry = ModeLevelCpuRasterCursor {
+            beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(118_660_079)),
+            refresh_phase: M68kRefreshPhase::new(92).expect("frame-927 sub_44DC phase"),
+        };
+        let commands = [crate::HudDmaEventSub44DC::Flag {
+            frame_table_byte_offset: 20,
+        }];
+        let mut bus_edges = Vec::new();
+        let mut vdp_owned_ticks = 0_u32;
+
+        let exit =
+            flag_cpu_raster_cursor_after_sub_44dc_with_scheduler(entry, &commands, |event| {
+                match event {
+                    TitleMemoryDmaHardwareEvent::Advance {
+                        cycles,
+                        vdp_owns_bus,
+                        ..
+                    } => {
+                        if vdp_owns_bus {
+                            vdp_owned_ticks = vdp_owned_ticks.checked_add(cycles.get())?;
+                        }
+                    }
+                    TitleMemoryDmaHardwareEvent::SetZ80BusRequest(requested) => {
+                        bus_edges.push(requested);
+                    }
+                }
+                Some(M68kCycleCount::from_raw(0))
+            })
+            .expect("ASM loc_4680 -> sub_5DA6 flag-only schedule");
+
+        assert_eq!(bus_edges, [true, false]);
+        assert_ne!(vdp_owned_ticks, 0, "sub_5DA6 performs a 320-word VRAM DMA");
+        assert_eq!(
+            exit,
+            ModeLevelCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(118_678_046)),
+                refresh_phase: M68kRefreshPhase::new(120).expect("frame-927 loc_810 phase"),
+            },
+            "selected-PC oracle frame 927 pins the complete flag DMA return",
+        );
+        assert_eq!(
+            flag_cpu_raster_cursor_after_sub_44dc_with_scheduler(entry, &[], |_| Some(
+                M68kCycleCount::from_raw(0)
+            )),
             None,
         );
     }

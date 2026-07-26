@@ -93,7 +93,7 @@ use wildside_frame::{
 };
 #[cfg(test)]
 use wildside_frame::{
-    apply_gems_clock_icon_schedule_sub_44dc,
+    apply_gems_clock_icon_schedule_sub_44dc, apply_gems_flag_schedule_sub_44dc,
     apply_gems_mode_level_tail_to_wait_for_vint_with_wait_budget,
     apply_gems_mode_level_wait_for_vint_to_mode_level_with_wait_budget,
 };
@@ -8684,6 +8684,7 @@ impl GemsSignatureProbe {
         sub_44dc: wildside_core::vdp::ModeLevelCpuRasterCursor,
         work: ModeLevelGemsFrameWork<'_>,
         next_vblank_work: ModeLevelVblankWorkBeforeSubE12,
+        vblank_wait_budgets: wildside_frame::ModeLevelVblankGemsWaitBudgets,
     ) -> Option<()> {
         if self.power_on_frame < GEMS_MODELLED_ROUTE_FRAMES {
             return None;
@@ -8723,6 +8724,11 @@ impl GemsSignatureProbe {
                     frame_table_byte_offset: 4,
                 },
             ] => apply_gems_diamond_schedule_sub_44dc(&mut self.engine, sub_44dc, work.hud_events),
+            [
+                wildside_core::HudDmaEventSub44DC::Flag {
+                    frame_table_byte_offset: 20,
+                },
+            ] => apply_gems_flag_schedule_sub_44dc(&mut self.engine, sub_44dc, work.hud_events),
             _ => None,
         }?;
         let loc_892 = apply_gems_mode_level_post_hud_to_loc_892(
@@ -8753,11 +8759,7 @@ impl GemsSignatureProbe {
                 mode_level.cursor,
                 next_vblank_work,
                 target,
-                Some(wildside_frame::ModeLevelVblankGemsWaitBudgets {
-                    sprite_and_kid: M68kCycleCount::from_raw(0),
-                    palette: M68kCycleCount::from_raw(0),
-                    scroll: M68kCycleCount::from_raw(0),
-                }),
+                Some(vblank_wait_budgets),
             )?;
         self.power_on_mode_level_prefix = Some(prefix);
         self.power_on_frame += 1;
@@ -13891,6 +13893,11 @@ mod tests {
         let rom = std::fs::read(rom_path).expect("bootstrapped Kid ROM");
         let mut probe = GemsSignatureProbe::from_kid_rom_power_on(&rom).expect("power-on probe");
         let mut queue = ModeLevelDynamicArtQueueLocAd4::default();
+        let no_vblank_waits = wildside_frame::ModeLevelVblankGemsWaitBudgets {
+            sprite_and_kid: M68kCycleCount::from_raw(0),
+            palette: M68kCycleCount::from_raw(0),
+            scroll: M68kCycleCount::from_raw(0),
+        };
 
         for frame in trace.iter().take(GEMS_MODELLED_ROUTE_FRAMES) {
             let vblank_before_sub_e12 = queue.consume_vblank_work(frame);
@@ -14003,6 +14010,7 @@ mod tests {
                         .expect("frame 923 exposes tail work"),
                 },
                 frame_924_vblank,
+                no_vblank_waits,
             )
             .expect("typed frame 923 reaches the retained frame-924 VBlank prefix");
         let frame_924_seed = probe
@@ -14086,6 +14094,7 @@ mod tests {
                         .expect("frame 924 exposes tail work"),
                 },
                 frame_925_vblank,
+                no_vblank_waits,
             )
             .expect("typed frame 924 reaches the retained frame-925 VBlank prefix");
         let frame_925_seed = probe
@@ -14168,6 +14177,7 @@ mod tests {
                         .expect("frame 925 exposes tail work"),
                 },
                 frame_926_vblank,
+                no_vblank_waits,
             )
             .expect("typed frame 925 reaches the retained frame-926 VBlank prefix");
         let frame_926_seed = probe
@@ -14250,6 +14260,7 @@ mod tests {
                         .expect("frame 926 exposes tail work"),
                 },
                 frame_927_vblank,
+                no_vblank_waits,
             )
             .expect("typed frame 926 reaches the retained frame-927 VBlank prefix");
         let frame_927_seed = probe
@@ -14312,6 +14323,51 @@ mod tests {
                 0,
             ),
             "ASM frame 927 sub_E12 -> sub_44DC remains source- and hardware-exact",
+        );
+        queue.observe_post_hud_producer(frame_927, &visuals.player);
+        let frame_928 = &trace[928];
+        let frame_928_vblank = queue
+            .consume_vblank_work(frame_928)
+            .expect("frame 928 consumes the retained frame-927 dynamic-art queue");
+        probe
+            .continue_mode_level_after_sub_44dc_to_next_prefix(
+                frame_927_sub_44dc,
+                ModeLevelGemsFrameWork {
+                    vblank_before_sub_e12: frame_927_vblank,
+                    pre_hud: Some(frame_927_pre_hud),
+                    hud_events: &frame_927.hud_dma_events_sub_44dc,
+                    post_hud: frame_927.mode_level_work_after_hud_sub_44dc.as_ref(),
+                    tail_loc_892: frame_927
+                        .mode_level_tail_work_loc_892
+                        .as_ref()
+                        .expect("frame 927 exposes tail work"),
+                },
+                frame_928_vblank,
+                // Selected-PC rows pin every frame-928 VBlank DMA boundary
+                // without a Z80 bank steal. Reject the persistent native
+                // GEMS phase's unrelated 11-cycle request.
+                wildside_frame::ModeLevelVblankGemsWaitBudgets {
+                    sprite_and_kid: M68kCycleCount::from_raw(0),
+                    palette: M68kCycleCount::from_raw(0),
+                    scroll: M68kCycleCount::from_raw(0),
+                },
+            )
+            .expect("typed frame 927 reaches the retained frame-928 VBlank prefix");
+        let frame_928_seed = probe
+            .continue_mode_level_to_sub_e12_after_frozen_span(frame_928_vblank)
+            .expect("persistent hardware owner reaches frame 928 sub_E12");
+        assert_eq!(
+            (
+                probe.engine.master_clock(),
+                frame_928_seed.refresh_phase,
+                probe.power_on_frame,
+            ),
+            (
+                118_778_771 * 7,
+                M68kRefreshPhase::new(104).expect("oracle frame-928 sub_E12 phase"),
+                928,
+            ),
+            "ASM frame 927 Flag DMA -> loc_892 -> WaitForVint -> frame 928 sub_E12 remains persistent and exact",
         );
     }
 

@@ -6659,6 +6659,19 @@ new source constant. Frame 927's grounded continuation accelerates
 sub_8F26 -> loc_8BF0` and reaches `sub_44DC` at 118,660,079 phase 92. NEXT:
 classify the later frame-927 boundary and frame 928's changed callback.
 
+Progress 2026-07-26 (Flag DMA reaches frame 928): frame 927's sole HUD event
+is page-20 Flag art. The typed `loc_4630 -> loc_4680 -> sub_5DA6` visitor
+programs the 320-word VRAM DMA between the exact BUSREQ edges and reaches
+oracle `loc_810` at cycle 118,678,046 phase 120. Selected PCs independently
+pin the later `loc_87E`, `loc_882`, `loc_892`, and first `$93E` boundaries.
+The following VBlank exposed a separate five-cycle sprite-DMA residue: H40
+pixel 210 plus refresh phase `$7C` retains jgenesis' full eight-slot startup,
+where the earlier selected alignments use the established effective seven.
+Exact regressions cover frames 902, 904, 905, 913, and 928. Frame 928 reaches
+`$7CC` at 118,774,583, `$7D0` at 118,775,112, `$7D6` at 118,777,915, and
+`sub_E12` at 118,778,771 phase 104. NEXT: type frame 928's changed player
+callback and continue fail-closed towards frame 1706.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.
