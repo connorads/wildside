@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 Coin FIFO reaches frame 929)
+
+- Frame 928's page-12 Coin event follows `loc_44F4 -> loc_4534 -> sub_44D0`.
+  Its 64-word FIFO copy reaches `loc_810` at cycle 118,790,706 phase 100.
+- The ten-cycle execute drop is `sub_9FE` resetting its RNG ring from -1 to
+  -55, not a changed `loc_8BF0` player callback.
+- Persistent post-HUD, tail, and VBlank timing reaches frame 929 `sub_E12` at
+  cycle 118,906,763 phase 104, then `sub_44DC` at 118,916,071 phase 68.
+- NEXT: continue frame 929's HUD/tail fail-closed towards frame 1706.
+
 ## 2026-07-26 handoff (#406 Flag DMA reaches frame 928)
 
 - Frame 927's page-20 Flag event follows `loc_4680 -> sub_5DA6` and its

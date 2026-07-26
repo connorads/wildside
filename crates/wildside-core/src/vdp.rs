@@ -6780,6 +6780,91 @@ fn drain_life_icon_pending_fifo_words(
     Some(())
 }
 
+/// Co-schedule the coin-only `sub_44DC -> loc_4534 -> sub_44D0` FIFO path.
+pub fn coin_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+    entry: ModeLevelCpuRasterCursor,
+    commands: &[crate::HudDmaEventSub44DC],
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<ModeLevelCpuRasterCursor> {
+    crate::mode_level_timing::hud_coin_only_raw_cycles_sub_44dc(commands)?;
+    let [
+        crate::HudDmaEventSub44DC::Coin {
+            frame_table_byte_offset,
+        },
+    ] = commands
+    else {
+        return None;
+    };
+
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+
+    // ASM sub_44DC enters the coin counter first, then loc_44F4 selects the
+    // art page and loc_4534 completes the first MOVE.L to the VDP data port.
+    const PRELUDE_THROUGH_FIRST_MOVE: [u32; 18] = [
+        12, 4, 4, 12, 12, 4, 4, 12, 12, 8, 10, 8, 4, 22, 20, 18, 8, 20,
+    ];
+    debug_assert_eq!(PRELUDE_THROUGH_FIRST_MOVE.into_iter().sum::<u32>(), 194);
+    for raw_cycles in PRELUDE_THROUGH_FIRST_MOVE[..9].iter().copied() {
+        advance_life_icon_source_instruction(
+            &mut fifo,
+            &mut phase,
+            raw_cycles,
+            &mut advance_hardware,
+        )?;
+    }
+    if *frame_table_byte_offset == 0 {
+        // ASM loc_44F4 -> loc_44F4: failed BPL.W, reset d7 and repeat the
+        // selector after the AniArt_Coin `$FF` terminator.
+        for raw_cycles in [12, 12, 8, 12, 4, 10] {
+            advance_life_icon_source_instruction(
+                &mut fifo,
+                &mut phase,
+                raw_cycles,
+                &mut advance_hardware,
+            )?;
+        }
+    }
+    for raw_cycles in PRELUDE_THROUGH_FIRST_MOVE[9..].iter().copied() {
+        advance_life_icon_source_instruction(
+            &mut fifo,
+            &mut phase,
+            raw_cycles,
+            &mut advance_hardware,
+        )?;
+    }
+    fifo.push_word();
+    fifo.push_word();
+    drain_life_icon_pending_fifo_words(&mut fifo, &mut phase, &mut advance_hardware)?;
+
+    for _ in 1..32 {
+        advance_life_icon_source_instruction(&mut fifo, &mut phase, 10, &mut advance_hardware)?;
+        advance_life_icon_source_instruction(&mut fifo, &mut phase, 20, &mut advance_hardware)?;
+        fifo.push_word();
+        fifo.push_word();
+        drain_life_icon_pending_fifo_words(&mut fifo, &mut phase, &mut advance_hardware)?;
+    }
+
+    // ASM final DBF, sub_44D0 return, the coin timer store, four skipped
+    // animation counters and the outer sub_44DC return.
+    const TRAILING_INSTRUCTIONS: [u32; 24] = [
+        14, 16, 12, 12, 4, 4, 10, 12, 12, 4, 4, 10, 12, 12, 4, 4, 10, 12, 12, 4, 4, 10, 12, 16,
+    ];
+    for raw_cycles in TRAILING_INSTRUCTIONS {
+        advance_life_icon_source_instruction(
+            &mut fifo,
+            &mut phase,
+            raw_cycles,
+            &mut advance_hardware,
+        )?;
+    }
+
+    Some(ModeLevelCpuRasterCursor {
+        beam: fifo.beam,
+        refresh_phase: phase,
+    })
+}
+
 /// Co-schedule the life-icon-only `sub_44DC` path with asynchronous hardware.
 ///
 /// The callback advances one chronological 68000 interval and returns newly
@@ -10535,6 +10620,30 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(16).expect("frame-924 loc_810 phase"),
             },
             "ASM loc_45B2 -> loc_45DA -> sub_44D0 reaches oracle loc_810",
+        );
+    }
+
+    #[test]
+    fn coin_icon_chronological_scheduler_matches_frame_928_loc_4534() {
+        let entry = ModeLevelCpuRasterCursor {
+            beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(118_788_093)),
+            refresh_phase: M68kRefreshPhase::new(82).expect("frame-928 sub_44DC phase"),
+        };
+        let command = [crate::HudDmaEventSub44DC::Coin {
+            frame_table_byte_offset: 12,
+        }];
+        let exit = coin_cpu_raster_cursor_after_sub_44dc_with_scheduler(entry, &command, |_, _| {
+            Some(M68kCycleCount::from_raw(0))
+        })
+        .expect("frame-928 coin FIFO path is classified");
+
+        assert_eq!(
+            exit,
+            ModeLevelCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(118_790_706)),
+                refresh_phase: M68kRefreshPhase::new(100).expect("frame-928 loc_810 phase"),
+            },
+            "ASM loc_44F4 -> loc_4534 -> sub_44D0 reaches oracle loc_810",
         );
     }
 

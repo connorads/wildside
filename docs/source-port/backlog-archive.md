@@ -4617,6 +4617,18 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-26: frame 928's page-12 Coin event now follows the complete
+`sub_44DC loc_44F4 -> loc_4534 -> sub_44D0` instruction stream. The 64-word
+CPU-to-VRAM copy is co-scheduled with H40 FIFO ownership and the persistent
+GEMS machine; it reaches oracle `loc_810` at cycle 118,790,706 phase 100.
+The post-HUD, tail, and next VBlank paths reach frame 929 `sub_E12` at cycle
+118,906,763 phase 104. The apparent ten-cycle player-path change on frame 928
+was rejected: `loc_8BF0` retains its 3,584-cycle callback. `Get_RandomNumber_byte
+sub_9FE` instead resets its offset ring from -1 to -55 on the third setup call,
+saving ten raw cycles; frame 929 starts at `$FFCA` and reaches `sub_44DC` at
+cycle 118,916,071 phase 68. Focused unit, adapter, and persistent-route tests
+pin the source paths. #406 remains open towards the frame-1706 pixel frontier.
+
 Progress 2026-07-18: frame 1683's single pixel was the VDP first-opaque
 relation between an older `$229` `sub_1007A` wobble worker and a newly
 allocated `$2CF` `loc_102B8` flash. `Allocate_GfxObjectSlot loc_FD4` inserts

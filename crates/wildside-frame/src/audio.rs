@@ -4001,6 +4001,28 @@ pub fn apply_gems_life_icon_schedule_sub_44dc(
     )
 }
 
+/// Co-schedule GEMS banked reads with the coin-only ASM `sub_44DC` path.
+#[cfg(feature = "audio")]
+pub fn apply_gems_coin_schedule_sub_44dc(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: ModeLevelCpuRasterCursor,
+    commands: &[HudDmaEventSub44DC],
+) -> Option<ModeLevelCpuRasterCursor> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::coin_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+        entry,
+        commands,
+        |cycles, vdp_owns_bus| {
+            audio.advance_master_clocks(u64::from(cycles.get()) * 7, false, vdp_owns_bus);
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
 /// Co-schedule the clock-icon-only ASM `sub_44DC` FIFO path.
 #[cfg(feature = "audio")]
 pub fn apply_gems_clock_icon_schedule_sub_44dc(
@@ -5639,6 +5661,34 @@ mod tests {
 
         assert_eq!(actual, expected);
         assert!(!engine.checkpoint().busreq);
+        assert!(engine.take_banked_68k_reads().is_empty());
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn gems_coin_adapter_matches_oracle_fifo_schedule_loc_4534() {
+        let entry = wildside_core::vdp::ModeLevelCpuRasterCursor {
+            beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                118_788_093,
+            )),
+            refresh_phase: wildside_core::M68kRefreshPhase::new(82)
+                .expect("frame-928 sub_44DC phase"),
+        };
+        let commands = [HudDmaEventSub44DC::Coin {
+            frame_table_byte_offset: 12,
+        }];
+        let expected = wildside_core::vdp::coin_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+            entry,
+            &commands,
+            |_, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("no-GEMS reference schedule");
+        let mut engine = GemsMasterClockTimingEngine::new(&[0x76], vec![]);
+
+        let actual = apply_gems_coin_schedule_sub_44dc(&mut engine, entry, &commands)
+            .expect("HALT-only GEMS engine adds no bank waits");
+
+        assert_eq!(actual, expected);
         assert!(engine.take_banked_68k_reads().is_empty());
     }
 

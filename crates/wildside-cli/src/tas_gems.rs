@@ -93,7 +93,8 @@ use wildside_frame::{
 };
 #[cfg(test)]
 use wildside_frame::{
-    apply_gems_clock_icon_schedule_sub_44dc, apply_gems_flag_schedule_sub_44dc,
+    apply_gems_clock_icon_schedule_sub_44dc, apply_gems_coin_schedule_sub_44dc,
+    apply_gems_flag_schedule_sub_44dc,
     apply_gems_mode_level_tail_to_wait_for_vint_with_wait_budget,
     apply_gems_mode_level_wait_for_vint_to_mode_level_with_wait_budget,
 };
@@ -8704,6 +8705,11 @@ impl GemsSignatureProbe {
                 )
             }
             [
+                wildside_core::HudDmaEventSub44DC::Coin {
+                    frame_table_byte_offset: 12,
+                },
+            ] => apply_gems_coin_schedule_sub_44dc(&mut self.engine, sub_44dc, work.hud_events),
+            [
                 wildside_core::HudDmaEventSub44DC::LifeIcon {
                     frame_table_byte_offset: 0,
                     wrapped_to_start: true,
@@ -14368,6 +14374,142 @@ mod tests {
                 928,
             ),
             "ASM frame 927 Flag DMA -> loc_892 -> WaitForVint -> frame 928 sub_E12 remains persistent and exact",
+        );
+        let frame_928_pre_hud = frame_928
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("frame 928 exposes pre-HUD work");
+        assert_eq!(
+            frame_928_pre_hud.execute_objects.executed_player_path,
+            Some(
+                wildside_core::ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+                    form: wildside_core::PlayerForm::TheKid,
+                    x_velocity_before: 0x0000_8C00,
+                    x_velocity_after: 0x0000_A800,
+                },
+            ),
+            "ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26 -> loc_8BF0",
+        );
+        assert_eq!(
+            frame_928_pre_hud.execute_objects.rng_offset_before_sub_e12,
+            Some(0xFFFD),
+            "ASM sub_9FE resets the RNG ring from -1 to -55 on frame 928's third setup call",
+        );
+        assert_eq!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(&frame_928_pre_hud.execute_objects,),
+            Some(M68kCycleCount::from_raw(6_714)),
+            "ASM sub_E12 at 118778771 reaches loc_7E6 at 118785593 after 54 refresh waits; sub_9FE's ring reset saves ten raw cycles",
+        );
+        assert_eq!(
+            wildside_core::post_execute_raw_cycles_before_sub_44dc(frame_928_pre_hud),
+            Some(M68kCycleCount::from_raw(2_462)),
+            "ASM loc_7E6 at 118785593 reaches sub_44DC at 118788093 after 19 refresh waits",
+        );
+        let frame_928_sub_44dc = apply_gems_mode_level_pre_hud_to_sub_44dc(
+            &mut probe.engine,
+            frame_928_seed,
+            frame_928_pre_hud,
+        )
+        .expect("persistent hardware owner reaches frame 928 sub_44DC");
+        assert_eq!(
+            (
+                probe.engine.master_clock(),
+                frame_928_sub_44dc.refresh_phase,
+                probe.engine.pending_m68k_wait_cycles(),
+            ),
+            (
+                118_788_093 * 7,
+                M68kRefreshPhase::new(82).expect("oracle frame-928 sub_44DC phase"),
+                0,
+            ),
+            "ASM frame 928 sub_E12 -> sub_44DC remains source- and hardware-exact",
+        );
+        queue.observe_post_hud_producer(frame_928, &visuals.player);
+        let frame_929 = &trace[929];
+        let frame_929_vblank = queue
+            .consume_vblank_work(frame_929)
+            .expect("frame 929 consumes the retained frame-928 dynamic-art queue");
+        probe
+            .continue_mode_level_after_sub_44dc_to_next_prefix(
+                frame_928_sub_44dc,
+                ModeLevelGemsFrameWork {
+                    vblank_before_sub_e12: frame_928_vblank,
+                    pre_hud: Some(frame_928_pre_hud),
+                    hud_events: &frame_928.hud_dma_events_sub_44dc,
+                    post_hud: frame_928.mode_level_work_after_hud_sub_44dc.as_ref(),
+                    tail_loc_892: frame_928
+                        .mode_level_tail_work_loc_892
+                        .as_ref()
+                        .expect("frame 928 exposes tail work"),
+                },
+                frame_929_vblank,
+                no_vblank_waits,
+            )
+            .expect("typed frame 928 reaches the retained frame-929 VBlank prefix");
+        let frame_929_seed = probe
+            .continue_mode_level_to_sub_e12_after_frozen_span(frame_929_vblank)
+            .expect("persistent hardware owner reaches frame 929 sub_E12");
+        assert_eq!(
+            (
+                probe.engine.master_clock(),
+                frame_929_seed.refresh_phase,
+                probe.power_on_frame,
+            ),
+            (
+                118_906_763 * 7,
+                M68kRefreshPhase::new(104).expect("oracle frame-929 sub_E12 phase"),
+                929,
+            ),
+            "ASM frame 928 HUD/tail -> WaitForVint -> frame 929 sub_E12 remains persistent and exact",
+        );
+        let frame_929_pre_hud = frame_929
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("frame 929 exposes pre-HUD work");
+        assert_eq!(
+            frame_929_pre_hud.execute_objects.executed_player_path,
+            Some(
+                wildside_core::ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+                    form: wildside_core::PlayerForm::TheKid,
+                    x_velocity_before: 0x0000_A800,
+                    x_velocity_after: 0x0000_C400,
+                },
+            ),
+            "ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26 -> loc_8BF0",
+        );
+        assert_eq!(
+            frame_929_pre_hud.execute_objects.rng_offset_before_sub_e12,
+            Some(0xFFCA),
+            "ASM frame 928 sub_9FE ring reset leaves offset -54 for frame 929",
+        );
+        assert_eq!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(&frame_929_pre_hud.execute_objects,),
+            Some(M68kCycleCount::from_raw(6_700)),
+            "ASM sub_E12 at 118906763 reaches loc_7E6 at 118913569 after 53 refresh waits",
+        );
+        assert_eq!(
+            wildside_core::post_execute_raw_cycles_before_sub_44dc(frame_929_pre_hud),
+            Some(M68kCycleCount::from_raw(2_462)),
+            "ASM loc_7E6 at 118913569 reaches sub_44DC at 118916071 after 20 refresh waits",
+        );
+        let frame_929_sub_44dc = apply_gems_mode_level_pre_hud_to_sub_44dc(
+            &mut probe.engine,
+            frame_929_seed,
+            frame_929_pre_hud,
+        )
+        .expect("persistent hardware owner reaches frame 929 sub_44DC");
+        assert_eq!(
+            (
+                probe.engine.master_clock(),
+                frame_929_sub_44dc.refresh_phase,
+                probe.engine.pending_m68k_wait_cycles(),
+            ),
+            (
+                118_916_071 * 7,
+                M68kRefreshPhase::new(68).expect("oracle frame-929 sub_44DC phase"),
+                0,
+            ),
+            "ASM frame 929 sub_E12 -> sub_44DC remains source- and hardware-exact",
         );
     }
 

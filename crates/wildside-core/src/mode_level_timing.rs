@@ -2821,6 +2821,30 @@ pub fn hud_no_upload_raw_cycles_sub_44dc(
     Some(M68kCycleCount::from_raw(226))
 }
 
+/// Raw CPU work for the coin-only `sub_44DC` path.
+///
+/// FIFO and refresh stalls are deliberately excluded. An offset of zero is
+/// the wrapped `AniArt_Coin` selector path through the `$FF` terminator.
+pub fn hud_coin_only_raw_cycles_sub_44dc(
+    commands: &[HudDmaEventSub44DC],
+) -> Option<M68kCycleCount> {
+    let [
+        HudDmaEventSub44DC::Coin {
+            frame_table_byte_offset,
+        },
+    ] = commands
+    else {
+        return None;
+    };
+
+    // ASM sub_44DC loc_44F4 -> loc_4534 -> sub_44D0 (kid.asm): one
+    // 128-byte CPU-to-VRAM upload costs 1,350 raw cycles. The `$FF` selector
+    // retry at loc_44F4 adds 58 raw cycles before selecting frame zero.
+    Some(M68kCycleCount::from_raw(
+        1_350 + u32::from(*frame_table_byte_offset == 0) * 58,
+    ))
+}
+
 /// Raw CPU work for the classified life-icon-only `sub_44DC` path.
 ///
 /// FIFO and refresh stalls are deliberately excluded. Other HUD command
@@ -7589,6 +7613,25 @@ mod tests {
             "offset-ring reset costs two cycles and suppresses the tap wrap"
         );
         assert_eq!(execute_objects_setup_cycles_sub_e12(0), None);
+    }
+
+    #[test]
+    fn coin_only_hud_raw_cycles_follow_loc_44f4_and_sub_44d0() {
+        assert_eq!(
+            hud_coin_only_raw_cycles_sub_44dc(&[HudDmaEventSub44DC::Coin {
+                frame_table_byte_offset: 12,
+            }]),
+            Some(M68kCycleCount::from_raw(1_350)),
+            "ASM frame 928 loc_44F4 -> loc_4534 -> sub_44D0 takes the non-wrapping coin path",
+        );
+        assert_eq!(
+            hud_coin_only_raw_cycles_sub_44dc(&[HudDmaEventSub44DC::Coin {
+                frame_table_byte_offset: 0,
+            }]),
+            Some(M68kCycleCount::from_raw(1_408)),
+            "ASM loc_44F4 repeats the selector after the AniArt_Coin $FF terminator",
+        );
+        assert_eq!(hud_coin_only_raw_cycles_sub_44dc(&[]), None);
     }
 
     #[test]
