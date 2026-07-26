@@ -252,7 +252,8 @@ pub fn visit_mode_level_vblank_suffix_after_scroll_dma(
         || work.paused_sub_6874
         || !matches!(
             work.hud_path_sub_bdc0,
-            crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates
+            crate::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates
+                | crate::ModeLevelHudBuildPath::LocBe20DirectStableCounters
                 | crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters
         )
     {
@@ -279,7 +280,7 @@ pub fn visit_mode_level_vblank_suffix_after_scroll_dma(
     // equals its empty producer base rather than zero, while the cell queue
     // takes the direct empty branch.
     for cycles in [
-        18, 8, 16, 8, 4, 12, 4, 8, 8, 12, 10, 8, 8, 4, 16, 16, 12, 8, 10, 24,
+        18, 8, 16, 8, 4, 12, 4, 8, 8, 12, 10, 8, 8, 4, 16, 16, 12, 8, 10, 24, 24, 16,
     ] {
         emit(cycles);
     }
@@ -296,16 +297,22 @@ pub fn visit_mode_level_vblank_suffix_after_scroll_dma(
         12, 8, 4, 10, 4, 8, 4, 4, 8, 8, 10, 4, 10, 8, 12, 8, 12, 8, 10, 12, 16, 12, 12, 12, 12, 16,
         10, 12, 10, 12, 8, 10, 12, 10, 12, 12, 10, 16, 18,
     ];
-    const STABLE_COUNTERS: &[u8] = &[
+    // ASM loc_BE20 -> loc_BE0C -> loc_BE34 -> loc_BE4C costs the same 110
+    // raw cycles that the first gameplay pass instead spends in the two
+    // calc_display_number calls. Frame-902 and frame-1706 selected-PC traces
+    // therefore pin both complete HUD paths to the same instruction ledger.
+    const DIRECT_STABLE_COUNTERS: &[u8] = &[
         18, 10, 12, 16, 12, 8, 12, 12, 12, 12, 4, 14, 12, 8, 12, 10, 8, 4, 8, 4, 4, 10, 8, 12, 8,
         12, 8, 4, 8, 10, 12, 16, 12, 12, 12, 12, 16, 10, 12, 10, 12, 8, 10, 12, 10, 12, 12, 10, 16,
         18,
     ];
+    const SECOND_HITPOINT_LOOP_STABLE_COUNTERS: &[u8] = INITIAL_COUNTER_UPDATES;
     let hud_cycles = match work.hud_path_sub_bdc0 {
-        crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates => {
-            INITIAL_COUNTER_UPDATES
+        crate::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates => INITIAL_COUNTER_UPDATES,
+        crate::ModeLevelHudBuildPath::LocBe20DirectStableCounters => DIRECT_STABLE_COUNTERS,
+        crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters => {
+            SECOND_HITPOINT_LOOP_STABLE_COUNTERS
         }
-        crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters => STABLE_COUNTERS,
         crate::ModeLevelHudBuildPath::Other => unreachable!("guard rejects other HUD paths"),
     };
     for &cycles in hud_cycles {
@@ -3007,8 +3014,7 @@ mod tests {
             foreground_custom_queue_entries_sub_1596: 0,
             foreground_cell_queue_entries_sub_1596: 0,
             paused_sub_6874: false,
-            hud_path_sub_bdc0:
-                crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates,
+            hud_path_sub_bdc0: crate::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
         };
         let mut cycles = Vec::new();
         let timing =
@@ -3018,23 +3024,23 @@ mod tests {
         assert_eq!(
             timing,
             IntroSourceTiming {
-                instruction_count: 88,
-                raw_cycles: M68kCycleCount::from_raw(914),
+                instruction_count: 90,
+                raw_cycles: M68kCycleCount::from_raw(954),
             },
             "ASM Mode_Level $7D6 -> Execute_Objects sub_E12 retains the frame-1697 oracle path",
         );
         assert_eq!(
-            cycles[..20].iter().sum::<u32>(),
-            214,
+            cycles[..22].iter().sum::<u32>(),
+            254,
             "ASM sub_1596 uses the gameplay producer-base sentinel path",
         );
         assert_eq!(
-            cycles[20..24],
+            cycles[22..26],
             [18, 12, 8, 16],
             "ASM sub_6874 takes the unpaused return",
         );
         assert_eq!(
-            cycles[24..].iter().sum::<u32>(),
+            cycles[26..].iter().sum::<u32>(),
             646,
             "ASM sub_BDC0 takes loc_BE20 then loc_BE4C without counter rollover",
         );

@@ -4514,7 +4514,7 @@ mod tests {
             foreground_cell_queue_entries_sub_1596: 0,
             paused_sub_6874: false,
             hud_path_sub_bdc0:
-                wildside_core::ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates,
+                wildside_core::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
         };
 
         let (_, checkpoint) = apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
@@ -4560,7 +4560,7 @@ mod tests {
             foreground_cell_queue_entries_sub_1596: 0,
             paused_sub_6874: false,
             hud_path_sub_bdc0:
-                wildside_core::ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates,
+                wildside_core::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
         };
         let mut expected_phase = entry_phase;
         let mut expected_elapsed = 0_u32;
@@ -4588,8 +4588,8 @@ mod tests {
         )
         .expect("source-scheduled Mode_Level VBlank suffix");
 
-        assert_eq!(advance.timing.instruction_count, 88);
-        assert_eq!(advance.timing.raw_cycles.get(), 914);
+        assert_eq!(advance.timing.instruction_count, 90);
+        assert_eq!(advance.timing.raw_cycles.get(), 954);
         assert_eq!(advance.refresh_events, 7);
         assert_eq!(advance.external_wait_cycles.get(), 0);
         assert_eq!(advance.cursor.refresh_phase, expected_phase);

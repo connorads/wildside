@@ -10881,7 +10881,7 @@ impl NativeRuntime {
                     foreground_cell_queue_entries_sub_1596: 0,
                     paused_sub_6874: false,
                     hud_path_sub_bdc0:
-                        crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates,
+                        crate::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
                 }),
             mode_level_work_before_hud_sub_44dc: self.mode_level_work_before_hud_sub_44dc.clone(),
             mode_level_work_after_hud_sub_44dc: self.mode_level_work_after_hud_sub_44dc.clone(),

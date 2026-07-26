@@ -1142,13 +1142,37 @@ pub enum ModeLevelScrollTransferPath {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelHudBuildPath {
-    /// ASM `loc_BE20 -> loc_BE0C -> loc_BE34 -> loc_BE4C`, followed by the
-    /// first gameplay pass updating the life and diamond display counters.
-    LocBe20ThenLocBe4cInitialCounterUpdates,
+    /// ASM `loc_BE20 -> loc_BE82`, followed by the first gameplay pass
+    /// updating the life and diamond display counters.
+    LocBe20DirectInitialCounterUpdates,
+    /// ASM `loc_BE20 -> loc_BE82`, with unchanged life and diamond display
+    /// counters.
+    LocBe20DirectStableCounters,
     /// ASM `loc_BE20 -> loc_BE0C -> loc_BE34 -> loc_BE4C`, with no timer
     /// rollover and unchanged life and diamond display counters.
     LocBe20ThenLocBe4cStableCounters,
     Other,
+}
+
+/// Classify the natural non-transforming ASM `Make_SpriteAttr_HUD` path.
+pub fn mode_level_hud_build_path_sub_bdc0(
+    number_hitpoints: u16,
+    current_helmet: u16,
+    extra_hitpoint_slots: u16,
+    initial_counter_updates: bool,
+) -> ModeLevelHudBuildPath {
+    // ASM HelmetHitpoint_Table and loc_BE0C..loc_BE82 (kid.asm:15370-15461).
+    const HELMET_HITPOINT_SLOTS: [u16; 10] = [2, 3, 3, 3, 3, 3, 5, 3, 3, 3];
+    let Some(base_slots) = HELMET_HITPOINT_SLOTS.get(usize::from(current_helmet)) else {
+        return ModeLevelHudBuildPath::Other;
+    };
+    let slots = base_slots.wrapping_add(extra_hitpoint_slots);
+    match (number_hitpoints, slots, initial_counter_updates) {
+        (2, 2, true) => ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
+        (2, 2, false) => ModeLevelHudBuildPath::LocBe20DirectStableCounters,
+        (3, 3, false) => ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters,
+        _ => ModeLevelHudBuildPath::Other,
+    }
 }
 
 /// Hardware arbitration elapsed while the source path is otherwise fixed.
@@ -2033,11 +2057,14 @@ pub fn mode_level_vblank_source_cycles_before_sub_e12(
     // ASM Mode_Level (kid.asm:901-908), with branches in sub_A5C, sub_970,
     // loc_300BA, sub_1596, sub_6874, and sub_BDC0. Stable life/diamond
     // counters skip 110 raw cycles of calc_display_number work after the
-    // first gameplay pass. VDP-owned one-cycle scheduler re-entries are
-    // excluded and represented by the arbitration value below.
+    // first gameplay pass, but the later loc_BE20 -> loc_BE0C -> loc_BE34 ->
+    // loc_BE4C hitpoint path adds the same 110 cycles. VDP-owned one-cycle
+    // scheduler re-entries are excluded and represented by the arbitration
+    // value below.
     let raw_cycles = match work.hud_path_sub_bdc0 {
-        ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates => 3_415,
-        ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters => 3_305,
+        ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates => 3_415,
+        ModeLevelHudBuildPath::LocBe20DirectStableCounters => 3_305,
+        ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters => 3_415,
         ModeLevelHudBuildPath::Other => return None,
     };
     Some(M68kCycleCount::from_raw(raw_cycles))
@@ -2207,6 +2234,27 @@ pub fn player_callback_cycles_loc_a73a(
         }
     ) {
         cycles += 10;
+    }
+
+    if let ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress {
+        y_velocity_after, ..
+    } = path.vertical
+        && y_velocity_after >= 0
+    {
+        let entry_y = execute.player_entry_position?.y_pos;
+        let next_y = entry_y.wrapping_add(y_velocity_after as u32);
+        let old_y_px = (entry_y >> 16) as u16;
+        let new_y_px = (next_y >> 16) as u16;
+        let displacement = new_y_px.wrapping_sub(old_y_px);
+        let distance_to_next_row = 15_u16.wrapping_sub(old_y_px & 0x000F);
+        if displacement > distance_to_next_row {
+            // ASM sub_902A -> sub_914A -> loc_9226 (kid.asm:10437-10680):
+            // crossing the next downward 16px row scans Cyclone's clear
+            // two-column floor span before returning zero. Frame 1706's
+            // selected-PC ledger pins this source-only continuation at 490
+            // raw cycles; frame 1703 takes the direct loc_913A return.
+            cycles += 490;
+        }
     }
 
     match (&path.vertical_collision, &path.ceiling_scan_sub_914a) {
@@ -2499,8 +2547,10 @@ pub fn execute_objects_raw_cycles_sub_e12(
                 .map_or(0, M68kCycleCount::get),
         )?
         .checked_add(demo_exit_wait_cycles_loc_119e0(execute.demo_exit_wait_loc_119e0?)?.get())?
-        // ASM loc_E1E's final null-list return through sub_21F8 is 72 raw cycles.
-        .checked_add(72)?;
+        // ASM loc_E1E's final null-list return reaches Mode_Level $7E6 in 54
+        // raw cycles. The following 18-cycle BSR.W sub_21F8 belongs to the
+        // post-Execute span.
+        .checked_add(54)?;
     Some(M68kCycleCount(cycles))
 }
 
@@ -5426,7 +5476,7 @@ mod tests {
             foreground_custom_queue_entries_sub_1596: 0,
             foreground_cell_queue_entries_sub_1596: 0,
             paused_sub_6874: false,
-            hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates,
+            hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
         }
     }
 
@@ -6185,12 +6235,21 @@ mod tests {
         );
         assert_eq!(
             mode_level_vblank_source_cycles_before_sub_e12(ModeLevelVblankWorkBeforeSubE12 {
-                hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters,
+                hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20DirectStableCounters,
                 ..work
             })
             .map(M68kCycleCount::get),
             Some(3_305),
-            "ASM sub_BDC0 stable counters skip both calc_display_number paths"
+            "ASM sub_BDC0 direct stable path skips both calc_display_number calls"
+        );
+        assert_eq!(
+            mode_level_vblank_source_cycles_before_sub_e12(ModeLevelVblankWorkBeforeSubE12 {
+                hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters,
+                ..work
+            })
+            .map(M68kCycleCount::get),
+            Some(3_415),
+            "ASM sub_BDC0 stable counters replace both calc_display_number paths with the second hitpoint loop"
         );
         for (arbitration, expected) in [
             (

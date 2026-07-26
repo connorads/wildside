@@ -9347,12 +9347,16 @@ mod chunk_08 {
         };
 
         let mut frames = Vec::new();
+        let mut frame_1706 = None;
         for (frame_index, mask) in script.iter().copied().enumerate().take(1_710) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             if frame_index == 1_697 || frame_index == 1_703 || frame_index == 1_709 {
                 frames.push(trace);
+            } else if frame_index == 1_706 {
+                frame_1706 = Some(trace);
             }
         }
+        let frame_1706 = frame_1706.expect("frame 1706 trace");
         let completion_list_work = |frame: &NativeTraceFrame| {
             frame
                 .mode_level_work_before_hud_sub_44dc
@@ -9399,6 +9403,21 @@ mod chunk_08 {
                 .collect::<Vec<_>>(),
             vec![Some(9_482), Some(4_154), Some(4_336)],
             "raw loc_A73A traces exclude refresh and frame-1697 PlaySound waits"
+        );
+        let frame_1706_execute = &frame_1706
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("frame 1706 Mode_Level work ledger")
+            .execute_objects;
+        assert_eq!(
+            player_callback_cycles_loc_a73a(frame_1706_execute).map(M68kCycleCount::get),
+            Some(4_816),
+            "ASM sub_902A -> sub_914A -> loc_9226: frame 1706 crosses the next floor row and scans two clear cells",
+        );
+        assert_eq!(
+            execute_objects_raw_cycles_sub_e12(frame_1706_execute).map(M68kCycleCount::get),
+            Some(14_212),
+            "selected-PC loc_E1E ledger pins every frame-1706 callback and the 54-cycle null-list return",
         );
         assert_eq!(
             frames
@@ -9471,8 +9490,8 @@ mod chunk_08 {
                     .map(M68kCycleCount::get)
                 })
                 .collect::<Vec<_>>(),
-            vec![Some(27_002), Some(22_114), Some(13_814)],
-            "raw source composition exactly closes each bounded Execute_Objects interval"
+            vec![Some(26_984), Some(22_096), Some(13_796)],
+            "raw source composition exactly closes each sub_E12-to-$7E6 Execute_Objects interval"
         );
         assert_eq!(
             execute_objects_external_waits_sub_e12(
@@ -9511,11 +9530,11 @@ mod chunk_08 {
                 })
                 .collect::<Vec<_>>(),
             vec![
-                Some((27_436, 214, 4)),
-                Some((22_466, 176, 26)),
-                Some((14_034, 110, 42)),
+                Some((27_418, 214, 114)),
+                Some((22_448, 176, 8)),
+                Some((14_016, 110, 24)),
             ],
-            "raw callbacks, refresh recurrence, and PlaySound waits close sub_E12"
+            "raw callbacks, refresh recurrence, and PlaySound waits close sub_E12 at Mode_Level $7E6"
         );
         assert_eq!(
             frames

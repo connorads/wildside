@@ -6522,6 +6522,39 @@ is primarily unmodelled GEMS arbitration is rejected. NEXT: retain the
 H-scroll DMA scheduler across `$7D6`, then source-type the 498-cycle object
 interval before emitting the existing Diamond timing record.
 
+Follow-up 2026-07-26 (source path complete): the prior NEXT hypothesis is
+rejected. Oracle's `$7D6` checkpoint has zero pending wait, no VDP ownership,
+and BUSREQ clear, so no H-scroll DMA ownership survives into the VBlank suffix.
+The apparent 224-cycle suffix gap instead contained omitted source work:
+`sub_1596 loc_1686` executes two 24-cycle immediate pointer resets and a
+16-cycle return. Adding that 40-cycle tail removes the synthetic frame-903
+GEMS bank wait while preserving the exact selected `sub_E12` boundary.
+
+Selected-PC traces split `sub_BDC0` into three real paths. Frame 902's first
+gameplay pass takes direct `loc_BE20 -> loc_BE82` plus both counter updates;
+later two-hitpoint frames take the same direct path without updates; frame 1706
+has three hitpoints and takes `loc_BE20 -> loc_BE0C -> loc_BE34 -> loc_BE4C`
+without a timer rollover. The first and third paths both cost 646 raw cycles;
+the stable direct path costs 536.
+
+The 498-cycle object residue is also source work, not arbitration. Every
+frame-1706 callback except Kid was exact. The Kid callback was 490 cycles
+short because its positive Cyclone movement crosses the next 16px row and
+takes the clear floor scan `sub_902A -> sub_914A -> loc_9226`; frame 1703 takes
+the direct `loc_913A` return. The remaining eight-cycle accounting difference
+was boundary placement: `loc_E1E`'s final null-list return reaches Mode_Level
+`$7E6` after 54 raw cycles, while the following 18-cycle `BSR.W sub_21F8`
+belongs to the post-object span. A cache-backed regression pins the 4,816-cycle
+Kid callback and complete 14,212-cycle `sub_E12->$7E6` span.
+
+`verify-slice-fast` passes. Focused pixel replay over frames 1690..1710 remains
+18 exact / 2 divergent: frame 1706 still has one Diamond pixel at `(296,36)`;
+frame 1709 retains #409's ten top-right pixels. The source correction does not
+alter pixels because the replay emits no `HudRasterUploadTimingSub44DC` record
+for frame 1706. NEXT: carry the hardware-derived cursor from the now-exact
+`sub_E12` boundary through `sub_44DC` and emit that typed renderer record,
+without a frame or level override.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

@@ -21,7 +21,7 @@ use anyhow::{Context, Result};
 use sha1::{Digest, Sha1};
 use wildside_core::{
     GemsFrameSignature, GemsQueueCommandPath, GemsStopMusicBusAckPolls, M68kCycleCount,
-    M68kRefreshPhase, ModeLevelHudBuildPath, ModeLevelVblankWorkBeforeSubE12, NativeTraceFrame,
+    M68kRefreshPhase, ModeLevelVblankWorkBeforeSubE12, NativeTraceFrame,
     gems_stop_music_elapsed_timing, gems_stop_music_elapsed_timing_from_absolute_entry,
 };
 use wildside_data::AssetManifest;
@@ -4465,10 +4465,11 @@ impl GemsSignatureProbe {
                             .expect("first gameplay loc_7D6 phase"),
                     },
                     mode_level_work.vblank_before_sub_e12,
-                    // Oracle PC trace: loc_7D6 enters with VDP ownership
-                    // clear, but its first instruction exposes the 442-cycle
-                    // wait left by loc_30104's completed H-scroll DMA.
-                    M68kCycleCount::from_raw(442),
+                    // Oracle PC trace: loc_7D6 enters with VDP ownership and
+                    // pending waits clear. The first-gameplay prefix remains
+                    // TODO above; after the complete sub_1596 source path,
+                    // its measured arbitration residue is 402 cycles.
+                    M68kCycleCount::from_raw(402),
                 )
                 .expect("first gameplay VBlank suffix reaches sub_E12");
                 assert_eq!(self.engine.master_clock(), 115_449_413 * 7);
@@ -4640,24 +4641,10 @@ impl GemsSignatureProbe {
                 M68kCycleCount::from_raw(0),
             )
             .expect("second gameplay VBlank suffix reaches sub_E12");
-            // TODO(fidelity): the retained native GEMS X/Y split omits the
-            // oracle's 40-cycle bank-read stall inside this otherwise exact
-            // 804-cycle source path. Resume at the selected sub_E12 boundary
-            // until the register split is resolved.
-            const SECOND_GAMEPLAY_GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(SECOND_GAMEPLAY_GEMS_BANK_WAIT) * 7);
-            let suffix_cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
-                beam: suffix
-                    .cursor
-                    .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(SECOND_GAMEPLAY_GEMS_BANK_WAIT)),
-                refresh_phase: suffix
-                    .cursor
-                    .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(SECOND_GAMEPLAY_GEMS_BANK_WAIT))
-                    .phase_after,
-            };
+            // ASM sub_1596 loc_1686 executes both 24-cycle pointer resets and
+            // the 16-cycle return. That source work accounts for the former
+            // synthetic 40-cycle residue at this boundary.
+            let suffix_cursor = suffix.cursor;
             assert_eq!(
                 (
                     self.engine.master_clock(),
@@ -8834,15 +8821,12 @@ impl ModeLevelDynamicArtQueueLocAd4 {
     ) -> Option<ModeLevelVblankWorkBeforeSubE12> {
         let mut work = frame.mode_level_vblank_work_before_sub_e12?;
         work.dynamic_art_tiles_loc_ad4 = Some(std::mem::take(&mut self.pending_tile_lengths));
-        if self.consumed_mode_level_frames != 0
-            && work.hud_path_sub_bdc0
-                == ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates
-        {
-            // ASM sub_BDC0 loc_BE82..return_BF80: after the first gameplay
-            // pass seeds the displayed life and diamond values, unchanged
-            // counters skip both calc_display_number calls.
-            work.hud_path_sub_bdc0 = ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters;
-        }
+        work.hud_path_sub_bdc0 = wildside_core::mode_level_hud_build_path_sub_bdc0(
+            frame.number_hitpoints,
+            frame.current_helmet_id,
+            frame.extra_hitpoint_slots,
+            self.consumed_mode_level_frames == 0,
+        );
         self.consumed_mode_level_frames += 1;
         Some(work)
     }
@@ -18297,8 +18281,7 @@ mod tests {
                     foreground_custom_queue_entries_sub_1596: 0,
                     foreground_cell_queue_entries_sub_1596: 0,
                     paused_sub_6874: false,
-                    hud_path_sub_bdc0:
-                        ModeLevelHudBuildPath::LocBe20ThenLocBe4cInitialCounterUpdates,
+                    hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
                 },
                 pre_hud: None,
                 hud_events: &[],

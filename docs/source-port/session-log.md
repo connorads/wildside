@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 frame-1706 source path complete)
+
+- The prior H-scroll handoff is rejected: oracle `$7D6` has zero pending wait,
+  no VDP ownership, and BUSREQ clear.
+- `sub_1596 loc_1686` now includes both 24-cycle pointer resets and its
+  16-cycle return. This removes the synthetic 40-cycle frame-903 GEMS wait
+  while preserving the exact selected `sub_E12` boundary.
+- `sub_BDC0` is split into its three observed paths: first-pass direct plus
+  counter updates, stable direct, and stable second-hitpoint loop. Frame 1706
+  takes the last path.
+- The Kid callback crosses a downward 16px row and takes
+  `sub_902A -> sub_914A -> loc_9226`, adding the exact missing 490 cycles.
+  The final null-list tail ends at `$7E6` after 54 cycles, not 72.
+- The complete frame-1706 `sub_E12->$7E6` source span is now exact at 14,212
+  raw cycles. Focused pixels remain 18/20 exact: the one Diamond pixel is
+  unchanged because pixel replay still emits no hardware-derived `sub_44DC`
+  raster record.
+- NEXT: carry a persistent hardware cursor from the exact `sub_E12` boundary
+  through `sub_44DC`, then emit the typed HUD upload timing without a
+  frame-specific override.
+
 ## 2026-07-26 handoff (#406 frame-1706 wait attribution)
 
 - Oracle `loc_AD4/loc_B24` proves frame 1706 consumes `[16,4]`; the native

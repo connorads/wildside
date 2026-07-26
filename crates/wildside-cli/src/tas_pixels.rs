@@ -572,8 +572,12 @@ pub(crate) fn render_source_port_frame_with_scene(
             Some(crate::native_player::player_frame_dynamic_art_tiles_loc_141a(player_frame));
         // A preceding complete Mode_Level pass proves this is not the initial
         // Make_SpriteAttr_HUD counter build.
-        work.hud_path_sub_bdc0 =
-            wildside_core::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters;
+        work.hud_path_sub_bdc0 = wildside_core::mode_level_hud_build_path_sub_bdc0(
+            trace.number_hitpoints,
+            trace.current_helmet_id,
+            trace.extra_hitpoint_slots,
+            false,
+        );
     }
     let render_trace = render_trace_with_vdp_latched_state_and_resident(
         &resolved_trace,
