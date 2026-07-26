@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 persistent clock reaches frame 954)
+
+- Frame 954 returns to the existing three-row released-B `loc_AA22`
+  wall-cling variant, so no new timing correction is needed.
+- The callback costs 4,180 raw cycles. `sub_E12` reaches `loc_7E6` after
+  7,320 raw and 116 refresh waits; the post-object path reaches `sub_44DC`
+  after 2,636 raw and 42 waits.
+- The owner reaches frame 954 `sub_44DC` at cycle 122,117,008 phase 106 with
+  no pending wait.
+- NEXT: type frame 955, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-26 handoff (#406 persistent clock reaches frame 953)
 
 - Frame 953 remains on the released-B `loc_AA22` wall-cling path and is
