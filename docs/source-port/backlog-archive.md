@@ -6613,6 +6613,17 @@ one dynamic-art Kid sprite, and two above-viewport culls. The Kid mapping takes
 persistent owner reaches frame 924 `sub_E12` at oracle cycle 118,266,734 phase
 104. NEXT: type frame 924's player path and keep advancing towards frame 1706.
 
+Progress 2026-07-26 (frame 924 grounded continuation): selected PCs prove that
+the next Kid callback resumes at `loc_8BF0`, takes `loc_8D72 -> loc_8E06 ->
+sub_B43A -> sub_8F26`, and returns to `loc_8BF0`; it never enters airborne
+`loc_A73A`. Native enters grounded at x velocity `$1C00`, exits grounded at
+`$3800`, and reports clear Gfx, floor, and wall probes with no B/C action.
+The `loc_E1E` callback is 4,010 raw cycles, leaving 3,584 after its shared
+426-cycle dispatch/hibernate shell. `Execute_Objects` totals 6,724 raw cycles
+to oracle `loc_7E6` at cycle 118,273,566, then the existing 2,462-cycle
+post-object path reaches `sub_44DC` at 118,276,066 phase 92. NEXT: schedule
+the clock-art FIFO upload selected at `loc_45DA` and continue to frame 925.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

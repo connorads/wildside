@@ -2304,10 +2304,20 @@ pub fn player_callback_cycles_sub_e12(
             // 4,376 here.
             Some(M68kCycleCount::from_raw(4_376))
         }
+        ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+            form: crate::PlayerForm::TheKid,
+        } => {
+            // ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26
+            // -> loc_8BF0. Frame 924's selected-PC journal spans 4,010 raw
+            // cycles between loc_E1E dispatches; remove the shared 426-cycle
+            // dispatch/hibernate shell.
+            Some(M68kCycleCount::from_raw(3_584))
+        }
         ModeLevelPlayerExecutionPath::NormalPhysics(_) => player_callback_cycles_loc_a73a(execute),
         ModeLevelPlayerExecutionPath::LevelStartActivationLoc7508 { .. }
         | ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 { .. }
         | ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c { .. }
+        | ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 { .. }
         | ModeLevelPlayerExecutionPath::Unclassified => None,
     }
 }
@@ -2670,6 +2680,9 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
             form: crate::PlayerForm::TheKid,
         }) => Some(2_462),
         Some(ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
+            form: crate::PlayerForm::TheKid,
+        }) => Some(2_462),
+        Some(ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
             form: crate::PlayerForm::TheKid,
         }) => Some(2_462),
         _ => None,

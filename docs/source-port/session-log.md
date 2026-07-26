@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 frame 924 reaches sub_44DC)
+
+- Frame 924 resumes grounded walking through `loc_8BF0 -> loc_8D72 ->
+  loc_8E06 -> sub_B43A -> sub_8F26 -> loc_8BF0`, accelerating from `$1C00`
+  to `$3800` without entering airborne `loc_A73A`.
+- The typed pass costs 6,724 raw cycles through `Execute_Objects` and 2,462
+  through the post-object path. It reaches oracle `sub_44DC` at cycle
+  118,276,066 phase 92.
+- NEXT: model frame 924's clock-art FIFO upload at `loc_45DA` and continue the
+  persistent owner to frame 925.
+
 ## 2026-07-26 handoff (#406 persistent clock reaches frame 924)
 
 - Published frame 924 reaches `sub_E12` at oracle cycle 118,266,734 phase 104.

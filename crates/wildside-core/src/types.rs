@@ -1997,6 +1997,11 @@ pub enum ModeLevelPlayerExecutionPath {
     GroundedRightWalkStartLoc779c {
         form: PlayerForm,
     },
+    /// Walking The Kid resumes at ASM `loc_8BF0`, accelerates on clear
+    /// support and wall probes, then hibernates at the same label.
+    GroundedRightWalkContinueLoc8bf0 {
+        form: PlayerForm,
+    },
     /// Ordinary airborne coroutine resumed at ASM `loc_A73A`.
     NormalPhysics(ModeLevelNormalPhysicsPath),
     Unclassified,

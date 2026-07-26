@@ -13988,6 +13988,49 @@ mod tests {
             ),
             "ASM frame 923 sub_44DC -> loc_892 -> WaitForVint -> frame 924 sub_E12 remains persistent and exact",
         );
+
+        let frame_924_pre_hud = frame_924
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("frame 924 exposes pre-HUD work");
+        assert_eq!(
+            frame_924_pre_hud.execute_objects.executed_player_path,
+            Some(
+                wildside_core::ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+                    form: wildside_core::PlayerForm::TheKid,
+                },
+            ),
+            "ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26 -> loc_8BF0",
+        );
+        assert_eq!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(&frame_924_pre_hud.execute_objects,),
+            Some(M68kCycleCount::from_raw(6_724)),
+            "ASM sub_E12 at 118266734 reaches loc_7E6 at 118273566 after 54 refresh waits",
+        );
+        assert_eq!(
+            wildside_core::post_execute_raw_cycles_before_sub_44dc(frame_924_pre_hud),
+            Some(M68kCycleCount::from_raw(2_462)),
+            "ASM loc_7E6 at 118273566 reaches sub_44DC at 118276066 after 19 refresh waits",
+        );
+        let frame_924_sub_44dc = apply_gems_mode_level_pre_hud_to_sub_44dc(
+            &mut probe.engine,
+            frame_924_seed,
+            frame_924_pre_hud,
+        )
+        .expect("persistent hardware owner reaches frame 924 sub_44DC");
+        assert_eq!(
+            (
+                probe.engine.master_clock(),
+                frame_924_sub_44dc.refresh_phase,
+                probe.engine.pending_m68k_wait_cycles(),
+            ),
+            (
+                118_276_066 * 7,
+                M68kRefreshPhase::new(92).expect("oracle frame-924 sub_44DC phase"),
+                0,
+            ),
+            "ASM frame 924 sub_E12 -> sub_44DC remains source- and hardware-exact",
+        );
     }
 
     #[test]

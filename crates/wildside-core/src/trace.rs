@@ -254,6 +254,8 @@ fn mode_level_gfx_sprite_work_sub_1492(
                     Some(
                         crate::ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
                             form: crate::PlayerForm::TheKid,
+                        } | crate::ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+                            form: crate::PlayerForm::TheKid,
                         }
                     )
                 )
@@ -10269,9 +10271,6 @@ impl NativeRuntime {
                 form: self.progression.current_form,
             };
         }
-        if self.last_kid_frame_motion_branch != KidFrameMotionBranch::NormalPhysics {
-            return ModeLevelPlayerExecutionPath::Unclassified;
-        }
         let Some(follow_on) = self.last_kid_frame_kid_flip_follow_on_probe else {
             return ModeLevelPlayerExecutionPath::Unclassified;
         };
@@ -10279,6 +10278,44 @@ impl NativeRuntime {
             return ModeLevelPlayerExecutionPath::Unclassified;
         };
         let stages = follow_on.stages;
+        let grounded_right_walk_continue = self.last_kid_frame_motion_branch
+            == KidFrameMotionBranch::NormalPhysics
+            && self.progression.current_form == PlayerForm::TheKid
+            && self.active_platform_standing_on.is_none()
+            && self.current_player_state().is_some_and(|player| {
+                player.on_ground && player.x_velocity == 0x0000_3800 && player.y_velocity == 0
+            })
+            && self
+                .last_kid_frame_grounded_release_probe
+                .is_some_and(|probe| {
+                    probe.on_ground_before
+                        && probe.held_direction == Some(crate::Direction::Right)
+                        && !probe.down_held
+                        && !probe.jump_pressed
+                        && probe.jump_buffer_frames == 0
+                        && probe.velocity_branch == KidGroundedReleaseVelocityBranch::GroundedHold
+                        && probe.support_col.is_some()
+                        && !probe.release_triggered
+                })
+            && stages.after_press_away.x_velocity == 0x0000_1C00
+            && stages.after_jump_gravity.x_velocity == 0x0000_3800
+            && stages.gfx_object_collision_clear
+            && !follow_on.wall_hit_after_floor
+            && stages.after_floor == stages.after_wall
+            && !action.b_pressed
+            && !action.c_pressed;
+        if grounded_right_walk_continue {
+            // ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26
+            // (kid.asm): the held-right walking coroutine accelerates from
+            // `$1C00` to `$3800`, keeps clear support/wall probes, and returns
+            // to loc_8BF0 for its next one-frame hibernate.
+            return ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+                form: self.progression.current_form,
+            };
+        }
+        if self.last_kid_frame_motion_branch != KidFrameMotionBranch::NormalPhysics {
+            return ModeLevelPlayerExecutionPath::Unclassified;
+        }
         let horizontal = mode_level_airborne_horizontal_path(
             stages.after_press_away.x_velocity,
             stages.after_jump_gravity.x_velocity,
