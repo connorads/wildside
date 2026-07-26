@@ -2649,6 +2649,22 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         // ASM sub_F096 loc_F09E -> loc_F186 -> loc_F25C: cached Kid column
         // and row avoid both layout strips.
         (true, true) => 0,
+        // ASM sub_F096 loc_F186..loc_F25C: when only Kid's row advances,
+        // scan the entering seven-cell row. With no shooter candidates every
+        // loc_F1DE iteration takes the direct loc_F254 branch. The frame-1706
+        // selected-PC journal measures 704 raw cycles from sub_F096 to
+        // loc_F25C versus 166 on the cached-coordinate path: 538 extra.
+        (true, false)
+            if shooter.cached_row_before < shooter.kid_block_row
+                && shooter.kid_block_row.checked_add(2)?
+                    < i16::try_from(shooter.level_height_blocks).ok()?
+                && shooter.kid_block_col >= 3
+                && shooter.kid_block_col.checked_add(3)?
+                    < i16::try_from(shooter.level_width_blocks).ok()?
+                && shooter.new_shooter_slots_registered == 0 =>
+        {
+            538
+        }
         // ASM sub_F096 loc_F0D0/F106 and loc_F1A8/F1DE: the power-on -1
         // caches make frame 902 scan both initial layout strips.
         (false, false)
@@ -4959,7 +4975,7 @@ mod tests {
             "frame-902 selected PCs close the first Execute_Objects interval",
         );
 
-        let ledger = ModeLevelPreHudWorkLedger {
+        let mut ledger = ModeLevelPreHudWorkLedger {
             phases: Vec::new(),
             execute_objects: execute,
             post_execute: crate::ModeLevelPostExecuteWork {
@@ -4980,6 +4996,7 @@ mod tests {
                     cached_row_before: -1,
                     kid_block_col: 2,
                     kid_block_row: 45,
+                    level_width_blocks: 64,
                     level_height_blocks: 64,
                     new_shooter_slots_registered: 0,
                 }),
@@ -5001,6 +5018,24 @@ mod tests {
                 refresh_events: 25,
             }),
             "frame-902 selected PCs close the post-object interval",
+        );
+
+        ledger.post_execute.shooter_scan_sub_f096 = Some(crate::ModeLevelShooterScanWorkSubF096 {
+            cached_col_matches: true,
+            cached_row_matches: false,
+            active_shooter_slots_before: 0,
+            cached_col_before: 6,
+            cached_row_before: 6,
+            kid_block_col: 26,
+            kid_block_row: 7,
+            level_width_blocks: 64,
+            level_height_blocks: 56,
+            new_shooter_slots_registered: 0,
+        });
+        assert_eq!(
+            post_execute_raw_cycles_before_sub_44dc(&ledger),
+            Some(M68kCycleCount::from_raw(3_126)),
+            "ASM sub_F096 loc_F186..loc_F25C frame-1706 row-only scan adds 538 raw cycles",
         );
     }
 
@@ -6157,7 +6192,6 @@ mod tests {
             Some(3_305),
             "ASM sub_BDC0 stable counters skip both calc_display_number paths"
         );
-
         for (arbitration, expected) in [
             (
                 ModeLevelVblankArbitrationBeforeSubE12 {

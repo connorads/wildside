@@ -2135,6 +2135,8 @@ pub struct ModeLevelShooterScanWorkSubF096 {
     #[serde(default)]
     pub kid_block_row: i16,
     #[serde(default)]
+    pub level_width_blocks: u16,
+    #[serde(default)]
     pub level_height_blocks: u16,
     #[serde(default)]
     pub new_shooter_slots_registered: u16,

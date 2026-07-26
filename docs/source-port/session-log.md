@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 frame-1706 timing discriminator)
+
+- `sub_F096 loc_F186..loc_F25C` row-only scanning is now source-typed: seven
+  clear cells add 538 raw cycles and complete frame 1706's 3,126-cycle
+  post-object interval.
+- Oracle enters `sub_44DC` on scanline 17; a no-Z80 replay permits scanline 13.
+  The remaining Diamond pixel therefore depends on asynchronous GEMS/VDP
+  arbitration, not another unclassified CPU branch.
+- Rejected a `[16,4]` → `[12]` VDP-ownership bound generalisation: it improved
+  changed-pixel total by 22 but regressed two exact frames and moved the
+  frontier to 1007. The trial is reverted.
+- `verify-slice-fast` and `verify-tas-full` pass. Full pixels remain 26,395
+  exact / 11,364 divergent / 3,619,948 changed; frontier frame 1706 is one
+  Diamond pixel.
+- NEXT: persist queue-specific VDP ownership plus GEMS arbitration through
+  frame 1706, then emit the existing typed Diamond raster record.
+
 ## 2026-07-24 handoff (#438 closed: StopMusic driver reloads at the ROM instants)
 
 - Command parity 419→403 mismatches, first mismatch 16→812, exact 40→54.

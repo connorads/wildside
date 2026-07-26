@@ -6483,6 +6483,26 @@ frame 1706's one-pixel HUD Diamond residue. All 37,759 player/camera and
 gameplay checkpoints, all 37,743 post-`Init_RNG` frames, and the enemy frontier
 remain exact; GEMS evidence is unchanged. #406 remains open.
 
+Investigation 2026-07-26 (frame-1706 timing discriminator): selected-PC
+oracle tracing fixes `sub_F096` at cycle 218,384,943 and `loc_F25C` at
+218,385,657. The unchanged-coordinate path on frame 1705 spans 166 raw
+cycles; frame 1706's cached-column/advanced-row path scans seven clear cells
+through `loc_F1DE` and spans 704 raw cycles, so the row scan adds exactly 538.
+Native now records `Level_width_blocks`, classifies that engine-level branch,
+and makes the complete post-object interval source-typed at 3,126 raw cycles.
+
+This removes the last CPU-work unknown in frame 1706 but does not authorise a
+pixel change. A no-Z80 hardware replay permits `sub_44DC` as early as
+scanline 13, while oracle enters at scanline 17 and starts the Diamond DMA at
+`18:172`; the remaining four-line gap is asynchronous GEMS/VDP arbitration.
+Rejected: extending the `[16,4]` Kid-art VDP-ownership lower bound to the
+shorter `[12]` queue. The trial reduced total changed pixels by 22 but made two
+exact frames divergent and moved the frontier back to frame 1007, so it was
+reverted. Full TAS returns to the committed 26,395 exact / 11,364 divergent /
+3,619,948 changed-pixel baseline. NEXT: carry queue-specific VDP ownership and
+GEMS arbitration into the persistent gameplay clock before emitting frame
+1706's typed Diamond raster record.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

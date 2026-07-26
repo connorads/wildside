@@ -3629,6 +3629,8 @@ impl NativeRuntime {
                 cached_row_before: previous_row,
                 kid_block_col,
                 kid_block_row,
+                level_width_blocks: u16::try_from(max_col.saturating_add(1))
+                    .expect("non-negative block-grid width"),
                 level_height_blocks: u16::try_from(max_row.saturating_add(1))
                     .expect("non-negative block-grid height"),
                 new_shooter_slots_registered: 0,

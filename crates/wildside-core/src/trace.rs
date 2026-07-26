@@ -10379,6 +10379,7 @@ impl NativeRuntime {
                     cached_row_before: self.block_state.shooter_last_scanned_row,
                     kid_block_col,
                     kid_block_row,
+                    level_width_blocks: grid.width_cells,
                     level_height_blocks: grid.height_cells,
                     new_shooter_slots_registered: 0,
                 },
