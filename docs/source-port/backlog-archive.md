@@ -4617,6 +4617,17 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-26: the existing released-B `loc_AA22` wall-cling and
+clear-ceiling variants carry the persistent owner through frame 953 without
+another timing correction. Selected dispatches pin the player callback at
+4,592 raw cycles. The complete `sub_E12 -> loc_7E6` interval is 7,732 raw
+with 124 refresh waits; `loc_7E6 -> sub_44DC` is 2,636 raw with 42 waits.
+Frame 953 reaches `sub_44DC` at cycle 121,989,432, refresh phase 14, with no
+pending 68000 wait. The persistent regression now asserts each boundary.
+
+#406 remains open. NEXT: type frame 954 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-26: the persistent owner now reaches frame 952 `sub_44DC`
 at cycle 121,861,655, refresh phase 108, with no pending 68000 wait. Frame 952
 retains `loc_AA22`'s released-B `$4000` wall-cling path, but its clear Gfx

@@ -13869,7 +13869,7 @@ mod tests {
     }
 
     #[test]
-    fn published_tas_persistent_clock_reaches_frame_952_sub_44dc_without_extending_audio_span() {
+    fn published_tas_persistent_clock_reaches_frame_953_sub_44dc_without_extending_audio_span() {
         let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let manifest_path = repo_root
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
@@ -14599,7 +14599,7 @@ mod tests {
 
         let mut current_sub_44dc = frame_930_sub_44dc;
         let mut current_vblank = frame_930_vblank;
-        for current_frame_index in 930..952 {
+        for current_frame_index in 930..953 {
             let current_frame = &trace[current_frame_index];
             let current_pre_hud = current_frame
                 .mode_level_work_before_hud_sub_44dc
@@ -14654,6 +14654,13 @@ mod tests {
                     "ASM frame 951 HUD/tail reaches exact frame-952 sub_E12",
                 );
             }
+            if current_frame_index == 952 {
+                assert_eq!(
+                    probe.engine.master_clock(),
+                    121_978_898 * 7,
+                    "ASM frame 952 HUD/tail reaches exact frame-953 sub_E12",
+                );
+            }
             let next_pre_hud = next_frame
                 .mode_level_work_before_hud_sub_44dc
                 .as_ref()
@@ -14679,6 +14686,25 @@ mod tests {
                     "ASM frame 952 loc_7E6 reaches sub_44DC after 52 refresh waits",
                 );
             }
+            if current_frame_index == 952 {
+                assert_eq!(
+                    wildside_core::player_callback_cycles_loc_a73a(&next_pre_hud.execute_objects),
+                    Some(M68kCycleCount::from_raw(4_592)),
+                    "ASM frame 953 loc_AA22 clear-ceiling wall-cling callback",
+                );
+                assert_eq!(
+                    wildside_core::execute_objects_raw_cycles_sub_e12(
+                        &next_pre_hud.execute_objects,
+                    ),
+                    Some(M68kCycleCount::from_raw(7_732)),
+                    "ASM frame 953 sub_E12 reaches loc_7E6 after 124 refresh waits",
+                );
+                assert_eq!(
+                    wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
+                    Some(M68kCycleCount::from_raw(2_636)),
+                    "ASM frame 953 loc_7E6 reaches sub_44DC after 42 refresh waits",
+                );
+            }
             current_sub_44dc = apply_gems_mode_level_pre_hud_to_sub_44dc(
                 &mut probe.engine,
                 next_seed,
@@ -14700,11 +14726,11 @@ mod tests {
                 probe.engine.pending_m68k_wait_cycles(),
             ),
             (
-                121_861_655 * 7,
-                M68kRefreshPhase::new(108).expect("oracle frame-952 sub_44DC phase"),
+                121_989_432 * 7,
+                M68kRefreshPhase::new(14).expect("oracle frame-953 sub_44DC phase"),
                 0,
             ),
-            "ASM frame 930..952 persistent schedule reaches exact frame-952 sub_44DC",
+            "ASM frame 930..953 persistent schedule reaches exact frame-953 sub_44DC",
         );
     }
 
