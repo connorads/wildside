@@ -6596,6 +6596,23 @@ test-only frame-923 continuation into the production raster-clock owner and
 advance fail-closed source typing towards frame 1706 before injecting the
 already-proven Diamond timing record.
 
+Progress 2026-07-26 (persistent clock reaches frame 924): frame 923's life
+animation advances from script cursor 6 to the `$FF` sentinel at 8. ASM
+`loc_455E` executes the failed `BPL.W`, resets d7, and repeats the selector,
+adding 58 raw cycles before `loc_4586`. The runtime records this script branch
+directly; it does not infer it from the resident VRAM page, because bootstrap
+starts at page 8 while the animation cursor starts at 0. The chronological
+FIFO regression reaches oracle `loc_810` at cycle 118,152,645 phase 58.
+
+Selected-PC tracing also rejects the generic two-sprite interpretation of the
+walking Kid. The four persistent `sub_1492` nodes are mapping-pointer null,
+one dynamic-art Kid sprite, and two above-viewport culls. The Kid mapping takes
+`loc_129E -> loc_12EC -> loc_130E -> sub_13C0 loc_141A`; size `$0B` emits one
+32x24 sprite and queues 12 tiles. Its `loc_87E -> loc_882` span is exactly
+1,994 cycles at the frame-923 entry phase. With both source paths typed, the
+persistent owner reaches frame 924 `sub_E12` at oracle cycle 118,266,734 phase
+104. NEXT: type frame 924's player path and keep advancing towards frame 1706.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

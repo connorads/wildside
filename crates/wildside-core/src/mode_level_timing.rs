@@ -2814,15 +2814,25 @@ pub fn hud_no_upload_raw_cycles_sub_44dc(
 pub fn hud_life_icon_only_raw_cycles_sub_44dc(
     commands: &[HudDmaEventSub44DC],
 ) -> Option<M68kCycleCount> {
-    if !matches!(commands, [HudDmaEventSub44DC::LifeIcon { .. }]) {
+    let [
+        HudDmaEventSub44DC::LifeIcon {
+            wrapped_to_start, ..
+        },
+    ] = commands
+    else {
         return None;
-    }
+    };
 
     // ASM sub_44DC (kid.asm): 236 raw cycles reach completion of the first
     // loc_44D4 MOVE.L. The remaining 31 MOVE.L/taken-DBF pairs cost 930,
     // followed by final DBF 14, sub_44D0 RTS 16, three 42-cycle skipped HUD
     // sections, final store 12, and outer RTS 16.
-    Some(M68kCycleCount::from_raw(1_350))
+    // ASM loc_455E (kid.asm:5612): the `$FF` terminator path executes the
+    // failed BPL.W, MOVEQ, BRA.S, then repeats the selector loop. Its exact
+    // instruction sequence costs 58 raw cycles.
+    Some(M68kCycleCount::from_raw(
+        1_350 + u32::from(*wrapped_to_start) * 58,
+    ))
 }
 
 /// Raw CPU work for the diamond-only `sub_44DC` path.
@@ -4261,6 +4271,12 @@ fn visit_make_sprites_from_gfx_objects_instructions_sub_1492(
         4, 4, 8, 8, 8, 4, 4, 8, 4, 4, 4, 10, 4, 8, 8, 4, 4, 8, 8, 18, 12, 12, 12, 16, 20, 12, 10,
         20, 4, 12, 4, 14, 4, 16, 16, 8, 12, 16, 8, 8, 16, 4, 4, 10, 4, 10, 4, 8, 10, 16, 10,
     ];
+    const VISIBLE_SINGLE_DYNAMIC_ART_32X24: &[u32] = &[
+        16, 8, 4, 18, 10, 16, 12, 12, 12, 12, 18, 12, 4, 12, 12, 12, 10, 12, 4, 8, 12, 8, 12, 12,
+        12, 8, 12, 8, 12, 16, 4, 12, 12, 16, 10, 12, 10, 12, 12, 12, 10, 12, 12, 10, 8, 4, 4, 8, 8,
+        4, 4, 8, 8, 8, 4, 4, 10, 4, 8, 8, 4, 10, 4, 8, 8, 4, 4, 4, 8, 4, 12, 4, 18, 12, 12, 12, 16,
+        20, 12, 10, 20, 4, 12, 4, 14, 4, 16, 16, 8, 12, 16, 8, 8, 16, 16, 10,
+    ];
     const VISIBLE_TWO: &[u32] = &[
         16, 8, 4, 18, 10, 16, 12, 12, 12, 12, 18, 12, 4, 12, 12, 12, 10, 12, 4, 8, 12, 8, 12, 12,
         12, 8, 12, 8, 12, 16, 4, 12, 12, 16, 10, 12, 10, 12, 12, 12, 10, 12, 12, 10, 8, 4, 4, 8, 8,
@@ -4298,6 +4314,12 @@ fn visit_make_sprites_from_gfx_objects_instructions_sub_1492(
                     // art span to the DMA queue.
                     ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt20x32Normal => {
                         VISIBLE_SINGLE_DYNAMIC_ART_20X32
+                    }
+                    // ASM loc_129E -> loc_12EC -> loc_130E -> sub_13C0
+                    // loc_141A emits the walking Kid's one 32x24 dynamic-art
+                    // sprite before returning directly through return_1328.
+                    ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt32x24Normal => {
+                        VISIBLE_SINGLE_DYNAMIC_ART_32X24
                     }
                     // ASM loc_129E -> sub_13C0 emits two normal-orientation mapping
                     // entries before the zero terminator.
@@ -6143,6 +6165,30 @@ mod tests {
             },
             "ASM loc_87E -> sub_1492 -> loc_882 selected-PC instruction journal"
         );
+
+        let walking_kid = ModeLevelGfxSpriteWorkSub1492::Classified {
+            nodes: vec![
+                ModeLevelGfxSpriteNodeWorkSub1492::MappingPointerNull,
+                ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt32x24Normal,
+                ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+                ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+            ],
+        };
+        let frame_923 = make_sprites_from_gfx_objects_advance_with_scheduler_sub_1492(
+            M68kRefreshPhase::new(126).expect("frame-923 loc_87E phase"),
+            &walking_kid,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("published walking-Kid GfxObject sprite walk");
+        assert_eq!(
+            frame_923,
+            M68kRefreshAdvance {
+                elapsed: M68kCycleCount::from_raw(1_994),
+                phase_after: M68kRefreshPhase::new(72).expect("frame-923 loc_882 phase"),
+                refresh_events: 16,
+            },
+            "ASM loc_129E -> loc_12EC -> loc_130E -> sub_13C0 loc_141A selected-PC instruction journal",
+        );
     }
 
     #[test]
@@ -6943,11 +6989,21 @@ mod tests {
     fn life_icon_only_hud_path_has_source_derived_raw_cost_sub_44dc() {
         let life = HudDmaEventSub44DC::LifeIcon {
             frame_table_byte_offset: 4,
+            wrapped_to_start: false,
         };
         assert_eq!(
             hud_life_icon_only_raw_cycles_sub_44dc(&[life]),
             Some(M68kCycleCount::from_raw(1_350)),
             "ASM sub_44DC loc_4586 -> sub_44D0 life-only path",
+        );
+        let wrapped_life = HudDmaEventSub44DC::LifeIcon {
+            frame_table_byte_offset: 0,
+            wrapped_to_start: true,
+        };
+        assert_eq!(
+            hud_life_icon_only_raw_cycles_sub_44dc(&[wrapped_life]),
+            Some(M68kCycleCount::from_raw(1_408)),
+            "ASM loc_455E repeats the selector after the `$FF` sentinel",
         );
         assert_eq!(hud_life_icon_only_raw_cycles_sub_44dc(&[]), None);
         assert_eq!(

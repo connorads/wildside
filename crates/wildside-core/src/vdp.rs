@@ -6764,6 +6764,14 @@ pub fn life_icon_cpu_raster_cursor_after_sub_44dc_with_scheduler(
     mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
 ) -> Option<ModeLevelCpuRasterCursor> {
     crate::mode_level_timing::hud_life_icon_only_raw_cycles_sub_44dc(commands)?;
+    let [
+        crate::HudDmaEventSub44DC::LifeIcon {
+            wrapped_to_start, ..
+        },
+    ] = commands
+    else {
+        return None;
+    };
 
     let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
     let mut phase = entry.refresh_phase;
@@ -6774,7 +6782,27 @@ pub fn life_icon_cpu_raster_cursor_after_sub_44dc_with_scheduler(
         12, 4, 4, 10, 12, 12, 4, 4, 12, 12, 4, 4, 12, 12, 8, 10, 8, 4, 22, 20, 18, 8, 20,
     ];
     debug_assert_eq!(PRELUDE_THROUGH_FIRST_MOVE.into_iter().sum::<u32>(), 236);
-    for raw_cycles in PRELUDE_THROUGH_FIRST_MOVE {
+    for raw_cycles in PRELUDE_THROUGH_FIRST_MOVE[..12].iter().copied() {
+        advance_life_icon_source_instruction(
+            &mut fifo,
+            &mut phase,
+            raw_cycles,
+            &mut advance_hardware,
+        )?;
+    }
+    if *wrapped_to_start {
+        // ASM loc_455E -> loc_455E (kid.asm:5612): failed BPL.W, reset d7,
+        // and repeat the life-icon selector after the `$FF` terminator.
+        for raw_cycles in [12, 12, 8, 12, 4, 10] {
+            advance_life_icon_source_instruction(
+                &mut fifo,
+                &mut phase,
+                raw_cycles,
+                &mut advance_hardware,
+            )?;
+        }
+    }
+    for raw_cycles in PRELUDE_THROUGH_FIRST_MOVE[12..].iter().copied() {
         advance_life_icon_source_instruction(
             &mut fifo,
             &mut phase,
@@ -10110,6 +10138,7 @@ mod tests {
 
         let command = [crate::HudDmaEventSub44DC::LifeIcon {
             frame_table_byte_offset: 4,
+            wrapped_to_start: false,
         }];
         let cases = [
             Case {
@@ -10180,6 +10209,7 @@ mod tests {
         };
         let command = [crate::HudDmaEventSub44DC::LifeIcon {
             frame_table_byte_offset: 4,
+            wrapped_to_start: false,
         }];
         // The selected-PC offsets are relative to the final pending enqueue,
         // 3,450 cycles after this exact `sub_44DC` entry.
@@ -10216,6 +10246,32 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(102).expect("oracle exit phase"),
             },
             "ASM sub_44DC FIFO ownership and GEMS waits must share one chronological scheduler"
+        );
+    }
+
+    #[test]
+    fn life_icon_chronological_scheduler_matches_frame_923_wrap_loc_455e() {
+        let entry = ModeLevelCpuRasterCursor {
+            beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(118_148_873)),
+            refresh_phase: M68kRefreshPhase::new(2).expect("frame-923 sub_44DC phase"),
+        };
+        let command = [crate::HudDmaEventSub44DC::LifeIcon {
+            frame_table_byte_offset: 0,
+            wrapped_to_start: true,
+        }];
+        let exit =
+            life_icon_cpu_raster_cursor_after_sub_44dc_with_scheduler(entry, &command, |_, _| {
+                Some(M68kCycleCount::from_raw(0))
+            })
+            .expect("frame-923 life-icon sentinel wrap is classified");
+
+        assert_eq!(
+            exit,
+            ModeLevelCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(118_152_645)),
+                refresh_phase: M68kRefreshPhase::new(58).expect("frame-923 loc_810 phase"),
+            },
+            "ASM loc_455E -> loc_4586 -> sub_44D0 reaches oracle loc_810",
         );
     }
 

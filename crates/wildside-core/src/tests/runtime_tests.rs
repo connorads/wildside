@@ -127,6 +127,7 @@ fn published_tas_frame_1697_vint_sample_drives_life_icon_raster_timing_sub_e12()
             vec![HudRasterUploadTimingSub44DC {
                 command: HudDmaEventSub44DC::LifeIcon {
                     frame_table_byte_offset: 4,
+                    wrapped_to_start: false,
                 },
                 previous_frame_table_byte_offset: 0,
                 first_commit_scanline: 42,
@@ -209,6 +210,7 @@ fn published_tas_no_z80_polls_drive_frames_1703_and_1709_life_icon_timing() {
                 vec![HudRasterUploadTimingSub44DC {
                     command: HudDmaEventSub44DC::LifeIcon {
                         frame_table_byte_offset: 8,
+                        wrapped_to_start: false,
                     },
                     previous_frame_table_byte_offset: 4,
                     first_commit_scanline: 32,
@@ -228,6 +230,7 @@ fn published_tas_no_z80_polls_drive_frames_1703_and_1709_life_icon_timing() {
                 vec![HudRasterUploadTimingSub44DC {
                     command: HudDmaEventSub44DC::LifeIcon {
                         frame_table_byte_offset: 4,
+                        wrapped_to_start: false,
                     },
                     previous_frame_table_byte_offset: 8,
                     first_commit_scanline: 15,

@@ -2374,6 +2374,7 @@ pub enum ModeLevelGfxSpriteNodeWorkSub1492 {
     VerticallyCulledAboveViewport,
     VisibleSingle16x16Normal,
     VisibleSingleDynamicArt20x32Normal,
+    VisibleSingleDynamicArt32x24Normal,
     VisibleTwoSpriteNormal,
 }
 
@@ -2458,7 +2459,11 @@ pub enum HudDmaEventSub44DC {
     /// ASM loc_4534 -> sub_44D0: 0x80 bytes to VRAM `$4720`.
     Coin { frame_table_byte_offset: u8 },
     /// ASM loc_4586 -> sub_44D0: 0x80 bytes to VRAM `$4620`.
-    LifeIcon { frame_table_byte_offset: u8 },
+    LifeIcon {
+        frame_table_byte_offset: u8,
+        /// ASM loc_455E sees the `$FF` terminator, resets d7, and loops once.
+        wrapped_to_start: bool,
+    },
     /// ASM loc_45DA -> sub_44D0: 0x80 bytes to VRAM `$46A0`.
     Clock { frame_table_byte_offset: u8 },
     /// ASM loc_4626 -> sub_5D4A: 0x200 bytes to VRAM `$DD40`.
@@ -2475,6 +2480,7 @@ impl HudDmaEventSub44DC {
             }
             | Self::LifeIcon {
                 frame_table_byte_offset,
+                ..
             }
             | Self::Clock {
                 frame_table_byte_offset,

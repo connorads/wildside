@@ -1596,10 +1596,21 @@ pub fn apply_gems_mode_level_wait_for_vint_to_mode_level(
     audio: &mut GemsMasterClockTimingEngine,
     entry: LoadInGameCpuRasterCursor,
 ) -> Option<TitleWaitForVintAdvance> {
+    apply_gems_mode_level_wait_for_vint_to_mode_level_with_wait_budget(audio, entry, None)
+}
+
+/// Clock gameplay `WaitForVint` with a source-bound GEMS wait budget.
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_wait_for_vint_to_mode_level_with_wait_budget(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    gems_wait_budget: Option<M68kCycleCount>,
+) -> Option<TitleWaitForVintAdvance> {
     if audio.pending_m68k_wait_cycles() != 0 {
         return None;
     }
-    wildside_core::vdp::mode_level_wait_for_vint_to_mode_level_cursor_with_scheduler(
+    let remaining_wait_budget = std::cell::Cell::new(gems_wait_budget.map(M68kCycleCount::get));
+    let advance = wildside_core::vdp::mode_level_wait_for_vint_to_mode_level_cursor_with_scheduler(
         entry,
         |cycles, vdp_owns_bus, source_instruction| {
             if source_instruction {
@@ -1613,11 +1624,24 @@ pub fn apply_gems_mode_level_wait_for_vint_to_mode_level(
                     vdp_owns_bus,
                 );
             }
-            Some(M68kCycleCount::from_raw(
-                audio.take_pending_m68k_wait_cycles(),
-            ))
+            let generated = audio.take_pending_m68k_wait_cycles();
+            let accepted = if let Some(remaining) = remaining_wait_budget.get() {
+                let accepted = generated.min(remaining);
+                remaining_wait_budget.set(Some(remaining - accepted));
+                accepted
+            } else {
+                generated
+            };
+            Some(M68kCycleCount::from_raw(accepted))
         },
-    )
+    )?;
+    if remaining_wait_budget
+        .get()
+        .is_some_and(|remaining| remaining != 0)
+    {
+        return None;
+    }
+    Some(advance)
 }
 
 /// Clock the first gameplay `Mode_Level loc_892` tail through its initial
@@ -1637,16 +1661,36 @@ pub fn apply_gems_mode_level_tail_to_wait_for_vint(
     entry: LoadInGameCpuRasterCursor,
     work: &wildside_core::ModeLevelTailWorkLoc892,
 ) -> Option<ModeLevelTailGemsAdvance> {
+    apply_gems_mode_level_tail_to_wait_for_vint_with_wait_budget(audio, entry, work, None)
+}
+
+/// Clock the gameplay tail with a source-bound GEMS wait budget.
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_tail_to_wait_for_vint_with_wait_budget(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    work: &wildside_core::ModeLevelTailWorkLoc892,
+    gems_wait_budget: Option<M68kCycleCount>,
+) -> Option<ModeLevelTailGemsAdvance> {
     if audio.pending_m68k_wait_cycles() != 0 {
         return None;
     }
+    let remaining_wait_budget = std::cell::Cell::new(gems_wait_budget.map(M68kCycleCount::get));
     let mut apply_interval = |cycles, vdp_owns_bus, source_instruction| {
-        Some(apply_gems_title_source_hardware_interval(
+        let generated = apply_gems_title_source_hardware_interval(
             audio,
             cycles,
             vdp_owns_bus,
             source_instruction,
-        ))
+        );
+        let accepted = if let Some(remaining) = remaining_wait_budget.get() {
+            let accepted = generated.get().min(remaining);
+            remaining_wait_budget.set(Some(remaining - accepted));
+            accepted
+        } else {
+            generated.get()
+        };
+        Some(M68kCycleCount::from_raw(accepted))
     };
     let camera = wildside_core::vdp::mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
         entry,
@@ -1665,6 +1709,12 @@ pub fn apply_gems_mode_level_tail_to_wait_for_vint(
             work.palette_sub_14c0,
             &mut apply_interval,
         )?;
+    if remaining_wait_budget
+        .get()
+        .is_some_and(|remaining| remaining != 0)
+    {
+        return None;
+    }
     Some(ModeLevelTailGemsAdvance {
         cursor: palette.cursor,
         camera,
@@ -5510,6 +5560,7 @@ mod tests {
         };
         let commands = [HudDmaEventSub44DC::LifeIcon {
             frame_table_byte_offset: 8,
+            wrapped_to_start: false,
         }];
         let expected =
             wildside_core::vdp::life_icon_cpu_raster_cursor_after_sub_44dc(entry, &commands, &[])

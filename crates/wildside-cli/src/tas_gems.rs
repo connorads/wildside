@@ -91,6 +91,11 @@ use wildside_frame::{
     apply_gems_title_wait_for_vint_to_mode_standard,
     apply_gems_title_wait_for_vint_to_subroutine_return, apply_timed_gems_queue_command, gems_bgm,
 };
+#[cfg(test)]
+use wildside_frame::{
+    apply_gems_mode_level_tail_to_wait_for_vint_with_wait_budget,
+    apply_gems_mode_level_wait_for_vint_to_mode_level_with_wait_budget,
+};
 use wildside_md::{
     GemsMasterClockTimingEngine, GemsNtscTimelineOrigin, GemsQueueCommand, GemsStimulus,
     GemsStopMusicControl, GemsStopMusicQueueTransaction, GemsTimingCheckpoint,
@@ -4947,6 +4952,7 @@ impl GemsSignatureProbe {
                 mode_level_work.hud_events,
                 [wildside_core::HudDmaEventSub44DC::LifeIcon {
                     frame_table_byte_offset: 4,
+                    wrapped_to_start: false,
                 }],
                 "ASM sub_44DC frame 905 takes the life-icon-only upload path",
             );
@@ -5924,6 +5930,7 @@ impl GemsSignatureProbe {
                 mode_level_work.hud_events,
                 [wildside_core::HudDmaEventSub44DC::LifeIcon {
                     frame_table_byte_offset: 8,
+                    wrapped_to_start: false,
                 }],
                 "ASM sub_44DC frame 911 takes the life-icon-only upload path",
             );
@@ -6705,6 +6712,7 @@ impl GemsSignatureProbe {
                 work.hud_events,
                 [wildside_core::HudDmaEventSub44DC::LifeIcon {
                     frame_table_byte_offset: 4,
+                    wrapped_to_start: false,
                 }],
                 "ASM sub_44DC frame 917 takes the life-icon-only upload path",
             );
@@ -8644,7 +8652,7 @@ impl GemsSignatureProbe {
         &mut self,
         work: ModeLevelVblankWorkBeforeSubE12,
     ) -> Option<wildside_core::vdp::ModeLevelRasterSeedSubE12> {
-        if self.power_on_frame != GEMS_MODELLED_ROUTE_FRAMES {
+        if self.power_on_frame < GEMS_MODELLED_ROUTE_FRAMES {
             return None;
         }
         let prefix = self.power_on_mode_level_prefix.take()?;
@@ -8662,6 +8670,65 @@ impl GemsSignatureProbe {
             beam: suffix.cursor.beam,
             refresh_phase: suffix.cursor.refresh_phase,
         })
+    }
+
+    /// Continue one fully typed gameplay frame from `sub_44DC` through the
+    /// following frame's retained H-scroll DMA prefix.
+    #[cfg(test)]
+    fn continue_mode_level_after_sub_44dc_to_next_prefix(
+        &mut self,
+        sub_44dc: wildside_core::vdp::ModeLevelCpuRasterCursor,
+        work: ModeLevelGemsFrameWork<'_>,
+        next_vblank_work: ModeLevelVblankWorkBeforeSubE12,
+    ) -> Option<()> {
+        if self.power_on_frame < GEMS_MODELLED_ROUTE_FRAMES
+            || work.hud_events
+                != [wildside_core::HudDmaEventSub44DC::LifeIcon {
+                    frame_table_byte_offset: 0,
+                    wrapped_to_start: true,
+                }]
+        {
+            return None;
+        }
+        let post_hud_entry =
+            apply_gems_life_icon_schedule_sub_44dc(&mut self.engine, sub_44dc, work.hud_events)?;
+        let loc_892 = apply_gems_mode_level_post_hud_to_loc_892(
+            &mut self.engine,
+            post_hud_entry,
+            work.post_hud?,
+        )?;
+        let wait = apply_gems_mode_level_tail_to_wait_for_vint_with_wait_budget(
+            &mut self.engine,
+            wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: loc_892.beam,
+                refresh_phase: loc_892.refresh_phase,
+            },
+            work.tail_loc_892,
+            Some(M68kCycleCount::from_raw(0)),
+        )?;
+        let mode_level = apply_gems_mode_level_wait_for_vint_to_mode_level_with_wait_budget(
+            &mut self.engine,
+            wait.cursor,
+            Some(M68kCycleCount::from_raw(0)),
+        )?;
+        let target = (self.power_on_frame as u64 * NTSC_SCANLINES_PER_FRAME
+            + (NTSC_SCANLINES_PER_FRAME - 30))
+            * MASTER_CLOCKS_PER_SCANLINE;
+        let (prefix, _) =
+            apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint_and_wait_budgets(
+                &mut self.engine,
+                mode_level.cursor,
+                next_vblank_work,
+                target,
+                Some(wildside_frame::ModeLevelVblankGemsWaitBudgets {
+                    sprite_and_kid: M68kCycleCount::from_raw(0),
+                    palette: M68kCycleCount::from_raw(0),
+                    scroll: M68kCycleCount::from_raw(0),
+                }),
+            )?;
+        self.power_on_mode_level_prefix = Some(prefix);
+        self.power_on_frame += 1;
+        Some(())
     }
 
     fn sample_at_frame_rendered(&mut self) -> GemsFrameSignature {
@@ -13882,6 +13949,44 @@ mod tests {
                 0,
             ),
             "ASM frame 923 sub_E12 -> sub_44DC remains source- and hardware-exact",
+        );
+
+        queue.observe_post_hud_producer(frame_923, &visuals.player);
+        let frame_924 = &trace[924];
+        let frame_924_vblank = queue
+            .consume_vblank_work(frame_924)
+            .expect("frame 924 consumes the retained frame-923 dynamic-art queue");
+        probe
+            .continue_mode_level_after_sub_44dc_to_next_prefix(
+                pre_hud,
+                ModeLevelGemsFrameWork {
+                    vblank_before_sub_e12: work,
+                    pre_hud: Some(frame_923_pre_hud),
+                    hud_events: &frame_923.hud_dma_events_sub_44dc,
+                    post_hud: frame_923.mode_level_work_after_hud_sub_44dc.as_ref(),
+                    tail_loc_892: frame_923
+                        .mode_level_tail_work_loc_892
+                        .as_ref()
+                        .expect("frame 923 exposes tail work"),
+                },
+                frame_924_vblank,
+            )
+            .expect("typed frame 923 reaches the retained frame-924 VBlank prefix");
+        let frame_924_seed = probe
+            .continue_mode_level_to_sub_e12_after_frozen_span(frame_924_vblank)
+            .expect("persistent hardware owner reaches frame 924 sub_E12");
+        assert_eq!(
+            (
+                probe.engine.master_clock(),
+                frame_924_seed.refresh_phase,
+                probe.power_on_frame,
+            ),
+            (
+                118_266_734 * 7,
+                M68kRefreshPhase::new(104).expect("oracle frame-924 sub_E12 phase"),
+                924,
+            ),
+            "ASM frame 923 sub_44DC -> loc_892 -> WaitForVint -> frame 924 sub_E12 remains persistent and exact",
         );
     }
 

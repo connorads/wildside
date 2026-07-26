@@ -244,19 +244,41 @@ fn mode_level_gfx_sprite_work_sub_1492(
                 )
             )
         });
+    let grounded_kid_dynamic_art = grounded_stationary_kid
+        || runtime
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .is_some_and(|ledger| {
+                matches!(
+                    ledger.execute_objects.executed_player_path,
+                    Some(
+                        crate::ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
+                            form: crate::PlayerForm::TheKid,
+                        }
+                    )
+                )
+            });
     let second_persistent_node = runtime.mode_level_work_before_hud_sub_44dc.as_ref().map_or(
         ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal,
         |ledger| {
             if ledger.execute_objects.player == ModeLevelPlayerWorkBeforeHud::Activation {
                 ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear
             } else if grounded_stationary_kid {
+                // ASM loc_7606 stationary Kid work retains the 20x32 mapping
+                // consumed by sub_1492 -> sub_13C0 loc_141A.
                 ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt20x32Normal
+            } else if grounded_kid_dynamic_art {
+                // ASM loc_779C -> loc_8BF0 selects the walking Kid mapping.
+                // sub_1492 follows loc_129E -> loc_12EC -> loc_130E and
+                // emits one 32x24 dynamic-art sprite through loc_141A. The
+                // following VBlank's `[12]` queue confirms its 12 tiles.
+                ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt32x24Normal
             } else {
                 ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal
             }
         },
     );
-    let (first_persistent_node, culled_persistent_node) = if grounded_stationary_kid {
+    let (first_persistent_node, culled_persistent_node) = if grounded_kid_dynamic_art {
         (
             ModeLevelGfxSpriteNodeWorkSub1492::MappingPointerNull,
             ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
@@ -2126,6 +2148,7 @@ mod tests {
                 }],
                 &[HudDmaEventSub44DC::LifeIcon {
                     frame_table_byte_offset: 4,
+                    wrapped_to_start: false,
                 }],
                 &[HudDmaEventSub44DC::Clock {
                     frame_table_byte_offset: 4,
@@ -2191,6 +2214,7 @@ mod tests {
             trace.hud_dma_events_sub_44dc,
             vec![HudDmaEventSub44DC::LifeIcon {
                 frame_table_byte_offset: 4,
+                wrapped_to_start: false,
             }],
             "ASM sub_44DC loc_4586 emits the frame-local HUD life-icon DMA before a raster scheduler assigns its FIFO position"
         );
@@ -2241,6 +2265,7 @@ mod tests {
         runtime.current_level = LevelId(0);
         runtime.hud_dma_events_sub_44dc = vec![HudDmaEventSub44DC::LifeIcon {
             frame_table_byte_offset: 4,
+            wrapped_to_start: false,
         }];
         runtime.block_bounces.push(BlockBounceAnim {
             cell_x: 0x0A,

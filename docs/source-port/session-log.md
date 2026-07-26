@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 persistent clock reaches frame 924)
+
+- Published frame 924 reaches `sub_E12` at oracle cycle 118,266,734 phase 104.
+- Frame 923's life icon wraps through the `$FF` sentinel at ASM `loc_455E`,
+  adding the exact 58-cycle selector retry before its FIFO upload.
+- The walking Kid uses one 32x24 dynamic-art sprite through `loc_129E ->
+  loc_12EC -> loc_130E -> sub_13C0 loc_141A`; `loc_87E -> loc_882` takes
+  1,994 cycles.
+- NEXT: type frame 924's player path, promote the test-only clock continuation
+  into production, and advance fail-closed towards frame 1706.
+
 ## 2026-07-26 handoff (#406 persistent clock reaches frame 923)
 
 - The persistent CPU/VDP/GEMS owner continues beyond the frozen 923-frame

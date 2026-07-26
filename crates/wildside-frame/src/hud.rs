@@ -241,7 +241,8 @@ pub fn push_hud_icon(
                             matches!(
                                 timing.command,
                                 HudDmaEventSub44DC::LifeIcon {
-                                    frame_table_byte_offset
+                                    frame_table_byte_offset,
+                                    ..
                                 } if u16::from(frame_table_byte_offset) == tile_base_index
                             )
                         })
@@ -1119,6 +1120,7 @@ mod tests {
                 hud_raster_upload_timings_sub_44dc: vec![HudRasterUploadTimingSub44DC {
                     command: HudDmaEventSub44DC::LifeIcon {
                         frame_table_byte_offset: 4,
+                        wrapped_to_start: false,
                     },
                     previous_frame_table_byte_offset: 0,
                     first_commit_scanline: 42,
