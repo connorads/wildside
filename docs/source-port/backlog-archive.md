@@ -4617,6 +4617,25 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-26: the persistent owner now reaches frame 951 `sub_E12`
+at cycle 121,722,882 phase 104 and `sub_44DC` at cycle 121,733,058 phase 40,
+with no pending 68000 wait. The released-B wall-cling pass follows `sub_B168
+loc_B1D4 -> loc_B1E0`'s `$4000` default gravity, eight raw cycles longer than
+the held-B branch. Its upward movement crosses one row, so `sub_DFB0 loc_DFEE
+-> loc_E03A -> loc_E23A` scans one non-hidden cell and adds 122 raw cycles.
+
+Selected PCs also corrected two surrounding hardware ledgers. The wall pose
+uses the `sub_1492 -> sub_11B6 -> sub_13C0 loc_141A` 20x32 dynamic-art path,
+not the generic two-sprite path; frame 950's `loc_87E -> loc_882` span is now
+exact at 1,986 raw cycles. `Palette_to_VRAM sub_970` retains an eighth CRAM
+DMA startup slot at refresh phase `$76` and H40 scanline master clock 2,838.
+That removes frame 909's old manual seven-cycle correction and reaches both
+frame-909 and frame-951 `loc_7D6` boundaries naturally. Focused tests pin the
+sprite path, CRAM slot, released-B gravity, and exact persistent boundary.
+
+#406 remains open. NEXT: type frame 952 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-26: the persistent CPU/VDP/GEMS owner now reaches frame 950
 `sub_44DC` exactly at cycle 121,604,915, refresh phase 36, with no pending
 68000 wait. The source-typed interval includes frame 933's `loc_A426` jump,

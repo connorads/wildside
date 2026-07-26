@@ -1919,6 +1919,9 @@ pub enum ModeLevelAirborneHorizontalPath {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelAirborneVerticalPath {
+    /// ASM `loc_B1D4 -> loc_B1E0`: released B applies the normal `$4000`
+    /// gravity step.
+    DefaultGravityLocB1e0,
     /// ASM `loc_B19C -> loc_B1D4 -> loc_B1E8`: rising with B held applies
     /// the lower `$2000` gravity step.
     HeldJumpGravityLocB1e8,
@@ -2033,6 +2036,7 @@ pub enum ModeLevelPlayerExecutionPath {
         side: Direction,
         wall_scan_hit_row: u16,
         vertical: ModeLevelAirborneVerticalPath,
+        y_velocity_after: i32,
         gfx_object_collision_clear: bool,
         vertical_collision: ModeLevelVerticalCollisionPath,
         ceiling_scan_sub_914a: Option<ModeLevelCeilingScanSub914A>,

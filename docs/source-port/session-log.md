@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 persistent clock reaches frame 951)
+
+- Frame 951 releases B and takes `sub_B168 loc_B1E0`'s `$4000` gravity while
+  retaining the right-wall `loc_AA22` coroutine.
+- Its upward movement crosses one row, so `sub_DFB0 loc_DFEE -> loc_E23A`
+  scans one non-hidden cell and adds 122 raw cycles.
+- The wall pose uses the 20x32 dynamic-art sprite path. The following CRAM
+  DMA starts at H40 master clock 2,838 and retains the eighth startup slot.
+- The persistent owner reaches frame 951 `sub_E12` at cycle 121,722,882 and
+  `sub_44DC` at 121,733,058 phase 40, with no pending wait.
+- NEXT: type frame 952, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-26 handoff (#406 persistent clock reaches frame 950)
 
 - The source-typed gameplay clock covers jump launch, HUD selector wraps,

@@ -2187,12 +2187,18 @@ pub fn player_callback_cycles_loc_a73a(
         form: crate::PlayerForm::TheKid,
         side: crate::Direction::Right,
         wall_scan_hit_row,
-        vertical: ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+        vertical,
+        y_velocity_after: _,
         gfx_object_collision_clear: true,
         vertical_collision: ModeLevelVerticalCollisionPath::Clear,
         ceiling_scan_sub_914a,
     }) = execute.executed_player_path.as_ref()
     {
+        let gravity_extra = match vertical {
+            ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8 => 0,
+            ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0 => 8,
+            _ => return None,
+        };
         let gfx_scan = execute.player_gfx_terrain_scan?;
         if gfx_scan.bounds.left_col != gfx_scan.bounds.right_col
             || gfx_scan.first_collision.is_some()
@@ -2212,6 +2218,9 @@ pub fn player_callback_cycles_loc_a73a(
             2 => 4_148_i32,
             _ => return None,
         };
+        // ASM sub_B168 loc_B1D4: the not-taken B-held branch plus loc_B1E0's
+        // `$4000` add and branch to loc_B1EE cost eight more raw cycles.
+        cycles += gravity_extra;
         // ASM kid_flip -> sub_AF10 loc_AF5C scans down from the body's top
         // row. Each passable row before the retained wall costs 62 cycles.
         cycles += 62 * i32::from(wall_scan_hit_row.checked_sub(gfx_scan.bounds.top_row)?);
@@ -2931,11 +2940,44 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         _ => return None,
     };
 
+    let hidden_block_scan = match ledger.execute_objects.executed_player_path.as_ref()? {
+        ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 {
+            form: crate::PlayerForm::TheKid,
+            y_velocity_after,
+            ..
+        } => {
+            let entry = ledger.execute_objects.player_entry_position?;
+            let old_y_px = (entry.y_pos >> 16) as i32;
+            let new_y_px = (entry.y_pos.wrapping_add(*y_velocity_after as u32) >> 16) as i32;
+            let old_scan_row = (old_y_px - 32 - 1) >> 4;
+            let new_scan_row = (new_y_px - 32 - 1) >> 4;
+            if new_scan_row < old_scan_row {
+                let x_px = (entry.x_pos >> 16) as i32;
+                let start_col = (x_px - 4).max(0) >> 4;
+                let end_col = (x_px + 4 - 1) >> 4;
+                if start_col != end_col {
+                    return None;
+                }
+                // ASM sub_DFB0 loc_DFEE -> loc_E03A -> loc_E23A: frame
+                // 951 crosses one upward row and visits one non-hidden cell.
+                // Selected PCs measure 684 raw cycles to loc_EAE4 versus
+                // the direct path's 562, so the scan adds 122.
+                122
+            } else {
+                0
+            }
+        }
+        _ => 0,
+    };
+
     // ASM Mode_Level $7E6..loc_80C: the exact natural path outside sub_DFB0
     // is 1,240 raw cycles: sub_21F8, DiamondPower_Run, sub_F7E0, sub_6034,
     // sub_F096, and their call/return shells.
     Some(M68kCycleCount(
-        1_240_u32.checked_add(sub_dfb0)?.checked_add(shooter_scan)?,
+        1_240_u32
+            .checked_add(sub_dfb0)?
+            .checked_add(shooter_scan)?
+            .checked_add(hidden_block_scan)?,
     ))
 }
 
@@ -6485,6 +6527,32 @@ mod tests {
                 "ASM sub_1492 oracle frames 1697/1703/1709",
             );
         }
+
+        let wall_cling = ModeLevelGfxSpriteWorkSub1492::Classified {
+            nodes: vec![
+                ModeLevelGfxSpriteNodeWorkSub1492::MappingPointerNull,
+                ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt20x32Normal,
+                ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+                ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+            ],
+        };
+        assert_eq!(
+            make_sprites_from_gfx_objects_raw_cycles_sub_1492(&wall_cling),
+            Some(M68kCycleCount::from_raw(1_968)),
+            "ASM sub_1492 frame 950 wall-cling sprite walk",
+        );
+        let wall_cling_advance = make_sprites_from_gfx_objects_advance_with_scheduler_sub_1492(
+            M68kRefreshPhase::new(60).expect("oracle frame-950 loc_87E phase"),
+            &wall_cling,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("frame-950 wall-cling sprite walk");
+        assert_eq!(wall_cling_advance.elapsed, M68kCycleCount::from_raw(2_018));
+        assert_eq!(wall_cling_advance.refresh_events, 16);
+        assert_eq!(
+            wall_cling_advance.phase_after,
+            M68kRefreshPhase::new(30).expect("oracle frame-950 loc_882 phase"),
+        );
 
         let schedule = |phase, work: &ModeLevelGfxSpriteWorkSub1492, wait_after: &[usize]| {
             let mut source_instruction_index = 0_usize;

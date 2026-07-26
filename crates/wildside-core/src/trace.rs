@@ -244,33 +244,48 @@ fn mode_level_gfx_sprite_work_sub_1492(
                 )
             )
         });
-    let grounded_kid_dynamic_art = grounded_stationary_kid
-        || runtime
-            .mode_level_work_before_hud_sub_44dc
-            .as_ref()
-            .is_some_and(|ledger| {
-                matches!(
-                    ledger.execute_objects.executed_player_path,
-                    Some(
-                        crate::ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
-                            form: crate::PlayerForm::TheKid,
-                        } | crate::ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
-                            form: crate::PlayerForm::TheKid,
-                            ..
-                        }
-                    )
+    let wall_cling_kid = runtime
+        .mode_level_work_before_hud_sub_44dc
+        .as_ref()
+        .is_some_and(|ledger| {
+            matches!(
+                ledger.execute_objects.executed_player_path,
+                Some(
+                    crate::ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 {
+                        form: crate::PlayerForm::TheKid,
+                        side: crate::Direction::Right,
+                        ..
+                    }
                 )
-            });
+            )
+        });
+    let kid_dynamic_art_20x32 = grounded_stationary_kid || wall_cling_kid;
+    let kid_dynamic_art_32x24 = runtime
+        .mode_level_work_before_hud_sub_44dc
+        .as_ref()
+        .is_some_and(|ledger| {
+            matches!(
+                ledger.execute_objects.executed_player_path,
+                Some(
+                    crate::ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
+                        form: crate::PlayerForm::TheKid,
+                    } | crate::ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+                        form: crate::PlayerForm::TheKid,
+                        ..
+                    }
+                )
+            )
+        });
     let second_persistent_node = runtime.mode_level_work_before_hud_sub_44dc.as_ref().map_or(
         ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal,
         |ledger| {
             if ledger.execute_objects.player == ModeLevelPlayerWorkBeforeHud::Activation {
                 ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear
-            } else if grounded_stationary_kid {
-                // ASM loc_7606 stationary Kid work retains the 20x32 mapping
-                // consumed by sub_1492 -> sub_13C0 loc_141A.
+            } else if kid_dynamic_art_20x32 {
+                // ASM loc_7606 and wall-cling loc_AA22 retain the 20x32 Kid
+                // mapping consumed by sub_1492 -> sub_13C0 loc_141A.
                 ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt20x32Normal
-            } else if grounded_kid_dynamic_art {
+            } else if kid_dynamic_art_32x24 {
                 // ASM loc_779C -> loc_8BF0 selects the walking Kid mapping.
                 // sub_1492 follows loc_129E -> loc_12EC -> loc_130E and
                 // emits one 32x24 dynamic-art sprite through loc_141A. The
@@ -281,17 +296,18 @@ fn mode_level_gfx_sprite_work_sub_1492(
             }
         },
     );
-    let (first_persistent_node, culled_persistent_node) = if grounded_kid_dynamic_art {
-        (
-            ModeLevelGfxSpriteNodeWorkSub1492::MappingPointerNull,
-            ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
-        )
-    } else {
-        (
-            ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear,
-            ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
-        )
-    };
+    let (first_persistent_node, culled_persistent_node) =
+        if kid_dynamic_art_20x32 || kid_dynamic_art_32x24 {
+            (
+                ModeLevelGfxSpriteNodeWorkSub1492::MappingPointerNull,
+                ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+            )
+        } else {
+            (
+                ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear,
+                ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
+            )
+        };
     let mut nodes = vec![
         first_persistent_node,
         second_persistent_node,
@@ -10286,6 +10302,17 @@ impl NativeRuntime {
         let stages = follow_on.stages;
         let x_velocity_before = stages.after_press_away.x_velocity;
         let x_velocity_after = stages.after_jump_gravity.x_velocity;
+        let wall_cling_vertical = match stages
+            .after_jump_gravity
+            .y_velocity
+            .wrapping_sub(stages.after_press_away.y_velocity)
+        {
+            0x2000 if stages.after_press_away.y_velocity < 0 => {
+                Some(ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8)
+            }
+            0x4000 => Some(ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0),
+            _ => None,
+        };
         let wall_cling_no_buttons = self.last_kid_frame_motion_branch
             == KidFrameMotionBranch::NormalPhysics
             && self.progression.current_form == PlayerForm::TheKid
@@ -10301,9 +10328,7 @@ impl NativeRuntime {
             && stages.entry.x_velocity == 0
             && stages.after_press_away.x_velocity == 0
             && stages.after_jump_gravity.x_velocity == 0
-            && stages.after_press_away.y_velocity < 0
-            && stages.after_jump_gravity.y_velocity
-                == stages.after_press_away.y_velocity.wrapping_add(0x2000)
+            && wall_cling_vertical.is_some()
             && stages.gfx_object_collision_clear
             && stages.after_jump_gravity == stages.after_floor
             && stages.after_floor == stages.after_wall;
@@ -10318,7 +10343,9 @@ impl NativeRuntime {
                     .wall_probe
                     .expect("typed wall-cling path retains its hit probe")
                     .cell_y,
-                vertical: ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                vertical: wall_cling_vertical
+                    .expect("typed wall-cling path has a classified gravity branch"),
+                y_velocity_after: stages.after_jump_gravity.y_velocity,
                 gfx_object_collision_clear: true,
                 vertical_collision: ModeLevelVerticalCollisionPath::Clear,
                 ceiling_scan_sub_914a,
@@ -10414,6 +10441,13 @@ impl NativeRuntime {
             // ASM sub_B168 loc_B19C -> loc_B1D4 -> loc_B1E8: a rising Kid
             // with B held receives the lower `$2000` gravity increment.
             ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8
+        } else if self.progression.current_form == PlayerForm::TheKid
+            && stages.after_jump_gravity.y_velocity
+                == stages.after_press_away.y_velocity.wrapping_add(0x4000)
+        {
+            // ASM sub_B168 loc_B1D4 -> loc_B1E0: released B takes the normal
+            // `$4000` gravity step before the shared cap at loc_B1EE.
+            ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0
         } else if self.progression.current_form == PlayerForm::Cyclone
             && self.helmet.cyclone_flying
             && !action.c_pressed

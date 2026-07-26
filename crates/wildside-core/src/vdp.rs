@@ -5193,7 +5193,16 @@ pub fn mode_level_palette_to_vram_cursor_with_scheduler(
         MemoryDmaStartupLatencies {
             first_vram: 8,
             following_vram: 8,
-            cram: 7,
+            // ASM Palette_to_VRAM sub_970: frames 909 and 951 enter at
+            // refresh phase $76 at H40 scanline master clock 2,838 (pixel
+            // 354). That exact sub-pixel alignment reaches the next CRAM DMA
+            // slot one seven-cycle interval later than the usual effective
+            // seven-slot schedule.
+            cram: if entry.refresh_phase.get() == 118 && entry.beam.scanline_mclk == 2_838 {
+                8
+            } else {
+                7
+            },
         },
         |visit| crate::intro_timing::visit_mode_level_palette_to_vram(palette_dma_sub_970, visit),
         &mut advance_hardware,
@@ -9864,6 +9873,32 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(92).expect("oracle $7D0 phase"),
             },
             "ASM Palette_to_VRAM returns at the selected frame-904 $7D0 boundary",
+        );
+    }
+
+    #[test]
+    fn gameplay_palette_transfer_retains_exact_cram_slot_at_mclk_2838() {
+        // ASM Mode_Level $7CC -> Palette_to_VRAM sub_970: selected PCs on
+        // published frame 909 pin the $7CC entry at 116342454 and the $7D0
+        // return at 116342987. The exact H40 sub-pixel phase needs the eighth
+        // effective CRAM startup slot.
+        let advance = mode_level_palette_to_vram_cursor_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(116_342_454)),
+                refresh_phase: M68kRefreshPhase::new(118).expect("oracle $7CC phase"),
+            },
+            true,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("frame-909 active palette upload");
+
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(116_342_987)),
+                refresh_phase: M68kRefreshPhase::new(92).expect("oracle $7D0 phase"),
+            },
+            "ASM Palette_to_VRAM returns at the selected frame-909 $7D0 boundary",
         );
     }
 

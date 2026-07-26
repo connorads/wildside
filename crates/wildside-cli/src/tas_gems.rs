@@ -5576,26 +5576,15 @@ impl GemsSignatureProbe {
                     prefix.external_wait_cycles.get(),
                 ),
                 (
-                    116_345_779 * 7,
+                    116_345_786 * 7,
                     M68kRefreshPhase::new(16).expect("selected frame-909 loc_7D6 phase"),
                     0,
                 ),
-                "source scheduler reaches frame-909 loc_7D6 seven cycles early",
+                "source scheduler reaches exact frame-909 loc_7D6",
             );
-            // TODO(fidelity): account for the seven raw cycles omitted by the
-            // generic dynamic-art prefix. Selected-PC tracing fixes loc_7D6
-            // at 116,345,786 with the same refresh phase.
-            self.engine.advance_ntsc_master_clocks(7 * 7);
-            let selected_prefix_cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
-                beam: prefix
-                    .cursor
-                    .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(7)),
-                refresh_phase: prefix.cursor.refresh_phase,
-            };
             let suffix = apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
                 &mut self.engine,
-                selected_prefix_cursor,
+                prefix.cursor,
                 mode_level_work.vblank_before_sub_e12,
                 M68kCycleCount::from_raw(0),
                 Some(M68kCycleCount::from_raw(0)),
@@ -13880,7 +13869,7 @@ mod tests {
     }
 
     #[test]
-    fn published_tas_persistent_clock_reaches_frame_950_sub_44dc_without_extending_audio_span() {
+    fn published_tas_persistent_clock_reaches_frame_951_sub_44dc_without_extending_audio_span() {
         let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let manifest_path = repo_root
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
@@ -14610,7 +14599,7 @@ mod tests {
 
         let mut current_sub_44dc = frame_930_sub_44dc;
         let mut current_vblank = frame_930_vblank;
-        for current_frame_index in 930..950 {
+        for current_frame_index in 930..951 {
             let current_frame = &trace[current_frame_index];
             let current_pre_hud = current_frame
                 .mode_level_work_before_hud_sub_44dc
@@ -14651,6 +14640,13 @@ mod tests {
             let next_seed = probe
                 .continue_mode_level_to_sub_e12_after_frozen_span(next_vblank)
                 .unwrap_or_else(|| panic!("frame {} reaches sub_E12", current_frame_index + 1));
+            if current_frame_index == 950 {
+                assert_eq!(
+                    probe.engine.master_clock(),
+                    121_722_882 * 7,
+                    "ASM frame 950 HUD/tail reaches exact frame-951 sub_E12",
+                );
+            }
             let next_pre_hud = next_frame
                 .mode_level_work_before_hud_sub_44dc
                 .as_ref()
@@ -14678,11 +14674,11 @@ mod tests {
                 probe.engine.pending_m68k_wait_cycles(),
             ),
             (
-                121_604_915 * 7,
-                M68kRefreshPhase::new(36).expect("oracle frame-950 sub_44DC phase"),
+                121_733_058 * 7,
+                M68kRefreshPhase::new(40).expect("oracle frame-951 sub_44DC phase"),
                 0,
             ),
-            "ASM frame 930..950 persistent schedule reaches exact frame-950 sub_44DC",
+            "ASM frame 930..951 persistent schedule reaches exact frame-951 sub_44DC",
         );
     }
 
