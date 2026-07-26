@@ -6634,6 +6634,20 @@ with the persistent GEMS machine. It reaches oracle `loc_810` at cycle
 925 `sub_E12` at cycle 118,394,738 phase 104. NEXT: type frame 925's player
 callback and continue fail-closed.
 
+Progress 2026-07-26 (persistent clock reaches frame 926): the grounded walking
+continuation now retains its source-significant velocity transition. Frames
+925 and 926 take the same `loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A ->
+sub_8F26 -> loc_8BF0` path while accelerating `$3800->$5400->$7000`; each
+callback remains exactly 4,010 raw cycles. Frame 925 skips every HUD upload.
+Its first `BackgroundScroll_ComputeShiftData` time-layer slot advances right
+through `sub_304B4 -> loc_304C2 -> loc_304CA`, while the remaining 18 slots
+stay unchanged. Selected-PC boundaries and the chronological regression pin
+the background interval at 9,076 raw cycles plus 72 refresh events, reaching
+oracle `loc_89E` at cycle 118,422,686 phase 20. The persistent owner reaches
+frame 926 `sub_E12` at 118,522,734 phase 104 and `sub_44DC` at 118,532,066
+phase 92. NEXT: account for frame 926's measured 17-cycle GEMS arbitration
+residue before frame 927 `sub_E12` at 118,650,747.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

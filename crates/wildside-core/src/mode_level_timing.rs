@@ -2306,6 +2306,7 @@ pub fn player_callback_cycles_sub_e12(
         }
         ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
             form: crate::PlayerForm::TheKid,
+            ..
         } => {
             // ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26
             // -> loc_8BF0. Frame 924's selected-PC journal spans 4,010 raw
@@ -2684,6 +2685,7 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         }) => Some(2_462),
         Some(ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
             form: crate::PlayerForm::TheKid,
+            ..
         }) => Some(2_462),
         _ => None,
     };

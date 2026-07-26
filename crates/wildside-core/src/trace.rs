@@ -256,6 +256,7 @@ fn mode_level_gfx_sprite_work_sub_1492(
                             form: crate::PlayerForm::TheKid,
                         } | crate::ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
                             form: crate::PlayerForm::TheKid,
+                            ..
                         }
                     )
                 )
@@ -10279,12 +10280,14 @@ impl NativeRuntime {
             return ModeLevelPlayerExecutionPath::Unclassified;
         };
         let stages = follow_on.stages;
+        let x_velocity_before = stages.after_press_away.x_velocity;
+        let x_velocity_after = stages.after_jump_gravity.x_velocity;
         let grounded_right_walk_continue = self.last_kid_frame_motion_branch
             == KidFrameMotionBranch::NormalPhysics
             && self.progression.current_form == PlayerForm::TheKid
             && self.active_platform_standing_on.is_none()
             && self.current_player_state().is_some_and(|player| {
-                player.on_ground && player.x_velocity == 0x0000_3800 && player.y_velocity == 0
+                player.on_ground && player.x_velocity == x_velocity_after && player.y_velocity == 0
             })
             && self
                 .last_kid_frame_grounded_release_probe
@@ -10298,8 +10301,8 @@ impl NativeRuntime {
                         && probe.support_col.is_some()
                         && !probe.release_triggered
                 })
-            && stages.after_press_away.x_velocity == 0x0000_1C00
-            && stages.after_jump_gravity.x_velocity == 0x0000_3800
+            && x_velocity_before > 0
+            && x_velocity_after == x_velocity_before + 0x0000_1C00
             && stages.gfx_object_collision_clear
             && !follow_on.wall_hit_after_floor
             && stages.after_floor == stages.after_wall
@@ -10312,6 +10315,8 @@ impl NativeRuntime {
             // to loc_8BF0 for its next one-frame hibernate.
             return ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
                 form: self.progression.current_form,
+                x_velocity_before,
+                x_velocity_after,
             };
         }
         if self.last_kid_frame_motion_branch != KidFrameMotionBranch::NormalPhysics {

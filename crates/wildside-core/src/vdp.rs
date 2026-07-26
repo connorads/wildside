@@ -3515,10 +3515,11 @@ pub struct ModeLevelTailBackgroundAdvance {
 
 /// Co-schedule the frame-902 ASM `loc_898 -> loc_3038A` background pass.
 ///
-/// The accepted path has 19 unchanged shift-data slots, a normal aligned or
-/// unaligned shift-layer pass, 29 skipped piece rows, and either a cached or
-/// zero-wrap linear `sub_307D8` row. Other typed paths remain fail-closed
-/// until their instruction streams are fixed by oracle evidence.
+/// The accepted path has either 19 unchanged shift-data slots or frame 925's
+/// first-slot rightward advance, a normal aligned or unaligned shift-layer
+/// pass, 29 skipped piece rows, and either a cached or zero-wrap linear
+/// `sub_307D8` row. Other typed paths remain fail-closed until their
+/// instruction streams are fixed by oracle evidence.
 pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     work: &crate::ModeLevelTailBackgroundWorkLoc3038A,
@@ -3540,14 +3541,17 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
         }
         _ => return None,
     };
+    let unchanged_shift_slots = [crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged; 19];
+    let mut first_slot_rightward_shift = unchanged_shift_slots;
+    first_slot_rightward_shift[0] = crate::ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew {
+        width_subtractions: 0,
+    };
     if work.special_effect_4
         || work.game_mode_zero
         || work.background_upload_busy_fb49
         || work.background_format_nonzero
-        || work
-            .shift_data_slots_loc_30452
-            .iter()
-            .any(|slot| *slot != crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged)
+        || (work.shift_data_slots_loc_30452 != unchanged_shift_slots
+            && work.shift_data_slots_loc_30452 != first_slot_rightward_shift)
         || work.piece_rows_sub_30744.entries_before_sentinel != 29
         || work.piece_rows_sub_30744.rendered_nonnegative_entries != 0
     {
@@ -3591,14 +3595,29 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     advance_all!(&[20, 10, 16, 8, 12, 8, 16, 18]);
 
     // ASM BackgroundScroll_ComputeShiftData prologue and its two loc_30452
-    // unchanged slots.
+    // time-layer slots.
     advance_all!(&[12, 12, 12, 12, 4, 4]);
     const FIRST_UNCHANGED_SLOT: [u8; 16] =
         [12, 8, 4, 4, 12, 4, 12, 12, 12, 12, 4, 10, 12, 8, 4, 10];
+    // ASM loc_30452 -> sub_304B4 -> loc_304C2 -> loc_304CA -> loc_3047A:
+    // frame 925's first time layer advances right without wrapping against
+    // Background_width. Selected-PC boundaries fix this at 260 raw cycles.
+    const FIRST_RIGHTWARD_SLOT_NO_WRAP: [u8; 26] = [
+        12, 8, 4, 4, 12, 4, 12, 12, 12, 12, 4, 8, 18, 8, 12, 12, 8, 4, 4, 10, 8, 8, 4, 12, 16, 10,
+    ];
     for slot_index in 0..2 {
-        for (instruction_index, &cycles) in FIRST_UNCHANGED_SLOT.iter().enumerate() {
-            let final_dbf = slot_index == 1 && instruction_index + 1 == FIRST_UNCHANGED_SLOT.len();
+        let slot =
+            if slot_index == 0 && first_slot_rightward_shift == work.shift_data_slots_loc_30452 {
+                FIRST_RIGHTWARD_SLOT_NO_WRAP.as_slice()
+            } else {
+                FIRST_UNCHANGED_SLOT.as_slice()
+            };
+        for (instruction_index, &cycles) in slot.iter().enumerate() {
+            let final_dbf = slot_index == 1 && instruction_index + 1 == slot.len();
             advance(u32::from(if final_dbf { 14 } else { cycles }), 0)?;
+        }
+        if slot_index == 0 && first_slot_rightward_shift == work.shift_data_slots_loc_30452 {
+            advance_all!(&[8, 4, 10]);
         }
     }
     advance_all!(&[4, 4, 4, 32, 4]);
@@ -9321,6 +9340,55 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(50).expect("oracle loc_89E phase"),
             },
             "ASM loc_89E follows 8,956 raw + 142 refresh cycles",
+        );
+    }
+
+    #[test]
+    fn first_time_layer_rightward_shift_matches_frame_925_instruction_trace() {
+        let entry_cycles = M68kCycleCount::from_raw(118_413_466);
+        let mut shift_data_slots = [crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged; 19];
+        shift_data_slots[0] = crate::ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew {
+            width_subtractions: 0,
+        };
+        let work = crate::ModeLevelTailBackgroundWorkLoc3038A {
+            special_effect_4: false,
+            game_mode_zero: false,
+            background_upload_busy_fb49: false,
+            background_format_nonzero: false,
+            shift_data_slots_loc_30452: shift_data_slots,
+            shift_layers: crate::ModeLevelTailShiftLayersWork::NormalUnalignedNoRipple {
+                leading_rows: 7,
+                full_rows: 27,
+                trailing_rows: 1,
+            },
+            piece_rows_sub_30744: crate::ModeLevelTailPieceRowsSub30744 {
+                entries_before_sentinel: 29,
+                rendered_nonnegative_entries: 0,
+            },
+            piece_refresh_sub_307d8: crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged,
+        };
+
+        let advance = mode_level_tail_background_cursor_loc_3038a_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(16).expect("oracle loc_898 phase"),
+            },
+            &work,
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("ASM frame-925 first time-layer shift is source-scheduled");
+
+        assert_eq!(advance.raw_cycles.get(), 9_076);
+        assert_eq!(advance.refresh_events, 72);
+        assert_eq!(advance.external_wait_cycles.get(), 0);
+        assert_eq!(advance.fifo_halted_ticks.get(), 0);
+        assert_eq!(
+            advance.cursor,
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(118_422_686)),
+                refresh_phase: M68kRefreshPhase::new(20).expect("oracle loc_89E phase"),
+            },
+            "ASM loc_898 -> loc_30452 -> sub_304B4 -> loc_304C2 -> loc_304CA -> loc_89E",
         );
     }
 

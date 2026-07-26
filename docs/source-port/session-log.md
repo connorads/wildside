@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 persistent clock reaches frame 926 sub_44DC)
+
+- Frames 925-926 resume grounded walking through `loc_8BF0`, with typed
+  `$3800->$5400->$7000` velocity transitions and the same exact 4,010-cycle
+  callback path.
+- Frame 925 skips every HUD upload. Its first time-layer scroll slot advances
+  through `sub_304B4`; the chronological background scheduler reaches
+  `loc_89E` exactly after 9,076 raw cycles and 72 refresh events.
+- The persistent owner reaches frame 926 `sub_E12` at cycle 118,522,734 and
+  `sub_44DC` at cycle 118,532,066, both at the oracle phase.
+- NEXT: account for frame 926's 17-cycle GEMS arbitration residue before frame
+  927 `sub_E12` at cycle 118,650,747.
+
 ## 2026-07-26 handoff (#406 persistent clock reaches frame 925)
 
 - Frame 924's clock cursor wraps through the `$FF` sentinel at `loc_45B2`,

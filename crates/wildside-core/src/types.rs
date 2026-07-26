@@ -2001,6 +2001,8 @@ pub enum ModeLevelPlayerExecutionPath {
     /// support and wall probes, then hibernates at the same label.
     GroundedRightWalkContinueLoc8bf0 {
         form: PlayerForm,
+        x_velocity_before: i32,
+        x_velocity_after: i32,
     },
     /// Ordinary airborne coroutine resumed at ASM `loc_A73A`.
     NormalPhysics(ModeLevelNormalPhysicsPath),
