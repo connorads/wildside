@@ -1117,6 +1117,10 @@ fn mode_level_airborne_horizontal_path(
     // $400 brake to a negative neutral velocity at loc_B10E.
     match x_velocity_after.wrapping_sub(x_velocity_before) {
         0x2B00 => ModeLevelAirborneHorizontalPath::RightHeldAcceleration,
+        0x4080 => ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
+        -0x0100 if x_velocity_before > 0 && x_velocity_after > 0 => {
+            ModeLevelAirborneHorizontalPath::RightHeldCapBleed
+        }
         0x0400 if x_velocity_before < 0 && x_velocity_after <= 0 => {
             ModeLevelAirborneHorizontalPath::NeutralNegativeBrake
         }
@@ -10282,6 +10286,82 @@ impl NativeRuntime {
         let stages = follow_on.stages;
         let x_velocity_before = stages.after_press_away.x_velocity;
         let x_velocity_after = stages.after_jump_gravity.x_velocity;
+        let wall_cling_no_buttons = self.last_kid_frame_motion_branch
+            == KidFrameMotionBranch::NormalPhysics
+            && self.progression.current_form == PlayerForm::TheKid
+            && action.wall_scan_hit
+            && action.wall_probe.is_some()
+            && action.branch == KidFlipBranchSelection::NoButtonBranch
+            && !action.b_pressed
+            && !action.c_pressed
+            && !action.on_ground_before
+            && stages.entry.wall_cling_direction == Some(crate::Direction::Right)
+            && stages.after_press_away.wall_cling_direction == Some(crate::Direction::Right)
+            && stages.after_jump_gravity.wall_cling_direction == Some(crate::Direction::Right)
+            && stages.entry.x_velocity == 0
+            && stages.after_press_away.x_velocity == 0
+            && stages.after_jump_gravity.x_velocity == 0
+            && stages.after_press_away.y_velocity < 0
+            && stages.after_jump_gravity.y_velocity
+                == stages.after_press_away.y_velocity.wrapping_add(0x2000)
+            && stages.gfx_object_collision_clear
+            && stages.after_jump_gravity == stages.after_floor
+            && stages.after_floor == stages.after_wall;
+        if wall_cling_no_buttons {
+            // ASM loc_AA22 resumes after Hibernate_Object_1Frame, skipping
+            // sub_B084. It runs held-jump gravity, clear Gfx/floor probes,
+            // then kid_flip's no-button branch back through loc_AD2C.
+            return ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 {
+                form: self.progression.current_form,
+                side: crate::Direction::Right,
+                wall_scan_hit_row: action
+                    .wall_probe
+                    .expect("typed wall-cling path retains its hit probe")
+                    .cell_y,
+                vertical: ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                gfx_object_collision_clear: true,
+                vertical_collision: ModeLevelVerticalCollisionPath::Clear,
+                ceiling_scan_sub_914a,
+            };
+        }
+        let grounded_jump_launch = self.last_kid_frame_motion_branch
+            == KidFrameMotionBranch::NormalPhysics
+            && self.progression.current_form == PlayerForm::TheKid
+            && self.active_platform_standing_on.is_none()
+            && action.b_pressed
+            && !action.c_pressed
+            && action.on_ground_before
+            && !action.on_ground_after
+            && stages.after_press_away.on_ground
+            && !stages.after_jump_gravity.on_ground
+            && stages.gfx_object_collision_clear
+            && stages.after_jump_gravity == stages.after_floor
+            && stages.after_floor == stages.after_wall
+            && !follow_on.wall_hit_after_floor
+            && self.opening_slice.as_ref().is_some_and(|slice| {
+                crate::physics::initiate_jump_with_hand_grab(
+                    x_velocity_before,
+                    crate::physics::JUMP_HEIGHTS
+                        [usize::from(self.progression.current_form.helmet_id())],
+                    slice.kid_grabbed_by_hand,
+                ) == (x_velocity_after, stages.after_jump_gravity.y_velocity)
+            })
+            && self.current_player_state().is_some_and(|player| {
+                !player.on_ground
+                    && player.x_velocity == x_velocity_after
+                    && player.y_velocity == stages.after_jump_gravity.y_velocity
+            });
+        if grounded_jump_launch {
+            // ASM loc_8C70 consumes Button_B before loc_A426 clears Cyclone
+            // flight, sub_A432 derives the launch velocities, and loc_A75A
+            // rejoins the clear floor/wall/action tail.
+            return ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
+                form: self.progression.current_form,
+                x_velocity_before,
+                x_velocity_after,
+                y_velocity_after: stages.after_jump_gravity.y_velocity,
+            };
+        }
         let grounded_right_walk_continue = self.last_kid_frame_motion_branch
             == KidFrameMotionBranch::NormalPhysics
             && self.progression.current_form == PlayerForm::TheKid
@@ -10326,7 +10406,15 @@ impl NativeRuntime {
             stages.after_press_away.x_velocity,
             stages.after_jump_gravity.x_velocity,
         );
-        let vertical = if self.progression.current_form == PlayerForm::Cyclone
+        let vertical = if self.progression.current_form == PlayerForm::TheKid
+            && stages.after_press_away.y_velocity < 0
+            && stages.after_jump_gravity.y_velocity
+                == stages.after_press_away.y_velocity.wrapping_add(0x2000)
+        {
+            // ASM sub_B168 loc_B19C -> loc_B1D4 -> loc_B1E8: a rising Kid
+            // with B held receives the lower `$2000` gravity increment.
+            ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8
+        } else if self.progression.current_form == PlayerForm::Cyclone
             && self.helmet.cyclone_flying
             && !action.c_pressed
         {
@@ -10357,10 +10445,23 @@ impl NativeRuntime {
         let wall_collision =
             if !follow_on.wall_hit_after_floor && stages.after_floor == stages.after_wall {
                 ModeLevelWallCollisionPath::Clear
+            } else if stages.after_floor.x_velocity > 0
+                && stages.after_wall.x_velocity == 0
+                && stages.after_floor.y_velocity == stages.after_wall.y_velocity
+                && stages.after_wall.wall_cling_direction == Some(crate::Direction::Right)
+            {
+                // ASM sub_8F26 -> sub_922C -> loc_8F98 -> loc_901E returns one;
+                // loc_A8DE clears the side byte and enters loc_A9E4 wall-cling.
+                ModeLevelWallCollisionPath::RightWallClingLocA9e4
             } else {
                 ModeLevelWallCollisionPath::Unclassified
             };
-        let airborne_action = if !action.b_pressed && !action.c_pressed {
+        let airborne_action = if matches!(
+            wall_collision,
+            ModeLevelWallCollisionPath::RightWallClingLocA9e4
+        ) {
+            ModeLevelAirborneActionPath::NotReachedAfterWallCollision
+        } else if !action.b_pressed && !action.c_pressed {
             // ASM loc_A7B4/loc_A7F8 (kid.asm:13199-13287): neither button
             // reaches loc_A8D6, whose sub_B270 call precedes loc_A6F8.
             ModeLevelAirborneActionPath::NoButtons
@@ -10392,12 +10493,10 @@ impl NativeRuntime {
             wall_collision,
             airborne_action,
             cyclone_visual_steps,
-            ceiling_scan_sub_914a: matches!(
-                vertical_collision,
-                ModeLevelVerticalCollisionPath::Ceiling
-            )
-            .then_some(ceiling_scan_sub_914a)
-            .flatten(),
+            // ASM sub_902A calls sub_914A whenever vertical motion crosses a
+            // tile row. Retain clear scans as well as collision-producing
+            // scans because their variable-width loop is timing-visible.
+            ceiling_scan_sub_914a,
         })
     }
 

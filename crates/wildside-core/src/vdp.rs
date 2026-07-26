@@ -3541,17 +3541,22 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
         }
         _ => return None,
     };
-    let unchanged_shift_slots = [crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged; 19];
-    let mut first_slot_rightward_shift = unchanged_shift_slots;
-    first_slot_rightward_shift[0] = crate::ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew {
+    let rightward_no_wrap = crate::ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew {
         width_subtractions: 0,
     };
+    let time_layer_slots_classified = work.shift_data_slots_loc_30452[..2].iter().all(|slot| {
+        matches!(*slot, crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged)
+            || *slot == rightward_no_wrap
+    });
+    let remaining_slots_unchanged = work.shift_data_slots_loc_30452[2..]
+        .iter()
+        .all(|slot| *slot == crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged);
     if work.special_effect_4
         || work.game_mode_zero
         || work.background_upload_busy_fb49
         || work.background_format_nonzero
-        || (work.shift_data_slots_loc_30452 != unchanged_shift_slots
-            && work.shift_data_slots_loc_30452 != first_slot_rightward_shift)
+        || !time_layer_slots_classified
+        || !remaining_slots_unchanged
         || work.piece_rows_sub_30744.entries_before_sentinel != 29
         || work.piece_rows_sub_30744.rendered_nonnegative_entries != 0
     {
@@ -3606,18 +3611,19 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
         12, 8, 4, 4, 12, 4, 12, 12, 12, 12, 4, 8, 18, 8, 12, 12, 8, 4, 4, 10, 8, 8, 4, 12, 16, 10,
     ];
     for slot_index in 0..2 {
-        let slot =
-            if slot_index == 0 && first_slot_rightward_shift == work.shift_data_slots_loc_30452 {
-                FIRST_RIGHTWARD_SLOT_NO_WRAP.as_slice()
-            } else {
-                FIRST_UNCHANGED_SLOT.as_slice()
-            };
+        let shifted = work.shift_data_slots_loc_30452[slot_index] == rightward_no_wrap;
+        let slot = if shifted {
+            FIRST_RIGHTWARD_SLOT_NO_WRAP.as_slice()
+        } else {
+            FIRST_UNCHANGED_SLOT.as_slice()
+        };
         for (instruction_index, &cycles) in slot.iter().enumerate() {
-            let final_dbf = slot_index == 1 && instruction_index + 1 == slot.len();
+            let final_dbf = !shifted && slot_index == 1 && instruction_index + 1 == slot.len();
             advance(u32::from(if final_dbf { 14 } else { cycles }), 0)?;
         }
-        if slot_index == 0 && first_slot_rightward_shift == work.shift_data_slots_loc_30452 {
-            advance_all!(&[8, 4, 10]);
+        if shifted {
+            advance_all!(&[8, 4]);
+            advance(if slot_index == 1 { 14 } else { 10 }, 0)?;
         }
     }
     advance_all!(&[4, 4, 4, 32, 4]);
@@ -9511,6 +9517,26 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(20).expect("oracle loc_89E phase"),
             },
             "ASM loc_898 -> loc_30452 -> sub_304B4 -> loc_304C2 -> loc_304CA -> loc_89E",
+        );
+
+        let mut two_shift_work = work;
+        two_shift_work.shift_data_slots_loc_30452[1] =
+            crate::ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew {
+                width_subtractions: 0,
+            };
+        let two_shift = mode_level_tail_background_cursor_loc_3038a_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(16).expect("oracle loc_898 phase"),
+            },
+            &two_shift_work,
+            |_, _, _| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("ASM both time-layer shifts are source-scheduled");
+        assert_eq!(
+            two_shift.raw_cycles.get(),
+            9_196,
+            "ASM loc_30452 second shifted slot uses the terminal 14-cycle DBF",
         );
     }
 

@@ -2183,6 +2183,59 @@ pub fn execute_objects_setup_cycles_sub_e12(rng_offset_before: u16) -> Option<M6
 pub fn player_callback_cycles_loc_a73a(
     execute: &ModeLevelExecuteObjectsWork,
 ) -> Option<M68kCycleCount> {
+    if let Some(ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 {
+        form: crate::PlayerForm::TheKid,
+        side: crate::Direction::Right,
+        wall_scan_hit_row,
+        vertical: ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+        gfx_object_collision_clear: true,
+        vertical_collision: ModeLevelVerticalCollisionPath::Clear,
+        ceiling_scan_sub_914a,
+    }) = execute.executed_player_path.as_ref()
+    {
+        let gfx_scan = execute.player_gfx_terrain_scan?;
+        if gfx_scan.bounds.left_col != gfx_scan.bounds.right_col
+            || gfx_scan.first_collision.is_some()
+        {
+            return None;
+        }
+        let row_count = gfx_scan
+            .bounds
+            .bottom_row
+            .checked_sub(gfx_scan.bounds.top_row)?
+            .checked_add(1)?;
+        if gfx_scan.tile_iterations != row_count {
+            return None;
+        }
+        let mut cycles = match row_count {
+            3 => 4_048_i32,
+            2 => 4_148_i32,
+            _ => return None,
+        };
+        // ASM kid_flip -> sub_AF10 loc_AF5C scans down from the body's top
+        // row. Each passable row before the retained wall costs 62 cycles.
+        cycles += 62 * i32::from(wall_scan_hit_row.checked_sub(gfx_scan.bounds.top_row)?);
+        match ceiling_scan_sub_914a {
+            None => {}
+            Some(scan)
+                if scan.return_path == ModeLevelCeilingScanReturn::Clear
+                    && scan.first_hit_col.is_none()
+                    && !scan.visits.is_empty()
+                    && scan.visits.iter().all(|visit| {
+                        visit.collision == crate::ModeLevelCeilingScanCollision::Empty
+                            && visit.rubber_effect == ModeLevelRubberContactEffectLoc10DA4::None
+                    }) =>
+            {
+                cycles += 346 + 66 * i32::try_from(scan.visits.len()).ok()?;
+            }
+            Some(_) => return None,
+        }
+        // ASM loc_AA22 -> sub_B168 -> sub_A4EE -> sub_902A -> kid_flip ->
+        // loc_AD2C -> sub_B270 -> loc_AA22. Frame 944's selected-PC journal
+        // measures 4,474 raw cycles between loc_E1E dispatches, leaving a
+        // 4,048-cycle callback after the shared 426-cycle scheduler shell.
+        return Some(M68kCycleCount(u32::try_from(cycles).ok()?));
+    }
     let ModeLevelPlayerExecutionPath::NormalPhysics(path) =
         execute.executed_player_path.as_ref()?
     else {
@@ -2191,10 +2244,19 @@ pub fn player_callback_cycles_loc_a73a(
     if !path.gfx_object_collision_clear
         || !matches!(
             path.vertical,
-            ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. }
+            ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8
+                | ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. }
         )
-        || !matches!(path.wall_collision, ModeLevelWallCollisionPath::Clear)
-        || !matches!(path.airborne_action, ModeLevelAirborneActionPath::NoButtons)
+        || !matches!(
+            (path.wall_collision, path.airborne_action),
+            (
+                ModeLevelWallCollisionPath::Clear,
+                ModeLevelAirborneActionPath::NoButtons
+            ) | (
+                ModeLevelWallCollisionPath::RightWallClingLocA9e4,
+                ModeLevelAirborneActionPath::NotReachedAfterWallCollision
+            )
+        )
     {
         return None;
     }
@@ -2202,10 +2264,37 @@ pub fn player_callback_cycles_loc_a73a(
     // ASM loc_A73A, sub_B084, sub_B168, sub_A4EE, sub_902A/sub_8F26,
     // sub_B270, and loc_A8D6 share this fixed natural-route spine.
     let mut cycles = 3_830_i32;
-    cycles += match path.horizontal {
-        ModeLevelAirborneHorizontalPath::NeutralNegativeBrake => 0,
-        ModeLevelAirborneHorizontalPath::RightHeldAcceleration => -12,
-        ModeLevelAirborneHorizontalPath::Unclassified { .. } => return None,
+    cycles += match (path.horizontal, path.vertical) {
+        (
+            ModeLevelAirborneHorizontalPath::NeutralNegativeBrake,
+            ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
+        ) => 0,
+        (
+            ModeLevelAirborneHorizontalPath::RightHeldAcceleration,
+            ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
+        ) => -12,
+        (
+            ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
+            ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+        ) => {
+            // ASM sub_B084 loc_B0B6 and sub_B168 loc_B1E8. Frame 934's
+            // selected-PC journal measures 4,490 raw cycles between loc_E1E
+            // dispatches. After the 426-cycle shell and three 81-cycle clear
+            // Gfx terrain visits, this branch contributes 3,821 cycles.
+            -9
+        }
+        (
+            ModeLevelAirborneHorizontalPath::RightHeldCapBleed,
+            ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+        ) => {
+            // ASM sub_B084 loc_B0E2: frame 941 is already beyond The Kid's
+            // `$2A000` cap. Held Right adds `$4080`, rejects the result, then
+            // subtracts `$100`. The selected-PC ledger fixes this branch's
+            // no-scan callback at 4,096 cycles on frame 942, 32 more than
+            // frame 934's run-held acceleration path.
+            23
+        }
+        _ => return None,
     };
 
     let gfx_scan = execute.player_gfx_terrain_scan?;
@@ -2216,6 +2305,18 @@ pub fn player_callback_cycles_loc_a73a(
         Some(
             ModeLevelKidGfxTerrainCollision::SlopeUp | ModeLevelKidGfxTerrainCollision::SlopeDown,
         ) => return None,
+    };
+    cycles += match path.wall_collision {
+        ModeLevelWallCollisionPath::Clear => 0,
+        ModeLevelWallCollisionPath::RightWallClingLocA9e4 => {
+            // ASM sub_8F26 -> sub_922C -> loc_8F98 -> loc_A8DE -> loc_A9E4
+            // scans three right-edge cells before the solid return. Frame
+            // 943's selected-PC journal measures 5,488 raw cycles between
+            // loc_E1E dispatches, leaving 856 beyond the cap-bleed callback,
+            // solid Gfx scan, and two scheduler shells.
+            856
+        }
+        ModeLevelWallCollisionPath::Unclassified => return None,
     };
     cycles += 10
         * i32::try_from(
@@ -2259,6 +2360,21 @@ pub fn player_callback_cycles_loc_a73a(
 
     match (&path.vertical_collision, &path.ceiling_scan_sub_914a) {
         (ModeLevelVerticalCollisionPath::Clear, None) => {}
+        (ModeLevelVerticalCollisionPath::Clear, Some(scan))
+            if scan.return_path == ModeLevelCeilingScanReturn::Clear
+                && scan.first_hit_col.is_none()
+                && !scan.visits.is_empty()
+                && scan.visits.iter().all(|visit| {
+                    visit.collision == crate::ModeLevelCeilingScanCollision::Empty
+                        && visit.rubber_effect == ModeLevelRubberContactEffectLoc10DA4::None
+                }) =>
+        {
+            // ASM sub_902A -> sub_914A -> loc_9220: the upward crossing
+            // scans the Kid's complete horizontal tile span. Selected-PC
+            // journals pin one clear visit at +412 raw cycles on frame 936
+            // and two visits at +478 on frame 941.
+            cycles += 346 + 66 * i32::try_from(scan.visits.len()).ok()?;
+        }
         (ModeLevelVerticalCollisionPath::Ceiling, Some(scan))
             if scan.visits.len() == 2
                 && scan.return_path == ModeLevelCeilingScanReturn::Hit
@@ -2314,11 +2430,25 @@ pub fn player_callback_cycles_sub_e12(
             // dispatch/hibernate shell.
             Some(M68kCycleCount::from_raw(3_584))
         }
-        ModeLevelPlayerExecutionPath::NormalPhysics(_) => player_callback_cycles_loc_a73a(execute),
+        ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
+            form: crate::PlayerForm::TheKid,
+            ..
+        } => {
+            // ASM loc_8BF0 -> loc_8C70 -> loc_A426 -> sub_A432 -> loc_A75A
+            // -> loc_A6F8. Frame 933's selected-PC journal spans 4,114 raw
+            // cycles between loc_E1E dispatches; remove the shared 426-cycle
+            // dispatch/hibernate shell.
+            Some(M68kCycleCount::from_raw(3_688))
+        }
+        ModeLevelPlayerExecutionPath::NormalPhysics(_)
+        | ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 { .. } => {
+            player_callback_cycles_loc_a73a(execute)
+        }
         ModeLevelPlayerExecutionPath::LevelStartActivationLoc7508 { .. }
         | ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 { .. }
         | ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c { .. }
         | ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 { .. }
+        | ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 { .. }
         | ModeLevelPlayerExecutionPath::Unclassified => None,
     }
 }
@@ -2718,21 +2848,57 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
 
     // ASM sub_DFB0 (kid.asm:17317) and loc_EAE4 (kid.asm:18858):
     // 994 raw cycles surround the inclusive row/column scan. Each row costs
-    // 38 plus 40 per cell; a bit-15 non-type-$A cell adds the loc_E23A
-    // 30-cycle branch before scanning continues.
+    // 38 plus 40 per cell; a bit-15 non-type-$A cell takes the loc_EB4C
+    // `andi/cmpi/beq` rejection and adds 48 cycles before scanning continues.
     let sub_dfb0 = 994_u32
         .checked_add(
             u32::from(scan.row_count)
                 .checked_mul(38_u32.checked_add(40_u32.checked_mul(u32::from(scan.col_count))?)?)?,
         )?
         .checked_add(
-            30_u32.checked_mul(u32::from(scan.flagged_non_evanescent_cells_before_exit))?,
+            48_u32.checked_mul(u32::from(scan.flagged_non_evanescent_cells_before_exit))?,
         )?;
 
     let shooter_scan = match (shooter.cached_col_matches, shooter.cached_row_matches) {
         // ASM sub_F096 loc_F09E -> loc_F186 -> loc_F25C: cached Kid column
         // and row avoid both layout strips.
         (true, true) => 0,
+        // ASM sub_F096 loc_F09E -> loc_F0D8 -> loc_F106: when Kid's column
+        // moves right, scan the entering column three cells ahead over the
+        // eight-row activation span. Frame 939's selected-PC journal measures
+        // 824 raw cycles through loc_F25C versus 166 cached: 658 extra.
+        (false, true)
+            if shooter.cached_col_before < shooter.kid_block_col
+                && shooter.kid_block_col.checked_add(3)?
+                    < i16::try_from(shooter.level_width_blocks).ok()?
+                && shooter.kid_block_row >= 5
+                && shooter.kid_block_row.checked_add(2)?
+                    < i16::try_from(shooter.level_height_blocks).ok()?
+                && shooter.new_shooter_slots_registered == 0 =>
+        {
+            658
+        }
+        // ASM sub_F096 loc_F186 -> loc_F1A8 -> loc_F1DE: when Kid's row
+        // moves upward, scan the entering row five cells above. The fixed
+        // setup adds 150 raw cycles over the cached path; each empty cell
+        // adds 54. Selected-PC journals pin six cells / 474 extra at frame
+        // 936 and seven cells / 528 extra at frame 940.
+        (true, false)
+            if shooter.cached_row_before > shooter.kid_block_row
+                && shooter.kid_block_row >= 5
+                && shooter.kid_block_col >= 0
+                && shooter.kid_block_col.checked_add(3)?
+                    < i16::try_from(shooter.level_width_blocks).ok()?
+                && shooter.new_shooter_slots_registered == 0 =>
+        {
+            let left_col = shooter.kid_block_col.saturating_sub(3).max(0);
+            let cell_count = shooter
+                .kid_block_col
+                .checked_add(3)?
+                .checked_sub(left_col)?
+                .checked_add(1)?;
+            150_u32.checked_add(54_u32.checked_mul(u32::try_from(cell_count).ok()?)?)?
+        }
         // ASM sub_F096 loc_F186..loc_F25C: when only Kid's row advances,
         // scan the entering seven-cell row. With no shooter candidates every
         // loc_F1DE iteration takes the direct loc_F254 branch. The frame-1706
@@ -2991,14 +3157,22 @@ pub fn visit_hud_diamond_only_sub_44dc(
 pub fn hud_flag_only_raw_cycles_sub_44dc(
     commands: &[HudDmaEventSub44DC],
 ) -> Option<M68kCycleCount> {
-    if !matches!(commands, [HudDmaEventSub44DC::Flag { .. }]) {
+    let [
+        HudDmaEventSub44DC::Flag {
+            frame_table_byte_offset,
+        },
+    ] = commands
+    else {
         return None;
-    }
+    };
 
     // ASM sub_44DC loc_4630 -> loc_4680 -> sub_5DA6: four earlier animation
     // counters skip, the flag selects one art page, sub_5DA6 programs its
-    // 320-word VRAM DMA, and loc_468C returns.
-    Some(M68kCycleCount::from_raw(742))
+    // 320-word VRAM DMA, and loc_468C returns. Page zero follows the `$FF`
+    // sentinel retry at loc_4648, which adds 58 raw cycles.
+    Some(M68kCycleCount::from_raw(
+        742 + u32::from(*frame_table_byte_offset == 0) * 58,
+    ))
 }
 
 /// Visit every source instruction and hardware edge in the flag-only
@@ -3008,6 +3182,14 @@ pub fn visit_hud_flag_only_sub_44dc(
     mut visit: impl FnMut(crate::intro_timing::MemoryDmaTimingEvent),
 ) -> Option<crate::intro_timing::IntroSourceTiming> {
     hud_flag_only_raw_cycles_sub_44dc(commands)?;
+    let [
+        HudDmaEventSub44DC::Flag {
+            frame_table_byte_offset,
+        },
+    ] = commands
+    else {
+        return None;
+    };
     use crate::intro_timing::{IntroSourceTiming, MemoryDmaTimingEvent, MemoryToVdpDmaTarget};
 
     let mut timing = IntroSourceTiming {
@@ -3034,8 +3216,18 @@ pub fn visit_hud_flag_only_sub_44dc(
     ] {
         emit(&mut visit, &mut timing, cycles);
     }
-    // ASM loc_4630..loc_4680: advance flag selector and call sub_5DA6.
-    for cycles in [12, 12, 4, 4, 12, 12, 4, 4, 12, 12, 8, 10, 8, 4, 18, 18] {
+    // ASM loc_4630..loc_4648: advance the flag selector.
+    for cycles in [12, 12, 4, 4, 12, 12, 4, 4] {
+        emit(&mut visit, &mut timing, cycles);
+    }
+    if *frame_table_byte_offset == 0 {
+        // ASM loc_4648 repeats after the AniArt_Flag `$FF` sentinel.
+        for cycles in [12, 12, 8, 12, 4, 10] {
+            emit(&mut visit, &mut timing, cycles);
+        }
+    }
+    // ASM loc_4648..loc_4680: select the page and call sub_5DA6.
+    for cycles in [12, 12, 8, 10, 8, 4, 18, 18] {
         emit(&mut visit, &mut timing, cycles);
     }
     // ASM sub_5DA6 through Stop_z80's BUSREQ write and acknowledgement.
@@ -5257,6 +5449,68 @@ mod tests {
             "frame-902 selected PCs close the post-object interval",
         );
 
+        ledger.post_execute.evanescent_scan_loc_eae4 =
+            Some(crate::ModeLevelEvanescentScanWorkLocEae4 {
+                row_count: 3,
+                col_count: 2,
+                flagged_non_evanescent_cells_before_exit: 1,
+                found_evanescent_block: false,
+            });
+        ledger.post_execute.shooter_scan_sub_f096 = Some(crate::ModeLevelShooterScanWorkSubF096 {
+            cached_col_matches: true,
+            cached_row_matches: true,
+            active_shooter_slots_before: 0,
+            cached_col_before: 3,
+            cached_row_before: 43,
+            kid_block_col: 3,
+            kid_block_row: 43,
+            level_width_blocks: 120,
+            level_height_blocks: 56,
+            new_shooter_slots_registered: 0,
+        });
+        assert_eq!(
+            post_execute_raw_cycles_before_sub_44dc(&ledger),
+            Some(M68kCycleCount::from_raw(2_636)),
+            "ASM loc_EB4C bit-15 non-type-$A rejection adds 48 raw cycles",
+        );
+
+        let shooter = ledger
+            .post_execute
+            .shooter_scan_sub_f096
+            .as_mut()
+            .expect("typed shooter scan");
+        shooter.cached_row_matches = false;
+        shooter.cached_row_before = 43;
+        shooter.kid_block_row = 42;
+        assert_eq!(
+            post_execute_raw_cycles_before_sub_44dc(&ledger),
+            Some(M68kCycleCount::from_raw(3_164)),
+            "ASM loc_F1A8/loc_F1DE frame-940 upward scan visits seven clear cells",
+        );
+
+        let shooter = ledger
+            .post_execute
+            .shooter_scan_sub_f096
+            .as_mut()
+            .expect("typed shooter scan");
+        shooter.cached_col_matches = false;
+        shooter.cached_row_matches = true;
+        shooter.cached_col_before = 2;
+        shooter.kid_block_col = 3;
+        shooter.cached_row_before = 43;
+        shooter.kid_block_row = 43;
+        assert_eq!(
+            post_execute_raw_cycles_before_sub_44dc(&ledger),
+            Some(M68kCycleCount::from_raw(3_294)),
+            "ASM loc_F0D8/loc_F106 frame-939 rightward scan adds 658 raw cycles",
+        );
+
+        ledger
+            .post_execute
+            .evanescent_scan_loc_eae4
+            .as_mut()
+            .expect("typed evanescent scan")
+            .flagged_non_evanescent_cells_before_exit = 0;
         ledger.post_execute.shooter_scan_sub_f096 = Some(crate::ModeLevelShooterScanWorkSubF096 {
             cached_col_matches: true,
             cached_row_matches: false,
@@ -7239,6 +7493,20 @@ mod tests {
         let timing = visit_hud_flag_only_sub_44dc(&[flag], |_| {})
             .expect("flag-only source path is classified");
         assert_eq!(timing.raw_cycles, M68kCycleCount::from_raw(742));
+        let wrapped = HudDmaEventSub44DC::Flag {
+            frame_table_byte_offset: 0,
+        };
+        assert_eq!(
+            hud_flag_only_raw_cycles_sub_44dc(&[wrapped]),
+            Some(M68kCycleCount::from_raw(800)),
+            "ASM loc_4648 retries after the page-zero `$FF` sentinel",
+        );
+        assert_eq!(
+            visit_hud_flag_only_sub_44dc(&[wrapped], |_| {})
+                .expect("wrapped flag source path is classified")
+                .raw_cycles,
+            M68kCycleCount::from_raw(800),
+        );
         assert_eq!(hud_flag_only_raw_cycles_sub_44dc(&[]), None);
         assert_eq!(
             hud_flag_only_raw_cycles_sub_44dc(&[

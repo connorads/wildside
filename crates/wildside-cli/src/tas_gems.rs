@@ -8706,7 +8706,7 @@ impl GemsSignatureProbe {
             }
             [
                 wildside_core::HudDmaEventSub44DC::Coin {
-                    frame_table_byte_offset: 12,
+                    frame_table_byte_offset: _,
                 },
             ] => apply_gems_coin_schedule_sub_44dc(&mut self.engine, sub_44dc, work.hud_events),
             [
@@ -8727,21 +8727,23 @@ impl GemsSignatureProbe {
             }
             [
                 wildside_core::HudDmaEventSub44DC::Diamond {
-                    frame_table_byte_offset: 4,
+                    frame_table_byte_offset: _,
                 },
             ] => apply_gems_diamond_schedule_sub_44dc(&mut self.engine, sub_44dc, work.hud_events),
             [
                 wildside_core::HudDmaEventSub44DC::Flag {
-                    frame_table_byte_offset: 20,
+                    frame_table_byte_offset: _,
                 },
             ] => apply_gems_flag_schedule_sub_44dc(&mut self.engine, sub_44dc, work.hud_events),
             _ => None,
-        }?;
+        };
+        let post_hud_entry = post_hud_entry?;
         let loc_892 = apply_gems_mode_level_post_hud_to_loc_892(
             &mut self.engine,
             post_hud_entry,
             work.post_hud?,
-        )?;
+        );
+        let loc_892 = loc_892?;
         let wait = apply_gems_mode_level_tail_to_wait_for_vint_with_wait_budget(
             &mut self.engine,
             wildside_core::vdp::LoadInGameCpuRasterCursor {
@@ -8750,23 +8752,26 @@ impl GemsSignatureProbe {
             },
             work.tail_loc_892,
             Some(M68kCycleCount::from_raw(0)),
-        )?;
+        );
+        let wait = wait?;
         let mode_level = apply_gems_mode_level_wait_for_vint_to_mode_level_with_wait_budget(
             &mut self.engine,
             wait.cursor,
             Some(M68kCycleCount::from_raw(0)),
-        )?;
+        );
+        let mode_level = mode_level?;
         let target = (self.power_on_frame as u64 * NTSC_SCANLINES_PER_FRAME
             + (NTSC_SCANLINES_PER_FRAME - 30))
             * MASTER_CLOCKS_PER_SCANLINE;
-        let (prefix, _) =
+        let prefix =
             apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint_and_wait_budgets(
                 &mut self.engine,
                 mode_level.cursor,
                 next_vblank_work,
                 target,
                 Some(vblank_wait_budgets),
-            )?;
+            );
+        let (prefix, _) = prefix?;
         self.power_on_mode_level_prefix = Some(prefix);
         self.power_on_frame += 1;
         Some(())
@@ -13875,7 +13880,7 @@ mod tests {
     }
 
     #[test]
-    fn published_tas_persistent_clock_reaches_frame_923_sub_e12_without_extending_audio_span() {
+    fn published_tas_persistent_clock_reaches_frame_950_sub_44dc_without_extending_audio_span() {
         let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let manifest_path = repo_root
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
@@ -14510,6 +14515,174 @@ mod tests {
                 0,
             ),
             "ASM frame 929 sub_E12 -> sub_44DC remains source- and hardware-exact",
+        );
+        assert!(
+            frame_929.hud_dma_events_sub_44dc.is_empty(),
+            "ASM frame 929 sub_44DC skips all five HUD animation uploads",
+        );
+        queue.observe_post_hud_producer(frame_929, &visuals.player);
+        let frame_930 = &trace[930];
+        let frame_930_vblank = queue
+            .consume_vblank_work(frame_930)
+            .expect("frame 930 consumes the retained frame-929 dynamic-art queue");
+        probe
+            .continue_mode_level_after_sub_44dc_to_next_prefix(
+                frame_929_sub_44dc,
+                ModeLevelGemsFrameWork {
+                    vblank_before_sub_e12: frame_929_vblank,
+                    pre_hud: Some(frame_929_pre_hud),
+                    hud_events: &frame_929.hud_dma_events_sub_44dc,
+                    post_hud: frame_929.mode_level_work_after_hud_sub_44dc.as_ref(),
+                    tail_loc_892: frame_929
+                        .mode_level_tail_work_loc_892
+                        .as_ref()
+                        .expect("frame 929 exposes tail work"),
+                },
+                frame_930_vblank,
+                no_vblank_waits,
+            )
+            .expect("typed frame 929 reaches the retained frame-930 VBlank prefix");
+        let frame_930_seed = probe
+            .continue_mode_level_to_sub_e12_after_frozen_span(frame_930_vblank)
+            .expect("persistent hardware owner reaches frame 930 sub_E12");
+        assert_eq!(
+            (
+                probe.engine.master_clock(),
+                frame_930_seed.refresh_phase,
+                probe.power_on_frame,
+            ),
+            (
+                119_034_766 * 7,
+                M68kRefreshPhase::new(104).expect("oracle frame-930 sub_E12 phase"),
+                930,
+            ),
+            "ASM frame 929 no-upload HUD/tail -> WaitForVint -> frame 930 sub_E12 remains persistent and exact",
+        );
+        let frame_930_pre_hud = frame_930
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("frame 930 exposes pre-HUD work");
+        assert_eq!(
+            frame_930_pre_hud.execute_objects.executed_player_path,
+            Some(
+                wildside_core::ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+                    form: wildside_core::PlayerForm::TheKid,
+                    x_velocity_before: 0x0000_C400,
+                    x_velocity_after: 0x0000_E000,
+                },
+            ),
+            "ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26 -> loc_8BF0",
+        );
+        assert_eq!(
+            frame_930_pre_hud.execute_objects.rng_offset_before_sub_e12,
+            Some(0xFFCE),
+            "ASM four frame-929 sub_9FE calls advance the RNG offset from -54 to -50",
+        );
+        assert_eq!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(&frame_930_pre_hud.execute_objects,),
+            Some(M68kCycleCount::from_raw(6_700)),
+            "ASM sub_E12 at 119034766 reaches loc_7E6 at 119041572 after 53 refresh waits",
+        );
+        assert_eq!(
+            wildside_core::post_execute_raw_cycles_before_sub_44dc(frame_930_pre_hud),
+            Some(M68kCycleCount::from_raw(2_462)),
+            "ASM loc_7E6 at 119041572 reaches sub_44DC at 119044074 after 20 refresh waits",
+        );
+        let frame_930_sub_44dc = apply_gems_mode_level_pre_hud_to_sub_44dc(
+            &mut probe.engine,
+            frame_930_seed,
+            frame_930_pre_hud,
+        )
+        .expect("persistent hardware owner reaches frame 930 sub_44DC");
+        assert_eq!(
+            (
+                probe.engine.master_clock(),
+                frame_930_sub_44dc.refresh_phase,
+                probe.engine.pending_m68k_wait_cycles(),
+            ),
+            (
+                119_044_074 * 7,
+                M68kRefreshPhase::new(68).expect("oracle frame-930 sub_44DC phase"),
+                0,
+            ),
+            "ASM frame 930 sub_E12 -> sub_44DC remains source- and hardware-exact",
+        );
+
+        let mut current_sub_44dc = frame_930_sub_44dc;
+        let mut current_vblank = frame_930_vblank;
+        for current_frame_index in 930..950 {
+            let current_frame = &trace[current_frame_index];
+            let current_pre_hud = current_frame
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .unwrap_or_else(|| panic!("frame {current_frame_index} exposes pre-HUD work"));
+            queue.observe_post_hud_producer(current_frame, &visuals.player);
+            let next_frame = &trace[current_frame_index + 1];
+            let next_vblank = queue.consume_vblank_work(next_frame).unwrap_or_else(|| {
+                panic!(
+                    "frame {} exposes retained VBlank work",
+                    current_frame_index + 1
+                )
+            });
+            probe
+                .continue_mode_level_after_sub_44dc_to_next_prefix(
+                    current_sub_44dc,
+                    ModeLevelGemsFrameWork {
+                        vblank_before_sub_e12: current_vblank,
+                        pre_hud: Some(current_pre_hud),
+                        hud_events: &current_frame.hud_dma_events_sub_44dc,
+                        post_hud: current_frame.mode_level_work_after_hud_sub_44dc.as_ref(),
+                        tail_loc_892: current_frame
+                            .mode_level_tail_work_loc_892
+                            .as_ref()
+                            .unwrap_or_else(|| {
+                                panic!("frame {current_frame_index} exposes tail work")
+                            }),
+                    },
+                    next_vblank,
+                    no_vblank_waits,
+                )
+                .unwrap_or_else(|| {
+                    panic!(
+                        "frame {current_frame_index} HUD/tail is not fully typed: {:?}",
+                        current_frame.hud_dma_events_sub_44dc,
+                    )
+                });
+            let next_seed = probe
+                .continue_mode_level_to_sub_e12_after_frozen_span(next_vblank)
+                .unwrap_or_else(|| panic!("frame {} reaches sub_E12", current_frame_index + 1));
+            let next_pre_hud = next_frame
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .unwrap_or_else(|| {
+                    panic!("frame {} exposes pre-HUD work", current_frame_index + 1)
+                });
+            current_sub_44dc = apply_gems_mode_level_pre_hud_to_sub_44dc(
+                &mut probe.engine,
+                next_seed,
+                next_pre_hud,
+            )
+            .unwrap_or_else(|| {
+                panic!(
+                    "frame {} pre-HUD path is not fully typed: player={:?}",
+                    current_frame_index + 1,
+                    next_pre_hud.execute_objects.executed_player_path,
+                )
+            });
+            current_vblank = next_vblank;
+        }
+        assert_eq!(
+            (
+                probe.engine.master_clock(),
+                current_sub_44dc.refresh_phase,
+                probe.engine.pending_m68k_wait_cycles(),
+            ),
+            (
+                121_604_915 * 7,
+                M68kRefreshPhase::new(36).expect("oracle frame-950 sub_44DC phase"),
+                0,
+            ),
+            "ASM frame 930..950 persistent schedule reaches exact frame-950 sub_44DC",
         );
     }
 

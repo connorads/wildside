@@ -1901,6 +1901,12 @@ pub struct ModeLevelCeilingScanSub914A {
 pub enum ModeLevelAirborneHorizontalPath {
     /// ASM `loc_B0E2 -> loc_B118`.
     RightHeldAcceleration,
+    /// ASM `loc_B09E -> loc_B0B6 -> loc_B0E2`: Run multiplies the right-held
+    /// acceleration by 1.5.
+    RightHeldRunAcceleration,
+    /// ASM `loc_B0E2 -> loc_B118`: right remains held above the helmet's
+    /// maximum speed, so the failed acceleration is replaced by `$100` drag.
+    RightHeldCapBleed,
     /// ASM `loc_B0FE -> loc_B10E -> loc_B118`.
     NeutralNegativeBrake,
     Unclassified {
@@ -1913,6 +1919,9 @@ pub enum ModeLevelAirborneHorizontalPath {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelAirborneVerticalPath {
+    /// ASM `loc_B19C -> loc_B1D4 -> loc_B1E8`: rising with B held applies
+    /// the lower `$2000` gravity step.
+    HeldJumpGravityLocB1e8,
     /// `loc_B214 -> loc_B23A -> loc_B246`, then the Cyclone path falls
     /// through into the first `sub_B270` call before `sub_A4EE`.
     CycloneFlyingNoCPress {
@@ -1942,6 +1951,9 @@ pub enum ModeLevelVerticalCollisionPath {
 pub enum ModeLevelWallCollisionPath {
     /// Zero return falls through to ASM `loc_A76A`.
     Clear,
+    /// ASM `sub_8F26 -> sub_922C` finds a solid tile on the right, clears
+    /// horizontal velocity, and returns one through `loc_A8DE -> loc_A9E4`.
+    RightWallClingLocA9e4,
     Unclassified,
 }
 
@@ -1951,6 +1963,9 @@ pub enum ModeLevelWallCollisionPath {
 pub enum ModeLevelAirborneActionPath {
     /// Neither B nor C is pressed, so ASM reaches `loc_A8D6`.
     NoButtons,
+    /// A non-zero `sub_8F26` return branches at `loc_A762` before the action
+    /// dispatch and enters the wall-cling coroutine.
+    NotReachedAfterWallCollision,
     Unclassified,
 }
 
@@ -2003,6 +2018,24 @@ pub enum ModeLevelPlayerExecutionPath {
         form: PlayerForm,
         x_velocity_before: i32,
         x_velocity_after: i32,
+    },
+    /// ASM `loc_8C70 -> loc_A426 -> sub_A432 -> loc_A75A`: a grounded B
+    /// edge launches Kid with speed-derived vertical velocity.
+    GroundedJumpLaunchLocA426 {
+        form: PlayerForm,
+        x_velocity_before: i32,
+        x_velocity_after: i32,
+        y_velocity_after: i32,
+    },
+    /// Resume inside the wall-cling coroutine after `loc_AA22`'s hibernate.
+    WallClingNoButtonsLocAa22 {
+        form: PlayerForm,
+        side: Direction,
+        wall_scan_hit_row: u16,
+        vertical: ModeLevelAirborneVerticalPath,
+        gfx_object_collision_clear: bool,
+        vertical_collision: ModeLevelVerticalCollisionPath,
+        ceiling_scan_sub_914a: Option<ModeLevelCeilingScanSub914A>,
     },
     /// Ordinary airborne coroutine resumed at ASM `loc_A73A`.
     NormalPhysics(ModeLevelNormalPhysicsPath),

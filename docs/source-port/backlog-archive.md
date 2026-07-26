@@ -4617,6 +4617,27 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-26: the persistent CPU/VDP/GEMS owner now reaches frame 950
+`sub_44DC` exactly at cycle 121,604,915, refresh phase 36, with no pending
+68000 wait. The source-typed interval includes frame 933's `loc_A426` jump,
+the page-zero Flag `$FF` retry at `loc_4648`, two `loc_30452` time-layer
+shifts, `sub_B084` run acceleration and cap bleed, clear `sub_914A` ceiling
+scans, both `sub_F096` entering-strip directions, and the frame-943
+`sub_8F26 -> sub_922C -> loc_A9E4` right-wall transition.
+
+Frames 944..950 resume inside the wall-cling coroutine at `loc_AA22`, so they
+skip `sub_B084`. Their timing accounts for the variable `sub_AF10 loc_AF5C`
+wall-column scan and the two-row `sub_A4EE` span. The final 18-cycle
+post-object residue was source work: a bit-15 non-type-$A evanescent cell
+takes `loc_EB4C`'s `andi/cmpi/beq` rejection, adding 48 rather than 30 raw
+cycles. Focused tests pin the page-zero Flag, both time-layer slots, shooter
+strips, evanescent rejection, and exact persistent frame-950 boundary.
+
+#406 remains open. Frame 951 releases B, changing `sub_B168` from the `$2000`
+held-jump branch at `loc_B1E8` to `$4000` default gravity at `loc_B1E0`, then
+takes a distinct wall-side dispatch. NEXT: type that continuation and carry
+the persistent owner towards the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-26: frame 928's page-12 Coin event now follows the complete
 `sub_44DC loc_44F4 -> loc_4534 -> sub_44D0` instruction stream. The 64-word
 CPU-to-VRAM copy is co-scheduled with H40 FIFO ownership and the persistent

@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 persistent clock reaches frame 950)
+
+- The source-typed gameplay clock covers jump launch, HUD selector wraps,
+  two time-layer shifts, airborne ceiling scans, shooter strips, right-wall
+  impact, and the held-B wall-cling coroutine through frame 950.
+- `loc_EB4C`'s bit-15 non-type-$A evanescent rejection costs 48 raw cycles,
+  closing the last frame-950 post-object residue.
+- Frame 950 reaches `sub_44DC` at cycle 121,604,915 phase 36 with no pending
+  wait.
+- NEXT: type frame 951's released-B `$4000` gravity and wall-side dispatch,
+  then continue the persistent owner towards frame 1706.
+
 ## 2026-07-26 handoff (#406 Coin FIFO reaches frame 929)
 
 - Frame 928's page-12 Coin event follows `loc_44F4 -> loc_4534 -> sub_44D0`.
