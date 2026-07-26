@@ -1992,6 +1992,11 @@ pub enum ModeLevelPlayerExecutionPath {
     GroundedStationaryNoInputLoc7606 {
         form: PlayerForm,
     },
+    /// Standing The Kid accepts held Right at ASM `loc_779C`, enters the
+    /// walking coroutine through `loc_7820`, and returns through `loc_8BF0`.
+    GroundedRightWalkStartLoc779c {
+        form: PlayerForm,
+    },
     /// Ordinary airborne coroutine resumed at ASM `loc_A73A`.
     NormalPhysics(ModeLevelNormalPhysicsPath),
     Unclassified,

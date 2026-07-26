@@ -143,6 +143,10 @@ const FRAME_RENDERED_SKEW_SCANLINES: u64 = 8;
 /// commands at frame boundaries plus whole-frame advances) and is measured debt, never claimed parity.
 /// Raise only with per-frame evidence from a seeded run.
 pub(crate) const GEMS_MODELLED_ROUTE_FRAMES: usize = 923;
+// ASM sub_1596 now owns the complete foreground-queue source path. The old
+// per-frame 40-cycle adjustment duplicated that work; keep one explicit zero
+// while the hand-written frame scheduler still converts suffix cursor types.
+const NO_ADDITIONAL_GEMS_BANK_WAIT: u32 = 0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FreshTitleChameleonMap {
@@ -4744,18 +4748,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("third gameplay VBlank suffix reaches sub_E12");
-            const THIRD_GAMEPLAY_GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(THIRD_GAMEPLAY_GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(THIRD_GAMEPLAY_GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(THIRD_GAMEPLAY_GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -4907,18 +4908,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("fourth gameplay VBlank suffix reaches sub_E12");
-            const FOURTH_GAMEPLAY_GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(FOURTH_GAMEPLAY_GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(FOURTH_GAMEPLAY_GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(FOURTH_GAMEPLAY_GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -5085,18 +5083,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("fifth gameplay VBlank suffix reaches sub_E12");
-            const FIFTH_GAMEPLAY_GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(FIFTH_GAMEPLAY_GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(FIFTH_GAMEPLAY_GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(FIFTH_GAMEPLAY_GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -5254,18 +5249,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("sixth gameplay VBlank suffix reaches sub_E12");
-            const SIXTH_GAMEPLAY_GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(SIXTH_GAMEPLAY_GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(SIXTH_GAMEPLAY_GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(SIXTH_GAMEPLAY_GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -5414,20 +5406,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("seventh gameplay VBlank suffix reaches sub_E12");
-            const SEVENTH_GAMEPLAY_GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(SEVENTH_GAMEPLAY_GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(SEVENTH_GAMEPLAY_GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(
-                        SEVENTH_GAMEPLAY_GEMS_BANK_WAIT,
-                    ))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -5605,18 +5592,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("eighth gameplay VBlank suffix reaches sub_E12");
-            const EIGHTH_GAMEPLAY_GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(EIGHTH_GAMEPLAY_GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(EIGHTH_GAMEPLAY_GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(EIGHTH_GAMEPLAY_GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -5763,18 +5747,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("ninth gameplay VBlank suffix reaches sub_E12");
-            const NINTH_GAMEPLAY_GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(NINTH_GAMEPLAY_GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(NINTH_GAMEPLAY_GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(NINTH_GAMEPLAY_GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -5904,18 +5885,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("tenth gameplay VBlank suffix reaches sub_E12");
-            const TENTH_GAMEPLAY_GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(TENTH_GAMEPLAY_GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(TENTH_GAMEPLAY_GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(TENTH_GAMEPLAY_GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -6059,22 +6037,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("eleventh gameplay VBlank suffix reaches sub_E12");
-            const ELEVENTH_GAMEPLAY_GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(ELEVENTH_GAMEPLAY_GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(
-                        ELEVENTH_GAMEPLAY_GEMS_BANK_WAIT,
-                    )),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(
-                        ELEVENTH_GAMEPLAY_GEMS_BANK_WAIT,
-                    ))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -6204,20 +6175,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("twelfth gameplay VBlank suffix reaches sub_E12");
-            const TWELFTH_GAMEPLAY_GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(TWELFTH_GAMEPLAY_GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(TWELFTH_GAMEPLAY_GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(
-                        TWELFTH_GAMEPLAY_GEMS_BANK_WAIT,
-                    ))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -6340,18 +6306,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("thirteenth gameplay VBlank suffix reaches sub_E12");
-            const GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -6475,18 +6438,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("fourteenth gameplay VBlank suffix reaches sub_E12");
-            const GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -6597,18 +6557,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("fifteenth gameplay VBlank suffix reaches sub_E12");
-            const GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -6715,18 +6672,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("sixteenth gameplay VBlank suffix reaches sub_E12");
-            const GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -6850,18 +6804,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("seventeenth gameplay VBlank suffix reaches sub_E12");
-            const GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -6965,18 +6916,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("eighteenth gameplay VBlank suffix reaches sub_E12");
-            const GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -7106,18 +7054,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("nineteenth gameplay VBlank suffix reaches sub_E12");
-            const GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -7289,18 +7234,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("twentieth gameplay VBlank suffix reaches sub_E12");
-            const GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -7442,18 +7384,15 @@ impl GemsSignatureProbe {
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("twenty-first gameplay VBlank suffix reaches sub_E12");
-            const GEMS_BANK_WAIT: u32 = 40;
-            self.engine
-                .advance_ntsc_master_clocks(u64::from(GEMS_BANK_WAIT) * 7);
             let suffix_cursor = wildside_core::vdp::ModeLevelRasterSeedSubE12 {
                 beam: suffix
                     .cursor
                     .beam
-                    .advance_m68k_cycles(M68kCycleCount::from_raw(GEMS_BANK_WAIT)),
+                    .advance_m68k_cycles(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT)),
                 refresh_phase: suffix
                     .cursor
                     .refresh_phase
-                    .advance_external_wait(M68kCycleCount::from_raw(GEMS_BANK_WAIT))
+                    .advance_external_wait(M68kCycleCount::from_raw(NO_ADDITIONAL_GEMS_BANK_WAIT))
                     .phase_after,
             };
             assert_eq!(
@@ -8692,6 +8631,37 @@ impl GemsSignatureProbe {
             self.power_on_last_sampled_checkpoint = Some(sampled_checkpoint.clone());
         }
         signature_from_checkpoint(&sampled_checkpoint)
+    }
+
+    /// Continue the persistent hardware owner at the first gameplay frame
+    /// beyond the frozen GEMS-signature comparison span.
+    ///
+    /// This does not extend that evidence span. It consumes the retained
+    /// `loc_30104 -> loc_7D6` scheduler state and exposes the next typed
+    /// `Execute_Objects sub_E12` boundary for the pixel timeline.
+    #[cfg(test)]
+    fn continue_mode_level_to_sub_e12_after_frozen_span(
+        &mut self,
+        work: ModeLevelVblankWorkBeforeSubE12,
+    ) -> Option<wildside_core::vdp::ModeLevelRasterSeedSubE12> {
+        if self.power_on_frame != GEMS_MODELLED_ROUTE_FRAMES {
+            return None;
+        }
+        let prefix = self.power_on_mode_level_prefix.take()?;
+        if self.engine.pending_m68k_wait_cycles() != 0 {
+            return None;
+        }
+        let suffix = apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
+            &mut self.engine,
+            prefix.cursor,
+            work,
+            M68kCycleCount::from_raw(0),
+            Some(M68kCycleCount::from_raw(0)),
+        )?;
+        Some(wildside_core::vdp::ModeLevelRasterSeedSubE12 {
+            beam: suffix.cursor.beam,
+            refresh_phase: suffix.cursor.refresh_phase,
+        })
     }
 
     fn sample_at_frame_rendered(&mut self) -> GemsFrameSignature {
@@ -13793,6 +13763,125 @@ mod tests {
             ),
             (1_429_088_040, 0x000E_0000, 0x0273, 0, 0),
             "ASM Mode_Level frame 903 retains the exact loc_7D6 handoff and consumes loc_AD4 tile $0C; the defended native GEMS X/Y split remains visible in RAM and PC",
+        );
+    }
+
+    #[test]
+    fn published_tas_persistent_clock_reaches_frame_923_sub_e12_without_extending_audio_span() {
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        let rom_path = repo_root.join(".cache/upstream/kid-chameleon-disasm/kid.bin");
+        if !manifest_path.exists() || !rom_path.exists() {
+            return;
+        }
+        let manifest = wildside_data::load_manifest(&manifest_path).expect("cached manifest");
+        let scenario: crate::scenarios::DynamicScenario = serde_json::from_slice(
+            &std::fs::read(repo_root.join("tests/data/tas/any-percent-published/scenario.json"))
+                .expect("published TAS scenario"),
+        )
+        .expect("published TAS JSON");
+        let trace = crate::scenarios::run_native_dynamic_scenario(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("published native trace");
+        let visuals = wildside_render::load_level_visuals(&manifest, 0).expect("level 00 visuals");
+        let rom = std::fs::read(rom_path).expect("bootstrapped Kid ROM");
+        let mut probe = GemsSignatureProbe::from_kid_rom_power_on(&rom).expect("power-on probe");
+        let mut queue = ModeLevelDynamicArtQueueLocAd4::default();
+
+        for frame in trace.iter().take(GEMS_MODELLED_ROUTE_FRAMES) {
+            let vblank_before_sub_e12 = queue.consume_vblank_work(frame);
+            let work = match (
+                vblank_before_sub_e12,
+                frame.mode_level_work_before_hud_sub_44dc.as_ref(),
+                frame.mode_level_tail_work_loc_892.as_ref(),
+            ) {
+                (Some(vblank_before_sub_e12), Some(pre_hud), Some(tail_loc_892)) => {
+                    Some(ModeLevelGemsFrameWork {
+                        vblank_before_sub_e12,
+                        pre_hud: Some(pre_hud),
+                        hud_events: &frame.hud_dma_events_sub_44dc,
+                        post_hud: frame.mode_level_work_after_hud_sub_44dc.as_ref(),
+                        tail_loc_892,
+                    })
+                }
+                _ => None,
+            };
+            probe.sample_power_on_frame_rendered_with_mode_level_work(work);
+            queue.observe_post_hud_producer(frame, &visuals.player);
+        }
+
+        let frame_923 = &trace[GEMS_MODELLED_ROUTE_FRAMES];
+        let work = queue
+            .consume_vblank_work(frame_923)
+            .expect("frame 923 exposes retained VBlank work");
+        let seed = probe
+            .continue_mode_level_to_sub_e12_after_frozen_span(work)
+            .expect("persistent hardware owner reaches frame 923 sub_E12");
+
+        assert_eq!(
+            (
+                probe.engine.master_clock(),
+                seed.beam,
+                seed.refresh_phase,
+                GEMS_MODELLED_ROUTE_FRAMES,
+            ),
+            (
+                118_138_735 * 7,
+                wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    118_138_735
+                ),),
+                M68kRefreshPhase::new(104).expect("oracle frame-923 sub_E12 phase"),
+                923,
+            ),
+            "ASM frame 923 loc_7D6 -> sub_1596 -> sub_BDC0 -> sub_E12 continues independently of the frozen audio comparison span",
+        );
+
+        let frame_923_pre_hud = frame_923
+            .mode_level_work_before_hud_sub_44dc
+            .as_ref()
+            .expect("frame 923 exposes pre-HUD work");
+        assert_eq!(
+            frame_923_pre_hud.execute_objects.executed_player_path,
+            Some(
+                wildside_core::ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
+                    form: wildside_core::PlayerForm::TheKid,
+                },
+            ),
+            "ASM loc_779C -> loc_77C2 -> loc_7820 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26 -> loc_8BF0",
+        );
+        assert_eq!(
+            wildside_core::execute_objects_raw_cycles_sub_e12(&frame_923_pre_hud.execute_objects,),
+            Some(M68kCycleCount::from_raw(7_516)),
+            "ASM sub_E12 at 118138735 reaches loc_7E6 at 118146371 after 60 refresh waits",
+        );
+        assert_eq!(
+            wildside_core::post_execute_raw_cycles_before_sub_44dc(frame_923_pre_hud),
+            Some(M68kCycleCount::from_raw(2_462)),
+            "ASM loc_7E6 at 118146371 reaches sub_44DC at 118148873 after 20 refresh waits",
+        );
+        let pre_hud =
+            apply_gems_mode_level_pre_hud_to_sub_44dc(&mut probe.engine, seed, frame_923_pre_hud)
+                .expect("persistent hardware owner reaches frame 923 sub_44DC");
+        assert_eq!(
+            (
+                probe.engine.master_clock(),
+                pre_hud.beam,
+                pre_hud.refresh_phase,
+                probe.engine.pending_m68k_wait_cycles(),
+            ),
+            (
+                118_148_873 * 7,
+                wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                    118_148_873
+                ),),
+                M68kRefreshPhase::new(2).expect("oracle frame-923 sub_44DC phase"),
+                0,
+            ),
+            "ASM frame 923 sub_E12 -> sub_44DC remains source- and hardware-exact",
         );
     }
 

@@ -10215,6 +10215,35 @@ impl NativeRuntime {
                 form: self.progression.current_form,
             };
         }
+        let grounded_right_walk_start = self.last_kid_frame_motion_branch
+            == KidFrameMotionBranch::NormalPhysics
+            && self.progression.current_form == PlayerForm::TheKid
+            && self.active_platform_standing_on.is_none()
+            && self.current_player_state().is_some_and(|player| {
+                player.on_ground && player.x_velocity == 0x0000_1C00 && player.y_velocity == 0
+            })
+            && self
+                .last_kid_frame_grounded_release_probe
+                .is_some_and(|probe| {
+                    probe.on_ground_before
+                        && probe.held_direction == Some(crate::Direction::Right)
+                        && !probe.down_held
+                        && !probe.jump_pressed
+                        && probe.jump_buffer_frames == 0
+                        && probe.velocity_branch == KidGroundedReleaseVelocityBranch::GroundedHold
+                        && probe.support_col.is_some()
+                        && !probe.release_triggered
+                })
+            && action.is_some_and(|action| !action.b_pressed && !action.c_pressed);
+        if grounded_right_walk_start {
+            // ASM loc_779C -> loc_77C2 -> loc_7820 -> loc_8D72 -> loc_8E06
+            // (kid.asm:7842-10252): clear right-side wall and support probes
+            // enter the walking coroutine, whose first sub_8F26 step stores
+            // x_vel=$1C00 before loc_8BF0 hibernates the player.
+            return ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
+                form: self.progression.current_form,
+            };
+        }
         if self.last_kid_frame_motion_branch != KidFrameMotionBranch::NormalPhysics {
             return ModeLevelPlayerExecutionPath::Unclassified;
         }

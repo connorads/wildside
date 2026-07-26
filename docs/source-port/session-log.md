@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 persistent clock reaches frame 923)
+
+- The persistent CPU/VDP/GEMS owner continues beyond the frozen 923-frame
+  audio evidence span without changing `GEMS_MODELLED_ROUTE_FRAMES`.
+- Published frame 923 reaches `sub_E12` at oracle cycle 118,138,735 phase 104
+  and `sub_44DC` at 118,148,873 phase 2 with no pending 68000 wait.
+- ASM selected PCs type the new grounded-right walking transition through
+  `loc_779C`, `loc_77C2`, `loc_7820`, `loc_8D72`, `loc_8E06`, `sub_B43A`,
+  `sub_8F26`, and `loc_8BF0`.
+- The exact source costs are 7,516 raw cycles through `Execute_Objects` and
+  2,462 raw cycles through the post-object path.
+- NEXT: promote the test-only continuation into the production raster owner,
+  advance typed frames fail-closed towards frame 1706, and inject the
+  hardware-derived Diamond seed without a frame lookup.
+
 ## 2026-07-26 handoff (#406 frame-1706 source path complete)
 
 - The shared memory-DMA scheduler now records the first committed VRAM word.

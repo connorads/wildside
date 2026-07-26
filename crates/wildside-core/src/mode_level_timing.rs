@@ -2293,9 +2293,21 @@ pub fn player_callback_cycles_sub_e12(
             // shell contribute 268 + 158 cycles, leaving 2,198 here.
             Some(M68kCycleCount::from_raw(2_198))
         }
+        ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
+            form: crate::PlayerForm::TheKid,
+        } => {
+            // ASM loc_779C -> loc_77C2 -> loc_7820 -> loc_8D72 -> loc_8E06
+            // -> sub_B43A -> sub_8F26 -> loc_8BF0. Frame 923's selected-PC
+            // journal advances from phase 88 at cycle 118140511 to phase 102
+            // at cycle 118145389. Removing 38 two-cycle refresh waits leaves
+            // 4,802 raw cycles; the 426-cycle dispatch/hibernate shell leaves
+            // 4,376 here.
+            Some(M68kCycleCount::from_raw(4_376))
+        }
         ModeLevelPlayerExecutionPath::NormalPhysics(_) => player_callback_cycles_loc_a73a(execute),
         ModeLevelPlayerExecutionPath::LevelStartActivationLoc7508 { .. }
         | ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 { .. }
+        | ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c { .. }
         | ModeLevelPlayerExecutionPath::Unclassified => None,
     }
 }
@@ -2653,14 +2665,17 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         return None;
     }
 
-    if matches!(
-        ledger.execute_objects.executed_player_path,
-        Some(
-            ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 {
-                form: crate::PlayerForm::TheKid,
-            }
-        )
-    ) && scan.row_count == 4
+    let grounded_post_raw = match ledger.execute_objects.executed_player_path {
+        Some(ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 {
+            form: crate::PlayerForm::TheKid,
+        }) => Some(2_462),
+        Some(ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
+            form: crate::PlayerForm::TheKid,
+        }) => Some(2_462),
+        _ => None,
+    };
+    if grounded_post_raw.is_some()
+        && scan.row_count == 4
         && scan.col_count == 2
         && scan.flagged_non_evanescent_cells_before_exit == 0
         && ((shooter.cached_col_before == -1
@@ -2676,10 +2691,14 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         && shooter.new_shooter_slots_registered == 0
     {
         // ASM sub_21F8 -> sub_DFB0/loc_EAE4 -> sub_F096 -> sub_44DC.
-        // Frames 919-920's selected-PC journals split this grounded branch
-        // into 480 + 1,362 + 602 raw cycles before and after the shooter
-        // position cache begins matching.
-        return Some(M68kCycleCount::from_raw(2_444));
+        // Frame 919 reaches loc_7E6 at 117632917 and sub_44DC at 117635417:
+        // phase 50 advances by 2,462 raw cycles plus 19 refresh waits. The
+        // frame-923 walking-start branch reaches loc_7E6 at 118146371 and
+        // sub_44DC at 118148873: phase 60 advances by the same raw cycles plus
+        // 20 refresh waits. Their typed post ledgers otherwise coincide.
+        // ASM Mode_Level $7E6 owns the 18-cycle BSR.W sub_21F8 after the
+        // Execute_Objects null-list return.
+        return Some(M68kCycleCount::from_raw(grounded_post_raw?));
     }
 
     // ASM sub_DFB0 (kid.asm:17317) and loc_EAE4 (kid.asm:18858):
@@ -2731,9 +2750,9 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         _ => return None,
     };
 
-    // ASM Mode_Level loc_7F4..loc_80C: the exact natural path outside
-    // sub_DFB0 is 1,240 raw cycles: sub_21F8, DiamondPower_Run, sub_F7E0,
-    // sub_6034, sub_F096, and their call/return shells.
+    // ASM Mode_Level $7E6..loc_80C: the exact natural path outside sub_DFB0
+    // is 1,240 raw cycles: sub_21F8, DiamondPower_Run, sub_F7E0, sub_6034,
+    // sub_F096, and their call/return shells.
     Some(M68kCycleCount(
         1_240_u32.checked_add(sub_dfb0)?.checked_add(shooter_scan)?,
     ))

@@ -6571,6 +6571,31 @@ existing persistent CPU/VDP/GEMS scheduler continue beyond the frozen
 923-frame audio-comparison span and supply the runtime seed without a frame or
 level lookup.
 
+Progress 2026-07-26 (persistent clock beyond frozen audio evidence): the
+existing CPU/VDP/GEMS scheduler now retains its frame-923 VBlank prefix and
+continues to the next typed gameplay boundaries without extending
+`GEMS_MODELLED_ROUTE_FRAMES=923` or changing the frozen audio comparison. The
+source correction in `sub_1596 loc_1686` makes the old per-frame 40-cycle GEMS
+wait adjustments duplicate work; the scheduler now uses one explicit zero
+additional-wait value at those cursor conversions.
+
+Frame 923 exposed a previously untyped grounded transition. Oracle selected
+PCs prove `loc_779C -> loc_77C2 -> loc_7820 -> loc_8D72 -> loc_8E06 ->
+sub_B43A -> sub_8F26 -> loc_8BF0`. The trace now represents that route as
+`GroundedRightWalkStartLoc779c`. Its `loc_E1E` callback interval contains
+4,802 raw cycles after removing 38 refresh waits, leaving a 4,376-cycle body
+after the shared 426-cycle dispatch/hibernate shell.
+
+The cache-backed persistent-clock regression reaches frame 923 `sub_E12` at
+oracle cycle 118,138,735, refresh phase 104. Its typed `Execute_Objects` pass
+is 7,516 raw cycles to `loc_7E6`; the post-object pass is 2,462 raw cycles; and
+`sub_44DC` lands exactly at cycle 118,148,873, phase 2, with no pending 68000
+wait. Older grounded frames 919-920 retain their exact boundary ownership:
+the 18-cycle `BSR.W sub_21F8` belongs to the post-object span. NEXT: turn this
+test-only frame-923 continuation into the production raster-clock owner and
+advance fail-closed source typing towards frame 1706 before injecting the
+already-proven Diamond timing record.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

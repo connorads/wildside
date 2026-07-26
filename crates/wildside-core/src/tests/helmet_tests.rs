@@ -9748,13 +9748,13 @@ mod chunk_08 {
         );
         assert_eq!(
             execute_objects_raw_cycles_sub_e12(execute).map(M68kCycleCount::get),
-            Some(6_138),
-            "ASM sub_E12 -> sub_21F8 includes the steady loc_7402 palette worker"
+            Some(6_120),
+            "ASM sub_E12 -> loc_7E6 includes the steady loc_7402 palette worker"
         );
         assert_eq!(
             post_execute_raw_cycles_before_sub_44dc(ledger).map(M68kCycleCount::get),
-            Some(2_444),
-            "ASM sub_21F8 -> sub_DFB0/loc_EAE4 -> sub_F096 -> sub_44DC; ledger={ledger:?}"
+            Some(2_462),
+            "ASM loc_7E6 -> sub_21F8 -> sub_DFB0/loc_EAE4 -> sub_F096 -> sub_44DC; ledger={ledger:?}"
         );
         assert_eq!(
             post_hud_raw[19].get(),
@@ -9793,8 +9793,8 @@ mod chunk_08 {
         );
         assert_eq!(
             execute_objects_raw_cycles_sub_e12(execute).map(M68kCycleCount::get),
-            Some(5_338),
-            "selected-PC trace pins frame 920 sub_E12 -> sub_21F8 after the palette worker leaves the linked Object list"
+            Some(5_320),
+            "selected-PC trace pins frame 920 sub_E12 -> loc_7E6 after the palette worker leaves the linked Object list"
         );
         assert_eq!(
             player_callback_cycles_sub_e12(execute).map(M68kCycleCount::get),
@@ -9802,7 +9802,7 @@ mod chunk_08 {
         );
         assert_eq!(
             post_execute_raw_cycles_before_sub_44dc(ledger).map(M68kCycleCount::get),
-            Some(2_444),
+            Some(2_462),
             "selected-PC trace pins the same grounded no-shooter post-Execute span after the cache matches",
         );
         assert_eq!(
