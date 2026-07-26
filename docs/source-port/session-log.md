@@ -9,6 +9,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ## 2026-07-26 handoff (#406 frame-1706 source path complete)
 
+- The shared memory-DMA scheduler now records the first committed VRAM word.
+  Given frame 1706's exact `sub_E12` seed, core emits the Diamond timing with
+  prior page 8 and first commit `18:172`; a cache-backed route test pins the
+  production trace record.
+- Normal pixel replay remains unchanged because it still supplies no
+  persistent hardware seed. NEXT: extend the existing CPU/VDP/GEMS clock
+  beyond the frozen audio-comparison span and inject its typed `sub_E12` seed.
 - The prior H-scroll handoff is rejected: oracle `$7D6` has zero pending wait,
   no VDP ownership, and BUSREQ clear.
 - `sub_1596 loc_1686` now includes both 24-cycle pointer resets and its

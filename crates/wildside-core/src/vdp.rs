@@ -3066,6 +3066,7 @@ pub struct LoadInGamePlatformInitialisationAdvance {
 struct PlatformArtFifoEntry {
     latency: u8,
     first_vram_slot: bool,
+    memory_dma: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -3085,6 +3086,7 @@ struct PlatformArtFifoScheduler {
     empty_cram_dma_latency: u8,
     memory_dma_count: u8,
     memory_dma: Option<MemoryToVdpDma>,
+    first_memory_dma_commit: Option<H40FifoCommitPosition>,
 }
 
 fn h40_in_vblank_at_access_slot(scanline: u16, pixel: u16) -> bool {
@@ -3106,6 +3108,7 @@ impl PlatformArtFifoScheduler {
             empty_cram_dma_latency: 8,
             memory_dma_count: 0,
             memory_dma: None,
+            first_memory_dma_commit: None,
         }
     }
 
@@ -3138,6 +3141,7 @@ impl PlatformArtFifoScheduler {
             self.entries.push_back(PlatformArtFifoEntry {
                 latency,
                 first_vram_slot,
+                memory_dma: false,
             });
         }
     }
@@ -3230,6 +3234,7 @@ impl PlatformArtFifoScheduler {
                         self.entries.push_back(PlatformArtFifoEntry {
                             latency,
                             first_vram_slot,
+                            memory_dma: true,
                         });
                         if complete {
                             self.memory_dma = None;
@@ -3243,11 +3248,18 @@ impl PlatformArtFifoScheduler {
                 if front.first_vram_slot {
                     front.first_vram_slot = false;
                 } else {
+                    if front.memory_dma && self.first_memory_dma_commit.is_none() {
+                        self.first_memory_dma_commit = Some(H40FifoCommitPosition {
+                            scanline: previous_scanline,
+                            pixel,
+                        });
+                    }
                     self.entries.pop_front();
                     if self.pending_words != 0 {
                         self.entries.push_back(PlatformArtFifoEntry {
                             latency: 3,
                             first_vram_slot: true,
+                            memory_dma: false,
                         });
                         self.pending_words -= 1;
                     }
@@ -3279,6 +3291,7 @@ pub enum TitleMemoryDmaHardwareEvent {
 pub struct TitleMemoryDmaAdvance {
     pub cursor: LoadInGameCpuRasterCursor,
     pub timing: crate::intro_timing::IntroSourceTiming,
+    pub first_memory_dma_commit: Option<H40FifoCommitPosition>,
     pub refresh_events: u32,
     pub external_wait_cycles: M68kCycleCount,
     pub fifo_halt_cycles: M68kCycleCount,
@@ -5432,6 +5445,7 @@ fn title_memory_dma_routine_cursor_with_scheduler_and_vram_latency(
             refresh_phase: phase,
         },
         timing,
+        first_memory_dma_commit: fifo.first_memory_dma_commit,
         refresh_events,
         external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
         fifo_halt_cycles: M68kCycleCount::from_raw(fifo_halt_cycles),
@@ -6471,6 +6485,32 @@ pub fn life_icon_raster_timing_from_sub_e12(
     })
 }
 
+/// Derive the Diamond memory-DMA timing from a seeded `sub_E12` boundary and
+/// the source-typed remainder of `Mode_Level`.
+pub fn diamond_raster_timing_from_sub_e12(
+    seed: ModeLevelRasterSeedSubE12,
+    ledger: &crate::ModeLevelPreHudWorkLedger,
+    command: crate::HudDmaEventSub44DC,
+    previous_frame_table_byte_offset: u8,
+) -> Option<crate::HudRasterUploadTimingSub44DC> {
+    if !matches!(command, crate::HudDmaEventSub44DC::Diamond { .. }) {
+        return None;
+    }
+    let cursor = mode_level_cpu_raster_cursor_sub_44dc(seed, ledger)?;
+    let advance = diamond_dma_advance_after_sub_44dc_with_scheduler(
+        cursor,
+        core::slice::from_ref(&command),
+        |_| Some(M68kCycleCount::from_raw(0)),
+    )?;
+    let first_commit = advance.first_memory_dma_commit?;
+    Some(crate::HudRasterUploadTimingSub44DC {
+        command,
+        previous_frame_table_byte_offset,
+        first_commit_scanline: first_commit.scanline,
+        first_commit_pixel: first_commit.pixel,
+    })
+}
+
 /// Earliest possible visible scanline for a natural gameplay `loc_4586`
 /// life-icon upload after VINT assertion.
 ///
@@ -6779,11 +6819,11 @@ pub fn life_icon_cpu_raster_cursor_after_sub_44dc_with_scheduler(
 ///
 /// The callback receives source instructions, BUSREQ edges and one-cycle VDP
 /// ownership intervals in chronological order.
-pub fn diamond_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+fn diamond_dma_advance_after_sub_44dc_with_scheduler(
     entry: ModeLevelCpuRasterCursor,
     commands: &[crate::HudDmaEventSub44DC],
     mut advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
-) -> Option<ModeLevelCpuRasterCursor> {
+) -> Option<TitleMemoryDmaAdvance> {
     crate::mode_level_timing::hud_diamond_only_raw_cycles_sub_44dc(commands)?;
     let advance = title_memory_dma_routine_cursor_with_scheduler(
         LoadInGameCpuRasterCursor {
@@ -6798,6 +6838,18 @@ pub fn diamond_cpu_raster_cursor_after_sub_44dc_with_scheduler(
         },
         &mut advance_hardware,
     )?;
+    Some(advance)
+}
+
+/// Co-schedule the Diamond-only upload and return its CPU cursor after the
+/// memory DMA has completed.
+pub fn diamond_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+    entry: ModeLevelCpuRasterCursor,
+    commands: &[crate::HudDmaEventSub44DC],
+    advance_hardware: impl FnMut(TitleMemoryDmaHardwareEvent) -> Option<M68kCycleCount>,
+) -> Option<ModeLevelCpuRasterCursor> {
+    let advance =
+        diamond_dma_advance_after_sub_44dc_with_scheduler(entry, commands, advance_hardware)?;
     Some(ModeLevelCpuRasterCursor {
         beam: advance.cursor.beam,
         refresh_phase: advance.cursor.refresh_phase,

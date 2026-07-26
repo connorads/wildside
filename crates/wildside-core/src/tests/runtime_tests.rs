@@ -248,6 +248,42 @@ fn published_tas_no_z80_polls_drive_frames_1703_and_1709_life_icon_timing() {
 }
 
 #[test]
+fn published_tas_frame_1706_sub_e12_seed_drives_diamond_dma_raster_timing() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut observed = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_707) {
+        if frame_index == 1_706 {
+            // Oracle selected PC at ASM Execute_Objects sub_E12: absolute
+            // cycle 218,368,469, H40 243:23, refresh phase 50.
+            runtime.seed_mode_level_raster_sub_e12(vdp::ModeLevelRasterSeedSubE12 {
+                beam: vdp::H40BeamPosition::new(243, 23).expect("bounded sub_E12 beam"),
+                refresh_phase: M68kRefreshPhase::new(50).expect("bounded sub_E12 refresh phase"),
+            });
+        }
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_706 {
+            observed = Some(trace.hud_raster_upload_timings_sub_44dc);
+        }
+    }
+
+    assert_eq!(
+        observed,
+        Some(vec![HudRasterUploadTimingSub44DC {
+            command: HudDmaEventSub44DC::Diamond {
+                frame_table_byte_offset: 12,
+            },
+            previous_frame_table_byte_offset: 8,
+            first_commit_scanline: 18,
+            first_commit_pixel: 172,
+        }]),
+        "ASM sub_E12 -> sub_44DC loc_4626 -> sub_5D4A commits the frame-1706 Diamond DMA",
+    );
+}
+
+#[test]
 fn published_tas_life_icon_upload_lower_bound_separates_late_and_visible_commits() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;

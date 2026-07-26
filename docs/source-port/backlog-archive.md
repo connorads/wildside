@@ -6555,6 +6555,22 @@ for frame 1706. NEXT: carry the hardware-derived cursor from the now-exact
 `sub_E12` boundary through `sub_44DC` and emit that typed renderer record,
 without a frame or level override.
 
+Progress 2026-07-26 (Diamond timing consumer): the shared memory-DMA scheduler
+now marks the first VRAM word committed by a memory DMA. Core uses that
+hardware event to derive `HudRasterUploadTimingSub44DC` for a Diamond-only
+`sub_44DC -> loc_4626 -> sub_5D4A` path, alongside the existing LifeIcon FIFO
+derivation. The runtime snapshots the prior resident Diamond page before
+`sub_5D4A` updates it.
+
+A cache-backed published-route regression seeds only the proven frame-1706
+`sub_E12` boundary (`243:23`, refresh phase 50) and observes the production
+trace record: command page 12, prior page 8, first commit `18:172`. This closes
+the renderer-record derivation once a real seed exists; ordinary pixel replay
+still emits none, so its output is deliberately unchanged. NEXT: let the
+existing persistent CPU/VDP/GEMS scheduler continue beyond the frozen
+923-frame audio-comparison span and supply the runtime seed without a frame or
+level lookup.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.

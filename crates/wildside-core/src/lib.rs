@@ -4205,6 +4205,9 @@ impl NativeRuntime {
             // sub_8E0 instead of returning to this outer pass, preserving the
             // resident `$DD40` page through the hibernating VBlanks.
             let previous_life_page = self.hud_life_icon_vram_page_loc_4586;
+            let previous_diamond_page = self
+                .gameplay_hud_vram_state
+                .diamond_frame_table_byte_offset_loc_5d4a();
             let step = boot::step_hud_animation_sub_44DC(self.hud_animation_state);
             self.hud_animation_state = step.next_state;
             if let Some(coin_upload) = step.coin_upload {
@@ -4282,6 +4285,14 @@ impl NativeRuntime {
                                 command,
                                 previous_life_page,
                             )
+                            .or_else(|| {
+                                vdp::diamond_raster_timing_from_sub_e12(
+                                    seed,
+                                    ledger,
+                                    command,
+                                    previous_diamond_page,
+                                )
+                            })
                         }),
                 );
             }
