@@ -13715,7 +13715,7 @@ mod tests {
         let mut second_gameplay_vblank_work = None;
         for (frame_index, frame) in trace.iter().enumerate().take(1_710) {
             if let Some(work) = queue.consume_vblank_work(frame)
-                && matches!(frame_index, 902 | 903 | 1_697 | 1_703 | 1_709)
+                && matches!(frame_index, 902 | 903 | 1_697 | 1_703 | 1_706 | 1_709)
             {
                 if frame_index == 902 {
                     first_gameplay_vblank_work = Some(work);
@@ -13740,7 +13740,7 @@ mod tests {
             Some(&[12, 0, 0, 0, 0, 0]),
             "ASM sub_1492 -> sub_13C0 loc_141A builds the queue consumed by frame 903 loc_AD4",
         );
-        for consumer in [1_697, 1_703, 1_709] {
+        for consumer in [1_697, 1_703, 1_706, 1_709] {
             assert_eq!(
                 consumed.get(&consumer),
                 Some(&[16, 4, 0, 0, 0, 0]),

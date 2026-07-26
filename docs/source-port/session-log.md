@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-26 handoff (#406 frame-1706 wait attribution)
+
+- Oracle `loc_AD4/loc_B24` proves frame 1706 consumes `[16,4]`; the native
+  retained-queue test now pins that consumer.
+- Selected-PC rows now expose cumulative total 68000 waits and the Z80
+  bank-read subset. `$7C8->$44DC` drains 2,487 total cycles but only 165 from
+  Z80 ownership.
+- The exact-queue no-Z80 replay reaches scanline 15 versus oracle `17:40`.
+  Span gaps are sprite +18, palette +9, scroll +56, VBlank suffix +224,
+  `Execute_Objects` +498, and post-object +18.
+- NEXT: retain H-scroll DMA ownership across `$7D6`, then source-type the
+  498-cycle object interval before emitting the typed Diamond raster record.
+
 ## 2026-07-26 handoff (#406 frame-1706 timing discriminator)
 
 - `sub_F096 loc_F186..loc_F25C` row-only scanning is now source-typed: seven

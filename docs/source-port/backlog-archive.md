@@ -6503,6 +6503,25 @@ reverted. Full TAS returns to the committed 26,395 exact / 11,364 divergent /
 GEMS arbitration into the persistent gameplay clock before emitting frame
 1706's typed Diamond raster record.
 
+Follow-up 2026-07-26 (wait-cause ledger): oracle `loc_AD4` hits prove the
+retained frame-1706 queue is `[16,4]`: the two `loc_B24` boundaries carry
+shifted lengths `$0100` and `$0040`, then the zero terminator returns at
+`$7CC`. The native retained-queue test now pins frame 1706 alongside
+1697/1703/1709. Replaying that exact queue without asynchronous Z80 waits
+places `sub_44DC` on scanline 15, not the earlier `[12]` probe's scanline 13;
+oracle remains `17:40` and Diamond DMA remains `18:172`.
+
+`oracle-probe --m68k-pc-trace` now records two cumulative ledgers at every
+selected instruction boundary: all drained 68000 wait cycles and the Z80
+banked-ROM subset. Frame 1706 `$7C8->$44DC` drains 2,487 total wait cycles,
+but only 165 are Z80 ownership. Boundary comparisons isolate the remaining
+typed-scheduler elapsed gaps: sprite +18, palette +9, H-scroll +56,
+`$7D6->$7E2` VBlank suffix +224, `Execute_Objects` +498, and post-object +18,
+totalling the observed 823-cycle miss. The hypothesis that the four-line gap
+is primarily unmodelled GEMS arbitration is rejected. NEXT: retain the
+H-scroll DMA scheduler across `$7D6`, then source-type the 498-cycle object
+interval before emitting the existing Diamond timing record.
+
 ### #405
 
 Opened and resolved 2026-07-13 during the next proactive confidence audit.
