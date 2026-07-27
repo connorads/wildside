@@ -4617,6 +4617,21 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 979 resumes ordinary held-right walking through
+`loc_779C -> loc_77C2 -> loc_7820 -> loc_8D72 -> loc_8E06`. Its shared
+`sub_B43A`/`sub_8600` foot-row scan visits an empty unflagged cell followed by
+a flagged metal solid. Against frame 923's two unflagged solids, that exact
+profile adds 12 raw cycles in `sub_B43A` and 40 in `sub_8600`; the production
+domain model now retains source-ordered scan cells and rejects unknown profiles.
+The complete Execute_Objects pass is 7,568 raw cycles. The retained standing
+hitbox, eight-cell `loc_EAE4` scan, and cached `sub_F096` path add 2,492 raw
+cycles. Selected PCs pin `loc_7D6` at 125,306,195 phase 16, `sub_E12` at
+125,307,051 phase 104, `loc_7E6` at 125,314,739 phase 112, and `sub_44DC` at
+125,317,271 phase 84. Both oracle wait counters remain flat.
+
+#406 remains open. NEXT: type frame 980 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 978 leaves the repeated pull-up hibernation loop.
 Selected `loc_E1E` rows prove the Kid callback returns from `loc_1062`, runs
 `sub_78E8`, and reaches `loc_75D4` before hibernating. The production domain

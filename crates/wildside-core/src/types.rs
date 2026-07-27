@@ -2014,6 +2014,35 @@ pub struct ModeLevelNormalPhysicsPath {
     pub ceiling_scan_sub_914a: Option<ModeLevelCeilingScanSub914A>,
 }
 
+/// Collision class observed by the shared foot-row scans in ASM `sub_B43A`
+/// and `sub_8600`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelGroundScanCollisionSubB43A8600 {
+    Other,
+    Solid,
+    Spikes,
+}
+
+/// Block-flag branch observed by the shared foot-row scans in ASM `sub_B43A`
+/// and `sub_8600`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeLevelGroundScanBlockSubB43A8600 {
+    Unflagged,
+    Ice,
+    Rubber,
+    Teleporter,
+    Other,
+}
+
+/// One source-ordered layout cell visited by ASM `sub_B43A` and `sub_8600`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelGroundScanCellSubB43A8600 {
+    pub collision: ModeLevelGroundScanCollisionSubB43A8600,
+    pub block: ModeLevelGroundScanBlockSubB43A8600,
+}
+
 /// Player callback actually executed during ASM `Execute_Objects sub_E12`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -2031,6 +2060,7 @@ pub enum ModeLevelPlayerExecutionPath {
     /// walking coroutine through `loc_7820`, and returns through `loc_8BF0`.
     GroundedRightWalkStartLoc779c {
         form: PlayerForm,
+        ground_scan_cells_sub_b43a_8600: Vec<ModeLevelGroundScanCellSubB43A8600>,
     },
     /// Walking The Kid resumes at ASM `loc_8BF0`, accelerates on clear
     /// support and wall probes, then hibernates at the same label.

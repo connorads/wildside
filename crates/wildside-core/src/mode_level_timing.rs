@@ -2432,14 +2432,41 @@ pub fn player_callback_cycles_sub_e12(
         }
         ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
             form: crate::PlayerForm::TheKid,
+            ground_scan_cells_sub_b43a_8600,
         } => {
-            // ASM loc_779C -> loc_77C2 -> loc_7820 -> loc_8D72 -> loc_8E06
-            // -> sub_B43A -> sub_8F26 -> loc_8BF0. Frame 923's selected-PC
-            // journal advances from phase 88 at cycle 118140511 to phase 102
-            // at cycle 118145389. Removing 38 two-cycle refresh waits leaves
-            // 4,802 raw cycles; the 426-cycle dispatch/hibernate shell leaves
-            // 4,376 here.
-            Some(M68kCycleCount::from_raw(4_376))
+            use crate::{
+                ModeLevelGroundScanBlockSubB43A8600 as Block,
+                ModeLevelGroundScanCellSubB43A8600 as Cell,
+                ModeLevelGroundScanCollisionSubB43A8600 as Collision,
+            };
+            match ground_scan_cells_sub_b43a_8600.as_slice() {
+                // Frame 923: two unflagged solid cells. Selected loc_E1E rows
+                // span 4,802 raw cycles; remove the 426-cycle scheduler shell.
+                [
+                    Cell {
+                        collision: Collision::Solid,
+                        block: Block::Unflagged,
+                    },
+                    Cell {
+                        collision: Collision::Solid,
+                        block: Block::Unflagged,
+                    },
+                ] => Some(M68kCycleCount::from_raw(4_376)),
+                // Frame 979: empty/unflagged then solid/flagged-metal. Relative
+                // to frame 923, ASM sub_B43A adds 12 raw cycles and sub_8600
+                // adds 40 before the shared sub_9A0A/sub_8F26 tail.
+                [
+                    Cell {
+                        collision: Collision::Other,
+                        block: Block::Unflagged,
+                    },
+                    Cell {
+                        collision: Collision::Solid,
+                        block: Block::Other,
+                    },
+                ] => Some(M68kCycleCount::from_raw(4_428)),
+                _ => None,
+            }
         }
         ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
             form: crate::PlayerForm::TheKid,
@@ -2897,6 +2924,7 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         }) => Some(2_462),
         Some(ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
             form: crate::PlayerForm::TheKid,
+            ..
         }) => Some(2_462),
         Some(ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
             form: crate::PlayerForm::TheKid,
@@ -2931,12 +2959,32 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         return Some(M68kCycleCount::from_raw(grounded_post_raw?));
     }
 
-    if matches!(
+    let post_pull_up_standing_hitbox = matches!(
         ledger.execute_objects.executed_player_path,
         Some(ModeLevelPlayerExecutionPath::PullUpAnimationFinished {
             form: crate::PlayerForm::TheKid,
         })
-    ) && scan.row_count == 4
+    ) || matches!(
+        ledger.execute_objects.executed_player_path.as_ref(),
+        Some(ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
+            form: crate::PlayerForm::TheKid,
+            ground_scan_cells_sub_b43a_8600,
+        }) if matches!(
+            ground_scan_cells_sub_b43a_8600.as_slice(),
+            [
+                crate::ModeLevelGroundScanCellSubB43A8600 {
+                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Other,
+                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Unflagged,
+                },
+                crate::ModeLevelGroundScanCellSubB43A8600 {
+                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
+                },
+            ]
+        )
+    );
+    if post_pull_up_standing_hitbox
+        && scan.row_count == 4
         && scan.col_count == 2
         && scan.flagged_non_evanescent_cells_before_exit == 1
         && shooter.cached_col_matches
@@ -2948,10 +2996,11 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         && shooter.new_shooter_slots_registered == 0
     {
         // ASM loc_1062 -> sub_78E8 installs the standing hitbox before
-        // sub_21F8 loc_2232. Published TAS frame 978 then spans loc_7E6 at
-        // 125183461/phase 42 through the complete sub_DFB0 loc_EAE4 eight-cell
-        // scan and cached sub_F096 path to sub_44DC at 125185993/phase 14.
-        // Removing 20 refresh waits leaves 2,492 raw cycles.
+        // sub_21F8 loc_2232. Published TAS frames 978 and 979 retain its
+        // four-row/two-column loc_EAE4 scan and cached sub_F096 path. Their
+        // selected loc_7E6 -> sub_44DC rows measure 2,492 raw cycles after
+        // removing refresh waits (125183461..125185993 and
+        // 125314739..125317271 respectively).
         return Some(M68kCycleCount::from_raw(2_492));
     }
 

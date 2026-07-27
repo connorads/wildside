@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 979)
+
+- Frame 979 resumes held-right walking through ASM `loc_779C -> loc_8E06`.
+- Its empty-unflagged then solid-flagged-metal foot-row profile adds 52 raw
+  cycles over frame 923 across `sub_B43A` and `sub_8600`.
+- Execute_Objects is 7,568 raw cycles; the post-execute path is 2,492 raw.
+- `sub_44DC` is exact at 125,317,271 phase 84 with flat oracle wait counters.
+- NEXT: type frame 980, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 978)
 
 - Frame 978 production-types the completed pull-up animation callback through

@@ -318,6 +318,7 @@ fn mode_level_gfx_sprite_work_sub_1492(
                 Some(
                     crate::ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
                         form: crate::PlayerForm::TheKid,
+                        ..
                     } | crate::ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
                         form: crate::PlayerForm::TheKid,
                         ..
@@ -10387,12 +10388,53 @@ impl NativeRuntime {
                 })
             && action.is_some_and(|action| !action.b_pressed && !action.c_pressed);
         if grounded_right_walk_start {
+            let ground_scan_cells_sub_b43a_8600 = self
+                .last_kid_frame_grounded_release_probe
+                .and_then(|probe| Some((probe.probe_row?, probe.left_col?, probe.right_col?)))
+                .and_then(|(row, left_col, right_col)| {
+                    let grid = self.block_grid.as_ref()?;
+                    Some(
+                        (left_col..=right_col)
+                            .map(|col| {
+                                let cell = grid.cell_at(col, row);
+                                let collision = match cell.collision {
+                                    crate::terrain::CollisionKind::Solid => {
+                                        ModeLevelGroundScanCollisionSubB43A8600::Solid
+                                    }
+                                    crate::terrain::CollisionKind::Spikes => {
+                                        ModeLevelGroundScanCollisionSubB43A8600::Spikes
+                                    }
+                                    _ => ModeLevelGroundScanCollisionSubB43A8600::Other,
+                                };
+                                let block = if cell.has_block {
+                                    match cell.block_type {
+                                        crate::terrain::BlockType::Ice => {
+                                            ModeLevelGroundScanBlockSubB43A8600::Ice
+                                        }
+                                        crate::terrain::BlockType::Rubber => {
+                                            ModeLevelGroundScanBlockSubB43A8600::Rubber
+                                        }
+                                        crate::terrain::BlockType::Teleporter => {
+                                            ModeLevelGroundScanBlockSubB43A8600::Teleporter
+                                        }
+                                        _ => ModeLevelGroundScanBlockSubB43A8600::Other,
+                                    }
+                                } else {
+                                    ModeLevelGroundScanBlockSubB43A8600::Unflagged
+                                };
+                                ModeLevelGroundScanCellSubB43A8600 { collision, block }
+                            })
+                            .collect(),
+                    )
+                })
+                .unwrap_or_default();
             // ASM loc_779C -> loc_77C2 -> loc_7820 -> loc_8D72 -> loc_8E06
-            // (kid.asm:7842-10252): clear right-side wall and support probes
-            // enter the walking coroutine, whose first sub_8F26 step stores
-            // x_vel=$1C00 before loc_8BF0 hibernates the player.
+            // (kid.asm:7842-10252): retain the source-ordered foot-row cells
+            // because sub_B43A and sub_8600 take different branches for an
+            // unflagged solid and a flagged block before sub_8F26.
             return ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
                 form: self.progression.current_form,
+                ground_scan_cells_sub_b43a_8600,
             };
         }
         let Some(follow_on) = self.last_kid_frame_kid_flip_follow_on_probe else {
