@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 988)
+
+- Frame 988 repeats positive neutral braking and held-jump gravity.
+- Its callback is 4,056 raw and Execute_Objects is 7,172 raw. The changed
+  hitbox makes the post-execute path 2,588 raw plus an 18-cycle correction.
+- `sub_44DC` is exact at 126,469,041 phase 54 with flat oracle wait counters.
+- NEXT: type frame 989, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 987)
 
 - Frame 987 repeats positive neutral braking and held-jump gravity without a
