@@ -4617,6 +4617,17 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 972 selected PCs pin `loc_7D6` at 124,410,581
+phase 71, `sub_E12` at 124,411,514 phase 108, `loc_7E6` at 124,415,014
+phase 24, and `sub_44DC` at 124,417,574 phase 24. The oracle Z80 wait
+counter rises by 121 across the VBlank prefix, 77 across its suffix, 330
+during Execute_Objects, and 22 before the HUD entry. Two pre-HUD wait cycles
+overlap refresh ownership, so those 352 waits add 350 elapsed cycles to the
+3,120 + 2,500 raw source path.
+
+#406 remains open. NEXT: type frame 973 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 971 selected PCs pin `loc_7D6` at 124,282,455
 phase 16, `sub_E12` at 124,283,311 phase 104, `loc_7E6` at 124,286,481
 phase 74, and `sub_44DC` at 124,289,021 phase 54. Both oracle wait counters
