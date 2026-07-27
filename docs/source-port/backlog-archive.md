@@ -4617,6 +4617,16 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 971 selected PCs pin `loc_7D6` at 124,282,455
+phase 16, `sub_E12` at 124,283,311 phase 104, `loc_7E6` at 124,286,481
+phase 74, and `sub_44DC` at 124,289,021 phase 54. Both oracle wait counters
+remain flat. The retained VBlank prefix is 13 cycles short with the correct
+phase. The eighth `Hibernate_UntilAnimFinished loc_1062` wake then repeats
+frame 970's 3,120 + 2,500 raw source path and ordinary refresh waits exactly.
+
+#406 remains open. NEXT: type frame 972 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 970 selected PCs pin `loc_7D6` at 124,154,438
 phase 16, `sub_E12` at 124,155,294 phase 104, `loc_7E6` at 124,158,464
 phase 74, and `sub_44DC` at 124,161,004 phase 54. Both oracle wait counters

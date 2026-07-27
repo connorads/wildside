@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 971)
+
+- Frame 971 pins `loc_7D6` at 124,282,455 phase 16, `sub_E12` at 124,283,311
+  phase 104, and `sub_44DC` at 124,289,021 phase 54.
+- Both wait counters remain flat. The retained VBlank prefix is 13 cycles
+  short with the correct phase.
+- The eighth `Hibernate_UntilAnimFinished loc_1062` wake repeats frame 970's
+  exact 3,120 + 2,500 raw path.
+- NEXT: type frame 972, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 970)
 
 - Frame 970 pins `loc_7D6` at 124,154,438 phase 16, `sub_E12` at 124,155,294
