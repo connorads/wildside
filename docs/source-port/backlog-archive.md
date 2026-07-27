@@ -4617,6 +4617,18 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: a bounded frames 968..980 selected-PC trace separates
+the repeated wait-free pull-up passes from the GEMS-arbitrated frames instead
+of assuming one correction repeats. Frame 969 pins `loc_7D6` at 124,026,234
+phase 16, `sub_E12` at 124,027,189 phase 75, `loc_7E6` at 124,030,434
+phase 120, and `sub_44DC` at 124,032,974 phase 100. The prefix carries 66
+oracle Z80 waits plus 30 cycles of instruction interleaving. The VBlank suffix
+carries exactly 99 waits. Execute_Objects then carries 55 waits plus 20
+interleaving cycles; the 2,500-raw post-object span is wait-free.
+
+#406 remains open. NEXT: type frame 970 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 967's exact typed `loc_810 -> loc_892` ledger
 again produces eight false waits in the later native GEMS phase while the
 oracle counter remains flat at 774,840. Rejecting those post-frozen waits

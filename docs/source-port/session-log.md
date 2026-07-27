@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 969)
+
+- A bounded frames 968..980 trace distinguishes wait-free pull-up passes from
+  GEMS-arbitrated frames instead of assuming one recurring correction.
+- Frame 969 pins `loc_7D6` at 124,026,234 phase 16, `sub_E12` at 124,027,189
+  phase 75, and `sub_44DC` at 124,032,974 phase 100.
+- Its prefix carries 66 waits plus 30 interleaving cycles, its suffix carries
+  99 waits, and Execute_Objects carries 55 waits plus 20 interleaving cycles.
+- NEXT: type frame 970, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 968)
 
 - Frame 967's exact post-HUD ledger again produces eight false native GEMS
