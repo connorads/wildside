@@ -4617,6 +4617,19 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 985 exposes the missing positive neutral-brake state
+in `sub_B084 loc_B0FE`: X velocity `$EB80` becomes `$E780` after subtracting
+`$400`. The typed path continues through held-B `loc_B1E8`, a clear
+one-column/three-row Gfx traversal, and one clear `sub_914A` ceiling visit. Its
+callback is 4,468 raw and the complete Execute_Objects pass is 7,584 raw.
+The one-column/three-row `loc_EAE4` scan and cached row/column `sub_F096` path
+cost 2,486 raw. Selected PCs pin `sub_E12` at 126,075,083 phase 104, `loc_7E6`
+at 126,082,789 phase 2, and `sub_44DC` at 126,085,313 phase 94. Frame 984's
+wait-free post-HUD path retains `loc_892` at 125,966,563 phase 8.
+
+#406 remains open. NEXT: type frame 986 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 984 stays airborne through `loc_A73A -> sub_B084 ->
 sub_B168 -> sub_A4EE -> loc_A75A`, but its clear Gfx scan narrows to one column
 by two rows. Selected PCs pin that callback at 3,948 raw cycles and the complete

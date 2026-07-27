@@ -1208,6 +1208,9 @@ fn mode_level_airborne_horizontal_path(
         0x0400 if x_velocity_before < 0 && x_velocity_after <= 0 => {
             ModeLevelAirborneHorizontalPath::NeutralNegativeBrake
         }
+        -0x0400 if x_velocity_before > 0 && x_velocity_after >= 0 => {
+            ModeLevelAirborneHorizontalPath::NeutralPositiveBrake
+        }
         _ => ModeLevelAirborneHorizontalPath::Unclassified {
             x_velocity_before,
             x_velocity_after,
@@ -2866,6 +2869,11 @@ mod tests {
         assert_eq!(
             mode_level_airborne_horizontal_path(-0x0001_0600, -0x0001_0200),
             ModeLevelAirborneHorizontalPath::NeutralNegativeBrake
+        );
+        assert_eq!(
+            mode_level_airborne_horizontal_path(0x0000_EB80, 0x0000_E780),
+            ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
+            "ASM sub_B084 loc_B0FE subtracts $400 from frame 985's positive velocity",
         );
     }
 

@@ -2368,6 +2368,17 @@ pub fn player_callback_cycles_loc_a73a(
             // frame 934's run-held acceleration path.
             23
         }
+        (
+            ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
+            ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+        ) => {
+            // ASM sub_B084 loc_B0FE -> loc_B118 and sub_B168 loc_B1E8,
+            // published TAS frame 985. The selected loc_A73A -> sub_E76
+            // span is 4,468 raw cycles. Removing the shared 3,830-cycle
+            // spine, three 81-cycle clear Gfx visits, and one 412-cycle clear
+            // ceiling visit leaves this branch 17 cycles below the base.
+            -17
+        }
         _ => return None,
     };
 
@@ -3168,6 +3179,38 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         // bind loc_7E6/sub_DFB0/loc_EAE4/sub_F096/sub_44DC at
         // 125954251/125954757/125955453/125956369/125957517.
         return Some(M68kCycleCount::from_raw(3_214));
+    }
+
+    if matches!(
+        ledger.execute_objects.executed_player_path,
+        Some(ModeLevelPlayerExecutionPath::NormalPhysics(
+            crate::ModeLevelNormalPhysicsPath {
+                horizontal: ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
+                vertical: ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                gfx_object_collision_clear: true,
+                vertical_collision: ModeLevelVerticalCollisionPath::Clear,
+                wall_collision: ModeLevelWallCollisionPath::Clear,
+                airborne_action: ModeLevelAirborneActionPath::NoButtons,
+                cyclone_visual_steps: None,
+                ceiling_scan_sub_914a: Some(_),
+            },
+        ))
+    ) && scan.row_count == 3
+        && scan.col_count == 1
+        && scan.flagged_non_evanescent_cells_before_exit == 0
+        && shooter.cached_col_matches
+        && shooter.cached_row_matches
+        && shooter.cached_col_before == 4
+        && shooter.cached_row_before == 39
+        && shooter.kid_block_col == 4
+        && shooter.kid_block_row == 39
+        && shooter.new_shooter_slots_registered == 0
+    {
+        // ASM sub_21F8 -> sub_DFB0 loc_EAE4 -> sub_F096 -> sub_44DC,
+        // published TAS frame 985. The one-column/three-row hitbox scan and
+        // cached shooter coordinates span 2,486 raw cycles from loc_7E6
+        // 126082789/phase 2 to sub_44DC 126085313/phase 94.
+        return Some(M68kCycleCount::from_raw(2_486));
     }
 
     // ASM sub_DFB0 (kid.asm:17317) and loc_EAE4 (kid.asm:18858):

@@ -1911,6 +1911,9 @@ pub enum ModeLevelAirborneHorizontalPath {
     RightHeldCapBleed,
     /// ASM `loc_B0FE -> loc_B10E -> loc_B118`.
     NeutralNegativeBrake,
+    /// ASM `loc_B0FE -> loc_B118`: positive velocity subtracts `$400` and
+    /// remains non-negative.
+    NeutralPositiveBrake,
     Unclassified {
         x_velocity_before: i32,
         x_velocity_after: i32,

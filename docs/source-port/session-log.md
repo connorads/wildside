@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 985)
+
+- Frame 985 types positive neutral braking through ASM `sub_B084 loc_B0FE`.
+- Its clear ceiling route gives a 4,468-raw callback and 7,584-raw
+  Execute_Objects pass. The post-execute path is 2,486 raw.
+- `sub_44DC` is exact at 126,085,313 phase 94 with flat oracle wait counters.
+- NEXT: type frame 986, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 984)
 
 - Frame 984's airborne clear Gfx scan narrows to one column by two rows.
