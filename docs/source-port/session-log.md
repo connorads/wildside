@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 987)
+
+- Frame 987 repeats positive neutral braking and held-jump gravity without a
+  ceiling scan.
+- Its callback is 4,056 raw, Execute_Objects is 7,172 raw, and the retained
+  cached-shooter post-execute path is 2,486 raw.
+- `sub_44DC` is exact at 126,340,911 phase 60 with flat oracle wait counters.
+- NEXT: type frame 988, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 986)
 
 - Frame 986 reuses positive neutral braking without a ceiling-row crossing.
