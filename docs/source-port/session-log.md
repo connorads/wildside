@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 966)
+
+- Frame 965's typed post-HUD source ledger is exact, but the later native
+  GEMS phase invents eight waits absent from the oracle. The post-frozen
+  continuation retains exact `loc_892` cycle 123,530,965 phase 62.
+- Frame 966 pins `loc_7D6` at 123,642,413 phase 16, `sub_E12` at 123,643,269
+  phase 104, and `sub_44DC` at 123,649,003 phase 78.
+- Its wait counters remain flat. The execute projection needs the same
+  24-cycle refresh correction as frames 963 and 964.
+- NEXT: type frame 967, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 965)
 
 - Frame 965 selected PCs pin `loc_7D6` at 123,514,535 phase 16, `sub_E12` at
