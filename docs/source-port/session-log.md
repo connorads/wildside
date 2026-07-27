@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 962)
+
+- Frame 962 selected PCs pin `loc_7D6` at 123,130,207 phase 71, `sub_E12` at
+  123,131,603 phase 59, and `sub_44DC` at 123,137,370 phase 66.
+- Its VBlank prefix carries 66 sprite/Kid waits, zero palette waits, and 55
+  scroll waits. The suffix carries 132 waits plus 406 aggregate cycles.
+- `sub_E12 -> loc_7E6` uses 3,120 raw, 33 Z80 waits, and 24 interleaving
+  cycles. The following post-object span remains 2,500 raw cycles.
+- NEXT: type frame 963, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 961)
 
 - Frame 960 selects `stru_8BB4`'s 32x18 `$A307C` mapping. Its sprite route

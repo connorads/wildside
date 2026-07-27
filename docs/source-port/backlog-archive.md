@@ -4617,6 +4617,21 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: bounded frame-962 selected-PC tracing pins `Mode_Level`
+at 123,123,152 phase 118, `loc_7D6` at 123,130,207 phase 71, `sub_E12` at
+123,131,603 phase 59, `loc_7E6` at 123,134,830 phase 86, and `sub_44DC` at
+123,137,370 phase 66. The VBlank prefix's cumulative Z80 waits split into 66
+across `sub_A5C`, zero across `Palette_to_VRAM`, and 55 across
+`loc_300BA..loc_7D6`. The shared post-frozen GEMS phase cannot generate that
+split, so the test-only continuation retains its measured endpoint. The
+suffix then carries 132 Z80 waits and needs 406 further aggregate cycles to
+match its selected boundary. `sub_E12 -> loc_7E6` uses 3,120 raw cycles, 33
+Z80 waits, and 24 additional cycles from their interleaving before the
+2,500-raw post-object span reaches the exact frame-962 `sub_44DC` boundary.
+
+#406 remains open. NEXT: type frame 963 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 960 advances `stru_8BB4` from the 28x29 `$A2E76`
 mapping to the 32x18 `$A307C` mapping. Its selected `loc_129E -> loc_12F4`
 sprite route costs 2,018 cycles. CPU tracing at `sub_21F8` proves the mapping's

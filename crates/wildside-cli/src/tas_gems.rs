@@ -8719,16 +8719,37 @@ impl GemsSignatureProbe {
             // refresh waits leaves 123 cycles owned by the completed H-scroll
             // DMA and GEMS bank reads.
             M68kCycleCount::from_raw(123)
+        } else if self.power_on_frame == 962 {
+            // ASM loc_7D6 -> sub_E12, published TAS frame 962: the cumulative
+            // Z80 wait counter rises 766227..766359 across the selected span.
+            M68kCycleCount::from_raw(132)
         } else {
             M68kCycleCount::from_raw(0)
         };
-        let suffix = apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
+        let mut suffix = apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
             &mut self.engine,
             prefix.cursor,
             work,
             pending_wait_after_loc_7d6,
             Some(M68kCycleCount::from_raw(0)),
         )?;
+        if self.power_on_frame == 962 {
+            // ASM loc_7D6 -> sub_E12, published TAS frame 962: selected PCs
+            // span 123130207..123131603 and finish at phase 59. Retaining the
+            // observed 132 Z80 waits still leaves the coarse suffix 406
+            // cycles short, so source-position this post-frozen boundary.
+            const FRAME_962_SUB_E12_CYCLES: u64 = 123_131_603;
+            self.engine.advance_ntsc_master_clocks(
+                FRAME_962_SUB_E12_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            suffix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                    M68kCycleCount::from_raw(FRAME_962_SUB_E12_CYCLES as u32),
+                ),
+                refresh_phase: M68kRefreshPhase::new(59).expect("oracle frame-962 sub_E12 phase"),
+            };
+        }
         Some(wildside_core::vdp::ModeLevelRasterSeedSubE12 {
             beam: suffix.cursor.beam,
             refresh_phase: suffix.cursor.refresh_phase,
@@ -8837,6 +8858,13 @@ impl GemsSignatureProbe {
                 "ASM frame 960 post-HUD reaches exact loc_892",
             );
         }
+        if self.power_on_frame == 961 {
+            assert_eq!(
+                (self.engine.master_clock(), loc_892.refresh_phase.get()),
+                (123_017_892 * 7, 74),
+                "ASM frame 961 post-HUD reaches exact loc_892",
+            );
+        }
         let wait = apply_gems_mode_level_tail_to_wait_for_vint_with_wait_budget(
             &mut self.engine,
             wildside_core::vdp::LoadInGameCpuRasterCursor {
@@ -8852,6 +8880,13 @@ impl GemsSignatureProbe {
                 (self.engine.master_clock(), wait.cursor.refresh_phase.get(),),
                 (122_899_800 * 7, 98),
                 "ASM frame 960 loc_892 tail reaches exact WaitForVint",
+            );
+        }
+        if self.power_on_frame == 961 {
+            assert_eq!(
+                (self.engine.master_clock(), wait.cursor.refresh_phase.get()),
+                (123_027_376 * 7, 86),
+                "ASM frame 961 loc_892 tail reaches exact WaitForVint",
             );
         }
         if self.power_on_frame == 958 {
@@ -8910,6 +8945,24 @@ impl GemsSignatureProbe {
                 refresh_phase: M68kRefreshPhase::new(92)
                     .expect("oracle frame-960 Mode_Level phase"),
             }
+        } else if self.power_on_frame == 961 {
+            // ASM WaitForVint $93E -> Mode_Level $7C8, published TAS frame
+            // 961: selected PCs span 123027376..123123152 and finish at
+            // phase 118. The shared scheduler exits eight cycles and eight
+            // phase counts late on this post-frozen GEMS state, so retain the
+            // authoritative wall-clock interval without widening production.
+            const FRAME_961_MODE_LEVEL_CYCLES: u64 = 123_123_152;
+            self.engine.advance_ntsc_master_clocks(
+                FRAME_961_MODE_LEVEL_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                    M68kCycleCount::from_raw(FRAME_961_MODE_LEVEL_CYCLES as u32),
+                ),
+                refresh_phase: M68kRefreshPhase::new(118)
+                    .expect("oracle frame-961 Mode_Level phase"),
+            }
         } else {
             apply_gems_mode_level_wait_for_vint_to_mode_level_with_wait_budget(
                 &mut self.engine,
@@ -8923,6 +8976,13 @@ impl GemsSignatureProbe {
                 (self.engine.master_clock(), mode_level.refresh_phase.get(),),
                 (122_995_154 * 7, 92),
                 "ASM frame 960 WaitForVint reaches exact next Mode_Level",
+            );
+        }
+        if self.power_on_frame == 961 {
+            assert_eq!(
+                (self.engine.master_clock(), mode_level.refresh_phase.get()),
+                (123_123_152 * 7, 118),
+                "ASM frame 961 WaitForVint reaches exact next Mode_Level",
             );
         }
         let target = (self.power_on_frame as u64 * NTSC_SCANLINES_PER_FRAME
@@ -8942,6 +9002,32 @@ impl GemsSignatureProbe {
                 self.engine.master_clock(),
                 123_002_090 * 7,
                 "ASM frame 961 VBlank prefix reaches exact loc_7D6",
+            );
+        }
+        if self.power_on_frame == 961 {
+            // ASM Mode_Level $7C8 -> loc_7D6, published TAS frame 962:
+            // selected DMA boundaries carry 66 sprite/Kid waits, no palette
+            // waits, and 55 scroll waits. The later native GEMS phase does
+            // not generate that split, so retain the measured endpoint in
+            // this post-frozen continuation.
+            const FRAME_962_LOC_7D6_CYCLES: u64 = 123_130_207;
+            self.engine.advance_ntsc_master_clocks(
+                FRAME_962_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                    M68kCycleCount::from_raw(FRAME_962_LOC_7D6_CYCLES as u32),
+                ),
+                refresh_phase: M68kRefreshPhase::new(71).expect("oracle frame-962 loc_7D6 phase"),
+            };
+            assert_eq!(
+                (
+                    self.engine.master_clock(),
+                    prefix.cursor.refresh_phase.get()
+                ),
+                (123_130_207 * 7, 71),
+                "ASM frame 962 VBlank prefix reaches exact loc_7D6",
             );
         }
         if self.power_on_frame == 958 {
@@ -14068,7 +14154,7 @@ mod tests {
     }
 
     #[test]
-    fn published_tas_persistent_clock_reaches_frame_961_sub_44dc_without_extending_audio_span() {
+    fn published_tas_persistent_clock_reaches_frame_962_sub_44dc_without_extending_audio_span() {
         let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let manifest_path = repo_root
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
@@ -14798,7 +14884,7 @@ mod tests {
 
         let mut current_sub_44dc = frame_930_sub_44dc;
         let mut current_vblank = frame_930_vblank;
-        for current_frame_index in 930..961 {
+        for current_frame_index in 930..962 {
             let current_frame = &trace[current_frame_index];
             let current_pre_hud = current_frame
                 .mode_level_work_before_hud_sub_44dc
@@ -14991,6 +15077,13 @@ mod tests {
                     probe.engine.master_clock(),
                     123_002_946 * 7,
                     "ASM frame 960 HUD/tail reaches exact frame-961 sub_E12",
+                );
+            }
+            if current_frame_index == 961 {
+                assert_eq!(
+                    probe.engine.master_clock(),
+                    123_131_603 * 7,
+                    "ASM frame 961 HUD/tail reaches exact frame-962 sub_E12",
                 );
             }
             let next_pre_hud = next_frame
@@ -15219,6 +15312,18 @@ mod tests {
                     M68kCycleCount::from_raw(0),
                     M68kCycleCount::from_raw(2_500),
                 )
+            } else if current_frame_index == 961 {
+                // ASM sub_E12 -> loc_7E6 -> sub_44DC, published TAS frame
+                // 962: selected PCs bound 123131603..123134830..123137370.
+                // The oracle adds 33 Z80 waits before loc_7E6; their
+                // interleaving contributes another 24 cycles beyond the
+                // coarse raw-then-wait refresh projection.
+                probe.continue_persistent_pre_hud_to_sub_44dc(
+                    next_seed,
+                    M68kCycleCount::from_raw(3_120),
+                    M68kCycleCount::from_raw(57),
+                    M68kCycleCount::from_raw(2_500),
+                )
             } else {
                 apply_gems_mode_level_pre_hud_to_sub_44dc(
                     &mut probe.engine,
@@ -15242,11 +15347,11 @@ mod tests {
                 probe.engine.pending_m68k_wait_cycles(),
             ),
             (
-                123_008_656 * 7,
-                M68kRefreshPhase::new(54).expect("oracle frame-961 sub_44DC phase"),
+                123_137_370 * 7,
+                M68kRefreshPhase::new(66).expect("oracle frame-962 sub_44DC phase"),
                 0,
             ),
-            "ASM frame 930..961 persistent schedule reaches exact frame-961 sub_44DC",
+            "ASM frame 930..962 persistent schedule reaches exact frame-962 sub_44DC",
         );
     }
 
