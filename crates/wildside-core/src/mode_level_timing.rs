@@ -2461,6 +2461,17 @@ pub fn player_callback_cycles_sub_e12(
             // dispatch/hibernate shell.
             Some(M68kCycleCount::from_raw(3_688))
         }
+        ModeLevelPlayerExecutionPath::WallClingPullUpLocAbf0 {
+            form: crate::PlayerForm::TheKid,
+            side: crate::Direction::Right,
+            pull_up_scan_rows: 1,
+        } => {
+            // ASM loc_AA22 -> kid_flip -> loc_ABA4 -> loc_ABF0 ->
+            // PlaySound -> Hibernate_UntilAnimFinished. Frame 957's
+            // selected-PC journal spans 4,694 raw cycles between loc_E1E
+            // dispatches; remove the shared 426-cycle scheduler shell.
+            Some(M68kCycleCount::from_raw(4_268))
+        }
         ModeLevelPlayerExecutionPath::NormalPhysics(_)
         | ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 { .. } => {
             player_callback_cycles_loc_a73a(execute)
@@ -2470,6 +2481,7 @@ pub fn player_callback_cycles_sub_e12(
         | ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c { .. }
         | ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 { .. }
         | ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 { .. }
+        | ModeLevelPlayerExecutionPath::WallClingPullUpLocAbf0 { .. }
         | ModeLevelPlayerExecutionPath::Unclassified => None,
     }
 }
@@ -2739,6 +2751,48 @@ pub fn execute_objects_external_waits_sub_e12(
         }]);
     }
 
+    if matches!(
+        execute.executed_player_path,
+        Some(ModeLevelPlayerExecutionPath::WallClingPullUpLocAbf0 {
+            form: crate::PlayerForm::TheKid,
+            side: crate::Direction::Right,
+            pull_up_scan_rows: 1,
+        })
+    ) {
+        let mut raw_before_player =
+            execute_objects_setup_cycles_sub_e12(execute.rng_offset_before_sub_e12?)?
+                .get()
+                .checked_add(input_worker_cycles_loc_7452(execute.input_worker_loc_7452?).get())?;
+        let mut player_seen = false;
+        for callback in execute.prize_object_execution_order_sub_e12.as_ref()? {
+            if *callback == ModeLevelPrizeObjectExecutionSubE12::Player {
+                player_seen = true;
+                break;
+            }
+            raw_before_player = raw_before_player
+                .checked_add(prize_object_cycles_sub_e12(execute, *callback)?.get())?;
+        }
+        if !player_seen {
+            return None;
+        }
+        // ASM loc_ABF0 -> PlaySound -> sub_E151C -> sub_E143A/sub_E148E.
+        // Relative to the callback entry, the Z80 bus request, grant read,
+        // command-head read, marker write, sound-ID write, and updated-head
+        // write complete at these six raw source offsets. Frame 957's
+        // selected-PC journal confirms all six one-cycle waits.
+        return [3_792, 3_852, 3_878, 3_898, 3_962, 3_982]
+            .into_iter()
+            .map(|offset| {
+                Some(M68kExternalWaitEvent {
+                    raw_offset: M68kCycleCount(
+                        raw_before_player.checked_add(268)?.checked_add(offset)?,
+                    ),
+                    cycles: M68kCycleCount::from_raw(1),
+                })
+            })
+            .collect();
+    }
+
     let Some(list) = execute.player_prize_wobble_list_work_loc_1002e else {
         return Some(Vec::new());
     };
@@ -2881,6 +2935,23 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         )?;
 
     let shooter_scan = match (shooter.cached_col_matches, shooter.cached_row_matches) {
+        // ASM sub_F096 loc_F09E -> loc_F0D8/loc_F106 -> loc_F186 ->
+        // loc_F1A8/loc_F1DE: the pull-up moves Kid one block right and one
+        // block up, so both entering layout strips are scanned. Frame 957's
+        // selected-PC journal leaves 1,054 raw cycles beyond the cached path
+        // for its eight-cell column and seven-cell row scans.
+        (false, false)
+            if shooter.cached_col_before < shooter.kid_block_col
+                && shooter.cached_row_before > shooter.kid_block_row
+                && shooter.kid_block_col.checked_add(3)?
+                    < i16::try_from(shooter.level_width_blocks).ok()?
+                && shooter.kid_block_row >= 5
+                && shooter.kid_block_row.checked_add(2)?
+                    < i16::try_from(shooter.level_height_blocks).ok()?
+                && shooter.new_shooter_slots_registered == 0 =>
+        {
+            1_054
+        }
         // ASM sub_F096 loc_F09E -> loc_F186 -> loc_F25C: cached Kid column
         // and row avoid both layout strips.
         (true, true) => 0,

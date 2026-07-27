@@ -4617,6 +4617,20 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 957 resumes The Kid's wall-cling coroutine at
+`loc_AA22`, consumes the B edge, and takes `loc_ABA4 -> loc_ABF0`. The first
+downward tile-row scan finds the ledge, starts `stru_8BB4`, and calls
+PlaySound before the animation hibernate. The typed callback costs 4,268 raw
+cycles. `sub_E12 -> loc_7E6` costs 7,384 raw cycles plus 124 refresh waits and
+six one-cycle Z80 bus waits. The simultaneous right/up `sub_F096` layout
+change scans one eight-cell column and one seven-cell row; the complete
+`loc_7E6 -> sub_44DC` span costs 3,808 raw cycles plus 60 refresh waits.
+Frame 957 reaches `sub_44DC` at cycle 122,502,299, refresh phase 88, with no
+pending wait.
+
+#406 remains open. NEXT: type frame 958 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-26: the typed state-1 `sub_B270 loc_B334` wall-cling path
 carries frame 956 without another correction. The callback remains 4,200 raw
 cycles. The typed RNG/object prefix accounts for the earlier 22-cycle change,

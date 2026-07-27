@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 957)
+
+- Frame 957 takes The Kid's one-row `loc_ABF0` ledge pull-up and posts its
+  PlaySound command through six one-cycle Z80 bus waits.
+- The callback costs 4,268 raw cycles. `sub_E12` reaches `loc_7E6` after
+  7,384 raw cycles, 124 refresh waits, and the six sound-bus waits. The dual
+  right/up `sub_F096` strip scan makes the post-object path 3,808 raw cycles
+  plus 60 refresh waits.
+- The owner reaches frame 957 `sub_44DC` at cycle 122,502,299 phase 88 with
+  no pending wait.
+- NEXT: type frame 958, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-26 handoff (#406 persistent clock reaches frame 956)
 
 - Frame 956 retains the typed state-1 `sub_B270 loc_B334` wall-cling path.

@@ -10313,6 +10313,62 @@ impl NativeRuntime {
             0x4000 => Some(ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0),
             _ => None,
         };
+        let wall_cling_pull_up = self.last_kid_frame_motion_branch
+            == KidFrameMotionBranch::NormalPhysics
+            && self.progression.current_form == PlayerForm::TheKid
+            && action.wall_scan_hit
+            && action.wall_probe.is_some()
+            && action.branch == KidFlipBranchSelection::BPressedTheKid
+            && action.b_pressed
+            && !action.c_pressed
+            && !action.on_ground_before
+            && stages.entry.wall_cling_direction == Some(crate::Direction::Right)
+            && stages.after_press_away.wall_cling_direction == Some(crate::Direction::Right)
+            && stages.after_jump_gravity.wall_cling_direction == Some(crate::Direction::Right)
+            && stages.entry.x_velocity == 0
+            && stages.after_press_away.x_velocity == 0
+            && stages.after_jump_gravity.x_velocity == 0
+            && wall_cling_vertical.is_some()
+            && stages.gfx_object_collision_clear
+            && stages.after_jump_gravity == stages.after_floor
+            && self.current_player_state().is_some_and(|player| {
+                player.on_ground
+                    && player.x_velocity == 0
+                    && player.y_velocity == 0
+                    && player.wall_cling_direction.is_none()
+                    && player.ledge_snap_cooldown == crate::constants::LEDGE_SNAP_PULLUP_FRAMES
+            });
+        if wall_cling_pull_up {
+            let entry_y_px = (self
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .and_then(|ledger| ledger.execute_objects.player_entry_position)
+                .expect("typed pull-up path retains its entry position")
+                .y_pos
+                >> 16) as u16;
+            let initial_scan_y = entry_y_px.wrapping_sub(20) & !0x000F;
+            let final_y_px = (self
+                .current_player_state()
+                .expect("typed pull-up path retains its final player state")
+                .y_pos
+                >> 16) as u16;
+            let pull_up_scan_rows = final_y_px
+                .checked_add(1)
+                .and_then(|y| y.checked_sub(initial_scan_y))
+                .filter(|distance| *distance != 0 && *distance % 16 == 0)
+                .map(|distance| distance / 16);
+            if let Some(pull_up_scan_rows) = pull_up_scan_rows {
+                // ASM kid_flip loc_ABA4 -> loc_ABF0 (kid.asm): B pressed
+                // while clinging scans down in 16px rows, stores the solid
+                // row minus one as y_pos, starts stru_8BB4 and plays
+                // sfx_The_Kid_pullup before its animation hibernate.
+                return ModeLevelPlayerExecutionPath::WallClingPullUpLocAbf0 {
+                    form: self.progression.current_form,
+                    side: crate::Direction::Right,
+                    pull_up_scan_rows,
+                };
+            }
+        }
         let wall_cling_no_buttons = self.last_kid_frame_motion_branch
             == KidFrameMotionBranch::NormalPhysics
             && self.progression.current_form == PlayerForm::TheKid

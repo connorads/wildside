@@ -2057,6 +2057,15 @@ pub enum ModeLevelPlayerExecutionPath {
         ceiling_scan_sub_914a: Option<ModeLevelCeilingScanSub914A>,
         airborne_visual_mapping_sub_b270: ModeLevelAirborneVisualMappingPathSubB270,
     },
+    /// The Kid presses B while the wall-cling coroutine is resumed after
+    /// ASM `loc_AA22`, then `loc_ABF0` finds the ledge and starts pull-up.
+    WallClingPullUpLocAbf0 {
+        form: PlayerForm,
+        side: Direction,
+        /// Number of `loc_ABF0` downward tile-row iterations through the
+        /// first solid ledge cell.
+        pull_up_scan_rows: u16,
+    },
     /// Ordinary airborne coroutine resumed at ASM `loc_A73A`.
     NormalPhysics(ModeLevelNormalPhysicsPath),
     Unclassified,
