@@ -2504,6 +2504,18 @@ pub fn player_callback_cycles_sub_e12(
         }
         ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
             form: crate::PlayerForm::TheKid,
+            x_velocity_before: 0x0000_3800,
+            x_velocity_after: 0x0000_2A00,
+            y_velocity_after: -273_504,
+        } => {
+            // ASM loc_8C70 -> loc_A426 -> sub_A432 -> loc_A75A, published
+            // TAS frame 981: selected loc_E1E rows plus the ROM refresh
+            // recurrence pin 4,180 source cycles. Removing the shared
+            // 426-cycle scheduler shell leaves 3,754.
+            Some(M68kCycleCount::from_raw(3_754))
+        }
+        ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
+            form: crate::PlayerForm::TheKid,
             ..
         } => {
             // ASM loc_8BF0 -> loc_8C70 -> loc_A426 -> sub_A432 -> loc_A75A
@@ -3032,6 +3044,32 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         // removing refresh waits (125183461..125185993 and
         // 125314739..125317271 respectively).
         return Some(M68kCycleCount::from_raw(2_492));
+    }
+
+    if matches!(
+        ledger.execute_objects.executed_player_path,
+        Some(ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
+            form: crate::PlayerForm::TheKid,
+            x_velocity_before: 0x0000_3800,
+            x_velocity_after: 0x0000_2A00,
+            y_velocity_after: -273_504,
+        })
+    ) && scan.row_count == 3
+        && scan.col_count == 2
+        && scan.flagged_non_evanescent_cells_before_exit == 0
+        && shooter.cached_col_matches
+        && shooter.cached_row_matches
+        && shooter.cached_col_before == 4
+        && shooter.cached_row_before == 40
+        && shooter.kid_block_col == 4
+        && shooter.kid_block_row == 40
+        && shooter.new_shooter_slots_registered == 0
+    {
+        // ASM sub_21F8 loc_2232/loc_224C installs frame 981's 63..73 by
+        // 620..651 jump hitbox. The resulting three-row/two-column loc_EAE4
+        // scan and cached sub_F096 path span 2,606 raw cycles from loc_7E6
+        // 125570062/phase 68 to sub_44DC 125572710/phase 28.
+        return Some(M68kCycleCount::from_raw(2_606));
     }
 
     // ASM sub_DFB0 (kid.asm:17317) and loc_EAE4 (kid.asm:18858):

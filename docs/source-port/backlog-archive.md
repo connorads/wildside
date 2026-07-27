@@ -4617,6 +4617,21 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 981 consumes the next B edge through `loc_8C70 ->
+loc_A426 -> sub_A432 -> loc_A75A`, reducing X velocity from `$3800` to `$2A00`
+and launching with Y velocity `$FFFBD3A0`. Selected `loc_E1E` rows composed
+through the ROM refresh recurrence pin the callback at 3,754 raw cycles plus
+the shared 426-cycle scheduler shell; the complete Execute_Objects pass is
+6,894 raw. `sub_21F8 loc_2232/loc_224C` installs hitbox left/right 63/73 and
+top/bottom 620/651. Its three-row/two-column `loc_EAE4` scan and cached
+`sub_F096` path cost 2,606 raw. Selected PCs pin `loc_7D6` at 125,562,202
+phase 16, `sub_E12` at 125,563,058 phase 104, `loc_7E6` at 125,570,062 phase
+68, and `sub_44DC` at 125,572,710 phase 28. Both oracle wait counters remain
+flat.
+
+#406 remains open. NEXT: type frame 982 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 980 resumes the walking coroutine at `loc_8BF0`,
 runs `loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8600`, accelerates from `$1C00`
 to `$3800`, and returns through `sub_8F26`. The continuation now retains the

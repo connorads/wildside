@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 981)
+
+- Frame 981 takes ASM `loc_8C70 -> loc_A426 -> sub_A432` and launches with
+  X velocity `$2A00`, Y velocity `$FFFBD3A0`.
+- Execute_Objects is 6,894 raw cycles. The shifted 63..73 by 620..651 hitbox
+  makes the post-execute path 2,606 raw cycles.
+- `sub_44DC` is exact at 125,572,710 phase 28 with flat oracle wait counters.
+- NEXT: type frame 982, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 980)
 
 - Frame 980 resumes `loc_8BF0` and accelerates The Kid from `$1C00` to `$3800`.
