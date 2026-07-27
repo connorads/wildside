@@ -14818,6 +14818,52 @@ mod tests {
             crate::scenarios::NativeDynamicRunOptions::default(),
         )
         .expect("published native trace");
+        let frame_965_raw = [
+            114, 1_040, 1_294, 56, 446, 88, 370, 356, 356, 56, 192, 68, 308, 64, 192, 554, 144,
+            576, 426, 1_962, 106, 96,
+        ];
+        let mut frame_967_raw = frame_965_raw;
+        frame_967_raw[1] = 1_026;
+        for (frame_index, entry_phase, expected_raw, elapsed, refresh_events, phase_after) in [
+            (965, 26, frame_965_raw, 9_004, 70, 70),
+            (967, 52, frame_967_raw, 8_988, 69, 80),
+        ] {
+            let ledger = trace[frame_index]
+                .mode_level_work_after_hud_sub_44dc
+                .as_ref()
+                .unwrap_or_else(|| panic!("frame {frame_index} exposes post-HUD work"));
+            assert_eq!(
+                wildside_core::mode_level_post_hud_phase_raw_cycles_to_loc_892(ledger)
+                    .expect("published post-HUD work is fully typed")
+                    .map(M68kCycleCount::get),
+                expected_raw,
+                "ASM Mode_Level loc_810..loc_892 frame-{frame_index} phase costs",
+            );
+            let mut phases = Vec::new();
+            let advance =
+                wildside_core::mode_level_post_hud_advance_to_loc_892_with_phase_observer(
+                    M68kRefreshPhase::new(entry_phase)
+                        .expect("oracle loc_810 refresh phase is valid"),
+                    ledger,
+                    |_, _| Some(M68kCycleCount::from_raw(0)),
+                    |_| {},
+                    |phase| phases.push(phase),
+                )
+                .expect("published post-HUD work is source-scheduled");
+            assert_eq!(phases.len(), 22);
+            assert!(phases.iter().all(|phase| {
+                phase.generated_hardware_wait_cycles == M68kCycleCount::from_raw(0)
+            }));
+            assert_eq!(
+                (
+                    advance.elapsed.get(),
+                    advance.refresh_events,
+                    advance.phase_after.get(),
+                ),
+                (elapsed, refresh_events, phase_after),
+                "ASM frame {frame_index} source ledger reproduces the unattributed +8 loc_892 residue without a hardware wait",
+            );
+        }
         let visuals = wildside_render::load_level_visuals(&manifest, 0).expect("level 00 visuals");
         let rom = std::fs::read(rom_path).expect("bootstrapped Kid ROM");
         let mut probe = GemsSignatureProbe::from_kid_rom_power_on(&rom).expect("power-on probe");

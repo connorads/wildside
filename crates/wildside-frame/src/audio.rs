@@ -13,8 +13,9 @@ use wildside_core::{GameMode, LevelId, NativeSoundCommand, NativeTraceFrame};
 use wildside_core::{
     GemsQueueCommandAdvance, GemsQueueCommandPath, GemsStopMusicBusAckPolls,
     GemsStopMusicElapsedTiming, HudDmaEventSub44DC, LoadInGameTimerBonusPath, M68kCycleCount,
-    M68kRefreshPhase, ModeLevelPostHudWorkLedger, ModeLevelPreHudWorkLedger,
-    ModeLevelScrollTransferPath, ModeLevelVblankWorkBeforeSubE12, ReadJoypadControl,
+    M68kRefreshPhase, ModeLevelPostHudPhaseAdvance, ModeLevelPostHudWorkLedger,
+    ModeLevelPreHudWorkLedger, ModeLevelScrollTransferPath, ModeLevelVblankWorkBeforeSubE12,
+    ReadJoypadControl,
     vdp::{
         DecompressToVramTransferAdvance, LoadInGameCpuRasterCursor,
         LoadInGamePlatformInitialisationAdvance, LoadInGamePlatformRefreshLedger,
@@ -28,9 +29,9 @@ use wildside_data::AssetSource;
 use wildside_data::{AssetManifest, LevelHeader, resource_level_record};
 #[cfg(feature = "audio")]
 use wildside_md::{
-    GemsAudioEngine, GemsMasterClockAdvance, GemsMasterClockTimingEngine, GemsNtscTimelineOrigin,
-    GemsQueueCommand, GemsQueueCommandControl, GemsStopMusicControl, GemsStopMusicQueueTransaction,
-    GemsTimingCheckpoint,
+    GemsAudioEngine, GemsBanked68kRead, GemsMasterClockAdvance, GemsMasterClockTimingEngine,
+    GemsNtscTimelineOrigin, GemsQueueCommand, GemsQueueCommandControl, GemsStopMusicControl,
+    GemsStopMusicQueueTransaction, GemsTimingCheckpoint,
 };
 
 pub const AUDIO_SAMPLE_RATE: u32 = 44_100;
@@ -4115,6 +4116,66 @@ pub fn apply_gems_mode_level_post_hud_to_loc_892(
                 .set_z80_control(matches!(control, ReadJoypadControl::BeginZ80Bus), false);
         },
     )
+}
+
+/// One typed ASM `Mode_Level loc_810 -> loc_892` phase observed on the
+/// persistent GEMS timeline.
+#[cfg(feature = "audio")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModeLevelPostHudGemsPhaseTrace {
+    pub timing: ModeLevelPostHudPhaseAdvance,
+    pub banked_68k_reads: Vec<GemsBanked68kRead>,
+}
+
+/// Co-schedule the gameplay `Mode_Level loc_810 -> loc_892` tail while
+/// retaining generated waits and banked 68000 reads by typed source phase.
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_post_hud_to_loc_892_with_phase_trace(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: ModeLevelCpuRasterCursor,
+    ledger: &ModeLevelPostHudWorkLedger,
+) -> Option<(
+    ModeLevelCpuRasterCursor,
+    Vec<ModeLevelPostHudGemsPhaseTrace>,
+)> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    let audio = std::cell::RefCell::new(audio);
+    let phase_reads = std::cell::RefCell::new(Vec::new());
+    let phase_trace = std::cell::RefCell::new(Vec::with_capacity(ledger.phases.len()));
+    let cursor = wildside_core::vdp::mode_level_post_hud_cursor_to_loc_892_with_phase_observer(
+        entry,
+        ledger,
+        |cycles, source_owns_z80_bus| {
+            let mut audio = audio.borrow_mut();
+            if audio.checkpoint().busreq != source_owns_z80_bus {
+                return None;
+            }
+            let advance = audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                u64::from(cycles.get()) * 7,
+                false,
+            );
+            phase_reads.borrow_mut().extend(advance.banked_68k_reads);
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+        |control| {
+            audio
+                .borrow_mut()
+                .set_z80_control(matches!(control, ReadJoypadControl::BeginZ80Bus), false);
+        },
+        |timing| {
+            phase_trace
+                .borrow_mut()
+                .push(ModeLevelPostHudGemsPhaseTrace {
+                    timing,
+                    banked_68k_reads: std::mem::take(&mut *phase_reads.borrow_mut()),
+                });
+        },
+    )?;
+    Some((cursor, phase_trace.into_inner()))
 }
 
 /// Execute one ASM-positioned GEMS queue command on the persistent machine.

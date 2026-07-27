@@ -7133,11 +7133,30 @@ pub fn mode_level_post_hud_cursor_to_loc_892_with_scheduler(
     advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
     apply_read_joypad_control: impl FnMut(crate::ReadJoypadControl),
 ) -> Option<ModeLevelCpuRasterCursor> {
-    let advance = crate::mode_level_post_hud_advance_to_loc_892_with_scheduler(
+    mode_level_post_hud_cursor_to_loc_892_with_phase_observer(
+        entry,
+        ledger,
+        advance_hardware,
+        apply_read_joypad_control,
+        |_| {},
+    )
+}
+
+/// Co-schedule the ASM `Mode_Level loc_810 -> loc_892` tail and observe every
+/// typed source phase after its asynchronous waits drain.
+pub fn mode_level_post_hud_cursor_to_loc_892_with_phase_observer(
+    entry: ModeLevelCpuRasterCursor,
+    ledger: &crate::ModeLevelPostHudWorkLedger,
+    advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+    apply_read_joypad_control: impl FnMut(crate::ReadJoypadControl),
+    observe_phase: impl FnMut(crate::ModeLevelPostHudPhaseAdvance),
+) -> Option<ModeLevelCpuRasterCursor> {
+    let advance = crate::mode_level_post_hud_advance_to_loc_892_with_phase_observer(
         entry.refresh_phase,
         ledger,
         advance_hardware,
         apply_read_joypad_control,
+        observe_phase,
     )?;
     Some(ModeLevelCpuRasterCursor {
         beam: entry.beam.advance_m68k_cycles(advance.elapsed),

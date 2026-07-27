@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 post-HUD generated waits rejected)
+
+- A reusable typed trace now reports timing, generated waits, and GEMS banked reads for
+  all 22 `loc_810 -> loc_892` phases without changing the ordinary scheduler.
+- Frames 965 and 967 produce zero generated waits and no banked reads in every phase.
+  Their typed raw ledgers independently reproduce the +8 endpoints; nine offsetting
+  per-phase raw-cost differences net to +8, beginning at `Platforms_CheckCollision`.
+- No production timing or injection changed. NEXT: reconcile those nine phase costs with
+  selected-PC instruction spans and ASM. Frontier 995 and ratchet baseline 108 remain.
+
 ## 2026-07-27 handoff (#406 long-DMA candidate rejected)
 
 - The pinned jgenesis `check_for_long_dma_skip` value is a checkpoint-only DMA scheduler

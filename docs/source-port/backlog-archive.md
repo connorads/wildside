@@ -4617,6 +4617,32 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27 (post-HUD phase trace rejects generated waits): the retained typed
+trace now reports raw cycles, refresh events, refresh phase, generated hardware waits,
+and exact GEMS banked-68000 reads for each of the 22 `Mode_Level loc_810 -> loc_892`
+phases. The existing scheduler remains the allocation-free no-observer path.
+
+The phase-complete oracle probe used selected PCs
+`$810,$816,$81A,$81E,$822,$826,$82A,$832,$83A,$83E,$852,$856,$85A,$85E,$866,$86E,$872,$876,$87A,$87E,$888,$88E,$892`
+with GEMS checkpoints. Frame 965 spans cycles 123521969..123530965: 8,856 raw plus
+140 refresh cycles. Frame 967 spans 123776946..123785926: 8,842 raw plus 138 refresh
+cycles. At every boundary the oracle Z80 bank-wait counter is flat, pending wait is zero,
+and BUSREQ/VDP ownership is clear.
+
+Natural native traces reject the proposed wait cause more strongly: every phase on both
+frames returns zero generated hardware waits and contains no banked-68000 read. The
+native ledgers instead total 8,864 raw + 140 refresh = 9,004 cycles on frame 965 and
+8,850 raw + 138 refresh = 8,988 on frame 967, reproducing the exact +8 endpoints without
+GEMS contention. Against oracle, the shared raw-cycle deltas begin at
+`PlatformsCheckCollision` and are `-8,+8,-8,+8,-8,+8,+8,-20,+20` across the differing
+phases, net +8. The persistent-clock regression pins both 22-entry ledgers and endpoints.
+
+No production timing rule or injection changed. NEXT: reconcile those nine phase costs
+against the selected-PC instruction spans and ASM, starting with the first divergence at
+`Platforms_CheckCollision`; do not pursue a GEMS wait, subtract eight, or remove the
+frame-965/967 source positions. Frontier 995 and the oracle-injection baseline of 108
+remain unchanged.
+
 Progress 2026-07-27 (`check_for_long_dma_skip` candidate rejected): the eight-cycle
 literal in `audio.rs` is not on the disputed `loc_810 -> loc_892` path. Pinned jgenesis
 uses it as the next CPU scheduler quantum while a long VDP DMA is active and the Z80 has
