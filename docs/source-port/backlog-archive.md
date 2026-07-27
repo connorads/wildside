@@ -4617,6 +4617,18 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 967's exact typed `loc_810 -> loc_892` ledger
+again produces eight false waits in the later native GEMS phase while the
+oracle counter remains flat at 774,840. Rejecting those post-frozen waits
+pins `loc_892` at 123,785,926 phase 72. Frame 968 then pins `loc_7D6` at
+123,898,130 phase 16, `sub_E12` at 123,898,986 phase 104, `loc_7E6` at
+123,902,180 phase 98, and `sub_44DC` at 123,904,720 phase 78. Its wait
+counters remain flat; the execute projection needs the recurring 24-cycle
+refresh correction.
+
+#406 remains open. NEXT: type frame 969 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 967 selected PCs pin `loc_7D6` at 123,770,126
 phase 16, `sub_E12` at 123,770,982 phase 104, `loc_7E6` at 123,774,176
 phase 98, and `sub_44DC` at 123,776,716 phase 78. Both oracle wait counters

@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 968)
+
+- Frame 967's exact post-HUD ledger again produces eight false native GEMS
+  waits. Rejecting them pins `loc_892` at 123,785,926 phase 72.
+- Frame 968 pins `loc_7D6` at 123,898,130 phase 16, `sub_E12` at 123,898,986
+  phase 104, and `sub_44DC` at 123,904,720 phase 78.
+- Its wait counters remain flat. The execute projection needs the recurring
+  24-cycle refresh correction.
+- NEXT: type frame 969, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 967)
 
 - Frame 967 selected PCs pin `loc_7D6` at 123,770,126 phase 16, `sub_E12` at
