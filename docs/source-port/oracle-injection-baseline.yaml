@@ -1,0 +1,21 @@
+# Oracle-injection ratchet baseline — the #406 meter.
+#
+# An oracle injection is a teleport: the engine's clock is discarded and
+# replaced with a measured oracle cycle
+# (`advance_ntsc_master_clocks(CONST * 7 - engine.master_clock())`). Each one is
+# a hole in the persistent CPU/VDP/GEMS scheduler, whose payoff needs the clock
+# cycle-continuous from boot.
+#
+# `frontier_frame` is the highest frame a teleport is guarded on; it may only
+# rise. `max_injections_below` counts teleports guarded on frames below the
+# rolling window `frontier_frame - 10` (plus every teleport under no frame
+# guard, i.e. boot/title); it may only fall. Frames inside the window are the
+# working set, so typing the next frame with a teleport stays legal — but
+# advancing the frontier rolls older frames into the counted set, so the march
+# has to retire what it leaves behind.
+#
+# scripts/oracle_injection_ratchet.py enforces it (own hk pre-commit step);
+# `--update` raises the frontier and lowers the count, never the reverse.
+version: 1
+frontier_frame: 995
+max_injections_below: 108

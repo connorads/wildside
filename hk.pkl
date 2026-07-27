@@ -75,6 +75,23 @@ hooks {
                 check = "python3 scripts/failing_test_ratchet.py"
                 fix = "python3 scripts/failing_test_ratchet.py --update"
             }
+            // #406 meter: teleports that discard the engine clock for a
+            // measured oracle cycle. Frames inside the rolling window below the
+            // frontier are the working set; older ones may only ever be
+            // retired, so advancing the march costs paying down what it left
+            // behind. Own step (not in verify-slice-fast): a static scan, so no
+            // build and no .cache assets. Mirrors dead-code-ratchet's
+            // check_first = false + explicit `stage`.
+            ["oracle-injection-ratchet"] {
+                glob = List(
+                    "crates/**/*.rs",
+                    "docs/source-port/oracle-injection-baseline.yaml"
+                )
+                stage = List("docs/source-port/oracle-injection-baseline.yaml")
+                check_first = false
+                check = "python3 scripts/oracle_injection_ratchet.py"
+                fix = "python3 scripts/oracle_injection_ratchet.py --update"
+            }
             ["verify-slice-fast"] {
                 glob = List(
                     "crates/**/*.rs",
