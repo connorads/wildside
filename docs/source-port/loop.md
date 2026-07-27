@@ -47,10 +47,19 @@ The whole loop. The backlog is sharded by reader:
 **No code commit ⇒ write the dead end under the issue's `#NNN` in
 `backlog-archive.md` and stop; never commit churn.**
 
+**An index-advancing commit is not progress on its own.** A commit whose whole content
+is "do the same thing at index N+1" — type the next TAS frame, model the next level, port
+the next enemy — must also leave the issue measurably closer to closing: a retired
+override, a retired oracle injection, a newly attributed constant, or a gate that now
+covers what it did not. Where a ratchet meters the lane (`oracle-injection-ratchet` for
+#406's clock teleports), the commit must move it. If the session can only add index N+1,
+say so in the handoff and take a different item; a march that pays down nothing is
+indistinguishable from a stalled one, and only the ratchet can tell them apart.
+
 `mise run backlog-lint` enforces the shape (NOW size, lean open-queue Verify cells,
 awaiting-human `Target`/`Check`, concrete non-vague human checks, each `#NNN` in exactly
-one lane, rows in the lane their status implies); it runs inside `verify-slice-fast`, so
-drift fails the gate.
+one lane, rows in the lane their status implies, and a `Verify` that is not just the
+`Summary`'s index plus one); it runs inside `verify-slice-fast`, so drift fails the gate.
 
 ## Fallback: proactive verification
 

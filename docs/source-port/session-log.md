@@ -7,6 +7,41 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 treadmill metered; one override retired)
+
+- No TAS frame was typed this session. The frontier stays at 995 deliberately:
+  the session closed the three holes that made advancing it free, and fixed the
+  modelling defect underneath.
+- **Gate holes closed.** `backlog-lint` now rejects an open row whose `Verify`
+  is one index past its `Summary` — a row that cannot close (caught #406, no
+  false positives over all 24 open rows). New `oracle-injection-ratchet` hk step
+  meters clock teleports: `frontier_frame` may only rise, `max_injections_below`
+  (teleports below `frontier - 10`) may only fall; baselined at 112 total, 108
+  below window. The frame-995 timing test was renamed to the
+  `gameplay_regression_` prefix — `verify-slice-fast` had never run it, and
+  there is no CI, so the whole typed 965..994 span was ungated.
+- **Override retired (the real defect).** `post_execute_raw_cycles_before_sub_44dc`
+  had five early returns keyed on literal map coordinates, which
+  `ModeLevelShooterScanWorkSubF096` cannot disambiguate by level. ASM `loc_EB4C`
+  prices a rejected cell at 30, not the fitted 48 — the 48 conflated it with an
+  18-cycle `BSR.W sub_21F8` boundary term, exact only when one cell is flagged.
+  That collapsed the −244/−262 pair into one term and retired the pull-up
+  override into a coordinate-free rule. All five deltas are now attributed;
+  full table under #406 in the archive.
+- **Teleport deletion: six experiments, six failures, one diagnostic.** All six
+  "provably inert" post-HUD teleports (965, 967, 982, 989, 992, 994) have an
+  immediate `loc_892` assertion before any downstream re-pin, so none is
+  removable by editing. The failures replaced the recorded symptom: wait-free
+  frames 965/967 overshoot by *exactly 8* cycles (one 8-cycle wait, matching
+  `check_for_long_dma_skip`, not "eight waits"), while wait-carrying frames 982
+  and 989 apply a near-constant ~155 cycles of contention against oracle wait
+  counts of 352 and 385.
+- ADR `docs/adr/0001` records the three closed escape routes (mid-route GEMS
+  checkpoint seeding, r68k-derived costs, the six-gap substitution) so they are
+  not re-proposed, and states plainly that the march is currently the only known
+  production path to the seed — a cost/value call to re-take once the ratchet
+  has data.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 995)
 
 - Frame 995 retains the three-row falling `loc_AA22` cling and 3,836-raw
