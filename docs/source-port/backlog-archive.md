@@ -4617,6 +4617,17 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 967 selected PCs pin `loc_7D6` at 123,770,126
+phase 16, `sub_E12` at 123,770,982 phase 104, `loc_7E6` at 123,774,176
+phase 98, and `sub_44DC` at 123,776,716 phase 78. Both oracle wait counters
+remain flat. The retained VBlank prefix is four cycles short with the correct
+refresh phase, so the post-frozen continuation source-positions `loc_7D6`.
+The wait-free 3,120-raw execute path needs the recurring 24-cycle refresh
+correction before the unchanged 2,500-raw post-object path.
+
+#406 remains open. NEXT: type frame 968 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 965's typed `loc_810 -> loc_892` source ledger is
 exact, but the later native GEMS phase invents eight waits while the oracle
 counter remains 772,024 throughout. The post-frozen continuation therefore

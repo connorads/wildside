@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 967)
+
+- Frame 967 selected PCs pin `loc_7D6` at 123,770,126 phase 16, `sub_E12` at
+  123,770,982 phase 104, and `sub_44DC` at 123,776,716 phase 78.
+- Both wait counters remain flat. The retained VBlank prefix is four cycles
+  short with the correct phase, so the continuation source-positions it.
+- The execute projection needs the recurring 24-cycle refresh correction.
+- NEXT: type frame 968, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 966)
 
 - Frame 965's typed post-HUD source ledger is exact, but the later native
