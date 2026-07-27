@@ -4617,6 +4617,52 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27 (post-HUD teleport deletion: six experiments, six failures, one
+diagnostic): the `loc_810 -> loc_892` `matches!` guard source-positions 17 post-frozen
+frames. Six of them — 965, 967, 982, 989, 992, 994 — were believed inert, on the reasoning
+that a downstream absolute re-pin (the `loc_7D6` teleports, and the `sub_E12` teleports
+guarded on `N+1`) restores the clock before anything reads it.
+
+**That reasoning is wrong for all six.** Each frame has an `assert_eq!` on
+`(master_clock, loc_892.refresh_phase)` in the same method, immediately after the guard
+and well before any re-pin. Deleting a frame from the guard makes ~9-10k cycles of
+post-HUD work execute with live Z80/YM2612/VDP interleaving, and that assertion catches
+the result. None of the six can be removed by editing alone; each is a measurement, not a
+formality.
+
+The failures are the payoff. Engine minus oracle at `loc_892`:
+
+| Frame | Oracle waits | Engine − oracle | Phase |
+|-------|--------------|-----------------|-------|
+| 965 | wait-free | **+8** | 70 vs 62 |
+| 967 | wait-free | **+8** | 80 vs 72 |
+| 992 | wait-free | +11 | 8 vs 70 |
+| 994 | wait-free | +66 | 38 vs 100 |
+| 982 | 352 | **−190** | 90 vs 24 |
+| 989 | 385 | **−221** | 82 vs 47 |
+
+This replaces the symptom recorded at the guard ("the later native GEMS phase invents
+eight waits"), whose root cause was written down nowhere. Two distinct regimes:
+
+- **Wait-free frames overshoot.** Frames 965 and 967 are long by exactly 8 M68k cycles,
+  and the refresh phase is displaced by exactly 8. Not eight waits of 11 cycles (88) —
+  one 8-cycle wait. That is the signature of
+  `set_source_scheduled_m68k_wait_cycles(8)` in `check_for_long_dma_skip`
+  (audio.rs:3490), which is the first concrete candidate for the cause.
+- **Wait-carrying frames undershoot, by a near-constant amount of applied contention.**
+  Frame 982 is short 190 against 352 oracle waits; frame 989 is short 221 against 385.
+  The engine therefore applied ~162 and ~164 — ~154 and ~156 once the wait-free +8
+  overshoot is netted out. The engine does not scale contention with the oracle's wait
+  count; it applies a roughly fixed ~155 cycles regardless.
+
+Frames 992 (+11) and 994 (+66) are labelled wait-free yet overshoot by more than 8, so
+the wait-free regime is not uniform either — those two need their own attribution before
+the 8-cycle candidate can be confirmed as the whole story.
+
+NEXT for this thread: test the `check_for_long_dma_skip` 8-cycle candidate directly on
+frame 965 (the cleanest case), rather than deleting more teleports. The near-constant
+~155 applied contention is the larger defect and is measurable without any deletion.
+
 Progress 2026-07-27 (post-execute override decomposition): every literal-coordinate
 early return in `post_execute_raw_cycles_before_sub_44dc` is now attributed, so the
 remaining ones can be retired from evidence rather than refitted. Their deltas from the
