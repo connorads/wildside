@@ -4617,6 +4617,17 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 973's post-HUD source ledger reaches `loc_892` at
+124,553,950 phase 50 with a flat oracle wait counter. The later native GEMS
+phase instead invents eight waits and arrives eight cycles and eight phase
+counts late. Rejecting those waits makes frame 974 exact without another
+source position: `loc_7D6` is 124,666,162 phase 16, `sub_E12` is 124,667,018
+phase 104, `loc_7E6` is 124,670,188 phase 74, and `sub_44DC` is 124,672,728
+phase 54. Both frame-974 wait counters remain flat through the target.
+
+#406 remains open. NEXT: type frame 975 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 973 selected PCs pin `loc_7D6` at 124,538,172
 phase 16, `sub_E12` at 124,539,028 phase 104, `loc_7E6` at 124,542,198
 phase 74, and `sub_44DC` at 124,544,738 phase 54. Both oracle wait counters

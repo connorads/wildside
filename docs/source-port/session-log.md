@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 974)
+
+- Frame 973's later native GEMS phase invents eight post-HUD waits absent from
+  the oracle, reaching `loc_892` eight cycles and eight phase counts late.
+- Rejecting those waits makes frame 974 exact without another source position:
+  `loc_7D6` is 124,666,162 phase 16 and `sub_44DC` is 124,672,728 phase 54.
+- Both frame-974 wait counters remain flat through the HUD entry.
+- NEXT: type frame 975, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 973)
 
 - Frame 973 pins `loc_7D6` at 124,538,172 phase 16, `sub_E12` at 124,539,028
