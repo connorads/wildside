@@ -4617,6 +4617,16 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 976 selected PCs pin `loc_7D6` at 124,922,308
+phase 71, `sub_E12` at 124,923,166 phase 33, `loc_7E6` at 124,926,360
+phase 27, and `sub_44DC` at 124,928,900 phase 7. Both oracle wait counters
+remain flat from `loc_7D6` through the target. The retained prefix is 130
+cycles short. The pre-HUD projection is 26 elapsed cycles short; its 24-cycle
+source correction crosses one two-cycle refresh boundary.
+
+#406 remains open. NEXT: type frame 977 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 975 selected PCs pin `loc_7D6` at 124,794,170
 phase 16, `sub_E12` at 124,795,026 phase 104, `loc_7E6` at 124,798,202
 phase 80, and `sub_44DC` at 124,800,742 phase 60. Both oracle wait counters

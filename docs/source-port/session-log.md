@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 976)
+
+- Frame 976 pins `loc_7D6` at 124,922,308 phase 71, `sub_E12` at 124,923,166
+  phase 33, and `sub_44DC` at 124,928,900 phase 7.
+- Its retained prefix is 130 cycles short despite flat oracle wait counters.
+- A 24-cycle source correction crosses one refresh boundary and supplies the
+  measured 26-cycle pre-HUD adjustment.
+- NEXT: type frame 977, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 975)
 
 - Frame 975 pins `loc_7D6` at 124,794,170 phase 16, `sub_E12` at 124,795,026
