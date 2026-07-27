@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 963)
+
+- Frame 963 selected PCs pin `loc_7D6` at 123,258,099 phase 16, `sub_E12` at
+  123,258,955 phase 104, and `sub_44DC` at 123,264,689 phase 78.
+- Both oracle wait counters remain flat. The 3,120-raw pull-up projection is
+  24 cycles short at this refresh phase; the post-object path stays 2,500 raw.
+- NEXT: type frame 964, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 962)
 
 - Frame 962 selected PCs pin `loc_7D6` at 123,130,207 phase 71, `sub_E12` at

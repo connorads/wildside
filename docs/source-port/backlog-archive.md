@@ -4617,6 +4617,17 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 963 selected PCs pin `loc_7D6` at 123,258,099
+phase 16, `sub_E12` at 123,258,955 phase 104, `loc_7E6` at 123,262,149
+phase 98, and `sub_44DC` at 123,264,689 phase 78. Both oracle wait counters
+remain flat across the VBlank suffix and pre-HUD spans. The shared 3,120-raw
+pull-up projection is 24 cycles short at this refresh entry phase; retaining
+that measured correction before the unchanged 2,500-raw post-object path
+reaches the exact frame-963 boundary.
+
+#406 remains open. NEXT: type frame 964 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: bounded frame-962 selected-PC tracing pins `Mode_Level`
 at 123,123,152 phase 118, `loc_7D6` at 123,130,207 phase 71, `sub_E12` at
 123,131,603 phase 59, `loc_7E6` at 123,134,830 phase 86, and `sub_44DC` at
