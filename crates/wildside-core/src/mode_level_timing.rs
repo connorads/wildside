@@ -3066,6 +3066,22 @@ pub fn execute_objects_elapsed_cycles_sub_e12(
     })
 }
 
+/// Extra raw cycles ASM `loc_EB4C` spends rejecting one bit-15 cell whose
+/// block type is not `$A`.
+///
+/// The cheap cell is `move.w (a1)+,d0` (8), `bclr #$F,d0` (12), and a taken
+/// `beq.w` (10). A flagged cell takes the `beq.w` not taken (12) and then
+/// `andi.w #$F00,d0` (8), `cmpi.w #$A00,d0` (8), and a second not-taken
+/// `beq.w` (12): 30 cycles more. Published TAS frames 919 and 978 measure
+/// 2,462 and 2,492 over an otherwise identical scan, confirming the 30.
+///
+/// The compositional fall-through prices this at 48 instead, which is this 30
+/// plus the separate 18-cycle `BSR.W sub_21F8` boundary term the post-frozen
+/// frames carry. The two only sum correctly when exactly one cell is flagged —
+/// the shape every measured frame happens to have. See #406 in
+/// `backlog-archive.md`.
+const FLAGGED_CELL_REJECTION_RAW_CYCLES: u32 = 30;
+
 /// Complete raw CPU cost from the return of ASM `sub_21F8` through the entry
 /// of `sub_44DC` for the typed natural Mode_Level path.
 pub fn post_execute_raw_cycles_before_sub_44dc(
@@ -3083,34 +3099,33 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         return None;
     }
 
-    let grounded_post_raw = match ledger.execute_objects.executed_player_path {
-        Some(ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 {
-            form: crate::PlayerForm::TheKid,
-        }) => Some(2_462),
-        Some(ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
-            form: crate::PlayerForm::TheKid,
-            ..
-        }) => Some(2_462),
-        Some(ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
-            form: crate::PlayerForm::TheKid,
-            ..
-        }) => Some(2_462),
-        _ => None,
-    };
-    if grounded_post_raw.is_some()
+    // ASM sub_21F8 loc_2232 installs The Kid's standing hitbox, so every
+    // grounded path below enters loc_EAE4 with the same four-row/two-column
+    // scan. `loc_1062 -> sub_78E8` installs it for the finished pull-up too.
+    let grounded_standing_hitbox = matches!(
+        ledger.execute_objects.executed_player_path,
+        Some(
+            ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 {
+                form: crate::PlayerForm::TheKid,
+            } | ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
+                form: crate::PlayerForm::TheKid,
+                ..
+            } | ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+                form: crate::PlayerForm::TheKid,
+                ..
+            } | ModeLevelPlayerExecutionPath::PullUpAnimationFinished {
+                form: crate::PlayerForm::TheKid,
+            },
+        )
+    );
+    if grounded_standing_hitbox
         && scan.row_count == 4
         && scan.col_count == 2
-        && scan.flagged_non_evanescent_cells_before_exit == 0
         && ((shooter.cached_col_before == -1
             && shooter.cached_row_before == -1
             && !shooter.cached_col_matches
             && !shooter.cached_row_matches)
-            || (shooter.cached_col_before == 2
-                && shooter.cached_row_before == 45
-                && shooter.cached_col_matches
-                && shooter.cached_row_matches))
-        && shooter.kid_block_col == 2
-        && shooter.kid_block_row == 45
+            || (shooter.cached_col_matches && shooter.cached_row_matches))
         && shooter.new_shooter_slots_registered == 0
     {
         // ASM sub_21F8 -> sub_DFB0/loc_EAE4 -> sub_F096 -> sub_44DC.
@@ -3118,61 +3133,32 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         // phase 50 advances by 2,462 raw cycles plus 19 refresh waits. The
         // frame-923 walking-start branch reaches loc_7E6 at 118146371 and
         // sub_44DC at 118148873: phase 60 advances by the same raw cycles plus
-        // 20 refresh waits. Their typed post ledgers otherwise coincide.
+        // 20 refresh waits. Frames 978-980 measure 2,492 over the same scan
+        // shape with one flagged cell (125183461..125185993 and
+        // 125314739..125317271).
+        //
+        // ASM loc_EB4C: a bit-15 cell whose type is not $A takes `beq.w` not
+        // taken (12 rather than 10), `andi.w #$F00,d0` (8), `cmpi.w #$A00,d0`
+        // (8), and a second not-taken `beq.w` (12) — 30 cycles beyond the
+        // 8+12+10 cheap path. The measured 2,492 - 2,462 = 30 confirms it, so
+        // the flagged cell is priced from the disassembly rather than pinned
+        // per coordinate. See `FLAGGED_CELL_REJECTION_RAW_CYCLES` below: the
+        // fall-through's 48 conflates this 30 with a separate 18-cycle
+        // once-per-frame boundary term, so it only agrees when exactly one
+        // cell is flagged.
+        //
         // ASM Mode_Level $7E6 owns the 18-cycle BSR.W sub_21F8 after the
         // Execute_Objects null-list return.
-        return Some(M68kCycleCount::from_raw(grounded_post_raw?));
-    }
-
-    let post_pull_up_standing_hitbox = matches!(
-        ledger.execute_objects.executed_player_path,
-        Some(ModeLevelPlayerExecutionPath::PullUpAnimationFinished {
-            form: crate::PlayerForm::TheKid,
-        })
-    ) || matches!(
-        ledger.execute_objects.executed_player_path.as_ref(),
-        Some(
-            ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
-                form: crate::PlayerForm::TheKid,
-                ground_scan_cells_sub_b43a_8600,
-            } | ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
-                form: crate::PlayerForm::TheKid,
-                ground_scan_cells_sub_b43a_8600,
-                ..
-            },
-        ) if matches!(
-            ground_scan_cells_sub_b43a_8600.as_slice(),
-            [
-                crate::ModeLevelGroundScanCellSubB43A8600 {
-                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Other,
-                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Unflagged,
-                },
-                crate::ModeLevelGroundScanCellSubB43A8600 {
-                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
-                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
-                },
-            ]
-        )
-    );
-    if post_pull_up_standing_hitbox
-        && scan.row_count == 4
-        && scan.col_count == 2
-        && scan.flagged_non_evanescent_cells_before_exit == 1
-        && shooter.cached_col_matches
-        && shooter.cached_row_matches
-        && shooter.cached_col_before == 4
-        && shooter.cached_row_before == 40
-        && shooter.kid_block_col == 4
-        && shooter.kid_block_row == 40
-        && shooter.new_shooter_slots_registered == 0
-    {
-        // ASM loc_1062 -> sub_78E8 installs the standing hitbox before
-        // sub_21F8 loc_2232. Published TAS frames 978 and 979 retain its
-        // four-row/two-column loc_EAE4 scan and cached sub_F096 path. Their
-        // selected loc_7E6 -> sub_44DC rows measure 2,492 raw cycles after
-        // removing refresh waits (125183461..125185993 and
-        // 125314739..125317271 respectively).
-        return Some(M68kCycleCount::from_raw(2_492));
+        //
+        // TODO(fidelity): 244 cycles below the compositional fall-through and
+        // not yet attributed to a routine. Tracked under #406 in
+        // backlog-archive.md with the full per-guard decomposition.
+        return Some(M68kCycleCount::from_raw(
+            2_462_u32.checked_add(
+                FLAGGED_CELL_REJECTION_RAW_CYCLES
+                    .checked_mul(u32::from(scan.flagged_non_evanescent_cells_before_exit))?,
+            )?,
+        ));
     }
 
     let published_jump_hitbox = matches!(
@@ -3284,6 +3270,13 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
     // 994 raw cycles surround the inclusive row/column scan. Each row costs
     // 38 plus 40 per cell; a bit-15 non-type-$A cell takes the loc_EB4C
     // `andi/cmpi/beq` rejection and adds 48 cycles before scanning continues.
+    //
+    // TODO(fidelity): that 48 is `FLAGGED_CELL_REJECTION_RAW_CYCLES` (30, read
+    // off loc_EB4C) plus the 18-cycle BSR.W sub_21F8 boundary term, which is a
+    // once-per-frame quantity rather than a per-cell one. It happens to be
+    // exact on every measured frame because each has exactly one flagged cell,
+    // and separating the two is what would retire the three remaining airborne
+    // overrides — see #406 in backlog-archive.md.
     let sub_dfb0 = 994_u32
         .checked_add(
             u32::from(scan.row_count)

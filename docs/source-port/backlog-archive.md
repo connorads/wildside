@@ -4617,6 +4617,59 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27 (post-execute override decomposition): every literal-coordinate
+early return in `post_execute_raw_cycles_before_sub_44dc` is now attributed, so the
+remaining ones can be retired from evidence rather than refitted. Their deltas from the
+compositional fall-through were −244, −262, +18, +140, +18 — inconsistent only because
+three separate terms were folded together.
+
+`loc_EB4C` prices a rejected cell exactly. The cheap cell is `move.w (a1)+,d0` (8),
+`bclr #$F,d0` (12), taken `beq.w` (10), plus `dbf` (10) = 40, which is the model's
+existing per-cell 40. A bit-15 cell whose type is not `$A` takes the `beq.w` not taken
+(12) and then `andi.w #$F00,d0` (8), `cmpi.w #$A00,d0` (8), and a second not-taken
+`beq.w` (12): **30 cycles more, not 48**. Published TAS frames 919 and 978 measure 2,462
+and 2,492 over an otherwise identical four-row/two-column scan, independently confirming
+the 30.
+
+The fall-through's `48` is therefore that 30 plus the separate 18-cycle `BSR.W sub_21F8`
+boundary term. The two only sum correctly when exactly one cell is flagged — the shape
+every measured frame happens to have — which is why the constant looked exact while
+forcing hard-coded overrides on the flagged-zero frames.
+
+With the flagged cell at its ASM price, all five deltas resolve:
+
+| Guard | Frames | Truth | Residue after 30 | Attribution |
+|-------|--------|-------|------------------|-------------|
+| grounded 4x2 f0 | 919-931 | 2,462 | −244 | unattributed |
+| grounded 4x2 f1 | 978-980 | 2,492 | −244 | same term; the −262 was −244 plus the 48/30 error |
+| airborne 3x2 f0 | 981-983 | 2,606 | +18 | `BSR.W sub_21F8` boundary |
+| airborne 4x1 f0 | 984 | 3,214 | +18 | boundary, plus the +122 upward-row hidden-block scan |
+| airborne 3x1 f0 | 985-987 | 2,486 | +18 | boundary |
+
+Retired: the grounded pair collapses to one coordinate-free rule keyed on the standing
+hitbox path and the scan shape, valued `2,462 + 30 x flagged`. It reproduces both guards'
+values on every frame they served (919-931, 978-980) and leaves the full route unchanged:
+26,395/11,364/3,619,948 pixels, 36,836 GEMS, 403 commands, 24 oracle limitations.
+
+Rejected dead end: folding the +18 into the `1_240` base. It is not a uniform convention.
+Frames 943-956 and 981-987 carry it inside the model, frames 988/991/994 add it externally
+at the `tas_gems` call site, and frame 995 has no external +18 at all (its 562 cycles of
+measured contention absorb the boundary). Bumping the base would double-count at the call
+sites that already correct and break the pinned 2,588 fall-through frames. Separating the
+boundary means moving it to the call-site layer uniformly, not adding it to the base.
+
+Not yet done: the `+122` upward-row hidden-block scan is gated to
+`WallClingNoButtonsLocAa22`, but ASM `sub_DFB0` runs it for any upward row crossing while
+`Character_Movement == MoveID_Jump` (see `hidden_block_jump_window_sub_DFB0`,
+movement.rs:1410). Frame 984 needs it and is airborne `NormalPhysics`. Generalising it
+also moves frames 940 and 989 (989's external +142 would become +20), so it needs its own
+measured pass.
+
+Still unattributed: the −244 on the grounded standing path. It is one number, not two, and
+it is not `level_special_effects_sub_6034` (0 on every frame in 900..1000), not slot
+counts (all 0), and not a per-row or per-cell error (frame 988's three-row scan composes
+exactly). It is marked `TODO(fidelity)` at the guard.
+
 Progress 2026-07-27: frame 995 retains the three-row `loc_AA22` falling cling
 at Y velocity `$18000`. Removing 264 external Z80 waits between consecutive
 `loc_E1E` boundaries leaves the same 3,836-raw callback as frame 994. The
