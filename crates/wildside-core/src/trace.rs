@@ -10300,6 +10300,48 @@ impl NativeRuntime {
         }
     }
 
+    fn observe_ground_scan_cells_sub_b43a_8600(&self) -> Vec<ModeLevelGroundScanCellSubB43A8600> {
+        self.last_kid_frame_grounded_release_probe
+            .and_then(|probe| Some((probe.probe_row?, probe.left_col?, probe.right_col?)))
+            .and_then(|(row, left_col, right_col)| {
+                let grid = self.block_grid.as_ref()?;
+                Some(
+                    (left_col..=right_col)
+                        .map(|col| {
+                            let cell = grid.cell_at(col, row);
+                            let collision = match cell.collision {
+                                crate::terrain::CollisionKind::Solid => {
+                                    ModeLevelGroundScanCollisionSubB43A8600::Solid
+                                }
+                                crate::terrain::CollisionKind::Spikes => {
+                                    ModeLevelGroundScanCollisionSubB43A8600::Spikes
+                                }
+                                _ => ModeLevelGroundScanCollisionSubB43A8600::Other,
+                            };
+                            let block = if cell.has_block {
+                                match cell.block_type {
+                                    crate::terrain::BlockType::Ice => {
+                                        ModeLevelGroundScanBlockSubB43A8600::Ice
+                                    }
+                                    crate::terrain::BlockType::Rubber => {
+                                        ModeLevelGroundScanBlockSubB43A8600::Rubber
+                                    }
+                                    crate::terrain::BlockType::Teleporter => {
+                                        ModeLevelGroundScanBlockSubB43A8600::Teleporter
+                                    }
+                                    _ => ModeLevelGroundScanBlockSubB43A8600::Other,
+                                }
+                            } else {
+                                ModeLevelGroundScanBlockSubB43A8600::Unflagged
+                            };
+                            ModeLevelGroundScanCellSubB43A8600 { collision, block }
+                        })
+                        .collect(),
+                )
+            })
+            .unwrap_or_default()
+    }
+
     fn observe_mode_level_player_execution_path(
         &self,
         cyclone_visual_accumulator_before: Option<u16>,
@@ -10388,46 +10430,7 @@ impl NativeRuntime {
                 })
             && action.is_some_and(|action| !action.b_pressed && !action.c_pressed);
         if grounded_right_walk_start {
-            let ground_scan_cells_sub_b43a_8600 = self
-                .last_kid_frame_grounded_release_probe
-                .and_then(|probe| Some((probe.probe_row?, probe.left_col?, probe.right_col?)))
-                .and_then(|(row, left_col, right_col)| {
-                    let grid = self.block_grid.as_ref()?;
-                    Some(
-                        (left_col..=right_col)
-                            .map(|col| {
-                                let cell = grid.cell_at(col, row);
-                                let collision = match cell.collision {
-                                    crate::terrain::CollisionKind::Solid => {
-                                        ModeLevelGroundScanCollisionSubB43A8600::Solid
-                                    }
-                                    crate::terrain::CollisionKind::Spikes => {
-                                        ModeLevelGroundScanCollisionSubB43A8600::Spikes
-                                    }
-                                    _ => ModeLevelGroundScanCollisionSubB43A8600::Other,
-                                };
-                                let block = if cell.has_block {
-                                    match cell.block_type {
-                                        crate::terrain::BlockType::Ice => {
-                                            ModeLevelGroundScanBlockSubB43A8600::Ice
-                                        }
-                                        crate::terrain::BlockType::Rubber => {
-                                            ModeLevelGroundScanBlockSubB43A8600::Rubber
-                                        }
-                                        crate::terrain::BlockType::Teleporter => {
-                                            ModeLevelGroundScanBlockSubB43A8600::Teleporter
-                                        }
-                                        _ => ModeLevelGroundScanBlockSubB43A8600::Other,
-                                    }
-                                } else {
-                                    ModeLevelGroundScanBlockSubB43A8600::Unflagged
-                                };
-                                ModeLevelGroundScanCellSubB43A8600 { collision, block }
-                            })
-                            .collect(),
-                    )
-                })
-                .unwrap_or_default();
+            let ground_scan_cells_sub_b43a_8600 = self.observe_ground_scan_cells_sub_b43a_8600();
             // ASM loc_779C -> loc_77C2 -> loc_7820 -> loc_8D72 -> loc_8E06
             // (kid.asm:7842-10252): retain the source-ordered foot-row cells
             // because sub_B43A and sub_8600 take different branches for an
@@ -10646,6 +10649,7 @@ impl NativeRuntime {
                 form: self.progression.current_form,
                 x_velocity_before,
                 x_velocity_after,
+                ground_scan_cells_sub_b43a_8600: self.observe_ground_scan_cells_sub_b43a_8600(),
             };
         }
         if self.last_kid_frame_motion_branch != KidFrameMotionBranch::NormalPhysics {

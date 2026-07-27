@@ -14546,7 +14546,7 @@ mod tests {
     }
 
     #[test]
-    fn published_tas_persistent_clock_reaches_frame_979_sub_44dc_without_extending_audio_span() {
+    fn published_tas_persistent_clock_reaches_frame_980_sub_44dc_without_extending_audio_span() {
         let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let manifest_path = repo_root
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
@@ -14719,6 +14719,16 @@ mod tests {
             "ASM frame 923 sub_44DC -> loc_892 -> WaitForVint -> frame 924 sub_E12 remains persistent and exact",
         );
 
+        let two_unflagged_solid_ground_scan = vec![
+            wildside_core::ModeLevelGroundScanCellSubB43A8600 {
+                collision: wildside_core::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                block: wildside_core::ModeLevelGroundScanBlockSubB43A8600::Unflagged,
+            },
+            wildside_core::ModeLevelGroundScanCellSubB43A8600 {
+                collision: wildside_core::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                block: wildside_core::ModeLevelGroundScanBlockSubB43A8600::Unflagged,
+            },
+        ];
         let frame_924_pre_hud = frame_924
             .mode_level_work_before_hud_sub_44dc
             .as_ref()
@@ -14730,6 +14740,7 @@ mod tests {
                     form: wildside_core::PlayerForm::TheKid,
                     x_velocity_before: 0x0000_1C00,
                     x_velocity_after: 0x0000_3800,
+                    ground_scan_cells_sub_b43a_8600: two_unflagged_solid_ground_scan.clone(),
                 },
             ),
             "ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26 -> loc_8BF0",
@@ -14814,6 +14825,7 @@ mod tests {
                     form: wildside_core::PlayerForm::TheKid,
                     x_velocity_before: 0x0000_3800,
                     x_velocity_after: 0x0000_5400,
+                    ground_scan_cells_sub_b43a_8600: two_unflagged_solid_ground_scan.clone(),
                 },
             ),
             "ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26 -> loc_8BF0",
@@ -14897,6 +14909,7 @@ mod tests {
                     form: wildside_core::PlayerForm::TheKid,
                     x_velocity_before: 0x0000_5400,
                     x_velocity_after: 0x0000_7000,
+                    ground_scan_cells_sub_b43a_8600: two_unflagged_solid_ground_scan.clone(),
                 },
             ),
             "ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26 -> loc_8BF0",
@@ -14980,6 +14993,7 @@ mod tests {
                     form: wildside_core::PlayerForm::TheKid,
                     x_velocity_before: 0x0000_7000,
                     x_velocity_after: 0x0000_8C00,
+                    ground_scan_cells_sub_b43a_8600: two_unflagged_solid_ground_scan.clone(),
                 },
             ),
             "ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26 -> loc_8BF0",
@@ -15069,6 +15083,7 @@ mod tests {
                     form: wildside_core::PlayerForm::TheKid,
                     x_velocity_before: 0x0000_8C00,
                     x_velocity_after: 0x0000_A800,
+                    ground_scan_cells_sub_b43a_8600: two_unflagged_solid_ground_scan.clone(),
                 },
             ),
             "ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26 -> loc_8BF0",
@@ -15156,6 +15171,7 @@ mod tests {
                     form: wildside_core::PlayerForm::TheKid,
                     x_velocity_before: 0x0000_A800,
                     x_velocity_after: 0x0000_C400,
+                    ground_scan_cells_sub_b43a_8600: two_unflagged_solid_ground_scan.clone(),
                 },
             ),
             "ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26 -> loc_8BF0",
@@ -15247,6 +15263,7 @@ mod tests {
                     form: wildside_core::PlayerForm::TheKid,
                     x_velocity_before: 0x0000_C400,
                     x_velocity_after: 0x0000_E000,
+                    ground_scan_cells_sub_b43a_8600: two_unflagged_solid_ground_scan,
                 },
             ),
             "ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26 -> loc_8BF0",
@@ -15288,7 +15305,7 @@ mod tests {
 
         let mut current_sub_44dc = frame_930_sub_44dc;
         let mut current_vblank = frame_930_vblank;
-        for current_frame_index in 930..979 {
+        for current_frame_index in 930..980 {
             let current_frame = &trace[current_frame_index];
             let current_pre_hud = current_frame
                 .mode_level_work_before_hud_sub_44dc
@@ -15673,6 +15690,17 @@ mod tests {
                     "ASM frame 978 HUD/tail reaches exact frame-979 sub_E12",
                 );
             }
+            if current_frame_index == 979 {
+                assert_eq!(
+                    (
+                        probe.engine.master_clock(),
+                        next_seed.refresh_phase.get(),
+                        probe.engine.pending_m68k_wait_cycles(),
+                    ),
+                    (125_435_050 * 7, 104, 0),
+                    "ASM frame 979 HUD/tail reaches exact frame-980 sub_E12",
+                );
+            }
             let next_pre_hud = next_frame
                 .mode_level_work_before_hud_sub_44dc
                 .as_ref()
@@ -15733,6 +15761,41 @@ mod tests {
                     wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
                     Some(M68kCycleCount::from_raw(2_492)),
                     "ASM loc_7E6 -> sub_DFB0 loc_EAE4 -> sub_F096 -> sub_44DC frame 979 is fully typed",
+                );
+            }
+            if current_frame_index == 979 {
+                assert_eq!(
+                    next_pre_hud.execute_objects.executed_player_path,
+                    Some(
+                        wildside_core::ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+                            form: wildside_core::PlayerForm::TheKid,
+                            x_velocity_before: 0x0000_1C00,
+                            x_velocity_after: 0x0000_3800,
+                            ground_scan_cells_sub_b43a_8600: vec![
+                                wildside_core::ModeLevelGroundScanCellSubB43A8600 {
+                                    collision: wildside_core::ModeLevelGroundScanCollisionSubB43A8600::Other,
+                                    block: wildside_core::ModeLevelGroundScanBlockSubB43A8600::Unflagged,
+                                },
+                                wildside_core::ModeLevelGroundScanCellSubB43A8600 {
+                                    collision: wildside_core::ModeLevelGroundScanCollisionSubB43A8600::Solid,
+                                    block: wildside_core::ModeLevelGroundScanBlockSubB43A8600::Other,
+                                },
+                            ],
+                        },
+                    ),
+                    "ASM loc_8BF0 -> loc_8D72 -> loc_8E06 continues walking right on frame 980",
+                );
+                assert_eq!(
+                    wildside_core::execute_objects_raw_cycles_sub_e12(
+                        &next_pre_hud.execute_objects,
+                    ),
+                    Some(M68kCycleCount::from_raw(6_776)),
+                    "ASM sub_E12 frame 980 types the complete walk-continuation object pass",
+                );
+                assert_eq!(
+                    wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
+                    Some(M68kCycleCount::from_raw(2_492)),
+                    "ASM loc_7E6 -> sub_DFB0 loc_EAE4 -> sub_F096 -> sub_44DC frame 980 is fully typed",
                 );
             }
             if current_frame_index == 958 {
@@ -16158,11 +16221,11 @@ mod tests {
                 probe.engine.pending_m68k_wait_cycles(),
             ),
             (
-                125_317_271 * 7,
-                M68kRefreshPhase::new(84).expect("oracle frame-979 sub_44DC phase"),
+                125_444_466 * 7,
+                M68kRefreshPhase::new(48).expect("oracle frame-980 sub_44DC phase"),
                 0,
             ),
-            "ASM frame 930..979 persistent schedule reaches exact frame-979 sub_44DC",
+            "ASM frame 930..980 persistent schedule reaches exact frame-980 sub_44DC",
         );
     }
 

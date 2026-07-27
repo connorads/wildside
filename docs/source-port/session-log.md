@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 980)
+
+- Frame 980 resumes `loc_8BF0` and accelerates The Kid from `$1C00` to `$3800`.
+- The continuation reuses frame 979's empty-unflagged then flagged-metal
+  `sub_B43A`/`sub_8600` profile while retaining frames 924-930's plain-solid path.
+- Execute_Objects is 6,776 raw cycles; the post-execute path is 2,492 raw.
+- `sub_44DC` is exact at 125,444,466 phase 48 with flat oracle wait counters.
+- NEXT: type frame 981, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 979)
 
 - Frame 979 resumes held-right walking through ASM `loc_779C -> loc_8E06`.

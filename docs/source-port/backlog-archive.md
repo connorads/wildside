@@ -4617,6 +4617,21 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 980 resumes the walking coroutine at `loc_8BF0`,
+runs `loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8600`, accelerates from `$1C00`
+to `$3800`, and returns through `sub_8F26`. The continuation now retains the
+same source-ordered foot-row profile as the walk-start branch: empty unflagged,
+then flagged metal solid. This adds the proven 52 raw cycles over the older
+two-unflagged-solid continuation without weakening those frame-924..930 cases.
+The complete Execute_Objects pass is 6,776 raw cycles and the retained standing
+hitbox path after `loc_7E6` is 2,492 raw. Selected PCs pin `loc_7D6` at
+125,434,194 phase 16, `sub_E12` at 125,435,050 phase 104, `loc_7E6` at
+125,441,934 phase 76, and `sub_44DC` at 125,444,466 phase 48. Both oracle wait
+counters remain flat.
+
+#406 remains open. NEXT: type frame 981 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 979 resumes ordinary held-right walking through
 `loc_779C -> loc_77C2 -> loc_7820 -> loc_8D72 -> loc_8E06`. Its shared
 `sub_B43A`/`sub_8600` foot-row scan visits an empty unflagged cell followed by

@@ -2068,6 +2068,7 @@ pub enum ModeLevelPlayerExecutionPath {
         form: PlayerForm,
         x_velocity_before: i32,
         x_velocity_after: i32,
+        ground_scan_cells_sub_b43a_8600: Vec<ModeLevelGroundScanCellSubB43A8600>,
     },
     /// ASM `loc_8C70 -> loc_A426 -> sub_A432 -> loc_A75A`: a grounded B
     /// edge launches Kid with speed-derived vertical velocity.

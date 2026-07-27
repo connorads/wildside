@@ -2470,13 +2470,37 @@ pub fn player_callback_cycles_sub_e12(
         }
         ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
             form: crate::PlayerForm::TheKid,
+            ground_scan_cells_sub_b43a_8600,
             ..
         } => {
-            // ASM loc_8BF0 -> loc_8D72 -> loc_8E06 -> sub_B43A -> sub_8F26
-            // -> loc_8BF0. Frame 924's selected-PC journal spans 4,010 raw
-            // cycles between loc_E1E dispatches; remove the shared 426-cycle
-            // dispatch/hibernate shell.
-            Some(M68kCycleCount::from_raw(3_584))
+            use crate::{
+                ModeLevelGroundScanBlockSubB43A8600 as Block,
+                ModeLevelGroundScanCellSubB43A8600 as Cell,
+                ModeLevelGroundScanCollisionSubB43A8600 as Collision,
+            };
+            match ground_scan_cells_sub_b43a_8600.as_slice() {
+                [
+                    Cell {
+                        collision: Collision::Solid,
+                        block: Block::Unflagged,
+                    },
+                    Cell {
+                        collision: Collision::Solid,
+                        block: Block::Unflagged,
+                    },
+                ] => Some(M68kCycleCount::from_raw(3_584)),
+                [
+                    Cell {
+                        collision: Collision::Other,
+                        block: Block::Unflagged,
+                    },
+                    Cell {
+                        collision: Collision::Solid,
+                        block: Block::Other,
+                    },
+                ] => Some(M68kCycleCount::from_raw(3_636)),
+                _ => None,
+            }
         }
         ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
             form: crate::PlayerForm::TheKid,
@@ -2966,10 +2990,16 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         })
     ) || matches!(
         ledger.execute_objects.executed_player_path.as_ref(),
-        Some(ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
-            form: crate::PlayerForm::TheKid,
-            ground_scan_cells_sub_b43a_8600,
-        }) if matches!(
+        Some(
+            ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c {
+                form: crate::PlayerForm::TheKid,
+                ground_scan_cells_sub_b43a_8600,
+            } | ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
+                form: crate::PlayerForm::TheKid,
+                ground_scan_cells_sub_b43a_8600,
+                ..
+            },
+        ) if matches!(
             ground_scan_cells_sub_b43a_8600.as_slice(),
             [
                 crate::ModeLevelGroundScanCellSubB43A8600 {
