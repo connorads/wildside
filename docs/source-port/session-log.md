@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 965)
+
+- Frame 965 selected PCs pin `loc_7D6` at 123,514,535 phase 16, `sub_E12` at
+  123,515,470 phase 55, and `sub_44DC` at 123,521,739 phase 52.
+- The VBlank suffix carries 77 Z80 waits. The execute and post-object spans
+  carry another 319 and 220 waits plus 20 cycles of refresh interleaving.
+- These corrections stay in the post-frozen continuation. The 923-frame
+  audio comparison witness remains unchanged.
+- NEXT: type frame 966, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 964)
 
 - Frame 964 selected PCs pin `loc_7D6` at 123,386,404 phase 16, `sub_E12` at
