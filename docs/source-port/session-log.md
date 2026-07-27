@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 975)
+
+- Frame 975 pins `loc_7D6` at 124,794,170 phase 16, `sub_E12` at 124,795,026
+  phase 104, and `sub_44DC` at 124,800,742 phase 60.
+- Both wait counters remain flat. Its pre-HUD refresh projection is six cycles
+  and six phase counts short across the 3,120 + 2,500 raw path.
+- NEXT: type frame 976, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 974)
 
 - Frame 973's later native GEMS phase invents eight post-HUD waits absent from
