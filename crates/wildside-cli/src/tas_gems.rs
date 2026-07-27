@@ -9059,11 +9059,12 @@ impl GemsSignatureProbe {
                 | 993
                 | 994
         ) {
-            // ASM loc_810 -> loc_892, selected published TAS frames:
-            // the oracle Z80 wait counter remains flat throughout. The later
-            // native GEMS phase invents eight waits. Source-position these
-            // post-frozen boundaries after validating the complete 22-phase
-            // source ledger.
+            // ASM loc_810 -> loc_892, selected published TAS frames: retain
+            // these post-frozen boundaries after validating the complete
+            // 22-phase source ledger. Frames 965/967 overshoot by eight cycles
+            // with a flat oracle Z80-wait counter; the checkpoint-only pinned
+            // jgenesis long-DMA quantum is non-causal, so the source remains
+            // unattributed pending per-phase wait tracing.
             wildside_core::mode_level_post_hud_phase_raw_cycles_to_loc_892(work.post_hud?)?;
             let (target_cycles, target_phase) = match self.power_on_frame {
                 965 => (123_530_965, 62),

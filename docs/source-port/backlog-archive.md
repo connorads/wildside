@@ -4617,6 +4617,29 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27 (`check_for_long_dma_skip` candidate rejected): the eight-cycle
+literal in `audio.rs` is not on the disputed `loc_810 -> loc_892` path. Pinned jgenesis
+uses it as the next CPU scheduler quantum while a long VDP DMA is active and the Z80 has
+not halted; it is neither Kid source work nor a GEMS bank wait. The native helper writes
+that value only into the frame-902 `FrameRendered` checkpoint, then drains it without
+advancing time before completing the already-accounted DMA interval. The existing unit
+test proves both sides: checkpoint pending=8, retained engine pending=0.
+
+A direct falsification removed the checkpoint-only write, changed that unit expectation
+to zero, and exposed frame 965's natural post-HUD path. The unit passed, proving the
+candidate was disabled. The persistent-clock regression then failed identically to the
+prior experiment at `loc_892`: native `(864716811, 70)` versus oracle
+`(864716755, 62)`, or cycle 123530973 versus 123530965. Every temporary behaviour and
+test edit was restored. The named candidate is rejected; changing it would lose the
+frame-902 jgenesis checkpoint state without moving frame 965.
+
+The eight-cycle frame-965/967 endpoint residue remains unattributed. NEXT: trace the
+generated wait returned by each of the 22 typed post-HUD phases in
+`apply_gems_mode_level_post_hud_to_loc_892`, and find the first native non-zero wait
+against the oracle's flat selected-PC wait counter. Do not subtract eight, add a frame
+guard, or change the pinned long-DMA checkpoint. Frontier 995 and the oracle-injection
+baseline of 108 below frame 985 are unchanged.
+
 Progress 2026-07-27 (post-HUD teleport deletion: six experiments, six failures, one
 diagnostic): the `loc_810 -> loc_892` `matches!` guard source-positions 17 post-frozen
 frames. Six of them — 965, 967, 982, 989, 992, 994 — were believed inert, on the reasoning

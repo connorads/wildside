@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 long-DMA candidate rejected)
+
+- The pinned jgenesis `check_for_long_dma_skip` value is a checkpoint-only DMA scheduler
+  quantum, drained without advancing time before the native VBlank-prefix helper returns.
+- Removing it changed frame 902's checkpoint from pending=8 to pending=0 but left frame
+  965's natural `loc_892` failure identical: native `(864716811, 70)` versus oracle
+  `(864716755, 62)`. The candidate is non-causal and every temporary edit was restored.
+- Frontier 995 and the oracle-injection ratchet baseline of 108 remain unchanged. NEXT:
+  trace generated waits phase by phase across the 22 typed post-HUD phases and locate the
+  first native wait against the oracle's flat selected-PC counter.
+
 ## 2026-07-27 handoff (#406 treadmill metered; one override retired)
 
 - No TAS frame was typed this session. The frontier stays at 995 deliberately:
