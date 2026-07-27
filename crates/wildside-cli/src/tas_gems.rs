@@ -14789,8 +14789,15 @@ mod tests {
         );
     }
 
+    /// Sole coverage of the post-frozen typed frames (965..995). The
+    /// `gameplay_regression_` prefix is load-bearing: `verify-slice-fast` runs
+    /// `cargo test -p wildside-cli gameplay_regression_`, so a name outside that
+    /// filter leaves the whole span ungated (there is no CI to catch it either).
+    /// It skips on a machine without the cached manifest and ROM, matching the
+    /// suite-wide idiom — the oracle-injection ratchet is the asset-free signal.
     #[test]
-    fn published_tas_persistent_clock_reaches_frame_995_sub_44dc_without_extending_audio_span() {
+    fn gameplay_regression_persistent_clock_reaches_frame_995_sub_44dc_without_extending_audio_span()
+     {
         let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let manifest_path = repo_root
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
