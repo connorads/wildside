@@ -293,7 +293,22 @@ fn mode_level_gfx_sprite_work_sub_1492(
             .checked_sub(player.ledge_snap_cooldown)
             .filter(|_| player.ledge_snap_cooldown != 0)
     });
-    let kid_dynamic_art_20x32 = grounded_stationary_kid || wall_cling_kid;
+    let pull_up_finished_kid = runtime
+        .mode_level_work_before_hud_sub_44dc
+        .as_ref()
+        .is_some_and(|ledger| {
+            matches!(
+                ledger.execute_objects.executed_player_path,
+                Some(
+                    crate::ModeLevelPlayerExecutionPath::PullUpAnimationFinished {
+                        form: crate::PlayerForm::TheKid,
+                    }
+                )
+            )
+        });
+    // ASM loc_1062 -> sub_78E8 installs the same 20x32 standing mapping
+    // consumed by sub_1492 after ordinary loc_7606 and wall-cling passes.
+    let kid_dynamic_art_20x32 = grounded_stationary_kid || wall_cling_kid || pull_up_finished_kid;
     let kid_dynamic_art_32x24 = runtime
         .mode_level_work_before_hud_sub_44dc
         .as_ref()
@@ -10314,6 +10329,11 @@ impl NativeRuntime {
             return ModeLevelPlayerExecutionPath::PullUpAnimationHibernateLoc1062 {
                 form: self.progression.current_form,
                 remaining_frames,
+            };
+        }
+        if self.last_kid_frame_motion_branch == KidFrameMotionBranch::PullUpAnimationFinished {
+            return ModeLevelPlayerExecutionPath::PullUpAnimationFinished {
+                form: self.progression.current_form,
             };
         }
         let action = self.last_kid_frame_kid_flip_branch_probe;

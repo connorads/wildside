@@ -250,6 +250,7 @@ pub(crate) enum KidFrameMotionBranch {
     IronKnightClimbResume,
     PrizeHelmetCollisionHibernate,
     TransformHibernating,
+    PullUpAnimationFinished,
     NormalPhysics,
 }
 
@@ -269,6 +270,7 @@ impl KidFrameMotionBranch {
             Self::IronKnightClimbResume => "iron_knight_climb_resume",
             Self::PrizeHelmetCollisionHibernate => "prize_helmet_collision_hibernate",
             Self::TransformHibernating => "transform_hibernating",
+            Self::PullUpAnimationFinished => "pull_up_animation_finished",
             Self::NormalPhysics => "normal_physics",
         }
     }
@@ -2071,6 +2073,12 @@ pub enum ModeLevelPlayerExecutionPath {
     PullUpAnimationHibernateLoc1062 {
         form: PlayerForm,
         remaining_frames: u8,
+    },
+    /// ASM `loc_1062` observes the completed pull-up animation, returns to
+    /// the caller, clears Y velocity, runs `sub_78E8`, and hibernates through
+    /// `loc_75D4` without ordinary Kid physics.
+    PullUpAnimationFinished {
+        form: PlayerForm,
     },
     /// Ordinary airborne coroutine resumed at ASM `loc_A73A`.
     NormalPhysics(ModeLevelNormalPhysicsPath),

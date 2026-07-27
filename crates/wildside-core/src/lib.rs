@@ -5701,6 +5701,13 @@ impl NativeRuntime {
                     suppress_probe_slope_velocity,
                     &deferred_prize_ceiling_cells,
                 );
+                if ledge_snap_cooldown_before == 1 && slice.player.ledge_snap_cooldown == 0 {
+                    // ASM loc_1062 -> sub_78E8 -> loc_75D4: the final pull-up
+                    // animation tick returns to the caller, installs the
+                    // standing mapping, and hibernates without normal physics.
+                    self.last_kid_frame_motion_branch =
+                        KidFrameMotionBranch::PullUpAnimationFinished;
+                }
                 self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
                 if suppress_probe_slope_velocity
                     && slice.player.on_ground

@@ -2472,6 +2472,14 @@ pub fn player_callback_cycles_sub_e12(
             // dispatches; remove the shared 426-cycle scheduler shell.
             Some(M68kCycleCount::from_raw(4_268))
         }
+        ModeLevelPlayerExecutionPath::PullUpAnimationFinished {
+            form: crate::PlayerForm::TheKid,
+        } => {
+            // ASM loc_1062 -> sub_78E8 -> loc_75D4, published TAS frame 978:
+            // selected loc_E1E rows span 1,634 raw cycles. Removing the
+            // shared 426-cycle dispatch/hibernate shell leaves 1,208 here.
+            Some(M68kCycleCount::from_raw(1_208))
+        }
         ModeLevelPlayerExecutionPath::NormalPhysics(_)
         | ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 { .. } => {
             player_callback_cycles_loc_a73a(execute)
@@ -2483,6 +2491,7 @@ pub fn player_callback_cycles_sub_e12(
         | ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 { .. }
         | ModeLevelPlayerExecutionPath::WallClingPullUpLocAbf0 { .. }
         | ModeLevelPlayerExecutionPath::PullUpAnimationHibernateLoc1062 { .. }
+        | ModeLevelPlayerExecutionPath::PullUpAnimationFinished { .. }
         | ModeLevelPlayerExecutionPath::Unclassified => None,
     }
 }
@@ -2920,6 +2929,30 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         // ASM Mode_Level $7E6 owns the 18-cycle BSR.W sub_21F8 after the
         // Execute_Objects null-list return.
         return Some(M68kCycleCount::from_raw(grounded_post_raw?));
+    }
+
+    if matches!(
+        ledger.execute_objects.executed_player_path,
+        Some(ModeLevelPlayerExecutionPath::PullUpAnimationFinished {
+            form: crate::PlayerForm::TheKid,
+        })
+    ) && scan.row_count == 4
+        && scan.col_count == 2
+        && scan.flagged_non_evanescent_cells_before_exit == 1
+        && shooter.cached_col_matches
+        && shooter.cached_row_matches
+        && shooter.cached_col_before == 4
+        && shooter.cached_row_before == 40
+        && shooter.kid_block_col == 4
+        && shooter.kid_block_row == 40
+        && shooter.new_shooter_slots_registered == 0
+    {
+        // ASM loc_1062 -> sub_78E8 installs the standing hitbox before
+        // sub_21F8 loc_2232. Published TAS frame 978 then spans loc_7E6 at
+        // 125183461/phase 42 through the complete sub_DFB0 loc_EAE4 eight-cell
+        // scan and cached sub_F096 path to sub_44DC at 125185993/phase 14.
+        // Removing 20 refresh waits leaves 2,492 raw cycles.
+        return Some(M68kCycleCount::from_raw(2_492));
     }
 
     // ASM sub_DFB0 (kid.asm:17317) and loc_EAE4 (kid.asm:18858):

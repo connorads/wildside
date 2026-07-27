@@ -4617,6 +4617,22 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 978 leaves the repeated pull-up hibernation loop.
+Selected `loc_E1E` rows prove the Kid callback returns from `loc_1062`, runs
+`sub_78E8`, and reaches `loc_75D4` before hibernating. The production domain
+model now represents that completed-animation state instead of reporting
+`Unclassified`. Its callback owns 1,208 raw cycles plus the shared 426-cycle
+dispatch shell, making the complete Execute_Objects pass 4,348 raw cycles.
+`sub_21F8 loc_2232` installs hitbox left/right 63/73 and top/bottom 624/655;
+the resulting eight-cell `loc_EAE4` scan, one flagged rejection, and cached
+`sub_F096` path make the post-execute span 2,492 raw cycles. Frame 978 pins
+`loc_7D6` at 125,178,187 phase 16, `sub_E12` at 125,179,043 phase 104,
+`loc_7E6` at 125,183,461 phase 42, and `sub_44DC` at 125,185,993 phase 14.
+Both oracle wait counters remain flat.
+
+#406 remains open. NEXT: type frame 979 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 977 selected PCs pin `loc_7D6` at 125,050,186
 phase 16, `sub_E12` at 125,051,042 phase 104, `loc_7E6` at 125,054,236
 phase 98, and `sub_44DC` at 125,056,776 phase 78. Both oracle wait counters

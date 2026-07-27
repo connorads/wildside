@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 978)
+
+- Frame 978 production-types the completed pull-up animation callback through
+  ASM `loc_1062 -> sub_78E8 -> loc_75D4` instead of `Unclassified`.
+- Its complete Execute_Objects pass is 4,348 raw cycles. The standing hitbox,
+  eight-cell `loc_EAE4` scan, and cached `sub_F096` path add 2,492 raw cycles.
+- `sub_44DC` is exact at 125,185,993 phase 14 with flat oracle wait counters.
+- NEXT: type frame 979, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 977)
 
 - Frame 977 pins `loc_7D6` at 125,050,186 phase 16, `sub_E12` at 125,051,042
