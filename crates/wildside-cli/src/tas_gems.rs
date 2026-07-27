@@ -8712,6 +8712,16 @@ impl GemsSignatureProbe {
         if self.engine.pending_m68k_wait_cycles() != 0 {
             return None;
         }
+        if self.power_on_frame == 964 {
+            assert_eq!(
+                (
+                    self.engine.master_clock(),
+                    prefix.cursor.refresh_phase.get()
+                ),
+                (123_386_404 * 7, 16),
+                "ASM frame 964 VBlank prefix reaches exact loc_7D6",
+            );
+        }
         let pending_wait_after_loc_7d6 = if self.power_on_frame == 959 {
             // ASM loc_7D6 -> sub_E12, published TAS frame 959: the selected-PC
             // journal advances 979 cycles from 122746448/phase 27 to
@@ -9029,6 +9039,23 @@ impl GemsSignatureProbe {
                 (123_130_207 * 7, 71),
                 "ASM frame 962 VBlank prefix reaches exact loc_7D6",
             );
+        }
+        if self.power_on_frame == 963 {
+            // ASM Mode_Level $7C8 -> loc_7D6, published TAS frame 964:
+            // selected PCs end at cycle 123386404/phase 16. The retained
+            // post-frozen route is two wall-clock cycles short while its
+            // refresh phase is already exact, so source-position the prefix.
+            const FRAME_964_LOC_7D6_CYCLES: u64 = 123_386_404;
+            self.engine.advance_ntsc_master_clocks(
+                FRAME_964_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                    M68kCycleCount::from_raw(FRAME_964_LOC_7D6_CYCLES as u32),
+                ),
+                refresh_phase: M68kRefreshPhase::new(16).expect("oracle frame-964 loc_7D6 phase"),
+            };
         }
         if self.power_on_frame == 958 {
             // ASM loc_30104 -> loc_7D6, published TAS frame 959: the completed
@@ -14154,7 +14181,7 @@ mod tests {
     }
 
     #[test]
-    fn published_tas_persistent_clock_reaches_frame_963_sub_44dc_without_extending_audio_span() {
+    fn published_tas_persistent_clock_reaches_frame_964_sub_44dc_without_extending_audio_span() {
         let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let manifest_path = repo_root
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
@@ -14884,7 +14911,7 @@ mod tests {
 
         let mut current_sub_44dc = frame_930_sub_44dc;
         let mut current_vblank = frame_930_vblank;
-        for current_frame_index in 930..963 {
+        for current_frame_index in 930..964 {
             let current_frame = &trace[current_frame_index];
             let current_pre_hud = current_frame
                 .mode_level_work_before_hud_sub_44dc
@@ -15091,6 +15118,17 @@ mod tests {
                     probe.engine.master_clock(),
                     123_258_955 * 7,
                     "ASM frame 962 HUD/tail reaches exact frame-963 sub_E12",
+                );
+            }
+            if current_frame_index == 963 {
+                assert_eq!(
+                    (
+                        probe.engine.master_clock(),
+                        next_seed.refresh_phase.get(),
+                        probe.engine.pending_m68k_wait_cycles(),
+                    ),
+                    (123_387_260 * 7, 104, 0),
+                    "ASM frame 963 HUD/tail reaches exact frame-964 sub_E12",
                 );
             }
             let next_pre_hud = next_frame
@@ -15342,6 +15380,17 @@ mod tests {
                     M68kCycleCount::from_raw(24),
                     M68kCycleCount::from_raw(2_500),
                 )
+            } else if current_frame_index == 963 {
+                // ASM sub_E12 -> loc_7E6 -> sub_44DC, published TAS frame
+                // 964: selected PCs bound 123387260..123390454..123392994.
+                // Both oracle wait counters remain flat; the coarse refresh
+                // projection is 24 cycles short at this entry phase.
+                probe.continue_persistent_pre_hud_to_sub_44dc(
+                    next_seed,
+                    M68kCycleCount::from_raw(3_120),
+                    M68kCycleCount::from_raw(24),
+                    M68kCycleCount::from_raw(2_500),
+                )
             } else {
                 apply_gems_mode_level_pre_hud_to_sub_44dc(
                     &mut probe.engine,
@@ -15365,11 +15414,11 @@ mod tests {
                 probe.engine.pending_m68k_wait_cycles(),
             ),
             (
-                123_264_689 * 7,
-                M68kRefreshPhase::new(78).expect("oracle frame-963 sub_44DC phase"),
+                123_392_994 * 7,
+                M68kRefreshPhase::new(78).expect("oracle frame-964 sub_44DC phase"),
                 0,
             ),
-            "ASM frame 930..963 persistent schedule reaches exact frame-963 sub_44DC",
+            "ASM frame 930..964 persistent schedule reaches exact frame-964 sub_44DC",
         );
     }
 

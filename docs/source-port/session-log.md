@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 964)
+
+- Frame 964 selected PCs pin `loc_7D6` at 123,386,404 phase 16, `sub_E12` at
+  123,387,260 phase 104, and `sub_44DC` at 123,392,994 phase 78.
+- Its retained VBlank prefix is two CPU cycles short with the correct refresh
+  phase, so the post-frozen continuation source-positions `loc_7D6`.
+- Both oracle wait counters remain flat. The 3,120-raw execute projection
+  needs the same 24-cycle refresh correction as frame 963.
+- NEXT: type frame 965, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 963)
 
 - Frame 963 selected PCs pin `loc_7D6` at 123,258,099 phase 16, `sub_E12` at

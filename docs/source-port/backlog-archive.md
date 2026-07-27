@@ -4617,6 +4617,18 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 964 selected PCs pin `loc_7D6` at 123,386,404
+phase 16, `sub_E12` at 123,387,260 phase 104, `loc_7E6` at 123,390,454
+phase 98, and `sub_44DC` at 123,392,994 phase 78. The retained VBlank
+prefix is two CPU cycles short while its refresh phase is exact, so the
+post-frozen continuation source-positions the measured `loc_7D6` boundary.
+Both oracle wait counters then remain flat. As at frame 963, the 3,120-raw
+execute projection needs a 24-cycle refresh correction before the unchanged
+2,500-raw post-object path reaches the exact boundary.
+
+#406 remains open. NEXT: type frame 965 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 963 selected PCs pin `loc_7D6` at 123,258,099
 phase 16, `sub_E12` at 123,258,955 phase 104, `loc_7E6` at 123,262,149
 phase 98, and `sub_44DC` at 123,264,689 phase 78. Both oracle wait counters
