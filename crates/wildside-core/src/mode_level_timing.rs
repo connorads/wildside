@@ -3192,7 +3192,7 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
                 wall_collision: ModeLevelWallCollisionPath::Clear,
                 airborne_action: ModeLevelAirborneActionPath::NoButtons,
                 cyclone_visual_steps: None,
-                ceiling_scan_sub_914a: Some(_),
+                ceiling_scan_sub_914a: _,
             },
         ))
     ) && scan.row_count == 3
@@ -3207,9 +3207,10 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         && shooter.new_shooter_slots_registered == 0
     {
         // ASM sub_21F8 -> sub_DFB0 loc_EAE4 -> sub_F096 -> sub_44DC,
-        // published TAS frame 985. The one-column/three-row hitbox scan and
-        // cached shooter coordinates span 2,486 raw cycles from loc_7E6
-        // 126082789/phase 2 to sub_44DC 126085313/phase 94.
+        // published TAS frames 985-986. The one-column/three-row hitbox scan
+        // and cached shooter coordinates span 2,486 raw cycles. Frame 985's
+        // selected PCs bind loc_7E6 126082789/phase 2 to sub_44DC
+        // 126085313/phase 94.
         return Some(M68kCycleCount::from_raw(2_486));
     }
 

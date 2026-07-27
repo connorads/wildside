@@ -4617,6 +4617,18 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 986 reuses positive neutral braking through
+`sub_B084 loc_B0FE` and held-B gravity through `loc_B1E8`, but does not cross a
+ceiling row. Its one-column/three-row clear Gfx traversal gives a 4,056-raw
+callback and 7,172-raw complete Execute_Objects pass. The one-column/three-row
+`loc_EAE4` scan and cached `sub_F096` path retain 2,486 raw. Selected PCs pin
+`sub_E12` at 126,203,091 phase 104, `loc_7E6` at 126,210,377 phase 94, and
+`sub_44DC` at 126,212,903 phase 60. Frame 985's wait-free post-HUD path retains
+`loc_892` at 126,094,483 phase 48.
+
+#406 remains open. NEXT: type frame 987 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 985 exposes the missing positive neutral-brake state
 in `sub_B084 loc_B0FE`: X velocity `$EB80` becomes `$E780` after subtracting
 `$400`. The typed path continues through held-B `loc_B1E8`, a clear
