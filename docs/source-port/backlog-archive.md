@@ -4617,6 +4617,18 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 993 retains the three-row `loc_AA22` falling cling,
+4,260-raw callback, 7,834-raw Execute_Objects pass, and 2,588-raw post-execute
+path. Its oracle Z80 wait counter rises by 121 before `sub_E12`, 528 during
+Execute_Objects, and 198 before `sub_44DC`; the post-frozen continuation
+source-positions the 196-cycle suffix deficit and 318-cycle pre-HUD elapsed
+effect. Frame 992's wait-free post-HUD path retains `loc_892` at 127,007,202
+phase 70. Selected PCs pin `sub_E12` at 127,099,318 phase 108, `loc_7E6` at
+127,107,378 phase 104, and `sub_44DC` at 127,110,226 phase 8.
+
+#406 remains open. NEXT: type frame 994 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 992 continues the released-B `loc_AA22` right-wall
 cling with descending mapping state 3. Falling expands the clear Gfx scan from
 two rows to three, so consecutive `loc_E1E` boundaries grow the callback from

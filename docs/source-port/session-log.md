@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 993)
+
+- Frame 993 retains the three-row falling cling and source-positions its
+  post-frozen Z80 contention.
+- Its callback is 4,260 raw, Execute_Objects is 7,834 raw, and the post-execute
+  path is 2,588 raw plus a 318-cycle interleaving effect.
+- `sub_44DC` is exact at 127,110,226 phase 8.
+- NEXT: type frame 994, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 992)
 
 - Frame 992 continues the falling `loc_AA22` cling and expands the clear Gfx
