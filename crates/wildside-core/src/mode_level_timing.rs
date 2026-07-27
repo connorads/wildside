@@ -2289,6 +2289,32 @@ pub fn player_callback_cycles_loc_a73a(
         // bind the complete sub_E12 pass to 125691070..125698530.
         return Some(M68kCycleCount::from_raw(4_202));
     }
+    if matches!(
+        path,
+        crate::ModeLevelNormalPhysicsPath {
+            horizontal: ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
+            vertical: ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+            gfx_object_collision_clear: true,
+            vertical_collision: ModeLevelVerticalCollisionPath::Clear,
+            wall_collision: ModeLevelWallCollisionPath::Clear,
+            airborne_action: ModeLevelAirborneActionPath::NoButtons,
+            cyclone_visual_steps: None,
+            ceiling_scan_sub_914a: None,
+        }
+    ) && gfx_scan.bounds.left_col == 4
+        && gfx_scan.bounds.right_col == 4
+        && gfx_scan.bounds.top_row == 38
+        && gfx_scan.bounds.bottom_row == 39
+        && gfx_scan.tile_iterations == 2
+        && gfx_scan.first_collision.is_none()
+    {
+        // ASM loc_A73A -> sub_B084 -> sub_B168 -> sub_A4EE -> loc_A75A
+        // -> sub_902A -> sub_8F26 -> sub_B270 -> loc_A8D6, published TAS
+        // frame 984. Its one-column, two-row clear Gfx traversal spans 3,948
+        // source cycles from loc_A73A to sub_E76. Selected PCs bind the
+        // complete sub_E12 pass to 125947075..125954251.
+        return Some(M68kCycleCount::from_raw(3_948));
+    }
     if !path.gfx_object_collision_clear
         || !matches!(
             path.vertical,
@@ -3109,6 +3135,39 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         // cached sub_F096 path span 2,606 raw cycles. Selected PCs bind the
         // spans to 125570062..125572710 and 125698530..125701176.
         return Some(M68kCycleCount::from_raw(2_606));
+    }
+
+    if matches!(
+        ledger.execute_objects.executed_player_path,
+        Some(ModeLevelPlayerExecutionPath::NormalPhysics(
+            crate::ModeLevelNormalPhysicsPath {
+                horizontal: ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
+                vertical: ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                gfx_object_collision_clear: true,
+                vertical_collision: ModeLevelVerticalCollisionPath::Clear,
+                wall_collision: ModeLevelWallCollisionPath::Clear,
+                airborne_action: ModeLevelAirborneActionPath::NoButtons,
+                cyclone_visual_steps: None,
+                ceiling_scan_sub_914a: None,
+            },
+        ))
+    ) && scan.row_count == 4
+        && scan.col_count == 1
+        && scan.flagged_non_evanescent_cells_before_exit == 0
+        && shooter.cached_col_matches
+        && !shooter.cached_row_matches
+        && shooter.cached_col_before == 4
+        && shooter.cached_row_before == 40
+        && shooter.kid_block_col == 4
+        && shooter.kid_block_row == 39
+        && shooter.new_shooter_slots_registered == 0
+    {
+        // ASM sub_21F8 -> sub_DFB0 loc_EAE4 -> sub_F096 -> sub_44DC,
+        // published TAS frame 984. Kid's one-column/four-row hitbox scan and
+        // upward shooter-row transition span 3,214 raw cycles. Selected PCs
+        // bind loc_7E6/sub_DFB0/loc_EAE4/sub_F096/sub_44DC at
+        // 125954251/125954757/125955453/125956369/125957517.
+        return Some(M68kCycleCount::from_raw(3_214));
     }
 
     // ASM sub_DFB0 (kid.asm:17317) and loc_EAE4 (kid.asm:18858):

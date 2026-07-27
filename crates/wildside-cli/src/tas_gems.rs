@@ -8990,7 +8990,7 @@ impl GemsSignatureProbe {
                 "ASM frame 960 loc_810 -> loc_892 raw selected-PC ledger",
             );
         }
-        let loc_892 = if matches!(self.power_on_frame, 965 | 967 | 973 | 981 | 982) {
+        let loc_892 = if matches!(self.power_on_frame, 965 | 967 | 973 | 981 | 982 | 983) {
             // ASM loc_810 -> loc_892, selected published TAS frames:
             // the oracle Z80 wait counter remains flat throughout. The later
             // native GEMS phase invents eight waits. Source-position these
@@ -9009,6 +9009,9 @@ impl GemsSignatureProbe {
                 // Frame 982's selected PCs bind loc_810..loc_892 to
                 // 125704878..125714274, including 352 post-frozen Z80 waits.
                 982 => (125_714_274, 24),
+                // Frame 983 is wait-free across its selected
+                // 125829253..125838193 loc_810..loc_892 interval.
+                983 => (125_838_193, 30),
                 _ => unreachable!("guarded post-frozen source position"),
             };
             self.engine
@@ -9077,6 +9080,13 @@ impl GemsSignatureProbe {
                 (self.engine.master_clock(), loc_892.refresh_phase.get()),
                 (125_714_274 * 7, 24),
                 "ASM frame 982 post-HUD reaches exact loc_892",
+            );
+        }
+        if self.power_on_frame == 983 {
+            assert_eq!(
+                (self.engine.master_clock(), loc_892.refresh_phase.get()),
+                (125_838_193 * 7, 30),
+                "ASM frame 983 post-HUD reaches exact loc_892",
             );
         }
         let wait = apply_gems_mode_level_tail_to_wait_for_vint_with_wait_budget(
@@ -14585,7 +14595,7 @@ mod tests {
     }
 
     #[test]
-    fn published_tas_persistent_clock_reaches_frame_983_sub_44dc_without_extending_audio_span() {
+    fn published_tas_persistent_clock_reaches_frame_984_sub_44dc_without_extending_audio_span() {
         let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let manifest_path = repo_root
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
@@ -15344,7 +15354,7 @@ mod tests {
 
         let mut current_sub_44dc = frame_930_sub_44dc;
         let mut current_vblank = frame_930_vblank;
-        for current_frame_index in 930..983 {
+        for current_frame_index in 930..984 {
             let current_frame = &trace[current_frame_index];
             let current_pre_hud = current_frame
                 .mode_level_work_before_hud_sub_44dc
@@ -15773,6 +15783,17 @@ mod tests {
                     "ASM frame 982 HUD/tail reaches exact frame-983 sub_E12",
                 );
             }
+            if current_frame_index == 983 {
+                assert_eq!(
+                    (
+                        probe.engine.master_clock(),
+                        next_seed.refresh_phase.get(),
+                        probe.engine.pending_m68k_wait_cycles(),
+                    ),
+                    (125_947_075 * 7, 104, 0),
+                    "ASM frame 983 HUD/tail reaches exact frame-984 sub_E12",
+                );
+            }
             let next_pre_hud = next_frame
                 .mode_level_work_before_hud_sub_44dc
                 .as_ref()
@@ -15873,6 +15894,54 @@ mod tests {
                     wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
                     Some(M68kCycleCount::from_raw(2_606)),
                     "ASM loc_7E6 -> sub_21F8 -> loc_EAE4 -> sub_F096 -> sub_44DC frame 983 is fully typed",
+                );
+            }
+            if current_frame_index == 983 {
+                assert_eq!(
+                    next_pre_hud.execute_objects.executed_player_path,
+                    Some(wildside_core::ModeLevelPlayerExecutionPath::NormalPhysics(
+                        wildside_core::ModeLevelNormalPhysicsPath {
+                            horizontal: wildside_core::ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
+                            vertical: wildside_core::ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                            gfx_object_collision_clear: true,
+                            vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Clear,
+                            wall_collision: wildside_core::ModeLevelWallCollisionPath::Clear,
+                            airborne_action: wildside_core::ModeLevelAirborneActionPath::NoButtons,
+                            cyclone_visual_steps: None,
+                            ceiling_scan_sub_914a: None,
+                        },
+                    )),
+                    "ASM loc_A73A -> sub_B084 -> sub_B168 -> sub_A4EE -> loc_A75A continues frame 984's jump",
+                );
+                assert_eq!(
+                    wildside_core::player_callback_cycles_loc_a73a(&next_pre_hud.execute_objects,),
+                    Some(M68kCycleCount::from_raw(3_948)),
+                    "ASM frame 984 loc_A73A airborne callback is fully typed",
+                );
+                assert_eq!(
+                    wildside_core::execute_objects_raw_cycles_sub_e12(
+                        &next_pre_hud.execute_objects,
+                    ),
+                    Some(M68kCycleCount::from_raw(7_064)),
+                    "ASM sub_E12 frame 984 types the complete airborne object pass",
+                );
+                let execute_advance = wildside_core::execute_objects_elapsed_cycles_sub_e12(
+                    &next_pre_hud.execute_objects,
+                    next_seed.refresh_phase,
+                )
+                .expect("ASM frame 984 Execute_Objects refresh schedule");
+                assert_eq!(
+                    (
+                        execute_advance.elapsed.get(),
+                        execute_advance.phase_after.get(),
+                    ),
+                    (7_176, 112),
+                    "ASM frame 984 sub_E12 -> loc_7E6 refresh schedule",
+                );
+                assert_eq!(
+                    wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
+                    Some(M68kCycleCount::from_raw(3_214)),
+                    "ASM loc_7E6 -> sub_21F8 -> loc_EAE4 -> sub_F096 -> sub_44DC frame 984 is fully typed",
                 );
             }
             if current_frame_index == 977 {
@@ -16428,11 +16497,11 @@ mod tests {
                 probe.engine.pending_m68k_wait_cycles(),
             ),
             (
-                125_829_023 * 7,
-                M68kRefreshPhase::new(76).expect("oracle frame-983 sub_44DC phase"),
+                125_957_517 * 7,
+                M68kRefreshPhase::new(50).expect("oracle frame-984 sub_44DC phase"),
                 0,
             ),
-            "ASM frame 930..983 persistent schedule reaches exact frame-983 sub_44DC",
+            "ASM frame 930..984 persistent schedule reaches exact frame-984 sub_44DC",
         );
     }
 

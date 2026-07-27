@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 984)
+
+- Frame 984's airborne clear Gfx scan narrows to one column by two rows.
+- Its callback is 3,948 raw and Execute_Objects is 7,064 raw. The upward
+  shooter-row transition makes the post-execute path 3,214 raw.
+- `sub_44DC` is exact at 125,957,517 phase 50 with flat oracle wait counters.
+- NEXT: type frame 985, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 983)
 
 - Frame 983 repeats ASM `loc_A73A -> sub_B084 -> sub_B168 -> sub_A4EE`.

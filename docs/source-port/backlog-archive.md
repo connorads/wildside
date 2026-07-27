@@ -4617,6 +4617,19 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 984 stays airborne through `loc_A73A -> sub_B084 ->
+sub_B168 -> sub_A4EE -> loc_A75A`, but its clear Gfx scan narrows to one column
+by two rows. Selected PCs pin that callback at 3,948 raw cycles and the complete
+Execute_Objects pass at 7,064 raw. `sub_21F8` installs a one-column/four-row
+hitbox scan; `sub_F096` sees cached column 4 but an upward row transition from
+40 to 39. Their complete post-execute path is 3,214 raw. Selected PCs pin
+`sub_E12` at 125,947,075 phase 104, `loc_7E6` at 125,954,251 phase 112, and
+`sub_44DC` at 125,957,517 phase 50. Frame 983's wait-free post-HUD path retains
+its selected `loc_892` boundary at 125,838,193 phase 30.
+
+#406 remains open. NEXT: type frame 985 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 983 stays on `loc_A73A -> sub_B084 -> sub_B168 ->
 sub_A4EE -> loc_A75A`. The existing airborne classifier derives the measured
 4,064-raw callback, 7,194-raw Execute_Objects pass, and 2,606-raw post-execute
