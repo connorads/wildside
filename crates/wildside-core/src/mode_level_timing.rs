@@ -2472,14 +2472,6 @@ pub fn player_callback_cycles_sub_e12(
             // dispatches; remove the shared 426-cycle scheduler shell.
             Some(M68kCycleCount::from_raw(4_268))
         }
-        ModeLevelPlayerExecutionPath::PullUpAnimationHibernateLoc1062 {
-            form: crate::PlayerForm::TheKid,
-            ..
-        } => {
-            // ASM loc_1062 -> sub_E76: frame 958 spans 430 raw cycles
-            // between loc_E1E dispatches. The shared scheduler shell is 426.
-            Some(M68kCycleCount::from_raw(4))
-        }
         ModeLevelPlayerExecutionPath::NormalPhysics(_)
         | ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 { .. } => {
             player_callback_cycles_loc_a73a(execute)
@@ -2903,33 +2895,6 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         }) => Some(2_462),
         _ => None,
     };
-    let pull_up_hibernate_post_raw = matches!(
-        ledger.execute_objects.executed_player_path,
-        Some(
-            ModeLevelPlayerExecutionPath::PullUpAnimationHibernateLoc1062 {
-                form: crate::PlayerForm::TheKid,
-                remaining_frames: 20,
-            }
-        )
-    );
-    if pull_up_hibernate_post_raw
-        && scan.row_count == 4
-        && scan.col_count == 2
-        && scan.flagged_non_evanescent_cells_before_exit == 1
-        && shooter.cached_col_before == 4
-        && shooter.cached_row_before == 40
-        && shooter.cached_col_matches
-        && shooter.cached_row_matches
-        && shooter.kid_block_col == 4
-        && shooter.kid_block_row == 40
-        && shooter.new_shooter_slots_registered == 0
-    {
-        // ASM frame 958 loc_7E6 -> sub_DFB0 -> loc_EAE4 -> sub_F096 ->
-        // sub_44DC: selected PCs measure 2,540 elapsed cycles with 40
-        // refresh waits, leaving 2,500 raw. sub_DFB0 reaches loc_EAE4 in
-        // 562 raw cycles while loc_1062 keeps Kid stationary.
-        return Some(M68kCycleCount::from_raw(2_500));
-    }
     if grounded_post_raw.is_some()
         && scan.row_count == 4
         && scan.col_count == 2

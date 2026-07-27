@@ -4617,6 +4617,33 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: selected-PC tracing pins the unfrozen frame-958 tail at
+`WaitForVint` cycle 122,645,157 phase 40, `Mode_Level loc_7C8` cycle
+122,739,140 phase 71, and the completed frame-959 `loc_30104 -> loc_7D6`
+handoff at cycle 122,746,448 phase 27. These CPU/VDP boundaries remain
+source-positioned without extending the frozen frame-923 GEMS-signature
+witness. Frame 959 then repeats `Hibernate_UntilAnimFinished loc_1062` with
+19 animation frames remaining. Its `sub_E12 -> loc_7E6` source path costs
+3,120 raw cycles and 50 refresh cycles. Over the same selected-PC interval,
+the oracle's Z80 wait counter rises from 760,474 to 760,760, proving 286
+external GEMS waits and the exact elapsed cost of 3,456 cycles. The stationary
+`loc_7E6 -> sub_44DC` path costs 2,500 raw plus 40 refresh cycles. Frame 959
+reaches `sub_44DC` at cycle 122,753,423, refresh phase 90, with no pending
+wait. The measured frame-958/959 post-object spans remain confined to the
+post-frame-923 continuation: widening the shared pull-up classifier also
+matched frame 909 and regressed the frozen GEMS witness. The corrected 28x29
+pull-up sprite schedule legitimately changes the native sampled GEMS phase
+over frames 909..922 while every selected CPU boundary, bank and wait remains
+pinned. Exact refreshed signatures classify all 20 strict frame-900..922
+differences as the existing X/Y oracle limitation, with zero genuine
+mismatches and three advisory-only frames; the frozen frontier stays at 923.
+Two former strict limitations now differ only in advisory hardware counters,
+so the full classification counts improve from 887/36 to 885/38 while the
+strict mismatch count, first frame and digest remain unchanged.
+
+#406 remains open. NEXT: type frame 960 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 958 resumes `Hibernate_UntilAnimFinished` at
 `loc_1062`; the active `stru_8BB4` pull-up animation immediately hibernates
 again. The player callback costs four raw cycles outside the shared

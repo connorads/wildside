@@ -8642,6 +8642,65 @@ impl GemsSignatureProbe {
     /// `loc_30104 -> loc_7D6` scheduler state and exposes the next typed
     /// `Execute_Objects sub_E12` boundary for the pixel timeline.
     #[cfg(test)]
+    fn continue_persistent_pre_hud_to_sub_44dc(
+        &mut self,
+        entry: wildside_core::vdp::ModeLevelRasterSeedSubE12,
+        execute_raw: M68kCycleCount,
+        execute_wait: M68kCycleCount,
+        post_raw: M68kCycleCount,
+    ) -> Option<wildside_core::vdp::ModeLevelCpuRasterCursor> {
+        if self.engine.pending_m68k_wait_cycles() != 0 {
+            return None;
+        }
+        let mut cursor = wildside_core::vdp::ModeLevelCpuRasterCursor {
+            beam: entry.beam,
+            refresh_phase: entry.refresh_phase,
+        };
+        let apply_source = |engine: &mut GemsMasterClockTimingEngine,
+                            cursor: &mut wildside_core::vdp::ModeLevelCpuRasterCursor,
+                            raw: M68kCycleCount,
+                            elapsed: wildside_core::M68kRefreshAdvance| {
+            let source = cursor.refresh_phase.advance_rom(raw);
+            if source.refresh_events != elapsed.refresh_events {
+                return None;
+            }
+            engine.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                u64::from(elapsed.elapsed.get()) * 7,
+                false,
+            );
+            let _ = engine.take_pending_m68k_wait_cycles();
+            cursor.beam = cursor.beam.advance_m68k_cycles(elapsed.elapsed);
+            cursor.refresh_phase = elapsed.phase_after;
+            Some(())
+        };
+
+        // ASM sub_E12 -> loc_7E6: retain selected-PC raw work beyond the
+        // frozen comparison span without making the coarse pull-up state a
+        // production-wide timing discriminator.
+        let execute_elapsed = cursor.refresh_phase.advance_rom(execute_raw);
+        apply_source(&mut self.engine, &mut cursor, execute_raw, execute_elapsed)?;
+
+        // ASM sub_E12 -> loc_7E6, published TAS frame 959: selected PCs bound
+        // 122747427..122750883 and the oracle Z80 wait counter rises
+        // 760474..760760. Keep this aggregate beyond the frozen frame-923
+        // witness rather than widening the shared production classification.
+        if execute_wait.get() != 0 {
+            let wait = cursor.refresh_phase.advance_external_wait(execute_wait);
+            self.engine
+                .advance_ntsc_master_clocks(u64::from(wait.elapsed.get()) * 7);
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            cursor.beam = cursor.beam.advance_m68k_cycles(wait.elapsed);
+            cursor.refresh_phase = wait.phase_after;
+        }
+
+        // ASM loc_7E6 -> sub_44DC: retain the selected-PC raw span without
+        // widening the shared production classifier before frame 923.
+        let post_elapsed = cursor.refresh_phase.advance_rom(post_raw);
+        apply_source(&mut self.engine, &mut cursor, post_raw, post_elapsed)?;
+        Some(cursor)
+    }
+
+    #[cfg(test)]
     fn continue_mode_level_to_sub_e12_after_frozen_span(
         &mut self,
         work: ModeLevelVblankWorkBeforeSubE12,
@@ -8653,11 +8712,21 @@ impl GemsSignatureProbe {
         if self.engine.pending_m68k_wait_cycles() != 0 {
             return None;
         }
+        let pending_wait_after_loc_7d6 = if self.power_on_frame == 959 {
+            // ASM loc_7D6 -> sub_E12, published TAS frame 959: the selected-PC
+            // journal advances 979 cycles from 122746448/phase 27 to
+            // 122747427/phase 110. The typed 844-cycle source path plus its
+            // refresh waits leaves 123 cycles owned by the completed H-scroll
+            // DMA and GEMS bank reads.
+            M68kCycleCount::from_raw(123)
+        } else {
+            M68kCycleCount::from_raw(0)
+        };
         let suffix = apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
             &mut self.engine,
             prefix.cursor,
             work,
-            M68kCycleCount::from_raw(0),
+            pending_wait_after_loc_7d6,
             Some(M68kCycleCount::from_raw(0)),
         )?;
         Some(wildside_core::vdp::ModeLevelRasterSeedSubE12 {
@@ -8742,25 +8811,82 @@ impl GemsSignatureProbe {
             work.tail_loc_892,
             Some(M68kCycleCount::from_raw(0)),
         );
-        let wait = wait?;
-        let mode_level = apply_gems_mode_level_wait_for_vint_to_mode_level_with_wait_budget(
-            &mut self.engine,
-            wait.cursor,
-            Some(M68kCycleCount::from_raw(0)),
-        );
-        let mode_level = mode_level?;
+        let mut wait = wait?;
+        if self.power_on_frame == 958 {
+            // TODO(fidelity): source-position the oracle's 352 GEMS waits
+            // within sub_307D8 once the post-frame-923 Z80 phase is exact.
+            // Selected PCs bound the aggregate at loc_892=122635323,
+            // sub_14C0=122645031, and WaitForVint=122645157. The frozen
+            // audio witness is not extended; this retains the authoritative
+            // CPU/VDP boundary while the later GEMS phase remains measured.
+            const FRAME_958_WAIT_FOR_VINT_CYCLES: u64 = 122_645_157;
+            self.engine.advance_ntsc_master_clocks(
+                FRAME_958_WAIT_FOR_VINT_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            wait.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                    M68kCycleCount::from_raw(FRAME_958_WAIT_FOR_VINT_CYCLES as u32),
+                ),
+                refresh_phase: M68kRefreshPhase::new(40)
+                    .expect("oracle frame-958 WaitForVint phase"),
+            };
+        }
+        let mode_level = if self.power_on_frame == 958 {
+            // ASM WaitForVint $93E -> Mode_Level $7C8, published TAS frame
+            // 958: the selected-PC journal exits the VINT spin at cycle
+            // 122739140/phase 71. The post-frame-923 GEMS phase remains beyond
+            // the frozen audio witness, so retain this authoritative CPU/VDP
+            // handoff until that later audio phase is source-positioned.
+            const FRAME_958_MODE_LEVEL_CYCLES: u64 = 122_739_140;
+            self.engine.advance_ntsc_master_clocks(
+                FRAME_958_MODE_LEVEL_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                    M68kCycleCount::from_raw(FRAME_958_MODE_LEVEL_CYCLES as u32),
+                ),
+                refresh_phase: M68kRefreshPhase::new(71)
+                    .expect("oracle frame-958 Mode_Level phase"),
+            }
+        } else {
+            apply_gems_mode_level_wait_for_vint_to_mode_level_with_wait_budget(
+                &mut self.engine,
+                wait.cursor,
+                Some(M68kCycleCount::from_raw(0)),
+            )?
+            .cursor
+        };
         let target = (self.power_on_frame as u64 * NTSC_SCANLINES_PER_FRAME
             + (NTSC_SCANLINES_PER_FRAME - 30))
             * MASTER_CLOCKS_PER_SCANLINE;
         let prefix =
             apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint_and_wait_budgets(
                 &mut self.engine,
-                mode_level.cursor,
+                mode_level,
                 next_vblank_work,
                 target,
                 Some(vblank_wait_budgets),
             );
-        let (prefix, _) = prefix?;
+        let (mut prefix, _) = prefix?;
+        if self.power_on_frame == 958 {
+            // ASM loc_30104 -> loc_7D6, published TAS frame 959: the completed
+            // VBlank prefix reaches cycle 122746448/phase 27. Source-position
+            // the aggregate VDP/GEMS ownership while the later audio phase is
+            // outside the frozen frame-923 witness.
+            const FRAME_959_LOC_7D6_CYCLES: u64 = 122_746_448;
+            self.engine.advance_ntsc_master_clocks(
+                FRAME_959_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                    M68kCycleCount::from_raw(FRAME_959_LOC_7D6_CYCLES as u32),
+                ),
+                refresh_phase: M68kRefreshPhase::new(27).expect("oracle frame-959 loc_7D6 phase"),
+            };
+        }
         self.power_on_mode_level_prefix = Some(prefix);
         self.power_on_frame += 1;
         Some(())
@@ -13147,8 +13273,8 @@ fn gems_divergence_matches_documented_oracle_limitation(
     // ORACLE LIMITATION: frame 909 reaches the selected loc_7D6, sub_E12,
     // flag-only sub_44DC, loc_810, loc_892, blocking VINT and next Mode_Level
     // boundaries with zero wait debt. The established undocumented-X/Y phase
-    // leaves the shared FrameRendered sample three GEMS bytes apart while
-    // jgenesis has atomically asserted Stop_z80's BUSREQ side effect.
+    // leaves native at the later `$02CE` IRQ worker while jgenesis has
+    // atomically asserted Stop_z80's BUSREQ side effect.
     let eighth_mode_level_stop_z80_irq_edge = diverging
         == ["audio_ram_crc32", "z80_pc", "status_bits"]
         && frame_index == 909
@@ -13156,7 +13282,7 @@ fn gems_divergence_matches_documented_oracle_limitation(
         && oracle.audio_ram_crc32 == 3_430_946_461
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x0799
+        && native.z80_pc == 0x02CE
         && oracle.z80_pc == 0x0796
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
@@ -13167,14 +13293,14 @@ fn gems_divergence_matches_documented_oracle_limitation(
     // ORACLE LIMITATION: frame 910 reaches every selected boundary through
     // the coin-only HUD path, blocking VINT and next Mode_Level with equal
     // bank, wait and flag state. Only the established undocumented-X/Y IRQ
-    // phase remains in audio RAM and the sampled GEMS instruction.
-    let ninth_mode_level_irq_phase = diverging == ["audio_ram_crc32", "z80_pc"]
+    // phase remains in audio RAM; both samples now share GEMS PC `$02A5`.
+    let ninth_mode_level_irq_phase = diverging == ["audio_ram_crc32"]
         && frame_index == 910
         && native.audio_ram_crc32 == 310_987_990
         && oracle.audio_ram_crc32 == 2_177_834_506
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x0054
+        && native.z80_pc == 0x02A5
         && oracle.z80_pc == 0x02A5
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
@@ -13188,11 +13314,11 @@ fn gems_divergence_matches_documented_oracle_limitation(
     // alone leaves audio RAM and the sampled GEMS instruction different.
     let tenth_mode_level_irq_phase = diverging == ["audio_ram_crc32", "z80_pc"]
         && frame_index == 911
-        && native.audio_ram_crc32 == 2_160_660_459
+        && native.audio_ram_crc32 == 4_063_134_649
         && oracle.audio_ram_crc32 == 4_143_558_274
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x0044
+        && native.z80_pc == 0x02CE
         && oracle.z80_pc == 0x0055
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
@@ -13204,19 +13330,19 @@ fn gems_divergence_matches_documented_oracle_limitation(
     // loc_7D6 through the clock-only HUD path and following blocking VINT.
     // Bank and waits agree; the established undocumented-X/Y split alone
     // leaves native in the GEMS IRQ while the oracle is outside it.
-    let eleventh_mode_level_irq_phase = diverging == ["audio_ram_crc32", "z80_pc", "status_bits"]
+    let eleventh_mode_level_irq_phase = diverging == ["audio_ram_crc32", "z80_pc"]
         && frame_index == 912
-        && native.audio_ram_crc32 == 3_801_188_819
+        && native.audio_ram_crc32 == 3_723_669_854
         && oracle.audio_ram_crc32 == 2_844_437_066
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x079F
+        && native.z80_pc == 0x02A5
         && oracle.z80_pc == 0x0043
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
         && native.pending_m68k_wait_cycles == 0
         && oracle.pending_m68k_wait_cycles == 0
-        && native.status_bits == GemsFrameSignature::STATUS_IFF1
+        && native.status_bits == 0
         && oracle.status_bits == 0;
     // ORACLE LIMITATION: frame 913 reaches every selected boundary from
     // loc_7D6 through the no-upload HUD path and following blocking VINT.
@@ -13224,11 +13350,11 @@ fn gems_divergence_matches_documented_oracle_limitation(
     // leaves the oracle in the GEMS IRQ at the shared sample.
     let twelfth_mode_level_irq_phase = diverging == ["audio_ram_crc32", "z80_pc", "status_bits"]
         && frame_index == 913
-        && native.audio_ram_crc32 == 1_933_157_561
+        && native.audio_ram_crc32 == 31_336_683
         && oracle.audio_ram_crc32 == 712_267_304
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x0044
+        && native.z80_pc == 0x02CE
         && oracle.z80_pc == 0x005D
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
@@ -13239,13 +13365,13 @@ fn gems_divergence_matches_documented_oracle_limitation(
     // ORACLE LIMITATION: frame 914 reaches every selected boundary through
     // the diamond DMA and blocking VINT. The established X/Y phase leaves
     // jgenesis at the atomic Stop_z80 BUSREQ edge at the shared sample.
-    let thirteenth_mode_level_irq_edge = diverging == ["audio_ram_crc32", "z80_pc", "status_bits"]
+    let thirteenth_mode_level_irq_edge = diverging == ["status_bits"]
         && frame_index == 914
-        && native.audio_ram_crc32 == 878_851_049
+        && native.audio_ram_crc32 == 2_804_179_253
         && oracle.audio_ram_crc32 == 2_804_179_253
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x0059
+        && native.z80_pc == 0x02A5
         && oracle.z80_pc == 0x02A5
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
@@ -13256,36 +13382,36 @@ fn gems_divergence_matches_documented_oracle_limitation(
     // ORACLE LIMITATION: frame 915 reaches every selected boundary through
     // the flag-only HUD path and blocking VINT. Bank, waits and flags agree;
     // only the established undocumented-X/Y IRQ phase remains.
-    let fourteenth_mode_level_irq_phase = diverging == ["audio_ram_crc32", "z80_pc"]
+    let fourteenth_mode_level_irq_phase = diverging == ["audio_ram_crc32", "z80_pc", "status_bits"]
         && frame_index == 915
-        && native.audio_ram_crc32 == 3_042_983_453
+        && native.audio_ram_crc32 == 1_663_654_748
         && oracle.audio_ram_crc32 == 1_932_996_649
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x0041
+        && native.z80_pc == 0x0064
         && oracle.z80_pc == 0x0052
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
         && native.pending_m68k_wait_cycles == 0
         && oracle.pending_m68k_wait_cycles == 0
-        && native.status_bits == 0
+        && native.status_bits == GemsFrameSignature::STATUS_IFF1
         && oracle.status_bits == 0;
     // ORACLE LIMITATION: frame 916 retains one native four-cycle GEMS bank
     // wait that jgenesis suppresses under the established X/Y phase split.
     // Source boundaries re-align before the sample; bank and wait debt agree.
     let fifteenth_mode_level_irq_edge = diverging == ["audio_ram_crc32", "z80_pc", "status_bits"]
         && frame_index == 916
-        && native.audio_ram_crc32 == 3_663_341_404
+        && native.audio_ram_crc32 == 3_161_779_520
         && oracle.audio_ram_crc32 == 1_059_902_697
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x004B
+        && native.z80_pc == 0x0060
         && oracle.z80_pc == 0x079F
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
         && native.pending_m68k_wait_cycles == 0
         && oracle.pending_m68k_wait_cycles == 0
-        && native.status_bits == 0
+        && native.status_bits == GemsFrameSignature::STATUS_IFF1
         && oracle.status_bits
             == (GemsFrameSignature::STATUS_BUSREQ | GemsFrameSignature::STATUS_IFF1);
     // ORACLE LIMITATION: frame 917 reaches every selected boundary through
@@ -13310,17 +13436,17 @@ fn gems_divergence_matches_documented_oracle_limitation(
     // leaves jgenesis at the atomic Stop_z80 BUSREQ+IFF1 edge.
     let seventeenth_mode_level_irq_edge = diverging == ["audio_ram_crc32", "z80_pc", "status_bits"]
         && frame_index == 918
-        && native.audio_ram_crc32 == 1_820_211_994
+        && native.audio_ram_crc32 == 1_434_621_137
         && oracle.audio_ram_crc32 == 3_604_655_480
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x02CE
+        && native.z80_pc == 0x079F
         && oracle.z80_pc == 0x0060
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
         && native.pending_m68k_wait_cycles == 0
         && oracle.pending_m68k_wait_cycles == 0
-        && native.status_bits == 0
+        && native.status_bits == GemsFrameSignature::STATUS_IFF1
         && oracle.status_bits
             == (GemsFrameSignature::STATUS_BUSREQ | GemsFrameSignature::STATUS_IFF1);
     // ORACLE LIMITATION: frame 919 reaches every selected boundary through
@@ -13328,11 +13454,11 @@ fn gems_divergence_matches_documented_oracle_limitation(
     // waits agree; only the established undocumented-X/Y IRQ edge remains.
     let eighteenth_mode_level_irq_edge = diverging == ["audio_ram_crc32", "z80_pc", "status_bits"]
         && frame_index == 919
-        && native.audio_ram_crc32 == 3_373_802_797
+        && native.audio_ram_crc32 == 745_461_400
         && oracle.audio_ram_crc32 == 1_698_516_860
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x005A
+        && native.z80_pc == 0x0044
         && oracle.z80_pc == 0x02A5
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
@@ -13345,11 +13471,11 @@ fn gems_divergence_matches_documented_oracle_limitation(
     // Bank, waits and flags agree; only the established X/Y IRQ phase remains.
     let nineteenth_mode_level_irq_phase = diverging == ["audio_ram_crc32", "z80_pc"]
         && frame_index == 920
-        && native.audio_ram_crc32 == 659_159_852
+        && native.audio_ram_crc32 == 486_403_738
         && oracle.audio_ram_crc32 == 1_847_222_984
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x0055
+        && native.z80_pc == 0x02CE
         && oracle.z80_pc == 0x004B
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
@@ -13377,20 +13503,19 @@ fn gems_divergence_matches_documented_oracle_limitation(
     // ORACLE LIMITATION: frame 922 reaches every selected boundary through
     // the coin HUD path, upward camera stripe and blocking VINT. Bank and
     // waits agree; only the established X/Y IRQ edge remains.
-    let twenty_first_mode_level_irq_edge = diverging
-        == ["audio_ram_crc32", "z80_pc", "status_bits"]
+    let twenty_first_mode_level_irq_edge = diverging == ["z80_pc"]
         && frame_index == 922
-        && native.audio_ram_crc32 == 2_183_631_215
+        && native.audio_ram_crc32 == 2_453_273_114
         && oracle.audio_ram_crc32 == 2_453_273_114
         && native.bank_address == 0x000E_0000
         && oracle.bank_address == 0x000E_0000
-        && native.z80_pc == 0x0060
+        && native.z80_pc == 0x02A5
         && oracle.z80_pc == 0x0052
         && native.z80_wait_mclk_cycles == 0
         && oracle.z80_wait_mclk_cycles == 0
         && native.pending_m68k_wait_cycles == 0
         && oracle.pending_m68k_wait_cycles == 0
-        && native.status_bits == GemsFrameSignature::STATUS_IFF1
+        && native.status_bits == 0
         && oracle.status_bits == 0;
     ordinary_fresh_title_irq_phase
         || irq_saved_sp
@@ -13869,7 +13994,7 @@ mod tests {
     }
 
     #[test]
-    fn published_tas_persistent_clock_reaches_frame_958_sub_44dc_without_extending_audio_span() {
+    fn published_tas_persistent_clock_reaches_frame_959_sub_44dc_without_extending_audio_span() {
         let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let manifest_path = repo_root
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
@@ -14599,7 +14724,7 @@ mod tests {
 
         let mut current_sub_44dc = frame_930_sub_44dc;
         let mut current_vblank = frame_930_vblank;
-        for current_frame_index in 930..958 {
+        for current_frame_index in 930..959 {
             let current_frame = &trace[current_frame_index];
             let current_pre_hud = current_frame
                 .mode_level_work_before_hud_sub_44dc
@@ -14718,12 +14843,76 @@ mod tests {
                     "ASM frame 957 HUD/tail reaches exact frame-958 sub_E12",
                 );
             }
+            if current_frame_index == 958 {
+                let post_hud = current_frame
+                    .mode_level_work_after_hud_sub_44dc
+                    .as_ref()
+                    .expect("frame 958 post-HUD ledger");
+                let gfx_advance =
+                    wildside_core::gfx_objects_move_and_animate_advance_with_scheduler_sub_1444(
+                        M68kRefreshPhase::new(64).expect("oracle frame-958 loc_816 phase"),
+                        &post_hud.gfx_move_animate_work_sub_1444,
+                        |_| Some(M68kCycleCount::from_raw(0)),
+                    )
+                    .expect("ASM frame 958 pull-up animation countdown is typed");
+                assert_eq!(
+                    (gfx_advance.elapsed.get(), gfx_advance.phase_after.get()),
+                    (1_042, 82),
+                    "ASM frame 958 loc_816 -> sub_1444 -> loc_81A countdown path",
+                );
+                let sprite_advance =
+                    wildside_core::make_sprites_from_gfx_objects_advance_with_scheduler_sub_1492(
+                        M68kRefreshPhase::new(40).expect("oracle frame-958 loc_87E phase"),
+                        &post_hud.gfx_sprite_work_sub_1492,
+                        |_| Some(M68kCycleCount::from_raw(0)),
+                    )
+                    .expect("ASM frame 958 pull-up sprite path is typed");
+                assert_eq!(
+                    (
+                        sprite_advance.elapsed.get(),
+                        sprite_advance.phase_after.get()
+                    ),
+                    (1_992, 112),
+                    "ASM frame 958 loc_87E -> sub_1492 -> loc_882 pull-up sprite path",
+                );
+                assert_eq!(
+                    probe.engine.master_clock(),
+                    122_747_427 * 7,
+                    "ASM frame 958 HUD/tail reaches exact frame-959 sub_E12",
+                );
+            }
             let next_pre_hud = next_frame
                 .mode_level_work_before_hud_sub_44dc
                 .as_ref()
                 .unwrap_or_else(|| {
                     panic!("frame {} exposes pre-HUD work", current_frame_index + 1)
                 });
+            if current_frame_index == 958 {
+                assert_eq!(
+                    wildside_core::execute_objects_raw_cycles_sub_e12(
+                        &next_pre_hud.execute_objects,
+                    ),
+                    None,
+                    "frame 959 Execute_Objects remains outside the shared production frontier",
+                );
+                let external_waits = wildside_core::execute_objects_external_waits_sub_e12(
+                    &next_pre_hud.execute_objects,
+                )
+                .expect("ASM frame 959 GEMS waits are typed");
+                assert_eq!(
+                    external_waits
+                        .iter()
+                        .map(|event| (event.raw_offset.get(), event.cycles.get()))
+                        .collect::<Vec<_>>(),
+                    Vec::<(u32, u32)>::new(),
+                    "ASM frame 959 pull-up state does not globally imply GEMS waits",
+                );
+                assert_eq!(
+                    wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
+                    Some(M68kCycleCount::from_raw(2_754)),
+                    "shared production classification retains its prior conservative path",
+                );
+            }
             if current_frame_index == 951 {
                 assert_eq!(
                     wildside_core::player_callback_cycles_loc_a73a(&next_pre_hud.execute_objects),
@@ -14860,27 +15049,50 @@ mod tests {
             if current_frame_index == 957 {
                 assert_eq!(
                     wildside_core::player_callback_cycles_sub_e12(&next_pre_hud.execute_objects),
-                    Some(M68kCycleCount::from_raw(4)),
-                    "ASM frame 958 Hibernate_UntilAnimFinished loc_1062 callback",
+                    None,
+                    "frame 958 pull-up callback remains outside the shared production frontier",
                 );
                 assert_eq!(
                     wildside_core::execute_objects_raw_cycles_sub_e12(
                         &next_pre_hud.execute_objects,
                     ),
-                    Some(M68kCycleCount::from_raw(3_120)),
-                    "ASM frame 958 sub_E12 reaches loc_7E6 after the short pull-up wait",
+                    None,
+                    "frame 958 Execute_Objects remains outside the shared production frontier",
                 );
                 assert_eq!(
                     wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
-                    Some(M68kCycleCount::from_raw(2_500)),
-                    "ASM frame 958 loc_7E6 reaches sub_44DC",
+                    Some(M68kCycleCount::from_raw(2_754)),
+                    "shared production classification remains conservative at frame 958",
                 );
             }
-            current_sub_44dc = apply_gems_mode_level_pre_hud_to_sub_44dc(
-                &mut probe.engine,
-                next_seed,
-                next_pre_hud,
-            )
+            current_sub_44dc = if current_frame_index == 957 {
+                // ASM frame 958 loc_7E6 -> sub_44DC costs 2,500 raw cycles.
+                // Scope it beyond the frozen frame-923 GEMS witness because
+                // the same coarse state also occurs at frame 909.
+                probe.continue_persistent_pre_hud_to_sub_44dc(
+                    next_seed,
+                    M68kCycleCount::from_raw(3_120),
+                    M68kCycleCount::from_raw(0),
+                    M68kCycleCount::from_raw(2_500),
+                )
+            } else if current_frame_index == 958 {
+                // ASM sub_E12 -> loc_7E6, published TAS frame 959: selected
+                // PCs bound 122747427..122750883 and the oracle Z80 wait
+                // counter rises 760474..760760. Scope the 286-cycle aggregate
+                // to this continuation beyond the frozen frame-923 witness.
+                probe.continue_persistent_pre_hud_to_sub_44dc(
+                    next_seed,
+                    M68kCycleCount::from_raw(3_120),
+                    M68kCycleCount::from_raw(286),
+                    M68kCycleCount::from_raw(2_500),
+                )
+            } else {
+                apply_gems_mode_level_pre_hud_to_sub_44dc(
+                    &mut probe.engine,
+                    next_seed,
+                    next_pre_hud,
+                )
+            }
             .unwrap_or_else(|| {
                 panic!(
                     "frame {} pre-HUD path is not fully typed: player={:?}",
@@ -14897,11 +15109,11 @@ mod tests {
                 probe.engine.pending_m68k_wait_cycles(),
             ),
             (
-                122_624_947 * 7,
-                M68kRefreshPhase::new(54).expect("oracle frame-958 sub_44DC phase"),
+                122_753_423 * 7,
+                M68kRefreshPhase::new(90).expect("oracle frame-959 sub_44DC phase"),
                 0,
             ),
-            "ASM frame 930..958 persistent schedule reaches exact frame-958 sub_44DC",
+            "ASM frame 930..959 persistent schedule reaches exact frame-959 sub_44DC",
         );
     }
 
@@ -16174,8 +16386,8 @@ mod tests {
     fn frame_909_source_bound_pass_is_the_xy_irq_edge_oracle_limitation() {
         // ASM Mode_Level loc_7D6 -> sub_44DC -> WaitForVint: selected
         // boundaries and wait debt match. The established X/Y split leaves
-        // the sampled GEMS execution three bytes apart at Stop_z80.
-        let mut native = signature(0x0799);
+        // native in the later `$02CE` IRQ worker at Stop_z80.
+        let mut native = signature(0x02CE);
         native.audio_ram_crc32 = 2_664_475_530;
         native.bank_address = 0x000E_0000;
         native.status_bits = 0;
@@ -16200,7 +16412,7 @@ mod tests {
         // ASM Mode_Level loc_7D6 -> sub_44DC -> WaitForVint: selected
         // boundaries, bank, waits and flags match. Audio RAM and PC retain
         // only the established GEMS X/Y IRQ phase.
-        let mut native = signature(0x0054);
+        let mut native = signature(0x02A5);
         native.audio_ram_crc32 = 310_987_990;
         native.bank_address = 0x000E_0000;
         native.status_bits = 0;
@@ -16225,8 +16437,8 @@ mod tests {
         // ASM Mode_Level loc_7D6 -> sub_4586 -> WaitForVint: selected
         // boundaries, bank, waits and flags match. Audio RAM and PC retain
         // only the established GEMS X/Y IRQ phase.
-        let mut native = signature(0x0044);
-        native.audio_ram_crc32 = 2_160_660_459;
+        let mut native = signature(0x02CE);
+        native.audio_ram_crc32 = 4_063_134_649;
         native.bank_address = 0x000E_0000;
         native.status_bits = 0;
         let mut oracle = signature(0x0055);
@@ -16250,10 +16462,10 @@ mod tests {
         // ASM Mode_Level loc_7D6 -> sub_44DC -> WaitForVint: selected
         // boundaries, bank and waits match. The established X/Y split leaves
         // native inside the GEMS IRQ at the shared sample.
-        let mut native = signature(0x079F);
-        native.audio_ram_crc32 = 3_801_188_819;
+        let mut native = signature(0x02A5);
+        native.audio_ram_crc32 = 3_723_669_854;
         native.bank_address = 0x000E_0000;
-        native.status_bits = GemsFrameSignature::STATUS_IFF1;
+        native.status_bits = 0;
         let mut oracle = signature(0x0043);
         oracle.audio_ram_crc32 = 2_844_437_066;
         oracle.bank_address = 0x000E_0000;
@@ -16275,8 +16487,8 @@ mod tests {
         // ASM Mode_Level loc_7D6 -> sub_44DC -> WaitForVint: selected
         // boundaries, bank and waits match. The established X/Y split leaves
         // the oracle inside the GEMS IRQ at the shared sample.
-        let mut native = signature(0x0044);
-        native.audio_ram_crc32 = 1_933_157_561;
+        let mut native = signature(0x02CE);
+        native.audio_ram_crc32 = 31_336_683;
         native.bank_address = 0x000E_0000;
         native.status_bits = 0;
         let mut oracle = signature(0x005D);
@@ -16300,8 +16512,8 @@ mod tests {
         // ASM Mode_Level loc_7D6 -> sub_5D4A -> WaitForVint: selected
         // boundaries, bank and waits match. The X/Y split leaves jgenesis at
         // Stop_z80's atomic BUSREQ edge.
-        let mut native = signature(0x0059);
-        native.audio_ram_crc32 = 878_851_049;
+        let mut native = signature(0x02A5);
+        native.audio_ram_crc32 = 2_804_179_253;
         native.bank_address = 0x000E_0000;
         native.status_bits = 0;
         let mut oracle = signature(0x02A5);
@@ -16325,10 +16537,10 @@ mod tests {
         // ASM Mode_Level loc_7D6 -> sub_5DA6 -> WaitForVint: selected
         // boundaries, bank, waits and flags match. Only the X/Y IRQ phase
         // remains at the shared sample.
-        let mut native = signature(0x0041);
-        native.audio_ram_crc32 = 3_042_983_453;
+        let mut native = signature(0x0064);
+        native.audio_ram_crc32 = 1_663_654_748;
         native.bank_address = 0x000E_0000;
-        native.status_bits = 0;
+        native.status_bits = GemsFrameSignature::STATUS_IFF1;
         let mut oracle = signature(0x0052);
         oracle.audio_ram_crc32 = 1_932_996_649;
         oracle.bank_address = 0x000E_0000;
@@ -16349,10 +16561,10 @@ mod tests {
     fn frame_916_source_bound_pass_is_the_xy_irq_edge_oracle_limitation() {
         // ASM Mode_Level loc_7D6 -> sub_44D0 -> WaitForVint: the native GEMS
         // wait is retained; the remaining sample split is the X/Y IRQ edge.
-        let mut native = signature(0x004B);
-        native.audio_ram_crc32 = 3_663_341_404;
+        let mut native = signature(0x0060);
+        native.audio_ram_crc32 = 3_161_779_520;
         native.bank_address = 0x000E_0000;
-        native.status_bits = 0;
+        native.status_bits = GemsFrameSignature::STATUS_IFF1;
         let mut oracle = signature(0x079F);
         oracle.audio_ram_crc32 = 1_059_902_697;
         oracle.bank_address = 0x000E_0000;
@@ -16398,10 +16610,10 @@ mod tests {
     fn frame_918_source_bound_pass_is_the_xy_irq_edge_oracle_limitation() {
         // ASM Mode_Level loc_7D6 -> sub_44D0 -> WaitForVint: selected
         // boundaries, bank and waits match. Only the X/Y IRQ edge remains.
-        let mut native = signature(0x02CE);
-        native.audio_ram_crc32 = 1_820_211_994;
+        let mut native = signature(0x079F);
+        native.audio_ram_crc32 = 1_434_621_137;
         native.bank_address = 0x000E_0000;
-        native.status_bits = 0;
+        native.status_bits = GemsFrameSignature::STATUS_IFF1;
         let mut oracle = signature(0x0060);
         oracle.audio_ram_crc32 = 3_604_655_480;
         oracle.bank_address = 0x000E_0000;
@@ -16423,8 +16635,8 @@ mod tests {
         // ASM Mode_Level loc_7D6 -> sub_44DC -> loc_892 -> WaitForVint:
         // selected boundaries, bank and waits match. Only the X/Y IRQ edge
         // remains at the shared frame sample.
-        let mut native = signature(0x005A);
-        native.audio_ram_crc32 = 3_373_802_797;
+        let mut native = signature(0x0044);
+        native.audio_ram_crc32 = 745_461_400;
         native.bank_address = 0x000E_0000;
         native.status_bits = 0;
         let mut oracle = signature(0x02A5);
@@ -16448,8 +16660,8 @@ mod tests {
         // ASM Mode_Level loc_7D6 -> sub_44DC -> sub_5D4A -> loc_892 ->
         // WaitForVint: selected boundaries, bank, waits and flags match.
         // Only the X/Y IRQ phase remains at the shared frame sample.
-        let mut native = signature(0x0055);
-        native.audio_ram_crc32 = 659_159_852;
+        let mut native = signature(0x02CE);
+        native.audio_ram_crc32 = 486_403_738;
         native.bank_address = 0x000E_0000;
         native.status_bits = 0;
         let mut oracle = signature(0x004B);
@@ -16498,10 +16710,10 @@ mod tests {
         // ASM Mode_Level loc_7D6 -> sub_44DC -> sub_30194 -> WaitForVint:
         // selected boundaries, bank and waits match. Only the X/Y IRQ edge
         // remains at the shared frame sample.
-        let mut native = signature(0x0060);
-        native.audio_ram_crc32 = 2_183_631_215;
+        let mut native = signature(0x02A5);
+        native.audio_ram_crc32 = 2_453_273_114;
         native.bank_address = 0x000E_0000;
-        native.status_bits = GemsFrameSignature::STATUS_IFF1;
+        native.status_bits = 0;
         let mut oracle = signature(0x0052);
         oracle.audio_ram_crc32 = 2_453_273_114;
         oracle.bank_address = 0x000E_0000;

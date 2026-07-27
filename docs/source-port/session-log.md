@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 959)
+
+- Selected PCs pin frame 958's later unfrozen handoffs at `WaitForVint`
+  122,645,157, `Mode_Level loc_7C8` 122,739,140, and frame 959 `loc_7D6`
+  122,746,448.
+- Frame 959 repeats `Hibernate_UntilAnimFinished loc_1062`. Its 3,120-raw
+  `sub_E12 -> loc_7E6` path adds 50 refresh cycles and 286 GEMS waits measured
+  directly by the oracle Z80 wait counter.
+- The 2,500-raw post-object path adds 40 refresh cycles. The owner reaches
+  frame 959 `sub_44DC` at cycle 122,753,423 phase 90 with no pending wait.
+- The frame-958/959 override stays test-local because the same coarse pull-up
+  state occurs at frame 909 inside the frozen GEMS witness.
+- The 28x29 sprite schedule shifts native GEMS sample phase over frames
+  909..922. Refreshed exact limitation fingerprints leave zero genuine
+  mismatches before the frozen frame-923 frontier.
+- NEXT: type frame 960, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 958)
 
 - Frame 958 takes the first `Hibernate_UntilAnimFinished loc_1062` wake and
