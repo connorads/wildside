@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 983)
+
+- Frame 983 repeats ASM `loc_A73A -> sub_B084 -> sub_B168 -> sub_A4EE`.
+- The existing model gives the exact 4,064-raw callback, 7,194-raw
+  Execute_Objects pass, and 2,606-raw post-execute path.
+- `sub_44DC` is exact at 125,829,023 phase 76 with flat oracle wait counters.
+- NEXT: type frame 984, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 982)
 
 - Frame 982 resumes ASM `loc_A73A -> sub_B084 -> sub_B168 -> sub_A4EE` with

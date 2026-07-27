@@ -4617,6 +4617,19 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 983 stays on `loc_A73A -> sub_B084 -> sub_B168 ->
+sub_A4EE -> loc_A75A`. The existing airborne classifier derives the measured
+4,064-raw callback, 7,194-raw Execute_Objects pass, and 2,606-raw post-execute
+path without a new production branch. Selected PCs pin `sub_E12` at
+125,819,067 phase 104, `loc_7E6` at 125,826,375 phase 116, and `sub_44DC` at
+125,829,023 phase 76. Frame 982's typed 22-phase post-HUD ledger retains its
+measured `loc_892` at 125,714,274 phase 24, including 352 post-frozen Z80 waits;
+the following prefix is source-positioned at frame 983 `loc_7D6` 125,818,211
+phase 16.
+
+#406 remains open. NEXT: type frame 984 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 982 resumes the airborne Kid coroutine through
 `loc_A73A -> sub_B084 -> sub_B168 -> sub_A4EE -> loc_A75A`. Its held-right
 run acceleration, held-B gravity, and clear two-column/three-row Gfx terrain
