@@ -375,6 +375,9 @@ pub struct NativeRuntime {
     pending_player_start_override_loc_11bd2: Option<(u16, u16)>,
     player_lifecycle: PlayerLifecycle,
     opening_slice: Option<OpeningSliceState>,
+    /// ASM `sub_21F8` Kid hitbox globals retained when `loc_224C` sees a
+    /// zero first collision-size word and returns without rewriting them.
+    retained_kid_hitbox_loc_224c: Option<combat::CollisionRectSub1F52>,
     /// Camera words transferred by ASM Mode_Level ->
     /// Transfer_ScrollDataToVRAM loc_300BA before the current gameplay object
     /// pass can advance the authoritative camera state.
@@ -1431,6 +1434,7 @@ impl NativeRuntime {
             pending_player_start_override_loc_11bd2: None,
             player_lifecycle: PlayerLifecycle::Alive,
             opening_slice: None,
+            retained_kid_hitbox_loc_224c: None,
             gameplay_vdp_camera_latch_loc_300ba: None,
             probe_start_slope_settle_frames: 0,
             starting_level_title_workers: Vec::new(),
@@ -5665,6 +5669,7 @@ impl NativeRuntime {
             } else {
                 self.last_kid_frame_motion_branch = KidFrameMotionBranch::NormalPhysics;
                 let ledge_snap_cooldown_before = slice.player.ledge_snap_cooldown;
+                let player_before_step = slice.player;
                 // ASM sub_902A lands only after the contact row is reached. The
                 // legacy touch-snap shortcut is useful for non-AsmFaithful
                 // orders, but AsmFaithful must preserve the remaining
@@ -5713,6 +5718,25 @@ impl NativeRuntime {
                     ledge_snap_cooldown_before,
                     slice.player.ledge_snap_cooldown,
                 );
+                if ledge_snap_cooldown_before == 0
+                    && slice.player.ledge_snap_cooldown == LEDGE_SNAP_PULLUP_FRAMES
+                {
+                    let x_px = (player_before_step.x_pos >> 16) as i16;
+                    let foot_y_px = (player_before_step.y_pos >> 16) as i16;
+                    let half_width = self.progression.current_form.half_width() as i16;
+                    // ASM sub_21F8 loc_2232 writes the pre-snap Kid bounds.
+                    // Pull-up art then uses the loc_224C zero-size sentinel,
+                    // which keeps these globals live after loc_ABF0 snaps the
+                    // sprite anchor to the ledge.
+                    self.retained_kid_hitbox_loc_224c = Some(combat::CollisionRectSub1F52 {
+                        left_px: x_px.saturating_sub(half_width),
+                        right_px: x_px.saturating_add(half_width),
+                        top_px: foot_y_px.saturating_sub(PLAYER_HEIGHT as i16),
+                        bottom_px: foot_y_px,
+                    });
+                } else if slice.player.ledge_snap_cooldown == 0 {
+                    self.retained_kid_hitbox_loc_224c = None;
+                }
             }
             if !matches!(
                 iron_knight_climb_step,

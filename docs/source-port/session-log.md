@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 961)
+
+- Frame 960 selects `stru_8BB4`'s 32x18 `$A307C` mapping. Its sprite route
+  costs 2,018 cycles.
+- `sub_21F8 loc_224C` retains the pre-snap Kid hitbox. The resulting one-column
+  by three-row `sub_1FA2` scan fixes the post-HUD raw ledger at 9,004 cycles.
+- Exact handoffs are frame 960 `loc_892` 122,890,316 phase 86, frame 961
+  `sub_E12` 123,002,946 phase 104, and `sub_44DC` 123,008,656 phase 54.
+- The frame-961 selected spans carry no GEMS waits. The frozen comparison span
+  remains unchanged.
+- NEXT: type frame 962, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 960)
 
 - Selected PCs pin frame 960 `sub_E12` at cycle 122,875,230 phase 104,

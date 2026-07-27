@@ -2461,6 +2461,8 @@ pub enum ModeLevelGfxSpriteNodeWorkSub1492 {
     VisibleSingleDynamicArt20x32Normal,
     /// Kid's pull-up frame uses ROM mapping bytes `19 0D 001C 001D`.
     VisibleSingleDynamicArt28x29PullUpNormal,
+    /// Kid's second pull-up frame uses ROM mapping bytes `1A 02 0020 0012`.
+    VisibleSingleDynamicArt32x18PullUpNormal,
     VisibleSingleDynamicArt32x24Normal,
     VisibleTwoSpriteNormal,
 }

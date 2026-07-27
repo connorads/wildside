@@ -288,6 +288,11 @@ fn mode_level_gfx_sprite_work_sub_1492(
                 )
             )
         });
+    let pull_up_animation_tick = runtime.current_player_state().and_then(|player| {
+        crate::constants::LEDGE_SNAP_PULLUP_FRAMES
+            .checked_sub(player.ledge_snap_cooldown)
+            .filter(|_| player.ledge_snap_cooldown != 0)
+    });
     let kid_dynamic_art_20x32 = grounded_stationary_kid || wall_cling_kid;
     let kid_dynamic_art_32x24 = runtime
         .mode_level_work_before_hud_sub_44dc
@@ -311,10 +316,23 @@ fn mode_level_gfx_sprite_work_sub_1492(
             if ledger.execute_objects.player == ModeLevelPlayerWorkBeforeHud::Activation {
                 ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear
             } else if pull_up_kid {
-                // ASM loc_ABF0 selects the 28x29 mapping at ROM $A2E76.
-                // sub_1492 takes loc_129E -> loc_12EC -> loc_130E and emits
-                // one dynamic-art sprite through sub_13C0 loc_141A.
-                ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt28x29PullUpNormal
+                match pull_up_animation_tick {
+                    // ASM stru_8BB4 holds each mapping for three ticks.
+                    // `$A2E76` is 28x29 and takes loc_130E.
+                    Some(0..=2) => {
+                        ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt28x29PullUpNormal
+                    }
+                    // ASM stru_8BB4's `$A307C` frame is 32x18 and takes
+                    // loc_12F4 before returning directly through loc_1328.
+                    Some(3..=5) => {
+                        ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt32x18PullUpNormal
+                    }
+                    // Later pull-up mappings remain on the prior conservative
+                    // classification until their selected-PC routes are read.
+                    _ => {
+                        ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt28x29PullUpNormal
+                    }
+                }
             } else if kid_dynamic_art_20x32 {
                 // ASM loc_7606 and wall-cling loc_AA22 retain the 20x32 Kid
                 // mapping consumed by sub_1492 -> sub_13C0 loc_141A.
@@ -10121,7 +10139,21 @@ impl NativeRuntime {
                     bottom: y,
                 }
             } else {
-                self.player_collision_bounds(slice.player)
+                self.retained_kid_hitbox_loc_224c
+                    .filter(|_| {
+                        LEDGE_SNAP_PULLUP_FRAMES
+                            .checked_sub(slice.player.ledge_snap_cooldown)
+                            .is_some_and(|animation_tick| (3..=5).contains(&animation_tick))
+                    })
+                    .map_or_else(
+                        || self.player_collision_bounds(slice.player),
+                        |bounds| ObjectBoundsPx {
+                            left: i32::from(bounds.left_px),
+                            right: i32::from(bounds.right_px),
+                            top: i32::from(bounds.top_px),
+                            bottom: i32::from(bounds.bottom_px),
+                        },
+                    )
             };
             let bounds = ModeLevelKidGfxTerrainScanBounds {
                 left_col: u16::try_from(bounds.left >> 4).ok()?,

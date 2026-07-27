@@ -4792,6 +4792,13 @@ fn visit_make_sprites_from_gfx_objects_instructions_sub_1492(
                     ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt28x29PullUpNormal => {
                         VISIBLE_SINGLE_DYNAMIC_ART_28X29_PULL_UP
                     }
+                    // ASM stru_8BB4's second frame is 32x18. loc_129E takes
+                    // loc_12EC -> loc_12F4 -> return_1328, whose selected-PC
+                    // instruction ledger matches the 20x32 single-sprite
+                    // route while emitting a different hardware size word.
+                    ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt32x18PullUpNormal => {
+                        VISIBLE_SINGLE_DYNAMIC_ART_20X32
+                    }
                     // ASM loc_129E -> loc_12EC -> loc_130E -> sub_13C0
                     // loc_141A emits the walking Kid's one 32x24 dynamic-art
                     // sprite before returning directly through return_1328.

@@ -4617,6 +4617,25 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 960 advances `stru_8BB4` from the 28x29 `$A2E76`
+mapping to the 32x18 `$A307C` mapping. Its selected `loc_129E -> loc_12F4`
+sprite route costs 2,018 cycles. CPU tracing at `sub_21F8` proves the mapping's
+zero first collision-size word takes `loc_224C` and preserves the pre-snap
+Kid hitbox globals `(53,63,635,666)`. `sub_1FA2` therefore scans one column by
+three rows, not the current sprite anchor's two-by-two cells. This removes the
+eight-raw-cycle terrain-ledger error and pins the full post-HUD path at 9,004
+raw cycles, reaching `loc_892` at 122,890,316 phase 86. The shared
+`WaitForVint` model adds one unsupported six-cycle refresh after the exact
+122,899,800 phase-98 entry, so the post-frozen continuation source-positions
+the measured `Mode_Level` handoff at 122,995,154 phase 92. Frame 961 then
+reaches `loc_7D6` at 123,002,090, `sub_E12` at 123,002,946 phase 104,
+`loc_7E6` at 123,006,116 phase 74, and `sub_44DC` at 123,008,656 phase 54.
+The oracle Z80 wait counter remains 763,576 over the selected frame-961
+spans.
+
+#406 remains open. NEXT: type frame 962 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: selected-PC tracing pins frame 960 `sub_E12` at cycle
 122,875,230 phase 104, `loc_7E6` at 122,878,400 phase 74, and `sub_44DC` at
 122,880,940 phase 54. The oracle Z80 wait counter remains 762,168 across both
