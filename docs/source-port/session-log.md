@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 958)
+
+- Frame 958 takes the first `Hibernate_UntilAnimFinished loc_1062` wake and
+  hibernates again while `stru_8BB4` remains active.
+- The player callback costs four raw cycles outside the shared shell.
+  `sub_E12` reaches `loc_7E6` after 3,120 raw cycles and 50 refresh waits.
+- The pull-up sprite uses the ROM's 28x29 mapping and the stationary
+  `sub_DFB0` path. `loc_7E6 -> sub_44DC` costs 2,500 raw cycles plus 40 waits.
+- The owner reaches frame 958 `sub_44DC` at cycle 122,624,947 phase 54 with
+  no pending wait.
+- NEXT: type frame 959, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 957)
 
 - Frame 957 takes The Kid's one-row `loc_ABF0` ledge pull-up and posts its

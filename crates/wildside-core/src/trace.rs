@@ -172,6 +172,17 @@ fn mode_level_gfx_move_animate_work_sub_1444(
     // target gameplay shell. The remaining target nodes are exactly the
     // prize workers below; the final count check rejects any hidden family.
     let mut nodes = vec![ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated; 4];
+    if let Some(animation_tick) = runtime.current_player_state().and_then(|player| {
+        crate::constants::LEDGE_SNAP_PULLUP_FRAMES
+            .checked_sub(player.ledge_snap_cooldown)
+            .filter(|_| player.ledge_snap_cooldown != 0)
+    }) {
+        // ASM GfxObjects_MoveAndAnimate loc_144E and selected-PC frame-957
+        // evidence visit `$FFFF252C`, Kid `$FFFF24E0`, `$FFFF2448`, then
+        // `$FFFF2494`. Addr_GfxObject_Kid=$FFFF24E0 takes loc_1158 ->
+        // sub_1194 when the freshly started stru_8BB4 animation advances.
+        nodes[1] = ModeLevelGfxMoveAnimateNodeWorkSub1444::KidPullUpStru8bb4 { animation_tick };
+    }
 
     let tails = runtime.visible_prize_block_worker_tails();
     for tail in tails {
@@ -259,6 +270,24 @@ fn mode_level_gfx_sprite_work_sub_1492(
                 )
             )
         });
+    let pull_up_kid = runtime
+        .mode_level_work_before_hud_sub_44dc
+        .as_ref()
+        .is_some_and(|ledger| {
+            matches!(
+                ledger.execute_objects.executed_player_path,
+                Some(
+                    crate::ModeLevelPlayerExecutionPath::WallClingPullUpLocAbf0 {
+                        form: crate::PlayerForm::TheKid,
+                        side: crate::Direction::Right,
+                        ..
+                    } | crate::ModeLevelPlayerExecutionPath::PullUpAnimationHibernateLoc1062 {
+                        form: crate::PlayerForm::TheKid,
+                        ..
+                    }
+                )
+            )
+        });
     let kid_dynamic_art_20x32 = grounded_stationary_kid || wall_cling_kid;
     let kid_dynamic_art_32x24 = runtime
         .mode_level_work_before_hud_sub_44dc
@@ -281,6 +310,11 @@ fn mode_level_gfx_sprite_work_sub_1492(
         |ledger| {
             if ledger.execute_objects.player == ModeLevelPlayerWorkBeforeHud::Activation {
                 ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear
+            } else if pull_up_kid {
+                // ASM loc_ABF0 selects the 28x29 mapping at ROM $A2E76.
+                // sub_1492 takes loc_129E -> loc_12EC -> loc_130E and emits
+                // one dynamic-art sprite through sub_13C0 loc_141A.
+                ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt28x29PullUpNormal
             } else if kid_dynamic_art_20x32 {
                 // ASM loc_7606 and wall-cling loc_AA22 retain the 20x32 Kid
                 // mapping consumed by sub_1492 -> sub_13C0 loc_141A.
@@ -297,7 +331,7 @@ fn mode_level_gfx_sprite_work_sub_1492(
         },
     );
     let (first_persistent_node, culled_persistent_node) =
-        if kid_dynamic_art_20x32 || kid_dynamic_art_32x24 {
+        if kid_dynamic_art_20x32 || pull_up_kid || kid_dynamic_art_32x24 {
             (
                 ModeLevelGfxSpriteNodeWorkSub1492::MappingPointerNull,
                 ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
@@ -10232,6 +10266,22 @@ impl NativeRuntime {
         {
             return ModeLevelPlayerExecutionPath::LevelStartActivationLoc7508 {
                 form: self.progression.current_form,
+            };
+        }
+        if let Some(remaining_frames) = self.current_player_state().and_then(|player| {
+            (player.ledge_snap_cooldown > 0
+                && player.ledge_snap_cooldown < crate::constants::LEDGE_SNAP_PULLUP_FRAMES
+                && player.x_velocity == 0
+                && player.y_velocity == 0)
+                .then_some(player.ledge_snap_cooldown)
+        }) {
+            // ASM Hibernate_UntilAnimFinished loc_1062: while `$18(a3)` is
+            // clear, the player immediately calls sub_E76 and runs no
+            // ordinary Kid physics. Native's cooldown mirrors stru_8BB4's
+            // seven three-tick frames.
+            return ModeLevelPlayerExecutionPath::PullUpAnimationHibernateLoc1062 {
+                form: self.progression.current_form,
+                remaining_frames,
             };
         }
         let action = self.last_kid_frame_kid_flip_branch_probe;

@@ -2066,6 +2066,12 @@ pub enum ModeLevelPlayerExecutionPath {
         /// first solid ledge cell.
         pull_up_scan_rows: u16,
     },
+    /// `Hibernate_UntilAnimFinished` resumes at ASM `loc_1062`, sees the
+    /// pull-up animation is active, and hibernates for another frame.
+    PullUpAnimationHibernateLoc1062 {
+        form: PlayerForm,
+        remaining_frames: u8,
+    },
     /// Ordinary airborne coroutine resumed at ASM `loc_A73A`.
     NormalPhysics(ModeLevelNormalPhysicsPath),
     Unclassified,
@@ -2417,9 +2423,19 @@ pub enum ModeLevelGfxCollisionKidListWorkSub1B76 {
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelGfxMoveAnimateNodeWorkSub1444 {
     StationaryUnanimated,
-    PrizeWobble { allocation_age: u16 },
-    PrizeFlash { allocation_age: u16 },
-    FloatingDiamond { allocation_age: u16 },
+    /// Kid's non-looping `stru_8BB4` pull-up animation.
+    KidPullUpStru8bb4 {
+        animation_tick: u8,
+    },
+    PrizeWobble {
+        allocation_age: u16,
+    },
+    PrizeFlash {
+        allocation_age: u16,
+    },
+    FloatingDiamond {
+        allocation_age: u16,
+    },
 }
 
 /// Per-node work for ASM `GfxObjects_MoveAndAnimate sub_1444`.
@@ -2443,6 +2459,8 @@ pub enum ModeLevelGfxSpriteNodeWorkSub1492 {
     VerticallyCulledAboveViewport,
     VisibleSingle16x16Normal,
     VisibleSingleDynamicArt20x32Normal,
+    /// Kid's pull-up frame uses ROM mapping bytes `19 0D 001C 001D`.
+    VisibleSingleDynamicArt28x29PullUpNormal,
     VisibleSingleDynamicArt32x24Normal,
     VisibleTwoSpriteNormal,
 }

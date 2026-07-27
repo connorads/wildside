@@ -4617,6 +4617,21 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 958 resumes `Hibernate_UntilAnimFinished` at
+`loc_1062`; the active `stru_8BB4` pull-up animation immediately hibernates
+again. The player callback costs four raw cycles outside the shared
+dispatch/hibernate shell, so `sub_E12 -> loc_7E6` is 3,120 raw cycles plus 50
+refresh waits. ROM mapping bytes at `$A2E76` are `19 0D 001C 001D`: the 28x29
+normal-orientation sprite takes `loc_129E -> loc_12EC -> loc_130E -> sub_13C0
+loc_141A`, 26 cycles shorter than the grounded 20x32 route. The stationary
+`sub_DFB0` path reaches `loc_EAE4` in 562 raw cycles; the complete
+`loc_7E6 -> sub_44DC` span is 2,500 raw plus 40 refresh waits. Frame 958
+reaches `sub_44DC` at cycle 122,624,947, refresh phase 54, with no pending
+wait.
+
+#406 remains open. NEXT: type frame 959 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 957 resumes The Kid's wall-cling coroutine at
 `loc_AA22`, consumes the B edge, and takes `loc_ABA4 -> loc_ABF0`. The first
 downward tile-row scan finds the ledge, starts `stru_8BB4`, and calls

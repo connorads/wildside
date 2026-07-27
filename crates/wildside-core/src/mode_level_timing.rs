@@ -2472,6 +2472,14 @@ pub fn player_callback_cycles_sub_e12(
             // dispatches; remove the shared 426-cycle scheduler shell.
             Some(M68kCycleCount::from_raw(4_268))
         }
+        ModeLevelPlayerExecutionPath::PullUpAnimationHibernateLoc1062 {
+            form: crate::PlayerForm::TheKid,
+            ..
+        } => {
+            // ASM loc_1062 -> sub_E76: frame 958 spans 430 raw cycles
+            // between loc_E1E dispatches. The shared scheduler shell is 426.
+            Some(M68kCycleCount::from_raw(4))
+        }
         ModeLevelPlayerExecutionPath::NormalPhysics(_)
         | ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 { .. } => {
             player_callback_cycles_loc_a73a(execute)
@@ -2482,6 +2490,7 @@ pub fn player_callback_cycles_sub_e12(
         | ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 { .. }
         | ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 { .. }
         | ModeLevelPlayerExecutionPath::WallClingPullUpLocAbf0 { .. }
+        | ModeLevelPlayerExecutionPath::PullUpAnimationHibernateLoc1062 { .. }
         | ModeLevelPlayerExecutionPath::Unclassified => None,
     }
 }
@@ -2894,6 +2903,33 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         }) => Some(2_462),
         _ => None,
     };
+    let pull_up_hibernate_post_raw = matches!(
+        ledger.execute_objects.executed_player_path,
+        Some(
+            ModeLevelPlayerExecutionPath::PullUpAnimationHibernateLoc1062 {
+                form: crate::PlayerForm::TheKid,
+                remaining_frames: 20,
+            }
+        )
+    );
+    if pull_up_hibernate_post_raw
+        && scan.row_count == 4
+        && scan.col_count == 2
+        && scan.flagged_non_evanescent_cells_before_exit == 1
+        && shooter.cached_col_before == 4
+        && shooter.cached_row_before == 40
+        && shooter.cached_col_matches
+        && shooter.cached_row_matches
+        && shooter.kid_block_col == 4
+        && shooter.kid_block_row == 40
+        && shooter.new_shooter_slots_registered == 0
+    {
+        // ASM frame 958 loc_7E6 -> sub_DFB0 -> loc_EAE4 -> sub_F096 ->
+        // sub_44DC: selected PCs measure 2,540 elapsed cycles with 40
+        // refresh waits, leaving 2,500 raw. sub_DFB0 reaches loc_EAE4 in
+        // 562 raw cycles while loc_1062 keeps Kid stationary.
+        return Some(M68kCycleCount::from_raw(2_500));
+    }
     if grounded_post_raw.is_some()
         && scan.row_count == 4
         && scan.col_count == 2
@@ -4573,6 +4609,10 @@ fn gfx_animation_branch_sub_113e(
         ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated => {
             Some(GfxAnimationBranchSub113E::Inactive)
         }
+        ModeLevelGfxMoveAnimateNodeWorkSub1444::KidPullUpStru8bb4 { animation_tick } => {
+            // ASM stru_8BB4: seven non-looping three-tick frames.
+            non_looping_gfx_animation_branch_sub_113e(&[3; 7], u16::from(animation_tick))
+        }
         ModeLevelGfxMoveAnimateNodeWorkSub1444::PrizeWobble { allocation_age } => {
             // ASM stru_101B6: eight non-looping three-tick frames.
             non_looping_gfx_animation_branch_sub_113e(&[3; 8], allocation_age)
@@ -4740,6 +4780,10 @@ fn visit_make_sprites_from_gfx_objects_instructions_sub_1492(
         4, 4, 8, 8, 8, 4, 4, 10, 4, 8, 8, 4, 10, 4, 8, 8, 4, 4, 4, 8, 4, 12, 4, 18, 12, 12, 12, 16,
         20, 12, 10, 20, 4, 12, 4, 14, 4, 16, 16, 8, 12, 16, 8, 8, 16, 16, 10,
     ];
+    // ASM loc_129E consumes the pull-up mapping bytes `19 0D 001C 001D`
+    // at ROM $A2E76. Width 28 and height 29 take the same instruction route
+    // as the walking 32x24 mapping: loc_12EC -> loc_130E -> sub_13C0.
+    const VISIBLE_SINGLE_DYNAMIC_ART_28X29_PULL_UP: &[u32] = VISIBLE_SINGLE_DYNAMIC_ART_32X24;
     const VISIBLE_TWO: &[u32] = &[
         16, 8, 4, 18, 10, 16, 12, 12, 12, 12, 18, 12, 4, 12, 12, 12, 10, 12, 4, 8, 12, 8, 12, 12,
         12, 8, 12, 8, 12, 16, 4, 12, 12, 16, 10, 12, 10, 12, 12, 12, 10, 12, 12, 10, 8, 4, 4, 8, 8,
@@ -4777,6 +4821,11 @@ fn visit_make_sprites_from_gfx_objects_instructions_sub_1492(
                     // art span to the DMA queue.
                     ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt20x32Normal => {
                         VISIBLE_SINGLE_DYNAMIC_ART_20X32
+                    }
+                    // ASM loc_129E reads ROM $A2E76 as 28x29, then takes
+                    // loc_12EC -> loc_130E -> sub_13C0 loc_141A.
+                    ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt28x29PullUpNormal => {
+                        VISIBLE_SINGLE_DYNAMIC_ART_28X29_PULL_UP
                     }
                     // ASM loc_129E -> loc_12EC -> loc_130E -> sub_13C0
                     // loc_141A emits the walking Kid's one 32x24 dynamic-art

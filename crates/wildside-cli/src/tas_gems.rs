@@ -13869,7 +13869,7 @@ mod tests {
     }
 
     #[test]
-    fn published_tas_persistent_clock_reaches_frame_957_sub_44dc_without_extending_audio_span() {
+    fn published_tas_persistent_clock_reaches_frame_958_sub_44dc_without_extending_audio_span() {
         let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let manifest_path = repo_root
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
@@ -14599,7 +14599,7 @@ mod tests {
 
         let mut current_sub_44dc = frame_930_sub_44dc;
         let mut current_vblank = frame_930_vblank;
-        for current_frame_index in 930..957 {
+        for current_frame_index in 930..958 {
             let current_frame = &trace[current_frame_index];
             let current_pre_hud = current_frame
                 .mode_level_work_before_hud_sub_44dc
@@ -14687,6 +14687,35 @@ mod tests {
                     probe.engine.master_clock(),
                     122_490_923 * 7,
                     "ASM frame 956 HUD/tail reaches exact frame-957 sub_E12",
+                );
+            }
+            if current_frame_index == 957 {
+                let sprite_work = &current_frame
+                    .mode_level_work_after_hud_sub_44dc
+                    .as_ref()
+                    .expect("frame 957 post-HUD ledger")
+                    .gfx_sprite_work_sub_1492;
+                let sprite_advance =
+                    wildside_core::make_sprites_from_gfx_objects_advance_with_scheduler_sub_1492(
+                        M68kRefreshPhase::new(42).expect("oracle frame-957 loc_87E phase"),
+                        sprite_work,
+                        |_| Some(M68kCycleCount::from_raw(0)),
+                    )
+                    .expect("ASM frame 957 pull-up sprite path is typed");
+                assert_eq!(
+                    (
+                        sprite_advance.elapsed.get(),
+                        sprite_advance.phase_after.get()
+                    ),
+                    (1_992, 114),
+                    "ASM frame 957 loc_87E -> sub_1492 -> loc_882 pull-up sprite path",
+                );
+            }
+            if current_frame_index == 957 {
+                assert_eq!(
+                    probe.engine.master_clock(),
+                    122_619_237 * 7,
+                    "ASM frame 957 HUD/tail reaches exact frame-958 sub_E12",
                 );
             }
             let next_pre_hud = next_frame
@@ -14828,6 +14857,25 @@ mod tests {
                     "ASM frame 957 loc_7E6 reaches sub_44DC after 60 refresh waits",
                 );
             }
+            if current_frame_index == 957 {
+                assert_eq!(
+                    wildside_core::player_callback_cycles_sub_e12(&next_pre_hud.execute_objects),
+                    Some(M68kCycleCount::from_raw(4)),
+                    "ASM frame 958 Hibernate_UntilAnimFinished loc_1062 callback",
+                );
+                assert_eq!(
+                    wildside_core::execute_objects_raw_cycles_sub_e12(
+                        &next_pre_hud.execute_objects,
+                    ),
+                    Some(M68kCycleCount::from_raw(3_120)),
+                    "ASM frame 958 sub_E12 reaches loc_7E6 after the short pull-up wait",
+                );
+                assert_eq!(
+                    wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
+                    Some(M68kCycleCount::from_raw(2_500)),
+                    "ASM frame 958 loc_7E6 reaches sub_44DC",
+                );
+            }
             current_sub_44dc = apply_gems_mode_level_pre_hud_to_sub_44dc(
                 &mut probe.engine,
                 next_seed,
@@ -14849,11 +14897,11 @@ mod tests {
                 probe.engine.pending_m68k_wait_cycles(),
             ),
             (
-                122_502_299 * 7,
-                M68kRefreshPhase::new(88).expect("oracle frame-957 sub_44DC phase"),
+                122_624_947 * 7,
+                M68kRefreshPhase::new(54).expect("oracle frame-958 sub_44DC phase"),
                 0,
             ),
-            "ASM frame 930..957 persistent schedule reaches exact frame-957 sub_44DC",
+            "ASM frame 930..958 persistent schedule reaches exact frame-958 sub_44DC",
         );
     }
 
