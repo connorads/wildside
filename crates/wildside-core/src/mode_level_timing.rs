@@ -2228,10 +2228,11 @@ pub fn player_callback_cycles_loc_a73a(
             return match (row_count, *y_velocity_after) {
                 (2, 32_768) => Some(M68kCycleCount::from_raw(3_720)),
                 (3, 49_152 | 65_536) => Some(M68kCycleCount::from_raw(4_260)),
-                // ASM frame 994 retains the same three-row trace shape, but
-                // selected consecutive E1E PCs pin its later falling resume
-                // to 3,836 raw cycles after the scheduler shell.
-                (3, 81_920) => Some(M68kCycleCount::from_raw(3_836)),
+                // ASM frames 994-995 retain the same three-row trace shape.
+                // Selected consecutive E1E PCs pin both later falling
+                // resumes to 3,836 raw cycles after removing the scheduler
+                // shell and frame 995's 264 external Z80 waits.
+                (3, 81_920 | 98_304) => Some(M68kCycleCount::from_raw(3_836)),
                 _ => None,
             };
         }

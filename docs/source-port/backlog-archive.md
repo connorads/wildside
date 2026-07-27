@@ -4617,6 +4617,18 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 995 retains the three-row `loc_AA22` falling cling
+at Y velocity `$18000`. Removing 264 external Z80 waits between consecutive
+`loc_E1E` boundaries leaves the same 3,836-raw callback as frame 994. The
+complete Execute_Objects pass is 7,418 raw and the post-execute path is 2,588
+raw; 562 cycles retain the measured contention effect. Frame 994's wait-free
+post-HUD path pins `loc_892` at 127,251,241 phase 100. Selected PCs pin
+`loc_7D6` at 127,354,357 phase 27, `sub_E12` at 127,355,334 phase 108,
+`loc_7E6` at 127,363,326 phase 36, and `sub_44DC` at 127,366,060 phase 82.
+
+#406 remains open. NEXT: type frame 996 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 994 retains the three-row `loc_AA22` falling cling,
 but selected consecutive `loc_E1E` boundaries shorten its callback to 3,836
 raw at Y velocity `$14000`. The complete Execute_Objects pass is 7,410 raw and

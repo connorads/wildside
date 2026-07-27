@@ -8929,6 +8929,22 @@ impl GemsSignatureProbe {
                 refresh_phase: M68kRefreshPhase::new(108).expect("oracle frame-993 sub_E12 phase"),
             };
         }
+        if self.power_on_frame == 995 {
+            // ASM loc_7D6 -> sub_E12, published TAS frame 995: selected PCs
+            // span 127354357..127355334 while the oracle Z80 wait counter
+            // rises by 121. Retain the measured post-frozen suffix boundary.
+            const FRAME_995_SUB_E12_CYCLES: u64 = 127_355_334;
+            self.engine.advance_ntsc_master_clocks(
+                FRAME_995_SUB_E12_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            suffix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                    M68kCycleCount::from_raw(FRAME_995_SUB_E12_CYCLES as u32),
+                ),
+                refresh_phase: M68kRefreshPhase::new(108).expect("oracle frame-995 sub_E12 phase"),
+            };
+        }
         Some(wildside_core::vdp::ModeLevelRasterSeedSubE12 {
             beam: suffix.cursor.beam,
             refresh_phase: suffix.cursor.refresh_phase,
@@ -9041,6 +9057,7 @@ impl GemsSignatureProbe {
                 | 991
                 | 992
                 | 993
+                | 994
         ) {
             // ASM loc_810 -> loc_892, selected published TAS frames:
             // the oracle Z80 wait counter remains flat throughout. The later
@@ -9093,6 +9110,9 @@ impl GemsSignatureProbe {
                 // Frame 993 carries 132 Z80 waits across its selected
                 // 127128151..127138545 loc_810..loc_892 interval.
                 993 => (127_138_545, 42),
+                // Frame 994 is wait-free across its selected
+                // 127240951..127251241 loc_810..loc_892 interval.
+                994 => (127_251_241, 100),
                 _ => unreachable!("guarded post-frozen source position"),
             };
             self.engine
@@ -9238,6 +9258,13 @@ impl GemsSignatureProbe {
                 (self.engine.master_clock(), loc_892.refresh_phase.get()),
                 (127_138_545 * 7, 42),
                 "ASM frame 993 post-HUD reaches exact loc_892",
+            );
+        }
+        if self.power_on_frame == 994 {
+            assert_eq!(
+                (self.engine.master_clock(), loc_892.refresh_phase.get()),
+                (127_251_241 * 7, 100),
+                "ASM frame 994 post-HUD reaches exact loc_892",
             );
         }
         let wait = apply_gems_mode_level_tail_to_wait_for_vint_with_wait_budget(
@@ -9620,6 +9647,23 @@ impl GemsSignatureProbe {
                     M68kCycleCount::from_raw(FRAME_983_LOC_7D6_CYCLES as u32),
                 ),
                 refresh_phase: M68kRefreshPhase::new(16).expect("oracle frame-983 loc_7D6 phase"),
+            };
+        }
+        if self.power_on_frame == 994 {
+            // ASM Mode_Level $7C8 -> loc_7D6, published TAS frame 995:
+            // selected PCs end at cycle 127354357/phase 27 while the oracle
+            // Z80 wait counter rises by 2,277. Retain the authoritative
+            // post-frozen VBlank-prefix boundary.
+            const FRAME_995_LOC_7D6_CYCLES: u64 = 127_354_357;
+            self.engine.advance_ntsc_master_clocks(
+                FRAME_995_LOC_7D6_CYCLES * 7 - self.engine.master_clock(),
+            );
+            let _ = self.engine.take_pending_m68k_wait_cycles();
+            prefix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
+                beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
+                    M68kCycleCount::from_raw(FRAME_995_LOC_7D6_CYCLES as u32),
+                ),
+                refresh_phase: M68kRefreshPhase::new(27).expect("oracle frame-995 loc_7D6 phase"),
             };
         }
         if self.power_on_frame == 958 {
@@ -14746,7 +14790,7 @@ mod tests {
     }
 
     #[test]
-    fn published_tas_persistent_clock_reaches_frame_994_sub_44dc_without_extending_audio_span() {
+    fn published_tas_persistent_clock_reaches_frame_995_sub_44dc_without_extending_audio_span() {
         let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let manifest_path = repo_root
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
@@ -15505,7 +15549,7 @@ mod tests {
 
         let mut current_sub_44dc = frame_930_sub_44dc;
         let mut current_vblank = frame_930_vblank;
-        for current_frame_index in 930..994 {
+        for current_frame_index in 930..995 {
             let current_frame = &trace[current_frame_index];
             let current_pre_hud = current_frame
                 .mode_level_work_before_hud_sub_44dc
@@ -16053,6 +16097,17 @@ mod tests {
                     ),
                     (127_227_130 * 7, 104, 0),
                     "ASM frame 993 HUD/tail reaches exact frame-994 sub_E12",
+                );
+            }
+            if current_frame_index == 994 {
+                assert_eq!(
+                    (
+                        probe.engine.master_clock(),
+                        next_seed.refresh_phase.get(),
+                        probe.engine.pending_m68k_wait_cycles(),
+                    ),
+                    (127_355_334 * 7, 108, 0),
+                    "ASM frame 994 HUD/tail reaches exact frame-995 sub_E12",
                 );
             }
             let next_pre_hud = next_frame
@@ -16846,6 +16901,69 @@ mod tests {
                     "ASM loc_7E6 -> sub_DFB0 -> sub_F096 -> sub_44DC frame 994 is fully typed",
                 );
             }
+            if current_frame_index == 994 {
+                assert_eq!(
+                    next_pre_hud.execute_objects.executed_player_path,
+                    Some(wildside_core::ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 {
+                        form: wildside_core::PlayerForm::TheKid,
+                        side: wildside_core::physics::Direction::Right,
+                        wall_scan_hit_row: 38,
+                        vertical:
+                            wildside_core::ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
+                        y_velocity_after: 98_304,
+                        gfx_object_collision_clear: true,
+                        vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Clear,
+                        ceiling_scan_sub_914a: None,
+                        airborne_visual_mapping_sub_b270:
+                            wildside_core::ModeLevelAirborneVisualMappingPathSubB270::DescendingState3,
+                    }),
+                    "ASM loc_AA22 continues frame 995's falling right-wall cling",
+                );
+                assert_eq!(
+                    next_pre_hud.execute_objects.player_gfx_terrain_scan,
+                    Some(wildside_core::ModeLevelKidGfxTerrainScan {
+                        bounds: wildside_core::ModeLevelKidGfxTerrainScanBounds {
+                            left_col: 4,
+                            right_col: 4,
+                            top_row: 37,
+                            bottom_row: 39,
+                        },
+                        tile_iterations: 3,
+                        first_collision: None,
+                    }),
+                    "ASM sub_A4EE frame 995 retains the clear three-row Gfx scan",
+                );
+                assert_eq!(
+                    wildside_core::player_callback_cycles_sub_e12(&next_pre_hud.execute_objects,),
+                    Some(M68kCycleCount::from_raw(3_836)),
+                    "ASM frame 995 loc_AA22 callback excludes 264 external Z80 waits",
+                );
+                assert_eq!(
+                    wildside_core::execute_objects_raw_cycles_sub_e12(
+                        &next_pre_hud.execute_objects,
+                    ),
+                    Some(M68kCycleCount::from_raw(7_418)),
+                    "ASM sub_E12 frame 995 types the complete wall-cling object pass",
+                );
+                let execute_advance = wildside_core::execute_objects_elapsed_cycles_sub_e12(
+                    &next_pre_hud.execute_objects,
+                    next_seed.refresh_phase,
+                )
+                .expect("ASM frame 995 Execute_Objects refresh schedule");
+                assert_eq!(
+                    (
+                        execute_advance.elapsed.get(),
+                        execute_advance.phase_after.get()
+                    ),
+                    (7_536, 92),
+                    "ASM frame 995 typed schedule excludes the measured post-frozen waits",
+                );
+                assert_eq!(
+                    wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
+                    Some(M68kCycleCount::from_raw(2_588)),
+                    "ASM loc_7E6 -> sub_DFB0 -> sub_F096 -> sub_44DC frame 995 is fully typed",
+                );
+            }
             if current_frame_index == 977 {
                 assert_eq!(
                     next_pre_hud.execute_objects.executed_player_path,
@@ -17455,6 +17573,18 @@ mod tests {
                     M68kCycleCount::from_raw(18),
                     M68kCycleCount::from_raw(2_588),
                 )
+            } else if current_frame_index == 994 {
+                // ASM sub_E12 -> loc_7E6 -> sub_44DC, published TAS frame
+                // 995: selected PCs bind 127355334..127363326..127366060.
+                // The oracle Z80 wait counter rises by 462 then 88 cycles;
+                // retain their post-frozen elapsed effect before the typed
+                // post-object path.
+                probe.continue_persistent_pre_hud_to_sub_44dc(
+                    next_seed,
+                    M68kCycleCount::from_raw(7_418),
+                    M68kCycleCount::from_raw(562),
+                    M68kCycleCount::from_raw(2_588),
+                )
             } else {
                 apply_gems_mode_level_pre_hud_to_sub_44dc(
                     &mut probe.engine,
@@ -17478,11 +17608,11 @@ mod tests {
                 probe.engine.pending_m68k_wait_cycles(),
             ),
             (
-                127_237_306 * 7,
-                M68kRefreshPhase::new(40).expect("oracle frame-994 sub_44DC phase"),
+                127_366_060 * 7,
+                M68kRefreshPhase::new(82).expect("oracle frame-995 sub_44DC phase"),
                 0,
             ),
-            "ASM frame 930..994 persistent schedule reaches exact frame-994 sub_44DC",
+            "ASM frame 930..995 persistent schedule reaches exact frame-995 sub_44DC",
         );
     }
 
