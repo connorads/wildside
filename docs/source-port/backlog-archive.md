@@ -4617,6 +4617,18 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 991 production-types the resumed `loc_AA22`
+right-wall cling with released-B `loc_B1E0` gravity, a clear one-column/two-row
+Gfx scan, wall hit row 38, and `sub_B270 loc_B350` descending mapping state 3.
+The callback is 3,720 raw, the complete Execute_Objects pass is 7,294 raw, and
+the post-execute path is 2,706 raw with an 18-cycle phase correction. Frame
+990's post-HUD interval carries 352 oracle Z80 waits and retains `loc_892` at
+126,737,531 phase 110. Selected PCs pin `sub_E12` at 126,843,115 phase 104,
+`loc_7E6` at 126,850,525 phase 90, and `sub_44DC` at 126,853,293 phase 42.
+
+#406 remains open. NEXT: type frame 992 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 990 production-types neutral positive braking,
 released-B `loc_B1E0` gravity, a two-column Gfx scan ending solid, and
 `sub_8F26 -> loc_A9E4` right-wall-cling entry. The callback is 4,700 raw, the

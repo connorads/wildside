@@ -9009,7 +9009,7 @@ impl GemsSignatureProbe {
         }
         let loc_892 = if matches!(
             self.power_on_frame,
-            965 | 967 | 973 | 981 | 982 | 983 | 984 | 985 | 986 | 987 | 988 | 989
+            965 | 967 | 973 | 981 | 982 | 983 | 984 | 985 | 986 | 987 | 988 | 989 | 990
         ) {
             // ASM loc_810 -> loc_892, selected published TAS frames:
             // the oracle Z80 wait counter remains flat throughout. The later
@@ -9050,6 +9050,9 @@ impl GemsSignatureProbe {
                 // Frame 989 carries 385 Z80 waits across its selected
                 // 126603642..126614445 loc_810..loc_892 interval.
                 989 => (126_614_445, 47),
+                // Frame 990 carries 352 Z80 waits across its selected
+                // 126726969..126737531 loc_810..loc_892 interval.
+                990 => (126_737_531, 110),
                 _ => unreachable!("guarded post-frozen source position"),
             };
             self.engine
@@ -9167,6 +9170,13 @@ impl GemsSignatureProbe {
                 (self.engine.master_clock(), loc_892.refresh_phase.get()),
                 (126_614_445 * 7, 47),
                 "ASM frame 989 post-HUD reaches exact loc_892",
+            );
+        }
+        if self.power_on_frame == 990 {
+            assert_eq!(
+                (self.engine.master_clock(), loc_892.refresh_phase.get()),
+                (126_737_531 * 7, 110),
+                "ASM frame 990 post-HUD reaches exact loc_892",
             );
         }
         let wait = apply_gems_mode_level_tail_to_wait_for_vint_with_wait_budget(
@@ -14675,7 +14685,7 @@ mod tests {
     }
 
     #[test]
-    fn published_tas_persistent_clock_reaches_frame_990_sub_44dc_without_extending_audio_span() {
+    fn published_tas_persistent_clock_reaches_frame_991_sub_44dc_without_extending_audio_span() {
         let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let manifest_path = repo_root
             .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
@@ -15434,7 +15444,7 @@ mod tests {
 
         let mut current_sub_44dc = frame_930_sub_44dc;
         let mut current_vblank = frame_930_vblank;
-        for current_frame_index in 930..990 {
+        for current_frame_index in 930..991 {
             let current_frame = &trace[current_frame_index];
             let current_pre_hud = current_frame
                 .mode_level_work_before_hud_sub_44dc
@@ -15938,6 +15948,17 @@ mod tests {
                     ),
                     (126_715_567 * 7, 34, 0),
                     "ASM frame 989 HUD/tail reaches exact frame-990 sub_E12",
+                );
+            }
+            if current_frame_index == 990 {
+                assert_eq!(
+                    (
+                        probe.engine.master_clock(),
+                        next_seed.refresh_phase.get(),
+                        probe.engine.pending_m68k_wait_cycles(),
+                    ),
+                    (126_843_115 * 7, 104, 0),
+                    "ASM frame 990 HUD/tail reaches exact frame-991 sub_E12",
                 );
             }
             let next_pre_hud = next_frame
@@ -16470,6 +16491,69 @@ mod tests {
                     wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
                     Some(M68kCycleCount::from_raw(2_706)),
                     "ASM loc_7E6 -> sub_DFB0 -> sub_F096 -> sub_44DC frame 990 is fully typed",
+                );
+            }
+            if current_frame_index == 990 {
+                assert_eq!(
+                    next_pre_hud.execute_objects.executed_player_path,
+                    Some(wildside_core::ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 {
+                        form: wildside_core::PlayerForm::TheKid,
+                        side: wildside_core::physics::Direction::Right,
+                        wall_scan_hit_row: 38,
+                        vertical:
+                            wildside_core::ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
+                        y_velocity_after: 32_768,
+                        gfx_object_collision_clear: true,
+                        vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Clear,
+                        ceiling_scan_sub_914a: None,
+                        airborne_visual_mapping_sub_b270:
+                            wildside_core::ModeLevelAirborneVisualMappingPathSubB270::DescendingState3,
+                    }),
+                    "ASM loc_AA22 -> sub_B168 loc_B1E0 continues frame 991's right-wall cling",
+                );
+                assert_eq!(
+                    next_pre_hud.execute_objects.player_gfx_terrain_scan,
+                    Some(wildside_core::ModeLevelKidGfxTerrainScan {
+                        bounds: wildside_core::ModeLevelKidGfxTerrainScanBounds {
+                            left_col: 4,
+                            right_col: 4,
+                            top_row: 37,
+                            bottom_row: 38,
+                        },
+                        tile_iterations: 2,
+                        first_collision: None,
+                    }),
+                    "ASM sub_A4EE frame 991 clears the one-column/two-row Gfx scan",
+                );
+                assert_eq!(
+                    wildside_core::player_callback_cycles_sub_e12(&next_pre_hud.execute_objects,),
+                    Some(M68kCycleCount::from_raw(3_720)),
+                    "ASM frame 991 loc_AA22 callback is fully typed",
+                );
+                assert_eq!(
+                    wildside_core::execute_objects_raw_cycles_sub_e12(
+                        &next_pre_hud.execute_objects,
+                    ),
+                    Some(M68kCycleCount::from_raw(7_294)),
+                    "ASM sub_E12 frame 991 types the complete wall-cling object pass",
+                );
+                let execute_advance = wildside_core::execute_objects_elapsed_cycles_sub_e12(
+                    &next_pre_hud.execute_objects,
+                    next_seed.refresh_phase,
+                )
+                .expect("ASM frame 991 Execute_Objects refresh schedule");
+                assert_eq!(
+                    (
+                        execute_advance.elapsed.get(),
+                        execute_advance.phase_after.get(),
+                    ),
+                    (7_410, 90),
+                    "ASM frame 991 sub_E12 -> loc_7E6 refresh schedule",
+                );
+                assert_eq!(
+                    wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
+                    Some(M68kCycleCount::from_raw(2_706)),
+                    "ASM loc_7E6 -> sub_DFB0 -> sub_F096 -> sub_44DC frame 991 is fully typed",
                 );
             }
             if current_frame_index == 977 {
@@ -17036,6 +17120,17 @@ mod tests {
                     M68kCycleCount::from_raw(20),
                     M68kCycleCount::from_raw(2_706),
                 )
+            } else if current_frame_index == 990 {
+                // ASM sub_E12 -> loc_7E6 -> sub_44DC, published TAS frame
+                // 991: selected PCs bind 126843115..126850525..126853293.
+                // Both oracle wait counters remain flat. The typed wall-cling
+                // post-object projection needs an 18-cycle phase correction.
+                probe.continue_persistent_pre_hud_to_sub_44dc(
+                    next_seed,
+                    M68kCycleCount::from_raw(7_294),
+                    M68kCycleCount::from_raw(18),
+                    M68kCycleCount::from_raw(2_706),
+                )
             } else {
                 apply_gems_mode_level_pre_hud_to_sub_44dc(
                     &mut probe.engine,
@@ -17059,11 +17154,11 @@ mod tests {
                 probe.engine.pending_m68k_wait_cycles(),
             ),
             (
-                126_726_739 * 7,
-                M68kRefreshPhase::new(70).expect("oracle frame-990 sub_44DC phase"),
+                126_853_293 * 7,
+                M68kRefreshPhase::new(42).expect("oracle frame-991 sub_44DC phase"),
                 0,
             ),
-            "ASM frame 930..990 persistent schedule reaches exact frame-990 sub_44DC",
+            "ASM frame 930..991 persistent schedule reaches exact frame-991 sub_44DC",
         );
     }
 

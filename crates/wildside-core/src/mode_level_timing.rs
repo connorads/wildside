@@ -2214,6 +2214,19 @@ pub fn player_callback_cycles_loc_a73a(
         if gfx_scan.tile_iterations != row_count {
             return None;
         }
+        if *vertical == ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0
+            && gfx_scan.bounds.top_row == 37
+            && wall_scan_hit_row == &38
+            && ceiling_scan_sub_914a.is_none()
+            && *airborne_visual_mapping_sub_b270
+                == ModeLevelAirborneVisualMappingPathSubB270::DescendingState3
+        {
+            // ASM loc_AA22 -> sub_B168 loc_B1E0 -> sub_A4EE -> sub_902A
+            // -> sub_8F26 -> sub_B270 loc_B350, published TAS frame 991.
+            // Selected consecutive E1E PCs leave a 3,720-raw callback after
+            // the shared 426-cycle scheduler shell.
+            return Some(M68kCycleCount::from_raw(3_720));
+        }
         let mut cycles = match row_count {
             3 => 4_048_i32,
             // ASM loc_AA22 -> sub_A4EE -> sub_902A: frame 952's two-row

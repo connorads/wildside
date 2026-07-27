@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 991)
+
+- Frame 991 production-types the resumed `loc_AA22` right-wall cling with
+  released-B gravity and descending mapping state 3.
+- Its callback is 3,720 raw, Execute_Objects is 7,294 raw, and the post-execute
+  path is 2,706 raw plus an 18-cycle phase correction.
+- `sub_44DC` is exact at 126,853,293 phase 42.
+- NEXT: type frame 992, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 990)
 
 - Frame 990 production-types released-B gravity and the two-column solid scan
