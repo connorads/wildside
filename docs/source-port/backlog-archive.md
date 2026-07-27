@@ -4617,6 +4617,19 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 989 production-types a one-cell solid type-1 ceiling
+hit through `sub_914A loc_9188 -> loc_91AC -> j_loc_1002E`. The prize-block
+wobble worker inserts at object rank 2 and Gfx rank 4. Its callback is 8,702
+raw and the complete Execute_Objects pass is 12,674 raw; the native post-frozen
+PlaySound model adds six waits absent from the oracle. The post-execute path is
+3,234 raw and needs a 142-cycle phase-placement correction. Selected PCs pin
+`sub_E12` at 126,587,110 phase 104, `loc_7E6` at 126,599,986 phase 52, and
+`sub_44DC` at 126,603,414 phase 24. Frame 988's wait-free post-HUD path retains
+`loc_892` at 126,481,565 phase 44.
+
+#406 remains open. NEXT: type frame 990 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 988 repeats positive neutral braking through
 `sub_B084 loc_B0FE` and held-B gravity through `loc_B1E8`. Its clear Gfx
 traversal retains the 4,056-raw callback and 7,172-raw complete Execute_Objects

@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 989)
+
+- Frame 989 production-types the one-cell `sub_914A` type-1 ceiling hit and
+  rank-2/rank-4 prize-wobble insertion.
+- Its callback is 8,702 raw, Execute_Objects is 12,674 raw, and the
+  post-execute path is 3,234 raw plus a 142-cycle phase correction.
+- `sub_44DC` is exact at 126,603,414 phase 24 with flat oracle wait counters.
+- NEXT: type frame 990, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 988)
 
 - Frame 988 repeats positive neutral braking and held-jump gravity.

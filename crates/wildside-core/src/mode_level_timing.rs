@@ -2460,6 +2460,25 @@ pub fn player_callback_cycles_loc_a73a(
             cycles += 346 + 66 * i32::try_from(scan.visits.len()).ok()?;
         }
         (ModeLevelVerticalCollisionPath::Ceiling, Some(scan))
+            if scan.visits.len() == 1
+                && scan.return_path == ModeLevelCeilingScanReturn::Hit
+                && scan.first_hit_col.is_some()
+                && scan.visits.iter().any(|visit| {
+                    Some(visit.col) == scan.first_hit_col
+                        && visit.block_type == Some(1)
+                        && visit.rubber_effect == ModeLevelRubberContactEffectLoc10DA4::None
+                }) =>
+        {
+            let list = execute.player_prize_wobble_list_work_loc_1002e?;
+            // ASM sub_914A loc_9188 -> loc_91AC -> j_loc_1002E, published
+            // TAS frame 989. The single solid type-1 visit and rank-2/rank-4
+            // wobble insertion make loc_A73A -> sub_E76 exactly 8,702 raw
+            // cycles. Removing the shared airborne/Gfx spine leaves 4,293
+            // raw cycles plus both source-ordered list traversals.
+            cycles += 4_293
+                + 54 * i32::from(list.object_insert_rank_loc_de0 + list.gfx_insert_rank_loc_fd4);
+        }
+        (ModeLevelVerticalCollisionPath::Ceiling, Some(scan))
             if scan.visits.len() == 2
                 && scan.return_path == ModeLevelCeilingScanReturn::Hit
                 && scan.first_hit_col.is_some()
