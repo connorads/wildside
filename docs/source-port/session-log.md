@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 977)
+
+- Frame 977 pins `loc_7D6` at 125,050,186 phase 16, `sub_E12` at 125,051,042
+  phase 104, and `sub_44DC` at 125,056,776 phase 78.
+- Both wait counters remain flat. Its prefix is 16 cycles short, then the
+  wait-free pre-HUD span needs the measured 24-cycle refresh correction.
+- NEXT: type frame 978, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 976)
 
 - Frame 976 pins `loc_7D6` at 124,922,308 phase 71, `sub_E12` at 124,923,166
