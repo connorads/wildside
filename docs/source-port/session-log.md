@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 973)
+
+- Frame 973 pins `loc_7D6` at 124,538,172 phase 16, `sub_E12` at 124,539,028
+  phase 104, and `sub_44DC` at 124,544,738 phase 54.
+- Both wait counters remain flat. The retained VBlank prefix is 18 cycles
+  short with the correct phase.
+- The 3,120 + 2,500 raw pull-up path then reaches the HUD entry exactly.
+- NEXT: type frame 974, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 972)
 
 - Frame 972 pins `loc_7D6` at 124,410,581 phase 71, `sub_E12` at 124,411,514
