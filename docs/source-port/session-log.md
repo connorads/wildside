@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 982)
+
+- Frame 982 resumes ASM `loc_A73A -> sub_B084 -> sub_B168 -> sub_A4EE` with
+  held-right acceleration, held-B gravity, and a clear six-cell Gfx scan.
+- The callback is 4,202 raw cycles; Execute_Objects is 7,342 raw. The retained
+  jumping hitbox keeps the post-execute path at 2,606 raw cycles.
+- `sub_44DC` is exact at 125,701,176 phase 98 with flat oracle wait counters.
+- NEXT: type frame 983, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 981)
 
 - Frame 981 takes ASM `loc_8C70 -> loc_A426 -> sub_A432` and launches with

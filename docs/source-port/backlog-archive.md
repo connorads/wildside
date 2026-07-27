@@ -4617,6 +4617,21 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 982 resumes the airborne Kid coroutine through
+`loc_A73A -> sub_B084 -> sub_B168 -> sub_A4EE -> loc_A75A`. Its held-right
+run acceleration, held-B gravity, and clear two-column/three-row Gfx terrain
+scan cost 4,202 raw callback cycles; with the shared scheduler and workers the
+complete Execute_Objects pass is 7,342 raw. The jumping hitbox retains the
+three-row/two-column `loc_EAE4` scan and cached `sub_F096` path at 2,606 raw.
+Selected PCs pin `sub_E12` at 125,691,070 phase 104, `loc_7E6` at 125,698,530
+phase 12, and `sub_44DC` at 125,701,176 phase 98. Frame 981's complete typed
+22-phase post-HUD ledger is retained and its post-frozen `loc_892` boundary is
+source-positioned at 125,599,691 phase 112 because the later native GEMS phase
+remains outside the frozen audio witness.
+
+#406 remains open. NEXT: type frame 983 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 981 consumes the next B edge through `loc_8C70 ->
 loc_A426 -> sub_A432 -> loc_A75A`, reducing X velocity from `$3800` to `$2A00`
 and launching with Y velocity `$FFFBD3A0`. Selected `loc_E1E` rows composed

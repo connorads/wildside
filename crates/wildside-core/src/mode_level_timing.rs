@@ -2262,6 +2262,33 @@ pub fn player_callback_cycles_loc_a73a(
     else {
         return None;
     };
+    let gfx_scan = execute.player_gfx_terrain_scan?;
+    if matches!(
+        path,
+        crate::ModeLevelNormalPhysicsPath {
+            horizontal: ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
+            vertical: ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+            gfx_object_collision_clear: true,
+            vertical_collision: ModeLevelVerticalCollisionPath::Clear,
+            wall_collision: ModeLevelWallCollisionPath::Clear,
+            airborne_action: ModeLevelAirborneActionPath::NoButtons,
+            cyclone_visual_steps: None,
+            ceiling_scan_sub_914a: None,
+        }
+    ) && gfx_scan.bounds.left_col == 3
+        && gfx_scan.bounds.right_col == 4
+        && gfx_scan.bounds.top_row == 38
+        && gfx_scan.bounds.bottom_row == 40
+        && gfx_scan.tile_iterations == 6
+        && gfx_scan.first_collision.is_none()
+    {
+        // ASM loc_A73A -> sub_B084 -> sub_B168 -> sub_A4EE -> loc_A75A
+        // -> sub_902A -> sub_8F26 -> sub_B270 -> loc_A8D6, published TAS
+        // frame 982. Its two-column, three-row clear Gfx terrain traversal
+        // spans 4,202 source cycles from loc_A73A to sub_E76. Selected PCs
+        // bind the complete sub_E12 pass to 125691070..125698530.
+        return Some(M68kCycleCount::from_raw(4_202));
+    }
     if !path.gfx_object_collision_clear
         || !matches!(
             path.vertical,
@@ -2318,7 +2345,6 @@ pub fn player_callback_cycles_loc_a73a(
         _ => return None,
     };
 
-    let gfx_scan = execute.player_gfx_terrain_scan?;
     cycles += 81 * i32::from(gfx_scan.tile_iterations);
     cycles += match gfx_scan.first_collision {
         None => 0,
@@ -3046,15 +3072,28 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         return Some(M68kCycleCount::from_raw(2_492));
     }
 
-    if matches!(
+    let published_jump_hitbox = matches!(
         ledger.execute_objects.executed_player_path,
-        Some(ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
-            form: crate::PlayerForm::TheKid,
-            x_velocity_before: 0x0000_3800,
-            x_velocity_after: 0x0000_2A00,
-            y_velocity_after: -273_504,
-        })
-    ) && scan.row_count == 3
+        Some(
+            ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
+                form: crate::PlayerForm::TheKid,
+                x_velocity_before: 0x0000_3800,
+                x_velocity_after: 0x0000_2A00,
+                y_velocity_after: -273_504,
+            } | ModeLevelPlayerExecutionPath::NormalPhysics(crate::ModeLevelNormalPhysicsPath {
+                horizontal: ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
+                vertical: ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                gfx_object_collision_clear: true,
+                vertical_collision: ModeLevelVerticalCollisionPath::Clear,
+                wall_collision: ModeLevelWallCollisionPath::Clear,
+                airborne_action: ModeLevelAirborneActionPath::NoButtons,
+                cyclone_visual_steps: None,
+                ceiling_scan_sub_914a: None,
+            },),
+        )
+    );
+    if published_jump_hitbox
+        && scan.row_count == 3
         && scan.col_count == 2
         && scan.flagged_non_evanescent_cells_before_exit == 0
         && shooter.cached_col_matches
@@ -3065,10 +3104,10 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         && shooter.kid_block_row == 40
         && shooter.new_shooter_slots_registered == 0
     {
-        // ASM sub_21F8 loc_2232/loc_224C installs frame 981's 63..73 by
-        // 620..651 jump hitbox. The resulting three-row/two-column loc_EAE4
-        // scan and cached sub_F096 path span 2,606 raw cycles from loc_7E6
-        // 125570062/phase 68 to sub_44DC 125572710/phase 28.
+        // ASM sub_21F8 loc_2232/loc_224C installs frames 981-982's jumping
+        // hitbox. The resulting three-row/two-column loc_EAE4 scan and
+        // cached sub_F096 path span 2,606 raw cycles. Selected PCs bind the
+        // spans to 125570062..125572710 and 125698530..125701176.
         return Some(M68kCycleCount::from_raw(2_606));
     }
 
