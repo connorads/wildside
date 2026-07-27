@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 960)
+
+- Selected PCs pin frame 960 `sub_E12` at cycle 122,875,230 phase 104,
+  `loc_7E6` at 122,878,400 phase 74, and `sub_44DC` at 122,880,940 phase 54.
+- The third `Hibernate_UntilAnimFinished loc_1062` wake costs 3,120 raw plus
+  50 refresh cycles before `loc_7E6`, then 2,500 raw plus 40 refresh cycles.
+- The oracle Z80 wait counter remains 762,168 throughout both spans.
+- The coarse-state continuation stays test-local to protect the frozen
+  frame-923 GEMS evidence span.
+- NEXT: type frame 961, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 959)
 
 - Selected PCs pin frame 958's later unfrozen handoffs at `WaitForVint`

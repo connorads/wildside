@@ -4617,6 +4617,17 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: selected-PC tracing pins frame 960 `sub_E12` at cycle
+122,875,230 phase 104, `loc_7E6` at 122,878,400 phase 74, and `sub_44DC` at
+122,880,940 phase 54. The oracle Z80 wait counter remains 762,168 across both
+spans, proving that the third `Hibernate_UntilAnimFinished loc_1062` wake uses
+only the 3,120-raw execute path plus 50 refresh cycles and the 2,500-raw
+post-object path plus 40 refresh cycles. The continuation remains test-local
+because the same coarse pull-up state occurs inside the frozen GEMS witness.
+
+#406 remains open. NEXT: type frame 961 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: selected-PC tracing pins the unfrozen frame-958 tail at
 `WaitForVint` cycle 122,645,157 phase 40, `Mode_Level loc_7C8` cycle
 122,739,140 phase 71, and the completed frame-959 `loc_30104 -> loc_7D6`
