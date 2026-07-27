@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 990)
+
+- Frame 990 production-types released-B gravity and the two-column solid scan
+  that enters `sub_8F26 -> loc_A9E4` right-wall cling.
+- Its callback is 4,700 raw, Execute_Objects is 8,274 raw, and the post-execute
+  path is 2,706 raw plus a 20-cycle phase correction.
+- `sub_44DC` is exact at 126,726,739 phase 70.
+- NEXT: type frame 991, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 989)
 
 - Frame 989 production-types the one-cell `sub_914A` type-1 ceiling hit and

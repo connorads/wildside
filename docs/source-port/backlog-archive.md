@@ -4617,6 +4617,19 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 990 production-types neutral positive braking,
+released-B `loc_B1E0` gravity, a two-column Gfx scan ending solid, and
+`sub_8F26 -> loc_A9E4` right-wall-cling entry. The callback is 4,700 raw, the
+complete Execute_Objects pass is 8,274 raw, and the post-execute path is 2,706
+raw with a 20-cycle phase correction. Frame 989's post-HUD interval carries
+385 oracle Z80 waits and retains `loc_892` at 126,614,445 phase 47; the next
+coarse VBlank suffix is source-positioned by 442 cycles. Selected PCs pin
+`sub_E12` at 126,715,567 phase 34, `loc_7E6` at 126,723,971 phase 118, and
+`sub_44DC` at 126,726,739 phase 70.
+
+#406 remains open. NEXT: type frame 991 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 989 production-types a one-cell solid type-1 ceiling
 hit through `sub_914A loc_9188 -> loc_91AC -> j_loc_1002E`. The prize-block
 wobble worker inserts at object rank 2 and Gfx rank 4. Its callback is 8,702

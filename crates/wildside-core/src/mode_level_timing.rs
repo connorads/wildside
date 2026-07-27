@@ -2315,6 +2315,31 @@ pub fn player_callback_cycles_loc_a73a(
         // complete sub_E12 pass to 125947075..125954251.
         return Some(M68kCycleCount::from_raw(3_948));
     }
+    if matches!(
+        path,
+        crate::ModeLevelNormalPhysicsPath {
+            horizontal: ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
+            vertical: ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
+            gfx_object_collision_clear: true,
+            vertical_collision: ModeLevelVerticalCollisionPath::Clear,
+            wall_collision: ModeLevelWallCollisionPath::RightWallClingLocA9e4,
+            airborne_action: ModeLevelAirborneActionPath::NotReachedAfterWallCollision,
+            cyclone_visual_steps: None,
+            ceiling_scan_sub_914a: None,
+        }
+    ) && gfx_scan.bounds.left_col == 4
+        && gfx_scan.bounds.right_col == 5
+        && gfx_scan.bounds.top_row == 37
+        && gfx_scan.bounds.bottom_row == 38
+        && gfx_scan.tile_iterations == 2
+        && gfx_scan.first_collision == Some(ModeLevelKidGfxTerrainCollision::Solid)
+    {
+        // ASM loc_A73A -> sub_B084 loc_B0FE -> sub_B168 loc_B1E0 ->
+        // sub_A4EE -> sub_8F26 -> loc_A9E4 -> sub_B270, published TAS
+        // frame 990. Selected PCs bind loc_A73A..sub_E76 to 4,700 raw
+        // cycles for this two-column wall-cling entry.
+        return Some(M68kCycleCount::from_raw(4_700));
+    }
     if !path.gfx_object_collision_clear
         || !matches!(
             path.vertical,
