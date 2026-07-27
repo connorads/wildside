@@ -53,6 +53,7 @@ struct LintRow {
     status: String,
     target: Option<String>,
     check: Option<String>,
+    summary: String,
     verify: String,
 }
 
@@ -102,11 +103,12 @@ fn parse_rows(contents: &str, lane: BacklogLane) -> Vec<LintRow> {
         if cols.len() != lane.expected_cell_count() || cols.iter().any(|c| c.is_empty()) {
             continue;
         }
-        let (target, check, verify) = match lane {
-            BacklogLane::Open => (None, None, cols[5].to_owned()),
+        let (target, check, summary, verify) = match lane {
+            BacklogLane::Open => (None, None, cols[4].to_owned(), cols[5].to_owned()),
             BacklogLane::AwaitingHuman => (
                 Some(cols[4].to_owned()),
                 Some(cols[5].to_owned()),
+                cols[6].to_owned(),
                 cols[7].to_owned(),
             ),
         };
@@ -115,6 +117,7 @@ fn parse_rows(contents: &str, lane: BacklogLane) -> Vec<LintRow> {
             status: cols[1].to_owned(),
             target,
             check,
+            summary,
             verify,
         });
     }
@@ -303,6 +306,69 @@ pub(crate) fn awaiting_human_check_problem(check: &str) -> Option<String> {
     None
 }
 
+/// Shortest index a successor check will consider. Two-digit values are overwhelmingly
+/// level ids, priorities, and sizes rather than march indices, so they are out of scope.
+const MIN_SUCCESSOR_INDEX_DIGITS: usize = 3;
+
+/// Decimal indices in `text` that could plausibly be a march position.
+///
+/// Excluded, because a `Verify` naming the next one of these is not a treadmill:
+/// - fewer than [`MIN_SUCCESSOR_INDEX_DIGITS`] digits;
+/// - anything glued to an identifier, hex prefix, or unit (`0x1234`, `sub_44DC`, `3d`);
+/// - range and decimal-group members (`0-104`, `1690..1710`, `37,759`);
+/// - `#NNN` issue ids — a row citing #437 whose Verify cites #438 is cross-referencing
+///   two issues, not advancing an index by one.
+fn candidate_march_indices(text: &str) -> BTreeSet<u64> {
+    /// Characters that, immediately before the digits, mean this is not a bare index.
+    const LEFT_DISQUALIFIERS: &[char] = &['-', '.', ',', '_', '#', 'x', 'X'];
+    /// Characters that, immediately after the digits, mean this is not a bare index.
+    const RIGHT_DISQUALIFIERS: &[char] = &['-', '.', ',', '_'];
+
+    let bytes = text.as_bytes();
+    let mut indices = BTreeSet::new();
+    let mut start = 0;
+    while start < bytes.len() {
+        if !bytes[start].is_ascii_digit() {
+            start += 1;
+            continue;
+        }
+        let mut end = start;
+        while end < bytes.len() && bytes[end].is_ascii_digit() {
+            end += 1;
+        }
+        let before = text[..start].chars().next_back();
+        let after = text[end..].chars().next();
+        let disqualified = end - start < MIN_SUCCESSOR_INDEX_DIGITS
+            || before.is_some_and(|c| c.is_alphanumeric() || LEFT_DISQUALIFIERS.contains(&c))
+            || after.is_some_and(|c| c.is_alphanumeric() || RIGHT_DISQUALIFIERS.contains(&c));
+        if !disqualified && let Ok(value) = text[start..end].parse::<u64>() {
+            indices.insert(value);
+        }
+        start = end;
+    }
+    indices
+}
+
+/// A `Verify` whose only stated goal is the index one past the `Summary`'s is not an exit
+/// condition: satisfying it reproduces the same row with both numbers incremented. Such a
+/// row can never close, so the loop treats an unbounded march as ordinary progress and its
+/// per-session cost never surfaces. Force the row to state what would finish it instead.
+fn successor_verify_problem(row: &LintRow) -> Option<String> {
+    let summary = candidate_march_indices(&row.summary);
+    let successor = candidate_march_indices(&row.verify)
+        .into_iter()
+        .find(|next| {
+            next.checked_sub(1)
+                .is_some_and(|prev| summary.contains(&prev))
+        })?;
+    Some(format!(
+        "#{} Verify targets index {successor}, one past Summary's {}; that is a march step, \
+         not an exit condition — state what would close the row",
+        row.id,
+        successor - 1
+    ))
+}
+
 /// Enforce the backlog's pit-of-success shape. Returns an error listing every problem so
 /// drift fails `verify-slice-fast` rather than rotting silently.
 pub(crate) fn run_backlog_lint(repo_root: &Path) -> Result<()> {
@@ -348,6 +414,7 @@ pub(crate) fn run_backlog_lint(repo_root: &Path) -> Result<()> {
                 row.id, row.status
             ));
         }
+        problems.extend(successor_verify_problem(row));
     }
     for row in &awaiting_rows {
         if !matches!(row.status.as_str(), "[?]" | "[b]") {
@@ -823,6 +890,109 @@ mod tests {
             &backlog_with_current_work("- **Current work:** take project-status's top item."),
         );
         run_backlog_lint(dir.path()).expect("id-free current work is fine");
+    }
+
+    fn open_row(id: &str, summary: &str, verify: &str) -> LintRow {
+        LintRow {
+            id: id.to_owned(),
+            status: "[ ]".to_owned(),
+            target: None,
+            check: None,
+            summary: summary.to_owned(),
+            verify: verify.to_owned(),
+        }
+    }
+
+    #[test]
+    fn successor_check_flags_the_frame_march_row() {
+        // #406 as it stood while the loop emitted one commit per typed TAS frame: the
+        // Verify's only goal is Summary's frame plus one, so satisfying it rewrites the
+        // row unchanged. This is the shape the check exists to catch.
+        let problem = successor_verify_problem(&open_row(
+            "406",
+            "Persistent CPU/VDP/GEMS timing is exact through frame 995 `sub_44DC`; frame 1706's \
+             one-pixel HUD Diamond residue remains the target.",
+            "Type frame 996; keep full TAS green.",
+        ))
+        .expect("frame 995 -> 996 is a march step");
+        assert!(
+            problem.contains("#406") && problem.contains("996") && problem.contains("995"),
+            "{problem}"
+        );
+    }
+
+    #[test]
+    fn successor_check_passes_current_open_rows() {
+        // Live rows that share tokens with their Verify but state a real exit condition.
+        // #419/#425 carry hex level ids (`0x60`, `0x47`); #441 cites a sibling issue id.
+        for (id, summary, verify) in [
+            (
+                "419",
+                "Goat contact/lifecycle divergence fails sweep levels 0x38/0x60/0x63 (16 \
+                 blockers): 0x60 cascades to level transition + life loss.",
+                "Probe 0x60 settle contact vs oracle; all three levels pass state sweep.",
+            ),
+            (
+                "425",
+                "Leading off-screen SpinningTwins never allocated natively fails 0x47 (+1 \
+                 object/+2 gfx — the Enemy14 dual-gfx init fingerprint).",
+                "Probe 0x47 settle roster vs oracle; level passes state sweep.",
+            ),
+            (
+                "441",
+                "Bounded-span replay #437 leaves the sampling-vs-drift discriminator open.",
+                "Split the 36,836 residue into sampling and drift with a measured probe.",
+            ),
+            (
+                "409",
+                "Conservative VBlank/work bounds make frames 1697/1703 exact; frame 1709 \
+                 still needs its mixed `loc_4586` FIFO raster.",
+                "Replay the boundaries persistently and emit exact `sub_44DC` timings.",
+            ),
+        ] {
+            assert_eq!(
+                successor_verify_problem(&open_row(id, summary, verify)),
+                None,
+                "#{id} must not trip the successor check"
+            );
+        }
+    }
+
+    #[test]
+    fn candidate_march_indices_excludes_non_index_digits() {
+        // Ranges, decimal groups, hex, identifiers, issue ids, and short values are all
+        // excluded; only bare three-plus-digit indices survive.
+        assert_eq!(
+            candidate_march_indices("frames 1690..1710"),
+            BTreeSet::new()
+        );
+        assert_eq!(candidate_march_indices("levels 0-104"), BTreeSet::new());
+        assert_eq!(candidate_march_indices("37,759 frames"), BTreeSet::new());
+        assert_eq!(
+            candidate_march_indices("`sub_44DC` at 0x1234"),
+            BTreeSet::new()
+        );
+        assert_eq!(candidate_march_indices("closes #437"), BTreeSet::new());
+        assert_eq!(candidate_march_indices("53 failing"), BTreeSet::new());
+        assert_eq!(
+            candidate_march_indices("frame 995 reaches frame 1706"),
+            BTreeSet::from([995, 1706])
+        );
+    }
+
+    #[test]
+    fn lint_reports_the_successor_problem_for_a_march_row() {
+        let dir = TempDir::new().expect("temp");
+        let march = CLEAN_BACKLOG.replace(
+            "| 200 | [ ] | P1 | player | a bug | mise run verify-slice-fast |",
+            "| 200 | [ ] | P1 | player | exact through frame 995 | Type frame 996; keep green. |",
+        );
+        write(&dir, BACKLOG_PATH, &march);
+        assert!(lint_err(&dir).contains("hygiene problem"));
+        let rows = parse_rows(&march, BacklogLane::Open);
+        assert!(
+            successor_verify_problem(&rows[0]).is_some_and(|p| p.contains("not an exit condition"))
+        );
     }
 
     #[test]

@@ -62,7 +62,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 406 | [~] | P1 | rendering | Persistent CPU/VDP/GEMS timing is exact through frame 995 `sub_44DC`; frame 1706's one-pixel HUD Diamond residue remains the target. | Type frame 996; keep full TAS green. |
+| 406 | [~] | P1 | rendering | Persistent CPU/VDP/GEMS timing is exact through frame 995 `sub_44DC`; frame 1706's one-pixel HUD Diamond residue remains the target. | `seed_mode_level_raster_sub_e12` gains a production caller and the focused pixels over 1690..1710 reach 20/20; oracle-injection ratchet falls per typed frame. |
 | 407 | [ ] | P1 | rendering | Five renderer commits after 5b6d74d88 flipped ~130 previously-exact route frames divergent (pixels still improved), so tas-pixel-baseline is red. | Attribute flips per commit, fix or re-baseline with evidence; verify-tas-full green. |
 | 408 | [ ] | P1 | rendering | Field sprite/effect animation phase derives from global frame_index instead of the ROM's per-object `GfxObject_Animate` animation_timer; largest #406 cluster (est 2,000-3,500 frames: cyclone spin, prize bursts, diamond spin/sparkle). | Current RGB frontier has no live object; await an object-local mismatch. |
 | 409 | [~] | P1 | rendering | Conservative VBlank/work bounds make frames 1697/1703 exact; frame 1709 still needs its mixed `loc_4586` FIFO raster. | Replay the boundaries persistently and emit exact `sub_44DC` timings. |
