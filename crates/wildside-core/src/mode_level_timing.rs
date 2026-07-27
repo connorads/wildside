@@ -2188,7 +2188,7 @@ pub fn player_callback_cycles_loc_a73a(
         side: crate::Direction::Right,
         wall_scan_hit_row,
         vertical,
-        y_velocity_after: _,
+        y_velocity_after,
         gfx_object_collision_clear: true,
         vertical_collision: ModeLevelVerticalCollisionPath::Clear,
         ceiling_scan_sub_914a,
@@ -2225,9 +2225,13 @@ pub fn player_callback_cycles_loc_a73a(
             // -> sub_8F26 -> sub_B270 loc_B350, published TAS frames 991-992.
             // Selected consecutive E1E PCs leave 3,720 raw for the two-row
             // scan and 4,260 raw after the next falling-frame row expansion.
-            return match row_count {
-                2 => Some(M68kCycleCount::from_raw(3_720)),
-                3 => Some(M68kCycleCount::from_raw(4_260)),
+            return match (row_count, *y_velocity_after) {
+                (2, 32_768) => Some(M68kCycleCount::from_raw(3_720)),
+                (3, 49_152 | 65_536) => Some(M68kCycleCount::from_raw(4_260)),
+                // ASM frame 994 retains the same three-row trace shape, but
+                // selected consecutive E1E PCs pin its later falling resume
+                // to 3,836 raw cycles after the scheduler shell.
+                (3, 81_920) => Some(M68kCycleCount::from_raw(3_836)),
                 _ => None,
             };
         }

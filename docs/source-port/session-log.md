@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-27 handoff (#406 persistent clock reaches frame 994)
+
+- Frame 994 retains the three-row falling `loc_AA22` cling but shortens its
+  callback to 3,836 raw at Y velocity `$14000`.
+- Execute_Objects is 7,410 raw and the post-execute path is 2,588 raw plus an
+  18-cycle phase correction.
+- `sub_44DC` is exact at 127,237,306 phase 40.
+- NEXT: type frame 995, then continue towards the frame-1706 Diamond raster.
+
 ## 2026-07-27 handoff (#406 persistent clock reaches frame 993)
 
 - Frame 993 retains the three-row falling cling and source-positions its
