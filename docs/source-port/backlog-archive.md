@@ -4617,6 +4617,18 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-27: frame 992 continues the released-B `loc_AA22` right-wall
+cling with descending mapping state 3. Falling expands the clear Gfx scan from
+two rows to three, so consecutive `loc_E1E` boundaries grow the callback from
+3,720 to 4,260 raw. The complete Execute_Objects pass is 7,834 raw and the
+post-execute path is 3,126 raw with a 20-cycle phase correction. Frame 991's
+wait-free post-HUD path retains `loc_892` at 126,863,779 phase 32. Selected PCs
+pin `sub_E12` at 126,971,130 phase 104, `loc_7E6` at 126,979,088 phase 126,
+and `sub_44DC` at 126,982,282 phase 120.
+
+#406 remains open. NEXT: type frame 993 and carry the persistent owner towards
+the already-proven frame-1706 Diamond raster.
+
 Progress 2026-07-27: frame 991 production-types the resumed `loc_AA22`
 right-wall cling with released-B `loc_B1E0` gravity, a clear one-column/two-row
 Gfx scan, wall hit row 38, and `sub_B270 loc_B350` descending mapping state 3.

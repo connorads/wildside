@@ -2222,10 +2222,14 @@ pub fn player_callback_cycles_loc_a73a(
                 == ModeLevelAirborneVisualMappingPathSubB270::DescendingState3
         {
             // ASM loc_AA22 -> sub_B168 loc_B1E0 -> sub_A4EE -> sub_902A
-            // -> sub_8F26 -> sub_B270 loc_B350, published TAS frame 991.
-            // Selected consecutive E1E PCs leave a 3,720-raw callback after
-            // the shared 426-cycle scheduler shell.
-            return Some(M68kCycleCount::from_raw(3_720));
+            // -> sub_8F26 -> sub_B270 loc_B350, published TAS frames 991-992.
+            // Selected consecutive E1E PCs leave 3,720 raw for the two-row
+            // scan and 4,260 raw after the next falling-frame row expansion.
+            return match row_count {
+                2 => Some(M68kCycleCount::from_raw(3_720)),
+                3 => Some(M68kCycleCount::from_raw(4_260)),
+                _ => None,
+            };
         }
         let mut cycles = match row_count {
             3 => 4_048_i32,
