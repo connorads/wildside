@@ -845,7 +845,7 @@ fn print_trace_frames_in_range(
                 .map(wildside_core::FrameInput::from_mask)
                 .unwrap_or_default();
             println!(
-                "frame {} (trace {:08X}): input {} mode {:?} boot={:?}@{:?} rng {:04X} camera {:08X},{:08X} kid {:08X},{:08X} vel {:08X},{:08X} ground {:?} slope {} invuln {} form_flash {} death_windup {} lives/hp {}/{} diamonds {} hud[diamond={:?}/{:?} life={:?}/{:?}] transform_source={:?}/{:?} floating={:?} shore={:?}/{:?} prize_flash={:?} bounce={:?} tails={:?} debris={:?} sparks={:?} projectiles={:?}/{:?} active_enemies {} active_platforms {} roster {}",
+                "frame {} (trace {:08X}): input {} mode {:?} boot={:?}@{:?} rng {:04X} camera {:08X},{:08X} kid {:08X},{:08X} vel {:08X},{:08X} ground {:?} slope {} airborne_mapping {:?} invuln {} form_flash {} death_windup {} lives/hp {}/{} diamonds {} hud[diamond={:?}/{:?} life={:?}/{:?}] transform_source={:?}/{:?} floating={:?} shore={:?}/{:?} prize_flash={:?} bounce={:?} tails={:?} debris={:?} sparks={:?} projectiles={:?}/{:?} active_enemies {} active_platforms {} roster {}",
                 trace_index,
                 frame.frame_index,
                 describe_frame_input(input),
@@ -861,6 +861,7 @@ fn print_trace_frames_in_range(
                 frame.kid_y_velocity.unwrap_or_default() as u32,
                 frame.kid_on_ground,
                 frame.kid_on_slope,
+                frame.airborne_visual_mapping_sub_b270,
                 frame.invulnerable_frames,
                 frame.form_change_flash_frames,
                 frame.death_windup_elapsed,

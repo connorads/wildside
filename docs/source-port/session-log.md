@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 Kid airborne mapping table)
+
+- `sub_B270 loc_B334/loc_B350 -> off_B3B8` duplicates The Kid's rise and fall
+  mappings as `A3B66,A3B66,A3CEC,A3CEC`; the render asset spec now does too.
+- Full pixels improve to 36,403 exact / 1,356 divergent / 315,789 changed;
+  85 route frames become exact and all non-pixel frontiers stay unchanged.
+- NEXT: classify the paired lower-screen 16-frame / 8,480-pixel classes
+  `grid:10,24-14,27` and `grid:11,24-15,27` as one shared mapping path.
+
 ## 2026-07-28 handoff (#406 SolidGhost scheduler and SAT)
 
 - `Mode_Level loc_7FC -> sub_F730` now ages SolidGhost workers during the

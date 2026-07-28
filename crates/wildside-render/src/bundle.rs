@@ -2385,7 +2385,7 @@ const KID_JUMP_FALL_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
 
 const KID_AIRBORNE_FRAMES: [PlayerFrameDescriptor; 4] = [
     KID_JUMP_RISE_FRAME,
-    KID_JUMP_FALL_FRAME,
+    KID_JUMP_RISE_FRAME,
     KID_JUMP_FALL_FRAME,
     KID_JUMP_FALL_FRAME,
 ];
@@ -6223,6 +6223,22 @@ mod tests {
         assert_eq!(
             maniaxe.airborne[2].origin_y, -0x02,
             "ASM Maniaxe jump-fall sprite descriptor stores origin_y=-$02"
+        );
+    }
+
+    #[test]
+    fn kid_airborne_visual_spec_matches_asm_off_b3b8() {
+        let paths = super::KID_AIRBORNE_FRAMES.map(|frame| frame.relative_path);
+
+        assert_eq!(
+            paths,
+            [
+                "artunc_kid/kid_jumping_1.bin",
+                "artunc_kid/kid_jumping_1.bin",
+                "artunc_kid/kid_jumping_2.bin",
+                "artunc_kid/kid_jumping_2.bin",
+            ],
+            "ASM sub_B270 loc_B334/loc_B350 -> off_B3B8 duplicates Kid mappings A3B66,A3B66,A3CEC,A3CEC"
         );
     }
 

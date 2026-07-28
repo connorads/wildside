@@ -4757,6 +4757,24 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-28 (Kid airborne mapping table): the two mirrored 20-frame
+clusters were the same four-frame animation defect repeated through five Demo 1
+lineages. Enlarged native/oracle frames showed identical position and palette,
+but native switched from the compact rise pose to the extended fall pose while
+Kid was still ascending. ASM `sub_B270 loc_B334/loc_B350 -> off_B3B8` has four
+threshold states, but The Kid's table entries are deliberately duplicated:
+`A3B66,A3B66,A3CEC,A3CEC`. The render asset spec incorrectly used
+`rise,fall,fall,fall`; it now uses `rise,rise,fall,fall`, while the generic
+four-state selector remains available to forms whose ROM entries differ. The
+scenario probe also prints the existing typed `airborne_mapping` state. Focused
+frames 2887..2967 lose all eight player-pose mismatches, retaining only an
+unrelated 18-pixel oracle-only sprite at frame 2907. Full pixels improve
+36,318->36,403 exact, 1,441->1,356 divergent, and 369,213->315,789 changed.
+Gameplay, RNG, enemy and command frontiers remain unchanged.
+
+NEXT: classify the paired lower-screen 16-frame / 8,480-pixel classes
+`grid:10,24-14,27` and `grid:11,24-15,27` together.
+
 Progress 2026-07-28 (backward-motion walk-phase hold): after adding the fixed
 skid mapping, every remaining player-sized range followed the skid intervals.
 Oracle `$FFFFF8F0` and native phase were exact through frame 3089. While
