@@ -2751,6 +2751,9 @@ pub struct NativeTraceFrame {
     /// is a VDP operation fact rather than an animation-script cursor.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hud_diamond_vram_page_loc_5d4a: Option<u8>,
+    /// HUD-diamond page resident when `Kid_Transform` suspends Mode_Level.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transform_resident_hud_diamond_vram_page_loc_5d4a: Option<u8>,
     /// ASM Make_SpriteAttr_HUD loc_BEE8: whole seconds encoded into the most
     /// recently built HUD timer sprite entries. `None` denotes legacy traces.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3249,6 +3252,7 @@ impl Default for NativeTraceFrame {
             iron_knight_climb_pose_accum: 0,
             hud_diamond_frame_offset: None,
             hud_diamond_vram_page_loc_5d4a: None,
+            transform_resident_hud_diamond_vram_page_loc_5d4a: None,
             hud_timer_sprite_seconds_loc_bee8: None,
             hud_diamond_count_loc_bdc0: None,
             hud_life_frame_offset: None,

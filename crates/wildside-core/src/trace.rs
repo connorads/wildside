@@ -11372,6 +11372,12 @@ impl NativeRuntime {
                 self.gameplay_hud_vram_state
                     .diamond_frame_table_byte_offset_loc_5d4a(),
             ),
+            transform_resident_hud_diamond_vram_page_loc_5d4a: (self
+                .progression
+                .form_change_flash_frames
+                > 0)
+            .then_some(self.transform_resident_hud_diamond_vram_page_loc_5d4a)
+            .flatten(),
             hud_timer_sprite_seconds_loc_bee8: Some(self.hud_timer_sprite_seconds_loc_bee8),
             hud_diamond_count_loc_bdc0: Some(self.hud_diamond_count_loc_bdc0),
             hud_life_frame_offset: Some(self.hud_animation_state.life_frame_offset_fb5e),

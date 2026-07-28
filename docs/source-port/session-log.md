@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 typed transform HUD residency)
+
+- Oracle VRAM pins `$DD40` to `diamond_3.bin` at frame 1058 and
+  `diamond_2.bin` at frame 22465; transform residency is not a global rewind.
+- Core exports the transform-entry resident page and presentation consumes it.
+  Full pixels improve to 34,977 exact / 2,782 divergent / 1,155,747 changed.
+- Rejected skipping the core entry-frame HUD step: it shifts later animation
+  phase and regresses 641 frames / 91,876 pixels.
+- NEXT: investigate the 80-frame / 70,696-pixel transform-background class
+  across four ranges (samples 8069 and 33886) as shared VRAM residency.
+
 ## 2026-07-28 handoff (#406 transform HP-table pass)
 
 - HUD HP visibility used the extracted Iron Knight art durations (97 frames)

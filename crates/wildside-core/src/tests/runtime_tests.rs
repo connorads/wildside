@@ -6829,20 +6829,32 @@ mod chunk_09 {
             return;
         };
         let mut samples = Vec::new();
+        let mut hud_pages = Vec::new();
 
         for (frame_index, mask) in script.iter().copied().enumerate().take(22_466) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             if matches!(
                 frame_index,
-                21_837..=21_839 | 22_463..=22_465
+                1_055..=1_058 | 21_837..=21_839 | 22_463..=22_465
             ) {
-                samples.push((
-                    frame_index,
-                    trace.island_shore_cycle_state_loc_1202a,
-                    trace.island_shore_vram_frames_loc_1202a,
-                    trace.transform_resident_island_shore_vram_frames_loc_1202a,
-                    trace.island_shore_dma_uploads_loc_1202a.clone(),
-                ));
+                if frame_index <= 1_058 || frame_index >= 22_463 {
+                    hud_pages.push((
+                        frame_index,
+                        trace.form_change_flash_frames,
+                        trace.hud_diamond_frame_offset,
+                        trace.hud_diamond_vram_page_loc_5d4a,
+                        trace.transform_resident_hud_diamond_vram_page_loc_5d4a,
+                    ));
+                }
+                if frame_index >= 21_837 {
+                    samples.push((
+                        frame_index,
+                        trace.island_shore_cycle_state_loc_1202a,
+                        trace.island_shore_vram_frames_loc_1202a,
+                        trace.transform_resident_island_shore_vram_frames_loc_1202a,
+                        trace.island_shore_dma_uploads_loc_1202a.clone(),
+                    ));
+                }
             }
         }
 
@@ -6909,6 +6921,19 @@ mod chunk_09 {
                     vec![],
                 ),
             ],
+        );
+        assert_eq!(
+            hud_pages,
+            [
+                (1_055, 0, Some(4), Some(8), None),
+                (1_056, 0, Some(4), Some(8), None),
+                (1_057, 0, Some(4), Some(8), None),
+                (1_058, 73, Some(6), Some(12), Some(8)),
+                (22_463, 0, Some(2), Some(4), None),
+                (22_464, 82, Some(2), Some(4), Some(4)),
+                (22_465, 81, Some(2), Some(4), Some(4)),
+            ],
+            "ASM sub_44DC loc_4626 -> sub_5D4A and Kid_Transform loc_7CBE/loc_7D22: oracle VRAM $DD40 matches diamond_3.bin at frame 1058 and diamond_2.bin at frame 22465 while each transform hibernates its resident page",
         );
     }
 

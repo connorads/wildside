@@ -1397,24 +1397,12 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
             render_trace.island_shore_vram_frames_loc_1202a = Some(resident_frames);
         }
         if trace.form_change_flash_frames > 1 {
-            // ASM Kid_Transform loc_7C40/loc_7CD0 enters its synchronous
-            // sub_8E0 VBlank loop after sub_44DC has started the next `$DD40`
-            // transfer. The displayed diamond keeps the page that preceded
-            // that upload while Currently_transforming remains set. loc_7E90
-            // clears that flag before its final cleanup VBlank, so its `$DD40`
-            // upload is visible immediately. Keep the RAM selector and
-            // resident-DMA selector in agreement - HUD drawing gives the
-            // latter precedence.
-            let visible_offset = if previous_trace.form_change_flash_frames > 0 {
-                previous_trace
-                    .hud_diamond_frame_offset
-                    .map(previous_hud_diamond_frame_offset_loc_45ee)
-            } else {
-                previous_trace.hud_diamond_frame_offset
-            };
-            render_trace.hud_diamond_frame_offset = visible_offset;
+            // ASM Kid_Transform loc_7CBE/loc_7D22 hibernates `sub_44DC`, so
+            // `$FFFFFA5D` and the VRAM page both stay frozen. Core's typed
+            // transform-entry loc_5D4A snapshot is the resident page; the
+            // logical animation state may already have entered its next pass.
             render_trace.hud_diamond_vram_page_loc_5d4a =
-                visible_offset.map(|offset| offset.saturating_mul(2));
+                trace.transform_resident_hud_diamond_vram_page_loc_5d4a;
             if previous_trace.form_change_flash_frames > 0 {
                 render_trace.number_hitpoints = trace
                     .transform_source_hitpoints_loc_bdc0
@@ -1638,15 +1626,6 @@ fn block_destroy_initial_debris_positions_sub_292e(
             i16::try_from(y).unwrap_or(if y.is_negative() { i16::MIN } else { i16::MAX }),
         )
     })
-}
-
-fn previous_hud_diamond_frame_offset_loc_45ee(offset: u8) -> u8 {
-    match offset {
-        // ASM sub_44DC loc_45EE cycles the four `unk_461C` HUD diamond pages;
-        // only the first page wraps, all other offsets step back by one page.
-        0 => 6,
-        _ => offset.saturating_sub(2),
-    }
 }
 
 pub fn build_scene_filtered(
@@ -9552,48 +9531,6 @@ mod tests {
             vec![(0, 0, 4), (0, 8, 5), (8, 0, 6), (8, 8, 7)],
             "ASM loc_10F2A maps a 16x16 `$224` sprite in Mega Drive column-major tile order"
         );
-    }
-
-    #[test]
-    fn previous_hud_diamond_frame_offset_loc_45ee_rewinds_dma_page_ring() {
-        for (offset, expected, label) in [
-            (
-                0,
-                6,
-                "ASM sub_44DC loc_45EE wraps the first `unk_461C` page to the previous final page",
-            ),
-            (
-                2,
-                0,
-                "ASM sub_44DC loc_45EE rewinds the second `unk_461C` page",
-            ),
-            (
-                4,
-                2,
-                "ASM sub_44DC loc_45EE rewinds the third `unk_461C` page",
-            ),
-            (
-                6,
-                4,
-                "ASM sub_44DC loc_45EE rewinds the fourth `unk_461C` page",
-            ),
-            (
-                1,
-                0,
-                "ASM sub_44DC loc_45EE non-page offset saturates at zero",
-            ),
-            (
-                8,
-                6,
-                "ASM sub_44DC loc_45EE fallback still rewinds one two-byte page",
-            ),
-        ] {
-            assert_eq!(
-                previous_hud_diamond_frame_offset_loc_45ee(offset),
-                expected,
-                "{label}"
-            );
-        }
     }
 
     #[test]

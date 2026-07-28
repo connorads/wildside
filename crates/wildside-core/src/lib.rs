@@ -709,6 +709,9 @@ pub struct NativeRuntime {
     /// The selected `off_7B0AC` page last transferred by ASM sub_5D4A to
     /// HUD-diamond VRAM `$DD40`; presentation timing is modelled separately.
     gameplay_hud_vram_state: vdp::GameplayHudVramState,
+    /// `$DD40` page resident when `Kid_Transform` hibernates Mode_Level before
+    /// its next `sub_44DC` pass.
+    transform_resident_hud_diamond_vram_page_loc_5d4a: Option<u8>,
     /// ASM sub_44DC loc_4586's currently resident life-icon art page at VRAM
     /// `$4620`. This differs from `$FFFFFA5E` after the animation table wraps.
     hud_life_icon_vram_page_loc_4586: u8,
@@ -1584,6 +1587,7 @@ impl NativeRuntime {
             mode_level_platform_loader_work_loc_2744: None,
             demo_read_joypad_work_loc_c22: None,
             gameplay_hud_vram_state: vdp::GameplayHudVramState::initialised_from_sub_44b0(),
+            transform_resident_hud_diamond_vram_page_loc_5d4a: None,
             // Oracle Demo 1 bootstrap frames expose ArtUnc_4692 page 2 before
             // the first loc_4586 life-icon upload occurs.
             hud_life_icon_vram_page_loc_4586: 8,
@@ -4156,6 +4160,10 @@ impl NativeRuntime {
                                 // so restore the walking Dragon timer observed at
                                 // that scheduler boundary while retaining movement.
                                 self.rewind_walking_dragon_animation_on_transform_entry_loc_e1e();
+                                self.transform_resident_hud_diamond_vram_page_loc_5d4a = Some(
+                                    self.gameplay_hud_vram_state
+                                        .diamond_frame_table_byte_offset_loc_5d4a(),
+                                );
                                 // ASM Mode_Level loc_80C dispatches loc_12098
                                 // before Kid_Transform loc_7E90 hibernates the
                                 // Kid path. A transformation begun during the

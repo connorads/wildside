@@ -2760,6 +2760,7 @@ mod tests {
             iron_knight_climb_pose_accum: 0,
             hud_diamond_frame_offset: None,
             hud_diamond_vram_page_loc_5d4a: None,
+            transform_resident_hud_diamond_vram_page_loc_5d4a: None,
             hud_timer_sprite_seconds_loc_bee8: None,
             hud_diamond_count_loc_bdc0: None,
             hud_life_frame_offset: None,
@@ -12133,22 +12134,25 @@ mod tests {
     }
 
     #[test]
-    fn transform_hibernate_render_uses_prior_hud_diamond_page_loc_45ee() {
+    fn transform_hibernate_render_uses_resident_hud_diamond_page_loc_5d4a() {
         let mut previous = sample_trace(GameMode::DemoPlay);
         previous.current_level = LevelId(0x00);
         previous.hud_diamond_frame_offset = Some(6);
+        previous.hud_diamond_vram_page_loc_5d4a = Some(12);
+        previous.transform_resident_hud_diamond_vram_page_loc_5d4a = Some(8);
         previous.form_change_flash_frames = 72;
 
         let mut trace = previous.clone();
         trace.hud_diamond_frame_offset = Some(0);
+        trace.hud_diamond_vram_page_loc_5d4a = Some(0);
         trace.form_change_flash_frames = 71;
 
         let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
 
         assert_eq!(
-            render_trace.hud_diamond_frame_offset,
-            Some(4),
-            "ASM Kid_Transform loc_7CD0 hibernates gameplay while Mode_Level loc_80C still reaches sub_44DC; oracle frames keep the visible HUD diamond one unk_461C page behind the post-update previous trace"
+            render_trace.hud_diamond_vram_page_loc_5d4a,
+            Some(8),
+            "ASM Kid_Transform loc_7CBE/loc_7D22 hibernates Mode_Level; oracle VRAM keeps the typed transform-entry $DD40 page resident"
         );
     }
 

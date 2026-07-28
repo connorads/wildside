@@ -4757,6 +4757,22 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-28 (typed transform HUD residency): direct oracle VRAM dumps
+show `$DD40` retains `diamond_3.bin` through the frame-1058 transform and
+`diamond_2.bin` through the frame-22465 transform. The core now captures the
+`sub_5D4A` page resident when `Kid_Transform loc_7CBE/loc_7D22` suspends
+`Mode_Level`; presentation consumes that typed snapshot instead of applying a
+global animation-cursor rewind. The focused early and late transform windows
+recount exact. Full pixels improve 34,577→34,977 exact, 3,182→2,782 divergent,
+and 1,171,347→1,155,747 changed, with the first mismatch still 1706 and all
+gameplay/RNG/enemy/command evidence unchanged.
+
+Rejected: suppressing the core's transform-entry `sub_44DC` step also makes
+the focused entry frame exact, but permanently shifts the logical HUD phase.
+The full route regresses to 33,936 exact / 3,823 divergent / 1,263,223 changed.
+Do not retry that timing shortcut; preserve the existing logical clock and use
+the explicit resident-page boundary.
+
 Progress 2026-07-28 (HUD animation lifecycle): a full mismatch census grouped
 2,608 route frames / 152,282 changed pixels under the repeated HUD-diamond
 shape. In later DemoPlay segments the native steady animation pages were two
