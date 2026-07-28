@@ -4757,6 +4757,24 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-28 (Sequence 2 reveal FIFO presentation): oracle VRAM probes
+at frame 5656 proved Plane A's `$00BC` nametable entry is stable while tile art
+at `$1780` has reached its post-frame value before the framebuffer presents it.
+ASM `loc_1BA02 -> sub_1C180/loc_1C194` writes `$2C0` longwords to that address
+every reveal frame. Native now retains the preceding reveal art as typed raster
+state and schedules the complete `$B00` replacement through the shared H40 CPU
+FIFO model. Frames 5650..5690 improve from 31 reveal divergences to four; a
+second visit at 8750..8800 leaves five, proving the boundary repeats across the
+route. Full pixels improve 35,648->35,845 exact, 2,111->1,914 divergent, and
+644,979->610,419 changed. Gameplay, RNG, enemy, and command frontiers are
+unchanged; both full gates pass after ratcheting.
+
+The remaining tiny residues do not share a selector-relative frame: oracle's
+first `$1780` commit moves with the persistent CPU/VDP phase between otherwise
+identical visits. NEXT: derive the upload entry beam from that typed phase and
+the fixed `sub_1C180` instruction stream. Do not replace it with per-route or
+per-elapsed start tables.
+
 Progress 2026-07-28 (terminal demo H-scroll latch): direct frame comparison
 separated the repeated fade-shell residue into a shifted Plane-B cloud and an
 Iron Knight sprite. Oracle `loc_3050A` evidence at the frame-8068 boundary

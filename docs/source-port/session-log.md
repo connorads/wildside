@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 Sequence 2 reveal FIFO presentation)
+
+- `sub_1C180/loc_1C194` now retains the previous `$1780` reveal art and
+  schedules the full `$B00` CPU-FIFO upload across active scanout.
+- The first repeated cave visit falls from 31 divergent frames to four; the
+  second leaves five. Full pixels improve to 35,845 exact / 1,914 divergent /
+  610,419 changed, with all non-pixel frontiers unchanged.
+- Residual FIFO entry positions vary between identical visits. NEXT: feed the
+  persistent beam/refresh phase into this worker and derive the first commit;
+  do not add frame or route tables.
+
 ## 2026-07-28 handoff (#406 VDP presentation classification)
 
 - Frame 21765 cannot be fixed by retaining another title snapshot: runtime

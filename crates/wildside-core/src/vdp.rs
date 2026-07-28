@@ -1340,6 +1340,48 @@ fn overlay_intro_sequence_2_sky_reveal_loc_1BA02(
     }
 
     let loop_frames = (loop_elapsed + 1).min(INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_FRAMES_LOC_1BA02);
+    let previous_loop_frames = loop_frames.saturating_sub(1);
+    let previous_upload = intro_sequence_2_sky_reveal_upload_sub_1C180(data, previous_loop_frames);
+    let Some(bytes) = intro_sequence_2_sky_reveal_upload_sub_1C180(data, loop_frames) else {
+        return;
+    };
+    let initial_vram = previous_upload.as_ref().map(|previous_bytes| {
+        let mut initial_vram = vdp.vram.clone();
+        initial_vram[SEGA_ART_VRAM_BYTE_ADDR..SEGA_ART_VRAM_BYTE_ADDR + previous_bytes.len()]
+            .copy_from_slice(previous_bytes);
+        initial_vram
+    });
+    vdp.write_vram(SEGA_ART_VRAM_BYTE_ADDR, &bytes);
+
+    if let (Some(previous_bytes), Some(initial_vram)) = (previous_upload, initial_vram)
+        && previous_bytes != bytes
+    {
+        let writes = bytes
+            .chunks_exact(2)
+            .enumerate()
+            .map(|(word_index, word)| {
+                (
+                    (SEGA_ART_VRAM_BYTE_ADDR + word_index * 2) as u16,
+                    u16::from_be_bytes([word[0], word[1]]),
+                )
+            })
+            .collect::<Vec<_>>();
+        // ASM sub_1C180/loc_1C194 writes 704 longwords through the CPU FIFO.
+        // Oracle FIFO tracing places the repeated reveal's dominant first
+        // visible commit at H40 scanline 5, pixel 140.
+        vdp.raster_frame = Some(VdpRasterFrame {
+            initial_vram,
+            initial_cram: None,
+            vram_word_writes: schedule_h40_vram_fifo_word_writes(&writes, 5, 140),
+        });
+    }
+}
+
+#[allow(non_snake_case)]
+fn intro_sequence_2_sky_reveal_upload_sub_1C180(
+    data: &IntroSub1B850Data,
+    loop_frames: usize,
+) -> Option<Vec<u8>> {
     let mut level_layout = data.intro_sequence_2_sky_castle_art.clone();
     let shadow_layout = level_layout.clone();
     let mut selector = -0x40i16;
@@ -1353,13 +1395,17 @@ fn overlay_intro_sequence_2_sky_reveal_loc_1BA02(
     let Ok(upload) =
         wildside_data::level_layout_xor_vram_upload_sub_1C180(&level_layout, &shadow_layout)
     else {
-        return;
+        return None;
     };
     let mut bytes = Vec::with_capacity(upload.longwords.len() * 4);
     for longword in upload.longwords {
         bytes.extend_from_slice(&longword.to_be_bytes());
     }
-    vdp.write_vram(usize::from(upload.vram_word_address), &bytes);
+    debug_assert_eq!(
+        usize::from(upload.vram_word_address),
+        SEGA_ART_VRAM_BYTE_ADDR
+    );
+    Some(bytes)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -12989,6 +13035,53 @@ mod tests {
             vram_word(&first_visible, 0x1780),
             0,
             "ASM sub_1C1A2 pre-increments d1 twice per loc_1BA02 frame; after the ROM-observed hidden handoff delay, elapsed 151 is the first visible sky/castle upload",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_2_sub_1C180_retains_previous_art_until_fifo_crosses_scanout() {
+        let data = IntroSub1B850Data {
+            intro_sequence_2_sky_castle_art: vec![0xFF; 0x0B00],
+            ..empty_intro_data()
+        };
+        let previous = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            1,
+            1,
+            INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02 + 31,
+            0,
+        );
+        let crossing = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            1,
+            1,
+            INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02 + 32,
+            0,
+        );
+        let raster = crossing
+            .raster_frame
+            .as_ref()
+            .expect("ASM sub_1C180's changed upload should retain its FIFO crossing");
+
+        assert_eq!(
+            &raster.initial_vram[0x1780..0x2280],
+            &previous.vram[0x1780..0x2280],
+            "ASM loc_1C194 leaves the preceding reveal art visible until each replacement word commits",
+        );
+        assert_eq!(
+            raster.vram_word_writes.first().map(|write| (
+                write.scanline,
+                write.pixel,
+                write.byte_addr
+            )),
+            Some((5, 140, 0x1780)),
+            "oracle frame 5656 pins sub_1C180's first visible CPU-FIFO commit",
+        );
+        assert_eq!(
+            raster.vram_word_writes.len(),
+            2 * (0x0B00 / 2),
+            "ASM loc_1C194 writes $2C0 longwords; each word occupies two renderer access slots",
         );
     }
 
