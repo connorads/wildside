@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 backward walk-phase hold)
+
+- `loc_959C` now holds `$FFFFF8F0` throughout The Kid's fixed skid mapping,
+  preventing a persistent walk-phase error after every direction reversal.
+- Full pixels improve to 36,122 exact / 1,637 divergent / 425,933 changed;
+  87 route frames become exact and all non-pixel frontiers stay unchanged.
+- NEXT: classify the 52-frame / 13,312-pixel 16x22 object class across 16
+  ranges by lineage and `GfxObject_Animate` timer under #408.
+
 ## 2026-07-28 handoff (#406 The Kid skid mapping)
 
 - `sub_942A loc_9580/loc_9596/loc_959C` now selects fixed `kid_skid.bin`

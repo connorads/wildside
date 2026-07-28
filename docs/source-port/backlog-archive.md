@@ -4757,6 +4757,20 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-28 (backward-motion walk-phase hold): after adding the fixed
+skid mapping, every remaining player-sized range followed the skid intervals.
+Oracle `$FFFFF8F0` and native phase were exact through frame 3089. While
+`loc_959C` held oracle phase at `$0545` for frames 3090..3094, native continued
+advancing and emerged `$0050` ahead, shifting every later `off_9640` boundary.
+The core now returns before loc_95DA for both signs of The Kid's backward
+motion, matching the ASM owner; other forms and forward motion still advance.
+The focused 3098..3123 transition is 25/25 exact. Full pixels improve
+36,035->36,122 exact, 1,724->1,637 divergent, and 452,244->425,933 changed.
+Gameplay, RNG, enemy and command frontiers remain unchanged.
+
+NEXT: classify the repeated 52-frame / 13,312-pixel 16x22 object class
+(`grid:25,15-27,17`, 16 ranges) by lineage and `GfxObject_Animate` timer.
+
 Progress 2026-07-28 (The Kid backward-motion mapping): the repeated 41-frame
 class was not a generic object animation-timer defect. Oracle WRAM showed Kid's
 `addroffset_sprite` changing from ordinary walk mappings `$0074/$0078` to fixed

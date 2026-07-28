@@ -5021,6 +5021,32 @@ mod chunk_11 {
         );
     }
 
+    /// ASM sub_942A loc_9580/loc_9596/loc_959C: The Kid's backward-motion
+    /// branch returns after installing `LnkTo_unk_A5346`, before loc_95DA.
+    #[test]
+    fn loc_959c_backward_kid_motion_holds_walk_phase_until_facing_realigns() {
+        for (x_velocity, facing) in [
+            (0x0001_0000, Direction::Left),
+            (-0x0001_0000, Direction::Right),
+        ] {
+            assert!(!should_advance_grounded_walk_visual_accumulator_loc_95da(
+                PlayerForm::TheKid,
+                facing,
+                x_velocity,
+            ));
+        }
+        assert!(should_advance_grounded_walk_visual_accumulator_loc_95da(
+            PlayerForm::TheKid,
+            Direction::Right,
+            0x0001_0000,
+        ));
+        assert!(should_advance_grounded_walk_visual_accumulator_loc_95da(
+            PlayerForm::Micromax,
+            Direction::Left,
+            0x0001_0000,
+        ));
+    }
+
     #[test]
     fn loc_95da_flat_grounded_kid_motion_persists_walk_phase_for_renderer() {
         let input = FrameInput {
