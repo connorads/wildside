@@ -6151,6 +6151,7 @@ AddrTbl_LevelNames:
             camera_x_pos: 0x0010_0000,
             camera_y_pos: 0x0008_0000,
             resident_gameplay_vdp_camera_loc_300ba: None,
+            resident_gameplay_vdp_terminal_scroll_table_loc_28c6: false,
             number_objects: 3,
             number_gfx_objects: 3,
             rng_offset: None,

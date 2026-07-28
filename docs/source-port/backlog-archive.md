@@ -4757,6 +4757,28 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-28 (terminal demo H-scroll latch): direct frame comparison
+separated the repeated fade-shell residue into a shifted Plane-B cloud and an
+Iron Knight sprite. Oracle `loc_3050A` evidence at the frame-8068 boundary
+shows ordinary gameplay presents the previous `$00` H-scroll table, while the
+`ReadJoypad loc_C0A` replay timeout reaches another `WaitForVint` before
+`Pal_FadeOut loc_28C6` and presents the terminal table. A typed scheduler-path
+marker now selects that table only for the four demo-auto handoffs. Full-route
+changed pixels fall 866,839→854,215; exact/divergent counts remain
+35,429/2,330 and all gameplay, RNG, enemy and command frontiers are unchanged.
+The former 80-frame / 50,268-pixel class is now 37,644 pixels and contains only
+the Iron Knight sprite.
+
+Rejected: advancing the palette fade schedule worsened frame 8069 from 668 to
+3,201 changed pixels. Applying the terminal H-scroll table to every resident
+fade saved pixels overall but turned 19 exact frames divergent. Both broad
+changes were reverted; loader lineages have distinct VDP latch timing.
+
+NEXT: implement `sub_B270 loc_B334/loc_B350` as a typed four-state airborne
+mapping across affected forms. Oracle frame 8068 selects addroffset `$04C8`,
+which resolves to `unk_C2956` (`iron_knight_jumping_3.bin`); native currently
+collapses the ROM's four states to rise/fall.
+
 Progress 2026-07-28 (hidden type-1 prize reconciliation): the former
 268-frame / 68,608-pixel block cluster and much of the repeated demo-return
 snapshot debt came from Level 0x15 cell `$C38A`. Oracle WRAM keeps `$2000` and

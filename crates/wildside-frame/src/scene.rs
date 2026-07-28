@@ -1264,6 +1264,8 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.level_entry_fade_progress_sub_73d0 = trace.level_entry_fade_progress_sub_73d0;
         render_trace.resident_gameplay_vdp_camera_loc_300ba =
             trace.resident_gameplay_vdp_camera_loc_300ba;
+        render_trace.resident_gameplay_vdp_terminal_scroll_table_loc_28c6 =
+            trace.resident_gameplay_vdp_terminal_scroll_table_loc_28c6;
         render_trace.game_mode = GameMode::DemoPlay;
         render_trace.game_mode_value = GameMode::DemoPlay.as_disassembly_value();
         if let Some((camera_x_pos, camera_y_pos)) = trace.resident_gameplay_vdp_camera_loc_300ba {
@@ -5939,8 +5941,11 @@ fn background_display_scroll_data_word_loc_3050a(
     // the previous VDP table phase while sub_30744's row-upload window can use
     // a different preload-era phase.
     let time_frames = background_time_frames_for_trace_loc_3050a(trace);
+    let retained_pal_fade_table = trace.resident_gameplay_vdp_terminal_scroll_table_loc_28c6;
     let display_time_frames = match layer_speed {
-        0x00 | 0x08 if trace.form_change_flash_frames == 0 => time_frames.saturating_sub(1),
+        0x00 | 0x08 if trace.form_change_flash_frames == 0 && !retained_pal_fade_table => {
+            time_frames.saturating_sub(1)
+        }
         _ => time_frames,
     };
     background_scroll_data_word_loc_30452(display_time_frames, camera_x_px, layer_speed)
@@ -12085,6 +12090,30 @@ mod tests {
             background_display_scroll_data_word_loc_3050a(&transforming, 481, 0x08),
             373,
             "ASM Kid_Transform loc_7CBE/loc_7D22 -> sub_8E0 transfers the current Horiz_Scroll_Data word"
+        );
+    }
+
+    #[test]
+    fn pal_fade_out_displays_terminal_auto_scroll_table_loc_28c6_3050a() {
+        let ordinary = NativeTraceFrame {
+            time_frames_loc_3038a: 1_010,
+            ..NativeTraceFrame::default()
+        };
+        let retained = NativeTraceFrame {
+            resident_gameplay_vdp_camera_loc_300ba: Some((768 << 16, 231 << 16)),
+            resident_gameplay_vdp_terminal_scroll_table_loc_28c6: true,
+            ..ordinary.clone()
+        };
+
+        assert_eq!(
+            background_display_scroll_data_word_loc_3050a(&ordinary, 768, 0x00),
+            1_105,
+            "ASM Mode_Level loc_300BA presents the previous `$00` H-scroll table during ordinary gameplay",
+        );
+        assert_eq!(
+            background_display_scroll_data_word_loc_3050a(&retained, 768, 0x00),
+            1_106,
+            "ASM ReadJoypad loc_C0A -> Pal_FadeOut loc_28C6 reaches another WaitForVint, which presents the terminal loc_3050A table retained for the mode-0 fade",
         );
     }
 

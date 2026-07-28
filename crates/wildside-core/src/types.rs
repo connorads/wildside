@@ -2829,6 +2829,10 @@ pub struct NativeTraceFrame {
     /// resident in a non-gameplay shell. `None` outside that hand-off.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resident_gameplay_vdp_camera_loc_300ba: Option<(u32, u32)>,
+    /// ASM ReadJoypad loc_C0A replay path reaches another WaitForVint before
+    /// the resident Pal_FadeOut image, presenting the terminal loc_3050A
+    /// H-scroll table instead of the ordinary previous-table phase.
+    pub resident_gameplay_vdp_terminal_scroll_table_loc_28c6: bool,
     pub number_objects: u16,
     pub number_gfx_objects: u16,
     pub rng_offset: Option<u16>,
@@ -3273,6 +3277,7 @@ impl Default for NativeTraceFrame {
             camera_x_pos: 0,
             camera_y_pos: 0,
             resident_gameplay_vdp_camera_loc_300ba: None,
+            resident_gameplay_vdp_terminal_scroll_table_loc_28c6: false,
             number_objects: 0,
             number_gfx_objects: 0,
             rng_offset: None,

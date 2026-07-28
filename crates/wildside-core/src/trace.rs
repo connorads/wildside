@@ -11444,6 +11444,12 @@ impl NativeRuntime {
                 .demo_title_palette_fade_progress_loc_28c6()
                 .and(self.gameplay_vdp_camera_latch_loc_300ba)
                 .map(|camera| (camera.x_pos, camera.y_pos)),
+            resident_gameplay_vdp_terminal_scroll_table_loc_28c6: self
+                .demo_title_palette_fade_progress_loc_28c6()
+                .is_some()
+                && self.demo_auto_timeout_handoff_active
+                && self.demo_auto_timeout_mode_0_entry
+                    == DemoAutoTimeoutMode0Entry::ReadJoypadReplay,
             number_objects,
             number_gfx_objects,
             rng_offset: Some(self.rom_random.offset_word()),

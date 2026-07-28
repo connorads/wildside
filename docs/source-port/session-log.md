@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 terminal demo H-scroll latch)
+
+- The `ReadJoypad loc_C0A` replay timeout reaches another `WaitForVint` before
+  `Pal_FadeOut loc_28C6`, presenting the terminal `loc_3050A` H-scroll table.
+- A typed scheduler-path marker fixes all four cloud residues. Full pixels are
+  35,429 exact / 2,330 divergent / 854,215 changed; state and command frontiers
+  are unchanged.
+- Advancing fade progress worsened frame 8069 from 668 to 3,201 pixels. A broad
+  resident-fade latch regressed 19 exact frames. Both experiments were reverted.
+- NEXT: model `sub_B270`'s four airborne states across affected forms. The
+  remaining 80-frame class is Iron Knight `$04C8` / `unk_C2956` only.
+
 ## 2026-07-28 handoff (#406 hidden type-1 prize cell)
 
 - Level 0x15 `$C38A` has paired disguised-prize and hidden type-1 metadata.
