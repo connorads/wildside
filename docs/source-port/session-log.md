@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#408 Dragon tile-identity narrowing)
+
+- Triaged the largest remaining repeated class: 81 transform-hold frames and
+  82,130 changed pixels per first Demo 2 occurrence, attributed to edge Dragons.
+- Oracle and native agree on Gfx position, direction, phase, palette line,
+  VRAM base, and mapping. CRAM is stable; Island DMA does not overlap Dragon VRAM.
+- Rejected damage whitening, non-forest background palette merging, and one-
+  or four-tick allocation seeds. The four-tick seed regresses the slice by
+  1,179 pixels; no candidate code remains.
+- NEXT: compare mapping `$056C`'s oracle VRAM tiles with decoded Dragon art and
+  the transferred Sprite_Table entry. Do not retry the archived hypotheses.
+
 ## 2026-07-28 handoff (#408 walking Dragon animation lifecycle)
 
 - Modelled `Dragon.asm loc_3CEBE -> stru_3CCE6` as a `$19`-tick surviving-hit

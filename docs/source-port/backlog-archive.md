@@ -2544,6 +2544,23 @@ more exact frames and removes 387,129 changed pixels: 33,015 exact / 4,744
 divergent / 2,382,342 changed, with gameplay, enemy, camera and RNG parity
 unchanged. Keep #408 open for other identified object-script classes.
 
+Rejected 2026-07-28: the largest remaining repeated class is the 81-frame
+Demo 2 transform hold at 7604..7684 and its three later repetitions (82,130
+changed pixels per first interval). `visual-triage` attributes it to the two
+edge walking Dragons. Oracle WRAM at 7604 pins all four live Dragon GfxObjects:
+positions, directions, palette line 1, VRAM base `$02FB`, mapping offsets, and
+frozen `stru_3CC5E` pointers/timers. Native agrees at the phase level after the
+landed transform-entry freeze. Three hypotheses changed zero pixels and must
+not be retried: suppressing the generic damage whitening for Dragon, merging
+Island background words into non-forest enemy palette slots 9..15, and a
+one-tick allocation seed. A four-tick allocation seed makes the uninterrupted
+late cohort's raw timers match oracle but regresses the focused 7553..7684
+window by 1,179 pixels, so it is also rejected. Oracle CRAM is byte-identical
+across frames 7576..7606; Island shore DMA targets `$F600..$F8DF`, not Dragon
+VRAM `$02FB`. NEXT: compare the actual oracle VRAM tiles referenced by mapping
+`$056C` with decoded `Enemy0C_Dragon.bin` frame tiles and the transferred
+Sprite_Table entry. The unresolved class is tile identity/residency, not state.
+
 ### #412
 
 Follow-up 2026-07-16: recaptured the current frontier pair at frame 1020.
