@@ -336,6 +336,23 @@ pub(crate) struct HudAnimationStateSub44DC {
 }
 
 impl HudAnimationStateSub44DC {
+    pub(crate) fn cleared_by_loc_720() -> Self {
+        // ASM loc_720 (kid.asm:839): the mode-reset WRAM clear spans the HUD
+        // countdown bytes $FA58..$FA5C and script offsets $FA5D..$FA61.
+        Self {
+            coin_countdown_fb5b: 0,
+            coin_frame_offset_fb60: 0,
+            life_countdown_fb59: 0,
+            life_frame_offset_fb5e: 0,
+            clock_countdown_fb5a: 0,
+            clock_frame_offset_fb5f: 0,
+            diamond_countdown_fb58: 0,
+            diamond_frame_offset_fb5d: 0,
+            flag_countdown_fb5c: 0,
+            flag_frame_offset_fb61: 0,
+        }
+    }
+
     pub(crate) fn initialised_from_sub_44_b0() -> Self {
         // ASM sub_44B0 (kid.asm:5520): seeds the five countdown bytes; the
         // paired table offsets live in adjacent RAM and start at zero on level
@@ -5367,6 +5384,10 @@ impl NativeRuntime {
     }
 
     pub(crate) fn enter_title_screen(&mut self) {
+        // ASM loc_6E2 -> loc_720 (kid.asm:823/839): the shared mode-reset
+        // shell clears the WRAM range containing all sub_44DC HUD animation
+        // countdowns and table offsets before Load_TitleScreen runs.
+        self.hud_animation_state = HudAnimationStateSub44DC::cleared_by_loc_720();
         self.boot_state = BootState::TitleScreen { cursor: 0 };
         self.title_idle_frames = 0;
         self.title_screen_elapsed_frames = 0;
@@ -6346,6 +6367,10 @@ impl NativeRuntime {
         // ASM Load_DemoPlay -> Load_InGame loc_11FB0 allocates loc_1202A for
         // Island backgrounds on demo entry just as it does on normal entry.
         self.init_post_load_object_routine_loc_11f96(level_id);
+        // ASM Load_DemoPlay -> Load_InGame (kid.asm:23612/23627): every demo
+        // level load calls sub_44B0, which re-seeds the five HUD animation
+        // countdown bytes while preserving their adjacent script offsets.
+        boot::reset_hud_animation_countdowns_sub_44b0(&mut self.hud_animation_state);
         // ASM Load_DemoPlay enters Load_InGame and reaches loc_11FD2/loc_12004
         // after the shared post-load initialisers.
         self.queue_level_start_music_loc_11fd2(level_id);

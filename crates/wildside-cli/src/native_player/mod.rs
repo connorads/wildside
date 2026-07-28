@@ -20499,8 +20499,8 @@ mod tests {
                 render_trace.level_skip_cheat_enabled,
                 render_trace.level_completion_time,
             ),
-            (Some(6), 0, 2),
-            "ASM sub_44DC loc_45EE exposes the native diamond script phase carried into the release checkpoint"
+            (Some(2), 0, 2),
+            "ASM loc_720 clears the diamond phase before sub_44B0 re-seeds its countdown; sub_44DC loc_45EE exposes offset 2 at the release checkpoint"
         );
     }
 

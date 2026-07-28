@@ -3112,6 +3112,67 @@ mod chunk_02 {
     }
 
     #[test]
+    fn begin_demo_gameplay_reseeds_hud_countdowns_without_clearing_offsets_sub_44b0() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.hud_animation_state = HudAnimationStateSub44DC {
+            coin_countdown_fb5b: 0xAA,
+            coin_frame_offset_fb60: 6,
+            life_countdown_fb59: 0xBB,
+            life_frame_offset_fb5e: 4,
+            clock_countdown_fb5a: 0xCC,
+            clock_frame_offset_fb5f: 2,
+            diamond_countdown_fb58: 0xDD,
+            diamond_frame_offset_fb5d: 6,
+            flag_countdown_fb5c: 0xEE,
+            flag_frame_offset_fb61: 8,
+        };
+
+        runtime.begin_demo_gameplay(LevelId(0));
+
+        assert_eq!(
+            runtime.hud_animation_state,
+            HudAnimationStateSub44DC {
+                coin_countdown_fb5b: 3,
+                coin_frame_offset_fb60: 6,
+                life_countdown_fb59: 4,
+                life_frame_offset_fb5e: 4,
+                clock_countdown_fb5a: 5,
+                clock_frame_offset_fb5f: 2,
+                diamond_countdown_fb58: 1,
+                diamond_frame_offset_fb5d: 6,
+                flag_countdown_fb5c: 2,
+                flag_frame_offset_fb61: 8,
+            },
+            "ASM Load_DemoPlay -> Load_InGame -> sub_44B0 re-seeds only $FA58..$FA5C",
+        );
+    }
+
+    #[test]
+    fn enter_title_screen_clears_hud_animation_ram_loc_720() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.hud_animation_state = HudAnimationStateSub44DC {
+            coin_countdown_fb5b: 1,
+            coin_frame_offset_fb60: 2,
+            life_countdown_fb59: 3,
+            life_frame_offset_fb5e: 4,
+            clock_countdown_fb5a: 5,
+            clock_frame_offset_fb5f: 6,
+            diamond_countdown_fb58: 7,
+            diamond_frame_offset_fb5d: 8,
+            flag_countdown_fb5c: 9,
+            flag_frame_offset_fb61: 10,
+        };
+
+        runtime.enter_title_screen();
+
+        assert_eq!(
+            runtime.hud_animation_state,
+            HudAnimationStateSub44DC::cleared_by_loc_720(),
+            "ASM loc_6E2 -> loc_720 clears $FA58..$FA61 before Load_TitleScreen",
+        );
+    }
+
+    #[test]
     fn begin_level_entry_queues_murderwall_bgm_before_theme_lookup_loc_11fd2() {
         let mut assets = manifest();
         let header = assets.levels[0]

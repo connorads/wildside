@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 HUD animation lifecycle)
+
+- Modelled the `loc_6E2 -> loc_720` title-mode RAM clear and the
+  `Load_DemoPlay -> Load_InGame -> sub_44B0` countdown reseed.
+- Frames 3840..4040 are now 200/200 pixel-exact. The full route gains 6,422
+  exact frames and removes 850,477 changed pixels.
+- Full pixels are 32,817 exact / 4,942 divergent / 2,769,471 changed. The
+  residual HUD-diamond class is 39 frames / 408 pixels; first mismatch remains
+  frame 1706.
+- NEXT: use `mise run project-status`, then classify another repeated
+  engine-level pixel cluster rather than advancing one frame at a time.
+
 ## 2026-07-28 handoff (#406/#440 transform cleanup audio)
 
 - Moved the `loc_7E26` music-speed pair from helmet contact to the animated

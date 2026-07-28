@@ -4637,6 +4637,24 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-28 (HUD animation lifecycle): a full mismatch census grouped
+2,608 route frames / 152,282 changed pixels under the repeated HUD-diamond
+shape. In later DemoPlay segments the native steady animation pages were two
+pages ahead of oracle. An oracle RAM probe across frames 3838..3925 showed
+`$FA58/$FA5D=0/0` before the load, then `$FA58=1` and `$FA5D=0` when
+`Load_InGame` starts at frame 3852.
+
+ASM `loc_6E2 -> loc_720` clears almost all work RAM, including
+`$FA58..$FA61`, when title mode starts. `Load_DemoPlay -> Load_InGame` then
+calls `sub_44B0`, which seeds the five countdown bytes to 3/4/5/1/2 without
+changing their animation offsets. Native now models both lifecycle boundaries.
+The focused frames 3840..4040 improve from 152 divergent frames / 13,033
+changed pixels to 200/200 exact. The full route improves from 26,395 to 32,817
+exact frames and from 3,619,948 to 2,769,471 changed pixels. This retires 2,569
+HUD mismatch frames / 151,874 changed pixels; the residual HUD-diamond class is
+39 frames / 408 pixels. Gameplay, RNG, enemy and command frontiers are
+unchanged. `verify-slice-fast` and `verify-tas-full` pass.
+
 Progress 2026-07-28 (transform audio phase boundary): ASM `Kid_Transform
 loc_7D22 -> loc_7E14/loc_7E26` proves the shared `05[126]` pair belongs after
 the animation tables, not at helmet contact. Moving that engine event from
