@@ -16382,6 +16382,33 @@ worst remains 2,387 pixels. The next holistic #406 target is the 16-frame /
 35,844-pixel retained title Robot class at frames 21765..21781. Keep the
 separate 221-frame / 34,816-pixel upper-screen class independent.
 
+Progress 2026-07-28 for #406: live block provenance corrected the repeated
+`grid:25,15-27,17` class from a sprite/VRAM hypothesis to a SolidGhost
+lifecycle failure. At route frame 7900 oracle WRAM has the owning group at
+`$FFFF3C3C` with timer `$0026`, state `$0003`, solid tile `$00CC`, vanished
+tile `$0032`, layout `$C38C`, column `$003D`, row `$0017`, count one, and
+horizontal orientation. Native had the corresponding raw `$E304` terrain cell
+but no group worker.
+
+The resource alias path was already correct: logical level `$15` synthesises
+all six SolidGhost groups from resource `$0B`. Demo entry then called the
+ordinary terrain reload and immediately cleared those groups. ASM
+`Load_DemoPlay -> Load_InGame -> loc_124A6` initialises the block-list workers
+after the object reset, so native now preserves them. Cache-backed regressions
+pin both alias synthesis and the live DemoPlay hand-off. Diagnostics expose
+the owning group's timer/state/solid tile beside sampled block cells and list
+the synthesised group layout in `inspect-level`.
+
+The focused 7880..7940 window improves from 56 divergent frames / 13,836
+changed pixels to 33 / 6,312. Full published-route pixels improve from 36,122
+exact / 1,637 divergent / 425,933 changed to 36,162 / 1,597 / 412,221. All
+37,759 player/camera and gameplay frames, all 37,743 RNG frames, the enemy
+frontier, and GEMS command debt remain unchanged. Continue #406 with the
+residual 36-frame / 8,872-pixel `grid:25,11-27,13` transition class: compare
+native group provenance with `sub_F730`'s intermediate `$8001..$8005`
+sprite/custom-update states before taking the mirrored 8,940-pixel form
+classes.
+
 ## Investigation notes
 
 ### Shared boot-title-start-level1 evidence blocker (CLOSED)

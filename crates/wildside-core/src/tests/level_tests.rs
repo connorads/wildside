@@ -35370,6 +35370,30 @@ mod native_level_terrain_decoder {
     }
 
     #[test]
+    fn knights_isle_alias_synthesises_resource_ghost_groups_loc_124a6() {
+        let Some(runtime) = cached_runtime_for_decoder() else {
+            return;
+        };
+
+        let block_list = runtime
+            .synthesise_block_list_for_level_loc_11C7E(LevelId(0x15))
+            .expect("Knight's Isle should decode its resource 0x0B block list");
+
+        assert_eq!(
+            block_list.ghost_blocks.len(),
+            6,
+            "oracle $FFFFF8D8 at published-TAS frame 7900 records six loc_124A6 groups"
+        );
+        assert!(
+            block_list
+                .ghost_blocks
+                .iter()
+                .any(|group| group.col == 0x3D && group.row == 0x17),
+            "oracle slot $FFFF3C3C owns the SolidGhost cell at (0x3D,0x17)"
+        );
+    }
+
+    #[test]
     fn synthesised_block_list_counts_match_dumped_ram_sidecars_loc_11c7e() {
         let Some(runtime) = cached_runtime_for_decoder() else {
             return;

@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 DemoPlay SolidGhost workers)
+
+- `Load_DemoPlay -> Load_InGame loc_124A6` now retains the six resource `$0B`
+  SolidGhost groups for logical Knight's Isle `$15`; demo entry no longer
+  clears them after terrain load.
+- Full pixels improve to 36,162 exact / 1,597 divergent / 412,221 changed;
+  40 route frames become exact and all non-pixel frontiers stay unchanged.
+- NEXT: classify the residual 36-frame / 8,872-pixel SolidGhost transition
+  class `grid:25,11-27,13`; compare `sub_F730` intermediate sprite/custom
+  update states before the two mirrored 8,940-pixel form classes.
+
 ## 2026-07-28 handoff (#406 backward walk-phase hold)
 
 - `loc_959C` now holds `$FFFFF8F0` throughout The Kid's fixed skid mapping,

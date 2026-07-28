@@ -11300,6 +11300,30 @@ mod chunk_09 {
     }
 
     #[test]
+    fn demo_entry_preserves_knights_isle_ghost_groups_loc_124a6_f730() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+
+        runtime.begin_demo_gameplay(LevelId(0x15));
+
+        assert_eq!(
+            runtime.block_state.ghost_groups.len(),
+            6,
+            "Load_DemoPlay -> Load_InGame loc_124A6 should retain all resource 0x0B ghost groups"
+        );
+        assert!(
+            runtime
+                .block_state
+                .ghost_groups
+                .iter()
+                .any(|group| group.col == 0x3D && group.row == 0x17),
+            "oracle slot $FFFF3C3C owns the Knight's Isle group at (0x3D,0x17)"
+        );
+    }
+
+    #[test]
     fn warp_to_level_preserves_under_skull_mountain3_ghost_groups_loc_124a6_f730() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
