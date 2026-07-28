@@ -7513,6 +7513,23 @@ frame 1706's one-pixel HUD Diamond residue. All 37,759 player/camera and
 gameplay checkpoints, all 37,743 post-`Init_RNG` frames, and the enemy frontier
 remain exact; GEMS evidence is unchanged. #406 remains open.
 
+Progress 2026-07-28 (transform shore DMA residency): focused pixel provenance
+proved the 22465..22544 fixed-coordinate colour substitutions use the correct
+compact palette slots, CRAM words, and H-scroll rows. Oracle VRAM instead
+retains Island shore bands `(1,0,4)` while native exposed the mid-band DMA as
+`(1,1,4)`. ASM `Kid_Transform loc_7CBE/loc_7D22` loops synchronously in
+`sub_8E0` after the object pass suspends, so native now retains the
+pre-suspension shore bands throughout that display interval. Delaying the
+whole shore worker was rejected: it fixed this class but regressed ordinary
+shore animation by 117,811 pixels elsewhere on the route.
+
+The focused range falls from 50,984 to 3,224 changed pixels. Full TAS remains
+34,577 exact / 3,182 divergent and improves 1,219,627 -> 1,171,867 changed
+pixel instances. All 37,759 player/camera and gameplay checkpoints, all
+37,743 post-`Init_RNG` states, and the enemy frontier remain exact; command
+debt remains 396. #406 remains open on the residual transform Sprite Table /
+HUD presentation class.
+
 Investigation 2026-07-26 (frame-1706 timing discriminator): selected-PC
 oracle tracing fixes `sub_F096` at cycle 218,384,943 and `loc_F25C` at
 218,385,657. The unchanged-coordinate path on frame 1705 spans 166 raw

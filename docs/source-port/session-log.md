@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 transform shore DMA residency)
+
+- Palette provenance showed compact palette slots, CRAM words, and H-scroll
+  rows already matched oracle; VRAM isolated the mismatch to Island shore
+  tiles `$36..$3A` in the mid band.
+- Oracle retains shore bands `(1,0,4)` while the transform loop is active.
+  Native now carries the pre-suspension bands across `Kid_Transform
+  loc_7CBE/loc_7D22 -> sub_8E0` instead of displaying the boundary DMA.
+- Full pixels remain 34,577 exact / 3,182 divergent but improve by 47,760 to
+  1,171,867 changed pixels. Gameplay, RNG, enemy, and command evidence is
+  unchanged.
+- NEXT: trace the remaining 3,224-pixel transform Sprite Table / HUD class at
+  22465..22544 as one presentation boundary.
+
 ## 2026-07-28 handoff (#406 transform background colour class)
 
 - Focused 22464..22545 parity remains one exact / 80 divergent frames and

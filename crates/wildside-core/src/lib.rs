@@ -495,6 +495,7 @@ pub struct NativeRuntime {
     lava_geyser_palette_delay_loc_14b2a: u16,
     rotate_palette_lava_water_loc_1223c: Option<RotatePaletteLavaWaterStateLoc1223C>,
     island_shore_cycle_loc_1202a: Option<IslandShoreCycleStateLoc1202A>,
+    transform_resident_island_shore_vram_frames_loc_1202a: Option<(u16, u16, u16)>,
     island_shore_dma_uploads_loc_1202a: Vec<IslandShoreDmaUploadLoc1202A>,
     lava_geyser_art_uploads_loc_14c6a: Vec<LavaGeyserArtUploadLoc14C6A>,
     murder_wall: Option<MurderWallState>,
@@ -1508,6 +1509,7 @@ impl NativeRuntime {
             lava_geyser_palette_delay_loc_14b2a: 5,
             rotate_palette_lava_water_loc_1223c: None,
             island_shore_cycle_loc_1202a: None,
+            transform_resident_island_shore_vram_frames_loc_1202a: None,
             island_shore_dma_uploads_loc_1202a: Vec::new(),
             lava_geyser_art_uploads_loc_14c6a: Vec::new(),
             murder_wall: None,
@@ -4158,6 +4160,14 @@ impl NativeRuntime {
                                 // before Kid_Transform loc_7E90 hibernates the
                                 // Kid path. A transformation begun during the
                                 // refresh must retain that final object tick.
+                                self.transform_resident_island_shore_vram_frames_loc_1202a =
+                                    self.island_shore_cycle_loc_1202a.map(|state| {
+                                        (
+                                            state.primary_vram_frame,
+                                            state.mid_vram_frame,
+                                            state.lower_vram_frame,
+                                        )
+                                    });
                                 self.step_island_shore_cycle_loc_1202a();
                             }
                             self.repair_timeout_restart_demo_1_late_jump_reentry();

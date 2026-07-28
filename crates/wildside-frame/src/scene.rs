@@ -1387,6 +1387,15 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.hud_timer_sprite_seconds_loc_bee8 =
             previous_trace.hud_timer_sprite_seconds_loc_bee8;
         latch_island_shore_vram_bands_loc_1202a(&mut render_trace, trace, previous_trace);
+        if trace.form_change_flash_frames > 1
+            && let Some(resident_frames) =
+                trace.transform_resident_island_shore_vram_frames_loc_1202a
+        {
+            // ASM Kid_Transform loc_7CBE/loc_7D22 loops in sub_8E0 after the
+            // object pass suspends. Shore DMA queued at that boundary does not
+            // replace the bands already resident in the displayed field.
+            render_trace.island_shore_vram_frames_loc_1202a = Some(resident_frames);
+        }
         if trace.form_change_flash_frames > 1 {
             // ASM Kid_Transform loc_7C40/loc_7CD0 enters its synchronous
             // sub_8E0 VBlank loop after sub_44DC has started the next `$DD40`

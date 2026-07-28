@@ -11706,6 +11706,12 @@ impl NativeRuntime {
                     state.lower_vram_frame,
                 )
             }),
+            transform_resident_island_shore_vram_frames_loc_1202a: (self
+                .progression
+                .form_change_flash_frames
+                > 0)
+            .then_some(self.transform_resident_island_shore_vram_frames_loc_1202a)
+            .flatten(),
             island_shore_dma_uploads_loc_1202a: self.island_shore_dma_uploads_loc_1202a.clone(),
             // ASM loc_12098/loc_12110/loc_12188 commit below the visible
             // field. Ordinary Demo 1's post-update trace event is already one

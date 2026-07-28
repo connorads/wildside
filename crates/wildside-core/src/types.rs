@@ -2974,6 +2974,9 @@ pub struct NativeTraceFrame {
     /// Current `loc_1202A` Island shore VRAM frame indices: primary/mid/lower.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub island_shore_vram_frames_loc_1202a: Option<(u16, u16, u16)>,
+    /// Shore-art bands resident when `Kid_Transform` suspends the object pass.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transform_resident_island_shore_vram_frames_loc_1202a: Option<(u16, u16, u16)>,
     /// `loc_1202A` Island shore DMA uploads emitted on this frame.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub island_shore_dma_uploads_loc_1202a: Vec<IslandShoreDmaUploadLoc1202A>,
@@ -3320,6 +3323,7 @@ impl Default for NativeTraceFrame {
             island_shore_cycle_active: false,
             island_shore_cycle_state_loc_1202a: None,
             island_shore_vram_frames_loc_1202a: None,
+            transform_resident_island_shore_vram_frames_loc_1202a: None,
             island_shore_dma_uploads_loc_1202a: Vec::new(),
             island_shore_post_visible_dma_latch_loc_1202a: false,
             lava_geyser_art_uploads_loc_14c6a: Vec::new(),

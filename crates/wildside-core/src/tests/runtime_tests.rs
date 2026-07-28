@@ -6824,6 +6824,95 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_late_demo_2_island_worker_matches_loc_12098_before_transform() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(22_466) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(
+                frame_index,
+                21_837..=21_839 | 22_463..=22_465
+            ) {
+                samples.push((
+                    frame_index,
+                    trace.island_shore_cycle_state_loc_1202a,
+                    trace.island_shore_vram_frames_loc_1202a,
+                    trace.transform_resident_island_shore_vram_frames_loc_1202a,
+                    trace.island_shore_dma_uploads_loc_1202a.clone(),
+                ));
+            }
+        }
+
+        // ASM loc_12098/loc_12110/loc_12188: oracle Object_RAM slot 2 and
+        // VRAM $F600/$F6C0/$F760 at published frames 22463-22465.
+        assert_eq!(
+            samples
+                .iter()
+                .map(|sample| {
+                    (
+                        sample.0,
+                        sample.1,
+                        sample.2,
+                        sample.3,
+                        sample
+                            .4
+                            .iter()
+                            .map(|upload| upload.vram_word_address)
+                            .collect::<Vec<_>>(),
+                    )
+                })
+                .collect::<Vec<_>>(),
+            [
+                (
+                    21_837,
+                    Some((9, 15, 25, 1, 1, 1)),
+                    Some((0, 0, 0)),
+                    None,
+                    vec![]
+                ),
+                (
+                    21_838,
+                    Some((8, 14, 24, 1, 1, 1)),
+                    Some((0, 0, 0)),
+                    None,
+                    vec![]
+                ),
+                (
+                    21_839,
+                    Some((7, 13, 23, 1, 1, 1)),
+                    Some((0, 0, 0)),
+                    None,
+                    vec![]
+                ),
+                (
+                    22_463,
+                    Some((4, 1, 14, 2, 1, 5)),
+                    Some((1, 0, 4)),
+                    None,
+                    vec![],
+                ),
+                (
+                    22_464,
+                    Some((3, 9, 13, 2, 2, 5)),
+                    Some((1, 1, 4)),
+                    Some((1, 0, 4)),
+                    vec![0xF6C0],
+                ),
+                (
+                    22_465,
+                    Some((3, 9, 13, 2, 2, 5)),
+                    Some((1, 1, 4)),
+                    Some((1, 0, 4)),
+                    vec![],
+                ),
+            ],
+        );
+    }
+
+    #[test]
     fn published_tas_demo_2_walking_dragon_restores_animation_after_stru_3cce6() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
