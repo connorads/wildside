@@ -187,6 +187,19 @@ fn hud_hitpoints_visible_loc_bdc0(
     let hud_helmet_id = trace
         .hud_transform_target_helmet_id
         .unwrap_or(trace.current_helmet_id);
+    if let Some(source_helmet_id) = trace.transform_source_helmet_id_loc_7ca6
+        && let Some(phase) = wildside_core::presented_transform_phase(
+            source_helmet_id,
+            hud_helmet_id,
+            trace.form_change_flash_frames,
+        )
+    {
+        // ASM Kid_Transform loc_7CA6/loc_7D0A: the table built before
+        // loc_BDC0 remains displayed for transform pass 0. Use the
+        // ROM table walk, not the bundle frame durations, which describe art
+        // extraction and do not equal the descriptor DBF counts.
+        return phase.descriptor_index == 0 && phase.pass_within_descriptor == 0;
+    }
     let Some(form_visuals) = level_visuals.player.forms.get(&hud_helmet_id) else {
         return true;
     };
@@ -199,10 +212,10 @@ fn hud_hitpoints_visible_loc_bdc0(
         return true;
     }
 
-    // ASM Mode_Level uploads the previous Sprite_Table before
-    // Make_SpriteAttr_HUD loc_BDC0 sees Currently_transforming and branches to
-    // loc_BE82. The first hibernated transform frame therefore still displays
-    // the old HP pips; subsequent transform frames do not.
+    // ASM Mode_Level transfers the table built before loc_BDC0 observes
+    // Currently_transforming. Kid_Transform's first sub_8E0 pass displays it,
+    // and the following pass still presents that transferred HP row before
+    // the empty transform table becomes resident.
     usize::from(trace.form_change_flash_frames) > transform_frames
 }
 
@@ -1339,7 +1352,7 @@ mod tests {
     }
 
     #[test]
-    fn hud_hitpoints_visible_loc_bdc0_hides_only_during_active_transform_flash() {
+    fn hud_hitpoints_visible_loc_bdc0_retains_first_transform_pass() {
         let mut visuals = sample_level_visuals();
         visuals
             .player
@@ -1357,9 +1370,8 @@ mod tests {
             },
         ];
 
-        // ASM Make_SpriteAttr_HUD loc_BDC0 keeps the previous HP table visible
-        // for the first transform hand-off frame, then suppresses pips until
-        // the summed transform hibernate has elapsed.
+        // ASM Make_SpriteAttr_HUD loc_BDC0 hands the prior HP row through the
+        // first displayed transform table, then the empty table wins.
         assert!(hud_hitpoints_visible_loc_bdc0(
             &NativeTraceFrame {
                 form_change_flash_frames: 0,
@@ -1377,12 +1389,30 @@ mod tests {
         ));
         assert!(hud_hitpoints_visible_loc_bdc0(
             &NativeTraceFrame {
-                // ASM loc_BDC0 shows the old HP pips only on the first
-                // transform hand-off frame; form_change_flash_frames seeds to
-                // transform_frames + 1 (= 6 for helmet 0), so only that max
-                // value is visible and it hides once it decrements.
-                form_change_flash_frames: 6,
-                current_helmet_id: 0,
+                form_change_flash_frames: 82,
+                current_helmet_id: 6,
+                hud_transform_target_helmet_id: Some(6),
+                transform_source_helmet_id_loc_7ca6: Some(0),
+                ..NativeTraceFrame::default()
+            },
+            &visuals
+        ));
+        assert!(!hud_hitpoints_visible_loc_bdc0(
+            &NativeTraceFrame {
+                form_change_flash_frames: 81,
+                current_helmet_id: 6,
+                hud_transform_target_helmet_id: Some(6),
+                transform_source_helmet_id_loc_7ca6: Some(0),
+                ..NativeTraceFrame::default()
+            },
+            &visuals
+        ));
+        assert!(!hud_hitpoints_visible_loc_bdc0(
+            &NativeTraceFrame {
+                form_change_flash_frames: 80,
+                current_helmet_id: 6,
+                hud_transform_target_helmet_id: Some(6),
+                transform_source_helmet_id_loc_7ca6: Some(0),
                 ..NativeTraceFrame::default()
             },
             &visuals

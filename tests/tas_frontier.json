@@ -70,8 +70,8 @@
       "full_expected_pixel_comparison": {
         "exact_match_frames": 34577,
         "mismatch_frames": 3182,
-        "total_changed_pixels": 1171867,
-        "mismatch_digest": "bb5052b92eb392665afc537032336facede6f0a6",
+        "total_changed_pixels": 1171347,
+        "mismatch_digest": "f0dc4b46842640e291dc752656e6246df16a80ec",
         "first_mismatch": {
           "frame_index": 1706,
           "changed_pixels": 1

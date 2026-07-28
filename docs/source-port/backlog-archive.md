@@ -7530,6 +7530,16 @@ pixel instances. All 37,759 player/camera and gameplay checkpoints, all
 debt remains 396. #406 remains open on the residual transform Sprite Table /
 HUD presentation class.
 
+Progress 2026-07-28 (transform HP-table pass): the remaining frame-22465
+oracle-only sprite was the old HP row, not transform palette colour. Native's
+`hud_hitpoints_visible_loc_bdc0` inferred the boundary from extracted art
+durations; Iron Knight's bundle totals 97 frames while ASM `stru_7FF8` and the
+typed `presented_transform_phase` total 81 passes plus cleanup. Visibility now
+follows the ROM pass directly: retain the table on pass 0, hide it from pass
+1. Full route pixel debt improves 1,171,867 -> 1,171,347 with all other gates
+unchanged. The focused range is one uniform residual: 39 `$DD40` diamond-icon
+pixels on each frame 22465..22544 (3,120 total). #406 remains open.
+
 Investigation 2026-07-26 (frame-1706 timing discriminator): selected-PC
 oracle tracing fixes `sub_F096` at cycle 218,384,943 and `loc_F25C` at
 218,385,657. The unchanged-coordinate path on frame 1705 spans 166 raw

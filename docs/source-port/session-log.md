@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 transform HP-table pass)
+
+- HUD HP visibility used the extracted Iron Knight art durations (97 frames)
+  instead of the ROM transform table (81 passes plus cleanup).
+- The retained pre-transform HP row now follows typed
+  `presented_transform_phase`: visible on pass 0, hidden from pass 1.
+- Full route pixel debt falls by 520 to 1,171,347 with gameplay, RNG, enemy,
+  command, and exact/divergent-frame counts unchanged.
+- NEXT: the focused 22465..22544 range is now uniformly 39 `$DD40`
+  HUD-diamond pixels per frame, 3,120 total.
+
 ## 2026-07-28 handoff (#406 transform shore DMA residency)
 
 - Palette provenance showed compact palette slots, CRAM words, and H-scroll
