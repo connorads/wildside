@@ -5020,6 +5020,12 @@ fn visit_make_sprites_from_gfx_objects_instructions_sub_1492(
                     // ASM loc_129E -> sub_13C0 emits one normal-orientation 16x16
                     // mapping entry before the zero terminator.
                     ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingle16x16Normal => VISIBLE_SINGLE,
+                    // ASM sub_B270 state 0 selects `unk_A3B66` (22x32).
+                    // Oracle frame 983 follows the same loc_129E -> sub_13C0
+                    // selected-PC stream as the 20x32 `unk_A3CEC` mapping.
+                    ModeLevelGfxSpriteNodeWorkSub1492::VisibleDynamicArt22x32AirborneNormal => {
+                        VISIBLE_SINGLE_DYNAMIC_ART_20X32
+                    }
                     // ASM loc_129E -> sub_13C0 loc_141A: the grounded Kid's
                     // 20x32 mapping emits one sprite and appends its dynamic
                     // art span to the DMA queue.
@@ -6982,6 +6988,19 @@ mod tests {
             make_sprites_from_gfx_objects_raw_cycles_sub_1492(&wall_cling),
             Some(M68kCycleCount::from_raw(1_968)),
             "ASM sub_1492 frame 950 wall-cling sprite walk",
+        );
+        let airborne_state_zero = ModeLevelGfxSpriteWorkSub1492::Classified {
+            nodes: vec![
+                ModeLevelGfxSpriteNodeWorkSub1492::MappingPointerNull,
+                ModeLevelGfxSpriteNodeWorkSub1492::VisibleDynamicArt22x32AirborneNormal,
+                ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+                ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+            ],
+        };
+        assert_eq!(
+            make_sprites_from_gfx_objects_raw_cycles_sub_1492(&airborne_state_zero),
+            Some(M68kCycleCount::from_raw(1_968)),
+            "ASM sub_B270 -> sub_1492 oracle frame 983 airborne state-0 sprite walk",
         );
         let wall_cling_advance = make_sprites_from_gfx_objects_advance_with_scheduler_sub_1492(
             M68kRefreshPhase::new(60).expect("oracle frame-950 loc_87E phase"),

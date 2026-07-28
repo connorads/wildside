@@ -2503,6 +2503,9 @@ pub enum ModeLevelGfxSpriteNodeWorkSub1492 {
     VerticallyCulled,
     VerticallyCulledAboveViewport,
     VisibleSingle16x16Normal,
+    /// The Kid's airborne state-0 mapping `unk_A3B66` is 22x32 and emits
+    /// dynamic art through the normal-orientation sprite path.
+    VisibleDynamicArt22x32AirborneNormal,
     VisibleSingleDynamicArt20x32Normal,
     /// Kid's pull-up frame uses ROM mapping bytes `19 0D 001C 001D`.
     VisibleSingleDynamicArt28x29PullUpNormal,

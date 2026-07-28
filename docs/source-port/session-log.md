@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 airborne sprite source path)
+
+- Typed The Kid's airborne `sub_B270` mapping state and `sub_1492` sprite
+  routes. State 0 uses `unk_A3B66`'s 22x32 dynamic-art mapping; states 1-3
+  use `unk_A3CEC`; the fixed objects take the above-viewport cull.
+- Retired all five wait-free frame-983..987 post-HUD teleport guards. The
+  persistent frame-930..995 clock regression and both full gates pass.
+- Full published-route pixels remain 26,395 exact / 11,364 divergent, first
+  mismatch frame 1706 at one pixel. NEXT: select another shared non-index
+  #406 timing debt; frontier 995 and the shared-call injection count 108 stay.
+
 ## 2026-07-28 handoff (#406 post-execute composition)
 
 - Replaced four path/coordinate timing guards with ASM-composed grounded,

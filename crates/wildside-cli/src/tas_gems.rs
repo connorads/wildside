@@ -9042,22 +9042,7 @@ impl GemsSignatureProbe {
         }
         let loc_892 = if matches!(
             self.power_on_frame,
-            965 | 967
-                | 973
-                | 981
-                | 982
-                | 983
-                | 984
-                | 985
-                | 986
-                | 987
-                | 988
-                | 989
-                | 990
-                | 991
-                | 992
-                | 993
-                | 994
+            965 | 967 | 973 | 981 | 982 | 988 | 989 | 990 | 991 | 992 | 993 | 994
         ) {
             // ASM loc_810 -> loc_892, selected published TAS frames: retain
             // these post-frozen boundaries after validating the complete
@@ -9078,21 +9063,6 @@ impl GemsSignatureProbe {
                 // Frame 982's selected PCs bind loc_810..loc_892 to
                 // 125704878..125714274, including 352 post-frozen Z80 waits.
                 982 => (125_714_274, 24),
-                // Frame 983 is wait-free across its selected
-                // 125829253..125838193 loc_810..loc_892 interval.
-                983 => (125_838_193, 30),
-                // Frame 984 is wait-free across its selected
-                // 125957747..125966563 loc_810..loc_892 interval.
-                984 => (125_966_563, 8),
-                // Frame 985 is wait-free across its selected
-                // 126085543..126094483 loc_810..loc_892 interval.
-                985 => (126_094_483, 48),
-                // Frame 986 is wait-free across its selected
-                // 126227373..126236275 loc_810..loc_892 interval.
-                986 => (126_236_275, 106),
-                // Frame 987 is wait-free across its selected
-                // 126358878..126367818 loc_810..loc_892 interval.
-                987 => (126_367_818, 100),
                 // Frame 988 is wait-free across its selected
                 // 126472661..126481565 loc_810..loc_892 interval.
                 988 => (126_481_565, 44),

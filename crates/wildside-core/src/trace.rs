@@ -326,6 +326,41 @@ fn mode_level_gfx_sprite_work_sub_1492(
                 )
             )
         });
+    let airborne_kid_mapping = runtime
+        .mode_level_work_before_hud_sub_44dc
+        .as_ref()
+        .and_then(
+            |ledger| match &ledger.execute_objects.executed_player_path {
+                Some(ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
+                    form: crate::PlayerForm::TheKid,
+                    y_velocity_after,
+                    ..
+                }) => Some(*y_velocity_after),
+                Some(ModeLevelPlayerExecutionPath::NormalPhysics(path))
+                    if runtime.progression.current_form == crate::PlayerForm::TheKid =>
+                {
+                    Some(path.y_velocity_after)
+                }
+                _ => None,
+            },
+        )
+        .zip(runtime.helmet.airborne_mapping_jump_threshold_y_velocity)
+        .filter(|_| {
+            runtime
+                .current_player_state()
+                .is_some_and(|player| player.facing == crate::Direction::Right)
+        })
+        .map(|(y_velocity, jump_threshold)| {
+            // ASM sub_B270 loc_B2E8 -> loc_B334 selects table state 0 while
+            // rising at or above the jump threshold. `off_B3B8` maps state 0
+            // to `unk_A3B66`; states 1-3 all map to `unk_A3CEC`.
+            let scaled_y_velocity = y_velocity.wrapping_shl(2);
+            if scaled_y_velocity < 0 && scaled_y_velocity <= jump_threshold {
+                ModeLevelGfxSpriteNodeWorkSub1492::VisibleDynamicArt22x32AirborneNormal
+            } else {
+                ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt20x32Normal
+            }
+        });
     let second_persistent_node = runtime.mode_level_work_before_hud_sub_44dc.as_ref().map_or(
         ModeLevelGfxSpriteNodeWorkSub1492::VisibleTwoSpriteNormal,
         |ledger| {
@@ -349,6 +384,8 @@ fn mode_level_gfx_sprite_work_sub_1492(
                         ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt28x29PullUpNormal
                     }
                 }
+            } else if let Some(airborne_mapping) = airborne_kid_mapping {
+                airborne_mapping
             } else if kid_dynamic_art_20x32 {
                 // ASM loc_7606 and wall-cling loc_AA22 retain the 20x32 Kid
                 // mapping consumed by sub_1492 -> sub_13C0 loc_141A.
@@ -364,18 +401,21 @@ fn mode_level_gfx_sprite_work_sub_1492(
             }
         },
     );
-    let (first_persistent_node, culled_persistent_node) =
-        if kid_dynamic_art_20x32 || pull_up_kid || kid_dynamic_art_32x24 {
-            (
-                ModeLevelGfxSpriteNodeWorkSub1492::MappingPointerNull,
-                ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
-            )
-        } else {
-            (
-                ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear,
-                ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
-            )
-        };
+    let (first_persistent_node, culled_persistent_node) = if airborne_kid_mapping.is_some()
+        || kid_dynamic_art_20x32
+        || pull_up_kid
+        || kid_dynamic_art_32x24
+    {
+        (
+            ModeLevelGfxSpriteNodeWorkSub1492::MappingPointerNull,
+            ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+        )
+    } else {
+        (
+            ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear,
+            ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
+        )
+    };
     let mut nodes = vec![
         first_persistent_node,
         second_persistent_node,

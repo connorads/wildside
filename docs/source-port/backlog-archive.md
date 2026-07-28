@@ -4617,6 +4617,29 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-28 (airborne sprite source path): selected-PC oracle frame
+983 proves the four persistent `sub_1492` nodes are mapping-null, The Kid's
+`unk_A3B66` mapping, then two `loc_120C` above-viewport culls. The prior
+conservative ledger used hidden, generic two-sprite, and two below-viewport
+paths. ASM `sub_B270 loc_B2E8 -> loc_B334` selects airborne state 0 while the
+scaled rising velocity remains at or above the jump threshold; `off_B3B8`
+maps state 0 to `unk_A3B66` and states 1-3 to `unk_A3CEC`.
+
+The oracle's `unk_A3B66` normal-orientation selected-PC stream is exactly the
+existing 988-raw dynamic-art stream, including instruction boundaries; each
+above-viewport cull is 332 raw. Encoding those domain paths removes the
+214-raw conservative overcount and lets frames 983-987 reach their measured
+post-HUD boundaries naturally. All five wait-free frame arms were removed from
+the shared clock teleport. The persistent frame-995 regression,
+`verify-slice-fast`, and `verify-tas-full` pass. Full-route pixels remain
+26,395 exact / 11,364 divergent / 3,619,948 changed instances, first mismatch
+frame 1706 at one pixel; GEMS baselines are unchanged. Frontier 995 and the
+ratchet baseline 108 remain because the meter counts the still-live shared
+teleport call rather than its frame arms.
+
+NEXT: choose another shared non-index #406 timing debt from the reduced
+override surface; do not type frame 996 as a bare step.
+
 Progress 2026-07-28: the shared post-execute model replaces four
 path/coordinate guards with source-composed work. ASM `sub_DFB0` prices a
 bit-15 non-type-`$A` rejection at 30 raw cycles; the separate 18-cycle
