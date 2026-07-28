@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 VDP presentation classification)
+
+- Frame 21765 cannot be fixed by retaining another title snapshot: runtime
+  VRAM is identical at frames 21763/21764 and focused pixels do not change.
+- The 221-frame cave class repeats across seven DemoPlay visits. Oracle frame
+  5656 displays Plane B beneath an already-opaque end-state Plane A cell, then
+  presents the same Plane A cell on 5657. This proves a displayed nametable
+  timeline gap rather than colour, scroll, or geometry drift.
+- Selecting current `$FFFFF8F0` walk art worsens 7470..7520, so that blanket
+  phase change was reverted. NEXT: instrument and model reusable Plane A/VDP
+  scanout ordering from the narrowed 5656 probe.
+
 ## 2026-07-28 handoff (#406 four-state airborne mappings)
 
 - `sub_B270 loc_B334/loc_B350` selects four states from each form's

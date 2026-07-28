@@ -5947,6 +5947,30 @@ a retained-VDP/FIFO boundary; the previously rejected blanket retained-title
 snapshot remains invalid. Do not add a title elapsed/map-index exception.
 Model the ordered title VDP writes and their display boundary before revisiting.
 
+Rechecked 2026-07-28 (#406/#414 title handoff): retaining the preceding
+runtime `VdpState` at `Obj_TitleMenu loc_1BB02` is a pixel no-op because the
+complete VRAM snapshots at published frames 21763 and 21764 are already
+identical. The focused 21760..21785 comparison remains 17 divergent frames /
+36,864 pixels, first mismatch 21765. The missing state is scanout/FIFO
+presentation, not another resident snapshot; the experiment was reverted.
+
+Investigation 2026-07-28 (#406 repeated cave upper-screen class): the 221-frame
+/ 34,816-pixel class is seven copies of the same DemoPlay cave interval
+(5656..5686, 8758..8789, 14980..15011, 19183..19213, 26356..26386,
+31240..31271, 36751..36782). Oracle frame 5656 pixel `4/0` renders Plane B
+yellow (`entry=$2114`, palette 1/index 2) even though the end-of-frame Plane A
+sample is already opaque blue (`entry=$00BC`, palette 0/index 2); frame 5657
+presents that unchanged Plane A cell. No `$C000..$CFFF` FIFO commits occur on
+frames 5655..5657, so end-state VRAM cannot reconstruct the displayed plane
+boundary. This is a persistent Plane A presentation latch, not colour, scroll,
+or geometry drift. Model the displayed nametable timeline before patching it.
+
+Rejected 2026-07-28 (#406 player walk mapping): removing the prior-trace
+`$FFFFF8F0` latch to select current walk art worsens focused frames 7470..7520
+from 32 divergent / 10,701 pixels to 35 / 11,458. Keep the existing
+`sub_1492/loc_141A` SAT/art latch; the repeated player clusters need narrower
+mapping-upload evidence rather than a blanket current-phase selection.
+
 Rejected 2026-07-17 (#414 IntroSequence5): at local elapsed 459, `loc_1C7A0`
 has already deleted IntroText5 and `loc_1BC36` calls `sub_1C034` for frame 7.
 Suppressing native's text replay therefore looked correct, but the focused
