@@ -2606,6 +2606,21 @@ retry a global core or renderer phase shift. A valid shared fix must derive
 each cohort's initial `animation_timer(a3)` from its Object/GfxObject
 allocation and `Enemy0D_Dragon_Init` boundary.
 
+Progress 2026-07-28: oracle WRAM at cohort entry frames 6979, 7417, 7436,
+and 7557 disproved an allocation-seed difference: every Dragon GfxObject
+starts at `stru_3CC5E`, `animation_timer=9`, matching native phase zero. The
+first durable drift appears when each falling Dragon lands. `Lion.asm
+loc_3E732 -> loc_3E76E` restores `$62(a5)` through `Init_Animation`; oracle
+resets at frames 6991, 7429, 7448, and 7569, while native retained its
+pre-landing cursor. Both directional shared-walker landing paths now reset
+that object-local clock. The focused 6979..7582 slice falls from 95,624 to
+23,417 changed pixels, with 529/604 exact; its final 7553..7582 window falls
+from 7,295 pixels on 16 frames to 80 pixels on two frames. Full-route pixels
+improve by 1,552 exact frames and 582,438 changed pixels to 34,572 exact /
+3,187 divergent / 1,437,635 changed. Gameplay, enemy, CRC, RNG, and audio
+command evidence remains exact or unchanged. The next largest class is the
+400-frame transform band `grid:0,4-39,20` (276,520 pixels).
+
 ### #412
 
 Follow-up 2026-07-16: recaptured the current frontier pair at frame 1020.

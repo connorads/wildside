@@ -8610,6 +8610,9 @@ fn step_dragon_walking_airborne(enemy: &mut ActiveEnemy, block_grid: Option<&ter
             enemy.y_velocity = 0;
             enemy.x_velocity = 0;
             enemy.on_ground = true;
+            // ASM Lion.asm loc_3E732 -> loc_3E76E restores `$62(a5)` through
+            // Init_Animation when the shared walker lands.
+            enemy.dragon_descent_index = 0;
             if enemy.shared_walker_state == SHARED_WALKER_STATE_PATROL {
                 enemy.shared_walker_debug_branch = Some("airborne_land_patrol");
             } else {
@@ -8654,6 +8657,9 @@ fn step_dragon_walking_airborne_after_x_commit(
             enemy.y_velocity = 0;
             enemy.x_velocity = 0;
             enemy.on_ground = true;
+            // ASM Lion.asm loc_3E732 -> loc_3E76E restores `$62(a5)` through
+            // Init_Animation when the shared walker lands.
+            enemy.dragon_descent_index = 0;
             if enemy.shared_walker_state == SHARED_WALKER_STATE_PATROL {
                 enemy.shared_walker_debug_branch = Some("airborne_land_patrol");
             } else {

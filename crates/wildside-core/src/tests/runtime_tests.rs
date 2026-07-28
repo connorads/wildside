@@ -6859,6 +6859,41 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_demo_2_walking_dragons_reset_animation_when_landing_loc_3e76e() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let expected = [(6_991, 2), (7_429, 0), (7_448, 4), (7_569, 1)];
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(7_570) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if let Some((_, layout_index)) = expected
+                .iter()
+                .find(|(expected_frame, _)| *expected_frame == frame_index)
+            {
+                let phase = trace
+                    .active_enemy_details
+                    .iter()
+                    .find(|enemy| enemy.layout_index == Some(*layout_index))
+                    .and_then(|enemy| enemy.sprite_animation_phase);
+                samples.push((frame_index, *layout_index, phase));
+            }
+        }
+
+        assert_eq!(
+            samples,
+            vec![
+                (6_991, 2, Some(0)),
+                (7_429, 0, Some(0)),
+                (7_448, 4, Some(0)),
+                (7_569, 1, Some(0)),
+            ],
+            "ASM Lion.asm loc_3E732 -> loc_3E76E reinitialises each walking Dragon animation on floor contact",
+        );
+    }
+
+    #[test]
     fn published_tas_intro_sequence_6_title_workers_advance_after_loc_1b45a() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

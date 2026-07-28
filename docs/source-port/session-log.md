@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#408 Dragon landing animation reset)
+
+- Oracle WRAM proves all four Demo 2 cohorts initialise at `stru_3CC5E`, timer
+  9; allocation seeds were already exact.
+- `Lion.asm loc_3E732 -> loc_3E76E` re-runs `Init_Animation` when a shared
+  walker lands. Native now resets the Dragon cursor on both directional paths.
+- Full pixels improve to 34,572 exact / 3,187 divergent / 1,437,635 changed:
+  1,552 more exact frames and 582,438 fewer changed pixels.
+- Gameplay, enemy, CRC, RNG, and audio-command evidence is unchanged. NEXT:
+  classify `grid:0,4-39,20` (400 frames / 276,520 pixels) as a repeated
+  transform presentation band.
+
 ## 2026-07-28 handoff (#408 Dragon timer-seed narrowing)
 
 - The 110-frame `grid:0,15-39,20` cluster is ordinary walking-Dragon
