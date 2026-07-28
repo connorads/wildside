@@ -4757,6 +4757,25 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-28 (IntroSequence5 particle lineage and gravity phase): full
+VRAM/CRAM/VSRAM comparison isolated the former largest left-side class entirely
+to Sprite Table `$1000`. At frame 16649 native and oracle SAT are byte-exact;
+the title transition then rebuilt the resident image through the generic
+particle lineage and permuted its first ten entries. ASM `loc_1BCD0` allocates
+`unk_1BE18/24/30` in order, while the Start-skip revisit exposes the newest
+worker first. The transition now uses the existing lineage-aware builder and
+preserves oracle frame 16650's exact SAT order. Separately, FC82=2 frames
+20852..20855 proved `loc_1BE74` moves before applying `$4000` gravity; its
+timeout SAT therefore uses the pre-acceleration phase. The focused 16645..16669
+window is exact except the unrelated three-pixel frame 16647 residue, and
+frames 20852..20857 become exact. Full pixels improve 35,862->35,921 exact,
+1,897->1,838 divergent, and 573,555->509,434 changed. Gameplay, RNG, enemy and
+command frontiers remain unchanged.
+
+NEXT: classify the repeated 41-frame / 18,291-pixel sprite-sized class
+(`grid:17,16-19,20`, 13 ranges, 427-461 pixels each) against typed per-object
+animation timers under #408.
+
 Progress 2026-07-28 (final title Chameleon worker pass): oracle frame 21765
 commits 202 words from Plane-A address `$0908`, starting at scanline/H40
 `40:76` and ending at `62:220`; frame 21764 carries the preceding

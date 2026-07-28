@@ -6002,14 +6002,14 @@ mod chunk_09 {
                     expected_resident_vdp = runtime.intro_sub_1b850_data.as_ref().map(|data| {
                         // ASM loc_1BA60 hibernates before sub_1C246 polls the
                         // Start edge. The final deferred object pass advances
-                        // the resident loc_1BCD0/loc_1BE3C image twice before
+                        // the resident loc_1BCD0/loc_1BE3C image once before
                         // loc_1C264 jumps into loc_6E2's Pal_FadeOut.
-                        vdp::build_intro_sequence_vdp_with_title_variant_at_elapsed(
+                        vdp::build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
                             data,
-                            4,
                             runtime.title_screen_region_byte,
-                            elapsed + 2,
+                            elapsed + 1,
                             runtime.active_intro_sequence_3_roster_index,
+                            true,
                         )
                     });
                 }
@@ -6026,6 +6026,18 @@ mod chunk_09 {
 
         let resident_vdp = expected_resident_vdp
             .expect("cached generated manifest should contain IntroSequence5 data");
+        assert_eq!(
+            &resident_vdp.vram[0x1000..0x1050],
+            &[
+                0x00, 0xF6, 0x0F, 0x01, 0x43, 0x1A, 0x00, 0xB0, 0x00, 0xF6, 0x0F, 0x02, 0x43, 0x2A,
+                0x00, 0xD0, 0x00, 0xB6, 0x0F, 0x03, 0x42, 0xFC, 0x00, 0xE8, 0x00, 0xB6, 0x03, 0x04,
+                0x43, 0x0C, 0x01, 0x08, 0x00, 0xD6, 0x0D, 0x05, 0x43, 0x10, 0x00, 0xE8, 0x00, 0xD6,
+                0x01, 0x06, 0x43, 0x18, 0x01, 0x08, 0x00, 0xBA, 0x0F, 0x07, 0x42, 0xD2, 0x00, 0x82,
+                0x00, 0xBA, 0x07, 0x08, 0x42, 0xE2, 0x00, 0xA2, 0x00, 0xDA, 0x0E, 0x09, 0x42, 0xEA,
+                0x00, 0x82, 0x00, 0xDA, 0x06, 0x0A, 0x42, 0xF6, 0x00, 0xA2,
+            ],
+            "ASM loc_1BCD0/loc_1BE3C allocation order should preserve oracle frame 16650's newest-first particle SAT",
+        );
         let faded_resident_vdp = |elapsed| {
             let mut vdp = resident_vdp.clone();
             assert!(vdp::apply_intro_title_return_fade_to_black_loc_28c6(
@@ -6366,6 +6378,7 @@ mod chunk_09 {
             return;
         };
         let mut frame_20852 = None;
+        let mut particle_sat_y_20852_20855 = Vec::new();
         let mut frame_20893 = None;
         let mut frame_20894 = None;
 
@@ -6379,7 +6392,15 @@ mod chunk_09 {
                         trace.number_objects,
                         trace.number_gfx_objects,
                     ));
+                    particle_sat_y_20852_20855.push(u16::from_be_bytes([
+                        runtime.vdp_state().expect("frame 20852 VDP").vram[0x1000],
+                        runtime.vdp_state().expect("frame 20852 VDP").vram[0x1001],
+                    ]));
                 }
+                20_853..=20_855 => particle_sat_y_20852_20855.push(u16::from_be_bytes([
+                    runtime.vdp_state().expect("frame 20853..20855 VDP").vram[0x1000],
+                    runtime.vdp_state().expect("frame 20853..20855 VDP").vram[0x1001],
+                ])),
                 20_893 => {
                     frame_20893 = Some((
                         trace.game_mode,
@@ -6409,6 +6430,11 @@ mod chunk_09 {
             frame_20852,
             Some((GameMode::IntroSequence5, Some(479), 6, 7)),
             "ASM loc_1BCD0 -> loc_1BE3C should keep the late title-particle workers count-visible before the timeout hand-off",
+        );
+        assert_eq!(
+            particle_sat_y_20852_20855,
+            [0x00F1, 0x00F6, 0x00FB, 0x0100],
+            "ASM loc_1BE74 applies gravity after movement; oracle frames 20852..20855 pin the FC82=2 newest particle's SAT Y",
         );
         assert_eq!(
             frame_20893,

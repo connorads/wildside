@@ -1668,10 +1668,13 @@ impl IntroSequence5ParticleLineage {
     }
 
     fn gravity_steps(self, frames: i32) -> i32 {
-        if matches!(self, Self::TimeoutFc82Zero | Self::TimeoutFc82OneStartSkip) {
-            frames.saturating_sub(1)
-        } else {
-            frames + 1
+        // ASM loc_1BE74 moves, hibernates, then adds `$4000` to y_vel. The
+        // timeout lineages present from the pre-acceleration SAT phase.
+        match self {
+            Self::TimeoutFc82Zero | Self::TimeoutFc82OneStartSkip | Self::TimeoutFc82Two => {
+                frames.saturating_sub(1)
+            }
+            Self::Shared => frames + 1,
         }
     }
 }

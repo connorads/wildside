@@ -7062,14 +7062,14 @@ impl NativeRuntime {
                             // the current loc_1BCD0/loc_1BE3C VDP into title
                             // mode rather than the stale frame where Start
                             // was first pressed.
-                            *elapsed += 2;
+                            *elapsed += 1;
                             self.intro_sub_1b850_data.as_ref().map(|data| {
-                                vdp::build_intro_sequence_vdp_with_title_variant_at_elapsed(
+                                vdp::build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
                                     data,
-                                    *segment,
                                     self.title_screen_region_byte,
                                     *elapsed,
                                     self.active_intro_sequence_3_roster_index,
+                                    true,
                                 )
                             })
                         } else {

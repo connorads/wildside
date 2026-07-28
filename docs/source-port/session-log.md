@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 IntroSequence5 particle SAT)
+
+- The Start-skip title snapshot now preserves `loc_1BCD0/loc_1BE3C`'s
+  newest-first allocation order; FC82=2 uses `loc_1BE74`'s pre-gravity SAT.
+- Full pixels improve to 35,921 exact / 1,838 divergent / 509,434 changed;
+  59 route frames become exact and all non-pixel frontiers stay unchanged.
+- NEXT: classify the repeated 41-frame / 18,291-pixel sprite-sized class
+  across 13 ranges against typed per-object animation timers under #408.
+
 ## 2026-07-28 handoff (#406 final title Chameleon worker pass)
 
 - `Obj_TitleTextChameleon sub_1B71A` now advances its preserved `d3` once more
