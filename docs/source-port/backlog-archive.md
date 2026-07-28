@@ -4757,6 +4757,23 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-28 (final title Chameleon worker pass): oracle frame 21765
+commits 202 words from Plane-A address `$0908`, starting at scanline/H40
+`40:76` and ending at `62:220`; frame 21764 carries the preceding
+`sub_1B71A` map. ASM object order at `loc_E1E` executes
+`Obj_TitleTextChameleon` before `Obj_TitleMenu loc_1BB02`, so the Chameleon
+worker advances its preserved `d3` once more before the menu enters DemoPlay.
+Native instead captured the preceding synthetic title VDP in `begin_demo_play`
+and froze that map through the fade. `VdpState` now retains the worker's typed
+`d3`, applies the final source-defined upload, and only then captures the demo
+snapshot. Focused frames 21755..21784 are all pixel-exact. Full pixels improve
+35,845->35,862 exact, 1,914->1,897 divergent, and 610,419->573,555 changed;
+the full 17-frame / 36,864-pixel title transition is retired. Gameplay, RNG,
+enemy and command frontiers remain unchanged.
+
+NEXT: classify the repeated 18-frame / 21,254-pixel left-side class at frames
+16650..16665 and 20853..20854 from VDP and SAT evidence before changing code.
+
 Progress 2026-07-28 (Sequence 2 reveal FIFO presentation): oracle VRAM probes
 at frame 5656 proved Plane A's `$00BC` nametable entry is stable while tile art
 at `$1780` has reached its post-frame value before the framebuffer presents it.

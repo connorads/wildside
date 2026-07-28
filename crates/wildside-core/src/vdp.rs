@@ -114,6 +114,8 @@ pub struct VdpState {
     pub cram: Vec<u8>,
     pub vsram: Vec<u8>,
     pub raster_frame: Option<VdpRasterFrame>,
+    /// Preserved `d3` used by the latest title `sub_1B71A` pass.
+    title_text_chameleon_d3_sub_1b71a: Option<u16>,
 }
 
 /// VDP state at the start of visible scanout plus ordered writes while displayed.
@@ -171,6 +173,7 @@ impl VdpState {
             cram: vec![0; CRAM_SIZE],
             vsram: vec![0; VSRAM_SIZE],
             raster_frame: None,
+            title_text_chameleon_d3_sub_1b71a: None,
         }
     }
 
@@ -8889,6 +8892,15 @@ fn write_title_text_chameleon_anim_loc_1b71a(
     ) else {
         return;
     };
+    apply_title_text_chameleon_upload_sub_1b71a(vdp, upload);
+    vdp.title_text_chameleon_d3_sub_1b71a = Some(d3);
+}
+
+#[allow(non_snake_case)]
+fn apply_title_text_chameleon_upload_sub_1b71a(
+    vdp: &mut VdpState,
+    upload: crate::boot::TitleTextChameleonFrameUploadSub1B71A,
+) {
     for row in upload.rows {
         let mut byte_addr = usize::from(row.vram_byte_address);
         if let Some(filler_word) = row.filler_word {
@@ -8899,6 +8911,32 @@ fn write_title_text_chameleon_anim_loc_1b71a(
             byte_addr += 2;
         }
     }
+}
+
+/// Apply the final title worker pass before `Obj_TitleMenu loc_1BB02` enters
+/// demo mode.
+#[allow(non_snake_case)]
+pub(crate) fn advance_title_text_chameleon_before_demo_sub_1B71A(
+    vdp: &mut VdpState,
+    data: &TitleScreenData,
+) {
+    // ASM loc_E1E executes Obj_TitleTextChameleon before Obj_TitleMenu. The
+    // menu's final DBF pass therefore observes one more preserved-d3 upload
+    // before loc_1BB02 switches Game_Mode to DemoPlay.
+    let Some(d3) = vdp.title_text_chameleon_d3_sub_1b71a else {
+        return;
+    };
+    let next_d3 = d3.wrapping_add(1);
+    let map_index = title_text_chameleon_anim_map_index(usize::from(next_d3));
+    let Some(upload) = crate::boot::title_text_chameleon_frame_upload_sub_1B71A(
+        &data.title_text_chameleon_anim_maps[map_index],
+        0,
+        next_d3,
+    ) else {
+        return;
+    };
+    apply_title_text_chameleon_upload_sub_1b71a(vdp, upload);
+    vdp.title_text_chameleon_d3_sub_1b71a = Some(next_d3);
 }
 
 fn title_text_chameleon_anim_map_index(elapsed: usize) -> usize {

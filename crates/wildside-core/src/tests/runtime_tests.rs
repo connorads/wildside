@@ -7402,6 +7402,13 @@ mod chunk_09 {
             )),
             "frame 21765 should be the first demo-play frame after the oracle-backed timeout-restart title hold ends",
         );
+        assert_eq!(
+            runtime
+                .vdp_state()
+                .map(|vdp| u16::from_be_bytes([vdp.vram[0x090E], vdp.vram[0x090F]])),
+            Some(0x433C),
+            "ASM Obj_TitleTextChameleon sub_1B71A runs once more before Obj_TitleMenu loc_1BB02 enters DemoPlay; oracle frame 21765 retains its final Plane-A map word",
+        );
     }
 
     #[test]

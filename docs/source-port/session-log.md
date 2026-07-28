@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 final title Chameleon worker pass)
+
+- `Obj_TitleTextChameleon sub_1B71A` now advances its preserved `d3` once more
+  before `Obj_TitleMenu loc_1BB02` captures the DemoPlay title VDP.
+- Frames 21755..21784 are all exact. Full pixels improve to 35,862 exact /
+  1,897 divergent / 573,555 changed; all non-pixel frontiers are unchanged.
+- NEXT: classify the repeated 18-frame / 21,254-pixel left-side class at
+  frames 16650..16665 and 20853..20854 from shared VDP and SAT evidence.
+
 ## 2026-07-28 handoff (#406 Sequence 2 reveal FIFO presentation)
 
 - `sub_1C180/loc_1C194` now retains the previous `$1780` reveal art and

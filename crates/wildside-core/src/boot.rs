@@ -5924,7 +5924,12 @@ impl NativeRuntime {
     }
 
     fn begin_demo_play(&mut self, use_demo_2: bool) {
-        let title_vdp_snapshot = self.vdp_state.clone();
+        let mut title_vdp_snapshot = self.vdp_state.clone();
+        if let (Some(vdp), Some(data)) =
+            (title_vdp_snapshot.as_mut(), self.title_screen_data.as_ref())
+        {
+            vdp::advance_title_text_chameleon_before_demo_sub_1B71A(vdp, data);
+        }
         let timeout_restart_demo_bootstrap = self.timeout_restart_title_intro_sequence_3_pose;
         let start_skip_intro_return_camera_wrap =
             self.next_demo_uses_start_skip_intro_return_camera_wrap;
