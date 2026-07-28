@@ -9212,6 +9212,14 @@ mod chunk_08 {
         // item instead of waiting for the visual-effect step to retain it out.
         assert_eq!(frame_1057.number_objects, 5);
         assert_eq!(frame_1058.number_objects, 4);
+        assert_eq!(
+            frame_1058.played_music_speed_updates,
+            frame_1129
+                .as_ref()
+                .expect("frame 1129 trace")
+                .played_music_speed_updates,
+            "ASM loc_7D22 must not queue loc_7E26 music speed during transform hibernates"
+        );
 
         let frame_1129 = frame_1129.expect("frame 1129 trace");
         let frame_1130 = frame_1130.expect("frame 1130 trace");
@@ -9233,6 +9241,16 @@ mod chunk_08 {
             frame_1130
                 .gameplay_debug_fields
                 .contains_key("gameplay_hibernated")
+        );
+        assert_eq!(
+            frame_1130.played_music_speed_updates.len(),
+            frame_1129.played_music_speed_updates.len() + 1,
+            "ASM loc_7E26 queues one music-speed byte on transform cleanup"
+        );
+        assert_eq!(
+            frame_1130.played_music_speed_updates.last(),
+            Some(&0x7E),
+            "ASM unk_7ECC[Foreground_theme=1] queues $7E on the published route"
         );
 
         let frame_1131 = frame_1131.expect("frame 1131 trace");

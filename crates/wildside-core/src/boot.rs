@@ -8345,7 +8345,15 @@ impl NativeRuntime {
                     }
                 }
                 if self.progression.form_change_flash_frames > 0 {
+                    // ASM loc_7D22 -> loc_7E14/loc_7E26 (kid.asm:8486/8557):
+                    // after the final animation-table hibernate, queue the
+                    // transform audio tail before loc_7E90's cleanup frame
+                    // returns to regular gameplay.
+                    let cleanup_audio_due = self.progression.form_change_flash_frames == 2;
                     self.progression.form_change_flash_frames -= 1;
+                    if cleanup_audio_due {
+                        self.queue_transform_cleanup_audio_loc_7e26();
+                    }
                 }
                 self.resolve_pending_form_change();
             }

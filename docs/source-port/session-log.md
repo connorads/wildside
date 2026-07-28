@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406/#440 transform cleanup audio)
+
+- Moved the `loc_7E26` music-speed pair from helmet contact to the animated
+  transform's `2 -> 1` cleanup boundary; same-helmet replenish remains immediate.
+- All three published transform pairs align. Command debt falls 402→396, exact
+  commands rise 54→60, and the frontier moves 1058→1347.
+- Gameplay/RNG and pixels are unchanged; frozen GEMS timing remains 36,836
+  mismatches from frame 923, so this was not the shared phase root.
+- NEXT: trace native-only frame-1347 `10[13]` to its event and ROM id under #439.
+
 ## 2026-07-28 handoff (#406/#439 title pre-arm command)
 
 - ASM `Obj_TitleMenu loc_1BAEA/loc_1BAEE` now keeps every pre-ready Start in

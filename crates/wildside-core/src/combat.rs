@@ -12678,6 +12678,7 @@ impl NativeRuntime {
             // directly to loc_7E14 cleanup without reverse or forward tables.
             self.queue_start_sequence(QueuedSoundEffect::ReplenishHealth);
             self.progression.form_change_flash_frames = 0;
+            self.queue_transform_cleanup_audio_loc_7e26();
         } else {
             // ASM loc_7C96 (kid.asm:8399): `addq.w #1,d7; add.w d7,d7` — remove-
             // old-helmet animation setup. Indexes off_7EE2[old_helmet] to find the
@@ -12736,23 +12737,6 @@ impl NativeRuntime {
             // suppress `currently_transforming` on the last frame.
             self.progression.form_change_flash_frames = (old_frames + new_frames + 1) as u8;
         }
-        // ASM loc_7E26 (kid.asm:8564): `move.b (a4,d0.w),d0; jsr (sub_E1330).l;
-        // jsr (sub_E1338).l` — index unk_7ECC[Foreground_theme] (or
-        // MusicSpeed_Murderwall if MurderWall_flag set) for the post-transform
-        // music speed byte, then queue it via sub_E1330 and reset via sub_E1338.
-        let transform_music_speed = transform_music_speed_byte_loc_7e26(
-            self.level_header(self.current_level)
-                .map_or(0, |header| header.level_theme),
-            self.murder_wall.is_some(),
-        );
-        self.played_music_speed_updates.push(transform_music_speed);
-        if form == PlayerForm::TheKid {
-            // ASM loc_7E26/loc_7E40 (kid.asm:8564-8574): after the
-            // post-transform music-speed update, `Current_Helmet == 0`
-            // queues `sfx_Voice_bummer`.
-            self.queue_start_sequence(QueuedSoundEffect::VoiceBummer);
-        }
-
         // ASM loc_7E48 (kid.asm:8575): cleanup after the optional
         // sfx_Voice_bummer (TheKid only). `bsr.w sub_80D0` (palette load),
         // `bsr.w sub_B41C` (set half-width from d0=1), `bsr.w sub_DB22`
@@ -12838,6 +12822,23 @@ impl NativeRuntime {
         // Visual-only; called by loc_7D44 dispatch handler.
         // Clear ability state on form change
         self.helmet.reset();
+    }
+
+    /// Queue the audio tail reached after Kid_Transform's animation tables.
+    ///
+    /// ASM loc_7E26 (kid.asm:8564): queue the theme or Murderwall music-speed
+    /// byte through sub_E1330/sub_E1338, then loc_7E40 optionally queues
+    /// sfx_Voice_bummer when Current_Helmet is TheKid.
+    pub(crate) fn queue_transform_cleanup_audio_loc_7e26(&mut self) {
+        let transform_music_speed = transform_music_speed_byte_loc_7e26(
+            self.level_header(self.current_level)
+                .map_or(0, |header| header.level_theme),
+            self.murder_wall.is_some(),
+        );
+        self.played_music_speed_updates.push(transform_music_speed);
+        if self.progression.current_form == PlayerForm::TheKid {
+            self.queue_start_sequence(QueuedSoundEffect::VoiceBummer);
+        }
     }
 
     pub(crate) fn apply_damage_with_knockback(

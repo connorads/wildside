@@ -658,6 +658,17 @@ touching the mapping.
 
 ### #440
 
+Progress 2026-07-28: retired the repeated transform music-speed posting drift.
+ASM `Kid_Transform loc_7D22` completes both animation tables before
+`loc_7E14/loc_7E26` queues `FF 05 <speed>; FF 0D`; native instead posted at
+helmet contact. The countdown's `2 -> 1` boundary is the typed cleanup instant
+(published frame 1130, after contact at 1058). Native now queues there, while
+same-helmet replenish keeps the ROM's immediate `loc_7C76 -> loc_7E14` branch.
+All three published route pairs become exact: command debt 402→396, exact
+54→60, first mismatch 1058→1347. Gameplay and pixels are unchanged. The next
+command is native-only `10[13]`, owned by #439; #440 remains open for the other
+posting drifts and merged flagpole reload split.
+
 Native SFX posting-instant drift, split out of #435's triage. Shared
 (same opcode+args) commands drift -15..+15+ frames between native and
 oracle attribution; only 85 of ~330 shared commands are exact-frame and
@@ -4625,6 +4636,16 @@ discrepancy. Do not change Plane-B wrapping from this residual. Reopen only
 with a source-proven row-history difference.
 
 ### #406
+
+Progress 2026-07-28 (transform audio phase boundary): ASM `Kid_Transform
+loc_7D22 -> loc_7E14/loc_7E26` proves the shared `05[126]` pair belongs after
+the animation tables, not at helmet contact. Moving that engine event from
+frame 1058 to cleanup frame 1130 aligns all three route occurrences and cuts
+command debt 402→396 (exact 54→60; next mismatch 1347). Frozen GEMS timing stays
+36,836 mismatches from frame 923 and pixels stay 26,395 exact / 11,364
+divergent, so transform command timing is not the missing shared Z80 phase.
+Continue with #439's native-only frame-1347 `10[13]` event before returning to
+the frame-957/983 timing pins.
 
 Progress 2026-07-28 (command-source test): the first authoritative GEMS
 command mismatch was a native-only navigation jingle at frame 812. Correcting

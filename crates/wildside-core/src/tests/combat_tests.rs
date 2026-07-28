@@ -10663,6 +10663,13 @@ mod chunk_03 {
         runtime.queue_form_change(PlayerForm::Skycutter);
         runtime.resolve_pending_form_change();
 
+        assert!(
+            runtime.played_music_speed_updates.is_empty(),
+            "ASM loc_7D22 must finish both animation tables before loc_7E26 queues music speed"
+        );
+        while runtime.progression.form_change_flash_frames > 1 {
+            runtime.step_frame(FrameInput::default());
+        }
         assert_eq!(
             runtime.played_music_speed_updates,
             vec![0x74],
@@ -10920,6 +10927,13 @@ mod chunk_03 {
         runtime.queue_form_change(PlayerForm::TheKid);
         runtime.resolve_pending_form_change();
 
+        assert!(
+            runtime.played_sound_effects.is_empty(),
+            "ASM loc_7E40 must wait for transform cleanup before sfx_Voice_bummer"
+        );
+        while runtime.progression.form_change_flash_frames > 1 {
+            runtime.step_frame(FrameInput::default());
+        }
         assert_eq!(
             runtime.played_sound_effects,
             vec![QueuedSoundEffect::VoiceBummer],
