@@ -3051,6 +3051,7 @@ mod tests {
                         y_velocity_after: -0x0A00,
                         capped_acceleration_to_0x1200: false,
                     },
+                    y_velocity_after: -0x0A00,
                     gfx_object_collision_clear: true,
                     vertical_collision: ModeLevelVerticalCollisionPath::Ceiling,
                     wall_collision: ModeLevelWallCollisionPath::Clear,
@@ -10756,6 +10757,7 @@ impl NativeRuntime {
         ModeLevelPlayerExecutionPath::NormalPhysics(ModeLevelNormalPhysicsPath {
             horizontal,
             vertical,
+            y_velocity_after: stages.after_jump_gravity.y_velocity,
             gfx_object_collision_clear: stages.gfx_object_collision_clear,
             vertical_collision,
             wall_collision,
@@ -10850,6 +10852,14 @@ impl NativeRuntime {
             ))
         })
         .flatten();
+        if let Some((_, shooter)) = first_activation_post_scans {
+            // ASM sub_F096 loc_F09E/loc_F186 (kid.asm:19623/19727) writes
+            // Kid's current block coordinates after comparing each cache.
+            // Keep the ledger's pre-write values, then commit the state that
+            // the next Mode_Level pass observes.
+            self.block_state.shooter_last_scanned_col = shooter.kid_block_col;
+            self.block_state.shooter_last_scanned_row = shooter.kid_block_row;
+        }
         if let Some(ledger) = self.mode_level_work_before_hud_sub_44dc.as_mut() {
             ledger
                 .execute_objects

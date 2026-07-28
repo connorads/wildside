@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 post-execute composition)
+
+- Replaced four path/coordinate timing guards with ASM-composed grounded,
+  jump/pull-up, flagged-cell, hidden-row, and shooter-scan work.
+- Level-start activation now commits `sub_F096` caches after recording their
+  pre-write state. Upward hidden scans cover ordinary jump physics and count
+  each visited cell.
+- Retired flat-wait frame corrections at 988, 990-992, and 994. The persistent
+  frame-930..995 schedule remains exact; genuine Z80-wait aggregates stay.
+- NEXT: run full gates, then select the next non-index #406 timing debt. The
+  pull-up hitbox remains coupled to post-frame-923 GEMS phase recovery.
+
 ## 2026-07-28 handoff (#406 tail-bank hypothesis rejected)
 
 - Oracle frame 957 has 35 bank steals (385 cycles) from `loc_892` to

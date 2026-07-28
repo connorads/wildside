@@ -16177,6 +16177,7 @@ mod tests {
                         wildside_core::ModeLevelNormalPhysicsPath {
                             horizontal: wildside_core::ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
                             vertical: wildside_core::ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                            y_velocity_after: -265_312,
                             gfx_object_collision_clear: true,
                             vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Clear,
                             wall_collision: wildside_core::ModeLevelWallCollisionPath::Clear,
@@ -16225,6 +16226,7 @@ mod tests {
                         wildside_core::ModeLevelNormalPhysicsPath {
                             horizontal: wildside_core::ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
                             vertical: wildside_core::ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                            y_velocity_after: -257_120,
                             gfx_object_collision_clear: true,
                             vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Clear,
                             wall_collision: wildside_core::ModeLevelWallCollisionPath::Clear,
@@ -16273,6 +16275,7 @@ mod tests {
                         wildside_core::ModeLevelNormalPhysicsPath {
                             horizontal: wildside_core::ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
                             vertical: wildside_core::ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                            y_velocity_after: -248_928,
                             gfx_object_collision_clear: true,
                             vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Clear,
                             wall_collision: wildside_core::ModeLevelWallCollisionPath::Clear,
@@ -16321,6 +16324,7 @@ mod tests {
                         wildside_core::ModeLevelNormalPhysicsPath {
                             horizontal: wildside_core::ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
                             vertical: wildside_core::ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                            y_velocity_after: -240_736,
                             gfx_object_collision_clear: true,
                             vertical_collision: wildside_core::ModeLevelVerticalCollisionPath::Clear,
                             wall_collision: wildside_core::ModeLevelWallCollisionPath::Clear,
@@ -16385,6 +16389,7 @@ mod tests {
                                 wildside_core::ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
                             vertical:
                                 wildside_core::ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                            y_velocity_after: -232_544,
                             gfx_object_collision_clear: true,
                             vertical_collision:
                                 wildside_core::ModeLevelVerticalCollisionPath::Clear,
@@ -16436,6 +16441,7 @@ mod tests {
                                 wildside_core::ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
                             vertical:
                                 wildside_core::ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                            y_velocity_after: -224_352,
                             gfx_object_collision_clear: true,
                             vertical_collision:
                                 wildside_core::ModeLevelVerticalCollisionPath::Clear,
@@ -16487,6 +16493,7 @@ mod tests {
                                 wildside_core::ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
                             vertical:
                                 wildside_core::ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                            y_velocity_after: -216_160,
                             gfx_object_collision_clear: true,
                             vertical_collision:
                                 wildside_core::ModeLevelVerticalCollisionPath::Clear,
@@ -16525,7 +16532,7 @@ mod tests {
                 );
                 assert_eq!(
                     wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
-                    Some(M68kCycleCount::from_raw(2_588)),
+                    Some(M68kCycleCount::from_raw(2_606)),
                     "ASM loc_7E6 -> sub_21F8 -> loc_EAE4 -> sub_F096 -> sub_44DC frame 988 is fully typed",
                 );
             }
@@ -16538,6 +16545,7 @@ mod tests {
                                 wildside_core::ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
                             vertical:
                                 wildside_core::ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+                            y_velocity_after: -207_968,
                             gfx_object_collision_clear: true,
                             vertical_collision:
                                 wildside_core::ModeLevelVerticalCollisionPath::Ceiling,
@@ -16616,7 +16624,7 @@ mod tests {
                 );
                 assert_eq!(
                     wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
-                    Some(M68kCycleCount::from_raw(3_234)),
+                    Some(M68kCycleCount::from_raw(3_374)),
                     "ASM loc_7E6 -> sub_DFB0 -> sub_F096 -> sub_44DC frame 989 is fully typed",
                 );
             }
@@ -16629,6 +16637,7 @@ mod tests {
                                 wildside_core::ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
                             vertical:
                                 wildside_core::ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
+                            y_velocity_after: 16_384,
                             gfx_object_collision_clear: true,
                             vertical_collision:
                                 wildside_core::ModeLevelVerticalCollisionPath::Clear,
@@ -16692,7 +16701,7 @@ mod tests {
                 );
                 assert_eq!(
                     wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
-                    Some(M68kCycleCount::from_raw(2_706)),
+                    Some(M68kCycleCount::from_raw(2_724)),
                     "ASM loc_7E6 -> sub_DFB0 -> sub_F096 -> sub_44DC frame 990 is fully typed",
                 );
             }
@@ -16755,7 +16764,7 @@ mod tests {
                 );
                 assert_eq!(
                     wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
-                    Some(M68kCycleCount::from_raw(2_706)),
+                    Some(M68kCycleCount::from_raw(2_724)),
                     "ASM loc_7E6 -> sub_DFB0 -> sub_F096 -> sub_44DC frame 991 is fully typed",
                 );
             }
@@ -16818,7 +16827,7 @@ mod tests {
                 );
                 assert_eq!(
                     wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
-                    Some(M68kCycleCount::from_raw(3_126)),
+                    Some(M68kCycleCount::from_raw(3_144)),
                     "ASM loc_7E6 -> sub_DFB0 -> sub_F096 -> sub_44DC frame 992 is fully typed",
                 );
             }
@@ -16888,7 +16897,7 @@ mod tests {
                 );
                 assert_eq!(
                     wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
-                    Some(M68kCycleCount::from_raw(2_588)),
+                    Some(M68kCycleCount::from_raw(2_606)),
                     "ASM loc_7E6 -> sub_DFB0 -> sub_F096 -> sub_44DC frame 993 is fully typed",
                 );
             }
@@ -16951,7 +16960,7 @@ mod tests {
                 );
                 assert_eq!(
                     wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
-                    Some(M68kCycleCount::from_raw(2_588)),
+                    Some(M68kCycleCount::from_raw(2_606)),
                     "ASM loc_7E6 -> sub_DFB0 -> sub_F096 -> sub_44DC frame 994 is fully typed",
                 );
             }
@@ -17014,7 +17023,7 @@ mod tests {
                 );
                 assert_eq!(
                     wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
-                    Some(M68kCycleCount::from_raw(2_588)),
+                    Some(M68kCycleCount::from_raw(2_606)),
                     "ASM loc_7E6 -> sub_DFB0 -> sub_F096 -> sub_44DC frame 995 is fully typed",
                 );
             }
@@ -17552,57 +17561,56 @@ mod tests {
                 // ASM sub_E12 -> loc_7E6 -> sub_44DC, published TAS frame
                 // 988: selected PCs bind 126459107..126466393..126469041.
                 // Both oracle wait counters remain flat. The source-typed
-                // post-object ledger is 18 elapsed cycles short at phase 94.
+                // post-object ledger includes the BSR.W sub_21F8 boundary.
                 probe.continue_persistent_pre_hud_to_sub_44dc(
                     next_seed,
                     M68kCycleCount::from_raw(7_172),
-                    M68kCycleCount::from_raw(18),
-                    M68kCycleCount::from_raw(2_588),
+                    M68kCycleCount::from_raw(0),
+                    M68kCycleCount::from_raw(2_606),
                 )
             } else if current_frame_index == 988 {
                 // ASM sub_E12 -> loc_7E6 -> sub_44DC, published TAS frame
                 // 989: selected PCs bind 126587110..126599986..126603414.
-                // Both oracle wait counters remain flat. The prize-wobble
-                // insertion leaves the typed post-object projection 142
-                // elapsed cycles short at the measured phase.
+                // Both oracle wait counters remain flat. The typed upward
+                // two-cell scan crosses one refresh boundary.
                 probe.continue_persistent_pre_hud_to_sub_44dc(
                     next_seed,
                     M68kCycleCount::from_raw(12_674),
-                    M68kCycleCount::from_raw(142),
-                    M68kCycleCount::from_raw(3_234),
+                    M68kCycleCount::from_raw(0),
+                    M68kCycleCount::from_raw(3_374),
                 )
             } else if current_frame_index == 989 {
                 // ASM sub_E12 -> loc_7E6 -> sub_44DC, published TAS frame
                 // 990: selected PCs bind 126715567..126723971..126726739.
                 // Both oracle wait counters remain flat. The typed wall-cling
-                // post-object projection needs a 20-cycle phase correction.
+                // projection includes the BSR.W sub_21F8 boundary.
                 probe.continue_persistent_pre_hud_to_sub_44dc(
                     next_seed,
                     M68kCycleCount::from_raw(8_274),
-                    M68kCycleCount::from_raw(20),
-                    M68kCycleCount::from_raw(2_706),
+                    M68kCycleCount::from_raw(0),
+                    M68kCycleCount::from_raw(2_724),
                 )
             } else if current_frame_index == 990 {
                 // ASM sub_E12 -> loc_7E6 -> sub_44DC, published TAS frame
                 // 991: selected PCs bind 126843115..126850525..126853293.
                 // Both oracle wait counters remain flat. The typed wall-cling
-                // post-object projection needs an 18-cycle phase correction.
+                // projection includes the BSR.W sub_21F8 boundary.
                 probe.continue_persistent_pre_hud_to_sub_44dc(
                     next_seed,
                     M68kCycleCount::from_raw(7_294),
-                    M68kCycleCount::from_raw(18),
-                    M68kCycleCount::from_raw(2_706),
+                    M68kCycleCount::from_raw(0),
+                    M68kCycleCount::from_raw(2_724),
                 )
             } else if current_frame_index == 991 {
                 // ASM sub_E12 -> loc_7E6 -> sub_44DC, published TAS frame
                 // 992: selected PCs bind 126971130..126979088..126982282.
                 // Both oracle wait counters remain flat. The typed falling
-                // wall-cling post-object projection needs a 20-cycle correction.
+                // wall-cling projection includes the BSR.W sub_21F8 boundary.
                 probe.continue_persistent_pre_hud_to_sub_44dc(
                     next_seed,
                     M68kCycleCount::from_raw(7_834),
-                    M68kCycleCount::from_raw(20),
-                    M68kCycleCount::from_raw(3_126),
+                    M68kCycleCount::from_raw(0),
+                    M68kCycleCount::from_raw(3_144),
                 )
             } else if current_frame_index == 992 {
                 // ASM sub_E12 -> loc_7E6 -> sub_44DC, published TAS frame
@@ -17620,12 +17628,12 @@ mod tests {
                 // ASM sub_E12 -> loc_7E6 -> sub_44DC, published TAS frame
                 // 994: selected PCs bind 127227130..127234658..127237306.
                 // Both oracle wait counters remain flat. The later falling
-                // cling's post-object projection is 18 cycles short.
+                // cling includes the BSR.W sub_21F8 boundary.
                 probe.continue_persistent_pre_hud_to_sub_44dc(
                     next_seed,
                     M68kCycleCount::from_raw(7_410),
-                    M68kCycleCount::from_raw(18),
-                    M68kCycleCount::from_raw(2_588),
+                    M68kCycleCount::from_raw(0),
+                    M68kCycleCount::from_raw(2_606),
                 )
             } else if current_frame_index == 994 {
                 // ASM sub_E12 -> loc_7E6 -> sub_44DC, published TAS frame

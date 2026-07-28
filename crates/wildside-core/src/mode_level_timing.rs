@@ -2303,6 +2303,7 @@ pub fn player_callback_cycles_loc_a73a(
         crate::ModeLevelNormalPhysicsPath {
             horizontal: ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
             vertical: ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+            y_velocity_after: _,
             gfx_object_collision_clear: true,
             vertical_collision: ModeLevelVerticalCollisionPath::Clear,
             wall_collision: ModeLevelWallCollisionPath::Clear,
@@ -2329,6 +2330,7 @@ pub fn player_callback_cycles_loc_a73a(
         crate::ModeLevelNormalPhysicsPath {
             horizontal: ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
             vertical: ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
+            y_velocity_after: _,
             gfx_object_collision_clear: true,
             vertical_collision: ModeLevelVerticalCollisionPath::Clear,
             wall_collision: ModeLevelWallCollisionPath::Clear,
@@ -2355,6 +2357,7 @@ pub fn player_callback_cycles_loc_a73a(
         crate::ModeLevelNormalPhysicsPath {
             horizontal: ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
             vertical: ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
+            y_velocity_after: _,
             gfx_object_collision_clear: true,
             vertical_collision: ModeLevelVerticalCollisionPath::Clear,
             wall_collision: ModeLevelWallCollisionPath::RightWallClingLocA9e4,
@@ -3088,11 +3091,6 @@ pub fn execute_objects_elapsed_cycles_sub_e12(
 /// `beq.w` (12): 30 cycles more. Published TAS frames 919 and 978 measure
 /// 2,462 and 2,492 over an otherwise identical scan, confirming the 30.
 ///
-/// The compositional fall-through prices this at 48 instead, which is this 30
-/// plus the separate 18-cycle `BSR.W sub_21F8` boundary term the post-frozen
-/// frames carry. The two only sum correctly when exactly one cell is flagged —
-/// the shape every measured frame happens to have. See #406 in
-/// `backlog-archive.md`.
 const FLAGGED_CELL_REJECTION_RAW_CYCLES: u32 = 30;
 
 /// Complete raw CPU cost from the return of ASM `sub_21F8` through the entry
@@ -3131,172 +3129,18 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
             },
         )
     );
-    if grounded_standing_hitbox
-        && scan.row_count == 4
-        && scan.col_count == 2
-        && ((shooter.cached_col_before == -1
-            && shooter.cached_row_before == -1
-            && !shooter.cached_col_matches
-            && !shooter.cached_row_matches)
-            || (shooter.cached_col_matches && shooter.cached_row_matches))
-        && shooter.new_shooter_slots_registered == 0
-    {
-        // ASM sub_21F8 -> sub_DFB0/loc_EAE4 -> sub_F096 -> sub_44DC.
-        // Frame 919 reaches loc_7E6 at 117632917 and sub_44DC at 117635417:
-        // phase 50 advances by 2,462 raw cycles plus 19 refresh waits. The
-        // frame-923 walking-start branch reaches loc_7E6 at 118146371 and
-        // sub_44DC at 118148873: phase 60 advances by the same raw cycles plus
-        // 20 refresh waits. Frames 978-980 measure 2,492 over the same scan
-        // shape with one flagged cell (125183461..125185993 and
-        // 125314739..125317271).
-        //
-        // ASM loc_EB4C: a bit-15 cell whose type is not $A takes `beq.w` not
-        // taken (12 rather than 10), `andi.w #$F00,d0` (8), `cmpi.w #$A00,d0`
-        // (8), and a second not-taken `beq.w` (12) — 30 cycles beyond the
-        // 8+12+10 cheap path. The measured 2,492 - 2,462 = 30 confirms it, so
-        // the flagged cell is priced from the disassembly rather than pinned
-        // per coordinate. See `FLAGGED_CELL_REJECTION_RAW_CYCLES` below: the
-        // fall-through's 48 conflates this 30 with a separate 18-cycle
-        // once-per-frame boundary term, so it only agrees when exactly one
-        // cell is flagged.
-        //
-        // ASM Mode_Level $7E6 owns the 18-cycle BSR.W sub_21F8 after the
-        // Execute_Objects null-list return.
-        //
-        // TODO(fidelity): 244 cycles below the compositional fall-through and
-        // not yet attributed to a routine. Tracked under #406 in
-        // backlog-archive.md with the full per-guard decomposition.
-        return Some(M68kCycleCount::from_raw(
-            2_462_u32.checked_add(
-                FLAGGED_CELL_REJECTION_RAW_CYCLES
-                    .checked_mul(u32::from(scan.flagged_non_evanescent_cells_before_exit))?,
-            )?,
-        ));
-    }
-
-    let published_jump_hitbox = matches!(
-        ledger.execute_objects.executed_player_path,
-        Some(
-            ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
-                form: crate::PlayerForm::TheKid,
-                x_velocity_before: 0x0000_3800,
-                x_velocity_after: 0x0000_2A00,
-                y_velocity_after: -273_504,
-            } | ModeLevelPlayerExecutionPath::NormalPhysics(crate::ModeLevelNormalPhysicsPath {
-                horizontal: ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
-                vertical: ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
-                gfx_object_collision_clear: true,
-                vertical_collision: ModeLevelVerticalCollisionPath::Clear,
-                wall_collision: ModeLevelWallCollisionPath::Clear,
-                airborne_action: ModeLevelAirborneActionPath::NoButtons,
-                cyclone_visual_steps: None,
-                ceiling_scan_sub_914a: None,
-            },),
-        )
-    );
-    if published_jump_hitbox
-        && scan.row_count == 3
-        && scan.col_count == 2
-        && scan.flagged_non_evanescent_cells_before_exit == 0
-        && shooter.cached_col_matches
-        && shooter.cached_row_matches
-        && shooter.cached_col_before == 4
-        && shooter.cached_row_before == 40
-        && shooter.kid_block_col == 4
-        && shooter.kid_block_row == 40
-        && shooter.new_shooter_slots_registered == 0
-    {
-        // ASM sub_21F8 loc_2232/loc_224C installs frames 981-982's jumping
-        // hitbox. The resulting three-row/two-column loc_EAE4 scan and
-        // cached sub_F096 path span 2,606 raw cycles. Selected PCs bind the
-        // spans to 125570062..125572710 and 125698530..125701176.
-        return Some(M68kCycleCount::from_raw(2_606));
-    }
-
-    if matches!(
-        ledger.execute_objects.executed_player_path,
-        Some(ModeLevelPlayerExecutionPath::NormalPhysics(
-            crate::ModeLevelNormalPhysicsPath {
-                horizontal: ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
-                vertical: ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
-                gfx_object_collision_clear: true,
-                vertical_collision: ModeLevelVerticalCollisionPath::Clear,
-                wall_collision: ModeLevelWallCollisionPath::Clear,
-                airborne_action: ModeLevelAirborneActionPath::NoButtons,
-                cyclone_visual_steps: None,
-                ceiling_scan_sub_914a: None,
-            },
-        ))
-    ) && scan.row_count == 4
-        && scan.col_count == 1
-        && scan.flagged_non_evanescent_cells_before_exit == 0
-        && shooter.cached_col_matches
-        && !shooter.cached_row_matches
-        && shooter.cached_col_before == 4
-        && shooter.cached_row_before == 40
-        && shooter.kid_block_col == 4
-        && shooter.kid_block_row == 39
-        && shooter.new_shooter_slots_registered == 0
-    {
-        // ASM sub_21F8 -> sub_DFB0 loc_EAE4 -> sub_F096 -> sub_44DC,
-        // published TAS frame 984. Kid's one-column/four-row hitbox scan and
-        // upward shooter-row transition span 3,214 raw cycles. Selected PCs
-        // bind loc_7E6/sub_DFB0/loc_EAE4/sub_F096/sub_44DC at
-        // 125954251/125954757/125955453/125956369/125957517.
-        return Some(M68kCycleCount::from_raw(3_214));
-    }
-
-    if matches!(
-        ledger.execute_objects.executed_player_path,
-        Some(ModeLevelPlayerExecutionPath::NormalPhysics(
-            crate::ModeLevelNormalPhysicsPath {
-                horizontal: ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
-                vertical: ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
-                gfx_object_collision_clear: true,
-                vertical_collision: ModeLevelVerticalCollisionPath::Clear,
-                wall_collision: ModeLevelWallCollisionPath::Clear,
-                airborne_action: ModeLevelAirborneActionPath::NoButtons,
-                cyclone_visual_steps: None,
-                ceiling_scan_sub_914a: _,
-            },
-        ))
-    ) && scan.row_count == 3
-        && scan.col_count == 1
-        && scan.flagged_non_evanescent_cells_before_exit == 0
-        && shooter.cached_col_matches
-        && shooter.cached_row_matches
-        && shooter.cached_col_before == 4
-        && shooter.cached_row_before == 39
-        && shooter.kid_block_col == 4
-        && shooter.kid_block_row == 39
-        && shooter.new_shooter_slots_registered == 0
-    {
-        // ASM sub_21F8 -> sub_DFB0 loc_EAE4 -> sub_F096 -> sub_44DC,
-        // published TAS frames 985-986. The one-column/three-row hitbox scan
-        // and cached shooter coordinates span 2,486 raw cycles. Frame 985's
-        // selected PCs bind loc_7E6 126082789/phase 2 to sub_44DC
-        // 126085313/phase 94.
-        return Some(M68kCycleCount::from_raw(2_486));
-    }
-
     // ASM sub_DFB0 (kid.asm:17317) and loc_EAE4 (kid.asm:18858):
     // 994 raw cycles surround the inclusive row/column scan. Each row costs
     // 38 plus 40 per cell; a bit-15 non-type-$A cell takes the loc_EB4C
-    // `andi/cmpi/beq` rejection and adds 48 cycles before scanning continues.
-    //
-    // TODO(fidelity): that 48 is `FLAGGED_CELL_REJECTION_RAW_CYCLES` (30, read
-    // off loc_EB4C) plus the 18-cycle BSR.W sub_21F8 boundary term, which is a
-    // once-per-frame quantity rather than a per-cell one. It happens to be
-    // exact on every measured frame because each has exactly one flagged cell,
-    // and separating the two is what would retire the three remaining airborne
-    // overrides — see #406 in backlog-archive.md.
+    // `andi/cmpi/beq` rejection and adds 30 cycles before scanning continues.
     let sub_dfb0 = 994_u32
         .checked_add(
             u32::from(scan.row_count)
                 .checked_mul(38_u32.checked_add(40_u32.checked_mul(u32::from(scan.col_count))?)?)?,
         )?
         .checked_add(
-            48_u32.checked_mul(u32::from(scan.flagged_non_evanescent_cells_before_exit))?,
+            FLAGGED_CELL_REJECTION_RAW_CYCLES
+                .checked_mul(u32::from(scan.flagged_non_evanescent_cells_before_exit))?,
         )?;
 
     let shooter_scan = match (shooter.cached_col_matches, shooter.cached_row_matches) {
@@ -3388,41 +3232,72 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         _ => return None,
     };
 
-    let hidden_block_scan = match ledger.execute_objects.executed_player_path.as_ref()? {
+    let hidden_block_y_velocity = match ledger.execute_objects.executed_player_path.as_ref()? {
         ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 {
             form: crate::PlayerForm::TheKid,
             y_velocity_after,
             ..
-        } => {
-            let entry = ledger.execute_objects.player_entry_position?;
-            let old_y_px = (entry.y_pos >> 16) as i32;
-            let new_y_px = (entry.y_pos.wrapping_add(*y_velocity_after as u32) >> 16) as i32;
-            let old_scan_row = (old_y_px - 32 - 1) >> 4;
-            let new_scan_row = (new_y_px - 32 - 1) >> 4;
-            if new_scan_row < old_scan_row {
-                let x_px = (entry.x_pos >> 16) as i32;
-                let start_col = (x_px - 4).max(0) >> 4;
-                let end_col = (x_px + 4 - 1) >> 4;
-                if start_col != end_col {
-                    return None;
-                }
-                // ASM sub_DFB0 loc_DFEE -> loc_E03A -> loc_E23A: frame
-                // 951 crosses one upward row and visits one non-hidden cell.
-                // Selected PCs measure 684 raw cycles to loc_EAE4 versus
-                // the direct path's 562, so the scan adds 122.
-                122
-            } else {
-                0
-            }
+        } => Some(*y_velocity_after),
+        ModeLevelPlayerExecutionPath::NormalPhysics(path)
+            if path.y_velocity_after < 0
+                && matches!(
+                    path.vertical,
+                    ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8
+                        | ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0
+                ) =>
+        {
+            Some(path.y_velocity_after)
         }
-        _ => 0,
+        _ => None,
+    };
+    let hidden_block_scan = if let Some(y_velocity_after) = hidden_block_y_velocity {
+        let entry = ledger.execute_objects.player_entry_position?;
+        let old_y_px = (entry.y_pos >> 16) as i32;
+        let new_y_px = (entry.y_pos.wrapping_add(y_velocity_after as u32) >> 16) as i32;
+        let old_scan_row = (old_y_px - 32 - 1) >> 4;
+        let new_scan_row = (new_y_px - 32 - 1) >> 4;
+        if new_scan_row < old_scan_row {
+            let x_px = (entry.x_pos >> 16) as i32;
+            let start_col = (x_px - 4).max(0) >> 4;
+            let end_col = (x_px + 4 - 1) >> 4;
+            let cell_count = end_col.checked_sub(start_col)?.checked_add(1)?;
+            // ASM sub_DFB0 loc_DFEE -> loc_E03A -> loc_E23A: frame
+            // 951 crosses one upward row and visits one non-hidden cell.
+            // Selected PCs measure 684 raw cycles to loc_EAE4 versus
+            // the direct path's 562, so the scan adds 122. Each further
+            // non-hidden cell repeats the 58-cycle loc_E03A/loc_E23A loop.
+            122_u32.checked_add(58_u32.checked_mul(u32::try_from(cell_count - 1).ok()?)?)?
+        } else {
+            0
+        }
+    } else {
+        0
     };
 
-    // ASM Mode_Level $7E6..loc_80C: the exact natural path outside sub_DFB0
-    // is 1,240 raw cycles: sub_21F8, DiamondPower_Run, sub_F7E0, sub_6034,
-    // sub_F096, and their call/return shells.
+    // ASM Mode_Level $7E6..loc_80C: grounded movement branches directly from
+    // sub_DFB0's Character_Movement check to loc_EAE4. Jumping movement runs
+    // the 244-cycle hitbox/row-crossing setup first. The jumping shell also
+    // owns Mode_Level's separate 18-cycle BSR.W sub_21F8 boundary; it must not
+    // be hidden in the per-flagged-cell price.
+    let jump_movement = matches!(
+        ledger.execute_objects.executed_player_path,
+        Some(
+            ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 { .. }
+                | ModeLevelPlayerExecutionPath::NormalPhysics(_)
+                | ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 { .. }
+                | ModeLevelPlayerExecutionPath::WallClingPullUpLocAbf0 { .. }
+                | ModeLevelPlayerExecutionPath::PullUpAnimationHibernateLoc1062 { .. }
+        )
+    );
+    let source_shell: u32 = if grounded_standing_hitbox {
+        996
+    } else if jump_movement {
+        1_258
+    } else {
+        1_240
+    };
     Some(M68kCycleCount(
-        1_240_u32
+        source_shell
             .checked_add(sub_dfb0)?
             .checked_add(shooter_scan)?
             .checked_add(hidden_block_scan)?,
@@ -6079,8 +5954,8 @@ mod tests {
         });
         assert_eq!(
             post_execute_raw_cycles_before_sub_44dc(&ledger),
-            Some(M68kCycleCount::from_raw(2_636)),
-            "ASM loc_EB4C bit-15 non-type-$A rejection adds 48 raw cycles",
+            Some(M68kCycleCount::from_raw(2_618)),
+            "ASM loc_EB4C bit-15 non-type-$A rejection adds 30 raw cycles",
         );
 
         let shooter = ledger
@@ -6093,7 +5968,7 @@ mod tests {
         shooter.kid_block_row = 42;
         assert_eq!(
             post_execute_raw_cycles_before_sub_44dc(&ledger),
-            Some(M68kCycleCount::from_raw(3_164)),
+            Some(M68kCycleCount::from_raw(3_146)),
             "ASM loc_F1A8/loc_F1DE frame-940 upward scan visits seven clear cells",
         );
 
@@ -6110,7 +5985,7 @@ mod tests {
         shooter.kid_block_row = 43;
         assert_eq!(
             post_execute_raw_cycles_before_sub_44dc(&ledger),
-            Some(M68kCycleCount::from_raw(3_294)),
+            Some(M68kCycleCount::from_raw(3_276)),
             "ASM loc_F0D8/loc_F106 frame-939 rightward scan adds 658 raw cycles",
         );
 

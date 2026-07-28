@@ -4617,6 +4617,26 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-28: the shared post-execute model replaces four
+path/coordinate guards with source-composed work. ASM `sub_DFB0` prices a
+bit-15 non-type-`$A` rejection at 30 raw cycles; the separate 18-cycle
+`BSR.W sub_21F8` boundary belongs to active jump/pull-up movement. Grounded
+standing paths use the branch-shortened shell that accounts for the former
+244-cycle residue. Upward `loc_E03A -> loc_E23A` hidden-block scans now apply
+to ordinary jump physics and cost 122 raw for the first clear cell plus 58 for
+each additional cell. This absorbs frame 989's 140-raw/142-elapsed override.
+
+The level-start activation adapter also commits `sub_F096`'s scanned Kid row
+and column after retaining their pre-write values in the ledger. Without that
+state transition frame 919 repeatedly paid the power-on scan's 550 raw cycles.
+The persistent frame-930..995 schedule remains exact. Flat-wait corrections at
+frames 988, 990, 991, 992, and 994 are retired; frame 993 and frame 995 retain
+aggregates because they carry separately measured post-frozen Z80 waits.
+
+NEXT: rerun the full TAS gates and use the reduced override surface to choose
+the next non-index #406 timing debt. The pull-up hitbox fix remains coupled to
+post-frame-923 GEMS phase recovery.
+
 Investigation 2026-07-28: the nine frame-965/967 post-HUD phase deltas do not
 represent nine routine-cost defects. Eight are zero-net selected-PC boundary
 transfers: the probe starts the collision calls after their 8-cycle `LEA`s and

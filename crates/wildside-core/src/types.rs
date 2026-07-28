@@ -2005,6 +2005,9 @@ pub struct ModeLevelCycloneVisualStep {
 pub struct ModeLevelNormalPhysicsPath {
     pub horizontal: ModeLevelAirborneHorizontalPath,
     pub vertical: ModeLevelAirborneVerticalPath,
+    /// Y velocity after ASM `sub_B168`, consumed by the later `sub_DFB0`
+    /// upward-row crossing check in the same `Mode_Level` pass.
+    pub y_velocity_after: i32,
     /// Reaching the per-axis collision probes proves `sub_A4EE` returned
     /// through `loc_A532` instead of a compound slope/object handoff.
     pub gfx_object_collision_clear: bool,
