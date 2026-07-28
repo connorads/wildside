@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 pull-up hitbox exposes GEMS steal)
+
+- Eight of the nine frame-965/967 phase deltas are zero-net selected-PC boundary
+  transfers. The real +8 is `sub_1FA2` using a 2x2 current-sprite scan instead
+  of `sub_21F8 loc_224C`'s retained 1x3 pull-up hitbox.
+- ASM and an oracle probe prove all seven `stru_8BB4` mappings retain that
+  hitbox. Applying the full-animation rule makes frame 957 source-correct but
+  exposes a missing downstream 11-cycle native GEMS steal, leaving frame-958
+  `sub_E12` early. The experimental edits were restored.
+- NEXT: trace and model that shared bank-arbitration event, then land the
+  hitbox fix and remove the 965/967 post-HUD injections. Frontier 995 and the
+  injection ratchet baseline 108 remain unchanged.
+
 ## 2026-07-27 handoff (#406 post-HUD generated waits rejected)
 
 - A reusable typed trace now reports timing, generated waits, and GEMS banked reads for

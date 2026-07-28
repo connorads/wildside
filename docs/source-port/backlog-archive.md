@@ -4617,6 +4617,28 @@ with a source-proven row-history difference.
 
 ### #406
 
+Investigation 2026-07-28: the nine frame-965/967 post-HUD phase deltas do not
+represent nine routine-cost defects. Eight are zero-net selected-PC boundary
+transfers: the probe starts the collision calls after their 8-cycle `LEA`s and
+starts Diamond compilation after the 12-cycle `TST.B` plus 8-cycle branch,
+whereas the native semantic phases own those inline instructions with the
+following operation. The sole real raw-work error is `sub_1FA2`: native derives
+a 2x2 scan from the current pull-up sprite, while the oracle retains the
+pre-snap 1x3 hitbox and scans 568 rather than 576 raw cycles. ASM `sub_21F8
+loc_224C` confirms all seven `stru_8BB4` mappings select `unk_314CE`'s zero
+collision-size sentinel, so the globals remain live for the full animation.
+
+The source-correct full-animation retention was tested and restored rather than
+landed. It makes frame 957's post-HUD path eight raw cycles shorter, changes the
+later hardware phase, and exposes a missing 11-cycle native GEMS bank steal:
+frame-958 `sub_E12` becomes 11 cycles early (`122619226` versus oracle
+`122619237`). The typed 22-phase trace reports no post-HUD generated wait or
+banked read, so the old 2x2 scan was accidentally compensating for a downstream
+audio-arbitration defect. Do not narrow the retention back to selected ticks or
+add a frame pin. NEXT: locate the oracle's frame-957 `loc_892 -> frame-958
+sub_E12` bank read/steal and implement its shared arbitration rule; then land
+the full `loc_224C` retention and delete the 965/967 post-HUD injections.
+
 Progress 2026-07-27 (post-HUD phase trace rejects generated waits): the retained typed
 trace now reports raw cycles, refresh events, refresh phase, generated hardware waits,
 and exact GEMS banked-68000 reads for each of the 22 `Mode_Level loc_810 -> loc_892`
