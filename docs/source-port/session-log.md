@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406/#439 title pre-arm command)
+
+- ASM `Obj_TitleMenu loc_1BAEA/loc_1BAEE` now keeps every pre-ready Start in
+  the hidden pre-arm, including published frame 181 after the nominal frame
+  178 arm point. Directional input requires the typed `loc_1BB52` upload.
+- Retired native-only `10[45]` at frame 812. Full command debt falls 403→402
+  and its frontier moves to shared `05[126]`: native 1058, oracle 1130.
+- Gameplay/RNG stay exact; pixels remain 26,395 exact / 11,364 divergent,
+  first mismatch frame 1706. Frozen GEMS timing stays 36,836 mismatches, first
+  frame 923; digest-only update means this was not the shared phase root.
+- NEXT: trace `05[126]` to its source posting event under #440 before touching
+  the frame-957/983 timing pins.
+
 ## 2026-07-28 handoff (#406 airborne sprite source path)
 
 - Typed The Kid's airborne `sub_B270` mapping state and `sub_1492` sprite

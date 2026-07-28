@@ -7671,6 +7671,14 @@ impl NativeRuntime {
                 }
                 let up_pressed = input.up && !self.previous_input.up;
                 let down_pressed = input.down && !self.previous_input.down;
+                // ASM Obj_TitleMenu reaches Title_InputLoop only after
+                // loc_1BB52 has uploaded and linked the cursor. Hidden title
+                // rebuilds with no typed upload instant remain in loc_1BAEE.
+                let title_input_loop_active = !self.title_menu_hidden_prearm_pending
+                    && (!self.title_screen_uses_intro_return_hidden_shell
+                        || self
+                            .title_menu_vdp_upload_frame_loc_1bb52
+                            .is_some_and(|frame| self.frame_index >= frame));
 
                 if self.title_menu_selection_pending.is_some()
                     && self.title_menu_selection_delay_frames > 0
@@ -7703,14 +7711,12 @@ impl NativeRuntime {
                     // one attract-lock window after entry, even if Start was
                     // already being tapped during the intro skip path.
                 } else if !self.title_menu_active {
-                    if start_pressed
-                        && self.frame_index < self.title_screen_ready_frame
-                        && self.frame_index <= self.title_menu_arm_frame
-                    {
-                        // ASM Obj_TitleMenu loc_1BAEA/loc_1BAEE consumes the
-                        // arm-frame Start before the visible title pose can
-                        // select a row, but the title-loop countdown still
-                        // carries the cursor-build latency seen by TAS routes.
+                    if start_pressed && self.frame_index < self.title_screen_ready_frame {
+                        // ASM Obj_TitleMenu loc_1BAEA/loc_1BAEE consumes Start
+                        // before the visible title pose can select a row. Keep
+                        // every pre-ready press in that hidden wait, including
+                        // the published frame-181 edge after the nominal
+                        // frame-178 arm point.
                         self.title_menu_active = true;
                         self.title_menu_hidden_prearm_pending = true;
                     } else if start_pressed {
@@ -7770,7 +7776,7 @@ impl NativeRuntime {
                     // jumps through loc_6E2 / level-select entry.
                     self.title_menu_selection_pending = Some(*cursor);
                     self.title_menu_selection_delay_frames = TITLE_TO_LEVEL_SELECTION_DELAY_FRAMES;
-                } else if up_pressed && *cursor > 0 {
+                } else if up_pressed && *cursor > 0 && title_input_loop_active {
                     // ASM Obj_TitleMenu loc_1BBDE: Up only moves when `d1`
                     // is non-zero, then decrements the row and calls
                     // sub_1BC26. Oracle TAS traces keep the shared
@@ -7779,7 +7785,7 @@ impl NativeRuntime {
                     // timer here.
                     *cursor -= 1;
                     play_navigate_jingle = true;
-                } else if down_pressed && *cursor < 2 {
+                } else if down_pressed && *cursor < 2 && title_input_loop_active {
                     // ASM Obj_TitleMenu loc_1BBF6: Down only moves while
                     // `d1 != 2`, then calls sub_1BC26 before refreshing the
                     // cursor row from word_1BC20. Keep the attract countdown

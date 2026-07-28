@@ -12049,6 +12049,30 @@ mod chunk_06 {
     }
 
     #[test]
+    fn published_tas_frame_812_pre_menu_down_is_silent_loc_1baee() {
+        let scenario: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../tests/data/tas/any-percent-published/scenario.json"
+        ))
+        .expect("published TAS scenario");
+        let script = scenario["script"].as_array().expect("published TAS script");
+        let mut runtime = NativeRuntime::new(manifest());
+
+        for mask in script.iter().take(813) {
+            runtime.step_frame(FrameInput::from_mask(
+                mask.as_u64().expect("button mask") as u8
+            ));
+        }
+
+        assert_eq!(runtime.boot_state, BootState::TitleScreen { cursor: 0 });
+        assert!(
+            !runtime
+                .played_sound_effects
+                .contains(&QueuedSoundEffect::NavigateJingle),
+            "ASM Obj_TitleMenu loc_1BAEE has not reached Title_InputLoop when the published frame-812 Down edge arrives; oracle queues no sfx_Navigate_jingle",
+        );
+    }
+
+    #[test]
     fn title_menu_activation_restarts_loc_1bb52_timeout_counter() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.boot_state = BootState::TitleScreen { cursor: 0 };

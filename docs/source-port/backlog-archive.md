@@ -638,9 +638,18 @@ Dead ends / re-attribution:
 
 ### #439
 
+Progress 2026-07-28: retired the sole native-only `10[45]`. The published
+frame-181 Start occurs after the nominal frame-178 arm point but before the
+title pose is ready; ASM `Obj_TitleMenu loc_1BAEA/loc_1BAEE` is still waiting
+and has not run `loc_1BB52`, so frame-812 Down cannot reach
+`Title_InputLoop loc_1BBF6 -> sub_1BC26`. Native now keeps every pre-ready
+Start in the hidden pre-arm and requires the typed `loc_1BB52` upload before
+directional navigation. Command debt falls 403→402 and the first mismatch
+moves 812→1058. The remaining wrong-id families below are unchanged.
+
 Native SFX sound-id divergence, split out of #435's triage. Command
 multiset over the full route: native-only `10[13]`×39, `10[23]`×4,
-`10[45]`×1, `10[97]`×12; oracle-only `10[28]`×32, `10[70]`×14,
+`10[97]`×12; oracle-only `10[28]`×32, `10[70]`×14,
 `10[76]`×12, `10[119]`×10. The count-matched pairs (97↔76 exactly ×12;
 13↔28 approximately) point at wrong id mapping for the same game events;
 the unmatched oracle families point at SFX the native trace never
@@ -4616,6 +4625,15 @@ discrepancy. Do not change Plane-B wrapping from this residual. Reopen only
 with a source-proven row-history difference.
 
 ### #406
+
+Progress 2026-07-28 (command-source test): the first authoritative GEMS
+command mismatch was a native-only navigation jingle at frame 812. Correcting
+the pre-ready title Start state removes that command and advances command
+parity to frame 1058, but `gems_frame_signature_v1` remains 36,836 mismatches
+with first frame 923. Its digest changes only inside already-mismatched frames.
+This disproves the frame-812 command as the shared post-frame-923 phase root;
+continue from #440's shared `05[126]` posting drift (1058 native, 1130 oracle)
+before revisiting the frame-957/983 timing pins.
 
 Progress 2026-07-28 (airborne sprite source path): selected-PC oracle frame
 983 proves the four persistent `sub_1492` nodes are mapping-null, The Kid's
