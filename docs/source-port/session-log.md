@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#408 transform Dragon latch correction)
+
+- `Mode_Level loc_901` already latches the preceding Sprite Table, and the
+  core refreshes the Dragon roster at `Execute_Objects loc_E1E -> Kid_Transform
+  loc_7E90`; the renderer's extra modulo-12 rewind was stale.
+- Removing it collapses four repeated transform bands to the known 39-pixel
+  HUD-diamond residue. A generic HP-pip hide was rejected after moving the
+  global frontier to frame 1059.
+- Full pixels improve to 34,577 exact / 3,182 divergent / 1,219,627 changed:
+  five more exact frames and 218,008 fewer changed pixels.
+- State, RNG, enemy and audio-command evidence is unchanged. NEXT: classify
+  the separate 80-frame transform range at 22465..22544.
+
 ## 2026-07-28 handoff (#408 Dragon landing animation reset)
 
 - Oracle WRAM proves all four Demo 2 cohorts initialise at `stru_3CC5E`, timer

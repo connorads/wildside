@@ -1334,11 +1334,6 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.camera_x_pos = previous_trace.camera_x_pos;
         render_trace.camera_y_pos = previous_trace.camera_y_pos;
         latch_previous_sprite_sources_loc_901(&mut render_trace, previous_trace);
-        if trace.form_change_flash_frames > 0 {
-            retain_walking_dragon_mapping_during_transform_loc_7e90(
-                &mut render_trace.active_objects,
-            );
-        }
         render_trace.kid_x_pos = previous_trace.kid_x_pos;
         render_trace.kid_y_pos = previous_trace.kid_y_pos;
         render_trace.frame_index = previous_trace.frame_index;
@@ -1612,22 +1607,6 @@ fn latch_previous_sprite_sources_loc_901(
             render_trace
                 .floating_items_transferred_loc_901
                 .push(*previous);
-        }
-    }
-}
-
-fn retain_walking_dragon_mapping_during_transform_loc_7e90(objects: &mut [NativeObjectSnapshot]) {
-    for object in objects {
-        if matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x0D })
-            && object.hit_points.is_some_and(|hit_points| hit_points > 0)
-            && object.walk_phase == Some(0)
-            && !object.damage_flash
-            && let Some(phase) = object.sprite_animation_phase.as_mut()
-        {
-            // ASM Execute_Objects loc_E1E -> Kid_Transform loc_7E90 retains
-            // the Sprite_Table mapping built before the walking animation's
-            // current `stru_3CC5E`/`stru_3CC90` record was installed.
-            *phase = phase.wrapping_add(11) % 12;
         }
     }
 }
@@ -9686,21 +9665,31 @@ mod tests {
     }
 
     #[test]
-    fn transform_loc_7e90_retains_previous_walking_dragon_mapping() {
-        let mut objects = vec![NativeObjectSnapshot {
-            kind: NativeObjectKind::Enemy { object_type: 0x0D },
-            hit_points: Some(2),
-            walk_phase: Some(0),
-            sprite_animation_phase: Some(0),
-            ..sample_object_snapshot()
-        }];
+    fn transform_loc_7e90_uses_core_refreshed_walking_dragon_mapping() {
+        let previous_trace = NativeTraceFrame {
+            game_mode: GameMode::DemoPlay,
+            form_change_flash_frames: 81,
+            active_objects: vec![NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x0D },
+                hit_points: Some(2),
+                walk_phase: Some(0),
+                sprite_animation_phase: Some(0),
+                ..sample_object_snapshot()
+            }],
+            ..NativeTraceFrame::default()
+        };
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::DemoPlay,
+            form_change_flash_frames: 80,
+            ..previous_trace.clone()
+        };
 
-        retain_walking_dragon_mapping_during_transform_loc_7e90(&mut objects);
+        let rendered = render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
 
         assert_eq!(
-            objects[0].sprite_animation_phase,
-            Some(11),
-            "ASM Execute_Objects loc_E1E -> Kid_Transform loc_7E90 retains the preceding stru_3CC5E mapping across wraparound"
+            rendered.active_objects[0].sprite_animation_phase,
+            Some(0),
+            "ASM Execute_Objects loc_E1E -> Kid_Transform loc_7E90 presents the core-refreshed preceding mapping without a second renderer rewind"
         );
     }
 

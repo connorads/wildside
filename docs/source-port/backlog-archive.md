@@ -2621,6 +2621,20 @@ improve by 1,552 exact frames and 582,438 changed pixels to 34,572 exact /
 command evidence remains exact or unchanged. The next largest class is the
 400-frame transform band `grid:0,4-39,20` (276,520 pixels).
 
+Progress 2026-07-28: the 400-frame class combined five transform windows with
+a renderer-only walking-Dragon phase rewind added before the landing cursor
+was source-correct. `Mode_Level loc_901` already latches the preceding
+Sprite Table, and the core now refreshes the roster after `Execute_Objects
+loc_E1E -> Kid_Transform loc_7E90`; applying a second modulo-12 rewind changed
+the retained Dragon colour pattern for the whole transform. Removing that
+compensator reduces full-route debt by 218,008 pixels and gains five exact
+frames: 34,577 exact / 3,182 divergent / 1,219,627 changed. The first mismatch
+stays frame 1706 and the worst stays 2,387 pixels. A generic transform HP-pip
+hide was rejected because it moved the frontier to frame 1059; the existing
+table-duration boundary remains required. Four repeated Dragon windows now
+fall to the known 39-pixel HUD-diamond residue. The remaining 80-frame
+`grid:0,4-39,20` range at 22465..22544 is a separate transform class.
+
 ### #412
 
 Follow-up 2026-07-16: recaptured the current frontier pair at frame 1020.
