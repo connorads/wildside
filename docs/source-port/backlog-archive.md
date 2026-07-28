@@ -2561,6 +2561,22 @@ VRAM `$02FB`. NEXT: compare the actual oracle VRAM tiles referenced by mapping
 `$056C` with decoded `Enemy0C_Dragon.bin` frame tiles and the transferred
 Sprite_Table entry. The unresolved class is tile identity/residency, not state.
 
+Progress 2026-07-28: direct SAT decoding corrected that conclusion. Oracle
+VRAM frames 7598..7604 show each Dragon SAT entry retaining the mapping that
+precedes its live GfxObject's current `stru_3CC5E` record. Native already had
+the `Execute_Objects loc_E1E -> Kid_Transform loc_7E90` one-tick rewind, but
+did not rebuild `active_enemy_roster`, so the render trace kept the stale
+pre-rewind snapshot. Native now refreshes that roster and retains the preceding
+walking-Dragon mapping while the synchronous transform reuses its Sprite Table.
+The focused 7553..7684 interval falls from 108,619 to 62,208 changed pixels.
+The full route gains 5 exact frames and removes 238,144 changed pixels: 33,020
+exact / 4,739 divergent / 2,144,198 changed. Gameplay, enemy, camera, RNG and
+audio-command frontiers are unchanged. The rejected global phase correction
+gained 253 exact frames but added 168,667 changed pixels during ordinary
+walking; it was removed. The Dragon silhouette class is resolved. The largest
+remaining transform class is 316 frames of a constant 433-pixel top-band
+residue; treat it as a separate presentation target.
+
 ### #412
 
 Follow-up 2026-07-16: recaptured the current frontier pair at frame 1020.

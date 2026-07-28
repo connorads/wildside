@@ -12587,6 +12587,7 @@ pub(crate) fn enemy_gfx_slot_init_loc_3219E(
 
 impl NativeRuntime {
     pub(crate) fn rewind_walking_dragon_animation_on_transform_entry_loc_e1e(&mut self) {
+        let mut rewound = false;
         for enemy in &mut self.active_enemies {
             if enemy.family == EnemyFamily::DragonWalking
                 && enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK
@@ -12600,7 +12601,11 @@ impl NativeRuntime {
                     enemy.dragon_descent_index,
                     enemy.hit_points,
                 );
+                rewound = true;
             }
+        }
+        if rewound {
+            self.rebuild_active_enemy_roster();
         }
     }
 

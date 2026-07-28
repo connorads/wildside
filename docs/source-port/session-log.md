@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#408 Dragon transform Sprite Table)
+
+- Decoded oracle SAT and GfxObject state across frames 7598..7604. Each visible
+  Dragon uses the mapping preceding its current walking-animation record.
+- Rebuilt the enemy render roster after the existing transform-entry timer
+  rewind, then retained that preceding mapping during `Kid_Transform loc_7E90`.
+- Focused pixels fall 108,619 -> 62,208. Full pixels gain 5 exact frames and
+  remove 238,144 changed pixels: 33,020 exact / 4,739 divergent / 2,144,198.
+- Rejected a global phase shift because it added 168,667 changed pixels during
+  ordinary walking. NEXT: classify the 316-frame, constant 433-pixel top-band
+  transform residue as a separate presentation class.
+
 ## 2026-07-28 handoff (#408 Dragon tile-identity narrowing)
 
 - Triaged the largest remaining repeated class: 81 transform-hold frames and
