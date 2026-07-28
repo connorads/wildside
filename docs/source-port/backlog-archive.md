@@ -4757,6 +4757,23 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-28 (hidden type-1 prize reconciliation): the former
+268-frame / 68,608-pixel block cluster and much of the repeated demo-return
+snapshot debt came from Level 0x15 cell `$C38A`. Oracle WRAM keeps `$2000` and
+Scroll A keeps the underlying foreground, while native rewrote the cell to
+`$E101`. The block list contains both a disguised Micromax prize record and a
+hidden type-1 record at that address. ASM `loc_123DC/loc_12434 -> sub_127A8`
+records the prize metadata but leaves the hidden cell at `$2000` until
+`sub_E3C6` reveals it. Native reconciliation now skips prize addresses owned
+by hidden metadata. Full pixels improve 34,977→35,429 exact,
+2,782→2,330 divergent, and 1,155,747→866,839 changed. Gameplay, RNG, enemy,
+camera and audio-command frontiers remain unchanged.
+
+Rejected: recapturing manual demo-return presentation at the end of the
+terminal Mode_Level pass changed zero focused pixels. The fade shell correctly
+repeats its resident scene; remaining shell debt belongs to terminal
+Dragon/object sprite phases, not snapshot selection.
+
 Progress 2026-07-28 (typed transform HUD residency): direct oracle VRAM dumps
 show `$DD40` retains `diamond_3.bin` through the frame-1058 transform and
 `diamond_2.bin` through the frame-22465 transform. The core now captures the

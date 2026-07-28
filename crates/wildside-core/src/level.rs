@@ -5021,7 +5021,7 @@ fn initialise_level_row_buffers_for_load_loc_11AEA(level_id: LevelId, width_bloc
 }
 
 #[allow(non_snake_case)]
-fn reconcile_prize_block_cells_loc_123DC(
+pub(crate) fn reconcile_prize_block_cells_loc_123DC(
     grid: &mut terrain::BlockGrid,
     block_list: &terrain::BlockList,
 ) {
@@ -5030,6 +5030,17 @@ fn reconcile_prize_block_cells_loc_123DC(
     }
 
     for prize in &block_list.prize_blocks {
+        if block_list
+            .hidden_blocks
+            .iter()
+            .any(|hidden| hidden.layout_addr == prize.layout_addr)
+        {
+            // ASM loc_123DC/loc_12434 records prize metadata for a hidden
+            // type-1 placement, but sub_127A8 leaves `$2000` in
+            // Level_Layout. sub_E3C6 installs `$E101/$E102` only when the
+            // hidden-block worker reveals that same address.
+            continue;
+        }
         let Some(cell_index) = prize
             .layout_addr
             .checked_sub(0xA652)

@@ -21,6 +21,48 @@ fn expected_level0_respawn_bootstrap_pose() -> (u32, u32) {
     )
 }
 
+#[test]
+fn hidden_type_1_prize_reconciliation_preserves_sub_127a8_cell() {
+    let mut hidden_grid = crate::terrain::BlockGrid::from_level_layout(&[0x20, 0x00], 1, 1);
+    let hidden_blocks = crate::terrain::BlockList {
+        prize_blocks: vec![crate::terrain::PrizeBlockEntry {
+            layout_addr: 0xA652,
+            col: 0,
+            row: 0,
+            content: crate::terrain::PrizeContent::Micromax,
+            disguised: true,
+        }],
+        ghost_blocks: Vec::new(),
+        teleporters: Vec::new(),
+        hidden_blocks: vec![crate::terrain::HiddenBlockEntry {
+            layout_addr: 0xA652,
+            col: 0,
+            row: 0,
+            block_type: 1,
+            block_setting: 0,
+        }],
+    };
+
+    crate::level::reconcile_prize_block_cells_loc_123DC(&mut hidden_grid, &hidden_blocks);
+    assert_eq!(
+        hidden_grid.cell_at(0, 0),
+        crate::terrain::Cell::from_be_bytes(0x20, 0x00),
+        "ASM loc_123DC/loc_12434 records prize metadata while sub_127A8 keeps the hidden Level_Layout cell at `$2000` until sub_E3C6 reveals it",
+    );
+
+    let mut visible_grid = crate::terrain::BlockGrid::from_level_layout(&[0x20, 0x00], 1, 1);
+    let visible_blocks = crate::terrain::BlockList {
+        hidden_blocks: Vec::new(),
+        ..hidden_blocks
+    };
+    crate::level::reconcile_prize_block_cells_loc_123DC(&mut visible_grid, &visible_blocks);
+    assert_eq!(
+        visible_grid.cell_at(0, 0),
+        crate::terrain::Cell::from_be_bytes(0xE1, 0x01),
+        "ASM loc_123DC/loc_12408 still reconciles an ordinary disguised prize record when no hidden placement owns its address",
+    );
+}
+
 fn imported_early_start_boot_script() -> Vec<u8> {
     let mut script = vec![0; TITLE_SCREEN_READY_GLOBAL_FRAME + 1];
     for frame in [33usize, 77, 135, 137, 178] {

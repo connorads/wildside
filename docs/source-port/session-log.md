@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 hidden type-1 prize cell)
+
+- Level 0x15 `$C38A` has paired disguised-prize and hidden type-1 metadata.
+  Oracle WRAM/VRAM retain `$2000` and the underlying foreground until reveal.
+- Native loader reconciliation now preserves hidden-owned prize cells until
+  `sub_E3C6`; full pixels improve to 35,429 exact / 2,330 divergent /
+  866,839 changed, with state and command frontiers unchanged.
+- A manual-return snapshot recapture changed zero pixels and was reverted.
+- NEXT: trace the reduced 80-frame / 50,268-pixel demo-return class to the
+  terminal Dragon/object sprite phases; do not alter shell snapshot timing.
+
 ## 2026-07-28 handoff (#406 typed transform HUD residency)
 
 - Oracle VRAM pins `$DD40` to `diamond_3.bin` at frame 1058 and

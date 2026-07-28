@@ -6973,6 +6973,42 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_hidden_micromax_prize_stays_concealed_before_sub_e3c6() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        for (frame_index, mask) in script.iter().copied().enumerate().take(7_944) {
+            runtime.step_frame(FrameInput::from_mask(mask));
+            if frame_index == 7_943 {
+                let grid = runtime
+                    .block_grid()
+                    .expect("Level 0x15 grid should be live");
+                assert_eq!(
+                    grid.cell_at(60, 23),
+                    crate::terrain::Cell::from_be_bytes(0x20, 0x00),
+                    "ASM loc_123DC -> sub_127A8: oracle WRAM $FFC38A is `$2000` at published frame 7943 while the disguised prize remains hidden",
+                );
+                let blocks = runtime
+                    .block_list
+                    .as_ref()
+                    .expect("Level 0x15 block metadata should be live");
+                assert!(blocks.prize_blocks.iter().any(|prize| {
+                    prize.layout_addr == 0xC38A
+                        && prize.disguised
+                        && prize.content == crate::terrain::PrizeContent::Micromax
+                }));
+                assert!(
+                    blocks
+                        .hidden_blocks
+                        .iter()
+                        .any(|hidden| { hidden.layout_addr == 0xC38A && hidden.block_type == 1 })
+                );
+                break;
+            }
+        }
+    }
+
+    #[test]
     fn published_tas_demo_2_walking_dragons_reset_animation_when_landing_loc_3e76e() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
