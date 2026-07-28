@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 transform background colour class)
+
+- Focused 22464..22545 parity remains one exact / 80 divergent frames and
+  50,984 changed pixels; state, camera, RNG, and enemy evidence is exact.
+- Direct row comparison shows fixed-coordinate colour substitutions across
+  clouds, water, and foliage, not a horizontal Plane-B displacement.
+- Forest ripple clocks at -1/+1 and a transform-frozen `loc_1223C` fallback
+  palette clock were pixel-neutral. All candidate code was removed.
+- NEXT: expose the resolved palette source, hardware line, and colour index in
+  focused diagnostics, then compare those words with oracle CRAM at 22464/22465.
+
 ## 2026-07-28 handoff (#408 transform Dragon latch correction)
 
 - `Mode_Level loc_901` already latches the preceding Sprite Table, and the

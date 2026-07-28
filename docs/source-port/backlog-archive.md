@@ -2635,6 +2635,20 @@ table-duration boundary remains required. Four repeated Dragon windows now
 fall to the known 39-pixel HUD-diamond residue. The remaining 80-frame
 `grid:0,4-39,20` range at 22465..22544 is a separate transform class.
 
+Rejected 2026-07-28: focused parity over 22464..22545 remains one exact / 80
+divergent frames and 50,984 changed pixels under three source-backed trials.
+Changing the Forest ripple `loc_305E6` clock by either -1 or +1 is pixel-neutral,
+so this is not a ripple-table phase error. Direct row comparison also rules out a
+horizontal displacement: most pixels align exactly while sparse pixels at fixed
+coordinates change colour across clouds, water, and foliage. Freezing the
+Mountain/Cave `loc_1223C` fallback palette clock at the transform entry frame is
+also pixel-neutral, so that fallback is not the selected palette source. All
+candidate code was removed. NEXT: extend the focused diagnostic to report the
+resolved native palette source, hardware line, and colour index for mismatched
+background pixels, then compare those words with oracle CRAM at 22464/22465.
+Do not retry Forest ripple offsets, generic transform scroll phase, or the
+frame-index fallback palette clock for this range.
+
 ### #412
 
 Follow-up 2026-07-16: recaptured the current frontier pair at frame 1020.
