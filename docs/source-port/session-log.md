@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#408 Dragon timer-seed narrowing)
+
+- The 110-frame `grid:0,15-39,20` cluster is ordinary walking-Dragon
+  animation drift across several layout cohorts.
+- Oracle `addr_current_anim` points to the next record. The live `$0560` and
+  `$0568` mappings already agree with SAT; cohort offsets vary over time.
+- Rejected a universal renderer phase decrement: it gains 252 exact frames but
+  adds 172,820 changed pixels. No candidate code remains.
+- Baseline stays 33,020 exact / 4,739 divergent / 2,020,073 changed. NEXT:
+  trace Dragon allocation/init boundaries and initial animation timers, or
+  switch to the next repeated cluster if that needs another docs-only pass.
+
 ## 2026-07-28 handoff (#408 transform auto-scroll transfer)
 
 - Oracle VRAM split the 433-pixel transform class: 394 Plane-B pixels came

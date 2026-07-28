@@ -2592,6 +2592,20 @@ made the first 79-frame hold exact but regressed earlier transforms, moving the
 frontier 1706 -> 1059 and losing 181 exact frames; it was removed. Revisit the
 39-pixel diamond residue only with a typed `$DD40` transfer-state predicate.
 
+Rejected 2026-07-28: the next largest repeated cluster
+(`grid:0,15-39,20`, 110 frames / 71,457 pixels) is ordinary walking-Dragon
+animation drift, not another transform-only Sprite Table rule. Oracle WRAM and
+SAT at frames 7582, 7594, 7598, and 7603 correct the cursor interpretation:
+`addr_current_anim(a3)` points to the next animation record, so current
+`$0560`/`$0568` mappings already agree with the displayed SAT entries. The
+native-to-oracle phase offset varies by layout cohort and frame; it is not a
+universal one-tick lag. Decrementing every rendered walking Dragon phase gains
+252 exact frames but regresses the full route from 2,020,073 to 2,192,893
+changed pixels, an increase of 172,820, so the candidate was removed. Do not
+retry a global core or renderer phase shift. A valid shared fix must derive
+each cohort's initial `animation_timer(a3)` from its Object/GfxObject
+allocation and `Enemy0D_Dragon_Init` boundary.
+
 ### #412
 
 Follow-up 2026-07-16: recaptured the current frontier pair at frame 1020.
