@@ -19,7 +19,9 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   #406 timing debt; frontier 995 and the shared-call injection count 108 stay.
 - Rejected follow-up: removing frame 983's `loc_7D6` prefix pin remains nine
   cycles early. Treating `unk_A3B66`'s `$0A` mapping byte as its DMA tile count
-  makes frame 982 155 cycles early. Trace VDP ownership before revisiting it.
+  makes frame 982 155 cycles early. Deeper phase tracing proves the VBlank
+  prefix exact relative to entry: oracle background work has 451 Z80 steals,
+  while the native post-frozen tail budget is zero. Recover GEMS phase first.
 
 ## 2026-07-28 handoff (#406 post-execute composition)
 

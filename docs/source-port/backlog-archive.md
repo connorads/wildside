@@ -4650,8 +4650,22 @@ new airborne `sub_1492` timing path therefore does not also retire this pin.
 renderer-derived `[12]` queue with `[10]` moves the preceding frame-982
 `sub_E12` endpoint 155 M68k cycles early while its phase remains correct. Every
 experimental code change was restored. The remaining nine-cycle residue must
-be traced through the prefix's VDP ownership/arbitration; do not retry the
-mapping-byte substitution or fit a nine-cycle constant.
+not be fitted or attributed to the prefix. A phase-complete native trace starts
+`Mode_Level` at 125811272, nine cycles before oracle 125811281. From those
+respective entries, sprite/Kid DMA, palette DMA, and scroll DMA have identical
+durations and call-boundary offsets; native reaches the end of scroll at
+125818202 versus oracle 125818211 solely because it entered nine cycles early.
+
+The upstream cause is `loc_892 -> WaitForVint`. Camera and palette spans are
+exact. Native `loc_3038A` background work advances 8,956 raw plus 142 refresh
+cycles, but oracle's counters rise by 451 Z80 bus steals and 595 total wait
+cycles before `sub_14C0`. Native deliberately supplies a zero post-frozen GEMS
+wait budget, so the tail ends 453 cycles early. Different polling alignment at
+`WaitForVint $93E` compresses that broad deficit to the nine-cycle
+`Mode_Level` symptom. This is the same post-frame-923 GEMS stimulus-phase
+dependency exposed by the frame-957 pull-up correction. Recover that shared
+phase before removing either pin; do not retry the mapping-byte substitution,
+change VDP DMA latency, add a 451/453-cycle frame budget, or fit nine cycles.
 
 Progress 2026-07-28: the shared post-execute model replaces four
 path/coordinate guards with source-composed work. ASM `sub_DFB0` prices a
