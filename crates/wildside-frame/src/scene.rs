@@ -1347,6 +1347,8 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.kid_on_slope = previous_trace.kid_on_slope;
         render_trace.kid_x_velocity = previous_trace.kid_x_velocity;
         render_trace.kid_y_velocity = previous_trace.kid_y_velocity;
+        render_trace.airborne_visual_mapping_sub_b270 =
+            previous_trace.airborne_visual_mapping_sub_b270;
         render_trace.character_movement = previous_trace.character_movement;
         render_trace.walk_visual_accumulator = previous_trace.walk_visual_accumulator;
         // ASM Init_Animation loc_1040 writes the pull-up `addroffset_sprite`
@@ -9616,6 +9618,30 @@ mod tests {
     }
 
     #[test]
+    fn mode_level_loc_901_latches_airborne_mapping_sub_b270() {
+        let previous_trace = NativeTraceFrame {
+            game_mode: GameMode::DemoPlay,
+            game_mode_value: GameMode::DemoPlay.as_disassembly_value(),
+            airborne_visual_mapping_sub_b270:
+                wildside_core::ModeLevelAirborneVisualMappingPathSubB270::AscendingState0,
+            ..NativeTraceFrame::default()
+        };
+        let trace = NativeTraceFrame {
+            airborne_visual_mapping_sub_b270:
+                wildside_core::ModeLevelAirborneVisualMappingPathSubB270::AscendingState1,
+            ..previous_trace.clone()
+        };
+
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
+
+        assert_eq!(
+            render_trace.airborne_visual_mapping_sub_b270,
+            wildside_core::ModeLevelAirborneVisualMappingPathSubB270::AscendingState0,
+            "ASM Mode_Level loc_901 presents the prior Sprite_Table mapping even after sub_B270 crosses into state 1",
+        );
+    }
+
+    #[test]
     fn transform_loc_7e90_uses_core_refreshed_walking_dragon_mapping() {
         let previous_trace = NativeTraceFrame {
             game_mode: GameMode::DemoPlay,
@@ -14113,8 +14139,7 @@ mod tests {
             axe: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
-            jump_rise: frame.clone(),
-            jump_fall: frame,
+            airborne: vec![frame; 4],
             death: None,
             pull_up: Vec::new(),
             slash_ground: Vec::new(),

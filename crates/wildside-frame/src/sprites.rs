@@ -722,10 +722,24 @@ pub fn select_player_frame<'a>(
                 usize::from(trace.walk_visual_accumulator >> 8) % player_visuals.walk.len();
             &player_visuals.walk[frame_index]
         }
-    } else if y_velocity < 0 {
-        &player_visuals.jump_rise
     } else {
-        &player_visuals.jump_fall
+        // ASM sub_B270 loc_B334/loc_B350 indexes the current helmet's four
+        // `off_B3B8` mappings. The typed core state preserves the dynamic
+        // `$FFFFFAAA` jump threshold, which cannot be recovered from the sign
+        // of the post-frame Y velocity alone.
+        let state_index = match trace.airborne_visual_mapping_sub_b270 {
+            wildside_core::ModeLevelAirborneVisualMappingPathSubB270::AscendingState0 => 0,
+            wildside_core::ModeLevelAirborneVisualMappingPathSubB270::AscendingState1 => 1,
+            wildside_core::ModeLevelAirborneVisualMappingPathSubB270::DescendingState2 => 2,
+            wildside_core::ModeLevelAirborneVisualMappingPathSubB270::DescendingState3 => 3,
+            // Preserve the established sign-only renderer when no typed
+            // sub_B270 selection is available. Its fall page is table entry
+            // 3; entry 2 is the newly distinguished slow-descending state.
+            wildside_core::ModeLevelAirborneVisualMappingPathSubB270::Unclassified => {
+                usize::from(y_velocity >= 0) * 3
+            }
+        };
+        &player_visuals.airborne[state_index.min(player_visuals.airborne.len() - 1)]
     }
 }
 
@@ -897,8 +911,10 @@ fn kid_transform_frame_uses_kid_palette_loc_7cd0(
 ) -> bool {
     frame == &kid_visuals.idle
         || kid_visuals.walk.iter().any(|kid_frame| frame == kid_frame)
-        || frame == &kid_visuals.jump_rise
-        || frame == &kid_visuals.jump_fall
+        || kid_visuals
+            .airborne
+            .iter()
+            .any(|kid_frame| frame == kid_frame)
         || kid_visuals
             .death
             .as_ref()
@@ -2531,8 +2547,12 @@ mod tests {
             axe: Vec::new(),
             slope_walk: vec![labelled_frame(0x0600), labelled_frame(0x0601)],
             slope_walk_left: vec![labelled_frame(0x0700), labelled_frame(0x0701)],
-            jump_rise: labelled_frame(0x0800),
-            jump_fall: labelled_frame(0x0801),
+            airborne: vec![
+                labelled_frame(0x0800),
+                labelled_frame(0x0801),
+                labelled_frame(0x0802),
+                labelled_frame(0x0803),
+            ],
             death: None,
             pull_up: vec![
                 labelled_frame(0x0900),
@@ -4663,6 +4683,40 @@ mod tests {
             0x0A01
         );
 
+        // ASM sub_B270 loc_B334/loc_B350 -> off_B3B8: the dynamic jump
+        // threshold selects four mapping-table entries, not a rise/fall pair.
+        for (state, expected) in [
+            (
+                wildside_core::ModeLevelAirborneVisualMappingPathSubB270::AscendingState0,
+                0x0800,
+            ),
+            (
+                wildside_core::ModeLevelAirborneVisualMappingPathSubB270::AscendingState1,
+                0x0801,
+            ),
+            (
+                wildside_core::ModeLevelAirborneVisualMappingPathSubB270::DescendingState2,
+                0x0802,
+            ),
+            (
+                wildside_core::ModeLevelAirborneVisualMappingPathSubB270::DescendingState3,
+                0x0803,
+            ),
+        ] {
+            assert_eq!(
+                selected_tile_base(
+                    &NativeTraceFrame {
+                        kid_on_ground: Some(false),
+                        airborne_visual_mapping_sub_b270: state,
+                        ..NativeTraceFrame::default()
+                    },
+                    &visuals,
+                ),
+                expected,
+                "ASM off_B3B8 mapping for {state:?}",
+            );
+        }
+
         // ASM loc_A276 hibernate attach falls through to idle; subsequent
         // sub_A3BC climb frames bucket d3 >> 2 through off_A420.
         assert_eq!(
@@ -5146,11 +5200,11 @@ mod tests {
             &kid_visuals
         ));
         assert!(kid_transform_frame_uses_kid_palette_loc_7cd0(
-            &kid_visuals.jump_rise,
+            &kid_visuals.airborne[0],
             &kid_visuals
         ));
         assert!(kid_transform_frame_uses_kid_palette_loc_7cd0(
-            &kid_visuals.jump_fall,
+            &kid_visuals.airborne[2],
             &kid_visuals
         ));
         assert!(kid_transform_frame_uses_kid_palette_loc_7cd0(

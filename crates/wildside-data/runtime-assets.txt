@@ -368,6 +368,7 @@ ingame/artunc/shore_3.bin
 ingame/artunc/shore_4.bin
 ingame/artunc_kid/berzerker.bin
 ingame/artunc_kid/berzerker_jumping_1.bin
+ingame/artunc_kid/berzerker_jumping_2.bin
 ingame/artunc_kid/berzerker_jumping_3.bin
 ingame/artunc_kid/berzerker_mask.bin
 ingame/artunc_kid/berzerker_run_1.bin
@@ -398,6 +399,7 @@ ingame/artunc_kid/berzerker_walk_5.bin
 ingame/artunc_kid/berzerker_walk_6.bin
 ingame/artunc_kid/cyclone.bin
 ingame/artunc_kid/cyclone_jumping_1.bin
+ingame/artunc_kid/cyclone_jumping_2.bin
 ingame/artunc_kid/cyclone_jumping_3.bin
 ingame/artunc_kid/cyclone_mask.bin
 ingame/artunc_kid/cyclone_spinning_1.bin
@@ -432,6 +434,7 @@ ingame/artunc_kid/iron_knight_climbing_2.bin
 ingame/artunc_kid/iron_knight_climbing_3.bin
 ingame/artunc_kid/iron_knight_jumping_1.bin
 ingame/artunc_kid/iron_knight_jumping_2.bin
+ingame/artunc_kid/iron_knight_jumping_3.bin
 ingame/artunc_kid/iron_knight_mask.bin
 ingame/artunc_kid/iron_knight_slope_1.bin
 ingame/artunc_kid/iron_knight_slope_10.bin
@@ -457,6 +460,7 @@ ingame/artunc_kid/iron_knight_walk_5.bin
 ingame/artunc_kid/iron_knight_walk_6.bin
 ingame/artunc_kid/juggernaut_bottom.bin
 ingame/artunc_kid/juggernaut_bottom_jumping_1.bin
+ingame/artunc_kid/juggernaut_bottom_jumping_2.bin
 ingame/artunc_kid/juggernaut_bottom_jumping_3.bin
 ingame/artunc_kid/juggernaut_bottom_move_1.bin
 ingame/artunc_kid/juggernaut_bottom_move_2.bin
@@ -521,6 +525,7 @@ ingame/artunc_kid/maniaxe_walk_5.bin
 ingame/artunc_kid/maniaxe_walk_6.bin
 ingame/artunc_kid/micromax.bin
 ingame/artunc_kid/micromax_jumping_1.bin
+ingame/artunc_kid/micromax_jumping_2.bin
 ingame/artunc_kid/micromax_jumping_3.bin
 ingame/artunc_kid/micromax_mask.bin
 ingame/artunc_kid/micromax_transformation_1.bin

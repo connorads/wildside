@@ -58,6 +58,7 @@
 0980f2 0002e0 ingame/artunc/shore_4.bin
 0b099a 000280 ingame/artunc_kid/berzerker.bin
 0b0082 000200 ingame/artunc_kid/berzerker_jumping_1.bin
+0b0288 000280 ingame/artunc_kid/berzerker_jumping_2.bin
 0b050e 000280 ingame/artunc_kid/berzerker_jumping_3.bin
 0aff5c 000120 ingame/artunc_kid/berzerker_mask.bin
 0ad330 000280 ingame/artunc_kid/berzerker_run_1.bin
@@ -88,6 +89,7 @@
 0aeef2 000280 ingame/artunc_kid/berzerker_walk_6.bin
 0bb30a 000180 ingame/artunc_kid/cyclone.bin
 0badb8 0001e0 ingame/artunc_kid/cyclone_jumping_1.bin
+0baf9e 000180 ingame/artunc_kid/cyclone_jumping_2.bin
 0bb124 0001e0 ingame/artunc_kid/cyclone_jumping_3.bin
 0bacf2 0000c0 ingame/artunc_kid/cyclone_mask.bin
 0ba560 000280 ingame/artunc_kid/cyclone_spinning_1.bin
@@ -122,6 +124,7 @@
 0c20a4 000280 ingame/artunc_kid/iron_knight_climbing_3.bin
 0c2450 000280 ingame/artunc_kid/iron_knight_jumping_1.bin
 0c26d6 000280 ingame/artunc_kid/iron_knight_jumping_2.bin
+0c295c 000280 ingame/artunc_kid/iron_knight_jumping_3.bin
 0c232a 000120 ingame/artunc_kid/iron_knight_mask.bin
 0c6640 000280 ingame/artunc_kid/iron_knight_slope_1.bin
 0c5eae 000280 ingame/artunc_kid/iron_knight_slope_10.bin
@@ -147,6 +150,7 @@
 0c50c4 000280 ingame/artunc_kid/iron_knight_walk_6.bin
 0bf71a 000180 ingame/artunc_kid/juggernaut_bottom.bin
 0bfae6 000240 ingame/artunc_kid/juggernaut_bottom_jumping_1.bin
+0bfd2c 000240 ingame/artunc_kid/juggernaut_bottom_jumping_2.bin
 0c0006 000240 ingame/artunc_kid/juggernaut_bottom_jumping_3.bin
 0c024c 000180 ingame/artunc_kid/juggernaut_bottom_move_1.bin
 0c03d2 000180 ingame/artunc_kid/juggernaut_bottom_move_2.bin
@@ -211,6 +215,7 @@
 0a85e8 000180 ingame/artunc_kid/maniaxe_walk_6.bin
 0abde6 0000c0 ingame/artunc_kid/micromax.bin
 0abb94 0000c0 ingame/artunc_kid/micromax_jumping_1.bin
+0abc5a 0000c0 ingame/artunc_kid/micromax_jumping_2.bin
 0abd20 0000c0 ingame/artunc_kid/micromax_jumping_3.bin
 0aba6e 000120 ingame/artunc_kid/micromax_mask.bin
 0ac3d6 000280 ingame/artunc_kid/micromax_transformation_1.bin

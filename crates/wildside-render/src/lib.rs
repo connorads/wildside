@@ -280,10 +280,10 @@ mod tests {
         assert_eq!(kid.walk.len(), 6);
         assert_eq!(kid.walk[0].origin_x, 0x0A);
         assert_eq!(kid.walk[0].width_px, 0x13);
-        assert_eq!(kid.jump_rise.origin_x, 0x0A);
-        assert_eq!(kid.jump_rise.width_px, 0x16);
-        assert_eq!(kid.jump_fall.origin_x, 0x09);
-        assert_eq!(kid.jump_fall.width_px, 0x14);
+        assert_eq!(kid.airborne[0].origin_x, 0x0A);
+        assert_eq!(kid.airborne[0].width_px, 0x16);
+        assert_eq!(kid.airborne[2].origin_x, 0x09);
+        assert_eq!(kid.airborne[2].width_px, 0x14);
         let death = kid.death.as_ref().expect("Kid death frame");
         assert_eq!(death.origin_x, 0x0F);
         assert_eq!(death.origin_y, 0x03);
@@ -329,7 +329,7 @@ mod tests {
             "ASM off_A200 first bank gives Juggernaut left-facing Iron Knight slope frames"
         );
         assert_eq!(
-            juggernaut.jump_rise.height_px, 0x25,
+            juggernaut.airborne[0].height_px, 0x25,
             "ASM unk_BFAE0 pairs the taller rising body with the shared head"
         );
         assert_eq!(
@@ -351,10 +351,14 @@ mod tests {
             iron_knight.climb[0].origin_x, 0x13,
             "ASM sub_A3BC/off_A420 selects unk_C209E / iron_knight_climbing_3 for the bottom climb bucket"
         );
-        assert_eq!(iron_knight.jump_rise.width_px, 0x1F);
+        assert_eq!(iron_knight.airborne[0].width_px, 0x1F);
         assert_eq!(
-            iron_knight.jump_fall.origin_y, -0x02,
+            iron_knight.airborne[2].origin_y, -0x02,
             "ASM Iron Knight jump-fall sprite descriptor stores origin_y=-$02"
+        );
+        assert_eq!(
+            iron_knight.airborne[3].height_px, 0x28,
+            "ASM sub_B270 loc_B350 state 3 selects unk_C2956 / iron_knight_jumping_3.bin"
         );
         assert_eq!(
             iron_knight

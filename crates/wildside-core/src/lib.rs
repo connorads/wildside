@@ -4903,6 +4903,7 @@ impl NativeRuntime {
             // `$FFFFFAAA`; sub_B270 compares against that dynamic threshold
             // when selecting later airborne sprite-table states.
             self.helmet.airborne_mapping_jump_threshold_y_velocity = Some(probe.y_velocity_after);
+            self.helmet.airborne_mapping_jump_sequence_active = true;
             // ASM sub_A432 loc_A480 plays `sfx_Jump` after the launch velocity
             // is stored and x_vel is scaled by 3/4.
             self.queue_start_sequence(QueuedSoundEffect::Jump);
@@ -6420,6 +6421,12 @@ impl NativeRuntime {
             frame_start_y_pos,
         ) {
             return;
+        }
+        if slice.player.on_ground {
+            // ASM landing paths clear `$FFFFFA67` through sub_DB22 before
+            // grounded animation resumes. The launch threshold at `$FAAA`
+            // remains stale, so it must not classify a later ledge walk-off.
+            self.helmet.airborne_mapping_jump_sequence_active = false;
         }
         self.opening_slice = Some(slice);
     }

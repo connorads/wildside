@@ -1042,6 +1042,10 @@ pub(crate) struct HelmetState {
     /// The shared sub_B270 loc_B334/loc_B350 airborne mapping dispatch reads
     /// that value; Red Stealth also uses its last state for the downward slash.
     pub(crate) airborne_mapping_jump_threshold_y_velocity: Option<i32>,
+    /// Native lifecycle mirror for the explicit jump-launch path that writes
+    /// `$FFFFFAAA` and enters ASM `sub_B270`. Walking off a ledge keeps the
+    /// current mapping instead of reusing the previous launch threshold.
+    pub(crate) airborne_mapping_jump_sequence_active: bool,
     pub(crate) eyeclops_beam_active: bool,
     pub(crate) eyeclops_beam_counter: u16,
     pub(crate) eyeclops_beam_hard: bool,
@@ -1941,7 +1945,7 @@ pub enum ModeLevelAirborneVerticalPath {
 }
 
 /// Airborne sprite-table branch selected by ASM `sub_B270 loc_B334`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelAirborneVisualMappingPathSubB270 {
     /// Negative `y_vel<<2` is at or below `$FFFFFAAA`; use table state 0.
@@ -1952,6 +1956,7 @@ pub enum ModeLevelAirborneVisualMappingPathSubB270 {
     DescendingState2,
     /// Non-negative `y_vel<<2` is above `$FFFFFAAA`; use table state 3.
     DescendingState3,
+    #[default]
     Unclassified,
 }
 
@@ -2729,6 +2734,10 @@ pub struct NativeTraceFrame {
     pub kid_y_pos: Option<u32>,
     pub kid_x_velocity: Option<i32>,
     pub kid_y_velocity: Option<i32>,
+    /// ASM `sub_B270 loc_B334/loc_B350`: selected entry in the current
+    /// helmet's four-state `off_B3B8` airborne mapping row.
+    #[serde(default)]
+    pub airborne_visual_mapping_sub_b270: ModeLevelAirborneVisualMappingPathSubB270,
     /// ROM `Character_Movement` mirror (`$FFFFFA56`).
     pub character_movement: Option<u16>,
     pub kid_facing: Option<Direction>,
@@ -3248,6 +3257,8 @@ impl Default for NativeTraceFrame {
             kid_y_pos: None,
             kid_x_velocity: None,
             kid_y_velocity: None,
+            airborne_visual_mapping_sub_b270:
+                ModeLevelAirborneVisualMappingPathSubB270::Unclassified,
             character_movement: None,
             kid_facing: None,
             kid_on_ground: None,
@@ -5527,6 +5538,7 @@ mod tests {
             cyclone_flying: true,
             red_stealth_airborne_slash_counter: 0x7F,
             airborne_mapping_jump_threshold_y_velocity: Some(-0x70000),
+            airborne_mapping_jump_sequence_active: true,
             eyeclops_beam_active: true,
             maniaxe_axe_active: true,
             maniaxe_throw_latch_frames: 9,
@@ -5543,6 +5555,7 @@ mod tests {
         assert!(!state.cyclone_flying);
         assert_eq!(state.red_stealth_airborne_slash_counter, 0);
         assert_eq!(state.airborne_mapping_jump_threshold_y_velocity, None);
+        assert!(!state.airborne_mapping_jump_sequence_active);
         assert!(!state.eyeclops_beam_active);
         assert!(!state.maniaxe_axe_active);
         assert_eq!(state.maniaxe_throw_latch_frames, 0);

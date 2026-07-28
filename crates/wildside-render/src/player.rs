@@ -48,8 +48,9 @@ pub struct PlayerFormVisuals {
     pub slope_walk: Vec<SpriteFrame>,
     /// Left-facing slope walk frames (kid_slope_1..6). Empty if not loaded.
     pub slope_walk_left: Vec<SpriteFrame>,
-    pub jump_rise: SpriteFrame,
-    pub jump_fall: SpriteFrame,
+    /// ASM `sub_B270 loc_B334/loc_B350` indexes one of the four entries in
+    /// the form's `off_B3B8` airborne mapping row.
+    pub airborne: Vec<SpriteFrame>,
     /// ASM `Death` (kid.asm:14749) installs `unk_A3FF8` / `kid_death.bin`
     /// for the visible tumble before `lose_life`.
     pub death: Option<SpriteFrame>,

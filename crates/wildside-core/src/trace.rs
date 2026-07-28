@@ -11,6 +11,27 @@ const FLOATING_PRIZE_CANDIDATE_LIMIT: usize = 4;
 const KID_OBJECT_SUPPORT_VERTICAL_WINDOW_PX: i32 = 48;
 const KID_OBJECT_SUPPORT_HORIZONTAL_WINDOW_PX: i32 = 96;
 const KID_OBJECT_SUPPORT_CANDIDATE_LIMIT: usize = 4;
+
+fn airborne_visual_mapping_path_sub_b270(
+    y_velocity: i32,
+    jump_threshold: i32,
+) -> ModeLevelAirborneVisualMappingPathSubB270 {
+    // ASM sub_B270 loc_B334/loc_B350: compare `y_vel << 2` with the launch
+    // velocity retained in `$FFFFFAAA`, splitting each sign into two states.
+    let scaled_y_velocity = y_velocity.wrapping_shl(2);
+    if scaled_y_velocity < 0 {
+        if scaled_y_velocity > jump_threshold {
+            ModeLevelAirborneVisualMappingPathSubB270::AscendingState1
+        } else {
+            ModeLevelAirborneVisualMappingPathSubB270::AscendingState0
+        }
+    } else if scaled_y_velocity > jump_threshold {
+        ModeLevelAirborneVisualMappingPathSubB270::DescendingState3
+    } else {
+        ModeLevelAirborneVisualMappingPathSubB270::DescendingState2
+    }
+}
+
 const LEVEL_ONE_LOAD_INGAME_PLAYER_RAMP_Y: [u32; 13] = [
     0x00FF_0000,
     0x0100_0000,
@@ -11342,6 +11363,38 @@ impl NativeRuntime {
             kid_y_pos: player_state.map(|state| state.y_pos),
             kid_x_velocity,
             kid_y_velocity,
+            airborne_visual_mapping_sub_b270: player_state
+                .filter(|state| !state.on_ground)
+                .filter(|_| {
+                    self.helmet.airborne_mapping_jump_sequence_active
+                        || self.mode_level_work_before_hud_sub_44dc.is_none()
+                })
+                .filter(|_| {
+                    // ASM loc_AA22 enters sub_B270 with the `$FFFFFA67`
+                    // airborne latch still set. loc_B28E therefore returns
+                    // without replacing addroffset_sprite on wall-cling
+                    // continuation frames.
+                    !self
+                        .mode_level_work_before_hud_sub_44dc
+                        .as_ref()
+                        .is_some_and(|ledger| {
+                            matches!(
+                                ledger.execute_objects.executed_player_path,
+                                Some(
+                                    ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 { .. }
+                                )
+                            )
+                        })
+                })
+                .and_then(|_| {
+                    kid_y_velocity.zip(self.helmet.airborne_mapping_jump_threshold_y_velocity)
+                })
+                .map_or(
+                    ModeLevelAirborneVisualMappingPathSubB270::Unclassified,
+                    |(y_velocity, jump_threshold)| {
+                        airborne_visual_mapping_path_sub_b270(y_velocity, jump_threshold)
+                    },
+                ),
             character_movement: player_state.map(|state| {
                 if self.pause_restart_zero_kid_shell_active_loc_6e2() {
                     // ASM loc_6E2 restart reload: the Kid slot position is

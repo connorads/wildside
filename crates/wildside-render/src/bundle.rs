@@ -1471,8 +1471,9 @@ struct PlayerFormSpec {
     slope_walk_left: &'static [PlayerFrameDescriptor],
     /// ASM `ManiaxeAxe_Init` / `stru_8B86`: thrown axe frames.
     axe: &'static [PlayerFrameDescriptor],
-    jump_rise: PlayerFrameDescriptor,
-    jump_fall: PlayerFrameDescriptor,
+    /// ASM `sub_B270 off_B3B8`: ascending-fast, ascending-slow,
+    /// descending-slow, and descending-fast mappings.
+    airborne: [PlayerFrameDescriptor; 4],
     death: Option<PlayerFrameDescriptor>,
     pull_up: &'static [PlayerFrameDescriptor],
     slash_ground: &'static [PlayerFrameDescriptor],
@@ -2374,6 +2375,13 @@ const KID_JUMP_FALL_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
     height_px: 0x20,
 };
 
+const KID_AIRBORNE_FRAMES: [PlayerFrameDescriptor; 4] = [
+    KID_JUMP_RISE_FRAME,
+    KID_JUMP_FALL_FRAME,
+    KID_JUMP_FALL_FRAME,
+    KID_JUMP_FALL_FRAME,
+];
+
 const KID_DEATH_FRAME: PlayerFrameDescriptor =
     pfd("artunc_kid/kid_death.bin", 0x0F, 0x03, 0x1C, 0x1B);
 
@@ -2548,6 +2556,19 @@ const IRON_KNIGHT_JUMP_FALL_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor
     width_px: 0x1A,
     height_px: 0x21,
 };
+
+const IRON_KNIGHT_AIRBORNE_FRAMES: [PlayerFrameDescriptor; 4] = [
+    IRON_KNIGHT_JUMP_RISE_FRAME,
+    IRON_KNIGHT_JUMP_FALL_FRAME,
+    IRON_KNIGHT_JUMP_FALL_FRAME,
+    pfd(
+        "artunc_kid/iron_knight_jumping_3.bin",
+        0x0E,
+        0x01,
+        0x1A,
+        0x28,
+    ),
+];
 
 const IRON_KNIGHT_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 16] = [
     PlayerTransformStepDescriptor {
@@ -3686,8 +3707,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk: &KID_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &KID_SLOPE_WALK_LEFT_FRAMES,
         axe: &[],
-        jump_rise: KID_JUMP_RISE_FRAME,
-        jump_fall: KID_JUMP_FALL_FRAME,
+        airborne: KID_AIRBORNE_FRAMES,
         death: Some(KID_DEATH_FRAME),
         pull_up: &KID_PULL_UP_FRAMES,
         slash_ground: &[],
@@ -3705,8 +3725,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk: &[],
         slope_walk_left: &[],
         axe: &[],
-        jump_rise: SKYCUTTER_IDLE_FRAME,
-        jump_fall: SKYCUTTER_IDLE_FRAME,
+        airborne: [SKYCUTTER_IDLE_FRAME; 4],
         death: None,
         pull_up: &[],
         slash_ground: &[],
@@ -3727,8 +3746,12 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk: &[],
         slope_walk_left: &[],
         axe: &[],
-        jump_rise: pfd("artunc_kid/cyclone_jumping_1.bin", 0x0D, 0x00, 0x17, 0x22),
-        jump_fall: pfd("artunc_kid/cyclone_jumping_3.bin", 0x0C, 0x00, 0x16, 0x23),
+        airborne: [
+            pfd("artunc_kid/cyclone_jumping_1.bin", 0x0D, 0x00, 0x17, 0x22),
+            pfd("artunc_kid/cyclone_jumping_2.bin", 0x0C, 0x00, 0x16, 0x20),
+            pfd("artunc_kid/cyclone_jumping_2.bin", 0x0C, 0x00, 0x16, 0x20),
+            pfd("artunc_kid/cyclone_jumping_3.bin", 0x0C, 0x00, 0x16, 0x23),
+        ],
         death: None,
         pull_up: &[],
         slash_ground: &[],
@@ -3746,20 +3769,36 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk: &RED_STEALTH_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &RED_STEALTH_SLOPE_WALK_LEFT_FRAMES,
         axe: &[],
-        jump_rise: pfd(
-            "artunc_kid/red_stealth_jumping_1.bin",
-            0x0B,
-            0x02,
-            0x16,
-            0x28,
-        ),
-        jump_fall: pfd(
-            "artunc_kid/red_stealth_jumping_2.bin",
-            0x0A,
-            0x00,
-            0x15,
-            0x25,
-        ),
+        airborne: [
+            pfd(
+                "artunc_kid/red_stealth_jumping_1.bin",
+                0x0B,
+                0x02,
+                0x16,
+                0x28,
+            ),
+            pfd(
+                "artunc_kid/red_stealth_jumping_1.bin",
+                0x0B,
+                0x02,
+                0x16,
+                0x28,
+            ),
+            pfd(
+                "artunc_kid/red_stealth_jumping_2.bin",
+                0x0A,
+                0x00,
+                0x15,
+                0x25,
+            ),
+            pfd(
+                "artunc_kid/red_stealth_jumping_2.bin",
+                0x0A,
+                0x00,
+                0x15,
+                0x25,
+            ),
+        ],
         death: None,
         pull_up: &[],
         slash_ground: &RED_STEALTH_SLASH_GROUND_FRAMES,
@@ -3780,8 +3819,12 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk: &[],
         slope_walk_left: &[],
         axe: &[],
-        jump_rise: pfd("artunc_kid/eyeclops_jumping_1.bin", 0x10, 0x00, 0x1C, 0x25),
-        jump_fall: pfd("artunc_kid/eyeclops_jumping_2.bin", 0x0A, 0x00, 0x19, 0x21),
+        airborne: [
+            pfd("artunc_kid/eyeclops_jumping_1.bin", 0x10, 0x00, 0x1C, 0x25),
+            pfd("artunc_kid/eyeclops_jumping_1.bin", 0x10, 0x00, 0x1C, 0x25),
+            pfd("artunc_kid/eyeclops_jumping_2.bin", 0x0A, 0x00, 0x19, 0x21),
+            pfd("artunc_kid/eyeclops_jumping_2.bin", 0x0A, 0x00, 0x19, 0x21),
+        ],
         death: None,
         pull_up: &[],
         slash_ground: &[],
@@ -3802,8 +3845,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk: &IRON_KNIGHT_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &IRON_KNIGHT_SLOPE_WALK_LEFT_FRAMES,
         axe: &[],
-        jump_rise: IRON_KNIGHT_JUMP_RISE_FRAME,
-        jump_fall: IRON_KNIGHT_JUMP_FALL_FRAME,
+        airborne: IRON_KNIGHT_AIRBORNE_FRAMES,
         death: None,
         pull_up: &[],
         slash_ground: &[],
@@ -3824,8 +3866,12 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk: &BERZERKER_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &BERZERKER_SLOPE_WALK_LEFT_FRAMES,
         axe: &[],
-        jump_rise: pfd("artunc_kid/berzerker_jumping_1.bin", 0x11, 0x00, 0x20, 0x1F),
-        jump_fall: pfd("artunc_kid/berzerker_jumping_3.bin", 0x11, 0x00, 0x1F, 0x21),
+        airborne: [
+            pfd("artunc_kid/berzerker_jumping_1.bin", 0x11, 0x00, 0x20, 0x1F),
+            pfd("artunc_kid/berzerker_jumping_2.bin", 0x11, 0x00, 0x1C, 0x21),
+            pfd("artunc_kid/berzerker_jumping_2.bin", 0x11, 0x00, 0x1C, 0x21),
+            pfd("artunc_kid/berzerker_jumping_3.bin", 0x11, 0x00, 0x1F, 0x21),
+        ],
         death: None,
         pull_up: &[],
         slash_ground: &[],
@@ -3846,8 +3892,12 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk: &[],
         slope_walk_left: &[],
         axe: &MANIAXE_AXE_FRAMES,
-        jump_rise: pfd("artunc_kid/maniaxe_jumping_1.bin", 0x0E, 0x02, 0x1C, 0x23),
-        jump_fall: pfd("artunc_kid/maniaxe_jumping_2.bin", 0x0F, -0x02, 0x1C, 0x20),
+        airborne: [
+            pfd("artunc_kid/maniaxe_jumping_1.bin", 0x0E, 0x02, 0x1C, 0x23),
+            pfd("artunc_kid/maniaxe_jumping_1.bin", 0x0E, 0x02, 0x1C, 0x23),
+            pfd("artunc_kid/maniaxe_jumping_2.bin", 0x0F, -0x02, 0x1C, 0x20),
+            pfd("artunc_kid/maniaxe_jumping_2.bin", 0x0F, -0x02, 0x1C, 0x20),
+        ],
         death: None,
         pull_up: &[],
         slash_ground: &[],
@@ -3865,8 +3915,12 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         slope_walk: &[],
         slope_walk_left: &[],
         axe: &[],
-        jump_rise: pfd("artunc_kid/micromax_jumping_1.bin", 0x09, 0x00, 0x10, 0x14),
-        jump_fall: pfd("artunc_kid/micromax_jumping_3.bin", 0x09, 0x00, 0x10, 0x12),
+        airborne: [
+            pfd("artunc_kid/micromax_jumping_1.bin", 0x09, 0x00, 0x10, 0x14),
+            pfd("artunc_kid/micromax_jumping_2.bin", 0x09, 0x00, 0x10, 0x14),
+            pfd("artunc_kid/micromax_jumping_2.bin", 0x09, 0x00, 0x10, 0x14),
+            pfd("artunc_kid/micromax_jumping_3.bin", 0x09, 0x00, 0x10, 0x12),
+        ],
         death: None,
         pull_up: &[],
         slash_ground: &[],
@@ -4351,34 +4405,41 @@ fn load_juggernaut_form_visuals_if_present(
             .iter()
             .map(|&descriptor| load_player_frame(manifest, source, descriptor))
             .collect::<Result<Vec<_>>>()?,
-        jump_rise: load_composite_player_frame(
-            manifest,
-            source,
-            &[
-                pfd(
-                    "artunc_kid/juggernaut_bottom_jumping_1.bin",
-                    0x17,
-                    0x06,
-                    0x30,
-                    0x14,
-                ),
-                JUGGERNAUT_HEAD_IDLE_FRAME,
-            ],
-        )?,
-        jump_fall: load_composite_player_frame(
-            manifest,
-            source,
-            &[
-                pfd(
-                    "artunc_kid/juggernaut_bottom_jumping_3.bin",
-                    0x17,
-                    0x04,
-                    0x2F,
-                    0x12,
-                ),
-                JUGGERNAUT_HEAD_IDLE_FRAME,
-            ],
-        )?,
+        airborne: [
+            pfd(
+                "artunc_kid/juggernaut_bottom_jumping_1.bin",
+                0x17,
+                0x06,
+                0x30,
+                0x14,
+            ),
+            pfd(
+                "artunc_kid/juggernaut_bottom_jumping_2.bin",
+                0x17,
+                0x05,
+                0x2F,
+                0x13,
+            ),
+            pfd(
+                "artunc_kid/juggernaut_bottom_jumping_2.bin",
+                0x17,
+                0x05,
+                0x2F,
+                0x13,
+            ),
+            pfd(
+                "artunc_kid/juggernaut_bottom_jumping_3.bin",
+                0x17,
+                0x04,
+                0x2F,
+                0x12,
+            ),
+        ]
+        .into_iter()
+        .map(|bottom| {
+            load_composite_player_frame(manifest, source, &[bottom, JUGGERNAUT_HEAD_IDLE_FRAME])
+        })
+        .collect::<Result<Vec<_>>>()?,
         death: None,
         pull_up: Vec::new(),
         slash_ground: Vec::new(),
@@ -4460,8 +4521,7 @@ fn load_player_form_visuals(
             .copied()
             .filter_map(|descriptor| load_player_frame(manifest, source, descriptor).ok())
             .collect(),
-        jump_rise: load_player_frame(manifest, source, spec.jump_rise)?,
-        jump_fall: load_player_frame(manifest, source, spec.jump_fall)?,
+        airborne: load_player_frames(manifest, source, &spec.airborne)?,
         death: spec
             .death
             .map(|descriptor| load_player_frame(manifest, source, descriptor))
@@ -6149,7 +6209,7 @@ mod tests {
             .expect("Maniaxe player form spec");
 
         assert_eq!(
-            maniaxe.jump_fall.origin_y, -0x02,
+            maniaxe.airborne[2].origin_y, -0x02,
             "ASM Maniaxe jump-fall sprite descriptor stores origin_y=-$02"
         );
     }

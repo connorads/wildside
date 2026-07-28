@@ -16250,6 +16250,30 @@ Oracle-verifier attempt 2026-05-18: `cargo run -q -p kidcli -- verify-recording 
 
 Correction 2026-05-18: `play-native --record` now accepts `--record-frames N`, which saves and exits after `N` captured native frames. Use this on remaining human-validation recordings so F10/Esc is no longer required to produce `.cache/recordings/<slug>/manifest.json`. For playtest bundles whose purpose is deterministic native replay plus human visual inspection, run `verify-recording --native-only`; the default verifier still performs oracle state/pixel comparison and may fail for visual-validation evidence that is not intended to be oracle-clean yet.
 
+Progress 2026-07-28 for #406: the repeated terminal Iron Knight residue came
+from native collapsing ASM `sub_B270 loc_B334/loc_B350` into rise/fall art.
+The ROM instead compares `y_vel << 2` with the launch velocity retained in
+`$FFFFFAAA` and indexes one of four entries in the current form's `off_B3B8`
+row. Native now loads the exact four-entry rows for every form, including
+`unk_C2956` / `iron_knight_jumping_3.bin`, exports the typed selected state,
+and presents the prior state through the Mode_Level VDP sprite latch.
+
+Two coarse lifecycle hypotheses were rejected by focused pixels. Classifying
+every airborne velocity regressed the `$FA67` wall-cling preservation at frame
+955; restricting classification to explicit jump launches lost the terminal
+transition shell and made frame 8068 divergent. The final model uses the typed
+four-state selection when runtime evidence exists and retains the established
+ASM-compatible state-0/state-3 sign fallback for unclassified paths. Focused
+windows 954..957, 1144..1155, and 8068..8089 are all pixel-exact.
+
+Full published-route verification keeps all 37,759 player/camera CRC frames,
+all 37,743 post-`Init_RNG` frames, and the enemy frontier exact. Pixels improve
+from 35,429 exact / 2,330 divergent / 854,215 changed to 35,648 exact / 2,111
+divergent / 644,979 changed; the first mismatch remains frame 1706 and the
+worst remains 2,387 pixels. The next holistic #406 target is the 16-frame /
+35,844-pixel retained title Robot class at frames 21765..21781. Keep the
+separate 221-frame / 34,816-pixel upper-screen class independent.
+
 ## Investigation notes
 
 ### Shared boot-title-start-level1 evidence blocker (CLOSED)

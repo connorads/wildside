@@ -1540,6 +1540,8 @@ mod tests {
             kid_y_pos: None,
             kid_x_velocity: None,
             kid_y_velocity: None,
+            airborne_visual_mapping_sub_b270:
+                wildside_core::ModeLevelAirborneVisualMappingPathSubB270::Unclassified,
             character_movement: None,
             kid_facing: None,
             kid_on_ground: Some(false),

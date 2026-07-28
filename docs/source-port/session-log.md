@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 four-state airborne mappings)
+
+- `sub_B270 loc_B334/loc_B350` selects four states from each form's
+  `off_B3B8` row. Native now loads and selects those exact mappings and
+  carries the typed state through the VDP sprite latch.
+- Focused wall-cling, Cyclone ledge-walk-off, and terminal Iron Knight windows
+  are pixel-exact. Full pixels improve to 35,648 exact / 2,111 divergent /
+  644,979 changed with the first mismatch unchanged at frame 1706.
+- NEXT: investigate the retained title-plane Robot at frames 21765..21781
+  (16 frames / 35,844 pixels), without folding in the separate repeated
+  upper-screen class.
+
 ## 2026-07-28 handoff (#406 terminal demo H-scroll latch)
 
 - The `ReadJoypad loc_C0A` replay timeout reaches another `WaitForVint` before
