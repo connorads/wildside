@@ -2352,6 +2352,14 @@ const KID_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
     },
 ];
 
+const KID_SKID_FRAME: PlayerFrameDescriptor = PlayerFrameDescriptor {
+    relative_path: "artunc_kid/kid_skid.bin",
+    origin_x: 0x0E,
+    origin_y: 0x01,
+    width_px: 0x16,
+    height_px: 0x1F,
+};
+
 const KID_WALK_1_FRAME: PlayerFrameDescriptor =
     pfd("artunc_kid/kid_walk_1.bin", 0x0A, 0x01, 0x13, 0x1F);
 const KID_WALK_2_FRAME: PlayerFrameDescriptor =
@@ -4391,6 +4399,7 @@ fn load_juggernaut_form_visuals_if_present(
                 load_composite_player_frame(manifest, source, &[bottom, head])
             })
             .collect::<Result<Vec<_>>>()?,
+        skid: None,
         flight_spin: Vec::new(),
         charge: Vec::new(),
         climb: Vec::new(),
@@ -4495,6 +4504,9 @@ fn load_player_form_visuals(
             .copied()
             .map(|descriptor| load_player_frame(manifest, source, descriptor))
             .collect::<Result<Vec<_>>>()?,
+        skid: (spec.form_id == PLAYER_FORM_THE_KID)
+            .then(|| load_player_frame(manifest, source, KID_SKID_FRAME))
+            .transpose()?,
         flight_spin: load_player_frames(manifest, source, spec.flight_spin)?,
         charge: if spec.form_id == PLAYER_FORM_BERZERKER {
             // ASM loc_9564 indexes off_9688, which is a separate Berzerker

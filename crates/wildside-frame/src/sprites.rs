@@ -711,6 +711,22 @@ pub fn select_player_frame<'a>(
             };
             let frame_index = usize::from(trace.walk_visual_accumulator >> 8) % slope_frames.len();
             &slope_frames[frame_index]
+        } else if x_velocity != 0
+            && trace.current_helmet_id == PlayerForm::TheKid.helmet_id()
+            && trace.kid_facing.is_some_and(|facing| {
+                matches!(
+                    (x_velocity.is_positive(), facing),
+                    (true, Direction::Left) | (false, Direction::Right)
+                )
+            })
+            && let Some(skid) = player_visuals.skid.as_ref()
+        {
+            // ASM sub_942A loc_9580/loc_9596/loc_959C (kid.asm:11031-11043):
+            // only The Kid bypasses off_9618 when velocity opposes facing and
+            // writes fixed mapping LnkTo_unk_A5346 (`kid_skid.bin`). The scene
+            // renderer supplies the previous trace's motion state because
+            // Mode_Level transfers Sprite_Table before this mapping is built.
+            skid
         } else if x_velocity == 0 {
             &player_visuals.idle
         } else {
@@ -2533,6 +2549,7 @@ mod tests {
                 labelled_frame(0x0201),
                 labelled_frame(0x0202),
             ],
+            skid: Some(labelled_frame(0x0250)),
             flight_spin: vec![
                 labelled_frame(0x0300),
                 labelled_frame(0x0301),
@@ -4785,6 +4802,67 @@ mod tests {
                 &short_climb_visuals
             ),
             0x0501
+        );
+    }
+
+    #[test]
+    fn select_player_frame_uses_loc_959c_skid_only_for_backward_motion_as_the_kid() {
+        let visuals = labelled_player_visuals();
+
+        // ASM sub_942A loc_9580/loc_9596/loc_959C: only The Kid uses the
+        // fixed skid mapping when motion opposes facing. Both signs converge
+        // on the same mapping; forward motion and helmet forms keep walking.
+        for (x_velocity, facing) in [(0x1000, Direction::Left), (-0x1000, Direction::Right)] {
+            assert_eq!(
+                selected_tile_base(
+                    &NativeTraceFrame {
+                        kid_on_ground: Some(true),
+                        kid_x_velocity: Some(x_velocity),
+                        kid_facing: Some(facing),
+                        ..NativeTraceFrame::default()
+                    },
+                    &visuals
+                ),
+                0x0250
+            );
+        }
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    kid_on_ground: Some(true),
+                    kid_x_velocity: Some(0x1000),
+                    kid_facing: Some(Direction::Right),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0200
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::Cyclone.helmet_id(),
+                    kid_on_ground: Some(true),
+                    kid_x_velocity: Some(0x1000),
+                    kid_facing: Some(Direction::Left),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0200
+        );
+
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    kid_on_ground: Some(true),
+                    kid_x_velocity: Some(0),
+                    kid_facing: Some(Direction::Right),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0100
         );
     }
 

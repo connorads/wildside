@@ -4757,6 +4757,22 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-28 (The Kid backward-motion mapping): the repeated 41-frame
+class was not a generic object animation-timer defect. Oracle WRAM showed Kid's
+`addroffset_sprite` changing from ordinary walk mappings `$0074/$0078` to fixed
+`$0088` while `$FFFFF8F0` stopped advancing. ASM `sub_942A loc_9580/loc_9596`
+branches only for The Kid when velocity opposes facing; `loc_959C` writes
+`LnkTo_unk_A5346`, whose mapping is `kid_skid.bin`, and returns without indexing
+`off_9618`. Native now loads that distinct art and selects it from the latched
+Kid facing/velocity already used by the previous-frame Sprite Table model.
+Regression coverage pins both velocity signs, forward motion, stationary idle,
+and helmet exclusion. Full pixels improve 35,921->36,035 exact,
+1,838->1,724 divergent, and 509,434->452,244 changed. Gameplay, RNG, enemy and
+command frontiers remain unchanged.
+
+NEXT: classify the largest current 49-frame / 16,257-pixel player-sized class
+(`grid:18,16-20,20`, 23 ranges) by form, motion state, and ROM mapping.
+
 Progress 2026-07-28 (IntroSequence5 particle lineage and gravity phase): full
 VRAM/CRAM/VSRAM comparison isolated the former largest left-side class entirely
 to Sprite Table `$1000`. At frame 16649 native and oracle SAT are byte-exact;

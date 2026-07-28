@@ -1775,6 +1775,7 @@ mod tests {
             palette: sample_palette(),
             idle: frame.clone(),
             walk: Vec::new(),
+            skid: None,
             flight_spin: Vec::new(),
             charge: Vec::new(),
             climb: Vec::new(),

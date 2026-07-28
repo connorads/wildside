@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 The Kid skid mapping)
+
+- `sub_942A loc_9580/loc_9596/loc_959C` now selects fixed `kid_skid.bin`
+  whenever The Kid moves opposite his facing, through the existing SAT latch.
+- Full pixels improve to 36,035 exact / 1,724 divergent / 452,244 changed;
+  114 route frames become exact and all non-pixel frontiers stay unchanged.
+- NEXT: classify the 49-frame / 16,257-pixel player-sized class across 23
+  ranges by form, motion state, and ROM mapping.
+
 ## 2026-07-28 handoff (#406 IntroSequence5 particle SAT)
 
 - The Start-skip title snapshot now preserves `loc_1BCD0/loc_1BE3C`'s

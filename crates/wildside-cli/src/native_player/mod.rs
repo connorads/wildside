@@ -5865,6 +5865,7 @@ mod tests {
         forms.insert(
             0,
             PlayerFormVisuals {
+                skid: None,
                 palette: Palette {
                     colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
                 },
@@ -5922,6 +5923,7 @@ mod tests {
         forms.insert(
             PlayerForm::IronKnight.helmet_id(),
             PlayerFormVisuals {
+                skid: None,
                 palette: Palette {
                     colours: vec![colour(0, 0, 0), colour(120, 180, 220)],
                 },
@@ -5976,6 +5978,7 @@ mod tests {
         forms.insert(
             PlayerForm::RedStealth.helmet_id(),
             PlayerFormVisuals {
+                skid: None,
                 palette: Palette {
                     colours: vec![colour(0, 0, 0), colour(255, 100, 100)],
                 },
@@ -6028,6 +6031,7 @@ mod tests {
         forms.insert(
             PlayerForm::Cyclone.helmet_id(),
             PlayerFormVisuals {
+                skid: None,
                 palette: Palette {
                     colours: vec![colour(0, 0, 0), colour(120, 220, 180)],
                 },
@@ -6075,6 +6079,7 @@ mod tests {
     #[test]
     fn berzerker_charge_frame_uses_walk_visual_accumulator_loc_9564() {
         let visuals = PlayerFormVisuals {
+            skid: None,
             palette: Palette {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
@@ -6131,6 +6136,7 @@ mod tests {
     #[test]
     fn berzerker_charge_pose_latch_selects_head_forward_after_flag_clear_loc_9326() {
         let visuals = PlayerFormVisuals {
+            skid: None,
             palette: Palette {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
@@ -6188,6 +6194,7 @@ mod tests {
     #[test]
     fn berzerker_charge_pose_latch_overrides_idle_after_wall_stop_loc_9564_9326() {
         let visuals = PlayerFormVisuals {
+            skid: None,
             palette: Palette {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
@@ -6245,6 +6252,7 @@ mod tests {
     #[test]
     fn berzerker_regular_walk_pose_latch_overrides_idle_after_wall_stop_loc_9580_9600() {
         let visuals = PlayerFormVisuals {
+            skid: None,
             palette: Palette {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
@@ -6303,6 +6311,7 @@ mod tests {
     #[test]
     fn berzerker_charge_pose_overrides_slope_walk_loc_9564() {
         let visuals = PlayerFormVisuals {
+            skid: None,
             palette: Palette {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
@@ -6360,6 +6369,7 @@ mod tests {
     #[test]
     fn berzerker_regular_walk_pose_yields_to_slope_walk_loc_a13a() {
         let visuals = PlayerFormVisuals {
+            skid: None,
             palette: Palette {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
@@ -6420,6 +6430,7 @@ mod tests {
     #[test]
     fn berzerker_slope_phase_uses_off_a1e8_six_frame_bank() {
         let visuals = PlayerFormVisuals {
+            skid: None,
             palette: Palette {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
@@ -6477,6 +6488,7 @@ mod tests {
     #[test]
     fn juggernaut_walk_frame_uses_walk_visual_accumulator_loc_94b4() {
         let visuals = PlayerFormVisuals {
+            skid: None,
             palette: Palette {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
@@ -6526,6 +6538,7 @@ mod tests {
     #[test]
     fn red_stealth_walk_frame_uses_walk_visual_accumulator_loc_9600() {
         let visuals = PlayerFormVisuals {
+            skid: None,
             palette: Palette {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
@@ -6575,6 +6588,7 @@ mod tests {
     #[test]
     fn iron_knight_climb_pose_uses_sub_a3bc_sprite_over_idle() {
         let visuals = PlayerFormVisuals {
+            skid: None,
             palette: Palette {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },
@@ -6622,6 +6636,7 @@ mod tests {
     #[test]
     fn juggernaut_slope_fallback_keeps_head_forward_phase_loc_94b4() {
         let visuals = PlayerFormVisuals {
+            skid: None,
             palette: Palette {
                 colours: vec![colour(0, 0, 0), colour(200, 160, 120)],
             },

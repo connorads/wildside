@@ -31,6 +31,9 @@ pub struct PlayerFormVisuals {
     pub palette: Palette,
     pub idle: SpriteFrame,
     pub walk: Vec<SpriteFrame>,
+    /// ASM `sub_942A loc_959C`: The Kid's fixed backward-motion skid mapping.
+    /// `None` for helmet forms, which continue through their walk tables.
+    pub skid: Option<SpriteFrame>,
     /// ASM `sub_B270 loc_B2A0`: Cyclone flight spin frames.
     /// Empty for forms without separate flight-spin art.
     pub flight_spin: Vec<SpriteFrame>,
