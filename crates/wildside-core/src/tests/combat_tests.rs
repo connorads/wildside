@@ -6528,8 +6528,8 @@ mod chunk_03 {
         );
         assert_eq!(
             runtime.active_enemies[0].damage_flash_frames,
-            ENEMY_DAMAGE_FLASH_FRAMES + 1,
-            "ASM Dragon.asm loc_3CEBE hibernates the nonfatal hurt animation one frame beyond the shared flash window"
+            DRAGON_WALKING_HURT_ANIMATION_FRAMES_STRU_3CCE6 + 1,
+            "ASM Dragon.asm loc_3CEBE hibernates through the `$19`-tick stru_3CCE6 hurt animation"
         );
         assert_eq!(
             runtime.active_enemy_roster.len(),
@@ -17506,8 +17506,8 @@ mod chunk_03 {
         );
         assert_eq!(
             dragon.damage_flash_frames,
-            ENEMY_DAMAGE_FLASH_FRAMES + 1,
-            "ASM Dragon.asm loc_3CEBE plays the hurt animation after loc_3CE9A selects the damage route"
+            DRAGON_WALKING_HURT_ANIMATION_FRAMES_STRU_3CCE6 + 1,
+            "ASM Dragon.asm loc_3CEBE plays stru_3CCE6 for `$19` visible ticks after loc_3CE9A selects the damage route"
         );
         assert_eq!(
             dragon.grounded_frames, DRAGON_WALKING_NONLETHAL_STOMP_HIBERNATE_FRAMES,

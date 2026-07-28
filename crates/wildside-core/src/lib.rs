@@ -4148,6 +4148,12 @@ impl NativeRuntime {
                             if transform_starts_this_frame
                                 && self.progression.form_change_flash_frames > 0
                             {
+                                // ASM Execute_Objects loc_E1E suspends the object
+                                // pass inside Kid_Transform loc_7E90. Native has
+                                // already advanced independent Gfx animations,
+                                // so restore the walking Dragon timer observed at
+                                // that scheduler boundary while retaining movement.
+                                self.rewind_walking_dragon_animation_on_transform_entry_loc_e1e();
                                 // ASM Mode_Level loc_80C dispatches loc_12098
                                 // before Kid_Transform loc_7E90 hibernates the
                                 // Kid path. A transformation begun during the

@@ -8282,6 +8282,11 @@ fn dragon_walking_sprite_animation_tick_stru_3cc5e(elapsed: u8, hit_points: u8) 
     elapsed.wrapping_add(1) % dragon_walking_animation_cycle_ticks(hit_points)
 }
 
+fn dragon_walking_sprite_animation_rewind_stru_3cc5e(elapsed: u8, hit_points: u8) -> u8 {
+    elapsed.wrapping_add(dragon_walking_animation_cycle_ticks(hit_points) - 1)
+        % dragon_walking_animation_cycle_ticks(hit_points)
+}
+
 fn dragon_walking_sprite_animation_phase_stru_3cc5e(elapsed: u8, hit_points: u8) -> u8 {
     elapsed / dragon_walking_animation_frame_ticks(hit_points)
 }
@@ -12581,6 +12586,24 @@ pub(crate) fn enemy_gfx_slot_init_loc_3219E(
 }
 
 impl NativeRuntime {
+    pub(crate) fn rewind_walking_dragon_animation_on_transform_entry_loc_e1e(&mut self) {
+        for enemy in &mut self.active_enemies {
+            if enemy.family == EnemyFamily::DragonWalking
+                && enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK
+                && enemy.damage_flash_frames == 0
+                && !enemy.death_animation_active
+            {
+                // ASM Execute_Objects loc_E1E -> Kid_Transform loc_7E90:
+                // Kid begins the synchronous transform before GfxObject_Animate
+                // loc_113E can consume this walking Dragon's next script tick.
+                enemy.dragon_descent_index = dragon_walking_sprite_animation_rewind_stru_3cc5e(
+                    enemy.dragon_descent_index,
+                    enemy.hit_points,
+                );
+            }
+        }
+    }
+
     pub(crate) fn spawn_fire_demon_walking_trails_loc_3a542(&mut self) {
         let grid = self.block_grid.as_ref();
         let mut fire_trail_count = self.fire_demon_trails.len().min(usize::from(u16::MAX)) as u16;

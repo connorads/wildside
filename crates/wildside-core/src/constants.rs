@@ -795,6 +795,9 @@ pub(crate) const SPECIAL_FORM_SLOPE_STEP_FP: i32 = 0x0000_1000;
 pub(crate) const STOMP_BOUNCE_VELOCITY: i32 = -0x0004_0000;
 // Frames an enemy flashes white after taking a non-lethal stomp.
 pub(crate) const ENEMY_DAMAGE_FLASH_FRAMES: u8 = 8;
+/// ASM Dragon.asm `loc_3CEBE -> stru_3CCE6`: a surviving walking Dragon
+/// holds `unk_C755E` for `$19` animation ticks before restoring `$62(a5)`.
+pub(crate) const DRAGON_WALKING_HURT_ANIMATION_FRAMES_STRU_3CCE6: u8 = 0x19;
 // DragonWalking hibernates after a surviving stomp instead of resuming patrol
 // on the next frame. The active TAS frontier keeps layout #02 parked from frame
 // 2939 through 2962 before the right-facing patrol resumes on 2963.

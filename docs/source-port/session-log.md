@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#408 walking Dragon animation lifecycle)
+
+- Modelled `Dragon.asm loc_3CEBE -> stru_3CCE6` as a `$19`-tick surviving-hit
+  animation and restored the saved walking script at the oracle boundary.
+- Preserved the `Execute_Objects loc_E1E -> Kid_Transform loc_7E90` boundary:
+  movement completes on transform entry while the Dragon graphics timer holds.
+- The four repeated Demo 2 sequences gain 198 exact frames and remove 387,129
+  changed pixels. Full pixels are 33,015 exact / 4,744 divergent / 2,382,342
+  changed; gameplay, enemy, camera and RNG frontiers remain exact.
+- NEXT: run `mise run project-status` and classify another repeated pixel class.
+
 ## 2026-07-28 handoff (#406 HUD animation lifecycle)
 
 - Modelled the `loc_6E2 -> loc_720` title-mode RAM clear and the

@@ -2529,6 +2529,21 @@ target. #408 returns to the open queue until a rendered mismatch identifies
 one; do not retry the confirmed Cyclone double `sub_B270` pass or seed a
 cursor from this frame.
 
+Progress 2026-07-28: the published route now exposes a concrete live-object
+target in each Demo 2 repetition. Oracle WRAM identifies layout #02 as the
+walking Dragon GfxObject. `Dragon.asm loc_3CEBE -> stru_3CCE6` holds the
+surviving-hit frame for `$19` ticks before restoring the saved `stru_3CC5E`
+walk animation; native's generic eight-frame damage flash restored it early.
+Oracle frames 7372..7397 confirm timer `$19 -> $01`, then pointer `$3CC62`.
+At transform entry frame 7604, `Execute_Objects loc_E1E -> Kid_Transform
+loc_7E90` retains the Dragon movement but freezes its independent graphics
+timer at pointer `$3CC86`, phase 10. Native now models both boundaries. The
+focused 6940..8089 window improves from 294 exact / 855 divergent / 535,378
+changed pixels to 333 / 816 / 439,000. Across the full route this yields 198
+more exact frames and removes 387,129 changed pixels: 33,015 exact / 4,744
+divergent / 2,382,342 changed, with gameplay, enemy, camera and RNG parity
+unchanged. Keep #408 open for other identified object-script classes.
+
 ### #412
 
 Follow-up 2026-07-16: recaptured the current frontier pair at frame 1020.
