@@ -17,6 +17,9 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 - Full published-route pixels remain 26,395 exact / 11,364 divergent, first
   mismatch frame 1706 at one pixel. NEXT: select another shared non-index
   #406 timing debt; frontier 995 and the shared-call injection count 108 stay.
+- Rejected follow-up: removing frame 983's `loc_7D6` prefix pin remains nine
+  cycles early. Treating `unk_A3B66`'s `$0A` mapping byte as its DMA tile count
+  makes frame 982 155 cycles early. Trace VDP ownership before revisiting it.
 
 ## 2026-07-28 handoff (#406 post-execute composition)
 

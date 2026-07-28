@@ -4640,6 +4640,19 @@ teleport call rather than its frame arms.
 NEXT: choose another shared non-index #406 timing debt from the reduced
 override surface; do not type frame 996 as a bare step.
 
+Investigation 2026-07-28 (frame-983 VBlank-prefix candidate rejected): removing
+the separate frame-983 `loc_7D6` source position leaves the natural prefix nine
+M68k cycles early with the correct refresh phase and no pending GEMS wait. The
+new airborne `sub_1492` timing path therefore does not also retire this pin.
+
+`unk_A3B66` is declared as `sprite_frame_unc $0A,$00,$16,$20`, but treating
+`$0A` as the following `loc_AD4` DMA tile length is disproven. Replacing the
+renderer-derived `[12]` queue with `[10]` moves the preceding frame-982
+`sub_E12` endpoint 155 M68k cycles early while its phase remains correct. Every
+experimental code change was restored. The remaining nine-cycle residue must
+be traced through the prefix's VDP ownership/arbitration; do not retry the
+mapping-byte substitution or fit a nine-cycle constant.
+
 Progress 2026-07-28: the shared post-execute model replaces four
 path/coordinate guards with source-composed work. ASM `sub_DFB0` prices a
 bit-15 non-type-`$A` rejection at 30 raw cycles; the separate 18-cycle
