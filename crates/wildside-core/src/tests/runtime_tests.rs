@@ -11324,6 +11324,61 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_demo_solid_ghost_schedule_matches_sub_f730_loc_7fc() {
+        let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published")
+        else {
+            return;
+        };
+        let mut observed = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(7_901) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 7_884 | 7_888 | 7_900) {
+                let group = runtime
+                    .block_state
+                    .ghost_groups
+                    .iter()
+                    .find(|group| group.col == 0x3D && group.row == 0x17)
+                    .expect("published Knight's Isle route should retain the target group");
+                observed.push((
+                    frame_index,
+                    group.timer,
+                    group.state,
+                    group.solid,
+                    trace
+                        .solid_ghost_transitions_sub_f730
+                        .iter()
+                        .copied()
+                        .filter(|transition| transition.col == 0x3D && transition.row == 0x17)
+                        .collect::<Vec<_>>(),
+                ));
+            }
+        }
+
+        assert_eq!(
+            observed,
+            vec![
+                (7_884, 1, 0, true, Vec::new()),
+                (
+                    7_888,
+                    1,
+                    0x8002,
+                    false,
+                    vec![SolidGhostTransitionTrace {
+                        col: 0x3D,
+                        row: 0x17,
+                        count: 1,
+                        vertical: false,
+                        state: 0x8002,
+                    }],
+                ),
+                (7_900, 0x27, 3, false, Vec::new()),
+            ],
+            "the native post-step boundary that renders oracle WRAM $FFFF3C3C must age sub_F730 during demo bootstrap but freeze it while Kid_Transform waits in sub_8E0"
+        );
+    }
+
+    #[test]
     fn warp_to_level_preserves_under_skull_mountain3_ghost_groups_loc_124a6_f730() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
@@ -11603,6 +11658,17 @@ mod chunk_09 {
             "ASM loc_F8A6 restores terrain skin without collision"
         );
         assert_eq!(cell.skin, 0x05);
+        assert_eq!(
+            rt.trace_frame().solid_ghost_transitions_sub_f730,
+            vec![SolidGhostTransitionTrace {
+                col: 3,
+                row: 5,
+                count: 1,
+                vertical: false,
+                state: 0x8001,
+            }],
+            "ASM sub_F730 loc_F9CC should export the transition SAT worker while the state word is negative"
+        );
     }
 
     #[test]

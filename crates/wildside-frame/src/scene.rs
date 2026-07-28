@@ -6671,6 +6671,49 @@ pub fn push_block_grid_overrides(
     }
 }
 
+/// Draws the transient SAT entries emitted by ASM `sub_F730
+/// loc_F9CC..loc_FAA6` while a SolidGhost group changes visibility.
+pub fn push_solid_ghost_transition_sprites_sub_f730(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) {
+    let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+    let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+    for group in &trace.solid_ghost_transitions_sub_f730 {
+        let vram_tile: u16 = if group.state & 1 == 0 { 0x024E } else { 0x024A };
+        let Some(tile_base_index) = vram_tile.checked_sub(BLOCK_TILE_VRAM_BASE) else {
+            continue;
+        };
+        if usize::from(tile_base_index.saturating_add(3)) >= level_visuals.block_tiles.tiles.len() {
+            continue;
+        }
+        let frame = wildside_render::SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px: 0x10,
+            height_px: 0x10,
+            tile_base_index,
+            tile_sheet: level_visuals.block_tiles.clone(),
+        };
+        for index in 0..group.count {
+            let col = group
+                .col
+                .saturating_add(if group.vertical { 0 } else { u16::from(index) });
+            let row = group
+                .row
+                .saturating_add(if group.vertical { u16::from(index) } else { 0 });
+            commands.push(DrawCommand::Sprite {
+                x: i32::from(col) * 16 - camera_x_px,
+                y: i32::from(row) * 16 - camera_y_px,
+                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                palette: Arc::new(level_visuals.palettes.foreground.clone()),
+                tiles: build_sprite_tiles(&frame, Direction::Right, 0),
+            });
+        }
+    }
+}
+
 pub fn background_colour(level_visuals: &NativeLevelVisuals) -> [u8; 3] {
     level_visuals
         .palettes
@@ -7007,6 +7050,7 @@ fn build_game_scene_filtered(
     }
     if filter.block_overrides {
         push_block_grid_overrides(&mut commands, trace, level_visuals, block_grid);
+        push_solid_ghost_transition_sprites_sub_f730(&mut commands, trace, level_visuals);
         layer_tags.mark(SceneLayer::BlockOverrides, commands.len());
     }
     if filter.terrain {
@@ -9190,7 +9234,7 @@ mod tests {
     use super::*;
     use wildside_core::{
         BlockBounceTrace, HeadyMetalDeathPieceTrace, HeadyMetalDeathSplitTrace,
-        IslandShoreDmaUploadLoc1202A,
+        IslandShoreDmaUploadLoc1202A, SolidGhostTransitionTrace,
     };
     use wildside_data::BackgroundLayoutAlias;
     use wildside_render::{
@@ -13007,6 +13051,60 @@ mod tests {
             tile_sheet.tiles[usize::from(expected_tile_base)].pixels[0],
             0x77
         );
+    }
+
+    #[test]
+    fn solid_ghost_transition_sprites_follow_sub_f730_state_and_orientation() {
+        let mut trace = NativeTraceFrame {
+            camera_x_pos: 16 << 16,
+            camera_y_pos: 32 << 16,
+            solid_ghost_transitions_sub_f730: vec![
+                SolidGhostTransitionTrace {
+                    col: 3,
+                    row: 4,
+                    count: 2,
+                    vertical: false,
+                    state: 0x8001,
+                },
+                SolidGhostTransitionTrace {
+                    col: 6,
+                    row: 5,
+                    count: 2,
+                    vertical: true,
+                    state: 0x8004,
+                },
+            ],
+            ..NativeTraceFrame::default()
+        };
+        let visuals = sample_level_visuals(0x40);
+        let mut commands = Vec::new();
+
+        push_solid_ghost_transition_sprites_sub_f730(&mut commands, &trace, &visuals);
+
+        let sprites = commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite { x, y, tiles, .. } => {
+                    Some((*x, *y, tiles.first().map(|tile| tile.tile.tile_index)))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            sprites,
+            vec![
+                (32, 32, Some(0x2A)),
+                (48, 32, Some(0x2A)),
+                (80, 48, Some(0x2E)),
+                (80, 64, Some(0x2E)),
+            ],
+            "ASM loc_F9CC..loc_FAA6 repeats `$024A` for odd states and `$024E` for even states along the group axis"
+        );
+
+        trace.solid_ghost_transitions_sub_f730.clear();
+        commands.clear();
+        push_solid_ghost_transition_sprites_sub_f730(&mut commands, &trace, &visuals);
+        assert!(commands.is_empty());
     }
 
     #[test]

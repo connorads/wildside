@@ -4165,7 +4165,13 @@ impl NativeRuntime {
                             // ASM Execute_Objects order lets the Skull Mountain 3
                             // ghost-block worker (`sub_F730`) update Level_Layout
                             // before Kid's `sub_902A` ceiling probes consume it.
-                            self.step_ghost_blocks();
+                            // Kid_Transform loc_7E90 waits in sub_8E0 instead
+                            // of returning to Mode_Level loc_7FC. The entry
+                            // frame has already run sub_F730; later host frames
+                            // must retain its timer until the outer pass resumes.
+                            if !transform_hibernating_at_frame_start {
+                                self.step_ghost_blocks();
+                            }
                             let transform_starts_this_frame =
                                 self.progression.form_change_flash_frames == 0;
                             self.refresh_opening_slice(gameplay_input, jump_pressed);
@@ -4202,6 +4208,11 @@ impl NativeRuntime {
                     }
                 };
                 if demo_special_kid_path && self.time_frames_loc_3038a != 0 {
+                    // Mode_Level loc_7FC calls sub_F730 before Execute_Objects
+                    // reaches the hibernating demo-bootstrap Kid coroutine.
+                    // The bootstrap substitutes Kid motion only; independent
+                    // SolidGhost workers still age on every outer level pass.
+                    self.step_ghost_blocks();
                     // ASM Execute_Objects loc_E12 schedules the independent
                     // loc_1202A Island object while the demo bootstrap's Kid
                     // path is hibernating outside refresh_opening_slice.

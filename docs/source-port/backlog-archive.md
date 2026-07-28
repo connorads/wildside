@@ -16409,6 +16409,35 @@ native group provenance with `sub_F730`'s intermediate `$8001..$8005`
 sprite/custom-update states before taking the mirrored 8,940-pixel form
 classes.
 
+Progress 2026-07-28 for #406: the residual SolidGhost family was a scheduler
+error plus missing SAT presentation, not a local transition-art defect. Oracle
+WRAM `$FFFF3C3C` shows the target Knight's Isle group hold timer `$28` from
+frames 6946..6977, then `sub_F730` begins ticking at frame 6978. Around the
+visible cycle it reaches state `$8001` at 7884, state `3` / timer `$32` at
+7888, state `$8004` at 7938, and returns to state `0` / timer `$CC` at 7942.
+
+Native had two opposing scheduler errors. It skipped 60 `sub_F730` calls while
+the demo bootstrap substituted a special Kid path even though `Mode_Level
+loc_7FC` still precedes `Execute_Objects`; it later added 80 calls while
+`Kid_Transform loc_7E90` waited in `sub_8E0` instead of returning to the outer
+Mode_Level loop. Their net 20-tick lead made a render-only hypothesis look
+plausible. Drawing current negative states without fixing ownership was
+rejected: focused 7880..7940 pixels regressed from 33 divergent / 6,312
+changed to 37 / 6,646. Correcting both scheduling boundaries aligns the full
+cycle.
+
+Trace now carries typed SolidGhost transition groups only while the state word
+is negative. The renderer follows `loc_F9CC..loc_FAA6`: state low bit selects
+VRAM tile `$024A` or `$024E`, count repeats one 16x16 SAT entry, and the stride
+byte selects horizontal or vertical placement. The focused 7880..7940 window
+improves to 10 divergent / 133 changed pixels, with every SolidGhost pixel
+exact and only pre-existing HUD/small classes remaining. Full pixels improve
+from 36,162 exact / 1,597 divergent / 412,221 changed to 36,318 / 1,441 /
+369,213. All player/camera, typed gameplay, enemy, RNG, and GEMS command
+frontiers remain unchanged. Production citations burn down test-only coverage
+debt for `loc_F9CC` and `loc_FAA6`. Continue #406 with the mirrored 20-frame /
+8,940-pixel classes at `grid:18,14-21,18` and `grid:20,14-23,18`.
+
 ## Investigation notes
 
 ### Shared boot-title-start-level1 evidence blocker (CLOSED)

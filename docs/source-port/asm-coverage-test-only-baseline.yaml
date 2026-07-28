@@ -159,7 +159,6 @@ labels:
   - loc_F830
   - loc_F994
   - loc_F9C0
-  - loc_F9CC
   - loc_FA06
   - loc_FA0C
   - loc_FA2E
@@ -167,7 +166,6 @@ labels:
   - loc_FA4C
   - loc_FA7E
   - loc_FA84
-  - loc_FAA6
   - loc_FAC0
   - loc_FFE
   - sub_144DA

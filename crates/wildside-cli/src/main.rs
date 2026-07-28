@@ -6213,6 +6213,7 @@ AddrTbl_LevelNames:
             storm_sprites_sub_61ca: Vec::new(),
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
+            solid_ghost_transitions_sub_f730: Vec::new(),
             block_destroy_effects: Vec::new(),
             block_debris_pieces: Vec::new(),
             prize_block_worker_tails_sub_1007a: Vec::new(),

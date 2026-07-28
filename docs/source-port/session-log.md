@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 SolidGhost scheduler and SAT)
+
+- `Mode_Level loc_7FC -> sub_F730` now ages SolidGhost workers during the
+  demo Kid bootstrap, freezes them during `Kid_Transform loc_7E90`, and emits
+  negative-state `$024A/$024E` SAT sprites from `loc_F9CC..loc_FAA6`.
+- Full pixels improve to 36,318 exact / 1,441 divergent / 369,213 changed;
+  156 route frames become exact and all non-pixel frontiers stay unchanged.
+- NEXT: classify the mirrored 20-frame / 8,940-pixel classes
+  `grid:18,14-21,18` and `grid:20,14-23,18` as one shared mapping/facing path.
+
 ## 2026-07-28 handoff (#406 DemoPlay SolidGhost workers)
 
 - `Load_DemoPlay -> Load_InGame loc_124A6` now retains the six resource `$0B`

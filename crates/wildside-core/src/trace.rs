@@ -11889,6 +11889,19 @@ impl NativeRuntime {
                     },
                 })
                 .collect(),
+            solid_ghost_transitions_sub_f730: self
+                .block_state
+                .ghost_groups
+                .iter()
+                .filter(|group| group.state & 0x8000 != 0)
+                .map(|group| SolidGhostTransitionTrace {
+                    col: group.col,
+                    row: group.row,
+                    count: group.count,
+                    vertical: group.vertical,
+                    state: group.state,
+                })
+                .collect(),
             prize_block_worker_tails_sub_1007a: self
                 .prize_block_worker_tails
                 .iter()

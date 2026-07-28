@@ -3049,6 +3049,9 @@ pub struct NativeTraceFrame {
     /// older recordings that only serialised `block_bounces` still load cleanly.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub block_bounce_details: Vec<BlockBounceTrace>,
+    /// ASM `sub_F730 loc_F9CC..loc_FAA6` SolidGhost transition sprites.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub solid_ghost_transitions_sub_f730: Vec<SolidGhostTransitionTrace>,
     /// ASM `sub_1007A`'s GfxObject after the 31 hibernated block-motion
     /// passes: (cell_x, cell_y, animation frames remaining). This is separate
     /// from `block_bounces` because `Hibernate_UntilAnimFinished` keeps the
@@ -3360,6 +3363,7 @@ impl Default for NativeTraceFrame {
             storm_sprites_sub_61ca: Vec::new(),
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
+            solid_ghost_transitions_sub_f730: Vec::new(),
             prize_block_worker_tails_sub_1007a: Vec::new(),
             block_destroy_effects: Vec::new(),
             block_destroy_ice_effects: Vec::new(),
@@ -3641,6 +3645,17 @@ pub struct BlockBounceTrace {
     pub remaining: u8,
     pub y_offset_px: i16,
     pub kind: BlockBounceTraceKind,
+}
+
+/// One live SolidGhost group while ASM `sub_F730` presents `$024A/$024E`
+/// Sprite Table entries over its temporarily rewritten foreground cells.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SolidGhostTransitionTrace {
+    pub col: u16,
+    pub row: u16,
+    pub count: u8,
+    pub vertical: bool,
+    pub state: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
