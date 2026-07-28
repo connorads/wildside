@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 tail-bank hypothesis rejected)
+
+- Oracle frame 957 has 35 bank steals (385 cycles) from `loc_892` to
+  `WaitForVint`; native generates zero, even with an unlimited tail budget.
+  Later source positions compress that broad phase debt to the observed
+  11-cycle frame-958 endpoint symptom.
+- The full `loc_224C` hitbox fix therefore remains coupled to post-frame-923
+  GEMS phase recovery. No 385-cycle constant, partial animation guard, or new
+  frame pin was kept.
+- NEXT: pursue #406's independent `-244` shared post-execute timing residue.
+  Frontier 995 and injection ratchet 108 remain unchanged.
+
 ## 2026-07-28 handoff (#406 pull-up hitbox exposes GEMS steal)
 
 - Eight of the nine frame-965/967 phase deltas are zero-net selected-PC boundary

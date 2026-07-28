@@ -4629,15 +4629,17 @@ loc_224C` confirms all seven `stru_8BB4` mappings select `unk_314CE`'s zero
 collision-size sentinel, so the globals remain live for the full animation.
 
 The source-correct full-animation retention was tested and restored rather than
-landed. It makes frame 957's post-HUD path eight raw cycles shorter, changes the
-later hardware phase, and exposes a missing 11-cycle native GEMS bank steal:
-frame-958 `sub_E12` becomes 11 cycles early (`122619226` versus oracle
-`122619237`). The typed 22-phase trace reports no post-HUD generated wait or
-banked read, so the old 2x2 scan was accidentally compensating for a downstream
-audio-arbitration defect. Do not narrow the retention back to selected ticks or
-add a frame pin. NEXT: locate the oracle's frame-957 `loc_892 -> frame-958
-sub_E12` bank read/steal and implement its shared arbitration rule; then land
-the full `loc_224C` retention and delete the 965/967 post-HUD injections.
+landed. It makes frame 957's post-HUD path eight raw cycles shorter and changes
+the later hardware phase. A deeper selected-PC oracle trace rejects the initial
+"one missing steal" hypothesis: `loc_892 -> WaitForVint` carries 35 bank steals
+(385 cycles, cumulative counter 756624 -> 757009), while native generates zero.
+Later source positions compress that broad post-frozen GEMS phase debt to the
+observed frame-958 `sub_E12` residue of 11 cycles early (`122619226` versus
+`122619237`). Passing an unlimited tail wait budget still generates zero and
+leaves the endpoint unchanged. The old 2x2 scan was accidental compensation,
+but landing its fix honestly depends on the broader post-frame-923 GEMS phase,
+not a local arbitration rule. Do not narrow retention to selected ticks, add a
+385-cycle frame constant, or accept the 11-cycle symptom as the root cause.
 
 Progress 2026-07-27 (post-HUD phase trace rejects generated waits): the retained typed
 trace now reports raw cycles, refresh events, refresh phase, generated hardware waits,
