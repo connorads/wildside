@@ -5973,7 +5973,7 @@ fn background_display_scroll_data_word_loc_3050a(
     // a different preload-era phase.
     let time_frames = background_time_frames_for_trace_loc_3050a(trace);
     let display_time_frames = match layer_speed {
-        0x00 | 0x08 => time_frames.saturating_sub(1),
+        0x00 | 0x08 if trace.form_change_flash_frames == 0 => time_frames.saturating_sub(1),
         _ => time_frames,
     };
     background_scroll_data_word_loc_30452(display_time_frames, camera_x_px, layer_speed)
@@ -12128,6 +12128,29 @@ mod tests {
             [100, 200, 255]
         );
         assert_eq!(helmet_placeholder_colour(0x007C), [220, 220, 255]);
+    }
+
+    #[test]
+    fn transform_sub_8e0_displays_current_auto_scroll_word_loc_3050a() {
+        let ordinary = NativeTraceFrame {
+            time_frames_loc_3038a: 626,
+            ..NativeTraceFrame::default()
+        };
+        let transforming = NativeTraceFrame {
+            form_change_flash_frames: 82,
+            ..ordinary.clone()
+        };
+
+        assert_eq!(
+            background_display_scroll_data_word_loc_3050a(&ordinary, 481, 0x08),
+            372,
+            "ASM Mode_Level loc_80C presents the prior `$08` auto-scroll table phase"
+        );
+        assert_eq!(
+            background_display_scroll_data_word_loc_3050a(&transforming, 481, 0x08),
+            373,
+            "ASM Kid_Transform loc_7CBE/loc_7D22 -> sub_8E0 transfers the current Horiz_Scroll_Data word"
+        );
     }
 
     #[test]

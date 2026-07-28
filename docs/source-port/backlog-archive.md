@@ -2577,6 +2577,21 @@ walking; it was removed. The Dragon silhouette class is resolved. The largest
 remaining transform class is 316 frames of a constant 433-pixel top-band
 residue; treat it as a separate presentation target.
 
+Progress 2026-07-28: oracle VRAM frames 7603/7604 split the 433-pixel class
+into a 394-pixel Plane-B scroll error and a 39-pixel HUD-diamond page error.
+`Kid_Transform loc_7CBE/loc_7D22 -> sub_8E0 -> loc_8FE` transfers the already
+computed `Horiz_Scroll_Data` word on each synchronous VBlank. For `$00/$08`
+auto-scroll layers, native incorrectly retained Mode_Level's prior-phase
+display rule; at the first Demo 2 boundary oracle VRAM advances `$FE8C` to
+`$FE8B` and freezes there. Transform rendering now uses the current auto-scroll
+word while ordinary Mode_Level keeps the previous word. This removes 124,125
+changed pixels across the full route with no exact-frame, first-frontier,
+state, RNG, enemy, or audio-command change: 33,020 exact / 4,739 divergent /
+2,020,073 changed. A global removal of the transform HUD-diamond page rewind
+made the first 79-frame hold exact but regressed earlier transforms, moving the
+frontier 1706 -> 1059 and losing 181 exact frames; it was removed. Revisit the
+39-pixel diamond residue only with a typed `$DD40` transfer-state predicate.
+
 ### #412
 
 Follow-up 2026-07-16: recaptured the current frontier pair at frame 1020.

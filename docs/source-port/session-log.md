@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#408 transform auto-scroll transfer)
+
+- Oracle VRAM split the 433-pixel transform class: 394 Plane-B pixels came
+  from `$08` H-scroll `$FE8C` vs `$FE8B`; 39 came from the HUD diamond page.
+- `sub_8E0 -> loc_8FE` now displays the current auto-scroll word during
+  transforms, while ordinary Mode_Level retains its prior-phase rule.
+- Full pixels drop by 124,125 to 33,020 exact / 4,739 divergent / 2,020,073;
+  state, RNG, enemy and audio-command evidence is unchanged.
+- Rejected globally retaining the HUD diamond page: it moved the frontier to
+  frame 1059 and lost 181 exact frames. NEXT: classify `grid:0,15-39,20`
+  (110 frames / 71,457 pixels); revisit the diamond only with typed DMA state.
+
 ## 2026-07-28 handoff (#408 Dragon transform Sprite Table)
 
 - Decoded oracle SAT and GfxObject state across frames 7598..7604. Each visible
