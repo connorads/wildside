@@ -38,6 +38,11 @@ const SAMPLES_PER_CLUSTER: usize = 3;
 /// spatial clusterer's bucket size.
 const VDP_GRID_CELL: usize = 8;
 
+/// Exact palette lookups retained across the first sampled divergent scene
+/// frame. This stays bounded while exposing enough information to distinguish
+/// compact, local-line, and expanded CRAM palette routes.
+const PALETTE_RESOLUTION_SAMPLES: usize = 64;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum DivergenceClass {
@@ -342,7 +347,30 @@ pub(crate) struct VisualTriageReport {
     /// Frames whose recomputed changed-pixel count differs from the mismatch
     /// report's — non-zero means the renderer changed since the report ran.
     recount_drift_frames: usize,
+    palette_resolution_samples: Vec<PaletteResolutionSample>,
     clusters: Vec<SignatureCluster>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+struct PaletteResolutionSample {
+    frame_index: usize,
+    x: usize,
+    y: usize,
+    layer: String,
+    kind: String,
+    tile_index: u16,
+    hardware_palette_line: u8,
+    pixel_colour_index: u8,
+    hardware_cram_slot: usize,
+    palette_colour_count: usize,
+    resolved_palette_slot: usize,
+    raw_palette_word: u16,
+    background_row_index: Option<usize>,
+    background_layer_speed: Option<u8>,
+    background_scroll_x_px: Option<i32>,
+    background_ripple_row_offset: Option<i32>,
+    native_rgb: [u8; 3],
+    oracle_rgb: [u8; 3],
 }
 
 /// Subset of the `tas_pixels` mismatch report this command consumes.
@@ -580,6 +608,7 @@ pub(crate) fn run_visual_triage(
     let mut sampled_pixels = 0u64;
     let mut provenance_disagreement_pixels = 0u64;
     let mut recount_drift_frames = 0usize;
+    let mut palette_resolution_samples = Vec::new();
     try_for_each_native_dynamic_frame(
         manifest.clone(),
         &scenario,
@@ -638,6 +667,87 @@ pub(crate) fn run_visual_triage(
                     let pixels = subsample_deterministic(&coords, PROVENANCE_SAMPLES_PER_FRAME);
                     let diagnostics = sample_scene_pixel_provenance(scene, &pixels);
                     sampled_pixels += diagnostics.len() as u64;
+                    if palette_resolution_samples.len() < PALETTE_RESOLUTION_SAMPLES {
+                        for diagnostic in &diagnostics {
+                            let Some(write) = diagnostic
+                                .writes
+                                .iter()
+                                .rev()
+                                .find(|write| write.accepted && write.rgb.is_some())
+                            else {
+                                continue;
+                            };
+                            let (
+                                Some(tile_index),
+                                Some(palette_line),
+                                Some(palette_index),
+                                Some(palette_colour_count),
+                                Some(resolved_palette_slot),
+                                Some(raw_palette_word),
+                            ) = (
+                                write.tile_index,
+                                write.palette_line,
+                                write.palette_index,
+                                write.palette_colour_count,
+                                write.resolved_palette_slot,
+                                write.raw_palette_word,
+                            )
+                            else {
+                                continue;
+                            };
+                            let offset =
+                                (diagnostic.y * NATIVE_FRAME_WIDTH as usize + diagnostic.x) * 3;
+                            let background_scroll =
+                                wildside_frame::background_scroll_pixel_diagnostic_loc_3050a(
+                                    trace,
+                                    &level_visuals,
+                                    diagnostic.x as i32,
+                                    diagnostic.y as i32,
+                                );
+                            let background_pixel = wildside_frame::sample_background_pixel_loc_c070(
+                                trace,
+                                &level_visuals,
+                                diagnostic.x as i32,
+                                diagnostic.y as i32,
+                            );
+                            palette_resolution_samples.push(PaletteResolutionSample {
+                                frame_index,
+                                x: diagnostic.x,
+                                y: diagnostic.y,
+                                layer: layer_for_command_index(spans, write.command_index)
+                                    .as_str()
+                                    .to_owned(),
+                                kind: write.kind.clone(),
+                                tile_index,
+                                hardware_palette_line: palette_line,
+                                pixel_colour_index: palette_index,
+                                hardware_cram_slot: usize::from(palette_line) * 16
+                                    + usize::from(palette_index),
+                                palette_colour_count,
+                                resolved_palette_slot,
+                                raw_palette_word,
+                                background_row_index: background_scroll
+                                    .as_ref()
+                                    .map(|sample| sample.sample_row),
+                                background_layer_speed: background_scroll
+                                    .as_ref()
+                                    .map(|sample| sample.layer_speed_loc_3050a),
+                                background_scroll_x_px: background_scroll
+                                    .map(|sample| sample.scroll_x_px_loc_3050a),
+                                background_ripple_row_offset: background_pixel
+                                    .and_then(|sample| sample.row_offset),
+                                native_rgb: diagnostic.final_rgb,
+                                oracle_rgb: [
+                                    oracle_rgb[offset],
+                                    oracle_rgb[offset + 1],
+                                    oracle_rgb[offset + 2],
+                                ],
+                            });
+                            if palette_resolution_samples.len() >= PALETTE_RESOLUTION_SAMPLES {
+                                break;
+                            }
+                        }
+                    }
                     let samples: Vec<(PixelSignature, Option<u16>)> = diagnostics
                         .iter()
                         .map(|diagnostic| {
@@ -728,6 +838,7 @@ pub(crate) fn run_visual_triage(
         sampled_pixels,
         provenance_disagreement_pixels,
         recount_drift_frames,
+        palette_resolution_samples,
         clusters,
     };
 
@@ -826,6 +937,9 @@ mod tests {
             tile_index,
             palette_line,
             palette_index: None,
+            palette_colour_count: None,
+            resolved_palette_slot: None,
+            raw_palette_word: None,
             source_x: None,
             source_y: None,
             rgb,

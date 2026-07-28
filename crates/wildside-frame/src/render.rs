@@ -286,6 +286,9 @@ fn command_pixel_write(
             tile_index: None,
             palette_line: None,
             palette_index: None,
+            palette_colour_count: None,
+            resolved_palette_slot: None,
+            raw_palette_word: None,
             source_x: None,
             source_y: None,
             rgb: Some(*colour),
@@ -305,6 +308,9 @@ fn command_pixel_write(
             tile_index: None,
             palette_line: None,
             palette_index: None,
+            palette_colour_count: None,
+            resolved_palette_slot: None,
+            raw_palette_word: None,
             source_x: None,
             source_y: None,
             rgb: Some(*colour),
@@ -324,6 +330,9 @@ fn command_pixel_write(
             tile_index: None,
             palette_line: None,
             palette_index: None,
+            palette_colour_count: None,
+            resolved_palette_slot: None,
+            raw_palette_word: None,
             source_x: None,
             source_y: None,
             rgb: None,
@@ -346,6 +355,9 @@ fn command_pixel_write(
             tile_index: None,
             palette_line: None,
             palette_index: None,
+            palette_colour_count: None,
+            resolved_palette_slot: None,
+            raw_palette_word: None,
             source_x: None,
             source_y: None,
             rgb: None,
@@ -370,6 +382,9 @@ fn command_pixel_write(
                 tile_index: None,
                 palette_line: None,
                 palette_index: None,
+                palette_colour_count: None,
+                resolved_palette_slot: None,
+                raw_palette_word: None,
                 source_x: Some(source_x),
                 source_y: Some(source_y),
                 rgb: Some(*colour),
@@ -617,7 +632,8 @@ fn indexed_tile_source_pixel_write(
 ) -> Option<FinalScenePixelWrite> {
     let tile = tile_sheet.tiles.get(usize::from(tile_ref.tile_index))?;
     let palette_index = tile.pixels[source_y * 8 + source_x];
-    let colour = resolve_palette_colour(palette, tile_ref.palette_line, palette_index)?;
+    let (resolved_palette_slot, colour) =
+        resolve_palette_entry(palette, tile_ref.palette_line, palette_index)?;
     Some(FinalScenePixelWrite {
         command_index,
         kind: kind.to_owned(),
@@ -628,6 +644,12 @@ fn indexed_tile_source_pixel_write(
         tile_index: Some(tile_ref.tile_index),
         palette_line: Some(tile_ref.palette_line),
         palette_index: Some(palette_index),
+        palette_colour_count: Some(palette.colours.len()),
+        resolved_palette_slot: Some(resolved_palette_slot),
+        raw_palette_word: palette
+            .colours
+            .get(resolved_palette_slot)
+            .map(|colour| colour.raw_word),
         source_x: Some(u8::try_from(source_x).expect("source x fits u8")),
         source_y: Some(u8::try_from(source_y).expect("source y fits u8")),
         rgb: Some(colour),
@@ -1013,11 +1035,19 @@ pub fn resolve_palette_colour(
     selected_palette_line: u8,
     palette_index: u8,
 ) -> Option<[u8; 3]> {
+    resolve_palette_entry(palette, selected_palette_line, palette_index).map(|(_, colour)| colour)
+}
+
+fn resolve_palette_entry(
+    palette: &Palette,
+    selected_palette_line: u8,
+    palette_index: u8,
+) -> Option<(usize, [u8; 3])> {
     if palette_index == 0 {
         return None;
     }
 
-    let colour = if palette.colours.len() == 16 {
+    let resolved_slot = if palette.colours.len() == 16 {
         // ASM loc_1AB40 copies Pal_19C48 as a complete 16-word title-card
         // palette line; Load_EnemyArtPaletteToVRAM loc_36D16 similarly
         // selects an enemy CRAM line before native stores it as one local
@@ -1025,31 +1055,30 @@ pub fn resolve_palette_colour(
         // slot 0 is present in the data, so non-zero tile indices address
         // their matching MD palette slot directly without reapplying the
         // sprite's hardware palette-line bits.
-        palette.colours.get(usize::from(palette_index))
+        usize::from(palette_index)
     } else if palette.colours.len() == 8 {
         match selected_palette_line {
-            0 => palette.colours.get(usize::from(palette_index)),
+            0 => Some(usize::from(palette_index)),
             // ASM `sub_307D8` streams chunked cave background bytes through
             // `unk_309B8`, whose tile words are `$2780 + tile_id`: palette
             // line 1 with normal 4bpp pixel nibbles 1..7. Native stores the
             // compact 8-word background palette alone, so those nibbles still
             // address the local palette directly.
             1 | 2 => match palette_index {
-                1..=7 => palette.colours.get(usize::from(palette_index)),
-                8..=15 => palette.colours.get(usize::from(palette_index - 8)),
+                1..=7 => Some(usize::from(palette_index)),
+                8..=15 => Some(usize::from(palette_index - 8)),
                 _ => None,
             },
             _ => None,
-        }
+        }?
     } else {
         let palette_offset =
             usize::from(selected_palette_line).saturating_mul(PALETTE_LINE_COLOUR_COUNT);
-        palette
-            .colours
-            .get(palette_offset + usize::from(palette_index - 1))
-    }?;
+        palette_offset + usize::from(palette_index - 1)
+    };
+    let colour = palette.colours.get(resolved_slot)?;
 
-    Some([colour.red, colour.green, colour.blue])
+    Some((resolved_slot, [colour.red, colour.green, colour.blue]))
 }
 
 pub fn set_pixel(
@@ -1941,6 +1970,9 @@ mod tests {
         assert_eq!(target.writes.len(), 4);
         assert!(target.writes[0].accepted);
         assert!(target.writes[0].priority == Some(true));
+        assert_eq!(target.writes[0].palette_colour_count, Some(16));
+        assert_eq!(target.writes[0].resolved_palette_slot, Some(1));
+        assert_eq!(target.writes[0].raw_palette_word, Some(1));
         assert!(!target.writes[1].accepted);
         assert!(target.writes[1].prior_high_priority);
         assert!(target.writes[2].accepted);

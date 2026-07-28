@@ -223,6 +223,12 @@ pub struct FinalScenePixelWrite {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub palette_index: Option<u8>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub palette_colour_count: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolved_palette_slot: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw_palette_word: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_x: Option<u8>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_y: Option<u8>,
