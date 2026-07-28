@@ -365,6 +365,15 @@ struct PaletteResolutionSample {
     palette_colour_count: usize,
     resolved_palette_slot: usize,
     raw_palette_word: u16,
+    block_cell_col: Option<u16>,
+    block_cell_row: Option<u16>,
+    block_cell_raw_word: Option<u16>,
+    block_cell_has_block: Option<bool>,
+    block_cell_type: Option<u8>,
+    block_cell_skin: Option<u8>,
+    ghost_group_timer: Option<u16>,
+    ghost_group_state: Option<u16>,
+    ghost_group_solid: Option<bool>,
     background_row_index: Option<usize>,
     background_layer_speed: Option<u8>,
     background_scroll_x_px: Option<i32>,
@@ -710,6 +719,14 @@ pub(crate) fn run_visual_triage(
                                 diagnostic.x as i32,
                                 diagnostic.y as i32,
                             );
+                            let camera_x_px = (trace.camera_x_pos >> 16) as usize;
+                            let camera_y_px = (trace.camera_y_pos >> 16) as usize;
+                            let block_col = ((camera_x_px + diagnostic.x) / 16) as u16;
+                            let block_row = ((camera_y_px + diagnostic.y) / 16) as u16;
+                            let block_cell =
+                                block_grid.map(|grid| grid.cell_at(block_col, block_row));
+                            let ghost_group =
+                                runtime.source_port_ghost_group_at(block_col, block_row);
                             palette_resolution_samples.push(PaletteResolutionSample {
                                 frame_index,
                                 x: diagnostic.x,
@@ -726,6 +743,16 @@ pub(crate) fn run_visual_triage(
                                 palette_colour_count,
                                 resolved_palette_slot,
                                 raw_palette_word,
+                                block_cell_col: block_grid.map(|_| block_col),
+                                block_cell_row: block_grid.map(|_| block_row),
+                                block_cell_raw_word: block_grid
+                                    .map(|grid| grid.raw_word_at(block_col, block_row)),
+                                block_cell_has_block: block_cell.map(|cell| cell.has_block),
+                                block_cell_type: block_cell.map(|cell| cell.block_type as u8),
+                                block_cell_skin: block_cell.map(|cell| cell.skin),
+                                ghost_group_timer: ghost_group.map(|group| group.0),
+                                ghost_group_state: ghost_group.map(|group| group.1),
+                                ghost_group_solid: ghost_group.map(|group| group.2),
                                 background_row_index: background_scroll
                                     .as_ref()
                                     .map(|sample| sample.sample_row),

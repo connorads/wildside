@@ -273,6 +273,20 @@ fn describe_block_list(block_list: &terrain::BlockList) -> Vec<String> {
         ));
     }
 
+    for (index, ghost) in block_list.ghost_blocks.iter().enumerate() {
+        lines.push(format!(
+            "ghost group {index:02}: timer {:#06X} state {:#06X}, solid {} vanished {}, at ({},{}) count {} {}",
+            ghost.timer,
+            ghost.state,
+            ghost.solid_time,
+            ghost.vanished_time,
+            ghost.col,
+            ghost.row,
+            ghost.count,
+            if ghost.vertical { "vertical" } else { "horizontal" },
+        ));
+    }
+
     for (index, teleporter) in block_list.teleporters.iter().enumerate() {
         lines.push(format!(
             "teleporter {index:02}: col {}, row {}, dest map 0x{:02X}, dest {},{} layout 0x{:04X}",

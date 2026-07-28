@@ -2304,6 +2304,24 @@ impl NativeRuntime {
         }
     }
 
+    /// ASM `loc_124A6`/`sub_F730` state for the SolidGhost group owning a
+    /// layout cell. Kept as scalar diagnostics so render tooling need not
+    /// depend on the runtime's private block-worker representation.
+    pub fn source_port_ghost_group_at(&self, col: u16, row: u16) -> Option<(u16, u16, bool)> {
+        self.block_state.ghost_groups.iter().find_map(|group| {
+            let contains = if group.vertical {
+                col == group.col
+                    && row >= group.row
+                    && row < group.row.saturating_add(u16::from(group.count))
+            } else {
+                row == group.row
+                    && col >= group.col
+                    && col < group.col.saturating_add(u16::from(group.count))
+            };
+            contains.then_some((group.timer, group.state, group.solid))
+        })
+    }
+
     /// Rebuild VDP state based on the current boot phase.
     /// Called once per frame after `step_boot_state`.
     fn update_vdp_state(&mut self) {
