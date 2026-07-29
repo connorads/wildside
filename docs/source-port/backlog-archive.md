@@ -22756,3 +22756,17 @@ climbing-jump asset are rejected for the same reason. No experiment remains.
 The durable route is a typed player dynamic-art VRAM page independent from
 `SpriteFrame` geometry. NEXT: classify `grid:12,9-17,17` (two frames / 2,304
 pixels) rather than patch this mixed hardware state from screenshots.
+
+Progress 2026-07-29 for #406: `grid:12,9-17,17` is IntroSequence5's first
+short tail transition on both timeout lineages. Published frames 16622 and
+27997 are local elapsed 451, exactly where `loc_1BC36` wakes from its `$37`
+hibernate, calls `sub_1C034(d4=6)`, and hibernates for eight more ticks.
+Native replaced the complete preceding `d4=5` map immediately; oracle retains
+it for that display and presents `d4=6` on the next. The existing FC82=0/1
+short-transition presentation rule now covers this first `d4=5 -> d4=6`
+boundary as well as the already-proven `d4=6/7` tail transitions. Focused
+frames 16620..16624 are pixel-exact. Across both visits, full pixels improve
+37,219 -> 37,221 exact, 540 -> 538 divergent, and 31,620 -> 29,316 changed;
+the worst frame improves 1,152 -> 988 pixels. Player/camera, RNG, enemy, and
+GEMS command evidence is unchanged. NEXT: classify `grid:34,22-38,27` (four
+frames / 2,112 pixels).

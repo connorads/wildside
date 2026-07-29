@@ -7413,15 +7413,16 @@ fn intro_sequence_5_frame_index_loc_1_bc36(
         .rev()
         .find_map(|(start_elapsed, frame_index)| {
             // ASM loc_1BC36 -> sub_1C034: oracle timeout FC82=0/1 scanout keeps
-            // d4=6 and d4=7 for one display at their short tail transitions.
-            // The d4=6 entry and final d4=5 FIFO boundaries remain unchanged.
+            // d4=6 and d4=7 for one display at their short transitions,
+            // including the first d4=5 -> d4=6 wake from the `$37` hibernate.
+            // The final d4=5 FIFO boundary remains unchanged.
             let presentation_delay = usize::from(
                 matches!(
                     lineage,
                     IntroSequence5WorkerLineage::TimeoutFc82Zero
                         | IntroSequence5WorkerLineage::TimeoutFc82OneStartSkip
                 ) && matches!(*frame_index, 7 | 6)
-                    && *start_elapsed >= INTRO_SEQUENCE_5_LOC_1BC36_FRAME_7_RASTER_ELAPSED,
+                    && *start_elapsed >= INTRO_SEQUENCE_5_LOC_1BC36_FRAME_6_RASTER_ELAPSED,
             );
             (elapsed >= start_elapsed.saturating_add(presentation_delay)).then_some(*frame_index)
         })
@@ -13593,6 +13594,26 @@ mod tests {
 
     #[test]
     fn intro_sequence_5_loc_1bc36_timeout_fc82_zero_and_one_retain_short_tail_frames() {
+        for (lineage, published_frame) in [
+            (IntroSequence5WorkerLineage::TimeoutFc82Zero, 27997),
+            (IntroSequence5WorkerLineage::TimeoutFc82OneStartSkip, 16622),
+        ] {
+            assert_eq!(
+                intro_sequence_5_frame_index_loc_1_bc36(
+                    INTRO_SEQUENCE_5_LOC_1BC36_FRAME_6_RASTER_ELAPSED,
+                    lineage,
+                ),
+                Some(5),
+                "ASM loc_1BC36 -> sub_1C034 keeps d4=5 on oracle published frame {published_frame}",
+            );
+            assert_eq!(
+                intro_sequence_5_frame_index_loc_1_bc36(
+                    INTRO_SEQUENCE_5_LOC_1BC36_FRAME_6_RASTER_ELAPSED + 1,
+                    lineage,
+                ),
+                Some(6),
+            );
+        }
         for (lineage, published_frame) in [
             (IntroSequence5WorkerLineage::TimeoutFc82Zero, 28005),
             (IntroSequence5WorkerLineage::TimeoutFc82OneStartSkip, 16630),

@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 IntroSequence5 d4=5/6 presentation)
+
+- Published frames 16622 and 27997 are the two timeout lineages waking from
+  `loc_1BC36`'s `$37` hibernate and calling `sub_1C034(d4=6)`. Native replaced
+  the complete `d4=5` map one display before oracle.
+- The existing short-transition rule now covers the first `d4=5 -> d4=6`
+  boundary as well as the later `d4=6/7` tails. Both 1,152-pixel frames are
+  exact; gameplay, player/camera, RNG, enemy, and GEMS evidence is unchanged.
+- Full pixels improve to 37,221 exact / 538 divergent / 29,316 changed. NEXT:
+  classify `grid:34,22-38,27` (four frames / 2,112 pixels).
+
 ## 2026-07-29 handoff (#406 Iron Knight first-climb residency probe)
 
 - Oracle frames 7968..7969 change player mapping `$04D0 -> $04B0` while
