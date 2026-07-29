@@ -3253,7 +3253,7 @@ pub struct LoadInGamePlatformInitialisationAdvance {
 struct PlatformArtFifoEntry {
     latency: u8,
     first_vram_slot: bool,
-    memory_dma: bool,
+    memory_dma_index: Option<u8>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -3274,6 +3274,8 @@ struct PlatformArtFifoScheduler {
     memory_dma_count: u8,
     memory_dma: Option<MemoryToVdpDma>,
     first_memory_dma_commit: Option<H40FifoCommitPosition>,
+    memory_dma_frame_rendered_residency: Vec<MemoryDmaFrameRenderedResidency>,
+    frame_rendered_reached: bool,
 }
 
 fn h40_in_vblank_at_access_slot(scanline: u16, pixel: u16) -> bool {
@@ -3296,6 +3298,8 @@ impl PlatformArtFifoScheduler {
             memory_dma_count: 0,
             memory_dma: None,
             first_memory_dma_commit: None,
+            memory_dma_frame_rendered_residency: Vec::new(),
+            frame_rendered_reached: false,
         }
     }
 
@@ -3328,7 +3332,7 @@ impl PlatformArtFifoScheduler {
             self.entries.push_back(PlatformArtFifoEntry {
                 latency,
                 first_vram_slot,
-                memory_dma: false,
+                memory_dma_index: None,
             });
         }
     }
@@ -3341,6 +3345,11 @@ impl PlatformArtFifoScheduler {
         } else {
             self.following_empty_vram_dma_latency
         };
+        self.memory_dma_frame_rendered_residency
+            .push(MemoryDmaFrameRenderedResidency {
+                words,
+                committed_words_before_frame_rendered: 0,
+            });
         self.memory_dma_count = self.memory_dma_count.saturating_add(1);
         self.memory_dma = Some(MemoryToVdpDma {
             words_remaining: words,
@@ -3362,6 +3371,24 @@ impl PlatformArtFifoScheduler {
             let previous_scanline = self.beam.scanline;
             let previous_pixel = h40_scanline_mclk_to_pixel(self.beam.scanline_mclk);
             self.beam = self.beam.advance_mclk(crate::GenesisMclkCount::from_raw(1));
+            if previous_scanline == 231 && self.beam.scanline == 232 {
+                self.frame_rendered_reached = true;
+                // jgenesis emits FrameRendered before the FIFO output staged
+                // on the terminal H40 access becomes resident in VRAM. Keep
+                // CPU/DMA ownership timing unchanged, but exclude that one
+                // staged word from an incomplete transfer's visible prefix.
+                if let Some(residency) = self
+                    .memory_dma_frame_rendered_residency
+                    .iter_mut()
+                    .rev()
+                    .find(|dma| {
+                        dma.committed_words_before_frame_rendered != 0
+                            && dma.committed_words_before_frame_rendered < dma.words
+                    })
+                {
+                    residency.committed_words_before_frame_rendered -= 1;
+                }
+            }
             if self.beam.scanline != previous_scanline {
                 continue;
             }
@@ -3421,7 +3448,7 @@ impl PlatformArtFifoScheduler {
                         self.entries.push_back(PlatformArtFifoEntry {
                             latency,
                             first_vram_slot,
-                            memory_dma: true,
+                            memory_dma_index: Some(self.memory_dma_count - 1),
                         });
                         if complete {
                             self.memory_dma = None;
@@ -3435,18 +3462,30 @@ impl PlatformArtFifoScheduler {
                 if front.first_vram_slot {
                     front.first_vram_slot = false;
                 } else {
-                    if front.memory_dma && self.first_memory_dma_commit.is_none() {
+                    if front.memory_dma_index.is_some() && self.first_memory_dma_commit.is_none() {
                         self.first_memory_dma_commit = Some(H40FifoCommitPosition {
                             scanline: previous_scanline,
                             pixel,
                         });
+                    }
+                    if let Some(index) = front.memory_dma_index
+                        && !self.frame_rendered_reached
+                    {
+                        let residency = self
+                            .memory_dma_frame_rendered_residency
+                            .get_mut(usize::from(index))
+                            .expect("active memory DMA has a residency record");
+                        residency.committed_words_before_frame_rendered = residency
+                            .committed_words_before_frame_rendered
+                            .checked_add(1)
+                            .expect("committed words cannot exceed one u16 DMA length");
                     }
                     self.entries.pop_front();
                     if self.pending_words != 0 {
                         self.entries.push_back(PlatformArtFifoEntry {
                             latency: 3,
                             first_vram_slot: true,
-                            memory_dma: false,
+                            memory_dma_index: None,
                         });
                         self.pending_words -= 1;
                     }
@@ -3473,12 +3512,20 @@ pub enum TitleMemoryDmaHardwareEvent {
     SetZ80BusRequest(bool),
 }
 
-/// CPU/raster result from one title memory-DMA routine.
+/// One memory DMA's visibility at the next jgenesis `FrameRendered` boundary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MemoryDmaFrameRenderedResidency {
+    pub words: u16,
+    pub committed_words_before_frame_rendered: u16,
+}
+
+/// CPU/raster result from one title memory-DMA routine.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TitleMemoryDmaAdvance {
     pub cursor: LoadInGameCpuRasterCursor,
     pub timing: crate::intro_timing::IntroSourceTiming,
     pub first_memory_dma_commit: Option<H40FifoCommitPosition>,
+    pub memory_dma_frame_rendered_residency: Vec<MemoryDmaFrameRenderedResidency>,
     pub refresh_events: u32,
     pub external_wait_cycles: M68kCycleCount,
     pub fifo_halt_cycles: M68kCycleCount,
@@ -5677,6 +5724,7 @@ fn title_memory_dma_routine_cursor_with_scheduler_and_vram_latency(
         },
         timing,
         first_memory_dma_commit: fifo.first_memory_dma_commit,
+        memory_dma_frame_rendered_residency: fifo.memory_dma_frame_rendered_residency,
         refresh_events,
         external_wait_cycles: M68kCycleCount::from_raw(external_wait_cycles),
         fifo_halt_cycles: M68kCycleCount::from_raw(fifo_halt_cycles),
@@ -10224,6 +10272,36 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(118).expect("oracle $7CC phase"),
             },
             "ASM sub_A5C returns at the selected frame-904 $7CC boundary",
+        );
+    }
+
+    #[test]
+    fn loc_ad4_reports_partial_vram_residency_at_frame_rendered() {
+        // ASM Mode_Level $7C8 -> sub_A5C -> loc_AD4, published TAS frame
+        // 7968: oracle enters at cycle 1,020,059,215 / refresh phase 52.
+        // The `[16,4]` Kid-art queue starts at VRAM `$C4A0`; FIFO evidence
+        // commits 252 of its 320 words before FrameRendered and the final 68
+        // afterwards (the last four words of the first DMA plus all 64 of the
+        // second DMA).
+        let entry_cycles = M68kCycleCount::from_raw(1_020_059_215);
+        let advance = mode_level_sprite_and_kid_to_vram_cursor_with_scheduler(
+            LoadInGameCpuRasterCursor {
+                beam: h40_beam_from_absolute_m68k_cycles(entry_cycles),
+                refresh_phase: M68kRefreshPhase::new(52).expect("oracle $7C8 phase"),
+            },
+            [16, 4, 0, 0, 0, 0],
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("frame-7968 loc_AD4 queue");
+
+        assert_eq!(advance.memory_dma_frame_rendered_residency.len(), 3);
+        assert_eq!(
+            advance.memory_dma_frame_rendered_residency[1..]
+                .iter()
+                .map(|dma| (dma.words, dma.committed_words_before_frame_rendered))
+                .collect::<Vec<_>>(),
+            vec![(256, 252), (64, 0)],
+            "ASM loc_AD4 exposes one contiguous 320-word player page with a 252/68 FrameRendered split",
         );
     }
 

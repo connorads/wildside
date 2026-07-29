@@ -23107,3 +23107,15 @@ rollovers. The complete timer cluster disappears; full pixels improve 37,269
 -> 37,332 exact, 490 -> 427 divergent, and 15,428 -> 12,874 changed. All
 37,759 player/camera, gameplay, and enemy frames plus all 37,743 post-init RNG
 frames remain exact. NEXT: classify full-screen frame 22545 (988 pixels).
+
+Progress 2026-07-29 for #406: the exact memory-DMA scheduler now exposes a
+typed resident-word prefix for every DMA at jgenesis `FrameRendered`. Oracle
+frame 7968 commits the active `loc_AD4` run from VRAM `$C4A0` through `$C696`
+at scanline 229/pixel 222 through scanline 231/pixel 416: 252 visible words.
+The remaining four words of that first DMA and the following 64-word DMA land
+after the boundary. A 20-slot startup experiment reproduced the count but
+shifted three already-exact `$7CC` return boundaries, rejecting startup timing
+as the owner. The scheduler instead excludes the terminal staged FIFO word
+only when `FrameRendered` interrupts an incomplete DMA; all 150 focused VDP
+tests retain exact CPU boundaries. NEXT: carry the per-run prefixes into the
+source-port player's persistent `$C4A0` page and composite old/new tile chunks.

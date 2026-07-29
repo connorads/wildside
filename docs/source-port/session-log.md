@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 partial VRAM residency)
+
+- The exact memory-DMA scheduler now reports each DMA's resident-word prefix
+  at jgenesis `FrameRendered` without changing CPU/DMA ownership timing.
+- Published frame 7968 pins the Iron Knight `$C4A0` queue to 252 resident words
+  from the 256-word run and zero from the following 64-word run.
+- A 20-slot startup experiment broke three exact `$7CC` boundaries; the real
+  distinction is the terminal staged FIFO word at the rendering boundary.
+- NEXT: persist the player-art tile runs and composite mixed old/new chunks in
+  the source-port renderer.
+
 ## 2026-07-29 handoff (#406 contiguous FIFO spans)
 
 - Filtered FIFO summaries now segment contiguous destination-address runs;
