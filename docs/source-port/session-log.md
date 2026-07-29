@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#407 resolved; HUD phase experiments)
+
+- Fresh `--checkpoint-interval 1` evidence matches the committed full-route
+  ratchet exactly: 37,486 exact / 273 divergent / 5,088 changed pixels.
+- #407's historical 130 flipped frames are exact in the integrated renderer;
+  the stale 301-frame mismatch report was not current evidence.
+- Removing the Diamond lower-bound fallback regresses 6 frames/6 pixels.
+  Removing the life-icon fallback regresses 12 frames/102 pixels.
+- NEXT: keep the lower bounds and give #406/#409 a shared persistent
+  Mode_Level phase owner; do not replace either raster seam with a full page.
+
 ## 2026-07-29 handoff (#406 partial VRAM residency)
 
 - The exact memory-DMA scheduler now reports each DMA's resident-word prefix

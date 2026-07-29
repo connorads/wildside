@@ -2370,6 +2370,18 @@ previous-VDP-phase renderer is therefore retained. The remaining fault needs
 a row-specific presented-H-scroll/VDP boundary model, not a global clock
 change. State, CRC, enemy and RNG parity remain exact.
 
+Resolved 2026-07-29: a fresh authoritative pass with `--checkpoint-interval
+1` compares all 37,759 published-route frames and exactly matches the committed
+pixel ratchet: 37,486 exact, 273 divergent, 5,088 changed pixels, first frame
+1730 and worst frame 7969. The approximately 130 frames flipped by the five
+2026-07-16 renderer commits are exact again after the later integrated fixes;
+the stale cached 301-frame report was not current evidence. The remaining debt
+is independently owned by #406/#409, chiefly 170 Diamond raster frames, 71
+life-icon raster frames, and four partial `loc_AD4` player-art frames. Removing
+the conservative Diamond fallback regresses 6 frames/6 pixels; removing the
+life-icon fallback regresses 12 frames/102 pixels. Both experiments reject a
+full-current-page shortcut and preserve the need for a persistent phase owner.
+
 Investigation 2026-07-17: frame 7794's 3,912-pixel raw-VDP difference is
 2,811 pixels of Island shore. Oracle Object_RAM (`loc_12098`) proves native
 and ROM agree at Demo 2 frame 7600, then native skips exactly one shore worker
@@ -21282,6 +21294,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 428 | [-] | P2 | enemy | Historical census attributed Level 0x64's pre-#403 Tar burst-child lifetime residual after #403 had already corrected it. | Fresh report `1784577126`: Level 0x64 passes state sweep; cache-backed 360-frame schedule regression green. See archive #428. |
 | 418 | [x] | P2 | verification | Sweep-blocker census: `sweep-census` tool + 22-agent attribution classify all 106 blocking diffs of run 1783914264 into owned clusters #419-#433 (0x33 stays with #301). | Census regenerable via `mise run sweep-census`; cluster table + method notes in archive #418. |
 | 415 | [x] | P1 | platforms/enemy | Hoverboard Beach totem platform/carry divergence is absent in the integrated published-TAS state and enemy projections. | 37,759 state/enemy checkpoints exact; frame 7918 roster matches. See archive #415. |
+| 407 | [x] | P1 | rendering | Historical renderer regressions are absent from the integrated full-route pixel report. | Pixel ratchet exact at 37,486/273/5,088. See archive #407. |
 | 405 | [x] | P2 | verification | TAS reports and gates name the CRC projection and state that it proves neither pixels nor whole state. | Projection contract ratcheted. See archive #405. |
 | 404 | [x] | P2 | verification | Published TAS comparison directly checks `Current_player` and ROM `Two_player_flag` every frame. | 37,759 typed checkpoints exact. See archive #404. |
 | 403 | [x] | P2 | enemy/fidelity | Tar Monster burst children use exact Gfx collision latches, hitboxes, and contact-axis-only fixed-point clamps through cleanup. | Level 0x64 frames 134-338 exact. See archive #403. |
