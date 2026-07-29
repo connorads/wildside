@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#408/#409 Diamond discriminator)
+
+- A ROM-shaped per-enemy Diamond animation clock changed zero pixels across
+  the complete route and was removed. The remaining Diamond cluster is HUD
+  VRAM timing, not enemy animation.
+- Oracle frame 1730 commits `$DD40` first at H40 20:380 and streams through
+  visible HUD fetches; frames 1729/1731 emit no Diamond DMA train.
+- Full evidence remains 37,510 exact / 249 divergent / 2,472 changed pixels,
+  with CRC, gameplay, enemy and RNG parity intact.
+- NEXT: make the execution-shell arbitration owner reproduce frame 1730's
+  `sub_44DC loc_4626 -> sub_5D4A` entry from carried state, then feed the
+  already-typed mixed-page renderer.
+
 ## 2026-07-29 handoff (#409 production timeline boundary)
 
 - The runtime trace already exposes the full VBlank, pre-HUD, post-HUD and

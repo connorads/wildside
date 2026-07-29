@@ -29,6 +29,15 @@ inputs and a typed `ModeLevelRasterSeedSubE12` as output. It must first replace
 one frame-number correction in `tas_gems` and reproduce its neighbouring
 frames before it may drive HUD pixels.
 
+Oracle evidence 2026-07-29: published frame 1730's Diamond upload commits the
+first `$DD40` word at H40 scanline 20 pixel 380 and continues through the HUD
+sprite's visible fetch interval. Frames 1729 and 1731 emit no `$DD40..$DF3F`
+commit train. This confirms the 12-pixel residue is the existing mixed-page
+DMA consumer awaiting the persistent entry cursor, not an animation-page
+selection error. The capture used `sub_44DC`, `loc_4626`, `sub_5D4A` and the
+surrounding `Mode_Level` PC boundaries; retain the FIFO train as the next
+execution-shell arbitration witness.
+
 Progress 2026-07-29: ASM `Palette_to_VRAM sub_970` separates the DemoPlay
 suppressed branch (56 raw cycles) from the active branch (362), so the natural
 stable-counter `Mode_Level $7C8 -> sub_E12` source span is now typed as 2,999
@@ -2429,6 +2438,15 @@ the first skipped pass between 7600 and 7700 before modifying the Demo 2
 scheduler.
 
 ### #408
+
+Rejected 2026-07-29: giving ordinary Diamond enemies an object-local
+`stru_3ACA8` five-frame/six-tick clock and rendering from its typed snapshot
+changed zero pixels across all 37,759 published-route frames. The route stayed
+at 37,510 exact / 249 divergent / 2,472 changed pixels. This is valid future
+enemy-model work but does not own any current pixel residue, so the experiment
+is removed rather than landing latent state. Do not use the HUD Diamond cluster
+as evidence for an enemy-object animation fix; it is the independent
+`sub_44DC loc_4626 -> sub_5D4A` VRAM DMA.
 
 Progress 2026-07-17: frame 1347's 326-pixel cluster is the pre-debris smash
 worker, not a five-piece debris swarm. ASM `sub_10EDA loc_10F2A` maps the 2x2
