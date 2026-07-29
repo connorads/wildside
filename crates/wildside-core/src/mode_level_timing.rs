@@ -2059,7 +2059,6 @@ pub fn mode_level_vblank_source_cycles_before_sub_e12(
     work: ModeLevelVblankWorkBeforeSubE12,
 ) -> Option<M68kCycleCount> {
     if work.dynamic_art_tiles_loc_ad4 != Some([16, 4, 0, 0, 0, 0])
-        || !work.palette_dma_sub_970
         || work.scroll_path != ModeLevelScrollTransferPath::NormalLoc300ba
         || work.foreground_custom_queue_entries_sub_1596 != 0
         || work.foreground_cell_queue_entries_sub_1596 != 0
@@ -2081,7 +2080,12 @@ pub fn mode_level_vblank_source_cycles_before_sub_e12(
         ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters => 3_415,
         ModeLevelHudBuildPath::Other => return None,
     };
-    Some(M68kCycleCount::from_raw(raw_cycles))
+    // ASM Palette_to_VRAM sub_970: the suppressed branch consumes 56 raw
+    // cycles rather than the active branch's 362.
+    let palette_suppression_saving = if work.palette_dma_sub_970 { 0 } else { 306 };
+    Some(M68kCycleCount::from_raw(
+        raw_cycles - palette_suppression_saving,
+    ))
 }
 
 /// Elapsed cycles for the typed Mode_Level VBlank path, including hardware
@@ -7254,6 +7258,16 @@ mod tests {
             .map(M68kCycleCount::get),
             Some(3_305),
             "ASM sub_BDC0 direct stable path skips both calc_display_number calls"
+        );
+        assert_eq!(
+            mode_level_vblank_source_cycles_before_sub_e12(ModeLevelVblankWorkBeforeSubE12 {
+                palette_dma_sub_970: false,
+                hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20DirectStableCounters,
+                ..work
+            })
+            .map(M68kCycleCount::get),
+            Some(2_999),
+            "ASM Palette_to_VRAM sub_970 suppressed branch omits 306 source cycles"
         );
         assert_eq!(
             mode_level_vblank_source_cycles_before_sub_e12(ModeLevelVblankWorkBeforeSubE12 {

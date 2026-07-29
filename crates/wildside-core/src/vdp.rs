@@ -6849,6 +6849,11 @@ pub fn life_icon_earliest_commit_from_vint_assertion(
     vblank_work: crate::ModeLevelVblankWorkBeforeSubE12,
     pre_hud_work: &crate::ModeLevelPreHudWorkLedger,
 ) -> Option<H40FifoCommitPosition> {
+    if !vblank_work.palette_dma_sub_970 {
+        // The VDP-ownership floor below is proven only for the active
+        // Palette_to_VRAM sub_970 branch.
+        return None;
+    }
     // ASM V_Int $488 -> WaitForVint -> MainGameLoop -> Mode_Level $7C8:
     // interrupt entry is 54 cycles and the earliest loc_93E resume path is
     // another 162 source cycles.
@@ -6885,7 +6890,9 @@ pub fn diamond_earliest_commit_from_vint_assertion(
     pre_hud_work: &crate::ModeLevelPreHudWorkLedger,
     command: crate::HudDmaEventSub44DC,
 ) -> Option<H40FifoCommitPosition> {
-    if !matches!(command, crate::HudDmaEventSub44DC::Diamond { .. }) {
+    if !vblank_work.palette_dma_sub_970
+        || !matches!(command, crate::HudDmaEventSub44DC::Diamond { .. })
+    {
         return None;
     }
 

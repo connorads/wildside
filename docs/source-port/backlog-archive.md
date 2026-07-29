@@ -13,6 +13,22 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+Progress 2026-07-29: ASM `Palette_to_VRAM sub_970` separates the DemoPlay
+suppressed branch (56 raw cycles) from the active branch (362), so the natural
+stable-counter `Mode_Level $7C8 -> sub_E12` source span is now typed as 2,999
+cycles. The VINT lower-bound consumers still reject this path because their
+3,380-halt + 2,002-pending-wait ownership floor is proven only with the active
+palette DMA. Oracle selected-PC and FIFO traces at frames 7692/7698/7704/7710
+place `sub_E12` at H40 16:24, 17:358, 17:232 and 17:146, then the life upload
+starts at 16:268, 18:156, 18:28 and 18:12. This rejects a life-animation phase
+table and shows that persistent CPU/VDP/Z80 arbitration owns the repeated
+71-frame family. A full pixel pass remains 37,510 exact / 249 divergent /
+2,472 changed. Also rejected: promoting the test-only `tas_gems` owner; beyond
+its frozen frame-923 span it contains route/frame-indexed continuation
+corrections. NEXT: introduce a production persistent hardware-timeline port
+without route indices, or isolate a smaller shared arbitration state for life
+and Diamond uploads.
+
 2026-07-23 third gameplay pass: persistent GEMS coverage advances through
 frame 904. Source-bound wait budgets prevent the defended native X/Y split
 from extending the sprite, palette, scroll and VBlank-suffix 68000 spans with

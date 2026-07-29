@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#409 suppressed-palette VBlank timing)
+
+- ASM `Palette_to_VRAM sub_970` proves the suppressed stable-counter VBlank
+  path costs 2,999 raw cycles; the typed source model and regression now
+  accept it independently of VDP arbitration.
+- Oracle selected-PC traces for frames 7692/7698/7704/7710 place `sub_E12`
+  across scanlines 16..18 and `loc_4586` across 16..17. The repeated life-icon
+  family therefore needs persistent CPU/VDP/Z80 phase, not an animation-phase
+  table or the palette-active ownership floor.
+- A fresh full pixel pass remains 37,510 exact / 249 divergent / 2,472 changed.
+  NEXT: add a production persistent hardware-timeline port without importing
+  `tas_gems` frame-indexed continuation corrections.
+
 ## 2026-07-29 handoff (#406 Dragon edge-art classification)
 
 - All seven bottom-right two-pixel frames are the same walking Dragon mapping,
