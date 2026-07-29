@@ -287,6 +287,49 @@ fn published_tas_frame_1706_sub_e12_seed_drives_diamond_dma_raster_timing() {
 }
 
 #[test]
+fn published_tas_frame_1706_unseeded_work_bounds_earliest_diamond_commit() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut observed = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1_707) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if frame_index == 1_706 {
+            let command = trace
+                .hud_dma_events_sub_44dc
+                .iter()
+                .copied()
+                .find(|command| matches!(command, HudDmaEventSub44DC::Diamond { .. }))
+                .expect("published frame 1706 uploads Diamond art");
+            let mut vblank = trace
+                .mode_level_vblank_work_before_sub_e12
+                .expect("published Mode_Level VBlank work");
+            // ASM preceding sub_1492 mapping: Iron Knight uses the ordinary
+            // 16- then 4-tile loc_AD4 queue on this published frame.
+            vblank.dynamic_art_tiles_loc_ad4 = Some([16, 4, 0, 0, 0, 0]);
+            observed = vdp::diamond_earliest_commit_from_vint_assertion(
+                vblank,
+                trace
+                    .mode_level_work_before_hud_sub_44dc
+                    .as_ref()
+                    .expect("published pre-HUD work"),
+                command,
+            );
+        }
+    }
+
+    assert_eq!(
+        observed,
+        Some(vdp::H40FifoCommitPosition {
+            scanline: 18,
+            pixel: 12,
+        }),
+        "the no-wait, best-refresh schedule is a strict lower bound on oracle's scanline 18 pixel 172 commit"
+    );
+}
+
+#[test]
 fn published_tas_life_icon_upload_lower_bound_separates_late_and_visible_commits() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;

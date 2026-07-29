@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use wildside_core::{
-    GameMode, HudDmaEventSub44DC, LevelId, NativeObjectKind, NativeTraceFrame, PlayerForm,
-    hitpoint_display_art_dma_loop_loc_12C34,
+    GameMode, HudDmaEventSub44DC, HudRasterUploadTimingSub44DC, LevelId, NativeObjectKind,
+    NativeTraceFrame, PlayerForm, hitpoint_display_art_dma_loop_loc_12C34,
     vdp::{
         VdpRasterVramWordWrite, try_schedule_h40_vram_dma_word_writes,
         try_schedule_h40_vram_fifo_word_writes,
@@ -308,11 +308,35 @@ pub fn push_hud_icon(
                     || level_visuals.hud.diamond_tiles.clone(),
                     |frame| frame.tile_sheet.clone(),
                 );
-            if let Some(timing) = trace
+            let timing = trace
                 .hud_raster_upload_timings_sub_44dc
                 .iter()
                 .find(|timing| matches!(timing.command, HudDmaEventSub44DC::Diamond { .. }))
-            {
+                .copied()
+                .or_else(|| {
+                    let command = trace
+                        .hud_dma_events_sub_44dc
+                        .iter()
+                        .copied()
+                        .find(|command| matches!(command, HudDmaEventSub44DC::Diamond { .. }))?;
+                    let vblank = trace.mode_level_vblank_work_before_sub_e12?;
+                    let pre_hud = trace.mode_level_work_before_hud_sub_44dc.as_ref()?;
+                    let first_commit =
+                        wildside_core::vdp::diamond_earliest_commit_from_vint_assertion(
+                            vblank, pre_hud, command,
+                        )?;
+                    Some(HudRasterUploadTimingSub44DC {
+                        command,
+                        previous_frame_table_byte_offset: trace
+                            .hud_diamond_vram_page_loc_5d4a
+                            .unwrap_or_default()
+                            .wrapping_sub(4)
+                            & 0x0C,
+                        first_commit_scanline: first_commit.scanline,
+                        first_commit_pixel: first_commit.pixel,
+                    })
+                });
+            if let Some(timing) = timing {
                 let previous_frame_index = usize::from(timing.previous_frame_table_byte_offset / 4);
                 if let Some(previous_tile_sheet) = level_visuals
                     .floating_prizes

@@ -4779,6 +4779,22 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-29 (Diamond earliest-commit lower bound): frame 1706 and five
+repeated one-pixel HUD Diamond boundaries were not evidence that the persistent
+CPU clock had reached those route indices. For an unseeded Diamond upload,
+native now starts at the fixed NTSC VINT assertion, includes the typed
+`Mode_Level` VBlank and pre-HUD work, uses refresh phase zero, and admits no
+optional Z80 waits. Before `loc_4626 -> sub_5D4A` begins its memory DMA there
+is no FIFO/DMA phase reset, so every other refresh phase can only tie or delay
+this first commit. The production renderer retains an old `$DD40` word only
+when even that earliest schedule misses the sprite fetch. Published frame 1706
+bounds the first commit at scanline 18 pixel 12 versus oracle's measured pixel
+172 and becomes exact. Full pixels improve 37,468->37,474 exact, 291->285
+divergent, and 5,196->5,190 changed; first mismatch advances 1706->1709.
+Gameplay, player/camera, RNG, enemy, and audio evidence is unchanged. NEXT:
+classify frame 1709's mixed `loc_4586` FIFO raster without advancing the
+persistent-clock index alone.
+
 Progress 2026-07-29 (Iron Knight Sprite Table latch): the eight-frame player
 class split into four climb-attach frames and four release frames repeated
 through every Demo 1 lineage. Gameplay state was exact. Oracle SAT mappings

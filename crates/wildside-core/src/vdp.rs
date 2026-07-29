@@ -6782,6 +6782,101 @@ pub fn life_icon_earliest_commit_scanline_from_vint_assertion(
     u16::try_from(frame_mclk_position / u64::from(MCLK_CYCLES_PER_SCANLINE)).ok()
 }
 
+/// Earliest possible Diamond DMA commit for a natural gameplay VBlank.
+///
+/// This is a lower bound, not a reconstructed clock. It starts at the fixed
+/// NTSC VINT assertion, includes the typed VBlank and pre-HUD source work,
+/// starts at refresh phase zero, and admits no optional Z80 waits.
+/// A renderer may therefore retain an old VRAM word when even this earliest
+/// schedule cannot commit it before the sprite fetch.
+pub fn diamond_earliest_commit_from_vint_assertion(
+    vblank_work: crate::ModeLevelVblankWorkBeforeSubE12,
+    pre_hud_work: &crate::ModeLevelPreHudWorkLedger,
+    command: crate::HudDmaEventSub44DC,
+) -> Option<H40FifoCommitPosition> {
+    if !matches!(command, crate::HudDmaEventSub44DC::Diamond { .. }) {
+        return None;
+    }
+
+    const MINIMUM_VINT_TO_MODE_LEVEL_CYCLES: u32 = 54 + 162;
+    const MINIMUM_VBLANK_VDP_OWNERSHIP_CYCLES: u32 = 3_380 + 2_002;
+
+    let before_sub_e12 = MINIMUM_VINT_TO_MODE_LEVEL_CYCLES
+        .checked_add(crate::mode_level_vblank_source_cycles_before_sub_e12(vblank_work)?.get())?
+        .checked_add(MINIMUM_VBLANK_VDP_OWNERSHIP_CYCLES)?;
+    let seed_beam = H40BeamPosition::new(224, 16)?
+        .advance_m68k_cycles(M68kCycleCount::from_raw(before_sub_e12));
+
+    // Before this Diamond DMA begins, the diamond-only sub_44DC path has no
+    // FIFO/DMA halt that resets the refresh counter. Phase zero therefore
+    // minimises inserted refresh waits; every higher phase can only tie or
+    // delay this first commit.
+    let seed = ModeLevelRasterSeedSubE12 {
+        beam: seed_beam,
+        refresh_phase: M68kRefreshPhase::new(0).expect("zero refresh phase"),
+    };
+    let cursor = mode_level_cpu_raster_cursor_sub_44dc(seed, pre_hud_work)?;
+    diamond_first_memory_dma_commit_after_sub_44dc(cursor, command)
+}
+
+fn diamond_first_memory_dma_commit_after_sub_44dc(
+    entry: ModeLevelCpuRasterCursor,
+    command: crate::HudDmaEventSub44DC,
+) -> Option<H40FifoCommitPosition> {
+    crate::mode_level_timing::hud_diamond_only_raw_cycles_sub_44dc(core::slice::from_ref(
+        &command,
+    ))?;
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam)
+        .with_empty_vram_dma_latency(MemoryDmaStartupLatencies::STANDARD.first_vram)
+        .with_following_empty_vram_dma_latency(MemoryDmaStartupLatencies::STANDARD.following_vram);
+    let mut phase = entry.refresh_phase;
+    let mut failed = false;
+
+    crate::mode_level_timing::visit_hud_diamond_only_sub_44dc(
+        core::slice::from_ref(&command),
+        |event| {
+            if failed || fifo.first_memory_dma_commit.is_some() {
+                return;
+            }
+            match event {
+                crate::intro_timing::MemoryDmaTimingEvent::Instruction(raw_cycles) => {
+                    let mut refresh_events = 0;
+                    let mut no_wait = |_, _, _| Some(M68kCycleCount::from_raw(0));
+                    if advance_decompress_source_instruction_with_interval_kind(
+                        raw_cycles,
+                        &mut fifo,
+                        &mut phase,
+                        &mut refresh_events,
+                        &mut no_wait,
+                    )
+                    .is_none()
+                    {
+                        failed = true;
+                    }
+                }
+                crate::intro_timing::MemoryDmaTimingEvent::SetZ80BusRequest(_) => {}
+                crate::intro_timing::MemoryDmaTimingEvent::WriteVdpWord { target } => {
+                    fifo.push_word_with_latency(
+                        3,
+                        matches!(target, crate::intro_timing::MemoryToVdpDmaTarget::Vram),
+                    );
+                    while fifo.pending_words != 0 {
+                        fifo.advance_m68k_cycles(M68kCycleCount::from_raw(1));
+                        phase = M68kRefreshPhase::new(0).expect("zero refresh phase");
+                    }
+                }
+                crate::intro_timing::MemoryDmaTimingEvent::BeginMemoryDma { words, target } => {
+                    fifo.begin_memory_dma(words, target);
+                    while fifo.first_memory_dma_commit.is_none() && fifo.memory_dma_active() {
+                        fifo.advance_m68k_cycles(M68kCycleCount::from_raw(1));
+                    }
+                }
+            }
+        },
+    )?;
+    (!failed).then_some(fifo.first_memory_dma_commit).flatten()
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct H40FifoCommitPosition {
     pub scanline: u16,

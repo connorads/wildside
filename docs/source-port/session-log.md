@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 Diamond earliest-commit lower bound)
+
+- Unseeded Diamond uploads now derive a conservative first-commit bound from
+  typed VBlank/pre-HUD work, phase zero, and no optional Z80 waits.
+- Six repeated one-pixel boundaries become exact. Full pixels are 37,474 exact
+  / 285 divergent / 5,190 changed; first mismatch advances 1706 -> 1709.
+- NEXT: classify frame 1709's mixed `loc_4586` FIFO raster without an
+  index-only persistent-clock march.
+
 ## 2026-07-29 handoff (#406 Iron Knight Sprite Table latch)
 
 - `Mode_Level loc_901` now carries Iron Knight climb state and pose accumulator
