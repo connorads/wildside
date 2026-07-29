@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 prize-flash deletion timing)
+
+- `loc_102B8` finishing flash workers now carry typed Object/main-Gfx/category-4
+  deletion ranks, including the ROM's asymmetric same-age flash/wobble order.
+- Oracle selected PCs prove frame 1715's 2,452-cycle raw E1E-to-E1E callback;
+  the rank formula exposes a 1,028-cycle fixed path.
+- Six repeated life-icon frames become exact with no regressions. Full pixels
+  are 37,486 exact / 273 divergent / 5,088 changed; first mismatch is 1730.
+- NEXT: address frame 1730 through the repeated Diamond raster class. The
+  remaining 58 life-icon frames are not the current frontier.
+
 ## 2026-07-29 handoff (#406 life-icon earliest-commit raster)
 
 - Natural life-icon uploads now advance typed VBlank/pre-HUD work through

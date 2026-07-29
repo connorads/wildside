@@ -335,10 +335,23 @@ fn published_tas_life_icon_upload_lower_bound_separates_late_and_visible_commits
         return;
     };
     let mut observed = Vec::new();
+    let mut frame_1715_flash_delete = None;
 
-    for (frame_index, mask) in script.iter().copied().enumerate().take(1710) {
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1716) {
         let trace = runtime.step_frame(FrameInput::from_mask(mask));
-        if matches!(frame_index, 1_697 | 1_703 | 1_709) {
+        if frame_index == 1_715 {
+            frame_1715_flash_delete = trace
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .and_then(|ledger| {
+                    ledger
+                        .execute_objects
+                        .prize_block_flash_paths_sub_1066
+                        .first()
+                })
+                .and_then(|work| work.delete_list_work);
+        }
+        if matches!(frame_index, 1_697 | 1_703 | 1_709 | 1_715) {
             let mut vblank = published_natural_vblank_work();
             vblank.hud_path_sub_bdc0 = ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters;
             observed.push((
@@ -378,8 +391,32 @@ fn published_tas_life_icon_upload_lower_bound_separates_late_and_visible_commits
                     pixel: 28,
                 }),
             ),
+            (
+                1_715,
+                Some(vdp::H40FifoCommitPosition {
+                    scanline: 20,
+                    pixel: 204,
+                }),
+            ),
         ],
         "ASM V_Int -> Mode_Level -> sub_E12 -> sub_44DC loc_4586 conservative lower bound",
+    );
+    assert_eq!(
+        frame_1715_flash_delete,
+        Some(crate::ModeLevelPrizeFlashDeleteListWork {
+            object_delete_rank_loc_ea2: 12,
+            gfx_delete_rank_loc_10ba: 8,
+            gfx_category4_delete_rank_loc_1106: 8,
+        }),
+        "ASM loc_102B8 -> sub_F1A walks all three typed deletion lists",
+    );
+    assert_eq!(
+        crate::mode_level_timing::prize_flash_finish_cycles_loc_102b8(
+            frame_1715_flash_delete.expect("typed frame-1715 delete ranks"),
+        )
+        .get(),
+        2_452,
+        "selected-PC oracle E1E-to-E1E source span after removing refresh/VDP waits",
     );
 }
 

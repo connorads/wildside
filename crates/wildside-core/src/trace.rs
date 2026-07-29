@@ -1253,6 +1253,121 @@ fn complete_prize_tail_list_work(execute: &mut ModeLevelExecuteObjectsWork) {
     }
 }
 
+fn prize_flash_delete_list_work(
+    execute: &ModeLevelExecuteObjectsWork,
+    target_flash_index: usize,
+) -> Option<ModeLevelPrizeFlashDeleteListWork> {
+    let target = execute
+        .prize_block_flash_paths_sub_1066
+        .get(target_flash_index)?;
+    if target.wake != ModeLevelPrizeAnimationWake::FinishAndDelete
+        || execute.active_enemy_workers != 0
+        || execute.active_platform_workers != 0
+        || execute.unclassified_runtime_transient_workers != 0
+        || execute.rubber_block_skin_workers_sub_10de4 != 0
+        || execute.player == ModeLevelPlayerWorkBeforeHud::Absent
+        || execute.linked_non_transient_object_count != 4
+        || usize::from(execute.prize_block_wobble_workers_sub_1007a)
+            != execute.prize_block_wobble_paths_sub_1007a.len()
+        || usize::from(execute.prize_block_worker_tails_sub_1007a)
+            != execute.prize_block_tail_paths_sub_1066.len()
+        || usize::from(execute.prize_block_flash_workers_loc_102b8)
+            != execute.prize_block_flash_paths_sub_1066.len()
+        || usize::from(execute.floating_prize_workers) != execute.floating_prize_paths.len()
+    {
+        return None;
+    }
+
+    let target_age = prize_flash_allocation_age(target.remaining);
+    let equal_worker_ages = execute
+        .prize_block_wobble_paths_sub_1007a
+        .iter()
+        .map(|work| prize_wobble_allocation_age(work.remaining))
+        .chain(
+            execute
+                .prize_block_tail_paths_sub_1066
+                .iter()
+                .map(prize_tail_allocation_age),
+        )
+        .chain(
+            execute
+                .prize_block_flash_paths_sub_1066
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| *index != target_flash_index)
+                .map(|(_, work)| prize_flash_allocation_age(work.remaining)),
+        )
+        .collect::<Vec<_>>();
+    let floating_prize_ages = execute
+        .floating_prize_paths
+        .iter()
+        .copied()
+        .map(floating_prize_allocation_age)
+        .collect::<Vec<_>>();
+    let same_age_wobbles = execute
+        .prize_block_wobble_paths_sub_1007a
+        .iter()
+        .filter(|work| prize_wobble_allocation_age(work.remaining) == target_age)
+        .count();
+    if same_age_wobbles > 1
+        || execute
+            .prize_block_tail_paths_sub_1066
+            .iter()
+            .any(|work| prize_tail_allocation_age(work) == target_age)
+        || execute
+            .prize_block_flash_paths_sub_1066
+            .iter()
+            .enumerate()
+            .any(|(index, work)| {
+                index != target_flash_index
+                    && prize_flash_allocation_age(work.remaining) == target_age
+            })
+        || floating_prize_ages.contains(&target_age)
+    {
+        return None;
+    }
+
+    // ASM loc_DE0 inserts before equal `$2001` Object selectors, so newer
+    // prize workers precede the finishing flash in the Object list. loc_FD4
+    // inserts after equal `$00FF` GfxObject keys, so older art nodes precede it.
+    let newer_equal_workers = equal_worker_ages
+        .iter()
+        .filter(|&&age| age < target_age)
+        .count();
+    let older_prize_gfx_workers = equal_worker_ages
+        .iter()
+        .chain(&floating_prize_ages)
+        .filter(|&&age| age > target_age)
+        .count()
+        + same_age_wobbles;
+    let prize_gfx_workers = equal_worker_ages.len() + floating_prize_ages.len() + 1;
+    let older_non_prize_standard_gfx =
+        usize::from(execute.linked_gfx_object_count).checked_sub(prize_gfx_workers)?;
+    let gfx_delete_rank = older_non_prize_standard_gfx + older_prize_gfx_workers;
+    let gfx_category4_delete_rank =
+        usize::from(execute.linked_gfx_object_count).checked_sub(gfx_delete_rank + 1)?;
+    let object_delete_rank = 2 + floating_prize_ages.len() + newer_equal_workers;
+
+    Some(ModeLevelPrizeFlashDeleteListWork {
+        object_delete_rank_loc_ea2: u16::try_from(object_delete_rank).ok()?,
+        gfx_delete_rank_loc_10ba: u16::try_from(gfx_delete_rank).ok()?,
+        gfx_category4_delete_rank_loc_1106: u16::try_from(gfx_category4_delete_rank).ok()?,
+    })
+}
+
+fn complete_prize_flash_delete_list_work(execute: &mut ModeLevelExecuteObjectsWork) {
+    let list_work = (0..execute.prize_block_flash_paths_sub_1066.len())
+        .map(|target_flash_index| prize_flash_delete_list_work(execute, target_flash_index))
+        .collect::<Vec<_>>();
+    for (flash, list_work) in execute
+        .prize_block_flash_paths_sub_1066
+        .iter_mut()
+        .zip(list_work)
+    {
+        flash.delete_list_work = list_work;
+    }
+}
+
 fn mode_level_airborne_horizontal_path(
     x_velocity_before: i32,
     x_velocity_after: i32,
@@ -2518,6 +2633,7 @@ mod tests {
                         y_px: 0x00B0,
                         remaining: 4,
                         wake: ModeLevelPrizeAnimationWake::Hibernate,
+                        delete_list_work: None,
                     }],
                     floating_prize_paths: vec![ModeLevelFloatingPrizeWork {
                         content: terrain::PrizeContent::Diamond,
@@ -2767,6 +2883,7 @@ mod tests {
                     y_px: 0,
                     remaining,
                     wake: ModeLevelPrizeAnimationWake::Hibernate,
+                    delete_list_work: None,
                 })
                 .collect(),
             floating_prize_paths: floating_remaining
@@ -10047,6 +10164,7 @@ impl NativeRuntime {
                 y_px: flash.y_px,
                 remaining: flash.remaining,
                 wake: prize_block_flash_wake_loc_102b8(flash.remaining),
+                delete_list_work: None,
             })
             .collect();
         let floating_prize_paths = self
@@ -10940,6 +11058,7 @@ impl NativeRuntime {
                 ledger.post_execute.shooter_scan_sub_f096 = Some(shooter);
             }
             complete_prize_tail_list_work(&mut ledger.execute_objects);
+            complete_prize_flash_delete_list_work(&mut ledger.execute_objects);
             ledger.execute_objects.prize_object_execution_order_sub_e12 =
                 prize_object_execution_order_sub_e12(&ledger.execute_objects);
         }

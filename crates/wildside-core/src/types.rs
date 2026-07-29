@@ -1792,11 +1792,20 @@ pub struct ModeLevelPrizeBlockTailWork {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModeLevelPrizeFlashDeleteListWork {
+    pub object_delete_rank_loc_ea2: u16,
+    pub gfx_delete_rank_loc_10ba: u16,
+    pub gfx_category4_delete_rank_loc_1106: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModeLevelPrizeBlockFlashWork {
     pub x_px: u16,
     pub y_px: u16,
     pub remaining: u8,
     pub wake: ModeLevelPrizeAnimationWake,
+    #[serde(default)]
+    pub delete_list_work: Option<ModeLevelPrizeFlashDeleteListWork>,
 }
 
 /// Terrain/fall branch taken by one diamond prize wake at ASM `loc_103B2`.

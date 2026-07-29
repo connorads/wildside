@@ -4779,6 +4779,24 @@ with a source-proven row-history difference.
 
 ### #406
 
+2026-07-29 prize-flash deletion timing: the remaining frame-1715 life-icon
+boundary was not an animation-page defect. `Execute_Objects` refused the
+`loc_102B8` flash worker's `FinishAndDelete` wake, leaving the whole pre-HUD
+span unknown. ASM `loc_102B8 -> sub_F1A -> sub_E9A -> sub_1072` identifies
+three variable linked-list walks. The ledger now records their zero-based
+Object, main-Gfx and category-4 ranks from typed worker ages. The ROM's
+same-frame flash/wobble tie is asymmetric: the later flash precedes wobble in
+the Object list but follows it in the Gfx list. Other ambiguous ties remain
+unknown. Oracle selected PCs at frame 1715 measure 2,589 elapsed E1E-to-E1E
+cycles with 137 refresh/VDP wait cycles, proving 2,452 raw cycles and ranks
+12/8/8; the shared formula retains only the 1,028-cycle fixed part. This unlocks
+the existing refresh-aware `loc_4586` raster bound at six repeated deletion
+frames. Full pixels improve to 37,486 exact / 273 divergent / 5,088 changed;
+first mismatch advances 1715 -> 1730 with no gameplay, enemy, camera, RNG or
+audio-command change. NEXT: return to the repeated Diamond raster class at
+frame 1730; the 58-frame life-icon residue remains a later family, not the
+current frontier.
+
 2026-07-29 unseeded life-icon FIFO raster: the earlier natural-VBlank bound
 summed raw 68000 source cycles, so it could only classify whole-page uploads
 that certainly landed below the HUD sprite. The core now advances the same

@@ -14,9 +14,10 @@ use crate::{
     ModeLevelPlatformLoaderWorkLoc2744, ModeLevelPlatformWork, ModeLevelPlayerExecutionPath,
     ModeLevelPostHudPhase, ModeLevelPostHudWorkLedger, ModeLevelPreHudWorkLedger,
     ModeLevelPrizeAnimationWake, ModeLevelPrizeBlockTailState, ModeLevelPrizeBlockWobbleWake,
-    ModeLevelPrizeObjectExecutionSubE12, ModeLevelPrizeTailListWork, ModeLevelReadJoypadWork,
-    ModeLevelRubberContactEffectLoc10DA4, ModeLevelShooterCollisionWork,
-    ModeLevelTerrainSpecialScanSub1FA2, ModeLevelVerticalCollisionPath, ModeLevelWallCollisionPath,
+    ModeLevelPrizeFlashDeleteListWork, ModeLevelPrizeObjectExecutionSubE12,
+    ModeLevelPrizeTailListWork, ModeLevelReadJoypadWork, ModeLevelRubberContactEffectLoc10DA4,
+    ModeLevelShooterCollisionWork, ModeLevelTerrainSpecialScanSub1FA2,
+    ModeLevelVerticalCollisionPath, ModeLevelWallCollisionPath,
 };
 use serde::{Deserialize, Serialize};
 
@@ -2164,6 +2165,22 @@ pub fn prize_tail_finish_cycles_sub_1007a(work: ModeLevelPrizeTailListWork) -> M
     M68kCycleCount(cycles)
 }
 
+/// Raw cycles for `loc_102B8`'s finished-animation delete through `loc_E1E`.
+pub fn prize_flash_finish_cycles_loc_102b8(
+    work: ModeLevelPrizeFlashDeleteListWork,
+) -> M68kCycleCount {
+    // ASM loc_102B8 -> sub_F1A -> sub_E9A -> sub_1072. The three deletion
+    // loops cost 52, 48 and 52 cycles per predecessor. A selected-PC trace of
+    // published frame 1715 pins the rank-independent E1E-to-E1E path at 1,028
+    // raw cycles (2,452 total minus ranks 12/8/8).
+    M68kCycleCount(
+        1_028
+            + 52 * u32::from(work.object_delete_rank_loc_ea2)
+            + 48 * u32::from(work.gfx_delete_rank_loc_10ba)
+            + 52 * u32::from(work.gfx_category4_delete_rank_loc_1106),
+    )
+}
+
 /// Raw cycles from ASM `Execute_Objects sub_E12` through the first loc_E1E list
 /// read, including all four `Get_RandomNumber_byte sub_9FE` calls.
 pub fn execute_objects_setup_cycles_sub_e12(rng_offset_before: u16) -> Option<M68kCycleCount> {
@@ -2848,7 +2865,9 @@ pub fn prize_object_cycles_sub_e12(
             match work.wake {
                 // ASM loc_1066 -> loc_1062 -> sub_E76.
                 ModeLevelPrizeAnimationWake::Hibernate => 50,
-                ModeLevelPrizeAnimationWake::FinishAndDelete => return None,
+                ModeLevelPrizeAnimationWake::FinishAndDelete => {
+                    return Some(prize_flash_finish_cycles_loc_102b8(work.delete_list_work?));
+                }
             }
         }
         ModeLevelPrizeObjectExecutionSubE12::WobbleSub1007A { index } => {
