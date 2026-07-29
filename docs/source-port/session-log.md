@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 Iron Knight retained attach mapping)
+
+- Jgenesis phase-3 capture proves frames 7968/7969 use identical `$625/$635`
+  SAT geometry, all 160 player pattern rows, palette line 3 and CRAM words.
+- `loc_A276` now explicitly retains Iron Knight idle instead of deriving an
+  airborne pose from the hibernated trace's cleared `on_ground` flag.
+- Frames 7969/14191/25566/33767 become exact. Full pixels improve to 37,490
+  exact / 269 divergent / 2,656 changed; worst mismatch falls 608 -> 33.
+- NEXT: resume the repeated HUD Diamond phase cluster at frame 1730.
+
 ## 2026-07-29 handoff (#406 distinguish producer and display mappings)
 
 - Frame 7968's loc_AD4 producer selects 26x33 while its displayed trace is

@@ -23158,3 +23158,19 @@ to 644 pixels rather than improving it. Normalising the resident page's ROM
 atlas source offsets likewise did not reduce the cluster. All code experiments
 are removed. Capture phase-2 SAT attributes and phase-3 fetched pattern rows
 from jgenesis before changing either pose selection or DMA timing again.
+
+Fixed 2026-07-29 for #406: phase-3 jgenesis capture proved the supposed
+player-art timing cluster was a retained-mapping bug. Frames 7968 and 7969
+fetch identical player SAT geometry (two sprites at pattern generators `$625`
+and `$635`), all 160 `$C4A0` pattern rows are byte-identical, and palette line
+3 plus all 16 CRAM words are identical. ASM loc_A276 hibernates before
+sub_A3BC can replace `addroffset_sprite`; native correctly suppressed the
+climb mapping but then used `kid_on_ground=false` to invent an airborne frame.
+`select_player_frame` now returns Iron Knight idle directly for the exact
+loc_A276 state (`climbing`, pose 0, y velocity `-$4000`), preserving the
+grounded mapping that entered the attach. All four repeated 608-pixel frames
+7969/14191/25566/33767 become exact. Full published-route pixels improve from
+37,486 exact / 273 divergent / 5,088 changed to 37,490 / 269 / 2,656; worst
+frame improves from 608 to 33 pixels and first mismatch remains the independent
+frame-1730 HUD Diamond residue. The oracle helper now retains requested-frame
+phase-2 geometry, phase-3 row bytes and CRAM palette evidence for `$C4A0`.

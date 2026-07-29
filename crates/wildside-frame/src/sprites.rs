@@ -722,9 +722,15 @@ pub fn select_player_frame<'a>(
         && trace.iron_knight_climbing
         && trace.iron_knight_climb_pose_accum == 0
         && y_velocity == -0x4000;
+    if iron_knight_attach_hibernate {
+        // ASM loc_A276: Hibernate_Object_1Frame returns before sub_A3BC can
+        // replace addroffset_sprite. The grounded idle mapping that entered
+        // the attach therefore remains resident even though loc_A276 has
+        // already cleared on_ground and seeded upward velocity.
+        return &player_visuals.idle;
+    }
     if trace.current_helmet_id == PlayerForm::IronKnight.helmet_id()
         && trace.iron_knight_climbing
-        && !iron_knight_attach_hibernate
         && !player_visuals.climb.is_empty()
     {
         // ASM sub_A3BC (kid.asm:12710-12715) stores d3, buckets `d3 >> 2`
@@ -4957,6 +4963,7 @@ mod tests {
                     iron_knight_climbing: true,
                     iron_knight_climb_pose_accum: 0,
                     kid_y_velocity: Some(-0x4000),
+                    kid_on_ground: Some(false),
                     ..NativeTraceFrame::default()
                 },
                 &visuals
