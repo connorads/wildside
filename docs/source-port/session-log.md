@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 full Diamond FIFO census)
+
+- Captured all 170 `hud_diamond` mismatch uploads with the existing filtered
+  jgenesis FIFO surface. Every transfer is one contiguous 256-word
+  `$DD40..$DF3F` DMA; first commits span scanlines 18..24 and many horizontal
+  phases. This rejects page-specific residency, fixed delay, and finite phase
+  lookup fixes. No production or baseline change. NEXT: promote the persistent
+  hardware owner from the test-only `tas_gems` shell, or source-type a reusable
+  whole-frame transition before extending the frame-995 frontier.
+
 ## 2026-07-29 handoff (#406 Iron Knight retained attach mapping)
 
 - Jgenesis phase-3 capture proves frames 7968/7969 use identical `$625/$635`

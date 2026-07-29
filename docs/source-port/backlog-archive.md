@@ -4791,6 +4791,18 @@ with a source-proven row-history difference.
 
 ### #406
 
+2026-07-29 full Diamond-residue FIFO census: oracle capture now covers all
+170 `hud_diamond` mismatch frames, not only the two representative clusters.
+Every row is one contiguous 256-word `$DD40..$DF3F` DMA, while first commits
+span scanlines 18..24 (18=16, 19=19, 20=72, 21=21, 22=18, 23=13, 24=11)
+and many horizontal phases. This rejects page-specific residency, a fixed
+scanline delay, and a small finite phase table as engine-level corrections.
+The existing phase-zero VINT lower bound cannot reconstruct these boundaries;
+the remaining input is continuous 68000 refresh/interrupt/VDP arbitration.
+No renderer or baseline change was made. NEXT: promote the persistent hardware
+owner out of the test-only `tas_gems` shell, or first source-type a reusable
+whole-frame transition that advances it without another frame-index injection.
+
 2026-07-29 contiguous FIFO span follow-up: the initial frame-level summary
 joined unrelated transfers when a DMA crossed `FrameRendered`. Summaries now
 split records whenever the target or next destination address is not
