@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#409 production timeline boundary)
+
+- The runtime trace already exposes the full VBlank, pre-HUD, post-HUD and
+  `loc_892` source ledgers; the HUD renderer already consumes exact word-level
+  FIFO timings when supplied.
+- `build_ingame_scene` has only the prior VDP latch. It cannot recover CPU
+  refresh phase, asynchronous GEMS bank waits, or VDP ownership from those
+  frame-local ledgers. A renderer-owned clock would therefore encode a guess.
+- Rejected: seeding a `wildside-frame` timeline at VINT, and promoting the
+  route-indexed `GemsSignatureProbe` wholesale.
+- NEXT: define an execution-shell hardware-arbitration port, use it to replace
+  one post-frame-923 correction in `tas_gems`, and prove neighbouring frames
+  before emitting `ModeLevelRasterSeedSubE12` to the HUD renderer.
+
 ## 2026-07-29 handoff (#406 Dragon edge-art correction)
 
 - Oracle VDP samples show no sprite contribution at the seven bottom-right

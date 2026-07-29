@@ -13,6 +13,22 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+Progress 2026-07-29: the production-boundary audit rejects a renderer-owned
+HUD clock. `NativeTraceFrame` already carries the complete source-ordered
+VBlank, pre-HUD, post-HUD, and `loc_892` ledgers, and the HUD renderer already
+composes word-level `loc_4586` FIFO writes when given a concrete entry cursor.
+However, `build_ingame_scene` is deliberately stateless apart from the prior
+VDP latch, while the missing entry cursor depends on CPU refresh phase plus
+inter-frame Z80 bank waits and VDP ownership. Those facts exist only inside
+the test-only `GemsSignatureProbe`; reconstructing them from frame-local
+ledgers in `wildside-frame` would silently assume zero asynchronous waits.
+Rejected: a `wildside-frame` timeline seeded from VINT, and promoting the
+route-indexed probe. The next viable implementation boundary is a reusable
+hardware-arbitration port owned by the execution shell, with source events as
+inputs and a typed `ModeLevelRasterSeedSubE12` as output. It must first replace
+one frame-number correction in `tas_gems` and reproduce its neighbouring
+frames before it may drive HUD pixels.
+
 Progress 2026-07-29: ASM `Palette_to_VRAM sub_970` separates the DemoPlay
 suppressed branch (56 raw cycles) from the active branch (362), so the natural
 stable-counter `Mode_Level $7C8 -> sub_E12` source span is now typed as 2,999
