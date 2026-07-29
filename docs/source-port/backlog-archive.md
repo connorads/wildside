@@ -22816,3 +22816,20 @@ visits, full pixels improve 37,257 -> 37,269 exact, 502 -> 490 divergent, and
 17,816 -> 15,428 changed. Player/camera, RNG, enemy, and GEMS command evidence
 is unchanged. NEXT: skip the two deferred Iron Knight clusters and classify
 `grid:4,2-5,2` (56 frames / 1,484 pixels).
+
+Progress 2026-07-29 for #406: `grid:4,2-5,2` is a repeated HUD timer rollover,
+not a tile recolour. At frame 2727 oracle final WRAM has already changed the
+low digit in `Sprite_Table` to 2:58, while the displayed SAT still presents
+2:59 from the preceding Mode_Level transfer. Native timer RAM rolled one frame
+early: frame 2726 exposed 2:58/$3C instead of oracle 2:59/$01. The later
+timeout-restarted Knights Isle demo had the same error at frame 21957 because
+that `loc_1BB02 -> Load_DemoPlay` lineage retains one additional hidden pass.
+Demo 2 cannot share this delay: its bootstrap deliberately runs the earlier HUD
+presentation clock. Native now keeps Demo 2's start, begins Demo 1's
+`Make_SpriteAttr_HUD loc_BE82/loc_BEE8` tail one pass after its lineage-specific
+gameplay bootstrap, and applies the same boundary to the dedicated presentation
+clock. Cache-backed regressions pin both cold and timeout-return WRAM/table
+rollovers. The complete timer cluster disappears; full pixels improve 37,269
+-> 37,332 exact, 490 -> 427 divergent, and 15,428 -> 12,874 changed. All
+37,759 player/camera, gameplay, and enemy frames plus all 37,743 post-init RNG
+frames remain exact. NEXT: classify full-screen frame 22545 (988 pixels).

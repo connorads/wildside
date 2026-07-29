@@ -3965,13 +3965,23 @@ impl NativeRuntime {
             BootState::StartingLevel { .. } | BootState::InGame
         ) && !level_entry_hibernated_gameplay_execution)
             || (self.demo_gameplay_active() && self.opening_slice.is_some());
-        if matches!(
-            self.boot_state,
+        let demo_hud_timer_tail_active = match self.boot_state {
             BootState::DemoPlay {
                 frame_counter,
+                use_demo_2,
                 ..
-            } if frame_counter >= demo::DEMO_HUD_TIMER_TAIL_START_FRAME
-        ) && gameplay_slice_active
+            } => {
+                let start_frame = if use_demo_2 {
+                    demo::hud_timer_tail_start_frame(true)
+                } else {
+                    self.demo_gameplay_start_frame(false).saturating_add(1)
+                };
+                frame_counter >= start_frame
+            }
+            _ => false,
+        };
+        if demo_hud_timer_tail_active
+            && gameplay_slice_active
             && !transform_hibernating_at_frame_start
         {
             // ASM Mode_Level calls Make_SpriteAttr_HUD before Execute_Objects.
@@ -3981,7 +3991,11 @@ impl NativeRuntime {
             self.pending_demo_timer_tick_result_loc_be82 =
                 Some(self.tick_level_timer_hud_loc_be82());
         }
-        if matches!(self.boot_state, BootState::DemoPlay { .. })
+        let demo_hud_presentation_active = match self.boot_state {
+            BootState::DemoPlay { use_demo_2, .. } => use_demo_2 || demo_hud_timer_tail_active,
+            _ => false,
+        };
+        if demo_hud_presentation_active
             && self.demo_gameplay_active()
             && gameplay_slice_active
             && self.level_start_frame != Some(self.frame_index)

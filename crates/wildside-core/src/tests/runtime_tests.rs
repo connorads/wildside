@@ -6857,6 +6857,55 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_timer_rollover_builds_next_sprite_table_loc_be82_bee8() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut boundary = Vec::new();
+        let mut timeout_restart_boundary = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(21_960) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if (2_725..=2_728).contains(&frame_index) {
+                boundary.push((
+                    frame_index,
+                    trace.level_timer_seconds,
+                    trace.level_timer_sub_frames,
+                    trace.hud_timer_sprite_seconds_loc_bee8,
+                ));
+            } else if (21_956..=21_959).contains(&frame_index) {
+                timeout_restart_boundary.push((
+                    frame_index,
+                    trace.level_timer_seconds,
+                    trace.level_timer_sub_frames,
+                    trace.hud_timer_sprite_seconds_loc_bee8,
+                ));
+            }
+        }
+
+        assert_eq!(
+            boundary,
+            vec![
+                (2_725, 179, 2, Some(179)),
+                (2_726, 179, 1, Some(179)),
+                (2_727, 178, 60, Some(178)),
+                (2_728, 178, 59, Some(178)),
+            ],
+            "ASM Make_SpriteAttr_HUD loc_BE82/loc_BEE8 decrements Time_SubSeconds and builds the next Sprite_Table before Mode_Level's following loc_901 transfer",
+        );
+        assert_eq!(
+            timeout_restart_boundary,
+            vec![
+                (21_956, 179, 2, Some(179)),
+                (21_957, 179, 1, Some(179)),
+                (21_958, 178, 60, Some(178)),
+                (21_959, 178, 59, Some(178)),
+            ],
+            "ASM loc_1BB02 -> Load_DemoPlay keeps the timeout-restarted Knights Isle bootstrap one pass behind the cold-demo lineage before loc_BE82",
+        );
+    }
+
+    #[test]
     fn published_tas_demo_2_transform_entry_runs_island_worker_loc_12098() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

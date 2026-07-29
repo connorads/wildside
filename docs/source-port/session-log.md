@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 demo HUD timer lineage)
+
+- Oracle WRAM and Sprite Table probes show Demo 1's `loc_BE82` decrement starts
+  one pass after its first gameplay-visible bootstrap state. Its timeout-return
+  lineage retains one additional hidden pass; Demo 2 keeps its earlier HUD path.
+- Native now derives the timer tail from the lineage-specific gameplay start.
+  The 56-frame timer-digit cluster and seven adjacent mismatches are exact.
+- Full pixels improve to 37,332 exact / 427 divergent / 12,874 changed. NEXT:
+  classify full-screen frame 22545 (988 pixels) before small HUD timing debt.
+
 ## 2026-07-29 handoff (#406 walking-Dragon breath palette)
 
 - `Dragon.asm loc_3D02A` copies the parent GfxObject palette line into the

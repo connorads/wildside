@@ -136,10 +136,13 @@ pub(crate) const DEMO_GAMEPLAY_START_FRAME: u16 = 65;
 /// Demo 1 (Knights Isle) keeps the player hidden and inert seven frames longer
 /// than demo 2 before exposing gameplay state in RAM.
 pub(crate) const DEMO_1_GAMEPLAY_START_FRAME: u16 = 72;
-/// First demo startup frame where the suspended Load_InGame pass reaches
-/// Mode_Level's leading Make_SpriteAttr_HUD call. Knights Isle reaches
-/// loc_892 seven frames earlier, but its authoritative timer remains held.
-pub(crate) const DEMO_HUD_TIMER_TAIL_START_FRAME: u16 = 72;
+/// First demo startup frame where the suspended Load_InGame pass completes
+/// Mode_Level's leading Make_SpriteAttr_HUD timer decrement. Skydragon reaches
+/// the shared tail on frame 72; Knights Isle's longer bootstrap reaches it on
+/// frame 73, after its first gameplay-visible state.
+pub(crate) fn hud_timer_tail_start_frame(use_demo_2: bool) -> u16 {
+    if use_demo_2 { 72 } else { 73 }
+}
 /// Oracle-backed published TAS traces keep the Knights Isle demo auto-timeout
 /// compare sixty-eight frames behind the raw startup frame counter. `loc_C22`
 /// compares the stored timeout counter before incrementing it, and oracle RAM
@@ -422,7 +425,8 @@ mod tests {
         assert_eq!(gameplay_start_frame(false), 72);
         assert_eq!(mode_level_tail_start_frame(true), 65);
         assert_eq!(mode_level_tail_start_frame(false), 72);
-        assert_eq!(DEMO_HUD_TIMER_TAIL_START_FRAME, 72);
+        assert_eq!(hud_timer_tail_start_frame(true), 72);
+        assert_eq!(hud_timer_tail_start_frame(false), 73);
         assert_eq!(enemy_warmup_frame(false), 73);
     }
 
