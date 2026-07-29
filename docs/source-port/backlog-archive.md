@@ -22584,3 +22584,16 @@ Closed stale/superseded: **#161** is covered by #210/#254; **#176**, **#184**, *
 - ASM/evidence: `Murderwall loc_140CE` plus the level-skip `loc_74E0` hidden live tail puts Bloody Swamp recording frame 0 at the oracle wall age; `Archer.asm Enemy07_Archer_Init loc_33FDA`, `loc_3408C`, `loc_341BE`, `loc_34248`, and `Enemy07_ArcherArrow_Init loc_34266` define Scorpion Isle Archer init hibernation, held-arrow GFX workers, fired-arrow object/GFX counts, and first-shot timing. Native also hides grounded Goat/Tank shared-walker patrol speed from ROM-visible snapshots per `Goat.asm loc_3CC52 -> Lion.asm loc_3E566/loc_3E3B2`.
 - Recordings: regenerated `.cache/recordings/issue374-bloody-swamp-idle` and `.cache/recordings/issue374-scorpion-isle-idle`. Both reports have `trace_match=true`, `first_trace_drift=null`, `oracle_state_match=true`, and `oracle_state_error=null`. Strict `oracle_frame_match=false` remains render-only: Bloody level-settle diff is murder-wall palette/animation plus HUD pixels, Bloody tail is missing title-card letters, Scorpion level-settle is Island background/HUD/arrow-pixel residual, and Scorpion tail is missing title-card letters. These are not treated as remaining #374 gameplay/state failures.
 - Verification: focused tests for Archer init hibernate/timing, Archer object comparison, Bloody recording settle, Goat snapshot normalisation, and post-death title-card comparator policy; regenerated/verified the two #374 recordings; smoke-loaded all five named levels with `probe-record-scenario --scenario idle --walk-frames 700 --player-motion`; `verify-slice-fast` and `verify-tas-full` pass. Human validation should load the five named levels in SDL and confirm the original corrupt-tilemap/instant-death symptoms are gone.
+Progress 2026-07-29 for #406: the 28-frame / 5,948-pixel Iron Knight cluster
+is a dynamic-art residency boundary rather than another `sub_B270` pose rule.
+Direct oracle VRAM at `$C4A0` identifies frame 8004 as the complete
+`iron_knight_climbing_1.bin` page and frame 8006 as complete
+`iron_knight_climbing_2.bin`. Frame 8005 is hybrid: its first 512 bytes (16
+tiles) exactly match climbing 2 while its final 128 bytes (four tiles) still
+match climbing 1. The gameplay SAT remains unchanged across 8004/8005, so the
+two `Transfer_SpriteAndKidToVRAM loc_AD4` chunk DMAs straddle sprite fetch while
+native incorrectly selects one atomic source sheet. Rejected: changing the
+four-state airborne mapping; the rendered trace is airborne state 1, but the
+resident oracle bytes are climbing art. NEXT: expose the two Kid DMA chunk
+commits as typed resident state and composite the independently resident tile
+ranges before another full-route pixel recount.

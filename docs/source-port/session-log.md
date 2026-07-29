@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 Iron Knight chunk residency)
+
+- Oracle VRAM proves frame 8005 is a hybrid Kid page: the first 16 tiles are
+  `iron_knight_climbing_2.bin`; the final four retain `climbing_1.bin`.
+- The unchanged SAT and split `loc_AD4` result reject airborne mapping and
+  atomic whole-sheet selection as explanations for the 28-frame cluster.
+- NEXT: type the two dynamic-art DMA chunk commits and render their independent
+  resident sources before recounting pixels.
+
 ## 2026-07-29 handoff (#406 retained airborne threshold)
 
 - `sub_B270 loc_B334` uses the stale `$FAAA` launch threshold after landing
