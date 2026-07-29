@@ -2058,8 +2058,14 @@ pub fn wait_for_vint_mclk_from_vint_assertion_to_mode_level(
 pub fn mode_level_vblank_source_cycles_before_sub_e12(
     work: ModeLevelVblankWorkBeforeSubE12,
 ) -> Option<M68kCycleCount> {
-    if work.dynamic_art_tiles_loc_ad4 != Some([16, 4, 0, 0, 0, 0])
-        || work.scroll_path != ModeLevelScrollTransferPath::NormalLoc300ba
+    let dynamic_art_source_cycles = match work.dynamic_art_tiles_loc_ad4 {
+        // ASM sub_A5C/loc_AD4: the exact source visitor measures 1,398 raw
+        // cycles for the repeated `[16,4]` queue and 822 for an empty queue.
+        Some([16, 4, 0, 0, 0, 0]) => 1_398,
+        None => 822,
+        _ => return None,
+    };
+    if work.scroll_path != ModeLevelScrollTransferPath::NormalLoc300ba
         || work.foreground_custom_queue_entries_sub_1596 != 0
         || work.foreground_cell_queue_entries_sub_1596 != 0
         || work.paused_sub_6874
@@ -2084,7 +2090,7 @@ pub fn mode_level_vblank_source_cycles_before_sub_e12(
     // cycles rather than the active branch's 362.
     let palette_suppression_saving = if work.palette_dma_sub_970 { 0 } else { 306 };
     Some(M68kCycleCount::from_raw(
-        raw_cycles - palette_suppression_saving,
+        raw_cycles - palette_suppression_saving - (1_398 - dynamic_art_source_cycles),
     ))
 }
 
@@ -7277,6 +7283,15 @@ mod tests {
             .map(M68kCycleCount::get),
             Some(3_415),
             "ASM sub_BDC0 stable counters replace both calc_display_number paths with the second hitpoint loop"
+        );
+        assert_eq!(
+            mode_level_vblank_source_cycles_before_sub_e12(ModeLevelVblankWorkBeforeSubE12 {
+                dynamic_art_tiles_loc_ad4: None,
+                ..work
+            })
+            .map(M68kCycleCount::get),
+            Some(2_839),
+            "ASM sub_A5C loc_AD4's empty queue removes the two typed Kid-art DMA source paths",
         );
         for (arbitration, expected) in [
             (

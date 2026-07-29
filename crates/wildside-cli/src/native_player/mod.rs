@@ -20638,6 +20638,56 @@ mod tests {
     }
 
     #[test]
+    fn published_tas_frame_1730_empty_loc_ad4_exposes_diamond_lower_bound_loc_4626() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let repo_root = crate_dir
+            .parent()
+            .and_then(Path::parent)
+            .expect("wildside-cli crate should live under <repo>/crates/wildside-cli");
+        let scenario: DynamicScenario = serde_json::from_str(
+            &fs::read_to_string(
+                repo_root.join("tests/data/tas/any-percent-published/scenario.json"),
+            )
+            .expect("published TAS scenario should be readable"),
+        )
+        .expect("published TAS scenario should parse");
+        let mut runtime = NativeRuntime::new(manifest);
+        let mut trace = None;
+        for (frame_index, mask) in scenario.script.iter().copied().enumerate().take(1_731) {
+            let current = runtime.step_frame(FrameInput::from_mask(mask));
+            if frame_index == 1_730 {
+                trace = Some(current);
+            }
+        }
+        let trace = trace.expect("published frame 1730 trace");
+        let command = trace
+            .hud_dma_events_sub_44dc
+            .iter()
+            .copied()
+            .find(|command| matches!(command, wildside_core::HudDmaEventSub44DC::Diamond { .. }))
+            .expect("published frame 1730 Diamond command");
+        let timing = wildside_core::vdp::diamond_earliest_commit_from_vint_assertion(
+            trace
+                .mode_level_vblank_work_before_sub_e12
+                .expect("published frame 1730 VBlank work"),
+            trace
+                .mode_level_work_before_hud_sub_44dc
+                .as_ref()
+                .expect("published frame 1730 pre-HUD work"),
+            command,
+        )
+        .expect("published frame 1730 empty loc_AD4 queue has a typed lower bound");
+        assert_eq!(
+            (timing.scanline, timing.pixel),
+            (15, 284),
+            "ASM sub_A5C's empty loc_AD4 queue must remain source-typed; asynchronous CPU/VDP/Z80 arbitration moves the oracle sub_44DC loc_4626 commit later to H40 20:380",
+        );
+    }
+
+    #[test]
     fn game_hud_timer_rollover_renders_sub_bdc0_decrement_before_trace_second_advances() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_timer_seconds = 177;

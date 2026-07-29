@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#409 empty loc_AD4 source path)
+
+- `Mode_Level` VBlank timing now types the empty `loc_AD4` queue from the
+  existing ASM visitor: 822 raw cycles versus 1,398 for `[16,4]`, making the
+  complete active-palette/direct-HUD source path 2,839 cycles.
+- Published frame 1730 now exposes a conservative Diamond DMA lower bound at
+  H40 15:284. Oracle starts at 20:380; the remaining delta is asynchronous
+  CPU/VDP/Z80 arbitration, not missing source work.
+- The focused 1728..1732 render remains 4 exact / 1 divergent, with the same
+  12 frame-1730 pixels. No timing constant was fitted.
+- NEXT: carry the arbitration state needed to move 15:284 to 20:380 and reuse
+  that owner for the life-icon FIFO family.
+
 ## 2026-07-29 handoff (#408/#409 Diamond discriminator)
 
 - A ROM-shaped per-enemy Diamond animation clock changed zero pixels across

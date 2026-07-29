@@ -38,6 +38,17 @@ selection error. The capture used `sub_44DC`, `loc_4626`, `sub_5D4A` and the
 surrounding `Mode_Level` PC boundaries; retain the FIFO train as the next
 execution-shell arbitration witness.
 
+Progress 2026-07-29: `Mode_Level` VBlank source timing now accepts an empty
+`loc_AD4` dynamic-art queue. The existing ASM visitor proves 822 raw cycles
+for empty versus 1,398 for `[16,4]`, so the complete active-palette/direct-HUD
+source path is 2,839 cycles. Frame 1730 now produces a conservative Diamond
+first-commit bound at H40 15:284 instead of returning `None`; a cache-backed
+published-route regression pins that result. The oracle remains later at
+20:380 because the bound intentionally omits asynchronous arbitration. The
+focused 1728..1732 pixel window is unchanged at 4 exact / 1 divergent, with
+frame 1730 still 12 pixels. NEXT: account for the carried arbitration delta;
+do not turn 20:380 into an empty-queue constant.
+
 Progress 2026-07-29: ASM `Palette_to_VRAM sub_970` separates the DemoPlay
 suppressed branch (56 raw cycles) from the active branch (362), so the natural
 stable-counter `Mode_Level $7C8 -> sub_E12` source span is now typed as 2,999
