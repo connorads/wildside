@@ -11368,10 +11368,6 @@ impl NativeRuntime {
             airborne_visual_mapping_sub_b270: player_state
                 .filter(|state| !state.on_ground)
                 .filter(|_| {
-                    self.helmet.airborne_mapping_jump_sequence_active
-                        || self.mode_level_work_before_hud_sub_44dc.is_none()
-                })
-                .filter(|_| {
                     // ASM loc_AA22 enters sub_B270 with the `$FFFFFA67`
                     // airborne latch still set. loc_B28E therefore returns
                     // without replacing addroffset_sprite on wall-cling
@@ -11389,6 +11385,11 @@ impl NativeRuntime {
                         })
                 })
                 .and_then(|_| {
+                    // ASM sub_B270 loc_B334 reads `$FFFFFAAA` on every
+                    // airborne mapping pass. Landing clears `$FFFFFA67` but
+                    // leaves this launch threshold stale, so a later ledge
+                    // fall still uses it to select the four-state off_B3B8
+                    // row rather than reverting to a sign-only pose.
                     kid_y_velocity.zip(self.helmet.airborne_mapping_jump_threshold_y_velocity)
                 })
                 .map_or(
@@ -15775,4 +15776,18 @@ pub(crate) fn opening_level_one_object_counts(
     // Number_Objects=4 / Number_GfxObjects=5 here, and the scrolled opening
     // window preserves the same split.
     Some((roster_count + 2, roster_count + 3))
+}
+
+#[cfg(test)]
+mod airborne_mapping_tests {
+    use super::*;
+
+    #[test]
+    fn stale_launch_threshold_classifies_later_ledge_fall_sub_b270_loc_b334() {
+        assert_eq!(
+            airborne_visual_mapping_path_sub_b270(-0x0000_C000, -0x0007_0000),
+            ModeLevelAirborneVisualMappingPathSubB270::AscendingState1,
+            "ASM sub_B270 loc_B334 reads retained `$FFFFFAAA` after landing clears only `$FFFFFA67`"
+        );
+    }
 }

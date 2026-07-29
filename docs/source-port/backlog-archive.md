@@ -2660,6 +2660,17 @@ RNG, and audio-command evidence is unchanged. Fifteen isolated palette-line-1
 background frames remain at transform and scene boundaries; post-frame VRAM is
 insufficient to classify their captured-field latch.
 
+Progress 2026-07-29: the repeated 35x37 Knight's Isle silhouette was Iron
+Knight pose selection, not palette or sprite lifetime. Oracle SAT at 8058..8063
+retains Kid at the same position and palette line 3; direct crops show native's
+state-0 shield pose against oracle's state-1 airborne mapping. ASM `sub_B270
+loc_B334` always reads `$FFFFFAAA`: landing clears `$FFFFFA67` but leaves that
+launch threshold stale for later ledge falls. Native had invented a jump-latch
+guard and reverted those falls to sign-only art. Removing it eliminates the
+6,600-pixel class and improves the full route by 20 exact frames / 11,000
+changed pixels: 37,116 exact / 643 divergent / 69,384 changed. Gameplay,
+enemy, camera, RNG, and audio-command evidence is unchanged.
+
 ### #412
 
 Follow-up 2026-07-16: recaptured the current frontier pair at frame 1020.

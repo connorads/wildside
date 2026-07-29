@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 retained airborne threshold)
+
+- `sub_B270 loc_B334` uses the stale `$FAAA` launch threshold after landing
+  clears `$FA67`; later ledge falls no longer use sign-only pose selection.
+- Full pixels improve to 37,116 exact / 643 divergent / 69,384 changed;
+  20 route frames become exact and all non-pixel frontiers stay unchanged.
+- NEXT: classify the 28-frame / 5,948-pixel moving silhouette, then the
+  12-frame / 5,736-pixel left-edge enemy family.
+
 ## 2026-07-29 handoff (#406 transform H-scroll ownership)
 
 - `Kid_Transform loc_7CBE/loc_7D22 -> sub_8E0` owns the current H-scroll
