@@ -2649,6 +2649,17 @@ background pixels, then compare those words with oracle CRAM at 22464/22465.
 Do not retry Forest ripple offsets, generic transform scroll phase, or the
 frame-index fallback palette clock for this range.
 
+Progress 2026-07-29: direct CRAM dumps at 7603..7605 are byte-identical, while
+oracle VRAM `$1400` advances Plane B from `$FE8C` to `$FE8B` on transform entry.
+The 22465..22544 residue was not palette rotation: the hidden-wrap demo display
+override incorrectly outranked `Kid_Transform loc_7CBE/loc_7D22 -> sub_8E0`,
+which transfers the current H-scroll table on every synchronous VBlank. Giving
+the transform path ownership removes 79 divergent frames and 30,738 changed
+pixels: 37,096 exact / 663 divergent / 80,384 changed. Gameplay, enemy, camera,
+RNG, and audio-command evidence is unchanged. Fifteen isolated palette-line-1
+background frames remain at transform and scene boundaries; post-frame VRAM is
+insufficient to classify their captured-field latch.
+
 ### #412
 
 Follow-up 2026-07-16: recaptured the current frontier pair at frame 1020.

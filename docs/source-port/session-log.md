@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 transform H-scroll ownership)
+
+- `Kid_Transform loc_7CBE/loc_7D22 -> sub_8E0` owns the current H-scroll
+  table even when entered from the hidden-wrap demo lineage.
+- Full pixels improve to 37,096 exact / 663 divergent / 80,384 changed;
+  79 route frames become exact and all non-pixel frontiers stay unchanged.
+- NEXT: classify the 12-frame / 6,600-pixel gameplay silhouette, then use
+  captured-field evidence for the remaining transform boundary latches.
+
 ## 2026-07-29 handoff (#406 hidden-wrap Plane-B display phase)
 
 - Direct oracle VDP evidence separates the IntroSequence6 hidden-wrap
