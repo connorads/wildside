@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 IntroSequence5 mode-handoff worker phase)
+
+- Oracle SAT frames 20893..20895 prove the FC82=2 `loc_1BE74` particle
+  worker advances across the `$24 -> $28` mode handoff; native repeated the
+  final mode-$24 pose on the first fade-hold frame.
+- The correction is lineage-specific. Applying it to FC82=0 regressed frame
+  28066 by 92 pixels; retaining that lineage's latched SAT keeps it exact.
+- Full pixels improve to 37,460 exact / 299 divergent / 7,464 changed with 15
+  clusters. NEXT: classify the repeated IntroSequence2 family at frames
+  14980/19182/26355/31240.
+
 ## 2026-07-29 handoff (#406 SAT-order sprite composition)
 
 - Mega Drive sprite overlap resolves in SAT order before the winning pixel's

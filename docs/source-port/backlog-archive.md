@@ -4779,6 +4779,24 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-29 (IntroSequence5 `$24 -> $28` worker phase): full-route
+frames 20894/20895 differed by 349/92 pixels in the final visible
+`unk_1BE24` particle. Oracle SAT positions advance from `(264,209)` on frame
+20893 to `(268,218)` and `(272,227)`; native repeated the first pose at the
+mode switch. ASM `loc_1BA60 -> loc_1BA5C` changes `Game_Mode` after the
+independently scheduled `loc_1BE74` worker completes its hibernate pass.
+
+The FC82=2 fade-hold builder now carries that extra worker pass. A uniform
+handoff correction was rejected because it created a 92-pixel mismatch at
+FC82=0 frame 28066, whose oracle retains the latched SAT. Focused windows
+20890..20896 and 28064..28067 are exact. Full pixels improve
+37,458->37,460 exact, 301->299 divergent, and 7,905->7,464 changed with 15
+clusters remaining; gameplay, player/camera, enemy, RNG, and audio baselines
+are unchanged.
+
+NEXT: classify the repeated IntroSequence2 family at frames
+14980/19182/26355/31240 (144 pixels total).
+
 Progress 2026-07-29 (SAT-order sprite composition): the IntroSequence5 particle
 pairs at 20850..20851 and 28022..28023 had byte-identical native/oracle VRAM
 and matching particle positions, but native selected the later priority-1

@@ -800,7 +800,13 @@ pub(crate) fn build_intro_sequence_5_fade_hold_vdp_at_elapsed(
     fade_elapsed: usize,
     intro_sequence_3_roster_index: usize,
 ) -> VdpState {
-    let worker_elapsed = INTRO_FIFTH_SEGMENT_FRAMES + fade_elapsed;
+    // ASM loc_1BA60 -> loc_1BA5C: on the repeated FC82=2 visit, the
+    // independently scheduled loc_1BE74 particle workers complete one more
+    // hibernate pass before Game_Mode changes to `$28`. FC82=0 retains the
+    // latched SAT instead, as pinned by the cold lineage's oracle handoff.
+    let worker_elapsed = INTRO_FIFTH_SEGMENT_FRAMES
+        .saturating_add(usize::from(title_variant == 2))
+        .saturating_add(fade_elapsed);
     let mut vdp = build_intro_sequence_vdp_with_title_variant_at_elapsed(
         data,
         4,

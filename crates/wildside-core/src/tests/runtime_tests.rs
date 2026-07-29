@@ -6408,10 +6408,11 @@ mod chunk_09 {
         };
         let mut frame_20852 = None;
         let mut particle_sat_y_20852_20855 = Vec::new();
+        let mut particle_sat_xy_20893_20895 = Vec::new();
         let mut frame_20893 = None;
         let mut frame_20894 = None;
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(20_895) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(20_896) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             match frame_index {
                 20_852 => {
@@ -6431,6 +6432,11 @@ mod chunk_09 {
                     runtime.vdp_state().expect("frame 20853..20855 VDP").vram[0x1001],
                 ])),
                 20_893 => {
+                    let vdp = runtime.vdp_state().expect("frame 20893 VDP");
+                    particle_sat_xy_20893_20895.push((
+                        u16::from_be_bytes([vdp.vram[0x1006], vdp.vram[0x1007]]),
+                        u16::from_be_bytes([vdp.vram[0x1000], vdp.vram[0x1001]]),
+                    ));
                     frame_20893 = Some((
                         trace.game_mode,
                         trace.current_level,
@@ -6439,11 +6445,23 @@ mod chunk_09 {
                     ));
                 }
                 20_894 => {
+                    let vdp = runtime.vdp_state().expect("frame 20894 VDP");
+                    particle_sat_xy_20893_20895.push((
+                        u16::from_be_bytes([vdp.vram[0x1006], vdp.vram[0x1007]]),
+                        u16::from_be_bytes([vdp.vram[0x1000], vdp.vram[0x1001]]),
+                    ));
                     frame_20894 = Some((
                         trace.game_mode,
                         trace.current_level,
                         trace.kid_x_pos,
                         trace.kid_y_pos,
+                    ));
+                }
+                20_895 => {
+                    let vdp = runtime.vdp_state().expect("frame 20895 VDP");
+                    particle_sat_xy_20893_20895.push((
+                        u16::from_be_bytes([vdp.vram[0x1006], vdp.vram[0x1007]]),
+                        u16::from_be_bytes([vdp.vram[0x1000], vdp.vram[0x1001]]),
                     ));
                     break;
                 }
@@ -6464,6 +6482,11 @@ mod chunk_09 {
             particle_sat_y_20852_20855,
             [0x00F1, 0x00F6, 0x00FB, 0x0100],
             "ASM loc_1BE74 applies gravity after movement; oracle frames 20852..20855 pin the FC82=2 newest particle's SAT Y",
+        );
+        assert_eq!(
+            particle_sat_xy_20893_20895,
+            [(0x0188, 0x0151), (0x018C, 0x015A), (0x0190, 0x0163)],
+            "ASM loc_1BA60 -> loc_1BA5C must not repeat loc_1BE74's final mode-$24 particle pose when mode $28 starts",
         );
         assert_eq!(
             frame_20893,
