@@ -7404,6 +7404,29 @@ fn intro_sequence_5_raster_upload_loc_1BC36(
     }
 }
 
+fn intro_sequence_5_frame_index_loc_1_bc36(
+    elapsed: usize,
+    lineage: IntroSequence5WorkerLineage,
+) -> Option<u16> {
+    INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE
+        .iter()
+        .rev()
+        .find_map(|(start_elapsed, frame_index)| {
+            // ASM loc_1BC36 -> sub_1C034: oracle timeout FC82=0/1 scanout keeps
+            // d4=6 and d4=7 for one display at their short tail transitions.
+            // The d4=6 entry and final d4=5 FIFO boundaries remain unchanged.
+            let presentation_delay = usize::from(
+                matches!(
+                    lineage,
+                    IntroSequence5WorkerLineage::TimeoutFc82Zero
+                        | IntroSequence5WorkerLineage::TimeoutFc82OneStartSkip
+                ) && matches!(*frame_index, 7 | 6)
+                    && *start_elapsed >= INTRO_SEQUENCE_5_LOC_1BC36_FRAME_7_RASTER_ELAPSED,
+            );
+            (elapsed >= start_elapsed.saturating_add(presentation_delay)).then_some(*frame_index)
+        })
+}
+
 #[allow(non_snake_case)]
 fn overlay_intro_sequence_5_tile_worker_loc_1BC36(
     vdp: &mut VdpState,
@@ -7416,12 +7439,7 @@ fn overlay_intro_sequence_5_tile_worker_loc_1BC36(
     // 16x25 staging buffer, then streams 25 fixed rows into the Scroll A
     // nametable at VRAM `$0194..$0D94`.
     let raster_upload = intro_sequence_5_raster_upload_loc_1BC36(elapsed, lineage);
-    let frame_index = INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE
-        .iter()
-        .rev()
-        .find_map(|(start_elapsed, frame_index)| {
-            (elapsed >= *start_elapsed).then_some(*frame_index)
-        });
+    let frame_index = intro_sequence_5_frame_index_loc_1_bc36(elapsed, lineage);
     if let Some(frame_index) = frame_index {
         let initial_vram = raster_upload.map(|upload| {
             let mut initial_vdp = vdp.clone();
@@ -13571,6 +13589,54 @@ mod tests {
                 (previous_frame_index, frame_index, frame_start),
             );
         }
+    }
+
+    #[test]
+    fn intro_sequence_5_loc_1bc36_timeout_fc82_zero_and_one_retain_short_tail_frames() {
+        for (lineage, published_frame) in [
+            (IntroSequence5WorkerLineage::TimeoutFc82Zero, 28005),
+            (IntroSequence5WorkerLineage::TimeoutFc82OneStartSkip, 16630),
+        ] {
+            assert_eq!(
+                intro_sequence_5_frame_index_loc_1_bc36(
+                    INTRO_SEQUENCE_5_LOC_1BC36_FRAME_7_RASTER_ELAPSED,
+                    lineage,
+                ),
+                Some(6),
+                "ASM loc_1BC36 -> sub_1C034 keeps d4=6 on oracle published frame {published_frame}",
+            );
+        }
+        let lineage = IntroSequence5WorkerLineage::TimeoutFc82OneStartSkip;
+        assert_eq!(
+            intro_sequence_5_frame_index_loc_1_bc36(
+                INTRO_SEQUENCE_5_LOC_1BC36_FRAME_7_RASTER_ELAPSED + 1,
+                lineage,
+            ),
+            Some(7),
+        );
+        assert_eq!(
+            intro_sequence_5_frame_index_loc_1_bc36(
+                INTRO_SEQUENCE_5_LOC_1BC36_RETURN_FRAME_6_RASTER_ELAPSED,
+                lineage,
+            ),
+            Some(7),
+            "ASM loc_1BC36 -> sub_1C034 keeps d4=7 on oracle published frame 16638",
+        );
+        assert_eq!(
+            intro_sequence_5_frame_index_loc_1_bc36(
+                INTRO_SEQUENCE_5_LOC_1BC36_RETURN_FRAME_6_RASTER_ELAPSED + 1,
+                lineage,
+            ),
+            Some(6),
+        );
+        assert_eq!(
+            intro_sequence_5_frame_index_loc_1_bc36(
+                INTRO_SEQUENCE_5_LOC_1BC36_FINAL_FRAME_5_RASTER_ELAPSED,
+                lineage,
+            ),
+            Some(5),
+            "the independently traced final d4=5 FIFO boundary must not move",
+        );
     }
 
     #[test]

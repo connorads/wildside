@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 IntroSequence5 timeout tail presentation)
+
+- The four-frame `grid:12,9-22,14` family is the central `loc_1BC36` Kid
+  tilemap switching one display early at both ends of its eight-frame d4=7
+  interval on timeout FC82=0/1 visits.
+- The bounded presentation rule leaves cold/shared, FC82=2, the d4=6 entry,
+  and the independently traced final d4=5 raster upload unchanged.
+- Full pixels improve to 37,176 exact / 583 divergent / 46,660 changed. NEXT:
+  classify `grid:7,0-39,3` (ten frames / 3,925 pixels).
+
 ## 2026-07-29 handoff (#406 final Dragon transform callback)
 
 - The left-edge `grid:1,15-5,20` family is walking Dragon #02, not Kid art;

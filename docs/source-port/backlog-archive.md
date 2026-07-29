@@ -22643,3 +22643,16 @@ improve 37,144 -> 37,172 exact, 615 -> 587 divergent, and 63,348 -> 52,096
 changed; player/camera CRC, RNG, enemy state and GEMS commands remain exact or
 at their prior baselines. NEXT: classify `grid:12,9-22,14` (four frames /
 5,436 pixels) as one repeated central family.
+Progress 2026-07-29 for #406: classified `grid:12,9-22,14` as the central
+IntroSequence5 Kid tilemap. Native changed from crossed arms d4=6 to pointing
+d4=7 one frame before oracle at published frames 16630 and 28005, then returned
+to d4=6 one frame before oracle at 16638 and 28013. Adjacent frames prove both
+maps otherwise have the ROM's eight-frame duration. ASM `loc_1BC36 ->
+sub_1C034` writes d4=6, hibernates 8, writes d4=7, hibernates 8, then writes
+d4=6. The timeout FC82=0/1 scanout now retains the prior map for one display at
+only those two short tail boundaries. Cold/shared and FC82=2 lineages, the
+d4=6 entry, and the independently traced final d4=5 FIFO boundary are
+unchanged. Focused windows 16628..16641 and 28003..28016 are pixel-exact with
+state and RNG parity. Full pixels improve 37,172 -> 37,176 exact, 587 -> 583
+divergent, and 52,096 -> 46,660 changed; the worst frame falls from 1,359 to
+1,152 pixels. NEXT: classify `grid:7,0-39,3` (ten frames / 3,925 pixels).
