@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#409 arbitration-boundary discriminator)
+
+- Fresh oracle rows show frames 993 and 995 have identical `loc_7D6 ->
+  sub_E12` intervals: 844 raw cycles, 121 Z80-wait cycles, six two-cycle ROM
+  refresh waits, 977 elapsed cycles, and refresh phase 27 -> 108.
+- Replaying 121 as a frame-local GEMS budget fails because the retained adapter
+  reaches the suffix from a different hardware-event boundary. Treating it as
+  a pending wait also gives the wrong clock and phase. Both trials are removed.
+- This rules out missing ASM source work and a flat delay. The production port
+  must carry ordered arbitration events plus boundary identity across frames.
+- Pixels remain 37,510 exact / 249 divergent / 2,472 changed. Frontier 995 and
+  the oracle-injection ratchet baseline of 108 remain unchanged.
+
 ## 2026-07-29 handoff (#409 empty loc_AD4 source path)
 
 - `Mode_Level` VBlank timing now types the empty `loc_AD4` queue from the

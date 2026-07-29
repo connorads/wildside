@@ -13,6 +13,20 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+Rejected 2026-07-29: frames 993 and 995 cannot retire their absolute
+`sub_E12` corrections by replaying the selected interval's aggregate GEMS
+wait count. Fresh oracle `loc_7D6`/`sub_E12` rows prove both intervals are
+identical: 844 raw ASM cycles, 977 elapsed cycles, cumulative Z80 waits +121,
+total drained waits +133, refresh phase 27 -> 108. Thus the six two-cycle ROM
+refresh waits account for the non-Z80 remainder and there is no missing source
+cost. Feeding 121 as a frame-local GEMS budget fails because the retained
+adapter reaches the suffix under a different carried engine boundary; feeding
+it as a pending wait produces the wrong clock and refresh phase. Both code
+experiments are removed. The execution-shell port must carry the event stream
+and boundary identity into the suffix, not accept a frame number or aggregate
+wait total. The frame-993/995 absolute corrections and injection ratchet stay
+unchanged.
+
 Progress 2026-07-29: the production-boundary audit rejects a renderer-owned
 HUD clock. `NativeTraceFrame` already carries the complete source-ordered
 VBlank, pre-HUD, post-HUD, and `loc_892` ledgers, and the HUD renderer already
