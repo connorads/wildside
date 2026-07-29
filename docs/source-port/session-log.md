@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 walking-Dragon transform resume)
+
+- Oracle GfxObject and SAT dumps show the visible right Dragon changes
+  `C75A6 -> C75AE` on frame 7753 and `C75AE -> C75B6` on frame 7762. Native
+  changed both one frame late after the synchronous transform.
+- `Kid_Transform loc_7E90` now restores the missed
+  `GfxObjects_MoveAndAnimate loc_142E` tick to every linked walking Dragon.
+  A rejected current-phase renderer override regressed 304 exact frames.
+- Full pixels improve to 37,257 exact / 502 divergent / 17,816 changed. NEXT:
+  classify independent `grid:17,14-21,18` (four frames / 2,068 pixels); the
+  larger Iron Knight cluster still awaits typed player-VRAM residency.
+
 ## 2026-07-29 handoff (#406 IntroSequence5 d4=5/6 presentation)
 
 - Published frames 16622 and 27997 are the two timeout lineages waking from

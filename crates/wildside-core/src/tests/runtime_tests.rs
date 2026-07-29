@@ -7054,6 +7054,38 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_demo_2_layout_0_dragon_matches_oracle_animation_boundaries() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(7_764) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 7_752 | 7_753 | 7_761 | 7_762 | 7_763) {
+                let phase = trace
+                    .active_enemy_details
+                    .iter()
+                    .find(|enemy| enemy.layout_index == Some(0))
+                    .and_then(|enemy| enemy.sprite_animation_phase);
+                samples.push((frame_index, phase));
+            }
+        }
+
+        assert_eq!(
+            samples,
+            vec![
+                (7_752, Some(2)),
+                (7_753, Some(3)),
+                (7_761, Some(3)),
+                (7_762, Some(4)),
+                (7_763, Some(4)),
+            ],
+            "ASM GfxObject_Animate loc_113E advances stru_3CC5E when animation_timer reaches zero; oracle GfxObject slot 5 maps C75A6 on frame 7752, C75AE on 7753, and C75B6 on 7762",
+        );
+    }
+
+    #[test]
     fn published_tas_hidden_micromax_prize_stays_concealed_before_sub_e3c6() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

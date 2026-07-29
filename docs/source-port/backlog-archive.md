@@ -22770,3 +22770,22 @@ frames 16620..16624 are pixel-exact. Across both visits, full pixels improve
 the worst frame improves 1,152 -> 988 pixels. Player/camera, RNG, enemy, and
 GEMS command evidence is unchanged. NEXT: classify `grid:34,22-38,27` (four
 frames / 2,112 pixels).
+
+Progress 2026-07-29 for #406: repeated walking-Dragon clusters
+`grid:34,22-38,27` and `grid:33,22-37,27` exposed one missed animation tick
+after the published route's synchronous transform. Oracle GfxObject slot 5
+uses `C75A6` through frame 7752, `C75AE` on 7753..7761, and `C75B6` from 7762;
+native crossed both boundaries one frame late. Oracle SAT VRAM proves the
+visible sprite mapping, while `GfxObjects_MoveAndAnimate loc_142E` proves that
+the post-`Kid_Transform loc_7E90` resume advances every linked GfxObject.
+Native had restored that tick only to the final suspended Object worker. The
+resume now advances every eligible walking Dragon once while retaining the
+final worker's separate `$66` correction. Rejected: rendering every Dragon
+from its current typed phase fixed the focused frames but regressed 304
+formerly exact route frames and raised full debt to 153,069 pixels; current
+GfxObject state is not the prior transferred Sprite Table. Focused frames
+7752..7765 now contain only nine unrelated HUD pixels. Full pixels improve
+37,221 -> 37,257 exact, 538 -> 502 divergent, and 29,316 -> 17,816 changed;
+worst remains 988 and first mismatch remains 1706. NEXT: skip the deferred
+Iron Knight VRAM-residency cluster and classify independent
+`grid:17,14-21,18` (four frames / 2,068 pixels).

@@ -13105,25 +13105,35 @@ impl NativeRuntime {
                 let mut played_enemy_sound_effects = Vec::new();
                 let enemy_storage_order =
                     reorder_active_enemies_for_execute_objects_loc_de0(&mut self.active_enemies);
-                if self.progression.form_change_flash_frames == 1
-                    && let Some(enemy) = self.active_enemies.last_mut()
-                    && enemy.family == EnemyFamily::DragonWalking
-                    && enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK
-                {
-                    // ASM Kid_Transform loc_7E90 returns into the suspended
-                    // Execute_Objects loc_E1E pass. The final normal enemy is
-                    // still one loc_3CE90 callback behind native's atomic
-                    // transform model, so retain that `$66` frame here.
-                    enemy.wait_timer = enemy.wait_timer.saturating_add(1);
-                    // ASM Kid_Transform loc_7E90 resumes the suspended final
-                    // loc_3CE90 callback before Mode_Level reaches
-                    // GfxObject_Animate loc_113E. Native's atomic transform
-                    // otherwise resumes this Gfx clock one frame late.
-                    enemy.dragon_descent_index = dragon_walking_sprite_animation_tick_stru_3cc5e(
-                        enemy.dragon_descent_index,
-                        enemy.hit_points,
-                    );
-                    enemy.dragon_script_variant |= DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG;
+                if self.progression.form_change_flash_frames == 1 {
+                    if let Some(enemy) = self.active_enemies.last_mut()
+                        && enemy.family == EnemyFamily::DragonWalking
+                        && enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK
+                    {
+                        // ASM Kid_Transform loc_7E90 returns into the suspended
+                        // Execute_Objects loc_E1E pass. The final normal enemy is
+                        // still one loc_3CE90 callback behind native's atomic
+                        // transform model, so retain that `$66` frame here.
+                        enemy.wait_timer = enemy.wait_timer.saturating_add(1);
+                        enemy.dragon_script_variant |= DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG;
+                    }
+                    // ASM Kid_Transform loc_7E90 resumes before Mode_Level
+                    // reaches GfxObjects_MoveAndAnimate loc_142E. That routine
+                    // advances every linked GfxObject, not only the Object_RAM
+                    // worker whose coroutine was suspended by the transform.
+                    for enemy in &mut self.active_enemies {
+                        if enemy.family == EnemyFamily::DragonWalking
+                            && enemy.dragon_script_cmd == DRAGON_WALKING_PHASE_WALK
+                            && enemy.damage_flash_frames == 0
+                            && !enemy.death_animation_active
+                        {
+                            enemy.dragon_descent_index =
+                                dragon_walking_sprite_animation_tick_stru_3cc5e(
+                                    enemy.dragon_descent_index,
+                                    enemy.hit_points,
+                                );
+                        }
+                    }
                 }
                 // ASM Fire_Demon.asm loc_3A542 allocates the trail before
                 // loc_3A5D4 dispatches into the shared walker at loc_3C04E/
