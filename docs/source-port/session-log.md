@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#409 frame-990 VDP ownership)
+
+- Frame 990 now reaches `sub_E12` with 844 source cycles, seven refresh events,
+  and 440 carried H-scroll DMA ownership cycles. Its absolute correction is
+  removed.
+- The focused persistent-clock regression remains exact through frame 995.
+  Treating all 442 missing cycles as external wait was two cycles and two
+  refresh-phase units late, so that trial is rejected.
+- NEXT: replace the raw pending-wait argument with a typed hardware boundary,
+  expose it through the production execution shell, and feed the resulting
+  cursor to both HUD schedulers.
+
 ## 2026-07-29 handoff (#409 route-wide HUD timing census)
 
 - A strict census joins all 170 Diamond mismatch frames to Mode entry,

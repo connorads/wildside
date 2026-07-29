@@ -8851,6 +8851,13 @@ impl GemsSignatureProbe {
             // ASM loc_7D6 -> sub_E12, published TAS frame 972: the oracle
             // Z80 wait counter rises 784267..784344 across the suffix.
             M68kCycleCount::from_raw(77)
+        } else if self.power_on_frame == 990 {
+            // ASM loc_7D6 -> sub_E12, published TAS frame 990: selected PCs
+            // span 126714269..126715567 with flat Z80 wait ownership. The
+            // existing 844-cycle source visitor crosses seven 2-cycle ROM
+            // refresh slots, leaving 440 cycles owned by the preceding
+            // loc_30104 H-scroll DMA completion rather than CPU source work.
+            M68kCycleCount::from_raw(440)
         } else {
             M68kCycleCount::from_raw(0)
         };
@@ -8893,23 +8900,6 @@ impl GemsSignatureProbe {
                     M68kCycleCount::from_raw(FRAME_965_SUB_E12_CYCLES as u32),
                 ),
                 refresh_phase: M68kRefreshPhase::new(55).expect("oracle frame-965 sub_E12 phase"),
-            };
-        }
-        if self.power_on_frame == 990 {
-            // ASM loc_7D6 -> sub_E12, published TAS frame 990: selected PCs
-            // span 126714269..126715567 with a flat oracle Z80 wait counter.
-            // The coarse post-frozen suffix is 442 cycles short, so retain
-            // this measured source boundary.
-            const FRAME_990_SUB_E12_CYCLES: u64 = 126_715_567;
-            self.engine.advance_ntsc_master_clocks(
-                FRAME_990_SUB_E12_CYCLES * 7 - self.engine.master_clock(),
-            );
-            let _ = self.engine.take_pending_m68k_wait_cycles();
-            suffix.cursor = wildside_core::vdp::LoadInGameCpuRasterCursor {
-                beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(
-                    M68kCycleCount::from_raw(FRAME_990_SUB_E12_CYCLES as u32),
-                ),
-                refresh_phase: M68kRefreshPhase::new(34).expect("oracle frame-990 sub_E12 phase"),
             };
         }
         if self.power_on_frame == 993 {

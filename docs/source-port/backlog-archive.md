@@ -13,6 +13,19 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+Progress 2026-07-29: frame 990 retires its absolute `sub_E12` clock
+correction without advancing the route frontier. Fresh oracle selected PCs
+place `loc_7D6` at cycle 126714269/phase 16 and `sub_E12` at
+126715567/phase 34. The Z80 wait counter stays flat. The source visitor owns
+844 cycles and crosses seven two-cycle refresh slots; the remaining 440
+cycles are pending ownership from the preceding `loc_30104` H-scroll DMA.
+Passing that ownership into the existing source scheduler reproduces the
+oracle clock and phase exactly and preserves the exact carried checkpoints
+through frame 995. A 442-cycle external wait was rejected because it displaced
+one refresh event and landed two cycles/phase units late. NEXT: replace the raw
+pending-wait argument with a typed hardware boundary and expose that owner to
+the production HUD timeline.
+
 Progress 2026-07-29: `scripts/hud_timing_census.py` turns the remaining Diamond
 timing sample into a strict route-wide join. It expands the 170
 `hud_diamond` mismatch ranges, requires unique oracle records at the preceding
