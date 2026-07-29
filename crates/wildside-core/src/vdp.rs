@@ -7662,6 +7662,16 @@ fn intro_sequence_5_raster_upload_loc_1BC36(
             frame_start: (74, 76),
             panel_start: None,
         }),
+        INTRO_SEQUENCE_5_LOC_1BC36_FRAME_2_RASTER_ELAPSED
+            if lineage == IntroSequence5WorkerLineage::TimeoutFc82Zero =>
+        {
+            Some(IntroSequence5RasterUpload {
+                previous_frame_index: 1,
+                frame_index: 2,
+                frame_start: (96, 44),
+                panel_start: None,
+            })
+        }
         INTRO_SEQUENCE_5_LOC_1BC36_FRAME_2_RASTER_ELAPSED => Some(IntroSequence5RasterUpload {
             previous_frame_index: 1,
             frame_index: 2,
@@ -14141,6 +14151,59 @@ mod tests {
             Some(5),
             "the independently traced final d4=5 FIFO boundary must not move",
         );
+    }
+
+    #[test]
+    fn intro_sequence_5_loc_1c0d6_frame_2_commits_row_11_before_pixel_fetch() {
+        let upload = intro_sequence_5_raster_upload_loc_1BC36(
+            INTRO_SEQUENCE_5_LOC_1BC36_FRAME_2_RASTER_ELAPSED,
+            IntroSequence5WorkerLineage::TimeoutFc82Zero,
+        )
+        .expect("ASM loc_1BC36 should retain the crossing sub_1C034 upload");
+        let plan = wildside_data::intro_sequence_5_frame_load_plan_sub_1C034(2)
+            .expect("ASM sub_1C034 should accept frame 2");
+        let writes = plan
+            .vram_rows
+            .iter()
+            .flat_map(|row| {
+                (0..row.word_count).map(|word_offset| {
+                    (
+                        row.vram_word_address + 2 * word_offset,
+                        row.source_word_offset + word_offset,
+                    )
+                })
+            })
+            .collect::<Vec<_>>();
+        let commits =
+            schedule_h40_vram_fifo_word_writes(&writes, upload.frame_start.0, upload.frame_start.1);
+
+        assert_eq!(
+            commits[2 * 179],
+            VdpRasterVramWordWrite {
+                scanline: 116,
+                pixel: 12,
+                byte_addr: 0x072C,
+                value: 188,
+            },
+            "ASM sub_1C034 loc_1C0D6 writes VRAM `$072C` as stream word 179; oracle frame 27908 commits it at H40 (116,12)",
+        );
+
+        for lineage in [
+            IntroSequence5WorkerLineage::Shared,
+            IntroSequence5WorkerLineage::TimeoutFc82OneStartSkip,
+            IntroSequence5WorkerLineage::TimeoutFc82Two,
+        ] {
+            let upload = intro_sequence_5_raster_upload_loc_1BC36(
+                INTRO_SEQUENCE_5_LOC_1BC36_FRAME_2_RASTER_ELAPSED,
+                lineage,
+            )
+            .expect("ASM loc_1BC36 should retain the crossing sub_1C034 upload");
+            assert_eq!(
+                upload.frame_start,
+                (96, 76),
+                "oracle frames 16533 and 20736 retain the later FIFO phase on the non-FC82=0 lineages",
+            );
+        }
     }
 
     #[test]

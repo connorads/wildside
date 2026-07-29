@@ -23341,3 +23341,15 @@ grounded mapping that entered the attach. All four repeated 608-pixel frames
 frame improves from 608 to 33 pixels and first mismatch remains the independent
 frame-1730 HUD Diamond residue. The oracle helper now retains requested-frame
 phase-2 geometry, phase-3 row bytes and CRAM palette evidence for `$C4A0`.
+
+Fixed 2026-07-29 for #406: the isolated frame-27908 pixel was a durable
+IntroSequence5 FIFO-lineage difference, not a renderer fetch rule. Oracle
+`sub_1C034 loc_1C0D6` enqueues VRAM `$072C` at PC `$1C0D8` and commits it at
+H40 116:12, before Plane A fetches `(178,116)`; native committed the new
+`$A46B` word one access slot late and retained `$A393` for that pixel. Moving
+the shared frame-2 start from 96:76 to 96:44 fixed 27908 but created the same
+pixel at FC82=1 frame 16533 and FC82=2 frame 20736, rejecting a shared phase.
+The earlier cursor now belongs only to `TimeoutFc82Zero`; shared and FC82=1/2
+lineages retain 96:76. The complete route improves 37,510 -> 37,511 exact,
+249 -> 248 divergent, and 2,472 -> 2,471 changed pixels. No intro residue
+remains; only the two HUD clusters and seven-frame Dragon tail remain.

@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 IntroSequence5 FIFO lineage)
+
+- Oracle frame 27908 commits the `sub_1C034 loc_1C0D6` VRAM `$072C` word at
+  H40 116:12. Native's shared frame-2 cursor was one access slot late.
+- A shared one-slot advance fixed 27908 but created identical pixels at 16533
+  and 20736. Only the FC82=0 lineage carries the earlier phase; FC82=1/2 keep
+  the existing cursor.
+- Full pixels improve to 37,511 exact / 248 divergent / 2,471 changed. The
+  remaining debt is Diamond HUD, life HUD, and the seven-frame Dragon tail.
+
 ## 2026-07-29 handoff (#409 typed ownership boundary)
 
 - Pending hardware ownership at `loc_7D6` is now a domain type. Suffix callers
