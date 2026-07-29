@@ -6048,6 +6048,7 @@ AddrTbl_LevelNames:
             time_frames_loc_3038a: 0,
             background_scroll_hidden_wrap_display_phase_loc_3050a: false,
             transform_hscroll_owner_loc_8fe: false,
+            transform_auto_scroll_uses_previous_word_loc_7e90: false,
             island_shore_post_visible_dma_latch_loc_1202a: false,
             floating_items_transferred_loc_901: Vec::new(),
             hud_dma_events_sub_44dc: Vec::new(),

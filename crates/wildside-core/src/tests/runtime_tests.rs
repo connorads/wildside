@@ -6935,11 +6935,11 @@ mod chunk_09 {
         let mut samples = Vec::new();
         let mut hud_pages = Vec::new();
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(22_466) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(22_547) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             if matches!(
                 frame_index,
-                1_055..=1_058 | 21_837..=21_839 | 22_463..=22_465
+                1_055..=1_058 | 21_837..=21_839 | 22_463..=22_465 | 22_544..=22_546
             ) {
                 if frame_index <= 1_058 || frame_index >= 22_463 {
                     hud_pages.push((
@@ -7024,6 +7024,27 @@ mod chunk_09 {
                     Some((1, 0, 4)),
                     vec![],
                 ),
+                (
+                    22_544,
+                    Some((3, 9, 13, 2, 2, 5)),
+                    Some((1, 1, 4)),
+                    Some((1, 0, 4)),
+                    vec![],
+                ),
+                (
+                    22_545,
+                    Some((3, 9, 13, 2, 2, 5)),
+                    Some((1, 1, 4)),
+                    Some((1, 0, 4)),
+                    vec![],
+                ),
+                (
+                    22_546,
+                    Some((2, 8, 12, 2, 2, 5)),
+                    Some((1, 1, 4)),
+                    None,
+                    vec![],
+                ),
             ],
         );
         assert_eq!(
@@ -7036,6 +7057,9 @@ mod chunk_09 {
                 (22_463, 0, Some(2), Some(4), None),
                 (22_464, 82, Some(2), Some(4), Some(4)),
                 (22_465, 81, Some(2), Some(4), Some(4)),
+                (22_544, 2, Some(2), Some(4), Some(4)),
+                (22_545, 1, Some(2), Some(4), Some(4)),
+                (22_546, 0, Some(2), Some(4), None),
             ],
             "ASM sub_44DC loc_4626 -> sub_5D4A and Kid_Transform loc_7CBE/loc_7D22: oracle VRAM $DD40 matches diamond_3.bin at frame 1058 and diamond_2.bin at frame 22465 while each transform hibernates its resident page",
         );

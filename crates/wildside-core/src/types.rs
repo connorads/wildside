@@ -3142,6 +3142,10 @@ pub struct NativeTraceFrame {
     /// replaced by the preceding trace's transform countdown.
     #[serde(default, skip_serializing_if = "is_false")]
     pub transform_hscroll_owner_loc_8fe: bool,
+    /// ASM Kid_Transform loc_7E90 cleanup reuses the auto-scroll words built
+    /// by the preceding synchronous sub_8E0 pass.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub transform_auto_scroll_uses_previous_word_loc_7e90: bool,
     /// ASM Kid_Transform loc_7CA6 (kid.asm): helmet id worn before the live
     /// transform. Presentation input for the pass enumerator; `None` when no
     /// transform countdown is live.
@@ -3412,6 +3416,7 @@ impl Default for NativeTraceFrame {
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,
             transform_hscroll_owner_loc_8fe: false,
+            transform_auto_scroll_uses_previous_word_loc_7e90: false,
             transform_source_helmet_id_loc_7ca6: None,
             transform_source_hitpoints_loc_bdc0: None,
             stomped_this_frame: false,

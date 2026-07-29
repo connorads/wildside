@@ -12036,6 +12036,10 @@ impl NativeRuntime {
             },
             form_change_flash_frames: self.progression.form_change_flash_frames,
             transform_hscroll_owner_loc_8fe: self.progression.form_change_flash_frames > 0,
+            transform_auto_scroll_uses_previous_word_loc_7e90: self
+                .progression
+                .form_change_flash_frames
+                == 1,
             transform_source_helmet_id_loc_7ca6: if self.progression.form_change_flash_frames > 0 {
                 self.progression
                     .transform_source_form

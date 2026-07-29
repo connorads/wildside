@@ -4779,6 +4779,27 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-29 (transform cleanup background state): the 988-pixel frame
+22545 mismatch covered the Island background but not gameplay state. Oracle
+VRAM at frames 22544..22546 keeps Plane B and CRAM stable, retains shore banks
+`(1,0,4)` through frame 22545, and begins the next `$F6C0` upload on frame
+22546. Direct VDP sampling at x=61/y=28 reads Plane-B entry `$2F92`, flipped
+tile `$792` source `(5,3)`, palette index `$B`, RGB `[0,109,182]`.
+
+Native now retains the transform-resident shore bank through the final
+countdown field. `Kid_Transform loc_7D22 -> loc_7E90` owns that synchronous
+transfer, but cleanup performs no new `BackgroundScroll_ComputeShiftData
+loc_30452`; its speed `$00/$08` rows therefore reuse the preceding auto-scroll
+word. The focused frames 22544..22546 are 3/3 exact. Full pixels improve
+37,332->37,333 exact, 427->426 divergent, and 12,874->11,886 changed. The former
+988-pixel worst frame is gone; player/camera, gameplay, enemy, and RNG remain
+exact. A rejected general hscroll-owner extension regressed frame 22546 and was
+removed.
+
+NEXT: skip the two deferred Iron Knight clusters and classify the largest
+independent repeated class, favouring shared presentation state over index
+marching.
+
 Progress 2026-07-28 (walking Dragon hurt palette): the paired lower-screen
 clusters joined into one 11-frame Dragon silhouette. Native rendered every
 colour white while oracle kept the normal blue Dragon palette; geometry and

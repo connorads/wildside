@@ -1415,7 +1415,7 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.hud_timer_sprite_seconds_loc_bee8 =
             previous_trace.hud_timer_sprite_seconds_loc_bee8;
         latch_island_shore_vram_bands_loc_1202a(&mut render_trace, trace, previous_trace);
-        if trace.form_change_flash_frames > 1
+        if trace.form_change_flash_frames > 0
             && let Some(resident_frames) =
                 trace.transform_resident_island_shore_vram_frames_loc_1202a
         {
@@ -5972,8 +5972,16 @@ fn background_display_scroll_data_word_loc_3050a(
         // ASM Kid_Transform loc_7CBE/loc_7D22 -> sub_8E0 transfers the current
         // Horiz_Scroll_Data table on every synchronous VBlank. This owns the
         // display phase even when the transform starts from a demo lineage
-        // whose ordinary Mode_Level field retained an older table.
-        time_frames
+        // whose ordinary Mode_Level field retained an older table. The final
+        // loc_7E90 cleanup field performs no new loc_30452 compute, so its
+        // auto-scroll rows retain the word built on the preceding pass.
+        if trace.transform_auto_scroll_uses_previous_word_loc_7e90
+            && matches!(layer_speed, 0x00 | 0x08)
+        {
+            time_frames.saturating_sub(1)
+        } else {
+            time_frames
+        }
     } else if trace.background_scroll_hidden_wrap_display_phase_loc_3050a {
         // ASM loc_1BA5C -> Load_DemoPlay -> Load_InGame: direct oracle VDP
         // samples at published frame 21864 expose Time_Frames=27 with Plane B
@@ -9413,6 +9421,30 @@ mod tests {
     }
 
     #[test]
+    fn transform_cleanup_retains_resident_island_shore_bands_loc_7e90_1202a() {
+        let previous = NativeTraceFrame {
+            game_mode: GameMode::DemoPlay,
+            current_level: wildside_core::LevelId(0x15),
+            form_change_flash_frames: 2,
+            island_shore_vram_frames_loc_1202a: Some((1, 1, 4)),
+            transform_resident_island_shore_vram_frames_loc_1202a: Some((1, 0, 4)),
+            ..NativeTraceFrame::default()
+        };
+        let trace = NativeTraceFrame {
+            form_change_flash_frames: 1,
+            ..previous.clone()
+        };
+
+        let rendered = render_trace_with_vdp_latched_state(&trace, Some(&previous));
+
+        assert_eq!(
+            rendered.island_shore_vram_frames_loc_1202a,
+            trace.transform_resident_island_shore_vram_frames_loc_1202a,
+            "ASM Kid_Transform loc_7D22 -> loc_7E90 retains the resident Island shore VRAM through the final cleanup field",
+        );
+    }
+
+    #[test]
     fn mode_level_loc_7f4_keeps_pre_object_diamond_counter_in_sprite_table() {
         let previous_trace = NativeTraceFrame {
             game_mode: GameMode::DemoPlay,
@@ -12321,6 +12353,11 @@ mod tests {
             transform_hscroll_owner_loc_8fe: true,
             ..ordinary.clone()
         };
+        let cleanup = NativeTraceFrame {
+            form_change_flash_frames: 1,
+            transform_auto_scroll_uses_previous_word_loc_7e90: true,
+            ..transforming.clone()
+        };
 
         assert_eq!(
             background_display_scroll_data_word_loc_3050a(&ordinary, 481, 0x08),
@@ -12331,6 +12368,11 @@ mod tests {
             background_display_scroll_data_word_loc_3050a(&transforming, 481, 0x08),
             373,
             "ASM Kid_Transform loc_7CBE/loc_7D22 -> sub_8E0 transfers the current Horiz_Scroll_Data word"
+        );
+        assert_eq!(
+            background_display_scroll_data_word_loc_3050a(&cleanup, 481, 0x08),
+            372,
+            "ASM Kid_Transform loc_7D22 -> loc_7E90 transfers the previously computed `$08` auto-scroll word on the cleanup field"
         );
     }
 

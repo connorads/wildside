@@ -2717,6 +2717,7 @@ mod tests {
             time_frames_loc_3038a: 0,
             background_scroll_hidden_wrap_display_phase_loc_3050a: false,
             transform_hscroll_owner_loc_8fe: false,
+            transform_auto_scroll_uses_previous_word_loc_7e90: false,
             island_shore_post_visible_dma_latch_loc_1202a: false,
             floating_items_transferred_loc_901: Vec::new(),
             hud_dma_events_sub_44dc: Vec::new(),
@@ -12488,6 +12489,52 @@ mod tests {
         assert!(
             super::scene::layered_background_row_wraps_loc_3050a(&visuals, 3),
             "ASM loc_3050A camera-parallax rows also repeat so long-travel rows do not expose the backdrop"
+        );
+    }
+
+    #[test]
+    fn published_tas_transform_cleanup_samples_plane_b_entry_2f92_loc_7e90_3050a() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let repo_root = crate_dir
+            .parent()
+            .and_then(Path::parent)
+            .expect("wildside-cli crate should live under <repo>/crates/wildside-cli");
+        let scenario: DynamicScenario = serde_json::from_str(
+            &fs::read_to_string(
+                repo_root.join("tests/data/tas/any-percent-published/scenario.json"),
+            )
+            .expect("published TAS scenario should be readable"),
+        )
+        .expect("published TAS scenario should parse");
+        let (visuals, _) = load_session_assets(&manifest, 0x15).expect("Knights Isle visuals");
+        let mut runtime = NativeRuntime::new(manifest);
+        let mut previous = runtime.trace_frame();
+        let mut sample = None;
+
+        for (frame_index, mask) in scenario.script.iter().copied().enumerate().take(22_546) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
+            previous = trace;
+            if frame_index == 22_545 {
+                sample =
+                    super::scene::sample_background_pixel_loc_c070(&render_trace, &visuals, 61, 28);
+            }
+        }
+
+        let sample = sample.expect("published frame 22545 should sample Plane B");
+        assert_eq!(
+            (
+                sample.tile_index,
+                sample.source_x,
+                sample.source_y,
+                sample.palette_index,
+                sample.rgb,
+            ),
+            (0x12, 5, 3, 0x0B, [0, 109, 182]),
+            "oracle VDP sample at frame 22545 x=61/y=28: entry `$2F92` reads flipped tile `$792` at source `(5,3)` through CRAM line 1",
         );
     }
 

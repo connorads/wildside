@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 transform cleanup background state)
+
+- Oracle VRAM proves frame 22545 retains the resident middle Island shore bank;
+  Plane B and CRAM are unchanged while the next shore upload starts one frame later.
+- `Kid_Transform loc_7D22 -> loc_7E90` now keeps that resident bank through
+  cleanup and reuses the preceding `loc_30452` auto-scroll word.
+- Full pixels improve to 37,333 exact / 426 divergent / 11,886 changed. NEXT:
+  skip the two deferred Iron Knight classes and classify the largest repeated
+  independent cluster.
+
 ## 2026-07-29 handoff (#406 demo HUD timer lineage)
 
 - Oracle WRAM and Sprite Table probes show Demo 1's `loc_BE82` decrement starts
