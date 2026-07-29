@@ -21,8 +21,9 @@ use anyhow::{Context, Result};
 use sha1::{Digest, Sha1};
 use wildside_core::{
     GemsFrameSignature, GemsQueueCommandPath, GemsStopMusicBusAckPolls, M68kCycleCount,
-    M68kRefreshPhase, ModeLevelVblankWorkBeforeSubE12, NativeTraceFrame,
-    gems_stop_music_elapsed_timing, gems_stop_music_elapsed_timing_from_absolute_entry,
+    M68kRefreshPhase, ModeLevelPendingHardwareOwnershipAfterLoc7d6,
+    ModeLevelVblankWorkBeforeSubE12, NativeTraceFrame, gems_stop_music_elapsed_timing,
+    gems_stop_music_elapsed_timing_from_absolute_entry,
 };
 use wildside_data::AssetManifest;
 use wildside_frame::{
@@ -4480,7 +4481,7 @@ impl GemsSignatureProbe {
                     // pending waits clear. The first-gameplay prefix remains
                     // TODO above; after the complete sub_1596 source path,
                     // its measured arbitration residue is 402 cycles.
-                    M68kCycleCount::from_raw(402),
+                    ModeLevelPendingHardwareOwnershipAfterLoc7d6::from_raw_cycles(402),
                 )
                 .expect("first gameplay VBlank suffix reaches sub_E12");
                 assert_eq!(self.engine.master_clock(), 115_449_413 * 7);
@@ -4649,7 +4650,7 @@ impl GemsSignatureProbe {
                     refresh_phase: prefix.cursor.refresh_phase,
                 },
                 mode_level_work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
             )
             .expect("second gameplay VBlank suffix reaches sub_E12");
             // ASM sub_1596 loc_1686 executes both 24-cycle pointer resets and
@@ -4751,7 +4752,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 loc_7d6,
                 mode_level_work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("third gameplay VBlank suffix reaches sub_E12");
@@ -4911,7 +4912,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 mode_level_work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("fourth gameplay VBlank suffix reaches sub_E12");
@@ -5087,7 +5088,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 mode_level_work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("fifth gameplay VBlank suffix reaches sub_E12");
@@ -5254,7 +5255,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 mode_level_work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("sixth gameplay VBlank suffix reaches sub_E12");
@@ -5411,7 +5412,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 mode_level_work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("seventh gameplay VBlank suffix reaches sub_E12");
@@ -5586,7 +5587,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 mode_level_work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("eighth gameplay VBlank suffix reaches sub_E12");
@@ -5741,7 +5742,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 mode_level_work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("ninth gameplay VBlank suffix reaches sub_E12");
@@ -5879,7 +5880,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 mode_level_work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("tenth gameplay VBlank suffix reaches sub_E12");
@@ -6032,7 +6033,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 mode_level_work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("eleventh gameplay VBlank suffix reaches sub_E12");
@@ -6171,7 +6172,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 mode_level_work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("twelfth gameplay VBlank suffix reaches sub_E12");
@@ -6302,7 +6303,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("thirteenth gameplay VBlank suffix reaches sub_E12");
@@ -6434,7 +6435,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("fourteenth gameplay VBlank suffix reaches sub_E12");
@@ -6553,7 +6554,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("fifteenth gameplay VBlank suffix reaches sub_E12");
@@ -6668,7 +6669,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("sixteenth gameplay VBlank suffix reaches sub_E12");
@@ -6801,7 +6802,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("seventeenth gameplay VBlank suffix reaches sub_E12");
@@ -6914,7 +6915,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("eighteenth gameplay VBlank suffix reaches sub_E12");
@@ -7052,7 +7053,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("nineteenth gameplay VBlank suffix reaches sub_E12");
@@ -7232,7 +7233,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("twentieth gameplay VBlank suffix reaches sub_E12");
@@ -7382,7 +7383,7 @@ impl GemsSignatureProbe {
                 &mut self.engine,
                 prefix.cursor,
                 work.vblank_before_sub_e12,
-                M68kCycleCount::from_raw(0),
+                ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
                 Some(M68kCycleCount::from_raw(0)),
             )
             .expect("twenty-first gameplay VBlank suffix reaches sub_E12");
@@ -8832,40 +8833,40 @@ impl GemsSignatureProbe {
                 "ASM frame 977 VBlank prefix reaches exact loc_7D6",
             );
         }
-        let pending_wait_after_loc_7d6 = if self.power_on_frame == 959 {
+        let pending_ownership_after_loc_7d6 = if self.power_on_frame == 959 {
             // ASM loc_7D6 -> sub_E12, published TAS frame 959: the selected-PC
             // journal advances 979 cycles from 122746448/phase 27 to
             // 122747427/phase 110. The typed 844-cycle source path plus its
             // refresh waits leaves 123 cycles owned by the completed H-scroll
             // DMA and GEMS bank reads.
-            M68kCycleCount::from_raw(123)
+            ModeLevelPendingHardwareOwnershipAfterLoc7d6::from_raw_cycles(123)
         } else if self.power_on_frame == 962 {
             // ASM loc_7D6 -> sub_E12, published TAS frame 962: the cumulative
             // Z80 wait counter rises 766227..766359 across the selected span.
-            M68kCycleCount::from_raw(132)
+            ModeLevelPendingHardwareOwnershipAfterLoc7d6::from_raw_cycles(132)
         } else if self.power_on_frame == 969 {
             // ASM loc_7D6 -> sub_E12, published TAS frame 969: the oracle
             // Z80 wait counter rises 778910..779009 across the selected span.
-            M68kCycleCount::from_raw(99)
+            ModeLevelPendingHardwareOwnershipAfterLoc7d6::from_raw_cycles(99)
         } else if self.power_on_frame == 972 {
             // ASM loc_7D6 -> sub_E12, published TAS frame 972: the oracle
             // Z80 wait counter rises 784267..784344 across the suffix.
-            M68kCycleCount::from_raw(77)
+            ModeLevelPendingHardwareOwnershipAfterLoc7d6::from_raw_cycles(77)
         } else if self.power_on_frame == 990 {
             // ASM loc_7D6 -> sub_E12, published TAS frame 990: selected PCs
             // span 126714269..126715567 with flat Z80 wait ownership. The
             // existing 844-cycle source visitor crosses seven 2-cycle ROM
             // refresh slots, leaving 440 cycles owned by the preceding
             // loc_30104 H-scroll DMA completion rather than CPU source work.
-            M68kCycleCount::from_raw(440)
+            ModeLevelPendingHardwareOwnershipAfterLoc7d6::from_raw_cycles(440)
         } else {
-            M68kCycleCount::from_raw(0)
+            ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE
         };
         let mut suffix = apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
             &mut self.engine,
             prefix.cursor,
             work,
-            pending_wait_after_loc_7d6,
+            pending_ownership_after_loc_7d6,
             Some(M68kCycleCount::from_raw(0)),
         )?;
         if self.power_on_frame == 962 {

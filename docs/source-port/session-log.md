@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#409 typed ownership boundary)
+
+- Pending hardware ownership at `loc_7D6` is now a domain type. Suffix callers
+  can no longer pass generic source cycles in that position.
+- All gameplay scheduler callers use the typed boundary; zero ownership is an
+  explicit `NONE`. Frame-990 continuity remains the non-zero witness.
+- The runtime's existing typed VINT/arbitration seed methods are the production
+  consumer port. NEXT: add the execution-shell timeline that supplies them;
+  do not add a renderer-owned clock or duplicate trace contract.
+
 ## 2026-07-29 handoff (#409 frame-990 VDP ownership)
 
 - Frame 990 now reaches `sub_E12` with 844 source cycles, seven refresh events,

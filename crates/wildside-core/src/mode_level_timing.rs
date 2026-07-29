@@ -35,6 +35,26 @@ impl M68kCycleCount {
     }
 }
 
+/// Hardware ownership already pending when ASM `loc_7D6` completes the
+/// `loc_30104` H-scroll DMA call.
+///
+/// This delay is serviced at the next source-instruction boundary. It is not
+/// ROM source work and is not a budget for waits generated later by GEMS.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ModeLevelPendingHardwareOwnershipAfterLoc7d6(M68kCycleCount);
+
+impl ModeLevelPendingHardwareOwnershipAfterLoc7d6 {
+    pub const NONE: Self = Self(M68kCycleCount::from_raw(0));
+
+    pub const fn from_raw_cycles(cycles: u32) -> Self {
+        Self(M68kCycleCount::from_raw(cycles))
+    }
+
+    pub const fn elapsed(self) -> M68kCycleCount {
+        self.0
+    }
+}
+
 /// Mega Drive master-clock cycles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GenesisMclkCount(u32);

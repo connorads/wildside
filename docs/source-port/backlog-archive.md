@@ -13,6 +13,18 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+Progress 2026-07-29: the `loc_7D6` suffix boundary now accepts
+`ModeLevelPendingHardwareOwnershipAfterLoc7d6`, not a generic 68k cycle count.
+The type separates ownership already pending after the final H-scroll DMA from
+the suffix's ROM source cycles and the independent budget for waits generated
+later by GEMS. All 23 gameplay suffix callers migrate to the explicit boundary;
+zero ownership uses `NONE`. The architecture audit also found that
+`NativeRuntime::seed_mode_level_raster_vint_assertion` and
+`seed_mode_level_raster_wait_for_vint_poll_no_z80` already form the production
+consumer port and produce exact life/Diamond timings when supplied hardware
+state. Do not add another trace field or renderer clock. NEXT: put the
+persistent owner in the execution shell and drive those existing methods.
+
 Progress 2026-07-29: frame 990 retires its absolute `sub_E12` clock
 correction without advancing the route frontier. Fresh oracle selected PCs
 place `loc_7D6` at cycle 126714269/phase 16 and `sub_E12` at

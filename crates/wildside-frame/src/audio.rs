@@ -13,9 +13,9 @@ use wildside_core::{GameMode, LevelId, NativeSoundCommand, NativeTraceFrame};
 use wildside_core::{
     GemsQueueCommandAdvance, GemsQueueCommandPath, GemsStopMusicBusAckPolls,
     GemsStopMusicElapsedTiming, HudDmaEventSub44DC, LoadInGameTimerBonusPath, M68kCycleCount,
-    M68kRefreshPhase, ModeLevelPostHudPhaseAdvance, ModeLevelPostHudWorkLedger,
-    ModeLevelPreHudWorkLedger, ModeLevelScrollTransferPath, ModeLevelVblankWorkBeforeSubE12,
-    ReadJoypadControl,
+    M68kRefreshPhase, ModeLevelPendingHardwareOwnershipAfterLoc7d6, ModeLevelPostHudPhaseAdvance,
+    ModeLevelPostHudWorkLedger, ModeLevelPreHudWorkLedger, ModeLevelScrollTransferPath,
+    ModeLevelVblankWorkBeforeSubE12, ReadJoypadControl,
     vdp::{
         DecompressToVramTransferAdvance, LoadInGameCpuRasterCursor,
         LoadInGamePlatformInitialisationAdvance, LoadInGamePlatformRefreshLedger,
@@ -1961,13 +1961,13 @@ pub fn apply_gems_mode_level_vblank_suffix_after_scroll_dma(
     audio: &mut GemsMasterClockTimingEngine,
     entry: LoadInGameCpuRasterCursor,
     work: ModeLevelVblankWorkBeforeSubE12,
-    pending_vdp_wait_after_loc_7d6: M68kCycleCount,
+    pending_ownership: ModeLevelPendingHardwareOwnershipAfterLoc7d6,
 ) -> Option<TitleIntroSourceAdvance> {
     apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
         audio,
         entry,
         work,
-        pending_vdp_wait_after_loc_7d6,
+        pending_ownership,
         None,
     )
 }
@@ -1978,7 +1978,7 @@ pub fn apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
     audio: &mut GemsMasterClockTimingEngine,
     entry: LoadInGameCpuRasterCursor,
     work: ModeLevelVblankWorkBeforeSubE12,
-    pending_vdp_wait_after_loc_7d6: M68kCycleCount,
+    pending_ownership: ModeLevelPendingHardwareOwnershipAfterLoc7d6,
     gems_wait_budget: Option<M68kCycleCount>,
 ) -> Option<TitleIntroSourceAdvance> {
     if audio.pending_m68k_wait_cycles() != 0 {
@@ -2009,7 +2009,7 @@ pub fn apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
                     Some(M68kCycleCount::from_raw(
                         generated_wait
                             .get()
-                            .checked_add(pending_vdp_wait_after_loc_7d6.get())?,
+                            .checked_add(pending_ownership.elapsed().get())?,
                     ))
                 } else {
                     Some(generated_wait)
@@ -4757,7 +4757,7 @@ mod tests {
             &mut engine,
             entry,
             work,
-            M68kCycleCount::from_raw(0),
+            ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
         )
         .expect("source-scheduled Mode_Level VBlank suffix");
 
@@ -4798,7 +4798,7 @@ mod tests {
             &mut engine,
             entry,
             work,
-            M68kCycleCount::from_raw(442),
+            ModeLevelPendingHardwareOwnershipAfterLoc7d6::from_raw_cycles(442),
         )
         .expect("published first-gameplay suffix drains the completed DMA wait");
         assert_eq!(engine.master_clock(), 115_449_413 * 7);
