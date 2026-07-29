@@ -1375,6 +1375,9 @@ enum Commands {
         /// Inclusive VDP FIFO address range to retain (e.g. 0xDD40-0xDF3F).
         #[arg(long)]
         vdp_fifo_commit_address_range: Option<String>,
+        /// Print only count and first/last records for each filtered FIFO frame.
+        #[arg(long, default_value_t = false)]
+        vdp_fifo_summary: bool,
         /// Selected hexadecimal M68K PCs to trace before execution (e.g. 0x74A,0xE12,0x44DC).
         #[arg(long)]
         m68k_pc_trace: Option<String>,
@@ -2979,6 +2982,7 @@ fn main() -> Result<()> {
             vdp_pixel_samples,
             vdp_fifo_commit_frames,
             vdp_fifo_commit_address_range,
+            vdp_fifo_summary,
             m68k_pc_trace,
             gems_stimulus_frames,
             capture_gems_state,
@@ -3217,22 +3221,36 @@ fn main() -> Result<()> {
                 .iter()
                 .filter(|row| (start..=end).contains(&row.frame))
             {
-                println!(
-                    "vdp_fifo_frame={},{}",
-                    row.frame,
-                    serde_json::to_string(&row.commits)?
-                );
+                if vdp_fifo_summary {
+                    println!(
+                        "vdp_fifo_summary={}",
+                        serde_json::to_string(&crate::oracle::summarise_vdp_fifo_commits(row))?
+                    );
+                } else {
+                    println!(
+                        "vdp_fifo_frame={},{}",
+                        row.frame,
+                        serde_json::to_string(&row.commits)?
+                    );
+                }
             }
             for row in oracle_manifest
                 .vdp_fifo_enqueues
                 .iter()
                 .filter(|row| (start..=end).contains(&row.frame))
             {
-                println!(
-                    "vdp_fifo_enqueue_frame={},{}",
-                    row.frame,
-                    serde_json::to_string(&row.commits)?
-                );
+                if vdp_fifo_summary {
+                    println!(
+                        "vdp_fifo_enqueue_summary={}",
+                        serde_json::to_string(&crate::oracle::summarise_vdp_fifo_commits(row))?
+                    );
+                } else {
+                    println!(
+                        "vdp_fifo_enqueue_frame={},{}",
+                        row.frame,
+                        serde_json::to_string(&row.commits)?
+                    );
+                }
             }
             for row in oracle_manifest
                 .m68k_pc_trace

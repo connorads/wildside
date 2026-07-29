@@ -159,7 +159,7 @@ pub struct OracleVdpFifoCommitRow {
     pub commits: Vec<OracleVdpFifoCommit>,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct OracleVdpFifoCommit {
     pub scanline: u16,
     pub pixel: u16,
@@ -171,6 +171,24 @@ pub struct OracleVdpFifoCommit {
     pub m68k_pc: u32,
     #[serde(default)]
     pub m68k_cycles: u64,
+}
+
+/// Compact boundary evidence for one frame's filtered VDP FIFO records.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct OracleVdpFifoCommitSummary<'a> {
+    pub frame: usize,
+    pub count: usize,
+    pub first: Option<&'a OracleVdpFifoCommit>,
+    pub last: Option<&'a OracleVdpFifoCommit>,
+}
+
+pub fn summarise_vdp_fifo_commits(row: &OracleVdpFifoCommitRow) -> OracleVdpFifoCommitSummary<'_> {
+    OracleVdpFifoCommitSummary {
+        frame: row.frame,
+        count: row.commits.len(),
+        first: row.commits.first(),
+        last: row.commits.last(),
+    }
 }
 
 /// One recorded oracle 68k→Z80 stimulus (#437).
@@ -1644,7 +1662,8 @@ fn quote_argument(value: &OsStr) -> String {
 mod tests {
     use super::{
         HELPER_TEMPLATE, JgenesisBackend, OracleBackend, OracleEnvironment, OracleManifest,
-        jgenesis_helper_cache_version, quote_argument, render_command, write_if_changed,
+        OracleVdpFifoCommit, OracleVdpFifoCommitRow, jgenesis_helper_cache_version, quote_argument,
+        render_command, summarise_vdp_fifo_commits, write_if_changed,
     };
     use crate::capture::sha1_hex;
     use std::ffi::OsStr;
@@ -2198,5 +2217,42 @@ mod tests {
                     .contains("write_emulator_wram_u16(emulator, PLAYER_1_LIVES_ADDR, count);"),
             "oracle last-life pause probes must seed ASM Number_Lives and the player slot save copy"
         );
+    }
+
+    #[test]
+    fn fifo_summary_retains_filtered_frame_boundaries() {
+        let commits = vec![
+            OracleVdpFifoCommit {
+                scanline: 20,
+                pixel: 380,
+                target: "vram".to_string(),
+                address: 0xDD40,
+                word: 0x8800,
+                byte_size: 2,
+                m68k_pc: 0x5D9E,
+                m68k_cycles: 100,
+            },
+            OracleVdpFifoCommit {
+                scanline: 48,
+                pixel: 28,
+                target: "vram".to_string(),
+                address: 0xDF3E,
+                word: 0,
+                byte_size: 2,
+                m68k_pc: 0x5D9E,
+                m68k_cycles: 200,
+            },
+        ];
+        let row = OracleVdpFifoCommitRow {
+            frame: 1_730,
+            m68k_cycle_counter: 200,
+            commits,
+        };
+
+        let summary = summarise_vdp_fifo_commits(&row);
+        assert_eq!(summary.frame, 1_730);
+        assert_eq!(summary.count, 2);
+        assert_eq!(summary.first.map(|commit| commit.address), Some(0xDD40));
+        assert_eq!(summary.last.map(|commit| commit.address), Some(0xDF3E));
     }
 }

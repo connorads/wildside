@@ -4779,6 +4779,19 @@ with a source-proven row-history difference.
 
 ### #406
 
+2026-07-29 filtered FIFO phase instrumentation: `oracle-probe` can now emit a
+compact count plus first/last record for every filtered FIFO commit and enqueue
+frame. Two representative Diamond clusters show that all nine uploads contain
+exactly 256 words and the commit interval always spans 28 scanlines, while the
+start moves across both axes: frames 1730/1736/1754/1820 start at
+20:380/19:380/19:12/24:44; frames 4713/4719/4737/4803/4833 start at
+21:12/20:76/19:12/24:12/23:28. This reusable observation surface satisfies the
+required instrumentation step after two evidence-only continuations. The
+stable transfer shape plus varying entry phase strengthens the persistent
+Mode_Level CPU/VDP phase hypothesis and rejects a static scanline or pixel
+offset. NEXT: carry that phase into `diamond_raster_timing_from_sub_e12` and
+verify these classes before changing the renderer.
+
 2026-07-29 rejected zero-wait VBlank composition: replacing the proven
 `3,380 + 2,002` ownership floor with the existing sprite/Kid, palette,
 H-scroll and suffix schedulers under zero external waits reproduced frame

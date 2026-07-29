@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 filtered FIFO phase summaries)
+
+- `oracle-probe --vdp-fifo-summary` now reports compact count and first/last
+  records for each filtered commit and enqueue frame.
+- Two Diamond clusters confirm a fixed 256-word, 28-scanline commit span with
+  varying entry phase. Starts are 20:380, 19:380, 19:12 and 24:44 at frames
+  1730/1736/1754/1820, then 21:12, 20:76, 19:12, 24:12 and 23:28 at
+  4713/4719/4737/4803/4833.
+- This is persistent phase instrumentation, satisfying the escalation after
+  two evidence-only continuations. The evidence rejects a static offset.
+- NEXT: model carried Mode_Level CPU/VDP phase and feed the existing exact
+  Diamond scheduler; verify the phase classes before changing pixels.
+
 ## 2026-07-29 handoff (#406 rejected zero-wait VBlank composition)
 
 - Composing the existing VBlank schedulers with zero external waits leaves the
