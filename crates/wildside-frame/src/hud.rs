@@ -246,7 +246,7 @@ pub fn push_hud_icon(
                     tile_base_index,
                     ..frame.clone()
                 };
-                if let Some(timing) =
+                let timing =
                     trace
                         .hud_raster_upload_timings_sub_44dc
                         .iter()
@@ -259,7 +259,33 @@ pub fn push_hud_icon(
                                 } if u16::from(frame_table_byte_offset) == tile_base_index
                             )
                         })
-                {
+                        .copied()
+                        .or_else(|| {
+                            let command = trace.hud_dma_events_sub_44dc.iter().copied().find(
+                                |command| {
+                                    matches!(
+                                        command,
+                                        HudDmaEventSub44DC::LifeIcon {
+                                            frame_table_byte_offset,
+                                            ..
+                                        } if u16::from(*frame_table_byte_offset) == tile_base_index
+                                    )
+                                },
+                            )?;
+                            let first_commit =
+                                wildside_core::vdp::life_icon_earliest_commit_from_vint_assertion(
+                                    trace.mode_level_vblank_work_before_sub_e12?,
+                                    trace.mode_level_work_before_hud_sub_44dc.as_ref()?,
+                                )?;
+                            Some(HudRasterUploadTimingSub44DC {
+                                command,
+                                previous_frame_table_byte_offset:
+                                    hud_life_icon_previous_page_loc_4546(trace)?,
+                                first_commit_scanline: first_commit.scanline,
+                                first_commit_pixel: first_commit.pixel,
+                            })
+                        });
+                if let Some(timing) = timing {
                     let source_words = (0..timing.command.word_count())
                         .map(|word_index| {
                             (
@@ -537,6 +563,19 @@ fn hud_diamond_palette_loc_1223c(
         palette.colours[9] = saved;
     }
     palette
+}
+
+fn hud_life_icon_previous_page_loc_4546(trace: &NativeTraceFrame) -> Option<u8> {
+    // ASM AniArt_LifeIcon (kid.asm:5611): the post-step script cursor selects
+    // pages 0,4,8,4 at offsets 0,2,4,6. The repeated page 4 means arithmetic
+    // on the current page cannot recover the resident predecessor.
+    match trace.hud_life_frame_offset? {
+        0 => Some(4),
+        2 => Some(0),
+        4 => Some(4),
+        6 => Some(8),
+        _ => None,
+    }
 }
 
 fn hud_life_icon_tile_base_index_loc_4546(trace: &NativeTraceFrame) -> u16 {

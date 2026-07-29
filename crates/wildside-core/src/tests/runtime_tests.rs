@@ -343,7 +343,7 @@ fn published_tas_life_icon_upload_lower_bound_separates_late_and_visible_commits
             vblank.hud_path_sub_bdc0 = ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters;
             observed.push((
                 frame_index,
-                vdp::life_icon_earliest_commit_scanline_from_vint_assertion(
+                vdp::life_icon_earliest_commit_from_vint_assertion(
                     vblank,
                     trace
                         .mode_level_work_before_hud_sub_44dc
@@ -356,7 +356,29 @@ fn published_tas_life_icon_upload_lower_bound_separates_late_and_visible_commits
 
     assert_eq!(
         observed,
-        vec![(1_697, Some(41)), (1_703, Some(31)), (1_709, Some(14))],
+        vec![
+            (
+                1_697,
+                Some(vdp::H40FifoCommitPosition {
+                    scanline: 42,
+                    pixel: 330,
+                }),
+            ),
+            (
+                1_703,
+                Some(vdp::H40FifoCommitPosition {
+                    scanline: 32,
+                    pixel: 268,
+                }),
+            ),
+            (
+                1_709,
+                Some(vdp::H40FifoCommitPosition {
+                    scanline: 15,
+                    pixel: 28,
+                }),
+            ),
+        ],
         "ASM V_Int -> Mode_Level -> sub_E12 -> sub_44DC loc_4586 conservative lower bound",
     );
 }

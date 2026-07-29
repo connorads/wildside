@@ -6753,6 +6753,15 @@ pub fn life_icon_earliest_commit_scanline_from_vint_assertion(
     vblank_work: crate::ModeLevelVblankWorkBeforeSubE12,
     pre_hud_work: &crate::ModeLevelPreHudWorkLedger,
 ) -> Option<u16> {
+    life_icon_earliest_commit_from_vint_assertion(vblank_work, pre_hud_work)
+        .map(|commit| commit.scanline)
+}
+
+/// Earliest possible life-icon FIFO commit for a natural gameplay VBlank.
+pub fn life_icon_earliest_commit_from_vint_assertion(
+    vblank_work: crate::ModeLevelVblankWorkBeforeSubE12,
+    pre_hud_work: &crate::ModeLevelPreHudWorkLedger,
+) -> Option<H40FifoCommitPosition> {
     // ASM V_Int $488 -> WaitForVint -> MainGameLoop -> Mode_Level $7C8:
     // interrupt entry is 54 cycles and the earliest loc_93E resume path is
     // another 162 source cycles.
@@ -6762,24 +6771,19 @@ pub fn life_icon_earliest_commit_scanline_from_vint_assertion(
     // 3,380 halt + 2,002 completion-wait cycles proven by the published
     // frame-1697/1703/1709 hardware traces.
     const MINIMUM_VBLANK_VDP_OWNERSHIP_CYCLES: u32 = 3_380 + 2_002;
-    // ASM sub_44DC -> loc_4586 -> first loc_44D4 MOVE.L completion.
-    const LIFE_ICON_PRELUDE_CYCLES: u32 = 236;
-
-    let vblank = crate::mode_level_vblank_source_cycles_before_sub_e12(vblank_work)?.get();
-    let execute = crate::execute_objects_raw_cycles_sub_e12(&pre_hud_work.execute_objects)?.get();
-    let post = crate::post_execute_raw_cycles_before_sub_44dc(pre_hud_work)?.get();
-    let earliest_cycles = MINIMUM_VINT_TO_MODE_LEVEL_CYCLES
-        .checked_add(vblank)?
-        .checked_add(MINIMUM_VBLANK_VDP_OWNERSHIP_CYCLES)?
-        .checked_add(execute)?
-        .checked_add(post)?
-        .checked_add(LIFE_ICON_PRELUDE_CYCLES)?;
-    let frame_mclk = u64::from(NTSC_SCANLINES_PER_FRAME) * u64::from(MCLK_CYCLES_PER_SCANLINE);
-    let absolute_mclk = 224_u64
-        .checked_mul(u64::from(MCLK_CYCLES_PER_SCANLINE))?
-        .checked_add(u64::from(earliest_cycles).checked_mul(7)?)?;
-    let frame_mclk_position = absolute_mclk % frame_mclk;
-    u16::try_from(frame_mclk_position / u64::from(MCLK_CYCLES_PER_SCANLINE)).ok()
+    let before_sub_e12 = MINIMUM_VINT_TO_MODE_LEVEL_CYCLES
+        .checked_add(crate::mode_level_vblank_source_cycles_before_sub_e12(vblank_work)?.get())?
+        .checked_add(MINIMUM_VBLANK_VDP_OWNERSHIP_CYCLES)?;
+    let seed = ModeLevelRasterSeedSubE12 {
+        beam: H40BeamPosition::new(224, 16)?
+            .advance_m68k_cycles(M68kCycleCount::from_raw(before_sub_e12)),
+        refresh_phase: M68kRefreshPhase::new(0).expect("zero refresh phase"),
+    };
+    let entry = mode_level_cpu_raster_cursor_sub_44dc(seed, pre_hud_work)?;
+    Some(life_icon_first_commit_loc_4586(
+        entry.beam,
+        entry.refresh_phase,
+    ))
 }
 
 /// Earliest possible Diamond DMA commit for a natural gameplay VBlank.

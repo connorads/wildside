@@ -4779,6 +4779,22 @@ with a source-proven row-history difference.
 
 ### #406
 
+2026-07-29 unseeded life-icon FIFO raster: the earlier natural-VBlank bound
+summed raw 68000 source cycles, so it could only classify whole-page uploads
+that certainly landed below the HUD sprite. The core now advances the same
+typed VBlank and pre-HUD work through mandatory refresh slots from phase zero,
+then schedules `sub_44DC loc_4586`'s first FIFO commit. The renderer consumes
+that conservative word boundary when no exact `sub_E12` seed exists. It also
+uses the traced `AniArt_LifeIcon` cursor to recover the previous page from the
+ROM sequence `0,4,8,4`; page 4 alone is ambiguous. Frame 1709's lower bound is
+H40 scanline 15 pixel 28 versus the seeded oracle commit at pixel 92, but both
+fall on the same side of the sprite-fetch boundary and render exactly. Six
+repeated frames become exact with no regressions: full pixels improve to
+37,480 exact / 279 divergent / 5,130 changed and the first mismatch advances
+1709 -> 1715. Persistent timing and injection frontiers remain unchanged.
+NEXT: classify frame 1715 as part of the remaining 64-frame life-icon family;
+do not introduce a frame clock or page arithmetic.
+
 Progress 2026-07-29 (Diamond earliest-commit lower bound): frame 1706 and five
 repeated one-pixel HUD Diamond boundaries were not evidence that the persistent
 CPU clock had reached those route indices. For an unseeded Diamond upload,

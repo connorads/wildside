@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 life-icon earliest-commit raster)
+
+- Natural life-icon uploads now advance typed VBlank/pre-HUD work through
+  mandatory refresh slots and schedule word-level `loc_4586` FIFO commits.
+- The traced `AniArt_LifeIcon` cursor recovers the prior page from its
+  non-monotonic `0,4,8,4` source sequence.
+- Six repeated frames become exact with no regressions. Full pixels are 37,480
+  exact / 279 divergent / 5,130 changed; first mismatch advances 1709 -> 1715.
+- NEXT: classify frame 1715 across the remaining life-icon family without a
+  frame clock or index-only march.
+
 ## 2026-07-29 handoff (#406 Diamond earliest-commit lower bound)
 
 - Unseeded Diamond uploads now derive a conservative first-commit bound from
