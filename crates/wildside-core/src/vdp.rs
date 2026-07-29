@@ -1020,6 +1020,9 @@ const INTRO_SEQUENCE_4_FULL_PALETTE_ELAPSED: usize = 55;
 const INTRO_SEQUENCE_5_PREVIOUS_FADE_OUT_ELAPSED: usize = 17;
 const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02: usize = 42 + 0x3C + 18;
 const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_FRAMES_LOC_1BA02: usize = 0x014A;
+/// ASM sub_1C1A2 reaches selector zero after 32 double-steps; that first
+/// loc_1C194 upload begins in trailing VBlank rather than the steady phase.
+const INTRO_SEQUENCE_2_SKY_REVEAL_FIRST_UPLOAD_LOOP_FRAME_LOC_1C194: usize = 32;
 
 fn build_intro_sequence_2_handoff_vdp_at_elapsed(
     data: &IntroSub1B850Data,
@@ -1044,7 +1047,7 @@ fn build_intro_sequence_2_handoff_vdp_at_elapsed(
     }
 
     let mut vdp = build_intro_sequence_vdp_base_with_title_variant(data, 1, title_variant);
-    overlay_intro_sequence_2_sky_reveal_loc_1BA02(&mut vdp, data, elapsed);
+    overlay_intro_sequence_2_sky_reveal_loc_1BA02(&mut vdp, data, title_variant, elapsed);
     overlay_intro_text_worker_loc_1c7a0(&mut vdp, 1, elapsed);
 
     if elapsed < INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED {
@@ -1326,6 +1329,7 @@ fn push_intro_sequence_prompt_sprite_sub_1C54A(
 fn overlay_intro_sequence_2_sky_reveal_loc_1BA02(
     vdp: &mut VdpState,
     data: &IntroSub1B850Data,
+    title_variant: u8,
     elapsed: usize,
 ) {
     // ASM loc_1B9D0 -> loc_1B9F4 hibernates `$3C` frames after the shared
@@ -1356,7 +1360,7 @@ fn overlay_intro_sequence_2_sky_reveal_loc_1BA02(
     });
     vdp.write_vram(SEGA_ART_VRAM_BYTE_ADDR, &bytes);
 
-    if let (Some(previous_bytes), Some(initial_vram)) = (previous_upload, initial_vram)
+    if let (Some(previous_bytes), Some(mut initial_vram)) = (previous_upload, initial_vram)
         && previous_bytes != bytes
     {
         let writes = bytes
@@ -1370,14 +1374,71 @@ fn overlay_intro_sequence_2_sky_reveal_loc_1BA02(
             })
             .collect::<Vec<_>>();
         // ASM sub_1C180/loc_1C194 writes 704 longwords through the CPU FIFO.
-        // Oracle FIFO tracing places the repeated reveal's dominant first
-        // visible commit at H40 scanline 5, pixel 140.
+        // The first non-negative selector reaches loc_1C194 late in the
+        // field; following hibernated passes resume at the steady phase.
+        let vram_word_writes =
+            if loop_frames == INTRO_SEQUENCE_2_SKY_REVEAL_FIRST_UPLOAD_LOOP_FRAME_LOC_1C194 {
+                if title_variant == 0 {
+                    schedule_intro_sequence_2_first_sky_reveal_fifo_loc_1c194(
+                        &writes,
+                        &mut initial_vram,
+                    )
+                } else {
+                    // Oracle `$FFFFFC82=1` published frame 8758 starts the same
+                    // first selector upload after visible scanout has begun.
+                    schedule_h40_vram_fifo_word_writes(&writes, 0, 204)
+                }
+            } else {
+                // Oracle published frame 5656 and following reveal passes.
+                schedule_h40_vram_fifo_word_writes(&writes, 5, 140)
+            };
         vdp.raster_frame = Some(VdpRasterFrame {
             initial_vram,
             initial_cram: None,
-            vram_word_writes: schedule_h40_vram_fifo_word_writes(&writes, 5, 140),
+            vram_word_writes,
         });
     }
+}
+
+/// ASM sub_1C180/loc_1C194: schedule the first non-negative sky-reveal upload.
+///
+/// Oracle frames 5655/19182/26355 place the first five word commits in the
+/// trailing-VBlank H40 slots on scanline 260. The FIFO then drains one word on
+/// every second active-display VRAM access slot from scanline 261 onward.
+fn schedule_intro_sequence_2_first_sky_reveal_fifo_loc_1c194(
+    writes: &[(u16, u16)],
+    initial_vram: &mut [u8],
+) -> Vec<VdpRasterVramWordWrite> {
+    const TRAILING_VBLANK_WORD_PIXELS: [u16; 5] = [254, 258, 302, 306, 380];
+    const ACTIVE_WORD_PIXELS: [u16; 9] = [28, 76, 108, 156, 204, 236, 284, 330, 380];
+    const PRE_SCANOUT_WORDS: usize = TRAILING_VBLANK_WORD_PIXELS.len() + ACTIVE_WORD_PIXELS.len();
+
+    // The VdpRasterFrame boundary is visible scanline 0, not physical VBlank.
+    // Fold scanlines 260/261 into that initial state before retaining the
+    // post-wrap writes which can change later visible scanlines.
+    for &(byte_addr, value) in writes.iter().take(PRE_SCANOUT_WORDS) {
+        let byte_addr = usize::from(byte_addr);
+        if let Some(slot) = initial_vram.get_mut(byte_addr..byte_addr + 2) {
+            slot.copy_from_slice(&value.to_be_bytes());
+        }
+    }
+
+    writes
+        .iter()
+        .copied()
+        .skip(PRE_SCANOUT_WORDS)
+        .enumerate()
+        .map(|(visible_write_index, (byte_addr, value))| {
+            let scanline = (visible_write_index / ACTIVE_WORD_PIXELS.len()) as u16;
+            let pixel = ACTIVE_WORD_PIXELS[visible_write_index % ACTIVE_WORD_PIXELS.len()];
+            VdpRasterVramWordWrite {
+                scanline,
+                pixel,
+                byte_addr,
+                value,
+            }
+        })
+        .collect()
 }
 
 #[allow(non_snake_case)]
@@ -13108,15 +13169,15 @@ mod tests {
         let previous = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &data,
             1,
-            1,
-            INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02 + 31,
+            0,
+            INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02 + 30,
             0,
         );
         let crossing = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &data,
             1,
-            1,
-            INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02 + 32,
+            0,
+            INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02 + 31,
             0,
         );
         let raster = crossing
@@ -13125,9 +13186,14 @@ mod tests {
             .expect("ASM sub_1C180's changed upload should retain its FIFO crossing");
 
         assert_eq!(
-            &raster.initial_vram[0x1780..0x2280],
-            &previous.vram[0x1780..0x2280],
-            "ASM loc_1C194 leaves the preceding reveal art visible until each replacement word commits",
+            &raster.initial_vram[0x1780..0x179C],
+            &crossing.vram[0x1780..0x179C],
+            "oracle frame 5655 commits the first 14 loc_1C194 words during trailing VBlank",
+        );
+        assert_eq!(
+            &raster.initial_vram[0x179C..0x2280],
+            &previous.vram[0x179C..0x2280],
+            "ASM loc_1C194 leaves later reveal art resident until each post-wrap word commits",
         );
         assert_eq!(
             raster.vram_word_writes.first().map(|write| (
@@ -13135,13 +13201,46 @@ mod tests {
                 write.pixel,
                 write.byte_addr
             )),
-            Some((5, 140, 0x1780)),
-            "oracle frame 5656 pins sub_1C180's first visible CPU-FIFO commit",
+            Some((0, 28, 0x179C)),
+            "oracle frame 5655 commits 14 sub_1C180 words before visible scanline 0, then resumes at `$179C`",
         );
         assert_eq!(
             raster.vram_word_writes.len(),
-            2 * (0x0B00 / 2),
-            "ASM loc_1C194 writes $2C0 longwords; each word occupies two renderer access slots",
+            0x0B00 / 2 - 14,
+            "ASM loc_1C194's first-pass raster retains only the words committed after visible scanout begins",
+        );
+
+        let next = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            1,
+            0,
+            INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02 + 32,
+            0,
+        );
+        assert_eq!(
+            next.raster_frame
+                .as_ref()
+                .and_then(|frame| frame.vram_word_writes.first())
+                .map(|write| (write.scanline, write.pixel, write.byte_addr)),
+            Some((5, 140, 0x1780)),
+            "oracle frame 5656 pins the steady loc_1C194 CPU-FIFO commit phase",
+        );
+
+        let variant_1_crossing = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            1,
+            1,
+            INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02 + 31,
+            0,
+        );
+        assert_eq!(
+            variant_1_crossing
+                .raster_frame
+                .as_ref()
+                .and_then(|frame| frame.vram_word_writes.first())
+                .map(|write| (write.scanline, write.pixel, write.byte_addr)),
+            Some((0, 204, 0x1780)),
+            "oracle `$FFFFFC82=1` frame 8758 pins the alternate first-pass loc_1C194 phase",
         );
     }
 

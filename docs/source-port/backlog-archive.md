@@ -4779,6 +4779,26 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-29 (IntroSequence2 first sky reveal): ASM `loc_1B9D0 ->
+loc_1BA02` calls `sub_1C1A2` twice per pass; `sub_1C180/loc_1C194` streams 704
+longwords into VRAM `$1780`. Oracle FIFO probes show the first non-negative
+selector upload is not in the steady phase: variant `$FFFFFC82=0` frames
+5655/19182/26355 commit 14 words during physical scanlines 260/261 before
+visible scanout, then resume at visible line 0 pixel 28. Variant 1 starts its
+first visible commit at line 0 pixel 204. Frame 5656 and later passes use the
+existing line 5 pixel 140 schedule.
+
+Native now selects those first-pass schedules from the typed title variant and
+folds pre-scanout commits into `VdpRasterFrame.initial_vram`. Focused windows
+5654..5658, 19181..19185, 26354..26358, and 8757..8760 are exact. Applying the
+variant-0 schedule uniformly was rejected: it worsened four variant-1 frames
+by 92 aggregate pixels. The typed split removes that regression. Full pixels
+improve 37,333->37,336 exact, 426->423 divergent, and 11,886->11,831 changed;
+gameplay, player/camera, enemy, and RNG remain exact.
+
+NEXT: skip deferred Iron Knight and persistent HUD raster timing, then classify
+the largest independent repeated presentation cluster.
+
 Progress 2026-07-29 (transform cleanup background state): the 988-pixel frame
 22545 mismatch covered the Island background but not gameplay state. Oracle
 VRAM at frames 22544..22546 keeps Plane B and CRAM stable, retains shore banks

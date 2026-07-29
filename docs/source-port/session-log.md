@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 IntroSequence2 first sky reveal)
+
+- `sub_1C180/loc_1C194` streams 704 longwords into VRAM `$1780`; the first
+  upload has a different beam phase from its steady hibernated passes.
+- Native now selects the first-pass schedule from typed `$FFFFFC82`. Variant 0
+  folds 14 trailing-field words into initial VRAM; variant 1 starts at visible
+  line 0 pixel 204. A rejected uniform schedule regressed variant 1.
+- Full pixels improve to 37,336 exact / 423 divergent / 11,831 changed. NEXT:
+  skip the deferred Iron Knight and persistent HUD timing classes and classify
+  the largest independent repeated presentation cluster.
+
 ## 2026-07-29 handoff (#406 transform cleanup background state)
 
 - Oracle VRAM proves frame 22545 retains the resident middle Island shore bank;
