@@ -4779,6 +4779,27 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-29 (IntroText5 FC82=2 worker schedule): the refreshed report
+split two complete story-text runs into moving tile-coordinate clusters.
+Frames 10040..10258 and 20464..20682 are identical glyph cadences offset by
+10,424 route frames: each divergent even frame contains only the newest
+`loc_1C7A0/sub_1C7F6` cell. Oracle `Game_Mode` enters IntroSequence5 `$24` at
+frames 9949 and 20373, and `$FFFFFC82=2` on both runs. At local elapsed 91,
+oracle frames 10040/20464 retain a blank first `T`; native had already written
+it. The following pass presents the glyph.
+
+`IntroSequence5WorkerLineage::TimeoutFc82Two` now owns a one-pass text-worker
+delay alongside its already proven independent `loc_1BC36` tile-worker delay.
+The shared cold anchor remains 58 and its frame-1980 `THIS IS`/not-`THE`
+checkpoint stays green; the Start-skip early-wake lineage is unchanged. Exact
+400-frame comparisons at 9900..10300 and 20300..20700 are both 400/400.
+Full pixels improve 37,343->37,453 exact, 416->306 divergent, and
+11,684->8,204 changed. The mismatch report collapses 76->21 clusters;
+gameplay, player/camera, enemy, and RNG remain exact.
+
+NEXT: skip deferred Iron Knight and persistent HUD raster timing, then
+classify the largest independent remaining cluster.
+
 Progress 2026-07-29 (IntroSequence2 reveal mutator end): the seven 21-pixel
 frames 5687/8790/15012/19214/26387/31272/36783 share reveal pass 64. ASM
 `loc_1B9F4` seeds `d1=-$40`; `loc_1BA02` calls `sub_1C1A2` twice per pass, so

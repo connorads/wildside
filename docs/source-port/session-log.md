@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 IntroText5 FC82=2 schedule)
+
+- The many paired tile-sized clusters at 10040..10258 and 20464..20682 are
+  two complete IntroText5 runs, not independent coordinate bugs.
+- `$FFFFFC82=2` resumes `loc_1C7A0` one outer pass later, matching the typed
+  delay already owned by its independent `loc_1BC36` tile worker. Cold/shared
+  and early-wake lineages retain their proven cadence.
+- Full pixels improve to 37,453 exact / 306 divergent / 8,204 changed; 110
+  frames and 3,480 pixels retire. NEXT: skip deferred Iron Knight and
+  persistent HUD timing and classify the largest independent cluster.
+
 ## 2026-07-29 handoff (#406 IntroSequence2 reveal mutator end)
 
 - On reveal pass 64, both `sub_1C1A2` calls reach `loc_1C1F2`'s `$40` early

@@ -786,7 +786,11 @@ fn build_intro_sequence_vdp_with_title_variant_at_elapsed_and_visible_threshold(
             intro_sequence_5_worker_lineage,
         );
     }
-    overlay_intro_text_worker_loc_1c7a0(&mut vdp, segment, elapsed);
+    overlay_intro_text_worker_loc_1c7a0(
+        &mut vdp,
+        segment,
+        elapsed.saturating_sub(intro_sequence_5_worker_lineage.text_worker_delay()),
+    );
     vdp
 }
 
@@ -7377,6 +7381,14 @@ impl IntroSequence5WorkerLineage {
         // trace after the FC82=0/1 presentation clock used by earlier visits.
         usize::from(self == Self::TimeoutFc82Two)
     }
+
+    fn text_worker_delay(self) -> usize {
+        // ASM loc_1BA28 allocates IntroText5 before the fade shell, but the
+        // independently scheduled loc_1C7A0 worker resumes one outer pass
+        // later on the FC82=2 timeout lineage. Oracle frames 10040/20464 keep
+        // the first `T` cell blank; the shared cold anchor remains unchanged.
+        usize::from(self == Self::TimeoutFc82Two)
+    }
 }
 
 #[allow(non_snake_case)]
@@ -11817,6 +11829,29 @@ mod tests {
             vram_word(&vdp, usize::from(t_write.vram_word_address)),
             0,
             "ASM IntroText5 should not yet reveal the `T` in `THE` at the same frame-1980 checkpoint; `$C7D3` corridor-script unrevealed cells match oracle as literal zero",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_5_fc82_two_delays_introtext5_one_outer_pass_loc_1C7A0() {
+        let data = empty_intro_data();
+        let first_t = wildside_data::title_intro_glyph_write_sub_1C7F6(0, 0xC7D3, 0x19, 3, 0x13);
+
+        let before =
+            build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(&data, 2, 91, 0, false);
+        assert_eq!(
+            vram_word(&before, usize::from(first_t.vram_word_address)),
+            0,
+            "oracle frames 10040/20464 keep IntroText5's first T blank on the FC82=2 outer pass",
+        );
+
+        let presented =
+            build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(&data, 2, 92, 0, false);
+        assert_eq!(
+            vram_word(&presented, usize::from(first_t.vram_word_address)),
+            first_t.tile_word,
+            "ASM loc_1C7A0 writes the first T when the FC82=2 worker resumes on the following pass",
         );
     }
 
