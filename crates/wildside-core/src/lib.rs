@@ -2322,10 +2322,8 @@ impl NativeRuntime {
         })
     }
 
-    fn intro_sequence_2_first_reveal_fifo_phase_loc_1c194(
-        &self,
-    ) -> vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194 {
-        use vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194 as Phase;
+    fn intro_sequence_2_fifo_lineage_loc_1c194(&self) -> vdp::IntroSequence2FifoLineageLoc1C194 {
+        use vdp::IntroSequence2FifoLineageLoc1C194 as Lineage;
 
         // ASM loc_1BA02 -> sub_1C180/loc_1C194 inherits the Standard-mode
         // CPU/FIFO phase established by the preceding attract/intro lineage.
@@ -2337,12 +2335,16 @@ impl NativeRuntime {
             self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility,
             self.timeout_restart_intro_sequence_1_uses_early_title_restore,
         ) {
-            (0, false, true, false) => Phase::VisibleLineZero236,
-            (1, true, false, false) => Phase::TrailingVblankShifted12,
-            (2, false, true, true) => Phase::TrailingVblankStandard,
-            (0, true, true, true) => Phase::VisibleLineZero204,
-            (0, _, _, _) => Phase::TrailingVblankStandard,
-            _ => Phase::VisibleLineZero204,
+            (0, false, true, false) => Lineage::Region0EarlySlot,
+            (1, true, false, false) => Lineage::Region1Demo,
+            (2, false, true, true) => Lineage::Region2EarlyRestore,
+            (0, true, true, true) => Lineage::Region0DemoEarlyRestore,
+            (2, true, true, true) => Lineage::Region2DemoEarlyRestore,
+            (0, true, false, false) => Lineage::Region0Demo,
+            (1, false, false, false) => Lineage::Region1,
+            (0, _, _, _) => Lineage::Region0Demo,
+            (1, _, _, _) => Lineage::Region1,
+            _ => Lineage::Region2EarlyRestore,
         }
     }
 
@@ -2450,7 +2452,7 @@ impl NativeRuntime {
                         data,
                         self.title_screen_region_byte,
                         *elapsed,
-                        self.intro_sequence_2_first_reveal_fifo_phase_loc_1c194(),
+                        self.intro_sequence_2_fifo_lineage_loc_1c194(),
                     );
                 }
                 if *segment == 2 {

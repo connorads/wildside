@@ -4791,6 +4791,18 @@ with a source-proven row-history difference.
 
 ### #406
 
+2026-07-29 IntroSequence2 complete FIFO-lineage census: oracle capture across
+all seven route entries and local `loc_1BA02` passes 32..64 shows that the
+steady `sub_1C180 / loc_1C194` sky-reveal upload phase depends on durable mode
+history, not one shared phase or the published-TAS frame index. Native now
+carries seven typed lineages from region/demo/early-slot/early-restore state
+and derives exceptional FIFO starts from the local pass count. A sparse
+84-checkpoint matrix is pixel-exact. Full TAS pixels improve from 37,490 to
+37,510 exact, 269 to 249 divergent, 2,656 to 2,472 changed, and worst-frame
+pixels from 33 to 25. The IntroSequence2 residue is eliminated. Five clusters
+remain: HUD Diamond 170/1,717, life icon 71/740, bottom-right 7/14, and one
+pixel at frame 27908. `verify-slice-fast` and `verify-tas-full` pass.
+
 2026-07-29 full Diamond-residue FIFO census: oracle capture now covers all
 170 `hud_diamond` mismatch frames, not only the two representative clusters.
 Every row is one contiguous 256-word `$DD40..$DF3F` DMA, while first commits

@@ -6504,50 +6504,79 @@ mod chunk_09 {
     }
 
     #[test]
-    fn published_tas_intro_sequence_2_first_reveal_fifo_phases_follow_timeout_lineage_loc_1c194() {
+    fn published_tas_intro_sequence_2_fifo_lineages_follow_timeout_history_loc_1c194() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
         };
         let expected = [
-            (
-                8_758,
-                vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194::VisibleLineZero204,
-            ),
+            (5_655, vdp::IntroSequence2FifoLineageLoc1C194::Region0Demo),
+            (8_758, vdp::IntroSequence2FifoLineageLoc1C194::Region1),
             (
                 14_980,
-                vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194::VisibleLineZero236,
+                vdp::IntroSequence2FifoLineageLoc1C194::Region0EarlySlot,
             ),
-            (
-                19_182,
-                vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194::TrailingVblankShifted12,
-            ),
+            (19_182, vdp::IntroSequence2FifoLineageLoc1C194::Region1Demo),
             (
                 26_355,
-                vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194::TrailingVblankStandard,
+                vdp::IntroSequence2FifoLineageLoc1C194::Region2EarlyRestore,
             ),
             (
                 31_240,
-                vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194::VisibleLineZero204,
+                vdp::IntroSequence2FifoLineageLoc1C194::Region0DemoEarlyRestore,
             ),
             (
                 36_751,
-                vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194::VisibleLineZero204,
+                vdp::IntroSequence2FifoLineageLoc1C194::Region2DemoEarlyRestore,
             ),
         ];
+        let expected_starts = [
+            (5_665, (6, 140)),
+            (5_668, (7, 28)),
+            (8_768, (5, 380)),
+            (8_771, (6, 284)),
+            (14_990, (5, 380)),
+            (14_993, (6, 236)),
+            (19_192, (6, 44)),
+            (19_195, (6, 380)),
+            (19_210, (5, 156)),
+            (26_365, (6, 12)),
+            (26_368, (6, 380)),
+            (31_250, (6, 76)),
+            (31_253, (6, 380)),
+            (31_268, (5, 156)),
+            (36_761, (5, 284)),
+            (36_764, (6, 268)),
+        ];
         let mut observed = Vec::new();
-        for (frame_index, mask) in script.iter().copied().enumerate().take(36_752) {
+        let mut observed_starts = Vec::new();
+        for (frame_index, mask) in script.iter().copied().enumerate().take(36_765) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
             if expected.iter().any(|(target, _)| *target == frame_index) {
                 assert_eq!(trace.boot_phase_elapsed, Some(151));
                 observed.push((
                     frame_index,
-                    runtime.intro_sequence_2_first_reveal_fifo_phase_loc_1c194(),
+                    runtime.intro_sequence_2_fifo_lineage_loc_1c194(),
                 ));
+            }
+            if expected_starts
+                .iter()
+                .any(|(target, _)| *target == frame_index)
+            {
+                let first = runtime
+                    .vdp_state()
+                    .and_then(|vdp| vdp.raster_frame.as_ref())
+                    .and_then(|raster| raster.vram_word_writes.first())
+                    .expect("ASM loc_1C194 reveal pass has a first visible FIFO commit");
+                observed_starts.push((frame_index, (first.scanline, first.pixel)));
             }
         }
         assert_eq!(
             observed, expected,
             "ASM loc_1BA02 -> sub_1C180/loc_1C194 resumes from the timeout lineage's persistent Standard-mode CPU/FIFO phase",
+        );
+        assert_eq!(
+            observed_starts, expected_starts,
+            "ASM loc_1BA02 hibernation carries each lineage's FIFO phase into later selector passes",
         );
     }
 

@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 IntroSequence2 FIFO lineages)
+
+- A complete oracle matrix across seven route entries and local `loc_1BA02`
+  passes 32..64 rejects one shared steady FIFO phase.
+- Native carries seven typed mode-history lineages into the
+  `sub_1C180 / loc_1C194` sky-reveal scheduler. No global frame indices were
+  added. The 84-checkpoint phase matrix is pixel-exact.
+- Full pixels improve to 37,510 exact / 249 divergent / 2,472 changed; the
+  IntroSequence2 residue is eliminated and the worst frame falls to 25 pixels.
+- NEXT: build the persistent hardware-timeline owner needed by the 170-frame
+  Diamond family, or classify the independent 15-pixel tail first.
+
 ## 2026-07-29 handoff (#406 full Diamond FIFO census)
 
 - Captured all 170 `hud_diamond` mismatch uploads with the existing filtered

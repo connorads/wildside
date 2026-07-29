@@ -687,19 +687,55 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum IntroSequence2FirstRevealFifoPhaseLoc1C194 {
-    TrailingVblankStandard,
-    TrailingVblankShifted12,
-    VisibleLineZero204,
-    VisibleLineZero236,
+pub(crate) enum IntroSequence2FifoLineageLoc1C194 {
+    Region0Demo,
+    Region1,
+    Region0EarlySlot,
+    Region1Demo,
+    Region2EarlyRestore,
+    Region0DemoEarlyRestore,
+    Region2DemoEarlyRestore,
 }
 
-impl IntroSequence2FirstRevealFifoPhaseLoc1C194 {
+impl IntroSequence2FifoLineageLoc1C194 {
     fn shared(title_variant: u8) -> Self {
-        if title_variant == 0 {
-            Self::TrailingVblankStandard
-        } else {
-            Self::VisibleLineZero204
+        match title_variant {
+            0 => Self::Region0Demo,
+            1 => Self::Region1,
+            _ => Self::Region2EarlyRestore,
+        }
+    }
+
+    fn steady_fifo_start(self, loop_frames: usize) -> (u16, u16) {
+        use IntroSequence2FifoLineageLoc1C194 as Lineage;
+
+        match (self, loop_frames) {
+            (Lineage::Region0Demo, 34 | 37) => (5, 156),
+            (Lineage::Region0Demo, 42) => (6, 140),
+            (Lineage::Region0Demo, 43 | 44) => (5, 108),
+            (Lineage::Region0Demo, 45) => (7, 28),
+            (Lineage::Region1, 36) => (5, 156),
+            (Lineage::Region1, 42) => (5, 380),
+            (Lineage::Region1, 43 | 44) => (5, 108),
+            (Lineage::Region1, 45) => (6, 284),
+            (Lineage::Region0EarlySlot, 36 | 39 | 62) => (5, 156),
+            (Lineage::Region0EarlySlot, 42) => (5, 380),
+            (Lineage::Region0EarlySlot, 43 | 44) => (5, 108),
+            (Lineage::Region0EarlySlot, 45) => (6, 236),
+            (Lineage::Region1Demo, 34 | 37 | 60 | 62) => (5, 156),
+            (Lineage::Region1Demo, 39) => (5, 236),
+            (Lineage::Region1Demo, 42) => (6, 44),
+            (Lineage::Region1Demo, 43 | 44) => (5, 108),
+            (Lineage::Region1Demo, 45) => (6, 380),
+            (Lineage::Region2EarlyRestore, 42) => (6, 12),
+            (Lineage::Region2EarlyRestore, 45) => (6, 380),
+            (Lineage::Region0DemoEarlyRestore, 42) => (6, 76),
+            (Lineage::Region0DemoEarlyRestore, 45) => (6, 380),
+            (Lineage::Region0DemoEarlyRestore, 60) => (5, 156),
+            (Lineage::Region2DemoEarlyRestore, 34 | 36) => (5, 156),
+            (Lineage::Region2DemoEarlyRestore, 42) => (5, 284),
+            (Lineage::Region2DemoEarlyRestore, 45) => (6, 268),
+            _ => (5, 140),
         }
     }
 }
@@ -708,9 +744,9 @@ pub(crate) fn build_intro_sequence_2_vdp_at_elapsed_with_fifo_phase_loc_1c194(
     data: &IntroSub1B850Data,
     title_variant: u8,
     elapsed: usize,
-    fifo_phase: IntroSequence2FirstRevealFifoPhaseLoc1C194,
+    fifo_lineage: IntroSequence2FifoLineageLoc1C194,
 ) -> VdpState {
-    build_intro_sequence_2_handoff_vdp_at_elapsed(data, title_variant, elapsed, fifo_phase)
+    build_intro_sequence_2_handoff_vdp_at_elapsed(data, title_variant, elapsed, fifo_lineage)
 }
 
 pub(crate) fn build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
@@ -778,7 +814,7 @@ fn build_intro_sequence_vdp_with_title_variant_at_elapsed_and_visible_threshold(
             data,
             title_variant,
             elapsed,
-            IntroSequence2FirstRevealFifoPhaseLoc1C194::shared(title_variant),
+            IntroSequence2FifoLineageLoc1C194::shared(title_variant),
         );
     }
     if segment == 2 {
@@ -1073,7 +1109,7 @@ fn build_intro_sequence_2_handoff_vdp_at_elapsed(
     data: &IntroSub1B850Data,
     title_variant: u8,
     elapsed: usize,
-    fifo_phase: IntroSequence2FirstRevealFifoPhaseLoc1C194,
+    fifo_lineage: IntroSequence2FifoLineageLoc1C194,
 ) -> VdpState {
     // ASM loc_1B9D0 enters the same sub_1C204 fade shell used by
     // sub_1B8F4. ROM-visible output keeps the completed Wild Side VDP around
@@ -1093,7 +1129,7 @@ fn build_intro_sequence_2_handoff_vdp_at_elapsed(
     }
 
     let mut vdp = build_intro_sequence_vdp_base_with_title_variant(data, 1, title_variant);
-    overlay_intro_sequence_2_sky_reveal_loc_1BA02(&mut vdp, data, elapsed, fifo_phase);
+    overlay_intro_sequence_2_sky_reveal_loc_1BA02(&mut vdp, data, elapsed, fifo_lineage);
     overlay_intro_text_worker_loc_1c7a0(&mut vdp, 1, elapsed);
 
     if elapsed < INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED {
@@ -1376,7 +1412,7 @@ fn overlay_intro_sequence_2_sky_reveal_loc_1BA02(
     vdp: &mut VdpState,
     data: &IntroSub1B850Data,
     elapsed: usize,
-    fifo_phase: IntroSequence2FirstRevealFifoPhaseLoc1C194,
+    fifo_lineage: IntroSequence2FifoLineageLoc1C194,
 ) {
     // ASM loc_1B9D0 -> loc_1B9F4 hibernates `$3C` frames after the shared
     // intro-text/fade shell, then loc_1BA02 calls sub_1C1A2 twice and
@@ -1430,30 +1466,33 @@ fn overlay_intro_sequence_2_sky_reveal_loc_1BA02(
                 &mut initial_vram,
             )
         } else if loop_frames == INTRO_SEQUENCE_2_SKY_REVEAL_FIRST_UPLOAD_LOOP_FRAME_LOC_1C194 {
-            match fifo_phase {
-                    IntroSequence2FirstRevealFifoPhaseLoc1C194::TrailingVblankStandard => {
+            match fifo_lineage {
+                    IntroSequence2FifoLineageLoc1C194::Region0Demo
+                    | IntroSequence2FifoLineageLoc1C194::Region2EarlyRestore => {
                         schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_loc_1c194(
                             &writes,
                             &mut initial_vram,
                         )
                     }
-                    IntroSequence2FirstRevealFifoPhaseLoc1C194::TrailingVblankShifted12 => {
+                    IntroSequence2FifoLineageLoc1C194::Region1Demo => {
                         schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_with_visible_slots_loc_1c194(
                             &writes,
                             &mut initial_vram,
                             &[12, 44, 92, 140, 172, 220, 268, 300, 332],
                         )
                     }
-                    IntroSequence2FirstRevealFifoPhaseLoc1C194::VisibleLineZero204 => {
+                    IntroSequence2FifoLineageLoc1C194::Region1
+                    | IntroSequence2FifoLineageLoc1C194::Region0DemoEarlyRestore
+                    | IntroSequence2FifoLineageLoc1C194::Region2DemoEarlyRestore => {
                         schedule_h40_vram_fifo_word_writes(&writes, 0, 204)
                     }
-                    IntroSequence2FirstRevealFifoPhaseLoc1C194::VisibleLineZero236 => {
+                    IntroSequence2FifoLineageLoc1C194::Region0EarlySlot => {
                         schedule_h40_vram_fifo_word_writes(&writes, 0, 236)
                     }
                 }
         } else {
-            // Oracle published frame 5656 and following reveal passes.
-            schedule_h40_vram_fifo_word_writes(&writes, 5, 140)
+            let (scanline, pixel) = fifo_lineage.steady_fifo_start(loop_frames);
+            schedule_h40_vram_fifo_word_writes(&writes, scanline, pixel)
         };
         vdp.raster_frame = Some(VdpRasterFrame {
             initial_vram,
@@ -13515,6 +13554,31 @@ mod tests {
             Some((5, 140, 0x1780)),
             "oracle frame 5656 pins the steady loc_1C194 CPU-FIFO commit phase",
         );
+
+        for (loop_frame, expected) in [
+            (34, (5, 156, 0x1780)),
+            (39, (5, 236, 0x1780)),
+            (42, (6, 44, 0x1780)),
+            (43, (5, 108, 0x1780)),
+            (45, (6, 380, 0x1780)),
+            (60, (5, 156, 0x1780)),
+        ] {
+            let carried_phase = build_intro_sequence_2_vdp_at_elapsed_with_fifo_phase_loc_1c194(
+                &data,
+                0,
+                INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02 + loop_frame - 1,
+                IntroSequence2FifoLineageLoc1C194::Region1Demo,
+            );
+            assert_eq!(
+                carried_phase
+                    .raster_frame
+                    .as_ref()
+                    .and_then(|frame| frame.vram_word_writes.first())
+                    .map(|write| (write.scanline, write.pixel, write.byte_addr)),
+                Some(expected),
+                "ASM loc_1BA02 pass {loop_frame} carries its hibernated loc_1C194 FIFO phase",
+            );
+        }
 
         let variant_1_crossing = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &data,
