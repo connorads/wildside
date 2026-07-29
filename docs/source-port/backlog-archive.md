@@ -22610,3 +22610,18 @@ byte-identical to oracle. All 28 frames in the repeated spatial family become
 exact; full pixels improve 37,116 -> 37,144 exact, 643 -> 615 divergent, and
 69,384 -> 63,348 changed. Player/camera CRC, RNG, enemies and GEMS commands
 remain unchanged. NEXT: classify the 12-frame / 5,736-pixel left-edge family.
+Progress 2026-07-29 for #406: classified the repeated 12-frame / 5,736-pixel
+`grid:1,15-5,20` family as ordinary Iron Knight walking at frames
+7693/7702/7711, 13915/13924/13933, 25290/25299/25308, and
+33491/33500/33509. `tas-diff --player-trace` keeps player/camera state, RNG,
+and the `$04E4/$04E8/$04EC` mappings exact. Oracle VRAM dumps at `$C4A0` are
+unchanged through frames 7691-7700, then change in two stages at 7701 and
+7702; the resident page is not byte-equal to a complete extracted walk frame.
+ASM `Make_SpriteFromGfxObject sub_1492 -> sub_13C0 loc_141A` queues one art
+source per 32px hardware-sprite chunk and advances `a4` by that chunk's tile
+count. Rejected hypothesis: selecting a prior or partly prior page only when
+`loc_95DA` crosses a `$100` mapping bucket. Frame 7693 remains within mapping
+`$04E4`, and a focused implementation left all three sampled PNGs divergent.
+The next implementation must persist the Kid `$C4A0` art page across frames
+and apply the emitted chunk uploads before scene rendering; do not retry a
+stateless transition-only selector.

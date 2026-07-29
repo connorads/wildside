@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 Iron Knight walk-page persistence)
+
+- `grid:1,15-5,20` is ordinary Iron Knight walking at frames 7693/7702/7711,
+  repeated across four route visits; player, camera, mapping and RNG agree.
+- Oracle `$C4A0` VRAM stays unchanged through frames 7691-7700, then changes in
+  two stages at 7701/7702. It is not the complete extracted walk asset.
+- A transition-only hybrid selector was tested and rejected: frame 7693 stays
+  inside mapping `$04E4`. NEXT: persist the Kid art page and apply each
+  `sub_1492 -> loc_141A` chunk upload before rendering the regression frames.
+
 ## 2026-07-29 handoff (#406 Iron Knight resident climb page)
 
 - `sub_A3BC` climb transitions now present the complete prior `off_A420` page
