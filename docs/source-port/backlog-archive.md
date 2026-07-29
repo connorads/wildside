@@ -4807,6 +4807,25 @@ with a source-proven row-history difference.
 
 ### #406
 
+2026-07-29 bottom-right tail correction: oracle VDP pixel samples at frame
+2617 report no sprite contribution at `(318..319,223)`; the visible colours
+come from Plane A word `$0000`, whose pattern zero was overwritten by
+`Load_InGame loc_2FFE8 -> sub_30194 -> loc_30354`. The earlier claim that
+oracle selected `LnkTo_unk_C759E` at those pixels was therefore wrong. FIFO
+capture proves frame 2595 writes all 16 words at VRAM `$0EA0..$0EBF` from
+`loc_30354` (enqueue PC `$30360`), but that address is low-VRAM tile `$075`,
+not the walking Dragon's fetched pattern: Level 0x15 places Dragon in enemy
+slot 1 at VRAM base `$2FB`, so local tile `$075` fetches hardware tile `$370`.
+The `$370` dump contains the expected Dragon row and does not explain the
+missing oracle sprite. Three non-landed hypotheses are rejected: drawing the
+retained Plane-A tile under native's sprite leaves the same two pixels;
+substituting the low-VRAM `$075` bytes creates 33 wrong pixels; routing enemies
+through SAT first-opaque arbitration with H40 20-sprite/40-cell line limits
+also leaves the same two pixels. No gameplay patch or baseline change. Reopen
+this seven-frame tail only after identifying why the oracle SAT contributes no
+sprite at the sampled pixels; do not retry clipping, low-VRAM residency, or
+scanline-budget changes from the local tile number.
+
 2026-07-29 bottom-right tail classification: the seven two-pixel frames
 2617/6988/13210/21848/24585/32786/37601 all occur exactly 52 frames after an
 attract-demo Level 0x15 entry. Frame 2617 is the same walking Dragon object and

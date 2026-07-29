@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 Dragon edge-art correction)
+
+- Oracle VDP samples show no sprite contribution at the seven bottom-right
+  two-pixel residues. The earlier Dragon-mapping classification was wrong.
+- FIFO writes at `$0EA0..$0EBF` are Plane-A uploads to low-VRAM tile `$075`;
+  Level 0x15's slot-1 Dragon fetches local `$075` from hardware tile `$370`.
+- Plane-A underlay, low-VRAM residency substitution, and H40 SAT budgets are
+  rejected by focused frame 2617 measurements. No code or baseline changed.
+- NEXT: return to #409's shared persistent HUD timeline. Reopen this tail only
+  after proving why the oracle SAT contributes no sprite at the sampled pixels.
+
 ## 2026-07-29 handoff (#409 suppressed-palette VBlank timing)
 
 - ASM `Palette_to_VRAM sub_970` proves the suppressed stable-counter VBlank
