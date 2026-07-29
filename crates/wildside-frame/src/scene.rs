@@ -1231,6 +1231,25 @@ pub fn build_scene_with_layers(
     )
 }
 
+/// [`build_scene_with_layers`] with the player-art words currently resident
+/// at ASM `Transfer_SpriteAndKidToVRAM loc_AD4`'s VRAM `$C4A0` destination.
+pub fn build_scene_with_layers_and_player_art(
+    trace: &NativeTraceFrame,
+    debug_overlay_visible: bool,
+    level_visuals: Option<&NativeLevelVisuals>,
+    block_grid: Option<&BlockGrid>,
+    resident_player_art: Option<&TileSheet>,
+) -> (Scene, Vec<LayerSpan>) {
+    build_scene_filtered_with_layers_and_player_art(
+        trace,
+        debug_overlay_visible,
+        level_visuals,
+        block_grid,
+        LayerFilter::default(),
+        resident_player_art,
+    )
+}
+
 pub fn render_trace_with_vdp_latched_state(
     trace: &NativeTraceFrame,
     previous_trace: Option<&NativeTraceFrame>,
@@ -1678,6 +1697,24 @@ pub fn build_scene_filtered_with_layers(
     block_grid: Option<&BlockGrid>,
     filter: LayerFilter,
 ) -> (Scene, Vec<LayerSpan>) {
+    build_scene_filtered_with_layers_and_player_art(
+        trace,
+        debug_overlay_visible,
+        level_visuals,
+        block_grid,
+        filter,
+        None,
+    )
+}
+
+fn build_scene_filtered_with_layers_and_player_art(
+    trace: &NativeTraceFrame,
+    debug_overlay_visible: bool,
+    level_visuals: Option<&NativeLevelVisuals>,
+    block_grid: Option<&BlockGrid>,
+    filter: LayerFilter,
+    resident_player_art: Option<&TileSheet>,
+) -> (Scene, Vec<LayerSpan>) {
     match trace.game_mode {
         GameMode::InGame | GameMode::DemoPlay => build_game_scene_filtered(
             trace,
@@ -1685,6 +1722,7 @@ pub fn build_scene_filtered_with_layers(
             level_visuals.expect("Level 1 visuals are required for gameplay scenes"),
             block_grid,
             filter,
+            resident_player_art,
         ),
         GameMode::LevelTransition => (build_transition_scene(trace, level_visuals), Vec::new()),
         GameMode::OptionsMenu => (build_options_scene(trace), Vec::new()),
@@ -7058,6 +7096,7 @@ fn build_game_scene_filtered(
     level_visuals: &NativeLevelVisuals,
     block_grid: Option<&BlockGrid>,
     filter: LayerFilter,
+    resident_player_art: Option<&TileSheet>,
 ) -> (Scene, Vec<LayerSpan>) {
     let eol_hologram_visible = trace.level_complete
         && trace.level_complete_elapsed_frames
@@ -7206,13 +7245,14 @@ fn build_game_scene_filtered(
                 } else {
                     None
                 };
-            push_player_sprite_with_priority_override(
+            push_player_sprite_with_priority_and_resident_art(
                 &mut commands,
                 object,
                 trace,
                 level_visuals,
                 damage_flash_white_phase,
                 priority_override,
+                resident_player_art,
             );
         }
         layer_tags.mark(SceneLayer::Player, commands.len());
@@ -9961,6 +10001,7 @@ mod tests {
             &visuals,
             None,
             LayerFilter::solo("effects"),
+            None,
         )
         .0;
 
@@ -11587,9 +11628,15 @@ mod tests {
             ..NativeTraceFrame::default()
         };
 
-        let scene =
-            build_game_scene_filtered(&trace, false, &visuals, None, LayerFilter::solo("effects"))
-                .0;
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+            None,
+        )
+        .0;
         let palette_word = scene.commands.iter().find_map(|command| match command {
             DrawCommand::Sprite { palette, .. } => {
                 palette.colours.first().map(|colour| colour.raw_word)
@@ -11688,9 +11735,15 @@ mod tests {
             ..NativeTraceFrame::default()
         };
 
-        let scene =
-            build_game_scene_filtered(&trace, false, &visuals, None, LayerFilter::solo("enemies"))
-                .0;
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("enemies"),
+            None,
+        )
+        .0;
         let rects = scene_rects(&scene.commands);
 
         assert_eq!(
@@ -11779,9 +11832,15 @@ mod tests {
             ..NativeTraceFrame::default()
         };
 
-        let scene =
-            build_game_scene_filtered(&trace, false, &visuals, None, LayerFilter::solo("effects"))
-                .0;
+        let scene = build_game_scene_filtered(
+            &trace,
+            false,
+            &visuals,
+            None,
+            LayerFilter::solo("effects"),
+            None,
+        )
+        .0;
         let rects = scene_rects(&scene.commands);
 
         assert_eq!(
@@ -12983,6 +13042,7 @@ mod tests {
                 eol_score: false,
                 hud: false,
             },
+            None,
         )
         .0;
         let sat_positions = scene
@@ -13286,6 +13346,7 @@ mod tests {
                 eol_score: false,
                 hud: false,
             },
+            None,
         )
         .0;
 

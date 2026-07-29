@@ -5,9 +5,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::diff::BBox;
 use crate::native_player::{
-    LayerSpan, NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, Scene, build_scene_with_layers,
-    load_session_assets, render_native_vdp_rgb, render_scene,
-    render_trace_with_vdp_latched_state_and_resident, render_vdp_trace_overlay,
+    LayerSpan, NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, PlayerDynamicArtVramPageLocAd4, Scene,
+    build_scene_with_layers_and_player_art, load_session_assets, render_native_vdp_rgb,
+    render_scene, render_trace_with_vdp_latched_state_and_resident, render_vdp_trace_overlay,
 };
 use crate::oracle::{OracleFrame, OracleManifest};
 use crate::scenarios::{
@@ -450,6 +450,7 @@ pub(crate) fn compare_tas_pixels(
         collect_mismatch_detail,
     );
     let mut native_frames = 0usize;
+    let mut player_art_page = None;
     try_for_each_native_dynamic_frame(
         manifest.clone(),
         scenario,
@@ -472,12 +473,19 @@ pub(crate) fn compare_tas_pixels(
             let block_grid = runtime
                 .source_port_render_block_grid()
                 .or(Some(&render_level_block_grid));
-            let native_rgb = render_source_port_frame(
+            let resident_player_art = update_complete_player_art_page_loc_ad4(
+                &mut player_art_page,
+                previous_trace,
+                trace,
+                &level_visuals,
+            );
+            let native_rgb = render_source_port_frame_with_player_art(
                 runtime,
                 previous_trace,
                 trace,
                 &level_visuals,
                 block_grid,
+                resident_player_art,
             );
             let oracle_frame = oracle_frames
                 .get(&frame_index)
@@ -531,14 +539,23 @@ fn oracle_frames_by_index(
     Ok(by_index)
 }
 
-fn render_source_port_frame(
+fn render_source_port_frame_with_player_art(
     runtime: &NativeRuntime,
     previous_trace: &NativeTraceFrame,
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
     block_grid: Option<&BlockGrid>,
+    resident_player_art: Option<&wildside_render::TileSheet>,
 ) -> Vec<u8> {
-    render_source_port_frame_with_scene(runtime, previous_trace, trace, level_visuals, block_grid).0
+    render_source_port_frame_with_scene_and_player_art(
+        runtime,
+        previous_trace,
+        trace,
+        level_visuals,
+        block_grid,
+        resident_player_art,
+    )
+    .0
 }
 
 /// [`render_source_port_frame`] plus the scene and layer spans the RGB came
@@ -551,6 +568,24 @@ pub(crate) fn render_source_port_frame_with_scene(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
     block_grid: Option<&BlockGrid>,
+) -> (Vec<u8>, Option<(Scene, Vec<LayerSpan>)>) {
+    render_source_port_frame_with_scene_and_player_art(
+        runtime,
+        previous_trace,
+        trace,
+        level_visuals,
+        block_grid,
+        None,
+    )
+}
+
+fn render_source_port_frame_with_scene_and_player_art(
+    runtime: &NativeRuntime,
+    previous_trace: &NativeTraceFrame,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    block_grid: Option<&BlockGrid>,
+    resident_player_art: Option<&wildside_render::TileSheet>,
 ) -> (Vec<u8>, Option<(Scene, Vec<LayerSpan>)>) {
     let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
     let mut resolved_trace = trace.clone();
@@ -589,11 +624,42 @@ pub(crate) fn render_source_port_frame_with_scene(
         render_vdp_trace_overlay(&render_trace, level_visuals, &mut rgb);
         (rgb, None)
     } else {
-        let (scene, spans) =
-            build_scene_with_layers(&render_trace, false, Some(level_visuals), block_grid);
+        let (scene, spans) = build_scene_with_layers_and_player_art(
+            &render_trace,
+            false,
+            Some(level_visuals),
+            block_grid,
+            resident_player_art,
+        );
         render_scene(&scene, &mut rgb);
         (rgb, Some((scene, spans)))
     }
+}
+
+fn update_complete_player_art_page_loc_ad4<'a>(
+    page: &'a mut Option<PlayerDynamicArtVramPageLocAd4>,
+    previous_trace: &NativeTraceFrame,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) -> Option<&'a wildside_render::TileSheet> {
+    if previous_trace.current_level != trace.current_level
+        || !matches!(
+            trace.game_mode,
+            wildside_core::GameMode::InGame | wildside_core::GameMode::DemoPlay
+        )
+    {
+        *page = None;
+        return None;
+    }
+    let source = crate::native_player::select_player_dynamic_art_frame_loc_141a(
+        previous_trace,
+        &level_visuals.player,
+    );
+    let tile_lengths = crate::native_player::player_frame_dynamic_art_tiles_loc_141a(source);
+    let resident =
+        page.get_or_insert_with(|| PlayerDynamicArtVramPageLocAd4::from_resident_frame(source));
+    resident.apply_complete_frame(source, tile_lengths)?;
+    Some(&resident.tile_sheet)
 }
 
 fn load_oracle_rgb(frame: &OracleFrame) -> Result<Vec<u8>> {

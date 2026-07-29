@@ -432,6 +432,28 @@ impl PlayerDynamicArtVramPageLocAd4 {
         Some(())
     }
 
+    /// Apply a completed `loc_AD4` queue. This conservative fallback keeps
+    /// whole-frame presentation when persistent hardware phase is absent,
+    /// while retaining destination words not touched by the current queue.
+    pub fn apply_complete_frame(
+        &mut self,
+        source: &wildside_render::SpriteFrame,
+        tile_lengths: [u16; 6],
+    ) -> Option<()> {
+        let residency = tile_lengths
+            .into_iter()
+            .filter(|&tiles| tiles != 0)
+            .map(|tiles| {
+                let words = tiles.checked_mul(16)?;
+                Some(wildside_core::vdp::MemoryDmaFrameRenderedResidency {
+                    words,
+                    committed_words_before_frame_rendered: words,
+                })
+            })
+            .collect::<Option<Vec<_>>>()?;
+        self.apply_frame_rendered_prefixes(source, &residency)
+    }
+
     fn ensure_word_capacity(&mut self, words: usize) {
         let tiles = words.div_ceil(16);
         if self.tile_sheet.tiles.len() < tiles {
@@ -1081,6 +1103,26 @@ pub fn push_player_sprite_with_priority_override(
     damage_flash_white_phase: bool,
     priority_override: Option<bool>,
 ) {
+    push_player_sprite_with_priority_and_resident_art(
+        commands,
+        object,
+        trace,
+        level_visuals,
+        damage_flash_white_phase,
+        priority_override,
+        None,
+    );
+}
+
+pub fn push_player_sprite_with_priority_and_resident_art(
+    commands: &mut Vec<DrawCommand>,
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    damage_flash_white_phase: bool,
+    priority_override: Option<bool>,
+    resident_art: Option<&wildside_render::TileSheet>,
+) {
     if trace.death_windup_elapsed > 0
         && let Some(kid_visuals) = level_visuals.player.forms.get(&0)
         && let Some(frame) = kid_visuals.death.as_ref()
@@ -1095,7 +1137,7 @@ pub fn push_player_sprite_with_priority_override(
         commands.push(DrawCommand::SatSprite {
             x: draw_x,
             y: draw_y,
-            tile_sheet: Arc::new(frame.tile_sheet.clone()),
+            tile_sheet: Arc::new(resident_art.unwrap_or(&frame.tile_sheet).clone()),
             palette: Arc::new(player_palette_for_damage_phase(
                 &kid_visuals.palette,
                 damage_flash_white_phase,
@@ -1119,7 +1161,7 @@ pub fn push_player_sprite_with_priority_override(
         commands.push(DrawCommand::SatSprite {
             x: draw_x,
             y: draw_y,
-            tile_sheet: Arc::new(frame.tile_sheet.clone()),
+            tile_sheet: Arc::new(resident_art.unwrap_or(&frame.tile_sheet).clone()),
             palette: Arc::new(player_palette_for_damage_phase(
                 base_palette,
                 damage_flash_white_phase,
@@ -1142,7 +1184,7 @@ pub fn push_player_sprite_with_priority_override(
     commands.push(DrawCommand::SatSprite {
         x: draw_x,
         y: draw_y,
-        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        tile_sheet: Arc::new(resident_art.unwrap_or(&frame.tile_sheet).clone()),
         palette: Arc::new(player_palette_for_damage_phase(
             &form_visuals.palette,
             damage_flash_white_phase,
@@ -5597,6 +5639,26 @@ mod tests {
         assert!(
             tiles.iter().all(|tile| tile.tile.priority),
             "ASM CharacterCollision_TouchFlagpole loc_C070 may promote the current player sprite"
+        );
+
+        commands.clear();
+        let resident_art = marked_tile_sheet(20, 0x0A);
+        push_player_sprite_with_priority_and_resident_art(
+            &mut commands,
+            &object,
+            &trace,
+            &visuals,
+            false,
+            None,
+            Some(&resident_art),
+        );
+        let [DrawCommand::SatSprite { tile_sheet, .. }] = commands.as_slice() else {
+            panic!("player emits one SAT sprite");
+        };
+        assert_eq!(
+            tile_sheet.as_ref(),
+            &resident_art,
+            "ASM loc_AD4 resident VRAM art overrides pixels without changing the selected SAT mapping",
         );
 
         commands.clear();

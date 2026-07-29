@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 stateful player-art render path)
+
+- The TAS pixel loop now owns one `$C4A0` player-art page across gameplay
+  frames; scenes consume its pixels independently from current SAT geometry.
+- Without exact phase evidence, typed `loc_AD4` queues apply as complete and
+  retain untouched tail words. This preserves the former presentation.
+- Frames 7964..7973 remain baseline-exact: only the known 608-pixel frame 7969
+  player residue and frame 7968's unrelated one HUD pixel differ.
+- `mise run verify-slice-fast` passes. NEXT: supply partial DMA residency from
+  the production persistent phase owner; do not infer it from a pose edge.
+
 ## 2026-07-29 handoff (#406 word-granular player VRAM page)
 
 - `PlayerDynamicArtVramPageLocAd4` separates resident `$C4A0` art from the
