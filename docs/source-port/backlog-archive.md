@@ -22726,3 +22726,19 @@ typed prize-worker presentation from the terminal post-object trace. A focused
 exact, 559 -> 540 divergent, and 36,709 -> 34,108 changed. Player/camera,
 enemy, RNG, and GEMS command evidence is unchanged. NEXT: classify
 `grid:18,1-36,20` (four frames / 2,492 pixels).
+
+Progress 2026-07-29 for #406: `grid:18,1-36,20` is the repeated Iron Knight
+`loc_A276` wall-attach hibernation boundary at frames 7968, 14190, 25565, and
+33766. Gameplay state, player/camera, enemy state, and oracle Gfx mapping are
+exact. The generic `Mode_Level` Sprite_Table latch kept current
+`iron_knight_climbing=true` but rewound `kid_y_velocity` from the current
+`-$4000` marker to the preceding zero. That mixed state bypassed the existing
+attach-hibernation ordinary-pose branch. ASM `loc_A276` sets the climbing flag,
+clears `d3`, writes `y_vel=-$4000`, and hibernates through `loc_A28A` before
+`sub_A3BC` selects climb art. The renderer now retains current velocity only on
+that false-to-true Iron Knight attach edge. Each repeated frame improves from
+623 changed pixels to one unrelated background pixel; full pixels remain
+37,219 exact / 540 divergent while changed instances improve 34,108 -> 31,620.
+Player/camera, RNG, enemy, and GEMS command evidence is unchanged. NEXT:
+classify the adjacent `grid:18,15-21,20` first-climb family (four frames /
+2,488 pixels).

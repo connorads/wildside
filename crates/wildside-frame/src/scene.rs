@@ -1357,7 +1357,20 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.kid_on_ground = previous_trace.kid_on_ground;
         render_trace.kid_on_slope = previous_trace.kid_on_slope;
         render_trace.kid_x_velocity = previous_trace.kid_x_velocity;
-        render_trace.kid_y_velocity = previous_trace.kid_y_velocity;
+        let iron_knight_attach_hibernate_loc_a276 = trace.current_helmet_id
+            == wildside_core::PlayerForm::IronKnight.helmet_id()
+            && trace.iron_knight_climbing
+            && !previous_trace.iron_knight_climbing
+            && trace.iron_knight_climb_pose_accum == 0
+            && trace.kid_y_velocity == Some(-0x4000);
+        render_trace.kid_y_velocity = if iron_knight_attach_hibernate_loc_a276 {
+            // ASM loc_A276 seeds y_vel=-$4000 before its first hibernate.
+            // Sprite geometry remains latched, but loc_141A's dynamic-art
+            // payload needs this current-edge marker to model the mixed page.
+            trace.kid_y_velocity
+        } else {
+            previous_trace.kid_y_velocity
+        };
         render_trace.airborne_visual_mapping_sub_b270 =
             previous_trace.airborne_visual_mapping_sub_b270;
         render_trace.character_movement = previous_trace.character_movement;
@@ -9745,6 +9758,27 @@ mod tests {
             wildside_core::ModeLevelAirborneVisualMappingPathSubB270::AscendingState0,
             "ASM Mode_Level loc_901 presents the prior Sprite_Table mapping even after sub_B270 crosses into state 1",
         );
+    }
+
+    #[test]
+    fn iron_knight_attach_loc_a276_keeps_current_dynamic_art_marker() {
+        let previous_trace = NativeTraceFrame {
+            game_mode: GameMode::DemoPlay,
+            current_helmet_id: wildside_core::PlayerForm::IronKnight.helmet_id(),
+            kid_y_velocity: Some(0),
+            ..NativeTraceFrame::default()
+        };
+        let trace = NativeTraceFrame {
+            iron_knight_climbing: true,
+            iron_knight_climb_pose_accum: 0,
+            kid_y_velocity: Some(-0x4000),
+            ..previous_trace.clone()
+        };
+
+        let rendered = render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
+
+        assert_eq!(rendered.kid_y_velocity, Some(-0x4000));
+        assert!(rendered.iron_knight_climbing);
     }
 
     #[test]

@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 Iron Knight wall-attach marker)
+
+- The four repeated 623-pixel frames are Iron Knight's `loc_A276` wall-attach
+  hibernation boundary. The generic Sprite_Table latch retained current climb
+  state but rewound `y_vel=-$4000`, bypassing the existing ordinary-pose branch.
+- The renderer now keeps that current marker only on the false-to-true attach
+  edge. Each frame falls from 623 changed pixels to one unrelated background
+  pixel; full debt improves to 31,620 changed pixels.
+- Full pixels remain 37,219 exact / 540 divergent. NEXT: classify the adjacent
+  `grid:18,15-21,20` first-climb family (four frames / 2,488 pixels).
+
 ## 2026-07-29 handoff (#406 demo-timeout terminal prize worker)
 
 - The 19-frame `grid:18,13-19,15` family is one prize block held through the
