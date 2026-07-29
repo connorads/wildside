@@ -147,6 +147,74 @@ fn published_tas_frame_1697_vint_sample_drives_life_icon_raster_timing_sub_e12()
 }
 
 #[test]
+fn published_tas_frame_1697_execution_shell_callback_drives_life_fifo_timing() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut scheduler_work = None;
+    let mut timing = None;
+
+    for (frame_index, mask) in script.iter().copied().enumerate().take(1698) {
+        let trace = if frame_index == 1697 {
+            runtime.step_frame_with_mode_level_raster_scheduler(
+                FrameInput::from_mask(mask),
+                &mut |mut work| {
+                    scheduler_work = Some(work);
+                    work.dynamic_art_tiles_loc_ad4 = Some([16, 4, 0, 0, 0, 0]);
+                    let assertion = vdp::ModeLevelRasterSeedVintAssertion {
+                        beam: vdp::H40BeamPosition::new(224, 16).expect("H40 VINT beam"),
+                    };
+                    let sample = WaitForVintInterruptSample {
+                        mclk_until_interrupt_sample: 58,
+                        interrupt_entry_refresh_wait_events: 0,
+                        resume: WaitForVintResumePath::StaleBranchLoc942,
+                        arbitration_after_handler_entry: WaitForVintArbitration {
+                            refresh_wait_events: 2,
+                            z80_68k_bus_steals: 0,
+                        },
+                    };
+                    let mode_entry = vdp::mode_level_raster_seed_mode_entry_from_vint_assertion(
+                        assertion, sample,
+                    )?;
+                    vdp::mode_level_raster_seed_sub_e12_from_mode_entry(
+                        mode_entry,
+                        work,
+                        published_vblank_arbitration(3_383, 46),
+                    )
+                },
+            )
+        } else {
+            runtime.step_frame(FrameInput::from_mask(mask))
+        };
+        if frame_index == 1697 {
+            timing = Some(trace.hud_raster_upload_timings_sub_44dc);
+        }
+    }
+
+    assert_eq!(
+        scheduler_work,
+        Some(ModeLevelVblankWorkBeforeSubE12 {
+            dynamic_art_tiles_loc_ad4: None,
+            ..published_natural_vblank_work()
+        }),
+        "ASM Mode_Level $7C8 classifies its live source path before the execution shell supplies loc_AD4 art dimensions",
+    );
+    assert_eq!(
+        timing,
+        Some(vec![HudRasterUploadTimingSub44DC {
+            command: HudDmaEventSub44DC::LifeIcon {
+                frame_table_byte_offset: 4,
+                wrapped_to_start: false,
+            },
+            previous_frame_table_byte_offset: 0,
+            first_commit_scanline: 42,
+            first_commit_pixel: 380,
+        }]),
+        "ASM sub_44DC loc_4586 consumes the shell-owned seed in the same frame",
+    );
+}
+
+#[test]
 fn published_tas_no_z80_polls_drive_frames_1703_and_1709_life_icon_timing() {
     let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
         return;

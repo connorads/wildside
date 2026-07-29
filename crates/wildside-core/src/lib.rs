@@ -1945,6 +1945,22 @@ impl NativeRuntime {
         self.seed_mode_level_raster_vint_assertion(assertion, sample, work, arbitration)
     }
 
+    fn mode_level_vblank_work_before_sub_e12(&self) -> ModeLevelVblankWorkBeforeSubE12 {
+        ModeLevelVblankWorkBeforeSubE12 {
+            // ASM Mode_Level $7C8..sub_E12: dynamic-art dimensions cross the
+            // render asset boundary and are completed by the execution shell.
+            dynamic_art_tiles_loc_ad4: None,
+            palette_dma_sub_970: self
+                .mode_level_palette_dma_sub_970
+                .unwrap_or(!self.palette_dma_suppressed_f890),
+            scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
+            foreground_custom_queue_entries_sub_1596: 0,
+            foreground_cell_queue_entries_sub_1596: 0,
+            paused_sub_6874: false,
+            hud_path_sub_bdc0: ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
+        }
+    }
+
     pub fn set_playtest_form(&mut self, form: PlayerForm) {
         self.progression.current_form = form;
         self.progression.number_hitpoints = form.max_hitpoints();
@@ -3593,6 +3609,22 @@ impl NativeRuntime {
     }
 
     pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
+        self.step_frame_with_mode_level_raster_scheduler(input, &mut |_| None)
+    }
+
+    /// Advance one native frame while allowing the execution shell to supply
+    /// the hardware cursor at ASM `Mode_Level loc_7D6 -> sub_E12`.
+    ///
+    /// Core classifies the live ROM source path first. The callback completes
+    /// asset-bound inputs and advances its persistent CPU/VDP/GEMS timeline;
+    /// the returned seed is consumed by the existing `sub_44DC` schedulers.
+    pub fn step_frame_with_mode_level_raster_scheduler(
+        &mut self,
+        input: FrameInput,
+        scheduler: &mut dyn FnMut(
+            ModeLevelVblankWorkBeforeSubE12,
+        ) -> Option<vdp::ModeLevelRasterSeedSubE12>,
+    ) -> NativeTraceFrame {
         let transform_hibernating_at_frame_start =
             self.object_pass_hibernating_for_transform_loc_7e90();
         self.pending_demo_timer_tick_result_loc_be82 = None;
@@ -4073,6 +4105,10 @@ impl NativeRuntime {
             {
                 self.mode_level_work_before_hud_sub_44dc =
                     Some(self.observe_mode_level_work_before_hud_sub_44dc());
+                let vblank_work = self.mode_level_vblank_work_before_sub_e12();
+                if let Some(seed) = scheduler(vblank_work) {
+                    self.mode_level_raster_seed_sub_e12 = Some(seed);
+                }
                 // ASM Execute_Objects loc_E12 (kid.asm:1636) calls
                 // Get_RandomNumber_long before walking any object coroutine.
                 // Load_DemoPlay -> Load_InGame can still be blocked inside

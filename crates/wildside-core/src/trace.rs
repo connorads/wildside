@@ -11562,22 +11562,7 @@ impl NativeRuntime {
             mode_level_vblank_work_before_sub_e12: self
                 .mode_level_work_before_hud_sub_44dc
                 .as_ref()
-                .map(|_| crate::ModeLevelVblankWorkBeforeSubE12 {
-                    // ASM Mode_Level $7C8..sub_E12: core classifies the
-                    // palette, scroll, foreground, pause and HUD branches.
-                    // The frame boundary resolves loc_AD4 from the selected
-                    // render mapping produced by the preceding sub_1492 pass.
-                    dynamic_art_tiles_loc_ad4: None,
-                    palette_dma_sub_970: self
-                        .mode_level_palette_dma_sub_970
-                        .unwrap_or(!self.palette_dma_suppressed_f890),
-                    scroll_path: crate::ModeLevelScrollTransferPath::NormalLoc300ba,
-                    foreground_custom_queue_entries_sub_1596: 0,
-                    foreground_cell_queue_entries_sub_1596: 0,
-                    paused_sub_6874: false,
-                    hud_path_sub_bdc0:
-                        crate::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
-                }),
+                .map(|_| self.mode_level_vblank_work_before_sub_e12()),
             mode_level_work_before_hud_sub_44dc: self.mode_level_work_before_hud_sub_44dc.clone(),
             mode_level_work_after_hud_sub_44dc: self.mode_level_work_after_hud_sub_44dc.clone(),
             mode_level_tail_work_loc_892: self.mode_level_tail_work_loc_892,

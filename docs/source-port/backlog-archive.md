@@ -23353,3 +23353,23 @@ The earlier cursor now belongs only to `TimeoutFc82Zero`; shared and FC82=1/2
 lineages retain 96:76. The complete route improves 37,510 -> 37,511 exact,
 249 -> 248 divergent, and 2,472 -> 2,471 changed pixels. No intro residue
 remains; only the two HUD clusters and seven-frame Dragon tail remain.
+
+Progress 2026-07-30 for #409: the production boundary is now callable at the
+only point where both sides have their required facts. Core classifies the
+live `Mode_Level $7C8` VBlank source path inside `step_frame`; a new
+`step_frame_with_mode_level_raster_scheduler` callback lets the execution
+shell complete asset-owned `loc_AD4` inputs and return the typed `sub_E12`
+seed before `Execute_Objects` runs. The emitted trace reuses the same
+classification helper, preventing callback/trace drift. Cache-backed frame
+1697 proves the callback drives the existing `sub_44DC loc_4586` life FIFO
+timing at 42:380. Default `step_frame` remains unseeded, so pixels and the
+oracle-injection ratchet do not move in this structural unit.
+
+Fresh frame-1697 oracle PC capture independently pins `sub_E12` at cycle
+217216218, refresh phase 88, H40 242:255 and `sub_44DC` at cycle 217246402,
+refresh phase 64, H40 42:161. From the same exact phase-88 seed, the current
+aggregate `execute_objects_elapsed_cycles_sub_e12` path reaches phase 66 and
+is two CPU cycles late. Sparse external-wait interleaving was a measured
+no-op and was removed. This rejects using the aggregate routine total as the
+production clock: instruction-schedule the typed `sub_E12 -> sub_44DC`
+ledger through the new callback before carrying a continuous owner forward.

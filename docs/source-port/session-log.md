@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#409 execution-shell boundary)
+
+- `NativeRuntime` now exposes an in-step scheduler callback after classifying
+  the live `Mode_Level` VBlank path and before `Execute_Objects sub_E12`.
+- The callback completes shell-owned inputs and returns the existing typed
+  `sub_E12` seed; cache-backed frame 1697 proves it drives life FIFO timing.
+- Fresh oracle PC capture pins `sub_E12` phase 88 and `sub_44DC` phase 64.
+  The aggregate pre-HUD helper reaches phase 66, so the next owner must use an
+  instruction schedule rather than treating the routine total as a clock.
+
 ## 2026-07-29 handoff (#406 IntroSequence5 FIFO lineage)
 
 - Oracle frame 27908 commits the `sub_1C034 loc_1C0D6` VRAM `$072C` word at
