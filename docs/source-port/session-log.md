@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 Iron Knight first-climb residency probe)
+
+- Oracle frames 7968..7969 change player mapping `$04D0 -> $04B0` while
+  `loc_AD4` still presents the preceding dynamic-art page. Gameplay remains
+  exact; the 622-pixel residue is a split mapping/VRAM presentation state.
+- Rejected whole-frame mapping suppression and climb/idle tile-sheet swaps.
+  `SpriteFrame` currently couples geometry and source art, so the durable fix
+  needs typed player-VRAM residency. No experiment remains in the worktree.
+- Full pixels remain 37,219 exact / 540 divergent / 31,620 changed. NEXT:
+  classify `grid:12,9-17,17` (two frames / 2,304 pixels).
+
 ## 2026-07-29 handoff (#406 Iron Knight wall-attach marker)
 
 - The four repeated 623-pixel frames are Iron Knight's `loc_A276` wall-attach

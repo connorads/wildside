@@ -22742,3 +22742,17 @@ that false-to-true Iron Knight attach edge. Each repeated frame improves from
 Player/camera, RNG, enemy, and GEMS command evidence is unchanged. NEXT:
 classify the adjacent `grid:18,15-21,20` first-climb family (four frames /
 2,488 pixels).
+
+Rejected 2026-07-29 for #406: the adjacent 622-pixel frames 7969, 14191,
+25566, and 33767 are not another whole-frame pose latch. Oracle WRAM changes
+Kid's `addroffset_sprite` `$04D0 -> $04B0` at frame 7969 after
+`loc_A330 -> sub_A3BC`, while the presented pixels still use the dynamic-art
+page queued by the preceding `loc_A276` hibernation frame. Suppressing the
+first climb mapping improved 622 -> 608 pixels but contradicted `$04B0`.
+Combining current climb geometry with the complete idle tile sheet improved
+622 -> 437 but also failed: `loc_AD4` residency is chunked VRAM state, not a
+standalone asset substitution. Earlier climb/idle sheet mixes and the
+climbing-jump asset are rejected for the same reason. No experiment remains.
+The durable route is a typed player dynamic-art VRAM page independent from
+`SpriteFrame` geometry. NEXT: classify `grid:12,9-17,17` (two frames / 2,304
+pixels) rather than patch this mixed hardware state from screenshots.
