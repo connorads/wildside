@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 Dragon edge-art classification)
+
+- All seven bottom-right two-pixel frames are the same walking Dragon mapping,
+  exactly 52 frames after each attract-demo Level 0x15 entry.
+- Native and oracle select `LnkTo_unk_C759E`; ASM `loc_11EE -> loc_129E`
+  supports native's geometry. A Dragon-specific clipping change is rejected.
+- NEXT: capture `$074` dynamic-art pattern residency, then carry the persistent
+  hardware timeline into both HUD and sprite-art transfers.
+
 ## 2026-07-29 handoff (#406 IntroSequence2 FIFO lineages)
 
 - A complete oracle matrix across seven route entries and local `loc_1BA02`

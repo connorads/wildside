@@ -4791,6 +4791,16 @@ with a source-proven row-history difference.
 
 ### #406
 
+2026-07-29 bottom-right tail classification: the seven two-pixel frames
+2617/6988/13210/21848/24585/32786/37601 all occur exactly 52 frames after an
+attract-demo Level 0x15 entry. Frame 2617 is the same walking Dragon object and
+`LnkTo_unk_C759E` mapping on both sides; the two differences are pattern pixels
+at screen `(318..319,223)` from tile `$075`. ASM `Make_SpriteFromGfxObject
+loc_11EE -> loc_129E` supports the existing bottom-anchor geometry, so a
+Dragon-specific clip is rejected. Capture the oracle `$074` dynamic-art fetch
+and residency before changing rendering; this tail may share #406's persistent
+hardware-phase cause.
+
 2026-07-29 IntroSequence2 complete FIFO-lineage census: oracle capture across
 all seven route entries and local `loc_1BA02` passes 32..64 shows that the
 steady `sub_1C180 / loc_1C194` sky-reveal upload phase depends on durable mode
