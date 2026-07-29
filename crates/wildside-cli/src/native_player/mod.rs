@@ -2715,6 +2715,7 @@ mod tests {
             game_mode: mode,
             game_mode_value: mode.as_disassembly_value(),
             time_frames_loc_3038a: 0,
+            background_scroll_hidden_wrap_display_phase_loc_3050a: false,
             island_shore_post_visible_dma_latch_loc_1202a: false,
             floating_items_transferred_loc_901: Vec::new(),
             hud_dma_events_sub_44dc: Vec::new(),

@@ -1610,6 +1610,35 @@ fn published_tas_island_shore_dma_clock_tracks_demo_lineages_loc_1202a() {
 }
 
 #[test]
+fn published_tas_hidden_wrap_demo_marks_retained_scroll_table_loc_3050a() {
+    let Some((mut runtime, script)) = cached_tas_runtime_and_script("any-percent-published") else {
+        return;
+    };
+    let mut samples = Vec::new();
+    for (frame_index, mask) in script.iter().copied().enumerate().take(21_865) {
+        let trace = runtime.step_frame(FrameInput::from_mask(mask));
+        if matches!(frame_index, 21_836 | 21_837 | 21_864) {
+            samples.push((
+                frame_index,
+                trace.boot_phase_elapsed,
+                trace.time_frames_loc_3038a,
+                trace.background_scroll_hidden_wrap_display_phase_loc_3050a,
+            ));
+        }
+    }
+
+    assert_eq!(
+        samples,
+        vec![
+            (21_836, Some(71), 0, true),
+            (21_837, Some(72), 1, true),
+            (21_864, Some(99), 28, true),
+        ],
+        "ASM loc_1BA5C -> Load_DemoPlay marks the IntroSequence6 hidden-wrap lineage whose loc_3050A display table retains an extra phase behind its native lifecycle clock"
+    );
+}
+
+#[test]
 fn cold_boot_intro_sequence_6_enters_demo_play_on_frame_3270() {
     let mut runtime = NativeRuntime::new(manifest());
     let mut frame_3269 = None;

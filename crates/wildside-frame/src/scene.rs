@@ -5944,11 +5944,19 @@ fn background_display_scroll_data_word_loc_3050a(
     // a different preload-era phase.
     let time_frames = background_time_frames_for_trace_loc_3050a(trace);
     let retained_pal_fade_table = trace.resident_gameplay_vdp_terminal_scroll_table_loc_28c6;
-    let display_time_frames = match layer_speed {
-        0x00 | 0x08 if trace.form_change_flash_frames == 0 && !retained_pal_fade_table => {
-            time_frames.saturating_sub(1)
+    let display_time_frames = if trace.background_scroll_hidden_wrap_display_phase_loc_3050a {
+        // ASM loc_1BA5C -> Load_DemoPlay -> Load_InGame: direct oracle VDP
+        // samples at published frame 21864 expose Time_Frames=27 with Plane B
+        // H-scroll -26. Native's lifecycle clock is 28 here, so this retained
+        // table is two native ticks behind without retiming other workers.
+        time_frames.saturating_sub(2)
+    } else {
+        match layer_speed {
+            0x00 | 0x08 if trace.form_change_flash_frames == 0 && !retained_pal_fade_table => {
+                time_frames.saturating_sub(1)
+            }
+            _ => time_frames,
         }
-        _ => time_frames,
     };
     background_scroll_data_word_loc_30452(display_time_frames, camera_x_px, layer_speed)
 }
@@ -12160,6 +12168,21 @@ mod tests {
             background_display_scroll_data_word_loc_3050a(&transforming, 481, 0x08),
             373,
             "ASM Kid_Transform loc_7CBE/loc_7D22 -> sub_8E0 transfers the current Horiz_Scroll_Data word"
+        );
+    }
+
+    #[test]
+    fn hidden_wrap_demo_retains_extra_auto_scroll_phase_loc_3050a() {
+        let trace = NativeTraceFrame {
+            time_frames_loc_3038a: 28,
+            background_scroll_hidden_wrap_display_phase_loc_3050a: true,
+            ..NativeTraceFrame::default()
+        };
+
+        assert_eq!(
+            background_display_scroll_data_word_loc_3050a(&trace, 0, 0x00),
+            26,
+            "ASM loc_1BA5C -> Load_DemoPlay -> loc_3050A presents Plane-B H-scroll -26 at published frame 21864 while native Time_Frames is 28"
         );
     }
 

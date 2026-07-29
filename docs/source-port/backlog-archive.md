@@ -16474,6 +16474,29 @@ frontiers remain unchanged. Production citations burn down test-only coverage
 debt for `loc_F9CC` and `loc_FAA6`. Continue #406 with the mirrored 20-frame /
 8,940-pixel classes at `grid:18,14-21,18` and `grid:20,14-23,18`.
 
+Progress 2026-07-29 for #406: the paired top-band spatial clusters were one
+278-frame Knight's Isle Plane-B family, not title/intro art. Visual provenance
+showed static background tiles on palette line 1; oracle and native CRAM words
+matched exactly. Direct oracle VDP samples at published frame 21864 exposed
+`Time_Frames=27`, Plane-B H-scroll `-26`, while native's typed lifecycle clock
+was 28 and its renderer sampled scroll 27.
+
+Two broader timing hypotheses were rejected by full-route pixels. Latching
+every Island shore DMA regressed 999 frames and 1.27 million pixels because
+ordinary and hidden-wrap demo trace events have different checkpoint phases.
+Delaying the shared native `Time_Frames` clock made 325 more frames exact but
+worsened total changed pixels from 201,409 to 245,578 by retiming unrelated
+effects. The retained hardware table is narrower than either model.
+
+Trace now carries a typed IntroSequence6 hidden-wrap presentation flag. ASM
+`loc_1BA5C -> Load_DemoPlay -> Load_InGame -> loc_3050A` uses it to retain two
+native display ticks without changing object, animation, or row-upload clocks.
+Full published-route pixels improve from 36,624 exact / 1,135 divergent /
+201,409 changed to 37,017 / 742 / 111,122. All player/camera CRC, gameplay,
+enemy, and RNG frontiers remain exact; GEMS command debt stays 396. Continue
+#406 with `grid:7,0-39,3` (89 frames / 35,054 pixels), then the repeated
+12-frame / 6,600-pixel gameplay silhouette.
+
 ## Investigation notes
 
 ### Shared boot-title-start-level1 evidence blocker (CLOSED)

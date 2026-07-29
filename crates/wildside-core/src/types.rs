@@ -2680,6 +2680,10 @@ pub struct NativeTraceFrame {
     /// `BackgroundScroll_ComputeShiftData` / `BackgroundScroll_ComputeShiftLayers`.
     #[serde(default, skip_serializing_if = "is_zero_u16")]
     pub time_frames_loc_3038a: u16,
+    /// IntroSequence6 hidden-wrap lineage whose displayed Plane-B table
+    /// retains one additional `loc_3050A` phase behind native `Time_Frames`.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub background_scroll_hidden_wrap_display_phase_loc_3050a: bool,
     pub game_mode: GameMode,
     pub game_mode_value: u16,
     pub start_press_count: usize,
@@ -3227,6 +3231,7 @@ impl Default for NativeTraceFrame {
         Self {
             frame_index: 0,
             time_frames_loc_3038a: 0,
+            background_scroll_hidden_wrap_display_phase_loc_3050a: false,
             game_mode: GameMode::SegaScreen,
             game_mode_value: GameMode::SegaScreen.as_disassembly_value(),
             start_press_count: 0,

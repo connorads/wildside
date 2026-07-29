@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 hidden-wrap Plane-B display phase)
+
+- Direct oracle VDP evidence separates the IntroSequence6 hidden-wrap
+  `loc_3050A` display table from native's lifecycle clock.
+- Full pixels improve to 37,017 exact / 742 divergent / 111,122 changed;
+  393 route frames become exact and all non-pixel frontiers stay unchanged.
+- NEXT: classify `grid:7,0-39,3` (89 frames / 35,054 pixels), then the
+  12-frame / 6,600-pixel gameplay silhouette `grid:18,14-22,18`.
+
 ## 2026-07-28 handoff (#406 walking Dragon hurt palette)
 
 - Dragon `loc_3CEBE` uses `stru_3CCE6` as a hurt-animation timer without a

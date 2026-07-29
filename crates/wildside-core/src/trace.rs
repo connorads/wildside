@@ -11284,6 +11284,8 @@ impl NativeRuntime {
         NativeTraceFrame {
             frame_index: self.frame_index,
             time_frames_loc_3038a: self.time_frames_loc_3038a,
+            background_scroll_hidden_wrap_display_phase_loc_3050a: self
+                .demo_uses_intro_sequence_6_hidden_camera_wrap,
             game_mode,
             game_mode_value: game_mode.as_disassembly_value(),
             start_press_count: self.start_press_count,
