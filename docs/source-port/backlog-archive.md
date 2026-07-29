@@ -22656,3 +22656,16 @@ unchanged. Focused windows 16628..16641 and 28003..28016 are pixel-exact with
 state and RNG parity. Full pixels improve 37,172 -> 37,176 exact, 587 -> 583
 divergent, and 52,096 -> 46,660 changed; the worst frame falls from 1,359 to
 1,152 pixels. NEXT: classify `grid:7,0-39,3` (ten frames / 3,925 pixels).
+Rejected 2026-07-29 for #406: `grid:7,0-39,3` is ten isolated Plane-B
+top-band frames, paired at transform entry/exit on five Demo 2 visits
+(7604/7686 through 33402/33484). A typed previous-rendered-trace owner for
+`Kid_Transform loc_7CBE/loc_7D22 -> sub_8E0` correctly produced ordinary
+ownership on entry and transform ownership on exit, but changed zero pixels
+over 7602..7689. At entry `Time_Frames=626`; current and ordinary `$08`
+H-scroll choices both divide to the same display word. At exit the analogous
+selector is likewise not the residual owner. Direct cloud crops show oracle
+equals native shifted left one pixel at 7604 and right one pixel at 7686.
+Therefore this is a Plane-B row/source sampling boundary, not another H-scroll
+register latch. The no-op typed field and tests were removed. NEXT: compare
+the row/source sampling inputs at 7604 and 7686; do not retry transform flag
+retiming.

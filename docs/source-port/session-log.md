@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 transform-boundary Plane-B sampling)
+
+- `grid:7,0-39,3` is ten isolated top-band frames: transform entry and exit
+  on five Demo 2 visits. Cloud crops show a one-pixel sampling displacement,
+  left at entry and right at exit.
+- A typed previous-trace `sub_8E0` H-scroll-owner latch produced the expected
+  boundary states but changed zero pixels because both register choices land
+  in the same `$08` scroll division bucket. The experiment was removed.
+- NEXT: trace Plane-B row/source sampling at frames 7604 and 7686. Do not
+  retime the already-correct H-scroll register phase.
+
 ## 2026-07-29 handoff (#406 IntroSequence5 timeout tail presentation)
 
 - The four-frame `grid:12,9-22,14` family is the central `loc_1BC36` Kid
