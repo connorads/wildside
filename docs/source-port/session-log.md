@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 contiguous FIFO spans)
+
+- Filtered FIFO summaries now segment contiguous destination-address runs;
+  frame-level first/last records had joined separate `loc_AD4` transfers.
+- All four 608-pixel Iron Knight frames are one partial-residency class. Their
+  320-word `$C4A0` player-art transfer has 252-256 words committed before
+  `FrameRendered` and the remaining 64-68 after it.
+- Oracle frame 7969 visibly combines old and new player art, while adjacent
+  frames are exact. This is VRAM residency, not pose or palette selection.
+- NEXT: carry the persistent Mode_Level phase and partial player-art VRAM
+  state together; reject a fixed 256-word renderer splice.
+
 ## 2026-07-29 handoff (#406 filtered FIFO phase summaries)
 
 - `oracle-probe --vdp-fifo-summary` now reports compact count and first/last

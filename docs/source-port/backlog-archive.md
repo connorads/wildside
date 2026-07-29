@@ -4779,6 +4779,20 @@ with a source-proven row-history difference.
 
 ### #406
 
+2026-07-29 contiguous FIFO span follow-up: the initial frame-level summary
+joined unrelated transfers when a DMA crossed `FrameRendered`. Summaries now
+split records whenever the target or next destination address is not
+contiguous. This resolves all four 608-pixel Iron Knight frames into one
+engine-level class. ASM `Transfer_SpriteAndKidToVRAM loc_AD4` starts Kid art at
+VRAM `$C4A0`; at the four repeated attach transitions the 320-word upload has
+only 252-256 words committed before `FrameRendered`, with 64-68 words
+continuing afterwards. Oracle frame 7969 visibly combines the old climb page,
+the new page and the overwritten tail; frames 7968 and 7970 are exact. The
+other repeats at 14191/25566/33767 show the same split. This rejects pose,
+palette, a fixed word cutoff and a per-frame override. NEXT: make the
+persistent Mode_Level owner carry partial VRAM residency across the render
+boundary and use the same phase for `loc_AD4` and HUD uploads.
+
 2026-07-29 filtered FIFO phase instrumentation: `oracle-probe` can now emit a
 compact count plus first/last record for every filtered FIFO commit and enqueue
 frame. Two representative Diamond clusters show that all nine uploads contain

@@ -180,14 +180,47 @@ pub struct OracleVdpFifoCommitSummary<'a> {
     pub count: usize,
     pub first: Option<&'a OracleVdpFifoCommit>,
     pub last: Option<&'a OracleVdpFifoCommit>,
+    pub spans: Vec<OracleVdpFifoCommitSpanSummary<'a>>,
+}
+
+/// One contiguous destination-address run within a filtered FIFO frame.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct OracleVdpFifoCommitSpanSummary<'a> {
+    pub count: usize,
+    pub first: &'a OracleVdpFifoCommit,
+    pub last: &'a OracleVdpFifoCommit,
 }
 
 pub fn summarise_vdp_fifo_commits(row: &OracleVdpFifoCommitRow) -> OracleVdpFifoCommitSummary<'_> {
+    let mut spans = Vec::new();
+    let mut span_start = 0;
+    for index in 1..row.commits.len() {
+        let previous = &row.commits[index - 1];
+        let current = &row.commits[index];
+        let expected_address = previous.address.wrapping_add(u32::from(previous.byte_size));
+        if current.target != previous.target || current.address != expected_address {
+            spans.push(OracleVdpFifoCommitSpanSummary {
+                count: index - span_start,
+                first: &row.commits[span_start],
+                last: previous,
+            });
+            span_start = index;
+        }
+    }
+    if let Some(last) = row.commits.last() {
+        spans.push(OracleVdpFifoCommitSpanSummary {
+            count: row.commits.len() - span_start,
+            first: &row.commits[span_start],
+            last,
+        });
+    }
+
     OracleVdpFifoCommitSummary {
         frame: row.frame,
         count: row.commits.len(),
         first: row.commits.first(),
         last: row.commits.last(),
+        spans,
     }
 }
 
@@ -2233,6 +2266,16 @@ mod tests {
                 m68k_cycles: 100,
             },
             OracleVdpFifoCommit {
+                scanline: 21,
+                pixel: 28,
+                target: "vram".to_string(),
+                address: 0xDD42,
+                word: 0,
+                byte_size: 2,
+                m68k_pc: 0x5D9E,
+                m68k_cycles: 101,
+            },
+            OracleVdpFifoCommit {
                 scanline: 48,
                 pixel: 28,
                 target: "vram".to_string(),
@@ -2251,8 +2294,14 @@ mod tests {
 
         let summary = summarise_vdp_fifo_commits(&row);
         assert_eq!(summary.frame, 1_730);
-        assert_eq!(summary.count, 2);
+        assert_eq!(summary.count, 3);
         assert_eq!(summary.first.map(|commit| commit.address), Some(0xDD40));
         assert_eq!(summary.last.map(|commit| commit.address), Some(0xDF3E));
+        assert_eq!(summary.spans.len(), 2);
+        assert_eq!(summary.spans[0].count, 2);
+        assert_eq!(summary.spans[0].first.address, 0xDD40);
+        assert_eq!(summary.spans[0].last.address, 0xDD42);
+        assert_eq!(summary.spans[1].count, 1);
+        assert_eq!(summary.spans[1].first.address, 0xDF3E);
     }
 }
