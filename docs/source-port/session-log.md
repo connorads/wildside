@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#409 full instruction ledger)
+
+- Oracle PC tracing now accepts inclusive even ranges and starts only at the
+  retained frame window, making full per-instruction capture practical.
+- Frame 1697 executes 2,458 instructions from `sub_E12` to `sub_44DC`:
+  29,708 instruction cycles + 476 pending waits = the exact 30,184 interval.
+- Native's typed raw components also total 29,708. Aggregate refresh plus six
+  separately applied sound-bus accesses reaches phase 66 instead of 64.
+- NEXT: encode instruction boundaries by typed callback/source path, then run
+  the resulting persistent owner through the in-step scheduler callback.
+
 ## 2026-07-30 handoff (#409 execution-shell boundary)
 
 - `NativeRuntime` now exposes an in-step scheduler callback after classifying

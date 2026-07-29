@@ -23373,3 +23373,18 @@ is two CPU cycles late. Sparse external-wait interleaving was a measured
 no-op and was removed. This rejects using the aggregate routine total as the
 production clock: instruction-schedule the typed `sub_E12 -> sub_44DC`
 ledger through the new callback before carrying a continuous owner forward.
+
+Progress 2026-07-30 for #409: `oracle-probe --m68k-pc-trace` accepts even
+inclusive PC ranges and enables them only when the retained probe window
+begins. This makes a complete dynamic instruction ledger practical without
+recording and discarding the cold-boot prefix. The frame-1697 range trace
+contains 16,256 rows overall and 2,458 real instructions between `sub_E12`
+and `sub_44DC`: their reported instruction cycles total 29,708, while the
+68000 pending-wait ledger advances 476 cycles and the asynchronous Z80-bank
+wait ledger does not move. The 30,184-cycle sum exactly matches the selected
+PC endpoints and lands at refresh phase 64. The typed native raw components
+also total 29,708 (26,984 Execute_Objects + 2,724 post-object), but aggregate
+refresh recurrence plus six separately positioned sound-bus accesses reaches
+30,186/phase 66. The remaining work is now bounded: reproduce the dynamic
+instruction boundaries from the source-typed callbacks, preserving direct
+access waits exactly once, then use that clock through the production port.

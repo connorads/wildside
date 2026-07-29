@@ -2175,6 +2175,8 @@ mod tests {
     fn helper_exposes_bounded_m68k_pc_trace_rows() {
         assert!(
             HELPER_TEMPLATE.contains("--m68k-pc-trace")
+                && HELPER_TEMPLATE.contains("value.split_once('-')")
+                && HELPER_TEMPLATE.contains("skip_frames_before == Some(frame_index)")
                 && HELPER_TEMPLATE.contains("drain_wildside_m68k_pc_trace")
                 && HELPER_TEMPLATE
                     .contains("m68k_cycles_for_instruction: hit.m68k_cycles_for_instruction")
@@ -2188,7 +2190,7 @@ mod tests {
                     "m68k_refresh_counter_before_instruction: hit.m68k_refresh_counter_before_instruction"
                 )
                 && HELPER_TEMPLATE.contains("address_registers: hit.address_registers"),
-            "selected-PC tracing must remain bounded and separate instruction work from waits"
+            "selected-PC tracing must accept bounded ranges, start at the retained window, and separate instruction work from waits"
         );
 
         let manifest: OracleManifest = serde_json::from_value(serde_json::json!({

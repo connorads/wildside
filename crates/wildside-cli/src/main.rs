@@ -1378,7 +1378,8 @@ enum Commands {
         /// Print only count and first/last records for each filtered FIFO frame.
         #[arg(long, default_value_t = false)]
         vdp_fifo_summary: bool,
-        /// Selected hexadecimal M68K PCs to trace before execution (e.g. 0x74A,0xE12,0x44DC).
+        /// Hexadecimal M68K PCs or even inclusive ranges to trace before execution
+        /// (e.g. 0x74A,0xE12,0x44DC or 0xE12-0xE58).
         #[arg(long)]
         m68k_pc_trace: Option<String>,
         /// Frames whose 68k→Z80 GEMS stimulus rows (RAM writes under BUSACK,
