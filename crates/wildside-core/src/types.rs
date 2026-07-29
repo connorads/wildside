@@ -1087,8 +1087,28 @@ impl HelmetState {
 /// `addroffset_sprite` therefore survives independently from `$FFFFF8F0`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CycloneGroundedSpriteSource {
+    Walk1,
+    Walk2,
     Walk3,
     Walk4,
+    Walk5,
+    Walk6,
+}
+
+impl CycloneGroundedSpriteSource {
+    /// ASM `sub_B270 loc_B2A0` and `sub_942A loc_9600`: `$FFFFF8F0 >> 8`
+    /// selects the six-entry Cyclone walk table retained across
+    /// `loc_AB0A/loc_AB4A`.
+    pub(crate) fn from_walk_visual_accumulator(accumulator: u16) -> Self {
+        match usize::from(accumulator >> 8) % 6 {
+            0 => Self::Walk1,
+            1 => Self::Walk2,
+            2 => Self::Walk3,
+            3 => Self::Walk4,
+            4 => Self::Walk5,
+            _ => Self::Walk6,
+        }
+    }
 }
 
 /// Player progression: form, lives, HP, diamonds, score, and combat state.

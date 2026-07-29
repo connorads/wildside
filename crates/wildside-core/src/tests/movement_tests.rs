@@ -3575,8 +3575,29 @@ mod chunk_11 {
         );
         assert_eq!(
             rt.helmet.cyclone_grounded_sprite_source,
-            Some(CycloneGroundedSpriteSource::Walk3),
+            Some(CycloneGroundedSpriteSource::Walk1),
             "ASM loc_AB0A/loc_AB4A: sub_DB22 clears flight without sub_942A overwriting the retained landing mapping"
+        );
+
+        rt.helmet.cyclone_flying = true;
+        rt.helmet.cyclone_grounded_sprite_source = None;
+        slice.walk_visual_accumulator = 0x029B;
+        rt.step_cyclone_flight(&mut slice, FrameInput::default());
+
+        assert_eq!(
+            rt.helmet.cyclone_grounded_sprite_source,
+            Some(CycloneGroundedSpriteSource::Walk3),
+            "ASM loc_AB0A/loc_AB4A: the retained landing mapping follows the pre-landing `$FFFFF8F0 >> 8` phase",
+        );
+
+        rt.helmet.cyclone_flying = true;
+        slice.walk_visual_accumulator = 0x0027;
+        rt.step_cyclone_flight(&mut slice, FrameInput::default());
+
+        assert_eq!(
+            rt.helmet.cyclone_grounded_sprite_source,
+            Some(CycloneGroundedSpriteSource::Walk3),
+            "the main loc_AB0A/loc_AB4A landing shell's pre-update mapping must survive the later flight-state clear",
         );
     }
 

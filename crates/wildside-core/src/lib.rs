@@ -5370,6 +5370,7 @@ impl NativeRuntime {
             }
         }
         let frame_start_on_ground = slice.player.on_ground;
+        let frame_start_walk_visual_accumulator = slice.walk_visual_accumulator;
 
         // Step helmet abilities BEFORE physics
         let player_before_skycutter_flipboard = slice.player;
@@ -6339,11 +6340,14 @@ impl NativeRuntime {
             // path instead, so keep that state for the board handler.
             if self.progression.current_form == PlayerForm::Cyclone && self.helmet.cyclone_flying {
                 // ASM loc_AB0A/loc_AB4A falls through to loc_8BF0 without
-                // calling sub_942A, so the prior `addroffset_sprite` remains
-                // the Sprite_Table source. Oracle `$FF2502` captures identify
-                // it as Cyclone walk 3 on this landing frame.
+                // calling sub_942A, so the prior `$FFFFF8F0 >> 8` walk entry
+                // remains the Sprite_Table source. Oracle `$FF2502/$FF0502`
+                // captures identify walk 3 for phase $029B and walk 1 for
+                // phase $005A on the two published-route landing families.
                 self.helmet.cyclone_grounded_sprite_source =
-                    Some(CycloneGroundedSpriteSource::Walk3);
+                    Some(CycloneGroundedSpriteSource::from_walk_visual_accumulator(
+                        frame_start_walk_visual_accumulator,
+                    ));
             }
             self.clear_special_movement_state_sub_DB22();
         }

@@ -6618,9 +6618,14 @@ impl NativeRuntime {
             // ASM loc_AB0A/loc_AB4A (kid.asm:13390-13430) clears flight and
             // runs sub_DB22, but does not call sub_942A. The original
             // addroffset_sprite source therefore survives this frame. Oracle
-            // `$FF2502` captures on the published route select walk 3 here,
-            // then walk 4 on the first ordinary grounded update.
-            self.helmet.cyclone_grounded_sprite_source = Some(CycloneGroundedSpriteSource::Walk3);
+            // `$FF2502/$FF0502` captures on the published route show that the
+            // retained entry follows the pre-landing `$FFFFF8F0 >> 8` phase.
+            if self.helmet.cyclone_grounded_sprite_source.is_none() {
+                self.helmet.cyclone_grounded_sprite_source =
+                    Some(CycloneGroundedSpriteSource::from_walk_visual_accumulator(
+                        slice.walk_visual_accumulator,
+                    ));
+            }
             return;
         }
 
@@ -6630,7 +6635,9 @@ impl NativeRuntime {
                 slice.player.on_ground,
                 slice.player.x_velocity,
             ) {
-                (Some(CycloneGroundedSpriteSource::Walk3), true, velocity) if velocity != 0 => {
+                (Some(source), true, velocity)
+                    if velocity != 0 && source != CycloneGroundedSpriteSource::Walk4 =>
+                {
                     Some(CycloneGroundedSpriteSource::Walk4)
                 }
                 (Some(_), _, 0) | (Some(_), false, _) => None,

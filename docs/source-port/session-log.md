@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 Cyclone landing source phase)
+
+- The six-frame `grid:18,17-20,21` family is Cyclone's first grounded walk
+  page after flight, repeated across Demo 2 visits.
+- Oracle `$FF2502/$FF0502` proves `loc_AB0A/loc_AB4A` retains the walk entry
+  selected by the pre-update `$FFFFF8F0 >> 8`: phase `$029B` selects walk 3,
+  while phase `$005A` selects walk 1. Native's hard-coded walk 3 source now
+  carries all six walk states and is preserved through the later flight clear.
+- Full pixels improve to 37,200 exact / 559 divergent / 36,709 changed. NEXT:
+  classify `grid:18,13-19,15` (19 frames / 2,601 pixels).
+
 ## 2026-07-29 handoff (#406 grounded wall-stop walk phase)
 
 - The eight-frame `grid:18,16-21,20` family is Red Stealth walk art after a

@@ -22696,3 +22696,21 @@ Berzerker paths remain separate. All eight repeated frames become exact; full
 pixels improve 37,186 -> 37,194 exact, 573 -> 565 divergent, and 42,735 ->
 39,655 changed. Player/camera, RNG, enemy, and GEMS command evidence is
 unchanged. NEXT: classify `grid:18,17-20,21` (six frames / 2,946 pixels).
+
+Progress 2026-07-29 for #406: `grid:18,17-20,21` is Cyclone's first grounded
+walk page after flight at frames 1759, 4742, 11908, 18269, 30327, and 35838.
+The preceding and following frames are already exact, and player/camera, RNG,
+and oracle Gfx mappings agree. Direct oracle probes show two real landing
+families: frame 1519 builds mapping `$03C8` from a pre-update `$FFFFF8F0`
+phase of `$029B`, while frame 1758 builds `$03C0` from phase `$005A`.
+`$FFFF0500` queues 12 tiles from `$BBCA8` (Cyclone walk 3) in the first case
+and `$BB99C` (Cyclone walk 1) in the second; the corresponding `$C4A0` VRAM
+pages match the extracted assets byte-for-byte. ASM `loc_AB0A/loc_AB4A`
+clears flight through `sub_DB22` without another `sub_942A` call, so the
+pre-update `$FFFFF8F0 >> 8` walk entry survives the landing. Native's typed
+source now represents all six walk entries, derives the landing source at the
+player-frame boundary, and does not overwrite it during the later flight
+state clear. Both repeated landing families and adjacent frames are exact.
+Full pixels improve 37,194 -> 37,200 exact, 565 -> 559 divergent, and 39,655
+-> 36,709 changed. Player/camera, RNG, enemy, and GEMS command evidence is
+unchanged. NEXT: classify `grid:18,13-19,15` (19 frames / 2,601 pixels).

@@ -580,8 +580,12 @@ pub fn select_player_frame<'a>(
         // grounded motion continues. Once x velocity reaches zero, sub_942A
         // loc_95BA writes the standing mapping instead.
         let frame_index = match source {
+            CycloneGroundedSpriteSource::Walk1 => 0,
+            CycloneGroundedSpriteSource::Walk2 => 1,
             CycloneGroundedSpriteSource::Walk3 => 2,
             CycloneGroundedSpriteSource::Walk4 => 3,
+            CycloneGroundedSpriteSource::Walk5 => 4,
+            CycloneGroundedSpriteSource::Walk6 => 5,
         };
         return &player_visuals.walk[frame_index.min(player_visuals.walk.len() - 1)];
     }
@@ -4663,9 +4667,25 @@ mod tests {
             0x0302
         );
 
-        // ASM sub_942A loc_95BA: Cyclone's retained loc_AB0A/loc_AB4A
-        // landing mapping survives while grounded motion continues, but the
-        // no-input stationary branch writes the standing mapping.
+        // ASM loc_AB0A/loc_AB4A: the landing transfer list points at
+        // `unk_BB996`, Cyclone walk 1, while grounded motion continues.
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::Cyclone.helmet_id(),
+                    cyclone_grounded_sprite_source: Some(CycloneGroundedSpriteSource::Walk1),
+                    kid_on_ground: Some(true),
+                    kid_x_velocity: Some(0x1800),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0200
+        );
+
+        // ASM sub_942A loc_95BA: the retained landing mapping survives while
+        // grounded motion continues, but the no-input stationary branch
+        // writes the standing mapping.
         assert_eq!(
             selected_tile_base(
                 &NativeTraceFrame {
