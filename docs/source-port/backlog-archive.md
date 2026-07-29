@@ -23132,3 +23132,18 @@ as the owner. The scheduler instead excludes the terminal staged FIFO word
 only when `FrameRendered` interrupts an incomplete DMA; all 150 focused VDP
 tests retain exact CPU boundaries. NEXT: carry the per-run prefixes into the
 source-port player's persistent `$C4A0` page and composite old/new tile chunks.
+
+Rejected 2026-07-29 for #406: jgenesis `FrameRendered` residency is not the
+player sprite's visible-page latch. Across all four repeated attach passes,
+oracle FIFO commits split into two phase classes: frames 7968/33766 have
+252 words of the 256-word first DMA resident and zero of the following
+64-word DMA; frames 14190/25565 have 256+0. The typed gameplay workload is the
+same, so input/RNG values do not justify choosing a class. More importantly,
+a non-landed 252+0 injection before frame 7969 worsened its player diff from
+608 to 674 pixels. Applying the same prefix after frame 7968 worsened frame
+7969 to 796 pixels and introduced 602 pixels at previously exact frame 7970.
+The second DMA commits during post-render blanking before the next field's
+player scanlines, so neither boundary placement represents visible sprite
+fetch. Both experiments are removed. Continue by making the FIFO scheduler
+report word residency at the player SAT fetch scanlines and composite that
+fetch-time page; do not retry a `FrameRendered` page splice.

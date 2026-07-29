@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 reject FrameRendered as player latch)
+
+- All four attach passes start the second 64-word DMA after `FrameRendered`;
+  the first DMA has 252 resident words at frames 7968/33766 and 256 at
+  14190/25565.
+- Applying the 252+0 page before frame 7969 worsens 608 -> 674 pixels.
+  Applying it after frame 7968 worsens frame 7969 to 796 and adds 602 pixels
+  at frame 7970. Both non-landed experiments are reverted.
+- Post-render blanking completes the DMA before the next visible player
+  scanlines. NEXT: report residency at player SAT fetch time, not only at the
+  jgenesis frame boundary, then feed that page to the existing stateful path.
+
 ## 2026-07-29 handoff (#406 stateful player-art render path)
 
 - The TAS pixel loop now owns one `$C4A0` player-art page across gameplay
