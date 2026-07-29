@@ -4779,6 +4779,20 @@ with a source-proven row-history difference.
 
 ### #406
 
+2026-07-29 rejected zero-wait VBlank composition: replacing the proven
+`3,380 + 2,002` ownership floor with the existing sprite/Kid, palette,
+H-scroll and suffix schedulers under zero external waits reproduced frame
+1706's 18:12 Diamond bound, but it was not a safe general renderer bound.
+Full TAS pixels regressed from 37,486 exact / 273 divergent / 5,088 changed to
+37,458 / 301 / 5,340, moving the first mismatch 1730 -> 923 and adding 28
+life-icon frames. The Diamond class was unchanged. The missing time is not
+merely optional Z80 access: long-DMA re-entry and completion ownership make
+the isolated scheduler result earlier than the already-proven ownership floor.
+The code and baseline were reverted. Do not retry zero-wait composition as an
+earliest-visible discriminator. This is the second consecutive evidence-only
+#406 continuation; the next continuation must add persistent phase
+instrumentation or narrow a reusable scenario before another rendering patch.
+
 2026-07-29 frame-1730 Diamond family discriminator: the 170-frame
 `hud_diamond` residue spans pages 0, 8 and 12, so it is not one bad art page.
 Representative frames 1730/1736/1754/1820 all lack a seeded raster timing and

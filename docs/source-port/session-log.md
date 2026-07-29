@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 rejected zero-wait VBlank composition)
+
+- Composing the existing VBlank schedulers with zero external waits leaves the
+  Diamond class unchanged and regresses 28 life-icon frames from frame 923.
+- Full pixels under the rejected experiment were 37,458 exact / 301 divergent
+  / 5,340 changed. The code and baseline are reverted.
+- Long-DMA re-entry/completion ownership prevents treating zero-wait
+  composition as an earliest-visible bound.
+- NEXT: add persistent phase instrumentation or a reusable narrow scenario;
+  this is the second consecutive evidence-only #406 continuation.
+
 ## 2026-07-29 handoff (#406 Diamond raster-phase discriminator)
 
 - The 170-frame HUD Diamond residue spans several art pages; page selection
