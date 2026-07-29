@@ -1357,20 +1357,16 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
         render_trace.kid_on_ground = previous_trace.kid_on_ground;
         render_trace.kid_on_slope = previous_trace.kid_on_slope;
         render_trace.kid_x_velocity = previous_trace.kid_x_velocity;
-        let iron_knight_attach_hibernate_loc_a276 = trace.current_helmet_id
-            == wildside_core::PlayerForm::IronKnight.helmet_id()
-            && trace.iron_knight_climbing
-            && !previous_trace.iron_knight_climbing
-            && trace.iron_knight_climb_pose_accum == 0
-            && trace.kid_y_velocity == Some(-0x4000);
-        render_trace.kid_y_velocity = if iron_knight_attach_hibernate_loc_a276 {
-            // ASM loc_A276 seeds y_vel=-$4000 before its first hibernate.
-            // Sprite geometry remains latched, but loc_141A's dynamic-art
-            // payload needs this current-edge marker to model the mixed page.
-            trace.kid_y_velocity
-        } else {
-            previous_trace.kid_y_velocity
-        };
+        render_trace.kid_y_velocity = previous_trace.kid_y_velocity;
+        // ASM Mode_Level loc_901 transfers the completed Sprite_Table before
+        // Kid's loc_A276/sub_A3BC pass changes the climb mapping for the next
+        // table. Keep the climb state and accumulator with the other latched
+        // player sprite sources. This covers both the attach edge (ordinary
+        // airborne mapping remains visible) and the release edge (the final
+        // climb mapping remains visible) without reconstructing a page from
+        // post-update velocity.
+        render_trace.iron_knight_climbing = previous_trace.iron_knight_climbing;
+        render_trace.iron_knight_climb_pose_accum = previous_trace.iron_knight_climb_pose_accum;
         render_trace.airborne_visual_mapping_sub_b270 =
             previous_trace.airborne_visual_mapping_sub_b270;
         render_trace.character_movement = previous_trace.character_movement;
@@ -9801,7 +9797,7 @@ mod tests {
     }
 
     #[test]
-    fn iron_knight_attach_loc_a276_keeps_current_dynamic_art_marker() {
+    fn mode_level_loc_901_latches_iron_knight_climb_mapping_edges() {
         let previous_trace = NativeTraceFrame {
             game_mode: GameMode::DemoPlay,
             current_helmet_id: wildside_core::PlayerForm::IronKnight.helmet_id(),
@@ -9817,8 +9813,27 @@ mod tests {
 
         let rendered = render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
 
-        assert_eq!(rendered.kid_y_velocity, Some(-0x4000));
-        assert!(rendered.iron_knight_climbing);
+        assert_eq!(rendered.kid_y_velocity, Some(0));
+        assert!(!rendered.iron_knight_climbing);
+        assert_eq!(rendered.iron_knight_climb_pose_accum, 0);
+
+        let previous_climb = NativeTraceFrame {
+            iron_knight_climbing: true,
+            iron_knight_climb_pose_accum: 0x007D,
+            kid_y_velocity: Some(-0x18000),
+            ..previous_trace.clone()
+        };
+        let released = NativeTraceFrame {
+            iron_knight_climbing: false,
+            iron_knight_climb_pose_accum: 0,
+            kid_y_velocity: Some(-0x18000),
+            ..previous_climb.clone()
+        };
+        let rendered_release =
+            render_trace_with_vdp_latched_state(&released, Some(&previous_climb));
+
+        assert!(rendered_release.iron_knight_climbing);
+        assert_eq!(rendered_release.iron_knight_climb_pose_accum, 0x007D);
     }
 
     #[test]

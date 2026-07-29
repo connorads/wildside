@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 Iron Knight Sprite Table latch)
+
+- `Mode_Level loc_901` now carries Iron Knight climb state and pose accumulator
+  with the prior player Sprite Table instead of reversing post-update velocity.
+- All four repeated wall-release frames become exact. Full pixels improve to
+  37,468 exact / 291 divergent / 5,196 changed.
+- Rejected complete-page and 17-tile-prefix asset mixes: they raise the attach
+  mismatch from 608 to 723 and 694 pixels. Final VRAM is not scanout state.
+- NEXT: schedule `loc_AD4` `$C4A0` word writes through the player raster path;
+  do not retry static-page or velocity reconstructions.
+
 ## 2026-07-29 handoff (#406 IntroSequence2 first-reveal FIFO lineage)
 
 - Oracle FIFO captures across all seven reveal crossings show four distinct

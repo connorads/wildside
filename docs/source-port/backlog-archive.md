@@ -4779,6 +4779,28 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-29 (Iron Knight Sprite Table latch): the eight-frame player
+class split into four climb-attach frames and four release frames repeated
+through every Demo 1 lineage. Gameplay state was exact. Oracle SAT mappings
+show `Mode_Level loc_901` still displaying the prior mapping after
+`loc_A276/sub_A3BC` changes climb state for the next table. Native latched
+position, facing, velocity, and airborne mapping but left climb state current,
+then tried to reconstruct a complete prior art page from velocity.
+
+Native now latches `iron_knight_climbing` and the `sub_A3BC` accumulator with
+the other player Sprite Table sources and removes that reconstruction. All
+four `loc_A2DC` release frames become exact. Full pixels improve 37,464->37,468
+exact, 295->291 divergent, and 7,320->5,196 changed; gameplay, player/camera,
+RNG, enemies, and audio baselines are unchanged. The remaining four attach
+frames each differ by 608 pixels: oracle displays the prior airborne SAT
+mapping while its post-frame `$C4A0` dump has the first 17 climb-page tiles
+resident and a partial final three-tile DMA. Rejected after the fix: selecting
+the complete climb page raises the target to 723 pixels, while copying the 17
+fully resident tiles over the airborne page raises it to 694. Final VRAM is
+not the displayed field: the second `loc_AD4` DMA races scanout within Kid's
+sprite rows. NEXT: feed source-timed `$C4A0` word writes into the player
+raster path; do not retry static asset mixes or the velocity heuristic.
+
 Progress 2026-07-29 (IntroSequence2 first-reveal FIFO lineage): the four
 36-pixel frames 14980/19182/26355/31240 showed new sky art while oracle still
 displayed prior room pixels. End-state VRAM and local elapsed matched. Bounded
