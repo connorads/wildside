@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 Diamond raster-phase discriminator)
+
+- The 170-frame HUD Diamond residue spans several art pages; page selection
+  and the 256-word DMA cadence are correct.
+- Frame 1730's source lower bound starts at 16:332, while oracle FIFO evidence
+  starts at 20:380. Frame 1736 starts at 19:380.
+- The missing shared input is persistent refresh/interrupt/VBlank arbitration
+  before `sub_E12`. A static scanline adjustment is rejected.
+- NEXT: carry natural Mode_Level raster phase between frames and feed the
+  existing exact Diamond scheduler. This should also support `loc_AD4` races.
+
 ## 2026-07-29 handoff (#406 prize-flash deletion timing)
 
 - `loc_102B8` finishing flash workers now carry typed Object/main-Gfx/category-4

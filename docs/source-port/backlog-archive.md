@@ -4779,6 +4779,21 @@ with a source-proven row-history difference.
 
 ### #406
 
+2026-07-29 frame-1730 Diamond family discriminator: the 170-frame
+`hud_diamond` residue spans pages 0, 8 and 12, so it is not one bad art page.
+Representative frames 1730/1736/1754/1820 all lack a seeded raster timing and
+use, or fail before, the VINT lower-bound path. With the render boundary's
+source-derived `[16,4]` Iron Knight dynamic-art queue, that lower bound places
+the first Diamond commit at 16:332 on frame 1730. Oracle `sub_5D4A` selected-PC
+and `$DD40..$DF3F` FIFO evidence instead starts the real DMA at 20:380; frame
+1736 similarly starts at 19:380. The DMA word cadence already matches the ROM.
+The missing input is the persistent 68000 refresh/interrupt/VBlank arbitration
+phase before `sub_E12`, not the Diamond page or DMA rate. Rejected: a static
+four-scanline shift, because adjacent natural frames have different entry
+phase and it would regress the already-exact Diamond uploads. NEXT: carry the
+natural Mode_Level raster phase between frames and feed the existing
+`diamond_raster_timing_from_sub_e12` scheduler; do not add frame-index offsets.
+
 2026-07-29 prize-flash deletion timing: the remaining frame-1715 life-icon
 boundary was not an animation-page defect. `Execute_Objects` refused the
 `loc_102B8` flash worker's `FinishAndDelete` wake, leaving the whole pre-HUD
