@@ -160,6 +160,29 @@ struct OracleVdpFifoCommit {
     m68k_cycles: u64,
 }
 
+#[derive(Debug, Serialize)]
+struct OracleSpritePatternFetchRow {
+    frame: usize,
+    fetches: Vec<OracleSpritePatternFetch>,
+}
+
+#[derive(Debug, Serialize)]
+struct OracleSpritePatternFetch {
+    scanline: u16,
+    sprite_id: u8,
+    h_position: u16,
+    v_position: u16,
+    h_size_cells: u8,
+    v_size_cells: u8,
+    pattern_generator: u16,
+    palette: u8,
+    palette_words: [u16; 16],
+    row_address: u16,
+    row_bytes: [u8; 4],
+    horizontal_flip: bool,
+    vertical_flip: bool,
+}
+
 /// One recorded 68k→Z80 stimulus (#437): a Z80-RAM byte write that passed the
 /// BUSACK guard, or a BUSREQ/RESET control-bit write with post-write busack.
 #[derive(Debug, Serialize)]
@@ -367,6 +390,8 @@ struct OracleManifest {
     vdp_fifo_commits: Vec<OracleVdpFifoCommitRow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     vdp_fifo_enqueues: Vec<OracleVdpFifoCommitRow>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    sprite_pattern_fetches: Vec<OracleSpritePatternFetchRow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     m68k_pc_trace: Vec<OracleM68kPcTraceRow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -887,6 +912,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     let mut all_vdp_pixel_samples: Vec<OracleVdpPixelSampleRow> = Vec::new();
     let mut all_vdp_fifo_commits: Vec<OracleVdpFifoCommitRow> = Vec::new();
     let mut all_vdp_fifo_enqueues: Vec<OracleVdpFifoCommitRow> = Vec::new();
+    let mut all_sprite_pattern_fetches: Vec<OracleSpritePatternFetchRow> = Vec::new();
     let mut all_m68k_pc_trace: Vec<OracleM68kPcTraceRow> = Vec::new();
     let mut all_gems_stimuli: Vec<OracleGemsStimulusRow> = Vec::new();
     let mut settle_trace: Vec<OracleSettleTraceRow> = Vec::new();
@@ -930,6 +956,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     }
     // Ignore boot/warp activity. Each retained row is exactly one scenario frame.
     let _ = emulator.debug().drain_wildside_fifo_commits();
+    let _ = emulator.debug().drain_wildside_sprite_pattern_fetches();
     emulator
         .debug()
         .set_wildside_m68k_pc_trace_targets(m68k_pc_trace.to_vec());
@@ -1096,6 +1123,32 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
                             frame: frame_index,
                             m68k_cycle_counter: emulator.debug().wildside_m68k_cycle_counter(),
                             commits: fifo_enqueues,
+                        });
+                    }
+                    let sprite_pattern_fetches = emulator
+                        .debug()
+                        .drain_wildside_sprite_pattern_fetches()
+                        .into_iter()
+                        .map(|fetch| OracleSpritePatternFetch {
+                            scanline: fetch.scanline,
+                            sprite_id: fetch.sprite_id,
+                            h_position: fetch.h_position,
+                            v_position: fetch.v_position,
+                            h_size_cells: fetch.h_size_cells,
+                            v_size_cells: fetch.v_size_cells,
+                            pattern_generator: fetch.pattern_generator,
+                            palette: fetch.palette,
+                            palette_words: fetch.palette_words,
+                            row_address: fetch.row_address,
+                            row_bytes: fetch.row_bytes,
+                            horizontal_flip: fetch.horizontal_flip,
+                            vertical_flip: fetch.vertical_flip,
+                        })
+                        .collect::<Vec<_>>();
+                    if vdp_fifo_commit_frames.contains(&frame_index) {
+                        all_sprite_pattern_fetches.push(OracleSpritePatternFetchRow {
+                            frame: frame_index,
+                            fetches: sprite_pattern_fetches,
                         });
                     }
                     // 68k→Z80 stimulus rows (#437): drained every frame so a
@@ -1283,6 +1336,7 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
         vdp_pixel_samples: all_vdp_pixel_samples,
         vdp_fifo_commits: all_vdp_fifo_commits,
         vdp_fifo_enqueues: all_vdp_fifo_enqueues,
+        sprite_pattern_fetches: all_sprite_pattern_fetches,
         m68k_pc_trace: all_m68k_pc_trace,
         gems_stimuli: all_gems_stimuli,
         settle_trace,

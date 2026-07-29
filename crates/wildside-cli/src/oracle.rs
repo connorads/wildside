@@ -130,6 +130,8 @@ pub struct OracleManifest {
     #[serde(default)]
     pub vdp_fifo_enqueues: Vec<OracleVdpFifoCommitRow>,
     #[serde(default)]
+    pub sprite_pattern_fetches: Vec<OracleSpritePatternFetchRow>,
+    #[serde(default)]
     pub m68k_pc_trace: Vec<OracleM68kPcTraceRow>,
     /// 68k→Z80 stimulus rows (#437): Z80-RAM writes under BUSACK plus
     /// BUSREQ/RESET control-bit writes, stamped with the cumulative 68000
@@ -171,6 +173,29 @@ pub struct OracleVdpFifoCommit {
     pub m68k_pc: u32,
     #[serde(default)]
     pub m68k_cycles: u64,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct OracleSpritePatternFetchRow {
+    pub frame: usize,
+    pub fetches: Vec<OracleSpritePatternFetch>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct OracleSpritePatternFetch {
+    pub scanline: u16,
+    pub sprite_id: u8,
+    pub h_position: u16,
+    pub v_position: u16,
+    pub h_size_cells: u8,
+    pub v_size_cells: u8,
+    pub pattern_generator: u16,
+    pub palette: u8,
+    pub palette_words: [u16; 16],
+    pub row_address: u16,
+    pub row_bytes: [u8; 4],
+    pub horizontal_flip: bool,
+    pub vertical_flip: bool,
 }
 
 /// Compact boundary evidence for one frame's filtered VDP FIFO records.
@@ -493,6 +518,7 @@ pub fn ensure_oracles(repo_root: &Path) -> Result<OracleEnvironment> {
     checkout_repo(&jgenesis_dir, JGENESIS_URL, JGENESIS_COMMIT)?;
     patch_jgenesis_cpu_registers(&jgenesis_dir)?;
     patch_jgenesis_fifo_commit_trace(&jgenesis_dir)?;
+    patch_jgenesis_sprite_pattern_fetch_trace(&jgenesis_dir)?;
     patch_jgenesis_m68k_pc_trace(&jgenesis_dir)?;
     patch_jgenesis_gems_checkpoint(&jgenesis_dir)?;
     patch_jgenesis_gems_stimulus_capture(&jgenesis_dir)?;
@@ -1015,6 +1041,107 @@ fn patch_jgenesis_fifo_commit_trace(jgenesis_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Capture the exact `$C4A0` player sprite rows consumed during VDP phase 3.
+fn patch_jgenesis_sprite_pattern_fetch_trace(jgenesis_dir: &Path) -> Result<()> {
+    let vdp_rs = jgenesis_dir.join("backend/genesis-core/src/vdp.rs");
+    let mut vdp = fs::read_to_string(&vdp_rs)
+        .with_context(|| format!("failed to read {}", vdp_rs.display()))?;
+    if !vdp.contains("WildsideSpritePatternFetch") {
+        vdp = replace_jgenesis_source(
+            &vdp,
+            "#[derive(Debug, Clone, Encode, Decode)]\npub struct Vdp {\n",
+            "#[derive(Debug, Clone, Copy, Encode, Decode)]\npub struct WildsideSpritePatternFetch {\n    pub scanline: u16,\n    pub sprite_id: u8,\n    pub h_position: u16,\n    pub v_position: u16,\n    pub h_size_cells: u8,\n    pub v_size_cells: u8,\n    pub pattern_generator: u16,\n    pub palette: u8,\n    pub palette_words: [u16; 16],\n    pub row_address: u16,\n    pub row_bytes: [u8; 4],\n    pub horizontal_flip: bool,\n    pub vertical_flip: bool,\n}\n\n#[derive(Debug, Clone, Encode, Decode)]\npub struct Vdp {\n",
+            &vdp_rs,
+        )?;
+        fs::write(&vdp_rs, &vdp)
+            .with_context(|| format!("failed to write patched {}", vdp_rs.display()))?;
+    }
+
+    let sprites_rs = jgenesis_dir.join("backend/genesis-core/src/vdp/sprites.rs");
+    let mut sprites = fs::read_to_string(&sprites_rs)
+        .with_context(|| format!("failed to read {}", sprites_rs.display()))?;
+    if !sprites.contains("wildside_pattern_fetches") {
+        sprites = replace_jgenesis_source(
+            &sprites,
+            "use crate::vdp::{CachedSpriteData, SpriteData, TilePixel, Vdp};\n",
+            "use crate::vdp::{CachedSpriteData, SpriteData, TilePixel, Vdp, WildsideSpritePatternFetch};\n",
+            &sprites_rs,
+        )?;
+        sprites = replace_jgenesis_source(
+            &sprites,
+            "    pub pixels: Box<[TilePixel; 320]>,\n",
+            "    pub pixels: Box<[TilePixel; 320]>,\n    pub wildside_pattern_fetches: Vec<WildsideSpritePatternFetch>,\n",
+            &sprites_rs,
+        )?;
+        sprites = replace_jgenesis_source(
+            &sprites,
+            "            pixels: vec![TilePixel::default(); 320].into_boxed_slice().try_into().unwrap(),\n",
+            "            pixels: vec![TilePixel::default(); 320].into_boxed_slice().try_into().unwrap(),\n            wildside_pattern_fetches: Vec::new(),\n",
+            &sprites_rs,
+        )?;
+        sprites = replace_jgenesis_source(
+            &sprites,
+            "        'outer: for sprite in &buffers.sprites {\n",
+            "        'outer: for (sprite_order, sprite) in buffers.sprites.iter().enumerate() {\n",
+            &sprites_rs,
+        )?;
+        sprites = replace_jgenesis_source(
+            &sprites,
+            "                let row_addr = cell_addr + 4 * cell_row;\n",
+            "                let row_addr = cell_addr + 4 * cell_row;\n\n                if (0xC4A0..=0xC71C).contains(&row_addr) {\n                    let row_start = usize::from(row_addr);\n                    buffers.wildside_pattern_fetches.push(WildsideSpritePatternFetch {\n                        scanline: raster_line.line,\n                        sprite_id: buffers.scanned_ids.get(sprite_order).copied().unwrap_or(u8::MAX),\n                        h_position: sprite.h_position,\n                        v_position: sprite.v_position,\n                        h_size_cells: sprite.h_size_cells.into(),\n                        v_size_cells: sprite.v_size_cells.into(),\n                        pattern_generator: sprite.pattern_generator,\n                        palette: sprite.palette,\n                        palette_words: core::array::from_fn(|index| self.cram[usize::from(sprite.palette) * 16 + index]),\n                        row_address: row_addr,\n                        row_bytes: self.vram[row_start..row_start + 4].try_into().unwrap(),\n                        horizontal_flip: sprite.horizontal_flip,\n                        vertical_flip: sprite.vertical_flip,\n                    });\n                }\n",
+            &sprites_rs,
+        )?;
+        fs::write(&sprites_rs, &sprites)
+            .with_context(|| format!("failed to write patched {}", sprites_rs.display()))?;
+    }
+
+    let vdp_debug_rs = jgenesis_dir.join("backend/genesis-core/src/vdp/debug.rs");
+    let mut vdp_debug = fs::read_to_string(&vdp_debug_rs)
+        .with_context(|| format!("failed to read {}", vdp_debug_rs.display()))?;
+    if !vdp_debug.contains("drain_wildside_sprite_pattern_fetches") {
+        vdp_debug = replace_jgenesis_source(
+            &vdp_debug,
+            "WildsideVdpFifoCommit, WildsideVdpFifoEnqueue",
+            "WildsideSpritePatternFetch, WildsideVdpFifoCommit, WildsideVdpFifoEnqueue",
+            &vdp_debug_rs,
+        )?;
+        vdp_debug = replace_jgenesis_source(
+            &vdp_debug,
+            "    pub fn drain_wildside_fifo_enqueues(&mut self) -> Vec<WildsideVdpFifoEnqueue> {\n        self.wildside_fifo_enqueues.drain(..).collect()\n    }\n",
+            "    pub fn drain_wildside_fifo_enqueues(&mut self) -> Vec<WildsideVdpFifoEnqueue> {\n        self.wildside_fifo_enqueues.drain(..).collect()\n    }\n\n    pub fn drain_wildside_sprite_pattern_fetches(&mut self) -> Vec<WildsideSpritePatternFetch> {\n        self.sprite_buffers.wildside_pattern_fetches.drain(..).chain(self.interlaced_sprite_buffers.wildside_pattern_fetches.drain(..)).collect()\n    }\n",
+            &vdp_debug_rs,
+        )?;
+        fs::write(&vdp_debug_rs, &vdp_debug)
+            .with_context(|| format!("failed to write patched {}", vdp_debug_rs.display()))?;
+    }
+
+    let api_debug_rs = jgenesis_dir.join("backend/genesis-core/src/api/debug.rs");
+    let mut api_debug = fs::read_to_string(&api_debug_rs)
+        .with_context(|| format!("failed to read {}", api_debug_rs.display()))?;
+    if !api_debug.contains("drain_wildside_sprite_pattern_fetches") {
+        api_debug = replace_jgenesis_source(
+            &api_debug,
+            "WildsideVdpFifoCommit, WildsideVdpFifoEnqueue",
+            "WildsideSpritePatternFetch, WildsideVdpFifoCommit, WildsideVdpFifoEnqueue",
+            &api_debug_rs,
+        )?;
+        let final_brace = api_debug.rfind('}').ok_or_else(|| {
+            anyhow!(
+                "could not find debug API closing brace in {}",
+                api_debug_rs.display()
+            )
+        })?;
+        api_debug.insert_str(
+            final_brace,
+            "    pub fn drain_wildside_sprite_pattern_fetches(&mut self) -> Vec<WildsideSpritePatternFetch> {\n        self.0.vdp.drain_wildside_sprite_pattern_fetches()\n    }\n\n",
+        );
+        fs::write(&api_debug_rs, &api_debug)
+            .with_context(|| format!("failed to write patched {}", api_debug_rs.display()))?;
+    }
+
+    Ok(())
+}
+
 /// Record the oracle's 68k→Z80 stimulus stream for bounded-span replay (#437).
 ///
 /// The three `MainBus::apply_byte_write` Z80-facing arms (Z80-RAM writes,
@@ -1025,7 +1152,7 @@ fn patch_jgenesis_fifo_commit_trace(jgenesis_dir: &Path) -> Result<()> {
 /// writes record the post-write busack state. Rows are stamped with the
 /// cumulative `wildside_m68k_cycle_counter` set at the writing instruction's
 /// opening boundary (same discipline as the FIFO enqueue context). Capture is
-/// gated by `set_wildside_capture_gems_stimuli` (default off — zero oracle
+/// gated by `set_wildside_capture_gems_stimuli` (default off - zero oracle
 /// behaviour change).
 ///
 /// Also extends `WildsideGemsCheckpoint` with `m68k_wait_cpu_cycles` so a

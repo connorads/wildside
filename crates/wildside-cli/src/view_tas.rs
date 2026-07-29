@@ -893,6 +893,7 @@ mod tests {
             vdp_pixel_samples: Vec::new(),
             vdp_fifo_commits: Vec::new(),
             vdp_fifo_enqueues: Vec::new(),
+            sprite_pattern_fetches: Vec::new(),
             m68k_pc_trace: Vec::new(),
             gems_stimuli: Vec::new(),
             settle_trace: Vec::new(),
