@@ -386,6 +386,79 @@ pub fn player_frame_dynamic_art_tiles_loc_141a(frame: &wildside_render::SpriteFr
     tile_lengths
 }
 
+/// Player-art words resident at VRAM `$C4A0` after the independently paced
+/// `Transfer_SpriteAndKidToVRAM loc_AD4` chunk DMAs.
+///
+/// The VDP can present a prefix of one DMA at `FrameRendered`, including a
+/// partial 8x8 tile. Keeping this page separate from [`SpriteFrame`] lets the
+/// current Sprite Table geometry address art retained from an earlier frame.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlayerDynamicArtVramPageLocAd4 {
+    pub tile_sheet: wildside_render::TileSheet,
+}
+
+impl PlayerDynamicArtVramPageLocAd4 {
+    pub fn from_resident_frame(frame: &wildside_render::SpriteFrame) -> Self {
+        Self {
+            tile_sheet: frame.tile_sheet.clone(),
+        }
+    }
+
+    /// Apply the word prefix resident from each `loc_AD4` DMA at the sampled
+    /// `FrameRendered` boundary. Each Genesis VRAM word contains four 4bpp
+    /// pixels, so an incomplete DMA may replace only part of a tile row.
+    pub fn apply_frame_rendered_prefixes(
+        &mut self,
+        source: &wildside_render::SpriteFrame,
+        residency: &[wildside_core::vdp::MemoryDmaFrameRenderedResidency],
+    ) -> Option<()> {
+        let mut destination_word = 0usize;
+        for dma in residency {
+            let dma_words = usize::from(dma.words);
+            let committed_words = usize::from(dma.committed_words_before_frame_rendered);
+            if committed_words > dma_words {
+                return None;
+            }
+            let source_end = destination_word.checked_add(committed_words)?;
+            if source_end > source.tile_sheet.tiles.len().checked_mul(16)? {
+                return None;
+            }
+            self.ensure_word_capacity(destination_word.checked_add(dma_words)?);
+            for word in destination_word..source_end {
+                copy_tile_word(&mut self.tile_sheet, &source.tile_sheet, word)?;
+            }
+            destination_word = destination_word.checked_add(dma_words)?;
+        }
+        Some(())
+    }
+
+    fn ensure_word_capacity(&mut self, words: usize) {
+        let tiles = words.div_ceil(16);
+        if self.tile_sheet.tiles.len() < tiles {
+            self.tile_sheet
+                .tiles
+                .resize_with(tiles, || wildside_render::Tile { pixels: [0; 64] });
+        }
+    }
+}
+
+fn copy_tile_word(
+    destination: &mut wildside_render::TileSheet,
+    source: &wildside_render::TileSheet,
+    word: usize,
+) -> Option<()> {
+    const WORDS_PER_TILE: usize = 16;
+    const PIXELS_PER_WORD: usize = 4;
+
+    let tile_index = word / WORDS_PER_TILE;
+    let pixel_start = (word % WORDS_PER_TILE) * PIXELS_PER_WORD;
+    let source_pixels =
+        &source.tiles.get(tile_index)?.pixels[pixel_start..pixel_start + PIXELS_PER_WORD];
+    destination.tiles.get_mut(tile_index)?.pixels[pixel_start..pixel_start + PIXELS_PER_WORD]
+        .copy_from_slice(source_pixels);
+    Some(())
+}
+
 pub fn sprite_draw_position(
     frame: &wildside_render::SpriteFrame,
     screen_x: i32,
@@ -2496,6 +2569,69 @@ fn platform_art_for_mapping_word_loc_2548(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn marked_dynamic_art_frame(marker: u8, tile_count: usize) -> SpriteFrame {
+        SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px: 32,
+            height_px: 40,
+            tile_base_index: 0,
+            tile_sheet: wildside_render::TileSheet {
+                tiles: (0..tile_count)
+                    .map(|tile| wildside_render::Tile {
+                        pixels: core::array::from_fn(|pixel| {
+                            marker.wrapping_add((tile * 64 + pixel) as u8)
+                        }),
+                    })
+                    .collect(),
+            },
+        }
+    }
+
+    #[test]
+    fn loc_ad4_page_applies_word_prefix_without_rounding_to_tiles() {
+        let old = marked_dynamic_art_frame(0x10, 20);
+        let new = marked_dynamic_art_frame(0x80, 20);
+        let mut resident = PlayerDynamicArtVramPageLocAd4::from_resident_frame(&old);
+
+        resident
+            .apply_frame_rendered_prefixes(
+                &new,
+                &[
+                    wildside_core::vdp::MemoryDmaFrameRenderedResidency {
+                        words: 256,
+                        committed_words_before_frame_rendered: 252,
+                    },
+                    wildside_core::vdp::MemoryDmaFrameRenderedResidency {
+                        words: 64,
+                        committed_words_before_frame_rendered: 0,
+                    },
+                ],
+            )
+            .expect("ASM frame-7968 loc_AD4 residency is within the 20-tile page");
+
+        assert_eq!(
+            resident.tile_sheet.tiles[..15],
+            new.tile_sheet.tiles[..15],
+            "ASM loc_AD4 makes the first fifteen 16-word tiles fully resident"
+        );
+        assert_eq!(
+            resident.tile_sheet.tiles[15].pixels[..48],
+            new.tile_sheet.tiles[15].pixels[..48],
+            "the next 12 committed words replace three rows of tile sixteen",
+        );
+        assert_eq!(
+            resident.tile_sheet.tiles[15].pixels[48..],
+            old.tile_sheet.tiles[15].pixels[48..],
+            "jgenesis FrameRendered precedes the final row's four DMA words",
+        );
+        assert_eq!(
+            resident.tile_sheet.tiles[16..],
+            old.tile_sheet.tiles[16..],
+            "the second 64-word DMA stays resident from the prior page",
+        );
+    }
 
     fn synthetic_player_frame() -> wildside_render::SpriteFrame {
         wildside_render::SpriteFrame {

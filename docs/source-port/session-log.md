@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 word-granular player VRAM page)
+
+- `PlayerDynamicArtVramPageLocAd4` separates resident `$C4A0` art from the
+  current Sprite Table geometry and applies each DMA's visible word prefix.
+- The frame-7968 252-word prefix is 15 complete 16-word tiles plus three rows
+  of tile 16; its final row and the following four tiles retain old pixels.
+- The focused regression and `mise run verify-slice-fast` pass. The full frame
+  crate still has its grandfathered unrelated slope-frame assertion failure.
+- NEXT: persist this page in the TAS render loop and feed it production
+  `loc_AD4` residency from the shared phase owner; do not infer it from poses.
+
 ## 2026-07-29 handoff (#407 resolved; HUD phase experiments)
 
 - Fresh `--checkpoint-interval 1` evidence matches the committed full-route
