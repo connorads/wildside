@@ -3117,6 +3117,11 @@ pub struct NativeTraceFrame {
     pub death_windup_elapsed: u16,
     /// Form-change visual flash countdown (0=no flash).
     pub form_change_flash_frames: u8,
+    /// ASM Kid_Transform `loc_7CBE/loc_7D22 -> sub_8E0` owns the current
+    /// field's H-scroll transfer. Unlike Kid/Sprite_Table state, this is not
+    /// replaced by the preceding trace's transform countdown.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub transform_hscroll_owner_loc_8fe: bool,
     /// ASM Kid_Transform loc_7CA6 (kid.asm): helmet id worn before the live
     /// transform. Presentation input for the pass enumerator; `None` when no
     /// transform countdown is live.
@@ -3386,6 +3391,7 @@ impl Default for NativeTraceFrame {
             heady_metal_body_pieces_sub_37abc: Vec::new(),
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,
+            transform_hscroll_owner_loc_8fe: false,
             transform_source_helmet_id_loc_7ca6: None,
             transform_source_hitpoints_loc_bdc0: None,
             stomped_this_frame: false,

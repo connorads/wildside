@@ -5944,7 +5944,7 @@ fn background_display_scroll_data_word_loc_3050a(
     // a different preload-era phase.
     let time_frames = background_time_frames_for_trace_loc_3050a(trace);
     let retained_pal_fade_table = trace.resident_gameplay_vdp_terminal_scroll_table_loc_28c6;
-    let display_time_frames = if trace.form_change_flash_frames > 0 {
+    let display_time_frames = if trace.transform_hscroll_owner_loc_8fe {
         // ASM Kid_Transform loc_7CBE/loc_7D22 -> sub_8E0 transfers the current
         // Horiz_Scroll_Data table on every synchronous VBlank. This owns the
         // display phase even when the transform starts from a demo lineage
@@ -9698,6 +9698,33 @@ mod tests {
     }
 
     #[test]
+    fn transform_hscroll_owner_loc_8fe_is_not_replaced_by_sprite_table_latch() {
+        for (previous_countdown, current_countdown, expected_owner) in
+            [(0, 82, true), (1, 0, false)]
+        {
+            let previous_trace = NativeTraceFrame {
+                game_mode: GameMode::DemoPlay,
+                form_change_flash_frames: previous_countdown,
+                transform_hscroll_owner_loc_8fe: previous_countdown > 0,
+                ..NativeTraceFrame::default()
+            };
+            let trace = NativeTraceFrame {
+                form_change_flash_frames: current_countdown,
+                transform_hscroll_owner_loc_8fe: current_countdown > 0,
+                ..previous_trace.clone()
+            };
+
+            let rendered = render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
+
+            assert_eq!(rendered.form_change_flash_frames, previous_countdown);
+            assert_eq!(
+                rendered.transform_hscroll_owner_loc_8fe, expected_owner,
+                "ASM Kid_Transform loc_7CBE/loc_7D22 -> sub_8E0 owns the current H-scroll field independently of loc_901's previous Sprite_Table",
+            );
+        }
+    }
+
+    #[test]
     fn transform_loc_7e90_uses_core_refreshed_walking_dragon_mapping() {
         let previous_trace = NativeTraceFrame {
             game_mode: GameMode::DemoPlay,
@@ -12160,6 +12187,7 @@ mod tests {
         };
         let transforming = NativeTraceFrame {
             form_change_flash_frames: 82,
+            transform_hscroll_owner_loc_8fe: true,
             ..ordinary.clone()
         };
 
@@ -12195,6 +12223,7 @@ mod tests {
         let trace = NativeTraceFrame {
             time_frames_loc_3038a: 28,
             form_change_flash_frames: 81,
+            transform_hscroll_owner_loc_8fe: true,
             background_scroll_hidden_wrap_display_phase_loc_3050a: true,
             ..NativeTraceFrame::default()
         };

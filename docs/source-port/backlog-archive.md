@@ -22669,3 +22669,17 @@ Therefore this is a Plane-B row/source sampling boundary, not another H-scroll
 register latch. The no-op typed field and tests were removed. NEXT: compare
 the row/source sampling inputs at 7604 and 7686; do not retry transform flag
 retiming.
+Correction 2026-07-29 for #406: the no-op experiment latched the previous
+trace's transform owner twice. The actual conflict is inside
+`render_trace_with_vdp_latched_state`: `Mode_Level loc_901` correctly copies
+the preceding transform countdown for Kid and Sprite_Table presentation, but
+`background_display_scroll_data_word_loc_3050a` then incorrectly treats that
+sprite countdown as the current VDP owner. A typed
+`transform_hscroll_owner_loc_8fe`, captured from the current trace and not
+overwritten by the Sprite_Table latch, preserves current `Kid_Transform
+loc_7CBE/loc_7D22 -> sub_8E0` H-scroll ownership. The focused 7602..7689
+window becomes 87/87 pixel-exact. All five repeated entry/exit pairs become
+exact in the full route, improving 37,176 -> 37,186 exact, 583 -> 573
+divergent, and 46,660 -> 42,735 changed pixels. Gameplay, camera, RNG, enemy,
+and audio-command evidence is unchanged. NEXT: classify
+`grid:18,16-21,20` (eight frames / 3,080 pixels).

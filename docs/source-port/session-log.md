@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 current transform H-scroll owner)
+
+- The generic `Mode_Level loc_901` render latch copied the preceding trace's
+  transform countdown for Kid/Sprite_Table presentation and accidentally used
+  it to choose the Plane-B H-scroll table too.
+- Typed `transform_hscroll_owner_loc_8fe` keeps current `sub_8E0` VDP ownership
+  independent from the prior Sprite_Table. All ten transform entry/exit
+  top-band frames become exact.
+- Full pixels improve to 37,186 exact / 573 divergent / 42,735 changed. NEXT:
+  classify `grid:18,16-21,20` (eight frames / 3,080 pixels).
+
 ## 2026-07-29 handoff (#406 transform-boundary Plane-B sampling)
 
 - `grid:7,0-39,3` is ten isolated top-band frames: transform entry and exit
