@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 demo-timeout terminal prize worker)
+
+- The 19-frame `grid:18,13-19,15` family is one prize block held through the
+  demo timeout fade. Native retained the pre-terminal `sub_1007A` sprite at
+  -2px while oracle presents `loc_10120`'s final settled source.
+- The resident gameplay renderer now keeps the frozen planes/player pose but
+  takes prize-worker presentation from the post-object trace exposed before
+  `ReadJoypad loc_C0A` changes mode. The whole 23807..23825 family is exact.
+- Full pixels improve to 37,219 exact / 540 divergent / 34,108 changed. NEXT:
+  classify `grid:18,1-36,20` (four frames / 2,492 pixels).
+
 ## 2026-07-29 handoff (#406 Cyclone landing source phase)
 
 - The six-frame `grid:18,17-20,21` family is Cyclone's first grounded walk

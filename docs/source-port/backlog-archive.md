@@ -22714,3 +22714,15 @@ state clear. Both repeated landing families and adjacent frames are exact.
 Full pixels improve 37,194 -> 37,200 exact, 565 -> 559 divergent, and 39,655
 -> 36,709 changed. Player/camera, RNG, enemy, and GEMS command evidence is
 unchanged. NEXT: classify `grid:18,13-19,15` (19 frames / 2,601 pixels).
+
+Progress 2026-07-29 for #406: `grid:18,13-19,15` is a prize block retained
+through the demo timeout fade, not a transform sprite. At published frames
+23807..23825, oracle presents the final settled `sub_1007A loc_10120` source
+after the object pass and before `ReadJoypad loc_C0A` changes `Game_Mode`.
+Native's resident snapshot retained the preceding -2px sprite source. The
+renderer now keeps the snapshot's gameplay planes and player pose while taking
+typed prize-worker presentation from the terminal post-object trace. A focused
+23-frame pixel comparison is exact. Full pixels improve 37,200 -> 37,219
+exact, 559 -> 540 divergent, and 36,709 -> 34,108 changed. Player/camera,
+enemy, RNG, and GEMS command evidence is unchanged. NEXT: classify
+`grid:18,1-36,20` (four frames / 2,492 pixels).

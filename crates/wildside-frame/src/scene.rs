@@ -1266,6 +1266,17 @@ pub fn render_trace_with_vdp_latched_state_and_resident(
             trace.resident_gameplay_vdp_camera_loc_300ba;
         render_trace.resident_gameplay_vdp_terminal_scroll_table_loc_28c6 =
             trace.resident_gameplay_vdp_terminal_scroll_table_loc_28c6;
+        // ASM Mode_Level -> ReadJoypad loc_C0A changes Game_Mode only after
+        // the final object pass. The resident planes and player pose retain
+        // their earlier VDP snapshot, while sub_1007A loc_10120 has already
+        // advanced the copied prize-block GfxObject for that terminal table.
+        render_trace.block_bounces.clone_from(&trace.block_bounces);
+        render_trace
+            .block_bounce_details
+            .clone_from(&trace.block_bounce_details);
+        render_trace
+            .prize_block_worker_tails_sub_1007a
+            .clone_from(&trace.prize_block_worker_tails_sub_1007a);
         render_trace.game_mode = GameMode::DemoPlay;
         render_trace.game_mode_value = GameMode::DemoPlay.as_disassembly_value();
         if let Some((camera_x_pos, camera_y_pos)) = trace.resident_gameplay_vdp_camera_loc_300ba {
@@ -9284,6 +9295,45 @@ mod tests {
             render_trace.level_entry_fade_progress_sub_73d0,
             Some(0x00E0)
         );
+    }
+
+    #[test]
+    fn demo_timeout_loc_c0a_uses_terminal_prize_worker_sprite_source() {
+        let resident = NativeTraceFrame {
+            game_mode: GameMode::DemoPlay,
+            block_bounces: vec![(22, 14, 2, -2)],
+            block_bounce_details: vec![BlockBounceTrace {
+                cell_x: 22,
+                cell_y: 14,
+                x_offset_px: 0,
+                remaining: 2,
+                y_offset_px: -2,
+                kind: BlockBounceTraceKind::Prize,
+            }],
+            ..NativeTraceFrame::default()
+        };
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::SegaScreen,
+            teleport_warp_colour: 0x082A,
+            level_entry_fade_progress_sub_73d0: Some(0),
+            block_bounces: vec![(22, 14, 1, 0)],
+            block_bounce_details: vec![BlockBounceTrace {
+                cell_x: 22,
+                cell_y: 14,
+                x_offset_px: 0,
+                remaining: 1,
+                y_offset_px: 0,
+                kind: BlockBounceTraceKind::Prize,
+            }],
+            ..NativeTraceFrame::default()
+        };
+
+        let rendered =
+            render_trace_with_vdp_latched_state_and_resident(&trace, None, Some(&resident));
+
+        assert_eq!(rendered.block_bounces, trace.block_bounces);
+        assert_eq!(rendered.block_bounce_details, trace.block_bounce_details);
+        assert_eq!(rendered.game_mode, GameMode::DemoPlay);
     }
 
     #[test]
