@@ -686,6 +686,33 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     )
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum IntroSequence2FirstRevealFifoPhaseLoc1C194 {
+    TrailingVblankStandard,
+    TrailingVblankShifted12,
+    VisibleLineZero204,
+    VisibleLineZero236,
+}
+
+impl IntroSequence2FirstRevealFifoPhaseLoc1C194 {
+    fn shared(title_variant: u8) -> Self {
+        if title_variant == 0 {
+            Self::TrailingVblankStandard
+        } else {
+            Self::VisibleLineZero204
+        }
+    }
+}
+
+pub(crate) fn build_intro_sequence_2_vdp_at_elapsed_with_fifo_phase_loc_1c194(
+    data: &IntroSub1B850Data,
+    title_variant: u8,
+    elapsed: usize,
+    fifo_phase: IntroSequence2FirstRevealFifoPhaseLoc1C194,
+) -> VdpState {
+    build_intro_sequence_2_handoff_vdp_at_elapsed(data, title_variant, elapsed, fifo_phase)
+}
+
 pub(crate) fn build_timeout_restart_intro_sequence_5_vdp_at_elapsed_loc_1ba28(
     data: &IntroSub1B850Data,
     title_variant: u8,
@@ -747,7 +774,12 @@ fn build_intro_sequence_vdp_with_title_variant_at_elapsed_and_visible_threshold(
     intro_sequence_5_worker_lineage: IntroSequence5WorkerLineage,
 ) -> VdpState {
     if segment == 1 {
-        return build_intro_sequence_2_handoff_vdp_at_elapsed(data, title_variant, elapsed);
+        return build_intro_sequence_2_handoff_vdp_at_elapsed(
+            data,
+            title_variant,
+            elapsed,
+            IntroSequence2FirstRevealFifoPhaseLoc1C194::shared(title_variant),
+        );
     }
     if segment == 2 {
         return build_intro_sequence_3_handoff_vdp_at_elapsed(
@@ -1041,6 +1073,7 @@ fn build_intro_sequence_2_handoff_vdp_at_elapsed(
     data: &IntroSub1B850Data,
     title_variant: u8,
     elapsed: usize,
+    fifo_phase: IntroSequence2FirstRevealFifoPhaseLoc1C194,
 ) -> VdpState {
     // ASM loc_1B9D0 enters the same sub_1C204 fade shell used by
     // sub_1B8F4. ROM-visible output keeps the completed Wild Side VDP around
@@ -1060,7 +1093,7 @@ fn build_intro_sequence_2_handoff_vdp_at_elapsed(
     }
 
     let mut vdp = build_intro_sequence_vdp_base_with_title_variant(data, 1, title_variant);
-    overlay_intro_sequence_2_sky_reveal_loc_1BA02(&mut vdp, data, title_variant, elapsed);
+    overlay_intro_sequence_2_sky_reveal_loc_1BA02(&mut vdp, data, elapsed, fifo_phase);
     overlay_intro_text_worker_loc_1c7a0(&mut vdp, 1, elapsed);
 
     if elapsed < INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED {
@@ -1342,8 +1375,8 @@ fn push_intro_sequence_prompt_sprite_sub_1C54A(
 fn overlay_intro_sequence_2_sky_reveal_loc_1BA02(
     vdp: &mut VdpState,
     data: &IntroSub1B850Data,
-    title_variant: u8,
     elapsed: usize,
+    fifo_phase: IntroSequence2FirstRevealFifoPhaseLoc1C194,
 ) {
     // ASM loc_1B9D0 -> loc_1B9F4 hibernates `$3C` frames after the shared
     // intro-text/fade shell, then loc_1BA02 calls sub_1C1A2 twice and
@@ -1389,27 +1422,39 @@ fn overlay_intro_sequence_2_sky_reveal_loc_1BA02(
         // ASM sub_1C180/loc_1C194 writes 704 longwords through the CPU FIFO.
         // The first non-negative selector reaches loc_1C194 late in the
         // field; following hibernated passes resume at the steady phase.
-        let vram_word_writes =
-            if loop_frames == INTRO_SEQUENCE_2_SKY_REVEAL_MUTATOR_END_LOOP_FRAME_LOC_1C1F2 {
-                schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_loc_1c194(
-                    &writes,
-                    &mut initial_vram,
-                )
-            } else if loop_frames == INTRO_SEQUENCE_2_SKY_REVEAL_FIRST_UPLOAD_LOOP_FRAME_LOC_1C194 {
-                if title_variant == 0 {
-                    schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_loc_1c194(
-                        &writes,
-                        &mut initial_vram,
-                    )
-                } else {
-                    // Oracle `$FFFFFC82=1` published frame 8758 starts the same
-                    // first selector upload after visible scanout has begun.
-                    schedule_h40_vram_fifo_word_writes(&writes, 0, 204)
+        let vram_word_writes = if loop_frames
+            == INTRO_SEQUENCE_2_SKY_REVEAL_MUTATOR_END_LOOP_FRAME_LOC_1C1F2
+        {
+            schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_loc_1c194(
+                &writes,
+                &mut initial_vram,
+            )
+        } else if loop_frames == INTRO_SEQUENCE_2_SKY_REVEAL_FIRST_UPLOAD_LOOP_FRAME_LOC_1C194 {
+            match fifo_phase {
+                    IntroSequence2FirstRevealFifoPhaseLoc1C194::TrailingVblankStandard => {
+                        schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_loc_1c194(
+                            &writes,
+                            &mut initial_vram,
+                        )
+                    }
+                    IntroSequence2FirstRevealFifoPhaseLoc1C194::TrailingVblankShifted12 => {
+                        schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_with_visible_slots_loc_1c194(
+                            &writes,
+                            &mut initial_vram,
+                            &[12, 44, 92, 140, 172, 220, 268, 300, 332],
+                        )
+                    }
+                    IntroSequence2FirstRevealFifoPhaseLoc1C194::VisibleLineZero204 => {
+                        schedule_h40_vram_fifo_word_writes(&writes, 0, 204)
+                    }
+                    IntroSequence2FirstRevealFifoPhaseLoc1C194::VisibleLineZero236 => {
+                        schedule_h40_vram_fifo_word_writes(&writes, 0, 236)
+                    }
                 }
-            } else {
-                // Oracle published frame 5656 and following reveal passes.
-                schedule_h40_vram_fifo_word_writes(&writes, 5, 140)
-            };
+        } else {
+            // Oracle published frame 5656 and following reveal passes.
+            schedule_h40_vram_fifo_word_writes(&writes, 5, 140)
+        };
         vdp.raster_frame = Some(VdpRasterFrame {
             initial_vram,
             initial_cram: None,
@@ -1428,7 +1473,19 @@ fn schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_loc_1c194(
     initial_vram: &mut [u8],
 ) -> Vec<VdpRasterVramWordWrite> {
     const ACTIVE_WORD_PIXELS: [u16; 9] = [28, 76, 108, 156, 204, 236, 284, 330, 380];
-    const PRE_SCANOUT_WORDS: usize = 5 + ACTIVE_WORD_PIXELS.len();
+    schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_with_visible_slots_loc_1c194(
+        writes,
+        initial_vram,
+        &ACTIVE_WORD_PIXELS,
+    )
+}
+
+fn schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_with_visible_slots_loc_1c194(
+    writes: &[(u16, u16)],
+    initial_vram: &mut [u8],
+    visible_word_pixels: &[u16],
+) -> Vec<VdpRasterVramWordWrite> {
+    const PRE_SCANOUT_WORDS: usize = 14;
 
     // The VdpRasterFrame boundary is visible scanline 0, not physical VBlank.
     // Fold scanlines 260/261 into that initial state before retaining the
@@ -1446,8 +1503,8 @@ fn schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_loc_1c194(
         .skip(PRE_SCANOUT_WORDS)
         .enumerate()
         .map(|(visible_write_index, (byte_addr, value))| {
-            let scanline = (visible_write_index / ACTIVE_WORD_PIXELS.len()) as u16;
-            let pixel = ACTIVE_WORD_PIXELS[visible_write_index % ACTIVE_WORD_PIXELS.len()];
+            let scanline = (visible_write_index / visible_word_pixels.len()) as u16;
+            let pixel = visible_word_pixels[visible_write_index % visible_word_pixels.len()];
             VdpRasterVramWordWrite {
                 scanline,
                 pixel,

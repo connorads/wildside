@@ -2322,6 +2322,30 @@ impl NativeRuntime {
         })
     }
 
+    fn intro_sequence_2_first_reveal_fifo_phase_loc_1c194(
+        &self,
+    ) -> vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194 {
+        use vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194 as Phase;
+
+        // ASM loc_1BA02 -> sub_1C180/loc_1C194 inherits the Standard-mode
+        // CPU/FIFO phase established by the preceding attract/intro lineage.
+        // These states are durable mode-history markers, unlike frame_index;
+        // oracle FIFO probes pin each reachable published-route combination.
+        match (
+            self.title_screen_region_byte,
+            self.demo_toggle,
+            self.demo_timeout_restart_uses_intro_return_slot_2_early_visibility,
+            self.timeout_restart_intro_sequence_1_uses_early_title_restore,
+        ) {
+            (0, false, true, false) => Phase::VisibleLineZero236,
+            (1, true, false, false) => Phase::TrailingVblankShifted12,
+            (2, false, true, true) => Phase::TrailingVblankStandard,
+            (0, true, true, true) => Phase::VisibleLineZero204,
+            (0, _, _, _) => Phase::TrailingVblankStandard,
+            _ => Phase::VisibleLineZero204,
+        }
+    }
+
     /// Rebuild VDP state based on the current boot phase.
     /// Called once per frame after `step_boot_state`.
     fn update_vdp_state(&mut self) {
@@ -2419,6 +2443,14 @@ impl NativeRuntime {
                         self.title_screen_region_byte,
                         *elapsed,
                         self.intro_sequence_4_handoff_vdp_snapshot.as_ref(),
+                    );
+                }
+                if *segment == 1 {
+                    return vdp::build_intro_sequence_2_vdp_at_elapsed_with_fifo_phase_loc_1c194(
+                        data,
+                        self.title_screen_region_byte,
+                        *elapsed,
+                        self.intro_sequence_2_first_reveal_fifo_phase_loc_1c194(),
                     );
                 }
                 if *segment == 2 {

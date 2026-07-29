@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 IntroSequence2 first-reveal FIFO lineage)
+
+- Oracle FIFO captures across all seven reveal crossings show four distinct
+  first-changed-upload phases inherited from the prior Standard-mode lineage.
+- Native now selects a typed phase from durable timeout state. No global frame
+  index participates; the shared cold and steady phases remain unchanged.
+- Full pixels improve to 37,464 exact / 295 divergent / 7,320 changed with 14
+  clusters. NEXT: continue the same upload system at frames 19210/31268.
+
 ## 2026-07-29 handoff (#406 IntroSequence5 mode-handoff worker phase)
 
 - Oracle SAT frames 20893..20895 prove the FC82=2 `loc_1BE74` particle

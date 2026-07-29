@@ -6402,6 +6402,54 @@ mod chunk_09 {
     }
 
     #[test]
+    fn published_tas_intro_sequence_2_first_reveal_fifo_phases_follow_timeout_lineage_loc_1c194() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let expected = [
+            (
+                8_758,
+                vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194::VisibleLineZero204,
+            ),
+            (
+                14_980,
+                vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194::VisibleLineZero236,
+            ),
+            (
+                19_182,
+                vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194::TrailingVblankShifted12,
+            ),
+            (
+                26_355,
+                vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194::TrailingVblankStandard,
+            ),
+            (
+                31_240,
+                vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194::VisibleLineZero204,
+            ),
+            (
+                36_751,
+                vdp::IntroSequence2FirstRevealFifoPhaseLoc1C194::VisibleLineZero204,
+            ),
+        ];
+        let mut observed = Vec::new();
+        for (frame_index, mask) in script.iter().copied().enumerate().take(36_752) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if expected.iter().any(|(target, _)| *target == frame_index) {
+                assert_eq!(trace.boot_phase_elapsed, Some(151));
+                observed.push((
+                    frame_index,
+                    runtime.intro_sequence_2_first_reveal_fifo_phase_loc_1c194(),
+                ));
+            }
+        }
+        assert_eq!(
+            observed, expected,
+            "ASM loc_1BA02 -> sub_1C180/loc_1C194 resumes from the timeout lineage's persistent Standard-mode CPU/FIFO phase",
+        );
+    }
+
+    #[test]
     fn published_tas_intro_return_timeout_revisit_enters_intro_sequence_6_on_frame_20894() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;

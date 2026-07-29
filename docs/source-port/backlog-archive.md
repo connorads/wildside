@@ -4779,6 +4779,28 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-29 (IntroSequence2 first-reveal FIFO lineage): the four
+36-pixel frames 14980/19182/26355/31240 showed new sky art while oracle still
+displayed prior room pixels. End-state VRAM and local elapsed matched. Bounded
+oracle `$1780-$227F` FIFO captures across all seven reveal crossings instead
+show four phases for the first changed `sub_1C180/loc_1C194` upload: standard
+trailing VBlank, trailing VBlank with visible slots starting at pixel 12,
+visible line 0 pixel 204, and visible line 0 pixel 236.
+
+Native now represents that phase explicitly and selects it from existing
+timeout lineage state (`$FFFFFC82`, demo toggle, slot-2 early visibility, and
+early title restore), never from `frame_index`. A full Standard-mode CPU/VDP
+clock was considered but rejected for this change because the runtime only
+owns that clock in gameplay; the typed intro boundary captures the actual
+available state without inventing a partial second clock. Cache-backed route
+tests pin every reachable lineage and pure tests retain the cold/steady
+phases. Full pixels improve 37,460->37,464 exact, 299->295 divergent, and
+7,464->7,320 changed with 14 clusters remaining; gameplay, player/camera,
+enemy, RNG, and audio baselines are unchanged.
+
+NEXT: continue the same IntroSequence2 upload system at frames 19210/31268
+(66 pixels), then its repeated smaller phase residues.
+
 Progress 2026-07-29 (IntroSequence5 `$24 -> $28` worker phase): full-route
 frames 20894/20895 differed by 349/92 pixels in the final visible
 `unk_1BE24` particle. Oracle SAT positions advance from `(264,209)` on frame
