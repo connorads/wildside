@@ -5107,6 +5107,60 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_8E3E -> loc_8E5A (kid.asm:10222): a positive solid-wall
+    /// result sends non-Skycutter forms to standing without calling sub_942A.
+    /// The walk phase in `$FFFFF8F0` therefore remains at its pre-step value.
+    #[test]
+    fn loc_8e5a_grounded_solid_wall_stop_does_not_advance_walk_phase() {
+        let w = 8u16;
+        let h = 4u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        };
+        for row in 0..2 {
+            set_solid(&mut data, 3, row);
+        }
+        for col in 0..w {
+            set_solid(&mut data, col, 2);
+        }
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 31 << 16;
+        slice.player.x_velocity = 0x0002_0000;
+        slice.terrain.floor_y_pos = slice.player.y_pos;
+        slice.walk_visual_accumulator = 0x0560;
+
+        slice.step_with_order(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+            PlayerForm::RedStealth,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(slice.player.x_velocity, 0, "fixture must take loc_8E5A");
+        assert_eq!(
+            slice.walk_visual_accumulator, 0x0560,
+            "ASM loc_8E5A branches to standing before loc_8E4E can call sub_942A",
+        );
+    }
+
     /// ASM loc_9600 (kid.asm:11076): upright walking indexes six frame entries
     /// per non-null helmet in `off_9618`. This guards against accidentally
     /// reusing the crawl/platform `off_84A2` table, which has only three entries

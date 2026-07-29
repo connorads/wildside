@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 grounded wall-stop walk phase)
+
+- The eight-frame `grid:18,16-21,20` family is Red Stealth walk art after a
+  full-speed grounded solid-wall stop, repeated across four Demo 2 visits.
+- ASM `loc_8E3E -> loc_8E5A` bypasses `sub_942A` on that positive wall result.
+  Native now restores the pre-step `$FFFFF8F0` phase after its later wall
+  probe instead of wrapping the six-frame walk table two frames early.
+- Full pixels improve to 37,194 exact / 565 divergent / 39,655 changed. NEXT:
+  classify `grid:18,17-20,21` (six frames / 2,946 pixels).
+
 ## 2026-07-29 handoff (#406 current transform H-scroll owner)
 
 - The generic `Mode_Level loc_901` render latch copied the preceding trace's

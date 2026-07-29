@@ -22683,3 +22683,16 @@ exact in the full route, improving 37,176 -> 37,186 exact, 583 -> 573
 divergent, and 46,660 -> 42,735 changed pixels. Gameplay, camera, RNG, enemy,
 and audio-command evidence is unchanged. NEXT: classify
 `grid:18,16-21,20` (eight frames / 3,080 pixels).
+Progress 2026-07-29 for #406: `grid:18,16-21,20` is Red Stealth ordinary walk
+art at frames 7769/7770, 13991/13992, 25366/25367, and 33567/33568. Player,
+camera, RNG, and the oracle `$04F8/$04C0` sprite mappings are exact. Direct
+oracle `$FFFFF8F0` probes identify the cause: native advances from `$560` to
+`$5A0` on the grounded solid-wall stop at frame 7723, while the ROM retains
+`$560`. ASM `loc_8E3E -> loc_8E5A` sends a positive wall result straight to
+standing for non-Skycutter forms and bypasses `loc_8E4E -> sub_942A`. Native
+updates horizontal animation before its later wall probe, so that path now
+restores the pre-step walk phase. Rubber, slope, Skycutter, Juggernaut, and
+Berzerker paths remain separate. All eight repeated frames become exact; full
+pixels improve 37,186 -> 37,194 exact, 573 -> 565 divergent, and 42,735 ->
+39,655 changed. Player/camera, RNG, enemy, and GEMS command evidence is
+unchanged. NEXT: classify `grid:18,17-20,21` (six frames / 2,946 pixels).

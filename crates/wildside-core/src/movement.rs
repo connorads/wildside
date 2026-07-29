@@ -2856,6 +2856,7 @@ impl OpeningSliceState {
             return;
         }
         let on_ground_before = self.player.on_ground;
+        let walk_visual_accumulator_before_step = self.walk_visual_accumulator;
         self.wall_cling_release_probe = None;
         self.kid_flip_follow_on_stages = None;
         self.kid_jump_gravity_probe = None;
@@ -4052,6 +4053,24 @@ impl OpeningSliceState {
                         || self.player.left_wall_sticky;
                     self.apply_wall_collision_for_form(Some(grid), form);
                     let wall_hit = self.player.x_pos != pre_collision_x;
+                    if wall_hit
+                        && on_ground_before
+                        && self.player.on_ground
+                        && self.player.x_velocity == 0
+                        && grounded_slope_for_loc_9d22.is_none()
+                        && !matches!(
+                            form,
+                            PlayerForm::Skycutter | PlayerForm::Juggernaut | PlayerForm::Berzerker
+                        )
+                    {
+                        // ASM loc_8E3E -> loc_8E5A (kid.asm:10222): a
+                        // positive solid-wall result sends non-Skycutter
+                        // forms straight to standing. It bypasses loc_8E4E's
+                        // sub_942A call, so `$FFFFF8F0` retains its pre-step
+                        // walk phase. Native probes the wall after updating
+                        // horizontal motion, so undo only that visual write.
+                        self.walk_visual_accumulator = walk_visual_accumulator_before_step;
+                    }
                     if self.player.x_pos != pre_collision_x
                         && let Some(ref mut t) = self.physics_trace
                     {
