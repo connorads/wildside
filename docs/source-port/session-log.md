@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 Iron Knight resident climb page)
+
+- `sub_A3BC` climb transitions now present the complete prior `off_A420` page
+  through the `Mode_Level loc_A70/loc_AD4` framebuffer boundary.
+- All 28 frames in `grid:17,15-21,19` become exact; full pixels improve to
+  37,144 exact / 615 divergent / 63,348 changed.
+- NEXT: classify `grid:1,15-5,20` (12 frames / 5,736 pixels), then
+  `grid:12,9-22,14` (four frames / 5,436 pixels).
+
 ## 2026-07-29 handoff (#406 Iron Knight chunk residency)
 
 - Oracle VRAM proves frame 8005 is a hybrid Kid page: the first 16 tiles are

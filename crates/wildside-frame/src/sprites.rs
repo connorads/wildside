@@ -635,12 +635,9 @@ pub fn select_player_frame<'a>(
         // ASM loc_A276 seeds d3=0/y_vel=$FFFFC000 and hibernates through
         // loc_A28A before sub_A3BC has written an off_A420 climb sprite, so
         // the exact attach snapshot must fall through to the ordinary pose.
-        let frame_index = match trace.iron_knight_climb_pose_accum >> 2 {
-            0..=15 => 0,
-            16..=31 => 1,
-            _ => 2,
-        }
-        .min(player_visuals.climb.len() - 1);
+        let frame_index =
+            iron_knight_climb_frame_index_sub_a3bc(trace.iron_knight_climb_pose_accum)
+                .min(player_visuals.climb.len() - 1);
         return &player_visuals.climb[frame_index];
     }
 
@@ -757,6 +754,51 @@ pub fn select_player_frame<'a>(
         };
         &player_visuals.airborne[state_index.min(player_visuals.airborne.len() - 1)]
     }
+}
+
+fn iron_knight_climb_frame_index_sub_a3bc(pose_accum: u16) -> usize {
+    match pose_accum >> 2 {
+        0..=15 => 0,
+        16..=31 => 1,
+        _ => 2,
+    }
+}
+
+fn iron_knight_climb_resident_frame_loc_ad4(
+    trace: &NativeTraceFrame,
+    player_visuals: &wildside_render::PlayerFormVisuals,
+) -> Option<wildside_render::SpriteFrame> {
+    if !trace.iron_knight_climbing || player_visuals.climb.len() < 3 {
+        return None;
+    }
+
+    // ASM sub_A3BC updates d3 by `(y_vel << 3) >> 16` before selecting
+    // off_A420. Reverse that step to recover the page resident before the
+    // current loc_AD4 upload. loc_A3DA maps negative motion to `$BF`, while
+    // loc_A3CA maps an upper-bound crossing to zero; velocity sign therefore
+    // identifies the pre-wrap end of the three-pose cycle.
+    let delta = trace.kid_y_velocity.unwrap_or_default().wrapping_shr(13);
+    let pose_accum = trace.iron_knight_climb_pose_accum;
+    let selected_index = iron_knight_climb_frame_index_sub_a3bc(trace.iron_knight_climb_pose_accum);
+    let prior_index = match (pose_accum, delta.signum()) {
+        (0x00BF, -1) => iron_knight_climb_frame_index_sub_a3bc(0),
+        (0, 1) => iron_knight_climb_frame_index_sub_a3bc(0x00BF),
+        _ => {
+            let prior = i32::from(pose_accum) - delta;
+            let prior = u16::try_from(prior).ok().filter(|prior| *prior <= 0x00BF)?;
+            iron_knight_climb_frame_index_sub_a3bc(prior)
+        }
+    };
+    if selected_index == prior_index {
+        return None;
+    }
+
+    let prior_frame = &player_visuals.climb[prior_index];
+    // The framebuffer checkpoint precedes the current CPU pass. Oracle's
+    // post-frame VRAM dump can stop between the 16- and 4-tile loc_AD4 DMAs,
+    // but those writes belong to the next presented image. Keep the complete
+    // page selected before the current sub_A3BC accumulator step.
+    Some(prior_frame.clone())
 }
 
 pub fn select_player_form_visuals<'a>(
@@ -1051,7 +1093,9 @@ pub fn push_player_sprite_with_priority_override(
         return;
     }
 
-    let frame = select_player_frame(trace, form_visuals);
+    let selected_frame = select_player_frame(trace, form_visuals);
+    let resident_frame = iron_knight_climb_resident_frame_loc_ad4(trace, form_visuals);
+    let frame = resident_frame.as_ref().unwrap_or(selected_frame);
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
     // ASM loc_A13A/off_A190 chooses the tilted slope frame bank, but the
     // later loc_1292 draw path still flips solely from live x_direction.
@@ -4875,6 +4919,51 @@ mod tests {
             ),
             0x0100
         );
+    }
+
+    #[test]
+    fn iron_knight_climb_transition_presents_prior_loc_ad4_page() {
+        let visuals = labelled_player_visuals();
+        let transition = NativeTraceFrame {
+            current_helmet_id: PlayerForm::IronKnight.helmet_id(),
+            iron_knight_climbing: true,
+            iron_knight_climb_pose_accum: 0x007D,
+            kid_y_velocity: Some(-0x6300),
+            ..NativeTraceFrame::default()
+        };
+
+        let resident = iron_knight_climb_resident_frame_loc_ad4(&transition, &visuals)
+            .expect("ASM sub_A3BC `$81 -> $7D` crosses from climb page 1 to page 2");
+        assert_eq!(
+            resident.tile_base_index, 0x0502,
+            "ASM Mode_Level loc_A70/loc_AD4 presents the complete prior off_A420 page before the current CPU pass uploads climbing 2",
+        );
+
+        let same_bucket = NativeTraceFrame {
+            iron_knight_climb_pose_accum: 0x0079,
+            ..transition.clone()
+        };
+        assert!(
+            iron_knight_climb_resident_frame_loc_ad4(&same_bucket, &visuals).is_none(),
+            "sub_A3BC motion within one off_A420 bucket keeps the selected resident page",
+        );
+
+        for (pose_accum, y_velocity, expected_tile) in
+            [(0x00BF, -0x4000, 0x0500), (0, 0x4000, 0x0502)]
+        {
+            let wrapped = NativeTraceFrame {
+                iron_knight_climb_pose_accum: pose_accum,
+                kid_y_velocity: Some(y_velocity),
+                ..transition.clone()
+            };
+            assert_eq!(
+                iron_knight_climb_resident_frame_loc_ad4(&wrapped, &visuals)
+                    .expect("ASM loc_A3CA/loc_A3DA wrap crosses an off_A420 page")
+                    .tile_base_index,
+                expected_tile,
+                "ASM sub_A3BC wrap at pose {pose_accum:#04x}",
+            );
+        }
     }
 
     #[test]

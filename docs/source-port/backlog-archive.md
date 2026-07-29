@@ -22597,3 +22597,16 @@ four-state airborne mapping; the rendered trace is airborne state 1, but the
 resident oracle bytes are climbing art. NEXT: expose the two Kid DMA chunk
 commits as typed resident state and composite the independently resident tile
 ranges before another full-route pixel recount.
+Progress 2026-07-29 for #406: corrected the earlier interpretation of oracle
+frame 8005. The framebuffer is captured before that frame's CPU pass, while
+the VRAM diagnostic stops later between the 16- and 4-tile `loc_AD4` DMAs.
+The visible image therefore owns the complete prior page, not the diagnostic's
+mid-pass hybrid. Native now reverses `sub_A3BC`'s exact `(y_vel << 3) >> 16`
+accumulator step and presents the preceding `off_A420` climb mapping whenever
+the current step crosses a pose bucket. `loc_A3DA` negative wraps to `$BF` and
+the upper crossing wraps to zero, so velocity sign also resolves both cycle
+edges without frame-specific cases. Focused frames 8005, 8027 and 8047 are
+byte-identical to oracle. All 28 frames in the repeated spatial family become
+exact; full pixels improve 37,116 -> 37,144 exact, 643 -> 615 divergent, and
+69,384 -> 63,348 changed. Player/camera CRC, RNG, enemies and GEMS commands
+remain unchanged. NEXT: classify the 12-frame / 5,736-pixel left-edge family.
