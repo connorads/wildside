@@ -4779,6 +4779,28 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-29 (IntroSequence2 reveal mutator end): the seven 21-pixel
+frames 5687/8790/15012/19214/26387/31272/36783 share reveal pass 64. ASM
+`loc_1B9F4` seeds `d1=-$40`; `loc_1BA02` calls `sub_1C1A2` twice per pass, so
+both calls reach `loc_1C1F2`'s `cmpi #$40` early return at this boundary. The
+shorter source path moves the following `sub_1C180/loc_1C194` stream into
+trailing VBlank. Oracle frame 5687 commits five words on physical scanline
+260, nine on 261, then resumes at visible line 0 pixel 28/address `$179C`.
+
+Native now applies that pass-64 rule across both typed `$FFFFFC82` variants,
+folding the 14 pre-scanout words into `VdpRasterFrame.initial_vram`. A broad
+5687..36783 comparison improves 403->396 divergent frames and
+11,651->11,504 changed pixels with no other change. The initial hypothesis
+that each mismatch was a same-frame upload was rejected: four of seven oracle
+frames record no `$1780` commit because their visible crossing carries from
+the preceding physical field. Pixel extraction still shows the identical
+carried words: native black/prior castle pixels where oracle has sky art.
+Full pixels improve 37,336->37,343 exact, 423->416 divergent, and
+11,831->11,684 changed; gameplay, player/camera, enemy, and RNG remain exact.
+
+NEXT: skip deferred Iron Knight and persistent HUD raster timing, then
+classify the largest independent repeated presentation cluster.
+
 Progress 2026-07-29 (IntroSequence2 first sky reveal): ASM `loc_1B9D0 ->
 loc_1BA02` calls `sub_1C1A2` twice per pass; `sub_1C180/loc_1C194` streams 704
 longwords into VRAM `$1780`. Oracle FIFO probes show the first non-negative

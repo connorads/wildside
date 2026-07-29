@@ -1023,6 +1023,9 @@ const INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_FRAMES_LOC_1BA02: usize = 0x014A;
 /// ASM sub_1C1A2 reaches selector zero after 32 double-steps; that first
 /// loc_1C194 upload begins in trailing VBlank rather than the steady phase.
 const INTRO_SEQUENCE_2_SKY_REVEAL_FIRST_UPLOAD_LOOP_FRAME_LOC_1C194: usize = 32;
+/// ASM sub_1C1A2 returns immediately once both per-pass increments take d1 to
+/// `$40`; the shorter source path shifts the following loc_1C194 FIFO entry.
+const INTRO_SEQUENCE_2_SKY_REVEAL_MUTATOR_END_LOOP_FRAME_LOC_1C1F2: usize = 64;
 
 fn build_intro_sequence_2_handoff_vdp_at_elapsed(
     data: &IntroSub1B850Data,
@@ -1377,9 +1380,14 @@ fn overlay_intro_sequence_2_sky_reveal_loc_1BA02(
         // The first non-negative selector reaches loc_1C194 late in the
         // field; following hibernated passes resume at the steady phase.
         let vram_word_writes =
-            if loop_frames == INTRO_SEQUENCE_2_SKY_REVEAL_FIRST_UPLOAD_LOOP_FRAME_LOC_1C194 {
+            if loop_frames == INTRO_SEQUENCE_2_SKY_REVEAL_MUTATOR_END_LOOP_FRAME_LOC_1C1F2 {
+                schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_loc_1c194(
+                    &writes,
+                    &mut initial_vram,
+                )
+            } else if loop_frames == INTRO_SEQUENCE_2_SKY_REVEAL_FIRST_UPLOAD_LOOP_FRAME_LOC_1C194 {
                 if title_variant == 0 {
-                    schedule_intro_sequence_2_first_sky_reveal_fifo_loc_1c194(
+                    schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_loc_1c194(
                         &writes,
                         &mut initial_vram,
                     )
@@ -1402,16 +1410,15 @@ fn overlay_intro_sequence_2_sky_reveal_loc_1BA02(
 
 /// ASM sub_1C180/loc_1C194: schedule the first non-negative sky-reveal upload.
 ///
-/// Oracle frames 5655/19182/26355 place the first five word commits in the
-/// trailing-VBlank H40 slots on scanline 260. The FIFO then drains one word on
-/// every second active-display VRAM access slot from scanline 261 onward.
-fn schedule_intro_sequence_2_first_sky_reveal_fifo_loc_1c194(
+/// Oracle frames 5655/19182/26355 and the pass-64 crossings place five word
+/// commits in trailing-VBlank H40 slots. The FIFO then drains one word on every
+/// second active-display VRAM access slot from scanline 261 onward.
+fn schedule_intro_sequence_2_trailing_field_sky_reveal_fifo_loc_1c194(
     writes: &[(u16, u16)],
     initial_vram: &mut [u8],
 ) -> Vec<VdpRasterVramWordWrite> {
-    const TRAILING_VBLANK_WORD_PIXELS: [u16; 5] = [254, 258, 302, 306, 380];
     const ACTIVE_WORD_PIXELS: [u16; 9] = [28, 76, 108, 156, 204, 236, 284, 330, 380];
-    const PRE_SCANOUT_WORDS: usize = TRAILING_VBLANK_WORD_PIXELS.len() + ACTIVE_WORD_PIXELS.len();
+    const PRE_SCANOUT_WORDS: usize = 5 + ACTIVE_WORD_PIXELS.len();
 
     // The VdpRasterFrame boundary is visible scanline 0, not physical VBlank.
     // Fold scanlines 260/261 into that initial state before retaining the
@@ -13242,6 +13249,29 @@ mod tests {
             Some((0, 204, 0x1780)),
             "oracle `$FFFFFC82=1` frame 8758 pins the alternate first-pass loc_1C194 phase",
         );
+
+        for title_variant in [0, 1] {
+            let mutator_end = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+                &data,
+                1,
+                title_variant,
+                INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02 + 63,
+                0,
+            );
+            let mutator_end_raster = mutator_end
+                .raster_frame
+                .as_ref()
+                .expect("ASM loc_1C1F2's shorter pass should retain its FIFO crossing");
+            assert_eq!(
+                mutator_end_raster.vram_word_writes.first().map(|write| (
+                    write.scanline,
+                    write.pixel,
+                    write.byte_addr
+                )),
+                Some((0, 28, 0x179C)),
+                "oracle pass-64 frames commit 14 loc_1C194 words after both sub_1C1A2 calls reach `$40`, before visible scanout (variant {title_variant})",
+            );
+        }
     }
 
     #[test]

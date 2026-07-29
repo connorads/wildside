@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 IntroSequence2 reveal mutator end)
+
+- On reveal pass 64, both `sub_1C1A2` calls reach `loc_1C1F2`'s `$40` early
+  return. The shorter CPU path moves the following `sub_1C180/loc_1C194`
+  upload into trailing VBlank.
+- Native folds those 14 pre-scanout words into initial VRAM. All seven route
+  crossings become exact; an upload-only explanation was rejected because
+  four lineages carry the crossing from the preceding physical field.
+- Full pixels improve to 37,343 exact / 416 divergent / 11,684 changed. NEXT:
+  skip deferred Iron Knight and persistent HUD timing and classify the largest
+  independent repeated presentation cluster.
+
 ## 2026-07-29 handoff (#406 IntroSequence2 first sky reveal)
 
 - `sub_1C180/loc_1C194` streams 704 longwords into VRAM `$1780`; the first
