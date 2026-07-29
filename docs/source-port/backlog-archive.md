@@ -22801,3 +22801,18 @@ full debt rose from 502 / 17,816 to 526 / 22,620. The experiment is removed.
 The durable fix needs a typed `loc_A2DC` one-hibernate release marker, separate
 from generic climb state and the already-proven `loc_A276` attach marker. NEXT:
 classify independent `grid:20,25-23,27` (four frames / 1,124 pixels).
+
+Progress 2026-07-29 for #406: `grid:20,25-23,27` and its adjacent 7831..7833
+families are the walking Dragon breath child on all four Knight's Isle visits.
+`Dragon.asm loc_3D02A` copies `palette_line`, VRAM tile, and facing from the
+parent GfxObject. Native already resolves the parent as enemy palette variant
+1, but breath allocation discarded that value and the renderer unconditionally
+used the Dragon family's base palette. A renderer-only variant selection was a
+measured no-op because the child trace still carried variant 0. The runtime now
+copies the parent's variant into the breath child and the scene consumes it.
+Focused frames 7830..7835 improve from 2/6 exact and 601 changed pixels to 5/6
+exact and four unrelated HUD pixels; frame 7834 is exact. Across all four
+visits, full pixels improve 37,257 -> 37,269 exact, 502 -> 490 divergent, and
+17,816 -> 15,428 changed. Player/camera, RNG, enemy, and GEMS command evidence
+is unchanged. NEXT: skip the two deferred Iron Knight clusters and classify
+`grid:4,2-5,2` (56 frames / 1,484 pixels).

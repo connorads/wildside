@@ -7813,7 +7813,15 @@ fn build_game_scene_filtered(
                                 x: draw_x,
                                 y: draw_y,
                                 tile_sheet: Arc::new(frame.tile_sheet.clone()),
-                                palette: Arc::new(dragon_visuals.palette.clone()),
+                                // ASM Dragon.asm loc_3D02A copies
+                                // palette_line from the parent GfxObject.
+                                palette: Arc::new(
+                                    sprites::select_enemy_palette(
+                                        dragon_visuals,
+                                        projectile.palette_variant,
+                                    )
+                                    .clone(),
+                                ),
                                 tiles: build_sprite_tiles(&frame, facing, 0),
                             });
                             Some(())
@@ -11507,6 +11515,45 @@ mod tests {
             ),
             Direction::Right,
             "ASM Dragon.asm loc_3D02A should not borrow facing from a Flying Dragon object slot"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_breath_copies_parent_palette_line_loc_3d02a() {
+        let mut visuals = sample_level_visuals(1);
+        let mut dragon = sample_animated_visual(sample_sprite_frame(0));
+        dragon.palette = sample_palette_with_first_word(0x0100);
+        dragon.extra_palettes = vec![sample_palette_with_first_word(0x0200)];
+        visuals
+            .enemies
+            .families
+            .insert(WALKING_DRAGON_OBJECT_TYPE, dragon);
+        let trace = NativeTraceFrame {
+            active_projectile_details: vec![ActiveProjectileSnapshot {
+                x_pos: 100 << 16,
+                y_pos: 100 << 16,
+                remaining_frames: 68,
+                kind: ActiveProjectileKind::DragonWalkingBreath,
+                palette_variant: 1,
+                ..ActiveProjectileSnapshot::default()
+            }],
+            ..NativeTraceFrame::default()
+        };
+
+        let scene =
+            build_game_scene_filtered(&trace, false, &visuals, None, LayerFilter::solo("effects"))
+                .0;
+        let palette_word = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { palette, .. } => {
+                palette.colours.first().map(|colour| colour.raw_word)
+            }
+            _ => None,
+        });
+
+        assert_eq!(
+            palette_word,
+            Some(0x0200),
+            "ASM Dragon.asm loc_3D02A copies the walking Dragon parent's palette_line into the breath-child GfxObject"
         );
     }
 

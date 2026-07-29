@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 walking-Dragon breath palette)
+
+- `Dragon.asm loc_3D02A` copies the parent GfxObject palette line into the
+  breath child; native discarded the resolved variant at allocation and then
+  rendered the child with the family base palette.
+- The runtime child and renderer now preserve that inherited palette. Across
+  four Knight's Isle visits, 12 frames and 2,388 pixels become exact.
+- Full pixels improve to 37,269 exact / 490 divergent / 15,428 changed. NEXT:
+  skip the two deferred Iron Knight clusters and classify `grid:4,2-5,2`
+  (56 frames / 1,484 pixels).
+
 ## 2026-07-29 handoff (#406 Iron Knight release marker)
 
 - Frames 8056, 14278, 25653, and 33854 retain `$04B4` in the transferred

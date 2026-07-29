@@ -837,6 +837,9 @@ pub(crate) fn step_dragon_walking(
                 y_pos: child_position.y_pos,
                 lifetime: DRAGON_WALKING_BREATH_LIFETIME,
                 kind: EnemyProjectileKind::DragonWalkingBreath,
+                // ASM Dragon.asm loc_3D02A copies palette_line from the
+                // parent GfxObject into the breath child.
+                palette_variant: enemy.palette_variant,
                 owner: Some(EnemyProjectileOwner {
                     segment_index: enemy.segment_index,
                     layout_index: enemy.layout_index,
@@ -1458,6 +1461,7 @@ mod tests {
         dragon.x_pos = 0x0123_8000;
         dragon.y_pos = 0x0045_4000;
         dragon.facing = Direction::Left;
+        dragon.palette_variant = 1;
         dragon.wait_timer = 1;
         dragon.dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
         let mut projectiles = Vec::new();
@@ -1478,6 +1482,10 @@ mod tests {
         assert_eq!(breath.y_velocity, 0);
         assert_eq!(breath.lifetime, DRAGON_WALKING_BREATH_LIFETIME);
         assert_eq!(breath.kind, EnemyProjectileKind::DragonWalkingBreath);
+        assert_eq!(
+            breath.palette_variant, dragon.palette_variant,
+            "ASM Dragon.asm loc_3D02A should copy the parent GfxObject palette_line into the breath child"
+        );
         assert_eq!(
             breath.owner,
             Some(EnemyProjectileOwner {
