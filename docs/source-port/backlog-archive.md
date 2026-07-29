@@ -4757,6 +4757,24 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-28 (walking Dragon hurt palette): the paired lower-screen
+clusters joined into one 11-frame Dragon silhouette. Native rendered every
+colour white while oracle kept the normal blue Dragon palette; geometry and
+state were exact. ASM Dragon `loc_3CEBE` decrements HP, initialises
+`stru_3CCE6`, hibernates until that hurt animation completes, and restores the
+walking animation. It never calls an enemy palette routine. Native's shared
+`damage_flash_frames` carries the correct Dragon hurt-animation duration, but
+the renderer incorrectly treated every non-zero instance as a white-palette
+cue. Dragon now keeps its family palette while retaining the proven scheduler
+and hurt-frame selection. Focused frames 7848..7858 become pixel-exact. Full
+pixels improve 36,403->36,624 exact, 1,356->1,135 divergent, and
+315,789->201,409 changed. Gameplay, RNG, enemy and command frontiers remain
+unchanged.
+
+NEXT: classify the paired top-band title/intro classes `grid:0,0-38,9` and
+`grid:0,0-37,9`, then the repeated gameplay silhouette
+`grid:18,14-22,18`.
+
 Progress 2026-07-28 (Kid airborne mapping table): the two mirrored 20-frame
 clusters were the same four-frame animation defect repeated through five Demo 1
 lineages. Enlarged native/oracle frames showed identical position and palette,

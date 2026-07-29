@@ -1953,7 +1953,10 @@ pub fn push_enemy_sprite(
         object,
         object_type,
     );
-    let palette = enemy_palette_for_damage_flash(&palette, object.damage_flash);
+    let palette = enemy_palette_for_damage_flash(
+        &palette,
+        enemy_damage_palette_white_phase(object_type, object.damage_flash),
+    );
     commands.push(DrawCommand::Sprite {
         x: draw_x,
         y: draw_y,
@@ -1989,6 +1992,14 @@ pub fn push_enemy_sprite(
             tiles: build_sprite_tiles(&turret_frame, render_facing, 0),
         });
     }
+}
+
+fn enemy_damage_palette_white_phase(object_type: u8, damage_flash: bool) -> bool {
+    // ASM Dragon.asm loc_3CEBE swaps to stru_3CCE6 and hibernates until the
+    // hurt animation completes; it does not write the enemy palette. Native's
+    // shared damage_flash timer also carries that animation duration, so it
+    // must not imply a white palette for walking Dragons.
+    damage_flash && object_type != 0x0D
 }
 
 fn push_heady_metal_sub_37abc_body_piece_markers(
@@ -5348,6 +5359,13 @@ mod tests {
                 .all(|colour| colour.raw_word == 0x0FFF),
             "native enemy damage flash whitens every stored visible colour"
         );
+    }
+
+    #[test]
+    fn walking_dragon_hurt_animation_keeps_normal_palette_loc_3cebe() {
+        assert!(enemy_damage_palette_white_phase(0x0C, true));
+        assert!(!enemy_damage_palette_white_phase(0x0D, true));
+        assert!(!enemy_damage_palette_white_phase(0x0D, false));
     }
 
     #[test]

@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-28 handoff (#406 walking Dragon hurt palette)
+
+- Dragon `loc_3CEBE` uses `stru_3CCE6` as a hurt-animation timer without a
+  palette write; native no longer turns that shared timer into a white flash.
+- Full pixels improve to 36,624 exact / 1,135 divergent / 201,409 changed;
+  221 route frames become exact and all non-pixel frontiers stay unchanged.
+- NEXT: classify the paired top-band title/intro classes, then the repeated
+  12-frame / 6,600-pixel gameplay silhouette `grid:18,14-22,18`.
+
 ## 2026-07-28 handoff (#406 Kid airborne mapping table)
 
 - `sub_B270 loc_B334/loc_B350 -> off_B3B8` duplicates The Kid's rise and fall
