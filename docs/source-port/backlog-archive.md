@@ -22625,3 +22625,21 @@ count. Rejected hypothesis: selecting a prior or partly prior page only when
 The next implementation must persist the Kid `$C4A0` art page across frames
 and apply the emitted chunk uploads before scene rendering; do not retry a
 stateless transition-only selector.
+Progress 2026-07-29 for #406: corrected the left-edge family's ownership.
+Player-only captures place Iron Knight at `(141,127)` while the mismatch bbox
+is x=11..45; `tas-diff --show-object-roster-on-match` identifies walking
+Dragon #02. Oracle SAT uses its current `stru_3CC5E` mapping while native's
+latched roster is one animation tick late after the transform. A global
+current-phase Sprite Table latch fixes 64 Dragon boundary frames but adds 324
+new mismatches and raises the full route to 875 divergent frames, so it is
+rejected. Changing the hurt-script seed is also rejected: the later transform
+freeze owns the lasting offset. Native already tags the final suspended
+Dragon callback with `DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG` when
+`Kid_Transform loc_7E90` returns into `Execute_Objects loc_E1E`. That boundary
+now advances the same Dragon's Gfx clock before `GfxObject_Animate loc_113E`.
+Focused frames 7688..7800 improve from 41 divergent / 6,721 changed pixels to
+34 / 3,908 with no new mismatches. Across four repeated visits, full pixels
+improve 37,144 -> 37,172 exact, 615 -> 587 divergent, and 63,348 -> 52,096
+changed; player/camera CRC, RNG, enemy state and GEMS commands remain exact or
+at their prior baselines. NEXT: classify `grid:12,9-22,14` (four frames /
+5,436 pixels) as one repeated central family.

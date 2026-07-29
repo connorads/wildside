@@ -13115,6 +13115,14 @@ impl NativeRuntime {
                     // still one loc_3CE90 callback behind native's atomic
                     // transform model, so retain that `$66` frame here.
                     enemy.wait_timer = enemy.wait_timer.saturating_add(1);
+                    // ASM Kid_Transform loc_7E90 resumes the suspended final
+                    // loc_3CE90 callback before Mode_Level reaches
+                    // GfxObject_Animate loc_113E. Native's atomic transform
+                    // otherwise resumes this Gfx clock one frame late.
+                    enemy.dragon_descent_index = dragon_walking_sprite_animation_tick_stru_3cc5e(
+                        enemy.dragon_descent_index,
+                        enemy.hit_points,
+                    );
                     enemy.dragon_script_variant |= DRAGON_WALKING_TRANSFORM_TIMER_ALIGNED_FLAG;
                 }
                 // ASM Fire_Demon.asm loc_3A542 allocates the trail before

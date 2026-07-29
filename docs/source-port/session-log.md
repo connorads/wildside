@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 final Dragon transform callback)
+
+- The left-edge `grid:1,15-5,20` family is walking Dragon #02, not Kid art;
+  player-only captures place Iron Knight in the centre of the frame.
+- `Kid_Transform loc_7E90` resumes the final suspended `loc_3CE90` callback
+  before `GfxObject_Animate loc_113E`. The existing transform-alignment flag
+  now advances that Dragon's Gfx clock at the same boundary.
+- Full pixels improve to 37,172 exact / 587 divergent / 52,096 changed. NEXT:
+  classify `grid:12,9-22,14` (four frames / 5,436 pixels) as one repeated
+  central family rather than following individual frame numbers.
+
 ## 2026-07-29 handoff (#406 Iron Knight walk-page persistence)
 
 - `grid:1,15-5,20` is ordinary Iron Knight walking at frames 7693/7702/7711,

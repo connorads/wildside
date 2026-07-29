@@ -7021,9 +7021,35 @@ mod chunk_09 {
                 (7_396, Some(true), Some(2)),
                 (7_397, Some(false), Some(0)),
                 (7_398, Some(false), Some(0)),
-                (7_604, Some(false), Some(10)),
+                (7_604, Some(false), Some(9)),
             ],
-            "ASM Dragon.asm loc_3CEBE holds stru_3CCE6 for `$19` ticks before Init_Animation restores stru_3CC5E; oracle frame 7604 has addr_current_anim=$3CC86 (phase 10)",
+            "ASM Dragon.asm loc_3CEBE holds stru_3CCE6 for `$19` ticks before Init_Animation restores stru_3CC5E; oracle frame 7604 has addr_current_anim=$3CC86 pointing at the next record while phase 9 remains selected",
+        );
+    }
+
+    #[test]
+    fn published_tas_demo_2_final_transform_callback_reaches_stru_3cc5e_phase_10() {
+        let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
+            return;
+        };
+        let mut samples = Vec::new();
+
+        for (frame_index, mask) in script.iter().copied().enumerate().take(7_694) {
+            let trace = runtime.step_frame(FrameInput::from_mask(mask));
+            if matches!(frame_index, 7_691..=7_693) {
+                let phase = trace
+                    .active_enemy_details
+                    .iter()
+                    .find(|enemy| enemy.layout_index == Some(2))
+                    .and_then(|enemy| enemy.sprite_animation_phase);
+                samples.push((frame_index, phase));
+            }
+        }
+
+        assert_eq!(
+            samples,
+            vec![(7_691, Some(9)), (7_692, Some(10)), (7_693, Some(10))],
+            "ASM Kid_Transform loc_7E90 resumes the final Dragon loc_3CE90 callback before GfxObject_Animate loc_113E; oracle frame 7692 has addr_current_anim=$3CC86 (stru_3CC5E phase 10)",
         );
     }
 
