@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 Iron Knight release marker)
+
+- Frames 8056, 14278, 25653, and 33854 retain `$04B4` in the transferred
+  Sprite Table after the current GfxObject changes to `$04C0`; CRAM is stable.
+- Generic prior-climb latching fixes those frames but regresses 28 ordinary
+  climb frames, raising debt to 22,620 pixels. The experiment is removed.
+- Full committed pixels remain 37,257 exact / 502 divergent / 17,816 changed.
+  NEXT: classify `grid:20,25-23,27` (four frames / 1,124 pixels); revisit the
+  release only after exposing a typed `loc_A2DC` hibernate marker.
+
 ## 2026-07-29 handoff (#406 walking-Dragon transform resume)
 
 - Oracle GfxObject and SAT dumps show the visible right Dragon changes

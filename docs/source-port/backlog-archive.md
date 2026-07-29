@@ -22789,3 +22789,15 @@ GfxObject state is not the prior transferred Sprite Table. Focused frames
 worst remains 988 and first mismatch remains 1706. NEXT: skip the deferred
 Iron Knight VRAM-residency cluster and classify independent
 `grid:17,14-21,18` (four frames / 2,068 pixels).
+
+Rejected 2026-07-29 for #406: `grid:17,14-21,18` is the four repeated Iron
+Knight wall-release frames 8056, 14278, 25653, and 33854. Oracle Kid GfxObject
+changes `$04B4 -> $04C0` on frame 8056 while the transferred Sprite Table
+still presents the prior cling mapping; CRAM and palette line 3 are stable, so
+visual-triage's `recolour` label is an art-selection effect, not palette debt.
+Latching `iron_knight_climbing` and its pose accumulator from the previous
+trace made all four target frames exact, but regressed 28 other climb frames:
+full debt rose from 502 / 17,816 to 526 / 22,620. The experiment is removed.
+The durable fix needs a typed `loc_A2DC` one-hibernate release marker, separate
+from generic climb state and the already-proven `loc_A276` attach marker. NEXT:
+classify independent `grid:20,25-23,27` (four frames / 1,124 pixels).
