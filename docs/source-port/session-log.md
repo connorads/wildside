@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#409 route-wide HUD timing census)
+
+- A strict census joins all 170 Diamond mismatch frames to Mode entry,
+  `sub_E12`, `sub_44DC`, and the `$DD40` FIFO batch.
+- 137 frames accrue no Z80 wait in either measured interval. Persistent
+  beam/refresh phase and typed workload are therefore the dominant path;
+  ordered Z80 events remain additive for 33 frames.
+- `scripts/hud_timing_census.py` reproduces the result and rejects incomplete
+  or duplicate trace boundaries. Its focused unit tests pass.
+- Pixels remain 37,510 exact / 249 divergent / 2,472 changed. NEXT: carry
+  beam/refresh state through typed Mode_Level events and prove continuity by
+  retiring one absolute correction before feeding the HUD schedulers.
+
 ## 2026-07-29 handoff (#409 arbitration-boundary discriminator)
 
 - Fresh oracle rows show frames 993 and 995 have identical `loc_7D6 ->

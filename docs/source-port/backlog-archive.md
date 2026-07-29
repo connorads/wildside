@@ -13,6 +13,20 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+Progress 2026-07-29: `scripts/hud_timing_census.py` turns the remaining Diamond
+timing sample into a strict route-wide join. It expands the 170
+`hud_diamond` mismatch ranges, requires unique oracle records at the preceding
+frame's `Mode_Level $7C8` and the current frame's `sub_E12`, `sub_44DC`, and
+`$DD40` FIFO batch, then reports source-interval cycle and wait deltas. All 170
+frames join. 158 have no Z80 wait from Mode entry to `sub_E12`, 137 have no
+Z80 wait from `sub_E12` to `sub_44DC`, and 137 have none in either interval.
+Therefore asynchronous audio contention is not the dominant cause of this
+pixel cluster. Carry beam and refresh phase through the existing typed VBlank
+and object-work event stream first; retain ordered Z80 waits as an additive
+hardware-port input for the remaining 33 frames. The script deliberately
+fails on a missing or duplicate boundary so a partial trace cannot support a
+timing decision.
+
 Rejected 2026-07-29: frames 993 and 995 cannot retire their absolute
 `sub_E12` corrections by replaying the selected interval's aggregate GEMS
 wait count. Fresh oracle `loc_7D6`/`sub_E12` rows prove both intervals are
