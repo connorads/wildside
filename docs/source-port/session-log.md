@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 distinguish producer and display mappings)
+
+- Frame 7968's loc_AD4 producer selects 26x33 while its displayed trace is
+  30x38; frame 7969 selects 28x39 while displaying 26x33.
+- An attach-edge-only Iron Knight latch worsens frame 7969 from 608 to 644
+  pixels. Atlas-normalised resident-page experiments do not reduce it.
+- Both experiments are removed. NEXT: capture oracle phase-2 SAT attributes
+  and phase-3 fetched pattern rows for 7968..7970 before another renderer fix.
+
 ## 2026-07-29 handoff (#406 reject FrameRendered as player latch)
 
 - All four attach passes start the second 64-word DMA after `FrameRendered`;

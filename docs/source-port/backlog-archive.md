@@ -23147,3 +23147,14 @@ player scanlines, so neither boundary placement represents visible sprite
 fetch. Both experiments are removed. Continue by making the FIFO scheduler
 report word residency at the player SAT fetch scanlines and composite that
 fetch-time page; do not retry a `FrameRendered` page splice.
+
+Rejected 2026-07-29 for #406: whole-trace Iron Knight climb latching is not
+the missing presentation model. Instrumentation around the first attach pass
+showed distinct producer/display mappings: frame 7968 loc_AD4 selects 26x33
+while the displayed trace selects 30x38; frame 7969 loc_AD4 selects 28x39
+while the displayed trace selects 26x33. Narrowing the previous-state latch
+to only loc_A276's zero-accumulator attach edge changed frame 7969 from 608
+to 644 pixels rather than improving it. Normalising the resident page's ROM
+atlas source offsets likewise did not reduce the cluster. All code experiments
+are removed. Capture phase-2 SAT attributes and phase-3 fetched pattern rows
+from jgenesis before changing either pose selection or DMA timing again.
