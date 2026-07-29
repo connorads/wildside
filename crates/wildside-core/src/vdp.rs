@@ -9068,8 +9068,9 @@ fn append_title_text_kid_sprite_loc_1b5e4_with_y(
     y_pos: u16,
 ) {
     let setup = crate::boot::title_text_kid_setup_loc_1B5E4();
+    let mut object_entries = Vec::new();
     append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
-        entries,
+        &mut object_entries,
         IntroGfxObjectForSpriteTable {
             x_pos: setup.x_pos,
             y_pos,
@@ -9086,6 +9087,7 @@ fn append_title_text_kid_sprite_loc_1b5e4_with_y(
             height: 0x3D,
         },
     );
+    entries.splice(0..0, object_entries);
 }
 
 #[allow(non_snake_case)]
@@ -9137,8 +9139,9 @@ fn append_title_text_burst_sprites_sub_1b652(
         // child. loc_1B610's following pose writes therefore move the first
         // burst to ($2E,$8C) and the second to ($5A,$98), not the main KID
         // title sprite.
+        let mut object_entries = Vec::new();
         append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
-            entries,
+            &mut object_entries,
             IntroGfxObjectForSpriteTable {
                 x_pos,
                 y_pos,
@@ -9155,6 +9158,7 @@ fn append_title_text_burst_sprites_sub_1b652(
                 height: 0x18,
             },
         );
+        entries.splice(0..0, object_entries);
     }
 }
 
@@ -9177,8 +9181,9 @@ fn append_title_intro_text_sprite_loc_1bb10_with_x(
     x_pos: u16,
 ) {
     let setup = crate::boot::title_text_intro_sprite_loc_1BB10();
+    let mut object_entries = Vec::new();
     append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
-        entries,
+        &mut object_entries,
         IntroGfxObjectForSpriteTable {
             x_pos,
             y_pos: setup.y_pos,
@@ -9196,6 +9201,7 @@ fn append_title_intro_text_sprite_loc_1bb10_with_x(
             height: 0x0008,
         },
     );
+    entries.splice(0..0, object_entries);
 }
 
 #[allow(non_snake_case)]
@@ -9208,8 +9214,9 @@ fn append_title_menu_cursor_sprite_loc_1bb52(entries: &mut Vec<HardwareSpriteEnt
         1 => 0x003A,
         _ => 0x0044,
     };
+    let mut object_entries = Vec::new();
     append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
-        entries,
+        &mut object_entries,
         IntroGfxObjectForSpriteTable {
             x_pos: 0x0028,
             y_pos,
@@ -9220,6 +9227,7 @@ fn append_title_menu_cursor_sprite_loc_1bb52(entries: &mut Vec<HardwareSpriteEnt
         },
         intro_sprite_frame_vram(0, 8, 8),
     );
+    entries.splice(0..0, object_entries);
 }
 
 fn write_title_character_frame_sub_1bf24(
@@ -14512,7 +14520,7 @@ mod tests {
             vec![HardwareSpriteEntry {
                 y_pos: 0x00F4,
                 size_byte: 0x06,
-                pattern: 0xC558,
+                pattern: 0x4558,
                 x_pos: 0x00AE,
             }],
             "ASM sub_1B652 -> Init_Animation exposes unk_E11B6 one pass later at the first child position written through a3",
@@ -14521,7 +14529,7 @@ mod tests {
         entries.clear();
         append_title_text_burst_sprites_sub_1b652(&mut entries, 155);
         assert_eq!(
-            entries[0].pattern, 0xC55E,
+            entries[0].pattern, 0x455E,
             "ASM stru_1B68A advances from unk_E11B6 to unk_E11BE after four frames",
         );
 
@@ -14538,7 +14546,7 @@ mod tests {
             vec![HardwareSpriteEntry {
                 y_pos: 0x0100,
                 size_byte: 0x06,
-                pattern: 0xC558,
+                pattern: 0x4558,
                 x_pos: 0x00DA,
             }],
             "ASM loc_1B610 allocates the second child ten frames later and writes ($5A,$98) through the retained a3 pointer",
@@ -14547,16 +14555,46 @@ mod tests {
         entries.clear();
         append_title_text_burst_sprites_sub_1b652(&mut entries, 259);
         assert_eq!(
-            entries[0].pattern, 0xC54C,
+            entries[0].pattern, 0x454C,
             "ASM stru_1B68A reaches unk_E11A6 after the 100-frame null mapping",
         );
 
         entries.clear();
         append_title_text_burst_sprites_sub_1b652(&mut entries, 267);
         assert_eq!(
-            entries[0].pattern, 0xC558,
+            entries[0].pattern, 0x4558,
             "ASM command 2 rewinds the full 116-frame stru_1B68A cycle",
         );
+    }
+
+    #[test]
+    fn title_gfx_objects_build_sat_in_reverse_allocation_order_loc_14a4() {
+        let mut entries = Vec::new();
+        append_title_text_kid_sprite_loc_1b5e4(&mut entries, 151);
+        append_title_intro_text_sprite_loc_1bb10_with_x(&mut entries, 0x010C);
+        append_title_text_burst_sprites_sub_1b652(&mut entries, 151);
+
+        assert_eq!(
+            entries[0],
+            HardwareSpriteEntry {
+                y_pos: 0x00F4,
+                size_byte: 0x06,
+                pattern: 0x4558,
+                x_pos: 0x00AE,
+            },
+            "ASM sub_1B652 allocates the newest `$0201` GfxObject at the head consumed by Make_SpritesFromGfxObjects loc_14A4",
+        );
+        assert_eq!(
+            entries[1],
+            HardwareSpriteEntry {
+                y_pos: 0x0114,
+                size_byte: 0x04,
+                pattern: 0x4780,
+                x_pos: 0x018C,
+            },
+            "ASM loc_1BB10's later allocation precedes Obj_TitleTextKid's chunks in the SAT",
+        );
+        assert_eq!(entries[2].pattern, 0x44D3);
     }
 
     #[test]

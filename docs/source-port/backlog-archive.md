@@ -4779,6 +4779,28 @@ with a source-proven row-history difference.
 
 ### #406
 
+Progress 2026-07-29 (SAT-order sprite composition): the IntroSequence5 particle
+pairs at 20850..20851 and 28022..28023 had byte-identical native/oracle VRAM
+and matching particle positions, but native selected the later priority-1
+centre particle over earlier opaque priority-0 workers. JGenesis
+`render_sprite_pixels` confirms that the VDP resolves overlap in SAT order;
+the winning pixel's priority is compared with the planes afterwards.
+
+Applying that rule alone fixed all four target frames but exposed 1,779
+previously exact title frames. This was rejected rather than ratcheted: oracle
+frame 290 SAT is burst, sliding text, then KID chunks, while native emitted the
+reverse and invented priority on the burst. ASM `Obj_TitleTextKid loc_1B610 ->
+sub_1B652` allocates `$0201` after the older title GfxObjects, and `sub_1B652`
+sets `is_moved` plus display byte `$13` but never the distinct priority byte.
+Native now prepends each later title GfxObject as `Make_SpritesFromGfxObjects
+loc_14A4` sees it and leaves the burst priority clear. Focused frames 288..310
+and both particle windows are exact. Full pixels improve 37,453->37,458 exact,
+306->301 divergent, and 8,204->7,905 changed with 17 clusters remaining;
+gameplay, player/camera, enemy, and RNG remain exact.
+
+NEXT: skip deferred Iron Knight and persistent HUD timing, then classify the
+largest independent remaining cluster.
+
 Progress 2026-07-29 (IntroText5 FC82=2 worker schedule): the refreshed report
 split two complete story-text runs into moving tile-coordinate clusters.
 Frames 10040..10258 and 20464..20682 are identical glyph cadences offset by

@@ -5186,6 +5186,32 @@ mod tests {
     }
 
     #[test]
+    fn scanline_sprite_pixel_rgb_resolves_sat_order_before_plane_priority() {
+        let mut vdp = blank_vdp_snapshot();
+        let sprite_table_base = 0x3000;
+        write_sprite_entry(&mut vdp.vram, sprite_table_base, 0, 0, 1, 0, 8);
+        write_sprite_entry(&mut vdp.vram, sprite_table_base, 1, 0, 0, 0x8001, 8);
+        set_tile_pixel(&mut vdp.vram, 0, 0, 0, 1);
+        set_tile_pixel(&mut vdp.vram, 1, 0, 0, 2);
+        write_cram_colour(&mut vdp.cram, 1, 0x00E);
+        write_cram_colour(&mut vdp.cram, 2, 0x0E0);
+
+        let scan = SpriteLineScan::build(&vdp.vram, sprite_table_base, 8, 320);
+        let line_sprites = scan.sprites_on_line(0);
+
+        assert_eq!(
+            crate::vdp::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 8, 0, false),
+            Some([0xFF, 0, 0]),
+            "Mega Drive SAT order retains the first opaque sprite pixel before comparing that pixel's priority with the planes",
+        );
+        assert_eq!(
+            crate::vdp::scanline_sprite_pixel_rgb(&vdp, &scan, line_sprites, 8, 0, true),
+            None,
+            "a later high-priority sprite must not replace an earlier low-priority opaque sprite pixel",
+        );
+    }
+
+    #[test]
     fn sprite_tile_pixel_rgb_decodes_palette_column_major_tiles_and_flip_bits() {
         let mut vdp = blank_vdp_snapshot();
         set_tile_pixel(&mut vdp.vram, 13, 1, 2, 5);

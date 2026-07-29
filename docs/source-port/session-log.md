@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-29 handoff (#406 SAT-order sprite composition)
+
+- Mega Drive sprite overlap resolves in SAT order before the winning pixel's
+  priority is compared with the planes. This makes both IntroSequence5
+  particle-boundary pairs exact.
+- A compositor-only patch exposed incorrect synthetic title SAT order, so it
+  was rejected. Oracle frame 290 and ASM `loc_1B610 -> sub_1B652` prove later
+  title allocations belong first and the burst never sets sprite priority.
+- Full pixels improve to 37,458 exact / 301 divergent / 7,905 changed with 17
+  clusters. NEXT: skip Iron Knight and persistent HUD timing, then classify
+  the largest independent remaining cluster.
+
 ## 2026-07-29 handoff (#406 IntroText5 FC82=2 schedule)
 
 - The many paired tile-sized clusters at 10040..10258 and 20464..20682 are

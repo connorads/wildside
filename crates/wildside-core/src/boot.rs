@@ -2626,7 +2626,7 @@ pub(crate) fn title_text_burst_sprite_sub_1B652() -> TitleTextBurstSpriteSub1B65
         y_pos: 0x0040,
         vram_tile: 0x054C,
         is_moved: true,
-        priority_flag: true,
+        priority_flag: false,
         animation_frames: [
             TitleTextBurstAnimationFrameSub1B652 {
                 duration_frames: 4,
@@ -8806,8 +8806,8 @@ mod tests {
         );
         assert!(sprite.is_moved);
         assert!(
-            sprite.priority_flag,
-            "ASM sub_1B652 sets both `is_moved(a3)` and `$13(a3)` on the allocated sprite"
+            !sprite.priority_flag,
+            "ASM sub_1B652 sets `is_moved(a3)` and display byte `$13(a3)`, but never sets the distinct priority byte"
         );
     }
 

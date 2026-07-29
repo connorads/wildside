@@ -575,8 +575,7 @@ pub(crate) fn scanline_sprite_pixel_rgb(
     for fetch in line_sprites {
         let entry = &scan.entries[fetch.entry_index as usize];
         let fetched_width_pixels = (fetch.fetched_width_tiles * 8) as i32;
-        if ((entry.pattern & 0x8000) != 0) == priority
-            && screen_x_i >= entry.xpos
+        if screen_x_i >= entry.xpos
             && screen_x_i < entry.xpos + fetched_width_pixels
             && screen_y_i >= entry.ypos
             && screen_y_i < entry.ypos + entry.height_pixels
@@ -591,7 +590,9 @@ pub(crate) fn scanline_sprite_pixel_rgb(
                 local_x,
                 local_y,
             ) {
-                return Some(colour);
+                // Sprite overlap is resolved in SAT order. The winning
+                // pixel's priority bit is then compared with the planes.
+                return (((entry.pattern & 0x8000) != 0) == priority).then_some(colour);
             }
         }
     }
