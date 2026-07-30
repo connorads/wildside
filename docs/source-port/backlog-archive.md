@@ -23584,3 +23584,13 @@ only and cannot masquerade as another raster pass. A regression derives all
 counts from `stru_7F30`, independently matching the bounded oracle call span.
 NEXT: schedule the shared `sub_8E0` body once per classified edge and retain
 the same hardware cursor across the complete table walk.
+
+Progress 2026-07-30 for #409: direct DBF repeats now share a fail-closed
+hardware-timing suffix. Oracle frame 1059 and ASM `loc_8FE -> sub_1596 ->
+Make_SpriteAttr_HUD -> return_912 -> loc_7D22` pin 54 instructions / 864 raw
+cycles from the completed H-scroll DMA through the next `sub_8E0` entry. The
+primitive accepts only empty foreground queues and the stable three-HP HUD
+path, so it cannot silently borrow `Mode_Level`'s absent `sub_6874` or
+`sub_E12` calls. One implementation covers all 62 repeat edges. NEXT: compose
+the pre-VINT, sprite/palette/scroll DMA, and repeat suffix around one retained
+cursor; keep the nine descriptor transitions as typed handler edges.

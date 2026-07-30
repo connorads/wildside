@@ -369,6 +369,46 @@ pub fn visit_mode_level_vblank_suffix_after_scroll_dma(
     Some(timing)
 }
 
+/// Visit a repeating `Kid_Transform sub_8E0` suffix after the H-scroll DMA
+/// through the next `sub_8E0` call.
+///
+/// ASM `loc_8FE -> sub_1596 -> Make_SpriteAttr_HUD -> return_912`, followed
+/// by `loc_7D22`'s restore/DBF repeat and saved-register call shell. This
+/// deliberately supports only the empty foreground queues and stable
+/// three-hitpoint HUD path observed throughout the first Cyclone descriptor;
+/// other work remains unclassified rather than borrowing `Mode_Level`'s
+/// extra `sub_6874` and `sub_E12` calls.
+pub fn visit_transform_sub_8e0_repeat_suffix_after_scroll_dma(
+    work: crate::ModeLevelVblankWorkBeforeSubE12,
+    mut visit: impl FnMut(u32),
+) -> Option<IntroSourceTiming> {
+    if work.foreground_custom_queue_entries_sub_1596 != 0
+        || !work.foreground_cell_queue_sub_1596.is_empty()
+        || work.paused_sub_6874
+        || work.hud_path_sub_bdc0 != crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters
+    {
+        return None;
+    }
+
+    // Oracle published frame 1059 selected-PC ledger, independently checked
+    // against kid.asm loc_8FE, sub_1596, sub_BDC0, and loc_7D22.
+    const CYCLES: &[u16] = &[
+        18, 8, 16, 8, 4, 12, 4, 8, 8, 12, 10, 8, 8, 4, 16, 16, 12, 8, 10, 24, 24, 16, 18, 10, 12,
+        16, 12, 8, 12, 12, 12, 10, 12, 16, 12, 10, 12, 10, 12, 8, 10, 12, 10, 12, 12, 10, 16, 16,
+        16, 124, 10, 120, 18, 10,
+    ];
+    let mut raw_cycles = 0_u32;
+    for &cycles in CYCLES {
+        let cycles = u32::from(cycles);
+        visit(cycles);
+        raw_cycles = raw_cycles.checked_add(cycles)?;
+    }
+    Some(IntroSourceTiming {
+        instruction_count: CYCLES.len() as u32,
+        raw_cycles: M68kCycleCount::from_raw(raw_cycles),
+    })
+}
+
 fn visit_title_execute_objects_setup(
     rng_offset_before: u16,
     emit: &mut dyn FnMut(u32),
@@ -3085,6 +3125,43 @@ mod tests {
             visit_mode_level_vblank_suffix_after_scroll_dma(unsupported, |_| {}),
             None,
             "unclassified gameplay foreground queue work remains fail-closed",
+        );
+    }
+
+    #[test]
+    fn transform_repeat_suffix_retains_loc_8fe_to_next_sub_8e0_boundaries() {
+        let work = crate::ModeLevelVblankWorkBeforeSubE12 {
+            dynamic_art_tiles_loc_ad4: Some([16, 4, 0, 0, 0, 0]),
+            palette_dma_sub_970: true,
+            scroll_path: crate::ModeLevelScrollTransferPath::NormalLoc300ba,
+            foreground_custom_queue_entries_sub_1596: 0,
+            foreground_cell_queue_sub_1596: crate::ModeLevelForegroundCellQueueWorkSub1596::EMPTY,
+            paused_sub_6874: false,
+            hud_path_sub_bdc0: crate::ModeLevelHudBuildPath::LocBe20ThenLocBe4cStableCounters,
+        };
+        let mut cycles = Vec::new();
+        let timing = visit_transform_sub_8e0_repeat_suffix_after_scroll_dma(work, |cycle| {
+            cycles.push(cycle);
+        })
+        .expect("published Cyclone transform repeat suffix");
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 54,
+                raw_cycles: M68kCycleCount::from_raw(864),
+            },
+            "ASM loc_8FE -> loc_7D22 DBF repeat -> next sub_8E0",
+        );
+        assert_eq!(&cycles[..3], &[18, 8, 16]);
+        assert_eq!(&cycles[cycles.len() - 4..], &[10, 120, 18, 10]);
+
+        let mut queued = work;
+        queued.foreground_custom_queue_entries_sub_1596 = 1;
+        assert_eq!(
+            visit_transform_sub_8e0_repeat_suffix_after_scroll_dma(queued, |_| {}),
+            None,
+            "unclassified transform queue work remains fail-closed",
         );
     }
 

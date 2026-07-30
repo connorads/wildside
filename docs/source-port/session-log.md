@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#409 transform repeat suffix)
+
+- The direct `loc_7D22` DBF edge is typed from post-H-scroll DMA through the
+  next `sub_8E0` entry: 54 instructions / 864 raw cycles.
+- Empty queues and stable Cyclone HUD are explicit preconditions; unsupported
+  transform work fails closed.
+- This one primitive covers all 62 repeat edges. NEXT: compose it with the
+  pre-VINT and DMA primitives, then type the nine handler transitions.
+
 ## 2026-07-30 handoff (#409 transform resume taxonomy)
 
 - `transform_raster_resume_after_sub_8e0` derives each return from the ported

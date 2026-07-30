@@ -2025,6 +2025,31 @@ pub fn apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
     Some(advance)
 }
 
+/// Clock a repeating `Kid_Transform sub_8E0` suffix after the H-scroll DMA
+/// through the next `sub_8E0` entry.
+#[cfg(feature = "audio")]
+pub fn apply_gems_transform_sub_8e0_repeat_suffix_after_scroll_dma(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    work: ModeLevelVblankWorkBeforeSubE12,
+) -> Option<TitleIntroSourceAdvance> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::transform_sub_8e0_repeat_suffix_after_scroll_dma_cursor_with_scheduler(
+        entry,
+        work,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Source-classified work needed to carry one aligned gameplay hardware
 /// timeline from `sub_44DC` to the following frame's `sub_E12` boundary.
 #[cfg(feature = "audio")]
