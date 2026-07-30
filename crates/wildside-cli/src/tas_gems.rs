@@ -14751,6 +14751,91 @@ mod tests {
         );
     }
 
+    #[test]
+    fn gameplay_regression_mode_level_frame_recurrence_is_route_index_free() {
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        if !manifest_path.exists() {
+            return;
+        }
+        let manifest = wildside_data::load_manifest(&manifest_path).expect("cached manifest");
+        let mut scenario: crate::scenarios::DynamicScenario = serde_json::from_slice(
+            &std::fs::read(repo_root.join("tests/data/tas/any-percent-published/scenario.json"))
+                .expect("published TAS scenario"),
+        )
+        .expect("published TAS JSON");
+        scenario.frame_count = 925;
+        scenario.script.truncate(926);
+        scenario
+            .checkpoints
+            .retain(|checkpoint| checkpoint.frame_index < scenario.frame_count);
+        let trace = crate::scenarios::run_native_dynamic_scenario(
+            manifest.clone(),
+            &scenario,
+            crate::scenarios::NativeDynamicRunOptions::default(),
+        )
+        .expect("published native prefix");
+        let visuals = wildside_render::load_level_visuals(&manifest, 0).expect("level 00 visuals");
+        let mut queue = ModeLevelDynamicArtQueueLocAd4::default();
+        let mut next_vblank = None;
+        for (frame_index, frame) in trace.iter().enumerate() {
+            let consumed = queue.consume_vblank_work(frame);
+            if frame_index == 924 {
+                next_vblank = consumed;
+            }
+            queue.observe_post_hud_producer(frame, &visuals.player);
+        }
+        let current = &trace[923];
+        let work = wildside_frame::ModeLevelFrameRecurrenceWork {
+            hud_events_sub_44dc: &current.hud_dma_events_sub_44dc,
+            post_hud: current
+                .mode_level_work_after_hud_sub_44dc
+                .as_ref()
+                .expect("frame 923 post-HUD ledger"),
+            tail_loc_892: current
+                .mode_level_tail_work_loc_892
+                .as_ref()
+                .expect("frame 923 loc_892 ledger"),
+            next_vblank: next_vblank.expect("frame 924 retained VBlank work"),
+            pending_ownership_after_loc_7d6: ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
+        };
+        let entry_cycles = 100_000_u32;
+        let entry = wildside_core::vdp::ModeLevelCpuRasterCursor {
+            beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                entry_cycles,
+            )),
+            refresh_phase: M68kRefreshPhase::new(64).expect("synthetic entry phase"),
+        };
+        let run = || {
+            let mut engine = GemsMasterClockTimingEngine::new_with_ntsc_timeline_origin(
+                &[0x76],
+                vec![],
+                GemsNtscTimelineOrigin::PowerOnScanlineZero,
+            );
+            engine.advance_ntsc_master_clocks(u64::from(entry_cycles) * 7);
+            let seed = wildside_frame::apply_gems_mode_level_frame_recurrence_to_sub_e12(
+                &mut engine,
+                entry,
+                work,
+            )
+            .expect("classified Mode_Level frame recurrence");
+            (seed, engine.checkpoint())
+        };
+
+        let first = run();
+        let second = run();
+        assert_eq!(first, second, "the recurrence has no route-index input");
+        assert_eq!(first.1.pending_m68k_wait_cycles, 0);
+        assert_eq!(
+            first.0.beam,
+            wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                (first.1.master_clock / 7) as u32
+            ),),
+            "persistent engine time and returned sub_E12 beam remain aligned",
+        );
+    }
+
     /// Sole coverage of the post-frozen typed frames (965..995). The
     /// `gameplay_regression_` prefix is load-bearing: `verify-slice-fast` runs
     /// `cargo test -p wildside-cli gameplay_regression_`, so a name outside that

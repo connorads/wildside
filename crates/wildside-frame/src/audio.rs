@@ -2025,6 +2025,76 @@ pub fn apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
     Some(advance)
 }
 
+/// Source-classified work needed to carry one aligned gameplay hardware
+/// timeline from `sub_44DC` to the following frame's `sub_E12` boundary.
+#[cfg(feature = "audio")]
+#[derive(Debug, Clone, Copy)]
+pub struct ModeLevelFrameRecurrenceWork<'a> {
+    pub hud_events_sub_44dc: &'a [HudDmaEventSub44DC],
+    pub post_hud: &'a ModeLevelPostHudWorkLedger,
+    pub tail_loc_892: &'a wildside_core::ModeLevelTailWorkLoc892,
+    pub next_vblank: ModeLevelVblankWorkBeforeSubE12,
+    pub pending_ownership_after_loc_7d6: ModeLevelPendingHardwareOwnershipAfterLoc7d6,
+}
+
+/// Carry an already-aligned gameplay CPU/VDP/GEMS timeline across one frame.
+///
+/// ASM `sub_44DC -> loc_810 -> loc_892 -> WaitForVint $93E -> Mode_Level
+/// $7C8 -> loc_7D6 -> sub_E12`. Bootstrap and oracle corrections are outside
+/// this transition. Unsupported HUD command mixes and unclassified source
+/// paths fail closed.
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_frame_recurrence_to_sub_e12(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry_sub_44dc: ModeLevelCpuRasterCursor,
+    work: ModeLevelFrameRecurrenceWork<'_>,
+) -> Option<ModeLevelRasterSeedSubE12> {
+    let post_hud_entry = match work.hud_events_sub_44dc {
+        [] => {
+            apply_gems_no_upload_schedule_sub_44dc(audio, entry_sub_44dc, work.hud_events_sub_44dc)
+        }
+        [HudDmaEventSub44DC::Coin { .. }] => {
+            apply_gems_coin_schedule_sub_44dc(audio, entry_sub_44dc, work.hud_events_sub_44dc)
+        }
+        [HudDmaEventSub44DC::LifeIcon { .. }] => {
+            apply_gems_life_icon_schedule_sub_44dc(audio, entry_sub_44dc, work.hud_events_sub_44dc)
+        }
+        [HudDmaEventSub44DC::Clock { .. }] => {
+            apply_gems_clock_icon_schedule_sub_44dc(audio, entry_sub_44dc, work.hud_events_sub_44dc)
+        }
+        [HudDmaEventSub44DC::Diamond { .. }] => {
+            apply_gems_diamond_schedule_sub_44dc(audio, entry_sub_44dc, work.hud_events_sub_44dc)
+        }
+        [HudDmaEventSub44DC::Flag { .. }] => {
+            apply_gems_flag_schedule_sub_44dc(audio, entry_sub_44dc, work.hud_events_sub_44dc)
+        }
+        _ => None,
+    }?;
+    let loc_892 = apply_gems_mode_level_post_hud_to_loc_892(audio, post_hud_entry, work.post_hud)?;
+    let wait_for_vint = apply_gems_mode_level_tail_to_wait_for_vint(
+        audio,
+        LoadInGameCpuRasterCursor {
+            beam: loc_892.beam,
+            refresh_phase: loc_892.refresh_phase,
+        },
+        work.tail_loc_892,
+    )?;
+    let mode_level =
+        apply_gems_mode_level_wait_for_vint_to_mode_level(audio, wait_for_vint.cursor)?.cursor;
+    let prefix =
+        apply_gems_mode_level_vblank_prefix_to_scroll_dma(audio, mode_level, work.next_vblank)?;
+    let suffix = apply_gems_mode_level_vblank_suffix_after_scroll_dma(
+        audio,
+        prefix.cursor,
+        work.next_vblank,
+        work.pending_ownership_after_loc_7d6,
+    )?;
+    Some(ModeLevelRasterSeedSubE12 {
+        beam: suffix.cursor.beam,
+        refresh_phase: suffix.cursor.refresh_phase,
+    })
+}
+
 /// Clock the first source-typed gameplay `sub_E12 -> sub_44DC` interval.
 ///
 /// The two spans are kept separate at their selected-PC boundaries. The
@@ -4024,6 +4094,29 @@ pub fn apply_gems_life_icon_schedule_sub_44dc(
         return None;
     }
     wildside_core::vdp::life_icon_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+        entry,
+        commands,
+        |cycles, vdp_owns_bus| {
+            audio.advance_master_clocks(u64::from(cycles.get()) * 7, false, vdp_owns_bus);
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
+/// Co-schedule the no-upload ASM `sub_44DC` path on the persistent GEMS
+/// timeline.
+#[cfg(feature = "audio")]
+pub fn apply_gems_no_upload_schedule_sub_44dc(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: ModeLevelCpuRasterCursor,
+    commands: &[HudDmaEventSub44DC],
+) -> Option<ModeLevelCpuRasterCursor> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::no_upload_cpu_raster_cursor_after_sub_44dc_with_scheduler(
         entry,
         commands,
         |cycles, vdp_owns_bus| {

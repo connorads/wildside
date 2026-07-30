@@ -7175,6 +7175,38 @@ fn drain_life_icon_pending_fifo_words(
     Some(())
 }
 
+/// Co-schedule the no-upload ASM `sub_44DC` path.
+pub fn no_upload_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+    entry: ModeLevelCpuRasterCursor,
+    commands: &[crate::HudDmaEventSub44DC],
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<ModeLevelCpuRasterCursor> {
+    crate::mode_level_timing::hud_no_upload_raw_cycles_sub_44dc(commands)?;
+    let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
+    let mut phase = entry.refresh_phase;
+
+    // ASM sub_44DC (kid.asm:5546-5752): each inactive animation section is
+    // MOVE.B, EXT.W, SUBQ.W, taken BNE.W, MOVE.B. The final RTS follows all
+    // five sections. Keep these instruction boundaries so one instruction
+    // can enqueue at most one Genesis refresh wait.
+    for _ in 0..5 {
+        for raw_cycles in [12, 4, 4, 10, 12] {
+            advance_life_icon_source_instruction(
+                &mut fifo,
+                &mut phase,
+                raw_cycles,
+                &mut advance_hardware,
+            )?;
+        }
+    }
+    advance_life_icon_source_instruction(&mut fifo, &mut phase, 16, &mut advance_hardware)?;
+
+    Some(ModeLevelCpuRasterCursor {
+        beam: fifo.beam,
+        refresh_phase: phase,
+    })
+}
+
 /// Co-schedule the coin-only `sub_44DC -> loc_4534 -> sub_44D0` FIFO path.
 pub fn coin_cpu_raster_cursor_after_sub_44dc_with_scheduler(
     entry: ModeLevelCpuRasterCursor,
@@ -11090,6 +11122,56 @@ mod tests {
             ),
             None,
             "GEMS offsets must be source ordered"
+        );
+    }
+
+    #[test]
+    fn no_upload_hud_scheduler_preserves_sub_44dc_instruction_boundaries() {
+        // ASM sub_44DC (kid.asm:5546-5752): five inactive counter sections
+        // followed by RTS. Starting at phase zero crosses exactly one refresh
+        // boundary during the fourth section's MOVE.B.
+        let entry = ModeLevelCpuRasterCursor {
+            beam: H40BeamPosition::new(10, 100).expect("bounded sub_44DC entry"),
+            refresh_phase: M68kRefreshPhase::new(0).expect("zero refresh phase"),
+        };
+        let mut intervals = Vec::new();
+        let exit = no_upload_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+            entry,
+            &[],
+            |cycles, vdp_owns_bus| {
+                assert!(!vdp_owns_bus);
+                intervals.push(cycles.get());
+                Some(M68kCycleCount::from_raw(0))
+            },
+        )
+        .expect("no-upload HUD path is fully classified");
+
+        let mut expected = Vec::new();
+        for section in 0..5 {
+            expected.extend([12, 4, 4, 10, 12]);
+            if section == 3 {
+                expected.insert(expected.len() - 4, 2);
+            }
+        }
+        expected.push(16);
+        assert_eq!(intervals, expected);
+        assert_eq!(exit.refresh_phase, M68kRefreshPhase::new(100).unwrap());
+        assert_eq!(
+            exit.beam,
+            entry
+                .beam
+                .advance_m68k_cycles(M68kCycleCount::from_raw(228))
+        );
+        assert_eq!(
+            no_upload_cpu_raster_cursor_after_sub_44dc_with_scheduler(
+                entry,
+                &[crate::HudDmaEventSub44DC::Diamond {
+                    frame_table_byte_offset: 0,
+                }],
+                |_, _| Some(M68kCycleCount::from_raw(0)),
+            ),
+            None,
+            "non-empty HUD command lists remain fail-closed"
         );
     }
 

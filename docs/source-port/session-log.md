@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#409 correction-free frame recurrence)
+
+- A production frame recurrence now carries an aligned machine from
+  `sub_44DC` through the following frame's `sub_E12` with typed ledgers only.
+- The no-upload HUD branch preserves all source instruction boundaries; real
+  frame-923/924 ledgers prove deterministic, beam-aligned continuity from an
+  arbitrary origin without a route index or oracle correction.
+- NEXT: source the first gameplay bootstrap and residual H-scroll ownership,
+  then retain recurrence seeds in the streaming scenario runner.
+
 ## 2026-07-30 handoff (#409 sampling-free VBlank transition)
 
 - The gameplay VBlank-prefix GEMS scheduler now exposes a no-checkpoint API

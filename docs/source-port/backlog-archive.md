@@ -23429,3 +23429,18 @@ loc_30104` work with and without observation and proves both the DMA advance
 and complete GEMS checkpoint remain identical. This isolates the first
 correction-free transition needed by the persistent execution owner; compose
 the remaining post-HUD, tail, VINT, prefix, and suffix transitions next.
+
+Progress 2026-07-30 for #409: the correction-free frame recurrence is now a
+production API. `ModeLevelFrameRecurrenceWork` carries only source-classified
+HUD, post-HUD, tail, next-VBlank, and typed pending-ownership facts; the shell
+advances an already-aligned GEMS/CPU/VDP machine from `sub_44DC` through
+`loc_892`, `WaitForVint`, the next VBlank prefix and suffix, returning the next
+`sub_E12` seed. Unsupported HUD mixes fail closed. The common no-upload HUD
+path no longer clocks a 226-cycle aggregate: it preserves the five exact
+`[12,4,4,10,12]` counter sections and final RTS, preventing multi-refresh
+recurrence inside a notional instruction. An asset-backed regression uses
+published frame-923/924 ledgers from two arbitrary aligned origins and obtains
+identical seeds and complete GEMS checkpoints with zero pending wait; returned
+beam and engine master time agree exactly. No route index or oracle correction
+enters the transition. Remaining activation inputs are the first live-gameplay
+bootstrap and the H-scroll DMA ownership pending at `loc_7D6`.
