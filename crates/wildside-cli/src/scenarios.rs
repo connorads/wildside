@@ -430,6 +430,28 @@ where
     )
 }
 
+pub(crate) fn try_for_each_native_dynamic_frame_with_raster_scheduler<S, F>(
+    manifest: AssetManifest,
+    scenario: &DynamicScenario,
+    options: NativeDynamicRunOptions,
+    scheduler: S,
+    visitor: F,
+) -> Result<()>
+where
+    S: FnMut(
+        usize,
+        wildside_core::ModeLevelVblankWorkBeforeSubE12,
+    ) -> Option<wildside_core::vdp::ModeLevelRasterSeedSubE12>,
+    F: FnMut(usize, &NativeRuntime, &NativeTraceFrame, &NativeTraceFrame) -> Result<()>,
+{
+    configure_script_runner(manifest, scenario, options)?.try_for_each_frame_with_raster_scheduler(
+        &scenario.script,
+        scenario.frame_count,
+        scheduler,
+        visitor,
+    )
+}
+
 fn configure_script_runner(
     manifest: AssetManifest,
     scenario: &DynamicScenario,

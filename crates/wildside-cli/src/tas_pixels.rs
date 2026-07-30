@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, bail};
 use serde::Serialize;
 use sha1::{Digest, Sha1};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::diff::BBox;
@@ -11,7 +12,8 @@ use crate::native_player::{
 };
 use crate::oracle::{OracleFrame, OracleManifest};
 use crate::scenarios::{
-    DynamicScenario, NativeDynamicRunOptions, try_for_each_native_dynamic_frame,
+    DynamicScenario, NativeDynamicRunOptions,
+    try_for_each_native_dynamic_frame_with_raster_scheduler,
 };
 use wildside_core::{NativeRuntime, NativeTraceFrame, terrain::BlockGrid};
 use wildside_data::AssetManifest;
@@ -451,11 +453,31 @@ pub(crate) fn compare_tas_pixels(
     );
     let mut native_frames = 0usize;
     let mut player_art_page = None;
-    try_for_each_native_dynamic_frame(
+    let raster_timeline = if scenario.slug == "any-percent-published"
+        && scenario.frame_count > crate::tas_gems::GEMS_MODELLED_ROUTE_FRAMES
+    {
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let rom = std::fs::read(repo_root.join(".cache/upstream/kid-chameleon-disasm/kid.bin"))
+            .context("read Kid ROM for published TAS raster timeline")?;
+        Some(RefCell::new(
+            crate::tas_gems::PublishedTasRasterTimeline::new(&rom, manifest)?,
+        ))
+    } else {
+        None
+    };
+    try_for_each_native_dynamic_frame_with_raster_scheduler(
         manifest.clone(),
         scenario,
         NativeDynamicRunOptions::default(),
+        |frame_index, work| {
+            raster_timeline
+                .as_ref()
+                .and_then(|timeline| timeline.borrow_mut().schedule(frame_index, work))
+        },
         |frame_index, runtime, previous_trace, trace| {
+            if let Some(timeline) = &raster_timeline {
+                timeline.borrow_mut().observe(frame_index, trace);
+            }
             let Some(label) = requested.get(&frame_index) else {
                 return Ok(());
             };
@@ -496,6 +518,9 @@ pub(crate) fn compare_tas_pixels(
             Ok(())
         },
     )?;
+    if let Some(timeline) = raster_timeline {
+        timeline.into_inner().verify_coverage()?;
+    }
 
     let detail = accumulator.detail.take();
     let report = accumulator.finish(

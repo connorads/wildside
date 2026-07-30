@@ -13,6 +13,22 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
+Progress 2026-07-30: the streaming `ScriptRunner` now accepts a correction-free
+Mode_Level raster scheduler and returns each recurrence seed to the next frame.
+The published pixel verifier owns one persistent CPU/GEMS/VDP timeline rather
+than reconstructing a frame-local HUD clock. A source-backed bootstrap at frame
+923 and the existing typed VBlank, object, HUD, and tail ledgers carry exact
+timing through frame 1004. This removes the execution-shell boundary that kept
+the renderer on lower bounds after the frozen audio witness. The first
+fail-closed recurrence is frame 1005: camera Y reaches `$01E1`, selecting the
+downward `sub_30194` camera stripe and downward `sub_307D8` background-row
+refresh. Both remain intentionally `StreamingOther`; their ordered FIFO/VINT
+work needs a selected-PC trace before it can extend the shared timeline.
+Pull-up hibernation at `loc_1062` and the descending wall-cling row scans are
+now source-typed engine branches, not route-indexed timing corrections. NEXT:
+trace and type the shared downward plane-streaming pass, then measure the first
+Diamond/life-icon raster improvement from the carried timeline.
+
 Progress 2026-07-30: a bounded all-PC oracle journal rejects the earlier
 `loc_30104` ownership interpretation at the first gameplay suffix. At both
 `loc_7D6` and `sub_E12`, jgenesis reports memory DMA inactive, zero remaining

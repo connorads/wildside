@@ -2337,8 +2337,6 @@ pub fn player_callback_cycles_loc_a73a(
             return None;
         }
         if *vertical == ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0
-            && gfx_scan.bounds.top_row == 37
-            && wall_scan_hit_row == &38
             && ceiling_scan_sub_914a.is_none()
             && *airborne_visual_mapping_sub_b270
                 == ModeLevelAirborneVisualMappingPathSubB270::DescendingState3
@@ -2348,13 +2346,33 @@ pub fn player_callback_cycles_loc_a73a(
             // Selected consecutive E1E PCs leave 3,720 raw for the two-row
             // scan and 4,260 raw after the next falling-frame row expansion.
             return match (row_count, *y_velocity_after) {
-                (2, 32_768) => Some(M68kCycleCount::from_raw(3_720)),
-                (3, 49_152 | 65_536) => Some(M68kCycleCount::from_raw(4_260)),
+                (2, velocity) if velocity >= 32_768 => {
+                    // Velocity only determines the already-recorded scan
+                    // bounds; sub_AF10 then charges one fixed row pass.
+                    let clear_wall_rows = wall_scan_hit_row.checked_sub(gfx_scan.bounds.top_row)?;
+                    Some(M68kCycleCount::from_raw(3_658_u32.checked_add(
+                        62_u32.checked_mul(u32::from(clear_wall_rows))?,
+                    )?))
+                }
+                (3, 49_152 | 65_536)
+                    if gfx_scan.bounds.top_row == 37 && wall_scan_hit_row == &38 =>
+                {
+                    Some(M68kCycleCount::from_raw(4_260))
+                }
                 // ASM frames 994-995 retain the same three-row trace shape.
                 // Selected consecutive E1E PCs pin both later falling
                 // resumes to 3,836 raw cycles after removing the scheduler
                 // shell and frame 995's 264 external Z80 waits.
-                (3, 81_920 | 98_304) => Some(M68kCycleCount::from_raw(3_836)),
+                (3, velocity) if velocity >= 81_920 => {
+                    // Once the three-row descending path is selected, the
+                    // velocity value is data only. ASM sub_AF10 loc_AF5C
+                    // adds one 62-cycle pass for each clear wall row before
+                    // the retained solid row.
+                    let clear_wall_rows = wall_scan_hit_row.checked_sub(gfx_scan.bounds.top_row)?;
+                    Some(M68kCycleCount::from_raw(3_774_u32.checked_add(
+                        62_u32.checked_mul(u32::from(clear_wall_rows))?,
+                    )?))
+                }
                 _ => None,
             };
         }
@@ -2796,6 +2814,15 @@ pub fn player_callback_cycles_sub_e12(
             // selected loc_E1E rows span 1,634 raw cycles. Removing the
             // shared 426-cycle dispatch/hibernate shell leaves 1,208 here.
             Some(M68kCycleCount::from_raw(1_208))
+        }
+        ModeLevelPlayerExecutionPath::PullUpAnimationHibernateLoc1062 {
+            form: crate::PlayerForm::TheKid,
+            ..
+        } => {
+            // ASM loc_1062 -> j_Hibernate_Object_1Frame: after loc_E1E has
+            // restored the coroutine PC, the runnable callback executes only
+            // the four-cycle JSR veneer before sub_E76 returns to loc_E1E.
+            Some(M68kCycleCount::from_raw(4))
         }
         ModeLevelPlayerExecutionPath::NormalPhysics(_)
         | ModeLevelPlayerExecutionPath::WallClingNoButtonsLocAa22 { .. } => {
@@ -3454,6 +3481,21 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         || shooter.active_shooter_slots_before != 0
     {
         return None;
+    }
+
+    if matches!(
+        ledger.execute_objects.executed_player_path,
+        Some(
+            ModeLevelPlayerExecutionPath::PullUpAnimationHibernateLoc1062 {
+                form: crate::PlayerForm::TheKid,
+                ..
+            }
+        )
+    ) {
+        // ASM loc_7E6 -> sub_21F8 -> sub_DFB0 -> loc_EAE4 -> sub_F096 ->
+        // sub_44DC: Kid is stationary throughout loc_1062's animation wait,
+        // so the cached collision/shooter path is fixed at 2,500 raw cycles.
+        return Some(M68kCycleCount::from_raw(2_500));
     }
 
     // ASM sub_21F8 loc_2232 installs The Kid's standing hitbox, so every

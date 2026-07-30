@@ -8935,6 +8935,31 @@ impl GemsSignatureProbe {
         })
     }
 
+    /// Enter the correction-free production recurrence from the defended
+    /// power-on frame-923 `loc_7D6` boundary.
+    fn bootstrap_mode_level_to_sub_e12_after_frozen_span(
+        &mut self,
+        work: ModeLevelVblankWorkBeforeSubE12,
+    ) -> Option<wildside_core::vdp::ModeLevelRasterSeedSubE12> {
+        if self.power_on_frame != GEMS_MODELLED_ROUTE_FRAMES
+            || self.engine.pending_m68k_wait_cycles() != 0
+        {
+            return None;
+        }
+        let prefix = self.power_on_mode_level_prefix.take()?;
+        let suffix = apply_gems_mode_level_vblank_suffix_after_scroll_dma_with_wait_budget(
+            &mut self.engine,
+            prefix.cursor,
+            work,
+            ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
+            Some(M68kCycleCount::from_raw(0)),
+        )?;
+        Some(wildside_core::vdp::ModeLevelRasterSeedSubE12 {
+            beam: suffix.cursor.beam,
+            refresh_phase: suffix.cursor.refresh_phase,
+        })
+    }
+
     /// Continue one fully typed gameplay frame from `sub_44DC` through the
     /// following frame's retained H-scroll DMA prefix.
     #[cfg(test)]
@@ -9797,6 +9822,174 @@ impl ModeLevelDynamicArtQueueLocAd4 {
         );
         self.pending_tile_lengths =
             wildside_frame::sprites::player_frame_dynamic_art_tiles_loc_141a(player_frame);
+    }
+}
+
+/// Persistent source-scheduled raster owner for the first published-TAS
+/// gameplay segment after the defended power-on timing span.
+///
+/// Bootstrap remains outside the recurrence. Once aligned at frame 923's
+/// `sub_E12`, every following seed is derived from the previous frame's typed
+/// HUD/post-HUD/tail work and the live next-VBlank workload.
+pub(crate) struct PublishedTasRasterTimeline {
+    probe: GemsSignatureProbe,
+    dynamic_art_queue: ModeLevelDynamicArtQueueLocAd4,
+    player_visuals: wildside_render::PlayerVisuals,
+    previous_sub_44dc: Option<wildside_core::vdp::ModeLevelCpuRasterCursor>,
+    previous_trace: Option<NativeTraceFrame>,
+    current_seed_sub_e12: Option<wildside_core::vdp::ModeLevelRasterSeedSubE12>,
+    active: bool,
+    finished: bool,
+    scheduled_frames: usize,
+    failure: Option<(usize, &'static str)>,
+}
+
+impl PublishedTasRasterTimeline {
+    pub(crate) fn new(rom: &[u8], manifest: &AssetManifest) -> Result<Self> {
+        let visuals = wildside_render::load_level_visuals(manifest, 0)?;
+        Ok(Self {
+            probe: GemsSignatureProbe::from_kid_rom_power_on(rom)?,
+            dynamic_art_queue: ModeLevelDynamicArtQueueLocAd4::default(),
+            player_visuals: visuals.player,
+            previous_sub_44dc: None,
+            previous_trace: None,
+            current_seed_sub_e12: None,
+            active: false,
+            finished: false,
+            scheduled_frames: 0,
+            failure: None,
+        })
+    }
+
+    pub(crate) fn schedule(
+        &mut self,
+        frame_index: usize,
+        mut work: ModeLevelVblankWorkBeforeSubE12,
+    ) -> Option<wildside_core::vdp::ModeLevelRasterSeedSubE12> {
+        if self.finished || frame_index < GEMS_MODELLED_ROUTE_FRAMES {
+            return None;
+        }
+        work.dynamic_art_tiles_loc_ad4 = Some(std::mem::take(
+            &mut self.dynamic_art_queue.pending_tile_lengths,
+        ));
+        work.hud_path_sub_bdc0 = wildside_core::mode_level_hud_build_path_sub_bdc0(
+            self.previous_trace
+                .as_ref()
+                .map_or(2, |trace| trace.number_hitpoints),
+            self.previous_trace
+                .as_ref()
+                .map_or(0, |trace| trace.current_helmet_id),
+            self.previous_trace
+                .as_ref()
+                .map_or(0, |trace| trace.extra_hitpoint_slots),
+            false,
+        );
+        self.dynamic_art_queue.consumed_mode_level_frames += 1;
+
+        let seed = if self.active {
+            let previous = self.previous_trace.as_ref()?;
+            let previous_sub_44dc = self.previous_sub_44dc.take()?;
+            let recurrence = wildside_frame::ModeLevelFrameRecurrenceWork {
+                hud_events_sub_44dc: &previous.hud_dma_events_sub_44dc,
+                post_hud: previous.mode_level_work_after_hud_sub_44dc.as_ref()?,
+                tail_loc_892: previous.mode_level_tail_work_loc_892.as_ref()?,
+                next_vblank: work,
+                pending_ownership_after_loc_7d6: ModeLevelPendingHardwareOwnershipAfterLoc7d6::NONE,
+            };
+            wildside_frame::apply_gems_mode_level_frame_recurrence_to_sub_e12(
+                &mut self.probe.engine,
+                previous_sub_44dc,
+                recurrence,
+            )
+        } else {
+            if frame_index != GEMS_MODELLED_ROUTE_FRAMES {
+                self.failure = Some((frame_index, "missed defended frame-923 bootstrap"));
+                self.finished = true;
+                return None;
+            }
+            self.probe
+                .bootstrap_mode_level_to_sub_e12_after_frozen_span(work)
+        };
+        if let Some(seed) = seed {
+            self.active = true;
+            self.scheduled_frames += 1;
+            self.current_seed_sub_e12 = Some(seed);
+            Some(seed)
+        } else {
+            self.failure = Some((frame_index, "typed frame recurrence failed closed"));
+            self.finished = true;
+            None
+        }
+    }
+
+    pub(crate) fn observe(&mut self, frame_index: usize, trace: &NativeTraceFrame) {
+        if frame_index < GEMS_MODELLED_ROUTE_FRAMES {
+            let vblank_before_sub_e12 = self.dynamic_art_queue.consume_vblank_work(trace);
+            let mode_level_work = match (
+                vblank_before_sub_e12,
+                trace.mode_level_work_before_hud_sub_44dc.as_ref(),
+                trace.mode_level_tail_work_loc_892.as_ref(),
+            ) {
+                (Some(vblank_before_sub_e12), Some(pre_hud), Some(tail_loc_892)) => {
+                    Some(ModeLevelGemsFrameWork {
+                        vblank_before_sub_e12,
+                        pre_hud: Some(pre_hud),
+                        hud_events: &trace.hud_dma_events_sub_44dc,
+                        post_hud: trace.mode_level_work_after_hud_sub_44dc.as_ref(),
+                        tail_loc_892,
+                    })
+                }
+                _ => None,
+            };
+            self.probe
+                .sample_power_on_frame_rendered_with_mode_level_work(mode_level_work);
+        } else if self.active {
+            let (Some(seed), Some(pre_hud)) = (
+                self.current_seed_sub_e12.take(),
+                trace.mode_level_work_before_hud_sub_44dc.as_ref(),
+            ) else {
+                self.finished = true;
+                self.active = false;
+                return;
+            };
+            let Some(sub_44dc) =
+                apply_gems_mode_level_pre_hud_to_sub_44dc(&mut self.probe.engine, seed, pre_hud)
+            else {
+                let reason = if self.probe.engine.pending_m68k_wait_cycles() != 0 {
+                    "pre-HUD entry retained pending hardware waits"
+                } else if wildside_core::execute_objects_raw_cycles_sub_e12(
+                    &pre_hud.execute_objects,
+                )
+                .is_none()
+                {
+                    "Execute_Objects source path is unclassified"
+                } else if wildside_core::post_execute_raw_cycles_before_sub_44dc(pre_hud).is_none()
+                {
+                    "post-Execute source path is unclassified"
+                } else {
+                    "typed pre-HUD schedule failed its refresh recurrence"
+                };
+                self.failure = Some((frame_index, reason));
+                self.finished = true;
+                self.active = false;
+                return;
+            };
+            self.previous_sub_44dc = Some(sub_44dc);
+            self.previous_trace = Some(trace.clone());
+        }
+
+        self.dynamic_art_queue
+            .observe_post_hud_producer(trace, &self.player_visuals);
+    }
+
+    pub(crate) fn verify_coverage(&self) -> Result<()> {
+        if self.scheduled_frames == 0 {
+            if let Some((frame, reason)) = self.failure {
+                anyhow::bail!("published TAS raster timeline failed at frame {frame}: {reason}");
+            }
+            anyhow::bail!("published TAS raster timeline never reached its defended bootstrap");
+        }
+        Ok(())
     }
 }
 
@@ -17201,8 +17394,8 @@ mod tests {
                     wildside_core::execute_objects_raw_cycles_sub_e12(
                         &next_pre_hud.execute_objects,
                     ),
-                    None,
-                    "frame 959 Execute_Objects remains outside the shared production frontier",
+                    Some(M68kCycleCount::from_raw(3_120)),
+                    "ASM loc_1062 frame 959 retains the typed pull-up hibernation pass",
                 );
                 let external_waits = wildside_core::execute_objects_external_waits_sub_e12(
                     &next_pre_hud.execute_objects,
@@ -17218,8 +17411,8 @@ mod tests {
                 );
                 assert_eq!(
                     wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
-                    Some(M68kCycleCount::from_raw(2_754)),
-                    "shared production classification retains its prior conservative path",
+                    Some(M68kCycleCount::from_raw(2_500)),
+                    "ASM loc_1062 frame 959 retains the cached post-object scan path",
                 );
             }
             if current_frame_index == 951 {
@@ -17358,20 +17551,20 @@ mod tests {
             if current_frame_index == 957 {
                 assert_eq!(
                     wildside_core::player_callback_cycles_sub_e12(&next_pre_hud.execute_objects),
-                    None,
-                    "frame 958 pull-up callback remains outside the shared production frontier",
+                    Some(M68kCycleCount::from_raw(4)),
+                    "ASM loc_1062 pull-up hibernate callback is source-typed",
                 );
                 assert_eq!(
                     wildside_core::execute_objects_raw_cycles_sub_e12(
                         &next_pre_hud.execute_objects,
                     ),
-                    None,
-                    "frame 958 Execute_Objects remains outside the shared production frontier",
+                    Some(M68kCycleCount::from_raw(3_120)),
+                    "ASM loc_1062 pull-up hibernation types the complete Execute_Objects pass",
                 );
                 assert_eq!(
                     wildside_core::post_execute_raw_cycles_before_sub_44dc(next_pre_hud),
-                    Some(M68kCycleCount::from_raw(2_754)),
-                    "shared production classification remains conservative at frame 958",
+                    Some(M68kCycleCount::from_raw(2_500)),
+                    "ASM pull-up hibernation keeps the cached post-object scan path",
                 );
             }
             current_sub_44dc = if current_frame_index == 957 {

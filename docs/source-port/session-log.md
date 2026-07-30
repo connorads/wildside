@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#409 persistent raster timeline)
+
+- `ScriptRunner` now carries each correction-free Mode_Level raster recurrence
+  seed into the next frame; the pixel verifier owns the persistent timeline.
+- The source-backed frame-923 bootstrap advances through frame 1004 without a
+  route clock or frame-local ownership correction.
+- Frame 1005 fails closed on the shared downward `sub_30194` camera stripe and
+  `sub_307D8` background-row refresh at camera Y `$01E1`.
+- NEXT: selected-PC trace that plane-streaming shape, type its ordered FIFO/VINT
+  work, then measure the Diamond and life-icon pixel clusters.
+
 ## 2026-07-30 handoff (#409 foreground-cell source ledger)
 
 - Oracle frame 990 executes one visible-theme `sub_1596` record at cell

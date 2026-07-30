@@ -675,6 +675,41 @@ impl ScriptRunner {
         Ok(())
     }
 
+    /// Replay a scenario while allowing an execution shell to advance the
+    /// persistent hardware timeline at each live `Mode_Level` VBlank.
+    ///
+    /// The scheduler runs inside the frame before `sub_E12`; the visitor sees
+    /// the resulting post-step trace and the same pre-step render latch as
+    /// [`Self::try_for_each_frame`].
+    pub fn try_for_each_frame_with_raster_scheduler<E, S, F>(
+        self,
+        script: &[u8],
+        frame_count: usize,
+        mut scheduler: S,
+        mut visitor: F,
+    ) -> Result<(), E>
+    where
+        S: FnMut(usize, ModeLevelVblankWorkBeforeSubE12) -> Option<vdp::ModeLevelRasterSeedSubE12>,
+        F: FnMut(usize, &NativeRuntime, &NativeTraceFrame, &NativeTraceFrame) -> Result<(), E>,
+    {
+        let (mut runtime, delay_recording_input, mut restore_title_card_handoff) =
+            self.into_runtime();
+        for frame_index in 0..frame_count {
+            let previous_trace = runtime.trace_frame();
+            let input = script_frame_input(script, frame_index, delay_recording_input);
+            let trace = runtime.step_frame_with_mode_level_raster_scheduler(input, &mut |work| {
+                scheduler(frame_index, work)
+            });
+            restore_recorded_title_card_handoff_if_needed(
+                &mut runtime,
+                &mut restore_title_card_handoff,
+                trace.game_mode,
+            );
+            visitor(frame_index, &runtime, &previous_trace, &trace)?;
+        }
+        Ok(())
+    }
+
     fn run_inner(
         self,
         script: &[u8],
