@@ -116,15 +116,14 @@ pub use mode_level_timing::{
     ModeLevelForegroundCellQueuePathSub1596, ModeLevelForegroundCellQueueWorkSub1596,
     ModeLevelHudBuildPath, ModeLevelPendingHardwareOwnershipAfterLoc7d6,
     ModeLevelPostHudPhaseAdvance, ModeLevelScrollTransferPath, ModeLevelTailAdvanceLoc892,
-    ModeLevelTailBackgroundWorkLoc3038A, ModeLevelTailCameraCellMappingSub30194,
-    ModeLevelTailCameraStripeSub30194, ModeLevelTailInputsLoc892, ModeLevelTailPaletteWorkSub14C0,
-    ModeLevelTailPieceRefreshSub307D8, ModeLevelTailPieceRowsSub30744,
-    ModeLevelTailShiftDataAdvanceLoc30452, ModeLevelTailShiftDataSlotLoc30452,
-    ModeLevelTailShiftDataStateLoc30452, ModeLevelTailShiftLayersWork, ModeLevelTailStateLoc892,
-    ModeLevelTailWorkLoc892, ModeLevelVblankArbitrationBeforeSubE12,
-    ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership, ModeLevelVblankWorkBeforeSubE12,
-    ReadJoypadControl, TransformRasterWorkSub8E0, WaitForVintArbitration,
-    WaitForVintInterruptSample, WaitForVintResumePath,
+    ModeLevelTailBackgroundWorkLoc3038A, ModeLevelTailCameraStripeSub30194,
+    ModeLevelTailInputsLoc892, ModeLevelTailPaletteWorkSub14C0, ModeLevelTailPieceRefreshSub307D8,
+    ModeLevelTailPieceRowsSub30744, ModeLevelTailShiftDataAdvanceLoc30452,
+    ModeLevelTailShiftDataSlotLoc30452, ModeLevelTailShiftDataStateLoc30452,
+    ModeLevelTailShiftLayersWork, ModeLevelTailStateLoc892, ModeLevelTailWorkLoc892,
+    ModeLevelVblankArbitrationBeforeSubE12, ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership,
+    ModeLevelVblankWorkBeforeSubE12, ReadJoypadControl, TransformRasterWorkSub8E0,
+    WaitForVintArbitration, WaitForVintInterruptSample, WaitForVintResumePath,
     block_debris_sprites_advance_with_scheduler_sub_2a4c, block_debris_sprites_raw_cycles_sub_2a4c,
     cyclone_pickup_transform_entry_sub_e12, damage_flash_wait_cycles_loc_bc44,
     demo_exit_wait_cycles_loc_119e0,
@@ -1847,28 +1846,14 @@ impl NativeRuntime {
             };
             let row = u16::try_from(source_y_tile >> 1).ok()?;
             let first_column = x_tile >> 1;
-            (y_tile != previous_y_tile
+            (previous_x_tile == x_tile
+                && y_tile != previous_y_tile
+                && ((first_column & 0x001F) < 0x000C)
                 && first_column.checked_add(20)? < grid.width_cells
                 && row < grid.height_cells)
                 .then(|| {
                     (0..21_u16)
                         .map(|offset| grid.raw_word_at(first_column + offset, row))
-                        .collect::<Vec<_>>()
-                })
-        });
-        // ASM sub_30194 loc_3023C/loc_30262: rightward motion selects the
-        // newly exposed tile column at d7+$28. The unsplit plane window uses
-        // 15 consecutive block rows through sub_302F6.
-        let camera_column_cells_sub_30194 = self.block_grid.as_ref().and_then(|grid| {
-            let source_x_tile = x_tile.checked_add(0x0028)?;
-            let column = source_x_tile >> 1;
-            let first_row = u16::try_from((y_tile & !1) >> 1).ok()?;
-            (previous_x_tile < x_tile
-                && column < grid.width_cells
-                && first_row.checked_add(14)? < grid.height_cells)
-                .then(|| {
-                    (0..15_u16)
-                        .map(|offset| grid.raw_word_at(column, first_row + offset))
                         .collect::<Vec<_>>()
                 })
         });
@@ -1885,7 +1870,6 @@ impl NativeRuntime {
                     camera_x_pos,
                     camera_y_pos,
                     camera_stripe_cells_sub_30194: camera_stripe_cells_sub_30194.as_deref(),
-                    camera_column_cells_sub_30194: camera_column_cells_sub_30194.as_deref(),
                     time_frames_before_loc_3038a: self.time_frames_loc_3038a,
                     game_mode_zero: self.game_mode().as_disassembly_value() == 0,
                     special_effect_4: self.weather.weather_type == 4,
@@ -4403,25 +4387,9 @@ impl NativeRuntime {
             );
         }
 
-        let transform_cleanup_resumed_mode_level = transform_hibernating_at_frame_start
-            && !self.object_pass_hibernating_for_transform_loc_7e90();
-        if transform_cleanup_resumed_mode_level {
-            self.manage_platform_loading_after_transform_cleanup_loc_7e90();
-            if let BootState::DemoPlay {
-                frame_counter,
-                use_demo_2,
-                ..
-            } = self.boot_state
-            {
-                self.demo_read_joypad_work_loc_c22 = Some(Self::demo_read_joypad_work_loc_c22(
-                    frame_counter,
-                    use_demo_2,
-                ));
-            }
-        }
         if Self::hud_animation_runs_in_mode_level_loc_80c(
             gameplay_slice_active,
-            self.object_pass_hibernating_for_transform_loc_7e90(),
+            transform_hibernating_at_frame_start,
         ) {
             // ASM Mode_Level loc_80C (kid.asm:923): `bsr.w sub_44DC` advances
             // animated HUD VRAM pages once per level frame before the rendered
@@ -5149,9 +5117,9 @@ impl NativeRuntime {
 
     const fn hud_animation_runs_in_mode_level_loc_80c(
         gameplay_slice_active: bool,
-        transform_still_hibernating_before_loc_80c: bool,
+        transform_hibernating_at_frame_start: bool,
     ) -> bool {
-        gameplay_slice_active && !transform_still_hibernating_before_loc_80c
+        gameplay_slice_active && !transform_hibernating_at_frame_start
     }
 
     pub(crate) fn object_pass_hibernating_for_transform_loc_7e90(&self) -> bool {

@@ -13,29 +13,6 @@ order at split time; nothing here is re-attributed or deduplicated.
 
 ### #409
 
-Progress 2026-07-30: the correction-free persistent raster recurrence advances
-from frame 995 through published frame 1450 without a route-index timing case.
-The composed owner now covers all Cyclone transform edges, the frame-1130
-`loc_7E90` rejoin, ordered camera row/column streaming, stable and changing HUD
-paths, prize wobble/flash/tail callbacks, and smash-block/debris allocation.
-Complete-address E1E journals resolve the recurring block lifecycle: a newly
-inserted destroy worker costs 888 raw cycles in the allocating pass, resumes
-with a 72-cycle hibernate, then inserts a 2,382-cycle debris callback on the
-following pass. Frame 1399 also materialises the Diamond before Kid and runs
-its 1,790-cycle initial callback in source list order. The typed PlaySound
-boundary schedules its six direct Z80 waits rather than adding an aggregate
-delay. `mise run verify-slice-fast` and `mise run verify-tas-full` pass. Full
-pixels remain 37,518 exact / 241 divergent / 2,457 changed; this is natural
-timeline coverage, not a visual-ratchet reduction. NEXT: census the first
-post-1450 recurrence failures by repeated workload and take the widest class.
-
-Correction 2026-07-30: frame 1730's former H40 15:284 Diamond lower bound
-depended on an incomplete floating-prize roster. The complete source-ordered
-ledger exposes two live `loc_103B2` row-advance callbacks whose raw costs are
-not yet proven, so the exact scheduler returns `None`. The regression test
-pins that fail-closed contract. Re-establish a lower bound only after tracing
-the recurring row-advance paths; do not restore the partial-roster result.
-
 Progress 2026-07-30: the streaming `ScriptRunner` now accepts a correction-free
 Mode_Level raster scheduler and returns each recurrence seed to the next frame.
 The published pixel verifier owns one persistent CPU/GEMS/VDP timeline rather

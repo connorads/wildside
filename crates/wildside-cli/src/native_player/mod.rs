@@ -20638,7 +20638,7 @@ mod tests {
     }
 
     #[test]
-    fn published_tas_frame_1730_unclassified_prize_paths_reject_diamond_lower_bound_loc_4626() {
+    fn published_tas_frame_1730_empty_loc_ad4_exposes_diamond_lower_bound_loc_4626() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
@@ -20678,10 +20678,12 @@ mod tests {
                 .as_ref()
                 .expect("published frame 1730 pre-HUD work"),
             command,
-        );
+        )
+        .expect("published frame 1730 empty loc_AD4 queue has a typed lower bound");
         assert_eq!(
-            timing, None,
-            "ASM loc_103B2 row-advance costs remain unclassified; the complete floating-prize roster must keep the frame-1730 Diamond bound fail-closed",
+            (timing.scanline, timing.pixel),
+            (15, 284),
+            "ASM sub_A5C's empty loc_AD4 queue must remain source-typed; asynchronous CPU/VDP/Z80 arbitration moves the oracle sub_44DC loc_4626 commit later to H40 20:380",
         );
     }
 

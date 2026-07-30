@@ -185,15 +185,14 @@ fn mode_level_gfx_collision_kid_f86e_work_sub_1b76(
         .iter()
         .filter(|item| !item.collected)
         .collect::<Vec<_>>();
-    let inert_workers = runtime
+    let inert_prize_workers = runtime
         .block_bounces
         .iter()
         .filter(|bounce| bounce.kind == BlockBounceKind::Prize)
         .count()
         .checked_add(runtime.count_visible_prize_block_worker_tails())
-        .and_then(|count| count.checked_add(runtime.prize_block_spawn_flashes.len()))
-        .and_then(|count| count.checked_add(runtime.block_destroy_effects.len()));
-    let Some(inert_workers) = inert_workers else {
+        .and_then(|count| count.checked_add(runtime.prize_block_spawn_flashes.len()));
+    let Some(inert_prize_workers) = inert_prize_workers else {
         return ModeLevelGfxCollisionKidListWorkSub1B76::Unclassified;
     };
 
@@ -201,7 +200,7 @@ fn mode_level_gfx_collision_kid_f86e_work_sub_1b76(
     // coroutines add their kind-4 GfxObjects through loc_FA6. In the
     // enemy/platform-free published frontier, two persistent kind-4 nodes
     // remain beside the exactly counted wobble/tail/flash/prize workers.
-    let expected_node_count = inert_workers
+    let expected_node_count = inert_prize_workers
         .checked_add(live_floating_items.len())
         .and_then(|count| count.checked_add(2));
     if expected_node_count != Some(usize::from(linked_gfx_object_count.saturating_sub(2))) {
@@ -211,7 +210,7 @@ fn mode_level_gfx_collision_kid_f86e_work_sub_1b76(
     let mut nodes = Vec::with_capacity(expected_node_count.unwrap_or_default());
     nodes.extend(std::iter::repeat_n(
         ModeLevelGfxCollisionKidNodeWorkSub1B76::CollisionRowsSentinelLoc1bc0,
-        inert_workers,
+        inert_prize_workers,
     ));
     let kid_hitbox = runtime.player_collision_bounds(player);
     for item in live_floating_items {
@@ -240,13 +239,7 @@ fn mode_level_gfx_move_animate_work_sub_1444(
     // ASM sub_7196 leaves four persistent stationary GfxObjects in the
     // target gameplay shell. The remaining target nodes are exactly the
     // prize workers below; the final count check rejects any hidden family.
-    // ASM sub_10EDA loc_10F2A: each pre-debris smash worker owns a static
-    // GfxObject ahead of Kid in the priority-linked list.
-    let mut nodes = vec![
-        ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated;
-        runtime.block_destroy_effects.len()
-    ];
-    nodes.extend([ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated; 4]);
+    let mut nodes = vec![ModeLevelGfxMoveAnimateNodeWorkSub1444::StationaryUnanimated; 4];
     if let Some(animation_tick) = runtime.current_player_state().and_then(|player| {
         crate::constants::LEDGE_SNAP_PULLUP_FRAMES
             .checked_sub(player.ledge_snap_cooldown)
@@ -496,18 +489,12 @@ fn mode_level_gfx_sprite_work_sub_1492(
             ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulled,
         )
     };
-    // ASM sub_10EDA loc_10F2A: the pre-debris worker's 2x2 `$224`
-    // mapping precedes Kid in the GfxObject priority list.
     let mut nodes = vec![
-        ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingle16x16Normal;
-        runtime.block_destroy_effects.len()
-    ];
-    nodes.extend([
         first_persistent_node,
         second_persistent_node,
         culled_persistent_node,
         culled_persistent_node,
-    ]);
+    ];
 
     for tail in runtime.visible_prize_block_worker_tails() {
         let node = match prize_block_tail_state_sub_1007a(tail.content, tail.remaining) {
@@ -1152,17 +1139,11 @@ fn prize_object_execution_order_sub_e12(
 
     let mut order = floating
         .into_iter()
-        .map(|(_, index)| {
-            if execute.floating_prize_paths[index].initial_sub_102f8 {
-                ModeLevelPrizeObjectExecutionSubE12::FloatingPrizeInitialSub102F8 {
-                    index: index as u16,
-                }
-            } else {
-                ModeLevelPrizeObjectExecutionSubE12::FloatingPrize {
-                    index: index as u16,
-                }
-            }
-        })
+        .map(
+            |(_, index)| ModeLevelPrizeObjectExecutionSubE12::FloatingPrize {
+                index: index as u16,
+            },
+        )
         .collect::<Vec<_>>();
     order.push(ModeLevelPrizeObjectExecutionSubE12::Player);
     if execute
@@ -1170,12 +1151,6 @@ fn prize_object_execution_order_sub_e12(
         .is_some()
     {
         order.push(ModeLevelPrizeObjectExecutionSubE12::PlayerSpawnedInitialSub1007A);
-    }
-    if execute
-        .player_spawned_block_destroy_list_work_sub_10e86
-        .is_some()
-    {
-        order.push(ModeLevelPrizeObjectExecutionSubE12::PlayerSpawnedBlockDestroyInitialSub10EDA);
     }
     order.extend(equal_workers.into_iter().map(|(_, _, _, work)| work));
     Some(order)
@@ -1457,7 +1432,6 @@ fn mode_level_airborne_horizontal_path(
     match x_velocity_after.wrapping_sub(x_velocity_before) {
         0x2B00 => ModeLevelAirborneHorizontalPath::RightHeldAcceleration,
         0x4080 => ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
-        -0x4080 => ModeLevelAirborneHorizontalPath::LeftHeldRunAcceleration,
         -0x0100 if x_velocity_before > 0 && x_velocity_after > 0 => {
             ModeLevelAirborneHorizontalPath::RightHeldCapBleed
         }
@@ -1466,14 +1440,6 @@ fn mode_level_airborne_horizontal_path(
         }
         -0x0400 if x_velocity_before > 0 && x_velocity_after >= 0 => {
             ModeLevelAirborneHorizontalPath::NeutralPositiveBrake
-        }
-        delta
-            if x_velocity_before > 0
-                && x_velocity_before < 0x0400
-                && x_velocity_after == 0
-                && delta == -x_velocity_before =>
-        {
-            ModeLevelAirborneHorizontalPath::NeutralPositiveBrakeClampZero
         }
         0 if x_velocity_before == 0 && x_velocity_after == 0 => {
             ModeLevelAirborneHorizontalPath::NeutralStationary
@@ -2692,8 +2658,6 @@ mod tests {
                     active_platform_workers: 0,
                     palette_rotation_worker_loc_11f96: 0,
                     unclassified_runtime_transient_workers: 0,
-                    block_destroy_workers_sub_10eda: Vec::new(),
-                    block_debris_workers_sub_292e: 0,
                     player_entry_position: None,
                     player_gfx_terrain_scan: None,
                     cyclone_visual_accumulator_before: None,
@@ -2707,7 +2671,6 @@ mod tests {
                     }],
                     player_spawned_prize_block_initial_sub_1007a: None,
                     player_prize_wobble_list_work_loc_1002e: None,
-                    player_spawned_block_destroy_list_work_sub_10e86: None,
                     prize_object_execution_order_sub_e12: None,
                     damage_flash_wait_loc_bc44: Some(ModeLevelDamageFlashWaitLocBc44::AwaitDamage,),
                     demo_exit_wait_loc_119e0: None,
@@ -2733,7 +2696,6 @@ mod tests {
                         content: terrain::PrizeContent::Diamond,
                         remaining: 0x01F4,
                         spawn_delay: 0,
-                        initial_sub_102f8: false,
                         first_row_grace: false,
                         collision_latched: false,
                         fall_path_loc_103b2: None,
@@ -2944,8 +2906,6 @@ mod tests {
             active_platform_workers: 0,
             palette_rotation_worker_loc_11f96: 1,
             unclassified_runtime_transient_workers: 0,
-            block_destroy_workers_sub_10eda: Vec::new(),
-            block_debris_workers_sub_292e: 0,
             player_entry_position: None,
             player_gfx_terrain_scan: None,
             cyclone_visual_accumulator_before: None,
@@ -2961,7 +2921,6 @@ mod tests {
                 .collect(),
             player_spawned_prize_block_initial_sub_1007a: None,
             player_prize_wobble_list_work_loc_1002e: None,
-            player_spawned_block_destroy_list_work_sub_10e86: None,
             prize_object_execution_order_sub_e12: None,
             damage_flash_wait_loc_bc44: None,
             demo_exit_wait_loc_119e0: None,
@@ -2990,7 +2949,6 @@ mod tests {
                     content: terrain::PrizeContent::Diamond,
                     remaining,
                     spawn_delay: 0,
-                    initial_sub_102f8: false,
                     first_row_grace: false,
                     collision_latched: false,
                     fall_path_loc_103b2: None,
@@ -3151,16 +3109,6 @@ mod tests {
             mode_level_airborne_horizontal_path(0x0000_EB80, 0x0000_E780),
             ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
             "ASM sub_B084 loc_B0FE subtracts $400 from frame 985's positive velocity",
-        );
-        assert_eq!(
-            mode_level_airborne_horizontal_path(0x0100, 0),
-            ModeLevelAirborneHorizontalPath::NeutralPositiveBrakeClampZero,
-            "ASM sub_B084 loc_B0FE clamps frame 1372's sub-$400 velocity to zero",
-        );
-        assert_eq!(
-            mode_level_airborne_horizontal_path(0, 0),
-            ModeLevelAirborneHorizontalPath::NeutralStationary,
-            "ASM sub_B084 loc_B0FE preserves zero velocity on frame 1373",
         );
     }
 
@@ -10222,16 +10170,6 @@ impl NativeRuntime {
             .count() as u16;
         let rubber_block_skin_workers_sub_10de4 =
             self.block_state.rubber_block_animations.len() as u16;
-        let block_destroy_workers_sub_10eda = self
-            .block_destroy_effects
-            .iter()
-            .filter_map(|effect| match effect.remaining {
-                2 => Some(crate::ModeLevelBlockDestroyWorkerSub10EDA::Hibernate),
-                1 => Some(crate::ModeLevelBlockDestroyWorkerSub10EDA::HibernateThenDebrisInitial),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        let block_debris_workers_sub_292e = self.block_debris_swarms.len() as u16;
         // ASM Load_InGame loc_11F96/loc_11FB0 allocates an Object-only
         // palette coroutine for Mountain, Cave, and Island themes.
         let palette_rotation_worker_loc_11f96 =
@@ -10246,8 +10184,7 @@ impl NativeRuntime {
             .saturating_add(prize_block_worker_tails_sub_1007a)
             .saturating_add(prize_block_flash_workers_loc_102b8)
             .saturating_add(floating_prize_workers)
-            .saturating_add(rubber_block_skin_workers_sub_10de4)
-            .saturating_add(block_destroy_workers_sub_10eda.len() as u16);
+            .saturating_add(rubber_block_skin_workers_sub_10de4);
         let linked_non_transient_object_count =
             linked_object_count.saturating_sub(classified_runtime_transient_workers);
         let unclassified_runtime_transient_workers = linked_object_count
@@ -10304,7 +10241,6 @@ impl NativeRuntime {
                     content: item.content,
                     remaining: item.remaining,
                     spawn_delay: item.spawn_delay,
-                    initial_sub_102f8: false,
                     first_row_grace: item.first_row_grace,
                     collision_latched: item.collision_latched,
                     fall_path_loc_103b2,
@@ -10348,15 +10284,12 @@ impl NativeRuntime {
                 active_platform_workers,
                 palette_rotation_worker_loc_11f96,
                 unclassified_runtime_transient_workers,
-                block_destroy_workers_sub_10eda,
-                block_debris_workers_sub_292e,
                 player_entry_position,
                 player_gfx_terrain_scan: None,
                 cyclone_visual_accumulator_before,
                 prize_block_wobble_paths_sub_1007a,
                 player_spawned_prize_block_initial_sub_1007a: None,
                 player_prize_wobble_list_work_loc_1002e: None,
-                player_spawned_block_destroy_list_work_sub_10e86: None,
                 prize_object_execution_order_sub_e12: None,
                 damage_flash_wait_loc_bc44: (!self.just_received_damage
                     && self.death_shell_snapshot.is_none())
@@ -10377,12 +10310,10 @@ impl NativeRuntime {
                     }),
                 input_worker_loc_7452: (matches!(self.boot_state, BootState::DemoPlay { .. })
                     && self.hundred_k_trip_timer == 0
-                    && !(self.trace_input.left && self.trace_input.right)
+                    && !self.trace_input.left
                     && (!self.trace_input.start || self.previous_input.start))
                     .then_some(if player == ModeLevelPlayerWorkBeforeHud::Activation {
                         ModeLevelInputWorkerPathLoc7452::InitialHibernate
-                    } else if self.trace_input.left && !self.trace_input.right {
-                        ModeLevelInputWorkerPathLoc7452::DemoLeftOnlyNoStartTimerClear
                     } else {
                         ModeLevelInputWorkerPathLoc7452::DemoNoLeftNoStartTimerClear
                     }),
@@ -10436,21 +10367,8 @@ impl NativeRuntime {
             .iter()
             .filter(|object| matches!(object.kind, NativeObjectKind::Enemy { .. }))
             .count();
-        let read_joypad_work = if let BootState::DemoPlay {
-            frame_counter,
-            use_demo_2,
-            ..
-        } = self.boot_state
-        {
-            // ASM Mode_Level loc_81A reaches ReadJoypad after a final
-            // Kid_Transform loc_7E90 cleanup has returned. Native decodes
-            // input before its lifecycle countdown reaches zero, so recover
-            // the same source work here at the actual post-HUD boundary.
-            ModeLevelReadJoypadWork::DemoPlaybackLocC22(Some(
-                self.demo_read_joypad_work_loc_c22.unwrap_or_else(|| {
-                    Self::demo_read_joypad_work_loc_c22(frame_counter, use_demo_2)
-                }),
-            ))
+        let read_joypad_work = if matches!(self.boot_state, BootState::DemoPlay { .. }) {
+            ModeLevelReadJoypadWork::DemoPlaybackLocC22(self.demo_read_joypad_work_loc_c22)
         } else if self.options_two_player_two_controllers && self.current_player_index != 0 {
             ModeLevelReadJoypadWork::SecondControllerLocB98
         } else {
@@ -10767,64 +10685,6 @@ impl NativeRuntime {
                 ground_scan_cells_sub_b43a_8600,
             };
         }
-        let grounded_left_walk_start = self.last_kid_frame_motion_branch
-            == KidFrameMotionBranch::NormalPhysics
-            && self.active_platform_standing_on.is_none()
-            && self.current_player_state().is_some_and(|player| {
-                player.on_ground && player.x_velocity == -0x3000 && player.y_velocity == 0
-            })
-            && self
-                .last_kid_frame_grounded_release_probe
-                .is_some_and(|probe| {
-                    probe.on_ground_before
-                        && probe.held_direction == Some(crate::Direction::Left)
-                        && !probe.down_held
-                        && !probe.jump_pressed
-                        && probe.jump_buffer_frames == 0
-                        && probe.velocity_branch == KidGroundedReleaseVelocityBranch::GroundedHold
-                        && probe.support_col.is_some()
-                        && !probe.release_triggered
-                })
-            && action.is_some_and(|action| !action.b_pressed && !action.c_pressed);
-        if grounded_left_walk_start {
-            // ASM loc_7606 -> loc_779C -> loc_7820 -> loc_8BF0: the grounded
-            // coroutine is shared by helmet forms and selects direction from
-            // Ctrl_Left_Held before applying the helmet acceleration.
-            return ModeLevelPlayerExecutionPath::GroundedLeftWalkStartLoc779c {
-                form: self.progression.current_form,
-                x_velocity_after: -0x3000,
-                ground_scan_cells_sub_b43a_8600: self.observe_ground_scan_cells_sub_b43a_8600(),
-            };
-        }
-        let grounded_walk_release_velocity = self.current_player_state().and_then(|player| {
-            (self.last_kid_frame_motion_branch == KidFrameMotionBranch::NormalPhysics
-                && self.active_platform_standing_on.is_none()
-                && !player.on_ground
-                && player.y_velocity == 0
-                && self
-                    .last_kid_frame_grounded_release_probe
-                    .is_some_and(|probe| {
-                        probe.on_ground_before
-                            && probe.held_direction == Some(crate::Direction::Left)
-                            && probe.release_triggered
-                            && !probe.down_held
-                            && !probe.jump_pressed
-                            && probe.velocity_branch
-                                == KidGroundedReleaseVelocityBranch::GroundedHold
-                    })
-                && action.is_some_and(|action| !action.b_pressed && !action.c_pressed))
-            .then_some(player.x_velocity)
-        });
-        if let Some(x_velocity_after) = grounded_walk_release_velocity {
-            // ASM loc_8BF0 -> loc_8C70 -> loc_A6F8: a clear support scan
-            // switches the grounded coroutine to the airborne one-frame wait.
-            return ModeLevelPlayerExecutionPath::GroundedWalkReleaseLoc8c70 {
-                form: self.progression.current_form,
-                direction: crate::Direction::Left,
-                x_velocity_before: x_velocity_after.wrapping_add(0x1C00),
-                x_velocity_after,
-            };
-        }
         let Some(follow_on) = self.last_kid_frame_kid_flip_follow_on_probe else {
             return ModeLevelPlayerExecutionPath::Unclassified;
         };
@@ -10963,6 +10823,7 @@ impl NativeRuntime {
         }
         let grounded_jump_launch = self.last_kid_frame_motion_branch
             == KidFrameMotionBranch::NormalPhysics
+            && self.progression.current_form == PlayerForm::TheKid
             && self.active_platform_standing_on.is_none()
             && action.b_pressed
             && !action.c_pressed
@@ -11000,6 +10861,7 @@ impl NativeRuntime {
         }
         let grounded_right_walk_continue = self.last_kid_frame_motion_branch
             == KidFrameMotionBranch::NormalPhysics
+            && self.progression.current_form == PlayerForm::TheKid
             && self.active_platform_standing_on.is_none()
             && self.current_player_state().is_some_and(|player| {
                 player.on_ground && player.x_velocity == x_velocity_after && player.y_velocity == 0
@@ -11017,7 +10879,7 @@ impl NativeRuntime {
                         && !probe.release_triggered
                 })
             && x_velocity_before > 0
-            && x_velocity_after >= x_velocity_before
+            && x_velocity_after == x_velocity_before + 0x0000_1C00
             && stages.gfx_object_collision_clear
             && !follow_on.wall_hit_after_floor
             && stages.after_floor == stages.after_wall
@@ -11035,38 +10897,6 @@ impl NativeRuntime {
                 ground_scan_cells_sub_b43a_8600: self.observe_ground_scan_cells_sub_b43a_8600(),
             };
         }
-        let grounded_left_walk_continue = self.last_kid_frame_motion_branch
-            == KidFrameMotionBranch::NormalPhysics
-            && self.active_platform_standing_on.is_none()
-            && self.current_player_state().is_some_and(|player| {
-                player.on_ground && player.x_velocity == x_velocity_after && player.y_velocity == 0
-            })
-            && self
-                .last_kid_frame_grounded_release_probe
-                .is_some_and(|probe| {
-                    probe.on_ground_before
-                        && probe.held_direction == Some(crate::Direction::Left)
-                        && !probe.down_held
-                        && !probe.jump_pressed
-                        && probe.jump_buffer_frames == 0
-                        && probe.velocity_branch == KidGroundedReleaseVelocityBranch::GroundedHold
-                        && probe.support_col.is_some()
-                        && !probe.release_triggered
-                })
-            && x_velocity_before < 0
-            && x_velocity_after < x_velocity_before
-            && !action.b_pressed
-            && !action.c_pressed;
-        if grounded_left_walk_continue {
-            // ASM loc_8BF0 -> loc_8D72 -> loc_8E06: retain the directional
-            // velocity transition and the complete foot-row traversal.
-            return ModeLevelPlayerExecutionPath::GroundedLeftWalkContinueLoc8bf0 {
-                form: self.progression.current_form,
-                x_velocity_before,
-                x_velocity_after,
-                ground_scan_cells_sub_b43a_8600: self.observe_ground_scan_cells_sub_b43a_8600(),
-            };
-        }
         if self.last_kid_frame_motion_branch != KidFrameMotionBranch::NormalPhysics {
             return ModeLevelPlayerExecutionPath::Unclassified;
         }
@@ -11074,17 +10904,17 @@ impl NativeRuntime {
             stages.after_press_away.x_velocity,
             stages.after_jump_gravity.x_velocity,
         );
-        let vertical = if !self.helmet.cyclone_flying
+        let vertical = if self.progression.current_form == PlayerForm::TheKid
             && stages.after_press_away.y_velocity < 0
             && stages.after_jump_gravity.y_velocity
                 == stages.after_press_away.y_velocity.wrapping_add(0x2000)
         {
-            // ASM sub_B168 loc_B19C -> loc_B1D4 -> loc_B1E8: a rising,
-            // non-flying form with B held receives the lower `$2000`
-            // gravity increment.
+            // ASM sub_B168 loc_B19C -> loc_B1D4 -> loc_B1E8: a rising Kid
+            // with B held receives the lower `$2000` gravity increment.
             ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8
-        } else if stages.after_jump_gravity.y_velocity
-            == stages.after_press_away.y_velocity.wrapping_add(0x4000)
+        } else if self.progression.current_form == PlayerForm::TheKid
+            && stages.after_jump_gravity.y_velocity
+                == stages.after_press_away.y_velocity.wrapping_add(0x4000)
         {
             // ASM sub_B168 loc_B1D4 -> loc_B1E0: released B takes the normal
             // `$4000` gravity step before the shared cap at loc_B1EE.
@@ -11104,18 +10934,6 @@ impl NativeRuntime {
                     .is_some_and(|before| {
                         before.wrapping_add(CYCLONE_ACCEL_GRAVITY) > CYCLONE_ACCEL_MAX_DESCENT
                     }),
-            }
-        } else if self.progression.current_form == PlayerForm::Cyclone
-            && self.helmet.cyclone_flying
-            && action.c_pressed
-            && stages.cyclone_acceleration_before_sub_b168.is_some()
-        {
-            // ASM sub_B168 loc_B214: C is consumed here before the later
-            // loc_A7F8 action dispatch, then thrust rejoins at loc_B246.
-            ModeLevelAirborneVerticalPath::CycloneFlyingCPress {
-                acceleration_after: self.helmet.cyclone_y_accel,
-                y_velocity_after: stages.after_jump_gravity.y_velocity,
-                clamped_acceleration_to_0x8001: self.helmet.cyclone_y_accel == i16::MIN + 1,
             }
         } else {
             ModeLevelAirborneVerticalPath::Unclassified
@@ -11148,19 +10966,10 @@ impl NativeRuntime {
             ModeLevelWallCollisionPath::RightWallClingLocA9e4
         ) {
             ModeLevelAirborneActionPath::NotReachedAfterWallCollision
-        } else if !action.b_pressed
-            && (!action.c_pressed || stages.cyclone_acceleration_before_sub_b168.is_some())
-        {
+        } else if !action.b_pressed && !action.c_pressed {
             // ASM loc_A7B4/loc_A7F8 (kid.asm:13199-13287): neither button
             // reaches loc_A8D6, whose sub_B270 call precedes loc_A6F8.
             ModeLevelAirborneActionPath::NoButtons
-        } else if self.progression.current_form == PlayerForm::Cyclone
-            && action.c_pressed
-            && self.helmet.cyclone_flying
-        {
-            // ASM loc_A7F8 -> loc_A830: the consumed C edge sets
-            // Cyclone_flying, then loc_A8D6 performs the visual update.
-            ModeLevelAirborneActionPath::CycloneFlightStartLocA830
         } else {
             ModeLevelAirborneActionPath::Unclassified
         };
@@ -11222,57 +11031,6 @@ impl NativeRuntime {
             cyclone_visual_accumulator_before,
             ceiling_scan_sub_914a,
         );
-        let deleted_tail_overlap_count =
-            self.mode_level_work_before_hud_sub_44dc
-                .as_ref()
-                .map_or(0, |ledger| {
-                    ledger
-                        .execute_objects
-                        .prize_block_tail_paths_sub_1066
-                        .iter()
-                        .filter(|tail| {
-                            matches!(
-                                tail.state,
-                                ModeLevelPrizeBlockTailState::DeletedWorkerOverlap { .. }
-                            )
-                        })
-                        .count()
-                });
-        let entry_floating_prize_count = self
-            .mode_level_work_before_hud_sub_44dc
-            .as_ref()
-            .map_or(0, |ledger| ledger.execute_objects.floating_prize_workers);
-        let current_floating_prize_paths = self
-            .floating_items
-            .iter()
-            .filter(|item| !item.collected)
-            .map(|item| {
-                let fall_path_loc_103b2 = self.block_grid.as_ref().map(|grid| {
-                    floating_prize_fall_path_loc_103b2(
-                        item,
-                        grid.cell_at(item.level_col, item.level_row).collision,
-                        grid.cell_at(item.level_col, item.level_row.saturating_add(1))
-                            .collision,
-                    )
-                });
-                ModeLevelFloatingPrizeWork {
-                    content: item.content,
-                    remaining: item.remaining,
-                    spawn_delay: item.spawn_delay,
-                    initial_sub_102f8: false,
-                    first_row_grace: item.first_row_grace,
-                    collision_latched: item.collision_latched,
-                    fall_path_loc_103b2,
-                }
-            })
-            .collect::<Vec<_>>();
-        let materialised_entry_floating_prize = deleted_tail_overlap_count == 1
-            && current_floating_prize_paths.len()
-                == usize::from(entry_floating_prize_count).saturating_add(1);
-        let player_spawned_smash_worker = self
-            .opening_slice
-            .as_ref()
-            .is_some_and(|slice| slice.smash_block_hit.is_some());
         if matches!(
             &executed_player_path,
             ModeLevelPlayerExecutionPath::LevelStartActivationLoc7508 { .. }
@@ -11341,45 +11099,6 @@ impl NativeRuntime {
         if let Some(ledger) = self.mode_level_work_before_hud_sub_44dc.as_mut() {
             ledger
                 .execute_objects
-                .prize_block_tail_paths_sub_1066
-                .retain(|tail| {
-                    !matches!(
-                        tail.state,
-                        ModeLevelPrizeBlockTailState::DeletedWorkerOverlap { .. }
-                    )
-                });
-            ledger.execute_objects.prize_block_worker_tails_sub_1007a =
-                u16::try_from(ledger.execute_objects.prize_block_tail_paths_sub_1066.len())
-                    .expect("ROM prize-tail count fits u16");
-            if materialised_entry_floating_prize {
-                let initial_index = current_floating_prize_paths
-                    .len()
-                    .checked_sub(1)
-                    .expect("materialised prize adds one path");
-                let mut current_floating_prize_paths = current_floating_prize_paths;
-                current_floating_prize_paths[initial_index].initial_sub_102f8 = true;
-                ledger.execute_objects.floating_prize_workers =
-                    u16::try_from(current_floating_prize_paths.len())
-                        .expect("ROM floating-prize count fits u16");
-                ledger.execute_objects.floating_prize_paths = current_floating_prize_paths;
-            }
-            let classified_transient_workers =
-                ledger
-                    .execute_objects
-                    .prize_block_wobble_workers_sub_1007a
-                    .saturating_add(ledger.execute_objects.prize_block_worker_tails_sub_1007a)
-                    .saturating_add(ledger.execute_objects.prize_block_flash_workers_loc_102b8)
-                    .saturating_add(ledger.execute_objects.floating_prize_workers)
-                    .saturating_add(ledger.execute_objects.rubber_block_skin_workers_sub_10de4)
-                    .saturating_add(
-                        ledger.execute_objects.block_destroy_workers_sub_10eda.len() as u16
-                    );
-            ledger.execute_objects.linked_non_transient_object_count = ledger
-                .execute_objects
-                .linked_object_count
-                .saturating_sub(classified_transient_workers);
-            ledger
-                .execute_objects
                 .player_spawned_prize_block_initial_sub_1007a =
                 player_spawned_prize_block_initial_sub_1007a(
                     Some(&executed_player_path),
@@ -11389,16 +11108,6 @@ impl NativeRuntime {
                 .execute_objects
                 .player_prize_wobble_list_work_loc_1002e =
                 player_prize_wobble_list_work_loc_1002e(&ledger.execute_objects);
-            ledger
-                .execute_objects
-                .player_spawned_block_destroy_list_work_sub_10e86 = player_spawned_smash_worker
-                .then_some(crate::ModeLevelBlockDestroyListWorkSub10E86 {
-                    object_insert_rank_loc_de0: ledger
-                        .execute_objects
-                        .floating_prize_workers
-                        .saturating_add(2),
-                    gfx_insert_rank_loc_fd4: ledger.execute_objects.linked_gfx_object_count,
-                });
             ledger.execute_objects.executed_player_path = Some(executed_player_path);
             ledger.execute_objects.player_gfx_terrain_scan = player_gfx_terrain_scan;
             if let Some((evanescent, shooter)) = first_activation_post_scans {

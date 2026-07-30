@@ -3659,330 +3659,6 @@ pub fn mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
     work: crate::ModeLevelTailCameraStripeSub30194,
     mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
 ) -> Option<ModeLevelTailCameraStripeAdvance> {
-    if let crate::ModeLevelTailCameraStripeSub30194::UpwardHorizontalSplit {
-        cells,
-        first_pass_cells,
-    } = work
-    {
-        use crate::mode_level_timing::ModeLevelTailCameraCellMappingSub30194 as Mapping;
-        if cells.contains(&Mapping::PriorityTheme) {
-            return None;
-        }
-        let first_pass_cells = usize::from(first_pass_cells);
-        if !(1..21).contains(&first_pass_cells) {
-            return None;
-        }
-        let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
-        let mut phase = entry.refresh_phase;
-        let mut raw_cycles = 0_u32;
-        let mut counters = ModeLevelTailCameraCounters::default();
-        let mut advance = |cycles: u32, written_words: u8| {
-            raw_cycles = raw_cycles.checked_add(cycles)?;
-            advance_mode_level_tail_camera_source_instruction(
-                cycles,
-                written_words,
-                &mut fifo,
-                &mut phase,
-                &mut counters,
-                &mut advance_hardware,
-            )
-        };
-
-        // ASM loc_892 through loc_301F6 and the first sub_3034A prologue.
-        const PRELUDE: [u8; 48] = [
-            20, 10, 12, 12, 12, 12, 12, 8, 12, 12, 4, 4, 12, 16, 12, 10, 4, 8, 8, 8, 8, 4, 14, 4,
-            8, 8, 8, 8, 8, 10, 4, 4, 4, 4, 4, 8, 20, 4, 4, 4, 8, 4, 8, 8, 16, 12, 4, 18,
-        ];
-        for cycles in PRELUDE {
-            advance(u32::from(cycles), 0)?;
-        }
-        const ORDINARY_CELL: [u8; 8] = [8, 8, 6, 8, 4, 12, 26, 10];
-        const BLOCK_CELL: [u8; 6] = [8, 10, 4, 12, 26, 10];
-        let mut next_cell = 0_usize;
-        for pass_cells in [first_pass_cells, 21 - first_pass_cells] {
-            // ASM sub_3034A prologue. The second pass reaches this after the
-            // wrapped plane-A command and call sequence below.
-            for cycles in [8_u8, 12] {
-                advance(u32::from(cycles), 0)?;
-            }
-            for cell_index in 0..pass_cells {
-                let (path, move_long_index) = match cells[next_cell] {
-                    Mapping::OrdinaryTheme => (ORDINARY_CELL.as_slice(), 6),
-                    Mapping::Block => (BLOCK_CELL.as_slice(), 4),
-                    Mapping::PriorityTheme => return None,
-                };
-                next_cell += 1;
-                for (instruction_index, &cycles) in path.iter().enumerate() {
-                    let final_dbf =
-                        cell_index + 1 == pass_cells && instruction_index + 1 == path.len();
-                    advance(
-                        u32::from(if final_dbf { 14 } else { cycles }),
-                        u8::from(instruction_index == move_long_index) * 2,
-                    )?;
-                }
-            }
-            if next_cell == first_pass_cells {
-                // ASM first sub_3034A return, wrapped plane-A command, and
-                // second call. Frame 1334's full-PC journal fixes the order.
-                for cycles in [16_u8, 4, 12, 4, 8, 16, 16, 18] {
-                    advance(u32::from(cycles), 0)?;
-                }
-            }
-        }
-        // ASM second return through loc_302E8, both latches, and RTS.
-        for cycles in [16_u8, 8, 12, 12, 4, 4, 10, 20, 20, 16] {
-            advance(u32::from(cycles), 0)?;
-        }
-        return Some(ModeLevelTailCameraStripeAdvance {
-            cursor: LoadInGameCpuRasterCursor {
-                beam: fifo.beam,
-                refresh_phase: phase,
-            },
-            raw_cycles: M68kCycleCount::from_raw(raw_cycles),
-            refresh_events: counters.refresh_events,
-            external_wait_cycles: M68kCycleCount::from_raw(counters.external_wait_cycles),
-            fifo_halted_ticks: M68kCycleCount::from_raw(counters.fifo_halted_ticks),
-        });
-    }
-
-    if let crate::ModeLevelTailCameraStripeSub30194::UpwardHorizontalRightwardVertical {
-        row_cells,
-        column_cells,
-        first_row_pass_cells,
-        first_column_pass_cells,
-    } = work
-    {
-        use crate::mode_level_timing::ModeLevelTailCameraCellMappingSub30194 as Mapping;
-        if row_cells
-            .iter()
-            .chain(column_cells.iter())
-            .any(|cell| *cell == Mapping::PriorityTheme)
-        {
-            return None;
-        }
-        let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
-        let mut phase = entry.refresh_phase;
-        let mut raw_cycles = 0_u32;
-        let mut counters = ModeLevelTailCameraCounters::default();
-        let mut advance = |cycles: u32, written_words: u8| {
-            raw_cycles = raw_cycles.checked_add(cycles)?;
-            advance_mode_level_tail_camera_source_instruction(
-                cycles,
-                written_words,
-                &mut fifo,
-                &mut phase,
-                &mut counters,
-                &mut advance_hardware,
-            )
-        };
-
-        for cycles in [20_u8, 10] {
-            advance(u32::from(cycles), 0)?;
-        }
-        const ORDINARY_ROW_CELL: [u8; 8] = [8, 8, 6, 8, 4, 12, 26, 10];
-        const BLOCK_ROW_CELL: [u8; 6] = [8, 10, 4, 12, 26, 10];
-        let mut next_row_cell = 0_usize;
-        macro_rules! advance_row_cells {
-            ($cell_count:expr) => {{
-                let cell_count = $cell_count;
-                for cell_index in 0..cell_count {
-                    let (cell, move_long_index) = match row_cells[next_row_cell] {
-                        Mapping::OrdinaryTheme => (ORDINARY_ROW_CELL.as_slice(), 6),
-                        Mapping::Block => (BLOCK_ROW_CELL.as_slice(), 4),
-                        Mapping::PriorityTheme => return None,
-                    };
-                    next_row_cell += 1;
-                    for (instruction_index, &cycles) in cell.iter().enumerate() {
-                        let final_dbf =
-                            cell_index + 1 == cell_count && instruction_index + 1 == cell.len();
-                        advance(
-                            u32::from(if final_dbf { 14 } else { cycles }),
-                            u8::from(instruction_index == move_long_index) * 2,
-                        )?;
-                    }
-                }
-            }};
-        }
-
-        // ASM sub_30194 through the first sub_3034A row-cell dispatch.
-        const PRE_ROW: [u8; 47] = [
-            12, 12, 12, 12, 12, 8, 12, 12, 4, 4, 12, 16, 12, 10, 4, 8, 8, 8, 8, 4, 14, 4, 8, 8, 8,
-            8, 8, 8, 4, 4, 10, 4, 8, 20, 4, 4, 4, 8, 4, 8, 8, 16, 12, 4, 18, 8, 12,
-        ];
-        const BETWEEN_ROW_AND_COLUMN: [u8; 51] = [
-            16, 4, 12, 4, 10, 8, 12, 12, 4, 4, 12, 16, 12, 8, 8, 12, 12, 4, 8, 10, 4, 8, 14, 8, 8,
-            4, 8, 8, 8, 10, 4, 4, 4, 4, 4, 8, 8, 20, 4, 8, 4, 4, 8, 4, 8, 16, 16, 12, 12, 4, 18,
-        ];
-        if first_row_pass_cells == 21 {
-            for cycles in PRE_ROW {
-                advance(u32::from(cycles), 0)?;
-            }
-            advance_row_cells!(21);
-            for cycles in BETWEEN_ROW_AND_COLUMN {
-                advance(u32::from(cycles), 0)?;
-            }
-        } else {
-            // ASM loc_301F6 split-row setup through the first sub_3034A call.
-            const PRE_SPLIT_ROW: [u8; 46] = [
-                12, 12, 12, 12, 12, 8, 12, 12, 4, 4, 12, 16, 12, 10, 4, 8, 8, 8, 8, 4, 14, 4, 8, 8,
-                8, 8, 8, 10, 4, 4, 4, 4, 4, 8, 20, 4, 4, 4, 8, 4, 8, 8, 16, 12, 4, 18,
-            ];
-            for cycles in PRE_SPLIT_ROW {
-                advance(u32::from(cycles), 0)?;
-            }
-            for cycles in [8_u8, 12] {
-                advance(u32::from(cycles), 0)?;
-            }
-            let first_row_pass_cells = usize::from(first_row_pass_cells);
-            advance_row_cells!(first_row_pass_cells);
-            // First row return, wrapped plane-A command, and second call.
-            for cycles in [16_u8, 4, 12, 4, 8, 16, 16, 18, 8, 12] {
-                advance(u32::from(cycles), 0)?;
-            }
-            advance_row_cells!(21 - first_row_pass_cells);
-            // Second row return through the first sub_302F6 call.
-            const SPLIT_ROW_TO_COLUMN: [u8; 47] = [
-                16, 8, 12, 12, 4, 4, 12, 16, 12, 8, 8, 12, 12, 4, 8, 10, 4, 8, 14, 8, 8, 4, 8, 8,
-                8, 10, 4, 4, 4, 4, 4, 8, 8, 20, 4, 8, 4, 4, 8, 4, 8, 16, 16, 12, 12, 4, 18,
-            ];
-            for cycles in SPLIT_ROW_TO_COLUMN {
-                advance(u32::from(cycles), 0)?;
-            }
-        }
-        const ORDINARY_COLUMN_CELL: [u8; 10] = [8, 8, 6, 8, 4, 12, 18, 18, 8, 10];
-        const BLOCK_COLUMN_CELL: [u8; 8] = [8, 10, 4, 12, 18, 18, 8, 10];
-        let mut next_column_cell = 0_usize;
-        macro_rules! advance_column_cells {
-            ($cell_count:expr) => {{
-                let cell_count = $cell_count;
-                for cycles in [8_u8, 8] {
-                    advance(u32::from(cycles), 0)?;
-                }
-                for cell_index in 0..cell_count {
-                    let (cell, first_move_index) = match column_cells[next_column_cell] {
-                        Mapping::OrdinaryTheme => (ORDINARY_COLUMN_CELL.as_slice(), 6),
-                        Mapping::Block => (BLOCK_COLUMN_CELL.as_slice(), 4),
-                        Mapping::PriorityTheme => return None,
-                    };
-                    next_column_cell += 1;
-                    for (instruction_index, &cycles) in cell.iter().enumerate() {
-                        let final_dbf =
-                            cell_index + 1 == cell_count && instruction_index + 1 == cell.len();
-                        advance(
-                            u32::from(if final_dbf { 14 } else { cycles }),
-                            u8::from(
-                                instruction_index == first_move_index
-                                    || instruction_index == first_move_index + 1,
-                            ),
-                        )?;
-                    }
-                }
-            }};
-        }
-        let first_column_pass_cells = usize::from(first_column_pass_cells);
-        advance_column_cells!(first_column_pass_cells);
-        if first_column_pass_cells < 15 {
-            // ASM first sub_302F6 return, wrapped VDP destination command,
-            // and second sub_302F6 call.
-            for cycles in [16_u8, 4, 12, 4, 8, 16, 16, 18] {
-                advance(u32::from(cycles), 0)?;
-            }
-            advance_column_cells!(15 - first_column_pass_cells);
-            // Second return, autoincrement restore, both latches, and RTS.
-            for cycles in [16_u8, 16, 20, 20, 16] {
-                advance(u32::from(cycles), 0)?;
-            }
-        } else {
-            // ASM unsplit sub_302F6 return and direct BMI to loc_302E2.
-            for cycles in [16_u8, 4, 12, 4, 10, 16, 20, 20, 16] {
-                advance(u32::from(cycles), 0)?;
-            }
-        }
-        return Some(ModeLevelTailCameraStripeAdvance {
-            cursor: LoadInGameCpuRasterCursor {
-                beam: fifo.beam,
-                refresh_phase: phase,
-            },
-            raw_cycles: M68kCycleCount::from_raw(raw_cycles),
-            refresh_events: counters.refresh_events,
-            external_wait_cycles: M68kCycleCount::from_raw(counters.external_wait_cycles),
-            fifo_halted_ticks: M68kCycleCount::from_raw(counters.fifo_halted_ticks),
-        });
-    }
-
-    if let crate::ModeLevelTailCameraStripeSub30194::RightwardVerticalNoWrap { cells } = work {
-        use crate::mode_level_timing::ModeLevelTailCameraCellMappingSub30194 as Mapping;
-        if cells.contains(&Mapping::PriorityTheme) {
-            return None;
-        }
-        let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
-        let mut phase = entry.refresh_phase;
-        let mut raw_cycles = 0_u32;
-        let mut counters = ModeLevelTailCameraCounters::default();
-        let mut advance = |cycles: u32, written_words: u8| {
-            raw_cycles = raw_cycles.checked_add(cycles)?;
-            advance_mode_level_tail_camera_source_instruction(
-                cycles,
-                written_words,
-                &mut fifo,
-                &mut phase,
-                &mut counters,
-                &mut advance_hardware,
-            )
-        };
-
-        // ASM loc_892 JSR/jump stub, then the frame-1214 full-PC sequence
-        // from sub_30194 through the sub_302F6 prologue.
-        for cycles in [20_u8, 10] {
-            advance(u32::from(cycles), 0)?;
-        }
-        const PRELUDE: [u8; 59] = [
-            12, 12, 12, 12, 12, 8, 12, 12, 4, 4, 10, 12, 12, 4, 4, 12, 16, 12, 8, 8, 12, 12, 4, 8,
-            8, 8, 8, 4, 8, 14, 8, 8, 4, 8, 8, 8, 8, 4, 4, 10, 4, 8, 8, 20, 4, 8, 4, 4, 8, 4, 8, 16,
-            16, 12, 12, 4, 18, 8, 8,
-        ];
-        for cycles in PRELUDE {
-            advance(u32::from(cycles), 0)?;
-        }
-
-        // ASM sub_302F6 loc_302FE: each ordinary cell emits two VDP words.
-        const ORDINARY_COLUMN_CELL: [u8; 10] = [8, 8, 6, 8, 4, 12, 18, 18, 8, 10];
-        const BLOCK_COLUMN_CELL: [u8; 8] = [8, 10, 4, 12, 18, 18, 8, 10];
-        for (cell_index, mapping) in cells.iter().enumerate() {
-            let (cell, first_move_index) = match mapping {
-                Mapping::OrdinaryTheme => (ORDINARY_COLUMN_CELL.as_slice(), 6),
-                Mapping::Block => (BLOCK_COLUMN_CELL.as_slice(), 4),
-                Mapping::PriorityTheme => return None,
-            };
-            for (instruction_index, &cycles) in cell.iter().enumerate() {
-                let final_dbf = cell_index == 14 && instruction_index + 1 == cell.len();
-                advance(
-                    u32::from(if final_dbf { 14 } else { cycles }),
-                    u8::from(
-                        instruction_index == first_move_index
-                            || instruction_index == first_move_index + 1,
-                    ),
-                )?;
-            }
-        }
-
-        // ASM sub_302F6 RTS, caller restore, loc_302E2, both camera-latch
-        // writes, and sub_30194 RTS.
-        for cycles in [16_u8, 4, 12, 4, 10, 16, 20, 20, 16] {
-            advance(u32::from(cycles), 0)?;
-        }
-        return Some(ModeLevelTailCameraStripeAdvance {
-            cursor: LoadInGameCpuRasterCursor {
-                beam: fifo.beam,
-                refresh_phase: phase,
-            },
-            raw_cycles: M68kCycleCount::from_raw(raw_cycles),
-            refresh_events: counters.refresh_events,
-            external_wait_cycles: M68kCycleCount::from_raw(counters.external_wait_cycles),
-            fifo_halted_ticks: M68kCycleCount::from_raw(counters.fifo_halted_ticks),
-        });
-    }
-
     if work == crate::ModeLevelTailCameraStripeSub30194::BothTileAxesUnchanged {
         let mut fifo = PlatformArtFifoScheduler::new(entry.beam);
         let mut phase = entry.refresh_phase;
@@ -4017,18 +3693,33 @@ pub fn mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
         });
     }
 
-    let (moving_down, cells) = match work {
-        crate::ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap { cells } => {
-            (false, cells)
-        }
-        crate::ModeLevelTailCameraStripeSub30194::DownwardHorizontalNoWrap { cells } => {
-            (true, cells)
-        }
+    let (moving_down, ordinary_theme_cells, priority_theme_cells, block_cells) = match work {
+        crate::ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+            ordinary_theme_cells,
+            priority_theme_cells,
+            block_cells,
+        } => (
+            false,
+            ordinary_theme_cells,
+            priority_theme_cells,
+            block_cells,
+        ),
+        crate::ModeLevelTailCameraStripeSub30194::DownwardHorizontalNoWrap {
+            ordinary_theme_cells,
+            priority_theme_cells,
+            block_cells,
+        } => (
+            true,
+            ordinary_theme_cells,
+            priority_theme_cells,
+            block_cells,
+        ),
         _ => return None,
     };
-    if cells.iter().any(|cell| {
-        *cell == crate::mode_level_timing::ModeLevelTailCameraCellMappingSub30194::PriorityTheme
-    }) {
+    if priority_theme_cells != 0
+        || ordinary_theme_cells.checked_add(block_cells) != Some(21)
+        || block_cells > 1
+    {
         return None;
     }
 
@@ -4074,17 +3765,11 @@ pub fn mode_level_tail_camera_stripe_cursor_sub_30194_with_scheduler(
 
     const ORDINARY_CELL: [u8; 8] = [8, 8, 6, 8, 4, 12, 26, 10];
     const BLOCK_CELL: [u8; 6] = [8, 10, 4, 12, 26, 10];
-    for (cell_index, mapping) in cells.iter().enumerate() {
-        let cell = match mapping {
-            crate::mode_level_timing::ModeLevelTailCameraCellMappingSub30194::OrdinaryTheme => {
-                ORDINARY_CELL.as_slice()
-            }
-            crate::mode_level_timing::ModeLevelTailCameraCellMappingSub30194::Block => {
-                BLOCK_CELL.as_slice()
-            }
-            crate::mode_level_timing::ModeLevelTailCameraCellMappingSub30194::PriorityTheme => {
-                return None;
-            }
+    for cell_index in 0..21 {
+        let cell = if block_cells == 1 && cell_index == 4 {
+            BLOCK_CELL.as_slice()
+        } else {
+            ORDINARY_CELL.as_slice()
         };
         for (instruction_index, &cycles) in cell.iter().enumerate() {
             let is_move_long = match cell.len() {
@@ -4131,11 +3816,11 @@ pub struct ModeLevelTailBackgroundAdvance {
 
 /// Co-schedule the frame-902 ASM `loc_898 -> loc_3038A` background pass.
 ///
-/// The accepted path has unchanged or non-wrapping rightward shift-data
-/// slots, a normal aligned or unaligned shift-layer pass, 29 classified piece
-/// rows, and either a cached or zero-wrap linear `sub_307D8` row. Other typed
-/// paths remain fail-closed until their instruction streams are fixed by
-/// oracle evidence.
+/// The accepted path has either 19 unchanged shift-data slots or frame 925's
+/// first-slot rightward advance, a normal aligned or unaligned shift-layer
+/// pass, 29 skipped piece rows, and either a cached or zero-wrap linear
+/// `sub_307D8` row. Other typed paths remain fail-closed until their
+/// instruction streams are fixed by oracle evidence.
 pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     entry: LoadInGameCpuRasterCursor,
     work: &crate::ModeLevelTailBackgroundWorkLoc3038A,
@@ -4157,26 +3842,24 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
         }
         _ => return None,
     };
-    let shift_data_slots_classified = work.shift_data_slots_loc_30452.iter().all(|slot| {
+    let rightward_no_wrap = crate::ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew {
+        width_subtractions: 0,
+    };
+    let time_layer_slots_classified = work.shift_data_slots_loc_30452[..2].iter().all(|slot| {
         matches!(*slot, crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged)
-            || matches!(
-                *slot,
-                crate::ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew { .. }
-            )
+            || *slot == rightward_no_wrap
     });
+    let remaining_slots_unchanged = work.shift_data_slots_loc_30452[2..]
+        .iter()
+        .all(|slot| *slot == crate::ModeLevelTailShiftDataSlotLoc30452::Unchanged);
     if work.special_effect_4
         || work.game_mode_zero
         || work.background_upload_busy_fb49
         || work.background_format_nonzero
-        || !shift_data_slots_classified
+        || !time_layer_slots_classified
+        || !remaining_slots_unchanged
         || work.piece_rows_sub_30744.entries_before_sentinel != 29
-        || usize::from(work.piece_rows_sub_30744.rendered_nonnegative_entries)
-            != work
-                .piece_rows_sub_30744
-                .rendered_entries
-                .iter()
-                .filter(|&&rendered| rendered)
-                .count()
+        || work.piece_rows_sub_30744.rendered_nonnegative_entries != 0
     {
         return None;
     }
@@ -4229,50 +3912,34 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     // ASM loc_30452 -> sub_304B4 -> loc_304C2 -> loc_304CA -> loc_3047A:
     // frame 925's first time layer advances right without wrapping against
     // Background_width. Selected-PC boundaries fix this at 260 raw cycles.
+    const FIRST_RIGHTWARD_SLOT_NO_WRAP: [u8; 26] = [
+        12, 8, 4, 4, 12, 4, 12, 12, 12, 12, 4, 8, 18, 8, 12, 12, 8, 4, 4, 10, 8, 8, 4, 12, 16, 10,
+    ];
     for slot_index in 0..2 {
-        if let crate::ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew { width_subtractions } =
-            work.shift_data_slots_loc_30452[slot_index]
-        {
-            advance_all!(&[
-                12, 8, 4, 4, 12, 4, 12, 12, 12, 12, 4, 8, 18, 8, 12, 12, 8, 4
-            ]);
-            // ASM sub_304B4 loc_304C2: each rejected width comparison
-            // subtracts Background_width and loops before the final BGT.
-            for _ in 0..width_subtractions {
-                advance_all!(&[4, 8, 4, 10]);
-            }
-            advance_all!(&[4, 10, 8, 8, 4, 12, 16, 10]);
+        let shifted = work.shift_data_slots_loc_30452[slot_index] == rightward_no_wrap;
+        let slot = if shifted {
+            FIRST_RIGHTWARD_SLOT_NO_WRAP.as_slice()
+        } else {
+            FIRST_UNCHANGED_SLOT.as_slice()
+        };
+        for (instruction_index, &cycles) in slot.iter().enumerate() {
+            let final_dbf = !shifted && slot_index == 1 && instruction_index + 1 == slot.len();
+            advance(u32::from(if final_dbf { 14 } else { cycles }), 0)?;
+        }
+        if shifted {
             advance_all!(&[8, 4]);
             advance(if slot_index == 1 { 14 } else { 10 }, 0)?;
-        } else {
-            for (instruction_index, &cycles) in FIRST_UNCHANGED_SLOT.iter().enumerate() {
-                let final_dbf =
-                    slot_index == 1 && instruction_index + 1 == FIRST_UNCHANGED_SLOT.len();
-                advance(u32::from(if final_dbf { 14 } else { cycles }), 0)?;
-            }
         }
     }
     advance_all!(&[4, 4, 4, 32, 4]);
 
-    // ASM loc_3048C: 17 scroll slots. A rightward slot takes sub_304B4's
-    // loc_304C2 no-wrap branch before rejoining loc_304A8.
+    // ASM loc_3048C: 17 unchanged scroll slots.
     const SCROLL_UNCHANGED_SLOT: [u8; 11] = [4, 12, 12, 12, 4, 10, 12, 8, 4, 8, 10];
     for slot_index in 0..17 {
-        if let crate::ModeLevelTailShiftDataSlotLoc30452::OldLessThanNew { width_subtractions } =
-            work.shift_data_slots_loc_30452[slot_index + 2]
-        {
-            advance_all!(&[4, 12, 12, 12, 4, 8, 18, 8, 12, 12, 8, 4]);
-            for _ in 0..width_subtractions {
-                advance_all!(&[4, 8, 4, 10]);
-            }
-            advance_all!(&[4, 10, 8, 8, 4, 8, 16, 10, 8, 4, 8]);
-            advance(if slot_index == 16 { 14 } else { 10 }, 0)?;
-        } else {
-            for (instruction_index, &cycles) in SCROLL_UNCHANGED_SLOT.iter().enumerate() {
-                let final_dbf =
-                    slot_index == 16 && instruction_index + 1 == SCROLL_UNCHANGED_SLOT.len();
-                advance(u32::from(if final_dbf { 14 } else { cycles }), 0)?;
-            }
+        for (instruction_index, &cycles) in SCROLL_UNCHANGED_SLOT.iter().enumerate() {
+            let final_dbf =
+                slot_index == 16 && instruction_index + 1 == SCROLL_UNCHANGED_SLOT.len();
+            advance(u32::from(if final_dbf { 14 } else { cycles }), 0)?;
         }
     }
     advance(16, 0)?;
@@ -4329,20 +3996,11 @@ pub fn mode_level_tail_background_cursor_loc_3038a_with_scheduler(
     ];
     advance_all!(&PIECE_ROWS_PRELUDE);
 
-    // ASM loc_3079A: negative entries skip rendering; non-negative entries
-    // emit the four sprite words at loc_307B2.
+    // ASM loc_3079A: 29 negative entries skip rendering.
     const SKIPPED_PIECE_ROW: [u8; 8] = [8, 8, 8, 18, 8, 8, 4, 10];
-    const RENDERED_PIECE_ROW: [u8; 18] =
-        [8, 8, 8, 18, 10, 4, 8, 8, 4, 8, 8, 4, 16, 4, 16, 8, 4, 10];
     for row in 0..29 {
-        let rendered = work.piece_rows_sub_30744.rendered_entries[row];
-        let row_path = if rendered {
-            RENDERED_PIECE_ROW.as_slice()
-        } else {
-            SKIPPED_PIECE_ROW.as_slice()
-        };
-        for (instruction_index, &cycles) in row_path.iter().enumerate() {
-            let final_dbf = row == 28 && instruction_index + 1 == row_path.len();
+        for (instruction_index, &cycles) in SKIPPED_PIECE_ROW.iter().enumerate() {
+            let final_dbf = row == 28 && instruction_index + 1 == SKIPPED_PIECE_ROW.len();
             advance(u32::from(if final_dbf { 14 } else { cycles }), 0)?;
         }
     }
@@ -10391,13 +10049,9 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(95).expect("oracle loc_892 phase"),
             },
             crate::ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
-                cells: std::array::from_fn(|index| {
-                    if index == 4 {
-                        crate::mode_level_timing::ModeLevelTailCameraCellMappingSub30194::Block
-                    } else {
-                        crate::mode_level_timing::ModeLevelTailCameraCellMappingSub30194::OrdinaryTheme
-                    }
-                }),
+                ordinary_theme_cells: 20,
+                priority_theme_cells: 0,
+                block_cells: 1,
             },
             |_, _, _| Some(M68kCycleCount::from_raw(0)),
         )
@@ -10430,7 +10084,9 @@ mod tests {
                 refresh_phase: M68kRefreshPhase::new(8).expect("frame-1004 loc_892 phase"),
             },
             crate::ModeLevelTailCameraStripeSub30194::DownwardHorizontalNoWrap {
-                cells: [crate::mode_level_timing::ModeLevelTailCameraCellMappingSub30194::OrdinaryTheme; 21],
+                ordinary_theme_cells: 21,
+                priority_theme_cells: 0,
+                block_cells: 0,
             },
             |_, _, _| Some(M68kCycleCount::from_raw(0)),
         )
@@ -10465,7 +10121,6 @@ mod tests {
             piece_rows_sub_30744: crate::ModeLevelTailPieceRowsSub30744 {
                 entries_before_sentinel: 29,
                 rendered_nonnegative_entries: 0,
-                rendered_entries: [false; 29],
             },
             piece_refresh_sub_307d8: crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged,
         };
@@ -10508,7 +10163,6 @@ mod tests {
             piece_rows_sub_30744: crate::ModeLevelTailPieceRowsSub30744 {
                 entries_before_sentinel: 29,
                 rendered_nonnegative_entries: 0,
-                rendered_entries: [false; 29],
             },
             piece_refresh_sub_307d8:
                 crate::ModeLevelTailPieceRefreshSub307D8::DownwardLinearNoWrap {
@@ -10558,7 +10212,6 @@ mod tests {
             piece_rows_sub_30744: crate::ModeLevelTailPieceRowsSub30744 {
                 entries_before_sentinel: 29,
                 rendered_nonnegative_entries: 0,
-                rendered_entries: [false; 29],
             },
             piece_refresh_sub_307d8: crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged,
         };
@@ -10624,7 +10277,6 @@ mod tests {
             piece_rows_sub_30744: crate::ModeLevelTailPieceRowsSub30744 {
                 entries_before_sentinel: 29,
                 rendered_nonnegative_entries: 0,
-                rendered_entries: [false; 29],
             },
             piece_refresh_sub_307d8: crate::ModeLevelTailPieceRefreshSub307D8::LinearNoWrap {
                 width_subtractions: 0,
@@ -10699,7 +10351,6 @@ mod tests {
             piece_rows_sub_30744: crate::ModeLevelTailPieceRowsSub30744 {
                 entries_before_sentinel: 29,
                 rendered_nonnegative_entries: 0,
-                rendered_entries: [false; 29],
             },
             piece_refresh_sub_307d8: crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged,
         };
@@ -10747,7 +10398,6 @@ mod tests {
             piece_rows_sub_30744: crate::ModeLevelTailPieceRowsSub30744 {
                 entries_before_sentinel: 29,
                 rendered_nonnegative_entries: 0,
-                rendered_entries: [false; 29],
             },
             piece_refresh_sub_307d8: crate::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged,
         };

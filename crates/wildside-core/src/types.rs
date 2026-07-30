@@ -1720,14 +1720,6 @@ pub struct ModeLevelPrizeWobbleListWorkLoc1002E {
     pub gfx_insert_rank_loc_fd4: u16,
 }
 
-/// Linked-list traversal ranks for Kid's same-pass ASM `sub_10E86`
-/// smash-worker allocation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ModeLevelBlockDestroyListWorkSub10E86 {
-    pub object_insert_rank_loc_de0: u16,
-    pub gfx_insert_rank_loc_fd4: u16,
-}
-
 /// Work executed after a one-frame hibernate in ASM `sub_1007A`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1838,10 +1830,6 @@ pub struct ModeLevelFloatingPrizeWork {
     pub content: terrain::PrizeContent,
     pub remaining: u16,
     pub spawn_delay: u16,
-    /// ASM prize initialiser callback runs in the allocation pass before the
-    /// ordinary `loc_103B2` fall coroutine becomes reachable.
-    #[serde(default)]
-    pub initial_sub_102f8: bool,
     pub first_row_grace: bool,
     pub collision_latched: bool,
     /// `None` means native has no level grid from which to prove the two
@@ -1856,10 +1844,8 @@ pub struct ModeLevelFloatingPrizeWork {
 #[serde(rename_all = "snake_case")]
 pub enum ModeLevelPrizeObjectExecutionSubE12 {
     FloatingPrize { index: u16 },
-    FloatingPrizeInitialSub102F8 { index: u16 },
     Player,
     PlayerSpawnedInitialSub1007A,
-    PlayerSpawnedBlockDestroyInitialSub10EDA,
     FlashLoc102B8 { index: u16 },
     WobbleSub1007A { index: u16 },
     TailSub1007A { index: u16 },
@@ -1953,9 +1939,6 @@ pub enum ModeLevelAirborneHorizontalPath {
     /// ASM `loc_B09E -> loc_B0B6 -> loc_B0E2`: Run multiplies the right-held
     /// acceleration by 1.5.
     RightHeldRunAcceleration,
-    /// ASM `loc_B0B6 -> loc_B0B6/loc_B118`: Left with Run applies the
-    /// helmet acceleration multiplied by 1.5.
-    LeftHeldRunAcceleration,
     /// ASM `loc_B0E2 -> loc_B118`: right remains held above the helmet's
     /// maximum speed, so the failed acceleration is replaced by `$100` drag.
     RightHeldCapBleed,
@@ -1964,8 +1947,6 @@ pub enum ModeLevelAirborneHorizontalPath {
     /// ASM `loc_B0FE -> loc_B118`: positive velocity subtracts `$400` and
     /// remains non-negative.
     NeutralPositiveBrake,
-    /// ASM `loc_B0FE`: positive velocity below `$400` is clamped to zero.
-    NeutralPositiveBrakeClampZero,
     /// ASM `loc_B0FE -> loc_B118`: zero velocity remains zero after the
     /// subtract-and-clamp path.
     NeutralStationary,
@@ -1991,13 +1972,6 @@ pub enum ModeLevelAirborneVerticalPath {
         acceleration_after: i16,
         y_velocity_after: i32,
         capped_acceleration_to_0x1200: bool,
-    },
-    /// ASM `sub_B168 loc_B214`: an already-flying Cyclone consumes C,
-    /// subtracts `$3000` from acceleration, and rejoins at `loc_B246`.
-    CycloneFlyingCPress {
-        acceleration_after: i16,
-        y_velocity_after: i32,
-        clamped_acceleration_to_0x8001: bool,
     },
     Unclassified,
 }
@@ -2049,9 +2023,6 @@ pub enum ModeLevelWallCollisionPath {
 pub enum ModeLevelAirborneActionPath {
     /// Neither B nor C is pressed, so ASM reaches `loc_A8D6`.
     NoButtons,
-    /// ASM `loc_A7F8 -> loc_A830 -> loc_A8D6`: C starts Cyclone flight and
-    /// rejoins through the airborne visual update.
-    CycloneFlightStartLocA830,
     /// A non-zero `sub_8F26` return branches at `loc_A762` before the action
     /// dispatch and enters the wall-cling coroutine.
     NotReachedAfterWallCollision,
@@ -2134,13 +2105,6 @@ pub enum ModeLevelPlayerExecutionPath {
         form: PlayerForm,
         ground_scan_cells_sub_b43a_8600: Vec<ModeLevelGroundScanCellSubB43A8600>,
     },
-    /// A non-Kid helmet starts the left-facing grounded walk at ASM
-    /// `loc_779C -> loc_7820`.
-    GroundedLeftWalkStartLoc779c {
-        form: PlayerForm,
-        x_velocity_after: i32,
-        ground_scan_cells_sub_b43a_8600: Vec<ModeLevelGroundScanCellSubB43A8600>,
-    },
     /// Walking The Kid resumes at ASM `loc_8BF0`, accelerates on clear
     /// support and wall probes, then hibernates at the same label.
     GroundedRightWalkContinueLoc8bf0 {
@@ -2148,22 +2112,6 @@ pub enum ModeLevelPlayerExecutionPath {
         x_velocity_before: i32,
         x_velocity_after: i32,
         ground_scan_cells_sub_b43a_8600: Vec<ModeLevelGroundScanCellSubB43A8600>,
-    },
-    /// A non-Kid helmet resumes its left-facing grounded walk at ASM
-    /// `loc_8BF0`.
-    GroundedLeftWalkContinueLoc8bf0 {
-        form: PlayerForm,
-        x_velocity_before: i32,
-        x_velocity_after: i32,
-        ground_scan_cells_sub_b43a_8600: Vec<ModeLevelGroundScanCellSubB43A8600>,
-    },
-    /// The grounded walking coroutine loses support at ASM `loc_8C70` and
-    /// enters the airborne hibernate through `loc_A6F8`.
-    GroundedWalkReleaseLoc8c70 {
-        form: PlayerForm,
-        direction: Direction,
-        x_velocity_before: i32,
-        x_velocity_after: i32,
     },
     /// ASM `loc_8C70 -> loc_A426 -> sub_A432 -> loc_A75A`: a grounded B
     /// edge launches Kid with speed-derived vertical velocity.
@@ -2242,8 +2190,6 @@ pub enum ModeLevelInputWorkerPathLoc7452 {
     InitialHibernate,
     /// Attract demo, Left clear, hundred-k timer clear, and no Start edge.
     DemoNoLeftNoStartTimerClear,
-    /// Left is held, Right is clear, and Start has no pressed edge.
-    DemoLeftOnlyNoStartTimerClear,
 }
 
 /// Source path for the fixed level-start palette worker allocated by ASM
@@ -2284,12 +2230,6 @@ pub struct ModeLevelExecuteObjectsWork {
     pub active_platform_workers: u16,
     pub palette_rotation_worker_loc_11f96: u16,
     pub unclassified_runtime_transient_workers: u16,
-    /// ASM `sub_10EDA/loc_10F38` pre-debris smash coroutine stages.
-    #[serde(default)]
-    pub block_destroy_workers_sub_10eda: Vec<ModeLevelBlockDestroyWorkerSub10EDA>,
-    /// Live ASM `sub_292E` debris-swarm Object workers.
-    #[serde(default)]
-    pub block_debris_workers_sub_292e: u16,
     #[serde(default)]
     pub player_entry_position: Option<ModeLevelPlayerPosition>,
     #[serde(default)]
@@ -2306,12 +2246,6 @@ pub struct ModeLevelExecuteObjectsWork {
         Option<ModeLevelPrizeBlockInitialWorkSub1007A>,
     #[serde(default)]
     pub player_prize_wobble_list_work_loc_1002e: Option<ModeLevelPrizeWobbleListWorkLoc1002E>,
-    /// ASM `Block_LoadSmashBits sub_10E86` inserts a `$2001` Object/Gfx pair
-    /// after Kid; loc_E1E reaches its `sub_10EDA` initial callback in the
-    /// same linked-list walk.
-    #[serde(default)]
-    pub player_spawned_block_destroy_list_work_sub_10e86:
-        Option<ModeLevelBlockDestroyListWorkSub10E86>,
     /// `None` means allocation-age ties could not be resolved from source
     /// ordering. This slice deliberately excludes unrelated fixed/enemy
     /// callbacks while preserving every prize callback around Kid.
@@ -2337,16 +2271,6 @@ pub struct ModeLevelExecuteObjectsWork {
     pub floating_prize_paths: Vec<ModeLevelFloatingPrizeWork>,
     #[serde(default)]
     pub executed_player_path: Option<ModeLevelPlayerExecutionPath>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ModeLevelBlockDestroyWorkerSub10EDA {
-    /// ASM `sub_10EDA loc_10F2A` resumes after its first hibernate.
-    Hibernate,
-    /// ASM `loc_10F38` hibernate followed by the newly linked `sub_292E`
-    /// debris-worker initial pass.
-    HibernateThenDebrisInitial,
 }
 
 /// Inclusive Kid hitbox scan performed by ASM `sub_DFB0 -> loc_EAE4`.

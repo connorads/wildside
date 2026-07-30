@@ -7,16 +7,6 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
-## 2026-07-30 handoff (#409 recurrence through frame 1450)
-
-- The correction-free persistent raster recurrence reaches published frame
-  1450 with no route-index timing case.
-- Transform, camera streaming, prize animation, smash-block, debris, and GEMS
-  wait paths are source-ordered typed workload.
-- Full pixels remain 37,518 exact / 241 divergent / 2,457 changed.
-- NEXT: census post-1450 failures by repeated workload and take the widest
-  engine class.
-
 ## 2026-07-30 handoff (#409 transform repeat suffix)
 
 - The direct `loc_7D22` DBF edge is typed from post-H-scroll DMA through the

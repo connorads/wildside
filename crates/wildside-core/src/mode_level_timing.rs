@@ -1356,47 +1356,21 @@ pub struct ModeLevelVblankRefreshSuffixAfterFinalVdpOwnership {
 
 /// ASM `sub_30194` branch selected by the current and cached camera tiles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ModeLevelTailCameraCellMappingSub30194 {
-    /// Theme mapping with the priority bit clear.
-    OrdinaryTheme,
-    /// Theme mapping with the priority bit set.
-    PriorityTheme,
-    /// Negative `Level_Layout` word selecting `Block_Mappings`.
-    Block,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ModeLevelTailCameraStripeSub30194 {
     /// ASM loc_301B4/loc_30246: neither camera tile axis needs streaming.
     BothTileAxesUnchanged,
     /// ASM loc_301CE -> sub_3034A: upward, unsplit 21-longword row upload.
     UpwardHorizontalNoWrap {
-        cells: [ModeLevelTailCameraCellMappingSub30194; 21],
+        ordinary_theme_cells: u8,
+        priority_theme_cells: u8,
+        block_cells: u8,
     },
     /// ASM loc_301B4 -> loc_301CE -> sub_3034A: downward, unsplit
     /// 21-longword row upload.
     DownwardHorizontalNoWrap {
-        cells: [ModeLevelTailCameraCellMappingSub30194; 21],
-    },
-    /// ASM `loc_301F6 -> sub_3034A` twice: upward row split at the plane-A
-    /// boundary, with the first pass length retained for FIFO ordering.
-    UpwardHorizontalSplit {
-        cells: [ModeLevelTailCameraCellMappingSub30194; 21],
-        first_pass_cells: u8,
-    },
-    /// ASM `loc_3023C -> loc_30262 -> sub_302F6`: the camera crossed a
-    /// rightward tile boundary and the unsplit 15-cell column was uploaded.
-    RightwardVerticalNoWrap {
-        cells: [ModeLevelTailCameraCellMappingSub30194; 15],
-    },
-    /// ASM `loc_301CE -> sub_3034A`, then `loc_30262 -> sub_302F6`: an
-    /// upward row followed by a rightward column, optionally split at the
-    /// plane boundary.
-    UpwardHorizontalRightwardVertical {
-        row_cells: [ModeLevelTailCameraCellMappingSub30194; 21],
-        column_cells: [ModeLevelTailCameraCellMappingSub30194; 15],
-        first_row_pass_cells: u8,
-        first_column_pass_cells: u8,
+        ordinary_theme_cells: u8,
+        priority_theme_cells: u8,
+        block_cells: u8,
     },
     /// One or both axes use another streaming shape.
     StreamingOther,
@@ -1410,70 +1384,13 @@ pub fn mode_level_tail_camera_stripe_work_sub_30194(
     camera_x_pos: u16,
     camera_y_pos: u16,
     horizontal_cells: Option<&[u16]>,
-    vertical_cells: Option<&[u16]>,
 ) -> ModeLevelTailCameraStripeSub30194 {
-    fn classify_cells<const N: usize>(
-        cells: &[u16],
-    ) -> Option<[ModeLevelTailCameraCellMappingSub30194; N]> {
-        let cells: &[u16; N] = cells.try_into().ok()?;
-        Some(std::array::from_fn(|index| {
-            let cell = cells[index];
-            if (cell as i16) < 0 {
-                ModeLevelTailCameraCellMappingSub30194::Block
-            } else if cell & 0x0100 != 0 {
-                ModeLevelTailCameraCellMappingSub30194::PriorityTheme
-            } else {
-                ModeLevelTailCameraCellMappingSub30194::OrdinaryTheme
-            }
-        }))
-    }
-
     let previous_x_tile = previous_camera_x_pos >> 3;
     let previous_y_tile = (previous_camera_y_pos as i16) >> 3;
     let x_tile = camera_x_pos >> 3;
     let y_tile = (camera_y_pos as i16) >> 3;
     if previous_x_tile == x_tile && previous_y_tile == y_tile {
         return ModeLevelTailCameraStripeSub30194::BothTileAxesUnchanged;
-    }
-
-    if y_tile < previous_y_tile && previous_x_tile < x_tile {
-        let (Some(row_cells), Some(column_cells)) = (
-            horizontal_cells.and_then(classify_cells::<21>),
-            vertical_cells.and_then(classify_cells::<15>),
-        ) else {
-            return ModeLevelTailCameraStripeSub30194::StreamingOther;
-        };
-        let plane_cell_column = (x_tile >> 1) & 0x001F;
-        let first_row_pass_cells = if plane_cell_column < 0x000C {
-            21
-        } else {
-            32_u16.wrapping_sub(plane_cell_column)
-        };
-        let plane_block_row = (y_tile as u16 >> 1) & 0x000F;
-        let first_column_pass_cells = if plane_block_row < 2 {
-            15
-        } else {
-            16_u16.wrapping_sub(plane_block_row)
-        };
-        if (1..=15).contains(&first_column_pass_cells) {
-            return ModeLevelTailCameraStripeSub30194::UpwardHorizontalRightwardVertical {
-                row_cells,
-                column_cells,
-                first_row_pass_cells: first_row_pass_cells as u8,
-                first_column_pass_cells: first_column_pass_cells as u8,
-            };
-        }
-        return ModeLevelTailCameraStripeSub30194::StreamingOther;
-    }
-
-    if previous_y_tile == y_tile && previous_x_tile < x_tile {
-        let Some(cells) = vertical_cells.filter(|cells| cells.len() == 15) else {
-            return ModeLevelTailCameraStripeSub30194::StreamingOther;
-        };
-        let Some(paths) = classify_cells::<15>(cells) else {
-            return ModeLevelTailCameraStripeSub30194::StreamingOther;
-        };
-        return ModeLevelTailCameraStripeSub30194::RightwardVerticalNoWrap { cells: paths };
     }
 
     // ASM loc_301CE/loc_301FE: a vertical-only row at plane columns 0..11
@@ -1484,24 +1401,36 @@ pub fn mode_level_tail_camera_stripe_work_sub_30194(
     let Some(cells) = horizontal_cells.filter(|cells| cells.len() == 21) else {
         return ModeLevelTailCameraStripeSub30194::StreamingOther;
     };
-    if previous_x_tile != x_tile || y_tile == previous_y_tile {
+    if previous_x_tile != x_tile || y_tile == previous_y_tile || plane_cell_column >= 0x000C {
         return ModeLevelTailCameraStripeSub30194::StreamingOther;
     }
 
-    let Some(cells) = classify_cells::<21>(cells) else {
-        return ModeLevelTailCameraStripeSub30194::StreamingOther;
-    };
-    if y_tile < previous_y_tile {
-        if plane_cell_column < 0x000C {
-            ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap { cells }
+    let mut ordinary_theme_cells = 0_u8;
+    let mut priority_theme_cells = 0_u8;
+    let mut block_cells = 0_u8;
+    for &cell in cells {
+        if (cell as i16) < 0 {
+            block_cells += 1;
+        } else if cell & 0x0100 != 0 {
+            priority_theme_cells += 1;
         } else {
-            ModeLevelTailCameraStripeSub30194::UpwardHorizontalSplit {
-                cells,
-                first_pass_cells: 32_u16.wrapping_sub(plane_cell_column) as u8,
-            }
+            ordinary_theme_cells += 1;
+        }
+    }
+
+    let work = (ordinary_theme_cells, priority_theme_cells, block_cells);
+    if y_tile < previous_y_tile {
+        ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+            ordinary_theme_cells: work.0,
+            priority_theme_cells: work.1,
+            block_cells: work.2,
         }
     } else {
-        ModeLevelTailCameraStripeSub30194::DownwardHorizontalNoWrap { cells }
+        ModeLevelTailCameraStripeSub30194::DownwardHorizontalNoWrap {
+            ordinary_theme_cells: work.0,
+            priority_theme_cells: work.1,
+            block_cells: work.2,
+        }
     }
 }
 
@@ -1513,123 +1442,38 @@ pub fn mode_level_tail_camera_stripe_raw_cycles_sub_30194(
         ModeLevelTailCameraStripeSub30194::BothTileAxesUnchanged => {
             Some(M68kCycleCount::from_raw(238))
         }
-        ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap { cells }
-            if cells
-                .iter()
-                .all(|cell| *cell == ModeLevelTailCameraCellMappingSub30194::OrdinaryTheme) =>
-        {
+        ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+            ordinary_theme_cells: 21,
+            priority_theme_cells: 0,
+            block_cells: 0,
+        } => {
             // ASM sub_30194/loc_301CE -> sub_3034A. The fixed unsplit
             // upward-row spine plus the traced 21 ordinary cells is 2,320
             // raw cycles. Priority/block mixtures remain unclassified until
             // an oracle instruction trace fixes their complete path cost.
             Some(M68kCycleCount::from_raw(2_320))
         }
-        ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap { cells }
-            if cells
-                .iter()
-                .filter(|cell| **cell == ModeLevelTailCameraCellMappingSub30194::Block)
-                .count()
-                == 1
-                && cells
-                    .iter()
-                    .all(|cell| *cell != ModeLevelTailCameraCellMappingSub30194::PriorityTheme) =>
-        {
+        ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
+            ordinary_theme_cells: 20,
+            priority_theme_cells: 0,
+            block_cells: 1,
+        } => {
             // ASM sub_30194/loc_3037C: oracle frame 902 takes one block
             // mapping branch after 20 ordinary cells. The complete caller,
             // jump stub, routine, and return cost 2,312 raw cycles.
             Some(M68kCycleCount::from_raw(2_312))
         }
-        ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap { cells }
-            if cells
-                .iter()
-                .filter(|cell| **cell == ModeLevelTailCameraCellMappingSub30194::Block)
-                .count()
-                == 14
-                && cells
-                    .iter()
-                    .all(|cell| *cell != ModeLevelTailCameraCellMappingSub30194::PriorityTheme) =>
-        {
-            // ASM sub_30194 -> sub_3034A, published TAS frame 1304. The
-            // ordered full-PC journal fixes 2,156 raw cycles for seven theme
-            // cells and fourteen loc_3037C block-mapping cells.
-            Some(M68kCycleCount::from_raw(2_156))
-        }
-        ModeLevelTailCameraStripeSub30194::DownwardHorizontalNoWrap { cells }
-            if cells
-                .iter()
-                .all(|cell| *cell == ModeLevelTailCameraCellMappingSub30194::OrdinaryTheme) =>
-        {
+        ModeLevelTailCameraStripeSub30194::DownwardHorizontalNoWrap {
+            ordinary_theme_cells: 21,
+            priority_theme_cells: 0,
+            block_cells: 0,
+        } => {
             // ASM sub_30194 loc_301B4 -> loc_301CE -> sub_3034A: frame 1004
             // takes the same 21 ordinary cells as frame 895's upward pass.
             // The complete frame-1004 selected-PC path is 2,350 raw cycles;
             // FIFO retry cycles remain owned by the ordered VDP scheduler.
             Some(M68kCycleCount::from_raw(2_350))
         }
-        ModeLevelTailCameraStripeSub30194::RightwardVerticalNoWrap { cells }
-            if cells
-                .iter()
-                .all(|cell| *cell != ModeLevelTailCameraCellMappingSub30194::PriorityTheme) =>
-        {
-            // ASM loc_892 -> sub_30194 loc_3023C -> loc_30262 -> sub_302F6.
-            // The published TAS frame-1214 full-PC journal sums to 2,114
-            // raw cycles from sub_30194 entry through the first loc_302E8
-            // latch write. Add the caller JSR/jump stub and remaining latch
-            // write/RTS for the complete loc_892 call.
-            let block_cells = cells
-                .iter()
-                .filter(|cell| **cell == ModeLevelTailCameraCellMappingSub30194::Block)
-                .count();
-            Some(M68kCycleCount::from_raw(
-                2_180 - 12 * u32::try_from(block_cells).ok()?,
-            ))
-        }
-        ModeLevelTailCameraStripeSub30194::RightwardVerticalNoWrap { .. } => None,
-        ModeLevelTailCameraStripeSub30194::UpwardHorizontalRightwardVertical {
-            row_cells,
-            column_cells,
-            first_row_pass_cells,
-            first_column_pass_cells,
-        } if row_cells
-            .iter()
-            .chain(column_cells.iter())
-            .all(|cell| *cell != ModeLevelTailCameraCellMappingSub30194::PriorityTheme) =>
-        {
-            // ASM loc_892 -> sub_30194, published TAS frame 1218. The full
-            // PC journals fix 4,252 raw cycles when the 15-cell column is
-            // unsplit (frame 1299), or 4,336 when it wraps and needs two
-            // sub_302F6 calls (frame 1218).
-            let block_cells = row_cells
-                .iter()
-                .chain(column_cells.iter())
-                .filter(|cell| **cell == ModeLevelTailCameraCellMappingSub30194::Block)
-                .count();
-            let base = if first_column_pass_cells == 15 {
-                4_252
-            } else {
-                4_336
-            } + if first_row_pass_cells == 21 { 0 } else { 88 };
-            Some(M68kCycleCount::from_raw(
-                base - 12 * u32::try_from(block_cells).ok()?,
-            ))
-        }
-        ModeLevelTailCameraStripeSub30194::UpwardHorizontalRightwardVertical { .. } => None,
-        ModeLevelTailCameraStripeSub30194::UpwardHorizontalSplit { cells, .. }
-            if cells
-                .iter()
-                .all(|cell| *cell != ModeLevelTailCameraCellMappingSub30194::PriorityTheme) =>
-        {
-            // ASM loc_301F6 -> sub_3034A twice. The published TAS frame
-            // 1334 full-PC journal fixes the 20+1 ordinary-cell path at
-            // 2,398 raw cycles. Each loc_3037C block cell omits 12 cycles.
-            let block_cells = cells
-                .iter()
-                .filter(|cell| **cell == ModeLevelTailCameraCellMappingSub30194::Block)
-                .count();
-            Some(M68kCycleCount::from_raw(
-                2_398 - 12 * u32::try_from(block_cells).ok()?,
-            ))
-        }
-        ModeLevelTailCameraStripeSub30194::UpwardHorizontalSplit { .. } => None,
         ModeLevelTailCameraStripeSub30194::StreamingOther => None,
         ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap { .. }
         | ModeLevelTailCameraStripeSub30194::DownwardHorizontalNoWrap { .. } => None,
@@ -1678,8 +1522,6 @@ pub struct ModeLevelTailInputsLoc892<'a> {
     /// `sub_30194` upload. The imperative shell gathers these from the current
     /// block grid; the timing core classifies their ASM mapping branches.
     pub camera_stripe_cells_sub_30194: Option<&'a [u16]>,
-    /// Live 15-cell column selected by ASM `loc_30262 -> sub_302F6`.
-    pub camera_column_cells_sub_30194: Option<&'a [u16]>,
     pub time_frames_before_loc_3038a: u16,
     pub game_mode_zero: bool,
     pub special_effect_4: bool,
@@ -1799,7 +1641,6 @@ impl ModeLevelTailStateLoc892 {
             inputs.camera_x_pos,
             inputs.camera_y_pos,
             inputs.camera_stripe_cells_sub_30194,
-            inputs.camera_column_cells_sub_30194,
         );
         // ASM sub_30194 loc_302E8 updates both latches after either axis path.
         next_state.camera_x_latch_f82c = inputs.camera_x_pos;
@@ -1853,7 +1694,6 @@ impl ModeLevelTailStateLoc892 {
         let mut piece_rows_sub_30744 = ModeLevelTailPieceRowsSub30744 {
             entries_before_sentinel: 0,
             rendered_nonnegative_entries: 0,
-            rendered_entries: [false; 29],
         };
         let mut piece_refresh_sub_307d8 = ModeLevelTailPieceRefreshSub307D8::StreamingOther;
         let mut profile_classified = true;
@@ -1879,7 +1719,6 @@ impl ModeLevelTailStateLoc892 {
                     != ModeLevelTailShiftDataSlotLoc30452::Unchanged
                 {
                     piece_rows_sub_30744.rendered_nonnegative_entries += 1;
-                    piece_rows_sub_30744.rendered_entries[row] = true;
                 }
             }
 
@@ -2078,9 +1917,6 @@ pub fn mode_level_tail_shift_layers_raw_cycles(
 pub struct ModeLevelTailPieceRowsSub30744 {
     pub entries_before_sentinel: u8,
     pub rendered_nonnegative_entries: u8,
-    /// ASM `loc_3079A`: true when the row's shift-data longword is
-    /// non-negative and the sprite words are emitted.
-    pub rendered_entries: [bool; 29],
 }
 
 /// ASM `sub_307D8` background-piece refresh path.
@@ -2708,58 +2544,6 @@ pub fn player_callback_cycles_loc_a73a(
     if matches!(
         path,
         crate::ModeLevelNormalPhysicsPath {
-            horizontal: ModeLevelAirborneHorizontalPath::RightHeldCapBleed,
-            vertical: ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
-            y_velocity_after: 409_600,
-            gfx_object_collision_clear: true,
-            vertical_collision: ModeLevelVerticalCollisionPath::Landing,
-            wall_collision: ModeLevelWallCollisionPath::Clear,
-            airborne_action: ModeLevelAirborneActionPath::NoButtons,
-            cyclone_visual_steps: None,
-            ceiling_scan_sub_914a: None,
-        }
-    ) && gfx_scan.bounds.left_col == 3
-        && gfx_scan.bounds.right_col == 4
-        && gfx_scan.bounds.top_row == 44
-        && gfx_scan.bounds.bottom_row == 46
-        && gfx_scan.tile_iterations == 5
-        && gfx_scan.first_collision == Some(ModeLevelKidGfxTerrainCollision::Solid)
-    {
-        // ASM loc_A73A -> sub_B084 -> sub_B168 -> sub_A4EE -> sub_902A
-        // -> loc_A8F6/loc_A912/loc_A94E -> sub_78E8 -> loc_75D4,
-        // published TAS frame 1172. Consecutive loc_E1E rows span 5,796
-        // cycles; remove the shared 426-cycle scheduler shell.
-        return Some(M68kCycleCount::from_raw(5_370));
-    }
-    if matches!(
-        path,
-        crate::ModeLevelNormalPhysicsPath {
-            horizontal: ModeLevelAirborneHorizontalPath::LeftHeldRunAcceleration,
-            vertical: ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
-            y_velocity_after: 16_384,
-            gfx_object_collision_clear: true,
-            vertical_collision: ModeLevelVerticalCollisionPath::Clear,
-            wall_collision: ModeLevelWallCollisionPath::Clear,
-            airborne_action: ModeLevelAirborneActionPath::NoButtons,
-            cyclone_visual_steps: None,
-            ceiling_scan_sub_914a: None,
-        }
-    ) && gfx_scan.bounds.left_col == 2
-        && gfx_scan.bounds.right_col == 3
-        && gfx_scan.bounds.top_row == 39
-        && gfx_scan.bounds.bottom_row == 41
-        && gfx_scan.tile_iterations == 6
-        && gfx_scan.first_collision.is_none()
-    {
-        // ASM loc_A73A -> sub_B084 loc_B0B6 -> sub_B168 loc_B1E0 ->
-        // sub_A4EE -> sub_902A -> sub_8F26 -> sub_B270 -> loc_A8D6,
-        // published TAS frame 1148. Consecutive loc_E1E rows span 5,350
-        // cycles; remove the shared 426-cycle scheduler shell.
-        return Some(M68kCycleCount::from_raw(4_924));
-    }
-    if matches!(
-        path,
-        crate::ModeLevelNormalPhysicsPath {
             horizontal: ModeLevelAirborneHorizontalPath::NeutralStationary,
             vertical: ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
             y_velocity_after: 262_144,
@@ -2866,16 +2650,13 @@ pub fn player_callback_cycles_loc_a73a(
         || !matches!(
             path.vertical,
             ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8
-                | ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0
                 | ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. }
-                | ModeLevelAirborneVerticalPath::CycloneFlyingCPress { .. }
         )
         || !matches!(
             (path.wall_collision, path.airborne_action),
             (
                 ModeLevelWallCollisionPath::Clear,
                 ModeLevelAirborneActionPath::NoButtons
-                    | ModeLevelAirborneActionPath::CycloneFlightStartLocA830
             ) | (
                 ModeLevelWallCollisionPath::RightWallClingLocA9e4,
                 ModeLevelAirborneActionPath::NotReachedAfterWallCollision
@@ -2894,66 +2675,6 @@ pub fn player_callback_cycles_loc_a73a(
             ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
         ) => 0,
         (
-            ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
-            ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
-        ) => {
-            // ASM sub_B084 loc_B0FE and sub_B168 loc_B214, followed by both
-            // Cyclone sub_B270 calls. Published TAS frame 1212 spans 4,902
-            // cycles between loc_E1E dispatches. Removing the 426-cycle
-            // shell, six clear Gfx visits, and one visual wrap leaves this
-            // branch 150 cycles above the shared natural-route spine.
-            150
-        }
-        (
-            ModeLevelAirborneHorizontalPath::NeutralPositiveBrakeClampZero,
-            ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
-        ) => {
-            // ASM sub_B084 loc_B0FE, published TAS frame 1372. `$100-$400`
-            // goes negative, so moveq #0 and bra loc_B118 add 22 raw cycles
-            // over the ordinary positive brake path. The complete-address
-            // E1E journal fixes the player callback at 5,450 raw cycles.
-            172
-        }
-        (
-            ModeLevelAirborneHorizontalPath::NeutralStationary,
-            ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
-        ) => {
-            // ASM sub_B084 loc_B0FE -> loc_B118, published TAS frame 1373.
-            // Testing zero and taking the subtract-and-clamp entry without
-            // either arithmetic branch leaves a 5,440-cycle raw callback.
-            162
-        }
-        (
-            ModeLevelAirborneHorizontalPath::NeutralStationary,
-            ModeLevelAirborneVerticalPath::CycloneFlyingCPress { .. },
-        ) => {
-            // ASM sub_B084 loc_B0FE and sub_B168 loc_B214's consumed-C
-            // path, published TAS frames 1381/1389. Their complete-address
-            // journals fix the no-wrap callback at 5,450 raw cycles; frame
-            // 1381's visual wrap adds the shared 10-cycle branch below.
-            172
-        }
-        (
-            ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
-            ModeLevelAirborneVerticalPath::CycloneFlyingCPress { .. },
-        ) => {
-            // ASM sub_B084 loc_B0FE and sub_B168 loc_B214's consumed-C
-            // thrust path, followed by both sub_B270 calls. Published TAS
-            // frame 1221 spans 4,890 cycles between loc_E1E dispatches;
-            // no visual wrap occurs, leaving this branch 148 cycles above
-            // the shared natural-route spine.
-            148
-        }
-        (
-            ModeLevelAirborneHorizontalPath::NeutralNegativeBrake,
-            ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
-        ) => {
-            // ASM sub_B084 loc_B0FE -> loc_B10E and sub_B168 loc_B1E0,
-            // published TAS frame 1149. Its six-cell clear callback is 4,224
-            // raw cycles after the scheduler shell, 92 below the shared spine.
-            -92
-        }
-        (
             ModeLevelAirborneHorizontalPath::RightHeldAcceleration,
             ModeLevelAirborneVerticalPath::CycloneFlyingNoCPress { .. },
         ) => -12,
@@ -2968,15 +2689,6 @@ pub fn player_callback_cycles_loc_a73a(
             -9
         }
         (
-            ModeLevelAirborneHorizontalPath::RightHeldRunAcceleration,
-            ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
-        ) => {
-            // ASM sub_B084 loc_B0B6/loc_B0E2 and sub_B168 loc_B1E0,
-            // published TAS frame 1153. Its six-cell clear callback is 4,220
-            // raw cycles after the scheduler shell.
-            -96
-        }
-        (
             ModeLevelAirborneHorizontalPath::RightHeldCapBleed,
             ModeLevelAirborneVerticalPath::HeldJumpGravityLocB1e8,
         ) => {
@@ -2986,26 +2698,6 @@ pub fn player_callback_cycles_loc_a73a(
             // no-scan callback at 4,096 cycles on frame 942, 32 more than
             // frame 934's run-held acceleration path.
             23
-        }
-        (
-            ModeLevelAirborneHorizontalPath::RightHeldCapBleed,
-            ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
-        ) => {
-            // ASM sub_B084 loc_B0E2 cap rejection and sub_B168 loc_B1E0,
-            // published TAS frame 1171. Its six-cell clear callback is 4,272
-            // raw cycles after the scheduler shell.
-            -44
-        }
-        (
-            ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
-            ModeLevelAirborneVerticalPath::DefaultGravityLocB1e0,
-        ) if path.airborne_action == ModeLevelAirborneActionPath::CycloneFlightStartLocA830 => {
-            // ASM sub_B084 loc_B0FE, sub_B168 loc_B1E0, then loc_A7F8 ->
-            // loc_A830 -> loc_A8D6. Published TAS frame 1211 spans 4,700
-            // cycles between loc_E1E dispatches, leaving a 4,274-cycle
-            // callback after the shared scheduler shell. Six clear Gfx
-            // visits leave this branch/action pair 42 cycles below the base.
-            -42
         }
         (
             ModeLevelAirborneHorizontalPath::NeutralPositiveBrake,
@@ -3120,92 +2812,6 @@ pub fn player_callback_cycles_loc_a73a(
         (ModeLevelVerticalCollisionPath::Ceiling, Some(scan))
             if scan.visits.len() == 2
                 && scan.return_path == ModeLevelCeilingScanReturn::Hit
-                && execute
-                    .player_spawned_block_destroy_list_work_sub_10e86
-                    .is_some()
-                && scan.first_hit_col == scan.visits.first().map(|visit| visit.col)
-                && scan.visits[0].collision == crate::ModeLevelCeilingScanCollision::Solid
-                && scan.visits[0].has_block
-                && scan.visits[0].block_type == Some(0)
-                && scan.visits[0].skin == 1
-                && scan.visits[1].collision == crate::ModeLevelCeilingScanCollision::Empty
-                && !scan.visits[1].has_block
-                && scan.visits[1].block_type.is_none()
-                && scan.visits.iter().all(|visit| {
-                    visit.rubber_effect == ModeLevelRubberContactEffectLoc10DA4::None
-                }) =>
-        {
-            // ASM sub_914A -> Block_LoadSmashBits sub_10E86, published TAS
-            // frame 1399. The complete-address E1E journal fixes the player
-            // callback at 8,960 raw cycles, including PlaySound and both
-            // linked-list insertions; 4,472 lies beyond the shared path.
-            cycles += 4_472;
-        }
-        (ModeLevelVerticalCollisionPath::Ceiling, Some(scan))
-            if scan.visits.len() == 2
-                && scan.return_path == ModeLevelCeilingScanReturn::Hit
-                && scan.first_hit_col == scan.visits.first().map(|visit| visit.col)
-                && scan.visits[0].collision == crate::ModeLevelCeilingScanCollision::Solid
-                && scan.visits[0].has_block
-                && scan.visits[0].block_type == Some(1)
-                && scan.visits[0].skin == 2
-                && scan.visits[1].collision == crate::ModeLevelCeilingScanCollision::Empty
-                && !scan.visits[1].has_block
-                && scan.visits[1].block_type.is_none()
-                && scan.visits.iter().all(|visit| {
-                    visit.rubber_effect == ModeLevelRubberContactEffectLoc10DA4::None
-                }) =>
-        {
-            // ASM sub_914A loc_9188/loc_91AC/loc_91C0, published TAS frame
-            // 1398. The retained type-1 block word does not allocate another
-            // wobble worker. The complete-address journal fixes this scan at
-            // 972 raw cycles beyond the stationary Cyclone/Gfx path.
-            cycles += 972;
-        }
-        (ModeLevelVerticalCollisionPath::Ceiling, Some(scan))
-            if scan.visits.len() == 2
-                && scan.return_path == ModeLevelCeilingScanReturn::Hit
-                && scan.first_hit_col == scan.visits.first().map(|visit| visit.col)
-                && scan.visits[0].collision == crate::ModeLevelCeilingScanCollision::Solid
-                && !scan.visits[0].has_block
-                && scan.visits[0].block_type.is_none()
-                && scan.visits[1].collision == crate::ModeLevelCeilingScanCollision::Empty
-                && !scan.visits[1].has_block
-                && scan.visits[1].block_type.is_none()
-                && scan.visits.iter().all(|visit| {
-                    visit.rubber_effect == ModeLevelRubberContactEffectLoc10DA4::None
-                }) =>
-        {
-            // ASM sub_914A loc_9188/loc_91AC, published TAS frame 1367.
-            // The first layout word still has solid collision bits after its
-            // block metadata was cleared; the second word takes loc_919E.
-            // The complete-address journal fixes frame 1367's player callback
-            // at 5,428 raw cycles, leaving 1,176 beyond the shared path.
-            cycles += 1_176;
-        }
-        (ModeLevelVerticalCollisionPath::Ceiling, Some(scan))
-            if scan.visits.len() == 2
-                && scan.return_path == ModeLevelCeilingScanReturn::Hit
-                && scan.first_hit_col.is_some()
-                && scan.visits[0].collision == crate::ModeLevelCeilingScanCollision::Solid
-                && scan.visits[0].block_type == Some(1)
-                && scan.visits[0].skin == 2
-                && scan.visits[1].collision == crate::ModeLevelCeilingScanCollision::Solid
-                && scan.visits[1].block_type == Some(0)
-                && scan.visits.iter().all(|visit| {
-                    visit.rubber_effect == ModeLevelRubberContactEffectLoc10DA4::None
-                }) =>
-        {
-            // ASM sub_914A loc_9188/loc_91AC/loc_91C0, published TAS frame
-            // 1365. Both cells set the ceiling-hit flag, but neither cell's
-            // layout word has bit 15 set, so loc_91C0 skips j_loc_10DA4.
-            // The complete-address journal fixes the player callback at
-            // 8,880 raw cycles, leaving 4,628 beyond the shared path.
-            cycles += 4_628;
-        }
-        (ModeLevelVerticalCollisionPath::Ceiling, Some(scan))
-            if scan.visits.len() == 2
-                && scan.return_path == ModeLevelCeilingScanReturn::Hit
                 && scan.first_hit_col.is_some()
                 && scan.visits.iter().any(|visit| {
                     Some(visit.col) == scan.first_hit_col
@@ -3216,43 +2822,6 @@ pub fn player_callback_cycles_loc_a73a(
             let list = execute.player_prize_wobble_list_work_loc_1002e?;
             cycles += 4_366
                 + 54 * i32::from(list.object_insert_rank_loc_de0 + list.gfx_insert_rank_loc_fd4);
-        }
-        (ModeLevelVerticalCollisionPath::Ceiling, Some(scan))
-            if scan.visits.len() == 2
-                && scan.return_path == ModeLevelCeilingScanReturn::Hit
-                && scan.first_hit_col.is_some()
-                && scan.visits.iter().all(|visit| {
-                    visit.collision == crate::ModeLevelCeilingScanCollision::Solid
-                        && visit.block_type == Some(0)
-                        && visit.rubber_effect == ModeLevelRubberContactEffectLoc10DA4::None
-                }) =>
-        {
-            // ASM sub_902A -> sub_914A loc_9188/loc_91AC, published TAS
-            // frame 1347. Both ordinary solid cells are visited before the
-            // ceiling response clears velocity. The complete-address journal
-            // includes Block_LoadSmashBits' PlaySound wrapper and fixes the
-            // callback at 8,844 raw cycles, leaving 4,501 beyond the shared
-            // Cyclone/Gfx path above.
-            cycles += 4_501;
-        }
-        (ModeLevelVerticalCollisionPath::Ceiling, Some(scan))
-            if scan.visits.len() == 2
-                && scan.return_path == ModeLevelCeilingScanReturn::Hit
-                && scan.first_hit_col == scan.visits.get(1).map(|visit| visit.col)
-                && scan.visits[0].collision == crate::ModeLevelCeilingScanCollision::Empty
-                && scan.visits[0].block_type.is_none()
-                && scan.visits[1].collision == crate::ModeLevelCeilingScanCollision::Solid
-                && scan.visits[1].block_type == Some(0)
-                && scan.visits.iter().all(|visit| {
-                    visit.rubber_effect == ModeLevelRubberContactEffectLoc10DA4::None
-                }) =>
-        {
-            // ASM sub_902A -> sub_914A loc_9188/loc_91AC, published TAS
-            // frame 1348. The first cell takes loc_919E before the second
-            // ordinary solid cell returns the ceiling hit. The complete-
-            // address journal fixes loc_A73A through sub_E76 at 9,028 raw
-            // cycles, including the 596-cycle PlaySound wrapper.
-            cycles += 4_562;
         }
         _ => return None,
     }
@@ -3313,118 +2882,6 @@ pub fn player_callback_cycles_sub_e12(
             }
         }
         ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
-            form: crate::PlayerForm::Cyclone,
-            x_velocity_before,
-            x_velocity_after,
-            ground_scan_cells_sub_b43a_8600,
-            ..
-        } if x_velocity_after.wrapping_sub(*x_velocity_before) == 0x1C00
-            && matches!(
-                ground_scan_cells_sub_b43a_8600.as_slice(),
-                [crate::ModeLevelGroundScanCellSubB43A8600 {
-                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
-                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Unflagged,
-                }]
-            ) =>
-        {
-            // ASM loc_8BF0 -> loc_8D72 -> loc_8E06, published TAS frame
-            // 1179. The one-cell support span measures 4,528 cycles between
-            // loc_E1E rows, leaving 4,102 after the shared shell.
-            Some(M68kCycleCount::from_raw(4_102))
-        }
-        ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
-            form: crate::PlayerForm::Cyclone,
-            x_velocity_before,
-            x_velocity_after,
-            ground_scan_cells_sub_b43a_8600,
-            ..
-        } if x_velocity_after.wrapping_sub(*x_velocity_before) == 0x1C00
-            && matches!(
-                ground_scan_cells_sub_b43a_8600.as_slice(),
-                [
-                    crate::ModeLevelGroundScanCellSubB43A8600 {
-                        collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
-                        block: crate::ModeLevelGroundScanBlockSubB43A8600::Unflagged,
-                    },
-                    crate::ModeLevelGroundScanCellSubB43A8600 {
-                        collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
-                        block: crate::ModeLevelGroundScanBlockSubB43A8600::Unflagged,
-                    },
-                ]
-            ) =>
-        {
-            // ASM loc_8BF0 -> loc_8D72 -> loc_8E06, published TAS frame
-            // 1173. Consecutive loc_E1E rows span 4,678 cycles; remove the
-            // shared 426-cycle scheduler shell.
-            Some(M68kCycleCount::from_raw(4_252))
-        }
-        ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
-            form: crate::PlayerForm::Cyclone,
-            x_velocity_before: 228_992,
-            x_velocity_after: 229_376,
-            ground_scan_cells_sub_b43a_8600,
-        } if matches!(
-            ground_scan_cells_sub_b43a_8600.as_slice(),
-            [
-                crate::ModeLevelGroundScanCellSubB43A8600 {
-                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
-                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Unflagged,
-                },
-                crate::ModeLevelGroundScanCellSubB43A8600 {
-                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
-                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Unflagged,
-                },
-            ]
-        ) =>
-        {
-            // ASM loc_8BF0 speed-cap branch, published TAS frame 1182.
-            // Consecutive loc_E1E rows span 4,064 cycles; remove the shared
-            // 426-cycle scheduler shell.
-            Some(M68kCycleCount::from_raw(3_638))
-        }
-        ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
-            form: crate::PlayerForm::Cyclone,
-            x_velocity_before: 229_376,
-            x_velocity_after: 229_376,
-            ground_scan_cells_sub_b43a_8600,
-        } if matches!(
-            ground_scan_cells_sub_b43a_8600.as_slice(),
-            [
-                crate::ModeLevelGroundScanCellSubB43A8600 {
-                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
-                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Unflagged,
-                },
-                crate::ModeLevelGroundScanCellSubB43A8600 {
-                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
-                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Unflagged,
-                },
-            ]
-        ) =>
-        {
-            // ASM loc_8BF0 stable maximum-speed branch, published TAS frame
-            // 1183. Consecutive loc_E1E rows span 4,696 cycles; remove the
-            // shared 426-cycle scheduler shell.
-            Some(M68kCycleCount::from_raw(4_270))
-        }
-        ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
-            form: crate::PlayerForm::Cyclone,
-            x_velocity_before: 229_376,
-            x_velocity_after: 229_376,
-            ground_scan_cells_sub_b43a_8600,
-        } if matches!(
-            ground_scan_cells_sub_b43a_8600.as_slice(),
-            [crate::ModeLevelGroundScanCellSubB43A8600 {
-                collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
-                block: crate::ModeLevelGroundScanBlockSubB43A8600::Unflagged,
-            }]
-        ) =>
-        {
-            // ASM loc_8BF0 stable maximum-speed branch, published TAS frame
-            // 1188. The one-cell support span measures 4,548 cycles between
-            // loc_E1E rows, leaving 4,122 after the shared shell.
-            Some(M68kCycleCount::from_raw(4_122))
-        }
-        ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 {
             form: crate::PlayerForm::TheKid,
             ground_scan_cells_sub_b43a_8600,
             ..
@@ -3457,89 +2914,6 @@ pub fn player_callback_cycles_sub_e12(
                 ] => Some(M68kCycleCount::from_raw(3_636)),
                 _ => None,
             }
-        }
-        ModeLevelPlayerExecutionPath::GroundedLeftWalkStartLoc779c {
-            form: crate::PlayerForm::Cyclone,
-            x_velocity_after: -0x3000,
-            ground_scan_cells_sub_b43a_8600,
-        } if matches!(
-            ground_scan_cells_sub_b43a_8600.as_slice(),
-            [crate::ModeLevelGroundScanCellSubB43A8600 {
-                collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
-                block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
-            }]
-        ) =>
-        {
-            // ASM loc_7606 -> loc_779C -> loc_7820 -> loc_8BF0, published
-            // TAS frame 1131. Consecutive loc_E1E rows span 5,434 raw cycles;
-            // remove the shared 426-cycle dispatch/hibernate shell.
-            Some(M68kCycleCount::from_raw(5_008))
-        }
-        ModeLevelPlayerExecutionPath::GroundedLeftWalkContinueLoc8bf0 {
-            form: crate::PlayerForm::Cyclone,
-            x_velocity_before,
-            x_velocity_after,
-            ground_scan_cells_sub_b43a_8600,
-        } if x_velocity_after.wrapping_sub(*x_velocity_before) == -0x1C00
-            && matches!(
-                ground_scan_cells_sub_b43a_8600.as_slice(),
-                [crate::ModeLevelGroundScanCellSubB43A8600 {
-                    collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
-                    block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
-                }]
-            ) =>
-        {
-            // ASM loc_8BF0 -> loc_8D72 -> loc_8E06, published TAS frame
-            // 1132. Consecutive loc_E1E rows span 3,972 raw cycles; remove
-            // the shared 426-cycle dispatch/hibernate shell.
-            Some(M68kCycleCount::from_raw(3_546))
-        }
-        ModeLevelPlayerExecutionPath::GroundedLeftWalkContinueLoc8bf0 {
-            form: crate::PlayerForm::Cyclone,
-            x_velocity_before,
-            x_velocity_after,
-            ground_scan_cells_sub_b43a_8600,
-        } if x_velocity_after.wrapping_sub(*x_velocity_before) == -0x1C00
-            && matches!(
-                ground_scan_cells_sub_b43a_8600.as_slice(),
-                [
-                    crate::ModeLevelGroundScanCellSubB43A8600 {
-                        collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Other,
-                        block: crate::ModeLevelGroundScanBlockSubB43A8600::Unflagged,
-                    },
-                    crate::ModeLevelGroundScanCellSubB43A8600 {
-                        collision: crate::ModeLevelGroundScanCollisionSubB43A8600::Solid,
-                        block: crate::ModeLevelGroundScanBlockSubB43A8600::Other,
-                    },
-                ]
-            ) =>
-        {
-            // ASM loc_8BF0 -> sub_B43A -> sub_8600, published TAS frame
-            // 1135. The extra clear cell adds 128 raw cycles to the
-            // one-cell grounded continuation.
-            Some(M68kCycleCount::from_raw(3_674))
-        }
-        ModeLevelPlayerExecutionPath::GroundedWalkReleaseLoc8c70 {
-            form: crate::PlayerForm::Cyclone,
-            direction: crate::Direction::Left,
-            x_velocity_before,
-            x_velocity_after,
-        } if x_velocity_after.wrapping_sub(*x_velocity_before) == -0x1C00 => {
-            // ASM loc_8BF0 -> loc_8C70 -> loc_A6F8, published TAS frame
-            // 1147. Consecutive loc_E1E rows span 2,700 raw cycles; remove
-            // the shared 426-cycle dispatch/hibernate shell.
-            Some(M68kCycleCount::from_raw(2_274))
-        }
-        ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
-            form: crate::PlayerForm::Cyclone,
-            x_velocity_before: 229_376,
-            x_velocity_after: 172_032,
-            y_velocity_after: -329_472,
-        } => {
-            // ASM loc_8C70 -> loc_A426 -> sub_A432 -> loc_A75A, published
-            // TAS frame 1195. Consecutive loc_E1E rows span 4,248 cycles;
-            // remove the shared 426-cycle scheduler shell.
-            Some(M68kCycleCount::from_raw(3_822))
         }
         ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 {
             form: crate::PlayerForm::TheKid,
@@ -3599,9 +2973,6 @@ pub fn player_callback_cycles_sub_e12(
         | ModeLevelPlayerExecutionPath::GroundedStationaryNoInputLoc7606 { .. }
         | ModeLevelPlayerExecutionPath::GroundedRightWalkStartLoc779c { .. }
         | ModeLevelPlayerExecutionPath::GroundedRightWalkContinueLoc8bf0 { .. }
-        | ModeLevelPlayerExecutionPath::GroundedLeftWalkStartLoc779c { .. }
-        | ModeLevelPlayerExecutionPath::GroundedLeftWalkContinueLoc8bf0 { .. }
-        | ModeLevelPlayerExecutionPath::GroundedWalkReleaseLoc8c70 { .. }
         | ModeLevelPlayerExecutionPath::GroundedJumpLaunchLocA426 { .. }
         | ModeLevelPlayerExecutionPath::WallClingPullUpLocAbf0 { .. }
         | ModeLevelPlayerExecutionPath::PullUpAnimationHibernateLoc1062 { .. }
@@ -3649,9 +3020,6 @@ pub fn input_worker_cycles_loc_7452(path: ModeLevelInputWorkerPathLoc7452) -> M6
         // Left-clear controller, demo-mode, and clear Start path totals 636
         // raw cycles. Right alone takes the same first-test branch.
         ModeLevelInputWorkerPathLoc7452::DemoNoLeftNoStartTimerClear => M68kCycleCount(636),
-        // ASM loc_7464 -> loc_749C: held Left executes the additional
-        // Ctrl_Right_Held test before taking the shared demo path.
-        ModeLevelInputWorkerPathLoc7452::DemoLeftOnlyNoStartTimerClear => M68kCycleCount(660),
     }
 }
 
@@ -3760,15 +3128,6 @@ pub fn prize_object_cycles_sub_e12(
                 _ => return None,
             }
         }
-        ModeLevelPrizeObjectExecutionSubE12::FloatingPrizeInitialSub102F8 { index } => {
-            let work = execute.floating_prize_paths.get(usize::from(index))?;
-            if !work.initial_sub_102f8 {
-                return None;
-            }
-            // ASM prize initialiser at sub_102F8, published TAS frame 1399.
-            // The complete-address journal measures the whole E1E callback.
-            return Some(M68kCycleCount::from_raw(1_790));
-        }
         ModeLevelPrizeObjectExecutionSubE12::Player => return None,
         ModeLevelPrizeObjectExecutionSubE12::PlayerSpawnedInitialSub1007A => {
             let work = execute.player_spawned_prize_block_initial_sub_1007a?;
@@ -3777,12 +3136,6 @@ pub fn prize_object_cycles_sub_e12(
                 crate::ModeLevelPrizeBlockInitialPathSub1007A::Prize => 464,
                 crate::ModeLevelPrizeBlockInitialPathSub1007A::RevealOnlyLoc101D8 => return None,
             }
-        }
-        ModeLevelPrizeObjectExecutionSubE12::PlayerSpawnedBlockDestroyInitialSub10EDA => {
-            execute.player_spawned_block_destroy_list_work_sub_10e86?;
-            // ASM Block_LoadSmashBits sub_10E86 inserts sub_10EDA after Kid;
-            // its first loc_E1E callback is 888 raw cycles.
-            return Some(M68kCycleCount::from_raw(888));
         }
         ModeLevelPrizeObjectExecutionSubE12::FlashLoc102B8 { index } => {
             let work = execute
@@ -3895,52 +3248,12 @@ pub fn execute_objects_raw_cycles_sub_e12(
                 .map(palette_fade_worker_cycles_sub_73d0)
                 .map_or(0, M68kCycleCount::get),
         )?
-        .checked_add(block_worker_raw_cycles_sub_10eda(execute)?)?
         .checked_add(demo_exit_wait_cycles_loc_119e0(execute.demo_exit_wait_loc_119e0?)?.get())?
         // ASM loc_E1E's final null-list return reaches Mode_Level $7E6 in 54
         // raw cycles. The following 18-cycle BSR.W sub_21F8 belongs to the
         // post-Execute span.
         .checked_add(54)?;
     Some(M68kCycleCount(cycles))
-}
-
-fn block_worker_raw_cycles_sub_10eda(execute: &ModeLevelExecuteObjectsWork) -> Option<u32> {
-    if execute.block_debris_workers_sub_292e != 0 {
-        if execute.block_destroy_workers_sub_10eda.is_empty() {
-            return Some(0);
-        }
-        if execute.block_destroy_workers_sub_10eda
-            == [crate::ModeLevelBlockDestroyWorkerSub10EDA::Hibernate]
-            && execute.block_debris_workers_sub_292e == 2
-        {
-            // ASM sub_10EDA and sub_292E, published TAS frame 1366. The new
-            // destroy worker resumes at loc_10F2A for a 72-cycle hibernate;
-            // the two existing debris scratch slots are not callbacks.
-            return Some(72);
-        }
-        if execute.block_destroy_workers_sub_10eda
-            == [crate::ModeLevelBlockDestroyWorkerSub10EDA::HibernateThenDebrisInitial]
-            && execute.block_debris_workers_sub_292e == 2
-        {
-            // ASM sub_10EDA loc_10F38 -> sub_292E, published TAS frame 1367.
-            // Existing debris scratch slots do not affect this callback.
-            return Some(2_454);
-        }
-        return (execute.block_destroy_workers_sub_10eda.len() == 1
-            && execute.block_debris_workers_sub_292e == 1)
-            .then_some(2_278);
-    }
-    let mut cycles = 0_u32;
-    for worker in &execute.block_destroy_workers_sub_10eda {
-        cycles = cycles.checked_add(match worker {
-            // Published TAS frame 1348 full-PC journal, E1E-to-E1E.
-            crate::ModeLevelBlockDestroyWorkerSub10EDA::Hibernate => 72,
-            // Published TAS frame 1349: loc_10F38 (72), then the newly
-            // linked sub_292E worker's first pass (2,382).
-            crate::ModeLevelBlockDestroyWorkerSub10EDA::HibernateThenDebrisInitial => 2_454,
-        })?;
-    }
-    Some(cycles)
 }
 
 /// Source-positioned non-refresh waits inside the typed Execute_Objects pass.
@@ -3989,42 +3302,6 @@ pub fn execute_objects_external_waits_sub_e12(
                 Some(M68kExternalWaitEvent {
                     raw_offset: M68kCycleCount(
                         raw_before_player.checked_add(268)?.checked_add(offset)?,
-                    ),
-                    cycles: M68kCycleCount::from_raw(1),
-                })
-            })
-            .collect();
-    }
-
-    if execute
-        .player_spawned_block_destroy_list_work_sub_10e86
-        .is_some()
-    {
-        let mut raw_before_player =
-            execute_objects_setup_cycles_sub_e12(execute.rng_offset_before_sub_e12?)?
-                .get()
-                .checked_add(input_worker_cycles_loc_7452(execute.input_worker_loc_7452?).get())?;
-        let mut player_seen = false;
-        for callback in execute.prize_object_execution_order_sub_e12.as_ref()? {
-            if *callback == ModeLevelPrizeObjectExecutionSubE12::Player {
-                player_seen = true;
-                break;
-            }
-            raw_before_player = raw_before_player
-                .checked_add(prize_object_cycles_sub_e12(execute, *callback)?.get())?;
-        }
-        if !player_seen {
-            return None;
-        }
-        // ASM Block_LoadSmashBits sub_10E86 calls PlaySound. The frame-1399
-        // complete-address journal puts the wrapper 4,206 raw cycles after
-        // Kid's loc_E1E callback entry.
-        return [238, 298, 324, 344, 408, 428]
-            .into_iter()
-            .map(|offset| {
-                Some(M68kExternalWaitEvent {
-                    raw_offset: M68kCycleCount(
-                        raw_before_player.checked_add(4_206)?.checked_add(offset)?,
                     ),
                     cycles: M68kCycleCount::from_raw(1),
                 })
@@ -4212,12 +3489,7 @@ pub fn execute_objects_elapsed_cycles_sub_e12(
     if !is_first_level_start_execute_objects_sub_e12(execute) {
         let raw_total = execute_objects_raw_cycles_sub_e12(execute)?;
         let waits = execute_objects_external_waits_sub_e12(execute)?;
-        if !waits.is_empty()
-            && matches!(
-                execute.executed_player_path,
-                Some(ModeLevelPlayerExecutionPath::WallClingPullUpLocAbf0 { .. })
-            )
-        {
+        if !waits.is_empty() && execute.player_prize_wobble_list_work_loc_1002e.is_none() {
             // The wall-cling PlaySound path does not call sub_FACE. Retain its
             // existing aggregate characterisation until that distinct source
             // prefix has an instruction boundary of its own.
@@ -4296,69 +3568,6 @@ pub fn execute_objects_elapsed_cycles_sub_e12(
                     &mut raw_offset,
                     prize_object_cycles_sub_e12(execute, *callback)?,
                 )?;
-            }
-        }
-        if execute.block_debris_workers_sub_292e != 0 {
-            if execute.block_destroy_workers_sub_10eda.is_empty() {
-                // Debris scratch slots are compiled later by sub_2A4C and
-                // do not own an Execute_Objects callback.
-            } else if execute.block_destroy_workers_sub_10eda
-                == [crate::ModeLevelBlockDestroyWorkerSub10EDA::Hibernate]
-                && execute.block_debris_workers_sub_292e == 2
-            {
-                append_execute_component(
-                    &mut total,
-                    &mut raw_offset,
-                    M68kCycleCount::from_raw(72),
-                )?;
-            } else if execute.block_destroy_workers_sub_10eda
-                == [crate::ModeLevelBlockDestroyWorkerSub10EDA::HibernateThenDebrisInitial]
-                && execute.block_debris_workers_sub_292e == 2
-            {
-                append_execute_component(
-                    &mut total,
-                    &mut raw_offset,
-                    M68kCycleCount::from_raw(72),
-                )?;
-                append_execute_component(
-                    &mut total,
-                    &mut raw_offset,
-                    M68kCycleCount::from_raw(2_382),
-                )?;
-            } else if execute.block_destroy_workers_sub_10eda.len() != 1
-                || execute.block_debris_workers_sub_292e != 1
-            {
-                return None;
-            } else {
-                append_execute_component(
-                    &mut total,
-                    &mut raw_offset,
-                    M68kCycleCount::from_raw(2_278),
-                )?;
-            }
-        } else {
-            for worker in &execute.block_destroy_workers_sub_10eda {
-                match worker {
-                    crate::ModeLevelBlockDestroyWorkerSub10EDA::Hibernate => {
-                        append_execute_component(
-                            &mut total,
-                            &mut raw_offset,
-                            M68kCycleCount::from_raw(72),
-                        )?;
-                    }
-                    crate::ModeLevelBlockDestroyWorkerSub10EDA::HibernateThenDebrisInitial => {
-                        append_execute_component(
-                            &mut total,
-                            &mut raw_offset,
-                            M68kCycleCount::from_raw(72),
-                        )?;
-                        append_execute_component(
-                            &mut total,
-                            &mut raw_offset,
-                            M68kCycleCount::from_raw(2_382),
-                        )?;
-                    }
-                }
             }
         }
         append_execute_component(
@@ -4518,28 +3727,6 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
         {
             658
         }
-        // ASM sub_F096 loc_F09E -> loc_F0D0 -> loc_F106: moving left scans
-        // the entering column three cells behind Kid over the same eight-row
-        // activation span. Frame 1141 spans 814 raw cycles through loc_F25C
-        // versus 166 cached, for 648 extra.
-        (false, true)
-            if shooter.cached_col_before > shooter.kid_block_col
-                && shooter.kid_block_col >= 3
-                && shooter.new_shooter_slots_registered == 0 =>
-        {
-            648
-        }
-        // ASM loc_F0D0 clamps a negative entering column to zero. Frame 1151
-        // reaches Kid column 2; the failed BPL plus MOVEQ adds two raw cycles
-        // over the unclamped left-column path.
-        (false, true)
-            if shooter.cached_col_before > shooter.kid_block_col
-                && shooter.kid_block_col >= 0
-                && shooter.kid_block_col < 3
-                && shooter.new_shooter_slots_registered == 0 =>
-        {
-            650
-        }
         // ASM sub_F096 loc_F186 -> loc_F1A8 -> loc_F1DE: when Kid's row
         // moves upward, scan the entering row five cells above. The fixed
         // setup adds 150 raw cycles over the cached path; each empty cell
@@ -4576,22 +3763,6 @@ pub fn post_execute_raw_cycles_before_sub_44dc(
                 && shooter.new_shooter_slots_registered == 0 =>
         {
             538
-        }
-        // ASM loc_F186 -> loc_F1B0 -> loc_F1DE with the horizontal row span
-        // clamped at column zero. Frame 1158 scans columns 0..5: 650 raw
-        // cycles versus 166 cached, for 484 extra.
-        (true, false)
-            if shooter.cached_row_before < shooter.kid_block_row
-                && shooter.kid_block_row.checked_add(2)?
-                    < i16::try_from(shooter.level_height_blocks).ok()?
-                && shooter.kid_block_col >= 0
-                && shooter.kid_block_col < 3
-                && shooter.kid_block_col.checked_add(3)?
-                    < i16::try_from(shooter.level_width_blocks).ok()?
-                && shooter.new_shooter_slots_registered == 0 =>
-        {
-            let cell_count = shooter.kid_block_col.checked_add(4)?;
-            160_u32.checked_add(54_u32.checked_mul(u32::try_from(cell_count).ok()?)?)?
         }
         // ASM sub_F096 loc_F0D0/F106 and loc_F1A8/F1DE: the power-on -1
         // caches make frame 902 scan both initial layout strips.
@@ -5621,41 +4792,8 @@ fn visit_block_debris_sprites_instructions_sub_2a4c(
     work: ModeLevelBlockDebrisWorkSub2A4C,
     mut visit: impl FnMut(u32) -> Option<()>,
 ) -> Option<()> {
-    if work.active_slot_count > 6 {
-        return None;
-    }
     if work.active_slot_count != 0 {
-        // ASM sub_2A4C loc_2A56, published TAS frames 1349-1350. Each
-        // active scratch slot emits five visible debris sprites through the
-        // same 112-instruction path; the remaining slots take the skip path.
-        const ONE_ACTIVE_TRACE: [u8; 148] = [
-            16, 8, 4, 8, 12, 8, 16, 4, 12, 8, 12, 12, 8, 12, 16, 24, 16, 24, 24, 12, 4, 8, 12, 8,
-            12, 4, 12, 4, 12, 8, 12, 4, 8, 4, 8, 8, 8, 12, 16, 24, 16, 24, 24, 12, 4, 4, 12, 4, 4,
-            8, 4, 8, 8, 8, 12, 16, 24, 16, 24, 24, 12, 4, 4, 12, 4, 4, 8, 4, 8, 8, 8, 12, 16, 24,
-            16, 24, 24, 12, 4, 4, 12, 4, 4, 8, 4, 8, 8, 8, 12, 16, 24, 16, 24, 24, 12, 4, 4, 12, 4,
-            8, 12, 4, 8, 4, 8, 8, 8, 10, 16, 12, 16, 8, 8, 10, 4, 8, 10, 16, 8, 8, 10, 4, 8, 10,
-            16, 8, 8, 10, 4, 8, 10, 16, 8, 8, 10, 4, 8, 10, 16, 8, 8, 10, 4, 8, 10, 16, 10, 16,
-        ];
-        visit(18)?;
-        for &cycles in &ONE_ACTIVE_TRACE[..2] {
-            visit(u32::from(cycles))?;
-        }
-        for _ in 0..work.active_slot_count {
-            for &cycles in &ONE_ACTIVE_TRACE[2..114] {
-                visit(u32::from(cycles))?;
-            }
-        }
-        for slot in work.active_slot_count..6 {
-            let instruction_cycles: &[u8] = if slot == 5 {
-                &[4, 8, 10, 16, 10, 16]
-            } else {
-                &[4, 8, 10, 16, 8, 8, 10]
-            };
-            for &cycles in instruction_cycles {
-                visit(u32::from(cycles))?;
-            }
-        }
-        return Some(());
+        return None;
     }
 
     // ASM Mode_Level loc_87A BSR and sub_2A4C setup through loc_2A56.
@@ -7448,8 +6586,6 @@ mod tests {
             active_platform_workers: 0,
             palette_rotation_worker_loc_11f96: 0,
             unclassified_runtime_transient_workers: 0,
-            block_destroy_workers_sub_10eda: Vec::new(),
-            block_debris_workers_sub_292e: 0,
             player_entry_position: Some(crate::ModeLevelPlayerPosition {
                 x_pos: 0x0020_0000,
                 y_pos: 0x02DD_0000,
@@ -7459,7 +6595,6 @@ mod tests {
             prize_block_wobble_paths_sub_1007a: Vec::new(),
             player_spawned_prize_block_initial_sub_1007a: None,
             player_prize_wobble_list_work_loc_1002e: None,
-            player_spawned_block_destroy_list_work_sub_10e86: None,
             prize_object_execution_order_sub_e12: Some(vec![
                 ModeLevelPrizeObjectExecutionSubE12::Player,
             ]),
@@ -8191,8 +7326,7 @@ mod tests {
             block_debris_sprites_raw_cycles_sub_2a4c(ModeLevelBlockDebrisWorkSub2A4C {
                 active_slot_count: 1,
             }),
-            Some(M68kCycleCount::from_raw(1_580)),
-            "ASM sub_2A4C compiles one 112-instruction active slot before the five inactive scans",
+            None
         );
     }
 
@@ -9105,9 +8239,6 @@ mod tests {
                     piece_rows_sub_30744: ModeLevelTailPieceRowsSub30744 {
                         entries_before_sentinel: 29,
                         rendered_nonnegative_entries: rendered_piece_rows,
-                        rendered_entries: std::array::from_fn(|index| {
-                            index < usize::from(rendered_piece_rows)
-                        }),
                     },
                     piece_refresh_sub_307d8: ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged,
                 },
@@ -9147,7 +8278,6 @@ mod tests {
                 piece_rows_sub_30744: ModeLevelTailPieceRowsSub30744 {
                     entries_before_sentinel: 29,
                     rendered_nonnegative_entries: 29,
-                    rendered_entries: [true; 29],
                 },
                 piece_refresh_sub_307d8: ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged,
             },
@@ -9176,7 +8306,6 @@ mod tests {
             camera_x_pos: 0,
             camera_y_pos: 0x0298,
             camera_stripe_cells_sub_30194: Some(&ordinary_cells),
-            camera_column_cells_sub_30194: None,
             time_frames_before_loc_3038a: 0,
             game_mode_zero: false,
             special_effect_4: false,
@@ -9192,7 +8321,9 @@ mod tests {
         assert_eq!(
             work.camera_stripe_sub_30194,
             ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
-                cells: [ModeLevelTailCameraCellMappingSub30194::OrdinaryTheme; 21],
+                ordinary_theme_cells: 21,
+                priority_theme_cells: 0,
+                block_cells: 0,
             },
             "ASM sub_30194 loc_301CE -> sub_3034A: frame-895 oracle trace takes 21 ordinary mapping branches",
         );
@@ -9246,7 +8377,6 @@ mod tests {
             camera_x_pos: 0,
             camera_y_pos: 0x0298,
             camera_stripe_cells_sub_30194: Some(&camera_cells),
-            camera_column_cells_sub_30194: None,
             time_frames_before_loc_3038a: 0,
             game_mode_zero: false,
             special_effect_4: false,
@@ -9262,13 +8392,9 @@ mod tests {
         assert_eq!(
             work.camera_stripe_sub_30194,
             ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
-                cells: std::array::from_fn(|index| {
-                    if index == 20 {
-                        ModeLevelTailCameraCellMappingSub30194::Block
-                    } else {
-                        ModeLevelTailCameraCellMappingSub30194::OrdinaryTheme
-                    }
-                }),
+                ordinary_theme_cells: 20,
+                priority_theme_cells: 0,
+                block_cells: 1,
             },
             "ASM sub_30194 loc_30354/loc_3037C: frame-902 oracle trace takes 20 ordinary branches and one block branch",
         );
@@ -9580,7 +8706,6 @@ mod tests {
                 camera_x_pos,
                 camera_y_pos: 0,
                 camera_stripe_cells_sub_30194: None,
-                camera_column_cells_sub_30194: None,
                 time_frames_before_loc_3038a: time_frames,
                 game_mode_zero: false,
                 special_effect_4: false,

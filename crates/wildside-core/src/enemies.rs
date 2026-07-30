@@ -13289,54 +13289,6 @@ impl NativeRuntime {
         }
     }
 
-    /// Run ASM `Manage_PlatformLoading loc_2744` when `Kid_Transform
-    /// loc_7E90` returns into the interrupted `Mode_Level` pass.
-    pub(crate) fn manage_platform_loading_after_transform_cleanup_loc_7e90(&mut self) {
-        let Some(platform_layout) = self.platform_layout(self.current_level).cloned() else {
-            return;
-        };
-        let Some(slice) = self.opening_slice else {
-            return;
-        };
-        let player_x_px = slice.player.x_pos >> 16;
-        let player_y_px = slice.player.y_pos >> 16;
-        let platform_window = ActivationWindow {
-            x_min: player_x_px,
-            x_max: player_x_px,
-            y_min: player_y_px,
-            y_max: player_y_px,
-        };
-        let mut objects = slice.objects;
-        self.mode_level_platform_loader_work_loc_2744 = Some(platform_loader_work_loc_2744(
-            &platform_layout,
-            objects.platform_loader,
-            platform_window,
-            true,
-        ));
-        objects
-            .platform_loader
-            .advance_to_window(&platform_layout, platform_window);
-        self.active_platform_roster = objects
-            .platform_loader
-            .active_platforms(&platform_layout, platform_window);
-        let previous_platforms = self.active_platforms.clone();
-        let previous_standing_slot_addr = self.active_platform_standing_on;
-        self.active_platforms = runtime_active_platforms_from_loader_loc_257E(
-            &platform_layout,
-            objects.platform_loader,
-            platform_window,
-            &previous_platforms,
-            self.platform_script_table.as_ref(),
-        );
-        expand_platform_chain_segments_loc_428C(&mut self.active_platforms, &previous_platforms);
-        self.active_platform_standing_on = previous_standing_slot_addr.filter(|slot_addr| {
-            self.active_platforms
-                .iter()
-                .any(|platform| platform.slot_addr == Some(*slot_addr))
-        });
-        self.opening_slice = Some(OpeningSliceState { objects, ..slice });
-    }
-
     pub(crate) fn manage_enemy_loading_after_execute_objects_loc_80c(&mut self) {
         if self.paused
             || self.gameplay_hibernating_for_transform()

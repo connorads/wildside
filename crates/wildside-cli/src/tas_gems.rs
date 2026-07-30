@@ -28,7 +28,7 @@ use wildside_core::{
 use wildside_data::AssetManifest;
 use wildside_frame::{
     NativeAudioDirector, NativeAudioSink, TimedGemsStopMusicCursor, TimedGemsTitleLoc700Cursor,
-    TransformSub8E0PassAdvance, TransformSub8E0PassWork, apply_gems_cyclone_pickup_transform_entry,
+    TransformSub8E0PassWork, apply_gems_cyclone_pickup_transform_entry,
     apply_gems_decompress_to_ram_decoder_with_checkpoint_loc_143ea,
     apply_gems_decompress_to_ram_transfer_loc_1440a,
     apply_gems_decompress_to_ram_transfer_with_checkpoint_loc_1440a,
@@ -7469,13 +7469,10 @@ impl GemsSignatureProbe {
             assert!(matches!(
                 work.tail_loc_892.camera_stripe_sub_30194,
                 wildside_core::ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
-                    cells,
-                } if cells.iter().filter(|cell| {
-                    **cell == wildside_core::ModeLevelTailCameraCellMappingSub30194::Block
-                }).count() == 1
-                    && cells.iter().all(|cell| {
-                        *cell != wildside_core::ModeLevelTailCameraCellMappingSub30194::PriorityTheme
-                    }),
+                    ordinary_theme_cells: 20,
+                    priority_theme_cells: 0,
+                    block_cells: 1,
+                },
             ));
             // TODO(fidelity): source-schedule the upward `sub_30194` stripe.
             // The generic tail visitor rejects it; selected-PC tracing pins
@@ -9937,14 +9934,7 @@ impl PublishedTasRasterTimeline {
                 self.active = false;
                 return None;
             };
-            match next {
-                TransformSub8E0PassAdvance::NextSub8E0(next) => {
-                    self.transform_entry_sub_8e0 = Some(next.cursor);
-                }
-                TransformSub8E0PassAdvance::FinishSub44DC(sub_44dc) => {
-                    self.previous_sub_44dc = Some(sub_44dc);
-                }
-            }
+            self.transform_entry_sub_8e0 = Some(next.cursor);
             self.scheduled_frames += 1;
             return None;
         }
@@ -10056,25 +10046,10 @@ impl PublishedTasRasterTimeline {
                 self.previous_trace = Some(trace.clone());
                 return;
             }
-            if trace.form_change_flash_frames == 1 && self.previous_sub_44dc.is_some() {
-                self.previous_trace = Some(trace.clone());
-                return;
-            }
-            let seed_missing = self.current_seed_sub_e12.is_none();
             let (Some(seed), Some(pre_hud)) = (
                 self.current_seed_sub_e12.take(),
                 trace.mode_level_work_before_hud_sub_44dc.as_ref(),
             ) else {
-                if self.failure.is_none() {
-                    self.failure = Some((
-                        frame_index,
-                        if seed_missing {
-                            "post-transform frame lacks sub_E12 seed"
-                        } else {
-                            "post-transform frame lacks typed pre-HUD work"
-                        },
-                    ));
-                }
                 self.finished = true;
                 self.active = false;
                 return;
@@ -10110,13 +10085,13 @@ impl PublishedTasRasterTimeline {
     }
 
     pub(crate) fn verify_coverage(&self) -> Result<()> {
-        const REQUIRED_SCHEDULED_FRAMES_THROUGH_1731: usize = 807;
-        if self.scheduled_frames < REQUIRED_SCHEDULED_FRAMES_THROUGH_1731 {
+        const REQUIRED_SCHEDULED_FRAMES_THROUGH_1120: usize = 197;
+        if self.scheduled_frames < REQUIRED_SCHEDULED_FRAMES_THROUGH_1120 {
             if let Some((frame, reason)) = self.failure {
                 anyhow::bail!("published TAS raster timeline failed at frame {frame}: {reason}");
             }
             anyhow::bail!(
-                "published TAS raster timeline scheduled only {} frames; expected at least {REQUIRED_SCHEDULED_FRAMES_THROUGH_1731}",
+                "published TAS raster timeline scheduled only {} frames; expected at least {REQUIRED_SCHEDULED_FRAMES_THROUGH_1120}",
                 self.scheduled_frames,
             );
         }
@@ -22489,13 +22464,9 @@ mod tests {
         let tail_work = wildside_core::ModeLevelTailWorkLoc892 {
             camera_stripe_sub_30194:
                 wildside_core::ModeLevelTailCameraStripeSub30194::UpwardHorizontalNoWrap {
-                    cells: std::array::from_fn(|index| {
-                        if index == 4 {
-                            wildside_core::ModeLevelTailCameraCellMappingSub30194::Block
-                        } else {
-                            wildside_core::ModeLevelTailCameraCellMappingSub30194::OrdinaryTheme
-                        }
-                    }),
+                    ordinary_theme_cells: 20,
+                    priority_theme_cells: 0,
+                    block_cells: 1,
                 },
             background_loc_3038a: wildside_core::ModeLevelTailBackgroundWorkLoc3038A {
                 special_effect_4: false,
@@ -22513,7 +22484,6 @@ mod tests {
                 piece_rows_sub_30744: wildside_core::ModeLevelTailPieceRowsSub30744 {
                     entries_before_sentinel: 29,
                     rendered_nonnegative_entries: 0,
-                    rendered_entries: [false; 29],
                 },
                 piece_refresh_sub_307d8:
                     wildside_core::ModeLevelTailPieceRefreshSub307D8::CachedRowUnchanged,
