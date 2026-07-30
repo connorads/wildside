@@ -2554,6 +2554,7 @@ pub enum ModeLevelGfxSpriteNodeWorkSub1492 {
     /// dynamic art through the normal-orientation sprite path.
     VisibleDynamicArt22x32AirborneNormal,
     VisibleSingleDynamicArt20x32Normal,
+    VisibleSingleDynamicArt20x32Flipped,
     /// Kid's pull-up frame uses ROM mapping bytes `19 0D 001C 001D`.
     VisibleSingleDynamicArt28x29PullUpNormal,
     /// Kid's second pull-up frame uses ROM mapping bytes `1A 02 0020 0012`.

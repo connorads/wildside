@@ -5517,6 +5517,15 @@ fn visit_make_sprites_from_gfx_objects_instructions_sub_1492(
         4, 4, 8, 8, 8, 4, 4, 8, 4, 4, 4, 10, 4, 8, 8, 4, 4, 8, 8, 18, 12, 12, 12, 16, 20, 12, 10,
         20, 4, 12, 4, 14, 4, 16, 16, 8, 12, 16, 8, 8, 16, 4, 4, 10, 4, 10, 4, 8, 10, 16, 10,
     ];
+    // ASM Make_SpriteFromGfxObject loc_132A -> loc_13A2 -> sub_13C0:
+    // the flipped 20x32 dynamic-art route adjusts d6 before emitting its
+    // single sprite. Selected-PC ledger: published Cyclone frame 1058.
+    const VISIBLE_SINGLE_DYNAMIC_ART_20X32_FLIPPED: &[u32] = &[
+        16, 8, 4, 18, 10, 16, 12, 12, 12, 12, 18, 12, 4, 12, 12, 12, 10, 12, 4, 8, 12, 8, 12, 12,
+        12, 8, 12, 8, 12, 16, 4, 12, 12, 16, 10, 12, 10, 12, 12, 12, 10, 12, 12, 10, 8, 4, 4, 8, 8,
+        4, 4, 8, 8, 8, 4, 4, 10, 4, 8, 8, 4, 10, 4, 8, 8, 4, 4, 4, 8, 4, 12, 4, 18, 12, 12, 12, 16,
+        20, 12, 10, 20, 4, 12, 4, 14, 4, 16, 16, 8, 12, 16, 8, 8, 16, 16, 10,
+    ];
     const VISIBLE_SINGLE_DYNAMIC_ART_32X24: &[u32] = &[
         16, 8, 4, 18, 10, 16, 12, 12, 12, 12, 18, 12, 4, 12, 12, 12, 10, 12, 4, 8, 12, 8, 12, 12,
         12, 8, 12, 8, 12, 16, 4, 12, 12, 16, 10, 12, 10, 12, 12, 12, 10, 12, 12, 10, 8, 4, 4, 8, 8,
@@ -5570,6 +5579,11 @@ fn visit_make_sprites_from_gfx_objects_instructions_sub_1492(
                     // art span to the DMA queue.
                     ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt20x32Normal => {
                         VISIBLE_SINGLE_DYNAMIC_ART_20X32
+                    }
+                    // ASM loc_1292 selects the x-flipped sprite compiler at
+                    // loc_132A; loc_13A2 contributes its extra d6 adjustment.
+                    ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt20x32Flipped => {
+                        VISIBLE_SINGLE_DYNAMIC_ART_20X32_FLIPPED
                     }
                     // ASM loc_129E reads ROM $A2E76 as 28x29, then takes
                     // loc_12EC -> loc_130E -> sub_13C0 loc_141A.
@@ -6452,6 +6466,38 @@ mod tests {
         assert_eq!(
             advance.phase_after,
             M68kRefreshPhase::new(52).expect("empty-list $93E phase"),
+        );
+    }
+
+    #[test]
+    fn transform_sub_8e0_reaches_frame_1058_wait_poll() {
+        let work = TransformRasterWorkSub8E0 {
+            murder_wall_active_sub_5e02: false,
+            gfx_sprite_work_sub_1492: ModeLevelGfxSpriteWorkSub1492::Classified {
+                nodes: vec![
+                    ModeLevelGfxSpriteNodeWorkSub1492::HiddenFlagClear,
+                    ModeLevelGfxSpriteNodeWorkSub1492::VisibleSingleDynamicArt20x32Flipped,
+                    ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+                    ModeLevelGfxSpriteNodeWorkSub1492::VerticallyCulledAboveViewport,
+                ],
+            },
+            platform_work_sub_2444: ModeLevelPlatformWork {
+                frozen_fa64: false,
+                active_object_count: 0,
+            },
+        };
+        let advance = transform_sub_8e0_advance_to_wait_for_vint_poll_with_scheduler(
+            M68kRefreshPhase::new(84).expect("oracle sub_8E0 entry phase"),
+            &work,
+            |_| Some(M68kCycleCount::from_raw(0)),
+        )
+        .expect("published Cyclone sub_8E0 pre-VINT path");
+
+        assert_eq!(advance.elapsed, M68kCycleCount::from_raw(2_128));
+        assert_eq!(advance.refresh_events, 17);
+        assert_eq!(
+            advance.phase_after,
+            M68kRefreshPhase::new(36).expect("oracle frame-1058 $93E phase"),
         );
     }
 
