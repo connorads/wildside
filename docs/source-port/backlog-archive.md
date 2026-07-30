@@ -23565,3 +23565,13 @@ its synchronous `loc_7CBE/loc_7D22 -> sub_8E0` VBlank loop. It does not reach
 `sub_44DC`, so ordinary Mode_Level recurrence must not be extended across it.
 NEXT: give that complete transform loop its own raster owner and rejoin after
 `loc_7E90`.
+
+Investigation 2026-07-30 for #409: a bounded published-route oracle journal
+over frames 1057..1145 traces `Kid_Transform`, `sub_8E0`, and the suspended
+object-pass return. The transform calls `sub_8E0` exactly 72 times, one call
+on every frame 1058..1129. Frame 1130 reaches `loc_7E90`, then resumes the
+same `Execute_Objects` invocation at `loc_E1E`. This is one synchronous raster
+owner with a source-defined loop bound, not 72 independent frame cases.
+NEXT: compose its repeated body from the existing typed `sub_5E02`, sprite,
+platform, VINT, sprite/palette DMA, scroll, `sub_1596`, and HUD primitives;
+then type the frame-1130 cleanup and object-pass continuation.

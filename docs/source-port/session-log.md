@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#409 Cyclone transform owner bound)
+
+- Oracle selected-PC evidence proves 72 consecutive `sub_8E0` calls on
+  published frames 1058..1129.
+- Frame 1130 reaches `Kid_Transform loc_7E90` and resumes the suspended
+  `Execute_Objects` pass at `loc_E1E`.
+- Model this as one synchronous owner composed from existing typed VBlank and
+  rendering primitives. Do not add per-frame transform cases.
+
 ## 2026-07-30 handoff (#409 Cyclone pickup collision)
 
 - Frame 1057's terminal `sub_1B76 loc_1D5A` prize-overlap path is typed and
