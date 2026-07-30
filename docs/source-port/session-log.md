@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#409 Cyclone pickup collision)
+
+- Frame 1057's terminal `sub_1B76 loc_1D5A` prize-overlap path is typed and
+  pinned to 528 raw selected-PC cycles.
+- The correction-free owner now requires 136 seeds through frame 1058.
+- Frame 1058 enters `Kid_Transform` and never reaches `sub_44DC`; ordinary
+  Mode_Level recurrence cannot own the transformation interval.
+- Full pixels remain 37,518 exact / 241 divergent / 2,457 changed.
+- NEXT: schedule the whole synchronous `sub_8E0` transform loop with a
+  dedicated raster owner, then rejoin Mode_Level after `loc_7E90`.
+
 ## 2026-07-30 handoff (#409 floating Cyclone lifecycle)
 
 - The correction-free owner now defends frame 923 through 1057; frame 1058

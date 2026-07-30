@@ -169,7 +169,7 @@ fn floating_cyclone_gfx_collision_kid_work_sub_1b76(
     } else if bottom < kid_hitbox.top {
         Some(ModeLevelGfxCollisionKidNodeWorkSub1B76::UnflippedBottomEdgeBeforeKidTopLoc1be6)
     } else {
-        None
+        Some(ModeLevelGfxCollisionKidNodeWorkSub1B76::PrizeOverlapLoc1d5a)
     }
 }
 

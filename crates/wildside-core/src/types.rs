@@ -2486,6 +2486,9 @@ pub enum ModeLevelGfxCollisionKidNodeWorkSub1B76 {
     UnflippedTopEdgeBeyondKidBottomLoc1bde,
     /// ASM `loc_1BE6`: unflipped box bottom edge is before Kid's top edge.
     UnflippedBottomEdgeBeforeKidTopLoc1be6,
+    /// ASM `loc_1C18 -> loc_1D5A`: a kind-4 prize overlaps Kid and writes its
+    /// prize metadata plus `colid_kidbelow` to both objects.
+    PrizeOverlapLoc1d5a,
 }
 
 /// Per-node work for the kind-4 chain behind sentinel `$FFFFF86E`.

@@ -5128,6 +5128,18 @@ fn visit_gfx_objects_collision_kid_f86e_instructions_sub_1b76(
     }
 
     for node in nodes {
+        if *node == ModeLevelGfxCollisionKidNodeWorkSub1B76::PrizeOverlapLoc1d5a {
+            // ASM frame 1057: loc_1B94 passes all four box comparisons, then
+            // loc_1C18 recognises kind 4. loc_1D5A copies object_meta=$70 and
+            // writes colid_kidbelow before the immediate loc_1D00 epilogue.
+            for cycles in [
+                16, 12, 4, 12, 8, 12, 8, 12, 18, 8, 12, 8, 8, 8, 8, 12, 4, 8, 12, 4, 8, 12, 12, 8,
+                4, 8, 12, 4, 8, 10, 16, 10, 12, 8, 8, 12, 16, 16, 10, 8, 12, 10, 16,
+            ] {
+                visit(cycles)?;
+            }
+            return Some(());
+        }
         let instruction_cycles: &[u32] = match node {
             // ASM loc_1B94 -> loc_1BC0: first CollisionSize word is zero.
             ModeLevelGfxCollisionKidNodeWorkSub1B76::CollisionRowsSentinelLoc1bc0 => {
@@ -5155,6 +5167,7 @@ fn visit_gfx_objects_collision_kid_f86e_instructions_sub_1b76(
                 16, 12, 4, 12, 8, 12, 8, 12, 18, 8, 12, 8, 8, 8, 8, 12, 4, 8, 12, 4, 8, 12, 12, 8,
                 4, 8, 12, 4, 10, 8, 8, 10,
             ],
+            ModeLevelGfxCollisionKidNodeWorkSub1B76::PrizeOverlapLoc1d5a => unreachable!(),
         };
         for &cycles in instruction_cycles {
             visit(cycles)?;
@@ -7341,6 +7354,23 @@ mod tests {
                 "ASM sub_1B76 oracle frames 1697/1703/1709",
             );
         }
+
+        let prize_overlap = ModeLevelGfxCollisionWork {
+            kid_projectile_list_f866: ModeLevelGfxCollisionListWork::Empty,
+            object_kind_two_list_f86a: ModeLevelGfxCollisionListWork::Empty,
+            object_kind_four_list_f86e: ModeLevelGfxCollisionKidListWorkSub1B76::Classified {
+                nodes: vec![
+                    ModeLevelGfxCollisionKidNodeWorkSub1B76::PrizeOverlapLoc1d5a,
+                    ModeLevelGfxCollisionKidNodeWorkSub1B76::CollisionRowsSentinelLoc1bc0,
+                ],
+            },
+            kid_is_invulnerable: false,
+        };
+        assert_eq!(
+            gfx_objects_collision_kid_f86e_raw_cycles_sub_1b76(&prize_overlap),
+            Some(M68kCycleCount::from_raw(528)),
+            "ASM frame 1057 sub_1B76 entry through loc_1D5A and return_1D32",
+        );
 
         let scheduled_work = |node_cycles: &[u32]| {
             let nodes = node_cycles

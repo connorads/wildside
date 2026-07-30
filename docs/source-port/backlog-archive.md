@@ -23550,3 +23550,18 @@ requires 135 consecutive seeds from frame 923 through frame 1057. Frame 1058
 fails closed at the separate Cyclone pickup/overlap response. Pixel totals
 remain 37,518 exact / 241 divergent / 2,457 changed. NEXT: type the collection
 response and its mutable collision writeback, then remeasure pixels.
+
+Progress 2026-07-30 for #409: frame 1057's Cyclone pickup collision is now an
+explicit terminal kind-4 list path. Oracle selected-PC tracing follows
+`sub_1B76 loc_1C18 -> loc_1D5A`: all four `unk_314EE` box comparisons pass,
+object meta `$70` is copied to Kid, `colid_kidbelow` is written to both
+objects, and control exits through `loc_1D00` without visiting later list
+nodes. Removing eight external wait cycles leaves 528 raw source cycles; an
+exact regression pins the 43-instruction path. The correction-free owner now
+requires 136 seeds from frame 923 through frame 1058. Frame 1058 reveals the
+next architectural boundary: the collision-latched prize deletes, Kid consumes
+the helmet request, and `Kid_Transform` blocks the outer object pass inside
+its synchronous `loc_7CBE/loc_7D22 -> sub_8E0` VBlank loop. It does not reach
+`sub_44DC`, so ordinary Mode_Level recurrence must not be extended across it.
+NEXT: give that complete transform loop its own raster owner and rejoin after
+`loc_7E90`.
