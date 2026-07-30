@@ -129,6 +129,15 @@ pub struct M68kRefreshAdvance {
     pub refresh_events: u32,
 }
 
+/// Live object-list work consumed before ASM `sub_8E0` blocks in
+/// `WaitForVint`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TransformRasterWorkSub8E0 {
+    pub murder_wall_active_sub_5e02: bool,
+    pub gfx_sprite_work_sub_1492: ModeLevelGfxSpriteWorkSub1492,
+    pub platform_work_sub_2444: ModeLevelPlatformWork,
+}
+
 /// One source phase from ASM `Mode_Level loc_810 -> loc_892`, including
 /// asynchronous hardware waits generated while that phase executes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -5637,6 +5646,67 @@ pub fn make_sprites_from_gfx_objects_advance_with_scheduler_sub_1492(
     })
 }
 
+/// Co-schedule ASM `sub_8E0` entry through the first blocking
+/// `WaitForVint $93E` poll.
+pub fn transform_sub_8e0_advance_to_wait_for_vint_poll_with_scheduler(
+    mut phase: M68kRefreshPhase,
+    work: &TransformRasterWorkSub8E0,
+    mut advance_hardware: impl FnMut(M68kCycleCount) -> Option<M68kCycleCount>,
+) -> Option<M68kRefreshAdvance> {
+    let mut elapsed = 0_u32;
+    let mut refresh_events = 0_u32;
+
+    macro_rules! apply_advance {
+        ($advance:expr) => {{
+            let advance = $advance?;
+            elapsed = elapsed.checked_add(advance.elapsed.get())?;
+            refresh_events = refresh_events.checked_add(advance.refresh_events)?;
+            phase = advance.phase_after;
+        }};
+    }
+
+    apply_advance!(terrain_effects_advance_with_scheduler_sub_5e02(
+        phase,
+        work.murder_wall_active_sub_5e02,
+        &mut advance_hardware,
+    ));
+    apply_advance!(
+        make_sprites_from_gfx_objects_advance_with_scheduler_sub_1492(
+            phase,
+            &work.gfx_sprite_work_sub_1492,
+            &mut advance_hardware,
+        )
+    );
+    apply_advance!(make_sprites_from_platforms_advance_with_scheduler_sub_2444(
+        phase,
+        work.platform_work_sub_2444,
+        &mut advance_hardware,
+    ));
+
+    // ASM sub_8E0 $8EC BSR.W, then WaitForVint $93A clears the VINT latch
+    // and falls through to the persistent $93E poll.
+    for raw_cycles in [18, 16] {
+        let advance = phase.advance_rom(M68kCycleCount::from_raw(raw_cycles));
+        let generated_wait = advance_hardware(M68kCycleCount::from_raw(raw_cycles))?;
+        elapsed = elapsed.checked_add(advance.elapsed.get())?;
+        refresh_events = refresh_events.checked_add(advance.refresh_events)?;
+        phase = advance.phase_after;
+        let mut pending_wait = generated_wait;
+        while pending_wait.get() != 0 {
+            let wait = phase.advance_external_wait(pending_wait);
+            elapsed = elapsed.checked_add(wait.elapsed.get())?;
+            phase = wait.phase_after;
+            pending_wait = advance_hardware(pending_wait)?;
+        }
+    }
+
+    Some(M68kRefreshAdvance {
+        elapsed: M68kCycleCount::from_raw(elapsed),
+        phase_after: phase,
+        refresh_events,
+    })
+}
+
 fn visit_terrain_special_scan_instructions_sub_1fa2(
     work: ModeLevelTerrainSpecialScanSub1FA2,
     mut visit: impl FnMut(u32) -> Option<()>,
@@ -6352,6 +6422,38 @@ pub fn mode_level_post_hud_advance_to_loc_892_with_phase_observer(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn transform_sub_8e0_composes_empty_lists_to_wait_poll() {
+        let work = TransformRasterWorkSub8E0 {
+            murder_wall_active_sub_5e02: false,
+            gfx_sprite_work_sub_1492: ModeLevelGfxSpriteWorkSub1492::Classified {
+                nodes: Vec::new(),
+            },
+            platform_work_sub_2444: ModeLevelPlatformWork {
+                frozen_fa64: false,
+                active_object_count: 0,
+            },
+        };
+        let mut hardware_interval_cycles = 0_u32;
+        let advance = transform_sub_8e0_advance_to_wait_for_vint_poll_with_scheduler(
+            M68kRefreshPhase::new(84).expect("test sub_8E0 entry phase"),
+            &work,
+            |cycles| {
+                hardware_interval_cycles += cycles.get();
+                Some(M68kCycleCount::from_raw(0))
+            },
+        )
+        .expect("empty-list sub_8E0 pre-VINT path");
+
+        assert_eq!(hardware_interval_cycles, 352);
+        assert_eq!(advance.elapsed, M68kCycleCount::from_raw(352));
+        assert_eq!(advance.refresh_events, 3);
+        assert_eq!(
+            advance.phase_after,
+            M68kRefreshPhase::new(52).expect("empty-list $93E phase"),
+        );
+    }
 
     #[test]
     fn first_level_start_execute_objects_matches_frame_902_instruction_trace() {

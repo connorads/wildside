@@ -4816,6 +4816,24 @@ pub fn transform_sub_8e0_repeat_suffix_after_scroll_dma_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule ASM `sub_8E0` entry through the first blocking
+/// `WaitForVint $93E` poll.
+pub fn transform_sub_8e0_entry_to_wait_for_vint_poll_cursor_with_scheduler(
+    entry: LoadInGameCpuRasterCursor,
+    work: &crate::TransformRasterWorkSub8E0,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool) -> Option<M68kCycleCount>,
+) -> Option<LoadInGameCpuRasterCursor> {
+    let advance = crate::transform_sub_8e0_advance_to_wait_for_vint_poll_with_scheduler(
+        entry.refresh_phase,
+        work,
+        |cycles| advance_hardware(cycles, false),
+    )?;
+    Some(LoadInGameCpuRasterCursor {
+        beam: entry.beam.advance_m68k_cycles(advance.elapsed),
+        refresh_phase: advance.phase_after,
+    })
+}
+
 /// Co-schedule the first title `Execute_Objects` dispatch into `sub_1B8F4`.
 pub fn title_execute_objects_to_intro_controller_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,

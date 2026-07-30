@@ -2050,6 +2050,35 @@ pub fn apply_gems_transform_sub_8e0_repeat_suffix_after_scroll_dma(
     )
 }
 
+/// Clock ASM `sub_8E0` entry through the first blocking `WaitForVint $93E`
+/// poll on the persistent GEMS timeline.
+#[cfg(feature = "audio")]
+pub fn apply_gems_transform_sub_8e0_entry_to_wait_for_vint_poll(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    work: &wildside_core::TransformRasterWorkSub8E0,
+) -> Option<LoadInGameCpuRasterCursor> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::transform_sub_8e0_entry_to_wait_for_vint_poll_cursor_with_scheduler(
+        entry,
+        work,
+        |cycles, source_owns_z80_bus| {
+            if audio.checkpoint().busreq != source_owns_z80_bus {
+                return None;
+            }
+            audio.advance_ntsc_m68k_instruction_with_vdp_ownership(
+                u64::from(cycles.get()) * 7,
+                false,
+            );
+            Some(M68kCycleCount::from_raw(
+                audio.take_pending_m68k_wait_cycles(),
+            ))
+        },
+    )
+}
+
 /// Source-classified work needed to carry one aligned gameplay hardware
 /// timeline from `sub_44DC` to the following frame's `sub_E12` boundary.
 #[cfg(feature = "audio")]
