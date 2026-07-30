@@ -4855,6 +4855,26 @@ pub fn transform_sub_8e0_palette_return_to_scroll_call_cursor_with_scheduler(
     )
 }
 
+/// Co-schedule the classified Cyclone pickup from `Execute_Objects sub_E12`
+/// through the first `Kid_Transform sub_8E0` entry.
+pub fn cyclone_pickup_transform_entry_cursor_with_scheduler(
+    entry: ModeLevelRasterSeedSubE12,
+    work: crate::CyclonePickupTransformEntrySubE12,
+    mut advance_hardware: impl FnMut(M68kCycleCount, bool, bool) -> Option<M68kCycleCount>,
+) -> Option<LoadInGameCpuRasterCursor> {
+    let advance = title_source_routine_cursor_with_scheduler(
+        LoadInGameCpuRasterCursor {
+            beam: entry.beam,
+            refresh_phase: entry.refresh_phase,
+        },
+        |visit| {
+            Some(crate::intro_timing::visit_cyclone_pickup_transform_entry_sub_e12(work, visit))
+        },
+        &mut advance_hardware,
+    )?;
+    Some(advance.cursor)
+}
+
 /// Co-schedule the first title `Execute_Objects` dispatch into `sub_1B8F4`.
 pub fn title_execute_objects_to_intro_controller_cursor_with_scheduler(
     entry: LoadInGameCpuRasterCursor,

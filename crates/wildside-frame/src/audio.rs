@@ -2087,6 +2087,31 @@ pub struct TransformSub8E0RepeatWork {
     pub vblank: ModeLevelVblankWorkBeforeSubE12,
 }
 
+/// Clock the classified Cyclone pickup from `Execute_Objects sub_E12`
+/// through the first `Kid_Transform sub_8E0` entry.
+#[cfg(feature = "audio")]
+pub fn apply_gems_cyclone_pickup_transform_entry(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: ModeLevelRasterSeedSubE12,
+    work: wildside_core::CyclonePickupTransformEntrySubE12,
+) -> Option<LoadInGameCpuRasterCursor> {
+    if audio.pending_m68k_wait_cycles() != 0 {
+        return None;
+    }
+    wildside_core::vdp::cyclone_pickup_transform_entry_cursor_with_scheduler(
+        entry,
+        work,
+        |cycles, vdp_owns_bus, source_instruction| {
+            Some(apply_gems_title_source_hardware_interval(
+                audio,
+                cycles,
+                vdp_owns_bus,
+                source_instruction,
+            ))
+        },
+    )
+}
+
 /// Clock one complete direct-repeat `Kid_Transform sub_8E0` pass from its
 /// entry through the next `sub_8E0` call boundary.
 #[cfg(feature = "audio")]

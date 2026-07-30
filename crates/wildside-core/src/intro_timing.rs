@@ -409,6 +409,52 @@ pub fn visit_transform_sub_8e0_repeat_suffix_after_scroll_dma(
     })
 }
 
+/// Visit the classified Cyclone-prize `Execute_Objects sub_E12` path through
+/// the first `Kid_Transform sub_8E0` call.
+///
+/// ASM `sub_E12 -> loc_E1E -> loc_103B2 -> loc_A73A -> loc_7C42 ->
+/// loc_7D22 -> sub_8E0`. The instruction ledger is the published-TAS
+/// frame-1058 all-PC trace; it contains no VDP or Z80 external wait.
+pub fn visit_cyclone_pickup_transform_entry_sub_e12(
+    _work: crate::CyclonePickupTransformEntrySubE12,
+    mut visit: impl FnMut(u32),
+) -> IntroSourceTiming {
+    const CYCLES: &[u8] = &[
+        18, 10, 18, 10, 18, 10, 12, 12, 8, 12, 4, 10, 12, 12, 8, 10, 12, 4, 8, 8, 8, 12, 12, 16,
+        12, 18, 10, 12, 12, 8, 12, 4, 10, 12, 12, 8, 8, 8, 12, 4, 8, 8, 8, 12, 12, 16, 12, 12, 16,
+        12, 18, 10, 18, 10, 12, 12, 8, 12, 4, 10, 12, 12, 8, 8, 8, 12, 4, 8, 8, 8, 12, 12, 16, 12,
+        18, 10, 12, 12, 8, 12, 4, 10, 12, 12, 8, 8, 8, 12, 4, 8, 8, 8, 12, 12, 16, 12, 12, 16, 16,
+        16, 16, 8, 12, 8, 4, 12, 10, 16, 8, 16, 80, 16, 24, 16, 12, 10, 12, 8, 4, 4, 12, 4, 12, 4,
+        12, 4, 12, 4, 12, 4, 12, 12, 12, 10, 12, 10, 20, 10, 18, 10, 16, 24, 16, 76, 16, 10, 12, 8,
+        4, 12, 10, 16, 8, 16, 80, 16, 24, 16, 18, 10, 8, 8, 8, 10, 16, 16, 8, 16, 4, 4, 8, 4, 10,
+        4, 16, 12, 12, 8, 12, 8, 10, 10, 16, 18, 32, 8, 16, 8, 6, 8, 4, 10, 16, 8, 6, 10, 28, 28,
+        16, 16, 16, 8, 4, 18, 24, 10, 8, 12, 8, 6, 8, 4, 10, 12, 8, 6, 8, 4, 10, 12, 8, 6, 8, 4,
+        10, 12, 8, 6, 8, 4, 10, 12, 8, 6, 10, 28, 28, 16, 16, 12, 8, 4, 10, 4, 10, 4, 10, 4, 8, 8,
+        16, 8, 6, 10, 28, 28, 16, 16, 10, 16, 10, 4, 36, 16, 10, 12, 8, 4, 12, 10, 16, 8, 16, 80,
+        16, 24, 16, 24, 18, 12, 12, 16, 12, 4, 12, 12, 16, 8, 10, 10, 8, 12, 16, 4, 8, 8, 22, 16,
+        16, 20, 20, 18, 12, 10, 16, 12, 12, 4, 8, 8, 4, 8, 4, 12, 8, 12, 8, 12, 8, 18, 16, 16, 8,
+        8, 4, 8, 12, 4, 12, 8, 8, 10, 12, 12, 4, 10, 4, 12, 18, 12, 14, 4, 12, 14, 14, 4, 8, 8, 8,
+        12, 16, 10, 8, 8, 12, 16, 14, 4, 16, 12, 8, 12, 4, 12, 12, 12, 18, 12, 14, 4, 12, 14, 14,
+        4, 8, 8, 8, 10, 4, 16, 10, 8, 4, 8, 12, 8, 4, 12, 18, 12, 14, 4, 12, 14, 14, 4, 8, 8, 8,
+        12, 16, 10, 8, 8, 12, 16, 14, 4, 16, 10, 4, 8, 16, 12, 10, 16, 16, 16, 16, 16, 24, 12, 12,
+        12, 12, 18, 24, 8, 16, 10, 28, 16, 12, 12, 12, 18, 14, 4, 12, 12, 16, 12, 10, 20, 12, 12,
+        12, 10, 4, 8, 14, 8, 8, 12, 4, 22, 4, 8, 18, 8, 16, 4, 16, 16, 12, 10, 12, 4, 18, 12, 4,
+        12, 18, 12, 12, 4, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10, 12, 10,
+        12, 10, 12, 10, 12, 14, 12, 16, 18, 12, 12, 4, 14, 12, 18, 12, 12, 12, 12, 12, 16, 16, 120,
+        18, 10,
+    ];
+    let mut raw_cycles = 0_u32;
+    for &cycles in CYCLES {
+        let cycles = u32::from(cycles);
+        visit(cycles);
+        raw_cycles += cycles;
+    }
+    IntroSourceTiming {
+        instruction_count: CYCLES.len() as u32,
+        raw_cycles: M68kCycleCount::from_raw(raw_cycles),
+    }
+}
+
 fn visit_title_execute_objects_setup(
     rng_offset_before: u16,
     emit: &mut dyn FnMut(u32),
@@ -3163,6 +3209,26 @@ mod tests {
             None,
             "unclassified transform queue work remains fail-closed",
         );
+    }
+
+    #[test]
+    fn cyclone_pickup_entry_retains_sub_e12_to_sub_8e0_boundaries() {
+        let mut cycles = Vec::new();
+        let timing = visit_cyclone_pickup_transform_entry_sub_e12(
+            crate::CyclonePickupTransformEntrySubE12,
+            |cycle| cycles.push(cycle),
+        );
+
+        assert_eq!(
+            timing,
+            IntroSourceTiming {
+                instruction_count: 519,
+                raw_cycles: M68kCycleCount::from_raw(6_280),
+            },
+            "ASM sub_E12 -> loc_7D22 -> sub_8E0 published frame 1058",
+        );
+        assert_eq!(cycles.first(), Some(&18), "ASM sub_E12 JSR RNG");
+        assert_eq!(cycles.last(), Some(&10), "ASM loc_7D22 JSR.W sub_8E0");
     }
 
     #[test]

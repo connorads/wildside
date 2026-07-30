@@ -138,6 +138,56 @@ pub struct TransformRasterWorkSub8E0 {
     pub platform_work_sub_2444: ModeLevelPlatformWork,
 }
 
+/// Classified ASM `Execute_Objects sub_E12` path whose Kid callback enters
+/// `Kid_Transform` after collecting a Cyclone helmet prize.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CyclonePickupTransformEntrySubE12;
+
+pub fn cyclone_pickup_transform_entry_sub_e12(
+    execute: &ModeLevelExecuteObjectsWork,
+) -> Option<CyclonePickupTransformEntrySubE12> {
+    let [prize] = execute.floating_prize_paths.as_slice() else {
+        return None;
+    };
+    if execute.rng_offset_before_sub_e12 != Some(0xFFDF)
+        || execute.linked_object_count != 5
+        || execute.linked_gfx_object_count != 5
+        || execute.linked_non_transient_object_count != 4
+        || execute.floating_prize_workers != 1
+        || execute.rubber_block_skin_workers_sub_10de4 != 0
+        || execute.active_enemy_workers != 0
+        || execute.active_platform_workers != 0
+        || execute.palette_rotation_worker_loc_11f96 != 0
+        || execute.unclassified_runtime_transient_workers != 0
+        || !matches!(
+            execute.prize_object_execution_order_sub_e12.as_deref(),
+            Some([
+                ModeLevelPrizeObjectExecutionSubE12::FloatingPrize { index: 0 },
+                ModeLevelPrizeObjectExecutionSubE12::Player,
+            ])
+        )
+        || !matches!(
+            execute.executed_player_path,
+            Some(ModeLevelPlayerExecutionPath::Unclassified)
+        )
+        || execute.input_worker_loc_7452
+            != Some(ModeLevelInputWorkerPathLoc7452::DemoNoLeftNoStartTimerClear)
+        || execute.damage_flash_wait_loc_bc44 != Some(ModeLevelDamageFlashWaitLocBc44::AwaitDamage)
+        || execute.demo_exit_wait_loc_119e0 != Some(ModeLevelDemoExitWaitLoc119E0::HibernateNoStart)
+        || execute.palette_fade_worker_sub_73d0.is_some()
+        || prize.content != crate::terrain::PrizeContent::Cyclone
+        || prize.remaining != 765
+        || prize.spawn_delay != 0
+        || prize.first_row_grace
+        || !prize.collision_latched
+        || prize.fall_path_loc_103b2
+            != Some(ModeLevelFloatingPrizeFallPathLoc103B2::DirectFallSameRow)
+    {
+        return None;
+    }
+    Some(CyclonePickupTransformEntrySubE12)
+}
+
 /// One source phase from ASM `Mode_Level loc_810 -> loc_892`, including
 /// asynchronous hardware waits generated while that phase executes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -6498,6 +6548,24 @@ mod tests {
         assert_eq!(
             advance.phase_after,
             M68kRefreshPhase::new(36).expect("oracle frame-1058 $93E phase"),
+        );
+    }
+
+    #[test]
+    fn cyclone_pickup_entry_matches_frame_1058_refresh_recurrence() {
+        let timing = crate::intro_timing::visit_cyclone_pickup_transform_entry_sub_e12(
+            CyclonePickupTransformEntrySubE12,
+            |_| {},
+        );
+        let advance = M68kRefreshPhase::new(104)
+            .expect("oracle frame-1058 sub_E12 phase")
+            .advance_rom(timing.raw_cycles);
+
+        assert_eq!(advance.elapsed, M68kCycleCount::from_raw(6_380));
+        assert_eq!(advance.refresh_events, 50);
+        assert_eq!(
+            advance.phase_after,
+            M68kRefreshPhase::new(84).expect("oracle frame-1058 sub_8E0 phase"),
         );
     }
 
