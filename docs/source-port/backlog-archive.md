@@ -23419,3 +23419,13 @@ WaitForVint -> next sub_E12` recurrence. All constituent typed schedulers
 already exist; their only end-to-end composition currently lives in the GEMS
 probe beside frame-index corrections, so extraction must keep bootstrap and
 oracle corrections outside the production recurrence.
+
+Progress 2026-07-30 for #409: VBlank-prefix continuity no longer requires a
+verifier `FrameRendered` sampling instant. The shared GEMS scheduler accepts
+an optional checkpoint internally and exposes a production
+`apply_gems_mode_level_vblank_prefix_to_scroll_dma` entry point that returns
+only the typed exit cursor. A behavioural test runs identical `$7C8 ->
+loc_30104` work with and without observation and proves both the DMA advance
+and complete GEMS checkpoint remain identical. This isolates the first
+correction-free transition needed by the persistent execution owner; compose
+the remaining post-HUD, tail, VINT, prefix, and suffix transitions next.

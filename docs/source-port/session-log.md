@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-30 handoff (#409 sampling-free VBlank transition)
+
+- The gameplay VBlank-prefix GEMS scheduler now exposes a no-checkpoint API
+  for production continuity.
+- A behavioural test proves checkpoint sampling does not change the typed DMA
+  exit or complete GEMS machine state.
+- NEXT: compose post-HUD, tail, VINT, prefix, and suffix schedulers into the
+  fail-closed `sub_44DC -> next sub_E12` execution-owner recurrence.
+
 ## 2026-07-30 handoff (#409 stateless VBlank bound rejected)
 
 - A zero-wait typed VBlank-prefix bound worsened full pixels to 37,483 exact /

@@ -3420,13 +3420,26 @@ pub fn apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
     work: ModeLevelVblankWorkBeforeSubE12,
     checkpoint_master_clock: u64,
 ) -> Option<(TitleMemoryDmaAdvance, GemsTimingCheckpoint)> {
-    apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint_and_wait_budgets(
+    let (advance, checkpoint) = apply_gems_mode_level_vblank_prefix_to_scroll_dma_inner(
         audio,
         entry,
         work,
-        checkpoint_master_clock,
+        Some(checkpoint_master_clock),
         None,
-    )
+    )?;
+    Some((advance, checkpoint?))
+}
+
+/// Clock the natural `Mode_Level $7C8 -> loc_30104` VBlank prefix without a
+/// verifier sampling point.
+#[cfg(feature = "audio")]
+pub fn apply_gems_mode_level_vblank_prefix_to_scroll_dma(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    work: ModeLevelVblankWorkBeforeSubE12,
+) -> Option<TitleMemoryDmaAdvance> {
+    apply_gems_mode_level_vblank_prefix_to_scroll_dma_inner(audio, entry, work, None, None)
+        .map(|(advance, _)| advance)
 }
 
 /// Source-bound external-wait budgets for one gameplay VBlank prefix.
@@ -3452,8 +3465,26 @@ pub fn apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint_and_wai
     checkpoint_master_clock: u64,
     wait_budgets: Option<ModeLevelVblankGemsWaitBudgets>,
 ) -> Option<(TitleMemoryDmaAdvance, GemsTimingCheckpoint)> {
+    let (advance, checkpoint) = apply_gems_mode_level_vblank_prefix_to_scroll_dma_inner(
+        audio,
+        entry,
+        work,
+        Some(checkpoint_master_clock),
+        wait_budgets,
+    )?;
+    Some((advance, checkpoint?))
+}
+
+#[cfg(feature = "audio")]
+fn apply_gems_mode_level_vblank_prefix_to_scroll_dma_inner(
+    audio: &mut GemsMasterClockTimingEngine,
+    entry: LoadInGameCpuRasterCursor,
+    work: ModeLevelVblankWorkBeforeSubE12,
+    checkpoint_master_clock: Option<u64>,
+    wait_budgets: Option<ModeLevelVblankGemsWaitBudgets>,
+) -> Option<(TitleMemoryDmaAdvance, Option<GemsTimingCheckpoint>)> {
     if audio.pending_m68k_wait_cycles() != 0
-        || checkpoint_master_clock < audio.master_clock()
+        || checkpoint_master_clock.is_some_and(|clock| clock < audio.master_clock())
         || work.scroll_path != ModeLevelScrollTransferPath::NormalLoc300ba
     {
         return None;
@@ -3473,8 +3504,10 @@ pub fn apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint_and_wai
         let interval_master_clocks = u64::from(cycles.get()) * 7;
         let interval_start = audio.master_clock();
         let interval_end = interval_start.checked_add(interval_master_clocks)?;
-        if checkpoint.is_none() && checkpoint_master_clock <= interval_end {
-            let offset = checkpoint_master_clock.checked_sub(interval_start)?;
+        if checkpoint.is_none()
+            && checkpoint_master_clock.is_some_and(|clock| clock <= interval_end)
+        {
+            let offset = checkpoint_master_clock?.checked_sub(interval_start)?;
             if source_instruction {
                 let (_, captured) = audio.advance_ntsc_m68k_instruction_with_checkpoint(
                     interval_master_clocks,
@@ -3556,7 +3589,7 @@ pub fn apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint_and_wai
     {
         return None;
     }
-    Some((scroll, checkpoint?))
+    Some((scroll, checkpoint))
 }
 
 /// Clock the title `Mode_Standard -> Transfer_ScrollDataToVRAM` upload.
@@ -4711,6 +4744,57 @@ mod tests {
             "pinned jgenesis check_for_long_dma_skip queues an eight-cycle re-entry"
         );
         assert_eq!(engine.pending_m68k_wait_cycles(), 0);
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn mode_level_scroll_dma_checkpoint_does_not_change_prefix_continuity() {
+        // ASM Mode_Level $7C8 -> loc_30104: FrameRendered observation is a
+        // verifier concern, so omitting it must preserve the hardware exit.
+        let entry_cycles = 1_000_u64;
+        let entry = LoadInGameCpuRasterCursor {
+            beam: wildside_core::vdp::h40_beam_from_absolute_m68k_cycles(M68kCycleCount::from_raw(
+                entry_cycles as u32,
+            )),
+            refresh_phase: M68kRefreshPhase::new(94).unwrap(),
+        };
+        let work = ModeLevelVblankWorkBeforeSubE12 {
+            dynamic_art_tiles_loc_ad4: Some([16, 4, 0, 0, 0, 0]),
+            palette_dma_sub_970: true,
+            scroll_path: ModeLevelScrollTransferPath::NormalLoc300ba,
+            foreground_custom_queue_entries_sub_1596: 0,
+            foreground_cell_queue_entries_sub_1596: 0,
+            paused_sub_6874: false,
+            hud_path_sub_bdc0:
+                wildside_core::ModeLevelHudBuildPath::LocBe20DirectInitialCounterUpdates,
+        };
+        let mut observed = GemsMasterClockTimingEngine::new_with_ntsc_timeline_origin(
+            &[0x76],
+            vec![],
+            GemsNtscTimelineOrigin::PowerOnScanlineZero,
+        );
+        let mut unobserved = GemsMasterClockTimingEngine::new_with_ntsc_timeline_origin(
+            &[0x76],
+            vec![],
+            GemsNtscTimelineOrigin::PowerOnScanlineZero,
+        );
+        observed.advance_ntsc_master_clocks(entry_cycles * 7);
+        unobserved.advance_ntsc_master_clocks(entry_cycles * 7);
+
+        let (observed_advance, _) =
+            apply_gems_mode_level_vblank_prefix_to_scroll_dma_with_checkpoint(
+                &mut observed,
+                entry,
+                work,
+                entry_cycles * 7 + 25_759,
+            )
+            .expect("checkpoint lies inside loc_30104");
+        let unobserved_advance =
+            apply_gems_mode_level_vblank_prefix_to_scroll_dma(&mut unobserved, entry, work)
+                .expect("natural prefix does not require a sampling point");
+
+        assert_eq!(unobserved_advance, observed_advance);
+        assert_eq!(unobserved.checkpoint(), observed.checkpoint());
     }
 
     #[cfg(feature = "audio")]
